@@ -8,14 +8,20 @@ import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useReportSummary, useSalesReport, useTopProducts } from "@/lib/hooks/use-reports";
 import { useStoreStats } from "@/lib/hooks/use-orders";
+import { useTranslation } from "@/lib/i18n";
 
 export default function DashboardScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Dashboard | Mercaria</title>
+        <title>{t("home.documentTitle")}</title>
       </Head>
-      <Screen title="Dashboard" subtitle="Your store at a glance" action={<StoreSwitcher />}>
+      <Screen
+        title={t("nav.dashboard")}
+        subtitle={t("home.subtitle")}
+        action={<StoreSwitcher />}
+      >
         <RequireStore permission="stats:read">
           {(storeId) => <DashboardBody storeId={storeId} />}
         </RequireStore>
@@ -25,6 +31,7 @@ export default function DashboardScreen() {
 }
 
 function DashboardBody({ storeId }: { storeId: string }) {
+  const { t } = useTranslation();
   const summary = useReportSummary(storeId);
   const sales = useSalesReport(storeId, "day");
   const top = useTopProducts(storeId);
@@ -34,7 +41,7 @@ function DashboardBody({ storeId }: { storeId: string }) {
     return <ScreenLoading />;
   }
   if (summary.isError || !summary.data) {
-    return <ScreenMessage title="Couldn't load reports" body="Please try again." />;
+    return <ScreenMessage title={t("home.reportsError")} body={t("common.pleaseTryAgain")} />;
   }
 
   return (
@@ -72,28 +79,33 @@ function MoneyStat({ amount }: { amount: Money }) {
 }
 
 function SummaryCards({ summary }: { summary: ReportSummary }) {
+  const { t } = useTranslation();
   return (
     <View className="flex-col gap-3 md:flex-row">
-      <Stat label="Revenue" value={<MoneyStat amount={summary.revenue} />} />
+      <Stat label={t("home.stats.revenue")} value={<MoneyStat amount={summary.revenue} />} />
       <Stat
-        label="Paid orders"
+        label={t("home.stats.paidOrders")}
         value={<Text className="text-xl font-bold text-foreground">{summary.paidOrderCount}</Text>}
       />
-      <Stat label="Avg order" value={<MoneyStat amount={summary.averageOrderValue} />} />
-      <Stat label="Refunds" value={<MoneyStat amount={summary.refundTotal} />} />
+      <Stat
+        label={t("home.stats.averageOrder")}
+        value={<MoneyStat amount={summary.averageOrderValue} />}
+      />
+      <Stat label={t("home.stats.refunds")} value={<MoneyStat amount={summary.refundTotal} />} />
     </View>
   );
 }
 
 function SalesChart({ points }: { points: SalesReportPoint[] }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const max = Math.max(1, ...points.map((p) => p.revenue.amount));
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-4 text-sm font-semibold text-foreground">Sales (last period)</Text>
+      <Text className="mb-4 text-sm font-semibold text-foreground">{t("home.sales.title")}</Text>
       {points.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">No sales in this period yet.</Text>
+        <Text className="text-sm text-muted-foreground">{t("home.sales.empty")}</Text>
       ) : (
         <View className="h-40 flex-row items-end gap-1">
           {points.map((p) => {
@@ -117,29 +129,42 @@ function SalesChart({ points }: { points: SalesReportPoint[] }) {
   );
 }
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  pending_payment: "Pending payment",
-  paid: "Paid",
-  processing: "Processing",
-  shipped: "Shipped",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
-  refunded: "Refunded",
-  partially_refunded: "Partially refunded",
+/**
+ * Translation KEYS rather than sentences (#398): this map is evaluated once at
+ * import, before the locale store has rehydrated, so a resolved label here would
+ * freeze whatever language loaded first. The breakdown resolves them at the use
+ * site, so the card re-renders when the locale changes.
+ *
+ * These are the FULL labels this card shows; `OrderStatusBadge`'s abbreviated
+ * pill copy ("Pending", "Part. refunded") is a different set of strings and
+ * keeps its own keys.
+ */
+const STATUS_LABEL_KEYS: Record<OrderStatus, string> = {
+  pending_payment: "home.orderStatus.pendingPayment",
+  paid: "home.orderStatus.paid",
+  processing: "home.orderStatus.processing",
+  shipped: "home.orderStatus.shipped",
+  delivered: "home.orderStatus.delivered",
+  cancelled: "home.orderStatus.cancelled",
+  refunded: "home.orderStatus.refunded",
+  partially_refunded: "home.orderStatus.partiallyRefunded",
 };
 
 function StatusBreakdown({ byStatus }: { byStatus: Record<OrderStatus, number> }) {
+  const { t } = useTranslation();
   const entries = (Object.keys(byStatus) as OrderStatus[]).filter((s) => byStatus[s] > 0);
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Orders by status</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t("home.statusBreakdown.title")}
+      </Text>
       {entries.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">No orders yet.</Text>
+        <Text className="text-sm text-muted-foreground">{t("home.statusBreakdown.empty")}</Text>
       ) : (
         <View className="gap-2">
           {entries.map((status) => (
             <View key={status} className="flex-row items-center justify-between">
-              <Text className="text-sm text-muted-foreground">{STATUS_LABELS[status]}</Text>
+              <Text className="text-sm text-muted-foreground">{t(STATUS_LABEL_KEYS[status])}</Text>
               <Text className="text-sm font-semibold text-foreground">{byStatus[status]}</Text>
             </View>
           ))}
@@ -150,11 +175,14 @@ function StatusBreakdown({ byStatus }: { byStatus: Record<OrderStatus, number> }
 }
 
 function TopProductsList({ products }: { products: TopProduct[] }) {
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Top products</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t("home.topProducts.title")}
+      </Text>
       {products.length === 0 ? (
-        <Text className="text-sm text-muted-foreground">No sales yet.</Text>
+        <Text className="text-sm text-muted-foreground">{t("home.topProducts.empty")}</Text>
       ) : (
         <View className="gap-2">
           {products.map((p) => (
@@ -162,7 +190,9 @@ function TopProductsList({ products }: { products: TopProduct[] }) {
               <Text className="flex-1 text-sm text-foreground" numberOfLines={1}>
                 {p.title}
               </Text>
-              <Text className="text-xs text-muted-foreground">{p.unitsSold} sold</Text>
+              <Text className="text-xs text-muted-foreground">
+                {t("home.topProducts.unitsSold", { count: p.unitsSold })}
+              </Text>
               <PriceDisplay price={p.revenue} primaryClassName="text-sm font-semibold" />
             </View>
           ))}
@@ -173,13 +203,14 @@ function TopProductsList({ products }: { products: TopProduct[] }) {
 }
 
 function LowStockCard({ count }: { count: number }) {
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">Inventory</Text>
+      <Text className="text-sm font-semibold text-foreground">{t("home.inventory.title")}</Text>
       <Text className="mt-1 text-sm text-muted-foreground">
         {count === 0
-          ? "No tracked variants are low on stock."
-          : `${count} tracked variant${count === 1 ? "" : "s"} at or below the low-stock threshold.`}
+          ? t("home.inventory.noneLow")
+          : t("home.inventory.lowStock", { count })}
       </Text>
     </View>
   );

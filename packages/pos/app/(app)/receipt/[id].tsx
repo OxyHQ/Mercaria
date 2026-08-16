@@ -8,15 +8,18 @@ import { Text, Button, PriceDisplay, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useOrder } from "@/lib/hooks/use-orders";
+import { useTranslation } from "@/lib/i18n";
+import { ORDER_CHANNEL_LABEL_KEYS, ORDER_STATUS_LABEL_KEYS } from "@/lib/order-labels";
 
 /** The completed-sale receipt. Shipping is intentionally hidden for POS. */
 export default function ReceiptScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation();
 
   return (
     <>
       <Head>
-        <title>Receipt | Mercaria POS</title>
+        <title>{t("receipt.documentTitle")}</title>
       </Head>
       <RequireStore permission="orders:read">
         {(storeId) => <Receipt storeId={storeId} orderId={id ?? ""} />}
@@ -28,11 +31,12 @@ export default function ReceiptScreen() {
 function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data: order, isPending, isError } = useOrder(storeId, orderId);
 
   if (isPending) {
     return (
-      <Screen title="Receipt">
+      <Screen title={t("receipt.title")}>
         <ScreenLoading />
       </Screen>
     );
@@ -40,21 +44,29 @@ function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
 
   if (isError || !order) {
     return (
-      <Screen title="Receipt">
-        <ScreenMessage title="Couldn't load the receipt" body="The order may not be available." />
+      <Screen title={t("receipt.title")}>
+        <ScreenMessage title={t("receipt.loadFailed")} body={t("receipt.loadFailedBody")} />
       </Screen>
     );
   }
 
   return (
-    <Screen title="Sale complete" subtitle={`Order ${order.orderNumber}`}>
+    <Screen
+      title={t("receipt.saleComplete")}
+      subtitle={t("receipt.orderNumber", { number: order.orderNumber })}
+    >
       <View className="gap-5">
         <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4">
           <CheckCircle2 size={28} color={colors.primary} />
           <View className="flex-1">
-            <Text className="text-base font-semibold text-foreground">Payment recorded</Text>
-            <Text className="text-sm capitalize text-muted-foreground">
-              {order.sourceChannel} · {order.status}
+            <Text className="text-base font-semibold text-foreground">
+              {t("receipt.paymentRecorded")}
+            </Text>
+            <Text className="text-sm text-muted-foreground">
+              {t("receipt.channelAndStatus", {
+                channel: t(ORDER_CHANNEL_LABEL_KEYS[order.sourceChannel]),
+                status: t(ORDER_STATUS_LABEL_KEYS[order.status]),
+              })}
             </Text>
           </View>
         </View>
@@ -63,7 +75,9 @@ function Receipt({ storeId, orderId }: { storeId: string; orderId: string }) {
         <OrderTotals order={order} />
 
         <Button onPress={() => router.replace("/")} className="h-16">
-          <Text className="text-lg font-semibold text-primary-foreground">New sale</Text>
+          <Text className="text-lg font-semibold text-primary-foreground">
+            {t("receipt.newSale")}
+          </Text>
         </Button>
       </View>
     </Screen>
@@ -91,18 +105,22 @@ function OrderLines({ order }: { order: MerchantOrder }) {
 }
 
 function OrderTotals({ order }: { order: MerchantOrder }) {
+  const { t } = useTranslation();
   const { totals } = order;
   return (
     <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
-      <TotalRow label="Subtotal" price={<PriceDisplay price={totals.subtotal.shop} />} />
+      <TotalRow label={t("receipt.subtotal")} price={<PriceDisplay price={totals.subtotal.shop} />} />
       {totals.discountTotal.shop.amount > 0 ? (
-        <TotalRow label="Discount" price={<PriceDisplay price={totals.discountTotal.shop} />} />
+        <TotalRow
+          label={t("receipt.discount")}
+          price={<PriceDisplay price={totals.discountTotal.shop} />}
+        />
       ) : null}
       {totals.tax.shop.amount > 0 ? (
-        <TotalRow label="Tax" price={<PriceDisplay price={totals.tax.shop} />} />
+        <TotalRow label={t("receipt.tax")} price={<PriceDisplay price={totals.tax.shop} />} />
       ) : null}
       <View className="mt-1 flex-row items-center justify-between border-t border-border pt-3">
-        <Text className="text-base font-bold text-foreground">Total</Text>
+        <Text className="text-base font-bold text-foreground">{t("receipt.total")}</Text>
         <PriceDisplay price={totals.grandTotal.shop} primaryClassName="text-base font-bold" />
       </View>
     </View>

@@ -14,6 +14,7 @@ import { Text, Button, useColorScheme, formatMoney } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { useTranslation } from "@/lib/i18n";
 import {
   useCancelPlan,
   useOpenBillingPortal,
@@ -49,10 +50,11 @@ import {
  * and billing portal do not run inside one.
  */
 export default function PlanScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Plan & billing | Mercaria Dashboard</title>
+        <title>{t("settings.plan.documentTitle")}</title>
       </Head>
       <RequireStore permission="store:manage">
         {(storeId) => <PlanBody storeId={storeId} />}
@@ -64,6 +66,7 @@ export default function PlanScreen() {
 function PlanBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const status = usePlanStatus(storeId);
   const catalog = usePlanCatalog(storeId);
 
@@ -73,29 +76,29 @@ function PlanBody({ storeId }: { storeId: string }) {
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">Back</Text>
+      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
     </Pressable>
   );
 
   if (status.isPending) {
     return (
-      <Screen title="Plan & billing" action={back}>
+      <Screen title={t("settings.plan.title")} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (status.isError || !status.data) {
     return (
-      <Screen title="Plan & billing" action={back}>
-        <ScreenMessage title="Couldn't load your plan" body="Please try again." />
+      <Screen title={t("settings.plan.title")} action={back}>
+        <ScreenMessage title={t("settings.plan.loadFailed")} body={t("common.pleaseTryAgain")} />
       </Screen>
     );
   }
 
   return (
     <Screen
-      title="Plan & billing"
-      subtitle="What your store gets, and what you pay for it"
+      title={t("settings.plan.title")}
+      subtitle={t("settings.plan.subtitle")}
       action={back}
     >
       <View className="gap-4">
@@ -121,51 +124,56 @@ function PlanBody({ storeId }: { storeId: string }) {
  * "free tier" row in a comparison table implying it is the lesser option.
  */
 function AlwaysIncluded() {
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">Always included</Text>
+      <Text className="text-sm font-semibold text-foreground">
+        {t("settings.plan.alwaysIncludedTitle")}
+      </Text>
       <Text className="mt-1 text-xs text-muted-foreground">
-        Maintaining your catalogue, receiving and fulfilling orders, issuing refunds, reading your
-        own sales and payout records, and exporting your data are free for every Mercaria store and
-        are never part of a plan. Nothing on this page can change that, and no plan affects how your
-        listings are found or ranked.
+        {t("settings.plan.alwaysIncludedBody")}
       </Text>
     </View>
   );
 }
 
-/** Plain-language state, and what changes it. Never urgency, never a threat. */
-const STATUS_COPY: Record<MerchantSubscriptionStatus, { heading: string; body: string }> = {
+/**
+ * Plain-language state, and what changes it. Never urgency, never a threat.
+ *
+ * KEYS rather than the sentences (#398): this map is evaluated at import, before
+ * the locale store has rehydrated, so a resolved string would freeze whatever
+ * language loaded first. `CurrentPlan` resolves them per render.
+ */
+const STATUS_COPY: Record<MerchantSubscriptionStatus, { headingKey: string; bodyKey: string }> = {
   trialing: {
-    heading: "Trial in progress",
-    body: "You have full access to this plan's extras until the trial ends.",
+    headingKey: "settings.plan.statuses.trialing.heading",
+    bodyKey: "settings.plan.statuses.trialing.body",
   },
   active: {
-    heading: "Active",
-    body: "Your plan renews automatically. You can cancel at any time and keep it until the end of the period you have paid for.",
+    headingKey: "settings.plan.statuses.active.heading",
+    bodyKey: "settings.plan.statuses.active.body",
   },
   past_due: {
-    heading: "We could not take the last payment",
-    body:
-      "Your catalogue, orders, refunds and records are unaffected and will stay that way. Only " +
-      "this plan's extras are affected, and only after the date below.",
+    headingKey: "settings.plan.statuses.pastDue.heading",
+    bodyKey: "settings.plan.statuses.pastDue.body",
   },
   paused: {
-    heading: "Paused",
-    body: "This plan's extras are not active while it is paused.",
+    headingKey: "settings.plan.statuses.paused.heading",
+    bodyKey: "settings.plan.statuses.paused.body",
   },
   cancelled: {
-    heading: "Cancels at the end of the period",
-    body: "You keep this plan's extras until the date below. Nothing else changes.",
+    headingKey: "settings.plan.statuses.cancelled.heading",
+    bodyKey: "settings.plan.statuses.cancelled.body",
   },
   expired: {
-    heading: "Ended",
-    body: "This plan's extras are no longer active. Everything included for free is unchanged.",
+    headingKey: "settings.plan.statuses.expired.heading",
+    bodyKey: "settings.plan.statuses.expired.body",
   },
 };
 
 function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPlanStatusView }) {
   const [opening, setOpening] = useState(false);
+  const { t } = useTranslation();
   const portal = useOpenBillingPortal(storeId);
   const cancel = useCancelPlan(storeId);
   const refresh = useRefreshPlan(storeId);
@@ -178,7 +186,7 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
       const session = await portal.mutateAsync();
       await WebBrowser.openBrowserAsync(session.url);
     } catch {
-      toast.error("Couldn't open billing. Please try again.");
+      toast.error(t("settings.plan.portalFailed"));
     } finally {
       setOpening(false);
       // The browser closing is not evidence of anything — subscription state
@@ -191,32 +199,32 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="text-sm font-semibold text-foreground">
-        {subscription ? subscription.planName : "Free"}
+        {subscription ? subscription.planName : t("settings.plan.free")}
       </Text>
       {copy ? (
         <>
-          <Text className="mt-2 text-sm font-medium text-foreground">{copy.heading}</Text>
-          <Text className="mt-1 text-xs text-muted-foreground">{copy.body}</Text>
+          <Text className="mt-2 text-sm font-medium text-foreground">{t(copy.headingKey)}</Text>
+          <Text className="mt-1 text-xs text-muted-foreground">{t(copy.bodyKey)}</Text>
         </>
       ) : (
         <Text className="mt-1 text-xs text-muted-foreground">
-          You are not on a paid plan. Everything listed above is included.
+          {t("settings.plan.notOnPaidPlan")}
         </Text>
       )}
 
       {subscription?.graceExpiresAt ? (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {`This plan's extras stop on ${formatDate(subscription.graceExpiresAt)} unless the payment succeeds.`}
+          {t("settings.plan.graceEndsOn", { date: formatDate(subscription.graceExpiresAt) })}
         </Text>
       ) : null}
       {subscription?.cancelAt ? (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {`Ends on ${formatDate(subscription.cancelAt)}.`}
+          {t("settings.plan.endsOn", { date: formatDate(subscription.cancelAt) })}
         </Text>
       ) : null}
       {subscription?.currentPeriodEnd && !subscription.cancelAt ? (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {`Renews on ${formatDate(subscription.currentPeriodEnd)}.`}
+          {t("settings.plan.renewsOn", { date: formatDate(subscription.currentPeriodEnd) })}
         </Text>
       ) : null}
 
@@ -225,19 +233,19 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
       {status.portalAvailable ? (
         <View className="mt-4 flex-row gap-2">
           <Button onPress={openPortal} disabled={portal.isPending || opening}>
-            Manage billing
+            {t("settings.plan.manageBilling")}
           </Button>
           {subscription && !subscription.cancelAt ? (
             <Button
               variant="outline"
               onPress={() => {
                 cancel.mutate(undefined, {
-                  onError: () => toast.error("Couldn't cancel. Please try again."),
+                  onError: () => toast.error(t("settings.plan.cancelFailed")),
                 });
               }}
               disabled={cancel.isPending}
             >
-              Cancel plan
+              {t("settings.plan.cancelPlan")}
             </Button>
           ) : null}
         </View>
@@ -254,11 +262,10 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
  * is included for every store by construction.
  */
 function Entitlements({ entitlements }: { entitlements: readonly MerchantEntitlementView[] }) {
+  const { t } = useTranslation();
   if (entitlements.length === 0) {
     return (
-      <Text className="mt-3 text-xs text-muted-foreground">
-        No plan extras are active on this store.
-      </Text>
+      <Text className="mt-3 text-xs text-muted-foreground">{t("settings.plan.noExtras")}</Text>
     );
   }
   return (
@@ -268,10 +275,13 @@ function Entitlements({ entitlements }: { entitlements: readonly MerchantEntitle
           <Text className="text-xs text-foreground">{entitlement.capability}</Text>
           <Text className="text-xs text-muted-foreground">
             {entitlement.limitKind === "flag"
-              ? "included"
+              ? t("settings.plan.usageIncluded")
               : entitlement.limit === null
-                ? `${String(entitlement.used)} used · no limit`
-                : `${String(entitlement.used)} of ${String(entitlement.limit)} used`}
+                ? t("settings.plan.usageNoLimit", { used: entitlement.used })
+                : t("settings.plan.usageOfLimit", {
+                    used: entitlement.used,
+                    limit: entitlement.limit,
+                  })}
           </Text>
         </View>
       ))}
@@ -297,15 +307,17 @@ function PlanComparison({
   loading: boolean;
   billingAvailable: boolean;
 }) {
+  const { t } = useTranslation();
   if (loading) return null;
   const paid = plans.filter((plan) => plan.tier === "paid");
   if (paid.length === 0) {
     return (
       <View className="rounded-2xl border border-border bg-surface p-4">
-        <Text className="text-sm font-semibold text-foreground">Paid plans</Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {t("settings.plan.paidPlansTitle")}
+        </Text>
         <Text className="mt-1 text-xs text-muted-foreground">
-          There are no paid plans available yet. When there are, everything they include will be
-          listed here with its price before you agree to anything.
+          {t("settings.plan.noPaidPlans")}
         </Text>
       </View>
     );
@@ -326,21 +338,30 @@ function PlanComparison({
                 key={`${price.currency}-${price.interval}`}
                 className="text-xs text-foreground"
               >
-                {`${formatMoney(price.unitPrice)} · ${price.interval === "annual" ? "per year" : "per month"}`}
+                {t(
+                  price.interval === "annual"
+                    ? "settings.plan.pricePerYear"
+                    : "settings.plan.pricePerMonth",
+                  { price: formatMoney(price.unitPrice) },
+                )}
               </Text>
             ))}
           </View>
           <View className="mt-2 gap-1">
             {plan.capabilities.map((capability) => (
               <Text key={capability.key} className="text-xs text-muted-foreground">
-                {capability.name}
-                {capability.limit === null ? "" : ` · up to ${String(capability.limit)}`}
+                {capability.limit === null
+                  ? capability.name
+                  : t("settings.plan.capabilityWithLimit", {
+                      name: capability.name,
+                      limit: capability.limit,
+                    })}
               </Text>
             ))}
           </View>
           {plan.trialDays > 0 ? (
             <Text className="mt-2 text-xs text-muted-foreground">
-              {`Includes a ${String(plan.trialDays)}-day trial.`}
+              {t("settings.plan.trialNotice", { count: plan.trialDays })}
             </Text>
           ) : null}
           {billingAvailable ? <UpgradeAction storeId={storeId} plan={plan} /> : null}
@@ -359,6 +380,7 @@ function PlanComparison({
  */
 function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanCatalogEntry }) {
   const [opening, setOpening] = useState(false);
+  const { t } = useTranslation();
   const checkout = useStartPlanCheckout(storeId);
   const refresh = useRefreshPlan(storeId);
   const price = plan.prices[0];
@@ -376,7 +398,7 @@ function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanC
       // run in one. On web this opens a new tab.
       await WebBrowser.openBrowserAsync(session.url);
     } catch {
-      toast.error("Couldn't start the upgrade. Please try again.");
+      toast.error(t("settings.plan.upgradeFailed"));
     } finally {
       setOpening(false);
       // The browser closing is not evidence of anything — the subscription is
@@ -388,7 +410,7 @@ function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanC
   return (
     <View className="mt-3">
       <Button onPress={upgrade} disabled={checkout.isPending || opening}>
-        {`Choose ${plan.name}`}
+        {t("settings.plan.choosePlan", { plan: plan.name })}
       </Button>
     </View>
   );

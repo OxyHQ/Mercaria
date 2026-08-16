@@ -18,12 +18,14 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useMyStores, useCreateStore } from "@/lib/hooks/use-stores";
+import { useTranslation } from "@/lib/i18n";
 import { useActiveStore } from "@/lib/stores/active-store";
 
 /** Store picker: choose the active store, or create the first one. */
 export default function StoresScreen() {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data: stores, isPending, isError } = useMyStores();
   const { activeStoreId, setActiveStoreId } = useActiveStore();
   const [createOpen, setCreateOpen] = useState(false);
@@ -37,7 +39,7 @@ export default function StoresScreen() {
     <Button onPress={() => setCreateOpen(true)}>
       <View className="flex-row items-center gap-2">
         <Plus size={16} color={colors.primaryForeground} />
-        <Text className="font-semibold text-primary-foreground">New store</Text>
+        <Text className="font-semibold text-primary-foreground">{t("stores.newStore")}</Text>
       </View>
     </Button>
   );
@@ -45,13 +47,13 @@ export default function StoresScreen() {
   return (
     <>
       <Head>
-        <title>Stores | Mercaria Dashboard</title>
+        <title>{t("stores.documentTitle")}</title>
       </Head>
-      <Screen title="Your stores" subtitle="Pick a store to manage" action={action}>
+      <Screen title={t("stores.title")} subtitle={t("stores.subtitle")} action={action}>
         {isPending ? (
           <ScreenLoading />
         ) : isError ? (
-          <ScreenMessage title="Couldn't load your stores" body="Please try again." />
+          <ScreenMessage title={t("stores.loadError")} body={t("common.pleaseTryAgain")} />
         ) : stores && stores.length > 0 ? (
           <View className="gap-3">
             {stores.map((store) => (
@@ -69,7 +71,10 @@ export default function StoresScreen() {
                 <View className="flex-1">
                   <Text className="text-base font-semibold text-foreground">{store.name}</Text>
                   <Text className="text-sm text-muted-foreground">
-                    @{store.handle} · {store.productCount} products
+                    {t("stores.storeMeta", {
+                      handle: store.handle,
+                      count: store.productCount,
+                    })}
                   </Text>
                 </View>
                 {activeStoreId === store.id ? (
@@ -81,12 +86,16 @@ export default function StoresScreen() {
         ) : (
           <View className="items-center justify-center rounded-2xl border border-dashed border-border py-16">
             <StoreIcon size={36} color={colors.mutedForeground} />
-            <Text className="mt-4 text-base font-semibold text-foreground">No stores yet</Text>
+            <Text className="mt-4 text-base font-semibold text-foreground">
+              {t("stores.empty.title")}
+            </Text>
             <Text className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
-              Create your first store to start selling on Mercaria.
+              {t("stores.empty.body")}
             </Text>
             <Button className="mt-6" onPress={() => setCreateOpen(true)}>
-              <Text className="font-semibold text-primary-foreground">Create store</Text>
+              <Text className="font-semibold text-primary-foreground">
+                {t("stores.createStore")}
+              </Text>
             </Button>
           </View>
         )}
@@ -116,23 +125,24 @@ function CreateStoreDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const createStore = useCreateStore();
+  const { t } = useTranslation();
 
   const submit = () => {
     if (!name.trim()) {
-      toast.error("Store name is required");
+      toast.error(t("stores.create.nameRequired"));
       return;
     }
     createStore.mutate(
       { name: name.trim(), description: description.trim() || undefined },
       {
         onSuccess: (store) => {
-          toast.success("Store created");
+          toast.success(t("stores.create.success"));
           setName("");
           setDescription("");
           onOpenChange(false);
           onCreated(store);
         },
-        onError: () => toast.error("Couldn't create the store"),
+        onError: () => toast.error(t("stores.create.error")),
       },
     );
   };
@@ -141,23 +151,29 @@ function CreateStoreDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a store</DialogTitle>
+          <DialogTitle>{t("stores.create.dialogTitle")}</DialogTitle>
         </DialogHeader>
         <View className="gap-4">
           <View className="gap-1.5">
-            <Label>Store name</Label>
-            <Input value={name} onChangeText={setName} placeholder="Acme Supply Co." />
+            <Label>{t("stores.create.nameLabel")}</Label>
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder={t("stores.create.namePlaceholder")}
+            />
           </View>
           <View className="gap-1.5">
-            <Label>Description</Label>
+            <Label>{t("common.description")}</Label>
             <Input
               value={description}
               onChangeText={setDescription}
-              placeholder="What do you sell?"
+              placeholder={t("stores.create.descriptionPlaceholder")}
             />
           </View>
           <Button onPress={submit} isLoading={createStore.isPending} className="mt-2">
-            <Text className="font-semibold text-primary-foreground">Create store</Text>
+            <Text className="font-semibold text-primary-foreground">
+              {t("stores.createStore")}
+            </Text>
           </Button>
         </View>
       </DialogContent>

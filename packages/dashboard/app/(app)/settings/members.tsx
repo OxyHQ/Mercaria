@@ -20,15 +20,31 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { useTranslation } from "@/lib/i18n";
 import { useMembers, useInviteMember, useUpdateMember, useRemoveMember } from "@/lib/hooks/use-members";
 
 const ROLES: StoreRole[] = ["owner", "admin", "staff"];
 
+/**
+ * Display label per role (#398).
+ *
+ * A KEY per role rather than the word itself: this map is evaluated at import,
+ * before the locale store has rehydrated, and `StoreRole` is a wire identifier
+ * that must keep reaching the API verbatim. Every reader calls `t()` on the key
+ * and re-renders when the locale changes.
+ */
+const ROLE_LABEL_KEYS: Record<StoreRole, string> = {
+  owner: "settings.members.roles.owner",
+  admin: "settings.members.roles.admin",
+  staff: "settings.members.roles.staff",
+};
+
 export default function MembersScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Members | Mercaria Dashboard</title>
+        <title>{t("settings.members.documentTitle")}</title>
       </Head>
       <RequireStore permission="members:manage">
         {(storeId) => <MembersBody storeId={storeId} />}
@@ -40,6 +56,7 @@ export default function MembersScreen() {
 function MembersBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data, isPending, isError } = useMembers(storeId);
   const updateMember = useUpdateMember(storeId);
   const removeMember = useRemoveMember(storeId);
@@ -52,23 +69,32 @@ function MembersBody({ storeId }: { storeId: string }) {
         className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
       >
         <ChevronLeft size={16} color={colors.foreground} />
-        <Text className="text-sm font-medium text-foreground">Back</Text>
+        <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
       <Button onPress={() => setInviteOpen(true)}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">Invite</Text>
+          <Text className="font-semibold text-primary-foreground">
+            {t("settings.members.invite")}
+          </Text>
         </View>
       </Button>
     </View>
   );
 
   return (
-    <Screen title="Members & roles" subtitle="Who can manage this store" action={back}>
+    <Screen
+      title={t("settings.members.title")}
+      subtitle={t("settings.members.subtitle")}
+      action={back}
+    >
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load members" body="Please try again." />
+        <ScreenMessage
+          title={t("settings.members.loadFailed")}
+          body={t("common.pleaseTryAgain")}
+        />
       ) : (
         <View className="gap-2">
           {data?.map((member) => (
@@ -79,15 +105,15 @@ function MembersBody({ storeId }: { storeId: string }) {
                 updateMember.mutate(
                   { oxyUserId: member.oxyUserId, input: { role } },
                   {
-                    onSuccess: () => toast.success("Role updated"),
-                    onError: () => toast.error("Couldn't update the member"),
+                    onSuccess: () => toast.success(t("settings.members.roleUpdated")),
+                    onError: () => toast.error(t("settings.members.roleUpdateFailed")),
                   },
                 )
               }
               onRemove={() =>
                 removeMember.mutate(member.oxyUserId, {
-                  onSuccess: () => toast.success("Member removed"),
-                  onError: () => toast.error("Couldn't remove the member"),
+                  onSuccess: () => toast.success(t("settings.members.removed")),
+                  onError: () => toast.error(t("settings.members.removeFailed")),
                 })
               }
             />
@@ -110,6 +136,7 @@ function MemberRow({
   onRemove: () => void;
 }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const isOwner = member.role === "owner";
 
   return (
@@ -123,7 +150,9 @@ function MemberRow({
             {member.oxyUserId}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            Joined {new Date(member.joinedAt).toLocaleDateString()}
+            {t("settings.members.joinedOn", {
+              date: new Date(member.joinedAt).toLocaleDateString(),
+            })}
           </Text>
         </View>
         {!isOwner ? (
@@ -144,12 +173,12 @@ function MemberRow({
         >
           {ROLES.map((role) => (
             <ToggleGroupItem key={role} value={role}>
-              <Text className="text-sm capitalize text-foreground">{role}</Text>
+              <Text className="text-sm capitalize text-foreground">{t(ROLE_LABEL_KEYS[role])}</Text>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
         <Text className="mt-2 text-xs text-muted-foreground">
-          {member.permissions.length} explicit permission{member.permissions.length === 1 ? "" : "s"} granted
+          {t("settings.members.explicitPermissions", { count: member.permissions.length })}
         </Text>
       </View>
     </View>
@@ -166,24 +195,25 @@ function InviteMemberDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const inviteMember = useInviteMember(storeId);
+  const { t } = useTranslation();
   const [oxyUserId, setOxyUserId] = useState("");
   const [role, setRole] = useState<StoreRole>("staff");
 
   const submit = () => {
     if (!oxyUserId.trim()) {
-      toast.error("Enter the member's Oxy user id");
+      toast.error(t("settings.members.oxyUserIdRequired"));
       return;
     }
     inviteMember.mutate(
       { oxyUserId: oxyUserId.trim(), role },
       {
         onSuccess: () => {
-          toast.success("Member added");
+          toast.success(t("settings.members.added"));
           setOxyUserId("");
           setRole("staff");
           onOpenChange(false);
         },
-        onError: () => toast.error("Couldn't add the member"),
+        onError: () => toast.error(t("settings.members.addFailed")),
       },
     );
   };
@@ -192,15 +222,20 @@ function InviteMemberDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Invite member</DialogTitle>
+          <DialogTitle>{t("settings.members.inviteTitle")}</DialogTitle>
         </DialogHeader>
         <View className="gap-4">
           <View className="gap-1.5">
-            <Label>Oxy user id</Label>
-            <Input value={oxyUserId} onChangeText={setOxyUserId} placeholder="oxy user id" autoCapitalize="none" />
+            <Label>{t("settings.members.oxyUserIdLabel")}</Label>
+            <Input
+              value={oxyUserId}
+              onChangeText={setOxyUserId}
+              placeholder={t("settings.members.oxyUserIdPlaceholder")}
+              autoCapitalize="none"
+            />
           </View>
           <View className="gap-1.5">
-            <Label>Role</Label>
+            <Label>{t("settings.members.roleLabel")}</Label>
             <ToggleGroup
               type="single"
               value={role}
@@ -208,13 +243,15 @@ function InviteMemberDialog({
             >
               {(["admin", "staff"] as StoreRole[]).map((r) => (
                 <ToggleGroupItem key={r} value={r}>
-                  <Text className="text-sm capitalize text-foreground">{r}</Text>
+                  <Text className="text-sm capitalize text-foreground">{t(ROLE_LABEL_KEYS[r])}</Text>
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
           </View>
           <Button onPress={submit} isLoading={inviteMember.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">Add member</Text>
+            <Text className="font-semibold text-primary-foreground">
+              {t("settings.members.addMember")}
+            </Text>
           </Button>
         </View>
       </DialogContent>

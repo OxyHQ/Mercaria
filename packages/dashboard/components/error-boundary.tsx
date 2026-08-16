@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Pressable, ScrollView, Platform } from 'react-native';
 import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -87,6 +88,11 @@ function ErrorFallback({
   error: Error;
   resetError: () => void;
 }) {
+  // `useTranslation` reads a zustand slice and is not suspenseful, so it is safe
+  // in the fallback: this component renders precisely when the tree below it
+  // failed, and a hook that could throw or suspend here would replace the
+  // recovery screen with a blank one.
+  const { t } = useTranslation();
   return (
     <View
       style={{
@@ -137,7 +143,7 @@ function ErrorFallback({
             marginBottom: 8,
           }}
         >
-          Something went wrong
+          {t('common.somethingWentWrong')}
         </Text>
 
         {/* Description */}
@@ -150,8 +156,7 @@ function ErrorFallback({
             marginBottom: 24,
           }}
         >
-          An unexpected error occurred. You can try again, and if the problem
-          persists, our team has been notified.
+          {t('errors.boundaryBody')}
         </Text>
 
         {/* Error details (collapsible in dev) */}
@@ -191,7 +196,7 @@ function ErrorFallback({
             alignItems: 'center',
           })}
           accessibilityRole="button"
-          accessibilityLabel="Try again"
+          accessibilityLabel={t('common.retry')}
         >
           <Text
             style={{
@@ -200,7 +205,7 @@ function ErrorFallback({
               color: '#ffffff',
             }}
           >
-            Try Again
+            {t('common.retry')}
           </Text>
         </Pressable>
       </View>

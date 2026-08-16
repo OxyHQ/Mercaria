@@ -4,13 +4,44 @@
  * Consumed FROM SOURCE (no dist build): apps import directly from this barrel,
  * and the metro/tsconfig/tailwind wiring resolves `@mercaria/ui` to `src/`.
  * Everything here is presentational (DTOs in, classes out) — no app data
- * fetching, routing, or i18n.
+ * fetching and no routing.
+ *
+ * The one thing that is not presentational is the LOCALE REGISTRY (`./i18n`,
+ * #398): which locales exist, how a device tag resolves to one, and the store
+ * shape a screen reads. It lives here because three apps consume this package
+ * from source and three copies of "which languages exist" is three answers that
+ * drift. It carries no app STRINGS — those stay in each app's own
+ * `lib/i18n/locales/*.json`.
  */
 
 // ---------------------------------------------------------------------------
 // Helpers / hooks
 // ---------------------------------------------------------------------------
 export { cn } from "./lib/cn";
+
+// ---------------------------------------------------------------------------
+// The locale registry (#398). ONE supported-locale tuple, ONE alias policy and
+// ONE fallback chain for the storefront, the dashboard and the POS.
+// ---------------------------------------------------------------------------
+export {
+  DEFAULT_LOCALE,
+  LOCALE_ALIASES,
+  LOCALE_ENDONYMS,
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+} from "./i18n/locales";
+export {
+  createAppI18n,
+  resolveDeviceLocale,
+  shippedLocales,
+  type AppLocaleBundles,
+  type Translate,
+} from "./i18n/create-app-i18n";
+export {
+  createI18nStore,
+  type CreateI18nStoreOptions,
+  type I18nStoreState,
+} from "./i18n/create-i18n-store";
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 // `./lib/bidi`'s `isolateBidi` is deliberately NOT exported here. It is applied

@@ -3,6 +3,7 @@ import { View, Pressable } from "react-native";
 import { Image } from "expo-image";
 import type { Listing } from "@mercaria/shared-types";
 import { Text, PriceDisplay } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /** Crossfade duration (ms) for the tile image as it loads. */
 const IMAGE_TRANSITION_MS = 150;
@@ -21,6 +22,7 @@ interface ProductTileProps {
  * a hover affordance on web.
  */
 export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
+  const { t } = useTranslation();
   const outOfStock = listing.quantity <= 0;
   return (
     <Pressable
@@ -46,7 +48,9 @@ export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
         ) : null}
         {outOfStock ? (
           <View className="absolute left-2 top-2 rounded-full bg-foreground/80 px-2 py-1">
-            <Text className="text-[11px] font-semibold text-background">Sold out</Text>
+            <Text className="text-[11px] font-semibold text-background">
+              {t("catalog.soldOut")}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -56,7 +60,9 @@ export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
         </Text>
         <PriceDisplay price={listing.price} primaryClassName="text-sm font-bold" />
         <Text className="text-xs text-muted-foreground">
-          {outOfStock ? "Out of stock" : `${listing.quantity} in stock`}
+          {outOfStock
+            ? t("catalog.outOfStock")
+            : t("catalog.inStockCount", { count: listing.quantity })}
         </Text>
       </View>
     </Pressable>

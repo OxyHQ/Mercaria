@@ -1,0 +1,1227 @@
+{
+  "auth": {
+    "signInAction": "サインイン",
+    "signInBody": "Oxyアカウントでサインインしてストアを管理します。商品、注文、在庫、顧客、割引、レポートを扱えます。",
+    "signInTitle": "Mercaria Dashboard"
+  },
+  "channels": {
+    "addChannel": "チャネルを追加",
+    "andJoin": "と",
+    "availability": {
+      "notConfigured": "ここでは設定できません",
+      "notImplemented": "まだ利用できません"
+    },
+    "badge": {
+      "comparisonOnly": "比較のみ",
+      "sellsOnMercaria": "Mercariaで販売"
+    },
+    "collectionMapping": {
+      "body": "このチャネルの%{many}をMercariaのどのコレクションに取り込むかを選択します。マッピングされていない%{one}の商品もインポートされますが、どのコレクションにも入りません。",
+      "channelNoun": "チャネルの%{noun}",
+      "dontMap": "マッピングしない",
+      "fixMapping": "マッピングを修正",
+      "loadFailed": "このチャネルのコレクションを読み込めませんでした。",
+      "map": "マッピング",
+      "noManualCollections": "このストアにはまだ手動コレクションがありません。まず作成してください。自動コレクションは独自のルールでメンバーを決めるため、チャネルのマッピング先にはできません。",
+      "noun": {
+        "category": {
+          "plural": "カテゴリー",
+          "singular": "カテゴリー"
+        },
+        "collection": {
+          "plural": "コレクション",
+          "singular": "コレクション"
+        }
+      },
+      "pickBody": "マッピングできるのは手動コレクションのみです。自動コレクションは独自のルールでメンバーを決定します。",
+      "pickTitle": "Mercariaのコレクションにマッピング",
+      "productsOnChannel": {
+        "one": "チャネル上の商品%{count}点",
+        "other": "チャネル上の商品%{count}点"
+      },
+      "removeMapping": "このマッピングを削除",
+      "state": {
+        "externalMissing": "これはチャネル上に存在しなくなったため、これを通じて何もマッピングされません。マッピングを削除するか、チャネル側で作り直してください。",
+        "targetAutomated": "そのMercariaコレクションは独自のルールでメンバーを決めるため、チャネルのマッピングは同期のたびに追加と削除が繰り返されます。手動コレクションを選択してください。",
+        "targetMissing": "このMercariaコレクションは削除されました。商品のインポートは続きますが、どのコレクションにも入りません。別のコレクションを選択してください。"
+      },
+      "title": "コレクションのマッピング",
+      "unavailable": {
+        "disconnected": "このチャネルは接続解除されているため、コレクションを読み取れません。再接続すると最新の一覧から選択できます。",
+        "platformUnavailable": "現在このチャネルに接続できないため、コレクションは表示されていません。既存のマッピングには影響ありません。",
+        "pushInConnection": "このチャネルはMercariaへ送信する方式のため、Mercariaはコレクションを読み取る認証情報を保持していません。既存のマッピングは以下に表示され、編集できます。"
+      }
+    },
+    "connect": "接続",
+    "coverage": {
+      "doesNotSyncHeading": "同期しないもの",
+      "doesNotSyncLabel": "同期しないもの：",
+      "nothing": "なし",
+      "partial": "%{direction} — %{caveat}",
+      "syncsHeading": "同期するもの",
+      "syncsLabel": "同期するもの："
+    },
+    "direction": {
+      "bothWays": "双方向",
+      "pull": "お使いのプラットフォーム → Mercaria",
+      "push": "Mercaria → お使いのプラットフォーム"
+    },
+    "disconnect": {
+      "action": "チャネルを接続解除",
+      "confirmAction": "接続解除",
+      "confirmTitle": "%{provider}を接続解除しますか？",
+      "intro": "このチャネルがインポートした%{policy}をどう扱うかを選択します。価格履歴と、他のチャネルがインポートしたものには一切影響しません。",
+      "policy": {
+        "archiveListings": "アーカイブ",
+        "keepListings": "商品を残す",
+        "unpublishListings": "非公開にする"
+      },
+      "policyHelp": {
+        "archiveListings": "同期を停止し、このチャネルの商品をアーカイブします。販売済みおよびモデレーション対象の商品はそのまま残ります。",
+        "keepListings": "同期を停止し、すべての商品を現状のまま残します。販売は続き、以降はMercariaで編集できます。",
+        "unpublishListings": "同期を停止し、このチャネルの商品を販売停止にして、再公開できる下書きとして残します。"
+      },
+      "productsChanged": {
+        "one": "商品%{count}件を変更",
+        "other": "商品%{count}件を変更"
+      },
+      "recordsKept": {
+        "one": "価格履歴%{count}件を保持",
+        "other": "価格履歴%{count}件を保持"
+      },
+      "title": "接続解除"
+    },
+    "documentTitle": "販売チャネル | Mercaria Dashboard",
+    "empty": {
+      "body": "下からストアまたは商品フィードを接続すると、既存のカタログを取り込めます。",
+      "title": "Mercariaのカタログのみ"
+    },
+    "entity": {
+      "collections": "コレクション",
+      "customers": "顧客",
+      "discounts": "割引",
+      "giftCards": "ギフトカード",
+      "inventory": "在庫",
+      "orders": "注文",
+      "productReviews": "レビュー",
+      "products": "商品",
+      "refunds": "返金",
+      "shippingRates": "配送料金",
+      "taxRates": "税率"
+    },
+    "entityAbsence": {
+      "channelNotImplemented": "Mercariaにはまだこのプラットフォーム向けのコネクタがありません。",
+      "channelTransportsProductsOnly": "商品フィードは商品を並べたファイルであり、それ以外は含みません。",
+      "importedOnlyAsPartOfAnOrder": "一覧はインポートされません。表示されるのは、インポートされた注文に含まれるものだけです。",
+      "nativeCatalogIsNotASync": "インポートはありません。このカタログはMercariaで編集します。",
+      "notBuiltForThisChannel": "Mercariaはこれをお使いのプラットフォームとやり取りしません。",
+      "notModelledByMercaria": "Mercariaには、この種類のデータを受け取る仕組みがありません。",
+      "ownedByAnotherSystem": "お使いのプラットフォームからのインポートではなく、Mercaria内の別の場所で扱います。"
+    },
+    "entityCaveat": {
+      "breakdownOnlyOnImportedOrders": "インポートされた各注文には請求された明細が表示されるため、合計は一致します。その元になったルールはMercariaで作成されないため、ここで編集したり再利用したりはできません。",
+      "membershipOnlyThroughAMapping": "お使いのプラットフォームのコレクションはMercariaでは作成されません。商品は、マッピング先のMercariaコレクションに追加されます。"
+    },
+    "history": {
+      "counts": "作成 %{created}件 · 更新 %{updated}件 · スキップ %{skipped}件 · 失敗 %{failed}件",
+      "empty": "同期履歴はまだありません",
+      "loadFailed": "履歴を読み込めませんでした",
+      "title": "同期履歴",
+      "updatedNote": "「更新」は、差分があったものだけでなく、確認したすべての商品を数えます。"
+    },
+    "import": {
+      "blockedDirection": "上の「商品」を取り込みまたは両方に設定して保存してください。保存すると最初のインポートが自動的に始まります。",
+      "blockedDisconnected": "インポートの前にこのチャネルを再接続してください。接続解除時に、保存されていた認証情報は消去されています。",
+      "body": "すべての商品を読み直し、変更点を反映します。何度実行しても問題ありません。",
+      "bodyPaused": "すべての商品を読み直し、変更点を反映します。定期同期のインポートは一時停止中ですが、これは今すぐ実行されます。",
+      "heading": "%{provider}から商品をインポート",
+      "now": "今すぐ同期",
+      "title": "インポート"
+    },
+    "keys": {
+      "apiKeySubject": "APIキー",
+      "body": "WordPressサイトのMercariaプラグインに、キー（およびこのチャネルの接続ID）を貼り付けます。キーに有効期限はありません。アクセスを断つには、いつでも失効させてください。",
+      "connectionId": "接続ID",
+      "connectionIdSubject": "接続ID",
+      "copied": "%{label}をコピーしました",
+      "copyAccessibility": "%{label}をコピー",
+      "copyNow": "このキーを今すぐコピーしてください。再表示はできません。",
+      "empty": "キーがまだありません。プラグインを接続するには生成してください。",
+      "generate": "キーを生成",
+      "generateBody": "このチャネル用の長期キーを作成します。後で見分けられるよう名前を付けてください（使用するサイト名など）。",
+      "generateTitle": "APIキーを生成",
+      "heading": "プラグイン用の長期認証情報",
+      "labelField": "ラベル",
+      "labelPlaceholder": "WordPressプラグイン",
+      "lastUsed": "最終使用 %{when}",
+      "loadFailed": "APIキーを読み込めませんでした。",
+      "loading": "キーを読み込み中…",
+      "neverUsed": "未使用",
+      "revoke": "失効",
+      "revokeConfirmBody": "「%{label}」を使用しているプラグインは、直ちに同期を停止します。この操作は取り消せず、新しいキーを生成する必要があります。",
+      "revokeConfirmTitle": "このキーを失効しますか？",
+      "title": "APIキー"
+    },
+    "lastRunCounts": "前回の実行 — 作成 %{created}件、更新 %{updated}件、スキップ %{skipped}件、失敗 %{failed}件",
+    "lastSynced": "最終同期 %{when}",
+    "limitation": {
+      "knownIssue": "既知の問題 #%{issue} — 対応中"
+    },
+    "loadFailed": "チャネルを読み込めませんでした",
+    "never": "なし",
+    "neverSynced": "未同期",
+    "nextScheduled": " · 次回 %{when}",
+    "orderHorizon": {
+      "bounded": {
+        "one": "インポートされるのは直近%{count}日分の注文のみです。%{before}より前の注文はインポートされておらず、後から届くこともありません。これはお使いのプラットフォームがMercariaに読み取りを許可する範囲の制限であり、同期の遅れではありません。",
+        "other": "インポートされるのは直近%{count}日分の注文のみです。%{before}より前の注文はインポートされておらず、後から届くこともありません。これはお使いのプラットフォームがMercariaに読み取りを許可する範囲の制限であり、同期の遅れではありません。"
+      },
+      "notSynced": "このチャネルでは、注文をどちらの方向にもやり取りしません。",
+      "unknown": "この接続の注文をどこまで遡って取得できるか、Mercariaには判断できません。"
+    },
+    "pause": {
+      "importing": "インポートを一時停止",
+      "importingHint": "プラットフォームからの読み取りを停止します。すでにインポート済みの商品は販売され続けます。",
+      "publishing": "公開を一時停止",
+      "publishingHint": "インポートは続けたまま、このチャネルの商品が購入者に表示されないようにします。",
+      "title": "一時停止"
+    },
+    "pausedScopes": "一時停止中：%{scopes}",
+    "readiness": {
+      "cardPaymentsOff": "このデプロイではカード決済が無効です",
+      "catalog": "カタログ",
+      "catalogDetail": "%{channels} · %{sync}",
+      "channelCount": {
+        "one": "%{count}チャネル",
+        "other": "%{count}チャネル"
+      },
+      "lastSynced": "最終同期 %{when}",
+      "neverSynced": "未同期",
+      "noChannelConnected": "接続済みのチャネルなし",
+      "notReady": "まだMercariaで販売していません",
+      "payouts": "入金",
+      "payoutsNotSetUp": "未設定",
+      "payoutsSetUp": "設定済み",
+      "ready": "Mercariaで販売できます"
+    },
+    "readinessBlocker": {
+      "noConnectedChannel": "カタログを供給するものがまだありません。チャネルを接続するか、商品を追加してください。",
+      "noNativeCheckoutChannel": "接続済みのチャネルは比較用に商品を掲載できますが、Mercariaのチェックアウトでは販売できません。ストアを接続するか、商品を直接追加してください。",
+      "noPublishableListing": "販売中の商品がありません。購入者がカートに入れられるものがありません。",
+      "noSuccessfulSync": "チャネルは接続済みですが、同期がまだ完了していません。",
+      "paymentsNotReady": "入金が未設定のため、注文を受け付けられません。"
+    },
+    "recently": "最近",
+    "reconciliation": {
+      "alreadyIndexed": "インデックス済み",
+      "awaitingReview": "確認待ち",
+      "awaitingReviewNote": {
+        "one": "%{count}件の商品を自動で照合できず、担当者の確認待ちになっています。",
+        "other": "%{count}件の商品を自動で照合できず、担当者の確認待ちになっています。"
+      },
+      "body": "削除も統合も行いません。同じ商品が二重に現れる場合、Mercariaはご自身のストアの商品を主として表示し、もう一方の価格履歴もそのまま保持します。",
+      "fromThisStore": "このストアから",
+      "gap": {
+        "channelHasNoDomain": "このチャネルには、照合に使えるWebアドレスがありません。",
+        "merchantNotClaimed": "このストアは認証済みのマーチャントに紐付いていないため、照合する対象がまだありません。",
+        "storeNotLinked": "このストアはマーチャントプロフィールに紐付いていないため、照合する対象がまだありません。",
+        "storefrontNotMatched": "Mercariaはこのショップをまだインデックスしていないため、照合する対象がありません。"
+      },
+      "sameProductTwice": "同じ商品が二重に",
+      "title": "既存カタログとの照合"
+    },
+    "runFailures": {
+      "hide": "非表示",
+      "line": "%{subject}%{externalId} · %{reason}",
+      "loadFailed": "この同期が取り込まなかったレコードを読み込めませんでした。",
+      "none": "この同期には、レコードごとの理由が保存されていません。",
+      "reason": {
+        "databaseRefused": "データベースが書き込みを拒否しました",
+        "duplicateRecord": "すでにインポート済みのレコードと重複",
+        "refusedByRule": "Mercariaのルールにより拒否",
+        "unclassified": "分類できない失敗"
+      },
+      "show": {
+        "one": "取り込まれなかったレコードを表示",
+        "other": "取り込まれなかったレコードを表示"
+      },
+      "showing": "%{total}件中%{shown}件を表示しています。",
+      "subject": {
+        "inventoryItem": "在庫アイテム",
+        "order": "注文",
+        "product": "商品"
+      }
+    },
+    "scope": {
+      "title": "このチャネルが扱うもの"
+    },
+    "settings": {
+      "autoPublish": "自動公開",
+      "autoPublishHint": "取り込んだ商品をすぐに公開します。オフの場合は、確認用の下書きとして取り込まれます。",
+      "documentTitle": "チャネル設定 | Mercaria Dashboard",
+      "inventoryHint": "同期先ロケーションの在庫数。",
+      "inventoryLabel": "在庫",
+      "keepLocalEdits": "Mercariaでの編集を保持",
+      "keepLocalEditsHint": "オンの場合、Mercariaで編集した項目は以降の同期で上書きされません。オフの場合は、常にチャネル側が優先されます。",
+      "neverSyncedYet": "このチャネルはまだ同期していません。",
+      "notFound": "チャネルが見つかりません",
+      "notFoundBody": "この接続は、すでに解除された可能性があります。",
+      "ordersHint": "外部チャネルで作成された注文。",
+      "productsHint": "商品カタログ（タイトル、画像、価格、バリエーション）。",
+      "providerTitle": "%{provider}の設定",
+      "save": "設定を保存",
+      "syncDirections": "同期の方向",
+      "title": "チャネル設定"
+    },
+    "state": {
+      "connected": "接続済み",
+      "needsAttention": "要対応",
+      "notConnected": "未接続",
+      "paused": "一時停止中"
+    },
+    "status": {
+      "disconnected": "接続解除済み"
+    },
+    "subtitle": "商品がMercariaに届くすべての経路 — 接続済みのストア、商品フィード、自社カタログ",
+    "syncDirection": {
+      "both": "両方",
+      "off": "オフ",
+      "pull": "取り込み",
+      "push": "送信"
+    },
+    "title": "販売チャネル",
+    "toast": {
+      "alreadyInThatState": "すでにその状態です",
+      "cancelFailed": "キャンセルできませんでした",
+      "channelActivated": "チャネルを有効化しました",
+      "collectionMappingSaveFailed": "マッピングを保存できませんでした",
+      "collectionMappingSaved": "コレクションのマッピングを保存しました",
+      "consumerKeyAndSecretRequired": "コンシューマーキーとシークレットの両方を入力してください",
+      "disconnectFailed": "チャネルを接続解除できませんでした",
+      "disconnected": "接続解除しました — %{products}、%{records}",
+      "importStartFailed": "インポートを開始できませんでした",
+      "importStarted": "インポートを開始しました。下の履歴に表示されます",
+      "invalidShopifyDomain": "有効な *.myshopify.com ドメインを入力してください",
+      "keyCreateFailed": "キーを作成できませんでした",
+      "keyGenerateFailed": "キーを生成できませんでした",
+      "keyGenerated": "APIキーを生成しました",
+      "keyLabelRequired": "キーにラベルを付けてください",
+      "keyRevokeFailed": "キーを失効できませんでした",
+      "keyRevoked": "APIキーを失効しました",
+      "notReadyToActivate": "まだ有効化できません。下の理由を確認してください",
+      "pauseFailed": "一時停止の状態を変更できませんでした",
+      "paused": "一時停止しました",
+      "previewSaveFailed": "プレビューを保存できませんでした",
+      "resumed": "再開しました",
+      "settingsSaveFailed": "チャネル設定を保存できませんでした",
+      "settingsSaved": "チャネル設定を保存しました",
+      "shopifyConnectFailed": "Shopifyへの接続を開始できませんでした",
+      "siteUrlMustBeHttps": "サイトURLは https:// から始めて入力してください",
+      "startConnectFailed": "%{name}への接続を開始できませんでした",
+      "webhooksRegisterFailed": "Webhookの登録を開始できませんでした",
+      "webhooksRegistering": "Webhookを再登録しています",
+      "wooConnectFailed": "接続できませんでした。サイトURLとAPIキーを確認してください",
+      "wooConnected": "WooCommerceに接続しました"
+    },
+    "type": {
+      "etsy": "Etsy",
+      "magento": "Magento",
+      "native": "Mercariaカタログ",
+      "prestashop": "PrestaShop",
+      "productFeed": "商品フィード",
+      "shopify": "Shopify",
+      "woocommerce": "WooCommerce",
+      "woocommercePlugin": "WooCommerceプラグイン"
+    },
+    "unscheduled": "未定",
+    "webhookFailureReason": {
+      "permissionDenied": "この接続の権限が対象外のため",
+      "platformError": "プラットフォームがエラーを返したため",
+      "rateLimited": "プラットフォームがレート制限中のため",
+      "topicNotSupported": "プラットフォームが提供していないため",
+      "transportError": "プラットフォームに接続できなかったため",
+      "unexpectedResponse": "プラットフォームの応答を解釈できなかったため"
+    },
+    "webhooks": {
+      "bringForward": "今すぐ前倒しで実行することもできます。",
+      "causeIncomplete": "Mercariaは登録を完了できませんでした。これが続く場合はチャネルを再接続してください。",
+      "causeUnreachable": "直近の試行では%{provider}に接続できませんでした。接続できるようになってから、もう一度登録してください。",
+      "dueNow": "実行待ち",
+      "failureDetail": " — %{reason}%{http} · 最終確認 %{when}",
+      "healthyDetail": {
+        "one": "%{provider}はMercariaに%{count}種類の更新を送信しています。%{provider}側でMercariaのWebhookを削除した場合は、もう一度登録してください。この画面では検出できません。",
+        "other": "%{provider}はMercariaに%{count}種類の更新を送信しています。%{provider}側でMercariaのWebhookを削除した場合は、もう一度登録してください。この画面では検出できません。"
+      },
+      "healthyHeadline": "変更はリアルタイムで届きます",
+      "httpStatus": "（HTTP %{status}）",
+      "refusedDetail": "Mercariaは登録を完了しましたが、%{provider}は以下のイベントを拒否しました。自動的に再試行されます。ボタンを押すと前倒しで実行できます。",
+      "refusedHeadline": "一部の更新は届きません",
+      "register": "Webhookを登録",
+      "registerAgain": "Webhookを再登録",
+      "remedyPermissionDenied": "%{provider}でのMercariaの権限が、すべてのイベントを対象にしていません。そちらで権限を広げてから、もう一度登録してください。",
+      "remedyTopicNotSupported": "%{provider}はこれらのイベントの一部をそもそも提供していないため、もう一度登録しても届くようにはなりません。",
+      "retryingDetail": "Mercariaが自動的に再試行しています。次回は%{due}です。%{remedy}",
+      "retryingHeadline": "一部の更新がまだ届いていません",
+      "stoppedDetail": {
+        "one": "Mercariaは%{count}回の試行のあとに停止しました。%{cause}",
+        "other": "Mercariaは%{count}回の試行のあとに停止しました。%{cause}"
+      },
+      "stoppedHeadline": "一部の更新が届かず、Mercariaは再試行を停止しました",
+      "title": "リアルタイム更新",
+      "tryNow": "今すぐ試す",
+      "unregisteredDetail": "接続済みの%{provider}チャネルでは、Mercariaがこれらを自動的に登録します。待たずに今すぐ登録することもできます。",
+      "unregisteredHeadline": "リアルタイム更新がまだ登録されていません"
+    },
+    "wizard": {
+      "activateChannel": "チャネルを有効化",
+      "activeConnectionBody": "このチャネルは有効です。次に何をインポートするかを選択してください。選択するまで同期は始まりません。",
+      "activeFeedBody": "このチャネルは有効です。設定は販売チャネルからいつでも変更できます。",
+      "allSet": "設定完了",
+      "backToChannels": "チャネル一覧に戻る",
+      "beforeYouActivate": "有効化する前に",
+      "beforeYouStart": "始める前に",
+      "blocker": {
+        "channelLimitation": "このチャネルはまだ有効化できません。",
+        "connectionNotConnected": "先に接続を完了してください。",
+        "noPreview": "先にプレビューを実行して、何がインポートされるかを確認してください。",
+        "previewAllInvalid": "プレビューで読み取ったレコードはすべて無効でした。マッピングを修正して、もう一度お試しください。",
+        "previewScannedNothing": "プレビューはレコードを1件も読み取りませんでした。フィードまたはストアに商品があるか確認してください。何にも一致しないマッピングは、空のカタログと見分けがつきません。",
+        "unsupportedDirection": "同期設定が、このチャネルの対応していない方向を指定しています。設定を変更して、もう一度お試しください。"
+      },
+      "canAndCannot": "このチャネルにできること・できないこと",
+      "chooseWhatToImport": "インポートする対象を選択",
+      "connectedTitle": "%{channel}に接続しました",
+      "documentTitle": "チャネルを接続 | Mercaria Dashboard",
+      "everythingChecksOut": "問題ありません。有効化すると最初の同期が始まります。",
+      "feed": {
+        "body": "商品フィードは専用の画面で設定します。そこでファイルの列をMercariaの項目に対応付け、公開前に結果をプレビューできます。",
+        "create": "フィードを作成",
+        "title": "フィードを設定"
+      },
+      "merchantLinked": "このストアは認証済みのマーチャントに紐付いているため、Mercariaがすでにインデックスしている情報は、重複ではなく照合されます。",
+      "merchantNotLinked": "このストアは、まだ認証済みのマーチャントに紐付いていません。接続は可能ですが、Mercariaがすでにインデックスしている情報との照合は行われません。",
+      "notFound": "ウィザードが見つかりません",
+      "notFoundBody": "すでに完了している可能性があります。",
+      "notSetUpYet": "（未設定）",
+      "plugin": {
+        "body": "WordPressサイトにMercariaプラグインをインストールし、下のキーをその設定に貼り付けてください。プラグインは、商品と在庫が変わるたびにMercariaへ送信します。",
+        "createKey": "チャネルキーを作成",
+        "keyHeading": "チャネルキー — 今すぐコピーしてください",
+        "keyNote": "表示されるのはこの一度だけです。紛失した場合は、失効させて新しいキーを発行してください。",
+        "title": "Mercariaプラグインを接続"
+      },
+      "preview": {
+        "body": "有効化する前に件数を限って試し、何がインポートされ、どれだけ確認が必要かを把握してください。",
+        "duplicate": "重複",
+        "invalid": "無効",
+        "matched": "照合済み",
+        "rerun": "プレビューを再実行",
+        "run": "プレビューを実行",
+        "scanned": "読み取り",
+        "title": "プレビュー",
+        "toReview": "要確認"
+      },
+      "shopify": {
+        "authNote": "認可はShopify上で行われます。MercariaがShopifyのパスワードを見ることはなく、受け取ったアクセストークンは暗号化して保管されます。",
+        "continue": "Shopifyへ進む",
+        "domainLabel": "ショップドメイン",
+        "domainPlaceholder": "your-store.myshopify.com",
+        "openAgain": "Shopifyをもう一度開く",
+        "title": "ShopifyでMercariaを認可",
+        "waitingBody": "開いたタブで認可を完了してください。この画面は自動的に更新されます。再読み込みや、この手順に戻る必要はありません。",
+        "waitingTitle": "Shopifyの応答を待っています"
+      },
+      "step": {
+        "activate": "有効化",
+        "configure": "同期設定",
+        "connect": "接続",
+        "map": "マッピング",
+        "preview": "プレビュー",
+        "scope": "ストア",
+        "selectChannel": "チャネル"
+      },
+      "title": "%{channel}を接続",
+      "woo": {
+        "body": "WooCommerce → 設定 → 高度な設定 → REST API。カタログのインポートには読み取り権限があれば十分です。",
+        "connect": "WooCommerceを接続",
+        "consumerKeyLabel": "コンシューマーキー",
+        "consumerKeyPlaceholder": "ck_...",
+        "consumerSecretLabel": "コンシューマーシークレット",
+        "consumerSecretPlaceholder": "cs_...",
+        "siteUrlLabel": "サイトURL",
+        "siteUrlPlaceholder": "https://your-store.com",
+        "title": "WooCommerceのAPIキーを貼り付け"
+      },
+      "youWillNeed": "必要なもの"
+    },
+    "yourChannels": "接続中のチャネル"
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "新規コレクション",
+      "error": "コレクションを作成できませんでした",
+      "success": "コレクションを作成しました",
+      "titlePlaceholder": "夏の定番",
+      "titleRequired": "タイトルは必須です",
+      "typeAutomated": "自動",
+      "typeManual": "手動"
+    },
+    "deleteError": "コレクションを削除できませんでした",
+    "deleted": "コレクションを削除しました",
+    "documentTitle": "コレクション | Mercaria Dashboard",
+    "empty": {
+      "body": "コレクションを作成してカタログを整理しましょう。",
+      "title": "コレクションがまだありません"
+    },
+    "loadError": "コレクションを読み込めませんでした",
+    "productCount": {
+      "one": "商品%{count}点",
+      "other": "商品%{count}点"
+    },
+    "rowMeta": "%{type} · %{items} · %{state}",
+    "ruleCount": {
+      "one": "ルール%{count}件",
+      "other": "ルール%{count}件"
+    },
+    "state": {
+      "draft": "下書き",
+      "published": "公開中"
+    },
+    "subtitle": "マーチャンダイジング用に商品をグループ化",
+    "type": {
+      "automated": "自動",
+      "manual": "手動"
+    }
+  },
+  "common": {
+    "all": "すべて",
+    "back": "戻る",
+    "cancel": "キャンセル",
+    "create": "作成",
+    "description": "説明",
+    "done": "完了",
+    "loading": "読み込み中…",
+    "name": "名前",
+    "new": "新規",
+    "noAccess": "アクセス権限がありません",
+    "noAccessBody": "現在のストアでこの画面を表示する権限がありません。",
+    "none": "なし",
+    "pageOf": "%{current}／%{total}ページ",
+    "pleaseTryAgain": "もう一度お試しください。",
+    "retry": "再試行",
+    "save": "保存",
+    "somethingWentWrong": "問題が発生しました",
+    "status": "ステータス",
+    "title": "タイトル",
+    "type": "種類",
+    "unknown": "不明"
+  },
+  "customers": {
+    "detail": {
+      "documentTitle": "顧客 | Mercaria Dashboard",
+      "lifetimeSpend": "累計購入額",
+      "loadError": "顧客を読み込めませんでした",
+      "noOrders": "注文はまだありません。",
+      "orders": "注文",
+      "subtitle": "顧客の詳細",
+      "title": "顧客"
+    },
+    "documentTitle": "顧客 | Mercaria Dashboard",
+    "empty": {
+      "body": "初回の注文のあと、顧客がここに表示されます。",
+      "title": "顧客がいません"
+    },
+    "fallbackName": "顧客",
+    "loadError": "顧客を読み込めませんでした",
+    "orderCount": {
+      "one": "注文%{count}件",
+      "other": "注文%{count}件"
+    },
+    "searchPlaceholder": "顧客を検索…",
+    "subtitle": "ストアで購入した人",
+    "walkIn": "ウォークイン顧客"
+  },
+  "discounts": {
+    "create": {
+      "amountOffLabel": "割引額（⊜）",
+      "codeLabel": "コード",
+      "codePlaceholder": "SPRING20",
+      "codeRequired": "割引コードを入力してください",
+      "dialogTitle": "新規割引",
+      "error": "割引を作成できませんでした",
+      "invalidAmount": "有効な金額を入力してください",
+      "invalidPercentage": "有効な割引率を入力してください",
+      "methodAutomatic": "自動",
+      "methodCode": "コード",
+      "methodLabel": "適用方法",
+      "percentOffLabel": "割引率",
+      "success": "割引を作成しました",
+      "titlePlaceholder": "春のセール",
+      "titleRequired": "タイトルは必須です",
+      "valueTypeFixed": "固定額（⊜）",
+      "valueTypeLabel": "値の種類",
+      "valueTypePercentage": "パーセント"
+    },
+    "deleteError": "割引を削除できませんでした",
+    "deleted": "割引を削除しました",
+    "documentTitle": "割引 | Mercaria Dashboard",
+    "empty": {
+      "body": "コード割引または自動割引を作成しましょう。",
+      "title": "割引がまだありません"
+    },
+    "fixedAmountOff": "固定額割引",
+    "loadError": "割引を読み込めませんでした",
+    "methodAutomatic": "自動",
+    "methodCode": "コード",
+    "percentOff": "%{percent}%オフ",
+    "rowMeta": "%{method} · %{value} · %{state}",
+    "state": {
+      "active": "有効",
+      "inactive": "無効"
+    },
+    "subtitle": "コード割引と自動プロモーション"
+  },
+  "errors": {
+    "boundaryBody": "予期しないエラーが発生しました。もう一度お試しください。問題が解決しない場合も、担当チームに通知済みです。",
+    "notFoundAction": "ダッシュボードへ移動",
+    "notFoundBody": "この画面は存在しません。",
+    "notFoundDocumentTitle": "404 - ページが見つかりません | Mercaria Dashboard",
+    "notFoundHeading": "ページが見つかりません"
+  },
+  "feeds": {
+    "detail": {
+      "activateMappingFirst": "先にマッピングを有効化してください",
+      "documentTitle": "商品フィード | Mercaria Dashboard",
+      "identityColumns": "識別用の列：%{columns} — このフィードでは変更できません。",
+      "neverRead": "このフィードはまだ読み取られていません。",
+      "notFound": "フィードが見つかりません",
+      "notFoundBody": "削除された可能性があります。",
+      "readSchedule": "最終読み取り %{last} · 次回 %{next}",
+      "recentRuns": "最近の実行",
+      "runCounts": "読み取り %{fetched}件 · 保存 %{stored}件 · 変更なし %{unchanged}件 · 却下 %{rejected}件 · 掲載 %{listed}件 · 掲載終了 %{retired}件",
+      "syncNow": "今すぐ同期",
+      "title": "商品フィード"
+    },
+    "draft": {
+      "columnPlaceholder": "お使いの列名",
+      "columnsLabel": "列を対応付ける",
+      "deliveryDelta": "変更分のみ",
+      "deliveryHint": "既定値は意図的に用意していません。ファイルが販売中のすべてを列挙している場合、そこに無い商品は販売をやめたものとみなされ、Mercariaは掲載を終了します。変更分のみを列挙している場合、無いことに意味はなく、Mercariaは何もしません。ここを誤ると、健全なカタログの掲載を終了させるか、売り切れた商品を販売し続けることになります。",
+      "deliveryLabel": "このファイルに含まれるものは？",
+      "deliverySnapshot": "販売中のすべて",
+      "formatLabel": "形式",
+      "requiredSuffix": "（必須）",
+      "save": "マッピングを保存",
+      "title": "新規マッピング",
+      "urlHint": "HTTPSのみ。Mercariaはこれを非公開で保管し、表示するのはホスト名だけです。フィードURLにはアクセスキーが含まれることがよくあります。",
+      "urlLabel": "フィードURL",
+      "urlPlaceholder": "https://example.com/products.csv"
+    },
+    "never": "なし",
+    "new": {
+      "create": "フィードを作成",
+      "documentTitle": "新規商品フィード | Mercaria Dashboard",
+      "identityColumnsHint": "カンマ区切りで最大4つ。あとから変更できません。これはMercariaが前回のファイルと今回のファイルで同じ商品を見分ける手がかりであり、変更するとカタログをすべて入れ替えたように見えてしまいます。別の列が必要な場合は、新しいフィードを作成してください。",
+      "identityColumnsLabel": "各商品を識別する列",
+      "identityColumnsPlaceholder": "id, sku",
+      "nameLabel": "フィード名",
+      "namePlaceholder": "メインカタログ",
+      "sourceNameHint": "Mercariaのカタログ記録上で、このフィードがどう表示されるか。",
+      "sourceNameLabel": "ソース名",
+      "sourceNamePlaceholder": "Acme Supplies カタログ",
+      "subtitle": "Mercariaが定期的に読み取るCSV、TSV、XML、JSON、JSONLファイル",
+      "title": "新規商品フィード"
+    },
+    "reports": {
+      "counts": "読み取り %{scanned}件 · 有効 %{valid}件 · 要対応 %{invalid}件",
+      "note": "ダウンロードできるレポートには、行番号と何が問題だったかのみが記載されます。ファイルはお手元にあるため、値そのものは含みません。",
+      "title": "レポート"
+    },
+    "toast": {
+      "checkFailed": "フィードを確認できませんでした",
+      "checked": "%{scanned}件のレコードを確認しました — %{invalid}件が要対応です",
+      "createFailed": "フィードを作成できませんでした",
+      "created": "フィードを作成しました",
+      "deliveryModeRequired": "ファイルが全件のスナップショットか、変更分のみかを選択してください",
+      "identityColumnsRequired": "各商品を識別する列を1つ以上指定してください",
+      "mappingActivateFailed": "マッピングを有効化できませんでした",
+      "mappingActivated": "マッピングを有効化しました",
+      "mappingSaveFailed": "マッピングを保存できませんでした",
+      "mappingSaved": "マッピングを保存しました。有効化する前にプレビューしてください",
+      "nameRequired": "フィードに名前を付けてください",
+      "previewFailed": "フィードをプレビューできませんでした",
+      "sourceNameTooShort": "ソース名は3文字以上必要です",
+      "syncStartFailed": "同期を開始できませんでした",
+      "syncStarted": "同期を開始しました",
+      "titleMappingRequired": "商品タイトルに対応する列を指定してください",
+      "urlMustBeHttps": "フィードURLは https:// から始まる必要があります"
+    },
+    "unscheduled": "未定",
+    "versions": {
+      "activate": "有効化",
+      "checkItFirst": "先に確認してください",
+      "checkWholeFeed": "フィード全体を確認",
+      "deliveryChangesOnly": "変更分のみ",
+      "deliveryFullSnapshot": "全件スナップショット",
+      "empty": "マッピングがまだありません",
+      "emptyBody": "下でファイルの内容を指定し、その列をMercariaの項目に対応付けてください。",
+      "fetchedOverHttps": " · HTTPSで取得",
+      "preview": "プレビュー",
+      "previewCounts": "読み取り %{scanned}件 · 有効 %{valid}件 · 無効 %{invalid}件 · 照合 %{matched}件 · 新規 %{created}件 · 要確認 %{review}件",
+      "previewReadNothing": "プレビューは何も読み取りませんでした。結果が空の場合と、どの行にも一致しないマッピングの場合は見分けがつきません。有効化する前に、ファイルとレコードのパスを確認してください。",
+      "suggestedColumns": "推奨される列：%{columns}",
+      "summary": "%{format} · %{delivery}%{fetch}",
+      "title": "マッピング",
+      "uploaded": " · アップロード済み",
+      "version": "バージョン %{version}"
+    }
+  },
+  "home": {
+    "documentTitle": "ダッシュボード | Mercaria",
+    "inventory": {
+      "lowStock": {
+        "one": "在庫を管理しているバリエーションのうち%{count}件が、在庫僅少のしきい値以下です。",
+        "other": "在庫を管理しているバリエーションのうち%{count}件が、在庫僅少のしきい値以下です。"
+      },
+      "noneLow": "在庫僅少のバリエーションはありません。",
+      "title": "在庫"
+    },
+    "orderStatus": {
+      "cancelled": "キャンセル済み",
+      "delivered": "配達済み",
+      "paid": "支払い済み",
+      "partiallyRefunded": "一部返金済み",
+      "pendingPayment": "支払い待ち",
+      "processing": "処理中",
+      "refunded": "返金済み",
+      "shipped": "発送済み"
+    },
+    "reportsError": "レポートを読み込めませんでした",
+    "sales": {
+      "empty": "この期間の売上はまだありません。",
+      "title": "売上（前期間）"
+    },
+    "stats": {
+      "averageOrder": "平均注文額",
+      "paidOrders": "支払い済み注文",
+      "refunds": "返金",
+      "revenue": "売上高"
+    },
+    "statusBreakdown": {
+      "empty": "注文はまだありません。",
+      "title": "ステータス別の注文"
+    },
+    "subtitle": "ストアの概要",
+    "topProducts": {
+      "empty": "売上はまだありません。",
+      "title": "売れ筋商品",
+      "unitsSold": {
+        "one": "%{count}点販売",
+        "other": "%{count}点販売"
+      }
+    }
+  },
+  "nav": {
+    "channels": "販売チャネル",
+    "collapseSidebar": "サイドバーを折りたたむ",
+    "collections": "コレクション",
+    "customers": "顧客",
+    "dashboard": "ダッシュボード",
+    "discounts": "割引",
+    "expandSidebar": "サイドバーを展開",
+    "orders": "注文",
+    "products": "商品",
+    "settings": "設定"
+  },
+  "orders": {
+    "detail": {
+      "documentTitle": "注文 | Mercaria Dashboard",
+      "fulfilment": "フルフィルメント",
+      "history": "履歴",
+      "itemVariantQuantity": "%{variant} · ×%{quantity}",
+      "items": "商品",
+      "loadFailed": "注文を読み込めませんでした",
+      "markedCancelled": "注文をキャンセル済みにしました",
+      "markedDelivered": "注文を配達済みにしました",
+      "markedProcessing": "注文を処理中にしました",
+      "markedShipped": "注文を発送済みにしました",
+      "refund": "返金",
+      "refundFallbackLabel": "返金",
+      "refunds": "返金",
+      "shipTo": "配送先",
+      "subtitle": "注文の詳細",
+      "title": "注文",
+      "trackingLabel": "追跡番号（任意）",
+      "trackingPlaceholder": "1Z…",
+      "updateFailed": "注文を更新できませんでした"
+    },
+    "documentTitle": "注文 | Mercaria Dashboard",
+    "empty": {
+      "body": "顧客が購入すると、注文がここに表示されます。",
+      "title": "注文がありません"
+    },
+    "loadFailed": "注文を読み込めませんでした",
+    "pickup": {
+      "cancelAccessibilityLabel": "この受け取りをキャンセルする理由",
+      "cancelCollection": "受け取りをキャンセル",
+      "cancelLabel": "この受け取りをキャンセル — 理由",
+      "cancelNote": "引き渡しを取りやめ、コードを無効にします。注文はキャンセルされず、返金も行われません。返金が必要な場合は、注文側で行ってください。",
+      "cancelPlaceholder": "保管中に在庫が破損したため",
+      "checkCodeAndHandOver": "コードを確認して引き渡し",
+      "codeAccessibilityLabel": "顧客が提示した受け取りコード",
+      "codeLabel": "顧客が提示したコード",
+      "codePlaceholder": "ABCD234567",
+      "event": {
+        "codeRejected": "コードを拒否",
+        "codeRevoked": "コードを無効化",
+        "codeRotated": "コードを再発行",
+        "codeValidated": "コードを承認",
+        "collected": "引き渡し済み",
+        "collectionRefused": "引き渡しを拒否",
+        "fallbackOverride": "上書きにより引き渡し",
+        "markedReady": "準備完了にしました",
+        "pickupCancelled": "受け取りをキャンセル"
+      },
+      "handOverWithOverride": "上書きして引き渡し",
+      "markReady": "受け取り準備完了にする",
+      "overrideAccessibilityLabel": "有効なコードなしで引き渡す理由",
+      "overrideLabel": "有効なコードなしで引き渡す — 理由",
+      "overrideNote": "理由とともに、下の履歴にご自身のアカウントで記録されます。",
+      "overridePlaceholder": "コードが読み取れず、本人確認書類で確認",
+      "rotate": "新しいコードを発行",
+      "rotateAccessibilityLabel": "新しい受け取りコードを発行する理由",
+      "rotateLabel": "新しいコードを発行 — 理由",
+      "rotatePlaceholder": "顧客からコードが漏れたと申告があったため",
+      "rotatedCodeNote": "このコードを顧客にお伝えください。以前のコードは使えません。",
+      "title": "店舗受け取り",
+      "toast": {
+        "cancelled": "受け取りをキャンセルしました",
+        "codeIssued": "新しいコードを発行しました",
+        "collected": "受け取りを記録しました",
+        "collectedWithOverride": "上書きで受け取りを記録しました",
+        "markedReady": "受け取り準備完了にしました"
+      },
+      "trail": "受け取り履歴",
+      "trailEmpty": "カウンターではまだ何も行われていません。"
+    },
+    "refund": {
+      "dialogTitle": "注文を返金",
+      "failed": "返金を処理できませんでした",
+      "itemMax": "%{variant} · 最大%{quantity}",
+      "processed": "返金を処理しました",
+      "quantityRequired": "返金する数量を入力してください",
+      "reasonLabel": "理由（任意）",
+      "reasonPlaceholder": "返金の理由は？",
+      "submit": "返金を処理"
+    },
+    "refundState": {
+      "canceled": "キャンセル済み",
+      "failed": "失敗",
+      "pending": "処理中",
+      "succeeded": "完了"
+    },
+    "row": {
+      "itemsPlacedOn": {
+        "one": "%{count}点 · %{date}",
+        "other": "%{count}点 · %{date}"
+      }
+    },
+    "status": {
+      "cancelled": "キャンセル済み",
+      "delivered": "配達済み",
+      "paid": "支払い済み",
+      "partiallyRefunded": "一部返金",
+      "pendingPayment": "支払い待ち",
+      "processing": "処理中",
+      "refunded": "返金済み",
+      "shipped": "発送済み"
+    },
+    "subtitle": "売上のフルフィルメントと追跡",
+    "title": "注文",
+    "totals": {
+      "discounts": "割引",
+      "heading": "合計金額",
+      "shipping": "配送",
+      "subtotal": "小計",
+      "tax": "税金",
+      "total": "合計"
+    }
+  },
+  "products": {
+    "addProduct": "商品を追加",
+    "detail": {
+      "archive": "アーカイブ",
+      "archiveFailed": "商品をアーカイブできませんでした",
+      "archived": "商品をアーカイブしました",
+      "channelSettings": "チャネル設定",
+      "documentTitle": "商品 | Mercaria Dashboard",
+      "loadFailed": "商品を読み込めませんでした",
+      "restrictedNotice": "この商品はモデレーションの判断待ちで制限されており、ここから再公開することはできません。",
+      "saveChanges": "変更を保存",
+      "saveFailed": "商品を保存できませんでした",
+      "saved": "商品を保存しました",
+      "title": "商品",
+      "variantCount": {
+        "one": "バリエーション%{count}件",
+        "other": "バリエーション%{count}件"
+      }
+    },
+    "documentTitle": "商品 | Mercaria Dashboard",
+    "empty": {
+      "action": "最初の商品を追加",
+      "title": "商品がまだありません"
+    },
+    "loadFailed": "商品を読み込めませんでした",
+    "new": {
+      "addVariant": "バリエーションを追加",
+      "categoryLabel": "カテゴリー（スラッグ）",
+      "categoryPlaceholder": "electronics",
+      "categoryRequired": "カテゴリーは必須です",
+      "createFailed": "商品を作成できませんでした",
+      "created": "商品を作成しました",
+      "descriptionPlaceholder": "商品の説明を入力",
+      "documentTitle": "新規商品 | Mercaria Dashboard",
+      "optionNameLabel": "オプション名（任意、例：サイズ）",
+      "optionNamePlaceholder": "サイズ",
+      "optionValueLabel": "%{option}の値",
+      "optionValuePlaceholder": "M",
+      "optionsHeading": "オプションとバリエーション",
+      "skuLabel": "SKU（任意）",
+      "skuPlaceholder": "SKU-123",
+      "submit": "商品を作成",
+      "subtitle": "カタログに商品を追加します",
+      "title": "新規商品",
+      "titlePlaceholder": "商品名",
+      "titleRequired": "タイトルは必須です",
+      "variantIndex": "バリエーション %{index}",
+      "variantPriceInvalid": "各バリエーションに有効な価格が必要です",
+      "vendorLabel": "販売元 / ブランド",
+      "vendorPlaceholder": "Acme"
+    },
+    "priceLabel": "価格（⊜）",
+    "row": {
+      "variantsInStock": {
+        "one": "バリエーション%{count}件 · 在庫%{stock}点",
+        "other": "バリエーション%{count}件 · 在庫%{stock}点"
+      }
+    },
+    "searchPlaceholder": "このページの商品を検索…",
+    "status": {
+      "active": "販売中",
+      "archived": "アーカイブ済み",
+      "draft": "下書き",
+      "restricted": "制限中",
+      "sold": "売却済み"
+    },
+    "stockLabel": "在庫",
+    "subtitle": "ストアのカタログ",
+    "title": "商品",
+    "variants": {
+      "add": "追加",
+      "addFailed": "バリエーションを追加できませんでした",
+      "added": "バリエーションを追加しました",
+      "available": "販売可能",
+      "heading": "バリエーションと在庫",
+      "inventoryUpdateFailed": "在庫を更新できませんでした",
+      "inventoryUpdated": "在庫を更新しました",
+      "priceInvalid": "有効な価格を入力してください",
+      "removeFailed": "バリエーションを削除できませんでした",
+      "removeVariant": "バリエーションを削除",
+      "removed": "バリエーションを削除しました",
+      "saveVariant": "バリエーションを保存",
+      "set": "設定",
+      "updateFailed": "バリエーションを更新できませんでした",
+      "updated": "バリエーションを更新しました",
+      "valuePlaceholder": "値"
+    }
+  },
+  "settings": {
+    "documentTitle": "設定 | Mercaria Dashboard",
+    "language": {
+      "description": "このダッシュボードを表示する言語です。この端末に保存され、顧客に表示される内容は変わりません。",
+      "title": "言語"
+    },
+    "locations": {
+      "createFailed": "ロケーションを作成できませんでした",
+      "created": "ロケーションを作成しました",
+      "defaultFlag": " · デフォルト",
+      "deleteFailed": "ロケーションを削除できませんでした",
+      "deleted": "ロケーションを削除しました",
+      "documentTitle": "ロケーション | Mercaria Dashboard",
+      "inactiveFlag": " · 無効",
+      "loadFailed": "ロケーションを読み込めませんでした",
+      "namePlaceholder": "メイン倉庫",
+      "nameRequired": "名前は必須です",
+      "newTitle": "新規ロケーション",
+      "subtitle": "在庫を保管する場所",
+      "title": "ロケーション",
+      "types": {
+        "popUp": "ポップアップ",
+        "retail": "店舗",
+        "virtual": "バーチャル",
+        "warehouse": "倉庫"
+      }
+    },
+    "members": {
+      "addFailed": "メンバーを追加できませんでした",
+      "addMember": "メンバーを追加",
+      "added": "メンバーを追加しました",
+      "documentTitle": "メンバー | Mercaria Dashboard",
+      "explicitPermissions": {
+        "one": "個別に付与された権限%{count}件",
+        "other": "個別に付与された権限%{count}件"
+      },
+      "invite": "招待",
+      "inviteTitle": "メンバーを招待",
+      "joinedOn": "参加日 %{date}",
+      "loadFailed": "メンバーを読み込めませんでした",
+      "oxyUserIdLabel": "OxyユーザーID",
+      "oxyUserIdPlaceholder": "OxyユーザーID",
+      "oxyUserIdRequired": "メンバーのOxyユーザーIDを入力してください",
+      "removeFailed": "メンバーを削除できませんでした",
+      "removed": "メンバーを削除しました",
+      "roleLabel": "役割",
+      "roleUpdateFailed": "メンバーを更新できませんでした",
+      "roleUpdated": "役割を更新しました",
+      "roles": {
+        "admin": "管理者",
+        "owner": "オーナー",
+        "staff": "スタッフ"
+      },
+      "subtitle": "このストアを管理できる人",
+      "title": "メンバーと役割"
+    },
+    "payments": {
+      "beingReviewed": "審査中",
+      "documentTitle": "決済と入金 | Mercaria Dashboard",
+      "dueBy": "期限",
+      "itemCount": {
+        "one": "%{count}件",
+        "other": "%{count}件"
+      },
+      "loadFailed": "決済設定を読み込めませんでした",
+      "neededNow": "今すぐ必要",
+      "onboardingUnavailable": "このMercaria環境では、入金の設定をまだ利用できません。",
+      "openFailed": "入金の設定を開けませんでした",
+      "outstandingTitle": "Stripeで未対応の項目",
+      "paidOutIn": "入金通貨",
+      "payoutsTitle": "入金",
+      "quoteToSupport": "サポートが必要な場合は、これをMercariaサポートにお伝えください。",
+      "registeredIn": "登録国",
+      "reportedByStripe": "Stripeからの報告",
+      "requirementsNote": "これらの情報はStripeが保持しており、入力できるのはStripeのみです。Mercariaがこれらを見ることはありません。",
+      "schedule": "スケジュール",
+      "scheduleWithDelay": {
+        "one": "%{interval}、%{count}日後",
+        "other": "%{interval}、%{count}日後"
+      },
+      "states": {
+        "actionRequired": {
+          "action": "設定を続ける",
+          "body": "入金の前に、Stripeが追加の情報を必要としています。すべてが揃うまで、購入者はあなたの商品をチェックアウトできません。",
+          "heading": "あと少し情報が必要です"
+        },
+        "disabled": {
+          "body": "Stripeがこの連携アカウントを閉鎖したか、Mercariaとの接続が解除されました。購入者はあなたの商品をチェックアウトできません。Mercariaサポートにお問い合わせください。",
+          "heading": "このアカウントは使用できません"
+        },
+        "notConnected": {
+          "action": "入金を設定",
+          "body": "商品は表示され、Mercariaの他の機能もすべて使えますが、購入者はまだチェックアウトできません。入金の設定は数分で完了します。",
+          "heading": "未設定"
+        },
+        "ready": {
+          "action": "入金情報を管理",
+          "body": "購入者はあなたの商品をチェックアウトでき、Stripeが残高を銀行口座へ入金します。",
+          "heading": "入金を受け取れます"
+        },
+        "restricted": {
+          "action": "今すぐ対応",
+          "body": "Stripeが求めた対応が期限を過ぎたため、入金が停止され、購入者はあなたの商品をチェックアウトできません。対応を完了すると、どちらも再開されます。",
+          "heading": "入金が停止しています"
+        },
+        "underReview": {
+          "body": "Stripeは必要な情報を受け取り、審査しています。あなたが行うことはありません。通常は1〜2日で完了します。完了するまで、購入者はあなたの商品をチェックアウトできません。",
+          "heading": "審査中"
+        }
+      },
+      "subtitle": "Mercariaで受けた注文の入金方法",
+      "title": "決済と入金"
+    },
+    "plan": {
+      "alwaysIncludedBody": "カタログの管理、注文の受け付けとフルフィルメント、返金、自身の売上・入金記録の閲覧、データのエクスポートは、すべてのMercariaストアで無料であり、プランに含まれることはありません。このページの操作でこれが変わることはなく、どのプランも商品の見つかりやすさや順位に影響しません。",
+      "alwaysIncludedTitle": "常に含まれるもの",
+      "cancelFailed": "キャンセルできませんでした。もう一度お試しください。",
+      "cancelPlan": "プランを解約",
+      "capabilityWithLimit": "%{name} · %{limit}まで",
+      "choosePlan": "%{plan}を選択",
+      "documentTitle": "プランと請求 | Mercaria Dashboard",
+      "endsOn": "%{date}に終了します。",
+      "free": "無料",
+      "graceEndsOn": "支払いが完了しない場合、このプランの追加機能は%{date}に停止します。",
+      "loadFailed": "プランを読み込めませんでした",
+      "manageBilling": "請求を管理",
+      "noExtras": "このストアで有効な、プランの追加機能はありません。",
+      "noPaidPlans": "現在ご利用いただける有料プランはありません。提供が始まった際には、同意いただく前に、内容と価格をすべてここに表示します。",
+      "notOnPaidPlan": "有料プランはご利用ではありません。上に挙げたものはすべて含まれています。",
+      "paidPlansTitle": "有料プラン",
+      "portalFailed": "請求画面を開けませんでした。もう一度お試しください。",
+      "pricePerMonth": "%{price} · 月額",
+      "pricePerYear": "%{price} · 年額",
+      "renewsOn": "%{date}に更新されます。",
+      "statuses": {
+        "active": {
+          "body": "プランは自動的に更新されます。いつでも解約でき、お支払い済みの期間の終わりまでご利用いただけます。",
+          "heading": "有効"
+        },
+        "cancelled": {
+          "body": "下の日付まで、このプランの追加機能をご利用いただけます。それ以外は変わりません。",
+          "heading": "期間の終わりに解約"
+        },
+        "expired": {
+          "body": "このプランの追加機能は有効ではありません。無料で含まれるものは、これまでどおりです。",
+          "heading": "終了しました"
+        },
+        "pastDue": {
+          "body": "カタログ、注文、返金、記録には影響がなく、今後も変わりません。影響を受けるのはこのプランの追加機能のみで、それも下の日付以降です。",
+          "heading": "前回のお支払いを処理できませんでした"
+        },
+        "paused": {
+          "body": "一時停止中は、このプランの追加機能は有効になりません。",
+          "heading": "一時停止中"
+        },
+        "trialing": {
+          "body": "トライアルが終わるまで、このプランの追加機能をすべてご利用いただけます。",
+          "heading": "トライアル中"
+        }
+      },
+      "subtitle": "ストアが得られるものと、その費用",
+      "title": "プランと請求",
+      "trialNotice": {
+        "one": "%{count}日間のトライアルが含まれます。",
+        "other": "%{count}日間のトライアルが含まれます。"
+      },
+      "upgradeFailed": "アップグレードを開始できませんでした。もう一度お試しください。",
+      "usageIncluded": "含まれる",
+      "usageNoLimit": "%{used}使用 · 上限なし",
+      "usageOfLimit": "%{limit}中%{used}を使用"
+    },
+    "policies": {
+      "documentTitle": "ポリシー | Mercaria Dashboard",
+      "loadFailed": "設定を読み込めませんでした",
+      "lowStockAlerts": "在庫僅少アラート",
+      "notifications": "通知",
+      "orderEmails": "注文メール",
+      "privacyPolicyLabel": "プライバシーポリシー",
+      "privacyPolicyPlaceholder": "プライバシーポリシー…",
+      "refundPolicyLabel": "返金ポリシー",
+      "refundPolicyPlaceholder": "返金ポリシー…",
+      "returnWindowLabel": "返品可能期間（日数）",
+      "saveFailed": "設定を保存できませんでした",
+      "saveSettings": "設定を保存",
+      "saved": "設定を保存しました",
+      "subtitle": "ストア全体のルールとアラート",
+      "termsLabel": "利用規約",
+      "termsPlaceholder": "利用規約…",
+      "title": "ポリシーと通知"
+    },
+    "sections": {
+      "channels": {
+        "description": "Shopifyなどのストアを接続して同期",
+        "label": "販売チャネル"
+      },
+      "locations": {
+        "description": "在庫を保管する場所",
+        "label": "ロケーション"
+      },
+      "members": {
+        "description": "招待、役割と権限の編集",
+        "label": "メンバーと役割"
+      },
+      "payments": {
+        "description": "Mercariaで受けた注文の入金を受け取る",
+        "label": "決済と入金"
+      },
+      "plan": {
+        "description": "ストアが得られるものと、その費用",
+        "label": "プランと請求"
+      },
+      "policies": {
+        "description": "返品、返金・プライバシー・利用規約、アラート",
+        "label": "ポリシーと通知"
+      },
+      "profile": {
+        "description": "名前、ハンドル、ブランドカラー、ステータス",
+        "label": "ストアプロフィール"
+      },
+      "tax": {
+        "description": "税率と税の扱い",
+        "label": "税金"
+      }
+    },
+    "store": {
+      "brandColorLabel": "ブランドカラー",
+      "documentTitle": "ストアプロフィール | Mercaria Dashboard",
+      "loadFailed": "ストアを読み込めませんでした",
+      "nameLabel": "ストア名",
+      "nameRequired": "ストア名は必須です",
+      "saveChanges": "変更を保存",
+      "title": "ストアプロフィール",
+      "updateFailed": "ストアを更新できませんでした",
+      "updated": "ストアを更新しました"
+    },
+    "subtitle": "ストアを設定する",
+    "tax": {
+      "active": "有効",
+      "countryLabel": "国（ISO-2）",
+      "countryPlaceholder": "US",
+      "createFailed": "税率を作成できませんでした",
+      "created": "税率を作成しました",
+      "deleteFailed": "税率を削除できませんでした",
+      "deleted": "税率を削除しました",
+      "documentTitle": "税金 | Mercaria Dashboard",
+      "emptyBody": "チェックアウトで税を課すには、税率を追加してください。",
+      "emptyTitle": "税率がありません",
+      "inactive": "無効",
+      "invalidRate": "有効な税率を入力してください",
+      "loadFailed": "税率を読み込めませんでした",
+      "namePlaceholder": "消費税",
+      "nameRequired": "名前は必須です",
+      "newRate": "新規税率",
+      "newRateTitle": "新しい税率",
+      "rateLabel": "税率（%）",
+      "regionLabel": "地域",
+      "regionPlaceholder": "CA",
+      "subtitle": "チェックアウトで適用される税率",
+      "title": "税金"
+    },
+    "title": "設定"
+  },
+  "stores": {
+    "create": {
+      "descriptionPlaceholder": "何を販売していますか？",
+      "dialogTitle": "ストアを作成",
+      "error": "ストアを作成できませんでした",
+      "nameLabel": "ストア名",
+      "namePlaceholder": "Acme Supply Co.",
+      "nameRequired": "ストア名は必須です",
+      "success": "ストアを作成しました"
+    },
+    "createStore": "ストアを作成",
+    "documentTitle": "ストア | Mercaria Dashboard",
+    "empty": {
+      "body": "最初のストアを作成して、Mercariaで販売を始めましょう。",
+      "title": "ストアがまだありません"
+    },
+    "loadError": "ストアを読み込めませんでした",
+    "newStore": "新規ストア",
+    "selectStore": "ストアを選択",
+    "storeMeta": {
+      "one": "@%{handle} · %{count}商品",
+      "other": "@%{handle} · %{count}商品"
+    },
+    "subtitle": "管理するストアを選択",
+    "switch": "ストアを切り替え",
+    "title": "ストア一覧"
+  }
+}

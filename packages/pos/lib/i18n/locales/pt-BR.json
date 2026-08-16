@@ -1,0 +1,186 @@
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "Entrar",
+    "signInBody": "Entre com sua conta Oxy para abrir o caixa — registre vendas presenciais, vincule clientes e cobre."
+  },
+  "cart": {
+    "addCustomer": "Adicionar cliente",
+    "clear": "Limpar",
+    "clearCart": "Limpar carrinho",
+    "customerAttached": "Vinculado a esta venda",
+    "decreaseQuantity": "Diminuir quantidade",
+    "discountCodePlaceholder": "Código de desconto",
+    "documentTitle": "Carrinho | Mercaria POS",
+    "emptyBody": "Toque nos produtos para adicioná-los à venda.",
+    "emptyTitle": "Carrinho vazio",
+    "increaseQuantity": "Aumentar quantidade",
+    "itemCount": {
+      "one": "%{count} item",
+      "other": "%{count} itens"
+    },
+    "removeItem": "Remover item",
+    "subtotal": "Subtotal",
+    "title": "Carrinho"
+  },
+  "catalog": {
+    "add": "Adicionar",
+    "availableCount": {
+      "one": "%{count} disponível",
+      "other": "%{count} disponíveis"
+    },
+    "chooseVariant": "Escolha uma variante",
+    "codePlaceholder": "Leia ou digite SKU / código de barras",
+    "emptyBody": "Nada corresponde à sua busca.",
+    "emptyTitle": "Nenhum produto",
+    "inStockCount": {
+      "one": "%{count} em estoque",
+      "other": "%{count} em estoque"
+    },
+    "loadFailed": "Não foi possível carregar o catálogo",
+    "lookupFailed": "Falha na consulta",
+    "noProductForCode": "Nenhum produto para esse código",
+    "outOfStock": "Sem estoque",
+    "searchPlaceholder": "Buscar no catálogo",
+    "soldOut": "Esgotado"
+  },
+  "charge": {
+    "action": "Cobrar",
+    "customer": "Cliente",
+    "documentTitle": "Cobrança | Mercaria POS",
+    "expectedTotal": "Total previsto",
+    "failed": "Falha na cobrança",
+    "finalTotalNote": "O total final (descontos e impostos) é calculado quando a venda é concluída.",
+    "subtitle": "Confira e conclua a venda",
+    "tender": "Forma de pagamento",
+    "tenderCard": "Cartão",
+    "tenderCash": "Dinheiro",
+    "title": "Cobrança"
+  },
+  "common": {
+    "all": "Todos",
+    "name": "Nome",
+    "next": "Próximo",
+    "noAccess": "Sem acesso",
+    "noAccessBody": "Você não tem permissão para ver esta área na loja ativa.",
+    "optional": "Opcional",
+    "pleaseTryAgain": "Tente novamente.",
+    "previous": "Anterior",
+    "retry": "Tentar novamente",
+    "somethingWentWrong": "Algo deu errado"
+  },
+  "customer": {
+    "addAndAttach": "Adicionar e vincular",
+    "addFailed": "Não foi possível adicionar o cliente",
+    "added": "Cliente adicionado",
+    "documentTitle": "Cliente | Mercaria POS",
+    "email": "E-mail",
+    "emailPlaceholder": "maria@exemplo.com",
+    "fallbackName": "Cliente",
+    "loadFailed": "Não foi possível carregar os clientes",
+    "namePlaceholder": "Maria Silva",
+    "noMatches": "Nenhum cliente corresponde.",
+    "phone": "Telefone",
+    "phonePlaceholder": "+55 11 90000-0000",
+    "quickAdd": "Cadastro rápido",
+    "quickAddEmpty": "Informe um nome, e-mail ou telefone",
+    "searchPlaceholder": "Buscar clientes",
+    "subtitle": "Vincule um cliente ou mantenha como venda avulsa",
+    "title": "Cliente",
+    "walkIn": "Cliente avulso",
+    "walkInOption": "Cliente avulso (sem cadastro)"
+  },
+  "errors": {
+    "noRegisterAccessBody": "Você não tem permissão para usar o caixa na loja ativa.",
+    "notFoundAction": "Ir para o caixa",
+    "notFoundBody": "Esta tela não existe.",
+    "notFoundDocumentTitle": "404 - Não encontrado | Mercaria POS",
+    "notFoundHeading": "Ops!",
+    "unexpectedBody": "Ocorreu um erro inesperado. Você pode tentar novamente e, se o problema continuar, nossa equipe já foi avisada."
+  },
+  "locations": {
+    "type": {
+      "popUp": "Pop-up",
+      "retail": "Varejo",
+      "virtual": "Virtual",
+      "warehouse": "Depósito"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "Recolher barra lateral",
+    "expandSidebar": "Expandir barra lateral",
+    "register": "Caixa",
+    "sales": "Vendas",
+    "selectStore": "Selecionar loja",
+    "switchStore": "Trocar de loja"
+  },
+  "orders": {
+    "channel": {
+      "draft": "Rascunho",
+      "pos": "Ponto de venda",
+      "storefront": "Loja virtual"
+    },
+    "status": {
+      "cancelled": "Cancelado",
+      "delivered": "Entregue",
+      "paid": "Pago",
+      "partiallyRefunded": "Reembolsado parcialmente",
+      "pendingPayment": "Pagamento pendente",
+      "processing": "Em processamento",
+      "refunded": "Reembolsado",
+      "shipped": "Enviado"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "Desconto",
+    "documentTitle": "Recibo | Mercaria POS",
+    "loadFailed": "Não foi possível carregar o recibo",
+    "loadFailedBody": "O pedido pode não estar disponível.",
+    "newSale": "Nova venda",
+    "orderNumber": "Pedido %{number}",
+    "paymentRecorded": "Pagamento registrado",
+    "saleComplete": "Venda concluída",
+    "subtotal": "Subtotal",
+    "tax": "Impostos",
+    "title": "Recibo",
+    "total": "Total"
+  },
+  "register": {
+    "documentTitle": "Caixa | Mercaria POS",
+    "reviewCart": "Revisar carrinho",
+    "reviewCartWithCount": {
+      "one": "%{count} item · Revisar carrinho",
+      "other": "%{count} itens · Revisar carrinho"
+    }
+  },
+  "sales": {
+    "documentTitle": "Vendas | Mercaria POS",
+    "emptyBody": "As vendas concluídas aparecerão aqui.",
+    "emptyTitle": "Nenhuma venda ainda",
+    "loadFailed": "Não foi possível carregar as vendas",
+    "orderLabel": "Pedido %{number}",
+    "pageNumber": "Página %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "Pedidos recentes"
+  },
+  "storeSetup": {
+    "changeStore": "Trocar de loja",
+    "chooseRegisterSubtitle": "Escolha o local em que este caixa dá baixa no estoque",
+    "chooseRegisterTitle": "Escolha um caixa",
+    "chooseStoreSubtitle": "Escolha a loja para a qual você está vendendo",
+    "chooseStoreTitle": "Escolha uma loja",
+    "defaultLocation": "Padrão",
+    "documentTitle": "Configuração da loja | Mercaria POS",
+    "locationsLoadFailed": "Não foi possível carregar os locais",
+    "noLocationsBody": "Crie um local no Mercaria Dashboard primeiro e volte aqui para abrir o caixa.",
+    "noLocationsTitle": "Nenhum local",
+    "noStoresBody": "Crie uma loja no Mercaria Dashboard primeiro e volte aqui para abrir o caixa.",
+    "noStoresTitle": "Nenhuma loja ainda",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} produto",
+      "other": "@%{handle} · %{count} produtos"
+    },
+    "storesLoadFailed": "Não foi possível carregar suas lojas"
+  }
+}

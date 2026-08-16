@@ -11,16 +11,18 @@ import { RequireStore } from "@/components/shell/RequireStore";
 import { useCustomers, useCreateCustomer } from "@/lib/hooks/use-customers";
 import { useRegisterCart } from "@/lib/stores/register-cart";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
+import { useTranslation } from "@/lib/i18n";
 
 /** Debounce (ms) for the customer search box. */
 const SEARCH_DEBOUNCE_MS = 300;
 
 /** Attach (or clear) the customer for the current register sale. */
 export default function CustomerScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Customer | Mercaria POS</title>
+        <title>{t("customer.documentTitle")}</title>
       </Head>
       <RequireStore permission="customers:read">
         {(storeId) => <CustomerPicker storeId={storeId} />}
@@ -32,6 +34,7 @@ export default function CustomerScreen() {
 function CustomerPicker({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const setCustomerId = useRegisterCart((s) => s.setCustomerId);
 
   const [search, setSearch] = useState("");
@@ -46,7 +49,7 @@ function CustomerPicker({ storeId }: { storeId: string }) {
   };
 
   return (
-    <Screen title="Customer" subtitle="Attach a customer or keep it a walk-in">
+    <Screen title={t("customer.title")} subtitle={t("customer.subtitle")}>
       <View className="gap-4">
         <Pressable
           onPress={() => attach(null)}
@@ -54,20 +57,22 @@ function CustomerPicker({ storeId }: { storeId: string }) {
           className="min-h-[56px] flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-4 active:opacity-80"
         >
           <UserX size={20} color={colors.mutedForeground} />
-          <Text className="text-base font-semibold text-foreground">Walk-in (no customer)</Text>
+          <Text className="text-base font-semibold text-foreground">
+            {t("customer.walkInOption")}
+          </Text>
         </Pressable>
 
         <Input
           value={search}
           onChangeText={setSearch}
-          placeholder="Search customers"
+          placeholder={t("customer.searchPlaceholder")}
           className="h-12"
         />
 
         {isPending ? (
           <ScreenLoading />
         ) : isError ? (
-          <ScreenMessage title="Couldn't load customers" body="Please try again." />
+          <ScreenMessage title={t("customer.loadFailed")} body={t("common.pleaseTryAgain")} />
         ) : customers.length > 0 ? (
           <View className="gap-2">
             {customers.map((customer) => (
@@ -75,7 +80,7 @@ function CustomerPicker({ storeId }: { storeId: string }) {
             ))}
           </View>
         ) : (
-          <Text className="px-1 text-sm text-muted-foreground">No customers match.</Text>
+          <Text className="px-1 text-sm text-muted-foreground">{t("customer.noMatches")}</Text>
         )}
 
         <QuickAddCustomer
@@ -88,7 +93,8 @@ function CustomerPicker({ storeId }: { storeId: string }) {
 }
 
 function CustomerRow({ customer, onPress }: { customer: Customer; onPress: () => void }) {
-  const subtitle = customer.email ?? customer.phone ?? (customer.isWalkIn ? "Walk-in" : "");
+  const { t } = useTranslation();
+  const subtitle = customer.email ?? customer.phone ?? (customer.isWalkIn ? t("customer.walkIn") : "");
   return (
     <Pressable
       onPress={onPress}
@@ -97,7 +103,7 @@ function CustomerRow({ customer, onPress }: { customer: Customer; onPress: () =>
     >
       <View className="flex-1">
         <Text className="text-base font-semibold text-foreground" numberOfLines={1}>
-          {customer.displayName ?? "Customer"}
+          {customer.displayName ?? t("customer.fallbackName")}
         </Text>
         {subtitle ? (
           <Text className="text-sm text-muted-foreground" numberOfLines={1}>
@@ -116,6 +122,7 @@ function QuickAddCustomer({
   storeId: string;
   onCreated: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -123,7 +130,7 @@ function QuickAddCustomer({
 
   const submit = () => {
     if (!displayName.trim() && !email.trim() && !phone.trim()) {
-      toast.error("Enter a name, email or phone");
+      toast.error(t("customer.quickAddEmpty"));
       return;
     }
     createCustomer.mutate(
@@ -134,44 +141,51 @@ function QuickAddCustomer({
       },
       {
         onSuccess: (customer) => {
-          toast.success("Customer added");
+          toast.success(t("customer.added"));
           onCreated(customer.id);
         },
-        onError: () => toast.error("Couldn't add the customer"),
+        onError: () => toast.error(t("customer.addFailed")),
       },
     );
   };
 
   return (
     <View className="gap-3 rounded-2xl border border-dashed border-border p-4">
-      <Text className="text-base font-semibold text-foreground">Quick add</Text>
+      <Text className="text-base font-semibold text-foreground">{t("customer.quickAdd")}</Text>
       <View className="gap-1.5">
-        <Label>Name</Label>
-        <Input value={displayName} onChangeText={setDisplayName} placeholder="Jane Doe" className="h-11" />
+        <Label>{t("common.name")}</Label>
+        <Input
+          value={displayName}
+          onChangeText={setDisplayName}
+          placeholder={t("customer.namePlaceholder")}
+          className="h-11"
+        />
       </View>
       <View className="gap-1.5">
-        <Label>Email</Label>
+        <Label>{t("customer.email")}</Label>
         <Input
           value={email}
           onChangeText={setEmail}
-          placeholder="jane@example.com"
+          placeholder={t("customer.emailPlaceholder")}
           autoCapitalize="none"
           keyboardType="email-address"
           className="h-11"
         />
       </View>
       <View className="gap-1.5">
-        <Label>Phone</Label>
+        <Label>{t("customer.phone")}</Label>
         <Input
           value={phone}
           onChangeText={setPhone}
-          placeholder="+1 555 0100"
+          placeholder={t("customer.phonePlaceholder")}
           keyboardType="phone-pad"
           className="h-11"
         />
       </View>
       <Button onPress={submit} isLoading={createCustomer.isPending} className="mt-1 h-12">
-        <Text className="font-semibold text-primary-foreground">Add &amp; attach</Text>
+        <Text className="font-semibold text-primary-foreground">
+          {t("customer.addAndAttach")}
+        </Text>
       </Button>
     </View>
   );

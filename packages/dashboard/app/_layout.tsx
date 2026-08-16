@@ -19,6 +19,10 @@ import { OXY_CLIENT_ID, OXY_API_URL } from "@/lib/config";
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from "@/lib/themePersistence";
 import "react-native-reanimated";
 import "../global.css";
+// Side-effect import at the ROOT: building the i18n store applies the resolved
+// locale (device, then the persisted preference) before the first paint, so no
+// screen renders a frame of English on a device set to another language.
+import "@/lib/i18n";
 
 export { ErrorBoundary } from "expo-router";
 

@@ -20,15 +20,33 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { useTranslation } from "@/lib/i18n";
 import { useLocations, useCreateLocation, useDeleteLocation } from "@/lib/hooks/use-tax-and-locations";
 
 const TYPES: LocationType[] = ["warehouse", "retail", "pop_up", "virtual"];
 
+/**
+ * Display label per location type (#398).
+ *
+ * A KEY per type rather than the word itself: this map is evaluated at import,
+ * before the locale store has rehydrated, and `LocationType` is a wire
+ * identifier that must keep reaching the API verbatim. It also replaces the old
+ * `type.replace("_", " ")` prettifier, which was English word-splitting applied
+ * to an enum.
+ */
+const LOCATION_TYPE_LABEL_KEYS: Record<LocationType, string> = {
+  warehouse: "settings.locations.types.warehouse",
+  retail: "settings.locations.types.retail",
+  pop_up: "settings.locations.types.popUp",
+  virtual: "settings.locations.types.virtual",
+};
+
 export default function LocationsScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Locations | Mercaria Dashboard</title>
+        <title>{t("settings.locations.documentTitle")}</title>
       </Head>
       <RequireStore permission="locations:write">
         {(storeId) => <LocationsBody storeId={storeId} />}
@@ -40,6 +58,7 @@ export default function LocationsScreen() {
 function LocationsBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data, isPending, isError } = useLocations(storeId);
   const deleteLocation = useDeleteLocation(storeId);
   const [createOpen, setCreateOpen] = useState(false);
@@ -51,23 +70,30 @@ function LocationsBody({ storeId }: { storeId: string }) {
         className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
       >
         <ChevronLeft size={16} color={colors.foreground} />
-        <Text className="text-sm font-medium text-foreground">Back</Text>
+        <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
       </Pressable>
       <Button onPress={() => setCreateOpen(true)}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">New</Text>
+          <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
         </View>
       </Button>
     </View>
   );
 
   return (
-    <Screen title="Locations" subtitle="Where you stock inventory" action={back}>
+    <Screen
+      title={t("settings.locations.title")}
+      subtitle={t("settings.locations.subtitle")}
+      action={back}
+    >
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load locations" body="Please try again." />
+        <ScreenMessage
+          title={t("settings.locations.loadFailed")}
+          body={t("common.pleaseTryAgain")}
+        />
       ) : (
         <View className="gap-2">
           {data?.map((location) => (
@@ -76,8 +102,8 @@ function LocationsBody({ storeId }: { storeId: string }) {
               location={location}
               onDelete={() =>
                 deleteLocation.mutate(location.id, {
-                  onSuccess: () => toast.success("Location deleted"),
-                  onError: () => toast.error("Couldn't delete the location"),
+                  onSuccess: () => toast.success(t("settings.locations.deleted")),
+                  onError: () => toast.error(t("settings.locations.deleteFailed")),
                 })
               }
             />
@@ -92,6 +118,7 @@ function LocationsBody({ storeId }: { storeId: string }) {
 
 function LocationRow({ location, onDelete }: { location: Location; onDelete: () => void }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
       <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
@@ -99,10 +126,14 @@ function LocationRow({ location, onDelete }: { location: Location; onDelete: () 
       </View>
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground">{location.name}</Text>
+        {/*
+          Each flag key carries its own " · " separator, so a translator sees the
+          whole visible fragment rather than a word torn off a punctuation mark.
+        */}
         <Text className="text-xs capitalize text-muted-foreground">
-          {location.type.replace("_", " ")}
-          {location.isDefault ? " · default" : ""}
-          {location.isActive ? "" : " · inactive"}
+          {t(LOCATION_TYPE_LABEL_KEYS[location.type])}
+          {location.isDefault ? t("settings.locations.defaultFlag") : ""}
+          {location.isActive ? "" : t("settings.locations.inactiveFlag")}
         </Text>
       </View>
       {!location.isDefault ? (
@@ -124,24 +155,25 @@ function CreateLocationDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const createLocation = useCreateLocation(storeId);
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [type, setType] = useState<LocationType>("warehouse");
 
   const submit = () => {
     if (!name.trim()) {
-      toast.error("Name is required");
+      toast.error(t("settings.locations.nameRequired"));
       return;
     }
     createLocation.mutate(
       { name: name.trim(), type },
       {
         onSuccess: () => {
-          toast.success("Location created");
+          toast.success(t("settings.locations.created"));
           setName("");
           setType("warehouse");
           onOpenChange(false);
         },
-        onError: () => toast.error("Couldn't create the location"),
+        onError: () => toast.error(t("settings.locations.createFailed")),
       },
     );
   };
@@ -150,29 +182,35 @@ function CreateLocationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New location</DialogTitle>
+          <DialogTitle>{t("settings.locations.newTitle")}</DialogTitle>
         </DialogHeader>
         <View className="gap-4">
           <View className="gap-1.5">
-            <Label>Name</Label>
-            <Input value={name} onChangeText={setName} placeholder="Main warehouse" />
+            <Label>{t("common.name")}</Label>
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder={t("settings.locations.namePlaceholder")}
+            />
           </View>
           <View className="gap-1.5">
-            <Label>Type</Label>
+            <Label>{t("common.type")}</Label>
             <ToggleGroup
               type="single"
               value={type}
               onValueChange={(v) => typeof v === "string" && v && setType(v as LocationType)}
             >
-              {TYPES.map((t) => (
-                <ToggleGroupItem key={t} value={t}>
-                  <Text className="text-sm capitalize text-foreground">{t.replace("_", " ")}</Text>
+              {TYPES.map((locationType) => (
+                <ToggleGroupItem key={locationType} value={locationType}>
+                  <Text className="text-sm capitalize text-foreground">
+                    {t(LOCATION_TYPE_LABEL_KEYS[locationType])}
+                  </Text>
                 </ToggleGroupItem>
               ))}
             </ToggleGroup>
           </View>
           <Button onPress={submit} isLoading={createLocation.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">Create</Text>
+            <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
           </Button>
         </View>
       </DialogContent>

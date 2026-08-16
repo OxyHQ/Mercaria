@@ -4,6 +4,7 @@ import type { StorePermission } from "@mercaria/shared-types";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useActiveStoreContext, useMyStores } from "@/lib/hooks/use-stores";
 import { useActiveStore } from "@/lib/stores/active-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface RequireStoreProps {
   /** Permission the active screen requires. When the caller lacks it, a clean
@@ -26,6 +27,7 @@ interface RequireStoreProps {
  */
 export function RequireStore({ permission, children }: RequireStoreProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { hydrated } = useActiveStore();
   const { isPending } = useMyStores();
   const { activeStoreId, store, can } = useActiveStoreContext();
@@ -42,10 +44,7 @@ export function RequireStore({ permission, children }: RequireStoreProps) {
 
   if (permission && !can(permission)) {
     return (
-      <ScreenMessage
-        title="No access"
-        body="You don't have permission to view this area for the active store."
-      />
+      <ScreenMessage title={t("common.noAccess")} body={t("common.noAccessBody")} />
     );
   }
 

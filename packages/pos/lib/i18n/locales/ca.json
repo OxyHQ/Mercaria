@@ -1,0 +1,186 @@
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "Inicia la sessió",
+    "signInBody": "Inicia la sessió amb el teu compte d'Oxy per obrir la caixa: registra vendes presencials, vincula clients i cobra."
+  },
+  "cart": {
+    "addCustomer": "Afegeix un client",
+    "clear": "Buida",
+    "clearCart": "Buida la cistella",
+    "customerAttached": "Vinculat a aquesta venda",
+    "decreaseQuantity": "Redueix la quantitat",
+    "discountCodePlaceholder": "Codi de descompte",
+    "documentTitle": "Cistella | Mercaria POS",
+    "emptyBody": "Toca els productes per afegir-los a la venda.",
+    "emptyTitle": "La cistella és buida",
+    "increaseQuantity": "Augmenta la quantitat",
+    "itemCount": {
+      "one": "%{count} article",
+      "other": "%{count} articles"
+    },
+    "removeItem": "Elimina l'article",
+    "subtotal": "Subtotal",
+    "title": "Cistella"
+  },
+  "catalog": {
+    "add": "Afegeix",
+    "availableCount": {
+      "one": "%{count} disponible",
+      "other": "%{count} disponibles"
+    },
+    "chooseVariant": "Tria una variant",
+    "codePlaceholder": "Escaneja o escriu el SKU / codi de barres",
+    "emptyBody": "No hi ha res que coincideixi amb la cerca.",
+    "emptyTitle": "Cap producte",
+    "inStockCount": {
+      "one": "%{count} en estoc",
+      "other": "%{count} en estoc"
+    },
+    "loadFailed": "No s'ha pogut carregar el catàleg",
+    "lookupFailed": "La cerca ha fallat",
+    "noProductForCode": "Cap producte amb aquest codi",
+    "outOfStock": "Sense estoc",
+    "searchPlaceholder": "Cerca al catàleg",
+    "soldOut": "Esgotat"
+  },
+  "charge": {
+    "action": "Cobra",
+    "customer": "Client",
+    "documentTitle": "Cobrament | Mercaria POS",
+    "expectedTotal": "Total previst",
+    "failed": "El cobrament ha fallat",
+    "finalTotalNote": "El total final (descomptes i impostos) es calcula quan es tanca la venda.",
+    "subtitle": "Revisa i tanca la venda",
+    "tender": "Forma de pagament",
+    "tenderCard": "Targeta",
+    "tenderCash": "Efectiu",
+    "title": "Cobrament"
+  },
+  "common": {
+    "all": "Tot",
+    "name": "Nom",
+    "next": "Següent",
+    "noAccess": "Sense accés",
+    "noAccessBody": "No tens permís per veure aquesta àrea de la botiga activa.",
+    "optional": "Opcional",
+    "pleaseTryAgain": "Torna-ho a provar.",
+    "previous": "Anterior",
+    "retry": "Torna-ho a provar",
+    "somethingWentWrong": "Alguna cosa ha anat malament"
+  },
+  "customer": {
+    "addAndAttach": "Afegeix i vincula",
+    "addFailed": "No s'ha pogut afegir el client",
+    "added": "Client afegit",
+    "documentTitle": "Client | Mercaria POS",
+    "email": "Correu electrònic",
+    "emailPlaceholder": "maria@example.com",
+    "fallbackName": "Client",
+    "loadFailed": "No s'han pogut carregar els clients",
+    "namePlaceholder": "Maria Garcia",
+    "noMatches": "Cap client coincideix.",
+    "phone": "Telèfon",
+    "phonePlaceholder": "+34 600 000 000",
+    "quickAdd": "Alta ràpida",
+    "quickAddEmpty": "Introdueix un nom, un correu o un telèfon",
+    "searchPlaceholder": "Cerca clients",
+    "subtitle": "Vincula un client o deixa-ho com a client de pas",
+    "title": "Client",
+    "walkIn": "Client de pas",
+    "walkInOption": "De pas (sense client)"
+  },
+  "errors": {
+    "noRegisterAccessBody": "No tens permís per fer servir la caixa de la botiga activa.",
+    "notFoundAction": "Ves a la caixa",
+    "notFoundBody": "Aquesta pantalla no existeix.",
+    "notFoundDocumentTitle": "404 - No s'ha trobat | Mercaria POS",
+    "notFoundHeading": "Vaja!",
+    "unexpectedBody": "S'ha produït un error inesperat. Pots tornar-ho a provar i, si el problema continua, el nostre equip ja n'està informat."
+  },
+  "locations": {
+    "type": {
+      "popUp": "Pop-up",
+      "retail": "Botiga",
+      "virtual": "Virtual",
+      "warehouse": "Magatzem"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "Redueix la barra lateral",
+    "expandSidebar": "Amplia la barra lateral",
+    "register": "Caixa",
+    "sales": "Vendes",
+    "selectStore": "Selecciona una botiga",
+    "switchStore": "Canvia de botiga"
+  },
+  "orders": {
+    "channel": {
+      "draft": "Esborrany",
+      "pos": "Punt de venda",
+      "storefront": "Botiga en línia"
+    },
+    "status": {
+      "cancelled": "Cancel·lada",
+      "delivered": "Lliurada",
+      "paid": "Pagada",
+      "partiallyRefunded": "Reemborsada parcialment",
+      "pendingPayment": "Pagament pendent",
+      "processing": "En procés",
+      "refunded": "Reemborsada",
+      "shipped": "Enviada"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "Descompte",
+    "documentTitle": "Rebut | Mercaria POS",
+    "loadFailed": "No s'ha pogut carregar el rebut",
+    "loadFailedBody": "Pot ser que la comanda no estigui disponible.",
+    "newSale": "Venda nova",
+    "orderNumber": "Comanda %{number}",
+    "paymentRecorded": "Pagament registrat",
+    "saleComplete": "Venda completada",
+    "subtotal": "Subtotal",
+    "tax": "Impostos",
+    "title": "Rebut",
+    "total": "Total"
+  },
+  "register": {
+    "documentTitle": "Caixa | Mercaria POS",
+    "reviewCart": "Revisa la cistella",
+    "reviewCartWithCount": {
+      "one": "%{count} article · Revisa la cistella",
+      "other": "%{count} articles · Revisa la cistella"
+    }
+  },
+  "sales": {
+    "documentTitle": "Vendes | Mercaria POS",
+    "emptyBody": "Les vendes completades apareixeran aquí.",
+    "emptyTitle": "Encara no hi ha vendes",
+    "loadFailed": "No s'han pogut carregar les vendes",
+    "orderLabel": "Comanda %{number}",
+    "pageNumber": "Pàgina %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "Comandes recents"
+  },
+  "storeSetup": {
+    "changeStore": "Canvia de botiga",
+    "chooseRegisterSubtitle": "Tria la ubicació on aquesta caixa descompta l'estoc",
+    "chooseRegisterTitle": "Tria una caixa",
+    "chooseStoreSubtitle": "Tria la botiga per a la qual vens",
+    "chooseStoreTitle": "Tria una botiga",
+    "defaultLocation": "Predeterminada",
+    "documentTitle": "Configuració de la botiga | Mercaria POS",
+    "locationsLoadFailed": "No s'han pogut carregar les ubicacions",
+    "noLocationsBody": "Primer crea una ubicació al Dashboard i torna aquí per obrir la caixa.",
+    "noLocationsTitle": "Cap ubicació",
+    "noStoresBody": "Primer crea una botiga al Dashboard de Mercaria i torna aquí per obrir la caixa.",
+    "noStoresTitle": "Encara no hi ha botigues",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} producte",
+      "other": "@%{handle} · %{count} productes"
+    },
+    "storesLoadFailed": "No s'han pogut carregar les teves botigues"
+  }
+}

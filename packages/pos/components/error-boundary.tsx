@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Pressable, ScrollView, Platform } from 'react-native';
 import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -87,6 +88,7 @@ function ErrorFallback({
   error: Error;
   resetError: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View
       style={{
@@ -137,7 +139,7 @@ function ErrorFallback({
             marginBottom: 8,
           }}
         >
-          Something went wrong
+          {t('common.somethingWentWrong')}
         </Text>
 
         {/* Description */}
@@ -150,8 +152,7 @@ function ErrorFallback({
             marginBottom: 24,
           }}
         >
-          An unexpected error occurred. You can try again, and if the problem
-          persists, our team has been notified.
+          {t('errors.unexpectedBody')}
         </Text>
 
         {/* Error details (collapsible in dev) */}
@@ -191,7 +192,7 @@ function ErrorFallback({
             alignItems: 'center',
           })}
           accessibilityRole="button"
-          accessibilityLabel="Try again"
+          accessibilityLabel={t('common.retry')}
         >
           <Text
             style={{
@@ -200,7 +201,7 @@ function ErrorFallback({
               color: '#ffffff',
             }}
           >
-            Try Again
+            {t('common.retry')}
           </Text>
         </Pressable>
       </View>

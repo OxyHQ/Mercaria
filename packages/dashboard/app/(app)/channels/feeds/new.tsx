@@ -21,13 +21,15 @@ import { Button, Input, Label, Text } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { useTranslation } from "@/lib/i18n";
 import { useCreateFeed } from "@/lib/hooks/use-feeds";
 
 export default function NewFeedScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>New product feed | Mercaria Dashboard</title>
+        <title>{t("feeds.new.documentTitle")}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <NewFeedBody storeId={storeId} />}
@@ -38,6 +40,7 @@ export default function NewFeedScreen() {
 
 function NewFeedBody({ storeId }: { storeId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const create = useCreateFeed(storeId);
   const [label, setLabel] = useState("");
   const [sourceName, setSourceName] = useState("");
@@ -45,11 +48,11 @@ function NewFeedBody({ storeId }: { storeId: string }) {
 
   const submit = () => {
     if (label.trim().length === 0) {
-      toast.error("Give the feed a name");
+      toast.error(t("feeds.toast.nameRequired"));
       return;
     }
     if (sourceName.trim().length < 3) {
-      toast.error("The source name needs at least 3 characters");
+      toast.error(t("feeds.toast.sourceNameTooShort"));
       return;
     }
     // Bounded to four server-side: a composite key longer than that is a row
@@ -60,7 +63,7 @@ function NewFeedBody({ storeId }: { storeId: string }) {
       .map((column) => column.trim())
       .filter((column) => column.length > 0);
     if (identityKeyFields.length === 0) {
-      toast.error("Name at least one column that identifies each product");
+      toast.error(t("feeds.toast.identityColumnsRequired"));
       return;
     }
 
@@ -68,53 +71,49 @@ function NewFeedBody({ storeId }: { storeId: string }) {
       { label: label.trim(), sourceName: sourceName.trim(), identityKeyFields },
       {
         onSuccess: (feed) => {
-          toast.success("Feed created");
+          toast.success(t("feeds.toast.created"));
           router.replace(`/channels/feeds/${feed.id}`);
         },
-        onError: () => toast.error("Couldn't create the feed"),
+        onError: () => toast.error(t("feeds.toast.createFailed")),
       },
     );
   };
 
   return (
-    <Screen
-      title="New product feed"
-      subtitle="A CSV, TSV, XML, JSON or JSONL file Mercaria reads on a schedule"
-    >
+    <Screen title={t("feeds.new.title")} subtitle={t("feeds.new.subtitle")}>
       <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
         <View className="gap-1.5">
-          <Label>Feed name</Label>
-          <Input value={label} onChangeText={setLabel} placeholder="Main catalog" />
+          <Label>{t("feeds.new.nameLabel")}</Label>
+          <Input
+            value={label}
+            onChangeText={setLabel}
+            placeholder={t("feeds.new.namePlaceholder")}
+          />
         </View>
         <View className="gap-1.5">
-          <Label>Source name</Label>
+          <Label>{t("feeds.new.sourceNameLabel")}</Label>
           <Input
             value={sourceName}
             onChangeText={setSourceName}
-            placeholder="Acme Supplies catalog"
+            placeholder={t("feeds.new.sourceNamePlaceholder")}
           />
-          <Text className="text-xs text-muted-foreground">
-            How this feed appears in Mercaria&apos;s own catalog records.
-          </Text>
+          <Text className="text-xs text-muted-foreground">{t("feeds.new.sourceNameHint")}</Text>
         </View>
         <View className="gap-1.5">
-          <Label>Columns that identify each product</Label>
+          <Label>{t("feeds.new.identityColumnsLabel")}</Label>
           <Input
             value={identityColumns}
             onChangeText={setIdentityColumns}
-            placeholder="id, sku"
+            placeholder={t("feeds.new.identityColumnsPlaceholder")}
             autoCapitalize="none"
             autoCorrect={false}
           />
           <Text className="text-xs text-muted-foreground">
-            Comma-separated, up to four. These cannot be changed later: they are how Mercaria
-            recognises the same product between one file and the next, so changing them would look
-            like you replaced your entire catalogue. If you need different columns, create a new
-            feed.
+            {t("feeds.new.identityColumnsHint")}
           </Text>
         </View>
         <Button onPress={submit} isLoading={create.isPending}>
-          <Text className="font-semibold text-primary-foreground">Create feed</Text>
+          <Text className="font-semibold text-primary-foreground">{t("feeds.new.create")}</Text>
         </Button>
       </View>
     </Screen>

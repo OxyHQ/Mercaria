@@ -1,0 +1,186 @@
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "साइन इन",
+    "signInBody": "रजिस्टर खोलने के लिए अपने Oxy अकाउंट से साइन इन करें — सामने खड़े ग्राहक की बिक्री दर्ज करें, ग्राहक जोड़ें और पेमेंट लें।"
+  },
+  "cart": {
+    "addCustomer": "ग्राहक जोड़ें",
+    "clear": "खाली करें",
+    "clearCart": "कार्ट खाली करें",
+    "customerAttached": "इस बिक्री से जुड़ा हुआ",
+    "decreaseQuantity": "मात्रा घटाएँ",
+    "discountCodePlaceholder": "डिस्काउंट कोड",
+    "documentTitle": "कार्ट | Mercaria POS",
+    "emptyBody": "बिक्री में जोड़ने के लिए प्रोडक्ट पर टैप करें।",
+    "emptyTitle": "कार्ट खाली है",
+    "increaseQuantity": "मात्रा बढ़ाएँ",
+    "itemCount": {
+      "one": "%{count} आइटम",
+      "other": "%{count} आइटम"
+    },
+    "removeItem": "आइटम हटाएँ",
+    "subtotal": "सबटोटल",
+    "title": "कार्ट"
+  },
+  "catalog": {
+    "add": "जोड़ें",
+    "availableCount": {
+      "one": "%{count} उपलब्ध",
+      "other": "%{count} उपलब्ध"
+    },
+    "chooseVariant": "वेरिएंट चुनें",
+    "codePlaceholder": "SKU / बारकोड स्कैन करें या टाइप करें",
+    "emptyBody": "आपकी खोज से कुछ नहीं मिला।",
+    "emptyTitle": "कोई प्रोडक्ट नहीं",
+    "inStockCount": {
+      "one": "%{count} स्टॉक में",
+      "other": "%{count} स्टॉक में"
+    },
+    "loadFailed": "कैटलॉग लोड नहीं हो सका",
+    "lookupFailed": "खोज नहीं हो सकी",
+    "noProductForCode": "इस कोड का कोई प्रोडक्ट नहीं",
+    "outOfStock": "स्टॉक खत्म",
+    "searchPlaceholder": "कैटलॉग में खोजें",
+    "soldOut": "बिक चुका"
+  },
+  "charge": {
+    "action": "चार्ज करें",
+    "customer": "ग्राहक",
+    "documentTitle": "चार्ज | Mercaria POS",
+    "expectedTotal": "अनुमानित कुल",
+    "failed": "चार्ज नहीं हो सका",
+    "finalTotalNote": "अंतिम कुल (डिस्काउंट और टैक्स सहित) बिक्री दर्ज होते समय निकाला जाता है।",
+    "subtitle": "जाँच लें और बिक्री दर्ज करें",
+    "tender": "पेमेंट का तरीका",
+    "tenderCard": "कार्ड",
+    "tenderCash": "कैश",
+    "title": "चार्ज"
+  },
+  "common": {
+    "all": "सभी",
+    "name": "नाम",
+    "next": "आगे",
+    "noAccess": "एक्सेस नहीं",
+    "noAccessBody": "चालू स्टोर के लिए यह हिस्सा देखने की अनुमति आपके पास नहीं है।",
+    "optional": "वैकल्पिक",
+    "pleaseTryAgain": "कृपया फिर कोशिश करें।",
+    "previous": "पीछे",
+    "retry": "फिर कोशिश करें",
+    "somethingWentWrong": "कुछ गड़बड़ हो गई"
+  },
+  "customer": {
+    "addAndAttach": "जोड़ें और लगाएँ",
+    "addFailed": "ग्राहक नहीं जुड़ सका",
+    "added": "ग्राहक जुड़ गया",
+    "documentTitle": "ग्राहक | Mercaria POS",
+    "email": "ईमेल",
+    "emailPlaceholder": "reena@example.com",
+    "fallbackName": "ग्राहक",
+    "loadFailed": "ग्राहक लोड नहीं हो सके",
+    "namePlaceholder": "रीना शर्मा",
+    "noMatches": "कोई ग्राहक नहीं मिला।",
+    "phone": "फ़ोन",
+    "phonePlaceholder": "+91 98765 43210",
+    "quickAdd": "झटपट जोड़ें",
+    "quickAddEmpty": "नाम, ईमेल या फ़ोन डालें",
+    "searchPlaceholder": "ग्राहक खोजें",
+    "subtitle": "ग्राहक जोड़ें, या वॉक-इन ही रहने दें",
+    "title": "ग्राहक",
+    "walkIn": "वॉक-इन",
+    "walkInOption": "वॉक-इन (कोई ग्राहक नहीं)"
+  },
+  "errors": {
+    "noRegisterAccessBody": "चालू स्टोर के लिए रजिस्टर चलाने की अनुमति आपके पास नहीं है।",
+    "notFoundAction": "रजिस्टर पर जाएँ",
+    "notFoundBody": "यह स्क्रीन मौजूद नहीं है।",
+    "notFoundDocumentTitle": "404 - नहीं मिला | Mercaria POS",
+    "notFoundHeading": "ओह!",
+    "unexpectedBody": "कोई अनपेक्षित गड़बड़ हुई। आप फिर कोशिश कर सकते हैं; दिक्कत बनी रहे तो हमारी टीम को इसकी सूचना मिल चुकी है।"
+  },
+  "locations": {
+    "type": {
+      "popUp": "पॉप-अप",
+      "retail": "रिटेल",
+      "virtual": "वर्चुअल",
+      "warehouse": "गोदाम"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "साइडबार समेटें",
+    "expandSidebar": "साइडबार फैलाएँ",
+    "register": "रजिस्टर",
+    "sales": "बिक्री",
+    "selectStore": "स्टोर चुनें",
+    "switchStore": "स्टोर बदलें"
+  },
+  "orders": {
+    "channel": {
+      "draft": "ड्राफ्ट",
+      "pos": "पॉइंट ऑफ़ सेल",
+      "storefront": "स्टोरफ्रंट"
+    },
+    "status": {
+      "cancelled": "रद्द किया गया",
+      "delivered": "डिलीवर हो गया",
+      "paid": "पेमेंट हुआ",
+      "partiallyRefunded": "आंशिक रिफंड",
+      "pendingPayment": "पेमेंट बाकी",
+      "processing": "प्रोसेसिंग",
+      "refunded": "रिफंड हुआ",
+      "shipped": "शिप किया गया"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "डिस्काउंट",
+    "documentTitle": "रसीद | Mercaria POS",
+    "loadFailed": "रसीद लोड नहीं हो सकी",
+    "loadFailedBody": "हो सकता है यह ऑर्डर उपलब्ध न हो।",
+    "newSale": "नई बिक्री",
+    "orderNumber": "ऑर्डर %{number}",
+    "paymentRecorded": "पेमेंट दर्ज हो गया",
+    "saleComplete": "बिक्री पूरी हुई",
+    "subtotal": "सबटोटल",
+    "tax": "टैक्स",
+    "title": "रसीद",
+    "total": "कुल"
+  },
+  "register": {
+    "documentTitle": "रजिस्टर | Mercaria POS",
+    "reviewCart": "कार्ट देखें",
+    "reviewCartWithCount": {
+      "one": "%{count} आइटम · कार्ट देखें",
+      "other": "%{count} आइटम · कार्ट देखें"
+    }
+  },
+  "sales": {
+    "documentTitle": "बिक्री | Mercaria POS",
+    "emptyBody": "पूरी हुई बिक्री यहाँ दिखेगी।",
+    "emptyTitle": "अभी कोई बिक्री नहीं",
+    "loadFailed": "बिक्री लोड नहीं हो सकी",
+    "orderLabel": "ऑर्डर %{number}",
+    "pageNumber": "पेज %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "हाल के ऑर्डर"
+  },
+  "storeSetup": {
+    "changeStore": "स्टोर बदलें",
+    "chooseRegisterSubtitle": "वह लोकेशन चुनें जिससे यह रजिस्टर स्टॉक घटाएगा",
+    "chooseRegisterTitle": "रजिस्टर चुनें",
+    "chooseStoreSubtitle": "वह स्टोर चुनें जिसके लिए आप बेच रहे हैं",
+    "chooseStoreTitle": "स्टोर चुनें",
+    "defaultLocation": "डिफ़ॉल्ट",
+    "documentTitle": "स्टोर सेटअप | Mercaria POS",
+    "locationsLoadFailed": "लोकेशन लोड नहीं हो सकीं",
+    "noLocationsBody": "पहले Dashboard में एक लोकेशन बनाएँ, फिर रजिस्टर खोलने के लिए यहाँ लौटें।",
+    "noLocationsTitle": "कोई लोकेशन नहीं",
+    "noStoresBody": "पहले Mercaria Dashboard में एक स्टोर बनाएँ, फिर रजिस्टर खोलने के लिए यहाँ लौटें।",
+    "noStoresTitle": "अभी कोई स्टोर नहीं",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} प्रोडक्ट",
+      "other": "@%{handle} · %{count} प्रोडक्ट"
+    },
+    "storesLoadFailed": "आपके स्टोर लोड नहीं हो सके"
+  }
+}

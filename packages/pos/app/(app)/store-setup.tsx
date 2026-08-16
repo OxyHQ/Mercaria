@@ -14,6 +14,8 @@ import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen"
 import { useMyStores } from "@/lib/hooks/use-stores";
 import { useLocations } from "@/lib/hooks/use-locations";
 import { useActiveStore } from "@/lib/stores/active-store";
+import { useTranslation } from "@/lib/i18n";
+import { LOCATION_TYPE_LABEL_KEYS } from "@/lib/order-labels";
 
 /**
  * Store + register picker. The operator first picks the store they're working
@@ -23,11 +25,12 @@ import { useActiveStore } from "@/lib/stores/active-store";
  */
 export default function StoreSetupScreen() {
   const { activeStoreId } = useActiveStore();
+  const { t } = useTranslation();
 
   return (
     <>
       <Head>
-        <title>Store setup | Mercaria POS</title>
+        <title>{t("storeSetup.documentTitle")}</title>
       </Head>
       {activeStoreId ? <LocationStep storeId={activeStoreId} /> : <StoreStep />}
     </>
@@ -37,6 +40,7 @@ export default function StoreSetupScreen() {
 /** Step A — pick the store to ring up against. */
 function StoreStep() {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data: stores, isPending, isError } = useMyStores();
   const { setActiveStoreId } = useActiveStore();
 
@@ -46,11 +50,11 @@ function StoreStep() {
   };
 
   return (
-    <Screen title="Choose a store" subtitle="Pick the store you're selling for">
+    <Screen title={t("storeSetup.chooseStoreTitle")} subtitle={t("storeSetup.chooseStoreSubtitle")}>
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load your stores" body="Please try again." />
+        <ScreenMessage title={t("storeSetup.storesLoadFailed")} body={t("common.pleaseTryAgain")} />
       ) : stores && stores.length > 0 ? (
         <View className="gap-3">
           {stores.map((store) => (
@@ -68,7 +72,10 @@ function StoreStep() {
               <View className="flex-1">
                 <Text className="text-base font-semibold text-foreground">{store.name}</Text>
                 <Text className="text-sm text-muted-foreground">
-                  @{store.handle} · {store.productCount} products
+                  {t("storeSetup.storeMeta", {
+                    handle: store.handle,
+                    count: store.productCount,
+                  })}
                 </Text>
               </View>
             </Pressable>
@@ -77,10 +84,11 @@ function StoreStep() {
       ) : (
         <View className="items-center justify-center rounded-2xl border border-dashed border-border py-16">
           <StoreIcon size={36} color={colors.mutedForeground} />
-          <Text className="mt-4 text-base font-semibold text-foreground">No stores yet</Text>
+          <Text className="mt-4 text-base font-semibold text-foreground">
+            {t("storeSetup.noStoresTitle")}
+          </Text>
           <Text className="mt-1 max-w-xs text-center text-sm text-muted-foreground">
-            Create a store in the Mercaria Dashboard first, then return here to open
-            the register.
+            {t("storeSetup.noStoresBody")}
           </Text>
         </View>
       )}
@@ -92,6 +100,7 @@ function StoreStep() {
 function LocationStep({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data: locations, isPending, isError } = useLocations(storeId);
   const {
     activeLocationId,
@@ -113,21 +122,24 @@ function LocationStep({ storeId }: { storeId: string }) {
     <Button variant="outline" onPress={changeStore}>
       <View className="flex-row items-center gap-1.5">
         <ChevronLeft size={16} color={colors.foreground} />
-        <Text className="font-semibold text-foreground">Change store</Text>
+        <Text className="font-semibold text-foreground">{t("storeSetup.changeStore")}</Text>
       </View>
     </Button>
   );
 
   return (
     <Screen
-      title="Choose a register"
-      subtitle="Pick the location this register commits stock at"
+      title={t("storeSetup.chooseRegisterTitle")}
+      subtitle={t("storeSetup.chooseRegisterSubtitle")}
       action={action}
     >
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load locations" body="Please try again." />
+        <ScreenMessage
+          title={t("storeSetup.locationsLoadFailed")}
+          body={t("common.pleaseTryAgain")}
+        />
       ) : locations && locations.length > 0 ? (
         <View className="gap-3">
           {locations.map((location) => (
@@ -144,12 +156,14 @@ function LocationStep({ storeId }: { storeId: string }) {
                   <Text className="text-base font-semibold text-foreground">{location.name}</Text>
                   {location.isDefault ? (
                     <View className="rounded-full bg-secondary px-2 py-0.5">
-                      <Text className="text-xs font-medium text-muted-foreground">Default</Text>
+                      <Text className="text-xs font-medium text-muted-foreground">
+                        {t("storeSetup.defaultLocation")}
+                      </Text>
                     </View>
                   ) : null}
                 </View>
-                <Text className="text-sm capitalize text-muted-foreground">
-                  {location.type.replace("_", " ")}
+                <Text className="text-sm text-muted-foreground">
+                  {t(LOCATION_TYPE_LABEL_KEYS[location.type])}
                 </Text>
               </View>
               {activeLocationId === location.id ? (
@@ -160,8 +174,8 @@ function LocationStep({ storeId }: { storeId: string }) {
         </View>
       ) : (
         <ScreenMessage
-          title="No locations"
-          body="Create a location in the Dashboard first, then return here to open the register."
+          title={t("storeSetup.noLocationsTitle")}
+          body={t("storeSetup.noLocationsBody")}
         />
       )}
     </Screen>

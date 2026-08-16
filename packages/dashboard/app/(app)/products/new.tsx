@@ -12,6 +12,7 @@ import { Text, Button, Input, Label, Textarea, useColorScheme } from "@mercaria/
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { useTranslation } from "@/lib/i18n";
 import { useCreateProduct } from "@/lib/hooks/use-products";
 import { toFairMinor } from "@/lib/money";
 
@@ -31,10 +32,11 @@ function newVariantDraft(): VariantDraft {
 }
 
 export default function NewProductScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>New product | Mercaria Dashboard</title>
+        <title>{t("products.new.documentTitle")}</title>
       </Head>
       <RequireStore permission="products:write">
         {(storeId) => <NewProductBody storeId={storeId} />}
@@ -45,6 +47,7 @@ export default function NewProductScreen() {
 
 function NewProductBody({ storeId }: { storeId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const createProduct = useCreateProduct(storeId);
 
@@ -61,11 +64,11 @@ function NewProductBody({ storeId }: { storeId: string }) {
 
   const submit = () => {
     if (!title.trim()) {
-      toast.error("Title is required");
+      toast.error(t("products.new.titleRequired"));
       return;
     }
     if (!category.trim()) {
-      toast.error("Category is required");
+      toast.error(t("products.new.categoryRequired"));
       return;
     }
 
@@ -73,7 +76,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
     for (const v of variants) {
       const priceMinor = toFairMinor(v.priceMajor);
       if (priceMinor === null) {
-        toast.error("Each variant needs a valid price");
+        toast.error(t("products.new.variantPriceInvalid"));
         return;
       }
       const available = Number.parseInt(v.available || "0", 10);
@@ -110,39 +113,54 @@ function NewProductBody({ storeId }: { storeId: string }) {
 
     createProduct.mutate(input, {
       onSuccess: (listing) => {
-        toast.success("Product created");
+        toast.success(t("products.new.created"));
         router.replace(`/products/${listing.id}`);
       },
-      onError: () => toast.error("Couldn't create the product"),
+      onError: () => toast.error(t("products.new.createFailed")),
     });
   };
 
   return (
-    <Screen title="New product" subtitle="Add a product to your catalog">
+    <Screen title={t("products.new.title")} subtitle={t("products.new.subtitle")}>
       <View className="gap-5">
-        <Field label="Title">
-          <Input value={title} onChangeText={setTitle} placeholder="Product name" />
+        <Field label={t("common.title")}>
+          <Input value={title} onChangeText={setTitle} placeholder={t("products.new.titlePlaceholder")} />
         </Field>
-        <Field label="Description">
-          <Textarea value={description} onChangeText={setDescription} placeholder="Describe the product" />
+        <Field label={t("common.description")}>
+          <Textarea
+            value={description}
+            onChangeText={setDescription}
+            placeholder={t("products.new.descriptionPlaceholder")}
+          />
         </Field>
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <Field label="Category (slug)">
-              <Input value={category} onChangeText={setCategory} placeholder="electronics" autoCapitalize="none" />
+            <Field label={t("products.new.categoryLabel")}>
+              <Input
+                value={category}
+                onChangeText={setCategory}
+                placeholder={t("products.new.categoryPlaceholder")}
+                autoCapitalize="none"
+              />
             </Field>
           </View>
           <View className="flex-1">
-            <Field label="Vendor / brand">
-              <Input value={vendor} onChangeText={setVendor} placeholder="Acme" />
+            <Field label={t("products.new.vendorLabel")}>
+              <Input value={vendor} onChangeText={setVendor} placeholder={t("products.new.vendorPlaceholder")} />
             </Field>
           </View>
         </View>
 
         <View className="rounded-2xl border border-border bg-surface p-4">
-          <Text className="mb-3 text-sm font-semibold text-foreground">Options & variants</Text>
-          <Field label="Option name (optional, e.g. Size)">
-            <Input value={optionName} onChangeText={setOptionName} placeholder="Size" />
+          <Text className="mb-3 text-sm font-semibold text-foreground">
+            {t("products.new.optionsHeading")}
+          </Text>
+          <Field label={t("products.new.optionNameLabel")}>
+            <Input
+              value={optionName}
+              onChangeText={setOptionName}
+              placeholder={t("products.new.optionNamePlaceholder")}
+            />
           </Field>
 
           <View className="mt-4 gap-3">
@@ -150,7 +168,7 @@ function NewProductBody({ storeId }: { storeId: string }) {
               <View key={v.key} className="rounded-xl border border-border p-3">
                 <View className="mb-2 flex-row items-center justify-between">
                   <Text className="text-xs font-semibold text-muted-foreground">
-                    Variant {idx + 1}
+                    {t("products.new.variantIndex", { index: idx + 1 })}
                   </Text>
                   {variants.length > 1 ? (
                     <Pressable
@@ -163,37 +181,41 @@ function NewProductBody({ storeId }: { storeId: string }) {
                 </View>
                 {optionName.trim() ? (
                   <View className="mb-2">
-                    <Label>{optionName.trim()} value</Label>
+                    <Label>{t("products.new.optionValueLabel", { option: optionName.trim() })}</Label>
                     <Input
                       value={v.title}
-                      onChangeText={(t) => updateVariant(v.key, { title: t })}
-                      placeholder="M"
+                      onChangeText={(value) => updateVariant(v.key, { title: value })}
+                      placeholder={t("products.new.optionValuePlaceholder")}
                     />
                   </View>
                 ) : null}
                 <View className="flex-row gap-2">
                   <View className="flex-1">
-                    <Label>Price (⊜)</Label>
+                    <Label>{t("products.priceLabel")}</Label>
                     <Input
                       value={v.priceMajor}
-                      onChangeText={(t) => updateVariant(v.key, { priceMajor: t })}
+                      onChangeText={(value) => updateVariant(v.key, { priceMajor: value })}
                       placeholder="0.00"
                       keyboardType="decimal-pad"
                     />
                   </View>
                   <View className="flex-1">
-                    <Label>Stock</Label>
+                    <Label>{t("products.stockLabel")}</Label>
                     <Input
                       value={v.available}
-                      onChangeText={(t) => updateVariant(v.key, { available: t })}
+                      onChangeText={(value) => updateVariant(v.key, { available: value })}
                       placeholder="0"
                       keyboardType="number-pad"
                     />
                   </View>
                 </View>
                 <View className="mt-2">
-                  <Label>SKU (optional)</Label>
-                  <Input value={v.sku} onChangeText={(t) => updateVariant(v.key, { sku: t })} placeholder="SKU-123" />
+                  <Label>{t("products.new.skuLabel")}</Label>
+                  <Input
+                    value={v.sku}
+                    onChangeText={(value) => updateVariant(v.key, { sku: value })}
+                    placeholder={t("products.new.skuPlaceholder")}
+                  />
                 </View>
               </View>
             ))}
@@ -207,17 +229,17 @@ function NewProductBody({ storeId }: { storeId: string }) {
           >
             <View className="flex-row items-center gap-1.5">
               <Plus size={14} color={colors.foreground} />
-              <Text className="text-sm font-medium text-foreground">Add variant</Text>
+              <Text className="text-sm font-medium text-foreground">{t("products.new.addVariant")}</Text>
             </View>
           </Button>
         </View>
 
         <View className="flex-row gap-3">
           <Button variant="outline" className="flex-1" onPress={() => router.back()}>
-            <Text className="font-medium text-foreground">Cancel</Text>
+            <Text className="font-medium text-foreground">{t("common.cancel")}</Text>
           </Button>
           <Button className="flex-1" onPress={submit} isLoading={createProduct.isPending}>
-            <Text className="font-semibold text-primary-foreground">Create product</Text>
+            <Text className="font-semibold text-primary-foreground">{t("products.new.submit")}</Text>
           </Button>
         </View>
       </View>

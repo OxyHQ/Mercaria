@@ -19,7 +19,7 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
-import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
+import { OrderStatusBadge, ORDER_STATUS_LABEL_KEYS } from "@/components/orders/OrderStatusBadge";
 import { PickupDeskCard } from "@/components/orders/PickupDeskCard";
 import {
   useOrder,
@@ -28,14 +28,16 @@ import {
   useOrderRefunds,
 } from "@/lib/hooks/use-orders";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
+import { useTranslation } from "@/lib/i18n";
 import type { FulfillmentStatus } from "@/lib/api/orders";
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Order | Mercaria Dashboard</title>
+        <title>{t("orders.detail.documentTitle")}</title>
       </Head>
       <RequireStore permission="orders:read">
         {(storeId) => <OrderDetailBody storeId={storeId} orderId={String(id)} />}
@@ -46,6 +48,7 @@ export default function OrderDetailScreen() {
 
 function OrderDetailBody({ storeId, orderId }: { storeId: string; orderId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const { data, isPending, isError } = useOrder(storeId, orderId);
 
@@ -55,27 +58,27 @@ function OrderDetailBody({ storeId, orderId }: { storeId: string; orderId: strin
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">Back</Text>
+      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
     </Pressable>
   );
 
   if (isPending) {
     return (
-      <Screen title="Order" action={back}>
+      <Screen title={t("orders.detail.title")} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !data) {
     return (
-      <Screen title="Order" action={back}>
-        <ScreenMessage title="Couldn't load order" body="Please try again." />
+      <Screen title={t("orders.detail.title")} action={back}>
+        <ScreenMessage title={t("orders.detail.loadFailed")} body={t("common.pleaseTryAgain")} />
       </Screen>
     );
   }
 
   return (
-    <Screen title={data.orderNumber} subtitle="Order detail" action={back}>
+    <Screen title={data.orderNumber} subtitle={t("orders.detail.subtitle")} action={back}>
       <OrderContent storeId={storeId} order={data} />
     </Screen>
   );
@@ -110,9 +113,10 @@ function OrderContent({ storeId, order }: { storeId: string; order: MerchantOrde
 }
 
 function ItemsCard({ items }: { items: OrderItem[] }) {
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Items</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.items")}</Text>
       <View className="gap-3">
         {items.map((item, idx) => (
           <View key={`${item.variantId}-${idx}`} className="flex-row items-center justify-between gap-3">
@@ -121,7 +125,10 @@ function ItemsCard({ items }: { items: OrderItem[] }) {
                 {item.title}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {item.variantTitle} · ×{item.quantity}
+                {t("orders.detail.itemVariantQuantity", {
+                  variant: item.variantTitle,
+                  quantity: item.quantity,
+                })}
               </Text>
             </View>
             <PriceDisplay price={item.lineTotal.shop} primaryClassName="text-sm font-semibold" />
@@ -144,23 +151,33 @@ function TotalRow({ label, amount, bold }: { label: string; amount: React.ReactN
 }
 
 function TotalsCard({ order }: { order: MerchantOrder }) {
+  const { t } = useTranslation();
   const { totals } = order;
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Totals</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.totals.heading")}</Text>
       <View className="gap-2">
-        <TotalRow label="Subtotal" amount={<PriceDisplay price={totals.subtotal.shop} primaryClassName="text-sm" />} />
+        <TotalRow
+          label={t("orders.totals.subtotal")}
+          amount={<PriceDisplay price={totals.subtotal.shop} primaryClassName="text-sm" />}
+        />
         {totals.discountTotal.shop.amount > 0 ? (
           <TotalRow
-            label="Discounts"
+            label={t("orders.totals.discounts")}
             amount={<PriceDisplay price={totals.discountTotal.shop} primaryClassName="text-sm text-destructive" />}
           />
         ) : null}
-        <TotalRow label="Tax" amount={<PriceDisplay price={totals.tax.shop} primaryClassName="text-sm" />} />
-        <TotalRow label="Shipping" amount={<PriceDisplay price={totals.shipping.shop} primaryClassName="text-sm" />} />
+        <TotalRow
+          label={t("orders.totals.tax")}
+          amount={<PriceDisplay price={totals.tax.shop} primaryClassName="text-sm" />}
+        />
+        <TotalRow
+          label={t("orders.totals.shipping")}
+          amount={<PriceDisplay price={totals.shipping.shop} primaryClassName="text-sm" />}
+        />
         <View className="my-1 h-px bg-border" />
         <TotalRow
-          label="Total"
+          label={t("orders.totals.total")}
           bold
           amount={<PriceDisplay price={totals.grandTotal.shop} primaryClassName="text-base font-bold" />}
         />
@@ -170,10 +187,11 @@ function TotalsCard({ order }: { order: MerchantOrder }) {
 }
 
 function ShippingAddressCard({ order }: { order: MerchantOrder }) {
+  const { t } = useTranslation();
   const a = order.shippingAddress;
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-2 text-sm font-semibold text-foreground">Ship to</Text>
+      <Text className="mb-2 text-sm font-semibold text-foreground">{t("orders.detail.shipTo")}</Text>
       <Text className="text-sm text-foreground">{a.recipientName}</Text>
       <Text className="text-sm text-muted-foreground">{a.line1}</Text>
       {a.line2 ? <Text className="text-sm text-muted-foreground">{a.line2}</Text> : null}
@@ -187,9 +205,10 @@ function ShippingAddressCard({ order }: { order: MerchantOrder }) {
 }
 
 function StatusHistoryCard({ order }: { order: MerchantOrder }) {
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">History</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.history")}</Text>
       <View className="gap-2">
         {order.statusHistory.map((event, idx) => (
           <View key={`${event.status}-${idx}`} className="flex-row items-center justify-between">
@@ -219,19 +238,24 @@ function StatusHistoryCard({ order }: { order: MerchantOrder }) {
  * Mercaria commits the record, before a cent has left the rail. Only
  * `providerState` answers what an operator on this screen is actually asking —
  * has the buyer got the money back yet.
+ *
+ * `labelKey` is a translation KEY rather than a sentence (#398): this map is
+ * evaluated at import, before the locale store has rehydrated, so a resolved
+ * label would freeze whatever language loaded first.
  */
 const REFUND_STATE_CHIPS: Record<
   RefundProviderState,
-  { label: string; bg: string; text: string }
+  { labelKey: string; bg: string; text: string }
 > = {
   // Approved and moving, but NOT yet in the buyer's hands — muted, not a success tone.
-  pending: { label: "On its way", bg: "bg-muted", text: "text-muted-foreground" },
-  succeeded: { label: "Completed", bg: "bg-primary/10", text: "text-primary" },
-  failed: { label: "Failed", bg: "bg-destructive/10", text: "text-destructive" },
-  canceled: { label: "Canceled", bg: "bg-muted", text: "text-muted-foreground" },
+  pending: { labelKey: "orders.refundState.pending", bg: "bg-muted", text: "text-muted-foreground" },
+  succeeded: { labelKey: "orders.refundState.succeeded", bg: "bg-primary/10", text: "text-primary" },
+  failed: { labelKey: "orders.refundState.failed", bg: "bg-destructive/10", text: "text-destructive" },
+  canceled: { labelKey: "orders.refundState.canceled", bg: "bg-muted", text: "text-muted-foreground" },
 };
 
 function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder }) {
+  const { t } = useTranslation();
   // No extra `can("orders:read")` gate: the whole screen already sits behind
   // `RequireStore permission="orders:read"`, which is exactly what the GET
   // endpoint enforces, so a second check here could only ever agree with it.
@@ -245,7 +269,7 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Refunds</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.refunds")}</Text>
       <View className="gap-3">
         {data.map((refund) => (
           <RefundRow key={refund.id} refund={refund} />
@@ -256,6 +280,7 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
 }
 
 function RefundRow({ refund }: { refund: Refund }) {
+  const { t } = useTranslation();
   // A refund with no `provider` had no rail operation at all — cash handed back
   // at a register, or an order captured on Shopify/WooCommerce and refunded
   // there. That absence is a fact about the payment, not a gap in the record,
@@ -268,7 +293,7 @@ function RefundRow({ refund }: { refund: Refund }) {
       <View className="flex-row items-center justify-between gap-3">
         <View className="flex-1">
           <Text className="text-sm font-medium text-foreground" numberOfLines={1}>
-            {refund.rmaNumber ?? "Refund"}
+            {refund.rmaNumber ?? t("orders.detail.refundFallbackLabel")}
           </Text>
           <Text className="text-xs text-muted-foreground">
             {new Date(refund.createdAt).toLocaleDateString()}
@@ -277,7 +302,7 @@ function RefundRow({ refund }: { refund: Refund }) {
         <PriceDisplay price={refund.totalRefunded.shop} primaryClassName="text-sm font-semibold" />
         {chip ? (
           <View className={`rounded-full px-2 py-1 ${chip.bg}`}>
-            <Text className={`text-[10px] font-semibold ${chip.text}`}>{chip.label}</Text>
+            <Text className={`text-[10px] font-semibold ${chip.text}`}>{t(chip.labelKey)}</Text>
           </View>
         ) : null}
       </View>
@@ -293,14 +318,36 @@ function RefundRow({ refund }: { refund: Refund }) {
   );
 }
 
-const NEXT_STATUSES: { key: FulfillmentStatus; label: string }[] = [
-  { key: "processing", label: "Processing" },
-  { key: "shipped", label: "Shipped" },
-  { key: "delivered", label: "Delivered" },
-  { key: "cancelled", label: "Cancel" },
+/**
+ * The fulfilment buttons. `labelKey` is a translation KEY, not a sentence
+ * (#398) — module scope is evaluated before the locale store has rehydrated.
+ *
+ * The first three reuse the status badge's keys so a status reads the same word
+ * everywhere; `cancelled` carries `common.cancel` because the button is the
+ * ACTION "Cancel", not the status "Cancelled".
+ */
+const NEXT_STATUSES: { key: FulfillmentStatus; labelKey: string }[] = [
+  { key: "processing", labelKey: ORDER_STATUS_LABEL_KEYS.processing },
+  { key: "shipped", labelKey: ORDER_STATUS_LABEL_KEYS.shipped },
+  { key: "delivered", labelKey: ORDER_STATUS_LABEL_KEYS.delivered },
+  { key: "cancelled", labelKey: "common.cancel" },
 ];
 
+/**
+ * One whole confirmation sentence per transition, rather than interpolating the
+ * status word into a shared frame: a status name declines and agrees differently
+ * in most of the languages this app ships, and a frame plus a noun is exactly the
+ * split rule 5 of the extraction contract forbids.
+ */
+const TRANSITION_TOAST_KEYS: Record<FulfillmentStatus, string> = {
+  processing: "orders.detail.markedProcessing",
+  shipped: "orders.detail.markedShipped",
+  delivered: "orders.detail.markedDelivered",
+  cancelled: "orders.detail.markedCancelled",
+};
+
 function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantOrder }) {
+  const { t } = useTranslation();
   const { can } = useActiveStoreContext();
   const patch = usePatchOrderStatus(storeId, order.id);
   const [tracking, setTracking] = useState(order.shipping.trackingNumber ?? "");
@@ -313,8 +360,8 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
     patch.mutate(
       { status, ...(status === "shipped" && tracking.trim() ? { trackingNumber: tracking.trim() } : {}) },
       {
-        onSuccess: () => toast.success(`Order marked ${status}`),
-        onError: () => toast.error("Couldn't update the order"),
+        onSuccess: () => toast.success(t(TRANSITION_TOAST_KEYS[status])),
+        onError: () => toast.error(t("orders.detail.updateFailed")),
       },
     );
   };
@@ -325,15 +372,21 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Fulfilment</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t("orders.detail.fulfilment")}
+      </Text>
 
       {/* Shipping carrier UI is intentionally hidden (Moovo integration pending);
           only a free-text tracking number is captured on "shipped". */}
       {canFulfil ? (
         <>
           <View className="mb-3 gap-1.5">
-            <Label>Tracking number (optional)</Label>
-            <Input value={tracking} onChangeText={setTracking} placeholder="1Z…" />
+            <Label>{t("orders.detail.trackingLabel")}</Label>
+            <Input
+              value={tracking}
+              onChangeText={setTracking}
+              placeholder={t("orders.detail.trackingPlaceholder")}
+            />
           </View>
           <View className="flex-row flex-wrap gap-2">
             {NEXT_STATUSES.map((s) => (
@@ -349,7 +402,7 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
                     s.key === "cancelled" ? "text-foreground" : "text-primary-foreground"
                   }`}
                 >
-                  {s.label}
+                  {t(s.labelKey)}
                 </Text>
               </Button>
             ))}
@@ -359,7 +412,9 @@ function FulfillmentCard({ storeId, order }: { storeId: string; order: MerchantO
 
       {canRefund ? (
         <Button variant="destructive" className="mt-4 self-start" size="sm" onPress={() => setRefundOpen(true)}>
-          <Text className="text-sm font-semibold text-destructive-foreground">Refund</Text>
+          <Text className="text-sm font-semibold text-destructive-foreground">
+            {t("orders.detail.refund")}
+          </Text>
         </Button>
       ) : null}
 
@@ -384,6 +439,7 @@ function RefundDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const createRefund = useCreateRefund(storeId, order.id);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [reason, setReason] = useState("");
@@ -397,7 +453,7 @@ function RefundDialog({
       .filter((line) => line.quantity > 0);
 
     if (lineItems.length === 0) {
-      toast.error("Enter a quantity to refund");
+      toast.error(t("orders.refund.quantityRequired"));
       return;
     }
 
@@ -405,12 +461,12 @@ function RefundDialog({
       { lineItems, ...(reason.trim() ? { reason: reason.trim() } : {}) },
       {
         onSuccess: () => {
-          toast.success("Refund processed");
+          toast.success(t("orders.refund.processed"));
           onOpenChange(false);
           setQuantities({});
           setReason("");
         },
-        onError: () => toast.error("Couldn't process the refund"),
+        onError: () => toast.error(t("orders.refund.failed")),
       },
     );
   };
@@ -419,7 +475,7 @@ function RefundDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Refund order</DialogTitle>
+          <DialogTitle>{t("orders.refund.dialogTitle")}</DialogTitle>
         </DialogHeader>
         <View className="gap-3">
           {order.items.map((item, idx) => (
@@ -429,13 +485,18 @@ function RefundDialog({
                   {item.title}
                 </Text>
                 <Text className="text-xs text-muted-foreground">
-                  {item.variantTitle} · max {item.quantity}
+                  {t("orders.refund.itemMax", {
+                    variant: item.variantTitle,
+                    quantity: item.quantity,
+                  })}
                 </Text>
               </View>
               <View className="w-20">
                 <Input
                   value={quantities[item.variantId] ?? ""}
-                  onChangeText={(t) => setQuantities((prev) => ({ ...prev, [item.variantId]: t }))}
+                  onChangeText={(value) =>
+                    setQuantities((prev) => ({ ...prev, [item.variantId]: value }))
+                  }
                   keyboardType="number-pad"
                   placeholder="0"
                 />
@@ -443,11 +504,17 @@ function RefundDialog({
             </View>
           ))}
           <View className="gap-1.5">
-            <Label>Reason (optional)</Label>
-            <Input value={reason} onChangeText={setReason} placeholder="Why is this being refunded?" />
+            <Label>{t("orders.refund.reasonLabel")}</Label>
+            <Input
+              value={reason}
+              onChangeText={setReason}
+              placeholder={t("orders.refund.reasonPlaceholder")}
+            />
           </View>
           <Button variant="destructive" onPress={submit} isLoading={createRefund.isPending} className="mt-1">
-            <Text className="font-semibold text-destructive-foreground">Process refund</Text>
+            <Text className="font-semibold text-destructive-foreground">
+              {t("orders.refund.submit")}
+            </Text>
           </Button>
         </View>
       </DialogContent>

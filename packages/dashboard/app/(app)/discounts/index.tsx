@@ -20,22 +20,25 @@ import {
   DialogHeader,
   DialogTitle,
   useColorScheme,
+  type Translate,
 } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useDiscounts, useCreateDiscount, useDeleteDiscount } from "@/lib/hooks/use-discounts";
+import { useTranslation } from "@/lib/i18n";
 import { toFairMinor } from "@/lib/money";
 
 /** Basis-points per percent (100% = 10000 bps). */
 const BPS_PER_PERCENT = 100;
 
 export default function DiscountsScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Discounts | Mercaria Dashboard</title>
+        <title>{t("discounts.documentTitle")}</title>
       </Head>
       <RequireStore permission="discounts:write">
         {(storeId) => <DiscountsBody storeId={storeId} />}
@@ -46,6 +49,7 @@ export default function DiscountsScreen() {
 
 function DiscountsBody({ storeId }: { storeId: string }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data, isPending, isError } = useDiscounts(storeId);
   const deleteDiscount = useDeleteDiscount(storeId);
   const [createOpen, setCreateOpen] = useState(false);
@@ -56,20 +60,20 @@ function DiscountsBody({ storeId }: { storeId: string }) {
       <Button onPress={() => setCreateOpen(true)}>
         <View className="flex-row items-center gap-2">
           <Plus size={16} color={colors.primaryForeground} />
-          <Text className="font-semibold text-primary-foreground">New</Text>
+          <Text className="font-semibold text-primary-foreground">{t("common.new")}</Text>
         </View>
       </Button>
     </View>
   );
 
   return (
-    <Screen title="Discounts" subtitle="Codes and automatic promotions" action={action}>
+    <Screen title={t("nav.discounts")} subtitle={t("discounts.subtitle")} action={action}>
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load discounts" body="Please try again." />
+        <ScreenMessage title={t("discounts.loadError")} body={t("common.pleaseTryAgain")} />
       ) : (data?.length ?? 0) === 0 ? (
-        <ScreenMessage title="No discounts yet" body="Create a code or automatic discount." />
+        <ScreenMessage title={t("discounts.empty.title")} body={t("discounts.empty.body")} />
       ) : (
         <View className="gap-2">
           {data?.map((discount) => (
@@ -78,8 +82,8 @@ function DiscountsBody({ storeId }: { storeId: string }) {
               discount={discount}
               onDelete={() =>
                 deleteDiscount.mutate(discount.id, {
-                  onSuccess: () => toast.success("Discount deleted"),
-                  onError: () => toast.error("Couldn't delete the discount"),
+                  onSuccess: () => toast.success(t("discounts.deleted")),
+                  onError: () => toast.error(t("discounts.deleteError")),
                 })
               }
             />
@@ -92,18 +96,36 @@ function DiscountsBody({ storeId }: { storeId: string }) {
   );
 }
 
-function describeValue(discount: Discount): string {
+/**
+ * `t` is a parameter rather than a hook call: this is a plain helper, not a
+ * component, so it cannot hold one. Its caller passes the same `t` it renders
+ * with, which is what makes this line re-derive when the locale changes.
+ *
+ * The final branch returns the raw `valueType` — an unmapped identifier for a
+ * value set this dialog cannot create (e.g. `buy_x_get_y`), left exactly as it
+ * was rather than given copy nobody has written.
+ */
+function describeValue(discount: Discount, t: Translate): string {
   if (discount.valueType === "percentage") {
-    return `${discount.value / BPS_PER_PERCENT}% off`;
+    return t("discounts.percentOff", { percent: discount.value / BPS_PER_PERCENT });
   }
   if (discount.valueType === "fixed_amount") {
-    return "Fixed amount off";
+    return t("discounts.fixedAmountOff");
   }
   return discount.valueType;
 }
 
 function DiscountRow({ discount, onDelete }: { discount: Discount; onDelete: () => void }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
+  // Three independently-translated facts joined by one key, so a locale can
+  // reorder them. `method`/`value`/`state`, never `count` — i18n-js pluralizes
+  // any key called with a `count` option.
+  const methodLabel =
+    discount.method === "code"
+      ? discount.codes.map((c) => c.code).join(", ") || t("discounts.methodCode")
+      : t("discounts.methodAutomatic");
+  const stateLabel = t(discount.isActive ? "discounts.state.active" : "discounts.state.inactive");
   return (
     <View className="flex-row items-center gap-3 rounded-2xl border border-border bg-surface p-3">
       <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
@@ -112,10 +134,11 @@ function DiscountRow({ discount, onDelete }: { discount: Discount; onDelete: () 
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground">{discount.title}</Text>
         <Text className="text-xs text-muted-foreground">
-          {discount.method === "code"
-            ? discount.codes.map((c) => c.code).join(", ") || "code"
-            : "automatic"}{" "}
-          · {describeValue(discount)} · {discount.isActive ? "active" : "inactive"}
+          {t("discounts.rowMeta", {
+            method: methodLabel,
+            value: describeValue(discount, t),
+            state: stateLabel,
+          })}
         </Text>
       </View>
       <Pressable onPress={onDelete} className="p-2 active:opacity-70">
@@ -135,6 +158,7 @@ function CreateDiscountDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const createDiscount = useCreateDiscount(storeId);
+  const { t } = useTranslation();
   const [title, setTitle] = useState("");
   const [method, setMethod] = useState<DiscountMethod>("code");
   const [code, setCode] = useState("");
@@ -145,11 +169,11 @@ function CreateDiscountDialog({
 
   const submit = () => {
     if (!title.trim()) {
-      toast.error("Title is required");
+      toast.error(t("discounts.create.titleRequired"));
       return;
     }
     if (method === "code" && !code.trim()) {
-      toast.error("Enter a discount code");
+      toast.error(t("discounts.create.codeRequired"));
       return;
     }
 
@@ -157,14 +181,14 @@ function CreateDiscountDialog({
     if (valueType === "percentage") {
       const pct = Number(amount);
       if (!Number.isFinite(pct) || pct <= 0) {
-        toast.error("Enter a valid percentage");
+        toast.error(t("discounts.create.invalidPercentage"));
         return;
       }
       value = Math.round(pct * BPS_PER_PERCENT);
     } else {
       const minor = toFairMinor(amount);
       if (minor === null || minor <= 0) {
-        toast.error("Enter a valid amount");
+        toast.error(t("discounts.create.invalidAmount"));
         return;
       }
       value = minor;
@@ -182,13 +206,13 @@ function CreateDiscountDialog({
 
     createDiscount.mutate(input, {
       onSuccess: () => {
-        toast.success("Discount created");
+        toast.success(t("discounts.create.success"));
         setTitle("");
         setCode("");
         setAmount("");
         onOpenChange(false);
       },
-      onError: () => toast.error("Couldn't create the discount"),
+      onError: () => toast.error(t("discounts.create.error")),
     });
   };
 
@@ -196,36 +220,49 @@ function CreateDiscountDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New discount</DialogTitle>
+          <DialogTitle>{t("discounts.create.dialogTitle")}</DialogTitle>
         </DialogHeader>
         <View className="gap-4">
           <View className="gap-1.5">
-            <Label>Title</Label>
-            <Input value={title} onChangeText={setTitle} placeholder="Spring sale" />
+            <Label>{t("common.title")}</Label>
+            <Input
+              value={title}
+              onChangeText={setTitle}
+              placeholder={t("discounts.create.titlePlaceholder")}
+            />
           </View>
           <View className="gap-1.5">
-            <Label>Method</Label>
+            <Label>{t("discounts.create.methodLabel")}</Label>
             <ToggleGroup
               type="single"
               value={method}
               onValueChange={(v) => typeof v === "string" && v && setMethod(v as DiscountMethod)}
             >
               <ToggleGroupItem value="code">
-                <Text className="text-sm text-foreground">Code</Text>
+                <Text className="text-sm text-foreground">
+                  {t("discounts.create.methodCode")}
+                </Text>
               </ToggleGroupItem>
               <ToggleGroupItem value="automatic">
-                <Text className="text-sm text-foreground">Automatic</Text>
+                <Text className="text-sm text-foreground">
+                  {t("discounts.create.methodAutomatic")}
+                </Text>
               </ToggleGroupItem>
             </ToggleGroup>
           </View>
           {method === "code" ? (
             <View className="gap-1.5">
-              <Label>Code</Label>
-              <Input value={code} onChangeText={setCode} placeholder="SPRING20" autoCapitalize="characters" />
+              <Label>{t("discounts.create.codeLabel")}</Label>
+              <Input
+                value={code}
+                onChangeText={setCode}
+                placeholder={t("discounts.create.codePlaceholder")}
+                autoCapitalize="characters"
+              />
             </View>
           ) : null}
           <View className="gap-1.5">
-            <Label>Value type</Label>
+            <Label>{t("discounts.create.valueTypeLabel")}</Label>
             <ToggleGroup
               type="single"
               value={valueType}
@@ -234,19 +271,27 @@ function CreateDiscountDialog({
               }
             >
               <ToggleGroupItem value="percentage">
-                <Text className="text-sm text-foreground">Percentage</Text>
+                <Text className="text-sm text-foreground">
+                  {t("discounts.create.valueTypePercentage")}
+                </Text>
               </ToggleGroupItem>
               <ToggleGroupItem value="fixed_amount">
-                <Text className="text-sm text-foreground">Fixed (⊜)</Text>
+                <Text className="text-sm text-foreground">
+                  {t("discounts.create.valueTypeFixed")}
+                </Text>
               </ToggleGroupItem>
             </ToggleGroup>
           </View>
           <View className="gap-1.5">
-            <Label>{valueType === "percentage" ? "Percent off" : "Amount off (⊜)"}</Label>
+            <Label>
+              {valueType === "percentage"
+                ? t("discounts.create.percentOffLabel")
+                : t("discounts.create.amountOffLabel")}
+            </Label>
             <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder={valueType === "percentage" ? "20" : "10.00"} />
           </View>
           <Button onPress={submit} isLoading={createDiscount.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">Create</Text>
+            <Text className="font-semibold text-primary-foreground">{t("common.create")}</Text>
           </Button>
         </View>
       </DialogContent>

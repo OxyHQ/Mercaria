@@ -10,6 +10,7 @@ import { CartPanel } from "@/components/register/CartPanel";
 import { useRegisterCart, useRegisterCartCount } from "@/lib/stores/register-cart";
 import { computeCartSubtotal } from "@/lib/cart-totals";
 import { ChargeButton } from "@/components/register/ChargeButton";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The Mercaria register — a Shopify-POS two-pane layout. Wide (`md:`+) shows the
@@ -19,10 +20,11 @@ import { ChargeButton } from "@/components/register/ChargeButton";
  * `max-w-5xl` wrapper and renders its own header with the store switcher.
  */
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Register | Mercaria POS</title>
+        <title>{t("register.documentTitle")}</title>
       </Head>
       <RequirePos permission="draft_orders:write">
         {(storeId) => <Register storeId={storeId} />}
@@ -32,11 +34,12 @@ export default function RegisterScreen() {
 }
 
 function Register({ storeId }: { storeId: string }) {
+  const { t } = useTranslation();
   return (
     <View className="flex-1 bg-background">
       {/* Full-width header (StoreSwitcher action kept accessible). */}
       <View className="flex-row items-center justify-between gap-4 border-b border-border px-4 py-3 md:px-6">
-        <Text className="text-xl font-bold text-foreground">Register</Text>
+        <Text className="text-xl font-bold text-foreground">{t("nav.register")}</Text>
         <StoreSwitcher />
       </View>
 
@@ -65,6 +68,7 @@ function Register({ storeId }: { storeId: string }) {
  */
 function NarrowChargeBar() {
   const router = useRouter();
+  const { t } = useTranslation();
   const count = useRegisterCartCount();
   const lines = useRegisterCart((s) => s.lines);
   const subtotal = useMemo(() => computeCartSubtotal(lines), [lines]);
@@ -77,11 +81,11 @@ function NarrowChargeBar() {
         <Pressable
           onPress={() => router.push("/cart")}
           accessibilityRole="button"
-          accessibilityLabel="Review cart"
+          accessibilityLabel={t("register.reviewCart")}
           className="flex-1 active:opacity-80"
         >
           <Text className="text-xs text-muted-foreground">
-            {count} item{count === 1 ? "" : "s"} · Review cart
+            {t("register.reviewCartWithCount", { count })}
           </Text>
           <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
         </Pressable>

@@ -1,0 +1,1227 @@
+{
+  "auth": {
+    "signInAction": "সাইন ইন",
+    "signInBody": "আপনার স্টোর পরিচালনা করতে Oxy অ্যাকাউন্ট দিয়ে সাইন ইন করুন — পণ্য, অর্ডার, ইনভেন্টরি, গ্রাহক, ডিসকাউন্ট ও রিপোর্ট।",
+    "signInTitle": "Mercaria ড্যাশবোর্ড"
+  },
+  "channels": {
+    "addChannel": "একটি চ্যানেল যোগ করুন",
+    "andJoin": " এবং ",
+    "availability": {
+      "notConfigured": "এখানে কনফিগার করা নেই",
+      "notImplemented": "এখনো নেই"
+    },
+    "badge": {
+      "comparisonOnly": "শুধু তুলনার জন্য",
+      "sellsOnMercaria": "Mercaria-তে বিক্রি করে"
+    },
+    "collectionMapping": {
+      "body": "এই চ্যানেলের প্রতিটি %{many} কোন Mercaria কালেকশনে ইমপোর্ট হবে তা বেছে নিন। ম্যাপ না-করা %{one}-এর পণ্যও ইমপোর্ট হয় — সেগুলো শুধু কোনো কালেকশনে পড়ে না।",
+      "channelNoun": "চ্যানেলের %{noun}",
+      "dontMap": "এটি ম্যাপ করবেন না",
+      "fixMapping": "ম্যাপিং ঠিক করুন",
+      "loadFailed": "এই চ্যানেলের কালেকশন লোড করা যায়নি।",
+      "map": "ম্যাপ করুন",
+      "noManualCollections": "এই স্টোরে এখনো কোনো ম্যানুয়াল কালেকশন নেই। আগে একটি তৈরি করুন — অটোমেটেড কালেকশন নিজের নিয়ম থেকে নিজেই পূরণ হয় এবং চ্যানেল ম্যাপিং নিতে পারে না।",
+      "noun": {
+        "category": {
+          "plural": "ক্যাটাগরি",
+          "singular": "ক্যাটাগরি"
+        },
+        "collection": {
+          "plural": "কালেকশন",
+          "singular": "কালেকশন"
+        }
+      },
+      "pickBody": "শুধু ম্যানুয়াল কালেকশন ম্যাপ করা যায়। অটোমেটেড কালেকশন নিজের নিয়ম থেকে নিজের সদস্য ঠিক করে।",
+      "pickTitle": "একটি Mercaria কালেকশনে ম্যাপ করুন",
+      "productsOnChannel": {
+        "one": "চ্যানেলে %{count}টি পণ্য",
+        "other": "চ্যানেলে %{count}টি পণ্য"
+      },
+      "removeMapping": "এই ম্যাপিং সরান",
+      "state": {
+        "externalMissing": "এটি চ্যানেলে আর নেই, তাই এর মাধ্যমে কিছুই ম্যাপ হবে না। ম্যাপিংটি সরিয়ে দিন, অথবা চ্যানেলে এটি আবার তৈরি করুন।",
+        "targetAutomated": "ওই Mercaria কালেকশন নিজের নিয়ম থেকে নিজেই পূরণ হয়, তাই চ্যানেল ম্যাপিং প্রতিটি সিঙ্কে যোগ ও বাদ হতে থাকবে। বদলে একটি ম্যানুয়াল কালেকশন বেছে নিন।",
+        "targetMissing": "Mercaria কালেকশনটি মুছে ফেলা হয়েছে। পণ্য ইমপোর্ট হতেই থাকবে; শুধু কোনো কালেকশনে পড়বে না। অন্য একটি বেছে নিন।"
+      },
+      "title": "কালেকশন ম্যাপিং",
+      "unavailable": {
+        "disconnected": "এই চ্যানেল ডিসকানেক্ট করা, তাই এর কালেকশন পড়া যাচ্ছে না। লাইভ তালিকা থেকে বেছে নিতে আবার কানেক্ট করুন।",
+        "platformUnavailable": "এই মুহূর্তে চ্যানেলে পৌঁছানো যায়নি, তাই এর কালেকশন দেখানো হচ্ছে না। আপনার বিদ্যমান ম্যাপিং অক্ষত আছে।",
+        "pushInConnection": "এই চ্যানেল Mercaria-তে পুশ করে, তাই এর কালেকশন ফিরে পড়ার মতো কোনো ক্রেডেনশিয়াল Mercaria-র কাছে নেই। আপনার বিদ্যমান ম্যাপিং নিচে দেখানো হলো এবং এখনো সম্পাদনা করা যাবে।"
+      }
+    },
+    "connect": "কানেক্ট করুন",
+    "coverage": {
+      "doesNotSyncHeading": "সিঙ্ক হয় না",
+      "doesNotSyncLabel": "সিঙ্ক হয় না: ",
+      "nothing": "কিছুই না",
+      "partial": "%{direction} — %{caveat}",
+      "syncsHeading": "সিঙ্ক হয়",
+      "syncsLabel": "সিঙ্ক হয়: "
+    },
+    "direction": {
+      "bothWays": "দুই দিকেই",
+      "pull": "আপনার প্ল্যাটফর্ম → Mercaria",
+      "push": "Mercaria → আপনার প্ল্যাটফর্ম"
+    },
+    "disconnect": {
+      "action": "চ্যানেল ডিসকানেক্ট করুন",
+      "confirmAction": "ডিসকানেক্ট",
+      "confirmTitle": "%{provider} ডিসকানেক্ট করবেন?",
+      "intro": "এই চ্যানেল যে %{policy} ইমপোর্ট করেছে তার কী হবে তা বেছে নিন। আপনার দামের ইতিহাস এবং অন্য চ্যানেলের ইমপোর্ট করা কিছুতে কখনো হাত পড়ে না।",
+      "policy": {
+        "archiveListings": "আর্কাইভ",
+        "keepListings": "পণ্য রেখে দিন",
+        "unpublishListings": "আনপাবলিশ"
+      },
+      "policyHelp": {
+        "archiveListings": "সিঙ্ক বন্ধ করে এই চ্যানেলের পণ্য আর্কাইভ করুন। বিক্রি হয়ে যাওয়া ও মডারেশনে থাকা পণ্য অপরিবর্তিত থাকে।",
+        "keepListings": "সিঙ্ক বন্ধ করে প্রতিটি পণ্য যেমন আছে তেমনই রাখুন — বিক্রিতে থাকবে, আর এখন থেকে Mercaria-তে আপনিই সেগুলো সম্পাদনা করতে পারবেন।",
+        "unpublishListings": "সিঙ্ক বন্ধ করে এই চ্যানেলের পণ্য বিক্রি থেকে তুলে নিন, ড্রাফট হিসেবে রাখুন যাতে পরে আবার প্রকাশ করতে পারেন।"
+      },
+      "productsChanged": {
+        "one": "%{count}টি পণ্য বদলেছে",
+        "other": "%{count}টি পণ্য বদলেছে"
+      },
+      "recordsKept": {
+        "one": "%{count}টি দামের রেকর্ড রাখা হয়েছে",
+        "other": "%{count}টি দামের রেকর্ড রাখা হয়েছে"
+      },
+      "title": "ডিসকানেক্ট"
+    },
+    "documentTitle": "সেলস চ্যানেল | Mercaria ড্যাশবোর্ড",
+    "empty": {
+      "body": "বিদ্যমান ক্যাটালগ আনতে নিচে একটি স্টোর বা প্রোডাক্ট ফিড কানেক্ট করুন।",
+      "title": "শুধু আপনার Mercaria ক্যাটালগ"
+    },
+    "entity": {
+      "collections": "কালেকশন",
+      "customers": "গ্রাহক",
+      "discounts": "ডিসকাউন্ট",
+      "giftCards": "গিফট কার্ড",
+      "inventory": "স্টক",
+      "orders": "অর্ডার",
+      "productReviews": "রিভিউ",
+      "products": "পণ্য",
+      "refunds": "রিফান্ড",
+      "shippingRates": "ডেলিভারি রেট",
+      "taxRates": "ট্যাক্স রেট"
+    },
+    "entityAbsence": {
+      "channelNotImplemented": "এই প্ল্যাটফর্মের জন্য Mercaria-র এখনো কোনো কানেক্টর নেই।",
+      "channelTransportsProductsOnly": "প্রোডাক্ট ফিড হলো পণ্যের একটি ফাইল, এর বাইরে আর কিছু বহন করে না।",
+      "importedOnlyAsPartOfAnOrder": "কোনো তালিকা ইমপোর্ট হয় না। যা দেখা যায় তা শুধু ইমপোর্ট হওয়া অর্ডার থেকেই আসে।",
+      "nativeCatalogIsNotASync": "কিছুই ইমপোর্ট হয় না — এই ক্যাটালগ আপনি Mercaria-তেই সম্পাদনা করেন।",
+      "notBuiltForThisChannel": "Mercaria আপনার প্ল্যাটফর্মের সঙ্গে এটি আদান-প্রদান করে না।",
+      "notModelledByMercaria": "এটি এসে পৌঁছানোর মতো এমন কোনো রেকর্ড Mercaria-তে নেই।",
+      "ownedByAnotherSystem": "আপনার প্ল্যাটফর্ম থেকে ইমপোর্ট না হয়ে Mercaria-র অন্য জায়গায় এটি সামলানো হয়।"
+    },
+    "entityCaveat": {
+      "breakdownOnlyOnImportedOrders": "প্রতিটি ইমপোর্ট করা অর্ডারে যে লাইনগুলো চার্জ করা হয়েছিল তা দেখা যায়, তাই মোট হিসাব মেলে। এর পেছনের নিয়মটি Mercaria-তে তৈরি হয় না, তাই এখানে সেটি সম্পাদনা বা আবার ব্যবহার করা যায় না।",
+      "membershipOnlyThroughAMapping": "আপনার প্ল্যাটফর্মের কালেকশন Mercaria-তে তৈরি হয় না। আপনি যে Mercaria কালেকশনে ম্যাপ করবেন পণ্য সেগুলোতেই যুক্ত হয়।"
+    },
+    "history": {
+      "counts": "%{created} তৈরি · %{updated} আপডেট · %{skipped} বাদ · %{failed} ব্যর্থ",
+      "empty": "এখনো কোনো সিঙ্ক হয়নি",
+      "loadFailed": "ইতিহাস লোড করা যায়নি",
+      "title": "সিঙ্ক ইতিহাস",
+      "updatedNote": "“আপডেট” পরীক্ষা করা প্রতিটি পণ্য গোনে, শুধু যেগুলো আলাদা ছিল সেগুলো নয়।"
+    },
+    "import": {
+      "blockedDirection": "উপরে পণ্যের জন্য পুল বা দুটোই সেট করে সেভ করুন — সেভ করলেই প্রথম ইমপোর্ট নিজে থেকে শুরু হয়।",
+      "blockedDisconnected": "ইমপোর্ট করার আগে এই চ্যানেল আবার কানেক্ট করুন — ডিসকানেক্ট করার সময় এর সংরক্ষিত ক্রেডেনশিয়াল মুছে গিয়েছিল।",
+      "body": "প্রতিটি পণ্য আবার পড়ে এবং যা বদলেছে তা আপডেট করে। একাধিকবার চালানো নিরাপদ।",
+      "bodyPaused": "প্রতিটি পণ্য আবার পড়ে এবং যা বদলেছে তা আপডেট করে। নির্ধারিত সিঙ্কের জন্য ইমপোর্ট থামানো আছে, তবে এটি এখনই চলবে।",
+      "heading": "%{provider} থেকে পণ্য ইমপোর্ট করুন",
+      "now": "এখনই সিঙ্ক করুন",
+      "title": "ইমপোর্ট"
+    },
+    "keys": {
+      "apiKeySubject": "API কী",
+      "body": "আপনার WordPress সাইটের Mercaria প্লাগইনে একটি কী (এবং এই চ্যানেলের কানেকশন আইডি) পেস্ট করুন। কী-র মেয়াদ শেষ হয় না — অ্যাক্সেস বন্ধ করতে যেকোনো সময় একটি রিভোক করুন।",
+      "connectionId": "কানেকশন আইডি",
+      "connectionIdSubject": "কানেকশন আইডি",
+      "copied": "%{label} কপি হয়েছে",
+      "copyAccessibility": "%{label} কপি করুন",
+      "copyNow": "এই কী এখনই কপি করুন — এটি আর দেখতে পাবেন না।",
+      "empty": "এখনো কোনো কী নেই। প্লাগইন কানেক্ট করতে একটি তৈরি করুন।",
+      "generate": "কী তৈরি করুন",
+      "generateBody": "এই চ্যানেলের জন্য দীর্ঘমেয়াদি একটি কী তৈরি করুন। পরে চিনতে পারার মতো একটি নাম দিন (যেমন যে সাইটে এটি ব্যবহার হবে)।",
+      "generateTitle": "API কী তৈরি করুন",
+      "heading": "দীর্ঘমেয়াদি প্লাগইন ক্রেডেনশিয়াল",
+      "labelField": "লেবেল",
+      "labelPlaceholder": "WordPress প্লাগইন",
+      "lastUsed": "সর্বশেষ ব্যবহার %{when}",
+      "loadFailed": "API কী লোড করা যায়নি।",
+      "loading": "কী লোড হচ্ছে…",
+      "neverUsed": "কখনো ব্যবহার হয়নি",
+      "revoke": "রিভোক",
+      "revokeConfirmBody": "“%{label}” ব্যবহার করা যেকোনো প্লাগইন সঙ্গে সঙ্গে সিঙ্ক করা বন্ধ করবে। এটি ফেরানো যায় না — আপনাকে নতুন একটি কী তৈরি করতে হবে।",
+      "revokeConfirmTitle": "এই কী রিভোক করবেন?",
+      "title": "API কী"
+    },
+    "lastRunCounts": "সর্বশেষ রান — %{created} তৈরি, %{updated} আপডেট, %{skipped} বাদ, %{failed} ব্যর্থ",
+    "lastSynced": "সর্বশেষ সিঙ্ক %{when}",
+    "limitation": {
+      "knownIssue": "জানা সমস্যা #%{issue} — কাজ চলছে"
+    },
+    "loadFailed": "চ্যানেল লোড করা যায়নি",
+    "never": "কখনো নয়",
+    "neverSynced": "কখনো সিঙ্ক হয়নি",
+    "nextScheduled": " · পরবর্তী %{when}",
+    "orderHorizon": {
+      "bounded": {
+        "one": "শুধু শেষ %{count} দিনের অর্ডার ইমপোর্ট হয়। %{before}-এর আগে দেওয়া অর্ডার কখনোই ইমপোর্ট হয়নি এবং পরেও আসবে না — এটি আপনার প্ল্যাটফর্ম Mercaria-কে যতটুকু পড়তে দেয় তার সীমা, সিঙ্ক পিছিয়ে থাকা নয়।",
+        "other": "শুধু শেষ %{count} দিনের অর্ডার ইমপোর্ট হয়। %{before}-এর আগে দেওয়া অর্ডার কখনোই ইমপোর্ট হয়নি এবং পরেও আসবে না — এটি আপনার প্ল্যাটফর্ম Mercaria-কে যতটুকু পড়তে দেয় তার সীমা, সিঙ্ক পিছিয়ে থাকা নয়।"
+      },
+      "notSynced": "এই চ্যানেলে কোনো দিকেই অর্ডার আদান-প্রদান হয় না।",
+      "unknown": "এই কানেকশনের অর্ডার কত পুরনো পর্যন্ত পৌঁছায় তা Mercaria বলতে পারে না।"
+    },
+    "pause": {
+      "importing": "ইমপোর্ট থামান",
+      "importingHint": "প্ল্যাটফর্ম থেকে পড়া বন্ধ করুন। যা ইতিমধ্যে ইমপোর্ট হয়েছে তা বিক্রিতে থাকবে।",
+      "publishing": "প্রকাশ থামান",
+      "publishingHint": "ইমপোর্ট চলতে থাকবে, তবে এই চ্যানেলের পণ্য ক্রেতাদের কাছে পৌঁছানো বন্ধ হবে।",
+      "title": "থামান"
+    },
+    "pausedScopes": "থামানো: %{scopes}",
+    "readiness": {
+      "cardPaymentsOff": "এই ডিপ্লয়মেন্টে কার্ড পেমেন্ট বন্ধ",
+      "catalog": "ক্যাটালগ",
+      "catalogDetail": "%{channels} · %{sync}",
+      "channelCount": {
+        "one": "%{count}টি চ্যানেল",
+        "other": "%{count}টি চ্যানেল"
+      },
+      "lastSynced": "সর্বশেষ সিঙ্ক %{when}",
+      "neverSynced": "কখনো সিঙ্ক হয়নি",
+      "noChannelConnected": "কোনো চ্যানেল কানেক্ট করা নেই",
+      "notReady": "এখনো Mercaria-তে বিক্রি হচ্ছে না",
+      "payouts": "পেআউট",
+      "payoutsNotSetUp": "সেট আপ করা নেই",
+      "payoutsSetUp": "সেট আপ করা আছে",
+      "ready": "Mercaria-তে বিক্রির জন্য প্রস্তুত"
+    },
+    "readinessBlocker": {
+      "noConnectedChannel": "এখনো কিছুই ক্যাটালগ দিচ্ছে না — একটি চ্যানেল কানেক্ট করুন বা একটি পণ্য যোগ করুন।",
+      "noNativeCheckoutChannel": "আপনার কানেক্ট করা চ্যানেলগুলো তুলনার জন্য পণ্য দেখায়, কিন্তু Mercaria চেকআউট দিয়ে বিক্রি করতে পারে না। একটি স্টোর কানেক্ট করুন, অথবা সরাসরি পণ্য যোগ করুন।",
+      "noPublishableListing": "কোনো সক্রিয় পণ্য নেই — ক্রেতাদের কার্টে যোগ করার মতো কিছু নেই।",
+      "noSuccessfulSync": "একটি চ্যানেল কানেক্ট করা আছে, কিন্তু এখনো কোনো সিঙ্ক সম্পন্ন হয়নি।",
+      "paymentsNotReady": "পেআউট সেট আপ করা নেই, তাই অর্ডার নেওয়া যাচ্ছে না।"
+    },
+    "recently": "সম্প্রতি",
+    "reconciliation": {
+      "alreadyIndexed": "আগেই ইনডেক্স করা",
+      "awaitingReview": "রিভিউয়ের অপেক্ষায়",
+      "awaitingReviewNote": {
+        "one": "%{count}টি পণ্য স্বয়ংক্রিয়ভাবে মেলানো যায়নি এবং একজন ব্যক্তির নিশ্চিত করার অপেক্ষায় আছে।",
+        "other": "%{count}টি পণ্য স্বয়ংক্রিয়ভাবে মেলানো যায়নি এবং একজন ব্যক্তির নিশ্চিত করার অপেক্ষায় আছে।"
+      },
+      "body": "কিছুই মুছে ফেলা বা একত্র করা হয় না। একই পণ্য দুবার থাকলে Mercaria আপনার নিজের স্টোরের লিস্টিংকেই প্রধান হিসেবে দেখায় এবং অন্যটির দামের ইতিহাস অক্ষত রাখে।",
+      "fromThisStore": "এই স্টোর থেকে",
+      "gap": {
+        "channelHasNoDomain": "মেলানোর মতো এই চ্যানেলের কোনো ওয়েব ঠিকানা নেই।",
+        "merchantNotClaimed": "এই স্টোর কোনো যাচাই করা মার্চেন্টের সঙ্গে যুক্ত নয়, তাই এখনো মেলানোর মতো কিছু নেই।",
+        "storeNotLinked": "এই স্টোর কোনো মার্চেন্ট প্রোফাইলের সঙ্গে যুক্ত নয়, তাই এখনো মেলানোর মতো কিছু নেই।",
+        "storefrontNotMatched": "Mercaria আগে ঠিক এই দোকানটি ইনডেক্স করেনি, তাই মেলানোর মতো কিছু নেই।"
+      },
+      "sameProductTwice": "একই পণ্য, দুবার",
+      "title": "আপনার বিদ্যমান ক্যাটালগ মেলানো"
+    },
+    "runFailures": {
+      "hide": "লুকান",
+      "line": "%{subject}%{externalId} · %{reason}",
+      "loadFailed": "এই সিঙ্ক যে রেকর্ডগুলো নেয়নি সেগুলো লোড করা যায়নি।",
+      "none": "এই সিঙ্কের জন্য রেকর্ড-ভিত্তিক কোনো কারণ সংরক্ষণ করা নেই।",
+      "reason": {
+        "databaseRefused": "ডেটাবেস লেখাটি নেয়নি",
+        "duplicateRecord": "আগেই ইমপোর্ট করা রেকর্ডের নকল",
+        "refusedByRule": "একটি Mercaria নিয়ম এটি নেয়নি",
+        "unclassified": "অচেনা ব্যর্থতা"
+      },
+      "show": {
+        "one": "কোন রেকর্ডটি আসেনি দেখুন",
+        "other": "কোন রেকর্ডগুলো আসেনি দেখুন"
+      },
+      "showing": "%{total}টির মধ্যে %{shown}টি দেখানো হচ্ছে।",
+      "subject": {
+        "inventoryItem": "ইনভেন্টরি আইটেম",
+        "order": "অর্ডার",
+        "product": "পণ্য"
+      }
+    },
+    "scope": {
+      "title": "এই চ্যানেল যা বহন করে"
+    },
+    "settings": {
+      "autoPublish": "অটো-পাবলিশ",
+      "autoPublishHint": "পুল করা পণ্য সঙ্গে সঙ্গে প্রকাশ করুন। বন্ধ থাকলে সেগুলো রিভিউয়ের জন্য ড্রাফট হিসেবে আসে।",
+      "documentTitle": "চ্যানেল সেটিংস | Mercaria ড্যাশবোর্ড",
+      "inventoryHint": "আপনার সিঙ্ক করা লোকেশনের স্টকের পরিমাণ।",
+      "inventoryLabel": "ইনভেন্টরি",
+      "keepLocalEdits": "আমার লোকাল সম্পাদনা রাখুন",
+      "keepLocalEditsHint": "চালু থাকলে, Mercaria-তে আপনার সম্পাদনা করা কোনো ফিল্ড পরের সিঙ্কে কখনো মুছে যায় না। বন্ধ থাকলে সবসময় চ্যানেলের মানই থাকে।",
+      "neverSyncedYet": "এই চ্যানেল এখনো সিঙ্ক হয়নি।",
+      "notFound": "চ্যানেল পাওয়া যায়নি",
+      "notFoundBody": "এই কানেকশনটি হয়তো ডিসকানেক্ট করা হয়েছে।",
+      "ordersHint": "বাইরের চ্যানেলে দেওয়া অর্ডার।",
+      "productsHint": "পণ্যের ক্যাটালগ (নাম, ছবি, দাম, ভ্যারিয়েন্ট)।",
+      "providerTitle": "%{provider} সেটিংস",
+      "save": "সেটিংস সেভ করুন",
+      "syncDirections": "সিঙ্কের দিক",
+      "title": "চ্যানেল সেটিংস"
+    },
+    "state": {
+      "connected": "কানেক্ট করা",
+      "needsAttention": "নজর দরকার",
+      "notConnected": "কানেক্ট করা নেই",
+      "paused": "থামানো"
+    },
+    "status": {
+      "disconnected": "ডিসকানেক্ট করা"
+    },
+    "subtitle": "আপনার পণ্য Mercaria-তে পৌঁছানোর সব উপায় — কানেক্ট করা স্টোর, প্রোডাক্ট ফিড এবং আপনার নিজের ক্যাটালগ",
+    "syncDirection": {
+      "both": "দুটোই",
+      "off": "বন্ধ",
+      "pull": "পুল",
+      "push": "পুশ"
+    },
+    "title": "সেলস চ্যানেল",
+    "toast": {
+      "alreadyInThatState": "আগে থেকেই ওই অবস্থায় আছে",
+      "cancelFailed": "বাতিল করা যায়নি",
+      "channelActivated": "চ্যানেল সক্রিয় হয়েছে",
+      "collectionMappingSaveFailed": "ম্যাপিং সেভ করা যায়নি",
+      "collectionMappingSaved": "কালেকশন ম্যাপিং সেভ হয়েছে",
+      "consumerKeyAndSecretRequired": "কনজিউমার কী ও সিক্রেট দুটোই দিন",
+      "disconnectFailed": "চ্যানেল ডিসকানেক্ট করা যায়নি",
+      "disconnected": "ডিসকানেক্ট হয়েছে — %{products}, %{records}",
+      "importStartFailed": "ইমপোর্ট শুরু করা যায়নি",
+      "importStarted": "ইমপোর্ট শুরু হয়েছে — নিচের ইতিহাসে দেখা যাবে",
+      "invalidShopifyDomain": "একটি সঠিক *.myshopify.com ডোমেইন দিন",
+      "keyCreateFailed": "কী তৈরি করা যায়নি",
+      "keyGenerateFailed": "কী জেনারেট করা যায়নি",
+      "keyGenerated": "API কী তৈরি হয়েছে",
+      "keyLabelRequired": "কী-টির একটি লেবেল দিন",
+      "keyRevokeFailed": "কী রিভোক করা যায়নি",
+      "keyRevoked": "API কী রিভোক হয়েছে",
+      "notReadyToActivate": "এখনো সক্রিয় করার মতো প্রস্তুত নয় — নিচের কারণগুলো দেখুন",
+      "pauseFailed": "থামানোর অবস্থা বদলানো যায়নি",
+      "paused": "থামানো হয়েছে",
+      "previewSaveFailed": "প্রিভিউ সেভ করা যায়নি",
+      "resumed": "আবার চালু হয়েছে",
+      "settingsSaveFailed": "চ্যানেল সেটিংস সেভ করা যায়নি",
+      "settingsSaved": "চ্যানেল সেটিংস সেভ হয়েছে",
+      "shopifyConnectFailed": "Shopify কানেকশন শুরু করা যায়নি",
+      "siteUrlMustBeHttps": "https:// দিয়ে শুরু করে আপনার সাইট URL দিন",
+      "startConnectFailed": "%{name} কানেক্ট করা শুরু করা যায়নি",
+      "webhooksRegisterFailed": "ওয়েবহুক রেজিস্ট্রেশন শুরু করা যায়নি",
+      "webhooksRegistering": "ওয়েবহুক আবার রেজিস্টার করা হচ্ছে",
+      "wooConnectFailed": "কানেক্ট করা যায়নি — সাইট URL ও API কী দেখে নিন",
+      "wooConnected": "WooCommerce কানেক্ট হয়েছে"
+    },
+    "type": {
+      "etsy": "Etsy",
+      "magento": "Magento",
+      "native": "Mercaria ক্যাটালগ",
+      "prestashop": "PrestaShop",
+      "productFeed": "প্রোডাক্ট ফিড",
+      "shopify": "Shopify",
+      "woocommerce": "WooCommerce",
+      "woocommercePlugin": "WooCommerce প্লাগইন"
+    },
+    "unscheduled": "নির্ধারিত নয়",
+    "webhookFailureReason": {
+      "permissionDenied": "কানেকশনের অনুমতিতে এটি নেই",
+      "platformError": "প্ল্যাটফর্ম একটি ত্রুটি ফিরিয়েছে",
+      "rateLimited": "প্ল্যাটফর্ম রেট-লিমিট করছিল",
+      "topicNotSupported": "প্ল্যাটফর্ম এটি দেয় না",
+      "transportError": "প্ল্যাটফর্মে পৌঁছানো যায়নি",
+      "unexpectedResponse": "প্ল্যাটফর্মের উত্তর পড়া যায়নি"
+    },
+    "webhooks": {
+      "bringForward": "চাইলে এখনই সেটি এগিয়ে আনতে পারেন।",
+      "causeIncomplete": "Mercaria রেজিস্ট্রেশন শেষ করতে পারেনি। বারবার এমন হলে চ্যানেলটি আবার কানেক্ট করুন।",
+      "causeUnreachable": "শেষ চেষ্টাগুলো %{provider}-এ পৌঁছাতে পারেনি। পৌঁছানো গেলে আবার রেজিস্টার করুন।",
+      "dueNow": "এখনই করা দরকার",
+      "failureDetail": " — %{reason}%{http} · সর্বশেষ দেখা %{when}",
+      "healthyDetail": {
+        "one": "%{provider} Mercaria-কে %{count} ধরনের আপডেট পাঠাচ্ছে। আপনি যদি %{provider}-এ Mercaria-র ওয়েবহুক মুছে থাকেন, সেগুলো আবার রেজিস্টার করুন — এখান থেকে সেটি ধরা যায় না।",
+        "other": "%{provider} Mercaria-কে %{count} ধরনের আপডেট পাঠাচ্ছে। আপনি যদি %{provider}-এ Mercaria-র ওয়েবহুক মুছে থাকেন, সেগুলো আবার রেজিস্টার করুন — এখান থেকে সেটি ধরা যায় না।"
+      },
+      "healthyHeadline": "পরিবর্তন ঘটার সঙ্গে সঙ্গেই আসে",
+      "httpStatus": " (HTTP %{status})",
+      "refusedDetail": "Mercaria রেজিস্ট্রেশন শেষ করেছে, তবে %{provider} নিচের ইভেন্টগুলো নেয়নি। এগুলো স্বয়ংক্রিয়ভাবে আবার চেষ্টা করা হবে; বোতামটি সেটি এগিয়ে আনে।",
+      "refusedHeadline": "কিছু আপডেট আসবে না",
+      "register": "ওয়েবহুক রেজিস্টার করুন",
+      "registerAgain": "ওয়েবহুক আবার রেজিস্টার করুন",
+      "remedyPermissionDenied": "%{provider}-এ Mercaria-র অনুমতিতে সব ইভেন্ট নেই — সেখানে অনুমতি বাড়িয়ে আবার রেজিস্টার করুন।",
+      "remedyTopicNotSupported": "%{provider} এই ইভেন্টগুলোর কয়েকটি একেবারেই দেয় না, তাই আবার রেজিস্টার করলেও সেগুলো আসবে না।",
+      "retryingDetail": "Mercaria স্বয়ংক্রিয়ভাবে আবার চেষ্টা করছে — পরের চেষ্টা %{due}। %{remedy}",
+      "retryingHeadline": "কিছু আপডেট এখনো আসছে না",
+      "stoppedDetail": {
+        "one": "%{count} বার চেষ্টার পর Mercaria থেমে গেছে। %{cause}",
+        "other": "%{count} বার চেষ্টার পর Mercaria থেমে গেছে। %{cause}"
+      },
+      "stoppedHeadline": "কিছু আপডেট আসছে না, আর Mercaria আবার চেষ্টা করা বন্ধ করেছে",
+      "title": "রিয়েল-টাইম আপডেট",
+      "tryNow": "এখনই চেষ্টা করুন",
+      "unregisteredDetail": "কানেক্ট করা %{provider} চ্যানেলের জন্য Mercaria এগুলো স্বয়ংক্রিয়ভাবে রেজিস্টার করে। অপেক্ষা না করে এখনই রেজিস্টার করতে পারেন।",
+      "unregisteredHeadline": "রিয়েল-টাইম আপডেট এখনো রেজিস্টার করা হয়নি"
+    },
+    "wizard": {
+      "activateChannel": "চ্যানেল সক্রিয় করুন",
+      "activeConnectionBody": "এই চ্যানেল সক্রিয়। এরপর কী ইমপোর্ট হবে তা বেছে নিন — না করা পর্যন্ত কিছুই সিঙ্ক হবে না।",
+      "activeFeedBody": "এই চ্যানেল সক্রিয়। সেলস চ্যানেল থেকে যেকোনো সময় এর সেটিংস বদলাতে পারেন।",
+      "allSet": "সব প্রস্তুত",
+      "backToChannels": "চ্যানেলে ফিরে যান",
+      "beforeYouActivate": "সক্রিয় করার আগে",
+      "beforeYouStart": "শুরু করার আগে",
+      "blocker": {
+        "channelLimitation": "এই চ্যানেল এখনো সক্রিয় করা যাবে না।",
+        "connectionNotConnected": "আগে কানেক্ট করা শেষ করুন।",
+        "noPreview": "আগে একটি প্রিভিউ চালান, যাতে কী ইমপোর্ট হবে তা দেখতে পান।",
+        "previewAllInvalid": "প্রিভিউ যত রেকর্ড পড়েছে সবগুলোই অবৈধ ছিল। ম্যাপিং ঠিক করে আবার চেষ্টা করুন।",
+        "previewScannedNothing": "প্রিভিউ একটিও রেকর্ড পড়েনি। ফিড বা স্টোরে পণ্য আছে কি না দেখে নিন — যে ম্যাপিং কিছুর সঙ্গেই মেলে না, তা দেখতে খালি ক্যাটালগের মতোই।",
+        "unsupportedDirection": "সিঙ্ক সেটিংস এমন একটি দিক চাইছে যা এই চ্যানেল সমর্থন করে না। সেটিংস বদলে আবার চেষ্টা করুন।"
+      },
+      "canAndCannot": "এই চ্যানেল যা পারে আর যা পারে না",
+      "chooseWhatToImport": "কী ইমপোর্ট হবে বেছে নিন",
+      "connectedTitle": "%{channel} কানেক্ট হয়েছে",
+      "documentTitle": "একটি চ্যানেল কানেক্ট করুন | Mercaria ড্যাশবোর্ড",
+      "everythingChecksOut": "সবকিছু ঠিক আছে। সক্রিয় করলেই প্রথম সিঙ্ক শুরু হবে।",
+      "feed": {
+        "body": "প্রোডাক্ট ফিড নিজের আলাদা স্ক্রিনে কনফিগার করা হয়, যেখানে আপনি ফাইলের কলামগুলো Mercaria-র ফিল্ডে ম্যাপ করেন এবং লাইভ হওয়ার আগে ফলাফল প্রিভিউ করেন।",
+        "create": "একটি ফিড তৈরি করুন",
+        "title": "আপনার ফিড সেট আপ করুন"
+      },
+      "merchantLinked": "এই স্টোর একটি যাচাই করা মার্চেন্টের সঙ্গে যুক্ত, তাই আপনার দোকানের জন্য Mercaria যা আগেই ইনডেক্স করেছে তা নকল না হয়ে মিলিয়ে নেওয়া হবে।",
+      "merchantNotLinked": "এই স্টোর এখনো কোনো যাচাই করা মার্চেন্টের সঙ্গে যুক্ত নয়। কানেক্ট করা তবুও কাজ করবে; Mercaria শুধু আপনার দোকানের জন্য আগে ইনডেক্স করা কিছুর সঙ্গে আপনার পণ্য মেলাবে না।",
+      "notFound": "উইজার্ড পাওয়া যায়নি",
+      "notFoundBody": "এটি হয়তো ইতিমধ্যে শেষ করা হয়েছে।",
+      "notSetUpYet": " (এখনো সেট আপ করা হয়নি)",
+      "plugin": {
+        "body": "আপনার WordPress সাইটে Mercaria প্লাগইন ইনস্টল করুন, তারপর নিচের কী-টি এর সেটিংসে পেস্ট করুন। প্লাগইনটি আপনার পণ্য ও স্টক বদলানোর সঙ্গে সঙ্গে Mercaria-তে পুশ করে।",
+        "createKey": "একটি চ্যানেল কী তৈরি করুন",
+        "keyHeading": "আপনার চ্যানেল কী — এখনই কপি করুন",
+        "keyNote": "এটি শুধু এবারই দেখানো হচ্ছে। হারিয়ে ফেললে এটি রিভোক করে নতুন একটি তৈরি করুন।",
+        "title": "Mercaria প্লাগইন কানেক্ট করুন"
+      },
+      "preview": {
+        "body": "সক্রিয় করার আগে একটি সীমিত নমুনা চালান, যাতে কী ইমপোর্ট হবে আর কতটা রিভিউ দরকার তা দেখতে পান।",
+        "duplicate": "নকল",
+        "invalid": "অবৈধ",
+        "matched": "মিলেছে",
+        "rerun": "প্রিভিউ আবার চালান",
+        "run": "প্রিভিউ চালান",
+        "scanned": "স্ক্যান করা",
+        "title": "প্রিভিউ",
+        "toReview": "রিভিউ দরকার"
+      },
+      "shopify": {
+        "authNote": "অনুমোদন Shopify-তেই হয়। Mercaria কখনো আপনার Shopify পাসওয়ার্ড দেখে না, এবং যে অ্যাক্সেস টোকেন এটি পায় তা এনক্রিপ্ট করে রাখা হয়।",
+        "continue": "Shopify-তে যান",
+        "domainLabel": "শপ ডোমেইন",
+        "domainPlaceholder": "your-store.myshopify.com",
+        "openAgain": "Shopify আবার খুলুন",
+        "title": "Shopify-তে Mercaria অনুমোদন করুন",
+        "waitingBody": "এইমাত্র খোলা ট্যাবে অনুমোদন শেষ করুন। এই পাতা নিজে থেকেই আপডেট হয় — এটি রিলোড করার বা এই ধাপে ফিরে আসার দরকার নেই।",
+        "waitingTitle": "Shopify-এর অপেক্ষায়"
+      },
+      "step": {
+        "activate": "সক্রিয় করুন",
+        "configure": "সিঙ্ক সেটিংস",
+        "connect": "কানেক্ট",
+        "map": "ম্যাপিং",
+        "preview": "প্রিভিউ",
+        "scope": "স্টোর",
+        "selectChannel": "চ্যানেল"
+      },
+      "title": "%{channel} কানেক্ট করুন",
+      "woo": {
+        "body": "WooCommerce → Settings → Advanced → REST API. আপনার ক্যাটালগ ইমপোর্ট করতে রিড অ্যাক্সেসই যথেষ্ট।",
+        "connect": "WooCommerce কানেক্ট করুন",
+        "consumerKeyLabel": "কনজিউমার কী",
+        "consumerKeyPlaceholder": "ck_...",
+        "consumerSecretLabel": "কনজিউমার সিক্রেট",
+        "consumerSecretPlaceholder": "cs_...",
+        "siteUrlLabel": "সাইট URL",
+        "siteUrlPlaceholder": "https://your-store.com",
+        "title": "আপনার WooCommerce API কী পেস্ট করুন"
+      },
+      "youWillNeed": "আপনার যা লাগবে"
+    },
+    "yourChannels": "আপনার চ্যানেল"
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "নতুন কালেকশন",
+      "error": "কালেকশন তৈরি করা যায়নি",
+      "success": "কালেকশন তৈরি হয়েছে",
+      "titlePlaceholder": "গ্রীষ্মের প্রয়োজনীয় জিনিস",
+      "titleRequired": "শিরোনাম দিতে হবে",
+      "typeAutomated": "অটোমেটেড",
+      "typeManual": "ম্যানুয়াল"
+    },
+    "deleteError": "কালেকশন মুছে ফেলা যায়নি",
+    "deleted": "কালেকশন মুছে ফেলা হয়েছে",
+    "documentTitle": "কালেকশন | Mercaria ড্যাশবোর্ড",
+    "empty": {
+      "body": "ক্যাটালগ গুছিয়ে রাখতে একটি তৈরি করুন।",
+      "title": "এখনো কোনো কালেকশন নেই"
+    },
+    "loadError": "কালেকশন লোড করা যায়নি",
+    "productCount": {
+      "one": "%{count}টি পণ্য",
+      "other": "%{count}টি পণ্য"
+    },
+    "rowMeta": "%{type} · %{items} · %{state}",
+    "ruleCount": {
+      "one": "%{count}টি নিয়ম",
+      "other": "%{count}টি নিয়ম"
+    },
+    "state": {
+      "draft": "ড্রাফট",
+      "published": "প্রকাশিত"
+    },
+    "subtitle": "মার্চেন্ডাইজিংয়ের জন্য পণ্য গুছিয়ে রাখুন",
+    "type": {
+      "automated": "অটোমেটেড",
+      "manual": "ম্যানুয়াল"
+    }
+  },
+  "common": {
+    "all": "সব",
+    "back": "পেছনে",
+    "cancel": "বাতিল",
+    "create": "তৈরি করুন",
+    "description": "বিবরণ",
+    "done": "হয়ে গেছে",
+    "loading": "লোড হচ্ছে…",
+    "name": "নাম",
+    "new": "নতুন",
+    "noAccess": "অ্যাক্সেস নেই",
+    "noAccessBody": "সক্রিয় স্টোরের এই অংশ দেখার অনুমতি আপনার নেই।",
+    "none": "কিছু নেই",
+    "pageOf": "%{total}-এর মধ্যে পৃষ্ঠা %{current}",
+    "pleaseTryAgain": "অনুগ্রহ করে আবার চেষ্টা করুন।",
+    "retry": "আবার চেষ্টা করুন",
+    "save": "সেভ করুন",
+    "somethingWentWrong": "কিছু একটা ভুল হয়েছে",
+    "status": "স্ট্যাটাস",
+    "title": "শিরোনাম",
+    "type": "ধরন",
+    "unknown": "অজানা"
+  },
+  "customers": {
+    "detail": {
+      "documentTitle": "গ্রাহক | Mercaria ড্যাশবোর্ড",
+      "lifetimeSpend": "মোট খরচ",
+      "loadError": "গ্রাহক লোড করা যায়নি",
+      "noOrders": "এখনো কোনো অর্ডার নেই।",
+      "orders": "অর্ডার",
+      "subtitle": "গ্রাহকের বিস্তারিত",
+      "title": "গ্রাহক"
+    },
+    "documentTitle": "গ্রাহক | Mercaria ড্যাশবোর্ড",
+    "empty": {
+      "body": "প্রথম অর্ডারের পর গ্রাহকেরা এখানে দেখা যাবে।",
+      "title": "কোনো গ্রাহক নেই"
+    },
+    "fallbackName": "গ্রাহক",
+    "loadError": "গ্রাহক লোড করা যায়নি",
+    "orderCount": {
+      "one": "%{count}টি অর্ডার",
+      "other": "%{count}টি অর্ডার"
+    },
+    "searchPlaceholder": "গ্রাহক খুঁজুন…",
+    "subtitle": "যারা আপনার স্টোর থেকে কেনেন",
+    "walkIn": "ওয়াক-ইন গ্রাহক"
+  },
+  "discounts": {
+    "create": {
+      "amountOffLabel": "ছাড়ের পরিমাণ (⊜)",
+      "codeLabel": "কোড",
+      "codePlaceholder": "SPRING20",
+      "codeRequired": "একটি ডিসকাউন্ট কোড দিন",
+      "dialogTitle": "নতুন ডিসকাউন্ট",
+      "error": "ডিসকাউন্ট তৈরি করা যায়নি",
+      "invalidAmount": "একটি সঠিক পরিমাণ দিন",
+      "invalidPercentage": "একটি সঠিক শতাংশ দিন",
+      "methodAutomatic": "অটোমেটিক",
+      "methodCode": "কোড",
+      "methodLabel": "পদ্ধতি",
+      "percentOffLabel": "শতাংশ ছাড়",
+      "success": "ডিসকাউন্ট তৈরি হয়েছে",
+      "titlePlaceholder": "বসন্তের সেল",
+      "titleRequired": "শিরোনাম দিতে হবে",
+      "valueTypeFixed": "নির্দিষ্ট (⊜)",
+      "valueTypeLabel": "মানের ধরন",
+      "valueTypePercentage": "শতাংশ"
+    },
+    "deleteError": "ডিসকাউন্ট মুছে ফেলা যায়নি",
+    "deleted": "ডিসকাউন্ট মুছে ফেলা হয়েছে",
+    "documentTitle": "ডিসকাউন্ট | Mercaria ড্যাশবোর্ড",
+    "empty": {
+      "body": "একটি কোড বা অটোমেটিক ডিসকাউন্ট তৈরি করুন।",
+      "title": "এখনো কোনো ডিসকাউন্ট নেই"
+    },
+    "fixedAmountOff": "নির্দিষ্ট পরিমাণ ছাড়",
+    "loadError": "ডিসকাউন্ট লোড করা যায়নি",
+    "methodAutomatic": "অটোমেটিক",
+    "methodCode": "কোড",
+    "percentOff": "%{percent}% ছাড়",
+    "rowMeta": "%{method} · %{value} · %{state}",
+    "state": {
+      "active": "সক্রিয়",
+      "inactive": "নিষ্ক্রিয়"
+    },
+    "subtitle": "কোড ও অটোমেটিক প্রোমোশন"
+  },
+  "errors": {
+    "boundaryBody": "অপ্রত্যাশিত একটি ত্রুটি ঘটেছে। আপনি আবার চেষ্টা করতে পারেন; সমস্যা চলতে থাকলে আমাদের টিমকে জানানো হয়েছে।",
+    "notFoundAction": "ড্যাশবোর্ডে যান",
+    "notFoundBody": "এই স্ক্রিনটি নেই।",
+    "notFoundDocumentTitle": "404 - পাওয়া যায়নি | Mercaria ড্যাশবোর্ড",
+    "notFoundHeading": "ওহো!"
+  },
+  "feeds": {
+    "detail": {
+      "activateMappingFirst": "আগে একটি ম্যাপিং সক্রিয় করুন",
+      "documentTitle": "প্রোডাক্ট ফিড | Mercaria ড্যাশবোর্ড",
+      "identityColumns": "শনাক্তকারী কলাম: %{columns} — এই ফিডের সারা জীবনের জন্য নির্দিষ্ট।",
+      "neverRead": "এই ফিড এখনো পড়া হয়নি।",
+      "notFound": "ফিড পাওয়া যায়নি",
+      "notFoundBody": "এটি হয়তো সরিয়ে ফেলা হয়েছে।",
+      "readSchedule": "সর্বশেষ পড়া %{last} · পরবর্তী %{next}",
+      "recentRuns": "সাম্প্রতিক রান",
+      "runCounts": "%{fetched} পড়া · %{stored} সংরক্ষিত · %{unchanged} অপরিবর্তিত · %{rejected} বাতিল · %{listed} তালিকাভুক্ত · %{retired} বাদ",
+      "syncNow": "এখনই সিঙ্ক করুন",
+      "title": "প্রোডাক্ট ফিড"
+    },
+    "draft": {
+      "columnPlaceholder": "আপনার কলামের নাম",
+      "columnsLabel": "আপনার কলাম ম্যাপ করুন",
+      "deliveryDelta": "শুধু যা বদলেছে",
+      "deliveryHint": "ইচ্ছে করেই এখানে কোনো ডিফল্ট নেই। ফাইলে যদি আপনার বিক্রি করা সবকিছুর তালিকা থাকে, তবে তাতে না-থাকা পণ্য মানে আপনি সেটি আর বিক্রি করেন না এবং Mercaria সেটি তালিকা থেকে সরিয়ে দেবে। ফাইলে যদি শুধু পরিবর্তন থাকে, তবে না-থাকা পণ্য কিছুই বোঝায় না এবং Mercaria সেটিতে হাত দেবে না। এটি ভুল হলে হয় সচল একটি ক্যাটালগ তালিকা থেকে সরে যাবে, নয়তো বিক্রি শেষ হয়ে যাওয়া পণ্য বিক্রিতে থেকে যাবে।",
+      "deliveryLabel": "এই ফাইলে কী আছে?",
+      "deliverySnapshot": "আমি যা যা বিক্রি করি সব",
+      "formatLabel": "ফরম্যাট",
+      "requiredSuffix": " (আবশ্যক)",
+      "save": "ম্যাপিং সেভ করুন",
+      "title": "নতুন ম্যাপিং",
+      "urlHint": "শুধু HTTPS। Mercaria এটি গোপনে রাখে এবং আপনাকে কেবল হোস্টটুকুই দেখায় — ফিড URL-এ প্রায়ই একটি অ্যাক্সেস কী থাকে।",
+      "urlLabel": "ফিড URL",
+      "urlPlaceholder": "https://example.com/products.csv"
+    },
+    "never": "কখনো নয়",
+    "new": {
+      "create": "ফিড তৈরি করুন",
+      "documentTitle": "নতুন প্রোডাক্ট ফিড | Mercaria ড্যাশবোর্ড",
+      "identityColumnsHint": "কমা দিয়ে আলাদা করে, সর্বোচ্চ চারটি। পরে এগুলো বদলানো যায় না: এক ফাইল থেকে পরের ফাইলে Mercaria একই পণ্যকে এগুলো দিয়েই চেনে, তাই বদলালে মনে হবে আপনি পুরো ক্যাটালগ বদলে ফেলেছেন। অন্য কলাম দরকার হলে নতুন একটি ফিড তৈরি করুন।",
+      "identityColumnsLabel": "যে কলামগুলো প্রতিটি পণ্যকে শনাক্ত করে",
+      "identityColumnsPlaceholder": "id, sku",
+      "nameLabel": "ফিডের নাম",
+      "namePlaceholder": "প্রধান ক্যাটালগ",
+      "sourceNameHint": "Mercaria-র নিজস্ব ক্যাটালগ রেকর্ডে এই ফিড যেভাবে দেখাবে।",
+      "sourceNameLabel": "সোর্সের নাম",
+      "sourceNamePlaceholder": "Acme Supplies ক্যাটালগ",
+      "subtitle": "একটি CSV, TSV, XML, JSON বা JSONL ফাইল, যা Mercaria নির্ধারিত সময় অনুযায়ী পড়ে",
+      "title": "নতুন প্রোডাক্ট ফিড"
+    },
+    "reports": {
+      "counts": "%{scanned} পড়া · %{valid} বৈধ · %{invalid}-এ নজর দরকার",
+      "note": "ডাউনলোডযোগ্য রিপোর্টে সারির নম্বর ও তাতে কী ভুল ছিল তা থাকে — মানগুলো কখনোই নয়, কারণ ফাইলটি তো আপনার কাছেই আছে।",
+      "title": "রিপোর্ট"
+    },
+    "toast": {
+      "checkFailed": "ফিড পরীক্ষা করা যায়নি",
+      "checked": "%{scanned}টি রেকর্ড পরীক্ষা করা হয়েছে — %{invalid}টিতে নজর দরকার",
+      "createFailed": "ফিড তৈরি করা যায়নি",
+      "created": "ফিড তৈরি হয়েছে",
+      "deliveryModeRequired": "ফাইলটি পূর্ণ স্ন্যাপশট না কি শুধু পরিবর্তন, তা বেছে নিন",
+      "identityColumnsRequired": "প্রতিটি পণ্যকে শনাক্ত করে এমন অন্তত একটি কলামের নাম দিন",
+      "mappingActivateFailed": "ম্যাপিং সক্রিয় করা যায়নি",
+      "mappingActivated": "ম্যাপিং সক্রিয় হয়েছে",
+      "mappingSaveFailed": "ম্যাপিং সেভ করা যায়নি",
+      "mappingSaved": "ম্যাপিং সেভ হয়েছে — সক্রিয় করার আগে প্রিভিউ করুন",
+      "nameRequired": "ফিডটির একটি নাম দিন",
+      "previewFailed": "ফিড প্রিভিউ করা যায়নি",
+      "sourceNameTooShort": "সোর্সের নাম অন্তত 3 অক্ষরের হতে হবে",
+      "syncStartFailed": "সিঙ্ক শুরু করা যায়নি",
+      "syncStarted": "সিঙ্ক শুরু হয়েছে",
+      "titleMappingRequired": "পণ্যের শিরোনামের সঙ্গে একটি কলাম ম্যাপ করুন",
+      "urlMustBeHttps": "ফিড URL অবশ্যই https:// দিয়ে শুরু হতে হবে"
+    },
+    "unscheduled": "নির্ধারিত নয়",
+    "versions": {
+      "activate": "সক্রিয় করুন",
+      "checkItFirst": "আগে পরীক্ষা করে নিন",
+      "checkWholeFeed": "পুরো ফিড পরীক্ষা করুন",
+      "deliveryChangesOnly": "শুধু পরিবর্তন",
+      "deliveryFullSnapshot": "পূর্ণ স্ন্যাপশট",
+      "empty": "এখনো কোনো ম্যাপিং নেই",
+      "emptyBody": "নিচে আপনার ফাইলটির বিবরণ দিন এবং এর কলামগুলো Mercaria-র ফিল্ডে ম্যাপ করুন।",
+      "fetchedOverHttps": " · HTTPS দিয়ে আনা",
+      "preview": "প্রিভিউ",
+      "previewCounts": "%{scanned} পড়া · %{valid} বৈধ · %{invalid} অবৈধ · %{matched} মিলেছে · %{created} নতুন · %{review}-এ রিভিউ দরকার",
+      "previewReadNothing": "প্রিভিউ কিছুই পড়েনি। খালি ফলাফল আর যে ম্যাপিং কোনো সারির সঙ্গে মেলে না — দুটো দেখতে একই রকম; সক্রিয় করার আগে ফাইল ও রেকর্ড পাথ দেখে নিন।",
+      "suggestedColumns": "প্রস্তাবিত কলাম: %{columns}",
+      "summary": "%{format} · %{delivery}%{fetch}",
+      "title": "ম্যাপিং",
+      "uploaded": " · আপলোড করা",
+      "version": "সংস্করণ %{version}"
+    }
+  },
+  "home": {
+    "documentTitle": "ড্যাশবোর্ড | Mercaria",
+    "inventory": {
+      "lowStock": {
+        "one": "%{count}টি ট্র্যাক করা ভ্যারিয়েন্ট কম-স্টকের সীমায় বা তার নিচে আছে।",
+        "other": "%{count}টি ট্র্যাক করা ভ্যারিয়েন্ট কম-স্টকের সীমায় বা তার নিচে আছে।"
+      },
+      "noneLow": "ট্র্যাক করা কোনো ভ্যারিয়েন্টে স্টক কম নয়।",
+      "title": "ইনভেন্টরি"
+    },
+    "orderStatus": {
+      "cancelled": "বাতিল",
+      "delivered": "ডেলিভার হয়েছে",
+      "paid": "পেমেন্ট হয়েছে",
+      "partiallyRefunded": "আংশিক রিফান্ড",
+      "pendingPayment": "পেমেন্ট বাকি",
+      "processing": "প্রসেসিং",
+      "refunded": "রিফান্ড হয়েছে",
+      "shipped": "শিপ হয়েছে"
+    },
+    "reportsError": "রিপোর্ট লোড করা যায়নি",
+    "sales": {
+      "empty": "এই সময়ে এখনো কোনো বিক্রি হয়নি।",
+      "title": "বিক্রয় (গত সময়কাল)"
+    },
+    "stats": {
+      "averageOrder": "গড় অর্ডার",
+      "paidOrders": "পেইড অর্ডার",
+      "refunds": "রিফান্ড",
+      "revenue": "আয়"
+    },
+    "statusBreakdown": {
+      "empty": "এখনো কোনো অর্ডার নেই।",
+      "title": "স্ট্যাটাস অনুযায়ী অর্ডার"
+    },
+    "subtitle": "এক নজরে আপনার স্টোর",
+    "topProducts": {
+      "empty": "এখনো কোনো বিক্রি নেই।",
+      "title": "সেরা পণ্য",
+      "unitsSold": {
+        "one": "%{count}টি বিক্রি",
+        "other": "%{count}টি বিক্রি"
+      }
+    }
+  },
+  "nav": {
+    "channels": "সেলস চ্যানেল",
+    "collapseSidebar": "সাইডবার সংকুচিত করুন",
+    "collections": "কালেকশন",
+    "customers": "গ্রাহক",
+    "dashboard": "ড্যাশবোর্ড",
+    "discounts": "ডিসকাউন্ট",
+    "expandSidebar": "সাইডবার প্রসারিত করুন",
+    "orders": "অর্ডার",
+    "products": "পণ্য",
+    "settings": "সেটিংস"
+  },
+  "orders": {
+    "detail": {
+      "documentTitle": "অর্ডার | Mercaria ড্যাশবোর্ড",
+      "fulfilment": "ফুলফিলমেন্ট",
+      "history": "ইতিহাস",
+      "itemVariantQuantity": "%{variant} · ×%{quantity}",
+      "items": "আইটেম",
+      "loadFailed": "অর্ডার লোড করা যায়নি",
+      "markedCancelled": "অর্ডার বাতিল হিসেবে চিহ্নিত হয়েছে",
+      "markedDelivered": "অর্ডার ডেলিভার হিসেবে চিহ্নিত হয়েছে",
+      "markedProcessing": "অর্ডার প্রসেসিং হিসেবে চিহ্নিত হয়েছে",
+      "markedShipped": "অর্ডার শিপ হিসেবে চিহ্নিত হয়েছে",
+      "refund": "রিফান্ড",
+      "refundFallbackLabel": "রিফান্ড",
+      "refunds": "রিফান্ড",
+      "shipTo": "যেখানে পাঠাতে হবে",
+      "subtitle": "অর্ডারের বিস্তারিত",
+      "title": "অর্ডার",
+      "trackingLabel": "ট্র্যাকিং নম্বর (ঐচ্ছিক)",
+      "trackingPlaceholder": "1Z…",
+      "updateFailed": "অর্ডার আপডেট করা যায়নি"
+    },
+    "documentTitle": "অর্ডার | Mercaria ড্যাশবোর্ড",
+    "empty": {
+      "body": "গ্রাহকেরা কেনা শুরু করলে অর্ডার এখানে দেখা যাবে।",
+      "title": "কোনো অর্ডার নেই"
+    },
+    "loadFailed": "অর্ডার লোড করা যায়নি",
+    "pickup": {
+      "cancelAccessibilityLabel": "এই সংগ্রহ বাতিলের কারণ",
+      "cancelCollection": "সংগ্রহ বাতিল করুন",
+      "cancelLabel": "এই সংগ্রহ বাতিল করুন — কারণ",
+      "cancelNote": "এতে হস্তান্তর প্রত্যাহার হয় এবং কোডটি বাতিল হয়। এতে অর্ডার বাতিল হয় না এবং কোনো রিফান্ডও হয় না — গ্রাহকের টাকা ফেরত পাওনা থাকলে সেটি অর্ডারেই করুন।",
+      "cancelPlaceholder": "স্টকরুমে পণ্য নষ্ট হয়েছে",
+      "checkCodeAndHandOver": "কোড মিলিয়ে হস্তান্তর করুন",
+      "codeAccessibilityLabel": "গ্রাহক যে সংগ্রহ কোড দেখিয়েছেন",
+      "codeLabel": "গ্রাহক যে কোড দেখিয়েছেন",
+      "codePlaceholder": "ABCD234567",
+      "event": {
+        "codeRejected": "কোড বাতিল",
+        "codeRevoked": "কোড প্রত্যাহার",
+        "codeRotated": "কোড বদলানো হয়েছে",
+        "codeValidated": "কোড গৃহীত",
+        "collected": "হস্তান্তর করা হয়েছে",
+        "collectionRefused": "হস্তান্তর করা হয়নি",
+        "fallbackOverride": "ওভাররাইড দিয়ে হস্তান্তর",
+        "markedReady": "প্রস্তুত চিহ্নিত",
+        "pickupCancelled": "সংগ্রহ বাতিল"
+      },
+      "handOverWithOverride": "ওভাররাইড দিয়ে হস্তান্তর করুন",
+      "markReady": "সংগ্রহের জন্য প্রস্তুত চিহ্নিত করুন",
+      "overrideAccessibilityLabel": "কাজ করা কোড ছাড়া হস্তান্তরের কারণ",
+      "overrideLabel": "কাজ করা কোড ছাড়া হস্তান্তর — কারণ",
+      "overrideNote": "কারণসহ আপনার অ্যাকাউন্টের নামে নিচের ট্রেইলে লেখা থাকবে।",
+      "overridePlaceholder": "কোড স্ক্যান হচ্ছিল না; সামনাসামনি পরিচয়পত্র দেখা হয়েছে",
+      "rotate": "নতুন কোড দিন",
+      "rotateAccessibilityLabel": "নতুন সংগ্রহ কোড দেওয়ার কারণ",
+      "rotateLabel": "নতুন কোড দিন — কারণ",
+      "rotatePlaceholder": "গ্রাহক বলছেন কোডটি ফাঁস হয়েছে",
+      "rotatedCodeNote": "এটি গ্রাহককে পড়ে শোনান। আগের কোডটি আর কাজ করে না।",
+      "title": "সংগ্রহ",
+      "toast": {
+        "cancelled": "সংগ্রহ বাতিল হয়েছে",
+        "codeIssued": "নতুন কোড দেওয়া হয়েছে",
+        "collected": "সংগ্রহ রেকর্ড হয়েছে",
+        "collectedWithOverride": "ওভাররাইড দিয়ে সংগ্রহ রেকর্ড হয়েছে",
+        "markedReady": "সংগ্রহের জন্য প্রস্তুত চিহ্নিত হয়েছে"
+      },
+      "trail": "সংগ্রহের ট্রেইল",
+      "trailEmpty": "কাউন্টারে এখনো কিছু ঘটেনি।"
+    },
+    "refund": {
+      "dialogTitle": "অর্ডার রিফান্ড করুন",
+      "failed": "রিফান্ড প্রক্রিয়া করা যায়নি",
+      "itemMax": "%{variant} · সর্বোচ্চ %{quantity}",
+      "processed": "রিফান্ড সম্পন্ন হয়েছে",
+      "quantityRequired": "রিফান্ড করার পরিমাণ দিন",
+      "reasonLabel": "কারণ (ঐচ্ছিক)",
+      "reasonPlaceholder": "এটি কেন রিফান্ড করা হচ্ছে?",
+      "submit": "রিফান্ড করুন"
+    },
+    "refundState": {
+      "canceled": "বাতিল",
+      "failed": "ব্যর্থ",
+      "pending": "পথে আছে",
+      "succeeded": "সম্পন্ন"
+    },
+    "row": {
+      "itemsPlacedOn": {
+        "one": "%{count}টি আইটেম · %{date}",
+        "other": "%{count}টি আইটেম · %{date}"
+      }
+    },
+    "status": {
+      "cancelled": "বাতিল",
+      "delivered": "ডেলিভার হয়েছে",
+      "paid": "পেমেন্ট হয়েছে",
+      "partiallyRefunded": "আংশিক রিফান্ড",
+      "pendingPayment": "বাকি",
+      "processing": "প্রসেসিং",
+      "refunded": "রিফান্ড হয়েছে",
+      "shipped": "শিপ হয়েছে"
+    },
+    "subtitle": "আপনার বিক্রি সম্পন্ন করুন ও ট্র্যাক করুন",
+    "title": "অর্ডার",
+    "totals": {
+      "discounts": "ডিসকাউন্ট",
+      "heading": "মোট হিসাব",
+      "shipping": "শিপিং",
+      "subtotal": "সাবটোটাল",
+      "tax": "ট্যাক্স",
+      "total": "মোট"
+    }
+  },
+  "products": {
+    "addProduct": "পণ্য যোগ করুন",
+    "detail": {
+      "archive": "আর্কাইভ",
+      "archiveFailed": "পণ্যটি আর্কাইভ করা যায়নি",
+      "archived": "পণ্য আর্কাইভ হয়েছে",
+      "channelSettings": "চ্যানেল সেটিংস",
+      "documentTitle": "পণ্য | Mercaria ড্যাশবোর্ড",
+      "loadFailed": "পণ্য লোড করা যায়নি",
+      "restrictedNotice": "মডারেশনের সিদ্ধান্তের অপেক্ষায় এই পণ্যটি সীমাবদ্ধ, তাই এখান থেকে আবার প্রকাশ করা যাবে না।",
+      "saveChanges": "পরিবর্তন সেভ করুন",
+      "saveFailed": "পণ্যটি সেভ করা যায়নি",
+      "saved": "পণ্য সেভ হয়েছে",
+      "title": "পণ্য",
+      "variantCount": {
+        "one": "%{count}টি ভ্যারিয়েন্ট",
+        "other": "%{count}টি ভ্যারিয়েন্ট"
+      }
+    },
+    "documentTitle": "পণ্য | Mercaria ড্যাশবোর্ড",
+    "empty": {
+      "action": "আপনার প্রথম পণ্য যোগ করুন",
+      "title": "এখনো কোনো পণ্য নেই"
+    },
+    "loadFailed": "পণ্য লোড করা যায়নি",
+    "new": {
+      "addVariant": "ভ্যারিয়েন্ট যোগ করুন",
+      "categoryLabel": "ক্যাটাগরি (স্লাগ)",
+      "categoryPlaceholder": "electronics",
+      "categoryRequired": "ক্যাটাগরি দিতে হবে",
+      "createFailed": "পণ্যটি তৈরি করা যায়নি",
+      "created": "পণ্য তৈরি হয়েছে",
+      "descriptionPlaceholder": "পণ্যটির বিবরণ দিন",
+      "documentTitle": "নতুন পণ্য | Mercaria ড্যাশবোর্ড",
+      "optionNameLabel": "অপশনের নাম (ঐচ্ছিক, যেমন সাইজ)",
+      "optionNamePlaceholder": "সাইজ",
+      "optionValueLabel": "%{option} মান",
+      "optionValuePlaceholder": "M",
+      "optionsHeading": "অপশন ও ভ্যারিয়েন্ট",
+      "skuLabel": "SKU (ঐচ্ছিক)",
+      "skuPlaceholder": "SKU-123",
+      "submit": "পণ্য তৈরি করুন",
+      "subtitle": "আপনার ক্যাটালগে একটি পণ্য যোগ করুন",
+      "title": "নতুন পণ্য",
+      "titlePlaceholder": "পণ্যের নাম",
+      "titleRequired": "শিরোনাম দিতে হবে",
+      "variantIndex": "ভ্যারিয়েন্ট %{index}",
+      "variantPriceInvalid": "প্রতিটি ভ্যারিয়েন্টের একটি সঠিক দাম দরকার",
+      "vendorLabel": "ভেন্ডর / ব্র্যান্ড",
+      "vendorPlaceholder": "Acme"
+    },
+    "priceLabel": "দাম (⊜)",
+    "row": {
+      "variantsInStock": {
+        "one": "%{count}টি ভ্যারিয়েন্ট · %{stock} স্টকে",
+        "other": "%{count}টি ভ্যারিয়েন্ট · %{stock} স্টকে"
+      }
+    },
+    "searchPlaceholder": "এই পাতায় পণ্য খুঁজুন…",
+    "status": {
+      "active": "সক্রিয়",
+      "archived": "আর্কাইভ করা",
+      "draft": "ড্রাফট",
+      "restricted": "সীমাবদ্ধ",
+      "sold": "বিক্রি হয়ে গেছে"
+    },
+    "stockLabel": "স্টক",
+    "subtitle": "আপনার স্টোর ক্যাটালগ",
+    "title": "পণ্য",
+    "variants": {
+      "add": "যোগ করুন",
+      "addFailed": "ভ্যারিয়েন্ট যোগ করা যায়নি",
+      "added": "ভ্যারিয়েন্ট যোগ হয়েছে",
+      "available": "উপলব্ধ",
+      "heading": "ভ্যারিয়েন্ট ও ইনভেন্টরি",
+      "inventoryUpdateFailed": "ইনভেন্টরি আপডেট করা যায়নি",
+      "inventoryUpdated": "ইনভেন্টরি আপডেট হয়েছে",
+      "priceInvalid": "একটি সঠিক দাম দিন",
+      "removeFailed": "ভ্যারিয়েন্ট সরানো যায়নি",
+      "removeVariant": "ভ্যারিয়েন্ট সরান",
+      "removed": "ভ্যারিয়েন্ট সরানো হয়েছে",
+      "saveVariant": "ভ্যারিয়েন্ট সেভ করুন",
+      "set": "সেট করুন",
+      "updateFailed": "ভ্যারিয়েন্ট আপডেট করা যায়নি",
+      "updated": "ভ্যারিয়েন্ট আপডেট হয়েছে",
+      "valuePlaceholder": "মান"
+    }
+  },
+  "settings": {
+    "documentTitle": "সেটিংস | Mercaria ড্যাশবোর্ড",
+    "language": {
+      "description": "এই ড্যাশবোর্ড যে ভাষায় দেখানো হয়। এই ডিভাইসে সংরক্ষিত থাকে; আপনার গ্রাহকেরা যা দেখেন তা এতে বদলায় না।",
+      "title": "ভাষা"
+    },
+    "locations": {
+      "createFailed": "লোকেশন তৈরি করা যায়নি",
+      "created": "লোকেশন তৈরি হয়েছে",
+      "defaultFlag": " · ডিফল্ট",
+      "deleteFailed": "লোকেশন মুছে ফেলা যায়নি",
+      "deleted": "লোকেশন মুছে ফেলা হয়েছে",
+      "documentTitle": "লোকেশন | Mercaria ড্যাশবোর্ড",
+      "inactiveFlag": " · নিষ্ক্রিয়",
+      "loadFailed": "লোকেশন লোড করা যায়নি",
+      "namePlaceholder": "প্রধান গুদাম",
+      "nameRequired": "নাম দিতে হবে",
+      "newTitle": "নতুন লোকেশন",
+      "subtitle": "যেখানে আপনি স্টক রাখেন",
+      "title": "লোকেশন",
+      "types": {
+        "popUp": "পপ-আপ",
+        "retail": "রিটেইল",
+        "virtual": "ভার্চুয়াল",
+        "warehouse": "গুদাম"
+      }
+    },
+    "members": {
+      "addFailed": "মেম্বার যোগ করা যায়নি",
+      "addMember": "মেম্বার যোগ করুন",
+      "added": "মেম্বার যোগ হয়েছে",
+      "documentTitle": "মেম্বার | Mercaria ড্যাশবোর্ড",
+      "explicitPermissions": {
+        "one": "%{count}টি সুনির্দিষ্ট অনুমতি দেওয়া হয়েছে",
+        "other": "%{count}টি সুনির্দিষ্ট অনুমতি দেওয়া হয়েছে"
+      },
+      "invite": "আমন্ত্রণ",
+      "inviteTitle": "মেম্বার আমন্ত্রণ করুন",
+      "joinedOn": "যোগ দিয়েছেন %{date}",
+      "loadFailed": "মেম্বার লোড করা যায়নি",
+      "oxyUserIdLabel": "Oxy ইউজার আইডি",
+      "oxyUserIdPlaceholder": "oxy ইউজার আইডি",
+      "oxyUserIdRequired": "মেম্বারের Oxy ইউজার আইডি দিন",
+      "removeFailed": "মেম্বার সরানো যায়নি",
+      "removed": "মেম্বার সরানো হয়েছে",
+      "roleLabel": "রোল",
+      "roleUpdateFailed": "মেম্বার আপডেট করা যায়নি",
+      "roleUpdated": "রোল আপডেট হয়েছে",
+      "roles": {
+        "admin": "অ্যাডমিন",
+        "owner": "মালিক",
+        "staff": "স্টাফ"
+      },
+      "subtitle": "কারা এই স্টোর পরিচালনা করতে পারবেন",
+      "title": "মেম্বার ও রোল"
+    },
+    "payments": {
+      "beingReviewed": "পর্যালোচনা চলছে",
+      "documentTitle": "পেমেন্ট ও পেআউট | Mercaria ড্যাশবোর্ড",
+      "dueBy": "শেষ সময়",
+      "itemCount": {
+        "one": "%{count}টি আইটেম",
+        "other": "%{count}টি আইটেম"
+      },
+      "loadFailed": "পেমেন্ট সেটিংস লোড করা যায়নি",
+      "neededNow": "এখনই দরকার",
+      "onboardingUnavailable": "এই Mercaria ডিপ্লয়মেন্টে এখনো পেআউট সেটআপ নেই।",
+      "openFailed": "পেআউট সেটআপ খোলা যায়নি",
+      "outstandingTitle": "Stripe-এর কাছে বাকি",
+      "paidOutIn": "পেআউটের মুদ্রা",
+      "payoutsTitle": "পেআউট",
+      "quoteToSupport": "সাহায্য দরকার হলে Mercaria সাপোর্টকে এটি জানান।",
+      "registeredIn": "নিবন্ধিত দেশ",
+      "reportedByStripe": "Stripe জানিয়েছে",
+      "requirementsNote": "এই তথ্যগুলো Stripe-এর কাছে থাকে এবং শুধু সেখানেই সেগুলো পূরণ করা যায়। Mercaria কখনো সেগুলো দেখে না।",
+      "schedule": "সময়সূচি",
+      "scheduleWithDelay": {
+        "one": "%{interval}, %{count} দিন পর",
+        "other": "%{interval}, %{count} দিন পর"
+      },
+      "states": {
+        "actionRequired": {
+          "action": "সেটআপ চালিয়ে যান",
+          "body": "আপনাকে পেআউট করার আগে Stripe-এর আরও কিছু তথ্য দরকার। সব না পাওয়া পর্যন্ত ক্রেতারা আপনার লিস্টিং দিয়ে চেকআউট করতে পারবেন না।",
+          "heading": "আরও কিছু তথ্য দরকার"
+        },
+        "disabled": {
+          "body": "Stripe এই কানেক্টেড অ্যাকাউন্টটি বন্ধ করে দিয়েছে, অথবা Mercaria-র সঙ্গে এর কানেকশন সরানো হয়েছে। ক্রেতারা আপনার লিস্টিং দিয়ে চেকআউট করতে পারবেন না। বিষয়টি দেখতে Mercaria সাপোর্টের সঙ্গে যোগাযোগ করুন।",
+          "heading": "এই অ্যাকাউন্ট আর ব্যবহার করা যাবে না"
+        },
+        "notConnected": {
+          "action": "পেআউট সেট আপ করুন",
+          "body": "আপনার লিস্টিং দেখা যাচ্ছে এবং Mercaria-র বাকি সব অংশ ব্যবহার করতে পারবেন, তবে ক্রেতারা এখনো সেগুলো দিয়ে চেকআউট করতে পারবেন না। পেআউট সেট আপ করতে কয়েক মিনিট লাগে।",
+          "heading": "এখনো সেট আপ করা হয়নি"
+        },
+        "ready": {
+          "action": "পেআউটের তথ্য পরিচালনা করুন",
+          "body": "ক্রেতারা আপনার লিস্টিং দিয়ে চেকআউট করতে পারেন, এবং Stripe আপনার ব্যালেন্স আপনার ব্যাংকে পাঠায়।",
+          "heading": "টাকা পাওয়ার জন্য প্রস্তুত"
+        },
+        "restricted": {
+          "action": "এখনই সমাধান করুন",
+          "body": "Stripe যা চেয়েছিল তার একটির সময় পেরিয়ে গেছে, তাই এটি পেআউট থামিয়ে দিয়েছে এবং ক্রেতারা আপনার লিস্টিং দিয়ে চেকআউট করতে পারছেন না। সেটি শেষ করলে দুটোই আবার চালু হবে।",
+          "heading": "পেআউট থামানো আছে"
+        },
+        "underReview": {
+          "body": "Stripe যা চেয়েছিল তা পেয়েছে এবং সেটি পর্যালোচনা করছে। আপনার কিছু করার নেই — সাধারণত এক-দুদিন লাগে। শেষ না হওয়া পর্যন্ত ক্রেতারা আপনার লিস্টিং দিয়ে চেকআউট করতে পারবেন না।",
+          "heading": "পর্যালোচনায় আছে"
+        }
+      },
+      "subtitle": "Mercaria-তে দেওয়া অর্ডারের টাকা আপনি যেভাবে পান",
+      "title": "পেমেন্ট ও পেআউট"
+    },
+    "plan": {
+      "alwaysIncludedBody": "ক্যাটালগ রক্ষণাবেক্ষণ, অর্ডার নেওয়া ও সম্পন্ন করা, রিফান্ড দেওয়া, নিজের বিক্রি ও পেআউটের রেকর্ড দেখা এবং নিজের ডেটা এক্সপোর্ট করা — এগুলো প্রতিটি Mercaria স্টোরের জন্য বিনামূল্যে এবং কখনোই কোনো প্ল্যানের অংশ নয়। এই পাতার কিছুই তা বদলাতে পারে না, এবং আপনার লিস্টিং কীভাবে খুঁজে পাওয়া যায় বা র‍্যাঙ্ক হয় তাতে কোনো প্ল্যানের প্রভাব নেই।",
+      "alwaysIncludedTitle": "সবসময় অন্তর্ভুক্ত",
+      "cancelFailed": "বাতিল করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।",
+      "cancelPlan": "প্ল্যান বাতিল করুন",
+      "capabilityWithLimit": "%{name} · সর্বোচ্চ %{limit}",
+      "choosePlan": "%{plan} বেছে নিন",
+      "documentTitle": "প্ল্যান ও বিলিং | Mercaria ড্যাশবোর্ড",
+      "endsOn": "%{date}-এ শেষ হবে।",
+      "free": "ফ্রি",
+      "graceEndsOn": "পেমেন্ট সফল না হলে এই প্ল্যানের বাড়তি সুবিধাগুলো %{date}-এ বন্ধ হয়ে যাবে।",
+      "loadFailed": "আপনার প্ল্যান লোড করা যায়নি",
+      "manageBilling": "বিলিং পরিচালনা করুন",
+      "noExtras": "এই স্টোরে প্ল্যানের কোনো বাড়তি সুবিধা চালু নেই।",
+      "noPaidPlans": "এখনো কোনো পেইড প্ল্যান নেই। যখন থাকবে, তাতে কী কী আছে এবং তার দাম আপনি কিছুতে রাজি হওয়ার আগেই এখানে তালিকা করা থাকবে।",
+      "notOnPaidPlan": "আপনি কোনো পেইড প্ল্যানে নেই। উপরে তালিকা করা সবকিছুই অন্তর্ভুক্ত।",
+      "paidPlansTitle": "পেইড প্ল্যান",
+      "portalFailed": "বিলিং খোলা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।",
+      "pricePerMonth": "%{price} · প্রতি মাসে",
+      "pricePerYear": "%{price} · প্রতি বছরে",
+      "renewsOn": "%{date}-এ নবায়ন হবে।",
+      "statuses": {
+        "active": {
+          "body": "আপনার প্ল্যান স্বয়ংক্রিয়ভাবে নবায়ন হয়। যেকোনো সময় বাতিল করতে পারেন এবং যে সময়ের টাকা দিয়েছেন তার শেষ পর্যন্ত এটি রাখতে পারেন।",
+          "heading": "সক্রিয়"
+        },
+        "cancelled": {
+          "body": "নিচের তারিখ পর্যন্ত এই প্ল্যানের বাড়তি সুবিধাগুলো আপনি পাবেন। আর কিছুই বদলায় না।",
+          "heading": "সময়কালের শেষে বাতিল হবে"
+        },
+        "expired": {
+          "body": "এই প্ল্যানের বাড়তি সুবিধাগুলো আর চালু নেই। বিনামূল্যে যা যা অন্তর্ভুক্ত তা অপরিবর্তিত।",
+          "heading": "শেষ হয়েছে"
+        },
+        "pastDue": {
+          "body": "আপনার ক্যাটালগ, অর্ডার, রিফান্ড ও রেকর্ডে কোনো প্রভাব পড়েনি এবং পড়বেও না। শুধু এই প্ল্যানের বাড়তি সুবিধাগুলোতেই প্রভাব পড়বে, তাও নিচের তারিখের পরে।",
+          "heading": "শেষ পেমেন্টটি আমরা নিতে পারিনি"
+        },
+        "paused": {
+          "body": "থামানো থাকা অবস্থায় এই প্ল্যানের বাড়তি সুবিধাগুলো চালু থাকে না।",
+          "heading": "থামানো"
+        },
+        "trialing": {
+          "body": "ট্রায়াল শেষ না হওয়া পর্যন্ত এই প্ল্যানের বাড়তি সুবিধাগুলো আপনি পুরোপুরি পাবেন।",
+          "heading": "ট্রায়াল চলছে"
+        }
+      },
+      "subtitle": "আপনার স্টোর কী পায়, আর তার জন্য আপনি কী দেন",
+      "title": "প্ল্যান ও বিলিং",
+      "trialNotice": {
+        "one": "%{count} দিনের ট্রায়াল অন্তর্ভুক্ত।",
+        "other": "%{count} দিনের ট্রায়াল অন্তর্ভুক্ত।"
+      },
+      "upgradeFailed": "আপগ্রেড শুরু করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।",
+      "usageIncluded": "অন্তর্ভুক্ত",
+      "usageNoLimit": "%{used} ব্যবহৃত · কোনো সীমা নেই",
+      "usageOfLimit": "%{limit}-এর মধ্যে %{used} ব্যবহৃত"
+    },
+    "policies": {
+      "documentTitle": "পলিসি | Mercaria ড্যাশবোর্ড",
+      "loadFailed": "সেটিংস লোড করা যায়নি",
+      "lowStockAlerts": "কম-স্টকের সতর্কতা",
+      "notifications": "নোটিফিকেশন",
+      "orderEmails": "অর্ডার ইমেইল",
+      "privacyPolicyLabel": "প্রাইভেসি পলিসি",
+      "privacyPolicyPlaceholder": "আপনার প্রাইভেসি পলিসি…",
+      "refundPolicyLabel": "রিফান্ড পলিসি",
+      "refundPolicyPlaceholder": "আপনার রিফান্ড পলিসি…",
+      "returnWindowLabel": "ফেরতের সময়সীমা (দিন)",
+      "saveFailed": "সেটিংস সেভ করা যায়নি",
+      "saveSettings": "সেটিংস সেভ করুন",
+      "saved": "সেটিংস সেভ হয়েছে",
+      "subtitle": "স্টোর-জুড়ে নিয়ম ও সতর্কতা",
+      "termsLabel": "সেবার শর্তাবলি",
+      "termsPlaceholder": "আপনার সেবার শর্তাবলি…",
+      "title": "পলিসি ও নোটিফিকেশন"
+    },
+    "sections": {
+      "channels": {
+        "description": "সিঙ্ক করতে Shopify ও অন্যান্য স্টোর কানেক্ট করুন",
+        "label": "সেলস চ্যানেল"
+      },
+      "locations": {
+        "description": "যেখানে আপনি স্টক রাখেন",
+        "label": "লোকেশন"
+      },
+      "members": {
+        "description": "আমন্ত্রণ করুন, রোল ও অনুমতি বদলান",
+        "label": "মেম্বার ও রোল"
+      },
+      "payments": {
+        "description": "Mercaria-তে দেওয়া অর্ডারের টাকা নিন",
+        "label": "পেমেন্ট ও পেআউট"
+      },
+      "plan": {
+        "description": "আপনার স্টোর কী পায়, আর তার জন্য আপনি কী দেন",
+        "label": "প্ল্যান ও বিলিং"
+      },
+      "policies": {
+        "description": "ফেরত, রিফান্ড/প্রাইভেসি/শর্তাবলি, সতর্কতা",
+        "label": "পলিসি ও নোটিফিকেশন"
+      },
+      "profile": {
+        "description": "নাম, হ্যান্ডেল, ব্র্যান্ড রং, স্ট্যাটাস",
+        "label": "স্টোর প্রোফাইল"
+      },
+      "tax": {
+        "description": "ট্যাক্স রেট ও ট্যাক্সের আচরণ",
+        "label": "ট্যাক্স"
+      }
+    },
+    "store": {
+      "brandColorLabel": "ব্র্যান্ড রং",
+      "documentTitle": "স্টোর প্রোফাইল | Mercaria ড্যাশবোর্ড",
+      "loadFailed": "স্টোর লোড করা যায়নি",
+      "nameLabel": "স্টোরের নাম",
+      "nameRequired": "স্টোরের নাম দিতে হবে",
+      "saveChanges": "পরিবর্তন সেভ করুন",
+      "title": "স্টোর প্রোফাইল",
+      "updateFailed": "স্টোর আপডেট করা যায়নি",
+      "updated": "স্টোর আপডেট হয়েছে"
+    },
+    "subtitle": "আপনার স্টোর কনফিগার করুন",
+    "tax": {
+      "active": "সক্রিয়",
+      "countryLabel": "দেশ (ISO-2)",
+      "countryPlaceholder": "US",
+      "createFailed": "রেট তৈরি করা যায়নি",
+      "created": "ট্যাক্স রেট তৈরি হয়েছে",
+      "deleteFailed": "রেট মুছে ফেলা যায়নি",
+      "deleted": "ট্যাক্স রেট মুছে ফেলা হয়েছে",
+      "documentTitle": "ট্যাক্স | Mercaria ড্যাশবোর্ড",
+      "emptyBody": "চেকআউটে ট্যাক্স নিতে একটি রেট যোগ করুন।",
+      "emptyTitle": "কোনো ট্যাক্স রেট নেই",
+      "inactive": "নিষ্ক্রিয়",
+      "invalidRate": "একটি সঠিক রেট দিন",
+      "loadFailed": "ট্যাক্স রেট লোড করা যায়নি",
+      "namePlaceholder": "US Sales Tax",
+      "nameRequired": "নাম দিতে হবে",
+      "newRate": "নতুন রেট",
+      "newRateTitle": "নতুন ট্যাক্স রেট",
+      "rateLabel": "রেট (%)",
+      "regionLabel": "অঞ্চল",
+      "regionPlaceholder": "CA",
+      "subtitle": "চেকআউটে প্রয়োগ হওয়া ট্যাক্স রেট",
+      "title": "ট্যাক্স"
+    },
+    "title": "সেটিংস"
+  },
+  "stores": {
+    "create": {
+      "descriptionPlaceholder": "আপনি কী বিক্রি করেন?",
+      "dialogTitle": "একটি স্টোর তৈরি করুন",
+      "error": "স্টোর তৈরি করা যায়নি",
+      "nameLabel": "স্টোরের নাম",
+      "namePlaceholder": "Acme Supply Co.",
+      "nameRequired": "স্টোরের নাম দিতে হবে",
+      "success": "স্টোর তৈরি হয়েছে"
+    },
+    "createStore": "স্টোর তৈরি করুন",
+    "documentTitle": "স্টোর | Mercaria ড্যাশবোর্ড",
+    "empty": {
+      "body": "Mercaria-তে বিক্রি শুরু করতে আপনার প্রথম স্টোর তৈরি করুন।",
+      "title": "এখনো কোনো স্টোর নেই"
+    },
+    "loadError": "আপনার স্টোর লোড করা যায়নি",
+    "newStore": "নতুন স্টোর",
+    "selectStore": "স্টোর নির্বাচন করুন",
+    "storeMeta": {
+      "one": "@%{handle} · %{count}টি পণ্য",
+      "other": "@%{handle} · %{count}টি পণ্য"
+    },
+    "subtitle": "পরিচালনা করার জন্য একটি স্টোর বেছে নিন",
+    "switch": "স্টোর বদলান",
+    "title": "আপনার স্টোর"
+  }
+}

@@ -1,0 +1,186 @@
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "সাইন ইন",
+    "signInBody": "রেজিস্টার খুলতে আপনার Oxy অ্যাকাউন্ট দিয়ে সাইন ইন করুন — সামনাসামনি বিক্রি তুলুন, গ্রাহক যুক্ত করুন এবং চার্জ করুন।"
+  },
+  "cart": {
+    "addCustomer": "গ্রাহক যোগ করুন",
+    "clear": "খালি করুন",
+    "clearCart": "কার্ট খালি করুন",
+    "customerAttached": "এই বিক্রির সঙ্গে যুক্ত",
+    "decreaseQuantity": "পরিমাণ কমান",
+    "discountCodePlaceholder": "ডিসকাউন্ট কোড",
+    "documentTitle": "কার্ট | Mercaria POS",
+    "emptyBody": "বিক্রিতে যোগ করতে পণ্যে ট্যাপ করুন।",
+    "emptyTitle": "কার্ট খালি",
+    "increaseQuantity": "পরিমাণ বাড়ান",
+    "itemCount": {
+      "one": "%{count}টি আইটেম",
+      "other": "%{count}টি আইটেম"
+    },
+    "removeItem": "আইটেম সরান",
+    "subtotal": "সাবটোটাল",
+    "title": "কার্ট"
+  },
+  "catalog": {
+    "add": "যোগ করুন",
+    "availableCount": {
+      "one": "%{count}টি উপলব্ধ",
+      "other": "%{count}টি উপলব্ধ"
+    },
+    "chooseVariant": "একটি ভ্যারিয়েন্ট বেছে নিন",
+    "codePlaceholder": "SKU / বারকোড স্ক্যান বা টাইপ করুন",
+    "emptyBody": "আপনার সার্চের সঙ্গে কিছু মেলেনি।",
+    "emptyTitle": "কোনো পণ্য নেই",
+    "inStockCount": {
+      "one": "%{count}টি স্টকে",
+      "other": "%{count}টি স্টকে"
+    },
+    "loadFailed": "ক্যাটালগ লোড করা যায়নি",
+    "lookupFailed": "খোঁজা যায়নি",
+    "noProductForCode": "ওই কোডের কোনো পণ্য নেই",
+    "outOfStock": "স্টকে নেই",
+    "searchPlaceholder": "ক্যাটালগে সার্চ করুন",
+    "soldOut": "বিক্রি শেষ"
+  },
+  "charge": {
+    "action": "চার্জ করুন",
+    "customer": "গ্রাহক",
+    "documentTitle": "চার্জ | Mercaria POS",
+    "expectedTotal": "প্রত্যাশিত মোট",
+    "failed": "চার্জ ব্যর্থ হয়েছে",
+    "finalTotalNote": "চূড়ান্ত মোট (ডিসকাউন্ট ও ট্যাক্স) বিক্রি সম্পন্ন করার সময় হিসাব করা হয়।",
+    "subtitle": "দেখে নিন এবং বিক্রি সম্পন্ন করুন",
+    "tender": "পেমেন্ট মাধ্যম",
+    "tenderCard": "কার্ড",
+    "tenderCash": "নগদ",
+    "title": "চার্জ"
+  },
+  "common": {
+    "all": "সব",
+    "name": "নাম",
+    "next": "পরবর্তী",
+    "noAccess": "অ্যাক্সেস নেই",
+    "noAccessBody": "সক্রিয় স্টোরের এই অংশ দেখার অনুমতি আপনার নেই।",
+    "optional": "ঐচ্ছিক",
+    "pleaseTryAgain": "অনুগ্রহ করে আবার চেষ্টা করুন।",
+    "previous": "পূর্ববর্তী",
+    "retry": "আবার চেষ্টা করুন",
+    "somethingWentWrong": "কিছু একটা ভুল হয়েছে"
+  },
+  "customer": {
+    "addAndAttach": "যোগ করে যুক্ত করুন",
+    "addFailed": "গ্রাহক যোগ করা যায়নি",
+    "added": "গ্রাহক যোগ হয়েছে",
+    "documentTitle": "গ্রাহক | Mercaria POS",
+    "email": "ইমেইল",
+    "emailPlaceholder": "jane@example.com",
+    "fallbackName": "গ্রাহক",
+    "loadFailed": "গ্রাহক লোড করা যায়নি",
+    "namePlaceholder": "রিয়া দাস",
+    "noMatches": "কোনো গ্রাহক মেলেনি।",
+    "phone": "ফোন",
+    "phonePlaceholder": "+1 555 0100",
+    "quickAdd": "দ্রুত যোগ",
+    "quickAddEmpty": "নাম, ইমেইল বা ফোন লিখুন",
+    "searchPlaceholder": "গ্রাহক সার্চ করুন",
+    "subtitle": "গ্রাহক যুক্ত করুন, বা ওয়াক-ইন হিসেবেই রাখুন",
+    "title": "গ্রাহক",
+    "walkIn": "ওয়াক-ইন",
+    "walkInOption": "ওয়াক-ইন (গ্রাহক ছাড়া)"
+  },
+  "errors": {
+    "noRegisterAccessBody": "সক্রিয় স্টোরের রেজিস্টার ব্যবহারের অনুমতি আপনার নেই।",
+    "notFoundAction": "রেজিস্টারে যান",
+    "notFoundBody": "এই স্ক্রিনটি নেই।",
+    "notFoundDocumentTitle": "404 - পাওয়া যায়নি | Mercaria POS",
+    "notFoundHeading": "ওহো!",
+    "unexpectedBody": "অপ্রত্যাশিত একটি ত্রুটি ঘটেছে। আপনি আবার চেষ্টা করতে পারেন; সমস্যা চলতে থাকলে আমাদের টিমকে জানানো হয়েছে।"
+  },
+  "locations": {
+    "type": {
+      "popUp": "পপ-আপ",
+      "retail": "রিটেইল",
+      "virtual": "ভার্চুয়াল",
+      "warehouse": "গুদাম"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "সাইডবার সংকুচিত করুন",
+    "expandSidebar": "সাইডবার প্রসারিত করুন",
+    "register": "রেজিস্টার",
+    "sales": "বিক্রয়",
+    "selectStore": "স্টোর নির্বাচন করুন",
+    "switchStore": "স্টোর বদলান"
+  },
+  "orders": {
+    "channel": {
+      "draft": "ড্রাফট",
+      "pos": "পয়েন্ট অব সেল",
+      "storefront": "স্টোরফ্রন্ট"
+    },
+    "status": {
+      "cancelled": "বাতিল",
+      "delivered": "ডেলিভার হয়েছে",
+      "paid": "পেমেন্ট হয়েছে",
+      "partiallyRefunded": "আংশিক রিফান্ড",
+      "pendingPayment": "পেমেন্ট বাকি",
+      "processing": "প্রসেসিং",
+      "refunded": "রিফান্ড হয়েছে",
+      "shipped": "শিপ হয়েছে"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "ডিসকাউন্ট",
+    "documentTitle": "রসিদ | Mercaria POS",
+    "loadFailed": "রসিদ লোড করা যায়নি",
+    "loadFailedBody": "অর্ডারটি হয়তো পাওয়া যাচ্ছে না।",
+    "newSale": "নতুন বিক্রি",
+    "orderNumber": "অর্ডার %{number}",
+    "paymentRecorded": "পেমেন্ট রেকর্ড হয়েছে",
+    "saleComplete": "বিক্রি সম্পন্ন",
+    "subtotal": "সাবটোটাল",
+    "tax": "ট্যাক্স",
+    "title": "রসিদ",
+    "total": "মোট"
+  },
+  "register": {
+    "documentTitle": "রেজিস্টার | Mercaria POS",
+    "reviewCart": "কার্ট দেখুন",
+    "reviewCartWithCount": {
+      "one": "%{count}টি আইটেম · কার্ট দেখুন",
+      "other": "%{count}টি আইটেম · কার্ট দেখুন"
+    }
+  },
+  "sales": {
+    "documentTitle": "বিক্রয় | Mercaria POS",
+    "emptyBody": "সম্পন্ন বিক্রিগুলো এখানে দেখা যাবে।",
+    "emptyTitle": "এখনো কোনো বিক্রি নেই",
+    "loadFailed": "বিক্রয় লোড করা যায়নি",
+    "orderLabel": "অর্ডার %{number}",
+    "pageNumber": "পৃষ্ঠা %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "সাম্প্রতিক অর্ডার"
+  },
+  "storeSetup": {
+    "changeStore": "স্টোর বদলান",
+    "chooseRegisterSubtitle": "এই রেজিস্টার যে লোকেশনের স্টক থেকে বিক্রি করবে সেটি বেছে নিন",
+    "chooseRegisterTitle": "একটি রেজিস্টার বেছে নিন",
+    "chooseStoreSubtitle": "আপনি যে স্টোরের হয়ে বিক্রি করছেন সেটি বেছে নিন",
+    "chooseStoreTitle": "একটি স্টোর বেছে নিন",
+    "defaultLocation": "ডিফল্ট",
+    "documentTitle": "স্টোর সেটআপ | Mercaria POS",
+    "locationsLoadFailed": "লোকেশন লোড করা যায়নি",
+    "noLocationsBody": "আগে ড্যাশবোর্ডে একটি লোকেশন তৈরি করুন, তারপর রেজিস্টার খুলতে এখানে ফিরে আসুন।",
+    "noLocationsTitle": "কোনো লোকেশন নেই",
+    "noStoresBody": "আগে Mercaria ড্যাশবোর্ডে একটি স্টোর তৈরি করুন, তারপর রেজিস্টার খুলতে এখানে ফিরে আসুন।",
+    "noStoresTitle": "এখনো কোনো স্টোর নেই",
+    "storeMeta": {
+      "one": "@%{handle} · %{count}টি পণ্য",
+      "other": "@%{handle} · %{count}টি পণ্য"
+    },
+    "storesLoadFailed": "আপনার স্টোর লোড করা যায়নি"
+  }
+}

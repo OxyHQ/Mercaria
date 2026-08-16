@@ -93,6 +93,17 @@ jobs:
       - name: Guard bidi isolation
         run: bun run validate:bidi-isolation
 
+      # The dashboard and POS were translated in #398. A hardcoded string put
+      # back into either is invisible to everything else here — the JSX is
+      # valid, tsc is happy and all three export jobs pass; a merchant whose
+      # device is in German just sees one English word. The same step also
+      # checks bundle parity, because a key missing from de.json falls back to
+      # the ENGLISH string and looks correct in review. Neither app has a test
+      # runner, so this is the step that carries it. Reads the tracked file
+      # listing; costs a couple of seconds.
+      - name: Guard dashboard and POS i18n
+        run: bun run validate:i18n-strings
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 

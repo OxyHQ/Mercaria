@@ -35,9 +35,23 @@ import {
 } from "@/lib/hooks/use-products";
 import { useConnection } from "@/lib/hooks/use-channels";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
+import { useTranslation } from "@/lib/i18n";
 import { toFairMinor, toMajorString } from "@/lib/money";
 
 const STATUSES: SellerSettableListingStatus[] = ["draft", "active", "archived"];
+
+/**
+ * Translation KEYS per seller-settable status, not sentences (#398) — this module
+ * is evaluated at import, before the locale store has rehydrated, so a resolved
+ * label would freeze whatever language loaded first. The picker resolves
+ * `t(STATUS_LABEL_KEYS[status])`.
+ */
+const STATUS_LABEL_KEYS: Record<SellerSettableListingStatus, string> = {
+  draft: "products.status.draft",
+  active: "products.status.active",
+  sold: "products.status.sold",
+  archived: "products.status.archived",
+};
 
 /**
  * A listing a moderation decision has restricted.
@@ -55,10 +69,11 @@ function isRestricted(listing: Listing): boolean {
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Product | Mercaria Dashboard</title>
+        <title>{t("products.detail.documentTitle")}</title>
       </Head>
       <RequireStore permission="products:read">
         {(storeId) => <ProductDetailBody storeId={storeId} productId={String(id)} />}
@@ -68,19 +83,20 @@ export default function ProductDetailScreen() {
 }
 
 function ProductDetailBody({ storeId, productId }: { storeId: string; productId: string }) {
+  const { t } = useTranslation();
   const { data, isPending, isError } = useProduct(storeId, productId);
 
   if (isPending) {
     return (
-      <Screen title="Product">
+      <Screen title={t("products.detail.title")}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !data) {
     return (
-      <Screen title="Product">
-        <ScreenMessage title="Couldn't load product" body="Please try again." />
+      <Screen title={t("products.detail.title")}>
+        <ScreenMessage title={t("products.detail.loadFailed")} body={t("common.pleaseTryAgain")} />
       </Screen>
     );
   }
@@ -89,6 +105,7 @@ function ProductDetailBody({ storeId, productId }: { storeId: string; productId:
 
 function ProductEditor({ storeId, product }: { storeId: string; product: Listing }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
   const canWrite = can("products:write");
@@ -120,8 +137,8 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
     updateProduct.mutate(
       { title: title.trim(), description: description.trim(), status },
       {
-        onSuccess: () => toast.success("Product saved"),
-        onError: () => toast.error("Couldn't save the product"),
+        onSuccess: () => toast.success(t("products.detail.saved")),
+        onError: () => toast.error(t("products.detail.saveFailed")),
       },
     );
   };
@@ -129,24 +146,24 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   const archive = () => {
     archiveProduct.mutate(product.id, {
       onSuccess: () => {
-        toast.success("Product archived");
+        toast.success(t("products.detail.archived"));
         router.replace("/products");
       },
-      onError: () => toast.error("Couldn't archive the product"),
+      onError: () => toast.error(t("products.detail.archiveFailed")),
     });
   };
 
   return (
     <Screen
       title={product.title}
-      subtitle={`${product.variants.length} variant${product.variants.length === 1 ? "" : "s"}`}
+      subtitle={t("products.detail.variantCount", { count: product.variants.length })}
       action={
         <Pressable
           onPress={() => router.back()}
           className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
         >
           <ChevronLeft size={16} color={colors.foreground} />
-          <Text className="text-sm font-medium text-foreground">Back</Text>
+          <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
         </Pressable>
       }
     >
@@ -163,7 +180,9 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
                     onPress={() => router.push(`/channels/${source.connectionId}`)}
                     className="self-start active:opacity-70"
                   >
-                    <Text className="text-xs font-medium text-primary">Channel settings</Text>
+                    <Text className="text-xs font-medium text-primary">
+                      {t("products.detail.channelSettings")}
+                    </Text>
                   </Pressable>
                 ) : null
               }
@@ -171,19 +190,18 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
           </View>
         ) : null}
         <View className="gap-1.5">
-          <Label>Title</Label>
+          <Label>{t("common.title")}</Label>
           <Input value={title} onChangeText={setTitle} editable={canWrite} />
         </View>
         <View className="gap-1.5">
-          <Label>Description</Label>
+          <Label>{t("common.description")}</Label>
           <Textarea value={description} onChangeText={setDescription} editable={canWrite} />
         </View>
         <View className="gap-1.5">
-          <Label>Status</Label>
+          <Label>{t("common.status")}</Label>
           {restricted ? (
             <Text className="text-sm text-muted-foreground">
-              This product is restricted pending a moderation decision and cannot be
-              republished from here.
+              {t("products.detail.restrictedNotice")}
             </Text>
           ) : null}
           <ToggleGroup
@@ -197,7 +215,7 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
           >
             {STATUSES.map((s) => (
               <ToggleGroupItem key={s} value={s}>
-                <Text className="text-sm capitalize text-foreground">{s}</Text>
+                <Text className="text-sm capitalize text-foreground">{t(STATUS_LABEL_KEYS[s])}</Text>
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -206,10 +224,14 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
         {canWrite ? (
           <View className="flex-row gap-3">
             <Button className="flex-1" onPress={save} isLoading={updateProduct.isPending}>
-              <Text className="font-semibold text-primary-foreground">Save changes</Text>
+              <Text className="font-semibold text-primary-foreground">
+                {t("products.detail.saveChanges")}
+              </Text>
             </Button>
             <Button variant="destructive" onPress={archive} isLoading={archiveProduct.isPending}>
-              <Text className="font-semibold text-destructive-foreground">Archive</Text>
+              <Text className="font-semibold text-destructive-foreground">
+                {t("products.detail.archive")}
+              </Text>
             </Button>
           </View>
         ) : null}
@@ -229,6 +251,7 @@ function VariantsSection({
   product: Listing;
   canWrite: boolean;
 }) {
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
   const createVariant = useCreateVariant(storeId, product.id);
@@ -242,7 +265,7 @@ function VariantsSection({
   const addVariant = () => {
     const priceMinor = toFairMinor(newPrice);
     if (priceMinor === null) {
-      toast.error("Enter a valid price");
+      toast.error(t("products.variants.priceInvalid"));
       return;
     }
     const available = Math.max(0, Number.parseInt(newStock || "0", 10) || 0);
@@ -255,13 +278,13 @@ function VariantsSection({
       },
       {
         onSuccess: () => {
-          toast.success("Variant added");
+          toast.success(t("products.variants.added"));
           setShowAdd(false);
           setNewValue("");
           setNewPrice("");
           setNewStock("0");
         },
-        onError: () => toast.error("Couldn't add the variant"),
+        onError: () => toast.error(t("products.variants.addFailed")),
       },
     );
   };
@@ -269,14 +292,16 @@ function VariantsSection({
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <View className="mb-3 flex-row items-center justify-between">
-        <Text className="text-sm font-semibold text-foreground">Variants & inventory</Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {t("products.variants.heading")}
+        </Text>
         {canWrite ? (
           <Pressable
             onPress={() => setShowAdd((s) => !s)}
             className="flex-row items-center gap-1 active:opacity-70"
           >
             <Plus size={16} color={colors.primary} />
-            <Text className="text-sm font-medium text-primary">Add</Text>
+            <Text className="text-sm font-medium text-primary">{t("products.variants.add")}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -286,21 +311,27 @@ function VariantsSection({
           {optionName ? (
             <View className="mb-2">
               <Label>{optionName}</Label>
-              <Input value={newValue} onChangeText={setNewValue} placeholder="value" />
+              <Input
+                value={newValue}
+                onChangeText={setNewValue}
+                placeholder={t("products.variants.valuePlaceholder")}
+              />
             </View>
           ) : null}
           <View className="flex-row gap-2">
             <View className="flex-1">
-              <Label>Price (⊜)</Label>
+              <Label>{t("products.priceLabel")}</Label>
               <Input value={newPrice} onChangeText={setNewPrice} keyboardType="decimal-pad" placeholder="0.00" />
             </View>
             <View className="flex-1">
-              <Label>Stock</Label>
+              <Label>{t("products.stockLabel")}</Label>
               <Input value={newStock} onChangeText={setNewStock} keyboardType="number-pad" placeholder="0" />
             </View>
           </View>
           <Button size="sm" className="mt-3 self-start" onPress={addVariant} isLoading={createVariant.isPending}>
-            <Text className="text-sm font-semibold text-primary-foreground">Save variant</Text>
+            <Text className="text-sm font-semibold text-primary-foreground">
+              {t("products.variants.saveVariant")}
+            </Text>
           </Button>
         </View>
       ) : null}
@@ -337,6 +368,7 @@ function VariantRow({
   canInventory: boolean;
   removable: boolean;
 }) {
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const updateVariant = useUpdateVariant(storeId, productId);
   const deleteVariant = useDeleteVariant(storeId, productId);
@@ -348,14 +380,14 @@ function VariantRow({
   const savePrice = () => {
     const priceMinor = toFairMinor(price);
     if (priceMinor === null) {
-      toast.error("Enter a valid price");
+      toast.error(t("products.variants.priceInvalid"));
       return;
     }
     updateVariant.mutate(
       { variantId: variant.id, input: { price: { amount: priceMinor, currency: "FAIR" } } },
       {
-        onSuccess: () => toast.success("Variant updated"),
-        onError: () => toast.error("Couldn't update the variant"),
+        onSuccess: () => toast.success(t("products.variants.updated")),
+        onError: () => toast.error(t("products.variants.updateFailed")),
       },
     );
   };
@@ -365,16 +397,16 @@ function VariantRow({
     setInventory.mutate(
       { variantId: variant.id, available },
       {
-        onSuccess: () => toast.success("Inventory updated"),
-        onError: () => toast.error("Couldn't update inventory"),
+        onSuccess: () => toast.success(t("products.variants.inventoryUpdated")),
+        onError: () => toast.error(t("products.variants.inventoryUpdateFailed")),
       },
     );
   };
 
   const remove = () => {
     deleteVariant.mutate(variant.id, {
-      onSuccess: () => toast.success("Variant removed"),
-      onError: () => toast.error("Couldn't remove the variant"),
+      onSuccess: () => toast.success(t("products.variants.removed")),
+      onError: () => toast.error(t("products.variants.removeFailed")),
     });
   };
 
@@ -389,30 +421,30 @@ function VariantRow({
       </View>
       <View className="flex-row items-end gap-2">
         <View className="flex-1">
-          <Label>Price (⊜)</Label>
+          <Label>{t("products.priceLabel")}</Label>
           <Input value={price} onChangeText={setPrice} keyboardType="decimal-pad" editable={canWrite} />
         </View>
         {canWrite ? (
           <Button size="sm" variant="outline" onPress={savePrice} isLoading={updateVariant.isPending}>
-            <Text className="text-sm font-medium text-foreground">Save</Text>
+            <Text className="text-sm font-medium text-foreground">{t("common.save")}</Text>
           </Button>
         ) : null}
       </View>
       <View className="mt-2 flex-row items-end gap-2">
         <View className="flex-1">
-          <Label>Available</Label>
+          <Label>{t("products.variants.available")}</Label>
           <Input value={stock} onChangeText={setStock} keyboardType="number-pad" editable={canInventory} />
         </View>
         {canInventory ? (
           <Button size="sm" variant="outline" onPress={saveStock} isLoading={setInventory.isPending}>
-            <Text className="text-sm font-medium text-foreground">Set</Text>
+            <Text className="text-sm font-medium text-foreground">{t("products.variants.set")}</Text>
           </Button>
         ) : null}
       </View>
       {canWrite && removable ? (
         <Pressable onPress={remove} className="mt-2 flex-row items-center gap-1 self-end active:opacity-70">
           <Trash2 size={14} color={colors.mutedForeground} />
-          <Text className="text-xs text-muted-foreground">Remove variant</Text>
+          <Text className="text-xs text-muted-foreground">{t("products.variants.removeVariant")}</Text>
         </Pressable>
       ) : null}
     </View>

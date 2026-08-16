@@ -19,12 +19,22 @@ import { Text, useColorScheme } from "@mercaria/ui";
 import { Screen } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { LanguagePicker } from "@/components/settings/LanguagePicker";
+import { useTranslation } from "@/lib/i18n";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 
 interface SettingsItem {
   key: string;
-  label: string;
-  description: string;
+  /**
+   * Translation keys for the row's title and one-line explanation (#398).
+   *
+   * KEYS rather than the sentences: this array is evaluated once at import,
+   * before the locale store has rehydrated, so a resolved string here would
+   * freeze whatever language the first render happened to see. `SettingsList`
+   * calls `t()` per row and therefore re-renders when the locale changes.
+   */
+  labelKey: string;
+  descriptionKey: string;
   icon: LucideIcon;
   href: RoutePath;
   permission: StorePermission;
@@ -33,48 +43,48 @@ interface SettingsItem {
 const ITEMS: SettingsItem[] = [
   {
     key: "profile",
-    label: "Store profile",
-    description: "Name, handle, brand color, status",
+    labelKey: "settings.sections.profile.label",
+    descriptionKey: "settings.sections.profile.description",
     icon: StoreIcon,
     href: "/settings/store",
     permission: "store:manage",
   },
   {
     key: "policies",
-    label: "Policies & notifications",
-    description: "Returns, refund/privacy/terms, alerts",
+    labelKey: "settings.sections.policies.label",
+    descriptionKey: "settings.sections.policies.description",
     icon: Bell,
     href: "/settings/policies",
     permission: "settings:write",
   },
   {
     key: "members",
-    label: "Members & roles",
-    description: "Invite, edit roles and permissions",
+    labelKey: "settings.sections.members.label",
+    descriptionKey: "settings.sections.members.description",
     icon: Users,
     href: "/settings/members",
     permission: "members:manage",
   },
   {
     key: "tax",
-    label: "Taxes",
-    description: "Tax rates and tax behavior",
+    labelKey: "settings.sections.tax.label",
+    descriptionKey: "settings.sections.tax.description",
     icon: Percent,
     href: "/settings/tax",
     permission: "settings:write",
   },
   {
     key: "locations",
-    label: "Locations",
-    description: "Where you stock inventory",
+    labelKey: "settings.sections.locations.label",
+    descriptionKey: "settings.sections.locations.description",
     icon: MapPin,
     href: "/settings/locations",
     permission: "locations:write",
   },
   {
     key: "channels",
-    label: "Sales channels",
-    description: "Connect Shopify and other stores to sync",
+    labelKey: "settings.sections.channels.label",
+    descriptionKey: "settings.sections.channels.description",
     icon: Plug,
     href: "/channels",
     permission: "channels:write",
@@ -86,8 +96,8 @@ const ITEMS: SettingsItem[] = [
   // decision.
   {
     key: "payments",
-    label: "Payments & payouts",
-    description: "Get paid for orders placed on Mercaria",
+    labelKey: "settings.sections.payments.label",
+    descriptionKey: "settings.sections.payments.description",
     icon: CreditCard,
     href: "/settings/payments",
     permission: "store:manage",
@@ -98,8 +108,8 @@ const ITEMS: SettingsItem[] = [
   // make a plan look like a condition of getting paid.
   {
     key: "plan",
-    label: "Plan & billing",
-    description: "What your store gets, and what you pay for it",
+    labelKey: "settings.sections.plan.label",
+    descriptionKey: "settings.sections.plan.description",
     icon: Sparkles,
     href: "/settings/plan",
     permission: "store:manage",
@@ -107,13 +117,23 @@ const ITEMS: SettingsItem[] = [
 ];
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Settings | Mercaria Dashboard</title>
+        <title>{t("settings.documentTitle")}</title>
       </Head>
-      <Screen title="Settings" subtitle="Configure your store" action={<StoreSwitcher />}>
+      <Screen
+        title={t("settings.title")}
+        subtitle={t("settings.subtitle")}
+        action={<StoreSwitcher />}
+      >
         <RequireStore>{() => <SettingsList />}</RequireStore>
+        {/* Outside RequireStore on purpose: the interface language is a property
+            of the person reading the screen, not of the active store, so a
+            staff member with no permission on it must still be able to change
+            it. */}
+        <LanguagePicker />
       </Screen>
     </>
   );
@@ -123,6 +143,7 @@ function SettingsList() {
   const router = useRouter();
   const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
+  const { t } = useTranslation();
 
   const visible = ITEMS.filter((item) => can(item.permission));
 
@@ -140,8 +161,8 @@ function SettingsList() {
               <Icon size={18} color={colors.mutedForeground} />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-semibold text-foreground">{item.label}</Text>
-              <Text className="text-xs text-muted-foreground">{item.description}</Text>
+              <Text className="text-sm font-semibold text-foreground">{t(item.labelKey)}</Text>
+              <Text className="text-xs text-muted-foreground">{t(item.descriptionKey)}</Text>
             </View>
             <ChevronRight size={18} color={colors.mutedForeground} />
           </Pressable>

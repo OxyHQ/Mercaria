@@ -41,10 +41,11 @@ import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
-  CHANNEL_TYPE_NAME,
+  CHANNEL_TYPE_NAME_KEYS,
   ChannelCoverage,
   ChannelLimitationRow,
 } from "@/components/channels/channel-presentation";
+import { useTranslation } from "@/lib/i18n";
 import {
   useAbandonChannelOnboarding,
   useActivateChannelOnboarding,
@@ -56,15 +57,18 @@ import {
   useGenerateChannelKey,
 } from "@/lib/hooks/use-channels";
 
-/** What each step is called, and what a merchant does there. */
-const STEP_LABEL: Record<ChannelOnboardingStep, string> = {
-  scope: "Store",
-  select_channel: "Channel",
-  connect: "Connect",
-  configure: "Sync settings",
-  map: "Mapping",
-  preview: "Preview",
-  activate: "Activate",
+/**
+ * What each step is called, and what a merchant does there — translation KEYS
+ * (#398), since module scope is evaluated before the locale store rehydrates.
+ */
+const STEP_LABEL_KEYS: Record<ChannelOnboardingStep, string> = {
+  scope: "channels.wizard.step.scope",
+  select_channel: "channels.wizard.step.selectChannel",
+  connect: "channels.wizard.step.connect",
+  configure: "channels.wizard.step.configure",
+  map: "channels.wizard.step.map",
+  preview: "channels.wizard.step.preview",
+  activate: "channels.wizard.step.activate",
 };
 
 /**
@@ -74,23 +78,22 @@ const STEP_LABEL: Record<ChannelOnboardingStep, string> = {
  * blocker added server-side then fails `tsc` here, which is how a new reason
  * gets copy instead of falling through to "not ready".
  */
-const BLOCKER_COPY: Record<ChannelOnboardingSession["activationBlockers"][number], string> = {
-  no_preview: "Run a preview first, so you can see what will be imported.",
-  preview_scanned_nothing:
-    "The preview read no records at all. Check the feed or the store has products — a mapping that matches nothing looks the same as an empty catalog.",
-  preview_all_invalid: "Every record the preview read was invalid. Fix the mapping and try again.",
-  channel_limitation: "This channel cannot be activated yet.",
-  unsupported_direction:
-    "The sync settings ask for a direction this channel does not support. Adjust them and try again.",
-  connection_not_connected: "Finish connecting first.",
+const BLOCKER_COPY_KEYS: Record<ChannelOnboardingSession["activationBlockers"][number], string> = {
+  no_preview: "channels.wizard.blocker.noPreview",
+  preview_scanned_nothing: "channels.wizard.blocker.previewScannedNothing",
+  preview_all_invalid: "channels.wizard.blocker.previewAllInvalid",
+  channel_limitation: "channels.wizard.blocker.channelLimitation",
+  unsupported_direction: "channels.wizard.blocker.unsupportedDirection",
+  connection_not_connected: "channels.wizard.blocker.connectionNotConnected",
 };
 
 export default function ChannelOnboardingScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Connect a channel | Mercaria Dashboard</title>
+        <title>{t("channels.wizard.documentTitle")}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <WizardBody storeId={storeId} sessionId={sessionId} />}
@@ -101,6 +104,7 @@ export default function ChannelOnboardingScreen() {
 
 function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   // The instant the merchant was sent to a platform's consent screen, or null.
   //
   // A Shopify connect leaves this tab and the connection is created by the
@@ -118,7 +122,12 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
 
   if (session.isPending || catalog.isPending) return <ScreenLoading />;
   if (session.isError || !session.data) {
-    return <ScreenMessage title="Wizard not found" body="It may have been finished already." />;
+    return (
+      <ScreenMessage
+        title={t("channels.wizard.notFound")}
+        body={t("channels.wizard.notFoundBody")}
+      />
+    );
   }
 
   const current = session.data;
@@ -140,17 +149,25 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
             params: { connectionId: current.connectionId },
           } as const);
     return (
-      <Screen title={`${CHANNEL_TYPE_NAME[current.channelType]} connected`}>
+      <Screen
+        title={t("channels.wizard.connectedTitle", {
+          channel: t(CHANNEL_TYPE_NAME_KEYS[current.channelType]),
+        })}
+      >
         <View className="items-center justify-center rounded-2xl border border-border bg-surface py-12">
-          <Text className="text-base font-semibold text-foreground">All set</Text>
+          <Text className="text-base font-semibold text-foreground">
+            {t("channels.wizard.allSet")}
+          </Text>
           <Text className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
             {current.connectionId === undefined
-              ? "This channel is active. You can change its settings any time from Sales channels."
-              : "This channel is active. Choose what to import next — nothing syncs until you do."}
+              ? t("channels.wizard.activeFeedBody")
+              : t("channels.wizard.activeConnectionBody")}
           </Text>
           <Button className="mt-4" onPress={() => router.replace(settingsHref)}>
             <Text className="font-semibold text-primary-foreground">
-              {current.connectionId === undefined ? "Back to channels" : "Choose what to import"}
+              {current.connectionId === undefined
+                ? t("channels.wizard.backToChannels")
+                : t("channels.wizard.chooseWhatToImport")}
             </Text>
           </Button>
         </View>
@@ -161,18 +178,20 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
   const onActivate = () => {
     activate.mutate(current.id, {
       onSuccess: () => {
-        toast.success("Channel activated");
+        toast.success(t("channels.toast.channelActivated"));
         router.replace("/channels");
       },
       // The server's refusal is authoritative and already names its reasons; the
       // screen re-reads rather than inventing a second explanation.
-      onError: () => toast.error("Not ready to activate yet — check the reasons below"),
+      onError: () => toast.error(t("channels.toast.notReadyToActivate")),
     });
   };
 
   return (
     <Screen
-      title={`Connect ${CHANNEL_TYPE_NAME[current.channelType]}`}
+      title={t("channels.wizard.title", {
+        channel: t(CHANNEL_TYPE_NAME_KEYS[current.channelType]),
+      })}
       subtitle={descriptor?.summary}
     >
       <View className="gap-6">
@@ -196,7 +215,7 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
             onRecord={(preview) =>
               advance.mutate(
                 { sessionId: current.id, step: "preview", preview },
-                { onError: () => toast.error("Couldn't save the preview") },
+                { onError: () => toast.error(t("channels.toast.previewSaveFailed")) },
               )
             }
           />
@@ -209,7 +228,7 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
           onAbandon={() =>
             abandon.mutate(current.id, {
               onSuccess: () => router.replace("/channels"),
-              onError: () => toast.error("Couldn't cancel"),
+              onError: () => toast.error(t("channels.toast.cancelFailed")),
             })
           }
         />
@@ -221,6 +240,7 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
 /** Where the merchant is, in the order the issue lists the steps. */
 function Stepper({ current }: { current: ChannelOnboardingStep }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const index = CHANNEL_ONBOARDING_STEPS.indexOf(current);
   return (
     <View className="flex-row flex-wrap gap-2">
@@ -240,7 +260,7 @@ function Stepper({ current }: { current: ChannelOnboardingStep }) {
                 active ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              {STEP_LABEL[step]}
+              {t(STEP_LABEL_KEYS[step])}
             </Text>
           </View>
         );
@@ -265,27 +285,30 @@ function ScopeAndRequirements({
   session: ChannelOnboardingSession;
   descriptor: ChannelTypeDescriptor;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
       <View className="gap-1">
-        <Text className="text-sm font-semibold text-foreground">Before you start</Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {t("channels.wizard.beforeYouStart")}
+        </Text>
         <Text className="text-xs text-muted-foreground">
           {session.merchantId
-            ? "This store is linked to a verified merchant, so anything Mercaria already indexed for your shop will be reconciled rather than duplicated."
-            : "This store is not linked to a verified merchant yet. Connecting still works; Mercaria just will not match your products against anything it already indexed for your shop."}
+            ? t("channels.wizard.merchantLinked")
+            : t("channels.wizard.merchantNotLinked")}
         </Text>
       </View>
 
       <View className="gap-2">
         <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-          You will need
+          {t("channels.wizard.youWillNeed")}
         </Text>
         {descriptor.requirements.map((requirement) => (
           <View key={requirement.code} className="flex-row items-start gap-2">
             <Text className="text-xs text-muted-foreground">•</Text>
             <Text className="flex-1 text-xs text-muted-foreground">
               {requirement.summary}
-              {requirement.met === false ? " (not set up yet)" : ""}
+              {requirement.met === false ? t("channels.wizard.notSetUpYet") : ""}
             </Text>
           </View>
         ))}
@@ -299,7 +322,7 @@ function ScopeAndRequirements({
       */}
       <View className="gap-2 rounded-xl bg-muted p-3">
         <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-          What this channel carries
+          {t("channels.scope.title")}
         </Text>
         <ChannelCoverage coverage={descriptor.entityCoverage} />
       </View>
@@ -307,7 +330,7 @@ function ScopeAndRequirements({
       {descriptor.limitations.length > 0 ? (
         <View className="gap-2 rounded-xl bg-muted p-3">
           <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-            What this channel can and cannot do
+            {t("channels.wizard.canAndCannot")}
           </Text>
           {descriptor.limitations.map((limitation) => (
             <ChannelLimitationRow key={limitation.code} limitation={limitation} />
@@ -341,6 +364,7 @@ function ConnectStep({
   onConnected: (connectionId: string) => void;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   if (session.channelType === "shopify") {
     return (
       <ShopifyConnect
@@ -359,13 +383,14 @@ function ConnectStep({
   }
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">Set up your feed</Text>
-      <Text className="text-xs text-muted-foreground">
-        A product feed is configured on its own screen, where you map the file&apos;s columns onto
-        Mercaria&apos;s fields and preview the result before anything goes live.
+      <Text className="text-sm font-semibold text-foreground">
+        {t("channels.wizard.feed.title")}
       </Text>
+      <Text className="text-xs text-muted-foreground">{t("channels.wizard.feed.body")}</Text>
       <Button variant="outline" onPress={() => router.push("/channels/feeds/new")}>
-        <Text className="text-xs font-semibold text-foreground">Create a feed</Text>
+        <Text className="text-xs font-semibold text-foreground">
+          {t("channels.wizard.feed.create")}
+        </Text>
       </Button>
     </View>
   );
@@ -383,6 +408,7 @@ function ShopifyConnect({
   onHandoff: () => void;
 }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const connect = useConnectChannel(storeId);
   const [shopDomain, setShopDomain] = useState("");
   const [redirecting, setRedirecting] = useState(false);
@@ -390,7 +416,7 @@ function ShopifyConnect({
   const submit = async () => {
     const domain = shopDomain.trim().toLowerCase();
     if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(domain)) {
-      toast.error("Enter a valid *.myshopify.com domain");
+      toast.error(t("channels.toast.invalidShopifyDomain"));
       return;
     }
     try {
@@ -410,7 +436,7 @@ function ShopifyConnect({
       onHandoff();
       await WebBrowser.openBrowserAsync(authorizeUrl);
     } catch {
-      toast.error("Couldn't start the Shopify connection");
+      toast.error(t("channels.toast.shopifyConnectFailed"));
     } finally {
       setRedirecting(false);
     }
@@ -418,13 +444,15 @@ function ShopifyConnect({
 
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">Authorize Mercaria on Shopify</Text>
+      <Text className="text-sm font-semibold text-foreground">
+        {t("channels.wizard.shopify.title")}
+      </Text>
       <View className="gap-1.5">
-        <Label>Shop domain</Label>
+        <Label>{t("channels.wizard.shopify.domainLabel")}</Label>
         <Input
           value={shopDomain}
           onChangeText={setShopDomain}
-          placeholder="your-store.myshopify.com"
+          placeholder={t("channels.wizard.shopify.domainPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
@@ -433,8 +461,7 @@ function ShopifyConnect({
       <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
         <ExternalLink size={14} color={colors.mutedForeground} />
         <Text className="flex-1 text-xs text-muted-foreground">
-          Authorization happens on Shopify. Mercaria never sees your Shopify password, and the
-          access token it receives is stored encrypted.
+          {t("channels.wizard.shopify.authNote")}
         </Text>
       </View>
       {/*
@@ -446,16 +473,19 @@ function ShopifyConnect({
       */}
       {awaiting ? (
         <View className="gap-1 rounded-xl bg-primary/10 p-3">
-          <Text className="text-xs font-semibold text-primary">Waiting for Shopify</Text>
+          <Text className="text-xs font-semibold text-primary">
+            {t("channels.wizard.shopify.waitingTitle")}
+          </Text>
           <Text className="text-xs text-muted-foreground">
-            Finish authorizing in the tab that just opened. This page updates on its own — you do
-            not need to reload it or come back to this step.
+            {t("channels.wizard.shopify.waitingBody")}
           </Text>
         </View>
       ) : null}
       <Button onPress={submit} isLoading={connect.isPending || redirecting}>
         <Text className="font-semibold text-primary-foreground">
-          {awaiting ? "Open Shopify again" : "Continue to Shopify"}
+          {awaiting
+            ? t("channels.wizard.shopify.openAgain")
+            : t("channels.wizard.shopify.continue")}
         </Text>
       </Button>
     </View>
@@ -469,6 +499,7 @@ function WooCommerceConnect({
   storeId: string;
   onConnected: (connectionId: string) => void;
 }) {
+  const { t } = useTranslation();
   const connect = useConnectKeyChannel(storeId);
   const [siteUrl, setSiteUrl] = useState("");
   const [consumerKey, setConsumerKey] = useState("");
@@ -483,11 +514,11 @@ function WooCommerceConnect({
       isHttps = false;
     }
     if (!isHttps) {
-      toast.error("Enter your site URL starting with https://");
+      toast.error(t("channels.toast.siteUrlMustBeHttps"));
       return;
     }
     if (consumerKey.trim() === "" || consumerSecret.trim() === "") {
-      toast.error("Enter both the consumer key and secret");
+      toast.error(t("channels.toast.consumerKeyAndSecretRequired"));
       return;
     }
     try {
@@ -502,53 +533,54 @@ function WooCommerceConnect({
       setConsumerKey("");
       setConsumerSecret("");
       onConnected(connection.id);
-      toast.success("WooCommerce connected");
+      toast.success(t("channels.toast.wooConnected"));
     } catch {
-      toast.error("Couldn't connect — check the site URL and API keys");
+      toast.error(t("channels.toast.wooConnectFailed"));
     }
   };
 
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">Paste your WooCommerce API key</Text>
-      <Text className="text-xs text-muted-foreground">
-        WooCommerce → Settings → Advanced → REST API. Read access is enough to import your
-        catalog.
+      <Text className="text-sm font-semibold text-foreground">
+        {t("channels.wizard.woo.title")}
       </Text>
+      <Text className="text-xs text-muted-foreground">{t("channels.wizard.woo.body")}</Text>
       <View className="gap-1.5">
-        <Label>Site URL</Label>
+        <Label>{t("channels.wizard.woo.siteUrlLabel")}</Label>
         <Input
           value={siteUrl}
           onChangeText={setSiteUrl}
-          placeholder="https://your-store.com"
+          placeholder={t("channels.wizard.woo.siteUrlPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
       </View>
       <View className="gap-1.5">
-        <Label>Consumer key</Label>
+        <Label>{t("channels.wizard.woo.consumerKeyLabel")}</Label>
         <Input
           value={consumerKey}
           onChangeText={setConsumerKey}
-          placeholder="ck_..."
+          placeholder={t("channels.wizard.woo.consumerKeyPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
         />
       </View>
       <View className="gap-1.5">
-        <Label>Consumer secret</Label>
+        <Label>{t("channels.wizard.woo.consumerSecretLabel")}</Label>
         <Input
           value={consumerSecret}
           onChangeText={setConsumerSecret}
-          placeholder="cs_..."
+          placeholder={t("channels.wizard.woo.consumerSecretPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           secureTextEntry
         />
       </View>
       <Button onPress={submit} isLoading={connect.isPending}>
-        <Text className="font-semibold text-primary-foreground">Connect WooCommerce</Text>
+        <Text className="font-semibold text-primary-foreground">
+          {t("channels.wizard.woo.connect")}
+        </Text>
       </Button>
     </View>
   );
@@ -563,26 +595,26 @@ function WooCommerceConnect({
  * cannot keep.
  */
 function PluginConnect({ storeId }: { storeId: string }) {
+  const { t } = useTranslation();
   const mint = useGenerateChannelKey(storeId);
   const [minted, setMinted] = useState<string | null>(null);
 
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">Connect the Mercaria plugin</Text>
-      <Text className="text-xs text-muted-foreground">
-        Install the Mercaria plugin on your WordPress site, then paste the key below into its
-        settings. The plugin pushes your products and stock to Mercaria as they change.
+      <Text className="text-sm font-semibold text-foreground">
+        {t("channels.wizard.plugin.title")}
       </Text>
+      <Text className="text-xs text-muted-foreground">{t("channels.wizard.plugin.body")}</Text>
       {minted ? (
         <View className="gap-1.5 rounded-xl bg-muted p-3">
           <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-            Your channel key — copy it now
+            {t("channels.wizard.plugin.keyHeading")}
           </Text>
           <Text selectable className="font-mono text-xs text-foreground">
             {minted}
           </Text>
           <Text className="text-[11px] text-muted-foreground">
-            This is the only time it is shown. If you lose it, revoke it and mint a new one.
+            {t("channels.wizard.plugin.keyNote")}
           </Text>
         </View>
       ) : (
@@ -590,15 +622,20 @@ function PluginConnect({ storeId }: { storeId: string }) {
           isLoading={mint.isPending}
           onPress={() =>
             mint.mutate(
-              { label: "WordPress plugin" },
+              // The label is stored on the key row and rendered back to the
+              // merchant in the key list, so it is copy — the same default the
+              // manual "Generate key" dialog suggests.
+              { label: t("channels.keys.labelPlaceholder") },
               {
                 onSuccess: (result) => setMinted(result.key),
-                onError: () => toast.error("Couldn't create the key"),
+                onError: () => toast.error(t("channels.toast.keyCreateFailed")),
               },
             )
           }
         >
-          <Text className="font-semibold text-primary-foreground">Create a channel key</Text>
+          <Text className="font-semibold text-primary-foreground">
+            {t("channels.wizard.plugin.createKey")}
+          </Text>
         </Button>
       )}
     </View>
@@ -621,23 +658,25 @@ function PreviewStep({
   session: ChannelOnboardingSession;
   onRecord: (preview: NonNullable<ChannelOnboardingSession["previewCounts"]>) => void;
 }) {
+  const { t } = useTranslation();
   const counts = session.previewCounts;
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">Preview</Text>
+      <Text className="text-sm font-semibold text-foreground">
+        {t("channels.wizard.preview.title")}
+      </Text>
       {counts ? (
         <View className="flex-row flex-wrap gap-4">
-          <PreviewCount label="Scanned" value={counts.scanned} />
-          <PreviewCount label="Matched" value={counts.matched} />
-          <PreviewCount label="New" value={counts.created} />
-          <PreviewCount label="To review" value={counts.review} />
-          <PreviewCount label="Invalid" value={counts.invalid} />
-          <PreviewCount label="Duplicate" value={counts.duplicate} />
+          <PreviewCount label={t("channels.wizard.preview.scanned")} value={counts.scanned} />
+          <PreviewCount label={t("channels.wizard.preview.matched")} value={counts.matched} />
+          <PreviewCount label={t("common.new")} value={counts.created} />
+          <PreviewCount label={t("channels.wizard.preview.toReview")} value={counts.review} />
+          <PreviewCount label={t("channels.wizard.preview.invalid")} value={counts.invalid} />
+          <PreviewCount label={t("channels.wizard.preview.duplicate")} value={counts.duplicate} />
         </View>
       ) : (
         <Text className="text-xs text-muted-foreground">
-          Run a bounded sample before activating, so you can see what will be imported and how
-          much needs review.
+          {t("channels.wizard.preview.body")}
         </Text>
       )}
       <Button
@@ -653,7 +692,9 @@ function PreviewStep({
         }
       >
         <Text className="text-xs font-semibold text-foreground">
-          {counts ? "Re-run preview" : "Run preview"}
+          {counts
+            ? t("channels.wizard.preview.rerun")
+            : t("channels.wizard.preview.run")}
         </Text>
       </Button>
     </View>
@@ -681,31 +722,34 @@ function ActivationPanel({
   onActivate: () => void;
   onAbandon: () => void;
 }) {
+  const { t } = useTranslation();
   const blocked = session.activationBlockers.length > 0;
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
       {blocked ? (
         <View className="gap-1.5">
           <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-            Before you can activate
+            {t("channels.wizard.beforeYouActivate")}
           </Text>
           {session.activationBlockers.map((blocker) => (
             <Text key={blocker} className="text-xs text-muted-foreground">
-              {BLOCKER_COPY[blocker]}
+              {t(BLOCKER_COPY_KEYS[blocker])}
             </Text>
           ))}
         </View>
       ) : (
         <Text className="text-xs text-muted-foreground">
-          Everything checks out. Activating starts the first sync.
+          {t("channels.wizard.everythingChecksOut")}
         </Text>
       )}
       <View className="flex-row gap-2">
         <Button disabled={blocked} isLoading={busy} onPress={onActivate}>
-          <Text className="font-semibold text-primary-foreground">Activate channel</Text>
+          <Text className="font-semibold text-primary-foreground">
+            {t("channels.wizard.activateChannel")}
+          </Text>
         </Button>
         <Button variant="outline" onPress={onAbandon}>
-          <Text className="font-semibold text-foreground">Cancel</Text>
+          <Text className="font-semibold text-foreground">{t("common.cancel")}</Text>
         </Button>
       </View>
     </View>

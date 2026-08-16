@@ -10,6 +10,7 @@ import { useCatalog, useCategories, type CatalogFilters } from "@/lib/hooks/use-
 import { lookupByCode } from "@/lib/api/catalog";
 import { useRegisterCart, type RegisterCartLine } from "@/lib/stores/register-cart";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
+import { useTranslation } from "@/lib/i18n";
 import { ProductTile } from "./ProductTile";
 import { VariantPickerSheet } from "./VariantPickerSheet";
 
@@ -42,6 +43,7 @@ function lineFromVariant(
 export function CatalogPane({ storeId }: { storeId: string }) {
   const { colors } = useColorScheme();
   const { oxyServices } = useOxy();
+  const { t } = useTranslation();
   const addLine = useRegisterCart((s) => s.addLine);
 
   const [search, setSearch] = useState("");
@@ -77,19 +79,19 @@ export function CatalogPane({ storeId }: { storeId: string }) {
       if (listing.variants.length === 1) {
         const variant = listing.variants[0];
         if (variant.available <= 0) {
-          toast.error("Out of stock");
+          toast.error(t("catalog.outOfStock"));
           return;
         }
         addLine(lineFromVariant(listing, variant));
         return;
       }
       if (inStockVariants.length === 0) {
-        toast.error("Out of stock");
+        toast.error(t("catalog.outOfStock"));
         return;
       }
       setPickerListing(listing);
     },
-    [addLine],
+    [addLine, t],
   );
 
   const onSubmitCode = useCallback(async () => {
@@ -98,20 +100,20 @@ export function CatalogPane({ storeId }: { storeId: string }) {
     try {
       const match = await lookupByCode(storeId, trimmed);
       if (!match) {
-        toast.error("No product for that code");
+        toast.error(t("catalog.noProductForCode"));
         return;
       }
       if (match.variant.available <= 0) {
-        toast.error("Out of stock");
+        toast.error(t("catalog.outOfStock"));
         return;
       }
       addLine(lineFromVariant(match.listing, match.variant));
       setCode("");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Lookup failed";
+      const message = error instanceof Error ? error.message : t("catalog.lookupFailed");
       toast.error(message);
     }
-  }, [code, storeId, addLine]);
+  }, [code, storeId, addLine, t]);
 
   return (
     <View className="flex-1">
@@ -122,7 +124,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
           <Input
             value={search}
             onChangeText={setSearch}
-            placeholder="Search the catalog"
+            placeholder={t("catalog.searchPlaceholder")}
             className="h-12 flex-1 border-0 bg-transparent px-0"
           />
         </View>
@@ -132,7 +134,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
             <Input
               value={code}
               onChangeText={setCode}
-              placeholder="Scan or type SKU / barcode"
+              placeholder={t("catalog.codePlaceholder")}
               autoCapitalize="none"
               onSubmitEditing={onSubmitCode}
               returnKeyType="done"
@@ -140,7 +142,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
             />
           </View>
           <Button onPress={onSubmitCode} className="h-12 px-5">
-            <Text className="font-semibold text-primary-foreground">Add</Text>
+            <Text className="font-semibold text-primary-foreground">{t("catalog.add")}</Text>
           </Button>
         </View>
 
@@ -151,7 +153,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
             contentContainerClassName="gap-2 pr-4"
           >
             <CategoryChip
-              label="All"
+              label={t("common.all")}
               active={category === ""}
               onPress={() => setCategory("")}
             />
@@ -171,9 +173,9 @@ export function CatalogPane({ storeId }: { storeId: string }) {
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load the catalog" body="Please try again." />
+        <ScreenMessage title={t("catalog.loadFailed")} body={t("common.pleaseTryAgain")} />
       ) : listings.length === 0 ? (
-        <ScreenMessage title="No products" body="Nothing matches your search." />
+        <ScreenMessage title={t("catalog.emptyTitle")} body={t("catalog.emptyBody")} />
       ) : (
         <ScrollView className="flex-1" contentContainerClassName="px-2 pb-28 pt-3 md:px-4 md:pb-8">
           <View className="flex-row flex-wrap">

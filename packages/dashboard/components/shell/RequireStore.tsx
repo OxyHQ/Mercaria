@@ -2,6 +2,7 @@ import React from "react";
 import { Redirect } from "expo-router";
 import type { StorePermission } from "@mercaria/shared-types";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
+import { useTranslation } from "@/lib/i18n";
 import { useActiveStoreContext, useMyStores } from "@/lib/hooks/use-stores";
 import { useActiveStore } from "@/lib/stores/active-store";
 
@@ -24,6 +25,7 @@ interface RequireStoreProps {
  * Children receive the resolved `storeId`, so screens never juggle a nullable id.
  */
 export function RequireStore({ permission, children }: RequireStoreProps) {
+  const { t } = useTranslation();
   const { hydrated } = useActiveStore();
   const { isPending } = useMyStores();
   const { activeStoreId, store, can } = useActiveStoreContext();
@@ -39,10 +41,7 @@ export function RequireStore({ permission, children }: RequireStoreProps) {
 
   if (permission && !can(permission)) {
     return (
-      <ScreenMessage
-        title="No access"
-        body="You don't have permission to view this area for the active store."
-      />
+      <ScreenMessage title={t("common.noAccess")} body={t("common.noAccessBody")} />
     );
   }
 

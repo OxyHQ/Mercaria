@@ -1,0 +1,186 @@
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "Sign in",
+    "signInBody": "Sign in with your Oxy account to open the register — ring up in-person sales, attach customers, and charge."
+  },
+  "cart": {
+    "addCustomer": "Add customer",
+    "clear": "Clear",
+    "clearCart": "Clear cart",
+    "customerAttached": "Attached to this sale",
+    "decreaseQuantity": "Decrease quantity",
+    "discountCodePlaceholder": "Discount code",
+    "documentTitle": "Cart | Mercaria POS",
+    "emptyBody": "Tap products to add them to the sale.",
+    "emptyTitle": "Cart is empty",
+    "increaseQuantity": "Increase quantity",
+    "itemCount": {
+      "one": "%{count} item",
+      "other": "%{count} items"
+    },
+    "removeItem": "Remove item",
+    "subtotal": "Subtotal",
+    "title": "Cart"
+  },
+  "catalog": {
+    "add": "Add",
+    "availableCount": {
+      "one": "%{count} available",
+      "other": "%{count} available"
+    },
+    "chooseVariant": "Choose a variant",
+    "codePlaceholder": "Scan or type SKU / barcode",
+    "emptyBody": "Nothing matches your search.",
+    "emptyTitle": "No products",
+    "inStockCount": {
+      "one": "%{count} in stock",
+      "other": "%{count} in stock"
+    },
+    "loadFailed": "Couldn't load the catalog",
+    "lookupFailed": "Lookup failed",
+    "noProductForCode": "No product for that code",
+    "outOfStock": "Out of stock",
+    "searchPlaceholder": "Search the catalog",
+    "soldOut": "Sold out"
+  },
+  "charge": {
+    "action": "Charge",
+    "customer": "Customer",
+    "documentTitle": "Charge | Mercaria POS",
+    "expectedTotal": "Expected total",
+    "failed": "Charge failed",
+    "finalTotalNote": "Final total (discounts & tax) is computed when the sale is taken.",
+    "subtitle": "Review and take the sale",
+    "tender": "Tender",
+    "tenderCard": "Card",
+    "tenderCash": "Cash",
+    "title": "Charge"
+  },
+  "common": {
+    "all": "All",
+    "name": "Name",
+    "next": "Next",
+    "noAccess": "No access",
+    "noAccessBody": "You don't have permission to view this area for the active store.",
+    "optional": "Optional",
+    "pleaseTryAgain": "Please try again.",
+    "previous": "Previous",
+    "retry": "Try again",
+    "somethingWentWrong": "Something went wrong"
+  },
+  "customer": {
+    "addAndAttach": "Add & attach",
+    "addFailed": "Couldn't add the customer",
+    "added": "Customer added",
+    "documentTitle": "Customer | Mercaria POS",
+    "email": "Email",
+    "emailPlaceholder": "jane@example.com",
+    "fallbackName": "Customer",
+    "loadFailed": "Couldn't load customers",
+    "namePlaceholder": "Jane Doe",
+    "noMatches": "No customers match.",
+    "phone": "Phone",
+    "phonePlaceholder": "+1 555 0100",
+    "quickAdd": "Quick add",
+    "quickAddEmpty": "Enter a name, email or phone",
+    "searchPlaceholder": "Search customers",
+    "subtitle": "Attach a customer or keep it a walk-in",
+    "title": "Customer",
+    "walkIn": "Walk-in",
+    "walkInOption": "Walk-in (no customer)"
+  },
+  "errors": {
+    "noRegisterAccessBody": "You don't have permission to use the register for the active store.",
+    "notFoundAction": "Go to the register",
+    "notFoundBody": "This screen doesn't exist.",
+    "notFoundDocumentTitle": "404 - Not Found | Mercaria POS",
+    "notFoundHeading": "Oops!",
+    "unexpectedBody": "An unexpected error occurred. You can try again, and if the problem persists, our team has been notified."
+  },
+  "locations": {
+    "type": {
+      "popUp": "Pop-up",
+      "retail": "Retail",
+      "virtual": "Virtual",
+      "warehouse": "Warehouse"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar",
+    "register": "Register",
+    "sales": "Sales",
+    "selectStore": "Select store",
+    "switchStore": "Switch store"
+  },
+  "orders": {
+    "channel": {
+      "draft": "Draft",
+      "pos": "Point of sale",
+      "storefront": "Storefront"
+    },
+    "status": {
+      "cancelled": "Cancelled",
+      "delivered": "Delivered",
+      "paid": "Paid",
+      "partiallyRefunded": "Partially refunded",
+      "pendingPayment": "Pending payment",
+      "processing": "Processing",
+      "refunded": "Refunded",
+      "shipped": "Shipped"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "Discount",
+    "documentTitle": "Receipt | Mercaria POS",
+    "loadFailed": "Couldn't load the receipt",
+    "loadFailedBody": "The order may not be available.",
+    "newSale": "New sale",
+    "orderNumber": "Order %{number}",
+    "paymentRecorded": "Payment recorded",
+    "saleComplete": "Sale complete",
+    "subtotal": "Subtotal",
+    "tax": "Tax",
+    "title": "Receipt",
+    "total": "Total"
+  },
+  "register": {
+    "documentTitle": "Register | Mercaria POS",
+    "reviewCart": "Review cart",
+    "reviewCartWithCount": {
+      "one": "%{count} item · Review cart",
+      "other": "%{count} items · Review cart"
+    }
+  },
+  "sales": {
+    "documentTitle": "Sales | Mercaria POS",
+    "emptyBody": "Completed sales will appear here.",
+    "emptyTitle": "No sales yet",
+    "loadFailed": "Couldn't load sales",
+    "orderLabel": "Order %{number}",
+    "pageNumber": "Page %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "Recent orders"
+  },
+  "storeSetup": {
+    "changeStore": "Change store",
+    "chooseRegisterSubtitle": "Pick the location this register commits stock at",
+    "chooseRegisterTitle": "Choose a register",
+    "chooseStoreSubtitle": "Pick the store you're selling for",
+    "chooseStoreTitle": "Choose a store",
+    "defaultLocation": "Default",
+    "documentTitle": "Store setup | Mercaria POS",
+    "locationsLoadFailed": "Couldn't load locations",
+    "noLocationsBody": "Create a location in the Dashboard first, then return here to open the register.",
+    "noLocationsTitle": "No locations",
+    "noStoresBody": "Create a store in the Mercaria Dashboard first, then return here to open the register.",
+    "noStoresTitle": "No stores yet",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} product",
+      "other": "@%{handle} · %{count} products"
+    },
+    "storesLoadFailed": "Couldn't load your stores"
+  }
+}

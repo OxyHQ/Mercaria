@@ -13,16 +13,18 @@ import { useCustomers } from "@/lib/hooks/use-customers";
 import { useRegisterCart } from "@/lib/stores/register-cart";
 import { computeCartSubtotal } from "@/lib/cart-totals";
 import { queryKeys } from "@/lib/queryKeys";
+import { useTranslation } from "@/lib/i18n";
 
 /** Tender method the operator records for the sale (UI-only; no real payment). */
 type TenderMethod = "cash" | "card";
 
 /** Review + charge the current register sale. */
 export default function ChargeScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Charge | Mercaria POS</title>
+        <title>{t("charge.documentTitle")}</title>
       </Head>
       <RequirePos permission="draft_orders:write">
         {(storeId, locationId) => <Charge storeId={storeId} locationId={locationId} />}
@@ -35,6 +37,7 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
 
   const lines = useRegisterCart((s) => s.lines);
   const discountCode = useRegisterCart((s) => s.discountCode);
@@ -50,8 +53,8 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
   const customerName = useMemo(() => {
     if (!customerId) return null;
     const match = customerPage?.data.find((c) => c.id === customerId);
-    return match?.displayName ?? "Customer";
-  }, [customerId, customerPage]);
+    return match?.displayName ?? t("customer.fallbackName");
+  }, [customerId, customerPage, t]);
 
   const subtotal = useMemo(() => computeCartSubtotal(lines), [lines]);
 
@@ -72,14 +75,14 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
           router.replace({ pathname: "/receipt/[id]", params: { id: order.id } });
         },
         onError: (error) => {
-          toast.error(error instanceof Error ? error.message : "Charge failed");
+          toast.error(error instanceof Error ? error.message : t("charge.failed"));
         },
       },
     );
   };
 
   return (
-    <Screen title="Charge" subtitle="Review and take the sale">
+    <Screen title={t("charge.title")} subtitle={t("charge.subtitle")}>
       <View className="gap-5">
         {/* Line summary. */}
         <View className="gap-2 rounded-2xl border border-border bg-surface p-4">
@@ -97,34 +100,34 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
             </View>
           ))}
           <View className="mt-2 flex-row items-center justify-between border-t border-border pt-3">
-            <Text className="text-sm font-semibold text-foreground">Expected total</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t("charge.expectedTotal")}
+            </Text>
             <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
           </View>
-          <Text className="text-xs text-muted-foreground">
-            Final total (discounts &amp; tax) is computed when the sale is taken.
-          </Text>
+          <Text className="text-xs text-muted-foreground">{t("charge.finalTotalNote")}</Text>
         </View>
 
         {/* Customer. */}
         <View className="flex-row items-center justify-between rounded-2xl border border-border bg-surface p-4">
-          <Text className="text-sm text-muted-foreground">Customer</Text>
+          <Text className="text-sm text-muted-foreground">{t("charge.customer")}</Text>
           <Text className="text-sm font-semibold text-foreground">
-            {customerName ?? "Walk-in"}
+            {customerName ?? t("customer.walkIn")}
           </Text>
         </View>
 
         {/* Tender method (UI-only). */}
         <View className="gap-2">
-          <Text className="text-sm font-semibold text-foreground">Tender</Text>
+          <Text className="text-sm font-semibold text-foreground">{t("charge.tender")}</Text>
           <View className="flex-row gap-3">
             <TenderButton
-              label="Cash"
+              label={t("charge.tenderCash")}
               icon={<Banknote size={20} color={tender === "cash" ? colors.primaryForeground : colors.foreground} />}
               active={tender === "cash"}
               onPress={() => setTender("cash")}
             />
             <TenderButton
-              label="Card"
+              label={t("charge.tenderCard")}
               icon={<CreditCard size={20} color={tender === "card" ? colors.primaryForeground : colors.foreground} />}
               active={tender === "card"}
               onPress={() => setTender("card")}
@@ -133,7 +136,9 @@ function Charge({ storeId, locationId }: { storeId: string; locationId: string }
         </View>
 
         <Button onPress={onCharge} isLoading={charge.isPending} className="h-16">
-          <Text className="text-lg font-semibold text-primary-foreground">Charge</Text>
+          <Text className="text-lg font-semibold text-primary-foreground">
+            {t("charge.action")}
+          </Text>
         </Button>
       </View>
     </Screen>

@@ -4,6 +4,7 @@ import type { StorePermission } from "@mercaria/shared-types";
 import { ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { useActiveStoreContext, useMyStores } from "@/lib/hooks/use-stores";
 import { useActiveStore } from "@/lib/stores/active-store";
+import { useTranslation } from "@/lib/i18n";
 
 interface RequirePosProps {
   /** Permission the register screen requires. When the caller lacks it, a clean
@@ -27,6 +28,7 @@ interface RequirePosProps {
  */
 export function RequirePos({ permission, children }: RequirePosProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { hydrated, activeLocationId } = useActiveStore();
   const { isPending } = useMyStores();
   const { activeStoreId, store, can } = useActiveStoreContext();
@@ -44,8 +46,8 @@ export function RequirePos({ permission, children }: RequirePosProps) {
   if (permission && !can(permission)) {
     return (
       <ScreenMessage
-        title="No access"
-        body="You don't have permission to use the register for the active store."
+        title={t("common.noAccess")}
+        body={t("errors.noRegisterAccessBody")}
       />
     );
   }

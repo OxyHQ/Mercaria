@@ -1,0 +1,1227 @@
+{
+  "auth": {
+    "signInAction": "登录",
+    "signInBody": "使用你的 Oxy 账户登录，管理你的店铺 —— 商品、订单、库存、客户、折扣和报告。",
+    "signInTitle": "Mercaria Dashboard"
+  },
+  "channels": {
+    "addChannel": "添加渠道",
+    "andJoin": "和",
+    "availability": {
+      "notConfigured": "此处未配置",
+      "notImplemented": "暂不支持"
+    },
+    "badge": {
+      "comparisonOnly": "仅用于比价",
+      "sellsOnMercaria": "可在 Mercaria 销售"
+    },
+    "collectionMapping": {
+      "body": "选择该渠道的每个%{many}导入到哪个 Mercaria 产品系列。未映射的%{one}中的商品仍会导入，只是不会归入任何产品系列。",
+      "channelNoun": "渠道%{noun}",
+      "dontMap": "不映射这一个",
+      "fixMapping": "修复映射",
+      "loadFailed": "无法加载该渠道的产品系列。",
+      "map": "映射",
+      "noManualCollections": "该店铺还没有手动产品系列。请先创建一个 —— 自动产品系列按自己的规则填充内容，无法接受渠道映射。",
+      "noun": {
+        "category": {
+          "plural": "分类",
+          "singular": "分类"
+        },
+        "collection": {
+          "plural": "产品系列",
+          "singular": "产品系列"
+        }
+      },
+      "pickBody": "只有手动产品系列可以被映射。自动产品系列按自己的规则决定包含哪些商品。",
+      "pickTitle": "映射到 Mercaria 产品系列",
+      "productsOnChannel": {
+        "one": "渠道上有 %{count} 件商品",
+        "other": "渠道上有 %{count} 件商品"
+      },
+      "removeMapping": "移除此映射",
+      "state": {
+        "externalMissing": "它在渠道上已不存在，因此不会有任何内容通过它映射。请移除该映射，或在渠道上重新创建。",
+        "targetAutomated": "该 Mercaria 产品系列按自己的规则填充内容，渠道映射会在每次同步时被反复添加和移除。请改选一个手动产品系列。",
+        "targetMissing": "该 Mercaria 产品系列已被删除。商品仍会继续导入，只是不会归入任何产品系列。请另选一个。"
+      },
+      "title": "产品系列映射",
+      "unavailable": {
+        "disconnected": "该渠道已断开连接，无法读取它的产品系列。重新连接后即可从实时列表中选择。",
+        "platformUnavailable": "暂时无法连接该渠道，因此未显示它的产品系列。你现有的映射不受影响。",
+        "pushInConnection": "该渠道是向 Mercaria 推送数据的，因此 Mercaria 没有凭据反向读取它的产品系列。你现有的映射显示在下方，仍可编辑。"
+      }
+    },
+    "connect": "连接",
+    "coverage": {
+      "doesNotSyncHeading": "不同步",
+      "doesNotSyncLabel": "不同步：",
+      "nothing": "无",
+      "partial": "%{direction} —— %{caveat}",
+      "syncsHeading": "同步",
+      "syncsLabel": "同步："
+    },
+    "direction": {
+      "bothWays": "双向",
+      "pull": "你的平台 → Mercaria",
+      "push": "Mercaria → 你的平台"
+    },
+    "disconnect": {
+      "action": "断开渠道连接",
+      "confirmAction": "断开连接",
+      "confirmTitle": "要断开 %{provider} 的连接吗？",
+      "intro": "选择该渠道导入的%{policy}将如何处理。你的价格历史，以及其他渠道导入的内容，都不会受到影响。",
+      "policy": {
+        "archiveListings": "归档",
+        "keepListings": "保留商品",
+        "unpublishListings": "取消发布"
+      },
+      "policyHelp": {
+        "archiveListings": "停止同步，并归档该渠道的商品。已售出和处于审核中的商品不受影响。",
+        "keepListings": "停止同步，所有商品保持原样 —— 仍在售，并且现在可以由你在 Mercaria 中编辑。",
+        "unpublishListings": "停止同步，并把该渠道的商品下架，保留为可重新发布的草稿。"
+      },
+      "productsChanged": {
+        "one": "%{count} 件商品已变更",
+        "other": "%{count} 件商品已变更"
+      },
+      "recordsKept": {
+        "one": "保留了 %{count} 条价格记录",
+        "other": "保留了 %{count} 条价格记录"
+      },
+      "title": "断开连接"
+    },
+    "documentTitle": "销售渠道 | Mercaria Dashboard",
+    "empty": {
+      "body": "在下方连接一个店铺或商品 Feed，把现有的商品目录导入进来。",
+      "title": "只有你的 Mercaria 商品目录"
+    },
+    "entity": {
+      "collections": "产品系列",
+      "customers": "客户",
+      "discounts": "折扣",
+      "giftCards": "礼品卡",
+      "inventory": "库存",
+      "orders": "订单",
+      "productReviews": "评价",
+      "products": "商品",
+      "refunds": "退款",
+      "shippingRates": "配送费率",
+      "taxRates": "税率"
+    },
+    "entityAbsence": {
+      "channelNotImplemented": "Mercaria 还没有针对该平台的连接器。",
+      "channelTransportsProductsOnly": "商品 Feed 只是一个商品文件，不包含其他内容。",
+      "importedOnlyAsPartOfAnOrder": "不会导入任何列表。这里出现的内容只来自已导入的订单。",
+      "nativeCatalogIsNotASync": "不会导入任何内容 —— 这个商品目录由你在 Mercaria 中编辑。",
+      "notBuiltForThisChannel": "Mercaria 不会与你的平台交换这项内容。",
+      "notModelledByMercaria": "Mercaria 没有对应的记录类型来接收这项内容。",
+      "ownedByAnotherSystem": "这项内容在 Mercaria 的其他地方处理，不会从你的平台导入。"
+    },
+    "entityCaveat": {
+      "breakdownOnlyOnImportedOrders": "每笔导入的订单都会显示它被收取的明细，因此金额能对得上。但生成这些明细的规则并非在 Mercaria 中创建，所以你无法在这里编辑或复用它。",
+      "membershipOnlyThroughAMapping": "你平台上的产品系列不会在 Mercaria 中创建。商品会归入你为它们映射的 Mercaria 产品系列。"
+    },
+    "history": {
+      "counts": "新建 %{created} · 更新 %{updated} · 跳过 %{skipped} · 失败 %{failed}",
+      "empty": "尚无同步记录",
+      "loadFailed": "无法加载同步历史",
+      "title": "同步历史",
+      "updatedNote": "“更新”统计的是所有被检查过的商品，而不只是发生了变化的那些。"
+    },
+    "import": {
+      "blockedDirection": "请在上方把“商品”设为“拉取”或“双向”，然后保存 —— 保存后会自动开始第一次导入。",
+      "blockedDisconnected": "请先重新连接该渠道再导入 —— 断开连接时，它保存的凭据已被清除。",
+      "body": "重新读取全部商品，并更新发生了变化的内容。可以安全地多次运行。",
+      "bodyPaused": "重新读取全部商品，并更新发生了变化的内容。定时同步的导入已暂停，但这一次会立即运行。",
+      "heading": "从 %{provider} 导入商品",
+      "now": "立即同步",
+      "title": "导入"
+    },
+    "keys": {
+      "apiKeySubject": "API 密钥",
+      "body": "把密钥（以及该渠道的连接 ID）粘贴到你 WordPress 站点上的 Mercaria 插件中。密钥不会过期 —— 你可以随时吊销它以切断访问。",
+      "connectionId": "连接 ID",
+      "connectionIdSubject": "连接 ID",
+      "copied": "已复制%{label}",
+      "copyAccessibility": "复制%{label}",
+      "copyNow": "请立即复制此密钥 —— 之后将无法再次查看。",
+      "empty": "尚无密钥。生成一个以连接插件。",
+      "generate": "生成密钥",
+      "generateBody": "为该渠道创建一个长期有效的密钥。给它起个名字，方便日后辨认（例如它所用于的站点）。",
+      "generateTitle": "生成 API 密钥",
+      "heading": "长期有效的插件凭据",
+      "labelField": "标签",
+      "labelPlaceholder": "WordPress 插件",
+      "lastUsed": "上次使用 %{when}",
+      "loadFailed": "无法加载 API 密钥。",
+      "loading": "正在加载密钥…",
+      "neverUsed": "从未使用",
+      "revoke": "吊销",
+      "revokeConfirmBody": "任何使用“%{label}”的插件都会立即停止同步。此操作无法撤销 —— 你需要生成一个新密钥。",
+      "revokeConfirmTitle": "要吊销此密钥吗？",
+      "title": "API 密钥"
+    },
+    "lastRunCounts": "上次运行 —— 新建 %{created}、更新 %{updated}、跳过 %{skipped}、失败 %{failed}",
+    "lastSynced": "上次同步 %{when}",
+    "limitation": {
+      "knownIssue": "已知问题 #%{issue} —— 正在处理中"
+    },
+    "loadFailed": "无法加载渠道",
+    "never": "从未",
+    "neverSynced": "从未同步",
+    "nextScheduled": " · 下次 %{when}",
+    "orderHorizon": {
+      "bounded": {
+        "one": "只会导入最近 %{count} 天的订单。%{before} 之前下的订单从未被导入，日后也不会到达 —— 这是你的平台允许 Mercaria 读取的范围限制，而不是同步落后了。",
+        "other": "只会导入最近 %{count} 天的订单。%{before} 之前下的订单从未被导入，日后也不会到达 —— 这是你的平台允许 Mercaria 读取的范围限制，而不是同步落后了。"
+      },
+      "notSynced": "该渠道在任何方向上都不会交换订单。",
+      "unknown": "Mercaria 无法确定该连接的订单可以追溯到多久以前。"
+    },
+    "pause": {
+      "importing": "暂停导入",
+      "importingHint": "停止从平台读取。已导入的内容仍会继续在售。",
+      "publishing": "暂停发布",
+      "publishingHint": "继续导入，但不再让该渠道的商品出现在买家面前。",
+      "title": "暂停"
+    },
+    "pausedScopes": "已暂停：%{scopes}",
+    "readiness": {
+      "cardPaymentsOff": "当前部署未启用银行卡支付",
+      "catalog": "商品目录",
+      "catalogDetail": "%{channels} · %{sync}",
+      "channelCount": {
+        "one": "%{count} 个渠道",
+        "other": "%{count} 个渠道"
+      },
+      "lastSynced": "上次同步 %{when}",
+      "neverSynced": "从未同步",
+      "noChannelConnected": "未连接任何渠道",
+      "notReady": "尚未在 Mercaria 上销售",
+      "payouts": "结算",
+      "payoutsNotSetUp": "未设置",
+      "payoutsSetUp": "已设置",
+      "ready": "已可在 Mercaria 上销售"
+    },
+    "readinessBlocker": {
+      "noConnectedChannel": "目前没有任何来源提供商品目录 —— 请连接一个渠道或添加商品。",
+      "noNativeCheckoutChannel": "你已连接的渠道只把商品用于比价展示，无法通过 Mercaria 结账销售。请连接一个店铺，或直接添加商品。",
+      "noPublishableListing": "没有有效的商品 —— 买家无法把任何东西加入购物车。",
+      "noSuccessfulSync": "渠道已连接，但尚未完成一次同步。",
+      "paymentsNotReady": "尚未设置结算，因此无法接受订单。"
+    },
+    "recently": "最近",
+    "reconciliation": {
+      "alreadyIndexed": "已收录",
+      "awaitingReview": "等待审核",
+      "awaitingReviewNote": {
+        "one": "有 %{count} 件商品无法自动匹配，已排队等待人工确认。",
+        "other": "有 %{count} 件商品无法自动匹配，已排队等待人工确认。"
+      },
+      "body": "不会删除或合并任何内容。当同一件商品出现两次时，Mercaria 会把你自己店铺的商品作为主条目展示，并完整保留另一条的价格历史。",
+      "fromThisStore": "来自本店铺",
+      "gap": {
+        "channelHasNoDomain": "该渠道没有可用于匹配的网址。",
+        "merchantNotClaimed": "该店铺尚未关联已验证商家，因此暂时没有可匹配的对象。",
+        "storeNotLinked": "该店铺尚未关联商家资料，因此暂时没有可匹配的对象。",
+        "storefrontNotMatched": "Mercaria 之前没有收录过这家店铺，因此没有可匹配的对象。"
+      },
+      "sameProductTwice": "同一商品出现两次",
+      "title": "匹配你现有的商品目录"
+    },
+    "runFailures": {
+      "hide": "隐藏",
+      "line": "%{subject}%{externalId} · %{reason}",
+      "loadFailed": "无法加载本次同步拒绝的记录。",
+      "none": "本次同步没有保存逐条记录的原因。",
+      "reason": {
+        "databaseRefused": "数据库拒绝了写入",
+        "duplicateRecord": "与已导入的记录重复",
+        "refusedByRule": "被某条 Mercaria 规则拒绝",
+        "unclassified": "无法识别的失败"
+      },
+      "show": {
+        "one": "查看哪些记录未成功导入",
+        "other": "查看哪些记录未成功导入"
+      },
+      "showing": "显示 %{total} 条中的 %{shown} 条。",
+      "subject": {
+        "inventoryItem": "库存项",
+        "order": "订单",
+        "product": "商品"
+      }
+    },
+    "scope": {
+      "title": "该渠道传输的内容"
+    },
+    "settings": {
+      "autoPublish": "自动发布",
+      "autoPublishHint": "拉取到的商品立即发布。关闭时，它们会作为草稿等待审核。",
+      "documentTitle": "渠道设置 | Mercaria Dashboard",
+      "inventoryHint": "同步地点的库存数量。",
+      "inventoryLabel": "库存",
+      "keepLocalEdits": "保留我的本地修改",
+      "keepLocalEditsHint": "开启时，你在 Mercaria 中改过的字段不会被之后的同步覆盖。关闭时，始终以渠道的数据为准。",
+      "neverSyncedYet": "该渠道尚未同步过。",
+      "notFound": "未找到渠道",
+      "notFoundBody": "该连接可能已被断开。",
+      "ordersHint": "在外部渠道上产生的订单。",
+      "productsHint": "商品目录（标题、图片、价格、变体）。",
+      "providerTitle": "%{provider} 设置",
+      "save": "保存设置",
+      "syncDirections": "同步方向",
+      "title": "渠道设置"
+    },
+    "state": {
+      "connected": "已连接",
+      "needsAttention": "需要处理",
+      "notConnected": "未连接",
+      "paused": "已暂停"
+    },
+    "status": {
+      "disconnected": "已断开连接"
+    },
+    "subtitle": "你的商品进入 Mercaria 的所有方式 —— 已连接的店铺、商品 Feed，以及你自己的商品目录",
+    "syncDirection": {
+      "both": "双向",
+      "off": "关闭",
+      "pull": "拉取",
+      "push": "推送"
+    },
+    "title": "销售渠道",
+    "toast": {
+      "alreadyInThatState": "已经是该状态",
+      "cancelFailed": "无法取消",
+      "channelActivated": "渠道已激活",
+      "collectionMappingSaveFailed": "无法保存映射",
+      "collectionMappingSaved": "产品系列映射已保存",
+      "consumerKeyAndSecretRequired": "请同时填写客户密钥和客户密码",
+      "disconnectFailed": "无法断开该渠道的连接",
+      "disconnected": "已断开连接 —— %{products}，%{records}",
+      "importStartFailed": "无法开始导入",
+      "importStarted": "导入已开始 —— 它会出现在下方的历史记录中",
+      "invalidShopifyDomain": "请输入有效的 *.myshopify.com 域名",
+      "keyCreateFailed": "无法创建密钥",
+      "keyGenerateFailed": "无法生成密钥",
+      "keyGenerated": "API 密钥已生成",
+      "keyLabelRequired": "请为密钥填写标签",
+      "keyRevokeFailed": "无法吊销密钥",
+      "keyRevoked": "API 密钥已吊销",
+      "notReadyToActivate": "尚不能激活 —— 请查看下方的原因",
+      "pauseFailed": "无法更改暂停状态",
+      "paused": "已暂停",
+      "previewSaveFailed": "无法保存预览",
+      "resumed": "已恢复",
+      "settingsSaveFailed": "无法保存渠道设置",
+      "settingsSaved": "渠道设置已保存",
+      "shopifyConnectFailed": "无法开始连接 Shopify",
+      "siteUrlMustBeHttps": "请输入以 https:// 开头的站点网址",
+      "startConnectFailed": "无法开始连接 %{name}",
+      "webhooksRegisterFailed": "无法开始注册 Webhook",
+      "webhooksRegistering": "正在重新注册 Webhook",
+      "wooConnectFailed": "无法连接 —— 请检查站点网址和 API 密钥",
+      "wooConnected": "WooCommerce 已连接"
+    },
+    "type": {
+      "etsy": "Etsy",
+      "magento": "Magento",
+      "native": "Mercaria 商品目录",
+      "prestashop": "PrestaShop",
+      "productFeed": "商品 Feed",
+      "shopify": "Shopify",
+      "woocommerce": "WooCommerce",
+      "woocommercePlugin": "WooCommerce 插件"
+    },
+    "unscheduled": "未排期",
+    "webhookFailureReason": {
+      "permissionDenied": "该连接的权限未覆盖此项",
+      "platformError": "平台返回了错误",
+      "rateLimited": "平台正在限流",
+      "topicNotSupported": "平台不提供此项",
+      "transportError": "无法连接到平台",
+      "unexpectedResponse": "无法读取平台的响应"
+    },
+    "webhooks": {
+      "bringForward": "你也可以现在就把它提前。",
+      "causeIncomplete": "Mercaria 未能完成注册。如果反复出现，请重新连接该渠道。",
+      "causeUnreachable": "最近几次尝试都无法连接 %{provider}。等它恢复后请重新注册。",
+      "dueNow": "现在",
+      "failureDetail": " —— %{reason}%{http} · 上次检查 %{when}",
+      "healthyDetail": {
+        "one": "%{provider} 正在向 Mercaria 发送 %{count} 类更新。如果你在 %{provider} 中删除了 Mercaria 的 Webhook，请重新注册 —— 这里无法检测到这种情况。",
+        "other": "%{provider} 正在向 Mercaria 发送 %{count} 类更新。如果你在 %{provider} 中删除了 Mercaria 的 Webhook，请重新注册 —— 这里无法检测到这种情况。"
+      },
+      "healthyHeadline": "变更会实时到达",
+      "httpStatus": "（HTTP %{status}）",
+      "refusedDetail": "Mercaria 已完成注册，但 %{provider} 拒绝了下列事件。系统会自动重试；点击按钮可立即提前重试。",
+      "refusedHeadline": "部分更新不会到达",
+      "register": "注册 Webhook",
+      "registerAgain": "重新注册 Webhook",
+      "remedyPermissionDenied": "Mercaria 在 %{provider} 中的权限未覆盖全部事件 —— 请在那里放宽权限，然后重新注册。",
+      "remedyTopicNotSupported": "%{provider} 根本不提供其中某些事件，因此重新注册也无法让它们到达。",
+      "retryingDetail": "Mercaria 正在自动重试 —— 下一次尝试是%{due}。%{remedy}",
+      "retryingHeadline": "部分更新暂时没有到达",
+      "stoppedDetail": {
+        "one": "Mercaria 在尝试 %{count} 次后已停止。%{cause}",
+        "other": "Mercaria 在尝试 %{count} 次后已停止。%{cause}"
+      },
+      "stoppedHeadline": "部分更新没有到达，Mercaria 已停止重试",
+      "title": "实时更新",
+      "tryNow": "立即重试",
+      "unregisteredDetail": "对于已连接的 %{provider} 渠道，Mercaria 会自动注册这些 Webhook。你也可以现在就注册，不必等待。",
+      "unregisteredHeadline": "实时更新尚未注册"
+    },
+    "wizard": {
+      "activateChannel": "激活渠道",
+      "activeConnectionBody": "该渠道已激活。接下来请选择要导入的内容 —— 在此之前不会同步任何内容。",
+      "activeFeedBody": "该渠道已激活。你可以随时在“销售渠道”中修改它的设置。",
+      "allSet": "全部就绪",
+      "backToChannels": "返回渠道列表",
+      "beforeYouActivate": "激活前需要完成",
+      "beforeYouStart": "开始前需要准备",
+      "blocker": {
+        "channelLimitation": "该渠道暂时无法激活。",
+        "connectionNotConnected": "请先完成连接。",
+        "noPreview": "请先运行一次预览，以便查看将要导入的内容。",
+        "previewAllInvalid": "预览读取到的记录全部无效。请修正映射后重试。",
+        "previewScannedNothing": "预览完全没有读取到任何记录。请确认 Feed 或店铺中确实有商品 —— 匹配不到任何内容的映射，看起来和空的商品目录一模一样。",
+        "unsupportedDirection": "同步设置要求的方向该渠道并不支持。请调整后重试。"
+      },
+      "canAndCannot": "该渠道能做什么、不能做什么",
+      "chooseWhatToImport": "选择要导入的内容",
+      "connectedTitle": "%{channel} 已连接",
+      "documentTitle": "连接渠道 | Mercaria Dashboard",
+      "everythingChecksOut": "一切正常。激活后会开始第一次同步。",
+      "feed": {
+        "body": "商品 Feed 在它自己的页面中配置：你可以把文件的列映射到 Mercaria 的字段，并在正式生效前预览结果。",
+        "create": "创建 Feed",
+        "title": "设置你的 Feed"
+      },
+      "merchantLinked": "该店铺已关联已验证商家，因此 Mercaria 之前为你的店铺收录的内容会被匹配合并，而不会重复。",
+      "merchantNotLinked": "该店铺尚未关联已验证商家。连接仍然可以进行；只是 Mercaria 不会把你的商品与它此前为你的店铺收录的内容做匹配。",
+      "notFound": "未找到该向导",
+      "notFoundBody": "它可能已经完成了。",
+      "notSetUpYet": "（尚未设置）",
+      "plugin": {
+        "body": "在你的 WordPress 站点上安装 Mercaria 插件，然后把下方的密钥粘贴到它的设置中。商品和库存一有变化，插件就会推送到 Mercaria。",
+        "createKey": "创建渠道密钥",
+        "keyHeading": "你的渠道密钥 —— 请立即复制",
+        "keyNote": "它只会显示这一次。如果丢失，请吊销它并重新生成一个。",
+        "title": "连接 Mercaria 插件"
+      },
+      "preview": {
+        "body": "激活前先运行一次小范围抽样，以便查看将要导入的内容，以及有多少需要审核。",
+        "duplicate": "重复",
+        "invalid": "无效",
+        "matched": "已匹配",
+        "rerun": "重新运行预览",
+        "run": "运行预览",
+        "scanned": "已读取",
+        "title": "预览",
+        "toReview": "待审核"
+      },
+      "shopify": {
+        "authNote": "授权在 Shopify 上完成。Mercaria 永远不会看到你的 Shopify 密码，它收到的访问令牌也会加密存储。",
+        "continue": "前往 Shopify",
+        "domainLabel": "店铺域名",
+        "domainPlaceholder": "your-store.myshopify.com",
+        "openAgain": "重新打开 Shopify",
+        "title": "在 Shopify 上授权 Mercaria",
+        "waitingBody": "请在刚打开的标签页中完成授权。本页会自动更新 —— 你不需要刷新它，也不用回到这一步。",
+        "waitingTitle": "正在等待 Shopify"
+      },
+      "step": {
+        "activate": "激活",
+        "configure": "同步设置",
+        "connect": "连接",
+        "map": "映射",
+        "preview": "预览",
+        "scope": "店铺",
+        "selectChannel": "渠道"
+      },
+      "title": "连接 %{channel}",
+      "woo": {
+        "body": "WooCommerce → 设置 → 高级 → REST API。只读权限就足以导入你的商品目录。",
+        "connect": "连接 WooCommerce",
+        "consumerKeyLabel": "客户密钥",
+        "consumerKeyPlaceholder": "ck_...",
+        "consumerSecretLabel": "客户密码",
+        "consumerSecretPlaceholder": "cs_...",
+        "siteUrlLabel": "站点网址",
+        "siteUrlPlaceholder": "https://your-store.com",
+        "title": "粘贴你的 WooCommerce API 密钥"
+      },
+      "youWillNeed": "你需要准备"
+    },
+    "yourChannels": "你的渠道"
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "新建产品系列",
+      "error": "无法创建产品系列",
+      "success": "产品系列已创建",
+      "titlePlaceholder": "夏日必备",
+      "titleRequired": "请填写标题",
+      "typeAutomated": "自动",
+      "typeManual": "手动"
+    },
+    "deleteError": "无法删除产品系列",
+    "deleted": "产品系列已删除",
+    "documentTitle": "产品系列 | Mercaria Dashboard",
+    "empty": {
+      "body": "创建一个来整理你的商品目录。",
+      "title": "暂无产品系列"
+    },
+    "loadError": "无法加载产品系列",
+    "productCount": {
+      "one": "%{count} 件商品",
+      "other": "%{count} 件商品"
+    },
+    "rowMeta": "%{type} · %{items} · %{state}",
+    "ruleCount": {
+      "one": "%{count} 条规则",
+      "other": "%{count} 条规则"
+    },
+    "state": {
+      "draft": "草稿",
+      "published": "已发布"
+    },
+    "subtitle": "把商品分组，用于陈列推广",
+    "type": {
+      "automated": "自动",
+      "manual": "手动"
+    }
+  },
+  "common": {
+    "all": "全部",
+    "back": "返回",
+    "cancel": "取消",
+    "create": "创建",
+    "description": "描述",
+    "done": "完成",
+    "loading": "加载中…",
+    "name": "名称",
+    "new": "新建",
+    "noAccess": "无访问权限",
+    "noAccessBody": "你没有权限查看当前店铺的这个区域。",
+    "none": "无",
+    "pageOf": "第 %{current} 页，共 %{total} 页",
+    "pleaseTryAgain": "请重试。",
+    "retry": "重试",
+    "save": "保存",
+    "somethingWentWrong": "出了点问题",
+    "status": "状态",
+    "title": "标题",
+    "type": "类型",
+    "unknown": "未知"
+  },
+  "customers": {
+    "detail": {
+      "documentTitle": "客户 | Mercaria Dashboard",
+      "lifetimeSpend": "累计消费",
+      "loadError": "无法加载客户",
+      "noOrders": "暂无订单。",
+      "orders": "订单",
+      "subtitle": "客户详情",
+      "title": "客户"
+    },
+    "documentTitle": "客户 | Mercaria Dashboard",
+    "empty": {
+      "body": "客户在首次下单后会显示在这里。",
+      "title": "暂无客户"
+    },
+    "fallbackName": "客户",
+    "loadError": "无法加载客户",
+    "orderCount": {
+      "one": "%{count} 笔订单",
+      "other": "%{count} 笔订单"
+    },
+    "searchPlaceholder": "搜索客户…",
+    "subtitle": "在你店铺购买过的人",
+    "walkIn": "散客"
+  },
+  "discounts": {
+    "create": {
+      "amountOffLabel": "减免金额（⊜）",
+      "codeLabel": "折扣码",
+      "codePlaceholder": "SPRING20",
+      "codeRequired": "请输入折扣码",
+      "dialogTitle": "新建折扣",
+      "error": "无法创建折扣",
+      "invalidAmount": "请输入有效的金额",
+      "invalidPercentage": "请输入有效的百分比",
+      "methodAutomatic": "自动",
+      "methodCode": "折扣码",
+      "methodLabel": "方式",
+      "percentOffLabel": "减免百分比",
+      "success": "折扣已创建",
+      "titlePlaceholder": "春季促销",
+      "titleRequired": "请填写标题",
+      "valueTypeFixed": "固定金额（⊜）",
+      "valueTypeLabel": "折扣类型",
+      "valueTypePercentage": "百分比"
+    },
+    "deleteError": "无法删除折扣",
+    "deleted": "折扣已删除",
+    "documentTitle": "折扣 | Mercaria Dashboard",
+    "empty": {
+      "body": "创建一个折扣码或自动折扣。",
+      "title": "暂无折扣"
+    },
+    "fixedAmountOff": "固定金额减免",
+    "loadError": "无法加载折扣",
+    "methodAutomatic": "自动",
+    "methodCode": "折扣码",
+    "percentOff": "减免 %{percent}%",
+    "rowMeta": "%{method} · %{value} · %{state}",
+    "state": {
+      "active": "生效中",
+      "inactive": "未生效"
+    },
+    "subtitle": "折扣码与自动促销"
+  },
+  "errors": {
+    "boundaryBody": "发生了意外错误。你可以重试；如果问题持续出现，我们的团队已收到通知。",
+    "notFoundAction": "前往仪表板",
+    "notFoundBody": "该页面不存在。",
+    "notFoundDocumentTitle": "404 - 页面未找到 | Mercaria Dashboard",
+    "notFoundHeading": "哎呀！"
+  },
+  "feeds": {
+    "detail": {
+      "activateMappingFirst": "请先激活一个映射",
+      "documentTitle": "商品 Feed | Mercaria Dashboard",
+      "identityColumns": "标识列：%{columns} —— 在该 Feed 的整个生命周期内不可更改。",
+      "neverRead": "该 Feed 尚未被读取过。",
+      "notFound": "未找到 Feed",
+      "notFoundBody": "它可能已被删除。",
+      "readSchedule": "上次读取 %{last} · 下次 %{next}",
+      "recentRuns": "近期运行",
+      "runCounts": "读取 %{fetched} · 存储 %{stored} · 无变化 %{unchanged} · 拒绝 %{rejected} · 上架 %{listed} · 下架 %{retired}",
+      "syncNow": "立即同步",
+      "title": "商品 Feed"
+    },
+    "draft": {
+      "columnPlaceholder": "你的列名",
+      "columnsLabel": "映射你的列",
+      "deliveryDelta": "只有发生变化的内容",
+      "deliveryHint": "这里刻意没有默认值。如果文件列出了你销售的全部商品，那么文件中缺失的商品就意味着你已停售，Mercaria 会把它下架。如果文件只列出变化的内容，缺失的商品不代表任何含义，Mercaria 会保持原样。选错会导致正常的商品目录被下架，或者已售罄的商品继续在售。",
+      "deliveryLabel": "这个文件包含什么？",
+      "deliverySnapshot": "我销售的全部商品",
+      "formatLabel": "格式",
+      "requiredSuffix": "（必填）",
+      "save": "保存映射",
+      "title": "新建映射",
+      "urlHint": "仅支持 HTTPS。Mercaria 会私密保存该地址，并且只会向你显示主机名 —— Feed 网址中往往带有访问密钥。",
+      "urlLabel": "Feed 网址",
+      "urlPlaceholder": "https://example.com/products.csv"
+    },
+    "never": "从未",
+    "new": {
+      "create": "创建 Feed",
+      "documentTitle": "新建商品 Feed | Mercaria Dashboard",
+      "identityColumnsHint": "用逗号分隔，最多四个。它们之后无法更改：Mercaria 靠它们在前后两个文件之间识别出同一件商品，更改它们看起来就像你替换了整个商品目录。如果需要用不同的列，请新建一个 Feed。",
+      "identityColumnsLabel": "用于标识每件商品的列",
+      "identityColumnsPlaceholder": "id, sku",
+      "nameLabel": "Feed 名称",
+      "namePlaceholder": "主商品目录",
+      "sourceNameHint": "该 Feed 在 Mercaria 自己的商品目录记录中显示的名称。",
+      "sourceNameLabel": "来源名称",
+      "sourceNamePlaceholder": "Acme 供应商目录",
+      "subtitle": "Mercaria 按计划定期读取的 CSV、TSV、XML、JSON 或 JSONL 文件",
+      "title": "新建商品 Feed"
+    },
+    "reports": {
+      "counts": "读取 %{scanned} · 有效 %{valid} · 需处理 %{invalid}",
+      "note": "可下载的报告会给出行号以及问题所在 —— 不会包含具体数值，因为文件本来就在你手上。",
+      "title": "报告"
+    },
+    "toast": {
+      "checkFailed": "无法检查该 Feed",
+      "checked": "已检查 %{scanned} 条记录 —— 其中 %{invalid} 条需要处理",
+      "createFailed": "无法创建 Feed",
+      "created": "Feed 已创建",
+      "deliveryModeRequired": "请选择该文件是完整快照，还是只包含变化的内容",
+      "identityColumnsRequired": "请至少指定一个用于标识每件商品的列",
+      "mappingActivateFailed": "无法激活映射",
+      "mappingActivated": "映射已激活",
+      "mappingSaveFailed": "无法保存映射",
+      "mappingSaved": "映射已保存 —— 请先预览再激活",
+      "nameRequired": "请为该 Feed 填写名称",
+      "previewFailed": "无法预览该 Feed",
+      "sourceNameTooShort": "来源名称至少需要 3 个字符",
+      "syncStartFailed": "无法开始同步",
+      "syncStarted": "同步已开始",
+      "titleMappingRequired": "请把某一列映射到商品标题",
+      "urlMustBeHttps": "Feed 网址必须以 https:// 开头"
+    },
+    "unscheduled": "未排期",
+    "versions": {
+      "activate": "激活",
+      "checkItFirst": "请先检查",
+      "checkWholeFeed": "检查整个 Feed",
+      "deliveryChangesOnly": "仅变化内容",
+      "deliveryFullSnapshot": "完整快照",
+      "empty": "尚无映射",
+      "emptyBody": "在下方描述你的文件，并把它的列映射到 Mercaria 的字段。",
+      "fetchedOverHttps": " · 通过 HTTPS 获取",
+      "preview": "预览",
+      "previewCounts": "读取 %{scanned} · 有效 %{valid} · 无效 %{invalid} · 已匹配 %{matched} · 新增 %{created} · 待审核 %{review}",
+      "previewReadNothing": "预览没有读取到任何内容。空结果和匹配不到任何行的映射看起来完全一样 —— 激活前请检查文件和记录路径。",
+      "suggestedColumns": "建议的列：%{columns}",
+      "summary": "%{format} · %{delivery}%{fetch}",
+      "title": "映射",
+      "uploaded": " · 已上传",
+      "version": "版本 %{version}"
+    }
+  },
+  "home": {
+    "documentTitle": "仪表板 | Mercaria",
+    "inventory": {
+      "lowStock": {
+        "one": "有 %{count} 个已跟踪库存的变体达到或低于低库存阈值。",
+        "other": "有 %{count} 个已跟踪库存的变体达到或低于低库存阈值。"
+      },
+      "noneLow": "没有已跟踪库存的变体处于低库存状态。",
+      "title": "库存"
+    },
+    "orderStatus": {
+      "cancelled": "已取消",
+      "delivered": "已送达",
+      "paid": "已付款",
+      "partiallyRefunded": "部分退款",
+      "pendingPayment": "待付款",
+      "processing": "处理中",
+      "refunded": "已退款",
+      "shipped": "已发货"
+    },
+    "reportsError": "无法加载报告",
+    "sales": {
+      "empty": "本期尚无销售。",
+      "title": "销售额（上一周期）"
+    },
+    "stats": {
+      "averageOrder": "平均订单额",
+      "paidOrders": "已付款订单",
+      "refunds": "退款",
+      "revenue": "销售额"
+    },
+    "statusBreakdown": {
+      "empty": "暂无订单。",
+      "title": "按状态划分的订单"
+    },
+    "subtitle": "你的店铺概览",
+    "topProducts": {
+      "empty": "暂无销售。",
+      "title": "热销商品",
+      "unitsSold": {
+        "one": "已售 %{count} 件",
+        "other": "已售 %{count} 件"
+      }
+    }
+  },
+  "nav": {
+    "channels": "销售渠道",
+    "collapseSidebar": "收起侧边栏",
+    "collections": "产品系列",
+    "customers": "客户",
+    "dashboard": "仪表板",
+    "discounts": "折扣",
+    "expandSidebar": "展开侧边栏",
+    "orders": "订单",
+    "products": "商品",
+    "settings": "设置"
+  },
+  "orders": {
+    "detail": {
+      "documentTitle": "订单 | Mercaria Dashboard",
+      "fulfilment": "发货",
+      "history": "历史记录",
+      "itemVariantQuantity": "%{variant} · ×%{quantity}",
+      "items": "商品",
+      "loadFailed": "无法加载订单",
+      "markedCancelled": "订单已标记为已取消",
+      "markedDelivered": "订单已标记为已送达",
+      "markedProcessing": "订单已标记为处理中",
+      "markedShipped": "订单已标记为已发货",
+      "refund": "退款",
+      "refundFallbackLabel": "退款",
+      "refunds": "退款记录",
+      "shipTo": "收货地址",
+      "subtitle": "订单详情",
+      "title": "订单",
+      "trackingLabel": "物流单号（选填）",
+      "trackingPlaceholder": "1Z…",
+      "updateFailed": "无法更新订单"
+    },
+    "documentTitle": "订单 | Mercaria Dashboard",
+    "empty": {
+      "body": "客户下单后，订单会显示在这里。",
+      "title": "暂无订单"
+    },
+    "loadFailed": "无法加载订单",
+    "pickup": {
+      "cancelAccessibilityLabel": "取消本次自提的原因",
+      "cancelCollection": "取消自提",
+      "cancelLabel": "取消本次自提 —— 原因",
+      "cancelNote": "此操作会撤销交付并作废自提码。它不会取消订单，也不会退款 —— 如果需要退还客户款项，请在订单本身上操作。",
+      "cancelPlaceholder": "库房中货品已损坏",
+      "checkCodeAndHandOver": "核验自提码并交付",
+      "codeAccessibilityLabel": "客户出示的自提码",
+      "codeLabel": "客户出示的自提码",
+      "codePlaceholder": "ABCD234567",
+      "event": {
+        "codeRejected": "自提码被拒绝",
+        "codeRevoked": "自提码已作废",
+        "codeRotated": "已更换自提码",
+        "codeValidated": "自提码已通过",
+        "collected": "已交付",
+        "collectionRefused": "交付被拒绝",
+        "fallbackOverride": "已强制交付",
+        "markedReady": "已标记为可自提",
+        "pickupCancelled": "自提已取消"
+      },
+      "handOverWithOverride": "强制交付",
+      "markReady": "标记为可自提",
+      "overrideAccessibilityLabel": "在没有有效自提码的情况下交付的原因",
+      "overrideLabel": "无有效自提码交付 —— 原因",
+      "overrideNote": "会连同原因一起记录在下方的记录中，并与你的账户关联。",
+      "overridePlaceholder": "自提码无法扫描；已当面核验证件",
+      "rotate": "重新签发自提码",
+      "rotateAccessibilityLabel": "重新签发自提码的原因",
+      "rotateLabel": "重新签发自提码 —— 原因",
+      "rotatePlaceholder": "客户称自提码已泄露",
+      "rotatedCodeNote": "请把它读给客户。之前的自提码已失效。",
+      "title": "自提",
+      "toast": {
+        "cancelled": "自提已取消",
+        "codeIssued": "已签发新的自提码",
+        "collected": "已记录自提",
+        "collectedWithOverride": "已记录本次强制交付的自提",
+        "markedReady": "已标记为可自提"
+      },
+      "trail": "自提记录",
+      "trailEmpty": "柜台还没有任何操作记录。"
+    },
+    "refund": {
+      "dialogTitle": "订单退款",
+      "failed": "无法处理退款",
+      "itemMax": "%{variant} · 最多 %{quantity}",
+      "processed": "退款已处理",
+      "quantityRequired": "请输入要退款的数量",
+      "reasonLabel": "原因（选填）",
+      "reasonPlaceholder": "为什么要退这笔款？",
+      "submit": "处理退款"
+    },
+    "refundState": {
+      "canceled": "已取消",
+      "failed": "失败",
+      "pending": "正在退回",
+      "succeeded": "已完成"
+    },
+    "row": {
+      "itemsPlacedOn": {
+        "one": "%{count} 件商品 · %{date}",
+        "other": "%{count} 件商品 · %{date}"
+      }
+    },
+    "status": {
+      "cancelled": "已取消",
+      "delivered": "已送达",
+      "paid": "已付款",
+      "partiallyRefunded": "部分退款",
+      "pendingPayment": "待付款",
+      "processing": "处理中",
+      "refunded": "已退款",
+      "shipped": "已发货"
+    },
+    "subtitle": "发货并跟踪你的销售",
+    "title": "订单",
+    "totals": {
+      "discounts": "折扣",
+      "heading": "金额合计",
+      "shipping": "运费",
+      "subtotal": "小计",
+      "tax": "税费",
+      "total": "总计"
+    }
+  },
+  "products": {
+    "addProduct": "添加商品",
+    "detail": {
+      "archive": "归档",
+      "archiveFailed": "无法归档该商品",
+      "archived": "商品已归档",
+      "channelSettings": "渠道设置",
+      "documentTitle": "商品 | Mercaria Dashboard",
+      "loadFailed": "无法加载商品",
+      "restrictedNotice": "该商品因等待审核裁决而被限制，无法从这里重新发布。",
+      "saveChanges": "保存更改",
+      "saveFailed": "无法保存该商品",
+      "saved": "商品已保存",
+      "title": "商品",
+      "variantCount": {
+        "one": "%{count} 个变体",
+        "other": "%{count} 个变体"
+      }
+    },
+    "documentTitle": "商品 | Mercaria Dashboard",
+    "empty": {
+      "action": "添加你的第一件商品",
+      "title": "暂无商品"
+    },
+    "loadFailed": "无法加载商品",
+    "new": {
+      "addVariant": "添加变体",
+      "categoryLabel": "类目（slug）",
+      "categoryPlaceholder": "electronics",
+      "categoryRequired": "请填写类目",
+      "createFailed": "无法创建商品",
+      "created": "商品已创建",
+      "descriptionPlaceholder": "描述这件商品",
+      "documentTitle": "新建商品 | Mercaria Dashboard",
+      "optionNameLabel": "选项名称（选填，例如尺码）",
+      "optionNamePlaceholder": "尺码",
+      "optionValueLabel": "%{option}的值",
+      "optionValuePlaceholder": "M",
+      "optionsHeading": "选项与变体",
+      "skuLabel": "SKU（选填）",
+      "skuPlaceholder": "SKU-123",
+      "submit": "创建商品",
+      "subtitle": "把一件商品加入你的商品目录",
+      "title": "新建商品",
+      "titlePlaceholder": "商品名称",
+      "titleRequired": "请填写标题",
+      "variantIndex": "变体 %{index}",
+      "variantPriceInvalid": "每个变体都需要一个有效的价格",
+      "vendorLabel": "供应商 / 品牌",
+      "vendorPlaceholder": "Acme"
+    },
+    "priceLabel": "价格（⊜）",
+    "row": {
+      "variantsInStock": {
+        "one": "%{count} 个变体 · 库存 %{stock}",
+        "other": "%{count} 个变体 · 库存 %{stock}"
+      }
+    },
+    "searchPlaceholder": "在本页中搜索商品…",
+    "status": {
+      "active": "有效",
+      "archived": "已归档",
+      "draft": "草稿",
+      "restricted": "已限制",
+      "sold": "已售出"
+    },
+    "stockLabel": "库存",
+    "subtitle": "你的店铺商品目录",
+    "title": "商品",
+    "variants": {
+      "add": "添加",
+      "addFailed": "无法添加变体",
+      "added": "变体已添加",
+      "available": "可售",
+      "heading": "变体与库存",
+      "inventoryUpdateFailed": "无法更新库存",
+      "inventoryUpdated": "库存已更新",
+      "priceInvalid": "请输入有效的价格",
+      "removeFailed": "无法移除变体",
+      "removeVariant": "移除变体",
+      "removed": "变体已移除",
+      "saveVariant": "保存变体",
+      "set": "设置",
+      "updateFailed": "无法更新变体",
+      "updated": "变体已更新",
+      "valuePlaceholder": "值"
+    }
+  },
+  "settings": {
+    "documentTitle": "设置 | Mercaria Dashboard",
+    "language": {
+      "description": "此仪表板显示所用的语言。仅保存在本设备上，不会改变你的客户看到的内容。",
+      "title": "语言"
+    },
+    "locations": {
+      "createFailed": "无法创建地点",
+      "created": "地点已创建",
+      "defaultFlag": " · 默认",
+      "deleteFailed": "无法删除地点",
+      "deleted": "地点已删除",
+      "documentTitle": "地点 | Mercaria Dashboard",
+      "inactiveFlag": " · 已停用",
+      "loadFailed": "无法加载地点",
+      "namePlaceholder": "主仓库",
+      "nameRequired": "请填写名称",
+      "newTitle": "新建地点",
+      "subtitle": "你存放库存的地方",
+      "title": "地点",
+      "types": {
+        "popUp": "快闪店",
+        "retail": "零售店",
+        "virtual": "虚拟",
+        "warehouse": "仓库"
+      }
+    },
+    "members": {
+      "addFailed": "无法添加成员",
+      "addMember": "添加成员",
+      "added": "成员已添加",
+      "documentTitle": "成员 | Mercaria Dashboard",
+      "explicitPermissions": {
+        "one": "已单独授予 %{count} 项权限",
+        "other": "已单独授予 %{count} 项权限"
+      },
+      "invite": "邀请",
+      "inviteTitle": "邀请成员",
+      "joinedOn": "加入于 %{date}",
+      "loadFailed": "无法加载成员",
+      "oxyUserIdLabel": "Oxy 用户 ID",
+      "oxyUserIdPlaceholder": "Oxy 用户 ID",
+      "oxyUserIdRequired": "请输入该成员的 Oxy 用户 ID",
+      "removeFailed": "无法移除成员",
+      "removed": "成员已移除",
+      "roleLabel": "角色",
+      "roleUpdateFailed": "无法更新该成员",
+      "roleUpdated": "角色已更新",
+      "roles": {
+        "admin": "管理员",
+        "owner": "所有者",
+        "staff": "员工"
+      },
+      "subtitle": "谁可以管理这家店铺",
+      "title": "成员与角色"
+    },
+    "payments": {
+      "beingReviewed": "审核中",
+      "documentTitle": "收款与结算 | Mercaria Dashboard",
+      "dueBy": "截止日期",
+      "itemCount": {
+        "one": "%{count} 项",
+        "other": "%{count} 项"
+      },
+      "loadFailed": "无法加载收款设置",
+      "neededNow": "现在需要提供",
+      "onboardingUnavailable": "当前 Mercaria 部署尚不支持结算设置。",
+      "openFailed": "无法打开结算设置",
+      "outstandingTitle": "Stripe 尚待处理的事项",
+      "paidOutIn": "结算币种",
+      "payoutsTitle": "结算",
+      "quoteToSupport": "如需帮助，请把它提供给 Mercaria 支持团队。",
+      "registeredIn": "注册国家/地区",
+      "reportedByStripe": "由 Stripe 提供",
+      "requirementsNote": "这些资料由 Stripe 保管，也只能在 Stripe 中补全。Mercaria 永远不会看到它们。",
+      "schedule": "结算周期",
+      "scheduleWithDelay": {
+        "one": "%{interval}，延后 %{count} 天",
+        "other": "%{interval}，延后 %{count} 天"
+      },
+      "states": {
+        "actionRequired": {
+          "action": "继续设置",
+          "body": "Stripe 还需要更多信息才能向你结算。在资料补齐之前，买家无法结账购买你的商品。",
+          "heading": "还需要补充一些资料"
+        },
+        "disabled": {
+          "body": "Stripe 已关闭该关联账户，或者它与 Mercaria 的连接已被移除。买家无法结账购买你的商品。请联系 Mercaria 支持团队处理。",
+          "heading": "该账户已无法继续使用"
+        },
+        "notConnected": {
+          "action": "设置结算",
+          "body": "你的商品可以正常展示，Mercaria 的其他功能也都能使用，但买家还无法结账购买。设置结算只需几分钟。",
+          "heading": "尚未设置"
+        },
+        "ready": {
+          "action": "管理结算资料",
+          "body": "买家可以结账购买你的商品，Stripe 会把你的余额结算到你的银行账户。",
+          "heading": "已可收款"
+        },
+        "restricted": {
+          "action": "立即处理",
+          "body": "Stripe 要求的某项资料已逾期，因此它暂停了结算，买家也无法结账购买你的商品。补齐后两者都会恢复。",
+          "heading": "结算已暂停"
+        },
+        "underReview": {
+          "body": "Stripe 已收到所需资料，正在审核。你无需做任何事 —— 通常需要一到两天。审核完成前，买家无法结账购买你的商品。",
+          "heading": "审核中"
+        }
+      },
+      "subtitle": "你如何收到 Mercaria 上订单的货款",
+      "title": "收款与结算"
+    },
+    "plan": {
+      "alwaysIncludedBody": "维护商品目录、接收并履行订单、发起退款、查看你自己的销售与结算记录，以及导出你的数据，对每一家 Mercaria 店铺都是免费的，永远不会成为套餐的一部分。本页面上的任何内容都不会改变这一点，任何套餐也不会影响你的商品如何被发现或排序。",
+      "alwaysIncludedTitle": "始终包含",
+      "cancelFailed": "无法取消。请重试。",
+      "cancelPlan": "取消套餐",
+      "capabilityWithLimit": "%{name} · 最多 %{limit}",
+      "choosePlan": "选择 %{plan}",
+      "documentTitle": "套餐与账单 | Mercaria Dashboard",
+      "endsOn": "将于 %{date} 结束。",
+      "free": "免费",
+      "graceEndsOn": "除非付款成功，否则该套餐的附加功能将于 %{date} 停止。",
+      "loadFailed": "无法加载你的套餐",
+      "manageBilling": "管理账单",
+      "noExtras": "该店铺没有启用任何套餐附加功能。",
+      "noPaidPlans": "目前还没有可购买的付费套餐。等到有了，它们包含的全部内容和价格都会先在这里列出，然后才需要你同意。",
+      "notOnPaidPlan": "你当前没有使用付费套餐。上面列出的内容全部包含在内。",
+      "paidPlansTitle": "付费套餐",
+      "portalFailed": "无法打开账单页面。请重试。",
+      "pricePerMonth": "%{price} · 每月",
+      "pricePerYear": "%{price} · 每年",
+      "renewsOn": "将于 %{date} 续订。",
+      "statuses": {
+        "active": {
+          "body": "你的套餐会自动续订。你可以随时取消，并继续使用到已付费周期结束。",
+          "heading": "生效中"
+        },
+        "cancelled": {
+          "body": "你可以继续使用该套餐的附加功能，直到下方的日期。其他一切不变。",
+          "heading": "将在本周期结束时取消"
+        },
+        "expired": {
+          "body": "该套餐的附加功能已停用。所有免费包含的内容保持不变。",
+          "heading": "已结束"
+        },
+        "pastDue": {
+          "body": "你的商品目录、订单、退款和记录不受影响，今后也不会受影响。只有该套餐的附加功能会受影响，而且要到下方的日期之后。",
+          "heading": "上次扣款未成功"
+        },
+        "paused": {
+          "body": "套餐暂停期间，它的附加功能不会生效。",
+          "heading": "已暂停"
+        },
+        "trialing": {
+          "body": "在试用结束前，你可以完整使用该套餐的附加功能。",
+          "heading": "试用中"
+        }
+      },
+      "subtitle": "你的店铺能获得什么，以及需要为此付多少钱",
+      "title": "套餐与账单",
+      "trialNotice": {
+        "one": "包含 %{count} 天试用。",
+        "other": "包含 %{count} 天试用。"
+      },
+      "upgradeFailed": "无法开始升级。请重试。",
+      "usageIncluded": "已包含",
+      "usageNoLimit": "已用 %{used} · 无上限",
+      "usageOfLimit": "已用 %{used}，上限 %{limit}"
+    },
+    "policies": {
+      "documentTitle": "政策 | Mercaria Dashboard",
+      "loadFailed": "无法加载设置",
+      "lowStockAlerts": "低库存提醒",
+      "notifications": "通知",
+      "orderEmails": "订单邮件",
+      "privacyPolicyLabel": "隐私政策",
+      "privacyPolicyPlaceholder": "你的隐私政策…",
+      "refundPolicyLabel": "退款政策",
+      "refundPolicyPlaceholder": "你的退款政策…",
+      "returnWindowLabel": "退货期限（天）",
+      "saveFailed": "无法保存设置",
+      "saveSettings": "保存设置",
+      "saved": "设置已保存",
+      "subtitle": "全店范围的规则与提醒",
+      "termsLabel": "服务条款",
+      "termsPlaceholder": "你的服务条款…",
+      "title": "政策与通知"
+    },
+    "sections": {
+      "channels": {
+        "description": "连接 Shopify 等店铺进行同步",
+        "label": "销售渠道"
+      },
+      "locations": {
+        "description": "你存放库存的地方",
+        "label": "地点"
+      },
+      "members": {
+        "description": "邀请成员、编辑角色和权限",
+        "label": "成员与角色"
+      },
+      "payments": {
+        "description": "收取 Mercaria 上订单的货款",
+        "label": "收款与结算"
+      },
+      "plan": {
+        "description": "你的店铺能获得什么，以及需要为此付多少钱",
+        "label": "套餐与账单"
+      },
+      "policies": {
+        "description": "退货、退款/隐私/条款、提醒",
+        "label": "政策与通知"
+      },
+      "profile": {
+        "description": "名称、用户名、品牌色、状态",
+        "label": "店铺资料"
+      },
+      "tax": {
+        "description": "税率与征税方式",
+        "label": "税费"
+      }
+    },
+    "store": {
+      "brandColorLabel": "品牌色",
+      "documentTitle": "店铺资料 | Mercaria Dashboard",
+      "loadFailed": "无法加载店铺",
+      "nameLabel": "店铺名称",
+      "nameRequired": "请填写店铺名称",
+      "saveChanges": "保存更改",
+      "title": "店铺资料",
+      "updateFailed": "无法更新店铺",
+      "updated": "店铺已更新"
+    },
+    "subtitle": "配置你的店铺",
+    "tax": {
+      "active": "启用",
+      "countryLabel": "国家/地区（ISO-2）",
+      "countryPlaceholder": "US",
+      "createFailed": "无法创建税率",
+      "created": "税率已创建",
+      "deleteFailed": "无法删除税率",
+      "deleted": "税率已删除",
+      "documentTitle": "税费 | Mercaria Dashboard",
+      "emptyBody": "添加一个税率，以便在结账时收税。",
+      "emptyTitle": "暂无税率",
+      "inactive": "停用",
+      "invalidRate": "请输入有效的税率",
+      "loadFailed": "无法加载税率",
+      "namePlaceholder": "美国销售税",
+      "nameRequired": "请填写名称",
+      "newRate": "新建税率",
+      "newRateTitle": "新建税率",
+      "rateLabel": "税率（%）",
+      "regionLabel": "地区",
+      "regionPlaceholder": "CA",
+      "subtitle": "结账时适用的税率",
+      "title": "税费"
+    },
+    "title": "设置"
+  },
+  "stores": {
+    "create": {
+      "descriptionPlaceholder": "你销售什么？",
+      "dialogTitle": "创建店铺",
+      "error": "无法创建店铺",
+      "nameLabel": "店铺名称",
+      "namePlaceholder": "Acme 商贸公司",
+      "nameRequired": "请填写店铺名称",
+      "success": "店铺已创建"
+    },
+    "createStore": "创建店铺",
+    "documentTitle": "店铺 | Mercaria Dashboard",
+    "empty": {
+      "body": "创建你的第一家店铺，开始在 Mercaria 上销售。",
+      "title": "暂无店铺"
+    },
+    "loadError": "无法加载你的店铺",
+    "newStore": "新建店铺",
+    "selectStore": "选择店铺",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} 件商品",
+      "other": "@%{handle} · %{count} 件商品"
+    },
+    "subtitle": "选择要管理的店铺",
+    "switch": "切换店铺",
+    "title": "你的店铺"
+  }
+}
