@@ -62,6 +62,7 @@
  */
 
 import { and, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { type SelectedRow } from '@oxyhq/db';
 import { publicColumns } from '@oxyhq/db/assert';
 import type {
@@ -70,6 +71,7 @@ import type {
   ConnectionWebhookFailure,
   ConnectorProviderId,
   ConnectorWebhookFailureReason,
+  SyncResourceDirection,
 } from '@mercaria/shared-types';
 import { CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS } from '@mercaria/shared-types';
 import { conflict } from '../../lib/errors/error-codes.js';
@@ -98,6 +100,22 @@ const CONNECTION_COLUMNS = {
  */
 export type ConnectionRow = SelectedRow<typeof PUBLIC_CONNECTION_COLUMNS> & {
   readonly hasCredentials: boolean;
+};
+
+/**
+ * What {@link updateSyncSettings} returns: the connection AS WRITTEN, plus the
+ * three per-resource directions as they stood BEFORE the write.
+ *
+ * A separate type rather than three optional fields on {@link ConnectionRow}: the
+ * previous directions are a fact about ONE statement and are meaningless on a row
+ * that came from a read, so a serializer or a caller that reaches for them
+ * elsewhere fails `tsc` rather than reading `undefined` as "unchanged" — which is
+ * the answer that silently imports nothing.
+ */
+export type UpdatedConnectionRow = ConnectionRow & {
+  readonly previousSyncSettingsProducts: SyncResourceDirection;
+  readonly previousSyncSettingsInventory: SyncResourceDirection;
+  readonly previousSyncSettingsOrders: SyncResourceDirection;
 };
 
 /** An AES-GCM envelope as `lib/connector-crypto.ts` produces and consumes it. */
@@ -456,13 +474,32 @@ export async function upsertConnection(
  * `collectionMapping` is written as ONE jsonb value for the same reason: its keys
  * are the external platform's own collection ids, an open set with nothing to
  * project into columns and no per-key query anywhere in `src/`.
+ *
+ * ## Why it returns the PREVIOUS directions too
+ *
+ * Turning a resource on is what has to start its first import (`updateSyncSettings`
+ * in the service), and "turned on" is a TRANSITION rather than a state — the patch
+ * is partial, so a save that leaves `products: 'pull'` exactly where it already was
+ * must not re-import a catalogue. That needs the value from before the write.
+ *
+ * Reading the row first and comparing would put back the read-modify-write this
+ * function was deliberately made a single conditional UPDATE to remove: two
+ * concurrent saves would each decide against a snapshot the other had already
+ * replaced. The `FROM connections previous` self-join answers it in the SAME
+ * statement — Postgres evaluates the FROM against the pre-update snapshot, so
+ * `previous.*` is the old row and the `SET` columns are the new one, with no window
+ * between them. Measured against a real server, including the two controls that
+ * matter: a patch not naming a column returns `previous == new` for it (so an
+ * untouched field can never read as a transition), and the `previous.id = id` join
+ * predicate keeps it to exactly one row.
  */
 export async function updateSyncSettings(
   storeId: string,
   connectionId: string,
   patch: SyncSettingsPatch,
   db: DatabaseOrTransaction = getDb(),
-): Promise<ConnectionRow | null> {
+): Promise<UpdatedConnectionRow | null> {
+  const previous = alias(connections, 'previous');
   const [row] = await db
     .update(connections)
     .set({
@@ -487,8 +524,20 @@ export async function updateSyncSettings(
         : {}),
       updatedAt: new Date(),
     })
-    .where(and(eq(connections.id, connectionId), eq(connections.storeId, storeId)))
-    .returning(CONNECTION_COLUMNS);
+    .from(previous)
+    .where(
+      and(
+        eq(previous.id, connections.id),
+        eq(connections.id, connectionId),
+        eq(connections.storeId, storeId),
+      ),
+    )
+    .returning({
+      ...CONNECTION_COLUMNS,
+      previousSyncSettingsProducts: previous.syncSettingsProducts,
+      previousSyncSettingsInventory: previous.syncSettingsInventory,
+      previousSyncSettingsOrders: previous.syncSettingsOrders,
+    });
   return row ?? null;
 }
 

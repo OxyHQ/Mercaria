@@ -64,6 +64,7 @@ import {
   usePauseChannel,
   useReregisterChannelWebhooks,
   useRevokeChannelKey,
+  useSyncChannel,
 } from "@/lib/hooks/use-channels";
 
 const PROVIDER_NAME: Record<Connection["provider"], string> = {
@@ -172,6 +173,7 @@ function ChannelSettingsBody({
       ) : null}
       <WebhookHealth storeId={storeId} connection={connection} />
       <PauseControls storeId={storeId} connection={connection} />
+      <ManualSync storeId={storeId} connection={connection} />
       <SyncHistory storeId={storeId} connection={connection} />
       <Reconciliation storeId={storeId} connection={connection} />
       <DisconnectPanel storeId={storeId} connection={connection} />
@@ -384,6 +386,100 @@ function RunRecordFailures({
  * merchant what happens while they are watching, and this is what happened
  * overnight.
  */
+/**
+ * Why a merchant may not press this, or `null` when they may.
+ *
+ * Every reason is one the SERVER also refuses, which is the point: a disabled
+ * control Mercaria invented would be a second answer to what `requestBackfill`
+ * decides, and the two would drift. Two states the server does NOT refuse are
+ * deliberately absent from this list —
+ *
+ * - a FETCH-PAUSED channel, because pausing gates the scheduled sweeps
+ *   (`findPullConnectionsToReconcile`) and not a manual import. Pressing this is
+ *   an explicit act, so it runs, and the copy below says so rather than
+ *   disabling a button that would have worked.
+ * - `status: 'error'`, which is what a failed run leaves behind. Retrying is the
+ *   remedy for most of them, and a channel that disabled its own retry after one
+ *   bad night would need a reconnect to do what a second press fixes.
+ */
+function manualSyncBlockedReason(connection: Connection): string | null {
+  if (connection.status !== "connected") {
+    return "Reconnect this channel before importing — its stored credential was cleared when it was disconnected.";
+  }
+  // The endpoint is the PRODUCT backfill specifically: `requestBackfill` refuses
+  // on `syncSettingsProducts` alone, so a channel pulling only orders is refused
+  // by the server too. Naming products rather than "syncing" is what keeps this
+  // from promising an order import the button does not run.
+  if (connection.syncSettings.products !== "pull" && connection.syncSettings.products !== "bidirectional") {
+    return "Set Products to Pull or Both above, then save — saving starts the first import on its own.";
+  }
+  return null;
+}
+
+/**
+ * Import this channel's catalogue now.
+ *
+ * The control that did not exist, which is the whole of the reported defect: the
+ * endpoint, the client function and the mutation hook were all present and
+ * `useSyncChannel` had ZERO callers in any screen, so a merchant whose first
+ * import never ran had no way to ask for one. Re-importing is also the ordinary
+ * remedy after fixing a mapping or widening a scope, and until now that meant
+ * disconnecting and reconnecting the channel.
+ *
+ * ABSENT rather than disabled for a `push_in` channel, on `WebhookHealth`'s
+ * precedent: a plugin pushes INTO Mercaria and has no catalogue to pull, so a
+ * permanently disabled button would be explaining a capability that channel never
+ * had.
+ */
+function ManualSync({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const sync = useSyncChannel(storeId);
+
+  if (connection.mode !== "pull") return null;
+
+  const blocked = manualSyncBlockedReason(connection);
+  const paused = (connection.pausedScopes ?? []).includes("fetch");
+
+  const run = () => {
+    sync.mutate(connection.id, {
+      // A 202: the server has ACCEPTED the import, not finished it. Saying
+      // "Imported" here would be a claim about pages of somebody else's platform
+      // that have not been read yet — the run's own row is what reports the
+      // outcome, and it is directly below.
+      onSuccess: () => toast.success("Import started — it will appear in the history below"),
+      onError: () => toast.error("Couldn't start the import"),
+    });
+  };
+
+  return (
+    <View className="mt-8 gap-3">
+      <Text className="text-sm font-semibold text-muted-foreground">Import</Text>
+      <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+        <View className="flex-1 gap-1">
+          <Text className="text-sm font-medium text-foreground">
+            Import products from {PROVIDER_NAME[connection.provider]}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {blocked ??
+              (paused
+                ? "Reads every product again and updates what has changed. Importing is paused for scheduled syncs, but this one runs now."
+                : "Reads every product again and updates what has changed. Safe to run more than once.")}
+          </Text>
+        </View>
+        <Button
+          variant="outline"
+          size="sm"
+          onPress={run}
+          isLoading={sync.isPending}
+          disabled={blocked !== null}
+          className="self-start"
+        >
+          <Text className="text-sm font-medium text-foreground">Sync now</Text>
+        </Button>
+      </View>
+    </View>
+  );
+}
+
 function SyncHistory({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
   const runs = useChannelRuns(storeId, connection.id);

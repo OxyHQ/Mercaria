@@ -104,6 +104,7 @@ import {
   updateSyncSettings as updateSyncSettingsColumns,
   upsertConnection,
   type ConnectionRow,
+  type UpdatedConnectionRow,
 } from '../db/connectors/connectionRepository.js';
 import {
   finishSyncRun,
@@ -1263,35 +1264,11 @@ export async function connectAndVerify(
     shopDomain: result.shopDomain,
   });
 
-  // Initial import: enqueue a backfill when product pull is already enabled for
-  // this connection (a fresh connection defaults `products: 'off'` and imports
-  // only after the merchant configures + syncs). The producer's inline fallback
-  // keeps this working without Redis.
-  if (pullsResource(conn.syncSettingsProducts)) {
-    const { enqueueConnectionBackfill } = await import('../queue/producers.js');
-    await enqueueConnectionBackfill({ storeId, connectionId: conn.id }).catch((err) =>
-      log.general.warn({ err, connectionId: conn.id }, 'Failed to enqueue connect-time backfill'),
-    );
-  }
-
-  // Initial order import: enqueue an order sync when order pull is already enabled.
-  if (pullsResource(conn.syncSettingsOrders)) {
-    const { enqueueOrderSync } = await import('../queue/producers.js');
-    await enqueueOrderSync({ storeId, connectionId: conn.id }).catch((err) =>
-      log.general.warn({ err, connectionId: conn.id }, 'Failed to enqueue connect-time order sync'),
-    );
-  }
-
-  // Initial inventory import: enqueue an inventory sync when inventory pull is enabled.
-  if (pullsResource(conn.syncSettingsInventory)) {
-    const { enqueueInventorySync } = await import('../queue/producers.js');
-    await enqueueInventorySync({ storeId, connectionId: conn.id }).catch((err) =>
-      log.general.warn(
-        { err, connectionId: conn.id },
-        'Failed to enqueue connect-time inventory sync',
-      ),
-    );
-  }
+  // Initial import: whatever this connection already pulls starts now. A fresh
+  // connection defaults every direction to `off`, so on a first connect this
+  // enqueues nothing and the import starts when the merchant turns a resource on
+  // (`updateSyncSettings`); on a RE-connect of a configured channel it re-imports.
+  await enqueueInitialPulls(conn, pullingResources(conn), 'connect');
 
   return conn;
 }
@@ -1382,13 +1359,28 @@ export async function connectWithApiKey(
  * a `targetLocationId` naming no location is REFUSED (SQLSTATE 23503) instead of
  * being stored as a dangling id. It is translated here rather than left to
  * surface as a 500: the value came from a request body, so it is a 400.
+ *
+ * ## Turning a resource on STARTS it
+ *
+ * Writing the columns used to be the whole of this function, which made the
+ * settings form a control that changed nothing observable: a merchant moved
+ * `products` from `off` to `pull`, saved, and no import ever ran — the connect path
+ * had already decided against enqueuing one, because at connect time the column
+ * still said `off`. Nothing else in `src/` would have started it either, so a
+ * connected store sat at zero imported products indefinitely with every layer
+ * reporting success.
+ *
+ * So the save enqueues exactly what the connect path enqueues, through the SAME
+ * function, for exactly the resources this write TURNED ON. It runs after the write
+ * has committed and is best-effort — see {@link enqueueInitialPulls} for why its
+ * eligibility test is deliberately not `requestBackfill`'s.
  */
 export async function updateSyncSettings(
   storeId: string,
   connectionId: string,
   patch: UpdateSyncSettingsInput,
 ): Promise<ConnectionRow> {
-  let conn: ConnectionRow | null;
+  let conn: UpdatedConnectionRow | null;
   try {
     conn = await updateSyncSettingsColumns(storeId, connectionId, {
       ...(patch.products !== undefined ? { products: patch.products } : {}),
@@ -1413,6 +1405,7 @@ export async function updateSyncSettings(
   if (!conn) {
     throw notFound('Connection not found');
   }
+  await enqueueInitialPulls(conn, newlyPullingResources(conn), 'settings');
   return conn;
 }
 
@@ -2834,6 +2827,95 @@ export async function reconcileAllConnections(): Promise<void> {
 /** True when a per-resource direction pulls into Mercaria (`pull` or `bidirectional`). */
 function pullsResource(direction: SyncResourceDirection): boolean {
   return direction === 'pull' || direction === 'bidirectional';
+}
+
+/** The three resources a `pull` connection can import, each with its own producer. */
+type PullResource = 'products' | 'orders' | 'inventory';
+
+/** Every resource this connection currently pulls, in import order. */
+function pullingResources(conn: ConnectionRow): PullResource[] {
+  const resources: PullResource[] = [];
+  if (pullsResource(conn.syncSettingsProducts)) resources.push('products');
+  if (pullsResource(conn.syncSettingsOrders)) resources.push('orders');
+  if (pullsResource(conn.syncSettingsInventory)) resources.push('inventory');
+  return resources;
+}
+
+/**
+ * Every resource this write TURNED ON — a direction that did not pull before and
+ * does now.
+ *
+ * A transition rather than a state, because the patch is partial: a merchant saving
+ * a `targetLocationId` on a channel already pulling products must not re-import the
+ * catalogue, and `updateSyncSettings` writes `products` unchanged in that request.
+ * The previous values come from the same statement that wrote the new ones (see
+ * `connectionRepository.updateSyncSettings`), so nothing here can compare against a
+ * snapshot another save has already replaced.
+ */
+function newlyPullingResources(row: UpdatedConnectionRow): PullResource[] {
+  const turnedOn = (before: SyncResourceDirection, after: SyncResourceDirection): boolean =>
+    !pullsResource(before) && pullsResource(after);
+  const resources: PullResource[] = [];
+  if (turnedOn(row.previousSyncSettingsProducts, row.syncSettingsProducts)) {
+    resources.push('products');
+  }
+  if (turnedOn(row.previousSyncSettingsOrders, row.syncSettingsOrders)) {
+    resources.push('orders');
+  }
+  if (turnedOn(row.previousSyncSettingsInventory, row.syncSettingsInventory)) {
+    resources.push('inventory');
+  }
+  return resources;
+}
+
+/**
+ * Enqueue the first import for each of `resources` — the ONE place a pull is
+ * started as a consequence of something other than a merchant pressing Sync.
+ *
+ * Both callers reach it: `connectAndVerify` with everything the reconnected channel
+ * already pulls, and `updateSyncSettings` with everything the save just turned on.
+ * They were three copied blocks in the connect path and nothing at all in the save
+ * path, which is the whole defect — a merchant could move `products` from `off` to
+ * `pull`, save, and import nothing, forever, with no error anywhere.
+ *
+ * ## Why the eligibility test is not `requestBackfill`'s
+ *
+ * `requestBackfill` is a merchant pressing a button, so it REFUSES a non-pull or
+ * unconfigured connection and the 400 tells them which. This runs as a side effect
+ * of a save that has already committed and has nobody to tell, so it must not
+ * enqueue work that is certain to fail: a `push_in` connection cannot run a pull at
+ * all, and a disconnected one holds no credential to run it with. Both leave the
+ * SETTING exactly as written — a merchant may configure a channel before
+ * reconnecting it, and the reconnect is what starts the import (above).
+ *
+ * Every enqueue is best-effort, as the connect path's always were: the producer's
+ * inline fallback keeps it working without Redis, and a queue that is briefly
+ * unreachable must not fail the write that has already landed.
+ */
+async function enqueueInitialPulls(
+  conn: ConnectionRow,
+  resources: readonly PullResource[],
+  trigger: 'connect' | 'settings',
+): Promise<void> {
+  if (resources.length === 0) return;
+  if (conn.mode !== 'pull' || !conn.hasCredentials) return;
+
+  const producers = await import('../queue/producers.js');
+  const job = { storeId: conn.storeId, connectionId: conn.id };
+  const enqueue: Record<PullResource, () => Promise<void>> = {
+    products: () => producers.enqueueConnectionBackfill(job),
+    orders: () => producers.enqueueOrderSync(job),
+    inventory: () => producers.enqueueInventorySync(job),
+  };
+
+  for (const resource of resources) {
+    await enqueue[resource]().catch((err) =>
+      log.general.warn(
+        { err, connectionId: conn.id, resource, trigger },
+        'Failed to enqueue initial pull',
+      ),
+    );
+  }
 }
 
 /**

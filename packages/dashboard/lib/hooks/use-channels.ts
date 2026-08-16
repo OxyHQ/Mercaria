@@ -101,7 +101,7 @@ export function useUpdateChannelSettings(storeId: string) {
   });
 }
 
-/** Trigger a backfill sync; resolves with the resulting `SyncRun`. */
+/** Enqueue a backfill for a connection; resolves once the server has ACCEPTED it. */
 export function useSyncChannel(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
