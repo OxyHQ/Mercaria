@@ -54,6 +54,13 @@ import {
 } from '../../db/referrals/subjectRedirectRepository.js';
 import { appendReferralEvent } from '../../db/referrals/eventRepository.js';
 import { resolvePinnedRewardRuleRef } from './rewards/rule.service.js';
+import { enforcementPermitsAttribution } from './integrity/effects.js';
+import { readEnforcementEffects } from './integrity/enforcement.service.js';
+import {
+  assessSelfReferral,
+  selfReferralPermitsAttribution,
+} from './integrity/self-referral.js';
+import { collectSelfReferralFacts } from './integrity/self-referral.service.js';
 
 /** How the resolver answered. Every arm is an ANSWER, including the refusals. */
 export type AttributionOutcome =
@@ -114,11 +121,57 @@ export async function attributeTouch(touchId: string): Promise<AttributionOutcom
       return { outcome: 'refused', reason: 'partner_suspended' };
     }
 
+    // #148: the SCOPED enforcement gate, read through the one derivation the
+    // three gates share. It sits BELOW the partner-state check deliberately —
+    // that check is #142's coarse posture and this is the granularity #148
+    // adds, so a `new_attribution_suspension` refuses NEW attribution while
+    // the partner's already-vested rewards keep settling (acceptance 2).
+    const effects = await readEnforcementEffects(tx, partner.id, now);
+    if (!enforcementPermitsAttribution(effects, version.programId)) {
+      await appendReferralEvent(tx, {
+        subjectType: 'partner',
+        subjectId: partner.id,
+        action: 'attribution_refused',
+        actorKind: 'system',
+        reason: `Enforcement suspends new attribution (touch ${touch.id})`,
+      });
+      return { outcome: 'refused', reason: 'enforcement_suspended' };
+    }
+
     const subject = await deriveSubject(tx, touch, version.qualifyingEventPolicy);
     if (!version.eligibleSubjectKinds.includes(subject.subjectKind)) {
       throw validationError(
         `The program does not attribute ${subject.subjectKind} subjects`,
       );
+    }
+
+    // #148 / ADR 0005 D7: the self-referral detector, which the vocabulary has
+    // carried since #142 with nothing computing it. THREE-valued, and only
+    // `permitted` attributes — a `review` verdict refuses the attribution and
+    // records the evidence, because attributing first and reviewing later
+    // means a reward accrues on a conversion nobody has looked at.
+    const selfReferral = assessSelfReferral(
+      await collectSelfReferralFacts(tx, {
+        partner,
+        subject: {
+          subjectKind: subject.subjectKind,
+          oxyUserId: touch.oxyUserId,
+          merchantId: touch.merchantCandidateRef,
+        },
+      }),
+    );
+    if (!selfReferralPermitsAttribution(selfReferral)) {
+      await appendReferralEvent(tx, {
+        subjectType: 'partner',
+        subjectId: partner.id,
+        action: 'attribution_refused',
+        actorKind: 'system',
+        reason:
+          `Self-referral ${selfReferral.verdict} on ` +
+          `${'evidence' in selfReferral ? selfReferral.evidence.join(', ') : 'no evidence'} ` +
+          `(touch ${touch.id})`,
+      });
+      return { outcome: 'refused', reason: 'self_referral' };
     }
 
     const scope = { programId: version.programId, ...subject };

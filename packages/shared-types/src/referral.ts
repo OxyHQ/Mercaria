@@ -376,6 +376,19 @@ export type ReferralConflictReason =
   | 'program_retired'
   | 'operator_correction'
   | 'operator_invalidation'
+  /**
+   * #148: a SCOPED enforcement action suspends new attribution for this
+   * partner, or removed them from this program.
+   *
+   * Deliberately distinct from `partner_suspended`, which is #142's coarse
+   * `referral_partners.state`. The two look alike to a reader and mean
+   * different things to an operator: `partner_suspended` says the partner's
+   * whole enrollment is paused — no links, no attribution, no payout — and
+   * this one says exactly one of those was paused while the others continue.
+   * Collapsing them would make #148 acceptance 2 unobservable from the trail
+   * even where it is working.
+   */
+  | 'enforcement_suspended'
   | 'other';
 
 /** {@link ReferralConflictReason} as a tuple. */
@@ -387,6 +400,7 @@ export const REFERRAL_CONFLICT_REASONS: readonly ReferralConflictReason[] = [
   'program_retired',
   'operator_correction',
   'operator_invalidation',
+  'enforcement_suspended',
   'other',
 ];
 
@@ -485,7 +499,16 @@ export type ReferralEventSubjectType =
   | 'conversion'
   | 'reward_rule'
   | 'reward'
-  | 'payout_batch';
+  | 'payout_batch'
+  // #148's two. A conduct policy and a disclosure requirement are PUBLICATIONS
+  // rather than facts about one partner, so they get their own subject types
+  // instead of being filed under the program that happens to cite them — an
+  // operator asking "when did this rule change" must not have to guess which
+  // program's trail it landed in. Enforcement actions and their appeals are
+  // deliberately NOT here: they are facts about a `partner`, and #142's trail
+  // already answers "what happened to this partner" in one place.
+  | 'conduct_policy'
+  | 'disclosure_requirement';
 
 /** {@link ReferralEventSubjectType} as a tuple. */
 export const REFERRAL_EVENT_SUBJECT_TYPES: readonly ReferralEventSubjectType[] = [
@@ -504,6 +527,9 @@ export const REFERRAL_EVENT_SUBJECT_TYPES: readonly ReferralEventSubjectType[] =
   // actor approves, retries and cancels, so it belongs on the trail every other
   // referral decision is already on.
   'payout_batch',
+  // #148 — see the note on the union above.
+  'conduct_policy',
+  'disclosure_requirement',
 ];
 
 /**
@@ -592,7 +618,28 @@ export type ReferralEventAction =
   | 'partner_application_rejected'
   | 'partner_application_changes_requested'
   | 'partner_terms_accepted'
-  | 'partner_marketing_consent_set';
+  | 'partner_marketing_consent_set'
+  // #148: enforcement, its appeals, the evidence behind it and the two
+  // publications it cites. There is deliberately no `partner_fraud_confirmed`
+  // and no `partner_cleared` — the first is `partner_terminated` with a
+  // confirmed-fraud finding, which #146 already writes, and the second is a
+  // `cleared` enforcement ACTION, which carries its own reason and evidence.
+  // A verb for each would split "what did we decide about this partner" across
+  // two vocabularies.
+  //
+  // `partner_risk_signal_recorded` is written once per BATCH rather than once
+  // per signal: an evaluation producing five signals is one observation of one
+  // partner, and five trail rows would bury the decisions an operator is
+  // reading the trail for under a heartbeat.
+  | 'partner_enforcement_imposed'
+  | 'partner_enforcement_lifted'
+  | 'partner_enforcement_appealed'
+  | 'partner_enforcement_appeal_decided'
+  | 'partner_risk_signal_recorded'
+  | 'conduct_policy_drafted'
+  | 'conduct_policy_activated'
+  | 'disclosure_requirement_drafted'
+  | 'disclosure_requirement_activated';
 
 /** {@link ReferralEventAction} as a tuple. */
 export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
@@ -664,6 +711,16 @@ export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
   'partner_application_changes_requested',
   'partner_terms_accepted',
   'partner_marketing_consent_set',
+  // #148 — see the note on the union above.
+  'partner_enforcement_imposed',
+  'partner_enforcement_lifted',
+  'partner_enforcement_appealed',
+  'partner_enforcement_appeal_decided',
+  'partner_risk_signal_recorded',
+  'conduct_policy_drafted',
+  'conduct_policy_activated',
+  'disclosure_requirement_drafted',
+  'disclosure_requirement_activated',
 ];
 
 /** Who performed an audited referral action. */

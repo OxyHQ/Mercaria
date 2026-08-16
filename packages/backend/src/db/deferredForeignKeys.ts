@@ -1792,4 +1792,45 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'stays `matched` and the id stays readable after the click is gone, which is the honest ' +
       'account of what was known.',
   },
+
+  // ── Referral integrity: enforcement, signals, policy (#148, ADR 0005) ─────
+  { column: 'referral_enforcement_actions.imposed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_enforcement_actions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_enforcement_appeals.imposed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_enforcement_appeals.submitted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_enforcement_appeals.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_risk_signals.recorded_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_conduct_policies.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_disclosure_requirements.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'referral_enforcement_actions.subject_id',
+    reason:
+      'Polymorphic by scope, exactly as referral_events.subject_id is polymorphic by ' +
+      'subject_type. The six scopes address a partner, a (partner, program) pairing, an ' +
+      'instrument, an attribution, a conversion and a reward, which are five different ' +
+      'tables and one composite — no single column could carry a key to all of them.',
+  },
+  {
+    column: 'referral_risk_signals.subject_id',
+    reason:
+      'Polymorphic by subject_type, the referral_events.subject_id shape. A constraint here ' +
+      'would additionally fight the retention clock: signals are swept at 400 days and the ' +
+      'rewards and conversions they cite are retained with the financial record, so the two ' +
+      'lifetimes differ in the direction a foreign key cannot express.',
+  },
+  {
+    column: 'referral_enforcement_actions.program_id',
+    reason:
+      'The same stable program identity referral_attributions.program_id carries, and there ' +
+      'is no single-column unique to point at — referral_programs is keyed ' +
+      '(program_id, version). A program_removal names the program, never one of its versions: ' +
+      'removing a partner from version 3 and leaving them in version 4 is not a decision an ' +
+      'operator can make or a partner could understand.',
+  },
+  {
+    column: 'referral_risk_signals.program_id',
+    reason:
+      'The same stable program identity, for the same reason: an observation is scoped to a ' +
+      'program rather than to whichever version happened to be live when it was measured.',
+  },
 ];

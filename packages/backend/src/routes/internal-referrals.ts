@@ -30,8 +30,13 @@ import { authenticateToken } from '../middleware/auth.js';
 import { requireReferralOperator } from '../middleware/referral-operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import {
+  referralAppealDecisionSchema,
+  referralConductPolicySchema,
+  referralDisclosureSchema,
   referralDiscrepancyResolutionSchema,
+  referralEnforcementSchema,
   referralOperatorReasonSchema,
+  referralRiskSignalSchema,
   referralPayoutBatchOpenSchema,
   referralPartnerTerminationSchema,
   referralProgramControlsSchema,
@@ -69,6 +74,19 @@ import {
   setReferralProgramControlsHandler,
   settleReferralPayoutBatchHandler,
 } from '../controllers/referral-operator.controller.js';
+import {
+  decideReferralAppealHandler,
+  draftConductPolicyHandler,
+  draftDisclosureHandler,
+  evaluateReferralRiskHandler,
+  imposeReferralEnforcementHandler,
+  liftReferralEnforcementHandler,
+  listConductPolicyVersionsHandler,
+  publishConductPolicyHandler,
+  publishDisclosureHandler,
+  recordReferralRiskSignalHandler,
+  traceReferralIntegrityHandler,
+} from '../controllers/referral-integrity.controller.js';
 
 const router = Router();
 
@@ -222,5 +240,84 @@ router.post('/earnings/reconcile', runReferralReconciliationHandler);
 
 /** POST — run one page of the vesting sweep. The same function the loop calls. */
 router.post('/earnings/vest', runReferralVestingHandler);
+
+// ── Integrity: conduct, disclosures, signals, enforcement, appeals (#148) ────
+//
+// On this SAME list, not an eighth. #143 already said why: pausing attribution
+// stops partners earning, and #148 is that power at a finer grain plus the one
+// #145 stopped short of — taking money back. Splitting them would put one half
+// of a partner's fate behind a list the other half's operator is not on.
+//
+// The set is CLOSED. There is no "clear this signal", no "edit this action", no
+// "delete this appeal", no "set this partner's risk state" and no "open an
+// appeal for this partner" — that last one because an operator who could open
+// an appeal could open one they then decide, and the independence CHECK would
+// be satisfied by two accounts one person holds.
+
+/** GET — every conduct-policy version, newest first. */
+router.get('/conduct-policies', listConductPolicyVersionsHandler);
+
+/** POST — draft one. The version NUMBER is derived, never supplied. */
+router.post(
+  '/conduct-policies',
+  validateBody(referralConductPolicySchema),
+  draftConductPolicyHandler,
+);
+
+/** POST — publish it, superseding the incumbent in the same transaction. */
+router.post('/conduct-policies/:policyId/publish', publishConductPolicyHandler);
+
+/** POST — draft one disclosure requirement, refusing a forbidden claim BY NAME. */
+router.post('/disclosures', validateBody(referralDisclosureSchema), draftDisclosureHandler);
+
+/** POST — publish it, superseding the incumbent of its own (surface, market, language). */
+router.post('/disclosures/:disclosureId/publish', publishDisclosureHandler);
+
+/**
+ * GET — one partner's whole integrity picture.
+ *
+ * Opens from a PARTNER id and nothing else. There is deliberately no "which
+ * partners match this signal" and no search by name, email or URL: a fraud
+ * surface that could be asked "who looks suspicious" is one that has to answer.
+ */
+router.get('/partners/:partnerId/integrity', traceReferralIntegrityHandler);
+
+/** POST — measure one partner over the trailing window. Records; imposes nothing. */
+router.post('/partners/:partnerId/risk-evaluation', evaluateReferralRiskHandler);
+
+/** POST — record one observation an operator made by hand, attributably. */
+router.post(
+  '/partners/:partnerId/risk-signals',
+  validateBody(referralRiskSignalSchema),
+  recordReferralRiskSignalHandler,
+);
+
+/**
+ * POST — impose one SCOPED action.
+ *
+ * `partner_termination` and `commission_held` are REFUSED here by name, each
+ * pointing at the route that performs it: a second writer of
+ * `referral_partners.state` or of the reward state machine could disagree with
+ * the first.
+ */
+router.post(
+  '/partners/:partnerId/enforcement',
+  validateBody(referralEnforcementSchema),
+  imposeReferralEnforcementHandler,
+);
+
+/** POST — lift one. A compensating record; the decision itself is frozen. */
+router.post(
+  '/enforcement/:actionId/lift',
+  validateBody(referralOperatorReasonSchema),
+  liftReferralEnforcementHandler,
+);
+
+/** POST — decide an open appeal, as a DIFFERENT operator (a CHECK, not a branch). */
+router.post(
+  '/appeals/:appealId/decision',
+  validateBody(referralAppealDecisionSchema),
+  decideReferralAppealHandler,
+);
 
 export default router;

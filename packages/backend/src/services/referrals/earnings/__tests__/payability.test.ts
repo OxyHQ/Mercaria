@@ -30,9 +30,29 @@ const PASSING: PayoutGateFacts = {
   hasPayoutBeneficiary: true,
   programPayoutEnabled: true,
   enrollmentEarnsProductionRewards: true,
+  payoutHeldByEnforcement: false,
 };
 
 describe('deriveRewardPayability', () => {
+  // #148 acceptance 2, at the gate that decides whether money leaves: a scoped
+  // payout hold blocks under its OWN reason, and it does so on a partner who is
+  // still `approved` — which is the whole point of the scoped action.
+  it('blocks a payout hold under its own reason, on an approved partner', () => {
+    const verdict = deriveRewardPayability({ ...PASSING, payoutHeldByEnforcement: true });
+    expect(verdict).toEqual({
+      verdict: 'blocked',
+      reasons: ['enforcement_payout_hold'],
+    });
+  });
+
+  it('does not report an enforcement hold as a suspension', () => {
+    const verdict = deriveRewardPayability({ ...PASSING, payoutHeldByEnforcement: true });
+    // The two are different facts about different columns, and an operator
+    // sent looking for a `suspended` state that is not there is exactly the
+    // confusion the separate reason exists to prevent.
+    expect(verdict.verdict === 'blocked' && verdict.reasons).not.toContain('partner_suspended');
+  });
+
   it('passes a vested reward held by an approved, ready partner', () => {
     const verdict = deriveRewardPayability(PASSING);
     expect(verdict.verdict).toBe('payable');

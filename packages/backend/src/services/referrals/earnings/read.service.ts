@@ -28,6 +28,7 @@ import { findPartnerById } from '../../../db/referrals/partnerRepository.js';
 import { resolveProgramControls } from '../../../db/referrals/programControlRepository.js';
 import { findLatestTaxProfile } from '../../../db/referrals/taxProfileRepository.js';
 import { enrollmentEarnsProductionRewards } from '../application-review.service.js';
+import { readEnforcementEffects } from '../integrity/enforcement.service.js';
 import { deriveTaxReadiness } from '../tax-profile.service.js';
 import { readReferralPartnerReadiness } from './partner-readiness.port.js';
 import {
@@ -83,6 +84,9 @@ export async function readReferralPartnerBalances(input: {
     ownerId: partner.ownerId,
   });
   const taxReadiness = deriveTaxReadiness(await findLatestTaxProfile(db, partner.id));
+  // #148: read once for the partner, not once per reward — every reward below
+  // belongs to this partner, and the derivation reads the same rows each time.
+  const effects = await readEnforcementEffects(db, partner.id);
 
   const balances: ReferralPartnerBalance[] = [];
   for (const balance of ledgerBalances) {
@@ -114,6 +118,10 @@ export async function readReferralPartnerBalances(input: {
         // by every batch is the disagreement the shared `deriveRewardPayability`
         // exists to prevent.
         enrollmentEarnsProductionRewards: enrollmentEarnsProductionRewards(partner),
+        // #148: the scoped payout hold, read ONCE for the partner above rather
+        // than per reward — every reward in this loop belongs to the same
+        // partner, and re-reading would be N queries for one answer.
+        payoutHeldByEnforcement: effects.payoutHeld,
       });
       return verdict.verdict === 'payable' ? total + verdict.netAmountMinor : total;
     }, 0);

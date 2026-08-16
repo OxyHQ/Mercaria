@@ -122,6 +122,12 @@ export * from './referralRewards';
 // an adjustment and the `ledger_transactions` row it booked, and a payout batch
 // item references a reward. `ledger` is far above, beside `payments`.
 export * from './referralEarnings';
+// Referral INTEGRITY (#148, ADR 0005 D7/D17/D18) — the conduct policy, the risk
+// signals, the scoped enforcement actions, their appeals and the disclosure
+// requirements. FOLLOWS `referrals`: every one of them references a partner and
+// nothing else outside its own domain — deliberately, because an enforcement
+// record that could reference an order would be one that could name a buyer.
+export * from './referralIntegrity';
 // Offers (#57, ADR 0002 D18) come last of the graph layers because they sit
 // downstream of ALL of them: an offer references a canonical variant (#56), a
 // merchant and a storefront (#54), a source record (#53), and — for the native
