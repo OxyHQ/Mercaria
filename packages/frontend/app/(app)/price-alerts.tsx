@@ -4,7 +4,7 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Bell } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxyhq/services";
-import { PriceAlertCard, Text, useFx } from "@mercaria/ui";
+import { PriceAlertCard, Text, formatMoney, useFx } from "@mercaria/ui";
 import {
   CURRENCY_PRECISION,
   type CurrencyCode,
@@ -127,6 +127,16 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
 
   const precision = CURRENCY_PRECISION[currency] ?? 2;
   const suggested = suggestion.data?.suggestedTarget;
+  // The ONE place in this screen that converts minor units by hand, and it must
+  // stay that way: this is a TEXT INPUT's value, not display text. It is read
+  // straight back by `Number(value)` two lines down, and `formatMoney` returns a
+  // symbol-prefixed string wrapped in bidi isolates (U+2068/U+2069) — so routing
+  // this through the formatter would make `Number("⁨$148.00⁩")` NaN and
+  // silently break the create form. It also needs the currency's FULL precision
+  // rather than the formatter's fixed 2dp, or a FAIR target would round away six
+  // decimals of what the buyer is editing. Recorded as a known exception in
+  // `scripts/validate-money-formatting.mjs` rather than left for the guard to
+  // rediscover. The DISPLAY figure below goes through `formatMoney` (#441).
   const prefill =
     suggested === undefined ? "" : (suggested.amount / 10 ** precision).toFixed(precision);
   const value = typed === "" ? prefill : typed;
@@ -143,7 +153,7 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
       ) : suggestion.data && suggestion.data.eligibleOfferCount > 0 ? (
         <Text className="text-caption text-text-tertiary">
           {suggested
-            ? `Best right now: ${(suggested.amount / 10 ** precision).toFixed(precision)} ${currency}`
+            ? `Best right now: ${formatMoney(suggested)}`
             : `No priced offer right now (${suggestion.data.eligibleOfferCount} offers)`}
         </Text>
       ) : (

@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ALL_CURRENCY_CODES, type CurrencyCode } from "@mercaria/shared-types";
 import { SectionHeader, Skeleton, Text, formatMoney } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { CatalogProductGrid } from "@/components/brand/CatalogProductGrid";
@@ -127,12 +126,25 @@ export default function ProductFamilyPageScreen() {
             </Text>
           ) : (
             <View className="flex flex-col gap-1">
+              {/*
+                `CatalogPriceRange.currency` is a `CurrencyCode`: the server
+                converts every contributing offer into it and NAMES the ones it
+                could not (`unconvertibleCurrencies`), so both ends go straight
+                through `formatMoney` with nothing to narrow.
+
+                The local `formatPrice` that used to stand here did a membership
+                test on a `string` parameter it was never passed, and its dead
+                else-branch rendered the amount RAW — integer MINOR units beside
+                a code (#441). Taking the `CurrencyCode` directly deletes the
+                narrowing and the unreachable render together; if the field is
+                ever widened, these calls stop compiling rather than silently
+                printing minor units.
+              */}
               <Text className="text-lg font-semibold">
                 {range.lowest.amount === range.highest.amount
-                  ? formatPrice(range.lowest.amount, range.currency)
-                  : `${formatPrice(range.lowest.amount, range.currency)} – ${formatPrice(
-                      range.highest.amount,
-                      range.currency,
+                  ? formatMoney({ amount: range.lowest.amount, currency: range.currency })
+                  : `${formatMoney({ amount: range.lowest.amount, currency: range.currency })} – ${formatMoney(
+                      { amount: range.highest.amount, currency: range.currency },
                     )}`}
               </Text>
               <Text className="text-xs text-muted-foreground">
@@ -190,16 +202,3 @@ const CONDITION_SCOPE_TEXT: Readonly<Record<string, string>> = Object.freeze({
   unknown: "Condition not stated",
 });
 
-/**
- * A range figure, in the currency the server NAMED.
- *
- * The range's currency is always one Mercaria presents in — the server converts
- * into it and names what it could not convert — so unlike a card's own offer
- * price this can always go through `formatMoney`. The membership check is the
- * type narrowing rather than a doubt about the value.
- */
-function formatPrice(amount: number, currency: string): string {
-  return (ALL_CURRENCY_CODES as readonly string[]).includes(currency)
-    ? formatMoney({ amount, currency: currency as CurrencyCode })
-    : `${amount} ${currency}`;
-}

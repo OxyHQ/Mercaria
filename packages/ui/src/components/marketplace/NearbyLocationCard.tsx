@@ -1,9 +1,5 @@
 import { Pressable, View } from "react-native";
-import {
-  ALL_CURRENCY_CODES,
-  type CurrencyCode,
-  type NearbyLocationResult,
-} from "@mercaria/shared-types";
+import { type NearbyLocationResult } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { formatDistance, formatMoney } from "../../lib/format";
 import { conditionLabel } from "../../lib/condition";
@@ -108,12 +104,6 @@ export function NearbyLocationCard({
 }: NearbyLocationCardProps) {
   const { location } = result;
   const address = formatPublicAddress(location.address);
-  // Membership rather than a cast: an offer's currency can legitimately sit
-  // outside Mercaria's presentment set, and `formatMoney` would divide by an
-  // undefined precision and render a figure wrong by a factor of a hundred.
-  const presentable: CurrencyCode | undefined = ALL_CURRENCY_CODES.find(
-    (code) => code === result.price.currency,
-  );
   const eligibility = result.checkoutEligibility;
   const blocked = eligibility !== undefined && eligibility.verdict === "blocked";
   const blockCopy = blocked ? describeBuyerPickupBlock(eligibility.reasons) : undefined;
@@ -155,13 +145,27 @@ export function NearbyLocationCard({
         {describeStockConfirmed(result.stockConfirmedAt, now)}
       </Text>
 
-      {presentable === undefined ? (
-        <Text className="text-body text-text">
-          {result.price.amount} {result.price.currency}
-        </Text>
-      ) : (
-        <Text className="text-body text-text">{formatMoney({ ...result.price, currency: presentable })}</Text>
-      )}
+      {/*
+        `NearbyLocationResult.price` is a `Money`, so its currency is already
+        Mercaria's presentment union and `formatMoney` takes it directly — no
+        membership test, no cast, no fallback. The membership dance that used to
+        stand here belonged to `OfferMoney` (whose currency is a bare string) and
+        was copied onto a type that cannot carry one: its "unpresentable" branch
+        was unreachable, and it printed `result.price.amount` RAW — integer MINOR
+        units beside a code, which is off by a factor of 100 on a fiat price and
+        of 100_000_000 on a FAIR one (#441).
+
+        Deleting it rather than making it refuse is the safer shape: if the field
+        is ever widened to `OfferMoney`, this call stops compiling and whoever
+        widens it decides what to render, where a surviving fallback would just
+        start printing minor units again in silence.
+
+        `formatMoney` and not `PriceDisplay`: this is the price the till charges
+        at a shop the shopper walks into, so it is quoted in the seller's own
+        currency. `PriceDisplay` would convert it to the viewer's display
+        currency and show a figure nobody at that counter will ask for.
+      */}
+      <Text className="text-body text-text">{formatMoney(result.price)}</Text>
 
       {/*
         Merchant and storefront, named as the separate things they are. The

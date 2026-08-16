@@ -74,6 +74,12 @@ export function CanonicalProductCard({
     asset?.state === "displayable" && resolveImage ? resolveImage(asset.fileId) : undefined;
   const offers = product.offers;
   const lowestPrice = offers?.summary.lowestPrice;
+  // Narrowed by MEMBERSHIP rather than an `as CurrencyCode` cast: `find` hands
+  // back a real `CurrencyCode | undefined`, so the presentable branch reaches
+  // `formatMoney` with a currency the precision and symbol tables both know.
+  const presentable: CurrencyCode | undefined = ALL_CURRENCY_CODES.find(
+    (code) => code === lowestPrice?.currency,
+  );
 
   return (
     <View className={cn("group flex flex-col gap-2", className)}>
@@ -127,23 +133,36 @@ export function CanonicalProductCard({
           <Text className="text-xs text-muted-foreground">No current offers</Text>
         ) : (
           <View className="flex flex-col">
-            <Text className="text-sm font-semibold">
-              {/*
-                An offer's currency is the SOURCE's own code, shape-checked and
-                deliberately not enumerated (#57) — a Romanian retailer's RON
-                price is a real offer even where Mercaria cannot present in RON.
-                So a code outside the presentment set is rendered plainly rather
-                than through `formatMoney`, which would look up a symbol that
-                does not exist and print `undefined` in front of the number.
-              */}
-              From{" "}
-              {(ALL_CURRENCY_CODES as readonly string[]).includes(lowestPrice.currency)
-                ? formatMoney({
-                    amount: lowestPrice.amount,
-                    currency: lowestPrice.currency as CurrencyCode,
-                  })
-                : `${lowestPrice.amount} ${lowestPrice.currency}`}
-            </Text>
+            {/*
+              An offer's currency is the SOURCE's own code, shape-checked and
+              deliberately not enumerated (#57) — a Romanian retailer's RON price
+              is a real offer even where Mercaria cannot present in RON.
+
+              A code outside the presentment set therefore gets the CODE AND NO
+              NUMBER (#441). It used to render `lowestPrice.amount` raw, which is
+              integer MINOR units: `From 32000 RON` for a price of 320.00. That
+              is a worse failure than the missing symbol it was avoiding, because
+              a wrong number reads as a real one. Membership here is the same
+              question as a known `CURRENCY_PRECISION` entry, so this is the
+              branch where `formatSourceMoney` returns `null` — with no precision
+              there is no divisor, and every digit printed would be a guess.
+
+              `formatMoney` and not `PriceDisplay` on the other branch: "From X"
+              is the lowest price a SELLER published, and the offer count beside
+              it is counted in that same currency. `PriceDisplay` would convert
+              to the viewer's display currency, which needs an `FxProvider` this
+              grid does not require and would restate the offer's own figure as
+              an approximation.
+            */}
+            {presentable === undefined ? (
+              <Text className="text-sm font-semibold">
+                Price published in {lowestPrice.currency}
+              </Text>
+            ) : (
+              <Text className="text-sm font-semibold">
+                From {formatMoney({ amount: lowestPrice.amount, currency: presentable })}
+              </Text>
+            )}
             <Text className="text-xs text-muted-foreground">
               {CONDITION_SCOPE_TEXT[offers.conditionScope]} ·{" "}
               {offers.summary.currentOfferCount === 1
