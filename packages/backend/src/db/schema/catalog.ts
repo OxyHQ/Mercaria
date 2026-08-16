@@ -34,13 +34,15 @@ import type { SQL } from 'drizzle-orm';
 import { createdAt, generatedId, geography, timestamptz, tsvector, updatedAt } from '@oxyhq/db';
 import {
   ALL_LISTING_STATUSES,
+  CATEGORY_KEY_PATTERN,
+  CATEGORY_LIFECYCLES,
   CONDITION_ASSERTIONS,
   CONNECTOR_PROVIDER_IDS,
   ITEM_CONDITION_KEYS,
   UNREFINED_CONDITION_ASSERTIONS,
   UNREFINED_CONDITION_KEYS,
 } from '@mercaria/shared-types';
-import type { ItemConditionKey, ListingOwnerType } from '@mercaria/shared-types';
+import type { CategoryLifecycle, ItemConditionKey, ListingOwnerType } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, optionalMoney } from './columns';
 import { connections } from './connectors';
 import { locations, stores } from './stores';
@@ -63,17 +65,74 @@ export const LISTING_CONDITION_VALUES: readonly ItemConditionKey[] = ITEM_CONDIT
 export const LISTING_CONDITION_ASSERTIONS = CONDITION_ASSERTIONS;
 
 /**
+ * The value set `categories.lifecycle` accepts — ADR 0007 D2's five states.
+ *
+ * Named here for the same reason `LISTING_CONDITION_VALUES` is: the tuple that
+ * types the column and the tuple the CHECK is rendered from must be one value,
+ * because `text({ enum })` alone emits no DDL at all.
+ */
+export const CATEGORY_LIFECYCLE_VALUES: readonly CategoryLifecycle[] = CATEGORY_LIFECYCLES;
+
+/**
  * `categories` — the marketplace taxonomy, a tree via `parentId`.
  *
- * `ancestorSlugs` is a materialized path so a listing tagged with a leaf slug is
- * findable by any ancestor without a recursive query. It stays a `text[]`: it is
- * a scalar set queried by ELEMENT (`{ancestorSlugs: 1}` served an `$in`), which
- * is a GIN index, not a child table.
+ * ## There is ONE category table, and #367 widened it in place
+ *
+ * ADR 0007 D2: a parallel `taxonomy_categories` would mean every listing,
+ * collection rule, search filter and connector mapping in this repository has
+ * two possible answers to "what is this". So the universal taxonomy is this
+ * table with six more columns, and `db/taxonomy/taxonomyRepository.ts` is its
+ * single write chokepoint (pinned by `taxonomy-write-chokepoint.test.ts`).
+ *
+ * ## Identity is `id` and `key`. A name and a slug are presentation.
+ *
+ * `key` is the stable machine key (D1) — lowercase dotted segments, in a
+ * documented namespace, so a seed, a fixture, an external mapping and an
+ * operator's tooling can name a concept without embedding a uuid. It is FROZEN
+ * after insert by `mercaria_category_key_frozen`, because a renamed key is
+ * indistinguishable from a different concept to everything that cited it; a
+ * category whose key was wrong is deprecated and superseded instead.
+ *
+ * ## Two materialized paths, and only one of them is the authority
+ *
+ * `ancestorIds` (D2) is the ancestry, root-first, excluding the row itself, with
+ * a GIN index — so "descendants of X" and "breadcrumb of X" are each one
+ * statement. `ancestorSlugs` is the SAME path spelled in slugs and is retained
+ * as a v1 read contract (D13): `listings.category_slugs` is materialized from
+ * it and the browse reads still query it by element. It is superseded, not
+ * dropped, and retires in a later `post` migration once no reader remains.
+ * Both are written by the one repository from the parent's own arrays, so they
+ * cannot disagree.
+ *
+ * A materialized path rather than a closure table, deliberately: the shape is
+ * already here and already indexed, the tree is shallow and small, and a closure
+ * table is a second representation of one fact. ADR 0007 D2 makes the choice
+ * PROVISIONAL on #61's benchmark and says the ADR is amended before an
+ * alternative is adopted, never after.
+ *
+ * ## `is_active` is a derived read now, and stays a column
+ *
+ * `lifecycle` is the authority. `is_active` is `lifecycle = 'published'`,
+ * applied in one place (`CATEGORY_ACTIVE_LIFECYCLES` in shared-types, read by
+ * the repository) and retained as a v1 contract column (D13) because five
+ * services and every browse read filter on it today.
+ *
+ * It is NOT a generated column and there is NO cross-column CHECK tying it to
+ * `lifecycle` — yet. Both would break a write the previously serving image
+ * performs (`insertCategory` supplies `is_active` and knows no lifecycle), which
+ * makes them `post`-phase statements and this migration is `pre`. The follow-up
+ * is named in the migration header: once no image writes `is_active` directly,
+ * `categories_is_active_derived_check` states it at the row.
  */
 export const categories = pgTable(
   'categories',
   {
     id: generatedId(),
+    /**
+     * The stable machine key (ADR 0007 D1) — `electronics.phones.smartphones`.
+     * Frozen after insert by trigger; unique across the taxonomy.
+     */
+    key: text().notNull(),
     name: text().notNull(),
     slug: text().notNull(),
     /**
@@ -85,19 +144,81 @@ export const categories = pgTable(
      * destroying it (`cascade`) are both worse than refusing.
      */
     parentId: text().references((): AnyPgColumn => categories.id, { onDelete: 'restrict' }),
+    /** Root-first, excluding this row. The v1 read contract (D13). */
     ancestorSlugs: text().array().notNull().default(sql`'{}'::text[]`),
+    /** Root-first, excluding this row. The authority (D2). */
+    ancestorIds: text().array().notNull().default(sql`'{}'::text[]`),
+    /** Where this category sits in its life. See `CategoryLifecycle`. */
+    lifecycle: text({ enum: asEnumValues(CATEGORY_LIFECYCLE_VALUES) })
+      .notNull()
+      .default('published'),
+    /**
+     * Whether a product may be filed under this node.
+     *
+     * A structural node — a root, a grouping level — is not a valid product
+     * assignment (D2), and `mercaria_category_assignment_selectable` refuses one
+     * on `listings` and `canonical_products`. Distinct from `lifecycle`:
+     * suppression decides whether shoppers SEE a node, selectability decides
+     * whether a product may be FILED under it, and the connector holding pen
+     * (suppressed, selectable) and a grouping root (published, not selectable)
+     * each need one without the other.
+     */
+    selectable: boolean().notNull().default(true),
+    /** Set exactly when `lifecycle = 'merged'` — a biconditional CHECK. */
+    mergedIntoCategoryId: text().references((): AnyPgColumn => categories.id, {
+      onDelete: 'restrict',
+    }),
+    /** A dated cutover, stated on the row rather than in a job's memory (D2). */
+    effectiveFrom: timestamptz(),
+    effectiveTo: timestamptz(),
     imageUrl: text(),
     /** An Oxy media file id — no foreign key; Oxy owns the file. */
     imageFileId: text(),
     position: integer().notNull().default(0),
+    /** DERIVED from `lifecycle` by the repository; a v1 read contract (D13). */
     isActive: boolean().notNull().default(true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     uniqueIndex('categories_slug_key').on(t.slug),
+    uniqueIndex('categories_key_key').on(t.key),
     index('categories_parent_id_position_idx').on(t.parentId, t.position),
     index('categories_ancestor_slugs_idx').using('gin', t.ancestorSlugs),
+    index('categories_ancestor_ids_idx').using('gin', t.ancestorIds),
+    checkOneOf('categories_lifecycle_check', t.lifecycle, CATEGORY_LIFECYCLE_VALUES),
+    /**
+     * The key's shape. The pattern carries NO backslash on purpose — see
+     * `CATEGORY_KEY_PATTERN`; a `\.` is consumed by the JS template literal
+     * before drizzle sees it and would reach Postgres as a bare `.`, which
+     * matches any character and admits `Electronics/Phones`.
+     */
+    check('categories_key_format_check', sql`${t.key} ~ ${sql.raw(`'${CATEGORY_KEY_PATTERN}'`)}`),
+    /**
+     * Merge is stated exactly once. Both halves of the biconditional matter: a
+     * `merged` row with no successor is a dead end nothing can resolve, and a
+     * successor on a `published` row is a merge that never happened.
+     */
+    check(
+      'categories_merged_into_check',
+      sql`(${t.mergedIntoCategoryId} is not null) = (${t.lifecycle} = 'merged')`,
+    ),
+    /**
+     * What ONE ROW can say about itself belongs in a CHECK; what the TREE says
+     * needs a trigger, because a CHECK may not read another row. So
+     * self-parenting and merging into oneself are here, and cycles of length two
+     * or more and merging into a DESCENDANT are
+     * `mercaria_category_hierarchy_guard`.
+     */
+    check('categories_parent_not_self_check', sql`${t.parentId} is distinct from ${t.id}`),
+    check(
+      'categories_merged_into_not_self_check',
+      sql`${t.mergedIntoCategoryId} is distinct from ${t.id}`,
+    ),
+    check(
+      'categories_effective_window_check',
+      sql`${t.effectiveTo} is null or ${t.effectiveFrom} is null or ${t.effectiveTo} > ${t.effectiveFrom}`,
+    ),
   ],
 );
 

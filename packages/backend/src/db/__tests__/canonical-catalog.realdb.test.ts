@@ -321,7 +321,11 @@ async function mintBrand(name: string): Promise<string> {
 async function mintCategory(): Promise<string> {
   const [row] = await db
     .insert(categories)
-    .values({ name: `Canonical Test ${RUN}`, slug: `canonical-test-${RUN}` })
+    .values({
+      key: `canonical-test-${RUN}`,
+      name: `Canonical Test ${RUN}`,
+      slug: `canonical-test-${RUN}`,
+    })
     .returning();
   if (!row) throw new Error('category insert returned no row');
   createdCategoryIds.push(row.id);

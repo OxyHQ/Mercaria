@@ -67,6 +67,12 @@ export * from './inventory';
 // Category taxonomy tree DTO (CategoryNode).
 export * from './category';
 
+// The universal catalogue taxonomy (#367, ADR 0007 D1/D2/D13): the category
+// lifecycle, alias, redirect and external-mapping vocabularies, the machine-key
+// shape, and the projections `db/taxonomy/taxonomyRepository.ts` emits. FOLLOWS
+// `./category`, which holds the v1 tree DTO this extends rather than replaces.
+export * from './taxonomy';
+
 // Cart DTOs (Cart, CartItemDTO, AddCartItemInput, UpdateCartItemInput).
 export * from './cart';
 

@@ -41,7 +41,7 @@ import { closePostgres, connectPostgres, type Database } from '../../db/postgres
 import { categories, listings } from '../../db/schema/catalog.js';
 import { sellerProfiles } from '../../db/schema/buyers.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
-import { insertCategory } from '../../db/catalog/categoryRepository.js';
+import { insertCategory } from '../../db/taxonomy/taxonomyRepository.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
 import {
@@ -86,6 +86,7 @@ async function makeFixture(): Promise<Fixture> {
   });
 
   const category = await insertCategory({
+    key: `publication-goods-${suffix}`,
     name: 'Publication goods',
     slug: `publication-goods-${suffix}`,
   });

@@ -78,6 +78,7 @@ async function ensureCategory(slug: string): Promise<boolean> {
   if (existing) return false;
 
   await db.insert(categories).values({
+    key: slug,
     name: slug.charAt(0).toUpperCase() + slug.slice(1),
     slug,
     ancestorSlugs: [slug],

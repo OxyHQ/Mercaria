@@ -5826,3 +5826,98 @@ partner allow-list is a table rather than a comma-separated variable.
   `*_oxy_user_id` columns are registered in `deferredForeignKeys.ts`, as is
   `program_id` (the stable identity, which `referral_programs` does not key on
   alone).
+
+## The universal taxonomy (#367 step 1)
+
+`catalog.ts`'s `categories`, WIDENED — plus `taxonomy.ts`
+(`category_aliases`, `category_redirects`, `category_external_mappings`).
+Binding architecture: ADR 0007 D1/D2/D11/D13.
+
+**There is ONE category table and there will not be a second** (D2). A parallel
+`taxonomy_categories` would give every listing, collection rule, search filter
+and connector mapping two possible answers to "what is this", which is the
+failure the epic is written against. `categories` gained seven columns instead.
+
+- **Identity is `id` and `key`, and a `name` or a `slug` is presentation** (D1).
+  `key` is a lowercase dotted machine key, unique, and FROZEN after insert by
+  `mercaria_category_key_frozen` — a renamed key is indistinguishable from a
+  different concept to every seed, fixture, external mapping and export that
+  cited it, so a category whose key was wrong is deprecated and superseded. Its
+  format CHECK carries **no backslash** (`[.]`, never `\.`): a backslash inside a
+  drizzle `sql` template is eaten by the JS parser and would reach Postgres as a
+  bare `.`, matching any character.
+- **The backfill derives `key` from the row's own slug PATH by plain
+  concatenation**, and `src/scripts/taxonomy.ts` carries the same 36 keys as
+  literals. A derivation with no transformation in it is the only one that gives
+  a restored production database and a freshly seeded developer one the same key
+  for the same shelf. It is DATA in the seed, never computed there — a script
+  that composed the key from the slug would make editing a slug edit an identity.
+- **`lifecycle` is the authority and `is_active` is its derived v1 read** (D13).
+  `CATEGORY_ACTIVE_LIFECYCLES` states the derivation once and
+  `db/taxonomy/taxonomyRepository.ts` applies it. There is deliberately no
+  cross-column CHECK yet: it would break a write the serving image performs, so
+  it is a `post`-phase statement named in `0087`'s header. Until then
+  `taxonomy-write-chokepoint.test.ts` is what holds it — one writer.
+- **`suppressed` and `selectable = false` are not two spellings of one fact.**
+  Suppression decides whether shoppers SEE a node; selectability decides whether
+  a product may be FILED under it. The connector holding pen is `suppressed` and
+  selectable; a structural grouping root is `published` and not selectable.
+  Collapsing them makes one of the two unrepresentable.
+- **`ancestor_ids` is the ancestry and `ancestor_slugs` is its v1 spelling**
+  (D2/D13), both root-first, both written from the parent's own arrays by the one
+  repository so they cannot disagree. A materialized path with a GIN index, not a
+  closure table — the shape was already here, the tree is shallow, and every hot
+  read is descendants-of or breadcrumb-of. **The choice is provisional on #61's
+  benchmark**, and ADR 0007 D2 says the ADR is amended before an alternative is
+  adopted, never after.
+- **What ONE ROW says about itself is a CHECK; what the TREE says is a trigger.**
+  Self-parenting and merging into oneself are `categories_parent_not_self_check`
+  and `categories_merged_into_not_self_check`; cycles of length two and up, and
+  merging into a DESCENDANT, are `mercaria_category_hierarchy_guard`. The trigger
+  RETURNS on the two same-row cases rather than reporting them — pre-empting a
+  CHECK leaves it unreachable, and a constraint nothing can ever violate is
+  indistinguishable from one that does not work. Measured: it did, and the realdb
+  case for self-parenting failed on the trigger's message instead.
+- **A merge states its successor and a successor states its merge** — a
+  biconditional CHECK, so "merged into nothing" and "a successor on a published
+  row" both have no row shape.
+- **`mercaria_category_assignment_selectable` is a TRIGGER, and ADR 0007 D2 calls
+  it a CHECK.** A CHECK may not read another row and `categories.selectable` is
+  another row; the ADR reaches the same resolution one paragraph later for
+  cycles. It covers `listings` and `canonical_products` and deliberately NOT
+  `canonical_product_families` — a family is itself a grouping, which is the
+  legitimate case `selectable = false` describes.
+- **`category_redirects` is append-only against UPDATE *and* DELETE**, unlike the
+  tables `expiryTargets.ts` sweeps: nothing expires a redirect, and a URL that
+  resolved last year should resolve today. A redirect pointing at the wrong
+  category is corrected by a redirect FROM that wrong target onward, which the
+  resolver follows — so a correction is a new row and the mistake stays visible.
+  `mercaria_category_redirect_cycle_guard` refuses a CYCLE absolutely, and its
+  8-hop bound is a separate and weaker thing — it sees only the chain AHEAD of a
+  new redirect's target, so tail-extension builds a chain past it. Bounding the
+  real depth means a BACKWARD walk, which is a fan-in and therefore a tree
+  traversal per insert; that cost is not paid and the resolver answers
+  `chain_exhausted`, carrying no category.
+- **THREE biconditional CHECKs on the redirect subject, not one over their
+  conjunction.** The single spelling is SATISFIED by a `category_id` row carrying
+  a locale and no slug, because both sides evaluate false — the exact row the
+  discriminant exists to forbid. `category_external_mappings` carries the same
+  pair for its reviewer and its review instant.
+- **Both redirect subjects are PARTIAL uniques.** Postgres treats NULLs as
+  distinct, so a plain unique over the nullable subject columns admits any number
+  of rows.
+- **A category alias is never globally unique.** `(category_id, locale,
+  normalized_alias)`, so one normalized alias may name several categories —
+  "phone" legitimately points at more than one shelf, and a constraint refusing
+  the second one would make the taxonomy unable to record something true. The
+  ambiguity is the reader's; `findCategoriesByAlias` returns a list. There is no
+  `is_primary`/`preferred` column, so an alias cannot claim to be the name.
+- **`category_external_mappings` carries two uniques answering two questions**:
+  `(source_id, external_key, version)` makes "versioned" real, and the partial
+  `(source_id, external_key) WHERE valid_to IS NULL` makes "one current answer"
+  real. `confidence` is NULL for a mapping that was STATED rather than inferred —
+  imputing 1.0 would make an operator's mapping indistinguishable from a matcher
+  that was very sure.
+- **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed,
+  so none of them earns an entry in the register above. ADR 0007 D14 permits
+  exactly three uses and none of them is here.

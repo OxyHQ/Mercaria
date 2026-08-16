@@ -49,7 +49,7 @@ import { closePostgres, connectPostgres, type Database } from '../../db/postgres
 import { categories, listings } from '../../db/schema/catalog.js';
 import { connections } from '../../db/schema/connectors.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
-import { insertCategory } from '../../db/catalog/categoryRepository.js';
+import { insertCategory } from '../../db/taxonomy/taxonomyRepository.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
 import { findListingsBySourceConnection } from '../../db/catalog/listingRepository.js';
@@ -141,6 +141,7 @@ async function makeStore(): Promise<string> {
     fulfillsOnlineOrders: true,
   });
   const category = await insertCategory({
+    key: `pushed-imports-${suffix}`,
     name: 'Pushed imports',
     slug: `pushed-imports-${suffix}`,
   });

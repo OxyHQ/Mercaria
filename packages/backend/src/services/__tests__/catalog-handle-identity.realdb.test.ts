@@ -44,7 +44,7 @@ import { closePostgres, connectPostgres, type Database } from '../../db/postgres
 import { categories, listings } from '../../db/schema/catalog.js';
 import { connections, syncRuns } from '../../db/schema/connectors.js';
 import { deleteTestStores } from '../../db/__tests__/store-teardown.js';
-import { insertCategory } from '../../db/catalog/categoryRepository.js';
+import { insertCategory } from '../../db/taxonomy/taxonomyRepository.js';
 import { insertStore } from '../../db/stores/storeRepository.js';
 import { insertLocation } from '../../db/stores/locationRepository.js';
 import { updateListingColumns } from '../../db/catalog/listingRepository.js';
@@ -113,6 +113,7 @@ async function makeStore(): Promise<string> {
     fulfillsOnlineOrders: true,
   });
   const category = await insertCategory({
+    key: `handle-identity-${suffix}`,
     name: 'Handle identity imports',
     slug: `handle-identity-${suffix}`,
   });

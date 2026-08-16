@@ -58,7 +58,7 @@ import { orders, refunds } from '../db/schema/orders.js';
 import { draftOrders } from '../db/schema/pos.js';
 import { sellerProfiles } from '../db/schema/buyers.js';
 import { reviews } from '../db/schema/reviews.js';
-import { insertCategory } from '../db/catalog/categoryRepository.js';
+import { insertCategory } from '../db/taxonomy/taxonomyRepository.js';
 import { findVariantsByListing, type VariantRecord } from '../db/catalog/variantRepository.js';
 import { insertStore, updateStoreColumns } from '../db/stores/storeRepository.js';
 import { insertLocation } from '../db/stores/locationRepository.js';
@@ -646,20 +646,20 @@ async function seedCategories(counts: SeedCounts): Promise<void> {
     // the property the category exists for.
     if (top.listing === 'internal_only') {
       await insertCategory({
+        key: top.key,
         name: top.name,
         slug: top.slug,
-        ancestorSlugs: [],
         position: topIndex,
-        isActive: false,
+        lifecycle: 'suppressed',
       });
       counts.categories += 1;
       continue;
     }
 
     const parent = await insertCategory({
+      key: top.key,
       name: top.name,
       slug: top.slug,
-      ancestorSlugs: [],
       imageUrl: top.pillImage,
       position: topIndex,
     });
@@ -667,10 +667,10 @@ async function seedCategories(counts: SeedCounts): Promise<void> {
 
     for (const [childIndex, child] of top.children.entries()) {
       await insertCategory({
+        key: child.key,
         name: child.name,
         slug: child.slug,
         parentId: parent.id,
-        ancestorSlugs: [top.slug],
         imageUrl: child.image,
         position: childIndex,
       });

@@ -69,6 +69,12 @@ export * from './notifications';
 // source-link tables reference `source_records`. `canonicalSupport.ts` is
 // schema support like `columns.ts` and is deliberately NOT exported here.
 export * from './provenance';
+// The TAXONOMY module (#367, ADR 0007 D1/D2) sits here and not beside
+// `catalog`, because `category_external_mappings` references `catalog_sources`
+// while its two siblings reference only `categories`. `categories` itself stays
+// in `catalog` — D2 extends the one category table in place rather than adding a
+// second one, so there is nothing to move.
+export * from './taxonomy';
 export * from './organizations';
 export * from './merchants';
 // The versioned attribute REGISTRY (#94) precedes the canonical product layer:
