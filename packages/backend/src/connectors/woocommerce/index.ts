@@ -155,6 +155,18 @@ const wooProductSchema = z.object({
   slug: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   type: z.string().default('simple'),
+  /**
+   * WooCommerce's publish state — `publish`, `draft`, `pending`, `private` or
+   * `trash` (#377).
+   *
+   * Optional and NOT defaulted, because the two ways it can be missing want
+   * opposite answers and only one of them is safe. A real WooCommerce product
+   * always carries it; a payload that does not is a shape nobody has seen, and
+   * reading that silence as a non-publish value would archive the listing. So an
+   * absent status leaves {@link NormalizedProduct.publishState} absent, and the
+   * sync service archives nothing.
+   */
+  status: z.string().nullable().optional(),
   date_modified_gmt: z.string().nullable().optional(),
   date_created_gmt: z.string().nullable().optional(),
   sku: z.string().nullable().optional(),
@@ -508,6 +520,17 @@ function normalizeParsed(
   }
   if (product.slug && product.slug.trim() !== '') {
     normalized.handle = product.slug;
+  }
+  // #377: the publish verdict is the exact complement of the filter the PULL
+  // sends, derived from the SAME constant rather than restated. `PRODUCT_STATUS`
+  // is what `fetchProductsPage` asks for, so "would the backfill have seen this
+  // product" and "does this webhook say it is still on sale" cannot drift apart
+  // into two rules — which is the whole defect: one path enforced a rule the
+  // other did not. Every other WooCommerce status (`draft`, `pending`,
+  // `private`, `trash`) is excluded from the pull and is therefore unpublished
+  // here, with no list of them to keep in step with WordPress.
+  if (product.status != null && product.status.trim() !== '') {
+    normalized.publishState = product.status === PRODUCT_STATUS ? 'published' : 'unpublished';
   }
   const collectionRefs = product.categories.map((c) => String(c.id));
   if (collectionRefs.length > 0) {

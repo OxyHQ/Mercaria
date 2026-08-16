@@ -445,6 +445,23 @@ describeConnectorContract({
   // Shopify removes it (#295). Declared rather than skipped, so the case runs
   // its own branch and would fail if this platform grew one and nobody read it.
   publishesSubscriptionHealth: false,
+  // Shopify products DO carry `status` (`active`/`draft`/`archived`) — this
+  // connector does not read it. `shopifyProductSchema` parses no such field and
+  // `fetchProducts` sends no status filter, so NEITHER path here distinguishes a
+  // published product from a draft one, and Mercaria is told nothing when a
+  // merchant unpublishes.
+  //
+  // So this is `false` as a statement about the connector rather than about
+  // Shopify, and #377 deliberately did not change it: unlike WooCommerce, whose
+  // two paths enforced DIFFERENT rules, Shopify's two paths agree — and teaching
+  // it to read `status` would change which products a live connection imports,
+  // which is a separate decision with its own issue rather than a correction
+  // that rides along. Declared rather than skipped so the branch is measured,
+  // and so the day somebody adds the field this case is what says the sync
+  // service was never taught to act on it.
+  reportsPublishState: false,
+  // Shopify publishes `barcode` on every variant and the provider maps it (#381).
+  reportsVariantBarcode: true,
   createWorld: () => {
     const catalogue = contractCatalogue(uuidv7());
     return createContractWorld({

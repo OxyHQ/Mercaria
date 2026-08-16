@@ -154,6 +154,10 @@ function wooProductJson(product: ContractProduct): Record<string, unknown> {
     slug: product.handle ?? null,
     description: product.description,
     type: variable ? 'variable' : 'simple',
+    // #377. `draft` is one of the four non-publish states and stands for all of
+    // them: the connector's rule is the complement of `status=publish`, so it
+    // does not enumerate them and neither does this.
+    status: product.published === false ? 'draft' : 'publish',
     date_modified_gmt: product.updatedAt ? gmt(product.updatedAt) : null,
     sku: variable ? null : (product.variants[0].sku ?? null),
     price: parentPrice(product),
@@ -273,11 +277,22 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
     }
     if (path === `${API_PREFIX}/products`) {
       const page = pageOf(url, 'page');
+      // WooCommerce applies `?status=` SERVER-side, and the connector always
+      // sends `status=publish`. The fake used to ignore the parameter, so an
+      // unpublished product was still returned by the pull — which made the
+      // backfill's "unseen ⇒ archived" behaviour unreachable in the fake and
+      // left #377's whole asymmetry invisible to every case here.
+      const wanted = new URL(url).searchParams.get('status');
+      const visible = wanted
+        ? world.products.filter(
+            (product) => (product.published === false ? 'draft' : 'publish') === wanted,
+          )
+        : world.products;
       return ok(
-        pageSlice(world.products, page, world.pageSize).map(wooProductJson),
+        pageSlice(visible, page, world.pageSize).map(wooProductJson),
         suppressedPageHeaders.has(world)
           ? {}
-          : { 'x-wp-totalpages': String(totalPages(world.products, world.pageSize)) },
+          : { 'x-wp-totalpages': String(totalPages(visible, world.pageSize)) },
       );
     }
     const variationsMatch = path.match(/^\/wp-json\/wc\/v3\/products\/([^/]+)\/variations$/);
@@ -410,6 +425,13 @@ describeConnectorContract({
   // WooCommerce publishes `status` and `failure_count` on every subscription,
   // and disables one itself past five failed deliveries (#295).
   publishesSubscriptionHealth: true,
+  // Every WooCommerce product carries `status`, on the pull AND on a `product.*`
+  // delivery, so an unpublish is a fact this platform reports (#377).
+  reportsPublishState: true,
+  // WooCommerce core carries no barcode field, so the provider's schema names
+  // none and its normalizer produces none — there is nothing here to re-sync
+  // (#381). The suite measures that branch rather than skipping it.
+  reportsVariantBarcode: false,
   // A `product.*` delivery carries `variations` as IDS, so completing it means
   // fetching `/products/{id}/variations` (#220).
   webhookExpansionPathFragment: '/variations',
