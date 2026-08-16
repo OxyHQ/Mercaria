@@ -34,6 +34,7 @@ bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,fronten
 bun run --filter @mercaria/backend lint
 bun run validate:no-mongo                 # CI guard
 bun run validate:agents-md                # CI guard: this file's budget
+bun run validate:rtl-classes              # CI guard: storefront RTL logical classes
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```
 
@@ -173,6 +174,14 @@ Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
   build shipping zones or rates, and the Moovo logistics port is registered on no
   deployment. Pickup/collection is a different thing and IS built
   (`docs/pickup.md`).
+- **The storefront mirrors for Arabic from LOGICAL utilities only** (`ms-`, `me-`,
+  `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`). A physical `ml-2` or `left-4`
+  half-mirrors its screen — the row order flips and the padding does not — and
+  `tsc`, lint and every build job stay green, so `validate:rtl-classes` gates
+  `packages/frontend` and `packages/ui` (dashboard/POS are #398). `border-s-*`
+  and `text-start` are MEASURED not to survive react-native-css/RN 0.85: they
+  compile clean and drop the border or the whole rule on native, so those stay
+  physical as reasoned exceptions. Residual: #429.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails

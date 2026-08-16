@@ -179,21 +179,21 @@ const KNOWN_EXCEPTIONS = [
     pattern: "border-",
     reason:
       "Panel takes an explicit physical `side: 'left' | 'right'` prop and animates with translateX. "
-      + "Making the panel direction-aware is an API change plus an animation change, not a class swap (#399).",
+      + "Making the panel direction-aware is an API change plus an animation change, not a class swap (#429).",
   },
   {
     file: "packages/ui/src/components/ui/sheet.tsx",
     pattern: "border-l",
     reason:
       "Sheet slides in on a physical translateX and pairs the border with rounded-l-2xl. "
-      + "Mirroring it needs the animation flipped too, so the whole component moves at once (#399).",
+      + "Mirroring it needs the animation flipped too, so the whole component moves at once (#429).",
   },
   {
     file: "packages/ui/src/components/ui/sheet.tsx",
     pattern: "rounded-l-2xl",
     reason:
       "The matching corner for the border above. rounded-s-2xl IS safe on native, but converting the radius "
-      + "while the border it sits on stays physical would split one edge across two conventions (#399).",
+      + "while the border it sits on stays physical would split one edge across two conventions (#429).",
   },
   {
     file: "packages/ui/src/components/ui/scroll-area.tsx",
