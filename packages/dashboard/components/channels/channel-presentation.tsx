@@ -189,6 +189,8 @@ export const CHANNEL_ENTITY_ABSENCE_COPY: Record<ChannelEntityAbsenceReason, str
 export const CHANNEL_ENTITY_CAVEAT_COPY: Record<ChannelEntityCaveat, string> = {
   membership_only_through_a_mapping:
     "Your platform's collections are not created in Mercaria. Products join the Mercaria collections you map them to.",
+  breakdown_only_on_imported_orders:
+    "Each imported order shows the lines it was charged, so the totals add up. The rule behind them is not created in Mercaria, so you cannot edit or reuse it here.",
 };
 
 /** Which way an entity moves, as a merchant reads it. */
