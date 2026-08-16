@@ -101,7 +101,10 @@
       "general": "General",
       "orders": "Pedidos",
       "addresses": "Direcciones",
-      "feedback": "Comentarios"
+      "feedback": "Comentarios",
+      "watchlists": "Listas de seguimiento",
+      "shoppingAgents": "Agentes de compra",
+      "referralPartner": "Programa de referidos"
     }
   },
   "sidebar": {

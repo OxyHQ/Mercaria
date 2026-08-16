@@ -1,4 +1,5 @@
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import { useRouter } from "expo-router";
 import type {
   MerchantBrandStanding,
   MerchantBrandStandingKind,
@@ -45,6 +46,8 @@ export function MerchantBrandStandings({
 }: {
   standings: readonly MerchantBrandStanding[];
 }) {
+  const router = useRouter();
+
   if (standings.length === 0) return null;
 
   return (
@@ -52,16 +55,39 @@ export function MerchantBrandStandings({
       <Text className="text-xs uppercase text-muted-foreground">Brands</Text>
       <View className="gap-3" accessibilityRole="list" accessibilityLabel="Brand relationships">
         {standings.map((standing) => (
-          <View
-            key={standing.brandId}
-            className="gap-1"
-            accessibilityRole="text"
-            accessibilityLabel={`${standing.brandName}: ${STANDING_LABEL[standing.standing]}. ${
-              STANDING_EXPLANATION[standing.standing]
-            }`}
-          >
-            <View className="flex-row flex-wrap items-center gap-2">
-              <Text className="text-sm font-semibold text-foreground">{standing.brandName}</Text>
+          <View key={standing.brandId} className="gap-1">
+            {/*
+              The brand NAME is the link to #72's brand page, and this is the
+              only inbound edge that page has from anywhere a shopper can
+              reach — so deleting it strands `/brands/[handle]` and, through
+              it, `/families/[handle]`.
+
+              The OBJECT form, never an interpolated string: `handle` is a
+              runtime value, and a computed `string` satisfies no route union,
+              which is what every `as Parameters<typeof router.push>[0]` cast
+              in this tree used to be saying (#330).
+
+              `brandSlug` and not `brandId`: the route resolves either (the
+              backend's `/catalog-pages/brands/:handle` takes an id, a slug or
+              an alias), and the slug is the one a reader can recognise in an
+              address bar.
+            */}
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel={`${standing.brandName}: ${STANDING_LABEL[standing.standing]}. ${
+                STANDING_EXPLANATION[standing.standing]
+              }`}
+              onPress={() =>
+                router.push({
+                  pathname: "/brands/[handle]",
+                  params: { handle: standing.brandSlug },
+                })
+              }
+              className="flex-row flex-wrap items-center gap-2"
+            >
+              <Text className="text-sm font-semibold text-foreground underline">
+                {standing.brandName}
+              </Text>
               <View
                 className={`rounded-full px-2 py-0.5 ${
                   standing.badge === null ? "bg-muted" : "bg-secondary"
@@ -75,7 +101,7 @@ export function MerchantBrandStandings({
                   {STANDING_LABEL[standing.standing]}
                 </Text>
               </View>
-            </View>
+            </Pressable>
             <Text className="text-xs text-muted-foreground">
               {STANDING_EXPLANATION[standing.standing]}
             </Text>

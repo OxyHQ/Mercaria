@@ -101,7 +101,10 @@
       "general": "General",
       "orders": "Orders",
       "addresses": "Addresses",
-      "feedback": "Feedback"
+      "feedback": "Feedback",
+      "watchlists": "Watchlists",
+      "shoppingAgents": "Shopping agents",
+      "referralPartner": "Referral partner"
     }
   },
   "sidebar": {
