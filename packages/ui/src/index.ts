@@ -224,6 +224,23 @@ export {
 export { Panel } from "./components/ui/panel";
 export { ColorPicker, COLOR_OPTIONS } from "./components/ui/color-picker";
 export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge";
+// Connector provenance's other half (#420): which fields a merchant's own edits
+// pinned against a later sync, and what that means while the channel's
+// "Keep my local edits" switch is where it is. Read-only by design — see the
+// component's note on why there is no unpin control here.
+export {
+  ConnectorPinNotice,
+  type ConnectorPinNoticeProps,
+} from "./components/ui/connector-pin-notice";
+export {
+  CONNECTOR_PIN_EFFECT_TEXT,
+  CONNECTOR_PIN_LABELS,
+  CONNECTOR_PIN_RELEASE_TEXT,
+  CONNECTOR_PIN_TITLE,
+  CONNECTOR_PROVIDER_LABELS,
+  connectorPinUnnamedText,
+  type ConnectorPinEffect,
+} from "./lib/connector-labels";
 
 // ---------------------------------------------------------------------------
 // Marketplace presentational components

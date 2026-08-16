@@ -2,17 +2,9 @@ import { View } from "react-native";
 import { RefreshCw } from "lucide-react-native";
 import type { ConnectorProviderId } from "@mercaria/shared-types";
 import { cn } from "../../lib/cn";
+import { CONNECTOR_PROVIDER_LABELS } from "../../lib/connector-labels";
 import { Text } from "./text";
 import { Icon } from "./icon";
-
-/** Human-friendly labels for each connector platform (exhaustive over the union). */
-const PROVIDER_LABELS: Record<ConnectorProviderId, string> = {
-  shopify: "Shopify",
-  woocommerce: "WooCommerce",
-  etsy: "Etsy",
-  prestashop: "PrestaShop",
-  magento: "Magento",
-};
 
 export interface SourceBadgeProps {
   /** External platform this listing was imported/synced from. */
@@ -37,7 +29,7 @@ export function SourceBadge({ provider, className }: SourceBadgeProps) {
     >
       <Icon as={RefreshCw} size={10} className="text-muted-foreground" />
       <Text className="text-[10px] font-semibold text-muted-foreground">
-        Synced from {PROVIDER_LABELS[provider]}
+        Synced from {CONNECTOR_PROVIDER_LABELS[provider]}
       </Text>
     </View>
   );

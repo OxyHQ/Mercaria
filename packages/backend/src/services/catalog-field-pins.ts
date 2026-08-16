@@ -7,21 +7,16 @@
  * "Keep my local edits" switch had both positions behaving identically: the set
  * it selects between was empty either way. This module is the write side.
  *
- * ## The vocabulary is the READ side's, not a new one
+ * ## The vocabulary is the READ side's, and it lives in `@mercaria/shared-types`
  *
- * {@link PINNABLE_CONNECTOR_FIELDS} is exactly the set of keys the connector's
- * field merge consults on the path `updateListing` feeds — `toUpdatePatch` in
- * `connector-sync.service` (the pull) and `toIngestPatch` in
- * `channel-ingest.service` (the push-in twin). A pin naming a key nothing reads
- * would be a merchant control with no effect, which is the defect this fixes
- * rather than a second instance of it; `catalog-field-pins.test.ts` scans both
- * read sites and fails the build on either direction of drift.
- *
- * {@link UNPINNED_CONNECTOR_KEYS} names the three keys the read side ALSO
- * consults and that a merchant edit deliberately does not write. They are listed
- * rather than omitted because the gate asserts the two sets partition the read
- * vocabulary EXACTLY: a key that is in neither fails the build, so a fifth read
- * site added later cannot quietly land on the permissive side.
+ * `PINNABLE_CONNECTOR_FIELDS` and `UNPINNED_CONNECTOR_KEYS` are declared in
+ * `@mercaria/shared-types` (`connector-pins.ts`), with the argument for each
+ * exclusion at the declaration. They moved there when #420 gave the dashboard a
+ * surface that has to turn one of these keys into a sentence: `Listing.overriddenFields`
+ * puts them on the wire, a client cannot import a service module, and two
+ * declarations of one vocabulary can disagree. Nothing about what they MEAN
+ * moved — `catalog-field-pins.test.ts` still scans both connector read sites and
+ * fails the build on either direction of drift.
  *
  * ## A pin is a CHANGE, never a mention
  *
@@ -38,53 +33,7 @@
  * that as an edit would pin a field over a no-op.
  */
 
-import type { UpdateListingInput } from '@mercaria/shared-types';
-
-/**
- * The connector-managed fields a merchant edit pins.
- *
- * These are `overriddenFields` KEYS, not `UpdateListingInput` keys — the two
- * differ for images (`imageFileIds` on the wire, `images` in the pin set)
- * because the pin vocabulary belongs to the reader.
- */
-export const PINNABLE_CONNECTOR_FIELDS = [
-  'title',
-  'description',
-  'images',
-  'vendor',
-  'productType',
-  'handle',
-  'seo',
-] as const;
-
-export type PinnableConnectorField = (typeof PINNABLE_CONNECTOR_FIELDS)[number];
-
-/**
- * Keys the connector's merge consults that a merchant edit does NOT pin, each
- * for a reason that is about the key rather than about the effort.
- *
- * - `status` — an imported product lands as a `draft` when the connection does
- *   not auto-publish, and the merchant reviewing it and setting `active` is the
- *   INTENDED workflow, not a decision to take the field over. Pinning there
- *   would make the ordinary act of publishing the thing that stops the platform
- *   ever unpublishing or archiving it again, on the very first product a
- *   merchant approved. #390 turned on this key and did NOT change the answer:
- *   it recorded `listings.archived_by` / `archived_from_status` instead, so the
- *   connector's republish reads what ARCHIVED the listing rather than what the
- *   merchant pinned. The exclusion here still stands, and a restore gated on
- *   `respect_overrides` would consult a set that never contains `status`.
- * - `price` — the key does not guard a field. `convergeVariants` returns early
- *   on it, so pinning a price also stops the platform's newly-added variants
- *   being created and its removed ones being unsold. A merchant adjusting one
- *   price has not asked for that, and store-product prices do not pass through
- *   `updateListing` at all (they go through `updateVariant`), so the funnel this
- *   module hangs off could only ever pin a P2P listing's price — and a P2P
- *   listing is never connector-sourced.
- * - `collections` — membership is edited through the collections surface, not
- *   through `updateListing`, so this funnel never sees the edit that would pin
- *   it.
- */
-export const UNPINNED_CONNECTOR_KEYS = ['status', 'price', 'collections'] as const;
+import type { PinnableConnectorField, UpdateListingInput } from '@mercaria/shared-types';
 
 /**
  * The stored values {@link pinnedByEdit} compares a patch against.
@@ -116,7 +65,7 @@ function sameGallery(before: readonly string[], after: readonly string[]): boole
 
 /**
  * The pinnable fields this patch actually CHANGES, in
- * {@link PINNABLE_CONNECTOR_FIELDS} order.
+ * `PINNABLE_CONNECTOR_FIELDS` order.
  *
  * Pure: it decides nothing about whether the pins apply — that is the caller's,
  * because it depends on who is editing and whether the listing has a source at

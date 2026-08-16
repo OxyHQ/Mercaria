@@ -11,6 +11,7 @@ import type {
 import {
   Text,
   Button,
+  ConnectorPinNotice,
   Input,
   Label,
   Textarea,
@@ -32,6 +33,7 @@ import {
   useDeleteVariant,
   useSetVariantInventory,
 } from "@/lib/hooks/use-products";
+import { useConnection } from "@/lib/hooks/use-channels";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { toFairMinor, toMajorString } from "@/lib/money";
 
@@ -94,6 +96,16 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   const updateProduct = useUpdateProduct(storeId, product.id);
   const archiveProduct = useArchiveProduct(storeId);
 
+  // #420: a pin is written by an ordinary edit and removed by nothing, so a
+  // field that has stopped tracking the platform is indistinguishable from a
+  // broken sync unless this screen says so. What the pins currently DO depends
+  // on the channel's `conflictPolicy`, which lives behind `channels:write` — so
+  // it is read only when this member can read it, and `undefined` is rendered as
+  // "not known" rather than as either policy.
+  const source = product.source;
+  const canReadChannels = can("channels:write");
+  const connection = useConnection(storeId, source?.connectionId, canReadChannels);
+
   const [title, setTitle] = useState(product.title);
   const [description, setDescription] = useState(product.description);
   const restricted = isRestricted(product);
@@ -139,7 +151,25 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
       }
     >
       <View className="gap-5">
-        {product.source ? <SourceBadge provider={product.source.provider} /> : null}
+        {source ? (
+          <View className="gap-3">
+            <SourceBadge provider={source.provider} />
+            <ConnectorPinNotice
+              overriddenFields={product.overriddenFields}
+              conflictPolicy={connection.data?.syncSettings.conflictPolicy}
+              action={
+                canReadChannels ? (
+                  <Pressable
+                    onPress={() => router.push(`/channels/${source.connectionId}`)}
+                    className="self-start active:opacity-70"
+                  >
+                    <Text className="text-xs font-medium text-primary">Channel settings</Text>
+                  </Pressable>
+                ) : null
+              }
+            />
+          </View>
+        ) : null}
         <View className="gap-1.5">
           <Label>Title</Label>
           <Input value={title} onChangeText={setTitle} editable={canWrite} />

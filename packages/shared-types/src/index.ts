@@ -127,6 +127,14 @@ export * from './report';
 // Connector/integration DTOs (Connection, SyncSettings, SyncRun, ConnectorProviderId, …).
 export * from './integration';
 
+// The connector field-pin vocabulary (#416/#419) and the partition a merchant
+// surface renders it through (#420). Follows `./integration`, whose
+// `SyncSettings.conflictPolicy` decides whether these pins are honoured at all.
+// Here rather than in the backend because `Listing.overriddenFields` puts these
+// keys on the wire, and a dashboard that must turn one into a sentence cannot
+// import a service module.
+export * from './connector-pins';
+
 // The unified sales-channel catalog, readiness, onboarding and disconnect
 // vocabulary (#87). Follows `./integration`, whose `ConnectorProviderId` and
 // `SyncResourceDirection` it types against — a channel TYPE is broader than a
