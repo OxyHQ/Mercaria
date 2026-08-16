@@ -79,3 +79,24 @@ bun run build:backend
 ## Conventions
 
 Coding standards for this repository are in `AGENTS.md` at the repository root, and this is a repository where reading it first genuinely pays: the multi-currency model (native catalog prices, `DualMoney` on anything transacted, FAIR only at settlement) is easy to get subtly wrong, and "report" means two unrelated things in this codebase, store sales analytics and abuse reports, which must never be merged. `AGENTS.md` is read directly by Claude Code, Codex, Cursor and Copilot, and it is the file to update when a convention changes.
+
+## Referencing an issue without closing it
+
+GitHub scans for `close(s|d)?|fix(e[sd])?|resolve[sd]?` immediately followed by
+`#N` and does **not** parse negation, hedging or surrounding grammar — "does
+not close #123" and "fails closed: #123" both auto-close issue #123 the moment
+the PR merges. It scans every commit message in the merge too, not just the PR
+body, so a phrase buried in one commit of a multi-commit PR still fires on
+squash. This has happened twice in this repo (#67, closed by a commit message;
+#69, closed by a PR body) with nothing in either PR implementing the issue.
+
+To mention an issue without closing it, never put a closing verb next to its
+number — write "issue #123", "(#123)" or "deferred to #123" instead. Before
+merging, verify what is actually on GitHub (a local draft is not what merges):
+
+```bash
+gh pr view <n> --json body --jq '.body' | grep -nEi '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]*:?[[:space:]]*#[0-9]+'
+git log <base>..<head> --format=%B | grep -nEi '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]*:?[[:space:]]*#[0-9]+'
+```
+
+Every line either command prints must name an issue you intend to close.

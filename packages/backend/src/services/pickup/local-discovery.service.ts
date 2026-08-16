@@ -23,10 +23,11 @@
  *
  * #93 P2P rule 8 and acceptance 13. Nothing in this module touches checkout;
  * a guest reaching a P2P seller is refused at group construction by
- * `assertGuestSellerTypesAllowed` (ADR 0003 D18), and
- * `derivePickupEligibility` refuses a `user` seller for every actor. So local
- * discovery being ON cannot make P2P guest pickup reachable, and there is no
- * flag that would — #112 owns the reversal and its evidence.
+ * `assertGuestP2PCheckoutAllowed` (`services/guest-p2p/gate.ts`, ADR 0003 D18),
+ * and `derivePickupEligibility` refuses a `user` seller for every actor. So
+ * local discovery being ON cannot make P2P guest pickup reachable, and there
+ * is no flag that would — #112 evaluated the reversal and its answer is
+ * no-go (`docs/guest-p2p/2026-08-10-guest-p2p-checkout-decision.md`).
  */
 
 import type {

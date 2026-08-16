@@ -327,12 +327,18 @@ self-test per wall.
 Two more walls beside them: no `fx.service`, and no OxyPay/FairCoin spelling
 anywhere (raw source, comments included).
 
-**The ONE payment exception is named.**
-`db/referrals/commissionBaseRepository.ts` may reach `schema/ledger`, because
-ADR 0001 D3 puts Mercaria's commission nowhere else. The gate asserts the ledger
-importer list is EXACTLY that file, and that the file contains no `.insert(`,
-`.update(`, `.delete(` or `insertLedgerTransaction`. Widening the exemption is a
-visible edit to the gate.
+**The payment exceptions are named, and — since #145's earnings ledger — there
+are THREE, not one.** `db/referrals/commissionBaseRepository.ts` reads the
+ledger read-only (two columns; ADR 0001 D3 puts Mercaria's commission nowhere
+else); `db/referralEarnings/partnerBalanceRepository.ts` derives a partner's
+balance from `ledger_entries` and nothing else; `services/referrals/earnings/posting.service.ts`
+is the domain's ONE ledger WRITER, everything else reaching the ledger through
+it. The gate asserts the payment-wall importer list is EXACTLY those three
+files, scanning VALUE imports only — a `import type` naming a ledger shape
+(e.g. `LedgerEntryInput`) is erased at compile time and cannot move money, so
+excluding it is real narrowing rather than a hole (mutation-tested: a VALUE
+import of the same module still fires). Widening the exemption is a visible
+edit to the gate.
 
 `referral-rewards.realdb.test.ts` cases 14 and 15 close the same rules from the
 other end, against a real server: a retail bounty is accrued against a real

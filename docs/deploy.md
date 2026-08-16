@@ -10,6 +10,10 @@
   `.github/workflows/deploy-aws.yml` (`linux/arm64`, ECR `oxy/mercaria`). The ECS
   service, task definition, ALB rule, ECR repo and SSM params are provisioned in
   `oxy-infra`.
+- **Database `mercaria` on the shared RDS instance `oxy-postgres`**
+  (`postgres.internal.oxy.so:5432`), owned by role `mercaria`, with PostGIS
+  installed once by a privileged role — it is not a trusted extension. See
+  `docs/runbooks/30-postgres-database-provisioning.md` in `oxy-infra`.
 - **The `test` job runs on `ubuntu-latest` (x86), deliberately NOT the
   `ubuntu-24.04-arm` the `deploy` job uses** — GitHub-hosted ARM runners do not
   support service containers at all, and `postgis/postgis` publishes
@@ -27,6 +31,25 @@
   `npm i wrangler` chokes on `workspace:*`.
 - CI (`.github/workflows/ci.yml`) runs lint, tests, the API build and the app
   builds on every push and PR.
+
+### How a migration reaches production
+
+`bun run db:generate` (drizzle-kit) writes the SQL; `packages/backend/src/db/migrate.ts`
+is the only thing that applies it — never `drizzle-kit migrate`, a devDependency
+that cannot reach the production image. In production it runs as the COMPILED
+`packages/backend/dist/db/migrate.js`, launched as a one-shot ECS task around
+the rollout (`.github/scripts/run-migration-task.sh`); the Dockerfile refuses to
+build if that file was not produced.
+
+- **Migrations normally run as the pre/post pair around the rollout** — `pre`
+  (additive) before, `post` (drops/renames/narrows) after the new image is live.
+- **`migration_phase=all`, dispatched by hand, is for a from-zero/cutover batch
+  ONLY — never a normal release.** It applies the whole chain in one run before
+  anything serves it, which is what a journal whose phases cannot be applied in
+  order needs (a queued `pre` sitting behind an unapplied `post`) and is wrong
+  for every other case: it is a `workflow_dispatch` dropdown an operator sees
+  under pressure, and picking it for an ordinary release overrides the
+  pre/post rule that keeps a rollout safe.
 
 ### Topology handoff
 

@@ -521,11 +521,6 @@ enforcement:
 
 - **No `boost`, `pin`, `promote`, `sponsored` or `sort`.** A request able to name
   a weight would be a ranking surface a caller controls.
-- **No `near` / `lat` / `lng` / `radius`.** Not because #93 supplies no pickup
-  state — it has landed — but because proximity is not a fact about a CANONICAL
-  PRODUCT. The native listing search keeps its own `near`: that filter is a fact
-  about a LISTING, which has coordinates, and not about a canonical product,
-  which does not.
 - **No `includeStale`.** `GET /offers` has one because an operator investigating
   a lapsed offer needs to see it; a discovery surface has no such caller, and a
   parameter that could put an expired price on a search page is exactly what
@@ -535,7 +530,13 @@ enforcement:
 Filters on the wire: `kinds`, `categories`, `brandIds`, `market`,
 `priceCurrency` + `priceMin`/`priceMax`, `conditionGroups`, `availability`,
 `offerKinds`, `officialChannelOnly`, `merchantIds`, `attributes`
-(`key:value` or `key:min..max`), `limit`, `cursor`.
+(`key:value` or `key:min..max`), `nearLatitude`/`nearLongitude`/`nearRadiusMetres`,
+`limit`, `cursor`. **The `near*` fields ARE present** — #93 closed the seam
+below: it gave #70 a real nearby-collection-point membership filter
+(`SearchFilters.nearby`), paired-presence refined so a latitude cannot arrive
+without its longitude. It narrows the candidate set to products with a nearby
+collection point and carries NO relevance weight — `SEARCH_RELEVANCE_SIGNALS`
+has no distance member, so proximity filters and never ranks.
 
 ---
 
@@ -557,8 +558,10 @@ Each is a named contract that fails closed, never a stub that lies.
   without this text changing with it.
 - **#71 — the canonical product page.** A result carries the slug and the
   matched variant; the page itself is #71's.
-- **#93 — nearby and pickup.** No parameter exists to accept, so the filter is
-  unrepresentable rather than ignored.
+- **#93 — nearby and pickup: CLOSED.** `nearLatitude`/`nearLongitude`/
+  `nearRadiusMetres` narrow to products with a nearby collection point. Still
+  absent: a distance-based relevance BOOST, which #70's own signal vocabulary
+  deliberately has no member for.
 - **#77 — filter-use measurement.** Needs a typed column in a domain #70 does
   not own; stated above rather than approximated.
 - **#37 — the outbound redirect.** A search result carries no destination URL at

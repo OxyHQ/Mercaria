@@ -38,10 +38,17 @@ scoped, temporal, evidence-gated CLAIM — never a boolean and never inferable.
   `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54 uses. Public reads:
   `/brand-relationships/*`. Ranking isolation is a test
   (`relationship-ranking-isolation.test.ts`), the fee-domain precedent.
-- Deferred: the fee-style ranking USE of verification (#72/#74), #56's product
-  families (`product_family_id` is a DEFERRED foreign key), and #83's claiming —
-  claiming a merchant grants no relationship here, and there is no code path
-  that could.
+- **The ranking use of verification is CLOSED, not deferred** —
+  `services/ranking/facts.ts` is the ONE module #74 permits to read a
+  verification, through the public finder, at one moment, and every other
+  ranking module sees only a three-valued standing with no id, no evidence and
+  no review state attached (`relationship-ranking-isolation.test.ts`, the
+  fee-domain precedent's mirror: no commercial column exists on a relationship,
+  the domain imports no fee/payment/referral module, and nothing else in
+  discovery reaches it — named here rather than the wall being loosened).
+- Deferred: #56's product families (`product_family_id` is a DEFERRED foreign
+  key), and #83's claiming — claiming a merchant grants no relationship here,
+  and there is no code path that could.
 
 ## The unified offer model (#57, ADR 0002 D6/D8/D18)
 

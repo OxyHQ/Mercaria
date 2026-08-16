@@ -3367,10 +3367,12 @@ export interface RetailServiceRequestsConfig {
  * P2P guest pickup". Three of the four are here. The fourth is deliberately
  * ABSENT and its absence is a stronger guarantee than a switch defaulting off:
  * guest P2P checkout is refused at group construction by
- * `assertGuestSellerTypesAllowed` (ADR 0003 D18), #105 states outright that
- * "there is deliberately no flag for it", and `derivePickupEligibility` refuses
- * a `user` seller for EVERY actor. A dormant switch reads as a decision already
- * taken; #112 owns the reversal and its evidence.
+ * `assertGuestP2PCheckoutAllowed` (`services/guest-p2p/gate.ts`, ADR 0003 D18),
+ * whose `GuestP2PAuthorization` has no member meaning yes, and
+ * `derivePickupEligibility` refuses a `user` seller for EVERY actor. #112
+ * evaluated the reversal and its answer is no-go — see
+ * `docs/guest-p2p/2026-08-10-guest-p2p-checkout-decision.md`; enabling it is a
+ * change to that type, not a flag flip.
  *
  * NONE of the four gates a durable record. `order_pickups`, the collection
  * credential, its event trail and the portal all keep working with every lever

@@ -1,7 +1,19 @@
 # Postgres: shared-test-database traps and the migration rebase protocol
 
 > Moved out of `AGENTS.md`. The one-line rules stay there; this is the procedure.
-> Schema decisions are `packages/backend/src/db/schema/CONVENTIONS.md`.
+> Schema decisions are `packages/backend/src/db/schema/CONVENTIONS.md`. How a
+> migration reaches production: `docs/deploy.md`.
+
+## The test database is built by shelling out to the real migrator
+
+Each suite run gets its own throwaway, fully-migrated database (name pattern
+`oxydb_test_<16 hex>`, from `@oxyhq/db/testing`), created and dropped by
+`packages/backend/src/db/testDatabase.ts` — which SHELLS OUT
+(`node:child_process` `spawn`) to the real `src/db/migrate.ts` entrypoint rather
+than composing `runMigrations` a second time in-process. A second, in-test
+composition is a second set of options that can drift from what production
+actually runs with nothing noticing; a later "speed-up" that inlines the call
+keeps every realdb suite green while validating a path production never takes.
 
 ## Traps the shared test database sets
 
@@ -31,17 +43,42 @@
   here, so an ordering rule is a bet. Gated by
   `advisory-lock-census.test.ts` rule 4; the unforced suite cannot measure it
   (0/30 at base, 8/10 with a load generator holding the writer mid-transaction).
+- **Every statement inside a trigger-toggle window must run on the `tx` handle
+  `withTriggerToggleLock` hands the callback, never on the pooled `db`.**
+  `ALTER TABLE … DISABLE TRIGGER` issued on the pool COMMITS on its own; a throw
+  between the disable and the matching enable then leaves the trigger disabled
+  DATABASE-WIDE for the rest of the run, and every LATER file asserting that
+  trigger refuses a write passes VACUOUSLY. Inside the transaction the DDL rolls
+  back with everything else, so an aborted window restores the trigger instead
+  of dropping it. `advisory-lock-census.test.ts` fails the build on a
+  `disable trigger` issued on the wrong kind of handle, in either direction.
 - **`match_policy_versions_active_key` is GLOBAL** (one active policy per
   database). Every realdb file that matches must hold #63's advisory-lock mutex
   (`services/ingestion/__tests__/active-policy-slot.ts`) for its WHOLE run — a
   session-level lock on a RESERVED connection. Do not scope the index, do not
-  borrow the active policy, do not `DISABLE TRIGGER` (an ACCESS EXCLUSIVE lock
-  builds a convoy), do not retry-loop (each retry is an aborted transaction
-  against the pool the holder needs).
+  borrow the active policy, do not `DISABLE TRIGGER` to free the slot (it takes
+  **ShareRowExclusive**, the same lock the bullet above measures — not
+  `ACCESS EXCLUSIVE`, which this file claimed until #301 — so it does not shut
+  out a plain `runMatch` READ; it queues behind the ordinary INSERT/UPDATE/DELETE
+  every match writes, which the mutex cannot prevent because it serialises
+  window against window), do not retry-loop (each retry is an aborted
+  transaction against the pool the holder needs). Re-measure off `pg_locks` and
+  CI's own `40P01` detail before restating either lock mode — do not re-assert
+  from memory.
 - **`FAIL x.test.ts` with `Tests 0 failed` is a load failure**, not a regression.
   Baseline on the base revision under the SAME parallel conditions.
+- **A service that starts writing a NEW table makes every fixture that CALLS it
+  a writer of that table.** Measured when `accrueRewardForConversion` started
+  writing `referral_ledger_postings`: `referral-rewards.realdb.test.ts` began
+  creating rows it never named, and its teardown — which only knew its OWN
+  tables — failed with `23503` on the first full-suite run. A sibling fixture's
+  teardown has to change WITH a service's new write, not after somebody notices.
 - **Write fixture instants RELATIVE to `now`** — a hardcoded absolute date
-  detonates in a sibling file's expiry sweep.
+  detonates in a sibling file's expiry sweep. The opposite direction bites too:
+  a fixture date the real clock has not yet REACHED passes today and fails on
+  the day it arrives — `docs/pickup.md`'s "Teardown and the trigger-toggle
+  window" section has the worked example (moving an injected clock back a
+  week rather than extending a closure's date forward).
 
 ## Rebasing a migration behind another branch's
 

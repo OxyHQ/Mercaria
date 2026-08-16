@@ -362,7 +362,8 @@ person — it needs the subject by definition — and it returns two numbers.
 
 | Owner | What |
 |---|---|
-| **#78** | price alerts and the price-history table. `ProductSavePriceAlert` has ONE branch and it is the unsupported one, so no client can read a subscription id out of it. The client renders nothing rather than a greyed-out bell that claims an unbuilt feature exists. |
+| **#78** | the price-history table this domain reads from (row 58 above). |
+| **#79 — CLOSED** | price alerts. `ProductSavePriceAlert` now has BOTH branches (`supported: true` once `PRICE_ALERTS_ENABLED`); the supported branch still carries no alert id or state — `product-save-isolation.test.ts` still refuses this domain reaching #79's, so a client asks `GET /price-alerts?canonicalProductId=…` for what the buyer already set. |
 | **#74** | whether saves are a ranking signal. A scanned gate fails the build if a discovery module reaches this domain. |
 | **#71** | the canonical product PAGE. `SavedItemCard` links a product entry at `/products/:slug`; the richer surface is #71's. |
 | **#59** | the operator review of an ambiguous listing→product mapping. This domain refuses such a listing and never picks. |
