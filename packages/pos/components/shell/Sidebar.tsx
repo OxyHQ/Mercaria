@@ -12,6 +12,7 @@ import {
   type AppSidebarItem,
 } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
+import { useTranslation } from "@/lib/i18n";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { NAV_ITEMS, isNavItemActive } from "./nav-items";
 
@@ -34,6 +35,7 @@ export function Sidebar() {
   const { can } = useActiveStoreContext();
   const { showBottomSheet } = useAuth();
   const { collapsed, collapse, expand } = useSidebarCollapse();
+  const { t } = useTranslation();
 
   const goHome = useCallback(() => router.push("/"), [router]);
 
@@ -47,11 +49,11 @@ export function Sidebar() {
     () =>
       NAV_ITEMS.filter((item) => can(item.permission)).map((item) => ({
         key: item.key,
-        label: item.label,
+        label: t(item.labelKey),
         icon: item.icon,
         active: isNavItemActive(item, pathname),
       })),
-    [can, pathname],
+    [can, pathname, t],
   );
 
   // The route comes from NAV_ITEMS, not from the row that was pressed: the
@@ -64,14 +66,14 @@ export function Sidebar() {
     [router],
   );
 
-  const expandTooltip = useRailTooltip("Expand sidebar");
+  const expandTooltip = useRailTooltip(t("nav.expandSidebar"));
 
   // Header — logo chip on the left, collapse trigger on the right (expanded).
   const header = (
     <View className={cn("flex-row items-center", collapsed && "justify-center")}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Register"
+        accessibilityLabel={t("nav.register")}
         onPress={goHome}
         className="p-1.5 mx-0.5 rounded-xl web:hover:bg-muted active:bg-muted"
       >
@@ -79,7 +81,7 @@ export function Sidebar() {
       </Pressable>
       {!collapsed && (
         <View className="ml-auto">
-          <GhostIconButton icon={ChevronsLeft} label="Collapse sidebar" onPress={collapse} />
+          <GhostIconButton icon={ChevronsLeft} label={t("nav.collapseSidebar")} onPress={collapse} />
         </View>
       )}
     </View>
@@ -104,7 +106,7 @@ export function Sidebar() {
     <View className="gap-2 items-center">
       <GhostIconButton
         icon={ChevronsRight}
-        label="Expand sidebar"
+        label={t("nav.expandSidebar")}
         onPress={expand}
         anchorProps={expandTooltip.anchorProps}
       />

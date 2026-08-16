@@ -10,6 +10,7 @@ import {
   type RegisterCartLine,
 } from "@/lib/stores/register-cart";
 import { computeCartSubtotal } from "@/lib/cart-totals";
+import { useTranslation } from "@/lib/i18n";
 import { ChargeButton } from "./ChargeButton";
 
 /**
@@ -22,6 +23,7 @@ import { ChargeButton } from "./ChargeButton";
 export function CartPanel({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const lines = useRegisterCart((s) => s.lines);
   const discountCode = useRegisterCart((s) => s.discountCode);
   const customerId = useRegisterCart((s) => s.customerId);
@@ -37,28 +39,28 @@ export function CartPanel({ storeId }: { storeId: string }) {
   const customerName = useMemo(() => {
     if (!customerId) return null;
     const match = customerPage?.data.find((c) => c.id === customerId);
-    return match?.displayName ?? "Customer";
-  }, [customerId, customerPage]);
+    return match?.displayName ?? t("customer.fallbackName");
+  }, [customerId, customerPage, t]);
 
   return (
     <View className="flex-1 bg-surface">
       {/* Header. */}
       <View className="flex-row items-center justify-between gap-3 border-b border-border px-4 py-3">
         <View>
-          <Text className="text-lg font-bold text-foreground">Cart</Text>
+          <Text className="text-lg font-bold text-foreground">{t("cart.title")}</Text>
           <Text className="text-xs text-muted-foreground">
-            {count} item{count === 1 ? "" : "s"}
+            {t("cart.itemCount", { count })}
           </Text>
         </View>
         {isEmpty ? null : (
           <Pressable
             onPress={clear}
             accessibilityRole="button"
-            accessibilityLabel="Clear cart"
+            accessibilityLabel={t("cart.clearCart")}
             className="h-9 flex-row items-center gap-1.5 rounded-lg px-2 active:bg-secondary"
           >
             <Trash2 size={16} color="#ef4444" />
-            <Text className="text-sm font-medium text-destructive">Clear</Text>
+            <Text className="text-sm font-medium text-destructive">{t("cart.clear")}</Text>
           </Pressable>
         )}
       </View>
@@ -74,10 +76,10 @@ export function CartPanel({ storeId }: { storeId: string }) {
         </View>
         <View className="flex-1">
           <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-            {customerName ?? "Add customer"}
+            {customerName ?? t("cart.addCustomer")}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {customerName ? "Attached to this sale" : "Optional"}
+            {customerName ? t("cart.customerAttached") : t("common.optional")}
           </Text>
         </View>
         <ChevronRight size={18} color={colors.mutedForeground} />
@@ -86,10 +88,8 @@ export function CartPanel({ storeId }: { storeId: string }) {
       {/* Line items. */}
       {isEmpty ? (
         <View className="flex-1 items-center justify-center gap-1 px-6 py-12">
-          <Text className="text-base font-semibold text-foreground">Cart is empty</Text>
-          <Text className="text-center text-sm text-muted-foreground">
-            Tap products to add them to the sale.
-          </Text>
+          <Text className="text-base font-semibold text-foreground">{t("cart.emptyTitle")}</Text>
+          <Text className="text-center text-sm text-muted-foreground">{t("cart.emptyBody")}</Text>
         </View>
       ) : (
         <ScrollView className="flex-1" contentContainerClassName="gap-2 p-3">
@@ -106,13 +106,13 @@ export function CartPanel({ storeId }: { storeId: string }) {
           <Input
             value={discountCode ?? ""}
             onChangeText={(text) => setDiscountCode(text.trim() === "" ? null : text)}
-            placeholder="Discount code"
+            placeholder={t("cart.discountCodePlaceholder")}
             autoCapitalize="characters"
             className="h-11 flex-1 border-0 bg-transparent px-0"
           />
         </View>
         <View className="flex-row items-center justify-between">
-          <Text className="text-sm text-muted-foreground">Subtotal</Text>
+          <Text className="text-sm text-muted-foreground">{t("cart.subtotal")}</Text>
           <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" />
         </View>
         <ChargeButton total={subtotal} disabled={isEmpty} className="h-14" />
@@ -124,6 +124,7 @@ export function CartPanel({ storeId }: { storeId: string }) {
 /** A single cart line: thumbnail-less name + variant, qty stepper, line total. */
 function CartLineRow({ line }: { line: RegisterCartLine }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const setQuantity = useRegisterCart((s) => s.setQuantity);
   const removeLine = useRegisterCart((s) => s.removeLine);
 
@@ -147,7 +148,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
         <Pressable
           onPress={() => removeLine(line.variantId)}
           accessibilityRole="button"
-          accessibilityLabel="Remove item"
+          accessibilityLabel={t("cart.removeItem")}
           className="h-9 w-9 items-center justify-center rounded-lg active:bg-secondary"
         >
           <X size={16} color={colors.mutedForeground} />
@@ -158,7 +159,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
           <Pressable
             onPress={() => setQuantity(line.variantId, line.quantity - 1)}
             accessibilityRole="button"
-            accessibilityLabel="Decrease quantity"
+            accessibilityLabel={t("cart.decreaseQuantity")}
             className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-secondary"
           >
             <Minus size={16} color={colors.foreground} />
@@ -170,7 +171,7 @@ function CartLineRow({ line }: { line: RegisterCartLine }) {
             onPress={() => setQuantity(line.variantId, line.quantity + 1)}
             disabled={line.quantity >= line.available}
             accessibilityRole="button"
-            accessibilityLabel="Increase quantity"
+            accessibilityLabel={t("cart.increaseQuantity")}
             className="h-9 w-9 items-center justify-center rounded-lg border border-border active:bg-secondary disabled:opacity-40"
           >
             <Plus size={16} color={colors.foreground} />

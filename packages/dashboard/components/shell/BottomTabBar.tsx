@@ -8,6 +8,7 @@ import { type LucideIcon } from "lucide-react-native";
 
 import { useColorScheme } from "@mercaria/ui";
 import { useTheme } from "@oxyhq/bloom/theme";
+import { useTranslation } from "@/lib/i18n";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 import { NAV_ITEMS, isNavItemActive, type NavItem } from "./nav-items";
 
@@ -67,6 +68,7 @@ export function BottomTabBar() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { t } = useTranslation();
   const { can } = useActiveStoreContext();
 
   const visibleItems = useMemo(() => NAV_ITEMS.filter((item) => can(item.permission)), [can]);
@@ -110,7 +112,7 @@ export function BottomTabBar() {
           onPress={() => handlePress(item)}
           style={tabStyle}
           accessibilityRole="tab"
-          accessibilityLabel={item.label}
+          accessibilityLabel={t(item.labelKey)}
           accessibilityState={{ selected: isNavItemActive(item, pathname) }}
         >
           <TabIcon icon={item.icon} isActive={isNavItemActive(item, pathname)} />

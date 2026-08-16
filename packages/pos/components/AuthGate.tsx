@@ -4,6 +4,7 @@ import { useOxy, openAccountDialog } from "@oxyhq/services";
 import { Text, Button } from "@mercaria/ui";
 import { Logo } from "@/components/Logo";
 import { ScreenLoading } from "@/components/shell/Screen";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Auth gate for the whole POS. The register has NO anonymous surface:
@@ -33,6 +34,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function SignInScreen() {
+  const { t } = useTranslation();
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">
       <View className="w-full max-w-sm items-center">
@@ -40,14 +42,13 @@ function SignInScreen() {
           <Logo size={36} />
         </View>
         <Text className="text-center text-2xl font-bold text-foreground">
-          Mercaria POS
+          {t("auth.appName")}
         </Text>
         <Text className="mt-2 text-center text-sm text-muted-foreground">
-          Sign in with your Oxy account to open the register — ring up in-person
-          sales, attach customers, and charge.
+          {t("auth.signInBody")}
         </Text>
         <Button className="mt-8 w-full" onPress={() => openAccountDialog()}>
-          <Text className="font-semibold text-primary-foreground">Sign in</Text>
+          <Text className="font-semibold text-primary-foreground">{t("auth.signIn")}</Text>
         </Button>
       </View>
     </View>

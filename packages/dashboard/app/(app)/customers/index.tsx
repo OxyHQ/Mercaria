@@ -10,12 +10,14 @@ import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useCustomers } from "@/lib/hooks/use-customers";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
+import { useTranslation } from "@/lib/i18n";
 
 export default function CustomersScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Customers | Mercaria Dashboard</title>
+        <title>{t("customers.documentTitle")}</title>
       </Head>
       <RequireStore permission="customers:read">
         {(storeId) => <CustomersBody storeId={storeId} />}
@@ -27,13 +29,18 @@ export default function CustomersScreen() {
 function CustomersBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 350);
   const { data, isPending, isError } = useCustomers(storeId, page, debouncedSearch);
 
   return (
-    <Screen title="Customers" subtitle="People who buy from your store" action={<StoreSwitcher />}>
+    <Screen
+      title={t("nav.customers")}
+      subtitle={t("customers.subtitle")}
+      action={<StoreSwitcher />}
+    >
       <View className="mb-4">
         <Input
           value={search}
@@ -41,16 +48,16 @@ function CustomersBody({ storeId }: { storeId: string }) {
             setSearch(t);
             setPage(1);
           }}
-          placeholder="Search customers…"
+          placeholder={t("customers.searchPlaceholder")}
         />
       </View>
 
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load customers" body="Please try again." />
+        <ScreenMessage title={t("customers.loadError")} body={t("common.pleaseTryAgain")} />
       ) : (data?.data.length ?? 0) === 0 ? (
-        <ScreenMessage title="No customers" body="Customers appear here after their first order." />
+        <ScreenMessage title={t("customers.empty.title")} body={t("customers.empty.body")} />
       ) : (
         <View className="gap-2">
           {data?.data.map((customer) => (
@@ -73,7 +80,10 @@ function CustomersBody({ storeId }: { storeId: string }) {
             <ChevronLeft size={18} color={colors.foreground} />
           </Pressable>
           <Text className="text-sm text-muted-foreground">
-            Page {data.pagination.page} of {data.pagination.pages}
+            {t("common.pageOf", {
+              current: data.pagination.page,
+              total: data.pagination.pages,
+            })}
           </Text>
           <Pressable
             onPress={() => setPage((p) => p + 1)}
@@ -90,6 +100,7 @@ function CustomersBody({ storeId }: { storeId: string }) {
 
 function CustomerRow({ customer, onPress }: { customer: Customer; onPress: () => void }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={onPress}
@@ -100,10 +111,12 @@ function CustomerRow({ customer, onPress }: { customer: Customer; onPress: () =>
       </View>
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
-          {customer.displayName ?? customer.email ?? (customer.isWalkIn ? "Walk-in customer" : "Customer")}
+          {customer.displayName ??
+            customer.email ??
+            (customer.isWalkIn ? t("customers.walkIn") : t("customers.fallbackName"))}
         </Text>
         <Text className="text-xs text-muted-foreground">
-          {customer.stats.orderCount} order{customer.stats.orderCount === 1 ? "" : "s"}
+          {t("customers.orderCount", { count: customer.stats.orderCount })}
         </Text>
       </View>
       <PriceDisplay price={customer.stats.totalSpent} primaryClassName="text-sm font-semibold" />

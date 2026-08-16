@@ -8,23 +8,31 @@ import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
-import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
+import { OrderStatusBadge, ORDER_STATUS_LABEL_KEYS } from "@/components/orders/OrderStatusBadge";
 import { useOrders } from "@/lib/hooks/use-orders";
+import { useTranslation } from "@/lib/i18n";
 
-const FILTERS: { key: OrderStatus | "all"; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "paid", label: "Paid" },
-  { key: "processing", label: "Processing" },
-  { key: "shipped", label: "Shipped" },
-  { key: "delivered", label: "Delivered" },
-  { key: "cancelled", label: "Cancelled" },
+/**
+ * The status chips. Each carries a translation KEY rather than a sentence
+ * (#398) — this array is evaluated at import, before the locale store has
+ * rehydrated — and the status ones reuse the badge's keys so a status reads the
+ * same word wherever it appears.
+ */
+const FILTERS: { key: OrderStatus | "all"; labelKey: string }[] = [
+  { key: "all", labelKey: "common.all" },
+  { key: "paid", labelKey: ORDER_STATUS_LABEL_KEYS.paid },
+  { key: "processing", labelKey: ORDER_STATUS_LABEL_KEYS.processing },
+  { key: "shipped", labelKey: ORDER_STATUS_LABEL_KEYS.shipped },
+  { key: "delivered", labelKey: ORDER_STATUS_LABEL_KEYS.delivered },
+  { key: "cancelled", labelKey: ORDER_STATUS_LABEL_KEYS.cancelled },
 ];
 
 export default function OrdersScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Orders | Mercaria Dashboard</title>
+        <title>{t("orders.documentTitle")}</title>
       </Head>
       <RequireStore permission="orders:read">
         {(storeId) => <OrdersBody storeId={storeId} />}
@@ -35,13 +43,14 @@ export default function OrdersScreen() {
 
 function OrdersBody({ storeId }: { storeId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const [status, setStatus] = useState<OrderStatus | "all">("all");
   const [page, setPage] = useState(1);
   const { data, isPending, isError } = useOrders(storeId, page, status);
 
   return (
-    <Screen title="Orders" subtitle="Fulfil and track your sales" action={<StoreSwitcher />}>
+    <Screen title={t("orders.title")} subtitle={t("orders.subtitle")} action={<StoreSwitcher />}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
         <View className="flex-row gap-2">
           {FILTERS.map((f) => {
@@ -58,7 +67,7 @@ function OrdersBody({ storeId }: { storeId: string }) {
                 }`}
               >
                 <Text className={`text-sm font-medium ${active ? "text-primary-foreground" : "text-foreground"}`}>
-                  {f.label}
+                  {t(f.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -69,9 +78,9 @@ function OrdersBody({ storeId }: { storeId: string }) {
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load orders" body="Please try again." />
+        <ScreenMessage title={t("orders.loadFailed")} body={t("common.pleaseTryAgain")} />
       ) : (data?.data.length ?? 0) === 0 ? (
-        <ScreenMessage title="No orders" body="Orders will appear here once customers buy." />
+        <ScreenMessage title={t("orders.empty.title")} body={t("orders.empty.body")} />
       ) : (
         <View className="gap-2">
           {data?.data.map((order) => (
@@ -94,7 +103,10 @@ function OrdersBody({ storeId }: { storeId: string }) {
             <ChevronLeft size={18} color={colors.foreground} />
           </Pressable>
           <Text className="text-sm text-muted-foreground">
-            Page {data.pagination.page} of {data.pagination.pages}
+            {t("common.pageOf", {
+              current: data.pagination.page,
+              total: data.pagination.pages,
+            })}
           </Text>
           <Pressable
             onPress={() => setPage((p) => p + 1)}
@@ -110,6 +122,7 @@ function OrdersBody({ storeId }: { storeId: string }) {
 }
 
 function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   return (
     <Pressable
@@ -122,8 +135,10 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
         <Text className="text-xs text-muted-foreground">
-          {order.itemCount} item{order.itemCount === 1 ? "" : "s"} ·{" "}
-          {new Date(order.createdAt).toLocaleDateString()}
+          {t("orders.row.itemsPlacedOn", {
+            count: order.itemCount,
+            date: new Date(order.createdAt).toLocaleDateString(),
+          })}
         </Text>
       </View>
       <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-sm font-semibold" />

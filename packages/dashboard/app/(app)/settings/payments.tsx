@@ -12,6 +12,7 @@ import { Text, Button, Label, useColorScheme } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { useTranslation } from "@/lib/i18n";
 import {
   usePaymentSettings,
   useCreateOnboardingLink,
@@ -44,10 +45,11 @@ import {
  * rather than pretending the refetch is authoritative.
  */
 export default function PaymentsScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Payments & payouts | Mercaria Dashboard</title>
+        <title>{t("settings.payments.documentTitle")}</title>
       </Head>
       <RequireStore permission="store:manage">
         {(storeId) => <PaymentsBody storeId={storeId} />}
@@ -59,6 +61,7 @@ export default function PaymentsScreen() {
 function PaymentsBody({ storeId }: { storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data, isPending, isError } = usePaymentSettings(storeId);
 
   const back = (
@@ -67,29 +70,32 @@ function PaymentsBody({ storeId }: { storeId: string }) {
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">Back</Text>
+      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
     </Pressable>
   );
 
   if (isPending) {
     return (
-      <Screen title="Payments & payouts" action={back}>
+      <Screen title={t("settings.payments.title")} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !data) {
     return (
-      <Screen title="Payments & payouts" action={back}>
-        <ScreenMessage title="Couldn't load payment settings" body="Please try again." />
+      <Screen title={t("settings.payments.title")} action={back}>
+        <ScreenMessage
+          title={t("settings.payments.loadFailed")}
+          body={t("common.pleaseTryAgain")}
+        />
       </Screen>
     );
   }
 
   return (
     <Screen
-      title="Payments & payouts"
-      subtitle="How you get paid for orders placed on Mercaria"
+      title={t("settings.payments.title")}
+      subtitle={t("settings.payments.subtitle")}
       action={back}
     >
       <PaymentsPanel storeId={storeId} settings={data} />
@@ -97,49 +103,47 @@ function PaymentsBody({ storeId }: { storeId: string }) {
   );
 }
 
-/** Copy per state: what is true now, and what changes it. */
+/**
+ * Copy per state: what is true now, and what changes it.
+ *
+ * KEYS rather than the sentences (#398). This map is evaluated at import, before
+ * the locale store has rehydrated, so a resolved string here would freeze
+ * whatever language the first render happened to see; `PaymentsPanel` resolves
+ * them and re-renders when the locale changes. `actionKey` stays OPTIONAL,
+ * because whether a state offers an action is the fact this map carries — two of
+ * the six deliberately do not.
+ */
 const STATE_COPY: Record<
   ProviderOnboardingState,
-  { heading: string; body: string; action?: string }
+  { headingKey: string; bodyKey: string; actionKey?: string }
 > = {
   not_connected: {
-    heading: "Not set up yet",
-    body:
-      "Your listings are visible and you can use every other part of Mercaria, but buyers " +
-      "cannot check out with them yet. Setting up payouts takes a few minutes.",
-    action: "Set up payouts",
+    headingKey: "settings.payments.states.notConnected.heading",
+    bodyKey: "settings.payments.states.notConnected.body",
+    actionKey: "settings.payments.states.notConnected.action",
   },
   action_required: {
-    heading: "A few details are still needed",
-    body:
-      "Stripe needs more information before it can pay you out. Until it has everything, " +
-      "buyers cannot check out with your listings.",
-    action: "Continue setup",
+    headingKey: "settings.payments.states.actionRequired.heading",
+    bodyKey: "settings.payments.states.actionRequired.body",
+    actionKey: "settings.payments.states.actionRequired.action",
   },
   under_review: {
-    heading: "Under review",
-    body:
-      "Stripe has what it asked for and is reviewing it. There is nothing for you to do — " +
-      "this usually takes a day or two. Buyers cannot check out with your listings until it " +
-      "finishes.",
+    headingKey: "settings.payments.states.underReview.heading",
+    bodyKey: "settings.payments.states.underReview.body",
   },
   ready: {
-    heading: "Ready to be paid",
-    body: "Buyers can check out with your listings, and Stripe pays your balance out to your bank.",
-    action: "Manage payout details",
+    headingKey: "settings.payments.states.ready.heading",
+    bodyKey: "settings.payments.states.ready.body",
+    actionKey: "settings.payments.states.ready.action",
   },
   restricted: {
-    heading: "Payouts are paused",
-    body:
-      "Something Stripe asked for is now overdue, so it has paused payouts and buyers cannot " +
-      "check out with your listings. Finishing it restores both.",
-    action: "Resolve now",
+    headingKey: "settings.payments.states.restricted.heading",
+    bodyKey: "settings.payments.states.restricted.body",
+    actionKey: "settings.payments.states.restricted.action",
   },
   disabled: {
-    heading: "This account can no longer be used",
-    body:
-      "Stripe has closed this connected account, or its connection to Mercaria was removed. " +
-      "Buyers cannot check out with your listings. Contact Mercaria support to look into it.",
+    headingKey: "settings.payments.states.disabled.heading",
+    bodyKey: "settings.payments.states.disabled.body",
   },
 };
 
@@ -162,6 +166,7 @@ function PaymentsPanel({
 }) {
   const { account, onboardingAvailable, supportedCountries } = settings;
   const [opening, setOpening] = useState(false);
+  const { t } = useTranslation();
   const createLink = useCreateOnboardingLink(storeId);
   const refresh = useRefreshPaymentSettings(storeId);
 
@@ -183,7 +188,7 @@ function PaymentsPanel({
       // has actually told the backend by now.
       await refresh();
     } catch {
-      toast.error("Couldn't open the payout setup");
+      toast.error(t("settings.payments.openFailed"));
     } finally {
       setOpening(false);
     }
@@ -192,18 +197,18 @@ function PaymentsPanel({
   return (
     <View className="gap-5">
       <View className={`rounded-2xl border p-4 ${STATE_TONE[account.onboardingState]}`}>
-        <Text className="text-sm font-semibold text-foreground">{copy.heading}</Text>
-        <Text className="mt-1 text-xs text-muted-foreground">{copy.body}</Text>
+        <Text className="text-sm font-semibold text-foreground">{t(copy.headingKey)}</Text>
+        <Text className="mt-1 text-xs text-muted-foreground">{t(copy.bodyKey)}</Text>
 
-        {copy.action !== undefined && onboardingAvailable ? (
+        {copy.actionKey !== undefined && onboardingAvailable ? (
           <Button onPress={startOnboarding} isLoading={busy} className="mt-4 self-start">
-            <Text className="font-semibold text-primary-foreground">{copy.action}</Text>
+            <Text className="font-semibold text-primary-foreground">{t(copy.actionKey)}</Text>
           </Button>
         ) : null}
 
         {!onboardingAvailable ? (
           <Text className="mt-3 text-xs text-muted-foreground">
-            Payout setup is not available on this Mercaria deployment yet.
+            {t("settings.payments.onboardingUnavailable")}
           </Text>
         ) : null}
       </View>
@@ -218,28 +223,37 @@ function PaymentsPanel({
 /** Counts and a deadline — never the list, which only Stripe holds. */
 function RequirementsCard({ settings }: { settings: SellerPaymentSettings }) {
   const { requirements } = settings.account;
+  const { t } = useTranslation();
   const outstanding = requirements.currentlyDue + requirements.pastDue;
   if (outstanding === 0 && requirements.pendingVerification === 0) return null;
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Outstanding with Stripe</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t("settings.payments.outstandingTitle")}
+      </Text>
       <Row
-        label="Needed now"
-        value={outstanding === 0 ? "None" : `${String(outstanding)} item(s)`}
+        label={t("settings.payments.neededNow")}
+        value={
+          outstanding === 0
+            ? t("common.none")
+            : t("settings.payments.itemCount", { count: outstanding })
+        }
       />
       {requirements.pendingVerification > 0 ? (
         <Row
-          label="Being reviewed"
-          value={`${String(requirements.pendingVerification)} item(s)`}
+          label={t("settings.payments.beingReviewed")}
+          value={t("settings.payments.itemCount", { count: requirements.pendingVerification })}
         />
       ) : null}
       {requirements.currentDeadline !== undefined ? (
-        <Row label="Due by" value={new Date(requirements.currentDeadline).toLocaleDateString()} />
+        <Row
+          label={t("settings.payments.dueBy")}
+          value={new Date(requirements.currentDeadline).toLocaleDateString()}
+        />
       ) : null}
       <Text className="mt-3 text-xs text-muted-foreground">
-        Stripe holds these details and is the only place to complete them. Mercaria never sees
-        them.
+        {t("settings.payments.requirementsNote")}
       </Text>
     </View>
   );
@@ -248,25 +262,33 @@ function RequirementsCard({ settings }: { settings: SellerPaymentSettings }) {
 /** Payout currency and schedule, shown only when Stripe supplies them. */
 function PayoutDetailsCard({ settings }: { settings: SellerPaymentSettings }) {
   const { account } = settings;
+  const { t } = useTranslation();
   if (account.payoutCurrency === undefined && account.payoutSchedule === undefined) return null;
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Payouts</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t("settings.payments.payoutsTitle")}
+      </Text>
       {account.payoutCurrency !== undefined ? (
-        <Row label="Paid out in" value={account.payoutCurrency} />
+        <Row label={t("settings.payments.paidOutIn")} value={account.payoutCurrency} />
       ) : null}
       {account.payoutSchedule !== undefined ? (
         <Row
-          label="Schedule"
+          label={t("settings.payments.schedule")}
           value={
             account.payoutSchedule.delayDays === undefined
               ? account.payoutSchedule.interval
-              : `${account.payoutSchedule.interval}, after ${String(account.payoutSchedule.delayDays)} days`
+              : t("settings.payments.scheduleWithDelay", {
+                  interval: account.payoutSchedule.interval,
+                  count: account.payoutSchedule.delayDays,
+                })
           }
         />
       ) : null}
-      {account.country !== undefined ? <Row label="Registered in" value={account.country} /> : null}
+      {account.country !== undefined ? (
+        <Row label={t("settings.payments.registeredIn")} value={account.country} />
+      ) : null}
     </View>
   );
 }
@@ -280,18 +302,21 @@ function PayoutDetailsCard({ settings }: { settings: SellerPaymentSettings }) {
  */
 function ReasonCodesCard({ settings }: { settings: SellerPaymentSettings }) {
   const codes = settings.account.disabledReasonCodes;
+  const { t } = useTranslation();
   if (codes.length === 0) return null;
 
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
-      <Text className="mb-2 text-sm font-semibold text-foreground">Reported by Stripe</Text>
+      <Text className="mb-2 text-sm font-semibold text-foreground">
+        {t("settings.payments.reportedByStripe")}
+      </Text>
       {codes.map((code) => (
         <Text key={code} className="text-xs text-muted-foreground">
           {code}
         </Text>
       ))}
       <Text className="mt-3 text-xs text-muted-foreground">
-        Quote this to Mercaria support if you need help.
+        {t("settings.payments.quoteToSupport")}
       </Text>
     </View>
   );

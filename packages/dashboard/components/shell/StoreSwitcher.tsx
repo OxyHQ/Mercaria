@@ -3,6 +3,7 @@ import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { ChevronsUpDown, Store as StoreIcon } from "lucide-react-native";
 import { Text, useColorScheme } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 
 /**
@@ -13,13 +14,14 @@ import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 export function StoreSwitcher() {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { store } = useActiveStoreContext();
 
   return (
     <Pressable
       onPress={() => router.push("/stores")}
       accessibilityRole="button"
-      accessibilityLabel="Switch store"
+      accessibilityLabel={t("stores.switch")}
       className="flex-row items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 active:opacity-80 web:hover:border-primary"
     >
       <View
@@ -29,7 +31,7 @@ export function StoreSwitcher() {
         <StoreIcon size={14} color="#fff" />
       </View>
       <Text className="max-w-[140px] text-sm font-semibold text-foreground" numberOfLines={1}>
-        {store?.name ?? "Select store"}
+        {store?.name ?? t("stores.selectStore")}
       </Text>
       <ChevronsUpDown size={14} color={colors.mutedForeground} />
     </Pressable>

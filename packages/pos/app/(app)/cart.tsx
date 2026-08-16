@@ -3,6 +3,7 @@ import { View } from "react-native";
 import Head from "expo-router/head";
 import { RequirePos } from "@/components/shell/RequirePos";
 import { CartPanel } from "@/components/register/CartPanel";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Narrow / native cart-review screen. On wide screens the cart lives inline in
@@ -12,10 +13,11 @@ import { CartPanel } from "@/components/register/CartPanel";
  * charge button leads to the tender step (`/charge`).
  */
 export default function CartScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Cart | Mercaria POS</title>
+        <title>{t("cart.documentTitle")}</title>
       </Head>
       <RequirePos permission="draft_orders:write">
         {(storeId) => (

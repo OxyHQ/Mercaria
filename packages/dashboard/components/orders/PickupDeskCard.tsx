@@ -17,6 +17,7 @@ import {
   usePickupDeskAction,
   useRotateCollectionCode,
 } from "@/lib/hooks/use-orders";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The collection desk — one order, at one counter (#93 merchant rules 1-4 and
@@ -49,20 +50,26 @@ import {
  * account holder's render identically, which is #93 merchant rule 8.
  */
 
-/** What each trail entry says, in the vocabulary of a counter. */
-const EVENT_TEXT: Record<PickupCollectionEventKind, string> = {
-  code_validated: "Code accepted",
-  code_rejected: "Code rejected",
-  collected: "Handed over",
-  collection_refused: "Handover refused",
-  code_rotated: "Code rotated",
-  code_revoked: "Code revoked",
-  marked_ready: "Marked ready",
-  pickup_cancelled: "Collection cancelled",
-  fallback_override: "Handed over with an override",
+/**
+ * What each trail entry says, in the vocabulary of a counter — as translation
+ * KEYS, not sentences (#398). Module scope is evaluated at import, before the
+ * locale store has rehydrated, so a resolved sentence here would freeze whatever
+ * language loaded first; the trail calls `t(EVENT_TEXT_KEYS[kind])`.
+ */
+const EVENT_TEXT_KEYS: Record<PickupCollectionEventKind, string> = {
+  code_validated: "orders.pickup.event.codeValidated",
+  code_rejected: "orders.pickup.event.codeRejected",
+  collected: "orders.pickup.event.collected",
+  collection_refused: "orders.pickup.event.collectionRefused",
+  code_rotated: "orders.pickup.event.codeRotated",
+  code_revoked: "orders.pickup.event.codeRevoked",
+  marked_ready: "orders.pickup.event.markedReady",
+  pickup_cancelled: "orders.pickup.event.pickupCancelled",
+  fallback_override: "orders.pickup.event.fallbackOverride",
 };
 
 export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId: string }) {
+  const { t } = useTranslation();
   const desk = useOrderPickup(storeId, orderId);
   const act = usePickupDeskAction(storeId, orderId);
   const rotate = useRotateCollectionCode(storeId, orderId);
@@ -91,7 +98,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
 
   return (
     <View className="gap-3 rounded-2xl border border-border bg-card p-4">
-      <Text className="text-base font-semibold text-foreground">Collection</Text>
+      <Text className="text-base font-semibold text-foreground">{t("orders.pickup.title")}</Text>
 
       <View className="gap-1">
         <Text className="text-sm font-semibold text-foreground">
@@ -117,22 +124,22 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
           {pickup.state === "awaiting_preparation" ? (
             <Button
               disabled={act.isPending}
-              onPress={() => run({ kind: "ready" }, "Marked ready to collect")}
+              onPress={() => run({ kind: "ready" }, t("orders.pickup.toast.markedReady"))}
             >
               <Text className="text-sm font-semibold text-primary-foreground">
-                Mark ready to collect
+                {t("orders.pickup.markReady")}
               </Text>
             </Button>
           ) : null}
 
           <View className="gap-1.5">
-            <Label nativeID="pickup-code">Code the customer presented</Label>
+            <Label nativeID="pickup-code">{t("orders.pickup.codeLabel")}</Label>
             <Input
               aria-labelledby="pickup-code"
-              accessibilityLabel="Collection code the customer presented"
+              accessibilityLabel={t("orders.pickup.codeAccessibilityLabel")}
               value={code}
               onChangeText={setCode}
-              placeholder="ABCD234567"
+              placeholder={t("orders.pickup.codePlaceholder")}
               autoCapitalize="characters"
               autoCorrect={false}
             />
@@ -140,10 +147,12 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               variant="outline"
               disabled={act.isPending || code.trim().length === 0}
               onPress={() =>
-                run({ kind: "collect", code: code.trim() }, "Collection recorded")
+                run({ kind: "collect", code: code.trim() }, t("orders.pickup.toast.collected"))
               }
             >
-              <Text className="text-sm font-medium text-foreground">Check code and hand over</Text>
+              <Text className="text-sm font-medium text-foreground">
+                {t("orders.pickup.checkCodeAndHandOver")}
+              </Text>
             </Button>
           </View>
 
@@ -154,13 +163,13 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             than a way around verification.
           */}
           <View className="gap-1.5">
-            <Label nativeID="pickup-override">Hand over without a working code — reason</Label>
+            <Label nativeID="pickup-override">{t("orders.pickup.overrideLabel")}</Label>
             <Input
               aria-labelledby="pickup-override"
-              accessibilityLabel="Reason for handing over without a working code"
+              accessibilityLabel={t("orders.pickup.overrideAccessibilityLabel")}
               value={overrideReason}
               onChangeText={setOverrideReason}
-              placeholder="Code would not scan; ID checked in person"
+              placeholder={t("orders.pickup.overridePlaceholder")}
             />
             <Button
               variant="outline"
@@ -168,25 +177,27 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
               onPress={() =>
                 run(
                   { kind: "collect", overrideReason: overrideReason.trim() },
-                  "Collection recorded with an override",
+                  t("orders.pickup.toast.collectedWithOverride"),
                 )
               }
             >
-              <Text className="text-sm font-medium text-foreground">Hand over with override</Text>
+              <Text className="text-sm font-medium text-foreground">
+                {t("orders.pickup.handOverWithOverride")}
+              </Text>
             </Button>
             <Text className="text-xs text-muted-foreground">
-              Recorded against your account, with the reason, in the trail below.
+              {t("orders.pickup.overrideNote")}
             </Text>
           </View>
 
           <View className="gap-1.5">
-            <Label nativeID="pickup-rotate">Issue a new code — reason</Label>
+            <Label nativeID="pickup-rotate">{t("orders.pickup.rotateLabel")}</Label>
             <Input
               aria-labelledby="pickup-rotate"
-              accessibilityLabel="Reason for issuing a new collection code"
+              accessibilityLabel={t("orders.pickup.rotateAccessibilityLabel")}
               value={rotateReason}
               onChangeText={setRotateReason}
-              placeholder="Customer says the code leaked"
+              placeholder={t("orders.pickup.rotatePlaceholder")}
             />
             <Button
               variant="outline"
@@ -195,13 +206,15 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
                 rotate.mutate(rotateReason.trim(), {
                   onSuccess: (issued) => {
                     setRotatedCode(issued.code);
-                    toast.success("New code issued");
+                    toast.success(t("orders.pickup.toast.codeIssued"));
                   },
                   onError: (error: Error) => toast.error(error.message),
                 })
               }
             >
-              <Text className="text-sm font-medium text-foreground">Issue a new code</Text>
+              <Text className="text-sm font-medium text-foreground">
+                {t("orders.pickup.rotate")}
+              </Text>
             </Button>
             {/*
               Shown ONCE, right here, because the shop has to read it to the
@@ -212,7 +225,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
             {rotatedCode === null ? null : (
               <View className="gap-0.5 rounded-xl bg-muted p-3">
                 <Text className="text-xs text-muted-foreground">
-                  Read this to the customer. The previous code no longer works.
+                  {t("orders.pickup.rotatedCodeNote")}
                 </Text>
                 <Text className="text-lg font-semibold text-foreground web:select-text">
                   {rotatedCode}
@@ -222,39 +235,43 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
           </View>
 
           <View className="gap-1.5">
-            <Label nativeID="pickup-cancel">Cancel this collection — reason</Label>
+            <Label nativeID="pickup-cancel">{t("orders.pickup.cancelLabel")}</Label>
             <Input
               aria-labelledby="pickup-cancel"
-              accessibilityLabel="Reason for cancelling this collection"
+              accessibilityLabel={t("orders.pickup.cancelAccessibilityLabel")}
               value={cancelReason}
               onChangeText={setCancelReason}
-              placeholder="Stock damaged in the stockroom"
+              placeholder={t("orders.pickup.cancelPlaceholder")}
             />
             <Button
               variant="outline"
               disabled={act.isPending || cancelReason.trim().length === 0}
               onPress={() =>
-                run({ kind: "cancel", reason: cancelReason.trim() }, "Collection cancelled")
+                run(
+                  { kind: "cancel", reason: cancelReason.trim() },
+                  t("orders.pickup.toast.cancelled"),
+                )
               }
             >
-              <Text className="text-sm font-medium text-foreground">Cancel collection</Text>
+              <Text className="text-sm font-medium text-foreground">
+                {t("orders.pickup.cancelCollection")}
+              </Text>
             </Button>
             <Text className="text-xs text-muted-foreground">
-              This withdraws the handover and revokes the code. It does not cancel the order and it
-              refunds nothing — do that on the order itself if the customer is owed money.
+              {t("orders.pickup.cancelNote")}
             </Text>
           </View>
         </View>
       )}
 
       <View className="gap-1">
-        <Text className="text-sm font-semibold text-foreground">Collection trail</Text>
+        <Text className="text-sm font-semibold text-foreground">{t("orders.pickup.trail")}</Text>
         {events.length === 0 ? (
-          <Text className="text-xs text-muted-foreground">Nothing has happened at the counter yet.</Text>
+          <Text className="text-xs text-muted-foreground">{t("orders.pickup.trailEmpty")}</Text>
         ) : (
           events.map((event) => (
             <Text key={event.id} className="text-xs text-muted-foreground">
-              {new Date(event.occurredAt).toLocaleString()} · {EVENT_TEXT[event.kind]}
+              {new Date(event.occurredAt).toLocaleString()} · {t(EVENT_TEXT_KEYS[event.kind])}
               {event.reason === undefined ? "" : ` · ${event.reason}`}
             </Text>
           ))

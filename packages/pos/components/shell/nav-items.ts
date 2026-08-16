@@ -11,8 +11,15 @@ import type { StorePermission } from "@mercaria/shared-types";
  */
 export interface NavItem {
   key: string;
-  /** Accessible label / tooltip text. */
-  label: string;
+  /**
+   * Translation key for the accessible label / tooltip text (#398).
+   *
+   * A KEY rather than the sentence: this module is evaluated once at import,
+   * before the locale store has rehydrated, so a resolved string here would
+   * freeze whatever language the first render happened to see. Every consumer
+   * calls `t(item.labelKey)` and therefore re-renders when the locale changes.
+   */
+  labelKey: string;
   icon: LucideIcon;
   /**
    * Route this item navigates to. `RoutePath` rather than `string`, so the
@@ -25,8 +32,8 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "register", label: "Register", icon: ShoppingCart, href: "/", permission: "draft_orders:write" },
-  { key: "sales", label: "Sales", icon: ReceiptText, href: "/sales", permission: "orders:read" },
+  { key: "register", labelKey: "nav.register", icon: ShoppingCart, href: "/", permission: "draft_orders:write" },
+  { key: "sales", labelKey: "nav.sales", icon: ReceiptText, href: "/sales", permission: "orders:read" },
 ] as const;
 
 /**

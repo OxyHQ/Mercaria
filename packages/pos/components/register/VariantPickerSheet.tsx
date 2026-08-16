@@ -9,6 +9,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 interface VariantPickerSheetProps {
   /** The listing whose variants are being picked, or `null` when closed. */
@@ -23,11 +24,12 @@ interface VariantPickerSheetProps {
  * and non-interactive. Opens when `listing` is non-null.
  */
 export function VariantPickerSheet({ listing, onClose, onPick }: VariantPickerSheetProps) {
+  const { t } = useTranslation();
   return (
     <Sheet open={listing !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right">
         <SheetHeader>
-          <SheetTitle>{listing?.title ?? "Choose a variant"}</SheetTitle>
+          <SheetTitle>{listing?.title ?? t("catalog.chooseVariant")}</SheetTitle>
         </SheetHeader>
         {listing ? (
           <ScrollView contentContainerClassName="gap-3 py-2">
@@ -51,7 +53,9 @@ export function VariantPickerSheet({ listing, onClose, onPick }: VariantPickerSh
                     <View className="flex-1">
                       <Text className="text-base font-semibold text-foreground">{variant.title}</Text>
                       <Text className="text-xs text-muted-foreground">
-                        {disabled ? "Out of stock" : `${variant.available} available`}
+                        {disabled
+                          ? t("catalog.outOfStock")
+                          : t("catalog.availableCount", { count: variant.available })}
                       </Text>
                     </View>
                     <PriceDisplay price={variant.price} />

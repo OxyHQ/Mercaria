@@ -52,14 +52,15 @@ import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen"
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
-  CHANNEL_TYPE_NAME,
+  CHANNEL_TYPE_NAME_KEYS,
   ChannelCoverage,
   ChannelLimitationRow,
   ChannelStateBadge,
   NativeCheckoutBadge,
-  READINESS_BLOCKER_COPY,
+  READINESS_BLOCKER_COPY_KEYS,
   formatWhen,
 } from "@/components/channels/channel-presentation";
+import { useTranslation } from "@/lib/i18n";
 import {
   useChannelCatalog,
   useChannelReadiness,
@@ -68,10 +69,11 @@ import {
 } from "@/lib/hooks/use-channels";
 
 export default function ChannelsScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Sales channels | Mercaria Dashboard</title>
+        <title>{t("channels.documentTitle")}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <ChannelsBody storeId={storeId} />}
@@ -81,6 +83,7 @@ export default function ChannelsScreen() {
 }
 
 function ChannelsBody({ storeId }: { storeId: string }) {
+  const { t } = useTranslation();
   const summary = useChannelSummary(storeId);
   const catalog = useChannelCatalog(storeId);
   const readiness = useChannelReadiness(storeId);
@@ -90,14 +93,14 @@ function ChannelsBody({ storeId }: { storeId: string }) {
 
   return (
     <Screen
-      title="Sales channels"
-      subtitle="Every way your products reach Mercaria — connected stores, product feeds and your own catalog"
+      title={t("channels.title")}
+      subtitle={t("channels.subtitle")}
       action={<StoreSwitcher />}
     >
       {pending ? (
         <ScreenLoading />
       ) : failed ? (
-        <ScreenMessage title="Couldn't load channels" body="Please try again." />
+        <ScreenMessage title={t("channels.loadFailed")} body={t("common.pleaseTryAgain")} />
       ) : (
         <View className="gap-8">
           {readiness.data ? <ReadinessPanel readiness={readiness.data} /> : null}
@@ -122,7 +125,9 @@ function ChannelsBody({ storeId }: { storeId: string }) {
  */
 function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const ready = readiness.nativeCheckout.state === "healthy";
+  const connectedCount = readiness.catalog.connectedChannelTypes.length;
 
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
@@ -133,35 +138,39 @@ function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
           <CircleAlert size={18} color={colors.mutedForeground} />
         )}
         <Text className="text-sm font-semibold text-foreground">
-          {ready ? "Ready to sell on Mercaria" : "Not selling on Mercaria yet"}
+          {ready ? t("channels.readiness.ready") : t("channels.readiness.notReady")}
         </Text>
       </View>
 
       <View className="flex-row flex-wrap gap-3">
         <ReadinessAxis
-          label="Catalog"
+          label={t("channels.readiness.catalog")}
           state={readiness.catalog.state}
           detail={
-            readiness.catalog.connectedChannelTypes.length === 0
-              ? "No channel connected"
-              : `${readiness.catalog.connectedChannelTypes.length} channel${
-                  readiness.catalog.connectedChannelTypes.length === 1 ? "" : "s"
-                } · ${
-                  readiness.catalog.lastSuccessfulSyncAt
-                    ? `last synced ${formatWhen(readiness.catalog.lastSuccessfulSyncAt, "never")}`
-                    : "never synced"
-                }`
+            connectedCount === 0
+              ? t("channels.readiness.noChannelConnected")
+              : t("channels.readiness.catalogDetail", {
+                  channels: t("channels.readiness.channelCount", { count: connectedCount }),
+                  sync: readiness.catalog.lastSuccessfulSyncAt
+                    ? t("channels.readiness.lastSynced", {
+                        when: formatWhen(
+                          readiness.catalog.lastSuccessfulSyncAt,
+                          t("channels.never"),
+                        ),
+                      })
+                    : t("channels.readiness.neverSynced"),
+                })
           }
         />
         <ReadinessAxis
-          label="Payouts"
+          label={t("channels.readiness.payouts")}
           state={readiness.payments.state}
           detail={
             readiness.payments.railEnabled
               ? readiness.payments.state === "healthy"
-                ? "Set up"
-                : "Not set up"
-              : "Card payments are off for this deployment"
+                ? t("channels.readiness.payoutsSetUp")
+                : t("channels.readiness.payoutsNotSetUp")
+              : t("channels.readiness.cardPaymentsOff")
           }
         />
       </View>
@@ -170,7 +179,7 @@ function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
         <View className="gap-1.5 rounded-xl bg-muted p-3">
           {readiness.nativeCheckout.blockers.map((blocker) => (
             <Text key={blocker} className="text-xs text-muted-foreground">
-              {READINESS_BLOCKER_COPY[blocker]}
+              {t(READINESS_BLOCKER_COPY_KEYS[blocker])}
             </Text>
           ))}
         </View>
@@ -206,6 +215,7 @@ function ReadinessAxis({
 function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
 
   // The native catalogue is always present, so "nothing connected" means nothing
   // BESIDES it — a list that hid the native row would tell a merchant with fifty
@@ -214,15 +224,17 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
 
   return (
     <View className="gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Your channels</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.yourChannels")}
+      </Text>
       {external.length === 0 ? (
         <View className="items-center justify-center rounded-2xl border border-dashed border-border py-12">
           <Plug size={32} className="text-muted-foreground" />
           <Text className="mt-4 text-base font-semibold text-foreground">
-            Only your Mercaria catalog
+            {t("channels.empty.title")}
           </Text>
           <Text className="mt-1 max-w-sm text-center text-sm text-muted-foreground">
-            Connect a store or a product feed below to bring an existing catalog in.
+            {t("channels.empty.body")}
           </Text>
         </View>
       ) : null}
@@ -251,7 +263,7 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
               <View className="flex-1 gap-1">
                 <View className="flex-row flex-wrap items-center gap-2">
                   <Text className="text-sm font-semibold text-foreground">
-                    {CHANNEL_TYPE_NAME[channel.channelType]}
+                    {t(CHANNEL_TYPE_NAME_KEYS[channel.channelType])}
                   </Text>
                   <ChannelStateBadge state={channel.state} />
                   <NativeCheckoutBadge supported={channel.supportsNativeCheckout} />
@@ -259,22 +271,34 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
                 <Text className="text-xs text-muted-foreground">{channel.label}</Text>
                 <Text className="text-xs text-muted-foreground">
                   {channel.lastSyncAt
-                    ? `Last synced ${formatWhen(channel.lastSyncAt, "never")}`
-                    : "Never synced"}
+                    ? t("channels.lastSynced", {
+                        when: formatWhen(channel.lastSyncAt, t("channels.never")),
+                      })
+                    : t("channels.neverSynced")}
                   {channel.nextScheduledSyncAt
-                    ? ` · next ${formatWhen(channel.nextScheduledSyncAt, "unscheduled")}`
+                    ? t("channels.nextScheduled", {
+                        when: formatWhen(
+                          channel.nextScheduledSyncAt,
+                          t("channels.unscheduled"),
+                        ),
+                      })
                     : ""}
                 </Text>
                 {channel.pausedScopes.length > 0 ? (
                   <Text className="text-xs font-medium text-muted-foreground">
-                    Paused: {channel.pausedScopes.join(" and ")}
+                    {t("channels.pausedScopes", {
+                      scopes: channel.pausedScopes.join(t("channels.andJoin")),
+                    })}
                   </Text>
                 ) : null}
                 {channel.lastRunCounts ? (
                   <Text className="text-xs text-muted-foreground">
-                    Last run — {channel.lastRunCounts.created} created,{" "}
-                    {channel.lastRunCounts.updated} updated, {channel.lastRunCounts.skipped}{" "}
-                    skipped, {channel.lastRunCounts.failed} failed
+                    {t("channels.lastRunCounts", {
+                      created: channel.lastRunCounts.created,
+                      updated: channel.lastRunCounts.updated,
+                      skipped: channel.lastRunCounts.skipped,
+                      failed: channel.lastRunCounts.failed,
+                    })}
                   </Text>
                 ) : null}
               </View>
@@ -308,6 +332,7 @@ function AvailableChannels({
 }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const start = useStartChannelOnboarding(storeId);
 
   const connectedTypes = new Set(
@@ -324,7 +349,8 @@ function AvailableChannels({
   const onConnect = (descriptor: ChannelTypeDescriptor) => {
     start.mutate(descriptor.channelType, {
       onSuccess: (session) => router.push(`/channels/onboarding/${session.id}`),
-      onError: () => toast.error(`Couldn't start connecting ${descriptor.name}`),
+      onError: () =>
+        toast.error(t("channels.toast.startConnectFailed", { name: descriptor.name })),
     });
   };
 
@@ -341,7 +367,9 @@ function AvailableChannels({
 
   return (
     <View className="gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Add a channel</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.addChannel")}
+      </Text>
       <View className="gap-2">
         {descriptors
           .filter((descriptor) => descriptor.channelType !== "native")
@@ -378,14 +406,14 @@ function AvailableChannels({
                       {descriptor.availability === "not_implemented" ? (
                         <View className="rounded-full bg-muted px-2 py-0.5">
                           <Text className="text-[10px] font-semibold text-muted-foreground">
-                            Not available yet
+                            {t("channels.availability.notImplemented")}
                           </Text>
                         </View>
                       ) : null}
                       {descriptor.availability === "not_configured" ? (
                         <View className="rounded-full bg-muted px-2 py-0.5">
                           <Text className="text-[10px] font-semibold text-muted-foreground">
-                            Not configured here
+                            {t("channels.availability.notConfigured")}
                           </Text>
                         </View>
                       ) : null}
@@ -401,7 +429,7 @@ function AvailableChannels({
                       onPress={() => onConnect(descriptor)}
                     >
                       <Text className="text-xs font-semibold text-foreground">
-                        {taken ? "Connected" : "Connect"}
+                        {taken ? t("channels.state.connected") : t("channels.connect")}
                       </Text>
                     </Button>
                   ) : null}

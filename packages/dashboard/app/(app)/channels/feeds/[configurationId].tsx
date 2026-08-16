@@ -30,6 +30,7 @@ import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { formatWhen } from "@/components/channels/channel-presentation";
+import { useTranslation } from "@/lib/i18n";
 import type { FeedPreview, FeedVersion } from "@/lib/api/feeds";
 import {
   useActivateFeedVersion,
@@ -71,10 +72,11 @@ const COMMON_ROLES: readonly FeedFieldRole[] = [
 
 export default function FeedScreen() {
   const { configurationId } = useLocalSearchParams<{ configurationId: string }>();
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Product feed | Mercaria Dashboard</title>
+        <title>{t("feeds.detail.documentTitle")}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => <FeedBody storeId={storeId} configurationId={configurationId} />}
@@ -86,6 +88,7 @@ export default function FeedScreen() {
 function FeedBody({ storeId, configurationId }: { storeId: string; configurationId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const feed = useFeed(storeId, configurationId);
   const status = useFeedStatus(storeId, configurationId);
   const sync = useSyncFeed(storeId, configurationId);
@@ -96,21 +99,24 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">Back</Text>
+      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
     </Pressable>
   );
 
   if (feed.isPending) {
     return (
-      <Screen title="Product feed" action={back}>
+      <Screen title={t("feeds.detail.title")} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (feed.isError || !feed.data) {
     return (
-      <Screen title="Product feed" action={back}>
-        <ScreenMessage title="Feed not found" body="It may have been removed." />
+      <Screen title={t("feeds.detail.title")} action={back}>
+        <ScreenMessage
+          title={t("feeds.detail.notFound")}
+          body={t("feeds.detail.notFoundBody")}
+        />
       </Screen>
     );
   }
@@ -119,31 +125,38 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
   const active = versions.find((version) => version.status === "active");
 
   return (
-    <Screen title={configuration.label} subtitle="Product feed" action={back}>
+    <Screen title={configuration.label} subtitle={t("feeds.detail.title")} action={back}>
       <View className="gap-8">
         <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-          <Text className="text-sm font-semibold text-foreground">Status</Text>
+          <Text className="text-sm font-semibold text-foreground">{t("common.status")}</Text>
           {status.data?.source ? (
             <View className="gap-1">
               <Text className="text-xs text-muted-foreground">
                 {status.data.source.status} · {status.data.source.healthState}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                Last read {formatWhen(status.data.source.lastAttemptAt ?? undefined, "never")} ·
-                next {formatWhen(status.data.source.nextRunAt ?? undefined, "unscheduled")}
+                {t("feeds.detail.readSchedule", {
+                  last: formatWhen(
+                    status.data.source.lastAttemptAt ?? undefined,
+                    t("feeds.never"),
+                  ),
+                  next: formatWhen(
+                    status.data.source.nextRunAt ?? undefined,
+                    t("feeds.unscheduled"),
+                  ),
+                })}
               </Text>
               {status.data.source.lastError ? (
                 <Text className="text-xs text-destructive">{status.data.source.lastError}</Text>
               ) : null}
             </View>
           ) : (
-            <Text className="text-xs text-muted-foreground">
-              This feed has not been read yet.
-            </Text>
+            <Text className="text-xs text-muted-foreground">{t("feeds.detail.neverRead")}</Text>
           )}
           <Text className="text-xs text-muted-foreground">
-            Identity columns: {configuration.identityKeyFields.join(", ")} — frozen for the life
-            of this feed.
+            {t("feeds.detail.identityColumns", {
+              columns: configuration.identityKeyFields.join(", "),
+            })}
           </Text>
           <Button
             variant="outline"
@@ -151,15 +164,17 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
             disabled={active === undefined}
             onPress={() =>
               sync.mutate(undefined, {
-                onSuccess: () => toast.success("Sync started"),
-                onError: () => toast.error("Couldn't start the sync"),
+                onSuccess: () => toast.success(t("feeds.toast.syncStarted")),
+                onError: () => toast.error(t("feeds.toast.syncStartFailed")),
               })
             }
           >
             <View className="flex-row items-center gap-1.5">
               <RefreshCw size={14} color={colors.foreground} />
               <Text className="text-xs font-semibold text-foreground">
-                {active === undefined ? "Activate a mapping first" : "Sync now"}
+                {active === undefined
+                  ? t("feeds.detail.activateMappingFirst")
+                  : t("feeds.detail.syncNow")}
               </Text>
             </View>
           </Button>
@@ -167,7 +182,9 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
 
         {status.data && status.data.runs.length > 0 ? (
           <View className="gap-3">
-            <Text className="text-sm font-semibold text-muted-foreground">Recent runs</Text>
+            <Text className="text-sm font-semibold text-muted-foreground">
+              {t("feeds.detail.recentRuns")}
+            </Text>
             {status.data.runs.map((run) => (
               <View key={run.id} className="rounded-2xl border border-border bg-surface p-4">
                 <Text className="text-sm font-semibold text-foreground">
@@ -175,12 +192,17 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
                   {run.outcome ? ` · ${run.outcome}` : ""}
                 </Text>
                 <Text className="mt-0.5 text-xs text-muted-foreground">
-                  {formatWhen(run.startedAt, "unknown")}
+                  {formatWhen(run.startedAt, t("common.unknown"))}
                 </Text>
                 <Text className="mt-1 text-xs text-muted-foreground">
-                  {run.fetched} read · {run.stored} stored · {run.unchanged} unchanged ·{" "}
-                  {run.rejected} rejected · {run.offersUpserted} listed · {run.offersRetired}{" "}
-                  retired
+                  {t("feeds.detail.runCounts", {
+                    fetched: run.fetched,
+                    stored: run.stored,
+                    unchanged: run.unchanged,
+                    rejected: run.rejected,
+                    listed: run.offersUpserted,
+                    retired: run.offersRetired,
+                  })}
                 </Text>
               </View>
             ))}
@@ -205,6 +227,7 @@ function Versions({
   configurationId: string;
   versions: FeedVersion[];
 }) {
+  const { t } = useTranslation();
   const preview = usePreviewFeedVersion(storeId, configurationId);
   const validate = useValidateFeedVersion(storeId, configurationId);
   const activate = useActivateFeedVersion(storeId, configurationId);
@@ -215,9 +238,11 @@ function Versions({
   if (versions.length === 0) {
     return (
       <View className="items-center justify-center rounded-2xl border border-dashed border-border py-10">
-        <Text className="text-sm font-semibold text-foreground">No mapping yet</Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {t("feeds.versions.empty")}
+        </Text>
         <Text className="mt-1 max-w-sm text-center text-xs text-muted-foreground">
-          Describe your file below and map its columns onto Mercaria&apos;s fields.
+          {t("feeds.versions.emptyBody")}
         </Text>
       </View>
     );
@@ -225,11 +250,15 @@ function Versions({
 
   return (
     <View className="gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Mappings</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("feeds.versions.title")}
+      </Text>
       {versions.map((version) => (
         <View key={version.id} className="gap-3 rounded-2xl border border-border bg-surface p-4">
           <View className="flex-row items-center gap-2">
-            <Text className="text-sm font-semibold text-foreground">Version {version.version}</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t("feeds.versions.version", { version: version.version })}
+            </Text>
             <View
               className={`rounded-full px-2 py-0.5 ${
                 version.status === "active" ? "bg-primary/10" : "bg-muted"
@@ -245,35 +274,46 @@ function Versions({
             </View>
           </View>
           <Text className="text-xs text-muted-foreground">
-            {version.format.toUpperCase()} · {version.deliveryMode === "snapshot"
-              ? "full snapshot"
-              : "changes only"}
-            {version.fetchMode === "url" ? " · fetched over HTTPS" : " · uploaded"}
+            {t("feeds.versions.summary", {
+              format: version.format.toUpperCase(),
+              delivery:
+                version.deliveryMode === "snapshot"
+                  ? t("feeds.versions.deliveryFullSnapshot")
+                  : t("feeds.versions.deliveryChangesOnly"),
+              fetch:
+                version.fetchMode === "url"
+                  ? t("feeds.versions.fetchedOverHttps")
+                  : t("feeds.versions.uploaded"),
+            })}
           </Text>
 
           {previewed?.versionId === version.id ? (
             <View className="gap-2 rounded-xl bg-muted p-3">
               <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
-                Preview
+                {t("feeds.versions.preview")}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {previewed.result.counts.scanned} read · {previewed.result.counts.valid} valid ·{" "}
-                {previewed.result.counts.invalid} invalid · {previewed.result.counts.matched}{" "}
-                matched · {previewed.result.counts.created} new ·{" "}
-                {previewed.result.counts.review} to review
+                {t("feeds.versions.previewCounts", {
+                  scanned: previewed.result.counts.scanned,
+                  valid: previewed.result.counts.valid,
+                  invalid: previewed.result.counts.invalid,
+                  matched: previewed.result.counts.matched,
+                  created: previewed.result.counts.created,
+                  review: previewed.result.counts.review,
+                })}
               </Text>
               {previewed.result.counts.scanned === 0 ? (
                 <Text className="text-xs text-destructive">
-                  The preview read nothing. An empty result and a mapping that matches no rows look
-                  identical — check the file and the record path before activating.
+                  {t("feeds.versions.previewReadNothing")}
                 </Text>
               ) : null}
               {previewed.result.suggestions.length > 0 ? (
                 <Text className="text-xs text-muted-foreground">
-                  Suggested columns:{" "}
-                  {previewed.result.suggestions
-                    .map((suggestion) => `${suggestion.sourceField} → ${suggestion.role}`)
-                    .join(", ")}
+                  {t("feeds.versions.suggestedColumns", {
+                    columns: previewed.result.suggestions
+                      .map((suggestion) => `${suggestion.sourceField} → ${suggestion.role}`)
+                      .join(", "),
+                  })}
                 </Text>
               ) : null}
             </View>
@@ -287,11 +327,13 @@ function Versions({
               onPress={() =>
                 preview.mutate(version.id, {
                   onSuccess: (result) => setPreviewed({ versionId: version.id, result }),
-                  onError: () => toast.error("Couldn't preview the feed"),
+                  onError: () => toast.error(t("feeds.toast.previewFailed")),
                 })
               }
             >
-              <Text className="text-xs font-semibold text-foreground">Preview</Text>
+              <Text className="text-xs font-semibold text-foreground">
+                {t("feeds.versions.preview")}
+              </Text>
             </Button>
             <Button
               variant="outline"
@@ -301,13 +343,18 @@ function Versions({
                 validate.mutate(version.id, {
                   onSuccess: (report) =>
                     toast.success(
-                      `Checked ${report.scanned} records — ${report.invalid} need attention`,
+                      t("feeds.toast.checked", {
+                        scanned: report.scanned,
+                        invalid: report.invalid,
+                      }),
                     ),
-                  onError: () => toast.error("Couldn't check the feed"),
+                  onError: () => toast.error(t("feeds.toast.checkFailed")),
                 })
               }
             >
-              <Text className="text-xs font-semibold text-foreground">Check whole feed</Text>
+              <Text className="text-xs font-semibold text-foreground">
+                {t("feeds.versions.checkWholeFeed")}
+              </Text>
             </Button>
             {version.status === "draft" ? (
               <Button
@@ -319,14 +366,16 @@ function Versions({
                   activate.mutate(
                     { versionId: version.id, reportId: version.validatedReportId },
                     {
-                      onSuccess: () => toast.success("Mapping activated"),
-                      onError: () => toast.error("Couldn't activate the mapping"),
+                      onSuccess: () => toast.success(t("feeds.toast.mappingActivated")),
+                      onError: () => toast.error(t("feeds.toast.mappingActivateFailed")),
                     },
                   );
                 }}
               >
                 <Text className="text-xs font-semibold text-primary-foreground">
-                  {version.validatedReportId === null ? "Check it first" : "Activate"}
+                  {version.validatedReportId === null
+                    ? t("feeds.versions.checkItFirst")
+                    : t("feeds.versions.activate")}
                 </Text>
               </Button>
             ) : null}
@@ -345,6 +394,7 @@ function DraftVersion({
   storeId: string;
   configurationId: string;
 }) {
+  const { t } = useTranslation();
   const draft = useDraftFeedVersion(storeId, configurationId);
   const [feedUrl, setFeedUrl] = useState("");
   const [format, setFormat] = useState<FeedFormat>("csv");
@@ -362,15 +412,15 @@ function DraftVersion({
 
   const submit = () => {
     if (!feedUrl.trim().startsWith("https://")) {
-      toast.error("The feed URL must start with https://");
+      toast.error(t("feeds.toast.urlMustBeHttps"));
       return;
     }
     if (deliveryMode === null) {
-      toast.error("Choose whether the file is a full snapshot or only changes");
+      toast.error(t("feeds.toast.deliveryModeRequired"));
       return;
     }
     if (!fieldMappings.some((mapping) => mapping.role === "title")) {
-      toast.error("Map a column onto the product title");
+      toast.error(t("feeds.toast.titleMappingRequired"));
       return;
     }
     draft.mutate(
@@ -383,36 +433,33 @@ function DraftVersion({
       },
       {
         onSuccess: () => {
-          toast.success("Mapping saved — preview it before activating");
+          toast.success(t("feeds.toast.mappingSaved"));
           setColumns({});
         },
-        onError: () => toast.error("Couldn't save the mapping"),
+        onError: () => toast.error(t("feeds.toast.mappingSaveFailed")),
       },
     );
   };
 
   return (
     <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">New mapping</Text>
+      <Text className="text-sm font-semibold text-foreground">{t("feeds.draft.title")}</Text>
 
       <View className="gap-1.5">
-        <Label>Feed URL</Label>
+        <Label>{t("feeds.draft.urlLabel")}</Label>
         <Input
           value={feedUrl}
           onChangeText={setFeedUrl}
-          placeholder="https://example.com/products.csv"
+          placeholder={t("feeds.draft.urlPlaceholder")}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
         />
-        <Text className="text-xs text-muted-foreground">
-          HTTPS only. Mercaria stores this privately and only ever shows you the host — a feed URL
-          often carries an access key.
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t("feeds.draft.urlHint")}</Text>
       </View>
 
       <View className="gap-1.5">
-        <Label>Format</Label>
+        <Label>{t("feeds.draft.formatLabel")}</Label>
         <ToggleGroup
           type="single"
           value={format}
@@ -429,7 +476,7 @@ function DraftVersion({
       </View>
 
       <View className="gap-1.5">
-        <Label>What does this file contain?</Label>
+        <Label>{t("feeds.draft.deliveryLabel")}</Label>
         <ToggleGroup
           type="single"
           value={deliveryMode ?? ""}
@@ -438,32 +485,27 @@ function DraftVersion({
           }}
         >
           <ToggleGroupItem value="snapshot">
-            <Text className="text-xs font-medium">Everything I sell</Text>
+            <Text className="text-xs font-medium">{t("feeds.draft.deliverySnapshot")}</Text>
           </ToggleGroupItem>
           <ToggleGroupItem value="delta">
-            <Text className="text-xs font-medium">Only what changed</Text>
+            <Text className="text-xs font-medium">{t("feeds.draft.deliveryDelta")}</Text>
           </ToggleGroupItem>
         </ToggleGroup>
-        <Text className="text-xs text-muted-foreground">
-          There is no default, on purpose. If the file lists everything you sell, a product missing
-          from it is one you stopped selling and Mercaria will delist it. If it lists only changes,
-          a missing product means nothing and Mercaria will leave it alone. Getting this wrong
-          either delists a healthy catalog or keeps sold-out products on sale.
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t("feeds.draft.deliveryHint")}</Text>
       </View>
 
       <View className="gap-2">
-        <Label>Map your columns</Label>
+        <Label>{t("feeds.draft.columnsLabel")}</Label>
         {COMMON_ROLES.map((role) => (
           <View key={role} className="gap-1">
             <Text className="text-xs font-medium text-muted-foreground">
               {role.replace(/_/g, " ")}
-              {role === "title" ? " (required)" : ""}
+              {role === "title" ? t("feeds.draft.requiredSuffix") : ""}
             </Text>
             <Input
               value={columns[role] ?? ""}
               onChangeText={(value) => setColumns((prev) => ({ ...prev, [role]: value }))}
-              placeholder="your column name"
+              placeholder={t("feeds.draft.columnPlaceholder")}
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -472,7 +514,7 @@ function DraftVersion({
       </View>
 
       <Button onPress={submit} isLoading={draft.isPending}>
-        <Text className="font-semibold text-primary-foreground">Save mapping</Text>
+        <Text className="font-semibold text-primary-foreground">{t("feeds.draft.save")}</Text>
       </Button>
     </View>
   );
@@ -480,24 +522,30 @@ function DraftVersion({
 
 /** The validation and import reports, and the CSV a merchant downloads. */
 function Reports({ storeId, configurationId }: { storeId: string; configurationId: string }) {
+  const { t } = useTranslation();
   const reports = useFeedReports(storeId, configurationId);
   if (reports.isPending || reports.isError || (reports.data ?? []).length === 0) return null;
 
   return (
     <View className="gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Reports</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("feeds.reports.title")}
+      </Text>
       {(reports.data ?? []).map((report) => (
         <View key={report.id} className="rounded-2xl border border-border bg-surface p-4">
           <Text className="text-sm font-semibold text-foreground">{report.mode}</Text>
           <Text className="mt-0.5 text-xs text-muted-foreground">
-            {formatWhen(report.createdAt, "unknown")}
+            {formatWhen(report.createdAt, t("common.unknown"))}
           </Text>
           <Text className="mt-1 text-xs text-muted-foreground">
-            {report.scanned} read · {report.valid} valid · {report.invalid} need attention
+            {t("feeds.reports.counts", {
+              scanned: report.scanned,
+              valid: report.valid,
+              invalid: report.invalid,
+            })}
           </Text>
           <Text className="mt-1 text-[11px] text-muted-foreground">
-            The downloadable report gives the row number and what was wrong with it — never the
-            values, since you already have the file.
+            {t("feeds.reports.note")}
           </Text>
         </View>
       ))}

@@ -9,13 +9,15 @@ import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen"
 import { RequireStore } from "@/components/shell/RequireStore";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
 import { useCustomer, useCustomerOrders } from "@/lib/hooks/use-customers";
+import { useTranslation } from "@/lib/i18n";
 
 export default function CustomerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Customer | Mercaria Dashboard</title>
+        <title>{t("customers.detail.documentTitle")}</title>
       </Head>
       <RequireStore permission="customers:read">
         {(storeId) => <CustomerDetailBody storeId={storeId} customerId={String(id)} />}
@@ -27,6 +29,7 @@ export default function CustomerDetailScreen() {
 function CustomerDetailBody({ storeId, customerId }: { storeId: string; customerId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const customer = useCustomer(storeId, customerId);
   const orders = useCustomerOrders(storeId, customerId);
 
@@ -36,38 +39,46 @@ function CustomerDetailBody({ storeId, customerId }: { storeId: string; customer
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">Back</Text>
+      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
     </Pressable>
   );
 
   if (customer.isPending) {
     return (
-      <Screen title="Customer" action={back}>
+      <Screen title={t("customers.detail.title")} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (customer.isError || !customer.data) {
     return (
-      <Screen title="Customer" action={back}>
-        <ScreenMessage title="Couldn't load customer" body="Please try again." />
+      <Screen title={t("customers.detail.title")} action={back}>
+        <ScreenMessage
+          title={t("customers.detail.loadError")}
+          body={t("common.pleaseTryAgain")}
+        />
       </Screen>
     );
   }
 
   const c = customer.data;
-  const name = c.displayName ?? c.email ?? (c.isWalkIn ? "Walk-in customer" : "Customer");
+  const name =
+    c.displayName ?? c.email ?? (c.isWalkIn ? t("customers.walkIn") : t("customers.fallbackName"));
 
   return (
-    <Screen title={name} subtitle="Customer detail" action={back}>
+    <Screen title={name} subtitle={t("customers.detail.subtitle")} action={back}>
       <View className="gap-5">
         <CustomerCard customer={c} name={name} />
         <View className="rounded-2xl border border-border bg-surface p-4">
-          <Text className="mb-3 text-sm font-semibold text-foreground">Orders</Text>
+          <Text className="mb-3 text-sm font-semibold text-foreground">
+            {t("customers.detail.orders")}
+          </Text>
           {orders.isPending ? (
             <ScreenLoading />
           ) : (orders.data?.length ?? 0) === 0 ? (
-            <Text className="text-sm text-muted-foreground">No orders yet.</Text>
+            <Text className="text-sm text-muted-foreground">
+              {t("customers.detail.noOrders")}
+            </Text>
           ) : (
             <View className="gap-2">
               {orders.data?.map((order) => (
@@ -83,6 +94,7 @@ function CustomerDetailBody({ storeId, customerId }: { storeId: string; customer
 
 function CustomerCard({ customer, name }: { customer: Customer; name: string }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <View className="flex-row items-center gap-3">
@@ -101,11 +113,15 @@ function CustomerCard({ customer, name }: { customer: Customer; name: string }) 
       </View>
       <View className="mt-4 flex-row gap-4">
         <View className="flex-1">
-          <Text className="text-xs uppercase text-muted-foreground">Orders</Text>
+          <Text className="text-xs uppercase text-muted-foreground">
+            {t("customers.detail.orders")}
+          </Text>
           <Text className="text-lg font-bold text-foreground">{customer.stats.orderCount}</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-xs uppercase text-muted-foreground">Lifetime spend</Text>
+          <Text className="text-xs uppercase text-muted-foreground">
+            {t("customers.detail.lifetimeSpend")}
+          </Text>
           <PriceDisplay price={customer.stats.totalSpent} primaryClassName="text-lg font-bold" />
         </View>
       </View>

@@ -3,19 +3,36 @@ import { View, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Package, ChevronLeft, ChevronRight } from "lucide-react-native";
-import type { Listing } from "@mercaria/shared-types";
+import type { Listing, ListingStatus } from "@mercaria/shared-types";
 import { Text, Button, Input, PriceDisplay, SourceBadge, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { useTranslation } from "@/lib/i18n";
 import { useProducts } from "@/lib/hooks/use-products";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 
+/**
+ * Translation KEYS per listing status, not sentences (#398).
+ *
+ * Evaluated once at import, before the locale store has rehydrated, so a
+ * resolved label here would freeze whatever language loaded first. The row
+ * resolves `t(STATUS_LABEL_KEYS[status])` instead.
+ */
+const STATUS_LABEL_KEYS: Record<ListingStatus, string> = {
+  draft: "products.status.draft",
+  active: "products.status.active",
+  sold: "products.status.sold",
+  archived: "products.status.archived",
+  restricted: "products.status.restricted",
+};
+
 export default function ProductsScreen() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Products | Mercaria Dashboard</title>
+        <title>{t("products.documentTitle")}</title>
       </Head>
       <RequireStore permission="products:read">
         {(storeId) => <ProductsBody storeId={storeId} />}
@@ -26,6 +43,7 @@ export default function ProductsScreen() {
 
 function ProductsBody({ storeId }: { storeId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
   const [page, setPage] = useState(1);
@@ -46,7 +64,7 @@ function ProductsBody({ storeId }: { storeId: string }) {
         <Button onPress={() => router.push("/products/new")}>
           <View className="flex-row items-center gap-2">
             <Plus size={16} color={colors.primaryForeground} />
-            <Text className="font-semibold text-primary-foreground">Add product</Text>
+            <Text className="font-semibold text-primary-foreground">{t("products.addProduct")}</Text>
           </View>
         </Button>
       </View>
@@ -55,15 +73,15 @@ function ProductsBody({ storeId }: { storeId: string }) {
     );
 
   return (
-    <Screen title="Products" subtitle="Your store catalog" action={action}>
+    <Screen title={t("products.title")} subtitle={t("products.subtitle")} action={action}>
       <View className="mb-4">
-        <Input value={search} onChangeText={setSearch} placeholder="Search products on this page…" />
+        <Input value={search} onChangeText={setSearch} placeholder={t("products.searchPlaceholder")} />
       </View>
 
       {isPending ? (
         <ScreenLoading />
       ) : isError ? (
-        <ScreenMessage title="Couldn't load products" body="Please try again." />
+        <ScreenMessage title={t("products.loadFailed")} body={t("common.pleaseTryAgain")} />
       ) : filtered.length === 0 ? (
         <EmptyProducts canWrite={can("products:write")} onCreate={() => router.push("/products/new")} />
       ) : (
@@ -98,6 +116,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 function ProductRow({ product, onPress }: { product: Listing; onPress: () => void }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={onPress}
@@ -111,15 +130,17 @@ function ProductRow({ product, onPress }: { product: Listing; onPress: () => voi
           {product.title}
         </Text>
         <Text className="text-xs text-muted-foreground">
-          {product.variants.length} variant{product.variants.length === 1 ? "" : "s"} ·{" "}
-          {product.quantity} in stock
+          {t("products.row.variantsInStock", {
+            count: product.variants.length,
+            stock: product.quantity,
+          })}
         </Text>
         {product.source ? <SourceBadge provider={product.source.provider} /> : null}
       </View>
       <PriceDisplay price={product.price} primaryClassName="text-sm font-semibold" />
       <View className={`rounded-full px-2 py-1 ${STATUS_STYLES[product.status] ?? "bg-muted"}`}>
         <Text className={`text-[10px] font-semibold capitalize ${STATUS_STYLES[product.status]?.split(" ")[1] ?? "text-muted-foreground"}`}>
-          {product.status}
+          {t(STATUS_LABEL_KEYS[product.status])}
         </Text>
       </View>
     </Pressable>
@@ -127,14 +148,15 @@ function ProductRow({ product, onPress }: { product: Listing; onPress: () => voi
 }
 
 function EmptyProducts({ canWrite, onCreate }: { canWrite: boolean; onCreate: () => void }) {
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   return (
     <View className="items-center justify-center rounded-2xl border border-dashed border-border py-16">
       <Package size={36} color={colors.mutedForeground} />
-      <Text className="mt-4 text-base font-semibold text-foreground">No products yet</Text>
+      <Text className="mt-4 text-base font-semibold text-foreground">{t("products.empty.title")}</Text>
       {canWrite ? (
         <Button className="mt-6" onPress={onCreate}>
-          <Text className="font-semibold text-primary-foreground">Add your first product</Text>
+          <Text className="font-semibold text-primary-foreground">{t("products.empty.action")}</Text>
         </Button>
       ) : null}
     </View>
@@ -152,6 +174,7 @@ function Pagination({
   onPrev: () => void;
   onNext: () => void;
 }) {
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   return (
     <View className="mt-4 flex-row items-center justify-center gap-4">
@@ -163,7 +186,7 @@ function Pagination({
         <ChevronLeft size={18} color={colors.foreground} />
       </Pressable>
       <Text className="text-sm text-muted-foreground">
-        Page {page} of {pages}
+        {t("common.pageOf", { current: page, total: pages })}
       </Text>
       <Pressable
         onPress={onNext}

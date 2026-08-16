@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useRouter } from "expo-router";
 import type { Money } from "@mercaria/shared-types";
 import { Text, Button, PriceDisplay } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 interface ChargeButtonProps {
   /** Cart total shown in the label (formatted via PriceDisplay — never by hand). */
@@ -20,10 +21,13 @@ interface ChargeButtonProps {
  */
 export function ChargeButton({ total, disabled, className }: ChargeButtonProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   return (
     <Button onPress={() => router.push("/charge")} disabled={disabled} className={className}>
       <View className="flex-row items-center gap-2">
-        <Text className="text-base font-semibold text-primary-foreground">Charge</Text>
+        <Text className="text-base font-semibold text-primary-foreground">
+          {t("charge.action")}
+        </Text>
         <PriceDisplay
           price={total}
           primaryClassName="text-base font-bold text-primary-foreground"

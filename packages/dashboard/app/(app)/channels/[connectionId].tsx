@@ -43,18 +43,20 @@ import {
   DialogDescription,
   DialogFooter,
   useColorScheme,
+  type Translate,
 } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { CollectionMapping } from "@/components/channels/CollectionMapping";
 import {
-  WEBHOOK_FAILURE_REASON_COPY,
+  WEBHOOK_FAILURE_REASON_COPY_KEYS,
   ChannelCoverage,
   deriveWebhookDelivery,
   describeOrderHorizon,
   formatWhen,
 } from "@/components/channels/channel-presentation";
+import { useTranslation } from "@/lib/i18n";
 import {
   useChannelCatalog,
   useChannels,
@@ -71,27 +73,35 @@ import {
   useSyncChannel,
 } from "@/lib/hooks/use-channels";
 
-const PROVIDER_NAME: Record<Connection["provider"], string> = {
-  shopify: "Shopify",
-  woocommerce: "WooCommerce",
-  etsy: "Etsy",
-  prestashop: "PrestaShop",
-  magento: "Magento",
+/**
+ * Translation KEYS rather than sentences (#398) — module scope is evaluated at
+ * import, before the locale store has rehydrated. The provider names are the
+ * SHARED `channels.type.*` keys the channel list already renders: a provider and
+ * a channel type are different things (the WooCommerce plugin and the
+ * WooCommerce connector share a provider id), but "Shopify" is one word to a
+ * merchant and two keys carrying it are two things a translator can disagree on.
+ */
+const PROVIDER_NAME_KEYS: Record<Connection["provider"], string> = {
+  shopify: "channels.type.shopify",
+  woocommerce: "channels.type.woocommerce",
+  etsy: "channels.type.etsy",
+  prestashop: "channels.type.prestashop",
+  magento: "channels.type.magento",
 };
 
-const STATUS_LABEL: Record<ConnectionStatus, string> = {
-  connected: "Connected",
-  error: "Needs attention",
-  disconnected: "Disconnected",
+const STATUS_LABEL_KEYS: Record<ConnectionStatus, string> = {
+  connected: "channels.state.connected",
+  error: "channels.state.needsAttention",
+  disconnected: "channels.status.disconnected",
 };
 
 const DIRECTIONS: readonly SyncResourceDirection[] = ["off", "pull", "push", "bidirectional"];
 
-const DIRECTION_LABEL: Record<SyncResourceDirection, string> = {
-  off: "Off",
-  pull: "Pull",
-  push: "Push",
-  bidirectional: "Both",
+const DIRECTION_LABEL_KEYS: Record<SyncResourceDirection, string> = {
+  off: "channels.syncDirection.off",
+  pull: "channels.syncDirection.pull",
+  push: "channels.syncDirection.push",
+  bidirectional: "channels.syncDirection.both",
 };
 
 function isSyncDirection(value: string): value is SyncResourceDirection {
@@ -99,19 +109,20 @@ function isSyncDirection(value: string): value is SyncResourceDirection {
 }
 
 /** Human-readable timestamp, or a fallback when a channel has never synced. */
-function formatSyncedAt(iso: string | undefined): string {
-  if (!iso) return "This channel hasn't synced yet.";
+function formatSyncedAt(iso: string | undefined, t: Translate): string {
+  if (!iso) return t("channels.settings.neverSyncedYet");
   const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return "This channel hasn't synced yet.";
-  return `Last synced ${when.toLocaleString()}`;
+  if (Number.isNaN(when.getTime())) return t("channels.settings.neverSyncedYet");
+  return t("channels.lastSynced", { when: when.toLocaleString() });
 }
 
 export default function ChannelSettingsScreen() {
   const { connectionId } = useLocalSearchParams<{ connectionId: string }>();
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Channel settings | Mercaria Dashboard</title>
+        <title>{t("channels.settings.documentTitle")}</title>
       </Head>
       <RequireStore permission="channels:write">
         {(storeId) => (
@@ -131,6 +142,7 @@ function ChannelSettingsBody({
 }) {
   const router = useRouter();
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   // The list endpoint is the only source of a connection DTO (no single-GET
   // route exists), so the detail screen reads from the shared channels query.
   const { data, isPending, isError } = useChannels(storeId);
@@ -143,23 +155,23 @@ function ChannelSettingsBody({
       className="h-9 flex-row items-center gap-1 rounded-lg border border-border px-3 active:opacity-70"
     >
       <ChevronLeft size={16} color={colors.foreground} />
-      <Text className="text-sm font-medium text-foreground">Back</Text>
+      <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
     </Pressable>
   );
 
   if (isPending) {
     return (
-      <Screen title="Channel settings" action={back}>
+      <Screen title={t("channels.settings.title")} action={back}>
         <ScreenLoading />
       </Screen>
     );
   }
   if (isError || !connection) {
     return (
-      <Screen title="Channel settings" action={back}>
+      <Screen title={t("channels.settings.title")} action={back}>
         <ScreenMessage
-          title="Channel not found"
-          body="This connection may have been disconnected."
+          title={t("channels.settings.notFound")}
+          body={t("channels.settings.notFoundBody")}
         />
       </Screen>
     );
@@ -167,7 +179,9 @@ function ChannelSettingsBody({
 
   return (
     <Screen
-      title={`${PROVIDER_NAME[connection.provider]} settings`}
+      title={t("channels.settings.providerTitle", {
+        provider: t(PROVIDER_NAME_KEYS[connection.provider]),
+      })}
       subtitle={connection.shopDomain}
       action={back}
     >
@@ -204,9 +218,10 @@ function ChannelSettingsBody({
  */
 function ChannelScope({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data: catalog } = useChannelCatalog(storeId);
   const descriptor = catalog?.find((entry) => entry.channelType === connection.channelType);
-  const horizon = describeOrderHorizon(connection.orderHorizon);
+  const horizon = describeOrderHorizon(connection.orderHorizon, t);
 
   // The catalog is a separate query, so it can still be in flight. Rendering a
   // partial answer here would be worse than rendering none: half a coverage list
@@ -215,7 +230,9 @@ function ChannelScope({ storeId, connection }: { storeId: string; connection: Co
 
   return (
     <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-muted-foreground">What this channel carries</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.scope.title")}
+      </Text>
 
       {horizon ? (
         <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
@@ -232,6 +249,7 @@ function ChannelScope({ storeId, connection }: { storeId: string; connection: Co
 }
 
 function SettingsForm({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const { t } = useTranslation();
   const update = useUpdateChannelSettings(storeId);
   const [products, setProducts] = useState<SyncResourceDirection>(
     connection.syncSettings.products,
@@ -263,8 +281,8 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
         },
       },
       {
-        onSuccess: () => toast.success("Channel settings saved"),
-        onError: () => toast.error("Couldn't save channel settings"),
+        onSuccess: () => toast.success(t("channels.toast.settingsSaved")),
+        onError: () => toast.error(t("channels.toast.settingsSaveFailed")),
       },
     );
   };
@@ -272,22 +290,24 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
   return (
     <View className="gap-5">
       <View className="gap-4 rounded-2xl border border-border bg-surface p-4">
-        <Text className="text-sm font-semibold text-foreground">Sync directions</Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {t("channels.settings.syncDirections")}
+        </Text>
         <DirectionField
-          label="Products"
-          hint="The product catalog (titles, images, prices, variants)."
+          label={t("channels.entity.products")}
+          hint={t("channels.settings.productsHint")}
           value={products}
           onChange={setProducts}
         />
         <DirectionField
-          label="Inventory"
-          hint="Stock levels at your synced location."
+          label={t("channels.settings.inventoryLabel")}
+          hint={t("channels.settings.inventoryHint")}
           value={inventory}
           onChange={setInventory}
         />
         <DirectionField
-          label="Orders"
-          hint="Orders placed on the external channel."
+          label={t("channels.entity.orders")}
+          hint={t("channels.settings.ordersHint")}
           value={orders}
           onChange={setOrders}
         />
@@ -296,9 +316,11 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
       <View className="rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-center justify-between gap-4 py-1">
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground">Auto-publish</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t("channels.settings.autoPublish")}
+            </Text>
             <Text className="text-xs text-muted-foreground">
-              Publish pulled products immediately. When off, they land as drafts for review.
+              {t("channels.settings.autoPublishHint")}
             </Text>
           </View>
           <Switch value={autoPublish} onValueChange={setAutoPublish} />
@@ -308,10 +330,11 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
       <View className="rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-center justify-between gap-4 py-1">
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground">Keep my local edits</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t("channels.settings.keepLocalEdits")}
+            </Text>
             <Text className="text-xs text-muted-foreground">
-              When on, a field you edited in Mercaria is never overwritten by a later sync. When
-              off, the channel always wins.
+              {t("channels.settings.keepLocalEditsHint")}
             </Text>
           </View>
           <Switch value={respectOverrides} onValueChange={setRespectOverrides} />
@@ -319,7 +342,9 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
       </View>
 
       <Button onPress={save} isLoading={update.isPending} className="self-start">
-        <Text className="font-semibold text-primary-foreground">Save settings</Text>
+        <Text className="font-semibold text-primary-foreground">
+          {t("channels.settings.save")}
+        </Text>
       </Button>
     </View>
   );
@@ -336,6 +361,7 @@ function DirectionField({
   value: SyncResourceDirection;
   onChange: (direction: SyncResourceDirection) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="gap-2">
       <View>
@@ -351,7 +377,7 @@ function DirectionField({
       >
         {DIRECTIONS.map((direction) => (
           <ToggleGroupItem key={direction} value={direction}>
-            {DIRECTION_LABEL[direction]}
+            {t(DIRECTION_LABEL_KEYS[direction])}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
@@ -367,18 +393,18 @@ function DirectionField({
  * sentence somebody rewrites next month must not require a migration. The stored
  * `detail` is the specific half and is rendered beside it.
  */
-const RECORD_FAILURE_REASON_COPY: Record<SyncRecordFailureReason, string> = {
-  refused_by_rule: "Refused by a Mercaria rule",
-  duplicate_record: "Duplicate of a record already imported",
-  database_refused: "The database refused the write",
-  unclassified: "Unrecognised failure",
+const RECORD_FAILURE_REASON_COPY_KEYS: Record<SyncRecordFailureReason, string> = {
+  refused_by_rule: "channels.runFailures.reason.refusedByRule",
+  duplicate_record: "channels.runFailures.reason.duplicateRecord",
+  database_refused: "channels.runFailures.reason.databaseRefused",
+  unclassified: "channels.runFailures.reason.unclassified",
 };
 
 /** What KIND of record a refusal was about, so a merchant searches the right list. */
-const RECORD_SUBJECT_COPY: Record<SyncRecordFailure["subjectType"], string> = {
-  product: "Product",
-  order: "Order",
-  inventory_item: "Inventory item",
+const RECORD_SUBJECT_COPY_KEYS: Record<SyncRecordFailure["subjectType"], string> = {
+  product: "channels.runFailures.subject.product",
+  order: "channels.runFailures.subject.order",
+  inventory_item: "channels.runFailures.subject.inventoryItem",
 };
 
 /**
@@ -399,6 +425,7 @@ function RunRecordFailures({
   connectionId: string;
   run: SyncRun;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const failures = useChannelRunRecordFailures(storeId, connectionId, run.id, open);
 
@@ -406,7 +433,7 @@ function RunRecordFailures({
     return (
       <Pressable className="mt-2 self-start" onPress={() => setOpen(true)}>
         <Text className="text-xs font-semibold text-primary">
-          Show which {run.counts.failed === 1 ? "record" : "records"} did not land
+          {t("channels.runFailures.show", { count: run.counts.failed })}
         </Text>
       </Pressable>
     );
@@ -415,40 +442,45 @@ function RunRecordFailures({
   return (
     <View className="mt-2 gap-2 rounded-xl bg-muted p-3">
       {failures.isPending ? (
-        <Text className="text-xs text-muted-foreground">Loading…</Text>
+        <Text className="text-xs text-muted-foreground">{t("common.loading")}</Text>
       ) : failures.isError ? (
         <Text className="text-xs text-muted-foreground">
-          Couldn&rsquo;t load the records this sync refused.
+          {t("channels.runFailures.loadFailed")}
         </Text>
       ) : (failures.data?.failures ?? []).length === 0 ? (
         // Not "nothing failed" — the run's own tally says otherwise. A run that
         // failed as a whole records no per-record rows, and rows older than the
         // retention window are gone, so this says what is KNOWN rather than
         // contradicting the count above it.
-        <Text className="text-xs text-muted-foreground">
-          No per-record reasons are stored for this sync.
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t("channels.runFailures.none")}</Text>
       ) : (
         <View className="gap-2">
           {(failures.data?.failures ?? []).map((failure) => (
             <View key={failure.id}>
               <Text className="text-xs font-semibold text-foreground">
-                {RECORD_SUBJECT_COPY[failure.subjectType]}
-                {failure.externalId ? ` ${failure.externalId}` : ""} &middot;{" "}
-                {RECORD_FAILURE_REASON_COPY[failure.reason]}
+                {t("channels.runFailures.line", {
+                  subject: t(RECORD_SUBJECT_COPY_KEYS[failure.subjectType]),
+                  externalId: failure.externalId ? ` ${failure.externalId}` : "",
+                  reason: t(RECORD_FAILURE_REASON_COPY_KEYS[failure.reason]),
+                })}
               </Text>
               <Text className="text-xs text-muted-foreground">{failure.detail}</Text>
             </View>
           ))}
           {failures.data && failures.data.failures.length < failures.data.failedCount ? (
             <Text className="text-[11px] text-muted-foreground">
-              Showing {failures.data.failures.length} of {failures.data.failedCount}.
+              {t("channels.runFailures.showing", {
+                shown: failures.data.failures.length,
+                total: failures.data.failedCount,
+              })}
             </Text>
           ) : null}
         </View>
       )}
       <Pressable className="self-start" onPress={() => setOpen(false)}>
-        <Text className="text-xs font-semibold text-primary">Hide</Text>
+        <Text className="text-xs font-semibold text-primary">
+          {t("channels.runFailures.hide")}
+        </Text>
       </Pressable>
     </View>
   );
@@ -479,16 +511,16 @@ function RunRecordFailures({
  *   remedy for most of them, and a channel that disabled its own retry after one
  *   bad night would need a reconnect to do what a second press fixes.
  */
-function manualSyncBlockedReason(connection: Connection): string | null {
+function manualSyncBlockedReason(connection: Connection, t: Translate): string | null {
   if (connection.status !== "connected") {
-    return "Reconnect this channel before importing — its stored credential was cleared when it was disconnected.";
+    return t("channels.import.blockedDisconnected");
   }
   // The endpoint is the PRODUCT backfill specifically: `requestBackfill` refuses
   // on `syncSettingsProducts` alone, so a channel pulling only orders is refused
   // by the server too. Naming products rather than "syncing" is what keeps this
   // from promising an order import the button does not run.
   if (connection.syncSettings.products !== "pull" && connection.syncSettings.products !== "bidirectional") {
-    return "Set Products to Pull or Both above, then save — saving starts the first import on its own.";
+    return t("channels.import.blockedDirection");
   }
   return null;
 }
@@ -509,11 +541,12 @@ function manualSyncBlockedReason(connection: Connection): string | null {
  * had.
  */
 function ManualSync({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const { t } = useTranslation();
   const sync = useSyncChannel(storeId);
 
   if (connection.mode !== "pull") return null;
 
-  const blocked = manualSyncBlockedReason(connection);
+  const blocked = manualSyncBlockedReason(connection, t);
   const paused = (connection.pausedScopes ?? []).includes("fetch");
 
   const run = () => {
@@ -522,24 +555,28 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
       // "Imported" here would be a claim about pages of somebody else's platform
       // that have not been read yet — the run's own row is what reports the
       // outcome, and it is directly below.
-      onSuccess: () => toast.success("Import started — it will appear in the history below"),
-      onError: () => toast.error("Couldn't start the import"),
+      onSuccess: () => toast.success(t("channels.toast.importStarted")),
+      onError: () => toast.error(t("channels.toast.importStartFailed")),
     });
   };
 
   return (
     <View className="mt-8 gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Import</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.import.title")}
+      </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-1 gap-1">
           <Text className="text-sm font-medium text-foreground">
-            Import products from {PROVIDER_NAME[connection.provider]}
+            {t("channels.import.heading", {
+              provider: t(PROVIDER_NAME_KEYS[connection.provider]),
+            })}
           </Text>
           <Text className="text-xs text-muted-foreground">
             {blocked ??
               (paused
-                ? "Reads every product again and updates what has changed. Importing is paused for scheduled syncs, but this one runs now."
-                : "Reads every product again and updates what has changed. Safe to run more than once.")}
+                ? t("channels.import.bodyPaused")
+                : t("channels.import.body"))}
           </Text>
         </View>
         <Button
@@ -550,7 +587,7 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
           disabled={blocked !== null}
           className="self-start"
         >
-          <Text className="text-sm font-medium text-foreground">Sync now</Text>
+          <Text className="text-sm font-medium text-foreground">{t("channels.import.now")}</Text>
         </Button>
       </View>
     </View>
@@ -559,24 +596,32 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
 
 function SyncHistory({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const runs = useChannelRuns(storeId, connection.id);
 
   return (
     <View className="mt-8 gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Sync history</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.history.title")}
+      </Text>
       {runs.isPending ? (
         <ScreenLoading />
       ) : runs.isError ? (
-        <ScreenMessage title="Couldn't load the history" body="Please try again." />
+        <ScreenMessage
+          title={t("channels.history.loadFailed")}
+          body={t("common.pleaseTryAgain")}
+        />
       ) : (runs.data ?? []).length === 0 ? (
         <View className="flex-row items-start gap-3 rounded-2xl border border-border bg-surface p-4">
           <View className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
             <History size={18} color={colors.mutedForeground} />
           </View>
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-foreground">No syncs yet</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t("channels.history.empty")}
+            </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
-              {formatSyncedAt(connection.lastSyncAt)}
+              {formatSyncedAt(connection.lastSyncAt, t)}
             </Text>
           </View>
         </View>
@@ -601,11 +646,15 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
                 </View>
               </View>
               <Text className="mt-0.5 text-xs text-muted-foreground">
-                {formatWhen(run.startedAt, "unknown")}
+                {formatWhen(run.startedAt, t("common.unknown"))}
               </Text>
               <Text className="mt-1 text-xs text-muted-foreground">
-                {run.counts.created} created · {run.counts.updated} updated ·{" "}
-                {run.counts.skipped} skipped · {run.counts.failed} failed
+                {t("channels.history.counts", {
+                  created: run.counts.created,
+                  updated: run.counts.updated,
+                  skipped: run.counts.skipped,
+                  failed: run.counts.failed,
+                })}
               </Text>
               {/*
                 Runbook §8.5, said out loud rather than left to puzzle over: a
@@ -617,8 +666,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
               */}
               {run.counts.updated > 0 && run.counts.created === 0 ? (
                 <Text className="mt-1 text-[11px] text-muted-foreground">
-                  &ldquo;Updated&rdquo; counts every product examined, not only the ones that
-                  differed.
+                  {t("channels.history.updatedNote")}
                 </Text>
               ) : null}
               {run.error ? (
@@ -678,6 +726,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
  */
 function WebhookHealth({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const reregister = useReregisterChannelWebhooks(storeId);
 
   // Two of the endpoint's three refusals, kept as an ABSENT control rather than a
@@ -690,20 +739,22 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
     return null;
   }
 
-  const providerName = PROVIDER_NAME[connection.provider];
-  const delivery = deriveWebhookDelivery(connection, providerName);
+  const providerName = t(PROVIDER_NAME_KEYS[connection.provider]);
+  const delivery = deriveWebhookDelivery(connection, providerName, t);
   const failures = connection.webhookFailures ?? [];
 
   const retry = () => {
     reregister.mutate(connection.id, {
-      onSuccess: () => toast.success("Registering webhooks again"),
-      onError: () => toast.error("Couldn't start webhook registration"),
+      onSuccess: () => toast.success(t("channels.toast.webhooksRegistering")),
+      onError: () => toast.error(t("channels.toast.webhooksRegisterFailed")),
     });
   };
 
   return (
     <View className="mt-8 gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Real-time updates</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.webhooks.title")}
+      </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-start gap-2">
           <View className="pt-0.5">
@@ -734,9 +785,14 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
             {failures.map((failure) => (
               <Text key={failure.topic} className="text-xs text-muted-foreground">
                 <Text className="text-xs font-medium text-foreground">{failure.topic}</Text>
-                {` — ${WEBHOOK_FAILURE_REASON_COPY[failure.reason]}`}
-                {failure.httpStatus === undefined ? "" : ` (HTTP ${failure.httpStatus})`}
-                {` · last checked ${formatWhen(failure.recordedAt, "recently")}`}
+                {t("channels.webhooks.failureDetail", {
+                  reason: t(WEBHOOK_FAILURE_REASON_COPY_KEYS[failure.reason]),
+                  http:
+                    failure.httpStatus === undefined
+                      ? ""
+                      : t("channels.webhooks.httpStatus", { status: failure.httpStatus }),
+                  when: formatWhen(failure.recordedAt, t("channels.recently")),
+                })}
               </Text>
             ))}
           </View>
@@ -765,6 +821,7 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
  * and leaves what is already imported on sale.
  */
 function PauseControls({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const { t } = useTranslation();
   const pause = usePauseChannel(storeId);
   const paused = new Set(connection.pausedScopes ?? []);
 
@@ -776,24 +833,28 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
           toast.success(
             result.changed
               ? next
-                ? "Paused"
-                : "Resumed"
-              : "Already in that state",
+                ? t("channels.toast.paused")
+                : t("channels.toast.resumed")
+              : t("channels.toast.alreadyInThatState"),
           ),
-        onError: () => toast.error("Couldn't change the pause state"),
+        onError: () => toast.error(t("channels.toast.pauseFailed")),
       },
     );
   };
 
   return (
     <View className="mt-8 gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Pause</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.pause.title")}
+      </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1">
-            <Text className="text-sm font-medium text-foreground">Pause importing</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {t("channels.pause.importing")}
+            </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
-              Stop reading from the platform. What is already imported stays on sale.
+              {t("channels.pause.importingHint")}
             </Text>
           </View>
           <Switch
@@ -803,9 +864,11 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
         </View>
         <View className="flex-row items-center justify-between gap-3">
           <View className="flex-1">
-            <Text className="text-sm font-medium text-foreground">Pause publishing</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {t("channels.pause.publishing")}
+            </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
-              Keep importing, but stop this channel&apos;s products reaching buyers.
+              {t("channels.pause.publishingHint")}
             </Text>
           </View>
           <Switch
@@ -828,6 +891,7 @@ function PauseControls({ storeId, connection }: { storeId: string; connection: C
  * and explains why the numbers are zero.
  */
 function Reconciliation({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const { t } = useTranslation();
   const report = useChannelReconciliation(storeId, connection.id);
   if (report.isPending || report.isError || !report.data) return null;
   const data = report.data;
@@ -835,16 +899,18 @@ function Reconciliation({ storeId, connection }: { storeId: string; connection: 
   return (
     <View className="mt-8 gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">
-        Matching your existing catalog
+        {t("channels.reconciliation.title")}
       </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         {data.bindingGap ? (
-          <Text className="text-xs text-muted-foreground">{BINDING_GAP_COPY[data.bindingGap]}</Text>
+          <Text className="text-xs text-muted-foreground">
+            {t(BINDING_GAP_COPY_KEYS[data.bindingGap])}
+          </Text>
         ) : null}
         <View className="flex-row flex-wrap gap-4">
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              Already indexed
+              {t("channels.reconciliation.alreadyIndexed")}
             </Text>
             <Text className="text-base font-semibold text-foreground">
               {data.existingExternalOffers}
@@ -852,31 +918,29 @@ function Reconciliation({ storeId, connection }: { storeId: string; connection: 
           </View>
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              From this store
+              {t("channels.reconciliation.fromThisStore")}
             </Text>
             <Text className="text-base font-semibold text-foreground">{data.nativeOffers}</Text>
           </View>
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              Same product, twice
+              {t("channels.reconciliation.sameProductTwice")}
             </Text>
             <Text className="text-base font-semibold text-foreground">{data.overlaps.length}</Text>
           </View>
           <View className="min-w-[140px] gap-0.5">
             <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
-              Awaiting review
+              {t("channels.reconciliation.awaitingReview")}
             </Text>
             <Text className="text-base font-semibold text-foreground">{data.awaitingReview}</Text>
           </View>
         </View>
         <Text className="text-xs text-muted-foreground">
-          Nothing is deleted or merged. Where the same product appears twice, Mercaria shows your
-          own store&apos;s listing as the main one and keeps the other&apos;s price history intact.
+          {t("channels.reconciliation.body")}
         </Text>
         {data.awaitingReview > 0 ? (
           <Text className="text-xs text-muted-foreground">
-            {data.awaitingReview} product{data.awaitingReview === 1 ? "" : "s"} could not be
-            matched automatically and are queued for a person to confirm.
+            {t("channels.reconciliation.awaitingReviewNote", { count: data.awaitingReview })}
           </Text>
         ) : null}
       </View>
@@ -885,14 +949,14 @@ function Reconciliation({ storeId, connection }: { storeId: string; connection: 
 }
 
 /** Why a connection could not be tied to a verified merchant, in plain words. */
-const BINDING_GAP_COPY: Record<NonNullable<ChannelReconciliationSummary["bindingGap"]>, string> = {
-  merchant_not_claimed:
-    "This store is not linked to a verified merchant, so there is nothing to match against yet.",
-  store_not_linked:
-    "This store is not linked to a merchant profile, so there is nothing to match against yet.",
-  storefront_not_matched:
-    "Mercaria has not indexed this exact shop before, so there is nothing to match against.",
-  channel_has_no_domain: "This channel has no web address to match against.",
+const BINDING_GAP_COPY_KEYS: Record<
+  NonNullable<ChannelReconciliationSummary["bindingGap"]>,
+  string
+> = {
+  merchant_not_claimed: "channels.reconciliation.gap.merchantNotClaimed",
+  store_not_linked: "channels.reconciliation.gap.storeNotLinked",
+  storefront_not_matched: "channels.reconciliation.gap.storefrontNotMatched",
+  channel_has_no_domain: "channels.reconciliation.gap.channelHasNoDomain",
 };
 
 /**
@@ -905,17 +969,21 @@ const BINDING_GAP_COPY: Record<NonNullable<ChannelReconciliationSummary["binding
  */
 function DisconnectPanel({ storeId, connection }: { storeId: string; connection: Connection }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const disconnect = useDisconnectChannelWithPolicy(storeId);
   const [policy, setPolicy] = useState<ChannelDisconnectPolicy>("keep_listings");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <View className="mt-8 gap-3">
-      <Text className="text-sm font-semibold text-muted-foreground">Disconnect</Text>
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {t("channels.disconnect.title")}
+      </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
         <Text className="text-xs text-muted-foreground">
-          Choose what happens to the {DISCONNECT_POLICY_LABEL[policy].toLowerCase()} this channel
-          imported. Your price history and anything another channel imported are never touched.
+          {t("channels.disconnect.intro", {
+            policy: t(DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase(),
+          })}
         </Text>
         <ToggleGroup
           type="single"
@@ -928,27 +996,33 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
         >
           {CHANNEL_DISCONNECT_POLICIES.map((option) => (
             <ToggleGroupItem key={option} value={option}>
-              <Text className="text-xs font-medium">{DISCONNECT_POLICY_LABEL[option]}</Text>
+              <Text className="text-xs font-medium">{t(DISCONNECT_POLICY_LABEL_KEYS[option])}</Text>
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
         <Text className="text-xs text-muted-foreground">
-          {DISCONNECT_POLICY_HELP[policy]}
+          {t(DISCONNECT_POLICY_HELP_KEYS[policy])}
         </Text>
         <Button variant="destructive" onPress={() => setConfirmOpen(true)}>
-          <Text className="font-semibold text-destructive-foreground">Disconnect channel</Text>
+          <Text className="font-semibold text-destructive-foreground">
+            {t("channels.disconnect.action")}
+          </Text>
         </Button>
       </View>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Disconnect {PROVIDER_NAME[connection.provider]}?</DialogTitle>
-            <DialogDescription>{DISCONNECT_POLICY_HELP[policy]}</DialogDescription>
+            <DialogTitle>
+              {t("channels.disconnect.confirmTitle", {
+                provider: t(PROVIDER_NAME_KEYS[connection.provider]),
+              })}
+            </DialogTitle>
+            <DialogDescription>{t(DISCONNECT_POLICY_HELP_KEYS[policy])}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onPress={() => setConfirmOpen(false)}>
-              <Text className="font-semibold text-foreground">Cancel</Text>
+              <Text className="font-semibold text-foreground">{t("common.cancel")}</Text>
             </Button>
             <Button
               variant="destructive"
@@ -959,20 +1033,25 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
                   {
                     onSuccess: (result) => {
                       toast.success(
-                        `Disconnected — ${result.listingsAffected} product${
-                          result.listingsAffected === 1 ? "" : "s"
-                        } changed, ${result.externalOffersPreserved} price record${
-                          result.externalOffersPreserved === 1 ? "" : "s"
-                        } kept`,
+                        t("channels.toast.disconnected", {
+                          products: t("channels.disconnect.productsChanged", {
+                            count: result.listingsAffected,
+                          }),
+                          records: t("channels.disconnect.recordsKept", {
+                            count: result.externalOffersPreserved,
+                          }),
+                        }),
                       );
                       router.replace("/channels");
                     },
-                    onError: () => toast.error("Couldn't disconnect the channel"),
+                    onError: () => toast.error(t("channels.toast.disconnectFailed")),
                   },
                 )
               }
             >
-              <Text className="font-semibold text-destructive-foreground">Disconnect</Text>
+              <Text className="font-semibold text-destructive-foreground">
+                {t("channels.disconnect.confirmAction")}
+              </Text>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -981,27 +1060,24 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
   );
 }
 
-const DISCONNECT_POLICY_LABEL: Record<ChannelDisconnectPolicy, string> = {
-  keep_listings: "Keep products",
-  unpublish_listings: "Unpublish",
-  archive_listings: "Archive",
+const DISCONNECT_POLICY_LABEL_KEYS: Record<ChannelDisconnectPolicy, string> = {
+  keep_listings: "channels.disconnect.policy.keepListings",
+  unpublish_listings: "channels.disconnect.policy.unpublishListings",
+  archive_listings: "channels.disconnect.policy.archiveListings",
 };
 
-const DISCONNECT_POLICY_HELP: Record<ChannelDisconnectPolicy, string> = {
-  keep_listings:
-    "Stop syncing and leave every product exactly as it is — still on sale, and now yours to edit in Mercaria.",
-  unpublish_listings:
-    "Stop syncing and take this channel's products off sale, keeping them as drafts you can republish.",
-  archive_listings:
-    "Stop syncing and archive this channel's products. Sold and moderated products are left alone.",
+const DISCONNECT_POLICY_HELP_KEYS: Record<ChannelDisconnectPolicy, string> = {
+  keep_listings: "channels.disconnect.policyHelp.keepListings",
+  unpublish_listings: "channels.disconnect.policyHelp.unpublishListings",
+  archive_listings: "channels.disconnect.policyHelp.archiveListings",
 };
 
 /** Human-readable "last used" line for a key, or a never-used fallback. */
-function formatLastUsed(iso: string | undefined): string {
-  if (!iso) return "Never used";
+function formatLastUsed(iso: string | undefined, t: Translate): string {
+  if (!iso) return t("channels.keys.neverUsed");
   const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return "Never used";
-  return `Last used ${when.toLocaleString()}`;
+  if (Number.isNaN(when.getTime())) return t("channels.keys.neverUsed");
+  return t("channels.keys.lastUsed", { when: when.toLocaleString() });
 }
 
 /**
@@ -1011,6 +1087,7 @@ function formatLastUsed(iso: string | undefined): string {
  */
 function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const { data: keys, isPending, isError } = useChannelKeys(storeId);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [minted, setMinted] = useState<GenerateChannelApiKeyResult | null>(null);
@@ -1018,11 +1095,15 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
   return (
     <View className="mt-8 gap-3">
       <View className="flex-row items-center justify-between gap-3">
-        <Text className="text-sm font-semibold text-muted-foreground">API keys</Text>
+        <Text className="text-sm font-semibold text-muted-foreground">
+          {t("channels.keys.title")}
+        </Text>
         <Button variant="outline" size="sm" onPress={() => setDialogOpen(true)}>
           <View className="flex-row items-center gap-1.5">
             <Plus size={14} color={colors.foreground} />
-            <Text className="text-xs font-semibold text-foreground">Generate key</Text>
+            <Text className="text-xs font-semibold text-foreground">
+              {t("channels.keys.generate")}
+            </Text>
           </View>
         </Button>
       </View>
@@ -1034,18 +1115,19 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
           </View>
           <View className="flex-1">
             <Text className="text-sm font-semibold text-foreground">
-              Long-lived plugin credentials
+              {t("channels.keys.heading")}
             </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
-              Paste a key (and this channel&apos;s connection id) into the Mercaria plugin on your
-              WordPress site. Keys don&apos;t expire — revoke one anytime to cut off access.
+              {t("channels.keys.body")}
             </Text>
             <View className="mt-2 flex-row items-center gap-2 rounded-lg bg-muted px-2.5 py-1.5">
-              <Text className="text-[11px] font-medium text-muted-foreground">Connection id</Text>
+              <Text className="text-[11px] font-medium text-muted-foreground">
+                {t("channels.keys.connectionId")}
+              </Text>
               <Text selectable className="flex-1 text-[11px] font-semibold text-foreground">
                 {connection.id}
               </Text>
-              <CopyButton value={connection.id} label="connection id" />
+              <CopyButton value={connection.id} label={t("channels.keys.connectionIdSubject")} />
             </View>
           </View>
         </View>
@@ -1055,13 +1137,11 @@ function ChannelApiKeys({ storeId, connection }: { storeId: string; connection: 
         ) : null}
 
         {isPending ? (
-          <Text className="text-xs text-muted-foreground">Loading keys…</Text>
+          <Text className="text-xs text-muted-foreground">{t("channels.keys.loading")}</Text>
         ) : isError ? (
-          <Text className="text-xs text-destructive">Couldn&apos;t load API keys.</Text>
+          <Text className="text-xs text-destructive">{t("channels.keys.loadFailed")}</Text>
         ) : (keys?.length ?? 0) === 0 ? (
-          <Text className="text-xs text-muted-foreground">
-            No keys yet. Generate one to connect the plugin.
-          </Text>
+          <Text className="text-xs text-muted-foreground">{t("channels.keys.empty")}</Text>
         ) : (
           <View className="gap-2">
             {keys?.map((key) => (
@@ -1097,22 +1177,23 @@ function MintedKeyCard({
   onDone: () => void;
 }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   return (
     <View className="gap-2 rounded-xl border border-primary/40 bg-primary/5 p-3">
       <View className="flex-row items-center gap-2">
         <TriangleAlert size={15} color={colors.primary} />
         <Text className="flex-1 text-xs font-semibold text-foreground">
-          Copy this key now — you won&apos;t be able to see it again.
+          {t("channels.keys.copyNow")}
         </Text>
       </View>
       <View className="flex-row items-center gap-2 rounded-lg bg-surface px-2.5 py-2">
         <Text selectable className="flex-1 text-[11px] font-semibold text-foreground">
           {result.key}
         </Text>
-        <CopyButton value={result.key} label="API key" />
+        <CopyButton value={result.key} label={t("channels.keys.apiKeySubject")} />
       </View>
       <Button size="sm" onPress={onDone} className="self-start">
-        <Text className="text-xs font-semibold text-primary-foreground">Done</Text>
+        <Text className="text-xs font-semibold text-primary-foreground">{t("common.done")}</Text>
       </Button>
     </View>
   );
@@ -1121,16 +1202,17 @@ function MintedKeyCard({
 /** A single existing key row: label, prefix, last-used, and a revoke action. */
 function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const revoke = useRevokeChannelKey(storeId);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const onRevoke = () => {
     revoke.mutate(apiKey.id, {
       onSuccess: () => {
-        toast.success("API key revoked");
+        toast.success(t("channels.toast.keyRevoked"));
         setConfirmOpen(false);
       },
-      onError: () => toast.error("Couldn't revoke the key"),
+      onError: () => toast.error(t("channels.toast.keyRevokeFailed")),
     });
   };
 
@@ -1141,7 +1223,7 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
         <Text className="mt-0.5 text-[11px] text-muted-foreground">
           <Text className="font-mono text-[11px] text-muted-foreground">{apiKey.prefix}…</Text>
           {"  ·  "}
-          {formatLastUsed(apiKey.lastUsedAt)}
+          {formatLastUsed(apiKey.lastUsedAt, t)}
         </Text>
       </View>
       <Pressable
@@ -1149,24 +1231,27 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
         className="h-8 flex-row items-center gap-1.5 rounded-lg px-2.5 active:opacity-70"
       >
         <Trash2 size={14} color={colors.mutedForeground} />
-        <Text className="text-xs font-medium text-muted-foreground">Revoke</Text>
+        <Text className="text-xs font-medium text-muted-foreground">
+          {t("channels.keys.revoke")}
+        </Text>
       </Pressable>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Revoke this key?</DialogTitle>
+            <DialogTitle>{t("channels.keys.revokeConfirmTitle")}</DialogTitle>
             <DialogDescription>
-              Any plugin using “{apiKey.label}” will stop syncing immediately. This cannot be
-              undone — you&apos;d need to generate a new key.
+              {t("channels.keys.revokeConfirmBody", { label: apiKey.label })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onPress={() => setConfirmOpen(false)}>
-              <Text className="font-semibold text-foreground">Cancel</Text>
+              <Text className="font-semibold text-foreground">{t("common.cancel")}</Text>
             </Button>
             <Button variant="destructive" onPress={onRevoke} isLoading={revoke.isPending}>
-              <Text className="font-semibold text-destructive-foreground">Revoke</Text>
+              <Text className="font-semibold text-destructive-foreground">
+                {t("channels.keys.revoke")}
+              </Text>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1189,13 +1274,14 @@ function GenerateKeyDialog({
   onOpenChange: (open: boolean) => void;
   onMinted: (result: GenerateChannelApiKeyResult) => void;
 }) {
+  const { t } = useTranslation();
   const generate = useGenerateChannelKey(storeId);
   const [label, setLabel] = useState("");
 
   const submit = () => {
     const trimmed = label.trim();
     if (trimmed === "") {
-      toast.error("Give the key a label");
+      toast.error(t("channels.toast.keyLabelRequired"));
       return;
     }
     generate.mutate(
@@ -1204,9 +1290,9 @@ function GenerateKeyDialog({
         onSuccess: (result) => {
           setLabel("");
           onMinted(result);
-          toast.success("API key generated");
+          toast.success(t("channels.toast.keyGenerated"));
         },
-        onError: () => toast.error("Couldn't generate the key"),
+        onError: () => toast.error(t("channels.toast.keyGenerateFailed")),
       },
     );
   };
@@ -1215,25 +1301,24 @@ function GenerateKeyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Generate API key</DialogTitle>
-          <DialogDescription>
-            Create a long-lived key for this channel. Give it a name so you can recognize it later
-            (e.g. the site it&apos;s used on).
-          </DialogDescription>
+          <DialogTitle>{t("channels.keys.generateTitle")}</DialogTitle>
+          <DialogDescription>{t("channels.keys.generateBody")}</DialogDescription>
         </DialogHeader>
         <View className="gap-4">
           <View className="gap-1.5">
-            <Label>Label</Label>
+            <Label>{t("channels.keys.labelField")}</Label>
             <Input
               value={label}
               onChangeText={setLabel}
-              placeholder="WordPress plugin"
+              placeholder={t("channels.keys.labelPlaceholder")}
               autoCapitalize="none"
               autoCorrect={false}
             />
           </View>
           <Button onPress={submit} isLoading={generate.isPending} className="mt-1">
-            <Text className="font-semibold text-primary-foreground">Generate key</Text>
+            <Text className="font-semibold text-primary-foreground">
+              {t("channels.keys.generate")}
+            </Text>
           </Button>
         </View>
       </DialogContent>
@@ -1244,19 +1329,20 @@ function GenerateKeyDialog({
 /** A small copy-to-clipboard button that briefly confirms with a check. */
 function CopyButton({ value, label }: { value: string; label: string }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
     await Clipboard.setStringAsync(value);
     setCopied(true);
-    toast.success(`Copied ${label}`);
+    toast.success(t("channels.keys.copied", { label }));
     setTimeout(() => setCopied(false), 1500);
   };
 
   return (
     <Pressable
       onPress={copy}
-      accessibilityLabel={`Copy ${label}`}
+      accessibilityLabel={t("channels.keys.copyAccessibility", { label })}
       className="h-7 w-7 items-center justify-center rounded-md active:opacity-70"
     >
       {copied ? (

@@ -21,8 +21,15 @@ import type { StorePermission } from "@mercaria/shared-types";
  */
 export interface NavItem {
   key: string;
-  /** Accessible label / tooltip text. */
-  label: string;
+  /**
+   * Translation key for the accessible label / tooltip text (#398).
+   *
+   * A KEY rather than the sentence: this module is evaluated once at import,
+   * before the locale store has rehydrated, so a resolved string here would
+   * freeze whatever language the first render happened to see. Every consumer
+   * calls `t(item.labelKey)` and therefore re-renders when the locale changes.
+   */
+  labelKey: string;
   icon: LucideIcon;
   /**
    * Route this item navigates to. `RoutePath` rather than `string`, so the
@@ -35,14 +42,14 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/", permission: "stats:read" },
-  { key: "products", label: "Products", icon: Package, href: "/products", permission: "products:read" },
-  { key: "orders", label: "Orders", icon: ShoppingBag, href: "/orders", permission: "orders:read" },
-  { key: "customers", label: "Customers", icon: Users, href: "/customers", permission: "customers:read" },
-  { key: "discounts", label: "Discounts", icon: Tag, href: "/discounts", permission: "discounts:write" },
-  { key: "collections", label: "Collections", icon: FolderTree, href: "/collections", permission: "collections:write" },
-  { key: "channels", label: "Sales channels", icon: Plug, href: "/channels", permission: "channels:write" },
-  { key: "settings", label: "Settings", icon: Settings, href: "/settings", permission: "settings:write" },
+  { key: "dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, href: "/", permission: "stats:read" },
+  { key: "products", labelKey: "nav.products", icon: Package, href: "/products", permission: "products:read" },
+  { key: "orders", labelKey: "nav.orders", icon: ShoppingBag, href: "/orders", permission: "orders:read" },
+  { key: "customers", labelKey: "nav.customers", icon: Users, href: "/customers", permission: "customers:read" },
+  { key: "discounts", labelKey: "nav.discounts", icon: Tag, href: "/discounts", permission: "discounts:write" },
+  { key: "collections", labelKey: "nav.collections", icon: FolderTree, href: "/collections", permission: "collections:write" },
+  { key: "channels", labelKey: "nav.channels", icon: Plug, href: "/channels", permission: "channels:write" },
+  { key: "settings", labelKey: "nav.settings", icon: Settings, href: "/settings", permission: "settings:write" },
 ] as const;
 
 /**
