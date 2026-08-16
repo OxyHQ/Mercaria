@@ -104,9 +104,26 @@ vi.mock('../../db/catalog/categoryRepository.js', () => ({
 }));
 
 const setListingAutomatedMemberships = vi.fn();
+/**
+ * Resolves a mapping's TARGETS. `applyCollectionMapping` filters both the
+ * managed and the desired set through it (#376), so a mock answering nothing
+ * makes every mapping inert — which is why these cases set it explicitly rather
+ * than defaulting it to `[]`.
+ */
+const findCollectionMappingTargets = vi.fn();
 vi.mock('../../db/merchandising/collectionRepository.js', () => ({
   setListingAutomatedMemberships: (...a: unknown[]) => setListingAutomatedMemberships(...a),
+  findCollectionMappingTargets: (...a: unknown[]) => findCollectionMappingTargets(...a),
+  findManualCollectionsByStore: vi.fn(),
 }));
+
+/** Both of `collectionMappingConnection`'s targets, as MANUAL collections. */
+function mappableTargets() {
+  return [
+    { id: 'merc-col-A', title: 'A', handle: 'a', type: 'manual' as const },
+    { id: 'merc-col-B', title: 'B', handle: 'b', type: 'manual' as const },
+  ];
+}
 
 const findLocation = vi.fn();
 vi.mock('../../db/stores/locationRepository.js', () => ({
@@ -295,6 +312,7 @@ describe('collectionMapping on re-sync', () => {
   beforeEach(() => {
     process.env.CONNECTOR_DEFAULT_CATEGORY_SLUG = 'home';
     categorySlugExists.mockResolvedValue(true);
+    findCollectionMappingTargets.mockResolvedValue(mappableTargets());
     getConnectorProvider.mockReturnValue({
       fetchProducts: vi.fn().mockResolvedValue({ products: [collectionProduct()] }),
     });

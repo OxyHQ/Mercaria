@@ -275,6 +275,20 @@ function createWooCommerceFake(world: ContractWorld): WooCommerceTransport {
     if (path === `${API_PREFIX}/data/currencies/current`) {
       return ok({ code: world.shopCurrency });
     }
+    // #376: the product-category list, paged under the SAME `X-WP-TotalPages`
+    // rule the catalogue uses — so a truncated read is expressible here too.
+    if (path === `${API_PREFIX}/products/categories`) {
+      const page = pageOf(url, 'page');
+      return ok(
+        pageSlice(world.collections, page, world.pageSize).map((c) => ({
+          id: c.id,
+          name: c.title,
+          ...(c.parent === undefined ? {} : { parent: c.parent }),
+          ...(c.productCount === undefined ? {} : { count: c.productCount }),
+        })),
+        { 'x-wp-totalpages': String(totalPages(world.collections, world.pageSize)) },
+      );
+    }
     if (path === `${API_PREFIX}/products`) {
       const page = pageOf(url, 'page');
       // WooCommerce applies `?status=` SERVER-side, and the connector always
@@ -419,6 +433,8 @@ describeConnectorContract({
   },
   // The SHIPPED declarations, not copies of them — see the harness fields' notes.
   capabilities: wooCommerceProvider.capabilities,
+  externalTaxonomyNoun: wooCommerceProvider.externalTaxonomyNoun,
+  taxonomyNests: true,
   webhookSecretStrategy: wooCommerceProvider.webhookSecretStrategy,
   webhookPathFragment: '/webhooks',
   webhookDeletePathFragment: '/webhooks/',
@@ -450,6 +466,7 @@ describeConnectorContract({
       externalShopId: `https://${SITE}`,
       products: catalogue.products,
       orders: catalogue.orders,
+      collections: catalogue.collections,
     });
   },
   webhookProductPayload: (world, externalId) => {

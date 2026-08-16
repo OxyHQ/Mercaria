@@ -132,6 +132,21 @@ export interface ConnectorContractHarness {
    */
   readonly capabilities: ConnectorCapabilities;
   /**
+   * The SHIPPED provider's taxonomy noun, passed rather than restated for
+   * `capabilities`' reason (#376). Asserting the suite's expectation against the
+   * provider's own declaration is what makes a provider that quietly changed it
+   * turn this red instead of the suite agreeing with whatever it now says.
+   */
+  readonly externalTaxonomyNoun: ConnectorProvider['externalTaxonomyNoun'];
+  /**
+   * Whether this platform's taxonomy NESTS — the one structural difference
+   * between the two, and the reason the mapping screen cannot assume a flat list.
+   * WooCommerce categories have a parent; Shopify collections do not. Both
+   * branches are measured, so a flat provider that started inventing a hierarchy
+   * fails just as loudly as a nested one that stopped reporting it.
+   */
+  readonly taxonomyNests: boolean;
+  /**
    * The SHIPPED provider's webhook-secret strategy, passed for the same reason
    * `capabilities` is. #218's registration cases have to know the delivery URL
    * the provider builds, and it is the strategy that decides it: a
@@ -2948,6 +2963,86 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           }
         },
       );
+    });
+
+    describe('the collection taxonomy (#376)', () => {
+      /**
+       * `fetchCollections` is what makes `syncSettings.collectionMapping`
+       * configurable at all: without it the mapping's keys are the platform's raw
+       * ids, which a merchant has no way to discover and no way to type
+       * correctly. It is NOT capability-gated — both platforms publish a complete
+       * named list — so unlike the push cases there is no refusal branch to
+       * measure, and the NOUN is what varies instead.
+       */
+      it('lists every grouping the shop publishes, with the platform’s own ids', async () => {
+        const world = harness.createWorld();
+        const provider = harness.createProvider(world);
+
+        const listed = await provider.fetchCollections({
+          accessToken: 'unused',
+          shopDomain: harness.shopDomain,
+          shopCurrency: harness.shopCurrency,
+        });
+
+        // Every grouping, both of Shopify's two lists included. A provider that
+        // read only one would return a strict subset and this is what says so.
+        expect(listed.map((c) => c.externalId).sort()).toEqual(
+          world.collections.map((c) => String(c.id)).sort(),
+        );
+
+        // STRINGS, not numbers. Both platforms send a numeric id and both
+        // providers write `String(id)` into `collectionRefs`; a picker emitting
+        // anything else stores a key no import can ever match, and nothing
+        // reports the miss.
+        for (const row of listed) {
+          expect(typeof row.externalId).toBe('string');
+        }
+
+        const titled = listed.find((c) => c.externalId === '8001');
+        expect(titled?.title, 'a name the merchant will recognize').toBe('Tees');
+
+        // A nameless grouping is KEPT and labelled by its id rather than dropped:
+        // dropping it would silently remove a mappable collection from the picker.
+        const nameless = listed.find((c) => c.externalId === '8004');
+        expect(nameless, 'a nameless grouping is still mappable').toBeDefined();
+        expect(nameless?.title).toContain('8004');
+      });
+
+      it('declares what this platform CALLS a grouping', () => {
+        const provider = harness.createProvider(harness.createWorld());
+        // Read off the SHIPPED provider rather than restated: a merchant screen
+        // calling a WooCommerce category a "collection" is naming something they
+        // cannot find in their own admin.
+        expect(provider.externalTaxonomyNoun).toBe(harness.externalTaxonomyNoun);
+        expect(['collection', 'category']).toContain(provider.externalTaxonomyNoun);
+      });
+
+      it('reports nesting exactly where the platform HAS it', async () => {
+        const world = harness.createWorld();
+        const provider = harness.createProvider(world);
+        const listed = await provider.fetchCollections({
+          accessToken: 'unused',
+          shopDomain: harness.shopDomain,
+          shopCurrency: harness.shopCurrency,
+        });
+
+        const child = listed.find((c) => c.externalId === '8003');
+        expect(child, 'the fixture must carry a nested grouping').toBeDefined();
+
+        if (harness.taxonomyNests) {
+          expect(child?.parentExternalId, 'a nested taxonomy names the parent').toBe('8001');
+          // `0` is WordPress's spelling of "root", not a term. Emitting it would
+          // hand a screen a parent id matching no row in its own list.
+          const root = listed.find((c) => c.externalId === '8001');
+          expect(root?.parentExternalId, 'a root node has no parent').toBeUndefined();
+        } else {
+          // A FLAT taxonomy must not invent a hierarchy from a fixture that
+          // happens to carry one — the measured half of the absent branch.
+          for (const row of listed) {
+            expect(row.parentExternalId).toBeUndefined();
+          }
+        }
+      });
     });
   });
 }

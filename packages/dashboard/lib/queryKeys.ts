@@ -80,6 +80,9 @@ export const queryKeys = {
     ["stores", storeId, "channels", connectionId, "runs", runId, "record-failures"] as const,
   channelReconciliation: (storeId: string, connectionId: string) =>
     ["stores", storeId, "channels", connectionId, "reconciliation"] as const,
+  /** The platform's own collections/categories and the stored mapping's health (#376). */
+  channelCollections: (storeId: string, connectionId: string) =>
+    ["stores", storeId, "channels", connectionId, "collections"] as const,
   channelOnboarding: (storeId: string) => ["stores", storeId, "channel-onboarding"] as const,
   channelOnboardingSession: (storeId: string, sessionId: string) =>
     ["stores", storeId, "channel-onboarding", sessionId] as const,

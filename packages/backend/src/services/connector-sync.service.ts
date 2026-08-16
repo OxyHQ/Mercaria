@@ -54,7 +54,11 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type {
   AddressSnapshot,
+  ChannelCollectionMappingRow,
+  ChannelCollectionMappingState,
+  ChannelCollectionsView,
   ChannelDisconnectPolicy,
+  ChannelExternalCollections,
   Connection as ConnectionDTO,
   ConnectionWebhookFailure,
   ConnectionWebhookRegistration,
@@ -156,7 +160,11 @@ import {
   upsertExternalRef,
 } from '../db/catalog/listingExternalRefRepository.js';
 import { categorySlugExists } from '../db/catalog/categoryRepository.js';
-import { setListingAutomatedMemberships } from '../db/merchandising/collectionRepository.js';
+import {
+  findCollectionMappingTargets,
+  findManualCollectionsByStore,
+  setListingAutomatedMemberships,
+} from '../db/merchandising/collectionRepository.js';
 import { findLocation } from '../db/stores/locationRepository.js';
 import {
   addVariant,
@@ -173,6 +181,7 @@ import { applyPriceRules, type PriceRules } from '../utils/money.js';
 import type {
   ConnectorAuth,
   ConnectorCredentials,
+  ConnectorProvider,
   NormalizedOrder,
   NormalizedProduct,
   NormalizedVariant,
@@ -1365,6 +1374,166 @@ export async function connectWithApiKey(
 }
 
 /**
+ * Everything the collection-mapping screen needs, in ONE payload (#376).
+ *
+ * The three lists are resolved TOGETHER because deciding whether a stored row
+ * still works is a join across all three, and it is a judgement rather than a
+ * lookup: `target_automated` in particular is not something a client could
+ * derive without also knowing why an automated collection may not be a target.
+ * Restating that on a client is how the two answers drift.
+ *
+ * ## The platform half fails SOFT, and the store half does not
+ *
+ * A merchant opening this screen has a mapping to read and edit whether or not
+ * their platform is reachable this minute. So a failed `fetchCollections` is
+ * reported as `unavailable` beside a fully-resolved `mapping` and `targets`,
+ * rather than failing the request — the stored rows and their health are
+ * Mercaria's own facts and are always answerable. The store half has no such
+ * fallback and no reason to need one.
+ *
+ * A `push_in` connection is `unavailable` for a structural reason rather than a
+ * transient one: the external site pushes INTO Mercaria and Mercaria holds no
+ * credential to call it back with, so there is nothing to ask. Its mapping is
+ * still readable, which is right — nothing stops a push-in connection carrying
+ * one, and `applyCollectionMapping` is not the path push-in products take.
+ */
+export async function listChannelCollections(
+  storeId: string,
+  connectionId: string,
+): Promise<ChannelCollectionsView> {
+  const conn = await findConnection(storeId, connectionId);
+  if (!conn) {
+    // 404 and never 403: the tenant gate on every channel route answers the same
+    // way for "no such connection" and "somebody else's connection", so a caller
+    // cannot use it to discover that a connection id exists.
+    throw notFound('Connection not found');
+  }
+  const provider = getConnectorProvider(conn.provider);
+
+  const mapping = conn.syncSettingsCollectionMapping ?? {};
+  const storedTargetIds = [...new Set(Object.values(mapping))];
+  const [targets, storedTargets] = await Promise.all([
+    findManualCollectionsByStore(storeId),
+    findCollectionMappingTargets(storeId, storedTargetIds),
+  ]);
+  const storedById = new Map(storedTargets.map((t) => [t.id, t]));
+
+  const external = await readExternalCollections(conn, provider);
+  const externalById = new Map(
+    external.outcome === 'listed'
+      ? external.collections.map((c) => [c.externalId, c] as const)
+      : [],
+  );
+
+  const rows: ChannelCollectionMappingRow[] = Object.entries(mapping).map(
+    ([externalId, collectionId]) => {
+      const target = storedById.get(collectionId);
+      const externalMatch = externalById.get(externalId);
+      const state: ChannelCollectionMappingState = !target
+        ? 'target_missing'
+        : target.type === 'automated'
+          ? 'target_automated'
+          : // Only claim the platform dropped it when the platform actually
+            // ANSWERED. An unreachable platform listed nothing, and reporting
+            // that as `external_missing` would tell a merchant their shop had
+            // deleted every grouping they had mapped.
+            external.outcome === 'listed' && !externalMatch
+            ? 'external_missing'
+            : 'ok';
+      return {
+        externalId,
+        ...(externalMatch ? { externalTitle: externalMatch.title } : {}),
+        collectionId,
+        ...(target ? { collectionTitle: target.title } : {}),
+        state,
+      };
+    },
+  );
+
+  return {
+    noun: provider.externalTaxonomyNoun,
+    external,
+    targets: targets.map((t) => ({ id: t.id, title: t.title, handle: t.handle })),
+    mapping: rows,
+  };
+}
+
+/** Ask the platform for its groupings, or say why it could not be asked. */
+async function readExternalCollections(
+  conn: ConnectionRow,
+  provider: ConnectorProvider,
+): Promise<ChannelExternalCollections> {
+  if (conn.mode !== 'pull') {
+    return { outcome: 'unavailable', reason: 'push_in_connection' };
+  }
+  if (conn.status === 'disconnected' || !conn.hasCredentials || !conn.shopDomain) {
+    return { outcome: 'unavailable', reason: 'disconnected' };
+  }
+  if (!conn.shopCurrency || !isSupportedCurrency(conn.shopCurrency)) {
+    return { outcome: 'unavailable', reason: 'disconnected' };
+  }
+  try {
+    const creds = await decryptCredentials(conn, conn.shopCurrency);
+    return { outcome: 'listed', collections: await provider.fetchCollections(creds) };
+  } catch (err) {
+    log.general.warn(
+      { err, connectionId: conn.id, provider: conn.provider },
+      'Failed to list channel collections from the platform',
+    );
+    return { outcome: 'unavailable', reason: 'platform_unavailable' };
+  }
+}
+
+/**
+ * Refuse a `collectionMapping` whose targets are not MANUAL collections of this
+ * store (#376).
+ *
+ * `sync_settings_collection_mapping` is `jsonb`, which is the right shape — its
+ * KEYS are the external platform's own open id space, so there is nothing to
+ * project into columns and no join to express (see
+ * `db/schema/CONVENTIONS.md`'s jsonb register). But `jsonb` also means the
+ * VALUES carry no foreign key, so nothing in the database refuses a target that
+ * does not exist, belongs to another store, or is rule-driven.
+ *
+ * This is the WRITE-time half and `applyCollectionMapping`'s filter is the
+ * RUN-time half, and they are not redundant — they answer at two different
+ * moments. Here there is a merchant present who can fix the value, so the honest
+ * answer is a 400 naming what is wrong; storing it instead would leave them
+ * looking at a saved mapping that quietly does nothing. At import time nobody is
+ * present and the mapping was valid when it was written, so the only useful
+ * behaviour is to skip the drifted row and keep importing.
+ *
+ * The refusal names the offending ids because they are the merchant's OWN
+ * collection ids, echoed back from their own request body — it discloses
+ * nothing they did not send. An id belonging to another store is reported as
+ * unknown rather than as automated, since the scoped read cannot see it: that
+ * is the correct answer and not a leak.
+ */
+async function assertCollectionMappingTargetsAreMappable(
+  storeId: string,
+  mapping: Record<string, string>,
+): Promise<void> {
+  const targetIds = [...new Set(Object.values(mapping))];
+  if (targetIds.length === 0) return;
+
+  const found = await findCollectionMappingTargets(storeId, targetIds);
+  const byId = new Map(found.map((t) => [t.id, t]));
+
+  const unknown = targetIds.filter((id) => !byId.has(id));
+  if (unknown.length > 0) {
+    throw validationError(`Unknown collection in collectionMapping: ${unknown.join(', ')}`);
+  }
+  const automated = targetIds.filter((id) => byId.get(id)?.type === 'automated');
+  if (automated.length > 0) {
+    throw validationError(
+      `Cannot map a channel onto an automated collection (${automated.join(', ')}): its ` +
+        `membership is decided by its own rules, and a connector membership would be ` +
+        `added and removed on every sync. Map onto a manual collection instead.`,
+    );
+  }
+}
+
+/**
  * Update a connection's `syncSettings` from an explicit field whitelist. Scoped
  * by `{ id, storeId }` (no cross-store access). Never spreads the request body.
  *
@@ -1398,6 +1567,9 @@ export async function updateSyncSettings(
   connectionId: string,
   patch: UpdateSyncSettingsInput,
 ): Promise<ConnectionRow> {
+  if (patch.collectionMapping !== undefined) {
+    await assertCollectionMappingTargetsAreMappable(storeId, patch.collectionMapping);
+  }
   let conn: UpdatedConnectionRow | null;
   try {
     conn = await updateSyncSettingsColumns(storeId, connectionId, {
@@ -1945,12 +2117,45 @@ async function stampVariantSource(
  * ids as the scope rather than the store's automated collections. It writes a
  * NULL `position`, which is right for a connector membership: the platform sends
  * an unordered set, exactly as `collectionIds` carried no order.
+ *
+ * ## Why `mappable` is passed in, and what it stops (#376)
+ *
+ * `sync_settings_collection_mapping` is `jsonb`, so its VALUES carry no foreign
+ * key and nothing in the database keeps them pointing at a live collection. Two
+ * kinds of drift follow a perfectly valid mapping, and each is silent in a
+ * different direction:
+ *
+ *  - **The target was DELETED.** `listing_collections.collection_id` IS a real
+ *    foreign key, so the insert below raises `23503` — and `runBackfill` counts
+ *    a per-product failure and moves on. Every product carrying that ref then
+ *    fails to import, run after run, and the run row names the PRODUCT while the
+ *    cause is a collection nobody has looked at. Worse on the update path, where
+ *    `updateListing` has already committed: the listing is written and the
+ *    product is still tallied as failed.
+ *
+ *  - **The target became AUTOMATED.** No error at all, and a permanent
+ *    flip-flop: `reconcileAutomatedMembership` deletes what this wrote because
+ *    the listing does not match the rules, and this deletes what the rules
+ *    engine wrote because the platform did not name the ref. Both write a NULL
+ *    `position`, so neither can see the other's row as foreign, and which one
+ *    wins is whichever ran last.
+ *
+ * So a target that is not currently a MANUAL collection of this store is dropped
+ * from BOTH sides. Dropping it from `managed` too is the half worth stating: it
+ * leaves any existing rows alone rather than deleting them, which is right in
+ * both cases — a deleted collection took its rows with it by cascade, and a
+ * now-automated one belongs to the rules engine, which will reconcile it.
+ *
+ * The set is resolved ONCE per run rather than per product (see
+ * {@link resolveMappableCollectionIds}), so this stays one bounded query per
+ * sync instead of one per product.
  */
 async function applyCollectionMapping(
   conn: ConnectionRow,
   listingId: string,
   product: NormalizedProduct,
   overridden: Set<string>,
+  mappable: ReadonlySet<string>,
 ): Promise<void> {
   // The `Map` became a jsonb `Record` — one value, read and written whole, with
   // the external platform's own collection ids as its keys.
@@ -1959,17 +2164,36 @@ async function applyCollectionMapping(
     return;
   }
   const refs = product.collectionRefs ?? [];
-  const managed = [...new Set(Object.values(mapping))];
+  const managed = [...new Set(Object.values(mapping))].filter((id) => mappable.has(id));
   const desired = [
     ...new Set(
       refs.flatMap((ref) => {
         const mapped = mapping[ref];
-        return mapped ? [mapped] : [];
+        return mapped && mappable.has(mapped) ? [mapped] : [];
       }),
     ),
   ];
 
   await setListingAutomatedMemberships(listingId, managed, desired);
+}
+
+/**
+ * Which of a connection's mapping TARGETS may actually be written to right now.
+ *
+ * One query per sync run over the mapping's codomain (tens of ids at most), and
+ * none at all for a connection with no mapping — which is every connection that
+ * has never opened the mapping screen. Resolved per RUN rather than per product
+ * so an import does not pay for it once per row; a mapping edited mid-run is
+ * therefore picked up by the next run, which is the same freshness every other
+ * `syncSettings` field on `ConnectionRow` already has.
+ */
+async function resolveMappableCollectionIds(conn: ConnectionRow): Promise<ReadonlySet<string>> {
+  const mapping = conn.syncSettingsCollectionMapping;
+  if (!mapping) return new Set<string>();
+  const targetIds = [...new Set(Object.values(mapping))];
+  if (targetIds.length === 0) return new Set<string>();
+  const targets = await findCollectionMappingTargets(conn.storeId, targetIds);
+  return new Set(targets.filter((t) => t.type === 'manual').map((t) => t.id));
 }
 
 /** The outcome of importing a single product. */
@@ -1983,6 +2207,12 @@ interface ImportProductOptions {
   priceRules: PriceRules | undefined;
   /** Resolved import location (connector `targetLocationId`); undefined → store default. */
   importLocationId?: string;
+  /**
+   * The mapping targets that are MANUAL collections of this store, resolved once
+   * per run — see {@link resolveMappableCollectionIds}. Empty for a connection
+   * with no `collectionMapping`, which is the state every connection starts in.
+   */
+  mappableCollectionIds: ReadonlySet<string>;
 }
 
 /** Canonical, order-independent key for a variant's option-value tuple. */
@@ -2561,7 +2791,13 @@ async function importProduct(
       // `recomputeAutomatedMembershipForListing` opens its own connection, which
       // inside the transaction would wait on itself.
       // A freshly-created listing has no local overrides yet.
-      await applyCollectionMapping(conn, createdListingId, product, new Set<string>());
+      await applyCollectionMapping(
+        conn,
+        createdListingId,
+        product,
+        new Set<string>(),
+        opts.mappableCollectionIds,
+      );
       return 'created';
     }
     // Fell through from the race: `existing` now names the row the winner wrote.
@@ -2590,7 +2826,7 @@ async function importProduct(
     opts.priceRules,
     opts.importLocationId,
   );
-  await applyCollectionMapping(conn, listingId, product, overridden);
+  await applyCollectionMapping(conn, listingId, product, overridden, opts.mappableCollectionIds);
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await updateListingColumns(listingId, buildSource(conn, product));
   return changed || repriced ? 'updated' : 'skipped';
@@ -2625,6 +2861,7 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
   const autoPublish = conn.syncSettingsAutoPublish;
   const priceRules = toPriceRules(conn);
   const importLocationId = await resolveImportLocationId(conn);
+  const mappableCollectionIds = await resolveMappableCollectionIds(conn);
 
   const run = await insertSyncRun(conn.id, 'backfill');
   const counts: SyncRunCounts = { created: 0, updated: 0, skipped: 0, failed: 0 };
@@ -2651,6 +2888,7 @@ export async function runBackfill(storeId: string, connectionId: string): Promis
             respectOverrides,
             priceRules,
             importLocationId,
+            mappableCollectionIds,
           });
           counts[outcome] += 1;
         } catch (err) {
@@ -3118,6 +3356,7 @@ async function handleProductWebhook(
     respectOverrides: conn.syncSettingsConflictPolicy === 'respect_overrides',
     priceRules: toPriceRules(conn),
     importLocationId: await resolveImportLocationId(conn),
+    mappableCollectionIds: await resolveMappableCollectionIds(conn),
   });
   counts[outcome] += 1;
 }

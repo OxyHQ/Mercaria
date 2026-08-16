@@ -734,3 +734,155 @@ export interface GenerateChannelApiKeyResult {
   /** The stored key's metadata. */
   apiKey: ChannelApiKey;
 }
+
+// ── Collection mapping: the platform's groupings, and what they map onto ─────
+
+/**
+ * What a platform CALLS the grouping `SyncSettings.collectionMapping` is keyed
+ * on — the one place the two implemented providers genuinely disagree.
+ *
+ * Shopify publishes flat "collections" (custom and smart, in one id space);
+ * WooCommerce publishes nested product "categories". Mercaria maps both onto
+ * `Collection`, so the model is shared and only the NOUN differs — and a
+ * merchant screen that called a WooCommerce category a "collection" would be
+ * naming something the merchant cannot find in their own admin.
+ *
+ * It is a provider DECLARATION rather than a lookup keyed on
+ * `ConnectorProviderId`, for the reason `ConnectorCapabilities` already records:
+ * a second description of one fact drifts, and it drifts in the flattering
+ * direction.
+ */
+export const EXTERNAL_TAXONOMY_NOUNS = ['collection', 'category'] as const;
+
+export type ExternalTaxonomyNoun = (typeof EXTERNAL_TAXONOMY_NOUNS)[number];
+
+/**
+ * One grouping the external platform currently publishes.
+ *
+ * `externalId` is the platform's own id and is EXACTLY the key
+ * `collectionMapping` is keyed on and exactly what a provider puts in
+ * `NormalizedProduct.collectionRefs`. A picker built on any other identifier
+ * (a handle, a slug, a name) would store a key no import can ever match, and
+ * the failure would be silent: the mapping simply never fires.
+ */
+export interface ExternalCollection {
+  /** The platform's own id — the `collectionMapping` KEY. */
+  readonly externalId: string;
+  /** The merchant-facing name, as the platform spells it. */
+  readonly title: string;
+  /**
+   * The parent grouping, where the platform NESTS them (WooCommerce). Absent on
+   * a flat taxonomy (Shopify) and on a root-level node. Presentation only —
+   * nothing about the mapping is hierarchical, and mapping a parent does NOT
+   * map its children.
+   */
+  readonly parentExternalId?: string;
+  /** How many products the platform reports in it, when it publishes a count. */
+  readonly productCount?: number;
+}
+
+/** Why this connection's live groupings could not be listed. */
+export const CHANNEL_COLLECTIONS_UNAVAILABLE_REASONS = [
+  /**
+   * A `push_in` connection: the external site pushes into Mercaria and Mercaria
+   * holds no credential to call it with. There is nothing to ask.
+   */
+  'push_in_connection',
+  /** The connection is disconnected — its credentials were dropped at rest. */
+  'disconnected',
+  /** The platform was asked and refused or could not be reached. */
+  'platform_unavailable',
+] as const;
+
+export type ChannelCollectionsUnavailableReason =
+  (typeof CHANNEL_COLLECTIONS_UNAVAILABLE_REASONS)[number];
+
+/**
+ * The platform's live groupings, or a named reason there are none to show.
+ *
+ * A discriminated union on a STRING discriminant, and deliberately not an
+ * optional array: this backend compiles with `strict: false`, so TypeScript
+ * does not narrow a union on the truthiness of a boolean-literal discriminant,
+ * and an absent array would make "we could not ask" and "the shop has none"
+ * the same value — which are opposite answers for a merchant staring at an
+ * empty picker.
+ */
+export type ChannelExternalCollections =
+  | { readonly outcome: 'listed'; readonly collections: readonly ExternalCollection[] }
+  | {
+      readonly outcome: 'unavailable';
+      readonly reason: ChannelCollectionsUnavailableReason;
+    };
+
+/**
+ * A Mercaria collection a mapping may TARGET.
+ *
+ * MANUAL collections only. An automated collection's membership is derived from
+ * its rules by `reconcileAutomatedMembership`, and a connector membership is
+ * derived from the platform's own grouping by `applyCollectionMapping` — both
+ * write a NULL `position` into `listing_collections`, and each DELETES what the
+ * other inserted. The result flip-flops on whichever ran last, with no error
+ * anywhere, so the two must never own one collection.
+ */
+export interface ChannelCollectionTarget {
+  readonly id: string;
+  readonly title: string;
+  readonly handle: string;
+}
+
+/** The health of ONE stored `externalId → collectionId` row. */
+export const CHANNEL_COLLECTION_MAPPING_STATES = [
+  /** Both ends resolve and the target is mappable — the row does what it says. */
+  'ok',
+  /**
+   * The platform no longer publishes this grouping. The mapping is inert (no
+   * import will ever carry the ref) but harmless, and it is NOT auto-removed: a
+   * grouping can disappear because a merchant is mid-reorganization, and
+   * deleting their configuration on their behalf is not recoverable.
+   */
+  'external_missing',
+  /** The Mercaria collection was deleted. The row is skipped at import. */
+  'target_missing',
+  /**
+   * The Mercaria collection became AUTOMATED after the mapping was stored. The
+   * row is skipped at import so the rules engine keeps sole ownership.
+   */
+  'target_automated',
+] as const;
+
+export type ChannelCollectionMappingState =
+  (typeof CHANNEL_COLLECTION_MAPPING_STATES)[number];
+
+/** One stored mapping row, resolved against both ends. */
+export interface ChannelCollectionMappingRow {
+  /** The platform's grouping id — the stored key. */
+  readonly externalId: string;
+  /** Its current name, absent when the platform no longer publishes it. */
+  readonly externalTitle?: string;
+  /** The Mercaria collection id — the stored value. */
+  readonly collectionId: string;
+  /** Its current title, absent when it was deleted. */
+  readonly collectionTitle?: string;
+  /** What this row will actually do on the next import. */
+  readonly state: ChannelCollectionMappingState;
+}
+
+/**
+ * Everything the mapping screen needs, in ONE payload.
+ *
+ * The three lists are resolved together on purpose: a client that fetched the
+ * platform's groupings and the store's collections separately would have to
+ * join them itself to decide whether a stored row still works, and that join is
+ * exactly the judgement (`target_automated` in particular) that must not be
+ * restated on a client.
+ */
+export interface ChannelCollectionsView {
+  /** What this platform calls its groupings, for the screen's copy. */
+  readonly noun: ExternalTaxonomyNoun;
+  /** What the platform publishes today, or why it could not be asked. */
+  readonly external: ChannelExternalCollections;
+  /** The MANUAL collections of this store a mapping may point at. */
+  readonly targets: readonly ChannelCollectionTarget[];
+  /** The stored mapping, each row resolved against both ends. */
+  readonly mapping: readonly ChannelCollectionMappingRow[];
+}

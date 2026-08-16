@@ -154,6 +154,13 @@ Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
   definition. GTIN identity is `product_identifiers`' collision gate; the
   ambiguity check lives in `matchIncomingVariant`/`resolveInventoryVariant`,
   which REFUSE to pick and report `ambiguous`, never `skipped`.
+- **A connector collection mapping may target only a MANUAL collection.**
+  `applyCollectionMapping` and `reconcileAutomatedMembership` both write a NULL
+  `position` into `listing_collections`, so on an automated target each silently
+  deletes the other's rows and whichever ran last wins. Refused at write time AND
+  filtered at import time — the second is not redundant, it catches a target
+  deleted or made automatic after a valid mapping was stored. Detail:
+  `docs/channels.md`.
 - **`listings.published_at` is the FIRST activation, never the row's birthday.**
   `db/catalog/listingRepository.ts` is its only author and
   `listing-publication-chokepoint.test.ts` fails the build on a fourth writer.

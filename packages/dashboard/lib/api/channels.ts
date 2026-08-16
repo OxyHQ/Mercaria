@@ -8,6 +8,7 @@ import type {
   ChannelOnboardingStep,
   ChannelPauseScope,
   ChannelPreviewCounts,
+  ChannelCollectionsView,
   ChannelReadiness,
   ChannelReconciliationSummary,
   ChannelSummary,
@@ -274,6 +275,23 @@ export async function fetchChannelReconciliation(
 ): Promise<ChannelReconciliationSummary> {
   const { data } = await apiClient.get<ApiResponse<ChannelReconciliationSummary>>(
     `${base(storeId)}/${connectionId}/reconciliation`,
+  );
+  return unwrap(data);
+}
+
+/**
+ * GET the platform's own collections/categories, the collections a mapping may
+ * target, and the stored mapping's health (#376).
+ *
+ * One request rather than three, because deciding whether a stored row still
+ * works is a join across all three lists and a judgement the server owns.
+ */
+export async function fetchChannelCollections(
+  storeId: string,
+  connectionId: string,
+): Promise<ChannelCollectionsView> {
+  const { data } = await apiClient.get<ApiResponse<ChannelCollectionsView>>(
+    `${base(storeId)}/${connectionId}/collections`,
   );
   return unwrap(data);
 }

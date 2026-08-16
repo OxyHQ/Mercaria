@@ -22,6 +22,7 @@ import {
   type AddressSnapshot,
   type CurrencyCode,
   type DualMoney,
+  type ExternalCollection,
   type FxRateSnapshot,
   type Money,
   type OrderStatus,
@@ -53,6 +54,7 @@ import {
   reconcileWebhookSubscriptions,
   type WebhookProbe,
 } from '../webhook-registration.js';
+import { toExternalCollection } from '../collections.js';
 import { parseProviderTimestamp } from '../timestamps.js';
 import { getShopifyCredentials } from './config.js';
 import { shopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } from './http.js';
@@ -370,14 +372,40 @@ const collectsResponseSchema = z.object({
   collects: z.array(collectSchema).default([]),
 });
 
-/** One smart (automated) collection — only its id is consumed. */
+/**
+ * One smart (automated) collection.
+ *
+ * `buildCollectionIndex` consumes only the id — membership is all an import
+ * needs. `fetchCollections` also reads the `title`, which is why it is here and
+ * why it is OPTIONAL: a payload that omits it must still index correctly, since
+ * a missing name is a cosmetic gap in a picker and a dropped row would be a
+ * collection the merchant cannot map at all.
+ */
 const smartCollectionSchema = z.object({
   id: z.union([z.number(), z.string()]),
+  title: z.string().optional(),
 });
 
 /** The `smart_collections.json` response. */
 const smartCollectionsResponseSchema = z.object({
   smart_collections: z.array(smartCollectionSchema).default([]),
+});
+
+/**
+ * One custom (manual) collection.
+ *
+ * Read ONLY by `fetchCollections`. `buildCollectionIndex` never lists these —
+ * it reads their MEMBERSHIP from `collects.json`, which carries collection ids
+ * and no names, so the two endpoints answer different halves of one question.
+ */
+const customCollectionSchema = z.object({
+  id: z.union([z.number(), z.string()]),
+  title: z.string().optional(),
+});
+
+/** The `custom_collections.json` response. */
+const customCollectionsResponseSchema = z.object({
+  custom_collections: z.array(customCollectionSchema).default([]),
 });
 
 /** One product entry when listing a collection's products (`collections/{id}/products.json`). */
@@ -1251,6 +1279,68 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
       pushesFulfillment: true,
       retriesRateLimit: true,
       inventoryWebhook: true,
+    },
+
+    // Shopify's taxonomy is FLAT and one id space: a custom and a smart
+    // collection cannot share an id, which is what lets `collectionRefs` carry
+    // both without saying which kind it saw.
+    externalTaxonomyNoun: 'collection',
+
+    /**
+     * Every collection the shop publishes, custom and smart, with names.
+     *
+     * Two endpoints because Shopify keeps two kinds in two lists, and BOTH are
+     * mappable: `buildCollectionIndex` puts the ids of both into
+     * `collectionRefs`, so listing only one would leave a merchant unable to map
+     * groupings their own imports demonstrably carry.
+     *
+     * Note this is NOT `buildCollectionIndex` with a different projection.
+     * That function reads `collects.json` (a product↔collection join with no
+     * names) and each smart collection's product list; this one reads the
+     * collection RECORDS. Same ids, disjoint payloads.
+     */
+    async fetchCollections(creds: ConnectorCredentials): Promise<ExternalCollection[]> {
+      const headers = {
+        'X-Shopify-Access-Token': creds.accessToken,
+        Accept: 'application/json',
+      };
+      const collections: ExternalCollection[] = [];
+
+      await paginate(
+        (params) => `${apiBase(creds.shopDomain)}/custom_collections.json?${params.toString()}`,
+        headers,
+        'custom collections list',
+        (body) => {
+          const parsed = customCollectionsResponseSchema.safeParse(body);
+          if (!parsed.success) {
+            throw validationError(
+              `Unexpected Shopify custom-collections payload: ${parsed.error.message}`,
+            );
+          }
+          for (const collection of parsed.data.custom_collections) {
+            collections.push(toExternalCollection(collection.id, collection.title));
+          }
+        },
+      );
+
+      await paginate(
+        (params) => `${apiBase(creds.shopDomain)}/smart_collections.json?${params.toString()}`,
+        headers,
+        'smart collections list',
+        (body) => {
+          const parsed = smartCollectionsResponseSchema.safeParse(body);
+          if (!parsed.success) {
+            throw validationError(
+              `Unexpected Shopify smart-collections payload: ${parsed.error.message}`,
+            );
+          }
+          for (const collection of parsed.data.smart_collections) {
+            collections.push(toExternalCollection(collection.id, collection.title));
+          }
+        },
+      );
+
+      return collections;
     },
 
     buildAuthorizeUrl({ shopDomain, redirectUri, state, scopes }) {

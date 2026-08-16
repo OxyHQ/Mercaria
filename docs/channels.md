@@ -382,6 +382,46 @@ Partial rather than plain, so finished sessions accumulate as history. A plain
 unique would make a merchant who disconnected unable to ever reconnect through
 the wizard.
 
+### A collection mapping may only target a MANUAL collection (#376)
+
+`syncSettings.collectionMapping` was configurable through the API and set by NO
+Mercaria client, so every imported product landed in no collection and no
+merchant could change it. `GET /:connectionId/collections` and the dashboard
+panel are what close that; two rules hold the result together.
+
+**The mapping's KEYS must be the platform's own ids, and they are the ids the
+provider writes into `NormalizedProduct.collectionRefs`.** A picker offering a
+handle, a slug or a name stores a key no import can ever match, and
+`applyCollectionMapping` reports nothing when a ref misses — so the failure is a
+merchant watching a correctly-configured mapping do nothing, forever.
+`fetchCollections` is therefore its OWN provider call rather than a projection of
+Shopify's per-run collection index, which carries ids and no titles.
+
+**The TARGET must be a manual collection, and the reason is that two writers
+would otherwise own one row.** `applyCollectionMapping` and
+`reconcileAutomatedMembership` both write a NULL `position` into
+`listing_collections`, so neither can see the other's row as foreign: the rules
+engine deletes the connector's membership because the listing does not match the
+rules, and the connector deletes the rule-derived one because the platform did
+not name the ref. Whichever ran last wins, with no error anywhere. The refusal is
+stated TWICE and the two are not redundant — `updateSyncSettings` answers a 400
+naming the collection, because a merchant is present who can fix it, and
+`applyCollectionMapping` filters both its managed and its desired set, because
+the target may have been deleted or converted to automated AFTER a valid mapping
+was stored and nobody is present then. A deleted target is the sharper of the two:
+`listing_collections.collection_id` is a real foreign key, so before #376 it
+raised `23503` and the run counted a per-product FAILURE naming the product while
+the cause was a collection nobody had looked at.
+
+The two platforms differ in exactly two ways and both are DECLARED rather than
+assumed: `ConnectorProvider.externalTaxonomyNoun` (Shopify says "collection",
+WooCommerce says "category" — a screen using the wrong word names something the
+merchant cannot find in their own admin) and whether the taxonomy nests, carried
+per row as `parentExternalId`. There is deliberately no `listsCollections`
+capability: both providers publish a complete named list, so the `false` branch
+would be one no provider takes — a gate that cannot fail, which reads as
+coverage.
+
 ---
 
 ## Surfaces
@@ -397,6 +437,7 @@ products come from is not a shop-floor act.
 | Route | What it does |
 |---|---|
 | `GET /catalog` | what may be connected, and what is wrong with each |
+| `GET /:connectionId/collections` | the platform's own collections/categories, the manual collections a mapping may target, and each stored row's health (#376) |
 | `GET /summary` | connectors, feeds and the native catalogue in one shape |
 | `GET /readiness` | the ONE authoritative readiness result |
 | `GET /audit` | who changed what |

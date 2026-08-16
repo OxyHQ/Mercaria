@@ -16,6 +16,7 @@ import {
   listConnections,
   buildConnectAuthorizeUrl,
   connectWithApiKey,
+  listChannelCollections,
   updateSyncSettings,
   requestBackfill,
   requestWebhookReregistration,
@@ -99,6 +100,28 @@ export async function connectKeyChannelHandler(req: Request, res: Response): Pro
   } catch (err) {
     log.general.error({ err, provider: req.params.provider }, 'Failed to connect channel with API key');
     respondWithError(res, err, 'Failed to connect channel');
+  }
+}
+
+/**
+ * GET /admin/stores/:storeId/channels/:connectionId/collections — the platform's
+ * own groupings, the collections a mapping may target, and the stored mapping's
+ * health (#376).
+ *
+ * What makes a merchant able to CONFIGURE `syncSettings.collectionMapping` at
+ * all: without it the keys are the external platform's raw ids, which a merchant
+ * has no way to discover and no way to type correctly.
+ */
+export async function listChannelCollectionsHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const view = await listChannelCollections(storeId(req), routeParam(req, 'connectionId'));
+    sendSuccess(res, view);
+  } catch (err) {
+    log.general.error(
+      { err, connectionId: req.params.connectionId },
+      'Failed to list channel collections',
+    );
+    respondWithError(res, err, 'Failed to load channel collections');
   }
 }
 
