@@ -178,6 +178,7 @@ import {
   type UpdateVariantInput,
 } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
+import { requestNativeOfferSync } from './offers/native-offer.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
 import { getConnectorProvider, isImplementedProvider } from '../connectors/registry.js';
 import { channelTypeForConnection } from './channels/channel-catalog.js';
@@ -1949,6 +1950,15 @@ function toCreateInput(
  * native Mercaria fields (category, condition, tags, collections, status) are
  * NEVER touched by a re-sync. Variant-level price/stock re-sync is a later phase
  * (Fase 2); this refreshes the listing fields only.
+ *
+ * `status`'s absence is the KNOWN GAP #390 names: a listing this connector
+ * archived stays archived when the merchant republishes the product upstream.
+ * Writing it here would also reactivate a listing the merchant archived in
+ * Mercaria on purpose, and nothing stored can tell those two apart — there is no
+ * status provenance, and `overriddenFields` (which the `overridden` set above
+ * comes from) has no production writer at all, so `respect_overrides` would
+ * consult an empty set. `docs/channels.md` §"A product republished upstream does
+ * NOT come back" carries the evidence and what closing it needs.
  */
 function toUpdatePatch(product: NormalizedProduct, overridden: Set<string>): UpdateListingInput {
   const patch: UpdateListingInput = {};
@@ -3049,6 +3059,36 @@ export async function requestBackfill(storeId: string, connectionId: string): Pr
  * deliveries of the same delete webhook cannot both report having archived it. The
  * whole status set is allowed because the Mongo update was likewise unconditional
  * on the current status.
+ *
+ * ## It requests offer convergence, and did not until #388
+ *
+ * This is the FOURTH status-only write path `syncListingFacets`' header warns
+ * about by name — "a fourth status-only write path that forgot would leave a
+ * listing's offers claiming it is on sale". It forgot. Both original callers
+ * were affected (the `product_delete` webhook and the post-backfill delete
+ * reconciliation) and #386 added a third, so an archived listing kept a live
+ * native `offers` row until some unrelated write to it converged.
+ *
+ * Not a checkout hole — `deriveNativeCheckoutEligibility` reads `listings.status`
+ * LIVE at projection time, which is why #57 chose not to store a verdict. The
+ * cost is a stale row a comparison surface may show, and #68's freshness
+ * derivation cannot retire it: a NATIVE offer's `stale_at` measures how long ago
+ * the converger ran, not how old the listing's status is.
+ *
+ * `requestNativeOfferSync` rather than `syncListingFacets`, matching
+ * {@link archiveListing}'s own reasoning: archiving changes no variant, so the
+ * facets do not move and recomputing them would be work with no result. It is
+ * also why the call is made HERE rather than by swapping this function for
+ * `archiveListing`, which archives only from `MERCHANT_ARCHIVABLE_LISTING_STATUSES`
+ * — that would silently stop the two "the product is genuinely gone upstream"
+ * paths from reaching a `restricted` or `sold` listing, a carve-out
+ * `MERCHANT_ARCHIVABLE_LISTING_STATUSES`' own header calls deliberate.
+ *
+ * Enqueued only when the CAS actually archived something, so a re-delivered
+ * delete webhook and a sweep re-examining an already-archived listing both cost
+ * nothing. The enqueue is `ON CONFLICT DO UPDATE` on `listing_id` — one row per
+ * listing — so the bulk sweep's cost is one upsert per listing it GENUINELY
+ * archives, never per listing it scans.
  */
 async function archiveSourcedListing(
   conn: ConnectionRow,
@@ -3093,7 +3133,11 @@ async function archiveSourcedListing(
   if (opts.sparePendingModeration && listing.status === 'restricted') {
     return false;
   }
-  return setListingStatusIfIn(listing.id, 'archived', ALL_LISTING_STATUSES);
+  const archived = await setListingStatusIfIn(listing.id, 'archived', ALL_LISTING_STATUSES);
+  if (archived) {
+    await requestNativeOfferSync(listing.id);
+  }
+  return archived;
 }
 
 /**

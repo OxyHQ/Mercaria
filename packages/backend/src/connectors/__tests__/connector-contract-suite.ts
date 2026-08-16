@@ -77,6 +77,7 @@ import {
   updateVariant as updateVariantColumns,
 } from '../../db/catalog/variantRepository.js';
 import { findLevelsByVariant } from '../../db/catalog/inventoryLevelRepository.js';
+import { findOfferOutboxForListing } from '../../db/offers/offerOutboxRepository.js';
 import { listSyncRunsForConnection } from '../../db/connectors/syncRunRepository.js';
 import {
   orderAppliedDiscounts,
@@ -2867,6 +2868,88 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           fixture.connection.id,
         );
         expect(listings.filter((row) => row.status === 'archived')).toHaveLength(1);
+      });
+
+      it('an ARCHIVE requests offer convergence, so no native offer keeps claiming it is on sale', async () => {
+        // #388. `archiveSourcedListing` wrote the status through
+        // `setListingStatusIfIn` and requested NOTHING — the fourth status-only
+        // write path `syncListingFacets`' header warns about by name.
+        //
+        // "An outbox row exists afterwards" is VACUOUS here: the import already
+        // enqueued one through `syncListingFacets`, and the queue is one row per
+        // listing (`ON CONFLICT DO UPDATE` on `listing_id`), so the row is there
+        // either way. What an enqueue actually does to an existing row is bump
+        // `requested_revision`, so the BEFORE reading is what makes the after one
+        // mean anything — and it is what goes red without the fix.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+
+        const before = await findOfferOutboxForListing(listing.id);
+        if (!before) {
+          // A floor, not a formality: with no row here the comparison below
+          // would be reading absence rather than a revision that did not move.
+          throw new Error('the import should have enqueued a convergence to begin with');
+        }
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload: { id: source.externalId },
+        });
+
+        expect((await importedListing(fixture, source.externalId)).status).toBe('archived');
+        const after = await findOfferOutboxForListing(listing.id);
+        expect(
+          after?.requestedRevision,
+          'archiving must request a convergence, or the listing keeps a live native offer',
+        ).toBeGreaterThan(before.requestedRevision);
+
+        // And a re-delivery costs nothing, because the enqueue is conditional on
+        // the CAS having actually moved the status.
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload: { id: source.externalId },
+        });
+        expect(
+          (await findOfferOutboxForListing(listing.id))?.requestedRevision,
+          'an already-archived listing owes no second convergence',
+        ).toBe(after?.requestedRevision);
+      });
+
+      it('the BULK unseen-archival requests convergence too', async () => {
+        // #388's other caller, and the one that has been wrong for longest — the
+        // delete reconciliation predates both webhook paths.
+        //
+        // The survivors are deliberately NOT asserted on: a product still present
+        // is re-imported by the second pass, which enqueues through
+        // `syncListingFacets` on its own account, so their revisions move whether
+        // or not this fix exists. The bounded-cost claim ("one upsert per listing
+        // GENUINELY archived, never per listing scanned") rests on the enqueue
+        // sitting behind the CAS in `archiveSourcedListing`, which the re-delivery
+        // half of the case above is what actually measures.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const removed = fixture.world.products[0];
+        const removedListing = await importedListing(fixture, removed.externalId);
+
+        const removedBefore = await findOfferOutboxForListing(removedListing.id);
+        if (!removedBefore) {
+          throw new Error('the import should have enqueued a convergence to begin with');
+        }
+
+        fixture.world.products = fixture.world.products.filter(
+          (product) => product.externalId !== removed.externalId,
+        );
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect((await importedListing(fixture, removed.externalId)).status).toBe('archived');
+        expect(
+          (await findOfferOutboxForListing(removedListing.id))?.requestedRevision,
+          'the archived listing must be re-converged',
+        ).toBeGreaterThan(removedBefore.requestedRevision);
       });
 
       it('a product moved OUT of publish stops selling, and its edit is not merged', async () => {

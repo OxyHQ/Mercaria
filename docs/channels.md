@@ -799,6 +799,48 @@ answer — a `products/update` delivery carries `status` and fires exactly when 
 merchant drafts or archives a product. If drafts ARE returned, the first sync
 archives every listing whose Shopify source is currently a draft or archived.
 
+### A product republished upstream does NOT come back, and cannot yet (#390)
+
+`toUpdatePatch` writes seven fields — title, description, images, vendor,
+product type, handle, SEO — and never `status`. So a listing archived by the
+connector (a `product_delete` webhook, the post-backfill unseen sweep, or #386's
+unpublish) stays archived when the merchant republishes the product on their own
+platform. The sync updates its title and its price and leaves it off sale.
+
+**A restore was NOT added, and the reason is not caution — the code cannot tell
+the two cases apart.** Reactivating on a republish would also reactivate a
+listing the merchant archived *in Mercaria on purpose*, which is the connector
+undoing a local decision on the strength of a remote one. Telling them apart
+needs to know WHO archived the listing, and:
+
+- **No provenance of a status change is stored anywhere.** `listings` carries no
+  `archived_by`, no `status_source` and no status-history table; the only durable
+  record of a status decision is `moderation_enforcements`, which covers
+  moderation and nothing else.
+- **`listings.overriddenFields` — the mechanism that would carry it — has NO
+  production writer.** `catalog-write.service` sets it to `[]` on create (two
+  sites) and nothing anywhere appends to it; every non-empty value in the
+  repository is a test fixture. It is READ in four places
+  (`connector-sync.service`'s two `status` pin checks and its field merge,
+  `channel-ingest.service`'s), so those guards consult a column that is empty in
+  production and are inert today.
+
+That last point also corrects #390's own diagnosis, which said the fix was
+blocked on `syncSettingsConflictPolicy` being unreachable from any client. It is
+reachable now — #395 shipped both it and `autoPublish` on the dashboard channel
+screen — and **reachability is not sufficient**: `respect_overrides` asks which
+fields the merchant pinned, and nothing pins any. A restore gated on that policy
+would read an empty set and republish every archived listing regardless of who
+archived it, which is the failure it was supposed to prevent, wearing a setting's
+name.
+
+So closing #390 is a provenance change, not a heuristic: record the actor and
+cause on a status write, then let the connector restore only what it archived
+itself. Whatever shape that takes must leave `restricted` exactly where it is —
+`catalog-write.service.updateListing` refuses both directions deliberately, so a
+sync can never undo a jury (and `listing-archive-census.test.ts` fails the build
+on a new archiver that does not say what it does about a restriction).
+
 ### A per-record failure has a durable reason (#303)
 
 A run is `failed` only when NOTHING succeeded, so the commonest shape — a mostly
