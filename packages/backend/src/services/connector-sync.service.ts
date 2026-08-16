@@ -68,6 +68,7 @@ import type {
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
   CurrencyCode,
+  ListingArchiveCause,
   Money,
   SyncProgressEvent,
   SyncRecordFailure,
@@ -82,7 +83,9 @@ import type {
 import {
   ALL_CURRENCY_CODES,
   ALL_LISTING_STATUSES,
+  ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH,
   CONNECTOR_WEBHOOK_RETRYABLE_FAILURE_REASONS,
+  MODERATION_HELD_LISTING_STATUSES,
 } from '@mercaria/shared-types';
 import { isForeignKeyViolation, isUniqueViolation } from '@oxyhq/db';
 import {
@@ -1951,14 +1954,14 @@ function toCreateInput(
  * NEVER touched by a re-sync. Variant-level price/stock re-sync is a later phase
  * (Fase 2); this refreshes the listing fields only.
  *
- * `status`'s absence is the KNOWN GAP #390 names: a listing this connector
- * archived stays archived when the merchant republishes the product upstream.
- * Writing it here would also reactivate a listing the merchant archived in
- * Mercaria on purpose, and nothing stored can tell those two apart — there is no
- * status provenance, and `overriddenFields` (which the `overridden` set above
- * comes from) has no production writer at all, so `respect_overrides` would
- * consult an empty set. `docs/channels.md` §"A product republished upstream does
- * NOT come back" carries the evidence and what closing it needs.
+ * `status` is still absent here, and now for a different reason: a republish is
+ * not a FIELD MERGE. Writing `status` in this patch would set it on every pass
+ * from a value the platform reports, which is what would reactivate a listing
+ * the merchant archived in Mercaria on purpose. The republish is one
+ * conditional transition out of `archived`, taken by
+ * {@link restoreListingArchivedByThisConnector} against the recorded cause, and
+ * it happens once. See `docs/channels.md` §"A product republished upstream comes
+ * back — but only when this connector archived it (#390)".
  */
 function toUpdatePatch(product: NormalizedProduct, overridden: Set<string>): UpdateListingInput {
   const patch: UpdateListingInput = {};
@@ -1972,6 +1975,76 @@ function toUpdatePatch(product: NormalizedProduct, overridden: Set<string>): Upd
   if (!overridden.has('handle') && product.handle !== undefined) patch.handle = product.handle;
   if (!overridden.has('seo') && product.seo !== undefined) patch.seo = product.seo;
   return patch;
+}
+
+/**
+ * The product is present and published upstream again. Un-archive the listing —
+ * but ONLY when this connector's own mirror of its absence is what archived it,
+ * and only back to what it actually was (#390).
+ *
+ * ## The gate is the recorded CAUSE and deliberately nothing else
+ *
+ * `overriddenFields` is the wrong instrument and reads green: it answers which
+ * fields a MERCHANT pinned, `status` is one of the three keys
+ * `services/catalog-field-pins.ts` excludes by an argued decision (#416 — an
+ * imported product lands `draft` and publishing it is the intended workflow, so
+ * pinning there would stop the platform ever unpublishing it again), so a
+ * restore gated on `respect_overrides` would consult a set that never contains
+ * `status` and republish EVERY archived listing regardless of who archived it.
+ * `autoPublish` cannot answer it either — it is read on the CREATE branch and by
+ * nothing on update, and it describes what a new import should be rather than
+ * what this listing was.
+ *
+ * ## It restores to what the listing WAS, never to `active`
+ *
+ * `enforcement.restoreSubject` argues this one domain over and the argument is
+ * the same: a listing imported under `autoPublish: false` has never been on sale
+ * in its life, and un-archiving it to `active` would put it there. The previous
+ * status is the one the repository recorded in the archiving statement itself,
+ * so it is what the listing held rather than what anything inferred.
+ *
+ * ## What it refuses, and why each refusal is not a missing case
+ *
+ *  - **An unknown cause** (both columns NULL — every row archived before #390).
+ *    Unknown is not a soft yes: the merchant half of that set is exactly the one
+ *    a wrong guess harms.
+ *  - **A cause outside `ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH`** — a merchant
+ *    DELETE, a merchant `PATCH {status:'archived'}`, a disconnect policy, an
+ *    appeal. A remote fact says nothing about a local decision.
+ *  - **No recorded previous status**, which means the archiving write was not a
+ *    transition (the listing was already archived). There is nothing true to put
+ *    back and guessing is the failure above.
+ *  - **A previous status a jury holds.** A connector may not write `restricted`
+ *    in any circumstance — `catalog-write.updateListing` refuses both directions
+ *    deliberately — and this is not an exception carved for a "safe" case:
+ *    moderation's own `restore` reaches an archived listing since #402 and is
+ *    the path that must relist it. Read off `MODERATION_HELD_LISTING_STATUSES`
+ *    rather than comparing to `'restricted'`, so a second held status inherits
+ *    the refusal instead of quietly becoming writable here.
+ *
+ * The transition is a CAS out of `archived` alone, so a listing restricted or
+ * re-archived between the read and this statement is refused by the statement
+ * rather than by an ordering the reader has to trust. Offer convergence is
+ * requested on success for `restoreSubject`'s reason: a relisted item that left
+ * its offer retired is a listing nobody can see.
+ *
+ * @returns `true` when this call relisted the listing.
+ */
+async function restoreListingArchivedByThisConnector(listing: ListingRecord): Promise<boolean> {
+  if (listing.status !== 'archived') return false;
+
+  const cause = listing.archivedBy;
+  if (cause === null || !ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH.includes(cause)) return false;
+
+  const previous = listing.archivedFromStatus;
+  if (previous === null || previous === 'archived') return false;
+  if (MODERATION_HELD_LISTING_STATUSES.includes(previous)) return false;
+
+  const restored = await setListingStatusIfIn(listing.id, previous, ['archived']);
+  if (restored) {
+    await requestNativeOfferSync(listing.id);
+  }
+  return restored;
 }
 
 /**
@@ -2763,12 +2836,17 @@ async function importProduct(
   // widening of `createStoreProduct`, whose status set deliberately excludes
   // `archived`.
   if (product.publishState === 'unpublished') {
-    const archived = await archiveSourcedListing(conn, product.externalId, {
-      respectStatusOverride: opts.respectOverrides,
-      // A moderation restriction outranks a merchant unpublishing upstream —
-      // see `archiveSourcedListing`.
-      sparePendingModeration: true,
-    });
+    const archived = await archiveSourcedListing(
+      conn,
+      product.externalId,
+      'connector_unpublished',
+      {
+        respectStatusOverride: opts.respectOverrides,
+        // A moderation restriction outranks a merchant unpublishing upstream —
+        // see `archiveSourcedListing`.
+        sparePendingModeration: true,
+      },
+    );
     return archived ? 'updated' : 'skipped';
   }
 
@@ -2879,6 +2957,15 @@ async function importProduct(
   }
 
   const listingId = existing.id;
+  // #390. FIRST, so everything below this line operates on a listing in the
+  // status it is going to end the pass in: `updateListing` refuses to move a
+  // listing out of `restricted` and reads the CURRENT status to decide, and a
+  // relisted listing's facets and collection membership are recomputed by the
+  // calls that follow. It is reached only for a product the platform reports as
+  // PUBLISHED — the `unpublished` branch returned above — so a product that is
+  // still gone or still unpublished never gets here.
+  const relisted = await restoreListingArchivedByThisConnector(existing);
+
   const overridden = opts.respectOverrides ? new Set(existing.overriddenFields) : new Set<string>();
   const patch = toUpdatePatch(product, overridden);
   const changed = Object.keys(patch).length > 0;
@@ -2904,7 +2991,10 @@ async function importProduct(
   await applyCollectionMapping(conn, listingId, product, overridden, opts.mappableCollectionIds);
   // Always refresh provenance (externalUpdatedAt), even when nothing else changed.
   await updateListingColumns(listingId, buildSource(conn, product));
-  return changed || repriced ? 'updated' : 'skipped';
+  // A relist counts as `updated` on its own: a product whose only change this
+  // pass was coming back on sale would otherwise be reported `skipped`, which is
+  // the tally saying nothing happened about the one thing that did.
+  return changed || repriced || relisted ? 'updated' : 'skipped';
 }
 
 /**
@@ -3093,6 +3183,7 @@ export async function requestBackfill(storeId: string, connectionId: string): Pr
 async function archiveSourcedListing(
   conn: ConnectionRow,
   externalId: string,
+  cause: ListingArchiveCause,
   opts: { respectStatusOverride: boolean; sparePendingModeration?: boolean } = {
     respectStatusOverride: false,
   },
@@ -3133,7 +3224,17 @@ async function archiveSourcedListing(
   if (opts.sparePendingModeration && listing.status === 'restricted') {
     return false;
   }
-  const archived = await setListingStatusIfIn(listing.id, 'archived', ALL_LISTING_STATUSES);
+  // #390: the cause travels from the CALLER, because the three of them mean
+  // three different things and only one of them is asked about here. All three
+  // are in `ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH`: each records that the product
+  // was absent or unpublished UPSTREAM, so the product being back is the same
+  // fact reversing rather than the connector overruling anybody.
+  const archived = await setListingStatusIfIn(
+    listing.id,
+    'archived',
+    ALL_LISTING_STATUSES,
+    cause,
+  );
   if (archived) {
     await requestNativeOfferSync(listing.id);
   }
@@ -3182,7 +3283,11 @@ async function archiveUnseenSourcedListings(
       continue;
     }
     try {
-      if (await archiveSourcedListing(conn, externalId, { respectStatusOverride: respectOverrides })) {
+      if (
+        await archiveSourcedListing(conn, externalId, 'connector_unseen_in_backfill', {
+          respectStatusOverride: respectOverrides,
+        })
+      ) {
         archived += 1;
       }
     } catch (err) {
@@ -3426,7 +3531,11 @@ async function handleProductWebhook(
     if (!parsed.success) {
       throw validationError('Malformed product-delete webhook payload');
     }
-    const archived = await archiveSourcedListing(conn, String(parsed.data.id));
+    const archived = await archiveSourcedListing(
+      conn,
+      String(parsed.data.id),
+      'connector_product_deleted',
+    );
     counts[archived ? 'updated' : 'skipped'] += 1;
     return;
   }

@@ -203,6 +203,8 @@ describe('provider-aware dispatch — WooCommerce product.deleted', () => {
       'listing-woo',
       'archived',
       ALL_LISTING_STATUSES,
+      // #390 — see the Shopify twin of this case.
+      'connector_product_deleted',
     );
     expect(closedRun().status).toBe('completed');
     expect(closedRun().counts).toEqual({ created: 0, updated: 1, skipped: 0, failed: 0 });

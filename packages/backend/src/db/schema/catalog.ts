@@ -39,6 +39,7 @@ import {
   CONDITION_ASSERTIONS,
   CONNECTOR_PROVIDER_IDS,
   ITEM_CONDITION_KEYS,
+  LISTING_ARCHIVE_CAUSES,
   UNREFINED_CONDITION_ASSERTIONS,
   UNREFINED_CONDITION_KEYS,
 } from '@mercaria/shared-types';
@@ -279,6 +280,52 @@ export const listings = pgTable(
      */
     conditionAcknowledgedAt: timestamptz(),
     status: text({ enum: asEnumValues(ALL_LISTING_STATUSES) }).notNull().default('draft'),
+
+    /**
+     * What moved this listing into `archived`, and what it was immediately
+     * before — the status PROVENANCE of #390.
+     *
+     * `listingRepository` DERIVES both, in the same statement that writes the
+     * status, from the row's own pre-update `status`. No caller states the
+     * previous status and no caller can forget it: the `published_at`
+     * arrangement one column over, for the same reason, and gated by the same
+     * chokepoint test.
+     *
+     * NULL on both is not a fourth cause, it is the ABSENCE of a record, and
+     * every reader must treat it as such:
+     *
+     *  - on a listing that is not `archived`, they were cleared by the write
+     *    that moved it out, so there is nothing to read;
+     *  - on an `archived` listing they mean **we do not know** — the row was
+     *    archived before #390 shipped. Nothing was backfilled, deliberately:
+     *    the two cases this exists to separate are separated by no evidence
+     *    that survives anywhere, so a backfill could only invent one, and
+     *    inventing the connector half is exactly the wrong guess to make (it
+     *    would republish a listing its merchant deleted). Such a listing keeps
+     *    today's behaviour precisely: it stays archived until somebody says
+     *    otherwise.
+     *
+     * They are NOT tied to `status` by a biconditional CHECK, and that is the
+     * reason: every pre-#390 archived row would violate it on the deploy that
+     * added it, so the constraint would need a backfill of a fact nobody has.
+     * A value CHECK on each column is additive and holds from the first row.
+     */
+    archivedBy: text({ enum: asEnumValues(LISTING_ARCHIVE_CAUSES) }),
+    /**
+     * The status held immediately before the archive recorded in `archived_by`.
+     *
+     * What a restore puts BACK, so it is never a hardcoded `active` — the
+     * `moderation_enforcements.previous_state_listing_status` rule, which exists
+     * because a listing imported under `autoPublish: false` has never been on
+     * sale and un-archiving it to `active` would put it there.
+     *
+     * NULL beside a non-null `archived_by` is a real state and means the write
+     * was not a TRANSITION into `archived` (the row was already archived), so
+     * there is no previous status to name. A restore refuses it rather than
+     * guessing.
+     */
+    archivedFromStatus: text({ enum: asEnumValues(ALL_LISTING_STATUSES) }),
+
     /**
      * `restrict`: nothing deletes a category, and `set null` would promote an
      * orphaned listing into "uncategorized", which is a real and different state.
@@ -426,6 +473,18 @@ export const listings = pgTable(
     // enforcement, via `updateOne`, which runs no Mongoose validator — so a CHECK
     // that omitted it would silently disarm every takedown.
     checkOneOf('listings_status_check', t.status, ALL_LISTING_STATUSES),
+    // #390's status provenance. Both are nullable and `x in (…)` is NULL — hence
+    // accepted — for a NULL `x`, so every pre-existing row satisfies these and
+    // the migration that adds them is additive (`pre`).
+    checkOneOf('listings_archived_by_check', t.archivedBy, LISTING_ARCHIVE_CAUSES),
+    checkOneOf('listings_archived_from_status_check', t.archivedFromStatus, ALL_LISTING_STATUSES),
+    // A previous status without an archive record is not a weaker fact, it is an
+    // incoherent one: it names what a transition replaced while saying no
+    // transition happened. The converse is deliberately allowed — see the column.
+    check(
+      'listings_archived_from_status_needs_cause_check',
+      sql`${t.archivedFromStatus} is null or ${t.archivedBy} is not null`,
+    ),
     checkOneOf('listings_source_provider_check', t.sourceProvider, CONNECTOR_PROVIDER_IDS),
     ...currencyChecks('listings', [t.priceRangeMinCurrency, t.priceRangeMaxCurrency]),
 

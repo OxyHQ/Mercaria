@@ -808,7 +808,15 @@ describe('runBackfill — Fix 3: delete reconciliation', () => {
 
     expect(findListingsBySourceConnection).toHaveBeenCalledWith(STORE_ID, CONNECTION_ID);
     expect(archivedListingIds()).toEqual(['l2']); // only the unseen id
-    expect(setListingStatusIfIn).toHaveBeenCalledWith('l2', 'archived', ALL_LISTING_STATUSES);
+    // #390: the unseen sweep records its OWN cause, not the delete webhook's.
+    // Both are undone by a republish, so the distinction costs nothing here and
+    // is what an operator reads to know which path archived a listing.
+    expect(setListingStatusIfIn).toHaveBeenCalledWith(
+      'l2',
+      'archived',
+      ALL_LISTING_STATUSES,
+      'connector_unseen_in_backfill',
+    );
     expect(run.status).toBe('completed');
     expect(run.countsCreated).toBe(1); // p1
     expect(run.countsUpdated).toBe(1); // the archive of p2

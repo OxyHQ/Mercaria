@@ -344,7 +344,26 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
     previous.action === 'restrict'
       ? ['restricted', 'draft', 'archived']
       : ['restricted', 'draft'];
-  const restored = await setListingStatusIfIn(subject.id, restoredStatus, restorableFrom);
+  /**
+   * `restoredStatus` can be `archived`: moderation may restrict a listing that
+   * was ALREADY archived, and this restore writes back what it replaced rather
+   * than a hardcoded `active`. So this is a status writer that archives (#390),
+   * and it names its own cause.
+   *
+   * `moderation_restore` is deliberately NOT undone by an upstream republish,
+   * even where the original archive was a connector's. The listing has since
+   * been through a restriction and an appeal — a decision by somebody else
+   * about this same listing — and a connector reaching back through that to
+   * relist it would be exactly the "remote fact overruling a local decision"
+   * this issue exists to prevent. It stays archived; `restoreSubject` is
+   * already the path that reaches it (#402).
+   */
+  const restored = await setListingStatusIfIn(
+    subject.id,
+    restoredStatus,
+    restorableFrom,
+    restoredStatus === 'archived' ? 'moderation_restore' : undefined,
+  );
   if (!restored) {
     return { changed: false, reason: 'The listing was not in a state this restore can undo' };
   }

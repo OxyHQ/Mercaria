@@ -68,8 +68,11 @@ export type PinnableConnectorField = (typeof PINNABLE_CONNECTOR_FIELDS)[number];
  *   INTENDED workflow, not a decision to take the field over. Pinning there
  *   would make the ordinary act of publishing the thing that stops the platform
  *   ever unpublishing or archiving it again, on the very first product a
- *   merchant approved. #390 turns on this key and is a different decision about
- *   what a connector should do on republish; it is not answered here.
+ *   merchant approved. #390 turned on this key and did NOT change the answer:
+ *   it recorded `listings.archived_by` / `archived_from_status` instead, so the
+ *   connector's republish reads what ARCHIVED the listing rather than what the
+ *   merchant pinned. The exclusion here still stands, and a restore gated on
+ *   `respect_overrides` would consult a set that never contains `status`.
  * - `price` — the key does not guard a field. `convergeVariants` returns early
  *   on it, so pinning a price also stops the platform's newly-added variants
  *   being created and its removed ones being unsold. A merchant adjusting one

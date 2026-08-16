@@ -972,7 +972,19 @@ export async function updateListing(
       }
 
       if (Object.keys(columns).length > 0) {
-        await updateListingColumns(listingId, columns, tx);
+        // #390: this is the SECOND merchant-driven archive and it is not
+        // `archiveListing` — `SELLER_SETTABLE_LISTING_STATUSES` contains
+        // `archived`, so a plain `PATCH {status:'archived'}` archives a listing
+        // through the ordinary edit funnel. `listing-archive-census.test.ts`
+        // maps FILES, and both live in this one, so a census reading its own
+        // green would never have said so. A connector must no more undo this
+        // than it may undo a DELETE.
+        await updateListingColumns(
+          listingId,
+          columns,
+          tx,
+          columns.status === 'archived' ? 'merchant_status_change' : undefined,
+        );
       }
       if (patch.imageFileIds !== undefined) {
         await replaceListingImages(listingId, toListingImages(patch.imageFileIds), tx);
@@ -1071,6 +1083,10 @@ export async function archiveListing(listingId: string): Promise<void> {
     listingId,
     'archived',
     MERCHANT_ARCHIVABLE_LISTING_STATUSES,
+    // #390: a DELETE in Mercaria, which no upstream republish may undo. This is
+    // the value that makes the connector's restore safe — without it, the
+    // connector cannot tell this archive from one it performed itself.
+    'merchant_delete',
   );
 
   if (!archived) {

@@ -85,7 +85,8 @@ import {
   orderTaxLines,
 } from '../../db/schema/orders.js';
 import { decryptSecret } from '../../lib/connector-crypto.js';
-import { updateListing } from '../../services/catalog-write.service.js';
+import { archiveListing, updateListing } from '../../services/catalog-write.service.js';
+import { disconnectChannel } from '../../services/channels/channel-disconnect.service.js';
 import {
   auditConnectionWebhooks,
   connectAndVerify,
@@ -3065,6 +3066,222 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         ).toBeGreaterThan(removedBefore.requestedRevision);
       });
 
+      /**
+       * #390 — a product republished upstream comes back, and ONLY when this
+       * connector's own mirror of its absence is what archived it.
+       *
+       * These cases exist as a PAIR and neither means anything alone. "A
+       * republish relists it" is satisfied by a connector that relists
+       * everything, which is the failure the issue is actually about; "a
+       * merchant archive survives" is satisfied by doing nothing at all, which
+       * is the behaviour before this change. Only the two together say the
+       * connector can tell them apart.
+       *
+       * The delete-webhook path is used rather than the unpublish one because
+       * every provider supports it: `harness.reportsPublishState` is false for a
+       * platform that publishes no publish state, and the unpublish cases above
+       * have to branch on it.
+       */
+      it('RELISTS a product it archived itself when the product comes back upstream', async () => {
+        const fixture = await makeFixture({ autoPublish: true });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+        expect(listing.status).toBe('active');
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload: { id: source.externalId },
+        });
+
+        const archived = await importedListing(fixture, source.externalId);
+        expect(archived.status).toBe('archived');
+        // The provenance is what the relist is decided on, so it is asserted
+        // here rather than left implied by the status moving back: a listing
+        // that was relisted with NO recorded cause would be a connector
+        // relisting whatever it finds.
+        expect(archived.archivedBy).toBe('connector_product_deleted');
+        expect(archived.archivedFromStatus).toBe('active');
+
+        // The product is still in the world — the webhook was the only thing
+        // that said otherwise — so an ordinary sync sees it again.
+        const before = await findOfferOutboxForListing(listing.id);
+        if (!before) {
+          throw new Error('the import should have enqueued a convergence to begin with');
+        }
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+        expect(run.countsFailed).toBe(0);
+
+        const relisted = await importedListing(fixture, source.externalId);
+        expect(relisted.status).toBe('active');
+        // Cleared by the same statement that moved the status: a record left
+        // behind on a live listing is what the NEXT archiver would be read
+        // against.
+        expect(relisted.archivedBy).toBeNull();
+        expect(relisted.archivedFromStatus).toBeNull();
+        // And the offer has to come back with it, or the listing is on sale
+        // and invisible — `restoreSubject`'s reason, one domain over.
+        expect(
+          (await findOfferOutboxForListing(listing.id))?.requestedRevision,
+          'a relist must request a convergence',
+        ).toBeGreaterThan(before.requestedRevision);
+      });
+
+      it('leaves a listing the MERCHANT archived exactly where it is', async () => {
+        // The other leg. The product never left the platform, so every fact the
+        // connector can see is identical to the case above — the only thing that
+        // differs is who archived it, which is precisely what #390 says nothing
+        // stored could say.
+        const fixture = await makeFixture({ autoPublish: true });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+
+        await archiveListing(listing.id);
+        const archived = await importedListing(fixture, source.externalId);
+        expect(archived.status).toBe('archived');
+        expect(archived.archivedBy).toBe('merchant_delete');
+
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+        expect(run.countsFailed).toBe(0);
+
+        const after = await importedListing(fixture, source.externalId);
+        expect(
+          after.status,
+          'a merchant DELETE is a local decision and an upstream republish may not undo it',
+        ).toBe('archived');
+        expect(after.archivedBy).toBe('merchant_delete');
+      });
+
+      it('relists to the status the listing HELD, never to `active`', async () => {
+        // The second trap the issue names. A listing imported under
+        // `autoPublish: false` has never been on sale in its life, so a restore
+        // that assumed `active` would PUBLISH it — `enforcement.restoreSubject`
+        // argues exactly this for a moderation correction.
+        //
+        // A restore hardcoded to `active` passes the relist case above and fails
+        // only here, which is why this is a separate case rather than a second
+        // assertion on that one.
+        const fixture = await makeFixture({ autoPublish: false });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        expect((await importedListing(fixture, source.externalId)).status).toBe('draft');
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload: { id: source.externalId },
+        });
+        expect((await importedListing(fixture, source.externalId)).archivedFromStatus).toBe(
+          'draft',
+        );
+
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(
+          (await importedListing(fixture, source.externalId)).status,
+          'a product the merchant never published must not be put on sale by a republish',
+        ).toBe('draft');
+      });
+
+      it('never relists a listing a jury restricted, and the appeal still can', async () => {
+        // #402, from the other side. The `product_delete` path archives from ANY
+        // status deliberately — a product genuinely gone upstream is gone
+        // whatever Mercaria decided — so `archived_from_status` can be
+        // `restricted`, and the naive restore would have the CONNECTOR write it.
+        //
+        // Refusing keeps `catalog-write.updateListing`'s rule intact (a sync may
+        // never move a listing into or out of a restriction) and costs nothing:
+        // `restoreSubject` reaches an archived listing since #402 and is the path
+        // that must relist it.
+        const fixture = await makeFixture({ autoPublish: true });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+        await updateListingColumns(listing.id, { status: 'restricted' });
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload: { id: source.externalId },
+        });
+        const archived = await importedListing(fixture, source.externalId);
+        expect(archived.status).toBe('archived');
+        expect(archived.archivedFromStatus).toBe('restricted');
+
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(
+          (await importedListing(fixture, source.externalId)).status,
+          'a connector may not write `restricted`, in either direction',
+        ).toBe('archived');
+        // The floor on that refusal: it must leave the listing where an appeal
+        // can still reach it, not merely leave it alone.
+        expect(await setListingStatusIfIn(listing.id, 'active', ['archived'])).toBe(true);
+      });
+
+      it('records the DISCONNECT policy as its own cause, not as a connector archive', async () => {
+        // The fourth archiver, and the one whose cause is easiest to get wrong:
+        // it runs inside the channels domain and archives listings a connector
+        // imported, so `connector_*` is what it would naturally be given — and
+        // that value AUTHORISES a republish to relist. Reconnecting the same
+        // connection would then undo the very policy the merchant chose at the
+        // moment they cut the channel.
+        //
+        // The disconnect is driven end to end, through the real provider call
+        // that deletes the subscriptions, because it is the last thing this
+        // suite can reach with a live connection in hand.
+        const fixture = await makeFixture({ autoPublish: true });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        expect((await importedListing(fixture, source.externalId)).status).toBe('active');
+
+        const result = await disconnectChannel(
+          fixture.storeId,
+          fixture.connection.id,
+          'archive_listings',
+        );
+        expect(result.listingsAffected).toBeGreaterThan(0);
+
+        const row = await importedListing(fixture, source.externalId);
+        expect(row.status).toBe('archived');
+        expect(row.archivedBy).toBe('channel_disconnect');
+        expect(row.archivedFromStatus).toBe('active');
+      });
+
+      it('does not relist a listing archived before any provenance was recorded', async () => {
+        // Every row already `archived` when this shipped. Nothing was backfilled
+        // — the two cases are separated by no surviving evidence, which IS the
+        // issue — so NULL means "we do not know" and unknown is not a soft yes.
+        // The merchant half of that set is exactly the one a wrong guess harms.
+        //
+        // Manufactured with a raw statement on purpose: `ListingColumnPatch`
+        // subtracts both columns, so no service call can reach this state, which
+        // is the property that keeps the unknowable set frozen at the migration.
+        const fixture = await makeFixture({ autoPublish: true });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productDelete,
+          payload: { id: source.externalId },
+        });
+        await db
+          .update(listings)
+          .set({ archivedBy: null, archivedFromStatus: null })
+          .where(eq(listings.id, listing.id));
+
+        await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(
+          (await importedListing(fixture, source.externalId)).status,
+          'an archive nobody can attribute keeps exactly the behaviour it had before #390',
+        ).toBe('archived');
+      });
+
       it('a product moved OUT of publish stops selling, and its edit is not merged', async () => {
         // #377. The pull filters on the platform's publish state and the webhook
         // path did not, so unpublishing a product upstream was invisible until
@@ -3154,9 +3371,13 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         // intended workflow — and pinning there would make the ordinary act of
         // publishing the thing that stops the platform ever unpublishing it
         // again. There is therefore no merchant edit that reaches this state,
-        // and this case covers the read path that WOULD honour one if a later
-        // decision (#390) supplies a writer. `catalog-field-pins.test.ts` is
-        // what stops `status` being merely forgotten rather than excluded.
+        // and this case covers the read path that WOULD honour one.
+        //
+        // #390 has since landed and did NOT supply that writer: it records
+        // `listings.archived_by` instead, so the republish reads what ARCHIVED
+        // the listing rather than what the merchant pinned. This state stays
+        // manufactured, and `catalog-field-pins.test.ts` is what stops `status`
+        // being merely forgotten rather than excluded.
         const fixture = await makeFixture({ conflictPolicy: 'respect_overrides' });
         await runBackfill(fixture.storeId, fixture.connection.id);
         const source = fixture.world.products[0];

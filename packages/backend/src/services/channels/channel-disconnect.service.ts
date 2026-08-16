@@ -84,7 +84,17 @@ export async function disconnectChannel(
   if (policy !== 'keep_listings') {
     const next = policy === 'archive_listings' ? 'archived' : 'draft';
     for (const listing of sourced) {
-      const moved = await setListingStatusIfIn(listing.id, next, POLICY_MOVABLE_STATUSES);
+      // #390: the merchant asked for these, by policy, at the moment they cut
+      // the channel. Reconnecting the same connection later re-imports the
+      // products, and the republish restore must NOT read that as the channel
+      // undoing its own mirror — so this cause is not in
+      // `ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH`.
+      const moved = await setListingStatusIfIn(
+        listing.id,
+        next,
+        POLICY_MOVABLE_STATUSES,
+        next === 'archived' ? 'channel_disconnect' : undefined,
+      );
       if (!moved) continue;
       listingsAffected += 1;
       // The offer converger is what stops a native offer going on claiming the
