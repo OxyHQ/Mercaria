@@ -43,9 +43,17 @@
  * A gate over four hand-listed functions goes quietly useless the moment a
  * fifth is added, so the covered set is checked for EXACT equality against the
  * functions `format.ts` actually exports — a new or renamed formatter fails the
- * build until it is covered here. Every expected visible string is also
- * asserted non-empty, so a formatter reduced to returning nothing but its own
- * isolate pair cannot pass.
+ * build until it is covered here.
+ *
+ * That covered set is DERIVED from the cases that ran, not declared in a list
+ * beside them. The difference is what a deleted case does: against a hand
+ * list, removing every `formatMoney` case leaves the list still naming
+ * `formatMoney`, the census still reconciles and the gate goes on reporting
+ * four covered formatters while exercising three. Against the derived set it
+ * goes red naming the formatter nothing touched.
+ *
+ * Every expected visible string is also asserted non-empty, so a formatter
+ * reduced to returning nothing but its own isolate pair cannot pass.
  *
  * Usage:  bun scripts/validate-bidi-isolation.mjs
  */
@@ -108,12 +116,25 @@ function check(description, condition, detail) {
 }
 
 /**
+ * Every formatter a case below actually EXERCISED. Coverage is derived from the
+ * cases that ran rather than declared in a list beside them: a hand-maintained
+ * list keeps reporting a formatter as covered after its last case is deleted,
+ * which is a gate that measures its own good intentions.
+ */
+const exercisedFormatters = new Set();
+
+/**
  * The full contract for one formatter output: exactly one leading FSI, exactly
  * one trailing PDI, no other isolate characters anywhere (which is what rules
  * out a double wrap and a stray mark in the middle), and the visible text
  * EXACTLY as it read before isolation.
+ *
+ * `formatterName` must be the exported identifier, because it is what the
+ * source census below is reconciled against.
  */
-function checkIsolatedExactly(label, actual, expectedVisible) {
+function checkIsolatedExactly(formatterName, caseName, actual, expectedVisible) {
+  exercisedFormatters.add(formatterName);
+  const label = `${formatterName} ${caseName}`;
   check(
     `${label}: expected visible text is non-empty (vacuity floor)`,
     expectedVisible.length > 0,
@@ -152,34 +173,42 @@ function checkIsolatedExactly(label, actual, expectedVisible) {
 // The four formatters. Expected visible strings are the pre-#429 outputs.
 // ---------------------------------------------------------------------------
 
-checkIsolatedExactly("formatMoney USD", formatMoney({ amount: 14800, currency: "USD" }), "$148.00");
 checkIsolatedExactly(
-  "formatMoney FAIR (8dp)",
+  "formatMoney",
+  "USD",
+  formatMoney({ amount: 14800, currency: "USD" }),
+  "$148.00",
+);
+checkIsolatedExactly(
+  "formatMoney",
+  "FAIR (8dp)",
   formatMoney({ amount: 14_800_000_000, currency: "FAIR" }),
   "⊜148.00",
 );
-checkIsolatedExactly("formatMoney zero", formatMoney({ amount: 0, currency: "EUR" }), "€0.00");
+checkIsolatedExactly("formatMoney", "zero", formatMoney({ amount: 0, currency: "EUR" }), "€0.00");
 // A negative amount puts the minus BETWEEN the symbol and the digits, which is
 // the shape `ShoppingAgentFindingCard` avoids by rendering the sign as a word.
 // Isolation must not move it: this pins the whole token, sign included.
 checkIsolatedExactly(
-  "formatMoney negative",
+  "formatMoney",
+  "negative",
   formatMoney({ amount: -500, currency: "USD" }),
   "$-5.00",
 );
 
 checkIsolatedExactly(
   "formatSourceMoney",
+  "convertible currency",
   formatSourceMoney({ amount: 12_999, currency: "USD" }),
   "129.99 USD",
 );
 
-checkIsolatedExactly("formatDistance metres", formatDistance(450), "450 m");
-checkIsolatedExactly("formatDistance kilometres", formatDistance(2500), "2.5 km");
+checkIsolatedExactly("formatDistance", "metres", formatDistance(450), "450 m");
+checkIsolatedExactly("formatDistance", "kilometres", formatDistance(2500), "2.5 km");
 
-checkIsolatedExactly("formatReviewCount bare", formatReviewCount(349), "349");
-checkIsolatedExactly("formatReviewCount abbreviated", formatReviewCount(10_300), "10.3K");
-checkIsolatedExactly("formatReviewCount rounded", formatReviewCount(1000), "1K");
+checkIsolatedExactly("formatReviewCount", "bare", formatReviewCount(349), "349");
+checkIsolatedExactly("formatReviewCount", "abbreviated", formatReviewCount(10_300), "10.3K");
+checkIsolatedExactly("formatReviewCount", "rounded", formatReviewCount(1000), "1K");
 
 // ---------------------------------------------------------------------------
 // The refusal path is deliberately NOT isolated: absence has nothing to lay out,
@@ -246,7 +275,7 @@ check(
 // A fifth formatter added there fails this until it is covered above.
 // ---------------------------------------------------------------------------
 
-const COVERED_FORMATTERS = ["formatMoney", "formatSourceMoney", "formatDistance", "formatReviewCount"];
+const coveredFormatters = Array.from(exercisedFormatters);
 
 const exportedFormatters = Array.from(
   readFileSync(formatModulePath, "utf8").matchAll(/^export function (\w+)/gm),
@@ -259,17 +288,17 @@ check(
   `no "export function" declarations matched in ${formatModulePath}`,
 );
 
-const uncovered = exportedFormatters.filter((name) => !COVERED_FORMATTERS.includes(name));
-const stale = COVERED_FORMATTERS.filter((name) => !exportedFormatters.includes(name));
+const uncovered = exportedFormatters.filter((name) => !coveredFormatters.includes(name));
+const stale = coveredFormatters.filter((name) => !exportedFormatters.includes(name));
 check(
   "every formatter exported by format.ts is covered by a case above",
   uncovered.length === 0,
-  `uncovered: ${uncovered.join(", ")} — add a checkIsolatedExactly case`,
+  `exported but never exercised: ${uncovered.join(", ")} — add a checkIsolatedExactly case`,
 );
 check(
-  "every formatter this gate claims to cover still exists",
+  "every formatter this gate exercises still exists in format.ts",
   stale.length === 0,
-  `named here but not exported by format.ts: ${stale.join(", ")}`,
+  `exercised here but not exported by format.ts: ${stale.join(", ")}`,
 );
 
 /**
