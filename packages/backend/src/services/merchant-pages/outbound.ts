@@ -3,8 +3,11 @@
  * NAMED SEAM that fails closed.
  *
  * The rule asks that an external storefront action link to the real destination
- * "through #67". #67 — the outbound/affiliate redirect — is not built: every
- * source domain in this repository (#57, #62, #65, #66, #68) already stores its
+ * "through #67". #67 — the outbound/affiliate redirect — is BUILT, but its
+ * token names exactly one thing, an OFFER (`AffiliateOutboundTokenClaims` has
+ * one member and it is an offer id) — a channel visit is not an offer click,
+ * so there is no shape of #67's existing token this could mint. Every source
+ * domain in this repository (#57, #62, #65, #66, #68) already stores its
  * destination URL VERBATIM and refuses to compose a tracked one, each naming
  * #37/#67 as the owner. So there is nothing here to route through, and the
  * honest shape is a refusal that publishes the contract rather than a link that
@@ -21,7 +24,7 @@
  * arrangement.
  *
  * Closing this seam is one function body plus whatever #67 needs to identify
- * the click — nothing else in #73 changes.
+ * a CHANNEL visit rather than an offer click — nothing else in #73 changes.
  */
 
 import type { MerchantChannelOutbound } from '@mercaria/shared-types';

@@ -1,23 +1,22 @@
 /**
- * The seam onto commission reconciliation (#66 design item 8, owned by #67).
+ * The seam onto commission reconciliation (#66 design item 8, closed by #67).
  *
- * **#66 calls Awin's transactions endpoint from nowhere, and that is deliberate
- * rather than unfinished.** #67 owns the outbound redirect AND reconciliation,
- * and a transaction row Mercaria cannot attribute to a click it recorded is not
- * reconciliation — it is a number in a table with nothing to compare it
- * against. Storing them early would produce exactly the "looked fine" shape this
- * domain exists to avoid: a growing table, a green dashboard, and no answer to
- * the only question anybody asks of it.
+ * **#66 still calls Awin's transactions endpoint from nowhere, and that stays
+ * deliberate rather than unfinished.** #67 owns the outbound redirect AND
+ * reconciliation, and a transaction row Mercaria cannot attribute to a click
+ * it recorded is not reconciliation — it is a number in a table with nothing
+ * to compare it against. #67's own reader
+ * (`services/outbound/reconciliation/awin.ts`) now calls the endpoint, stores
+ * what it reads in `affiliate_transactions`, `affiliate_transaction_observations`
+ * and `affiliate_commission_postings`, and is polled by
+ * `startAffiliateReconciliationDispatcher` — so the seam this module used to
+ * hold by absence is closed, on #67's side rather than this one.
  *
- * So the seam fails closed by ABSENCE, which is the strongest form: there is no
- * `awin_transactions` table, no sink port and no scheduled job, so there is
- * nothing to mistake for a working feature.
- *
- * What IS here is the one piece that is easy to get wrong invisibly, and that
- * #67 would otherwise re-derive: the window chunker. Awin accepts a range of at
- * most 31 days, and a chunker that is off by one at the boundary silently drops
- * a day of commission at every seam — a fault whose only symptom is a number
- * that is slightly too small, forever.
+ * What stays here is the one piece that was easy to get wrong invisibly, and
+ * that #67 reuses rather than re-deriving: the window chunker. Awin accepts a
+ * range of at most 31 days, and a chunker that is off by one at the boundary
+ * silently drops a day of commission at every seam — a fault whose only
+ * symptom is a number that is slightly too small, forever.
  */
 
 import { AWIN_PUBLISHER_API_MAX_WINDOW_DAYS } from '@mercaria/shared-types';

@@ -501,9 +501,12 @@ Each is a named contract that fails closed, not a stub that lies:
 - **An offer-side TAX-INCLUSION column** — #74's `resolveOfferTaxInclusion` is
   one function body, and `cheapest_known_total` becomes reachable the day it is
   replaced.
-- **#37/#67 (the outbound redirect)** — a plan discloses a destination HOST and
-  composes no tracked URL. Until the redirect exists, opening an external
-  merchant reaches their own host and nothing Mercaria assembled.
+- **#37/#67 (the outbound redirect)** — #67's `/out/:token` redirect is built
+  and #71's product page already hands offers off to it, but
+  `BasketPlanActions` still only discloses a destination HOST and composes no
+  tracked URL: `externalMerchants` carries no `redirectPath` field to hand a
+  line off with. Until that field is added, opening an external merchant from
+  a basket reaches their own host and nothing Mercaria assembled.
 - **An explanation PROVIDER** — nothing is registered, so every deployment
   renders the deterministic templates. Closing it is one module implementing
   `ExplanationProvider` plus one `registerExplanationProvider` call; the

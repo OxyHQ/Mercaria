@@ -46,10 +46,14 @@ import type { MerchantDemandValue } from '@mercaria/shared-types';
  * Network-reported conversions, commission and external order value (#86 fact
  * 5, from #37).
  *
- * ALWAYS unavailable. #37 owns the outbound redirect and the network report
- * ingest, and neither exists: `/out/:token` is unbuilt (#71 records that #67 was
- * auto-closed by a keyword in another PR's body and the code does not exist),
- * and there is no `affiliate_reports` store of any kind.
+ * ALWAYS unavailable — but no longer because #37's redirect does not exist.
+ * #67 built `/out/:token`, the click record and the commission
+ * reconciliation (`affiliate_transactions`, `affiliate_transaction_observations`,
+ * `affiliate_commission_postings`); nothing in `services/merchant-demand`
+ * reads any of them yet. Wiring this seam is reading those tables SCOPED to
+ * one merchant's own offers, not composing a second aggregation over them —
+ * #67's own `/internal/affiliate/*` reports the totals Mercaria measures
+ * whole, never per merchant.
  *
  * **What it must NOT become.** #77's own seam contract for #37 is binding here
  * and says it in one sentence: a network conversion may never be DERIVED from

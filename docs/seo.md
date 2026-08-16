@@ -11,7 +11,7 @@ Code: `services/seo/` (11 modules), `db/seo/seoRepository.ts`,
 
 Binding dependencies: #56's canonical identity, #71's composed product page,
 #90's condition taxonomy, #62's source rights, #92's seller-visibility rule,
-#37/#67's (unbuilt) outbound redirect.
+#37/#67's outbound redirect (`/out/`, disallowed below).
 
 **NO new tables and NO migration.** #61 measured the canonical graph at a
 million offers and adopted no projection; a sitemap is a keyset scan over rows

@@ -23,7 +23,7 @@ composed at request time from the reads that measurement covers.
 ## What this domain adds, and what it deliberately does not
 
 It adds a COMPOSITION and three decisions: the partition (one offer, one
-group), the withheld-offers branch, and the outbound seam that fails closed.
+group), the withheld-offers branch, and the outbound handoff to #67.
 
 It adds no ordering, no scoring, no eligibility verdict, no currency default and
 no write. Every one of those belongs to a domain that already owns it, and
@@ -122,16 +122,12 @@ missing" is a seller's question and that surface exists to answer it. A
 shopper's page carrying it would publish one seller's refusal to every other
 seller's customers.
 
-## The outbound seam, and why it fails closed
+## The outbound handoff, through #67
 
-**#37's outbound redirect (`/out/:token`) is NOT built in this repository.**
-Issue #67, which specifies it, was auto-closed by a keyword in #66's pull
-request body (commit `7e22da6`); the code it describes does not exist, and
-`services/offers/`, `services/awin/` and `services/ebay/` all still name it as
-deferred.
-
-So `resolveProductPageOutbound` refuses every external handoff, unconditionally,
-and names the issue that owes it. The two alternatives were both worse:
+**#37's outbound redirect (`/out/:token`) is built** (#67, `services/outbound/`),
+and `resolveProductPageOutbound` hands off to it: the `outbound` branch carries
+a MERCARIA path (`redirectPath`) by TYPE, never a merchant URL. Two
+alternatives stay refused, for the reasons that shaped the redirect itself:
 
 - **Linking straight to `offer.destinationUrl`** asserts at RENDER time what
   only a click can establish. #68 built `assertOfferOutboundEligible` precisely
@@ -139,17 +135,19 @@ and names the issue that owes it. The two alternatives were both worse:
   current when it rendered is the one that is not current when they finally
   click. It would also discard the commercial relationship an `affiliate` offer
   exists under, silently and with no error anywhere.
-- **Building the redirect here** would be #37's route with none of what makes it
-  safe: no signed token, no click record, no bot handling, no loop or
-  open-redirect defence, no affiliate composition. Two places deciding where
-  Mercaria may send a browser is the shape an open redirect takes.
+- **Deciding the destination here** would be a second place answering where
+  Mercaria may send a browser — the shape an open redirect takes. This module
+  mints a token naming the OFFER and knows nothing else; every revalidation,
+  every right and every host comparison happens once, in `services/outbound/`.
 
-What the page still does is everything a shopper needs in order to DECIDE: the
-merchant, the channel, the price in both currencies, the delivery facts, the
-condition, the availability, how recently Mercaria checked, and the destination
-HOST. A hostname is a disclosure (#67 rule 5), not a link — it cannot be
-followed by accident and cannot carry tracking parameters, because it is not a
-URL.
+What the page always shows is everything a shopper needs in order to DECIDE:
+the merchant, the channel, the price in both currencies, the delivery facts,
+the condition, the availability, how recently Mercaria checked, and the
+destination HOST — disclosed alongside the redirect, not instead of it. A
+hostname is a disclosure (#67 rule 5), not a link — it cannot be followed by
+accident and cannot carry tracking parameters, because it is not a URL. With
+`OUTBOUND_REDIRECT_ENABLED` off, `resolveProductPageOutbound` falls back to
+that host-only disclosure, exactly as it did before #67 shipped.
 
 `ProductPageOutbound`'s external branches carry no variant id and no listing id,
 which is #71 acceptance 3 on this surface: there is nothing an add-to-cart call
@@ -375,10 +373,6 @@ gate that cries wolf is the one somebody deletes.
 
 Each is a named contract that fails closed, not a stub that lies:
 
-- **#37 / #67** — the outbound redirect. `ProductPageOutbound`'s `outbound`
-  branch carries a MERCARIA path by type, so nothing here can ever become a
-  merchant URL or a composed tracking URL, whatever fills it in. **#67 is closed
-  on GitHub and unbuilt in this repository** — see the seam section above.
 - **#41** — "Sell yours" and nearby/pickup offers. #93 publishes collection
   points now, and `best_nearby_pickup` is still never awarded because this page
   accepts no viewer coordinate to measure from, so the group would always be

@@ -31,7 +31,7 @@ A reward may be funded from exactly four sources.
 |---|---|---|
 | `connected_marketplace` | The `commission_revenue` ledger postings for the payment, net of commission returned on its refunds. Never gross buyer spend. | **Live** |
 | `fixed_budget` | The headroom left on an explicit `referral_campaign_budgets` row, claimed atomically per accrual. | **Live** |
-| `affiliate` | RECONCILED #67 commission, through `registerAffiliateCommissionReader`. | Defined; the port refuses until #67 registers a reader |
+| `affiliate` | RECONCILED #67 commission, through `registerAffiliateCommissionReader`. | **Live** — #67 registers `readReconciledAffiliateCommission` at boot (`services/outbound/funding.ts`), ungated |
 | `subscription` | RECOGNIZED #89 revenue, through `registerSubscriptionRevenueReader`. | Defined; the port refuses until #89 registers a reader |
 
 ### The names, and the two divergences from ADR 0005
@@ -46,16 +46,17 @@ additionally the `CommercialMode` an order already carries, so a reward's source
 and the order's mode are one word rather than two that must be kept in step.
 
 **Fact 8.** ADR 0005 fact 8 says a source id is added only together with the
-code that can realize its base, "never in advance", and defers `affiliate` and
-`subscription` until #67/#89 ship. #144 requires all four adapters and names
-tests for all four, so all four ids exist here. What fact 8 actually guards
-against — "a source id the database accepts but no code can produce is a row
-nothing can ever reconcile" — is prevented instead by the PORT: neither reader
-has a default, so every deployment that has not shipped #67/#89 answers
-`reader_not_registered` and no reward of those sources can be accrued anywhere.
-The divergence is deliberate and is stated here rather than discovered later.
-`registerAffiliateCommissionReader` / `registerSubscriptionRevenueReader` are
-the two one-line changes #67 and #89 make.
+code that can realize its base, "never in advance", and deferred `affiliate`
+and `subscription` until #67/#89 shipped. #144 requires all four adapters and
+names tests for all four, so all four ids exist here. What fact 8 actually
+guards against — "a source id the database accepts but no code can produce is
+a row nothing can ever reconcile" — is prevented instead by the PORT: neither
+reader has a default, so a deployment that has not registered one answers
+`reader_not_registered` and no reward of that source can be accrued anywhere.
+`registerAffiliateCommissionReader` / `registerSubscriptionRevenueReader` were
+the two one-line changes #67 and #89 owed; #67's landed
+(`registerAffiliateCommissionFundingReader`, called ungated at boot) and #89's
+has not, so `subscription` still answers `reader_not_registered` everywhere.
 
 ### The twelve prohibitions
 
@@ -365,7 +366,8 @@ Each is a named contract that fails closed, not a stub that lies.
 - **#128 (retail cost variance).** Referenced only as a prohibition. The retail
   prohibition is expressed in terms of this domain's own funding union, so it
   needs no #128 symbol and cannot be weakened by one.
-- **#67 / #89.** Their adapters exist and their ports refuse.
+- **#89.** Its adapter exists and its port refuses; #67's own port is
+  registered (see the funding-boundary table above).
 
 ## Production-readiness checklist
 
