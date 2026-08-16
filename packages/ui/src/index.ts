@@ -13,6 +13,13 @@
 export { cn } from "./lib/cn";
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
+// `./lib/bidi`'s `isolateBidi` is deliberately NOT exported here. It is applied
+// once, inside the four formatters below (#429 item 1), which is what makes this
+// module the chokepoint rather than a utility screens remember to call. An
+// export with no consumer is API surface inviting exactly the per-screen use the
+// issue rules out; the first screen that genuinely needs it — a raw quantity or
+// a Latin brand name in an Arabic sentence — adds the export in the diff that
+// uses it.
 export {
   formatDistance,
   formatMoney,

@@ -81,6 +81,18 @@ jobs:
       - name: Guard RTL logical classes
         run: bun run validate:rtl-classes
 
+      # The companion to the step above, and the reason it is a separate one:
+      # that guard reads CLASS NAMES out of the source, and bidi isolation is
+      # not in the source, it is in the VALUE a formatter returns at runtime.
+      # FSI/PDI are zero-width default-ignorable characters, so isolation that
+      # was never applied, applied twice or applied with the wrong character
+      # looks identical in every screenshot and every diff. This runs the real
+      # `packages/ui` formatters and asserts their code points. Same reason as
+      # above for living here: neither packages/ui nor packages/frontend has a
+      # test runner. Costs about a second; imports two source files.
+      - name: Guard bidi isolation
+        run: bun run validate:bidi-isolation
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 
