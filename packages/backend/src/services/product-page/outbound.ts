@@ -41,7 +41,11 @@
  * pointing at a 404 is worse than a disclosed refusal.
  */
 
-import type { Offer, ProductPageOutbound } from '@mercaria/shared-types';
+import {
+  OUTBOUND_LINK_REL,
+  type Offer,
+  type ProductPageOutbound,
+} from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { affiliateOutboundPath } from '../outbound/disclosure.js';
 
@@ -110,5 +114,10 @@ export function resolveProductPageOutbound(offer: Offer): ProductPageOutbound {
     kind: 'outbound',
     redirectPath: affiliateOutboundPath(offer.id),
     destinationHost,
+    // #67 outbound rule 8, READ from the one constant rather than spelled here.
+    // Two surfaces compose this handoff — this one and `resolveOutboundDisclosure`
+    // — and they take different input types (a DTO and a database row), so the
+    // thing that must not exist twice is the VALUE, not the assembly.
+    rel: OUTBOUND_LINK_REL,
   };
 }

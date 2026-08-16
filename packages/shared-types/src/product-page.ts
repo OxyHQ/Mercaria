@@ -205,8 +205,10 @@ export const PRODUCT_PAGE_OUTBOUND_UNAVAILABLE_REASONS: readonly ProductPageOutb
  * there is nothing an add-to-cart call could be handed.
  *
  * The `available` external branch carries a REDIRECT PATH — never a destination
- * URL. When #37 lands it fills this in with `/out/:token`; until then nothing
- * constructs one, and the unavailable branch is what every external offer gets.
+ * URL. #67 landed the redirect, so that path is a real `/out/:token`; the
+ * unavailable branch is now reached only when the deployment has not mounted it,
+ * when the offer names no destination, or when a native offer's checkout verdict
+ * refuses.
  */
 export type ProductPageOutbound =
   | {
@@ -220,6 +222,22 @@ export type ProductPageOutbound =
       readonly redirectPath: string;
       /** The destination HOST, for the disclosure #67 rule 5 asks for. */
       readonly destinationHost: string;
+      /**
+       * The link relationship this handoff must be published under
+       * (#67 outbound rule 8) — always `OUTBOUND_LINK_REL`.
+       *
+       * It is DATA rather than something each surface composes, because "is
+       * this link disclosed as paid" is one answer and three clients would
+       * eventually give three. It is served so a policy change reaches a
+       * shipped mobile build without one.
+       *
+       * The storefront does NOT apply it: a `Pressable` renders a `div` rather
+       * than an anchor, so there is no `rel` to set, and the crawler-facing
+       * guarantee that exists today is the redirect's own
+       * `X-Robots-Tag: noindex, nofollow`. It is on the DTO so that whatever
+       * renders real HTML (#75's public routes) does not have to re-derive it.
+       */
+      readonly rel: string;
     }
   | {
       readonly kind: 'unavailable';
