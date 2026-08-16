@@ -8,7 +8,7 @@ import Redis from 'ioredis';
 import { log } from './logger.js';
 
 let client: Redis | null = null;
-let subClient: Redis | null = null;
+let adapterClients: { pubClient: Redis; subClient: Redis } | null = null;
 
 const MAX_RETRIES = 10;
 const ERROR_LOG_INTERVAL_MS = 60_000;
@@ -122,34 +122,66 @@ export function getRedisClient(): Redis | null {
 }
 
 /**
- * Get a dedicated subscriber client for Socket.IO adapter.
- * Socket.IO needs a separate connection in subscriber mode.
+ * Get the Socket.IO adapter's PUB/SUB client pair.
+ *
+ * `@socket.io/redis-adapter` needs two connections because it puts the second
+ * into subscriber mode, where Redis accepts nothing but (un)subscribe/ping/quit.
+ *
+ * **Never call `.connect()` on these.** ioredis connects EAGERLY in the
+ * constructor (`lazyConnect` defaults false), and `_connect()` rejects with
+ * `Redis is already connecting/connected` for a client whose status is already
+ * `connecting`/`connect`/`ready`. That rejection is what left the adapter
+ * unattached in production (#364). The adapter needs no connected client: it
+ * issues `psubscribe`/`subscribe` in its own constructor and ioredis queues
+ * them on the offline queue until the socket is up. The `Promise.all([...connect()])`
+ * shape belongs to `redis` (node-redis v4), which DOES require an explicit
+ * connect; it was applied to ioredis clients, where it can only ever reject.
+ *
+ * These are a DEDICATED pair rather than `getRedisClient()` reused as the
+ * publisher, and the three differences from that client are the whole reason:
+ *
+ * - **`retryStrategy` never gives up.** The shared client stops reconnecting
+ *   after `MAX_RETRIES` (correct for a cache: fail open, read from the source).
+ *   An adapter that stops reconnecting goes on serving traffic with a dead
+ *   fan-out — half of every cross-task emit silently dropped, with no error
+ *   after the initial burst. That is #364's failure mode arriving a second way,
+ *   so the one thing the fix must not do is reintroduce it.
+ * - **No `commandTimeout`.** The subscriber's `subscribe` is long-lived setup,
+ *   re-issued by ioredis on every reconnect; a timed-out re-subscribe leaves the
+ *   adapter deaf and says nothing.
+ * - **`maxRetriesPerRequest` is kept at 3**, which is what bounds the offline
+ *   queue while Redis is unreachable. A pending `publish` then rejects rather
+ *   than accumulating; `index.ts`'s `unhandledRejection` handler logs it and the
+ *   process carries on.
+ *
+ * BullMQ is unaffected either way — it takes plain connection options from
+ * `getRedisConnection()` (with its required `maxRetriesPerRequest: null`) and
+ * never one of these instances.
  */
-export function getRedisSubClient(): Redis | null {
-  if (subClient) return subClient;
+export function getSocketAdapterClients(): { pubClient: Redis; subClient: Redis } | null {
+  if (adapterClients) return adapterClients;
 
   const config = parseRedisUrl();
   if (!config) return null;
 
-  subClient = new Redis({
+  const pubClient = new Redis({
     ...config,
     maxRetriesPerRequest: 3,
     connectTimeout: 5000,
-    commandTimeout: 2000,
-    retryStrategy: (times) => {
-      if (times > MAX_RETRIES) {
-        log.general.warn(`Redis subscriber giving up after ${MAX_RETRIES} retries`);
-        return null;
-      }
-      return Math.min(times * 500, 5000);
-    },
+    retryStrategy: (times) => Math.min(times * 500, 5000),
   });
+  // Same options by construction, so the two can never drift apart.
+  const subClient = pubClient.duplicate();
 
+  pubClient.on('error', (err) => {
+    throttledErrorLog('Socket.IO Redis publisher error', err);
+  });
   subClient.on('error', (err) => {
-    throttledErrorLog('Redis subscriber client error', err);
+    throttledErrorLog('Socket.IO Redis subscriber error', err);
   });
 
-  return subClient;
+  adapterClients = { pubClient, subClient };
+  return adapterClients;
 }
 
 /**
@@ -185,8 +217,8 @@ export async function closeRedis(): Promise<void> {
     await client.quit();
     client = null;
   }
-  if (subClient) {
-    await subClient.quit();
-    subClient = null;
+  if (adapterClients) {
+    await Promise.all([adapterClients.pubClient.quit(), adapterClients.subClient.quit()]);
+    adapterClients = null;
   }
 }

@@ -151,11 +151,37 @@ async function resolveChannels(
 
 // ── Channel delivery implementations ───────────────────────────────
 
-function deliverInApp(notification: NotificationRecord): boolean {
+/**
+ * Emit the notification to the recipient's room and report whether a socket
+ * existed to receive it.
+ *
+ * `sent` has to mean "a connected client was there", not "a Server object was
+ * there to emit at". Reporting the second is what made #364 invisible for as
+ * long as it lasted: the Redis adapter never attached, so an emit on one ECS
+ * task reached nobody on the other, and `deliveryStatus.in_app` recorded `sent`
+ * for every one of them. The telemetry could not distinguish a delivery from a
+ * drop, which is the same answer it would give if the transport were absent
+ * entirely — so it measured nothing.
+ *
+ * `fetchSockets()` is the honest instrument precisely because it is
+ * ADAPTER-AWARE: with the Redis adapter attached it counts this user's sockets
+ * on every task, and without it only this task's. So the figure moves when the
+ * transport does, which is what makes the fix checkable from production data
+ * rather than from a log line.
+ *
+ * It is an occupancy check and not a delivery receipt — Socket.IO offers no
+ * acknowledgement without one per client — so a socket that drops between the
+ * emit and the count is still counted. What it rules out is the case that was
+ * being mis-reported: nobody connected anywhere. `false` lands on `failed`,
+ * matching what `deliverPush` already does when a user has no registered token.
+ */
+async function deliverInApp(notification: NotificationRecord): Promise<boolean> {
   const io = getIO();
   if (!io) return false;
 
-  io.to(`user:${notification.oxyUserId}`).emit('notification', {
+  const room = `user:${notification.oxyUserId}`;
+
+  io.to(room).emit('notification', {
     id: notification.id,
     type: notification.type,
     title: notification.title,
@@ -165,7 +191,11 @@ function deliverInApp(notification: NotificationRecord): boolean {
     createdAt: notification.createdAt,
   });
 
-  return true;
+  // Counted AFTER the emit: the emit is the delivery attempt and this is the
+  // observation of it. Counting first would miss a client that connected in
+  // between and under-report a delivery that did happen.
+  const recipients = await io.in(room).fetchSockets();
+  return recipients.length > 0;
 }
 
 // ── Expo Push Notifications ─────────────────────────────────────────
@@ -390,7 +420,7 @@ export async function sendNotification(
 
       switch (channel) {
         case 'in_app':
-          success = deliverInApp(notification);
+          success = await deliverInApp(notification);
           break;
         case 'push': {
           // Deliver to both Expo (mobile) and web push in parallel

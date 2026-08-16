@@ -15,8 +15,7 @@ vi.mock('../middleware/auth.js', () => ({
   oxyClient: { authSocket: () => (_socket: unknown, next: () => void) => next() },
 }));
 vi.mock('../lib/redis.js', () => ({
-  getRedisClient: () => null,
-  getRedisSubClient: () => null,
+  getSocketAdapterClients: () => null,
 }));
 vi.mock('../lib/logger.js', () => ({
   log: { general: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
