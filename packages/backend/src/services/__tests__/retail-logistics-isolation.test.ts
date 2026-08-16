@@ -25,8 +25,13 @@
  *     first in the direction nobody notices.
  *  5. **No carrier, package, label or scan COLUMN**, walked over the real
  *     tables rather than grepped — a column is the durable half of the same
- *     mistake, and the walk cannot be fooled by a name the grep did not
- *     anticipate.
+ *     mistake. This one is an ALLOW-LIST
+ *     (`retail-fulfilment-column-allowlist.ts`): every column is enumerated
+ *     with a reason and anything else fails the build, because the deny-list it
+ *     replaced could be fooled by any name it had not anticipated —
+ *     `tracking_number` matched none of its eleven tokens — and two of those
+ *     tokens could not fire at all, having been matched against TypeScript
+ *     property names (#354).
  *  6. **No guest portal credential and no Mercaria service credential** reach
  *     this domain (#126 privacy 3 and 4).
  *  7. **No payment-domain import.** ADR 0004 D1's separation: a supplier's
@@ -40,7 +45,19 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getTableColumns, getTableName } from 'drizzle-orm';
+import {
+  allowListedColumnCount,
+  auditColumns,
+  columnProhibition,
+  prohibitionProbeColumn,
+  schemaTableColumns,
+} from '../../db/__tests__/column-allowlist.js';
+import type { TableColumns } from '../../db/__tests__/column-allowlist.js';
+import {
+  RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+  RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+  RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+} from './retail-fulfilment-column-allowlist.js';
 import {
   RETAIL_DELIVERY_PROMISE_KINDS,
   RETAIL_FULFILMENT_FORBIDDEN_FACTS,
@@ -49,12 +66,7 @@ import {
   RETAIL_FULFILMENT_MODES,
   MOOVO_TRANSPORT_PROJECTION_STATES,
 } from '@mercaria/shared-types';
-import {
-  retailDeliveryPromises,
-  retailFulfilmentIntents,
-  retailFulfilmentLineAllocations,
-  retailOrderRoleSnapshots,
-} from '../../db/schema/index.js';
+import * as retailFulfilmentSchema from '../../db/schema/retailFulfilment.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DOMAIN_DIR = join(SRC_ROOT, 'services', 'retail-fulfilment');
@@ -205,50 +217,243 @@ describe('#126 acceptance 2 — no carrier system inside Mercaria', () => {
 });
 
 describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
-  const tables = [
-    retailOrderRoleSnapshots,
-    retailFulfilmentIntents,
-    retailFulfilmentLineAllocations,
-    retailDeliveryPromises,
-  ];
-
   /**
-   * A column that would be the durable half of a carrier system.
-   *
-   * `tracking` and `transport` are deliberately NOT here: `moovo_transport_*`
-   * is a REFERENCE to a movement another service owns, which is the whole
-   * design, and banning the word would ban the seam it exists for. What is
-   * banned is anything Mercaria would have to MODEL — a carrier, a package, a
-   * label, a scan, a weight, a dimension, a manifest, a poll cursor.
+   * The four tables, traversed from the MODULE rather than listed, so a fifth
+   * one is walked automatically. Names are SQL identifiers (`sqlColumnName`),
+   * which is not cosmetic: this gate used to read `column.name`, the TypeScript
+   * PROPERTY name, and was comparing `proof_of_delivery` and `service_code`
+   * against `proofOfDelivery` and `serviceCode` — two of its eleven tokens
+   * could never fire (#354).
    */
-  const FORBIDDEN_COLUMN = /carrier|package|parcel|label|scan|weight|dimension|manifest|poll|proof_of_delivery|service_code/i;
+  function retailTables(): readonly TableColumns[] {
+    return schemaTableColumns(retailFulfilmentSchema as Record<string, unknown>);
+  }
 
-  it('walks the real tables, and there are columns to walk', () => {
-    const names = tables.flatMap((table) =>
-      Object.values(getTableColumns(table)).map((column) => `${getTableName(table)}.${column.name}`),
+  it('every column of every table is ALLOW-LISTED, and nothing else may exist', () => {
+    const tables = retailTables();
+    // Three vacuity floors, because a traversal that found nothing, an
+    // allow-list that listed nothing and a table that lost its columns all
+    // produce a clean audit.
+    expect(tables.length).toBe(4);
+    expect(RETAIL_FULFILMENT_COLUMN_ALLOWLIST.length).toBe(4);
+    expect(allowListedColumnCount(RETAIL_FULFILMENT_COLUMN_ALLOWLIST)).toBeGreaterThanOrEqual(40);
+    for (const { table, columns } of tables) {
+      expect(columns.length, `${table} has no columns — did the traversal break?`).toBeGreaterThan(
+        3,
+      );
+      for (const column of columns) {
+        // The traversal yields SQL identifiers or the gate is measuring the
+        // wrong string. A camelCase name here IS the #354 defect returning.
+        expect(column, `${table}.${column} is not a SQL identifier`).toMatch(/^[a-z][a-z0-9_]*$/);
+      }
+    }
+
+    const audit = auditColumns(
+      tables,
+      RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+      RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+      RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
     );
-    // The vacuity floor for the walk. A `getTableColumns` that returned nothing
-    // would pass the assertion below without inspecting a thing.
-    expect(names.length).toBeGreaterThanOrEqual(40);
-    const offending = names.filter((name) => FORBIDDEN_COLUMN.test(name.split('.')[1] ?? ''));
-    expect(offending).toEqual([]);
+    // The deny layer is asserted FIRST, because vitest stops at the first
+    // failing assertion and this is the message worth reading: it names the
+    // PROHIBITION a column falls under, where `unlisted` says only that nobody
+    // has decided about it.
+    expect(audit.forbidden).toEqual([]);
+    // A NEW COLUMN FAILS THE BUILD UNTIL SOMEBODY DECIDES IT IS ALLOWED. That
+    // is the inversion: the previous gate refused eleven tokens somebody had
+    // thought of and admitted everything else, so `tracking_number`,
+    // `shipment_id`, `courier_reference` and `checkpoint_at` would every one
+    // have passed. The fix is to add it to the allow-list under a group whose
+    // REASON covers it — never to widen a sentence that does not describe it.
+    expect(audit.unlistedTables).toEqual([]);
+    expect(audit.unlisted).toEqual([]);
+    // And the reverse, so the list cannot rot into a standing permission for a
+    // column that moved or was dropped.
+    expect(audit.missingTables).toEqual([]);
+    expect(audit.missing).toEqual([]);
   });
 
-  it('mutation self-test: the column detector fires on the names it exists for', () => {
+  it('every allow-listed group states a reason, and no column is listed twice', () => {
+    const seen = new Set<string>();
+    for (const allowance of RETAIL_FULFILMENT_COLUMN_ALLOWLIST) {
+      expect(allowance.groups.length, `${allowance.table} has no groups`).toBeGreaterThan(0);
+      for (const group of allowance.groups) {
+        // A reason long enough to be a reason. A blank one is what a hurried
+        // addition produces.
+        expect(group.reason.length, `${allowance.table} has a group with no reason`).toBeGreaterThan(
+          30,
+        );
+        expect(group.columns.length, `${allowance.table} has an empty group`).toBeGreaterThan(0);
+        for (const column of group.columns) {
+          const qualified = `${allowance.table}.${column}`;
+          expect(seen.has(qualified), `${qualified} is listed twice`).toBe(false);
+          seen.add(qualified);
+        }
+      }
+    }
+  });
+
+  it('EVERY prohibition can fire, through the real audit — the liveness self-test', () => {
+    // The question #354 exists for: what would this check report if the thing
+    // it measures were absent? A self-test that calls a matcher with a
+    // hand-written literal proves the matcher works on data the scan never
+    // receives, which is exactly how two dead tokens survived here.
+    //
+    // So each prohibition is rebuilt into the column name it exists to refuse
+    // and injected into a REAL table, and the assertion is made on the audit
+    // production runs. Exhaustive by construction: a token added later is
+    // proven the moment it is added, rather than when somebody remembers to
+    // write it a probe.
+    expect(RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS.length).toBeGreaterThanOrEqual(15);
+    for (const entry of RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS) {
+      const probe = prohibitionProbeColumn(entry);
+      const mutated = retailTables().map((table) =>
+        table.table === 'retail_fulfilment_intents'
+          ? { ...table, columns: [...table.columns, probe] }
+          : table,
+      );
+      const audit = auditColumns(
+        mutated,
+        RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+        RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+        RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+      );
+      expect(
+        audit.forbidden.map((offence) => offence.column),
+        `the prohibition on ${entry.prohibition} cannot fire`,
+      ).toContain(`retail_fulfilment_intents.${probe}`);
+    }
+  });
+
+  it('no prohibition is REDUNDANT — an entry another already covers is not protection', () => {
+    // The other half of "what would this report if the thing it measures were
+    // absent". A live-looking entry some earlier one already catches can never
+    // be the reason anything is refused, so removing it changes nothing — and
+    // it reads to the next person as a decision somebody made.
+    for (const entry of RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS) {
+      const others = RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS.filter(
+        (candidate) => candidate !== entry,
+      );
+      expect(
+        columnProhibition(`t.${prohibitionProbeColumn(entry)}`, others),
+        `the prohibition on ${entry.prohibition} is already covered by another`,
+      ).toBeNull();
+    }
+  });
+
+  it('fires on the realistic names, INCLUDING the two the old gate could not see', () => {
     for (const probe of [
+      // The two that were inert: matched against `proofOfDelivery` and
+      // `serviceCode`, they could not fire however the schema grew.
+      'proof_of_delivery_at',
+      'carrier_service_code',
+      // The ones the old regex did catch, kept so the rewrite is not a
+      // silent narrowing.
       'carrier_account_id',
       'package_weight_grams',
       'shipping_label_url',
       'last_scan_status',
       'tracking_poll_cursor',
-      'carrier_service_code',
+      // And the ones it admitted outright, which is the deny-list's own
+      // incompleteness rather than the casing bug.
+      'tracking_number',
+      'shipment_id',
+      'courier_reference',
+      'waybill_id',
+      'checkpoint_at',
     ]) {
-      expect(FORBIDDEN_COLUMN.test(probe), `${probe} should be refused`).toBe(true);
+      const mutated = retailTables().map((table) =>
+        table.table === 'retail_delivery_promises'
+          ? { ...table, columns: [...table.columns, probe] }
+          : table,
+      );
+      const audit = auditColumns(
+        mutated,
+        RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+        RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+        RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+      );
+      expect(
+        audit.forbidden.map((offence) => offence.column),
+        `${probe} should be refused by name`,
+      ).toContain(`retail_delivery_promises.${probe}`);
     }
-    // And does NOT fire on the seam columns that must survive.
-    for (const probe of ['moovo_transport_request_id', 'moovo_source_reference', 'fulfilment_mode']) {
-      expect(FORBIDDEN_COLUMN.test(probe), `${probe} must be permitted`).toBe(false);
+  });
+
+  it('fires on an INNOCUOUS unlisted column too — which is the whole inversion', () => {
+    // A name no prohibition carries and no group lists. The deny-list says
+    // nothing about it; the allow-list is what stops it.
+    const mutated = retailTables().map((table) =>
+      table.table === 'retail_fulfilment_line_allocations'
+        ? { ...table, columns: [...table.columns, 'internal_note'] }
+        : table,
+    );
+    const audit = auditColumns(
+      mutated,
+      RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+      RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+      RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+    );
+    expect(audit.forbidden).toEqual([]);
+    expect(audit.unlisted).toContain('retail_fulfilment_line_allocations.internal_note');
+
+    // A whole new table is refused the same way.
+    const withNewTable = auditColumns(
+      [...retailTables(), { table: 'retail_carrier_bookings', columns: ['id'] }],
+      RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+      RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+      RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+    );
+    expect(withNewTable.unlistedTables).toContain('retail_carrier_bookings');
+  });
+
+  it('fires on an allow-list entry with no column behind it', () => {
+    const audit = auditColumns(
+      retailTables(),
+      [
+        ...RETAIL_FULFILMENT_COLUMN_ALLOWLIST,
+        {
+          table: 'retail_delivery_promises',
+          groups: [{ reason: 'x'.repeat(40), columns: ['carrier_scan_at'] }],
+        },
+      ],
+      RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+      RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+    );
+    // Named on the allow-list, absent from the schema — and the deny layer sees
+    // it anyway, which is what stops a forbidden name being admitted by being
+    // written down.
+    expect(audit.missing).toContain('retail_delivery_promises.carrier_scan_at');
+    expect(audit.forbidden.map((offence) => offence.column)).toContain(
+      'retail_delivery_promises.carrier_scan_at',
+    );
+  });
+
+  it('permits the seam columns that must survive', () => {
+    // The mirror of the liveness test: a prohibition that refused these would
+    // ban the Moovo seam this domain is built around.
+    for (const probe of [
+      'moovo_transport_request_id',
+      'moovo_source_reference',
+      'moovo_transport_registered_at',
+      'fulfilment_mode',
+      'permitted_fulfilment_mode',
+    ]) {
+      expect(
+        columnProhibition(
+          `retail_fulfilment_intents.${probe}`,
+          RETAIL_FULFILMENT_FORBIDDEN_COLUMN_SEGMENTS,
+          RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS,
+        ),
+        `${probe} must be permitted`,
+      ).toBeNull();
     }
+  });
+
+  it('the exemption list is EXACTLY empty', () => {
+    // A ceiling rather than an exact count is the gate switching itself off one
+    // defensible line at a time. Nothing in these four tables needs one.
+    expect(RETAIL_FULFILMENT_COLUMN_DENY_EXEMPTIONS.length).toBe(0);
   });
 });
 
