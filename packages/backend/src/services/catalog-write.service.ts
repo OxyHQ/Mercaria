@@ -187,12 +187,19 @@ function toListingImages(imageFileIds: string[]): ListingImageInput[] {
  * not a synchronous rebuild, so a comparison projection can never fail a
  * catalogue write.
  *
- * Two paths deliberately do NOT reach here and call `requestNativeOfferSync`
- * themselves: {@link archiveListing}, which changes a status without touching a
- * variant, and moderation enforcement, which lives in another service entirely.
- * Both are listed here rather than left to be discovered, because a fourth
- * status-only write path that forgot would leave a listing's offers claiming it
- * is on sale.
+ * Four paths deliberately do NOT reach here and call `requestNativeOfferSync`
+ * themselves, because each changes a status without touching a variant, so the
+ * facets do not move: {@link archiveListing}; moderation enforcement, which
+ * lives in another service entirely; `channel-disconnect.service`, which applies
+ * a merchant's disconnect policy; and `connector-sync.service`'s
+ * `archiveSourcedListing`, behind the `product_delete` webhook, the post-backfill
+ * delete reconciliation and #386's unpublish.
+ *
+ * They are listed here rather than left to be discovered, because a status-only
+ * write path that forgot would leave a listing's offers claiming it is on sale.
+ * The connector's was exactly that omission and went unnoticed from the start —
+ * see #388 and `archiveSourcedListing`'s own header. Anything added to this list
+ * is a path a reader should check, not a path that is exempt from converging.
  *
  * ## …and where the canonical MATCH is requested (#58)
  *
