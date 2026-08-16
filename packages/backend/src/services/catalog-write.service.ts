@@ -44,7 +44,10 @@ import type {
   Money,
   UpdateListingInput,
 } from '@mercaria/shared-types';
-import { SELLER_SETTABLE_LISTING_STATUSES } from '@mercaria/shared-types';
+import {
+  MERCHANT_ARCHIVABLE_LISTING_STATUSES,
+  SELLER_SETTABLE_LISTING_STATUSES,
+} from '@mercaria/shared-types';
 import { isUniqueViolation } from '@oxyhq/db';
 import {
   findListingById,
@@ -53,6 +56,7 @@ import {
   insertListing,
   recomputeListingFacets,
   replaceListingImages,
+  setListingStatusIfIn,
   updateListingColumns,
   type ListingImageInput,
   type ListingRecord,
@@ -952,12 +956,55 @@ export async function updateListing(
  * not move — but the listing has stopped being offerable, and an archived
  * listing that kept a live offer is exactly what issue #57's native rule 5
  * forbids.
+ *
+ * ## A restricted listing is not archivable here, and this is the THIRD
+ * ## moderation escape closed in commerce code (#402)
+ *
+ * `updateListing` above refuses to move a listing out of `restricted`, and that
+ * guard reads the listing's CURRENT status. This function used to write
+ * `archived` through `updateListingColumns` — an unconditional `UPDATE … WHERE
+ * id = ?` with no status predicate at all — so `DELETE /seller/listings/:id`
+ * walked straight around it. The result was not merely a stronger delisting:
+ *
+ *  1. `restoreSubject` restores only from `['restricted', 'draft', 'archived']`,
+ *     and `archived` is in that set only since #402 — so before it, an accepted
+ *     appeal could never relist the listing and reported that it had never been
+ *     restricted.
+ *  2. Once the status was `archived`, `updateListing`'s guard no longer fired,
+ *     because there was no longer a restriction in the column it reads. So the
+ *     accused seller could `DELETE` and then `PATCH {status:'active'}` and put a
+ *     jury-restricted listing back on sale in two ordinary calls.
+ *
+ * The CAS is the authority and the read below only CLASSIFIES its refusal: a
+ * read-then-write would leave the window in which a jury restricts between the
+ * two, which is exactly the delivery this has to survive.
+ *
+ * A repeat DELETE still converges rather than failing — `setListingStatusIfIn`'s
+ * `status <> next` clause refuses an already-archived listing, and that is a
+ * success here, not a 404.
  */
 export async function archiveListing(listingId: string): Promise<void> {
-  const updated = await updateListingColumns(listingId, { status: 'archived' });
-  if (!updated) {
-    throw notFound('Listing not found');
+  const archived = await setListingStatusIfIn(
+    listingId,
+    'archived',
+    MERCHANT_ARCHIVABLE_LISTING_STATUSES,
+  );
+
+  if (!archived) {
+    const listing = await findListingById(listingId);
+    if (!listing) {
+      throw notFound('Listing not found');
+    }
+    if (listing.status === 'restricted') {
+      throw conflict(
+        'This listing is restricted pending a moderation decision and cannot be ' +
+          'deleted. Its status will change if the decision is overturned.',
+      );
+    }
+    // Already `archived`: the CAS refused a write that would have changed
+    // nothing. A second DELETE of the same listing is not an error.
   }
+
   await requestNativeOfferSync(listingId);
 }
 

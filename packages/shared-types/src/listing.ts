@@ -145,6 +145,45 @@ export const ALL_LISTING_STATUSES: readonly ListingStatus[] = [
   'restricted',
 ];
 
+/**
+ * The statuses that are a LIVE MODERATION HOLD — a jury's to write, and a jury's
+ * to lift.
+ *
+ * `SELLER_SETTABLE_LISTING_STATUSES` above says what a seller may set. This says
+ * what a seller may move a listing OUT of, and the two are genuinely different
+ * questions: `archiveListing` never sets a status a seller chose, so it walked
+ * around the first list entirely while being exactly the escape that list exists
+ * to close (#402).
+ *
+ * Archiving is a soft delete everywhere else here. Against a restriction it was a
+ * one-way door in BOTH directions at once: `restoreSubject` restores only from
+ * `['restricted', 'draft']`, so an archived listing could never be relisted by an
+ * accepted appeal — and, worse, once it was `archived` the runtime guard in
+ * `updateListing` no longer fired, because that guard reads the CURRENT status.
+ * So a seller could `DELETE` their restricted listing and then `PATCH` it back to
+ * `active`, laundering the jury's decision in two ordinary calls.
+ */
+export const MODERATION_HELD_LISTING_STATUSES: readonly ListingStatus[] = ['restricted'];
+
+/**
+ * The statuses a MERCHANT-driven archive may move a listing out of.
+ *
+ * Derived by SUBTRACTION rather than written out, so the two lists cannot drift:
+ * a status added to the union is archivable by default, and a status that is a
+ * moderation hold has to be named as one above. `listing-archive-census.test.ts`
+ * asserts the two are disjoint and cover `ALL_LISTING_STATUSES` exactly, so
+ * adding a status forces a decision instead of inheriting one by omission.
+ *
+ * This is the SELLER and MERCHANT rule, not a universal one. The connector's two
+ * "the product is genuinely gone upstream" paths — a `product_delete` webhook and
+ * the delete reconciliation after a fully-completed backfill — still archive from
+ * any status, deliberately: the merchant no longer sells the thing, whatever
+ * Mercaria was deciding about it. What makes THAT safe is the other half of #402,
+ * which lets a restore reach an archived listing.
+ */
+export const MERCHANT_ARCHIVABLE_LISTING_STATUSES: readonly ListingStatus[] =
+  ALL_LISTING_STATUSES.filter((status) => !MODERATION_HELD_LISTING_STATUSES.includes(status));
+
 /** Whether a listing is owned by an individual user or a store. */
 export type ListingOwnerType = 'user' | 'store';
 

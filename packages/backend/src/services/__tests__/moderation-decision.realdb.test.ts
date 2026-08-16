@@ -78,6 +78,9 @@ let connectPostgres: typeof import('../../db/postgres.js').connectPostgres;
 let closePostgres: typeof import('../../db/postgres.js').closePostgres;
 let insertListing: typeof import('../../db/catalog/listingRepository.js').insertListing;
 let findListingById: typeof import('../../db/catalog/listingRepository.js').findListingById;
+let setListingStatusIfIn: typeof import('../../db/catalog/listingRepository.js').setListingStatusIfIn;
+let archiveListing: typeof import('../catalog-write.service.js').archiveListing;
+let updateListing: typeof import('../catalog-write.service.js').updateListing;
 let insertAbuseReport: typeof import('../../db/moderation/abuseReportRepository.js').insertAbuseReport;
 let markAbuseReportDelivered: typeof import('../../db/moderation/abuseReportRepository.js').markAbuseReportDelivered;
 let findAbuseReportById: typeof import('../../db/moderation/abuseReportRepository.js').findAbuseReportById;
@@ -94,7 +97,10 @@ const seededDecisionIds: string[] = [];
 
 beforeAll(async () => {
   ({ connectPostgres, closePostgres } = await import('../../db/postgres.js'));
-  ({ insertListing, findListingById } = await import('../../db/catalog/listingRepository.js'));
+  ({ insertListing, findListingById, setListingStatusIfIn } = await import(
+    '../../db/catalog/listingRepository.js'
+  ));
+  ({ archiveListing, updateListing } = await import('../catalog-write.service.js'));
   ({ insertAbuseReport, markAbuseReportDelivered, findAbuseReportById } = await import(
     '../../db/moderation/abuseReportRepository.js'
   ));
@@ -483,6 +489,177 @@ describe('a restore reads only rows whose effect really happened', () => {
     );
 
     expect(await statusOf(listingId)).toBe('draft');
+  });
+});
+
+/**
+ * #402 — archiving was a one-way door against a restriction, in both directions.
+ *
+ * Every case here drives the REAL decision pipeline to impose the restriction and
+ * the REAL production archive path, because the defect is entirely in how those
+ * two meet. A test that restricts and then restores directly passes identically
+ * against the unfixed code and measures nothing.
+ */
+describe('a restriction survives archiving, and an appeal can still reach it', () => {
+  /** Restrict `listingId` through a real decision, and assert it took. */
+  async function restrictViaDecision(listingId: string): Promise<void> {
+    await seedReport(listingId, CASE_ID);
+    await applyDecisionEvent(decidedEvent(decision()));
+    expect(await statusOf(listingId), 'the fixture must really be restricted').toBe('restricted');
+  }
+
+  /** An accepted appeal for `supersedes`, applied. */
+  async function acceptAppeal(supersedes: string): Promise<void> {
+    await applyDecisionEvent(
+      decidedEvent(
+        decision({
+          id: scopedDecisionId('dec-appeal'),
+          revision: 2,
+          status: 'corrected',
+          outcome: 'no_violation',
+          findings: [],
+          recommendedActions: [{ action: 'no_action' }],
+          supersedesDecisionId: supersedes,
+        }),
+      ),
+    );
+  }
+
+  it('refuses the seller DELETE that used to bury it', async () => {
+    /**
+     * `DELETE /seller/listings/:id` reaches `archiveListing` through
+     * `loadOwnedListing`, which checks ownership and NOT status — so the accused
+     * seller's own delete was the shortest route to the dead end, needing no
+     * connector, no platform and no webhook.
+     *
+     * Before #402 `archiveListing` wrote through `updateListingColumns`, an
+     * unconditional `UPDATE … WHERE id = ?`, and this call SUCCEEDED.
+     */
+    const listingId = await seedListing('active');
+    await restrictViaDecision(listingId);
+
+    await expect(archiveListing(listingId)).rejects.toThrow(/restricted/i);
+    expect(await statusOf(listingId)).toBe('restricted');
+  });
+
+  it('closes the archive-then-republish path that laundered the decision', async () => {
+    /**
+     * The half that is worse than the dead end, and the reason option 2 alone was
+     * not enough.
+     *
+     * `updateListing`'s guard reads the listing's CURRENT status, so it only
+     * refuses while the column still says `restricted`. Archiving cleared that,
+     * and `SELLER_SETTABLE_LISTING_STATUSES` contains `active` — so before #402
+     * the two calls below both succeeded and put a jury-restricted listing back on
+     * sale.
+     *
+     * BOTH calls are attempted and the assertion is on the END STATE, not on the
+     * first rejection. A test that stopped at the refusal would never observe the
+     * laundering it exists to prevent: against the unfixed code both calls SUCCEED
+     * and this ends `active`, which is the harm stated in the one place a reader
+     * will look at when it goes red.
+     */
+    const listingId = await seedListing('active');
+    await restrictViaDecision(listingId);
+
+    const refusals: string[] = [];
+    const record = (err: unknown): void => {
+      refusals.push(err instanceof Error ? err.message : String(err));
+    };
+
+    await archiveListing(listingId).catch(record);
+    await updateListing(
+      listingId,
+      { status: 'active' },
+      { kind: 'seller', oxyUserId: `seller-${RUN}` },
+    ).catch(record);
+
+    expect(await statusOf(listingId), 'a jury-restricted listing was put back on sale').toBe(
+      'restricted',
+    );
+
+    // …and each step was REFUSED rather than silently doing nothing. Without this
+    // the case would also pass against a build that had quietly stopped archiving
+    // for some unrelated reason.
+    expect(refusals, 'both calls must be refused, not silently no-op’d').toHaveLength(2);
+    for (const message of refusals) {
+      expect(message).toMatch(/restricted/i);
+    }
+  });
+
+  it('relists a listing archived while restricted, at the status it really had', async () => {
+    /**
+     * The repair, and the case that keeps the connector's deliberate carve-out
+     * safe.
+     *
+     * `archiveSourcedListing`'s `product_delete` caller passes no
+     * `sparePendingModeration` and still archives from ANY status, because a
+     * product genuinely deleted upstream is gone whatever Mercaria decided (#387
+     * left that path unchanged on purpose). The statement below is exactly the one
+     * it issues; driving the webhook itself would need a store, a location, a
+     * category, a connection and an installed provider to measure a property that
+     * belongs to `restoreSubject`.
+     *
+     * It also repairs whatever the seller-DELETE escape already buried, which is
+     * the only route back for those rows.
+     *
+     * The listing was `active` before the restriction, so it must come back
+     * `active` — read off the enforcement row, never assumed.
+     */
+    const listingId = await seedListing('active');
+    await restrictViaDecision(listingId);
+
+    const archived = await setListingStatusIfIn(listingId, 'archived', ALL_LISTING_STATUSES);
+    expect(archived, 'the connector path must really have archived it').toBe(true);
+
+    await acceptAppeal('dec-real-1');
+
+    expect(await statusOf(listingId)).toBe('active');
+  });
+
+  it('does NOT resurrect a listing the seller archived after request_changes', async () => {
+    /**
+     * The scoping, and the reason `archived` is added for `restrict` ALONE.
+     *
+     * `request_changes` leaves the listing a `draft`, which its seller fully
+     * controls — so archiving from there is an ordinary delete of their own
+     * listing, made with nothing stopping them. Republishing it on a correction
+     * would put an item back on sale its seller had deleted, which is the same
+     * harm as restoring to a hardcoded `active`.
+     *
+     * Widening `restorableFrom` to `archived` for every reversible action turns
+     * this case red, which is what makes the narrowing observable rather than
+     * merely stated.
+     */
+    const listingId = await seedListing('active');
+    await seedReport(listingId, CASE_ID);
+    await applyDecisionEvent(
+      decidedEvent(
+        decision({
+          findings: [
+            {
+              // A REAL taxonomy code. The first version of this fixture invented
+              // one and every assertion below it went down the parse-failure
+              // branch — the exact vacuity this file's header warns about.
+              code: 'commerce.misleading_listing',
+              severity: 'medium',
+              scope: 'application_local',
+              resourceIds: ['res_subject'],
+            },
+          ],
+          recommendedActions: [{ action: 'request_changes' }],
+        }),
+      ),
+    );
+    expect(await statusOf(listingId), 'the fixture must really be a draft').toBe('draft');
+
+    // The seller deletes their own draft — permitted, and unchanged by #402.
+    await archiveListing(listingId);
+    expect(await statusOf(listingId)).toBe('archived');
+
+    await acceptAppeal('dec-real-1');
+
+    expect(await statusOf(listingId)).toBe('archived');
   });
 });
 

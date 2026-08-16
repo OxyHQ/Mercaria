@@ -141,11 +141,16 @@ Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
   which buffers its own body. Listed in `docs/house-invariants.md`, asserted
   against the real middleware chain by
   `routes/__tests__/stripe-webhook.integration.test.ts`.
-- **Two moderation ESCAPES are closed in pre-existing commerce code**, and a
+- **Three moderation ESCAPES are closed in pre-existing commerce code**, and a
   reviewer reading `services/moderation/` would never see them:
   `catalog-write.service.updateListing` refuses to set `restricted` or to move a
-  listing out of it, and `order.service.transition` refuses to advance a held
-  order. Do not remove either.
+  listing out of it; `archiveListing` refuses to archive a restricted listing at
+  all, because a soft delete CLEARED the status that first guard reads, so
+  DELETE-then-PATCH laundered a jury's decision in two ordinary calls (#402); and
+  `order.service.transition` refuses to advance a held order. Do not remove any
+  of them. Archiving a restricted listing is a one-way door unless a restore can
+  reach it, so `restoreSubject` relists from `archived` too, and
+  `listing-archive-census.test.ts` fails the build on a new archiver.
 - **"Report" is two unrelated things here.** `report.service.ts` and
   `/admin/stores/:storeId/reports/*` are SALES ANALYTICS; abuse reports are
   `AbuseReport` + `services/moderation/`. Never merge them.
