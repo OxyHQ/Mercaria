@@ -684,7 +684,7 @@ export * from './catalog-external-mapping';
 // ordering" a vocabulary property rather than a review note.
 export * from './facets';
 // Typed variant axes and retained seller claims (#367 step 4, ADR 0007 D6/D7)
-// are the LAST export. They depend on nothing above them and deliberately
+// depend on nothing above them and deliberately
 // RESTATE nothing: `PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS` (`./product-type`)
 // stays the one list of attribute keys that may never be an axis, and this
 // module consumes it rather than growing a second copy that could disagree in
@@ -698,3 +698,21 @@ export * from './facets';
 // test, so a claim becoming a canonical fact by being written has no vocabulary
 // to be written in.
 export * from './variant-axis';
+
+// The catalog authoring contract (#367 step 5, ADR 0007 D10) is the LAST export
+// and depends on `./product-type`, `./attribute-registry`, `./money` and
+// `./catalog-localization` — the four vocabularies a composed schema joins. It
+// defines no money, no offer and no ranking vocabulary of its own.
+//
+// The separation to read is `AuthoringField` against `AuthoringSchemaText`: the
+// first carries ids, scope, requirement, validation, grouping, order and value
+// policy, the second carries labels, help, placeholders and examples, and no
+// rule-bearing type here has a `label` property at all. A client that read a
+// label as a rule could not localize without changing behaviour, which is the
+// whole reason D10 states the split.
+//
+// `AUTHORING_FORBIDDEN_FIELD_KEYS` names fifteen things a composed schema may
+// never present as a product-type field — price, stock, availability, condition
+// and the rest — restating #94's reserved-key CHECK at the layer where a client
+// would otherwise learn to write `fields.price`.
+export * from './authoring-schema';

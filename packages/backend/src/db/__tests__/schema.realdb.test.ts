@@ -222,7 +222,14 @@ describe('the migrated schema', () => {
     // attribution window) and dies long before the financial record it may have
     // informed — the separation acceptance 5 names, expressed as two entries in
     // this list with two different clocks.
-    expect(EXPIRY_TARGETS).toHaveLength(35);
+    // #367 step 5 adds ONE — an abandoned authoring DRAFT — and leaves its
+    // other three tables unswept: the two child tables CASCADE from the draft,
+    // and the cache register is one row per subject rather than per event. The
+    // draft's deadline is NULL exactly when it was published
+    // (`catalog_authoring_drafts_expiry_check`), so the sweep's unconditional
+    // predicate selects the abandoned set and never the audit record of a
+    // listing that exists.
+    expect(EXPIRY_TARGETS).toHaveLength(36);
   });
 });
 

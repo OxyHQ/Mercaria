@@ -84,6 +84,23 @@ const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no
 const OXY_FILE = 'An Oxy media file id. Oxy owns the file; Mercaria stores only the id.';
 
 /**
+ * A MERGEABLE catalogue entity an author SELECTED in a draft (#367 step 5).
+ *
+ * Permanently unconstrained, and for a reason that is not "another service owns
+ * it": every `ON DELETE` a foreign key could declare is wrong here. `restrict`
+ * lets one merchant's half-finished form block #59's merge job; `cascade`
+ * deletes their work when the catalogue tidies up; `set null` silently empties
+ * the one answer ADR 0007 D10 says must never be overruled. The publication
+ * resolves the selection through the tombstone's own `merged_into_id` instead,
+ * so a merge that happened mid-draft lands on the winner — and a selection that
+ * resolves to nothing REFUSES the publish rather than unlinking in silence.
+ */
+const MERGEABLE_AUTHORING_SELECTION =
+  'A mergeable catalogue entity an author selected in a draft (ADR 0007 D10). A foreign key ' +
+  'here would let an open draft block a merge, delete the author’s work, or silently empty ' +
+  'their selection; the publication resolves it through `merged_into_id` instead.';
+
+/**
  * An id in an EXTERNAL commerce platform's own key space (Shopify, WooCommerce,
  * …). Mercaria neither mints nor validates it.
  */
@@ -1948,5 +1965,51 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'the claim is frozen and undeletable while its variant lives, so the reference cannot ' +
       'dangle, and a `restrict` edge would order two cascades against each other when an axis ' +
       'is retired.',
+  },
+  // ── #367 step 5's catalog authoring drafts (ADR 0007 D10) ────────────────
+  // One Oxy account id, and FIVE selections that are permanently unconstrained
+  // for a reason that is NOT "Oxy owns it": every one names a MERGEABLE
+  // catalogue entity, and a foreign key onto one would put a merchant's
+  // half-finished form in front of a catalogue merge.
+  //
+  //  - `restrict` lets an open draft BLOCK #59's merge job, which is an
+  //    operator waiting on somebody who went to lunch;
+  //  - `cascade` deletes the author's work when the catalogue tidies up;
+  //  - `set null` silently empties the ONE answer ADR 0007 D10 says must never
+  //    be overruled, and does it in the direction that reads as the author
+  //    having changed their mind.
+  //
+  // The publication resolves each through the tombstone's own `merged_into_id`
+  // instead (`canonicalSearchRepository.resolveCanonicalProductSelection`), so a
+  // merge that happened mid-draft lands on the WINNER with no rehoming pass —
+  // and this domain therefore adds no entry to `services/curation/merge-plan.ts`
+  // and no reference for its census to find. A selection that resolves to
+  // nothing REFUSES the publish rather than silently unlinking, which is the
+  // other half of the same rule.
+  { column: 'catalog_authoring_drafts.created_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'catalog_authoring_drafts.selected_canonical_product_id',
+    reason: MERGEABLE_AUTHORING_SELECTION,
+  },
+  {
+    column: 'catalog_authoring_draft_variants.selected_canonical_variant_id',
+    reason: MERGEABLE_AUTHORING_SELECTION,
+  },
+  {
+    column: 'catalog_authoring_draft_values.canonical_ref_id',
+    reason: MERGEABLE_AUTHORING_SELECTION,
+  },
+  // The cache register's subject, which must OUTLIVE what it invalidates: a
+  // cascade would delete the revision at the exact moment every ECS task most
+  // needs to know the entry composed under it is gone. It is polymorphic by
+  // `subject`, so there is no single table to point at either.
+  {
+    column: 'catalog_authoring_schema_invalidations.subject_id',
+    reason:
+      'The cache-register subject a composed authoring schema depends on (#367 step 5). ' +
+      'Polymorphic by `subject` — an attribute definition, a category, a product type ' +
+      'version or a localized entity — so there is no one table to reference; and a ' +
+      'cascade would be wrong even if there were, because a register row must outlive ' +
+      'the change it records or the invalidation disappears with it.',
   },
 ];

@@ -461,6 +461,11 @@ describe('the registry the sweeper runs over', () => {
       'analytics_query_aggregates',
       'analytics_rollups',
       'analytics_search_queries',
+      // #367 step 5's abandoned authoring DRAFT — the only table in that
+      // domain bounded by how many forms people start and do not finish. Its
+      // two child tables CASCADE from it and its cache register is one row per
+      // subject, so neither is swept.
+      'catalog_authoring_drafts',
       // #62's rejection RESIDUAL is the only ingestion table with a deadline:
       // it is bounded by traffic, while every other one is bounded by the
       // catalogue and is the audit history a rights suspension must not delete.

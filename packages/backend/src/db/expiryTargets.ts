@@ -107,6 +107,7 @@ import { referralRiskSignals } from './schema/referralIntegrity';
 import { watchlistSnapshots } from './schema/watchlists';
 import { searchIntentSessions, searchIntentTurns } from './schema/searchIntent';
 import { procurementOutboxes, supplierProviderEvents } from './schema/supplierOrders';
+import { catalogAuthoringDrafts } from './schema/catalogAuthoring';
 
 /**
  * `WATCHLIST_SNAPSHOT_RETENTION_SECONDS` — 400 days, matching #78's price-history
@@ -791,6 +792,24 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'refused by trigger and DELETE is deliberately PERMITTED (the `analytics_events` ' +
       'posture): erasure on a schedule is the policy, and a trigger refusing it would make ' +
       'this sweep fail silently on every row it was obliged to remove.',
+  },
+  // Catalog authoring drafts (#367 step 5). ONE entry, and the two child tables
+  // have none: `catalog_authoring_draft_variants` and
+  // `catalog_authoring_draft_values` CASCADE from the draft, so a swept draft
+  // leaves no answer pointing at a form that is gone.
+  {
+    table: catalogAuthoringDrafts,
+    column: catalogAuthoringDrafts.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One abandoned product draft (#367 step 5, ADR 0007 D10). The column IS the deadline, ' +
+      'stamped at creation from `CATALOG_AUTHORING_DRAFT_TTL_SECONDS`, so a later change to ' +
+      'that window cannot retroactively shorten a form somebody is still filling in. It is ' +
+      'NULL exactly when the draft was PUBLISHED — `catalog_authoring_drafts_expiry_check` ' +
+      'states the biconditional — so the sweep\'s unconditional predicate selects precisely ' +
+      'the abandoned set and never the audit record of a listing that exists. The ' +
+      '`notifications.dismissed_at` device: a condition the sweep cannot express, turned ' +
+      'into a column it can.',
   },
 ];
 

@@ -697,68 +697,15 @@ export async function createStoreProduct(
     variantSources?: readonly VariantSourceProvenance[];
   } = {},
 ): Promise<string> {
-  const { categoryId, categorySlugs } = await resolveCategory(input.category);
-  const variants = resolveStoreVariants(input, opts.variantSources);
-
-  if (variants.length > config.catalog.maxVariantsPerProduct) {
-    throw validationError(
-      `A product may have at most ${config.catalog.maxVariantsPerProduct} variants`,
-    );
-  }
-
-  // #90: a store product defaults to `new` — which is what every store product
-  // was before the taxonomy existed — and may state anything else explicitly.
-  // The default is a real declaration by the merchant creating it, not an
-  // unrefined migration guess, so it records `seller_declared`.
-  const resolvedCondition = resolveConditionInput(input) ?? {
-    key: 'new' as const,
-    assertion: 'seller_declared' as const,
-    details: [],
-    photoAnnotations: [],
-    defectsAcknowledged: false,
-  };
-  const now = new Date();
-  const conditionColumns = conditionColumnsFor(resolvedCondition, now);
-
-  // The connector import path supplies no acting account. It never states a
-  // non-`new` condition, and `writeListingConditionEvidence` refuses one that
-  // needs photographs without an owner rather than attributing them to a store
-  // id — so this is a `source` assertion, honestly labelled.
-  const conditionActor: ConditionActor = opts.actorOxyUserId
-    ? { kind: 'seller', oxyUserId: opts.actorOxyUserId }
-    : { kind: 'source' };
-
-  // A merchant-created product has no source, and the four columns are written
-  // explicitly NULL rather than left out: `insertListing` takes the whole column
-  // set, and stating the absence keeps this the one place the default lives.
-  const source: ListingSourceProvenance = opts.source ?? {
-    sourceConnectionId: null,
-    sourceProvider: null,
-    sourceExternalId: null,
-    sourceExternalUpdatedAt: null,
-  };
-  // Resolved BEFORE the transaction, deliberately: it is a READ, and a store with
-  // no location now fails before anything is written rather than after the
-  // listing and its variants have been committed without stock.
-  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(storeId));
-
   let listing: ListingRecord;
   try {
+    // Every resolution and the insert itself live in `createStoreProductWithin`,
+    // so there is exactly ONE body: #367 needed the same create inside a caller's
+    // transaction, and two spellings of a product create would have to agree
+    // about the condition default, the source default, the variant cap and
+    // `published_at` forever.
     listing = await getDb().transaction((tx) =>
-      insertStoreProductWithin(tx, {
-        storeId,
-        input,
-        variants,
-        source,
-        status: opts.status ?? 'active',
-        stockLocationId,
-        categoryId,
-        categorySlugs,
-        resolvedCondition,
-        conditionColumns,
-        conditionActor,
-        now,
-      }),
+      createStoreProductWithin(tx, storeId, input, opts),
     );
   } catch (err) {
     // The incumbent is read AFTER the transaction has rolled back, on a fresh
@@ -768,16 +715,107 @@ export async function createStoreProduct(
     throw await asNamedHandleCollision(err, storeId, input.handle);
   }
 
-  // Everything below is a RECOMPUTE over what the transaction committed, and each
-  // is idempotent, so none of it belongs inside: `syncListingFacets` requests the
-  // #57 offer convergence and #58's match, and `recomputeCollectionMembership`
-  // opens its own connection — calling either inside would have the transaction
-  // wait on a writer that is waiting on it.
-  await syncListingFacets(listing.id);
-  await adjustStoreProductCount(storeId, 1);
-  await recomputeCollectionMembership(listing.id);
-
+  await finishStoreProductCreation(storeId, listing.id);
   return listing.id;
+}
+
+/**
+ * Create a store product inside a CALLER'S transaction (#367 step 5, ADR 0007
+ * D10).
+ *
+ * The same body {@link createStoreProduct} runs — every resolution, the same
+ * `insertStoreProductWithin`, the same handle-collision translation — with the
+ * transaction owned by the caller instead of opened here. It exists because ADR
+ * 0007 D10 requires an authoring publication to be ONE transaction spanning the
+ * listing, its variants, its stock, the canonical link and the draft's own
+ * stamp: a caller that could only reach `createStoreProduct` would commit the
+ * listing and then stamp the draft separately, and a failure between the two
+ * leaves an orphan listing that a retry duplicates.
+ *
+ * There is deliberately no second listing-creation body. Adding one would be a
+ * fourth writer of `listings` and would have to re-derive `published_at`, the
+ * condition columns, the facet defaults and the handle-collision message — which
+ * is the divergence `listing-publication-chokepoint.test.ts` exists to refuse.
+ *
+ * `finishStoreProductCreation` is NOT called here and must be called by the
+ * caller AFTER its transaction commits. Each of the three recomputes is
+ * idempotent and each opens its own connection or enqueues work, so running one
+ * inside would have the transaction wait on a writer waiting on it.
+ */
+export async function createStoreProductWithin(
+  tx: Parameters<typeof insertListing>[3],
+  storeId: string,
+  input: CreateStoreProductInput,
+  opts: {
+    locationId?: string;
+    actorOxyUserId?: string;
+    source?: ListingSourceProvenance;
+    status?: 'active' | 'draft';
+    variantSources?: readonly VariantSourceProvenance[];
+  } = {},
+): Promise<ListingRecord> {
+  const { categoryId, categorySlugs } = await resolveCategory(input.category);
+  const variants = resolveStoreVariants(input, opts.variantSources);
+
+  if (variants.length > config.catalog.maxVariantsPerProduct) {
+    throw validationError(
+      `A product may have at most ${config.catalog.maxVariantsPerProduct} variants`,
+    );
+  }
+
+  const resolvedCondition = resolveConditionInput(input) ?? {
+    key: 'new' as const,
+    assertion: 'seller_declared' as const,
+    details: [],
+    photoAnnotations: [],
+    defectsAcknowledged: false,
+  };
+  const now = new Date();
+  const conditionColumns = conditionColumnsFor(resolvedCondition, now);
+  const conditionActor: ConditionActor = opts.actorOxyUserId
+    ? { kind: 'seller', oxyUserId: opts.actorOxyUserId }
+    : { kind: 'source' };
+  const source: ListingSourceProvenance = opts.source ?? {
+    sourceConnectionId: null,
+    sourceProvider: null,
+    sourceExternalId: null,
+    sourceExternalUpdatedAt: null,
+  };
+  const stockLocationId = opts.locationId ?? (await resolveDefaultLocationId(storeId));
+
+  return insertStoreProductWithin(tx, {
+    storeId,
+    input,
+    variants,
+    source,
+    status: opts.status ?? 'active',
+    stockLocationId,
+    categoryId,
+    categorySlugs,
+    resolvedCondition,
+    conditionColumns,
+    conditionActor,
+    now,
+  });
+}
+
+/**
+ * The three idempotent RECOMPUTES that follow a committed store-product create.
+ *
+ * Extracted so {@link createStoreProductWithin}'s caller runs exactly what
+ * {@link createStoreProduct} runs, rather than remembering three calls. Every one
+ * of them belongs OUTSIDE the transaction: `syncListingFacets` requests the #57
+ * offer convergence and #58's match, and `recomputeCollectionMembership` opens
+ * its own connection — calling either inside would have the transaction wait on
+ * a writer that is waiting on it.
+ */
+export async function finishStoreProductCreation(
+  storeId: string,
+  listingId: string,
+): Promise<void> {
+  await syncListingFacets(listingId);
+  await adjustStoreProductCount(storeId, 1);
+  await recomputeCollectionMembership(listingId);
 }
 
 /**
