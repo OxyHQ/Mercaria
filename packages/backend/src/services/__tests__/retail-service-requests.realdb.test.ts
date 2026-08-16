@@ -480,7 +480,11 @@ describe('a policy exception is reviewed, immutable and can never cite a supplie
     const id = uuidv7();
     const [row] = await db
       .insert(categories)
-      .values({ name: `Retail exception fixture ${id}`, slug: `retail-exc-${id}` })
+      .values({
+        key: `retail-exc-${id}`,
+        name: `Retail exception fixture ${id}`,
+        slug: `retail-exc-${id}`,
+      })
       .returning({ id: categories.id });
     if (!row) throw new Error('the category fixture insert returned no row');
     return row.id;

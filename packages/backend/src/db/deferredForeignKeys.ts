@@ -305,6 +305,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
 
   // ── Oxy media file ids ────────────────────────────────────────────────────
   { column: 'categories.image_file_id', reason: OXY_FILE },
+  { column: 'category_external_mappings.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'collections.image_file_id', reason: OXY_FILE },
   { column: 'listing_images.file_id', reason: OXY_FILE },
   { column: 'stores.cover_file_id', reason: OXY_FILE },

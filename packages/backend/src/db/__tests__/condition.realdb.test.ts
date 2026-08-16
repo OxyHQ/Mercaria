@@ -886,7 +886,7 @@ describe('#90 policy rule 5 — a category may refuse a condition', () => {
   it('records one restriction per (category, condition) and replaces rather than duplicates', async () => {
     const [category] = await db
       .insert(categories)
-      .values({ name: `Condition category ${RUN}`, slug: `cond-cat-${RUN}` })
+      .values({ key: `cond-cat-${RUN}`, name: `Condition category ${RUN}`, slug: `cond-cat-${RUN}` })
       .returning({ id: categories.id });
     createdCategoryIds.push(category.id);
 

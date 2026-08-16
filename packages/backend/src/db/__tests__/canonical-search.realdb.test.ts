@@ -122,7 +122,7 @@ let fixture: Fixture;
 async function insertCategory(): Promise<string> {
   const [row] = await db
     .insert(categories)
-    .values({ slug: `zycat-${RUN}`, name: `Zycat ${RUN}` })
+    .values({ key: `zycat-${RUN}`, slug: `zycat-${RUN}`, name: `Zycat ${RUN}` })
     .returning({ id: categories.id });
   if (!row) throw new Error('category insert returned no row');
   created.categories.push(row.id);

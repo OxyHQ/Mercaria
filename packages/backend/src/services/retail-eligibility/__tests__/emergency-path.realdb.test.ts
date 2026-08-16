@@ -242,7 +242,7 @@ async function makeEligibleCombination(): Promise<{
   const { categories } = await import('../../../db/schema/catalog.js');
   const [category] = await db
     .insert(categories)
-    .values({ name: 'Emergency path', slug: categoryKey })
+    .values({ key: categoryKey, name: 'Emergency path', slug: categoryKey })
     .returning();
   if (!category) throw new Error('fixture category was not created');
   const { eq } = await import('drizzle-orm');

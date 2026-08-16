@@ -350,7 +350,7 @@ async function makeCanonicalProduct(
   const categorySlug = `cat-${name}-${RUN}`;
   const [category] = await db
     .insert(categories)
-    .values({ name: `Fixture ${name}`, slug: categorySlug })
+    .values({ key: categorySlug, name: `Fixture ${name}`, slug: categorySlug })
     .returning();
   if (!category) throw new Error('category insert returned no row');
   createdCategoryIds.push(category.id);

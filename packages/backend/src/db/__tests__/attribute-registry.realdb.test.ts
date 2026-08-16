@@ -150,6 +150,7 @@ async function mintCategory(slug: string, parentId?: string): Promise<string> {
   const [row] = await db
     .insert(categories)
     .values({
+      key: `${slug}-${RUN}`,
       name: `${slug} ${RUN}`,
       slug: `${slug}-${RUN}`,
       ...(parentId === undefined ? {} : { parentId }),

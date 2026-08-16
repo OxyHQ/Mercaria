@@ -51,13 +51,21 @@ function categoryAsset(file: string): string {
 export type TaxonomyCategory =
   | {
       readonly listing: 'shopper_facing';
+      /** The stable machine key (ADR 0007 D1). See the note below. */
+      readonly key: string;
       readonly name: string;
       readonly slug: string;
       readonly pillImage: string;
-      readonly children: readonly { name: string; slug: string; image: string }[];
+      readonly children: readonly {
+        key: string;
+        name: string;
+        slug: string;
+        image: string;
+      }[];
     }
   | {
       readonly listing: 'internal_only';
+      readonly key: string;
       readonly name: string;
       readonly slug: string;
     };
@@ -107,95 +115,121 @@ export function taxonomySize(): number {
   );
 }
 
-/** Top-level categories + their child tiles, mirroring `SHOP_CATEGORIES`/pills. */
+/**
+ * Top-level categories + their child tiles, mirroring `SHOP_CATEGORIES`/pills.
+ *
+ * ## `key` is DATA here, not something either script computes
+ *
+ * ADR 0007 D1: `key` is the stable machine identity and a slug is presentation.
+ * A script that composed the key from the slug would make editing a slug edit a
+ * concept's identity — invisibly, and differently in a freshly seeded database
+ * from a provisioned one, because `provision-taxonomy.ts` never re-inserts a
+ * slug it already found. Writing all thirty-six out is what keeps the two
+ * independent and lets a reviewer see that they are.
+ *
+ * The values themselves are each category's own slug PATH, because that is what
+ * #367's backfill derives for the rows already in production — a derivation with
+ * no transformation in it, so a restored production database and a fresh
+ * developer one hold the same key for the same shelf. `men.mens-pants` is that
+ * agreement showing its working, not a key anybody would choose today; a
+ * category created from here on gets one somebody picked.
+ */
 export const TAXONOMY: readonly TaxonomyCategory[] = [
   {
     listing: 'shopper_facing',
     name: 'Women',
+    key: 'women',
     slug: 'women',
     pillImage: categoryAsset('20260326_1_L1_womenswear_pill'),
     children: [
-      { name: 'Dresses', slug: 'dresses', image: categoryAsset('20260326_27_L2_womenswear_dresses') },
-      { name: 'Shirts', slug: 'shirts', image: categoryAsset('20260326_314_L3_womenswear_shirts_tops_shirts') },
-      { name: 'Sneakers', slug: 'sneakers', image: categoryAsset('20260326_188_L3_womenswear_shoes_sneakers') },
-      { name: 'Pants', slug: 'pants', image: categoryAsset('20260326_26_L2_womenswear_pants') },
+      { key: 'women.dresses', name: 'Dresses', slug: 'dresses', image: categoryAsset('20260326_27_L2_womenswear_dresses') },
+      { key: 'women.shirts', name: 'Shirts', slug: 'shirts', image: categoryAsset('20260326_314_L3_womenswear_shirts_tops_shirts') },
+      { key: 'women.sneakers', name: 'Sneakers', slug: 'sneakers', image: categoryAsset('20260326_188_L3_womenswear_shoes_sneakers') },
+      { key: 'women.pants', name: 'Pants', slug: 'pants', image: categoryAsset('20260326_26_L2_womenswear_pants') },
     ],
   },
   {
     listing: 'shopper_facing',
     name: 'Men',
+    key: 'men',
     slug: 'men',
     pillImage: categoryAsset('20260326_2_L1_menswear_pill'),
     children: [
-      { name: 'Hoodies', slug: 'hoodies', image: categoryAsset('20260326_318_L3_menswear_shirts_tops_hoodies') },
-      { name: 'Pants', slug: 'mens-pants', image: categoryAsset('20260326_17_L2_menswear_pants') },
-      { name: 'T-shirts', slug: 't-shirts', image: categoryAsset('20260326_317_L3_menswear_shirts_tops_t_shirts') },
-      { name: 'Sneakers', slug: 'mens-sneakers', image: categoryAsset('20260326_205_L3_menswear_shoes_sneakers') },
+      { key: 'men.hoodies', name: 'Hoodies', slug: 'hoodies', image: categoryAsset('20260326_318_L3_menswear_shirts_tops_hoodies') },
+      { key: 'men.mens-pants', name: 'Pants', slug: 'mens-pants', image: categoryAsset('20260326_17_L2_menswear_pants') },
+      { key: 'men.t-shirts', name: 'T-shirts', slug: 't-shirts', image: categoryAsset('20260326_317_L3_menswear_shirts_tops_t_shirts') },
+      { key: 'men.mens-sneakers', name: 'Sneakers', slug: 'mens-sneakers', image: categoryAsset('20260326_205_L3_menswear_shoes_sneakers') },
     ],
   },
   {
     listing: 'shopper_facing',
     name: 'Beauty',
+    key: 'beauty',
     slug: 'beauty',
     pillImage: categoryAsset('20260326_5_L1_beauty_pill'),
     children: [
-      { name: 'Lotion & moisturizer', slug: 'lotion-moisturizer', image: categoryAsset('20260326_55_L3_beauty_skin_care_lotion_moisturizer') },
-      { name: 'Hair styling products', slug: 'hair-styling-products', image: categoryAsset('20260326_206_L3_beauty_hair_care_hair_styling_products') },
-      { name: 'Anti-aging kits', slug: 'anti-aging-kits', image: categoryAsset('20260326_59_L3_beauty_skin_care_anti_aging_kits') },
-      { name: 'Perfume & cologne', slug: 'perfume-cologne', image: categoryAsset('20260417_66_L2_beauty_perfume_cologne') },
+      { key: 'beauty.lotion-moisturizer', name: 'Lotion & moisturizer', slug: 'lotion-moisturizer', image: categoryAsset('20260326_55_L3_beauty_skin_care_lotion_moisturizer') },
+      { key: 'beauty.hair-styling-products', name: 'Hair styling products', slug: 'hair-styling-products', image: categoryAsset('20260326_206_L3_beauty_hair_care_hair_styling_products') },
+      { key: 'beauty.anti-aging-kits', name: 'Anti-aging kits', slug: 'anti-aging-kits', image: categoryAsset('20260326_59_L3_beauty_skin_care_anti_aging_kits') },
+      { key: 'beauty.perfume-cologne', name: 'Perfume & cologne', slug: 'perfume-cologne', image: categoryAsset('20260417_66_L2_beauty_perfume_cologne') },
     ],
   },
   {
     listing: 'shopper_facing',
     name: 'Home',
+    key: 'home',
     slug: 'home',
     pillImage: categoryAsset('20260326_6_L1_home_pill'),
     children: [
-      { name: 'Blankets', slug: 'blankets', image: categoryAsset('20260326_90_L3_home_bedding_blankets') },
-      { name: 'Rugs', slug: 'rugs', image: categoryAsset('20260326_77_L3_home_decor_rugs') },
-      { name: 'Home fragrances', slug: 'home-fragrances', image: categoryAsset('20260417_79_L3_home_decor_home_fragrances') },
-      { name: 'Household appliances', slug: 'household-appliances', image: categoryAsset('20260326_95_L2_home_household_appliances') },
+      { key: 'home.blankets', name: 'Blankets', slug: 'blankets', image: categoryAsset('20260326_90_L3_home_bedding_blankets') },
+      { key: 'home.rugs', name: 'Rugs', slug: 'rugs', image: categoryAsset('20260326_77_L3_home_decor_rugs') },
+      { key: 'home.home-fragrances', name: 'Home fragrances', slug: 'home-fragrances', image: categoryAsset('20260417_79_L3_home_decor_home_fragrances') },
+      { key: 'home.household-appliances', name: 'Household appliances', slug: 'household-appliances', image: categoryAsset('20260326_95_L2_home_household_appliances') },
     ],
   },
   {
     listing: 'shopper_facing',
     name: 'Fitness & nutrition',
+    key: 'fitness-nutrition',
     slug: 'fitness-nutrition',
     pillImage: categoryAsset('20260326_69_L1_fitness_nutrition_pill'),
     children: [
-      { name: 'Exercise equipment', slug: 'exercise-equipment', image: categoryAsset('20260326_250_L2_fitness_nutrition_exercise_equipment') },
-      { name: 'Supplements', slug: 'supplements', image: categoryAsset('20260326_242_L3_fitness_nutrition_vitamins_supplements_supplements') },
-      { name: 'Vitamins', slug: 'vitamins', image: categoryAsset('20260326_241_L3_fitness_nutrition_vitamins_supplements_vitamins') },
-      { name: 'Drinks & shakes', slug: 'drinks-shakes', image: categoryAsset('20260326_246_L3_fitness_nutrition_nutrition_drinks_shakes') },
+      { key: 'fitness-nutrition.exercise-equipment', name: 'Exercise equipment', slug: 'exercise-equipment', image: categoryAsset('20260326_250_L2_fitness_nutrition_exercise_equipment') },
+      { key: 'fitness-nutrition.supplements', name: 'Supplements', slug: 'supplements', image: categoryAsset('20260326_242_L3_fitness_nutrition_vitamins_supplements_supplements') },
+      { key: 'fitness-nutrition.vitamins', name: 'Vitamins', slug: 'vitamins', image: categoryAsset('20260326_241_L3_fitness_nutrition_vitamins_supplements_vitamins') },
+      { key: 'fitness-nutrition.drinks-shakes', name: 'Drinks & shakes', slug: 'drinks-shakes', image: categoryAsset('20260326_246_L3_fitness_nutrition_nutrition_drinks_shakes') },
     ],
   },
   {
     listing: 'shopper_facing',
     name: 'Baby & toddler',
+    key: 'baby-toddler',
     slug: 'baby-toddler',
     pillImage: categoryAsset('20260326_209_L1_baby_toddler_pill'),
     children: [
-      { name: 'Formula', slug: 'formula', image: categoryAsset('20260326_219_L3_baby_toddler_nursing_feeding_formula') },
-      { name: 'Strollers & travel', slug: 'strollers-travel', image: categoryAsset('20260326_225_L2_baby_toddler_strollers_travel') },
-      { name: 'Diapers', slug: 'diapers', image: categoryAsset('20260326_224_L2_baby_toddler_diapers') },
-      { name: 'Outfits', slug: 'outfits', image: categoryAsset('20260326_211_L3_baby_toddler_clothing_outfits') },
+      { key: 'baby-toddler.formula', name: 'Formula', slug: 'formula', image: categoryAsset('20260326_219_L3_baby_toddler_nursing_feeding_formula') },
+      { key: 'baby-toddler.strollers-travel', name: 'Strollers & travel', slug: 'strollers-travel', image: categoryAsset('20260326_225_L2_baby_toddler_strollers_travel') },
+      { key: 'baby-toddler.diapers', name: 'Diapers', slug: 'diapers', image: categoryAsset('20260326_224_L2_baby_toddler_diapers') },
+      { key: 'baby-toddler.outfits', name: 'Outfits', slug: 'outfits', image: categoryAsset('20260326_211_L3_baby_toddler_clothing_outfits') },
     ],
   },
   {
     listing: 'shopper_facing',
     name: 'Food & drinks',
+    key: 'food-drinks',
     slug: 'food-drinks',
     pillImage: categoryAsset('20260326_251_L1_food_drinks_pill'),
     children: [
-      { name: 'Coffee', slug: 'coffee', image: categoryAsset('20260326_252_L2_food_drinks_coffee') },
-      { name: 'Tea', slug: 'tea', image: categoryAsset('20260326_253_L2_food_drinks_tea') },
-      { name: 'Candy & chocolate', slug: 'candy-chocolate', image: categoryAsset('20260417_254_L2_food_drinks_candy_chocolate') },
-      { name: 'Snacks', slug: 'snacks', image: categoryAsset('20260326_255_L2_food_drinks_snacks') },
+      { key: 'food-drinks.coffee', name: 'Coffee', slug: 'coffee', image: categoryAsset('20260326_252_L2_food_drinks_coffee') },
+      { key: 'food-drinks.tea', name: 'Tea', slug: 'tea', image: categoryAsset('20260326_253_L2_food_drinks_tea') },
+      { key: 'food-drinks.candy-chocolate', name: 'Candy & chocolate', slug: 'candy-chocolate', image: categoryAsset('20260417_254_L2_food_drinks_candy_chocolate') },
+      { key: 'food-drinks.snacks', name: 'Snacks', slug: 'snacks', image: categoryAsset('20260326_255_L2_food_drinks_snacks') },
     ],
   },
   {
     listing: 'internal_only',
     name: 'Imported',
+    key: 'imported',
     slug: IMPORT_HOLDING_CATEGORY_SLUG,
   },
 ];

@@ -623,6 +623,7 @@ export async function seedGraph(
   await db.insert(categories).values(
     Array.from({ length: CATEGORY_COUNT }, (_, index) => ({
       id: `bx-cat-${String(index)}`,
+      key: `bench-cat-${String(index)}`,
       name: `Bench category ${String(index)}`,
       slug: `bench-cat-${String(index)}`,
       ancestorSlugs: [`bench-cat-${String(index % 4)}`],

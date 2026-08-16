@@ -146,7 +146,7 @@ async function makeCategory(): Promise<{ id: string; slug: string }> {
   const slug = `sell-yours-${RUN}-${uuidv7().slice(0, 8)}`;
   const [row] = await db
     .insert(categories)
-    .values({ name: slug, slug, ancestorSlugs: [] })
+    .values({ key: slug, name: slug, slug, ancestorSlugs: [] })
     .returning();
   createdCategoryIds.push(row.id);
   return { id: row.id, slug };

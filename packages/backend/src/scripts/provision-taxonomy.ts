@@ -51,11 +51,10 @@
  */
 
 import { closePostgres, connectPostgres } from '../db/postgres.js';
-import {
-  findCategoryBySlug,
-  insertCategory,
-  type CategoryRecord,
-} from '../db/catalog/categoryRepository.js';
+import type { CategoryLifecycle } from '@mercaria/shared-types';
+import { isCategoryLifecycleActive } from '@mercaria/shared-types';
+import { findCategoryBySlug, type CategoryRecord } from '../db/catalog/categoryRepository.js';
+import { insertCategory } from '../db/taxonomy/taxonomyRepository.js';
 import { log } from '../lib/logger.js';
 import { TAXONOMY, taxonomySize } from './taxonomy.js';
 
@@ -79,20 +78,27 @@ interface Divergence {
 
 /** The columns `insertCategory` writes, as this script intends them for one slug. */
 interface DesiredCategory {
+  /** The stable machine key (ADR 0007 D1), taken verbatim from the taxonomy. */
+  key: string;
   name: string;
   slug: string;
   parentId: string | null;
-  ancestorSlugs: string[];
   imageUrl: string | null;
   position: number;
-  /** See `divergences` for why this is compared in ONE direction only. */
-  isActive: boolean;
+  /**
+   * `published` for a shelf, `suppressed` for the import holding pen.
+   *
+   * `is_active` is DERIVED from this by the repository (ADR 0007 D2/D13), so
+   * this script no longer states it. See `divergences` for why the comparison
+   * runs in ONE direction only.
+   */
+  lifecycle: CategoryLifecycle;
 }
 
 /**
  * Compare an existing row against what the taxonomy says it should be.
  *
- * ## `is_active` is compared in ONE direction, and the asymmetry is the point
+ * ## Visibility is compared in ONE direction, and the asymmetry is the point
  *
  * A category the taxonomy publishes (`shopper_facing`) may legitimately be
  * DEACTIVATED — taking Beauty off the storefront for a season is an operator's
@@ -108,6 +114,15 @@ interface DesiredCategory {
  *
  * Nothing is REWRITTEN either way. The script's only statement against
  * `categories` remains an INSERT.
+ *
+ * ## `key` is compared in BOTH directions, unlike everything else
+ *
+ * A key that disagrees is not a presentation drift somebody chose; it is the
+ * stable identity (ADR 0007 D1) two things now answer differently, and every
+ * seed, fixture, external mapping and export that cited it is pointing at the
+ * wrong concept. It is also the one field this script can never repair — the
+ * column is frozen after insert by `mercaria_category_key_frozen` — so reporting
+ * it is the whole of what can be done about it.
  */
 function divergences(existing: CategoryRecord, desired: DesiredCategory): Divergence[] {
   const found: Divergence[] = [];
@@ -117,14 +132,17 @@ function divergences(existing: CategoryRecord, desired: DesiredCategory): Diverg
     }
   };
 
+  compare('key', desired.key, existing.key);
   compare('name', desired.name, existing.name);
   compare('parentId', desired.parentId ?? '(top level)', existing.parentId ?? '(top level)');
-  compare('ancestorSlugs', desired.ancestorSlugs.join(','), existing.ancestorSlugs.join(','));
   compare('imageUrl', desired.imageUrl ?? '(none)', existing.imageUrl ?? '(none)');
   compare('position', String(desired.position), String(existing.position));
 
-  if (!desired.isActive && existing.isActive) {
-    compare('isActive', 'false (internal only)', 'true (visible to shoppers)');
+  // `ancestor_slugs` is no longer compared: the repository derives it from the
+  // parent's own arrays, so it cannot disagree with a tree this script walked
+  // parents-first, and a comparison that cannot fail reads as coverage.
+  if (!isCategoryLifecycleActive(desired.lifecycle) && existing.isActive) {
+    compare('lifecycle', `${desired.lifecycle} (internal only)`, 'active (visible to shoppers)');
   }
   return found;
 }
@@ -143,13 +161,13 @@ async function ensureCategory(
   const existing = await findCategoryBySlug(desired.slug);
   if (!existing) {
     const created = await insertCategory({
+      key: desired.key,
       name: desired.name,
       slug: desired.slug,
       parentId: desired.parentId,
-      ancestorSlugs: desired.ancestorSlugs,
       imageUrl: desired.imageUrl,
       position: desired.position,
-      isActive: desired.isActive,
+      lifecycle: desired.lifecycle,
     });
     counts.created += 1;
     log.general.info({ slug: desired.slug, id: created.id }, 'Created category');
@@ -186,13 +204,13 @@ async function provisionTaxonomy(): Promise<{
     if (top.listing === 'internal_only') {
       await ensureCategory(
         {
+          key: top.key,
           name: top.name,
           slug: top.slug,
           parentId: null,
-          ancestorSlugs: [],
           imageUrl: null,
           position: topIndex,
-          isActive: false,
+          lifecycle: 'suppressed',
         },
         counts,
         found,
@@ -202,13 +220,13 @@ async function provisionTaxonomy(): Promise<{
 
     const parent = await ensureCategory(
       {
+        key: top.key,
         name: top.name,
         slug: top.slug,
         parentId: null,
-        ancestorSlugs: [],
         imageUrl: top.pillImage,
         position: topIndex,
-        isActive: true,
+        lifecycle: 'published',
       },
       counts,
       found,
@@ -217,13 +235,13 @@ async function provisionTaxonomy(): Promise<{
     for (const [childIndex, child] of top.children.entries()) {
       await ensureCategory(
         {
+          key: child.key,
           name: child.name,
           slug: child.slug,
           parentId: parent.id,
-          ancestorSlugs: [top.slug],
           imageUrl: child.image,
           position: childIndex,
-          isActive: true,
+          lifecycle: 'published',
         },
         counts,
         found,
