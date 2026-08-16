@@ -5770,3 +5770,52 @@ weeks later.
   `affiliate_receivable` is its debit-normal counterpart — the money a network
   has agreed it owes and not yet paid, which exists because commission is earned
   and settled weeks apart.
+
+## The bounded referral pilots (#149)
+
+`referralPilot.ts` — `referral_pilot_cohorts`, `referral_pilot_partners`,
+`referral_pilot_stop_thresholds`, `referral_pilot_stops`. Full behaviour:
+`docs/referral-pilots.md`. Binding architecture: ADR 0005, "Rollout and
+rollback" phase 2.
+
+**Bounds are rows, not environment variables** (#125's precedent verbatim): a
+bound has to be attributable (`published_by_oxy_user_id` NOT NULL on a published
+row, by CHECK), has to survive a deploy (frozen once active, by trigger), and a
+partner allow-list is a table rather than a comma-separated variable.
+
+- **`referral_pilot_cohorts_active_program_key` is keyed on `program_id`, not on
+  `cohort_key`.** A pilot bounds ONE programme, so the admission gate looks a
+  cohort up by a fact the touch already carries — and a single global active row
+  would make this table a shared slot between parallel realdb files, which is
+  `match_policy_versions_active_key`'s hazard. `cohort_key` keeps only the
+  version chain's identity, `UNIQUE(cohort_key, version)`.
+- **No `reward_rule_version_id`.** #149 item 7's "one immutable commission rule"
+  is satisfied by the programme version's own `commission_rule_ref`, which ADR
+  0005 D19 pins per ATTRIBUTION. A second pointer would be a second answer to
+  which rule governs, on exactly the rows a partner was paid under.
+- **`markets` is checked with `coalesce(cardinality(...), 0) >= 1`, never
+  `array_length`** (NULL on `{}`, and a CHECK reads NULL as satisfied). The
+  alpha-2 shape is `array_to_string(markets, ',') ~ '^[A-Z]{2}(,[A-Z]{2})*$'`
+  and NOT `not exists (select … from unnest(…))`: a subquery in a CHECK is
+  refused by Postgres outright, and the obvious spelling fails at APPLY rather
+  than at review.
+- **The expansion review is four columns, all or none**
+  (`num_nonnulls(...) in (0, 4)`), plus `(version = 1) = (supersedes_cohort_id
+  is null)` so the chain is total, plus `status <> 'closed' or reviewed_at is
+  not null`. The trigger permits the review to be written after publication —
+  freezing it would make #149's dated decision unrecordable on the version it is
+  about — and refuses a SECOND write of the same four.
+- **`referral_pilot_partners` and `referral_pilot_stop_thresholds` are frozen by
+  ONE trigger on INSERT OR UPDATE**, keyed on the parent's status. DELETE is
+  permitted: removing NARROWS, and expansion is what #149 forbids.
+- **`referral_pilot_stops`** carries the `retail_pilot_stops` shape exactly:
+  one live stop per (cohort, metric, scope, scope_ref) by partial unique, the
+  origin/raiser biconditional, `num_nonnulls(lift…) in (0, 3)`, and
+  `(scope = 'pilot') = (scope_ref = '')`. Append-only against DELETE, with a
+  lift as its one permitted update and a lifted row frozen outright.
+- **`partner_id` is a REAL foreign key with `restrict`**, unlike the Oxy account
+  ids beside it: a partner named by a live pilot must not be deleted underneath
+  it, and unlike an Oxy id this one is Mercaria's own primary key. The five
+  `*_oxy_user_id` columns are registered in `deferredForeignKeys.ts`, as is
+  `program_id` (the stable identity, which `referral_programs` does not key on
+  alone).

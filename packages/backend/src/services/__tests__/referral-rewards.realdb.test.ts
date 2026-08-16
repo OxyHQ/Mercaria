@@ -74,6 +74,10 @@ import {
   resetReferralFundingReaders,
 } from '../referrals/rewards/funding.js';
 import { listRewardAdjustments } from '../../db/referrals/rewardRepository.js';
+import {
+  admitPartnerToReferralPilot,
+  deleteReferralPilotFixtures,
+} from '../referral-pilot/__tests__/pilot-fixture.js';
 
 // Hoisted above the imports: `config/index.ts` reads it at load, and issuing a
 // code goes through the instrument service that mints link tokens.
@@ -90,6 +94,17 @@ const APPROVER = `approver-${TAG}`;
 const EUR: CurrencyCode = 'EUR';
 
 const trackedProgramIds: string[] = [];
+
+/**
+ * The programme the NEXT partner is admitted to the pilot for (#149).
+ *
+ * `attributeTouch` refuses a new attribution for a programme with no active
+ * pilot cohort, so a fixture that wants one has to publish bounds — exactly as
+ * a deployment does. Every test here creates its programme before its partners,
+ * so `makeActiveProgram` records it and `makeApprovedPartner` admits to it.
+ */
+let currentPilotProgram: { programId: string; versionId: string } | null = null;
+
 const trackedPartnerIds: string[] = [];
 const trackedRuleIds: string[] = [];
 const trackedPaymentIds: string[] = [];
@@ -341,6 +356,7 @@ afterAll(async () => {
     });
   }
   if (trackedPartnerIds.length > 0) {
+    await deleteReferralPilotFixtures(trackedProgramIds, db);
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
   if (trackedProgramIds.length > 0) {
@@ -432,6 +448,7 @@ async function makeActiveProgram(ruleId: string): Promise<{ programId: string; v
   });
   trackedProgramIds.push(draft.programId);
   const published = await publishProgram({ id: draft.id, approvedByOxyUserId: APPROVER });
+  currentPilotProgram = { programId: draft.programId, versionId: published.id };
   return { programId: draft.programId, versionId: published.id };
 }
 
@@ -446,6 +463,14 @@ async function makeApprovedPartner(label: string): Promise<{ id: string }> {
   });
   trackedPartnerIds.push(partner.id);
   await approvePartner({ partnerId: partner.id, actorOxyUserId: APPROVER, reason: 'fixture' });
+  if (currentPilotProgram !== null) {
+    await admitPartnerToReferralPilot({
+      programId: currentPilotProgram.programId,
+      programVersionId: currentPilotProgram.versionId,
+      partnerId: partner.id,
+      operatorOxyUserId: APPROVER,
+    });
+  }
   return { id: partner.id };
 }
 

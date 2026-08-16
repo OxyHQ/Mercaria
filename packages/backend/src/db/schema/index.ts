@@ -128,6 +128,12 @@ export * from './referralEarnings';
 // nothing else outside its own domain — deliberately, because an enforcement
 // record that could reference an order would be one that could name a buyer.
 export * from './referralIntegrity';
+// The BOUNDED REFERRAL PILOTS (#149) FOLLOW `referrals` and `referralRewards`:
+// a cohort version pins one program version and one reward rule version, and
+// its allow-list names partners. It references nothing outside the referral
+// domain, deliberately — a pilot bound that could name an order would be one
+// that could name a buyer.
+export * from './referralPilot';
 // Offers (#57, ADR 0002 D18) come last of the graph layers because they sit
 // downstream of ALL of them: an offer references a canonical variant (#56), a
 // merchant and a storefront (#54), a source record (#53), and — for the native

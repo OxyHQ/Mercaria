@@ -61,6 +61,7 @@ import {
   selfReferralPermitsAttribution,
 } from './integrity/self-referral.js';
 import { collectSelfReferralFacts } from './integrity/self-referral.service.js';
+import { evaluateReferralPilotAdmission } from '../referral-pilot/pilot.service.js';
 
 /** How the resolver answered. Every arm is an ANSWER, including the refusals. */
 export type AttributionOutcome =
@@ -172,6 +173,43 @@ export async function attributeTouch(touchId: string): Promise<AttributionOutcom
           `(touch ${touch.id})`,
       });
       return { outcome: 'refused', reason: 'self_referral' };
+    }
+
+    // #149: the BOUNDED PILOT gate, and the ONLY place it is called.
+    //
+    // It sits BELOW every #142/#148 check and ABOVE the winner comparison,
+    // which is the position that makes acceptance 5 true: a pilot bound refuses
+    // a NEW attribution and touches nothing that already exists, so a live stop
+    // never supersedes a standing winner and never reaches a conversion, a
+    // reward, a hold, a payout batch or an appeal. It is also the position that
+    // costs least — the subject is already derived, so the entry count is the
+    // only read this adds, and it is skipped entirely when no cohort is active.
+    //
+    // ONE refusal reason reaches the caller. Which of the nine bounds fired is
+    // on the `referral_events` row: a caller that could tell "not allow-listed"
+    // from "entry budget spent" could read the pilot's bounds out of it.
+    const admission = await evaluateReferralPilotAdmission(
+      {
+        programId: version.programId,
+        partnerId: partner.id,
+        subjectKind: subject.subjectKind,
+        // A touch carries no market — deliberately, since a market is a
+        // property of an order rather than of a click — so a market-scoped stop
+        // covers nothing today and the publish path refuses to create one.
+        market: null,
+        at: now,
+      },
+      tx,
+    );
+    if (admission.outcome === 'refused') {
+      await appendReferralEvent(tx, {
+        subjectType: 'partner',
+        subjectId: partner.id,
+        action: 'attribution_refused',
+        actorKind: 'system',
+        reason: `Pilot refused: ${admission.reason} (touch ${touch.id})`,
+      });
+      return { outcome: 'refused', reason: 'pilot_not_admitted' };
     }
 
     const scope = { programId: version.programId, ...subject };

@@ -1833,4 +1833,26 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'The same stable program identity, for the same reason: an observation is scoped to a ' +
       'program rather than to whichever version happened to be live when it was measured.',
   },
+  // ── #149's bounded referral pilots ────────────────────────────────────────
+  // Five operator identities. Every one names the person who published a bound,
+  // allow-listed a partner, raised a stop, lifted one or wrote the expansion
+  // review — which is the whole reason those bounds are rows rather than
+  // environment variables, and the reason none of them may be null on an
+  // operator act.
+  { column: 'referral_pilot_cohorts.program_owner_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_pilot_cohorts.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_pilot_cohorts.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_pilot_partners.added_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_pilot_stops.raised_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_pilot_stops.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'referral_pilot_cohorts.program_id',
+    reason:
+      'The same stable program identity referral_attributions.program_id carries, and there ' +
+      'is no single-column unique to point at — referral_programs is keyed ' +
+      '(program_id, version). The cohort ALSO names one exact version through ' +
+      'program_version_id, which is a real foreign key: the stable id is what the admission ' +
+      'gate compares a touch against, and the version is the attribution rule the pilot ' +
+      'published.',
+  },
 ];

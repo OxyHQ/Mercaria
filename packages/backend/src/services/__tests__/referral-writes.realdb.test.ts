@@ -65,6 +65,10 @@ import {
 import { partnerAttributionsView } from '../referrals/read.service.js';
 import { runReferralConsistencyChecks } from '../referrals/consistency.service.js';
 import { verifyReferralLinkToken } from '../referrals/link-token.js';
+import {
+  admitPartnerToReferralPilot,
+  deleteReferralPilotFixtures,
+} from '../referral-pilot/__tests__/pilot-fixture.js';
 
 // Hoisted above the imports, so `config/index.ts` reads it at load — link
 // issuance mints signed tokens and needs the secret.
@@ -80,6 +84,18 @@ const TAG = uuidv7().replace(/-/g, '').slice(-10);
 const OPERATOR = `operator-${TAG}`;
 
 const trackedProgramIds: string[] = [];
+
+/**
+ * The programme the NEXT partner is admitted to the pilot for (#149).
+ *
+ * `attributeTouch` refuses a new attribution for a programme with no active
+ * pilot cohort, so a fixture that wants one has to publish bounds — exactly as
+ * a deployment does. Every test here creates its programme before its partners,
+ * so `makeActiveProgram` records it and `makeApprovedPartner` admits to it; a
+ * test that ever reversed that order would admit to the wrong programme and see
+ * `refused`, which is loud rather than silent.
+ */
+let currentPilotProgram: { programId: string; versionId: string } | null = null;
 const trackedPartnerIds: string[] = [];
 const trackedRedirectFroms: string[] = [];
 
@@ -196,6 +212,10 @@ afterAll(async () => {
       .delete(referralSubjectRedirects)
       .where(inArray(referralSubjectRedirects.id, redirectIds));
   }
+  // #149's cohorts reference the programme version and the partners with
+  // `restrict`, deliberately — a live pilot must not have either removed
+  // underneath it — so they go before both.
+  await deleteReferralPilotFixtures(trackedProgramIds, db);
   if (trackedPartnerIds.length > 0) {
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
@@ -237,6 +257,7 @@ async function makeActiveProgram(
   trackedProgramIds.push(draft.programId);
   const published = await publishProgram({ id: draft.id, approvedByOxyUserId: OPERATOR });
   expect(published.status).toBe('active');
+  currentPilotProgram = { programId: draft.programId, versionId: published.id };
   return { programId: draft.programId, versionId: published.id };
 }
 
@@ -257,6 +278,14 @@ async function makeApprovedPartner(name: string): Promise<{ id: string; ownerId:
     reason: 'test approval',
   });
   expect(approved.state).toBe('approved');
+  if (currentPilotProgram !== null) {
+    await admitPartnerToReferralPilot({
+      programId: currentPilotProgram.programId,
+      programVersionId: currentPilotProgram.versionId,
+      partnerId: partner.id,
+      operatorOxyUserId: OPERATOR,
+    });
+  }
   return { id: partner.id, ownerId };
 }
 

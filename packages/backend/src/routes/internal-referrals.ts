@@ -103,6 +103,29 @@ import {
   recordReferralRiskSignalHandler,
   traceReferralIntegrityHandler,
 } from '../controllers/referral-integrity.controller.js';
+import {
+  referralPilotCohortSchema,
+  referralPilotLiftSchema,
+  referralPilotMeasurementsSchema,
+  referralPilotPartnerSchema,
+  referralPilotReviewSchema,
+  referralPilotStopSchema,
+  referralPilotThresholdSchema,
+} from '../middleware/referral-pilot-schemas.js';
+import {
+  addReferralPilotPartnerHandler,
+  addReferralPilotThresholdHandler,
+  createReferralPilotCohortHandler,
+  evaluateReferralPilotThresholdsHandler,
+  liftReferralPilotStopHandler,
+  listReferralPilotCohortsHandler,
+  publishReferralPilotCohortHandler,
+  raiseReferralPilotStopHandler,
+  readReferralPilotReportHandler,
+  readReferralPilotVersionReportHandler,
+  recordReferralPilotReviewHandler,
+  referralPilotCohortTraceHandler,
+} from '../controllers/referral-pilot-operator.controller.js';
 
 const router = Router();
 
@@ -405,6 +428,96 @@ router.post(
   '/appeals/:appealId/decision',
   validateBody(referralAppealDecisionSchema),
   decideReferralAppealHandler,
+);
+
+// ── The bounded pilot: bounds, stops and measured economics (#149) ───────────
+//
+// On this SAME list, not an eighth — for #143's and #148's reason, one step
+// further out: publishing the bounds a partner was recruited under, pausing
+// entry and writing the dated review that authorises expansion are the same
+// power as pausing attribution and approving a payout.
+//
+// The set is CLOSED. There is no "widen the active cohort" (a widening is a new
+// version), no "clear this stop" (a lift is attributable, dated and explained;
+// a clear would be none of those), no "override this admission" (the gate is a
+// conjunction of published bounds, and a per-request escape would make every one
+// of them advisory) and no "set this measurement" — a figure stored without a
+// definition is exactly what #77's rule forbids, and the evaluation route takes
+// measurements it does not keep.
+
+/** GET — every version of the pilot, newest first, with the active one named. */
+router.get('/pilot/cohorts', listReferralPilotCohortsHandler);
+
+/** GET — one version's bounds, its allow-list, its thresholds and its stops. */
+router.get('/pilot/cohorts/:cohortId', referralPilotCohortTraceHandler);
+
+/** POST — draft a version. A draft binds nothing until it is published. */
+router.post(
+  '/pilot/cohorts',
+  validateBody(referralPilotCohortSchema),
+  createReferralPilotCohortHandler,
+);
+
+/** POST — allow-list one partner. A trigger refuses a published cohort. */
+router.post(
+  '/pilot/cohorts/:cohortId/partners',
+  validateBody(referralPilotPartnerSchema),
+  addReferralPilotPartnerHandler,
+);
+
+/** POST — publish one stop condition. A trigger refuses a published cohort. */
+router.post(
+  '/pilot/cohorts/:cohortId/thresholds',
+  validateBody(referralPilotThresholdSchema),
+  addReferralPilotThresholdHandler,
+);
+
+/**
+ * POST — publish the draft.
+ *
+ * Refuses an incomplete threshold set, an empty allow-list, and a successor
+ * whose predecessor carries no dated review.
+ */
+router.post('/pilot/cohorts/:cohortId/publish', publishReferralPilotCohortHandler);
+
+/** POST — record the dated expansion review. Written ONCE, never edited. */
+router.post(
+  '/pilot/cohorts/:cohortId/review',
+  validateBody(referralPilotReviewSchema),
+  recordReferralPilotReviewHandler,
+);
+
+/** GET — the measured-economics report for the active cohort. */
+router.get('/pilot/report', readReferralPilotReportHandler);
+
+/** GET — the same report for one named version, active or not. */
+router.get('/pilot/cohorts/:cohortId/report', readReferralPilotVersionReportHandler);
+
+/**
+ * POST — evaluate the published thresholds against supplied measurements.
+ *
+ * Nothing is STORED but the stops a breach raises: a measurement kept beside a
+ * threshold would be a number whose definition nobody could check later, which
+ * is what the definition registry exists to prevent.
+ */
+router.post(
+  '/pilot/threshold-evaluation',
+  validateBody(referralPilotMeasurementsSchema),
+  evaluateReferralPilotThresholdsHandler,
+);
+
+/** POST — raise a stop by hand. Attributable, always. */
+router.post(
+  '/pilot/cohorts/:cohortId/stops',
+  validateBody(referralPilotStopSchema),
+  raiseReferralPilotStopHandler,
+);
+
+/** POST — lift a live stop. A second lift finds nothing and 409s. */
+router.post(
+  '/pilot/stops/:stopId/lift',
+  validateBody(referralPilotLiftSchema),
+  liftReferralPilotStopHandler,
 );
 
 export default router;

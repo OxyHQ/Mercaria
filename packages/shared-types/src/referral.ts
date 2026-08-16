@@ -389,6 +389,23 @@ export type ReferralConflictReason =
    * even where it is working.
    */
   | 'enforcement_suspended'
+  /**
+   * #149: the bounded pilot does not admit this attribution.
+   *
+   * ONE reason for all nine of `ReferralPilotAdmissionRefusal`, deliberately.
+   * A caller that could tell "you are not on the allow-list" from "the pilot's
+   * entry budget is spent" from "a stop is live" could vary one input at a time
+   * and read the pilot's bounds out of the refusals — the `retail_line_
+   * ineligible` and `p2p_seller_excluded` decision, one domain over. Which bound
+   * fired is recorded on the `referral_events` row an operator traces from.
+   *
+   * Distinct from `enforcement_suspended` (#148, a decision about THIS partner)
+   * and from `program_retired` (#142, a decision about the program): a pilot
+   * refusal is a decision about how much of the program is running at all, and
+   * collapsing the three would make an operator guess which of three surfaces
+   * to look at.
+   */
+  | 'pilot_not_admitted'
   | 'other';
 
 /** {@link ReferralConflictReason} as a tuple. */
@@ -401,6 +418,7 @@ export const REFERRAL_CONFLICT_REASONS: readonly ReferralConflictReason[] = [
   'operator_correction',
   'operator_invalidation',
   'enforcement_suspended',
+  'pilot_not_admitted',
   'other',
 ];
 
