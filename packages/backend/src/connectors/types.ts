@@ -332,6 +332,28 @@ export interface NormalizedProduct {
    */
   collectionRefs?: string[];
   /**
+   * Whether the platform still PUBLISHES this product, when the platform says
+   * (#377). Absent means this provider does not report a publish state at all —
+   * which is NOT the same as `'published'`, and must never be read as either
+   * verdict.
+   *
+   * It exists because a publish state is the one product fact a provider can
+   * only tell Mercaria about through a WEBHOOK. A pull filters server-side
+   * (WooCommerce asks for `status=publish`), so an unpublished product simply
+   * stops appearing and the backfill's delete-reconciliation archives it as
+   * unseen. A webhook has no such filter: the platform delivers the edit that
+   * unpublished the product, and without this the normalizer dropped the only
+   * field saying so — leaving the listing on sale until the next full backfill,
+   * with every later edit webhook writing to it.
+   *
+   * The three states are deliberately distinct rather than a boolean. A provider
+   * that reports nothing (Shopify, whose product schema parses no status) must
+   * not have its silence read as "unpublished", which would archive a catalogue,
+   * nor be given a `true` default that a provider which DOES report could later
+   * inherit by forgetting to set it.
+   */
+  publishState?: 'published' | 'unpublished';
+  /**
    * The product's variants AND what the provider could prove about them (#259).
    *
    * A plain `NormalizedVariant[]` said "these are the variants" whether the

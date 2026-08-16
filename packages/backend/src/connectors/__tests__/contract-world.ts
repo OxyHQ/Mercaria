@@ -63,6 +63,19 @@ export interface ContractProduct {
   readonly handle?: string;
   /** The platform's `updated_at`, ISO-8601. */
   readonly updatedAt?: string;
+  /**
+   * Whether the merchant still has this product PUBLISHED (#377). Absent means
+   * published — every fixture predates the distinction and models a shop whose
+   * products are all on sale.
+   *
+   * Provider-neutral on purpose: WooCommerce spells the unpublished states
+   * `draft`/`pending`/`private`/`trash` and Shopify spells them
+   * `draft`/`archived`, so a world carrying either vocabulary would be one
+   * platform's catalogue rather than a shop. Each runner renders this into its
+   * own dialect, and a runner whose platform reports no publish state at all
+   * renders nothing.
+   */
+  readonly published?: boolean;
   /** Absolute CDN image URLs, in gallery order. */
   readonly imageUrls: readonly string[];
   /** Option names; empty means the platform's single-variant placeholder. */

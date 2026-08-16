@@ -2243,6 +2243,33 @@ async function applyVariantUpdate(
     patch.sku = incoming.sku;
   }
 
+  // #381: a barcode CORRECTED upstream propagates. It was written on create and
+  // never again, so a variant kept whatever GTIN it was first imported with.
+  //
+  // That is an identity claim rather than a stale string. `subject-loader.ts`
+  // asserts `product_variants.barcode` as an `ean` for #58's matcher, and #296
+  // removed the table-wide unique precisely so identity is decided by the
+  // collision gate rather than a raw constraint — so a stale barcode is a wrong
+  // identifier offered to the thing that attaches this variant to a canonical
+  // product.
+  //
+  // Adding it to the PATCH is the whole fix, and deliberately not one line more:
+  // `updateVariant` ends in `syncListingFacets`, which requests the offer
+  // convergence (#57) and the per-variant re-match (#58) together. Before this,
+  // a barcode-only edit produced an EMPTY patch, so `updateVariant` was never
+  // called and neither was requested — the column kept the old GTIN and nothing
+  // asked the matcher to look again. Reaching the existing chokepoint fixes all
+  // three; enqueueing a match here as well would make this the one catalogue
+  // writer with its own opinion about when matching happens.
+  //
+  // Applied only while the platform still publishes a barcode, for the reason
+  // the SKU above is: `UpdateVariantInput.barcode` cannot express a CLEAR, so a
+  // variant whose barcode was removed upstream keeps the one it had rather than
+  // being stripped of it by a shape the funnel has no way to say.
+  if (incoming.barcode !== undefined && incoming.barcode !== record.barcode) {
+    patch.barcode = incoming.barcode;
+  }
+
   // Option LABELS and VALUES move too, and this is the edit the old matcher could
   // not survive: it keyed on the tuple, so a rename matched nothing, created a
   // second variant and unsold the original — issue #259's design point 9, with no
@@ -2720,9 +2747,27 @@ export async function requestBackfill(storeId: string, connectionId: string): Pr
  * whole status set is allowed because the Mongo update was likewise unconditional
  * on the current status.
  */
-async function archiveSourcedListing(conn: ConnectionRow, externalId: string): Promise<boolean> {
+async function archiveSourcedListing(
+  conn: ConnectionRow,
+  externalId: string,
+  opts: { respectStatusOverride: boolean } = { respectStatusOverride: false },
+): Promise<boolean> {
   const listing = await findListingBySourceExternalId(conn.storeId, conn.id, externalId);
   if (!listing) {
+    return false;
+  }
+  // A locally-pinned status wins, exactly as it does in a field merge — for a
+  // caller that has no listing in hand and so cannot check before asking. That
+  // is #377's webhook path: the platform said the product was unpublished, and
+  // the external id is the only thing it holds. `archiveUnseenSourcedListings`
+  // already holds the row and short-circuits on the same predicate before
+  // reaching here.
+  //
+  // OFF by default, because the `product_delete` caller does not pass it and
+  // never did: a product DELETED upstream is gone whatever the merchant pinned,
+  // and turning that into a refusal would be a behaviour change to a path
+  // neither #377 nor #381 is about.
+  if (opts.respectStatusOverride && listing.overriddenFields.includes('status')) {
     return false;
   }
   return setListingStatusIfIn(listing.id, 'archived', ALL_LISTING_STATUSES);
@@ -2760,12 +2805,17 @@ async function archiveUnseenSourcedListings(
     if (!externalId || seenExternalIds.has(externalId)) {
       continue; // still present on the platform (or no external id) — keep it
     }
-    // Respect a locally-pinned status the same way field merges respect overrides.
+    // Respect a locally-pinned status the same way field merges respect
+    // overrides. `archiveSourcedListing` applies the SAME predicate for the
+    // callers that have no listing in hand (#377's webhook path), and this stays
+    // because the sweep already holds the row: it short-circuits before a second
+    // read, and the redundancy fails safe — weakening the check there would
+    // still leave this path protected.
     if (respectOverrides && listing.overriddenFields.includes('status')) {
       continue;
     }
     try {
-      if (await archiveSourcedListing(conn, externalId)) {
+      if (await archiveSourcedListing(conn, externalId, { respectStatusOverride: respectOverrides })) {
         archived += 1;
       }
     } catch (err) {
@@ -3027,6 +3077,40 @@ async function handleProductWebhook(
   // anything — the next backfill converges.
   const expanded = await provider.expandWebhookProduct(await decryptAuth(conn), payload);
   const product = provider.normalizeProduct(expanded, conn.shopCurrency);
+
+  // #377: a product the platform has moved OUT of publish is archived here, and
+  // is never merged into the listing as if it were still for sale.
+  //
+  // ARCHIVE rather than `draft`, because the backfill already archives exactly
+  // this product and a draft would not survive it. An unpublished WooCommerce
+  // product is filtered out of the pull (`status=publish`), so it is "unseen" by
+  // the very next backfill and `archiveUnseenSourcedListings` archives it —
+  // meaning `draft` is not a second policy, it is a state the next scheduled
+  // reconcile overwrites. Choosing it would leave the two paths disagreeing
+  // about one event, which is the defect this closes rather than a variation on
+  // it. It also matches the `product_delete` branch above: from Mercaria's side
+  // an unpublish and a delete are the same observable fact — the product is no
+  // longer in the catalogue this connection publishes — and archiving is a
+  // SOFT-delete either way, so order history and provenance survive and the
+  // merchant can restore it.
+  //
+  // A provider that reports no publish state (`undefined`) archives nothing.
+  //
+  // The check sits AFTER the expansion rather than before it, so an unpublished
+  // variable product still costs one `/variations` call it does not use. That is
+  // deliberate: reading the state off the raw payload would mean normalizing
+  // twice, and the only case it would buy is an expansion that THROWS — where
+  // the webhook fails, nothing is written, and the listing waits for the
+  // backfill exactly as it does today. No behaviour regresses by leaving it
+  // here, and the publish rule stays in the normalizer where both paths read it.
+  if (product.publishState === 'unpublished') {
+    const archived = await archiveSourcedListing(conn, product.externalId, {
+      respectStatusOverride: conn.syncSettingsConflictPolicy === 'respect_overrides',
+    });
+    counts[archived ? 'updated' : 'skipped'] += 1;
+    return;
+  }
+
   const categorySlug = await resolveImportCategorySlug();
   const outcome = await importProduct(conn, product, {
     categorySlug,

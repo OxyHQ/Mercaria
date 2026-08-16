@@ -94,7 +94,7 @@ import {
   toConnectionDTOWithWebhookFailures,
 } from '../../services/connector-sync.service.js';
 import type { ConnectorCapabilities, ConnectorProvider } from '../types.js';
-import type { ContractProduct, ContractWorld } from './contract-world.js';
+import type { ContractProduct, ContractVariant, ContractWorld } from './contract-world.js';
 
 /** What a provider package supplies to get every case below. */
 export interface ConnectorContractHarness {
@@ -170,6 +170,38 @@ export interface ConnectorContractHarness {
    * provider that silently stopped reading a status it does publish.
    */
   readonly publishesSubscriptionHealth: boolean;
+  /**
+   * Whether this provider reports a product's PUBLISH STATE to Mercaria (#377).
+   *
+   * Declared like a capability and measured on BOTH branches, because it decides
+   * what happens to a listing when the merchant takes the product down on their
+   * own site — the difference between a sale stopping now and a sale continuing
+   * until a backfill runs.
+   *
+   * WooCommerce publishes `status` on the pull and on every `product.*`
+   * delivery. Shopify's product resource carries one too, and this connector
+   * reads neither — see the Shopify runner, where the `false` is explained as a
+   * fact about the connector rather than the platform.
+   *
+   * A suite that ran only the first branch would report the same green for a
+   * provider that silently stopped reading a status it does publish.
+   */
+  readonly reportsPublishState: boolean;
+  /**
+   * Whether this provider reads a variant's BARCODE off the platform (#381).
+   *
+   * Declared like a capability and measured on BOTH branches. Shopify publishes
+   * `barcode` on every variant and the provider maps it; WooCommerce core has no
+   * barcode field at all, so its schema names none and its normalizer produces
+   * none — a re-sync there can only ever leave the column empty, and a case that
+   * asserted a barcode had moved would be asserting a fact the platform never
+   * sent.
+   *
+   * The absent branch is what stops that reading as the same green: it asserts
+   * the variant carries NO barcode, so a provider that gained the field without
+   * the sync path learning to re-sync it fails here.
+   */
+  readonly reportsVariantBarcode: boolean;
   /**
    * The URL fragment the provider fetches to COMPLETE a webhook payload (#220),
    * or ABSENT when this platform's deliveries are self-contained.
@@ -2019,6 +2051,56 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         expect(moved?.inventoryAvailable).toBe(renamed.available);
       });
 
+      it('a CORRECTED barcode reaches an already-imported variant', async () => {
+        // #381. The barcode was written on create and never on update, so a
+        // variant kept whatever GTIN it was first imported with however many
+        // times the merchant fixed it upstream.
+        //
+        // It belongs in `variant identity` rather than beside the price merge:
+        // `subject-loader.ts` asserts this column as an `ean` for #58's matcher,
+        // and #296 removed the table-wide unique so that identity is decided by
+        // the collision gate rather than a constraint. A stale barcode is a
+        // wrong identifier offered to the thing that attaches this variant to a
+        // canonical product, not a stale display string.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = multiVariant(fixture);
+        const listing = await importedListing(fixture, source.externalId);
+        const target = source.variants.find((variant) => variant.barcode !== undefined);
+        expect(target, 'the fixture catalogue must carry a variant with a barcode').toBeDefined();
+        const corrected = '4006381333931';
+        expect(corrected).not.toBe((target as ContractVariant).barcode);
+
+        editProduct(fixture, source.externalId, (product) => ({
+          ...product,
+          variants: product.variants.map((variant) =>
+            variant.externalVariantId === (target as ContractVariant).externalVariantId
+              ? { ...variant, barcode: corrected }
+              : variant,
+          ),
+        }));
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBe(0);
+        const after = await findVariantsByListing(listing.id);
+        const moved = after.find(
+          (variant) =>
+            variant.sourceExternalVariantId === (target as ContractVariant).externalVariantId,
+        );
+        if (!harness.reportsVariantBarcode) {
+          // The REFUSAL branch: this platform publishes no barcode, so there is
+          // nothing to re-sync and the column stays empty. A provider that grew
+          // the field without this path learning to write it fails here.
+          expect(moved?.barcode ?? null).toBeNull();
+          return;
+        }
+        expect(moved?.barcode).toBe(corrected);
+        // The same variant, renamed — not a second one. A barcode is an identity
+        // CLAIM about this variant, and re-keying on it would take its carts,
+        // saves, offers and order history out of circulation.
+        expect(after).toHaveLength(source.variants.length);
+      });
+
       it('case 8: a changed option LABEL and VALUE keep the SAME local variant id', async () => {
         // This case does NOT discriminate the new matcher from the old one, and
         // saying so is the point: it leaves the SKU alone, so the pre-#259 SKU
@@ -2563,6 +2645,105 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
           fixture.connection.id,
         );
         expect(listings.filter((row) => row.status === 'archived')).toHaveLength(1);
+      });
+
+      it('a product moved OUT of publish stops selling, and its edit is not merged', async () => {
+        // #377. The pull filters on the platform's publish state and the webhook
+        // path did not, so unpublishing a product upstream was invisible until
+        // the next full backfill archived it as unseen — while every edit
+        // webhook in between kept writing to a listing that stayed on sale.
+        //
+        // The delivery carries BOTH changes at once, which is the shape a real
+        // one has: a merchant unpublishes a product and its title moves in the
+        // same save. So the title is what says which branch ran, rather than a
+        // second delivery testing it separately.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const importedTitle = (await importedListing(fixture, source.externalId)).title;
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId
+            ? { ...product, published: false, title: 'Renamed while being unpublished' }
+            : product,
+        );
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(fixture.world, source.externalId),
+        });
+
+        const listing = await importedListing(fixture, source.externalId);
+        if (!harness.reportsPublishState) {
+          // The REFUSAL branch, measured rather than skipped: this provider
+          // reports no publish state, so the delivery is an ordinary edit and
+          // the listing is still on sale. A provider that silently stopped
+          // reading a status it does publish would land here and be caught.
+          expect(listing.status).toBe('active');
+          expect(listing.title).toBe('Renamed while being unpublished');
+          return;
+        }
+        // ARCHIVED, not `draft`: the backfill already archives this exact
+        // product (it is filtered out of the pull, so it is unseen), and the
+        // case below proves a backfill afterwards agrees rather than moving it
+        // again.
+        expect(listing.status).toBe('archived');
+        // The merge did NOT run. An unpublished product's edit must not be
+        // written to a listing that is being taken off sale.
+        expect(listing.title).toBe(importedTitle);
+      });
+
+      it('the unpublish webhook and the BACKFILL agree — a later backfill moves it no further', async () => {
+        // #377's archive-vs-draft argument, made checkable. An unpublished
+        // product is absent from the pull, so the very next backfill reaches it
+        // through `archiveUnseenSourcedListings`. Had the webhook written
+        // `draft`, this backfill would overwrite it — two paths disagreeing
+        // about one event, which is the defect rather than a variation on it.
+        const fixture = await makeFixture();
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId ? { ...product, published: false } : product,
+        );
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(fixture.world, source.externalId),
+        });
+        const afterWebhook = (await importedListing(fixture, source.externalId)).status;
+        const run = await runBackfill(fixture.storeId, fixture.connection.id);
+
+        expect(run.countsFailed).toBe(0);
+        const afterBackfill = (await importedListing(fixture, source.externalId)).status;
+        // Whichever state the webhook path left it in, the backfill agrees with
+        // it. For a provider that reports no publish state both are `active`,
+        // because the product never left its pull either.
+        expect(afterBackfill).toBe(afterWebhook);
+        expect(afterBackfill).toBe(harness.reportsPublishState ? 'archived' : 'active');
+      });
+
+      it('a LOCALLY PINNED status survives an unpublish webhook, as it survives a backfill', async () => {
+        // The merchant pinned `status` in Mercaria, so the platform no longer
+        // decides it. `archiveUnseenSourcedListings` has always respected that
+        // under `respect_overrides`; the webhook path reaches the same rule in
+        // the same place rather than restating it.
+        const fixture = await makeFixture({ conflictPolicy: 'respect_overrides' });
+        await runBackfill(fixture.storeId, fixture.connection.id);
+        const source = fixture.world.products[0];
+        const listing = await importedListing(fixture, source.externalId);
+        await updateListingColumns(listing.id, { overriddenFields: ['status'] });
+
+        fixture.world.products = fixture.world.products.map((product) =>
+          product.externalId === source.externalId ? { ...product, published: false } : product,
+        );
+        await processConnectorWebhook({
+          connectionId: fixture.connection.id,
+          topic: harness.topics.productUpsert,
+          payload: harness.webhookProductPayload(fixture.world, source.externalId),
+        });
+
+        expect((await importedListing(fixture, source.externalId)).status).toBe('active');
       });
 
       it('imports EVERY variant of a MULTI-VARIANT product first seen through a webhook', async () => {
