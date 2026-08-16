@@ -41,7 +41,8 @@
  * (and one evidence file) across the whole session.
  */
 
-import type { Connection, SyncRun, SyncRunKind } from '@mercaria/shared-types';
+import type { Connection } from '@mercaria/shared-types';
+import { MercariaAdminClient, waitForTerminalRun, type ApiResponse } from '../client.js';
 import {
   EvidenceCollector,
   projectConnection,
@@ -90,79 +91,51 @@ if (credentialsResult.outcome !== 'available') {
 }
 const SHOP_DOMAIN = credentialsResult.credentials.shopDomain;
 
-const CHANNELS = `${API_BASE}/admin/stores/${encodeURIComponent(STORE_ID)}/channels`;
+const client = new MercariaAdminClient(API_BASE, TOKEN, STORE_ID);
+
+/** How often the run waits below re-read `runs`. See `waitForTerminalRun`. */
+const POLL_INTERVAL_MS = 3_000;
 
 /**
- * Call the Mercaria admin API.
+ * Unwrap an admin response, or THROW — the one place this driver's error model
+ * meets the shared client's.
  *
- * A non-2xx carries the STATUS and at most 300 characters of body: an admin
- * error can quote a request, and this driver's output is meant to be pasted into
- * an issue. The redaction scan is the guarantee; this is the narrowing.
+ * `MercariaAdminClient` never throws. It answers `{ok:false, error}` and leaves
+ * the decision to the caller, which is right for the WooCommerce runner: a
+ * refused request is a fact that runner RECORDS as evidence. Every call site in
+ * this driver is written the other way round — a refusal is fatal, because the
+ * scenario after it would measure a store that was never configured.
+ *
+ * That difference is NOT cosmetic, and collapsing it in the other direction is
+ * the bug this seam exists to prevent. Two of the calls below are MUTATIONS
+ * whose results were discarded (`updateSyncSettings`, `requestSync`). Drop the
+ * throw and a 403 on the settings PATCH is silent: the product pull is never
+ * enabled, the backfill that follows completes over a shop it was never told to
+ * read, and S2 records `created=0` as **PASSED** — a green for an integration
+ * that did nothing. The scenario's own `wouldReadIfAbsent` says exactly that
+ * `created=0` on a completed run is indistinguishable from an empty shop.
+ *
+ * A non-2xx carries the status and the API's own message. The redaction scan
+ * over the evidence file is the guarantee; this is the narrowing.
  */
-async function apiFetch<T>(
-  path: string,
-  init: { method?: string; body?: unknown } = {},
-): Promise<T> {
-  const response = await fetch(path, {
-    method: init.method ?? 'GET',
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      ...(init.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-    },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-  });
-  const text = await response.text();
+function must<T>(what: string, response: ApiResponse<T>): T | null {
   if (!response.ok) {
-    throw new Error(`${init.method ?? 'GET'} ${path} -> ${response.status}: ${text.slice(0, 300)}`);
+    throw new Error(`${what} -> ${response.status}: ${response.error ?? 'no error message'}`);
   }
-  return (text ? JSON.parse(text) : null) as T;
-}
-
-/** Every connection on the store. `data` is this API's envelope. */
-async function readConnections(): Promise<Connection[]> {
-  const body = await apiFetch<{ data?: Connection[] }>(CHANNELS);
-  return body?.data ?? [];
-}
-
-/** The Shopify connections specifically — S1's "ONE connection row, not two". */
-async function readShopifyConnections(): Promise<Connection[]> {
-  return (await readConnections()).filter((connection) => connection.provider === 'shopify');
-}
-
-/** Sync runs for a connection, newest first as the route returns them. */
-async function readRuns(connectionId: string): Promise<SyncRun[]> {
-  const body = await apiFetch<{ data?: SyncRun[] }>(
-    `${CHANNELS}/${encodeURIComponent(connectionId)}/runs`,
-  );
-  return body?.data ?? [];
+  return response.body;
 }
 
 /**
- * Wait for a run of `kind` STARTED after `since` to reach a terminal status.
+ * The Shopify connections specifically — S1's "ONE connection row, not two".
  *
- * Keyed on `startedAt` rather than on "the newest run", because a webhook
- * arriving while a backfill is in flight makes the newest run the wrong one —
- * and picking the wrong run is a mistake that produces a plausible result.
+ * `?? []` is safe ONLY because `must` has already thrown on a non-2xx: an empty
+ * body behind a 200 genuinely means no connections, where an empty body behind
+ * a 401 means nothing of the kind. That is the whole reason the throw is not
+ * optional here.
  */
-async function waitForRun(
-  connectionId: string,
-  kind: SyncRunKind,
-  since: string,
-  timeoutMs: number,
-): Promise<SyncRun | null> {
-  const deadline = Date.now() + timeoutMs;
-  let lastSeen: SyncRun | null = null;
-  while (Date.now() < deadline) {
-    const runs = await readRuns(connectionId);
-    const candidates = runs.filter((run) => run.kind === kind && run.startedAt > since);
-    lastSeen = candidates[0] ?? lastSeen;
-    const settled = candidates.find(
-      (run) => run.status === 'completed' || run.status === 'failed',
-    );
-    if (settled) return settled;
-    await new Promise((resolve) => setTimeout(resolve, 3_000));
-  }
-  return lastSeen;
+async function readShopifyConnections(): Promise<Connection[]> {
+  const connections = must('GET channels', await client.listChannels()) ?? [];
+  return connections.filter((connection) => connection.provider === 'shopify');
 }
 
 /** Block until the operator confirms they have done the Shopify-side step. */
@@ -250,11 +223,11 @@ try {
     const before = await readShopifyConnections();
     say(`Shopify connections before connect: ${before.length}`);
 
-    const connectResponse = await apiFetch<{ data?: { authorizeUrl?: string } }>(
-      `${CHANNELS}/shopify/connect`,
-      { method: 'POST', body: { shopDomain: SHOP_DOMAIN } },
+    const connectResponse = must(
+      'POST channels/shopify/connect',
+      await client.connectShopify({ shopDomain: SHOP_DOMAIN }),
     );
-    const authorizeUrl = connectResponse?.data?.authorizeUrl;
+    const authorizeUrl = connectResponse?.authorizeUrl;
     if (!authorizeUrl) throw new Error('connect returned no authorizeUrl');
 
     // The authorize URL carries client_id and the signed state. It is printed
@@ -310,10 +283,10 @@ try {
 
       // The reconnect half: running the whole connect again must converge on ONE
       // row and preserve syncSettings.
-      await apiFetch(`${CHANNELS}/shopify/connect`, {
-        method: 'POST',
-        body: { shopDomain: SHOP_DOMAIN },
-      });
+      must(
+        'POST channels/shopify/connect (reconnect)',
+        await client.connectShopify({ shopDomain: SHOP_DOMAIN }),
+      );
       await pauseForHuman('Approve the install AGAIN (this is the reconnect half of S1).');
       const reconnected = await readShopifyConnections();
       observations.push({
@@ -340,16 +313,23 @@ try {
     );
     if (!connection) throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
 
-    await apiFetch(`${CHANNELS}/${encodeURIComponent(connection.id)}/settings`, {
-      method: 'PATCH',
-      body: { products: 'pull', inventory: 'pull' },
-    });
+    must(
+      'PATCH channels/:id/settings',
+      await client.updateSyncSettings(connection.id, { products: 'pull', inventory: 'pull' }),
+    );
 
-    const since = new Date().toISOString();
     const startedAt = Date.now();
-    await apiFetch(`${CHANNELS}/${encodeURIComponent(connection.id)}/sync`, { method: 'POST' });
+    must('POST channels/:id/sync', await client.requestSync(connection.id));
     say('Backfill requested; polling for a terminal run (up to 30 minutes) ...');
-    const run = await waitForRun(connection.id, 'backfill', since, 30 * 60_000);
+    const settled = await waitForTerminalRun(
+      client,
+      connection.id,
+      startedAt,
+      30 * 60_000,
+      'backfill',
+      POLL_INTERVAL_MS,
+    );
+    const run = settled.run;
     const wallClockSeconds = Math.round((Date.now() - startedAt) / 1000);
 
     if (!run) {
@@ -360,7 +340,12 @@ try {
         notRunReason:
           'no backfill run appeared within 30 minutes. Either the worker is not ' +
           'running (check REDIS_URL and the inline fallback) or the request never ' +
-          'enqueued — this is not evidence about the connector.',
+          'enqueued — this is not evidence about the connector.' +
+          (settled.lastReadError === null
+            ? ''
+            : ` The LAST runs read also failed (${settled.lastReadError}), so this may ` +
+              'be neither: an API that refused every poll is indistinguishable from a ' +
+              'run that never started, and that is what this reads like.'),
       });
     } else {
       observations.push({
@@ -414,7 +399,7 @@ try {
     );
     if (!connection) throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
 
-    const since = new Date().toISOString();
+    const since = Date.now();
     await pauseForHuman(
       'In the Shopify admin, on this store:\n' +
         '  1. CREATE a product (any title, one variant, a price)\n' +
@@ -425,8 +410,12 @@ try {
         'produced — it cannot make them happen.',
     );
 
-    const runs = (await readRuns(connection.id)).filter(
-      (run) => run.kind === 'webhook' && run.startedAt > since,
+    // The same one-second skew tolerance `waitForTerminalRun` applies, and for
+    // the same reason: `since` is read off THIS machine's clock and `startedAt`
+    // off the server's, so a strict comparison drops the driver's own run
+    // whenever the server is a few milliseconds behind.
+    const runs = (must('GET channels/:id/runs', await client.listRuns(connection.id)) ?? []).filter(
+      (run) => run.kind === 'webhook' && Date.parse(run.startedAt) >= since - 1000,
     );
     observations.push({
       id: 'S3+S4',
@@ -458,10 +447,10 @@ try {
     );
     if (!connection) throw new Error(`no Shopify connection for ${SHOP_DOMAIN}; run --phase=connect`);
 
-    await apiFetch(`${CHANNELS}/${encodeURIComponent(connection.id)}/settings`, {
-      method: 'PATCH',
-      body: { orders: 'bidirectional' },
-    });
+    must(
+      'PATCH channels/:id/settings',
+      await client.updateSyncSettings(connection.id, { orders: 'bidirectional' }),
+    );
 
     await pauseForHuman(
       'In the Shopify admin, place at least TWO test orders on this store\n' +
@@ -470,9 +459,17 @@ try {
         'Then press ENTER.',
     );
 
-    const since = new Date().toISOString();
-    await apiFetch(`${CHANNELS}/${encodeURIComponent(connection.id)}/sync`, { method: 'POST' });
-    const run = await waitForRun(connection.id, 'order_sync', since, 15 * 60_000);
+    const since = Date.now();
+    must('POST channels/:id/sync', await client.requestSync(connection.id));
+    const settled = await waitForTerminalRun(
+      client,
+      connection.id,
+      since,
+      15 * 60_000,
+      'order_sync',
+      POLL_INTERVAL_MS,
+    );
+    const run = settled.run;
 
     observations.push({
       id: 'S7',
@@ -486,7 +483,13 @@ try {
         'created=0 on a completed run — which is also what a shop with no orders ' +
         'in the last 60 DAYS produces, since this app does not hold read_all_orders',
       error: run?.status === 'failed' ? run.error : undefined,
-      notRunReason: run ? undefined : 'no order_sync run appeared within 15 minutes',
+      notRunReason: run
+        ? undefined
+        : 'no order_sync run appeared within 15 minutes' +
+          (settled.lastReadError === null
+            ? ''
+            : `; the LAST runs read also failed (${settled.lastReadError}), so this is ` +
+              'not evidence that no run started'),
       observations: run ? { run: projectSyncRun(run) } : undefined,
     });
 
@@ -537,9 +540,17 @@ try {
         'this only when the next call fails — which is exactly what S9 measures.',
     );
 
-    const since = new Date().toISOString();
-    await apiFetch(`${CHANNELS}/${encodeURIComponent(connection.id)}/sync`, { method: 'POST' });
-    const failedRun = await waitForRun(connection.id, 'backfill', since, 10 * 60_000);
+    const since = Date.now();
+    must('POST channels/:id/sync', await client.requestSync(connection.id));
+    const settled = await waitForTerminalRun(
+      client,
+      connection.id,
+      since,
+      10 * 60_000,
+      'backfill',
+      POLL_INTERVAL_MS,
+    );
+    const failedRun = settled.run;
     const after = (await readShopifyConnections()).find((entry) => entry.id === connection.id);
 
     observations.push({
@@ -554,7 +565,13 @@ try {
       wouldReadIfAbsent:
         'a COMPLETED run that archived the catalogue — which is the failure this ' +
         'scenario exists to catch: a revoked token read as "the shop has no products"',
-      notRunReason: failedRun ? undefined : 'no run appeared within 10 minutes',
+      notRunReason: failedRun
+        ? undefined
+        : 'no run appeared within 10 minutes' +
+          (settled.lastReadError === null
+            ? ''
+            : `; the LAST runs read also failed (${settled.lastReadError}), so this is ` +
+              'not evidence that no run started'),
       observations: {
         run: failedRun ? projectSyncRun(failedRun) : null,
         connection: after ? projectConnection(after) : null,
