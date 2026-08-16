@@ -319,9 +319,34 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
    * back is already a `ListingStatus`.
    */
   const restoredStatus: ListingStatus = previous.previousState.listingStatus ?? 'active';
-  const restored = await setListingStatusIfIn(subject.id, restoredStatus, ['restricted', 'draft']);
+  /**
+   * A `restrict` can also be undone from `archived`, and ONLY a `restrict` (#402).
+   *
+   * A restricted listing that was then archived was unrelistable: the restore was
+   * refused by its own predicate and reported that the listing had never been
+   * restricted. #402 closed the merchant-driven half of that at
+   * `catalog-write.archiveListing`, but two connector paths still archive from any
+   * status on purpose — a `product_delete` webhook and the delete reconciliation
+   * after a fully-completed backfill — because a product genuinely gone upstream is
+   * gone whatever Mercaria decided. That is only safe if an appeal can still reach
+   * it, which is this line. It also repairs the rows the escapes already made.
+   *
+   * `request_changes` deliberately does NOT get `archived`. It leaves the listing
+   * a `draft`, which is a status the seller fully controls, so archiving from
+   * there is an ordinary delete of their own listing — and republishing that on a
+   * correction would put an item back on sale its seller had deleted, which is the
+   * same harm as restoring to a hardcoded `active` one paragraph up. A `restrict`
+   * carries no such ambiguity: a seller can neither PATCH nor (since #402) archive
+   * their way out of one, so a restricted listing that is now `archived` did not
+   * get there by a decision anybody made about wanting it gone.
+   */
+  const restorableFrom: ListingStatus[] =
+    previous.action === 'restrict'
+      ? ['restricted', 'draft', 'archived']
+      : ['restricted', 'draft'];
+  const restored = await setListingStatusIfIn(subject.id, restoredStatus, restorableFrom);
   if (!restored) {
-    return { changed: false, reason: 'The listing was neither restricted nor awaiting changes' };
+    return { changed: false, reason: 'The listing was not in a state this restore can undo' };
   }
   // The other direction of the same request: a relisted item has to come BACK
   // into the comparison surface, and an accepted appeal that left the offer

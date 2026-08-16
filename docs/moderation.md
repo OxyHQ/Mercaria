@@ -71,12 +71,60 @@ only.
   has no middle setting between listed and unlisted, and recording an effect that
   did not happen is worse than mapping honestly.
 
-**Two enforcement ESCAPES are closed in pre-existing commerce code**, and a
+**Three enforcement ESCAPES are closed in pre-existing commerce code**, and a
 reviewer reading `services/moderation/` would never see them, so do not remove
 them: `catalog-write.service.updateListing` refuses to set `restricted` or to
 move a listing out of it (a seller could otherwise PATCH `status:'active'` and
-undo a jury silently), and `order.service.transition` refuses to advance a held
-order.
+undo a jury silently), `catalog-write.service.archiveListing` refuses to archive
+a restricted listing at all, and `order.service.transition` refuses to advance a
+held order.
+
+### Archiving a restriction was a one-way door in both directions (#402)
+
+`updateListing`'s guard reads the listing's CURRENT status, so it holds only
+while the column still says `restricted`. `archiveListing` — the funnel behind
+`DELETE /seller/listings/:id` and the store product DELETE — used to write
+`archived` through an unconditional `UPDATE … WHERE id = ?` with no status
+predicate, and neither route's loader filters on status. That produced two
+distinct failures at once:
+
+- **The appeal could never land.** `restoreSubject` restored only from
+  `['restricted', 'draft']`, so an archived listing stayed archived and the
+  restore reported that it had never been restricted — a seller found innocent
+  lost their listing permanently, with the audit trail saying nothing was wrong.
+- **The decision could be laundered.** Once the status was `archived` there was
+  no restriction left for `updateListing` to refuse, and
+  `SELLER_SETTABLE_LISTING_STATUSES` contains `active` — so the accused seller
+  could `DELETE` and then `PATCH {status:'active'}` and put a jury-restricted
+  listing back on sale in two ordinary calls. Measured, not inferred: removing
+  the guard turns
+  `moderation-decision.realdb.test.ts` red with `a jury-restricted listing was
+  put back on sale: expected 'active' to be 'restricted'`.
+
+Both halves are fixed, and they are two different rules:
+
+- **A merchant-driven archive refuses a restriction.** `archiveListing` archives
+  only from `MERCHANT_ARCHIVABLE_LISTING_STATUSES` (every status except
+  `restricted`), through the same conditional write `restrict` uses, so a jury
+  restricting concurrently cannot be overwritten by a read-then-write. A repeat
+  DELETE still converges rather than 404ing. `channel-disconnect.service` already
+  held this rule via `POLICY_MOVABLE_STATUSES`, for the same reason.
+- **A `restore` reaches an archived listing.** The connector's two "the product is
+  genuinely gone upstream" paths — the `product_delete` webhook and the delete
+  reconciliation after a fully-completed backfill — still archive from any status
+  deliberately, because the merchant no longer sells the thing whatever Mercaria
+  decided. That carve-out is only safe because an appeal can now reach the
+  listing, and the same line repairs whatever the escapes already buried.
+
+`archived` is added for a `restrict` and **not** for a `request_changes`, which
+leaves the listing a `draft` its seller fully controls: archiving from there is
+an ordinary delete of their own listing, and republishing it on a correction
+would put an item back on sale its seller had deleted — the same harm as
+restoring to a hardcoded `active`.
+
+`listing-archive-census.test.ts` fails the build when a fifth module can archive
+a listing, until somebody states what it does about `restricted`; the four
+behavioural cases live in `moderation-decision.realdb.test.ts`.
 
 ### Subject providers: what Mercaria sends, and what it deliberately does not
 
