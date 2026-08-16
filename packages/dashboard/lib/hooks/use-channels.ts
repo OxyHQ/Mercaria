@@ -59,6 +59,30 @@ export function useChannels(storeId: string) {
   });
 }
 
+/**
+ * One connection out of the store's list, for a screen that holds a
+ * `connectionId` and needs the connection's own settings (#420: the product
+ * screen has to say whether this channel currently honours field pins).
+ *
+ * Deliberately the SAME query key and fetcher as {@link useChannels} rather than
+ * a per-connection endpoint: the list is already cached by the channels screen,
+ * and a second cache entry for one row would be a second thing to invalidate
+ * after a settings save.
+ *
+ * `enabled` is the caller's because the channel routes are behind
+ * `channels:write` — a staff member with `products:read` would otherwise fire a
+ * request that can only 403. When it is false the result is `undefined`, which
+ * consumers must render as "not known", never as a default policy.
+ */
+export function useConnection(storeId: string, connectionId: string | undefined, enabled: boolean) {
+  return useQuery<Connection[], Error, Connection | undefined>({
+    queryKey: queryKeys.channels(storeId),
+    queryFn: () => fetchChannels(storeId),
+    enabled: enabled && Boolean(storeId) && Boolean(connectionId),
+    select: (connections) => connections.find((connection) => connection.id === connectionId),
+  });
+}
+
 function invalidateChannels(queryClient: ReturnType<typeof useQueryClient>, storeId: string) {
   queryClient.invalidateQueries({ queryKey: queryKeys.channels(storeId) });
 }

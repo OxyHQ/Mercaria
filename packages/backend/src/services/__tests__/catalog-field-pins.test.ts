@@ -15,18 +15,18 @@
  * neither fails the build, which is the point: the list of exemptions is
  * asserted by exact equality rather than containment, so it cannot grow one
  * defensible line at a time.
+ *
+ * The two tuples are declared in `@mercaria/shared-types` since #420 — the
+ * dashboard renders the pin set and cannot import a service module — so this
+ * gate now also guards what a merchant is TOLD is pinnable, not only what the
+ * writer writes.
  */
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  PINNABLE_CONNECTOR_FIELDS,
-  UNPINNED_CONNECTOR_KEYS,
-  mergePins,
-  pinnedByEdit,
-  type PinnableListingBefore,
-} from '../catalog-field-pins.js';
+import { PINNABLE_CONNECTOR_FIELDS, UNPINNED_CONNECTOR_KEYS } from '@mercaria/shared-types';
+import { mergePins, pinnedByEdit, type PinnableListingBefore } from '../catalog-field-pins.js';
 
 /** The two field-merge sites; the two archive paths that read `status` are in the first. */
 const READ_SITES = ['../connector-sync.service.ts', '../channel-ingest.service.ts'];

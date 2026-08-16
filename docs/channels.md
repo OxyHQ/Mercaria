@@ -568,6 +568,51 @@ capability: both providers publish a complete named list, so the `false` branch
 would be one no provider takes — a gate that cannot fail, which reads as
 coverage.
 
+### A field pin is invisible unless a surface renders it (#416, #419, #420)
+
+A merchant editing a title, description, image set, vendor, product type,
+handle or SEO field on a connector-sourced listing PINS that field: it is
+appended to `listings.overriddenFields`, and while the connection's
+`conflictPolicy` is `respect_overrides` the field merge leaves it alone
+(#419). The pin is written by an ORDINARY EDIT and removed by NOTHING, so its
+only symptom is a field that quietly stops following the platform — which is
+indistinguishable from a broken sync. A merchant reporting "my Shopify title
+change isn't arriving" and a merchant who pinned the title six weeks ago look
+identical from every surface that does not render the set, so the absence does
+not merely hide information: it generates false bug reports about the
+connector. That is why #420 is a gate
+(`services/__tests__/connector-pin-visibility.test.ts`) rather than a wish.
+
+- **The vocabulary lives in `@mercaria/shared-types`** (`connector-pins.ts`),
+  not in the backend service that writes it. `Listing.overriddenFields` puts
+  these keys on the wire, a dashboard has to turn one into a sentence, and it
+  cannot import a service module — so there is one declaration and not two.
+  `catalog-field-pins.test.ts` still asserts the seven pinnable keys and the
+  three excluded ones partition the connector read vocabulary EXACTLY, which
+  now guards what a merchant is TOLD is pinnable as well as what the writer
+  writes.
+- **`partitionPinnedFields` counts what it cannot name.** The column is a bare
+  `text[]` that `mergePins` never removes from, so a fixture, a repair or a
+  later issue can leave a key in it that no merchant EDIT writes — and the
+  merge holds it all the same. Dropping such a key would hide a live pin, which
+  is the defect the surface exists to close. `Listing.overriddenFields` stays
+  `string[]` for the same reason: narrowing it would be a promise about
+  somebody else's data.
+- **The notice says which POLICY state it is in, and `unknown` is one of
+  three.** A pin only bites while `conflictPolicy` is `respect_overrides`, and
+  the channel routes are behind `channels:write` — so a `staff` member reading a
+  product genuinely cannot be told. Asserting "later syncs will not overwrite
+  these" under `connector_wins`, or under no knowledge at all, would generate
+  the same false bug report in the opposite direction.
+- **It is READ-ONLY and must stay so.** There is no per-field pin/unpin
+  control: an explicit pinning control was considered and rejected in #416, and
+  releasing one pin is a different piece of work — nothing stores the platform's
+  previous per-field value, so "unpin" can only honestly mean *resume tracking
+  from the next sync*, never *restore what it was*. The only release that exists
+  today is the connection-wide switch, which makes every pin inert at once, and
+  the notice says so rather than leaving a merchant hunting for a control that
+  is not there.
+
 ---
 
 ## Surfaces
@@ -624,6 +669,11 @@ Shared presentation lives in `components/channels/channel-presentation.tsx`
 (#87 UX 1). Provider-specific language survives in exactly one place — the
 wizard's `ConnectStep` — because a Shopify consent redirect and a WooCommerce
 key pair genuinely are different things (#87 UX 2).
+
+`app/(app)/products/[id]` carries the other half of connector provenance:
+`ConnectorPinNotice` (`@mercaria/ui`) beside the `SourceBadge`, naming which of
+this listing's fields the merchant's own edits pinned against a later sync
+(#420). See the pin subsection below for why it exists and why it is read-only.
 
 ---
 
@@ -848,7 +898,8 @@ missing cases.**
 
 - **It is not gated on `respect_overrides`, and must not be.** That policy asks
   which fields the merchant PINNED; `status` is one of three keys
-  `services/catalog-field-pins.ts` excludes by an argued decision (#416 — an
+  `UNPINNED_CONNECTOR_KEYS` (`@mercaria/shared-types`, `connector-pins.ts`)
+  excludes by an argued decision (#416 — an
   imported product lands `draft` when the connection does not auto-publish, so
   the merchant reviewing it and publishing it is the intended workflow, and
   pinning there would stop the platform ever unpublishing that product again).

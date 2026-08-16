@@ -377,6 +377,14 @@ export interface Listing extends Timestamps {
   /**
    * Field names locally edited on a connector-sourced listing and therefore
    * PINNED against connector re-sync overwrites (see `SyncSettings.conflictPolicy`).
+   *
+   * `string[]` and NOT `PinnableConnectorField[]`, deliberately: the column is a
+   * bare `text[]` that `mergePins` never removes from, so a fixture, a repair or
+   * a later issue can leave a key in it that no merchant EDIT writes — and every
+   * such key is still held by the connector's merge. Narrowing the type here
+   * would be a promise about somebody else's data. `partitionPinnedFields`
+   * (`./connector-pins`) is what a surface reads it through: it names the seven
+   * a merchant edit pins and COUNTS the rest rather than dropping them.
    */
   overriddenFields?: string[];
 }
