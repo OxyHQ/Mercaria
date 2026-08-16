@@ -6410,9 +6410,10 @@ tax questionnaire, and then had no way to see a link, a number or a payout.
   or that they are still earning while attribution is suspended. Two realdb
   cases pin the two directions and both go red on the pre-#148 spelling.
 - **This domain surfaces NO risk signal, and that is deliberate rather than
-  pending.** Eight of #148's fourteen signal kinds have no producer, so a
-  dashboard rendering them would show `0` for a signal nobody measures — a
-  quiet zero that reads to a partner as "clean". `ReferralPartnerDashboard` has
+  pending.** Seven of #148's fourteen signal kinds have no producer and an
+  eighth is half produced, so a dashboard rendering them would show `0` for a
+  signal nobody measures — a quiet zero that reads to a partner as "clean".
+  `ReferralPartnerDashboard` has
   no field a signal could arrive in; what a partner sees about enforcement is
   #148's own `/referral-partner/enforcement`, through its own partner view.
 - **The disclosure floor is TEN, is #77's number, and applies to TWO dimensions.**
@@ -6618,9 +6619,18 @@ exactly may it take.**
 - Seams, each named in `docs/referral-integrity.md` rather than stubbed: the
   scheduled risk SWEEP (the evaluator is complete, bounded and idempotent and
   its only caller is the operator route — a cadence and a page bound are #149's
-  to choose with traffic in front of it), the EIGHT of fourteen signal kinds
-  whose FACTS nothing supplies yet (`collectRiskSignalFacts` is where each would
-  be measured), #147's monitoring dashboard, #148's six rate-limit axes, an
+  to choose with traffic in front of it), the SEVEN of fourteen signal kinds
+  whose FACTS nothing supplies yet plus the half of
+  `refund_dispute_concentration` that never computes — **each blocked on
+  something specific rather than on effort**, so read
+  `docs/referral-integrity.md` before writing one: two are ALREADY derived in
+  `collectSelfReferralFacts` and want the shared read extracted, three need
+  #344's payment-domain port, one needs an Oxy credential that does not exist,
+  and `market_mismatch` is not representable as specified. **Census that list
+  by reading `collectRiskSignalFacts`' object literal, never by grepping the
+  field names** — the docblock above it names every unsupplied field in prose,
+  so a comment-inclusive grep reports all fourteen as produced. #147's
+  monitoring dashboard, #148's six rate-limit axes, an
   abuse-report subject for a partner, and DAC7 (ADR 0005 open item 1).
 
 ## Affiliate outbound redirects and commission (#67, part of #37)

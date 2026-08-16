@@ -84,9 +84,12 @@ attribution is suspended. Two realdb cases pin the two directions and both go
 red on the pre-#148 spelling.
 
 **No risk signal is surfaced here, and that is a decision rather than a gap.**
-Eight of #148's fourteen signal kinds have no producer, so rendering them would
-show `0` for something nobody measures — a quiet zero that reads to a partner as
-"clean", which is exactly the rule this repo applies everywhere else.
+Seven of #148's fourteen signal kinds have no producer and an eighth
+(`refund_dispute_concentration`) is half produced, so rendering them would show
+`0` for something nobody measures — a quiet zero that reads to a partner as
+"clean", which is exactly the rule this repo applies everywhere else. The
+half-produced one is the sharpest case: it fires on refunds and never on
+disputes, so a zero there is not even uniformly a non-measurement.
 `ReferralPartnerDashboard` has no field a signal could arrive in. What a partner
 sees about enforcement is #148's own `/referral-partner/enforcement`, through
 its own partner view.
