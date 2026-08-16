@@ -27,6 +27,9 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const validator = resolve(repositoryRoot, "scripts/validate-no-mongo.mjs");
 
+/** Where mutated copies of the guard live — never inside a fixture tree. */
+const mutantHome = await mkdtemp(join(tmpdir(), "no-mongo-mutants-"));
+
 /**
  * Run the REAL validator against a scratch checkout.
  *
@@ -34,7 +37,40 @@ const validator = resolve(repositoryRoot, "scripts/validate-no-mongo.mjs");
  * see them fire; every other case relaxes them, since a fixture tree of six
  * files would otherwise fail for a reason that has nothing to do with Mongo.
  */
-async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {}) {
+/**
+ * Write a copy of the REAL guard with its `KNOWN_EXCEPTIONS` literal replaced.
+ *
+ * `KNOWN_EXCEPTIONS` is empty in this repository, which is the only thing that
+ * has been making its reconciliation safe (#448) — so the exact-count branches
+ * cannot be reached by any fixture tree, and a self-test that skipped them would
+ * leave the mechanism arming itself on the first entry anyone adds, untested.
+ *
+ * This is a MUTATION of the shipped guard, not a re-implementation of it: every
+ * line of the reconciliation under test is the one that ships, with one constant
+ * substituted. It refuses to run unless the substitution demonstrably applied —
+ * a mutation that never applied is indistinguishable from one that survived, and
+ * against an EMPTY list the unmutated guard passes trivially, which would read
+ * as coverage.
+ */
+async function mutatedValidator(root, entriesLiteral) {
+  const source = await readFile(validator, "utf8");
+  const marker = "const KNOWN_EXCEPTIONS = [];";
+  if (!source.includes(marker)) {
+    throw new Error(
+      `the guard no longer spells its empty list \`${marker}\`, so this mutation cannot apply — `
+      + "update the marker rather than deleting the cases that depend on it",
+    );
+  }
+  const mutated = source.replace(marker, `const KNOWN_EXCEPTIONS = ${entriesLiteral};`);
+  if (mutated === source || !mutated.includes(entriesLiteral)) {
+    throw new Error("the KNOWN_EXCEPTIONS mutation did not apply, so the case below would measure nothing");
+  }
+  const path = join(root, "mutated-validate-no-mongo.mjs");
+  await writeFile(path, mutated);
+  return path;
+}
+
+async function runAgainst(files, { realFloors = false, removeAfterAdd = [], exceptions = null } = {}) {
   const root = await mkdtemp(join(tmpdir(), "no-mongo-validator-"));
   try {
     for (const [path, contents] of Object.entries(files)) {
@@ -58,8 +94,12 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
     const environment = { ...process.env, NO_MONGO_VALIDATOR_ROOT: root };
     if (!realFloors) environment.NO_MONGO_VALIDATOR_FIXTURE_FLOORS = "1";
 
+    // OUTSIDE the fixture root on purpose: `git add -A -f` above would stage a
+    // copy placed inside it, and the guard names every banned package by
+    // definition, so it would then report ITSELF and the case would pass for
+    // entirely the wrong reason.
     const proc = Bun.spawnSync({
-      cmd: ["bun", validator],
+      cmd: ["bun", exceptions === null ? validator : await mutatedValidator(mutantHome, exceptions)],
       cwd: repositoryRoot,
       env: environment,
       stdout: "pipe",
@@ -509,21 +549,74 @@ const cases = [
     expectOutput: "below the 900 floor",
   },
   {
-    // THE STALE-EXCEPTION CASE IS ABSENT ON PURPOSE, and this case is what makes
-    // that a decision rather than a gap.
-    //
     // `KNOWN_EXCEPTIONS` is empty here: Mercaria has no surviving Mongo
-    // reference in any scanned surface, so there is nothing to excuse. The
-    // shrink-discipline case cannot be written against an empty list — with
-    // nothing to go stale it can never fail, and a case that cannot fail is
-    // worse than no case.
+    // reference in any scanned surface, so there is nothing to excuse. No
+    // fixture TREE can therefore reach the reconciliation's branches — with
+    // nothing to go stale, a tree-driven shrink case could never fail, and a
+    // case that cannot fail is worse than no case.
     //
-    // So this asserts the list IS empty. The day somebody adds the first entry
-    // this goes red, and the fix is to restore the stale-exception case from
-    // Mention's copy of this file — where the list is non-empty and the case
-    // works — rather than to delete this one.
-    name: "KNOWN_EXCEPTIONS is empty, so the stale-exception case is not applicable",
+    // That is why the four cases BELOW mutate the guard's own constant instead
+    // of building a tree, and why this one stays: it pins the premise they rest
+    // on. The day somebody adds the first entry it goes red, and the fix is to
+    // convert those four to ordinary tree-driven cases against the real entry —
+    // not to delete this one.
+    name: "KNOWN_EXCEPTIONS is empty, so no fixture TREE can reach the count branches",
     assertGuardSource: (source) => /const KNOWN_EXCEPTIONS = \[\];/.test(source),
+  },
+
+  // ------------------------------------------- the exact-count mechanism ---
+  // #448. These four run the REAL reconciliation with one constant substituted,
+  // because an empty list can reach none of its branches by fixture. Without
+  // them the mechanism arms itself on the first entry anyone adds, untested —
+  // and the first entry is exactly when nobody is thinking about it.
+
+  {
+    name: "an exception matching its exact declared count passes",
+    files: filler({
+      "packages/backend/src/legacy/notes.ts": 'import mongoose from "mongoose";\n',
+    }),
+    exceptions: '[{ file: "packages/backend/src/legacy/notes.ts", pattern: "mongoose", '
+      + 'count: 1, reason: "fixture" }]',
+    expectFailure: false,
+    expectOutput: "each matched their exact declared count",
+  },
+  {
+    name: "an excusing entry cannot cover a SECOND Mongo reference in the same file",
+    // The hole itself: file + text is a PREDICATE, not an identity, so without a
+    // count the second import rides in behind the reasoned one — a database
+    // driver returning to a service whose only store is PostgreSQL.
+    files: filler({
+      "packages/backend/src/legacy/notes.ts":
+        'import mongoose from "mongoose";\n'
+        + 'import { connect } from "mongoose";\n',
+    }),
+    exceptions: '[{ file: "packages/backend/src/legacy/notes.ts", pattern: "mongoose", '
+      + 'count: 1, reason: "fixture" }]',
+    expectFailure: true,
+    expectOutput: "the count went UP",
+  },
+  {
+    name: "an entry covering fewer than it declares fails as a DECREASE, naming the file",
+    files: filler({
+      "packages/backend/src/legacy/notes.ts": 'import mongoose from "mongoose";\n',
+    }),
+    exceptions: '[{ file: "packages/backend/src/legacy/notes.ts", pattern: "mongoose", '
+      + 'count: 2, reason: "fixture" }]',
+    expectFailure: true,
+    expectOutput: 'in packages/backend/src/legacy/notes.ts 2 time(s), but only 1 matched — '
+      + "the count went DOWN",
+  },
+  {
+    name: "an entry declaring no count is refused by name, not silently honoured",
+    // What arms the latent list: the reconciliation compares against `undefined`
+    // otherwise, and the entry would excuse every occurrence of its shape.
+    files: filler({
+      "packages/backend/src/legacy/notes.ts": 'import mongoose from "mongoose";\n',
+    }),
+    exceptions: '[{ file: "packages/backend/src/legacy/notes.ts", pattern: "mongoose", '
+      + 'reason: "fixture" }]',
+    expectFailure: true,
+    expectOutput: "declares no integer count >= 1",
   },
 ];
 
@@ -546,6 +639,7 @@ for (const testCase of cases) {
   const { exitCode, output } = await runAgainst(testCase.files, {
     realFloors: testCase.realFloors === true,
     removeAfterAdd: testCase.removeAfterAdd ?? [],
+    exceptions: testCase.exceptions ?? null,
   });
   const didFail = exitCode !== 0;
 
@@ -567,6 +661,8 @@ for (const testCase of cases) {
   }
   console.log(`ok   ${testCase.name}`);
 }
+
+await rm(mutantHome, { recursive: true, force: true });
 
 if (failed > 0) {
   console.error(`\n${failed} of ${cases.length} guard cases failed.`);
