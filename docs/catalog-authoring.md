@@ -19,7 +19,7 @@ category + product type (exact version) + attribute definitions (exact versions)
 | Routes | `routes/catalog-authoring.ts`, `routes/product-drafts.ts` |
 | Controller | `controllers/catalog-authoring.controller.ts` |
 | Request schemas | `middleware/catalog-authoring-schemas.ts` |
-| Hand-written SQL | `db/schema/catalogAuthoring.pending.sql` (held for the D11 slot) |
+| Migration | `drizzle/0098_young_lorna_dane.sql` (`pre`) — four tables, three trigger functions, four triggers, and the `native_listing_links_method_check` widening |
 
 Adding a product type is a data change. That is the acceptance criterion the
 whole design is arranged around, and every rule below is what it costs.
@@ -325,10 +325,11 @@ about a product nobody made.
   id-column ledger coverage, the four partial uniques, and the expiry
   registration.
 - `db/__tests__/catalog-authoring.realdb.test.ts` — the CHECKs and triggers
-  against a real server. **Skipped until the migration slot** (the tables do not
-  exist yet), with the condition read in a top-level await so `skipIf` sees it at
-  collection rather than staying `false` forever. Every case was executed against
-  a real PostgreSQL 17 instance before being committed — 17/17.
+  against a real server. It keeps a readiness guard, read in a top-level await so
+  `skipIf` sees it at collection rather than staying `false` forever: this file is
+  the first thing that goes red on a database the migration has not reached, and
+  a missing-relation error there is indistinguishable from a broken CHECK until
+  somebody reads the stack.
 
 ## Deferred, each a named contract rather than a stub
 

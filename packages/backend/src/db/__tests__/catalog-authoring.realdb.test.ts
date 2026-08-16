@@ -13,26 +13,22 @@
  * `catalog-authoring-schema.test.ts` covers the DECLARATION — what drizzle-kit
  * will emit — and this covers whether the server agrees.
  *
- * ## Skipped until the migration slot, and the skip is honest
+ * ## The readiness guard survives the migration, and stays for a reason
  *
- * ADR 0007 D11 serialises `db:generate` across the parallel #367 branches, so
- * this branch holds its hand-written statements in
- * `db/schema/catalogAuthoring.pending.sql` and has generated no migration. Until
- * the slot arrives these four tables do not exist in the throwaway test
- * database, so the file reports SKIPPED rather than red.
+ * `0098_young_lorna_dane` created these four tables, so every case below RUNS.
+ * The guard is kept rather than deleted: this file is the first thing that goes
+ * red on a database the migration has not reached — a partially migrated
+ * throwaway, a `--phase=pre` run, a branch that dropped the file on a rebase —
+ * and a missing-relation error there is indistinguishable from a broken CHECK
+ * until somebody reads the stack.
  *
- * The condition is read from `information_schema` in a TOP-LEVEL await, and both
- * halves of that matter. `skipIf` is evaluated when vitest COLLECTS the file, so
- * a flag set in `beforeAll` would still be `false` at collection and every case
- * would skip FOREVER — including after the migration landed, with a green
- * report. And it is a presence query rather than a try/catch around a real
- * statement, because a caught error cannot tell "the table is missing" from "the
- * CHECK I am testing rejected my row", and the second must never become a skip.
- *
- * **Every case below was executed against a real PostgreSQL 17 server before
- * this file was committed**, on a throwaway database carrying the whole 0094
- * chain plus this domain's DDL and its three trigger functions: 17/17. So what
- * the skip defers is re-running proven assertions, not writing them.
+ * The condition is read in a TOP-LEVEL await, and the placement is the whole
+ * point: `skipIf` is evaluated when vitest COLLECTS the file, so a flag set in
+ * `beforeAll` would still be `false` at collection and every case would skip
+ * FOREVER — with a green report. It is a presence query rather than a try/catch
+ * around a real statement, because a caught error cannot tell "the table is
+ * missing" from "the CHECK I am testing rejected my row", and the second must
+ * never become a skip.
  *
  * ## The shared-database rules this file follows
  *
@@ -64,9 +60,39 @@ const presence = await db.execute<{ present: number }>(sql`
 `);
 const ready = ([...presence][0]?.present ?? 0) === 4;
 
-/** Whether a statement was refused by the NAMED constraint, and by no other. */
+/**
+ * Whether a statement was refused by the NAMED constraint.
+ *
+ * The name is read off the CAUSE CHAIN, never off `err.message`. drizzle wraps
+ * every failure in `Failed query: <the SQL>`, so a `rejects.toThrow(/name/)`
+ * matches the statement text rather than the refusal — and the statement text
+ * contains the table name, which is enough of the constraint name to look like
+ * it worked for some constraints and not others. That is the same rule
+ * `CONVENTIONS.md` states for SQLSTATE ("a drizzle error's SQLSTATE lives on
+ * `cause`, never `error.code`") applied to the message, and this file is where
+ * it bit: twelve assertions passed a regex against a wrapper and measured
+ * nothing until the migration landed and they ran for real.
+ */
 async function refusedBy(statement: ReturnType<typeof sql>, constraint: string): Promise<void> {
-  await expect(db.execute(statement)).rejects.toThrow(new RegExp(constraint, 'u'));
+  let raised: unknown;
+  try {
+    await db.execute(statement);
+  } catch (err) {
+    raised = err;
+  }
+  expect(raised, 'the statement was accepted, and it must be refused').toBeDefined();
+
+  const chain: string[] = [];
+  for (let err = raised; err !== undefined && err !== null; ) {
+    if (err instanceof Error) {
+      chain.push(err.message);
+      err = err.cause;
+      continue;
+    }
+    chain.push(String(err));
+    break;
+  }
+  expect(chain.join(' | ')).toContain(constraint);
 }
 
 beforeAll(async () => {
@@ -86,18 +112,25 @@ beforeAll(async () => {
     values (${`${P}-cat2`}, ${'catauth_rdb.other'}, 'Probe 2', ${`${P}-cat2-slug`}, 'published', true)
     on conflict (id) do nothing
   `);
-  // `attribute_definitions_published_audit_check` requires `published_at` beside
-  // any state but `draft`, so an `active` fixture states it.
+  // The definitions stay `draft`, for a teardown reason rather than a semantic
+  // one: `mercaria_attribute_definition_immutable` refuses to DELETE a row that
+  // has left `draft` ("stored values cite this version"), so an `active` fixture
+  // is one this file could create and never clean up — and the test database is
+  // shared with every parallel file. `draft` is also what
+  // `attribute_definitions_published_audit_check` pairs with a NULL
+  // `published_at`. Nothing here reads a lifecycle: these tests drive CHECKs and
+  // triggers on the authoring tables, and the definitions are only the rows the
+  // citation trigger resolves against.
   await db.execute(sql`
     insert into attribute_definitions
-      (id, key, version, lifecycle_state, label, value_type, cardinality, objectivity, published_at)
-    values (${`${P}-attr`}, ${'catauth_rdb_colour'}, 1, 'active', 'Colour', 'enum', 'single', 'objective', now())
+      (id, key, version, lifecycle_state, label, value_type, cardinality, objectivity)
+    values (${`${P}-attr`}, ${'catauth_rdb_colour'}, 1, 'draft', 'Colour', 'enum', 'single', 'objective')
     on conflict (id) do nothing
   `);
   await db.execute(sql`
     insert into attribute_definitions
-      (id, key, version, lifecycle_state, label, value_type, cardinality, objectivity, published_at)
-    values (${`${P}-attr2`}, ${'catauth_rdb_material'}, 1, 'active', 'Material', 'enum', 'single', 'objective', now())
+      (id, key, version, lifecycle_state, label, value_type, cardinality, objectivity)
+    values (${`${P}-attr2`}, ${'catauth_rdb_material'}, 1, 'draft', 'Material', 'enum', 'single', 'objective')
     on conflict (id) do nothing
   `);
   await db.execute(sql`
