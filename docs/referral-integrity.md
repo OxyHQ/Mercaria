@@ -353,18 +353,56 @@ Stated rather than stubbed. Each is a named seam that fails closed.
    cadence somebody chose and a bound on how much of the partner table one pass
    may read — decisions #149's pilot is better placed to make with traffic in
    front of it. What exists today is a real detector an operator drives.
-2. **Eight of the fourteen risk-signal kinds have no producer.**
-   `declared_related_party`, `referred_account_maturity`,
-   `repeated_conversion_pattern`, `refund_dispute_concentration`,
-   `instrument_distribution_anomaly`, `manual_evidence` are produced;
-   `merchant_membership_overlap`, `shared_payout_beneficiary`,
-   `provider_risk_outcome`, `click_to_conversion_pattern`, `market_mismatch`,
-   `repeated_cap_attempt`, `source_event_inconsistency` and
-   `prior_confirmed_enforcement` are representable, are read by
-   `deriveRiskSignals` from `ReferralRiskSignalFacts`, and nothing supplies
-   those facts yet. `collectRiskSignalFacts` is where each would be measured,
-   and every one of them is a bounded aggregate over rows this domain already
-   has access to.
+2. **Seven of the fourteen risk-signal kinds have no producer, and one has
+   half of one.** The authority is the single `ReferralRiskSignalFacts`
+   construction in `collectRiskSignalFacts` — read that object literal, never a
+   grep for the field names, because the docblock above it NAMES every
+   unsupplied field in prose and a comment-inclusive census reports all
+   fourteen as produced.
+
+   **Produced (6):** `instrument_distribution_anomaly`,
+   `repeated_conversion_pattern`, `prior_confirmed_enforcement`,
+   `click_to_conversion_pattern`, `repeated_cap_attempt`, and `manual_evidence`
+   — the last through `recordManualRiskSignal` rather than through the facts.
+
+   **Half produced (1):** `refund_dispute_concentration`. `refundRateBps`
+   computes; `disputeRateBps` has no producer, so the kind fires on refunds
+   only while reading as though it covered both.
+
+   **No producer (7)**, and NOT because nobody has got to them — each is
+   blocked on something specific, which is why this list names the blocker
+   rather than inviting somebody to write the aggregate:
+
+   - `declared_related_party` and `merchant_membership_overlap` — **already
+     derived**, in `collectSelfReferralFacts` in this same directory, as
+     `relatedPartyDeclared` and `partnerHoldsReferredStoreMembership`. A second
+     derivation here would be two spellings of one rule, disagreeing the first
+     time either read changed, inside a live attribution gate. Closing them
+     means EXTRACTING the shared reads so both callers use one, not writing a
+     producer.
+   - `shared_payout_beneficiary`, `provider_risk_outcome` and the missing
+     `disputeRateBps` — all read the PAYMENT domain (`provider_accounts` lives
+     in `db/schema/payments.ts`), which WALL 2 of
+     `referral-integrity-isolation.test.ts` forbids. They need a PORT in
+     #146's shape, registered from outside both walled domains — **#344**.
+   - `referred_account_maturity` — needs the referred Oxy account's creation
+     date. #164 deleted Mercaria's service principal and WALL 6 forbids an
+     outbound call from this domain, so it needs a port plus a credential that
+     does not exist.
+   - `market_mismatch` — **not representable as specified.**
+     `ReferralRiskSignalFacts` calls it "the conversion's market"; neither a
+     touch nor a conversion carries one, and #149 refuses a market-scoped stop
+     at publish for exactly that reason. Only the INSTRUMENT has a market
+     (`referral_codes.market`, `referral_links.market`), and deriving from it
+     answers a different question under the same name. Changing the spec is a
+     decision about #149 as well.
+   - `source_event_inconsistency` — no relationship exists between a referral
+     partner and a #62/#65 source event to aggregate over.
+
+   The sentence this replaced claimed every missing fact was "a bounded
+   aggregate over rows this domain already has access to". Four of the seven
+   are not, and that sentence is what would send somebody to write a producer
+   for a fact that needs a port, a credential or a spec change.
 3. **Monitoring and alerts** (#148's twelve measures). The rows exist and are
    countable; the DASHBOARD is #147's, and scraping and alerting wiring belongs
    to `oxy-infra`, which is where every other Mercaria metric's does.
