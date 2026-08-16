@@ -3445,6 +3445,38 @@ export interface PickupConfig {
   readonly collectionCodeKey: string;
 }
 
+/**
+ * The catalog authoring surface (#367 step 5, ADR 0007 D10/D12).
+ *
+ * ONE lever, and it gates the MOUNT and nothing else. `CATALOG_AUTHORING_ENABLED`
+ * off means `/catalog-authoring` and `/stores/:storeId/product-drafts` do not
+ * exist and the legacy product-creation route is untouched, which is D12's
+ * requirement verbatim.
+ *
+ * What it does NOT gate is a stored row. A draft already saved stays saved and
+ * comes back when the flag does — the rollback lever that cost a merchant an
+ * afternoon of typing is one nobody would pull, so it would sit unused during
+ * exactly the incident it exists for. `catalog-authoring-isolation.test.ts`
+ * fails the build if a repository or a read path starts reading it.
+ *
+ * The three numbers beside it are bounds rather than levers.
+ * `draftTtlSeconds` is how long an abandoned draft survives before the expiry
+ * sweep takes it, and it is stamped at CREATION so a later change to this value
+ * cannot retroactively shorten a draft somebody is still filling in.
+ */
+export interface CatalogAuthoringConfig {
+  /** `CATALOG_AUTHORING_ENABLED` — mounts the authoring surface. Default false. */
+  readonly enabled: boolean;
+  /** How long an abandoned draft survives. Stamped at creation, never re-read. */
+  readonly draftTtlSeconds: number;
+  /** How many drafts one page of a store's list returns. */
+  readonly draftPageSize: number;
+  /** How many categories one classification page returns. */
+  readonly categoryPageSize: number;
+  /** How many candidates a canonical search returns. */
+  readonly canonicalSearchLimit: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -3493,6 +3525,7 @@ export interface AppConfig {
   readonly merchantBilling: MerchantBillingConfig;
   readonly connectors: ConnectorsConfig;
   readonly pickup: PickupConfig;
+  readonly catalogAuthoring: CatalogAuthoringConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -4312,6 +4345,13 @@ export const config: AppConfig = Object.freeze({
       false,
     ),
     collectionCodeKey: strEnv('PICKUP_COLLECTION_CODE_KEY', ''),
+  }),
+  catalogAuthoring: Object.freeze({
+    enabled: boolEnv('CATALOG_AUTHORING_ENABLED', false),
+    draftTtlSeconds: intEnv('CATALOG_AUTHORING_DRAFT_TTL_SECONDS', 30 * 24 * 60 * 60),
+    draftPageSize: intEnv('CATALOG_AUTHORING_DRAFT_PAGE_SIZE', 50),
+    categoryPageSize: intEnv('CATALOG_AUTHORING_CATEGORY_PAGE_SIZE', 200),
+    canonicalSearchLimit: intEnv('CATALOG_AUTHORING_CANONICAL_SEARCH_LIMIT', 20),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

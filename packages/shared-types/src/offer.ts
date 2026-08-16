@@ -355,7 +355,28 @@ export type NativeListingLinkMethod =
    * identifier, the brand, the pack count, the category, a bundle relation or an
    * operator's own rejection disagreed.
    */
-  | 'seller_declared';
+  | 'seller_declared'
+  /**
+   * The MERCHANT selected the canonical entity directly, in #367's authoring
+   * wizard, and the publication linked it without ever running the matcher
+   * (ADR 0007 D10).
+   *
+   * Its own member rather than `seller_declared`, and the distinction is
+   * commercial rather than cosmetic: a P2P seller declaring "this is the phone
+   * in my hallway" and a merchant declaring "this is the model my catalogue
+   * sells" carry different authority, are corrected by different people, and
+   * arrive through surfaces with different gates — `services/sell-yours/match-gate.ts`
+   * refuses the first against #58's deterministic blockers, while the second is
+   * a store member with `products:write` choosing from a search that only
+   * offers `active` canonical products. Collapsing them would make #59's review
+   * tooling unable to ask "who decided this", which is the two-representations
+   * rule applied to a vocabulary.
+   *
+   * NULL confidence like every non-`matcher` method. What makes it trustworthy
+   * is not a threshold — it is that a person with authority over the listing
+   * chose, and that ADR 0007 D10 forbids re-matching what they chose.
+   */
+  | 'merchant_declared';
 
 export const NATIVE_LISTING_LINK_METHODS: readonly NativeListingLinkMethod[] = [
   'barcode_gtin',
@@ -364,6 +385,7 @@ export const NATIVE_LISTING_LINK_METHODS: readonly NativeListingLinkMethod[] = [
   'matcher',
   'backfill',
   'seller_declared',
+  'merchant_declared',
 ];
 
 /** The lifecycle of one native-variant → canonical-variant attachment. */

@@ -114,6 +114,8 @@ import internalRetailPilotRouter from './routes/internal-retail-pilot.js';
 import internalRetailReconciliationRouter from './routes/internal-retail-reconciliation.js';
 import navigationRouter from './routes/navigation.js';
 import internalNavigationRouter from './routes/internal-navigation.js';
+import catalogAuthoringRouter from './routes/catalog-authoring.js';
+import productDraftsRouter from './routes/product-drafts.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -222,6 +224,22 @@ export function createApp(): express.Express {
   app.use('/listings', listingsRouter);
   app.use('/feed', feedRouter);
   app.use('/categories', categoriesRouter);
+  /**
+   * The catalog authoring drafts (#367 step 5, ADR 0007 D10), at the path D10
+   * finalizes. Mounted BEFORE `/stores` deliberately: `storesRouter` is the
+   * PUBLIC store page and its `router.use(makeRateLimiter('stores'),
+   * optionalAuth)` matches every path under the prefix, so mounting after would
+   * run a full Oxy verification on every draft request and then run
+   * `authenticateToken`'s again.
+   *
+   * `CATALOG_AUTHORING_ENABLED` (D12) gates the MOUNT and never a stored row: a
+   * draft already saved stays saved with it off, because a rollback that cost a
+   * merchant an afternoon of typing is one nobody would pull.
+   */
+  if (config.catalogAuthoring.enabled) {
+    app.use('/stores/:storeId/product-drafts', productDraftsRouter);
+    app.use('/catalog-authoring', catalogAuthoringRouter);
+  }
   app.use('/stores', storesRouter);
   app.use('/favorites', favoritesRouter);
   /**

@@ -498,7 +498,7 @@ export * from './compatibility';
 // never mint a canonical entity, which is what keeps source records idempotent.
 export * from './catalogExternalMappings';
 // Typed variant axes and retained seller claims (#367 step 4, ADR 0007 D6/D7)
-// are the last export, and this module imports exactly `./columns`,
+// import exactly `./columns`,
 // `./attributeRegistry`, `./catalog`, `./connectors` and `./productTypes` — the
 // registry VERSION an axis cites, the listing and variant an axis and a claim
 // are about, the connection a connector claim came from, and the product type
@@ -518,3 +518,27 @@ export * from './catalogExternalMappings';
 // every foreign key here targets a native listing, a native variant, an
 // attribute definition, an enum value, a connection or a product type version.
 export * from './variantAxes';
+
+// The catalog authoring domain (#367 step 5, ADR 0007 D10) is the LAST export
+// and it imports exactly `./columns`, `./attributeRegistry`, `./catalog`,
+// `./productTypes` and `./stores` — the five things a draft PINS. That short
+// list is the design: an authoring draft cites a category, an exact product-type
+// version, exact attribute definition versions and the store that owns it, and
+// nothing else in the catalogue is a fact a draft may state.
+//
+// It does NOT import `./canonicalCatalog` or `./organizations`, and that absence
+// is a decision rather than an omission (`catalogAuthoring.ts`'s header, and
+// `ID_COLUMNS_WITHOUT_FOREIGN_KEY`): a draft's selected canonical product,
+// canonical variant and brand are plain id columns with no foreign key, because
+// a `restrict` FK would let one merchant's half-finished form BLOCK a catalogue
+// merge and every other `ON DELETE` would destroy or silently empty the one
+// answer ADR 0007 D10 says must never be overruled. The publication resolves
+// each through the tombstone's own `merged_into_id` instead, so a merge that
+// happened mid-draft lands on the winner with no rehoming pass — which is also
+// why this domain adds NO entry to `services/curation/merge-plan.ts`.
+//
+// Nothing here writes to a table above it. The publication reaches
+// `listings`, `product_variants`, `inventory_levels` and `native_listing_links`
+// through the services that own them, so a draft can never become a listing by
+// any route but `publish.service.ts`'s one transaction.
+export * from './catalogAuthoring';
