@@ -254,6 +254,12 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // whose actor column could be erased answers "who did this" with a NULL.
   { column: 'guest_contact_suppressions.lifted_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'guest_portal_operator_actions.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  // #427's pin-release trail. An Oxy id like every other row in this block, and
+  // it must survive the account being deleted for the reason the audit exists:
+  // a release erases the only evidence the pin was ever there, so an actor
+  // column that could become NULL answers "who let the platform take this back"
+  // with nothing.
+  { column: 'listing_pin_releases.released_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'listings.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'notifications.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'order_status_history.by_oxy_user_id', reason: OXY_ACCOUNT },

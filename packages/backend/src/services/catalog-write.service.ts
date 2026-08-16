@@ -55,6 +55,7 @@ import {
   findListingHandleOwner,
   insertListing,
   recomputeListingFacets,
+  releasePinnedFields as releaseListingPinnedFields,
   replaceListingImages,
   setListingStatusIfIn,
   updateListingColumns,
@@ -62,6 +63,7 @@ import {
   type ListingRecord,
   type ListingSourceProvenance,
 } from '../db/catalog/listingRepository.js';
+import { recordPinReleases } from '../db/catalog/pinReleaseRepository.js';
 import { getDb } from '../db/postgres.js';
 import {
   assertConditionAllowed,
@@ -847,24 +849,19 @@ export async function finishStoreProductCreation(
  *    would change what a non-empty `overriddenFields` MEANS for every reader of
  *    the column.
  *
- * ### Unpinning
+ * ### Releasing
  *
- * A pin is never removed here, and at the FIELD grain there is deliberately no
- * way to remove one — that needs the per-field control this issue argued
- * against, and inventing an implicit rule ("re-saving the platform's value
- * unpins it") would require storing the platform's value per field, which
- * nothing does. What exists instead is the switch itself: `connector_wins`
- * renders every pin inert without deleting any, so the escape is one control a
- * merchant already has, it is reversible in both directions, and flipping back
- * restores exactly the pins they had. The end state is bounded — seven keys, and
- * all seven pinned means "this product is mine now" — rather than an unbounded
- * set nobody can reason about.
+ * A pin is never removed HERE — this function only ever appends, and an
+ * implicit rule ("re-saving the platform's value releases it") would need the
+ * platform's value per field, which nothing stores. Removal is its own act with
+ * its own actor: {@link releasePinnedFields}, below. Two other escapes remain
+ * what they were — `connector_wins` renders every pin inert without deleting
+ * any, and re-editing a released field pins it again through this very
+ * function, which is the correct answer and not a bug.
  *
- * The set is also SERVED, on the admin hydration path
- * (`Listing.overriddenFields`), so the state is at least READABLE rather than
- * inferable only from a field having stopped moving. No dashboard screen renders
- * it yet — that surface is owed, and until it exists a merchant cannot see their
- * pins without reading the API.
+ * The set is SERVED on the admin hydration path (`Listing.overriddenFields`)
+ * and #420 renders it on the dashboard's product screen, so a merchant can see
+ * which fields stopped tracking the platform and, since #427, release one.
  */
 export async function updateListing(
   listingId: string,
@@ -1079,6 +1076,75 @@ export async function updateListing(
   if (listing.ownerType === 'store') {
     await recomputeCollectionMembership(listingId);
   }
+}
+
+/**
+ * Stop holding some of a listing's pinned fields (#427).
+ *
+ * ## The only honest meaning: resume tracking from the NEXT sync
+ *
+ * Nothing stores the platform's previous per-field value —
+ * `listings.overridden_fields` records which keys were taken over and nothing
+ * else — so this cannot restore a title, a gallery order or an SEO pair to what
+ * the platform last sent. It removes the key, and the field then follows the
+ * platform again the next time one arrives. The merchant's current value stays
+ * put until that happens, which on a webhook-driven connection may be days, so
+ * every surface offering this has to say "released" and never "restored".
+ *
+ * ## It deliberately does NOT trigger a sync
+ *
+ * A release changes Mercaria's merge policy for future writes; it asks the
+ * platform for nothing. Pulling one product here would put a provider call, its
+ * rate budget and its failure modes inside a merchant's request — and it would
+ * quietly turn "released" back into the restore this cannot promise, since the
+ * platform's CURRENT value is not the value the field was taken over FROM
+ * either. What the merchant sees change immediately is the pin, which is the
+ * thing they released; the field changes when the platform next sends one.
+ *
+ * ## It does not push, either
+ *
+ * `schedulePush` exists on the merchant write path because a merchant EDIT is
+ * new content the platform should hear about. Nothing here edits a field, so a
+ * push would re-send values that have not moved and invite the inbound echo for
+ * no reason.
+ *
+ * ## Idempotent, and safe against a concurrent release
+ *
+ * A key that is not held is removed from nothing and the call succeeds — a
+ * retry, a double tap and two dashboards releasing the same field converge on
+ * one state, with no second audit row, because the trail records what the
+ * statement actually removed rather than what was asked for. Two releases of
+ * DIFFERENT fields both survive: the removal is computed inside the locked
+ * UPDATE (see {@link releasePinnedFields} in the repository), not read out and
+ * written back.
+ *
+ * ## Subtractive, so `status` stays unpinnable
+ *
+ * There is no input here that can ADD a key, so this cannot become the place a
+ * fourth key becomes pinnable — the direction #416 refused. It reaches keys the
+ * merchant surface cannot NAME for the same reason it must: the column is a
+ * bare `text[]` the connector merge honours whatever is in it, and a release
+ * limited to the seven named keys would leave the rest stuck permanently.
+ *
+ * Returns the keys it actually removed, so a caller can report a converging
+ * repeat as the no-op it was.
+ */
+export async function releasePinnedFields(
+  listingId: string,
+  fields: readonly string[],
+  actor: { readonly oxyUserId: string },
+): Promise<string[]> {
+  return getDb().transaction(async (tx) => {
+    const outcome = await releaseListingPinnedFields(listingId, fields, tx);
+    if (!outcome) {
+      throw notFound('Listing not found');
+    }
+    // One row per key that MOVED, in the same transaction as the removal: a
+    // release whose audit row did not commit is exactly the state this trail
+    // exists to make impossible.
+    await recordPinReleases(listingId, outcome.released, actor.oxyUserId, tx);
+    return outcome.released;
+  });
 }
 
 /**

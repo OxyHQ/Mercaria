@@ -1,5 +1,29 @@
 /**
- * A merchant can SEE which fields are pinned against connector re-sync (#420).
+ * A merchant can SEE which fields are pinned against connector re-sync (#420),
+ * and RELEASE one (#427).
+ *
+ * ## #427 changed this gate on purpose, and what it changed is narrower than it looks
+ *
+ * #420 asserted that the pinned-field notice can write nothing, so that nobody
+ * closed it by building the per-field control #416 argued against. #427 is the
+ * issue that decided to build one, so this file gained assertions rather than
+ * losing them:
+ *
+ *  - `ConnectorPinNotice` STILL writes nothing, and that assertion is unchanged.
+ *    The release arrives as presentational SLOTS the app fills, so the mutation,
+ *    the permission it needs and the eleven translations of its copy all live in
+ *    the dashboard. A shared component with a `useMutation` in it hands every
+ *    future consumer a write it never asked for.
+ *  - The product SCREEN must now render the control and reach the mutation —
+ *    the same reasoning as the notice's own render assertion, one layer up: the
+ *    dashboard has no test runner and no lint in CI, and it typechecks and
+ *    bundles perfectly well with a control that is present and wired to nothing.
+ *  - And the copy may not promise a RESTORE, which is the failure specific to
+ *    this feature. Nothing stores the platform's previous per-field value, so
+ *    "revert", "restore" or "undo" would describe an operation the data cannot
+ *    perform — and it would fail the way this area keeps failing: silently,
+ *    looking exactly like a working feature, with the merchant only finding out
+ *    that nothing came back at the next sync, if then.
  *
  * #416/#419 made `listings.overriddenFields` real and the admin hydration path
  * serves it. Nothing rendered it, and the direction that fails is the reason
@@ -50,6 +74,8 @@ const PRODUCT_SCREEN = 'dashboard/app/(app)/products/[id].tsx';
 const PIN_COPY = 'ui/src/lib/connector-labels.ts';
 /** The presentational notice itself. */
 const PIN_NOTICE = 'ui/src/components/ui/connector-pin-notice.tsx';
+/** The dashboard's English copy — where every sentence the release renders lives. */
+const DASHBOARD_EN_BUNDLE = 'dashboard/lib/i18n/locales/en.json';
 
 function read(relative: string): string {
   const source = readFileSync(join(PACKAGES_ROOT, relative), 'utf8');
@@ -83,6 +109,42 @@ function recordKeys(source: string, constName: string): string[] {
  */
 const PIN_MUTATION =
   /\bunpin[A-Za-z]*|\buseMutation\b|\.mutate\(|\bonValueChange\b|\bonCheckedChange\b|\bsetOverriddenFields\b/;
+
+/**
+ * Copy that would promise the one thing a release cannot do (#427).
+ *
+ * Nothing stores the platform's previous per-field value, so a control offering
+ * to revert, restore or undo describes an operation with no data behind it. The
+ * merchant presses it, the field does not change, and the only way they find out
+ * is the next sync — or never, on a webhook-driven connection where the platform
+ * may not send that field again for weeks.
+ *
+ * The scan runs over the DASHBOARD's `en.json` and the shared copy module, which
+ * is where these words would actually be written. `released` and `releasing` are
+ * fine and are exactly what the copy does say; the pattern is anchored so
+ * neither matches.
+ */
+const FALSE_RESTORE_PROMISE = /\brevert(s|ed|ing)?\b|\brestore[ds]?\b|\brestoring\b|\bundo\b/i;
+
+/**
+ * The release control, as the product screen has to spell it.
+ *
+ * A pair, because either half alone is satisfied by a screen that does not work:
+ * the slots without the mutation is a control wired to nothing, and the mutation
+ * without the slots is a mutation nothing can reach.
+ *
+ * Each is anchored on its left, which mutation-testing this file is what
+ * established: renaming the prop to `MUTATED_fieldAction` left the unanchored
+ * pattern perfectly satisfied by the substring, so the gate reported green on a
+ * screen whose control had been renamed out of existence. `tsc` happened to
+ * catch that particular spelling; DELETING the prop is the one it cannot, since
+ * every slot is optional.
+ */
+const RELEASE_SLOTS = [
+  /(?<![A-Za-z0-9_$])fieldAction=\{/,
+  /(?<![A-Za-z0-9_$])unnamedAction=\{/,
+  /(?<![A-Za-z0-9_$])releaseNote=\{/,
+];
 
 describe('partitionPinnedFields', () => {
   it('returns two empty lists for a listing with no pins', () => {
@@ -143,6 +205,23 @@ describe('the merchant surface renders the pin set', () => {
     expect(PIN_MUTATION.test('unpinField(id)')).toBe(true);
     expect(PIN_MUTATION.test('<Text>Fields you edited in Mercaria</Text>')).toBe(false);
     expect(stripComments('// unpin\nconst a = 1;\n')).not.toContain('unpin');
+
+    // #427's detector, both directions. The negative half is the load-bearing
+    // one: the copy this scans SAYS "released" and "releasing" everywhere, so a
+    // pattern that fired on those would be disabled by whoever hit it next.
+    expect(FALSE_RESTORE_PROMISE.test('Revert to the Shopify version')).toBe(true);
+    expect(FALSE_RESTORE_PROMISE.test('Restore the platform value')).toBe(true);
+    expect(FALSE_RESTORE_PROMISE.test('Undo this edit')).toBe(true);
+    expect(FALSE_RESTORE_PROMISE.test('Released. Nothing changes here until the next sync.')).toBe(
+      false,
+    );
+    expect(FALSE_RESTORE_PROMISE.test('Releasing a field lets the platform manage it')).toBe(false);
+
+    // The slot anchors, from both sides. A renamed prop must not satisfy the
+    // pattern by SUBSTRING — measured: `MUTATED_fieldAction={` did, and the gate
+    // reported green on a screen whose control had been renamed away.
+    expect(RELEASE_SLOTS[0].test('  fieldAction={(field) => null}')).toBe(true);
+    expect(RELEASE_SLOTS[0].test('  MUTATED_fieldAction={(field) => null}')).toBe(false);
   });
 
   it("the dashboard's product screen renders the notice with the DTO's own field", () => {
@@ -185,14 +264,76 @@ describe('the merchant surface renders the pin set', () => {
   });
 
   it('is READ-ONLY: the notice can write nothing', () => {
-    // #420 excludes a per-field pin/unpin control by name, so that nobody closes
-    // it by building the thing #416 argued against. Per-field release is a
-    // different piece of work: nothing stores the platform's previous value, so
-    // "unpin" can only mean "resume tracking from the next sync".
+    // Unchanged by #427. The release control reaches this component as
+    // presentational slots the app fills, so the shared component still cannot
+    // write — which is what keeps the mutation, the permission behind it and the
+    // eleven translations of its copy in the app that has all three.
     const notice = stripComments(read(PIN_NOTICE));
     expect(
       PIN_MUTATION.test(notice),
-      'the pinned-field notice grew a mutation — #420 is a read-only surface',
+      'the pinned-field notice grew a mutation — the write belongs to the app that renders it',
     ).toBe(false);
+  });
+});
+
+describe('the merchant can release a pin (#427)', () => {
+  it("the product screen renders the release controls AND reaches the mutation", () => {
+    // Both halves, because either alone describes a screen that does not work: a
+    // control wired to nothing, or a mutation nothing can reach. Neither fails
+    // `tsc` and neither fails a bundle, so this is the only thing in CI that
+    // notices.
+    const screen = stripComments(read(PRODUCT_SCREEN));
+    for (const slot of RELEASE_SLOTS) {
+      expect(screen, `the product screen must fill the notice's ${slot.source} slot`).toMatch(slot);
+    }
+    expect(screen, 'and must call the release mutation').toContain('useReleaseProductPins');
+    expect(screen, 'and must actually fire it').toMatch(/releaseProductPins\.mutate\(/);
+  });
+
+  it('offers the release to the keys the surface cannot NAME', () => {
+    // #427's requirement, and the one a release is most likely to miss: those
+    // keys are held by the connector merge exactly as the seven are, and a
+    // control that could only reach the named ones would leave them stuck
+    // forever — worse than not offering a release at all.
+    const screen = stripComments(read(PRODUCT_SCREEN));
+    expect(screen, 'the unnamed pins must be reachable').toContain('partitionPinnedFields');
+    expect(screen).toMatch(/unnamedAction=\{[\s\S]*unnamedPins/);
+  });
+
+  it('never promises a RESTORE, in the copy a merchant actually reads', () => {
+    // Scoped to the subtree this feature owns rather than to the whole bundle,
+    // for a measured reason: the dashboard legitimately says "restore" and
+    // "undo" elsewhere — a discarded draft, an error boundary — and a gate that
+    // fired on those is one whoever hits it next deletes.
+    //
+    // ENGLISH only, and that is also deliberate. Several translations state the
+    // property as a NEGATION ("no se restaura nada", "es wird also nichts
+    // wiederhergestellt"), which is correct copy that a per-language word list
+    // would flag. English is where the sentences are authored and where a
+    // translator's source comes from, so the rule is: this subtree does not use
+    // the word at all, in either direction — say what the release DOES.
+    const bundle = JSON.parse(readFileSync(join(PACKAGES_ROOT, DASHBOARD_EN_BUNDLE), 'utf8'));
+    const pins = bundle?.products?.detail?.pins;
+    // The vacuity floor and the positive control in one: an empty or renamed
+    // subtree satisfies "contains no forbidden word" perfectly.
+    expect(pins, 'the release copy is missing from the bundle entirely').toBeDefined();
+    const copy = JSON.stringify(pins);
+    expect(copy.length, 'the release copy is present but empty').toBeGreaterThan(200);
+    expect(Object.keys(pins).sort()).toEqual([
+      'release',
+      'releaseFailed',
+      'releaseNote',
+      'releaseUnnamed',
+      'released',
+    ]);
+
+    expect(
+      copy,
+      'the release copy offers to revert/restore/undo a pinned field — nothing stores the ' +
+        "platform's previous value, so that is a promise the data cannot keep (#427)",
+    ).not.toMatch(FALSE_RESTORE_PROMISE);
+    // The shared module's connection-wide sentence describes the same act and
+    // must not promise it either.
+    expect(stripComments(read(PIN_COPY))).not.toMatch(FALSE_RESTORE_PROMISE);
   });
 });

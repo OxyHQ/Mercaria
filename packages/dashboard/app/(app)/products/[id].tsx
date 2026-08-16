@@ -3,6 +3,7 @@ import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, Trash2, Plus, Boxes } from "lucide-react-native";
+import { partitionPinnedFields } from "@mercaria/shared-types";
 import type {
   Listing,
   ProductVariantDTO,
@@ -32,6 +33,7 @@ import {
   useUpdateVariant,
   useDeleteVariant,
   useSetVariantInventory,
+  useReleaseProductPins,
 } from "@/lib/hooks/use-products";
 import { useConnection } from "@/lib/hooks/use-channels";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
@@ -123,6 +125,24 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
   const canReadChannels = can("channels:write");
   const connection = useConnection(storeId, source?.connectionId, canReadChannels);
 
+  // #427: releasing a pin is gated on `products:write` — the permission an
+  // ordinary edit already needs, and the one that CREATES a pin — so the way out
+  // is exactly as reachable as the way in.
+  //
+  // It is offered under every `conflictPolicy`, including `connector_wins`. That
+  // is not a control with no effect: `connector_wins` renders a pin INERT
+  // without deleting it, so a merchant who releases a field there and later
+  // turns "Keep my local edits" back on would otherwise find every pin they
+  // thought they had given up waiting for them. The notice's own policy sentence
+  // is what says whether the platform is currently overwriting anything.
+  const releaseProductPins = useReleaseProductPins(storeId, product.id);
+  const unnamedPins = partitionPinnedFields(product.overriddenFields).unnamed;
+  const releasePins = (fields: string[]) =>
+    releaseProductPins.mutate(fields, {
+      onSuccess: () => toast.success(t("products.detail.pins.released")),
+      onError: () => toast.error(t("products.detail.pins.releaseFailed")),
+    });
+
   const [title, setTitle] = useState(product.title);
   const [description, setDescription] = useState(product.description);
   const restricted = isRestricted(product);
@@ -174,6 +194,41 @@ function ProductEditor({ storeId, product }: { storeId: string; product: Listing
             <ConnectorPinNotice
               overriddenFields={product.overriddenFields}
               conflictPolicy={connection.data?.syncSettings.conflictPolicy}
+              releaseNote={
+                canWrite ? (
+                  <Text className="text-xs text-muted-foreground">
+                    {t("products.detail.pins.releaseNote")}
+                  </Text>
+                ) : null
+              }
+              fieldAction={
+                canWrite
+                  ? (field) => (
+                      <Pressable
+                        onPress={() => releasePins([field])}
+                        disabled={releaseProductPins.isPending}
+                        className="active:opacity-70"
+                      >
+                        <Text className="text-xs font-medium text-primary">
+                          {t("products.detail.pins.release")}
+                        </Text>
+                      </Pressable>
+                    )
+                  : undefined
+              }
+              unnamedAction={
+                canWrite && unnamedPins.length > 0 ? (
+                  <Pressable
+                    onPress={() => releasePins(unnamedPins)}
+                    disabled={releaseProductPins.isPending}
+                    className="active:opacity-70"
+                  >
+                    <Text className="text-xs font-medium text-primary">
+                      {t("products.detail.pins.releaseUnnamed", { count: unnamedPins.length })}
+                    </Text>
+                  </Pressable>
+                ) : null
+              }
               action={
                 canReadChannels ? (
                   <Pressable

@@ -856,6 +856,16 @@
       "channelSettings": "チャネル設定",
       "documentTitle": "商品 | Mercaria Dashboard",
       "loadFailed": "商品を読み込めませんでした",
+      "pins": {
+        "release": "解除",
+        "releaseFailed": "フィールドを解除できませんでした",
+        "releaseNote": "フィールドを解除すると、次回の同期以降はプラットフォーム側が再びそのフィールドを管理します。それまでは現在の値がそのまま残ります。Mercaria はプラットフォームの以前の値を保持していないため、元の値が戻ることはありません。",
+        "releaseUnnamed": {
+          "one": "%{count} 件を解除",
+          "other": "%{count} 件を解除"
+        },
+        "released": "解除しました。次回の同期でプラットフォームの値が優先されるまで、ここでは何も変わりません。"
+      },
       "restrictedNotice": "この商品はモデレーションの判断待ちで制限されており、ここから再公開することはできません。",
       "saveChanges": "変更を保存",
       "saveFailed": "商品を保存できませんでした",

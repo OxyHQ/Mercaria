@@ -856,6 +856,16 @@
       "channelSettings": "Configuració del canal",
       "documentTitle": "Producte | Mercaria Dashboard",
       "loadFailed": "No s'ha pogut carregar el producte",
+      "pins": {
+        "release": "Allibera",
+        "releaseFailed": "No s'ha pogut alliberar el camp",
+        "releaseNote": "Quan alliberes un camp, la plataforma torna a gestionar-lo a partir de la propera sincronització. El teu valor actual es manté fins llavors: Mercaria no desa el valor anterior de la plataforma, així que no es restaura res.",
+        "releaseUnnamed": {
+          "one": "Allibera %{count} camp",
+          "other": "Allibera %{count} camps"
+        },
+        "released": "Alliberat. Aquí no canvia res fins a la propera sincronització, quan prevaldrà el valor de la plataforma."
+      },
       "restrictedNotice": "Aquest producte està restringit a l'espera d'una decisió de moderació i no es pot tornar a publicar des d'aquí.",
       "saveChanges": "Desa els canvis",
       "saveFailed": "No s'ha pogut desar el producte",

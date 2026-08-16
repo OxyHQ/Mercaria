@@ -5,6 +5,7 @@ import {
   createStoreProductSchema,
   updateListingSchema,
   createVariantSchema,
+  releasePinnedFieldsSchema,
   updateVariantSchema,
   setInventorySchema,
   setLevelInventorySchema,
@@ -15,6 +16,7 @@ import {
   getProduct,
   patchProduct,
   deleteProduct,
+  releaseProductPins,
   createVariant,
   patchVariant,
   deleteVariant,
@@ -28,7 +30,8 @@ import {
  *
  * `mergeParams` so `:storeId` is visible. The parent router already ran
  * `authenticateToken` → `loadStore`. Reads require `products:read`; writes
- * require `products:write`; the inventory absolute-set requires `inventory:write`.
+ * require `products:write` (including the #427 field-pin release); the
+ * inventory absolute-set requires `inventory:write`.
  */
 const router = Router({ mergeParams: true });
 
@@ -44,6 +47,19 @@ router.patch(
   patchProduct,
 );
 router.delete('/:id', requireStorePermission('products:write'), validateId('id'), deleteProduct);
+
+/**
+ * #427 — release connector field pins. `products:write` because an ordinary
+ * edit is what CREATES one, so the way out is gated exactly like the way in;
+ * see the controller for why neither `channels:write` nor `store:manage` is it.
+ */
+router.post(
+  '/:id/pins/release',
+  requireStorePermission('products:write'),
+  validateId('id'),
+  validateBody(releasePinnedFieldsSchema),
+  releaseProductPins,
+);
 
 // Variants.
 router.post(

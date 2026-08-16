@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { Pin } from "lucide-react-native";
-import { partitionPinnedFields, type SyncSettings } from "@mercaria/shared-types";
+import {
+  partitionPinnedFields,
+  type PinnableConnectorField,
+  type SyncSettings,
+} from "@mercaria/shared-types";
 import { cn } from "../../lib/cn";
 import {
   CONNECTOR_PIN_EFFECT_TEXT,
@@ -29,6 +33,34 @@ export interface ConnectorPinNoticeProps {
    */
   conflictPolicy?: SyncSettings["conflictPolicy"];
   /**
+   * What releasing a field means, in the APP's own words — rendered above the
+   * pin list, where a merchant reads it before pressing anything.
+   *
+   * The sentence lives in the app rather than here because the dashboard's copy
+   * is translated into eleven locales and this package's is not; and it is a
+   * NODE rather than a string because that is what keeps it that way.
+   */
+  releaseNote?: ReactNode;
+  /**
+   * Optional trailing control for one pinned field — the app's release
+   * affordance, rendered inside that field's own chip.
+   *
+   * A render prop, so this component keeps writing nothing (see the note below):
+   * it decides WHERE a per-field control belongs and never what one does. The
+   * argument is the pin key, so an app cannot attach a control to a field the
+   * notice is not showing.
+   */
+  fieldAction?: (field: PinnableConnectorField) => ReactNode;
+  /**
+   * Optional control for the held keys this surface cannot NAME, rendered
+   * beside their count.
+   *
+   * One control for the group rather than one per key: rendering them
+   * individually would mean printing a raw column name to a merchant, and
+   * leaving them out entirely would make them the only pins with no way out.
+   */
+  unnamedAction?: ReactNode;
+  /**
    * Optional trailing node — the app's own link to the channel screen. Routing
    * is never this package's, and whether that screen is reachable depends on a
    * permission only the app has resolved.
@@ -53,11 +85,18 @@ function effectOf(policy: SyncSettings["conflictPolicy"] | undefined): Connector
  * "my Shopify title change isn't arriving" from "I edited that title six weeks
  * ago", and it is the whole of this component's job.
  *
- * READ-ONLY, deliberately. There is no pin/unpin control here and none may be
- * added: an explicit pinning control was considered and rejected in #416, and
- * per-field release is a separate piece of work with a different shape —
- * nothing stores the platform's previous value, so "unpin" can only ever mean
- * "resume tracking from the next sync", never "restore what it was".
+ * This component still WRITES NOTHING, and a gate in the backend suite holds it
+ * to that. #427 gave a merchant a way to release one field, and the control
+ * arrives as `releaseNote` / `fieldAction` / `unnamedAction` — presentational
+ * SLOTS the app fills — precisely so the mutation, the permission it needs and
+ * the eleven translations of its copy all stay in the app that has them. A
+ * `useMutation` here would hand every future consumer a write it never asked
+ * for.
+ *
+ * What no slot may ever be labelled is a RESTORE. Nothing stores the platform's
+ * previous per-field value, so releasing means "this field follows the platform
+ * again from the next sync" and never "put back what it was" — the merchant's
+ * current value stays until the platform sends one.
  *
  * Renders nothing when the listing has no pins, which is the overwhelmingly
  * common state.
@@ -65,6 +104,9 @@ function effectOf(policy: SyncSettings["conflictPolicy"] | undefined): Connector
 export function ConnectorPinNotice({
   overriddenFields,
   conflictPolicy,
+  releaseNote,
+  fieldAction,
+  unnamedAction,
   action,
   className,
 }: ConnectorPinNoticeProps) {
@@ -81,13 +123,19 @@ export function ConnectorPinNotice({
         <Text className="text-sm font-semibold text-foreground">{CONNECTOR_PIN_TITLE}</Text>
       </View>
 
+      {releaseNote}
+
       {pinned.length > 0 ? (
         <View className="flex-row flex-wrap gap-1.5">
           {pinned.map((field) => (
-            <View key={field} className="rounded-full bg-muted px-2 py-1">
+            <View
+              key={field}
+              className="flex-row items-center gap-1.5 rounded-full bg-muted px-2 py-1"
+            >
               <Text className="text-xs font-medium text-foreground">
                 {CONNECTOR_PIN_LABELS[field]}
               </Text>
+              {fieldAction?.(field)}
             </View>
           ))}
         </View>
@@ -96,9 +144,12 @@ export function ConnectorPinNotice({
       <Text className="text-xs text-muted-foreground">{CONNECTOR_PIN_EFFECT_TEXT[effect]}</Text>
 
       {unnamed.length > 0 ? (
-        <Text className="text-xs text-muted-foreground">
-          {connectorPinUnnamedText(unnamed.length)}
-        </Text>
+        <View className="flex-row flex-wrap items-center gap-1.5">
+          <Text className="text-xs text-muted-foreground">
+            {connectorPinUnnamedText(unnamed.length)}
+          </Text>
+          {unnamedAction}
+        </View>
       ) : null}
 
       {effect === "honoured" ? (

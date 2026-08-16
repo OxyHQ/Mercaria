@@ -27,6 +27,10 @@
 export * from './stores';
 export * from './connectors';
 export * from './catalog';
+// Connector field-pin RELEASES (#427) follow `catalog`: the one table records
+// which of a listing's pinned keys stopped being held, so `listings` is its
+// parent. The pins themselves are a column on that listing, not a table.
+export * from './connectorPins';
 // The condition domain (#90) follows `catalog`: every one of its listing-side
 // tables references `listings`, and `condition_category_policies` references
 // `categories`. It PRECEDES `offers`, whose mapping provenance column is a real

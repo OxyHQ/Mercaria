@@ -13,6 +13,7 @@ import {
   createProduct,
   updateProduct,
   archiveProduct,
+  releaseProductPins,
   createVariant,
   updateVariant,
   deleteVariant,
@@ -84,6 +85,22 @@ export function useArchiveProduct(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (productId: string) => archiveProduct(storeId, productId),
+    onSuccess: () => invalidateProducts(queryClient, storeId),
+  });
+}
+
+/**
+ * Release some of a connector-sourced product's pinned fields (#427).
+ *
+ * Idempotent on the server — a key that is no longer held is removed from
+ * nothing — so a double tap, a retry and a second dashboard all converge, and
+ * this needs no optimistic state to protect. The invalidation is the shared one,
+ * because the pin set rides on the product itself.
+ */
+export function useReleaseProductPins(storeId: string, productId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (fields: string[]) => releaseProductPins(storeId, productId, fields),
     onSuccess: () => invalidateProducts(queryClient, storeId),
   });
 }

@@ -77,15 +77,22 @@ export const CONNECTOR_PIN_EFFECT_TEXT: Record<ConnectorPinEffect, string> = {
 };
 
 /**
- * The one escape that exists today, named honestly.
+ * The CONNECTION-WIDE escape, named honestly.
  *
- * There is no per-field release: turning the channel switch off makes EVERY pin
- * on EVERY product of that connection inert at once. Saying so is the point —
- * a merchant told only that a field is pinned would reasonably go looking for a
- * control that is not there.
+ * It said "there is no per-field release yet" until #427 built one, which is
+ * exactly the kind of sentence that outlives its truth: nothing about a copy
+ * constant fails when the claim inside it stops holding. What is left is the
+ * fact that survives — the switch is the blunt instrument, and it reaches every
+ * edited field on every product of the connection at once, where the per-field
+ * release beside each pin above reaches one.
+ *
+ * It deliberately does NOT say "restore". Turning the switch off makes the pins
+ * inert without deleting them, so the platform overwrites those fields at its
+ * next sync; nothing anywhere holds the values they had before the merchant
+ * edited them.
  */
 export const CONNECTOR_PIN_RELEASE_TEXT =
-  "To let the platform take these back, turn off “Keep my local edits” on the channel. That applies to every edited field on every product from this channel — there is no per-field release yet.";
+  "To hand all of them back at once, turn off “Keep my local edits” on the channel. That applies to every edited field on every product from this channel.";
 
 /**
  * A key held against sync that this surface has no name for.

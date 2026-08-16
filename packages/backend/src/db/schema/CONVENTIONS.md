@@ -6347,3 +6347,52 @@ attribute definition, an enum value, a connection or a product type version —
 none of which a merge can act on. `variant-axis-schema.test.ts` asserts the exact
 target set, so a foreign key added later that DOES reach a mergeable entity fails
 this domain's own build before it reaches the census.
+## Releasing a connector field pin (#427)
+
+`listing_pin_releases`, in `schema/connectorPins.ts` — one table, exported after
+`catalog` because `listings` is its parent. `listings.overridden_fields` stays
+exactly what it was: a bare `text[]` an ordinary merchant edit appends to and
+the connector merge reads.
+
+- **The RELEASE is written down and the PIN is not, and that asymmetry is the
+  whole reason the table exists.** A pin records itself — the key's presence in
+  the column IS the evidence a merchant took that field over, and it survives
+  for as long as the fact does. A release REMOVES the key, so it destroys the
+  only trace the pin ever existed. What the merchant sees next is the platform
+  overwriting a title somebody wrote by hand, with nothing anywhere connecting
+  that to a person pressing a control weeks earlier — the listing reads exactly
+  like one that was never pinned. `staff` holds `products:write`, so "who let
+  the platform take my description back" has to be answerable and is inferable
+  from nothing else in the schema.
+- **One row per key ACTUALLY removed, never one per request.** The release is
+  idempotent — a key that is no longer held is removed from nothing — and
+  recording the attempt would make a retry, a double tap and two dashboards
+  converging on one state read as three separate decisions. The writer takes the
+  difference the UPDATE itself returned, so a converging repeat writes nothing.
+  This is the opposite posture from `payment_repairs`, which audits every
+  ATTEMPT including refusals, and the difference is what each is FOR: an
+  operator repair is a discretionary act whose refusals are themselves
+  interesting, while this is a record of state that changed.
+- **`field` is plain `text` with a non-empty CHECK and NO membership CHECK
+  against `PINNABLE_CONNECTOR_FIELDS`.** The column it releases from can hold a
+  key no merchant edit writes, and a release that could not reach one would
+  leave it stuck permanently (#420's `unnamed` count is what makes those
+  visible). A membership CHECK here would make exactly the unreachable case
+  unrecordable too — the audit trail refusing the one release that most needs
+  explaining.
+- **`released_by_oxy_user_id` carries no foreign key** (Oxy owns identity) and
+  is ledgered in `ID_COLUMNS_WITHOUT_FOREIGN_KEY`. It must survive the Oxy
+  account being deleted: an actor column that could become NULL answers the
+  question this table exists for with nothing.
+- **Append-only by trigger, with the `listing_condition_revisions` DELETE
+  exception.** UPDATE is refused outright; DELETE is refused only while the
+  listing still exists, so the `ON DELETE cascade` the foreign key declares
+  keeps working and an operator still cannot remove one row to hide one release.
+- **The removal itself is ONE statement in `listingRepository.ts`** — a `with
+  locked as (… for update)` CTE feeding an `UPDATE`, so two concurrent releases
+  of different keys both survive. A read-then-write gives the loser a `before`
+  fetched outside the lock and restores the winner's key, and the only symptom
+  is a pin that reappeared, which is indistinguishable from the merchant having
+  re-edited the field. It is also the schema's first `update ${listings}` inside
+  a `sql` template, which `listing-publication-chokepoint.test.ts` was blind to
+  until #427 added that branch to its detector.

@@ -856,6 +856,16 @@
       "channelSettings": "Channel settings",
       "documentTitle": "Product | Mercaria Dashboard",
       "loadFailed": "Couldn't load product",
+      "pins": {
+        "release": "Release",
+        "releaseFailed": "Couldn't release the field",
+        "releaseNote": "Releasing a field lets the platform manage it again from the next sync onwards. Your current value stays until then — Mercaria does not keep the platform's earlier value, so nothing is put back.",
+        "releaseUnnamed": {
+          "one": "Release %{count} field",
+          "other": "Release %{count} fields"
+        },
+        "released": "Released. Nothing changes here until the next sync, when the platform's value takes over."
+      },
       "restrictedNotice": "This product is restricted pending a moderation decision and cannot be republished from here.",
       "saveChanges": "Save changes",
       "saveFailed": "Couldn't save the product",
