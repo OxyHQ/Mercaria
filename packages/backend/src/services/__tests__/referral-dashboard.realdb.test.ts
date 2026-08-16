@@ -22,6 +22,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { REFERRAL_PARTNER_DISCLOSURE_FLOOR } from '@mercaria/shared-types';
@@ -30,6 +32,7 @@ import {
   referralAttributions,
   referralCodes,
   referralConversions,
+  referralLinks,
   referralEvents,
   referralPartners,
   referralPrograms,
@@ -37,11 +40,15 @@ import {
 } from '../../db/schema/referrals.js';
 import { insertPartner } from '../../db/referrals/partnerRepository.js';
 import { insertProgramVersion } from '../../db/referrals/programRepository.js';
-import { insertCode } from '../../db/referrals/instrumentRepository.js';
+import { insertCode, insertLink } from '../../db/referrals/instrumentRepository.js';
 import { insertTouch } from '../../db/referrals/touchRepository.js';
 import { insertAttribution } from '../../db/referrals/attributionRepository.js';
 import { upsertConversion } from '../../db/referrals/conversionRepository.js';
-import { readReferralPartnerDashboard } from '../referrals/dashboard/dashboard.service.js';
+import {
+  assertOwnsCode,
+  assertOwnsLink,
+  readReferralPartnerDashboard,
+} from '../referrals/dashboard/dashboard.service.js';
 import { readPartnerPerformance } from '../referrals/dashboard/performance.service.js';
 import { findForbiddenPartnerFields } from '../referrals/dashboard/partner-projection.js';
 import {
@@ -90,6 +97,17 @@ afterAll(async () => {
       .delete(referralAttributions)
       .where(inArray(referralAttributions.partnerId, trackedPartnerIds));
     await db.delete(referralTouches).where(inArray(referralTouches.partnerId, trackedPartnerIds));
+    await db
+      .delete(referralLinks)
+      .where(
+        inArray(
+          referralLinks.codeId,
+          db
+            .select({ id: referralCodes.id })
+            .from(referralCodes)
+            .where(inArray(referralCodes.partnerId, trackedPartnerIds)),
+        ),
+      );
     await db.delete(referralCodes).where(inArray(referralCodes.partnerId, trackedPartnerIds));
     await db
       .delete(referralEvents)
@@ -328,6 +346,79 @@ describe('#147 acceptance 3 — a partner sees their own numbers and nobody else
     // neither is suppressed — and neither carries the other's market.
     expect(myPerformance.rows.map((r) => r.key)).toEqual(['ES']);
     expect(theirPerformance.rows.map((r) => r.key)).toEqual(['FR']);
+  }, 120_000);
+});
+
+describe('instrument ownership is decided by reading the instrument, not by listing', () => {
+  it('refuses another partner\'s code and link with the SAME 404', async () => {
+    const program = await seedProgram('own');
+    const mine = await seedPartner('own-mine');
+    const theirs = await seedPartner('own-theirs');
+    const myCode = await seedCode({
+      partnerId: mine.id,
+      programVersionId: program.id,
+      label: 'own-mine',
+    });
+    const theirCode = await seedCode({
+      partnerId: theirs.id,
+      programVersionId: program.id,
+      label: 'own-theirs',
+    });
+    const theirLink = await insertLink(db, {
+      id: uuidv7(),
+      codeId: theirCode.id,
+      token: `tok-own-${TAG}`,
+      activatedAt: new Date(),
+      disclosureRequired: true,
+    });
+
+    const owner = { ownerType: 'user' as const, ownerId: mine.ownerId };
+    await expect(assertOwnsCode(owner, myCode.id, db)).resolves.toEqual({ partnerId: mine.id });
+    await expect(assertOwnsCode(owner, theirCode.id, db)).rejects.toThrow(/not found/iu);
+    await expect(assertOwnsLink(owner, theirLink.id, db)).rejects.toThrow(/not found/iu);
+    // A code id that names nothing gets the SAME refusal as one that names
+    // somebody else — a distinguishable answer enumerates other partners'
+    // instruments.
+    await expect(assertOwnsCode(owner, `01a00000-0000-7000-8000-00000000dead`, db)).rejects.toThrow(
+      /not found/iu,
+    );
+  }, 120_000);
+
+  it("answers for an owner's OWN instrument past any list cap", async () => {
+    // The case the first implementation got wrong in the quiet direction. It
+    // listed the owner's codes with `limit: 500` and looked for the id in
+    // them, so a partner past the cap was answered 404 for one of their own —
+    // indistinguishable from the refusal the function exists to give. Reading
+    // the instrument BY ID has no cap to fall off, and this asserts the
+    // property directly rather than seeding five hundred rows to prove it:
+    // `assertOwnsCode` issues no list read at all.
+    const program = await seedProgram('cap');
+    const partner = await seedPartner('cap');
+    const code = await seedCode({
+      partnerId: partner.id,
+      programVersionId: program.id,
+      label: 'cap',
+    });
+    const link = await insertLink(db, {
+      id: uuidv7(),
+      codeId: code.id,
+      token: `tok-cap-${TAG}`,
+      activatedAt: new Date(),
+      disclosureRequired: true,
+    });
+    const owner = { ownerType: 'user' as const, ownerId: partner.ownerId };
+    await expect(assertOwnsCode(owner, code.id, db)).resolves.toEqual({ partnerId: partner.id });
+    await expect(assertOwnsLink(owner, link.id, db)).resolves.toEqual({ partnerId: partner.id });
+
+    const source = readFileSync(
+      join(process.cwd(), 'src/services/referrals/dashboard/dashboard.service.ts'),
+      'utf8',
+    );
+    // The mutation guard for the paragraph above: reintroducing either list
+    // read reintroduces the cap, and no functional case at fixture scale can
+    // see it.
+    expect(source).not.toMatch(/assertOwns[\s\S]{0,600}listCodesByPartner/u);
+    expect(source).not.toMatch(/assertOwns[\s\S]{0,600}listLinksByCode/u);
   }, 120_000);
 });
 

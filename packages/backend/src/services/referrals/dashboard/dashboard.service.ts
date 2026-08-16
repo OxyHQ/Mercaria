@@ -35,7 +35,7 @@ import type {
 import { notFound } from '../../../lib/errors/error-codes.js';
 import { getDb, type DatabaseOrTransaction } from '../../../db/postgres.js';
 import { findPartnerByOwner } from '../../../db/referrals/partnerRepository.js';
-import { listCodesByPartner, listLinksByCode } from '../../../db/referrals/instrumentRepository.js';
+import { findCodeById, findLinkById } from '../../../db/referrals/instrumentRepository.js';
 import { readPartnerStanding } from '../partner-standing.service.js';
 import { partnerCodesView, partnerLinksView } from '../read.service.js';
 import { readPartnerEarnings } from './earnings.service.js';
@@ -274,13 +274,20 @@ export async function readPartnerInstruments(
 }
 
 /**
- * The rows the instrument repository holds for one owner, for a write path that
- * must check ownership before acting.
+ * Does this owner hold this instrument?
  *
- * A code id arrives from a client on the pause/revoke routes — it has to, since
+ * A code id arrives from a client on the retire/revoke routes — it has to, since
  * that is what names the instrument — so this is the one place in the domain
  * where an id is compared rather than derived. The comparison is against the
- * OWNER the mount resolved, so the worst a forged id achieves is a 404.
+ * OWNER the mount supplied, so the worst a forged id achieves is a 404.
+ *
+ * It reads the instrument BY ID and compares its partner, rather than listing
+ * the owner's instruments and looking for the id in them. The first version did
+ * the latter and it was WRONG in the quiet direction: the list was capped at 500
+ * codes (and, for a link, 200 links per code), so a partner with more
+ * instruments than the cap was answered 404 for one of their OWN — a refusal
+ * indistinguishable from the one this function exists to give. It was also up to
+ * 501 statements for a single revoke.
  */
 export async function assertOwnsCode(
   owner: ReferralPartnerOwnerRef,
@@ -289,8 +296,8 @@ export async function assertOwnsCode(
 ): Promise<{ partnerId: string }> {
   const partner = await findPartnerByOwner(db, owner);
   if (!partner) throw notFoundCode();
-  const codes = await listCodesByPartner(db, { partnerId: partner.id, limit: 500 });
-  if (!codes.some((row) => row.id === codeId)) throw notFoundCode();
+  const code = await findCodeById(db, codeId);
+  if (!code || code.partnerId !== partner.id) throw notFoundCode();
   return { partnerId: partner.id };
 }
 
@@ -302,12 +309,11 @@ export async function assertOwnsLink(
 ): Promise<{ partnerId: string }> {
   const partner = await findPartnerByOwner(db, owner);
   if (!partner) throw notFoundCode();
-  const codes = await listCodesByPartner(db, { partnerId: partner.id, limit: 500 });
-  for (const code of codes) {
-    const links = await listLinksByCode(db, { codeId: code.id, limit: 200 });
-    if (links.some((row) => row.id === linkId)) return { partnerId: partner.id };
-  }
-  throw notFoundCode();
+  const link = await findLinkById(db, linkId);
+  if (!link) throw notFoundCode();
+  const code = await findCodeById(db, link.codeId);
+  if (!code || code.partnerId !== partner.id) throw notFoundCode();
+  return { partnerId: partner.id };
 }
 
 /**
