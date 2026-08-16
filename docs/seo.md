@@ -359,6 +359,32 @@ products, and its `?watchlist=` parameter names a PRIVATE list (#81) — a
 crawlable one would spend budget on arbitrary tuples and fetch somebody's list
 id along the way.
 
+## sitemap.xml — the other floor, and why it is hand-written
+
+The storefront ships a static `sitemap.xml` beside `robots.txt` for the same
+flag-off state. It advertises the home page and NOTHING else: the API's index
+over the four paginated collections is the only thing that can apply the
+indexability policy, and a build-time catalogue listing would be a second
+sitemap authority, stale from the moment it was written.
+
+Its `lastmod` is a fixed date edited by hand, and that is the fix for #371. A
+`prebuild` hook used to regenerate the file with `new Date()` on every
+`bun run build:frontend`, so a clean checkout could not stay clean through a
+build — a one-line diff on a tracked file, which an agent or a script that
+builds and then `git add -A` sweeps into an unrelated commit while every gate
+stays green. Deriving the date from the last commit touching the home screen
+was considered and is no better: the most recent such commit removed type casts
+and changed nothing a reader sees, so it would restate today's date through a
+longer route, and `actions/checkout` clones at depth 1, where the history that
+question needs is not present.
+
+`seo-sitemap-static.test.ts` gates it in three directions — the URL set against
+the route registry and `SEO_ROBOTS_DISALLOWED_PATHS`, the date's readability and
+plausibility, and the absence of any build step that would write the file again.
+The third is the one that could have caught #371; the artefact itself was always
+well-formed. It deliberately does not assert that the date is not today, which
+would fail on the day somebody legitimately edits it.
+
 ## The rollout levers
 
 | Variable | Default | What it gates |
