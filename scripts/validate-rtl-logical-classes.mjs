@@ -152,7 +152,7 @@ const RULES = [
 
 /**
  * Deliberate, reasoned survivals. Each entry excuses findings in ONE file whose
- * matched text contains `pattern`.
+ * matched text contains `pattern`, EXACTLY `count` times.
  *
  * The list must only SHRINK: an entry that stops matching anything FAILS the
  * run, so a workaround cannot outlive the thing it worked around — the same
@@ -160,30 +160,59 @@ const RULES = [
  * also this guard's positive control: every entry below names text that is
  * really in the tree, so a matcher that silently stopped matching turns the run
  * red instead of green.
+ *
+ * ## `count` is not decoration (#448)
+ *
+ * Matching on file + text is a PREDICATE, not an identity. Without a count, an
+ * entry excuses EVERY occurrence of its shape in its file, so a second physical
+ * utility rides in behind the reasoned one — silently, in exactly the seven
+ * files most likely to grow one, because they are the ones that legitimately
+ * have them. Reproduced against this guard before the count existed: adding an
+ * unreasoned `border-l-4 border-l-red-500` to `notifications.tsx`, whose entry
+ * excuses only the priority stripe, left the run at exit 0 still printing
+ * `7 of 7 known exceptions honoured` — the sentence a reader takes as proof
+ * nothing slipped through.
+ *
+ * So the count is asserted EXACTLY, and BOTH directions fail. Higher means a new
+ * violation rode in. Lower means the entry has stopped describing the tree,
+ * which is how a list of exemptions decays into one nobody can audit —
+ * `validate-money-formatting.mjs` is the reference implementation (#446).
  */
 const KNOWN_EXCEPTIONS = [
   {
     file: "packages/frontend/app/(app)/notifications.tsx",
     pattern: "border-l",
+    count: 5,
     reason:
-      "Notification priority stripe. border-s-2 emits borderInlineStartWidth, which RN 0.85.3 does not "
-      + "register, so converting would remove the stripe entirely on native. Waiting on upstream support.",
+      "Notification priority stripe: the border-l-2 WIDTH on the row, plus the four PRIORITY_COLORS "
+      + "variants (red-500 / orange-400 / blue-400 / muted-foreground) that colour that one stripe. "
+      + "border-s-2 emits borderInlineStartWidth and border-s-red-500 emits borderInlineStartColor, "
+      + "neither of which RN 0.85.3 registers, so converting would remove the stripe entirely on "
+      + "native — width and colour alike. Waiting on upstream support.",
   },
   {
     file: "packages/frontend/components/sidebar.tsx",
     pattern: "border-r",
-    reason: "Sidebar divider. Same borderInline* limitation as above.",
+    count: 2,
+    reason:
+      "Sidebar divider, once in each of the component's two return branches — collapsed (desktop rail) "
+      + "and expanded. One divider, two renderings. Same borderInline* limitation as above.",
   },
   {
     file: "packages/ui/src/components/ui/panel.tsx",
     pattern: "border-",
+    count: 4,
     reason:
       "Panel takes an explicit physical `side: 'left' | 'right'` prop and animates with translateX. "
-      + "Making the panel direction-aware is an API change plus an animation change, not a class swap (#429).",
+      + "Four findings, not four decisions: ONE `side === 'right' ? border-l : border-r` ternary, whose "
+      + "two arms both match this entry's `border-` pattern, written once in the desktop flex branch and "
+      + "once in the mobile modal branch. Making the panel direction-aware is an API change plus an "
+      + "animation change, not a class swap (#429).",
   },
   {
     file: "packages/ui/src/components/ui/sheet.tsx",
     pattern: "border-l",
+    count: 1,
     reason:
       "Sheet slides in on a physical translateX and pairs the border with rounded-l-2xl. "
       + "Mirroring it needs the animation flipped too, so the whole component moves at once (#429).",
@@ -191,6 +220,7 @@ const KNOWN_EXCEPTIONS = [
   {
     file: "packages/ui/src/components/ui/sheet.tsx",
     pattern: "rounded-l-2xl",
+    count: 1,
     reason:
       "The matching corner for the border above. rounded-s-2xl IS safe on native, but converting the radius "
       + "while the border it sits on stays physical would split one edge across two conventions (#429).",
@@ -198,13 +228,17 @@ const KNOWN_EXCEPTIONS = [
   {
     file: "packages/ui/src/components/ui/scroll-area.tsx",
     pattern: "border-l",
+    count: 2,
     reason:
-      "Radix scrollbar gutter, web-only component. Same borderInline* limitation, and the scrollbar side "
-      + "is decided by the browser from the document direction.",
+      "Radix scrollbar gutter, web-only component: the `border-l` width and the `border-l-transparent` "
+      + "colour that makes it a gutter rather than a visible rule, both on the vertical-orientation line. "
+      + "Same borderInline* limitation, and the scrollbar side is decided by the browser from the "
+      + "document direction.",
   },
   {
     file: "packages/ui/src/components/ui/dialog.tsx",
     pattern: "text-left",
+    count: 1,
     reason:
       "react-native-css rejects text-align: start outright (parseTextAlign allows only "
       + "auto|left|right|center|justify), so text-start compiles to nothing at all.",
@@ -348,21 +382,59 @@ for (const path of sources) {
 
 // ------------------------------------------------------------- exceptions ---
 
-const honoured = new Set();
+/**
+ * An entry must declare an integer `count` of at least 1, or the reconciliation
+ * below silently compares against `undefined` and every entry reports a
+ * mismatch it cannot explain. Checked here so the FIRST entry added without one
+ * fails naming itself, rather than turning the whole list red at once.
+ */
+for (const entry of KNOWN_EXCEPTIONS) {
+  if (Number.isInteger(entry.count) && entry.count >= 1) continue;
+  failures.push(
+    `KNOWN_EXCEPTIONS entry "${entry.pattern}" in ${entry.file} declares no integer count >= 1 `
+    + `(got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its shape in `
+    + "that file, which is the hole #448 closed — declare exactly how many findings it covers.",
+  );
+}
+
+const honoured = new Map(KNOWN_EXCEPTIONS.map((entry) => [entry, 0]));
 const unexcused = findings.filter((finding) => {
   const entry = KNOWN_EXCEPTIONS.find(
     (exception) => exception.file === finding.file && finding.match.includes(exception.pattern),
   );
   if (!entry) return true;
-  honoured.add(entry);
+  honoured.set(entry, honoured.get(entry) + 1);
   return false;
 });
 
 for (const entry of KNOWN_EXCEPTIONS) {
-  if (honoured.has(entry)) continue;
+  const actual = honoured.get(entry);
+  if (actual === entry.count) continue;
+
+  if (actual === 0) {
+    failures.push(
+      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), which no `
+      + "longer matches anything — the count went DOWN to 0. Either the class was migrated or the file "
+      + "moved: delete the entry so the list keeps describing the tree, and so its standing positive "
+      + "control keeps standing.",
+    );
+    continue;
+  }
+
+  if (actual < entry.count) {
+    failures.push(
+      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but only `
+      + `${actual} matched — the count went DOWN. Part of what it excused is gone, so the entry has `
+      + `stopped describing the tree: lower the count to ${actual}, or restore what was removed.`,
+    );
+    continue;
+  }
+
   failures.push(
-    `KNOWN_EXCEPTIONS still excuses "${entry.pattern}" in ${entry.file}, which no longer matches anything. `
-    + "Either the class was migrated or the file moved — delete the entry so the list keeps describing the tree.",
+    `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but ${actual} `
+    + "finding(s) matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so "
+    + "a NEW physical utility of the same shape in the same file would otherwise ride in behind the "
+    + "reasoned one. Fix the new occurrence, or raise the count with a reason covering it too.",
   );
 }
 
@@ -395,5 +467,6 @@ if (unexcused.length > 0 || failures.length > 0) {
 console.log(
   `RTL logical-class guard passed — ${sources.length} source files scanned across `
   + `${SCANNED_PREFIXES.join(" and ")}; ${RULES.length} rules positively controlled; `
-  + `${honoured.size} of ${KNOWN_EXCEPTIONS.length} known exceptions honoured.`,
+  + `${KNOWN_EXCEPTIONS.length} known exceptions each matched their exact declared count `
+  + `(${findings.length - unexcused.length} findings excused in total).`,
 );

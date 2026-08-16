@@ -74,14 +74,16 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
  * A migrated tree.
  *
  * It carries one file per live `KNOWN_EXCEPTIONS` entry, holding the text that
- * entry excuses — so every case below also exercises the exception path, and the
- * guard's "the list must only shrink" check has something to be satisfied by.
- * The stale-exception case is the one tree that deliberately omits them.
+ * entry excuses AT ITS EXACT DECLARED COUNT — so every case below also exercises
+ * the exception path, and the guard's "the list must only shrink, at its exact
+ * count" check has something to be satisfied by. The stale-, over- and
+ * under-count cases are the trees that deliberately change them.
  *
  * THIS IS COUPLED TO THE LIVE LIST ON PURPOSE: the self-test then proves the
  * real exceptions match real text, rather than proving a synthetic list matches
- * synthetic text. Adding an entry to the guard means adding its file here, and
- * forgetting turns every case below red with a message naming the entry.
+ * synthetic text. Adding an entry to the guard — or changing a count — means
+ * changing this fixture, and forgetting turns every case below red with a
+ * message naming the entry and the direction it moved.
  */
 function migratedTree(extra = {}) {
   return {
@@ -94,16 +96,23 @@ function migratedTree(extra = {}) {
       + "/** Items rendered left-to-right in the horizontal scroller. */\n"
       + 'import { ArrowLeft } from "lucide-react-native";\n'
       + "export const D = () => <ArrowLeft />;\n",
-    // One file per KNOWN_EXCEPTIONS entry, carrying the excused text.
+    // One file per KNOWN_EXCEPTIONS entry, at the entry's exact declared count.
+    // `border-l` x5: the stripe WIDTH plus its four PRIORITY_COLORS variants.
     "packages/frontend/app/(app)/notifications.tsx":
-      "const priority = { urgent: 'border-l-red-500' };\n"
+      "const PRIORITY = { urgent: 'border-l-red-500', high: 'border-l-orange-400',\n"
+      + "  normal: 'border-l-blue-400', low: 'border-l-muted-foreground' };\n"
       + 'export const E = () => <View className="border-b border-border border-l-2" />;\n',
+    // `border-r` x2: one divider, rendered in the collapsed and expanded branches.
     "packages/frontend/components/sidebar.tsx":
-      'export const F = () => <View className="h-full border-r border-border" />;\n',
+      'export const F1 = () => <View className="h-full border-r border-border" />;\n'
+      + 'export const F2 = () => <View className="h-full w-full border-r border-border" />;\n',
+    // `border-` x4: one two-armed ternary, written in the desktop and mobile branches.
     "packages/ui/src/components/ui/panel.tsx":
-      'export const G = (side) => side === "right" ? "border-l border-border" : "border-r border-border";\n',
+      'export const G1 = (side) => side === "right" ? "border-l border-border" : "border-r border-border";\n'
+      + 'export const G2 = (side) => side === "right" ? "border-l border-border" : "border-r border-border";\n',
     "packages/ui/src/components/ui/sheet.tsx":
       'export const H = () => <View className="border-l border-border rounded-l-2xl" />;\n',
+    // `border-l` x2: the gutter width and its transparent colour, on one line.
     "packages/ui/src/components/ui/scroll-area.tsx":
       'export const I = () => <View className="h-full w-2.5 border-l border-l-transparent" />;\n',
     "packages/ui/src/components/ui/dialog.tsx":
@@ -262,6 +271,49 @@ const cases = [
     expectOutput: "no longer matches anything",
   },
   {
+    name: "an excusing entry cannot cover a SECOND occurrence in the same file",
+    // The #448 hole. file + text is a PREDICATE, not an identity, so an
+    // unreasoned physical utility in an EXCUSED file used to ride in silently
+    // behind the reasoned one — leaving the run at exit 0 still printing
+    // "7 of 7 known exceptions honoured", the sentence a reader takes as proof
+    // nothing slipped through. Every other case here is blind to it, because
+    // they all add their violation to a file with NO exception.
+    files: migratedTree({
+      "packages/frontend/app/(app)/notifications.tsx":
+        "const PRIORITY = { urgent: 'border-l-red-500', high: 'border-l-orange-400',\n"
+        + "  normal: 'border-l-blue-400', low: 'border-l-muted-foreground' };\n"
+        + 'export const E = () => <View className="border-b border-border border-l-2" />;\n'
+        + 'export const E2 = () => <View className="border-l-4 border-l-red-500" />;\n',
+    }),
+    expectExit: 1,
+    expectOutput: "the count went UP",
+  },
+  {
+    name: "an entry that stops covering ONE of several occurrences fails as a DECREASE",
+    // The other direction, and it must not be reported as the one above: a
+    // decrease means the list has stopped describing the tree, and telling that
+    // reader to go and find "a new violation" sends them looking for something
+    // that is not there. The sidebar renders its one divider in two branches;
+    // this tree keeps only the collapsed one.
+    files: migratedTree({
+      "packages/frontend/components/sidebar.tsx":
+        'export const F1 = () => <View className="h-full border-r border-border" />;\n',
+    }),
+    expectExit: 1,
+    expectOutput: "the count went DOWN",
+  },
+  {
+    name: "the DECREASE names the file and the number to lower the count to",
+    // A guard that failed with "exception mismatch" would send the next person
+    // to read this script instead of their own diff.
+    files: migratedTree({
+      "packages/frontend/components/sidebar.tsx":
+        'export const F1 = () => <View className="h-full border-r border-border" />;\n',
+    }),
+    expectExit: 1,
+    expectOutput: 'excuses "border-r" in packages/frontend/components/sidebar.tsx 2 time(s), but only 1',
+  },
+  {
     name: "a broken file listing cannot pass silently (vacuity floor)",
     files: migratedTree(),
     realFloors: true,
@@ -296,6 +348,14 @@ async function assertGuardSource() {
   const missing = required.filter((token) => !source.includes(token));
   if (missing.length > 0) {
     return `guard source no longer carries ${missing.join(", ")} — its self-controls were removed`;
+  }
+  if (!/count:\s*\d+/.test(source)) {
+    return "guard source no longer declares an exact `count` per exception — an excusing entry "
+      + "without one covers every occurrence of its shape in its file (#448)";
+  }
+  if (!source.includes("the count went UP") || !source.includes("the count went DOWN")) {
+    return "guard source no longer names the DIRECTION a count moved — a failure reading "
+      + "\"exception mismatch\" sends the next reader to this script instead of their own diff";
   }
   return null;
 }

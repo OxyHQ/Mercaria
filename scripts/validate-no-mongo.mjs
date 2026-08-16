@@ -123,13 +123,28 @@ const MONGO_PROSE = /\bmongo(?:db|ose)?\b/i;
 
 /**
  * Deliberate, reasoned survivals. Each entry excuses findings in ONE file whose
- * matched text contains `pattern`.
+ * matched text contains `pattern`, EXACTLY `count` times.
  *
  * The list must only SHRINK: an entry that stops matching anything FAILS the
  * run, so a workaround cannot outlive the thing it worked around. Same
  * discipline as `ACCEPTED_OVERRIDE_RANGE_VIOLATIONS` in `validate-lockfile.mjs`,
  * for the same reason — a stale exception is indistinguishable from a real one
  * until somebody audits the list, and nobody audits the list.
+ *
+ * ## `count` is mandatory, and it is here BEFORE the first entry (#448)
+ *
+ * Matching on file + text is a PREDICATE, not an identity. Without a count an
+ * entry excuses EVERY occurrence of its shape in its file, so a second reference
+ * rides in behind the reasoned one. That hole was live in
+ * `validate-rtl-logical-classes.mjs` and reproduced against it; here the list is
+ * EMPTY, which is the only thing that has been making this guard safe. The first
+ * entry anyone adds is what arms it, and by then the person adding it is
+ * thinking about their exception rather than about the reconciliation — so the
+ * count is required now, and an entry without one is refused BY NAME below.
+ *
+ * The stakes differ from the RTL guard's by a lot: a second `mongoose` import
+ * riding in behind a reasoned one is a database driver returning to a service
+ * whose only store is PostgreSQL.
  */
 const KNOWN_EXCEPTIONS = [];
 
@@ -376,21 +391,59 @@ for (const path of [...sources, ...configs]) {
 
 // ---------------------------------------------------------- 5. exceptions ---
 
-const honoured = new Set();
+/**
+ * An entry must declare an integer `count` of at least 1, or the reconciliation
+ * below silently compares against `undefined`. With the list empty this is
+ * vacuous today and that is the point: it refuses the FIRST entry added without
+ * a count, which is the moment the hole would otherwise open.
+ */
+for (const entry of KNOWN_EXCEPTIONS) {
+  if (Number.isInteger(entry.count) && entry.count >= 1) continue;
+  failures.push(
+    `KNOWN_EXCEPTIONS entry "${entry.pattern}" in ${entry.file} declares no integer count >= 1 `
+    + `(got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its shape in `
+    + "that file, so a second Mongo reference would ride in behind the reasoned one — declare exactly "
+    + "how many findings it covers (#448).",
+  );
+}
+
+const honoured = new Map(KNOWN_EXCEPTIONS.map((entry) => [entry, 0]));
 const unexcused = findings.filter((finding) => {
   const entry = KNOWN_EXCEPTIONS.find(
     (exception) => exception.file === finding.file && finding.match.includes(exception.pattern),
   );
   if (!entry) return true;
-  honoured.add(entry);
+  honoured.set(entry, honoured.get(entry) + 1);
   return false;
 });
 
 for (const entry of KNOWN_EXCEPTIONS) {
-  if (honoured.has(entry)) continue;
+  const actual = honoured.get(entry);
+  if (actual === entry.count) continue;
+
+  if (actual === 0) {
+    failures.push(
+      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), which no `
+      + "longer matches anything — the count went DOWN to 0. The reference is gone or the file moved: "
+      + "delete the entry so the list keeps describing the tree.",
+    );
+    continue;
+  }
+
+  if (actual < entry.count) {
+    failures.push(
+      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but only `
+      + `${actual} matched — the count went DOWN. Part of what it excused is gone, so the entry has `
+      + `stopped describing the tree: lower the count to ${actual}, or restore what was removed.`,
+    );
+    continue;
+  }
+
   failures.push(
-    `KNOWN_EXCEPTIONS still excuses "${entry.pattern}" in ${entry.file}, which no longer matches anything. `
-    + "The reference is gone or the file moved — delete the entry so the list keeps describing the tree.",
+    `KNOWN_EXCEPTIONS excuses "${entry.pattern}" in ${entry.file} ${entry.count} time(s), but ${actual} `
+    + "finding(s) matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so "
+    + "a NEW Mongo reference of the same shape in the same file would otherwise ride in behind the "
+    + "reasoned one. Remove the new occurrence, or raise the count with a reason covering it too.",
   );
 }
 
@@ -435,5 +488,6 @@ if (unexcused.length > 0 || failures.length > 0) {
 console.log(
   `MongoDB reintroduction guard passed — ${manifests.length} manifests, ${sources.length} source files, `
   + `${configs.length} config files and ${lockResolutions} lockfile resolutions scanned; `
-  + `${honoured.size} of ${KNOWN_EXCEPTIONS.length} known exceptions honoured.`,
+  + `${KNOWN_EXCEPTIONS.length} known exceptions each matched their exact declared count `
+  + `(${findings.length - unexcused.length} findings excused in total).`,
 );

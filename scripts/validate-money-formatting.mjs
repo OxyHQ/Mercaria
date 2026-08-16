@@ -532,6 +532,20 @@ for (const path of sources) {
 
 // ------------------------------------------------------------- exceptions ---
 
+/**
+ * An entry must declare an integer `count` of at least 1, or the reconciliation
+ * below silently compares against `undefined` and the entry reports a mismatch
+ * it cannot explain. Refuses the next entry added without one (#448).
+ */
+for (const entry of KNOWN_EXCEPTIONS) {
+  if (Number.isInteger(entry.count) && entry.count >= 1) continue;
+  failures.push(
+    `KNOWN_EXCEPTIONS entry "${entry.pattern}" (${entry.rule}) in ${entry.file} declares no integer `
+    + `count >= 1 (got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its `
+    + "shape in that file — declare exactly how many findings it covers.",
+  );
+}
+
 const honoured = new Map(KNOWN_EXCEPTIONS.map((entry) => [entry, 0]));
 const unexcused = findings.filter((finding) => {
   const entry = KNOWN_EXCEPTIONS.find(
@@ -551,16 +565,30 @@ for (const entry of KNOWN_EXCEPTIONS) {
   if (actual === 0) {
     failures.push(
       `KNOWN_EXCEPTIONS still excuses "${entry.pattern}" (${entry.rule}) in ${entry.file}, which no `
-      + "longer matches anything. Either the bypass was removed or the file moved — delete the entry "
-      + "so the list keeps describing the tree, and so its standing positive control keeps standing.",
+      + "longer matches anything — the count went DOWN to 0. Either the bypass was removed or the file "
+      + "moved: delete the entry so the list keeps describing the tree, and so its standing positive "
+      + "control keeps standing.",
+    );
+    continue;
+  }
+  if (actual < entry.count) {
+    // Separate from the over-count branch on purpose (#448): reporting a
+    // DECREASE with "a new bypass rode in" sends the next reader to look for
+    // something that is not there, which is the failure a named direction fixes.
+    failures.push(
+      `KNOWN_EXCEPTIONS excuses "${entry.pattern}" (${entry.rule}) in ${entry.file} ${entry.count} `
+      + `time(s), but only ${actual} matched — the count went DOWN. Part of what it excused is gone, `
+      + `so the entry has stopped describing the tree: lower the count to ${actual}, or restore what `
+      + "was removed.",
     );
     continue;
   }
   failures.push(
     `KNOWN_EXCEPTIONS excuses "${entry.pattern}" (${entry.rule}) in ${entry.file} ${entry.count} `
-    + `time(s), but ${actual} finding(s) matched it. An excusing entry is a PREDICATE, not an `
-    + "identity, so a NEW bypass of the same shape in the same file would otherwise ride in behind "
-    + "the reasoned one. Fix the new occurrence, or raise the count with a reason covering it too.",
+    + `time(s), but ${actual} finding(s) matched it — the count went UP. An excusing entry is a `
+    + "PREDICATE, not an identity, so a NEW bypass of the same shape in the same file would otherwise "
+    + "ride in behind the reasoned one. Fix the new occurrence, or raise the count with a reason "
+    + "covering it too.",
   );
 }
 
