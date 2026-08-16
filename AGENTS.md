@@ -6380,8 +6380,14 @@ tax questionnaire, and then had no way to see a link, a number or a payout.
   domain reads a partner id off a request — not a route parameter, not a query
   string, not a body field — so "a partner sees their own numbers and nobody
   else's" is a question the surface cannot ask. The two routes that name an
-  INSTRUMENT compare it against the resolved owner and answer ONE
+  INSTRUMENT compare it against the owner the mount supplied and answer ONE
   indistinguishable 404 for "not yours" and "does not exist".
+- **An ownership check must READ the instrument, never list the owner's and look
+  for it.** The first version listed, capped at 500 codes and 200 links per
+  code, so a partner past the cap got a 404 for their OWN instrument — the same
+  refusal the check exists to give, so the failure is silent and reads as a
+  forged id. A functional test at fixture scale cannot see a cap of five
+  hundred, so the realdb case asserts the ABSENCE of the list read in source.
 - **The disclosure floor is TEN, is #77's number, and applies to TWO dimensions.**
   `REFERRAL_SUBJECT_REVEALING_DIMENSIONS` is `market` and `client_surface`: the
   line is whose fact the dimension is, not how small the number is. Applying it

@@ -48,11 +48,19 @@ worth stating:
   WALL 6 scans the controller for `req.params.partnerId`, `req.query.partnerId`,
   `req.body.partnerId` and the owner spellings, with a vacuity floor asserting
   the file really is the one that mounts the routes.
-- **The two routes that name an INSTRUMENT compare it against the resolved
-  owner** (`assertOwnsCode` / `assertOwnsLink`) and answer ONE
+- **The two routes that name an INSTRUMENT compare it against the owner the
+  mount supplied** (`assertOwnsCode` / `assertOwnsLink`) and answer ONE
   indistinguishable 404 for "not yours" and "does not exist". A distinguishable
   answer enumerates other partners' instruments — the `/sellers/:oxyUserId`
   oracle, one domain over.
+- **They read the instrument BY ID and compare its partner, and the first
+  version did not.** It LISTED the owner's instruments and looked for the id
+  among them, capped at 500 codes and 200 links per code — so past the cap a
+  partner was answered 404 for one of their OWN, which is the same refusal the
+  function exists to give and therefore invisible. (`assertOwnsLink` was also up
+  to 501 statements for one revoke.) A functional test at fixture scale can
+  never see a cap of five hundred, so the realdb case asserts the ABSENCE of the
+  list read in source; both halves are mutation-verified.
 - **There is deliberately no `GET /partners/:id`, no `?partnerId=`, no export of
   another partner's figures and no "compare me to other partners".** Each would
   be a third way of deciding whose earnings these are.
