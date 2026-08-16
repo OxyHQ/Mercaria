@@ -1391,12 +1391,12 @@ widening on `db/schema/orders.ts`. Schema decisions:
   transactional channel is Oxy's own notifications, and copying an Oxy account's
   email into Mercaria would create the profile mirror ADR 0003 D15 says does not
   exist. Accepting it for both is what makes ONE shared inline form possible.
-- **Pickup is representable and fails CLOSED.** `assertPickupLocationEligible`
-  refuses every pickup, naming the sellers, because #93 supplies no publication,
-  freshness or collectable-inventory state to validate against. #93 fills in the
-  body of that ONE function; the contract, the snapshot and the refusal shape
-  are already around it. Nothing fabricates a street for a collection — the
-  pickup branch produces no address at all.
+- **Pickup is representable and REACHES a real gate since #93.**
+  `assertPickupLocationEligible` is GONE — a clean cut, not an alias — and
+  `derivePickupEligibility` answers per store from a published, collectable
+  location. Nothing fabricates a street for a collection: the pickup branch
+  produces no address at all, and the order's snapshot comes from the
+  PUBLICATION with the literal recipient `Collection`, never a person.
 - **Unknown shipping is never free.** `resolveShippingCostMinor` refuses a
   method this deployment cannot price instead of letting `undefined` become 0.
 - **Eligibility refusals name the SELLER**, because a mixed cart's remedy is to
