@@ -76,16 +76,16 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
 
   const onPressVendor = (vendor: CartVendor) => {
     if (vendor.kind === "store" && vendor.handle) {
-      router.push(`/stores/${vendor.handle}` as Parameters<typeof router.push>[0]);
+      router.push(`/stores/${vendor.handle}`);
     }
   };
 
   const onCheckout = () => {
-    router.push("/cart" as Parameters<typeof router.push>[0]);
+    router.push("/cart");
   };
 
   const onPressProduct = (id: string) => {
-    router.push(`/products/${id}` as Parameters<typeof router.push>[0]);
+    router.push(`/products/${id}`);
   };
 
   return (
@@ -134,7 +134,7 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
             title={section.title}
             merchants={section.merchants ?? []}
             onPressMerchant={(handle) =>
-              router.push(`/stores/${handle}` as Parameters<typeof router.push>[0])
+              router.push(`/stores/${handle}`)
             }
           />
         );

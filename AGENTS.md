@@ -4745,11 +4745,15 @@ at request time from the reads that measurement covers.
   exist, and #73 shipped the merchant page, so that reason expired for merchants
   and not for the other two: `/brands/[handle]` now resolves but the page's
   `brand` is a vendor LABEL rather than the canonical entity, so linking it needs
-  a canonical handle on the projection. `typedRoutes` is ON
-  and INERT here — a dead `router.push` compiles, ships and fails under a
-  shopper's thumb. This issue proved it by shipping one (`/settings/support`),
-  so WALL 6 of the isolation test now walks the real `app/` tree and fails the
-  build on any literal navigation target that does not resolve. Reporting
+  a canonical handle on the projection. `typedRoutes` was ON and INERT here — a
+  dead `router.push` compiled, shipped and failed under a shopper's thumb, which
+  this issue proved by shipping one (`/settings/support`), so WALL 6 walked the
+  real `app/` tree instead. **#330 fixed the mechanism and retired that half of
+  WALL 6**: the union is generated before `tsc` in every app, the compiler
+  answers route existence across all three, and what WALL 6 still holds is the
+  `#252` decision about WHICH identity the page LINKS — a product choice no type
+  can carry, since a merchant rendered as plain text compiles perfectly.
+  Reporting
   PRODUCT DATA goes to feedback, not abuse reporting: `ABUSE_REPORTED_TYPES` has
   no `product` member, because a canonical product is Mercaria's own catalogue
   record and a wrong specification is #59's correction rather than moderation.
@@ -5626,23 +5630,24 @@ somebody lives that request-local coarsening exists to avoid).
     `unsupported` on native (no location dependency is installed) and the manual
     picker is a complete path without it, so the feature works — but nothing has
     been verified against a real iOS or Android dialog.
-- **WALL 6 could not see a route built in a HELPER, and now can.** It read the
-  argument of `router.push`/`router.replace`, so a screen composing its href in
-  a `buildHref` function handed it a variable and the gate skipped it silently —
-  which is how `/p/...`, the most-linked route in the storefront, was never
-  gated. `returnedRouteTargets` closes it, scoped to the `app/`/`components/`
-  entries because the `lib/` ones are API clients whose template literals are
-  SERVER paths. Mutation-tested by renaming `app/(app)/nearby.tsx`: four
-  assertions go red, and the restore is byte-identical.
-- **An interpolated QUERY STRING made the same gate pass vacuously**, and
-  widening it is what exposed that. `routeExists` reads any segment containing
-  `${` as a WILDCARD, so `/guest-orders/portal?group=${id}` was one segment
-  `portal?group=${id}` that matched ANY two-segment route — deleting the portal
-  screen left the target resolving happily. `routePathOf` cuts the query, and
-  cuts it only at a `?` in the LITERAL head: a `?` after the first `${` is
-  inside a ternary, and cutting there truncates a real segment mid-expression
-  (the control caught that on its first run). Any future route gate in this repo
-  owes both halves — strip the query, and do not strip inside an interpolation.
+- **WALL 6's two blind spots are why #330 RETIRED it rather than widening it
+  again.** It read only the ARGUMENT of `router.push`/`router.replace`, so a
+  screen composing its href in a `buildHref` function handed it a variable and
+  the gate skipped it silently — which is how `/p/...`, the most-linked route in
+  the storefront, was never gated; and an interpolated QUERY STRING made the
+  widened version pass vacuously, because its resolver read any segment
+  containing `${` as a WILDCARD, so `/guest-orders/portal?group=${id}` was one
+  segment matching ANY two-segment route and deleting the portal screen left the
+  target resolving happily. Both failed PERMISSIVE and both were found on the
+  one day somebody looked closely. **The lesson is not "write a third fix" but
+  that a hand-rolled route resolver is the wrong instrument**: #330 generates
+  the typed-route union before `tsc`, so the COMPILER answers route existence
+  across all three apps and 2,300-odd files. What the compiler cannot check is
+  that it was GIVEN the union, and that is
+  `src/__tests__/typed-routes-armed.test.ts` — `typedRoutes` on, `typecheck`
+  generating BEFORE `tsc`, tsconfig including `.expo/types`, each
+  mutation-tested, because breaking any one silently disarms every route check
+  in that app and nothing goes red.
 - **A new storefront screen owes the SEO route map a decision.**
   `seo-routes.test.ts` fails the build on a screen in neither the public
   registry nor `NON_PUBLIC_SCREENS`, and `seo-robots.test.ts` then requires the

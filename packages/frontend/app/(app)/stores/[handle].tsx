@@ -204,7 +204,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   const { data: collections } = useStoreCollections(handle);
 
   const onPressProduct = (id: string) => {
-    router.push(`/products/${id}` as Parameters<typeof router.push>[0]);
+    router.push(`/products/${id}`);
   };
 
   const [menuOpen, setMenuOpen] = useState(false);

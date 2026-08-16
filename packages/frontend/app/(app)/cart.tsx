@@ -275,7 +275,7 @@ function CartBody() {
 
   const onPressVendor = (vendor: CartVendor) => {
     if (vendor.kind === "store" && vendor.handle) {
-      router.push(`/stores/${vendor.handle}` as Parameters<typeof router.push>[0]);
+      router.push(`/stores/${vendor.handle}`);
     }
   };
 
@@ -294,11 +294,7 @@ function CartBody() {
   // `platform` key #123 put in the same namespace, and a client composing
   // `store:<id>` for them would be told there are no matching cart items.
   const onCheckout = (group: CartGroup) => {
-    router.push(
-      `/checkout?seller=${encodeURIComponent(group.sellerKey)}` as Parameters<
-        typeof router.push
-      >[0],
-    );
+    router.push({ pathname: "/checkout", params: { seller: group.sellerKey } });
   };
 
   // Whole-cart checkout: place every group the CALLER may actually place.
@@ -308,8 +304,11 @@ function CartBody() {
   // the payment, never charged as a whole and then refused). With nothing
   // blocked this pushes the bare `/checkout` route exactly as it always did.
   const onCheckoutAll = () => {
-    const target = blockedGroups.length === 0 ? "/checkout" : `/checkout?seller=${checkoutableKeys.join(",")}`;
-    router.push(target as Parameters<typeof router.push>[0]);
+    router.push(
+      blockedGroups.length === 0
+        ? "/checkout"
+        : { pathname: "/checkout", params: { seller: checkoutableKeys.join(",") } },
+    );
   };
 
   // Bottom recommendation shelf: flatten product-feed-section products.

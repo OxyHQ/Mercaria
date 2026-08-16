@@ -66,13 +66,11 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
           storefront has no `/brands/:id` or `/product-families/:id` route yet —
           #72 and #73 own those pages. #71 asks to link an identity "to its
           public page when available", and a link to a route that does not
-          resolve is worse than the text: `typedRoutes` is on and INERT in this
-          expo-router major, so a dead `router.push` compiles, ships and fails
-          under a shopper's thumb as "This screen does not exist".
-          `product-page-isolation.test.ts` walks the real `app/` tree and fails
-          the build on a target that does not resolve, so whoever adds those
-          pages can turn these into links and be told at once if they got the
-          path wrong.
+          resolve is worse than the text. That used to be uncatchable —
+          `typedRoutes` was on but inert, so a dead `router.push` compiled and
+          shipped — and #330 closed it: the route union is generated before
+          `tsc`, so whoever adds those pages can turn these into links and is
+          told at once if they got the path wrong.
         */}
         <Text className="text-headerBold text-text" accessibilityRole="header">
           {product.name}

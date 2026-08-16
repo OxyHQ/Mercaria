@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import type {
   CanonicalProductPage,
   OfferComparisonIntent,
@@ -74,11 +74,7 @@ export default function CanonicalProductPageScreen() {
    */
   useEffect(() => {
     if (page?.redirect === undefined) return;
-    router.replace(
-      buildHref(page.redirect.canonicalHandle, selectedVariantId, intent) as Parameters<
-        typeof router.replace
-      >[0],
-    );
+    router.replace(buildHref(page.redirect.canonicalHandle, selectedVariantId, intent));
   }, [page?.redirect, router, selectedVariantId, intent]);
 
   const reviews = useProductScopeReviews(page?.product.id, 1, 1);
@@ -183,11 +179,7 @@ export default function CanonicalProductPageScreen() {
           canonicalProductId={page.product.id}
           {...(selectedVariantId === undefined ? {} : { canonicalVariantId: selectedVariantId })}
           onSeeCollectionOptions={() =>
-            router.push(
-              buildNearbyHref(page.product.id, selectedVariantId) as Parameters<
-                typeof router.push
-              >[0],
-            )
+            router.push(buildNearbyHref(page.product.id, selectedVariantId))
           }
         />
 
@@ -247,7 +239,7 @@ export default function CanonicalProductPageScreen() {
           <Pressable
             accessibilityRole="link"
             accessibilityLabel="Report a problem with this product's information"
-            onPress={() => router.push('/settings/feedback' as Parameters<typeof router.push>[0])}
+            onPress={() => router.push('/settings/feedback')}
             className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
             <Text className="text-buttonMedium text-text">Report a problem</Text>
@@ -375,17 +367,28 @@ function historySegment(page: CanonicalProductPage) {
   return undefined;
 }
 
-/** The URL for one product, configuration and intent. */
+/**
+ * The route for one product, configuration and intent.
+ *
+ * An `Href` OBJECT rather than a composed string, because a string built at
+ * runtime is `string` and can satisfy no route union — which is how both of
+ * this file's navigations came to be cast into acceptance (#330). expo-router
+ * substitutes `[handle]` and encodes every value, so the hand-rolled
+ * `encodeURIComponent` and `URLSearchParams` this replaces are not lost.
+ */
 function buildHref(
   handle: string,
   variant: string | undefined,
   intent: OfferComparisonIntent | undefined,
-): string {
-  const query = new URLSearchParams();
-  if (variant !== undefined && variant !== '') query.set('variant', variant);
-  if (intent !== undefined) query.set('intent', intent);
-  const suffix = query.toString();
-  return `/p/${encodeURIComponent(handle)}${suffix === '' ? '' : `?${suffix}`}`;
+): Href {
+  return {
+    pathname: '/p/[handle]',
+    params: {
+      handle,
+      ...(variant === undefined || variant === '' ? {} : { variant }),
+      ...(intent === undefined ? {} : { intent }),
+    },
+  };
 }
 
 /**
@@ -395,10 +398,14 @@ function buildHref(
  * The CANONICAL ids travel, never the shopper's position: an origin is granted
  * per screen to a question a person asked, and `/nearby` asks for its own.
  */
-function buildNearbyHref(canonicalProductId: string, variant: string | undefined): string {
-  const query = new URLSearchParams({ product: canonicalProductId });
-  if (variant !== undefined && variant !== '') query.set('variant', variant);
-  return `/nearby?${query.toString()}`;
+function buildNearbyHref(canonicalProductId: string, variant: string | undefined): Href {
+  return {
+    pathname: '/nearby',
+    params: {
+      product: canonicalProductId,
+      ...(variant === undefined || variant === '' ? {} : { variant }),
+    },
+  };
 }
 
 /** A query parameter is a string; only a real intent survives it. */

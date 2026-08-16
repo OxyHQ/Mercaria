@@ -207,7 +207,7 @@ export function NearbyAvailability({
               result={result}
               now={now}
               onPressMerchant={(slug) =>
-                router.push(`/merchants/${slug}` as Parameters<typeof router.push>[0])
+                router.push(`/merchants/${slug}`)
               }
               {...(onSelectLocation === undefined ? {} : { onSelect: onSelectLocation })}
               {...(selectLabel === undefined ? {} : { selectLabel })}

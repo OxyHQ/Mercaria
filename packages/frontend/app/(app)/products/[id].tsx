@@ -278,7 +278,7 @@ function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId
     <ProductCarousel
       title={`More from ${store.name}`}
       items={items}
-      onPressItem={(id) => router.push(`/products/${id}` as Parameters<typeof router.push>[0])}
+      onPressItem={(id) => router.push(`/products/${id}`)}
     />
   );
 }
@@ -382,7 +382,7 @@ function ProductBody({ listing }: ProductBodyProps) {
 
   const onPressStore = () => {
     if (listing.store?.handle) {
-      router.push(`/stores/${listing.store.handle}` as Parameters<typeof router.push>[0]);
+      router.push(`/stores/${listing.store.handle}`);
     }
   };
 
@@ -391,11 +391,7 @@ function ProductBody({ listing }: ProductBodyProps) {
   // moves. Same reasoning as the follow target's URI.
   const onPressSeller = () => {
     if (listing.seller?.oxyUserId) {
-      router.push(
-        `/sellers/${encodeURIComponent(listing.seller.oxyUserId)}` as Parameters<
-          typeof router.push
-        >[0],
-      );
+      router.push(`/sellers/${encodeURIComponent(listing.seller.oxyUserId)}`);
     }
   };
 
@@ -412,12 +408,12 @@ function ProductBody({ listing }: ProductBodyProps) {
     if (!selectedVariant) return;
     addToCart.mutate(
       { listingId: listing.id, variantId: selectedVariant.id, quantity },
-      { onSuccess: () => router.push("/cart" as Parameters<typeof router.push>[0]) },
+      { onSuccess: () => router.push("/cart") },
     );
   };
 
   const onPressOffer = () => {
-    router.push("/cart" as Parameters<typeof router.push>[0]);
+    router.push("/cart");
   };
 
   return (
@@ -497,11 +493,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 accessibilityRole="link"
                 accessibilityLabel="Compare every offer for this product"
                 onPress={() =>
-                  router.push(
-                    `/p/${encodeURIComponent(listing.canonicalProductId ?? '')}` as Parameters<
-                      typeof router.push
-                    >[0],
-                  )
+                  router.push(`/p/${encodeURIComponent(listing.canonicalProductId ?? '')}`)
                 }
                 className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
               >

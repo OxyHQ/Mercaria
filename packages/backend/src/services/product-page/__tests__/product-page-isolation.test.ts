@@ -89,14 +89,19 @@ const STOREFRONT_PATHS = [
 ];
 
 /**
- * The files WALL 6 checks navigation targets in.
+ * The files WALL 6 reads navigation targets out of.
  *
  * #71's own files, PLUS the listing page — which this issue does not own, and
  * on which it added exactly one thing: the entry point into the canonical page.
- * That link is held to the same route gate as the page's own, and to NOTHING
- * else. Putting a file this issue does not own through the other five walls is
- * how a gate starts crying wolf at whoever edits it next, and a gate that cries
- * wolf is the one somebody deletes.
+ * That link is held to WALL 6 and to NOTHING else. Putting a file this issue
+ * does not own through the other five walls is how a gate starts crying wolf at
+ * whoever edits it next, and a gate that cries wolf is the one somebody deletes.
+ *
+ * The list was wider than WALL 6 now needs — it was drawn when this wall
+ * RESOLVED every target against the app tree, a job the compiler took over in
+ * #330. It is kept as it is: the extra files cost one regex each, and narrowing
+ * it to the two `#252` names would make the next identity decision look like it
+ * needs a new list rather than a new assertion.
  */
 const NAVIGATION_PATHS = [
   ...STOREFRONT_PATHS,
@@ -372,79 +377,42 @@ describe('WALL 4: the page writes nothing', () => {
 });
 
 /* ────────────────────────────────────────────────────────────────────────── */
-/* WALL 6: every route the page navigates to EXISTS                           */
+/* WALL 6: the page LINKS the identities #252 decided it should               */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * `typedRoutes` is ON in this app and INERT on this expo-router major
- * (`~/Oxy/AGENTS.md`): `router.push('/definitely-not-a-route')` type-checks
- * clean, ships, and fails under a shopper's thumb as "This screen does not
- * exist". This issue hit it — a "Report a problem" control pointed at
- * `/settings/support`, which is not a screen — so the gate is here rather than
- * in a note somebody reads afterwards.
+ * This wall used to RESOLVE every literal navigation target against the real
+ * `app/` tree, because `typedRoutes: true` was inert: `.expo/types/router.d.ts`
+ * is gitignored and nothing generated it before `tsc`, so `Href` degraded to
+ * `string` and `router.push('/definitely-not-a-route')` type-checked clean. It
+ * caught a real one — a "Report a problem" control pointing at
+ * `/settings/support`.
  *
- * Mention's `settingsRouteTargets.test.ts` is the shape being followed, scoped
- * to the files #71 owns for its reason: a repository-wide version would need
- * real false-positive handling for dynamic segments before anybody could trust
- * it, and a gate that cries wolf is a gate the next person disables.
+ * #330 generates that declaration inside every app's `typecheck`, so the
+ * COMPILER answers that question now, across all three apps rather than this
+ * page's twenty files, and the resolution half was RETIRED rather than left
+ * green for the wrong reason. Its own history is why: it read only the ARGUMENT
+ * of `router.push`, so a route composed in a `buildHref` helper was invisible,
+ * and an interpolated query string became one segment containing `${` that its
+ * resolver read as a WILDCARD matching any two-segment route — both permissive,
+ * both found the one day somebody looked closely. What the compiler cannot
+ * check is that it was GIVEN the union, and that is now
+ * `src/__tests__/typed-routes-armed.test.ts`.
+ *
+ * What survives here is the part that was never about route existence: WHICH
+ * identity this page links. That is a product decision (#252) and no type can
+ * hold it — a merchant rendered as plain text compiles perfectly.
  */
-const APP_ROOT = join(STOREFRONT_ROOT, 'app');
-
-/** Every route the real `app/` tree serves, as `/`-joined segment patterns. */
-function existingRoutes(): string[] {
-  const routes: string[] = [];
-  const walk = (directory: string, segments: string[]): void => {
-    for (const entry of readdirSync(directory)) {
-      const absolute = join(directory, entry);
-      if (statSync(absolute).isDirectory()) {
-        // A `(group)` is transparent in the URL — the whole point of the
-        // convention, and the thing a naive path check gets wrong.
-        walk(absolute, entry.startsWith('(') ? segments : [...segments, entry]);
-        continue;
-      }
-      if (!entry.endsWith('.tsx') || entry.startsWith('_') || entry.startsWith('+')) continue;
-      const name = entry.replace(/\.tsx$/u, '');
-      routes.push(`/${(name === 'index' ? segments : [...segments, name]).join('/')}`);
-    }
-  };
-  walk(APP_ROOT, []);
-  return routes;
-}
-
-/** Does one navigation target resolve against a route pattern? */
-function routeExists(target: string, routes: readonly string[]): boolean {
-  const wanted = target.split('/').filter((segment) => segment !== '');
-  return routes.some((route) => {
-    const pattern = route.split('/').filter((segment) => segment !== '');
-    if (pattern.length !== wanted.length) return false;
-    return pattern.every((segment, index) => {
-      // A `[param]` matches anything, and so does an interpolated segment on
-      // the calling side — a value nobody can check statically.
-      if (segment.startsWith('[')) return true;
-      const actual = wanted[index] ?? '';
-      return actual.includes('${') ? true : segment === actual;
-    });
-  });
-}
-
 /**
- * Reduce a written target to the PATH a route pattern could match.
+ * Reduce a written target to its PATH: a query string is not part of the route,
+ * and `#252` asks which route a file navigates to rather than with what.
  *
- * Two things have to come off, and the second one is why this exists: a QUERY
- * STRING is not a path segment, and an interpolation inside one turns the whole
- * tail into a `${`-bearing segment that `routeExists` treats as a WILDCARD — so
- * `/guest-orders/portal?group=${id}` matched any two-segment route and the gate
- * passed vacuously. Found by mutation-testing the widened gate: deleting
- * `guest-orders/portal.tsx` left the target resolving happily.
- *
- * An interpolation in the PATH stays, because a value nobody can check
- * statically is exactly what `[param]` matches.
+ * The cut happens only at a `?` in the LITERAL head. A `?` after the first `${`
+ * is inside an interpolation — somebody's ternary — and cutting there truncates
+ * a real path segment mid-expression.
  */
 function routePathOf(target: string): string {
   const literalHead = target.split('${')[0] ?? '';
-  // Cut ONLY at a `?` in the literal head. A `?` after the first `${` is inside
-  // an interpolation — somebody's ternary — and cutting there truncates a real
-  // path segment mid-expression, which this function's own control caught.
   return literalHead.includes('?') ? (literalHead.split('?')[0] ?? '') : target;
 }
 
@@ -466,138 +434,7 @@ function navigationTargets(): { relative: string; target: string }[] {
   return found;
 }
 
-/**
- * Every route-shaped string a HELPER in these files returns.
- *
- * `navigationTargets` above reads the argument of `router.push`/`router.replace`
- * and therefore only ever sees a target written inline. A screen that composes
- * its href in a `buildHref`-style function — which #71's own page has always
- * done for `/p/...`, and #93's does for `/nearby` — hands `router.push` a
- * variable, and the whole gate silently skipped it. That is the hole this
- * closes: the two most-linked routes in the storefront were the two the route
- * gate could not see.
- *
- * Scoped to the `app/` and `components/` entries only. The `lib/` ones are API
- * clients whose template literals are SERVER paths (`/offer-comparison`,
- * `/product-saves/...`), which are not app routes and must not be resolved as
- * though they were.
- */
-function returnedRouteTargets(): { relative: string; target: string }[] {
-  const found: { relative: string; target: string }[] = [];
-  for (const relative of NAVIGATION_PATHS) {
-    if (relative.startsWith('lib/')) continue;
-    const source = withoutComments(readFileSync(join(STOREFRONT_ROOT, relative), 'utf8'));
-    for (const match of source.matchAll(/return\s+`(\/[^`]*)`/gu)) {
-      const raw = match[1];
-      if (raw === undefined) continue;
-      // Take the literal head, stop at the first interpolation, and drop any
-      // query: a query is not a route segment, and an interpolated segment is
-      // a value no static check can know.
-      const literalHead = raw.split('${')[0] ?? '';
-      const path = literalHead.split('?')[0] ?? '';
-      const interpolatedSegment = raw.includes('${') && !literalHead.includes('?');
-      found.push({ relative, target: interpolatedSegment ? `${path}\${x}` : path });
-    }
-  }
-  return found;
-}
-
-describe('WALL 6: every route this page navigates to exists', () => {
-  it('resolves every literal navigation target against the real app tree', () => {
-    const routes = existingRoutes();
-    // Floors on BOTH sides: an empty route list would pass nothing, and an
-    // empty target list would pass vacuously.
-    expect(routes.length, 'the app tree walk found nothing').toBeGreaterThanOrEqual(15);
-    const targets = [...navigationTargets(), ...returnedRouteTargets()];
-    expect(targets.length, 'no navigation target was extracted').toBeGreaterThanOrEqual(6);
-
-    for (const { relative, target } of targets) {
-      expect(
-        routeExists(target, routes),
-        `${relative} navigates to ${target}, which is not a screen — typedRoutes is inert, ` +
-          'so nothing else would catch this before a shopper did',
-      ).toBe(true);
-    }
-  });
-
-  it('#93: the composed-href extractor sees the routes `router.push` hides', () => {
-    const composed = returnedRouteTargets();
-    // A floor, so a refactor that stops these helpers being found fails HERE
-    // rather than making the extractor silently measure nothing.
-    expect(composed.length, 'no composed href was extracted').toBeGreaterThanOrEqual(2);
-    const targets = composed.map((entry) => entry.target);
-    // The two the inline extractor cannot see, named so a rename is a failure
-    // rather than a quiet loss of coverage.
-    expect(targets).toContain('/p/${x}');
-    expect(targets).toContain('/nearby');
-    const routes = existingRoutes();
-    for (const { relative, target } of composed) {
-      expect(
-        routeExists(target, routes),
-        `${relative} composes ${target}, which is not a screen`,
-      ).toBe(true);
-    }
-  });
-
-  it('a query string is stripped before resolving — the vacuity fix', () => {
-    // Each of these USED to resolve against anything, because the `${` in the
-    // query made the last segment a wildcard.
-    expect(routePathOf('/guest-orders/portal?group=${id}')).toBe('/guest-orders/portal');
-    expect(routePathOf('/checkout?${query.toString()}')).toBe('/checkout');
-    expect(routePathOf('/orders/${id}')).toBe('/orders/${id}');
-    // The `?` here is inside a ternary, not a query separator, so nothing is
-    // cut — and `routeExists` then reads the interpolated tail as a wildcard
-    // segment, which is what makes it match `/p/[handle]`.
-    const ternary = '/p/${handle}${suffix === "" ? "" : "?x"}';
-    expect(routePathOf(ternary)).toBe(ternary);
-    expect(routeExists(routePathOf(ternary), existingRoutes())).toBe(true);
-    const routes = existingRoutes();
-    expect(routeExists(routePathOf('/guest-orders/portal?group=${id}'), routes)).toBe(true);
-    expect(routeExists(routePathOf('/guest-orders/nope-xyz?group=${id}'), routes)).toBe(false);
-  });
-
-  it('the resolver actually resolves — the mutation self-test', () => {
-    const routes = existingRoutes();
-    // #93's own screen, and the negative control that it is not simply
-    // matching everything under `/nearby`.
-    expect(routeExists('/nearby', routes)).toBe(true);
-    expect(routeExists('/nearby/definitely-not-a-route-xyz', routes)).toBe(false);
-    // The destination #93 sends a guest to when they leave checkout. It is a
-    // real screen (#108) and the reason the old "send them to the storefront"
-    // branch was removed, so a rename must fail here rather than under the
-    // thumb of somebody who has just paid.
-    expect(routeExists('/guest-orders/portal', routes)).toBe(true);
-    expect(routeExists('/settings/feedback', routes)).toBe(true);
-    expect(routeExists('/products/${id}', routes)).toBe(true);
-    expect(routeExists('/sellers/${oxyUserId}', routes)).toBe(true);
-    // The ones this issue deliberately does NOT link to, and the one that
-    // caused the bug. If any of these starts resolving, the page can link to it.
-    expect(routeExists('/settings/support', routes)).toBe(false);
-    // NOT '/merchants/${slug}' — that WAS this line until #73 shipped the real
-    // merchant page and turned a passing negative control into a failure with
-    // nothing wrong: a route the roadmap has not reached yet is not evidence
-    // that `routeExists` can say "no", it is a control with an expiry date. A
-    // NUL byte can never appear in a real file or directory name on ANY
-    // filesystem, so this target is structurally impossible rather than merely
-    // unbuilt, and stays a valid negative control no matter what the storefront
-    // ships next.
-    expect(routeExists('/merchants\u0000-impossible/${slug}', routes)).toBe(false);
-    expect(routeExists('/definitely-not-a-route-xyz', routes)).toBe(false);
-    // The real merchants route RESOLVES, which is what #252 turned into a link
-    // — the positive half of the control replaced above.
-    expect(routeExists('/merchants/${slug}', routes)).toBe(true);
-    // `/brands/[handle]` USED to be in that list and now resolves, because #72
-    // built it. That is this assertion doing its job rather than a regression:
-    // it exists to notice exactly this, and the comment above says what to do
-    // when it fires. The product page still does not link there, because its
-    // `brand` is a vendor LABEL (`brandLabel`, the store or seller name) and
-    // not the canonical brand entity — linking needs a canonical brand handle
-    // on the product projection, which is #230-style integration work rather
-    // than a route swap. Tracked separately; flipping this to `true` without
-    // that handle would only mean the route resolves.
-    expect(routeExists('/brands/${id}', routes)).toBe(true);
-  });
-
+describe('WALL 6: the page links the identities it decided to link', () => {
   it('#252: the page LINKS a merchant to the merchant page', () => {
     // The decision, pinned. #71 named every merchant as text for one recorded
     // reason — the route did not exist — and #73 shipped

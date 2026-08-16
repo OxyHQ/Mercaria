@@ -570,7 +570,7 @@ export function StoreMenuSheet({
   const onPressProduct = (productId: string) => {
     if (!productId) return;
     handleClose();
-    router.push(`/products/${productId}` as Parameters<typeof router.push>[0]);
+    router.push(`/products/${productId}`);
   };
 
   return (

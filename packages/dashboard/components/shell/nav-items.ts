@@ -9,6 +9,7 @@ import {
   Settings,
   type LucideIcon,
 } from "lucide-react-native";
+import type { RoutePath } from "expo-router";
 import type { StorePermission } from "@mercaria/shared-types";
 
 /**
@@ -23,8 +24,12 @@ export interface NavItem {
   /** Accessible label / tooltip text. */
   label: string;
   icon: LucideIcon;
-  /** Route this item navigates to. */
-  href: string;
+  /**
+   * Route this item navigates to. `RoutePath` rather than `string`, so the
+   * literals below are checked against the real route tree where they are
+   * written and renaming a screen fails the build (#330).
+   */
+  href: RoutePath;
   /** Permission required to see this destination. */
   permission: StorePermission;
 }

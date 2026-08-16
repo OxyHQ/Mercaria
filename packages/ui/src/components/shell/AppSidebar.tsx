@@ -5,16 +5,24 @@ import { SidebarRow } from "./sidebar-primitives";
 
 /**
  * A single destination in the shared app sidebar. Presentational-only: the
- * component never routes on its own — the host maps `onSelect` to its router
- * using `href`, keeping `@mercaria/ui` free of any routing / auth dependency.
+ * component never routes on its own — the host maps `onSelect` to its router,
+ * keeping `@mercaria/ui` free of any routing / auth dependency.
+ *
+ * It carries NO route. It used to carry `href: string`, which nothing in this
+ * package ever read: it existed so a host could route off the value it had just
+ * put there. That round trip is what made every host's `router.push(item.href)`
+ * untyped — a `string` cannot satisfy expo-router's route union, so all three
+ * apps cast it away (#330) — and this package cannot hold the typed
+ * alternative, because the type lives in expo-router and the docblock above is
+ * the reason not to depend on it. `key` is what a host needs: it identifies the
+ * destination in that host's OWN navigation model, where the route is written
+ * and checked.
  */
 export interface AppSidebarItem {
   key: string;
   /** Accessible label / tooltip text. */
   label: string;
   icon: LucideIcon;
-  /** Route this item navigates to (used by the host's `onSelect`). */
-  href: string;
   /** Persistent selected state (the active destination). */
   active?: boolean;
   /** Non-interactive, dimmed row (e.g. a destination not yet available). */
@@ -24,7 +32,7 @@ export interface AppSidebarItem {
 export interface AppSidebarProps {
   /** Ordered destinations to render (already permission-filtered by the host). */
   items: readonly AppSidebarItem[];
-  /** Invoked when a (non-disabled) item is pressed; the host routes to `href`. */
+  /** Invoked when a (non-disabled) item is pressed; the host routes by `key`. */
   onSelect: (item: AppSidebarItem) => void;
   /** Header slot — the host puts its logo + collapse trigger here. */
   header: React.ReactNode;

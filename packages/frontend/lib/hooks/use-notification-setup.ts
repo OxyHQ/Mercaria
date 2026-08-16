@@ -1,6 +1,7 @@
 /**
  * useNotificationSetup — Push notification registration, foreground handling,
- * tap deep-linking, and real-time Socket.IO notification subscription.
+ * and real-time Socket.IO notification subscription. It deliberately does NOT
+ * deep-link from a payload; see the note beside the web-push registration.
  *
  * Call once in the authenticated app layout.
  */
@@ -9,7 +10,6 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxyhq/services';
 import { io as socketIO } from 'socket.io-client';
@@ -21,7 +21,6 @@ const PROJECT_ID = Constants.expoConfig?.extra?.eas?.projectId;
 
 export function useNotificationSetup() {
   const { user, oxyServices, isAuthenticated } = useOxy();
-  const router = useRouter();
   const queryClient = useQueryClient();
   // Re-establish the notification socket when the access token changes so the
   // handshake always carries a valid token.
@@ -94,21 +93,27 @@ export function useNotificationSetup() {
     };
   }, [isAuthenticated, user?.id]);
 
-  // ── Notification tap handler (deep-link) ───────────────────────
-  useEffect(() => {
-    const subscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        if (!isAuthenticated) return;
-        const data = response.notification.request.content.data;
-        // Notifications may carry an in-app `route` to deep-link to.
-        if (typeof data?.route === 'string') {
-          router.push(data.route as Parameters<typeof router.push>[0]);
-        }
-      },
-    );
-
-    return () => subscription.remove();
-  }, [router, isAuthenticated]);
+  // A tapped push notification opens the app and NOTHING ELSE navigates from
+  // its payload.
+  //
+  // This used to read a `route` string out of the payload and hand it straight
+  // to `router.push`, cast past the type (#330). Nothing in Mercaria has ever
+  // put one there — `NotificationDTO` carries no `route` and no writer sets one
+  // in the push `data` — so the branch had no producer, and the only thing that
+  // could exercise it was a payload composed somewhere else. That matters
+  // because `Href` admits `ExternalPathString`, so an arbitrary string is not
+  // merely a wrong screen: on web it is a navigation off the site entirely.
+  //
+  // It is also the rule this codebase already settled for its newest
+  // notification domain. #79 price alerts: the notification carries no URL of
+  // any kind — the product, variant and offer IDS travel and the client decides
+  // where they lead. A destination composed elsewhere and followed here is a
+  // now-unvalidated link by the time it is tapped.
+  //
+  // Deep-linking arrives with the producer that needs it: a typed `RoutePath`
+  // on the payload contract plus an allow-list of the destinations a
+  // notification may open, decided against the real ones rather than invented
+  // for a feature nobody has built.
 
   // ── Web push registration (browser only) ──────────────────────
   useEffect(() => {

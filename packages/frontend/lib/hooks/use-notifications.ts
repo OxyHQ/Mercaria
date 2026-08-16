@@ -11,8 +11,6 @@ export interface Notification {
   priority: 'low' | 'normal' | 'high' | 'urgent';
   data?: Record<string, unknown>;
   triggerId?: string;
-  /** Optional in-app route to deep-link to when the notification is tapped. */
-  route?: string;
   createdAt: string;
   readAt?: string;
 }

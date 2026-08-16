@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Button, Text } from "@mercaria/ui";
 import { useOxy } from "@oxyhq/services";
-import { useRouter } from "expo-router";
+import { useRouter, type RoutePath } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
 import { ChevronRight, Package, MapPin } from "lucide-react-native";
 
@@ -15,8 +15,11 @@ export function AccountSection() {
   const displayName = user?.name?.displayName;
   const initial = (displayName?.[0] ?? "U").toUpperCase();
 
-  const go = (route: string) => () =>
-    router.push(route as Parameters<typeof router.push>[0]);
+  // `RoutePath` rather than `string`: these destinations are literals written a
+  // few lines below, so typing the parameter moves the check from nowhere to
+  // the place they are written, and deleting one of those screens fails the
+  // build here instead of under somebody's thumb (#330).
+  const go = (route: RoutePath) => () => router.push(route);
 
   return (
     <View className="gap-6">

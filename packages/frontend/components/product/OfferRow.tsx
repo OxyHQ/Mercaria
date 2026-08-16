@@ -117,9 +117,7 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
             accessibilityRole="link"
             accessibilityLabel="Open this seller's listing"
             onPress={() =>
-              router.push(
-                `/products/${outbound.listingId}` as Parameters<typeof router.push>[0],
-              )
+              router.push(`/products/${outbound.listingId}`)
             }
             className="items-center rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
@@ -166,7 +164,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
           accessibilityRole="link"
           accessibilityLabel={`Visit ${seller.name}`}
           onPress={() =>
-            router.push(`/merchants/${seller.slug}` as Parameters<typeof router.push>[0])
+            router.push(`/merchants/${seller.slug}`)
           }
         >
           <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
@@ -191,7 +189,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
         accessibilityRole="link"
         accessibilityLabel={`Visit ${seller.name}`}
         onPress={() =>
-          router.push(`/stores/${seller.handle}` as Parameters<typeof router.push>[0])
+          router.push(`/stores/${seller.handle}`)
         }
       >
         <Text className="text-bodyTitleSmall text-text">{seller.name}</Text>
@@ -205,11 +203,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
         accessibilityRole="link"
         accessibilityLabel={`Visit ${seller.displayName}'s profile`}
         onPress={() =>
-          router.push(
-            `/sellers/${encodeURIComponent(seller.oxyUserId)}` as Parameters<
-              typeof router.push
-            >[0],
-          )
+          router.push(`/sellers/${encodeURIComponent(seller.oxyUserId)}`)
         }
       >
         <Text className="text-bodyTitleSmall text-text">{seller.displayName}</Text>

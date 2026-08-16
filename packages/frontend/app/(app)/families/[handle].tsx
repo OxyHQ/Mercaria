@@ -42,9 +42,14 @@ export default function ProductFamilyPageScreen() {
   const { data: family, isLoading, isError } = useProductFamilyPage(handle);
   const products = useProductFamilyProducts(handle);
 
-  const redirectTo = family?.redirect === undefined ? undefined : family.canonicalPath;
+  // The SLUG travels, never `canonicalPath` — see the brand page for why the
+  // API is not the authority on this app's route table. `canonicalPath` is
+  // still the `rel=canonical` URL below, which is a different question.
+  const redirectTo = family?.redirect === undefined ? undefined : family.slug;
   useEffect(() => {
-    if (redirectTo !== undefined) router.replace(redirectTo);
+    if (redirectTo !== undefined) {
+      router.replace({ pathname: '/families/[handle]', params: { handle: redirectTo } });
+    }
   }, [redirectTo, router]);
 
   if (isLoading) {

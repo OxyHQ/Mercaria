@@ -19,10 +19,12 @@
  * what they owe this domain. `product-page-isolation.test.ts` already sets the
  * precedent — it asserts those routes do NOT resolve today.
  *
- * `typedRoutes` is ON in this app and INERT on this expo-router major
- * (`~/Oxy/AGENTS.md`), so nothing else catches a route pattern that names no
- * screen: a bogus `Href` type-checks clean, ships, and fails under a shopper's
- * thumb.
+ * `typedRoutes` was ON but inert until #330 generated the route union before
+ * `tsc`, so a bogus `Href` type-checked clean, shipped, and failed under a
+ * shopper's thumb. The compiler catches that now — but only for a route a
+ * screen NAVIGATES to. This file's subject is the SEO registry, which is a
+ * different question: a pattern here names a screen for a crawler, and no
+ * `router.push` anywhere has to mention it.
  */
 
 import { describe, expect, it } from 'vitest';

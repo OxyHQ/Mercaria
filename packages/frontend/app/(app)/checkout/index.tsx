@@ -528,15 +528,11 @@ function CheckoutBody() {
       // a credential minted into a log, so it is minted at the first moment
       // there is a client to hand it to — which is this one.
       if (checkoutGroupId === undefined) {
-        router.replace("/" as Parameters<typeof router.replace>[0]);
+        router.replace("/");
         return;
       }
       const toPortal = () =>
-        router.replace(
-          `/guest-orders/portal?group=${encodeURIComponent(checkoutGroupId)}` as Parameters<
-            typeof router.replace
-          >[0],
-        );
+        router.replace(`/guest-orders/portal?group=${encodeURIComponent(checkoutGroupId)}`);
       // `onSettled`, so a failure to mint still lands on the portal: that
       // screen has its own "find your order" recovery, and the storefront has
       // none. Failing to a screen that can recover beats failing to one that
@@ -544,9 +540,7 @@ function CheckoutBody() {
       portalConfirmation.mutate(checkoutGroupId, { onSettled: toPortal });
       return;
     }
-    router.replace(
-      (orderId ? `/orders/${orderId}` : "/orders") as Parameters<typeof router.replace>[0],
-    );
+    router.replace((orderId ? `/orders/${orderId}` : "/orders"));
   };
 
   /** The destination this press will send, or `null` when it is incomplete. */

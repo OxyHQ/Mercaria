@@ -6,38 +6,46 @@ import {
   Heart,
   type LucideIcon,
 } from "lucide-react-native";
+import type { RoutePath } from "expo-router";
 
 /**
  * Canonical navigation model for the Shop-style shell, shared by the desktop
  * {@link Sidebar} and the mobile {@link BottomTabBar} so both render the exact
- * same set of destinations.
- *
- * `href` is the route this item is *intended* to point at. Only items whose
- * route already exists in the app (`available: true`) are navigable — pressing
- * an unavailable item is a safe no-op (no navigation to a missing route, no
- * stub route files). When the corresponding screens are built, flip
- * `available` to `true`; the press handler will start routing automatically.
+ * same set of destinations — including the ones whose screen nobody has built,
+ * which render as dimmed, non-interactive rows rather than disappearing.
  */
-export interface NavItem {
+interface NavItemBase {
   key: string;
   /** Accessible label / tooltip text. */
   label: string;
   icon: LucideIcon;
-  /** Intended route. Plain string so unavailable routes don't break typing. */
-  href: string;
-  /** Whether `href` is a real, navigable route today. */
-  available: boolean;
 }
+
+/**
+ * An item is EITHER navigable and carries a real route, OR it is a placeholder
+ * for a screen nobody has built and carries no route at all.
+ *
+ * `href` was a plain `string` — commented "so unavailable routes don't break
+ * typing" — which is how a whole app's worth of `router.push(... as
+ * Parameters<typeof router.push>[0])` casts got their justification (#330). The
+ * two facts were never in tension: what could not be typed was `/categories`
+ * and `/offers`, routes that do not exist, and the answer is that an item
+ * pointing at nothing should not have somewhere to put it. So "pressing an
+ * unavailable item is a safe no-op" stops being a rule the press handler
+ * remembers and becomes a shape — there is no `href` to read on that branch —
+ * while every route that IS live is checked against the real tree.
+ *
+ * Building one of those screens means adding `href` beside `available: true`,
+ * and the compiler asks for it.
+ */
+export type NavItem =
+  | (NavItemBase & { available: true; href: RoutePath })
+  | (NavItemBase & { available: false });
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: "home", label: "Home", icon: Home, href: "/", available: true },
-  {
-    key: "explore",
-    label: "Explore",
-    icon: LayoutGrid,
-    href: "/categories",
-    available: false,
-  },
+  // No `href`: `/categories` is not a route. The intent is in the label.
+  { key: "explore", label: "Explore", icon: LayoutGrid, available: false },
   {
     key: "cart",
     label: "Cart",
@@ -45,7 +53,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/cart",
     available: true,
   },
-  { key: "deals", label: "Deals", icon: Tag, href: "/offers", available: false },
+  // No `href`: `/offers` is not a route.
+  { key: "deals", label: "Deals", icon: Tag, available: false },
   // #80 shipped `app/(app)/saved.tsx`, so this is navigable now. It stays a
   // real route rather than a modal because a saved list is a place a buyer
   // returns to and links to.
@@ -64,6 +73,8 @@ export function isNavItemActive(item: NavItem, pathname: string): boolean {
       (pathname.startsWith("/(app)") && pathname.replace("/(app)", "") === "")
     );
   }
+  // An item with no route can never be the one you are on.
+  if (!item.available) return false;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
 
