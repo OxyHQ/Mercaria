@@ -2558,8 +2558,15 @@ answerable:
   or a page payload reaches production. The absent columns ARE the enforcement
   of #77's identity rules (no `email`, no `email_hash`, no `phone`, no
   `card_fingerprint`, no `provider_customer_id`, no `wallet_identity`, no
-  `ip_address`, no `user_agent`, no `device_fingerprint`, no `token`), and a
-  scan with a vacuity floor and a mutation self-test fails the build on one.
+  `ip_address`, no `user_agent`, no `device_fingerprint`, no `token`).
+  **The GATE is an allow-list, not a deny-list** —
+  `services/analytics/__tests__/analytics-column-allowlist.ts` enumerates every
+  column of all eight tables WITH A REASON and `contract-gates.test.ts` compares
+  it against the drizzle schema both ways, so a NEW COLUMN FAILS THE BUILD until
+  somebody decides it is allowed. A deny-list of forbidden name SEGMENTS sits
+  beside it as a second layer (it catches a plausible name appended to the
+  allow-list, which an allow-list cannot), matched against `sqlColumnName` and
+  never `column.name`.
 - **Two identity columns, mutually exclusive by CHECK, and NEITHER is a
   person.** `oxy_user_id` is present only for an `oxy` actor whose consent
   permits it (a second CHECK ties it to `consent_state <> 'denied'`).

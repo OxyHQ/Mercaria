@@ -33,6 +33,50 @@ else and has to be reduced; an analytics property is composed by our own code,
 so an open bag is not a defence against a third party, it is an invitation to
 whoever is in a hurry.
 
+### The gate is an allow-list, and it was a deny-list until it was not
+
+The sentence above was the design and the gate underneath it was its opposite: a
+single regex naming eighteen tokens, refusing those and admitting everything
+else. `shipping_address`, `full_name`, `latitude`, `guest_session_id` and a bare
+`subject_hash` would every one have passed — and `hash` is named two paragraphs
+up as a thing that must be impossible, caught then only incidentally, by
+`email`. Its mutation self-test proved that the pattern matched the names the
+pattern already listed, which is a check that cannot fail on the thing it exists
+for.
+
+`services/analytics/__tests__/analytics-column-allowlist.ts` now enumerates
+**every column of every one of the eight tables, grouped, each group carrying
+the reason its columns may exist**, and
+`services/analytics/__tests__/contract-gates.test.ts` compares that list against
+the drizzle schema **in both directions**: a column no group lists fails, and a
+listed column no table has fails too, so the list cannot rot into a standing
+permission for something that moved. **A new column fails the build until
+somebody decides it is allowed**, which is `merge-plan-census.test.ts`'s posture
+applied to columns, including its posture on silence — a decision recorded with
+a reason is what the census accepts, and saying nothing is not.
+
+The deny-list is **kept, as a second layer**, and extended with the tokens this
+document already claimed and the regex lacked (`hash`, `token`, `address`,
+`name`, the coordinate family, `session`). The two fail differently and both are
+cheap: the allow-list catches the column nobody anticipated, the deny-list
+catches the one somebody appended to the allow-list under a name that looks like
+it belongs — so it runs over the allow-list's own entries as well as over the
+schema. It matches by underscore-separated SEGMENT rather than by substring,
+which is why `latency_ms` is not a latitude and `oxy_user_id` survives a
+prohibition on `user_agent`. Two columns are exempted by name, each with its
+reason and each asserted to be a live exemption; the count is asserted EXACTLY,
+because an exemption list that only grows is the gate switching itself off one
+defensible line at a time.
+
+One thing the rewrite fixed silently and is worth stating: the names compared
+are now SQL identifiers (`sqlColumnName`), where the old pattern was matching
+`ip_address`, `user_agent` and `order_note` against strings that read
+`ipAddress`, `userAgent` and `orderNote`. `@oxyhq/db` owns the casing authority
+and drizzle converts at query time, so `column.name` is the TypeScript property
+name — three of the eighteen tokens could never have fired, and the self-test
+could not show it because it fed the pattern snake_case literals the scan never
+received.
+
 ---
 
 ## The versioned envelope
@@ -173,10 +217,14 @@ fact.
 
 ## The metrics
 
-Twenty-two definitions in `ANALYTICS_METRICS` (`@mercaria/shared-types`), each
+Thirty-two definitions in `ANALYTICS_METRICS` (`@mercaria/shared-types`), each
 naming its numerator, denominator, window, source, freshness, human-only flag,
 merchant visibility, **attribution limit** and — where its events do not exist
-yet — the issue that owes them.
+yet — the issue that owes them. Twenty-two of them are the ones #77 names by
+number and `contract-gates.test.ts` enumerates by key; the other ten are #111's
+guest funnel measures. This document said twenty-two until the array was
+counted — a number repeated from memory is an assertion, so count
+`ANALYTICS_METRICS` rather than the sentence beside it.
 
 They are DATA, not prose: `analytics_rollups.metric_key` CHECKs against the same
 tuple, so a number whose definition is unstated cannot be stored, and
