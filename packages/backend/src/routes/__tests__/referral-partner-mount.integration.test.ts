@@ -132,7 +132,7 @@ describe('the partner surface is reachable in the real app', () => {
  * were assembled differently, and would need its own vacuity floor. This is the
  * object the app actually mounts.
  */
-describe('the partner router serves exactly thirteen routes', () => {
+describe('the partner router serves exactly twenty-two routes', () => {
   function declaredRoutes(): readonly string[] {
     const router = makeReferralPartnerRouter(() => ({ ownerType: 'user', ownerId: 'x' }));
     const stack = (router as unknown as { stack: readonly Record<string, unknown>[] }).stack;
@@ -147,9 +147,10 @@ describe('the partner router serves exactly thirteen routes', () => {
     return routes.sort();
   }
 
-  it('declares the thirteen, and no fourteenth', () => {
+  it('declares the twenty-two, and no twenty-third', () => {
     expect(declaredRoutes()).toEqual(
       [
+        // #146 increment 2 — enrollment, terms and the tax questionnaire.
         'GET /',
         'POST /application',
         'POST /application/submit',
@@ -157,7 +158,7 @@ describe('the partner router serves exactly thirteen routes', () => {
         'POST /terms',
         'POST /marketing-consent',
         'GET /tax-profile',
-        // ADR 0005 D15 gate 2. The route the whole increment turns on: until it
+        // ADR 0005 D15 gate 2. The route that increment turns on: until it
         // existed, tax readiness was `pending` for every partner and
         // `deriveRewardPayability` blocked every batch.
         'POST /tax-profile',
@@ -177,6 +178,24 @@ describe('the partner router serves exactly thirteen routes', () => {
         'GET /disclosures',
         'GET /enforcement',
         'POST /enforcement/:actionId/appeal',
+        // #147 — the dashboard, the numbers and the link-and-code tools.
+        //
+        // NOT ONE of them takes a partner id. `/dashboard`, `/performance`,
+        // `/earnings` and `/instruments` are answered for the owner the MOUNT
+        // resolved; the two that name an INSTRUMENT compare it against that
+        // owner and answer one indistinguishable 404 for "not yours" and "does
+        // not exist". There is deliberately no `GET /partners/:id`, no
+        // `?partnerId=` and no export of anybody else's figures — each would be
+        // a third way of deciding whose earnings these are.
+        'GET /dashboard',
+        'GET /performance',
+        'POST /performance',
+        'GET /earnings',
+        'GET /instruments',
+        'POST /codes',
+        'POST /codes/:codeId/retire',
+        'POST /links',
+        'POST /links/:linkId/revoke',
       ].sort(),
     );
   });
@@ -190,6 +209,6 @@ describe('the partner router serves exactly thirteen routes', () => {
    * something for either assertion to mean anything.
    */
   it('the stack walk actually found routes', () => {
-    expect(declaredRoutes().length).toBe(13);
+    expect(declaredRoutes().length).toBe(22);
   });
 });

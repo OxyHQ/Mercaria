@@ -596,6 +596,11 @@ export const SEO_ROBOTS_DISALLOWED_PATHS: readonly string[] = [
   '/notifications',
   '/price-alerts',
   '/shopping-agents',
+  // The referral partner dashboard (#147): one account's own
+  // instruments, earnings and payout standing, resolved from the
+  // credential. An anonymous fetch reaches nothing, so an indexed page
+  // would advertise a surface whose whole content is somebody's money.
+  '/referral-partner',
   '/guest-orders/',
   '/forgot-password',
   '/reset-password',

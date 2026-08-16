@@ -256,6 +256,61 @@ export async function resumeProgram(input: {
 }
 
 /**
+ * End a version — ADR 0005 D18's program TERMINATION as a business decision
+ * (#147 operator item 4).
+ *
+ * `program_ended` has been in `REFERRAL_EVENT_ACTIONS` and `ended` in
+ * `REFERRAL_PROGRAM_STATUSES` since #142, and until #147 nothing performed the
+ * transition — `transitionProgramStatus` already stamps `ended_at`, so this is
+ * the caller that was missing rather than a new capability.
+ *
+ * DISTINCT from {@link retireProgram} and not a synonym: `ended` is "this
+ * program has stopped running", which is the state a partner's dashboard
+ * explains their standing under, and `retired` is the archival decision that
+ * follows. Both are prospective — no new touches, no new attributions, no new
+ * accruals — and NEITHER touches a reward, a batch or a ledger entry. #147
+ * acceptance 5 is that property: this module imports nothing from the earnings
+ * domain, so "pausing a program cannot strand a historical commission" is a
+ * fact about the import graph rather than a promise.
+ */
+export async function endProgram(input: {
+  id: string;
+  actorOxyUserId: string;
+  reason: string;
+  at?: Date;
+}): Promise<ReferralProgramRow> {
+  const at = input.at ?? new Date();
+  const db = getDb();
+  return await db.transaction(async (tx) => {
+    const existing = await findProgramVersionById(tx, input.id);
+    if (!existing) throw notFound('Referral program version not found');
+    // Idempotent on the terminal state, `retireProgram`'s shape: two operators
+    // pressing the same button converge instead of the second getting a
+    // conflict about a decision that has already been taken.
+    if (existing.status === 'ended') return existing;
+    if (existing.status !== 'active' && existing.status !== 'paused') {
+      throw conflict(`Version ${existing.version} is ${existing.status} and cannot be ended`);
+    }
+    const row = await transitionProgramStatus(tx, {
+      id: existing.id,
+      expected: existing.status,
+      to: 'ended',
+      at,
+    });
+    if (!row) throw conflict('The version changed while ending — retry');
+    await appendReferralEvent(tx, {
+      subjectType: 'program',
+      subjectId: row.id,
+      action: 'program_ended',
+      actorKind: 'operator',
+      actorRef: input.actorOxyUserId,
+      reason: input.reason,
+    });
+    return row;
+  });
+}
+
+/**
  * Retire a version — terminal, prospective only (ADR 0005 D18). New touches
  * and attributions stop because the program no longer has an active version;
  * every existing attribution, conversion and (later, #145) reward runs its

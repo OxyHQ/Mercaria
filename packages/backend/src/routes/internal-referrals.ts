@@ -48,6 +48,22 @@ import {
   referralOperatorPartnerSchema,
 } from '../middleware/referral-partner-schemas.js';
 import {
+  referralProgramDraftPatchSchema,
+  referralProgramDraftSchema,
+  referralProgramLifecycleSchema,
+  referralProgramPublishSchema,
+} from '../middleware/referral-dashboard-schemas.js';
+import {
+  createReferralProgramHandler,
+  createReferralProgramVersionHandler,
+  editReferralProgramDraftHandler,
+  getReferralProgramHandler,
+  getReferralProgramUtilizationHandler,
+  listReferralProgramsHandler,
+  publishReferralProgramHandler,
+  transitionReferralProgramHandler,
+} from '../controllers/referral-program-operator.controller.js';
+import {
   createReferralPartnerHandler,
   decideReferralApplicationHandler,
   getReferralPartnerReviewHandler,
@@ -152,6 +168,77 @@ router.post(
   '/partners/:partnerId/appeal',
   validateBody(referralAppealResolutionSchema),
   resolveReferralAppealHandler,
+);
+
+// ─── Program management (#147) ──────────────────────────────────────────────
+//
+// On this SAME list, NOT an eighth: publishing the terms a partner earns under
+// and approving what they are paid are the same economy — #145's argument when
+// it joined, one step earlier in the lifecycle.
+//
+// The set is CLOSED and the omissions are the design: there is no "edit this
+// ACTIVE version", no "set this program's status", no "delete this version" and
+// no "backdate this effective start". Every write drives an existing service
+// whose own compare-and-swap is what makes it safe, and the editable route
+// reaches `updateProgramDraft`, whose `status = 'draft'` predicate is where
+// #147 acceptance 4 actually lives.
+
+/** GET — every program, one row each at its highest version. */
+router.get('/programs', listReferralProgramsHandler);
+
+/** GET — every VERSION of one program, newest first. The immutability audit. */
+router.get('/programs/:programId', getReferralProgramHandler);
+
+/** GET — budget and cap utilization, DERIVED. There is no utilization table. */
+router.get('/programs/:programId/utilization', getReferralProgramUtilizationHandler);
+
+/** POST — draft version 1 of a new program. */
+router.post('/programs', validateBody(referralProgramDraftSchema), createReferralProgramHandler);
+
+/** POST — draft the NEXT version, seeded from what is live. */
+router.post('/programs/:programId/versions', createReferralProgramVersionHandler);
+
+/** PATCH — edit a DRAFT. A published version matches nothing and is refused. */
+router.patch(
+  '/program-versions/:versionId',
+  validateBody(referralProgramDraftPatchSchema),
+  editReferralProgramDraftHandler,
+);
+
+/** POST — publish it. The approver comes off the credential, never the body. */
+router.post(
+  '/program-versions/:versionId/publish',
+  validateBody(referralProgramPublishSchema),
+  publishReferralProgramHandler,
+);
+
+/**
+ * POST — the four lifecycle transitions, each with a mandatory reason.
+ *
+ * All FOUR are prospective (ADR 0005 D18): they stop new touches, new
+ * attributions and new accruals, and not one of them reaches a reward, a batch
+ * or a ledger entry — which is #147 acceptance 5, held by the import graph of
+ * `program.service.ts` rather than by a promise.
+ */
+router.post(
+  '/program-versions/:versionId/pause',
+  validateBody(referralProgramLifecycleSchema),
+  transitionReferralProgramHandler('pause'),
+);
+router.post(
+  '/program-versions/:versionId/resume',
+  validateBody(referralProgramLifecycleSchema),
+  transitionReferralProgramHandler('resume'),
+);
+router.post(
+  '/program-versions/:versionId/end',
+  validateBody(referralProgramLifecycleSchema),
+  transitionReferralProgramHandler('end'),
+);
+router.post(
+  '/program-versions/:versionId/retire',
+  validateBody(referralProgramLifecycleSchema),
+  transitionReferralProgramHandler('retire'),
 );
 
 /** GET — the effective levers, with absence resolved to "both enabled". */

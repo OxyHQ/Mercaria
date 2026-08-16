@@ -151,7 +151,7 @@ function projectProgram(row: ReferralProgramRow): ReferralProgramPartnerView {
   };
 }
 
-function projectCode(row: ReferralCodeRow): ReferralCodePartnerView {
+export function projectCode(row: ReferralCodeRow): ReferralCodePartnerView {
   return {
     id: row.id,
     code: row.code,
@@ -168,7 +168,7 @@ function projectCode(row: ReferralCodeRow): ReferralCodePartnerView {
   };
 }
 
-function projectLink(row: ReferralLinkRow): ReferralLinkPartnerView {
+export function projectLink(row: ReferralLinkRow): ReferralLinkPartnerView {
   return {
     id: row.id,
     codeId: row.codeId,

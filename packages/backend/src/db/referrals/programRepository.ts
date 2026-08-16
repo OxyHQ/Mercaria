@@ -167,6 +167,44 @@ export async function findLatestProgramVersion(
 }
 
 /**
+ * The distinct program identities, newest activity first (#147's operator list
+ * and the partner's program discovery).
+ *
+ * `DISTINCT ON (program_id)` ordered by version DESC, so each program appears
+ * once as its HIGHEST version — the row an operator manages and the row a
+ * discovery surface must read the status off. Selecting the ACTIVE version
+ * instead would make a program that has never been published invisible to the
+ * operator who is drafting it, which is the one reader who must see it.
+ *
+ * Bounded by `limit`: the operator surface pages, and a partner's discovery
+ * list is filtered down afterwards. There is no cursor because the population
+ * is programs — a marketing artefact somebody writes by hand, not a table that
+ * grows with traffic.
+ */
+export async function listProgramIdentities(
+  db: DatabaseOrTransaction,
+  input: { limit: number },
+): Promise<ReferralProgramRow[]> {
+  return await db
+    .selectDistinctOn([referralPrograms.programId])
+    .from(referralPrograms)
+    .orderBy(referralPrograms.programId, desc(referralPrograms.version))
+    .limit(input.limit);
+}
+
+/** Every version of one program, newest first — the operator's audit read. */
+export async function listProgramVersions(
+  db: DatabaseOrTransaction,
+  programId: string,
+): Promise<ReferralProgramRow[]> {
+  return await db
+    .select()
+    .from(referralPrograms)
+    .where(eq(referralPrograms.programId, programId))
+    .orderBy(desc(referralPrograms.version));
+}
+
+/**
  * Edit a DRAFT. The `status = 'draft'` predicate in the WHERE is the
  * immutability rule: a published version matches nothing, so the caller gets
  * `undefined` back instead of silently rewriting live terms.
