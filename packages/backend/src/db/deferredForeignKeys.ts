@@ -1874,4 +1874,11 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // trigger, so the account named here is the last one that could change it.
   { column: 'product_type_definitions.created_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'product_type_definitions.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // #367 step 7's two operator stamps. Oxy ids like every other entry in this
+  // block, and both sit on rows whose whole purpose is to answer "who decided
+  // this" — who published a navigation tree, and who reviewed a translation
+  // (ADR 0007 D4). An actor column that could be erased with the account answers
+  // that question with a NULL.
+  { column: 'navigation_trees.published_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'navigation_node_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

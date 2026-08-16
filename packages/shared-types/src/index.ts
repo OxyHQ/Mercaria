@@ -622,3 +622,13 @@ export * from './shopping-agent';
 // restates — a product-type field cites an attribute version and describes none
 // of its meaning, so the two can never disagree about what a value is.
 export * from './product-type';
+// Navigation trees and the merchandising separation (#367 step 7, ADR 0007 D3).
+// LAST, and it defines no vocabulary any domain above it owns: a node POINTS at
+// `./condition`'s groups, `./offer`'s kinds and availability and `./money`'s
+// currency inside a saved query, and at a category, brand, family, product type
+// or collection by that entity's own id or stable key. It has no field for a
+// sort, a weight, a policy version or a sponsored slot — ordering is #74's — and
+// no field that could carry a category's name, lifecycle or parent, which is
+// what makes "nothing in navigation may write to `categories`" (ADR 0007 D3) a
+// property of the shapes rather than a rule somebody follows.
+export * from './navigation';

@@ -5966,3 +5966,110 @@ failure the epic is written against. `categories` gained seven columns instead.
 - **Zero new `jsonb`.** Every shape in this domain is Mercaria's own and closed,
   so none of them earns an entry in the register above. ADR 0007 D14 permits
   exactly three uses and none of them is here.
+## Navigation trees (#367 step 7)
+
+`navigation.ts` — five tables, ADR 0007 D3. The hand-written triggers live in
+`navigation.pending.sql` and are appended to the generated migration verbatim
+(ADR 0007 D11's slot protocol); re-apply them after EVERY regeneration.
+
+- **The domain writes to five tables and reads four more.** `categories`,
+  `collections`, `brands` and `canonical_product_families` are READ for two
+  things each — the identity a node points at, and whether it may be shown — and
+  written by nothing here. That is D3's "nothing in navigation may write to
+  `categories`", and it is held by narrow selects plus
+  `services/__tests__/navigation-isolation.test.ts`, which scans the domain,
+  both route files, the controller and the schemas.
+- **A node that means two things has no row shape.**
+  `navigation_nodes_target_shape_check` is SEVEN biconditionals — one per
+  `target_kind`, each `(kind = 'x') = (pointer is not null)` — ANDed, plus
+  `num_nonnulls(<all seven>) = 1`. The single-expression spelling ("the selected
+  pointer is set and exactly one is non-null") ADMITS a row whose kind is
+  `brand` and whose only pointer is a `collection_id`; the
+  `retail_delivery_promises_observed_shape_check` finding, met again. The count
+  term is what fails if an eighth pointer column is added without extending the
+  biconditionals.
+- **`product_type_key` is a stable KEY and carries no foreign key.**
+  `product_type_definitions` is merge-order step 3 and does not exist yet, and an
+  unconstrained `product_type_id` uuid would look like a foreign key to every
+  reader while enforcing nothing. A key is also the right pointer (D1): a node
+  means "the smartphone product type", not "version 4 of it". Adding the FK later
+  is additive and needs no data change.
+- **Sibling ordering is TWO partial unique indexes, not one.** Postgres treats
+  NULLs as distinct, so `unique(tree_id, parent_id, position)` alone lets two
+  ROOT nodes share position 0. `…_child_position_key WHERE parent_id is not
+  null` plus `…_root_position_key WHERE parent_id is null`; the read tie-breaks
+  on `key` as well.
+- **There is no stored `depth`.** The cycle trigger walks the parent chain
+  anyway and counts hops in the same pass; a stored depth would be a second
+  representation of that chain, stale the moment a subtree moves. The bound is
+  `NAVIGATION_MAX_DEPTH`, and because a hand-written trigger cannot read a
+  TypeScript constant, the isolation test BUILDS its assertion from the constant
+  and greps the pending SQL for it.
+- **The live-window exclusion is a trigger, not a unique index.** "At most one
+  live tree per `(market, locale, surface)`" cannot be a partial unique, because
+  scheduling requires the successor to EXIST, published, while the incumbent is
+  still live. What must not overlap is the WINDOW. The trigger is a refusal and
+  not a mutual exclusion, so the publish path takes `FOR UPDATE` on that
+  surface's published rows first.
+- **`lifecycle` has three members and no `scheduled`.** Live is
+  `published` ∧ inside `[effective_from, effective_to)`; a fourth state would be
+  a second answer to a question the window already answers, and the two would
+  disagree the first time a job ran late.
+  `(lifecycle = 'draft') = (published_at is null)` is a CHECK, which is what
+  makes "a draft is never publicly readable" a property of the row rather than of
+  whoever wrote the query.
+- **A published tree is frozen, and so is everything hanging off it** — three
+  triggers. The exceptions are exactly two and both are decisions taken after
+  publication: `effective_to` (scheduling an end) and a node's `visibility` (an
+  incident lever that required republishing a whole menu is one nobody can pull
+  at 3am). A typo fix is therefore a new version, which is the
+  preview-then-publish discipline rather than an oversight.
+- **`mercaria_navigation_published_nodes_frozen` and `…_labels_frozen` are TWO
+  functions, not one body reading `TG_TABLE_NAME`.** plpgsql resolves a record's
+  fields when it prepares the expression containing them, so a single function
+  mentioning both `NEW.tree_id` and `NEW.node_id` raises "record NEW has no
+  field" on whichever table it is attached to — at RUNTIME, on the first write,
+  not at creation. Any future trigger shared across two tables in this schema has
+  the same constraint.
+- **`navigation_node_localizations` is ADR 0007 D4's per-entity shape** (locale,
+  status, provenance, source_locale, source_revision, reviewed_by, reviewed_at,
+  `UNIQUE(node_id, locale)`), and the node row carries NO label column at all —
+  which is what makes "stable ids and keys PLUS localized presentation, never
+  presentation alone" a property of the schema. Its status and provenance tuples
+  are navigation-local COPIES of D4's vocabulary and are deleted when the
+  localization family (merge-order step 2) lands; two lists describing one
+  vocabulary can disagree, and the direction they disagree in is always the
+  permissive one.
+- **Every locale column carries a BCP-47 SHAPE check written with character
+  classes and no backslash** — the `attribute_labels` predicate verbatim. A regex
+  written in a JS template literal loses its escapes on the way into the
+  generated SQL, and the damage is silent: a `\.` that became `.` produces a
+  CHECK that admits what it was written to refuse. It becomes a `checkOneOf`
+  against the supported-locale tuple when that tuple exists.
+- **`navigation_nodes.campaign_url` is `like 'https://%'`, not a regex**, for the
+  same reason: a URL pattern is exactly where a lost backslash does its damage,
+  and `like` needs none. The request schema parses it with `URL` as well, which
+  is what tells `https://evil.example@mercaria.co` from `https://mercaria.co`.
+- **A saved query's filters are real columns, never JSONB** (D14 permits a
+  source-shaped payload, an immutable schema snapshot and a bounded rule AST; a
+  filter set is none of the three), with `navigation_saved_query_attribute_filters`
+  as a child table because an array of `(attribute, values)` pairs is a JSONB bag
+  by another name. Its `values` uses `cardinality(...) >= 1`, NEVER
+  `array_length` (NULL on `{}`, and a CHECK reads NULL as satisfied, so the
+  obvious spelling admits exactly the empty array it refuses).
+- **A price bound is one currency for both ends** — amount-and-currency present
+  together per end, the two currencies forced equal, and the range the right way
+  round. `optionalMoney` gives each bound its OWN currency column, so a reader
+  that treats `price_min_currency` as "the" currency silently drops a max-only
+  filter; the projection reads `min ?? max`.
+- **There is no sort, intent, weight, boost, rank or policy column anywhere in
+  the domain.** Ordering within a menu is `position`, an editorial sequence
+  somebody typed; how RESULTS are ordered is #74's, behind its versioned policy.
+  `NAVIGATION_FORBIDDEN_TARGET_KINDS` names `sponsored_placement`,
+  `paid_ranking_slot` and `category_write` as VALUES, disjoint from the permitted
+  seven by a test.
+- **`navigation_trees.published_by_oxy_user_id` and
+  `navigation_node_localizations.reviewed_by_oxy_user_id`** are registered in
+  `deferredForeignKeys.ts` as `OXY_ACCOUNT`: Oxy owns identity, and both sit on
+  rows whose purpose is to answer "who decided this", which an erasable actor
+  column would answer with a NULL.
