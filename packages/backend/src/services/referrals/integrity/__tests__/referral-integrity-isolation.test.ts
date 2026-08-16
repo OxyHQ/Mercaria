@@ -88,10 +88,17 @@ const FILES = [...sourceFiles(INTEGRITY_DIR), ...sourceFiles(INTEGRITY_DB_DIR)];
 interface Wall {
   name: string;
   pattern: RegExp;
-  /** A source fragment the pattern MUST match — the mutation self-test. */
-  positive: string;
-  /** A fragment it must NOT match: something this domain legitimately does. */
-  negative: string;
+  /**
+   * Source fragments the pattern MUST match — the mutation self-test.
+   *
+   * A LIST rather than one string, because a wall usually forbids a class of
+   * import with several spellings and one example proves only the spelling it
+   * happens to carry. WALL 2 shipped with a single directory-shaped positive
+   * and silently admitted three other shapes for exactly that reason.
+   */
+  positive: readonly string[];
+  /** Fragments it must NOT match: things this domain legitimately does. */
+  negative: readonly string[];
 }
 
 const WALLS: readonly Wall[] = [
@@ -100,8 +107,8 @@ const WALLS: readonly Wall[] = [
     // The one class #148 boundary 2 forbids and a fraud detector most wants.
     pattern:
       /\b(ipAddress|ip_address|remoteAddress|userAgent|user_agent|deviceFingerprint|device_fingerprint|canvasFingerprint|tlsFingerprint|advertisingIdentifier|cardFingerprint|card_fingerprint|stripeCustomerId|stripe_customer_id|paymentMethodId|emailHash|email_hash|phoneNumber|phone_number)\b/,
-    positive: 'const key = buildKey(request.ipAddress, request.userAgent);',
-    negative: 'const facts = { merchantMembershipOverlap: true, capRefusalCount: 3 };',
+    positive: ['const key = buildKey(request.ipAddress, request.userAgent);'],
+    negative: ['const facts = { merchantMembershipOverlap: true, capRefusalCount: 3 };'],
   },
   {
     name: 'the payment domain',
@@ -110,38 +117,67 @@ const WALLS: readonly Wall[] = [
     // pattern never sees. #125's isolation gate shipped that gap and its own
     // mutation self-test caught it; this one caught the same thing on its first
     // run, which is the whole argument for having the self-test.
-    pattern: /from\s+['"][^'"]*[/']((services\/)?payments|db\/payments|stripe)\//,
-    positive: "import { x } from '../payments/ledger.js';",
-    negative: "import { y } from '../../../db/referrals/partnerRepository.js';",
+    //
+    // It then shipped a SECOND gap of the same family, found while #344 was
+    // being scoped and fixed here. The pattern required a trailing `/`, so it
+    // matched payment DIRECTORIES and missed every payment MODULE — including
+    // `db/schema/payments.js`, which is where `provider_accounts` lives and
+    // therefore the single import somebody wiring a risk producer would reach
+    // for. It also missed `db/schema/ledger.js` and a bare `from 'stripe'`.
+    // Three shapes, all passing a gate whose entire purpose is to refuse them,
+    // which is worse than no gate because it certifies.
+    //
+    // The lesson is the one the `positive` list now encodes: a wall proved by
+    // ONE example is proved only for that example's spelling.
+    pattern:
+      /\bfrom\s+['"](?:[^'"]*\/)?(?:(?:services\/)?payments\/|db\/payments\/|db\/schema\/(?:payments|ledger)\.|stripe(?:['"]|\/))/,
+    positive: [
+      "import { x } from '../payments/ledger.js';",
+      "import { y } from '../../db/payments/ledgerRepository.js';",
+      "import { z } from '../../services/payments/redact.js';",
+      // The three the previous pattern admitted.
+      "import { providerAccounts } from '../../../db/schema/payments.js';",
+      "import { ledgerEntries } from '../../../db/schema/ledger.js';",
+      "import Stripe from 'stripe';",
+    ],
+    negative: [
+      "import { y } from '../../../db/referrals/partnerRepository.js';",
+      // The neighbours this domain legitimately reads, and the ones a widened
+      // pattern would most plausibly catch by accident.
+      "import { referralConversions } from '../../../db/schema/referrals.js';",
+      "import { storeMembers } from '../../../db/schema/stores.js';",
+      "import { merchantClaims } from '../../../db/schema/merchantClaims.js';",
+      "import { getDb } from '../../../db/postgres.js';",
+    ],
   },
   {
     name: 'ranking, search, discovery or a feed',
     pattern: /from\s+['"][^'"]*[/']((services\/)?(ranking|search|offers|feed-import))\//,
-    positive: "import { rankOffers } from '../../ranking/score.js';",
-    negative: "import { getDb } from '../../../db/postgres.js';",
+    positive: ["import { rankOffers } from '../../ranking/score.js';"],
+    negative: ["import { getDb } from '../../../db/postgres.js';"],
   },
   {
     name: 'the retail, procurement or supplier domain',
     pattern:
       /from\s+['"][^'"]*[/'](retail-pricing|retail-checkout|retail-pilot|retail-eligibility|supplier-preflight|supplier-orders|procurement)\//,
-    positive: "import { z } from '../../retail-pricing/compose.js';",
-    negative: "import { conflict } from '../../../lib/errors/error-codes.js';",
+    positive: ["import { z } from '../../retail-pricing/compose.js';"],
+    negative: ["import { conflict } from '../../../lib/errors/error-codes.js';"],
   },
   {
     name: 'OxyPay or FairCoin, anywhere in the integrity domain',
     // RAW source rather than comment-stripped: a claim in a comment is a
     // sentence somebody pastes into a screen next week (#81's reasoning).
     pattern: /\b(oxy_?pay|oxypay|faircoin|FAIR_?COIN)\b/i,
-    positive: 'const rail = "oxypay";',
-    negative: 'const currency = reward.currency;',
+    positive: ['const rail = "oxypay";'],
+    negative: ['const currency = reward.currency;'],
   },
   {
     name: 'an outbound HTTP call',
     // A fraud domain reaching a third-party reputation or identity service is
     // the cross-product graph arriving through somebody else's API.
     pattern: /\b(safeFetch|fetch\s*\(|axios|got\s*\(|https?\.request)\b/,
-    positive: 'const res = await safeFetch(url);',
-    negative: 'const rows = await findLiveEnforcementActions(db, partnerId);',
+    positive: ['const res = await safeFetch(url);'],
+    negative: ['const rows = await findLiveEnforcementActions(db, partnerId);'],
   },
 ];
 
@@ -166,8 +202,14 @@ describe('referral integrity isolation (static)', () => {
       // The mutation self-test, in BOTH directions: the detector fires on the
       // thing it forbids and does NOT fire on what this domain legitimately
       // does. A detector that matches everything passes the first half.
-      expect(wall.pattern.test(wall.positive)).toBe(true);
-      expect(wall.pattern.test(wall.negative)).toBe(false);
+      expect(wall.positive.length).toBeGreaterThan(0);
+      expect(wall.negative.length).toBeGreaterThan(0);
+      for (const fragment of wall.positive) {
+        expect(wall.pattern.test(fragment), `should CATCH: ${fragment}`).toBe(true);
+      }
+      for (const fragment of wall.negative) {
+        expect(wall.pattern.test(fragment), `should NOT catch: ${fragment}`).toBe(false);
+      }
     });
   }
 

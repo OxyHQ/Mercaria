@@ -31,7 +31,7 @@
  * is NOT read as `false` — see `assessSelfReferral`.
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import {
   REFERRAL_ENROLLMENT_MODE_RULES,
   type ReferralEnrollmentMode,
@@ -151,10 +151,25 @@ export async function collectSelfReferralFacts(
     facts.enrollmentIsStaffOrTest = !modeRule.earnsProductionRewards;
   }
 
+  // The LATEST revision, explicitly ordered.
+  //
+  // This read was `.limit(1)` with NO `orderBy`, which in SQL returns an
+  // ARBITRARY row: a partner who revised their application (#146 keeps every
+  // revision, and `changes_requested` exists so they can) got whichever one the
+  // planner happened to hand back. That is a nondeterministic input to a
+  // self-referral gate — the same partner could be reviewed or admitted across
+  // two calls with nothing about them changed, and nobody could reproduce it.
+  //
+  // The NEWEST revision is the right one because it is the partner's CURRENT
+  // statement: a disclosure made on revision 1 and removed on revision 2 has
+  // been withdrawn, and reading the old one holds a superseded answer against
+  // them. `desc(revision)` rather than `desc(createdAt)` — `revision` is the
+  // column #146 increments and two rows can share a timestamp.
   const [application] = await db
     .select({ disclosure: referralPartnerApplications.relatedPartyDisclosure })
     .from(referralPartnerApplications)
     .where(eq(referralPartnerApplications.partnerId, partner.id))
+    .orderBy(desc(referralPartnerApplications.revision))
     .limit(1);
   if (application !== undefined) {
     const disclosed = (application.disclosure ?? '').trim();
