@@ -597,8 +597,13 @@ export async function runCanonicalSearch(
       // CURRENT offer surviving the scope is not an answer to it. The
       // unfiltered case keeps such a product — #70 freshness rule 1.
       if (context === undefined || context.summary === undefined) continue;
-      if (request.filters.price !== undefined && !context.satisfiesPrice) continue;
-      if (request.filters.officialChannelOnly === true && !context.fromOfficialChannel) continue;
+      // ONE test, because there is one fact: did a SINGLE offer answer
+      // everything the shopper asked for. This was two tests over two
+      // independent booleans, which passed a product whose cheap offer was
+      // unofficial and whose official offer was expensive — neither of them the
+      // thing the shopper filtered for (#438). `not_requested` keeps the
+      // product: it means nothing offer-side was asked in the service.
+      if (context.offerMatch.outcome === 'unmatched') continue;
     }
     page.push(entry);
     if (page.length >= request.limit) break;

@@ -182,18 +182,62 @@ storage".
 The official-channel filter reads #55's **temporal** relationships live, so an
 authorization that lapsed a minute ago stops qualifying with no sweep having run.
 
+### Every offer-side filter is answered by ONE offer (#438)
+
+Market, kind, availability, condition and merchant are columns on `offers`, so
+they go into the ranking statement's scope and are same-offer by construction.
+The price bound needs a conversion context and the official-channel test needs a
+validity window, so neither can be expressed there and both are answered in the
+service — which is where they used to be answered SEPARATELY, each a boolean set
+by the first offer that satisfied it on its own. A product then passed
+`price <= X` **and** `officialChannelOnly` when its cheap offer was unofficial
+and its official offer was expensive: no single offer satisfied both, and the
+shopper who asked for "official channel, under X" got a product where neither
+was true of the thing they could buy.
+
+`SearchOfferMatch` replaced the two booleans, and it is a **shape rather than a
+check**: `not_requested | matched(offerId) | unmatched`, with no per-requirement
+result anywhere for a caller to recombine, and the one value reporting success
+naming the single offer that produced it. `matchOfferRequirements` is its only
+producer and takes the whole requirement set at once. The SQL half of the same
+rule is `buildEntityPredicate` (#367's facets), which nests the offer `exists`
+INSIDE the variant one rather than beside it.
+
+An unknown price satisfies nothing and refuses nothing: the per-offer verdict
+carries `unknown_unpriced` and `unknown_unconvertible` beside `satisfied` and
+`refused`, so an offer Mercaria cannot price is neither a soft yes nor a claim
+that it is too expensive — #74's `RankingSignalOutcome` and #78's
+`PriceHistoryValue` take the same third answer. Only `satisfied` may produce a
+match.
+
+`same-offer-filters.realdb.test.ts` pins it with a crossed fixture, the naive
+per-requirement derivation written out and shown to admit the product, and an
+aligned product returned under the identical filters so "returns nothing" cannot
+pass by matching nothing.
+
 ### Money is never compared across currencies without saying so
 
 `SearchPriceFilter.currency` is REQUIRED. A bound with no currency is not a
 weaker filter, it is an incoherent one, and the shape is what enforces it.
 
-`evaluatePriceBound` has THREE answers, not two. `unconvertible` covers an
-unpriced offer, a currency outside Mercaria's presentment set, and a pair the
-rate map could not serve — all of which mean "Mercaria cannot say", and none of
-which may be reported as "too expensive". Those currencies are named in
-`SearchFxContext.unconvertibleCurrencies`, so the exclusion is visible rather
-than silent. A same-currency comparison needs no rate at all and stays
-answerable on a page where FX is unavailable entirely.
+`evaluatePriceBound` has FOUR answers, not two. `unpriced` is an offer that
+publishes no price; `unconvertible` covers a currency outside Mercaria's
+presentment set and a pair the rate map could not serve. Both mean "Mercaria
+cannot say", and neither may be reported as "too expensive". A same-currency
+comparison needs no rate at all and stays answerable on a page where FX is
+unavailable entirely.
+
+`unconvertible` NAMES its currency in the branch itself rather than carrying an
+optional field, so recording the exclusion without naming what was excluded is
+unrepresentable, and the page lists them in
+`SearchFxContext.unconvertibleCurrencies`. **That visibility has a boundary
+worth stating**: `SearchFxContext` requires a `provider` and an `asOf`, which
+describe a rate map that was actually fetched, and a currency outside
+`ALL_CURRENCY_CODES` is never sent to `getRates` at all — there is no pair to
+ask for. So an offer in a currency Mercaria does not model produces no context
+to be named in, and is excluded silently rather than with an invented provider.
+Closing that needs `SearchFxContext` to report an exclusion without asserting a
+conversion, which is a change to a wire contract several clients read.
 
 One `getRates` call per REQUEST, never per product: the lookup is cached and
 cheap, but a per-product call would make the page's FX behaviour depend on how
