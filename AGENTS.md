@@ -3625,11 +3625,13 @@ matcher, #68 freshness — nothing here is a second copy of any of them.
   deployment gets an honest `auth_failure` naming the missing secret. Operator
   surface `/internal/awin/*` on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
   allow-list, mounted while `AWIN_ENABLED` is off.
-- Deferred, each a named contract that fails closed: **#67** (the outbound
-  redirect and commission reconciliation — the deep link is validated, stored
-  unmodified and never composed into a Mercaria URL; the ≤31-day window chunker
-  and the network budget are supplied and NOTHING calls the transactions
-  endpoint, so the seam fails closed by ABSENCE), **#59** (duplicate GTINs,
+- **#67 is built for this source.** The deep link is validated, stored
+  unmodified and never composed into a Mercaria URL — #66 never builds an
+  outbound redirect itself — and #67's own reconciliation reader now calls
+  Awin's Publisher API transactions endpoint (`services/outbound/reconciliation/awin.ts`),
+  consuming the ≤31-day window chunker and the network budget this domain
+  supplies.
+- Deferred, each a named contract that fails closed: **#59** (duplicate GTINs,
   `create_new` and ambiguous matches all route to #58's queue), **#74**
   (ranking — a scanned gate), **#65** (independent; convergence between the two
   is exercised generically rather than waiting for it), **#84** (native-store
@@ -4748,15 +4750,19 @@ at request time from the reads that measurement covers.
   `excludedCount` is the COUNT and never the list — "why is my offer missing" is
   a seller's question `/offer-comparison` answers, and a shopper's page carrying
   it would publish one seller's refusal to every other seller's customers.
-- **The outbound handoff FAILS CLOSED, and #67 is closed-but-unbuilt.** Issue
-  #67 (the `/out/:token` redirect) was auto-closed by a keyword in #66's PR body
-  (commit `7e22da6`) and the code does not exist. The page discloses the
-  destination HOST — a hostname is not a link and carries no parameters — and
-  refuses the handoff, because a raw link asserts at RENDER time what only a
-  click can establish (#68's `assertOfferOutboundEligible` exists for exactly
-  that) and discards the relationship an `affiliate` offer exists under.
-  Building the redirect here would be #37's route without the token, the click
-  record, the bot handling or the open-redirect defence.
+- **The outbound handoff goes through #67's `/out/:token` redirect.** The page
+  never links straight to `offer.destinationUrl`, because that asserts at
+  RENDER time what only a click can establish (#68's
+  `assertOfferOutboundEligible` exists for exactly that) and would discard the
+  relationship an `affiliate` offer exists under; deciding the destination
+  inside `resolveProductPageOutbound` itself would be a second place answering
+  where Mercaria may send a browser, the shape an open redirect takes. So the
+  page mints a token naming the OFFER and hands it to `/out/:token`, which
+  revalidates, checks the host and records the click. `ProductPageOutbound`'s
+  `outbound` branch carries a MERCARIA path (`redirectPath`) by TYPE, never a
+  merchant URL, plus the destination HOST for disclosure alongside it. With
+  `OUTBOUND_REDIRECT_ENABLED` off the branch falls back to `unavailable` with
+  the host alone, exactly as it did before #67 shipped.
 - **An external row carries no variant id and no listing id**, so #71 acceptance
   3 is a shape rather than a check; the native branch carries both and is
   switched on the DERIVED checkout verdict, so a native offer never gets an
@@ -4800,9 +4806,7 @@ at request time from the reads that measurement covers.
   only a browser knows and the storefront has no analytics client; deriving them
   server-side would be fabrication (a variant-scoped READ is a deep link as
   often as a selection). They are #111's, with #107's and #109's client facts.
-- Seams, each named rather than stubbed: **#37/#67** (the redirect;
-  `ProductPageOutbound`'s `outbound` branch is a MERCARIA path by type, so
-  nothing here can become a tracked URL), **#41** ("Sell yours" and nearby
+- Seams, each named rather than stubbed: **#41** ("Sell yours" and nearby
   pickup — #93 publishes collection points now, and `best_nearby_pickup` is
   still never awarded because this page accepts no viewer coordinate, so the
   control stays ABSENT rather than dead), **#79/#39**

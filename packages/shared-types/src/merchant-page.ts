@@ -183,10 +183,12 @@ export interface MerchantPageChannel {
    */
   readonly currentOfferCount: number;
   /**
-   * The outbound action, which #67 owns and which does not exist yet.
+   * The outbound action, which #73 has not yet wired to #67.
    *
-   * Present so the contract is visible rather than invented later: until #67
-   * ships, {@link MerchantChannelOutbound} has one branch and it refuses.
+   * Present so the contract is visible rather than invented later: #67
+   * shipped scoped to an OFFER click, and {@link MerchantChannelOutbound}
+   * still has one branch and it refuses — a channel visit is not an offer
+   * click #67's existing token can name.
    */
   readonly outbound: MerchantChannelOutbound;
 }
@@ -211,7 +213,7 @@ export type MerchantChannelOutbound =
   | { readonly outcome: 'unavailable'; readonly reason: MerchantOutboundUnavailableReason }
   | { readonly outcome: 'available'; readonly url: string };
 
-/** Why an outbound action is unavailable. One member until #67 lands. */
+/** Why an outbound action is unavailable. One member until #73 wires this to #67. */
 export const MERCHANT_OUTBOUND_UNAVAILABLE_REASONS = ['outbound_redirect_not_built'] as const;
 export type MerchantOutboundUnavailableReason =
   (typeof MERCHANT_OUTBOUND_UNAVAILABLE_REASONS)[number];

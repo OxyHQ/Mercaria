@@ -23,8 +23,10 @@
  * session id, no payment-method detail, no card fingerprint and no IP address.
  * A request is identified by its ORDER; the contact it would be answered to is
  * one join away on `guest_checkouts` and is read only by the send path.
- * `BUYER_REQUEST_FORBIDDEN_IDENTIFIERS` names the prohibition as a value and
- * `buyer-request-forbidden-columns.test.ts` walks these tables against it.
+ * `BUYER_REQUEST_FORBIDDEN_IDENTIFIERS` names the prohibition as a value,
+ * enforced today in `authorization.ts` and asserted statically in
+ * `buyer-request-isolation.test.ts`; a test walking these tables' actual
+ * columns against it does not exist yet (#354).
  *
  * ## `guest_checkout_id` is NOT a column here, and #110 asks for one
  *

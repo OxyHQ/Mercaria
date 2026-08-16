@@ -2,7 +2,7 @@
 
 Per-advertiser product feeds from the Awin affiliate network, ingested through
 #62's framework and #63's parsing stack, plus the Publisher API budget that
-commission reconciliation (#67) will spend.
+commission reconciliation (#67) spends.
 
 - **Status:** Implemented; **not activated** — every gate in §11 is red until an
   approved publisher account exists.
@@ -427,27 +427,28 @@ under the 20-calls-a-minute budget of §4. The network minimum payout is
 Per-programme commission rates are visible only inside an approved account:
 **requires account approval**.
 
-**#66 calls that endpoint from nowhere, and that is deliberate rather than
-unfinished.** ADR-level ownership is explicit: #67 owns the outbound redirect
-AND commission reconciliation, and a transaction row Mercaria cannot attribute
-to a click it recorded is not reconciliation — it is a number in a table with
-nothing to compare it against. Storing them early would produce exactly the
-"looked fine" shape this document opens with.
+**#66 still calls that endpoint from nowhere, and that stays deliberate rather
+than unfinished.** ADR-level ownership is explicit: #67 owns the outbound
+redirect AND commission reconciliation, and a transaction row Mercaria cannot
+attribute to a click it recorded is not reconciliation — it is a number in a
+table with nothing to compare it against. Storing them from #66 would have
+produced exactly the "looked fine" shape this document opens with.
 
-What #66 DOES supply, so #67 adds a caller and not a design:
+What #66 supplies, so #67 adds a caller and not a design:
 
 - `AWIN_PUBLISHER_API_MAX_WINDOW_DAYS` (31) and
   `AWIN_PUBLISHER_API_CALLS_PER_MINUTE` (20) as shared-types constants.
 - `splitAwinTransactionWindows(from, to)` — a pure, tested function that chunks
   a range into ≤31-day windows, inclusive of both ends, never emitting an empty
-  or inverted window. #67 will call it; getting the chunking wrong silently
-  drops a day of commission at every boundary.
-- The account-scoped network budget, already claimed by feed traffic, which a
-  transaction poll joins rather than duplicating.
+  or inverted window. #67's own reader
+  (`services/outbound/reconciliation/awin.ts`) now calls it.
+- The account-scoped network budget, already claimed by feed traffic, which
+  #67's transaction poll joins rather than duplicating.
 
-There is no `awin_transactions` table, no sink port and no scheduled job. The
-seam fails closed by ABSENCE — the strongest form, because there is nothing to
-mistake for a working feature.
+**#67 closed this seam.** `affiliate_transactions`,
+`affiliate_transaction_observations` and `affiliate_commission_postings` store
+what the reader reads, and `startAffiliateReconciliationDispatcher` is the
+scheduled job that polls it — see `docs/affiliate-outbound.md`.
 
 ---
 
@@ -713,11 +714,11 @@ Nothing below is green. Each is a gate, in the §9 sense of the #64 decision.
 
 Each is a NAMED contract, not a stub that lies.
 
-- **#67 — the outbound redirect and commission reconciliation.** `aw_deep_link`
-  is validated, stored unmodified as `offers.affiliate_url` and never composed
-  into a Mercaria URL; the destination stays the original. The window chunker
-  and the network budget are supplied; nothing calls the transactions endpoint
-  (§8).
+- **#67 is built.** `aw_deep_link` is validated, stored unmodified as
+  `offers.affiliate_url` and never composed into a Mercaria URL — this domain
+  never builds the outbound redirect itself; the destination stays the
+  original. #67's own reader now calls the transactions endpoint (§8),
+  consuming the window chunker and the network budget this domain supplies.
 - **#59 — review and corrections.** A duplicate GTIN across an advertiser's own
   rows, a `create_new` recommendation and an ambiguous match all route to #58's
   queue, which #59 reads. This domain resolves none of them.

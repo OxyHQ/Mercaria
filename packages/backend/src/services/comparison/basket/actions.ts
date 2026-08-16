@@ -18,13 +18,14 @@
  *
  * #71 made the same decision on the product page and stated why: a raw link
  * asserts at RENDER time what only a click can establish, and #68's
- * `assertOfferOutboundEligible` exists for exactly that moment. Composing a
- * tracked destination is #37's, is not built, and would be an open-redirect
- * surface if it were improvised here. So a client shows the shopper which
- * retailer they are about to visit and asks Mercaria for the destination when
- * they say yes — which is also what makes "confirm external destinations
- * individually" (UX rule 6) the natural implementation rather than an extra
- * screen.
+ * `assertOfferOutboundEligible` exists for exactly that moment. #37's `/out/:token`
+ * redirect (#67) IS built, but `BasketPlanActions` does not yet hand a line off
+ * to it — composing one here would be a second place answering where Mercaria
+ * may send a browser, the shape an open redirect takes. So a client shows the
+ * shopper which retailer they are about to visit and asks Mercaria for the
+ * destination when they say yes — which is also what makes "confirm external
+ * destinations individually" (UX rule 6) the natural implementation rather
+ * than an extra screen.
  */
 
 import type {

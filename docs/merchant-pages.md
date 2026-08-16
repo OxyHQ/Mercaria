@@ -270,9 +270,12 @@ turns exactly that case red.
 ### The outbound action is a named seam that fails closed
 
 Storefront rule 4 asks that an external storefront action link to the real
-destination "through #67". #67 is not built: every source domain in this
-repository (#57, #62, #65, #66, #68) already stores its destination URL verbatim
-and refuses to compose a tracked one. `MerchantChannelOutbound`'s `unavailable`
+destination "through #67". #67 — the outbound/affiliate redirect — is BUILT,
+but its token names exactly one thing, an OFFER, and a channel visit is not an
+offer click, so there is no shape of #67's existing token this could mint.
+Every source domain in this repository (#57, #62, #65, #66, #68) already
+stores its destination URL verbatim and refuses to compose a tracked one.
+`MerchantChannelOutbound`'s `unavailable`
 branch has no `url` property at all, so a client cannot read a destination out
 of a refusal and a future caller cannot "just return the public URL here"
 without changing the type in a diff somebody reviews. The untracked
@@ -368,7 +371,8 @@ vacuity floor asserting the DTO still exists under its current name, because
 ## Seams left to their owners
 
 - **#67 / #37** — the outbound redirect. `resolveChannelOutbound` publishes the
-  contract and refuses unconditionally; closing it is one function body.
+  contract and refuses unconditionally; closing it is one function body plus
+  whatever #67 needs to identify a CHANNEL visit rather than an offer click.
 - **#74** — ranking. Nothing here orders by anything but a fact, and a scanned
   gate keeps it that way.
 - **#84** — native-store linkage itself. This page READS `native_store_links`
