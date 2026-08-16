@@ -271,6 +271,14 @@ export const genericCompatibilityRelations = pgTable(
      * both IMMUTABLE, which a stored generated column requires. The separator is
      * `|`, which no uuid v7, ObjectId hex or vehicle key contains, so two
      * different endpoint sets cannot render to one key.
+     *
+     * **A `merge-plan.ts` `uniqueWith` must NEVER name this column.** The unique
+     * is taken on it, so naming it reads as the exact statement of the
+     * constraint — and measures nothing: the key CONTAINS the id a merge moves,
+     * so the pre-move key can never equal the winner's, the guard never fires,
+     * and the collision lands as a 23505 that fails the phase. Name the RAW
+     * components minus the one moving; `docs/compatibility.md` §"The merge plan"
+     * carries the measurement.
      */
     relationKey: text()
       .notNull()

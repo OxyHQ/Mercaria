@@ -258,11 +258,67 @@ conflicting row can be read back, and the realdb suite compares each against the
 value Postgres actually stored. A second spelling of a generated expression is a
 thing that can disagree.
 
-## Seams, each named rather than stubbed
+## The merge plan (#59), and the guard spelling that measures nothing
 
-- **The merge plan (#59).** Nine columns of this domain reference a mergeable
-  canonical entity and each needs a disposition in `services/curation/merge-plan.ts`
-  before the census will pass. They are listed in the PR that lands this domain.
+Nine columns of this domain reference a mergeable canonical entity, so
+`merge-plan-census.test.ts` fails the build until each has a disposition.
+
+- The four `generic_compatibility_relations` endpoints and the two
+  `automotive_fitments` subjects are **`repoint_if_absent`**: a claim the winner
+  already carries stays on the tombstone rather than colliding, and nothing is
+  lost because the winner already answers it.
+- The two `compatibility_claims` subjects are **`retained_by_tombstone`**.
+  Repointing would rewrite what a source SAID into a claim about an entity it
+  never named, which is the one thing the claim layer exists to prevent — and
+  `mercaria_compatibility_claims_raw_freeze` refuses the UPDATE anyway, so a
+  wrong disposition fails the phase rather than corrupting the record. The
+  SELECTED canonical fact still follows the winner, through the six entries
+  above.
+
+**`uniqueWith` must name the RAW components of the generated key, never the
+generated column itself.** This is the part that looks obvious and is wrong.
+
+`generic_compatibility_relations_open_key` is `(kind, relation_key)` and
+`automotive_fitments_open_key` is `(fitment_key)`, so naming `relation_key` in
+`uniqueWith` reads as the exact statement of the constraint. It measures
+nothing. The runner's `absenceGuard` compares
+`other.<uniqueWith> IS NOT DISTINCT FROM <the row being moved>.<uniqueWith>`, and
+the key CONTAINS the id being moved — so the loser row's pre-move key can never
+equal a winner row's key, the guard never fires, and the collision it exists to
+prevent lands as a `23505` that fails the merge phase. Measured against a real
+server, both spellings, on the same fixture:
+
+```
+uniqueWith = [relation_key]                       -> 23505, guard VACUOUS, phase FAILED
+uniqueWith = kind + the six OTHER key components  -> moved=0, guard fired
+```
+
+So the rule is: **every component of the key except the one being moved.** For
+`generic_compatibility_relations` that is `kind` plus six of
+`subject_product_id`, `subject_variant_id`, `target_family_id`,
+`target_product_id`, `target_variant_id`, `target_type`, `target_key`; for
+`automotive_fitments` it is six of `subject_product_id`, `subject_variant_id`,
+`vehicle_make_id`, `vehicle_model_id`, `vehicle_generation_id`,
+`vehicle_configuration_id`, `position`. Each entry also carries
+`guardWhereNullColumn: validTo`, so the guard is exactly as wide as the partial
+unique it guards and never wider.
+
+**Known limitation — [#405](https://github.com/OxyHQ/Mercaria/issues/405).** A
+relation naming the loser on BOTH ends cannot be repointed at all: the move makes
+subject and target equal and
+`generic_compatibility_relations_distinct_endpoints_check` raises `23514`. No
+`uniqueWith` can express "skip this row because the OTHER endpoint is also
+becoming the winner" — the guard only looks for a colliding winner row. #55 has
+the identical hazard (`commerce_relationships_distinct_brands_check` plus
+`related_brand_id`) and solved it with `conflict_gated`, which here would need a
+new `CATALOG_MERGE_CONFLICT_KINDS` member, a column pair on
+`catalog_merge_conflicts`, a probe and a resolution branch — four files across
+three domains, so it is #405 rather than part of this one. The failure direction
+is the safe one: `23514` blocks the phase loudly, `blocked` is not claimable so
+no dispatcher spins on it, and each phase is its own transaction so nothing is
+half-moved. The remedy is to close the relation before merging.
+
+## Seams, each named rather than stubbed
 - **D6's axis CHECK** (merge-order step 4) — the other wall around the option
   tables.
 - **The localization family** (merge-order step 2) — every display name for a
