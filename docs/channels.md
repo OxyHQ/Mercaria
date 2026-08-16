@@ -155,6 +155,49 @@ says WHICH entity is touched and cannot say to what DEGREE. The degree is kept
 true by measurement instead: the real normalizers are run, and the import path is
 probed for a `createCollection` it must not grow.
 
+#### The claim went stale within days, and the gate is what said so
+
+**`discounts` and `tax_rates` are `imported_only_as_part_of_an_order`, not
+`not_built_for_this_channel`.** The breakdown work below landed one commit after
+the coverage did, and it falsified both entries: "Mercaria does not exchange this
+with your platform" was on a merchant's screen while an imported order carried
+the coupon code that produced its discount. No provider member changed, so the
+census saw nothing — the suite caught it only because it asserted, as a proxy,
+that `buildExternalOrderDoc` still wrote the literals `appliedDiscounts: []` and
+`taxLines: []`.
+
+**It is not `partial`, and the reason is where the data lands.** `partial` is for
+an entity whose data reaches a LIVE Mercaria record used for Mercaria's own
+commerce — a listing joining a collection the merchant made. A discount breakdown
+reaches an imported ORDER, which is a recording of a sale that happened somewhere
+else: `order_applied_discounts.discount_id` holds an `ext:` value with no foreign
+key, exactly one query reads those rows, and nothing prices from them. The
+merchant consequence decides it. `partial` renders the entity under **"Syncs"**
+on the channel list, which a merchant reads as their platform's coupons working
+at Mercaria checkout — a false promise about money replacing a false absence,
+which is the worse of the two directions. `imported_only_as_part_of_an_order`
+renders "No list is imported. What appears comes only from the orders that are",
+which is exactly true and is already what `customers` and `refunds` say, both of
+them the same shape.
+
+**The replacement assertions are written to survive the next such change.** The
+literals cannot come back, so the proxy is gone; in its place the suite runs both
+real normalizers on a payload carrying a discount and a tax line (the ARRIVAL,
+which is the entry's second sentence), audits the real drizzle columns of
+`order_applied_discounts` and `order_tax_lines` for anything rule-shaped (the
+RULE has nowhere to land, which is why a platform coupon cannot be redeemed
+here), and probes the import path for every writer that would create a Mercaria
+`Discount`, `TaxRate`, `Customer`, `Refund` or `Collection`. That map is keyed on
+a type-only union of those modules' real exports, so a renamed writer fails `tsc`
+rather than sitting in the list matching nothing — which the old probe did: one
+of its three tokens was `createRefund`, and the only `createRefund*` in the
+repository is a zod schema.
+
+What is NOT replaced is a tripwire on the two fields' contents as such. It fired
+once, correctly, and this is its resolution; the behaviour is now guarded by the
+contract suite, which drives a real order through the real service into a real
+database and asserts the persisted rows.
+
 ### How far back an order import reaches is derived, never stored (#380, #287)
 
 `read_all_orders` is deliberately not requested (`shopify/config.ts`, and adding

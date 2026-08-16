@@ -32,9 +32,17 @@
  * **A provider that grows a data path fails the build.**
  * `channel-entity-coverage.test.ts` walks the real provider objects' own members
  * and refuses any that is in neither the entity map nor the explicitly
- * non-entity one — so a `fetchDiscounts` landing beside a policy that still says
- * `not_built_for_this_channel` cannot ship. That interlock is what stops this
- * file rotting into the prose it replaces.
+ * non-entity one — so a `fetchDiscounts` landing beside a policy that still
+ * calls the entity absent cannot ship. That interlock is what stops this file
+ * rotting into the prose it replaces.
+ *
+ * **And a claim can go stale with no new provider member at all**, which is the
+ * one #378 actually hit: `buildExternalOrderDoc` began writing a discount and
+ * tax breakdown from data that was already reaching a normalized order, so the
+ * member census saw nothing while `discounts` and `tax_rates` still read
+ * `not_built_for_this_channel`. The same test now measures the normalizers, and
+ * probes the import path for the record writers these entries say it does not
+ * call.
  *
  * ## What is deliberately NOT here
  *
@@ -132,20 +140,32 @@ export const CHANNEL_ENTITY_POLICY: Readonly<Record<ChannelSyncEntity, ChannelEn
 
   discounts: {
     kind: 'never_synced',
-    reason: 'not_built_for_this_channel',
-    // THE REPORT. `buildExternalOrderDoc` sets `appliedDiscounts: []` and carries
-    // only `totals.discountTotal`, so an imported order's discounted total is
-    // right and nothing says which rule produced it. Mercaria's own `Discount`
-    // records are unaffected and are not published outward either.
-    note: 'Discount rules are not exchanged in either direction. An imported order keeps the discounted total it was placed with, and the rule behind it is not imported.',
+    // THE REPORT, and the claim MOVED once (#378). `buildExternalOrderDoc` wrote
+    // the literal `appliedDiscounts: []` until then, which is why this entry
+    // said `not_built_for_this_channel`. It now carries the platform's own
+    // per-discount breakdown — code, title, amount, and the value type when the
+    // platform states one — onto the imported ORDER.
+    //
+    // The reason is `imported_only_as_part_of_an_order` rather than `partial`
+    // because of WHERE that lands. `order_applied_discounts.discount_id` holds
+    // an `ext:<provider>:…` value and carries no foreign key, precisely because
+    // it is historical provenance; those rows are read by exactly one thing (the
+    // order hydration join) and price nothing. No Mercaria `Discount` exists, so
+    // an imported code cannot be redeemed at Mercaria checkout. `partial` puts
+    // an entity under "Syncs" on the channel list, which is a merchant reading
+    // that their platform's coupons work here — a false promise about money,
+    // replacing a false absence with the worse of the two.
+    reason: 'imported_only_as_part_of_an_order',
+    note: "The platform's discount rules are not imported and cannot be redeemed at Mercaria checkout. The code and the amount of each discount a buyer already redeemed arrive on the imported order.",
   },
 
   tax_rates: {
     kind: 'never_synced',
-    reason: 'not_built_for_this_channel',
-    // Same shape as discounts: `taxLines: []` on an imported order, with
-    // `totals.tax` carried. Mercaria's `TaxRate` per jurisdiction is separate.
-    note: 'Tax rates are not exchanged. An imported order keeps the tax it was charged, and Mercaria tax rates are configured here.',
+    // The same shape and the same change: `taxLines: []` until #378, now the
+    // platform's per-rate breakdown on the imported order. Mercaria's `TaxRate`
+    // per jurisdiction is configured here and no import writes one.
+    reason: 'imported_only_as_part_of_an_order',
+    note: "The platform's tax rate table is not imported and Mercaria tax rates are configured here. The name and amount of each rate an order was charged arrive on the imported order.",
   },
 
   refunds: {
