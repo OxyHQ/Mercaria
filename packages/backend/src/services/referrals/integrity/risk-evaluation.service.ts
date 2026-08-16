@@ -110,7 +110,7 @@ const CAP_REFUSAL_REASONS: readonly ReferralRewardRefusalReason[] = [
  * The evidence kind `click_to_conversion_pattern` may be measured over.
  *
  * ONLY `link_click`, and this is the single most load-bearing decision in the
- * four producers. `code_entry_at_checkout` is a partner's code typed INTO the
+ * two producers. `code_entry_at_checkout` is a partner's code typed INTO the
  * checkout form, so the interval between that evidence and the conversion is
  * seconds BY CONSTRUCTION — measuring it would fire
  * `click_to_conversion_pattern` on every honest checkout-code redemption there
