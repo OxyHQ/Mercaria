@@ -226,6 +226,13 @@ export * from './referral-integrity';
 // which section answers the other three.
 export * from './referral-dashboard';
 
+// The BOUNDED REFERRAL PILOTS (#149, ADR 0005 "Rollout and rollback" phase 2) —
+// the two launched pilot subjects and the four excluded by name, the cohort
+// lifecycle, the twelve stop metrics with their units and scopes, the nine
+// INTERNAL admission refusals, and the thirty measure definitions #149's
+// "Pilot metrics" and "Unit economics" sections ask to be stated exactly.
+export * from './referral-pilot';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';

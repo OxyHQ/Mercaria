@@ -603,6 +603,13 @@
       "when": 1786852123132,
       "tag": "0085_amusing_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1786857026018,
+      "tag": "0086_clever_wasp",
+      "breakpoints": true
     }
   ]
 }

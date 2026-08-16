@@ -2510,7 +2510,12 @@ pin.
   enrol: `REFERRAL_PARTNER_ENROLLMENT_ENABLED` defaults TRUE and gates the two
   partner surfaces, and until a partner has accepted the agreement AND completed
   the tax questionnaire through them, ADR 0005 D15 gate 2 reads `pending` and
-  every batch blocks (#146 increment 2, `docs/referral-enrollment.md`).
+  every batch blocks (#146 increment 2, `docs/referral-enrollment.md`). The
+  FOURTH half is #149's: a programme with no ACTIVE pilot cohort attributes
+  NOTHING (`no_active_cohort`), so bounds must be published — all twelve stop
+  thresholds and at least one allow-listed partner, or the publish is refused —
+  before `REFERRALS_ENABLED` goes on (`docs/referral-pilots.md`
+  §"Production-readiness checklist").
 
 ## Graph query benchmarks and the indexes they justified (#61, ADR 0002 D21)
 
@@ -6721,3 +6726,93 @@ resolving; a negated one closes too.
   and the redirect answers `X-Robots-Tag: noindex, nofollow`; the storefront
   renders a `Pressable`, so #75's server-rendered HTML applies it), and #77's
   client-side `external_outbound_click` (#111 owns the analytics client).
+
+## The bounded referral pilots (#149, ADR 0005 rollout phase 2)
+
+`services/referral-pilot/` (4 modules) + `db/referralPilot/` (2 repositories) +
+`db/schema/referralPilot.ts` (4 tables) + the pilot half of
+`/internal/referrals/*`, plus ONE gate call in `attributeTouch`. Full reference:
+**`docs/referral-pilots.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"The bounded referral pilots (#149)". #142–#148 answer "can Mercaria do this
+correctly"; this answers **how much of it Mercaria is willing to do at all
+today, and what would make it stop.**
+
+- **The bounds are ROWS, not environment variables, and this domain adds NO
+  variable of its own** — #125's three reasons verbatim (a bound has to be
+  attributable, has to survive a deploy, and an allow-list is a table).
+  `referral_programs.cohort_keys` is deliberately not reused: it carries no
+  author, no dates, no caps and no thresholds.
+- **No active cohort ⇒ every NEW attribution is refused** (`no_active_cohort`).
+  An empty pilot IS the off position. There is no `admitted` path that does not
+  name a cohort version.
+- **The cohort is keyed on the PROGRAMME**, not on a configured pilot key —
+  so the gate looks bounds up by a fact the touch already carries, no string
+  could point it elsewhere, and the table is not a global slot two parallel
+  realdb files contend for (`match_policy_versions_active_key`'s hazard,
+  avoided rather than queued for).
+- **A stop pauses ENTRY and nothing else**, a property of the CALL GRAPH:
+  `evaluateReferralPilotAdmission` is called from `attributeTouch` and nowhere
+  else, so conversions, accruals, holds, vesting, payout batches and appeals all
+  carry on. `referral-pilot-isolation.test.ts` gates BOTH directions — no
+  settlement module may call it, and `attributeTouch` must, so the gate cannot
+  be green and inert.
+- **The gate sits BELOW every #142/#148 check and ABOVE the winner
+  comparison.** That is what makes a pilot bound refuse a NEW attribution while
+  touching nothing standing, and it is the cheapest position: the entry count is
+  the only read it adds, skipped when no cohort is active.
+- **ONE refusal reaches the partner** (`pilot_not_admitted`, a new
+  `ReferralConflictReason`); which of the nine bounds fired is on the
+  `referral_events` row. Deliberately distinct from `enforcement_suspended`
+  (#148, about THIS partner) and `program_retired` (#142, about the programme).
+- **The entry caps are NOT atomic and the doc says so.** The count is taken in
+  the attribution's transaction, so two racers can both admit — the caps that
+  bound MONEY are #144's and ARE claimed atomically at accrual. A row lock here
+  would make the pilot's gate the throughput limit of every attribution.
+  Caps compare `>=`; a breach threshold is strictly `>`.
+- **A threshold nobody measured is `unmeasured`, and `no_producer` is kept
+  apart from `no_measurement`** — the first is a permanent gap naming its
+  issue, the second a transient one. A RATE is refused off a sample below
+  twenty; a count, an amount and a duration have no floor.
+- **A market-scoped threshold is REFUSED at publish**: a touch carries no
+  market, so such a stop could never bite, and a bound that reads as live and is
+  not is worse than an absent one.
+- **The expansion review is a COLUMN GROUP plus a publish refusal** —
+  `num_nonnulls(...) in (0, 4)`, a version above 1 must NAME its predecessor,
+  and publishing a successor refuses while the predecessor carries no review.
+  #149 acceptance 7 as a state the surface cannot produce. A review is written
+  ONCE (a CAS plus a trigger).
+- **Thirty measure DEFINITIONS, eight producers.** Every measure names
+  numerator, denominator, window, source and attribution limit (#77's rule), and
+  `seam` is present EXACTLY when nothing could derive it. The report iterates
+  the DEFINITIONS and marks the rest `unmeasured` with a reason;
+  `netContributionMeasurable` is FALSE while any of its five components is
+  unmeasured, so #149's "attractive GMV but negative contribution must not
+  expand" has a number behind it or says it has none. Closing a gap is adding a
+  key to `PRODUCED_MEASURE_KEYS`, never editing a definition.
+- **`gross_merchandise_value` and `analytics_events` are FORBIDDEN measure
+  sources**, disjoint from the permitted set by a test — #149's "do not count a
+  client-side success event as revenue or a bot click as acquisition", and ADR
+  0005's "do not use total order GMV as the default base".
+- **The realized base is read off `referral_rewards.funding_amount_minor`**, not
+  re-derived from `ledger_entries`: #144's accrual read it from the ledger
+  through the one adapter allowed to, and a second derivation could disagree
+  with what a partner was paid on. The cost is stated — a conversion whose
+  accrual was refused contributes no revenue here.
+- Operator surface `/internal/referrals/pilot/*` on the SAME
+  `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list #143/#145/#146/#147/#148 use, NOT
+  an eighth. The set is CLOSED: no "widen the active cohort", no "clear this
+  stop", no "override this admission", no "store this measurement", no "rewrite
+  this review".
+- **Existing realdb fixtures had to change, and that is the gate working.**
+  `services/referral-pilot/__tests__/pilot-fixture.ts` publishes bounds before
+  a test attributes; it ACCUMULATES (a frozen allow-list may not grow, so a
+  second partner is a new version carrying the first) and SERIALISES (two
+  concurrent publishes collide on `referral_pilot_cohorts_key_version_key`,
+  which is the index doing its job). Imported by nothing outside a test.
+- Migration `0086` (`pre`): four tables, three trigger pairs, and one widening
+  of `referral_attributions_conflict_reason_check` (9 → 10, nothing removed).
+- Seams: **#111** (the rollout review, the holdout incrementality needs, the
+  storefront analytics client), **#146** (the payout fee figure), **#85** (the
+  merchant-quality projection), a MARKET on a touch, and the producers for
+  twenty-two of the thirty measures — each listed in `docs/referral-pilots.md`
+  with what would close it.

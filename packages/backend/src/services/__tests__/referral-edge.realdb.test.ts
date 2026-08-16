@@ -50,6 +50,10 @@ import {
 import { mintReferralState } from '../referrals/referral-state.js';
 import { resolveReferralRedirect } from '../referrals/redirect.service.js';
 import type { CommerceActor } from '../commerce-actor.js';
+import {
+  admitPartnerToReferralPilot,
+  deleteReferralPilotFixtures,
+} from '../referral-pilot/__tests__/pilot-fixture.js';
 
 // Hoisted above the imports, so `config/index.ts` reads them at load. The edge
 // is gated by `REFERRALS_ENABLED`, which demands BOTH secrets.
@@ -72,6 +76,17 @@ const CHROME =
   'Chrome/124.0.0.0 Safari/537.36';
 
 const trackedProgramIds: string[] = [];
+
+/**
+ * The programme the NEXT partner is admitted to the pilot for (#149).
+ *
+ * `attributeTouch` refuses a new attribution for a programme with no active
+ * pilot cohort, so a fixture that wants one has to publish bounds — exactly as
+ * a deployment does. Every test here creates its programme before its partners,
+ * so `makeActiveProgram` records it and `makeApprovedPartner` admits to it.
+ */
+let currentPilotProgram: { programId: string; versionId: string } | null = null;
+
 const trackedPartnerIds: string[] = [];
 const trackedRedirectFroms: string[] = [];
 const trackedMerchantIds: string[] = [];
@@ -184,6 +199,7 @@ afterAll(async () => {
       .where(inArray(referralProgramControls.programId, trackedProgramIds));
   }
   if (trackedPartnerIds.length > 0) {
+    await deleteReferralPilotFixtures(trackedProgramIds, db);
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
   if (trackedProgramIds.length > 0) {
@@ -228,6 +244,7 @@ async function makeActiveProgram(
   });
   trackedProgramIds.push(draft.programId);
   const published = await publishProgram({ id: draft.id, approvedByOxyUserId: OPERATOR });
+  currentPilotProgram = { programId: draft.programId, versionId: published.id };
   return { programId: draft.programId, versionId: published.id };
 }
 
@@ -242,6 +259,14 @@ async function makeApprovedPartner(name: string): Promise<{ id: string }> {
   });
   trackedPartnerIds.push(partner.id);
   await approvePartner({ partnerId: partner.id, actorOxyUserId: OPERATOR, reason: 'test' });
+  if (currentPilotProgram !== null) {
+    await admitPartnerToReferralPilot({
+      programId: currentPilotProgram.programId,
+      programVersionId: currentPilotProgram.versionId,
+      partnerId: partner.id,
+      operatorOxyUserId: OPERATOR,
+    });
+  }
   return { id: partner.id };
 }
 
