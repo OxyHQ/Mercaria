@@ -183,9 +183,18 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
         expect(guarded, `${key} guards on the wrong columns`).toEqual(['author_oxy_user_id', 'scope']);
       }
     }
-    // The vacuity floor: "every reviews column is guarded" is also what a loop
-    // that found none reports.
-    expect(checked, 'the plan names no `reviews` column at all — did the table move?').toBe(2);
+    /**
+     * The vacuity floor. "Every `reviews` column is guarded" is also what a loop
+     * that found NONE reports, so the count is asserted — and it is a FLOOR
+     * rather than an exact count on purpose: the census above already fails on a
+     * reference that left the plan, and a third `reviews` column arriving is the
+     * case this rule exists to catch rather than one it should refuse.
+     */
+    expect(
+      checked,
+      'this found fewer than the two `reviews` columns the plan carries, so every assertion ' +
+        'above it passed against nothing. Did the table move, or did the walk stop finding it?',
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it('MUTATION SELF-TEST: a dropped plan entry is caught, and so is an invented one', () => {
