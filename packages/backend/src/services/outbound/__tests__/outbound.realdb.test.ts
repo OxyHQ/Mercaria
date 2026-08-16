@@ -78,9 +78,14 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray, sql } from 'drizzle-orm';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
-import { AFFILIATE_OUTBOUND_TOKEN_PREFIX } from '@mercaria/shared-types';
+import {
+  AFFILIATE_OUTBOUND_TOKEN_PREFIX,
+  OUTBOUND_REDIRECT_REFUSAL_REASONS,
+} from '@mercaria/shared-types';
 import type { OutboundRedirectDecision } from '../redirect.service.js';
 
 /**
@@ -98,6 +103,7 @@ import type { OutboundRedirectDecision } from '../redirect.service.js';
  */
 let db: import('../../../db/postgres.js').Database;
 let closePostgres: typeof import('../../../db/postgres.js').closePostgres;
+let createApp: typeof import('../../../app.js').createApp;
 let schema: typeof import('../../../db/schema/index.js');
 let resolveOutboundRedirect: typeof import('../redirect.service.js').resolveOutboundRedirect;
 let mintAffiliateOutboundToken: typeof import('../token.js').mintAffiliateOutboundToken;
@@ -147,6 +153,8 @@ const createdMerchantIds: string[] = [];
 const createdProductIds: string[] = [];
 const createdVariantIds: string[] = [];
 const createdOfferIds: string[] = [];
+/** Every HTTP server the response cases opened, closed in `afterAll`. */
+const servers: Server[] = [];
 const createdStoreIds: string[] = [];
 const createdListingIds: string[] = [];
 
@@ -213,9 +221,20 @@ beforeAll(async () => {
   ({ deleteTestCanonicalRows } = await import('../../../db/__tests__/canonical-teardown.js'));
   ({ deleteTestStores } = await import('../../../db/__tests__/store-teardown.js'));
   ({ withTriggerToggleLock } = await import('../../../db/__tests__/trigger-toggle-lock.js'));
+  ({ createApp } = await import('../../../app.js'));
 }, 120_000);
 
 afterAll(async () => {
+  // Before the database work: a listening socket holds the worker open, and a
+  // suite that leaked one would hang the run rather than fail it.
+  await Promise.all(
+    servers.map(
+      async (server) =>
+        await new Promise<void>((resolve) => {
+          server.close(() => resolve());
+        }),
+    ),
+  );
   // Children first: every intra-graph foreign key here is RESTRICT, so a wrong
   // order fails loudly rather than cascading something this file does not own.
   await db
@@ -1148,6 +1167,75 @@ describe("#67's live rights check — a withdrawn outbound_link right refuses", 
       .limit(1);
     expect(projection?.mayDisplay).toBe(true);
   });
+
+  /*
+   * The MIRROR of the case above, and it was the untested half.
+   *
+   * `assertOfferOutboundEligible` refuses on two independent branches that
+   * share one reason code: the COARSE `may_display` projection ("may this offer
+   * be shown at all") and the NARROW `outbound_link` right ("may Mercaria send
+   * somebody to it"). Because the reason is the same string, a suite carrying
+   * only one of them cannot distinguish a gate that reads both from a gate that
+   * reads one and returns — the two cases have to isolate opposite halves.
+   *
+   * So this one withdraws `may_display` and leaves `may_link_out` GRANTED,
+   * exactly inverting its sibling, which withdraws `may_link_out` and asserts
+   * `may_display` never moved. Only `may_display_price` and `may_display_media`
+   * come with it, because
+   * `catalog_source_policies_display_implication_check` requires it — showing a
+   * price or an image is a way of displaying. Nothing ties `may_link_out` to
+   * `may_display`, which is what makes the isolation available at all.
+   */
+  it('the same offer, unchanged, refuses once a new active policy withdraws may_display', async () => {
+    const source = await bringUpSource('display');
+    const host = `shop-display-${RUN}.test`;
+    await approveOutboundHost({
+      catalogSourceId: source.sourceId,
+      host,
+      kind: 'merchant_site',
+      reason: 'outbound realdb suite: display withdrawal',
+      approvedByOxyUserId: OPERATOR,
+    });
+    const offerId = await seedOffer(source, {
+      label: 'display',
+      destinationUrl: `https://${host}/item`,
+    });
+
+    // The positive control. Without it the refusal below is satisfied by any
+    // fixture that never redirected in the first place.
+    expect(redirected(await drive({ offerId })).destinationHost).toBe(host);
+
+    await publishIngestionSourcePolicy({
+      sourceId: source.sourceId,
+      reviewedByOxyUserId: OPERATOR,
+      ...FULL_RIGHTS,
+      mayDisplay: false,
+      mayDisplayPrice: false,
+      mayDisplayMedia: false,
+    });
+
+    expect(refused(await drive({ offerId })).reason).toBe('outbound_not_permitted');
+
+    // `may_link_out` is still GRANTED, so the narrow branch cannot be what
+    // refused — the coarse projection is, on its own.
+    const [policy] = await db
+      .select({ mayLinkOut: schema.catalogSourcePolicies.mayLinkOut })
+      .from(schema.catalogSourcePolicies)
+      .where(
+        and(
+          eq(schema.catalogSourcePolicies.sourceId, source.sourceId),
+          eq(schema.catalogSourcePolicies.status, 'active'),
+        ),
+      )
+      .limit(1);
+    expect(policy?.mayLinkOut).toBe(true);
+
+    // The offer is untouched — the refusal is a fact about the SOURCE's live
+    // contract, re-read per click, with no sweep having run.
+    const offer = await findOfferById(db, offerId);
+    expect(offer?.status).toBe('active');
+    expect(offer?.destinationUrl).toBe(`https://${host}/item`);
+  });
 });
 
 /* -------------------------------------------------------------------------- */
@@ -1655,5 +1743,120 @@ describe('the disclosure names the merchant while the redirect hands over the ne
     expect(row?.destinationHost).toBe('www.awin1.com');
     expect(row?.affiliateNetwork).toBe('awin');
     expect(JSON.stringify(row)).not.toContain('cread.php');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  The HTTP layer — the half `drive()` leaves out                             */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * Every case above resolves the DECISION and stops. That is deliberate and it
+ * left one thing unmeasured: the response itself.
+ *
+ * Four properties live only in the controller and nowhere in the decision, and
+ * each fails silently if it regresses. `X-Robots-Tag: noindex, nofollow` is
+ * requirement 8's only guarantee that exists TODAY — the storefront renders a
+ * `Pressable` rather than an anchor, so the `rel` on the DTO reaches no crawler
+ * and this header is what keeps a monetised hop out of an index. `no-store`
+ * stops a cached 302 from turning a revalidated redirect into a permanent one,
+ * which would make every check this file proves inert after the first click.
+ * `no-referrer` stops the merchant learning the token. And the refusal must be
+ * ONE indistinguishable answer, or the route reports which offer ids exist.
+ */
+describe('the response itself — headers and the safe unavailable page', () => {
+  function listen(): Promise<string> {
+    return new Promise((resolve) => {
+      const server = createApp().listen(0, '127.0.0.1', () => {
+        servers.push(server);
+        resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+      });
+    });
+  }
+
+  /** Follow nothing: the 302 itself is what is under test. */
+  async function get(base: string, token: string): Promise<Response> {
+    return await fetch(`${base}/out/${encodeURIComponent(token)}`, {
+      redirect: 'manual',
+      headers: { 'user-agent': HUMAN_USER_AGENT },
+    });
+  }
+
+  it('302s to the stored destination and answers noindex, no-store, no-referrer', async () => {
+    const source = await bringUpSource('response');
+    const host = `shop-response-${RUN}.test`;
+    await approveOutboundHost({
+      catalogSourceId: source.sourceId,
+      host,
+      kind: 'merchant_site',
+      reason: 'outbound realdb suite: the HTTP layer',
+      approvedByOxyUserId: OPERATOR,
+    });
+    const offerId = await seedOffer(source, {
+      label: 'response',
+      destinationUrl: `https://${host}/item`,
+    });
+
+    const base = await listen();
+    const response = await get(base, mintAffiliateOutboundToken({ offerId }));
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(`https://${host}/item`);
+    // A monetised hop must never be indexed, and this is the ONLY crawler-facing
+    // guarantee that exists while the storefront renders no anchor.
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+    // A cached 302 would stop every later click reaching the row that decides:
+    // a retired offer, a withdrawn right and a revoked host would all keep
+    // working, and the click record would stop counting.
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    // The merchant must not learn the token from a Referer header.
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer');
+  });
+
+  /*
+   * The indistinguishability property, and the reason it needs BOTH halves.
+   *
+   * A garbage token is refused before any database read; a well-formed token
+   * naming an offer that does not exist is refused after one. If those answered
+   * differently — a different status, a different body, a different header — the
+   * route would be an oracle for which offer ids exist, and `/out/` is public
+   * and unauthenticated. Asserting one of them alone cannot see that.
+   */
+  it('answers ONE safe page for a malformed token and for an unknown offer alike', async () => {
+    const base = await listen();
+
+    const malformed = await get(base, 'not-a-token');
+    const wrongPrefix = await get(base, 'mgs_pretending-to-be-a-cart-credential');
+    const unknownOffer = await get(
+      base,
+      mintAffiliateOutboundToken({ offerId: `00000000-0000-7000-8000-${RUN.slice(0, 12)}` }),
+    );
+
+    for (const response of [malformed, wrongPrefix, unknownOffer]) {
+      expect(response.status).toBe(404);
+      expect(response.headers.get('location')).toBeNull();
+    }
+
+    const bodies = await Promise.all(
+      [malformed, wrongPrefix, unknownOffer].map(async (r) => await r.text()),
+    );
+    // Byte-identical, so the difference is not readable from the response at
+    // all — not from a status, not from a length, not from a word.
+    expect(new Set(bodies).size).toBe(1);
+
+    /*
+     * The page carries one fixed sentence and no MACHINE-READABLE fact. It does
+     * contain the word "offer" — "This offer is no longer available." is the
+     * copy — and that is the point of asserting the specific leaks rather than
+     * the word: the twelve refusal reasons are an accurate description of what
+     * the server concluded, and publishing one would tell somebody probing the
+     * route whether their token was merely unsigned or named a real offer.
+     */
+    const body = bodies[0] ?? '';
+    for (const reason of OUTBOUND_REDIRECT_REFUSAL_REASONS) {
+      expect(body).not.toContain(reason);
+    }
+    expect(body).not.toContain(RUN);
+    expect(body).not.toContain(AFFILIATE_OUTBOUND_TOKEN_PREFIX);
   });
 });
