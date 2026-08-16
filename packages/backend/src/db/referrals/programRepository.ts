@@ -14,10 +14,11 @@
  * publish loses cleanly rather than mutating live terms.
  */
 
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type {
   ReferralAttributionPolicy,
   ReferralConversionType,
+  ReferralPartnerOwnerType,
   ReferralProgramFamily,
   ReferralProgramStatus,
 } from '@mercaria/shared-types';
@@ -167,19 +168,32 @@ export async function findLatestProgramVersion(
 }
 
 /**
- * The distinct program identities, newest activity first (#147's operator list
- * and the partner's program discovery).
+ * The statuses under which a program still accepts new partners.
  *
- * `DISTINCT ON (program_id)` ordered by version DESC, so each program appears
- * once as its HIGHEST version — the row an operator manages and the row a
- * discovery surface must read the status off. Selecting the ACTIVE version
- * instead would make a program that has never been published invisible to the
- * operator who is drafting it, which is the one reader who must see it.
+ * ONE constant, read by the SQL predicate below and by the reason derivation in
+ * `programs.service.ts`. Those are two APPLICATIONS of one fact rather than two
+ * spellings of it — the read needs an indexable predicate and the projection
+ * needs a per-program reason, which is #106's `buyerOrClaimantSql` /
+ * `authorizeOrderAccess` split, driven from both ends by one realdb matrix.
+ */
+export const OPEN_PROGRAM_STATUSES: readonly ReferralProgramStatus[] = ['active', 'scheduled'];
+
+/**
+ * The distinct program identities, each at its HIGHEST version — #147's
+ * OPERATOR list.
  *
- * Bounded by `limit`: the operator surface pages, and a partner's discovery
- * list is filtered down afterwards. There is no cursor because the population
- * is programs — a marketing artefact somebody writes by hand, not a table that
- * grows with traffic.
+ * Selecting the ACTIVE version instead would make a program that has never been
+ * published invisible to the operator who is drafting it, which is the one
+ * reader who must see it. A partner's discovery surface wants a different set
+ * and reads `listDiscoverableProgramIdentities` instead; the two questions were
+ * answered by one unscoped query until #392, which is how a program could fall
+ * off a partner's list entirely.
+ *
+ * Still bounded by `limit`, because an operator legitimately wants every
+ * program and there is no predicate that narrows "all of them". The caller
+ * fetches `limit + 1` and REPORTS the overflow: the population is small, but a
+ * silent truncation ordered by a string is arbitrary about which programs it
+ * hides, and an operator cannot act on an absence nothing announces.
  */
 export async function listProgramIdentities(
   db: DatabaseOrTransaction,
@@ -190,6 +204,87 @@ export async function listProgramIdentities(
     .from(referralPrograms)
     .orderBy(referralPrograms.programId, desc(referralPrograms.version))
     .limit(input.limit);
+}
+
+/**
+ * The EFFECTIVE version of every program: the ACTIVE one where a program has
+ * one, else its highest version.
+ *
+ * `DISTINCT ON (program_id)` ordered by `status = 'active'` first, then version
+ * DESC — which is exactly `findActiveProgramVersion(id) ?? highestVersion`, in
+ * one statement rather than one per program. The one-active partial index makes
+ * the first sort key unambiguous, so "active first" can only ever pick one row.
+ *
+ * A draft's terms are not what somebody would be enrolling under, which is why
+ * the active version wins even when a higher draft exists.
+ */
+function effectiveProgramVersions(db: DatabaseOrTransaction) {
+  return db
+    .selectDistinctOn([referralPrograms.programId])
+    .from(referralPrograms)
+    .orderBy(
+      referralPrograms.programId,
+      sql`(${referralPrograms.status} = 'active') desc`,
+      desc(referralPrograms.version),
+    )
+    .as('effective_program_versions');
+}
+
+/**
+ * The programs one owner may be OFFERED — #147's partner discovery (#392).
+ *
+ * The predicate is the one `readProgramOffers` already applied in JavaScript,
+ * moved to where it can decide what is READ: open status, owner-type
+ * eligibility, or an enrollment the partner already holds. It is not a new
+ * eligibility notion — inventing one would be a second answer to a question
+ * `eligiblePartnerTypes` and `status` already answer.
+ *
+ * There is deliberately NO `limit`. The unscoped read had one and it was the
+ * bug: past it a partner was never offered a program that exists, and because
+ * the order was `program_id` — a string — WHICH programs vanished was arbitrary.
+ * A limit over the SCOPED set would move that cliff rather than remove it. What
+ * bounds this read is the predicate: the programs open to one owner type, plus
+ * the ones that owner already earns under.
+ *
+ * The scope is applied AFTER the effective version is picked, not before. A
+ * `WHERE` on the base table would be evaluated before `DISTINCT ON` chooses,
+ * so a program whose ACTIVE version excludes this owner type but whose newer
+ * SCHEDULED version admits them would be offered on terms nobody is serving.
+ */
+export async function listDiscoverableProgramIdentities(
+  db: DatabaseOrTransaction,
+  input: {
+    ownerType: ReferralPartnerOwnerType;
+    /** Programs this owner already holds an instrument under, if any. */
+    enrolledProgramIds: readonly string[];
+  },
+): Promise<ReferralProgramRow[]> {
+  const effective = effectiveProgramVersions(db);
+
+  // A partner whose program was later closed to their owner type must still see
+  // the terms they are earning under, or the dashboard would stop explaining
+  // the money it is showing.
+  //
+  // `inArray` is guarded on the empty case deliberately: `inArray(col, [])`
+  // renders as the literal `false`, which is correct here but only by accident
+  // — an unguarded call reads as a predicate and is a constant.
+  const enrolled =
+    input.enrolledProgramIds.length > 0
+      ? inArray(effective.programId, [...input.enrolledProgramIds])
+      : undefined;
+
+  const offerable = and(
+    inArray(effective.status, [...OPEN_PROGRAM_STATUSES]),
+    // The owner type is a bound SCALAR against a `text[]` COLUMN, so there is
+    // no array literal being interpolated and no row-constructor trap here.
+    sql`${input.ownerType} = any(${effective.eligiblePartnerTypes})`,
+  );
+
+  return await db
+    .select()
+    .from(effective)
+    .where(enrolled ? or(offerable, enrolled) : offerable)
+    .orderBy(effective.programId);
 }
 
 /** Every version of one program, newest first — the operator's audit read. */

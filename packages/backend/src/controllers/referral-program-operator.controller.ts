@@ -123,11 +123,24 @@ export function projectProgramForOperator(row: ReferralProgramRow): ReferralProg
   };
 }
 
-/** Every program, one row each, at its highest version. */
+/**
+ * Every program, one row each, at its highest version.
+ *
+ * `limit + 1` is read so the overflow can be REPORTED (#392). An operator
+ * legitimately wants all of them, so there is no predicate that narrows this
+ * set the way partner discovery is narrowed — but a truncation ordered by
+ * `program_id`, which is a string, hides an arbitrary subset, and an operator
+ * cannot act on an absence nothing announces. `truncated` is what turns a
+ * silent absence into a visible one.
+ */
 export async function listReferralProgramsHandler(_req: Request, res: Response): Promise<void> {
   try {
-    const rows = await listProgramIdentities(getDb(), { limit: PROGRAM_LIST_LIMIT });
-    sendSuccess(res, { programs: rows.map(projectProgramForOperator) });
+    const rows = await listProgramIdentities(getDb(), { limit: PROGRAM_LIST_LIMIT + 1 });
+    const truncated = rows.length > PROGRAM_LIST_LIMIT;
+    sendSuccess(res, {
+      programs: rows.slice(0, PROGRAM_LIST_LIMIT).map(projectProgramForOperator),
+      truncated,
+    });
   } catch (err) {
     respondWithError(res, err, 'Failed to list referral programs');
   }
