@@ -81,6 +81,7 @@ import merchantCompetitivenessRouter from './routes/merchant-competitiveness.js'
 import internalPriceSignalsRouter from './routes/internal-price-signals.js';
 import internalCatalogConditionRouter from './routes/internal-catalog-condition.js';
 import catalogAttributesRouter from './routes/catalog-attributes.js';
+import facetsRouter from './routes/facets.js';
 import internalCatalogAttributesRouter from './routes/internal-catalog-attributes.js';
 import internalMatchingRouter from './routes/internal-matching.js';
 import internalBackfillRouter from './routes/internal-backfill.js';
@@ -663,6 +664,16 @@ export function createApp(): express.Express {
   // definition/facet reads and the pre-flight validation both search and #95's
   // interpreter run against…
   app.use('/catalog-attributes', catalogAttributesRouter);
+  // The facet, filter and sort-option rail (#367 Workstream 10), well after
+  // `express.json()` — it is an ordinary JSON read with no signature to verify.
+  // Behind `FACETS_ENABLED` because it is a new public surface; the lever gates
+  // the MOUNT and nothing durable, since the domain owns no table and writes no
+  // row. It reads #94's registry, ADR 0007 D5's product types, the taxonomy and
+  // #57's offers, every one of which stays readable through its own surface
+  // while this one is off.
+  if (config.catalog.facetsEnabled) {
+    app.use('/facets', facetsRouter);
+  }
   // …and their operator surfaces, on the SAME allow-list the ones above use:
   // who may reshape the catalogue, who may withdraw an offer from a comparison
   // and who may change what an attribute MEANS are the same power over the same

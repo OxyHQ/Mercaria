@@ -1934,6 +1934,19 @@ export interface CatalogConfig {
    * evidence").
    */
   readonly taxonomyV2Enabled: boolean;
+  /**
+   * The facet, filter and sort-option MOUNT — `FACETS_ENABLED`
+   * (#367 Workstream 10).
+   *
+   * Default FALSE, which is today's behaviour exactly: `POST /facets` does not
+   * exist yet, so introducing the lever ON would ship a surface nobody has
+   * reviewed and introducing it OFF withdraws nothing. It gates the mount and
+   * NOTHING durable — the domain has no table, writes no row and holds no state,
+   * so a rollback is one variable and loses no evidence. Every input it reads
+   * (#94's registry, ADR 0007 D5's product types, #57's offers, the taxonomy)
+   * stays readable through its own surface while it is off.
+   */
+  readonly facetsEnabled: boolean;
 }
 
 /**
@@ -3635,6 +3648,7 @@ export const config: AppConfig = Object.freeze({
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
     taxonomyV2Enabled: boolEnv('CATALOG_TAXONOMY_V2_ENABLED', false),
+    facetsEnabled: boolEnv('FACETS_ENABLED', false),
   }),
   sellYours: Object.freeze({
     enabled: boolEnv('SELL_YOURS_ENABLED', true),

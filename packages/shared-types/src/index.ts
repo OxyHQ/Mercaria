@@ -673,3 +673,13 @@ export * from './compatibility';
 // be established (`name_match` first among them, ADR 0007 D1) and ten
 // transformation shapes that would let a source supply executable behaviour.
 export * from './catalog-external-mapping';
+// Facets, filters and the same-variant / same-offer semantics (#367 Workstream
+// 10) are the LAST export and depend only on the attribute registry, the
+// constraint vocabulary, the localization statuses and `Money` — never on
+// search, ranking or any commercial domain. `FACET_COMMERCE_DIMENSIONS` is a
+// SUBSET of `./constraint`'s `COMMERCE_FACETS` rather than a second list, so a
+// facet a shopper picks and a hard constraint the evaluator answers cannot come
+// apart; `FACET_ORDERING_INPUTS` and `FACET_FORBIDDEN_ORDERING_INPUTS` are
+// DISJOINT, which is what makes "a commercial payment may never influence facet
+// ordering" a vocabulary property rather than a review note.
+export * from './facets';
