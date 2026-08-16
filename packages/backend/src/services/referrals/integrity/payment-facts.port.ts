@@ -58,6 +58,44 @@
 
 import { log } from '../../../lib/logger.js';
 
+/**
+ * The window's ORDER-sourced conversions, projected onto the order each was
+ * derived from — or a statement that they could not be enumerated.
+ *
+ * A STRING discriminant, not a boolean one: this package compiles with
+ * `strict: false` and therefore without `strictNullChecks`, under which
+ * TypeScript does not narrow a union on the truthiness of a boolean-literal
+ * member and the reader would be left holding the whole union (#68 and #110 hit
+ * this and it is written down in both).
+ *
+ * `{ kind: 'enumerated', orderRefs: [] }` is a MEASUREMENT — the domain counted
+ * and none of this partner's window conversions came from an order — and it is
+ * a different fact from `not_enumerable`, which is Mercaria declining to answer.
+ * The reader must land on silence for the second and on an honest zero for the
+ * first, so collapsing them would be the "unknown read as zero" defect the whole
+ * facts type exists to prevent.
+ */
+export type ReferralRiskOrderCohort =
+  | { kind: 'enumerated'; orderRefs: readonly string[] }
+  /**
+   * The cohort was larger than {@link REFERRAL_RISK_ORDER_COHORT_BOUND}, so what
+   * the domain holds is a PREFIX of it. A rate over a truncated cohort
+   * under-reports in the reassuring direction, which is the one direction a
+   * fraud measurement must never fail in — so the whole answer is withheld
+   * rather than served short.
+   */
+  | { kind: 'not_enumerable'; reason: 'cohort_exceeds_bound' };
+
+/**
+ * How many order-sourced conversions one partner may have in one window before
+ * the cohort stops being enumerable.
+ *
+ * It bounds the array crossing this port AND the parameter count of the
+ * reader's `in (…)` predicates. Generous on purpose: the window is 24 hours and
+ * one partner, so a cohort this size is itself an operator conversation.
+ */
+export const REFERRAL_RISK_ORDER_COHORT_BOUND = 10_000;
+
 /** Which partner is being asked about. The whole of what the reader gets. */
 export interface ReferralRiskPaymentSubject {
   partnerId: string;
@@ -66,6 +104,34 @@ export interface ReferralRiskPaymentSubject {
   /** The trailing window every velocity fact is measured over. */
   windowStart: Date;
   windowEnd: Date;
+  /**
+   * The DENOMINATOR every rate here is taken over, counted by the referral
+   * domain and passed in rather than re-counted.
+   *
+   * This is the single most load-bearing field on the subject. `deriveRiskSignals`
+   * guards both rates behind `conversionsInWindow >= minimumRateSample`, so a
+   * reader dividing by a number it derived itself would have the sample floor
+   * guarding one denominator while the rate measured another — and the two would
+   * disagree the first time either read changed, silently, in the permissive
+   * direction. One derivation, in the domain that owns the definition of "this
+   * partner's conversions in this window".
+   */
+  conversionsInWindow: number;
+  /**
+   * The NUMERATOR's population, from that same single derivation.
+   *
+   * Handed over rather than looked up for the reason above: a reader
+   * reconstructing "conversions → attributions → this partner, inside this
+   * window" would be a second spelling of a predicate the caller has already
+   * evaluated. Duplicates are PRESERVED — two conversions derived from one order
+   * are two conversions, and the contract is a rate over conversions.
+   *
+   * An order id is a Mercaria commerce id the referral domain already stores in
+   * `referral_conversions.source_ref`, so nothing new crosses here. The
+   * prohibition (#148 boundary 2) is on a PAYMENT identifier travelling the
+   * other way, and {@link ReferralRiskPaymentFacts} is where that is refused.
+   */
+  orderCohort: ReferralRiskOrderCohort;
 }
 
 /**
@@ -101,9 +167,28 @@ export interface ReferralRiskPaymentFacts {
    * question along with the answer.
    */
   sharedPayoutBeneficiaryPartnerCount?: number;
-  /** Adverse payment outcomes on this partner's referred orders. */
+  /**
+   * Adverse payment outcomes on this partner's referred orders — the provider
+   * DECLINING a charge attempt, and nothing else.
+   *
+   * Deliberately DISJOINT from the dispute count below, which is the other half
+   * of the same cohort. `risk-thresholds.ts` already refuses to report a refund
+   * rate and a dispute rate as two rows of one kind, because two rows for one
+   * cohort double-count it in every operator total that reads them; letting a
+   * dispute score BOTH `refund_dispute_concentration` and `provider_risk_outcome`
+   * would reintroduce exactly that across two kinds instead of within one.
+   *
+   * A count, so ZERO is a measurement — the cohort was enumerated and the
+   * provider refused nothing — and `deriveRiskSignals` stays silent at zero.
+   */
   providerAdverseOutcomeCount?: number;
-  /** Disputed conversions ÷ conversions over the window, in basis points. */
+  /**
+   * Disputed conversions ÷ conversions over the window, in basis points.
+   *
+   * The denominator is {@link ReferralRiskPaymentSubject.conversionsInWindow}
+   * and never a number the reader counted, so this rate and the `refundRateBps`
+   * beside it are taken over one cohort and the shared sample floor guards both.
+   */
   disputeRateBps?: number;
 }
 

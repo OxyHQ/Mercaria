@@ -1,19 +1,23 @@
 /**
- * The payment-facts port's UNREGISTERED behaviour (#344).
+ * The payment-facts port's UNREGISTERED behaviour, and the subject's shape
+ * (#344).
  *
- * Every deployment is unregistered today — nothing calls
- * `registerReferralRiskPaymentFactsReader` — so this file measures the state
- * that actually ships, which is the reason `partner-readiness.port.ts` exports
- * its default too. A port whose unregistered behaviour is untestable is a port
- * whose unregistered behaviour is unknown.
+ * `services/referral-payouts/register.ts` fills this port at boot, so a
+ * deployment that reached `startServer` is registered — but a port whose
+ * unregistered behaviour is untestable is a port whose unregistered behaviour is
+ * unknown (`partner-readiness.port.ts`'s reasoning, and it is not hypothetical:
+ * anything that constructs the domain without the join, a partial boot, or the
+ * next port added here, all land in it).
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  REFERRAL_RISK_ORDER_COHORT_BOUND,
   UNREGISTERED_REFERRAL_RISK_PAYMENT_FACTS,
   readReferralRiskPaymentFacts,
   registerReferralRiskPaymentFactsReader,
   resetReferralRiskPaymentFactsReader,
+  type ReferralRiskOrderCohort,
   type ReferralRiskPaymentFacts,
   type ReferralRiskPaymentSubject,
 } from '../payment-facts.port.js';
@@ -24,6 +28,8 @@ const SUBJECT: ReferralRiskPaymentSubject = {
   ownerId: 'oxy-user-1',
   windowStart: new Date('2026-08-01T00:00:00.000Z'),
   windowEnd: new Date('2026-08-02T00:00:00.000Z'),
+  conversionsInWindow: 12,
+  orderCohort: { kind: 'enumerated', orderRefs: ['order-1', 'order-2'] },
 };
 
 afterEach(() => {
@@ -103,5 +109,57 @@ describe('a reader that THROWS is the same situation as no reader', () => {
     }) as never);
 
     await expect(readReferralRiskPaymentFacts(SUBJECT)).resolves.toEqual({});
+  });
+});
+
+describe('the cohort is a STRING-discriminated union, and both members mean something', () => {
+  it('narrows without `strictNullChecks`, which a boolean discriminant would not', () => {
+    // This package compiles with `strict: false`. Under it TypeScript does not
+    // narrow a union on the truthiness of a boolean-literal member, so a reader
+    // written as `if (!cohort.enumerated)` would be left holding the whole union
+    // and would read `orderRefs` off the branch that has none. #68 and #110 both
+    // hit exactly that; the assertion below is the compile-time property, made
+    // executable — `orderRefs` is only reachable after the `kind` check.
+    const cohort: ReferralRiskOrderCohort = { kind: 'enumerated', orderRefs: ['o-1'] };
+    if (cohort.kind === 'enumerated') {
+      expect(cohort.orderRefs).toEqual(['o-1']);
+      return;
+    }
+    expect.unreachable('the enumerated branch must be the one that narrows');
+  });
+
+  it('an EMPTY enumerated cohort is a measurement, and `not_enumerable` is not', () => {
+    // The distinction the reader must act on differently: "we looked and this
+    // partner converted nothing from an order" versus "we declined to answer".
+    // Collapsing them is the unknown-read-as-zero defect, and it would land on
+    // the reassuring side — a partner too large to enumerate scoring a clean 0
+    // bps dispute rate.
+    const measured: ReferralRiskOrderCohort = { kind: 'enumerated', orderRefs: [] };
+    const withheld: ReferralRiskOrderCohort = {
+      kind: 'not_enumerable',
+      reason: 'cohort_exceeds_bound',
+    };
+    expect(measured.kind).not.toBe(withheld.kind);
+    expect('orderRefs' in withheld).toBe(false);
+  });
+
+  it('the bound is a real number the caller can exceed', () => {
+    // A floor on the floor: a bound of 0 would make every cohort unmeasurable
+    // and a bound of Infinity would make the truncation branch dead. Either
+    // reads as coverage.
+    expect(REFERRAL_RISK_ORDER_COHORT_BOUND).toBeGreaterThan(0);
+    expect(Number.isFinite(REFERRAL_RISK_ORDER_COHORT_BOUND)).toBe(true);
+  });
+
+  it('passes the DENOMINATOR through untouched, so the reader cannot recount it', async () => {
+    const seen: ReferralRiskPaymentSubject[] = [];
+    registerReferralRiskPaymentFactsReader(async (subject) => {
+      seen.push(subject);
+      return {};
+    });
+
+    await readReferralRiskPaymentFacts({ ...SUBJECT, conversionsInWindow: 37 });
+    expect(seen[0]?.conversionsInWindow).toBe(37);
+    expect(seen[0]?.orderCohort).toEqual(SUBJECT.orderCohort);
   });
 });

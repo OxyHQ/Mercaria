@@ -23,18 +23,40 @@ import {
   resetReferralPayoutRail,
   resolveReferralPayoutRail,
 } from '../../referrals/earnings/payout-rail.port.js';
+import {
+  UNREGISTERED_REFERRAL_RISK_PAYMENT_FACTS,
+  readReferralRiskPaymentFacts,
+  resetReferralRiskPaymentFactsReader,
+  type ReferralRiskPaymentSubject,
+} from '../../referrals/integrity/payment-facts.port.js';
 import { registerReferralPayoutJoin } from '../register.js';
 
 const ENTRYPOINT = join(dirname(fileURLToPath(import.meta.url)), '../../../index.ts');
 
+/**
+ * A subject whose cohort is EMPTY, so the registered reader answers from its own
+ * short-circuit and issues no SQL. This file has no database.
+ */
+const RISK_SUBJECT: ReferralRiskPaymentSubject = {
+  partnerId: 'p1',
+  ownerType: 'user',
+  ownerId: 'u1',
+  windowStart: new Date('2026-08-01T00:00:00.000Z'),
+  windowEnd: new Date('2026-08-02T00:00:00.000Z'),
+  conversionsInWindow: 0,
+  orderCohort: { kind: 'enumerated', orderRefs: [] },
+};
+
 beforeEach(() => {
   resetReferralPayoutRail();
   resetReferralPartnerReadinessReader();
+  resetReferralRiskPaymentFactsReader();
 });
 
 afterEach(() => {
   resetReferralPayoutRail();
   resetReferralPartnerReadinessReader();
+  resetReferralRiskPaymentFactsReader();
 });
 
 describe('the payout join fills both ports', () => {
@@ -53,6 +75,14 @@ describe('the payout join fills both ports', () => {
     ).toEqual(UNREGISTERED_REFERRAL_PARTNER_READINESS);
     expect(UNREGISTERED_REFERRAL_PARTNER_READINESS.identity).toBe('unknown');
     expect(UNREGISTERED_REFERRAL_PARTNER_READINESS.payoutBeneficiaryRef).toBeUndefined();
+    // #344's port defaults the OTHER way on purpose, and the contrast is the
+    // point: an absent readiness verdict BLOCKS money leaving, an absent risk
+    // reader is a SILENCE. Asserting them in one case is what stops somebody
+    // "making them consistent".
+    expect(await readReferralRiskPaymentFacts(RISK_SUBJECT)).toBe(
+      UNREGISTERED_REFERRAL_RISK_PAYMENT_FACTS,
+    );
+    expect(UNREGISTERED_REFERRAL_RISK_PAYMENT_FACTS).toEqual({});
   });
 
   it('fills the rail AND the readiness reader, never one of them', () => {
@@ -62,6 +92,26 @@ describe('the payout join fills both ports', () => {
     // the only way to tell, and a registered reader must not answer the
     // unregistered constant.
     expect(resolveReferralPayoutRail()).not.toBeUndefined();
+  });
+
+  it('fills #344s RISK-FACTS port too, which is the whole of that issue landing', async () => {
+    // The failure this guards is the one #146's own last case names: a port
+    // declared, documented, unit-tested and registered by NOBODY. That was the
+    // state on `main` — `registerReferralRiskPaymentFactsReader` had exactly one
+    // caller and it was its own test file — so the three payment facts were
+    // absent on every deployment while the seam read as finished.
+    registerReferralPayoutJoin();
+
+    const answer = await readReferralRiskPaymentFacts(RISK_SUBJECT);
+    // NOT the shared unregistered constant. Identity is what discriminates a
+    // real registration from one that silently did nothing: the join's own
+    // empty-cohort answer is a FRESH object, and `toEqual` alone would pass
+    // against no registration at all because both are `{}`-shaped.
+    expect(answer).not.toBe(UNREGISTERED_REFERRAL_RISK_PAYMENT_FACTS);
+    // An enumerated-but-empty cohort is a MEASUREMENT: the count is supplied at
+    // zero, and the rate is absent because the denominator is zero.
+    expect(answer.providerAdverseOutcomeCount).toBe(0);
+    expect('disputeRateBps' in answer).toBe(false);
   });
 
   it('answers through the registered reader once joined', async () => {

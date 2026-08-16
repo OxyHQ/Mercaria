@@ -270,6 +270,45 @@ Nothing here needs to be right to be safe: everything it produces carries
 `basis: 'risk_signal'`, and the forfeiture CHECK then makes a money-destroying
 action on it unrepresentable.
 
+## The payment facts arrive through a PORT (#344)
+
+Two of the fourteen facts are answerable only from the payment domain, which
+WALL 2 of `referral-integrity-isolation.test.ts` forbids this domain from
+importing. They come through `integrity/payment-facts.port.ts`, implemented by
+`services/referral-payouts/risk-payment-facts.ts` and registered at boot by
+`services/referral-payouts/register.ts` — #146's shape exactly, reusing #146's
+join module rather than creating a second one, because two places bridging
+referrals and payments are two places to get the direction wrong.
+
+- **The default is SILENCE, and it INVERTS the readiness port next door.** An
+  absent readiness verdict BLOCKS, because it gates money leaving. An absent
+  risk reader answers `{}`, because the opposite default would have to invent a
+  number — a zero dispute rate, a zero decline count — written onto a partner's
+  record as though somebody had measured it. Failing open is bounded here in a
+  way it is not there: a signal can only open a review, and the forfeiture CHECK
+  makes it unable to destroy money.
+- **The DENOMINATOR crosses the port; it is never recounted.**
+  `deriveRiskSignals` guards both rates behind `conversionsInWindow >=
+  minimumRateSample`, so a reader dividing by its own count would leave the
+  sample floor guarding one denominator while the rate measured another. The
+  count, the reversal count and the order cohort all come out of ONE statement
+  in `collectRiskSignalFacts`.
+- **An over-large cohort answers UNMEASURED, never a truncated rate.** A rate
+  over a sliced population under-reports, which is the reassuring direction, on
+  a fraud measurement.
+- **Declines are counted `distinct` per ATTEMPT.** One payment covers every
+  order in a checkout group, so a plain `count(*)` over the `orders.payment_id`
+  join multiplies each decline by the number of referred orders on that payment
+  — measured at 60 for three declines before the fix, which would have
+  manufactured an `elevated` signal out of an ordinary basket.
+- **A dispute is never scored twice.** `provider_risk_outcome` counts declines
+  only; disputes reach `refund_dispute_concentration` and nothing else.
+- **The transitive hole is closed.** WALL 2 scans text, so it cannot see the
+  integrity domain importing the JOIN — which imports the payment domain. A
+  seventh wall forbids `services/referral-payouts/` by path, and the isolation
+  suite additionally asserts that the join's own imports DO trip WALL 2, so the
+  port is load-bearing rather than ceremony.
+
 ## Retention: the twelve classes and the invariant
 
 `REFERRAL_RETENTION_POLICY` is exhaustive over `REFERRAL_RETENTION_CLASSES`
@@ -353,23 +392,27 @@ Stated rather than stubbed. Each is a named seam that fails closed.
    cadence somebody chose and a bound on how much of the partner table one pass
    may read — decisions #149's pilot is better placed to make with traffic in
    front of it. What exists today is a real detector an operator drives.
-2. **Seven of the fourteen risk-signal kinds have no producer, and one has
-   half of one.** The authority is the single `ReferralRiskSignalFacts`
+2. **Six of the fourteen risk-signal kinds have no producer, and none is now
+   half-produced.** The authority is the single `ReferralRiskSignalFacts`
    construction in `collectRiskSignalFacts` — read that object literal, never a
    grep for the field names, because the docblock above it NAMES every
    unsupplied field in prose and a comment-inclusive census reports all
    fourteen as produced.
 
-   **Produced (6):** `instrument_distribution_anomaly`,
+   **Produced (8):** `instrument_distribution_anomaly`,
    `repeated_conversion_pattern`, `prior_confirmed_enforcement`,
-   `click_to_conversion_pattern`, `repeated_cap_attempt`, and `manual_evidence`
-   — the last through `recordManualRiskSignal` rather than through the facts.
+   `click_to_conversion_pattern`, `repeated_cap_attempt`, `manual_evidence`
+   — that one through `recordManualRiskSignal` rather than through the facts —
+   and, since **#344**, `refund_dispute_concentration` in BOTH halves plus
+   `provider_risk_outcome`.
 
-   **Half produced (1):** `refund_dispute_concentration`. `refundRateBps`
-   computes; `disputeRateBps` has no producer, so the kind fires on refunds
-   only while reading as though it covered both.
+   **The half-produced one is closed.** `refund_dispute_concentration` fired on
+   `refundRateBps` alone while reading as though it covered disputes too;
+   `disputeRateBps` now computes through the payment-facts port, so the kind's
+   two branches are both live and `risk-thresholds.ts`'s rule that only one of
+   them reports per window means what it says.
 
-   **No producer (7)**, and NOT because nobody has got to them — each is
+   **No producer (6)**, and NOT because nobody has got to them — each is
    blocked on something specific, which is why this list names the blocker
    rather than inviting somebody to write the aggregate:
 
@@ -380,12 +423,6 @@ Stated rather than stubbed. Each is a named seam that fails closed.
      time either read changed, inside a live attribution gate. Closing them
      means EXTRACTING the shared reads so both callers use one, not writing a
      producer.
-   - `provider_risk_outcome` and the missing `disputeRateBps` — both read the
-     PAYMENT domain (`provider_accounts` lives in `db/schema/payments.ts`),
-     which WALL 2 of `referral-integrity-isolation.test.ts` forbids. They need
-     a PORT in #146's shape, registered from outside both walled domains —
-     **#344**, which now EXISTS (`integrity/payment-facts.port.ts`) with
-     nothing registered into it, so what is owed is the join's two queries.
    - `shared_payout_beneficiary` — **UNMEASURABLE TODAY, and the port is not
      what it is waiting for.** It reads the payment domain too, so #344 was
      written expecting to supply it; a producer was written and REVERTED,
