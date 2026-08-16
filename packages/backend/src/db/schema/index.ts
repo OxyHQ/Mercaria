@@ -74,6 +74,15 @@ export * from './provenance';
 // while its two siblings reference only `categories`. `categories` itself stays
 // in `catalog` — D2 extends the one category table in place rather than adding a
 // second one, so there is nothing to move.
+//
+// THAT REASON IS LOAD-BEARING AND IT CAN GO STALE. The order in this file is the
+// DEPENDENCY order, not alphabetical, and reordering it creates a cycle — so a
+// reason that has quietly stopped being true is an invitation to move an export
+// that must not move. This one nearly did: a branch that withdrew
+// `category_external_mappings` left the module importing `./catalog` alone, and
+// the comment above would have gone on naming a dependency it no longer had.
+// Before moving any export here, re-read that module's own import list rather
+// than the comment above it. Nothing gates these comments; only reading does.
 export * from './taxonomy';
 export * from './organizations';
 export * from './merchants';

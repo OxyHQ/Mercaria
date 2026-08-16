@@ -616,6 +616,44 @@ the wrong database a migrator does not fail — it finds an empty ledger, applie
 the whole journal, prints `Applied N` and exits 0, leaving the real database
 untouched while the operator reads a success line.
 
+### A `DROP … CASCADE` nobody has checked is how a dependent object disappears
+
+`drizzle-kit generate` writes `DROP TABLE "x" CASCADE;` for every removed table.
+It writes `CASCADE` **unconditionally** — it is not a claim that nothing depends
+on the table, and it will silently take a foreign key, a view or a constraint
+with it. A `DROP` is `post` by definition, so it always runs against a database
+that already has whatever grew on that table since it landed.
+
+**Before landing any generated `DROP`, read the PREVIOUS snapshot for INBOUND
+references and state in the migration header what you found:**
+
+```py
+[(t, fk['name']) for t, tbl in snapshot['tables'].items()
+                 for fk in (tbl.get('foreignKeys') or {}).values()
+                 if fk.get('tableTo') == '<the table being dropped>']
+```
+
+Inbound references are the ones `CASCADE` acts on. The table's OWN outbound
+foreign keys are irrelevant to it and survive with their targets — reporting
+those instead is the check that looks done and measures nothing.
+
+### Verifying a DROP needs a positive control, like every other census
+
+`select count(*) from information_schema.tables where table_name = '<dropped>'`
+returning `0` is the answer you want and also the answer you get from a typo, a
+wrong database, a connection to an empty schema, or a migration chain that never
+ran. **Query the tables that must SURVIVE in the same breath:**
+
+```
+positive control — must exist:  categories, category_aliases, category_redirects
+the dropped one — must be 0:    <the table being dropped>
+```
+
+The first line is what makes the second mean anything. This is the house
+anti-vacuity rule (`SCHEMA_TABLE_COUNT`, the backfill counter CHECKs, every
+scanned gate's floor) applied to a one-off manual verification, which is exactly
+where it is easiest to skip and hardest to notice having skipped.
+
 ---
 
 ## The model → table ledger
