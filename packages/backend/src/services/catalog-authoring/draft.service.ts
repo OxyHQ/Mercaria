@@ -69,7 +69,11 @@ import {
 } from '../../db/catalogAuthoring/schemaSourceRepository.js';
 import { listProductTypeFields } from '../../db/productTypes/productTypeFieldRepository.js';
 import { findProductTypeDefinitionById } from '../../db/productTypes/productTypeRepository.js';
-import { variantAxisSignature } from './etag.js';
+import {
+  defaultTypedVariantSignature,
+  normalizeAxisValue,
+  typedVariantSignature,
+} from '../variant-axes/signature.js';
 import {
   composeAuthoringSchema,
   composeAuthoringSchemaForDefinitionId,
@@ -588,18 +592,32 @@ function kindOf(answer: DraftAnswerInput, attributeKey: string): NewDraftValue['
 }
 
 /**
- * The string an axis signature is computed over.
+ * The string an axis signature is computed over — #367 step 4's spelling, not a
+ * second one.
  *
- * The CONTROLLED VALUE ID where there is one, and the folded scalar otherwise.
- * An id rather than the label is what makes the signature stable across a label
- * change — the identity rule ADR 0007 D1 states, applied to the one derived
- * value in this domain that two variants are compared on.
+ * For a controlled value this is the enum value's CANONICAL VALUE STRING, which
+ * is what `native_variant_axis_assignments.normalized_value` stores; the
+ * `enumValueId` travels beside it in its own column. Hashing the id instead
+ * would give a draft and the variant it publishes into two different digests for
+ * one set of axes, which is exactly the two-representations failure the shared
+ * signature exists to remove — and it is why `typedVariantSignature` asserts
+ * rather than folds: a caller that stored the raw value and hashed the folded
+ * one produces a row nothing can recompute.
+ *
+ * `attribute_enum_values.value` is already `lower(btrim(...))` by CHECK, so
+ * folding it again is a no-op that keeps the assertion honest for the scalar
+ * branches, which are not.
  */
-function normalizedAxisValue(answer: DraftAnswerInput): string {
-  if (answer.enumValueId !== undefined) return answer.enumValueId;
-  if (answer.canonicalRef !== undefined) return answer.canonicalRef.id;
-  if (answer.text !== undefined) return answer.text.trim().toLowerCase();
-  if (answer.number !== undefined) return String(answer.number);
+function normalizedAxisValue(
+  answer: DraftAnswerInput,
+  valueStringById: ReadonlyMap<string, string>,
+): string {
+  if (answer.enumValueId !== undefined) {
+    return normalizeAxisValue(valueStringById.get(answer.enumValueId) ?? answer.enumValueId);
+  }
+  if (answer.canonicalRef !== undefined) return normalizeAxisValue(answer.canonicalRef.id);
+  if (answer.text !== undefined) return normalizeAxisValue(answer.text);
+  if (answer.number !== undefined) return normalizeAxisValue(String(answer.number));
   if (answer.boolean !== undefined) return answer.boolean ? 'true' : 'false';
   return '';
 }
@@ -668,6 +686,14 @@ function prepareVariants(
   variants: readonly DraftVariantInput[],
 ): { variants: NewDraftVariant[]; axesByPosition: NewDraftValue[][] } {
   const byKey = new Map(schema.fields.map((field) => [field.key, field]));
+  // Every controlled value's canonical STRING, which is what the shared
+  // signature hashes. Built once for the whole matrix rather than per axis.
+  const valueStringById = new Map<string, string>();
+  for (const field of schema.fields) {
+    for (const controlled of field.controlledValues) {
+      valueStringById.set(controlled.id, controlled.value);
+    }
+  }
   const rows: NewDraftVariant[] = [];
   const axesByPosition: NewDraftValue[][] = [];
 
@@ -694,7 +720,7 @@ function prepareVariants(
         axisValues.push({ ...toDraftValue(field, answer, index), draftVariantId: null });
         signaturePairs.push({
           attributeDefinitionId: field.attributeDefinitionId,
-          normalizedValue: normalizedAxisValue(answer),
+          normalizedValue: normalizedAxisValue(answer, valueStringById),
         });
       });
     }
@@ -710,13 +736,42 @@ function prepareVariants(
       compareAtPriceCurrency: variant.compareAtPrice?.currency ?? null,
       inventoryTracked: variant.inventoryTracked ?? true,
       inventoryAvailable: variant.inventoryAvailable,
-      axisSignature: signaturePairs.length === 0 ? null : variantAxisSignature(signaturePairs),
+      axisSignature: signatureFor(signaturePairs, position),
       selectedCanonicalVariantId: variant.selectedCanonicalVariantId ?? null,
     });
     axesByPosition.push(axisValues);
   });
 
   return { variants: rows, axesByPosition };
+}
+
+/**
+ * The digest, through #367 step 4's own function.
+ *
+ * A zero-axis variant gets `defaultTypedVariantSignature()` rather than NULL —
+ * step 4's ruling, and it is right here too: two variants that vary along
+ * nothing are one variant, and a NULL would let a draft hold both and only
+ * discover it at publish, when `native_variant_signatures_listing_signature_key`
+ * refuses the second with a 23505 nothing can attribute.
+ *
+ * `typedVariantSignature` THROWS on a duplicate axis or an unnormalized value.
+ * Those are refusals a merchant has to be able to act on, so they are translated
+ * into a `validationError` naming the variant rather than reaching an HTTP 500.
+ */
+function signatureFor(
+  pairs: readonly { attributeDefinitionId: string; normalizedValue: string }[],
+  position: number,
+): string {
+  if (pairs.length === 0) return defaultTypedVariantSignature();
+  try {
+    return typedVariantSignature(pairs);
+  } catch (err) {
+    throw validationError(
+      `Variant ${position + 1} cannot be identified by its axes: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
 }
 
 /**

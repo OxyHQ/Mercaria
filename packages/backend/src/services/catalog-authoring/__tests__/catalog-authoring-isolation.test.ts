@@ -164,6 +164,22 @@ const WALLS: readonly Wall[] = [
     ],
   },
   {
+    name: 'no module here may write #367 step 4\'s tables with its own spelling',
+    // The publish path writes typed axes, assignments, signatures and claims —
+    // through `services/variant-axes/`, whose `writeVariantAxisValues` computes
+    // the digest `native_variant_signatures` stores. A direct insert here would
+    // be a second writer of one fact, and the fact it would get wrong first is
+    // the signature: a draft and the variant it publishes into would disagree
+    // about which two variants are the same thing.
+    pattern:
+      /\.\s*(insert|update|delete)\s*\(\s*(nativeListingVariantAxes|nativeVariantAxisAssignments|nativeVariantSignatures|nativeListingAttributeClaims|nativeVariantAttributeClaims)\s*\)/u,
+    reads: 'stripped',
+    mutations: [
+      '  await tx.insert(nativeVariantSignatures).values({});',
+      '  await db.update(nativeVariantAxisAssignments).set({});',
+    ],
+  },
+  {
     name: 'no repository here may WRITE a table another domain owns',
     // `db/catalogAuthoring/` reads eleven tables in three domains and writes
     // four. A read across a boundary is a join; a write across one is a second
@@ -190,6 +206,24 @@ describe('the catalog authoring domain is scanned, not sampled', () => {
   it('reads real source rather than empty files', () => {
     const bytes = SOURCES.reduce((total, file) => total + file.raw.length, 0);
     expect(bytes).toBeGreaterThan(40_000);
+  });
+
+  it('POSITIVE CONTROL — the publish path DOES reach step 4\'s service', () => {
+    // The wall above says "not with its own spelling"; this says the writes
+    // happen at all. Without it, deleting the typed-axis write entirely would
+    // turn every wall green — the strongest version of the failure a
+    // prohibition-only gate cannot see.
+    const source = SOURCES.map((file) => file.stripped).join('\n');
+    for (const symbol of [
+      'declareListingVariantAxes',
+      'writeVariantAxisValues',
+      'recordVariantAttributeClaim',
+      'recordListingAttributeClaim',
+      'typedVariantSignature',
+      'normalizeAxisValue',
+    ]) {
+      expect(source, `${symbol} is not called anywhere in the domain`).toContain(symbol);
+    }
   });
 
   it('POSITIVE CONTROL — the scanner finds an import the domain genuinely makes', () => {

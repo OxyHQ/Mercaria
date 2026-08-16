@@ -69,6 +69,16 @@ import {
   finishStoreProductCreation,
 } from '../catalog-write.service.js';
 import { enqueueOfferConvergence } from '../../db/offers/offerOutboxRepository.js';
+import {
+  recordListingAttributeClaim,
+  recordVariantAttributeClaim,
+} from '../../db/variantAxes/attributeClaimRepository.js';
+import {
+  declareListingVariantAxes,
+  writeVariantAxisValues,
+  type VariantAxisValueInput,
+} from '../variant-axes/variant-axes.service.js';
+import { normalizeAxisValue } from '../variant-axes/signature.js';
 import { hydrateDraft, validateDraftRow } from './draft.service.js';
 import { composeAuthoringSchemaForDefinitionId } from './schema.service.js';
 import type { AuthoringPermissionContext } from '@mercaria/shared-types';
@@ -201,6 +211,7 @@ export async function publishDraft(
     // `createStoreProductWithin` preserves it, so position N of the draft is
     // position N of the listing — which is what makes the pairing below a fact
     // rather than a lookup by a title two variants could share.
+    const now = new Date();
     const created = await tx
       .select({ id: productVariants.id, position: productVariants.position })
       .from(productVariants)
@@ -257,6 +268,17 @@ export async function publishDraft(
       });
     }
 
+    await writeTypedAxesAndClaims(tx, {
+      listing,
+      draft,
+      schema: composition.schema,
+      variants,
+      values,
+      createdByPosition,
+      actorOxyUserId: input.actorOxyUserId,
+      now,
+    });
+
     // The offer-convergence outbox row, INSIDE the transaction (ADR 0007 D10's
     // "…+ the outbox rows"). `syncListingFacets` enqueues the same row after the
     // commit and the enqueue is a convergence upsert, so the two agree by
@@ -276,7 +298,7 @@ export async function publishDraft(
     const stamped = await markDraftPublished(tx, input.storeId, input.draftId, {
       listingId: listing.id,
       idempotencyKey: input.idempotencyKey,
-      now: new Date(),
+      now,
     });
     if (stamped === null) {
       // Unreachable while the row is locked, and it must NOT be a silent
@@ -479,4 +501,195 @@ export async function findDeclaredLink(
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * The typed half of a publication (#367 step 4's tables, ADR 0007 D6/D7).
+ *
+ * Three writes, in this order and all inside the caller's transaction:
+ *
+ *  1. **Declare the listing's axes.** ADR 0007 D6: "the product's own declared
+ *     axis list is authoritative for that product", and `writeVariantAxisValues`
+ *     REFUSES a value naming an undeclared axis — so the declaration cannot be
+ *     inferred from whatever a variant happened to carry.
+ *  2. **Write each variant's axis values**, which recomputes
+ *     `native_variant_signatures` through step 4's own `typedVariantSignature`.
+ *     The draft already stored that same digest, computed by that same function,
+ *     so a draft's deduplication and a published variant's identity cannot
+ *     disagree.
+ *  3. **Record the claims** — variant-grain for every axis answer and
+ *     listing-grain for every product-scope one, with provenance
+ *     `merchant_declared`.
+ *
+ * ## Why these claims are written ALREADY RESOLVED
+ *
+ * `ClaimResolutionInput` defaults both halves to `unresolved`, and that default
+ * is right for a connector import or the legacy backfill: they assert a name and
+ * a value having said nothing about which registry entry it is. The authoring
+ * path is the one writer that KNOWS — the merchant picked from a form composed
+ * out of the registry, so the definition, its exact version and the enum value
+ * id are all in hand at write time. Recording them `unresolved` would put a
+ * settled fact into #59's review queue and make the queue depth a measure of how
+ * many products were authored correctly.
+ *
+ * ## And why the legacy `{name, value}` rows are still written
+ *
+ * `createStoreProductWithin` writes them, and they stay, because they are the
+ * DISPLAY path every cart line, checkout line, order line and catalogue DTO
+ * reads (`catalog-hydration`, `checkout.service`, `order-hydration`). What makes
+ * that compatible with D6 rather than a violation of it is that they are
+ * DERIVED from the typed answers — the option name is the attribute's label and
+ * the value is the enum value's canonical string, both taken from the composed
+ * schema — rather than free text a client sent. The typed rows are the fact, the
+ * claim is what the merchant asserted, and the legacy pair is a projection of
+ * both. Nothing here manufactures a legacy claim nobody made.
+ */
+async function writeTypedAxesAndClaims(
+  tx: DatabaseOrTransaction,
+  input: {
+    listing: { id: string };
+    draft: CatalogAuthoringDraftRow;
+    schema: Parameters<typeof validateDraftRow>[2];
+    variants: Awaited<ReturnType<typeof listDraftVariants>>;
+    values: readonly CatalogAuthoringDraftValueRow[];
+    createdByPosition: ReadonlyMap<number, string>;
+    actorOxyUserId: string;
+    now: Date;
+  },
+): Promise<void> {
+  const fieldsById = new Map(input.schema.fields.map((field) => [field.id, field]));
+  const valueStringById = new Map<string, string>();
+  for (const field of input.schema.fields) {
+    for (const controlled of field.controlledValues) {
+      valueStringById.set(controlled.id, controlled.value);
+    }
+  }
+
+  const axisValues = input.values.filter((value) => value.draftVariantId !== null);
+  const productValues = input.values.filter((value) => value.draftVariantId === null);
+
+  // The axes this draft actually answered, deduplicated by field. A schema field
+  // that is `variant_capable` and that nobody answered is NOT declared: an axis
+  // with no assignment on any variant is a dimension the product does not vary
+  // along, and declaring it would make the authoritative list a description of
+  // the schema rather than of the product.
+  const axesByFieldId = new Map<string, CatalogAuthoringDraftValueRow>();
+  for (const value of axisValues) {
+    if (!axesByFieldId.has(value.fieldId)) axesByFieldId.set(value.fieldId, value);
+  }
+
+  if (axesByFieldId.size > 0) {
+    await declareListingVariantAxes(
+      tx,
+      [...axesByFieldId.values()].map((value) => {
+        const field = fieldsById.get(value.fieldId);
+        return {
+          listingId: input.listing.id,
+          attributeDefinitionId: value.attributeDefinitionId,
+          attributeKey: value.attributeKey,
+          attributeDefinitionVersion: value.attributeDefinitionVersion,
+          // The product type VERSION the axis was declared under. `listings`
+          // carries no such column yet — step 4's doc names that as this
+          // workstream's to add — so the axis is where the citation lives, and
+          // it is the citation step 4's trigger clause will one day compare
+          // against the listing's own.
+          productTypeDefinitionId: input.draft.productTypeDefinitionId,
+          position: field?.position ?? 0,
+        };
+      }),
+    );
+  }
+
+  for (const variant of input.variants) {
+    const productVariantId = input.createdByPosition.get(variant.position);
+    if (productVariantId === undefined) continue;
+    const mine = axisValues.filter((value) => value.draftVariantId === variant.id);
+
+    const values: VariantAxisValueInput[] = mine.map((value) => ({
+      attributeKey: value.attributeKey,
+      displayValue: displayValueOf(value, valueStringById),
+      normalizedValue: normalizedValueOf(value, valueStringById),
+      enumValueId: value.valueEnumValueId,
+      normalizedNumber: value.valueNumber,
+      normalizedUnit: value.unit,
+    }));
+    await writeVariantAxisValues(tx, {
+      listingId: input.listing.id,
+      variantId: productVariantId,
+      values,
+    });
+
+    for (const value of mine) {
+      await recordVariantAttributeClaim(tx, {
+        variantId: productVariantId,
+        rawName: value.attributeKey,
+        rawValue: displayValueOf(value, valueStringById),
+        provenance: 'merchant_declared',
+        assertedByOxyUserId: input.actorOxyUserId,
+        assertedAt: input.now,
+        attributeResolution: 'resolved',
+        valueResolution: 'resolved',
+        attributeDefinitionId: value.attributeDefinitionId,
+        attributeDefinitionVersion: value.attributeDefinitionVersion,
+        enumValueId: value.valueEnumValueId,
+        normalizedValue: normalizedValueOf(value, valueStringById),
+        resolvedByOxyUserId: input.actorOxyUserId,
+        resolvedAt: input.now,
+      });
+    }
+  }
+
+  // Product-scope assertions, which step 4's own seam note names as this
+  // service's to write: `native_listing_attribute_claims` with
+  // `kind = 'attribute_value'` had no writer until now.
+  for (const value of productValues) {
+    await recordListingAttributeClaim(tx, {
+      listingId: input.listing.id,
+      kind: 'attribute_value',
+      rawName: value.attributeKey,
+      rawValue: displayValueOf(value, valueStringById),
+      provenance: 'merchant_declared',
+      assertedByOxyUserId: input.actorOxyUserId,
+      assertedAt: input.now,
+      attributeResolution: 'resolved',
+      valueResolution: 'resolved',
+      attributeDefinitionId: value.attributeDefinitionId,
+      attributeDefinitionVersion: value.attributeDefinitionVersion,
+      enumValueId: value.valueEnumValueId,
+      normalizedValue: normalizedValueOf(value, valueStringById),
+      resolvedByOxyUserId: input.actorOxyUserId,
+      resolvedAt: input.now,
+    });
+  }
+}
+
+/** What the merchant SAW when they chose — the enum value's own canonical text. */
+function displayValueOf(
+  value: CatalogAuthoringDraftValueRow,
+  valueStringById: ReadonlyMap<string, string>,
+): string {
+  if (value.valueEnumValueId !== null) {
+    return valueStringById.get(value.valueEnumValueId) ?? value.valueEnumValueId;
+  }
+  if (value.valueText !== null) return value.valueText;
+  if (value.valueNumber !== null) {
+    return value.unit === null ? String(value.valueNumber) : `${value.valueNumber} ${value.unit}`;
+  }
+  if (value.valueBoolean !== null) return value.valueBoolean ? 'yes' : 'no';
+  return value.canonicalRefId ?? '';
+}
+
+/**
+ * The folded form, through step 4's own `normalizeAxisValue`.
+ *
+ * `writeVariantAxisValues` ASSERTS that the value it is handed is already
+ * normalized and refuses it otherwise, so calling their folder here — rather
+ * than a local `toLowerCase()` — is what keeps the stored value and the hashed
+ * value the same string.
+ */
+function normalizedValueOf(
+  value: CatalogAuthoringDraftValueRow,
+  valueStringById: ReadonlyMap<string, string>,
+): string {
+  return normalizeAxisValue(displayValueOf(value, valueStringById));
 }

@@ -17,9 +17,12 @@ import {
   authoringEtag,
   authoringEtagMatches,
   authoringSchemaCacheKey,
-  variantAxisSignature,
   type AuthoringSchemaKey,
 } from '../etag.js';
+import {
+  defaultTypedVariantSignature,
+  typedVariantSignature,
+} from '../../variant-axes/signature.js';
 
 const KEY: AuthoringSchemaKey = {
   productTypeDefinitionId: 'ptd-1',
@@ -132,35 +135,39 @@ describe('If-None-Match', () => {
   });
 });
 
-describe('the variant axis signature is ORDER-INDEPENDENT (ADR 0007 D6)', () => {
-  const colour = { attributeDefinitionId: 'attr-colour', normalizedValue: 'v-black' };
-  const size = { attributeDefinitionId: 'attr-size', normalizedValue: 'v-m' };
+describe('the axis digest is #367 step 4\'s, and this domain defines none', () => {
+  // The order-independence PROPERTY is step 4's own
+  // (`variant-axis-signature.test.ts`) and is deliberately not re-tested here —
+  // a second suite over one function measures the same thing twice and drifts
+  // the day one of them is updated. What IS this domain's to prove is that the
+  // draft and the variant it publishes into share the digest, which they can
+  // only do by sharing the function.
+  const colour = { attributeDefinitionId: 'attr-colour', normalizedValue: 'black' };
+  const size = { attributeDefinitionId: 'attr-size', normalizedValue: 'm' };
 
-  it('two variants whose axes were entered in different orders collide', () => {
-    expect(variantAxisSignature([colour, size])).toBe(variantAxisSignature([size, colour]));
+  it('the shared function is order-independent, which is what the draft relies on', () => {
+    expect(typedVariantSignature([colour, size])).toBe(typedVariantSignature([size, colour]));
   });
 
-  it('a different VALUE on one axis produces a different signature', () => {
-    expect(
-      variantAxisSignature([colour, { ...size, normalizedValue: 'v-l' }]),
-    ).not.toBe(variantAxisSignature([colour, size]));
+  it('a zero-axis variant gets a real digest rather than a NULL', () => {
+    // Two variants that vary along nothing are one variant. A NULL would let a
+    // draft hold both and only discover it at publish, when step 4's
+    // `native_variant_signatures_listing_signature_key` refuses the second with
+    // a 23505 nothing can attribute to a row.
+    expect(defaultTypedVariantSignature()).toMatch(/^[0-9a-f]{64}$/u);
+    expect(defaultTypedVariantSignature()).toBe(typedVariantSignature([]));
   });
 
-  it('a different ATTRIBUTE with the same value produces a different signature', () => {
-    // The pair is joined with `=`, so this is what stops `a=bc` and `ab=c`
-    // hashing alike — a real collision an unseparated concatenation would have.
-    expect(
-      variantAxisSignature([{ attributeDefinitionId: 'attr-tone', normalizedValue: 'v-black' }]),
-    ).not.toBe(variantAxisSignature([colour]));
-  });
-
-  it('it is a 64-character lowercase hex digest, the shape `canonical_variants.signature` uses', () => {
-    expect(variantAxisSignature([colour, size])).toMatch(/^[0-9a-f]{64}$/u);
-  });
-
-  it('an empty axis set still produces a signature rather than throwing', () => {
-    // A single-variant product declares no axes. The repository stores NULL for
-    // that case; what matters here is that the function is total.
-    expect(variantAxisSignature([])).toMatch(/^[0-9a-f]{64}$/u);
+  it('the authoring module exports no digest of its own', async () => {
+    const authoringEtagModule = await import('../etag.js');
+    // A clean cut, not an alias: `variantAxisSignature` used to live here, and
+    // keeping it would have meant a draft and its published variant disagreeing
+    // about which two variants are the same thing.
+    expect(Object.keys(authoringEtagModule)).not.toContain('variantAxisSignature');
+    expect(Object.keys(authoringEtagModule).sort()).toEqual([
+      'authoringEtag',
+      'authoringEtagMatches',
+      'authoringSchemaCacheKey',
+    ]);
   });
 });

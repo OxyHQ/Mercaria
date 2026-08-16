@@ -1965,6 +1965,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'the claim is frozen and undeletable while its variant lives, so the reference cannot ' +
       'dangle, and a `restrict` edge would order two cascades against each other when an axis ' +
       'is retired.',
+  },
   // ── #367 step 5's catalog authoring drafts (ADR 0007 D10) ────────────────
   // One Oxy account id, and FIVE selections that are permanently unconstrained
   // for a reason that is NOT "Oxy owns it": every one names a MERGEABLE

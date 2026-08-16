@@ -146,31 +146,14 @@ export function authoringEtagMatches(ifNoneMatch: string | undefined, etag: stri
   return candidates.some((candidate) => strip(candidate) === strip(etag));
 }
 
-/**
- * The order-independent digest of one variant's axis assignments (ADR 0007 D6).
+/*
+ * `variantAxisSignature` used to live here and is GONE — a clean cut, not an
+ * alias.
  *
- * The normalized set of `(attributeDefinitionId, normalizedValue)` pairs, sorted
- * and hashed, so two variants whose axes were entered in different orders
- * collide by construction rather than by a service comparing lists. It is the
- * same shape `canonical_variants.signature` uses one domain over — a 64-character
- * lowercase sha-256 hex digest — deliberately, so a draft's signature and the
- * canonical one it may eventually be matched against are the same KIND of value.
- *
- * A DUPLICATE pair is a defect rather than a set member: the value repository's
- * partial uniques make one impossible to store, and collapsing one here would
- * hide a variant that had somehow acquired two answers for one axis.
+ * #367 step 4 landed `typedVariantSignature` (`services/variant-axes/signature.ts`),
+ * which is the digest `native_variant_signatures` actually stores. Keeping a
+ * second one here would have meant a draft and the variant it publishes into
+ * disagreeing about which two variants are the same thing — the one fact this
+ * whole epic exists to make unambiguous. The authoring domain calls step 4's
+ * function and defines no digest of its own.
  */
-export function variantAxisSignature(
-  pairs: readonly { readonly attributeDefinitionId: string; readonly normalizedValue: string }[],
-): string {
-  const rendered = pairs
-    .map((pair): [string, string] => [pair.attributeDefinitionId, pair.normalizedValue])
-    .sort((a, b) => (a[0] === b[0] ? a[1].localeCompare(b[1]) : a[0].localeCompare(b[0])));
-  // JSON rather than a joined string, for the reason `authoringEtag` gives. A
-  // normalized value may contain a space — `normalizedAxisValue` folds case and
-  // trims, and keeps inner whitespace — so a joined `a=x b=y` is produced BOTH
-  // by two pairs and by one pair whose value is `x b=y`, which is a real if
-  // unlikely collision between two different variants. An array of pairs has no
-  // such reading.
-  return createHash('sha256').update(JSON.stringify(rendered)).digest('hex');
-}
