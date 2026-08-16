@@ -38,7 +38,7 @@ import { findPartnerByOwner } from '../../../db/referrals/partnerRepository.js';
 import { findCodeById, findLinkById } from '../../../db/referrals/instrumentRepository.js';
 import { readPartnerStanding } from '../partner-standing.service.js';
 import { partnerCodesView, partnerLinksView } from '../read.service.js';
-import { readPartnerEarnings } from './earnings.service.js';
+import { earningsMetricDefinitions, readPartnerEarnings } from './earnings.service.js';
 import { readPartnerPayoutReadiness } from './payouts.service.js';
 import { readProgramOffers } from './programs.service.js';
 import {
@@ -133,7 +133,17 @@ export async function readReferralPartnerDashboard(
         disclosureVersion: resolveReferralDisclosure(undefined).terms.version,
       },
       performance: emptyPerformance(window),
-      earnings: { pendingConversions: 0, byCurrency: [], recentRewards: [], metrics: [] },
+      earnings: {
+        pendingConversions: 0,
+        byCurrency: [],
+        recentRewards: [],
+        // The DEFINITIONS ship even with nothing to define, for the reason
+        // `emptyPerformance` gives: the enrolment screen is exactly where
+        // somebody reads what they would be measured on, and shipping them
+        // only once there are numbers makes the one reader who has not agreed
+        // to anything the one who cannot read the terms of measurement.
+        metrics: earningsMetricDefinitions(),
+      },
       payouts: {
         earningEnabled: false,
         payoutEnabled: false,

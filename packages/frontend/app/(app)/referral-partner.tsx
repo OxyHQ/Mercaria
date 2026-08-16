@@ -115,9 +115,12 @@ export default function ReferralPartnerScreen() {
           </Text>
         ) : !dashboard.data ? null : (
           <>
+            {/* `agreementStanding` is deliberately NOT passed: `outstanding`
+                already carries it as a sentence a partner can act on ("accept
+                the new version"), and a second rendering of one fact is two
+                things that can disagree. */}
             <EnrollmentCard
               earningStarted={dashboard.data.enrollment.earningStarted}
-              agreementStanding={dashboard.data.enrollment.agreementStanding}
               outstanding={outstanding}
             />
 
@@ -176,7 +179,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function EnrollmentCard(props: {
   earningStarted: boolean;
-  agreementStanding: string;
   outstanding: readonly ReferralPartnerOutstandingItem[];
 }) {
   return (
