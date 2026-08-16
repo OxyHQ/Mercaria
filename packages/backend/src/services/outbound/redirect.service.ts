@@ -20,9 +20,17 @@
  *    COUNTS. It runs LAST because it must never be able to change where
  *    somebody is sent: a redirect that varies by user agent is cloaking.
  *
- * Every outcome — including every refusal — writes a click row. A refusal that
- * stored nothing would make "why is this merchant's button dead" unanswerable,
- * which is the question an operator actually gets.
+ * Every outcome that NAMES A REAL OFFER — including every refusal — writes a
+ * click row. A refusal that stored nothing would make "why is this merchant's
+ * button dead" unanswerable, which is the question an operator actually gets.
+ *
+ * The two exceptions are the two that have no offer to attribute a row to, and
+ * `affiliate_outbound_clicks.offer_id` is NOT NULL: `token_invalid` (nothing
+ * was verified, so there is no id) and `offer_not_found` (the id verified but
+ * matches nothing). `offer_not_found` is therefore a value in
+ * `OUTBOUND_REDIRECT_REFUSAL_REASONS` that no click row can ever carry — it is
+ * reachable only as the decision this function returns and as #68's gate's own
+ * answer.
  *
  * ## What this module cannot do
  *

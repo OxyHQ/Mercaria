@@ -65,8 +65,17 @@ function enumerateDomain(): string[] {
   return files;
 }
 
-/** See the docblock — raising this when the domain grows is the point. */
-const MINIMUM_DOMAIN_FILES = 8;
+/**
+ * See the docblock — raising this when the domain grows is the point.
+ *
+ * The domain enumerates 23 files today (20 under `services/outbound/` and
+ * `db/affiliateOutbound/`, plus the controller, the route and the schema). A
+ * floor of 8 was three times below that, which is enough slack for two thirds
+ * of the domain to stop being scanned while every wall still reported clean —
+ * and a wall that scans nothing passes. 20 keeps real headroom for a refactor
+ * that merges a few modules without leaving room for a silent collapse.
+ */
+const MINIMUM_DOMAIN_FILES = 20;
 
 /** Strip comments, so a module that DESCRIBES what it refuses is not read as doing it. */
 function stripComments(source: string): string {
