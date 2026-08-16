@@ -9,6 +9,11 @@
  */
 
 import type { Money } from './money';
+// Type-only, and the cycle is deliberate: `channel-catalog` reads this module's
+// `ConnectorProviderId` and `SyncResourceDirection`, and a `Connection` names the
+// channel vocabulary. Splitting a third module out to break it would put the
+// channel-type tuple somewhere neither of its two readers owns.
+import type { ChannelOrderHorizon, ChannelTypeId } from './channel-catalog';
 
 /**
  * The external commerce platforms Mercaria can connect to. Shopify ships first;
@@ -247,6 +252,26 @@ export interface Connection {
   shopCurrency?: string;
   /** OAuth scopes / permissions granted by the external platform. */
   scopes: string[];
+  /**
+   * Which channel type this connection IS (#380).
+   *
+   * DERIVED at serialization from `(provider, mode)` by the one function that
+   * reads a row as a channel type, so a client can look the connection's
+   * descriptor up without re-deriving the mapping. Two spellings of
+   * "a WooCommerce connection in `push_in` mode is the plugin" can disagree, and
+   * the one that would drift is the client's.
+   */
+  channelType: ChannelTypeId;
+  /**
+   * How far back this connection's order import reaches (#380).
+   *
+   * DERIVED at serialization from {@link scopes}, never stored — the connector
+   * that owns the bound says so outright, because a stored copy could only
+   * disagree with the grant it is derived from. Shopify without `read_all_orders`
+   * reaches 60 days; an import truncated there is otherwise indistinguishable
+   * from an empty shop.
+   */
+  orderHorizon: ChannelOrderHorizon;
   /** Per-resource sync configuration. */
   syncSettings: SyncSettings;
   /** Ids of webhooks registered on the external platform for this connection. */

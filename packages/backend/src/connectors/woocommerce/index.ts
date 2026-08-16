@@ -1278,6 +1278,18 @@ export function createWooCommerceProvider(
       }
     },
 
+    /**
+     * Every order, always (#380).
+     *
+     * `GET /wc/v3/orders` takes no date bound and this connector sets none — it
+     * pages until the enumeration is PROVEN complete and throws
+     * `unprovableEnumeration` otherwise, so a truncated read fails loudly rather
+     * than reporting a short history as the whole of it. The scopes argument is
+     * unread because WooCommerce's key pair carries no per-resource grant: a
+     * read/write key reaches orders or the connection does not verify at all.
+     */
+    orderHistoryHorizon: () => ({ kind: 'complete' }),
+
     // WooCommerce authorizes with a static API key/secret (see connect-key), not
     // an OAuth authorize→callback exchange. `buildAuthorizeUrl` is synchronous, so
     // it throws; `exchangeCode` rejects.

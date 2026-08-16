@@ -77,6 +77,26 @@ const DEFAULT_SCOPES = [
  */
 export const SHOPIFY_DEFAULT_SCOPES: readonly string[] = DEFAULT_SCOPES;
 
+/**
+ * The scope that lifts the order window, named once (#380).
+ *
+ * Read by `shopifyProvider.orderHistoryHorizon` to decide whether a CONNECTION's
+ * grant reaches past the window, and by `shopify-scopes.test.ts` to assert it
+ * stays out of {@link SHOPIFY_DEFAULT_SCOPES}. A literal in either place would be
+ * a second spelling of one platform fact.
+ */
+export const SHOPIFY_ALL_ORDERS_SCOPE = 'read_all_orders';
+
+/**
+ * How far `GET /orders.json` reaches without {@link SHOPIFY_ALL_ORDERS_SCOPE}.
+ *
+ * Shopify's Order reference: "Only the last 60 days' worth of orders from a
+ * store are accessible from the Order resource by default." A ROLLING window, so
+ * an order older than this was never imported and never will be — it is not a
+ * backfill that has yet to run.
+ */
+export const SHOPIFY_ORDER_WINDOW_DAYS_WITHOUT_ALL_ORDERS = 60;
+
 /** Resolved Shopify app credentials. */
 export interface ShopifyCredentials {
   clientId: string;

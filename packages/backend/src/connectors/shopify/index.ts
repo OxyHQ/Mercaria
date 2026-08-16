@@ -56,7 +56,11 @@ import {
 } from '../webhook-registration.js';
 import { toExternalCollection } from '../collections.js';
 import { parseProviderTimestamp } from '../timestamps.js';
-import { getShopifyCredentials } from './config.js';
+import {
+  SHOPIFY_ALL_ORDERS_SCOPE,
+  SHOPIFY_ORDER_WINDOW_DAYS_WITHOUT_ALL_ORDERS,
+  getShopifyCredentials,
+} from './config.js';
 import { shopifyTransport, type ShopifyHttpResponse, type ShopifyTransport } from './http.js';
 
 /**
@@ -1341,6 +1345,26 @@ export function createShopifyProvider(transport: ShopifyTransport = shopifyTrans
       );
 
       return collections;
+    },
+
+    /**
+     * 60 days, unless this connection was granted `read_all_orders` (#380).
+     *
+     * The rule `fetchOrders` documents, applied to the grant a connection
+     * actually holds rather than to what the deployment configured. `scopes` is
+     * what Shopify returned at install, so a shop authorized before somebody
+     * added the scope to `SHOPIFY_SCOPES` still reports the bound it really has.
+     */
+    orderHistoryHorizon(scopes) {
+      if (scopes.includes(SHOPIFY_ALL_ORDERS_SCOPE)) {
+        return { kind: 'complete' };
+      }
+      return {
+        kind: 'bounded',
+        days: SHOPIFY_ORDER_WINDOW_DAYS_WITHOUT_ALL_ORDERS,
+        bound: 'scope_not_granted',
+        liftedByScope: SHOPIFY_ALL_ORDERS_SCOPE,
+      };
     },
 
     buildAuthorizeUrl({ shopDomain, redirectUri, state, scopes }) {

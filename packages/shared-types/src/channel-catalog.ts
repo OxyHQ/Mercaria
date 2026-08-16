@@ -128,6 +128,184 @@ export const CHANNEL_SYNC_RESOURCES = ['products', 'inventory', 'orders'] as con
 
 export type ChannelSyncResource = (typeof CHANNEL_SYNC_RESOURCES)[number];
 
+// ── Entity coverage: what a channel carries, and what it does not (#380) ────
+
+/**
+ * Every commerce record a merchant could reasonably expect a channel to move.
+ *
+ * A SUPERSET of {@link CHANNEL_SYNC_RESOURCES}, and the difference is the whole
+ * point: the three resources are what a sync setting can address, and this tuple
+ * is what a merchant asks about. A live Shopify merchant reported that
+ * "discounts and other things are not syncing"; discounts were never built, and
+ * every surface that could have said so described only the three resources it
+ * DOES move. A vocabulary that can only name what exists cannot state an
+ * absence, so silence was the only available answer.
+ *
+ * Membership rule: a record Mercaria's own model has, or one a merchant would
+ * expect to arrive with a catalogue, whether or not Mercaria has anything to put
+ * it in. `gift_cards` is here precisely because Mercaria models nothing of the
+ * kind — "we have no such record" is an answer and its absence from a list is
+ * not.
+ *
+ * Adding a member is a code change and NOT a migration: no column is rendered
+ * from this tuple. It fails `tsc` in three places until it is answered — the
+ * backend's coverage policy, and the dashboard's two copy records — which is the
+ * whole mechanism keeping the statement honest (`channel-entity-coverage.test.ts`).
+ */
+export const CHANNEL_SYNC_ENTITIES = [
+  'products',
+  'inventory',
+  'orders',
+  'collections',
+  'customers',
+  'discounts',
+  'tax_rates',
+  'refunds',
+  'gift_cards',
+  'shipping_rates',
+  'product_reviews',
+] as const;
+
+export type ChannelSyncEntity = (typeof CHANNEL_SYNC_ENTITIES)[number];
+
+/**
+ * Why a channel carries SOME of an entity's data and not the record itself.
+ *
+ * Kept apart from {@link CHANNEL_ENTITY_ABSENCE_REASONS} because the two answer
+ * different questions and a merchant acts differently on each: an absence is
+ * "this will never arrive", a caveat is "something arrived and here is what it
+ * was not". Collapsing them into one vocabulary would let a `not_synced` entry
+ * carry "arrives through a mapping", which is a contradiction with nothing to
+ * catch it.
+ */
+export const CHANNEL_ENTITY_CAVEATS = [
+  /**
+   * The platform's own records are not created in Mercaria; membership is
+   * applied to Mercaria records through a mapping the merchant sets by hand.
+   */
+  'membership_only_through_a_mapping',
+] as const;
+
+export type ChannelEntityCaveat = (typeof CHANNEL_ENTITY_CAVEATS)[number];
+
+/**
+ * Why a channel does not carry an entity at all.
+ *
+ * A code rather than a sentence for the reason {@link CHANNEL_LIMITATION_CODES}
+ * is one: the dashboard renders a different explanation per code from a `Record`
+ * over this tuple, so a member added here fails the dashboard's typecheck rather
+ * than falling through to a generic line. The dashboard has no test runner —
+ * `tsc` is the only gate it has, and this is how a merchant-facing statement
+ * gets to use it.
+ */
+export const CHANNEL_ENTITY_ABSENCE_REASONS = [
+  /** Mercaria has no connector for this platform at all. */
+  'channel_not_implemented',
+  /** The native catalogue is edited in Mercaria; nothing is imported into it. */
+  'native_catalog_is_not_a_sync',
+  /** The channel's transport carries product records and nothing else. */
+  'channel_transports_products_only',
+  /** Mercaria records this and has not built its exchange on this channel. */
+  'not_built_for_this_channel',
+  /** Mercaria has no such record, so there is nothing to sync into. */
+  'not_modelled_by_mercaria',
+  /** Another system owns it, so Mercaria deliberately does not take it here. */
+  'owned_by_another_system',
+  /** No list is imported; what appears comes only from the orders that are. */
+  'imported_only_as_part_of_an_order',
+] as const;
+
+export type ChannelEntityAbsenceReason = (typeof CHANNEL_ENTITY_ABSENCE_REASONS)[number];
+
+/**
+ * What one channel does with one entity — a THREE-valued answer.
+ *
+ * `partial` exists because two-valued was wrong in the direction that generates
+ * the next false report: Shopify and WooCommerce both carry collection
+ * MEMBERSHIP onto listings through the connection's `collectionMapping`, and
+ * neither creates a Mercaria collection. Reporting that as `synced` promises
+ * collections will appear; reporting it as `not_synced` denies data that
+ * demonstrably arrives. Either answer produces a merchant reporting a bug.
+ *
+ * `synced` and `partial` carry directions and no reason; `not_synced` carries a
+ * reason and no directions — so an empty direction list is unrepresentable
+ * beside a claim that something moves.
+ */
+export type ChannelEntityCoverage =
+  | {
+      readonly entity: ChannelSyncEntity;
+      readonly state: 'synced';
+      readonly directions: readonly ChannelSyncDirection[];
+    }
+  | {
+      readonly entity: ChannelSyncEntity;
+      readonly state: 'partial';
+      readonly directions: readonly ChannelSyncDirection[];
+      readonly caveat: ChannelEntityCaveat;
+    }
+  | {
+      readonly entity: ChannelSyncEntity;
+      readonly state: 'not_synced';
+      readonly reason: ChannelEntityAbsenceReason;
+    };
+
+// ── The order horizon: how far back an import reaches (#380, #287) ──────────
+
+/**
+ * Why a connection's order import stops at a date.
+ *
+ * One member today, and it is the shape the fact actually has: a platform grants
+ * deeper history behind a scope, and this connection was not granted it. A
+ * bound that came from somewhere else (a plan tier, a retention policy) is a
+ * different member, not a re-use of this one.
+ */
+export const CHANNEL_ORDER_HORIZON_BOUNDS = [
+  /** The platform reaches further only with a scope this connection lacks. */
+  'scope_not_granted',
+] as const;
+
+export type ChannelOrderHorizonBound = (typeof CHANNEL_ORDER_HORIZON_BOUNDS)[number];
+
+/**
+ * How far back a connection's order import reaches.
+ *
+ * DERIVED from the connection's own `scopes` at serialization — never stored.
+ * `read_orders` alone bounds Shopify's `GET /orders.json` to the last 60 days,
+ * and the connector states outright (`connectors/shopify/index.ts` `fetchOrders`)
+ * that a surface wanting to say "orders before this date were not imported"
+ * derives it from `Connection.scopes`, because a stored copy could only
+ * disagree with the grant. A truncated import reaches `completed` with
+ * consistent tallies and is otherwise indistinguishable from an empty shop —
+ * which is exactly what #287 fixed on the ingestion side.
+ *
+ * `bounded` is a ROLLING window rather than a fixed date: the bound applies at
+ * every fetch, so an order older than `days` was never imported and never will
+ * be. A date is the client's to render from `days` and its own clock, so it
+ * cannot go stale between the response and the screen.
+ */
+export type ChannelOrderHorizon =
+  /** Every order the platform holds is reachable. */
+  | { readonly kind: 'complete' }
+  /** Only the last `days` days are reachable, and older orders never arrive. */
+  | {
+      readonly kind: 'bounded';
+      readonly days: number;
+      readonly bound: ChannelOrderHorizonBound;
+      /** The platform scope that would lift the bound, when there is one. */
+      readonly liftedByScope?: string;
+    }
+  /** This channel exchanges no orders in either direction. */
+  | { readonly kind: 'not_synced' }
+  /**
+   * Mercaria cannot say.
+   *
+   * Reachable for a stored connection whose provider this deployment no longer
+   * implements: the serializer must not throw on a row that exists, and
+   * answering `complete` or `not_synced` there would be a claim about a
+   * connector nobody can read.
+   */
+  | { readonly kind: 'unknown' };
+
 /**
  * Whether a channel supports a requested `SyncSettings` direction.
  *
@@ -287,6 +465,18 @@ export interface ChannelTypeDescriptor {
   readonly credentialStrategy: ChannelCredentialStrategy;
   readonly availability: ChannelAvailabilityState;
   readonly resources: ChannelResourceSupport;
+  /**
+   * Every entity in {@link CHANNEL_SYNC_ENTITIES}, each with what this channel
+   * does with it — TOTAL, in tuple order, exactly one entry per entity.
+   *
+   * The three entries {@link resources} models are DERIVED from it rather than
+   * restated, so the two cannot disagree; the rest are a decision recorded in
+   * the backend's coverage policy and gated by a census that fails the build on
+   * an entity in neither half. Totality is the field's whole value: a list of
+   * what a channel carries is silent about everything it omits, and that silence
+   * is what left a merchant reporting discounts as broken.
+   */
+  readonly entityCoverage: readonly ChannelEntityCoverage[];
   readonly requirements: readonly ChannelRequirement[];
   readonly limitations: readonly ChannelLimitation[];
   /**

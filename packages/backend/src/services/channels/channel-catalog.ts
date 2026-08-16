@@ -34,6 +34,7 @@ import type {
   ConnectorProviderId,
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
+import { deriveChannelEntityCoverage } from './channel-entity-coverage.js';
 import { getConnectorProvider, isImplementedProvider } from '../../connectors/registry.js';
 import { hasShopifyCredentials } from '../../connectors/shopify/config.js';
 import { getConnectorRedirectBase } from '../../connectors/config.js';
@@ -213,7 +214,25 @@ function availabilityFor(channelType: ChannelTypeId): ChannelTypeDescriptor['ava
  * answer different questions: the first is what a settings form may offer, the
  * second is what a merchant should know before choosing the channel.
  */
+/**
+ * One descriptor, with its entity coverage derived onto it (#380).
+ *
+ * The coverage is added HERE rather than at each of `describeChannelShape`'s
+ * five return sites, so a sixth branch cannot ship without it. It is derived
+ * from the shape's own `resources`, which is what makes the three modelled
+ * entities incapable of disagreeing with the capability declaration behind them.
+ */
 function describeChannelType(channelType: ChannelTypeId): ChannelTypeDescriptor {
+  const shape = describeChannelShape(channelType);
+  return {
+    ...shape,
+    entityCoverage: deriveChannelEntityCoverage(channelType, shape.availability, shape.resources),
+  };
+}
+
+function describeChannelShape(
+  channelType: ChannelTypeId,
+): Omit<ChannelTypeDescriptor, 'entityCoverage'> {
   const availability = availabilityFor(channelType);
   const providerId = providerForChannelType(channelType);
 
