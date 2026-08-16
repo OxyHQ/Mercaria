@@ -155,6 +155,44 @@ says WHICH entity is touched and cannot say to what DEGREE. The degree is kept
 true by measurement instead: the real normalizers are run, and the import path is
 probed for a `createCollection` it must not grow.
 
+#### The caveat is a promise about money, so it is held by the schema
+
+`breakdown_only_on_imported_orders` tells a merchant that each imported order
+shows the lines it was charged **and** that *"the rule behind them is not created
+in Mercaria, so you cannot edit or reuse it here."* Both halves were true only
+because of how `buildExternalOrderDoc` and its two mappers happen to be written.
+A claim of that kind — on a screen, about what somebody may and may not do with
+money — is exactly what this gate exists to stop going stale in silence, and it
+had already gone stale once within a day. So each half is now a fact about the
+system rather than about today's code:
+
+- **The RULE has nowhere to land.** The real drizzle columns of
+  `order_applied_discounts` and `order_tax_lines` are audited: nothing scope-,
+  usage-limit-, combinability-, validity-window- or jurisdiction-shaped, and no
+  pointer at a Mercaria `discounts` or `tax_rates` row. The tables hold one
+  discount's APPLICATION to one order and cannot be widened into the record
+  itself without this failing. Mutation-tested — adding `usageLimit`, or a
+  `taxRateId`, turns it red.
+- **The LINES really arrive.** Both real normalizers are run on a payload
+  carrying a discount and a tax line. The source-shape binding above is
+  satisfied by `toAppliedDiscounts` mapping an array that is always empty; only
+  running the providers rules that out. Mutation-tested on each provider
+  independently.
+- **A probe token that can never fire is the same defect as a stale claim.** The
+  forbidden-writer map is keyed on a type-only union of the real exports of the
+  eight modules that create these records, so a renamed writer fails `tsc` in the
+  map. It had to be: the previous list looked for `createRefund`, which names no
+  writer in this repository — the only `createRefund*` is `createRefundSchema`, a
+  zod schema — so one of its three tokens could never have fired.
+
+**A consequence worth knowing before reading the channel list.** `partial_arrival`
+renders under **"Syncs"**, and the compact form on the channel list shows entity
+NAMES only, so a merchant browsing sees "Syncs: … Discounts, Tax rates" with the
+caveat one view away on the detail screen. That was weighed and accepted: the
+alternative reading, `not_synced`, denies data that demonstrably arrives, which
+is the failure the three-valued state exists to prevent. If a merchant is ever
+misled by the list alone, the qualifier — not the arrival — is what to move.
+
 ### How far back an order import reaches is derived, never stored (#380, #287)
 
 `read_all_orders` is deliberately not requested (`shopify/config.ts`, and adding
