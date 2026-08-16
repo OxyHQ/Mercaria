@@ -100,7 +100,16 @@ export default function ChannelOnboardingScreen() {
 
 function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string }) {
   const router = useRouter();
-  const session = useChannelOnboardingSession(storeId, sessionId);
+  // The instant the merchant was sent to a platform's consent screen, or null.
+  //
+  // A Shopify connect leaves this tab and the connection is created by the
+  // callback, out of band — so this tab has nothing to observe unless it asks.
+  // It is the SCREEN's fact (only this component knows a handoff happened) and
+  // the QUERY's job to stop asking once the session carries a connection.
+  const [oauthHandoffAt, setOAuthHandoffAt] = useState<number | null>(null);
+  const session = useChannelOnboardingSession(storeId, sessionId, {
+    awaitingConnectionSince: oauthHandoffAt,
+  });
   const catalog = useChannelCatalog(storeId);
   const advance = useAdvanceChannelOnboarding(storeId);
   const activate = useActivateChannelOnboarding(storeId);
@@ -174,6 +183,8 @@ function WizardBody({ storeId, sessionId }: { storeId: string; sessionId: string
           <ConnectStep
             storeId={storeId}
             session={current}
+            awaitingOAuth={oauthHandoffAt !== null}
+            onOAuthHandoff={() => setOAuthHandoffAt(Date.now())}
             onConnected={(connectionId) =>
               advance.mutate({ sessionId: current.id, step: "configure", connectionId })
             }
@@ -305,15 +316,26 @@ function ScopeAndRequirements({
 function ConnectStep({
   storeId,
   session,
+  awaitingOAuth,
+  onOAuthHandoff,
   onConnected,
 }: {
   storeId: string;
   session: ChannelOnboardingSession;
+  awaitingOAuth: boolean;
+  onOAuthHandoff: () => void;
   onConnected: (connectionId: string) => void;
 }) {
   const router = useRouter();
   if (session.channelType === "shopify") {
-    return <ShopifyConnect storeId={storeId} />;
+    return (
+      <ShopifyConnect
+        storeId={storeId}
+        session={session}
+        awaiting={awaitingOAuth}
+        onHandoff={onOAuthHandoff}
+      />
+    );
   }
   if (session.channelType === "woocommerce") {
     return <WooCommerceConnect storeId={storeId} onConnected={onConnected} />;
@@ -335,7 +357,17 @@ function ConnectStep({
   );
 }
 
-function ShopifyConnect({ storeId }: { storeId: string }) {
+function ShopifyConnect({
+  storeId,
+  session,
+  awaiting,
+  onHandoff,
+}: {
+  storeId: string;
+  session: ChannelOnboardingSession;
+  awaiting: boolean;
+  onHandoff: () => void;
+}) {
   const { colors } = useColorScheme();
   const connect = useConnectChannel(storeId);
   const [shopDomain, setShopDomain] = useState("");
@@ -349,12 +381,20 @@ function ShopifyConnect({ storeId }: { storeId: string }) {
     }
     try {
       setRedirecting(true);
-      const { authorizeUrl } = await connect.mutateAsync({ provider: "shopify", shopDomain: domain });
-      // The connection is created by the OAuth CALLBACK, out of band — this tab
-      // never sees a token. Reloading the wizard afterwards is what picks the
-      // connection up, which is exactly why the session lives on the server.
+      // The session id is sent so the SERVER can sign it into the OAuth `state`.
+      // The connection is created by the callback, out of band — this tab never
+      // sees a token or a connection id — so the callback is the only thing that
+      // can record which wizard the connect belonged to.
+      const { authorizeUrl } = await connect.mutateAsync({
+        provider: "shopify",
+        shopDomain: domain,
+        onboardingSessionId: session.id,
+      });
+      // Armed BEFORE the browser opens: on web `openBrowserAsync` resolves as
+      // soon as the tab is opened, and on native not until it is dismissed. The
+      // wizard has to be watching across both.
+      onHandoff();
       await WebBrowser.openBrowserAsync(authorizeUrl);
-      toast.success("Finish authorizing in the browser, then reopen this wizard");
     } catch {
       toast.error("Couldn't start the Shopify connection");
     } finally {
@@ -383,8 +423,26 @@ function ShopifyConnect({ storeId }: { storeId: string }) {
           access token it receives is stored encrypted.
         </Text>
       </View>
+      {/*
+        Shown once the merchant has been handed off, because the wizard is now
+        WAITING rather than idle and a screen that looks unchanged is the whole
+        complaint. It says the page will update itself, which is a promise the
+        poll in `useChannelOnboardingSession` keeps — and it stays until the
+        session carries a connection, at which point this step stops rendering.
+      */}
+      {awaiting ? (
+        <View className="gap-1 rounded-xl bg-primary/10 p-3">
+          <Text className="text-xs font-semibold text-primary">Waiting for Shopify</Text>
+          <Text className="text-xs text-muted-foreground">
+            Finish authorizing in the tab that just opened. This page updates on its own — you do
+            not need to reload it or come back to this step.
+          </Text>
+        </View>
+      ) : null}
       <Button onPress={submit} isLoading={connect.isPending || redirecting}>
-        <Text className="font-semibold text-primary-foreground">Continue to Shopify</Text>
+        <Text className="font-semibold text-primary-foreground">
+          {awaiting ? "Open Shopify again" : "Continue to Shopify"}
+        </Text>
       </Button>
     </View>
   );

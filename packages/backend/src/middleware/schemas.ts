@@ -1132,6 +1132,14 @@ const syncResourceDirectionSchema = z.enum(['pull', 'push', 'bidirectional', 'of
  * Body for `POST /admin/stores/:storeId/channels/:provider/connect`. The shop
  * domain is strictly a `*.myshopify.com` host (also the SSRF host allowlist —
  * see `connectors/shopify/http.ts`).
+ *
+ * `onboardingSessionId` names the wizard the connect was started from, so the
+ * out-of-band callback can link the connection it creates back onto it. OPTIONAL,
+ * because a connect started from the plain channels screen has no wizard — and
+ * shape-checked with `isLiveEntityId`, the one predicate that knows both id
+ * shapes a row can hold. Whether the session exists, belongs to this store and is
+ * still live is the SERVICE's question (`buildConnectAuthorizeUrl`); a schema
+ * answering it would be a second authority over the same row.
  */
 export const connectChannelSchema = z.object({
   shopDomain: z
@@ -1139,6 +1147,11 @@ export const connectChannelSchema = z.object({
     .trim()
     .toLowerCase()
     .regex(/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/, 'Must be a *.myshopify.com domain'),
+  onboardingSessionId: z
+    .string()
+    .trim()
+    .refine(isLiveEntityId, 'Must be a valid onboarding session id')
+    .optional(),
 });
 
 /**

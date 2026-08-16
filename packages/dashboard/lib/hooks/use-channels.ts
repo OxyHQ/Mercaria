@@ -68,8 +68,15 @@ function invalidateChannels(queryClient: ReturnType<typeof useQueryClient>, stor
  */
 export function useConnectChannel(storeId: string) {
   return useMutation({
-    mutationFn: (input: { provider: ConnectorProviderId; shopDomain: string }) =>
-      connectChannel(storeId, input.provider, { shopDomain: input.shopDomain }),
+    mutationFn: (input: {
+      provider: ConnectorProviderId;
+      shopDomain: string;
+      onboardingSessionId?: string;
+    }) =>
+      connectChannel(storeId, input.provider, {
+        shopDomain: input.shopDomain,
+        onboardingSessionId: input.onboardingSessionId,
+      }),
   });
 }
 
@@ -329,12 +336,73 @@ export function useChannelOnboardingSessions(storeId: string) {
   });
 }
 
-/** One session, with its LIVE activation blockers. */
-export function useChannelOnboardingSession(storeId: string, sessionId: string) {
+/**
+ * How often the wizard re-reads its session while an OAuth handoff is out.
+ *
+ * Three seconds: the merchant is watching a screen that says it is waiting, and
+ * the request is one indexed row.
+ */
+const OAUTH_HANDOFF_POLL_INTERVAL_MS = 3_000;
+
+/**
+ * How long that poll may run.
+ *
+ * Bounded by the server's OAuth `state` TTL (`connectors/oauth-state.ts`, ten
+ * minutes): past it the callback answers "OAuth state expired" and creates no
+ * connection, so a longer poll cannot observe anything. Overshooting costs a few
+ * requests in a forgotten tab; undershooting costs the merchant the update this
+ * exists to deliver, so it tracks the TTL rather than sitting under it.
+ */
+const OAUTH_HANDOFF_POLL_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * One session, with its LIVE activation blockers.
+ *
+ * ## Why this polls at all
+ *
+ * A Shopify connect LEAVES this tab: the merchant authorizes on Shopify, and the
+ * callback — which creates the connection and links it onto this session — answers
+ * into a DIFFERENT tab on web. So the tab holding the wizard is never navigated,
+ * and nothing in it observes the connect finishing.
+ *
+ * Nor does anything else. The shared Oxy `QueryClient` sets
+ * `refetchOnWindowFocus: false` with a five-minute `staleTime`, so switching back
+ * to the wizard tab refetches NOTHING and even a remount inside that window is
+ * served from cache. Without the poll the merchant's own report — "nothing
+ * reacted" — stays true after the server-side fix, which is exactly the failure
+ * being closed.
+ *
+ * `refetchInterval` overrides `staleTime`, which is what makes it work here.
+ *
+ * ## What arms it, and what disarms it
+ *
+ * ARMED by the screen, and only by an actual handoff (`awaitingConnectionSince` is
+ * the instant the merchant was sent to the platform) — an idle wizard polls
+ * nothing. DISARMED by the DATA rather than by the screen: the moment the session
+ * carries a connection, or stops being live, the interval returns `false`. Putting
+ * the stop condition on the answer rather than on a second piece of screen state
+ * is what keeps the poll from outliving the thing it is waiting for.
+ */
+export function useChannelOnboardingSession(
+  storeId: string,
+  sessionId: string,
+  options?: { awaitingConnectionSince?: number | null },
+) {
+  const awaitingSince = options?.awaitingConnectionSince ?? null;
   return useQuery<ChannelOnboardingSession>({
     queryKey: queryKeys.channelOnboardingSession(storeId, sessionId),
     queryFn: () => fetchChannelOnboardingSession(storeId, sessionId),
     enabled: Boolean(storeId) && Boolean(sessionId),
+    refetchInterval: (query) => {
+      if (awaitingSince === null) return false;
+      if (Date.now() - awaitingSince > OAUTH_HANDOFF_POLL_WINDOW_MS) return false;
+      const session = query.state.data;
+      // Nothing read yet: keep asking rather than deciding off an absence.
+      if (!session) return OAUTH_HANDOFF_POLL_INTERVAL_MS;
+      if (session.state !== "in_progress") return false;
+      if (session.connectionId !== undefined) return false;
+      return OAUTH_HANDOFF_POLL_INTERVAL_MS;
+    },
   });
 }
 
