@@ -8,7 +8,21 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ["src/**/*.ts"],
+    /**
+     * `scripts/**` is here as well as `src/**` (#374), and it needs the SAME
+     * block rather than one of its own.
+     *
+     * Widening only the `lint` script would have been worse than leaving it
+     * alone: this is the one config object that installs the TypeScript parser,
+     * so a file outside it is read by espree, which rejects the first type
+     * annotation it meets. Nothing else here is scoped per directory — in
+     * particular `no-console` is enabled NOWHERE (it is not part of
+     * `js.configs.recommended`), so the rule a benchmark and an E2E driver
+     * would have to be exempted from is one nothing applies to `src/` either.
+     * A second block existing purely to turn it off would be a rule with no
+     * subject.
+     */
+    files: ["src/**/*.ts", "scripts/**/*.ts", "build.ts"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
