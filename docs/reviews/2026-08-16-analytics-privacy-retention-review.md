@@ -397,6 +397,27 @@ mutation self-test asserts six positives *and* three must-not-fire cases
 (`salt`, `pseudonymous_session_id`, `checkout_group_id`). Both floors are real:
 a broken traversal fails rather than reporting a clean schema.
 
+> **Correction, 2026-08-16 (later the same day), on the forbidden-column scan
+> only.** The paragraph above is left as written — it is an accurate record of
+> what was measured at the reviewed revision `c25d3c3`, and its line citations
+> are to that revision. What it did **not** ask is the question this repository
+> asks of every check: *what would it report if the thing it measures were
+> absent?* The scan was a **deny-list**, so it reported CLEAN for every column
+> outside the eighteen tokens its regex names — `shipping_address`, `full_name`,
+> `latitude`, `guest_session_id` and a bare `subject_hash` all pass it, and
+> `hash` is named in the schema docblock's own list of what must be impossible.
+> Its mutation self-test could only ever show that the pattern matched the names
+> the pattern already listed. Three of the eighteen could not fire at all: the
+> traversal yielded `column.name`, which is the TypeScript property name, so
+> `ip_address`, `user_agent` and `order_note` were being matched against
+> `ipAddress`, `userAgent` and `orderNote`. The scan is now an **allow-list**
+> over `sqlColumnName`, compared both ways against the schema, with the
+> deny-list retained as a second layer — see `docs/analytics.md` §"The gate is
+> an allow-list, and it was a deny-list until it was not". **The two floors this
+> paragraph credits were real and were kept.** The design claim in §1 is
+> unaffected: no forbidden column was found then or now; what was wrong was the
+> confidence the check licensed.
+
 **Two identity columns, mutually exclusive.** **READ** —
 `analytics_events_identity_exclusivity_check` (`schema/analytics.ts:197-202`)
 enforces `num_nonnulls(...) <= 1` **and** that an Oxy id implies `actor_kind =
