@@ -533,7 +533,15 @@ export type ReferralEventAction =
   | 'payout_batch_cancelled'
   | 'partner_recovery_recorded'
   | 'earnings_discrepancy_recorded'
-  | 'earnings_discrepancy_resolved';
+  | 'earnings_discrepancy_resolved'
+  // #146. A declaration and a readiness sync are both facts about a PARTNER, so
+  // they join the trail every other partner decision is on rather than starting
+  // one. `partner_readiness_synced` is written only when a summary actually
+  // MOVED — a sweep that re-observed the same three verdicts writes nothing, or
+  // the trail an operator reads becomes a heartbeat with the decisions buried
+  // in it.
+  | 'partner_tax_profile_declared'
+  | 'partner_readiness_synced';
 
 /** {@link ReferralEventAction} as a tuple. */
 export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
@@ -594,6 +602,9 @@ export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
   'partner_recovery_recorded',
   'earnings_discrepancy_recorded',
   'earnings_discrepancy_resolved',
+  // #146 — see the note on the union above.
+  'partner_tax_profile_declared',
+  'partner_readiness_synced',
 ];
 
 /** Who performed an audited referral action. */

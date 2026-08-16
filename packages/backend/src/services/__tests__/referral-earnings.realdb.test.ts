@@ -42,6 +42,7 @@ import {
   referralEvents,
   referralLedgerPostings,
   referralPartners,
+  referralTaxProfiles,
   referralPayoutBatchItems,
   referralPayoutBatches,
   referralPrograms,
@@ -58,10 +59,7 @@ import { payments } from '../../db/schema/payments.js';
 import { insertLedgerTransaction } from '../../db/payments/ledgerRepository.js';
 import { insertAttribution } from '../../db/referrals/attributionRepository.js';
 import { insertCampaignBudget } from '../../db/referrals/campaignBudgetRepository.js';
-import {
-  applyPartnerReadiness,
-  transitionPartnerState,
-} from '../../db/referrals/partnerRepository.js';
+import { transitionPartnerState } from '../../db/referrals/partnerRepository.js';
 import { upsertProgramControls } from '../../db/referrals/programControlRepository.js';
 import { listRewardAdjustments } from '../../db/referrals/rewardRepository.js';
 import { listRewardTransitions } from '../../db/referralEarnings/rewardTransitionRepository.js';
@@ -106,6 +104,11 @@ import {
 } from '../referrals/earnings/vesting.service.js';
 import { reconcilePartner } from '../referrals/earnings/reconciliation.service.js';
 import { readReferralPartnerBalances } from '../referrals/earnings/read.service.js';
+import { declareTaxProfile } from '../referrals/tax-profile.service.js';
+import {
+  registerReferralPartnerReadinessReader,
+  resetReferralPartnerReadinessReader,
+} from '../referrals/earnings/partner-readiness.port.js';
 
 process.env.REFERRAL_LINK_TOKEN_SECRET ??= 'realdb-referral-earnings-secret';
 
@@ -127,10 +130,22 @@ const trackedOrderIds: string[] = [];
 
 beforeAll(async () => {
   db = await connectPostgres();
+  // Fill #146's readiness port with a reader answering gate 1 `ready`. See
+  // `makePayablePartner` for why this file registers one rather than building a
+  // connected account: its subject is the ledger, and the join's own realdb
+  // file drives the real `provider_accounts` read.
+  registerReferralPartnerReadinessReader((subject) =>
+    Promise.resolve({
+      identity: 'ready' as const,
+      payout: 'ready' as const,
+      payoutBeneficiaryRef: `${subject.ownerType}:${subject.ownerId}`,
+    }),
+  );
 }, 120_000);
 
 afterAll(async () => {
   resetReferralPayoutRail();
+  resetReferralPartnerReadinessReader();
 
   // Discover every id this run owns by walking DOWN from the tracked roots —
   // the `referral-rewards.realdb` shape. A tracked list per table would go stale
@@ -330,6 +345,22 @@ afterAll(async () => {
     });
   }
   if (trackedPartnerIds.length > 0) {
+    // #146's tax profiles are `on delete restrict` from the partner AND
+    // append-only, so the trigger comes off for exactly this one table inside a
+    // transaction — one table per window, because `DISABLE TRIGGER` takes
+    // ShareRowExclusive and holding two at once deadlocks against an ordinary
+    // writer taking the pair the other way round.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table referral_tax_profiles disable trigger mercaria_referral_tax_profiles_append_only`,
+      );
+      await tx
+        .delete(referralTaxProfiles)
+        .where(inArray(referralTaxProfiles.partnerId, trackedPartnerIds));
+      await tx.execute(
+        sql`alter table referral_tax_profiles enable trigger mercaria_referral_tax_profiles_append_only`,
+      );
+    });
     await db.delete(referralPartners).where(inArray(referralPartners.id, trackedPartnerIds));
   }
   if (trackedProgramIds.length > 0) {
@@ -413,7 +444,21 @@ async function makeActiveProgram(ruleId: string): Promise<{ programId: string; v
   return { programId: draft.programId, versionId: published.id };
 }
 
-/** An APPROVED partner whose three D15 readiness gates are all `ready`. */
+/**
+ * An APPROVED partner whose three D15 readiness gates are all `ready`.
+ *
+ * Since #146 the gates are DERIVED rather than read off the partner row, so the
+ * fixture has to establish the facts they derive FROM:
+ *
+ *  - TAX is this domain's own table, so it is made for real — a declaration
+ *    answering the current questionnaire, through the service a partner uses.
+ *  - IDENTITY and PAYOUT come from `provider_accounts` through the #146 port,
+ *    and the port is filled here with a reader answering `ready`. This file's
+ *    subject is the earnings LEDGER, and a Stripe account fixture would make
+ *    every case here depend on the payment domain's own setup; the join itself
+ *    — the real account read and the real `onboarding_state` mapping — is what
+ *    `referral-payouts.realdb.test.ts` exercises.
+ */
 async function makePayablePartner(label: string): Promise<{ id: string }> {
   const { partner } = await applyAsPartner({
     ownerType: 'user',
@@ -424,16 +469,13 @@ async function makePayablePartner(label: string): Promise<{ id: string }> {
   });
   trackedPartnerIds.push(partner.id);
   await approvePartner({ partnerId: partner.id, actorOxyUserId: APPROVER, reason: 'fixture' });
-  await applyPartnerReadiness(getDb(), {
-    id: partner.id,
-    identityReadiness: 'ready',
-    taxReadiness: 'ready',
-    payoutReadiness: 'ready',
+  await declareTaxProfile({
+    partnerId: partner.id,
+    participantType: 'individual',
+    residencyCountry: 'ES',
+    vatStatus: 'not_registered',
+    declaredByOxyUserId: `owner-${label}-${TAG}`,
   });
-  await getDb()
-    .update(referralPartners)
-    .set({ payoutBeneficiaryRef: `acct-${label}-${TAG}` })
-    .where(eq(referralPartners.id, partner.id));
   return { id: partner.id };
 }
 

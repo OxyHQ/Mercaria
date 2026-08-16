@@ -26,6 +26,9 @@ import { notFound } from '../../../lib/errors/error-codes.js';
 import { getDb } from '../../../db/postgres.js';
 import { findPartnerById } from '../../../db/referrals/partnerRepository.js';
 import { resolveProgramControls } from '../../../db/referrals/programControlRepository.js';
+import { findLatestTaxProfile } from '../../../db/referrals/taxProfileRepository.js';
+import { deriveTaxReadiness } from '../tax-profile.service.js';
+import { readReferralPartnerReadiness } from './partner-readiness.port.js';
 import {
   listRewardAdjustments,
   listRewardsByPartner,
@@ -69,6 +72,17 @@ export async function readReferralPartnerBalances(input: {
   const controls = await resolveProgramControls(db, input.programId);
   const ledgerBalances = await readReferralPartnerLedgerBalances(db, input.partnerId);
 
+  // #146: derived, exactly as the batch builder derives them. A dashboard
+  // reading the stored observation while the builder read the live verdict is
+  // how "why have I not been paid" acquires two answers — and the figure this
+  // read publishes is the one a partner will hold Mercaria to.
+  const readiness = await readReferralPartnerReadiness({
+    partnerId: partner.id,
+    ownerType: partner.ownerType,
+    ownerId: partner.ownerId,
+  });
+  const taxReadiness = deriveTaxReadiness(await findLatestTaxProfile(db, partner.id));
+
   const balances: ReferralPartnerBalance[] = [];
   for (const balance of ledgerBalances) {
     const vested = await listRewardsInState(db, {
@@ -88,10 +102,10 @@ export async function readReferralPartnerBalances(input: {
         rewardCurrency: reward.currency,
         claimedByOpenBatch: claimed.has(reward.id),
         partnerState: partner.state,
-        identityReadiness: partner.identityReadiness,
-        taxReadiness: partner.taxReadiness,
-        payoutReadiness: partner.payoutReadiness,
-        hasPayoutBeneficiary: (partner.payoutBeneficiaryRef ?? '') !== '',
+        identityReadiness: readiness.identity,
+        taxReadiness,
+        payoutReadiness: readiness.payout,
+        hasPayoutBeneficiary: (readiness.payoutBeneficiaryRef ?? '') !== '',
         programPayoutEnabled: controls.payoutEnabled,
       });
       return verdict.verdict === 'payable' ? total + verdict.netAmountMinor : total;

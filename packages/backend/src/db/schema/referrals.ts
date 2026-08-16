@@ -92,6 +92,9 @@ import {
   REFERRAL_READINESS_SUMMARIES,
   REFERRAL_RISK_STATES,
   REFERRAL_SUBJECT_KINDS,
+  REFERRAL_TAX_PARTICIPANT_TYPES,
+  REFERRAL_TAX_QUESTIONNAIRE_VERSIONS,
+  REFERRAL_TAX_VAT_STATUSES,
   REFERRAL_TOUCH_KINDS,
   REFERRAL_TRAFFIC_CLASSES,
 } from '@mercaria/shared-types';
@@ -361,6 +364,83 @@ export const referralPartners = pgTable(
     // ADR 0005 D2: one partner record per owner, ever.
     uniqueIndex('referral_partners_owner_key').on(t.ownerType, t.ownerId),
     index('referral_partners_state_idx').on(t.state),
+  ],
+);
+
+/**
+ * `referral_tax_profiles` — what a partner DECLARED, once per submission
+ * (#146, ADR 0005 D15 gate 2).
+ *
+ * D15's second payout gate is "the partner has completed Mercaria's tax
+ * questionnaire (residency, and business/VAT status for invoicing)". This is
+ * that completion, and the shape carries three decisions.
+ *
+ * **APPEND-ONLY, by trigger, against UPDATE *and* DELETE.** A tax declaration is
+ * the thing an earnings statement is issued against and the thing a payout gate
+ * turned on; "what did this partner declare when we paid them" has to stay
+ * answerable, and an UPDATE is precisely what would make it not. A CORRECTION is
+ * therefore a new revision — the #59 compensating-record device — and the
+ * derivation reads the highest. `referral_events` records the act; this records
+ * the content, which an event's free-text `reason` cannot.
+ *
+ * **`revision` is a stored INTEGER, not an ordering over `(created_at, id)`.**
+ * Both halves of that pair are degenerate here: a correction submitted in the
+ * same millisecond shares an instant, and `@oxyhq/db`'s uuid v7 is not monotonic
+ * within one — so ordering by it would pick a winner at random on exactly the
+ * resubmission this table exists to keep. `UNIQUE(partner_id, revision)` then
+ * makes two racing submissions collide rather than both claiming to be latest
+ * (#303's `ordinal` finding, one domain over).
+ *
+ * **No tax IDENTIFIER column exists, and none may be added.** D15 asks for
+ * residency and VAT STATUS; the number would only be needed for self-billing,
+ * which Mercaria does not do. `REFERRAL_TAX_FORBIDDEN_FIELDS` names that
+ * prohibition and eight more as VALUES a gate scans for — including the whole
+ * withholding vocabulary, because the ruling recorded on #146 is that Mercaria
+ * withholds nothing, so a rate here would be a number with no consumer and an
+ * obligation with no book. Identity documents are Stripe's (ADR 0001 D2) and
+ * reach Mercaria in no form.
+ */
+export const referralTaxProfiles = pgTable(
+  'referral_tax_profiles',
+  {
+    id: generatedId(),
+    partnerId: text()
+      .notNull()
+      .references(() => referralPartners.id, { onDelete: 'restrict' }),
+    /** 1 for the first declaration, +1 per correction. See the docblock. */
+    revision: integer().notNull(),
+    /** Which published questionnaire this declaration answers. */
+    questionnaireVersion: text({ enum: asEnumValues(REFERRAL_TAX_QUESTIONNAIRE_VERSIONS) }).notNull(),
+    participantType: text({ enum: asEnumValues(REFERRAL_TAX_PARTICIPANT_TYPES) }).notNull(),
+    /** ISO 3166-1 alpha-2, upper case — the CHECK is the format authority. */
+    residencyCountry: text().notNull(),
+    vatStatus: text({ enum: asEnumValues(REFERRAL_TAX_VAT_STATUSES) }).notNull(),
+    declaredAt: timestamptz().notNull(),
+    /** The Oxy account that filled the form in — for a store partner, a member. */
+    declaredByOxyUserId: text().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    checkOneOf(
+      'referral_tax_profiles_questionnaire_version_check',
+      t.questionnaireVersion,
+      REFERRAL_TAX_QUESTIONNAIRE_VERSIONS,
+    ),
+    checkOneOf(
+      'referral_tax_profiles_participant_type_check',
+      t.participantType,
+      REFERRAL_TAX_PARTICIPANT_TYPES,
+    ),
+    checkOneOf('referral_tax_profiles_vat_status_check', t.vatStatus, REFERRAL_TAX_VAT_STATUSES),
+    // Two alpha-2 letters, upper case. A length check alone would admit `e5`
+    // and, worse, `es` — and a lower-case code stored beside an upper-case one
+    // makes the same country two countries to every reader that groups by it.
+    check('referral_tax_profiles_residency_country_check', sql`${t.residencyCountry} ~ '^[A-Z]{2}$'`),
+    check('referral_tax_profiles_revision_check', sql`${t.revision} >= 1`),
+    check('referral_tax_profiles_declared_by_check', sql`length(${t.declaredByOxyUserId}) > 0`),
+    // Two concurrent submissions collide here rather than both reading as the
+    // latest declaration; the loser retries against the winner's revision.
+    uniqueIndex('referral_tax_profiles_partner_revision_key').on(t.partnerId, t.revision),
   ],
 );
 

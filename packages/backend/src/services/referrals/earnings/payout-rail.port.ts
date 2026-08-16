@@ -3,11 +3,15 @@
  *
  * ADR 0005 D14 selects one launch rail: Stripe Connect transfers to a
  * payment-ready connected account, reusing #46's `provider_accounts` so a
- * referral payout can never mint a second one. **#146 owns that integration**,
- * and this file is the whole of what #145 owes it: a request shape, an outcome
- * union and a registry that is EMPTY.
+ * referral payout can never mint a second one. **#146 FILLED this**: the
+ * implementation is `services/referral-payouts/rail.ts`, registered at boot,
+ * and this file stays the request shape, the outcome union and the registry.
  *
- * ## Empty, and the alternatives are both worse
+ * The registry is still a PORT rather than a direct call, and the reason has
+ * outlived the seam: the implementation lives OUTSIDE both walled domains, so
+ * the dependency runs join → domain and this file names no rail.
+ *
+ * ## Why it was empty, and why the alternatives were both worse
  *
  * A `console.log` rail looks like a working feature in every test and pays
  * nobody in production. A direct Stripe client here would put the card rail
@@ -15,10 +19,11 @@
  * by name, and rightly: a partner payout and a buyer's charge are different
  * money with different compliance, and one import is how they stop being.
  *
- * So every settlement of every batch fails `rail_not_configured`, VISIBLY, with
- * the batch intact, its items still claimed and its idempotency key unchanged.
- * The day #146 calls {@link registerReferralPayoutRail} the queued batches
- * settle on their next pass with no migration and no replay.
+ * While the registry was empty every settlement failed `rail_not_configured`,
+ * VISIBLY, with the batch intact, its items still claimed and its idempotency
+ * key unchanged — which is what made #146 a registration rather than a
+ * migration: `rail_not_configured` is retryable, so a batch queued back then
+ * settles on its next pass, on its own key, with no replay.
  *
  * ## The request carries no beneficiary DETAIL, deliberately
  *

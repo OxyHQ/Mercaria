@@ -28,8 +28,14 @@
  * #145's field 6 is a real column and an operator may set it. Settlement then
  * refuses `withholding_not_supported`, because there is no ledger account for
  * withheld money to sit in and inventing one would put a remittance obligation
- * in a book nobody reconciles against a tax authority. #141/#146 own that
- * decision; this is the honest shape of waiting for it.
+ * in a book nobody reconciles against a tax authority.
+ *
+ * **#146 settled that and the refusal is now PERMANENT rather than pending.**
+ * ADR 0005 D15 has Mercaria withhold nothing and issue an annual earnings
+ * statement per partner, with partners responsible for their own income tax —
+ * no withholding means no remittance obligation, so no `tax_withheld` account
+ * may be added. DAC7 is ADR 0005 open item 1 and would change what #146's tax
+ * questionnaire COLLECTS, never what this ledger holds.
  */
 
 import { uuidv7 } from '@oxyhq/db';
@@ -64,6 +70,9 @@ import {
   REFERRAL_PAYOUT_SYSTEM_ACTOR,
   type ReferralPayoutBatchRow,
 } from '../../../db/referralEarnings/payoutBatchRepository.js';
+import { findLatestTaxProfile } from '../../../db/referrals/taxProfileRepository.js';
+import { deriveTaxReadiness } from '../tax-profile.service.js';
+import { readReferralPartnerReadiness } from './partner-readiness.port.js';
 import { bookPayoutSettlement } from './posting.service.js';
 import {
   deriveBatchEligibility,
@@ -319,9 +328,6 @@ export async function settlePayoutBatch(input: {
     if (!batch) throw notFound('Referral payout batch not found');
     if (batch.status !== 'approved' && batch.status !== 'failed') return undefined;
 
-    const partner = await findPartnerById(tx, batch.partnerId);
-    if (!partner) throw notFound('Referral partner not found');
-
     const items = await listLivePayoutBatchItems(tx, batch.id);
     const facts = await readPartnerGateFacts(tx, {
       partnerId: batch.partnerId,
@@ -386,9 +392,12 @@ export async function settlePayoutBatch(input: {
       at,
     });
     if (!moved) return undefined;
+    // The beneficiary is the one the GATE just derived, not a column read
+    // beside it: the rail must be handed the destination the same read decided
+    // was payable, or the two could differ by whatever happened in between.
     return {
       batch: moved,
-      partnerBeneficiaryRef: partner.payoutBeneficiaryRef,
+      partnerBeneficiaryRef: facts.payoutBeneficiaryRef,
       blocked: undefined,
     };
   });
@@ -554,16 +563,38 @@ async function recordBatchFailure(
 async function readPartnerGateFacts(
   db: DatabaseOrTransaction,
   input: { partnerId: string; programId: string },
-): Promise<Omit<PayoutGateFacts, 'rewardState' | 'rewardNetAmountMinor' | 'rewardCurrency' | 'claimedByOpenBatch'>> {
+): Promise<
+  Omit<
+    PayoutGateFacts,
+    'rewardState' | 'rewardNetAmountMinor' | 'rewardCurrency' | 'claimedByOpenBatch'
+  > & { payoutBeneficiaryRef: string | undefined }
+> {
   const partner = await findPartnerById(db, input.partnerId);
   if (!partner) throw notFound('Referral partner not found');
   const controls = await resolveProgramControls(db, input.programId);
+
+  // #146: all three summaries and the beneficiary are DERIVED here, never read
+  // off the partner row. The stored columns are an OBSERVATION of what the
+  // derivation last said (`recordPartnerReadinessObservation` is their only
+  // writer) and go stale the instant Stripe restricts an account — and the one
+  // place that must not happen is a batch builder including somebody it should
+  // not. This is the `deriveNativeCheckoutEligibility` divergence from the
+  // one-stored-verdict rule, taken for the reason that rule itself gives: the
+  // inputs sit on tables this domain does not own.
+  const readiness = await readReferralPartnerReadiness({
+    partnerId: partner.id,
+    ownerType: partner.ownerType,
+    ownerId: partner.ownerId,
+  });
+  const tax = deriveTaxReadiness(await findLatestTaxProfile(db, partner.id));
+
   return {
     partnerState: partner.state,
-    identityReadiness: partner.identityReadiness,
-    taxReadiness: partner.taxReadiness,
-    payoutReadiness: partner.payoutReadiness,
-    hasPayoutBeneficiary: (partner.payoutBeneficiaryRef ?? '') !== '',
+    identityReadiness: readiness.identity,
+    taxReadiness: tax,
+    payoutReadiness: readiness.payout,
+    hasPayoutBeneficiary: (readiness.payoutBeneficiaryRef ?? '') !== '',
+    payoutBeneficiaryRef: readiness.payoutBeneficiaryRef,
     programPayoutEnabled: controls.payoutEnabled,
   };
 }
