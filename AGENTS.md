@@ -2824,8 +2824,8 @@ back to that purchase from a device holding no cart credential. Full reference:
 - Deferred with named contracts: #109 (`claim:write` is already granted and the
   columns exist; the endpoint is missing), #110 (`cancellations:request`,
   `returns:request`, `support:write` granted and unconsumed; `contact_change`),
-  #111 (the three payment-notification thresholds), #93 (`order_ready_for_pickup`
-  cannot fire while pickup fails closed at checkout).
+  #111 (the three payment-notification thresholds). **#93's seam is CLOSED** —
+  `order_ready_for_pickup` is a live message kind since collection landed.
 ## Idempotent supplier adapters and PurchaseOrder orchestration (#124, ADR 0004 D4 steps 4–5 / D6.6 / D9.2 / D10)
 
 `services/supplier-orders/` (17 modules) + `db/supplierOrders/` (5
@@ -4282,8 +4282,10 @@ conditions.
   `/offers` (#57) deliberately passes none — it serves a plain cheapest-first SQL
   order under no policy, and stamping a version on it would attribute that
   ordering to weights it never consulted.
-- Seams left, each failing closed: **#93** (`resolvePickupProximity` refuses, so
-  `best_nearby_pickup` is never awarded), **a tax-inclusion column**
+- **#93's seam is CLOSED** — `resolvePickupProximity` answers real distances.
+  `best_nearby_pickup` is still never awarded, now because `/p/:handle` accepts
+  no viewer coordinate to measure from: a SURFACE gap, not a missing capability.
+- Seams left, each failing closed: **a tax-inclusion column**
   (`resolveOfferTaxInclusion` answers `unknown` — guessing from the market is how
   a 21% error enters a total), **#70** (canonical search does NOT consume
   `rankOfferComparison` and `registerSearchOfferSelector` has no call site —
@@ -4408,8 +4410,8 @@ measurement beside them.
   strictly less work, and the honest statement is that its benefit is
   unmeasured at this scale rather than demonstrated.
 - Deferred with named seams, each failing closed: **#74** (offer selection),
-  **#71** (the product page), **#93** (nearby/pickup — no parameter exists to
-  accept, so it is unrepresentable rather than ignored), **#77** (filter-USE
+  **#71** (the product page), **#93** (CLOSED — nearby/pickup was
+  UNREPRESENTABLE and is now a `SearchFilters` contract change), **#77** (filter-USE
   measurement needs a typed column in a domain #70 does not own; category filter
   use IS measured through the existing column), **#37**, **#95** (no LLM is the
   primary retrieval system, per the issue), and autocomplete (a different
@@ -4749,8 +4751,9 @@ at request time from the reads that measurement covers.
 - Seams, each named rather than stubbed: **#37/#67** (the redirect;
   `ProductPageOutbound`'s `outbound` branch is a MERCARIA path by type, so
   nothing here can become a tracked URL), **#41** ("Sell yours" and nearby
-  pickup — `best_nearby_pickup` is never awarded while #93 publishes no
-  collection point, so the control is ABSENT rather than dead), **#79/#39**
+  pickup — #93 publishes collection points now, and `best_nearby_pickup` is
+  still never awarded because this page accepts no viewer coordinate, so the
+  control stays ABSENT rather than dead), **#79/#39**
   (price alerts), **#80** (a per-product save READ — until one exists the save
   control is a one-way idempotent SAVE, because a toggle over an unknown state
   un-saves on the first press), **#75** (public routes, the HTTP 301,
@@ -5127,8 +5130,9 @@ validated constraint set and #70's deterministic retrieval. Full reference:
 - **An unresolvable term is REPORTED, never dropped or approximated.**
   `unsupported_by_retrieval` is the one to read: understood COMPLETELY and
   unenforceable, which is a different failure from not having understood it. A
-  nearby request is exactly that (#93 supplies no pickup state and #70 has no
-  proximity parameter), so it is reported rather than accepted-and-ignored.
+  nearby request is exactly that — #93 supplies pickup state and #70 now has a
+  nearby filter, but a parsed intent carries no ORIGIN to measure from — so it
+  is reported rather than accepted-and-ignored.
 - **A numeric BOUND is hard; a bare magnitude is a preference.** "At least 16 GB"
   excludes; "16 GB laptop" is descriptive and reading it as hard removes every
   32 GB machine. The asymmetry has a direction — promoting a leaning excludes
