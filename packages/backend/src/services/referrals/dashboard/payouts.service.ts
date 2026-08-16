@@ -41,6 +41,7 @@ import {
   listPayoutBatchItems,
 } from '../../../db/referralEarnings/payoutBatchRepository.js';
 import { readReferralPartnerReadiness } from '../earnings/partner-readiness.port.js';
+import { readEnforcementEffects } from '../integrity/enforcement.service.js';
 import { readTaxProfile } from '../tax-profile.service.js';
 import { readProgramControls } from '../controls.service.js';
 import { listPartnerProgramIds } from '../../../db/referrals/performanceRepository.js';
@@ -126,7 +127,7 @@ export async function readPartnerPayoutReadiness(
   outstanding: readonly string[],
   db: DatabaseOrTransaction = getDb(),
 ): Promise<ReferralPayoutReadiness> {
-  const [readiness, tax, levers, batches] = await Promise.all([
+  const [readiness, tax, levers, batches, enforcement] = await Promise.all([
     readReferralPartnerReadiness({
       partnerId: partner.id,
       ownerType: partner.ownerType,
@@ -135,6 +136,14 @@ export async function readPartnerPayoutReadiness(
     readTaxProfile(partner.id),
     anyProgramPaysOut(db, partner.id),
     listPayoutBatchesForPartner(db, { partnerId: partner.id, limit: RECENT_PAYOUT_LIMIT }),
+    // #148's derivation, NOT the partner's `state` column. The column used to
+    // collapse new links, new attribution and payout into one fact; since #148
+    // a live `attribution_suspension` or `payout_hold` can raise any of the
+    // three on a partner whose state is still `approved`. Reading the column
+    // here would tell an investigated partner they are earning while
+    // attribution is suspended, or that their honest vested balance is
+    // suspended when only a scoped hold applies.
+    readEnforcementEffects(db, partner.id),
   ]);
 
   const recentPayouts: ReferralPayoutBatchPartnerView[] = [];
@@ -144,11 +153,15 @@ export async function readPartnerPayoutReadiness(
   }
 
   return {
-    // Earning is the partner's own standing plus the program's attribution
-    // lever — two different questions from withdrawal, which is why
-    // `partner-standing.service.ts` refuses to collapse them into one bar.
-    earningEnabled: partner.state === 'approved' && levers.attributionEnabled,
-    payoutEnabled: levers.payoutEnabled,
+    // Earning is the partner's own standing, the program's attribution lever
+    // AND #148's scoped enforcement — three different questions from
+    // withdrawal, which is why `partner-standing.service.ts` refuses to
+    // collapse them into one bar.
+    earningEnabled:
+      partner.state === 'approved' &&
+      levers.attributionEnabled &&
+      !enforcement.newAttributionSuspended,
+    payoutEnabled: levers.payoutEnabled && !enforcement.payoutHeld,
     identity: readiness.identity,
     tax: tax.readiness,
     payout: readiness.payout,

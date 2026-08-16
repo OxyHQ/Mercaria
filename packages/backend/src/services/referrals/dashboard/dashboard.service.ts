@@ -222,6 +222,14 @@ export async function readReferralPartnerDashboard(
       // appeal is already open — #146's own rule, read off the standing rather
       // than re-derived, because two answers to "may I appeal" is how a button
       // appears that the endpoint then refuses.
+      //
+      // This is #146's PARTNER-LEVEL appeal (`POST /appeal`) against the
+      // standing transition, so it reads `state` and correctly does NOT go
+      // through #148's derivation — unlike the payout section one field up.
+      // #148's appeal is a different thing against ONE scoped action
+      // (`POST /enforcement/:actionId/appeal`) and belongs to the enforcement
+      // view it is served beside; a dashboard flag covering both would offer
+      // one button for two appeals with different subjects.
       appealAvailable:
         (partner.state === 'suspended' || partner.state === 'terminated') &&
         partner.appealState === 'none',

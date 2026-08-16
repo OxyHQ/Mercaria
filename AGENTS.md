@@ -6388,6 +6388,20 @@ tax questionnaire, and then had no way to see a link, a number or a payout.
   refusal the check exists to give, so the failure is silent and reads as a
   forged id. A functional test at fixture scale cannot see a cap of five
   hundred, so the realdb case asserts the ABSENCE of the list read in source.
+- **The dashboard reads #148's `deriveEnforcementEffects`, NOT
+  `referral_partners.state`.** That column used to collapse new links, new
+  attribution and payout into one fact; since #148 a live `payout_hold` or
+  `new_attribution_suspension` raises any of the three on a partner whose state
+  is still `approved`. Reading the column would tell an investigated partner
+  their honest vested earnings are suspended when only a scoped hold applies —
+  or that they are still earning while attribution is suspended. Two realdb
+  cases pin the two directions and both go red on the pre-#148 spelling.
+- **This domain surfaces NO risk signal, and that is deliberate rather than
+  pending.** Eight of #148's fourteen signal kinds have no producer, so a
+  dashboard rendering them would show `0` for a signal nobody measures — a
+  quiet zero that reads to a partner as "clean". `ReferralPartnerDashboard` has
+  no field a signal could arrive in; what a partner sees about enforcement is
+  #148's own `/referral-partner/enforcement`, through its own partner view.
 - **The disclosure floor is TEN, is #77's number, and applies to TWO dimensions.**
   `REFERRAL_SUBJECT_REVEALING_DIMENSIONS` is `market` and `client_surface`: the
   line is whose fact the dimension is, not how small the number is. Applying it

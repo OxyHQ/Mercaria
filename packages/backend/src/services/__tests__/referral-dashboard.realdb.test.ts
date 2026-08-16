@@ -28,6 +28,8 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { REFERRAL_PARTNER_DISCLOSURE_FLOOR } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
+import { withTriggerToggleLock } from '../../db/__tests__/trigger-toggle-lock.js';
+import { referralEnforcementActions } from '../../db/schema/referralIntegrity.js';
 import {
   referralAttributions,
   referralCodes,
@@ -41,6 +43,7 @@ import {
 import { insertPartner } from '../../db/referrals/partnerRepository.js';
 import { insertProgramVersion } from '../../db/referrals/programRepository.js';
 import { insertCode, insertLink } from '../../db/referrals/instrumentRepository.js';
+import { imposeEnforcementAction } from '../referrals/integrity/enforcement.service.js';
 import { insertTouch } from '../../db/referrals/touchRepository.js';
 import { insertAttribution } from '../../db/referrals/attributionRepository.js';
 import { upsertConversion } from '../../db/referrals/conversionRepository.js';
@@ -80,8 +83,34 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (trackedPartnerIds.length > 0) {
-    // Children first, and no trigger window is needed: none of these five
-    // tables carries an append-only trigger, so a plain DELETE is enough.
+    // #148's enforcement actions refuse DELETE OUTRIGHT, so this one needs a
+    // trigger window — and it is here because this file CALLS
+    // `imposeEnforcementAction`. A service that starts writing a new table
+    // makes every fixture that calls it a writer of that table, which is how
+    // this teardown began failing `23503` the moment the enforcement cases
+    // were added.
+    //
+    // ONE TABLE PER WINDOW, every statement on `tx`: `DISABLE TRIGGER` takes
+    // ShareRowExclusive, whose counterparty is an ordinary writer holding
+    // RowExclusive, and `withTriggerToggleLock` serialises window against
+    // window and so cannot see that party. The transaction is what makes a
+    // throw safe — on the pool the DDL autocommits, and a throw before the
+    // re-enable would leave the trigger off for the rest of the run, so every
+    // later file asserting it refuses a write would pass vacuously.
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table referral_enforcement_actions disable trigger mercaria_referral_enforcement_actions_freeze`,
+      );
+      await tx
+        .delete(referralEnforcementActions)
+        .where(inArray(referralEnforcementActions.partnerId, trackedPartnerIds));
+      await tx.execute(
+        sql`alter table referral_enforcement_actions enable trigger mercaria_referral_enforcement_actions_freeze`,
+      );
+    });
+
+    // Children first. The remaining five tables carry no append-only trigger,
+    // so a plain DELETE is enough.
     await db
       .delete(referralConversions)
       .where(
@@ -666,6 +695,83 @@ describe('the composed dashboard', () => {
     // somebody reads what they would be measured on.
     expect(dashboard.performance.metrics.length).toBeGreaterThanOrEqual(2);
     expect(findForbiddenPartnerFields(dashboard)).toEqual([]);
+  }, 120_000);
+});
+
+describe('the dashboard follows #148\'s enforcement derivation, not the state column', () => {
+  it('reports a scoped payout hold on a partner whose state is still approved', async () => {
+    const program = await seedProgram('enf');
+    const partner = await seedPartner('enf');
+    await seedCode({ partnerId: partner.id, programVersionId: program.id, label: 'enf' });
+    await db
+      .update(referralPartners)
+      .set({ state: 'approved' })
+      .where(eq(referralPartners.id, partner.id));
+
+    const before = await readReferralPartnerDashboard({
+      ownerType: 'user',
+      ownerId: partner.ownerId,
+    });
+    expect(before.payouts.payoutEnabled).toBe(true);
+    expect(before.payouts.earningEnabled).toBe(true);
+
+    // #148's SCOPED hold. The partner's `state` does not move — which is the
+    // whole point of the derivation, and the reason reading the column here
+    // would tell an investigated partner their honest vested earnings are fine
+    // when a hold is in force.
+    await imposeEnforcementAction({
+      partnerId: partner.id,
+      action: 'payout_hold',
+      scope: 'partner',
+      subjectId: partner.id,
+      basis: 'operator_finding',
+      reason: 'Under investigation',
+      actorOxyUserId: `oxy-op-${TAG}`,
+    });
+
+    const reread = await db
+      .select({ state: referralPartners.state })
+      .from(referralPartners)
+      .where(eq(referralPartners.id, partner.id));
+    // The premise: had the state moved, this case would be measuring #146's
+    // coarse posture rather than #148's scoped one.
+    expect(reread[0]?.state).toBe('approved');
+
+    const after = await readReferralPartnerDashboard({
+      ownerType: 'user',
+      ownerId: partner.ownerId,
+    });
+    expect(after.payouts.payoutEnabled).toBe(false);
+    // And EARNING is untouched by a payout hold — the two are separate effects
+    // and collapsing them is what the derivation exists to prevent.
+    expect(after.payouts.earningEnabled).toBe(true);
+  }, 120_000);
+
+  it('reports a scoped attribution suspension without touching payout', async () => {
+    const program = await seedProgram('enf2');
+    const partner = await seedPartner('enf2');
+    await seedCode({ partnerId: partner.id, programVersionId: program.id, label: 'enf2' });
+    await db
+      .update(referralPartners)
+      .set({ state: 'approved' })
+      .where(eq(referralPartners.id, partner.id));
+
+    await imposeEnforcementAction({
+      partnerId: partner.id,
+      action: 'new_attribution_suspension',
+      scope: 'partner',
+      subjectId: partner.id,
+      basis: 'operator_finding',
+      reason: 'Under investigation',
+      actorOxyUserId: `oxy-op-${TAG}`,
+    });
+
+    const after = await readReferralPartnerDashboard({
+      ownerType: 'user',
+      ownerId: partner.ownerId,
+    });
+    expect(after.payouts.earningEnabled).toBe(false);
+    expect(after.payouts.payoutEnabled).toBe(true);
   }, 120_000);
 });
 

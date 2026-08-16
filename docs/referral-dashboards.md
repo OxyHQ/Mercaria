@@ -67,6 +67,30 @@ worth stating:
 
 ---
 
+## Enforcement is read from #148's derivation, not from the state column
+
+`referral_partners.state` used to collapse new links, new attribution and payout
+into one fact. Since #148 it does not: a live `payout_hold` or
+`new_attribution_suspension` raises any of the three effects on a partner whose
+state is still `approved`, and `enforcement_payout_hold` is a **separate** block
+reason from `partner_suspended`.
+
+`readPartnerPayoutReadiness` therefore calls `readEnforcementEffects` — the one
+function `instrument.service`, `attribution.service` and `payability` already
+share — and takes `earningEnabled` and `payoutEnabled` from it. Reading the
+column would tell an investigated partner their honest vested earnings are
+suspended when only a scoped hold applies, or that they are still earning while
+attribution is suspended. Two realdb cases pin the two directions and both go
+red on the pre-#148 spelling.
+
+**No risk signal is surfaced here, and that is a decision rather than a gap.**
+Eight of #148's fourteen signal kinds have no producer, so rendering them would
+show `0` for something nobody measures — a quiet zero that reads to a partner as
+"clean", which is exactly the rule this repo applies everywhere else.
+`ReferralPartnerDashboard` has no field a signal could arrive in. What a partner
+sees about enforcement is #148's own `/referral-partner/enforcement`, through
+its own partner view.
+
 ## The disclosure floor
 
 **`REFERRAL_PARTNER_DISCLOSURE_FLOOR = 10`**, and it is #77's number rather than
