@@ -80,6 +80,11 @@ import { matchBlockedPairs, matchDecisionCandidates, matchDecisions } from '../.
 import { procurementOffers, suppliers } from '../../db/schema/procurement.js';
 import { catalogMergeConflicts } from '../../db/schema/curation.js';
 import {
+  automotiveFitments,
+  compatibilityClaims,
+  genericCompatibilityRelations,
+} from '../../db/schema/compatibility.js';
+import {
   retailComplianceEvidence,
   retailEligibilityExceptions,
   retailSuppressions,
@@ -314,6 +319,40 @@ function redirectHistoryTargets(fromColumn: AnyPgColumn, toColumn: AnyPgColumn):
     },
   ];
 }
+
+
+const COMPATIBILITY_RELATION_NOTE =
+  "A compatibility claim's endpoint (#367 step 8, ADR 0007 D8). " +
+  '`generic_compatibility_relations_open_key` holds one OPEN relation per (kind, endpoints), so a ' +
+  'claim the winner already carries stays on the tombstone rather than colliding -- nothing is ' +
+  'lost, because the winner already answers it. The guard names the SEVEN RAW components of ' +
+  '`relation_key` and NEVER the generated column itself: the key CONTAINS the id being moved, so ' +
+  'comparing a pre-move key against the winner can never match and the guard would be VACUOUS. ' +
+  'Measured -- the generated-column spelling raises 23505 and fails the phase.';
+
+const COMPATIBILITY_FITMENT_NOTE =
+  'A fitment names the part, and the part is what a merge moves. ' +
+  '`automotive_fitments_open_key` holds one OPEN fitment per (subject, vehicle target, position), ' +
+  'so a statement the winner already carries stays on the tombstone. The guard names the SIX RAW ' +
+  'components of `fitment_key` for the reason the relation note gives. The vehicle columns are NOT ' +
+  'part of this merge: a vehicle record is reference data with its own identity.';
+
+const COMPATIBILITY_CLAIM_NOTE =
+  'What a SOURCE said about a specific identity, kept verbatim (ADR 0007 D7). Retained by the ' +
+  'tombstone: repointing would rewrite the observation into a claim about an entity the source ' +
+  'never named, which is the one thing the claim layer exists to prevent. ' +
+  '`mercaria_compatibility_claims_raw_freeze` refuses the UPDATE outright, so a `repoint` here ' +
+  'fails the phase rather than corrupting the record. Both foreign keys are RESTRICT and a ' +
+  'tombstone is a live row, so nothing is orphaned, and the SELECTED canonical fact still follows ' +
+  'the winner through the relation and fitment entries.';
+
+const COMPATIBILITY_BOTH_ENDS_NOTE =
+  ' This is the OBJECT side, gated separately because a merge can collapse BOTH ends of one ' +
+  'relation -- subject and target both becoming the winner, which ' +
+  '`generic_compatibility_relations_distinct_endpoints_check` refuses with 23514. No `uniqueWith` ' +
+  'can express "skip this row because the other endpoint is also moving", so that case is #405 ' +
+  'and it fails LOUDLY: the phase blocks, `blocked` is not claimable, and each phase is its own ' +
+  'transaction so nothing is half-moved.';
 
 const RELATIONSHIP_NOTE =
   "An evidence-backed claim's endpoint. `commerce_relationships_open_claim_key` holds one OPEN " +
@@ -879,6 +918,23 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
   ],
 
   canonical_product_family: [
+    {
+      column: genericCompatibilityRelations.targetFamilyId,
+      phase: 'relationships',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        genericCompatibilityRelations.kind,
+        genericCompatibilityRelations.subjectProductId,
+        genericCompatibilityRelations.subjectVariantId,
+        genericCompatibilityRelations.targetProductId,
+        genericCompatibilityRelations.targetVariantId,
+        genericCompatibilityRelations.targetType,
+        genericCompatibilityRelations.targetKey,
+      ],
+      guardWhereNullColumn: genericCompatibilityRelations.validTo,
+      activeStatusColumn: genericCompatibilityRelations.validTo,
+      note: COMPATIBILITY_RELATION_NOTE,
+    },
     flattenTarget(canonicalProductFamilies.mergedIntoId),
     aliasTarget(canonicalProductFamilyAliases.familyId, canonicalProductFamilyAliases.normalizedAlias),
     sourceLinkTarget(
@@ -923,6 +979,62 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
   ],
 
   canonical_product: [
+    {
+      column: genericCompatibilityRelations.subjectProductId,
+      phase: 'relationships',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        genericCompatibilityRelations.kind,
+        genericCompatibilityRelations.subjectVariantId,
+        genericCompatibilityRelations.targetFamilyId,
+        genericCompatibilityRelations.targetProductId,
+        genericCompatibilityRelations.targetVariantId,
+        genericCompatibilityRelations.targetType,
+        genericCompatibilityRelations.targetKey,
+      ],
+      guardWhereNullColumn: genericCompatibilityRelations.validTo,
+      activeStatusColumn: genericCompatibilityRelations.validTo,
+      note: COMPATIBILITY_RELATION_NOTE,
+    },
+    {
+      column: genericCompatibilityRelations.targetProductId,
+      phase: 'relationships',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        genericCompatibilityRelations.kind,
+        genericCompatibilityRelations.subjectProductId,
+        genericCompatibilityRelations.subjectVariantId,
+        genericCompatibilityRelations.targetFamilyId,
+        genericCompatibilityRelations.targetVariantId,
+        genericCompatibilityRelations.targetType,
+        genericCompatibilityRelations.targetKey,
+      ],
+      guardWhereNullColumn: genericCompatibilityRelations.validTo,
+      activeStatusColumn: genericCompatibilityRelations.validTo,
+      note: COMPATIBILITY_RELATION_NOTE + COMPATIBILITY_BOTH_ENDS_NOTE,
+    },
+    {
+      column: automotiveFitments.subjectProductId,
+      phase: 'relationships',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        automotiveFitments.subjectVariantId,
+        automotiveFitments.vehicleMakeId,
+        automotiveFitments.vehicleModelId,
+        automotiveFitments.vehicleGenerationId,
+        automotiveFitments.vehicleConfigurationId,
+        automotiveFitments.position,
+      ],
+      guardWhereNullColumn: automotiveFitments.validTo,
+      activeStatusColumn: automotiveFitments.validTo,
+      note: COMPATIBILITY_FITMENT_NOTE,
+    },
+    {
+      column: compatibilityClaims.subjectProductId,
+      phase: 'relationships',
+      disposition: 'retained_by_tombstone',
+      note: COMPATIBILITY_CLAIM_NOTE,
+    },
     {
       column: priceSignalEvaluations.canonicalProductId,
       phase: 'rollups',
@@ -1193,6 +1305,62 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
   ],
 
   canonical_variant: [
+    {
+      column: genericCompatibilityRelations.subjectVariantId,
+      phase: 'relationships',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        genericCompatibilityRelations.kind,
+        genericCompatibilityRelations.subjectProductId,
+        genericCompatibilityRelations.targetFamilyId,
+        genericCompatibilityRelations.targetProductId,
+        genericCompatibilityRelations.targetVariantId,
+        genericCompatibilityRelations.targetType,
+        genericCompatibilityRelations.targetKey,
+      ],
+      guardWhereNullColumn: genericCompatibilityRelations.validTo,
+      activeStatusColumn: genericCompatibilityRelations.validTo,
+      note: COMPATIBILITY_RELATION_NOTE,
+    },
+    {
+      column: genericCompatibilityRelations.targetVariantId,
+      phase: 'relationships',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        genericCompatibilityRelations.kind,
+        genericCompatibilityRelations.subjectProductId,
+        genericCompatibilityRelations.subjectVariantId,
+        genericCompatibilityRelations.targetFamilyId,
+        genericCompatibilityRelations.targetProductId,
+        genericCompatibilityRelations.targetType,
+        genericCompatibilityRelations.targetKey,
+      ],
+      guardWhereNullColumn: genericCompatibilityRelations.validTo,
+      activeStatusColumn: genericCompatibilityRelations.validTo,
+      note: COMPATIBILITY_RELATION_NOTE + COMPATIBILITY_BOTH_ENDS_NOTE,
+    },
+    {
+      column: automotiveFitments.subjectVariantId,
+      phase: 'relationships',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [
+        automotiveFitments.subjectProductId,
+        automotiveFitments.vehicleMakeId,
+        automotiveFitments.vehicleModelId,
+        automotiveFitments.vehicleGenerationId,
+        automotiveFitments.vehicleConfigurationId,
+        automotiveFitments.position,
+      ],
+      guardWhereNullColumn: automotiveFitments.validTo,
+      activeStatusColumn: automotiveFitments.validTo,
+      note: COMPATIBILITY_FITMENT_NOTE,
+    },
+    {
+      column: compatibilityClaims.subjectVariantId,
+      phase: 'relationships',
+      disposition: 'retained_by_tombstone',
+      note: COMPATIBILITY_CLAIM_NOTE,
+    },
     {
       column: priceSignalEvaluations.canonicalVariantId,
       phase: 'rollups',

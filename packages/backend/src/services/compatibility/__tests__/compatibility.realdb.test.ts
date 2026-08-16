@@ -47,6 +47,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import {
   canonicalProductFamilies,
   canonicalProducts,
@@ -191,8 +192,15 @@ afterAll(async () => {
   await db.delete(vehicleGenerations).where(eq(vehicleGenerations.id, GN_MK7));
   await db.delete(vehicleModels).where(inArray(vehicleModels.id, [MD_GOLF, MD_FOCUS]));
   await db.delete(vehicleMakes).where(inArray(vehicleMakes.id, [MK_VW, MK_FORD]));
-  await db.delete(canonicalVariants).where(inArray(canonicalVariants.id, [V_PAD, V_PHONE]));
-  await db.delete(canonicalProducts).where(inArray(canonicalProducts.id, [PAD, PHONE, CASE]));
+  // Through the helper, NEVER a bare delete: the matcher's retrieval is a trigram
+  // scan over every `canonical_products` row, so a sibling file's `runMatch` can
+  // record a `match_decisions` row citing this file's fixture, and both citing
+  // columns are `ON DELETE restrict`. A raw delete then fails the whole file with
+  // 23503 at teardown. `deleteTestCanonicalRows` locks first, declines exactly
+  // the cited ids and deletes the rest — and `canonical-fixture-census.test.ts`
+  // is what refuses the bare statement.
+  await deleteTestCanonicalRows(db, { variantIds: [V_PAD, V_PHONE] });
+  await deleteTestCanonicalRows(db, { productIds: [PAD, PHONE, CASE] });
   await db.delete(canonicalProductFamilies).where(eq(canonicalProductFamilies.id, FAMILY));
 
   await closePostgres();

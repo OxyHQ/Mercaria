@@ -174,6 +174,16 @@ const PERMITTED: readonly { readonly file: string; readonly reason: string }[] =
       'be deleted, so the bare statement inside `expect(...).rejects` IS the subject. Its teardown ' +
       'goes through the helper.',
   },
+  {
+    file: 'services/compatibility/__tests__/compatibility.realdb.test.ts',
+    reason:
+      'Asserts the RESTRICT itself (#367 step 8): a canonical product an `automotive_fitments` ' +
+      'row names cannot be deleted out from under it, so the bare statement inside ' +
+      '`expectRefusal(...)` IS the subject — it is the evidence for the "nothing is orphaned" ' +
+      'claim its merge-plan entries make. Its teardown goes through the helper, and it was ' +
+      'routed there BY this census: the fixture originally deleted canonical rows directly in ' +
+      "`afterAll`, which is exactly the cross-file 23503 the helper exists for.",
+  },
 ];
 
 /**
@@ -189,6 +199,7 @@ const PERMITTED_FIXTURES = [
   'db/__tests__/canonical-catalog.realdb.test.ts',
   'db/__tests__/canonical-teardown.realdb.test.ts',
   'db/__tests__/watchlists.realdb.test.ts',
+  'services/compatibility/__tests__/compatibility.realdb.test.ts',
 ];
 
 /**
@@ -383,7 +394,7 @@ describe('the canonical fixture census', () => {
   it('pins the permission list, and every permission states why', () => {
     // A list that only grows is the gate switching itself off. Four files are
     // permitted today; adding a fifth is a decision somebody makes on purpose.
-    expect(PERMITTED).toHaveLength(4);
+    expect(PERMITTED).toHaveLength(5);
     for (const entry of PERMITTED) {
       expect(entry.reason.length, entry.file).toBeGreaterThan(80);
     }
@@ -393,7 +404,7 @@ describe('the canonical fixture census', () => {
     // careless one in its teardown. So every permitted fixture must still route
     // its teardown through the helper — that, plus the parsed hook rule below,
     // is what keeps the permission narrow.
-    expect(PERMITTED_FIXTURES).toHaveLength(3);
+    expect(PERMITTED_FIXTURES).toHaveLength(4);
     for (const file of PERMITTED_FIXTURES) {
       expect(PERMITTED.map((entry) => entry.file)).toContain(file);
       expect(
