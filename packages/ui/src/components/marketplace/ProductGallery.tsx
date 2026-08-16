@@ -90,7 +90,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
               accessibilityRole="button"
               accessibilityLabel="Previous image"
               onPress={() => go(-1)}
-              className="absolute left-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
+              className="absolute start-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
             >
               <ChevronLeft size={NAV_ICON_SIZE} color={colors.foreground} />
             </Pressable>
@@ -98,7 +98,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
               accessibilityRole="button"
               accessibilityLabel="Next image"
               onPress={() => go(1)}
-              className="absolute right-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
+              className="absolute end-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
             >
               <ChevronRight size={NAV_ICON_SIZE} color={colors.foreground} />
             </Pressable>

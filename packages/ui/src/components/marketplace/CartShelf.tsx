@@ -8,7 +8,7 @@ import { SectionHeader } from "./SectionHeader";
 const DEFAULT_TITLE = "In your cart";
 
 /** Fixed slot width class for each merchant cart card. */
-const CART_SLOT_CLASS = "w-[330px] mr-3";
+const CART_SLOT_CLASS = "w-[330px] me-3";
 
 export interface CartShelfProps {
   title?: string;

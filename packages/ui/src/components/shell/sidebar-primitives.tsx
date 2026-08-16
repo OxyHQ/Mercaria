@@ -155,7 +155,7 @@ export function GhostIconButton({ icon: Icon, label, onPress, badge = false, anc
     >
       <Icon size={18} color={colors.mutedForeground} />
       {badge && (
-        <View className="absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border border-background" />
+        <View className="absolute top-0.5 end-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border border-background" />
       )}
     </Pressable>
   );

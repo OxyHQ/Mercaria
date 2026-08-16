@@ -80,7 +80,8 @@
     },
     "appLanguage": {
       "title": "Langue de l'application",
-      "description": "Changez la langue d'affichage de l'application"
+      "description": "Changez la langue d'affichage de l'application",
+      "restartRequired": "Redémarrez l'application pour appliquer la nouvelle direction de mise en page."
     },
     "appearance": {
       "title": "Apparence",

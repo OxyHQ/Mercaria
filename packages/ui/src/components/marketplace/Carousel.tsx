@@ -29,7 +29,7 @@ export interface CarouselProps<T> {
   /**
    * Tailwind classes that set each slot's FIXED, responsive width (and any
    * inter-item gap). No JS measuring — the width is purely class-driven, e.g.
-   * `"w-[154px] md:w-[192px] mr-3"`. (Shop sizes cards by class, not by layout
+   * `"w-[154px] md:w-[192px] me-3"`. (Shop sizes cards by class, not by layout
    * math.)
    */
   slotClassName: string;
@@ -155,7 +155,7 @@ export function Carousel<T>({
             accessibilityRole="button"
             accessibilityLabel="Go to the previous item"
             onPress={() => scrollByViewport(-1)}
-            className="absolute left-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
+            className="absolute start-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
           >
             <ChevronLeft size={ARROW_ICON_SIZE} color={colors.foreground} />
           </Pressable>
@@ -163,7 +163,7 @@ export function Carousel<T>({
             accessibilityRole="button"
             accessibilityLabel="Go to the next item"
             onPress={() => scrollByViewport(1)}
-            className="absolute right-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
+            className="absolute end-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
           >
             <ChevronRight size={ARROW_ICON_SIZE} color={colors.foreground} />
           </Pressable>

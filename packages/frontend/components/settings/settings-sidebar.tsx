@@ -93,7 +93,7 @@ export const SettingsSidebar = React.memo(function SettingsSidebar() {
                   className={isActive ? "text-foreground" : "text-muted-foreground"}
                 />
                 <Text
-                  className={`ml-2 text-sm flex-1 ${
+                  className={`ms-2 text-sm flex-1 ${
                     isActive ? "font-medium text-foreground" : "text-muted-foreground"
                   }`}
                 >

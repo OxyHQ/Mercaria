@@ -21,7 +21,7 @@ const SUPPORTED_LOCALES = [
 ];
 
 export function LanguageSelector() {
-  const { locale, changeLocale, t } = useTranslation();
+  const { locale, changeLocale, t, directionRestartRequired } = useTranslation();
 
   const getCurrentLocaleLabel = () => {
     // A device locale such as fr-CA has no entry of its own; fall back to the
@@ -65,6 +65,15 @@ export function LanguageSelector() {
           ))}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
+      {/* Native applies a layout-direction change on the next launch, so the
+          strings switch to Arabic while the layout stays as it was. Without
+          this line that reads as a bug rather than as a pending restart. Web
+          mirrors live and never sets the flag. */}
+      {directionRestartRequired && (
+        <Text className="text-sm text-muted-foreground">
+          {t('settings.appLanguage.restartRequired')}
+        </Text>
+      )}
     </View>
   );
 }

@@ -706,7 +706,7 @@ function CheckoutBody() {
               onPress={() => setUsingInlineAddress(!usingInlineAddress)}
             >
               <Plus size={16} className="text-foreground" />
-              <Text className="ml-1 text-sm font-medium text-foreground">
+              <Text className="ms-1 text-sm font-medium text-foreground">
                 {usingInlineAddress ? "Use a saved address" : "Deliver somewhere else"}
               </Text>
             </Button>

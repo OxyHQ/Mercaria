@@ -83,7 +83,7 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
         ) : null}
         {thumbB !== undefined ? (
           <View
-            className="-ml-4 overflow-hidden rounded-2xl"
+            className="-ms-4 overflow-hidden rounded-2xl"
             style={{
               width: THUMB_SIZE,
               height: THUMB_SIZE,
@@ -96,7 +96,7 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
 
         {/* Quantity badge */}
         <View
-          className="ml-2 items-center justify-center rounded-full bg-foreground px-1"
+          className="ms-2 items-center justify-center rounded-full bg-foreground px-1"
           style={{ minWidth: BADGE_SIZE, height: BADGE_SIZE }}
         >
           <Text className="text-[10px] font-bold text-background">{totalQuantity}</Text>

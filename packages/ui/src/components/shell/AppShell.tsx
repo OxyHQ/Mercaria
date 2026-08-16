@@ -43,7 +43,7 @@ export interface AppShellProps {
  *   width animates between the icon rail and the expanded sidebar off the shared
  *   collapse flag, and the content flows in the document (so the body scrolls and
  *   the page's `ScreenShell` sticky mask works) with a small gutter inset
- *   (`md:p-2 md:pl-0`). Mobile bottom clearance comes from each page's
+ *   (`md:p-2 md:ps-0`). Mobile bottom clearance comes from each page's
  *   `ScreenShell` (`pb-24`), not this wrapper, so the surface reaches the edge.
  * - NATIVE: a single full-bleed column with the floating-pill `bottomBar` as an
  *   absolute overlay above the routed content (the rail is web-only).
@@ -85,7 +85,7 @@ export function AppShell({
       >
         {sidebar}
       </View>
-      <View className="min-w-0 flex-1 md:p-2 md:pl-0">{children}</View>
+      <View className="min-w-0 flex-1 md:p-2 md:ps-0">{children}</View>
       <View className="fixed inset-x-0 bottom-0 z-[60] md:hidden">{bottomBar}</View>
     </View>
   );

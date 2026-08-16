@@ -206,7 +206,7 @@ function FindingsTimeline({
   onOpenProduct: (canonicalProductId: string) => void;
 }) {
   return (
-    <View className="gap-space-8 pl-space-12">
+    <View className="gap-space-8 ps-space-12">
       <Text className="text-caption text-text-tertiary">
         {asking
           ? "Asking for another look…"

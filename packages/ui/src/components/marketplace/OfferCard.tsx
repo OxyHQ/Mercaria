@@ -26,7 +26,7 @@ export function OfferCard({ label, caption, onPress }: OfferCardProps) {
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      className="flex-row items-center gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill py-space-12 pl-space-16 pr-space-12"
+      className="flex-row items-center gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill py-space-12 ps-space-16 pe-space-12"
     >
       <View className="size-space-32 items-center justify-center rounded-radius-max bg-bg-fill-brand/10">
         <Sparkles size={OFFER_ICON_SIZE} className="text-text-brand" />

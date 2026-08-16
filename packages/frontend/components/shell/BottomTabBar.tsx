@@ -279,7 +279,7 @@ export function BottomTabBar() {
             {item.key === "cart" && cartCount > 0 ? (
               <View
                 pointerEvents="none"
-                className="absolute -right-0.5 -top-0.5 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1"
+                className="absolute -end-0.5 -top-0.5 h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1"
               >
                 <Text className="text-[10px] font-bold text-primary-foreground">
                   {cartCount > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : cartCount}

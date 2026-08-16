@@ -70,7 +70,7 @@ function AddressCard({
           onPress={onSetDefault}
         >
           <Check size={14} className="text-foreground" />
-          <Text className="ml-1 text-sm font-medium text-foreground">Set as default</Text>
+          <Text className="ms-1 text-sm font-medium text-foreground">Set as default</Text>
         </Button>
       ) : null}
     </View>
@@ -157,7 +157,7 @@ function AddressesBody() {
           ) : (
             <Button variant="outline" className="self-start" onPress={() => setAdding(true)}>
               <Plus size={16} className="text-foreground" />
-              <Text className="ml-1 text-sm font-medium text-foreground">Add address</Text>
+              <Text className="ms-1 text-sm font-medium text-foreground">Add address</Text>
             </Button>
           )}
         </>

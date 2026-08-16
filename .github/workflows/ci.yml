@@ -71,6 +71,16 @@ jobs:
       - name: Guard the AGENTS.md budget
         run: bun run validate:agents-md
 
+      # The storefront ships an Arabic bundle (#396) and mirrors its layout from
+      # LOGICAL utilities (#397). A physical `ml-2` or `left-4` half-mirrors the
+      # screen it lands on — the row order flips while the padding does not —
+      # and nothing else here can see it: the class is valid Tailwind, tsc is
+      # happy and the export succeeds. Neither packages/frontend nor packages/ui
+      # has a test runner, so this is the step that carries it. Reads the tracked
+      # file listing; costs a second.
+      - name: Guard RTL logical classes
+        run: bun run validate:rtl-classes
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 

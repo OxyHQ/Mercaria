@@ -128,7 +128,7 @@ function CollectionPill({
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
-      className={`h-11 flex-row items-center gap-2 rounded-full border pl-1.5 pr-4 web:shadow-sm ${
+      className={`h-11 flex-row items-center gap-2 rounded-full border ps-1.5 pe-4 web:shadow-sm ${
         active ? "border-foreground" : "border-border"
       }`}
       style={glassStyle(store)}
@@ -292,7 +292,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
           accessibilityRole="button"
           accessibilityLabel={`Open ${store.name} menu`}
           onPress={() => setMenuOpen(true)}
-          className="absolute left-4 top-4 flex-row items-center gap-2 rounded-full border border-white/30 px-3 py-2 web:shadow"
+          className="absolute start-4 top-4 flex-row items-center gap-2 rounded-full border border-white/30 px-3 py-2 web:shadow"
           style={glassStyle(store)}
         >
           {store.logoUrl ? (
@@ -317,7 +317,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
             manages belongs to the user's Oxy account rather than to this shop.
             Tinting it would need Bloom to accept an arbitrary color;
             `BloomColorScope` takes only a named preset. */}
-        <View className="absolute right-4 top-4">
+        <View className="absolute end-4 top-4">
           <StoreFollowButton store={store} />
         </View>
 
@@ -448,14 +448,14 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
         {/* Search input */}
         <View className="mb-3 px-4">
           <View className="relative">
-            <View className="absolute left-3 top-0 bottom-0 z-10 justify-center">
+            <View className="absolute start-3 top-0 bottom-0 z-10 justify-center">
               <Search size={16} className="text-muted-foreground" />
             </View>
             <Input
               value={searchInput}
               onChangeText={onChangeSearch}
               placeholder={`Search ${store.name}…`}
-              className="h-11 rounded-full bg-secondary pl-9"
+              className="h-11 rounded-full bg-secondary ps-9"
               returnKeyType="search"
             />
           </View>
