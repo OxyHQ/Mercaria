@@ -20,14 +20,16 @@
  * `CLICK_EVIDENCE_KIND` exists and is what goes red if somebody widens it.
  *
  * A mocked repository could not carry any of this: `percentile_cont`, the
- * `<code>: <detail>` prefix `reward.service.ts` actually writes, and the window
- * predicates are properties of the server.
+ * window predicates and — since #431 — the three CHECKs that make
+ * `referral_events.reward_refusal_reason` a closed value set present on exactly
+ * the refusal rows are all properties of the server. A mocked insert accepts
+ * every statement the last describe below expects to be refused.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
-import type { ReferralTouchKind } from '@mercaria/shared-types';
+import { eq, inArray, sql } from 'drizzle-orm';
+import { constraintNameOf, uuidv7 } from '@oxyhq/db';
+import type { ReferralRewardRefusalReason, ReferralTouchKind } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import {
   referralAttributions,
@@ -396,22 +398,24 @@ describe('repeated_cap_attempt — counting the refusals the reward domain wrote
       );
     }
 
-    // Exactly the `<code>: <detail>` shape `reward.service.ts` writes.
-    const reasons = [
-      'cap_reached: the per_partner cap left no headroom',
-      'cap_reached: the per_program cap left no headroom',
-      'budget_exhausted: the campaign budget disappeared',
+    // Exactly what `reward.service.ts` writes: the CODE in its own column, and
+    // the same code as the prose prefix a person reads.
+    const refusals: readonly ReferralRewardRefusalReason[] = [
+      'cap_reached',
+      'cap_reached',
+      'budget_exhausted',
       // The negative control, and the one that matters: a conversion refused
       // for `zero_base` is an unprofitable order, not somebody probing a cap.
-      'zero_base: the commission base was zero',
+      'zero_base',
     ];
-    for (const [index, reason] of reasons.entries()) {
+    for (const [index, refusal] of refusals.entries()) {
       await appendReferralEvent(db, {
         subjectType: 'conversion',
         subjectId: conversionIds[index],
         action: 'reward_accrual_refused',
         actorKind: 'system',
-        reason,
+        reason: `${refusal}: fixture detail`,
+        rewardRefusalReason: refusal,
       });
     }
 
@@ -422,6 +426,64 @@ describe('repeated_cap_attempt — counting the refusals the reward domain wrote
 
     expect(facts.capRefusalCount).toBe(3);
     expect(deriveRiskSignals(facts).map((signal) => signal.kind)).toContain('repeated_cap_attempt');
+  });
+
+  it('counts the COLUMN and not the reason sentence — #431', async () => {
+    // The load-bearing case. Until #431 the counter matched the `<code>: `
+    // prefix of the free-text `reason`, so the sentence's shape decided a fraud
+    // signal: a separator change, a leading space or a wrapper adding context
+    // made the count read ZERO, and zero is a measurement here because
+    // `capRefusalCount` is always supplied.
+    //
+    // So the two are put in DISAGREEMENT, in both directions, which no prose
+    // matcher and no column reader can both survive:
+    //  - a cap refusal whose prose says `zero_base` and whose column says
+    //    `cap_reached` MUST be counted (a prefix matcher misses it);
+    //  - a `zero_base` refusal whose prose says `cap_reached` MUST NOT be
+    //    (a prefix matcher counts it).
+    // Two disagreements one each way, so the expected total is the same as it
+    // would be with no disagreement at all — which is exactly what makes the
+    // case discriminate: only a reader of the wrong field lands elsewhere.
+    const funnel = await seedFunnel('caps-column');
+    const convertedAt = new Date(Date.now() - 60 * 60 * 1_000);
+    const seed = async (
+      reason: string,
+      rewardRefusalReason: ReferralRewardRefusalReason,
+    ): Promise<void> => {
+      const conversionId = await seedConversion({
+        partnerId: funnel.partnerId,
+        codeId: funnel.codeId,
+        touchId: funnel.linkTouchId,
+        evidenceTouchKind: 'link_click',
+        convertedAt,
+        gapSeconds: 3_600,
+      });
+      await appendReferralEvent(db, {
+        subjectType: 'conversion',
+        subjectId: conversionId,
+        action: 'reward_accrual_refused',
+        actorKind: 'system',
+        reason,
+        rewardRefusalReason,
+      });
+    };
+
+    await seed('zero_base: prose disagrees with the column', 'cap_reached');
+    await seed('cap_reached: prose disagrees with the column', 'zero_base');
+    // A third, whose prose carries no recognisable prefix at all — the "a
+    // wrapper prefixed context" shape, which is the change the old matcher
+    // could not survive and this one does not read.
+    await seed('[campaign eu-summer] the per_program cap left no headroom', 'cap_reached');
+
+    const facts = await collectRiskSignalFacts(db, {
+      partnerId: funnel.partnerId,
+      at: new Date(Date.now() + 1_000),
+    });
+
+    // Two cap-class codes out of three rows. A prefix matcher over `reason`
+    // would answer 1 (the second row alone); a matcher requiring `'<code>: '`
+    // exactly would answer 1 as well. Only the column answers 2.
+    expect(facts.capRefusalCount).toBe(2);
   });
 
   it('does not count another partner’s refusals', async () => {
@@ -442,6 +504,7 @@ describe('repeated_cap_attempt — counting the refusals the reward domain wrote
       action: 'reward_accrual_refused',
       actorKind: 'system',
       reason: 'cap_reached: the per_partner cap left no headroom',
+      rewardRefusalReason: 'cap_reached',
     });
 
     const at = new Date(Date.now() + 1_000);
@@ -461,5 +524,105 @@ describe('repeated_cap_attempt — counting the refusals the reward domain wrote
     expect(deriveRiskSignals(facts).map((signal) => signal.kind)).not.toContain(
       'repeated_cap_attempt',
     );
+  });
+});
+
+/**
+ * The three CHECKs that make the counter's zero honest (#431).
+ *
+ * A count over a closed value set is only as good as the column's inability to
+ * hold something else — and the failure this issue fixes is a counter that
+ * under-reads while still reporting a number. So each half of the biconditional
+ * is driven against the real server, where a mocked insert would accept every
+ * one of these statements.
+ */
+describe('referral_events.reward_refusal_reason — the constraints', () => {
+  /** One legal row, so a refusal below is the CHECK rather than the fixture. */
+  async function refusalRow(): Promise<string> {
+    const funnel = await seedFunnel(`chk-${uuidv7().slice(-6)}`);
+    return await seedConversion({
+      partnerId: funnel.partnerId,
+      codeId: funnel.codeId,
+      touchId: funnel.linkTouchId,
+      evidenceTouchKind: 'link_click',
+      convertedAt: new Date(Date.now() - 60 * 60 * 1_000),
+      gapSeconds: 3_600,
+    });
+  }
+
+  it('the positive control: a refusal WITH its code is accepted', async () => {
+    const subjectId = await refusalRow();
+    const row = await appendReferralEvent(db, {
+      subjectType: 'conversion',
+      subjectId,
+      action: 'reward_accrual_refused',
+      actorKind: 'system',
+      reason: 'cap_reached: accepted',
+      rewardRefusalReason: 'cap_reached',
+    });
+    expect(row.rewardRefusalReason).toBe('cap_reached');
+  });
+
+  /**
+   * The refusal, by CONSTRAINT NAME.
+   *
+   * `constraintNameOf` (`@oxyhq/db`) walks the cause chain — a drizzle error's
+   * SQLSTATE and constraint live on `cause`, never on the error itself, so a
+   * message-substring assertion passes on ANY refusal and would go on passing
+   * if these three rows started being refused by something else entirely.
+   */
+  async function refusedBy(work: Promise<unknown>): Promise<string | undefined> {
+    try {
+      await work;
+    } catch (error) {
+      return constraintNameOf(error);
+    }
+    return undefined;
+  }
+
+  it('refuses a reward refusal that names NO code', async () => {
+    const subjectId = await refusalRow();
+    expect(
+      await refusedBy(
+        appendReferralEvent(db, {
+          subjectType: 'conversion',
+          subjectId,
+          action: 'reward_accrual_refused',
+          actorKind: 'system',
+          reason: 'cap_reached: but the column is empty',
+        }),
+      ),
+    ).toBe('referral_events_reward_refusal_present_check');
+  });
+
+  it('refuses a code on an action that is not a reward refusal', async () => {
+    const subjectId = await refusalRow();
+    expect(
+      await refusedBy(
+        appendReferralEvent(db, {
+          subjectType: 'conversion',
+          subjectId,
+          action: 'conversion_verified',
+          actorKind: 'system',
+          reason: 'a verification carrying a refusal code',
+          rewardRefusalReason: 'cap_reached',
+        }),
+      ),
+    ).toBe('referral_events_reward_refusal_scope_check');
+  });
+
+  it('refuses a code outside REFERRAL_REWARD_REFUSAL_REASONS', async () => {
+    const subjectId = await refusalRow();
+    // Through raw SQL rather than the repository: the tuple is what types that
+    // signature, so a value outside it is unrepresentable there — which is
+    // precisely why the CHECK has to be driven from underneath it.
+    expect(
+      await refusedBy(
+        db.execute(sql`insert into referral_events
+          (id, subject_type, subject_id, action, actor_kind, reason, reward_refusal_reason)
+          values (${uuidv7()}, 'conversion', ${subjectId}, 'reward_accrual_refused', 'system',
+                  'a code nobody declared', 'partner_looked_suspicious')`),
+      ),
+    ).toBe('referral_events_reward_refusal_reason_check');
   });
 });

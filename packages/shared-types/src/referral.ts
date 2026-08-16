@@ -692,10 +692,13 @@ export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
   'conversion_reversed',
   'conversion_corrected',
   // #144. `reward_accrual_refused` is the one that carries ADR 0005 D16: an
-  // accrual that produced nothing leaves a row saying which of the thirteen
-  // named reasons applied, because a partner-support question deserves an
-  // answer and an effect that did not happen must be distinguishable from one
-  // that silently vanished.
+  // accrual that produced nothing leaves a row saying which of the fourteen
+  // named `REFERRAL_REWARD_REFUSAL_REASONS` applied, because a partner-support
+  // question deserves an answer and an effect that did not happen must be
+  // distinguishable from one that silently vanished. Since #431 that reason is
+  // a COLUMN (`referral_events.reward_refusal_reason`) rendered from the same
+  // tuple, because #148's `repeated_cap_attempt` counts it and a count over
+  // prose reads zero the moment the prose changes.
   'reward_rule_drafted',
   'reward_rule_activated',
   'reward_rule_superseded',

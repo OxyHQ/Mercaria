@@ -2567,6 +2567,21 @@ so a column whose shape looks arbitrary is answerable:
   `referral_subject_redirects` records identity merges as `from → to` redirects
   (`UNIQUE(subject_kind, from_ref)`) so history keeps its references and reads
   resolve through the redirect.
+- **`referral_events.reward_refusal_reason` is a COLUMN because a COUNTER reads
+  it** (#431). `reason` is prose for a person; #148's `repeated_cap_attempt`
+  counted accrual refusals by matching the `<code>: ` prefix of that prose, so
+  the sentence's shape decided a fraud signal and any change to it made the
+  count read zero — a clean partner rather than an unmeasured one, because
+  `capRefusalCount` is always supplied. THREE CHECKs: `…_reward_refusal_reason_check`
+  (the `REFERRAL_REWARD_REFUSAL_REASONS` tuple, null-tolerant as every
+  `checkOneOf` on a nullable column is), `…_reward_refusal_scope_check` (a code
+  only on `action = 'reward_accrual_refused'`) and `…_reward_refusal_present_check`
+  (every such row NAMES its code). The last two are ONE biconditional written as
+  two named constraints because they landed in different deploy phases — the
+  scope half is satisfied by the previous image, which writes NULL, and the
+  presence half is exactly what it violates. Plus a PARTIAL index on
+  `(reward_refusal_reason, created_at) WHERE reward_refusal_reason is not null`,
+  which is the read the counter issues and the thing a prose match could not be.
 - **Zero `jsonb` columns.** Every shape in this domain is Mercaria's own and
   closed, so none of them earns an entry in the register below.
 

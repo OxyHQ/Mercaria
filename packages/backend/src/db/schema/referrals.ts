@@ -96,6 +96,7 @@ import {
   REFERRAL_PROGRAM_STATUSES,
   REFERRAL_PROMOTION_METHODS,
   REFERRAL_READINESS_SUMMARIES,
+  REFERRAL_REWARD_REFUSAL_REASONS,
   REFERRAL_RISK_STATES,
   REFERRAL_SUBJECT_KINDS,
   REFERRAL_TAX_PARTICIPANT_TYPES,
@@ -1433,6 +1434,23 @@ export const referralConversions = pgTable(
  * Polymorphic subject, exactly as `moderation_enforcements.subject_id` is —
  * the subject id addresses a different table per row, so no single foreign key
  * can express it. No `updated_at`: append-only contract.
+ *
+ * ## `reward_refusal_reason` is a COLUMN because a counter reads it (#431)
+ *
+ * `reason` is prose for a person. #148's `repeated_cap_attempt` risk signal
+ * counts accrual refusals, and until #431 it counted them by matching the
+ * `<code>: <detail>` prefix `reward.service.ts` writes into that prose — so any
+ * change to the SENTENCE (a separator, a leading space, a wrapper adding
+ * context) made the count read zero. Zero is a MEASUREMENT for that signal:
+ * `capRefusalCount` is always supplied, so a broken counter reported a CLEAN
+ * partner rather than an unmeasured one.
+ *
+ * So the reason CODE lives in its own column over a closed value set, and the
+ * two CHECKs below are the biconditional that makes both halves of the mistake
+ * unrepresentable: a refusal that names no code, and a code on a row that is
+ * not a refusal. Split into two named constraints rather than one because they
+ * landed in different deploy phases — the scope half is satisfied by the
+ * previous image (which writes NULL), the presence half is not.
  */
 export const referralEvents = pgTable(
   'referral_events',
@@ -1445,12 +1463,31 @@ export const referralEvents = pgTable(
     /** Who, when a person acted: an Oxy user id or a partner row id. NULL for `system`. */
     actorRef: text(),
     reason: text().notNull(),
+    /**
+     * Why a `reward_accrual_refused` row exists, as a code rather than a
+     * sentence — NULL on every other action, which the scope CHECK enforces.
+     *
+     * Named for the vocabulary it draws from rather than the generic
+     * `refusal_reason`: `referral_events.action` is closed over the whole
+     * domain, and a later reader must not be able to read this as "the reason
+     * ANY refusal event was refused" and reach for it from the attribution or
+     * payout paths, whose refusals name different things.
+     */
+    rewardRefusalReason: text({ enum: asEnumValues(REFERRAL_REWARD_REFUSAL_REASONS) }),
     createdAt: createdAt(),
   },
   (t) => [
     checkOneOf('referral_events_subject_type_check', t.subjectType, REFERRAL_EVENT_SUBJECT_TYPES),
     checkOneOf('referral_events_action_check', t.action, REFERRAL_EVENT_ACTIONS),
     checkOneOf('referral_events_actor_kind_check', t.actorKind, REFERRAL_EVENT_ACTOR_KINDS),
+    // Null-tolerant by construction: `x in (…)` is NULL for a NULL `x`, and a
+    // CHECK rejects only FALSE. The presence half is the scope CHECK's twin
+    // below, never this one.
+    checkOneOf(
+      'referral_events_reward_refusal_reason_check',
+      t.rewardRefusalReason,
+      REFERRAL_REWARD_REFUSAL_REASONS,
+    ),
     check('referral_events_subject_id_check', sql`length(${t.subjectId}) > 0`),
     check(
       'referral_events_reason_check',
@@ -1461,7 +1498,32 @@ export const referralEvents = pgTable(
       'referral_events_actor_check',
       sql`${t.actorKind} = 'system' or ${t.actorRef} is not null`,
     ),
+    // Half one of #431's biconditional: a reward refusal code sits only on a
+    // reward refusal. Additive — the previous image writes NULL here, so this
+    // one lands in the `pre` migration.
+    check(
+      'referral_events_reward_refusal_scope_check',
+      sql`${t.rewardRefusalReason} is null or ${t.action} = 'reward_accrual_refused'`,
+    ),
+    // Half two: every reward refusal NAMES its code. This is the half that
+    // makes the counter's zero honest — a refusal row with no code would make
+    // `capRefusalCount` under-read while still reporting a number, which is the
+    // exact shape of the defect #431 fixes. It BREAKS the previous image's
+    // writes (which leave the column NULL), so it lands in the `post` migration
+    // after its backfill, never in the `pre` one.
+    check(
+      'referral_events_reward_refusal_present_check',
+      sql`${t.action} <> 'reward_accrual_refused' or ${t.rewardRefusalReason} is not null`,
+    ),
     index('referral_events_subject_idx').on(t.subjectType, t.subjectId, t.createdAt),
+    // The count #431 exists for, and the reason the code had to stop being
+    // prose to be indexable at all: "which reward refusals of these kinds
+    // happened in this window". PARTIAL, so it holds only refusal rows rather
+    // than the whole audit trail — the same posture every other partial index
+    // in this schema takes.
+    index('referral_events_reward_refusal_idx')
+      .on(t.rewardRefusalReason, t.createdAt)
+      .where(sql`${t.rewardRefusalReason} is not null`),
   ],
 );
 
