@@ -1,13 +1,14 @@
 /**
- * The discovery-analytics domain (#77) — seven Postgres-born tables.
+ * The discovery-analytics domain (#77) — eight Postgres-born tables.
  *
  * `analytics_events` (the versioned envelope), `analytics_search_queries` (the
  * query record, kept structurally apart from identity),
  * `analytics_query_aggregates` (the thresholded reporting surface),
  * `analytics_rollups` (metric buckets, so raw events can be deleted without
- * losing the numbers), `analytics_experiments` +
- * `analytics_experiment_exposures`, and `analytics_pseudonym_salts` (the
- * rotating secret the pseudonymous session id is derived under).
+ * losing the numbers) and `analytics_rollup_cursors` (where the rollup job got
+ * to), `analytics_experiments` + `analytics_experiment_exposures`, and
+ * `analytics_pseudonym_salts` (the rotating secret the pseudonymous session id
+ * is derived under).
  *
  * ## The shape of the whole domain is an ALLOW-LIST
  *
@@ -25,9 +26,20 @@
  * each absence answers a named rule: no `email`, no `email_hash`, no `phone`,
  * no `card_fingerprint`, no `provider_customer_id`, no `wallet_identity`, no
  * `ip_address`, no `user_agent`, no `device_fingerprint`, no `token`, no
- * `order_note`. `analytics-forbidden-columns.test.ts` scans every column of
- * every table here against that shape, with a vacuity floor and a mutation
- * self-test, so a future column named `buyer_email` fails the build.
+ * `order_note`.
+ *
+ * **That sentence is enforced by an actual allow-list**, in
+ * `services/analytics/__tests__/analytics-column-allowlist.ts`, asserted by
+ * `services/analytics/__tests__/contract-gates.test.ts`: every column of every
+ * table here is enumerated there WITH A REASON, in both directions, and
+ * anything not enumerated fails the build until somebody decides it is
+ * allowed — `merge-plan-census.test.ts`'s posture applied to columns. A
+ * deny-list of forbidden name SEGMENTS sits beside it as a second layer,
+ * because the two fail differently: the allow-list catches the column nobody
+ * anticipated, and the deny-list catches the one somebody appended to the
+ * allow-list without thinking. Both carry a vacuity floor and a mutation
+ * self-test, and the names compared are SQL identifiers (`sqlColumnName`),
+ * never drizzle's `column.name`, which is the TypeScript property.
  *
  * ## Two identity fields, mutually exclusive, and neither is a person
  *

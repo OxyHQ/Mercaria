@@ -1608,8 +1608,23 @@ retention review in `docs/analytics.md` is recorded.
   open bag is not a defence, it is the one mechanism by which an address, an
   order note or a page payload reaches production. The ABSENT columns are the
   enforcement: no email, hash, phone, card fingerprint, provider customer,
-  wallet, IP, user agent, device fingerprint or token, gated by a scan with a
-  vacuity floor and a mutation self-test.
+  wallet, IP, user agent, device fingerprint or token. **The GATE is now an
+  allow-list too, and was a deny-list until it was measured** — one regex naming
+  eighteen tokens, which admitted `shipping_address`, `full_name`, `latitude`
+  and a bare `subject_hash`, and whose mutation self-test proved only that the
+  pattern matched the names the pattern already listed.
+  `__tests__/analytics-column-allowlist.ts` enumerates every column of every
+  table WITH A REASON and `contract-gates.test.ts` compares it against the
+  drizzle schema BOTH WAYS, so **a new column fails the build until somebody
+  decides it is allowed** (`merge-plan-census.test.ts`'s posture, including that
+  a reason is a decision and silence is not). The deny-list is KEPT as a second
+  layer and extended (`hash`, `token`, `address`, `name`, coordinates,
+  `session`), matched by underscore SEGMENT so `latency_ms` is not a latitude,
+  run over the allow-list's own entries as well as the schema, with exactly two
+  named exemptions each asserted to be live. **Compare `sqlColumnName`, never
+  `column.name`** — the casing authority is `@oxyhq/db`, so the old pattern was
+  matching `ip_address`/`user_agent`/`order_note` against `ipAddress`/
+  `userAgent`/`orderNote` and three of its eighteen tokens could never fire.
 - **Two identity columns, mutually exclusive by CHECK, and neither is a person.**
   `oxy_user_id` only for an `oxy` actor whose consent is not `denied`;
   `pseudonymous_session_id` is a truncated sha-256 under a salt that ROTATES
@@ -1648,11 +1663,14 @@ retention review in `docs/analytics.md` is recorded.
   occurrences, applied on the row AND after the range SUM, for operators and
   merchants alike, because a rare query is a near-identifier whoever is reading
   it. `analytics_search_queries` has NO actor column at all.
-- **Metrics are DATA, not prose.** Twenty-two definitions naming numerator,
+- **Metrics are DATA, not prose.** Thirty-two definitions naming numerator,
   denominator, window, source, freshness and ATTRIBUTION LIMIT;
   `analytics_rollups.metric_key` CHECKs against the same tuple, so a number
   whose definition is unstated cannot be stored, and the read surface 404s a key
-  with no definition, so it cannot be served either.
+  with no definition, so it cannot be served either. Twenty-two are the ones #77
+  names by number, the other ten #111's; this file and `docs/analytics.md` both
+  said twenty-two until somebody counted the array, so **count
+  `ANALYTICS_METRICS`, never the sentence beside it**.
 - **Coercive experiments are UNREPRESENTABLE.** No treatment kind could mean
   "hide Continue as guest", "auto-create an account", "preselect marketing
   consent" or "sell organic rank", and a negative list is scanned against the
@@ -5006,9 +5024,11 @@ merchant's offer five times so a market of one reads as a market of five.
 - **The one thing #82 asks for that Mercaria cannot measure, stated rather than
   stubbed:** product-level DEMAND (competitiveness item 4). `resolveProductDemand`
   answers no data and the insight is `unmeasured`/`demand_measurement_unavailable`.
-  #77 defines no product-level demand metric — its twenty-two definitions are
+  #77 defines no product-level demand metric — its thirty-two definitions are
   search, funnel, conversion and coverage rates, none keyed on a canonical
-  product, and `analytics_rollups` has no product dimension. The two substitutes a
+  product, and `analytics_rollups` has no product dimension (its six are
+  `actor_kind`, `buyer_origin`, `client_surface`, `market`, `merchant_id` and
+  `store_id`, measured). The two substitutes a
   later reader reaches for are both wrong: `product_save_aggregates` (#80) counts
   an intent to return rather than demand and carries its own disclosure floor and
   ranking wall, and `analytics_search_queries` (#77) is a phrase rather than a
