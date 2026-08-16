@@ -111,6 +111,8 @@ import internalProcurementRouter from './routes/internal-procurement.js';
 import internalSupplierPreflightRouter from './routes/internal-supplier-preflight.js';
 import internalRetailPilotRouter from './routes/internal-retail-pilot.js';
 import internalRetailReconciliationRouter from './routes/internal-retail-reconciliation.js';
+import navigationRouter from './routes/navigation.js';
+import internalNavigationRouter from './routes/internal-navigation.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -887,6 +889,33 @@ export function createApp(): express.Express {
     // exists for. It stays mounted while the sweep is off — the evidence has to
     // be readable during the incident that turned it off.
     app.use('/internal/retail-reconciliation', internalRetailReconciliationRouter);
+  }
+  /**
+   * Navigation trees (#367 step 7, ADR 0007 D3) — the published menus, sections
+   * and campaign strips a storefront renders, plus the operator surface that
+   * authors them.
+   *
+   * Behind `CATALOG_TAXONOMY_V2_ENABLED` (D12), default false, so today's
+   * behaviour is unchanged: the storefront keeps its own constants and this
+   * surface does not exist. The lever gates the MOUNT and never a stored row —
+   * every tree, node and label stays readable with it off, because a rollback
+   * must not delete catalog evidence.
+   */
+  if (config.catalog.taxonomyV2Enabled) {
+    app.use('/navigation', navigationRouter);
+  }
+  /**
+   * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
+   * allow-list, and deliberately NOT gated on `CATALOG_TAXONOMY_V2_ENABLED`.
+   *
+   * The `/internal/backfill` and `/internal/seo` arrangement, for their reason:
+   * the evidence has to be readable during the incident that turned the public
+   * surface off, and the one moment somebody most needs to preview a navigation
+   * tree is right after switching it off. Empty list = not mounted at all (404,
+   * never 401).
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/navigation', internalNavigationRouter);
   }
   // (Inbound connector webhooks are mounted above, before express.json.)
 

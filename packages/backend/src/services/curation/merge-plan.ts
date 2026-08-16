@@ -111,6 +111,7 @@ import {
   shoppingAgents,
   shoppingAgentTriggers,
 } from '../../db/schema/shoppingAgents.js';
+import { navigationNodes } from '../../db/schema/navigation.js';
 
 /**
  * What the merge does with one referencing column.
@@ -477,6 +478,35 @@ const SHOPPING_AGENT_FINDING_LINE_NOTE =
  * `Record<MergeableEntityType, …>` so a type added without a plan is a compile
  * error, and the census then checks each plan against the schema.
  */
+/**
+ * #367 step 7's navigation nodes, on both mergeable entities they can point at.
+ *
+ * `untouched`, and it is the ONE disposition compatible with the domain's own
+ * shape rather than a preference. A PUBLISHED navigation tree is frozen by
+ * trigger — `mercaria_navigation_published_nodes_frozen` permits nothing but a
+ * node's `visibility` — so a repoint would RAISE on exactly the trees that are
+ * live, which is the failure mode a merge must not have. Nor is it merely
+ * blocked: a menu is what shoppers were SHOWN under a version somebody
+ * published, and rewriting one in place is what publication versioning exists to
+ * prevent.
+ *
+ * Nothing dangles and nothing renders wrong. A merge TOMBSTONES the loser rather
+ * than deleting it, so the `restrict` foreign key is never violated; and the
+ * public read resolves a node's target live, admitting only an active, unmerged
+ * row, so a node pointing at a merged brand or family is WITHHELD with
+ * `target_not_publicly_visible` rather than leading anywhere. The menu loses an
+ * entry and gains nothing false.
+ *
+ * The correction is a new tree version — an editorial act with an author, which
+ * is what changing any other menu entry already is.
+ */
+const NAVIGATION_NODE_NOTE =
+  "#367's navigation nodes are presentation, and a published tree is frozen by trigger — a " +
+  'repoint would raise on every live menu. A merge tombstones rather than deletes, so the ' +
+  'restrict foreign key holds, and the public read admits only an active, unmerged target, so ' +
+  'a node pointing at the loser is WITHHELD rather than leading to a tombstone. The correction ' +
+  'is a new tree version, which is an editorial act with an author.';
+
 export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly RehomeTarget[]>> = {
   organization: [
     flattenTarget(organizations.mergedIntoId),
@@ -532,6 +562,12 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       alsoSetColumns: [retailSuppressions.scopeRef],
       guardWhereNullColumn: retailSuppressions.liftedAt,
       note: SUPPRESSION_NOTE,
+    },
+    {
+      column: navigationNodes.brandId,
+      phase: 'children',
+      disposition: 'untouched',
+      note: NAVIGATION_NODE_NOTE,
     },
     {
       column: commerceRelationships.brandId,
@@ -869,6 +905,12 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
         'Which source supplied each SELECTED field. One row per (entity, field), so a field the ' +
         "winner already explains keeps its own explanation — the loser's stays as the record of " +
         'what the losing row showed.',
+    },
+    {
+      column: navigationNodes.productFamilyId,
+      phase: 'children',
+      disposition: 'untouched',
+      note: NAVIGATION_NODE_NOTE,
     },
     {
       column: commerceRelationships.productFamilyId,

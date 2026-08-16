@@ -1923,6 +1923,17 @@ export interface CatalogConfig {
   readonly curationBatchSize: number;
   /** How often the dispatcher looks for work. */
   readonly curationPollIntervalMs: number;
+  /**
+   * The extended taxonomy READS — `CATALOG_TAXONOMY_V2_ENABLED`, ADR 0007 D12.
+   *
+   * Default FALSE, which is today's behaviour: `categories` answers exactly as
+   * it does now and `/navigation` is not mounted at all. It gates MOUNTS and
+   * reads, never a stored row — turning it off leaves every navigation tree,
+   * node and label readable, because the evidence has to survive the incident
+   * that turned the lever off (D12, "nothing in a rollback deletes catalog
+   * evidence").
+   */
+  readonly taxonomyV2Enabled: boolean;
 }
 
 /**
@@ -3623,6 +3634,7 @@ export const config: AppConfig = Object.freeze({
     curationJobsEnabled: boolEnv('CURATION_JOBS_ENABLED', true),
     curationBatchSize: intEnv('CURATION_JOB_BATCH_SIZE', 5),
     curationPollIntervalMs: intEnv('CURATION_JOB_POLL_INTERVAL_MS', 10_000),
+    taxonomyV2Enabled: boolEnv('CATALOG_TAXONOMY_V2_ENABLED', false),
   }),
   sellYours: Object.freeze({
     enabled: boolEnv('SELL_YOURS_ENABLED', true),

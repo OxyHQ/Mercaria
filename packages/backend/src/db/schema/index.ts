@@ -431,3 +431,16 @@ export * from './shoppingAgents';
 // what makes "two descriptions of one attribute" unrepresentable rather than
 // merely discouraged.
 export * from './productTypes';
+// Navigation trees and the merchandising separation (#367 step 7, ADR 0007 D3).
+// LAST, and it is downstream of everything a menu can point at without adding a
+// column to any of them: `./catalog` (the category a node targets and never
+// writes), `./merchandising` (the collection it links, which stays
+// merchandising), `./organizations` (the brand) and `./canonicalCatalog` (the
+// product family). That direction is the domain's whole shape — it READS the
+// classification tree and the merchandising groupings and writes to neither, so
+// nothing here can change what a category means or publish a collection by
+// linking it. There is no column in any of its five tables for a category's
+// name, parent, lifecycle or ancestry, and none for a rank, weight or sponsored
+// slot, which is what makes ADR 0007 D3's two prohibitions properties of the
+// schema rather than rules somebody follows.
+export * from './navigation';
