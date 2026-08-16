@@ -820,9 +820,13 @@ export async function createStoreProduct(
  * merchant already has, it is reversible in both directions, and flipping back
  * restores exactly the pins they had. The end state is bounded — seven keys, and
  * all seven pinned means "this product is mine now" — rather than an unbounded
- * set nobody can reason about. The set is also SERVED (`Listing.overriddenFields`
- * on the admin hydration path) so a merchant can see which fields stopped
- * tracking, which is what turns this from a silent trap into a visible state.
+ * set nobody can reason about.
+ *
+ * The set is also SERVED, on the admin hydration path
+ * (`Listing.overriddenFields`), so the state is at least READABLE rather than
+ * inferable only from a field having stopped moving. No dashboard screen renders
+ * it yet — that surface is owed, and until it exists a merchant cannot see their
+ * pins without reading the API.
  */
 export async function updateListing(
   listingId: string,
