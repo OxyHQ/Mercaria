@@ -6218,7 +6218,12 @@ it is paid, and what happens when the money it was drawn from goes away.
 - **Withholding is MODELLED and UNSETTLEABLE** (`withholding_not_supported`):
   there is no account for withheld money and inventing a `tax_withheld` one
   would put a remittance obligation in a book nobody reconciles against a tax
-  authority. #141/#146 own it.
+  authority. **#146 SETTLED this rather than inheriting it** — ADR 0005 D15 has
+  Mercaria withhold nothing and issue an annual earnings statement, so the
+  refusal is permanent and the whole withholding vocabulary is named in
+  `REFERRAL_TAX_FORBIDDEN_FIELDS` as values a gate scans for. DAC7 is ADR 0005
+  open item 1 and would change what the QUESTIONNAIRE collects, never what the
+  ledger holds.
 - Env: `REFERRAL_VESTING_ENABLED`, `REFERRAL_PAYOUT_BATCHES_ENABLED`,
   `REFERRAL_RECONCILIATION_ENABLED` and their tunables — **not one gates a
   durable record**, and the accrual books inside #144's transaction with no flag
@@ -6245,12 +6250,14 @@ it is paid, and what happens when the money it was drawn from goes away.
   its teardown failed with `23503` on the first full-suite run. A service that
   starts writing a new table makes every fixture that CALLS it a writer of that
   table.
-- Seams, each failing closed: **#146** (the payout RAIL — the registry is EMPTY,
-  every settlement fails `rail_not_configured` with the batch intact and its
-  claims held, and closing it is one `registerReferralPayoutRail` call; a
-  `console.log` rail would look like a working feature and pay nobody, and a
-  Stripe client here would put a buyer's charge and a partner's payout in one
-  module), **#146/#141** (withholding), **#148** (fraud — the freeze paths are
+- Seams: **#146's payout RAIL is CLOSED** — `services/referral-payouts/`
+  registers a Stripe Connect transfer into the port at boot, and the readiness
+  reader beside it, so a batch queued while the registry was empty settles on
+  its next pass on its own idempotency key with no replay (`rail_not_configured`
+  is retryable). The join sits OUTSIDE both walled domains for #123's reason,
+  and the three D15 gates are now DERIVED rather than read off the partner row.
+  **Withholding is settled, not deferred** — see the bullet above. Still open:
+  **#148** (fraud — the freeze paths are
   operator-driven and the VOID is #144's), **#147** (partner dashboards —
   `ReferralPayoutBatchPartnerView` is A5's allow-list extended to the batch and
   nothing consumes it), and `vested_reward_past_payout_horizon`, a declared

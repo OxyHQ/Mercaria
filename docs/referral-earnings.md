@@ -305,17 +305,22 @@ their ordinary lifecycle to payout.
 
 ## Seams, each a named contract that fails closed
 
-- **#146 — the payout RAIL.** `services/referrals/earnings/payout-rail.port.ts`
-  publishes the request shape, the three-branch outcome union and a registry
-  that is EMPTY. Every settlement fails `rail_not_configured`, visibly, with the
-  batch intact, its items still claimed and its idempotency key unchanged. A
-  `console.log` rail would look like a working feature in every test and pay
-  nobody; a Stripe client here would put a buyer's charge and a partner's payout
-  in one module, which the isolation gate refuses by name. Closing it is one
-  module plus one `registerReferralPayoutRail` call.
-- **#146/#141 — withholding and tax.** The column exists, an operator may set
-  one, and settlement refuses until somebody decides which account holds
-  withheld money.
+- **#146 — the payout RAIL — is CLOSED.** `services/referral-payouts/` registers
+  a Stripe Connect transfer into `payout-rail.port.ts` at boot, plus the
+  readiness reader that answers ADR 0005 D15 gate 1 from #46's
+  `provider_accounts`. The join sits OUTSIDE both walled domains, because
+  `reward-funding-isolation.test.ts` forbids this domain from reaching
+  `services/payments/` and satisfying the join by importing across that wall
+  would widen it to admit the reverse edge. A batch that failed
+  `rail_not_configured` while the registry was empty settles on its next pass,
+  on its own idempotency key, with no replay.
+- **Withholding is SETTLED, and the answer is that Mercaria withholds nothing.**
+  ADR 0005 D15: Mercaria issues an annual earnings statement per partner and
+  partners are responsible for their own income tax. No withholding means no
+  remittance obligation, so no `tax_withheld` account exists or may be added;
+  `withholding_not_supported` is a permanent refusal rather than a wait. DAC7 is
+  ADR 0005 open item 1 and would change what the TAX QUESTIONNAIRE (#146)
+  collects, never what the ledger holds.
 - **#148 — fraud.** Nothing here decides that a conversion was fraudulent. The
   freeze paths exist and are operator-driven; #148 automates the DETECTION that
   should drive them, and the VOID stays #144's.
@@ -331,13 +336,16 @@ their ordinary lifecycle to payout.
 1. Populate `REFERRAL_OPERATOR_OXY_USER_IDS` before any partner earns: with it
    empty `/internal/referrals` is not mounted at all, which also means nobody
    can approve, settle, cancel, freeze or trace anything.
-2. Register a payout rail (#146). Until then batches build, approve and fail
-   with `rail_not_configured`, which is visible and lossless but pays nobody.
+2. Set `STRIPE_ENABLED` and onboard each partner to a payment-ready connected
+   account. The rail is registered (#146), but with Stripe off every partner's
+   identity and payout readiness derives as `unknown`, which BLOCKS — and a
+   partner with no `provider_accounts` row has no beneficiary to pay.
 3. Publish a payout minimum for every currency partners can earn in.
    `REFERRAL_PAYOUT_MINIMUM_MINOR_BY_CURRENCY` carries EUR only, and a currency
    without one blocks every batch.
 4. Turn `REFERRAL_RECONCILIATION_ENABLED` on before the rail carries live money.
    ADR 0005 requires the sweep, and a sweep nobody runs is the discrepancy
    nobody notices.
-5. Decide the withholding question with #141/#146 before a jurisdiction requires
-   one, or those partners cannot be paid at all.
+5. Have each partner complete the tax questionnaire (#146, D15 gate 2). Until
+   they do, tax readiness is `pending` and the batch blocks. Withholding needs no
+   decision — Mercaria withholds nothing and a batch carrying one is refused.

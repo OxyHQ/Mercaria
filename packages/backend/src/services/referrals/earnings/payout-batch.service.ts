@@ -28,8 +28,14 @@
  * #145's field 6 is a real column and an operator may set it. Settlement then
  * refuses `withholding_not_supported`, because there is no ledger account for
  * withheld money to sit in and inventing one would put a remittance obligation
- * in a book nobody reconciles against a tax authority. #141/#146 own that
- * decision; this is the honest shape of waiting for it.
+ * in a book nobody reconciles against a tax authority.
+ *
+ * **#146 settled that and the refusal is now PERMANENT rather than pending.**
+ * ADR 0005 D15 has Mercaria withhold nothing and issue an annual earnings
+ * statement per partner, with partners responsible for their own income tax —
+ * no withholding means no remittance obligation, so no `tax_withheld` account
+ * may be added. DAC7 is ADR 0005 open item 1 and would change what #146's tax
+ * questionnaire COLLECTS, never what this ledger holds.
  */
 
 import { uuidv7 } from '@oxyhq/db';
