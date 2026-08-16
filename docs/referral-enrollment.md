@@ -359,6 +359,30 @@ promotion URL, no name search.
 Separate from `rl:referral-bind:` so a scripted enrollment loop cannot exhaust
 the allowance shoppers need to redeem codes.
 
+### Mountedness is asserted, in two halves, because one alone cannot prove it
+
+`referral-partner-mount.integration.test.ts` exists because everything else in
+this increment tests the SERVICE, and increment 1's `declareTaxProfile` was
+complete, correct, fully tested and reachable by nobody. A service test cannot
+tell a mounted router from an unmounted one.
+
+The first version sent unauthenticated requests and read a 401 as "this route
+exists". **It does not**, and the vacuity control caught it: `authenticateToken`
+is mounted at the ROUTER level, so it answers 401 for every path under
+`/referral-partner` including one that does not exist. So the claim is split:
+
+1. **Reachability** — an unauthenticated request to each PREFIX is refused by
+   auth rather than 404ing, against the real `createApp()` chain. The vacuity
+   control sits OUTSIDE every prefix, so its 404 shows the 401s are not what this
+   app answers to everything.
+2. **The route set** — read off the router's OWN Express stack, asserted as an
+   EXACT set of nine method/path pairs plus a separate count floor (a stack walk
+   that found nothing would otherwise make `toEqual([])` the assertion).
+
+Composed: the router is mounted at both prefixes and declares these nine routes,
+so those eighteen paths are served. Mutation-tested — unmounting the self router
+in `app.ts` turns exactly the reachability case red.
+
 ---
 
 ## 10. Environment
