@@ -380,11 +380,27 @@ Stated rather than stubbed. Each is a named seam that fails closed.
      time either read changed, inside a live attribution gate. Closing them
      means EXTRACTING the shared reads so both callers use one, not writing a
      producer.
-   - `shared_payout_beneficiary`, `provider_risk_outcome` and the missing
-     `disputeRateBps` — all read the PAYMENT domain (`provider_accounts` lives
-     in `db/schema/payments.ts`), which WALL 2 of
-     `referral-integrity-isolation.test.ts` forbids. They need a PORT in
-     #146's shape, registered from outside both walled domains — **#344**.
+   - `provider_risk_outcome` and the missing `disputeRateBps` — both read the
+     PAYMENT domain (`provider_accounts` lives in `db/schema/payments.ts`),
+     which WALL 2 of `referral-integrity-isolation.test.ts` forbids. They need
+     a PORT in #146's shape, registered from outside both walled domains —
+     **#344**, which now EXISTS (`integrity/payment-facts.port.ts`) with
+     nothing registered into it, so what is owed is the join's two queries.
+   - `shared_payout_beneficiary` — **UNMEASURABLE TODAY, and the port is not
+     what it is waiting for.** It reads the payment domain too, so #344 was
+     written expecting to supply it; a producer was written and REVERTED,
+     because the resolution partner → owner → account row is INJECTIVE at every
+     hop and the count can only ever be zero.
+     `services/__tests__/referral-risk-payment-facts.realdb.test.ts` proves all
+     three hops against a real server (`referral_partners_owner_key`,
+     `referralPayoutAccountOwner` being the identity translation, and
+     `provider_accounts_provider_account_id_key`) so the finding goes red the
+     day one of them changes. What would reopen it is **#146 increment 3's
+     deferred beneficiary change** — letting a partner nominate a destination
+     that is not their own owner breaks the middle hop by design, and nothing
+     else in the roadmap does. Shipping the producer anyway would have been a
+     signal that can never fire, reporting a clean bill on somebody nobody
+     examined.
    - `referred_account_maturity` — needs the referred Oxy account's creation
      date. #164 deleted Mercaria's service principal and WALL 6 forbids an
      outbound call from this domain, so it needs a port plus a credential that
