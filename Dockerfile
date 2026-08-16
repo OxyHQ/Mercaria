@@ -93,6 +93,11 @@ RUN test -f packages/backend/dist/index.js \
  || (echo "ERROR: packages/backend/dist/index.js was not produced by the build" && exit 1)
 RUN test -f packages/backend/dist/db/migrate.js \
  || (echo "ERROR: packages/backend/dist/db/migrate.js was not produced by the build" && exit 1)
+# The taxonomy provisioner is checked for the migrator's reason, one step
+# further: it is run by hand as a one-shot ECS task, so a missing emit would be
+# discovered by an operator holding an incident rather than by this build.
+RUN test -f packages/backend/dist/scripts/provision-taxonomy.js \
+ || (echo "ERROR: packages/backend/dist/scripts/provision-taxonomy.js was not produced by the build" && exit 1)
 
 # Strip devDependencies so only production modules are carried into the runtime
 # image (bun has no `prune`; a clean production install from the same lockfile is
