@@ -188,6 +188,19 @@ export const API_VERSION = '2026-07';
 /** Max products per page (Shopify's REST ceiling). */
 const PAGE_LIMIT = 250;
 /**
+ * The ONE Shopify product status that means "on sale" (#379).
+ *
+ * `draft` and `archived` are the other two, and both are unpublished — derived
+ * as the complement of this constant rather than listed, so a status Shopify
+ * adds later is unpublished by default instead of silently published.
+ *
+ * Note the asymmetry with WooCommerce, which derives the same verdict from the
+ * status its PULL filters on: Shopify's pull sends no status filter at all (see
+ * `fetchProducts`), so both paths see the same set of products and this constant
+ * is a fact about Shopify's vocabulary rather than about a query Mercaria makes.
+ */
+const PUBLISHED_PRODUCT_STATUS = 'active';
+/**
  * Product webhook topics registered on connect for near-real-time sync. Delete is
  * an ARCHIVE in Mercaria (never a hard-delete) — see the connector-sync service.
  */
@@ -300,6 +313,20 @@ const shopifyProductSchema = z.object({
   product_type: z.string().nullable().optional(),
   handle: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
+  /**
+   * The product's own publication state: `active`, `draft` or `archived`
+   * (#379).
+   *
+   * Optional and NOT defaulted, and a plain string rather than an enum, for the
+   * two reasons the WooCommerce schema states: a payload missing it is a shape
+   * nobody has seen, and reading that silence as a non-published value would
+   * archive the listing — so an absent status leaves
+   * {@link NormalizedProduct.publishState} absent and the sync service archives
+   * nothing. A value Shopify adds LATER must reach the derivation below, which
+   * answers `unpublished` for anything that is not `active`, rather than failing
+   * the whole product at the schema.
+   */
+  status: z.string().nullable().optional(),
   options: z.array(shopifyOptionSchema).default([]),
   images: z.array(shopifyImageSchema).default([]),
   variants: z.array(shopifyVariantSchema).default([]),
@@ -708,6 +735,20 @@ export function normalizeShopifyProduct(raw: unknown, shopCurrency: CurrencyCode
   }
   if (product.product_type && product.product_type.trim() !== '') {
     normalized.productType = product.product_type;
+  }
+  // #379: Shopify's own publication state, read on the way IN. The connector has
+  // always SENT `status` when pushing a product and never read one back, so an
+  // upstream draft or archived product was imported and published from
+  // Mercaria's `autoPublish` setting alone.
+  //
+  // The complement of `PUBLISHED_PRODUCT_STATUS`, exactly as the WooCommerce
+  // normalizer takes the complement of its own — so `draft` and `archived` are
+  // both `unpublished` and there is no list of unpublished spellings to keep in
+  // step with Shopify. An absent status stays absent rather than defaulting; see
+  // the schema.
+  if (product.status != null && product.status.trim() !== '') {
+    normalized.publishState =
+      product.status === PUBLISHED_PRODUCT_STATUS ? 'published' : 'unpublished';
   }
   return normalized;
 }

@@ -708,6 +708,59 @@ record: the refused product is counted `failed` on its `sync_runs` row with a
 message naming the gap kind and the ids, and a refused webhook fails its run with
 the same message as `error`.
 
+### The shop's own publish state decides what is on sale (#377, #379)
+
+A connector must never put a product on sale that the merchant is not selling.
+`NormalizedProduct.publishState` is the one fact that says so — `published` /
+`unpublished`, ABSENT when the provider reports none, which is never read as
+either verdict.
+
+- **Each provider derives it as the complement of ONE constant**, so there is no
+  list of unpublished spellings to keep in step with a platform: WooCommerce
+  against `PRODUCT_STATUS` (the status its pull filters on), Shopify against
+  `PUBLISHED_PRODUCT_STATUS` (`active`). Shopify's `draft` and `archived` are
+  therefore both `unpublished`.
+- **One rule, one place.** `importProduct` is the chokepoint every path reaches,
+  and the unpublish branch lives there — above the incomplete-enumeration
+  refusal, because knowing a product is unpublished does not require knowing its
+  variants. #377 put it on the webhook path; #379 moved it in rather than adding
+  a second copy, because the PULL reaches `importProduct` without passing the
+  webhook handler, and two implementations of one decision differing by path is
+  the defect #377 exists to close.
+- **The verdict is ARCHIVE, never `draft`.** #377's argument was that an
+  unpublished product is filtered out of the pull and so archived as unseen
+  anyway, making `draft` a state the next reconcile overwrites. That argument
+  does NOT transfer to Shopify, whose pull sends no status filter — the product
+  is returned, is therefore SEEN, and the unseen sweep never touches it. The
+  reason to agree anyway is that `publishState` is binary: a third member carried
+  solely so Shopify could say `draft` would be a second vocabulary for one fact,
+  which costs more than the distinction buys. Archiving is a soft-delete, so
+  order history and provenance survive either way.
+- **A product never imported is SKIPPED, not created archived.** There is no
+  order history or provenance to preserve, so a row nobody can buy is a row
+  nobody needs — and it is what keeps `createStoreProduct`'s status set free of
+  `archived`.
+- **An unpublish may not archive a RESTRICTED listing.**
+  `enforcement.service.restoreSubject` restores only from
+  `['restricted', 'draft']`, so a restricted listing moved to `archived` can
+  never be relisted by an accepted appeal — archiving is a soft-delete
+  everywhere else and a one-way door against a restriction. Scoped by an opt-in
+  to the callers that act on an explicit unpublish; the `product_delete` path is
+  deliberately unchanged, because a product deleted upstream is gone whatever
+  Mercaria was deciding about it.
+- Two things are deliberately absent. **Shopify's pull sends no `status` query
+  parameter**: which values `products.json` accepts cannot be verified from this
+  repository and a wrong one 400s the entire fetch, while classifying what
+  arrives is correct whatever the default is. And **there is no backfill
+  script** — the ordinary sync converges and is idempotent.
+
+**OPEN:** whether `GET /products.json` returns drafts and archived products when
+no `status` filter is passed. It bounds how much the first sync after deploy
+changes, not whether the rule is right, and the defect is real under either
+answer — a `products/update` delivery carries `status` and fires exactly when a
+merchant drafts or archives a product. If drafts ARE returned, the first sync
+archives every listing whose Shopify source is currently a draft or archived.
+
 ### A per-record failure has a durable reason (#303)
 
 A run is `failed` only when NOTHING succeeded, so the commonest shape — a mostly
