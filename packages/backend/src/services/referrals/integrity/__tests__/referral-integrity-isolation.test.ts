@@ -151,6 +151,32 @@ const WALLS: readonly Wall[] = [
     ],
   },
   {
+    name: 'the payout JOIN, which is how the payment domain arrives TRANSITIVELY',
+    // WALL 2 above scans TEXT, so it sees `db/schema/payments.js` and cannot
+    // see `services/referral-payouts/risk-payment-facts.js` — a module whose
+    // whole job is to read the payment domain. Importing it from here would
+    // defeat WALL 2 completely while reading as clean, and it is the single
+    // most plausible mistake now that #344's join exists and is one directory
+    // away: somebody wanting `disputeRateBps` reaches for the function that
+    // computes it rather than for the port that asks for it.
+    //
+    // The direction is the whole design. `payment-facts.port.ts` is a function
+    // type and a registry and imports nothing but the logger; the JOIN imports
+    // the port. Every edge runs join → domain, and this wall is what keeps the
+    // arrow from reversing.
+    pattern: /from\s+['"][^'"]*[/']referral-payouts\//,
+    positive: [
+      "import { readReferralRiskPartnerPaymentFacts } from '../../referral-payouts/risk-payment-facts.js';",
+      "import { readPartnerPayoutReadiness } from '../../../referral-payouts/readiness.js';",
+      "import { referralPayoutAccountOwner } from '../../referral-payouts/beneficiary.js';",
+    ],
+    negative: [
+      // The port itself, which is what this domain is supposed to import.
+      "import { readReferralRiskPaymentFacts } from './payment-facts.port.js';",
+      "import { getDb } from '../../../db/postgres.js';",
+    ],
+  },
+  {
     name: 'ranking, search, discovery or a feed',
     pattern: /from\s+['"][^'"]*[/']((services\/)?(ranking|search|offers|feed-import))\//,
     positive: ["import { rankOffers } from '../../ranking/score.js';"],
@@ -222,6 +248,32 @@ describe('referral integrity isolation (static)', () => {
     // The positive control: the file EXISTS and imports something, so an empty
     // read cannot be what this pass looks like.
     expect(source).toMatch(/from\s+'@mercaria\/shared-types'/);
+  });
+
+  it('the payment PORT is load-bearing: its implementation could not live here', () => {
+    // The property #344 is about, asserted against the real file rather than
+    // asserted about. `services/referral-payouts/risk-payment-facts.ts` answers
+    // this domain's port, and WALL 2 fires on its imports — so the port is not
+    // ceremony around an import that would have been allowed anyway, and the
+    // day somebody "simplifies" it by inlining the queries, WALL 2 catches them
+    // rather than this case going quietly true.
+    const joinPath = join(HERE, '..', '..', '..', 'referral-payouts', 'risk-payment-facts.ts');
+    const join_ = stripComments(readFileSync(joinPath, 'utf8'));
+    // The vacuity floor: a moved or emptied file must not read as "no forbidden
+    // import found".
+    expect(join_.length).toBeGreaterThan(500);
+    expect(join_).toMatch(/registerReferralRiskPaymentFactsReader|ReferralRiskPaymentSubject/);
+
+    const paymentWall = WALLS.find((wall) => wall.name === 'the payment domain');
+    expect(paymentWall).toBeDefined();
+    expect(paymentWall?.pattern.test(join_)).toBe(true);
+
+    // And the port this domain DOES import reaches nothing: a function type and
+    // a registry, so no transitive path from here to the payment domain exists.
+    const port = stripComments(readFileSync(join(INTEGRITY_DIR, 'payment-facts.port.ts'), 'utf8'));
+    expect(port).toMatch(/export type ReferralRiskPaymentFactsReader/);
+    const portImports = [...port.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]);
+    expect(portImports).toEqual(['../../../lib/logger.js']);
   });
 
   it('the risk THRESHOLDS module is pure — no database, no clock, no config', () => {

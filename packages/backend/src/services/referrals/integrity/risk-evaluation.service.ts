@@ -6,8 +6,11 @@
  *
  * Touches this domain wrote, conversions it verified, rewards it accrued,
  * enforcement it imposed. Not one query in this file reads a request header, a
- * cookie, an IP, a user agent or anything from the payment domain but an
- * OUTCOME already recorded as a conversion state. That is D17's other half:
+ * cookie, an IP or a user agent, and not one of them reads the payment domain
+ * at all — the two facts that need it arrive as COUNTS and a RATE through
+ * #344's port, from a join outside both walled domains, and
+ * `ReferralRiskPaymentFacts` has no field an identifier could travel back in.
+ * That is D17's other half:
  * *"fraud evaluation reads Mercaria's own commerce facts — orders, refunds,
  * disputes, memberships, velocities. It never builds or consults a device or
  * contact fingerprint."*
@@ -38,6 +41,7 @@
 
 import { and, eq, gte, inArray, like, lt, or, sql } from 'drizzle-orm';
 import type {
+  ReferralConversionSource,
   ReferralRewardRefusalReason,
   ReferralRiskSignalFacts,
   ReferralRiskSubjectType,
@@ -62,6 +66,7 @@ import {
 } from '../../../db/referralIntegrity/riskSignalRepository.js';
 import {
   readReferralRiskPaymentFacts,
+  REFERRAL_RISK_ORDER_COHORT_BOUND,
 } from './payment-facts.port.js';
 import {
   deriveRiskSignals,
@@ -129,6 +134,18 @@ const CAP_REFUSAL_REASONS: readonly ReferralRewardRefusalReason[] = [
 const CLICK_EVIDENCE_KIND = 'link_click';
 
 /**
+ * The conversion source whose `source_ref` is an ORDER id.
+ *
+ * TYPED for the reason `CAP_REFUSAL_REASONS` is: renaming the member in
+ * `@mercaria/shared-types` fails `tsc` here rather than silently making the
+ * payment cohort empty forever, which would leave both #344 facts reading a
+ * confident zero on every partner. The other three sources name a store, a
+ * subscription and an affiliate commission, none of which the payment domain
+ * can be asked about by order id.
+ */
+const ORDER_CONVERSION_SOURCE: ReferralConversionSource = 'order';
+
+/**
  * Measure one partner over the trailing window.
  *
  * Six bounded reads, all scoped to the partner: this is not a sweep and it does
@@ -137,8 +154,9 @@ const CLICK_EVIDENCE_KIND = 'link_click';
  * ## Which facts this supplies, and which are still nobody's
  *
  * Supplied: `touchesInWindow`, `conversionsInWindow`, `refundRateBps`,
- * `priorConfirmedEnforcementCount`, and — added here —
- * `medianClickToConversionSeconds` and `capRefusalCount`.
+ * `priorConfirmedEnforcementCount`, `medianClickToConversionSeconds`,
+ * `capRefusalCount`, and — through #344's port rather than from a query here —
+ * `disputeRateBps` and `providerAdverseOutcomeCount`.
  *
  * NOT supplied, and each for a reason rather than an omission. `undefined`
  * reaches `deriveRiskSignals`, which emits nothing for it, so an absence is a
@@ -157,15 +175,22 @@ const CLICK_EVIDENCE_KIND = 'link_click';
  *    deleted Mercaria's service principal and WALL 6 of
  *    `referral-integrity-isolation.test.ts` forbids an outbound HTTP call, so
  *    it needs a port plus a credential that does not exist.
- *  - `disputeRateBps`, `providerAdverseOutcomeCount`,
- *    `sharedPayoutBeneficiaryPartnerCount` — all three read the PAYMENT domain
- *    (`provider_accounts` lives in `db/schema/payments.ts`), which WALL 2
- *    forbids importing. **The SEAM now exists** — `payment-facts.port.ts`, read
- *    above — and NOTHING registers a reader, so all three stay absent on every
- *    deployment. What is owed is the join's three queries, not another port.
- *    The shape it wants is #146's: a port in
- *    `services/referrals/earnings/` registered from a module outside both
- *    walled domains, as `partner-readiness.port.ts` is.
+ *  - `disputeRateBps` and `providerAdverseOutcomeCount` — SUPPLIED, through
+ *    `payment-facts.port.ts` and the join that registers into it
+ *    (`services/referral-payouts/risk-payment-facts.ts`). They read the PAYMENT
+ *    domain, which WALL 2 forbids this directory from importing, so the queries
+ *    live outside both walled domains and every edge runs join → domain. This
+ *    file hands the reader the DENOMINATOR and the order cohort it measures
+ *    over — both taken from the one conversion statement below — so no second
+ *    spelling of "this partner's conversions in this window" exists anywhere.
+ *  - `sharedPayoutBeneficiaryPartnerCount` — reads the payment domain too and
+ *    is deliberately NOT produced. It is UNMEASURABLE: the resolution partner →
+ *    owner → account row is injective at every hop, so a producer would answer
+ *    zero for everybody forever, and a signal that cannot fire reports a clean
+ *    bill on somebody nobody examined.
+ *    `services/__tests__/referral-risk-payment-facts.realdb.test.ts` proves all
+ *    three hops against a real server, so the finding goes red the day #146
+ *    increment 3's deferred beneficiary change makes it measurable.
  *  - `marketOutsideProgramScope` — the fact as SPECIFIED is not representable.
  *    `ReferralRiskSignalFacts` calls it "the conversion's market"; neither a
  *    touch nor a conversion carries one (#149 relies on exactly this — a
@@ -192,6 +217,10 @@ export async function collectRiskSignalFacts(
       ),
     );
 
+  // The count, the reversal count AND the payment port's cohort come from ONE
+  // statement, so the denominator the sample floor guards, the numerator the
+  // refund rate takes and the population the payment reader measures are the
+  // same rows by construction rather than by three predicates agreeing.
   const [conversionRow] = await db
     .select({
       total: sql<string>`count(*)`,
@@ -199,6 +228,16 @@ export async function collectRiskSignalFacts(
         referralConversions.state,
         [...REVERSED_CONVERSION_STATES],
       )})`,
+      orderSourced: sql<string>`count(*) filter (where ${referralConversions.sourceKind} = ${ORDER_CONVERSION_SOURCE})`,
+      // Sliced at the bound so an over-large cohort is DETECTABLE rather than
+      // silently short: `orderSourced` is counted unsliced, so the two disagree
+      // exactly when truncation happened. `array_agg … filter` is NULL when
+      // nothing matches, and slicing NULL is NULL.
+      orderRefs: sql<
+        string[] | null
+      >`(array_agg(${referralConversions.sourceRef}) filter (where ${referralConversions.sourceKind} = ${ORDER_CONVERSION_SOURCE}))[1:${sql.raw(
+        String(REFERRAL_RISK_ORDER_COHORT_BOUND),
+      )}]`,
     })
     .from(referralConversions)
     .innerJoin(
@@ -250,7 +289,8 @@ export async function collectRiskSignalFacts(
   // column: `reward.service.ts` writes it as the `<code>: <detail>` prefix of
   // `referral_events.reason`, so this matches that prefix. A `refusal_reason`
   // column would be the honest fix and belongs to the reward domain rather than
-  // here — stated in the PR rather than worked around silently.
+  // here — filed as #431 rather than worked around silently, because a stopgap
+  // survives by nobody writing down that it was one.
   const [capRow] = await db
     .select({ total: sql<string>`count(*)` })
     .from(referralEvents)
@@ -278,16 +318,24 @@ export async function collectRiskSignalFacts(
     .where(eq(referralPartners.id, input.partnerId))
     .limit(1);
 
-  // The PAYMENT-domain facts, through #344's port. Unregistered — which is
-  // every deployment today — this answers `{}`, so the three facts stay absent
-  // and `deriveRiskSignals` emits nothing for them. See the port for why its
-  // default is silence where `partner-readiness.port.ts`' is refusal.
+  const conversions = Number(conversionRow?.total ?? 0);
+  const orderSourcedConversions = Number(conversionRow?.orderSourced ?? 0);
+
+  // The PAYMENT-domain facts, through #344's port. On a deployment where
+  // nothing registered a reader this answers `{}`, so the facts stay absent and
+  // `deriveRiskSignals` emits nothing for them. See the port for why its default
+  // is silence where `partner-readiness.port.ts`' is refusal.
   const paymentFacts = await readReferralRiskPaymentFacts({
     partnerId: input.partnerId,
     ownerType: partnerOwner.ownerType,
     ownerId: partnerOwner.ownerId,
     windowStart,
     windowEnd: input.at,
+    conversionsInWindow: conversions,
+    orderCohort:
+      orderSourcedConversions > REFERRAL_RISK_ORDER_COHORT_BOUND
+        ? { kind: 'not_enumerable', reason: 'cohort_exceeds_bound' }
+        : { kind: 'enumerated', orderRefs: conversionRow?.orderRefs ?? [] },
   });
 
   // postgres.js decodes `count(*)` (an int8) as a STRING, and drizzle types it
@@ -298,7 +346,6 @@ export async function collectRiskSignalFacts(
   // too, so the same rule applies with more force: it is compared against a
   // threshold rather than only reported.
   const touches = Number(touchRow?.total ?? 0);
-  const conversions = Number(conversionRow?.total ?? 0);
   const reversed = Number(conversionRow?.reversed ?? 0);
   const priorEnforcement = Number(priorRow?.total ?? 0);
   const clicksSampled = Number(clickRow?.sampled ?? 0);
@@ -312,7 +359,7 @@ export async function collectRiskSignalFacts(
     // median below is not: a partner with no link-click conversions in the
     // window has nothing to take a median OF.
     capRefusalCount: Number(capRow?.total ?? 0),
-    // Absent on every deployment until #344's join is registered. Spread
+    // Absent on any deployment where nothing registered #344's reader. Spread
     // rather than assigned, so an unregistered read adds NO keys at all and
     // cannot make `disputeRateBps: undefined` look like a field somebody set.
     ...paymentFacts,
