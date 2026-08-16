@@ -157,12 +157,26 @@ describe('the deploy workflow and the migrator agree', () => {
  */
 describe('the deploy workflow syncs an explicit allowlist, never the whole context', () => {
   /**
-   * Every parameter the LIVE task definition (oxy-mercaria:3) reads as a
-   * `secret`, minus two exclusions that are NOT the same kind of thing.
+   * What this repo OWNS and consumes. Deliberately NOT a mirror of the live
+   * task definition, and it diverges in BOTH directions.
    *
    * AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY live under /oxy/_shared/, this
    * repo holds neither, and the repos that do own them (OxyHQServices, Syra)
    * are what write them.
+   *
+   * The four connector parameters are the divergence the OTHER way: measured on
+   * oxy-mercaria:3 on 2026-08-16, the live revision names none of them, and it
+   * is not supposed to yet. A task definition naming a parameter that does not
+   * exist fails at task START with ResourceInitializationError, so the sync has
+   * to write them BEFORE oxy-infra adds them to the task definition. Until that
+   * lands they are synced and read by nothing, which is inert — where the
+   * reverse order is an outage. Their consumers already exist in this package:
+   * connectors/shopify/config.ts, connectors/config.ts and
+   * lib/connector-crypto.ts.
+   *
+   * CONNECTOR_OAUTH_REDIRECT_BASE_URL and CONNECTOR_DEFAULT_CATEGORY_SLUG are
+   * NOT here and must not be added: they are configuration, so they belong in
+   * the task definition's `environment`, not in SecureString.
    *
    * SERVICE_SECRET is RETIRED (#164) and is the one entry a future reader is
    * likely to "fix" back in, because the live task definition DOES still name
@@ -185,6 +199,10 @@ describe('the deploy workflow syncs an explicit allowlist, never the whole conte
     'VAPID_PRIVATE_KEY',
     'VAPID_PUBLIC_KEY',
     'VAPID_SUBJECT',
+    'SHOPIFY_CLIENT_ID',
+    'SHOPIFY_CLIENT_SECRET',
+    'CONNECTOR_ENCRYPTION_KEY',
+    'CONNECTOR_OAUTH_STATE_SECRET',
   ];
 
   const syncStep = (parse(workflow) as WorkflowFile).jobs.deploy.steps.find((step) =>
@@ -203,7 +221,11 @@ describe('the deploy workflow syncs an explicit allowlist, never the whole conte
     // `undefined` step would make the `?.` chains silently trivially true.
     expect(syncStep, 'the secret sync step is gone').toBeDefined();
     expect(syncStep?.env, 'the sync step binds no secrets').toBeDefined();
-    expect(EXPECTED_ALLOWLIST.length).toBeGreaterThan(4);
+    // And a SIZE floor, tracking the list rather than sitting under it. The two
+    // `toEqual` assertions below compare the list against the workflow, so they
+    // pass on any TANDEM deletion from both — this is the only thing bounding
+    // one. It is meant to fail on a removal, so that a removal is argued for.
+    expect(EXPECTED_ALLOWLIST.length).toBeGreaterThan(8);
   });
 
   it('never enumerates the whole secrets context', () => {
