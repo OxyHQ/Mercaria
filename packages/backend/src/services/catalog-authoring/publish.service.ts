@@ -68,7 +68,7 @@ import {
   createStoreProductWithin,
   finishStoreProductCreation,
 } from '../catalog-write.service.js';
-import { requestNativeOfferSync } from '../offers/native-offer.service.js';
+import { enqueueOfferConvergence } from '../../db/offers/offerOutboxRepository.js';
 import { hydrateDraft, validateDraftRow } from './draft.service.js';
 import { composeAuthoringSchemaForDefinitionId } from './schema.service.js';
 import type { AuthoringPermissionContext } from '@mercaria/shared-types';
@@ -262,7 +262,16 @@ export async function publishDraft(
     // commit and the enqueue is a convergence upsert, so the two agree by
     // construction — what this buys is that a listing can never be committed
     // with no convergence requested.
-    await requestNativeOfferSync(listing.id, tx);
+    //
+    // The REPOSITORY, deliberately, and not `requestNativeOfferSync`. That
+    // wrapper catches and logs, which is right for its own callers — none of
+    // them is in a transaction — and wrong here in the way that hides the
+    // failure: in PostgreSQL one failed statement aborts the WHOLE transaction
+    // (`25P02`), so a swallowed enqueue error leaves every later statement
+    // failing on a poisoned transaction and the publish reports whatever
+    // `markDraftPublished` raises instead of what actually went wrong. #78's
+    // snapshot write records the same ruling for the same reason.
+    await enqueueOfferConvergence(listing.id, tx);
 
     const stamped = await markDraftPublished(tx, input.storeId, input.draftId, {
       listingId: listing.id,
