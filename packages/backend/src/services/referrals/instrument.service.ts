@@ -31,6 +31,7 @@ import {
   type ReferralProgramRow,
 } from '../../db/referrals/programRepository.js';
 import { findPartnerById, type ReferralPartnerRow } from '../../db/referrals/partnerRepository.js';
+import { readEnforcementEffects } from './integrity/enforcement.service.js';
 import {
   findCodeById,
   insertCode,
@@ -246,8 +247,16 @@ export async function revokeLink(input: {
 }
 
 /**
- * The three-conjunct issuance gate. Named so the tests can pin each refusal
- * separately: not approved, no active version, owner type not eligible.
+ * The FOUR-conjunct issuance gate. Named so the tests can pin each refusal
+ * separately: not approved, under a scoped link suspension, no active version,
+ * owner type not eligible.
+ *
+ * #148 added the second. It is a SEPARATE conjunct from the partner state
+ * rather than a widening of it, because that is exactly the granularity
+ * acceptance 2 asks for: a partner under `new_link_suspension` keeps every
+ * instrument they already hold working, keeps earning on them, and keeps being
+ * paid — they simply cannot mint more. Folding it into `partner.state` would
+ * take all four of those away at once.
  */
 async function requireIssuable(
   db: DatabaseOrTransaction,
@@ -260,6 +269,14 @@ async function requireIssuable(
     throw conflict(
       `The partner is ${partner.state} and cannot issue instruments for this program`,
     );
+  }
+  // #148: the scoped suspension, through the ONE derivation the three gates
+  // share. `removedFromProgramIds` is read here too — a partner removed from
+  // one program must not mint instruments for it while keeping every other
+  // program they are in, which a partner-wide boolean could not express.
+  const effects = await readEnforcementEffects(db, partnerId);
+  if (effects.newLinksSuspended || effects.removedFromProgramIds.includes(programId)) {
+    throw conflict('New instruments are suspended for this partner');
   }
   const version = await findActiveProgramVersion(db, programId);
   if (!version) {

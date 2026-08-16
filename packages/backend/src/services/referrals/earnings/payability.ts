@@ -74,6 +74,16 @@ export interface PayoutGateFacts {
    * otherwise leave.
    */
   enrollmentEarnsProductionRewards: boolean;
+  /**
+   * #148's scoped `payout_hold`, derived from the live enforcement actions by
+   * `deriveEnforcementEffects` — the ONE derivation the three gates share.
+   *
+   * A BOOLEAN rather than the action list, deliberately: this gate must not be
+   * able to ask WHICH action, or the isolation becomes a list of action names
+   * somebody extends without reading `REFERRAL_ENFORCEMENT_ACTION_EFFECTS`.
+   * The `enrollmentEarnsProductionRewards` device, one field up.
+   */
+  payoutHeldByEnforcement: boolean;
 }
 
 /**
@@ -120,6 +130,13 @@ export function deriveRewardPayability(facts: PayoutGateFacts): ReferralRewardPa
   if (!facts.hasPayoutBeneficiary) reasons.push('no_payout_beneficiary');
   if (!facts.programPayoutEnabled) reasons.push('program_payout_paused');
   if (!facts.enrollmentEarnsProductionRewards) reasons.push('partner_enrollment_is_test');
+  // #148: a SCOPED `payout_hold`. A separate reason from `partner_suspended`
+  // deliberately — the whole point of the scoped action is that a partner can
+  // be under a payout hold WITHOUT being suspended, and an operator reading
+  // `partner_suspended` on an approved partner would go looking for a state
+  // that is not there. Like every gate above it, this WITHHOLDS: the balance
+  // stays and enters the next batch that passes (ADR 0005 D15).
+  if (facts.payoutHeldByEnforcement) reasons.push('enforcement_payout_hold');
 
   if (reasons.length > 0) return { verdict: 'blocked', reasons };
   return {

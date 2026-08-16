@@ -278,7 +278,18 @@ export type ReferralPayoutBlockReason =
    * added to that table without an answer fails `tsc` rather than defaulting to
    * payable.
    */
-  | 'partner_enrollment_is_test';
+  | 'partner_enrollment_is_test'
+  /**
+   * #148: a scoped `payout_hold` enforcement action stands against the partner.
+   *
+   * A DIFFERENT reason from `partner_suspended`, which is the coarse
+   * `referral_partners.state`. The whole point of the scoped action is that a
+   * partner can be under a payout hold while remaining `approved` and while
+   * their attribution continues — so reporting it as a suspension would send
+   * an operator looking for a state that is not there, and would make #148
+   * acceptance 2 unobservable from the very surface that implements it.
+   */
+  | 'enforcement_payout_hold';
 
 /** {@link ReferralPayoutBlockReason} as a tuple. */
 export const REFERRAL_PAYOUT_BLOCK_REASONS: readonly ReferralPayoutBlockReason[] = [
@@ -298,6 +309,7 @@ export const REFERRAL_PAYOUT_BLOCK_REASONS: readonly ReferralPayoutBlockReason[]
   'below_minimum',
   'payout_minimum_not_published',
   'partner_enrollment_is_test',
+  'enforcement_payout_hold',
 ];
 
 /**

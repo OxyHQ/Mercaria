@@ -5572,6 +5572,113 @@ exactly when a payout was being built over one of them.
   changed. #145 acceptance 6 — a feature rollback cannot erase an already-earned
   or already-paid record — is the same statement from the other side.
 
+## Referral integrity (#148)
+
+`db/schema/referralIntegrity.ts` — five tables: `referral_conduct_policies`,
+`referral_risk_signals`, `referral_enforcement_actions`,
+`referral_enforcement_appeals`, `referral_disclosure_requirements`. Every one
+references `referral_partners` and nothing else outside its own domain —
+deliberately, because an enforcement record that could reference an ORDER would
+be one that could name a buyer.
+
+### The forfeiture CHECK is ADR 0005 D17 as a row shape
+
+```
+referral_enforcement_actions_forfeiture_basis_check:
+  action not in (<REFERRAL_FORFEITING_ENFORCEMENT_ACTIONS>)
+  or basis in (<REFERRAL_BASES_PERMITTING_FORFEITURE>)
+```
+
+Both tuples are DERIVED in `@mercaria/shared-types` — the first by filtering an
+exhaustive `Record` of financial effects, the second by SUBTRACTING the one
+basis (`risk_signal`) that may not forfeit. So an action that becomes able to
+destroy money does so in a place `tsc` guards and a migration records, and
+*"signals freeze, only first-party identity evidence voids"* has no row shape to
+violate. Its companion,
+`referral_enforcement_actions_signal_evidence_check`, requires
+`cardinality(evidence_signal_ids) >= 1` on a `risk_signal` basis — without it
+the basis is a word rather than a claim.
+
+### `cardinality`, never `array_length`
+
+`referral_conduct_policies_conduct_nonempty_check` uses `cardinality`. On an
+empty array `array_length(col, 1)` is NULL, a CHECK rejects only FALSE, and the
+obvious spelling therefore ADMITS the empty prohibition set it exists to refuse
+— a policy version prohibiting nothing that a partner would accept and no
+enforcement action could cite. **Measured here for the fourth time in this
+schema** and mutation-tested inside a rolled-back transaction.
+
+### Two biconditionals, never one over their conjunction
+
+`…_publication_check` on both versioned tables, and
+`referral_enforcement_appeals_decision_shape_check`. The single form is
+SATISFIED when both halves are false, so it admits a `draft` carrying a
+publisher and an `accepted` appeal with no decider and no date — exactly the
+rows the constraint exists to refuse. The #126 `retail_delivery_promises` rule,
+hit again.
+
+### `IS DISTINCT FROM`, never `<>`, in the independence CHECK
+
+`referral_enforcement_appeals_independence_check` compares the decider against
+BOTH the imposer and the appellant. With `<>`, a NULL decider yields NULL and a
+CHECK reads NULL as SATISFIED — so both halves would be VACUOUS on every OPEN
+appeal, which is every row before a decision. `imposed_by_oxy_user_id` is
+SNAPSHOTTED onto the appeal because a CHECK may not contain a subquery; the
+snapshot is safe because the action's decision columns are frozen by trigger.
+
+### `num_nonnulls(...) in (0, 3)` for the lift columns
+
+`referral_enforcement_actions_lift_shape_check`. Three pairwise biconditionals
+would need three constraints to say what one says, and a missing third reads as
+clean.
+
+### Five triggers, and the DELETE posture differs on purpose
+
+| Trigger | UPDATE | DELETE |
+|---|---|---|
+| `…_risk_signals_append_only` | refused | **PERMITTED** |
+| `…_enforcement_actions_freeze` | decision columns frozen; lift and appeal state may move, once | refused |
+| `…_enforcement_appeals_append_only` | submission frozen; decision columns move once | refused |
+| `…_conduct_policies_immutable` | frozen once it leaves `draft`; `active → superseded` permitted | drafts only |
+| `…_disclosure_requirements_immutable` | the same | drafts only |
+
+The risk signal's permitted DELETE is the `analytics_events` posture inverting
+the ledger's: erasure on a schedule IS the retention policy
+(`REFERRAL_RETENTION_POLICY.risk_signal`, 400 days, swept off `expires_at`), and
+a trigger refusing it would make the shared sweep fail SILENTLY on every row it
+was contractually obliged to remove. Everything else here is a DECISION, and a
+decision somebody can delete is not an audit trail.
+
+### Three partial uniques
+
+- `referral_enforcement_actions_live_key` on `(scope, subject_id, action)
+  WHERE lifted_at IS NULL` — two operators converge on one row, and a LIFTED
+  action is re-imposable, which a plain unique would forbid forever.
+- `referral_enforcement_appeals_open_key` on `(action_id) WHERE state = 'open'`
+  — a second concurrent appeal against one decision is two reviewers reaching
+  two answers about one row.
+- `…_active_key` on both versioned tables — the `fee_schedules` device.
+
+### `evidence_signal_ids` is a `text[]` and NOT a join table
+
+The ids are evidence SNAPSHOTTED at the moment of the decision. A join table
+would let the signals' own 400-day retention change what an action appears to
+have been based on; a dangling id after 400 days is CORRECT, because the
+action's REASON survives its working papers — the same division
+`REFERRAL_RETENTION_POLICY` draws between `review_evidence` and the enforcement
+record itself.
+
+### What no column here can hold
+
+No email, hash, phone, address, card fingerprint, provider customer, wallet, IP,
+user agent, device fingerprint or cookie. `evidence_ref` addresses a Mercaria
+ROW, `imposed_by_oxy_user_id` is an operator, and `subject_id` is polymorphic
+over five referral tables. Following an action to its evidence and out the other
+side never reaches a buyer. Both polymorphic ids are registered in
+`ID_COLUMNS_WITHOUT_FOREIGN_KEY` with the `referral_events.subject_id`
+reasoning, and `referral_risk_signals.subject_id` additionally because the
+retention clocks differ in the direction a foreign key cannot express.
+
 ## Affiliate outbound redirects and commission (#67)
 
 `affiliateOutbound.ts` — six tables, one migration (`0080`, `pre`). #57 stores an

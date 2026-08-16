@@ -484,6 +484,11 @@ describe('the registry the sweeper runs over', () => {
       // happened to it — bounded by the number of purchase orders rather than
       // by traffic, and read during a chargeback months later.
       'procurement_outboxes',
+      // #148's ONE. The four other integrity tables are DECISIONS and are never
+      // swept: an enforcement action outliving the signal that informed it is
+      // the division #148 draws deliberately, so a decision stays explicable
+      // after its working papers are gone.
+      'referral_risk_signals',
       'referral_touches',
       // #95's two query-side tables. A session is one shopper's bounded
       // clarification conversation and a turn holds #77's REDACTED query form,

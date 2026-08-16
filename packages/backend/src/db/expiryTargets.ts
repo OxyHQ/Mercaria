@@ -103,6 +103,7 @@ import { offerPriceSnapshots } from './schema/priceHistory';
 import { notifications } from './schema/notifications';
 import { paymentOutboxes, paymentProviderEvents } from './schema/payments';
 import { referralTouches } from './schema/referrals';
+import { referralRiskSignals } from './schema/referralIntegrity';
 import { watchlistSnapshots } from './schema/watchlists';
 import { searchIntentSessions, searchIntentTurns } from './schema/searchIntent';
 import { procurementOutboxes, supplierProviderEvents } from './schema/supplierOrders';
@@ -393,6 +394,19 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'attribution a touch may have won has already snapshotted the winning evidence into ' +
       'its own columns and carries winning_touch_id without a foreign key, so this sweep ' +
       'erases the evidence trail’s live end and never an earned attribution (ADR 0005 D6).',
+  },
+  {
+    table: referralRiskSignals,
+    column: referralRiskSignals.expiresAt,
+    retentionSeconds: 0,
+    reason:
+      'A referral risk signal is an OBSERVATION about behaviour, not a financial record, ' +
+      'and `REFERRAL_RETENTION_POLICY.risk_signal` keeps it 400 days — a full year plus a ' +
+      'review cycle — before deleting it. The `expires_at` column carries that deadline, ' +
+      'stamped by the evaluator from the same policy table, so the margin is zero here. ' +
+      'The enforcement ACTION a signal informed survives it and stays explicable: the ' +
+      'action snapshots its own reason, and #148 draws that division deliberately, so a ' +
+      'decision outlives its working papers rather than becoming unreadable with them.',
   },
   {
     table: notifications,

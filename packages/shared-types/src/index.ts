@@ -210,6 +210,14 @@ export * from './referral-tax';
 // too, so "which of them did we skip" is a census rather than a claim.
 export * from './referral-enrollment';
 
+// Referral INTEGRITY (#148, ADR 0005 D7/D17/D18/R6–R8) — the sixteen prohibited
+// conduct kinds, the fourteen behavioural risk signals and the eighteen
+// identifiers disjoint from them, the six self-referral evidence kinds and what
+// each is WORTH, the twelve scoped enforcement actions with their financial
+// effects derived from one exhaustive table, the disclosure surfaces and the
+// twelve retention classes with their policy.
+export * from './referral-integrity';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';

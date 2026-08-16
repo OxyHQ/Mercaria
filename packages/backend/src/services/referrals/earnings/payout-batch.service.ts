@@ -72,6 +72,7 @@ import {
 } from '../../../db/referralEarnings/payoutBatchRepository.js';
 import { findLatestTaxProfile } from '../../../db/referrals/taxProfileRepository.js';
 import { enrollmentEarnsProductionRewards } from '../application-review.service.js';
+import { readEnforcementEffects } from '../integrity/enforcement.service.js';
 import { deriveTaxReadiness } from '../tax-profile.service.js';
 import { readReferralPartnerReadiness } from './partner-readiness.port.js';
 import { bookPayoutSettlement } from './posting.service.js';
@@ -602,6 +603,10 @@ async function readPartnerGateFacts(
     // an answer fails `tsc` instead of defaulting to payable. A `staff_test`
     // partner accrues, vests and is then withheld at exactly this point.
     enrollmentEarnsProductionRewards: enrollmentEarnsProductionRewards(partner),
+    // #148: the scoped payout hold. Derived from the live enforcement actions
+    // by the ONE derivation the three gates share, so a batch builder and an
+    // attribution resolver cannot hold two opinions about what is in force.
+    payoutHeldByEnforcement: (await readEnforcementEffects(db, partner.id)).payoutHeld,
   };
 }
 

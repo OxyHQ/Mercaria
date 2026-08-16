@@ -212,7 +212,17 @@ describe('the migrated schema', () => {
     // size is a function of TRAFFIC, and it is deliberately retained LONGER
     // than a typical telemetry table (400 days) because a commission reversed
     // eleven months after the fact must still resolve to the offer it was for.
-    expect(EXPIRY_TARGETS).toHaveLength(34);
+    // #148 adds ONE — a referral RISK SIGNAL, at 400 days — and leaves its four
+    // others unswept, which is #148 acceptance 5 as a registry entry: an
+    // enforcement ACTION, its appeal, the conduct policy and the disclosure copy
+    // are all decisions, and a retention on a decision would leave the effect in
+    // force with the reason for it gone. The signal is the only table in that
+    // domain whose size is a function of behaviour rather than of decisions, and
+    // it deliberately outlives `referral_touches` (30 days past its own
+    // attribution window) and dies long before the financial record it may have
+    // informed — the separation acceptance 5 names, expressed as two entries in
+    // this list with two different clocks.
+    expect(EXPIRY_TARGETS).toHaveLength(35);
   });
 });
 

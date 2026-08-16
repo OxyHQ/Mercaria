@@ -60,6 +60,12 @@ import {
   type ReferralTermsAcceptanceBody,
 } from '../middleware/referral-partner-schemas.js';
 import { sendSuccess } from '../utils/api-response.js';
+import { referralEnforcementAppealSchema } from '../middleware/referral-schemas.js';
+import {
+  getReferralConductPolicyHandler,
+  getReferralDisclosuresHandler,
+  makeReferralEnforcementPartnerHandlers,
+} from './referral-integrity.controller.js';
 
 /** Which partner this request is about. Supplied by the MOUNT, never a body. */
 export interface ReferralPartnerOwner {
@@ -87,13 +93,20 @@ function fallbackDisplayName(owner: ReferralPartnerOwner): string {
 /**
  * Build the partner router for one owner resolution.
  *
- * NINE routes and no tenth. Everything a partner may do about their own
- * standing, and nothing about anybody else's — there is no route that takes a
- * partner id, no route that reads another partner, and no route that could
- * grant a permission.
+ * TWELVE routes since #148, and no thirteenth. Everything a partner may do
+ * about their own standing, and nothing about anybody else's — there is no
+ * route that takes a partner id, no route that reads another partner, and no
+ * route that could grant a permission.
+ *
+ * #148's three are the conduct policy they are held to, the disclosure copy
+ * they must render, and their own enforcement record plus an appeal. The first
+ * two require NO partner record at all: #148 asks that the rules be "visible
+ * before participation", and gating them behind enrollment would make that
+ * requirement unmeetable by construction.
  */
 export function makeReferralPartnerRouter(resolveOwner: ReferralPartnerOwnerResolver): Router {
   const router = Router({ mergeParams: true });
+  const integrity = makeReferralEnforcementPartnerHandlers(resolveOwner);
 
   /** Everything this owner's partner surface renders. */
   router.get('/', async (req: Request, res: Response) => {
@@ -255,6 +268,42 @@ export function makeReferralPartnerRouter(resolveOwner: ReferralPartnerOwnerReso
       respondWithError(res, err, 'Failed to open the appeal');
     }
   });
+
+  // ── Integrity (#148) ──────────────────────────────────────────────────────
+
+  /**
+   * The prohibited-conduct policy, visible BEFORE participation.
+   *
+   * No partner record is required and none is read. `null` when nothing is
+   * published, which is an honest absence rather than an invented policy — a
+   * built-in default would be a rule people are held to that nobody authored.
+   */
+  router.get('/conduct', getReferralConductPolicyHandler);
+
+  /** The disclosure copy for a market and language. Also pre-participation. */
+  router.get('/disclosures', getReferralDisclosuresHandler);
+
+  /**
+   * The actions against this partner, and their appeals.
+   *
+   * Through `ReferralEnforcementPartnerView` — a different TYPE from the
+   * operator's, not a filtered one — so no operator identity, no evidence id,
+   * no subject id and no basis can reach it without failing `tsc`.
+   */
+  router.get('/enforcement', integrity.list);
+
+  /**
+   * Open an appeal against ONE action.
+   *
+   * The action must belong to this partner; somebody else's is answered with
+   * the SAME 404 as a missing one, because a distinguishable response is an
+   * enumeration oracle over every partner's enforcement record.
+   */
+  router.post(
+    '/enforcement/:actionId/appeal',
+    validateBody(referralEnforcementAppealSchema),
+    integrity.appeal,
+  );
 
   return router;
 }

@@ -35,6 +35,12 @@ import {
   REFERRAL_CLIENT_SURFACES,
   REFERRAL_CODE_ENTRY_MOMENTS,
   REFERRAL_CONSENT_DECLARATIONS,
+  REFERRAL_DISCLOSURE_SURFACES,
+  REFERRAL_ENFORCEMENT_ACTIONS,
+  REFERRAL_ENFORCEMENT_BASES,
+  REFERRAL_ENFORCEMENT_SCOPES,
+  REFERRAL_PROHIBITED_CONDUCT_KINDS,
+  REFERRAL_RISK_SUBJECT_TYPES,
   type ReferralClientSurface,
   type ReferralCodeEntryMoment,
   type ReferralConsentDeclaration,
@@ -196,5 +202,103 @@ export const referralDiscrepancyResolutionSchema = z
   .object({
     status: z.enum(['acknowledged', 'resolved']),
     note: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
+
+// ─── Referral integrity (#148) ──────────────────────────────────────────────
+//
+// Every schema below is `.strict()`, so an undeclared key is REFUSED rather
+// than stripped. That is the difference that matters in a fraud domain: a
+// client sending `ipAddress` alongside a legitimate field must be told no, not
+// quietly served — the value has no column, no facts field and no signal kind,
+// and silently dropping it would leave whoever sent it believing it was used.
+
+/** `POST /internal/referrals/conduct-policies`. */
+export const referralConductPolicySchema = z
+  .object({
+    prohibitedConduct: z
+      .array(z.enum(tuple(REFERRAL_PROHIBITED_CONDUCT_KINDS)))
+      .min(1)
+      .max(REFERRAL_PROHIBITED_CONDUCT_KINDS.length),
+    termsVersion: z.string().trim().min(1).max(100).optional(),
+    summary: z.string().trim().min(1).max(2_000),
+    effectiveFrom: z.string().datetime().optional(),
+  })
+  .strict();
+
+/** `POST /internal/referrals/disclosures`. */
+export const referralDisclosureSchema = z
+  .object({
+    surface: z.enum(tuple(REFERRAL_DISCLOSURE_SURFACES)),
+    /** ISO-3166 alpha-2, or `*` for the market-independent default. */
+    market: z
+      .string()
+      .trim()
+      .regex(/^(\*|[A-Za-z]{2})$/u)
+      .optional(),
+    /** BCP-47 primary subtag, or `*`. */
+    language: z
+      .string()
+      .trim()
+      .regex(/^(\*|[A-Za-z]{2,3})$/u)
+      .optional(),
+    copy: z.string().trim().min(1).max(1_000),
+    required: z.boolean().optional(),
+    effectiveFrom: z.string().datetime().optional(),
+  })
+  .strict();
+
+/**
+ * `POST /internal/referrals/partners/:partnerId/enforcement`.
+ *
+ * `evidenceSignalIds` names `referral_risk_signals` rows and nothing else —
+ * there is no field here for a reason a signal could not express, which is what
+ * keeps a `risk_signal` basis honest: the CHECK requires at least one id, and
+ * the ids resolve to rows carrying no identifier of any kind.
+ */
+export const referralEnforcementSchema = z
+  .object({
+    action: z.enum(tuple(REFERRAL_ENFORCEMENT_ACTIONS)),
+    scope: z.enum(tuple(REFERRAL_ENFORCEMENT_SCOPES)),
+    subjectId: z.string().trim().min(1).max(200),
+    programId: z.string().trim().min(1).max(200).optional(),
+    basis: z.enum(tuple(REFERRAL_ENFORCEMENT_BASES)),
+    conduct: z.enum(tuple(REFERRAL_PROHIBITED_CONDUCT_KINDS)).optional(),
+    reason: z.string().trim().min(1).max(2_000),
+    evidenceSignalIds: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
+    expiresAt: z.string().datetime().optional(),
+  })
+  .strict();
+
+/**
+ * `POST /internal/referrals/partners/:partnerId/risk-signals`.
+ *
+ * The operator's hand-recorded observation. `evidenceRef` addresses a MERCARIA
+ * ROW — an order, a refund, another partner — and the note is bounded free
+ * text for a reviewer. Neither may carry a person: there is no email field, no
+ * address field and no device field, and adding one would need a column that
+ * does not exist.
+ */
+export const referralRiskSignalSchema = z
+  .object({
+    subjectType: z.enum(tuple(REFERRAL_RISK_SUBJECT_TYPES)),
+    subjectId: z.string().trim().min(1).max(200),
+    note: z.string().trim().min(1).max(2_000),
+    evidenceRef: z.string().trim().min(1).max(200).optional(),
+  })
+  .strict();
+
+/** `POST /internal/referrals/appeals/:appealId/decision`. */
+export const referralAppealDecisionSchema = z
+  .object({
+    decision: z.enum(['accepted', 'rejected']),
+    reason: z.string().trim().min(1).max(2_000),
+  })
+  .strict();
+
+/** `POST /referral-partner/enforcement/:actionId/appeal`. */
+export const referralEnforcementAppealSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(2_000),
   })
   .strict();

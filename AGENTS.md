@@ -6360,6 +6360,126 @@ pay nobody and this closes it.
   earnings STATEMENT D15 promises.
 
 
+## Referral fraud controls, disclosures and program enforcement (#148, ADR 0005 D7/D17/D18/R6–R8)
+
+`services/referrals/integrity/` (8 modules) + `db/referralIntegrity/` (3
+repositories) + `db/schema/referralIntegrity.ts` (5 tables) +
+`controllers/referral-integrity.controller.ts`, plus the integrity half of
+`/internal/referrals/*` and four routes on the partner surface. Full reference:
+**`docs/referral-integrity.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"Referral integrity (#148)". #142 built the records, #143 the edge, #144 the
+rules, #145 the money and #146 the partner; this answers the question none of
+them owns — **on what evidence may Mercaria take something away, and what
+exactly may it take.**
+
+- **ADR 0005 D17's law is held FOUR ways and none is a branch.**
+  `REFERRAL_ENFORCEMENT_FINANCIAL_EFFECTS` is an exhaustive `Record` (an action
+  with no effect fails `tsc`); `REFERRAL_FORFEITING_ENFORCEMENT_ACTIONS` is
+  DERIVED from it; `REFERRAL_BASES_PERMITTING_FORFEITURE` is derived by
+  SUBTRACTION of `risk_signal`; and
+  `referral_enforcement_actions_forfeiture_basis_check` renders BOTH derived
+  sets, so a money-destroying action on a signal basis has no row shape — not a
+  service bug, not `psql`. Mutation-tested: with the CHECK dropped in a
+  rolled-back transaction the identical insert is ADMITTED.
+- **#148 does not fork #143's identity prohibition, it EXTENDS it.**
+  `REFERRAL_FORBIDDEN_RISK_SIGNALS` is the UNION of
+  `REFERRAL_FORBIDDEN_IDENTITY_SIGNALS` (14) with four #148 adds, asserted as a
+  strict superset. Two lists describing one prohibition disagree eventually and
+  the direction is always the permissive one. It is DISJOINT from the fourteen
+  permitted signal kinds, `ReferralRiskSignalFacts` has a field for every
+  permitted one and none for any forbidden one, and `referral_risk_signals` has
+  no email, hash, phone, address, card, provider-customer, IP, user-agent or
+  device column at all.
+- **Self-referral is THREE-valued and the middle value is what reconciles the
+  ADR with the issue.** D7 admits exactly two facts as FINAL and says everything
+  else *"freezes and routes to manual review"*; the issue names four more as
+  strong evidence. `REFERRAL_SELF_REFERRAL_EVIDENCE_STRENGTH` is the
+  reconciliation — the ADR's two REFUSE, the issue's four REVIEW — and the four
+  weak ones (household IP, shared card, common surname, matching email domain)
+  are not in the type at all, so they cannot be RECORDED, which is stronger than
+  not acting on them. **`verified_beneficiary_overlap` is strong and still
+  `reviewable`**: two partners legitimately share a beneficiary, and refusing
+  would be final on evidence the ADR did not make final.
+  `selfReferralPermitsAttribution` exists so nobody writes
+  `verdict !== 'refused'`, which reads correct and attributes everything a
+  reviewer was supposed to see first. This CLOSES the "self-referral is a
+  vocabulary member with no detector" gap `attributeTouch` carried since #142.
+- **Acceptance 2 is FIVE independent effects where there was ONE column.**
+  `referral_partners.state = 'suspended'` collapsed new links, new attribution,
+  payout and earning, so an operator investigating had to stop paying honest
+  vested earnings too. `deriveEnforcementEffects` is the ONE authority the three
+  gates read (`requireIssuable`, `attributeTouch`, `deriveRewardPayability`) and
+  it folds the partner's own state IN rather than beside — leaving it out gives
+  two things to consult, duplicating it gives `referral_partners.state` a rival.
+  DERIVED, never stored (the `deriveNativeCheckoutEligibility` divergence), with
+  EXPIRY applied against the caller's clock so the indexed `lifted_at is null`
+  narrowing and the verdict cannot disagree about "now".
+  `enforcement_payout_hold` is a SEPARATE block reason from `partner_suspended`,
+  or acceptance 2 would be unobservable from the surface implementing it.
+- **Two actions are REPRESENTABLE and NOT IMPOSABLE** — `partner_termination`
+  and `commission_held`, each refused BY NAME with the route that performs it
+  (`role_email`'s device): a second writer of `referral_partners.state` or of
+  the reward state machine could disagree with the first.
+- **A lift is a compensating record, never an edit.** A trigger freezes every
+  decision column and permits ONE lift; DELETE is refused outright. An operator
+  who could edit `basis` after the fact would walk around the forfeiture CHECK,
+  since a CHECK is per statement and the forfeiting action is already recorded.
+- **The appeal path's independence is TWO CHECKs over a SNAPSHOTTED
+  `imposed_by_oxy_user_id`**, compared with `IS DISTINCT FROM` and never `<>`:
+  `<>` against a NULL decider is NULL, a CHECK reads NULL as SATISFIED, and both
+  halves would be VACUOUS on every open appeal. There is deliberately no
+  operator route that OPENS an appeal — one who could would open one they then
+  decide, and the CHECK is satisfied by two accounts one person holds.
+- **`cardinality(...) >= 1`, never `array_length(...) >= 1`** on the conduct
+  policy's prohibition set. Measured again here, and mutation-tested by
+  substituting the wrong spelling in a rolled-back transaction: the empty array
+  is ADMITTED, which is exactly the row it exists to refuse.
+- **No built-in conduct policy** — absence is reported as absence, #82's posture
+  rather than #74's: a ranking must produce SOME order, a prohibition need not be
+  asserted at all. The rules are visible BEFORE participation
+  (`GET /referral-partner/conduct` requires no partner record), and are tied to
+  the accepted terms version by a column.
+- **A disclosure may not claim a relationship.**
+  `REFERRAL_DISCLOSURE_FORBIDDEN_CLAIMS` is scanned at PUBLICATION and the
+  refusal NAMES the phrase — a partner is not an employee, an official store, a
+  brand representative or verified, and those are #55's to establish. There is
+  **no jurisdiction table**: which markets require one is ADR 0005 open item 1's,
+  and a table would be Mercaria asserting an answer nobody gave it.
+- **Risk signals refuse UPDATE and PERMIT DELETE** (the `analytics_events`
+  posture): append-only stops a signal being retuned to justify an action taken
+  on it, and erasure on a schedule IS the retention policy. `manual_evidence` is
+  the operator's kind and only the operator's, by CHECK.
+- **Retention is a `Record` over twelve classes and acceptance 5 is asserted over
+  it**: `raw_touch` (30 d) expires earlier than every other swept class, and the
+  five financial classes are not swept at all. `db/expiryTargets.ts` is the
+  MECHANISM and `REFERRAL_RETENTION_POLICY` is the POLICY, and a test asserts
+  they agree. The evidence a decision cites may expire while the decision stands
+  — the division is deliberate, so a decision outlives its working papers.
+- **What a partner sees is a different TYPE, not a filtered one** (#106's
+  `MerchantOrder` device): no operator identity, no evidence ids, no subject id,
+  no basis. Scanned statically AND walked at runtime over a real emitted view.
+- **#148 adds NO environment variable at all.** The D17 thresholds are a code
+  CONSTANT (#82's reason: a value deciding whether somebody's earnings get
+  reviewed should have an author and a date), both keys are code constants, and
+  nothing here gates a durable record — a flag able to stop an enforcement
+  action being written would make an incident invisible rather than paused.
+- Operator surface on the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list
+  #143/#145/#146 use, NOT an eighth. The set is CLOSED: no "clear this signal",
+  no "edit this action", no "delete this appeal", no "set this partner's risk
+  state". The trace opens from a PARTNER id and nothing else — a fraud surface
+  that could be asked "who looks suspicious" is one that has to answer.
+- Migration `0085` (`pre`): five tables, five hand-written trigger blocks under
+  anchored markers, and three CHECK WIDENINGS verified element by element
+  against the live tuples (conflict reasons 8→9, event subject types 9→11, event
+  actions 60→69).
+- Seams, each named in `docs/referral-integrity.md` rather than stubbed: the
+  scheduled risk SWEEP (the evaluator is complete, bounded and idempotent and
+  its only caller is the operator route — a cadence and a page bound are #149's
+  to choose with traffic in front of it), the EIGHT of fourteen signal kinds
+  whose FACTS nothing supplies yet (`collectRiskSignalFacts` is where each would
+  be measured), #147's monitoring dashboard, #148's six rate-limit axes, an
+  abuse-report subject for a partner, and DAC7 (ADR 0005 open item 1).
+
 ## Affiliate outbound redirects and commission (#67, part of #37)
 
 `services/outbound/` + `services/outbound/reconciliation/` + `db/affiliateOutbound/`

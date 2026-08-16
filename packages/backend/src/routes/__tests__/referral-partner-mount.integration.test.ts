@@ -132,7 +132,7 @@ describe('the partner surface is reachable in the real app', () => {
  * were assembled differently, and would need its own vacuity floor. This is the
  * object the app actually mounts.
  */
-describe('the partner router serves exactly nine routes', () => {
+describe('the partner router serves exactly thirteen routes', () => {
   function declaredRoutes(): readonly string[] {
     const router = makeReferralPartnerRouter(() => ({ ownerType: 'user', ownerId: 'x' }));
     const stack = (router as unknown as { stack: readonly Record<string, unknown>[] }).stack;
@@ -147,7 +147,7 @@ describe('the partner router serves exactly nine routes', () => {
     return routes.sort();
   }
 
-  it('declares the nine, and no tenth', () => {
+  it('declares the thirteen, and no fourteenth', () => {
     expect(declaredRoutes()).toEqual(
       [
         'GET /',
@@ -162,6 +162,21 @@ describe('the partner router serves exactly nine routes', () => {
         // `deriveRewardPayability` blocked every batch.
         'POST /tax-profile',
         'POST /appeal',
+        // #148's four. The first two require NO partner record and read none:
+        // the issue asks that the rules be "visible before participation", and
+        // gating them behind enrollment would make that unmeetable by
+        // construction. The last two are the partner's own enforcement record —
+        // through a DIFFERENT type from the operator's, carrying no operator
+        // identity and no evidence ids — and an appeal against ONE action.
+        //
+        // There is deliberately no `POST /enforcement/:actionId/withdraw-appeal`
+        // and no route that reads another partner's record: somebody else's
+        // action is answered with the SAME 404 as a missing one, because a
+        // distinguishable response is an enumeration oracle.
+        'GET /conduct',
+        'GET /disclosures',
+        'GET /enforcement',
+        'POST /enforcement/:actionId/appeal',
       ].sort(),
     );
   });
@@ -175,6 +190,6 @@ describe('the partner router serves exactly nine routes', () => {
    * something for either assertion to mean anything.
    */
   it('the stack walk actually found routes', () => {
-    expect(declaredRoutes().length).toBe(9);
+    expect(declaredRoutes().length).toBe(13);
   });
 });
