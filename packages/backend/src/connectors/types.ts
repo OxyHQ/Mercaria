@@ -19,6 +19,8 @@ import type {
   ConnectorWebhookFailureReason,
   CurrencyCode,
   DualMoney,
+  ExternalCollection,
+  ExternalTaxonomyNoun,
   FxRateSnapshot,
   Money,
   OrderStatus,
@@ -643,6 +645,43 @@ export interface ConnectorProvider {
 
   /** Verify credentials by fetching the shop's identity from the platform. */
   verifyConnection(auth: ConnectorAuth): Promise<ShopIdentity>;
+
+  /**
+   * What this platform CALLS the groupings `collectionMapping` is keyed on.
+   *
+   * Declared here rather than looked up by `ConnectorProviderId` for
+   * {@link ConnectorCapabilities}' reason: two descriptions of one fact drift,
+   * and the drift is always flattering. Shopify says "collection", WooCommerce
+   * says "category", and a merchant screen using the wrong word is naming
+   * something they cannot find in their own admin.
+   */
+  readonly externalTaxonomyNoun: ExternalTaxonomyNoun;
+
+  /**
+   * List every grouping the shop currently publishes, so a merchant can PICK
+   * one instead of typing an id.
+   *
+   * Deliberately NOT capability-gated: both implemented providers publish a
+   * complete, named list, so a `listsCollections: false` branch would be one no
+   * provider takes — a gate that cannot fail, which reads as coverage. What
+   * genuinely varies is the NOUN (declared above) and whether the taxonomy
+   * NESTS, which `ExternalCollection.parentExternalId` carries. A future
+   * provider that cannot list earns the capability then, with a real `false`
+   * beside it.
+   *
+   * The returned `externalId` MUST be the same identifier this provider writes
+   * into `NormalizedProduct.collectionRefs`. They are the two halves of one
+   * join, and a picker offering any other identifier stores a key no import can
+   * match — a mapping that is configured, displayed, and silently inert.
+   *
+   * It is its OWN call rather than a by-product of `fetchProducts`. Shopify's
+   * per-run collection index is built from `collects.json` plus each smart
+   * collection's product list, and carries ids ONLY — no titles, because
+   * membership is all an import needs. A picker needs names, so the titles have
+   * to be fetched, and a merchant opening the screen must not have to run a
+   * backfill first.
+   */
+  fetchCollections(creds: ConnectorCredentials): Promise<ExternalCollection[]>;
 
   /**
    * Fetch one page of products. `cursor` is the opaque pagination token returned

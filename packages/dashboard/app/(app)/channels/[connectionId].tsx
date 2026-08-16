@@ -47,6 +47,7 @@ import {
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
+import { CollectionMapping } from "@/components/channels/CollectionMapping";
 import {
   WEBHOOK_FAILURE_REASON_COPY,
   deriveWebhookDelivery,
@@ -168,6 +169,7 @@ function ChannelSettingsBody({
       action={back}
     >
       <SettingsForm storeId={storeId} connection={connection} />
+      <CollectionMapping storeId={storeId} connection={connection} />
       {connection.mode === "push_in" ? (
         <ChannelApiKeys storeId={storeId} connection={connection} />
       ) : null}
@@ -191,12 +193,26 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
   );
   const [orders, setOrders] = useState<SyncResourceDirection>(connection.syncSettings.orders);
   const [autoPublish, setAutoPublish] = useState<boolean>(connection.syncSettings.autoPublish);
+  // #376 scope: `conflictPolicy` ships with the mapping rather than after it,
+  // because it DECIDES the mapping. `applyCollectionMapping` returns early when
+  // `collections` is pinned in the listing's `overriddenFields`, and whether
+  // those pins are honoured at all is exactly this setting — so a merchant could
+  // configure a mapping and never be able to see why it did nothing.
+  const [respectOverrides, setRespectOverrides] = useState<boolean>(
+    connection.syncSettings.conflictPolicy === "respect_overrides",
+  );
 
   const save = () => {
     update.mutate(
       {
         connectionId: connection.id,
-        settings: { products, inventory, orders, autoPublish },
+        settings: {
+          products,
+          inventory,
+          orders,
+          autoPublish,
+          conflictPolicy: respectOverrides ? "respect_overrides" : "connector_wins",
+        },
       },
       {
         onSuccess: () => toast.success("Channel settings saved"),
@@ -238,6 +254,19 @@ function SettingsForm({ storeId, connection }: { storeId: string; connection: Co
             </Text>
           </View>
           <Switch value={autoPublish} onValueChange={setAutoPublish} />
+        </View>
+      </View>
+
+      <View className="rounded-2xl border border-border bg-surface p-4">
+        <View className="flex-row items-center justify-between gap-4 py-1">
+          <View className="flex-1">
+            <Text className="text-sm font-semibold text-foreground">Keep my local edits</Text>
+            <Text className="text-xs text-muted-foreground">
+              When on, a field you edited in Mercaria is never overwritten by a later sync. When
+              off, the channel always wins.
+            </Text>
+          </View>
+          <Switch value={respectOverrides} onValueChange={setRespectOverrides} />
         </View>
       </View>
 

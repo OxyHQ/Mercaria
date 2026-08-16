@@ -112,6 +112,76 @@ export async function findCollectionsByStore(
   return withRules(rows, db);
 }
 
+/**
+ * The identity a connector's collection mapping needs to resolve ONE target:
+ * does it exist in this store, what is it called, and is it MANUAL.
+ *
+ * Deliberately not `CollectionRecord`: the rules are the bulk of that shape and
+ * no caller here reads them, and it is loaded on a per-run hot path.
+ */
+export interface CollectionMappingTarget {
+  readonly id: string;
+  readonly title: string;
+  readonly handle: string;
+  readonly type: CollectionRow['type'];
+}
+
+/**
+ * Resolve `ids` against this store's collections, dropping every id that names
+ * no collection OF THIS STORE.
+ *
+ * The store scoping IS the authorization, as everywhere else in this
+ * repository — a `collectionMapping` is merchant-supplied, so an id naming
+ * another store's collection must resolve to nothing rather than to a title
+ * this store is not entitled to read.
+ *
+ * Returns the TYPE rather than filtering to manual, because the two callers
+ * need different things from the same read: the import path wants "which of
+ * these may I write to", and the mapping screen has to tell a merchant WHICH
+ * of the two reasons a row is inert.
+ */
+export async function findCollectionMappingTargets(
+  storeId: string,
+  ids: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CollectionMappingTarget[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select({
+      id: collections.id,
+      title: collections.title,
+      handle: collections.handle,
+      type: collections.type,
+    })
+    .from(collections)
+    .where(and(eq(collections.storeId, storeId), inArray(collections.id, [...ids])));
+}
+
+/**
+ * Every MANUAL collection of a store — the complete set a connector mapping may
+ * point at, for the picker.
+ *
+ * AUTOMATED collections are excluded at the QUERY rather than filtered by the
+ * caller, so a screen cannot offer one by forgetting to. Why they may never be
+ * a target is on {@link setListingAutomatedMemberships}: both writers derive a
+ * NULL-`position` membership and each deletes what the other inserted.
+ */
+export async function findManualCollectionsByStore(
+  storeId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CollectionMappingTarget[]> {
+  return db
+    .select({
+      id: collections.id,
+      title: collections.title,
+      handle: collections.handle,
+      type: collections.type,
+    })
+    .from(collections)
+    .where(and(eq(collections.storeId, storeId), eq(collections.type, 'manual')))
+    .orderBy(asc(collections.title), sql`${collections.id} desc`);
+}
+
 /** One collection of a store by id, or `null` — the scoping IS the authorization. */
 export async function findCollectionById(
   storeId: string,

@@ -5,6 +5,7 @@ import type {
   ChannelDisconnectPolicy,
   ChannelOnboardingSession,
   ChannelPauseScope,
+  ChannelCollectionsView,
   ChannelReadiness,
   ChannelReconciliationSummary,
   ChannelSummary,
@@ -33,6 +34,7 @@ import {
   disconnectChannelWithPolicy,
   fetchChannelAudit,
   fetchChannelCatalog,
+  fetchChannelCollections,
   fetchChannelOnboarding,
   fetchChannelOnboardingSession,
   fetchChannelReadiness,
@@ -255,6 +257,23 @@ export function useChannelReconciliation(storeId: string, connectionId: string) 
     queryKey: queryKeys.channelReconciliation(storeId, connectionId),
     queryFn: () => fetchChannelReconciliation(storeId, connectionId),
     enabled: Boolean(storeId) && Boolean(connectionId),
+  });
+}
+
+/**
+ * The platform's own groupings, the mappable Mercaria collections, and the
+ * health of every stored mapping row (#376).
+ *
+ * `staleTime` is deliberate: the read reaches the merchant's own platform, so a
+ * screen that refetched on every focus would spend somebody else's API quota to
+ * redraw a list that changes when they edit their shop, not by the minute.
+ */
+export function useChannelCollections(storeId: string, connectionId: string) {
+  return useQuery<ChannelCollectionsView>({
+    queryKey: queryKeys.channelCollections(storeId, connectionId),
+    queryFn: () => fetchChannelCollections(storeId, connectionId),
+    enabled: Boolean(storeId) && Boolean(connectionId),
+    staleTime: 60_000,
   });
 }
 

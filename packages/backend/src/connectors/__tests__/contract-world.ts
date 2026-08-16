@@ -53,6 +53,39 @@ export interface ContractVariant {
   readonly available: number;
 }
 
+/**
+ * One grouping on the fake platform — a Shopify collection or a WooCommerce
+ * product category (#376).
+ *
+ * `kind` exists because Shopify serves its two kinds from two endpoints and
+ * BOTH are mappable, so a world that could not express a smart collection could
+ * not exercise the half of `fetchCollections` that reads the second list. The
+ * WooCommerce fake ignores it: its categories are one list.
+ *
+ * `id` is a NUMBER, as both platforms actually send it. That is the point of
+ * modelling it here rather than as a string: `String(id)` in the provider is
+ * what makes a picked id match a `collectionRefs` entry, and a fixture that
+ * handed the provider a string could never show that stringification happening.
+ */
+export interface ContractCollection {
+  readonly id: number;
+  readonly title: string;
+  readonly kind: 'custom' | 'smart';
+  /** Only a NESTED taxonomy sets it (WooCommerce); `0` is that platform's root. */
+  readonly parent?: number;
+  readonly productCount?: number;
+  /**
+   * The products the platform reports IN this grouping, by external id.
+   *
+   * Modelled because Shopify serves membership from two different endpoints —
+   * `collects.json` for custom collections and `collections/{id}/products.json`
+   * for smart ones — and `buildCollectionIndex` reads BOTH. A fake that served
+   * neither left the second endpoint unexercised entirely, which is how it came
+   * to be missing from the fake at all.
+   */
+  readonly productExternalIds?: readonly string[];
+}
+
 /** A product on the fake platform. */
 export interface ContractProduct {
   readonly externalId: string;
@@ -183,6 +216,8 @@ export interface ContractWorld {
   products: ContractProduct[];
   /** The order book. */
   orders: ContractOrder[];
+  /** The taxonomy the shop publishes (#376). Mutate it to model a merchant renaming one. */
+  collections: ContractCollection[];
   /** How many products/orders one page carries — lower it to force pagination. */
   pageSize: number;
   /** Every request the fake answered, oldest first. */
@@ -249,6 +284,7 @@ export function createContractWorld(init: {
   externalShopId: string;
   products?: readonly ContractProduct[];
   orders?: readonly ContractOrder[];
+  collections?: readonly ContractCollection[];
   pageSize?: number;
 }): ContractWorld {
   const faults: ScheduledFault[] = [];
@@ -263,6 +299,7 @@ export function createContractWorld(init: {
     externalShopId: init.externalShopId,
     products: [...(init.products ?? [])],
     orders: [...(init.orders ?? [])],
+    collections: [...(init.collections ?? [])],
     pageSize: init.pageSize ?? 250,
     calls,
     webhooks,
@@ -476,9 +513,22 @@ const ORDER_TEMPLATES: readonly ContractOrder[] = [
 export function contractCatalogue(namespace: string): {
   products: ContractProduct[];
   orders: ContractOrder[];
+  collections: ContractCollection[];
 } {
   const id = (value: string): string => `${value}-${namespace}`;
   return {
+    // #376. NOT namespaced, unlike the products: a collection id never reaches
+    // Postgres — it is an EXTERNAL id living only in the fake — so there is no
+    // unique index for two worlds to collide on. The set covers every shape a
+    // provider has to handle: a custom collection, a smart one (Shopify's second
+    // list), a NESTED child, a root whose parent is WordPress's `0` sentinel,
+    // and one with no title at all.
+    collections: [
+      { id: 8001, title: 'Tees', kind: 'custom', parent: 0, productCount: 3 },
+      { id: 8002, title: 'New arrivals', kind: 'smart', parent: 0 },
+      { id: 8003, title: 'Summer tees', kind: 'custom', parent: 8001, productCount: 1 },
+      { id: 8004, title: '', kind: 'custom', parent: 0 },
+    ],
     products: PRODUCT_TEMPLATES.map((product) => ({
       ...product,
       externalId: id(product.externalId),

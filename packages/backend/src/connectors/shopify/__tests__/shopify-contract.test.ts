@@ -279,11 +279,46 @@ function createShopifyFake(world: ContractWorld): ShopifyTransport {
       world.pushedProducts.push(body ? JSON.parse(body) : null);
       return ok({ product: { id: path.split('/').pop()?.replace('.json', '') ?? 'unknown' } });
     }
+    // Custom-collection MEMBERSHIP (the flat product↔collection join).
     if (path === `${API_PREFIX}/collects.json`) {
-      return ok({ collects: [] });
+      return ok({
+        collects: world.collections
+          .filter((c) => c.kind === 'custom')
+          .flatMap((c) =>
+            (c.productExternalIds ?? []).map((productId) => ({
+              product_id: productId,
+              collection_id: c.id,
+            })),
+          ),
+      });
+    }
+    // SMART-collection membership, which `collects.json` never carries because it
+    // is rule-derived. One request per smart collection, exactly as the real
+    // provider issues.
+    const smartProducts = /^\/admin\/api\/[^/]+\/collections\/([^/]+)\/products\.json$/.exec(path);
+    if (smartProducts) {
+      const collection = world.collections.find((c) => String(c.id) === smartProducts[1]);
+      return ok({
+        products: (collection?.productExternalIds ?? []).map((productId) => ({ id: productId })),
+      });
+    }
+    // #376: the two collection LISTS. `buildCollectionIndex` reads
+    // `smart_collections.json` for its ids and `collects.json` for membership;
+    // `fetchCollections` reads both lists for their NAMES. Serving titles here is
+    // what lets one world exercise both.
+    if (path === `${API_PREFIX}/custom_collections.json`) {
+      return ok({
+        custom_collections: world.collections
+          .filter((c) => c.kind === 'custom')
+          .map((c) => ({ id: c.id, title: c.title })),
+      });
     }
     if (path === `${API_PREFIX}/smart_collections.json`) {
-      return ok({ smart_collections: [] });
+      return ok({
+        smart_collections: world.collections
+          .filter((c) => c.kind === 'smart')
+          .map((c) => ({ id: c.id, title: c.title })),
+      });
     }
     if (path === `${API_PREFIX}/orders.json`) {
       return pagedResponse(
@@ -437,6 +472,8 @@ describeConnectorContract({
   },
   // The SHIPPED declarations, not copies of them — see the harness fields' notes.
   capabilities: shopifyProvider.capabilities,
+  externalTaxonomyNoun: shopifyProvider.externalTaxonomyNoun,
+  taxonomyNests: false,
   webhookSecretStrategy: shopifyProvider.webhookSecretStrategy,
   webhookPathFragment: '/webhooks.json',
   webhookDeletePathFragment: '/webhooks/',
@@ -469,6 +506,7 @@ describeConnectorContract({
       externalShopId: '77001',
       products: catalogue.products,
       orders: catalogue.orders,
+      collections: catalogue.collections,
     });
   },
   webhookProductPayload: (world, externalId) => {

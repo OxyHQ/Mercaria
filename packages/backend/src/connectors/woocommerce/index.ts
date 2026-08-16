@@ -47,6 +47,7 @@ import {
   type AddressSnapshot,
   type CurrencyCode,
   type DualMoney,
+  type ExternalCollection,
   type Money,
   type OrderStatus,
   type PaymentInfo,
@@ -72,6 +73,7 @@ import {
   reconcileWebhookSubscriptions,
   type WebhookProbe,
 } from '../webhook-registration.js';
+import { toExternalCollection } from '../collections.js';
 import { parseZonelessUtcTimestamp } from '../timestamps.js';
 import { REGISTERED_WEBHOOK_TOPICS } from './webhook.js';
 import { wooCommerceTransport, type WooCommerceHttpResponse, type WooCommerceTransport } from './http.js';
@@ -102,6 +104,28 @@ const wooProductAttributeSchema = z.object({
 
 const wooImageSchema = z.object({ src: z.string() });
 const wooCategorySchema = z.object({ id: z.union([z.number(), z.string()]) });
+
+/**
+ * One row of `GET /products/categories` — the taxonomy PICKER's payload.
+ *
+ * Distinct from {@link wooCategorySchema}, which is a category as it appears
+ * EMBEDDED on a product and where only the id is consumed. This one carries the
+ * merchant-facing name, the hierarchy and the count, none of which a product's
+ * embedded reference is required to include.
+ *
+ * `parent` is `0` at the root — WordPress's spelling of "no parent", not a term
+ * with id zero — so it is resolved away rather than emitted as a parent id that
+ * resolves to nothing.
+ */
+const wooCategoryListEntrySchema = z.object({
+  id: z.union([z.number(), z.string()]),
+  name: z.string().optional(),
+  parent: z.union([z.number(), z.string()]).optional(),
+  count: z.number().optional(),
+});
+
+/** The `products/categories` response — a bare array. */
+const wooCategoriesResponseSchema = z.array(wooCategoryListEntrySchema);
 
 /**
  * A WooCommerce `manage_stock` flag: `true`/`false` on a product; a variation may
@@ -1189,6 +1213,69 @@ export function createWooCommerceProvider(
       pushesFulfillment: false,
       retriesRateLimit: true,
       inventoryWebhook: false,
+    },
+
+    // WooCommerce groups products into product CATEGORIES, which nest. Shopify's
+    // collections are flat and are called collections. The model is shared —
+    // both map onto a Mercaria `Collection` — and only the word differs, so a
+    // merchant reads their own platform's vocabulary on the mapping screen.
+    externalTaxonomyNoun: 'category',
+
+    /**
+     * Every product category the site publishes, with its name, parent and count.
+     *
+     * The ids are the SAME ones `normalizeWooCommerceProduct` writes into
+     * `collectionRefs` from a product's embedded `categories[].id`, which is what
+     * makes a picked category a key an import can actually match.
+     *
+     * Paged under the SAME completeness rule as the catalogue
+     * (`enumerationFinished`), and for a sharper version of the same reason: a
+     * SHORT page is not proof of the end on a site whose `per_page` is filtered,
+     * and a truncated list here silently omits mappable categories from the
+     * picker. That failure is invisible — the screen renders perfectly, and the
+     * category a merchant is looking for simply is not in it. Unlike the
+     * catalogue read, being unable to prove completeness is NOT fatal here:
+     * refusing would leave the merchant with no picker at all, where returning
+     * what was read leaves them with a usable one, so the bound is a stop rather
+     * than a throw.
+     */
+    async fetchCollections(creds: ConnectorCredentials): Promise<ExternalCollection[]> {
+      const collections: ExternalCollection[] = [];
+      let page = 1;
+      for (;;) {
+        const params = new URLSearchParams({
+          per_page: String(PAGE_LIMIT),
+          page: String(page),
+        });
+        const response = await transport.get(
+          `${apiBase(creds.shopDomain)}/products/categories?${params.toString()}`,
+          authHeaders(creds),
+        );
+        assertOk(response, 'category list');
+        const parsed = wooCategoriesResponseSchema.safeParse(
+          parseJson(response, 'category list'),
+        );
+        if (!parsed.success) {
+          throw validationError(
+            `Unexpected WooCommerce categories payload: ${parsed.error.message}`,
+          );
+        }
+        for (const category of parsed.data) {
+          const parent = category.parent === undefined ? undefined : String(category.parent);
+          collections.push(
+            toExternalCollection(category.id, category.name, {
+              // `0` is "root", not a term. Emitting it would hand the screen a
+              // parent id that matches no row in its own list.
+              ...(parent !== undefined && parent !== '0' ? { parentExternalId: parent } : {}),
+              ...(category.count !== undefined ? { productCount: category.count } : {}),
+            }),
+          );
+        }
+        if (enumerationFinished(response, parsed.data.length, page) || page >= MAX_ENUMERATION_PAGES) {
+          return collections;
+        }
+        page += 1;
+      }
     },
 
     // WooCommerce authorizes with a static API key/secret (see connect-key), not

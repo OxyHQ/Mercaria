@@ -14,6 +14,7 @@ import {
   listChannelsHandler,
   connectChannelHandler,
   connectKeyChannelHandler,
+  listChannelCollectionsHandler,
   patchChannelSettingsHandler,
   reregisterChannelWebhooksHandler,
   syncChannelHandler,
@@ -129,6 +130,22 @@ router.post(
   requireStorePermission('channels:write'),
   validateBody(connectKeyChannelSchema),
   connectKeyChannelHandler,
+);
+
+/**
+ * #376: the platform's own collections/categories, plus the stored mapping's health.
+ *
+ * Rate-limited on the `channels` bucket rather than the general admin one, for
+ * exactly `connect-key`'s and `reconciliation`'s reason: every call reaches the
+ * merchant's own platform (two paginated reads on Shopify, one on WooCommerce),
+ * so a screen refreshing in a loop spends somebody else's API quota.
+ */
+router.get(
+  '/:connectionId/collections',
+  makeRateLimiter('channels'),
+  requireStorePermission('channels:write'),
+  validateId('connectionId'),
+  listChannelCollectionsHandler,
 );
 
 router.patch(
