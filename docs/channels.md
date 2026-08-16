@@ -82,6 +82,114 @@ domains moved.
 
 ## The rules that are load-bearing
 
+### What a channel does NOT carry is stated, totally, from data (#380)
+
+A merchant on a live Shopify store reported that "discounts and other things are
+not syncing". Discounts were never built, and nothing anywhere told them — the
+whole merchant-facing statement of scope was one sentence, *"imports your
+products, stock and orders on a schedule"*, which is accurate and silent about
+everything it omits. Everything that could have said more was either not
+rendered or could not express it: `descriptor.resources` had **zero** occurrences
+across all three client packages, the nine `CHANNEL_LIMITATION_CODES` name no
+entity at all, and Shopify's only two limitations are `informational` — which the
+channels list filters out, so it displayed none.
+
+`CHANNEL_SYNC_ENTITIES` (11) is the vocabulary that fixes it: a SUPERSET of
+`CHANNEL_SYNC_RESOURCES` (3), and the difference is the point. The three
+resources are what a sync SETTING can address; the eleven are what a merchant
+asks about, including `gift_cards`, which Mercaria models nothing of — "we have
+no such record" is an answer and its absence from a list is not.
+
+`ChannelTypeDescriptor.entityCoverage` answers every one of them, for every
+channel type, in tuple order. **Totality is the whole value.** A list of what a
+channel carries is silent about everything else, and that silence is what
+produced the report.
+
+- **The carried half is DERIVED and restated nowhere.** `products`, `inventory`
+  and `orders` come from the descriptor's own `resources`, which comes from
+  `ConnectorProvider.capabilities`, which #69's contract suite measures on both
+  branches. There is no spelling of a push the coverage could claim that the
+  provider refuses.
+- **The absent half is a DECISION, and silence is not one.**
+  `CHANNEL_ENTITY_POLICY` is a `Record` over the whole tuple, so an entity added
+  to it fails `tsc` until somebody says what happens to it — the
+  `MERGE_REHOMING_PLAN` shape, where a table that must NOT move is as much a
+  decision as one that must.
+- **Three-valued, because two-valued was wrong in the direction that generates
+  the next false report.** Both pull connectors carry collection MEMBERSHIP onto
+  a listing through the connection's `collectionMapping`, and neither creates a
+  Mercaria collection — #376 below is the merchant surface that makes that
+  mapping settable, and it targets a MANUAL collection they already made.
+  `synced` promises collections will appear; `not_synced` denies data that
+  demonstrably arrives. `partial` says what actually happens. A `push_in`
+  connection is excluded and reads `not_synced`, the same fact #376 reports as
+  `push_in_connection`: Mercaria holds no credential to ask that site anything.
+- **A model-level absence outranks the channel asking.** `gift_cards` reads
+  `not_modelled_by_mercaria` on Etsy as well as Shopify; refining it to
+  `channel_not_implemented` would promise it arrives once somebody writes an Etsy
+  connector. Only `not_built_for_this_channel` — the one reason that IS relative
+  to a channel — is refined, and then from facts already on the descriptor.
+
+`services/channels/__tests__/channel-entity-coverage.test.ts` is what keeps it
+true, and it is the honest half of the work: a coverage statement that goes stale
+in silence is **worse** than the silence it replaces, because a merchant acts on
+it. Completeness over the whole `channelType × entity` cross product; a census
+walked off the REAL provider objects that refuses any own member in neither the
+entity map nor the explicitly-non-entity one; agreement between the two, so a
+policy that outlived its code cannot stay green; a MEASUREMENT running the real
+normalizers for the one claim neither covers; vacuity floors on every population;
+and a mutation self-test per comparison.
+
+The gate found two invented member names on its first run — `verifyWebhook` and
+`parseWebhook`, which `ConnectorProvider` does not have — which is the reverse
+direction earning its place before the forward one was ever needed. It then fired
+on its first rebase, refusing #376's `fetchCollections` and `externalTaxonomyNoun`
+until each was classified, which is the point.
+
+That rebase also corrected the agreement gate. It compared the entities a
+provider's members reach against the ones the coverage calls `synced`, and passed
+for the wrong reason: nothing reached a `partial` entry, so the stricter
+comparison was never exercised. It now compares against every entry that is not
+`not_synced`, which is what a member census can honestly testify to — a member
+says WHICH entity is touched and cannot say to what DEGREE. The degree is kept
+true by measurement instead: the real normalizers are run, and the import path is
+probed for a `createCollection` it must not grow.
+
+### How far back an order import reaches is derived, never stored (#380, #287)
+
+`read_all_orders` is deliberately not requested (`shopify/config.ts`, and adding
+it to `DEFAULT_SCOPES` breaks every connect on every deployment), so
+`GET /orders.json` reaches **60 days and no further**. A truncated import reaches
+`completed` with consistent tallies and is otherwise indistinguishable from an
+empty shop — the shape #287 fixed on the ingestion side. This is the
+merchant-facing half of the same fact.
+
+`ConnectorProvider.orderHistoryHorizon(scopes)` is a METHOD rather than a
+capability flag because the answer is not a property of the shipped code alone:
+the same provider gives two answers for two connections. It takes what the
+platform GRANTED — a deployment's configured `SHOPIFY_SCOPES` says what was asked
+for, and a shop authorized before somebody changed it holds neither.
+`toConnectionDTO` applies it and nothing is stored, because the connector that
+owns the bound says outright that a stored copy could only disagree with
+`Connection.scopes`.
+
+`bounded` is a ROLLING window, so the DATE is computed by the client from `days`
+and its own clock: a date baked into a response is stale the moment it renders.
+The copy does not tell a merchant to grant the scope — it is granted to an APP on
+Shopify's written approval, so the action is Mercaria's and asking them for it
+would send them somewhere they cannot go.
+
+WooCommerce answers `complete`: it takes no date bound and throws
+`unprovableEnumeration` rather than reporting a short read as a whole history. A
+`push_in` connection answers `not_synced` — a horizon over something that never
+arrives would be a bound on nothing. A provider this deployment no longer
+implements answers `unknown` rather than throwing.
+
+`Connection` also gained `channelType`, derived by `channelTypeForConnection` in
+the same statement, so a client can find a connection's descriptor without
+re-deriving "a WooCommerce connection in `push_in` mode is the plugin" — the
+spelling that would drift is the client's.
+
 ### A channel TYPE is not a connector provider id
 
 `ConnectorProviderId` answers "which platform's API is this", and two channels
@@ -497,6 +605,16 @@ key pair genuinely are different things (#87 UX 2).
   nothing is coming and a time on the screen would be an invented promise.
 - **No client-side activation gate.** The button reflects the server's blockers
   and pressing it anyway is refused with the same reasons.
+- **No entity-shaped `CHANNEL_LIMITATION_CODES` member (#380).** A limitation is
+  something WRONG with a channel a merchant should weigh before choosing; "this
+  channel does not carry discounts" is its ordinary scope. Folding coverage into
+  that tuple would have made the wizard warn about eight non-defects per channel
+  and would have broken the exact-open-issue assertion that keeps the list from
+  only ever growing. They are separate fields and the list screen renders both.
+- **No horizon on the DESCRIPTOR.** Shopify with `read_all_orders` and Shopify
+  without it are the same channel type; the bound belongs to the grant one
+  connection holds, and putting it on the descriptor would report the same bound
+  for two shops that have different ones.
 
 ---
 

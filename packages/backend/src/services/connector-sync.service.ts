@@ -59,6 +59,7 @@ import type {
   ChannelCollectionsView,
   ChannelDisconnectPolicy,
   ChannelExternalCollections,
+  ChannelOrderHorizon,
   Connection as ConnectionDTO,
   ConnectionWebhookFailure,
   ConnectionWebhookRegistration,
@@ -178,7 +179,8 @@ import {
 } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
-import { getConnectorProvider } from '../connectors/registry.js';
+import { getConnectorProvider, isImplementedProvider } from '../connectors/registry.js';
+import { channelTypeForConnection } from './channels/channel-catalog.js';
 import { applyPriceRules, type PriceRules } from '../utils/money.js';
 import type {
   ConnectorAuth,
@@ -322,6 +324,15 @@ export function toConnectionDTO(
     mode: conn.mode,
     status: conn.status,
     scopes: [...conn.scopes],
+    // #380. Both DERIVED from columns on this row, in the one place a row
+    // becomes a DTO: the channel type through the single function that reads
+    // `(provider, mode)` as one, and the horizon through the provider's own rule
+    // applied to the grant this connection holds. Neither is stored — the
+    // connector that owns the order bound says outright that a stored copy could
+    // only disagree with `scopes` — and computing both from the same row in the
+    // same statement is what stops them disagreeing with it here either.
+    channelType: channelTypeForConnection(conn),
+    orderHorizon: deriveOrderHorizon(conn),
     syncSettings: toSyncSettingsDTO(conn),
     webhookIds: [...conn.webhookIds],
     connectedAt: conn.connectedAt.toISOString(),
@@ -365,6 +376,23 @@ export function toConnectionDTO(
   // registration produces stays in the log.
   dto.webhookRegistration = toWebhookRegistrationDTO(conn);
   return dto;
+}
+
+/**
+ * How far back THIS connection's order import reaches (#380).
+ *
+ * Three cases and each is a different fact. A `push_in` connection is the
+ * WooCommerce plugin, which exchanges no orders at all — a horizon over
+ * something that never arrives would be a bound on nothing. A provider this
+ * deployment no longer implements answers `unknown` rather than throwing: the
+ * row exists, a serializer must not refuse it, and `complete` or `not_synced`
+ * would both be claims about a connector nobody can read. Otherwise the provider
+ * applies its own rule to the scopes the platform GRANTED.
+ */
+function deriveOrderHorizon(conn: ConnectionRow): ChannelOrderHorizon {
+  if (conn.mode === 'push_in') return { kind: 'not_synced' };
+  if (!isImplementedProvider(conn.provider)) return { kind: 'unknown' };
+  return getConnectorProvider(conn.provider).orderHistoryHorizon(conn.scopes);
 }
 
 /**

@@ -50,10 +50,13 @@ import { RequireStore } from "@/components/shell/RequireStore";
 import { CollectionMapping } from "@/components/channels/CollectionMapping";
 import {
   WEBHOOK_FAILURE_REASON_COPY,
+  ChannelCoverage,
   deriveWebhookDelivery,
+  describeOrderHorizon,
   formatWhen,
 } from "@/components/channels/channel-presentation";
 import {
+  useChannelCatalog,
   useChannels,
   useUpdateChannelSettings,
   useChannelKeys,
@@ -169,6 +172,7 @@ function ChannelSettingsBody({
       action={back}
     >
       <SettingsForm storeId={storeId} connection={connection} />
+      <ChannelScope storeId={storeId} connection={connection} />
       <CollectionMapping storeId={storeId} connection={connection} />
       {connection.mode === "push_in" ? (
         <ChannelApiKeys storeId={storeId} connection={connection} />
@@ -180,6 +184,50 @@ function ChannelSettingsBody({
       <Reconciliation storeId={storeId} connection={connection} />
       <DisconnectPanel storeId={storeId} connection={connection} />
     </Screen>
+  );
+}
+
+/**
+ * What this channel carries, and how far back its orders reach (#380).
+ *
+ * Two facts at two GRAINS, deliberately in one panel because a merchant asks
+ * them as one question. The coverage is a property of the channel TYPE and comes
+ * from the catalog; the horizon is a property of THIS connection's granted
+ * scopes and rides on the connection. Keeping the second on the descriptor would
+ * make two Shopify shops with different grants report the same bound.
+ *
+ * The channel type is read off `connection.channelType` rather than re-derived
+ * from `(provider, mode)` here: the server derives it with the one function that
+ * reads a row as a channel type, and a second spelling in the client is the one
+ * that drifts — the WooCommerce plugin and the WooCommerce connector share a
+ * provider id and are different channels.
+ */
+function ChannelScope({ storeId, connection }: { storeId: string; connection: Connection }) {
+  const { colors } = useColorScheme();
+  const { data: catalog } = useChannelCatalog(storeId);
+  const descriptor = catalog?.find((entry) => entry.channelType === connection.channelType);
+  const horizon = describeOrderHorizon(connection.orderHorizon);
+
+  // The catalog is a separate query, so it can still be in flight. Rendering a
+  // partial answer here would be worse than rendering none: half a coverage list
+  // reads as a complete one.
+  if (!descriptor && !horizon) return null;
+
+  return (
+    <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+      <Text className="text-sm font-semibold text-muted-foreground">What this channel carries</Text>
+
+      {horizon ? (
+        <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
+          <View className="pt-0.5">
+            <History size={14} color={colors.mutedForeground} />
+          </View>
+          <Text className="flex-1 text-xs text-muted-foreground">{horizon}</Text>
+        </View>
+      ) : null}
+
+      {descriptor ? <ChannelCoverage coverage={descriptor.entityCoverage} /> : null}
+    </View>
   );
 }
 

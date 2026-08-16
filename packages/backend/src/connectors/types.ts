@@ -15,6 +15,7 @@
 
 import type {
   AddressSnapshot,
+  ChannelOrderHorizon,
   ConnectorProviderId,
   ConnectorWebhookFailureReason,
   CurrencyCode,
@@ -696,6 +697,25 @@ export interface ConnectorProvider {
    * spelling of this that is wrong and green.
    */
   readonly capabilities: ConnectorCapabilities;
+
+  /**
+   * How far back {@link fetchOrders} reaches for a connection holding `scopes`
+   * (#380).
+   *
+   * A METHOD rather than a capability flag because the answer is not a property
+   * of the shipped code alone: Shopify's `GET /orders.json` reaches 60 days with
+   * `read_orders` and the shop's whole history with `read_all_orders` beside it,
+   * so the same provider gives two answers for two connections. The provider
+   * declares the rule, `toConnectionDTO` applies it to the grant the connection
+   * actually holds, and nothing is stored — the connector that owns the bound
+   * says outright that a stored copy could only disagree with `Connection.scopes`.
+   *
+   * It must not read configuration or a default scope list. The argument is what
+   * the platform GRANTED, which is the only thing that bounds a fetch; a
+   * deployment's configured `SHOPIFY_SCOPES` says what was asked for, and a
+   * connection made before somebody changed it holds neither.
+   */
+  orderHistoryHorizon(scopes: readonly string[]): ChannelOrderHorizon;
 
   /**
    * Build the platform's OAuth authorize URL the merchant's browser is sent to.

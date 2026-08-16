@@ -49,7 +49,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { SHOPIFY_DEFAULT_SCOPES } from '../config.js';
+import { SHOPIFY_ALL_ORDERS_SCOPE, SHOPIFY_DEFAULT_SCOPES } from '../config.js';
 import { shopifyProvider, SHOPIFY_WEBHOOK_TOPICS, WEBHOOK_TOPIC_SCOPES } from '../index.js';
 
 /** Which capability has to be DECLARED before a row's scopes are required. */
@@ -340,10 +340,17 @@ describe('the Shopify default scopes cover what the connector actually calls', (
     // connect rather than anything naming a scope. It is an operator decision
     // per approved app (`SHOPIFY_SCOPES` set explicitly there), never a default.
     //
-    // The cost of its absence is real and is documented rather than fixed here:
-    // `GET /orders.json` reaches back 60 days only, and a truncated import is
-    // indistinguishable from a complete one (`index.ts` `fetchOrders`).
-    expect(SHOPIFY_DEFAULT_SCOPES).not.toContain('read_all_orders');
+    // The cost of its absence is real and is REPORTED rather than only
+    // documented since #380: `GET /orders.json` reaches back 60 days only, and a
+    // truncated import is indistinguishable from a complete one, so
+    // `orderHistoryHorizon` derives the bound from the scopes a connection was
+    // granted and the merchant is told.
+    //
+    // The scope name comes from the constant `orderHistoryHorizon` reads rather
+    // than from a literal here. Two spellings of one platform fact can disagree,
+    // and the direction they would disagree in is this guard passing while the
+    // horizon reports `complete` for every shop.
+    expect(SHOPIFY_DEFAULT_SCOPES).not.toContain(SHOPIFY_ALL_ORDERS_SCOPE);
   });
 
   it('requests NOTHING it cannot point at an endpoint or a topic', () => {

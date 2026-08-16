@@ -42,6 +42,7 @@ import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen"
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
   CHANNEL_TYPE_NAME,
+  ChannelCoverage,
   ChannelLimitationRow,
 } from "@/components/channels/channel-presentation";
 import {
@@ -288,6 +289,19 @@ function ScopeAndRequirements({
             </Text>
           </View>
         ))}
+      </View>
+
+      {/*
+        #380, the FULL form: every entity, with the reason each absent one is
+        absent. This is the step where a merchant decides, so it is where the
+        reasons belong — and it is the step that has to answer "will my discounts
+        come across" BEFORE the answer costs somebody a support thread.
+      */}
+      <View className="gap-2 rounded-xl bg-muted p-3">
+        <Text className="text-[11px] font-semibold uppercase text-muted-foreground">
+          What this channel carries
+        </Text>
+        <ChannelCoverage coverage={descriptor.entityCoverage} />
       </View>
 
       {descriptor.limitations.length > 0 ? (

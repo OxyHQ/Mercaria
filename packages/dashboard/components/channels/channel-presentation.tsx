@@ -17,8 +17,14 @@ import { View } from "react-native";
 import { AlertTriangle, Info, ShieldAlert } from "lucide-react-native";
 import type {
   ChannelConnectionState,
+  ChannelEntityAbsenceReason,
+  ChannelEntityCaveat,
+  ChannelEntityCoverage,
   ChannelLimitation,
+  ChannelOrderHorizon,
   ChannelReadinessBlocker,
+  ChannelSyncDirection,
+  ChannelSyncEntity,
   ChannelTypeId,
   Connection,
   ConnectionWebhookFailure,
@@ -134,6 +140,178 @@ export const READINESS_BLOCKER_COPY: Record<ChannelReadinessBlocker, string> = {
   no_publishable_listing: "No active products — buyers have nothing to add to a cart.",
   payments_not_ready: "Payouts are not set up, so orders cannot be taken.",
 };
+
+/**
+ * What each entity is CALLED on a merchant's screen (#380).
+ *
+ * A `Record` over the closed tuple, for `READINESS_BLOCKER_COPY`'s reason and
+ * with more weight behind it here: this package has no test runner, so `tsc` is
+ * the only gate it has, and a `Record` over a shared-types tuple is how a
+ * server-side addition becomes a dashboard build failure instead of a screen
+ * quietly rendering a raw identifier. Adding an entity to
+ * `CHANNEL_SYNC_ENTITIES` fails the Typecheck Dashboard job until it has a name.
+ */
+export const CHANNEL_SYNC_ENTITY_LABEL: Record<ChannelSyncEntity, string> = {
+  products: "Products",
+  inventory: "Stock",
+  orders: "Orders",
+  collections: "Collections",
+  customers: "Customers",
+  discounts: "Discounts",
+  tax_rates: "Tax rates",
+  refunds: "Refunds",
+  gift_cards: "Gift cards",
+  shipping_rates: "Delivery rates",
+  product_reviews: "Reviews",
+};
+
+/**
+ * Why an entity does not arrive, in words a merchant can act on.
+ *
+ * Each says what IS true rather than apologising for what is not — "Mercaria has
+ * no gift card record" tells a merchant to stop waiting, where "not supported"
+ * leaves them wondering whether they configured something wrong. None of them
+ * promises a date: a sentence that implies work is planned is the thing that
+ * generates the next report when it is not.
+ */
+export const CHANNEL_ENTITY_ABSENCE_COPY: Record<ChannelEntityAbsenceReason, string> = {
+  channel_not_implemented: "Mercaria has no connector for this platform yet.",
+  native_catalog_is_not_a_sync: "Nothing is imported — you edit this catalog in Mercaria.",
+  channel_transports_products_only: "A product feed is a file of products and carries nothing else.",
+  not_built_for_this_channel: "Mercaria does not exchange this with your platform.",
+  not_modelled_by_mercaria: "Mercaria has no record of this kind for it to arrive into.",
+  owned_by_another_system: "Handled elsewhere in Mercaria rather than imported from your platform.",
+  imported_only_as_part_of_an_order:
+    "No list is imported. What appears comes only from the orders that are.",
+};
+
+/** What a `partial` entry means — the record does not arrive, some of its data does. */
+export const CHANNEL_ENTITY_CAVEAT_COPY: Record<ChannelEntityCaveat, string> = {
+  membership_only_through_a_mapping:
+    "Your platform's collections are not created in Mercaria. Products join the Mercaria collections you map them to.",
+};
+
+/** Which way an entity moves, as a merchant reads it. */
+function directionSummary(directions: readonly ChannelSyncDirection[]): string {
+  const pull = directions.includes("pull");
+  const push = directions.includes("push");
+  if (pull && push) return "both ways";
+  if (push) return "Mercaria → your platform";
+  return "your platform → Mercaria";
+}
+
+/**
+ * Everything a channel carries and everything it does not, in one block (#380).
+ *
+ * Rendered from the server's TOTAL `entityCoverage` rather than from a list of
+ * what works: a merchant reading "products, stock and orders" cannot tell
+ * whether discounts are missing, broken, or somewhere else in the app, and the
+ * report that produced this issue is what that ambiguity costs. `compact` is the
+ * pre-choice form on the channel list — the names only, no reasons — because the
+ * full reasons belong where somebody is deciding rather than browsing.
+ */
+export function ChannelCoverage({
+  coverage,
+  compact = false,
+}: {
+  coverage: readonly ChannelEntityCoverage[];
+  compact?: boolean;
+}) {
+  const carried = coverage.filter((entry) => entry.state !== "not_synced");
+  const absent = coverage.filter((entry) => entry.state === "not_synced");
+
+  if (compact) {
+    return (
+      <View className="gap-1">
+        <Text className="text-xs text-muted-foreground">
+          <Text className="text-xs font-semibold text-foreground">Syncs: </Text>
+          {carried.length === 0
+            ? "nothing"
+            : carried.map((entry) => CHANNEL_SYNC_ENTITY_LABEL[entry.entity]).join(", ")}
+        </Text>
+        <Text className="text-xs text-muted-foreground">
+          <Text className="text-xs font-semibold text-foreground">Does not sync: </Text>
+          {absent.length === 0
+            ? "nothing"
+            : absent.map((entry) => CHANNEL_SYNC_ENTITY_LABEL[entry.entity]).join(", ")}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className="gap-3">
+      {carried.length > 0 ? (
+        <View className="gap-1.5">
+          <Text className="text-[10px] font-semibold uppercase text-muted-foreground">Syncs</Text>
+          {carried.map((entry) => (
+            <View key={entry.entity} className="flex-row items-start gap-2">
+              <Text className="text-xs font-medium text-foreground">
+                {CHANNEL_SYNC_ENTITY_LABEL[entry.entity]}
+              </Text>
+              <Text className="flex-1 text-xs text-muted-foreground">
+                {entry.state === "partial"
+                  ? `${directionSummary(entry.directions)} — ${CHANNEL_ENTITY_CAVEAT_COPY[entry.caveat]}`
+                  : directionSummary(entry.directions)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {absent.length > 0 ? (
+        <View className="gap-1.5">
+          <Text className="text-[10px] font-semibold uppercase text-muted-foreground">
+            Does not sync
+          </Text>
+          {absent.map((entry) => (
+            <View key={entry.entity} className="flex-row items-start gap-2">
+              <Text className="text-xs font-medium text-foreground">
+                {CHANNEL_SYNC_ENTITY_LABEL[entry.entity]}
+              </Text>
+              <Text className="flex-1 text-xs text-muted-foreground">
+                {entry.state === "not_synced" ? CHANNEL_ENTITY_ABSENCE_COPY[entry.reason] : null}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * How far back this connection's orders reach, as a sentence (#380).
+ *
+ * The DATE is computed here from the server's `days` and this device's clock,
+ * never sent: the bound is a rolling window applied at every fetch, so a date
+ * baked into a response is stale the moment it is rendered. `complete` returns
+ * null — "every order is imported" is what a merchant already assumes, and a
+ * reassurance beside every healthy channel is noise that trains people to skip
+ * the line that matters.
+ *
+ * `bounded` does NOT tell a merchant to grant a scope. `read_all_orders` is
+ * granted to an APP on Shopify's written approval, so the action is Mercaria's
+ * and asking the merchant for it would send them somewhere they cannot go.
+ */
+export function describeOrderHorizon(horizon: ChannelOrderHorizon): string | null {
+  switch (horizon.kind) {
+    case "complete":
+      return null;
+    case "not_synced":
+      return "Orders are not exchanged on this channel, in either direction.";
+    case "unknown":
+      return "Mercaria cannot tell how far back this connection's orders reach.";
+    case "bounded": {
+      const before = new Date(Date.now() - horizon.days * 24 * 60 * 60 * 1000);
+      return (
+        `Only the last ${horizon.days} days of orders are imported. Orders placed before ` +
+        `${before.toLocaleDateString()} were never imported and will not arrive later — this is ` +
+        `a limit on what your platform lets Mercaria read, not a sync that is behind.`
+      );
+    }
+  }
+}
 
 /** Merchant-facing channel names, for a screen that has only the id. */
 export const CHANNEL_TYPE_NAME: Record<ChannelTypeId, string> = {

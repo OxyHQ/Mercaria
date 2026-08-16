@@ -53,6 +53,7 @@ import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import {
   CHANNEL_TYPE_NAME,
+  ChannelCoverage,
   ChannelLimitationRow,
   ChannelStateBadge,
   NativeCheckoutBadge,
@@ -405,6 +406,17 @@ function AvailableChannels({
                     </Button>
                   ) : null}
                 </View>
+
+                {/*
+                  #380. The COMPACT form, and it is on every card rather than
+                  only the ones with something wrong: a channel's absences are
+                  not a defect and the `notable` filter below deliberately hides
+                  every informational limitation, which is why Shopify displayed
+                  nothing at all here. What a channel does not carry is the half
+                  a merchant cannot discover by using it, so it is the half that
+                  belongs before the choice.
+                */}
+                <ChannelCoverage coverage={descriptor.entityCoverage} compact />
 
                 {notable.length > 0 ? (
                   <View className="gap-2 rounded-xl bg-muted p-3">
