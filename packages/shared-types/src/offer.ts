@@ -547,10 +547,10 @@ export interface Offer {
    * Where the offer lives, exactly as the source gave it.
    *
    * This is the ORIGINAL destination and is never rewritten. Affiliate routing
-   * is separate metadata (#37 composes the tracked URL from it at redirect
-   * time), so the untracked destination survives a network changing its
-   * template, and a routing bug degrades to the plain link rather than to a
-   * dead one.
+   * is separate metadata (#67's redirect hands the provider's own attributed
+   * URL over verbatim at click time, and composes neither), so the untracked
+   * destination survives a network changing its parameters, and a routing bug
+   * degrades to the plain link rather than to a dead one.
    */
   destinationUrl?: string;
   affiliate?: OfferAffiliateRouting;
@@ -589,7 +589,11 @@ export interface OfferAffiliateRouting {
   programRef?: string;
   /** The publisher/site id Mercaria is paid under. */
   publisherRef?: string;
-  /** A template with a `{destination}` placeholder, when the network needs one. */
+  /**
+   * The provider's OWN minted, already-attributed URL. Despite the name,
+   * nothing interpolates a placeholder into it — see the column's docblock in
+   * `db/schema/offers.ts`. #67's redirect hands it over verbatim.
+   */
   trackingTemplate?: string;
 }
 

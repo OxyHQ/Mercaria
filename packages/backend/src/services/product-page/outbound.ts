@@ -1,16 +1,18 @@
 /**
- * What a row's primary action does (#71 actions 1 and 2) — and the ONE seam
- * this issue leaves open.
+ * What a row's primary action does (#71 actions 1 and 2) — and the seam #67
+ * CLOSED.
  *
- * ## The seam, stated plainly
+ * ## The handoff is real now
  *
- * #37's outbound redirect (`/out/:token`) is NOT built in this repository.
- * Issue #67, which specifies it, was auto-closed by a keyword in #66's pull
- * request body; the code it describes does not exist, and `services/offers/`,
- * `services/awin/` and `services/ebay/` all still name it as deferred.
+ * #37's outbound redirect (`GET /out/:token`) exists: #67 built the signed
+ * token, the click record, the destination allow-list and the bot handling, and
+ * this module hands over to it. `redirectPath` is still a MERCARIA path by
+ * TYPE, so nothing here can ever become a merchant URL or a composed tracking
+ * URL — the page carries a Mercaria path and a destination HOST, and the real
+ * destination is resolved server-side at the moment of the click.
  *
- * So this module REFUSES every external handoff, unconditionally, and names the
- * issue that owes it. That is a deliberate choice over the two alternatives:
+ * The two alternatives this file refused before #67 are still refused, and the
+ * reasons are why the redirect is shaped the way it is:
  *
  * - **Linking straight to `offer.destinationUrl`** would assert at RENDER time
  *   what only a click can establish. #68 built `assertOfferOutboundEligible`
@@ -19,26 +21,29 @@
  *   they finally click; a raw link cannot re-check anything. It would also
  *   discard the commercial relationship an `affiliate` offer exists under,
  *   silently and with no error anywhere.
- * - **Building the redirect here** would be #37's route with none of what makes
- *   it safe: no signed token, no click record, no bot handling, no
- *   loop/open-redirect defence and no affiliate composition. Two places
- *   deciding where Mercaria may send a browser is the shape an open redirect
- *   takes.
+ * - **Deciding the destination HERE** would be a second place answering where
+ *   Mercaria may send a browser, which is the shape an open redirect takes.
+ *   This module mints a token naming the OFFER and knows nothing else; every
+ *   revalidation, every right and every host comparison happens once, in
+ *   `services/outbound/`.
  *
- * What the page CAN still do is everything a shopper needs in order to decide:
- * the merchant, the channel, the price, the delivery facts, the condition, the
- * freshness and the destination HOST. A hostname is a disclosure, not a link —
- * it cannot be followed by accident and it cannot carry tracking parameters,
- * because it is not a URL.
+ * ## The host disclosed is the MERCHANT, never the network
  *
- * ## What #37 changes, exactly
+ * `destinationHost` comes from `offer.destinationUrl` — the retailer, exactly as
+ * the source published it — while the redirect itself may hand over the
+ * network's attributed link. Disclosing the redirector would name an affiliate
+ * network the shopper has never heard of instead of the shop they are going to.
  *
- * The `outbound` branch of {@link ProductPageOutbound} and this file's one
- * refusal. `redirectPath` is a MERCARIA path by type, so nothing here can ever
- * become a merchant URL or a composed tracking URL, whatever fills it in.
+ * ## When the redirect is not mounted
+ *
+ * `OUTBOUND_REDIRECT_ENABLED` off ⇒ there is no path to offer, so this returns
+ * `redirect_unavailable` with the host, exactly as it did before #67. A control
+ * pointing at a 404 is worse than a disclosed refusal.
  */
 
 import type { Offer, ProductPageOutbound } from '@mercaria/shared-types';
+import { config } from '../../config/index.js';
+import { affiliateOutboundPath } from '../outbound/disclosure.js';
 
 /**
  * The destination's hostname, or nothing.
@@ -97,5 +102,13 @@ export function resolveProductPageOutbound(offer: Offer): ProductPageOutbound {
     return { kind: 'unavailable', reason: 'no_destination' };
   }
 
-  return { kind: 'unavailable', reason: 'redirect_unavailable', destinationHost };
+  if (!config.affiliateOutbound.redirectEnabled) {
+    return { kind: 'unavailable', reason: 'redirect_unavailable', destinationHost };
+  }
+
+  return {
+    kind: 'outbound',
+    redirectPath: affiliateOutboundPath(offer.id),
+    destinationHost,
+  };
 }

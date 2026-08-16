@@ -33,6 +33,10 @@ import { eq } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { findOfferById } from '../../db/offers/offerRepository.js';
 import { catalogSources, sourceRecords } from '../../db/schema/provenance.js';
+import { catalogSourceConfigs } from '../../db/schema/ingestion.js';
+import { findActiveSourcePolicy } from '../../db/ingestion/catalogSourcePolicyRepository.js';
+import { resolveSourceRights } from '../ingestion/rights.js';
+import { toPolicyRights } from '../ingestion/source.service.js';
 import { resolveSourceFreshnessPolicy } from './policy.js';
 
 /** Why an outbound click may not proceed. */
@@ -75,7 +79,8 @@ export const OUTBOUND_REFUSAL_REASONS: readonly OutboundRefusalReason[] = [
 export type OutboundEligibility =
   | {
       readonly outcome: 'permitted';
-      /** The ORIGINAL destination. #37 composes any tracking from the routing columns. */
+      /** The ORIGINAL destination. #67's redirect prefers the provider's own
+       *  attributed URL when there is one, and composes neither. */
       readonly destinationUrl: string;
       readonly freshness: OfferFreshnessAssessment;
     }
@@ -108,14 +113,66 @@ export async function assertOfferOutboundEligible(
     offer.sourceRecordId === null
       ? []
       : await db
-          .select({ sourceId: sourceRecords.sourceId, mayDisplay: catalogSources.mayDisplay })
+          .select({
+            sourceId: sourceRecords.sourceId,
+            mayDisplay: catalogSources.mayDisplay,
+            // LEFT-joined: a bare provenance registry row with no ingestion
+            // config is a real state (#68's fourth freshness layer exists for
+            // it), and an inner join would silently refuse every one of those
+            // offers rather than falling through to the rights check below.
+            configStatus: catalogSourceConfigs.status,
+          })
           .from(sourceRecords)
           .innerJoin(catalogSources, eq(catalogSources.id, sourceRecords.sourceId))
+          .leftJoin(catalogSourceConfigs, eq(catalogSourceConfigs.sourceId, sourceRecords.sourceId))
           .where(eq(sourceRecords.id, offer.sourceRecordId))
           .limit(1);
   const source = rights[0];
   if (source === undefined || !source.mayDisplay) {
     return { outcome: 'refused', reason: 'outbound_not_permitted' };
+  }
+
+  /*
+   * The `outbound_link` RIGHT, read LIVE from the active policy version.
+   *
+   * `may_display` above is the coarse projection on `catalog_sources` and it is
+   * the umbrella — it answers "may this offer be shown at all". It does NOT
+   * answer "may Mercaria send somebody to it", which is a separate right #62
+   * versions separately and which a source can withdraw on its own.
+   *
+   * The offer's KIND was derived from this right at INGESTION time
+   * (`offerKindFor`: no `outbound_link` ⇒ `informational` ⇒ a CHECK refuses a
+   * destination), so a source that never granted it produces nothing to
+   * redirect to. What that leaves uncovered is exactly the case this read
+   * closes: a source that GRANTED the right, produced `affiliate` offers with
+   * destinations, and then published a new policy version WITHDRAWING it. Those
+   * offer rows keep their kind and their destination until they are re-ingested,
+   * and until #67 this gate would have handed a visitor to a merchant whose
+   * contract with Mercaria no longer permits it.
+   *
+   * It lives HERE rather than in the redirect for the reason the whole gate
+   * does: two authorities answering "may this link out" is precisely the shape
+   * that ends with one of them stale. `outbound_not_permitted` already exists
+   * for it and needed no new vocabulary.
+   *
+   * A source with NO ingestion config is deliberately left to `may_display`
+   * alone. Such a row predates or sits outside #62's rights model — #60's
+   * backfill and the hand-created operator source are the two that exist — so
+   * there is no policy to consult and inventing a refusal would withdraw
+   * offers from a surface that never had one, which is #62's own "a source
+   * with no config is left alone". It is not a hole: those sources' offers
+   * still have to clear the destination allow-list, which is what actually
+   * decides where a visitor may be sent.
+   */
+  if (source.configStatus !== null) {
+    const policy = await findActiveSourcePolicy(db, source.sourceId);
+    const rights = resolveSourceRights(
+      source.configStatus,
+      policy === undefined ? null : toPolicyRights(policy),
+    );
+    if (!rights.outbound_link) {
+      return { outcome: 'refused', reason: 'outbound_not_permitted' };
+    }
   }
 
   const resolved = await resolveSourceFreshnessPolicy(source.sourceId, db);

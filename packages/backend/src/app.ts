@@ -95,6 +95,8 @@ import merchantClaimsRouter from './routes/merchant-claims.js';
 import storeLinkageRouter from './routes/store-linkage.js';
 import internalGuestCommerceRouter from './routes/internal-guest-commerce.js';
 import referralRedirectRouter from './routes/referral-redirect.js';
+import affiliateOutboundRouter from './routes/outbound.js';
+import internalAffiliateRouter from './routes/internal-affiliate.js';
 import referralsRouter from './routes/referrals.js';
 import internalReferralsRouter from './routes/internal-referrals.js';
 import guestSessionRouter from './routes/guest-session.js';
@@ -309,6 +311,16 @@ export function createApp(): express.Express {
   if (config.payments.operatorSurfaceEnabled) {
     app.use('/internal/payments', internalPaymentsRouter);
   }
+  // The affiliate outbound operator surface (#67), on the SAME payment
+  // allow-list and deliberately not a seventh: approving a destination host
+  // decides where Mercaria sends its buyers and therefore which relationships
+  // can earn, and the report reads what Mercaria earned. It is NOT gated on
+  // `OUTBOUND_REDIRECT_ENABLED` — a host has to be approvable BEFORE the
+  // redirect is switched on, and the evidence has to be readable during the
+  // incident that switched it off.
+  if (config.payments.operatorSurfaceEnabled) {
+    app.use('/internal/affiliate', internalAffiliateRouter);
+  }
   // Canonical commerce graph (#54, ADR 0002): public merchant/storefront
   // identity reads…
   app.use('/merchants', merchantsRouter);
@@ -342,6 +354,28 @@ export function createApp(): express.Express {
   if (config.referrals.enabled) {
     app.use('/r', referralRedirectRouter);
     app.use('/referrals', referralsRouter);
+  }
+
+  /*
+   * `GET /out/:token` — the affiliate outbound redirect (#67, part of #37).
+   *
+   * A SECOND short public prefix beside `/r`, and deliberately not a path under
+   * it: `/r` sends a browser to a Mercaria page, `/out` sends one to somebody
+   * else's site. Different token, different secret, different allow-list,
+   * different risk — collapsing them would put the strongest external-facing
+   * risk in this repository behind the more permissive of the two designs.
+   *
+   * The MOUNT is gated, unlike most levers here, and for the Stripe webhook's
+   * reason rather than the "gate the loop, never the record" one: the token is
+   * HMAC-signed, so without a secret there is nothing to verify and resolving
+   * one would be acting on a stranger's opinion about which offer to redirect
+   * to. It gates no durable record — clicks are written BY this route, so an
+   * unmounted route writes none and there is no queue that could strand. With
+   * it off the product page renders its existing "not available" branch, which
+   * is a state it already had.
+   */
+  if (config.affiliateOutbound.redirectEnabled) {
+    app.use('/out', affiliateOutboundRouter);
   }
   // Merchant → native store linkage (#84), where a verified claim ends. Also
   // outside `/admin`, and for a sharper reason than the claim surface has:

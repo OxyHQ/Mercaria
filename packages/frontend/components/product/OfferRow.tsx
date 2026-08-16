@@ -1,4 +1,4 @@
-import { Pressable, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import type {
   OfferComparisonPrice,
@@ -14,6 +14,7 @@ import {
   formatMoney,
   formatSourceMoney,
 } from '@mercaria/ui';
+import config from '../../lib/config';
 
 /**
  * One offer, as a shopper reads it (#71 §"Offer row").
@@ -125,6 +126,8 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
             <Text className="text-buttonMedium text-text">View listing</Text>
           </Pressable>
         </View>
+      ) : outbound.kind === 'outbound' ? (
+        <OutboundAction outbound={outbound} />
       ) : (
         <UnavailableAction row={row} />
       )}
@@ -328,6 +331,50 @@ function availabilityText(availability: string): string {
     default:
       return 'Availability not published';
   }
+}
+
+/**
+ * "Go to <merchant>" — the handoff to #67's redirect.
+ *
+ * The button opens a MERCARIA path (`/out/<token>`) on the API host and never a
+ * merchant URL: the server revalidates the offer, re-checks the source's rights,
+ * admits the destination host and records the click, all at the moment of the
+ * press. That is why the client is handed a path rather than a link — a URL
+ * rendered into this page an hour ago cannot re-check anything.
+ *
+ * The HOST beside it is the merchant the server disclosed, so a shopper reads
+ * where they are going before they press. It is deliberately the retailer and
+ * not the affiliate network the redirect may route through.
+ *
+ * `outbound.rel` (`sponsored nofollow noopener`) is carried as DATA and is NOT
+ * applied here, because a `Pressable` is a `div` rather than an anchor and
+ * there is no `rel` to set. The crawler-facing guarantee that exists today is
+ * the redirect's own `X-Robots-Tag: noindex, nofollow`; the anchor-level
+ * relationship is owed by whatever renders real HTML (#75's public routes), and
+ * the value is on the DTO so that surface does not have to re-derive it.
+ */
+function OutboundAction({
+  outbound,
+}: {
+  outbound: Extract<ProductPageOfferRow['outbound'], { kind: 'outbound' }>;
+}) {
+  return (
+    <View className="gap-space-4">
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Go to ${outbound.destinationHost}`}
+        onPress={() => {
+          void Linking.openURL(`${config.apiUrl}${outbound.redirectPath}`);
+        }}
+        className="items-center rounded-radius-max border border-border-secondary p-space-12"
+      >
+        <Text className="text-buttonMedium text-text">{`Go to ${outbound.destinationHost}`}</Text>
+      </Pressable>
+      <Text className="text-caption text-text-secondary">
+        {`You will continue on ${outbound.destinationHost}. Mercaria may earn a commission.`}
+      </Text>
+    </View>
+  );
 }
 
 /**

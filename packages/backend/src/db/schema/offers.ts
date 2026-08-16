@@ -303,8 +303,13 @@ export const offers = pgTable(
      * There is deliberately no composed affiliate URL column beside it: one
      * stored URL plus one composed URL is two addresses for one page, and the
      * composed one goes stale the moment the network changes its parameters.
-     * #37 builds the tracked destination from the routing columns below at
-     * redirect time, so a routing failure degrades to the plain link.
+     *
+     * #67's redirect hands over `affiliate_tracking_template` when the provider
+     * minted one and this column otherwise, VERBATIM in both cases — it
+     * composes nothing (#65's `EBAY_FORBIDDEN_LINK_OPERATIONS`, #66's "Mercaria
+     * never CONSTRUCTS a tracking URL"). This column is also what a public page
+     * DISCLOSES the host of, because it names the merchant while the attributed
+     * link may name the network's redirector.
      */
     destinationUrl: text(),
     /** The affiliate network that would be credited (`awin`, `impact`, …). */
@@ -313,7 +318,17 @@ export const offers = pgTable(
     affiliateProgramRef: text(),
     /** The publisher/site id Mercaria is paid under. */
     affiliatePublisherRef: text(),
-    /** A template carrying a `{destination}` placeholder, when the network needs one. */
+    /**
+     * The provider's OWN minted, already-attributed URL — Awin's `aw_deep_link`
+     * (host-admitted at ingestion) or eBay's `itemAffiliateWebUrl`.
+     *
+     * The name is a leftover from a design that never shipped: it was described
+     * as "a template carrying a `{destination}` placeholder", and NOTHING in
+     * this repository has ever interpolated one. `ingest.service.ts` writes the
+     * complete attributed URL and #67's redirect hands it over verbatim. Kept
+     * rather than renamed because the column is live in production and a rename
+     * is a migration for a comment.
+     */
     affiliateTrackingTemplate: text(),
 
     // ── Market and audience scope (issue commercial fact 6) ──────────────────

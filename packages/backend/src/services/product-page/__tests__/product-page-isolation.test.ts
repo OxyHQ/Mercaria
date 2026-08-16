@@ -148,9 +148,36 @@ const ORDERING_REFERENCE = /\.sort\(|localeCompare\(|\borderBy\(/;
 const COMMERCIAL_REFERENCE =
   /\bfees\/|\breferrals\/|\bretail-pricing\/|\bledger|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee|referralProgram|referral_programs|retailCostQuote|retail_cost_quotes|subscription|merchantPlan|commissionRate|affiliate_commission/;
 
-/** Composing an outbound destination, or performing one. */
+/**
+ * Composing an outbound destination — forbidden ANYWHERE on this page, still.
+ *
+ * `Linking.openURL` and its siblings MOVED OUT of this pattern when #67 landed;
+ * see {@link OUTBOUND_HANDOFF_REFERENCE}. What stays here is naming a tracked
+ * destination or performing a server redirect, neither of which this page may
+ * ever do — the page carries a Mercaria PATH and a destination HOST, and the
+ * real destination is resolved server-side at the moment of the click.
+ */
 const OUTBOUND_COMPOSITION_REFERENCE =
-  /trackingTemplate|awin1\.com|\bepn\b|campaignId|res\.redirect|Linking\.openURL|window\.open|WebBrowser\.open/;
+  /trackingTemplate|awin1\.com|\bepn\b|campaignId|res\.redirect/;
+
+/**
+ * PERFORMING a handoff — permitted only to a Mercaria path.
+ *
+ * Before #67 this sat in the pattern above, because `/out/:token` did not exist
+ * and there was nowhere safe to send anybody. #67 built the redirect, so the
+ * storefront now legitimately opens ONE thing: `outbound.redirectPath`, a
+ * Mercaria path by TYPE, which the server resolves after revalidating the offer,
+ * re-checking the source's rights and admitting the destination host.
+ *
+ * The wall is therefore CONDITIONAL rather than deleted: a line that opens
+ * anything must also name `redirectPath`. Deleting it would have let a future
+ * edit open `offer.destinationUrl` directly, which is the exact bug the wall was
+ * written for and which #67 does not make safe.
+ */
+const OUTBOUND_HANDOFF_REFERENCE = /Linking\.openURL|window\.open|WebBrowser\.open/;
+
+/** The ONE destination a handoff may name. */
+const MERCARIA_REDIRECT_PATH_REFERENCE = /redirectPath/;
 
 /** Writing. A read surface that writes is a read surface with a side effect. */
 const WRITE_REFERENCE = /\.insert\(|\.update\(|\.delete\(|INSERT INTO|UPDATE \w+ SET|DELETE FROM/;
@@ -253,14 +280,43 @@ describe('WALL 3: the page never sends anybody anywhere', () => {
   it('composes no tracked destination and performs no redirect', () => {
     let scanned = 0;
     for (const file of [...domainSources(), ...outerSources(), ...storefrontSources()]) {
+      const code = withoutComments(file.source);
       expect(
-        OUTBOUND_COMPOSITION_REFERENCE.test(withoutComments(file.source)),
-        `${file.relative} composes or performs an outbound handoff; #37 owns the redirect and ` +
-          'the freshness re-check it runs before one',
+        OUTBOUND_COMPOSITION_REFERENCE.test(code),
+        `${file.relative} composes a tracked destination or performs a redirect; #67 owns the ` +
+          'redirect and the revalidation it runs before one',
       ).toBe(false);
+      // A handoff is permitted, but only to a Mercaria path — see the detector.
+      for (const line of code.split('\n')) {
+        if (!OUTBOUND_HANDOFF_REFERENCE.test(line)) continue;
+        expect(
+          MERCARIA_REDIRECT_PATH_REFERENCE.test(line),
+          `${file.relative} opens a destination that is not #67's Mercaria redirect path: ` +
+            line.trim(),
+        ).toBe(true);
+      }
       scanned += 1;
     }
     expect(scanned).toBeGreaterThanOrEqual(18);
+  });
+
+  it('the handoff detectors actually detect — the mutation self-test', () => {
+    // Still forbidden outright.
+    expect(OUTBOUND_COMPOSITION_REFERENCE.test('const u = offer.trackingTemplate;')).toBe(true);
+    expect(OUTBOUND_COMPOSITION_REFERENCE.test("res.redirect(302, target)")).toBe(true);
+    expect(OUTBOUND_COMPOSITION_REFERENCE.test("const h = 'www.awin1.com';")).toBe(true);
+    // The handoff detector fires on every opener...
+    expect(OUTBOUND_HANDOFF_REFERENCE.test('void Linking.openURL(target);')).toBe(true);
+    expect(OUTBOUND_HANDOFF_REFERENCE.test('window.open(target, "_blank");')).toBe(true);
+    // ...and the allowance separates the Mercaria path from a merchant URL.
+    expect(
+      MERCARIA_REDIRECT_PATH_REFERENCE.test(
+        'void Linking.openURL(`${config.apiUrl}${outbound.redirectPath}`);',
+      ),
+    ).toBe(true);
+    expect(
+      MERCARIA_REDIRECT_PATH_REFERENCE.test('void Linking.openURL(offer.destinationUrl);'),
+    ).toBe(false);
   });
 
   it('the storefront never reaches an offer id around the outbound union', () => {
@@ -276,8 +332,16 @@ describe('WALL 3: the page never sends anybody anywhere', () => {
   it('the outbound detectors actually detect — the mutation self-test', () => {
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('const url = `${trackingTemplate}`;')).toBe(true);
     expect(OUTBOUND_COMPOSITION_REFERENCE.test("res.redirect(302, destination)")).toBe(true);
-    expect(OUTBOUND_COMPOSITION_REFERENCE.test('Linking.openURL(offer.destinationUrl)')).toBe(true);
-    expect(OUTBOUND_COMPOSITION_REFERENCE.test('window.open(url)')).toBe(true);
+    // These two MOVED to the conditional handoff rule when #67 landed. The
+    // property they pin is unchanged and slightly stronger: opening a MERCHANT
+    // url is still refused, now because the opener fires and the Mercaria
+    // redirect path is absent from the line.
+    expect(OUTBOUND_HANDOFF_REFERENCE.test('Linking.openURL(offer.destinationUrl)')).toBe(true);
+    expect(
+      MERCARIA_REDIRECT_PATH_REFERENCE.test('Linking.openURL(offer.destinationUrl)'),
+    ).toBe(false);
+    expect(OUTBOUND_HANDOFF_REFERENCE.test('window.open(url)')).toBe(true);
+    expect(MERCARIA_REDIRECT_PATH_REFERENCE.test('window.open(url)')).toBe(false);
     expect(OUTBOUND_COMPOSITION_REFERENCE.test('const host = parsed.hostname;')).toBe(false);
     expect(OFFER_ID_BYPASS_REFERENCE.test('addToCart(offer.productVariantId)')).toBe(true);
     expect(OFFER_ID_BYPASS_REFERENCE.test('href={offer.destinationUrl}')).toBe(true);

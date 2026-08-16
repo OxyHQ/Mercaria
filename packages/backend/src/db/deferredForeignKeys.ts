@@ -1703,4 +1703,69 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'accept the P2P policy #112 named — a person selling a bicycle has no store to hang one ' +
       'off. `owner_type` is CHECK-restricted to the same two values the pair uses.',
   },
+  // ── Affiliate outbound redirects and commission (#67) ─────────────────────
+  // The two operator stamps on the destination allow-list. Oxy ids like every
+  // other row in this block, and on the one table in the domain that DECIDES
+  // anything — approving a host is what makes a redirect possible, so "who
+  // approved this" must survive the account that approved it.
+  { column: 'affiliate_outbound_hosts.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'affiliate_outbound_hosts.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'affiliate_transactions.network_transaction_id',
+    reason:
+      "The affiliate network's OWN primary key for the transaction, in its own key space — a " +
+      'foreign id like a CrowdSource `decision_id` or a Stripe object id, and never a Mercaria ' +
+      'key (the payment domain states the same rule as "a provider id is NEVER a Mercaria ' +
+      'primary key"). It is the dedup half of `affiliate_transactions_network_key`, which is ' +
+      'scoped by `network` precisely because two networks may mint the same string.',
+  },
+  // A CLICK is an immutable record of a redirect that HAPPENED, so every id on
+  // it is a value observed at that instant rather than a live reference. The
+  // `watchlist_snapshot_items.selected_offer_id` ruling, applied to a whole row
+  // instead of one column, and for a second reason as well: #59's merge
+  // repoints live references, and repointing a past click would attribute it to
+  // a product it was not for — silently, and in the direction that inflates
+  // whichever product won a merge.
+  {
+    column: 'affiliate_outbound_clicks.offer_id',
+    reason:
+      'A click must outlive the offer it was for. `offers` CASCADEs from `listings` (#57 chose ' +
+      'that so a seller deleting a listing is never blocked), so a real foreign key would ' +
+      'DELETE commercial history — and a network reports a conversion for it weeks later, ' +
+      'which is precisely when the row is needed. The snapshot columns beside it keep the row a ' +
+      'complete account of the redirect with or without the offer.',
+  },
+  {
+    column: 'affiliate_outbound_clicks.canonical_variant_id',
+    reason:
+      'The configuration the click was for, recorded at that instant. A foreign key would make ' +
+      "it a live reference #59's merge repoints, which would move a past click onto the " +
+      'winner of a merge that happened afterwards — the one thing a historical record must ' +
+      'not do.',
+  },
+  {
+    column: 'affiliate_outbound_clicks.merchant_id',
+    reason: 'The merchant the buyer was sent to, as the offer named it at that instant.',
+  },
+  {
+    column: 'affiliate_outbound_clicks.storefront_id',
+    reason: 'The channel the offer sat on, as the offer named it at that instant.',
+  },
+  {
+    column: 'affiliate_outbound_clicks.catalog_source_id',
+    reason:
+      'The source the offer came from, recorded rather than referenced. It is also what the ' +
+      'operator report groups by, and a report that lost a window because a source row was ' +
+      'later removed would under-count silently.',
+  },
+  {
+    column: 'affiliate_transactions.matched_click_id',
+    reason:
+      'The click a network report was tied to. Deliberately inert text: the click table is ' +
+      'swept on its own retention clock (clicks are telemetry; a commission record is ' +
+      'accounting and is retained longer), so a foreign key would make the sweep either fail or ' +
+      'cascade — and cascading would delete the money record along with the click. `match_state` ' +
+      'stays `matched` and the id stays readable after the click is gone, which is the honest ' +
+      'account of what was known.',
+  },
 ];

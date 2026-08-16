@@ -560,6 +560,41 @@ connectPostgres()
           log.general.error({ err }, 'Merchant subscription reconciler import failed'),
         );
 
+      /*
+       * Affiliate outbound (#67). TWO wirings, and only one of them is a loop.
+       *
+       * `registerAffiliateCommissionFundingReader` is UNGATED and must run
+       * before any referral reward can accrue. #144 shipped
+       * `registerAffiliateCommissionReader` with NO default implementation
+       * precisely so that every deployment answers `reader_not_registered`
+       * until #67 lands — so this call is what closes that port, and gating it
+       * on a flag would leave the `affiliate` funding source permanently
+       * unrealizable while looking configured.
+       *
+       * `startAffiliateReconciliationDispatcher` is the LOOP, gated by
+       * `AFFILIATE_RECONCILIATION_ENABLED` and returning immediately when it is
+       * off. It gates no durable record: a commission already reported stays
+       * readable, and a poll can still be driven by hand.
+       *
+       * Both are started on EVERY task, for the reason the dispatchers above
+       * are: the poll takes a lease with an owner check, so N tasks share the
+       * work and a dead task's lease is reclaimed.
+       */
+      import('./services/outbound/funding.js')
+        .then(({ registerAffiliateCommissionFundingReader }) =>
+          registerAffiliateCommissionFundingReader(),
+        )
+        .catch((err) =>
+          log.general.error({ err }, 'Affiliate commission funding reader import failed'),
+        );
+      import('./services/outbound/reconciliation/dispatcher.js')
+        .then(({ startAffiliateReconciliationDispatcher }) =>
+          startAffiliateReconciliationDispatcher(),
+        )
+        .catch((err) =>
+          log.general.error({ err }, 'Affiliate reconciliation dispatcher import failed'),
+        );
+
       // Reap expired rows. Postgres has no TTL index, so nothing sweeps unless
       // this loop does — without it the tables in `db/expiryTargets.ts` grow
       // forever, with no error and no failing test.

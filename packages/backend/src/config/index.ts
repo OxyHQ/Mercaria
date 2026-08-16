@@ -478,6 +478,34 @@ function resolveCrowdSourceEnabled(): boolean {
  * partners, attributions and conversions already written remain exactly as
  * they are, the standing rule every gate in this file follows.
  */
+/**
+ * `OUTBOUND_REDIRECT_ENABLED`, with the half-configuration rule (#67).
+ *
+ * The token is HMAC-signed, so a deployment with the flag on and no secret
+ * could not verify one — and the failure would arrive as a 500 on every click
+ * rather than as a missing feature. Staying OFF makes the product page render
+ * its "not available" branch, which is a state it already has and already
+ * renders correctly.
+ *
+ * This gates the MOUNT, unlike most levers here, and that is deliberate for the
+ * reason the Stripe webhook mount gives: without a secret there is nothing to
+ * verify, so accepting a token to resolve later would be acting on a stranger's
+ * opinion about which offer to redirect to. It gates NO durable record — clicks
+ * are written by the route, so an unmounted route writes none, and there is no
+ * queue that could strand.
+ */
+function resolveOutboundRedirectEnabled(): boolean {
+  if (!boolEnv('OUTBOUND_REDIRECT_ENABLED', false)) return false;
+  if ((process.env.OUTBOUND_TOKEN_SECRET?.trim() ?? '') !== '') return true;
+
+  log.general.error(
+    { missing: ['OUTBOUND_TOKEN_SECRET'] },
+    '[Outbound] OUTBOUND_REDIRECT_ENABLED is set but the token secret is missing; staying OFF. ' +
+      'Stored clicks, transactions and commission postings are unaffected.',
+  );
+  return false;
+}
+
 function resolveReferralsEnabled(): boolean {
   if (!boolEnv('REFERRALS_ENABLED', false)) return false;
 
@@ -3010,6 +3038,37 @@ export interface AwinConfig {
   readonly sampleSize: number;
 }
 
+/**
+ * Affiliate outbound redirects and commission reconciliation (#67).
+ *
+ * Two independent levers plus tunables, and NEITHER gates a durable record.
+ * `outbound-isolation.test.ts` fails the build if a repository or a read path
+ * starts reading one.
+ */
+export interface AffiliateOutboundConfig {
+  /**
+   * `OUTBOUND_REDIRECT_ENABLED` — mount `GET /out/:token`. Default false.
+   * Subject to the half-configuration rule; see `resolveOutboundRedirectEnabled`.
+   */
+  readonly redirectEnabled: boolean;
+  /** HMAC key for the opaque token. Absent rather than `''` when unset. */
+  readonly tokenSecret?: string;
+  /**
+   * `AFFILIATE_RECONCILIATION_ENABLED` — the report-poll LOOP only. Default
+   * false. Turning it off cannot make a stored commission unreadable, and a
+   * poll run by hand through the operator surface stays available.
+   */
+  readonly reconciliationEnabled: boolean;
+  /** How long a click record is kept before the shared expiry sweep removes it. */
+  readonly clickRetentionDays: number;
+  /** How far back a scheduled poll asks for, per network, per pass. */
+  readonly reportLookbackDays: number;
+  /** Between scheduled polls. */
+  readonly reportPollIntervalMs: number;
+  /** How long one poll's lease is held before another task may reclaim it. */
+  readonly reportLeaseMs: number;
+}
+
 export interface FeedImportConfig {
   /** `FEED_IMPORT_ENABLED` — register the adapter and mount the merchant surface. */
   readonly enabled: boolean;
@@ -3354,6 +3413,7 @@ export interface AppConfig {
   readonly feedImport: FeedImportConfig;
   readonly ebay: EbayConfig;
   readonly awin: AwinConfig;
+  readonly affiliateOutbound: AffiliateOutboundConfig;
   readonly printful: PrintfulConfig;
   readonly moovo: MoovoConfig;
   readonly merchantClaims: MerchantClaimsConfig;
@@ -3733,6 +3793,26 @@ export const config: AppConfig = Object.freeze({
     networkLeaseMs: intEnv('AWIN_NETWORK_LEASE_MS', 120_000),
     listTimeoutMs: intEnv('AWIN_LIST_TIMEOUT_MS', 30_000),
     sampleSize: intEnv('AWIN_SAMPLE_SIZE', 25),
+  }),
+  affiliateOutbound: Object.freeze({
+    redirectEnabled: resolveOutboundRedirectEnabled(),
+    // Spread-when-present, like the referral link secret: absent rather than
+    // `''`, so the token service names the missing variable instead of signing
+    // with an empty key.
+    ...(process.env.OUTBOUND_TOKEN_SECRET?.trim()
+      ? { tokenSecret: process.env.OUTBOUND_TOKEN_SECRET.trim() }
+      : {}),
+    reconciliationEnabled: boolEnv('AFFILIATE_RECONCILIATION_ENABLED', false),
+    // 400 days. Longer than every network's own correction window, because a
+    // click whose commission is reversed eleven months later must still be
+    // traceable to the offer it was for; shorter than the commission record it
+    // supports, which is accounting and is retained on its own terms.
+    clickRetentionDays: intEnv('AFFILIATE_CLICK_RETENTION_DAYS', 400),
+    // A poll asks for more than it expects to need: networks revise, and a
+    // window that only covered new transactions would never see a correction.
+    reportLookbackDays: intEnv('AFFILIATE_REPORT_LOOKBACK_DAYS', 45),
+    reportPollIntervalMs: intEnv('AFFILIATE_REPORT_POLL_INTERVAL_MS', 3_600_000),
+    reportLeaseMs: intEnv('AFFILIATE_REPORT_LEASE_MS', 300_000),
   }),
   printful: Object.freeze({
     enabled: boolEnv('PRINTFUL_ENABLED', false),

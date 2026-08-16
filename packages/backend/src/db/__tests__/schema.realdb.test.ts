@@ -204,7 +204,15 @@ describe('the migrated schema', () => {
     // than by a merchant's channels. Its two neighbours are deliberately never
     // swept — `connections` and `sync_runs` are the activity log the dashboard
     // reads, and the tally and summary on the run are what survive a swept page.
-    expect(EXPIRY_TARGETS).toHaveLength(33);
+    // #67 adds ONE — an outbound CLICK, at the deadline its writer stamps from
+    // `AFFILIATE_CLICK_RETENTION_DAYS` — and leaves its five others unswept:
+    // the destination allow-list is a standing operator decision, and the four
+    // commission tables are ACCOUNTING, reconciled against a publisher
+    // statement months later. The click is the only table in that domain whose
+    // size is a function of TRAFFIC, and it is deliberately retained LONGER
+    // than a typical telemetry table (400 days) because a commission reversed
+    // eleven months after the fact must still resolve to the offer it was for.
+    expect(EXPIRY_TARGETS).toHaveLength(34);
   });
 });
 

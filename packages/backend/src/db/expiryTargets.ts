@@ -85,6 +85,7 @@ import {
 } from './schema/guestPortal';
 import { guestOrderClaimOutbox } from './schema/guestClaims';
 import { merchantDemandSnapshots } from './schema/merchantDemand';
+import { affiliateOutboundClicks } from './schema/affiliateOutbound.js';
 import { catalogSourceRejections } from './schema/ingestion';
 import { syncRunRecordFailures } from './schema/connectors';
 import {
@@ -740,6 +741,24 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
       'DELETE is deliberately PERMITTED on all three tables (the `analytics_events` posture): ' +
       'erasure on a schedule is the policy, and a trigger refusing it would make this sweep ' +
       'fail silently on every row it was supposed to remove.',
+  },
+  // ── Affiliate outbound clicks (#67) ───────────────────────────────────────
+  {
+    table: affiliateOutboundClicks,
+    column: affiliateOutboundClicks.retentionExpiresAt,
+    retentionSeconds: 0,
+    reason:
+      'One outbound click, at the deadline its writer stamped from ' +
+      '`AFFILIATE_CLICK_RETENTION_DAYS`. The column IS the deadline, so the retention is 0 ' +
+      'here — the conditional form this sweep cannot express does not arise, because the ' +
+      'condition was resolved at write time. A click carries no actor of any kind (no Oxy id, ' +
+      'no session, no pseudonym, no IP, no user agent), so what accumulates is commercial ' +
+      'telemetry rather than anything about a person; the retention is long (400 days by ' +
+      'default) precisely because it must outlive every network correction window, and it is ' +
+      'still SHORTER than the commission records it supports, which are accounting. UPDATE is ' +
+      'refused by trigger and DELETE is deliberately PERMITTED (the `analytics_events` ' +
+      'posture): erasure on a schedule is the policy, and a trigger refusing it would make ' +
+      'this sweep fail silently on every row it was obliged to remove.',
   },
 ];
 

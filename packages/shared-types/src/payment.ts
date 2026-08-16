@@ -352,6 +352,35 @@ export const DISPUTE_OUTCOMES: readonly DisputeOutcome[] = ['won', 'lost'];
  * booked against `provider_clearing` when it is paid, touching no retail cost
  * account and no buyer amount in any code path.
  *
+ * | `affiliate_receivable` | debit | an affiliate network owes Mercaria more (an approved commission) or less (a reversal, a payout) |
+ * | `affiliate_commission_revenue` | credit | Mercaria's affiliate commission was reduced (a network reversal) |
+ *
+ * ## `affiliate_commission_revenue` is its own account for #89's reason
+ *
+ * #89 acceptance 6 asks that "subscription revenue, marketplace fees and
+ * affiliate commission report separately", and the third of those had no
+ * account until #67. Booking a network's commission into `commission_revenue`
+ * would make the one figure ADR 0001 D3 says exists nowhere else — the residual
+ * of a Mercaria charge — stop meaning what it means, and no report could
+ * separate them afterwards, because both are credits with no order to tell them
+ * apart: an affiliate conversion is somebody else's sale, and #67 creates no
+ * Mercaria order for one.
+ *
+ * `affiliate_receivable` is the counterpart and is DEBIT-normal, unlike every
+ * other account added since #123: it is an asset, the money a network has
+ * agreed it owes and not yet paid. It exists because commission is earned and
+ * settled weeks apart — the accrual credits revenue against this receivable,
+ * the payout settles this receivable against `platform_funds`, and a network
+ * reversal is a new balanced transaction that unwinds the accrual. Without it a
+ * payout would have to be the first time anything was booked, which is the
+ * `pending`-is-not-revenue mistake one step further along.
+ *
+ * Both leave BOTH owner columns NULL and name no order. An affiliate
+ * conversion is a purchase on somebody else's site by somebody Mercaria cannot
+ * identify; there is no seller to owe and no order to name, and a per-network
+ * dimension lives on `affiliate_transactions` where it can be reported without
+ * putting a counterparty handle on a permanently retained financial record.
+ *
  * ## `subscription_revenue` is its own account, and that is acceptance 6
  *
  * Issue #89 asks that "subscription revenue, marketplace fees and affiliate
@@ -429,7 +458,9 @@ export type LedgerAccount =
   | 'customer_adjustment'
   | 'subscription_revenue'
   | 'referral_expense'
-  | 'referral_payable';
+  | 'referral_payable'
+  | 'affiliate_receivable'
+  | 'affiliate_commission_revenue';
 
 /** {@link LedgerAccount} as the tuple the column types and CHECKs read. */
 export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
@@ -453,6 +484,9 @@ export const LEDGER_ACCOUNTS: readonly LedgerAccount[] = [
   // (`services/referrals/earnings/ledger-postings.ts`).
   'referral_expense',
   'referral_payable',
+  // #67's two — see the note above.
+  'affiliate_receivable',
+  'affiliate_commission_revenue',
 ];
 
 /**
@@ -588,7 +622,10 @@ export type LedgerTransactionKind =
   | 'referral_reward_accrued'
   | 'referral_reward_reversed'
   | 'referral_payout'
-  | 'referral_recovery';
+  | 'referral_recovery'
+  | 'affiliate_commission_accrued'
+  | 'affiliate_commission_reversed'
+  | 'affiliate_commission_settled';
 
 /** {@link LedgerTransactionKind} as the tuple the column types and CHECKs read. */
 export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
@@ -612,6 +649,15 @@ export const LEDGER_TRANSACTION_KINDS: readonly LedgerTransactionKind[] = [
   'referral_reward_reversed',
   'referral_payout',
   'referral_recovery',
+  // #67's three. A REVERSAL is its own kind rather than a negative accrual,
+  // because a network unwinding a commission weeks later is a different event
+  // from a mistake in an accrual and an operator reading the journal must be
+  // able to tell them apart. There is deliberately no `affiliate_commission_
+  // corrected`: a correction is a reversal followed by an accrual, which is the
+  // ledger's own rule about corrections applied here rather than re-decided.
+  'affiliate_commission_accrued',
+  'affiliate_commission_reversed',
+  'affiliate_commission_settled',
 ];
 
 /**

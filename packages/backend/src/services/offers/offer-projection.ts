@@ -113,7 +113,7 @@ function toProvenance(
  * The affiliate routing, present only when a network is actually named.
  *
  * The composed tracked URL is deliberately absent from both the row and this
- * shape: #37 builds it at redirect time from these parts, so `destinationUrl`
+ * shape: #67's redirect chooses between them at click time, so `destinationUrl`
  * stays the ORIGINAL destination and a routing change cannot orphan it.
  */
 function toAffiliateRouting(row: OfferRow): OfferAffiliateRouting | undefined {

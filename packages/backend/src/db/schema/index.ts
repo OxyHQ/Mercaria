@@ -271,6 +271,17 @@ export * from './awin';
 // rather than a data change. There is deliberately no carrier, package, label
 // or scan table here at all — Moovo owns those, and the absence is asserted.
 export * from './retailFulfilment';
+// Affiliate outbound redirects, click records and commission reconciliation
+// (#67) is downstream of `./offers` (whose stored destination is the ONLY thing
+// it may send a buyer to), `./provenance` (whose source scopes the destination
+// allow-list, the one table here that decides anything) and `./ledger` (which
+// its commission postings name). It adds NO column to any of them: the offer
+// already carries the destination and the routing metadata #62 recorded, and a
+// second copy of either would be a second answer to where a buyer goes. There
+// is deliberately no order, no buyer and no actor column in any of the six
+// tables — an affiliate conversion is somebody else's sale to somebody Mercaria
+// does not identify.
+export * from './affiliateOutbound';
 // Retail cancellations, returns, warranties, supplier RMAs and customer refunds
 // (#127) follows `./retailFulfilment` because it is downstream of everything
 // that one is: `./orders` and `./payments` (a request names an order, a refund
