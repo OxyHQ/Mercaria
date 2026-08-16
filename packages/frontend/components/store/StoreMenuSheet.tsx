@@ -22,7 +22,7 @@ import {
   Text,
   formatReviewCount,
 } from "@mercaria/ui";
-import type { Collection, MerchantSummary, Review } from "@mercaria/shared-types";
+import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStoreReviews } from "@/lib/hooks/use-store";
 import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
@@ -74,7 +74,7 @@ type SheetPage = "menu" | "reviews";
 
 interface StoreMenuSheetProps {
   /** The store whose menu this sheet presents (drives palette + header). */
-  store: MerchantSummary;
+  store: StoreSummary;
   /** Published collections shown as selectable rows under "Shop all". */
   collections: Collection[];
   /** Whether the sheet is mounted/visible. */
@@ -281,7 +281,7 @@ function ReviewsPage({
   toneColor,
   onPressProduct,
 }: {
-  store: MerchantSummary;
+  store: StoreSummary;
   toneColor: string;
   onPressProduct: (productId: string) => void;
 }) {
@@ -359,7 +359,7 @@ function MenuPage({
   onSelectCollection,
   onOpenReviews,
 }: {
-  store: MerchantSummary;
+  store: StoreSummary;
   collections: Collection[];
   toneColor: string;
   onSelectCollection: (id?: string) => void;

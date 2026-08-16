@@ -5,10 +5,8 @@
  * acceptance 6): slug uniqueness is a real unique index refusing a real
  * insert; the alias collision gate is the GENERATED `normalized_alias` column
  * plus its compound unique; observation convergence is `ON CONFLICT DO
- * NOTHING` against the content-hash identity; the merge is a multi-statement
- * transaction whose repoints, tombstone CAS and chain flattening either all
- * hold on a real server or do not hold at all; and the trigram candidate
- * search only runs if `pg_trgm` really reached `REQUIRED_EXTENSIONS`.
+ * NOTHING` against the content-hash identity; and the trigram candidate search
+ * only runs if `pg_trgm` really reached `REQUIRED_EXTENSIONS`.
  *
  * Acceptance criteria mapped to tests:
  *  1. "Apple and similarly named brands cannot merge from normalization
@@ -18,9 +16,11 @@
  *     its link and its record are read back from one transaction's output.
  *  3. "Alias lookup resolves to one id or an explicit ambiguity" — the same
  *     alias on two brands answers `ambiguous`, never a silent first match.
- *  4. "Merge redirects preserve references" — the tombstone survives with its
- *     slug, every source mapping is retained, and resolution follows the
- *     redirect one hop, including through a flattened chain.
+ *  4. "Merge redirects preserve references" is NOT covered here any more. It
+ *     was #56's direct `mergeBrands`/`mergeOrganizations`, retired by #36
+ *     completion criterion 4; the merge JOB that replaced them is driven by
+ *     `services/curation/__tests__/curation-writes.realdb.test.ts`, which
+ *     covers the same property plus the conflict gate, replay and split-back.
  *
  * ## Scoping, because this database is SHARED
  *
@@ -48,7 +48,6 @@ import {
   applyBrandSourceObservation,
   createBrand,
   getPublicBrand,
-  mergeBrands,
   resolveBrandAlias,
   searchBrandCandidates,
   findBrandIdsBySourceObject,
@@ -59,8 +58,6 @@ import {
   applyOrganizationSourceObservation,
   createOrganization,
   findOrganizationIdsByVerifiedDomain,
-  mergeOrganizations,
-  resolveOrganizationAlias,
 } from '../canonical/organization.service.js';
 import {
   extractVendorBrandCandidates,
@@ -436,113 +433,15 @@ describe('provenance (acceptance 2) and the source-upsert rules', () => {
   });
 });
 
-describe('merge (acceptance 4, ADR 0002 D12/D16)', () => {
-  it('creates a redirect, retains every source mapping, keeps the slug, and is idempotent', async () => {
-    const source = await makeTestSource('feed-merge');
-    const winner = trackBrand(await createBrand({ name: `Ray-Ban ${RUN}` }));
-    const loser = trackBrand(await createBrand({ name: `Rayban ${RUN}` }));
-
-    await applyBrandSourceObservation({
-      brandId: loser.id,
-      sourceId: source.id,
-      externalId: `rayban-${RUN}`,
-      observedAt: new Date('2026-08-05T00:00:00.000Z'),
-      method: 'connector_declared',
-      matchRule: 'connector:declared-brand',
-      fields: { domains: [`rayban-${RUN}.example`] },
-    });
-    await insertBrandAlias(db, { brandId: loser.id, alias: `wayfarer-${RUN}`, kind: 'marketing_name' });
-
-    const result = await mergeBrands({
-      winnerId: winner.id,
-      loserId: loser.id,
-      actorOxyUserId: 'oxy-op-1',
-    });
-    expect(result).toEqual({ merged: true, winnerId: winner.id, loserId: loser.id });
-
-    // The tombstone: merged, redirected, slug intact and never reused.
-    const tombstone = (await db.select().from(brands).where(eq(brands.id, loser.id)))[0];
-    expect(tombstone?.status).toBe('merged');
-    expect(tombstone?.mergedIntoId).toBe(winner.id);
-    expect(tombstone?.slug).toBe(loser.slug);
-    await expect(createBrand({ name: `Rayban Again ${RUN}`, slug: loser.slug })).rejects.toThrow(
-      /already exists/,
-    );
-
-    // Source mappings retained on the winner — nothing deleted.
-    const winnerLinks = await listBrandSourceLinks(db, winner.id);
-    expect(winnerLinks).toHaveLength(1);
-    expect(await listBrandSourceLinks(db, loser.id)).toHaveLength(0);
-
-    // The loser's names all resolve to the winner: its own (as former_name),
-    // its marketing alias, everything.
-    expect(await resolveBrandAlias(`Rayban ${RUN}`)).toEqual({ kind: 'resolved', id: winner.id });
-    expect(await resolveBrandAlias(`wayfarer-${RUN}`)).toEqual({ kind: 'resolved', id: winner.id });
-
-    // Domain observations were unioned.
-    const winnerRow = (await db.select().from(brands).where(eq(brands.id, winner.id)))[0];
-    expect(winnerRow?.observedDomains).toContain(`rayban-${RUN}.example`);
-
-    // The public read redirects rather than 404ing an old URL.
-    const publicTombstone = await getPublicBrand(loser.slug);
-    expect(publicTombstone?.status).toBe('merged');
-    expect(publicTombstone?.mergedIntoId).toBe(winner.id);
-
-    // Re-running the merge is a no-op, not an error and not a second write.
-    const rerun = await mergeBrands({
-      winnerId: winner.id,
-      loserId: loser.id,
-      actorOxyUserId: 'oxy-op-1',
-    });
-    expect(rerun.merged).toBe(false);
-    expect(rerun.winnerId).toBe(winner.id);
-  });
-
-  it('flattens chains: merging into a tombstone lands on the final winner in one hop', async () => {
-    const finalWinner = trackBrand(await createBrand({ name: `Alpha ${RUN}` }));
-    const middle = trackBrand(await createBrand({ name: `Beta ${RUN}` }));
-    const late = trackBrand(await createBrand({ name: `Gamma ${RUN}` }));
-
-    await mergeBrands({ winnerId: finalWinner.id, loserId: middle.id, actorOxyUserId: 'oxy-op-1' });
-    // The named winner is already a tombstone; the merge must land on ITS winner.
-    await mergeBrands({ winnerId: middle.id, loserId: late.id, actorOxyUserId: 'oxy-op-1' });
-
-    const lateRow = (await db.select().from(brands).where(eq(brands.id, late.id)))[0];
-    expect(lateRow?.mergedIntoId).toBe(finalWinner.id);
-
-    // Every resolution is one hop: no row points at a tombstone.
-    const pointingAtTombstone = await db
-      .select({ n: count() })
-      .from(brands)
-      .where(inArray(brands.mergedIntoId, [middle.id, late.id]));
-    expect(pointingAtTombstone[0]?.n).toBe(0);
-
-    expect(await resolveBrandAlias(`Gamma ${RUN}`)).toEqual({ kind: 'resolved', id: finalWinner.id });
-  });
-
-  it('merges organizations with the same guarantees, unioning VERIFIED domains', async () => {
-    const winner = trackOrganization(await createOrganization({ name: `Helios Group ${RUN}` }));
-    const loser = trackOrganization(await createOrganization({ name: `Helios ${RUN} GmbH` }));
-    await addVerifiedOrganizationDomain({
-      organizationId: loser.id,
-      domain: `helios-${RUN}.example`,
-      actorOxyUserId: 'oxy-op-1',
-    });
-
-    const result = await mergeOrganizations({
-      winnerId: winner.id,
-      loserId: loser.id,
-      actorOxyUserId: 'oxy-op-1',
-    });
-    expect(result.merged).toBe(true);
-
-    expect(await findOrganizationIdsByVerifiedDomain(`helios-${RUN}.example`)).toEqual([winner.id]);
-    expect(await resolveOrganizationAlias(`Helios ${RUN} GmbH`)).toEqual({
-      kind: 'resolved',
-      id: winner.id,
-    });
-  });
-});
+/**
+ * The `merge (acceptance 4, ADR 0002 D12/D16)` block was DELETED with
+ * `mergeBrands`/`mergeOrganizations`, the routeless direct merges #36
+ * completion criterion 4 retired. A brand or organization merge is now
+ * `POST /internal/commerce-graph/merge-jobs`, whose runner
+ * `services/curation/__tests__/curation-writes.realdb.test.ts` drives end to
+ * end and whose per-entity column coverage `merge-plan-census.test.ts` walks
+ * out of the schema rather than out of a hand-written case list.
+ */
 
 describe('organization domains: verified is a decision, never an observation', () => {
   it('routes observed domains to review and only the explicit writer verifies', async () => {
@@ -703,17 +602,20 @@ describe('vendor extraction (#53 migration, D23 phase 1)', () => {
 });
 
 describe('lifecycle guards', () => {
-  it('refuses updating a tombstone and refuses a self-merge', async () => {
+  it('refuses updating a tombstone', async () => {
     const winner = trackBrand(await createBrand({ name: `Iris ${RUN}` }));
     const loser = trackBrand(await createBrand({ name: `Iris Two ${RUN}` }));
-    await mergeBrands({ winnerId: winner.id, loserId: loser.id, actorOxyUserId: 'oxy-op-1' });
+    // Stamped directly rather than through a merge: the guard under test belongs
+    // to `updateBrand` and is about the ROW's state, so it must hold whoever
+    // wrote the tombstone — a curation merge job, a repair, or `psql`.
+    await db
+      .update(brands)
+      .set({ status: 'merged', mergedIntoId: winner.id })
+      .where(eq(brands.id, loser.id));
 
     await expect(
       updateBrand(loser.id, { description: 'nope', actorOxyUserId: 'oxy-op-1' }),
     ).rejects.toThrow(/merged/);
-    await expect(
-      mergeBrands({ winnerId: winner.id, loserId: winner.id, actorOxyUserId: 'oxy-op-1' }),
-    ).rejects.toThrow(/itself/);
   });
 
   it('the database refuses a tombstone without a target and a self-redirect outright', async () => {

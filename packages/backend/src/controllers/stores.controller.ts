@@ -2,18 +2,18 @@
  * Stores controller (THIN).
  *
  * `GET /stores/:handle` resolves a store by handle and returns its public
- * `MerchantSummary` projection together with a paginated page of its active
+ * `StoreSummary` projection together with a paginated page of its active
  * listings.
  */
 
 import type { Request, Response } from 'express';
-import type { MerchantSummary, Listing, Pagination } from '@mercaria/shared-types';
+import type { StoreSummary, Listing, Pagination } from '@mercaria/shared-types';
 import { findStoreByHandle } from '../db/stores/storeRepository.js';
 import {
   findActiveStoreListingsPage,
   findListingChildren,
 } from '../db/catalog/listingRepository.js';
-import { hydrateListings, toMerchantSummary } from '../services/catalog-hydration.service.js';
+import { hydrateListings, toStoreSummary } from '../services/catalog-hydration.service.js';
 import { parsePagination, buildPagination } from '../utils/pagination.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { respondWithError, notFound } from '../lib/errors/error-codes.js';
@@ -23,7 +23,7 @@ import { log } from '../lib/logger.js';
 
 /** Response shape for the public store page. */
 interface StorePageResponse {
-  store: MerchantSummary;
+  store: StoreSummary;
   listings: Listing[];
   pagination: Pagination;
 }
@@ -46,7 +46,7 @@ export async function getStoreByHandle(req: Request, res: Response): Promise<voi
 
     // The merchant card's thumbnails come from this page's own galleries, which
     // hydration is about to load anyway — one extra batched read rather than a
-    // per-listing lookup inside `toMerchantSummary`.
+    // per-listing lookup inside `toStoreSummary`.
     const { images } = await findListingChildren(rows.map((row) => row.id));
     const listings = await hydrateListings(rows, { viewerId: req.user?.id });
 
@@ -60,7 +60,7 @@ export async function getStoreByHandle(req: Request, res: Response): Promise<voi
      * code rather than a rule somebody has to remember.
      */
     const ratingSource = await resolveStoreRatingSource(storeId);
-    const summary = toMerchantSummary(store, rows, images);
+    const summary = toStoreSummary(store, rows, images);
 
     const body: StorePageResponse = {
       store: ratingSource

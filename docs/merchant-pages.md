@@ -325,23 +325,45 @@ merchant page's most expensive read and the one a "cheapest offer per product"
 projection would fix if one is ever justified — #61 adopted none and this issue
 adopts none.
 
-## What #73 deliberately did NOT do
+## What #73 deferred, and #36/#38 then did
 
-**`MerchantSummary` is still un-rehomed.** ADR 0002's entity glossary notes that
-`ProductSummary` and `MerchantSummary` in `shared-types/src/product.ts` are
+**`MerchantSummary` is now `StoreSummary`.** ADR 0002's entity glossary notes
+that `ProductSummary` and `MerchantSummary` in `shared-types/src/product.ts` are
 home-feed card projections of native listings and stores, that nothing may
-import them as canonical types, and that "#70–#73 will re-home them". #70 did
-not, and #73 did not either: the rename touches twenty files across three
-packages (feed service, order hydration, the `Listing` DTO, the stores
-controller, the store screen, the mock catalogue), it landed in a batch of
-fourteen parallel branches where a cross-package rename is a merge hazard for
-every one of them, and no numbered requirement of #73 asks for it.
+import them as canonical types, and that "#70–#73 will re-home them". Neither
+#70 nor #73 did: the rename touches seventeen files across four packages and
+landed in a batch of fourteen parallel branches where a cross-package rename is
+a merge hazard for every one of them, with no numbered requirement of #73 asking
+for it. It was performed under #36/#38 instead, once that batch had merged.
 
-What #73 does instead is hold the half that matters. The confusion the rename
-would remove is a merchant page rendering a native store's card as "the
-merchant", and `merchant-page-isolation.test.ts` fails the build if any
-merchant-page surface, in either package, so much as imports `MerchantSummary`.
-The rename remains owed.
+**The ADR does not spell the replacement, so it was DERIVED and the derivation
+is recorded here.** The glossary reserves the bare word `Merchant` for the
+canonical seller identity (`merchants` / `Merchant`) and refers to the native
+side as "a native `stores` row"; D4's own heading is "Merchant/storefront versus
+the existing native `Store`". The glossary's `Product` row states the rule for
+this exact collision — `CanonicalProduct` is prefixed "because the native tables
+already use the bare word" — so whichever side does NOT own the bare word is the
+side that moves. For products the canonical side moved; for merchants the
+canonical side already holds `Merchant`, so the native store CARD is what moved,
+and the vocabulary the ADR leaves for it is `Store`. Hence `StoreSummary`, with
+`toMerchantSummary` following it to `toStoreSummary`.
+
+**`ProductSummary` is NOT renamed**, and that asymmetry is the same rule rather
+than an omission: the canonical product side already took the prefixed name, so
+the bare word is unambiguously the native listing card's.
+
+**The wire contract is untouched.** `MerchantFeedSection` still discriminates on
+`kind: 'merchants'` and still carries a `merchants` field, and `@mercaria/ui`'s
+`MerchantCard` / `MerchantCarousel` keep their names because they render that
+section. A type name is compile-time only; those three strings are read by
+shipped clients, and retiring them is a versioned change of its own.
+
+The wall #73 shipped in place of the rename did not move with it.
+`merchant-page-isolation.test.ts` still fails the build if any merchant-page
+surface, in either package, imports the native-store card DTO — under EITHER
+spelling, so a partial revert cannot walk around it — and it now carries a
+vacuity floor asserting the DTO still exists under its current name, because
+"nobody imports it" is also what a deleted type looks like.
 
 ## Seams left to their owners
 

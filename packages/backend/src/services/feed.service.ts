@@ -27,7 +27,7 @@ import type {
   Feed,
   FeedSection,
   ProductSummary,
-  MerchantSummary,
+  StoreSummary,
   Category,
   CategoryTile,
   CategoryPill,
@@ -49,7 +49,7 @@ import {
   findVariantsByListingIds,
   type VariantRecord,
 } from '../db/catalog/variantRepository.js';
-import { toProductSummary, toMerchantSummary } from './catalog-hydration.service.js';
+import { toProductSummary, toStoreSummary } from './catalog-hydration.service.js';
 import { getProfiles } from './oxy-user.service.js';
 import { config } from '../config/index.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
@@ -183,7 +183,7 @@ function buildShopByCategory(
 }
 
 /** Build the "Worth the hype" merchant section from top stores. */
-async function buildMerchants(): Promise<MerchantSummary[]> {
+async function buildMerchants(): Promise<StoreSummary[]> {
   const stores = await findTopActiveStores(config.feed.merchantsSize);
   if (stores.length === 0) {
     return [];
@@ -210,7 +210,7 @@ async function buildMerchants(): Promise<MerchantSummary[]> {
       : new Map();
 
   return stores.map((store) =>
-    toMerchantSummary(store, featuredByStore.get(store.id) ?? [], images),
+    toStoreSummary(store, featuredByStore.get(store.id) ?? [], images),
   );
 }
 

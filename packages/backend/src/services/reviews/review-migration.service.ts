@@ -49,9 +49,7 @@ import {
   classifyReview,
   findAmbiguousReviews,
   findUnclassifiedLegacyReviews,
-  findRehomeCollisions,
   markReviewAmbiguous,
-  rehomeProductReviews,
   assignReviewToCanonicalProduct,
   type ReviewRecord,
 } from '../../db/reviews/reviewRepository.js';
@@ -244,64 +242,6 @@ export async function classifyLegacyReviews(
     ambiguous,
     hasMore: batch.length === batchSize,
   };
-}
-
-/** What a product merge did to the review domain. */
-export interface ReviewRehomeReport {
-  /** Reviews moved onto the surviving product. */
-  rehomed: number;
-  /**
-   * Reviews left on the loser because their author already reviewed the winner.
-   * A merge must not delete one of a buyer's two genuine reviews, so these wait
-   * for an explicit operator decision.
-   */
-  collisions: string[];
-}
-
-/**
- * Move a merged product's reviews onto the survivor — what
- * `mergeCanonicalProducts` owes this domain.
- *
- * Runs INSIDE the merge's own transaction (the caller passes `tx`), so a merge
- * that fails leaves the reviews exactly where they were. Collisions are read
- * FIRST and excluded, because `reviews_author_scope_target_key` would otherwise
- * fail the whole statement and abort the merge over one buyer who legitimately
- * reviewed both products.
- *
- * Aggregates are NOT rebuilt here: the merge's transaction has not committed,
- * so a rebuild would derive from rows nobody else can see yet. The caller
- * rebuilds both products after committing.
- */
-export async function rehomeReviewsForProductMerge(
-  tx: DatabaseOrTransaction,
-  loserProductId: string,
-  winnerProductId: string,
-): Promise<ReviewRehomeReport> {
-  const collisions = await findRehomeCollisions(loserProductId, winnerProductId, tx);
-  const collisionIds = new Set(collisions.map((row) => row.id));
-
-  const moved = await rehomeProductReviews(loserProductId, winnerProductId, tx);
-  const rehomed = moved.filter((row) => !collisionIds.has(row.id));
-
-  for (const review of rehomed) {
-    await recordTargetMigration(
-      {
-        reviewId: review.id,
-        action: 'rehome_merge',
-        fromScope: 'product',
-        fromTargetType: 'canonical_product',
-        fromTargetRef: loserProductId,
-        toScope: 'product',
-        toTargetType: 'canonical_product',
-        toTargetRef: winnerProductId,
-        reason: 'canonical product merge',
-        actorKind: 'migration',
-      },
-      tx,
-    );
-  }
-
-  return { rehomed: rehomed.length, collisions: [...collisionIds] };
 }
 
 /**

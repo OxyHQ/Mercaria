@@ -18,6 +18,17 @@
  * no endpoint that accepts a canonical value from an ingestion caller (#56 API
  * rule 4) — see `middleware/canonical-catalog-schemas.ts`, where that is a
  * property of the schemas rather than a convention of the handlers.
+ *
+ * **There is NO merge route here, and there must never be one again.** #53/#56
+ * shipped three (`/product-families/:winnerId/merge`, `/products/:winnerId/merge`,
+ * `/variants/:winnerId/merge`), each a single-transaction merge that skipped
+ * #59's conflict gate, its census-complete rehoming plan, its impact estimate
+ * and its audit timeline — and moved a strict SUBSET of the columns the plan
+ * covers, so a merged product's own variants, images, attribute values, saves,
+ * alerts and match rows were left pointing at a tombstone with every page still
+ * rendering. They were deleted whole (#36 completion criterion 4). The merge an
+ * operator uses is `POST /internal/commerce-graph/merge-jobs`, which is the same
+ * allow-list one router over and covers all seven mergeable entity types.
  */
 
 import { Router } from 'express';
@@ -25,7 +36,6 @@ import { authenticateToken } from '../middleware/auth.js';
 import { requireCatalogOperator } from '../middleware/catalog-operator-authz.js';
 import { validateBody } from '../middleware/validate.js';
 import {
-  canonicalMergeSchema,
   canonicalProductCreateSchema,
   canonicalProductObservationSchema,
   canonicalVariantCreateSchema,
@@ -40,9 +50,6 @@ import {
   createCanonicalProductHandler,
   createCanonicalVariantHandler,
   createProductFamilyHandler,
-  mergeCanonicalProductsHandler,
-  mergeCanonicalVariantsHandler,
-  mergeProductFamiliesHandler,
 } from '../controllers/canonical-catalog-operator.controller.js';
 
 const router = Router();
@@ -55,22 +62,12 @@ router.use(requireCatalogOperator);
 
 /** Product families. Creation is EXPLICIT; no source path mints one (#56). */
 router.post('/product-families', validateBody(productFamilyCreateSchema), createProductFamilyHandler);
-router.post(
-  '/product-families/:winnerId/merge',
-  validateBody(canonicalMergeSchema),
-  mergeProductFamiliesHandler,
-);
 
 /** Canonical products. */
 router.post('/products', validateBody(canonicalProductCreateSchema), createCanonicalProductHandler);
-// Route ORDER is load-bearing: `/products/:winnerId/merge` and
-// `/products/:productId/variants` are distinct suffixes, so neither swallows the
-// other, but both must precede any future bare `/products/:id` route.
-router.post(
-  '/products/:winnerId/merge',
-  validateBody(canonicalMergeSchema),
-  mergeCanonicalProductsHandler,
-);
+// Route ORDER is load-bearing: `/products/:productId/variants` and
+// `/products/:productId/observations` are distinct suffixes, so neither swallows
+// the other, but both must precede any future bare `/products/:id` route.
 router.post(
   '/products/:productId/variants',
   validateBody(canonicalVariantCreateSchema),
@@ -80,13 +77,6 @@ router.post(
   '/products/:productId/observations',
   validateBody(canonicalProductObservationSchema),
   applyProductObservationHandler,
-);
-
-/** Canonical variants. */
-router.post(
-  '/variants/:winnerId/merge',
-  validateBody(canonicalMergeSchema),
-  mergeCanonicalVariantsHandler,
 );
 
 /** Identifiers. A collision answers `disputed`, never a moved owner. */

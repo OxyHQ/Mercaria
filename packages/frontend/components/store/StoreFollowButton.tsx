@@ -1,6 +1,6 @@
 import { Button } from "@oxyhq/bloom/button";
 import { FollowTargetButton, openAccountDialog, useOxy } from "@oxyhq/services";
-import type { MerchantSummary } from "@mercaria/shared-types";
+import type { StoreSummary } from "@mercaria/shared-types";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
 
 /**
@@ -25,7 +25,7 @@ import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
  *
  * ## STORES ONLY — a seller is not a store
  *
- * This takes a `MerchantSummary`, which is always a `Store`: a Mercaria-local
+ * This takes a `StoreSummary`, which is always a `Store`: a Mercaria-local
  * row with its own handle, brand and policies and NO Oxy account behind it
  * (`oxyUserId` appears on `Store` only inside `members[]`, the people who
  * operate it). That is what makes `mercaria.store` the right kind.
@@ -46,7 +46,7 @@ export function StoreFollowButton({
   store,
   size = "medium",
 }: {
-  store: MerchantSummary;
+  store: StoreSummary;
   size?: "small" | "medium" | "large";
 }) {
   const { canUsePrivateApi } = useOxy();

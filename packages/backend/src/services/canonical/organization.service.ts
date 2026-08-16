@@ -42,10 +42,6 @@ import {
   listOrganizationAliases,
   listOrganizationsPage,
   listOrganizationSourceLinks,
-  markOrganizationMerged,
-  repointOrganizationAliases,
-  repointOrganizationSourceLinks,
-  retargetOrganizationTombstones,
   searchOrganizationsByNameSimilarity,
   updateOrganization as updateOrganizationRow,
   type OrganizationRow,
@@ -577,76 +573,6 @@ export async function findOrganizationIdsBySourceObject(
     finalIds.add((await resolveOrganizationRow(db, row)).id);
   }
   return [...finalIds].sort();
-}
-
-export interface MergeOrganizationsInput {
-  winnerId: string;
-  loserId: string;
-  actorOxyUserId: string;
-}
-
-export interface MergeOrganizationsResult {
-  merged: boolean;
-  winnerId: string;
-  loserId: string;
-}
-
-/** The operator merge — see `mergeBrands`; unions VERIFIED domains instead. */
-export async function mergeOrganizations(
-  input: MergeOrganizationsInput,
-): Promise<MergeOrganizationsResult> {
-  if (input.winnerId === input.loserId) {
-    throw validationError('mergeOrganizations: an organization cannot be merged into itself.');
-  }
-  return getDb().transaction(async (tx) => {
-    const loser = await findOrganizationById(tx, input.loserId);
-    if (!loser) throw notFound(`Organization ${input.loserId} does not exist.`);
-    const winnerRow = await findOrganizationById(tx, input.winnerId);
-    if (!winnerRow) throw notFound(`Organization ${input.winnerId} does not exist.`);
-
-    if (loser.status === 'merged') {
-      return { merged: false, winnerId: loser.mergedIntoId ?? input.winnerId, loserId: loser.id };
-    }
-
-    const winner = await resolveOrganizationRow(tx, winnerRow);
-    if (winner.id === loser.id) {
-      throw validationError('mergeOrganizations: the winner resolves to the loser — refusing a cycle.');
-    }
-
-    // The CAS comes FIRST — see `mergeBrands` for the concurrency reasoning.
-    const stamped = await markOrganizationMerged(tx, loser.id, winner.id);
-    if (!stamped) {
-      return { merged: false, winnerId: winner.id, loserId: loser.id };
-    }
-
-    await repointOrganizationAliases(tx, loser.id, winner.id);
-    await repointOrganizationSourceLinks(tx, loser.id, winner.id);
-
-    await retargetOrganizationTombstones(tx, loser.id, winner.id);
-
-    await insertOrganizationAlias(tx, {
-      organizationId: winner.id,
-      alias: loser.name,
-      kind: 'former_name',
-      createdByOxyUserId: input.actorOxyUserId,
-    });
-
-    const mergedDomains = [
-      ...new Set([...winner.verifiedDomains, ...loser.verifiedDomains]),
-    ].sort();
-    const lastSeenAt =
-      loser.lastSeenAt && (!winner.lastSeenAt || loser.lastSeenAt > winner.lastSeenAt)
-        ? loser.lastSeenAt
-        : winner.lastSeenAt;
-    await updateOrganizationRow(tx, winner.id, {
-      verifiedDomains: mergedDomains,
-      firstSeenAt: loser.firstSeenAt < winner.firstSeenAt ? loser.firstSeenAt : winner.firstSeenAt,
-      lastSeenAt,
-      lastReviewedAt: new Date(),
-    });
-
-    return { merged: true, winnerId: winner.id, loserId: loser.id };
-  });
 }
 
 async function organizationFreshness(

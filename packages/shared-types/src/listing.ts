@@ -13,7 +13,7 @@
 import type { Timestamps } from './common';
 import type { Money } from './money';
 import type { Seller } from './seller';
-import type { MerchantSummary } from './product';
+import type { StoreSummary } from './product';
 import type { ProductVariantDTO } from './variant';
 import type { ConnectorProviderId } from './integration';
 import type {
@@ -233,7 +233,7 @@ export interface Listing extends Timestamps {
   /** Denormalized seller identity (present iff `ownerType === 'user'`). */
   seller?: Seller;
   /** Denormalized store identity (present iff `ownerType === 'store'`). */
-  store?: MerchantSummary;
+  store?: StoreSummary;
   /** Free-form search tags. */
   tags: string[];
   /** Total available quantity, summed across all variants. */

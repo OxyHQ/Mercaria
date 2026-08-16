@@ -52,34 +52,22 @@ import {
   canonicalVariants,
   productIdentifiers,
 } from '../schema/canonicalCatalog.js';
-import {
-  procurementOffers,
-  supplierAccounts,
-  supplierEvents,
-  suppliers,
-} from '../schema/procurement.js';
 import { ensureCatalogSource } from '../canonical/provenanceRepository.js';
 import { createBrand } from '../../services/canonical/brand.service.js';
 import {
   createProductFamily,
-  listFamilyRedirectHistory,
-  mergeProductFamilies,
 } from '../../services/canonical/product-family.service.js';
 import {
   applyProductSourceObservation,
   createCanonicalProduct,
   findCanonicalProductByIdentifier,
   getPublicCanonicalProduct,
-  listProductRedirectHistory,
-  mergeCanonicalProducts,
   resolveCanonicalProduct,
 } from '../../services/canonical/canonical-product.service.js';
 import {
   createVariant,
   ensureDefaultVariant,
   listVariants,
-  mergeVariants,
-  resolveVariant,
   setBundleComponents,
 } from '../../services/canonical/canonical-variant.service.js';
 import {
@@ -92,8 +80,6 @@ import {
   draftAttributeDefinition,
   publishAttributeDefinition,
 } from '../../services/attributes/definition-registry.service.js';
-import { createSupplier } from '../procurement/supplierRepository.js';
-import { createSupplierAccount } from '../procurement/supplierAccountRepository.js';
 import { reviewAggregates } from '../schema/reviews.js';
 
 let db: Database;
@@ -138,7 +124,6 @@ async function defineAttribute(input: {
   const published = await publishAttributeDefinition(draft.key, draft.version, `operator-${RUN}`);
   return { id: published.id, key: published.key };
 }
-const createdSupplierIds: string[] = [];
 
 /** A catalog source registered once for this run; every observation cites it. */
 let sourceId = '';
@@ -184,18 +169,6 @@ afterAll(async () => {
     await db
       .delete(canonicalVariantSourceLinks)
       .where(inArray(canonicalVariantSourceLinks.variantId, variantIds));
-  }
-  if (createdSupplierIds.length > 0) {
-    await db
-      .delete(procurementOffers)
-      .where(inArray(procurementOffers.supplierId, createdSupplierIds));
-    await db
-      .delete(supplierAccounts)
-      .where(inArray(supplierAccounts.supplierId, createdSupplierIds));
-    // `supplier_events` is the birth/lifecycle audit trail every supplier gets;
-    // its foreign key is RESTRICT, so it goes before its supplier.
-    await db.delete(supplierEvents).where(inArray(supplierEvents.supplierId, createdSupplierIds));
-    await db.delete(suppliers).where(inArray(suppliers.id, createdSupplierIds));
   }
   // A SIBLING file's matcher may have recorded a `match_decisions` row citing one
   // of these ids — its retrieval is a trigram search over every canonical
@@ -245,8 +218,10 @@ afterAll(async () => {
       .where(inArray(canonicalProductSourceLinks.productId, createdProductIds));
     // `review_aggregates.canonical_product_id` is RESTRICT since #76 — a
     // product's rating must be able to BLOCK its disappearance rather than
-    // vanish with it. A merge here rebuilds both products' aggregates, so the
-    // rows exist even though this suite writes no reviews.
+    // vanish with it. This suite writes no reviews and, since #36 retired the
+    // direct merge, performs no merge either, so the delete normally matches
+    // nothing; it stays because a RESTRICT teardown that assumes a table is
+    // empty fails LOUDLY in a sibling's run rather than in its own.
     await db
       .delete(reviewAggregates)
       .where(inArray(reviewAggregates.canonicalProductId, createdProductIds));
@@ -897,191 +872,19 @@ describe('acceptance 4 — every selected field and image traces to provenance',
   });
 });
 
-describe('acceptance 5 — merges preserve redirects and references', () => {
-  it('tombstones the loser, records each redirect hop, and keeps resolution one hop', async () => {
-    const oldest = await mintProduct({ label: 'Merge A' });
-    const middle = await mintProduct({ label: 'Merge B' });
-    const winner = await mintProduct({ label: 'Merge C' });
-
-    const first = await mergeCanonicalProducts({
-      winnerId: middle,
-      loserId: oldest,
-      actorOxyUserId: OPERATOR,
-      note: 'duplicates from two feeds',
-    });
-    expect(first.merged).toBe(true);
-
-    const second = await mergeCanonicalProducts({
-      winnerId: winner,
-      loserId: middle,
-      actorOxyUserId: OPERATOR,
-      note: 'the line consolidated',
-    });
-    expect(second.merged).toBe(true);
-    // The merge itself plus the FLATTEN of the tombstone that pointed at B.
-    expect(second.redirectsRecorded).toBe(2);
-
-    // Resolution is ONE hop from every id, including the oldest.
-    expect((await resolveCanonicalProduct(oldest))?.id).toBe(winner);
-    expect((await resolveCanonicalProduct(middle))?.id).toBe(winner);
-
-    const rows = await db
-      .select()
-      .from(canonicalProducts)
-      .where(inArray(canonicalProducts.id, [oldest, middle]));
-    for (const row of rows) {
-      expect(row.status).toBe('merged');
-      expect(row.mergedIntoId).toBe(winner);
-    }
-
-    // `merged_into_id` alone cannot answer "where did A point BEFORE" — the
-    // flatten overwrote it. The history table can, which is why it exists.
-    const history = await listProductRedirectHistory(oldest);
-    expect(history.map((entry) => entry.toId).sort()).toEqual([middle, winner].sort());
-    expect(history.find((entry) => entry.toId === middle)?.reason).toBe('merge');
-    expect(history.find((entry) => entry.toId === winner)?.reason).toBe('flatten');
-  });
-
-  it('is idempotent: re-running a merge writes nothing and grows no history', async () => {
-    const loser = await mintProduct({ label: 'Idempotent Loser' });
-    const winner = await mintProduct({ label: 'Idempotent Winner' });
-    const input = { winnerId: winner, loserId: loser, actorOxyUserId: OPERATOR, note: 'duplicate' };
-
-    const first = await mergeCanonicalProducts(input);
-    const second = await mergeCanonicalProducts(input);
-    expect(first.merged).toBe(true);
-    expect(second.merged).toBe(false);
-
-    const history = await db
-      .select()
-      .from(canonicalProductRedirects)
-      .where(eq(canonicalProductRedirects.fromId, loser));
-    expect(history).toHaveLength(1);
-  });
-
-  it('keeps an offer reference resolvable across a VARIANT merge', async () => {
-    // `procurement_offers.canonical_variant_id` is a real RESTRICT foreign key
-    // as of this migration, so it is a live stand-in for every other reference
-    // the graph will grow (#57's offers, #57's native listing links): the merge
-    // must not delete the row those point at.
-    const supplier = await createSupplier({
-      supplierType: 'dropship_distributor',
-      canonicalName: `Merge Supplier ${RUN}`,
-      establishmentCountries: ['ES'],
-      fulfilmentOriginCountries: ['ES'],
-    });
-    createdSupplierIds.push(supplier.id);
-    const account = await createSupplierAccount({
-      supplierId: supplier.id,
-      provider: 'test-platform',
-      environment: 'test',
-      providerAccountId: `acct-${RUN}`,
-      credentialReference: `/oxy/mercaria/suppliers/test/${RUN}`,
-      enabledMarkets: ['ES'],
-      fulfilmentOrigins: ['ES'],
-    });
-
-    const productId = await mintProduct({ label: 'Referenced Product', axes: ['color'] });
-    const loser = await createVariant({
-      productId,
-      options: [{ key: 'color', value: 'Red' }],
-    });
-    const winner = await createVariant({
-      productId,
-      options: [{ key: 'color', value: 'Crimson' }],
-    });
-
-    const offerRows = await db
-      .insert(procurementOffers)
-      .values({
-        supplierId: supplier.id,
-        supplierAccountId: account.id,
-        canonicalProductId: productId,
-        canonicalVariantId: loser.variant.id,
-        supplierSku: `SKU-${RUN}`,
-        unitCostAmount: 1000,
-        unitCostCurrency: 'EUR',
-        firstSeenAt: new Date(),
-        lastConfirmedAt: new Date(),
-        provenance: 'api',
-      })
-      .returning();
-    const offerId = offerRows[0]?.id;
-    if (!offerId) throw new Error('procurement offer insert returned no row');
-
-    const merged = await mergeVariants({
-      winnerId: winner.variant.id,
-      loserId: loser.variant.id,
-      actorOxyUserId: OPERATOR,
-    });
-    expect(merged.merged).toBe(true);
-
-    // The reference still resolves — the loser ROW was never deleted…
-    const offerAfter = await db
-      .select()
-      .from(procurementOffers)
-      .where(eq(procurementOffers.id, offerId));
-    expect(offerAfter[0]?.canonicalVariantId).toBe(loser.variant.id);
-    // …and following it lands on the winner.
-    expect((await resolveVariant(loser.variant.id))?.id).toBe(winner.variant.id);
-  });
-
-  it('moves a merged family’s products to the winner and records the redirect', async () => {
-    const loserFamily = await mintFamily('Legacy Line');
-    const winnerFamily = await mintFamily('Current Line');
-    const productId = await mintProduct({ label: 'Line Product', familyId: loserFamily });
-
-    const result = await mergeProductFamilies({
-      winnerId: winnerFamily,
-      loserId: loserFamily,
-      actorOxyUserId: OPERATOR,
-      note: 'the two lines were the same line',
-    });
-    expect(result.merged).toBe(true);
-    expect(result.productsRepointed).toBe(1);
-
-    const product = await resolveCanonicalProduct(productId);
-    expect(product?.familyId).toBe(winnerFamily);
-    expect((await listFamilyRedirectHistory(loserFamily)).map((entry) => entry.toId)).toEqual([
-      winnerFamily,
-    ]);
-
-    const winnerRow = await db
-      .select()
-      .from(canonicalProductFamilies)
-      .where(eq(canonicalProductFamilies.id, winnerFamily));
-    expect(winnerRow[0]?.productCount).toBe(1);
-  });
-
-  it('repoints a merged variant’s identifiers without destroying their history', async () => {
-    const productId = await mintProduct({ label: 'Identifier Merge Product', axes: ['color'] });
-    const loser = await createVariant({ productId, options: [{ key: 'color', value: 'Teal' }] });
-    const winner = await createVariant({ productId, options: [{ key: 'color', value: 'Aqua' }] });
-    const gtin = nextGtin();
-    await assignIdentifier({
-      target: { kind: 'variant', id: loser.variant.id },
-      scheme: 'ean',
-      rawValue: gtin,
-    });
-
-    await mergeVariants({
-      winnerId: winner.variant.id,
-      loserId: loser.variant.id,
-      actorOxyUserId: OPERATOR,
-    });
-
-    const rows = await db
-      .select()
-      .from(productIdentifiers)
-      .where(eq(productIdentifiers.normalizedValue, gtin));
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.variantId).toBe(winner.variant.id);
-    expect(rows[0]?.status).toBe('active');
-    // Lookup follows the identifier to the surviving variant.
-    const resolution = await resolveIdentifier('ean', gtin);
-    expect(resolution).toEqual({ kind: 'resolved', grain: 'variant', id: winner.variant.id });
-  });
-});
+/**
+ * #56's `acceptance 5 — merges preserve redirects and references` block was
+ * DELETED with the direct merge services it drove (#36 completion criterion 4).
+ *
+ * The property is not untested: it moved to the path that performs a merge now.
+ * `services/curation/__tests__/curation-writes.realdb.test.ts` drives
+ * `POST /internal/commerce-graph/merge-jobs`'s runner end to end — acceptance 1
+ * there is 'rehomes source links, mints a former-name alias and tombstones the
+ * loser', plus the conflict gate, replay, resume, split-back and the audit
+ * timeline none of these cases could reach. `merge-plan-census.test.ts` covers
+ * the OTHER six mergeable entity types by walking every foreign key that names
+ * one, which is a stronger statement about coverage than a per-type case.
+ */
 
 describe('acceptance 6 — uniqueness, signatures and normalization, at the database', () => {
   it('refuses a duplicate product slug, and a tombstone keeps its slug forever', async () => {

@@ -4,7 +4,7 @@
  * A `Store` is a seller organization that lists NEW products (Shop/Amazon side),
  * as opposed to an individual P2P seller (`Seller`). This module holds the
  * ADMIN-facing shapes (members, permissions, policies). The PUBLIC projection of
- * a store rendered in browse/feed surfaces is `MerchantSummary` in `./product`.
+ * a store rendered in browse/feed surfaces is `StoreSummary` in `./product`.
  */
 
 import type { Timestamps } from './common';

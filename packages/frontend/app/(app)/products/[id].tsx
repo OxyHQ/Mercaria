@@ -27,7 +27,7 @@ import {
 import type {
   Listing,
   ListingOption,
-  MerchantSummary,
+  StoreSummary,
   ProductVariantDTO,
   Review,
   Seller,
@@ -140,7 +140,7 @@ interface MerchantIdentity {
 
 /** Resolve the merchant identity (store-first, then seller) shown in the headers. */
 function merchantIdentity(listing: Listing): MerchantIdentity {
-  const store: MerchantSummary | undefined = listing.store;
+  const store: StoreSummary | undefined = listing.store;
   const seller: Seller | undefined = listing.seller;
   const identity: MerchantIdentity = { name: brandLabel(listing) };
   const logoUrl = store?.logoUrl ?? seller?.avatar ?? undefined;
@@ -199,7 +199,7 @@ function distributionOf(reviews: Review[]): RatingDistribution {
 }
 
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
-function StoreLinkCard({ store, onPress }: { store: MerchantSummary; onPress: () => void }) {
+function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () => void }) {
   const toneColor = store.textTone === "light" ? "#FFFFFF" : "#111111";
   return (
     <View
@@ -258,7 +258,7 @@ function StoreLinkCard({ store, onPress }: { store: MerchantSummary; onPress: ()
 }
 
 /** "More from <store>" related shelf, sourced from the same store's listings. */
-function RelatedFromStore({ store, excludeId }: { store: MerchantSummary; excludeId: string }) {
+function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId: string }) {
   const router = useRouter();
   const { data } = useListings({ storeId: store.id, limit: RELATED_LIMIT });
 
