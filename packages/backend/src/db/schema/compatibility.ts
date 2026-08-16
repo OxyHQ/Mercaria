@@ -760,9 +760,9 @@ export const automotiveFitments = pgTable(
      * denormalization in this file: "which makes does this part cover" is the
      * first question a fitment surface asks, and without it that read is a
      * three-level join per row. It is also what makes the vehicle picker's top
-     * level a single index scan. The trigger in `compatibility.pending.sql`
-     * refuses a row whose make does not agree with its narrower target, so the
-     * copy cannot disagree with the tree.
+     * level a single index scan. `mercaria_automotive_fitment_ancestry`
+     * (migration `0092`) refuses a row whose make does not agree with its narrower
+     * target, so the copy cannot disagree with the tree.
      */
     vehicleMakeId: text()
       .notNull()
@@ -902,8 +902,8 @@ export const automotiveFitments = pgTable(
      * configuration. `else false` again: an unrecognised scope is
      * unrepresentable even with the scope CHECK dropped.
      *
-     * The trigger in `compatibility.pending.sql` is what makes the named
-     * ancestors AGREE with the tree; a CHECK cannot read another row.
+     * `mercaria_automotive_fitment_ancestry` (migration `0092`) is what makes the
+     * named ancestors AGREE with the tree; a CHECK cannot read another row.
      */
     check(
       'automotive_fitments_scope_shape_check',

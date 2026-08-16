@@ -237,8 +237,9 @@ worth naming:
   rejection an operator makes on an unparseable claim. Also measured: it turns
   the rejection case red.
 
-Six triggers, all in `db/schema/compatibility.pending.sql` until the migration
-slot lands:
+Six triggers, in migration `0092_brainy_deathstrike.sql`, each inside its own
+`-- oxy:handwritten-begin=` / `-- oxy:handwritten-end=` pair so a regeneration
+that drops them fails the build rather than silently enforcing nothing:
 
 | Trigger | Refuses |
 |---|---|
