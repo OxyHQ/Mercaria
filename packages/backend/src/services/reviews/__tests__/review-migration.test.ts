@@ -260,6 +260,11 @@ describe('classifyLegacyReviews — the decision table', () => {
  * over: `services/curation/merge-plan.ts` moves `reviews.canonical_product_id`
  * in the `reviews` phase and `merge-plan-census.test.ts` fails the build if that
  * column ever loses its disposition.
+ *
+ * Migration rule 5's MERGE half went with it and came back in #333: a review the
+ * guard leaves on the tombstone is recorded by `runReviewsPhase` under
+ * `rehome_merge`, so the duplicate-author case is findable rather than silent.
+ * Its SPLIT half is `assignReviewOnSplit` below, which is still this domain's.
  */
 
 describe('assignReviewOnSplit — #76 migration rule 5', () => {

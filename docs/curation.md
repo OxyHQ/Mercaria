@@ -426,27 +426,80 @@ The merge an operator uses is `POST /internal/commerce-graph/merge-jobs`, on the
 SAME `CATALOG_OPERATOR_OXY_USER_IDS` allow-list, covering all seven mergeable
 entity types.
 
-### The one behaviour the retirement did not carry over
+### The behaviour the retirement did not carry over, and how it came back (#333)
 
-`mergeCanonicalProducts` handled ONE case this domain does not:
+`mergeCanonicalProducts` handled ONE case this domain did not.
 `reviews_author_scope_target_key` is `(author_oxy_user_id, scope, target_key)`
-where `target_key` is a GENERATED column over `canonical_product_id`, so a buyer
-who reviewed BOTH merged products has two rows that collide the moment the
+where `target_key` is a GENERATED column over the six target columns, so a buyer
+who reviewed BOTH merged entities has two rows that collide the moment the
 loser's is repointed. The direct merge read the collisions first, left them on
 the tombstone and reported them for an explicit operator assignment (#76
-migration rule 5).
+migration rule 5). `merge-plan.ts` gave `reviews.canonical_product_id` the
+disposition `repoint`, which `applyRehomeTarget` executes as an unguarded
+`update … set … where … = <loser>` — so that pair raised `23505` and the
+`reviews` phase failed. It was loud, resumable and left nothing half-done, and
+it was never a regression the retirement introduced: the job path always behaved
+that way.
 
-`merge-plan.ts` gives `reviews.canonical_product_id` the disposition `repoint`,
-which `applyRehomeTarget` executes as an unguarded
-`update … set … where … = <loser>` — so that pair raises `23505` and the
-`reviews` phase fails. **That is loud, resumable and leaves nothing half-done**
-(each phase is its own transaction), and it is not a regression this retirement
-introduced: the job path has always behaved that way. It is recorded here rather
-than fixed because the fix is a disposition change with its own realdb case —
-`repoint_if_absent` with `uniqueWith: [reviews.author_oxy_user_id, reviews.scope]`,
-which is exact for a product review because `reviews_target_shape_check` forces
-every other `target_key` component to be empty at that scope. Filed as a #59
-follow-up.
+**Both `reviews` columns are now `repoint_if_absent`, guarded on
+`[author_oxy_user_id, scope]`.** The colliding review STAYS on the tombstone —
+which is `product_saves`' answer one domain over, and #76 migration rule 5's own.
+
+- **Both**, not just the product one. `reviews.merchant_id` is the same
+  collision one scope apart and a merchant merge is equally reachable today;
+  fixing only the column the issue named would have re-landed it the first time
+  somebody merged two merchant records.
+- **The guard is EXACT at these two scopes** rather than approximate, and that
+  is a property of `reviews_target_exclusivity_check` rather than an assumption:
+  a `product`-scoped row has `canonical_product_id` set and every other target
+  column NULL, so its `target_key` is that id and five empty strings. Guarding
+  on the author and the scope therefore names precisely the winner rows the
+  index would collide with — and no wider, which is what
+  `retail_suppressions` records as the dangerous direction: a guard wider than
+  the index it guards refuses to move a row that could have moved, and that
+  refusal looks exactly like the guard working.
+- **REFUSAL was considered and rejected.** A seventh `conflict_gated` kind is
+  the shape this domain uses when "which side survives is a judgement", and it
+  does not fit: `applyConflictResolution`'s branches all retire, revoke or unset,
+  and a review's only such verb is `status = 'hidden'`, which is what CrowdSource
+  enforcement writes. Reusing it would make a curation decision indistinguishable
+  from a jury's takedown in `moderation_enforcements`' trail and in the restore
+  path, and it would ask an operator to choose which of a stranger's two genuine
+  reviews to suppress — a judgement they have no basis for. Nothing about either
+  review's SURVIVAL is in question here; only which one the winner's aggregate
+  counts, and the rule that decides it (the incumbent on the surviving identity
+  stays) is the same one every other guarded entry in the plan applies.
+- **The disposition is RECORDED, so retention is not silence.** A review left on
+  a tombstone is invisible from then on and indistinguishable from one nothing
+  ever considered, so `runReviewsPhase` appends a `review_target_migrations` row
+  under `rehome_merge` — the action #76 published for exactly this and which
+  nothing wrote until now — with `from` and `to` both the LOSER, because that is
+  the decision: the merge considered this review and left its target where it
+  was. `actor_kind` is `migration` and not `operator` even though a person
+  requested the merge: nobody CHOSE this row's disposition, the guard did, and
+  #76 migration rule 5's later explicit assignment must stay distinguishable
+  from it.
+- **Moves are deliberately NOT recorded.** A moved review's provenance is
+  already answered — it points at the winner, and `merged_into_id` plus
+  `canonical_product_redirects` plus the merge's own `catalog_revisions` entry
+  say when the loser became that winner. A log whose dominant content is routine
+  bookkeeping buries the rows an operator has to find.
+- **The recording runs AFTER the move**, the opposite of the `alerts` stamp,
+  which must run first because it names where a row CAME from. After the guarded
+  update, what is still pointing at the loser IS the collided set, so the record
+  is an observation of what happened rather than a prediction of what will.
+- **The aggregates stay derivable on both sides.** `review_aggregates` is a
+  PROJECTION and `rollups` re-derives the tombstone as well as the winner, so
+  the retained rating still counts for the identity it was written about instead
+  of vanishing from the graph.
+
+Driven by `curation-writes.realdb.test.ts` §"#333", which seeds one buyer with a
+review on each side and asserts the merge completes, all three reviews still
+exist, the collision stayed and both aggregates were re-derived.
+`merge-plan-census.test.ts` carries the rule rather than the two entries: no
+`reviews` column in any entity's plan may be `repoint`, and every guard must
+name the author and the scope — so a third one nobody has written yet fails the
+build rather than raising `23505` in front of an operator.
 
 ### The statement layer beneath it is now uncalled, and is listed rather than left invisible
 

@@ -837,10 +837,18 @@ either state.
   values, provenance, saves, alerts, watchlist items and match rows on a
   tombstone while every page went on rendering. `merge-plan-census.test.ts` is
   what makes that comparison checkable rather than a matter of opinion. Full
-  ledger of what went and the ONE behaviour that did not carry over — the
-  duplicate-author review collision, which the direct merge degraded and the
-  job's unguarded `repoint` answers with `23505` — is `docs/curation.md`
-  §"The pre-#59 direct merges are GONE".
+  ledger of what went is `docs/curation.md` §"The pre-#59 direct merges are
+  GONE". **The one behaviour that did not carry over is now CARRIED (#333)**:
+  both `reviews` columns are `repoint_if_absent` guarded on
+  `[author_oxy_user_id, scope]`, so a buyer who reviewed BOTH sides no longer
+  makes the `reviews` phase raise `23505` — their review stays on the tombstone
+  and the merge APPENDS a `review_target_migrations` row saying so, under #76's
+  own `rehome_merge` action. Refusal through a seventh conflict kind was
+  rejected: a review's only retire verb is `status='hidden'`, which is
+  moderation's, and nothing about either review's survival is in question — only
+  which one the winner's aggregate counts. `merge-plan-census.test.ts` holds it
+  as a RULE (no `reviews` column may be `repoint`), so a third one fails the
+  build.
 
 ## Shipping: Moovo, not ready
 

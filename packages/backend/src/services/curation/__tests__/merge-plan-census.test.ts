@@ -151,6 +151,52 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
     }
   });
 
+  /**
+   * #333, as a rule rather than as two fixed entries.
+   *
+   * `reviews_author_scope_target_key` is `(author_oxy_user_id, scope,
+   * target_key)` where `target_key` is GENERATED over every target column — so
+   * ANY `reviews` column a merge repoints can collide when one buyer reviewed
+   * both sides, whatever entity is being merged. Two of them exist today
+   * (`canonical_product_id`, `merchant_id`) and a realdb case drives the first;
+   * this is what makes the second, and a third nobody has written, fail the
+   * build instead of raising 23505 in front of an operator.
+   *
+   * The guard columns are asserted by NAME because they are what makes the
+   * absence guard exact: guarding on the author alone would refuse to move a
+   * review of a different scope, and on the scope alone would refuse to move
+   * every other buyer's.
+   */
+  it('#333: no `reviews` column is repointed unguarded, and every guard names author and scope', () => {
+    let checked = 0;
+    for (const type of MERGEABLE_ENTITY_TYPES) {
+      for (const target of MERGE_REHOMING_PLAN[type]) {
+        if (getTableName(target.column.table) !== 'reviews') continue;
+        checked += 1;
+        const key = `${type}: ${rehomeTargetKey(target.column)}`;
+        expect(
+          target.disposition,
+          `${key} moves a component of \`reviews_author_scope_target_key\`. An unguarded move ` +
+            'raises 23505 the moment one buyer reviewed both sides of the merge (#333).',
+        ).toBe('repoint_if_absent');
+        const guarded = (target.uniqueWith ?? []).map((column) => sqlColumnName(column)).sort();
+        expect(guarded, `${key} guards on the wrong columns`).toEqual(['author_oxy_user_id', 'scope']);
+      }
+    }
+    /**
+     * The vacuity floor. "Every `reviews` column is guarded" is also what a loop
+     * that found NONE reports, so the count is asserted — and it is a FLOOR
+     * rather than an exact count on purpose: the census above already fails on a
+     * reference that left the plan, and a third `reviews` column arriving is the
+     * case this rule exists to catch rather than one it should refuse.
+     */
+    expect(
+      checked,
+      'this found fewer than the two `reviews` columns the plan carries, so every assertion ' +
+        'above it passed against nothing. Did the table move, or did the walk stop finding it?',
+    ).toBeGreaterThanOrEqual(2);
+  });
+
   it('MUTATION SELF-TEST: a dropped plan entry is caught, and so is an invented one', () => {
     // A census that compared nothing would pass every assertion above. These two
     // mutations are what prove it does not.

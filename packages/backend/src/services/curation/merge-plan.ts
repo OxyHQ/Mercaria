@@ -157,6 +157,32 @@ const PRICE_ALERT_SPLIT_TARGET_NOTE =
   'the same reason the subject is: a buyer asked to choose between a product and a TOMBSTONE is ' +
   'being offered a dead identity, and the winner is what that candidate has become.';
 
+/**
+ * Both `reviews` entries, which are the same collision one scope apart (#333).
+ *
+ * `reviews_author_scope_target_key` is `(author_oxy_user_id, scope, target_key)`
+ * WHERE the scope is not null, and `target_key` is a GENERATED column over the
+ * six target columns — so ONE buyer who reviewed BOTH merged entities holds two
+ * rows that become one key the moment the loser's is repointed. An unguarded
+ * `repoint` raised 23505 and failed the phase.
+ *
+ * `[author_oxy_user_id, scope]` is EXACT rather than approximate at these two
+ * scopes, and that is a property of `reviews_target_exclusivity_check` rather
+ * than an assumption: a `product`-scoped row has `canonical_product_id` set and
+ * every other target column NULL, so `target_key` is that id and five empty
+ * strings. Guarding on the author and the scope therefore names precisely the
+ * winner rows the index would collide with — no wider, which is the direction
+ * `retail_suppressions` records as the dangerous one.
+ */
+const REVIEW_COLLISION_NOTE =
+  "A buyer's review follows the entity it is about — except where that buyer already reviewed " +
+  'the SURVIVOR, which the merge cannot merge into one rating and must not resolve by deleting ' +
+  'or hiding either. The collision stays on the tombstone (`product_saves`, one domain over) and ' +
+  "the merge RECORDS having left it there, in #76's own `review_target_migrations` under the " +
+  '`rehome_merge` action it published for this. The aggregates stay derivable both sides: ' +
+  '`review_aggregates` is a PROJECTION and `rollups` re-derives the tombstone as well as the ' +
+  'winner, so the retained rating still counts for the identity it was written about.';
+
 const PRICE_ALERT_TRIGGER_NOTE =
   "#79's trigger — the immutable RECORD that one offer crossed one buyer's target at one " +
   'observed price. RETAINED by the tombstone, the `catalog_backfill_records` disposition and its ' +
@@ -682,11 +708,9 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
     {
       column: reviews.merchantId,
       phase: 'reviews',
-      disposition: 'repoint',
-      note:
-        "A buyer's review of a seller follows the seller. #76 makes `review_aggregates` a " +
-        'PROJECTION, so the numbers are rebuilt in the `rollups` phase rather than added up ' +
-        'across two entities (#59 merge invariant 6).',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [reviews.authorOxyUserId, reviews.scope],
+      note: REVIEW_COLLISION_NOTE,
     },
     {
       column: reviewEligibilities.merchantId,
@@ -956,10 +980,9 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
     {
       column: reviews.canonicalProductId,
       phase: 'reviews',
-      disposition: 'repoint',
-      note:
-        "A product review is about the MODEL (#76's `product` scope), so it follows the " +
-        'surviving model. The aggregate is rebuilt, never summed.',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [reviews.authorOxyUserId, reviews.scope],
+      note: REVIEW_COLLISION_NOTE,
     },
     {
       column: reviewEligibilities.canonicalProductId,
