@@ -1917,4 +1917,36 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'catalog_external_mappings.fan_out_approved_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_external_mapping_reviews.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'catalog_external_mapping_runs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── #367 step 4's typed variant axes and retained claims (ADR 0007 D6/D7) ─
+  // Three Oxy account ids and one legacy pointer that is not one.
+  //
+  // `asserted_by_oxy_user_id` is the merchant, P2P seller or operator who made a
+  // claim; `resolved_by_oxy_user_id` is the person who settled or refused it, and
+  // `<table>_operator_refusal_audit_check` REQUIRES it before a row may read
+  // `refused` — so an anonymous refusal of a seller's assertion is
+  // unrepresentable rather than merely discouraged. The claim tables carry no id
+  // of the person a claim is ABOUT, and none of the five tables carries a
+  // canonical, brand, organization or merchant id at all.
+  { column: 'native_listing_attribute_claims.asserted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'native_listing_attribute_claims.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'native_variant_attribute_claims.asserted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'native_variant_attribute_claims.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // `source_claim_id` points at `native_variant_attribute_claims` and carries NO
+  // foreign key, which is the one entry here that is not an external service's
+  // key and needs its own reason. A real constraint would be correct in a vacuum
+  // and is not available: the claim tables are written by the backfill and by
+  // connector imports in transactions that also insert assignments, and a
+  // `restrict` edge from an assignment onto a claim would make retiring an axis
+  // (which cascades its assignments) depend on the order two cascades happen to
+  // fire in. What holds the audit trail instead is the pair of claim triggers —
+  // the row is frozen and undeletable while its variant lives — so the assertion
+  // an assignment names is still there and still says what it said.
+  {
+    column: 'native_variant_axis_assignments.source_claim_id',
+    reason:
+      'The retained claim a typed value was derived from (ADR 0007 D7). No foreign key: ' +
+      'the claim is frozen and undeletable while its variant lives, so the reference cannot ' +
+      'dangle, and a `restrict` edge would order two cascades against each other when an axis ' +
+      'is retired.',
+  },
 ];

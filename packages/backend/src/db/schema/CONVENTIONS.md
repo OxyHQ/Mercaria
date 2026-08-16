@@ -6237,3 +6237,113 @@ them.)
   `mercaria_catalog_external_review_subject_frozen` has the same shape and the
   same census. Any third such trigger in this schema should get one before it
   ships, not after.
+
+## Typed variant axes and retained claims (#367 step 4)
+
+`db/schema/variantAxes.ts` — five tables implementing ADR 0007 **D6** and **D7**.
+Full reference: `docs/variant-axes.md`. Nothing here replaces `listing_options`
+or `product_variant_option_values`: D13 retains both, and no module in the domain
+can write either (a scanned gate over the whole directory).
+
+### The signature is its own table because a ZERO-axis variant has no other row
+
+`native_variant_signatures` could have been a column on the assignments, and a
+variant with no axes would then have no identity at all — which is the commonest
+row in this catalogue (a listing with one default variant) and one of the three
+cases ADR 0007 D6 names. `UNIQUE(listing_id, signature)` is the collision gate,
+so two variants that vary along nothing are refused as the one variant they are.
+
+### `listing_id` on the signature is a DENORMALIZATION with a trigger, and why
+
+An index needs the column, and the correct shape — a composite foreign key onto a
+`unique(id, listing_id)` on `product_variants`, the `product_type_field_groups`
+device — needs a target that does not exist. Adding it means editing `catalog.ts`,
+which #367 step 4 may not, so `mercaria_native_variant_signature_scope()` refuses
+any row whose `listing_id` disagrees with the variant's own. Adding that composite
+unique is the change that retires the trigger.
+
+### The citation columns repeat the foreign key on purpose
+
+`attribute_key` and `attribute_definition_version` on both the axis and the
+assignment are the `product_type_fields` guarded denormalization, for the same
+reason: the forbidden-axis prohibition has to be a CHECK, a CHECK admits no
+subquery, and a rule that lives only in a service is one forgotten call site from
+being no rule at all. `mercaria_native_variant_axis_citation()` and
+`mercaria_native_variant_axis_assignment_scope()` refuse any row whose citation
+disagrees, so divergence is unrepresentable rather than unlikely.
+
+`native_listing_variant_axes_forbidden_key_check` is rendered from
+`PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS` — the SAME tuple
+`product_type_fields_variant_axis_check` reads. Two tables, one list; #94 widening
+the reserved offer facts widens both.
+
+### `product_type_definition_id` is NULLABLE, and that is a decision
+
+ADR 0007 D6 speaks of "any listing migrated to a product type", and the obvious
+reading makes it NOT NULL. `listings` carries no `product_type_definition_id`
+today — D13 assigns that widening to the authoring workstream (D10, merge-order
+step 5) — so a NOT NULL citation would make the legacy backfill unable to type a
+single axis. A backfill that resolves nothing is not a safer backfill.
+
+The permission is checked at TWO grains and only one needs a product type:
+`attribute_definitions.variant_defining` (the registry's answer, checked on every
+row) and `product_type_fields.variant_capable` + `scope = 'variant'` (the product
+type's narrower answer, checked when a version is cited).
+
+### `mercaria_native_variant_signature_agrees` is DEFERRABLE, mounted on two tables
+
+The `mercaria_catalog_source_rights_agree` device. A signature is a claim about a
+SET of rows in another table, so no row trigger can see whether the set is what
+was hashed, and writing a variant's axes touches two tables with one always
+first. Mounted on BOTH and on all three operations, because the failure is
+one-sided by nature: an assignment written without the digest being recomputed
+leaves two distinct variants colliding, and a signature removed while its
+assignments remain leaves a variant with axes and no identity.
+
+The existence guard inside it is load-bearing: deleting a variant cascades both
+tables, and without it the commit would fire for every deleted assignment and
+find no signature. It checks the COUNT and not the VALUES — re-hashing in plpgsql
+would need a digest function this schema does not otherwise require — and
+`variant-axes.realdb.test.ts` covers the content half.
+
+### Every claim resolution rule is a BICONDITIONAL, and the refusal pairs are TWO
+
+A one-way `resolved ⇒ value present` still admits a BLOCKED claim carrying a
+normalized value, which is "we could not tell, so we stored our best guess" — the
+false merge ADR 0007 D6 names #58's shape for. And
+`(a = 'blocked') = (b is not null)` conjoined with
+`(a = 'refused') = (c is not null)` is **not** one CHECK over their conjunction:
+the collapsed form is satisfied by a row where every side is false, which admits
+precisely the row the rule exists to refuse. Measured twice already in this
+schema (`retail_delivery_promises_observed_shape_check`,
+`watchlist_snapshot_items`), both times by a real server.
+
+### The claim delete exception is PRECISE, the #90 device
+
+`mercaria_native_claim_no_delete` refuses a DELETE **only while the subject row
+exists**. A blanket `BEFORE DELETE` refusal fires during the cascade from
+`listings` and `product_variants` too, so deleting a listing would become
+impossible; an unconditional permission would let an operator remove the
+assertion their own resolution disagreed with. Same shape as
+`mercaria_condition_revisions_append_only`.
+
+### The legacy pointer carries NO foreign key, and the reason is the WRITE path
+
+`db/catalog/listingRepository.replaceListingOptions` and
+`variantRepository`'s equivalent DELETE-then-INSERT a listing's whole option list
+on every update, so a legacy row's id is not stable across a merchant editing
+their listing. A `restrict` edge onto it would refuse every listing update and a
+`cascade` would delete the preserved claim — which is the one thing "preserved
+verbatim" must not permit. The claims converge on the CONTENT instead
+(`<table>_identity_key`, over two GENERATED key columns), which survives the
+churn. `native_variant_axis_assignments.source_claim_id` is in
+`ID_COLUMNS_WITHOUT_FOREIGN_KEY` for a related reason recorded there.
+
+### These five tables need no `merge-plan.ts` entry, and a test says why
+
+`services/curation/merge-plan.ts`'s census walks foreign keys targeting a
+MERGEABLE entity. Every target here is a native listing, a native variant, an
+attribute definition, an enum value, a connection or a product type version —
+none of which a merge can act on. `variant-axis-schema.test.ts` asserts the exact
+target set, so a foreign key added later that DOES reach a mergeable entity fails
+this domain's own build before it reaches the census.
