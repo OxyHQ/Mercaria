@@ -13,6 +13,21 @@
 -- Deploy phase: every statement here is ADDITIVE. The migration carrying them is
 -- `-- oxy:deploy-phase=pre`.
 --
+-- The `-- oxy:handwritten-begin=` / `-- oxy:handwritten-end=` pairs below are
+-- NOT a paste aid — `migration-handwritten-markers.test.ts` fails the build on
+-- any `CREATE FUNCTION`, `CREATE TRIGGER` or `CREATE CONSTRAINT TRIGGER` in a
+-- migration that is not inside one. Pairs match by NAME, nest on a stack, admit
+-- no orphans, and no name may be reused within a file. Each name here is the
+-- FUNCTION it wraps, matching `0088`'s convention, so the rebase protocol's
+-- "grep the regenerated file for each trigger/function pair" is one grep.
+--
+-- Nine statements in three blocks: three functions and six triggers. Verified
+-- against the gate's rules, including a mutation self-test on each rule and on
+-- the `CREATE CONSTRAINT TRIGGER` form specifically — `CREATE\s+TRIGGER` does
+-- not match it, and `0040_equal_sharon_ventura.sql` is the file that proves it
+-- matters: it carries three of them, and the naive matcher sees 3 of its 10
+-- statements while missing every constraint trigger and every function.
+--
 -- Six triggers, in the order they should appear:
 --
 --   1. mercaria_vehicle_makes_key_freeze
@@ -23,7 +38,7 @@
 --   6. mercaria_compatibility_claims_raw_freeze
 --
 -- ---------------------------------------------------------------------------
--- oxy:handwritten-begin=vehicle_key_freeze
+-- oxy:handwritten-begin=mercaria_vehicle_key_freeze
 -- ---------------------------------------------------------------------------
 -- ADR 0007 D1 rule 2: a stable machine key is FROZEN after insert.
 --
@@ -64,10 +79,10 @@ FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();
 CREATE TRIGGER mercaria_vehicle_configurations_key_freeze
 BEFORE UPDATE ON "vehicle_configurations"
 FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();
--- oxy:handwritten-end=vehicle_key_freeze
+-- oxy:handwritten-end=mercaria_vehicle_key_freeze
 
 -- ---------------------------------------------------------------------------
--- oxy:handwritten-begin=automotive_fitment_ancestry
+-- oxy:handwritten-begin=mercaria_automotive_fitment_ancestry
 -- ---------------------------------------------------------------------------
 -- `automotive_fitments` names its make at EVERY scope, and the copy must agree
 -- with the tree.
@@ -132,10 +147,10 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER mercaria_automotive_fitment_ancestry
 BEFORE INSERT OR UPDATE ON "automotive_fitments"
 FOR EACH ROW EXECUTE FUNCTION mercaria_automotive_fitment_ancestry();
--- oxy:handwritten-end=automotive_fitment_ancestry
+-- oxy:handwritten-end=mercaria_automotive_fitment_ancestry
 
 -- ---------------------------------------------------------------------------
--- oxy:handwritten-begin=compatibility_claims_raw_freeze
+-- oxy:handwritten-begin=mercaria_compatibility_claims_raw_freeze
 -- ---------------------------------------------------------------------------
 -- What a source SAID is frozen; only what Mercaria decided about it moves.
 --
@@ -190,4 +205,4 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER mercaria_compatibility_claims_raw_freeze
 BEFORE UPDATE OR DELETE ON "compatibility_claims"
 FOR EACH ROW EXECUTE FUNCTION mercaria_compatibility_claims_raw_freeze();
--- oxy:handwritten-end=compatibility_claims_raw_freeze
+-- oxy:handwritten-end=mercaria_compatibility_claims_raw_freeze
