@@ -6644,9 +6644,15 @@ exactly may it take.**
   `refund_dispute_concentration` that never computes — **each blocked on
   something specific rather than on effort**, so read
   `docs/referral-integrity.md` before writing one: two are ALREADY derived in
-  `collectSelfReferralFacts` and want the shared read extracted, three need
-  #344's payment-domain port, one needs an Oxy credential that does not exist,
-  and `market_mismatch` is not representable as specified. **Census that list
+  `collectSelfReferralFacts` and want the shared read extracted, two need
+  #344's payment-domain port (which now EXISTS, fail-closed, with nothing
+  registered into it), one needs an Oxy credential that does not exist, and
+  `market_mismatch` is not representable as specified.
+  **`shared_payout_beneficiary` is the one to read**: it looks like a third
+  port consumer and is UNMEASURABLE regardless — partner → owner → account row
+  is injective at every hop, so the count is always zero, a producer was
+  written and REVERTED, and #146 increment 3's beneficiary change is what would
+  reopen it. **Census that list
   by reading `collectRiskSignalFacts`' object literal, never by grepping the
   field names** — the docblock above it names every unsupplied field in prose,
   so a comment-inclusive grep reports all fourteen as produced. #147's
