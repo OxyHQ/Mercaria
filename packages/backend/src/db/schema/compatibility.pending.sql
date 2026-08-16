@@ -28,6 +28,28 @@
 -- matters: it carries three of them, and the naive matcher sees 3 of its 10
 -- statements while missing every constraint trigger and every function.
 --
+-- Every statement is separated by `--> statement-breakpoint`, in `0088`'s style:
+-- appended to the terminating line inside a block, on its own line after the
+-- `-- oxy:handwritten-end=` between blocks. When pasting below the generated
+-- output, a separator is needed BEFORE the first block too — drizzle-kit does
+-- not leave a trailing one.
+--
+-- **A separator must never land inside a `$$ … $$` body.** The migrator splits
+-- the file on the token before it parses anything, so one inside a body cuts a
+-- function in half and the halves fail as two statements. Every separator here
+-- sits after `$$ LANGUAGE plpgsql;` or after a trigger's own `;`.
+--
+-- Worth stating precisely, because the obvious reason to do this is not the
+-- true one: the un-separated form APPLIES CLEANLY on this stack. The migrator
+-- runs `db.execute(sql.raw(chunk))`, which reaches postgres.js as
+-- `client.unsafe(query, [])`, and with no parameters postgres.js uses the
+-- SIMPLE protocol — which accepts multiple commands in one string. Measured:
+-- the un-separated file applied 1/1 and the separated file 9/9, both green.
+-- The reasons to separate are therefore that a failure names ONE statement
+-- instead of a block of nine, and that the un-separated form works only by
+-- leaning on a driver fallback that a `prepare: true`, a parameter, or a
+-- different driver would remove.
+--
 -- Six triggers, in the order they should appear:
 --
 --   1. mercaria_vehicle_makes_key_freeze
@@ -62,24 +84,25 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;--> statement-breakpoint
 
 CREATE TRIGGER mercaria_vehicle_makes_key_freeze
 BEFORE UPDATE ON "vehicle_makes"
-FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();
+FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();--> statement-breakpoint
 
 CREATE TRIGGER mercaria_vehicle_models_key_freeze
 BEFORE UPDATE ON "vehicle_models"
-FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();
+FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();--> statement-breakpoint
 
 CREATE TRIGGER mercaria_vehicle_generations_key_freeze
 BEFORE UPDATE ON "vehicle_generations"
-FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();
+FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();--> statement-breakpoint
 
 CREATE TRIGGER mercaria_vehicle_configurations_key_freeze
 BEFORE UPDATE ON "vehicle_configurations"
 FOR EACH ROW EXECUTE FUNCTION mercaria_vehicle_key_freeze();
 -- oxy:handwritten-end=mercaria_vehicle_key_freeze
+--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
 -- oxy:handwritten-begin=mercaria_automotive_fitment_ancestry
@@ -142,12 +165,13 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;--> statement-breakpoint
 
 CREATE TRIGGER mercaria_automotive_fitment_ancestry
 BEFORE INSERT OR UPDATE ON "automotive_fitments"
 FOR EACH ROW EXECUTE FUNCTION mercaria_automotive_fitment_ancestry();
 -- oxy:handwritten-end=mercaria_automotive_fitment_ancestry
+--> statement-breakpoint
 
 -- ---------------------------------------------------------------------------
 -- oxy:handwritten-begin=mercaria_compatibility_claims_raw_freeze
@@ -200,7 +224,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;--> statement-breakpoint
 
 CREATE TRIGGER mercaria_compatibility_claims_raw_freeze
 BEFORE UPDATE OR DELETE ON "compatibility_claims"
