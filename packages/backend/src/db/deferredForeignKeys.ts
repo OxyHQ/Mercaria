@@ -978,6 +978,29 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   },
   { column: 'referral_touches.oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'referral_tax_profiles.declared_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // #146 increment 2 — enrollment, review and terms.
+  { column: 'referral_partner_applications.submitted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_partner_application_reviews.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_terms_acceptances.accepted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'referral_partner_applications.program_id',
+    reason:
+      'The same stable program identity referral_programs.program_id carries, and the same ' +
+      'reason referral_program_controls.program_id and referral_attributions.program_id carry ' +
+      'it without a key: referral_programs is keyed (program_id, version), so there is no ' +
+      'single-column unique to point at. An application names the program it is FOR, which ' +
+      'must not pin one version of that program’s terms — #146 review rule 6 asks that ' +
+      'approval name a program, and ADR 0005 D19 pins terms at attribution, not here.',
+  },
+  {
+    column: 'referral_terms_acceptances.program_id',
+    reason:
+      'The stable program identity again, and NULL for a partner_agreement acceptance — which ' +
+      'is why the uniqueness key is the GENERATED acceptance_key rather than these columns: ' +
+      'Postgres treats NULLs as DISTINCT, so a plain multi-column unique would admit two ' +
+      'identical agreement acceptances (#55’s endpoint_key finding). The scope CHECK ties the ' +
+      'pair, so a program_terms row without one is unrepresentable.',
+  },
   {
     column: 'referral_program_controls.program_id',
     reason:

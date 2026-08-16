@@ -58,6 +58,22 @@ export interface PayoutGateFacts {
   hasPayoutBeneficiary: boolean;
   /** #145's program-level lever (`referral_program_controls.payout_enabled`). */
   programPayoutEnabled: boolean;
+  /**
+   * Whether this partner's ENROLLMENT MODE earns real money (#146 enrollment
+   * mode 7: "Staff or test enrollment isolated from production earnings").
+   *
+   * A boolean rather than the mode itself, deliberately: this gate must not be
+   * able to ask WHICH mode, or the isolation becomes a list of mode names that
+   * somebody extends without reading `REFERRAL_ENROLLMENT_MODE_RULES`. The
+   * caller reads the answer off that table, where a mode added without one
+   * fails `tsc`.
+   *
+   * It is a PAYOUT gate rather than an attribution refusal because refusing
+   * attribution would make a test enrollment unable to exercise the thing it
+   * exists to test, while this is the exact point at which real money would
+   * otherwise leave.
+   */
+  enrollmentEarnsProductionRewards: boolean;
 }
 
 /**
@@ -103,6 +119,7 @@ export function deriveRewardPayability(facts: PayoutGateFacts): ReferralRewardPa
   if (facts.payoutReadiness !== 'ready') reasons.push('payout_not_ready');
   if (!facts.hasPayoutBeneficiary) reasons.push('no_payout_beneficiary');
   if (!facts.programPayoutEnabled) reasons.push('program_payout_paused');
+  if (!facts.enrollmentEarnsProductionRewards) reasons.push('partner_enrollment_is_test');
 
   if (reasons.length > 0) return { verdict: 'blocked', reasons };
   return {

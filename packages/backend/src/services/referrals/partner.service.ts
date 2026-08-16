@@ -112,8 +112,14 @@ export async function approvePartner(input: {
   const db = getDb();
   return await db.transaction(async (tx) => {
     const row = await transitionPartnerState(tx, {
+      // `under_review` joined the set in #146 increment 2 — an operator who
+      // claimed an application for review must still be able to approve it,
+      // and leaving it out would have made claiming one a way to strand it.
+      // `draft`, `changes_requested` and `rejected` are deliberately NOT here:
+      // approving those would approve a partner whose answers are still being
+      // written, or reverse a refusal without a new submission.
       id: input.partnerId,
-      expected: ['applied', 'invited'],
+      expected: ['applied', 'invited', 'under_review'],
       to: 'approved',
       at,
     });
@@ -216,8 +222,21 @@ export async function terminatePartner(input: {
   const db = getDb();
   return await db.transaction(async (tx) => {
     const row = await transitionPartnerState(tx, {
+      // EVERY non-terminal state, including the four #146 increment 2 added.
+      // Termination is the one transition that must reach a partner wherever
+      // they are — an enrollment somebody is midway through is exactly the
+      // record a confirmed-fraud finding needs to be able to end.
       id: input.partnerId,
-      expected: ['applied', 'invited', 'approved', 'suspended'],
+      expected: [
+        'draft',
+        'applied',
+        'invited',
+        'under_review',
+        'changes_requested',
+        'rejected',
+        'approved',
+        'suspended',
+      ],
       to: 'terminated',
       at,
       riskState: input.confirmedFraud ? 'confirmed_fraud' : undefined,

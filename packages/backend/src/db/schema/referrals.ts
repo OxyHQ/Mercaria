@@ -68,8 +68,12 @@ import {
   ALL_CURRENCY_CODES,
   REFERRAL_ACTOR_KINDS,
   REFERRAL_APPEAL_STATES,
+  REFERRAL_APPLICATION_DECISIONS,
+  REFERRAL_APPLICATION_REJECTION_CODES,
+  REFERRAL_APPLICATION_STATES,
   REFERRAL_ATTRIBUTION_POLICIES,
   REFERRAL_ATTRIBUTION_STATES,
+  REFERRAL_AUDIENCE_BANDS,
   REFERRAL_CHANNELS,
   REFERRAL_CLIENT_SURFACES,
   REFERRAL_COMMERCIAL_MODES,
@@ -80,10 +84,12 @@ import {
   REFERRAL_CONVERSION_STATES,
   REFERRAL_CONVERSION_TYPES,
   REFERRAL_DESTINATION_TYPES,
+  REFERRAL_ENROLLMENT_MODES,
   REFERRAL_EVENT_ACTIONS,
   REFERRAL_EVENT_ACTOR_KINDS,
   REFERRAL_EVENT_SUBJECT_TYPES,
   REFERRAL_INSTRUMENT_STATUSES,
+  REFERRAL_PARTNER_AGREEMENT_VERSIONS,
   REFERRAL_PARTNER_OWNER_TYPES,
   REFERRAL_PARTNER_STATES,
   REFERRAL_PROGRAM_FAMILIES,
@@ -95,6 +101,7 @@ import {
   REFERRAL_TAX_PARTICIPANT_TYPES,
   REFERRAL_TAX_QUESTIONNAIRE_VERSIONS,
   REFERRAL_TAX_VAT_STATUSES,
+  REFERRAL_TERMS_SCOPES,
   REFERRAL_TOUCH_KINDS,
   REFERRAL_TRAFFIC_CLASSES,
 } from '@mercaria/shared-types';
@@ -294,14 +301,47 @@ export const referralPartners = pgTable(
     ownerId: text().notNull(),
     /** The partner's public-facing display identity for disclosure surfaces. */
     displayName: text().notNull(),
+    /**
+     * Which door this partner came through (#146 increment 2).
+     *
+     * Defaulted rather than NOT NULL-with-a-backfill because the default IS the
+     * right answer for every row #142 could have written: `applyAsPartner` is
+     * self-serve and reviewed, which is exactly `open_application`. What each
+     * mode MEANS is `REFERRAL_ENROLLMENT_MODE_RULES`, a table in shared-types —
+     * no service asks "is the mode `staff_test`".
+     */
+    enrollmentMode: text({ enum: asEnumValues(REFERRAL_ENROLLMENT_MODES) })
+      .notNull()
+      .default('open_application'),
     state: text({ enum: asEnumValues(REFERRAL_PARTNER_STATES) }).notNull().default('applied'),
     /** Enrollment history summary — the full trail is `referral_events`. */
     appliedAt: timestamptz(),
     invitedAt: timestamptz(),
     approvedAt: timestamptz(),
-    /** Which terms version was accepted, and when — absent together. */
+    /**
+     * The latest accepted PARTNER AGREEMENT version and when — absent together.
+     *
+     * A PROJECTION of the newest `referral_terms_acceptances` row of scope
+     * `partner_agreement`, written by the one function that writes that row, in
+     * the same transaction (`review_aggregates` → the entity `rating` columns,
+     * #76). The acceptance table is the AUTHORITY: it is append-only, it can
+     * answer "which versions has this partner ever accepted", and these two
+     * columns cannot. They stay because #142 ships them and the payout gate and
+     * every partner projection already read them, and because a single stored
+     * verdict is what a gate should read.
+     */
     termsVersion: text(),
     termsAcceptedAt: timestamptz(),
+    /**
+     * Consent to MARKETING, kept apart from terms acceptance (#146 terms rule
+     * 8) and from the application's review/communication consents.
+     *
+     * Its own nullable column so withdrawal is representable — a boolean
+     * defaulting false could not distinguish "never asked" from "said no", and
+     * a transactional send must never be able to read a terms acceptance as
+     * permission to market.
+     */
+    marketingConsentAt: timestamptz(),
     promotionMethods: text().array().notNull().default([]),
     /** The `provider_accounts` row referral payouts pay through, once #146 wires it. */
     payoutBeneficiaryRef: text(),
@@ -324,6 +364,11 @@ export const referralPartners = pgTable(
   },
   (t) => [
     checkOneOf('referral_partners_owner_type_check', t.ownerType, REFERRAL_PARTNER_OWNER_TYPES),
+    checkOneOf(
+      'referral_partners_enrollment_mode_check',
+      t.enrollmentMode,
+      REFERRAL_ENROLLMENT_MODES,
+    ),
     checkOneOf('referral_partners_state_check', t.state, REFERRAL_PARTNER_STATES),
     checkOneOf(
       'referral_partners_tax_readiness_check',
@@ -441,6 +486,367 @@ export const referralTaxProfiles = pgTable(
     // Two concurrent submissions collide here rather than both reading as the
     // latest declaration; the loser retries against the winner's revision.
     uniqueIndex('referral_tax_profiles_partner_revision_key').on(t.partnerId, t.revision),
+  ],
+);
+
+/**
+ * `referral_partner_applications` — what one partner TOLD Mercaria, and what
+ * happened to that submission (#146 increment 2, "Application" and "Review and
+ * approval").
+ *
+ * ## A working document, not an append-only record
+ *
+ * The tax profile beside it is append-only because a declaration is what an
+ * earnings statement is issued against. An application is the opposite kind of
+ * thing: `changes_requested` exists precisely so the applicant can EDIT it, so
+ * an append-only shape would make the one state that requires a rewrite the one
+ * state it forbids. What is append-only is the DECISION trail
+ * (`referral_partner_application_reviews`), which is where "who decided what, on
+ * which revision" has to stay answerable.
+ *
+ * The content is nonetheless frozen once it leaves the applicant's hands: a
+ * trigger refuses an UPDATE of any answer column outside
+ * `REFERRAL_APPLICATION_EDITABLE_STATES`. That is #59's rule — the set an
+ * operator approved is the set that executes — and it is what makes `revision`
+ * mean something: a reviewer's decision names the revision it read, and the
+ * answers under that number cannot move afterwards.
+ *
+ * ## One LIVE application per partner
+ *
+ * The partial unique covers `draft`, `submitted`, `under_review`,
+ * `changes_requested` and `approved`, so two racing submissions converge on one
+ * row and an approved partner cannot quietly start a second application.
+ * `rejected` and `withdrawn` are excluded, which is what makes reapplication
+ * possible without a rule anybody has to remember — #146 review rule 5's
+ * reconsideration path is a NEW row rather than a rewrite of the refusal.
+ *
+ * ## What is deliberately not here
+ *
+ * No `jsonb` answer bag, no free-text country, no tax identifier and no
+ * program-question table. `REFERRAL_APPLICATION_ITEMS` maps each of #146's ten
+ * application items to where it is collected and states why for the three that
+ * are elsewhere or nowhere, and a census test asserts every named column exists
+ * — so "which item did we skip" is measured rather than claimed.
+ */
+export const referralPartnerApplications = pgTable(
+  'referral_partner_applications',
+  {
+    id: generatedId(),
+    partnerId: text()
+      .notNull()
+      .references(() => referralPartners.id, { onDelete: 'restrict' }),
+    /** 1 for the first submission, +1 for each re-submission after changes. */
+    revision: integer().notNull().default(1),
+    state: text({ enum: asEnumValues(REFERRAL_APPLICATION_STATES) }).notNull().default('draft'),
+    /** The mode this application was made under; the partner row carries it too. */
+    enrollmentMode: text({ enum: asEnumValues(REFERRAL_ENROLLMENT_MODES) }).notNull(),
+    /**
+     * The program applied to (#146 review rule 6: approve only NAMED programs).
+     * A plain reference, matching how `referral_programs.program_id` is named
+     * everywhere else — there is no `programs` parent row to point a key at.
+     */
+    programId: text(),
+    promotionMethods: text().array().notNull().default([]),
+    /** Bounded, https-only, and NEVER fetched — see the isolation gate. */
+    promotionUrls: text().array().notNull().default([]),
+    audienceBand: text({ enum: asEnumValues(REFERRAL_AUDIENCE_BANDS) })
+      .notNull()
+      .default('not_stated'),
+    /** ISO 3166-1 alpha-2, upper case; empty means the applicant named none. */
+    markets: text().array().notNull().default([]),
+    prohibitedMethodsAcknowledged: boolean().notNull().default(false),
+    hasRelatedParty: boolean().notNull().default(false),
+    /** Present exactly when `has_related_party` — a biconditional CHECK. */
+    relatedPartyDisclosure: text(),
+    /** Consent to be REVIEWED — separate from communication and from marketing. */
+    reviewConsentAt: timestamptz(),
+    /** Consent to be CONTACTED about this application. Not marketing consent. */
+    communicationConsentAt: timestamptz(),
+    submittedAt: timestamptz(),
+    submittedByOxyUserId: text(),
+    decidedAt: timestamptz(),
+    /**
+     * The PARTNER-VISIBLE code. Closed, and no member of it can name a risk
+     * signal or another partner — #146 review rule 9 as a vocabulary rather
+     * than as a redaction. The reviewer's own words live on the review row.
+     */
+    decisionCode: text({ enum: asEnumValues(REFERRAL_APPLICATION_REJECTION_CODES) }),
+    /** The bounded sentence the applicant reads, chosen with the code. */
+    decisionMessage: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    checkOneOf('referral_partner_applications_state_check', t.state, REFERRAL_APPLICATION_STATES),
+    checkOneOf(
+      'referral_partner_applications_enrollment_mode_check',
+      t.enrollmentMode,
+      REFERRAL_ENROLLMENT_MODES,
+    ),
+    checkOneOf(
+      'referral_partner_applications_audience_band_check',
+      t.audienceBand,
+      REFERRAL_AUDIENCE_BANDS,
+    ),
+    checkOneOf(
+      'referral_partner_applications_decision_code_check',
+      t.decisionCode,
+      REFERRAL_APPLICATION_REJECTION_CODES,
+    ),
+    checkEveryElementOf(
+      'referral_partner_applications_promotion_methods_check',
+      t.promotionMethods,
+      REFERRAL_PROMOTION_METHODS,
+    ),
+    // Markets are alpha-2 UPPER case, checked over the joined array because a
+    // CHECK may contain no subquery and so cannot `unnest`. The empty array
+    // renders as the empty string, which the optional group admits — the state
+    // "named no market", which is legitimate and means unrestricted.
+    check(
+      'referral_partner_applications_markets_check',
+      sql`array_to_string(${t.markets}, ',') ~ '^([A-Z]{2}(,[A-Z]{2})*)?$'`,
+    ),
+    // Bounded in BOTH dimensions and https-only. A space is impossible inside a
+    // normalized URL, which is what lets the joined form be checked at all; the
+    // service refuses whitespace before this ever sees a value.
+    check(
+      'referral_partner_applications_promotion_urls_check',
+      sql`cardinality(${t.promotionUrls}) <= 10
+          and length(array_to_string(${t.promotionUrls}, ' ')) <= 2000
+          and array_to_string(${t.promotionUrls}, ' ') ~ '^(https://[^ ]+( https://[^ ]+)*)?$'`,
+    ),
+    check(
+      'referral_partner_applications_related_party_check',
+      sql`${t.hasRelatedParty} = (${t.relatedPartyDisclosure} is not null)`,
+    ),
+    check('referral_partner_applications_revision_check', sql`${t.revision} >= 1`),
+    // A submission names WHO submitted it and WHEN. One-directional, because a
+    // later state keeps the timestamp: a rejected application still carries the
+    // instant it was submitted.
+    check(
+      'referral_partner_applications_submitted_check',
+      sql`${t.state} in ('draft', 'withdrawn')
+          or (${t.submittedAt} is not null and ${t.submittedByOxyUserId} is not null)`,
+    ),
+    // #146 application items 7 and 10 are what a SUBMISSION must carry, not
+    // what a draft must. `withdrawn` is exempt because it is terminal and may
+    // have been abandoned from `draft`.
+    check(
+      'referral_partner_applications_consent_check',
+      sql`${t.state} in ('draft', 'withdrawn')
+          or (${t.prohibitedMethodsAcknowledged}
+              and ${t.reviewConsentAt} is not null
+              and ${t.communicationConsentAt} is not null)`,
+    ),
+    check(
+      'referral_partner_applications_decided_check',
+      sql`${t.state} not in ('approved', 'rejected', 'changes_requested')
+          or ${t.decidedAt} is not null`,
+    ),
+    // Two SEPARATE biconditionals, each over one column. One biconditional over
+    // their conjunction is satisfied by a row that has neither where it needs
+    // both — the `retail_delivery_promises_observed_shape_check` finding.
+    check(
+      'referral_partner_applications_decision_code_shape_check',
+      sql`(${t.state} in ('rejected', 'changes_requested')) = (${t.decisionCode} is not null)`,
+    ),
+    // ONE-DIRECTIONAL, and the first version of it was a biconditional that
+    // the real-server suite refused on its first run. A biconditional here
+    // makes every refusal carry a hand-written sentence — which is both wrong
+    // (the CODE is the message; a client renders copy from it) and the
+    // direction #146 review rule 9 cares about, because free text is where a
+    // risk signal actually leaks. A message REQUIRES a code; a code needs no
+    // message.
+    check(
+      'referral_partner_applications_decision_message_shape_check',
+      sql`${t.decisionMessage} is null or ${t.decisionCode} is not null`,
+    ),
+    check(
+      'referral_partner_applications_decision_message_length_check',
+      sql`${t.decisionMessage} is null or length(${t.decisionMessage}) between 1 and 500`,
+    ),
+    check(
+      'referral_partner_applications_related_party_length_check',
+      sql`${t.relatedPartyDisclosure} is null
+          or length(${t.relatedPartyDisclosure}) between 1 and ${sql.raw(String(MAX_REASON_LENGTH))}`,
+    ),
+    // ONE live application per partner. See the docblock — `rejected` and
+    // `withdrawn` are OUT so reapplication needs no special case.
+    uniqueIndex('referral_partner_applications_live_key')
+      .on(t.partnerId)
+      .where(sql`${t.state} in ('draft', 'submitted', 'under_review', 'changes_requested', 'approved')`),
+    // The operator review inbox: "what is waiting, oldest first".
+    index('referral_partner_applications_state_submitted_idx').on(t.state, t.submittedAt),
+  ],
+);
+
+/**
+ * `referral_partner_application_reviews` — one DECISION, on one revision
+ * (#146 review rules 2 and 10).
+ *
+ * APPEND-ONLY by trigger against UPDATE *and* DELETE. #146 asks that every state
+ * transition be audited and that reviewer, reason and evidence be recorded; a
+ * trail whose rows can be edited records none of those things, and a reviewer
+ * who could rewrite their own reason is the case the audit exists for.
+ *
+ * **`UNIQUE(application_id, revision)` is the idempotency key**, and it is
+ * #55's `review_round` device: a revision is decided exactly once, a
+ * double-clicked approval collides and the service reads the winner back, and a
+ * `changes_requested` decision can only be followed by another once the
+ * applicant has RE-SUBMITTED — which bumps the revision. An approval cannot be
+ * reused across revisions for the same reason it cannot be reused across
+ * relationship reviews.
+ *
+ * **`reviewer_note` is the operator's own words and reaches no partner
+ * projection.** `ReferralApplicationPartnerView` has no field for it, so the
+ * separation #146 review rule 9 asks for is a property of the TYPE rather than
+ * of a serializer somebody has to remember to filter.
+ */
+export const referralPartnerApplicationReviews = pgTable(
+  'referral_partner_application_reviews',
+  {
+    id: generatedId(),
+    applicationId: text()
+      .notNull()
+      .references(() => referralPartnerApplications.id, { onDelete: 'restrict' }),
+    /** The revision this decision READ. Never the application's current one. */
+    revision: integer().notNull(),
+    decision: text({ enum: asEnumValues(REFERRAL_APPLICATION_DECISIONS) }).notNull(),
+    /** Present exactly for a refusal or a change request — a biconditional CHECK. */
+    rejectionCode: text({ enum: asEnumValues(REFERRAL_APPLICATION_REJECTION_CODES) }),
+    /** The bounded sentence the APPLICANT reads. */
+    partnerMessage: text(),
+    /** The reviewer's own reasoning. Operator-only, by the absence of a field. */
+    reviewerNote: text(),
+    /**
+     * What the reviewer looked at — opaque references (a support thread id, an
+     * Oxy `file_id`), never a URL and never a document. The `abuse_reports`
+     * posture: Mercaria stores the reference and fetches nothing.
+     */
+    evidenceRefs: text().array().notNull().default([]),
+    reviewedByOxyUserId: text().notNull(),
+    reviewedAt: timestamptz().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    checkOneOf(
+      'referral_partner_application_reviews_decision_check',
+      t.decision,
+      REFERRAL_APPLICATION_DECISIONS,
+    ),
+    checkOneOf(
+      'referral_partner_application_reviews_rejection_code_check',
+      t.rejectionCode,
+      REFERRAL_APPLICATION_REJECTION_CODES,
+    ),
+    check(
+      'referral_partner_application_reviews_rejection_shape_check',
+      sql`(${t.decision} in ('rejected', 'changes_requested')) = (${t.rejectionCode} is not null)`,
+    ),
+    // The partner-facing sentence is OPTIONAL beside a code and forbidden
+    // without one — the same one-directional rule the application carries, for
+    // the same reason.
+    check(
+      'referral_partner_application_reviews_message_shape_check',
+      sql`${t.partnerMessage} is null or ${t.rejectionCode} is not null`,
+    ),
+    check('referral_partner_application_reviews_revision_check', sql`${t.revision} >= 1`),
+    check(
+      'referral_partner_application_reviews_reviewer_check',
+      sql`length(${t.reviewedByOxyUserId}) > 0`,
+    ),
+    check(
+      'referral_partner_application_reviews_message_check',
+      sql`(${t.partnerMessage} is null or length(${t.partnerMessage}) between 1 and 500)
+          and (${t.reviewerNote} is null
+               or length(${t.reviewerNote}) between 1 and ${sql.raw(String(MAX_REASON_LENGTH))})`,
+    ),
+    check(
+      'referral_partner_application_reviews_evidence_check',
+      sql`cardinality(${t.evidenceRefs}) <= 20
+          and length(array_to_string(${t.evidenceRefs}, ' ')) <= 2000`,
+    ),
+    // One decision per revision — the idempotency key. See the docblock.
+    uniqueIndex('referral_partner_application_reviews_revision_key').on(t.applicationId, t.revision),
+  ],
+);
+
+/**
+ * `referral_terms_acceptances` — which document, which version, by whom, when
+ * (#146 "Terms acceptance").
+ *
+ * APPEND-ONLY by trigger against UPDATE *and* DELETE. #146 terms rule 3 asks
+ * that time, actor, locale and version be stored, and rule 5 that existing
+ * earnings retain their original rule and terms snapshots; both are broken by
+ * exactly one UPDATE. A withdrawal or a re-acceptance is a NEW row.
+ *
+ * **Two scopes, one table.** Mercaria's partner agreement (`program_id` NULL)
+ * and a program version's own terms (`program_id` present) are the same five
+ * facts about two documents, and a shape CHECK ties the pair — the
+ * `offers_kind_shape_check` device. Splitting them would make "has this partner
+ * accepted everything they owe" a question two tables answer half of.
+ *
+ * **`acceptance_key` is GENERATED because Postgres treats NULLs as DISTINCT.**
+ * A plain `UNIQUE(partner_id, scope, program_id, terms_version)` would let two
+ * identical partner-agreement acceptances through — the #55 `endpoint_key`
+ * finding — so the key folds the NULL into a literal before the index sees it,
+ * and a re-acceptance of the same version is an `ON CONFLICT DO NOTHING`
+ * convergence rather than a duplicate.
+ */
+export const referralTermsAcceptances = pgTable(
+  'referral_terms_acceptances',
+  {
+    id: generatedId(),
+    partnerId: text()
+      .notNull()
+      .references(() => referralPartners.id, { onDelete: 'restrict' }),
+    scope: text({ enum: asEnumValues(REFERRAL_TERMS_SCOPES) }).notNull(),
+    /** Present exactly for `program_terms` — a biconditional CHECK. */
+    programId: text(),
+    /**
+     * The version accepted. CHECK-restricted to the published partner-agreement
+     * tuple for that scope only: a PROGRAM's terms version is #142's own free
+     * string on `referral_programs`, and re-checking it here would be a second
+     * authority over somebody else's column.
+     */
+    termsVersion: text().notNull(),
+    acceptedAt: timestamptz().notNull(),
+    acceptedByOxyUserId: text().notNull(),
+    /** BCP-47, as the accepting client declared it (#146 terms rule 3). */
+    locale: text().notNull(),
+    /** See the docblock — the NULL-folded uniqueness key. */
+    acceptanceKey: text()
+      .notNull()
+      .generatedAlwaysAs(
+        sql`"scope" || '|' || coalesce("program_id", '') || '|' || "terms_version"`,
+      ),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    checkOneOf('referral_terms_acceptances_scope_check', t.scope, REFERRAL_TERMS_SCOPES),
+    check(
+      'referral_terms_acceptances_scope_shape_check',
+      sql`(${t.scope} = 'program_terms') = (${t.programId} is not null)`,
+    ),
+    check(
+      'referral_terms_acceptances_agreement_version_check',
+      sql`${t.scope} <> 'partner_agreement'
+          or ${t.termsVersion} in ${sql.raw(`('${REFERRAL_PARTNER_AGREEMENT_VERSIONS.join("', '")}')`)}`,
+    ),
+    check(
+      'referral_terms_acceptances_identity_check',
+      sql`length(${t.termsVersion}) > 0 and length(${t.acceptedByOxyUserId}) > 0`,
+    ),
+    // A real language-tag shape rather than a length check: `es-ES` and `pt-BR`
+    // must pass and `Accept-Language: es-ES,es;q=0.9` — the header a client
+    // would send by mistake — must not, because storing it would make the
+    // locale unusable for the copy it exists to select.
+    check(
+      'referral_terms_acceptances_locale_check',
+      sql`${t.locale} ~ '^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$'`,
+    ),
+    uniqueIndex('referral_terms_acceptances_partner_key').on(t.partnerId, t.acceptanceKey),
+    index('referral_terms_acceptances_partner_scope_idx').on(t.partnerId, t.scope, t.acceptedAt),
   ],
 );
 

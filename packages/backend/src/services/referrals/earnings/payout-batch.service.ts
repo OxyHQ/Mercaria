@@ -71,6 +71,7 @@ import {
   type ReferralPayoutBatchRow,
 } from '../../../db/referralEarnings/payoutBatchRepository.js';
 import { findLatestTaxProfile } from '../../../db/referrals/taxProfileRepository.js';
+import { enrollmentEarnsProductionRewards } from '../application-review.service.js';
 import { deriveTaxReadiness } from '../tax-profile.service.js';
 import { readReferralPartnerReadiness } from './partner-readiness.port.js';
 import { bookPayoutSettlement } from './posting.service.js';
@@ -596,6 +597,11 @@ async function readPartnerGateFacts(
     hasPayoutBeneficiary: (readiness.payoutBeneficiaryRef ?? '') !== '',
     payoutBeneficiaryRef: readiness.payoutBeneficiaryRef,
     programPayoutEnabled: controls.payoutEnabled,
+    // #146 increment 2: read off `REFERRAL_ENROLLMENT_MODE_RULES` rather than
+    // compared against a mode NAME here, so a mode added to that table without
+    // an answer fails `tsc` instead of defaulting to payable. A `staff_test`
+    // partner accrues, vests and is then withheld at exactly this point.
+    enrollmentEarnsProductionRewards: enrollmentEarnsProductionRewards(partner),
   };
 }
 

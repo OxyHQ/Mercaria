@@ -26,17 +26,25 @@
  * copy a surface shows them, which is why {@link readTaxProfile} returns the
  * stored revision beside the verdict rather than only the verdict.
  *
- * ## There is no HTTP surface yet, and that is stated rather than stubbed
+ * ## The HTTP surface EXISTS as of increment 2
  *
- * {@link declareTaxProfile} and {@link readTaxProfile} are complete and wait on
- * nothing; what is missing is a route, which needs the partner-facing auth this
- * domain has none of — which Oxy account may declare for a `store` partner is
- * the `store:manage` question #85 answers for merchants, and answering it here
- * would be a second answer to it. Increment 3 owns the partner payout settings
- * surface and mounts these two; increment 2 owns enrollment and review. Until
- * one of them lands, tax readiness is `pending` for every partner and the payout
- * gate blocks — which is the correct state for a rail nobody has onboarded to,
- * not a gap that lets one through.
+ * Increment 1 left these two functions complete and unmounted, for one stated
+ * reason: a route needs partner-facing auth, and "which Oxy account may declare
+ * for a `store` partner" is the `store:manage` question #85 answers — answering
+ * it HERE would be a second answer to it. Until then tax readiness was `pending`
+ * for every partner and the payout gate blocked every batch.
+ *
+ * Increment 2 mounts both on `GET`/`POST .../referral-partner/tax-profile`, and
+ * it does not answer that question either: the store half is mounted UNDER
+ * `/admin/stores/:storeId`, where `loadStore` plus
+ * `requireStorePermission('store:manage')` have already answered it, and the
+ * individual half is mounted where the owner IS the authenticated caller.
+ * #85's two-mount shape, so the answer stays in exactly one place — the
+ * middleware — and `referral-enrollment-isolation.test.ts` fails the build if
+ * any module in this domain grows a second one.
+ *
+ * `services/referrals/enrollment.service.ts` is the entry point;
+ * `docs/referral-enrollment.md` is the reference.
  */
 
 import {

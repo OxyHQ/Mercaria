@@ -80,21 +80,57 @@ export const REFERRAL_PARTNER_OWNER_TYPES: readonly ReferralPartnerOwnerType[] =
 ];
 
 /**
- * A partner's enrollment state. `suspended` stops NEW attribution while valid
- * historical commissions continue according to policy (issue #142); the
- * attribution service is where that split is enforced.
+ * A partner's enrollment STANDING — what this owner may do right now.
+ *
+ * `suspended` stops NEW attribution while valid historical commissions continue
+ * according to policy (issue #142); the attribution service is where that split
+ * is enforced.
+ *
+ * ## The four #146 added, and the one it deliberately did not
+ *
+ * #146's review rule 1 names eight states: draft, submitted, under review,
+ * approved, rejected, changes requested, suspended and terminated. Four of
+ * those were already here under #142's spelling or not at all, and the mapping
+ * is worth stating because it is the one place a ninth state would be added by
+ * accident:
+ *
+ *  - **`applied` IS "submitted"**, and stays spelled `applied`. It is stored on
+ *    live rows, it is what `partner_applied` names in the audit trail, and a
+ *    synonym beside it would be two representations of one fact — with the
+ *    payout gate's `partnerState !== 'approved'` reading whichever the writer
+ *    happened to pick.
+ *  - **`invited`** is in neither list and stays: an operator invitation that
+ *    nobody has accepted is a real standing, and #142 already stores it.
+ *  - `draft`, `under_review`, `changes_requested` and `rejected` are NEW. Every
+ *    one of them fails `partnerState !== 'approved'`, so they block attribution
+ *    and payout the moment they exist, with no gate to remember to widen.
+ *
+ * `draft` puts a partner ROW behind an unsubmitted application, which is the
+ * decision worth reviewing: the alternative was a second owner-keyed table so a
+ * draft could exist without a partner, and that would give
+ * `referral_partners_owner_key`'s "one record per owner, ever" a rival index
+ * answering the same question. A row is not a grant — a `draft` partner earns
+ * exactly as much as no partner at all.
  */
 export type ReferralPartnerState =
+  | 'draft'
   | 'applied'
   | 'invited'
+  | 'under_review'
+  | 'changes_requested'
+  | 'rejected'
   | 'approved'
   | 'suspended'
   | 'terminated';
 
 /** {@link ReferralPartnerState} as a tuple. */
 export const REFERRAL_PARTNER_STATES: readonly ReferralPartnerState[] = [
+  'draft',
   'applied',
   'invited',
+  'under_review',
+  'changes_requested',
+  'rejected',
   'approved',
   'suspended',
   'terminated',
@@ -541,7 +577,22 @@ export type ReferralEventAction =
   // the trail an operator reads becomes a heartbeat with the decisions buried
   // in it.
   | 'partner_tax_profile_declared'
-  | 'partner_readiness_synced';
+  | 'partner_readiness_synced'
+  // #146 increment 2: enrollment, review and terms. There is deliberately no
+  // `partner_application_submitted` and no `partner_application_approved` — a
+  // submission IS `partner_applied` and an approval IS `partner_approved`,
+  // which #142 already writes and which an operator already reads as the
+  // partner's own history. A second verb for each would split one trail in two
+  // and leave whoever greps for "when was this partner approved" reading half
+  // of it. `appeal_opened` and `appeal_resolved` were likewise already in this
+  // tuple with no service writing them; #146 supplies the service.
+  | 'partner_application_started'
+  | 'partner_application_withdrawn'
+  | 'partner_application_review_started'
+  | 'partner_application_rejected'
+  | 'partner_application_changes_requested'
+  | 'partner_terms_accepted'
+  | 'partner_marketing_consent_set';
 
 /** {@link ReferralEventAction} as a tuple. */
 export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
@@ -605,6 +656,14 @@ export const REFERRAL_EVENT_ACTIONS: readonly ReferralEventAction[] = [
   // #146 — see the note on the union above.
   'partner_tax_profile_declared',
   'partner_readiness_synced',
+  // #146 increment 2 — see the note on the union above.
+  'partner_application_started',
+  'partner_application_withdrawn',
+  'partner_application_review_started',
+  'partner_application_rejected',
+  'partner_application_changes_requested',
+  'partner_terms_accepted',
+  'partner_marketing_consent_set',
 ];
 
 /** Who performed an audited referral action. */
