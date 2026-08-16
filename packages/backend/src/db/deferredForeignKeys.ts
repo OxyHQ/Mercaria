@@ -74,7 +74,8 @@ import type { DeferredForeignKey } from '@oxyhq/db/assert';
  * columns stay permanently unconstrained below — they are snapshots, a
  * different decision about a different row.
  */
-export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [];
+export const DEFERRED_FOREIGN_KEYS: readonly DeferredForeignKey[] = [
+];
 
 /** Oxy owns identity; there is no `users` table and there must never be one. */
 const OXY_ACCOUNT = 'An Oxy account id. Oxy owns identity over HTTP; there is no users table.';
@@ -1903,4 +1904,17 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'automotive_fitments.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'automotive_fitments.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'compatibility_claims.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── #367 Workstream 11: external taxonomy, attribute and value mappings ───
+  // Six operator identities. Every one names the person who proposed, reviewed,
+  // approved, fanned out, settled or requested — which is what makes a mapping a
+  // reviewed DECISION rather than a row somebody found in a feed. The fan-out
+  // approver is the load-bearing one: `catalog_external_mappings_fan_out_four_eyes_check`
+  // compares it against `approved_by_oxy_user_id`, so a NULL there would make the
+  // four-eyes rule satisfiable by nobody.
+  { column: 'catalog_external_mappings.proposed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mappings.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mappings.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mappings.fan_out_approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mapping_reviews.resolved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_external_mapping_runs.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

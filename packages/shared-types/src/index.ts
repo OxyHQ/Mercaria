@@ -650,3 +650,18 @@ export * from './catalog-localization';
 // epic's own acceptance scenario as a VALUE: one brake-pad SKU fits a thousand
 // vehicles and stays ONE variant.
 export * from './compatibility';
+// External taxonomy, attribute and value mappings (#367 Workstream 11) are the
+// LAST export and depend on nothing above them. The five dimensions name
+// Mercaria concepts by id or by stable machine KEY, never by a DTO, so this
+// vocabulary cannot become a second description of a product type, an attribute
+// or a unit. CATEGORY is deliberately not among them: `./navigation` and the
+// taxonomy module own that concept and `category_external_mappings` already
+// maps it, so a sixth member here would be the rival table the epic exists to
+// remove (#410 tracks consolidating the two).
+//
+// What it adds is the governance the registry has no room for — a version, a
+// confidence, a review state, a provenance and a validity window per mapping —
+// plus two DISJOINT prohibition lists: nine bases on which a mapping may never
+// be established (`name_match` first among them, ADR 0007 D1) and ten
+// transformation shapes that would let a source supply executable behaviour.
+export * from './catalog-external-mapping';
