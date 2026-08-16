@@ -674,7 +674,7 @@ export * from './compatibility';
 // transformation shapes that would let a source supply executable behaviour.
 export * from './catalog-external-mapping';
 // Facets, filters and the same-variant / same-offer semantics (#367 Workstream
-// 10) are the LAST export and depend only on the attribute registry, the
+// 10) depend only on the attribute registry, the
 // constraint vocabulary, the localization statuses and `Money` — never on
 // search, ranking or any commercial domain. `FACET_COMMERCE_DIMENSIONS` is a
 // SUBSET of `./constraint`'s `COMMERCE_FACETS` rather than a second list, so a
@@ -683,3 +683,18 @@ export * from './catalog-external-mapping';
 // DISJOINT, which is what makes "a commercial payment may never influence facet
 // ordering" a vocabulary property rather than a review note.
 export * from './facets';
+// Typed variant axes and retained seller claims (#367 step 4, ADR 0007 D6/D7)
+// are the LAST export. They depend on nothing above them and deliberately
+// RESTATE nothing: `PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS` (`./product-type`)
+// stays the one list of attribute keys that may never be an axis, and this
+// module consumes it rather than growing a second copy that could disagree in
+// the permissive direction.
+//
+// What it adds is the separation ADR 0007 D7 exists for — what a party SAID
+// (raw, provenanced, retained whether or not it ever resolves) is a different
+// row from what a product's axes ARE (typed, citing a definition and its exact
+// version). `NATIVE_CLAIM_FORBIDDEN_TARGETS` names the six canonical identities
+// a claim may never reach as VALUES, disjoint from `NATIVE_CLAIM_SUBJECTS` by a
+// test, so a claim becoming a canonical fact by being written has no vocabulary
+// to be written in.
+export * from './variant-axis';

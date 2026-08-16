@@ -497,3 +497,24 @@ export * from './compatibility';
 // reach a canonical write service or the matcher — so an external mapping can
 // never mint a canonical entity, which is what keeps source records idempotent.
 export * from './catalogExternalMappings';
+// Typed variant axes and retained seller claims (#367 step 4, ADR 0007 D6/D7)
+// are the last export, and this module imports exactly `./columns`,
+// `./attributeRegistry`, `./catalog`, `./connectors` and `./productTypes` — the
+// registry VERSION an axis cites, the listing and variant an axis and a claim
+// are about, the connection a connector claim came from, and the product type
+// version a declaration was made under. Nothing else.
+//
+// It does NOT import `./canonicalCatalog`, and that is the load-bearing absence
+// rather than a coincidence: ADR 0007 D7 makes a merchant's claim and Mercaria's
+// selected canonical fact different rows, both retained, and a column reaching
+// `canonical_products` or `canonical_variants` from here would let a claim
+// become a canonical fact by being written — skipping the selection and
+// provenance machinery #56 owns. `NATIVE_CLAIM_FORBIDDEN_TARGETS` states the six
+// prohibited identities as VALUES and `variant-axis-isolation.test.ts` scans for
+// them, so the absence is measured rather than merely true today.
+//
+// It is also why these five tables need no `services/curation/merge-plan.ts`
+// entry: the merge census walks foreign keys targeting a MERGEABLE entity, and
+// every foreign key here targets a native listing, a native variant, an
+// attribute definition, an enum value, a connection or a product type version.
+export * from './variantAxes';
