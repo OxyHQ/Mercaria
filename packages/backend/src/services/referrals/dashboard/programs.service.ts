@@ -42,8 +42,8 @@ import {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../../db/postgres.js';
 import {
-  findActiveProgramVersion,
-  listProgramIdentities,
+  listDiscoverableProgramIdentities,
+  OPEN_PROGRAM_STATUSES,
   type ReferralProgramRow,
 } from '../../../db/referrals/programRepository.js';
 import {
@@ -52,9 +52,6 @@ import {
   type ReferralRewardRuleRow,
 } from '../../../db/referrals/rewardRuleRepository.js';
 import { listPartnerProgramIds } from '../../../db/referrals/performanceRepository.js';
-
-/** How many programs a discovery list will consider. */
-const PROGRAM_DISCOVERY_LIMIT = 50;
 
 /**
  * What each funding source's percentage is a percentage OF, in words.
@@ -159,8 +156,14 @@ export function describeProgramLimits(
   };
 }
 
-/** The statuses under which a program still accepts new partners. */
-const OPEN_PROGRAM_STATUSES = new Set(['active', 'scheduled']);
+/**
+ * The statuses under which a program still accepts new partners, as a set.
+ *
+ * Built FROM the repository's tuple rather than written out again: the SQL
+ * predicate that decides what is read and the reason derived for each program
+ * have to agree, and two literal lists are how they stop agreeing.
+ */
+const OPEN_PROGRAM_STATUS_SET: ReadonlySet<string> = new Set(OPEN_PROGRAM_STATUSES);
 
 export interface ProgramDiscoveryInput {
   ownerType: ReferralPartnerOwnerType;
@@ -182,27 +185,33 @@ export async function readProgramOffers(
   input: ProgramDiscoveryInput,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<{ offers: ReferralProgramOffer[]; limits: ReferralProgramLimits[] }> {
-  const [identities, enrolledProgramIds] = await Promise.all([
-    listProgramIdentities(db, { limit: PROGRAM_DISCOVERY_LIMIT }),
-    input.partnerId ? listPartnerProgramIds(db, input.partnerId) : Promise.resolve([]),
-  ]);
+  // The enrollments are read FIRST rather than beside the programs, because
+  // they are an INPUT to the scope: a partner must keep seeing a program that
+  // was later closed to their owner type. One extra round trip buys a read that
+  // cannot silently drop a program (#392).
+  const enrolledProgramIds = input.partnerId ? await listPartnerProgramIds(db, input.partnerId) : [];
   const enrolled = new Set(enrolledProgramIds);
+
+  // Scoped in SQL, and each row is already the EFFECTIVE version — the active
+  // one where there is one, else the highest. A draft's terms are not what
+  // somebody would be enrolling under, and publishing a draft's summary would
+  // advertise terms nobody approved.
+  const programs = await listDiscoverableProgramIdentities(db, {
+    ownerType: input.ownerType,
+    enrolledProgramIds,
+  });
 
   const offers: ReferralProgramOffer[] = [];
   const limits: ReferralProgramLimits[] = [];
 
-  for (const identity of identities) {
-    // Read the ACTIVE version where there is one: a draft's terms are not what
-    // somebody would be enrolling under, and publishing a draft's summary would
-    // advertise terms nobody approved.
-    const program = (await findActiveProgramVersion(db, identity.programId)) ?? identity;
-    const isEnrolled = enrolled.has(identity.programId);
+  for (const program of programs) {
+    const isEnrolled = enrolled.has(program.programId);
 
     const ineligibleReasons: string[] = [];
     if (!program.eligiblePartnerTypes.includes(input.ownerType)) {
       ineligibleReasons.push('owner_type_not_eligible');
     }
-    if (!OPEN_PROGRAM_STATUSES.has(program.status)) {
+    if (!OPEN_PROGRAM_STATUS_SET.has(program.status)) {
       ineligibleReasons.push('program_not_open');
     }
 
