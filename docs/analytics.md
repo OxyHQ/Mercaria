@@ -7,6 +7,13 @@ provenance, the retention policy, the privacy-review checklist and the seams.
 Production collection is **OFF** and stays off until the privacy and retention
 review in §"The privacy and retention review" is recorded (#77 acceptance 8).
 
+That review is now written and is
+**`docs/reviews/2026-08-16-analytics-privacy-retention-review.md`**. It is
+**NOT signed off**: it records three findings it says must be fixed before the
+flag moves, one it fixed, and thirteen residual risks an accepter has to accept
+by name. Read it before touching `ANALYTICS_COLLECTION_MODE`, and read §11 of it
+before concluding the flag may move.
+
 ---
 
 ## What this domain measures, and what it deliberately cannot
@@ -437,6 +444,13 @@ defaults to the permissive side; this one defaults to collecting nothing.
 ---
 
 ## The privacy and retention review (#77 acceptance 8)
+
+**Written, unsigned:** `docs/reviews/2026-08-16-analytics-privacy-retention-review.md`.
+It closes items 2, 3, 5, 8 and 9 below; items 1, 4, 6, 7, 10 and 11 stay OPEN
+and are listed as such there. Item 6 is the one to read twice — the review ran
+an adversarial corpus and found real leaks and real false positives, but a
+synthetic corpus is only half of what item 6 asks for and no production query
+has ever been collected to supply the other half.
 
 Production collection stays OFF until this is completed and recorded on #77 (and
 coordinated with #111 for the guest-specific gates). What it must cover:

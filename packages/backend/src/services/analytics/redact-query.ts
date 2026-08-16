@@ -33,9 +33,13 @@
  *
  * Card numbers and IBANs are matched BEFORE the generic long-digit-run rule, or
  * a card number would be reported as `long_digit_run` and an operator watching
- * for `payment_card` would see nothing. Emails before URLs, because
- * `https://user:pass@host` contains an at-sign and must be reported as
+ * for `payment_card` would see nothing. URLS-WITH-CREDENTIALS before emails,
+ * because `https://user:pass@host` contains an at-sign and must be reported as
  * `url_with_credentials`. Every ordering dependency has a fixture.
+ *
+ * (That sentence read "Emails before URLs" until #77's privacy review measured
+ * it against `RULES`, which has `url_with_credentials` first — the prose
+ * contradicted both the array and the reason it gave for the ordering.)
  */
 
 import type { AnalyticsQueryRedactionKind } from '@mercaria/shared-types';
@@ -71,9 +75,22 @@ interface RedactionRule {
  * Each pattern is deliberately a little BROADER than the strict format it
  * names. A redaction that only catches correctly-formatted input catches the
  * cases that were never going to be a problem and misses the typo'd paste that
- * was — so `+34 600 123 456`, `600-123-456` and `600123456` are all a phone
- * number here, and the cost of a false positive is a search term nobody can
- * read in a report they should not have been reading it in.
+ * was — so `+34 600 123 456` and `600-123-456` are both a phone number here.
+ *
+ * `600123456` is NOT: the third branch's separators are mandatory (see the rule
+ * below), so a bare nine-digit run is destroyed by `long_digit_run` instead and
+ * REPORTED as one. This sentence claimed otherwise until #77's privacy review
+ * measured it. The redaction is right and only the CODE is wrong, which matters
+ * because the codes are the operational signal — an operator watching
+ * `payment_card`/`phone` counts is reading a distribution the catch-all rule
+ * shifts, exactly as the cards-before-digit-run note above describes.
+ *
+ * The cost of a FALSE POSITIVE is higher than "a search term nobody can read",
+ * and the review measured that too: a 13-digit EAN, an ISBN-13, a 15-digit IMEI
+ * and a GTIN-14 all fall inside the card rule's 13–19 digit range and are
+ * reported as `payment_card`, so ordinary barcode traffic both loses its tokens
+ * and inflates the one counter that is supposed to mean "somebody pasted a card
+ * number into the search box". See `docs/reviews/2026-08-16-analytics-privacy-retention-review.md`.
  */
 const RULES: readonly RedactionRule[] = [
   {
