@@ -2505,7 +2505,11 @@ pin.
   vests and is never paid. It must be populated before referral payouts go live.
   `STRIPE_ENABLED` plus a payment-ready connected account per partner is the
   other half: with the rail off, every partner's identity and payout readiness
-  reads `unknown`, which BLOCKS.
+  reads `unknown`, which BLOCKS. The THIRD half is that somebody must actually
+  enrol: `REFERRAL_PARTNER_ENROLLMENT_ENABLED` defaults TRUE and gates the two
+  partner surfaces, and until a partner has accepted the agreement AND completed
+  the tax questionnaire through them, ADR 0005 D15 gate 2 reads `pending` and
+  every batch blocks (#146 increment 2, `docs/referral-enrollment.md`).
 
 ## Graph query benchmarks and the indexes they justified (#61, ADR 0002 D21)
 
@@ -6267,6 +6271,92 @@ it is paid, and what happens when the money it was drawn from goes away.
   `ReferralPayoutBatchPartnerView` is A5's allow-list extended to the batch and
   nothing consumes it), and `vested_reward_past_payout_horizon`, a declared
   discrepancy kind with no producer because the horizon is a policy #146 sets.
+
+## Referral partner enrollment, review and terms (#146 increment 2)
+
+`services/referrals/{enrollment,application-review,terms,partner-standing}.service.ts`
++ `application-answers.ts` + `partner-agreement.ts` + `duplicate-signals.ts`,
+`db/referrals/{application,termsAcceptance}Repository.ts`, three tables on
+`db/schema/referrals.ts`, plus `/referral-partner/*`,
+`/admin/stores/:storeId/referral-partner/*` and the enrollment half of
+`/internal/referrals/*`. Full reference: **`docs/referral-enrollment.md`**.
+Increment 1 shipped the tax questionnaire and left it UNMOUNTED; this is what
+lets a partner complete ADR 0005 D15 gate 2 at all, so increment 1 alone could
+pay nobody and this closes it.
+
+- **The store-permission question is answered in NEITHER half of this domain.**
+  The store surface is mounted UNDER `/admin/stores/:storeId`, so `loadStore`
+  plus `requireStorePermission('store:manage')` have already answered it; the
+  self surface's owner IS `getRequiredOxyUserId(req)`. #85's two-mount shape,
+  taken for #85's reason, and it is what increment 1 named as its reason for
+  stopping. `referral-enrollment-isolation.test.ts` WALL 1 fails the build on any
+  role, permission array, membership or `ROLE_PERMISSIONS` read in the domain —
+  with a POSITIVE control, because a gate asserting only an absence passes just
+  as happily against a surface with no gate at all. The owner is a PARAMETER of
+  `makeReferralPartnerRouter`, never sniffed off `req`.
+- **STANDING and SUBMISSION are two questions with two homes**, moved together in
+  one transaction by ONE state map. `applied` IS #146's "submitted" and keeps its
+  #142 spelling — a synonym beside it would be two representations of one fact
+  with `partnerState !== 'approved'` reading whichever the writer picked. The four
+  added states all fail that predicate, so they block attribution and payout with
+  no gate to widen.
+- **The application is a WORKING DOCUMENT and its decisions are APPEND-ONLY** —
+  the one place this domain diverges from its siblings, because
+  `changes_requested` exists so the applicant can edit. A trigger freezes the
+  ANSWERS outside `REFERRAL_APPLICATION_EDITABLE_STATES`, which is what makes
+  `revision` mean something. `rejected`/`withdrawn` are OUT of the live partial
+  unique, so reconsideration is a NEW row and needs no special case.
+- **`decision_code` is a biconditional and `decision_message` is
+  ONE-DIRECTIONAL.** Making the second a biconditional refused every rejection
+  (caught on the suite's first run) and would force a hand-written sentence onto
+  each one — free text is exactly where #146 review rule 9's risk signal leaks.
+  The CODE is the message.
+- **The convergence has to be REACHABLE.** `decideApplication` first checked the
+  application's state and only then read the existing decision, so every retry
+  got a 409 and the `UNIQUE(application_id, revision)` path below was dead code —
+  green and inert. The already-decided read now runs FIRST, over the LATEST
+  application rather than the LIVE one, because a rejection leaves the live set
+  and its retry would otherwise answer differently from an approval's.
+- **The readiness triple is DERIVED in the partner read, not read off the row.**
+  Reading the stored columns made one response say `tax.readiness: 'ready'` and
+  `outstanding: ['tax_questionnaire_not_completed']` at once. The stored triple is
+  an OBSERVATION; `payout-batch.service.ts` already says so at its own call site.
+- **Enrollment modes are a TABLE** (#83's `claim-methods.ts`), every column of
+  which discriminates at least two modes — asserted, because a column answering
+  the same for every mode is a comment. `staff_test` is isolated at the PAYOUT
+  gate (`partner_enrollment_is_test`), never at attribution: refusing attribution
+  would make a test enrollment unable to test anything.
+- **`acceptance_key` is GENERATED** because Postgres treats NULLs as DISTINCT —
+  a plain multi-column unique admits two identical partner-agreement acceptances
+  (#55's `endpoint_key`). Acceptance takes a VERSION and no boolean, so a
+  pre-ticked box cannot record consent (rule 9); `requiresReacceptance` is a
+  property of the VERSION, so a typo fix does not re-prompt everybody (rule 4).
+  Marketing consent is its own writer and its own nullable column (rule 8).
+- **Duplicate identities are DERIVED at review time and detect nothing else.**
+  `owner_id_across_types` is the whole of what `referral_partners_owner_key`
+  cannot see, since that index is over the PAIR. Signals reach the OPERATOR only.
+- **Nothing fetches a promotion URL** — a scanned wall, because the natural thing
+  to do with a URL an applicant typed turns the form into an SSRF primitive.
+  `new URL` parsing is confined to one module, asserted.
+- Env: `REFERRAL_PARTNER_ENROLLMENT_ENABLED` (the MOUNT of both partner
+  surfaces, default **TRUE** where #145's loop levers default false — those are
+  timers, this gates the only path to D15's tax gate, and shipping it off
+  reproduces the state increment 1 left behind with silence as the symptom). It
+  is deliberately NOT `REFERRALS_ENABLED`, which demands two link secrets
+  enrollment never reads. The operator review surface is gated by neither.
+- Operator surface on the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list, NOT
+  an eighth. Route set CLOSED: no "set this partner's state", no "edit this
+  application", no "delete this review", no "grant this partner X". The trace
+  opens from a PARTNER — no email, no URL, no name search.
+- Migration `0084` (`pre`): three tables, two columns (one DEFAULTED), two CHECK
+  widenings verified element by element against the definitions in the chain
+  (53→60 from `0083`, 5→9 from `0015`, nothing removed), three hand-written
+  trigger blocks under anchored markers.
+- Deferred to increment 3, none blocking a payout: partner payout SETTINGS
+  (hosted onboarding resume, masked destination, threshold and cadence,
+  beneficiary change), NOTIFICATIONS (all ten kinds — a named EMPTY registry
+  failing `transport_unconfigured`, never a `console.log` rail), and the annual
+  earnings STATEMENT D15 promises.
 
 
 ## Affiliate outbound redirects and commission (#67, part of #37)

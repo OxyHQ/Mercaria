@@ -2647,6 +2647,32 @@ export interface ReferralsConfig {
   /** Derived: empty list means `/internal/referrals` is not mounted at all. */
   readonly operatorSurfaceEnabled: boolean;
 
+  /**
+   * `REFERRAL_PARTNER_ENROLLMENT_ENABLED` (#146 increment 2) — the MOUNT of the
+   * two partner-facing enrollment surfaces, and nothing durable.
+   *
+   * `GUEST_SESSION_ISSUANCE_ENABLED`'s exact shape: it stops NEW enrollment and
+   * every partner-facing enrollment write, and touches nothing that already
+   * exists — standing, acceptances, tax declarations, accrued rewards and
+   * payout batches all carry on, and turning it back on resumes where it
+   * stopped. The operator review surface is deliberately NOT gated by it, so a
+   * queue can be worked through during whatever incident turned it off.
+   *
+   * Default TRUE, unlike #145's three loop levers, and the asymmetry is the
+   * point: those are timers, and a timer nobody armed does nothing, while this
+   * gates the only path by which a partner can complete ADR 0005 D15's tax gate.
+   * Shipping it OFF would reproduce exactly the state increment 1 left behind —
+   * tax readiness `pending` for every partner and every batch blocked — with
+   * the added hazard that the symptom is silence.
+   *
+   * It is deliberately NOT `REFERRALS_ENABLED`. That lever demands both link
+   * secrets because the redirect cannot work without them; enrollment reads
+   * neither, so gating it there would demand a secret a surface never uses and
+   * would make "enrol partners first, switch attribution on afterwards" — the
+   * ordinary staged rollout — impossible.
+   */
+  readonly partnerEnrollmentEnabled: boolean;
+
   // ── #145's three loop levers ───────────────────────────────────────────────
   //
   // NOT ONE of them gates a durable record, and a scanned gate says so. The
@@ -4090,6 +4116,9 @@ export const config: AppConfig = Object.freeze({
     redirectBaseUrl: strEnv('REFERRAL_REDIRECT_BASE_URL', 'https://mercaria.co'),
     operatorOxyUserIds: Object.freeze(resolveReferralOperatorIds()),
     operatorSurfaceEnabled: resolveReferralOperatorIds().length > 0,
+    // #146 increment 2 — see the ReferralsConfig docblock for why this defaults
+    // TRUE where #145's three loop levers default FALSE.
+    partnerEnrollmentEnabled: boolEnv('REFERRAL_PARTNER_ENROLLMENT_ENABLED', true),
     // #145 — see the ReferralsConfig docblock. Loops only, never records.
     vestingEnabled: boolEnv('REFERRAL_VESTING_ENABLED', false),
     vestingBatchSize: intEnv('REFERRAL_VESTING_BATCH_SIZE', 200),

@@ -27,6 +27,7 @@ import { getDb } from '../../../db/postgres.js';
 import { findPartnerById } from '../../../db/referrals/partnerRepository.js';
 import { resolveProgramControls } from '../../../db/referrals/programControlRepository.js';
 import { findLatestTaxProfile } from '../../../db/referrals/taxProfileRepository.js';
+import { enrollmentEarnsProductionRewards } from '../application-review.service.js';
 import { deriveTaxReadiness } from '../tax-profile.service.js';
 import { readReferralPartnerReadiness } from './partner-readiness.port.js';
 import {
@@ -107,6 +108,12 @@ export async function readReferralPartnerBalances(input: {
         payoutReadiness: readiness.payout,
         hasPayoutBeneficiary: (readiness.payoutBeneficiaryRef ?? '') !== '',
         programPayoutEnabled: controls.payoutEnabled,
+        // #146 increment 2. `payableNowMinor` is the figure an operator and a
+        // partner both read, so a `staff_test` enrollment has to be withheld
+        // HERE too — a balance that reports itself payable and is then skipped
+        // by every batch is the disagreement the shared `deriveRewardPayability`
+        // exists to prevent.
+        enrollmentEarnsProductionRewards: enrollmentEarnsProductionRewards(partner),
       });
       return verdict.verdict === 'payable' ? total + verdict.netAmountMinor : total;
     }, 0);

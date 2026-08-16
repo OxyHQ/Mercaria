@@ -202,6 +202,14 @@ export * from './referral-earnings';
 // identifier is representable anywhere in it; see the file for why.
 export * from './referral-tax';
 
+// Referral partner ENROLLMENT (#146 increment 2, ADR 0005 D2/D15) — the eight
+// enrollment modes and their per-mode rule table, the application's own
+// lifecycle, the closed partner-facing rejection vocabulary, the two terms
+// scopes and the versioned partner agreement. The registry mapping each of
+// #146's ten application items to where it is actually collected lives here
+// too, so "which of them did we skip" is a census rather than a claim.
+export * from './referral-enrollment';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';

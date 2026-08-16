@@ -155,6 +155,26 @@ export const referralOperatorReasonSchema = z
   .strict();
 
 /**
+ * Terminating a partner (#146 increment 2, review rule 1's terminal state).
+ *
+ * The reason schema plus ONE flag, and it is deliberately its own schema rather
+ * than `confirmedFraud` being optional on the shared one: suspension and
+ * reinstatement have no fraud finding to record, and a field they silently
+ * ignored would be one somebody eventually sends expecting it to do something.
+ *
+ * The flag sets `risk_state` and NOTHING else. It voids no reward, reverses no
+ * accrual and reduces no balance — ADR 0005 D15's "a partner failing a gate is
+ * skipped, not voided", and #144's `reverseReward` is the only thing that
+ * touches a reward, reachable from no route here.
+ */
+export const referralPartnerTerminationSchema = z
+  .object({
+    reason: z.string().trim().min(1).max(500),
+    confirmedFraud: z.boolean().optional(),
+  })
+  .strict();
+
+/**
  * `POST /internal/referrals/partners/:partnerId/recoveries` — ADR 0005 R7's
  * explicit, recorded operator recovery.
  *

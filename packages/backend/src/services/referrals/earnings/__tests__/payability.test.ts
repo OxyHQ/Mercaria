@@ -29,6 +29,7 @@ const PASSING: PayoutGateFacts = {
   payoutReadiness: 'ready',
   hasPayoutBeneficiary: true,
   programPayoutEnabled: true,
+  enrollmentEarnsProductionRewards: true,
 };
 
 describe('deriveRewardPayability', () => {
@@ -97,6 +98,23 @@ describe('deriveRewardPayability', () => {
     }
   });
 
+  /**
+   * #146 enrollment mode 7. The reward is VESTED and the partner passes every
+   * other gate — which is the point: a staff or test enrollment is isolated at
+   * the payout gate and nowhere earlier, so everything upstream of this line
+   * works exactly as it does for a real partner and the money still does not
+   * move.
+   */
+  it('withholds a test enrollment even when every other gate passes', () => {
+    const verdict = deriveRewardPayability({
+      ...PASSING,
+      enrollmentEarnsProductionRewards: false,
+    });
+    expect(verdict.verdict).toBe('blocked');
+    if (verdict.verdict !== 'blocked') return;
+    expect(verdict.reasons).toEqual(['partner_enrollment_is_test']);
+  });
+
   it('emits only reasons the closed vocabulary names', () => {
     const verdict = deriveRewardPayability({
       ...PASSING,
@@ -109,11 +127,14 @@ describe('deriveRewardPayability', () => {
       programPayoutEnabled: false,
       claimedByOpenBatch: true,
       rewardNetAmountMinor: 0,
+      enrollmentEarnsProductionRewards: false,
     });
     expect(verdict.verdict).toBe('blocked');
     if (verdict.verdict !== 'blocked') return;
     // A floor, so an empty reason list cannot satisfy the containment below.
-    expect(verdict.reasons.length).toBeGreaterThanOrEqual(8);
+    // Raised with #146's ninth simultaneous block — a floor that never moves
+    // when a reason is added is one the next reason can hide behind.
+    expect(verdict.reasons.length).toBeGreaterThanOrEqual(9);
     for (const reason of verdict.reasons) {
       expect(REFERRAL_PAYOUT_BLOCK_REASONS).toContain(reason);
     }

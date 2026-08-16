@@ -36,6 +36,7 @@ import checkoutRouter from './routes/checkout.js';
 import ordersRouter from './routes/orders.js';
 import reviewsRouter from './routes/reviews.js';
 import sellerRouter from './routes/seller.js';
+import referralPartnerSelfRouter from './routes/referral-partner.js';
 import publicSellersRouter from './routes/public-sellers.js';
 import ratesRouter from './routes/rates.js';
 import meRouter from './routes/me.js';
@@ -274,6 +275,19 @@ export function createApp(): express.Express {
   // /admin/stores/:storeId/reports/* — same word, different domain.
   app.use('/reports', reportsRouter);
   app.use('/seller', sellerRouter);
+  // An individual's OWN referral partner record (#146 increment 2). SINGULAR
+  // and separate from all three neighbours: `/referrals` is the buyer edge,
+  // `/sellers` is the public P2P profile, `/seller` is a seller's management
+  // surface — and a referral partner need not be a seller at all.
+  //
+  // Gated by `REFERRAL_PARTNER_ENROLLMENT_ENABLED` (default TRUE) and
+  // deliberately NOT by `REFERRALS_ENABLED`: enrollment reads neither link
+  // secret, so gating it there would demand a secret this surface never uses
+  // and would forbid the ordinary staged rollout of enrolling partners before
+  // attribution is switched on.
+  if (config.referrals.partnerEnrollmentEnabled) {
+    app.use('/referral-partner', referralPartnerSelfRouter);
+  }
   // `/sellers` (PLURAL) is the PUBLIC P2P seller profile (#92); `/seller`
   // (singular, above) is the authenticated seller's own management surface.
   // One letter apart and opposite in who may read them — hence two routers.

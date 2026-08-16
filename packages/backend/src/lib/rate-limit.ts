@@ -156,6 +156,15 @@ export type RateLimitScope =
   // somebody can iterate. Separate from the redirect so a crawl storm cannot
   // exhaust the allowance a real buyer needs to type the code they were given.
   | 'referral-bind'
+  // The referral PARTNER enrollment surface (#146 increment 2). Its own bucket
+  // because the traffic shape is nothing like either of the two above: an
+  // authenticated account writing to its OWN enrollment, a handful of times
+  // ever. Sharing `referral-bind` would meter a partner filling in a form
+  // against the allowance shoppers need to redeem codes, and — the direction
+  // that matters — would let a scripted enrollment loop exhaust that allowance
+  // for everybody. Nothing here is enumerable: every route resolves its subject
+  // from the credential or from `req.store`, so there is no id to iterate.
+  | 'referral-partner'
   // The affiliate outbound redirect (#67). Its own bucket (`rl:outbound:`)
   // rather than the catalogue's, because the abuse is a different shape: an
   // unmetered redirect is a way to spend a merchant's affiliate call quota and

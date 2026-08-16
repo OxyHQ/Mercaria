@@ -33,9 +33,24 @@ import {
   referralDiscrepancyResolutionSchema,
   referralOperatorReasonSchema,
   referralPayoutBatchOpenSchema,
+  referralPartnerTerminationSchema,
   referralProgramControlsSchema,
   referralRecoverySchema,
 } from '../middleware/referral-schemas.js';
+import {
+  referralAppealResolutionSchema,
+  referralApplicationDecisionSchema,
+  referralOperatorPartnerSchema,
+} from '../middleware/referral-partner-schemas.js';
+import {
+  createReferralPartnerHandler,
+  decideReferralApplicationHandler,
+  getReferralPartnerReviewHandler,
+  listReferralPartnerInboxHandler,
+  resolveReferralAppealHandler,
+  startReferralApplicationReviewHandler,
+  transitionReferralPartnerStandingHandler,
+} from '../controllers/referral-enrollment-operator.controller.js';
 import {
   approveReferralPayoutBatchHandler,
   cancelReferralPayoutBatchHandler,
@@ -62,6 +77,64 @@ const router = Router();
 // against whatever a client claimed.
 router.use(authenticateToken);
 router.use(requireReferralOperator);
+
+// ── Enrollment review (#146 increment 2) ────────────────────────────────────
+//
+// On this SAME list rather than an eighth: deciding whether somebody may be a
+// referral partner and approving what they are paid are the same economy, which
+// is the argument #145 made when it joined. Deliberately NOT gated by
+// `REFERRAL_PARTNER_ENROLLMENT_ENABLED` — that lever stops NEW enrollment, and
+// a queue has to be workable through exactly the incident that turned it off.
+
+/** The review inbox. Filtered by STATE only; there is no name or email search. */
+router.get('/partners', listReferralPartnerInboxHandler);
+
+/** One partner's whole enrollment picture, including live duplicate signals. */
+router.get('/partners/:partnerId/review', getReferralPartnerReviewHandler);
+
+/** Claim a submitted application. Idempotent — two operators converge. */
+router.post('/partners/:partnerId/review', startReferralApplicationReviewHandler);
+
+/** Decide it. One decision per revision; a repeat converges on the first. */
+router.post(
+  '/partners/:partnerId/review/decision',
+  validateBody(referralApplicationDecisionSchema),
+  decideReferralApplicationHandler,
+);
+
+/** Create a partner in one of the three operator-only enrollment modes. */
+router.post('/partners', validateBody(referralOperatorPartnerSchema), createReferralPartnerHandler);
+
+/**
+ * Standing transitions #142 shipped and never mounted.
+ *
+ * Suspension stops NEW attribution and leaves everything durable exactly where
+ * it is (ADR 0005 D18); termination is terminal for the standing and is never a
+ * deletion. Neither voids, reverses or reduces a reward — D15's "skipped, not
+ * voided" — and nothing on this router could.
+ */
+router.post(
+  '/partners/:partnerId/suspend',
+  validateBody(referralOperatorReasonSchema),
+  transitionReferralPartnerStandingHandler('suspend'),
+);
+router.post(
+  '/partners/:partnerId/reinstate',
+  validateBody(referralOperatorReasonSchema),
+  transitionReferralPartnerStandingHandler('reinstate'),
+);
+router.post(
+  '/partners/:partnerId/terminate',
+  validateBody(referralPartnerTerminationSchema),
+  transitionReferralPartnerStandingHandler('terminate'),
+);
+
+/** Resolve an open appeal. Records the DECISION; reinstatement is separate. */
+router.post(
+  '/partners/:partnerId/appeal',
+  validateBody(referralAppealResolutionSchema),
+  resolveReferralAppealHandler,
+);
 
 /** GET — the effective levers, with absence resolved to "both enabled". */
 router.get('/programs/:programId/controls', getReferralProgramControlsHandler);

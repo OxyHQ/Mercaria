@@ -265,7 +265,20 @@ export type ReferralPayoutBlockReason =
   | 'no_payout_beneficiary'
   | 'program_payout_paused'
   | 'below_minimum'
-  | 'payout_minimum_not_published';
+  | 'payout_minimum_not_published'
+  /**
+   * #146 enrollment mode 7: a staff or test enrollment is isolated from
+   * PRODUCTION earnings, and this is where the isolation bites.
+   *
+   * It is a payout gate rather than an attribution refusal deliberately —
+   * refusing attribution would make a test enrollment unable to exercise the
+   * thing it exists to test, while this is the exact point at which real money
+   * would otherwise leave. The fact is read off
+   * `REFERRAL_ENROLLMENT_MODE_RULES[mode].earnsProductionRewards`, so a mode
+   * added to that table without an answer fails `tsc` rather than defaulting to
+   * payable.
+   */
+  | 'partner_enrollment_is_test';
 
 /** {@link ReferralPayoutBlockReason} as a tuple. */
 export const REFERRAL_PAYOUT_BLOCK_REASONS: readonly ReferralPayoutBlockReason[] = [
@@ -284,6 +297,7 @@ export const REFERRAL_PAYOUT_BLOCK_REASONS: readonly ReferralPayoutBlockReason[]
   'program_payout_paused',
   'below_minimum',
   'payout_minimum_not_published',
+  'partner_enrollment_is_test',
 ];
 
 /**
