@@ -616,6 +616,32 @@ the wrong database a migrator does not fail — it finds an empty ledger, applie
 the whole journal, prints `Applied N` and exits 0, leaving the real database
 untouched while the operator reads a success line.
 
+### A `DROP … CASCADE` nobody has checked is how a dependent object disappears
+
+`drizzle-kit generate` writes `DROP TABLE "x" CASCADE;` for every removed table.
+It writes `CASCADE` unconditionally — it is not a claim that nothing depends on
+the table, and it will silently take a foreign key, a view or a constraint with
+it. A `DROP` is `post` by definition, so this always runs against a database
+that already has whatever grew on that table since it landed.
+
+**Before landing any generated `DROP`, read the PREVIOUS snapshot for inbound
+references and say in the migration header what you found.** The check is
+mechanical:
+
+```py
+# inbound: does anything point AT the table being dropped?
+[(t, fk['name']) for t, tbl in snapshot['tables'].items()
+                 for fk in (tbl.get('foreignKeys') or {}).values()
+                 if fk.get('tableTo') == '<table being dropped>']
+```
+
+Inbound references are the ones `CASCADE` acts on. The table's OWN outbound
+foreign keys are irrelevant to it and survive with their targets — reporting
+those instead is the check that looks done and measures nothing. #367's
+`category_external_mappings` drop is the worked example: inbound NONE, outbound
+`catalog_sources` and `categories`, so the `CASCADE` cascaded nothing, and the
+header says so rather than leaving the next reader to re-derive it.
+
 ---
 
 ## The model → table ledger

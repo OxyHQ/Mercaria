@@ -33,6 +33,13 @@ export * from './catalog';
 // this module also owned `category_external_mappings`; that table moved to
 // Workstream 11 and the dependency went with it. `categories` itself stays in
 // `catalog` — D2 extends the one category table in place.
+//
+// THIS POSITION IS LOAD-BEARING, like every other in this file: the order is the
+// DEPENDENCY order and alphabetising it creates a cycle (see the header). The
+// reason above names the dependency that fixes it, and a reason can go STALE —
+// this one did, which is why it now says which table it lost and when. Before
+// moving any export here, re-read the module's own import list rather than the
+// comment above it.
 export * from './taxonomy';
 // The condition domain (#90) follows `catalog`: every one of its listing-side
 // tables references `listings`, and `condition_category_policies` references
