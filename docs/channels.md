@@ -827,16 +827,30 @@ needs to know WHO archived the listing, and:
 
 That last point also corrects #390's own diagnosis, which said the fix was
 blocked on `syncSettingsConflictPolicy` being unreachable from any client. It is
-reachable now — #395 shipped both it and `autoPublish` on the dashboard channel
-screen — and **reachability is not sufficient**: `respect_overrides` asks which
-fields the merchant pinned, and nothing pins any. A restore gated on that policy
-would read an empty set and republish every archived listing regardless of who
-archived it, which is the failure it was supposed to prevent, wearing a setting's
-name.
+reachable now — #395 added it to the dashboard channel screen — and
+**reachability is not sufficient**: `respect_overrides` asks which fields the
+merchant pinned, and nothing pins any. A restore gated on that policy would read
+an empty set and republish every archived listing regardless of who archived it,
+which is the failure it was supposed to prevent, wearing a setting's name. (The
+switch #395 shipped is labelled "a field you edited in Mercaria is never
+overwritten by a later sync", which is a promise nothing currently keeps, for the
+same reason. `autoPublish` beside it is NOT new — it has been settable since #9.)
 
 So closing #390 is a provenance change, not a heuristic: record the actor and
 cause on a status write, then let the connector restore only what it archived
-itself. Whatever shape that takes must leave `restricted` exactly where it is —
+itself. **The shape already exists one domain over.**
+`moderation_enforcements.previousStateListingStatus` stores what a restriction
+replaced precisely so a reversal has something true to put back, and
+`enforcement.service.ts` argues the point in the terms this needs — "Restored to
+what it WAS, read off the row that changed it — never to a hardcoded `active`. A
+listing that was a draft when it was restricted must not be PUBLISHED by a
+correction." The same hazard applies here and is easy to miss: a connector
+un-archive that assumed `active` would put on sale a listing imported under
+`autoPublish: false`, which has never been on sale in its life. `autoPublish`
+does not answer it either — it is read only on the CREATE branch and by nothing
+on update.
+
+Whatever shape it takes must leave `restricted` exactly where it is —
 `catalog-write.service.updateListing` refuses both directions deliberately, so a
 sync can never undo a jury (and `listing-archive-census.test.ts` fails the build
 on a new archiver that does not say what it does about a restriction).
