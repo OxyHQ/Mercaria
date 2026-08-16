@@ -49,8 +49,6 @@ const APP_ROOT = join(STOREFRONT_ROOT, 'app');
  * true. Being in NEITHER this list nor the registry is what FAILS.
  */
 const NON_PUBLIC_SCREENS: readonly string[] = [
-  'app/(app)/forgot-password.tsx',
-  'app/(app)/reset-password.tsx',
   'app/(app)/notifications.tsx',
   'app/(app)/price-alerts.tsx',
   // The referral partner dashboard (#147) — one account's own instruments,

@@ -11,7 +11,6 @@
     "delete": "Delete",
     "edit": "Edit",
     "close": "Close",
-    "continue": "Continue",
     "back": "Back",
     "create": "Create",
     "search": "Search...",
@@ -64,10 +63,7 @@
     "privacyPolicy": "Privacy Policy"
   },
   "errors": {
-    "emailRequired": "Please enter your email address",
     "passwordRequired": "Please enter your password",
-    "passwordsDoNotMatch": "Passwords do not match",
-    "passwordTooShort": "Password must be at least 8 characters",
     "loginFailed": "Login Failed",
     "loginError": "Login Error",
     "failedToLogin": "Failed to login. Please try again.",
@@ -113,30 +109,6 @@
     "logOut": "Log out",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy"
-  },
-  "forgotPassword": {
-    "title": "Reset password",
-    "subtitle": "Enter your email to reset your password",
-    "emailPlaceholder": "Email",
-    "sending": "Sending...",
-    "checkEmail": "Check your email",
-    "sentInstructions": "We've sent password reset instructions to",
-    "returnToSignIn": "Return to Sign in",
-    "tryAnotherEmail": "Try another email",
-    "checkEmailToast": "Check your email for instructions to reset your password.",
-    "failedToSend": "Failed to send reset email. Please try again."
-  },
-  "resetPassword": {
-    "title": "Create new password",
-    "subtitle": "Enter your new password",
-    "newPasswordPlaceholder": "New Password (min 8 characters)",
-    "confirmPasswordPlaceholder": "Confirm New Password",
-    "resetButton": "Reset Password",
-    "resetting": "Resetting password...",
-    "invalidToken": "Invalid or missing reset token",
-    "enterNewPassword": "Please enter a new password",
-    "successMessage": "Your password has been reset successfully. Please sign in with your new password.",
-    "failedToReset": "Failed to reset password. Please try again."
   },
   "feedback": {
     "title": "Send Feedback",
