@@ -126,12 +126,16 @@ matching the day the registry published a new version.
 ## The triggers
 
 A CHECK cannot read another row, so six things are triggers. Their bodies live in
-`packages/backend/src/db/schema/navigation.pending.sql` — **plain text, not
-applied**: #367 is implemented by several branches at once and drizzle-kit's
-journal is one shared file, so ADR 0007 D11 hands the migration slot out one
-branch at a time. When this branch is handed the slot the statements are appended
-to the generated `.sql` verbatim, and re-applied after **every** regeneration —
-regeneration drops every hand-written trigger and function.
+migration `0090_sad_black_panther.sql`, each inside its own
+`-- oxy:handwritten-begin=mercaria_navigation_*` marker pair, so a regeneration
+that drops one fails `migration-handwritten-markers.test.ts` rather than silently
+enforcing nothing. Re-apply them after **every** regeneration — regeneration
+drops every hand-written trigger and function.
+
+They staged in a `packages/backend/src/db/schema/navigation.pending.sql` while
+ADR 0007 D11 handed the migration slot out one branch at a time; that file was
+deleted with the migration that carried its statements, because a second copy
+nothing applies is one somebody edits to no effect.
 
 | Trigger | Refuses |
 | --- | --- |

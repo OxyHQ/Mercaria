@@ -454,3 +454,16 @@ export * from './navigation';
 // text member rather than copied into a fifth table, which is the whole reason a
 // polymorphic localization table was refused.
 export * from './catalogLocalization';
+// Compatibility and automotive fitment (#367 step 8, ADR 0007 D8) is the last
+// export and points only at `./canonicalCatalog` and `./provenance`. That short
+// list is the design: "does this fit" is a relationship between two catalogue
+// identities plus its provenance, and NOTHING here references `./catalog` —
+// there is no import of `listing_options` or `product_variant_option_values`
+// anywhere in the domain, which is what makes "a year range, a make or a model
+// may never be stored as a variant option" a fact about the import graph rather
+// than a rule somebody follows. It is deliberately NOT built on
+// `./relationships` either: a brand relationship mints a badge and grants
+// standing, while a compatibility claim is asserted routinely by parties with
+// authority over neither product, so sharing that vocabulary would make
+// `verified` mean two things.
+export * from './compatibility';

@@ -661,6 +661,44 @@ anti-vacuity rule (`SCHEMA_TABLE_COUNT`, the backfill counter CHECKs, every
 scanned gate's floor) applied to a one-off manual verification, which is exactly
 where it is easiest to skip and hardest to notice having skipped.
 
+### Preserve before you delete: the two-copies rule and D11 rule 3 interact
+
+Two rules that are each correct combine into a way to lose every hand-written
+statement you have, and you only reach it by having followed both.
+
+- **The two-copies rule** says a `<domain>.pending.sql` staging file is deleted
+  once the migration carries its statements — a second copy that nothing applies
+  is one somebody edits to no effect.
+- **ADR 0007 D11 rule 3** says that when your migration index collides on a
+  rebase you *delete your `.sql` and your `meta/<idx>_snapshot.json`*, restore
+  the journal, and regenerate.
+
+Follow them in that order and the delete removes the **only** copy of your
+triggers, functions and backfills. Regeneration does not bring them back: it
+emits a file without them, which applies cleanly, passes the marker gate (there
+is nothing unmarked to find) and **enforces nothing**. That is the "three
+branches lost their triggers" failure arriving through a door the protocol
+itself opens, and it is invisible until something the trigger was supposed to
+refuse gets written.
+
+**The order that is safe:**
+
+```
+preserve the marked blocks  ->  delete your .sql + snapshot  ->  restore the
+journal verbatim  ->  build:shared-types  ->  db:generate  ->  re-paste  ->
+re-read the regenerated file
+```
+
+Slice the blocks out with a **column-0 anchor** on `-- oxy:handwritten-begin=`,
+never a substring search: a staging header that explains the convention mentions
+both markers in prose, and an unanchored slice drags the header in — carrying a
+second `-- oxy:deploy-phase=` with it, which fails the marker gate loudly, and a
+prose copy of the separator token, which does not.
+
+Measured on #367 step 8: `#423` took `0092` while that branch's CI was green on
+it, the regeneration went to `0093`, and the staging file had already been
+deleted one commit earlier under the two-copies rule.
+
 ---
 
 ## The model → table ledger
@@ -5969,8 +6007,11 @@ failure the epic is written against. `categories` gained seven columns instead.
 ## Navigation trees (#367 step 7)
 
 `navigation.ts` — five tables, ADR 0007 D3. The hand-written triggers live in
-`navigation.pending.sql` and are appended to the generated migration verbatim
-(ADR 0007 D11's slot protocol); re-apply them after EVERY regeneration.
+migration `0090_sad_black_panther.sql`, in nine
+`-- oxy:handwritten-begin=mercaria_navigation_*` marker pairs; re-apply them
+after EVERY regeneration. (They staged in a `navigation.pending.sql` while
+ADR 0007 D11 serialized the slot; that file went with the migration that carried
+them.)
 
 - **The domain writes to five tables and reads four more.** `categories`,
   `collections`, `brands` and `canonical_product_families` are READ for two
