@@ -609,12 +609,56 @@ describe('a restriction survives archiving, and an appeal can still reach it', (
     const listingId = await seedListing('active');
     await restrictViaDecision(listingId);
 
-    const archived = await setListingStatusIfIn(listingId, 'archived', ALL_LISTING_STATUSES);
+    const archived = await setListingStatusIfIn(
+      listingId,
+      'archived',
+      ALL_LISTING_STATUSES,
+      // The cause the `product_delete` caller passes, so the statement stays
+      // exactly the one that path issues (#390).
+      'connector_product_deleted',
+    );
     expect(archived, 'the connector path must really have archived it').toBe(true);
 
     await acceptAppeal('dec-real-1');
 
     expect(await statusOf(listingId)).toBe('active');
+  });
+
+  it('records `moderation_restore` when an appeal puts a listing BACK into `archived`', async () => {
+    /**
+     * #390's odd archiver, and the reason it is a cause of its own rather than
+     * an impossible branch.
+     *
+     * Moderation may restrict a listing that was ALREADY archived, and
+     * `restoreSubject` writes back what the restriction replaced rather than a
+     * hardcoded `active` — so an accepted appeal is a status writer that
+     * ARCHIVES. Without a cause of its own it would have to reuse another
+     * archiver's, and the one it would naturally borrow is the connector's,
+     * which is the value that authorises a republish to relist.
+     *
+     * The listing keeps the merchant provenance right up to the restriction and
+     * loses it at the restore, which is the point: it is now archived by a
+     * decision somebody took about this listing, and no connector may reach back
+     * through that.
+     */
+    const listingId = await seedListing('active');
+    await archiveListing(listingId);
+    expect((await findListingById(listingId))?.archivedBy).toBe('merchant_delete');
+
+    await restrictViaDecision(listingId);
+    // The restriction CLEARED the record, because the listing is no longer
+    // archived — a stale one here is what the restore would then be read against.
+    const restricted = await findListingById(listingId);
+    expect(restricted?.status).toBe('restricted');
+    expect(restricted?.archivedBy).toBeNull();
+    expect(restricted?.archivedFromStatus).toBeNull();
+
+    await acceptAppeal('dec-real-1');
+
+    const restored = await findListingById(listingId);
+    expect(restored?.status).toBe('archived');
+    expect(restored?.archivedBy).toBe('moderation_restore');
+    expect(restored?.archivedFromStatus).toBe('restricted');
   });
 
   it('does NOT resurrect a listing the seller archived after request_changes', async () => {

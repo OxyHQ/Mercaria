@@ -178,6 +178,11 @@ describe('processConnectorWebhook — products/delete → archive', () => {
       'listing-1',
       'archived',
       ALL_LISTING_STATUSES,
+      // #390: the CAUSE is part of the statement, and this path's is the one a
+      // republish is allowed to undo. Asserting the status without it would let
+      // the delete webhook record a merchant archive — which reads identically
+      // here and would leave the product unable to come back.
+      'connector_product_deleted',
     );
     expect(closedRun().status).toBe('completed');
     expect(closedRun().counts).toEqual({ created: 0, updated: 1, skipped: 0, failed: 0 });

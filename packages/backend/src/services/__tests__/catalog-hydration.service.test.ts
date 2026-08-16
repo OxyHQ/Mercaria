@@ -136,6 +136,8 @@ function listingRow(source: Partial<ListingRecord> = NATIVE_SOURCE): ListingReco
     seoTitle: null,
     seoDescription: null,
     overriddenFields: [],
+    archivedBy: null,
+    archivedFromStatus: null,
     rating: 0,
     reviewCount: 0,
     favoriteCount: 0,

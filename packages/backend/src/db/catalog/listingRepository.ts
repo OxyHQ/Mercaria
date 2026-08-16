@@ -57,6 +57,20 @@
  * was returned to `draft` (which is exactly what moderation's `request_changes`
  * does), so nulling them would erase a real past publication instant with no way
  * back. A historic draft may therefore carry a stamp; a new one may not.
+ *
+ * ## `archived_by` / `archived_from_status` are derived the same way (#390)
+ *
+ * The SAME three statements are the only ones that can write those two columns,
+ * and they derive both from the status they are writing — the cause from the
+ * caller, the previous status from the row's own pre-update `status` in the same
+ * SQL. `ListingColumnPatch` and `NewListing` SUBTRACT them, so there is no
+ * argument through which a caller could state either directly.
+ *
+ * That is what makes the fact trustworthy rather than merely present. Anything
+ * else — a service writing the pair beside a status, a helper reading the
+ * listing first — reintroduces the two failure modes this exists to remove: a
+ * writer that forgets, leaving a stale record the next reader believes, and a
+ * read-then-write whose "previous" status was true a moment ago.
  */
 
 import {
@@ -81,6 +95,7 @@ import type {
   ConditionGroup,
   CurrencyCode,
   ItemConditionKey,
+  ListingArchiveCause,
   ListingOwnerType,
   ListingQuery,
 } from '@mercaria/shared-types';
@@ -297,9 +312,29 @@ export type ListingSourceProvenance = Pick<
  */
 export type NewListing = Omit<
   ListingRecord,
-  'id' | 'createdAt' | 'updatedAt' | 'geo' | 'searchVector' | 'publishedAt'
+  | 'id'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'geo'
+  | 'searchVector'
+  | 'publishedAt'
+  | 'archivedBy'
+  | 'archivedFromStatus'
 > &
   Partial<Pick<ListingRecord, 'id' | 'publishedAt'>>;
+
+/**
+ * A patch of a listing's own columns.
+ *
+ * The two archive-provenance columns are SUBTRACTED, so they are unwritable by
+ * a caller and can only come from {@link archiveProvenance} beside the status
+ * that produced them. A patch able to carry them is a patch able to say a
+ * connector archived a listing a merchant deleted, which is the whole fact.
+ */
+export type ListingColumnPatch = Omit<
+  Partial<ListingRecord>,
+  'archivedBy' | 'archivedFromStatus'
+>;
 
 /**
  * `published_at` for a NEW listing: the create instant when it lands `active`,
@@ -323,6 +358,48 @@ function firstActivationPublishedAt(next: ListingRecord['status']): SQL | undefi
 }
 
 /**
+ * `archived_by` / `archived_from_status` under a status WRITE — the #390 status
+ * provenance, derived here so no caller states the previous status.
+ *
+ * Three properties are load-bearing and all three come from deriving it rather
+ * than passing it:
+ *
+ *  - **The previous status is read in the SAME statement**, as
+ *    `nullif(listings.status, 'archived')` — the pre-update value, the way
+ *    `firstActivationPublishedAt`'s `coalesce` reads the pre-update
+ *    `published_at`. A read-then-write would let a concurrent transition slip
+ *    between the two and record a status the listing no longer held.
+ *  - **A write that is not a TRANSITION records no previous status.** A listing
+ *    already `archived` written `archived` again — an idempotent merchant PATCH
+ *    — replaced nothing, so `nullif` stores NULL and a restore refuses it
+ *    instead of putting the listing back into `archived`.
+ *  - **Any other status CLEARS both.** The record describes the archive the
+ *    listing is CURRENTLY in; leaving it behind on a listing that has since
+ *    been republished is the stale read a later archiver would be measured
+ *    against.
+ *
+ * A cause is REQUIRED to archive, and the refusal is a throw rather than a
+ * NULL: NULL is how a pre-#390 row says "nobody knows", and a new writer
+ * quietly minting more of those would make the unknowable set grow instead of
+ * being fixed and frozen at the migration.
+ */
+function archiveProvenance(
+  next: ListingRecord['status'],
+  cause: ListingArchiveCause | undefined,
+): { archivedBy: ListingArchiveCause | null; archivedFromStatus: SQL | null } {
+  if (next !== 'archived') {
+    return { archivedBy: null, archivedFromStatus: null };
+  }
+  if (cause === undefined) {
+    throw new Error(
+      'Archiving a listing requires a ListingArchiveCause: without one nothing can ' +
+        'later tell a merchant archive from a connector one, which is issue #390.',
+    );
+  }
+  return { archivedBy: cause, archivedFromStatus: sql`nullif(${listings.status}, 'archived')` };
+}
+
+/**
  * Create a listing with its images and options, atomically.
  *
  * One transaction because a listing whose images landed and whose options did
@@ -338,6 +415,15 @@ export async function insertListing(
     ...values,
     publishedAt:
       values.publishedAt === undefined ? publishedAtForCreate(values.status) : values.publishedAt,
+    // A create is not a TRANSITION into `archived` — there is no previous status
+    // it replaced — so it records no provenance, and `NewListing` subtracts both
+    // columns so a caller cannot invent one. No caller creates an archived
+    // listing today (`createStoreProduct`'s status set excludes it, and #379
+    // `skipped` an unpublished product it had never imported rather than
+    // creating one archived); if one ever does, the row reads as UNKNOWN and is
+    // never republished, which is the safe direction.
+    archivedBy: null,
+    archivedFromStatus: null,
   };
   const run = async (tx: DatabaseOrTransaction): Promise<ListingRecord> => {
     const [inserted] = await tx.insert(listings).values(row).returning();
@@ -354,19 +440,34 @@ export async function insertListing(
  * A patch that moves the status to `active` stamps `published_at` if it is still
  * NULL — see the module header. An explicit `publishedAt` in the patch wins, so a
  * caller can still write one deliberately.
+ *
+ * A patch that moves the status ALSO writes the #390 archive provenance, and a
+ * patch that writes `archived` without an `archiveCause` throws. A patch that
+ * touches no status leaves both columns exactly as they are: this is the
+ * function every connector re-sync calls to refresh `sourceExternalUpdatedAt`,
+ * and clearing an archived listing's provenance on every pass would erase the
+ * fact one page before the pass that needs it.
  */
 export async function updateListingColumns(
   listingId: string,
-  patch: Partial<ListingRecord>,
+  patch: ListingColumnPatch,
   db: DatabaseOrTransaction = getDb(),
+  archiveCause?: ListingArchiveCause,
 ): Promise<ListingRecord | null> {
   const stamp =
     patch.status !== undefined && patch.publishedAt === undefined
       ? firstActivationPublishedAt(patch.status)
       : undefined;
+  const provenance =
+    patch.status !== undefined ? archiveProvenance(patch.status, archiveCause) : {};
   const [row] = await db
     .update(listings)
-    .set({ ...patch, ...(stamp ? { publishedAt: stamp } : {}), updatedAt: new Date() })
+    .set({
+      ...patch,
+      ...(stamp ? { publishedAt: stamp } : {}),
+      ...provenance,
+      updatedAt: new Date(),
+    })
     .where(eq(listings.id, listingId))
     .returning();
   return row ?? null;
@@ -985,18 +1086,30 @@ export async function searchListingsKeyset(
  * previous status, so the listing may never have been published — the first
  * activation it actually is. See the module header.
  *
+ * A move to `archived` records the #390 provenance and REQUIRES an
+ * `archiveCause`; every other move clears it. The `status <> next` clause means
+ * an already-archived listing is refused before anything is written, so a
+ * re-delivered delete webhook cannot overwrite the record of the archive it is
+ * a duplicate of.
+ *
  * @returns `true` when this call made the change, `false` when the guard refused.
  */
 export async function setListingStatusIfIn(
   listingId: string,
   next: ListingRecord['status'],
   allowedCurrent: readonly ListingRecord['status'][],
+  archiveCause?: ListingArchiveCause,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<boolean> {
   const stamp = firstActivationPublishedAt(next);
   const rows = await db
     .update(listings)
-    .set({ status: next, ...(stamp ? { publishedAt: stamp } : {}), updatedAt: new Date() })
+    .set({
+      status: next,
+      ...(stamp ? { publishedAt: stamp } : {}),
+      ...archiveProvenance(next, archiveCause),
+      updatedAt: new Date(),
+    })
     .where(
       and(
         eq(listings.id, listingId),

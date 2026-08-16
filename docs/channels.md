@@ -799,76 +799,84 @@ answer — a `products/update` delivery carries `status` and fires exactly when 
 merchant drafts or archives a product. If drafts ARE returned, the first sync
 archives every listing whose Shopify source is currently a draft or archived.
 
-### A product republished upstream does NOT come back, and cannot yet (#390)
+### A product republished upstream comes back — but only when this connector archived it (#390)
 
 `toUpdatePatch` writes seven fields — title, description, images, vendor,
-product type, handle, SEO — and never `status`. So a listing archived by the
-connector (a `product_delete` webhook, the post-backfill unseen sweep, or #386's
-unpublish) stays archived when the merchant republishes the product on their own
-platform. The sync updates its title and its price and leaves it off sale.
+product type, handle, SEO — and still never `status`, because a republish is not
+a field merge: writing `status` on every pass from a value the platform reports
+is exactly what would reactivate a listing the merchant archived in Mercaria on
+purpose. The republish is ONE conditional transition out of `archived`,
+`restoreListingArchivedByThisConnector`, taken against a stored fact.
 
-**A restore was NOT added, and the reason is not caution — the code cannot tell
-the two cases apart.** Reactivating on a republish would also reactivate a
-listing the merchant archived *in Mercaria on purpose*, which is the connector
-undoing a local decision on the strength of a remote one. Telling them apart
-needs to know WHO archived the listing, and:
+**The stored fact is `listings.archived_by` plus `listings.archived_from_status`.**
+Before them nothing separated "archived by the connector, republished upstream"
+from "archived by the merchant here, still absent upstream" — `listings` carried
+no `archived_by`, no `status_source` and no status-history table, so #417 could
+only record the indistinguishability as the finding. The shape came from
+`moderation_enforcements.previous_state_listing_status`, which stores what a
+restriction replaced precisely so a reversal has something true to put back.
 
-- **No provenance of a status change is stored anywhere.** `listings` carries no
-  `archived_by`, no `status_source` and no status-history table; the only durable
-  record of a status decision is `moderation_enforcements`, which covers
-  moderation and nothing else.
-- **`listings.overriddenFields` — the mechanism that would carry it — does not
-  pin `status`, deliberately.** Until #416 it had no production writer at all:
-  `catalog-write.service` set it to `[]` on create (two sites), nothing appended,
-  and every non-empty value in the repository was a test fixture, so all four
-  read sites consulted a column that was empty in production and were inert.
-  #416 wrote it — a HUMAN edit of a connector-sourced listing now pins the field
-  it changed — but over exactly the SEVEN keys the field merge consults
-  (`title`, `description`, `images`, `vendor`, `productType`, `handle`, `seo`).
-  `status` is one of three keys named as an explicit exclusion in
-  `services/catalog-field-pins.ts`, and the reason is this issue's own: an
-  imported product lands as a `draft` when the connection does not auto-publish,
-  so the merchant reviewing it and setting `active` is the INTENDED workflow, and
-  pinning there would make the ordinary act of publishing the thing that stops
-  the platform ever unpublishing that product again.
+`db/catalog/listingRepository.ts` is the only author of both, exactly as it is
+the only author of `published_at` (#261): the three statements that can write
+`listings.status` derive them from the status they are writing — the CAUSE from
+the caller, the PREVIOUS STATUS from the row's own pre-update `status`, in the
+same SQL. `ListingColumnPatch` and `NewListing` subtract the two columns, so no
+caller can state either directly, and archiving with no cause THROWS.
 
-That last point also corrects #390's own diagnosis, which said the fix was
-blocked on `syncSettingsConflictPolicy` being unreachable from any client. It is
-reachable now — #395 added it to the dashboard channel screen — and
-**reachability is not sufficient**: `respect_overrides` asks which fields the
-merchant pinned, and no merchant edit pins `status`. A restore gated on that
-policy would read a set that never contains `status` and republish every archived
-listing regardless of who archived it, which is the failure it was supposed to
-prevent, wearing a setting's name. (The switch #395 shipped is labelled "a field
-you edited in Mercaria is never overwritten by a later sync". #416 made that
-promise true for the seven merchandising fields; it says nothing about status,
-which is not a field a merchant edits in that sense. `autoPublish` beside it is
-NOT new — it has been settable since #9.)
+| cause | writer | on a republish |
+|---|---|---|
+| `merchant_delete` | `catalog-write.archiveListing` (the seller/admin DELETE) | survives |
+| `merchant_status_change` | `catalog-write.updateListing` with `status: archived` | survives |
+| `channel_disconnect` | `channel-disconnect.disconnectChannel` under `archive_listings` | survives |
+| `connector_product_deleted` | the `product_delete` webhook | UNDONE |
+| `connector_unseen_in_backfill` | the post-backfill reconciliation | UNDONE |
+| `connector_unpublished` | an upstream unpublish (#377/#379/#386) | UNDONE |
+| `moderation_restore` | `enforcement.restoreSubject` putting a listing back into `archived` | survives |
 
-So #416 changed what #390 has to decide, without deciding it: the write
-mechanism now exists and `status` is excluded by an argued, gated decision rather
-than by nobody having built the writer. Pinning `status` on a merchant status
-edit is the wrong shape for the reason above; the provenance change below is
-still the answer.
+The three `connector_*` causes are the ones where the archive was a MIRROR of the
+product's absence, so the product being back is the same fact reversing rather
+than the connector overruling anybody. `ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH` names
+them explicitly rather than matching a `connector_` prefix, so a cause added
+later is not restorable by omission, and
+`db/__tests__/listing-archive-census.test.ts` fails the build on a cause that is
+in neither list. `merchant_status_change` is the entry to read: it is a SECOND
+merchant archiver in the same FILE as `archiveListing`, so the file-grained
+archiver census that sits above it in that test could never have separated them.
 
-So closing #390 is a provenance change, not a heuristic: record the actor and
-cause on a status write, then let the connector restore only what it archived
-itself. **The shape already exists one domain over.**
-`moderation_enforcements.previousStateListingStatus` stores what a restriction
-replaced precisely so a reversal has something true to put back, and
-`enforcement.service.ts` argues the point in the terms this needs — "Restored to
-what it WAS, read off the row that changed it — never to a hardcoded `active`. A
-listing that was a draft when it was restricted must not be PUBLISHED by a
-correction." The same hazard applies here and is easy to miss: a connector
-un-archive that assumed `active` would put on sale a listing imported under
-`autoPublish: false`, which has never been on sale in its life. `autoPublish`
-does not answer it either — it is read only on the CREATE branch and by nothing
-on update.
+**Two things the restore deliberately refuses, both of them traps rather than
+missing cases.**
 
-Whatever shape it takes must leave `restricted` exactly where it is —
-`catalog-write.service.updateListing` refuses both directions deliberately, so a
-sync can never undo a jury (and `listing-archive-census.test.ts` fails the build
-on a new archiver that does not say what it does about a restriction).
+- **It is not gated on `respect_overrides`, and must not be.** That policy asks
+  which fields the merchant PINNED; `status` is one of three keys
+  `services/catalog-field-pins.ts` excludes by an argued decision (#416 — an
+  imported product lands `draft` when the connection does not auto-publish, so
+  the merchant reviewing it and publishing it is the intended workflow, and
+  pinning there would stop the platform ever unpublishing that product again).
+  A restore gated on it would read a set that never contains `status` and
+  republish every archived listing regardless of who archived it, which is the
+  failure it would exist to prevent, wearing a setting's name. `autoPublish`
+  cannot answer it either — it is read on the CREATE branch and by nothing on
+  update, and it describes what a NEW import should be rather than what this
+  listing was.
+- **It never restores to a hardcoded `active`.** `enforcement.service.ts` argues
+  this one domain over: a listing imported under `autoPublish: false` has never
+  been on sale in its life, and un-archiving it to `active` would put it there.
+  The previous status is read off the row the archiving statement wrote.
+
+It also refuses an UNKNOWN cause (both columns NULL — every row archived before
+this shipped, deliberately not backfilled, because the two cases are separated by
+no surviving evidence and inventing the connector half is the wrong guess), a
+recorded archive with no previous status (the write was not a transition, so
+there is nothing true to put back), and a previous status in
+`MODERATION_HELD_LISTING_STATUSES`. That last one is #402 from the other side:
+the `product_delete` path archives from ANY status on purpose, so
+`archived_from_status` can be `restricted`, and a connector may not write
+`restricted` in either direction. Such a listing stays archived, where
+`restoreSubject` reaches it.
+
+Both legs are pinned in the connector contract suite and neither means anything
+alone: "a republish relists it" is satisfied by a connector that relists
+everything, and "a merchant archive survives" is satisfied by doing nothing.
 
 ### A per-record failure has a durable reason (#303)
 

@@ -294,6 +294,8 @@ function listingRow(
     sourceExternalId: null,
     sourceExternalUpdatedAt: null,
     overriddenFields: [],
+    archivedBy: null,
+    archivedFromStatus: null,
     rating: 0,
     reviewCount: 0,
     favoriteCount: 0,

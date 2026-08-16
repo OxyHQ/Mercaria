@@ -184,6 +184,89 @@ export const MODERATION_HELD_LISTING_STATUSES: readonly ListingStatus[] = ['rest
 export const MERCHANT_ARCHIVABLE_LISTING_STATUSES: readonly ListingStatus[] =
   ALL_LISTING_STATUSES.filter((status) => !MODERATION_HELD_LISTING_STATUSES.includes(status));
 
+/**
+ * What moved a listing into `archived` — the status PROVENANCE #390 needed and
+ * nothing stored.
+ *
+ * `archived` is the one status several unrelated authorities write for
+ * unrelated reasons, and until this existed they were indistinguishable
+ * afterwards. A merchant deleting a listing in Mercaria and a connector
+ * mirroring a product that vanished upstream produce the identical row, so a
+ * connector asked to un-archive on a republish could only either undo the
+ * merchant's own decision or do nothing. #417 established that as the finding;
+ * this is the fact that answers it.
+ *
+ * ONE member per WRITER — `listing-archive-census.test.ts` asserts the map is a
+ * bijection — because the vocabulary exists to be READ by a decision, and two
+ * call sites sharing a value are two situations somebody would then have to
+ * tell apart by something else.
+ */
+export type ListingArchiveCause =
+  /** `catalog-write.archiveListing` — the seller/admin `DELETE` funnel. */
+  | 'merchant_delete'
+  /** `catalog-write.updateListing` — a merchant PATCHing `status: 'archived'`. */
+  | 'merchant_status_change'
+  /** `channel-disconnect.disconnectChannel` under `archive_listings`. */
+  | 'channel_disconnect'
+  /** The connector's `product_delete` webhook: the product is gone upstream. */
+  | 'connector_product_deleted'
+  /** The post-backfill reconciliation: the product was not in a COMPLETE pull. */
+  | 'connector_unseen_in_backfill'
+  /** The connector saw the product upstream and UNPUBLISHED (#377/#379/#386). */
+  | 'connector_unpublished'
+  /**
+   * An accepted appeal put the listing back into the `archived` state it held
+   * when it was restricted (`enforcement.restoreSubject`). Reachable because
+   * moderation may restrict a listing that was already archived, and the
+   * restore writes back what it replaced rather than a hardcoded `active`.
+   */
+  | 'moderation_restore';
+
+/** Every archive cause, as a runtime list — `listings_archived_by_check` reads THIS. */
+export const LISTING_ARCHIVE_CAUSES: readonly ListingArchiveCause[] = [
+  'merchant_delete',
+  'merchant_status_change',
+  'channel_disconnect',
+  'connector_product_deleted',
+  'connector_unseen_in_backfill',
+  'connector_unpublished',
+  'moderation_restore',
+];
+
+/**
+ * The causes a connector may UNDO when the product reappears upstream, and the
+ * only reading under which un-archiving is not the connector overruling
+ * Mercaria: the archive was a MIRROR of the product's absence, so the product
+ * being back is the same fact reversing.
+ *
+ * Named explicitly rather than derived from a `connector_` prefix, so a cause
+ * added later is not restorable by omission (a string rule would make it one)
+ * and so adding one forces the decision instead of inheriting it. The census
+ * fails the build on a cause that is in neither this list nor
+ * {@link ARCHIVE_CAUSES_SURVIVING_A_REPUBLISH}.
+ *
+ * `moderation_restore` is deliberately absent even though the archive UNDER it
+ * may originally have been a connector's: the moderation round trip is a
+ * decision by somebody else about the same listing, and the connector must not
+ * reach through it. Such a listing stays archived and its own restore path
+ * (#402) still reaches it.
+ */
+export const ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH: readonly ListingArchiveCause[] = [
+  'connector_product_deleted',
+  'connector_unseen_in_backfill',
+  'connector_unpublished',
+];
+
+/**
+ * The causes an upstream republish leaves exactly where they are — a decision
+ * taken IN Mercaria, which a remote fact says nothing about.
+ *
+ * Derived by SUBTRACTION so the two lists cannot drift, and asserted to cover
+ * `LISTING_ARCHIVE_CAUSES` exactly.
+ */
+export const ARCHIVE_CAUSES_SURVIVING_A_REPUBLISH: readonly ListingArchiveCause[] =
+  LISTING_ARCHIVE_CAUSES.filter((cause) => !ARCHIVE_CAUSES_UNDONE_BY_REPUBLISH.includes(cause));
+
 /** Whether a listing is owned by an individual user or a store. */
 export type ListingOwnerType = 'user' | 'store';
 
