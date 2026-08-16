@@ -85,7 +85,21 @@ export interface ReferralRiskPaymentSubject {
  * id."*
  */
 export interface ReferralRiskPaymentFacts {
-  /** Other approved partners resolving to the SAME connected account. */
+  /**
+   * Other approved partners resolving to the SAME connected account.
+   *
+   * **UNMEASURABLE TODAY, and not for want of a producer** — see
+   * `services/__tests__/referral-risk-payment-facts.realdb.test.ts`, which
+   * proves it against a real server. The resolution partner → owner → account
+   * row is INJECTIVE at every hop (`referral_partners_owner_key`,
+   * `referralPayoutAccountOwner` being the identity, and
+   * `provider_accounts_provider_account_id_key`), so two partners cannot share a
+   * beneficiary and a producer would answer zero for everybody forever.
+   *
+   * The member stays because the SIGNAL is real and #146 increment 3's deferred
+   * beneficiary change is what makes it measurable; deleting it would lose the
+   * question along with the answer.
+   */
   sharedPayoutBeneficiaryPartnerCount?: number;
   /** Adverse payment outcomes on this partner's referred orders. */
   providerAdverseOutcomeCount?: number;
