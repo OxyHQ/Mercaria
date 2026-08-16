@@ -28,11 +28,19 @@
 -- matters: it carries three of them, and the naive matcher sees 3 of its 10
 -- statements while missing every constraint trigger and every function.
 --
--- Every statement is separated by `--> statement-breakpoint`, in `0088`'s style:
--- appended to the terminating line inside a block, on its own line after the
--- `-- oxy:handwritten-end=` between blocks. When pasting below the generated
+-- Every statement is separated by drizzle's own breakpoint token, in `0088`'s
+-- style: appended to the terminating line inside a block, on its own line after
+-- the `-- oxy:handwritten-end=` between blocks. When pasting below the generated
 -- output, a separator is needed BEFORE the first block too — drizzle-kit does
 -- not leave a trailing one.
+--
+-- **Never write that token in prose, including in this header.** The migrator
+-- does a plain `split()` on the raw string BEFORE anything parses a comment, so
+-- a quoted mention inside a comment is a live split point: it cuts the comment
+-- in two and the tail becomes a chunk of its own, which fails as a syntax
+-- error. Measured here — quoting it once in this header took a file that
+-- applied 9/9 down to 4/9, and the errors named CREATE TRIGGER statements that
+-- were entirely correct. Say "drizzle's breakpoint token" instead.
 --
 -- **A separator must never land inside a `$$ … $$` body.** The migrator splits
 -- the file on the token before it parses anything, so one inside a body cuts a
