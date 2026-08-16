@@ -218,10 +218,44 @@ jobs:
           SYNC_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           SYNC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           SYNC_VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+          SYNC_SHOPIFY_CLIENT_ID: ${{ secrets.SHOPIFY_CLIENT_ID }}
+          SYNC_SHOPIFY_CLIENT_SECRET: ${{ secrets.SHOPIFY_CLIENT_SECRET }}
+          SYNC_CONNECTOR_ENCRYPTION_KEY: ${{ secrets.CONNECTOR_ENCRYPTION_KEY }}
+          SYNC_CONNECTOR_OAUTH_STATE_SECRET: ${{ secrets.CONNECTOR_OAUTH_STATE_SECRET }}
         run: |
-          # Derived from the LIVE task definition (oxy-mercaria:3, the revision
-          # service `mercaria` runs), not from a plan: these are the parameters
-          # the container actually reads as `secrets` — MINUS SERVICE_SECRET.
+          # WHAT THIS REPO OWNS AND CONSUMES — deliberately NOT a mirror of the
+          # live task definition, in BOTH directions.
+          #
+          # It is SHORTER by SERVICE_SECRET, which oxy-mercaria:3 still names and
+          # which nothing here reads any more (see below). It is LONGER by the
+          # four connector parameters, which nothing names YET: measured on
+          # oxy-mercaria:3 on 2026-08-16, the live revision reads exactly
+          # SERVICE_SECRET, the three VAPID_*, REDIS_URL, the two AWS_* and
+          # DATABASE_URL.
+          #
+          # That direction is the SAFE one and the order is the whole point. A
+          # task definition naming an SSM parameter that does not exist fails at
+          # task START with ResourceInitializationError — on the next scale-up or
+          # deploy rather than immediately — so the parameter has to be written
+          # BEFORE anything reads it. Syncing a value nothing consumes is inert;
+          # naming a value nothing wrote is an outage. So:
+          #
+          #   1. (this PR) the four land in /oxy/mercaria/ on the next deploy and
+          #      NOTHING reads them. Nothing can fail.
+          #   2. (oxy-infra) add the four to Mercaria's task definition in
+          #      terraform-uswest2/app-services.tf, apply, roll out. Only now does
+          #      the container read them, and by then they exist.
+          #
+          # The consumers are in this repo already: SHOPIFY_CLIENT_ID and
+          # SHOPIFY_CLIENT_SECRET in connectors/shopify/config.ts,
+          # CONNECTOR_OAUTH_STATE_SECRET in connectors/config.ts, and
+          # CONNECTOR_ENCRYPTION_KEY in lib/connector-crypto.ts.
+          #
+          # CONNECTOR_OAUTH_REDIRECT_BASE_URL and CONNECTOR_DEFAULT_CATEGORY_SLUG
+          # are deliberately ABSENT: they are configuration, not secrets, and land
+          # as plain `environment` entries in the task definition — oxy-infra's
+          # half. Adding them here would write a public URL into SecureString and
+          # give the deployment two places to change it.
           #
           # SERVICE_SECRET is RETIRED (#164). No code reads it: the middleware
           # that did is deleted, and it had no mounted route before that. It is
@@ -250,7 +284,7 @@ jobs:
           # is exactly the state being retired. src/db/__tests__/deployWorkflow.test.ts
           # pins this list.
           SHARED_SECRETS="REDIS_URL"
-          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT"
+          APP_SECRETS="DATABASE_URL VAPID_PRIVATE_KEY VAPID_PUBLIC_KEY VAPID_SUBJECT SHOPIFY_CLIENT_ID SHOPIFY_CLIENT_SECRET CONNECTOR_ENCRYPTION_KEY CONNECTOR_OAUTH_STATE_SECRET"
 
           # AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are deliberately absent,
           # though oxy-mercaria:3 reads both from /oxy/_shared/. Mercaria
