@@ -182,6 +182,13 @@ const ANALYTICS_CORRELATION =
  * `*_id` columns that will NEVER carry a constraint, named `table.column` by
  * their SQL names (never the TypeScript property — an `endsWith('_id')` test
  * against `sellerId` matches nothing and passes vacuously).
+ *
+ * **The `── section ──` headers below are for readers; the census does not read
+ * them.** `findIdColumnViolations` asserts only that every id-shaped column is
+ * classified SOMEWHERE in this list, so an entry filed under the wrong header —
+ * an Oxy account id sitting under "Oxy media file ids" — passes exactly as an
+ * entry filed correctly does, and nothing can ever go red over it. Measured:
+ * #367 added one there and it took a reviewer, not a gate, to notice.
  */
 export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: string }[] = [
   // ── Oxy account ids ───────────────────────────────────────────────────────
