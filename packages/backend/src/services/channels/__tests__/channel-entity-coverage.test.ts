@@ -66,8 +66,10 @@ const PROVIDER_MEMBERS_DO_NOT_DESCRIBE: readonly ChannelTypeId[] = ['woocommerce
 function entitiesReachedBy(provider: ConnectorProvider): Set<ChannelSyncEntity> {
   const reached = new Set<ChannelSyncEntity>();
   for (const member of Object.keys(provider)) {
-    const entity = PROVIDER_ENTITY_MEMBERS[member];
-    if (entity !== undefined) reached.add(entity);
+    // A member may reach several entities — `normalizeOrder` carries the order,
+    // its discount allocations and its tax lines — so this iterates rather than
+    // adding one. A single-value read here would silently drop all but the first.
+    for (const entity of PROVIDER_ENTITY_MEMBERS[member] ?? []) reached.add(entity);
   }
   return reached;
 }
@@ -114,7 +116,7 @@ describe('#380 entity coverage — the population is complete', () => {
     expect(fromResources).toEqual([...CHANNEL_SYNC_RESOURCES].sort());
   });
 
-  it('every never_synced and mapped_membership entry records a reason', () => {
+  it('every never_synced and partial_arrival entry records a reason', () => {
     let checked = 0;
     for (const entity of CHANNEL_SYNC_ENTITIES) {
       const policy = CHANNEL_ENTITY_POLICY[entity];
@@ -336,20 +338,52 @@ describe('#380 entity coverage — the never_synced claims are probed, not trust
     expect(lines.length).toBeGreaterThan(2000);
     expect(code).toContain('function buildExternalOrderDoc');
 
-    // `discounts` and `tax_rates`: the imported order carries the TOTAL it was
-    // placed with and no breakdown. If either literal stops being empty, the
-    // rules behind it are arriving and the coverage must say so.
-    expect(
-      code,
-      'buildExternalOrderDoc no longer writes an empty appliedDiscounts. If an imported ' +
-        "order now carries its discount rules, CHANNEL_ENTITY_POLICY.discounts must stop " +
-        'saying they are not exchanged — that claim is on a merchant\'s screen.',
-    ).toContain('appliedDiscounts: [],');
-    expect(
-      code,
-      'buildExternalOrderDoc no longer writes an empty taxLines — CHANNEL_ENTITY_POLICY.' +
-        'tax_rates says tax rates are not exchanged and would now be false.',
-    ).toContain('taxLines: [],');
+    // `discounts` and `tax_rates`: what the import WRITES and what the policy
+    // CLAIMS, asserted against each other rather than either one alone.
+    //
+    // The first spelling of this checked only that the source still contained
+    // `appliedDiscounts: [],`. It fired correctly when #378 populated the field
+    // — and it could only ever fire in that one direction. Had the policy been
+    // loosened to `partial` while the import still wrote an empty array, the
+    // merchant would have been promised a breakdown that never arrives and this
+    // gate would have stayed green. Binding the two together fails on either
+    // side moving without the other.
+    for (const { entity, emptyLiteral, populatedCall } of [
+      {
+        entity: 'discounts',
+        emptyLiteral: 'appliedDiscounts: [],',
+        populatedCall: 'appliedDiscounts: toAppliedDiscounts(order)',
+      },
+      {
+        entity: 'tax_rates',
+        emptyLiteral: 'taxLines: [],',
+        populatedCall: 'taxLines: toOrderTaxLines(order)',
+      },
+    ] as const) {
+      const writesNothing = code.includes(emptyLiteral);
+      const writesBreakdown = code.includes(populatedCall);
+
+      // Neither and both are each a reading of the source nobody intended: the
+      // field was renamed, or two writers disagree. Either way the checks below
+      // would be measuring nothing, so say so instead of passing.
+      expect(
+        [writesNothing, writesBreakdown].filter(Boolean).length,
+        `buildExternalOrderDoc's ${entity} write matched ${
+          writesNothing && writesBreakdown ? 'BOTH' : 'NEITHER'
+        } of the two shapes this gate knows. The field was renamed or is written twice; ` +
+          'until this is updated the coverage claim for that entity is unmeasured.',
+      ).toBe(1);
+
+      const policy = CHANNEL_ENTITY_POLICY[entity];
+      expect(
+        policy.kind,
+        writesBreakdown
+          ? `an imported order now carries its ${entity} breakdown, so CHANNEL_ENTITY_POLICY.` +
+            `${entity} must not say it is never exchanged — that claim is on a merchant's screen.`
+          : `an imported order writes an empty ${entity} breakdown again, so CHANNEL_ENTITY_POLICY.` +
+            `${entity} promises a merchant lines that never arrive.`,
+      ).toBe(writesBreakdown ? 'partial_arrival' : 'never_synced');
+    }
 
     // `collections`: the DEGREE, which the member census cannot see since #395
     // mapped `fetchCollections` onto the entity. `partial` claims a product
@@ -394,17 +428,36 @@ describe('#380 entity coverage — the never_synced claims are probed, not trust
 });
 
 describe('#380 entity coverage — what a merchant is actually told', () => {
-  it('Shopify says discounts are not synced, and says why', () => {
-    // The report this issue exists for. Pinned by name because "discounts are
-    // not built" is the sentence that was missing, not an example of one.
+  it('Shopify says discounts arrive as order lines only, and says what is missing', () => {
+    // The report this issue exists for, and what it became. The merchant's
+    // complaint was that the screen said nothing about discounts at all; #380
+    // made it say "not exchanged", and #378 then made an imported order carry
+    // the breakdown, so "not exchanged" became the new wrong sentence.
+    //
+    // `partial` rather than `synced` is the whole point: the lines arrive, the
+    // RULE does not, and a merchant who reads `synced` goes looking for a
+    // discount they can edit. Pinned by value because the distinction is the
+    // sentence on the screen, not an implementation detail.
     const discounts = describeChannel('shopify').entityCoverage.find(
       (entry) => entry.entity === 'discounts',
     );
     expect(discounts).toEqual({
       entity: 'discounts',
-      state: 'not_synced',
-      reason: 'not_built_for_this_channel',
+      state: 'partial',
+      directions: ['pull'],
+      caveat: 'breakdown_only_on_imported_orders',
     });
+  });
+
+  it('an unimplemented channel still says discounts are not synced', () => {
+    // The other half of `partial_arrival`: the caveat is a fact about a
+    // provider's normalizer, so a channel with no connector must not inherit it.
+    // Without this, adding a channel id to `channels` would be the only thing
+    // standing between an unbuilt integration and a promise of imported lines.
+    const discounts = describeChannel('etsy').entityCoverage.find(
+      (entry) => entry.entity === 'discounts',
+    );
+    expect(discounts?.state).toBe('not_synced');
   });
 
   it('a model-level absence outranks the channel it is asked about', () => {
@@ -510,18 +563,35 @@ describe('#380 entity coverage — MUTATION SELF-TEST', () => {
     // Mapping a member to an entity the coverage still calls never_synced must
     // break the agreement gate — this is that comparison, run on a mutated copy
     // of the member map.
-    const mutated: Record<string, ChannelSyncEntity> = {
-      ...PROVIDER_ENTITY_MEMBERS,
-      fetchProducts: 'discounts',
+    // `touched` must use the SAME filter the real gate uses. It compared against
+    // `synced` only, which — now that `normalizeOrder` legitimately reaches two
+    // `partial` entities — differs from `reached` even with NO mutation applied.
+    // The self-test was passing without exercising the mutation at all, which is
+    // the exact failure a mutation self-test exists to rule out. So the control
+    // is asserted first: unmutated the two agree, and only then does the mutation
+    // have anything to break.
+    const touchedBy = (map: Record<string, readonly ChannelSyncEntity[]>): string[] => {
+      const reached = new Set<ChannelSyncEntity>();
+      for (const member of Object.keys(shopifyProvider)) {
+        for (const entity of map[member] ?? []) reached.add(entity);
+      }
+      return [...reached].sort();
     };
-    const reached = new Set<ChannelSyncEntity>();
-    for (const member of Object.keys(shopifyProvider)) {
-      const entity = mutated[member];
-      if (entity !== undefined) reached.add(entity);
-    }
     const carried = describeChannel('shopify')
-      .entityCoverage.filter((entry) => entry.state === 'synced')
-      .map((entry) => entry.entity);
-    expect([...reached].sort()).not.toEqual(carried.sort());
+      .entityCoverage.filter((entry) => entry.state !== 'not_synced')
+      .map((entry) => entry.entity)
+      .sort();
+
+    expect(
+      touchedBy(PROVIDER_ENTITY_MEMBERS),
+      'CONTROL: unmutated, the member census and the coverage must agree — otherwise the ' +
+        'mutation below proves nothing, because the comparison was already unequal.',
+    ).toEqual(carried);
+
+    expect(
+      touchedBy({ ...PROVIDER_ENTITY_MEMBERS, fetchProducts: ['gift_cards'] }),
+      'mapping a member onto an entity the coverage calls never_synced must break the ' +
+        'agreement gate.',
+    ).not.toEqual(carried);
   });
 });

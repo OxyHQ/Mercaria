@@ -61,7 +61,7 @@ import { CHANNEL_SYNC_ENTITIES } from '@mercaria/shared-types';
  * What Mercaria does with ONE entity, before the channel is taken into account.
  *
  * `sync_resource` delegates to the descriptor's `resources` and states nothing
- * itself. `mapped_membership` and `never_synced` are the two decisions this file
+ * itself. `partial_arrival` and `never_synced` are the two decisions this file
  * actually records.
  */
 export type ChannelEntityPolicy =
@@ -76,7 +76,7 @@ export type ChannelEntityPolicy =
        * `channels` names which channels do it, because it is a fact about a
        * provider's normalizer rather than about Mercaria's model.
        */
-      readonly kind: 'mapped_membership';
+      readonly kind: 'partial_arrival';
       readonly caveat: ChannelEntityCaveat;
       readonly directions: readonly ['pull'];
       readonly channels: readonly ChannelTypeId[];
@@ -104,7 +104,7 @@ export const CHANNEL_ENTITY_POLICY: Readonly<Record<ChannelSyncEntity, ChannelEn
   orders: { kind: 'sync_resource', resource: 'orders' },
 
   collections: {
-    kind: 'mapped_membership',
+    kind: 'partial_arrival',
     caveat: 'membership_only_through_a_mapping',
     directions: ['pull'],
     // Both implemented pull connectors fill `NormalizedProduct.collectionRefs`
@@ -131,21 +131,31 @@ export const CHANNEL_ENTITY_POLICY: Readonly<Record<ChannelSyncEntity, ChannelEn
   },
 
   discounts: {
-    kind: 'never_synced',
-    reason: 'not_built_for_this_channel',
-    // THE REPORT. `buildExternalOrderDoc` sets `appliedDiscounts: []` and carries
-    // only `totals.discountTotal`, so an imported order's discounted total is
-    // right and nothing says which rule produced it. Mercaria's own `Discount`
-    // records are unaffected and are not published outward either.
-    note: 'Discount rules are not exchanged in either direction. An imported order keeps the discounted total it was placed with, and the rule behind it is not imported.',
+    kind: 'partial_arrival',
+    caveat: 'breakdown_only_on_imported_orders',
+    directions: ['pull'],
+    // THE REPORT, and then its answer. Until #378 `buildExternalOrderDoc` wrote
+    // `appliedDiscounts: []` and carried only `totals.discountTotal`, so the
+    // discounted total was right and nothing said which rule produced it. It now
+    // writes `toAppliedDiscounts(order)` — each allocation's title, amount, and
+    // the code and value type where the platform stated one. What still does NOT
+    // happen is a Mercaria `Discount` RECORD being created, which is why this is
+    // `partial` and not `synced`: the rule is not here to edit, reuse or report
+    // on, and saying `synced` would promise a merchant it is.
+    channels: ['shopify', 'woocommerce'],
+    note: 'An imported order carries its discount lines — title, amount, and the code where the platform sent one. No Mercaria discount rule is created from them, so the rule itself is not editable or reusable here.',
   },
 
   tax_rates: {
-    kind: 'never_synced',
-    reason: 'not_built_for_this_channel',
-    // Same shape as discounts: `taxLines: []` on an imported order, with
-    // `totals.tax` carried. Mercaria's `TaxRate` per jurisdiction is separate.
-    note: 'Tax rates are not exchanged. An imported order keeps the tax it was charged, and Mercaria tax rates are configured here.',
+    kind: 'partial_arrival',
+    caveat: 'breakdown_only_on_imported_orders',
+    directions: ['pull'],
+    // Same shape as discounts, same change in #378: `toOrderTaxLines(order)`
+    // carries each rate's name, amount and — where the platform stated one — its
+    // rate in basis points. Mercaria's own `TaxRate` per jurisdiction is a
+    // separate record and is still neither imported nor published.
+    channels: ['shopify', 'woocommerce'],
+    note: 'An imported order carries its tax lines — the name and amount of each rate charged. No Mercaria tax rate is created from them; the rates used on Mercaria orders are configured here.',
   },
 
   refunds: {
@@ -197,22 +207,29 @@ export const CHANNEL_ENTITY_POLICY: Readonly<Record<ChannelSyncEntity, ChannelEn
  * matching `resources.orders`, whose `push` direction it already IS. Two
  * spellings of "Mercaria reports a fulfilment back" could disagree.
  */
-export const PROVIDER_ENTITY_MEMBERS: Readonly<Record<string, ChannelSyncEntity>> = {
-  fetchProducts: 'products',
+export const PROVIDER_ENTITY_MEMBERS: Readonly<
+  Record<string, readonly [ChannelSyncEntity, ...ChannelSyncEntity[]]>
+> = {
+  fetchProducts: ['products'],
   // #376/#395. Lists the platform's own groupings so a merchant can MAP them
   // onto Mercaria collections they already made. It reaches the entity, which is
   // why it is here; it does not raise the entity to `synced`, because a mapping
   // TARGETS a manual Mercaria collection and creates none — the `partial` claim
   // this member arrived beside, unchanged and now actually reachable, since
   // before #395 no Mercaria client set a mapping at all.
-  fetchCollections: 'collections',
-  normalizeProduct: 'products',
-  expandWebhookProduct: 'products',
-  pushProduct: 'products',
-  fetchInventory: 'inventory',
-  fetchOrders: 'orders',
-  normalizeOrder: 'orders',
-  pushFulfillment: 'orders',
+  fetchCollections: ['collections'],
+  normalizeProduct: ['products'],
+  expandWebhookProduct: ['products'],
+  pushProduct: ['products'],
+  fetchInventory: ['inventory'],
+  fetchOrders: ['orders'],
+  // #378 made an imported order carry its discount allocations and tax lines,
+  // so ONE member reaches three entities. The map held a single entity per
+  // member until then, and the single-value shape was itself the bug: it could
+  // not express what the normalizer actually does, so the coverage census and
+  // the policy were forced to disagree with no honest way to reconcile them.
+  normalizeOrder: ['orders', 'discounts', 'tax_rates'],
+  pushFulfillment: ['orders'],
 };
 
 /**
@@ -291,7 +308,7 @@ export function deriveChannelEntityCoverage(
       };
     }
 
-    if (policy.kind === 'mapped_membership') {
+    if (policy.kind === 'partial_arrival') {
       if (policy.channels.includes(channelType) && availability !== 'not_implemented') {
         return {
           entity,

@@ -184,6 +184,13 @@ export const CHANNEL_ENTITY_CAVEATS = [
    * applied to Mercaria records through a mapping the merchant sets by hand.
    */
   'membership_only_through_a_mapping',
+  /**
+   * The platform's breakdown is snapshotted onto each imported ORDER, and the
+   * rule behind it is not created in Mercaria. A merchant sees what they were
+   * charged and by which line; they do not get the discount or tax-rate record
+   * back, so editing it here is not editing it on the platform.
+   */
+  'breakdown_only_on_imported_orders',
 ] as const;
 
 export type ChannelEntityCaveat = (typeof CHANNEL_ENTITY_CAVEATS)[number];
