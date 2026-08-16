@@ -42,6 +42,7 @@ behind them.
 | **MEASURED** | I ran something and read its output. The command is stated. |
 | **READ** | I read the code or a comment and am reporting what it says. Reading a docblock is not verifying its claim, and several findings below are exactly the gap between the two. |
 | **INFERRED** | A conclusion drawn from the above, stated as such so a later reader can re-derive it. |
+| **MEASURED elsewhere** | Somebody outside this worktree ran it and reported the result — used only in §5.1, where the question is about the live AWS account and is unanswerable from the repository. Recorded with its source, its date and the artefacts, because a number repeated from memory is an assertion however senior the person repeating it. |
 
 Absence claims carry the control that proves the instrument could see the thing
 it reports missing. A scan that reports zero and a scan that read nothing look
@@ -564,11 +565,12 @@ stating the opposite of the code it sits on.
   bucket, and for an anonymous caller that is also 600 per 15 minutes per IP.
 
 **INFERRED:** a single address may mint on the order of 1,200 guest sessions per
-15 minutes across the two routes, with no durable counter recording that it did,
-and multiplied by the running task count if `REDIS_URL` is unset (§5). ADR 0003
-D3 calls lazy issuance plus the per-IP limit "the primary anti-farming control
-(T10)"; the code's intended primary control is `checkGuestAbuse`, and it is
-switched off.
+15 minutes across the two routes, with no durable counter recording that it did.
+**That figure is the fleet-wide one, not a per-task one** — the limiters are
+Redis-backed in production and therefore shared across tasks (§5), so it stands
+as written rather than needing a task-count multiplier. ADR 0003 D3 calls lazy
+issuance plus the per-IP limit "the primary anti-farming control (T10)"; the
+code's intended primary control is `checkGuestAbuse`, and it is switched off.
 
 **M8-13, relayed and consistent with what I read:** `checkGuestAbuse` has exactly
 one non-test call site (`middleware/commerce-actor.ts:465`, scope
@@ -849,19 +851,55 @@ runs on the same resolver (`routes/checkout.ts:50`).
 
 ---
 
-## 5. What could not be verified from this repository
+## 5. What could not be verified from inside this repository
 
 Stated rather than glossed. Each of these must be settled before the flag moves.
 
-- **Whether `REDIS_URL` is set on the production task.** If it is not, every rate
-  limiter falls back to the SDK's in-memory store (`lib/rate-limit.ts:179-190`
-  logs it and continues) and every budget in this document is multiplied by the
-  running task count. `.github/workflows/deploy-aws.yml:263` says the secret is
-  "unset here" in the sync job, which is evidence about the workflow, not about
-  SSM. Both audits and I independently flagged this and none of us could measure
-  it.
-- **The running ECS task count**, for the same reason.
-- **Whether the task definition overrides `NODE_ENV`** (M8-15).
+### 5.1 Resolved from outside the repository: the rate limiters are Redis-backed
+
+This was the largest open item in the first draft of this review, because
+without Redis every limiter falls back to the SDK's in-memory store
+(`lib/rate-limit.ts:179-190` logs it and continues) and every budget in this
+document would be a *per-task* number multiplied by the running task count.
+
+**MEASURED — but not by me, and the provenance matters.** I have no AWS access
+from this worktree; the measurement was taken on 2026-08-16 against the live
+account (profile `oxy`, `us-west-2`, account `237343248947`) and reported to me.
+I record it with its source and date rather than as my own, and I state the three
+artefacts separately because they prove three different things:
+
+1. The running task definition `oxy-mercaria:3` names `REDIS_URL` in `secrets[]`,
+   resolving to
+   `arn:aws:ssm:us-west-2:237343248947:parameter/oxy/_shared/REDIS_URL`. *This
+   proves the task is CONFIGURED with it.*
+2. That SSM parameter holds a real value — 65 characters, scheme `redis://`.
+   (Length and prefix only; the value itself is not recorded here and must not
+   be.) *This proves the parameter is not an empty placeholder.*
+3. `GET https://api.mercaria.co/health` answers
+   `{"status":"healthy","postgres":"connected","redis":"connected", …}`. *This is
+   the one that matters: it proves the running task has CONNECTED, which a task
+   definition alone cannot.*
+
+**Consequence:** the limiters are shared across tasks, so **every rate-limit
+figure in this document stands as written and the task-count multiplier does not
+apply.** M8-03's High grade is unaffected — it does not rest on the multiplier;
+it rests on the abuse control being off and writing no counter.
+
+**A related claim in the repository is easy to misread, and was misread during
+this review.** `.github/workflows/deploy-aws.yml:263` says the `REDIS_URL`
+GitHub secret is unset, so the sync step is a no-op and leaves
+`/oxy/_shared/REDIS_URL` alone on every run. That is a fact about the **sync**,
+not about the **parameter**: the parameter exists and holds a value written by
+another route. A workflow comment saying "we do not write this" is not evidence
+that nothing wrote it, and the two facts must not be allowed to read as one.
+Answer this class of question against the live account, never against the
+workflow that would have set it.
+
+### 5.2 Still unverified
+
+- **Whether the task definition overrides `NODE_ENV`** (M8-15). The image sets it
+  (`Dockerfile:110`); a task-definition override would win. This is answerable in
+  one call by whoever took the measurement above.
 - **Anything about a real browser.** The `SameSite=Lax` reasoning in M8-05, the
   `__Host-` prefix behaviour and the fragment-stripping in M8-11 are arguments
   from specification, not observations.
@@ -962,16 +1000,20 @@ produced nothing.
 11. **M8-11 (Medium).** That the storefront will accept and will not strip an
     exchange token presented as a query parameter.
 12. **M8-12 through M8-16 (Low / Informational)**, as listed in §2.
-13. **The unverifiable items in §5**, above all that `REDIS_URL` is set on the
-    production task — without which every rate limit in this document is
-    multiplied by the running task count.
+13. **The remaining unverified items in §5.2**, and the fact that §5.1's
+    Redis result was measured against the live account by somebody other than
+    the author of this review — recorded with its source, date and three
+    artefacts, and not re-derived here.
 
 **Recommendation.** Do not set `GUEST_COMMERCE_ENABLED=true` in a non-test
-environment until M8-01, M8-02, M8-03 and M8-04 are closed, M8-05 and M8-11 are
-fixed, and the `REDIS_URL` question is answered against the live task definition.
-M8-06 through M8-10 may reasonably be accepted as residual risk with a dated
-plan; the four Highs may not, because each defeats a control this ADR states as
-a launch condition, and M8-01 does so while reporting success.
+environment until M8-01, M8-02, M8-03 and M8-04 are closed and M8-05 and M8-11
+are fixed. M8-06 through M8-10 may reasonably be accepted as residual risk with a
+dated plan; the four Highs may not, because each defeats a control this ADR
+states as a launch condition, and M8-01 does so while reporting success.
+
+The `REDIS_URL` precondition that stood here in the first draft is **closed**:
+§5.1 records the measurement, and every rate-limit figure in this document is
+fleet-wide rather than per-task.
 
 The cheapest honest interpretation of M8-04 is worth saying separately: this
 domain's tests are unusually good at proving that walls exist and were not built
@@ -1008,7 +1050,11 @@ Residual risks accepted (tick each, or record its closure):
   [ ] M8-14  .returning() bypasses the PROTECTED_COLUMNS detector        (Low)
   [ ] M8-15  NODE_ENV load-bearing with no boot assertion                (Low)
   [ ] M8-16  documentation drift, three instances                        (Info)
-  [ ] §5     REDIS_URL and task count unverified on the production task
+  [ ] §5.2   NODE_ENV override on the task definition unverified
+  ---- closed, not accepted ----
+  [x] §5.1   REDIS_URL set and CONNECTED on the production task (measured
+             2026-08-16 against account 237343248947; health payload reports
+             "redis":"connected"). Rate-limit figures are fleet-wide.
 ```
 
 Record the signature through `POST /internal/guest-governance/rollout/signoffs`
