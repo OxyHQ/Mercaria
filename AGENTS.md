@@ -2494,6 +2494,18 @@ pin.
   money. Alerting and scraping for the metrics this exposes belong to
   `oxy-infra`; the full pre-launch list is `docs/payments.md`
   §"Production-readiness checklist".
+- Set `REFERRAL_OPERATOR_OXY_USER_IDS` to the Oxy accounts that may reach
+  `/internal/referrals/*` — its OWN list, distinct from the payments, catalog,
+  guest, analytics, retail and procurement ones, because the power is: pausing
+  attribution stops partners EARNING, and approving a payout batch is the second
+  pair of eyes ADR 0005 D14 requires (`approved_by <> created_by`, so one
+  populated account cannot approve its own batch). EMPTY is a working
+  configuration and means the surface is not mounted at all — but it also means
+  nobody can approve, retry or cancel a payout batch, so a partner accrues and
+  vests and is never paid. It must be populated before referral payouts go live.
+  `STRIPE_ENABLED` plus a payment-ready connected account per partner is the
+  other half: with the rail off, every partner's identity and payout readiness
+  reads `unknown`, which BLOCKS.
 
 ## Graph query benchmarks and the indexes they justified (#61, ADR 0002 D21)
 

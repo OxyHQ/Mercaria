@@ -196,6 +196,12 @@ export * from './referral-attribution';
 // partner balance.
 export * from './referral-earnings';
 
+// The referral partner TAX QUESTIONNAIRE (#146, ADR 0005 D15 gate 2) — the
+// participant/VAT vocabulary, the published questionnaire versions and the
+// fields a tax profile may never carry. No withholding rate and no tax
+// identifier is representable anywhere in it; see the file for why.
+export * from './referral-tax';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';

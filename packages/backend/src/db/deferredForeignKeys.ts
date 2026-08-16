@@ -977,6 +977,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'database at all (ADR 0005 D2 mirrors the provider_accounts owner shape deliberately).',
   },
   { column: 'referral_touches.oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'referral_tax_profiles.declared_by_oxy_user_id', reason: OXY_ACCOUNT },
   {
     column: 'referral_program_controls.program_id',
     reason:

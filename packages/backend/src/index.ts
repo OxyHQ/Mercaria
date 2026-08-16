@@ -479,6 +479,20 @@ connectPostgres()
       // drains whatever accumulated. The settlement loop settles nothing until
       // #146 registers a payout rail; every attempt fails `rail_not_configured`
       // with the batch intact and its claims held.
+      // #146: fill the referral domain's two payout ports — the readiness
+      // reader (ADR 0005 D15 gate 1, over #46's `provider_accounts`) and the
+      // Stripe transfer rail (D14). BEFORE the dispatchers, so the settlement
+      // loop's first pass already has a rail: a batch that failed
+      // `rail_not_configured` while the registry was empty is retryable, and it
+      // settles on that next pass on its own idempotency key, with no replay and
+      // no migration. Both ports fail closed if this import throws — readiness
+      // reads `unknown` and blocks, and the rail stays unregistered.
+      import('./services/referral-payouts/register.js')
+        .then(({ registerReferralPayoutJoin }) => registerReferralPayoutJoin())
+        .catch((err: unknown) =>
+          log.general.error({ err }, 'Referral payout join registration failed'),
+        );
+
       import('./services/referrals/earnings/dispatchers.js')
         .then(
           ({
