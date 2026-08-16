@@ -35,14 +35,30 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 function enumerateDomain(): string[] {
   const roots = [join(SRC_ROOT, 'services', 'outbound'), join(SRC_ROOT, 'db', 'affiliateOutbound')];
   const files: string[] = [];
-  for (const root of roots) {
+  /**
+   * RECURSIVE, and that is a correction rather than a flourish.
+   *
+   * The first version of this walk skipped directories, which silently left
+   * `services/outbound/reconciliation/` — nine modules, the entire commission
+   * half — outside every wall below. A scan that reads a subset reports exactly
+   * what a clean domain reports, and the subset it happened to omit was the
+   * half that talks to affiliate networks and writes to the ledger.
+   *
+   * `__tests__` is excluded deliberately: a test file names the things it
+   * asserts are absent, so scanning it would flag this very file.
+   */
+  const walk = (root: string): void => {
     for (const entry of readdirSync(root)) {
       const full = join(root, entry);
-      if (statSync(full).isDirectory()) continue;
+      if (statSync(full).isDirectory()) {
+        if (entry !== '__tests__') walk(full);
+        continue;
+      }
       if (!entry.endsWith('.ts')) continue;
       files.push(full);
     }
-  }
+  };
+  for (const root of roots) walk(root);
   files.push(join(SRC_ROOT, 'controllers', 'outbound.controller.ts'));
   files.push(join(SRC_ROOT, 'routes', 'outbound.ts'));
   files.push(join(SRC_ROOT, 'db', 'schema', 'affiliateOutbound.ts'));
@@ -88,15 +104,58 @@ function readDomain(): readonly ScannedFile[] {
  * destination. Attribution lives in the link's own parameters; a rebuilt link is
  * indistinguishable from a working one until a month of revenue is missing.
  *
- * Each network parameter name must appear in a URL or as a quoted ARGUMENT —
- * `?clickref=`, `'campid'` — rather than as a bare identifier. Measured: the
- * bare-substring version flagged `networkClickRef`, the column recording what a
- * network REPORTED, which is the opposite of Mercaria composing one. Requiring
- * the parameter context is the eBay gate's own `(campid|…)\s*[=:]` device,
- * tightened so a camelCase property cannot satisfy it.
+ * ## The domain is PARTITIONED, and the reconciliation half EARNS its exemption
+ *
+ * `reconciliation/` legitimately builds URLs — they are Mercaria's own API
+ * requests TO a network (`?startDate=…&timezone=UTC`), which is the opposite of
+ * composing a shopper's destination. Exempting the directory outright would be
+ * the weakening this gate exists to prevent, so instead it is held to a
+ * DIFFERENT and stronger rule: no module under `reconciliation/` may reference a
+ * destination AT ALL ({@link DESTINATION_REFERENCE}). Once that holds, a
+ * `searchParams.set` there provably cannot touch one.
+ *
+ * So the exemption is earned by an assertion rather than granted by a path, and
+ * the day somebody reads an offer's `destinationUrl` in the poll, the build
+ * fails — which is exactly when it should.
+ *
+ * Each network parameter name must appear in a URL QUERY (`?clickref=`) or as
+ * the first argument to a parameter SETTER (`set('campid', …)`). Never as a
+ * bare or merely-quoted identifier.
+ *
+ * That precision was bought three times, each by the same class of false
+ * positive — a detector matching a name being READ rather than a URL being
+ * BUILT:
+ *
+ *  1. `networkClickRef`, the COLUMN recording what a network reported.
+ *  2. `readonly networkClickRef: string | null`, its type.
+ *  3. `record['clickRef']`, the field read out of Awin's own API response —
+ *     which is the reconciliation half's entire subject.
+ *
+ * All three are the opposite of Mercaria composing a parameter, and a gate whose
+ * cheapest green is to delete the code that reads a provider's answer is a gate
+ * pushing toward the hazard. The narrowing makes the detector name the shape
+ * that is actually dangerous; the self-tests below pin both directions.
  */
 const LINK_COMPOSITION =
-  /searchParams\.(set|append|delete)|\.replace\(\s*['"`]?\{destination\}|[?&](campid|mkcid|mkrid|toolid|customid|mkevt|clickref|awinaffid)=|['"`](campid|mkcid|mkrid|toolid|customid|mkevt|clickref|awinaffid)['"`]|buildAffiliateUrl|composeTrackedUrl/i;
+  /searchParams\.(set|append|delete)|\.replace\(\s*['"`]?\{destination\}|[?&](campid|mkcid|mkrid|toolid|customid|mkevt|clickref|awinaffid)=|(set|append)\(\s*['"`](campid|mkcid|mkrid|toolid|customid|mkevt|clickref|awinaffid)['"`]|buildAffiliateUrl|composeTrackedUrl/i;
+
+/**
+ * The composition shapes that are wrong ANYWHERE, reconciliation included.
+ *
+ * `LINK_COMPOSITION` minus the bare `searchParams` mutation, which is the only
+ * member the reconciliation half legitimately uses.
+ */
+const UNCONDITIONAL_LINK_COMPOSITION =
+  /\.replace\(\s*['"`]?\{destination\}|[?&](campid|mkcid|mkrid|toolid|customid|mkevt|clickref|awinaffid)=|(set|append)\(\s*['"`](campid|mkcid|mkrid|toolid|customid|mkevt|clickref|awinaffid)['"`]|buildAffiliateUrl|composeTrackedUrl/i;
+
+/**
+ * A DESTINATION, in any spelling. What the reconciliation half must not touch.
+ *
+ * `network_click_ref` is deliberately not here: it is what a network REPORTED,
+ * which is the reconciliation half's whole subject.
+ */
+const DESTINATION_REFERENCE =
+  /destinationUrl|destination_url|affiliateTrackingTemplate|affiliate_tracking_template|selectOutboundUrl|admitOutboundDestination/;
 
 /**
  * WALL 2 — a destination derived from the REQUEST.
@@ -172,7 +231,25 @@ const LOCAL_FRESHNESS_REFERENCE =
  * than a blanket prohibition.
  */
 const REFERRAL_REFERENCE = /referrals\//;
-const REFERRAL_CLASSIFIER_SEAM = /referrals\/traffic\.js/;
+
+/**
+ * The TWO named modules this domain may reach in the referral tree, and no
+ * others.
+ *
+ * `traffic.js` is the classifier — a pure function over three self-declared
+ * headers, reused rather than re-answered.
+ *
+ * `rewards/funding.js` is #144's PORT, and the edge points the other way: this
+ * domain HANDS the referral domain a reader for reconciled commission
+ * (`registerAffiliateCommissionReader`, which #144 shipped with no default so
+ * that every deployment refuses until #67 lands). Registering it is the whole
+ * of the seam; nothing here READS a referral row.
+ *
+ * Widened from one module to two when the funding registration landed, with the
+ * reason recorded here rather than by deleting the wall — which is the shape
+ * this check exists to force.
+ */
+const REFERRAL_SEAMS = [/referrals\/traffic\.js/, /referrals\/rewards\/funding\.js/];
 
 /** WALL 7 — a FairCoin or OxyPay assumption, in code OR in copy. */
 const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|⊜/;
@@ -193,10 +270,27 @@ describe('outbound isolation (#67)', () => {
     { name: 'names FairCoin or OxyPay', pattern: FAIRCOIN_REFERENCE },
   ];
 
+  const isReconciliation = (path: string) => path.includes('/reconciliation/');
+  const redirectHalf = files.filter((f) => !isReconciliation(f.path));
+  const reconciliationHalf = files.filter((f) => isReconciliation(f.path));
+
+  it('both halves of the domain are non-empty', () => {
+    // A mis-partition would make one of the two walls below vacuous while the
+    // other still passed, which reads exactly like a clean domain.
+    expect(redirectHalf.length).toBeGreaterThanOrEqual(6);
+    expect(reconciliationHalf.length).toBeGreaterThanOrEqual(5);
+    expect(redirectHalf.length + reconciliationHalf.length).toBe(files.length);
+  });
+
   for (const wall of walls) {
     it(`no module ${wall.name}`, () => {
+      // The link-composition wall applies IN FULL to the redirect half only;
+      // the reconciliation half answers to the pair below. Every other wall
+      // applies to the whole domain.
+      const subject =
+        wall.pattern === LINK_COMPOSITION ? redirectHalf : files;
       let scanned = 0;
-      for (const file of files) {
+      for (const file of subject) {
         scanned += 1;
         expect({ path: file.path, hit: wall.pattern.test(file.code) }).toEqual({
           path: file.path,
@@ -205,9 +299,35 @@ describe('outbound isolation (#67)', () => {
       }
       // The scan's own vacuity floor: zero offenders out of zero files is what
       // a broken enumeration reports.
-      expect(scanned).toBe(files.length);
+      expect(scanned).toBe(subject.length);
+      expect(scanned).toBeGreaterThan(0);
     });
   }
+
+  it('the reconciliation half touches no destination, which is what earns its exemption', () => {
+    let scanned = 0;
+    for (const file of reconciliationHalf) {
+      scanned += 1;
+      expect({
+        path: file.path,
+        destination: DESTINATION_REFERENCE.test(file.code),
+        composition: UNCONDITIONAL_LINK_COMPOSITION.test(file.code),
+      }).toEqual({ path: file.path, destination: false, composition: false });
+    }
+    expect(scanned).toBe(reconciliationHalf.length);
+    expect(scanned).toBeGreaterThan(0);
+    // Both detectors must fire on what they look for.
+    expect(DESTINATION_REFERENCE.test('const url = offer.destinationUrl;')).toBe(true);
+    expect(DESTINATION_REFERENCE.test('row.affiliate_tracking_template')).toBe(true);
+    expect(UNCONDITIONAL_LINK_COMPOSITION.test('const u = `${d}?clickref=${id}`;')).toBe(true);
+    expect(UNCONDITIONAL_LINK_COMPOSITION.test("params.set('clickref', clickId)")).toBe(true);
+    expect(UNCONDITIONAL_LINK_COMPOSITION.test("readRef(record['clickRef'])")).toBe(false);
+    // ...and the API request the poll legitimately builds is NOT flagged.
+    expect(UNCONDITIONAL_LINK_COMPOSITION.test("url.searchParams.set('startDate', d)")).toBe(
+      false,
+    );
+    expect(DESTINATION_REFERENCE.test('networkClickRef: row.clickRef ?? null,')).toBe(false);
+  });
 
   it('reaches the referral domain only through the traffic classifier', () => {
     let scanned = 0;
@@ -215,11 +335,15 @@ describe('outbound isolation (#67)', () => {
       scanned += 1;
       for (const line of file.code.split('\n')) {
         if (!REFERRAL_REFERENCE.test(line)) continue;
-        expect({ path: file.path, line: line.trim() }).toEqual({
+        // ONE assertion carrying the path and the line, so a failure NAMES the
+        // offender. The first draft asserted an object against itself before
+        // this check — which can never fail, so the message named no file and
+        // the real assertion below reported a bare `expected false to be true`.
+        expect({
           path: file.path,
           line: line.trim(),
-        });
-        expect(REFERRAL_CLASSIFIER_SEAM.test(line)).toBe(true);
+          permitted: REFERRAL_SEAMS.some((seam) => seam.test(line)),
+        }).toEqual({ path: file.path, line: line.trim(), permitted: true });
       }
     }
     expect(scanned).toBe(files.length);
@@ -235,6 +359,9 @@ describe('outbound isolation (#67)', () => {
     expect(LINK_COMPOSITION.test("url.searchParams.set('campid', id)")).toBe(true);
     expect(LINK_COMPOSITION.test('const u = `${base}?clickref=${clickId}`;')).toBe(true);
     expect(LINK_COMPOSITION.test("append('awinaffid', publisherRef)")).toBe(true);
+    expect(LINK_COMPOSITION.test("params.set('clickref', clickId)")).toBe(true);
+    // ...and READING a provider's own field of that name is not composing one.
+    expect(LINK_COMPOSITION.test("readRef(record['clickRef'])")).toBe(false);
     // The NEGATIVE control: the column that records what a NETWORK reported is
     // not Mercaria composing a parameter.
     expect(LINK_COMPOSITION.test('networkClickRef: text(),')).toBe(false);
@@ -260,16 +387,18 @@ describe('outbound isolation (#67)', () => {
       true,
     );
     // ...and the seam allowance really does distinguish the one permitted import.
+    const permitted = (line: string) => REFERRAL_SEAMS.some((seam) => seam.test(line));
+    expect(permitted("import { classifyReferralTraffic } from '../referrals/traffic.js';")).toBe(
+      true,
+    );
     expect(
-      REFERRAL_CLASSIFIER_SEAM.test(
-        "import { classifyReferralTraffic } from '../referrals/traffic.js';",
-      ),
+      permitted("import { registerAffiliateCommissionReader } from '../referrals/rewards/funding.js';"),
     ).toBe(true);
-    expect(
-      REFERRAL_CLASSIFIER_SEAM.test(
-        "import { attribute } from '../referrals/attribution.service.js';",
-      ),
-    ).toBe(false);
+    // ...and everything else in the referral tree is still refused.
+    expect(permitted("import { attribute } from '../referrals/attribution.service.js';")).toBe(
+      false,
+    );
+    expect(permitted("import { bindTouch } from '../referrals/binding.service.js';")).toBe(false);
     // The prefix check the host detector must NOT flag — the one legitimate
     // `startsWith` in the domain.
     expect(LOOSE_HOST_MATCH.test('token.startsWith(AFFILIATE_OUTBOUND_TOKEN_PREFIX)')).toBe(false);

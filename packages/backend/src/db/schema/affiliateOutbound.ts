@@ -149,12 +149,36 @@ export const affiliateOutboundHosts = pgTable(
       .on(t.catalogSourceId, t.host)
       .where(sql`${t.revokedAt} is null`),
     index('affiliate_outbound_hosts_source_idx').on(t.catalogSourceId),
-    // A bare hostname: at least one label and a dot-separated tail, lower-case
-    // ASCII, digits and hyphens only. Rejects a scheme, a path, a port, a
-    // wildcard, userinfo and an empty string in one predicate.
+    /*
+     * A bare hostname: at least one label and a DOT-separated tail, lower-case
+     * ASCII, digits and hyphens only. Rejects a scheme, a path, a port, a
+     * wildcard, userinfo, a single-label internal name and an empty string in
+     * one predicate.
+     *
+     * ## The literal dot is `[.]` and MUST NOT be written `\.`
+     *
+     * This is a tagged TEMPLATE LITERAL, so JavaScript processes escapes in the
+     * cooked string before drizzle ever sees it. `\.` is not a recognised
+     * escape, so the backslash is silently DROPPED and what reaches Postgres is
+     * `(.[a-z0-9]…)`, where `.` matches ANY character — which admits
+     * `localhost`, the exact single-label internal name this predicate exists
+     * to make unrepresentable.
+     *
+     * Measured, not reasoned: the shipped spelling admitted `localhost`,
+     * `example.test/deals`, `example.test:443` and `user:pass@example.test`.
+     * Three of those are stored-but-dead because a parsed `URL.hostname` can
+     * never contain `/`, `:` or `@`; `localhost` is REACHABLE.
+     *
+     * NOTHING in the build could see it. `tsc` type-checks a template literal,
+     * drizzle-kit renders whatever string it is handed, and the migration
+     * applies cleanly. A character class cannot be mangled by an escape-
+     * processing layer, which is why it is used here rather than `\\.` — that
+     * spelling is correct today and one well-meant "simplification" away from
+     * being wrong again.
+     */
     check(
       'affiliate_outbound_hosts_shape_check',
-      sql`${t.host} ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+      sql`${t.host} ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
         and length(${t.host}) <= 253`,
     ),
     check('affiliate_outbound_hosts_reason_check', sql`length(${t.reason}) > 0`),

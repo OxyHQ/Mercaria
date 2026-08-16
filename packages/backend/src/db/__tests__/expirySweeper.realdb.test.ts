@@ -405,7 +405,12 @@ describe('the registry the sweeper runs over', () => {
     // other two tables are deliberately NEVER swept: a suppression is a
     // person's request to stop receiving mail and does not expire because they
     // waited, and the operator audit must outlive what it is about.
+    // #67 adds ONE — the outbound CLICK, the only table in that domain bounded
+    // by TRAFFIC. Its allow-list is a standing operator decision and its four
+    // commission tables are accounting a publisher statement is reconciled
+    // against months later, so none of the five is swept.
     expect(EXPIRY_TARGETS.map((target) => getTableName(target.table)).sort()).toEqual([
+      'affiliate_outbound_clicks',
       'analytics_events',
       'analytics_experiment_exposures',
       'analytics_pseudonym_salts',

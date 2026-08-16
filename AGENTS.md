@@ -6239,3 +6239,116 @@ it is paid, and what happens when the money it was drawn from goes away.
   `ReferralPayoutBatchPartnerView` is A5's allow-list extended to the batch and
   nothing consumes it), and `vested_reward_past_payout_horizon`, a declared
   discrepancy kind with no producer because the horizon is a policy #146 sets.
+
+
+## Affiliate outbound redirects and commission (#67, part of #37)
+
+`services/outbound/` + `services/outbound/reconciliation/` + `db/affiliateOutbound/`
++ `db/schema/affiliateOutbound.ts` (6 tables) + `GET /out/:token` and
+`/internal/affiliate/*`. Full reference: **`docs/affiliate-outbound.md`**; schema
+decisions: `db/schema/CONVENTIONS.md` §"Affiliate outbound redirects and
+commission (#67)". #57 stores an offer's destination and #62 decides whether it
+may be linked to at all; this is what happens when somebody presses the button,
+and what a network says about it weeks later.
+
+**The issue was closed for weeks with nothing behind it** — auto-closed two
+seconds after #66's PR merged, by the string `…fails closed: #67` in a COMMIT
+MESSAGE. Never write a closing keyword near an issue number you are not
+resolving; a negated one closes too.
+
+- **An open redirect is UNREPRESENTABLE in three places, and only the third is a
+  check.** `AffiliateOutboundTokenClaims` has ONE member and it is an offer id,
+  so there is no field a URL could arrive in. The route reads no query and no
+  body, and `admitOutboundDestination` takes a stored offer plus an allow-list
+  and NOTHING derived from the request — the SIGNATURE is the version a reviewer
+  can check. Only then is the stored URL admitted rather than trusted, because a
+  feed row is a URL a stranger writes into a CSV.
+- **Every host comparison is EXACT on a parsed `URL.hostname`.** The isolation
+  gate is RECEIVER-scoped: `host.endsWith(x)` is refused, `arrayOfHosts.includes(host)`
+  is the correct shape and is not. That distinction was MEASURED — the first
+  pattern flagged the two lines implementing the rule it exists to enforce, which
+  is a gate whose cheapest green is to weaken the correct code.
+- **The shape that defeats `endsWith` is the PREPENDED one** (`notexample.com`
+  against an approved `example.com`), not the appended `example.com.evil.test`,
+  which `endsWith` refuses anyway. Proved by mutation; a test carrying only the
+  appended example stays green against exactly the mutation it is meant to
+  catch. The docblock originally named the wrong one.
+- **A regex inside a drizzle `sql` template must use `[.]`, never `\.`.** A
+  tagged template literal has its escapes COOKED before drizzle sees the string,
+  so the backslash is dropped and `.` matches ANY character. The host CHECK
+  shipped that way and admitted `localhost` — the single-label internal name the
+  predicate exists to forbid. `tsc`, drizzle-kit and the migration all accept it
+  happily, so only a real-server test with a REFUSAL case can see it.
+- **Three false positives, all one class**, and worth remembering before writing
+  the next detector: a name being READ (`networkClickRef` the column, its type,
+  and `record['clickRef']` out of Awin's response) is not a URL being BUILT.
+  Network parameter names must be matched in a URL query (`?clickref=`) or as a
+  SETTER's first argument, never as a bare or merely-quoted identifier.
+- **Mercaria composes NOTHING.** The URL handed over is the provider's own,
+  verbatim. `affiliate_tracking_template` has NEVER held a template — nothing in
+  the repository interpolates a placeholder into it, `ingest.service.ts` writes
+  the provider's complete attributed URL — and the six comments predicting that
+  #37 would build one are corrected rather than left to survive.
+- **The host DISCLOSED is the merchant, not the network.** On an Awin offer the
+  URL handed over is `www.awin1.com/…`, a hop rather than a shop; the page
+  discloses `destination_url`'s host because rule 5 asks for "the real
+  destination merchant". Backwards, it tells a shopper they are going to an
+  affiliate network they have never heard of.
+- **#68's gate checked `may_display` and never the `outbound_link` RIGHT**, so a
+  source that granted it, produced `affiliate` offers, then published a version
+  WITHDRAWING it was still linked to until re-ingestion. Fixed in the GATE, not
+  in the redirect: two authorities answering "may this link out" is the shape
+  that ends with one of them stale. A source with NO ingestion config is left to
+  `may_display` alone (#60's backfill and the operator source predate #62's
+  rights model).
+- **A classification never changes the destination.** Bots and link previews get
+  the redirect and a click row and are excluded from `humanClicks` by
+  `traffic_class`; varying the destination by user agent is cloaking. #143's
+  classifier is REUSED — two answers to "is this a person" would disagree.
+- **`pending` books NOTHING.** Only `approved`/`paid` accrue: debit
+  `affiliate_receivable`, credit `affiliate_commission_revenue` (#89 acceptance
+  6's third figure, which had no account). A reversal is a NEW balanced
+  transaction — there is no `reverseTransaction(id)`, because a correction is a
+  function of what the network decided, not of what is stored. No FX anywhere,
+  which is what makes "sums to zero per currency" hold with no rate involved.
+- **Every network transaction is `unmatched` today**, under
+  `network_supplies_no_reference`, and that is a CONSEQUENCE of #65 and #66
+  forbidding composition rather than a gap: there is no per-click parameter to
+  send and none to echo back. `AFFILIATE_CLICK_REFERENCE_SUPPORT` names both
+  networks `not_supported` so the fact is a value rather than a paragraph.
+  Conversion requirement 6 names exactly this state.
+- **No actor column exists in any of the six tables** — no Oxy id, no session, no
+  pseudonym, no IP, no user agent. Every metric the issue names is a count or a
+  sum over offers, merchants, sources and markets, so a per-person handle on a
+  record retained for accounting buys nothing. `consent_mode` is still recorded:
+  the lawful basis is a fact about the request even when the measurement names
+  nobody. Gated by a walk of the REAL tables, not just a value list.
+- **A click row has NO foreign key at all.** Every id on it is a recorded VALUE —
+  `offers` CASCADEs from `listings`, so a real key would let a seller's deletion
+  destroy history a network reports against weeks later, and #59's merge would
+  repoint a past click onto a product it was not for.
+- **Clicks refuse UPDATE and PERMIT DELETE; observations and postings refuse
+  both.** The inversion is deliberate: erasure on a schedule IS the click
+  retention policy (`analytics_events`' posture), while acceptance 4 ("reversed
+  commissions update reporting without deleting history") IS that pair of
+  refusals on the money side.
+- **Never divide clicks by conversions.** #37 acceptance 3 forbids it and a
+  report is revisable for weeks while a click is not, so the ratio moves without
+  either input being wrong. `AffiliateOutboundReport` has no rate field.
+- Env: `OUTBOUND_REDIRECT_ENABLED` (the MOUNT — the Stripe-webhook reasoning, not
+  "gate the loop": without a secret there is nothing to verify; requires
+  `OUTBOUND_TOKEN_SECRET`), `AFFILIATE_RECONCILIATION_ENABLED` (the poll LOOP
+  only), `AFFILIATE_CLICK_RETENTION_DAYS` (400 — longer than every network's
+  correction window, shorter than the commission record it supports). NEITHER
+  gates a durable record. Operator surface `/internal/affiliate/*` on the
+  PAYMENT allow-list (approving a destination decides where buyers go and the
+  report reads what Mercaria earned) and NOT gated on the redirect — a host must
+  be approvable before it is switched on.
+- Seams, each failing closed: a per-click network REFERENCE (needs a network
+  contract, not code), **eBay** commission reconciliation (`network_not_configured`
+  — deliberately not a stub returning an empty list, which is indistinguishable
+  from "no conversions"), **#73**'s `resolveChannelOutbound` (a channel visit is
+  not an offer click), anchor-level `rel` (`OUTBOUND_LINK_REL` is served as DATA
+  and the redirect answers `X-Robots-Tag: noindex, nofollow`; the storefront
+  renders a `Pressable`, so #75's server-rendered HTML applies it), and #77's
+  client-side `external_outbound_click` (#111 owns the analytics client).

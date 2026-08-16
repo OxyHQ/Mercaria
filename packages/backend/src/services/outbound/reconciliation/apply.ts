@@ -143,6 +143,7 @@ export async function applyReportedTransaction(
     networkProcessedAt: reported.networkProcessedAt,
     advertiserRef: reported.advertiserRef,
     publisherRef: reported.publisherRef,
+    networkClickRef: reported.networkClickRef,
   });
 
   const observed: ObservedAffiliateTransaction = {
@@ -209,7 +210,6 @@ export async function applyReportedTransaction(
       state: reported.state,
       orderValue: reported.orderValue,
       commission: reported.commission,
-      networkClickRef: reported.networkClickRef,
       contentDigest,
     });
 

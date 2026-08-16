@@ -5594,8 +5594,18 @@ weeks later.
   the admission code INTERPRET the row, and an allow-list that needs
   interpreting is one whose meaning can drift from what the operator who typed
   it believed. Comparison at redirect time is EXACT against a parsed
-  `URL.hostname` — never `endsWith`, under which `example.com.evil.test`
-  matches, which is the one host shape the table exists for.
+  `URL.hostname` — never `endsWith`, under which an approved `example.com` also
+  admits the PREPENDED `notexample.com`. That is the shape that does the work,
+  and it was proved by mutation: `example.com.evil.test` is refused by
+  `endsWith` anyway, so a test carrying only the appended example stays green
+  against the very mutation it is meant to catch.
+- **The literal dot in `affiliate_outbound_hosts_shape_check` is `[.]`, never
+  `\.`** — a tagged template literal has its escapes COOKED before drizzle sees
+  the string, so `\.` loses its backslash and becomes `.`, which matches any
+  character and ADMITS `localhost`. Measured on a live server, and invisible to
+  `tsc`, to drizzle-kit and to the migration, all of which handle a wrong regex
+  perfectly happily. Any future regex CHECK in this schema must use a character
+  class for the same reason.
 - **The click row has NO foreign key at all**, and every id on it is a recorded
   VALUE. The `watchlist_snapshot_items.selected_offer_id` ruling applied to a
   whole row, for two reasons rather than one: `offers` CASCADEs from `listings`,

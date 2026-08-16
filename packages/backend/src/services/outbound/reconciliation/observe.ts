@@ -8,21 +8,26 @@
  * in exactly one — and a classification computed inside a database round trip
  * could only ever be tested through one.
  *
- * ## The digest covers the SOURCE-REPORTED fields and nothing Mercaria decided
+ * ## The digest covers EVERY source-reported field and nothing Mercaria decided
  *
- * State, both money pairs, both instants, the advertiser and the publisher
- * reference. Not `match_state`, not `unmatched_reason`, not `matched_click_id`:
- * those are Mercaria's bookkeeping, and folding them in would make a change in
- * Mercaria's own matching rule read as a network having restated its report.
+ * State, both money pairs, both instants, the advertiser reference, the
+ * publisher reference AND the click reference. Not `match_state`, not
+ * `unmatched_reason`, not `matched_click_id`: those are Mercaria's bookkeeping,
+ * and folding them in would make a change in Mercaria's own matching rule read
+ * as a network having restated its report.
  *
- * **`network_click_ref` is deliberately NOT in the digest, and
- * {@link classifyAffiliateObservation} compares it separately.** It IS
- * source-reported, so leaving it out of the digest alone would make a network
- * that started echoing an attribution reference read as `unchanged` forever —
- * and the match would never be recomputed. Comparing it in the classifier keeps
- * the digest to the field list #67 names while closing that hole; the cost is
- * one extra comparison and the benefit is that a network gaining attribution is
- * a `restated` observation somebody can see.
+ * **`network_click_ref` is IN the digest, and leaving it out was a real defect
+ * caught in review.** It is source-reported, so a digest without it would make
+ * a network that STARTED echoing an attribution reference read as `unchanged`
+ * forever — the transaction would never be re-observed, so the match would
+ * never be recomputed, and the symptom would be an attribution that silently
+ * never arrives. "Harmless today because both networks are `not_supported`" is
+ * exactly what would have let it survive review: it waits for somebody else's
+ * contract to change and then presents as normal operation. There is no
+ * volatility argument against including it — a network echoes the same
+ * reference on every poll of one transaction, so it moves precisely when the
+ * attribution moves. {@link classifyAffiliateObservation} therefore compares
+ * digests and nothing else, because two mechanisms for one fact can disagree.
  */
 
 import { createHash } from 'node:crypto';
@@ -41,6 +46,8 @@ export interface AffiliateSourceFacts {
   readonly networkProcessedAt: Date | null;
   readonly advertiserRef: string | null;
   readonly publisherRef: string | null;
+  /** The reference the NETWORK echoed. See the module docblock — it is IN. */
+  readonly networkClickRef: string | null;
 }
 
 /**
@@ -57,7 +64,6 @@ export interface StoredAffiliateObservation {
   readonly orderValueCurrency: string | null;
   readonly commissionAmount: number;
   readonly commissionCurrency: string;
-  readonly networkClickRef: string | null;
   readonly contentDigest: string;
 }
 
@@ -82,6 +88,7 @@ export function affiliateContentDigest(facts: AffiliateSourceFacts): string {
     facts.networkProcessedAt === null ? null : facts.networkProcessedAt.toISOString(),
     facts.advertiserRef,
     facts.publisherRef,
+    facts.networkClickRef,
   ]);
   return createHash('sha256').update(material, 'utf8').digest('hex');
 }
@@ -91,59 +98,90 @@ export interface IncomingAffiliateObservation {
   readonly state: AffiliateTransactionState;
   readonly orderValue: { readonly amount: number; readonly currency: CurrencyCode } | null;
   readonly commission: { readonly amount: number; readonly currency: CurrencyCode };
-  readonly networkClickRef: string | null;
   readonly contentDigest: string;
 }
 
 /**
- * Which of the five kinds this observation is.
+ * The TOTAL ORDER the five kinds are decided in.
  *
- * The precedence is checked in this order and the ORDER is the definition:
+ * A single ordered list rather than a chain of `if`s, because the thing that
+ * goes wrong is never one predicate — it is two of them being true at once and
+ * the wrong one winning. Every entry is a test, and the first that answers
+ * `true` names the kind:
  *
- * 1. **`first_observation`** — nothing stored. The only kind that can be
- *    decided without a comparison.
- * 2. **`state_change`** — the network's own word about the transaction moved.
- *    Checked before the amounts deliberately: an approval that also carries a
- *    corrected commission is a state change first, because that is the fact an
- *    operator reads and the fact that decides whether money is booked. Reading
- *    it as `amount_change` would bury a reversal in the bucket that means
- *    "somebody adjusted a number".
+ * 1. **`first_observation`** — nothing stored. The only kind decidable without
+ *    a comparison, so it cannot be reached by any later rule.
+ * 2. **`state_change`** — the network's own word moved. BEFORE the amounts,
+ *    deliberately: a reversal carrying a corrected commission is a REVERSAL,
+ *    and bucketing it as `amount_change` buries it among "somebody adjusted a
+ *    number", which is the row an operator scrolls past. This is also the
+ *    branch the degenerate case lands on — state, money and metadata all moving
+ *    in one poll, which is exactly what a network does when it validates a
+ *    transaction.
  * 3. **`amount_change`** — same state, and one of the two money pairs moved
  *    (either amount or either currency).
  * 4. **`restated`** — same state, same money, and something else the network
- *    reported moved: an event or processing instant, an advertiser or publisher
- *    reference, or a click reference it did not send before.
- * 5. **`unchanged`** — the digest matches and so does the click reference. A
- *    confirming re-poll, which is the COMMONEST outcome: a 45-day lookback
- *    re-reads every transaction it has already seen.
+ *    reported moved: an event or processing instant, an advertiser reference, a
+ *    publisher reference, or a click reference it did not send before.
+ * 5. **`unchanged`** — the digest matches. The COMMONEST outcome: a 45-day
+ *    lookback re-reads every transaction it has already seen.
  *
  * `restated` and `amount_change` are separate kinds because they send an
  * operator to different places — a moved amount is money to re-book, a
  * re-issued record is a network correcting its own metadata. The shared-types
- * docblock argues for the separation and does not settle which side of the line
- * a same-state commission correction falls on; it is `amount_change` here,
+ * docblock argues for the separation and does not settle which side a
+ * same-state commission correction falls on; it is `amount_change` here,
  * because that is what the NAME of the bucket says and a reader who never read
- * the docblock will read the name. Flipping it is one branch in this function.
+ * the docblock will read the name.
  */
+const CLASSIFICATION_ORDER: readonly {
+  readonly kind: AffiliateObservationKind;
+  readonly matches: (
+    previous: StoredAffiliateObservation | undefined,
+    incoming: IncomingAffiliateObservation,
+  ) => boolean;
+}[] = [
+  { kind: 'first_observation', matches: (previous) => previous === undefined },
+  {
+    kind: 'state_change',
+    matches: (previous, incoming) => previous !== undefined && previous.state !== incoming.state,
+  },
+  {
+    kind: 'amount_change',
+    matches: (previous, incoming) =>
+      previous !== undefined &&
+      (previous.commissionAmount !== incoming.commission.amount ||
+        previous.commissionCurrency !== incoming.commission.currency ||
+        previous.orderValueAmount !== (incoming.orderValue?.amount ?? null) ||
+        previous.orderValueCurrency !== (incoming.orderValue?.currency ?? null)),
+  },
+  {
+    kind: 'restated',
+    matches: (previous, incoming) =>
+      previous !== undefined && previous.contentDigest !== incoming.contentDigest,
+  },
+];
+
+/** Which of the five kinds this observation is. See {@link CLASSIFICATION_ORDER}. */
 export function classifyAffiliateObservation(
   previous: StoredAffiliateObservation | undefined,
   incoming: IncomingAffiliateObservation,
 ): AffiliateObservationKind {
-  if (previous === undefined) return 'first_observation';
-  if (previous.state !== incoming.state) return 'state_change';
-
-  const commissionMoved =
-    previous.commissionAmount !== incoming.commission.amount ||
-    previous.commissionCurrency !== incoming.commission.currency;
-  const orderValueMoved =
-    previous.orderValueAmount !== (incoming.orderValue?.amount ?? null) ||
-    previous.orderValueCurrency !== (incoming.orderValue?.currency ?? null);
-  if (commissionMoved || orderValueMoved) return 'amount_change';
-
-  if (previous.contentDigest !== incoming.contentDigest) return 'restated';
-  if (previous.networkClickRef !== incoming.networkClickRef) return 'restated';
+  for (const rule of CLASSIFICATION_ORDER) {
+    if (rule.matches(previous, incoming)) return rule.kind;
+  }
   return 'unchanged';
 }
+
+/**
+ * The order, exported so a test can assert it is the one documented above.
+ *
+ * A test that only drove the five kinds one at a time would pass under any
+ * ordering; asserting the SEQUENCE is what makes "state before amount"
+ * checkable rather than merely true today.
+ */
+export const AFFILIATE_CLASSIFICATION_ORDER: readonly AffiliateObservationKind[] =
+  CLASSIFICATION_ORDER.map((rule) => rule.kind);
 
 /**
  * Whether a kind means the stored row has to be rewritten.

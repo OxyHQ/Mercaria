@@ -21,8 +21,17 @@
  * ## The comparison is EXACT, on a parsed hostname
  *
  * `URL.hostname`, lower-cased, compared with `===` against a closed set. Never
- * `endsWith`, under which `example.com.evil.test` matches; never `includes`,
- * under which anything matches; never a regex assembled from a stored value.
+ * `endsWith`, under which an approved `example.com` also admits the PREPENDED
+ * `notexample.com`; never `includes`, under which anything matches; never a
+ * regex assembled from a stored value.
+ *
+ * The prepended shape is the one that does the work, and it was proved rather
+ * than argued: mutating this comparison to `host.endsWith(approved.host)` goes
+ * red on `notexample.com` and PASSES `example.com.evil.test` — which ends in
+ * `.evil.test` and is refused by `endsWith` anyway. An earlier draft of this
+ * docblock named the appended shape, and a test carrying only that example
+ * would have stayed green against exactly the mutation the comment warns
+ * about.
  * #66 states the same rule for `AWIN_TRACKING_HOSTS` and this is the same rule
  * one layer out, applied to every destination rather than to Awin's redirectors
  * alone.

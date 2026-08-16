@@ -131,7 +131,12 @@ export async function runAffiliateReconciliationPass(
   if (resolved.outcome === 'unavailable') {
     return {
       network: input.network,
-      runs: [],
+      runs: await recordRefusedAttempt(db, {
+        network: input.network,
+        reason: resolved.reason,
+        detail: resolved.detail,
+        now,
+      }),
       unavailable: { reason: resolved.reason, detail: resolved.detail },
       skippedAccounts: 0,
     };
@@ -139,13 +144,16 @@ export async function runAffiliateReconciliationPass(
 
   const accounts = await resolved.reader.listAccounts(db);
   if (accounts.length === 0) {
+    const detail = `No pollable ${input.network} account is registered on this deployment.`;
     return {
       network: input.network,
-      runs: [],
-      unavailable: {
+      runs: await recordRefusedAttempt(db, {
+        network: input.network,
         reason: 'network_not_configured',
-        detail: `No pollable ${input.network} account is registered on this deployment.`,
-      },
+        detail,
+        now,
+      }),
+      unavailable: { reason: 'network_not_configured', detail },
       skippedAccounts: 0,
     };
   }
@@ -322,6 +330,91 @@ async function runOneWindow(
     rejected: read.rejected.length,
     refused,
   };
+}
+
+/**
+ * The publisher identity a refused attempt may be recorded under, or `null`.
+ *
+ * PURE and takes the eBay identity as an ARGUMENT rather than reading `config`,
+ * so both branches are measurable — a function that read the environment
+ * directly could only ever be tested against whichever branch this deployment
+ * happens to be in, which is the half that already works.
+ */
+export function resolveRefusalAccountRef(
+  network: AffiliateNetworkId,
+  ebay: { readonly campaignId: string; readonly attributionEnabled: boolean },
+): string | null {
+  if (network !== 'ebay') return null;
+  if (!ebay.attributionEnabled) return null;
+  const trimmed = ebay.campaignId.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+/**
+ * Record durably that a pass ASKED and was refused before it could poll.
+ *
+ * #124's rule: a refusal is an OUTCOME. "We never asked" and "we asked and
+ * there was nothing to ask with" lead an operator to opposite conclusions, and
+ * an absent row says both — including "the loop has never run", which is the
+ * reading that lets a broken dispatcher look like a quiet network.
+ *
+ * A `failed` run rather than a completed one with zero counters: nothing was
+ * read, and a completed run is what a genuinely empty window writes. The
+ * failure reason carries WHY.
+ *
+ * ## What it will NOT do is invent an account
+ *
+ * `account_ref` names the publisher account a report was drawn under, and a
+ * placeholder there would make every reader of that column wrong forever. So
+ * the row is written only when the deployment HAS an identity for the network
+ * that could have been used:
+ *
+ * - **eBay** — `EPN_CAMPAIGN_ID`, and only when `attributionEnabled` says it is
+ *   one EPN could have issued. That id IS Mercaria's publisher identity at
+ *   eBay (#65 sends it on every ingestion call), so naming it is accurate.
+ * - **Awin** — the refusal is reached only when no account row exists at all,
+ *   so there is no publisher id, and the pass result carries the reason
+ *   instead. A deployment with no Awin account and no eBay campaign is one
+ *   where "nothing is configured" is the whole truth.
+ */
+async function recordRefusedAttempt(
+  db: Database,
+  input: {
+    network: AffiliateNetworkId;
+    reason: AffiliateReportFailureReason;
+    detail: string;
+    now: Date;
+  },
+): Promise<readonly AffiliateReportRunSummary[]> {
+  const accountRef = resolveRefusalAccountRef(input.network, {
+    campaignId: config.ebay.campaignId,
+    attributionEnabled: config.ebay.attributionEnabled,
+  });
+  if (accountRef === null) return [];
+
+  const lookbackMs = Math.max(1, config.affiliateOutbound.reportLookbackDays) * 24 * 60 * 60 * 1_000;
+  const windowFrom = new Date(input.now.getTime() - lookbackMs);
+  const run = await openAffiliateReportRun(db, {
+    network: input.network,
+    accountRef,
+    windowFrom,
+    windowTo: input.now,
+    now: input.now,
+  });
+  await failAffiliateReportRun(db, { id: run.id, reason: input.reason, now: input.now });
+  return [
+    {
+      runId: run.id,
+      accountRef,
+      windowFrom,
+      windowTo: input.now,
+      state: 'failed',
+      failureReason: input.reason,
+      counters: emptyCounters(),
+      rejected: 0,
+      refused: NO_REFUSALS,
+    },
+  ];
 }
 
 /** All zeroes. A failed run reports what it applied, which is nothing. */

@@ -52,7 +52,9 @@ then the host must be either a network's own redirector (a code constant) or on
 the source's operator-approved allow-list.
 
 **Every comparison is EXACT, on a parsed `URL.hostname`, lower-cased.** Never
-`endsWith`, under which `example.com.evil.test` matches `example.com`. The
+`endsWith`, under which an approved `example.com` also admits the PREPENDED
+`notexample.com` — the appended `example.com.evil.test` is refused by `endsWith`
+anyway, which is why a test carrying only that example proves nothing. The
 isolation gate's third wall is the one that matters most here, and it is
 receiver-scoped: `host.endsWith(x)` is refused, `arrayOfHosts.includes(host)` is
 the correct shape and is not. That distinction was measured rather than assumed
