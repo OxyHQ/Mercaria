@@ -29,6 +29,27 @@
  *   authorization stops qualifying with no sweep having run — the same reason
  *   #55 refuses to trust `status` alone.
  *
+ * ## Every offer-side filter is answered by ONE offer (#438)
+ *
+ * The offer-side filters split at the SQL boundary. Market, kind, availability,
+ * condition and merchant are columns on `offers`, so they narrow the ranking
+ * statement itself and are same-offer by construction. The two that cannot be
+ * expressed there — the price bound, which needs a conversion context, and the
+ * official-channel test, which needs a validity window — are answered HERE, and
+ * they used to be answered SEPARATELY: each was a boolean set by the first offer
+ * that satisfied it on its own. So a product passed `price <= X` AND
+ * `officialChannelOnly` when its cheap offer was unofficial and its official
+ * offer was expensive, and the shopper got a product where neither was true of
+ * the thing they could actually buy — epic #367 Workstream 10's "price and
+ * availability constraints must match one eligible offer", arriving between two
+ * filters that were each individually correct.
+ *
+ * {@link SearchOfferMatch} is the fix, and it is a SHAPE rather than a check:
+ * there is no per-requirement result anywhere for a caller to combine, and the
+ * one value that reports success names the single offer that produced it. The
+ * SQL half of the same rule is `buildEntityPredicate` (#367's facets), which
+ * nests its offer `exists` INSIDE the variant one rather than beside it.
+ *
  * ## Ranking lives in #74 and none of it lives here
  *
  * Offers are ordered by price because that is how the CHEAPEST slice is
@@ -66,15 +87,51 @@ import { convert, getRates } from '../fx.service.js';
 import { selectSearchOffer } from './selected-offer.port.js';
 import { log } from '../../lib/logger.js';
 
+/**
+ * Whether ONE offer answered every offer-side requirement the service applies,
+ * and WHICH offer that was.
+ *
+ * This is the SAME-OFFER invariant, held by the shape rather than by a check.
+ * It replaced two independent booleans — "some current offer was inside the
+ * price bound" and "some current offer came from an official channel" — which
+ * were separately representable, so a product passed both filters when offer A
+ * was cheap and unofficial and offer B was official and expensive. No single
+ * offer satisfied both, and the shopper who asked for "official channel, under
+ * X" was shown a product where neither was true of the thing they could buy
+ * (#438).
+ *
+ * The fix is that there is nowhere in this type to write a per-requirement
+ * result down. `matched` carries the id of the ONE offer that answered
+ * everything, so the wrong answer has no shape to be written in — the rule
+ * `buildEntityPredicate` (#367's facets) holds one layer down in SQL, where the
+ * offer `exists` is nested INSIDE the variant one rather than sitting beside it.
+ *
+ * A STRING discriminant because this backend compiles with `strict: false`:
+ * TypeScript does not narrow a union on the truthiness of a boolean-literal
+ * discriminant, so a `matched: true | false` version would leave every caller
+ * holding the whole union.
+ */
+export type SearchOfferMatch =
+  /** Neither service-side requirement was asked, so there is nothing to match. */
+  | { readonly outcome: 'not_requested' }
+  /** One offer answered every requirement, and it is this one. */
+  | { readonly outcome: 'matched'; readonly offerId: string }
+  /** Requirements were asked and no SINGLE offer answered all of them. */
+  | { readonly outcome: 'unmatched' };
+
 /** Everything a product result learns from its offers. */
 export interface ProductOfferContext {
   readonly summary?: ProductOfferSummary;
   readonly conditionGroups: readonly ConditionGroup[];
   readonly selectedOffer?: SearchSelectedOffer;
-  /** Whether any current offer satisfied the price bound, when one was asked. */
-  readonly satisfiesPrice: boolean;
-  /** Whether any current offer came from an official or authorized channel. */
-  readonly fromOfficialChannel: boolean;
+  /**
+   * Whether ONE current offer answered every service-side offer requirement.
+   *
+   * The SQL-scope filters (market, kind, availability, condition, merchant) are
+   * not here because they are already same-offer by construction: they are
+   * columns on `offers` and narrow the ranking statement itself.
+   */
+  readonly offerMatch: SearchOfferMatch;
 }
 
 /** The page-wide outcome: one context per product, plus the FX it converted with. */
@@ -82,16 +139,6 @@ export interface SearchOfferContexts {
   readonly byProductId: ReadonlyMap<string, ProductOfferContext>;
   readonly fx?: SearchFxContext;
 }
-
-/** A product with no offers at all, so a caller never branches on `undefined`. */
-const EMPTY_CONTEXT: ProductOfferContext = {
-  conditionGroups: [],
-  // No offers means no offer satisfies a bound, and none came from an official
-  // channel. Both defaults are the EXCLUDING ones: an unknown must never
-  // satisfy a filter (`~/AGENTS.md` — unknown is never a soft yes).
-  satisfiesPrice: false,
-  fromOfficialChannel: false,
-};
 
 /**
  * The block reasons that mean a native listing is NOT PUBLISHED.
@@ -154,35 +201,65 @@ function collectPricedCurrencies(offers: readonly Offer[]): Set<string> {
   return currencies;
 }
 
+/** The rate map `getRates` answers with, or `null` when none was needed. */
+type RateMap = Awaited<ReturnType<typeof getRates>> | null;
+
+/**
+ * The price half of a page's requirement set.
+ *
+ * `uninterpretable` is a bound whose OWN currency is outside Mercaria's
+ * presentment set. `SearchPriceFilter.currency` is a loose three-or-four-letter
+ * string at the schema boundary, so a shopper can send one; nothing can be
+ * shown to satisfy it, and every offer is therefore refused rather than
+ * admitted. That is the same direction as every other unknown here.
+ */
+type PriceRequirement =
+  | { readonly bound: 'uninterpretable' }
+  | {
+      readonly bound: 'interpretable';
+      readonly filter: NonNullable<SearchFilters['price']>;
+      readonly target: CurrencyCode;
+      readonly rates: RateMap;
+    };
+
 /**
  * Whether one offer's price falls inside the bound, once converted.
  *
- * THREE answers, not two, and the third is the reason this is not a boolean.
- * `unconvertible` covers an unpriced offer, a currency outside Mercaria's
- * presentment set, and a pair the rate map could not serve — all of which mean
- * "Mercaria cannot say", and none of which may be reported as "too expensive".
- * The caller names those currencies in {@link SearchFxContext} so the exclusion
- * is visible rather than silent, which is #70's "explicit FX behavior".
+ * FOUR answers, not two, and the extra ones are the reason this is not a
+ * boolean. An offer Mercaria cannot price in the bound's currency has NOT been
+ * shown to be too expensive, and must not be read as satisfying the bound
+ * either — #74's `RankingSignalOutcome` and #78's `PriceHistoryValue` take the
+ * same third answer, and `~/AGENTS.md` states the rule: unknown is never a soft
+ * yes and never a quiet no.
+ *
+ * The two unknowns are kept apart because only one of them has anything to
+ * report. `unconvertible` NAMES the currency in the branch itself, so recording
+ * the exclusion without naming it is unrepresentable, and the caller lists it in
+ * {@link SearchFxContext} — #70's "explicit FX behavior". `unpriced` is an offer
+ * that publishes no price at all, so there is no currency to name.
  */
-type PriceVerdict = 'within' | 'outside' | 'unconvertible';
+type OfferPriceVerdict =
+  | { readonly price: 'within' }
+  | { readonly price: 'outside' }
+  | { readonly price: 'unpriced' }
+  | { readonly price: 'unconvertible'; readonly currency: string };
 
-function evaluatePriceBound(
-  offer: Offer,
-  filter: NonNullable<SearchFilters['price']>,
-  target: CurrencyCode,
-  rates: Awaited<ReturnType<typeof getRates>> | null,
-): PriceVerdict {
-  if (offer.price === undefined) return 'unconvertible';
-  const source = asCurrencyCode(offer.price.currency);
-  if (source === null) return 'unconvertible';
+function evaluatePriceBound(offer: Offer, requirement: PriceRequirement): OfferPriceVerdict {
+  if (offer.price === undefined) return { price: 'unpriced' };
+  const currency = offer.price.currency;
+  if (requirement.bound === 'uninterpretable') return { price: 'unconvertible', currency };
 
+  const source = asCurrencyCode(currency);
+  if (source === null) return { price: 'unconvertible', currency };
+
+  const { filter, target, rates } = requirement;
   let amount: number;
   if (source === target) {
     // A same-currency comparison needs no rate at all, so it stays answerable
     // on a page where FX is unavailable entirely.
     amount = offer.price.amount;
   } else if (rates === null) {
-    return 'unconvertible';
+    return { price: 'unconvertible', currency };
   } else {
     try {
       // `convert` throws when either side has no rate — it never fabricates
@@ -190,13 +267,143 @@ function evaluatePriceBound(
       // rather than allowed to fail the page.
       amount = convert({ amount: offer.price.amount, currency: source }, target, rates).amount;
     } catch {
-      return 'unconvertible';
+      return { price: 'unconvertible', currency };
     }
   }
 
-  if (filter.minMinor !== undefined && amount < filter.minMinor) return 'outside';
-  if (filter.maxMinor !== undefined && amount > filter.maxMinor) return 'outside';
-  return 'within';
+  if (filter.minMinor !== undefined && amount < filter.minMinor) return { price: 'outside' };
+  if (filter.maxMinor !== undefined && amount > filter.maxMinor) return { price: 'outside' };
+  return { price: 'within' };
+}
+
+/**
+ * Everything the SERVICE tests one offer against, carried TOGETHER.
+ *
+ * The offer-side filters split at the SQL boundary. Market, kind, availability,
+ * condition and merchant are columns on `offers`, so they go into the ranking
+ * statement's scope and are same-offer by construction. The two that cannot go
+ * there are these — a price bound, which needs a conversion context the
+ * statement has none of, and the official-channel test, which needs #55's
+ * validity window — and they are carried in ONE object for exactly the reason
+ * `buildEntityPredicate` nests its offer `exists` inside the variant one:
+ * evaluating them apart answers "a cheap one exists and an official one exists",
+ * which is a different question from the one the shopper asked.
+ *
+ * There is deliberately no product-level function in this module that takes one
+ * of these alone.
+ */
+interface OfferRequirements {
+  readonly price?: PriceRequirement;
+  /**
+   * The merchants holding a live official or authorized-reseller relationship
+   * for THIS product's own brand.
+   *
+   * Present exactly when the shopper asked for the filter, and an EMPTY set is a
+   * real answer rather than an absence: a product with no brand, or one whose
+   * brand nobody is authorized for, gets an empty set and can match no offer.
+   * Using absence for that would delete the requirement instead of failing it,
+   * which is the trap — a brandless product would then pass a filter it cannot
+   * satisfy.
+   */
+  readonly officialMerchants?: ReadonlySet<string>;
+}
+
+/** Answered for a product with no brand, and for a brand nobody is authorized for. */
+const NO_OFFICIAL_MERCHANTS: ReadonlySet<string> = new Set<string>();
+
+/**
+ * One offer's answer to the WHOLE requirement set.
+ *
+ * Only `satisfied` may produce a match. The two unknowns are neither a yes nor
+ * a no, and they carry DISTINCT discriminant strings rather than a shared
+ * `'unknown'` with an optional field: two members spelling their discriminant
+ * the same way do not narrow, and an optional currency would let an
+ * unconvertible verdict be recorded without naming the currency it excluded.
+ * Spelled this way, `unknown_unconvertible` cannot exist without one.
+ */
+type OfferVerdict =
+  | { readonly verdict: 'satisfied' }
+  | { readonly verdict: 'refused' }
+  /** The offer publishes no price at all, so there is no currency to name. */
+  | { readonly verdict: 'unknown_unpriced' }
+  /** Priced, in a currency the bound could not be expressed against. */
+  | { readonly verdict: 'unknown_unconvertible'; readonly currency: string };
+
+/**
+ * Test ONE offer against ALL the requirements.
+ *
+ * This is the atom the same-offer invariant rests on: the only thing that can
+ * report success takes a single offer and the entire requirement set, so a
+ * "satisfied" that came from two different offers cannot be constructed.
+ *
+ * The price is evaluated FIRST even when the official test would refuse the
+ * offer anyway, because an unconvertible currency is worth naming in the FX
+ * report whatever else was wrong with the offer — the exclusion being visible is
+ * the point, and over-reporting it is the safe direction.
+ */
+function evaluateOffer(offer: Offer, requirements: OfferRequirements): OfferVerdict {
+  if (requirements.price !== undefined) {
+    const price = evaluatePriceBound(offer, requirements.price);
+    if (price.price === 'unconvertible') {
+      return { verdict: 'unknown_unconvertible', currency: price.currency };
+    }
+    if (price.price === 'unpriced') return { verdict: 'unknown_unpriced' };
+    if (price.price === 'outside') return { verdict: 'refused' };
+  }
+
+  if (requirements.officialMerchants !== undefined) {
+    if (offer.merchantId === undefined) return { verdict: 'refused' };
+    if (!requirements.officialMerchants.has(offer.merchantId)) return { verdict: 'refused' };
+  }
+
+  return { verdict: 'satisfied' };
+}
+
+/** The page-level report the matcher produces beside its verdict. */
+interface OfferMatchOutcome {
+  readonly match: SearchOfferMatch;
+  readonly unconvertibleCurrencies: readonly string[];
+}
+
+/**
+ * Walk one product's current offers and answer whether ONE of them cleared
+ * every requirement.
+ *
+ * The walk does NOT stop at the first match. Today's predecessor stopped
+ * evaluating the price as soon as any offer satisfied it, which made the set of
+ * currencies reported unconvertible depend on where in the cheapest-first order
+ * the first match happened to sit; running every offer makes that report
+ * complete and order-independent. The set is bounded by `SUMMARY_OFFER_LIMIT`
+ * per product, so the extra work is a handful of comparisons over rows that are
+ * already in memory — no extra statement, no extra round trip.
+ */
+function matchOfferRequirements(
+  offers: readonly Offer[],
+  requirements: OfferRequirements,
+): OfferMatchOutcome {
+  if (requirements.price === undefined && requirements.officialMerchants === undefined) {
+    return { match: { outcome: 'not_requested' }, unconvertibleCurrencies: [] };
+  }
+
+  let matchedOfferId: string | undefined;
+  const unconvertibleCurrencies: string[] = [];
+  for (const offer of offers) {
+    const outcome = evaluateOffer(offer, requirements);
+    if (outcome.verdict === 'unknown_unconvertible') {
+      unconvertibleCurrencies.push(outcome.currency);
+    }
+    if (outcome.verdict === 'satisfied' && matchedOfferId === undefined) {
+      matchedOfferId = offer.id;
+    }
+  }
+
+  return {
+    match:
+      matchedOfferId === undefined
+        ? { outcome: 'unmatched' }
+        : { outcome: 'matched', offerId: matchedOfferId },
+    unconvertibleCurrencies,
+  };
 }
 
 /**
@@ -302,7 +509,7 @@ export async function buildSearchOfferContexts(
   const priceFilter = input.filters.price;
   const target = priceFilter === undefined ? null : asCurrencyCode(priceFilter.currency);
   let fx: SearchFxContext | undefined;
-  let rates: Awaited<ReturnType<typeof getRates>> | null = null;
+  let rates: RateMap = null;
 
   if (priceFilter !== undefined && target !== null) {
     const currencies = collectPricedCurrencies([...projectedById.values()]);
@@ -332,28 +539,62 @@ export async function buildSearchOfferContexts(
         )
       : new Map<string, Set<string>>();
 
+  // The price half of the requirement set, built ONCE for the page. A bound
+  // whose own currency is not a `CurrencyCode` is `uninterpretable`, so no
+  // offer can satisfy it and every product is refused — the behaviour before
+  // #438, stated as a shape rather than left to a flag that never flips.
+  const priceRequirement: PriceRequirement | undefined =
+    priceFilter === undefined
+      ? undefined
+      : target === null
+        ? { bound: 'uninterpretable' }
+        : { bound: 'interpretable', filter: priceFilter, target, rates };
+
+  const wantsOfficialChannel = input.filters.officialChannelOnly === true;
+
+  /** One product's requirement set: the page's price bound, this brand's merchants. */
+  const requirementsFor = (brandId: string | null): OfferRequirements => ({
+    ...(priceRequirement === undefined ? {} : { price: priceRequirement }),
+    // Requested-ness is decided by the FILTER, never by whether this product
+    // has a brand. A brandless product gets an EMPTY set, which no offer can
+    // be a member of, so it fails the requirement — where omitting the key
+    // would delete the requirement and let it pass a filter it cannot satisfy.
+    ...(wantsOfficialChannel
+      ? {
+          officialMerchants:
+            brandId === null
+              ? NO_OFFICIAL_MERCHANTS
+              : (officialBrands.get(brandId) ?? NO_OFFICIAL_MERCHANTS),
+        }
+      : {}),
+  });
+
   const unconvertible = new Set<string>();
   const byProductId = new Map<string, ProductOfferContext>();
 
+  /**
+   * A product with no contributing offer, so a caller never branches on
+   * `undefined`.
+   *
+   * Its match comes from running the SAME matcher over an EMPTY offer list
+   * rather than from a hardcoded default: with no requirements that is
+   * `not_requested` and with requirements it is `unmatched`, and there is no
+   * second place for the two to disagree.
+   */
+  const emptyContext = (brandId: string | null): ProductOfferContext => ({
+    conditionGroups: [],
+    offerMatch: matchOfferRequirements([], requirementsFor(brandId)).match,
+  });
+
   for (const product of input.products) {
     const projected = projectedByProduct.get(product.canonicalProductId) ?? [];
-    if (projected.length === 0) {
-      byProductId.set(product.canonicalProductId, EMPTY_CONTEXT);
-      continue;
-    }
-
     const current = projected.filter(contributesToSummary);
     if (current.length === 0) {
-      byProductId.set(product.canonicalProductId, EMPTY_CONTEXT);
+      byProductId.set(product.canonicalProductId, emptyContext(product.brandId));
       continue;
     }
 
     const groups = new Set<ConditionGroup>();
-    let satisfiesPrice = priceFilter === undefined;
-    let fromOfficialChannel = false;
-    const officialMerchants =
-      product.brandId === null ? undefined : officialBrands.get(product.brandId);
-
     for (const offer of current) {
       // The projection's OWN segment, never a second derivation from the key.
       // `OfferConditionDTO.group` is absent exactly when the key is `unknown`,
@@ -361,23 +602,13 @@ export async function buildSearchOfferContexts(
       // "new/used context" a shopper reads is a claim, and Mercaria does not
       // have one for an offer whose source said nothing.
       if (offer.condition.group !== undefined) groups.add(offer.condition.group);
-
-      if (priceFilter !== undefined && target !== null && !satisfiesPrice) {
-        const verdict = evaluatePriceBound(offer, priceFilter, target, rates);
-        if (verdict === 'within') satisfiesPrice = true;
-        if (verdict === 'unconvertible' && offer.price !== undefined) {
-          unconvertible.add(offer.price.currency);
-        }
-      }
-
-      if (
-        officialMerchants !== undefined &&
-        offer.merchantId !== undefined &&
-        officialMerchants.has(offer.merchantId)
-      ) {
-        fromOfficialChannel = true;
-      }
     }
+
+    // The SAME-OFFER test, in one call over the whole requirement set. There is
+    // no per-requirement answer to combine afterwards, which is what makes
+    // "offer A was cheap and offer B was official" impossible to express (#438).
+    const matched = matchOfferRequirements(current, requirementsFor(product.brandId));
+    for (const currency of matched.unconvertibleCurrencies) unconvertible.add(currency);
 
     // #74's seam, asked once per product with the offers it may choose among.
     // `undefined` while no selector is registered — see `selected-offer.port.ts`
@@ -396,8 +627,7 @@ export async function buildSearchOfferContexts(
       summary: summariseProjectedOffers(product.canonicalProductId, current),
       conditionGroups: [...groups].sort(),
       ...(selectedOffer === undefined ? {} : { selectedOffer }),
-      satisfiesPrice,
-      fromOfficialChannel,
+      offerMatch: matched.match,
     });
   }
 
