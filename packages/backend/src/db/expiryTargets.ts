@@ -238,6 +238,16 @@ const GUEST_CLAIM_OUTBOX_RETENTION_SECONDS = 14 * 24 * 60 * 60;
  * That is deliberate and it is the strongest form data-lifecycle rule 7 can
  * take: rotating an identifier and keeping the key that reproduces it would
  * rotate nothing.
+ *
+ * This constant is the WRITER's stamping offset and is consumed by
+ * `services/analytics/identity.ts`, which sets `expires_at = opened_at + 45d`
+ * when it opens an epoch. It must NOT also be the registry's `retentionSeconds`:
+ * the sweep deletes where `column <= now() - retentionSeconds`, so naming it in
+ * both places applies the window TWICE and retires the salt at 90 days — the
+ * exact shape `identity.ts` says it is avoiding, and one that makes the salt
+ * live precisely as long as the discovery events derived under it. Measured,
+ * not assumed; `expirySweeper.realdb.test.ts` seeds a salt one hour past its
+ * stamped deadline and fails if it survives the tick.
  */
 const ANALYTICS_SALT_RETENTION_SECONDS = 45 * 24 * 60 * 60;
 
@@ -548,7 +558,15 @@ export const EXPIRY_TARGETS: readonly ExpirySweepTarget[] = [
   {
     table: analyticsPseudonymSalts,
     column: analyticsPseudonymSalts.expiresAt,
-    retentionSeconds: ANALYTICS_SALT_RETENTION_SECONDS,
+    // ZERO, like every other analytics target: `identity.ts` already stamped
+    // `expires_at = opened_at + 45d` from `RETENTION_SECONDS.analyticsSalt`.
+    // Naming the same window here too applied it twice and retired the salt at
+    // 90 days, which is exactly as long as a discovery event lives — so the
+    // guarantee below was false for the largest event class, and
+    // `countOverdueSalts` (which reads the stamped deadline) reported every
+    // epoch overdue for 45 days, permanently, turning the one health counter
+    // that can see this failure into noise somebody mutes.
+    retentionSeconds: 0,
     reason:
       'A retired pseudonym salt, 45 days after the epoch was created — deliberately SHORTER ' +
       'than the events derived under it live. This delete is what makes rotation real: after ' +
