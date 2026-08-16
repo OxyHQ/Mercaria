@@ -640,3 +640,13 @@ export * from './navigation';
 // markets" a property of the field rather than a discipline every reader has to
 // remember.
 export * from './catalog-localization';
+// Compatibility and automotive fitment (#367 step 8, ADR 0007 D8). LAST, and it
+// depends on nothing above it — the domain is a relationship between catalogue
+// identities and defines no money, no offer and no ranking vocabulary. Its
+// applicability tuple has FOUR members because `does_not_apply` and `unknown`
+// are different answers a shopper acts on differently, its verification methods
+// have no `title_similarity` member so two names looking alike can never
+// establish a fit, and `COMPATIBILITY_FORBIDDEN_VARIANT_AXIS_FACTS` states the
+// epic's own acceptance scenario as a VALUE: one brake-pad SKU fits a thousand
+// vehicles and stays ONE variant.
+export * from './compatibility';

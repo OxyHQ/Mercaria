@@ -1890,4 +1890,17 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'product_type_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'attribute_value_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'category_localized_slugs.issued_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // ── #367 step 8's compatibility and automotive fitment (ADR 0007 D8) ──────
+  // Five ATTRIBUTION identities, and the distinction they draw is the one the
+  // domain's isolation gate also draws: an Oxy account id naming the operator
+  // who verified, revoked or reviewed a claim is the audit trail, while an Oxy
+  // account id naming the person a claim is ABOUT would make "does this fit"
+  // answerable differently for two shoppers. There is no column of the second
+  // kind in any of the seven tables, and `COMPATIBILITY_FORBIDDEN_SUBJECT_FACTS`
+  // plus `compatibility-isolation.test.ts` are what keep it that way.
+  { column: 'generic_compatibility_relations.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'generic_compatibility_relations.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'automotive_fitments.verified_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'automotive_fitments.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'compatibility_claims.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];
