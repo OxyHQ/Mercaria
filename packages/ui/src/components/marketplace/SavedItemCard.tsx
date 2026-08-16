@@ -226,8 +226,16 @@ function ListingBody({ item }: { item: Extract<SavedItem, { kind: "listing" }> }
  * platform trades in whatever it trades in), while `PriceDisplay` converts a
  * `Money` whose currency is Mercaria's presentment union. Narrowing by
  * MEMBERSHIP rather than casting is the difference between a currency the FX
- * layer can actually convert and one it will silently fail to — the fallback
- * shows the amount beside its own code, which is honest and legible.
+ * layer can actually convert and one it will silently fail to.
+ *
+ * The unpresentable branch shows the CODE AND NO NUMBER (#441). It used to print
+ * `price.amount` raw, which is integer MINOR units — `129900 RON` for a price of
+ * 1299.00. Membership in `ALL_CURRENCY_CODES` is the SAME question as a known
+ * `CURRENCY_PRECISION` entry (the former is literally `Object.keys` of the
+ * latter), so this branch is exactly where `formatSourceMoney` returns `null`,
+ * and this is that documented contract honoured rather than a second rendering
+ * of it: with no precision there is no divisor, so any number printed here is a
+ * guess. `OfferRow`'s delivery line already resolves its own `null` the same way.
  */
 function OfferPrice({ price }: { price?: { amount: number; currency: string } }) {
   if (!price) {
@@ -238,8 +246,8 @@ function OfferPrice({ price }: { price?: { amount: number; currency: string } })
   );
   if (!presentable) {
     return (
-      <Text className="text-bodyTitleSmall text-text">
-        {price.amount} {price.currency}
+      <Text className="text-caption text-text-tertiary">
+        Price published in {price.currency}
       </Text>
     );
   }
