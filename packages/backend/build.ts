@@ -2,7 +2,7 @@ import * as esbuild from 'esbuild';
 
 await esbuild.build({
   /**
-   * TWO entry points, and the second is not optional.
+   * THREE entry points, and neither of the last two is optional.
    *
    * `src/db/migrate.ts` is the one-shot the deploy runs before and after the
    * rollout (`.github/workflows/deploy-aws.yml`). It cannot be invoked the way a
@@ -11,14 +11,28 @@ await esbuild.build({
    * way to migrate the production database from the image that contains the
    * migrations.
    *
-   * `outdir` rather than `outfile` because there are two: esbuild takes the entry
-   * points' common ancestor (`src/`) as the base, so these land exactly at
-   * `dist/index.js` and `dist/db/migrate.js`. The migrator calls `main()` at
-   * module load, so the emitted file runs on plain `node <path>`.
+   * `src/scripts/provision-taxonomy.ts` is here for exactly that reason. The
+   * marketplace taxonomy has to be installed into a database that only exists
+   * inside the VPC, so it is run as a one-shot ECS task against the production
+   * image — and an entry point is the only way a script reaches `dist/`. It is
+   * NOT a deploy step: it is idempotent and appends nothing on a re-run, so it
+   * is safe to run again, but nothing runs it automatically.
    *
-   * Note the two sit at different depths below the package root, which is why
+   * `src/scripts/seed.ts` is deliberately NOT an entry point and must not
+   * become one. It opens by DELETING every listing, store, order, review and
+   * category in the database it is pointed at, so putting it in the production
+   * image would place a marketplace-destroying one-shot one `command` override
+   * away from a running service.
+   *
+   * `outdir` rather than `outfile` because there are three: esbuild takes the
+   * entry points' common ancestor (`src/`) as the base, so these land exactly at
+   * `dist/index.js`, `dist/db/migrate.js` and `dist/scripts/provision-taxonomy.js`.
+   * The migrator and the provisioner both call their main function at module
+   * load, so the emitted files run on plain `node <path>`.
+   *
+   * Note they sit at different depths below the package root, which is why
    * `db/migrationsFolder.ts` resolves by finding that root rather than by
-   * counting `..` segments — no fixed count is correct for both.
+   * counting `..` segments — no fixed count is correct for all three.
    *
    * Code splitting is deliberately left OFF (esbuild's default): each entry is
    * self-contained, so the migrator cannot fail at container start on a missing
@@ -28,6 +42,7 @@ await esbuild.build({
   entryPoints: [
     'src/index.ts',
     'src/db/migrate.ts',
+    'src/scripts/provision-taxonomy.ts',
   ],
   bundle: true,
   platform: 'node',
