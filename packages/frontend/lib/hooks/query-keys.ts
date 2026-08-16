@@ -302,4 +302,23 @@ export const queryKeys = {
     byGuestOrder: (checkoutGroupId: string, orderId: string) =>
       ["collection", "guest", checkoutGroupId, orderId] as const,
   },
+  /**
+   * The referral partner's own dashboard (#147).
+   *
+   * NO key here carries a partner id, an owner id or an Oxy account id, and
+   * that is not only privacy hygiene: the server resolves the owner from the
+   * credential, so a key naming one would be a client-side idea of whose data
+   * this is that could disagree with the server's. The performance key carries
+   * the DIMENSION and the window because those are what the client actually
+   * varies; a cache holding two partners' figures at once cannot arise, because
+   * signing out clears the client.
+   */
+  referralPartner: {
+    all: ["referral-partner"] as const,
+    dashboard: ["referral-partner", "dashboard"] as const,
+    earnings: ["referral-partner", "earnings"] as const,
+    instruments: ["referral-partner", "instruments"] as const,
+    performance: (dimension: string, from: string, through: string) =>
+      ["referral-partner", "performance", dimension, from, through] as const,
+  },
 } as const;

@@ -30,6 +30,7 @@ Disallow: /watchlists
 Disallow: /notifications
 Disallow: /price-alerts
 Disallow: /shopping-agents
+Disallow: /referral-partner
 Disallow: /guest-orders/
 Disallow: /forgot-password
 Disallow: /reset-password

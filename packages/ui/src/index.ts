@@ -443,6 +443,19 @@ export {
   formatWeekday,
   type BuyerPickupBlockCopy,
 } from "./lib/pickup-labels";
+// The referral partner dashboard's reader-facing copy (#147). Labels and
+// sentences only — no colour map, because #147 accessibility rule 2 asks that
+// a financial state not depend on one, and a surface wanting colour writes it
+// beside the label so a reviewer can see the label carries the meaning alone.
+export {
+  REFERRAL_OUTSTANDING_LABELS,
+  REFERRAL_PAYOUT_STATUS_LABELS,
+  REFERRAL_REWARD_STATE_EXPLANATIONS,
+  REFERRAL_REWARD_STATE_LABELS,
+  describeMetric,
+  describeRewardBasis,
+  describeWithheldRows,
+} from "./lib/referral-labels";
 export {
   NearbyLocationCard,
   type NearbyLocationCardProps,

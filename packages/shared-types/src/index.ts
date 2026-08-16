@@ -218,6 +218,14 @@ export * from './referral-enrollment';
 // twelve retention classes with their policy.
 export * from './referral-integrity';
 
+// The referral partner DASHBOARD and operator program management (#147, under
+// ADR 0005 A5/D19) — the disclosure floor a per-dimension breakdown is subject
+// to, the metric definitions every published figure names, the composed
+// partner-safe dashboard, and the operator's own program view. The six
+// performance dimensions are six rather than #147's nine, and the file says
+// which section answers the other three.
+export * from './referral-dashboard';
+
 // Marketplace fee vocabulary (#88): commercial modes, fee schedule value sets
 // and the merchant-facing schedule/acceptance/preview/snapshot DTOs.
 export * from './fees';

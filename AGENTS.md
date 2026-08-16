@@ -6359,6 +6359,114 @@ pay nobody and this closes it.
   failing `transport_unconfigured`, never a `console.log` rail), and the annual
   earnings STATEMENT D15 promises.
 
+## The referral partner dashboard and program management (#147)
+
+`services/referrals/dashboard/` (8 modules) + `db/referrals/performanceRepository.ts`
++ `controllers/referral-program-operator.controller.ts` + nine routes on #146's
+`makeReferralPartnerRouter` and eleven on `/internal/referrals/*`, plus
+`@mercaria/ui` `lib/referral-labels.ts` and the storefront's
+`app/(app)/referral-partner.tsx`. Full reference:
+**`docs/referral-dashboards.md`**. **NO new tables and NO migration** — the whole
+domain is a projection, the #92/#73 shape.
+
+Six partner-safe projections had existed since #142 with ZERO consumers, and the
+four instrument services and seven program-lifecycle services were mounted on NO
+route at all: a partner could enrol, accept terms and complete the tax
+questionnaire, and then had no way to see a link, a number or a payout.
+
+- **The owner is a PARAMETER and #147 adds no third mount.** Nothing in the
+  domain reads a partner id off a request — not a route parameter, not a query
+  string, not a body field — so "a partner sees their own numbers and nobody
+  else's" is a question the surface cannot ask. The two routes that name an
+  INSTRUMENT compare it against the resolved owner and answer ONE
+  indistinguishable 404 for "not yours" and "does not exist".
+- **The disclosure floor is TEN, is #77's number, and applies to TWO dimensions.**
+  `REFERRAL_SUBJECT_REVEALING_DIMENSIONS` is `market` and `client_surface`: the
+  line is whose fact the dimension is, not how small the number is. Applying it
+  to the other four would be INCONSISTENT rather than private — A5 already
+  publishes per-reward `{date, state, amount, source, campaign}`, so a floor
+  withholding the same figure one tab over is a gate whose cheapest green is to
+  delete it (#82's reasoning).
+- **Suppression DROPS the row, key and all.** A `withheld` marker on a named key
+  leaks exactly what the count would: `{market: 'AD', count: withheld}` says
+  somebody was referred in Andorra. A `ReferralCountDisclosure` union carrying no
+  number was written FIRST and deleted — the right device for the wrong problem,
+  and it would have shipped a mechanism that reads as protection while
+  publishing the key.
+- **And the residual is a leak too, so suppression is COMPLEMENTARY.** The
+  totals are published, so subtracting the survivors recovers the suppressed
+  mass exactly; with ONE row gone that mass IS the row. Drop everything under the
+  floor, then drop the smallest survivor if exactly one fell, then withhold the
+  whole breakdown if nothing publishable is left. **The condition is the COUNT
+  and NOT the suppressed mass**, and the rejected version is worth reading: with
+  a mass condition, `{ES: 400, FR: 300, AD: 2, GI: 3}` took FR — three hundred
+  clicks — to hide a residual of five spread over two cells whose names were
+  never published, which names nobody at any mass.
+- **A row is judged on its LARGER count**, never the sum: nine clicks and nine
+  conversions is not eighteen. **Zero is disclosed** and **a single row above the
+  floor is published** — the floor stops an individual being identified, it is
+  not a rule against a partner seeing an aggregate they produced.
+- **SIX dimensions, not #147's nine.** `conversion_type`, `commission_state` and
+  `payout_period` do not exist on the CLICK side, so offering them would answer
+  `0` for every click cell — the quiet zero this domain refuses everywhere.
+  `REFERRAL_PERFORMANCE_DIMENSION_ELSEWHERE` names each and the section that
+  answers it, and a census fails the build on a fourth that is neither.
+- **There is NO conversion rate and none may be added.** #37 acceptance 3 forbids
+  it and #67 gives the reason: a conversion is revisable for weeks while a click
+  is not, so the ratio moves without either input being wrong. It is also not a
+  rate over one population — a code typed at checkout is a touch, so a conversion
+  can exist with no click behind it.
+- **`ledgerAgrees` runs #145's reconciliation comparison at read time and repairs
+  NOTHING** (the `payment_discrepancies` posture). A read surface that quietly
+  corrected a mismatch would be rewriting financial history to make a screen look
+  tidy.
+- **`ReferralRewardBasisCopy`'s percentage branch has a NON-OPTIONAL
+  `percentageOf`**, so a client rendering `20%` has no shape to read the number
+  out of without also holding the sentence — #147 acceptance 7 as a type.
+  `not_published` is a real third branch, because `0%` would tell a partner they
+  earn nothing rather than that nothing has been published.
+- **`endProgram` was a real gap**: `program_ended`, the `ended` status and the
+  `ended_at` stamp all shipped in #142 and NOTHING performed the transition.
+  Distinct from `retireProgram` — `ended` is "this programme stopped running",
+  `retired` is the archival decision after it.
+- **Acceptance 4 is #142's repository, not a controller check**:
+  `updateProgramDraft` carries `status = 'draft'` in its WHERE. Acceptance 5 is
+  the IMPORT GRAPH: `program.service.ts` imports nothing from the earnings
+  domain, so no lifecycle transition can reach a reward, a batch or a ledger
+  entry. `programId` is MINTED by the service and never supplied.
+- Operator surface on the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list #143
+  and #145 use, NOT an eighth. Utilization is DERIVED with no table (#144's cap
+  reasoning) and is operator-only by PLACEMENT — a scanned gate fails the build
+  if a partner-facing module imports it.
+- **Six scanned walls plus a RUNTIME walk**, the #92 two-gate rule: the walk runs
+  over a genuinely composed dashboard in the realdb suite with a POSITIVE
+  CONTROL, because "I found no forbidden field" and "I walked nothing" are the
+  same empty array.
+- **The route census in `referral-partner-mount.integration.test.ts` fired on
+  this change and that is the gate working** — nine became eighteen, and the
+  count is asserted separately from the set so an empty stack walk cannot pass.
+- **`ScreenShell` has no inner `ScrollView` on web and a storefront screen must
+  not add one** — its own docblock says so. This screen shipped with one; an A/B
+  in a real browser tab measured the document scroll height, the viewport and the
+  last card's position IDENTICAL either way, because RN-Web renders a
+  height-less `ScrollView` as a plain flex container. So the web half is a
+  convention and the NATIVE half is the real hazard (the shell already puts the
+  body in a full-height `ScrollView` there), and it is UNVERIFIED — no native
+  build was run. The first version of that comment claimed the browser had proved
+  a clipping bug; the measurement said otherwise and the comment was corrected
+  rather than shipped.
+- Deferred, each named as a VALUE the client switches on rather than as prose:
+  the DISPUTE thread (#147's support section — it needs its own append-only
+  tables and an operator queue, which is #110's shape and not a projection; a
+  partner can still appeal through #146's `POST /appeal`), evidence attachment
+  (the digest channel #110 and moderation both record as missing),
+  NOTIFICATIONS (#108's registry is still empty). Also absent: the REVIEW QUEUES
+  whose vocabulary is **#148's** (suspicious attribution, self-referral, fraud
+  intervention), compliance EXPORTS (#82's CSV guard is the precedent), #77
+  analytics emission, the dashboard-app merchant screens (the store mount
+  already serves the whole surface), and a create form on the storefront screen
+  (both endpoints, client functions and mutation hooks exist).
+
 
 ## Referral fraud controls, disclosures and program enforcement (#148, ADR 0005 D7/D17/D18/R6–R8)
 

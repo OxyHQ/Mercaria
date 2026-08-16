@@ -53,6 +53,12 @@ const NON_PUBLIC_SCREENS: readonly string[] = [
   'app/(app)/reset-password.tsx',
   'app/(app)/notifications.tsx',
   'app/(app)/price-alerts.tsx',
+  // The referral partner dashboard (#147) — one account's own instruments,
+  // earnings and payout standing. Account-private by construction: the server
+  // resolves the owner from the credential, so an anonymous request reaches
+  // nothing, and an indexed page would advertise a surface whose whole content
+  // is somebody's money. It is also in `SEO_ROBOTS_DISALLOWED_PATHS`.
+  'app/(app)/referral-partner.tsx',
   // Saved shopping agents (#97) — one account's own standing instructions and
   // the timeline of what they observed. Account-private by construction: every
   // route behind it is owner-scoped in the statement, so a crawler would see

@@ -76,6 +76,28 @@ export async function findCampaignBudgetById(
 }
 
 /**
+ * Every budget under one program — #147's operator "budget and cap
+ * utilization" read.
+ *
+ * OPERATOR-only by placement rather than by a flag: a campaign's allocation and
+ * how much of it is spent is Mercaria's marketing position, and the partner
+ * dashboard has no route that reaches this function. What a partner is told
+ * about a cap is the CAP (their own ceiling on the rule they earn under), never
+ * the budget's remaining headroom — which would let them measure how much of a
+ * campaign somebody else had taken.
+ */
+export async function listCampaignBudgetsForProgram(
+  db: DatabaseOrTransaction,
+  programId: string,
+): Promise<ReferralCampaignBudgetRow[]> {
+  return await db
+    .select()
+    .from(referralCampaignBudgets)
+    .where(eq(referralCampaignBudgets.programId, programId))
+    .orderBy(referralCampaignBudgets.campaignRef);
+}
+
+/**
  * Claim `amountMinor` from an OPEN budget, atomically.
  *
  * @returns the updated row when the claim succeeded, `undefined` when it did
