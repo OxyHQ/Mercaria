@@ -327,6 +327,17 @@ function AvailableChannels({
     });
   };
 
+  // WHICH channel is being started, not WHETHER one is. `start` is one mutation
+  // shared by every row, so `start.isPending` alone is true for all of them at
+  // once and every Connect button spins when one is pressed — a spinner on a
+  // button nobody pressed, which reads as the app having misunderstood the tap.
+  //
+  // `variables` is the argument of the in-flight `mutate`, which here IS the
+  // channel type, so it identifies the row without threading a second piece of
+  // state through. It is undefined before the first call and retained after one
+  // settles, hence the `isPending` conjunct rather than a bare comparison.
+  const startingChannelType = start.isPending ? start.variables : undefined;
+
   return (
     <View className="gap-3">
       <Text className="text-sm font-semibold text-muted-foreground">Add a channel</Text>
@@ -385,7 +396,7 @@ function AvailableChannels({
                       variant="outline"
                       size="sm"
                       disabled={!connectable}
-                      isLoading={start.isPending}
+                      isLoading={startingChannelType === descriptor.channelType}
                       onPress={() => onConnect(descriptor)}
                     >
                       <Text className="text-xs font-semibold text-foreground">
