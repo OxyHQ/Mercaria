@@ -6109,3 +6109,133 @@ it, plus the measurement of why it cannot yet.
   plus the credential variables, and nothing else here changes), **`OxyHQ/Moovo#27`/`#28`**
   (the principal and the API), **#157** (the aggregate and projection), **#158**
   (the event inbox), **#159** (quotes, bookings, labels, return transport).
+## The referral earnings ledger (#145, ADR 0005 "Ledger representability")
+
+`services/referrals/earnings/` (10 modules) + `db/referralEarnings/` (4
+repositories) + `db/schema/referralEarnings.ts` (5 tables), plus two ACCOUNTS,
+one owner type and four transaction kinds on the EXISTING ledger, and the
+earnings half of `/internal/referrals/*`. Full reference:
+**`docs/referral-earnings.md`**; schema decisions: `db/schema/CONVENTIONS.md`
+§"The referral earnings ledger (#145)". #144 decided what a conversion is WORTH;
+this is what that worth costs Mercaria, where it sits until it can be paid, how
+it is paid, and what happens when the money it was drawn from goes away.
+
+- **Referral money books in the SAME `ledger_transactions`/`ledger_entries`,
+  through `insertLedgerTransaction`, under the same three-layer balance
+  enforcement.** `referral_expense` (debit) and `referral_payable` (credit, per
+  partner) are the two new accounts; `referral_partner` is a FOURTH
+  `LedgerOwnerType` for `supplier`'s reason — a partner is already identified by
+  a `store`/`user` pair, so reusing it would file referral earnings under the
+  key a seller's sales payable uses. **`referral_payable` may go NEGATIVE and
+  nothing forbids it**: that is R7's post-payout clawback, and a constraint
+  refusing it would refuse the state the ADR requires.
+- **There is NO balance table and none may be added.** Acceptance 1 is that
+  balances are fully derivable from immutable entries, and `ledger_entries` IS
+  those entries. `readReferralPartnerLedgerBalances` is one grouped aggregate;
+  `0 - Number(...)` and not `-Number(...)`, because unary minus over zero yields
+  `-0` and a settled partner's balance then reads as a receivable (measured, the
+  realdb suite's first run).
+- **ADR 0005's six posting rows are FOUR kinds.** Three of them are the identical
+  posting — debit `referral_payable`, credit `referral_expense` — differing only
+  in facts `referral_reward_adjustments` already records once
+  (`delta_amount_minor`, `recovery_state`). A kind per row would be a second
+  representation of them.
+- **The funding invariant is restated over ACCOUNTS, as an exact PARTITION.**
+  `REFERRAL_LEDGER_ACCOUNTS` (3) ∪ `REFERRAL_FORBIDDEN_LEDGER_ACCOUNTS` (12) ==
+  `LEDGER_ACCOUNTS`, disjoint, asserted — so a sixteenth account fails the build
+  until somebody decides which side it is on (the `merge-plan-census` device
+  applied to money; a containment check would let one through). The four retail
+  accounts are on the forbidden side, which is #145's zero-profit protection as
+  a value. **`commission_revenue` is forbidden too**: a reward is FUNDED from
+  realized commission and never REDUCES it, or ADR 0001 D3's one figure stops
+  meaning what it means.
+- **Four mechanisms, and the fourth is the only one anybody notices**: the
+  partition; the SIGNATURE (no posting builder takes an account, so a retail one
+  is unrepresentable at the call site); the scanned gate; and
+  `assertReferralPosting`, which walks a REAL entry set at the one place it is
+  written and names the exact prohibition. The realdb suite additionally asserts
+  a `mercaria_retail` order and its fee snapshot byte-identical INCLUDING `xmin`
+  across an accrual.
+- **The three states #145's issue names that are NOT states.**
+  `ReferralRewardState` stays ADR 0005's `held|vested|frozen|paid|voided`, and
+  `REFERRAL_REWARD_STATE_ELSEWHERE` names where each extra actually lives:
+  `pending` is the ABSENCE of a row (`referral_conversions.state` carries it),
+  `payable` is DERIVED (the `deriveNativeCheckoutEligibility` divergence — the
+  inputs are the partner's live readiness triple and the program's lever, which
+  go stale the instant a rail restricts an account), and `reversed` is the
+  append-only adjustment trail, which a state would CONTRADICT on a `paid`
+  reward because R7 never un-pays one.
+- **A freeze stops the hold CLOCK, which is a column move.** Lifting one pushes
+  `hold_until_at` forward by the frozen duration; #144's reward trigger pinned
+  that column and #145 WIDENED it by `CREATE OR REPLACE` (#106's device) to
+  permit FORWARD only — backwards is what would vest a reward early.
+- **Two partial uniques carry the payout properties**: one live batch per
+  (partner, currency), and one live claim per reward EVER
+  (`WHERE released_at IS NULL`). `failed` KEEPS its claims —
+  releasing on failure would let the retry and the next batch carry the same
+  reward — and `cancelled` is the only status that releases. The retry rides the
+  batch's own `refpay:<id>` key, byte-identical across attempts, and the LOOP
+  retries only `REFERRAL_RETRYABLE_PAYOUT_FAILURES`: the rest are terminal by
+  NATURE rather than by attempt count, so retrying them would spin against a
+  condition no attempt can move (#262's `permission_denied` split).
+- **A batch that no longer describes what is owed FAILS rather than shrinking**
+  (`amount_no_longer_payable`). #59's "the set an operator approved is the set
+  that executes"; paying less than the approval is an amount nobody signed, and
+  the remedy is one cancel plus a rebuild.
+- **The rail is called OUTSIDE any transaction**, between a CAS that claims the
+  batch and a CAS that records the outcome (#109's ruling: a row lock whose
+  duration is somebody else's availability). **Four eyes is
+  `approved_by <> created_by`**, and the loop opens a batch as the literal
+  `system` — automatic for a loop-built batch, real for a hand-built one, no
+  branch to get wrong.
+- **An UNKNOWN readiness BLOCKS**, inverting `SELLER_TRUST_RESTRICTED_TIERS`
+  deliberately: an absent trust signal withholds nothing, but an absent KYC
+  verdict is Mercaria not knowing whether it may send somebody money. The
+  minimum is a CODE CONSTANT per currency (EUR 25, D14) and a currency without
+  one is BLOCKED rather than defaulted to zero.
+- **The reconciliation sweep is ADR 0005's gate on this issue and it DETECTS,
+  never repairs.** The two stores cannot disagree by construction (every posting
+  commits with the fact it books), and the sweep exists for
+  `findGlobalLedgerImbalances`' reason. Its upsert carries
+  `setWhere: status <> 'resolved'` — without it a re-observation REOPENS a
+  finding somebody answered, the exact `payment_discrepancies` failure.
+- **Withholding is MODELLED and UNSETTLEABLE** (`withholding_not_supported`):
+  there is no account for withheld money and inventing a `tax_withheld` one
+  would put a remittance obligation in a book nobody reconciles against a tax
+  authority. #141/#146 own it.
+- Env: `REFERRAL_VESTING_ENABLED`, `REFERRAL_PAYOUT_BATCHES_ENABLED`,
+  `REFERRAL_RECONCILIATION_ENABLED` and their tunables — **not one gates a
+  durable record**, and the accrual books inside #144's transaction with no flag
+  in the path. The FOURTH lever is a ROW,
+  `referral_program_controls.payout_enabled`, joined to #143's pair so an
+  incident sets the whole switchboard in one attributable act.
+- Operator surface on the SAME `REFERRAL_OPERATOR_OXY_USER_IDS` allow-list #143
+  uses, NOT an eighth — approving a payout and pausing attribution are the same
+  economy. The route set is CLOSED: no "mark this reward paid", no "void this
+  reward", no "book this entry", no "set this batch's total", no delete. Every
+  write drives an existing idempotent path, and VOIDING stays #144's
+  `reverseReward` with a fraud cause, which has no route because that decision
+  is #148's.
+- **#144's isolation gate was WIDENED deliberately, from one seam to three**, and
+  its own comment predicted the terms: it said a referral domain able to POST to
+  the ledger "would be #145's earnings ledger arriving without its reconciliation
+  sweep, which ADR 0005 says ships WITH it". The sweep shipped in the same
+  change; the exemption is an EXACT set (the commission read, the balance read,
+  the one writer) and the payment wall now scans VALUE imports only, with a
+  mutation self-test proving a value import of the same module still fires.
+- **A sibling fixture's teardown had to change with it**, which is the reusable
+  lesson: `accrueRewardForConversion` now writes a `referral_ledger_postings`
+  row, so `referral-rewards.realdb.test.ts` created #145 rows it never named and
+  its teardown failed with `23503` on the first full-suite run. A service that
+  starts writing a new table makes every fixture that CALLS it a writer of that
+  table.
+- Seams, each failing closed: **#146** (the payout RAIL — the registry is EMPTY,
+  every settlement fails `rail_not_configured` with the batch intact and its
+  claims held, and closing it is one `registerReferralPayoutRail` call; a
+  `console.log` rail would look like a working feature and pay nobody, and a
+  Stripe client here would put a buyer's charge and a partner's payout in one
+  module), **#146/#141** (withholding), **#148** (fraud — the freeze paths are
+  operator-driven and the VOID is #144's), **#147** (partner dashboards —
+  `ReferralPayoutBatchPartnerView` is A5's allow-list extended to the batch and
+  nothing consumes it), and `vested_reward_past_payout_horizon`, a declared
+  discrepancy kind with no producer because the horizon is a policy #146 sets.

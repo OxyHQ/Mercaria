@@ -5488,3 +5488,86 @@ Eight tables: `shopping_agents`, `shopping_agent_lines`,
   `(canonical_product_id, agent_id)` on `shopping_agent_lines`, composite for
   #79's reason: no route, repository function or operator handle asks who is
   watching a product.
+
+## The referral earnings ledger (#145)
+
+Five tables in `schema/referralEarnings.ts` — `referral_payout_batches`,
+`referral_payout_batch_items`, `referral_ledger_postings`,
+`referral_reward_transitions`, `referral_earning_discrepancies` — plus two
+accounts, one owner type and four transaction kinds on the EXISTING ledger, and
+one column on `referral_program_controls`. Full reference:
+`docs/referral-earnings.md`; binding decisions are ADR 0005 "Ledger
+representability", D12–D15, D18 and R1–R8.
+
+**There is no balance table and none may be added.** #145 acceptance 1 is that
+reward balances are fully derivable from immutable entries, and
+`ledger_entries` is where those entries are. A running total would be a second
+representation of a fact the book already carries, and the two would disagree
+exactly when a payout was being built over one of them.
+
+- **Referral money books in the SAME ledger.** `referral_expense` (debit-normal)
+  and `referral_payable` (credit-normal, per partner) join `LEDGER_ACCOUNTS`; a
+  parallel referral ledger would split `provider_clearing` across two books the
+  moment a payout moved platform money. `referral_payable` may go NEGATIVE and
+  nothing forbids it — that is ADR 0005 R7's post-payout clawback, and a
+  constraint refusing it would refuse exactly the state the ADR requires.
+- **`referral_partner` is a FOURTH `LedgerOwnerType`**, for the reason `supplier`
+  was a third: a `referral_partners` row is already identified by a `store` or
+  `user` owner pair, so reusing one would file a partner's referral earnings
+  under the same key a seller's sales payable uses.
+- **The account boundary is an exact PARTITION.** `REFERRAL_LEDGER_ACCOUNTS` (3)
+  and `REFERRAL_FORBIDDEN_LEDGER_ACCOUNTS` (12) are disjoint and their union is
+  exactly `LEDGER_ACCOUNTS`, asserted — so a sixteenth account fails the build
+  until somebody decides which side it is on. `commission_revenue` is on the
+  forbidden side: a reward is FUNDED from realized commission and never REDUCES
+  it, or ADR 0001 D3's one figure stops meaning what it means.
+- **The idempotency key is derived from the SUBJECT, never a clock.**
+  `refledg:<kind>:<subjectId>` on the posting, `refrewst:<reward>:<cause>:<source>`
+  on the transition, `refpay:<batchId>` on the batch (which is what a rail sees,
+  byte-identical across retries), `refdisc:<kind>:<subject>:<currency>` on a
+  finding. Every insert is `ON CONFLICT DO NOTHING` and the empty `RETURNING`
+  set IS the "already done" answer.
+- **A posting names exactly the subjects its kind is ABOUT**, by CHECK: an
+  accrual a reward, a reversal a reward AND an adjustment, a payout a batch, a
+  recovery none of them. `amount_minor` is a positive MAGNITUDE and the kind
+  carries the direction — the signed movement lives in `ledger_entries`, and
+  copying it here would be a second representation that could disagree.
+- **A transition's `from_state <> to_state` is a CHECK**, which is why there is
+  no `accrual` cause: a reward is BORN `held`, and the birth of a row is not a
+  transition. Its own record is the posting and the `reward_accrued` event.
+- **Two partial uniques carry the payout properties.**
+  `referral_payout_batches_open_key` on `(partner_id, currency) WHERE status in
+  (draft, approved, processing, failed)` is one live batch per partner per
+  currency; `referral_payout_batch_items_live_reward_key` on `(reward_id) WHERE
+  released_at IS NULL` is one live claim per reward, ever, which makes a
+  duplicate payout unrepresentable rather than unlikely.
+- **`failed` keeps its claims and only `cancelled` releases them.** Releasing on
+  failure would let a retry and the next batch both carry one reward.
+- **Four eyes is `approved_by <> created_by`**, and the construction loop opens a
+  batch as the literal `system` — so it is automatically satisfied for a
+  loop-built batch and a real second pair of eyes for a hand-built one, with no
+  branch to get wrong. `created_by_oxy_user_id` is therefore in
+  `ID_COLUMNS_WITHOUT_FOREIGN_KEY` with that reason written out.
+- **Four triggers, and the third has ONE precise exception.**
+  `referral_ledger_postings` and `referral_reward_transitions` are append-only
+  outright; `referral_payout_batch_items` is frozen except `released_at` moving
+  NULL → a value exactly once (not "immutable once set", which would still admit
+  a write taking it back to NULL — and that write is how one reward ends up live
+  in two batches); `referral_payout_batches` freezes its identity, its amounts
+  and its five stamps while the status machine moves.
+- **#145 WIDENED `mercaria_referral_reward_frozen` by `CREATE OR REPLACE`**
+  (#106's device) so `hold_until_at` may move FORWARD and nothing may pull it
+  back. ADR 0005 D12's freeze stops the hold clock, and the backwards direction
+  is the one that would vest a reward early.
+- **The discrepancy upsert carries `setWhere: status <> 'resolved'`.** Without
+  it a sweep re-observing a finding an operator has answered REOPENS it — the
+  failure `payment_discrepancies` hit in this repository's own shared test
+  database, presenting in a sibling file and naming nothing about its cause.
+- **No protected column, and that is a fact about the shape.** The only
+  identities representable here are a `referral_partners.id`, an Oxy OPERATOR id
+  and a rail's own opaque reference; there is no contact, no beneficiary detail,
+  no tax identifier and no buyer-shaped column in any of the five tables.
+- **No retention deadline and no `EXPIRY_TARGETS` entry.** Every row here is a
+  permanent financial record: what Mercaria owed, what it paid and why it
+  changed. #145 acceptance 6 — a feature rollback cannot erase an already-earned
+  or already-paid record — is the same statement from the other side.

@@ -30,6 +30,8 @@
 
 import { z } from 'zod';
 import {
+  ALL_CURRENCY_CODES,
+  MAX_MONEY_MINOR_UNITS,
   REFERRAL_CLIENT_SURFACES,
   REFERRAL_CODE_ENTRY_MOMENTS,
   REFERRAL_CONSENT_DECLARATIONS,
@@ -100,17 +102,79 @@ export const referralMerchantBindingSchema = z
   .strict();
 
 /**
- * `PUT /internal/referrals/programs/:programId/controls` — both levers, plus a
- * mandatory reason.
+ * `PUT /internal/referrals/programs/:programId/controls` — all three levers,
+ * plus a mandatory reason.
  *
- * Both booleans are REQUIRED. A partial update would let an operator who typed
+ * Every boolean is REQUIRED. A partial update would let an operator who typed
  * one field inherit whatever the last incident left down, and "which levers am
  * I actually setting" is not a question to answer by omission at 3am.
+ * `payoutEnabled` is #145's and joined this schema rather than getting one of
+ * its own, so an incident sets the whole switchboard in one attributable act.
  */
 export const referralProgramControlsSchema = z
   .object({
     redirectEnabled: z.boolean(),
     attributionEnabled: z.boolean(),
+    payoutEnabled: z.boolean(),
     reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
+// ─── The earnings ledger's operator surface (#145) ───────────────────────────
+//
+// Every one of these is `.strict()` and none of them can carry an AMOUNT that
+// decides what is owed. A batch's total is the sum of the rewards it claims and
+// is computed server-side; a settlement takes no figure at all. The two places
+// a number IS accepted are a withholding (which #145 field 6 requires and which
+// settlement then refuses until #141/#146 decide where withheld money sits) and
+// a recovery (which is money that ARRIVED, so an operator is recording a fact
+// rather than deciding one).
+
+/**
+ * `POST /internal/referrals/partners/:partnerId/payout-batches` — open a batch
+ * by hand.
+ *
+ * `finalPayout` is ADR 0005 D14's own exception to the minimum, stated as a
+ * field rather than inferred: "on voluntary program exit or non-fraud
+ * termination, the final vested balance is paid in the next batch regardless of
+ * the minimum", and whether a payout is final is a decision only a person makes.
+ */
+export const referralPayoutBatchOpenSchema = z
+  .object({
+    programId: z.string().trim().min(1).max(200),
+    currency: z.enum(tuple(ALL_CURRENCY_CODES)),
+    finalPayout: z.boolean().optional(),
+    withholdingMinor: z.number().int().min(0).max(MAX_MONEY_MINOR_UNITS).optional(),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
+/** An approval, a cancellation or a freeze — an actor's decision plus why. */
+export const referralOperatorReasonSchema = z
+  .object({ reason: z.string().trim().min(1).max(500) })
+  .strict();
+
+/**
+ * `POST /internal/referrals/partners/:partnerId/recoveries` — ADR 0005 R7's
+ * explicit, recorded operator recovery.
+ *
+ * `recoveryRef` is the operator's own handle for the money that arrived and is
+ * the idempotency subject, so recording one twice converges and two genuinely
+ * different recoveries are two rows.
+ */
+export const referralRecoverySchema = z
+  .object({
+    recoveryRef: z.string().trim().min(1).max(200),
+    amountMinor: z.number().int().positive().max(MAX_MONEY_MINOR_UNITS),
+    currency: z.enum(tuple(ALL_CURRENCY_CODES)),
+    reason: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
+/** `POST /internal/referrals/earnings/discrepancies/:id/resolve`. */
+export const referralDiscrepancyResolutionSchema = z
+  .object({
+    status: z.enum(['acknowledged', 'resolved']),
+    note: z.string().trim().min(1).max(2_000),
   })
   .strict();

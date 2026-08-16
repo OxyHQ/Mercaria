@@ -1,6 +1,6 @@
 /**
- * Reads and writes for `referral_program_controls` — the two operator levers
- * (#143 link rule 8).
+ * Reads and writes for `referral_program_controls` — the THREE operator levers
+ * (#143 link rule 8, plus #145's payout lever).
  *
  * There is no delete function, on purpose. "Turn it back on" is an UPDATE with
  * its own actor and reason, which leaves a row saying who re-enabled a program
@@ -19,10 +19,20 @@ export type ReferralProgramControlRow = typeof referralProgramControls.$inferSel
 export interface ReferralProgramControlState {
   redirectEnabled: boolean;
   attributionEnabled: boolean;
+  /**
+   * #145: may a payout batch for this program be built and settled?
+   *
+   * ADR 0005 D18's "program suspension stops new vesting/payout where policy
+   * says so but preserves history", at the grain the ADR states it. It
+   * withholds and never voids, exactly like every D15 gate — and it is
+   * deliberately NOT what program TERMINATION uses, since D18 says a terminated
+   * program's existing rewards run their ordinary lifecycle to payout.
+   */
+  payoutEnabled: boolean;
 }
 
 /**
- * Both levers ON — what a program with no controls row resolves to.
+ * All three levers ON — what a program with no controls row resolves to.
  *
  * Exported so the readers and the tests share one spelling of the default; two
  * places deciding what absence means is exactly how a gate ends up open in one
@@ -31,6 +41,7 @@ export interface ReferralProgramControlState {
 export const REFERRAL_CONTROLS_DEFAULT: ReferralProgramControlState = Object.freeze({
   redirectEnabled: true,
   attributionEnabled: true,
+  payoutEnabled: true,
 });
 
 /** The stored row for a program, or `undefined` when nobody has intervened. */
@@ -60,16 +71,17 @@ export async function resolveProgramControls(
   return {
     redirectEnabled: row.redirectEnabled,
     attributionEnabled: row.attributionEnabled,
+    payoutEnabled: row.payoutEnabled,
   };
 }
 
 /**
- * Set both levers for a program, creating the row on first intervention.
+ * Set all three levers for a program, creating the row on first intervention.
  *
  * One statement, so two operators racing converge on one row rather than one of
- * them failing on the unique index. Both levers are written together because
- * the request states both: a partial update would let a client that omitted a
- * field silently keep whatever the last incident left behind.
+ * them failing on the unique index. Every lever is written together because the
+ * request states all of them: a partial update would let a client that omitted
+ * a field silently keep whatever the last incident left behind.
  */
 export async function upsertProgramControls(
   db: DatabaseOrTransaction,
@@ -77,6 +89,7 @@ export async function upsertProgramControls(
     programId: string;
     redirectEnabled: boolean;
     attributionEnabled: boolean;
+    payoutEnabled: boolean;
     updatedByOxyUserId: string;
     reason: string;
   },
@@ -87,6 +100,7 @@ export async function upsertProgramControls(
       programId: input.programId,
       redirectEnabled: input.redirectEnabled,
       attributionEnabled: input.attributionEnabled,
+      payoutEnabled: input.payoutEnabled,
       updatedByOxyUserId: input.updatedByOxyUserId,
       reason: input.reason,
     })
@@ -95,6 +109,7 @@ export async function upsertProgramControls(
       set: {
         redirectEnabled: input.redirectEnabled,
         attributionEnabled: input.attributionEnabled,
+        payoutEnabled: input.payoutEnabled,
         updatedByOxyUserId: input.updatedByOxyUserId,
         reason: input.reason,
       },

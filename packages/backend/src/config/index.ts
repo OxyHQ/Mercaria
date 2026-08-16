@@ -2617,6 +2617,37 @@ export interface ReferralsConfig {
   readonly operatorOxyUserIds: readonly string[];
   /** Derived: empty list means `/internal/referrals` is not mounted at all. */
   readonly operatorSurfaceEnabled: boolean;
+
+  // ── #145's three loop levers ───────────────────────────────────────────────
+  //
+  // NOT ONE of them gates a durable record, and a scanned gate says so. The
+  // accrual books its ledger posting INSIDE #144's own transaction with no flag
+  // in the path, holds keep elapsing whatever these say, and turning any of them
+  // back on drains whatever accumulated. Each defaults FALSE because the referral
+  // program itself is not live: a vesting sweep on a deployment with no partners
+  // is a timer doing nothing, and an incident lever that ships ON is one nobody
+  // notices is armed.
+
+  /** `REFERRAL_VESTING_ENABLED` — the hold → vested sweep. */
+  readonly vestingEnabled: boolean;
+  readonly vestingBatchSize: number;
+  readonly vestingPollIntervalMs: number;
+  /**
+   * `REFERRAL_PAYOUT_BATCHES_ENABLED` — the batch build-and-settle loop.
+   *
+   * With it off an operator can still open, approve, settle and cancel a batch
+   * by hand, which is the supported path during an incident and the reason
+   * `/internal/referrals` stays mounted while every lever is down.
+   */
+  readonly payoutBatchesEnabled: boolean;
+  readonly payoutBatchSize: number;
+  readonly payoutPollIntervalMs: number;
+  /** How long a FAILED batch waits before the loop retries it on the same key. */
+  readonly payoutRetryBackoffMs: number;
+  /** `REFERRAL_RECONCILIATION_ENABLED` — the sweep ADR 0005 gates #145 on. */
+  readonly reconciliationEnabled: boolean;
+  readonly reconciliationBatchSize: number;
+  readonly reconciliationPollIntervalMs: number;
 }
 
 /**
@@ -3978,6 +4009,17 @@ export const config: AppConfig = Object.freeze({
     redirectBaseUrl: strEnv('REFERRAL_REDIRECT_BASE_URL', 'https://mercaria.co'),
     operatorOxyUserIds: Object.freeze(resolveReferralOperatorIds()),
     operatorSurfaceEnabled: resolveReferralOperatorIds().length > 0,
+    // #145 — see the ReferralsConfig docblock. Loops only, never records.
+    vestingEnabled: boolEnv('REFERRAL_VESTING_ENABLED', false),
+    vestingBatchSize: intEnv('REFERRAL_VESTING_BATCH_SIZE', 200),
+    vestingPollIntervalMs: intEnv('REFERRAL_VESTING_POLL_INTERVAL_MS', 300_000),
+    payoutBatchesEnabled: boolEnv('REFERRAL_PAYOUT_BATCHES_ENABLED', false),
+    payoutBatchSize: intEnv('REFERRAL_PAYOUT_BATCH_SIZE', 25),
+    payoutPollIntervalMs: intEnv('REFERRAL_PAYOUT_POLL_INTERVAL_MS', 900_000),
+    payoutRetryBackoffMs: intEnv('REFERRAL_PAYOUT_RETRY_BACKOFF_MS', 900_000),
+    reconciliationEnabled: boolEnv('REFERRAL_RECONCILIATION_ENABLED', false),
+    reconciliationBatchSize: intEnv('REFERRAL_RECONCILIATION_BATCH_SIZE', 25),
+    reconciliationPollIntervalMs: intEnv('REFERRAL_RECONCILIATION_POLL_INTERVAL_MS', 3_600_000),
   }),
   /**
    * Buyer post-purchase requests — cancellations, returns and support (#110).

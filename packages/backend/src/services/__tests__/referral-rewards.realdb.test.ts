@@ -32,8 +32,10 @@ import {
   referralEvents,
   referralPartners,
   referralPrograms,
+  referralLedgerPostings,
   referralRewardAdjustments,
   referralRewardRules,
+  referralRewardTransitions,
   referralRewards,
   referralTouches,
 } from '../../db/schema/index.js';
@@ -164,6 +166,40 @@ afterAll(async () => {
         ).map((row) => row.id)
       : [];
 
+  /**
+   * #145's rows, which this fixture creates WITHOUT naming them.
+   *
+   * `accrueRewardForConversion` and `reverseReward` now book a ledger posting
+   * inside their own transaction, so every reward here has a
+   * `referral_ledger_postings` row and every reversal has a second one — each
+   * holding a `restrict` foreign key onto the adjustment and the reward this
+   * teardown is about to delete. The first full-suite run after #145 landed
+   * failed exactly there, with `23503` on `referral_reward_adjustments`.
+   *
+   * The transactions those postings name carry NO `payment_id`, so the
+   * charge-scoped ledger sweep further down cannot see them either; they are
+   * collected here and deleted with the rest of the ledger.
+   */
+  const postingIds =
+    trackedPartnerIds.length > 0
+      ? (
+          await db
+            .select({ id: referralLedgerPostings.id })
+            .from(referralLedgerPostings)
+            .where(inArray(referralLedgerPostings.partnerId, trackedPartnerIds))
+        ).map((row) => row.id)
+      : [];
+  const postingTransactionIds =
+    trackedPartnerIds.length > 0
+      ? (
+          await db
+            .select({ id: referralLedgerPostings.ledgerTransactionId })
+            .from(referralLedgerPostings)
+            .where(inArray(referralLedgerPostings.partnerId, trackedPartnerIds))
+        ).map((row) => row.id)
+      : [];
+  const transitionRewardIds = rewardIds;
+
   const eventSubjectIds = [
     ...versionIds,
     ...ruleVersionIds,
@@ -217,6 +253,31 @@ afterAll(async () => {
    * opposite one — and the adjustments pair below is precisely that case, since
    * `applyRewardAdjustment` writes the CHILD then the parent.
    */
+  // #145's two append-only tables, children first and ONE TABLE PER WINDOW.
+  if (postingIds.length > 0) {
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table referral_ledger_postings disable trigger referral_ledger_postings_append_only`,
+      );
+      await tx.delete(referralLedgerPostings).where(inArray(referralLedgerPostings.id, postingIds));
+      await tx.execute(
+        sql`alter table referral_ledger_postings enable trigger referral_ledger_postings_append_only`,
+      );
+    });
+  }
+  if (transitionRewardIds.length > 0) {
+    await withTriggerToggleLock(db, async (tx) => {
+      await tx.execute(
+        sql`alter table referral_reward_transitions disable trigger referral_reward_transitions_append_only`,
+      );
+      await tx
+        .delete(referralRewardTransitions)
+        .where(inArray(referralRewardTransitions.rewardId, transitionRewardIds));
+      await tx.execute(
+        sql`alter table referral_reward_transitions enable trigger referral_reward_transitions_append_only`,
+      );
+    });
+  }
   if (rewardIds.length > 0) {
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
@@ -285,13 +346,22 @@ afterAll(async () => {
   if (trackedProgramIds.length > 0) {
     await db.delete(referralPrograms).where(inArray(referralPrograms.programId, trackedProgramIds));
   }
-  if (trackedPaymentIds.length > 0) {
-    const txIds = (
-      await db
-        .select({ id: ledgerTransactions.id })
-        .from(ledgerTransactions)
-        .where(inArray(ledgerTransactions.paymentId, trackedPaymentIds))
-    ).map((row) => row.id);
+  if (trackedPaymentIds.length > 0 || postingTransactionIds.length > 0) {
+    const txIds = [
+      ...new Set([
+        ...(trackedPaymentIds.length > 0
+          ? (
+              await db
+                .select({ id: ledgerTransactions.id })
+                .from(ledgerTransactions)
+                .where(inArray(ledgerTransactions.paymentId, trackedPaymentIds))
+            ).map((row) => row.id)
+          : []),
+        // #145's referral transactions name no payment, so the charge-scoped
+        // read above cannot see them.
+        ...postingTransactionIds,
+      ]),
+    ];
     if (txIds.length > 0) {
       // The window that cost a deploy (#301): entries and their transactions,
       // one table each. The deletes stay children-first because the foreign key

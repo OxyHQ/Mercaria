@@ -30,10 +30,25 @@
  * ## What this file cannot do, and it is the point
  *
  * It writes no fee, no price, no discount, no ranking input and no order. It
- * imports no pricing, fee, retail, procurement or ranking module, and the ONE
- * payment-side thing it can reach is the read-only ledger seam in
- * `db/referrals/commissionBaseRepository.ts`.
- * `reward-funding-isolation.test.ts` fails the build if that changes.
+ * imports no pricing, fee, retail, procurement or ranking module, and the
+ * payment-side things it can reach are exactly three, each named in
+ * `reward-funding-isolation.test.ts`: the read-only commission seam
+ * (`db/referrals/commissionBaseRepository.ts`), the balance read
+ * (`db/referralEarnings/partnerBalanceRepository.ts`) and the ONE writer
+ * (`services/referrals/earnings/posting.service.ts`). That gate said in as many
+ * words that a referral domain able to POST to the ledger "would be #145's
+ * earnings ledger arriving without its reconciliation sweep, which ADR 0005 says
+ * ships WITH it"; #145 is that arrival and the sweep shipped with it, so the
+ * exemption grew by exactly one file and the reason is written at the assertion.
+ *
+ * ## #145 made the accrual and the reversal BOOK
+ *
+ * Both call `services/referrals/earnings/posting.service.ts` inside the SAME
+ * transaction that writes the row. The reward's net and the ledger's
+ * `referral_payable` therefore cannot disagree by construction — and
+ * `services/referrals/earnings/reconciliation.service.ts` sweeps for the
+ * disagreement anyway, because "structurally impossible" and "nobody has ever
+ * checked" are indistinguishable from outside the code.
  */
 
 import type {
@@ -42,6 +57,7 @@ import type {
   ReferralRewardRefusalReason,
   ReferralRewardReversalCause,
   ReferralRewardState,
+  ReferralRewardTransitionCause,
 } from '@mercaria/shared-types';
 import { notFound } from '../../../lib/errors/error-codes.js';
 import { getDb, type DatabaseOrTransaction } from '../../../db/postgres.js';
@@ -74,6 +90,11 @@ import {
   type ReferralRewardAdjustmentRow,
   type ReferralRewardRow,
 } from '../../../db/referrals/rewardRepository.js';
+import { recordRewardTransition } from '../../../db/referralEarnings/rewardTransitionRepository.js';
+import {
+  bookRewardAccrual,
+  bookRewardReversal,
+} from '../earnings/posting.service.js';
 import {
   capPeriodStart,
   clampReward,
@@ -327,6 +348,12 @@ export async function accrueRewardForConversion(
       holdUntilAt: new Date(at.getTime() + rule.holdDays * MILLISECONDS_PER_DAY),
     });
     if (created) {
+      // #145: the accrual BOOKS. Debit `referral_expense`, credit
+      // `referral_payable`, in THIS transaction — a reward that committed
+      // without its posting would be an obligation the ledger had never heard
+      // of, and ADR 0005 puts the referral money in the same book as every
+      // other Mercaria movement precisely so that cannot happen.
+      await bookRewardAccrual(tx, { reward: row });
       await appendReferralEvent(tx, {
         subjectType: 'reward',
         subjectId: row.id,
@@ -416,6 +443,28 @@ const REVERSAL_OUTCOME: Record<ReferralRewardReversalCause, 'void' | 'recompute'
   subscription_revenue_reversed: 'recompute',
   fraud_invalidation: 'void',
   invalid_budget_allocation: 'void',
+};
+
+/**
+ * Which #145 transition cause each reversal cause records, when the reversal
+ * moves the reward's STATE (#145 "Reward lifecycle").
+ *
+ * An exhaustive `Record`, so a cause added to the tuple fails `tsc` here rather
+ * than silently recording nothing — the `ANALYTICS_REASON_CODES` device. A lost
+ * dispute is `funding_reversed` and not a fraud finding: the money was clawed
+ * back, which is a fact about the funding rather than about the partner.
+ */
+const REVERSAL_TRANSITION_CAUSE: Record<
+  ReferralRewardReversalCause,
+  ReferralRewardTransitionCause
+> = {
+  order_partially_refunded: 'funding_reversed',
+  order_fully_refunded: 'funding_reversed',
+  dispute_lost: 'funding_reversed',
+  affiliate_commission_reversed: 'funding_reversed',
+  subscription_revenue_reversed: 'funding_reversed',
+  fraud_invalidation: 'fraud_invalidated',
+  invalid_budget_allocation: 'budget_invalidated',
 };
 
 /** The two causes a `fraud_only` rule responds to at all (ADR 0005 R6). */
@@ -607,6 +656,33 @@ async function reverseRewardIn(
 
   if (!created) {
     return { reward, adjustment, created: false };
+  }
+
+  // #145: the reversal BOOKS — debit `referral_payable`, credit
+  // `referral_expense`, in THIS transaction. A ZERO delta books nothing at all
+  // (`ledger_entries_amount_nonzero_check` refuses a zero leg) while the
+  // adjustment row is still written, which is deliberate: "we looked and
+  // nothing had moved" is a fact the trail keeps and the book has no movement
+  // for. After a PAYOUT the same posting takes the payable NEGATIVE, which is
+  // ADR 0005 R7 working rather than a defect — the paid record is untouched and
+  // future accruals offset the balance first.
+  await bookRewardReversal(tx, { reward, adjustment });
+
+  // #145: the state change is a durable, idempotent, auditable ROW. Only when
+  // the state actually moved — `referral_reward_transitions_moves_check`
+  // refuses `from = to`, and a partial reversal deliberately leaves the state
+  // alone while lowering the net.
+  if (nextState !== reward.state) {
+    await recordRewardTransition(tx, {
+      rewardId: reward.id,
+      fromState: reward.state,
+      toState: nextState,
+      cause: REVERSAL_TRANSITION_CAUSE[input.cause],
+      sourceRef: adjustment.id,
+      actorKind: 'system',
+      reason: `${input.cause} (${input.sourceRef}): ${input.reason}`,
+      occurredAt,
+    });
   }
 
   // Hand budget back for the part of a bounty that is no longer owed (ADR 0005

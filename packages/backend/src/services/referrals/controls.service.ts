@@ -41,6 +41,7 @@ export async function readProgramControls(
       programId,
       redirectEnabled: REFERRAL_CONTROLS_DEFAULT.redirectEnabled,
       attributionEnabled: REFERRAL_CONTROLS_DEFAULT.attributionEnabled,
+      payoutEnabled: REFERRAL_CONTROLS_DEFAULT.payoutEnabled,
       reason: 'No operator intervention recorded for this program.',
       updatedAt: program.createdAt.toISOString(),
     };
@@ -49,23 +50,26 @@ export async function readProgramControls(
     programId: row.programId,
     redirectEnabled: row.redirectEnabled,
     attributionEnabled: row.attributionEnabled,
+    payoutEnabled: row.payoutEnabled,
     reason: row.reason,
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
 /**
- * Set both levers, attributably.
+ * Set all three levers, attributably.
  *
- * BOTH are written every time, because the request states both: a partial
- * update would let a client that omitted a field silently inherit whatever the
- * last incident left down, which is exactly the state nobody remembers to
- * check.
+ * EVERY one is written every time, because the request states them all: a
+ * partial update would let a client that omitted a field silently inherit
+ * whatever the last incident left down, which is exactly the state nobody
+ * remembers to check. #145's `payoutEnabled` joined the pair rather than
+ * getting a second endpoint, for that reason.
  */
 export async function setProgramControls(input: {
   programId: string;
   redirectEnabled: boolean;
   attributionEnabled: boolean;
+  payoutEnabled: boolean;
   actorOxyUserId: string;
   reason: string;
 }): Promise<ReferralProgramControlsView> {
@@ -83,6 +87,7 @@ export async function setProgramControls(input: {
       programId: input.programId,
       redirectEnabled: input.redirectEnabled,
       attributionEnabled: input.attributionEnabled,
+      payoutEnabled: input.payoutEnabled,
       updatedByOxyUserId: input.actorOxyUserId,
       reason,
     });
@@ -92,12 +97,15 @@ export async function setProgramControls(input: {
       action: 'program_controls_set',
       actorKind: 'operator',
       actorRef: input.actorOxyUserId,
-      reason: `redirect=${row.redirectEnabled} attribution=${row.attributionEnabled}: ${reason}`,
+      reason:
+        `redirect=${row.redirectEnabled} attribution=${row.attributionEnabled} ` +
+        `payout=${row.payoutEnabled}: ${reason}`,
     });
     return {
       programId: row.programId,
       redirectEnabled: row.redirectEnabled,
       attributionEnabled: row.attributionEnabled,
+      payoutEnabled: row.payoutEnabled,
       reason: row.reason,
       updatedAt: row.updatedAt.toISOString(),
     };

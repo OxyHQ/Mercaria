@@ -276,12 +276,21 @@ figure, never above the base it draws on, never above what the reward already
 stood at. Each net is `f(base)` computed afresh rather than an accumulated
 subtraction, which is what makes `Σ deltas + gross == net` an identity.
 
-### The #145 seam
+### The #145 seam — CLOSED
+
+`docs/referral-earnings.md` is the earnings ledger, and what it consumed from
+here was the four bullets below, unchanged. What DID change in #144's own code
+is two lines: `accrueRewardForConversion` and `reverseRewardIn` now call
+`services/referrals/earnings/posting.service.ts` inside their existing
+transaction, so the reward row and the money it represents commit together and
+cannot disagree by construction. The three unwritten states below have writers
+now; `frozen` is #145's freeze, `vested` its sweep, `paid` its payout batch.
 
 - A reward already **paid** is never un-paid (ADR 0005 R7). Its state stays
   `paid` and its `paid_at` is untouched; the shortfall is recorded as
-  `recovery_state = 'partner_liability'` with `liability_amount_minor`, which
-  #145's partner balance consumes. #144 holds no balance and moves no money.
+  `recovery_state = 'partner_liability'` with `liability_amount_minor`, and #145
+  carries it as a NEGATIVE `referral_payable` balance that future accruals offset
+  first. #144 still holds no balance and moves no money itself.
 - An unpaid reward's reversal is `offset_against_balance`; a zero-delta one is
   `not_applicable` and is still WRITTEN, because "we looked and nothing had
   moved" is a different fact from "nobody looked".
@@ -337,11 +346,11 @@ trigger, which the same test drives.
 
 Each is a named contract that fails closed, not a stub that lies.
 
-- **#145 (earnings ledger, payout balances).** No ledger posting, no balance, no
-  batch, no vesting sweep. The seam is the adjustment row's `recovery_state` and
-  `liability_amount_minor`, plus the three unwritten reward states. ADR 0005's
-  "Ledger representability" section names the two accounts and the posting table
-  #145 implements.
+- **#145 (earnings ledger, payout balances) — LANDED.** See
+  `docs/referral-earnings.md`. It added the two ledger accounts, the posting
+  table, the vesting sweep, payout batches and the reconciliation sweep ADR 0005
+  requires, and it made the two functions above BOOK. The isolation gate's ledger
+  exemption grew from one file to three in the same change, as an exact set.
 - **#146 (payout).** `hold_policy_ref` is a reference this domain never
   resolves.
 - **#147 (dashboards).** There is no HTTP surface for reward rules at all. The
@@ -368,9 +377,9 @@ Each is a named contract that fails closed, not a stub that lies.
 2. Create the `referral_campaign_budgets` row before activating a
    `fixed_budget` rule; the accrual refuses `funding_source_unavailable`
    otherwise.
-3. #145 must ship the reconciliation sweep ADR 0005 requires: the reward's net
-   and the ledger's `referral_payable` are two stores that must agree, and the
-   payment domain already proved that two such stores without a sweep are a
-   discrepancy nobody notices.
+3. #145 shipped the reconciliation sweep ADR 0005 requires; turn
+   `REFERRAL_RECONCILIATION_ENABLED` on before the rail carries live money. The
+   reward's net and the ledger's `referral_payable` cannot disagree by
+   construction, and a sweep nobody runs is the discrepancy nobody notices.
 4. Nothing in #144 runs on a loop, so there is no flag to set and no dispatcher
    to enable. `REFERRALS_ENABLED` continues to gate #142's surfaces.

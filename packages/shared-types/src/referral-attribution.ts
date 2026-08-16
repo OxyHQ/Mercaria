@@ -308,6 +308,12 @@ export interface ReferralProgramControlsView {
   programId: string;
   redirectEnabled: boolean;
   attributionEnabled: boolean;
+  /**
+   * #145's THIRD lever: may a payout batch for this program be built and
+   * settled? ADR 0005 D18's suspension, at the program grain — it withholds and
+   * never voids, and every reward already earned keeps its state.
+   */
+  payoutEnabled: boolean;
   reason: string;
   updatedAt: string;
 }
