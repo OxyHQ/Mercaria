@@ -1,4 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Mercaria by Oxy — the STATIC sitemap.
+
+  This is the FLAG-OFF FLOOR (#75), the sibling of robots.txt beside it. When
+  SEO_ROUTES_ENABLED is on, the worker proxies /sitemap.xml to the API, which
+  renders an index over four paginated collections with a real per-entity
+  lastmod. This copy is what a crawler gets when that lookup cannot answer, so
+  it advertises the home page and nothing else: a build-time catalogue listing
+  would be a second sitemap authority, stale from the moment it was written,
+  and it could not apply the indexability policy at all.
+
+  The modification date is FIXED and edited by hand (#371). A generator used to
+  stamp it with the build date, which dirtied this tracked file on every build
+  and told crawlers that every page changed on whatever day somebody happened
+  to run one. Deriving it from the last commit touching the home screen is no
+  better — the most recent such commit removed type casts and changed nothing a
+  reader sees. Edit it when the home page's content actually changes; the
+  protocol also allows dropping the element entirely if no honest value exists.
+
+  packages/backend/src/services/seo/__tests__/seo-sitemap-static.test.ts parses
+  this file and fails the build when it drifts from the public route registry,
+  when the date is unreadable or in the future, or when a build step starts
+  regenerating it again.
+-->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://mercaria.co/</loc>
