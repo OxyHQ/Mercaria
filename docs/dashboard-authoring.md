@@ -180,6 +180,21 @@ still publishes.
 an authority and cannot be one; what it buys is latency, so an author typing a
 fourteenth decimal place is told at the keystroke.
 
+### The two proposal codes are live as of #367 step 6
+
+`validateDraftRow` now produces `proposal_pending_blocks_publication` (path
+`draft.pendingProposals`) and publishes `proposalNotPermittedFinding`, whose
+documented path is `fields.<attributeKey>`. Both were previously in the closed
+set and produced by nothing, so this is the first traffic through them.
+
+Measured against the real modules rather than assumed: the first parses to a
+`draft` target and lands on the REVIEW step — correct, because it is a fact
+about the draft and names no control — and the second parses to a
+`product_field` target and attaches to that field on the DETAILS step. Both
+resolve a real sentence (`products.wizard.finding.proposalPending`,
+`…proposalNotPermitted`), translated in all eleven bundles, rather than falling
+through to a generic message.
+
 ## Accessibility and layout
 
 Every control carries an `accessibilityLabel` (server-composed where the label
@@ -248,13 +263,18 @@ anything, which is the only way it does damage.
   families by name, and guessing which product-search rows are families would be
   inventing a lookup.
 - **Proposing a missing controlled value.** `permissions.canProposeValues` is
-  `false` in every branch server-side (#367 step 6 owns it), so no control is
-  rendered.
+  `false` in every branch server-side, so no control is rendered. #367 step 6
+  landed the domain and wired the two codes below, but the propose control is
+  its client half: a form, the `/catalog-proposals` submission, an
+  awaiting-review state on the field. Flipping the projection without them would
+  tell a client a control exists that no screen renders, which is the reasoning
+  `catalog-authoring.controller.ts` gives for the `false` in the first place.
 
 ## Seams left, each failing closed
 
-- **#367 step 6** (ADR 0007 D9 proposals): the codes exist, the permission is
-  projected, and nothing offers a control while the projection is false.
+- **#367 step 6's CLIENT half** (ADR 0007 D9 proposals): the domain landed and
+  both codes now render (above); what is missing is the control that lets a
+  merchant propose a value, and the projection stays `false` until it exists.
 - **The upgrade preview**: `useDraftUpgradePreview` and `useApplyDraftUpgrade`
   are bound and no screen calls them. `schema_version_superseded` is surfaced as
   a warning by the validation path, which is what tells an author the rules
