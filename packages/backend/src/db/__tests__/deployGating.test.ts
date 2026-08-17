@@ -115,6 +115,13 @@ const WEB_DEPLOY_WORKFLOWS = [
  * (`cancel-in-progress: true`) that `deploy-aws.yml` must NOT have — cancelling
  * it between `run-task` and its exit-code check orphans a live migration task.
  * Two different properties over two overlapping sets, so they are two lists.
+ *
+ * That opposite posture is ASSERTED below ("the API deploy must never cancel a
+ * run mid-migration"), not merely described here. It was described here and
+ * nowhere else until #574: the `it.each` that checks the posture iterates
+ * `WEB_DEPLOY_WORKFLOWS`, which excludes `deploy-aws.yml`, so the exact flip
+ * this paragraph warns against passed every gate in the repository. A stated
+ * requirement is not a checked one.
  */
 const GATED_DEPLOY_WORKFLOWS = [...WEB_DEPLOY_WORKFLOWS, 'deploy-aws.yml'] as const;
 
@@ -309,6 +316,73 @@ describe('a web deploy does not park runners waiting for the CI it depends on', 
     // Vacuity floor: three `undefined`s are also "all distinct".
     for (const group of groups) expect(group).toBeTruthy();
     expect(new Set(groups).size).toBe(WEB_DEPLOY_WORKFLOWS.length);
+  });
+});
+
+/**
+ * The setting whose thirty-line comment says it "reads like an optimisation to
+ * flip", finally enforced (#574).
+ *
+ * Until this existed the requirement lived only in prose — in `deploy-aws.yml`'s
+ * own header, and in the `GATED_DEPLOY_WORKFLOWS` docblock above — while the
+ * only `cancel-in-progress` assertion in the repository iterated
+ * `WEB_DEPLOY_WORKFLOWS` and asserted `true`. So the flip passed every gate.
+ * There were four `toBe(true)` in this file and zero `toBe(false)`, which is
+ * the control that turns "probably unenforced" into "certainly".
+ *
+ * Both halves matter and they break differently:
+ *
+ *  - **`cancel-in-progress: true`** would cancel a run between
+ *    `run-task` and its exit-code check, ORPHANING a live migration task — the
+ *    ECS task keeps running against production while the workflow reports
+ *    nothing. It also triggers this workflow family's defensive rollback rather
+ *    than preventing it (measured in Allo, 2026-08-09).
+ *  - **A group keyed on the SHA** — the `ci.yml` shape, and the tempting
+ *    "fix" for #574 since it stops evictions — would let two deploys migrate
+ *    CONCURRENTLY. `@oxyhq/db`'s migrator takes no lock and assigns the
+ *    interlock to its caller; this group IS that interlock. Evictions are the
+ *    price of it, which is why #574 was answered by reporting them
+ *    (`deploy-coverage.yml`) rather than by preventing them.
+ */
+describe('the API deploy must never cancel a run mid-migration', () => {
+  const API_DEPLOY_WORKFLOW = 'deploy-aws.yml';
+
+  it('does not cancel superseded runs, and says so explicitly', () => {
+    const { concurrency } = readWorkflow(API_DEPLOY_WORKFLOW);
+    expect(concurrency, `${API_DEPLOY_WORKFLOW} must declare a concurrency block`).toBeDefined();
+
+    // Positive control for the ACCESSOR, not a second authority on the web
+    // deploys' own requirement. Without it, a renamed key or a `readWorkflow`
+    // that silently returned `{}` would make the assertion below read
+    // `undefined`, and the failure would send the reader to the wrong place.
+    expect(
+      readWorkflow('deploy-cloudflare.yml').concurrency?.['cancel-in-progress'],
+      'this key no longer reads as a boolean anywhere — the assertion below is measuring nothing',
+    ).toBe(true);
+
+    // Explicit `false`, not merely absent. GitHub defaults it to false, so
+    // deleting the line is behaviourally identical and leaves a thirty-line
+    // comment explaining a setting that is no longer written down — which is
+    // how the next reader concludes it was never deliberate.
+    expect(
+      concurrency?.['cancel-in-progress'],
+      `${API_DEPLOY_WORKFLOW} must NOT cancel in progress: a cancellation between ` +
+        `\`run-task\` and its exit-code check orphans a live migration task`,
+    ).toBe(false);
+  });
+
+  it('serialises per REF and never per sha, which would race two migrators', () => {
+    const group = readWorkflow(API_DEPLOY_WORKFLOW).concurrency?.group ?? '';
+
+    expect(group).toContain('github.ref');
+    expect(
+      group,
+      `${API_DEPLOY_WORKFLOW} must not key its concurrency group on the sha: that gives every ` +
+        `commit its own group, so two deploys migrate CONCURRENTLY against a migrator that ` +
+        `takes no lock. It is the tempting "fix" for the evictions in #574 and it is unsafe; ` +
+        `the answer there is deploy-coverage.yml, which REPORTS an eviction that was not ` +
+        `covered by a later success.`,
+    ).not.toContain('github.sha');
   });
 });
 

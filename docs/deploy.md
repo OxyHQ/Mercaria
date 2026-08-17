@@ -281,7 +281,25 @@ really defines (so a new CI job forces a decision), every job holding a
 production credential must depend on a verification, the set of such jobs must be
 EXACTLY the four known targets (so a fifth is classified rather than assumed),
 and `ci.yml`'s concurrency must still key `main` on the sha. Each of those four
-was mutation-tested. `judgeJobs` is unit-tested against the two shapes that read
+was mutation-tested.
+
+**A fifth was added by #574, and its absence is the lesson.** `deploy-aws.yml`'s
+`cancel-in-progress: false` — the setting whose own thirty-line comment says it
+"reads like an optimisation to flip" — was asserted by **nothing**. The
+requirement was stated in a comment in this very test file, while the `it.each`
+that checks the posture iterates `WEB_DEPLOY_WORKFLOWS`, which excludes
+`deploy-aws.yml`. The control that settles it rather than suggesting it: **four
+`toBe(true)` in the file and zero `toBe(false)`.** So the exact flip everything
+warned against passed every gate in the repository. **A stated requirement is not
+a checked one, and prose is where an invariant goes to be admired.**
+
+Now asserted both ways, because the two break differently: `cancel-in-progress`
+must be explicitly `false` (deleting the line is behaviourally identical and
+orphans the comment, so absence fails too), and the group must **not** key on the
+sha — the tempting fix for #574's evictions, which would let two deploys migrate
+concurrently against a migrator that takes no lock. Mutation-tested three ways
+(flip to `true`, key on the sha, delete the line); all three go red naming the
+assertion, each with a one-line diff proving the mutation applied. `judgeJobs` is unit-tested against the two shapes that read
 as green — a `skipped` job and a MISSING one.
 
 #518 NARROWED the second of those and added one. "A verification" used to accept
