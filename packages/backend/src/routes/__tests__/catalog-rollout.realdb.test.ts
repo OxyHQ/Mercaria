@@ -48,6 +48,25 @@
  * config change, and a stubbed repository would make the case indistinguishable
  * from one where the lever had dropped it. The third deployment opens no pool at
  * all, because every path this file sends it 404s at the mount.
+ *
+ * ## This file is a FOURTH inserter into `catalog_proposals`, which is shared
+ *
+ * The suite's throwaway database is shared across parallel FILES, and
+ * `services/catalog-observability/__tests__/metrics.realdb.test.ts` asserts a
+ * DELTA of exactly one on `proposal_creation_count` and `proposal_backlog_count`
+ * — never an absolute — precisely because "these aggregates have no tenant
+ * predicate and siblings hold proposals of their own". An insert landing inside
+ * that file's before/after window would make its delta two and fail it, naming
+ * nothing about this file.
+ *
+ * The fixture below inserts ONE row, once, in a `beforeAll`, so the exposure is a
+ * single moment rather than a stream — and three siblings
+ * (`catalog-proposals.realdb.test.ts`, `verticals-smartphone.realdb.test.ts`,
+ * `vertical-matrix-and-new-product.e2e.realdb.test.ts`) already insert proposals,
+ * so this is a fourth instance of an existing interaction rather than a new class
+ * of it. Recorded rather than mitigated because the alternative is not inserting,
+ * and the stored row IS what the durable-record claim is about. If that delta ever
+ * flakes, this file is one of four places to look.
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
