@@ -33,7 +33,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -54,39 +54,83 @@ function domainSources(): { relative: string; source: string }[] {
     }));
 }
 
-/** The rest of the surface — the pieces that live outside the domain directory. */
-const OUTER_PATHS = [
-  'db/productPage/productPageRepository.ts',
-  'controllers/product-page.controller.ts',
-  'routes/product-page.ts',
-  'middleware/product-page-schemas.ts',
-];
+/** The shared directories, where this domain sits beside every other domain's. */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
 
-function outerSources(): { relative: string; source: string }[] {
-  return OUTER_PATHS.map((relative) => ({
-    relative,
-    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
-  }));
+/** What a file BELONGING to this domain is called, wherever it lives. */
+const DOMAIN_NAME_PATTERN = /product-?page/i;
+
+/** Assert a path is a real file, then read it. */
+function readScanned(absolute: string, relative: string): { relative: string; source: string } {
+  expect(statSync(absolute).isFile(), `${relative} is not a file — did it move?`).toBe(true);
+  return { relative, source: readFileSync(absolute, 'utf8') };
+}
+
+/** Every entry of a directory matching an extension, optionally filtered by name. */
+function filesIn(
+  root: string,
+  relativePrefix: string,
+  extension: string,
+  matching?: RegExp,
+): { relative: string; source: string }[] {
+  return readdirSync(root)
+    .filter((name) => name.endsWith(extension))
+    .filter((name) => matching === undefined || matching.test(name))
+    .sort()
+    .map((name) => readScanned(join(root, name), `${relativePrefix}/${name}`));
 }
 
 /**
- * The storefront files this issue owns.
+ * The rest of the server surface, DERIVED rather than listed.
  *
- * Named explicitly rather than globbed: a glob over the app would scan every
- * screen and turn a wall about ONE page into a repository-wide style rule
- * somebody disables the first time it fires elsewhere.
+ * `db/productPage/` is the domain's own directory and is walked whole; the three
+ * files in the SHARED directories are selected by name, so a
+ * `routes/internal-product-page.ts` added tomorrow is scanned the moment it
+ * exists. A hand list is complete the day it is written and silently incomplete
+ * the day somebody adds a module (#460).
  */
-const STOREFRONT_PATHS = [
-  'app/(app)/p/[handle].tsx',
-  'components/product/OfferRow.tsx',
-  'components/product/OfferGroups.tsx',
-  'components/product/ProductIdentity.tsx',
-  'components/product/VariantSelector.tsx',
-  'components/product/BrandChannels.tsx',
-  'components/product/PriceHistoryPanel.tsx',
-  'lib/api/product-page.ts',
-  'lib/hooks/use-product-page.ts',
-];
+function outerSources(): { relative: string; source: string }[] {
+  return [
+    ...filesIn(join(SRC_ROOT, 'db/productPage'), 'db/productPage', '.ts'),
+    ...OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(join(SRC_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
+    ),
+  ];
+}
+
+/**
+ * The storefront files this issue owns, DERIVED from the two directories that
+ * belong to it plus the `lib/` modules named for it.
+ *
+ * Deliberately NOT a glob over the app: that would scan every screen and turn a
+ * wall about ONE page into a repository-wide style rule somebody disables the
+ * first time it fires elsewhere. `components/product/` and `app/(app)/p/` ARE
+ * this page, whole, so walking them is exactly as narrow as naming their current
+ * contents — and it covers the component added next week, which naming does not.
+ * A new `components/product/OfferActions.tsx` calling `Linking.openURL` on an
+ * offer's destination was invisible to the list and is not to the walk.
+ */
+function storefrontSources(): { relative: string; source: string }[] {
+  return [
+    ...filesIn(join(STOREFRONT_ROOT, 'app/(app)/p'), 'app/(app)/p', '.tsx'),
+    ...filesIn(join(STOREFRONT_ROOT, 'components/product'), 'components/product', '.tsx'),
+    ...['lib/api', 'lib/hooks'].flatMap((relative) =>
+      filesIn(join(STOREFRONT_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
+    ),
+  ];
+}
+
+/**
+ * The floors, PER SHAPE and measured off this branch.
+ *
+ * MEASURED: 5 under `services/product-page`, 1 under `db/productPage`, 3 in the
+ * shared directories, 1 screen under `app/(app)/p`, 6 under
+ * `components/product`, 2 `lib/` modules.
+ */
+const MINIMUM_DOMAIN_FILES = 5;
+const MINIMUM_OUTER_FILES = 4;
+const MINIMUM_STOREFRONT_SCREENS = 7;
+const MINIMUM_STOREFRONT_MODULES = 2;
 
 /**
  * The files WALL 6 reads navigation targets out of.
@@ -103,8 +147,7 @@ const STOREFRONT_PATHS = [
  * it to the two `#252` names would make the next identity decision look like it
  * needs a new list rather than a new assertion.
  */
-const NAVIGATION_PATHS = [
-  ...STOREFRONT_PATHS,
+const EXTRA_NAVIGATION_PATHS = [
   'app/(app)/products/[id].tsx',
   // #93's collection surfaces. They join the ROUTE gate and nothing else, for
   // the reason above: the product page links to `/nearby`, `/nearby` links to
@@ -123,11 +166,9 @@ const NAVIGATION_PATHS = [
   'app/(app)/checkout/return.tsx',
 ];
 
-function storefrontSources(): { relative: string; source: string }[] {
-  return STOREFRONT_PATHS.map((relative) => ({
-    relative,
-    source: readFileSync(join(STOREFRONT_ROOT, relative), 'utf8'),
-  }));
+/** Every file WALL 6 reads navigation targets out of: this page's, plus the extras. */
+function navigationPaths(): string[] {
+  return [...storefrontSources().map((file) => file.relative), ...EXTRA_NAVIGATION_PATHS];
 }
 
 /** Comment-stripped source: these modules DOCUMENT what they refuse to do. */
@@ -198,25 +239,74 @@ describe('the product-page surface exists — the vacuity floor', () => {
     const domain = domainSources();
     // A renamed directory or a moved module must fail HERE rather than make
     // every scan below pass against an empty list.
-    expect(domain.length).toBeGreaterThanOrEqual(5);
-    for (const file of domain) {
-      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
-    }
-    for (const file of outerSources()) {
+    // Floored PER SHAPE: one total lets a directory collapse to nothing behind
+    // another's count, and every wall below then runs over a surface missing a
+    // layer while reporting exactly what a clean run reports.
+    const outer = outerSources();
+    expect(domain.length, 'services/product-page shrank').toBeGreaterThanOrEqual(
+      MINIMUM_DOMAIN_FILES,
+    );
+    expect(
+      outer.length,
+      'the repository, controller, route or schema module left the derivation',
+    ).toBeGreaterThanOrEqual(MINIMUM_OUTER_FILES);
+    for (const file of [...domain, ...outer]) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
     }
   });
 
   it('scans the storefront files this issue owns', () => {
-    for (const relative of STOREFRONT_PATHS) {
-      const absolute = join(STOREFRONT_ROOT, relative);
-      expect(existsSync(absolute), `${relative} is missing — did the page move?`).toBe(true);
-    }
     const files = storefrontSources();
-    expect(files.length).toBeGreaterThanOrEqual(9);
+    const screens = files.filter((file) => file.relative.endsWith('.tsx'));
+    const modules = files.filter((file) => file.relative.endsWith('.ts'));
+    expect(
+      screens.length,
+      'the product page or its components moved; the storefront walls scan almost nothing now',
+    ).toBeGreaterThanOrEqual(MINIMUM_STOREFRONT_SCREENS);
+    expect(modules.length, 'the product-page api/hook modules moved').toBeGreaterThanOrEqual(
+      MINIMUM_STOREFRONT_MODULES,
+    );
     for (const file of files) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
     }
+  });
+
+  it('the domain-name derivation selects the real files and not their neighbours', () => {
+    // A derivation that replaced a hand list owes the proof that it still
+    // selects everything the list named.
+    const outer = outerSources().map((file) => file.relative);
+    for (const expected of [
+      'db/productPage/productPageRepository.ts',
+      'controllers/product-page.controller.ts',
+      'routes/product-page.ts',
+      'middleware/product-page-schemas.ts',
+    ]) {
+      expect(outer, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    const storefront = storefrontSources().map((file) => file.relative);
+    for (const expected of [
+      'app/(app)/p/[handle].tsx',
+      'components/product/OfferRow.tsx',
+      'components/product/OfferGroups.tsx',
+      'components/product/ProductIdentity.tsx',
+      'components/product/VariantSelector.tsx',
+      'components/product/BrandChannels.tsx',
+      'components/product/PriceHistoryPanel.tsx',
+      'lib/api/product-page.ts',
+      'lib/hooks/use-product-page.ts',
+    ]) {
+      expect(storefront, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // …and the walk stays as narrow as the list was: no other screen is in it.
+    for (const file of storefront) {
+      expect(
+        /^(app\/\(app\)\/p\/|components\/product\/|lib\/(api|hooks)\/)/.test(file),
+        `${file} is outside this page; these walls must not become a repository-wide style rule`,
+      ).toBe(true);
+    }
+    expect(DOMAIN_NAME_PATTERN.test('use-product-page.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('productPageRepository.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('product-saves.ts')).toBe(false);
   });
 });
 
@@ -236,7 +326,9 @@ describe('WALL 1: the page consumes a ranking and never produces one', () => {
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(9);
+    expect(scanned, 'the scanned surface shrank').toBeGreaterThanOrEqual(
+      MINIMUM_DOMAIN_FILES + MINIMUM_OUTER_FILES,
+    );
   });
 
   it('the ranking and ordering detectors actually detect — the mutation self-test', () => {
@@ -268,7 +360,13 @@ describe('WALL 2: the page cannot read commercial standing', () => {
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(18);
+    // A floor on the POPULATION, not on a counter the loop just incremented:
+    // `scanned` equals the list length by construction, so it catches a broken
+    // loop and never a shrunk population.
+    expect(scanned, 'the scanned surface shrank').toBeGreaterThanOrEqual(
+      MINIMUM_DOMAIN_FILES + MINIMUM_OUTER_FILES + MINIMUM_STOREFRONT_SCREENS +
+        MINIMUM_STOREFRONT_MODULES,
+    );
   });
 
   it('the commercial detector actually detects — the mutation self-test', () => {
@@ -302,7 +400,13 @@ describe('WALL 3: the page never sends anybody anywhere', () => {
       }
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(18);
+    // A floor on the POPULATION, not on a counter the loop just incremented:
+    // `scanned` equals the list length by construction, so it catches a broken
+    // loop and never a shrunk population.
+    expect(scanned, 'the scanned surface shrank').toBeGreaterThanOrEqual(
+      MINIMUM_DOMAIN_FILES + MINIMUM_OUTER_FILES + MINIMUM_STOREFRONT_SCREENS +
+        MINIMUM_STOREFRONT_MODULES,
+    );
   });
 
   it('the handoff detectors actually detect — the mutation self-test', () => {
@@ -365,7 +469,9 @@ describe('WALL 4: the page writes nothing', () => {
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(9);
+    expect(scanned, 'the scanned surface shrank').toBeGreaterThanOrEqual(
+      MINIMUM_DOMAIN_FILES + MINIMUM_OUTER_FILES,
+    );
   });
 
   it('the write detector actually detects — the mutation self-test', () => {
@@ -419,7 +525,7 @@ function routePathOf(target: string): string {
 /** Every literal `router.push`/`router.replace` target in the page's files. */
 function navigationTargets(): { relative: string; target: string }[] {
   const found: { relative: string; target: string }[] = [];
-  const sources = NAVIGATION_PATHS.map((relative) => ({
+  const sources = navigationPaths().map((relative) => ({
     relative,
     source: readFileSync(join(STOREFRONT_ROOT, relative), 'utf8'),
   }));
@@ -475,7 +581,9 @@ describe('WALL 5: the page names no currency', () => {
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(9);
+    expect(scanned, 'the scanned surface shrank').toBeGreaterThanOrEqual(
+      MINIMUM_DOMAIN_FILES + MINIMUM_OUTER_FILES,
+    );
   });
 
   it('the currency detector actually detects — the mutation self-test', () => {

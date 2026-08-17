@@ -28,7 +28,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -55,53 +55,88 @@ interface ScannedFile {
   readonly source: string;
 }
 
-/** Every module of the watchlist domain, enumerated from disk. */
-function domainSources(): ScannedFile[] {
-  const roots = [
-    'services/watchlists',
-    'db/watchlists',
-    'controllers/watchlists.controller.ts',
-    'routes/watchlists.ts',
-    'middleware/watchlist-schemas.ts',
-  ];
-  const files: ScannedFile[] = [];
-  for (const root of roots) {
-    const full = join(SRC_ROOT, root);
-    if (root.endsWith('.ts')) {
-      files.push({ relative: root, source: readFileSync(full, 'utf8') });
-      continue;
-    }
-    for (const name of readdirSync(full)) {
-      if (!name.endsWith('.ts')) continue;
-      files.push({ relative: `${root}/${name}`, source: readFileSync(join(full, name), 'utf8') });
-    }
-  }
-  return files;
+/** The domain's OWN directories, walked whole. */
+const DOMAIN_DIRECTORIES = ['services/watchlists', 'db/watchlists'];
+
+/** The shared directories, where this domain sits beside every other domain's. */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/** What a file BELONGING to this domain is called, wherever it lives. */
+const DOMAIN_NAME_PATTERN = /watchlist/i;
+
+/**
+ * Read one scanned file, asserting it is a real file first.
+ *
+ * A DERIVED population is only as honest as the assertion that every member
+ * resolves; a `readdirSync` served from a stale cache would hand every scan
+ * below names that no longer exist, which reads as a clean run.
+ */
+function readScanned(absolute: string, relative: string): ScannedFile {
+  expect(statSync(absolute).isFile(), `${relative} is not a file — did it move?`).toBe(true);
+  return { relative, source: readFileSync(absolute, 'utf8') };
+}
+
+/** Every entry of a directory matching `extension`, and optionally a name pattern. */
+function filesIn(
+  root: string,
+  relativePrefix: string,
+  extension: string,
+  matching?: RegExp,
+): ScannedFile[] {
+  return readdirSync(root)
+    .filter((name) => name.endsWith(extension))
+    .filter((name) => matching === undefined || matching.test(name))
+    .sort()
+    .map((name) => readScanned(join(root, name), `${relativePrefix}/${name}`));
 }
 
 /**
- * The storefront files that RENDER a basket.
+ * Every module of the watchlist domain, DERIVED from disk rather than listed.
+ *
+ * The two domain directories were always walked; the three files in the SHARED
+ * directories were named and are now selected by name PATTERN, so an
+ * `internal-watchlists.ts` added tomorrow is scanned the moment it exists. The
+ * derivation also picks up `db/schema/watchlists.ts`, which the hand list did
+ * not name at all (#460).
+ */
+function domainSources(): ScannedFile[] {
+  return [
+    ...DOMAIN_DIRECTORIES.flatMap((relative) =>
+      filesIn(join(SRC_ROOT, relative), relative, '.ts'),
+    ),
+    ...OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(join(SRC_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
+    ),
+  ];
+}
+
+/**
+ * The storefront files that RENDER a basket, DERIVED the same way.
  *
  * The storefront has no test runner of its own, so this file scans it — the
  * `seller-identity-isolation.test.ts` precedent, for its reason: the one file
  * that could make the mistake WALL 1 exists for is a screen, and a gate that
  * only looked at the server would pass while the page said the wrong thing.
+ *
+ * The previous spelling was a fixed list of six paths FILTERED BY `existsSync`,
+ * which is the silent-shrink mechanism written as code: a renamed screen simply
+ * left the population. Only the `>= 6` floor stood between that and a wall
+ * scanning nothing, and a floor catches a rename while remaining blind to the
+ * case that matters more — a NEW basket component nobody added to the list. The
+ * two screen directories are now walked whole.
  */
 function storefrontSources(): ScannedFile[] {
-  const paths = [
-    'app/(app)/watchlists/index.tsx',
-    'app/(app)/watchlists/[watchlistId].tsx',
-    'components/watchlist/BasketTotalCard.tsx',
-    'components/watchlist/WatchlistItemRow.tsx',
-    'lib/hooks/use-watchlists.ts',
-    'lib/api/watchlists.ts',
+  return [
+    ...filesIn(
+      join(STOREFRONT_ROOT, 'app/(app)/watchlists'),
+      'frontend/app/(app)/watchlists',
+      '.tsx',
+    ),
+    ...filesIn(join(STOREFRONT_ROOT, 'components/watchlist'), 'frontend/components/watchlist', '.tsx'),
+    ...['lib/api', 'lib/hooks'].flatMap((relative) =>
+      filesIn(join(STOREFRONT_ROOT, relative), `frontend/${relative}`, '.ts', DOMAIN_NAME_PATTERN),
+    ),
   ];
-  return paths
-    .filter((relative) => existsSync(join(STOREFRONT_ROOT, relative)))
-    .map((relative) => ({
-      relative: `frontend/${relative}`,
-      source: readFileSync(join(STOREFRONT_ROOT, relative), 'utf8'),
-    }));
 }
 
 /**
@@ -121,14 +156,48 @@ function storefrontSources(): ScannedFile[] {
  */
 function storefrontBundles(): ScannedFile[] {
   const dir = join(STOREFRONT_ROOT, 'lib', 'i18n', 'locales');
-  if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((name) => name.endsWith('.json'))
-    .map((name) => ({
-      relative: `frontend/lib/i18n/locales/${name}`,
-      source: readFileSync(join(dir, name), 'utf8'),
-    }));
+    .sort()
+    .map((name) => readScanned(join(dir, name), `frontend/lib/i18n/locales/${name}`));
 }
+
+/** The namespace the watchlist screens read their copy from. */
+const WATCHLIST_COPY_NAMESPACE = 'watchlists';
+
+/**
+ * Every leaf string under one bundle's watchlist namespace, with its dotted key.
+ *
+ * Scanning the bundle's RAW bytes (which WALL 1 does, and should keep doing) is
+ * a claim about the file. It is NOT a claim about the copy: a bundle that lost
+ * its `watchlists` namespace entirely is still tens of kilobytes of other
+ * screens' sentences, so a `length > 200` floor over raw JSON passes with the
+ * subject of the wall completely absent. This is what lets the floor be put on
+ * the COPY rather than on the file.
+ */
+function watchlistCopy(bundle: ScannedFile): { key: string; value: string }[] {
+  const parsed: unknown = JSON.parse(bundle.source);
+  const found: { key: string; value: string }[] = [];
+  const walk = (node: unknown, path: string): void => {
+    if (typeof node === 'string') {
+      found.push({ key: path, value: node });
+      return;
+    }
+    if (node === null || typeof node !== 'object') return;
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      walk(value, path === '' ? key : `${path}.${key}`);
+    }
+  };
+  walk((parsed as Record<string, unknown> | null)?.[WATCHLIST_COPY_NAMESPACE], '');
+  return found;
+}
+
+/**
+ * MEASURED on this branch: 52 leaf strings under `watchlists` in each of the
+ * twelve bundles. The floor is per BUNDLE, because one locale losing the whole
+ * namespace is exactly the shape a single total absorbs.
+ */
+const MINIMUM_COPY_STRINGS_PER_BUNDLE = 40;
 
 /**
  * Strip comments before a REACHABILITY scan.
@@ -173,24 +242,38 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
   const bundles = storefrontBundles();
 
   it('is not vacuous: the domain has real modules and they are not empty', () => {
-    // The floor catches a renamed directory, which would otherwise make every
-    // scan below pass against an empty list.
-    expect(domain.length).toBeGreaterThanOrEqual(11);
+    // Floored PER SHAPE rather than on one total, so a directory that collapsed
+    // to nothing cannot hide behind another's count. MEASURED: 9 under
+    // `services/watchlists`, 3 under `db/watchlists`, 4 in the shared ones.
+    const inDomain = DOMAIN_DIRECTORIES.flatMap((relative) =>
+      filesIn(join(SRC_ROOT, relative), relative, '.ts'),
+    );
+    const inOuter = OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(join(SRC_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
+    );
+    expect(
+      inDomain.length,
+      'services/watchlists + db/watchlists shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(12);
+    expect(
+      inOuter.length,
+      'no controller/route/middleware/schema is named for this domain — did the derivation break?',
+    ).toBeGreaterThanOrEqual(4);
+    expect(domain.length).toBe(inDomain.length + inOuter.length);
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
     }
   });
 
-  it('is not vacuous about the STOREFRONT either, which is where the copy lives', () => {
-    // `storefrontSources` filters by existence, so a renamed screen would
-    // silently shrink WALL 1's scan to the server — where the sentence it
-    // forbids was never going to be written. The floor is what makes that
-    // failure loud, and it is the same defence the domain floor above provides
-    // one package over.
+  it('is not vacuous about the STOREFRONT either', () => {
+    // Two shapes, two floors. MEASURED: 4 screens/components, 2 lib modules.
+    const screens = storefront.filter((file) => file.relative.endsWith('.tsx'));
+    const modules = storefront.filter((file) => file.relative.endsWith('.ts'));
     expect(
-      storefront.length,
-      'a watchlist screen moved; WALL 1 scans the storefront by PATH and cannot see it now',
-    ).toBeGreaterThanOrEqual(6);
+      screens.length,
+      'a watchlist screen or basket component moved; WALL 1 cannot see it now',
+    ).toBeGreaterThanOrEqual(4);
+    expect(modules.length, 'the watchlist api/hook modules moved').toBeGreaterThanOrEqual(2);
     for (const file of storefront) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
     }
@@ -206,6 +289,15 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
     ).toBeGreaterThanOrEqual(12);
     for (const file of bundles) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      // …and the floor that a byte count cannot give: the watchlist COPY is
+      // still in there. A bundle stripped of this namespace is still a large
+      // file of other screens' sentences, so `length > 200` would go on passing
+      // with WALL 1's entire subject absent.
+      expect(
+        watchlistCopy(file).length,
+        `${file.relative} carries no \`${WATCHLIST_COPY_NAMESPACE}\` copy — the namespace moved ` +
+          'and WALL 1 is now scanning other screens',
+      ).toBeGreaterThanOrEqual(MINIMUM_COPY_STRINGS_PER_BUNDLE);
     }
   });
 
@@ -231,7 +323,44 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
     expect(evaluation?.source).toContain('WATCHLIST_BASKET_OPTIMIZATION_SEAM');
     expect(WATCHLIST_BASKET_OPTIMIZATION_SEAM.performed).toBe(false);
     expect(WATCHLIST_BASKET_OPTIMIZATION_SEAM.ownedBy).toBe('#42');
-    expect(WATCHLIST_INDEPENDENT_MINIMA_LABEL).toContain('independent');
+  });
+
+  it('WALL 1 positive control: the honest label is REALLY rendered, and a screen reads it', () => {
+    // This replaces `expect(WATCHLIST_INDEPENDENT_MINIMA_LABEL).toContain('independent')`
+    // — a constant asserted to contain a substring of ITSELF. That is true of the
+    // constant alone, stays true however the basket is worded, and says nothing
+    // about any surface: it is the shape of a control that cannot fail. Half of
+    // WALL 1's claim ("and the honest label IS present") rested on it.
+    //
+    // The relation instead: the shared-types constant must appear in the English
+    // copy the screens actually render, and the component must reference the KEYS
+    // those strings sit under. Rename either side and this goes red as STALE,
+    // which is the whole job of a control. Keyed rather than phrase-matched,
+    // because a phrase assertion over a `.tsx` is precisely the check that went
+    // vacuous when #435b moved the copy out.
+    const english = bundles.find((file) => file.relative.endsWith('/en.json'));
+    expect(english, 'en.json is missing').toBeDefined();
+    const carrying = watchlistCopy(english as ScannedFile).filter(({ value }) =>
+      value.toLowerCase().includes(WATCHLIST_INDEPENDENT_MINIMA_LABEL.toLowerCase()),
+    );
+    expect(
+      carrying.length,
+      `no en.json \`${WATCHLIST_COPY_NAMESPACE}\` string contains ` +
+        `"${WATCHLIST_INDEPENDENT_MINIMA_LABEL}" — either the basket stopped saying what its ` +
+        'total actually is, or the constant and the copy have drifted apart',
+    ).toBeGreaterThanOrEqual(2);
+
+    // …and the component genuinely goes through those keys, so the copy scanned
+    // above is the copy rendered rather than a string nothing reaches.
+    const basket = storefront.find((file) => file.relative.endsWith('BasketTotalCard.tsx'));
+    expect(basket, 'BasketTotalCard.tsx is missing').toBeDefined();
+    for (const { key } of carrying) {
+      expect(
+        (basket as ScannedFile).source.includes(key),
+        `BasketTotalCard.tsx no longer references \`${key}\`; the honest label is in the bundle ` +
+          'but nothing renders it',
+      ).toBe(true);
+    }
   });
 
   it('WALL 2: a watchlist cannot be public or shared', () => {

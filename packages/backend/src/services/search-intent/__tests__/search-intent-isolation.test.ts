@@ -57,14 +57,17 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 /** Walked whole, so the wall holds for modules nobody has written yet. */
 const SCANNED_DIRECTORIES = ['services/search-intent', 'db/searchIntent'];
 
-/** The files that serve the domain from outside those directories. */
-const SCANNED_FILES = [
-  'controllers/search-intent.controller.ts',
-  'controllers/internal-search-intent.controller.ts',
-  'routes/search-intent.ts',
-  'routes/internal-search-intent.ts',
-  'middleware/search-intent-schemas.ts',
-];
+/** The shared directories, where this domain sits beside every other domain's. */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
+
+/**
+ * What a file BELONGING to this domain is called, wherever it lives.
+ *
+ * Deliberately the FULL `search-intent`, never a bare `search`: #70's canonical
+ * retrieval is a different domain with its own gate, and folding its five files
+ * in here would make this wall fire at whoever edits them.
+ */
+const DOMAIN_NAME_PATTERN = /search-intent/i;
 
 /**
  * The STOREFRONT's search path, relative to the repository root.
@@ -74,26 +77,41 @@ const SCANNED_FILES = [
  * the storefront has no test runner, so a rule about a client file is a build
  * failure here or it is a copy review.
  */
-const SCANNED_CLIENT_FILES = [
+/**
+ * The two client modules NAMED for this domain are derived; the two that are
+ * not are listed, and each is asserted to exist.
+ *
+ * `app/(app)/search.tsx` and `SearchInterpretation.tsx` carry no `search-intent`
+ * in their names — the screen is the search screen and the component renders an
+ * interpretation — so no name rule reaches them without also reaching a hundred
+ * unrelated files. Listing exactly two, with a `statSync` behind each, is honest
+ * about that; a rule that "derived" them would be a hand list with an extra step.
+ */
+const NAMED_CLIENT_FILES = [
   'packages/frontend/app/(app)/search.tsx',
-  'packages/frontend/lib/hooks/use-search-intent.ts',
-  'packages/frontend/lib/api/search-intent.ts',
   'packages/ui/src/components/marketplace/SearchInterpretation.tsx',
 ];
+
+/** Where a client module named for this domain can live. */
+const CLIENT_DIRECTORIES = ['packages/frontend/lib/api', 'packages/frontend/lib/hooks'];
 
 /** The repository root, two levels above `packages/backend/src`. */
 const REPO_ROOT = join(SRC_ROOT, '..', '..', '..');
 
 /**
- * The smallest number of modules this domain can plausibly have.
+ * The floors, PER SHAPE and measured off this branch.
  *
- * Sixteen at the time of writing (thirteen under `services/search-intent`
- * including the benchmark, two under `db/searchIntent`) plus the five files
- * above. The floor is below that so ordinary refactoring does not fail the
- * build, and far enough above zero that a walk returning nothing — the way this
- * gate would silently stop working — cannot pass.
+ * One TOTAL floor was the previous spelling, and a total lets one shape collapse
+ * to zero behind another's number: `db/searchIntent` losing both repositories
+ * sits inside a total of 14 as long as the service directory still has
+ * seventeen, and every detector then runs over a domain missing its data layer.
+ *
+ * MEASURED: 19 under `services/search-intent` (including the benchmark) and
+ * `db/searchIntent` together, 5 in the shared directories, 4 client files.
  */
-const MINIMUM_SCANNED_FILES = 14;
+const MINIMUM_DIRECTORY_FILES = 19;
+const MINIMUM_OUTER_FILES = 5;
+const MINIMUM_CLIENT_FILES = 4;
 
 /** What reaching each prohibited thing looks like, from any direction. */
 const FORBIDDEN_REFERENCES: readonly { wall: string; pattern: RegExp }[] = [
@@ -151,18 +169,67 @@ function walk(directory: string): string[] {
   return files;
 }
 
+/** Assert a path is a real file, then return it. */
+function assertFile(absolute: string, label: string): string {
+  expect(statSync(absolute).isFile(), `${label} is not a file — did it move?`).toBe(true);
+  return absolute;
+}
+
+/** The files serving this domain from the SHARED directories, DERIVED by name. */
+function outerPaths(): string[] {
+  return OUTER_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory))
+      .filter((entry) => entry.endsWith('.ts') && DOMAIN_NAME_PATTERN.test(entry))
+      .sort()
+      .map((entry) => assertFile(join(SRC_ROOT, directory, entry), `${directory}/${entry}`)),
+  );
+}
+
+/** The client files: the two derived by name plus the two that carry none. */
+function clientPaths(): { absolute: string; relative: string }[] {
+  const derived = CLIENT_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(REPO_ROOT, directory))
+      .filter((entry) => entry.endsWith('.ts') && DOMAIN_NAME_PATTERN.test(entry))
+      .sort()
+      .map((entry) => ({
+        absolute: assertFile(join(REPO_ROOT, directory, entry), `${directory}/${entry}`),
+        relative: `${directory}/${entry}`,
+      })),
+  );
+  const named = NAMED_CLIENT_FILES.map((relative) => ({
+    absolute: assertFile(join(REPO_ROOT, relative), relative),
+    relative,
+  }));
+  return [...derived, ...named];
+}
+
 function scannedPaths(): string[] {
-  const paths = SCANNED_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative)));
-  paths.push(...SCANNED_FILES.map((relative) => join(SRC_ROOT, relative)));
-  return paths;
+  return [
+    ...SCANNED_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative))),
+    ...outerPaths(),
+  ];
 }
 
 describe('the natural-language intent domain cannot reach what it must not', () => {
   it('no module on the intent path references a prohibited thing', () => {
-    const paths = scannedPaths();
-    expect(paths.length, 'the intent domain scan found too few files').toBeGreaterThanOrEqual(
-      MINIMUM_SCANNED_FILES,
+    // Floored PER SHAPE: a total lets one directory collapse to zero behind
+    // another's number, and every detector then runs over a domain missing a
+    // layer while reporting exactly what a clean run reports.
+    const inDirectories = SCANNED_DIRECTORIES.flatMap((relative) =>
+      walk(join(SRC_ROOT, relative)),
     );
+    const inOuter = outerPaths();
+    expect(
+      inDirectories.length,
+      'services/search-intent + db/searchIntent shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_DIRECTORY_FILES);
+    expect(
+      inOuter.length,
+      'no controller/route/middleware is named for this domain — did the derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_OUTER_FILES);
+
+    const paths = scannedPaths();
+    expect(paths.length).toBe(inDirectories.length + inOuter.length);
 
     const violations: string[] = [];
     for (const path of paths) {
@@ -215,10 +282,16 @@ describe('the natural-language intent domain cannot reach what it must not', () 
     expect(detector, 'the provider detector went missing').toBeDefined();
     const prompts = /systemPrompt|system_prompt|promptTemplate|messages\s*:\s*\[\s*\{\s*role/i;
 
+    const clients = clientPaths();
+    expect(
+      clients.length,
+      'the client scan found too few files; a renamed hook or api module leaves the browser ' +
+        'half of the provider wall measuring nothing',
+    ).toBeGreaterThanOrEqual(MINIMUM_CLIENT_FILES);
+
     const violations: string[] = [];
-    for (const relative of SCANNED_CLIENT_FILES) {
-      const path = join(REPO_ROOT, relative);
-      const raw = readFileSync(path, 'utf8');
+    for (const { absolute, relative } of clients) {
+      const raw = readFileSync(absolute, 'utf8');
       expect(raw.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
       const source = stripComments(raw);
       const provider = detector?.pattern.exec(source);
@@ -229,6 +302,37 @@ describe('the natural-language intent domain cannot reach what it must not', () 
       if (prompt !== null) violations.push(`${relative} composes a prompt: ${prompt[0]}`);
     }
     expect(violations, violations.join('\n')).toEqual([]);
+  });
+
+  it('the domain-name derivation selects the real files, server and client', () => {
+    // A derivation that replaced a hand list owes the proof that it still
+    // selects everything the list named.
+    const outer = outerPaths().map((absolute) => absolute.slice(SRC_ROOT.length + 1));
+    for (const expected of [
+      'controllers/search-intent.controller.ts',
+      'controllers/internal-search-intent.controller.ts',
+      'routes/search-intent.ts',
+      'routes/internal-search-intent.ts',
+      'middleware/search-intent-schemas.ts',
+    ]) {
+      expect(outer, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // #70's canonical retrieval is a DIFFERENT domain with its own gate, and
+    // must not be dragged in by a pattern of bare `search`.
+    for (const foreign of ['controllers/search.controller.ts', 'routes/search.ts']) {
+      expect(outer, `${foreign} belongs to #70 and has its own gate`).not.toContain(foreign);
+    }
+    expect(DOMAIN_NAME_PATTERN.test('search.controller.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('internal-search-intent.ts')).toBe(true);
+
+    const client = clientPaths().map((file) => file.relative);
+    for (const expected of [
+      'packages/frontend/lib/api/search-intent.ts',
+      'packages/frontend/lib/hooks/use-search-intent.ts',
+      ...NAMED_CLIENT_FILES,
+    ]) {
+      expect(client, `the client derivation stopped selecting ${expected}`).toContain(expected);
+    }
   });
 
   it('the comment stripper does not hide code from the scan', () => {

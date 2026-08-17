@@ -38,46 +38,70 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every file of the domain, enumerated from the real directories. */
-function enumerateDomain(): string[] {
-  const roots = [
-    join(SRC_ROOT, 'services', 'price-signals'),
-    join(SRC_ROOT, 'db', 'priceSignals'),
-  ];
-  const files: string[] = [];
-  for (const root of roots) {
-    for (const entry of readdirSync(root)) {
-      const full = join(root, entry);
-      if (statSync(full).isDirectory()) continue;
-      if (!entry.endsWith('.ts')) continue;
-      files.push(full);
-    }
-  }
-  files.push(join(SRC_ROOT, 'controllers', 'price-signals.controller.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'price-signals.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'merchant-competitiveness.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'internal-price-signals.ts'));
-  files.push(join(SRC_ROOT, 'middleware', 'price-signal-schemas.ts'));
-  files.push(join(SRC_ROOT, 'db', 'schema', 'priceSignals.ts'));
-  return files;
+/** The domain's OWN directories, walked whole. */
+const DOMAIN_DIRECTORIES = ['services/price-signals', 'db/priceSignals'];
+
+/** The shared directories, where this domain sits beside every other domain's. */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/**
+ * What a file BELONGING to this domain is called, wherever it lives.
+ *
+ * `merchant-competitiveness` is the second spelling: the merchant-facing half of
+ * this domain is routed under its own name, so a pattern of only `price-signal`
+ * would drop it — which is why the shape is a pattern the derivation self-test
+ * pins rather than a bare substring somebody guessed.
+ */
+const DOMAIN_NAME_PATTERN = /price-?signals?|merchant-competitiveness/i;
+
+/**
+ * Read one scanned file, asserting it is a real file first.
+ *
+ * A DERIVED population is only as honest as the assertion that every member
+ * resolves; a `readdirSync` served from a stale cache would otherwise hand every
+ * scan below names that no longer exist, which reads as a clean run.
+ */
+function readScanned(absolute: string): string {
+  expect(statSync(absolute).isFile(), `${absolute} is not a file — did it move?`).toBe(true);
+  return readFileSync(absolute, 'utf8');
+}
+
+/** Every `.ts` directly under one directory, sorted. */
+function filesIn(relative: string, matching?: RegExp): string[] {
+  return readdirSync(join(SRC_ROOT, relative))
+    .filter((entry) => entry.endsWith('.ts'))
+    .filter((entry) => matching === undefined || matching.test(entry))
+    .sort()
+    .map((entry) => join(SRC_ROOT, relative, entry));
 }
 
 /**
- * The enumeration FLOOR, read off the real directories rather than hard-coded as
- * a list of names.
+ * Every file of the domain, DERIVED from disk rather than listed.
  *
- * A file that moves out of the domain shrinks the scanned set silently, and a
- * shrinking scan looks exactly like a clean one — so the count is asserted, and
- * raising it when the domain grows is the point rather than an annoyance.
+ * The domain directories were always walked; the six files in the SHARED
+ * directories were pushed by name and are now selected by name PATTERN, so a
+ * route or schema module added tomorrow is scanned the moment it exists (#460).
  */
-const MINIMUM_DOMAIN_FILES = 17;
+function enumerateDomain(): string[] {
+  return [
+    ...DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative)),
+    ...OUTER_DIRECTORIES.flatMap((relative) => filesIn(relative, DOMAIN_NAME_PATTERN)),
+  ];
+}
+
+/**
+ * The floors, PER SHAPE and measured off this branch.
+ *
+ * MEASURED: 12 under `services/price-signals`, 4 under `db/priceSignals`, 6 in
+ * the shared directories. Per shape because one total lets a directory collapse
+ * to nothing behind another's count.
+ */
+const MINIMUM_DOMAIN_DIRECTORY_FILES = 16;
+const MINIMUM_OUTER_FILES = 6;
 
 /** Every module of #74's ranking domain — the REVERSE direction. */
 function enumerateRanking(): string[] {
-  const root = join(SRC_ROOT, 'services', 'ranking');
-  return readdirSync(root)
-    .filter((entry) => entry.endsWith('.ts'))
-    .map((entry) => join(root, entry));
+  return filesIn('services/ranking');
 }
 
 const MINIMUM_RANKING_FILES = 10;
@@ -144,26 +168,72 @@ const PRICE_SIGNAL_REFERENCE =
 const EVALUATION_READ_REFERENCE =
   /listEvaluationsForSubject|priceSignalEvaluations|price_signal_evaluations/;
 
-/** The two live read paths, which must derive and never select a recorded verdict. */
-const LIVE_READ_PATHS = [
-  'services/price-signals/read.service.ts',
-  'services/price-signals/competitiveness.service.ts',
-  'services/price-signals/signals.ts',
-  'services/price-signals/context.service.ts',
-];
+/**
+ * The modules that are ALLOWED to touch a recorded evaluation, by name.
+ *
+ * The rule is "a read path must derive and never select a recorded verdict", and
+ * it was previously stated as a list of the four read paths — an INCLUSION,
+ * which covers the modules somebody remembered. Stated as an EXCLUSION it covers
+ * the modules nobody has written yet: every module of the domain must not read
+ * an evaluation EXCEPT the sweep that records them.
+ *
+ * Measured on this branch, that widens the scan from 4 files to 11 — the seven
+ * it gains (`recommendations`, `sample`, `statistics`, `metrics.service`,
+ * `feedback.service`, `seams`, `sweep-dispatcher`) were behind no wall at all,
+ * and a new `services/price-signals/summary.service.ts` reading the recording
+ * would have been invisible to the list.
+ *
+ * `db/priceSignals/priceSignalRunRepository.ts` is the OTHER legitimate reader
+ * and is a repository rather than a read path; the exclusion is applied to the
+ * service directory, so it is out of scope by construction rather than by name.
+ */
+const EVALUATION_READERS: readonly string[] = [];
+
+/**
+ * MEASURED: 12, the WHOLE service directory.
+ *
+ * The exclusion list is EMPTY, and that is a finding rather than an oversight.
+ * `sweep.service.ts` was excused when this was written — it is the module that
+ * records evaluations — and the stale-excuse test below failed on its first run,
+ * because the sweep only ever calls `insertPriceSignalEvaluations`: its single
+ * match on the read detector is a sentence in its header comment saying nothing
+ * serves a shopper from that table, and the scan strips comments.
+ *
+ * So no module in this domain reads a recorded evaluation, and the wall covers
+ * the directory with no exceptions. The mechanism is kept because an exclusion
+ * that has to prove itself is what stops the next one being taken on trust.
+ */
+const MINIMUM_LIVE_READ_PATHS = 12;
+
+/** Every module that must NOT read a recorded evaluation. */
+function liveReadPaths(): string[] {
+  return filesIn('services/price-signals').filter(
+    (absolute) => !EVALUATION_READERS.includes(absolute.split('/').pop() ?? ''),
+  );
+}
 
 describe('the price-signal domain cannot reach what it must not', () => {
   const files = enumerateDomain();
 
   it('scans a domain that has not silently shrunk', () => {
-    expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
+    const inDomain = DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative));
+    const inOuter = OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(relative, DOMAIN_NAME_PATTERN),
+    );
+    expect(
+      inDomain.length,
+      'services/price-signals + db/priceSignals shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_DIRECTORY_FILES);
+    expect(
+      inOuter.length,
+      'no controller/route/middleware/schema is named for this domain — did the derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_OUTER_FILES);
+    expect(files.length).toBe(inDomain.length + inOuter.length);
+
     for (const file of files) {
       // The vacuity floor: an empty or moved file must fail here, not pass the
       // scans below by having nothing to match.
-      expect(
-        readFileSync(file, 'utf8').length,
-        `${file} looks empty — did it move?`,
-      ).toBeGreaterThan(200);
+      expect(readScanned(file).length, `${file} looks empty — did it move?`).toBeGreaterThan(200);
     }
   });
 
@@ -213,18 +283,74 @@ describe('the price-signal domain cannot reach what it must not', () => {
   });
 
   it('serves no read from the recorded evaluations — they are evidence, not a cache', () => {
-    let scanned = 0;
-    for (const relative of LIVE_READ_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    const paths = liveReadPaths();
+    // A FLOOR, never `toBe(LIST.length)`: comparing a counter against the list
+    // the loop just iterated is satisfied by any list including an empty one.
+    expect(
+      paths.length,
+      'the price-signal service directory shrank; the recording could now be served as a cache',
+    ).toBeGreaterThanOrEqual(MINIMUM_LIVE_READ_PATHS);
+    for (const file of paths) {
+      const source = readScanned(file);
+      expect(source.length, `${file} looks empty — did it move?`).toBeGreaterThan(200);
       expect(
         EVALUATION_READ_REFERENCE.test(stripComments(source)),
-        `${relative} reads a recorded evaluation; a cached "good price" survives the ` +
+        `${file} reads a recorded evaluation; a cached "good price" survives the ` +
           `moderation restriction that should have withdrawn it`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(LIVE_READ_PATHS.length);
+  });
+
+  it('nothing is excused from the recorded-evaluation wall, and an excuse must earn itself', () => {
+    // The wall covers the WHOLE service directory: the exclusion list is empty,
+    // pinned here so that emptiness is a stated fact rather than a coincidence
+    // somebody could quietly change.
+    expect(
+      EVALUATION_READERS,
+      'a module was excused from the recorded-evaluation wall; it must justify itself below',
+    ).toEqual([]);
+    expect(liveReadPaths().length + EVALUATION_READERS.length).toBe(
+      filesIn('services/price-signals').length,
+    );
+
+    // An exclusion list rots in the DANGEROUS direction: rename an excused file
+    // and the excuse stops excusing anything, which is loud — but add a second
+    // reader and the excused name silently covers a module nobody reviewed. So
+    // whenever somebody adds one, it must still EXIST and must still match the
+    // detector it is excused from. An excuse for a file that does not read an
+    // evaluation is a hole with a comment over it, and it fails here.
+    for (const name of EVALUATION_READERS) {
+      const source = readScanned(join(SRC_ROOT, 'services/price-signals', name));
+      expect(
+        EVALUATION_READ_REFERENCE.test(stripComments(source)),
+        `${name} is excused from the recorded-evaluation wall but does not read one — ` +
+          'the excuse is stale and is now hiding a module nobody reviewed',
+      ).toBe(true);
+    }
+  });
+
+  it('the domain-name derivation selects the real files and not their neighbours', () => {
+    const outer = OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(relative, DOMAIN_NAME_PATTERN),
+    ).map((absolute) => absolute.slice(SRC_ROOT.length + 1));
+    for (const expected of [
+      'controllers/price-signals.controller.ts',
+      'routes/price-signals.ts',
+      'routes/merchant-competitiveness.ts',
+      'routes/internal-price-signals.ts',
+      'middleware/price-signal-schemas.ts',
+      'db/schema/priceSignals.ts',
+    ]) {
+      expect(outer, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // The merchant-facing half is routed under its OWN name — the case a bare
+    // `price-signal` pattern silently drops.
+    expect(DOMAIN_NAME_PATTERN.test('merchant-competitiveness.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('internal-price-signals.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('priceSignals.ts')).toBe(true);
+    // …and must not drag in a sibling price domain.
+    expect(DOMAIN_NAME_PATTERN.test('price-history.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('price-alerts.ts')).toBe(false);
   });
 });
 

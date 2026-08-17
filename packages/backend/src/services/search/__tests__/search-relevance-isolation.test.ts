@@ -50,24 +50,40 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 /** Directories walked whole. */
 const SCANNED_DIRECTORIES = ['services/search', 'db/search'];
 
-/** Individual files that serve the domain from outside those directories. */
-const SCANNED_FILES = [
-  'controllers/search.controller.ts',
-  'controllers/search-operator.controller.ts',
-  'routes/search.ts',
-  'routes/internal-search.ts',
-];
+/** The shared directories, where this domain sits beside every other domain's. */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
 
 /**
- * The smallest number of modules this domain can plausibly have.
+ * What a file BELONGING to this domain is called — and what it is NOT.
  *
- * Nine at the time of writing (seven under `services/search`, two under
- * `db/search`) plus the four files above. The floor is below that so ordinary
- * refactoring does not fail the build, and far enough above zero that a walk
- * returning nothing — the way this gate would silently stop working — cannot
- * pass.
+ * The exclusion is load-bearing. `search-intent` is a DIFFERENT domain with its
+ * own gate (`search-intent-isolation.test.ts`) and its five files all contain
+ * the substring `search`; folding them in here would make this wall fire at
+ * whoever edits #95, and a gate that cries wolf is the one somebody deletes.
+ *
+ * MEASURED: the hand list this replaces named four files and MISSED
+ * `middleware/search-schemas.ts` — the module that validates every parameter
+ * reaching canonical retrieval, and therefore the natural place for a filter
+ * keyed on a commercial signal to be accepted. It sat behind no wall, and
+ * nothing failed, because a scan whose population never included a file reports
+ * exactly what a clean one does (#460).
  */
-const MINIMUM_SCANNED_FILES = 10;
+const DOMAIN_NAME_PATTERN = /search/i;
+const NOT_THIS_DOMAIN_PATTERN = /search-intent/i;
+
+/**
+ * The floors, PER SHAPE and measured off this branch.
+ *
+ * One TOTAL floor was the previous spelling, and a total lets one shape collapse
+ * to zero behind another's number: `db/search` losing both repositories sits
+ * comfortably inside a total of 10 as long as `services/search` still has nine,
+ * and every detector below then runs over a domain missing its data layer.
+ *
+ * MEASURED: 7 under `services/search`, 2 under `db/search`, 5 in the shared
+ * directories.
+ */
+const MINIMUM_DIRECTORY_FILES = 9;
+const MINIMUM_OUTER_FILES = 5;
 
 /** What reaching each prohibited signal looks like, from any direction. */
 const FORBIDDEN_REFERENCES: readonly { signal: string; pattern: RegExp }[] = [
@@ -130,20 +146,54 @@ function walk(directory: string): string[] {
   return files;
 }
 
+/**
+ * The files serving this domain from the SHARED directories, DERIVED by name.
+ *
+ * `statSync` on every entry, so a `readdirSync` served from a stale cache cannot
+ * hand the scan a list of names that no longer resolve — which would read as a
+ * clean run.
+ */
+function outerPaths(): string[] {
+  return OUTER_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory))
+      .filter((entry) => entry.endsWith('.ts'))
+      .filter((entry) => DOMAIN_NAME_PATTERN.test(entry) && !NOT_THIS_DOMAIN_PATTERN.test(entry))
+      .sort()
+      .map((entry) => {
+        const absolute = join(SRC_ROOT, directory, entry);
+        expect(statSync(absolute).isFile(), `${absolute} is not a file — did it move?`).toBe(true);
+        return absolute;
+      }),
+  );
+}
+
 function scannedPaths(): string[] {
-  const paths = SCANNED_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative)));
-  paths.push(...SCANNED_FILES.map((relative) => join(SRC_ROOT, relative)));
-  return paths;
+  return [
+    ...SCANNED_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative))),
+    ...outerPaths(),
+  ];
 }
 
 describe('canonical search cannot rank by a commercial payment', () => {
   it('no module on the search path references a prohibited signal', () => {
-    const paths = scannedPaths();
-    // The vacuity floor for the gate itself: a walk that found nothing produces
-    // zero violations, which is exactly what a healthy run also produces.
-    expect(paths.length, 'the search domain scan found too few files').toBeGreaterThanOrEqual(
-      MINIMUM_SCANNED_FILES,
+    // The vacuity floor for the gate itself, PER SHAPE: a walk that found
+    // nothing produces zero violations, which is exactly what a healthy run
+    // also produces.
+    const inDirectories = SCANNED_DIRECTORIES.flatMap((relative) =>
+      walk(join(SRC_ROOT, relative)),
     );
+    const inOuter = outerPaths();
+    expect(
+      inDirectories.length,
+      'services/search + db/search shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_DIRECTORY_FILES);
+    expect(
+      inOuter.length,
+      'no controller/route/middleware is named for this domain — did the derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_OUTER_FILES);
+
+    const paths = scannedPaths();
+    expect(paths.length).toBe(inDirectories.length + inOuter.length);
 
     const violations: string[] = [];
     for (const path of paths) {
@@ -189,6 +239,41 @@ describe('canonical search cannot rank by a commercial payment', () => {
         `the ${reference.signal} detector fires on an ordinary offer read`,
       ).toBe(false);
     }
+  });
+
+  it('the domain-name derivation selects this domain and not #95', () => {
+    // A derivation that replaced a hand list owes the same proof a detector
+    // does: that it still selects everything the list named, plus what the list
+    // missed, and nothing belonging to the neighbour it must not police.
+    const outer = outerPaths().map((absolute) => absolute.slice(SRC_ROOT.length + 1));
+    for (const expected of [
+      'controllers/search.controller.ts',
+      'controllers/search-operator.controller.ts',
+      'routes/search.ts',
+      'routes/internal-search.ts',
+    ]) {
+      expect(outer, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // The one the hand list MISSED: every retrieval parameter is validated here,
+    // so it is where a filter keyed on a commercial signal would be accepted.
+    expect(
+      outer,
+      'middleware/search-schemas.ts validates every parameter reaching canonical retrieval and ' +
+        'was behind no wall while this list was hand-maintained',
+    ).toContain('middleware/search-schemas.ts');
+
+    // …and #95's five files stay out, or this wall fires at whoever edits them.
+    for (const foreign of [
+      'controllers/search-intent.controller.ts',
+      'controllers/internal-search-intent.controller.ts',
+      'routes/search-intent.ts',
+      'routes/internal-search-intent.ts',
+      'middleware/search-intent-schemas.ts',
+    ]) {
+      expect(outer, `${foreign} belongs to #95 and has its own gate`).not.toContain(foreign);
+    }
+    expect(NOT_THIS_DOMAIN_PATTERN.test('internal-search-intent.controller.ts')).toBe(true);
+    expect(NOT_THIS_DOMAIN_PATTERN.test('search-operator.controller.ts')).toBe(false);
   });
 
   it('the comment stripper does not hide code from the scan', () => {
