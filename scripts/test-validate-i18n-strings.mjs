@@ -724,6 +724,32 @@ const cases = [
     expectOutput: "below the 60 floor",
   },
   {
+    // #528. `hardcodedStrings: false` discarded an owner's check-A findings with
+    // nothing recording how many there were, so a stalled conversion, a
+    // progressing one and a regressing one produced identical silence. Asserted
+    // on the SOURCE, like the exception-list case above and for the same reason:
+    // the failure to catch is somebody restoring the boolean, and no fixture
+    // tree can see a decision that was made in the config.
+    name: "no owner disables check A outright — a mid-extraction owner pins a COUNT",
+    guardSourceMustNotContain: ["hardcodedStrings: false"],
+    files: migratedTree(),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    // The pin is skipped on a fixture tree (`fixtureFloors`), so this is the
+    // only configuration in which it runs here — and it proves it RUNS and
+    // COMPARES rather than being carried inertly. It fires in the DOWN
+    // direction because this fixture holds one unextracted `packages/ui` string
+    // against a pin measured on the real tree; the real tree is what exercises
+    // agreement, on every invocation of the guard proper.
+    name: "a mid-extraction owner's pinned hardcoded count is compared, not carried",
+    files: migratedTree(),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "hardcoded user-facing string(s), expected exactly",
+  },
+  {
     name: "a missing en.json is a loud failure",
     files: (() => {
       const files = migratedTree();
