@@ -435,11 +435,36 @@ original text and keeps the frozen claim — which is the right outcome, and is 
 what the ADR's wording ("preserved verbatim") would lead a reader to expect of the
 source column.
 
-**Verdict: partial.** Retention, forbidden axes, indistinguishable variants,
-blocked-value shape and the no-similarity wall are properties. The ADR's own named
-case (`Tono`), the sibling-collision refusal, and the link from a typed value to a
-*resolved* claim are conventions — and the last of the three has a ready-made
-constraint shape sitting in #90.
+**Verdict: partial, and NARROWER than when this was written — #550 closed the
+biggest half.** Retention, forbidden axes, indistinguishable variants,
+blocked-value shape and the no-similarity wall were already properties. Since
+then:
+
+- **The typed-value → *resolved*-claim link is now a PROPERTY.**
+  `drizzle/0104_axis_assignment_cites_a_resolved_claim.sql` (`post`) extends the
+  citation trigger so an assignment may only cite a claim that resolved. This
+  audit proposed a CHECK by analogy to #90 and the trigger is the **better**
+  shape: the fact is cross-row — it is about the CITED row — and a CHECK may not
+  contain a subquery, so the clause joins the trigger that already validates the
+  citation rather than becoming a second answer to "is this citation true".
+  `source_claim_id` stays nullable, deliberately.
+- **`runVariantAxisBackfill` now has a realdb test**
+  (`services/variant-axes/__tests__/variant-axis-backfill.realdb.test.ts`), whose
+  first case is the sibling collision: both names reported ambiguous, no axis
+  declared. So the one-token change at `backfill.service.ts` no longer passes the
+  suite.
+- **The `legacy-resolution.ts` docblock defect recorded below is FIXED** — it now
+  states that the unique index does not refuse the collision, cites the
+  `onConflictDoNothing` on exactly that pair, and says `collidesWithSiblingOption`
+  is the only thing stopping the coin toss.
+
+**What remains a convention:** the ADR's own named `Tono` case, still held by
+`legacy-resolution.ts` plus two unit tests with no database gate; and the sibling
+collision itself, which is now correctly DOCUMENTED and tested but still decided
+in a service rather than by the schema. #550's own migration header records one
+further gap: `settleVariantAttributeClaim` re-settling an already-cited claim to
+`refused`, which has no caller today and which a trigger on that table could not
+observe if it did.
 
 ---
 
@@ -924,10 +949,13 @@ during an incident.
    neither can reach is a lever flipped on a running deployment — the rehearsal in
    [`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md)
    §"The rehearsal".
-2. **A CHECK or trigger requiring a typed axis assignment to cite a
-   `value_resolution = 'resolved'` claim** (`native_variant_axis_assignments.source_claim_id`
-   is nullable and the scope trigger is silent on resolution state). Moves box 2's
-   remaining half, and the constraint shape already exists in #90.
+2. ~~**A CHECK or trigger requiring a typed axis assignment to cite a
+   `value_resolution = 'resolved'` claim**~~ — **DONE by #550**, as a trigger
+   rather than the CHECK proposed here, for the reason in Box 2's verdict: the
+   fact is cross-row and a CHECK may not contain a subquery. #550 also added the
+   missing `runVariantAxisBackfill` realdb test and corrected the
+   `legacy-resolution.ts` docblock. What is left of box 2 is the `Tono` case and
+   the service-level sibling-collision decision.
 3. **A migration-SQL gate** in the `validate-no-mongo.mjs` shape, refusing DML and
    destructive ALTER against a named commerce set, with the exact-count exemption
    list `migration-handwritten-markers.test.ts` already uses. Moves box 3's
