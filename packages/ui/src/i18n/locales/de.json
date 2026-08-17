@@ -270,6 +270,45 @@
         "one": "%{count} weiteres Feld wird gegen die Synchronisierung gehalten, das dieser Bildschirm nicht benennen kann.",
         "other": "%{count} weitere Felder werden gegen die Synchronisierung gehalten, die dieser Bildschirm nicht benennen kann."
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "Verkauft von Mercaria",
+          "fulfilled_by_approved_partner": "Versandt von einem zugelassenen Partner",
+          "sold_by_merchant": "Verkauft vom Händler",
+          "external_checkout": "Kasse auf der Website des Händlers",
+          "affiliate_disclosure": "Wir erhalten möglicherweise eine Provision",
+          "referral_disclosure": "Über einen Partnerlink geteilt",
+          "supply_confirmation_pending": "Verfügbarkeit wird bestätigt",
+          "price_or_availability_changed": "Preis oder Verfügbarkeit geändert",
+          "procurement_failed_refund_pending": "Nicht beschaffbar – Rückerstattung ist unterwegs",
+          "returns_and_warranty": "Rückgabe und Gewährleistung",
+          "tax_or_import_uncertainty": "Einfuhrabgaben können anfallen",
+          "product_recall_or_safety_notice": "Sicherheitshinweis"
+        },
+        "explanation": {
+          "sold_by_mercaria": "Mercaria ist der Verkäufer dieses Artikels. Ihr Vertrag, Ihre Zahlung und Ihre Rückgaben bestehen mit Mercaria.",
+          "fulfilled_by_approved_partner": "Ein zugelassener Fulfilment-Partner versendet diesen Artikel aus eigenem Bestand. Verkäufer bleibt Mercaria.",
+          "sold_by_merchant": "Dieser Artikel wird von dem oben genannten Händler verkauft. Mercaria wickelt die Zahlung ab.",
+          "external_checkout": "Sie schließen diesen Kauf auf der Website des Händlers ab. Mercaria nimmt weder die Zahlung entgegen noch verwaltet sie die Bestellung oder die Rückgabe.",
+          "affiliate_disclosure": "Mercaria erhält möglicherweise eine Provision, wenn Sie über diesen Link kaufen. Das ändert weder Ihren Preis noch die Reihenfolge der Angebote.",
+          "referral_disclosure": "Sie sind über einen Partnerlink hierhergekommen. Das ändert weder den Preis noch den Verkäufer noch Ihre Rechte.",
+          "supply_confirmation_pending": "Zahlung erhalten. Wir bestätigen die Verfügbarkeit mit unserem Fulfilment-Partner, bevor diese Bestellung bestätigt wird.",
+          "price_or_availability_changed": "Preis oder Verfügbarkeit eines Artikels in Ihrem Warenkorb hat sich seit dem Hinzufügen geändert. Bitte prüfen Sie das vor der Zahlung.",
+          "procurement_failed_refund_pending": "Wir konnten diesen Artikel nicht beschaffen. Ihre Rückerstattung ist bereits veranlasst; sie erreicht die Karte, mit der Sie bezahlt haben.",
+          "returns_and_warranty": "Senden Sie ihn innerhalb des angegebenen Zeitraums zurück; die gesetzliche Gewährleistung gilt für den angegebenen Zeitraum.",
+          "tax_or_import_uncertainty": "Für dieses Ziel können bei der Zustellung Einfuhrzölle oder -steuern anfallen. Einen endgültigen Betrag können wir nicht nennen.",
+          "product_recall_or_safety_notice": "Für dieses Produkt liegt ein Sicherheitshinweis vor. Verwenden Sie es nicht, bevor Sie den Hinweis gelesen haben."
+        }
+      },
+      "seller": {
+        "externalFallback": "Ein anderer Händler",
+        "notForSale": "Hier nicht verkäuflich"
+      },
+      "a11ySeller": "Verkäufer: %{label}",
+      "a11yDisclosure": "Hinweis: %{label}",
+      "rights": "Stornierung innerhalb von %{cancellationHours} Stunden nach der Bestellung, Widerruf innerhalb von %{withdrawalDays} Tagen nach Lieferung, Rückgabe innerhalb von %{returnDays} Tagen, und die gesetzliche Gewährleistung läuft %{warrantyMonths} Monate."
     }
   }
 }

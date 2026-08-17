@@ -270,6 +270,45 @@
         "one": "Hay %{count} campo más retenido frente a la sincronización que esta pantalla no puede nombrar.",
         "other": "Hay %{count} campos más retenidos frente a la sincronización que esta pantalla no puede nombrar."
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "Vendido por Mercaria",
+          "fulfilled_by_approved_partner": "Enviado por un socio autorizado",
+          "sold_by_merchant": "Vendido por el comercio",
+          "external_checkout": "Pago en la web del minorista",
+          "affiliate_disclosure": "Podemos ganar una comisión",
+          "referral_disclosure": "Compartido mediante un enlace de socio",
+          "supply_confirmation_pending": "Confirmando disponibilidad",
+          "price_or_availability_changed": "El precio o la disponibilidad han cambiado",
+          "procurement_failed_refund_pending": "No hemos podido conseguirlo: reembolso en camino",
+          "returns_and_warranty": "Devoluciones y garantía",
+          "tax_or_import_uncertainty": "Pueden aplicarse gastos de importación",
+          "product_recall_or_safety_notice": "Aviso de seguridad"
+        },
+        "explanation": {
+          "sold_by_mercaria": "Mercaria es la vendedora de este artículo. Tu contrato, tu pago y tus devoluciones son con Mercaria.",
+          "fulfilled_by_approved_partner": "Un socio logístico autorizado envía este artículo desde su propio stock. Mercaria sigue siendo la vendedora.",
+          "sold_by_merchant": "Este artículo lo vende el comercio indicado arriba. Mercaria procesa el pago.",
+          "external_checkout": "Terminarás esta compra en la web del propio minorista. Mercaria no cobra el pago, ni gestiona el pedido ni la devolución.",
+          "affiliate_disclosure": "Mercaria puede cobrar una comisión si compras a través de este enlace. No cambia el precio que pagas ni afecta al orden de las ofertas.",
+          "referral_disclosure": "Has llegado mediante un enlace de socio. No cambia el precio, el vendedor ni tus derechos.",
+          "supply_confirmation_pending": "Pago recibido. Estamos confirmando la disponibilidad con nuestro socio logístico antes de confirmar este pedido.",
+          "price_or_availability_changed": "El precio o la disponibilidad de algo de tu cesta ha cambiado desde que lo añadiste. Revísalo antes de pagar.",
+          "procurement_failed_refund_pending": "No hemos podido conseguir este artículo. Tu reembolso ya está en marcha; llegará a la tarjeta con la que pagaste.",
+          "returns_and_warranty": "Devuélvelo dentro del plazo indicado; la garantía legal se aplica durante el periodo indicado.",
+          "tax_or_import_uncertainty": "En este destino pueden cobrarse aranceles o impuestos de importación en la entrega. No podemos indicar un importe final.",
+          "product_recall_or_safety_notice": "Hay un aviso de seguridad que afecta a este producto. No lo uses antes de leer el aviso."
+        }
+      },
+      "seller": {
+        "externalFallback": "Otro minorista",
+        "notForSale": "Aquí no está a la venta"
+      },
+      "a11ySeller": "Vendedor: %{label}",
+      "a11yDisclosure": "Aviso: %{label}",
+      "rights": "Cancela dentro de %{cancellationHours} horas desde el pedido, desiste dentro de %{withdrawalDays} días desde la entrega, devuelve dentro de %{returnDays} días, y la garantía legal dura %{warrantyMonths} meses."
     }
   }
 }

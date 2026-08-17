@@ -270,6 +270,45 @@
         "one": "%{count} और फ़ील्ड सिंक से रोका गया है जिसका नाम यह स्क्रीन नहीं बता सकती।",
         "other": "%{count} और फ़ील्ड सिंक से रोके गए हैं जिनका नाम यह स्क्रीन नहीं बता सकती।"
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "Mercaria द्वारा बेचा गया",
+          "fulfilled_by_approved_partner": "अनुमोदित साझेदार द्वारा भेजा गया",
+          "sold_by_merchant": "विक्रेता द्वारा बेचा गया",
+          "external_checkout": "रिटेलर की अपनी साइट पर चेकआउट",
+          "affiliate_disclosure": "हमें कमीशन मिल सकता है",
+          "referral_disclosure": "साझेदार लिंक से साझा किया गया",
+          "supply_confirmation_pending": "उपलब्धता की पुष्टि हो रही है",
+          "price_or_availability_changed": "कीमत या उपलब्धता बदल गई",
+          "procurement_failed_refund_pending": "मंगाया नहीं जा सका — रिफ़ंड भेजा जा रहा है",
+          "returns_and_warranty": "वापसी और वारंटी",
+          "tax_or_import_uncertainty": "आयात शुल्क लग सकता है",
+          "product_recall_or_safety_notice": "सुरक्षा सूचना"
+        },
+        "explanation": {
+          "sold_by_mercaria": "इस वस्तु का विक्रेता Mercaria है। आपका अनुबंध, आपका भुगतान और आपकी वापसी Mercaria के साथ है।",
+          "fulfilled_by_approved_partner": "एक अनुमोदित पूर्ति साझेदार अपने स्टॉक से यह वस्तु भेजता है। विक्रेता Mercaria ही रहता है।",
+          "sold_by_merchant": "यह वस्तु ऊपर बताए गए विक्रेता द्वारा बेची जाती है। भुगतान Mercaria संसाधित करता है।",
+          "external_checkout": "आप यह खरीद रिटेलर की अपनी साइट पर पूरी करेंगे। Mercaria न भुगतान लेता है, न ऑर्डर संभालता है और न वापसी।",
+          "affiliate_disclosure": "यदि आप इस लिंक से खरीदते हैं तो Mercaria को कमीशन मिल सकता है। इससे आपकी कीमत नहीं बदलती और ऑफ़र का क्रम भी प्रभावित नहीं होता।",
+          "referral_disclosure": "आप एक साझेदार लिंक से आए हैं। इससे कीमत, विक्रेता या आपके अधिकार नहीं बदलते।",
+          "supply_confirmation_pending": "भुगतान मिल गया। यह ऑर्डर पक्का करने से पहले हम अपने पूर्ति साझेदार से उपलब्धता की पुष्टि कर रहे हैं।",
+          "price_or_availability_changed": "आपकी टोकरी में किसी वस्तु की कीमत या उपलब्धता जोड़ने के बाद से बदल गई है। भुगतान से पहले जाँच लें।",
+          "procurement_failed_refund_pending": "हम यह वस्तु नहीं मंगा सके। आपका रिफ़ंड शुरू हो चुका है; यह उसी कार्ड पर पहुँचेगा जिससे आपने भुगतान किया।",
+          "returns_and_warranty": "दिखाई गई अवधि के भीतर वापस करें; कानूनी गारंटी दिखाई गई अवधि तक लागू रहती है।",
+          "tax_or_import_uncertainty": "इस गंतव्य के लिए डिलीवरी पर आयात शुल्क या कर लग सकते हैं। हम अंतिम राशि नहीं बता सकते।",
+          "product_recall_or_safety_notice": "इस उत्पाद से जुड़ी एक सुरक्षा सूचना है। सूचना पढ़े बिना इसका उपयोग न करें।"
+        }
+      },
+      "seller": {
+        "externalFallback": "कोई अन्य रिटेलर",
+        "notForSale": "यहाँ बिक्री के लिए नहीं"
+      },
+      "a11ySeller": "विक्रेता: %{label}",
+      "a11yDisclosure": "सूचना: %{label}",
+      "rights": "ऑर्डर के %{cancellationHours} घंटे के भीतर रद्द करें, डिलीवरी के %{withdrawalDays} दिन के भीतर वापस लें, %{returnDays} दिन के भीतर लौटाएँ, और कानूनी गारंटी %{warrantyMonths} महीने तक चलती है।"
     }
   }
 }

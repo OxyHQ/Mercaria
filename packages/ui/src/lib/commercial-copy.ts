@@ -39,6 +39,7 @@
  * put in a sentence even if one were written here.
  */
 
+import type { Translate } from "../i18n/create-app-i18n";
 import type {
   CommercialDisclosureKey,
   CommercialPresentation,
@@ -47,60 +48,81 @@ import type {
   RetailOrderProgressStage,
 } from "@mercaria/shared-types";
 
-/** The short chip text for one disclosure. */
-export const COMMERCIAL_DISCLOSURE_LABELS: Readonly<Record<CommercialDisclosureKey, string>> = {
-  sold_by_mercaria: "Sold by Mercaria",
-  fulfilled_by_approved_partner: "Fulfilled by an approved partner",
-  sold_by_merchant: "Sold by the merchant",
-  external_checkout: "Checkout on the retailer's own site",
-  affiliate_disclosure: "We may earn a commission",
-  referral_disclosure: "Shared through a partner link",
-  supply_confirmation_pending: "Confirming availability",
-  price_or_availability_changed: "Price or availability changed",
-  procurement_failed_refund_pending: "Could not be sourced — refund on its way",
-  returns_and_warranty: "Returns and warranty",
-  tax_or_import_uncertainty: "Import charges may apply",
-  product_recall_or_safety_notice: "Safety notice",
-};
-
-/** One sentence saying what the disclosure means for this buyer. */
-export const COMMERCIAL_DISCLOSURE_EXPLANATIONS: Readonly<
+/**
+ * The chip text for one disclosure, as a TRANSLATION KEY (#490).
+ *
+ * The stored `CommercialDisclosureKey` is what a placed order's role snapshot
+ * pins and what `commercialDisclosureKeys` decides; `ui.commercial.disclosure.*`
+ * is a message id only a bundle resolves. Two identifiers for two jobs, which is
+ * the split this file already existed for — #437's rule applied to the map that
+ * was still holding sentences when `condition.ts` and `offer-labels.ts` stopped.
+ */
+export const COMMERCIAL_DISCLOSURE_LABEL_KEYS: Readonly<
   Record<CommercialDisclosureKey, string>
 > = {
-  sold_by_mercaria:
-    "Mercaria is the seller for this item. Your contract, your payment and your returns are with Mercaria.",
-  fulfilled_by_approved_partner:
-    "An approved fulfilment partner ships this item from their own stock. Mercaria remains the seller.",
-  sold_by_merchant:
-    "This item is sold by the merchant named above. Mercaria processes the payment.",
-  external_checkout:
-    "You will finish this purchase on the retailer's own site. Mercaria does not take the payment, hold the order or handle the return.",
-  affiliate_disclosure:
-    "Mercaria may be paid a commission if you buy through this link. It does not change the price you pay, and it does not affect how offers are ordered.",
-  referral_disclosure:
-    "You arrived through a partner link. It does not change the price, the seller or your rights.",
-  supply_confirmation_pending:
-    "Payment received. We are confirming availability with our fulfilment partner before this order is confirmed.",
-  price_or_availability_changed:
-    "The price or availability of something in your basket has changed since you added it. Check it before paying.",
+  sold_by_mercaria: "ui.commercial.disclosure.label.sold_by_mercaria",
+  fulfilled_by_approved_partner: "ui.commercial.disclosure.label.fulfilled_by_approved_partner",
+  sold_by_merchant: "ui.commercial.disclosure.label.sold_by_merchant",
+  external_checkout: "ui.commercial.disclosure.label.external_checkout",
+  affiliate_disclosure: "ui.commercial.disclosure.label.affiliate_disclosure",
+  referral_disclosure: "ui.commercial.disclosure.label.referral_disclosure",
+  supply_confirmation_pending: "ui.commercial.disclosure.label.supply_confirmation_pending",
+  price_or_availability_changed: "ui.commercial.disclosure.label.price_or_availability_changed",
   procurement_failed_refund_pending:
-    "We could not source this item. Your refund has already been started; it will reach the card you paid with.",
-  returns_and_warranty:
-    "Return it within the window shown, and the legal guarantee applies for the period shown.",
-  tax_or_import_uncertainty:
-    "Import duties or taxes may be charged on delivery for this destination. We cannot state a final amount.",
-  product_recall_or_safety_notice:
-    "There is a safety notice affecting this product. Do not use it before reading the notice.",
+    "ui.commercial.disclosure.label.procurement_failed_refund_pending",
+  returns_and_warranty: "ui.commercial.disclosure.label.returns_and_warranty",
+  tax_or_import_uncertainty: "ui.commercial.disclosure.label.tax_or_import_uncertainty",
+  product_recall_or_safety_notice: "ui.commercial.disclosure.label.product_recall_or_safety_notice",
 };
 
+/** One sentence saying what the disclosure means for this buyer, as a KEY. */
+export const COMMERCIAL_DISCLOSURE_EXPLANATION_KEYS: Readonly<
+  Record<CommercialDisclosureKey, string>
+> = {
+  sold_by_mercaria: "ui.commercial.disclosure.explanation.sold_by_mercaria",
+  fulfilled_by_approved_partner:
+    "ui.commercial.disclosure.explanation.fulfilled_by_approved_partner",
+  sold_by_merchant: "ui.commercial.disclosure.explanation.sold_by_merchant",
+  external_checkout: "ui.commercial.disclosure.explanation.external_checkout",
+  affiliate_disclosure: "ui.commercial.disclosure.explanation.affiliate_disclosure",
+  referral_disclosure: "ui.commercial.disclosure.explanation.referral_disclosure",
+  supply_confirmation_pending: "ui.commercial.disclosure.explanation.supply_confirmation_pending",
+  price_or_availability_changed:
+    "ui.commercial.disclosure.explanation.price_or_availability_changed",
+  procurement_failed_refund_pending:
+    "ui.commercial.disclosure.explanation.procurement_failed_refund_pending",
+  returns_and_warranty: "ui.commercial.disclosure.explanation.returns_and_warranty",
+  tax_or_import_uncertainty: "ui.commercial.disclosure.explanation.tax_or_import_uncertainty",
+  product_recall_or_safety_notice:
+    "ui.commercial.disclosure.explanation.product_recall_or_safety_notice",
+};
+
+/** The accessibility prefixes, which name the ROLE a value is playing. */
+export const COMMERCIAL_A11Y_SELLER_KEY = "ui.commercial.a11ySeller";
+export const COMMERCIAL_A11Y_DISCLOSURE_KEY = "ui.commercial.a11yDisclosure";
+
+/**
+ * The four consumer-rights windows, as ONE key with four slots.
+ *
+ * One key is one whole sentence: the clauses were four `+`-joined fragments
+ * until #490, which is unorderable and untranslatable — a language that puts the
+ * duration before the verb, or that inflects "days" by number, cannot be served
+ * by concatenation. The NUMBERS still come from the presentation (#126's role
+ * snapshot), so a copy change here can never restate what somebody agreed to.
+ */
+export const COMMERCIAL_RIGHTS_KEY = "ui.commercial.rights";
+
 /** The chip text for one disclosure. */
-export function commercialDisclosureLabel(key: CommercialDisclosureKey): string {
-  return COMMERCIAL_DISCLOSURE_LABELS[key];
+export function commercialDisclosureLabel(t: Translate, key: CommercialDisclosureKey): string {
+  return t(COMMERCIAL_DISCLOSURE_LABEL_KEYS[key]);
 }
 
 /** The full sentence for one disclosure. */
-export function commercialDisclosureExplanation(key: CommercialDisclosureKey): string {
-  return COMMERCIAL_DISCLOSURE_EXPLANATIONS[key];
+export function commercialDisclosureExplanation(
+  t: Translate,
+  key: CommercialDisclosureKey,
+): string {
+  return t(COMMERCIAL_DISCLOSURE_EXPLANATION_KEYS[key]);
 }
 
 /**
@@ -113,16 +135,21 @@ export function commercialDisclosureExplanation(key: CommercialDisclosureKey): s
  * the destination retailer when Mercaria resolved one and a neutral phrase when
  * it did not — never "Mercaria", which is the one answer that would be wrong.
  */
-export function commercialSellerLabel(presentation: CommercialPresentation): string {
+export function commercialSellerLabel(
+  t: Translate,
+  presentation: CommercialPresentation,
+): string {
   switch (presentation.mode) {
     case "mercaria_retail":
       return presentation.sellerLegalEntityName;
     case "connected_marketplace":
       return presentation.sellerLabel;
     case "external_referral":
-      return presentation.destinationMerchantLabel ?? "Another retailer";
+      // The retailer's own NAME is data and is never translated; only the
+      // fallback for "Mercaria resolved no retailer" is copy.
+      return presentation.destinationMerchantLabel ?? t("ui.commercial.seller.externalFallback");
     case "informational":
-      return "Not for sale here";
+      return t("ui.commercial.seller.notForSale");
   }
 }
 

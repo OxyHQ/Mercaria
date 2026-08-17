@@ -270,6 +270,45 @@
         "one": "还有 %{count} 个字段处于不被同步覆盖的状态，本页面无法显示它们的名称。",
         "other": "还有 %{count} 个字段处于不被同步覆盖的状态，本页面无法显示它们的名称。"
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "由 Mercaria 销售",
+          "fulfilled_by_approved_partner": "由认证合作伙伴发货",
+          "sold_by_merchant": "由商家销售",
+          "external_checkout": "在零售商自有网站结账",
+          "affiliate_disclosure": "我们可能获得佣金",
+          "referral_disclosure": "通过合作伙伴链接进入",
+          "supply_confirmation_pending": "正在确认可供情况",
+          "price_or_availability_changed": "价格或可供情况已变更",
+          "procurement_failed_refund_pending": "无法采购 — 退款正在处理",
+          "returns_and_warranty": "退货与保修",
+          "tax_or_import_uncertainty": "可能产生进口费用",
+          "product_recall_or_safety_notice": "安全提示"
+        },
+        "explanation": {
+          "sold_by_mercaria": "本商品由 Mercaria 销售。您的合同、付款和退货均与 Mercaria 进行。",
+          "fulfilled_by_approved_partner": "由认证的履约合作伙伴从其自有库存发货。销售方仍为 Mercaria。",
+          "sold_by_merchant": "本商品由上方所列商家销售。付款由 Mercaria 处理。",
+          "external_checkout": "您将在零售商自有网站上完成此次购买。Mercaria 不收取款项，也不处理订单或退货。",
+          "affiliate_disclosure": "如果您通过此链接购买，Mercaria 可能获得佣金。这不会改变您支付的价格，也不影响商品的排序。",
+          "referral_disclosure": "您是通过合作伙伴链接进入的。这不会改变价格、卖家或您的权利。",
+          "supply_confirmation_pending": "已收到付款。在确认此订单前，我们正在向履约合作伙伴确认可供情况。",
+          "price_or_availability_changed": "自您加入购物袋以来，其中某件商品的价格或可供情况已发生变化。请在付款前查看。",
+          "procurement_failed_refund_pending": "我们无法采购此商品。退款已经开始处理，将退回您付款所用的银行卡。",
+          "returns_and_warranty": "请在所示期限内退货；法定保修在所示期间内适用。",
+          "tax_or_import_uncertainty": "寄往此目的地时，可能在交付时收取进口关税或税费。我们无法给出最终金额。",
+          "product_recall_or_safety_notice": "本产品有一则安全提示。请先阅读该提示再使用。"
+        }
+      },
+      "seller": {
+        "externalFallback": "其他零售商",
+        "notForSale": "此处不售"
+      },
+      "a11ySeller": "卖家：%{label}",
+      "a11yDisclosure": "提示：%{label}",
+      "rights": "下单后 %{cancellationHours} 小时内可取消，送达后 %{withdrawalDays} 天内可撤回，%{returnDays} 天内可退货，法定保修期为 %{warrantyMonths} 个月。"
     }
   }
 }

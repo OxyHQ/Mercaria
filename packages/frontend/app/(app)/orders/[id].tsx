@@ -305,7 +305,7 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
   // presentation, which #123 stored with the order. A `platform` order has
   // neither `store` nor `seller` by construction, so the old coalesce rendered
   // nothing at all for exactly the sales Mercaria makes itself.
-  const sellerName = commercialSellerLabel(order.commercial);
+  const sellerName = commercialSellerLabel(t, order.commercial);
 
   return (
     <View className="px-4">

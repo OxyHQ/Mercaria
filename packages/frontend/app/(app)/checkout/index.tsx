@@ -160,7 +160,7 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
               itself.
             */}
             <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {commercialSellerLabel(group.commercial)}
+              {commercialSellerLabel(t, group.commercial)}
             </Text>
             {/*
               And what that means: the payment destination, the fulfilment

@@ -270,6 +270,45 @@
         "one": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。",
         "other": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。"
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "販売元: Mercaria",
+          "fulfilled_by_approved_partner": "認定パートナーが発送",
+          "sold_by_merchant": "販売元: 出品者",
+          "external_checkout": "販売店のサイトで購入手続き",
+          "affiliate_disclosure": "当社が手数料を受け取る場合があります",
+          "referral_disclosure": "パートナーリンク経由",
+          "supply_confirmation_pending": "在庫を確認中",
+          "price_or_availability_changed": "価格または在庫が変わりました",
+          "procurement_failed_refund_pending": "入荷できませんでした — 返金手続き中",
+          "returns_and_warranty": "返品と保証",
+          "tax_or_import_uncertainty": "輸入税がかかる場合があります",
+          "product_recall_or_safety_notice": "安全に関するお知らせ"
+        },
+        "explanation": {
+          "sold_by_mercaria": "この商品の販売者は Mercaria です。契約、支払い、返品はいずれも Mercaria との間で行われます。",
+          "fulfilled_by_approved_partner": "認定フルフィルメントパートナーが自社在庫から発送します。販売者は引き続き Mercaria です。",
+          "sold_by_merchant": "この商品は上記の出品者が販売します。支払いは Mercaria が処理します。",
+          "external_checkout": "この購入は販売店自身のサイトで完了します。Mercaria は支払いを受け取らず、注文も返品も扱いません。",
+          "affiliate_disclosure": "このリンク経由でご購入いただくと、Mercaria が手数料を受け取る場合があります。お支払い額や掲載順序は変わりません。",
+          "referral_disclosure": "パートナーリンク経由でアクセスされました。価格、販売者、お客様の権利は変わりません。",
+          "supply_confirmation_pending": "支払いを受け付けました。この注文を確定する前に、フルフィルメントパートナーに在庫を確認しています。",
+          "price_or_availability_changed": "カート内の商品の価格または在庫が、追加時から変更されました。お支払い前にご確認ください。",
+          "procurement_failed_refund_pending": "この商品を入荷できませんでした。返金はすでに手続き済みで、お支払いのカードに返金されます。",
+          "returns_and_warranty": "表示された期間内にご返送ください。法定保証は表示された期間について適用されます。",
+          "tax_or_import_uncertainty": "この配送先では、配達時に輸入関税または税金が課される場合があります。最終的な金額はお伝えできません。",
+          "product_recall_or_safety_notice": "この製品には安全に関するお知らせがあります。お知らせをお読みになるまで使用しないでください。"
+        }
+      },
+      "seller": {
+        "externalFallback": "別の販売店",
+        "notForSale": "ここでは販売していません"
+      },
+      "a11ySeller": "販売者: %{label}",
+      "a11yDisclosure": "開示事項: %{label}",
+      "rights": "ご注文から %{cancellationHours} 時間以内はキャンセル、配達から %{withdrawalDays} 日以内は撤回、%{returnDays} 日以内は返品が可能で、法定保証は %{warrantyMonths} か月間です。"
     }
   }
 }

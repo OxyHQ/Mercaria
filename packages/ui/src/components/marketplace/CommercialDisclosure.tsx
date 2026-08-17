@@ -1,10 +1,14 @@
 import { View } from "react-native";
 import { Text } from "../ui/text";
 import {
+  COMMERCIAL_A11Y_DISCLOSURE_KEY,
+  COMMERCIAL_A11Y_SELLER_KEY,
+  COMMERCIAL_RIGHTS_KEY,
   commercialDisclosureExplanation,
   commercialDisclosureLabel,
   commercialSellerLabel,
 } from "../../lib/commercial-copy";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import type { CommercialPresentation } from "@mercaria/shared-types";
 
 export interface CommercialDisclosureProps {
@@ -57,7 +61,8 @@ export function CommercialDisclosure({
   presentation,
   showExplanations = false,
 }: CommercialDisclosureProps) {
-  const seller = commercialSellerLabel(presentation);
+  const t = useSharedUiTranslation();
+  const seller = commercialSellerLabel(t, presentation);
 
   return (
     <View className="gap-space-8">
@@ -67,8 +72,11 @@ export function CommercialDisclosure({
         // The name alone would announce a company with no relation to the
         // purchase. Naming the ROLE is the `scopeLabel` convention this package
         // already uses for ratings and conditions, and here it is the whole
-        // point of the component.
-        accessibilityLabel={`Seller: ${seller}`}
+        // point of the component. The prefix is a KEY with a slot rather than an
+        // English word glued onto a value: a screen-reader-only string is the
+        // one an untranslated build never shows anybody, so nothing but a gate
+        // would ever have caught it (#490).
+        accessibilityLabel={t(COMMERCIAL_A11Y_SELLER_KEY, { label: seller })}
       >
         {seller}
       </Text>
@@ -79,15 +87,17 @@ export function CommercialDisclosure({
               <View
                 className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
                 accessibilityRole="text"
-                accessibilityLabel={`Disclosure: ${commercialDisclosureLabel(key)}`}
+                accessibilityLabel={t(COMMERCIAL_A11Y_DISCLOSURE_KEY, {
+                  label: commercialDisclosureLabel(t, key),
+                })}
               >
                 <Text className="text-captionBold text-text">
-                  {commercialDisclosureLabel(key)}
+                  {commercialDisclosureLabel(t, key)}
                 </Text>
               </View>
               {showExplanations ? (
                 <Text className="text-caption text-text-secondary">
-                  {commercialDisclosureExplanation(key)}
+                  {commercialDisclosureExplanation(t, key)}
                 </Text>
               ) : null}
             </View>
@@ -100,10 +110,12 @@ export function CommercialDisclosure({
         // windows it was made under (#126's role snapshot), so a copy change
         // here can never restate what somebody already agreed to.
         <Text className="text-caption text-text-secondary">
-          {`Cancel within ${presentation.rights.cancellationWindowHours} hours of ordering, ` +
-            `withdraw within ${presentation.rights.withdrawalWindowDays} days of delivery, ` +
-            `return within ${presentation.rights.returnWindowDays} days, ` +
-            `and the legal guarantee runs for ${presentation.rights.warrantyMonths} months.`}
+          {t(COMMERCIAL_RIGHTS_KEY, {
+            cancellationHours: presentation.rights.cancellationWindowHours,
+            withdrawalDays: presentation.rights.withdrawalWindowDays,
+            returnDays: presentation.rights.returnWindowDays,
+            warrantyMonths: presentation.rights.warrantyMonths,
+          })}
         </Text>
       ) : null}
     </View>

@@ -54,7 +54,7 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
   // From the order's own commercial presentation (#129): a `platform` order has
   // neither `store` nor `seller`, so the old coalesce left Mercaria's own sales
   // with no seller in the list at all.
-  const sellerName = commercialSellerLabel(order.commercial);
+  const sellerName = commercialSellerLabel(t, order.commercial);
   return (
     <Pressable
       accessibilityRole="button"
