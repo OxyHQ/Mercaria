@@ -36,6 +36,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
+import { fixtureGtinBody } from '../../../__tests__/fixture-gtin.js';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 import { acquireActivePolicySlot, type ActivePolicySlot } from './active-policy-slot.js';
@@ -218,18 +219,12 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
       return ids.length === 0 ? ['__none__'] : [...ids];
     }
 
-    /**
-     * A twelve-digit GTIN payload unique to this RUN.
-     *
-     * The case's own payload keeps its low digits so a failure is still
-     * traceable to the case that wrote it; the RUN contributes the high ones.
-     */
-    function runScopedGtinPayload(payload: string): string {
-      const suffix = payload.slice(-6).padStart(6, '0');
-      let hash = 0;
-      for (const character of RUN) hash = (hash * 31 + character.charCodeAt(0)) % 1_000_000;
-      return `${String(hash).padStart(6, '0')}${suffix}`;
-    }
+    // `runScopedGtinPayload` lived here and is GONE (#594): callers now pass
+    // `fixtureGtinBody(RUN, n)` directly, so the run-scoping is the shared
+    // helper's and there is one mechanism rather than two. This file had the
+    // right idea first — its scoping predates #594 and its docblock named the
+    // exact constraint — but a per-file copy is why the sibling that lacked it
+    // went unnoticed.
 
     beforeAll(async () => {
       db = await connectPostgres();
@@ -449,7 +444,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
         // canonical identifier has exactly ONE active owner, which is correct
         // for production and makes a hard-coded fixture GTIN a shared resource
         // the moment a second runner exists.
-        gtin = ean13(runScopedGtinPayload(gtinPayload));
+        gtin = ean13(gtinPayload);
         await db.insert(productIdentifiers).values({
           variantId: variant.id,
           scheme: 'ean',
@@ -970,7 +965,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
     // ── 9. Offer upsert ──────────────────────────────────────────────────────
     it('materializes an external offer after a canonical match, and re-upserts it', async () => {
       await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('offer', '620000000091');
+      const canonical = await mintCanonicalVariant('offer', fixtureGtinBody(RUN, 1));
       const gtin = canonical.gtin;
       expect(gtin).not.toBeNull();
 
@@ -1049,7 +1044,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
     // ── 10. Stale / expiry handoff ───────────────────────────────────────────
     it('retires what a COMPLETE enumeration stopped publishing, and nothing else', async () => {
       await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('expiry', '620000000107');
+      const canonical = await mintCanonicalVariant('expiry', fixtureGtinBody(RUN, 2));
       const gtin = canonical.gtin ?? undefined;
 
       const source = await bringUpSource('expiry', {
@@ -1116,7 +1111,7 @@ export function describeCatalogSourceAdapterContract(harness: AdapterContractHar
 
     it('retires NOTHING when the enumeration was incomplete', async () => {
       await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('incomplete', '620000000114');
+      const canonical = await mintCanonicalVariant('incomplete', fixtureGtinBody(RUN, 3));
       const gtin = canonical.gtin ?? undefined;
 
       const source = await bringUpSource('incomplete', {

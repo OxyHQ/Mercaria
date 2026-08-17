@@ -42,6 +42,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { asc, eq } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
+import { fixtureGtin } from '../../__tests__/fixture-gtin.js';
 import type { ConnectorProviderId, CurrencyCode } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { categories, listings } from '../../db/schema/catalog.js';
@@ -2221,7 +2222,7 @@ export function describeConnectorContract(harness: ConnectorContractHarness): vo
         const listing = await importedListing(fixture, source.externalId);
         const target = source.variants.find((variant) => variant.barcode !== undefined);
         expect(target, 'the fixture catalogue must carry a variant with a barcode').toBeDefined();
-        const corrected = '4006381333931';
+        const corrected = fixtureGtin(uuidv7().slice(-12), 1);
         expect(corrected).not.toBe((target as ContractVariant).barcode);
 
         editProduct(fixture, source.externalId, (product) => ({
