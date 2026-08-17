@@ -43,13 +43,23 @@ function walk(relative: string): string[] {
   return found;
 }
 
-/** The domain's HTTP surface, from the filename convention (#472's device). */
+/** Anything whose PATH names this domain, in either spelling. */
+const DOMAIN_NAMED = /merchant-activation|merchantActivation/i;
+
+/**
+ * The domain's HTTP surface, from the filename convention (#472's device).
+ *
+ * RECURSES, via `walk`. It used to be `readdirSync(...).filter(entry.isFile())`
+ * — one level — sitting ten lines below a `walk` that recurses, so the file read
+ * as though it recursed throughout and it did not. Measured (#460):
+ * `routes/admin/merchant-activation.ts` exists, imports this domain's schemas
+ * and controller, and was named NOWHERE in this gate, so every wall below ran
+ * over a population missing it. That is #609's defect, which was fixed for the
+ * analytics gate only.
+ */
 function httpSurface(): string[] {
   return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => entry.name.startsWith('merchant-activation'))
-      .map((entry) => `${directory}/${entry.name}`),
+    walk(directory).filter((path) => DOMAIN_NAMED.test(path.split('/').pop() ?? '')),
   );
 }
 
@@ -66,7 +76,32 @@ const ACTIVATION_PATHS = [
   ...walk('services/merchant-activation'),
   ...walk('db/merchantActivation'),
   ...httpSurface(),
+  'db/schema/merchantActivation.ts',
 ];
+
+/**
+ * Every module in the tree whose PATH names this domain — the assertion that
+ * closes the population against the NEXT mechanism, not just this one.
+ *
+ * #609's device. A gate can be walk-only with no hand list anywhere and still
+ * miss a module, because the miss lives in the DIRECTORY list the walk reads;
+ * two different mechanisms produced misses here (a non-recursing HTTP sweep and
+ * an unscanned `db/schema`) and this one assertion covers both, plus whatever is
+ * found next.
+ *
+ * Matched on the PATH rather than the filename: a module inside
+ * `services/merchant-activation/` names the domain nowhere in its own name, so a
+ * filename sweep reports a fraction of the domain and an empty "outside" set,
+ * which reads as a clean pass.
+ */
+function domainNamedModules(): string[] {
+  // `walk` composes `${relative}/${entry.name}`, so walking the ROOT yields a
+  // leading slash and nothing would ever match the population — the assertion
+  // would report all 16 modules as outside it, a false accusation rather than a
+  // silent pass. Normalised here rather than in `walk`, whose callers all pass a
+  // real directory.
+  return walk('').map((path) => path.replace(/^\//, '')).filter((path) => DOMAIN_NAMED.test(path));
+}
 
 /**
  * The three that must stay PURE. `facts.ts` is the module that reads, and it is
@@ -103,6 +138,12 @@ const TRAIL_READERS = [
   // implements it. Named here for the same reason the writer is — by name, not
   // by a pattern anybody could reuse.
   'db/merchantActivation/capabilityEventRepository.ts',
+  // The SCHEMA module, for the same reason one step further out: it DECLARES
+  // `merchantActivationCapabilityEvents`, so the detector matches the table
+  // definition itself. Brought into the population by #460's whole-tree
+  // assertion; scanning it without this entry is a FALSE wall — the gate would
+  // fail on the file that defines the thing it forbids reading.
+  'db/schema/merchantActivation.ts',
 ];
 
 /**
@@ -202,9 +243,20 @@ describe('the activation domain cannot reach what it must not', () => {
     expect(from('db/merchantActivation/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(3);
     expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(2);
     expect(ACTIVATION_PATHS.length).toBeGreaterThanOrEqual(14);
+
+    // The whole-tree assertion (#609). Nothing whose PATH names this domain may
+    // sit outside the derived population, whatever the reason it was missed.
+    // Its own vacuity floor first: a sweep that reached nothing would report an
+    // empty "outside" set, which is indistinguishable from a complete population.
+    const named = domainNamedModules();
+    expect(named.length, 'the domain-name sweep found nothing').toBeGreaterThanOrEqual(14);
+    expect(
+      named.filter((path) => !ACTIVATION_PATHS.includes(path)).sort(),
+      'names this domain but is outside the population every wall below scans',
+    ).toEqual([]);
     // EXACT: an unbounded exemption list lets any number of readers ride in
     // behind the two somebody justified (#448).
-    expect(TRAIL_READERS.length, 'a third trail reader was exempted').toBe(2);
+    expect(TRAIL_READERS.length, 'a fourth trail reader was exempted').toBe(3);
     for (const path of ACTIVATION_PATHS) {
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
     }
