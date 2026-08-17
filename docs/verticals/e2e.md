@@ -31,7 +31,9 @@ merchant on top of them:
   footwear one could not produce any if it did, since its published variant
   selects no canonical configuration. Here every published variant SELECTS one
   and the converger is driven.
-- **A shopper's search is driven.** Footwear stops at facets; the smartphone suite
+- **A shopper's search is driven.** Workstream 14's footwear suite stops at facets
+  and never calls `runCanonicalSearch` (the journeys here DO drive it for footwear,
+  in `vertical-locales-markets.e2e.realdb.test.ts:374` and `:408`); its smartphone suite
   does drive `runCanonicalSearch`, for its ALIAS stages over a catalogue with no
   offers in it. What is new is the search over a product a merchant has published,
   with the offer projection populated and a market filter applied.
