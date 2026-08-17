@@ -484,6 +484,25 @@ export async function runCanonicalSearch(
     const wanted = new Set(brandIds);
     productRows = productRows.filter((row) => row.brandId !== null && wanted.has(row.brandId));
   }
+  /**
+   * KNOWN BUG, #567: this ANDs the constraints per PRODUCT, not per VARIANT.
+   *
+   * Each pass asks which products satisfy one attribute and intersects the ids, so
+   * a product survives when a red variant exists AND a size-43 variant exists —
+   * even when no single variant is both. The facet rail does not have this bug:
+   * `db/facets/facetRepository.ts` nests every variant predicate inside one
+   * `exists` correlated to a single `canonical_variants` row.
+   *
+   * The two rails serve one page, so the correlated one produces the COUNT and this
+   * one produces the LIST: a category page can render `matchedProductCount: 1`
+   * above a result set containing a second, crossed product.
+   *
+   * Do not "fix" this by adding another intersection pass — the shape has to become
+   * one `exists` per requirement set correlated to a variant row, the way
+   * `facetRepository` already does it. And the test must use a genuinely crossed
+   * fixture and assert the crossed product is ABSENT: a fixture without one passes
+   * against both the correct and the incorrect query, which is how this survived.
+   */
   for (const attribute of request.filters.attributes ?? []) {
     const surviving = new Set(
       await findProductIdsSatisfyingAttribute(

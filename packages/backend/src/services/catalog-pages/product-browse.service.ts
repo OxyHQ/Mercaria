@@ -192,6 +192,22 @@ export async function browseCatalogProducts(
  * bounded, and intersecting a bounded set is cheap where joining the whole
  * table into a keyset walk is not. Constraints are ANDed — a shopper naming two
  * attributes means both.
+ *
+ * KNOWN BUG, #567: that AND is per PRODUCT, not per VARIANT. The sentence above is
+ * true at the grain this function works on, which is what makes the defect easy to
+ * read past — a product survives when a red variant exists AND a size-43 variant
+ * exists, even when no single variant is both.
+ *
+ * `db/facets/facetRepository.ts` does NOT have this bug: it nests every variant
+ * predicate inside one `exists` correlated to a single `canonical_variants` row. The
+ * two rails serve one page, so the correlated one produces the COUNT and this one
+ * produces the LIST — a page can show a count that excludes the crossed product
+ * above a list that contains it.
+ *
+ * The fix is one `exists` per requirement set correlated to a variant row, not
+ * another intersection pass. And the test needs a genuinely crossed fixture with an
+ * assertion that the crossed product is ABSENT: a fixture without one passes
+ * against both the correct and the incorrect query.
  */
 async function applyAttributeFilters(
   db: DatabaseOrTransaction,
