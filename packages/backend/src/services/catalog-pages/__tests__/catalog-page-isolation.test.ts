@@ -25,7 +25,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -39,28 +39,51 @@ const SRC_ROOT = join(HERE, '..', '..', '..');
 const DOMAIN_DIR = join(SRC_ROOT, 'services', 'catalog-pages');
 
 /**
- * Every module in the domain, read from the DIRECTORY rather than from a list.
+ * Every `.ts` under a directory, RECURSIVELY, excluding the test tree.
  *
- * A hand-written list is a gate that stops covering the module somebody adds
- * next; walking the directory means the wall holds for files nobody has written
- * yet — the `ingestion-isolation.test.ts` device.
+ * The previous walk read `readdirSync(DOMAIN_DIR)` and took `.ts` names only, so
+ * it stopped at the directory root. That is the shape #472 found hiding
+ * `services/ingestion/adapters/` — five provider modules behind no wall at all.
+ * This directory is flat today; the point is that a subdirectory added tomorrow
+ * is covered without anybody remembering to come here.
  */
-function domainModules(): { relative: string; source: string }[] {
-  return readdirSync(DOMAIN_DIR)
-    .filter((name) => name.endsWith('.ts'))
-    .map((name) => ({
-      relative: `services/catalog-pages/${name}`,
-      source: readFileSync(join(DOMAIN_DIR, name), 'utf8'),
-    }));
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
 }
 
-/** The surfaces outside the service directory that serve these pages. */
-const SURFACE_PATHS = [
-  'controllers/catalog-pages.controller.ts',
-  'routes/catalog-pages.ts',
-  'middleware/catalog-page-schemas.ts',
-  'db/catalogPages/catalogPageRepository.ts',
-];
+/** Every module in the domain, WALKED rather than listed (#460). */
+function domainModules(): { relative: string; source: string }[] {
+  return walk('services/catalog-pages').map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
+}
+
+/**
+ * The surfaces outside the service directory that serve these pages — DERIVED
+ * from the filename convention plus the repository walk (#472's device), never
+ * listed.
+ *
+ * The list this replaces named the same four and was complete on the day it was
+ * written; a fifth catalog-page module in any of these roots was invisible to
+ * every wall below.
+ */
+function surfacePaths(): string[] {
+  const named = ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.startsWith('catalog-page'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+  return [...named, ...walk('db/catalogPages')];
+}
 
 /**
  * Reaching the DATA a resemblance would be inferred from.
@@ -99,6 +122,37 @@ const ENTITY_RATING_REFERENCE =
 /** A merchant's own commerce surface — what #73 owns and this domain must not. */
 const STOREFRONT_REFERENCE =
   /listingRepository|inventory\.service|cart\.service|checkout\.service|draft-order|storefront\.service/;
+
+describe('the scanned population is derived and whole', () => {
+  it('walks a real domain, a real repository and a real HTTP surface', () => {
+    // Vacuity floors PER SHAPE rather than one on the total. The three sources
+    // break independently, and a single total would let the domain walk collapse
+    // to zero while the others carried the number — which is the failure this
+    // conversion exists to end. Each is today's count, compared with `>=`, so a
+    // SHRINK stops the build; a floor carried over from the hand list would have
+    // been inert on arrival, because the conversion is precisely what widens the
+    // population.
+    const domain = domainModules().map((module) => module.relative);
+    const surfaces = surfacePaths();
+    expect(domain.length, 'the domain walk found nothing').toBeGreaterThanOrEqual(11);
+    expect(
+      surfaces.filter((path) => !path.startsWith('db/')).length,
+      'the HTTP surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      surfaces.filter((path) => path.startsWith('db/catalogPages/')).length,
+      'the repository walk found nothing',
+    ).toBeGreaterThanOrEqual(1);
+
+    // The walk really reads the disk rather than returning a cached or empty
+    // result, and no test file enters the scanned set — a gate that scans its
+    // own probes reports violations it wrote itself.
+    for (const relative of [...domain, ...surfaces]) {
+      expect(statSync(join(SRC_ROOT, relative)).isFile(), `${relative} is not a file`).toBe(true);
+    }
+    expect([...domain, ...surfaces].filter((path) => path.includes('__tests__'))).toEqual([]);
+  });
+});
 
 describe('#72 the official-channel vocabularies are disjoint', () => {
   it('names no signal that is both evidence and a forbidden resemblance', () => {
@@ -257,7 +311,7 @@ describe('#72 every detector actually detects — the mutation self-tests', () =
 
 /** The controller, router, schemas and repository, with the same floors. */
 function surfaceModules(): { relative: string; source: string }[] {
-  return SURFACE_PATHS.map((relative) => {
+  return surfacePaths().map((relative) => {
     const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
     expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
     return { relative, source };
