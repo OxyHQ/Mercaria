@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "Esta é uma inscrição de teste e não gera pagamento."
       },
       "rewardBasis": {
-        "percentage": "%{rate}% de %{base}",
+        "percentage": "%{rate} de %{base}",
         "fixedBudget": "Um valor fixo por indicação qualificada, retirado de um orçamento de marketing aprovado.",
         "fixedOther": "Um valor fixo por indicação qualificada, retirado da fonte de financiamento aprovada.",
         "notPublished": "A taxa deste programa ainda não foi publicada."

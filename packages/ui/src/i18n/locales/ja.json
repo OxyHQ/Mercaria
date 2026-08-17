@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "これはテスト登録のため、支払いは行われません。"
       },
       "rewardBasis": {
-        "percentage": "%{base} の %{rate}%",
+        "percentage": "%{base} の %{rate}",
         "fixedBudget": "条件を満たす紹介ごとの定額で、承認済みのマーケティング予算から支払われます。",
         "fixedOther": "条件を満たす紹介ごとの定額で、承認済みの資金源から支払われます。",
         "notPublished": "このプログラムの料率はまだ公開されていません。"

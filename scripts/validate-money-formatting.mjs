@@ -213,7 +213,7 @@ const KNOWN_EXCEPTIONS = [
   },
   {
     file: "packages/ui/src/lib/format.ts",
-    pattern: "BASIS_POINTS_PER_PERCENT).toFixed(1)",
+    pattern: "BASIS_POINTS_PER_PERCENT).toFixed(fractionDigits)",
     rule: "raw-decimal-render",
     count: 1,
     reason: "`formatPercent`'s own un-localized fallback — the entry above, one formatter over.",

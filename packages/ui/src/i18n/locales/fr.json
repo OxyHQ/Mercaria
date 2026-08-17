@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "Il s'agit d'une inscription de test, sans versement."
       },
       "rewardBasis": {
-        "percentage": "%{rate} % de %{base}",
+        "percentage": "%{rate} de %{base}",
         "fixedBudget": "Un montant fixe par parrainage éligible, prélevé sur un budget marketing approuvé.",
         "fixedOther": "Un montant fixe par parrainage éligible, prélevé sur la source de financement approuvée.",
         "notPublished": "Le taux de ce programme n'a pas encore été publié."

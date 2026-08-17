@@ -53,10 +53,16 @@ import { isolateBidi } from "./bidi";
  */
 const FORMATTER_CACHE = new Map<string, Intl.DateTimeFormat | null>();
 
-/** The two presentations this module offers. See each exported function. */
-const STYLE_OPTIONS: Readonly<Record<"date" | "dateTime", Intl.DateTimeFormatOptions>> = {
+/** The three presentations this module offers. See each exported function. */
+const STYLE_OPTIONS: Readonly<
+  Record<"date" | "dateTime" | "weekday", Intl.DateTimeFormatOptions>
+> = {
   date: { dateStyle: "medium" },
   dateTime: { dateStyle: "medium", timeStyle: "short" },
+  // `timeZone: "UTC"` is load-bearing, not tidiness: the reference instants
+  // below are UTC midnights, so a reader east of UTC would otherwise be shown
+  // the PREVIOUS day's name for every weekday in the table.
+  weekday: { weekday: "long", timeZone: "UTC" },
 };
 
 /**
@@ -83,7 +89,10 @@ const STYLE_OPTIONS: Readonly<Record<"date" | "dateTime", Intl.DateTimeFormatOpt
  * check H in `validate-i18n-strings.mjs` forbids across all four packages, and a
  * guard that has to exempt its own remedy is a guard with a hole in it.
  */
-function formatterFor(locale: string, style: "date" | "dateTime"): Intl.DateTimeFormat | null {
+function formatterFor(
+  locale: string,
+  style: "date" | "dateTime" | "weekday",
+): Intl.DateTimeFormat | null {
   const key = `${style} ${locale}`;
   const cached = FORMATTER_CACHE.get(key);
   if (cached !== undefined) {
@@ -174,4 +183,47 @@ export function formatDate(value: Date | string | number, locale: string): strin
  */
 export function formatDateTime(value: Date | string | number, locale: string): string | null {
   return render(value, locale, "dateTime");
+}
+
+/**
+ * The reference week whose days name the weekdays.
+ *
+ * 2023-01-01 was a Sunday, so `1 + weekday` lands on the day `Date#getDay`
+ * numbers — which is the numbering `LocationOpeningHour.weekday` carries.
+ */
+const WEEKDAY_REFERENCE_YEAR = 2023;
+
+/** `Date#getDay` is 0–6; anything else is not a weekday. */
+const WEEKDAYS_IN_WEEK = 7;
+
+/**
+ * A weekday index as its name in the app's locale — `Monday`, `Montag`,
+ * `lunes`, `月曜日` (#544).
+ *
+ * ## Why this is a formatter and not seven translated strings
+ *
+ * `pickup-labels.ts` held a hardcoded English `WEEKDAY_NAMES` array until this
+ * landed, and the obvious repair — seven keys in twelve bundles — is worse
+ * rather than merely redundant. German capitalises weekday names and Spanish,
+ * French and Catalan do not; several locales inflect them in context; and
+ * NOTHING IN A BUNDLE WOULD RECORD WHICH FORM WAS INTENDED, so the first
+ * translator to write `Lunes` would be neither right nor visibly wrong. `Intl`
+ * already answers this correctly in all twelve, and `@mercaria/ui`'s house rule
+ * is that an app keeps no local copy of what the formatter chokepoint owns.
+ *
+ * Returns `""` for an out-of-range index, which is what the array it replaced
+ * did — an opening-hours row with no day is rendered as nothing rather than as
+ * a half-built label. Deliberately a BARE empty string and not an isolated one:
+ * `\u2068\u2069` is not empty, and a caller testing `.length` would start
+ * rendering a blank chip. The bidi guard pins that.
+ */
+export function formatWeekday(weekday: number, locale: string): string {
+  if (!Number.isInteger(weekday) || weekday < 0 || weekday >= WEEKDAYS_IN_WEEK) {
+    return "";
+  }
+  const formatter = formatterFor(locale, "weekday");
+  if (formatter === null) {
+    return "";
+  }
+  return isolateBidi(formatter.format(new Date(Date.UTC(WEEKDAY_REFERENCE_YEAR, 0, 1 + weekday))));
 }
