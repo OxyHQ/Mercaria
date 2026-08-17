@@ -41,7 +41,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -113,6 +113,36 @@ const REFERRAL_REFERENCE =
 
 /** ADR 0004 D11 and #129 acceptance 9. */
 const OXYPAY_OR_FAIRCOIN_REFERENCE = /oxy_?[Pp]ay|OxyPay|[Ff]air[Cc]oin/;
+
+/** The storefront's translation bundles — where #435 moved the copy (#492). */
+const LOCALES_ROOT = join(REPO_PACKAGES, 'frontend', 'lib', 'i18n', 'locales');
+
+/**
+ * Every translated string the storefront ships, in EVERY locale.
+ *
+ * The OxyPay/FairCoin prohibition below is explicitly a scan of COPY, not only
+ * of code — a "coming soon", a disabled wallet row and a conversion teaser are
+ * all STRINGS. #435 moved exactly those strings out of the four screens this
+ * file scans and into the bundles, so a gate that reads only `.tsx` would go on
+ * passing while the checkout said the forbidden thing. All twelve locales, not
+ * just `en`: the wallet teaser is as forbidden in Portuguese.
+ *
+ * Enumerated from disk so a locale added later is covered without an edit here.
+ * A parse failure THROWS rather than being skipped — an unreadable bundle is the
+ * "scanned nothing" state, which is the one way this must never be green.
+ */
+function localeBundles(): { readonly locale: string; readonly source: string }[] {
+  return readdirSync(LOCALES_ROOT)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => {
+      const source = readFileSync(join(LOCALES_ROOT, name), 'utf8');
+      // Parsed purely to refuse an unreadable bundle; the SCAN is over the raw
+      // text, which is what the `.tsx` half does and what catches a forbidden
+      // name wherever it sits.
+      JSON.parse(source);
+      return { locale: name.slice(0, -'.json'.length), source };
+    });
+}
 
 /**
  * A commercial mode inferred from something that is not the authority.
@@ -198,6 +228,28 @@ describe('a customer commercial surface cannot reach what it must not', () => {
       expect(
         OXYPAY_OR_FAIRCOIN_REFERENCE.test(readSource(REPO_PACKAGES, relative)),
         `${relative} names OxyPay or FairCoin`,
+      ).toBe(false);
+    }
+
+    // …and in the BUNDLES, which is where #435 moved the copy (#492). Without
+    // this the four screens above stay clean while `en.json` carries
+    // "Pay with OxyPay — coming soon" and every assertion here still passes.
+    const bundles = localeBundles();
+    expect(
+      bundles.length,
+      'the storefront ships twelve locales; a shorter list means the bundles moved and this ' +
+        'prohibition is no longer scanning the copy',
+    ).toBeGreaterThanOrEqual(12);
+    for (const bundle of bundles) {
+      // A bundle emptied to `{}` would scan clean; the floor is what tells that
+      // apart from a bundle that genuinely says nothing forbidden.
+      expect(
+        bundle.source.length,
+        `${bundle.locale}.json looks empty — an empty bundle passes this vacuously`,
+      ).toBeGreaterThan(500);
+      expect(
+        OXYPAY_OR_FAIRCOIN_REFERENCE.test(bundle.source),
+        `${bundle.locale}.json names OxyPay or FairCoin`,
       ).toBe(false);
     }
   });
