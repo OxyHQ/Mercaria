@@ -16,21 +16,36 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
 /**
- * The buyer-identity and access path, end to end. A new module here belongs on
- * the list — the vacuity floor is what forces whoever adds one to look.
+ * The buyer-identity and access path, end to end — WALKED rather than listed
+ * (#460).
+ *
+ * `services/orders/` holds exactly this path and nothing else, so the walk IS
+ * the population and no hand list is needed. The list it replaces named the same
+ * three modules and was complete on the day it was written, which is the defect
+ * rather than a defence: a module added here tomorrow was invisible to all three
+ * walls below, and this path is the one where that matters most — it is where
+ * "an order number plus an email is a password" would get built by accident.
  */
-const ACCESS_PATHS = [
-  'services/orders/order-buyer.ts',
-  'services/orders/order-access.service.ts',
-  'services/orders/guest-order-portal.service.ts',
-];
+const ACCESS_PATHS = walk('services/orders');
 
 /**
  * Invariant I6 and #106 reject rules 1-2 and 5: an email — plain, normalized,
@@ -105,6 +120,16 @@ describe('the order-access path cannot reach what it must not (#106)', () => {
       ).toBe(false);
       scanned += 1;
     }
+    // A real floor, not `scanned === ACCESS_PATHS.length`: that comparison is
+    // circular (the loop increments once per entry, so it holds for any list
+    // including an empty one) and catches a broken loop but never a shrunk
+    // population. This is today's count, compared with `>=`, so a module
+    // disappearing from the walk stops the build.
+    expect(ACCESS_PATHS.length, 'the access-path walk found nothing').toBeGreaterThanOrEqual(3);
+    for (const relative of ACCESS_PATHS) {
+      expect(statSync(join(SRC_ROOT, relative)).isFile(), `${relative} is not a file`).toBe(true);
+    }
+    expect(ACCESS_PATHS.filter((relative) => relative.includes('__tests__'))).toEqual([]);
     expect(scanned).toBe(ACCESS_PATHS.length);
   });
 
