@@ -68,8 +68,14 @@ export function asCurrencyCode(value: string): CurrencyCode | null {
   return (ALL_CURRENCY_CODES as readonly string[]).includes(value) ? (value as CurrencyCode) : null;
 }
 
-/** Whether Mercaria models this currency at all — the permanent/transient split. */
-export function isUnmodelledCurrency(value: string): boolean {
+/**
+ * Whether Mercaria models this currency at all — the permanent/transient split.
+ *
+ * Module-private: the split is answered by {@link projectCurrencyExclusions},
+ * and a second exported way to ask the same question is a second place for a
+ * caller to classify an exclusion by hand.
+ */
+function isUnmodelledCurrency(value: string): boolean {
   return asCurrencyCode(value) === null;
 }
 
