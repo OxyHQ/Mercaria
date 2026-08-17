@@ -16,7 +16,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import {
@@ -83,6 +83,58 @@ function refusalTextOf(error: unknown): string {
     current = named.cause;
   }
   return parts.join(' | ');
+}
+
+/**
+ * The SQLSTATE of a wrapped driver error.
+ *
+ * `error.code` is NOT it — drizzle wraps the postgres.js error, so the five
+ * characters live on the CAUSE. Asserting the constraint NAME alone would also
+ * pass on a CHECK that happened to mention it, and asserting `rejects.toThrow()`
+ * would pass on a typo in the fixture.
+ */
+function sqlstateOf(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < 6 && current !== undefined && current !== null; depth += 1) {
+    const named = current as { code?: unknown; cause?: unknown };
+    if (typeof named.code === 'string' && /^[0-9A-Z]{5}$/u.test(named.code)) return named.code;
+    current = named.cause;
+  }
+  return undefined;
+}
+
+/**
+ * A transaction MATCHED to a click, written straight at the table.
+ *
+ * Deliberately not through `applyReportedTransaction`: no service path can
+ * produce a matched row, because `AFFILIATE_CLICK_REFERENCE_SUPPORT` marks both
+ * networks `not_supported` and `matchReportedTransaction` returns at its first
+ * branch. The property under test is the DATABASE's, and a service that cannot
+ * reach the state cannot test the constraint that guards it.
+ */
+async function insertMatchedTransaction(
+  handle: Pick<Database, 'insert'>,
+  clickId: string,
+): Promise<void> {
+  await handle.insert(affiliateTransactions).values({
+    network: 'awin',
+    networkTransactionId: `awin-${uuidv7()}`,
+    advertiserRef: '7052',
+    publisherRef: '189069',
+    state: 'approved',
+    orderValueAmount: 2400,
+    orderValueCurrency: 'GBP',
+    commissionAmount: 120,
+    commissionCurrency: 'GBP',
+    eventAt: EVENT_AT,
+    networkProcessedAt: null,
+    networkClickRef: `ref-${clickId}`,
+    matchedClickId: clickId,
+    matchState: 'matched',
+    unmatchedReason: null,
+    contentDigest: 'f'.repeat(64),
+    observationCount: 1,
+  });
 }
 
 /** One reported transaction, under an id this file owns. */
@@ -702,5 +754,88 @@ describe('commission reconciliation, against a real server', () => {
         ),
       );
     expect(rows).toHaveLength(1);
+  });
+
+  /**
+   * #445 — one click, one transaction.
+   *
+   * The network key stops one TRANSACTION being counted twice; this stops one
+   * CLICK being credited twice, which is what a matcher would make possible.
+   * Nothing in the service layer can breach it today, which is exactly why the
+   * guard has to be the DATABASE's: the code that could breach it does not
+   * exist yet, so a service-level check would be written by the same person who
+   * writes the matcher, at the same time, from the same wrong assumption.
+   */
+  describe('one click cannot be credited to two transactions', () => {
+    it('refuses the SECOND transaction citing one click, with SQLSTATE 23505', async () => {
+      const clickId = `click-${uuidv7()}`;
+      await insertMatchedTransaction(db, clickId);
+
+      let caught: unknown;
+      try {
+        await insertMatchedTransaction(db, clickId);
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught, 'the second write SUCCEEDED; the index did not fire').toBeDefined();
+      // The SQLSTATE, not merely "it threw": a unique violation and a CHECK
+      // violation are different facts and only one of them is this index.
+      expect(sqlstateOf(caught)).toBe('23505');
+      expect(refusalTextOf(caught)).toMatch(/affiliate_transactions_matched_click_key/u);
+
+      const rows = await db
+        .select({ id: affiliateTransactions.id })
+        .from(affiliateTransactions)
+        .where(eq(affiliateTransactions.matchedClickId, clickId));
+      expect(rows).toHaveLength(1);
+
+      await db.delete(affiliateTransactions).where(eq(affiliateTransactions.matchedClickId, clickId));
+    });
+
+    /**
+     * The MUTATION control for the case above.
+     *
+     * Drop the index inside a transaction that is rolled back, and the same pair
+     * of writes is ADMITTED. Without this, the case above passes identically
+     * whether the index exists or the fixture is simply wrong about what it is
+     * inserting — "I found a refusal" and "there is a constraint" look the same
+     * from one green test.
+     *
+     * The window is one statement wide and one table wide: `DROP INDEX` takes
+     * ACCESS EXCLUSIVE on `affiliate_transactions`, and this database is shared
+     * with whatever runs in parallel.
+     */
+    it('MUTATION: admits the same pair once the index is dropped, then restores it', async () => {
+      const clickId = `click-${uuidv7()}`;
+      let admitted = 0;
+
+      await expect(
+        db.transaction(async (tx) => {
+          await tx.execute(sql`drop index "affiliate_transactions_matched_click_key"`);
+          await insertMatchedTransaction(tx, clickId);
+          await insertMatchedTransaction(tx, clickId);
+          admitted = 2;
+          throw new Error('rolling back the mutation');
+        }),
+      ).rejects.toThrow(/rolling back the mutation/u);
+
+      // Both writes landed with the index gone — so the refusal above was the
+      // index and not the fixture.
+      expect(admitted).toBe(2);
+
+      // The rollback took the DDL with it: the index is back, and enforcing.
+      const [restored] = await db.execute<{ count: number }>(
+        sql`select count(*)::int as count from pg_indexes
+             where indexname = 'affiliate_transactions_matched_click_key'`,
+      );
+      expect(restored?.count).toBe(1);
+
+      const leaked = await db
+        .select({ id: affiliateTransactions.id })
+        .from(affiliateTransactions)
+        .where(eq(affiliateTransactions.matchedClickId, clickId));
+      expect(leaked).toHaveLength(0);
+    });
   });
 });

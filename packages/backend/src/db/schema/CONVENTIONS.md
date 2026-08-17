@@ -5853,6 +5853,21 @@ weeks later.
   corrections — so "already seen" is an answer the index gives, never an error a
   catch interprets. `network_transaction_id` is a FOREIGN service's key and is
   registered in `ID_COLUMNS_WITHOUT_FOREIGN_KEY` beside every other one.
+- **`affiliate_transactions_matched_click_key` is the OTHER half of that dedup,
+  and it guards a hazard nothing can reach yet.** One click, one transaction:
+  the network key stops one TRANSACTION being counted twice, and this stops one
+  CLICK being credited twice, which is what a matcher would make possible.
+  Nothing can violate it today — `AFFILIATE_CLICK_REFERENCE_SUPPORT` marks both
+  networks `not_supported`, so `matchReportedTransaction` returns `unmatched` at
+  its first branch and every row's `matched_click_id` is NULL — and that is the
+  point: the constraint lands BEFORE the code that could breach it, rather than
+  after somebody finds two commissions on one click in a statement. PARTIAL on
+  `is not null`, stated rather than left to Postgres's NULLs-are-distinct rule,
+  which this schema has been bitten by before. It is NOT a foreign key, for the
+  retention reason `ID_COLUMNS_WITHOUT_FOREIGN_KEY` records. A violation is a
+  raised `23505` that rolls the apply transaction back and books nothing; it is
+  deliberately not caught, because there is no basis on which code could pick
+  which of two transactions keeps the click.
 - **Observations and postings are append-only against UPDATE *and* DELETE;
   clicks refuse UPDATE and PERMIT DELETE.** The inversion is deliberate.
   Acceptance 4 ("reversed commissions update reporting without deleting

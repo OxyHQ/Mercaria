@@ -527,7 +527,42 @@ export const affiliateTransactions = pgTable(
     check('affiliate_transactions_observation_count_check', sql`${t.observationCount} >= 1`),
     index('affiliate_transactions_network_event_idx').on(t.network, t.eventAt),
     index('affiliate_transactions_state_idx').on(t.network, t.state),
-    index('affiliate_transactions_click_idx').on(t.matchedClickId),
+    /**
+     * ONE transaction per click. Two network transactions citing one click is
+     * one click credited twice — an attribution error, and the hazard that
+     * genuinely appears the moment somebody closes the attribution seam.
+     *
+     * PARTIAL on `is not null`, and the predicate is doing real work rather than
+     * leaning on a convenience: **every** row in this table today has a NULL
+     * `matched_click_id`, because `AFFILIATE_CLICK_REFERENCE_SUPPORT` marks both
+     * networks `not_supported` and `matchReportedTransaction` therefore returns
+     * `unmatched` at its first branch. Postgres treats NULLs as DISTINCT, so a
+     * PLAIN unique would also admit them — but relying on that is how this
+     * schema has been bitten before (`cardinality` vs `array_length`, #68 and
+     * #81), and an index whose correctness rests on an unstated NULL rule is one
+     * a later reader narrows by accident. The predicate says it out loud.
+     *
+     * It is deliberately spelled on the COLUMN rather than as
+     * `where match_state = 'matched'`, which
+     * `affiliate_transactions_match_shape_check` makes exactly equivalent today:
+     * this index guards the column it is about, and stays correct if that CHECK
+     * is ever restated.
+     *
+     * REPLACES the plain `affiliate_transactions_click_idx`, which had no reader
+     * — nothing in the backend filters on `matched_click_id` — and indexed an
+     * entry per row for a column that is always NULL. This one serves the same
+     * future lookup (`= $1` implies the predicate, so the planner can use it)
+     * and enforces something.
+     *
+     * NOT a foreign key. That is `ID_COLUMNS_WITHOUT_FOREIGN_KEY`'s recorded
+     * ruling, not a new one: clicks are swept on their own retention clock
+     * (`expiryTargets.ts`, 400 days) while a commission record is accounting and
+     * is retained longer, so a key would make that sweep either fail or cascade
+     * — and cascading would delete the money record along with the click.
+     */
+    uniqueIndex('affiliate_transactions_matched_click_key')
+      .on(t.matchedClickId)
+      .where(sql`${t.matchedClickId} is not null`),
   ],
 );
 
