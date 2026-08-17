@@ -74,12 +74,16 @@ listings, because a listing declares a link onto its configuration.
 
 With those three in place, a residue probe run last and then thrown away shows
 these five files leave no rows of their own. What survives belongs to the SEED
-packages: attribute and product-type definitions the server refuses to delete once
-published, and the categories they cite, moved to `deprecated`, which every read
-treats as inactive. `vertical-fixture.ts` documents both. It does not mention a
-third — those categories' own `category_localizations` rows, which cascade only on
-a category DELETE and so survive with the retired category. Harmless (nothing
-shopper-visible reaches an inactive category) and not this branch's to fix.
+packages, and it is ONE rule rather than a list of exceptions: **a table is
+retained when its nearest deletable ancestor is one of the three parents the
+server refuses to delete** — attribute definitions and product-type definitions
+(immutable once published) and the categories they cite. The teardown moves a
+category to `deprecated`, which is an UPDATE, so nothing cascades from it: its
+localizations, aliases and localized slugs stay with it. Measured after a full
+five-file run: 76 attribute definitions and 24 categories, none of them active,
+plus their children; everything else zero. Harmless, because no shopper-visible
+read reaches an inactive category — `vertical-fixture.ts` is the place that
+explains it, and `w-verticals` is widening that header to state the rule.
 
 ## The measurement discipline
 

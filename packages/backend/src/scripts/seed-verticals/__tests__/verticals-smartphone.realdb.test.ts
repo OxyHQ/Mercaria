@@ -618,6 +618,15 @@ describe('localized search aliases', () => {
     }
     // Assert the mutation LANDED before asserting the detector fired.
     expect(removed, 'the alias row was never removed, so the control measured nothing').toBe(1);
+    // And that the product is still REACHABLE, which the comment above already
+    // depends on and nothing checked: if the token and fuzzy stages ever stopped
+    // matching, `stages` would be `[]` and `not.toContain` below would pass while
+    // measuring nothing — the same vacuity the `toBe(1)` above exists to prevent.
+    // Measured: `['token','fuzzy']` survives the delete, so this is a narrowing.
+    expect(
+      stagesWithoutTheAlias,
+      'the product became unreachable, so the assertion below measures nothing',
+    ).toContain('token');
     expect(stagesWithoutTheAlias).not.toContain('exact_alias');
     // And it is back afterwards — the transaction rolled back.
     expect(await stagesFor('móvil Lumira Axon 9 Pro')).toContain('exact_alias');
