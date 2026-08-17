@@ -34,7 +34,8 @@
     "android": "bun run --filter @mercaria/frontend android",
     "ios": "bun run --filter @mercaria/frontend ios",
     "web": "bun run --filter @mercaria/frontend web",
-    "postinstall": "bun run --filter @mercaria/shared-types build"
+    "seed:verticals": "bun run --cwd packages/backend src/scripts/seed-verticals/index.ts",
+  "postinstall": "bun run --filter @mercaria/shared-types build"
   },
   "keywords": [
     "monorepo",
