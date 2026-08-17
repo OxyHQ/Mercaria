@@ -112,9 +112,9 @@ const formatModulePath = resolve(repositoryRoot, "packages/ui/src/lib/format.ts"
  * census has instead of a bug. Each entry is floored individually below.
  */
 const FORMATTER_MODULES = [
-  { path: "packages/ui/src/lib/format.ts", module: formatModule },
-  { path: "packages/ui/src/lib/date.ts", module: dateModule },
-  { path: "packages/ui/src/lib/region.ts", module: regionModule },
+  { path: "packages/ui/src/lib/format.ts", module: formatModule, minimum: 4 },
+  { path: "packages/ui/src/lib/date.ts", module: dateModule, minimum: 2 },
+  { path: "packages/ui/src/lib/region.ts", module: regionModule, minimum: 1 },
 ];
 
 /** `"abc"` → `"U+0061 U+0062 U+0063"`, so a failure message names what it saw. */
@@ -435,22 +435,47 @@ check(
 // answered an empty namespace — would subtract its formatters from the
 // population while the union stayed comfortably above any total floor, and the
 // exact reconciliation below would then reconcile the smaller set perfectly.
-for (const { path, module } of FORMATTER_MODULES) {
+for (const { path, module, minimum } of FORMATTER_MODULES) {
   const own = Object.entries(module).filter(([, value]) => typeof value === "function");
   check(
-    `${path} contributes at least one formatter to the census`,
-    own.length > 0,
-    "resolved to no callable exports — the census silently shrank rather than failing",
+    `${path} contributes at least ${minimum} formatter(s) to the census`,
+    own.length >= minimum,
+    `found ${own.length} (${own.map(([name]) => name).join(", ") || "none"}) — the census shrank `
+    + "silently rather than failing. If you deliberately removed one, lower this module's "
+    + "`minimum` AND the union floor below, in the same change",
   );
 }
 
 /**
- * A floor on the population itself, not only on its non-emptiness. `format.ts`
- * has carried at least these four since #429; a census reporting fewer has
- * resolved the wrong module or been narrowed, and the reconciliation below
- * would then pass while exercising a subset.
+ * How many MODULES the census must cover, written out rather than counted from
+ * `FORMATTER_MODULES.length` — which would assert the array has as many entries
+ * as it has, true of any array including an empty one.
+ *
+ * This is the number that catches an entry being DELETED from the list, which
+ * neither floor below can see: removing one takes its formatters and its own
+ * minimum away together, so every remaining comparison still balances.
  */
-const MINIMUM_EXPORTED_FORMATTERS = 4;
+const MINIMUM_FORMATTER_MODULES = 3;
+check(
+  `the census covers at least ${MINIMUM_FORMATTER_MODULES} modules`,
+  FORMATTER_MODULES.length >= MINIMUM_FORMATTER_MODULES,
+  `only ${FORMATTER_MODULES.length} listed — a module dropped from FORMATTER_MODULES takes its `
+  + "own floor with it, so nothing else here would notice",
+);
+
+/**
+ * A floor on the whole population, HAND-WRITTEN and deliberately not the sum of
+ * the per-module minimums above: a sum moves whenever one of its terms does, so
+ * it could never disagree with them and would measure nothing.
+ *
+ * It was **4 while the tree exported 7**, because #513 added three formatters
+ * and did not re-derive it. A floor below its population is green forever and
+ * can no longer catch the narrowing it exists for — the failure it is named
+ * after. Re-derive on every change to the population, INCLUDING a rebase: two
+ * branches can raise this on different lines, merge with no conflict, and
+ * silently keep one number.
+ */
+const MINIMUM_EXPORTED_FORMATTERS = 7;
 check(
   `at least ${MINIMUM_EXPORTED_FORMATTERS} formatters were found (vacuity floor on the census)`,
   exportedFormatters.length >= MINIMUM_EXPORTED_FORMATTERS,
@@ -475,7 +500,10 @@ check(
  * list, this reports it rather than passing with two checks — the census needs
  * its own census.
  */
-const MINIMUM_ASSERTIONS = 40;
+// 121 run today. Was 40 while 97 ran — the same omission as the formatter floor
+// above: #513 added cases and left the number where it was. Both are
+// hand-written on purpose, and both must be re-derived when the case list moves.
+const MINIMUM_ASSERTIONS = 115;
 check(
   `at least ${MINIMUM_ASSERTIONS} assertions ran (vacuity floor on the gate itself)`,
   assertionCount >= MINIMUM_ASSERTIONS,
