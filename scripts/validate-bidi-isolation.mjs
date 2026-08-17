@@ -63,17 +63,22 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  formatDate,
-  formatDateTime,
   formatDistance,
   formatMoney,
-  formatRegionName,
   formatReviewCount,
   formatSourceMoney,
 } from "../packages/ui/src/lib/format.ts";
-// The SAME module again, as a namespace, so the census below can enumerate what
-// it exports rather than pattern-match the text that declares them (#491).
+import { formatDate, formatDateTime } from "../packages/ui/src/lib/date.ts";
+import { formatRegionName } from "../packages/ui/src/lib/region.ts";
+// The SAME modules again, as namespaces, so the census below can enumerate what
+// they export rather than pattern-match the text that declares them (#491).
 import * as formatModule from "../packages/ui/src/lib/format.ts";
+// #488/#489's formatters live in their OWN modules — see each module's note on
+// why they are not in `format.ts`. Censused HERE rather than in a second guard,
+// because a date and a price have the same bidi problem and two scripts
+// answering that question could disagree about it.
+import * as dateModule from "../packages/ui/src/lib/date.ts";
+import * as regionModule from "../packages/ui/src/lib/region.ts";
 import { isolateBidi } from "../packages/ui/src/lib/bidi.ts";
 
 /**
@@ -96,6 +101,21 @@ const ISOLATE_CODE_POINTS = new Set([
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const formatModulePath = resolve(repositoryRoot, "packages/ui/src/lib/format.ts");
+
+/**
+ * Every module whose exported formatters must return isolated strings.
+ *
+ * A LIST rather than one module, because #488/#489's formatters moved out of
+ * `format.ts` (#500 is rewriting that file) and a census that still read only
+ * that file would have gone quietly NARROWER — reconciling cleanly over a
+ * population three functions smaller than the real one, which is the failure a
+ * census has instead of a bug. Each entry is floored individually below.
+ */
+const FORMATTER_MODULES = [
+  { path: "packages/ui/src/lib/format.ts", module: formatModule, minimum: 4 },
+  { path: "packages/ui/src/lib/date.ts", module: dateModule, minimum: 2 },
+  { path: "packages/ui/src/lib/region.ts", module: regionModule, minimum: 1 },
+];
 
 /** `"abc"` → `"U+0061 U+0062 U+0063"`, so a failure message names what it saw. */
 function describeCodePoints(text) {
@@ -270,6 +290,45 @@ checkIsolatedExactly("formatRegionName", "unassigned code", formatRegionName("XX
 checkIsolatedExactly("formatRegionName", "lowercase", formatRegionName("gb", "en"), "United Kingdom");
 
 // ---------------------------------------------------------------------------
+// A MALFORMED locale tag must DEGRADE, never throw.
+//
+// The locale reaching these is the OS's raw value (`getLocales()[0]
+// .languageTag`), and `new Intl.DateTimeFormat("en_US")` — underscore rather
+// than hyphen — raises `RangeError`. Measured against what #513 shipped:
+// `en_US`, `es_ES` and `zh_Hans_CN` all threw. Uncaught in a render path, that
+// white-screens the screen, so this is a real defect rather than a hypothetical.
+//
+// The expectation is the RUNTIME DEFAULT's rendering, because that is the rung
+// the fallback lands on: a runtime that cannot honour the app's locale renders
+// exactly as it did before #488, never worse.
+// ---------------------------------------------------------------------------
+
+for (const malformed of ["en_US", "zh_Hans_CN"]) {
+  checkIsolatedExactly(
+    "formatDate",
+    `malformed tag ${malformed} degrades`,
+    formatDate(SAMPLE_INSTANT, malformed),
+    new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(SAMPLE_INSTANT),
+  );
+}
+checkIsolatedExactly(
+  "formatDateTime",
+  "malformed tag degrades",
+  formatDateTime(SAMPLE_INSTANT, "en_US"),
+  new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" })
+    .format(SAMPLE_INSTANT),
+);
+// The same tag through the region formatter, which retries on the runtime
+// default before giving up — so a device with an odd tag still gets NAMES
+// rather than falling all the way back to bare codes.
+checkIsolatedExactly(
+  "formatRegionName",
+  "malformed tag still resolves a name",
+  formatRegionName("US", "en_US"),
+  new Intl.DisplayNames(undefined, { type: "region", fallback: "none" }).of("US"),
+);
+
+// ---------------------------------------------------------------------------
 // The refusal path is deliberately NOT isolated: absence has nothing to lay out,
 // and a `null` that had become an isolate pair would render as a price of "".
 // ---------------------------------------------------------------------------
@@ -359,9 +418,11 @@ const coveredFormatters = Array.from(exercisedFormatters);
  * callable exports — which is the right population, because a formatter that a
  * screen renders is by definition a function.
  */
-const exportedFormatters = Object.entries(formatModule)
-  .filter(([, value]) => typeof value === "function")
-  .map(([name]) => name);
+const exportedFormatters = FORMATTER_MODULES.flatMap(({ module }) =>
+  Object.entries(module)
+    .filter(([, value]) => typeof value === "function")
+    .map(([name]) => name),
+);
 
 check(
   "the module census found the formatters at all (a broken census reads as a clean zero)",
@@ -369,13 +430,52 @@ check(
   `no callable exports found on ${formatModulePath}`,
 );
 
+// A PER-MODULE floor, not only a floor on the union. Without it, a module that
+// resolved to zero callable exports — renamed, moved, or an import that silently
+// answered an empty namespace — would subtract its formatters from the
+// population while the union stayed comfortably above any total floor, and the
+// exact reconciliation below would then reconcile the smaller set perfectly.
+for (const { path, module, minimum } of FORMATTER_MODULES) {
+  const own = Object.entries(module).filter(([, value]) => typeof value === "function");
+  check(
+    `${path} contributes at least ${minimum} formatter(s) to the census`,
+    own.length >= minimum,
+    `found ${own.length} (${own.map(([name]) => name).join(", ") || "none"}) — the census shrank `
+    + "silently rather than failing. If you deliberately removed one, lower this module's "
+    + "`minimum` AND the union floor below, in the same change",
+  );
+}
+
 /**
- * A floor on the population itself, not only on its non-emptiness. `format.ts`
- * has carried at least these four since #429; a census reporting fewer has
- * resolved the wrong module or been narrowed, and the reconciliation below
- * would then pass while exercising a subset.
+ * How many MODULES the census must cover, written out rather than counted from
+ * `FORMATTER_MODULES.length` — which would assert the array has as many entries
+ * as it has, true of any array including an empty one.
+ *
+ * This is the number that catches an entry being DELETED from the list, which
+ * neither floor below can see: removing one takes its formatters and its own
+ * minimum away together, so every remaining comparison still balances.
  */
-const MINIMUM_EXPORTED_FORMATTERS = 4;
+const MINIMUM_FORMATTER_MODULES = 3;
+check(
+  `the census covers at least ${MINIMUM_FORMATTER_MODULES} modules`,
+  FORMATTER_MODULES.length >= MINIMUM_FORMATTER_MODULES,
+  `only ${FORMATTER_MODULES.length} listed — a module dropped from FORMATTER_MODULES takes its `
+  + "own floor with it, so nothing else here would notice",
+);
+
+/**
+ * A floor on the whole population, HAND-WRITTEN and deliberately not the sum of
+ * the per-module minimums above: a sum moves whenever one of its terms does, so
+ * it could never disagree with them and would measure nothing.
+ *
+ * It was **4 while the tree exported 7**, because #513 added three formatters
+ * and did not re-derive it. A floor below its population is green forever and
+ * can no longer catch the narrowing it exists for — the failure it is named
+ * after. Re-derive on every change to the population, INCLUDING a rebase: two
+ * branches can raise this on different lines, merge with no conflict, and
+ * silently keep one number.
+ */
+const MINIMUM_EXPORTED_FORMATTERS = 7;
 check(
   `at least ${MINIMUM_EXPORTED_FORMATTERS} formatters were found (vacuity floor on the census)`,
   exportedFormatters.length >= MINIMUM_EXPORTED_FORMATTERS,
@@ -400,7 +500,10 @@ check(
  * list, this reports it rather than passing with two checks — the census needs
  * its own census.
  */
-const MINIMUM_ASSERTIONS = 40;
+// 121 run today. Was 40 while 97 ran — the same omission as the formatter floor
+// above: #513 added cases and left the number where it was. Both are
+// hand-written on purpose, and both must be re-derived when the case list moves.
+const MINIMUM_ASSERTIONS = 115;
 check(
   `at least ${MINIMUM_ASSERTIONS} assertions ran (vacuity floor on the gate itself)`,
   assertionCount >= MINIMUM_ASSERTIONS,
