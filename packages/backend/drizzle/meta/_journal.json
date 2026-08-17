@@ -743,6 +743,13 @@
       "when": 1786988350035,
       "tag": "0105_robust_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1786990792502,
+      "tag": "0106_panoramic_patch",
+      "breakpoints": true
     }
   ]
 }

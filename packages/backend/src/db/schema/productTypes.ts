@@ -81,6 +81,7 @@ import {
   PRODUCT_TYPE_FIELD_REQUIREMENTS,
   PRODUCT_TYPE_FIELD_SCOPES,
   PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS,
+  PRODUCT_TYPE_KEY_PATTERN,
   PRODUCT_TYPE_LIFECYCLES,
   PRODUCT_TYPE_PENDING_PROPOSAL_POLICIES,
   PRODUCT_TYPE_RULE_MAX_SERIALIZED_BYTES,
@@ -145,9 +146,24 @@ export const productTypeDefinitions = pgTable(
     // D1 gives catalog concepts a documented namespace, and #94 shipped without
     // one. Anchored at both ends, so a key with a trailing dot or an embedded
     // space is refused rather than stored and looked up forever by nobody.
+    //
+    // Rendered from `PRODUCT_TYPE_KEY_PATTERN` through `sql.raw`, and BOTH
+    // halves of that are load-bearing (#477).
+    //
+    // `sql.raw`, because a tagged template's COOKED strings drop `\.` to `.`
+    // before drizzle ever sees it, and a bare `.` in a POSIX regex matches ANY
+    // character — so the inline spelling this replaces admitted `foo bar` and
+    // `foo/bar`, exactly what it was written to refuse. `categories_key_format_
+    // check` learned this first; the fix did not reach here until the applied
+    // SQL was read rather than the declaration.
+    //
+    // The shared constant rather than a second copy, because it is what
+    // `product-type-text.ts` validates against: two spellings of one key shape
+    // can disagree, and the way they disagree is a key the service accepts and
+    // the database refuses, or worse the reverse.
     check(
       'product_type_definitions_key_shape_check',
-      sql`${t.key} ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'`,
+      sql`${t.key} ~ ${sql.raw(`'${PRODUCT_TYPE_KEY_PATTERN.source}'`)}`,
     ),
     check('product_type_definitions_version_check', sql`${t.version} >= 1`),
     // A version that has left draft records who published it and when; one that

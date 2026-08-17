@@ -123,6 +123,25 @@ export const AWIN_MAX_TEXT_LENGTH = 2_000;
 const AWIN_MAX_HANDLE_LENGTH = 200;
 
 /**
+ * The shape of `awin_advertisers.declared_host` — a bare hostname, at least two
+ * labels, no scheme, port, path or trailing dot.
+ *
+ * A module-level STRING rendered through `sql.raw`, not an inline template
+ * literal, and that is the whole point of it existing (#477). Written inline the
+ * separator has to be spelled `\.`, and a tagged template's cooked strings drop
+ * that backslash before drizzle sees it — so the constraint reached production
+ * as `(.[a-z0-9]…)`, where `.` matches ANY character and `axcom` is a legal
+ * host. `CATEGORY_KEY_PATTERN` is the same decision one domain over.
+ *
+ * The separator is the character class `[.]` and NOT `\.`, so no layer has a
+ * backslash to eat: a plain JS string drops `\.` to `.` exactly as the template
+ * literal did, which is the same bug wearing the fix's clothes. `[.]` is a
+ * literal dot in POSIX ERE with nothing to escape.
+ */
+const AWIN_DECLARED_HOST_PATTERN =
+  '^[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)+$';
+
+/**
  * `awin_accounts` — one publisher account: its credentials' LOCATORS, its
  * network-level state and its fleet-wide call budget.
  *
@@ -326,7 +345,7 @@ export const awinAdvertisers = pgTable(
     check(
       'awin_advertisers_declared_host_shape_check',
       sql`${t.declaredHost} is null
-          or ${t.declaredHost} ~ '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'`,
+          or ${t.declaredHost} ~ ${sql.raw(`'${AWIN_DECLARED_HOST_PATTERN}'`)}`,
     ),
     check(
       'awin_advertisers_note_length_check',

@@ -61,9 +61,19 @@ const createdDefinitionIds: string[] = [];
 const createdCategoryIds: string[] = [];
 const createdAttributeIds: string[] = [];
 
-/** A key this file owns, in the lowercase dotted shape the CHECK requires. */
+/**
+ * A key this file owns, in the lowercase shape the CHECK requires.
+ *
+ * The fold to `_` is not cosmetic. Four fixtures here were named with hyphens
+ * (`group-mine`, `one-published`), and `product_type_definitions_key_shape_check`
+ * accepted them only because its separator was a bare `.` matching ANY
+ * character — the defect #477 repaired. A hyphen has never been legal in a
+ * product-type key: `PRODUCT_TYPE_KEY_PATTERN` is `[a-z][a-z0-9_]*` with dotted
+ * namespaces, and `product-type-text.ts` has always refused one. So the names
+ * stay readable and the key they produce is one the domain actually permits.
+ */
 function typeKey(name: string): string {
-  return `pt_${name}_${RUN}`.toLowerCase();
+  return `pt_${name}_${RUN}`.toLowerCase().replace(/[^a-z0-9_]/gu, '_');
 }
 
 /**

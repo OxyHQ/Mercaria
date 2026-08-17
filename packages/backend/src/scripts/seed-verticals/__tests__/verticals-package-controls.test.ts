@@ -26,6 +26,7 @@ import { describe, expect, it } from 'vitest';
 
 import { deriveExpectation, judgeCensus, CENSUS_POSITIVE_CONTROL_ENTITIES } from '../census.js';
 import { namespaceFor, nsCategoryKey, nsKey, nsSlug } from '../apply.js';
+import { PRODUCT_TYPE_KEY_PATTERN } from '@mercaria/shared-types';
 import { VERTICAL_PACKAGES, verticalPackageByName } from '../index.js';
 import { TRAILWIND_ABSENT_COMBINATIONS, TRAILWIND_AXES } from '../footwear.js';
 import type { VerticalExpectation, VerticalPackage } from '../types.js';
@@ -714,5 +715,63 @@ describe('the smartphone axes and facts are on opposite sides of one line', () =
         true,
       );
     }
+  });
+});
+
+/**
+ * Every product-type key a seeded package can produce satisfies the CHECK
+ * `product_type_definitions_key_shape_check` enforces (#477).
+ *
+ * This is here because #477 NARROWED that constraint on a live table, and the
+ * question a narrowing has to answer is "can any stored row violate the new
+ * shape". There is no production database on a developer's machine to count,
+ * and a count taken once would not stay true. What makes the answer durable is
+ * that the population is bounded and checked in: `insertProductTypeDefinition`
+ * is the table's only production writer, `apply.ts` is its only production
+ * caller, and the key it writes is `nsKey(namespaceFor(token), pkg.key)`.
+ *
+ * So the safety argument reduces to two facts, and both are asserted below
+ * rather than reasoned about: every shipped package key is legal, and
+ * namespacing keeps it legal. A fourth package with a dotted or hyphenated key
+ * fails HERE, before it can become an immutable row the constraint refuses.
+ */
+describe('a seeded product-type key can never violate the shape CHECK', () => {
+  it('has packages to measure', () => {
+    // The vacuity floor: every `it.each` below is vacuously green over an empty
+    // package list, which is exactly what a broken import would produce.
+    expect(VERTICAL_PACKAGES.length).toBeGreaterThanOrEqual(3);
+    expect(VERTICAL_PACKAGES.flatMap((pkg) => pkg.productTypes).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('ships only keys the constraint accepts', () => {
+    const keys = VERTICAL_PACKAGES.flatMap((pkg) =>
+      pkg.productTypes.map((productType) => productType.key),
+    );
+    expect(keys.filter((key) => !PRODUCT_TYPE_KEY_PATTERN.test(key))).toEqual([]);
+  });
+
+  it('keeps them legal once namespaced, for any namespace `namespaceFor` will mint', () => {
+    // `namespaceFor` folds everything outside `[a-z0-9]` to `_` and refuses a
+    // leading digit, so its output is always `[a-z][a-z0-9_]*` — which is what
+    // makes the prefixed key legal rather than it happening to be so for the
+    // three tokens in use. Tokens chosen to exercise the folding, not to pass.
+    for (const token of ['v367_footwear', 'run-4a2b', 'A Weird  Token!!', 'x']) {
+      const ns = namespaceFor(token);
+      for (const pkg of VERTICAL_PACKAGES) {
+        for (const productType of pkg.productTypes) {
+          const key = nsKey(ns, productType.key);
+          expect(PRODUCT_TYPE_KEY_PATTERN.test(key), `${token} -> ${key}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('is a real test — the pattern refuses the shapes the broken CHECK admitted', () => {
+    // Mutation self-test. Without it this whole block passes against a pattern
+    // that accepts everything, which is precisely what #477 was.
+    for (const bad of ['foo bar', 'foo/bar', 'fooXbar', 'foo.', '1foo', '']) {
+      expect(PRODUCT_TYPE_KEY_PATTERN.test(bad), bad).toBe(false);
+    }
+    expect(PRODUCT_TYPE_KEY_PATTERN.test('electronics.phones.smartphone')).toBe(true);
   });
 });
