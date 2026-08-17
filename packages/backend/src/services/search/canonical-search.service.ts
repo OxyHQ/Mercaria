@@ -69,7 +69,7 @@ import {
   findProductIdsByDiscriminatingTokens,
   findProductIdsByNamePrefix,
   findProductIdsByNormalizedName,
-  findProductIdsSatisfyingAttribute,
+  findProductIdsSatisfyingAttributes,
   findStorefrontAliasCandidates,
   findStorefrontIdsByNormalizedName,
   findVariantIntentMatches,
@@ -485,30 +485,27 @@ export async function runCanonicalSearch(
     productRows = productRows.filter((row) => row.brandId !== null && wanted.has(row.brandId));
   }
   /**
-   * KNOWN BUG, #567: this ANDs the constraints per PRODUCT, not per VARIANT.
+   * ONE statement for the whole requirement set (#567), never one pass per
+   * constraint.
    *
-   * Each pass asks which products satisfy one attribute and intersects the ids, so
-   * a product survives when a red variant exists AND a size-43 variant exists —
-   * even when no single variant is both. The facet rail does not have this bug:
-   * `db/facets/facetRepository.ts` nests every variant predicate inside one
-   * `exists` correlated to a single `canonical_variants` row.
+   * The loop this replaces asked which products satisfied each attribute and
+   * intersected the ids, which ANDs them per PRODUCT: a product survived when a
+   * red variant existed AND a size-43 variant existed, with no single variant
+   * being both. The facet rail never had that bug, and the two rails serve one
+   * page — so the correlated one produced the COUNT and this one produced the
+   * LIST, and a category page could render `matchedProductCount: 1` above a
+   * result set containing a second, crossed product.
    *
-   * The two rails serve one page, so the correlated one produces the COUNT and this
-   * one produces the LIST: a category page can render `matchedProductCount: 1`
-   * above a result set containing a second, crossed product.
-   *
-   * Do not "fix" this by adding another intersection pass — the shape has to become
-   * one `exists` per requirement set correlated to a variant row, the way
-   * `facetRepository` already does it. And the test must use a genuinely crossed
-   * fixture and assert the crossed product is ABSENT: a fixture without one passes
-   * against both the correct and the incorrect query, which is how this survived.
+   * Splitting this call back into a loop reintroduces exactly that, silently:
+   * every predicate is individually true and the page renders perfectly.
    */
-  for (const attribute of request.filters.attributes ?? []) {
+  const attributes = request.filters.attributes ?? [];
+  if (attributes.length > 0) {
     const surviving = new Set(
-      await findProductIdsSatisfyingAttribute(
+      await findProductIdsSatisfyingAttributes(
         db,
         productRows.map((row) => row.id),
-        attribute,
+        attributes,
       ),
     );
     productRows = productRows.filter((row) => surviving.has(row.id));

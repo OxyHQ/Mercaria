@@ -963,57 +963,124 @@ export async function loadPrimaryProductImages(
   return [...rows];
 }
 
+/** One attribute constraint, over #94's registry. */
+export interface AttributeConstraint {
+  readonly key: string;
+  readonly value?: string;
+  readonly minNumber?: number;
+  readonly maxNumber?: number;
+}
+
+/** One constraint as a predicate over an aliased `canonical_attribute_values` row. */
+function attributeConstraintPredicate(alias: string, constraint: AttributeConstraint): SQL {
+  const table = sql.raw(alias);
+  const predicates: SQL[] = [sql`${table}.attribute_key = ${constraint.key}`];
+  if (constraint.value !== undefined) {
+    predicates.push(sql`${table}.normalized_text = ${constraint.value}`);
+  }
+  if (constraint.minNumber !== undefined) {
+    predicates.push(sql`${table}.normalized_number >= ${constraint.minNumber}`);
+  }
+  if (constraint.maxNumber !== undefined) {
+    predicates.push(sql`${table}.normalized_number <= ${constraint.maxNumber}`);
+  }
+  return sql.join(predicates, sql` and `);
+}
+
 /**
- * Which of these products carry a SELECTED value satisfying one attribute
- * constraint (#70 filter 9, over #94's registry).
+ * Which of these products satisfy EVERY attribute constraint — with the
+ * variant-grain ones met by ONE variant (#70 filter 9, over #94's registry; #567).
+ *
+ * ## Why this takes all the constraints at once
+ *
+ * It used to take ONE, resolve it to product ids, and let the caller intersect
+ * the sets. That ANDs the requirements per PRODUCT: a product survived when a
+ * red variant existed AND a size-43 variant existed, with no single variant
+ * being both. `db/facets/facetRepository.ts` never had that bug — it nests every
+ * variant predicate inside one `exists` correlated to a single
+ * `canonical_variants` row — and the two rails serve one page, so the correlated
+ * one produced the COUNT while this one produced the LIST. A category page could
+ * render `matchedProductCount: 1` above a result set containing a second,
+ * crossed product.
+ *
+ * The requirement set therefore cannot be split across calls, which is why the
+ * signature is plural. `same-variant-filters.realdb.test.ts` pins it with a
+ * genuinely crossed fixture; a fixture without one passes against both
+ * implementations, which is how this survived.
+ *
+ * ## Both grains, and the `or` that joins them
+ *
+ * An attribute may be recorded on the PRODUCT (screen size) or on a VARIANT
+ * (storage) — `attributeRepository` writes one or the other, never both — so
+ * each constraint is met at product grain OR on the correlated variant.
+ * Requiring all of them on the variant would drop every product-grain filter;
+ * requiring all at product grain would drop every variant-grain one.
+ *
+ * The product-grain-only branch beside the `exists` is not redundant: a product
+ * with NO variant rows satisfies a product-grain filter and cannot be reached by
+ * a correlated `exists` at all.
  *
  * `selection_state = 'selected'` and nothing else. A `conflicting` value is two
  * sources disagreeing and #94 deliberately selects neither; filtering on one of
  * them would answer with whichever source was written first, which is a
  * coin-flip wearing the appearance of a fact.
  *
- * BOTH grains, unioned: an attribute may be recorded on the product (screen
- * size) or on a variant (storage), and a shopper filtering on storage means "a
- * product that comes in that storage". Narrowing to one grain would silently
- * drop half the registry.
- *
  * Applied to an ALREADY-RETRIEVED candidate set rather than as a predicate
  * inside retrieval: the attribute table is large, the candidate set is bounded,
  * and intersecting a bounded set is cheap where joining the whole table into
  * seven retrieval stages is not.
  */
-export async function findProductIdsSatisfyingAttribute(
+export async function findProductIdsSatisfyingAttributes(
   db: DatabaseOrTransaction,
   productIds: readonly string[],
-  constraint: {
-    key: string;
-    value?: string;
-    minNumber?: number;
-    maxNumber?: number;
-  },
+  constraints: readonly AttributeConstraint[],
 ): Promise<string[]> {
   if (productIds.length === 0) return [];
+  if (constraints.length === 0) return [...productIds];
 
   const bound = sql.param([...productIds]);
-  const predicates: SQL[] = [sql`v.attribute_key = ${constraint.key}`];
-  if (constraint.value !== undefined) {
-    predicates.push(sql`v.normalized_text = ${constraint.value}`);
-  }
-  if (constraint.minNumber !== undefined) {
-    predicates.push(sql`v.normalized_number >= ${constraint.minNumber}`);
-  }
-  if (constraint.maxNumber !== undefined) {
-    predicates.push(sql`v.normalized_number <= ${constraint.maxNumber}`);
-  }
-  const constraints = sql.join(predicates, sql` and `);
+
+  /** This constraint, met by a PRODUCT-grain value on `p`. */
+  const atProduct = (constraint: AttributeConstraint): SQL => sql`exists (
+    select 1 from canonical_attribute_values pav
+    where pav.product_id = p.id and pav.selection_state = 'selected'
+      and ${attributeConstraintPredicate('pav', constraint)})`;
+
+  /** This constraint, met by a VARIANT-grain value on the correlated `cv`. */
+  const atVariant = (constraint: AttributeConstraint): SQL => sql`exists (
+    select 1 from canonical_attribute_values vav
+    where vav.variant_id = cv.id and vav.selection_state = 'selected'
+      and ${attributeConstraintPredicate('vav', constraint)})`;
+
+  // Every constraint met at PRODUCT grain.
+  //
+  // DO NOT DELETE AS REDUNDANT. It reads that way — the `exists` below tests the
+  // same thing per constraint — and it is the only branch that reaches a product
+  // with NO variant rows. Such a product satisfies a product-grain filter and a
+  // correlated `exists` over `canonical_variants` can never return true for it.
+  const allAtProduct = sql.join(constraints.map(atProduct), sql` and `);
+
+  // …or ONE variant meets every constraint not already met on the product.
+  //
+  // DO NOT COLLAPSE THE PER-CONSTRAINT `or` into one test at either grain. It is
+  // what lets a MIXED set work: "6.9 inch screen" is a product fact and "43" is a
+  // variant fact, so a shopper asking for both means one variant of a product
+  // whose screen is 6.9. Requiring every constraint on the variant drops every
+  // product-grain filter; requiring every one at product grain drops every
+  // variant-grain filter and restores the #567 bug.
+  const oneVariantMeetsAll = sql.join(
+    constraints.map((constraint) => sql`(${atProduct(constraint)} or ${atVariant(constraint)})`),
+    sql` and `,
+  );
 
   const rows = await db.execute<{ productId: string }>(sql`
-    select distinct coalesce(v.product_id, cv.product_id) as "productId"
-    from canonical_attribute_values v
-    left join canonical_variants cv on cv.id = v.variant_id
-    where v.selection_state = 'selected'
-      and coalesce(v.product_id, cv.product_id) = any(${bound}::text[])
-      and ${constraints}`);
+    select p.id as "productId"
+    from canonical_products p
+    where p.id = any(${bound}::text[])
+      and ((${allAtProduct})
+        or exists (
+          select 1 from canonical_variants cv
+          where cv.product_id = p.id and (${oneVariantMeetsAll})))`);
   return [...rows].map((row) => row.productId);
 }
 
