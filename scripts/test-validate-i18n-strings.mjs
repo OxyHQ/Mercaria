@@ -76,7 +76,10 @@ const ENGLISH = {
   common: { save: "Save", cancel: "Cancel" },
   nav: { register: "Register" },
   cart: { lineCount: { one: "%{count} item", other: "%{count} items" } },
-  orders: { status: { paid: "Paid" } },
+  // `channel.pos` exists so check F's interpolated population has a key of its
+  // own. Reusing `status.paid` gave it a second reference and silently disarmed
+  // the unreferenced-key case below, which is the regression part C exists for.
+  orders: { status: { paid: "Paid" }, channel: { pos: "Point of sale" } },
   products: { searchPlaceholder: "Search products", greeting: "Hello, %{name}" },
 };
 
@@ -143,6 +146,10 @@ function migratedTree(extra = {}) {
       + '    <Text>{t("orders.status.paid")}</Text>\n'
       + '    <Text>{t("cart.lineCount", { count })}</Text>\n'
       + '    <Text>{t("products.greeting", { name })}</Text>\n'
+      // A t()-into-t() interpolation whose key is NOT a control label. Check F
+      // intersects two populations, so a fixture with an empty one would trip
+      // F's own vacuity floor in every case that uses this tree.
+      + '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n'
       + '    <Input placeholder={t("products.searchPlaceholder")} />\n'
       + '    <Button title={t("common.save")} />\n'
       + '    <Button title={t("common.cancel")} />\n'
@@ -159,6 +166,10 @@ function migratedTree(extra = {}) {
       + '    <Text>{t("orders.status.paid")}</Text>\n'
       + '    <Text>{t("cart.lineCount", { count })}</Text>\n'
       + '    <Text>{t("products.greeting", { name })}</Text>\n'
+      // A t()-into-t() interpolation whose key is NOT a control label. Check F
+      // intersects two populations, so a fixture with an empty one would trip
+      // F's own vacuity floor in every case that uses this tree.
+      + '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n'
       + '    <Input placeholder={t("products.searchPlaceholder")} keyboardType="url" />\n'
       + '    <Button title={t("common.save")} />\n'
       + '    <Button title={t("common.cancel")} />\n'
@@ -229,6 +240,52 @@ const cases = [
   // ---------------------------------------------------- the mutation cases ---
   // Each reintroduces exactly ONE hardcoded string and must be caught by name.
 
+  {
+    // F, the class #442 belongs to. The fixture reuses `common.cancel`, which
+    // `migratedTree` already renders as a <Button> label, as the value of an
+    // interpolation — the shape that produced "…happens to the keep products
+    // this channel imported".
+    name: "an action label interpolated into a sentence fails (F)",
+    files: migratedTree({
+      "packages/dashboard/app/(app)/regressed.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + "export const A = () => {\n"
+        + "  const { t } = useTranslation();\n"
+        + '  return <Text>{t("products.greeting", { name: t("common.cancel").toLowerCase() })}</Text>;\n'
+        + "};\n",
+    }),
+    expectExit: 1,
+    expectOutput: "is BOTH an action control's label and a value interpolated into a sentence",
+  },
+  {
+    // The negative half, and the one that decides whether F is worth having: a
+    // key that is only ever a sentence value must not fire just because some
+    // OTHER key is a button label.
+    name: "a key interpolated but never used as a control label passes (F)",
+    files: migratedTree({
+      "packages/dashboard/app/(app)/fine.tsx":
+        'import { useTranslation } from "@/lib/i18n";\n'
+        + "export const A = () => {\n"
+        + "  const { t } = useTranslation();\n"
+        + '  return <Text>{t("products.greeting", { name: t("orders.status.paid") })}</Text>;\n'
+        + "};\n",
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    // F's populations are its vacuity floor, and this is the case that proves
+    // the floor can fire: real floors against a tree whose apps render no
+    // action control at all.
+    name: "a tree too small for check F's populations says so, naming F",
+    files: migratedTree(),
+    realFloors: true,
+    expectExit: 1,
+    // Named rather than a bare "below the": with the production floors this
+    // fixture trips several, and a substring any of them would satisfy would
+    // pass whether or not F's own floor exists.
+    expectOutput: "check F saw",
+  },
   {
     name: "a reintroduced JSX text node fails",
     files: migratedTree({
@@ -643,6 +700,92 @@ async function assertGuardSource() {
   return null;
 }
 
+/**
+ * Check F, mutation-tested against the REAL repository rather than a fixture.
+ *
+ * Every case above builds a tiny tree that exists to be caught. That proves the
+ * detector works on source shaped the way the fixture author imagined it; it
+ * does not prove F would have caught #442, which lived in a 1,100-line screen
+ * where the label record is declared 80 lines below its use and the value went
+ * through `.toLowerCase()`. So this puts the real defect back into the real file
+ * and requires the real guard to go red naming the real key.
+ *
+ * The mutation is asserted to have APPLIED (a replace whose pattern no longer
+ * matches writes the file back unchanged, and a guard that then passes reads
+ * exactly like one that cannot fail), and the restore is asserted against a
+ * marker from this edit rather than against a checksum of the copy.
+ */
+async function assertCheckFCatchesTheRealDefect() {
+  const target = resolve(
+    repositoryRoot, "packages/dashboard/app/(app)/channels/[connectionId].tsx",
+  );
+  const FIXED = '{t("channels.disconnect.intro")}';
+  const REGRESSED = '{t("channels.disconnect.intro", {\n'
+    + "            policy: t(DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase(),\n"
+    + "          })}";
+
+  const original = await readFile(target, "utf8");
+  // Measure the premise before relying on it: if the screen no longer spells the
+  // fixed form, this test would "pass" by mutating nothing.
+  if (!original.includes(FIXED)) {
+    return `${target} does not contain ${FIXED} — the premise of this mutation is gone, `
+      + "so a green run here would mean nothing";
+  }
+
+  try {
+    await writeFile(target, original.replace(FIXED, REGRESSED));
+    const mutated = await readFile(target, "utf8");
+    if (mutated === original) return "the mutation did not apply — the file is byte-identical";
+    if (!mutated.includes("DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase()")) {
+      return "the mutation applied but does not carry #442's shape";
+    }
+
+    const proc = Bun.spawnSync({
+      cmd: ["bun", validator],
+      cwd: repositoryRoot,
+      env: { ...process.env, I18N_VALIDATOR_ROOT: repositoryRoot },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = `${proc.stdout.toString()}${proc.stderr.toString()}`;
+    if (proc.exitCode === 0) {
+      return "check F did not fail on #442's own defect, reintroduced into its own file";
+    }
+    for (const expected of [
+      "channels.disconnect.policy.keepListings",
+      "is BOTH an action control's label and a value interpolated into a sentence",
+      "ToggleGroupItem",
+    ]) {
+      if (!output.includes(expected)) {
+        return `the guard failed but never mentioned ${JSON.stringify(expected)} — `
+          + "it went red for some other reason";
+      }
+    }
+  } finally {
+    await writeFile(target, original);
+  }
+
+  const restored = await readFile(target, "utf8");
+  if (restored !== original) return "the file was NOT restored byte-for-byte";
+  if (!restored.includes(FIXED) || restored.includes(REGRESSED)) {
+    return "the restore left the mutation behind";
+  }
+  // The restore is only proven by the guard going green again: a file that was
+  // rewritten wrongly would still differ from `original` in ways this test's own
+  // string comparison happens to miss.
+  const after = Bun.spawnSync({
+    cmd: ["bun", validator],
+    cwd: repositoryRoot,
+    env: { ...process.env, I18N_VALIDATOR_ROOT: repositoryRoot },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  if (after.exitCode !== 0) {
+    return "the guard is still red after the restore — the working tree was left mutated";
+  }
+  return null;
+}
+
 let failed = 0;
 
 for (const testCase of cases) {
@@ -682,9 +825,17 @@ if (sourceProblem) {
   console.log("ok    the guard keeps its own controls");
 }
 
+const realTreeProblem = await assertCheckFCatchesTheRealDefect();
+if (realTreeProblem) {
+  failed += 1;
+  console.error(`FAIL  check F catches #442 in the real tree\n        ${realTreeProblem}`);
+} else {
+  console.log("ok    check F catches #442 in the real tree");
+}
+
 if (failed > 0) {
-  console.error(`\n${failed} of ${cases.length + 1} guard cases failed.`);
+  console.error(`\n${failed} of ${cases.length + 2} guard cases failed.`);
   process.exit(1);
 }
 
-console.log(`\nAll ${cases.length + 1} guard cases passed.`);
+console.log(`\nAll ${cases.length + 2} guard cases passed.`);

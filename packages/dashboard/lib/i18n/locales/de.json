@@ -70,7 +70,7 @@
       "action": "Kanal trennen",
       "confirmAction": "Trennen",
       "confirmTitle": "%{provider} trennen?",
-      "intro": "Wählen Sie, was mit den %{policy} geschieht, die dieser Kanal importiert hat. Ihr Preisverlauf und alles, was ein anderer Kanal importiert hat, bleiben unberührt.",
+      "intro": "Wählen Sie, was mit den Produkten geschieht, die dieser Kanal importiert hat. Ihr Preisverlauf und alles, was ein anderer Kanal importiert hat, bleiben unberührt.",
       "policy": {
         "archiveListings": "Archivieren",
         "keepListings": "Produkte behalten",

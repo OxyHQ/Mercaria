@@ -70,7 +70,7 @@
       "action": "断开渠道连接",
       "confirmAction": "断开连接",
       "confirmTitle": "要断开 %{provider} 的连接吗？",
-      "intro": "选择该渠道导入的%{policy}将如何处理。你的价格历史，以及其他渠道导入的内容，都不会受到影响。",
+      "intro": "选择该渠道导入的商品将如何处理。你的价格历史，以及其他渠道导入的内容，都不会受到影响。",
       "policy": {
         "archiveListings": "归档",
         "keepListings": "保留商品",

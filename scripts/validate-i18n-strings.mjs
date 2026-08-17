@@ -47,6 +47,10 @@
  *      resolves against `@mercaria/ui`'s own English, which is what shipped
  *      before #437 and is therefore invisible in review.
  *
+ *   F. AN ACTION LABEL IS NOT A SENTENCE FRAGMENT (#442) — a key rendered as the
+ *      text of an action CONTROL must not also be interpolated into a translated
+ *      sentence. See "What F is for" below.
+ *
  * ## What C buys that A cannot
  *
  * A decides only the positions it can decide from the syntax. It cannot see a
@@ -79,6 +83,44 @@
  * D and E cover every app, including the storefront: they are about the
  * PLUMBING (a reserved namespace, a mounted provider) rather than about copy,
  * so an unmigrated tree has nothing to be excused from.
+ *
+ * ## What F is for
+ *
+ * #442: `channels.disconnect.intro` read "Choose what happens to the %{policy}
+ * this channel imported", and `%{policy}` was filled with the lowercased text of
+ * the toggle the merchant had just pressed. The three toggles say "Keep
+ * products", "Unpublish" and "Archive", so the three renderings were "…happens
+ * to the keep products this channel imported", "…to the unpublish…", "…to the
+ * archive…".
+ *
+ * Nothing else in CI can see that. The string is extracted, the key resolves,
+ * part B's parity passes, part C finds both keys referenced, `tsc` and lint are
+ * happy — and the sentence is ungrammatical in all eleven languages, because an
+ * action label is an IMPERATIVE ("Produkte behalten", "商品を残す", "Оставить
+ * товары") and a sentence slot needs a TERM. It survived a full eleven-locale
+ * translation pass: five translators worked around it with an appositive rather
+ * than reporting it, so the bug outlived the one review that looked hardest at
+ * the copy.
+ *
+ * So F states the rule structurally: a key whose text is rendered as an action
+ * control's own label may not also be interpolated into a translated sentence.
+ * The remedy when it fires is to give the sentence its OWN key — the same remedy
+ * the no-exception-list note below describes, and the reason F needs no
+ * exception list either.
+ *
+ * What F deliberately does NOT cover, and why: a key rendered in a BADGE or a
+ * row (`orders.status.paid` -> "Paid") is a term, not an imperative, and reads
+ * correctly in the appositive frames this surface actually uses
+ * (`'%{when} · %{status}'`). Flagging those would push somebody to split a key
+ * for no gain, and a guard whose cheapest green is busywork is one that gets
+ * switched off. `Pressable` is likewise NOT an action control here: 86 of them
+ * wrap whole tappable list rows, so every sentence inside one would read as a
+ * label. The proxy is "an element whose entire content IS its label".
+ *
+ * Its blind spots are real and are COUNTED rather than assumed away — a key
+ * reached through a local alias (`s.labelKey`) or returned by a function is
+ * unresolvable to a syntactic guard, and F reports how many it could not read
+ * instead of letting them look like zero.
  *
  * Usage:  bun scripts/validate-i18n-strings.mjs
  */
@@ -128,11 +170,18 @@ const OWNERS = [
     prefix: "packages/dashboard/",
     locales: "packages/dashboard/lib/i18n/locales",
     hardcodedStrings: true,
+    actionLabelCopy: true,
     // Per-owner rather than one total: a traversal that broke for one of them
     // would otherwise hide behind another's count.
     minimumSourceFiles: 60,
     minimumTranslatedPositions: 300,
     minimumKeys: 300,
+    // Check F's two INPUT populations. Its output is an intersection, and an
+    // empty intersection is the passing answer — so the only way to tell "no
+    // key is used in both roles" from "the walk read nothing" is to floor each
+    // input. Measured on this tree: 96 and 28.
+    minimumControlLabelKeys: 40,
+    minimumInterpolatedKeys: 10,
     // Part B compares every sibling bundle against `en`, so with the siblings
     // gone it compares nothing and reports clean. Eleven of the registry's
     // twelve locales; `ar` waits on the layout mirroring (#434).
@@ -143,16 +192,28 @@ const OWNERS = [
     prefix: "packages/pos/",
     locales: "packages/pos/lib/i18n/locales",
     hardcodedStrings: true,
+    actionLabelCopy: true,
     minimumSourceFiles: 30,
     minimumTranslatedPositions: 60,
     minimumKeys: 60,
     minimumLocales: 11,
+    // Measured: 8 and 11.
+    minimumControlLabelKeys: 4,
+    minimumInterpolatedKeys: 4,
   },
   {
     name: "ui",
     prefix: "packages/ui/",
     locales: "packages/ui/src/i18n/locales",
     hardcodedStrings: false,
+    // Check F is off here for a DIFFERENT reason than check A. This package
+    // does not merely use the action controls, it DEFINES them — a `<Button>`
+    // in `packages/ui` is the component, not a call site — so the population F
+    // reads is not the one it reasons about. The apps are where a label and a
+    // sentence meet. It turns on here in the same change that widens A.
+    actionLabelCopy: false,
+    minimumControlLabelKeys: null,
+    minimumInterpolatedKeys: null,
     minimumSourceFiles: 50,
     // No translated-position floor, deliberately. `inspectUserFacing` credits
     // any value it cannot follow to a literal as "translated", and in a package
@@ -271,6 +332,31 @@ const USER_FACING_CALLEES = new Set([
   "useRailTooltip",
 ]);
 
+/**
+ * Elements whose ENTIRE content is their own action label (check F).
+ *
+ * The test each one passes: everything a person reads inside it is the name of
+ * the action they are about to take. `Pressable` and `TouchableOpacity` fail it
+ * — this surface has 86 of them and most wrap a whole tappable list row, so
+ * treating one as a label would make every sentence inside it a "label" and F
+ * would fire on prose that is perfectly fine.
+ *
+ * A `t()` sitting in a PROP of one of these (`onPress={() => toast.success(t(…))}`)
+ * is not the label either, and the walk below stops at a JSX attribute for that
+ * reason. Measured: without that stop, the toast keys inside this screen's own
+ * disconnect button read as control labels and F reported two false positives.
+ */
+const ACTION_CONTROL_ELEMENTS = new Set([
+  "AlertDialogAction",
+  "AlertDialogCancel",
+  "Button",
+  "DropdownMenuItem",
+  "MenuItem",
+  "SelectItem",
+  "TabsTrigger",
+  "ToggleGroupItem",
+]);
+
 /** Below this, the file listing is broken — and a broken listing reports a clean tree. */
 const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 60;
 
@@ -368,6 +454,137 @@ function calleeName(node) {
   return null;
 }
 
+// -------------------------------------------------- check F's key reading ---
+
+/**
+ * Read one module-scope `const X = { … }` into the key sets check F can match on.
+ *
+ * `flat` is the plain map every label record uses
+ * (`{ keep_listings: "channels.disconnect.policy.keepListings" }`); `byProp`
+ * covers the pluralised shape (`{ product: { one: "…", many: "…" } }`), which
+ * the call site reaches as `t(MAP[x].one)`.
+ */
+function readKeyMap(objectLiteral) {
+  const flat = [];
+  const byProp = new Map();
+  for (const property of objectLiteral.properties) {
+    if (!ts.isPropertyAssignment(property)) continue;
+    const value = property.initializer;
+    if (ts.isStringLiteralLike(value)) {
+      flat.push(value.text);
+      continue;
+    }
+    if (!ts.isObjectLiteralExpression(value)) continue;
+    for (const leaf of value.properties) {
+      if (!ts.isPropertyAssignment(leaf)) continue;
+      if (!ts.isIdentifier(leaf.name) && !ts.isStringLiteral(leaf.name)) continue;
+      if (!ts.isStringLiteralLike(leaf.initializer)) continue;
+      const bucket = byProp.get(leaf.name.text) ?? [];
+      bucket.push(leaf.initializer.text);
+      byProp.set(leaf.name.text, bucket);
+    }
+  }
+  return { flat, byProp };
+}
+
+/** Every module-scope `const X = { … }` in one file, by name. */
+export function collectKeyMaps(relativePath, text) {
+  const sourceFile = ts.createSourceFile(
+    relativePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX,
+  );
+  const maps = new Map();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name)) continue;
+      if (!declaration.initializer || !ts.isObjectLiteralExpression(declaration.initializer)) continue;
+      maps.set(declaration.name.text, readKeyMap(declaration.initializer));
+    }
+  }
+  return maps;
+}
+
+/**
+ * Which keys can a `t(…)` argument resolve to?
+ *
+ * `null` means "this guard cannot read it" — a key held in a local alias
+ * (`s.labelKey`) or returned by a function. Those are COUNTED by the caller
+ * rather than treated as zero, because "F found no violation" and "F could not
+ * see the argument" are the same output otherwise.
+ */
+function resolveTranslateKeys(argument, maps) {
+  if (!argument) return null;
+  if (ts.isStringLiteralLike(argument)) return [argument.text];
+  // t(MAP[expr])
+  if (ts.isElementAccessExpression(argument) && ts.isIdentifier(argument.expression)) {
+    const found = maps.get(argument.expression.text);
+    return found && found.flat.length > 0 ? found.flat : null;
+  }
+  if (ts.isPropertyAccessExpression(argument)) {
+    const base = argument.expression;
+    // t(MAP[expr].one)
+    if (ts.isElementAccessExpression(base) && ts.isIdentifier(base.expression)) {
+      const found = maps.get(base.expression.text);
+      const bucket = found?.byProp.get(argument.name.text);
+      return bucket && bucket.length > 0 ? bucket : null;
+    }
+    // t(MAP.one)
+    if (ts.isIdentifier(base)) {
+      const found = maps.get(base.text);
+      const bucket = found?.byProp.get(argument.name.text);
+      return bucket && bucket.length > 0 ? bucket : null;
+    }
+  }
+  return null;
+}
+
+/** The tag name of a JSX opening/self-closing element. */
+function jsxTagName(element) {
+  const opening = ts.isJsxElement(element) ? element.openingElement : element;
+  const tag = opening.tagName;
+  return ts.isIdentifier(tag) ? tag.text : tag.getText();
+}
+
+/**
+ * Is this `t(…)` call rendering an action control's OWN label?
+ *
+ * Two ways a control carries its label, and the difference between them is the
+ * whole subtlety here:
+ *
+ *   <Button><Text>{t(k)}</Text></Button>   — a CHILD, the spelling this tree uses
+ *   <Button title={t(k)} />                — a label-bearing ATTRIBUTE
+ *
+ * and one way it does NOT:
+ *
+ *   <Button onPress={() => toast.success(t(k))}>  — a handler
+ *
+ * So the walk stops at an attribute only when that attribute is not one a
+ * person reads. Measured: without the stop, the toast keys inside this screen's
+ * own disconnect button read as control labels and F reported two false
+ * positives; with the stop written as "any attribute", a button whose label
+ * comes through `title=` stops being seen at all.
+ */
+function actionControlAncestor(node) {
+  for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+    if (ts.isJsxAttribute(ancestor)) {
+      const readable = ts.isIdentifier(ancestor.name)
+        && USER_FACING_JSX_ATTRIBUTES.has(ancestor.name.text);
+      if (!readable) return null;
+      const owner = ancestor.parent?.parent;
+      if (!owner) return null;
+      const element = ts.isJsxOpeningElement(owner) ? owner.parent : owner;
+      const name = jsxTagName(ts.isJsxElement(element) ? element : owner);
+      return ACTION_CONTROL_ELEMENTS.has(name) ? name : null;
+    }
+    if (ts.isJsxElement(ancestor) || ts.isJsxSelfClosingElement(ancestor)) {
+      const name = jsxTagName(ancestor);
+      if (ACTION_CONTROL_ELEMENTS.has(name)) return name;
+    }
+    if (ts.isSourceFile(ancestor)) return null;
+  }
+  return null;
+}
+
 // ----------------------------------------------------------- the analyser ---
 
 /**
@@ -389,7 +606,7 @@ function calleeName(node) {
  * below run production's own code path over control SOURCE, rather than
  * asserting against a second copy of the rules.
  */
-export function analyseSource(relativePath, text, knownKeys) {
+export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new Map()) {
   const sourceFile = ts.createSourceFile(
     relativePath,
     text,
@@ -402,6 +619,17 @@ export function analyseSource(relativePath, text, knownKeys) {
   /** `{ key, line }` for every `t('literal')`, so part C can resolve each one. */
   const translateKeys = [];
   let translatedPositions = 0;
+  /** F: `{ key, line, tag }` for every key rendered as an action control's label. */
+  const controlLabelSites = [];
+  /** F: `{ key, line, frame }` for every key interpolated into another sentence. */
+  const interpolatedSites = [];
+  /** F: `{ line, role, source }` for each argument F could not read. Counted, not ignored. */
+  const unreadableKeySources = [];
+
+  // A file's OWN maps win over the app-wide bag, so a control fixture with no
+  // siblings resolves exactly as production does.
+  const keyMaps = new Map(sharedKeyMaps);
+  for (const [name, value] of collectKeyMaps(relativePath, text)) keyMaps.set(name, value);
 
   const lineOf = (node) =>
     sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
@@ -473,6 +701,51 @@ export function analyseSource(relativePath, text, knownKeys) {
       }
     }
 
+    // F. the two populations: a key rendered as an action control's own label,
+    // and a key interpolated into another translated sentence.
+    if (isTranslateCall(node)) {
+      const tag = actionControlAncestor(node);
+      if (tag !== null) {
+        const keys = resolveTranslateKeys(node.arguments[0], keyMaps);
+        if (keys === null) {
+          unreadableKeySources.push({
+            line: lineOf(node), role: "control-label",
+            source: node.arguments[0] ? node.arguments[0].getText(sourceFile) : "<none>",
+          });
+        } else {
+          for (const key of keys) controlLabelSites.push({ key, line: lineOf(node), tag });
+        }
+      }
+
+      const values = node.arguments[1];
+      if (values && ts.isObjectLiteralExpression(values)) {
+        const frame = ts.isStringLiteralLike(node.arguments[0])
+          ? node.arguments[0].text
+          : "<computed>";
+        for (const property of values.properties) {
+          if (!ts.isPropertyAssignment(property)) continue;
+          // Unwrap the `.toLowerCase()` / `.trim()` chain #442 itself used —
+          // matching the bare call only would miss the exact shape F exists for.
+          let value = property.initializer;
+          while (
+            ts.isCallExpression(value)
+            && ts.isPropertyAccessExpression(value.expression)
+            && !isTranslateCall(value)
+          ) value = value.expression.expression;
+          if (!isTranslateCall(value)) continue;
+          const keys = resolveTranslateKeys(value.arguments[0], keyMaps);
+          if (keys === null) {
+            unreadableKeySources.push({
+              line: lineOf(node), role: "interpolated",
+              source: value.arguments[0] ? value.arguments[0].getText(sourceFile) : "<none>",
+            });
+          } else {
+            for (const key of keys) interpolatedSites.push({ key, line: lineOf(node), frame });
+          }
+        }
+      }
+    }
+
     // A. JSX text: `<Text>Save</Text>`
     if (ts.isJsxText(node) && hasLetter(node.text)) {
       report(node, "jsx-text", node.text);
@@ -523,7 +796,15 @@ export function analyseSource(relativePath, text, knownKeys) {
   };
   visit(sourceFile);
 
-  return { findings: fileFindings, translatedPositions, literals, translateKeys };
+  return {
+    findings: fileFindings,
+    translatedPositions,
+    literals,
+    translateKeys,
+    controlLabelSites,
+    interpolatedSites,
+    unreadableKeySources,
+  };
 }
 
 /**
@@ -782,6 +1063,90 @@ for (const source of CONTROL_MUST_NOT_FIND) {
 }
 
 /**
+ * Controls for check F's detector, run on every invocation.
+ *
+ * F's real-tree answer is an EMPTY intersection, which is what a completely
+ * broken detector also returns. These are what tell the two apart, so they run
+ * beside the tree scan rather than only in the self-test.
+ */
+const actionLabelViolations = (source) => {
+  const result = analyseSource("control/action-label.tsx", source, CONTROL_KEYS);
+  const labels = new Set(result.controlLabelSites.map((site) => site.key));
+  return result.interpolatedSites.filter((site) => labels.has(site.key));
+};
+
+const ACTION_LABEL_MUST_FIND = [
+  {
+    id: "literal-key-reused",
+    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
+      + '<Button><Text>{t("a.b")}</Text></Button></>;',
+  },
+  {
+    // The other way a control carries its label. Nothing in this tree spells it
+    // this way today, which is exactly why it needs a control: F would look
+    // just as green if it could not see an attribute label at all.
+    id: "attribute-label-reused",
+    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
+      + '<Button title={t("a.b")} /></>;',
+  },
+  {
+    // #442's exact shape: a record of label keys, indexed, lowercased, and
+    // dropped into a frame — while the same record fills a toggle group.
+    id: "indexed-map-lowercased",
+    source: 'const M = { one: "a.b", two: "c.d" };\n'
+      + 'const A = () => <><Text>{t("frame.x", { v: t(M[k]).toLowerCase() })}</Text>'
+      + "{items.map((o) => <ToggleGroupItem key={o}><Text>{t(M[o])}</Text></ToggleGroupItem>)}</>;",
+  },
+];
+
+const ACTION_LABEL_MUST_NOT_FIND = [
+  {
+    id: "different-keys",
+    source: 'const A = () => <><Text>{t("frame.x", { v: t("c.d") })}</Text>'
+      + '<Button><Text>{t("a.b")}</Text></Button></>;',
+  },
+  {
+    // The false positive measured on the real tree: a t() in a PROP of a button
+    // is a toast, not the button's label.
+    id: "key-only-in-a-handler",
+    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
+      + '<Button onPress={() => toast.success(t("a.b"))}><Text>{t("c.d")}</Text></Button></>;',
+  },
+  {
+    // A badge is not an action control: "Paid" is a term and reads correctly in
+    // the appositive frames this surface uses.
+    id: "badge-label-interpolated",
+    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
+      + '<View><Text>{t("a.b")}</Text></View></>;',
+  },
+  {
+    // A whole tappable row is not a label — this is why Pressable is excluded.
+    id: "pressable-row",
+    source: 'const A = () => <><Text>{t("frame.x", { v: t("a.b") })}</Text>'
+      + '<Pressable><Text>{t("a.b")}</Text></Pressable></>;',
+  },
+];
+
+for (const control of ACTION_LABEL_MUST_FIND) {
+  if (actionLabelViolations(control.source).length === 0) {
+    failures.push(
+      `positive control failed: check F saw no violation in ${control.id} — F's answer on the real `
+      + "tree is an empty intersection, so a detector that finds nothing anywhere passes silently",
+    );
+  }
+}
+for (const control of ACTION_LABEL_MUST_NOT_FIND) {
+  const found = actionLabelViolations(control.source);
+  if (found.length > 0) {
+    failures.push(
+      `negative control failed: check F fired on ${control.id} (${found.map((s) => s.key).join(", ")}) `
+      + "— F would be flagging copy that is correct, and a guard whose cheapest green is busywork "
+      + "gets switched off",
+    );
+  }
+}
+
+/**
  * Controls for check E's detector, run on every invocation for the same reason.
  *
  * The three that must NOT fire are the whole point: an import, a comment and a
@@ -839,12 +1204,61 @@ const translateSitesByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
 /** Files scanned per owner — the per-owner half of the vacuity floor below. */
 const filesByApp = new Map(OWNERS.map((owner) => [owner.name, 0]));
 
+/** F: `{ key -> site }` per owner for each of its two populations. */
+const controlLabelKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
+const interpolatedKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
+/** F: how many `t()` arguments it could not read, per owner. Reported, never assumed zero. */
+const unreadableKeySourcesByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+
+// Check F needs every owner's module-scope key maps BEFORE any file is
+// analysed: a label record is routinely declared in one file and used in
+// another (`CHANNEL_TYPE_NAME_KEYS` lives in `channel-presentation.tsx` and is
+// read from two other screens), so a per-file bag would leave those unreadable
+// and F would silently see a smaller tree than it reports.
+const textByPath = new Map();
 for (const path of sources) {
   const text = await readTracked(path);
-  if (text === null) continue;
+  if (text !== null) textByPath.set(path, text);
+}
+
+const keyMapsByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
+const collidingKeyMapNames = new Map(OWNERS.map((owner) => [owner.name, new Set()]));
+for (const [path, text] of textByPath) {
   const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
-  const result = analyseSource(path, text, knownKeysByApp.get(app.name));
+  const bag = keyMapsByApp.get(app.name);
+  for (const [name, value] of collectKeyMaps(path, text)) {
+    if (bag.has(name)) collidingKeyMapNames.get(app.name).add(name);
+    bag.set(name, value);
+  }
+}
+// Two files in one app declaring the same name is ambiguous, and resolving it
+// to whichever happened to be read last is a WRONG answer rather than a missing
+// one — it would attribute one screen's keys to another's control. Drop the
+// name from the shared bag; the file that declares it still resolves its own,
+// and everywhere else F reports the site as unreadable, which is honest.
+for (const owner of OWNERS) {
+  const bag = keyMapsByApp.get(owner.name);
+  for (const name of collidingKeyMapNames.get(owner.name)) bag.delete(name);
+}
+
+for (const [path, text] of textByPath) {
+  const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
+  const result = analyseSource(
+    path, text, knownKeysByApp.get(app.name), keyMapsByApp.get(app.name),
+  );
   filesByApp.set(app.name, filesByApp.get(app.name) + 1);
+  if (app.actionLabelCopy) {
+    const controls = controlLabelKeysByApp.get(app.name);
+    for (const site of result.controlLabelSites) {
+      if (!controls.has(site.key)) controls.set(site.key, { ...site, file: path });
+    }
+    const interpolated = interpolatedKeysByApp.get(app.name);
+    for (const site of result.interpolatedSites) {
+      if (!interpolated.has(site.key)) interpolated.set(site.key, { ...site, file: path });
+    }
+    const unreadable = unreadableKeySourcesByApp.get(app.name);
+    for (const site of result.unreadableKeySources) unreadable.push({ ...site, file: path });
+  }
   // An owner that is only PART way through extraction contributes its literals
   // (part C needs them) and none of its check-A findings.
   if (app.hardcodedStrings) findings.push(...result.findings);
@@ -1020,6 +1434,57 @@ for (const path of rootLayouts) {
   }
 }
 
+// ------------------------------- F: an action label is not a noun (#442) -----
+
+let actionLabelOwners = 0;
+for (const app of OWNERS) {
+  if (!app.actionLabelCopy) continue;
+  actionLabelOwners += 1;
+  const controls = controlLabelKeysByApp.get(app.name);
+  const interpolated = interpolatedKeysByApp.get(app.name);
+
+  // F's ANSWER is an intersection, and the passing answer is the empty one — so
+  // an empty intersection means nothing unless both inputs were non-empty. A
+  // walk that read no control labels, or no interpolations, reports exactly the
+  // same clean run as a correct tree.
+  if (controls.size < floorFor(app.minimumControlLabelKeys)) {
+    failures.push(
+      `${app.name}: check F saw ${controls.size} keys rendered as an action control's label, `
+      + `below the ${floorFor(app.minimumControlLabelKeys)} floor — with that population empty F `
+      + "intersects nothing and passes, which is indistinguishable from a clean tree",
+    );
+  }
+  if (interpolated.size < floorFor(app.minimumInterpolatedKeys)) {
+    failures.push(
+      `${app.name}: check F saw ${interpolated.size} keys interpolated into another translated `
+      + `sentence, below the ${floorFor(app.minimumInterpolatedKeys)} floor — same reason as above, `
+      + "from the other side of the intersection",
+    );
+  }
+
+  for (const [key, control] of controls) {
+    const use = interpolated.get(key);
+    if (!use) continue;
+    failures.push(
+      `${key} is BOTH an action control's label and a value interpolated into a sentence (#442).\n`
+      + `    label       ${control.file}:${control.line} inside <${control.tag}>\n`
+      + `    interpolated ${use.file}:${use.line} into "${use.frame}"\n`
+      + "    An action label is an imperative — \"Keep products\", \"Produkte behalten\", "
+      + "\"Оставить товары\" — and a\n"
+      + "    sentence slot needs a term, so the frame reads \"…happens to the keep products this "
+      + "channel\n    imported\" in every language. Give the sentence its OWN key rather than "
+      + "reusing the label's.",
+    );
+  }
+}
+
+if (actionLabelOwners < floorFor(2)) {
+  failures.push(
+    `check F ran over ${actionLabelOwners} owners, below the ${floorFor(2)} floor — `
+    + "an owner list that matched nothing runs F over nothing and reports clean",
+  );
+}
+
 // ---------------------------------------------------------- vacuity floors --
 
 if (sources.length < MINIMUM_SOURCE_FILES) {
@@ -1049,11 +1514,24 @@ if (findings.length > 0 || failures.length > 0) {
   process.exit(1);
 }
 
+const actionLabelSummary = OWNERS
+  .filter((owner) => owner.actionLabelCopy)
+  .map((owner) => {
+    const unreadable = unreadableKeySourcesByApp.get(owner.name).length;
+    return `${owner.name} ${controlLabelKeysByApp.get(owner.name).size} label/`
+      + `${interpolatedKeysByApp.get(owner.name).size} interpolated`
+      + (unreadable > 0 ? ` (${unreadable} unreadable)` : "");
+  })
+  .join(", ");
+
 console.log(
   `i18n string guard passed — ${sources.length} source files scanned across `
   + `${OWNERS.map((owner) => owner.prefix).join(", ")}; ${translatedPositions} translated positions seen; `
   + `${appBundlePaths.length} app bundles and ${rootLayouts.length} app roots checked for the `
   + `reserved "${SHARED_UI_NAMESPACE}" namespace and <${SHARED_UI_PROVIDER}>; `
-  + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length} positive and `
-  + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length} negative controls run.`,
+  + `check F intersected ${actionLabelSummary}; `
+  + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length + ACTION_LABEL_MUST_FIND.length} `
+  + "positive and "
+  + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length + ACTION_LABEL_MUST_NOT_FIND.length} `
+  + "negative controls run.",
 );

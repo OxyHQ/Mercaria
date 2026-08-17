@@ -70,7 +70,7 @@
       "action": "Déconnecter le canal",
       "confirmAction": "Déconnecter",
       "confirmTitle": "Déconnecter %{provider} ?",
-      "intro": "Choisissez ce qu’il advient des produits importés par ce canal : %{policy}. Votre historique de prix et tout ce qu’un autre canal a importé ne sont jamais touchés.",
+      "intro": "Choisissez ce qu’il advient des produits importés par ce canal. Votre historique de prix et tout ce qu’un autre canal a importé ne sont jamais touchés.",
       "policy": {
         "archiveListings": "Archiver",
         "keepListings": "Conserver les produits",

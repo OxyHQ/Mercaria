@@ -70,7 +70,7 @@
       "action": "Disconnect channel",
       "confirmAction": "Disconnect",
       "confirmTitle": "Disconnect %{provider}?",
-      "intro": "Choose what happens to the %{policy} this channel imported. Your price history and anything another channel imported are never touched.",
+      "intro": "Choose what happens to the products this channel imported. Your price history and anything another channel imported are never touched.",
       "policy": {
         "archiveListings": "Archive",
         "keepListings": "Keep products",
