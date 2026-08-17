@@ -189,6 +189,13 @@ function requireComposed(composition: AuthoringSchemaComposition): AuthoringSche
  * schema is still being argued about, and its fields can change under an author
  * who has already answered them; pinning one would create exactly the record ADR
  * 0007 D5's freeze exists to make impossible.
+ *
+ * `composeAuthoringSchema` now refuses an EDITABLE version to every caller —
+ * `RETRIEVABLE_AUTHORING_LIFECYCLES` — so the check below is reachable only for
+ * a `deprecated` version, which composes (records pin it) and may not be started
+ * on. It is kept rather than narrowed to `deprecated`, because a check that
+ * states the whole rule cannot be walked around by a later change to what the
+ * composition serves.
  */
 export async function createDraft(db: Database, input: CreateDraftInput): Promise<AuthoringDraft> {
   const composition = await composeAuthoringSchema(db, {

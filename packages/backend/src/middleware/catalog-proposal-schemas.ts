@@ -36,6 +36,7 @@ import {
   CATALOG_PROPOSAL_TYPES,
 } from '@mercaria/shared-types';
 import { ErrorCodes, sendError } from '../utils/api-response.js';
+import { sanitizeAuthoredText } from '../lib/authored-text.js';
 
 /** A shared-types list as the non-empty tuple `z.enum` requires. */
 function tuple<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
@@ -56,8 +57,22 @@ const entityId = z.string().trim().min(1).max(64);
  * `submitterNote` is where a submitter explains themselves, and keeping the two
  * apart is what stops a label that is really a sentence becoming a controlled
  * value's label on approval.
+ *
+ * The `.min(1)` is checked TWICE and neither check is the other's spelling: once
+ * on the raw input, and once after `sanitizeAuthoredText`, because a label of
+ * `<b></b>` clears the first and sanitizes to the empty string. A floor checked
+ * only before a shortening transform is a floor with a hole in it, and the value
+ * that walks through it here becomes a controlled value's label on approval.
  */
-const proposedLabel = z.string().trim().min(1).max(200);
+const proposedLabel = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .transform(sanitizeAuthoredText)
+  .refine((value) => value.length >= 1, {
+    message: 'a proposed label must still carry text once markup is removed',
+  });
 
 /** The stored form the localization family uses. Folded, never a display tag. */
 const locale = z
@@ -109,8 +124,14 @@ export const submitCatalogProposalSchema = z
     storeId: entityId,
     proposedLabel,
     sourceLocale: locale,
-    proposedDescription: z.string().trim().max(2000).optional(),
-    submitterNote: z.string().trim().max(2000).optional(),
+    // Both are shown to a catalog OPERATOR reviewing the request, and one of
+    // them (`proposedDescription`) becomes catalogue copy on approval. Neither
+    // needs a raw form kept: unlike a connector's own words in
+    // `catalog_source_objects`, there is no question here about what a third
+    // party published — the submitter is the author, and what they meant is what
+    // survives markup removal.
+    proposedDescription: z.string().trim().max(2000).transform(sanitizeAuthoredText).optional(),
+    submitterNote: z.string().trim().max(2000).transform(sanitizeAuthoredText).optional(),
     categoryId: entityId.optional(),
     productTypeDefinitionId: entityId.optional(),
     attributeDefinitionId: entityId.optional(),
