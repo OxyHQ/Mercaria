@@ -90,9 +90,42 @@ const HARDCODED_CATALOG_LIST =
 /**
  * A branch on a catalog concept's NAME against a string literal — the two-line
  * version of the same hardcoding.
+ *
+ * BOTH quote styles (#478). This was single-quote only, and the population it
+ * guards is largely DOUBLE-quoted — `packages/ui` included, `VariantSwatches`
+ * included — so the two-line form of the very hardcoding this census exists to
+ * find was invisible in the package that matters. Measured at the widening:
+ * ZERO new offenders, so it is pure hardening rather than a rule change.
  */
 const HARDCODED_CATALOG_COMPARISON =
-  /(?:option|category|productType|facet)\.(?:name|slug|key)\s*(?:===|!==|==)\s*'[^']+'|\.(?:name|slug|key)\.toLowerCase\(\)\s*(?:===|!==)\s*'/u;
+  /(?:option|category|productType|facet)\.(?:name|slug|key)\s*(?:===|!==|==)\s*(['"])[^'"]+\1|\.(?:name|slug|key)\.toLowerCase\(\)\s*(?:===|!==)\s*['"]/u;
+
+/**
+ * A catalog concept's NAME used as a lookup key into some collection — the
+ * shape #478 actually had:
+ *
+ * ```ts
+ * const COLOR_OPTION_NAMES = new Set(["color", "colour", "shade"]);
+ * return COLOR_OPTION_NAMES.has(option.name.trim().toLowerCase());
+ * ```
+ *
+ * This probe exists because the other two key on the CONSTANT'S NAME, and a
+ * rename walks out from under both: `COLOR_NAMES`, `SWATCH_NAMES`, `SIZE_ORDER`,
+ * `ATTRIBUTE_NAMES`, `CONDITION_WORDS`, `AXIS_NAMES` and `MATERIAL_LIST` were
+ * each measured `false` against the list probe. This one keys on the USE — a
+ * catalog concept's free text being looked up — so it is rename-proof by
+ * construction and does not care what the collection is called or where it was
+ * declared.
+ *
+ * Broadening the list probe's NOUNS was measured and REJECTED instead of this.
+ * `SIZE` flags `FONT_SIZE_TOKENS` (typography) and `COLOR`/`OPTION` flags
+ * `COLOR_OPTIONS` (a hex palette in a generic colour picker) — design-system
+ * vocabulary a name-matching detector cannot tell from catalog vocabulary. Each
+ * would need an allow-list entry, re-growing from zero the list #478 just
+ * emptied, to catch strictly less than this probe does.
+ */
+const HARDCODED_CATALOG_MEMBERSHIP =
+  /\.(?:has|includes)\(\s*(?:option|category|productType|facet|attribute)\.(?:name|slug|key)\b/u;
 
 /**
  * The known offenders, with a disposition each.
@@ -100,19 +133,18 @@ const HARDCODED_CATALOG_COMPARISON =
  * `untouched WITH A REASON is a decision the census accepts; silence is not` —
  * `merge-plan-census.test.ts`'s ruling. An exact array rather than a prefix rule,
  * so it cannot be widened by accident.
+ *
+ * EMPTY as of #478, which removed the last entry rather than re-dispositioning
+ * it: `VariantSwatches` picked a widget from `COLOR_OPTION_NAMES`, three English
+ * words, and drew a colour it had invented — no `attribute_enum_values` colour
+ * column and no per-value image exists, so the swatch showed a cycled gallery
+ * photo or a hash of the value string. It now renders pills for every option.
+ *
+ * An empty list costs this census the positive control the entry was doubling
+ * as — see `still catches a hardcoded list in a source the walk really read`,
+ * which replaces it at the same seam.
  */
-const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [
-  {
-    path: 'packages/ui/src/components/marketplace/VariantSwatches.tsx',
-    disposition:
-      'PRESENTATION, not a mapping: `COLOR_OPTION_NAMES` picks a widget (round swatches vs text ' +
-      'pills) from the legacy free-text `ListingOption.name`. It asserts no fact, writes nothing, ' +
-      'and cannot make `Colour` and `Tono` one attribute — but it does render `Colour` as colour ' +
-      'and `Tono` as a pill, which is the same false-equivalence shape one layer down. The fix ' +
-      'belongs with #367 step 4’s typed axes, which know which attribute an option resolved to; ' +
-      'nothing in workstream 13 writes to `packages/ui`',
-  },
-];
+const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [];
 
 describe('the ungated client packages', () => {
   it('reads a real, non-trivial set of client sources', () => {
@@ -143,9 +175,14 @@ describe('the ungated client packages', () => {
       .sort();
 
     // Exact identity, never containment: an allow-list that may only grow is the
-    // gate switching itself off one defensible entry at a time. It is also its
-    // own positive control — it can only pass by having FOUND the known list, so
-    // a probe that stopped matching fails here rather than reporting a tidy zero.
+    // gate switching itself off one defensible entry at a time.
+    //
+    // While PERMITTED held an entry this was ALSO its own positive control — it
+    // could only pass by having FOUND that list. #478 emptied it, so this
+    // assertion now passes two ways: because no client package hardcodes a
+    // catalog vocabulary, or because the walk and the probe stopped composing.
+    // The test below restores the control; do not delete it while this list is
+    // empty.
     expect(
       offenders,
       'a client package outside the two scanned by WS8/WS9 hardcodes a catalog vocabulary. ' +
@@ -153,11 +190,45 @@ describe('the ungated client packages', () => {
     ).toEqual([...PERMITTED].map((entry) => entry.path).sort());
   });
 
+  it('still catches a hardcoded list in a source the walk really read', () => {
+    // The positive control the allow-list used to provide for free, restored at
+    // the same seam after #478 emptied it. The mutation self-test below already
+    // proves the REGEX fires, but it feeds it a bare literal — which says
+    // nothing about whether that regex is still being applied to file content
+    // this walk produced. A control has to take production's path, so this one
+    // takes a source the walk really read and appends a known offender to it.
+    const sources = ungatedClientSources();
+    const [path, source] = [...sources].sort(([a], [b]) => a.localeCompare(b))[0] ?? [];
+    expect(path, 'the walk read nothing to control against').toBeTypeOf('string');
+
+    // Guards the arrangement rather than the conclusion: if this file already
+    // matched, the assertion below would pass without the appended line and
+    // would be measuring nothing.
+    expect(HARDCODED_CATALOG_LIST.test(source ?? ''), `${path} already matches`).toBe(false);
+    expect(
+      HARDCODED_CATALOG_LIST.test(
+        `${source ?? ''}\nconst COLOR_OPTION_NAMES = new Set(["color", "colour"]);\n`,
+      ),
+      'the walk/probe composition no longer catches a known hardcoded catalog list',
+    ).toBe(true);
+  });
+
   it('branches on no catalog concept’s name', () => {
     for (const [path, source] of ungatedClientSources()) {
       expect(
         HARDCODED_CATALOG_COMPARISON.test(source),
         `${path} compares a catalog concept's name against a string literal`,
+      ).toBe(false);
+    }
+  });
+
+  it('looks no catalog concept’s name up in a hardcoded collection', () => {
+    for (const [path, source] of ungatedClientSources()) {
+      expect(
+        HARDCODED_CATALOG_MEMBERSHIP.test(source),
+        `${path} looks a catalog concept's name up in a collection — the #478 shape. ` +
+          'Read the concept from the server (a typed axis, a registry key) rather than ' +
+          'matching its free text',
       ).toBe(false);
     }
   });
@@ -203,6 +274,47 @@ describe('the ungated client packages', () => {
         `comparison probe over-matched: ${negative}`,
       ).toBe(false);
     }
+
+    // The DOUBLE-quoted half (#478). Listed separately from the positives above
+    // because these exact spellings were measured `false` before the widening,
+    // in a population that is largely double-quoted — so they are the control
+    // that would catch the probe narrowing back to `'` alone.
+    for (const positive of [
+      'if (option.name === "Color") return true;',
+      'if (option.name.toLowerCase() === "colour") return true;',
+      'category.slug === "shoes"',
+    ]) {
+      expect(
+        HARDCODED_CATALOG_COMPARISON.test(positive),
+        `comparison probe missed a double-quoted literal: ${positive}`,
+      ).toBe(true);
+    }
+
+    // The membership probe, and the RENAMES are the point: the list probe keys
+    // on the constant's name and each of these was measured `false` against it.
+    for (const positive of [
+      'return COLOR_OPTION_NAMES.has(option.name.trim().toLowerCase());',
+      'return SWATCH_WORDS.has(option.name.trim().toLowerCase());',
+      'return PALETTE.includes(option.slug);',
+      'if (KNOWN.has(category.key)) return true;',
+    ]) {
+      expect(
+        HARDCODED_CATALOG_MEMBERSHIP.test(positive),
+        `membership probe missed: ${positive}`,
+      ).toBe(true);
+    }
+    for (const negative of [
+      // A collection keyed on an ID or a server-derived value is the normal,
+      // correct shape — the probe must not fire on selection state.
+      'if (selected.has(variant.id)) return true;',
+      'const s = new Set(response.buckets.map((b) => b.key));',
+      'if (chosen.includes(listing.id)) return true;',
+    ]) {
+      expect(
+        HARDCODED_CATALOG_MEMBERSHIP.test(negative),
+        `membership probe over-matched: ${negative}`,
+      ).toBe(false);
+    }
   });
 
   it('names an exception path the walk actually read, and states a reason', () => {
@@ -214,7 +326,10 @@ describe('the ungated client packages', () => {
         80,
       );
     }
-    expect(PERMITTED).toHaveLength(1);
+    // The exact-count assertion on the exemptions themselves. ZERO as of #478;
+    // it is not a formality, because the loop above is vacuous at this length
+    // and this line is the only thing that notices an entry coming back.
+    expect(PERMITTED).toHaveLength(0);
   });
 
   it('imports nothing from a client package', () => {

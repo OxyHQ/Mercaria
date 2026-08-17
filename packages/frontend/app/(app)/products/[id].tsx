@@ -562,13 +562,12 @@ function ProductBody({ listing }: ProductBodyProps) {
               onPress={onPressOffer}
             />
 
-            {/* Option selectors (color swatches / size pills). */}
+            {/* Option selectors (value pills). */}
             {options.map((option) => (
               <VariantSwatches
                 key={option.name}
                 option={option}
                 variants={listing.variants}
-                images={images}
                 selectedValue={selection[option.name]}
                 onSelect={(value) => selectOption(option.name, value)}
               />

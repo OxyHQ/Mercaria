@@ -453,7 +453,6 @@ export {
 } from "./components/marketplace/ProductGallery";
 export {
   VariantSwatches,
-  type VariantSwatchImage,
   type VariantSwatchesProps,
 } from "./components/marketplace/VariantSwatches";
 export {

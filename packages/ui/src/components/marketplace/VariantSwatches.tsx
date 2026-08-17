@@ -1,63 +1,20 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { Image } from "expo-image";
+import { Pressable, View } from "react-native";
 import type { ListingOption, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 
-/** Max color swatches shown before a "+N more" expander appears. */
-const MAX_VISIBLE_SWATCHES = 24;
-/** HSL saturation (%) for value-derived fallback swatch colors. */
-const SWATCH_FALLBACK_SATURATION = 60;
-/** HSL lightness (%) for value-derived fallback swatch colors. */
-const SWATCH_FALLBACK_LIGHTNESS = 55;
-/** Hue wheel size (degrees) the value hash is folded onto. */
-const HUE_DEGREES = 360;
-/** Bit-shift used by the value→hue string hash. */
-const HASH_SHIFT = 5;
-
-/** Option names that render as round color swatches (vs. text pills). */
-const COLOR_OPTION_NAMES = new Set(["color", "colour", "shade"]);
-
-/** A swatch-fallback gallery image: a resolvable URL and optional alt text. */
-export interface VariantSwatchImage {
-  /** Resolvable image URL. */
-  uri: string;
-  /** Optional alt text. */
-  alt?: string;
-}
+/** Max values shown before a "+N more" expander appears. */
+const MAX_VISIBLE_VALUES = 24;
 
 export interface VariantSwatchesProps {
   /** The option being selected (name + allowed values). */
   option: ListingOption;
   /** All concrete variants — used to compute per-value stock. */
   variants: ProductVariantDTO[];
-  /**
-   * Gallery images cycled across color swatches as faked per-variant art when a
-   * value has no real swatch image; falls back to a deterministic value color.
-   */
-  images: VariantSwatchImage[];
   /** Currently selected value for this option, if any. */
   selectedValue?: string;
-  /** Called with the chosen value when a swatch/pill is pressed. */
+  /** Called with the chosen value when a value is pressed. */
   onSelect: (value: string) => void;
-}
-
-/** Whether an option renders as round swatches rather than text pills. */
-function isColorOption(option: ListingOption): boolean {
-  return COLOR_OPTION_NAMES.has(option.name.trim().toLowerCase());
-}
-
-/**
- * Deterministically derive an HSL color from an option value string, used as the
- * fallback swatch tone when no gallery image is available.
- */
-function valueToColor(value: string): string {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = value.charCodeAt(i) + ((hash << HASH_SHIFT) - hash);
-  }
-  const hue = Math.abs(hash) % HUE_DEGREES;
-  return `hsl(${hue}, ${SWATCH_FALLBACK_SATURATION}%, ${SWATCH_FALLBACK_LIGHTNESS}%)`;
 }
 
 /** Whether a given option value is available in at least one in-stock variant. */
@@ -74,27 +31,71 @@ function valueInStock(
 }
 
 /**
- * One option row: a label + selectable values. Color-like options (`Color`,
- * `Colour`, `Shade`) render as circular swatches with a sold-out diagonal
- * strike and a "+N more" expander past 24 values; every other option renders as
- * text pills. Presentational — the caller owns selection state and the variant
- * matching that follows from it.
+ * One option row: a label + selectable values, rendered as text pills with a
+ * sold-out treatment and a "+N more" expander past 24 values. Presentational —
+ * the caller owns selection state and the variant matching that follows from it.
+ *
+ * ## Why every option renders as a pill, including colour (#478)
+ *
+ * This component used to render round colour swatches when
+ * `ListingOption.name` matched one of `color`, `colour` or `shade`. Two
+ * separate things were wrong with that, and only the first is the one the
+ * issue title names.
+ *
+ * 1. **The widget was chosen from three English words.** A seller who names the
+ *    option `Tono`, `Farbe` or `色` got pills; one who typed `Colour` got
+ *    swatches. `variant-axis.ts` names this exact shape as the thing the typed
+ *    axis layer exists to prevent — "`Tono` looking like `Color` is the false
+ *    merge #58 is shaped around, and the safe failure is text in a queue" — and
+ *    its refusal vocabulary (`unmapped`, `ambiguous`) is how an option name
+ *    becomes an attribute: an operator adds an alias, in one versioned
+ *    registry, rather than a component learning a fourth language.
+ *
+ * 2. **The colour it drew was invented, which is the worse half.** Nothing in
+ *    this codebase records what colour a value IS. `attribute_enum_values`
+ *    carries no hex/swatch column, `ListingOption` has no per-value image and
+ *    `ProductVariantDTO` has none either. So a swatch showed one of two
+ *    fabrications: a gallery photo cycled by index (`images[i % images.length]`
+ *    — the old code called this "faked per-variant art", and swatch #3 simply
+ *    got gallery photo #3), or a hue derived by hashing the value string, which
+ *    gave `Negro` and `Black` unrelated colours for one colour. Both rendered
+ *    under an `accessibilityLabel` naming the value, so a screen reader
+ *    announced "Color: Negro" over a hash artefact.
+ *
+ * Translating the name list would therefore have spread a fabricated fact to
+ * more locales rather than fixing one. A pill reading `Negro` is true in every
+ * language, so pills are both the smaller change and the honest one.
+ *
+ * ## What a real swatch needs, and the two are not the same kind of work
+ *
+ * - **Which attribute this option is** — an existing seam that is merely
+ *   unplumbed. `native_listing_variant_axes` (#367 step 4) already cites an
+ *   `attribute_definitions` row and its exact version, and the resolver's
+ *   refusal vocabulary (`unmapped`, `ambiguous`) is language-neutral by
+ *   design: an operator aliases `Tono` to the `color` attribute in one
+ *   versioned registry and no component learns a fourth language. What is
+ *   missing is delivery — no route serves an axis, so `ListingOption` is still
+ *   `{name, values}` and `catalog-hydration.service.ts` maps the legacy
+ *   free-text rows straight through.
+ * - **What the value looks like** — NOT a seam. There is no dormant column
+ *   here to switch on: `attribute_enum_values` holds `value`, `label`,
+ *   `position` and bookkeeping, nothing presentational beyond ordering, and no
+ *   `displayHint`/`renderAs`/`swatchColor`/`hexColor` concept exists anywhere
+ *   in shared-types or the schema. So knowing the attribute would fix the
+ *   WIDGET choice and leave the TONE fabricated exactly as before. A real
+ *   swatch needs a new schema decision, and it should be made as one.
  */
 export function VariantSwatches({
   option,
   variants,
-  images,
   selectedValue,
   onSelect,
 }: VariantSwatchesProps) {
-  const asSwatches = isColorOption(option);
   const [expanded, setExpanded] = useState(false);
 
-  const overflow = asSwatches && option.values.length > MAX_VISIBLE_SWATCHES && !expanded;
-  const visibleValues = overflow
-    ? option.values.slice(0, MAX_VISIBLE_SWATCHES)
-    : option.values;
-  const hiddenCount = option.values.length - MAX_VISIBLE_SWATCHES;
+  const overflow = option.values.length > MAX_VISIBLE_VALUES && !expanded;
+  const visibleValues = overflow ? option.values.slice(0, MAX_VISIBLE_VALUES) : option.values;
+  const hiddenCount = option.values.length - MAX_VISIBLE_VALUES;
 
   return (
     <View className="gap-space-8">
@@ -107,47 +108,9 @@ export function VariantSwatches({
         ) : null}
       </View>
       <View className="flex-row flex-wrap gap-space-8">
-        {visibleValues.map((value, i) => {
+        {visibleValues.map((value) => {
           const selected = selectedValue === value;
           const inStock = valueInStock(variants, option.name, value);
-
-          if (asSwatches) {
-            // Faked per-variant art: cycle the gallery images across swatches;
-            // fall back to a deterministic value-derived color.
-            const swatchImage = images.length > 0 ? images[i % images.length] : undefined;
-            return (
-              <Pressable
-                key={value}
-                accessibilityRole="button"
-                accessibilityLabel={`${option.name}: ${value}`}
-                accessibilityState={{ selected, disabled: !inStock }}
-                disabled={!inStock}
-                onPress={() => onSelect(value)}
-                className={`size-space-40 shrink-0 items-center justify-center rounded-radius-max p-space-2 ${
-                  selected ? "border-[1.5px] border-border-input-active" : "border border-border-image"
-                }`}
-              >
-                <View className="size-full items-center justify-center overflow-hidden rounded-radius-max border-[0.5px] border-border-image bg-bg-fill-secondary">
-                  {swatchImage ? (
-                    <Image
-                      source={{ uri: swatchImage.uri }}
-                      contentFit="cover"
-                      style={StyleSheet.absoluteFill}
-                    />
-                  ) : (
-                    <View
-                      style={[StyleSheet.absoluteFill, { backgroundColor: valueToColor(value) }]}
-                    />
-                  )}
-                  {!inStock ? (
-                    <View className="absolute inset-0 items-center justify-center bg-overlay-fixed-dark-40">
-                      <View className="h-4/5 w-px rotate-45 bg-bg-fill" />
-                    </View>
-                  ) : null}
-                </View>
-              </Pressable>
-            );
-          }
 
           return (
             <Pressable
