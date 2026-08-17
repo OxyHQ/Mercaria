@@ -17,15 +17,21 @@
  * run was carrying. Nothing asserted that condition, and a `cancelled` run with
  * zero jobs notifies nobody.
  *
- * Measured on this repository, 300 `Deploy to AWS` runs on `main` over four
- * weeks to 2026-08-17: 235 success, 41 cancelled, 15 failure, 9
- * action_required. Those 65 non-success runs form 36 windows in which a merged
- * commit was not in production; the median commit waited 23.1 minutes and the
- * worst waited 358.2 minutes. TWO of those windows contained a newly added
- * `post`-phase migration — 2026-08-08 (`0003_retire_legacy_payment_columns`
+ * Measured on this repository over `Deploy to AWS` runs 60-358 on `main` (298
+ * completed, 2026-07-29 to 2026-08-17): 232 success, 42 cancelled, 15 failure,
+ * 9 action_required. Those 66 non-success runs form 37 windows in which a
+ * merged commit was not in production; the median commit waited 23.1 minutes
+ * and the worst waited 358.2 minutes. TWO of those windows contained a newly
+ * added `post`-phase migration — 2026-08-08 (`0003_retire_legacy_payment_columns`
  * and `0005_drop_empty_string_defaults`, a 4.5-hour window) and 2026-08-17
  * (`0106_panoramic_patch`, the one #574 was opened for). Nothing reported any
  * of them.
+ *
+ * The window is pinned to run NUMBERS because the repository is live and these
+ * figures move as you read them: the first pass counted 300/41/36 and twenty
+ * minutes later the same query gave 298/42/37. Every run id is committed in
+ * `docs/deploy/2026-08-18-evicted-deploy-run-evidence.md`, because Actions
+ * history ages out and none of this can be re-derived once it has.
  *
  * ## The invariant, and why it is stated this way
  *
@@ -54,9 +60,10 @@
  *  - **A run still in flight DEFERS rather than passing or failing.** It will
  *    conclude, and its conclusion re-triggers this check. Without the deferral
  *    every eviction reports a gap that resolves minutes later on its own: 125
- *    of the 300 completions above had another run in flight at that instant,
- *    and firing on those is how an alarm gets muted. With it, the same history
- *    produces 22 reports in four weeks, every one of them a state where the
+ *    of the 298 completions above had another run in flight at that instant —
+ *    high precisely because this is the one workflow that SERIALISES — and
+ *    firing on those is how an alarm gets muted. With it, the same history
+ *    produces 23 reports rather than 66, every one of them a state where the
  *    pipeline had genuinely stopped.
  *
  * ## What it deliberately is not
@@ -260,7 +267,13 @@ function describeRun(run) {
 }
 
 /**
- * Check every deploy workflow and report. Returns the failing report lines.
+ * Check every deploy workflow and report.
+ *
+ * Returns `{ problems, deferred }` rather than just the failures, because the
+ * summary line has to be able to tell "every deploy succeeded" from "one is
+ * still running and I did not look". The first version printed the former in
+ * both cases — the precise overclaim this whole check exists to stop, made by
+ * the check itself.
  */
 export async function checkDeployCoverage({
   repository,
@@ -271,6 +284,7 @@ export async function checkDeployCoverage({
   log = console.log,
 }) {
   const problems = [];
+  const deferred = [];
   let workflowsWithRuns = 0;
 
   for (const workflow of workflows) {
@@ -283,6 +297,7 @@ export async function checkDeployCoverage({
       continue;
     }
     if (verdict.state === 'pending') {
+      deferred.push(workflow.name);
       log(
         `${workflow.name}: a run is still in flight, deferring — ` +
           verdict.pending.map(describeRun).join('; '),
@@ -329,7 +344,7 @@ export async function checkDeployCoverage({
     );
   }
 
-  return problems;
+  return { problems, deferred };
 }
 
 async function main() {
@@ -351,8 +366,9 @@ async function main() {
   }
 
   let problems;
+  let deferred;
   try {
-    problems = await checkDeployCoverage({ repository, branch, token });
+    ({ problems, deferred } = await checkDeployCoverage({ repository, branch, token }));
   } catch (error) {
     if (error instanceof CoverageFailure) {
       console.error(`\n${error.message}\n`);
@@ -362,7 +378,16 @@ async function main() {
   }
 
   if (problems.length === 0) {
-    console.log(`\nEvery deploy workflow's newest run on ${branch} succeeded.`);
+    // Say which of the two greens this is. A deferred workflow has a verdict
+    // coming, and its own completion re-runs this check; claiming it succeeded
+    // would be exactly the overclaim #574 is about.
+    console.log(
+      deferred.length === 0
+        ? `\nEvery deploy workflow's newest run on ${branch} succeeded.`
+        : `\nNothing unshipped on ${branch}. Not yet decided for ${deferred.length} of ` +
+            `${DEPLOY_WORKFLOWS.length} (${deferred.join(', ')}) — a run is still in flight, ` +
+            `and its conclusion re-runs this check.`,
+    );
     return;
   }
 

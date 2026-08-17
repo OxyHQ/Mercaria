@@ -169,13 +169,23 @@ invariant, in one line:
 **The hole it closes.** `deploy-aws.yml` serialises on ONE group per ref with
 `cancel-in-progress: false`, and GitHub keeps at most one PENDING run per group
 — so a third arrival **evicts the queued second**, which then executes nothing:
-no rollout, no migration, no notification. Measured over 300 `Deploy to AWS`
-runs on `main` in the four weeks to 2026-08-17: **235 success, 41 cancelled, 15
-failure, 9 action_required.** Those 65 form 36 windows in which a merged commit
-was not in production — median 23.1 minutes, worst **358.2 minutes** — and
-**two of them contained a newly added `post` migration** (`0003`+`0005` on
-2026-08-08 across a 4.5-hour window, and `0106_panoramic_patch` on 2026-08-17,
-the one #574 was opened for). Nothing reported any of it.
+no rollout, no migration, no notification.
+
+Measured over `Deploy to AWS` runs **60–358** on `main` (298 completed,
+2026-07-29 to 2026-08-17): **232 success, 42 cancelled, 15 failure, 9
+action_required.** Those 66 form **37 windows** in which a merged commit was not
+in production — median 23.1 minutes, worst **358.2 minutes** — and **two of them
+contained a newly added `post` migration** (`0003`+`0005` on 2026-08-08 across a
+4.5-hour window, and `0106_panoramic_patch` on 2026-08-17, the one #574 was
+opened for). Nothing reported any of it.
+
+The full table, every run id, and the two migration-carrying windows are in
+**`docs/deploy/2026-08-18-evicted-deploy-run-evidence.md`**, committed because
+Actions run history ages out and these numbers cannot be re-derived once it
+does. **The window is pinned to run NUMBERS rather than to a date range** — the
+repository is live and every figure above moved while it was first being
+written (300/41/36 became 298/42/37 inside twenty minutes), so "the last four
+weeks" reproduces nothing.
 
 **Why the concurrency block was not the thing changed.** Per-sha groups (the
 `ci.yml` shape) would let two runs migrate CONCURRENTLY, and `@oxyhq/db`'s
@@ -209,10 +219,11 @@ the condition this check asserts.
   real history: at 2026-08-17T07:39Z it reported 1 unshipped commit where the
   truth was 3.
 - **A run still in flight DEFERS.** Without it every eviction reports a gap that
-  resolves on its own minutes later — 125 of those 300 completions had another
-  run in flight — and an alarm that fires on work already in hand is one somebody
-  mutes. With it, the same month produces 22 reports, each a state where the
-  pipeline had genuinely stopped.
+  resolves on its own minutes later — 125 of those 298 completions had another
+  run in flight, which is high precisely because this is the one workflow that
+  SERIALISES — and an alarm that fires on work already in hand is one somebody
+  mutes. With it, the same window produces **23** reports rather than 66, each a
+  state where the pipeline had genuinely stopped.
 
 **It reports and does not act.** No bypass input (the cheapest green is a
 successful deploy, which is the remedy) and no re-dispatch: that would make a

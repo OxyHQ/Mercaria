@@ -83,7 +83,7 @@ const coverage: {
     token?: string;
     workflows?: readonly { file: string; name: string; migrations: boolean }[];
     log?: (line: string) => void;
-  }) => Promise<string[]>;
+  }) => Promise<{ problems: string[]; deferred: string[] }>;
 } = await import(pathToFileURL(SCRIPT_PATH).href);
 
 interface WorkflowStep {
