@@ -63,17 +63,22 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  formatDate,
-  formatDateTime,
   formatDistance,
   formatMoney,
-  formatRegionName,
   formatReviewCount,
   formatSourceMoney,
 } from "../packages/ui/src/lib/format.ts";
-// The SAME module again, as a namespace, so the census below can enumerate what
-// it exports rather than pattern-match the text that declares them (#491).
+import { formatDate, formatDateTime } from "../packages/ui/src/lib/date.ts";
+import { formatRegionName } from "../packages/ui/src/lib/region.ts";
+// The SAME modules again, as namespaces, so the census below can enumerate what
+// they export rather than pattern-match the text that declares them (#491).
 import * as formatModule from "../packages/ui/src/lib/format.ts";
+// #488/#489's formatters live in their OWN modules — see each module's note on
+// why they are not in `format.ts`. Censused HERE rather than in a second guard,
+// because a date and a price have the same bidi problem and two scripts
+// answering that question could disagree about it.
+import * as dateModule from "../packages/ui/src/lib/date.ts";
+import * as regionModule from "../packages/ui/src/lib/region.ts";
 import { isolateBidi } from "../packages/ui/src/lib/bidi.ts";
 
 /**
@@ -96,6 +101,21 @@ const ISOLATE_CODE_POINTS = new Set([
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const formatModulePath = resolve(repositoryRoot, "packages/ui/src/lib/format.ts");
+
+/**
+ * Every module whose exported formatters must return isolated strings.
+ *
+ * A LIST rather than one module, because #488/#489's formatters moved out of
+ * `format.ts` (#500 is rewriting that file) and a census that still read only
+ * that file would have gone quietly NARROWER — reconciling cleanly over a
+ * population three functions smaller than the real one, which is the failure a
+ * census has instead of a bug. Each entry is floored individually below.
+ */
+const FORMATTER_MODULES = [
+  { path: "packages/ui/src/lib/format.ts", module: formatModule },
+  { path: "packages/ui/src/lib/date.ts", module: dateModule },
+  { path: "packages/ui/src/lib/region.ts", module: regionModule },
+];
 
 /** `"abc"` → `"U+0061 U+0062 U+0063"`, so a failure message names what it saw. */
 function describeCodePoints(text) {
@@ -270,6 +290,45 @@ checkIsolatedExactly("formatRegionName", "unassigned code", formatRegionName("XX
 checkIsolatedExactly("formatRegionName", "lowercase", formatRegionName("gb", "en"), "United Kingdom");
 
 // ---------------------------------------------------------------------------
+// A MALFORMED locale tag must DEGRADE, never throw.
+//
+// The locale reaching these is the OS's raw value (`getLocales()[0]
+// .languageTag`), and `new Intl.DateTimeFormat("en_US")` — underscore rather
+// than hyphen — raises `RangeError`. Measured against what #513 shipped:
+// `en_US`, `es_ES` and `zh_Hans_CN` all threw. Uncaught in a render path, that
+// white-screens the screen, so this is a real defect rather than a hypothetical.
+//
+// The expectation is the RUNTIME DEFAULT's rendering, because that is the rung
+// the fallback lands on: a runtime that cannot honour the app's locale renders
+// exactly as it did before #488, never worse.
+// ---------------------------------------------------------------------------
+
+for (const malformed of ["en_US", "zh_Hans_CN"]) {
+  checkIsolatedExactly(
+    "formatDate",
+    `malformed tag ${malformed} degrades`,
+    formatDate(SAMPLE_INSTANT, malformed),
+    new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(SAMPLE_INSTANT),
+  );
+}
+checkIsolatedExactly(
+  "formatDateTime",
+  "malformed tag degrades",
+  formatDateTime(SAMPLE_INSTANT, "en_US"),
+  new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" })
+    .format(SAMPLE_INSTANT),
+);
+// The same tag through the region formatter, which retries on the runtime
+// default before giving up — so a device with an odd tag still gets NAMES
+// rather than falling all the way back to bare codes.
+checkIsolatedExactly(
+  "formatRegionName",
+  "malformed tag still resolves a name",
+  formatRegionName("US", "en_US"),
+  new Intl.DisplayNames(undefined, { type: "region", fallback: "none" }).of("US"),
+);
+
+// ---------------------------------------------------------------------------
 // The refusal path is deliberately NOT isolated: absence has nothing to lay out,
 // and a `null` that had become an isolate pair would render as a price of "".
 // ---------------------------------------------------------------------------
@@ -359,15 +418,31 @@ const coveredFormatters = Array.from(exercisedFormatters);
  * callable exports — which is the right population, because a formatter that a
  * screen renders is by definition a function.
  */
-const exportedFormatters = Object.entries(formatModule)
-  .filter(([, value]) => typeof value === "function")
-  .map(([name]) => name);
+const exportedFormatters = FORMATTER_MODULES.flatMap(({ module }) =>
+  Object.entries(module)
+    .filter(([, value]) => typeof value === "function")
+    .map(([name]) => name),
+);
 
 check(
   "the module census found the formatters at all (a broken census reads as a clean zero)",
   exportedFormatters.length > 0,
   `no callable exports found on ${formatModulePath}`,
 );
+
+// A PER-MODULE floor, not only a floor on the union. Without it, a module that
+// resolved to zero callable exports — renamed, moved, or an import that silently
+// answered an empty namespace — would subtract its formatters from the
+// population while the union stayed comfortably above any total floor, and the
+// exact reconciliation below would then reconcile the smaller set perfectly.
+for (const { path, module } of FORMATTER_MODULES) {
+  const own = Object.entries(module).filter(([, value]) => typeof value === "function");
+  check(
+    `${path} contributes at least one formatter to the census`,
+    own.length > 0,
+    "resolved to no callable exports — the census silently shrank rather than failing",
+  );
+}
 
 /**
  * A floor on the population itself, not only on its non-emptiness. `format.ts`

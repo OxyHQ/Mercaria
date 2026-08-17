@@ -86,15 +86,19 @@ export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 // a Latin brand name in an Arabic sentence — adds the export in the diff that
 // uses it.
 export {
-  formatDate,
-  formatDateTime,
   formatDistance,
   formatMoney,
-  formatRegionName,
   formatReviewCount,
   formatSourceMoney,
   type ProductSummary,
 } from "./lib/format";
+
+// Dates (#488) and country names (#489) are their OWN modules rather than part
+// of `./lib/format`, split by subject — see each module's note. They are
+// re-exported from the same barrel, so no consumer's import changed when they
+// moved out of `format.ts`.
+export { formatDate, formatDateTime } from "./lib/date";
+export { formatRegionName } from "./lib/region";
 
 // ---------------------------------------------------------------------------
 // Item condition (#90) — the TRANSLATION KEYS for the shared taxonomy's copy.
