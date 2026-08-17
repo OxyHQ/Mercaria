@@ -38,6 +38,11 @@ import {
   OFFER_FORBIDDEN_RANKING_SIGNALS,
   SEARCH_FORBIDDEN_RELEVANCE_SIGNALS,
 } from '@mercaria/shared-types';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -83,32 +88,29 @@ function sourceFilesUnder(relative: string): string[] {
   return out;
 }
 
-/**
- * The organic discovery surface — what decides WHICH things a buyer sees and in
- * what order. Mirrors `fee-ranking-isolation.test.ts`'s list, because the
- * question "what ranks things" has one answer and two lists of it would drift.
+/*
+ * The organic discovery surface is `__tests__/ranking-surface.ts` — WALKED and
+ * derived from the import graph, shared with every other gate that asserts a
+ * domain cannot influence what a buyer sees.
+ *
+ * It used to be a nineteen-entry `DISCOVERY_PATHS` array here, under a comment
+ * saying it "mirrors `fee-ranking-isolation.test.ts`'s list, because the
+ * question 'what ranks things' has one answer and two lists of it would drift."
+ * Both halves of that had stopped being true. #483 replaced eleven such copies
+ * with the shared derivation and `fee-ranking` was one of them, so the sentence
+ * pointed at a list that no longer existed — and the copy had drifted exactly as
+ * predicted. Measured on `origin/main` at 2771c695: nineteen entries against the
+ * derivation's forty-two, missing all of `db/ranking/`, all of `db/search/`,
+ * five modules of `services/ranking/` (`dominance`, `money`, `policy`,
+ * `policy.service`, `seams`), five of `services/search/`, and eleven derived
+ * controllers and routes including both operator surfaces.
+ *
+ * So wall 1 — "no discovery module references the plan domain" — was being
+ * computed over 45% of the discovery surface, and the 55% it skipped was, by
+ * construction, the part nobody had reviewed against this rule. The copy was
+ * spelled `DISCOVERY_PATHS`, which is why a census keyed on `RANKING_PATHS`
+ * did not find it (#460).
  */
-const DISCOVERY_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-  'services/search/canonical-search.service.ts',
-  'services/search/relevance.ts',
-  'services/search/offer-context.ts',
-  'controllers/search.controller.ts',
-];
 
 /** Reaching the plan domain, from any direction. */
 const PLAN_REFERENCE =
@@ -135,25 +137,31 @@ const CONFIG_REFERENCE = /from '.*config\/index\.js'|config\.[a-z]/;
 
 describe('a merchant plan cannot reach organic discovery', () => {
   it('no discovery module references the plan domain', () => {
-    let scanned = 0;
-    for (const relative of DISCOVERY_PATHS) {
-      const raw = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(raw.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
-      const source = withoutComments(raw);
+    // The derivation's own floors, per SHAPE: this assertion is only as wide as
+    // the walk behind it, and a walk that collapsed to nothing produces exactly
+    // the zero violations a healthy run produces.
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
+      const source = withoutComments(readRankingSurfaceFile(relative));
       expect(
         PLAN_REFERENCE.test(source),
         `${relative} references the merchant plan domain; a plan must never influence ranking`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(DISCOVERY_PATHS.length);
   });
 
   it('no plan or billing module references ranking, search, relationships or reviews', () => {
-    const files = [...sourceFilesUnder('services/entitlements'), ...sourceFilesUnder('services/billing')];
-    // The vacuity floor: a renamed directory would otherwise pass this by
-    // scanning nothing at all.
-    expect(files.length, 'the plan domain scan found almost no files').toBeGreaterThanOrEqual(8);
+    // A floor PER DIRECTORY, never one total: a single number stays satisfied
+    // while one walk returns nothing and the other carries it, which is the
+    // failure a two-directory scan is prone to. Each is today's count, so a
+    // module REMOVED goes red rather than quietly narrowing the wall.
+    const entitlements = sourceFilesUnder('services/entitlements');
+    const billing = sourceFilesUnder('services/billing');
+    expect(entitlements.length, 'the entitlements walk found too few files').toBeGreaterThanOrEqual(
+      5,
+    );
+    expect(billing.length, 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
+    const files = [...entitlements, ...billing];
     for (const file of files) {
       const source = withoutComments(readFileSync(file, 'utf8'));
       expect(
@@ -179,12 +187,20 @@ describe('a merchant plan cannot reach organic discovery', () => {
 
 describe('a billing customer cannot be confused with a Connect account', () => {
   it('no plan or billing module reaches the connected-account half of payments', () => {
-    const files = [
-      ...sourceFilesUnder('services/entitlements'),
-      ...sourceFilesUnder('services/billing'),
-      ...sourceFilesUnder('db/merchantPlans'),
-    ];
-    expect(files.length).toBeGreaterThanOrEqual(12);
+    // Three walks, three floors. `db/merchantPlans` is the one that would go
+    // missing silently: it is the smallest, and under a single total the other
+    // two carry the number on its behalf.
+    const entitlements = sourceFilesUnder('services/entitlements');
+    const billing = sourceFilesUnder('services/billing');
+    const repositories = sourceFilesUnder('db/merchantPlans');
+    expect(entitlements.length, 'the entitlements walk found too few files').toBeGreaterThanOrEqual(
+      5,
+    );
+    expect(billing.length, 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
+    expect(repositories.length, 'the merchantPlans walk found too few files').toBeGreaterThanOrEqual(
+      4,
+    );
+    const files = [...entitlements, ...billing, ...repositories];
     for (const file of files) {
       const source = withoutComments(readFileSync(file, 'utf8'));
       expect(
