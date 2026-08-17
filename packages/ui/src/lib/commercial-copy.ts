@@ -16,8 +16,8 @@
  * `presentation.disclosures` — a list the SERVER composed — through these maps,
  * and never decides for itself that an offer needs an affiliate notice. The
  * only thing a component chooses is which of the two registers to read: the
- * short chip {@link COMMERCIAL_DISCLOSURE_LABELS} or the sentence
- * {@link COMMERCIAL_DISCLOSURE_EXPLANATIONS}.
+ * short chip {@link COMMERCIAL_DISCLOSURE_LABEL_KEYS} or the sentence
+ * {@link COMMERCIAL_DISCLOSURE_EXPLANATION_KEYS}.
  *
  * ## No sentence claims more than the server established
  *
