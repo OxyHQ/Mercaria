@@ -131,7 +131,11 @@ const LOCALES_ROOT = join(REPO_PACKAGES, 'frontend', 'lib', 'i18n', 'locales');
  * A parse failure THROWS rather than being skipped — an unreadable bundle is the
  * "scanned nothing" state, which is the one way this must never be green.
  */
-function localeBundles(): { readonly locale: string; readonly source: string }[] {
+function localeBundles(): {
+  readonly locale: string;
+  readonly source: string;
+  readonly leaves: readonly { readonly key: string; readonly value: string }[];
+}[] {
   return readdirSync(LOCALES_ROOT)
     .filter((name) => name.endsWith('.json'))
     .map((name) => {
