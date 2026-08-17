@@ -623,6 +623,30 @@
         "provider": "Redactado por un modelo de lenguaje a partir de la observación. Todas las cifras vienen de la observación, nunca del modelo."
       },
       "observationDisclaimer": "Un hallazgo es lo que Mercaria vio en ese momento. No se reserva para ti y no es un precio en firme: los precios y la disponibilidad pueden cambiar en cualquier momento."
+    },
+    "facet": {
+      "title": {
+        "offer_price": "Precio",
+        "availability": "Disponibilidad",
+        "condition": "Estado",
+        "market": "Mercado",
+        "offer_channel": "Se vende en",
+        "category": "Categoría"
+      },
+      "availability": {
+        "in_stock": "En stock",
+        "out_of_stock": "Sin stock",
+        "preorder": "Reserva",
+        "unavailable": "No disponible",
+        "unknown": "Sin indicar"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "Otras tiendas"
+      },
+      "market": {
+        "any": "Todos los mercados"
+      }
     }
   }
 }

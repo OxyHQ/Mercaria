@@ -623,6 +623,30 @@
         "provider": "Redactat per un model de llenguatge a partir de l'observació. Totes les xifres vénen de l'observació, mai del model."
       },
       "observationDisclaimer": "Una troballa és el que Mercaria va veure en aquell moment. No es reserva per a tu i no és un preu en ferm: els preus i la disponibilitat poden canviar en qualsevol moment."
+    },
+    "facet": {
+      "title": {
+        "offer_price": "Preu",
+        "availability": "Disponibilitat",
+        "condition": "Estat",
+        "market": "Mercat",
+        "offer_channel": "Es ven a",
+        "category": "Categoria"
+      },
+      "availability": {
+        "in_stock": "En estoc",
+        "out_of_stock": "Sense estoc",
+        "preorder": "Reserva",
+        "unavailable": "No disponible",
+        "unknown": "Sense indicar"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "Altres botigues"
+      },
+      "market": {
+        "any": "Tots els mercats"
+      }
     }
   }
 }

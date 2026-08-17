@@ -623,6 +623,30 @@
         "provider": "Formulé par un modèle de langage à partir de l'observation. Tous les chiffres proviennent de l'observation, jamais du modèle."
       },
       "observationDisclaimer": "Un constat est ce que Mercaria a vu à cet instant. Il n'est pas réservé pour vous et ne constitue pas un prix ferme — les prix et la disponibilité peuvent changer à tout moment."
+    },
+    "facet": {
+      "title": {
+        "offer_price": "Prix",
+        "availability": "Disponibilité",
+        "condition": "État",
+        "market": "Marché",
+        "offer_channel": "Vendu sur",
+        "category": "Catégorie"
+      },
+      "availability": {
+        "in_stock": "En stock",
+        "out_of_stock": "Rupture de stock",
+        "preorder": "Précommande",
+        "unavailable": "Indisponible",
+        "unknown": "Non précisé"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "Autres boutiques"
+      },
+      "market": {
+        "any": "Tous les marchés"
+      }
     }
   }
 }

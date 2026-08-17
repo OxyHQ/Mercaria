@@ -623,6 +623,30 @@
         "provider": "अवलोकन के आधार पर एक भाषा मॉडल ने शब्द दिए। इसमें हर आँकड़ा अवलोकन से आता है, मॉडल से कभी नहीं।"
       },
       "observationDisclaimer": "निष्कर्ष वह है जो Mercaria ने उस क्षण देखा। यह आपके लिए रोका नहीं जाता और यह कोई तय कीमत नहीं है — कीमतें और उपलब्धता कभी भी बदल सकती हैं।"
+    },
+    "facet": {
+      "title": {
+        "offer_price": "क़ीमत",
+        "availability": "उपलब्धता",
+        "condition": "हालत",
+        "market": "बाज़ार",
+        "offer_channel": "कहाँ बिक रहा है",
+        "category": "श्रेणी"
+      },
+      "availability": {
+        "in_stock": "स्टॉक में",
+        "out_of_stock": "स्टॉक ख़त्म",
+        "preorder": "प्री-ऑर्डर",
+        "unavailable": "अनुपलब्ध",
+        "unknown": "बताया नहीं गया"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "अन्य दुकानें"
+      },
+      "market": {
+        "any": "सभी बाज़ार"
+      }
     }
   }
 }

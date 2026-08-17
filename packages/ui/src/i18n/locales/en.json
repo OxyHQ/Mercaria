@@ -623,6 +623,30 @@
         "provider": "Worded by a language model from the observation. Every figure in it comes from the observation, never from the model."
       },
       "observationDisclaimer": "A finding is what Mercaria saw at that moment. It is not held for you and it is not a quoted price — prices and availability can change at any time."
+    },
+    "facet": {
+      "title": {
+        "offer_price": "Price",
+        "availability": "Availability",
+        "condition": "Condition",
+        "market": "Market",
+        "offer_channel": "Sold on",
+        "category": "Category"
+      },
+      "availability": {
+        "in_stock": "In stock",
+        "out_of_stock": "Out of stock",
+        "preorder": "Pre-order",
+        "unavailable": "Unavailable",
+        "unknown": "Not stated"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "Other shops"
+      },
+      "market": {
+        "any": "All markets"
+      }
     }
   }
 }

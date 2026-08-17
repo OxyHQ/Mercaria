@@ -623,6 +623,30 @@
         "provider": "Redigido por um modelo de linguagem a partir da observação. Todos os números vêm da observação, nunca do modelo."
       },
       "observationDisclaimer": "Uma constatação é o que a Mercaria viu naquele momento. Ela não fica reservada para você e não é um preço firme — preços e disponibilidade podem mudar a qualquer momento."
+    },
+    "facet": {
+      "title": {
+        "offer_price": "Preço",
+        "availability": "Disponibilidade",
+        "condition": "Condição",
+        "market": "Mercado",
+        "offer_channel": "Vendido em",
+        "category": "Categoria"
+      },
+      "availability": {
+        "in_stock": "Em estoque",
+        "out_of_stock": "Sem estoque",
+        "preorder": "Pré-venda",
+        "unavailable": "Indisponível",
+        "unknown": "Não informado"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "Outras lojas"
+      },
+      "market": {
+        "any": "Todos os mercados"
+      }
     }
   }
 }
