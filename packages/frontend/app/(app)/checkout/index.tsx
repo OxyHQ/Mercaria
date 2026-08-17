@@ -20,8 +20,8 @@ import {
   PriceDisplay,
   SectionHeader,
   Text,
-  formatMoney,
   formatRegionName,
+  useFormatters,
   CommercialDisclosure,
   commercialSellerLabel,
 } from "@mercaria/ui";
@@ -243,6 +243,7 @@ function PaymentStep({
   onDone: () => void;
 }) {
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
   if (status === "succeeded") {
     return (
       // A live region: this screen changes under the buyer while they are not

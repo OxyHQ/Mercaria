@@ -14,7 +14,7 @@ import {
   SectionHeader,
   Text,
   commercialSellerLabel,
-  formatReviewCount,
+  useFormatters,
   type ProductSummary,
 } from "@mercaria/ui";
 import type { CartGroup, CartVendor, Money } from "@mercaria/shared-types";
@@ -132,6 +132,7 @@ function CartGroupCard({
   onCheckout: (group: CartGroup) => void;
 }) {
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const { vendor, commercial } = group;
   // #129 cart rules 1-3: the SELLER a buyer reads comes from the group's
   // commercial presentation, never from `vendor.name`. `vendor` names whose

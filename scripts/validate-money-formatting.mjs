@@ -151,6 +151,18 @@ const RULES = [
       + "call formatMoney/formatSourceMoney, which already read it",
   },
   {
+    id: "raw-decimal-render",
+    // A `.toFixed(...)` inside a JSX child or a template interpolation — i.e. a
+    // decimal that reaches a reader without passing a formatter. The `[^{}\n]*`
+    // spans deliberately refuse to cross a brace, so a nested template is left
+    // alone rather than matched by accident.
+    pattern: new RegExp(String.raw`(?<![=\w$])(\$?)\{[^{}\n]*\.toFixed\s*\([^{}\n]*\}`, "g"),
+    suggestion:
+      "`toFixed` always emits an ASCII `.`, which is the wrong decimal separator in eight of the "
+      + "twelve shipped locales — render it through useFormatters() (formatRating, formatPercent, "
+      + "formatMoney, formatDistance, formatReviewCount), which spell a numeral for the locale in force",
+  },
+  {
     id: "amount-beside-currency",
     pattern: new RegExp(
       String.raw`(?<![=\w$])(\$?)\{[^{}\n]*\}\s+\1\{[^{}\n]*[Cc]urrency[^{}\n]*\}`,
@@ -188,6 +200,39 @@ const RULES = [
  * whatever is already in it.
  */
 const KNOWN_EXCEPTIONS = [
+  {
+    file: "packages/ui/src/lib/format.ts",
+    pattern: "kilometres.toFixed(1)",
+    rule: "raw-decimal-render",
+    count: 1,
+    reason:
+      "`formatDistance`'s own un-localized fallback. `formatNumber` degrades to the PRE-#500 "
+      + "spelling when the runtime refuses `style: \"unit\"` or the OS hands us a malformed tag, and "
+      + "the whole point of the fallback is that it is the ASCII form. Excused here rather than "
+      + "rewritten, because a localized fallback is a contradiction.",
+  },
+  {
+    file: "packages/ui/src/lib/format.ts",
+    pattern: "BASIS_POINTS_PER_PERCENT).toFixed(1)",
+    rule: "raw-decimal-render",
+    count: 1,
+    reason: "`formatPercent`'s own un-localized fallback — the entry above, one formatter over.",
+  },
+  {
+    file: "packages/ui/src/lib/referral-labels.ts",
+    pattern: "basis.rateBps / 100).toFixed",
+    rule: "raw-decimal-render",
+    count: 1,
+    reason:
+      "DELIBERATELY out of #500's scope, and the reason is the issue's own principle rather than an "
+      + "oversight. Every sentence this module returns is a hardcoded English string ('A fixed amount "
+      + "per qualifying referral, drawn from …') — it predates the #437 conversion. Localizing the "
+      + "numeral inside one would give a German reader '8,2% of realized base': the number in their "
+      + "convention, the words not. That is the same mixed sentence #500 exists to remove, one level "
+      + "up. It goes through a formatter in the change that TRANSLATES this module, and the "
+      + "shrink-only discipline above is what makes this entry fail the build if that happens without "
+      + "somebody removing it.",
+  },
   {
     file: "packages/ui/src/lib/format.ts",
     pattern: "${money.currency}",
@@ -381,6 +426,15 @@ const CONTROL_MUST_MATCH = {
     "        {price.amount} {price.currency}",
     "  return `${major.toFixed(2)} ${money.currency}`;",
   ],
+  // The REAL pre-#500 lines from `ReviewSummaryCard`. The second is the one
+  // worth reading: a localized review count and a raw ASCII rating in ONE
+  // template literal, which is the mixed sentence #500 exists to remove — and
+  // which every gate in this repository was blind to until this rule.
+  "raw-decimal-render": [
+    '              <Text className="text-headerBold text-text">{average.toFixed(1)}</Text>',
+    "                  {`${formatReviewCount(unverified.count)} unverified · ${unverified.rating.toFixed(1)}`}",
+    "        <Text>{(basis.rateBps / 100).toFixed(1)}%</Text>",
+  ],
 };
 
 /**
@@ -400,6 +454,14 @@ const CONTROL_MUST_NOT_MATCH = [
   "  const percent = Math.abs(deltaBps) / 100;",
   "  <TotalRow label=\"Subtotal\" amount={<PriceDisplay price={totals.subtotal} />} />",
   " * It used to print `price.amount` raw, which is integer MINOR units.",
+  // The `raw-decimal-render` remedy, and the shapes it must leave alone. A
+  // guard that flagged its own remedy would be turned off within a day; a
+  // `toFixed` that is NOT on its way to a reader (a parseable prefill, an
+  // intermediate value) is not this rule's business, and the brace is what
+  // tells the two apart.
+  "              <Text>{formatRating(average)}</Text>",
+  "  const rounded = (value / 10).toFixed(2);",
+  "                  {`${formatReviewCount(unverified.count)} unverified · ${formatRating(unverified.rating)}`}",
 ];
 
 for (const rule of RULES) {

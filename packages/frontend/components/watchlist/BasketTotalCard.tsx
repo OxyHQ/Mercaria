@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { formatMoney, Text } from "@mercaria/ui";
+import { Text, useFormatters } from "@mercaria/ui";
 import { hasKnownBasketTotal, type WatchlistBasket } from "@mercaria/shared-types";
 import { useTranslation } from "@/lib/i18n";
 
@@ -36,6 +36,7 @@ import { useTranslation } from "@/lib/i18n";
  */
 export function BasketTotalCard({ basket }: { basket: WatchlistBasket }) {
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
   const total = basket.total;
 
   if (!hasKnownBasketTotal(total)) {

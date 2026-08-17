@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, View } from "react-native";
 import type { Review } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { formatReviewCount } from "../../lib/format";
+import { useFormatters } from "../../lib/use-formatters";
 import { ReviewStars } from "./ReviewStars";
 import { ReviewCard } from "./ReviewCard";
 
@@ -60,6 +60,7 @@ export function ReviewSummaryCard({
   scopeLabel = "Reviews",
   unverified,
 }: ReviewSummaryCardProps) {
+  const { formatRating, formatReviewCount } = useFormatters();
   return (
     <View className="gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
       <Text className="text-subtitle text-text">{scopeLabel}</Text>
@@ -73,7 +74,7 @@ export function ReviewSummaryCard({
           {/* Summary: big average + stars + distribution bars. */}
           <View className="flex-row gap-space-24">
             <View className="items-start">
-              <Text className="text-headerBold text-text">{average.toFixed(1)}</Text>
+              <Text className="text-headerBold text-text">{formatRating(average)}</Text>
               <ReviewStars
                 rating={average}
                 count={total}
@@ -85,7 +86,7 @@ export function ReviewSummaryCard({
               </Text>
               {unverified && unverified.count > 0 ? (
                 <Text className="mt-space-2 text-caption text-text-tertiary">
-                  {`${formatReviewCount(unverified.count)} unverified · ${unverified.rating.toFixed(1)}`}
+                  {`${formatReviewCount(unverified.count)} unverified · ${formatRating(unverified.rating)}`}
                 </Text>
               ) : null}
             </View>

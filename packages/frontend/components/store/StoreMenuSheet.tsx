@@ -21,7 +21,7 @@ import {
   ReviewStars,
   Text,
   formatDate,
-  formatReviewCount,
+  useFormatters,
 } from "@mercaria/ui";
 import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
@@ -298,6 +298,7 @@ function ReviewsPage({
   onPressProduct: (productId: string) => void;
 }) {
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const { data, isLoading } = useStoreReviews(store.handle);
   const reviews = data?.data ?? [];
   const total = data?.pagination.total ?? store.reviewCount;
@@ -382,6 +383,7 @@ function MenuPage({
   onOpenReviews: () => void;
 }) {
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const hasReviews = store.reviewCount > 0;
 
   return (

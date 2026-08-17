@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Text } from "../ui/text";
-import { formatReviewCount } from "../../lib/format";
+import { useFormatters } from "../../lib/use-formatters";
 import { ReviewStars } from "./ReviewStars";
 
 /** Star edge length (px) for the title rating row. */
@@ -28,6 +28,7 @@ export interface RatingLineProps {
  * are no reviews) and what `onPress` does.
  */
 export function RatingLine({ rating, count, onPress, scopeLabel }: RatingLineProps) {
+  const { formatReviewCount } = useFormatters();
   const label = `${formatReviewCount(count)} ratings`;
   const accessibleLabel = scopeLabel ? `${scopeLabel}: ${label}` : label;
 

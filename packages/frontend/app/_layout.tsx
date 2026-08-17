@@ -91,7 +91,7 @@ function RootLayout() {
   // `t`, so a shared sentence and the screen around it are always in one
   // language — and, here, in one layout DIRECTION: the storefront is the app
   // that ships `ar` and mirrors for it (#397).
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Inter: require('../assets/fonts/Inter-VariableFont_opsz,wght.ttf'),
@@ -111,7 +111,7 @@ function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <SharedUiTranslationProvider t={t}>
+      <SharedUiTranslationProvider t={t} locale={locale}>
         <BloomThemeProvider
           defaultMode="system"
           defaultColorPreset="blue"

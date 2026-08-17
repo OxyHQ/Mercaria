@@ -13,6 +13,7 @@ import {
   describeRewardBasis,
   describeWithheldRows,
   formatMoney,
+  useSharedUiLocale,
 } from "@mercaria/ui";
 import {
   REFERRAL_PERFORMANCE_DIMENSIONS,
@@ -289,8 +290,8 @@ function ProgramsCard({
   );
 }
 
-function money(amountMinor: number, currency: CurrencyCode): string {
-  return formatMoney({ amount: amountMinor, currency });
+function money(amountMinor: number, currency: CurrencyCode, locale: string): string {
+  return formatMoney({ amount: amountMinor, currency }, locale);
 }
 
 function EarningsCard({
@@ -299,6 +300,7 @@ function EarningsCard({
   earnings: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["earnings"];
 }) {
   const { t } = useTranslation();
+  const locale = useSharedUiLocale();
   return (
     <Section title={t("referral.earnings.title")}>
       {earnings.byCurrency.length === 0 ? (
@@ -306,10 +308,10 @@ function EarningsCard({
       ) : (
         earnings.byCurrency.map((row: ReferralEarningsByCurrency) => (
           <View key={row.currency} className="gap-space-4">
-            <StateRow state="held" amount={money(row.heldMinor, row.currency)} />
-            <StateRow state="vested" amount={money(row.vestedMinor, row.currency)} />
-            <StateRow state="paid" amount={money(row.paidMinor, row.currency)} />
-            <StateRow state="voided" amount={money(row.reversedMinor, row.currency)} />
+            <StateRow state="held" amount={money(row.heldMinor, row.currency, locale)} />
+            <StateRow state="vested" amount={money(row.vestedMinor, row.currency, locale)} />
+            <StateRow state="paid" amount={money(row.paidMinor, row.currency, locale)} />
+            <StateRow state="voided" amount={money(row.reversedMinor, row.currency, locale)} />
             {/* Two WHOLE sentences rather than one plus an appended
                 parenthetical: where the minimum sits in the sentence, and
                 whether it is parenthesised at all, is a per-language decision a
@@ -317,11 +319,11 @@ function EarningsCard({
             <Text className="text-sm text-foreground">
               {row.payoutMinimumMinor !== undefined
                 ? t("referral.earnings.availableNowWithMinimum", {
-                    amount: money(row.payableNowMinor, row.currency),
-                    minimum: money(row.payoutMinimumMinor, row.currency),
+                    amount: money(row.payableNowMinor, row.currency, locale),
+                    minimum: money(row.payoutMinimumMinor, row.currency, locale),
                   })
                 : t("referral.earnings.availableNow", {
-                    amount: money(row.payableNowMinor, row.currency),
+                    amount: money(row.payableNowMinor, row.currency, locale),
                   })}
             </Text>
             {/* The `countsAgree` device, surfaced. Two stores that must agree
@@ -364,6 +366,7 @@ function PayoutCard({
   payouts: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["payouts"];
 }) {
   const { t } = useTranslation();
+  const locale = useSharedUiLocale();
   return (
     <Section title={t("referral.payouts.title")}>
       <Text className="text-sm text-muted-foreground">
@@ -387,7 +390,7 @@ function PayoutCard({
       ) : (
         payouts.recentPayouts.map((batch, index) => (
           <Text key={`${batch.date}:${index}`} className="text-sm text-foreground">
-            {batch.date} — {money(batch.netPayoutMinor, batch.currency)} —{" "}
+            {batch.date} — {money(batch.netPayoutMinor, batch.currency, locale)} —{" "}
             {REFERRAL_PAYOUT_STATUS_LABELS[batch.status] ?? batch.status}
           </Text>
         ))

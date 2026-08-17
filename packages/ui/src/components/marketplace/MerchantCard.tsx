@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Star } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { formatReviewCount } from "../../lib/format";
+import { useFormatters } from "../../lib/use-formatters";
 import type { StoreSummary } from "@mercaria/shared-types";
 
 /** Fixed card height (px) — the carousel sizes the slot width, the card the height. */
@@ -58,6 +58,7 @@ export function MerchantCard({
   onPressMerchant,
   onPressProduct,
 }: MerchantCardProps) {
+  const { formatReviewCount } = useFormatters();
   const toneColor = merchant.textTone === "light" ? TONE_LIGHT : TONE_DARK;
 
   return (

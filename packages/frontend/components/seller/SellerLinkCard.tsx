@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { useOxy } from "@oxyhq/services";
 import type { Seller } from "@mercaria/shared-types";
-import { ReviewStars, Text, formatReviewCount } from "@mercaria/ui";
+import { ReviewStars, Text, useFormatters } from "@mercaria/ui";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
 import { useTranslation } from "@/lib/i18n";
 import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
@@ -41,6 +41,7 @@ export function SellerLinkCard({
   onPress: () => void;
 }) {
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const { oxyServices } = useOxy();
   const avatarUrl = seller.avatar
     ? oxyServices.getFileDownloadUrl(seller.avatar, "thumb")

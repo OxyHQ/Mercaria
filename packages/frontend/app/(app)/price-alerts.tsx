@@ -4,7 +4,7 @@ import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Bell } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxyhq/services";
-import { PriceAlertCard, Text, formatMoney, useFx } from "@mercaria/ui";
+import { PriceAlertCard, Text, useFormatters, useFx } from "@mercaria/ui";
 import {
   CURRENCY_PRECISION,
   type CurrencyCode,
@@ -121,6 +121,7 @@ export default function PriceAlertsScreen() {
  */
 function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }) {
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
   const { primaryCurrency } = useFx();
   const currency = primaryCurrency as CurrencyCode;
   const suggestion = usePriceAlertSuggestion({ canonicalProductId, currency });

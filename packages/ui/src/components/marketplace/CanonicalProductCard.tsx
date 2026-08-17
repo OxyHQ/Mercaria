@@ -8,7 +8,7 @@ import type {
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { ReviewStars } from "./ReviewStars";
-import { formatMoney, formatReviewCount } from "../../lib/format";
+import { useFormatters } from "../../lib/use-formatters";
 import { cn } from "../../lib/cn";
 
 /**
@@ -69,6 +69,7 @@ export function CanonicalProductCard({
   onPress,
   className,
 }: CanonicalProductCardProps) {
+  const { formatMoney, formatReviewCount } = useFormatters();
   const asset = product.image;
   const imageUrl =
     asset?.state === "displayable" && resolveImage ? resolveImage(asset.fileId) : undefined;

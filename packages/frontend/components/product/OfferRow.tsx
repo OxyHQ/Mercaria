@@ -12,8 +12,7 @@ import {
   OfferLabelBadge,
   Text,
   formatDate,
-  formatMoney,
-  formatSourceMoney,
+  useFormatters,
 } from '@mercaria/ui';
 import config from '../../lib/config';
 import { useTranslation } from '@/lib/i18n';
@@ -239,6 +238,7 @@ function PriceBlock({
   sourcePrice?: OfferMoney;
 }) {
   const { t } = useTranslation();
+  const { formatMoney, formatSourceMoney } = useFormatters();
   const source = sourcePrice === undefined ? null : formatSourceMoney(sourcePrice);
 
   if (price.known === true) {
@@ -275,6 +275,7 @@ function PriceBlock({
 /** Delivery, or the honest statement that nobody published it. */
 function DeliveryLine({ row }: { row: ProductPageOfferRow }) {
   const { t } = useTranslation();
+  const { formatSourceMoney } = useFormatters();
   const delivery = row.offer.delivery;
 
   if (delivery.known === false) {

@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Text } from "@mercaria/ui";
 import type { SellerPriceGuidance, SellerPriceGuidanceSegment } from "@mercaria/shared-types";
-import { formatDate, formatMoney } from "@mercaria/ui";
+import { formatDate, useFormatters } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -53,6 +53,7 @@ const CONFIDENCE_LABEL_KEYS: Record<string, string> = {
 
 export function PriceGuidancePanel({ guidance }: PriceGuidancePanelProps) {
   const { t, locale } = useTranslation();
+  const { formatMoney } = useFormatters();
   const since = formatDate(guidance.from, locale);
   return (
     <View className="gap-3 rounded-2xl border border-border p-4">

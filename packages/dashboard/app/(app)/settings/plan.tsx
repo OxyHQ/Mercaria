@@ -10,7 +10,7 @@ import type {
   MerchantPlanStatusView,
   MerchantSubscriptionStatus,
 } from "@mercaria/shared-types";
-import { Text, Button, useColorScheme, formatMoney } from "@mercaria/ui";
+import { Text, Button, useColorScheme, useFormatters } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -308,6 +308,7 @@ function PlanComparison({
   billingAvailable: boolean;
 }) {
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
   if (loading) return null;
   const paid = plans.filter((plan) => plan.tier === "paid");
   if (paid.length === 0) {
