@@ -122,6 +122,27 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const SHARED_DATABASE_FILE_FLOOR = 80;
 
 /**
+ * The vacuity floor on the TOUCH detectors, and the exact size beside it.
+ *
+ * Two numbers rather than one, because they answer different questions. The floor
+ * is "did the detectors run at all" — a pattern that stopped matching reads
+ * exactly like a healthy estate, and only a floor separates them. The exact count
+ * is "did the population move", which is a prompt to CLASSIFY a new file rather
+ * than a fault in itself.
+ *
+ * The floor is deliberately BELOW the count: it is the number of files that reach
+ * the policy through a CALL or the TABLE — the detectors whose population is a
+ * property of the code rather than of how many tests happen to name an operator
+ * route. Set from the six that existed when the two numbers were split, so a
+ * broken call/table detector still fails here even while the route detectors keep
+ * matching new refusal tests.
+ */
+const TOUCHER_FLOOR = 6;
+
+/** Every file any touch detector matches today. See `TOUCHER_FLOOR`. */
+const TOUCHER_COUNT = 7;
+
+/**
  * Opening the suite's SHARED handle. See the header: this is the scope rule,
  * and it is not interchangeable with "runs against a real server".
  *
@@ -239,6 +260,43 @@ const SLOT_EXEMPT: readonly { readonly file: string; readonly reason: string }[]
 ];
 
 /**
+ * Files the ROUTE detectors match which reach no matching code AT ALL.
+ *
+ * A DIFFERENT category from {@link SLOT_EXEMPT} and the distinction is the point:
+ * an exemption is a real toucher that cannot contend (it writes a DRAFT policy),
+ * while these are files the detector is simply WRONG about. Collapsing the two
+ * would turn "the detector over-matched" into "this toucher is excused", and the
+ * second sentence is the one nobody re-examines.
+ *
+ * Why the route detectors over-match, and why that is not fixable by narrowing
+ * them: they exist because an integration test drives the REAL app with `fetch`
+ * against a path literal and would otherwise spell no function name at all. But a
+ * file asserting that a surface is REFUSED names the same literal — and the
+ * refusal is the whole of what it asserts. Telling those apart statically means a
+ * regex over assertion text, which is more fragile than the census it would
+ * protect. So the detector stays broad and the classification is explicit.
+ *
+ * **Expect this list to grow, and not as erosion.** Naming the nine internal
+ * catalog surfaces and asserting 403-then-404 across them is the house shape for
+ * the operator allow-list convention, so the next file that does it matches too.
+ * Each entry carries a machine-checkable discriminator below, so an entry that
+ * starts really touching fails the build instead of sitting here as a stale
+ * excuse.
+ */
+const ROUTE_LITERAL_ONLY: readonly { readonly file: string; readonly reason: string }[] = [
+  {
+    file: 'routes/__tests__/catalog-rollout.realdb.test.ts',
+    reason:
+      "ADR 0007 D12's rollback gate. It names the operator prefix in a list of nine internal " +
+      'surfaces and sends each one GET twice: once as a NON-operator expecting 403, and once ' +
+      'against a deployment with an empty allow-list expecting 404. Both are decided before any ' +
+      'handler runs, so no matching code is reached. MEASURED, not reasoned: a postgres.js debug ' +
+      'hook over a run of that file captured 28 statements naming categories, listings and ' +
+      'catalog_proposals, and NONE naming the policy table or any other matching table.',
+  },
+];
+
+/**
  * The positive control on the scope rule.
  *
  * `graph-plan-regression.realdb.test.ts` is a real-database file that DOES
@@ -333,24 +391,74 @@ describe('the global active-matching-policy slot', () => {
       if (holdsSlot(source)) holders.push(file);
     }
 
-    // The floor that stops a broken detector reading as a clean estate. Six
-    // files can reach the active policy today and all six must be found.
+    // TWO checks, deliberately separate, because they fail for OPPOSITE reasons
+    // and one message cannot serve both. This was one assertion — an exact
+    // `toHaveLength(6)` carrying the vacuity message — and when the population
+    // GREW it reported that the gate "measured nothing", sending the next reader
+    // to hunt a broken detector instead of at their own new file.
+    //
+    // First the vacuity floor: a detector that stopped matching reads exactly
+    // like a clean estate, and this is the only thing standing between them.
     expect(
-      touchers,
-      'the detectors matched nothing, so this gate measured nothing',
-    ).toHaveLength(6);
+      touchers.length,
+      'the detectors matched fewer files than can exist, so this gate measured nothing',
+    ).toBeGreaterThanOrEqual(TOUCHER_FLOOR);
+
+    // Then the exact size, whose only failure mode is that the population moved.
+    expect(
+      touchers.length,
+      'the number of files the detectors match has CHANGED. If you added one, classify it: make '
+        + 'it take the slot (a holder), or add it to SLOT_EXEMPT if it touches but cannot contend, '
+        + 'or to ROUTE_LITERAL_ONLY if a route detector matched a file that reaches no matching '
+        + 'code — then update TOUCHER_COUNT. Do not just bump the number.',
+    ).toBe(TOUCHER_COUNT);
 
     const exempt = SLOT_EXEMPT.map((entry) => entry.file);
+    const routeOnly = ROUTE_LITERAL_ONLY.map((entry) => entry.file);
 
     // Exact identity, never containment: a containment check passes when a file
     // stops touching, and pinning the sets is what makes a NEW toucher fail the
     // build rather than quietly widen a list.
-    expect([...holders, ...exempt].sort()).toEqual(touchers);
-    // Disjoint, so an exemption can never be spent on a file that already holds
-    // the slot — which would read as coverage for a file it does not cover.
+    expect([...holders, ...exempt, ...routeOnly].sort()).toEqual(touchers);
+    // Disjoint, so an excuse can never be spent on a file that already holds the
+    // slot — which would read as coverage for a file it does not cover. All three
+    // pairs, because two overlapping excuses hide each other.
     expect(holders.filter((file) => exempt.includes(file))).toEqual([]);
-    // Every excuse still describes a real toucher.
+    expect(holders.filter((file) => routeOnly.includes(file))).toEqual([]);
+    expect(exempt.filter((file) => routeOnly.includes(file))).toEqual([]);
+    // Every excuse still describes a real DETECTED file.
     expect(exempt.every((file) => touchers.includes(file))).toBe(true);
+    expect(routeOnly.every((file) => touchers.includes(file))).toBe(true);
+  });
+
+  it('pins the route-literal class, and every entry PROVES it reaches no matching code', () => {
+    // The machine-checkable half of the classification, and what stops this list
+    // being the soft place a real toucher lands. An entry is only legitimate if a
+    // ROUTE detector matched it and NEITHER a call detector NOR the table
+    // detector did — so a file in here that starts calling `runMatch` or
+    // selecting the policy table fails the build rather than staying excused.
+    expect(ROUTE_LITERAL_ONLY.length, 'the route-literal class is unexpectedly large').toBeLessThanOrEqual(
+      3,
+    );
+    for (const entry of ROUTE_LITERAL_ONLY) {
+      const source = read(entry.file);
+      expect(
+        ACTIVE_POLICY_ROUTES.some((pattern) => pattern.test(source)),
+        `${entry.file} no longer matches a route detector, so its entry is stale`,
+      ).toBe(true);
+      expect(
+        ACTIVE_POLICY_CALLS.filter((pattern) => pattern.test(source)).map((p) => p.source),
+        `${entry.file} now CALLS into matching and must take the slot instead`,
+      ).toEqual([]);
+      expect(
+        ACTIVE_POLICY_TABLE.test(source),
+        `${entry.file} now reads or writes the policy table and must take the slot instead`,
+      ).toBe(false);
+      // And it must not silently become a holder either, which would make the
+      // entry unnecessary rather than wrong — caught by the disjointness
+      // assertions above, and stated here so the reason is reviewable.
+      expect(entry.reason.length, entry.file).toBeGreaterThan(80);
+    }
   });
 
   it('pins the exemption list, and every exemption states why', () => {
