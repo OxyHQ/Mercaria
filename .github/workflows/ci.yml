@@ -70,6 +70,8 @@ jobs:
       # file listing and nothing else.
       - name: Guard the AGENTS.md budget
         run: bun run validate:agents-md
+      - name: Lint coverage is pinned (bun run lint covers 1 of 6 packages)
+        run: bun run validate:lint-coverage
 
       # The storefront ships an Arabic bundle (#396) and mirrors its layout from
       # LOGICAL utilities (#397); #434 migrated the dashboard and POS to the same
