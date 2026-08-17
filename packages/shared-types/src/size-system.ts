@@ -326,13 +326,19 @@ export const SIZE_SYSTEM_FORBIDDEN_OPERATIONS: readonly SizeSystemForbiddenOpera
  * convert, and it cannot be asked whether a UK 8 is bigger than an EU 42 —
  * there is no return value in which that could be expressed.
  *
- * The facet order is deliberate and the FIRST refusal is returned, so the
- * reported reason is the coarsest true one: two systems that differ in domain
- * are reported as different domains rather than as an audience mismatch that
- * happens also to hold. `no_sourced_mapping` is last precisely because it is
- * the only refusal that describes something Mercaria could one day have — two
- * systems agreeing on all four facets and differing only in key, which is what
- * a per-product sourced chart would relate.
+ * Each facet is checked independently and the FIRST mismatch is returned, so a
+ * pair differing in exactly one facet always reports that facet — which is the
+ * property `size-system-non-equivalence.test.ts` drives, one constructed pair
+ * per facet, and the reason each of the four checks is separately load-bearing
+ * rather than collectively. A pair differing in SEVERAL reports the first in
+ * the order written here (domain, audience, basis, region); that order is a
+ * presentation choice and any of the mismatches it did not name is equally
+ * true.
+ *
+ * `no_sourced_mapping` is last, and it is the only refusal that describes
+ * something Mercaria could one day have: two systems agreeing on all four
+ * facets and differing only in key, which is what a per-product sourced chart
+ * would relate.
  *
  * Values are compared trimmed and case-folded and NOTHING else. No numeric
  * parse, so `8` and `8.0` are different values rather than equal ones: a size
