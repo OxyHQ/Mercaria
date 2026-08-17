@@ -186,6 +186,10 @@
       "publishingHint": "Keep importing, but stop this channel’s products reaching buyers.",
       "title": "Pause"
     },
+    "pauseScope": {
+      "fetch": "importing",
+      "publication": "publishing"
+    },
     "pausedScopes": "Paused: %{scopes}",
     "readiness": {
       "cardPaymentsOff": "Card payments are off for this deployment",

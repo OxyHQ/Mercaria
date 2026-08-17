@@ -186,6 +186,10 @@
       "publishingHint": "インポートは続けたまま、このチャネルの商品が購入者に表示されないようにします。",
       "title": "一時停止"
     },
+    "pauseScope": {
+      "fetch": "インポート",
+      "publication": "公開"
+    },
     "pausedScopes": "一時停止中：%{scopes}",
     "readiness": {
       "cardPaymentsOff": "このデプロイではカード決済が無効です",

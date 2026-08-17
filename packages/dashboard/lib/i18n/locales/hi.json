@@ -186,6 +186,10 @@
       "publishingHint": "इम्पोर्ट चलता रहेगा, पर इस चैनल के प्रोडक्ट खरीदारों तक नहीं पहुँचेंगे।",
       "title": "रोकें"
     },
+    "pauseScope": {
+      "fetch": "इम्पोर्ट करना",
+      "publication": "पब्लिश करना"
+    },
     "pausedScopes": "रुका हुआ: %{scopes}",
     "readiness": {
       "cardPaymentsOff": "इस डिप्लॉयमेंट पर कार्ड पेमेंट बंद हैं",

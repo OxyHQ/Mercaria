@@ -186,6 +186,10 @@
       "publishingHint": "Continua important, però evita que els productes d'aquest canal arribin als compradors.",
       "title": "Pausa"
     },
+    "pauseScope": {
+      "fetch": "importació",
+      "publication": "publicació"
+    },
     "pausedScopes": "En pausa: %{scopes}",
     "readiness": {
       "cardPaymentsOff": "Els pagaments amb targeta estan desactivats en aquest desplegament",

@@ -42,6 +42,7 @@ import {
 } from "lucide-react-native";
 import type {
   ChannelHealthState,
+  ChannelPauseScope,
   ChannelReadiness,
   ChannelSummary,
   ChannelTypeDescriptor,
@@ -67,6 +68,37 @@ import {
   useChannelSummary,
   useStartChannelOnboarding,
 } from "@/lib/hooks/use-channels";
+
+/**
+ * Translation KEYS per pause scope, not sentences (#485).
+ *
+ * `pausedScopes` is `ChannelPauseScope[]` — the API's wire vocabulary — and it
+ * used to be joined and interpolated into `channels.pausedScopes` verbatim, so
+ * a merchant read "En pausa: fetch y publication" in Spanish and
+ * "موقوف مؤقتًا: fetch و publication" in Arabic. The label around the two words
+ * was translated; the two words carrying the meaning were not.
+ *
+ * Nothing in CI could see it: the values come from an API response, so part A
+ * finds no literal, part B passes (the key exists in all twelve bundles) and
+ * part C passes (both keys are referenced). `docs/app-i18n.md` names this exact
+ * shape under "What the guard cannot see".
+ *
+ * The keys are LITERAL rather than `` t(`channels.pauseScope.${scope}`) ``: a
+ * runtime-built key names no leaf, so part C would report both as dead copy and
+ * refuse them. Written out, part C holds the two sides together — rename one
+ * and the other is referenced by nothing.
+ *
+ * These are TERMS, deliberately distinct from `channels.pause.importing` and
+ * `channels.pause.publishing`, which are the toggle LABELS on the connection
+ * screen. #442 is what happens when one key serves both roles: an action label
+ * is an imperative ("Pause importing"), and interpolating one here would read
+ * "Paused: pause importing". The scope VALUES are untouched — they are the
+ * API's vocabulary, not copy.
+ */
+const CHANNEL_PAUSE_SCOPE_LABEL_KEYS: Record<ChannelPauseScope, string> = {
+  fetch: "channels.pauseScope.fetch",
+  publication: "channels.pauseScope.publication",
+};
 
 export default function ChannelsScreen() {
   const { t } = useTranslation();
@@ -287,7 +319,9 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
                 {channel.pausedScopes.length > 0 ? (
                   <Text className="text-xs font-medium text-muted-foreground">
                     {t("channels.pausedScopes", {
-                      scopes: channel.pausedScopes.join(t("channels.andJoin")),
+                      scopes: channel.pausedScopes
+                        .map((scope) => t(CHANNEL_PAUSE_SCOPE_LABEL_KEYS[scope]))
+                        .join(t("channels.andJoin")),
                     })}
                   </Text>
                 ) : null}
