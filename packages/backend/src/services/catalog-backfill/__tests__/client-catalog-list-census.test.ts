@@ -90,9 +90,42 @@ const HARDCODED_CATALOG_LIST =
 /**
  * A branch on a catalog concept's NAME against a string literal — the two-line
  * version of the same hardcoding.
+ *
+ * BOTH quote styles (#478). This was single-quote only, and the population it
+ * guards is largely DOUBLE-quoted — `packages/ui` included, `VariantSwatches`
+ * included — so the two-line form of the very hardcoding this census exists to
+ * find was invisible in the package that matters. Measured at the widening:
+ * ZERO new offenders, so it is pure hardening rather than a rule change.
  */
 const HARDCODED_CATALOG_COMPARISON =
-  /(?:option|category|productType|facet)\.(?:name|slug|key)\s*(?:===|!==|==)\s*'[^']+'|\.(?:name|slug|key)\.toLowerCase\(\)\s*(?:===|!==)\s*'/u;
+  /(?:option|category|productType|facet)\.(?:name|slug|key)\s*(?:===|!==|==)\s*(['"])[^'"]+\1|\.(?:name|slug|key)\.toLowerCase\(\)\s*(?:===|!==)\s*['"]/u;
+
+/**
+ * A catalog concept's NAME used as a lookup key into some collection — the
+ * shape #478 actually had:
+ *
+ * ```ts
+ * const COLOR_OPTION_NAMES = new Set(["color", "colour", "shade"]);
+ * return COLOR_OPTION_NAMES.has(option.name.trim().toLowerCase());
+ * ```
+ *
+ * This probe exists because the other two key on the CONSTANT'S NAME, and a
+ * rename walks out from under both: `COLOR_NAMES`, `SWATCH_NAMES`, `SIZE_ORDER`,
+ * `ATTRIBUTE_NAMES`, `CONDITION_WORDS`, `AXIS_NAMES` and `MATERIAL_LIST` were
+ * each measured `false` against the list probe. This one keys on the USE — a
+ * catalog concept's free text being looked up — so it is rename-proof by
+ * construction and does not care what the collection is called or where it was
+ * declared.
+ *
+ * Broadening the list probe's NOUNS was measured and REJECTED instead of this.
+ * `SIZE` flags `FONT_SIZE_TOKENS` (typography) and `COLOR`/`OPTION` flags
+ * `COLOR_OPTIONS` (a hex palette in a generic colour picker) — design-system
+ * vocabulary a name-matching detector cannot tell from catalog vocabulary. Each
+ * would need an allow-list entry, re-growing from zero the list #478 just
+ * emptied, to catch strictly less than this probe does.
+ */
+const HARDCODED_CATALOG_MEMBERSHIP =
+  /\.(?:has|includes)\(\s*(?:option|category|productType|facet|attribute)\.(?:name|slug|key)\b/u;
 
 /**
  * The known offenders, with a disposition each.
@@ -189,6 +222,17 @@ describe('the ungated client packages', () => {
     }
   });
 
+  it('looks no catalog concept’s name up in a hardcoded collection', () => {
+    for (const [path, source] of ungatedClientSources()) {
+      expect(
+        HARDCODED_CATALOG_MEMBERSHIP.test(source),
+        `${path} looks a catalog concept's name up in a collection — the #478 shape. ` +
+          'Read the concept from the server (a typed axis, a registry key) rather than ' +
+          'matching its free text',
+      ).toBe(false);
+    }
+  });
+
   it('has probes that fire on the shapes they claim to, and not the rest', () => {
     // The mutation self-test. The negative controls are the ones that earned
     // their place: the first version of the list probe accepted a scalar and
@@ -228,6 +272,47 @@ describe('the ungated client packages', () => {
       expect(
         HARDCODED_CATALOG_COMPARISON.test(negative),
         `comparison probe over-matched: ${negative}`,
+      ).toBe(false);
+    }
+
+    // The DOUBLE-quoted half (#478). Listed separately from the positives above
+    // because these exact spellings were measured `false` before the widening,
+    // in a population that is largely double-quoted — so they are the control
+    // that would catch the probe narrowing back to `'` alone.
+    for (const positive of [
+      'if (option.name === "Color") return true;',
+      'if (option.name.toLowerCase() === "colour") return true;',
+      'category.slug === "shoes"',
+    ]) {
+      expect(
+        HARDCODED_CATALOG_COMPARISON.test(positive),
+        `comparison probe missed a double-quoted literal: ${positive}`,
+      ).toBe(true);
+    }
+
+    // The membership probe, and the RENAMES are the point: the list probe keys
+    // on the constant's name and each of these was measured `false` against it.
+    for (const positive of [
+      'return COLOR_OPTION_NAMES.has(option.name.trim().toLowerCase());',
+      'return SWATCH_WORDS.has(option.name.trim().toLowerCase());',
+      'return PALETTE.includes(option.slug);',
+      'if (KNOWN.has(category.key)) return true;',
+    ]) {
+      expect(
+        HARDCODED_CATALOG_MEMBERSHIP.test(positive),
+        `membership probe missed: ${positive}`,
+      ).toBe(true);
+    }
+    for (const negative of [
+      // A collection keyed on an ID or a server-derived value is the normal,
+      // correct shape — the probe must not fire on selection state.
+      'if (selected.has(variant.id)) return true;',
+      'const s = new Set(response.buckets.map((b) => b.key));',
+      'if (chosen.includes(listing.id)) return true;',
+    ]) {
+      expect(
+        HARDCODED_CATALOG_MEMBERSHIP.test(negative),
+        `membership probe over-matched: ${negative}`,
       ).toBe(false);
     }
   });

@@ -66,20 +66,24 @@ function valueInStock(
  * more locales rather than fixing one. A pill reading `Negro` is true in every
  * language, so pills are both the smaller change and the honest one.
  *
- * ## What a real swatch needs, so the seam is named rather than implied
+ * ## What a real swatch needs, and the two are not the same kind of work
  *
- * Two facts, neither of which reaches a client today:
- *
- * - **Which attribute this option is.** `native_listing_variant_axes` (#367
- *   step 4) cites an `attribute_definitions` row and version, but no route
- *   serves it: `ListingOption` is `{name, values}` and the hydration path
- *   (`catalog-hydration.service.ts`) maps the legacy free-text rows straight
- *   through.
- * - **What the value looks like.** A colour on the enum value, or a real
- *   per-value image. Neither column exists.
- *
- * With both, the widget becomes a lookup rather than a guess, and the swatch
- * shows the product's colour rather than a hash of its name.
+ * - **Which attribute this option is** — an existing seam that is merely
+ *   unplumbed. `native_listing_variant_axes` (#367 step 4) already cites an
+ *   `attribute_definitions` row and its exact version, and the resolver's
+ *   refusal vocabulary (`unmapped`, `ambiguous`) is language-neutral by
+ *   design: an operator aliases `Tono` to the `color` attribute in one
+ *   versioned registry and no component learns a fourth language. What is
+ *   missing is delivery — no route serves an axis, so `ListingOption` is still
+ *   `{name, values}` and `catalog-hydration.service.ts` maps the legacy
+ *   free-text rows straight through.
+ * - **What the value looks like** — NOT a seam. There is no dormant column
+ *   here to switch on: `attribute_enum_values` holds `value`, `label`,
+ *   `position` and bookkeeping, nothing presentational beyond ordering, and no
+ *   `displayHint`/`renderAs`/`swatchColor`/`hexColor` concept exists anywhere
+ *   in shared-types or the schema. So knowing the attribute would fix the
+ *   WIDGET choice and leave the TONE fabricated exactly as before. A real
+ *   swatch needs a new schema decision, and it should be made as one.
  */
 export function VariantSwatches({
   option,
