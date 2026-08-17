@@ -3477,6 +3477,43 @@ export interface CatalogAuthoringConfig {
   readonly canonicalSearchLimit: number;
 }
 
+/**
+ * Catalog proposals and operator review (#367 step 6, ADR 0007 D9/D12).
+ *
+ * ONE lever, and it gates the MOUNT and nothing else. `CATALOG_PROPOSALS_ENABLED`
+ * off means `/catalog-proposals` does not exist; it does NOT gate a stored row, a
+ * decision or the operator surface, because the evidence has to be readable
+ * during the incident that turned the merchant surface off — the
+ * `/internal/product-saves` arrangement, for its reason.
+ *
+ * The five numbers beside it are BOUNDS rather than levers, and two of them are
+ * the durable half of the rate limit. "How many proposals has this store asked
+ * for today, across every ECS task" is not a question a per-IP bucket can answer,
+ * and the per-IP bucket is the one thing an abusive integration does not have to
+ * share (#83's four-axis device, with the two axes this domain actually needs).
+ *
+ * `duplicateNearThreshold` decides which trigram scores are recorded as EVIDENCE
+ * for a reviewer. It cannot refuse a submission — only the exact and alias
+ * detectors can (`CATALOG_PROPOSAL_BLOCKING_DETECTORS`) — so raising it loses a
+ * reviewer some context and can never turn a legitimate request away.
+ */
+export interface CatalogProposalsConfig {
+  /** `CATALOG_PROPOSALS_ENABLED` — mounts the merchant surface. Default false. */
+  readonly enabled: boolean;
+  /** The durable per-account axis, counted in Postgres. */
+  readonly maxPerSubmitterPerHour: number;
+  /** The durable per-store axis, counted in Postgres. */
+  readonly maxPerStorePerDay: number;
+  /** How many near matches one probe returns, before the threshold is applied. */
+  readonly duplicateNearLimit: number;
+  /** The similarity at or above which a near match is recorded as evidence. */
+  readonly duplicateNearThreshold: number;
+  /** How many references one backfill pass applies. */
+  readonly backfillPageSize: number;
+  /** How many proposals one page of a list returns. */
+  readonly pageSize: number;
+}
+
 export interface AppConfig {
   readonly pagination: PaginationConfig;
   readonly catalog: CatalogConfig;
@@ -3526,6 +3563,7 @@ export interface AppConfig {
   readonly connectors: ConnectorsConfig;
   readonly pickup: PickupConfig;
   readonly catalogAuthoring: CatalogAuthoringConfig;
+  readonly catalogProposals: CatalogProposalsConfig;
   readonly postgres: PostgresConfig;
 }
 
@@ -4352,6 +4390,15 @@ export const config: AppConfig = Object.freeze({
     draftPageSize: intEnv('CATALOG_AUTHORING_DRAFT_PAGE_SIZE', 50),
     categoryPageSize: intEnv('CATALOG_AUTHORING_CATEGORY_PAGE_SIZE', 200),
     canonicalSearchLimit: intEnv('CATALOG_AUTHORING_CANONICAL_SEARCH_LIMIT', 20),
+  }),
+  catalogProposals: Object.freeze({
+    enabled: boolEnv('CATALOG_PROPOSALS_ENABLED', false),
+    maxPerSubmitterPerHour: intEnv('CATALOG_PROPOSAL_MAX_PER_SUBMITTER_PER_HOUR', 20),
+    maxPerStorePerDay: intEnv('CATALOG_PROPOSAL_MAX_PER_STORE_PER_DAY', 100),
+    duplicateNearLimit: intEnv('CATALOG_PROPOSAL_DUPLICATE_NEAR_LIMIT', 10),
+    duplicateNearThreshold: numEnv('CATALOG_PROPOSAL_DUPLICATE_NEAR_THRESHOLD', 0.45),
+    backfillPageSize: intEnv('CATALOG_PROPOSAL_BACKFILL_PAGE_SIZE', 100),
+    pageSize: intEnv('CATALOG_PROPOSAL_PAGE_SIZE', 50),
   }),
   postgres: Object.freeze({
     url: resolveDatabaseUrl(),

@@ -716,3 +716,18 @@ export * from './variant-axis';
 // and the rest — restating #94's reserved-key CHECK at the layer where a client
 // would otherwise learn to write `fields.price`.
 export * from './authoring-schema';
+
+// Catalog proposals and operator review (#367 step 6, ADR 0007 D9) — the LAST
+// export, because a proposal is a request ABOUT the vocabularies above it and
+// defines none of its own. It names a `CatalogProposalType` and a label, and it
+// deliberately has no `key` field anywhere a submitter can reach: ADR 0007 D1
+// makes the machine key identity, so a submitter able to propose one would be
+// proposing what every seed, mapping and export later cites.
+//
+// The two tuples to read together are `CATALOG_PROPOSAL_MINTABLE_TYPES` (one
+// member) and `CATALOG_PROPOSAL_LINK_ONLY_TYPES` (seven, each naming the surface
+// that owns creating one). They are disjoint and their union is
+// `CATALOG_PROPOSAL_TYPES` exactly — a census a test runs — and together they
+// are how "a merchant proposal never becomes globally trusted data by being
+// submitted" is a shape rather than a rule somebody remembers.
+export * from './catalog-proposal';

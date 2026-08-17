@@ -116,6 +116,8 @@ import navigationRouter from './routes/navigation.js';
 import internalNavigationRouter from './routes/internal-navigation.js';
 import catalogAuthoringRouter from './routes/catalog-authoring.js';
 import productDraftsRouter from './routes/product-drafts.js';
+import catalogProposalsRouter from './routes/catalog-proposals.js';
+import internalCatalogProposalsRouter from './routes/internal-catalog-proposals.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -239,6 +241,32 @@ export function createApp(): express.Express {
   if (config.catalogAuthoring.enabled) {
     app.use('/stores/:storeId/product-drafts', productDraftsRouter);
     app.use('/catalog-authoring', catalogAuthoringRouter);
+  }
+  /**
+   * Catalog proposals (#367 step 6, ADR 0007 D9), at the path D10 finalizes.
+   * Well after `express.json()` — an ordinary JSON write with no signature to
+   * verify — and before `/stores`, for the reason the drafts are: `storesRouter`
+   * is the PUBLIC store page and its own `optionalAuth` matches every path under
+   * that prefix.
+   *
+   * `CATALOG_PROPOSALS_ENABLED` (D12) gates the MOUNT and never a stored row: a
+   * proposal already submitted stays submitted with it off, and an operator can
+   * still decide it — because a rollback that stranded a merchant's request with
+   * nobody able to answer it is one nobody would pull.
+   */
+  if (config.catalogProposals.enabled) {
+    app.use('/catalog-proposals', catalogProposalsRouter);
+  }
+  /**
+   * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`
+   * allow-list, and deliberately NOT gated on `CATALOG_PROPOSALS_ENABLED`.
+   *
+   * The `/internal/product-saves` arrangement, for its reason: the evidence has
+   * to be readable during the incident that turned the merchant surface off, and
+   * a request already submitted still deserves an answer.
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/catalog-proposals', internalCatalogProposalsRouter);
   }
   app.use('/stores', storesRouter);
   app.use('/favorites', favoritesRouter);

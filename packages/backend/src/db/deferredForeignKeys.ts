@@ -2018,4 +2018,27 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'cascade would be wrong even if there were, because a register row must outlive ' +
       'the change it records or the invalidation disappears with it.',
   },
+  // Catalog proposals and operator review (#367 step 6, ADR 0007 D9).
+  { column: 'catalog_proposals.submitted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_proposals.decided_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_review_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'catalog_proposals.resolved_entity_id',
+    reason:
+      'The catalogue entity an approved or merged proposal became (#367 step 6). Polymorphic by ' +
+      'the proposal’s own `type` over eight entity kinds, so there is no one table to reference ' +
+      '— and four of the eight are MERGEABLE, where a `restrict` key would let an answered ' +
+      'proposal block a catalogue merge and every other `ON DELETE` would erase or silently ' +
+      'empty the record of what an operator decided. A resolved id that has since been merged ' +
+      'resolves through the tombstone’s own `merged_into_id`, the `catalog_authoring_drafts` ' +
+      'selection ruling.',
+  },
+  {
+    column: 'catalog_proposal_duplicate_candidates.candidate_ref',
+    reason:
+      'What a duplicate scan compared against (#367 step 6) — an existing entity of any of the ' +
+      'eight proposal kinds, or another open proposal. It is EVIDENCE of what the detector saw ' +
+      'at one instant rather than a live pointer, so a key would additionally make a stale scan ' +
+      'record able to block a merge or a retirement it has no opinion about.',
+  },
 ];
