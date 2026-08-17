@@ -12,7 +12,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, is, sql } from 'drizzle-orm';
+import { PgTable, getTableConfig } from 'drizzle-orm/pg-core';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
@@ -858,6 +859,25 @@ describe('ONE authoritative attribute definition registry (#367)', () => {
    * table in 445 carries that pair. Neither is a superset of the other, so both
    * are asserted EXACTLY rather than as floors.
    */
+  /**
+   * Live base tables that no drizzle `pgTable` declares.
+   *
+   * Measured, not assumed — the gate named it on its first run. There is exactly
+   * ONE: `spatial_ref_sys`, PostGIS's spatial-reference catalogue, created by
+   * `CREATE EXTENSION postgis` and owned by a privileged role rather than by any
+   * migration in this repo.
+   *
+   * Worth stating what it is NOT: the migration ledger. Drizzle keeps that in the
+   * `drizzle` SCHEMA, so a census filtered to `public` never sees it — which is
+   * why "the extra table is probably the ledger" would have been a plausible,
+   * confident and wrong answer.
+   *
+   * Kept EXACT: a new entry means somebody created a table from hand-written
+   * migration SQL, which is legitimate and is precisely the thing a barrel walk
+   * cannot see.
+   */
+  const UNMODELLED_LIVE_TABLES: readonly string[] = ['spatial_ref_sys'];
+
   interface TableShape {
     readonly name: string;
     readonly columns: ReadonlySet<string>;
@@ -895,6 +915,30 @@ describe('ONE authoritative attribute definition registry (#367)', () => {
     process.stdout.write(
       `attribute registry census: ${String(shapes.length)} tables in the live schema\n`,
     );
+  });
+
+  it('accounts for every live table drizzle does not model', async () => {
+    // 446 live base tables against 445 `pgTable` declarations in source. That gap
+    // is the reason this census reads `information_schema` rather than the barrel
+    // — and a base table nothing in source models is boring 99 times and a
+    // finding the hundredth, so it is NAMED rather than left as an off-by-one.
+    const barrel = await import('../schema/index.js');
+    const modelled = new Set<string>();
+    for (const value of Object.values(barrel)) {
+      if (is(value, PgTable)) modelled.add(getTableConfig(value).name);
+    }
+    const unmodelled = shapes
+      .map((table) => table.name)
+      .filter((name) => !modelled.has(name))
+      .sort();
+    // The positive control: the barrel really was walked. An import that resolved
+    // to an empty module would make every live table "unmodelled" and the
+    // assertion below would fail loudly — but a floor says so in one line.
+    expect(modelled.size, 'the barrel walk found no tables at all').toBeGreaterThan(300);
+    expect(
+      unmodelled,
+      `live base tables that no \`pgTable\` in the barrel declares: ${unmodelled.join(', ')}`,
+    ).toEqual(UNMODELLED_LIVE_TABLES);
   });
 
   it('has exactly one table whose NAME claims to define attributes', () => {
