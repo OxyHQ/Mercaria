@@ -270,6 +270,84 @@
         "one": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。",
         "other": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。"
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "販売元: Mercaria",
+          "fulfilled_by_approved_partner": "認定パートナーが発送",
+          "sold_by_merchant": "販売元: 出品者",
+          "external_checkout": "販売店のサイトで購入手続き",
+          "affiliate_disclosure": "当社が手数料を受け取る場合があります",
+          "referral_disclosure": "パートナーリンク経由",
+          "supply_confirmation_pending": "在庫を確認中",
+          "price_or_availability_changed": "価格または在庫が変わりました",
+          "procurement_failed_refund_pending": "入荷できませんでした — 返金手続き中",
+          "returns_and_warranty": "返品と保証",
+          "tax_or_import_uncertainty": "輸入税がかかる場合があります",
+          "product_recall_or_safety_notice": "安全に関するお知らせ"
+        },
+        "explanation": {
+          "sold_by_mercaria": "この商品の販売者は Mercaria です。契約、支払い、返品はいずれも Mercaria との間で行われます。",
+          "fulfilled_by_approved_partner": "認定フルフィルメントパートナーが自社在庫から発送します。販売者は引き続き Mercaria です。",
+          "sold_by_merchant": "この商品は上記の出品者が販売します。支払いは Mercaria が処理します。",
+          "external_checkout": "この購入は販売店自身のサイトで完了します。Mercaria は支払いを受け取らず、注文も返品も扱いません。",
+          "affiliate_disclosure": "このリンク経由でご購入いただくと、Mercaria が手数料を受け取る場合があります。お支払い額や掲載順序は変わりません。",
+          "referral_disclosure": "パートナーリンク経由でアクセスされました。価格、販売者、お客様の権利は変わりません。",
+          "supply_confirmation_pending": "支払いを受け付けました。この注文を確定する前に、フルフィルメントパートナーに在庫を確認しています。",
+          "price_or_availability_changed": "カート内の商品の価格または在庫が、追加時から変更されました。お支払い前にご確認ください。",
+          "procurement_failed_refund_pending": "この商品を入荷できませんでした。返金はすでに手続き済みで、お支払いのカードに返金されます。",
+          "returns_and_warranty": "表示された期間内にご返送ください。法定保証は表示された期間について適用されます。",
+          "tax_or_import_uncertainty": "この配送先では、配達時に輸入関税または税金が課される場合があります。最終的な金額はお伝えできません。",
+          "product_recall_or_safety_notice": "この製品には安全に関するお知らせがあります。お知らせをお読みになるまで使用しないでください。"
+        }
+      },
+      "seller": {
+        "externalFallback": "別の販売店",
+        "notForSale": "ここでは販売していません"
+      },
+      "a11ySeller": "販売者: %{label}",
+      "a11yDisclosure": "開示事項: %{label}",
+      "rights": "ご注文から %{cancellationHours} 時間以内はキャンセル、配達から %{withdrawalDays} 日以内は撤回、%{returnDays} 日以内は返品が可能で、法定保証は %{warrantyMonths} か月間です。",
+      "progress": {
+        "label": {
+          "awaiting_payment": "支払い待ち",
+          "confirming_availability": "在庫を確認中",
+          "confirmed": "確定済み",
+          "on_the_way": "配送中",
+          "delivered": "配達済み",
+          "cancelled": "キャンセル済み",
+          "partially_refunded": "一部返金済み",
+          "refunded": "返金済み"
+        },
+        "explanation": {
+          "awaiting_payment": "お支払いをまだ確認できていません。",
+          "confirming_availability": "支払いを受け付けました — フルフィルメントパートナーに在庫を確認しています。",
+          "confirmed": "フルフィルメントパートナーがご注文を受け付け、準備しています。",
+          "on_the_way": "ご注文はフルフィルメントパートナーから出荷されました。",
+          "delivered": "ご注文は配達されました。",
+          "cancelled": "この注文はキャンセルされました。",
+          "partially_refunded": "この注文の一部が返金されました。",
+          "refunded": "この注文は返金されました。"
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "お届け先をお知らせいただければ、価格をご提示できます。",
+        "shipping_not_quotable": "現在、この配送先の配送料を取得できません。",
+        "undocumented_supplier_fee": "説明できない費用があるため、合計金額はご提示しません。",
+        "tax_undetermined": "この配送先の税額を判断できません。",
+        "market_not_supported": "この商品をその市場に販売することはできません。",
+        "supplier_price_unavailable": "この商品の現在の価格がありません。",
+        "fx_rate_unavailable": "現在、この価格をお客様の通貨に換算できません。",
+        "payment_cost_undetermined": "この注文の決済費用を判断できません。",
+        "component_not_permitted_by_policy": "この商品の費用の一部は、お客様にご負担いただけないものです。",
+        "policy_missing": "この商品には現在、販売価格が設定されていません。"
+      },
+      "unquoted": {
+        "no_current_quote": "この商品の現在の価格がありません。",
+        "destination_not_supplied": "お届け先をお知らせいただければ、価格をご提示できます。",
+        "retail_not_enabled": "この商品は現在販売しておりません。"
+      }
     }
   }
 }

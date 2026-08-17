@@ -298,6 +298,23 @@ const MODE_INFERENCE_REFERENCE =
 const RANKING_REFERENCE = /\/ranking\/|rankOffers|rankOfferComparison|rankingPolicy|scoreOffer/;
 
 /**
+ * The order page deriving its seller from the ORDER's commercial presentation.
+ *
+ * RETARGETED by #490, not relaxed. `commercialSellerLabel` now takes the
+ * translator first (`priceSignalAccessibleSummary`'s shape), so the previous
+ * spelling — which required `order.commercial` to be the only argument — went
+ * red on a correct change. That is the dangerous direction: a present-assertion
+ * reddening during an unrelated refactor points straight at the line it guards,
+ * and the cheapest way back to green is deleting it.
+ *
+ * The argument list may grow; the SUBJECT stays pinned. Self-tested in both
+ * directions below, because an exception-shaped pattern that matches nothing is
+ * indistinguishable from one that matches the right thing.
+ */
+const SELLER_FROM_ORDER_PRESENTATION =
+  /commercialSellerLabel\((?:[^)]*,\s*)?order\.commercial\b/;
+
+/**
  * The `@mercaria/ui` modules that compose what a buyer reads on the commercial
  * surface — the two the walls below already scan as SOURCE.
  *
@@ -335,11 +352,21 @@ function messageKeysIn(source: string): string[] {
   return [...new Set([...source.matchAll(UI_MESSAGE_KEY)].map((match) => match[1]))].sort();
 }
 
-/** Every `ui.*` message key the buyer-facing commercial modules name. */
+/**
+ * Every `ui.*` message key the buyer-facing commercial modules name IN CODE.
+ *
+ * Comment-stripped, and that is load-bearing rather than tidy: a docblock
+ * explaining the conversion writes `` `ui.commercial.disclosure.*` `` in prose,
+ * and a markdown backtick is the same character the extractor accepts as a
+ * string delimiter. Read raw, the census demands that a NAMESPACE MENTIONED IN
+ * A SENTENCE resolve to a bundle leaf, and the tripwire fails on documentation.
+ * Measured here on #490's own first run — the sanctioned resolution is the
+ * house rule that a census over source excludes comments.
+ */
 function buyerCopyMessageKeys(): string[] {
   return [
     ...new Set(
-      BUYER_COPY_MODULES.flatMap((relative) => messageKeysIn(readSource(REPO_PACKAGES, relative))),
+      BUYER_COPY_MODULES.flatMap((relative) => messageKeysIn(readCode(REPO_PACKAGES, relative))),
     ),
   ].sort();
 }
@@ -587,7 +614,7 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     // and [] is also what a BROKEN extractor returns. Running it over a module
     // that HAS been converted is what tells those two apart — without this the
     // tripwire would read as armed while being incapable of ever firing.
-    const control = messageKeysIn(readSource(REPO_PACKAGES, 'ui/src/lib/condition.ts'));
+    const control = messageKeysIn(readCode(REPO_PACKAGES, 'ui/src/lib/condition.ts'));
     expect(
       control.length,
       'the message-key extraction found nothing in an ALREADY-converted module, so it would ' +
@@ -677,7 +704,7 @@ describe('a customer commercial surface cannot reach what it must not', () => {
 
     const orderDetail = readCode(REPO_PACKAGES, 'frontend/app/(app)/orders/[id].tsx');
     expect(
-      /commercialSellerLabel\(order\.commercial\)/.test(orderDetail),
+      SELLER_FROM_ORDER_PRESENTATION.test(orderDetail),
       'the order page no longer derives its seller from the order\'s commercial presentation',
     ).toBe(true);
     expect(
@@ -707,6 +734,28 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     expect(MODE_INFERENCE_REFERENCE.test('if (seller.includes("Mercaria")) return;')).toBe(true);
     expect(RANKING_REFERENCE.test("from '../ranking/comparison.service.js'")).toBe(true);
     expect(RANKING_REFERENCE.test('await rankOfferComparison(request)')).toBe(true);
+
+    // The retargeted seller detector, BOTH directions (#490). It must accept the
+    // argument list growing and still refuse every way of naming a seller that
+    // is not the order's own commercial presentation — otherwise "retargeted"
+    // is a relaxation wearing a better word.
+    expect(SELLER_FROM_ORDER_PRESENTATION.test('commercialSellerLabel(order.commercial)')).toBe(
+      true,
+    );
+    expect(SELLER_FROM_ORDER_PRESENTATION.test('commercialSellerLabel(t, order.commercial)')).toBe(
+      true,
+    );
+    expect(
+      SELLER_FROM_ORDER_PRESENTATION.test('const n = order.store?.name ?? order.seller?.displayName;'),
+    ).toBe(false);
+    // A DIFFERENT subject must not satisfy it — this is the half a `[^)]*`
+    // pattern gets wrong, by letting anything at all sit before the comma.
+    expect(SELLER_FROM_ORDER_PRESENTATION.test('commercialSellerLabel(t, vendor.commercial)')).toBe(
+      false,
+    );
+    expect(SELLER_FROM_ORDER_PRESENTATION.test('commercialSellerLabel(t, order.commercialish)')).toBe(
+      false,
+    );
   });
 
   /**

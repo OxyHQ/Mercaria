@@ -270,6 +270,84 @@
         "one": "هناك %{count} حقل آخر محجوز عن المزامنة لا تستطيع هذه الشاشة تسميته.",
         "other": "هناك %{count} حقول أخرى محجوزة عن المزامنة لا تستطيع هذه الشاشة تسميتها."
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "يبيعه Mercaria",
+          "fulfilled_by_approved_partner": "يشحنه شريك معتمد",
+          "sold_by_merchant": "يبيعه التاجر",
+          "external_checkout": "إتمام الشراء على موقع المتجر",
+          "affiliate_disclosure": "قد نحصل على عمولة",
+          "referral_disclosure": "تمت مشاركته عبر رابط شريك",
+          "supply_confirmation_pending": "جارٍ تأكيد التوفر",
+          "price_or_availability_changed": "تغيّر السعر أو التوفر",
+          "procurement_failed_refund_pending": "تعذّر توفيره — الاسترداد في طريقه إليك",
+          "returns_and_warranty": "الإرجاع والضمان",
+          "tax_or_import_uncertainty": "قد تُطبَّق رسوم استيراد",
+          "product_recall_or_safety_notice": "تنبيه سلامة"
+        },
+        "explanation": {
+          "sold_by_mercaria": "‏Mercaria هو بائع هذا المنتج. عقدك ودفعك وإرجاعك تتم مع Mercaria.",
+          "fulfilled_by_approved_partner": "يشحن شريك تنفيذ معتمد هذا المنتج من مخزونه الخاص. ويظل Mercaria هو البائع.",
+          "sold_by_merchant": "يبيع هذا المنتج التاجر المذكور أعلاه. ويعالج Mercaria عملية الدفع.",
+          "external_checkout": "ستُكمل هذه العملية على موقع المتجر نفسه. لا يتلقى Mercaria الدفع ولا يدير الطلب ولا الإرجاع.",
+          "affiliate_disclosure": "قد يحصل Mercaria على عمولة إذا اشتريت عبر هذا الرابط. لا يغيّر ذلك السعر الذي تدفعه ولا ترتيب العروض.",
+          "referral_disclosure": "لقد وصلت عبر رابط شريك. لا يغيّر ذلك السعر ولا البائع ولا حقوقك.",
+          "supply_confirmation_pending": "تم استلام الدفع. نؤكد التوفر مع شريك التنفيذ قبل تأكيد هذا الطلب.",
+          "price_or_availability_changed": "تغيّر سعر أو توفر أحد العناصر في سلتك منذ أن أضفته. تحقق قبل الدفع.",
+          "procurement_failed_refund_pending": "تعذّر علينا توفير هذا المنتج. بدأ استرداد أموالك بالفعل؛ وسيصل إلى البطاقة التي دفعت بها.",
+          "returns_and_warranty": "أرجِع المنتج خلال المدة المعروضة؛ ويسري الضمان القانوني طوال المدة المعروضة.",
+          "tax_or_import_uncertainty": "قد تُفرض رسوم أو ضرائب استيراد عند التسليم إلى هذه الوجهة. لا يمكننا تحديد مبلغ نهائي.",
+          "product_recall_or_safety_notice": "يوجد تنبيه سلامة يخص هذا المنتج. لا تستخدمه قبل قراءة التنبيه."
+        }
+      },
+      "seller": {
+        "externalFallback": "متجر آخر",
+        "notForSale": "غير معروض للبيع هنا"
+      },
+      "a11ySeller": "البائع: %{label}",
+      "a11yDisclosure": "إفصاح: %{label}",
+      "rights": "يمكنك الإلغاء خلال %{cancellationHours} ساعة من الطلب، والانسحاب خلال %{withdrawalDays} يومًا من التسليم، والإرجاع خلال %{returnDays} يومًا، ويسري الضمان القانوني لمدة %{warrantyMonths} شهرًا.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "في انتظار الدفع",
+          "confirming_availability": "جارٍ تأكيد التوفر",
+          "confirmed": "مؤكَّد",
+          "on_the_way": "في الطريق",
+          "delivered": "تم التسليم",
+          "cancelled": "ملغى",
+          "partially_refunded": "مسترد جزئيًا",
+          "refunded": "مسترد"
+        },
+        "explanation": {
+          "awaiting_payment": "لم نستلم دفعتك بعد.",
+          "confirming_availability": "تم استلام الدفع — نؤكد التوفر مع شريك التنفيذ.",
+          "confirmed": "قبِل شريك التنفيذ طلبك ويجهّزه الآن.",
+          "on_the_way": "غادر طلبك شريك التنفيذ.",
+          "delivered": "تم تسليم طلبك.",
+          "cancelled": "تم إلغاء هذا الطلب.",
+          "partially_refunded": "تم استرداد جزء من هذا الطلب.",
+          "refunded": "تم استرداد هذا الطلب."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "أخبِرنا بوجهة الشحن وسنحدّد السعر.",
+        "shipping_not_quotable": "لا يمكننا الحصول على سعر التوصيل لهذه الوجهة الآن.",
+        "undocumented_supplier_fee": "توجد تكلفة لا يمكننا تفسيرها، لذا لن نعرض إجماليًا.",
+        "tax_undetermined": "لا يمكننا تحديد الضريبة لهذه الوجهة.",
+        "market_not_supported": "لا يمكننا بيع هذا المنتج إلى ذلك السوق.",
+        "supplier_price_unavailable": "ليس لدينا سعر حالي لهذا المنتج.",
+        "fx_rate_unavailable": "لا يمكننا تحويل هذا السعر إلى عملتك الآن.",
+        "payment_cost_undetermined": "لا يمكننا تحديد تكلفة الدفع لهذا الطلب.",
+        "component_not_permitted_by_policy": "جزء من تكلفة هذا المنتج ليس مما يجوز لنا تحميله عليك.",
+        "policy_missing": "هذا المنتج غير مسعّر للبيع حاليًا."
+      },
+      "unquoted": {
+        "no_current_quote": "ليس لدينا سعر حالي لهذا المنتج.",
+        "destination_not_supplied": "أخبِرنا بوجهة الشحن وسنحدّد السعر.",
+        "retail_not_enabled": "هذا المنتج غير معروض للبيع حاليًا."
+      }
     }
   }
 }

@@ -270,6 +270,84 @@
         "one": "%{count} more field is held against sync that this screen cannot name.",
         "other": "%{count} more fields are held against sync that this screen cannot name."
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "Sold by Mercaria",
+          "fulfilled_by_approved_partner": "Fulfilled by an approved partner",
+          "sold_by_merchant": "Sold by the merchant",
+          "external_checkout": "Checkout on the retailer's own site",
+          "affiliate_disclosure": "We may earn a commission",
+          "referral_disclosure": "Shared through a partner link",
+          "supply_confirmation_pending": "Confirming availability",
+          "price_or_availability_changed": "Price or availability changed",
+          "procurement_failed_refund_pending": "Could not be sourced — refund on its way",
+          "returns_and_warranty": "Returns and warranty",
+          "tax_or_import_uncertainty": "Import charges may apply",
+          "product_recall_or_safety_notice": "Safety notice"
+        },
+        "explanation": {
+          "sold_by_mercaria": "Mercaria is the seller for this item. Your contract, your payment and your returns are with Mercaria.",
+          "fulfilled_by_approved_partner": "An approved fulfilment partner ships this item from their own stock. Mercaria remains the seller.",
+          "sold_by_merchant": "This item is sold by the merchant named above. Mercaria processes the payment.",
+          "external_checkout": "You will finish this purchase on the retailer's own site. Mercaria does not take the payment, hold the order or handle the return.",
+          "affiliate_disclosure": "Mercaria may be paid a commission if you buy through this link. It does not change the price you pay, and it does not affect how offers are ordered.",
+          "referral_disclosure": "You arrived through a partner link. It does not change the price, the seller or your rights.",
+          "supply_confirmation_pending": "Payment received. We are confirming availability with our fulfilment partner before this order is confirmed.",
+          "price_or_availability_changed": "The price or availability of something in your basket has changed since you added it. Check it before paying.",
+          "procurement_failed_refund_pending": "We could not source this item. Your refund has already been started; it will reach the card you paid with.",
+          "returns_and_warranty": "Return it within the window shown, and the legal guarantee applies for the period shown.",
+          "tax_or_import_uncertainty": "Import duties or taxes may be charged on delivery for this destination. We cannot state a final amount.",
+          "product_recall_or_safety_notice": "There is a safety notice affecting this product. Do not use it before reading the notice."
+        }
+      },
+      "seller": {
+        "externalFallback": "Another retailer",
+        "notForSale": "Not for sale here"
+      },
+      "a11ySeller": "Seller: %{label}",
+      "a11yDisclosure": "Disclosure: %{label}",
+      "rights": "Cancel within %{cancellationHours} hours of ordering, withdraw within %{withdrawalDays} days of delivery, return within %{returnDays} days, and the legal guarantee runs for %{warrantyMonths} months.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "Waiting for payment",
+          "confirming_availability": "Confirming availability",
+          "confirmed": "Confirmed",
+          "on_the_way": "On the way",
+          "delivered": "Delivered",
+          "cancelled": "Cancelled",
+          "partially_refunded": "Partly refunded",
+          "refunded": "Refunded"
+        },
+        "explanation": {
+          "awaiting_payment": "We have not received your payment yet.",
+          "confirming_availability": "Payment received — we are confirming availability with our fulfilment partner.",
+          "confirmed": "Our fulfilment partner has accepted your order and is preparing it.",
+          "on_the_way": "Your order has left our fulfilment partner.",
+          "delivered": "Your order has been delivered.",
+          "cancelled": "This order was cancelled.",
+          "partially_refunded": "Part of this order has been refunded.",
+          "refunded": "This order has been refunded."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Tell us where this is going and we can price it.",
+        "shipping_not_quotable": "We cannot get a delivery price for this destination right now.",
+        "undocumented_supplier_fee": "There is a cost we cannot account for, so we will not quote a total.",
+        "tax_undetermined": "We cannot determine the tax for this destination.",
+        "market_not_supported": "We cannot sell this item into that market.",
+        "supplier_price_unavailable": "We do not have a current price for this item.",
+        "fx_rate_unavailable": "We cannot convert this price into your currency right now.",
+        "payment_cost_undetermined": "We cannot determine the payment cost for this order.",
+        "component_not_permitted_by_policy": "Part of this item's cost is not one we may pass on.",
+        "policy_missing": "This item is not currently priced for sale."
+      },
+      "unquoted": {
+        "no_current_quote": "We do not have a current price for this item.",
+        "destination_not_supplied": "Tell us where this is going and we can price it.",
+        "retail_not_enabled": "This item is not currently on sale."
+      }
     }
   }
 }

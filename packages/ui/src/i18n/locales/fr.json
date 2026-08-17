@@ -270,6 +270,84 @@
         "one": "%{count} champ de plus est retenu face à la synchronisation et cet écran ne peut pas le nommer.",
         "other": "%{count} champs de plus sont retenus face à la synchronisation et cet écran ne peut pas les nommer."
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "Vendu par Mercaria",
+          "fulfilled_by_approved_partner": "Expédié par un partenaire agréé",
+          "sold_by_merchant": "Vendu par le marchand",
+          "external_checkout": "Paiement sur le site du détaillant",
+          "affiliate_disclosure": "Nous pouvons percevoir une commission",
+          "referral_disclosure": "Partagé via un lien partenaire",
+          "supply_confirmation_pending": "Vérification de la disponibilité",
+          "price_or_availability_changed": "Le prix ou la disponibilité a changé",
+          "procurement_failed_refund_pending": "Impossible à approvisionner — remboursement en cours",
+          "returns_and_warranty": "Retours et garantie",
+          "tax_or_import_uncertainty": "Des frais d'importation peuvent s'appliquer",
+          "product_recall_or_safety_notice": "Avis de sécurité"
+        },
+        "explanation": {
+          "sold_by_mercaria": "Mercaria est le vendeur de cet article. Votre contrat, votre paiement et vos retours sont avec Mercaria.",
+          "fulfilled_by_approved_partner": "Un partenaire logistique agréé expédie cet article depuis son propre stock. Mercaria reste le vendeur.",
+          "sold_by_merchant": "Cet article est vendu par le marchand indiqué ci-dessus. Mercaria traite le paiement.",
+          "external_checkout": "Vous finaliserez cet achat sur le site du détaillant. Mercaria n'encaisse pas le paiement, ne gère ni la commande ni le retour.",
+          "affiliate_disclosure": "Mercaria peut percevoir une commission si vous achetez via ce lien. Cela ne change ni le prix que vous payez ni l'ordre des offres.",
+          "referral_disclosure": "Vous êtes arrivé via un lien partenaire. Cela ne change ni le prix, ni le vendeur, ni vos droits.",
+          "supply_confirmation_pending": "Paiement reçu. Nous vérifions la disponibilité auprès de notre partenaire logistique avant de confirmer cette commande.",
+          "price_or_availability_changed": "Le prix ou la disponibilité d'un article de votre panier a changé depuis que vous l'avez ajouté. Vérifiez avant de payer.",
+          "procurement_failed_refund_pending": "Nous n'avons pas pu approvisionner cet article. Votre remboursement est déjà lancé ; il parviendra à la carte utilisée.",
+          "returns_and_warranty": "Renvoyez-le dans le délai indiqué ; la garantie légale s'applique pendant la période indiquée.",
+          "tax_or_import_uncertainty": "Des droits ou taxes d'importation peuvent être perçus à la livraison pour cette destination. Nous ne pouvons pas indiquer de montant final.",
+          "product_recall_or_safety_notice": "Un avis de sécurité concerne ce produit. Ne l'utilisez pas avant d'avoir lu cet avis."
+        }
+      },
+      "seller": {
+        "externalFallback": "Un autre détaillant",
+        "notForSale": "Pas en vente ici"
+      },
+      "a11ySeller": "Vendeur : %{label}",
+      "a11yDisclosure": "Avis : %{label}",
+      "rights": "Annulez dans les %{cancellationHours} heures suivant la commande, rétractez-vous dans les %{withdrawalDays} jours suivant la livraison, retournez dans les %{returnDays} jours, et la garantie légale court pendant %{warrantyMonths} mois.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "En attente de paiement",
+          "confirming_availability": "Vérification de la disponibilité",
+          "confirmed": "Confirmée",
+          "on_the_way": "En route",
+          "delivered": "Livrée",
+          "cancelled": "Annulée",
+          "partially_refunded": "Partiellement remboursée",
+          "refunded": "Remboursée"
+        },
+        "explanation": {
+          "awaiting_payment": "Nous n'avons pas encore reçu votre paiement.",
+          "confirming_availability": "Paiement reçu — nous vérifions la disponibilité auprès de notre partenaire logistique.",
+          "confirmed": "Notre partenaire logistique a accepté votre commande et la prépare.",
+          "on_the_way": "Votre commande a quitté notre partenaire logistique.",
+          "delivered": "Votre commande a été livrée.",
+          "cancelled": "Cette commande a été annulée.",
+          "partially_refunded": "Une partie de cette commande a été remboursée.",
+          "refunded": "Cette commande a été remboursée."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Dites-nous où cela doit aller et nous pourrons en fixer le prix.",
+        "shipping_not_quotable": "Nous ne pouvons pas obtenir de prix de livraison pour cette destination pour le moment.",
+        "undocumented_supplier_fee": "Il existe un coût que nous ne pouvons pas justifier ; nous ne donnerons donc pas de total.",
+        "tax_undetermined": "Nous ne pouvons pas déterminer la taxe pour cette destination.",
+        "market_not_supported": "Nous ne pouvons pas vendre cet article sur ce marché.",
+        "supplier_price_unavailable": "Nous n'avons pas de prix actuel pour cet article.",
+        "fx_rate_unavailable": "Nous ne pouvons pas convertir ce prix dans votre devise pour le moment.",
+        "payment_cost_undetermined": "Nous ne pouvons pas déterminer les frais de paiement de cette commande.",
+        "component_not_permitted_by_policy": "Une partie du coût de cet article ne peut pas être répercutée.",
+        "policy_missing": "Cet article n'a pas de prix de vente actuellement."
+      },
+      "unquoted": {
+        "no_current_quote": "Nous n'avons pas de prix actuel pour cet article.",
+        "destination_not_supplied": "Dites-nous où cela doit aller et nous pourrons en fixer le prix.",
+        "retail_not_enabled": "Cet article n'est pas en vente actuellement."
+      }
     }
   }
 }

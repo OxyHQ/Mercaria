@@ -139,7 +139,7 @@ function CartGroupCard({
   // link need — and on a group Mercaria sells itself those are two different
   // parties, so rendering the vendor's name as the seller is exactly the
   // mislabelling acceptance 2 forbids.
-  const sellerName = commercialSellerLabel(commercial);
+  const sellerName = commercialSellerLabel(t, commercial);
   // A rating is a rating OF THE VENDOR. On a Mercaria-sold group it would read
   // as a rating of Mercaria, which nobody left, so it is withheld rather than
   // relabelled.

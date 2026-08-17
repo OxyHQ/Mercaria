@@ -270,6 +270,84 @@
         "one": "Hi ha %{count} camp més retingut davant la sincronització que aquesta pantalla no pot anomenar.",
         "other": "Hi ha %{count} camps més retinguts davant la sincronització que aquesta pantalla no pot anomenar."
       }
+    },
+    "commercial": {
+      "disclosure": {
+        "label": {
+          "sold_by_mercaria": "Venut per Mercaria",
+          "fulfilled_by_approved_partner": "Enviat per un soci autoritzat",
+          "sold_by_merchant": "Venut pel comerç",
+          "external_checkout": "Pagament al web del minorista",
+          "affiliate_disclosure": "Podem guanyar una comissió",
+          "referral_disclosure": "Compartit mitjançant un enllaç de soci",
+          "supply_confirmation_pending": "Confirmant la disponibilitat",
+          "price_or_availability_changed": "El preu o la disponibilitat han canviat",
+          "procurement_failed_refund_pending": "No hem pogut aconseguir-lo: reemborsament en camí",
+          "returns_and_warranty": "Devolucions i garantia",
+          "tax_or_import_uncertainty": "Es poden aplicar despeses d'importació",
+          "product_recall_or_safety_notice": "Avís de seguretat"
+        },
+        "explanation": {
+          "sold_by_mercaria": "Mercaria és la venedora d'aquest article. El teu contracte, el teu pagament i les teves devolucions són amb Mercaria.",
+          "fulfilled_by_approved_partner": "Un soci logístic autoritzat envia aquest article des del seu propi estoc. Mercaria continua sent la venedora.",
+          "sold_by_merchant": "Aquest article el ven el comerç indicat a dalt. Mercaria processa el pagament.",
+          "external_checkout": "Acabaràs aquesta compra al web del mateix minorista. Mercaria no cobra el pagament, ni gestiona la comanda ni la devolució.",
+          "affiliate_disclosure": "Mercaria pot cobrar una comissió si compres a través d'aquest enllaç. No canvia el preu que pagues ni afecta l'ordre de les ofertes.",
+          "referral_disclosure": "Has arribat mitjançant un enllaç de soci. No canvia el preu, el venedor ni els teus drets.",
+          "supply_confirmation_pending": "Pagament rebut. Estem confirmant la disponibilitat amb el nostre soci logístic abans de confirmar aquesta comanda.",
+          "price_or_availability_changed": "El preu o la disponibilitat d'alguna cosa de la teva cistella ha canviat des que la vas afegir. Revisa-ho abans de pagar.",
+          "procurement_failed_refund_pending": "No hem pogut aconseguir aquest article. El teu reemborsament ja està en marxa; arribarà a la targeta amb què vas pagar.",
+          "returns_and_warranty": "Torna'l dins el termini indicat; la garantia legal s'aplica durant el període indicat.",
+          "tax_or_import_uncertainty": "En aquesta destinació es poden cobrar aranzels o impostos d'importació en el lliurament. No podem indicar un import final.",
+          "product_recall_or_safety_notice": "Hi ha un avís de seguretat que afecta aquest producte. No el facis servir abans de llegir l'avís."
+        }
+      },
+      "seller": {
+        "externalFallback": "Un altre minorista",
+        "notForSale": "Aquí no està a la venda"
+      },
+      "a11ySeller": "Venedor: %{label}",
+      "a11yDisclosure": "Avís: %{label}",
+      "rights": "Cancel·la dins de %{cancellationHours} hores des de la comanda, desisteix dins de %{withdrawalDays} dies des del lliurament, retorna dins de %{returnDays} dies, i la garantia legal dura %{warrantyMonths} mesos.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "Esperant el pagament",
+          "confirming_availability": "Confirmant la disponibilitat",
+          "confirmed": "Confirmat",
+          "on_the_way": "En camí",
+          "delivered": "Lliurat",
+          "cancelled": "Cancel·lat",
+          "partially_refunded": "Reemborsat en part",
+          "refunded": "Reemborsat"
+        },
+        "explanation": {
+          "awaiting_payment": "Encara no hem rebut el teu pagament.",
+          "confirming_availability": "Pagament rebut: estem confirmant la disponibilitat amb el nostre soci logístic.",
+          "confirmed": "El nostre soci logístic ha acceptat la teva comanda i l'està preparant.",
+          "on_the_way": "La teva comanda ha sortit del nostre soci logístic.",
+          "delivered": "La teva comanda s'ha lliurat.",
+          "cancelled": "Aquesta comanda es va cancel·lar.",
+          "partially_refunded": "Una part d'aquesta comanda s'ha reemborsat.",
+          "refunded": "Aquesta comanda s'ha reemborsat."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Digues-nos on va i podrem calcular-ne el preu.",
+        "shipping_not_quotable": "Ara mateix no podem obtenir un preu de lliurament per a aquesta destinació.",
+        "undocumented_supplier_fee": "Hi ha un cost que no podem justificar, així que no donarem cap total.",
+        "tax_undetermined": "No podem determinar l'impost per a aquesta destinació.",
+        "market_not_supported": "No podem vendre aquest article en aquest mercat.",
+        "supplier_price_unavailable": "No tenim un preu actual per a aquest article.",
+        "fx_rate_unavailable": "Ara mateix no podem convertir aquest preu a la teva moneda.",
+        "payment_cost_undetermined": "No podem determinar el cost de pagament d'aquesta comanda.",
+        "component_not_permitted_by_policy": "Una part del cost d'aquest article no és un cost que puguem repercutir.",
+        "policy_missing": "Aquest article no té preu de venda en aquest moment."
+      },
+      "unquoted": {
+        "no_current_quote": "No tenim un preu actual per a aquest article.",
+        "destination_not_supplied": "Digues-nos on va i podrem calcular-ne el preu.",
+        "retail_not_enabled": "Aquest article no està a la venda en aquest moment."
+      }
     }
   }
 }
