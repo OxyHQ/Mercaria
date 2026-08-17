@@ -13,7 +13,8 @@
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
     "typecheck": "bun ../../scripts/generate-router-types.mjs && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@expo/html-elements": "^0.13.8",
@@ -93,9 +94,14 @@
   "devDependencies": {
     "@babel/plugin-syntax-dynamic-import": "^7.8.3",
     "@babel/plugin-transform-export-namespace-from": "^7.29.7",
+    "@eslint/js": "^9.39.5",
     "@tailwindcss/postcss": "4.2.2",
     "@types/react": "~19.2.17",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
     "babel-plugin-module-resolver": "^5.0.3",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "typescript": "~5.9.3",
     "vitest": "^4.1.10"
   },

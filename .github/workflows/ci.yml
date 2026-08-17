@@ -107,7 +107,7 @@ jobs:
       # file listing and nothing else.
       - name: Guard the AGENTS.md budget
         run: bun run validate:agents-md
-      - name: Lint coverage is pinned (bun run lint covers 1 of 6 packages)
+      - name: Lint coverage is pinned (bun run lint covers 4 of 6 packages)
         run: bun run validate:lint-coverage
 
       # The storefront ships an Arabic bundle (#396) and mirrors its layout from
@@ -222,6 +222,17 @@ jobs:
 
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
+
+      # The three Expo apps (#496). Added together because the measurement found
+      # them in the same state — 0 errors and 13 warnings between all three — so
+      # there was no subset worth treating differently and nothing to ratchet.
+      # They share one rule set (`eslint.config.apps.mjs`); see it for why.
+      - name: Lint Storefront
+        run: bun run --filter @mercaria/frontend lint
+      - name: Lint Dashboard
+        run: bun run --filter @mercaria/dashboard lint
+      - name: Lint POS
+        run: bun run --filter @mercaria/pos lint
 
       - name: Typecheck API
         run: bun run --filter @mercaria/backend typecheck

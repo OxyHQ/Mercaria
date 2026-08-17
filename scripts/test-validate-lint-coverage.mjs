@@ -55,7 +55,7 @@ async function runAgainst(files) {
   }
 }
 
-/** A workflow carrying the gating job and the one real lint step. */
+/** A workflow carrying the gating job and the four real lint steps. */
 const CI_YML = "name: CI\n"
   + "on: [push, pull_request]\n"
   + "jobs:\n"
@@ -64,12 +64,19 @@ const CI_YML = "name: CI\n"
   + "    steps:\n"
   + "      - name: Lint the backend\n"
   + "        run: bun run --filter @mercaria/backend lint\n"
+  + "      - name: Lint Storefront\n"
+  + "        run: bun run --filter @mercaria/frontend lint\n"
+  + "      - name: Lint Dashboard\n"
+  + "        run: bun run --filter @mercaria/dashboard lint\n"
+  + "      - name: Lint POS\n"
+  + "        run: bun run --filter @mercaria/pos lint\n"
   + "      - name: Test the backend\n"
   + "        run: bun run --filter @mercaria/backend test\n";
 
 /**
- * The repository as it stands: one real linter, two placeholders, three packages
- * with no `lint` script at all.
+ * The repository as it stands: FOUR real linters, two placeholders, and no
+ * package without a `lint` script at all (#496 moved the three Expo apps into
+ * the first group).
  *
  * Every package also carries an unrelated script or two, so a case can change one
  * without touching `lint` and prove the gate stays silent.
@@ -91,15 +98,15 @@ function tree(extra = {}) {
     },
     "packages/frontend/package.json": {
       name: "@mercaria/frontend",
-      scripts: { test: "vitest run", typecheck: "tsc --noEmit" },
+      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
     },
     "packages/dashboard/package.json": {
       name: "@mercaria/dashboard",
-      scripts: { test: "vitest run", typecheck: "tsc --noEmit" },
+      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
     },
     "packages/pos/package.json": {
       name: "@mercaria/pos",
-      scripts: { test: "vitest run", typecheck: "tsc --noEmit" },
+      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
     },
     ".github/workflows/ci.yml": CI_YML,
     ...extra,
@@ -122,22 +129,20 @@ const cases = [
   // ------------------------------------------- coverage moving, both ways ---
   // The two directions the brief asked for: a package GAINING a script and a
   // package LOSING one. Both are changes of coverage and both must fail.
-
-  {
-    name: "a package GAINING a lint script fails",
-    files: withPackage("frontend", {
-      name: "@mercaria/frontend",
-      scripts: { lint: "eslint .", test: "vitest run" },
-    }),
-    expectExit: 1,
-    expectOutput: "packages with NO lint script are [dashboard, pos], expected "
-      + "[dashboard, frontend, pos]",
-  },
+  //
+  // The GAINING case was DELETED by #496 rather than updated, because it lost
+  // its subject: `EXPECTED_NO_SCRIPT` is now empty, so no package can gain a
+  // script from it, and the case as written mutated `frontend` into a state the
+  // baseline already has — it passed vacuously. The direction is still covered
+  // from the other side by "a package LOSING its lint script" immediately below
+  // and by "a NEW package with no lint script", which is the same transition
+  // with a package that does not exist yet.
   {
     name: "a package LOSING its lint script fails",
     files: withPackage("backend", { name: "@mercaria/backend", scripts: { test: "vitest run" } }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [], expected [backend]",
+    expectOutput: "packages running a REAL linter are [dashboard, frontend, pos], expected "
+      + "[backend, dashboard, frontend, pos]",
   },
   {
     // The silent one: the script survives, the linting does not. A name-keyed
@@ -148,7 +153,8 @@ const cases = [
       scripts: { lint: 'echo "skip for now" && exit 0', test: "vitest run" },
     }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [], expected [backend]",
+    expectOutput: "packages running a REAL linter are [dashboard, frontend, pos], expected "
+      + "[backend, dashboard, frontend, pos]",
   },
   {
     name: "a placeholder becoming a real linter fails, because that is coverage too",
@@ -165,16 +171,20 @@ const cases = [
       "packages/kiosk/package.json": { name: "@mercaria/kiosk", scripts: { test: "vitest run" } },
     }),
     expectExit: 1,
-    expectOutput: "packages with NO lint script are [dashboard, frontend, kiosk, pos]",
+    expectOutput: "packages with NO lint script are [kiosk], expected []",
   },
   {
+    // Aimed at `ui` rather than at an app: since #496 all three apps already run
+    // a real linter, so swapping one of them to biome changes nothing the guard
+    // can see and the case would pass without measuring the detector at all.
     name: "a non-eslint linter still counts as real coverage",
-    files: withPackage("frontend", {
-      name: "@mercaria/frontend",
-      scripts: { lint: "biome check .", test: "vitest run" },
+    files: withPackage("ui", {
+      name: "@mercaria/ui",
+      scripts: { lint: "biome check .", typecheck: "tsc --noEmit" },
     }),
     expectExit: 1,
-    expectOutput: "packages running a REAL linter are [backend, frontend], expected [backend]",
+    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend, pos, ui], "
+      + "expected [backend, dashboard, frontend, pos]",
   },
 
   // ------------------------------------------------------- the root script ---
@@ -202,10 +212,11 @@ const cases = [
   {
     name: "CI losing its lint step fails",
     files: tree({
-      ".github/workflows/ci.yml": CI_YML.replace(
-        "      - name: Lint the backend\n        run: bun run --filter @mercaria/backend lint\n",
-        "",
-      ),
+      ".github/workflows/ci.yml": CI_YML
+        .replace("      - name: Lint the backend\n        run: bun run --filter @mercaria/backend lint\n", "")
+        .replace("      - name: Lint Storefront\n        run: bun run --filter @mercaria/frontend lint\n", "")
+        .replace("      - name: Lint Dashboard\n        run: bun run --filter @mercaria/dashboard lint\n", "")
+        .replace("      - name: Lint POS\n        run: bun run --filter @mercaria/pos lint\n", ""),
     }),
     expectExit: 1,
     expectOutput: "no `--filter <pkg> lint` step was found in ci.yml at all",
@@ -213,10 +224,10 @@ const cases = [
   {
     name: "CI linting a package that has no linter fails",
     files: tree({
-      ".github/workflows/ci.yml": `${CI_YML}      - run: bun run --filter @mercaria/pos lint\n`,
+      ".github/workflows/ci.yml": `${CI_YML}      - run: bun run --filter @mercaria/ui lint\n`,
     }),
     expectExit: 1,
-    expectOutput: "ci.yml runs `--filter @mercaria/pos lint` but that package has no script running "
+    expectOutput: "ci.yml runs `--filter @mercaria/ui lint` but that package has no script running "
       + "a real linter",
   },
   {
@@ -249,8 +260,8 @@ const cases = [
     // here is a package disappearing, and it must not survive it.
     //
     // What stops it is that the categories are EXACT SETS rather than a total:
-    // `pos` leaving drops it out of EXPECTED_NO_SCRIPT, which no other package
-    // can make up for. A single global count would have exactly #494's hole.
+    // `pos` leaving drops it out of EXPECTED_REAL, which no other package can
+    // make up for. A single global count would have exactly #494's hole.
     name: "a whole package disappearing fails — the #494 shape",
     files: (() => {
       const files = tree();
@@ -258,8 +269,8 @@ const cases = [
       return files;
     })(),
     expectExit: 1,
-    expectOutput: "packages with NO lint script are [dashboard, frontend], expected "
-      + "[dashboard, frontend, pos]",
+    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend], expected "
+      + "[backend, dashboard, frontend, pos]",
   },
   {
     name: "a package whose manifest is not valid JSON fails loudly",
@@ -278,7 +289,14 @@ const cases = [
     name: "changes to scripts that are not `lint` do NOT fire",
     files: withPackage("frontend", {
       name: "@mercaria/frontend",
-      scripts: { test: "vitest run --coverage", typecheck: "tsc --noEmit", build: "expo export" },
+      // `lint` is preserved deliberately: dropping it would BE a coverage
+      // change, and the case would fire for the reason it exists to rule out.
+      scripts: {
+        lint: "eslint .",
+        test: "vitest run --coverage",
+        typecheck: "tsc --noEmit",
+        build: "expo export",
+      },
     }),
     expectExit: 0,
     expectOutput: "lint coverage guard passed",
