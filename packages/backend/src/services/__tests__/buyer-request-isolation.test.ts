@@ -50,12 +50,19 @@ function walk(relative: string): string[] {
  * `AGGREGATOR_ROUTES` reasoning, reached here by the derivation never selecting
  * them rather than by an exclusion that would need its own count.
  */
+/** Anything whose PATH names this domain, in either spelling. */
+const DOMAIN_NAMED = /buyer-request|buyerRequest/i;
+
+/**
+ * RECURSES, via `walk`. This was `readdirSync(...).filter(entry.isFile())` — one
+ * level — sitting below a `walk` that recurses, so the file read as though it
+ * recursed throughout and did not (#460). `merchant-activation` had the same
+ * asymmetry and a real module behind it; the whole-tree assertion below is what
+ * makes the absence of one here a MEASUREMENT rather than a hope.
+ */
 function httpSurface(): string[] {
   return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => basename(entry.name).startsWith('buyer-request'))
-      .map((entry) => `${directory}/${entry.name}`),
+    walk(directory).filter((path) => DOMAIN_NAMED.test(basename(path))),
   );
 }
 
@@ -70,7 +77,26 @@ const DOMAIN_PATHS = [
   ...walk('services/buyer-requests'),
   ...walk('db/buyerRequests'),
   ...httpSurface(),
+  'db/schema/buyerRequests.ts',
 ];
+
+/**
+ * Every module in the tree whose PATH names this domain (#609's device).
+ *
+ * Closes the population against the NEXT mechanism rather than this one: two
+ * different misses were possible here — a non-recursing HTTP sweep and an
+ * unscanned `db/schema` — and one assertion covers both. Matched on the PATH,
+ * not the filename, because a module inside `services/buyer-requests/` names the
+ * domain nowhere in its own name and a filename sweep would report an empty
+ * "outside" set, which reads as a clean pass.
+ */
+function domainNamedModules(): string[] {
+  // `walk` composes `${relative}/${entry.name}`, so the ROOT walk yields a
+  // leading slash and nothing would match — reporting every module as outside.
+  return walk('')
+    .map((path) => path.replace(/^\//, ''))
+    .filter((path) => DOMAIN_NAMED.test(path));
+}
 
 /**
  * The modules that may reach an order writer or the refund service — the ONLY
@@ -197,6 +223,16 @@ describe('buyer request isolation (static)', () => {
       3,
     );
     expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(17);
+
+    // The whole-tree assertion (#609), with its own vacuity floor first: a sweep
+    // that reached nothing produces the same empty "outside" set a complete
+    // population does.
+    const named = domainNamedModules();
+    expect(named.length, 'the domain-name sweep found nothing').toBeGreaterThanOrEqual(17);
+    expect(
+      named.filter((path) => !DOMAIN_PATHS.includes(path)).sort(),
+      'names this domain but is outside the population every wall below scans',
+    ).toEqual([]);
 
     // EXACT: an unbounded exclusion list lets any number of modules ride in
     // behind the ones somebody justified (#448).
