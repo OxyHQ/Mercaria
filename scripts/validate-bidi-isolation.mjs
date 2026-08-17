@@ -70,7 +70,7 @@ import {
   formatReviewCount,
   formatSourceMoney,
 } from "../packages/ui/src/lib/format.ts";
-import { formatDate, formatDateTime } from "../packages/ui/src/lib/date.ts";
+import { formatDate, formatDateTime, formatWeekday } from "../packages/ui/src/lib/date.ts";
 import { formatRegionName } from "../packages/ui/src/lib/region.ts";
 // The SAME modules again, as namespaces, so the census below can enumerate what
 // they export rather than pattern-match the text that declares them (#491).
@@ -115,7 +115,7 @@ const formatModulePath = resolve(repositoryRoot, "packages/ui/src/lib/format.ts"
  */
 const FORMATTER_MODULES = [
   { path: "packages/ui/src/lib/format.ts", module: formatModule, minimum: 6 },
-  { path: "packages/ui/src/lib/date.ts", module: dateModule, minimum: 2 },
+  { path: "packages/ui/src/lib/date.ts", module: dateModule, minimum: 3 },
   { path: "packages/ui/src/lib/region.ts", module: regionModule, minimum: 1 },
 ];
 
@@ -260,6 +260,23 @@ checkIsolatedExactly("formatReviewCount", "rounded/en", formatReviewCount(1000, 
 checkIsolatedExactly("formatPercent", "en", formatPercent(820, EN), "8.2%");
 // The sign is carried by which SENTENCE the caller selected, never by a minus.
 checkIsolatedExactly("formatPercent", "negative bps/en", formatPercent(-820, EN), "8.2%");
+// The `fractionDigits` parameter (#544). A published RATE cannot use the
+// default: at one decimal an 8.25% programme renders as `8.3%`, a WRONG NUMBER
+// rather than a rounding preference — so both ends of the range are pinned.
+checkIsolatedExactly("formatPercent", "0 digits/en", formatPercent(500, EN, 0), "5%");
+checkIsolatedExactly("formatPercent", "2 digits/en", formatPercent(825, EN, 2), "8.25%");
+// …and in a locale whose decimal separator differs, which is the whole reason
+// the numeral goes through a formatter rather than `.toFixed`.
+checkIsolatedExactly(
+  "formatPercent",
+  "2 digits/de",
+  formatPercent(825, "de", 2),
+  new Intl.NumberFormat("de", {
+    style: "percent",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(825 / 10000),
+);
 
 checkIsolatedExactly("formatRating", "en", formatRating(4.5, EN), "4.5");
 checkIsolatedExactly("formatRating", "whole/en", formatRating(5, EN), "5.0");
@@ -301,6 +318,37 @@ checkIsolatedExactly(
   "en",
   formatDateTime(SAMPLE_INSTANT, "en"),
   new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(SAMPLE_INSTANT),
+);
+
+/**
+ * The reference week `formatWeekday` names days from — 2023-01-01 was a Sunday,
+ * so `1 + weekday` is `Date#getDay`'s numbering.
+ */
+const WEEKDAY_REFERENCE = (weekday) => new Date(Date.UTC(2023, 0, 1 + weekday));
+const WEEKDAY_OPTIONS = { weekday: "long", timeZone: "UTC" };
+
+checkIsolatedExactly(
+  "formatWeekday",
+  "en/Monday",
+  formatWeekday(1, "en"),
+  new Intl.DateTimeFormat("en", WEEKDAY_OPTIONS).format(WEEKDAY_REFERENCE(1)),
+);
+// `ar` is the case that matters: an RTL weekday name beside LTR opening hours
+// is exactly the mixed run the isolate exists for.
+checkIsolatedExactly(
+  "formatWeekday",
+  "ar/Sunday",
+  formatWeekday(0, "ar"),
+  new Intl.DateTimeFormat("ar", WEEKDAY_OPTIONS).format(WEEKDAY_REFERENCE(0)),
+);
+// The out-of-range answer is "" — NOT an isolated empty string, because an
+// opening-hours row with no day renders as nothing. Asserted here so a future
+// change that starts isolating it is caught: `\u2068\u2069` is not empty, and
+// a caller testing `.length` would silently start rendering a blank chip.
+check(
+  "formatWeekday out of range is a bare empty string",
+  formatWeekday(7, "en") === "",
+  `got ${JSON.stringify(formatWeekday(7, "en"))}`,
 );
 
 // `formatRegionName` resolves a name on this engine, so the LOCALIZED branch is

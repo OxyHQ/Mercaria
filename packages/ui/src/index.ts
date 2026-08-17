@@ -107,7 +107,7 @@ export { useFormatters, type Formatters } from "./lib/use-formatters";
 // of `./lib/format`, split by subject — see each module's note. They are
 // re-exported from the same barrel, so no consumer's import changed when they
 // moved out of `format.ts`.
-export { formatDate, formatDateTime } from "./lib/date";
+export { formatDate, formatDateTime, formatWeekday } from "./lib/date";
 export { formatRegionName } from "./lib/region";
 
 // ---------------------------------------------------------------------------
@@ -567,7 +567,6 @@ export {
   describeStockConfirmed,
   formatOpeningMinute,
   formatPublicAddress,
-  formatWeekday,
   type BuyerPickupBlockCopy,
 } from "./lib/pickup-labels";
 // The referral partner dashboard's reader-facing copy (#147). Labels and

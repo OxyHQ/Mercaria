@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "Aquesta és una inscripció de prova i no genera pagaments."
       },
       "rewardBasis": {
-        "percentage": "%{rate} % de %{base}",
+        "percentage": "%{rate} de %{base}",
         "fixedBudget": "Un import fix per cada referit que compleixi, a càrrec d'un pressupost de màrqueting aprovat.",
         "fixedOther": "Un import fix per cada referit que compleixi, a càrrec de la font de finançament aprovada.",
         "notPublished": "La tarifa d'aquest programa encara no s'ha publicat."

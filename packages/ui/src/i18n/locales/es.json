@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "Esta es una inscripción de prueba y no genera pagos."
       },
       "rewardBasis": {
-        "percentage": "%{rate} % de %{base}",
+        "percentage": "%{rate} de %{base}",
         "fixedBudget": "Un importe fijo por cada referido que cumpla, con cargo a un presupuesto de marketing aprobado.",
         "fixedOther": "Un importe fijo por cada referido que cumpla, con cargo a la fuente de financiación aprobada.",
         "notPublished": "La tarifa de este programa aún no se ha publicado."

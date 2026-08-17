@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "这是测试注册，不会产生付款。"
       },
       "rewardBasis": {
-        "percentage": "%{base}的 %{rate}%",
+        "percentage": "%{base}的 %{rate}",
         "fixedBudget": "每笔符合条件的推荐按固定金额计算，来自已批准的营销预算。",
         "fixedOther": "每笔符合条件的推荐按固定金额计算，来自已批准的资金来源。",
         "notPublished": "该计划的费率尚未公布。"

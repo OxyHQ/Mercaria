@@ -315,16 +315,6 @@ export function formatPublicAddress(address: LocationPublicAddress): string {
     .join(", ");
 }
 
-/** Weekday names indexed to match `LocationOpeningHour.weekday` (`Date#getDay`). */
-const WEEKDAY_NAMES: readonly string[] = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
 
 /** Minutes in an hour, for rendering a minute-of-day as a clock time. */
 const MINUTES_PER_HOUR = 60;
@@ -334,9 +324,4 @@ export function formatOpeningMinute(minuteOfDay: number): string {
   const hour = Math.floor(minuteOfDay / MINUTES_PER_HOUR) % 24;
   const minute = minuteOfDay % MINUTES_PER_HOUR;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-/** A weekday index as its name, or an empty string for an out-of-range one. */
-export function formatWeekday(weekday: number): string {
-  return WEEKDAY_NAMES[weekday] ?? "";
 }

@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "Dies ist eine Testanmeldung und zahlt nicht aus."
       },
       "rewardBasis": {
-        "percentage": "%{rate} % von %{base}",
+        "percentage": "%{rate} von %{base}",
         "fixedBudget": "Ein fester Betrag je qualifizierter Empfehlung, aus einem genehmigten Marketingbudget.",
         "fixedOther": "Ein fester Betrag je qualifizierter Empfehlung, aus der genehmigten Finanzierungsquelle.",
         "notPublished": "Der Satz für dieses Programm wurde noch nicht veröffentlicht."

@@ -109,7 +109,7 @@ function cleanTree(extra = {}) {
       + "  return `${figure} ${money.currency}`;\n"
       + "}\n"
       + "const kmFallback = () => `${kilometres.toFixed(1)} km`;\n"
-      + "const pctFallback = () => `${(magnitude / BASIS_POINTS_PER_PERCENT).toFixed(1)}%`;\n",
+      + "const pctFallback = () => `${(magnitude / BASIS_POINTS_PER_PERCENT).toFixed(fractionDigits)}%`;\n",
     // KNOWN_EXCEPTIONS[1] — the target-price TextInput prefill.
     "packages/frontend/app/(app)/price-alerts.tsx":
       "const prefill = (suggested.amount / 10 ** precision).toFixed(precision);\n"

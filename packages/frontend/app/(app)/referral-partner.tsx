@@ -255,7 +255,7 @@ function ProgramsCard({
 }: {
   programs: NonNullable<ReturnType<typeof useReferralDashboard>["data"]>["programs"];
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   if (programs.length === 0) {
     return (
       <Section title={t("referral.programs.title")}>
@@ -270,7 +270,7 @@ function ProgramsCard({
           <Text className="text-sm font-semibold text-foreground">{offer.program.name}</Text>
           {/* The revenue base, always, and never an abbreviation of it. */}
           <Text className="text-sm text-muted-foreground">
-            {describeRewardBasis(t, offer.rewardBasis)}
+            {describeRewardBasis(t, locale, offer.rewardBasis)}
           </Text>
           <Text className="text-xs text-muted-foreground">{offer.program.publicTermsSummary}</Text>
           <Text className="text-xs text-muted-foreground">

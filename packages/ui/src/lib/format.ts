@@ -302,20 +302,40 @@ const BASIS_POINTS_PER_PERCENT = 100;
  * `style: "percent"` rather than a literal `%`, because the separator is not
  * the only thing that moves: `fr` puts a no-break space before the sign
  * (`8,2 %`) and `ar` uses its own (`٨٫٢٪؜`).
+ *
+ * ## `fractionDigits` defaults to 1 and exists for RATES rather than deltas
+ *
+ * A comparison delta reads better at one decimal, which is why that is the
+ * default and why every existing caller is unchanged. A published RATE cannot
+ * use it: a referral programme paying 8.25% would render as `8.3%`, which is a
+ * WRONG NUMBER rather than a rounding preference, and the caller has no way to
+ * ask for more precision. So the digits are the caller's, pinned at the call
+ * site to the precision that value actually carries (#544).
  */
-export function formatPercent(deltaBps: number, locale: string): string {
+export function formatPercent(
+  deltaBps: number,
+  locale: string,
+  fractionDigits = 1,
+): string {
   const magnitude = Math.abs(deltaBps);
   return isolateBidi(
     formatNumber(
       magnitude / BASIS_POINTS_PER_UNIT,
       locale,
-      "percent",
+      // The digits are part of the CACHE IDENTITY, not just the options:
+      // `formatNumber` keys on `kind:locale` and never on the options, so a
+      // single `"percent"` kind would let whichever digit count was formatted
+      // FIRST for a locale win for the rest of the process. Measured before it
+      // shipped: with a bare `"percent"`, `en` returned `5.0%` for 0 digits and
+      // `8.3%` for 2 while `de` looked correct, because `en` had already been
+      // cached by a 1-digit caller.
+      `percent:${fractionDigits}`,
       {
         style: "percent",
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
       },
-      () => `${(magnitude / BASIS_POINTS_PER_PERCENT).toFixed(1)}%`,
+      () => `${(magnitude / BASIS_POINTS_PER_PERCENT).toFixed(fractionDigits)}%`,
     ),
   );
 }

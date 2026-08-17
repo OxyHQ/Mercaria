@@ -380,7 +380,7 @@
         "enrollment_is_test_only": "This is a test enrolment and does not pay out."
       },
       "rewardBasis": {
-        "percentage": "%{rate}% of %{base}",
+        "percentage": "%{rate} of %{base}",
         "fixedBudget": "A fixed amount per qualifying referral, drawn from an approved marketing budget.",
         "fixedOther": "A fixed amount per qualifying referral, drawn from the approved funding source.",
         "notPublished": "The rate for this programme has not been published yet."

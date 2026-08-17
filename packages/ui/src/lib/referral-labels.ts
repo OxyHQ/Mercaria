@@ -29,6 +29,7 @@
  * partner is agreeing to.
  */
 
+import { formatPercent } from "./format";
 import type { Translate } from "../i18n/create-app-i18n";
 import type {
   ReferralMetricDefinition,
@@ -81,11 +82,20 @@ export const REFERRAL_OUTSTANDING_KEYS: Readonly<
  * could render a bare rate — #147 acceptance 7 held by the shape rather than by
  * whoever writes the next surface.
  */
-export function describeRewardBasis(t: Translate, basis: ReferralRewardBasisCopy): string {
+export function describeRewardBasis(
+  t: Translate,
+  locale: string,
+  basis: ReferralRewardBasisCopy,
+): string {
   switch (basis.kind) {
     case "percentage_of_realized_base":
+      // The numeral goes through the formatter chokepoint, so a German reader
+      // gets `8,25 %` rather than localized words around an ASCII number —
+      // #541 translated the sentence and left this half, which is the same
+      // mixed sentence inverted. TWO decimals only when the rate has them: a
+      // published rate must not be rounded into a different number (#544).
       return t("ui.referral.rewardBasis.percentage", {
-        rate: (basis.rateBps / 100).toFixed(basis.rateBps % 100 === 0 ? 0 : 2),
+        rate: formatPercent(basis.rateBps, locale, basis.rateBps % 100 === 0 ? 0 : 2),
         base: basis.percentageOf,
       });
     case "fixed_amount":
