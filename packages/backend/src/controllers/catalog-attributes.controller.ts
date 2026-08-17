@@ -38,9 +38,18 @@ import {
   loadCandidateFacts,
   offerContextFor,
 } from '../services/attributes/entity-facts.service.js';
-import { listSelectedAttributeValues } from '../db/canonical/attributeRepository.js';
+import {
+  listSelectedAttributeValues,
+  type CanonicalAttributeValueRow,
+} from '../db/canonical/attributeRepository.js';
 import { isAttributeEntityKind } from '../services/attributes/attribute-observation.service.js';
+import {
+  measurementSystemForMarket,
+  renderMeasurement,
+  type MeasurementSystem,
+} from '../services/canonical/display-units.js';
 import type {
+  AttributeValuesQuery,
   ConstraintSetEvaluateBody,
   ConstraintSetValidateBody,
 } from '../middleware/attribute-schemas.js';
@@ -86,11 +95,72 @@ export async function listAttributeFacetsHandler(req: Request, res: Response): P
 }
 
 /**
+ * How one selected row is SHOWN.
+ *
+ * Four gates before anything is rendered, and each is a reason the source's own
+ * words are the right answer instead: no preference was stated, the row is not
+ * a readable value at all, it carries no magnitude, or it carries no unit
+ * (a `string`, an `enum`, a boolean — nothing to convert). A refusal from
+ * `renderMeasurement` lands in the same place, so an unknown stored unit is
+ * served as the source wrote it rather than beside a guessed dimension.
+ */
+function displayValueFor(
+  row: CanonicalAttributeValueRow,
+  declaredDecimals: number | null,
+  system: MeasurementSystem | null,
+): string {
+  if (system === null) return row.sourceDisplayValue;
+  if (row.normalizationState !== 'normalized') return row.sourceDisplayValue;
+  if (row.normalizedNumber === null || row.normalizedUnit === null) return row.sourceDisplayValue;
+
+  const rendered = renderMeasurement(
+    {
+      baseMagnitude: row.normalizedNumber,
+      baseUnit: row.normalizedUnit,
+      sourceDisplayValue: row.sourceDisplayValue,
+      ...(row.normalizedNumberMax === null ? {} : { baseMagnitudeMax: row.normalizedNumberMax }),
+      ...(declaredDecimals === null ? {} : { declaredDecimals }),
+    },
+    system,
+  );
+  return rendered.outcome === 'rendered' ? rendered.text : row.sourceDisplayValue;
+}
+
+/**
+ * The measurement system this request prefers, or `null`.
+ *
+ * An explicit `unitSystem` wins over a `market`, because the first is what the
+ * shopper's device reports and the second is only where they are. `null` when
+ * neither is present, and `null` is a real answer: with no preference the
+ * response carries the source's own words, exactly as it did before this
+ * parameter existed.
+ */
+function preferredSystem(query: AttributeValuesQuery): MeasurementSystem | null {
+  if (query.unitSystem !== undefined) return query.unitSystem;
+  return measurementSystemForMarket(query.market);
+}
+
+/**
  * GET /catalog-attributes/values/:entityKind/:entityId — SELECTED values only.
  *
  * The public projection. A conflicting or unparsed value is not returned at all
  * — Mercaria is not willing to state it, so publishing it beside the ones it is
  * willing to state would misrepresent both.
+ *
+ * ## `displayValue` and the preference that composes it
+ *
+ * With no display preference, `displayValue` is `source_display_value` — the
+ * words the feed wrote, which is what this endpoint has always served. With one
+ * (`?unitSystem=` or `?market=`), a NORMALIZED measurement is rendered in the
+ * unit that preference implies, at a precision that never exceeds what the
+ * source measured (`services/canonical/display-units.ts`).
+ *
+ * Nothing stored moves. The rendering reads `normalized_number`, its unit and
+ * the definition's declared precision and returns a string; there is no write
+ * on this path and `renderMeasurement` has no parameter through which it could
+ * reach a row. When the rendering REFUSES — a stored unit the table does not
+ * know — the source's words are served instead, which is the honest fallback:
+ * printing the magnitude beside a guessed unit is exactly what #94 forbids.
  */
 export async function getPublicAttributeValuesHandler(
   req: Request,
@@ -101,6 +171,7 @@ export async function getPublicAttributeValuesHandler(
     if (!isAttributeEntityKind(entityKind)) {
       throw validationError("An attribute value belongs to a 'product' or a 'variant'.");
     }
+    const system = preferredSystem(req.query as AttributeValuesQuery);
     const db = getDb();
     const rows = await listSelectedAttributeValues(db, entityKind, [entityId]);
 
@@ -116,7 +187,7 @@ export async function getPublicAttributeValuesHandler(
       values.push({
         key: row.attributeKey,
         label: definition?.row.label ?? row.attributeKey,
-        displayValue: row.sourceDisplayValue,
+        displayValue: displayValueFor(row, definition?.row.decimalPlaces ?? null, system),
         valueType: definition?.row.valueType ?? 'string',
         ...(row.normalizedNumber === null ? {} : { normalizedNumber: row.normalizedNumber }),
         ...(row.normalizedNumberMax === null

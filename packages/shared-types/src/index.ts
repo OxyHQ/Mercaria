@@ -323,6 +323,15 @@ export * from './retail-reconciliation';
 // `./canonical-product`, which cites this vocabulary rather than owning it.
 export * from './attribute-registry';
 
+// Size systems, modelled explicitly (#367 workstream 4): domain, region,
+// audience and measurement basis as four closed tuples, plus the ONE comparison
+// over two sizes — which refuses across systems and names the facet that
+// differs. There is deliberately no conversion here and no table of one; a
+// cross-system statement is a fact about ONE product's own chart. FOLLOWS
+// `./attribute-registry`, whose definitions are what a concrete size system IS
+// today.
+export * from './size-system';
+
 // The provider-neutral constraint language (#94): the operators, the hard/
 // preference distinction, bounded OR groups, validation results and explainable
 // evaluation outcomes. ONE schema for deterministic filters, grounded
