@@ -305,6 +305,34 @@ function assertAnalyticsDomainIsWhole(modules: readonly string[]): void {
   }
 }
 
+/**
+ * Every `.ts` under `src/` whose PATH names this domain — the sweep behind the
+ * "nothing sits outside the population" wall.
+ *
+ * The PATH, not the filename. A module inside a directory named for this domain
+ * is a module of it whatever the file is called: `services/analytics/emit.ts`
+ * names the domain nowhere in its own name. Matching the filename swept 10 of
+ * the 29, and the sweep's own vacuity floor is what said so.
+ *
+ * Takes the reader for the same reason the derivation does — so the positive
+ * control can hand it a module that does not exist, and the empty result the
+ * wall asserts is shown to be a measurement rather than a probe that cannot
+ * fail.
+ */
+function analyticsNamedPathsInTree(readDir: DirectoryReader = readDirectory): string[] {
+  const found: string[] = [];
+  const sweep = (relative: string): void => {
+    for (const entry of readDir(relative)) {
+      if (entry.name === '__tests__') continue;
+      const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+      if (entry.isDirectory()) sweep(child);
+      else if (entry.name.endsWith('.ts') && ANALYTICS_NAME_PATTERN.test(child)) found.push(child);
+    }
+  };
+  sweep('');
+  return found;
+}
+
 /** Read a domain module, refusing an empty or moved file. */
 function readDomainSource(relative: string): string {
   const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -418,23 +446,7 @@ describe('analytics cannot read commercial standing', () => {
     // in a counted, justified exclusion — so a new bag directory brings its
     // modules under the wall with no edit here, and a domain-named module that
     // genuinely belongs to somebody else forces a decision instead of a gap.
-    const swept: string[] = [];
-    const sweep = (relative: string): void => {
-      for (const entry of readDirectory(relative)) {
-        if (entry.name === '__tests__') continue;
-        const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
-        if (entry.isDirectory()) sweep(child);
-        // The PATH, not the filename. A module inside a directory named for
-        // this domain is a module of it whatever the file is called —
-        // `services/analytics/emit.ts` names the domain nowhere in its own
-        // name. Matching the filename swept 10 of the 29 and the vacuity floor
-        // below is what said so.
-        else if (entry.name.endsWith('.ts') && ANALYTICS_NAME_PATTERN.test(child)) {
-          swept.push(child);
-        }
-      }
-    };
-    sweep('');
+    const swept = analyticsNamedPathsInTree();
 
     // A vacuity floor on the sweep itself: a traversal that found nothing would
     // report no modules outside the population, which is the answer a correct
@@ -445,8 +457,15 @@ describe('analytics cannot read commercial standing', () => {
         'population if it never reached one',
     ).toBeGreaterThanOrEqual(20);
 
-    const population = new Set(analyticsDomainModules());
-    const outside = swept.filter((relative) => !population.has(relative));
+    // ONE comparison, used by the wall AND by its positive control below. Two
+    // spellings of it would let the control pass while the wall went vacuous —
+    // measured: with the control re-deriving the population itself, mutating
+    // the wall's population to `new Set(swept)` left all 10 tests green.
+    const outsidePopulation = (paths: readonly string[]): string[] => {
+      const population = new Set(analyticsDomainModules());
+      return paths.filter((relative) => !population.has(relative));
+    };
+    const outside = outsidePopulation(swept);
     // EXACT and empty. An exclusion list needs its own count in both directions
     // (#448), and this one is empty because it was measured empty: every
     // analytics-named module in the tree is a module of this domain. A future
@@ -458,6 +477,31 @@ describe('analytics cannot read commercial standing', () => {
         'wall does not cover it — add its directory to ANALYTICS_SHARED_DIRECTORIES, or excuse ' +
         'it here with a reason and move the count',
     ).toEqual([]);
+
+    // THE POSITIVE CONTROL, and without it the assertion above cannot fail:
+    // an empty expected set is satisfied by a sweep that reaches nothing, by a
+    // population that contains everything, and by a correct tree, and those are
+    // three different worlds. So the same sweep is run against a reader that
+    // reports an analytics-named module in a directory the population does NOT
+    // draw from, and it must come back OUTSIDE.
+    const planted = 'lib/analytics-cache.ts';
+    const seeded = analyticsNamedPathsInTree((requested) =>
+      requested === 'lib'
+        ? [
+            ...readDirectory(requested),
+            { name: 'analytics-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
+        : readDirectory(requested),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      outsidePopulation(seeded),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    // …and the plant is not on disk, or the control is asserting about the tree
+    // rather than about the sweep.
+    expect(analyticsNamedPathsInTree()).not.toContain(planted);
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
