@@ -258,10 +258,13 @@ const OWNERS = [
     prefix: "packages/ui/",
     locales: "packages/ui/src/i18n/locales",
     // Measured at 2cf4889d, which is #534's merge — that PR took six sentences
-    // out of `commercial-copy.ts` and the pin came down from 156 with it. It is
-    // MEANT to move: every conversion lowers it, the guard says so by name, and
-    // a PR that converts copy without lowering it is told exactly what to do.
-    // That is the pin working, not a maintenance burden.
+    // out of `commercial-copy.ts` and the pin came down from 156 with it. #437's
+    // last three maps then took it 150 -> 149: only ONE, because check A counts
+    // strings RENDERED in JSX and those maps are module scope — the single
+    // inline template in `NearbyLocationCard` was the one in this population. It
+    // is MEANT to move: every conversion lowers it, the guard says so by name,
+    // and a PR that converts copy without lowering it is told exactly what to
+    // do. That is the pin working, not a maintenance burden.
     hardcodedStrings: 149,
     // Check F is off here for a DIFFERENT reason than check A. This package
     // does not merely use the action controls, it DEFINES them — a `<Button>`
