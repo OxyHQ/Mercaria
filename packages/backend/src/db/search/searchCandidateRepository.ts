@@ -1052,15 +1052,22 @@ export async function findProductIdsSatisfyingAttributes(
     where vav.variant_id = cv.id and vav.selection_state = 'selected'
       and ${attributeConstraintPredicate('vav', constraint)})`;
 
-  // Every constraint met at PRODUCT grain — the branch that keeps a product with
-  // no variants matching a product-grain filter, which the `exists` below cannot
-  // reach.
+  // Every constraint met at PRODUCT grain.
+  //
+  // DO NOT DELETE AS REDUNDANT. It reads that way — the `exists` below tests the
+  // same thing per constraint — and it is the only branch that reaches a product
+  // with NO variant rows. Such a product satisfies a product-grain filter and a
+  // correlated `exists` over `canonical_variants` can never return true for it.
   const allAtProduct = sql.join(constraints.map(atProduct), sql` and `);
 
-  // …or ONE variant meets every constraint not already met on the product. The
-  // per-constraint `or` is what lets a mixed set work: "6.9 inch screen" is a
-  // product fact, "43" is a variant fact, and a shopper asking for both means one
-  // variant of a product whose screen is 6.9.
+  // …or ONE variant meets every constraint not already met on the product.
+  //
+  // DO NOT COLLAPSE THE PER-CONSTRAINT `or` into one test at either grain. It is
+  // what lets a MIXED set work: "6.9 inch screen" is a product fact and "43" is a
+  // variant fact, so a shopper asking for both means one variant of a product
+  // whose screen is 6.9. Requiring every constraint on the variant drops every
+  // product-grain filter; requiring every one at product grain drops every
+  // variant-grain filter and restores the #567 bug.
   const oneVariantMeetsAll = sql.join(
     constraints.map((constraint) => sql`(${atProduct(constraint)} or ${atVariant(constraint)})`),
     sql` and `,
