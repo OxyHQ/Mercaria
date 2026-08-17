@@ -27,7 +27,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { MIGRATION_RUNS, POST_PHASE_GREP_PATTERN } from '@oxyhq/db/migrate';
@@ -129,6 +129,62 @@ describe('the deploy workflow and the migrator agree', () => {
     const folderName = MIGRATIONS_FOLDER.split('/').filter(Boolean).at(-1);
     expect(folderName).toBe('drizzle');
     expect(workflow).toContain('packages/backend/drizzle');
+  });
+
+  it('greps the WHOLE journal, never this release’s own diff (#574)', () => {
+    /**
+     * The recovery that makes an evicted deploy survivable, stated as the thing
+     * that must not be tidied away.
+     *
+     * `has_post` is computed by grepping the entire migrations directory, so it
+     * is `true` whenever ANY post migration exists — eleven do, and one has
+     * since 2026-08-08, which is BEFORE this step was written. So the post task
+     * runs on every ordinary release and applies whatever the ledger says is
+     * PENDING, not whatever this commit added.
+     *
+     * That is what let `f38227b7` — a commit adding no migration at all — apply
+     * the `0106_panoramic_patch` that #574's evicted run was carrying. Narrowing
+     * the grep to the release's own diff reads as a tightening, would leave
+     * every ordinary deploy green, and would silently convert that bounded
+     * window into a permanent one: an evicted post migration would then be
+     * applied by NOTHING.
+     */
+    const detect = (parse(workflow) as WorkflowFile).jobs.deploy.steps.find((step) =>
+      step.name?.startsWith('Detect a post-rollout migration'),
+    );
+    expect(detect, 'the post-migration detection step is gone').toBeDefined();
+    const command = detect?.run ?? '';
+
+    // Positive control. Without it, every prohibition below passes against a
+    // step whose command was renamed, emptied or restructured out of reach —
+    // the guard would read clean while measuring nothing.
+    expect(command, 'the detect step no longer greps the migrations directory').toContain(
+      'packages/backend/drizzle',
+    );
+    expect(command).toContain('has_post=');
+
+    // The scope must be the directory, recursively — not a commit range.
+    for (const narrowing of ['git diff', 'git log', 'git show', 'HEAD~', 'github.event.before']) {
+      expect(
+        command,
+        `the detect step scopes the grep with \`${narrowing}\`, which limits it to this ` +
+          `release and removes the recovery an evicted deploy depends on (#574)`,
+      ).not.toContain(narrowing);
+    }
+
+    // And the property the grep exists to have: something in the tree matches
+    // it today. A repository with no post migration would make the assertions
+    // above true and the step's output permanently `false`.
+    const posts = readdirSync(MIGRATIONS_FOLDER).filter(
+      (file) =>
+        file.endsWith('.sql') &&
+        readFileSync(join(MIGRATIONS_FOLDER, file), 'utf8')
+          .split('\n')
+          .some((line) => line.trim() === POST_PHASE_GREP_PATTERN.replace(/^\^|\$$/g, '')),
+    );
+    expect(posts.length, 'no post migration exists, so has_post measures nothing').toBeGreaterThan(
+      0,
+    );
   });
 });
 

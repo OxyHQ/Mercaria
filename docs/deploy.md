@@ -157,6 +157,77 @@ the NEWEST ARTIFACT, so each web deploy workflow cancels its own superseded
 runs. Reading them side by side, one looks like a mistake; the difference is
 what each one owes.
 
+### What is merged is asserted to have shipped (#574)
+
+`deploy-coverage.yml` + `.github/scripts/require-deploy-coverage.mjs`. The
+invariant, in one line:
+
+> **The newest run of a deploy workflow on `main` must have concluded
+> `success`.** Every non-success run newer than the last success names a commit
+> that is merged and not shipped.
+
+**The hole it closes.** `deploy-aws.yml` serialises on ONE group per ref with
+`cancel-in-progress: false`, and GitHub keeps at most one PENDING run per group
+— so a third arrival **evicts the queued second**, which then executes nothing:
+no rollout, no migration, no notification. Measured over 300 `Deploy to AWS`
+runs on `main` in the four weeks to 2026-08-17: **235 success, 41 cancelled, 15
+failure, 9 action_required.** Those 65 form 36 windows in which a merged commit
+was not in production — median 23.1 minutes, worst **358.2 minutes** — and
+**two of them contained a newly added `post` migration** (`0003`+`0005` on
+2026-08-08 across a 4.5-hour window, and `0106_panoramic_patch` on 2026-08-17,
+the one #574 was opened for). Nothing reported any of it.
+
+**Why the concurrency block was not the thing changed.** Per-sha groups (the
+`ci.yml` shape) would let two runs migrate CONCURRENTLY, and `@oxyhq/db`'s
+migrator takes no lock — the interlock is exactly what that group is. And
+sparing a migration-carrying run from eviction needs a fact that is only
+readable after checkout, which is after the eviction has happened. So the
+eviction stays, and what was missing was never a different queue: it was that
+**nobody was told**.
+
+**Why an eviction is survivable at all**, and this is the part worth keeping:
+the evictor is always a DESCENDANT, so it ships a superset of the code, and
+`deploy-aws.yml`'s post-migration step greps the WHOLE journal rather than the
+release's diff — so it applies whatever the ledger says is pending, including
+the evicted run's migrations. That is how `f38227b7`, a commit adding no
+migration at all, applied `0106`. **Narrowing that grep to the release's own
+diff would read as a tightening and would delete the recovery**, turning a
+bounded window into a permanent one; `deployWorkflow.test.ts` fails the build if
+anybody does. The recovery holds exactly while the evictor SUCCEEDS, which is
+the condition this check asserts.
+
+**Three things about the implementation that are load-bearing:**
+
+- **It anchors on the newest RUN, never the newest COMMIT.** All four deploys
+  carry `paths:`/`paths-ignore:`, so a docs-only tip legitimately has no run —
+  anchoring on the commit would mean rebuilding those filters out of a diff, the
+  untestable reconstruction §"Why the gate reads CI's result" already rejected.
+- **Coverage is ordered by `run_number`, never by completion time.** An evicted
+  run completes in seconds while the run it queued behind takes fifteen minutes,
+  so a completion-order sort puts the success ABOVE cancellations it did not
+  cover. This shipped wrong the first time and was caught by replaying it against
+  real history: at 2026-08-17T07:39Z it reported 1 unshipped commit where the
+  truth was 3.
+- **A run still in flight DEFERS.** Without it every eviction reports a gap that
+  resolves on its own minutes later — 125 of those 300 completions had another
+  run in flight — and an alarm that fires on work already in hand is one somebody
+  mutes. With it, the same month produces 22 reports, each a state where the
+  pipeline had genuinely stopped.
+
+**It reports and does not act.** No bypass input (the cheapest green is a
+successful deploy, which is the remedy) and no re-dispatch: that would make a
+report an actor holding `actions: write`, and against a genuinely failing deploy
+— the ECR pull timeout on `203d8754` — it would loop. **To clear a report:**
+re-run the newest failed deploy, or merge again so a fresh deploy ships the tip.
+One successful deploy applies everything pending.
+
+**What it does NOT claim.** It does not fire for an eviction whose evictor
+succeeded, because nothing was lost — the five-minute window in #574's own
+timeline is a consistent older state, not a torn one, and removing it needs one
+of the rejected options. The guarantee is carried by the hourly `schedule`; the
+`workflow_run` trigger only makes the answer fast, so nothing rests on whether
+GitHub emits an event for a run cancelled by concurrency.
+
 ### There is no bypass
 
 Deliberately, and symmetrically with `deploy-aws.yml`, which has none either. A

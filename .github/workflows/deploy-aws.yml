@@ -67,6 +67,23 @@ on:
 # most one API gate ever polls. A queued run holds no runner at all. Net, this
 # workflow now occupies LESS: a poll loop replaced a full duplicate run of the
 # backend suite plus a PostGIS service container, on every push to `main`.
+#
+# THE COST OF THIS SETTING, AND WHAT NOW BOUNDS IT (#574). One group with
+# `cancel-in-progress: false` gives a queue depth of ONE, so a third arrival
+# EVICTS the queued second. The evicted run executes nothing — no rollout and no
+# migration — and reports it to nobody.
+#
+# That is survivable and is NOT fixed by changing this block. Per-sha groups (the
+# `ci.yml` shape) would let two runs migrate CONCURRENTLY, which the note at the
+# top of this comment says the migrator cannot take; and the fact that would let
+# an eviction decision spare a migration-carrying run is only readable after
+# checkout, which is after the eviction has already happened.
+#
+# It is survivable because the evictor is always a DESCENDANT: it ships a
+# superset of the code, and the post step below applies whatever the ledger says
+# is pending, so it carries the evicted run's migrations too. That holds exactly
+# while the evictor SUCCEEDS — which nothing asserted, and which is now
+# `deploy-coverage.yml`'s job.
 concurrency:
   group: deploy-aws-${{ github.ref }}
   cancel-in-progress: false
@@ -373,14 +390,35 @@ jobs:
           # JSON on one line: a GITHUB_OUTPUT value cannot span lines unhelped.
           echo "network=$(echo "$NET" | jq -c .)" >> "$GITHUB_OUTPUT"
 
-      # Does this release contain a post-rollout migration at all? Grepped with
-      # the pattern @oxyhq/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
+      # Does the JOURNAL contain a post-rollout migration? Grepped with the
+      # pattern @oxyhq/db EXPORTS (`POST_PHASE_GREP_PATTERN`), never a copy —
       # `src/db/__tests__/deployWorkflow.test.ts` asserts this workflow contains
       # that exact string, so the two cannot drift. The grep is sound only
       # because the migrator separately proves every file carries exactly one
       # well-formed marker; without that a typo would read as "no post migration"
       # and the drop would never be applied by anything.
-      - name: Detect a post-rollout migration in this release
+      #
+      # THE SCOPE IS THE WHOLE MIGRATIONS DIRECTORY, NOT THIS RELEASE'S DIFF, and
+      # that is load-bearing rather than sloppy — it used to be described here as
+      # "this release", which is what invited narrowing it.
+      #
+      # Read literally, `has_post` is `true` whenever the repository contains ANY
+      # post-phase migration. Eleven do, and one has since 0046e27a on
+      # 2026-08-08 — which landed BEFORE this step was written — so this output
+      # has been `true` on every evaluation it has ever made, and the `if:` below
+      # has never once skipped the task.
+      #
+      # Which is the correct behaviour and the reason not to "fix" it. Migrations
+      # are CUMULATIVE: the migrator applies whatever the ledger says is pending,
+      # not whatever this commit added. So running the post task unconditionally
+      # is what makes a deploy that never happened recoverable by the next one —
+      # #574's evicted run carrying `0106_panoramic_patch` was applied four
+      # minutes later by `f38227b7`, a commit that added no migration at all.
+      # Narrowing this grep to the release's own diff (a `git diff` against the
+      # previous deploy, say) would read as tightening and would silently DELETE
+      # that recovery, turning a bounded window into a permanent one. A guard in
+      # `deployWorkflow.test.ts` fails the build if the scope is narrowed.
+      - name: Detect a post-rollout migration in the journal
         id: phases
         run: |
           if grep -rlE '^-- oxy:deploy-phase=post$' packages/backend/drizzle >/dev/null 2>&1; then
@@ -428,10 +466,17 @@ jobs:
             echo "ECS service $APP not created yet — image is in ECR, skipping deploy"
           fi
 
-      # Only when the release actually has one. Skipping the task entirely is not
-      # an optimisation — a `post` run against a database with a pending `pre`
-      # migration BLOCKS by design, so running it every time would turn a normal
-      # release into a red deploy.
+      # Runs on every ordinary release, because `has_post` is true whenever the
+      # journal holds a post migration at all (see the Detect step). That is
+      # deliberate: it applies whatever the ledger says is PENDING, so a deploy
+      # that was evicted from the queue is made good by the next one instead of
+      # by luck. The `if:` guards the two states where the task would be wrong
+      # rather than merely redundant.
+      #
+      # The `pre` step above ran in THIS job, moments ago, so there is no pending
+      # `pre` migration for this to block behind — which is the condition that
+      # would turn a normal release red.
+      #
       # Skipped entirely on the cutover path: the `all` run above already applied
       # these, so a `post` here would find nothing — and running it would only
       # add a way for a green cutover to end on a red step.
