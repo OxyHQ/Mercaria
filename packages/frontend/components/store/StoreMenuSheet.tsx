@@ -20,6 +20,7 @@ import { openAccountDialog, useFollowTarget, useOxy } from "@oxyhq/services";
 import {
   ReviewStars,
   Text,
+  formatDate,
   formatReviewCount,
 } from "@mercaria/ui";
 import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
@@ -202,12 +203,12 @@ function StoreReviewCard({
   toneColor: string;
   onPressProduct: (productId: string) => void;
 }) {
-  const { t } = useTranslation();
-  const date = new Date(review.createdAt).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const { t, locale } = useTranslation();
+  // Was `toLocaleDateString(undefined, …)`, and the explicit `undefined` was the
+  // DEVICE locale just as an omitted argument is — the same defect wearing a
+  // more deliberate face (#488). The options it passed are what
+  // `formatDate`'s `dateStyle: "medium"` now means everywhere.
+  const date = formatDate(review.createdAt, locale);
   const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
 
   return (
@@ -263,7 +264,10 @@ function StoreReviewCard({
             ) : null}
           </View>
           <Text numberOfLines={1} className="flex-1 text-caption" style={{ color: toneColor }}>
-            {`${author} · ${date}`}
+            {/* The separator belongs to the PAIR: with no renderable date the
+                author stands alone rather than trailing a bare "·" or the
+                string "null". */}
+            {date === null ? author : `${author} · ${date}`}
           </Text>
         </View>
         <View className="mt-space-4 flex-row">

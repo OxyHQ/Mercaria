@@ -174,13 +174,30 @@ const MainSidebar = React.memo(function MainSidebar() {
               <UserAvatar size={32} />
             </Pressable>
           ) : (
+            // The collapsed rail's signed-out affordance is the SAME `LogIn`
+            // icon the expanded sidebar puts on its "Sign in" button, which is
+            // also what every other control on this rail is (#489).
+            //
+            // It replaced `(t("login.signInButton")[0] || "S").toUpperCase()`,
+            // which was three defects in one expression: it took the first code
+            // UNIT of a translated sentence, so a locale whose string begins
+            // outside the BMP rendered half a character; the first glyph of
+            // "Sign in" is not an initial in `ja`, `zh-Hans`, `ar`, `hi` or `bn`
+            // (it rendered ロ, 登, ت, स, স) but simply the first letter of a
+            // sentence; and the `"S"` fallback was a hardcoded Latin letter
+            // leaking English through the one path meant to be
+            // locale-independent. An icon has no first character to slice.
+            //
+            // It is also the accessible fix: the label was previously the bare
+            // glyph, so a screen reader announced "S". It now announces the
+            // whole translated action.
             <Pressable
               onPress={handleLogin}
+              accessibilityRole="button"
+              accessibilityLabel={t("login.signInButton")}
               className="h-10 w-10 items-center justify-center rounded-full bg-primary/10"
             >
-              <Text className="text-sm font-bold text-primary">
-                {(t("login.signInButton")[0] || "S").toUpperCase()}
-              </Text>
+              <LogIn size={18} className="text-primary" />
             </Pressable>
           )}
         </View>

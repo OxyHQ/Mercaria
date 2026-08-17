@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { Image } from 'expo-image';
 import type { CanonicalProduct, CatalogSourceKind } from '@mercaria/shared-types';
-import { RatingLine, Text } from '@mercaria/ui';
+import { formatDate, RatingLine, Text } from '@mercaria/ui';
 import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
 import { useTranslation } from '@/lib/i18n';
 
@@ -181,13 +181,17 @@ function LifecycleLine({ product }: { product: CanonicalProduct }) {
  * what, and that is operator material rather than something a shopper needs.
  */
 function ProvenanceLine({ product }: { product: CanonicalProduct }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   if (product.freshness === undefined) return null;
-  const observed = new Date(product.freshness.observedAt);
+  const observed = formatDate(product.freshness.observedAt, locale);
+  // The sentence is "last confirmed <date>", so with no renderable date there is
+  // no statement to make — and interpolating a null renders i18n-js's
+  // `[missing "%{date}" value]` marker to a shopper.
+  if (observed === null) return null;
   return (
     <Text className="text-caption text-text-secondary">
       {t('product.detailsLastConfirmed', {
-        date: observed.toLocaleDateString(),
+        date: observed,
         source: t(CATALOG_SOURCE_KIND_KEYS[product.freshness.sourceKind]),
       })}
     </Text>

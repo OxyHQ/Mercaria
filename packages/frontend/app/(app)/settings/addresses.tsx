@@ -3,7 +3,7 @@ import { View, ScrollView, Pressable } from "react-native";
 import { useOxy } from "@oxyhq/services";
 import { Check, Plus, Trash2 } from "lucide-react-native";
 import type { Address, CreateAddressInput } from "@mercaria/shared-types";
-import { Button, Text } from "@mercaria/ui";
+import { Button, Text, formatRegionName } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { AddressForm } from "@/components/address/AddressForm";
@@ -26,7 +26,7 @@ function AddressCard({
   onDelete: () => void;
   isMutating: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
       <View className="flex-row items-start justify-between gap-3">
@@ -52,7 +52,9 @@ function AddressCard({
             {address.city}
             {address.region ? `, ${address.region}` : ""} {address.postalCode}
           </Text>
-          <Text className="text-sm text-muted-foreground">{address.country}</Text>
+          <Text className="text-sm text-muted-foreground">
+            {formatRegionName(address.country, locale)}
+          </Text>
         </View>
         <Pressable
           accessibilityRole="button"

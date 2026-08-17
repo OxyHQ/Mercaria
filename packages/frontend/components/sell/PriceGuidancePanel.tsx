@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Text } from "@mercaria/ui";
 import type { SellerPriceGuidance, SellerPriceGuidanceSegment } from "@mercaria/shared-types";
-import { formatMoney } from "@mercaria/ui";
+import { formatDate, formatMoney } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -52,20 +52,27 @@ const CONFIDENCE_LABEL_KEYS: Record<string, string> = {
 };
 
 export function PriceGuidancePanel({ guidance }: PriceGuidancePanelProps) {
-  const { t } = useTranslation();
-  const since = new Date(guidance.from).toLocaleDateString();
+  const { t, locale } = useTranslation();
+  const since = formatDate(guidance.from, locale);
   return (
     <View className="gap-3 rounded-2xl border border-border p-4">
       <Text className="text-base font-medium">{t("sell.guidance.heading")}</Text>
-      <Text className="text-xs text-muted-foreground">
-        {guidance.market
-          ? t("sell.guidance.scopeWithMarket", {
-              market: guidance.market,
-              currency: guidance.currency,
-              since,
-            })
-          : t("sell.guidance.scope", { currency: guidance.currency, since })}
-      </Text>
+      {/* Both scope sentences NAME the date, and i18n-js renders a missing
+          placeholder as the literal `[missing "%{since}" value]` — untranslated
+          debug text, in every locale. So an unformattable `from` drops the whole
+          line rather than printing a broken one; the segments below still
+          carry the guidance this panel exists for. */}
+      {since === null ? null : (
+        <Text className="text-xs text-muted-foreground">
+          {guidance.market
+            ? t("sell.guidance.scopeWithMarket", {
+                market: guidance.market,
+                currency: guidance.currency,
+                since,
+              })
+            : t("sell.guidance.scope", { currency: guidance.currency, since })}
+        </Text>
+      )}
 
       {guidance.segments.map((segment) => (
         <View key={segment.kind} className="gap-1">

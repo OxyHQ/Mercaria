@@ -190,6 +190,11 @@ const OWNERS = [
     // TWELVE, not eleven: this is the app that ships `ar` (#396) and mirrors its
     // layout for it (#397). The dashboard and the POS wait on #434.
     minimumLocales: 12,
+    // H (#488): every date on the storefront now names the app's locale. ZERO is
+    // an exact count, so a reintroduced bare `toLocaleDateString()` fails here
+    // rather than waiting for somebody to notice an English date in a Japanese
+    // sentence.
+    deviceLocaleFormatSites: 0,
   },
   {
     name: "dashboard",
@@ -212,6 +217,9 @@ const OWNERS = [
     // gone it compares nothing and reports clean. Eleven of the registry's
     // twelve locales; `ar` waits on the layout mirroring (#434).
     minimumLocales: 11,
+    // H (#488): the dashboard's own residual, pinned rather than fixed — see
+    // the note on the `ui` owner below.
+    deviceLocaleFormatSites: 13,
   },
   {
     name: "pos",
@@ -226,6 +234,8 @@ const OWNERS = [
     // Measured: 8 and 11.
     minimumControlLabelKeys: 4,
     minimumInterpolatedKeys: 4,
+    // H (#488): the POS's own residual, pinned rather than fixed.
+    deviceLocaleFormatSites: 1,
   },
   {
     name: "ui",
@@ -256,6 +266,11 @@ const OWNERS = [
     // `bun run --filter @mercaria/ui typecheck` decides.
     minimumKeys: 51,
     minimumLocales: 12,
+    // H (#488): NOT fixed here, and pinned so the number cannot drift. #488 is
+    // scoped to the storefront; these four are the shared components' own
+    // residual and are owed a follow-up. `formatDate` lives in THIS package, so
+    // closing them is an import away — lower this number in the same change.
+    deviceLocaleFormatSites: 4,
   },
 ];
 
@@ -651,6 +666,8 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
   const interpolatedSites = [];
   /** F: `{ line, role, source }` for each argument F could not read. Counted, not ignored. */
   const unreadableKeySources = [];
+  /** H: `{ line, method }` for every date formatted in the DEVICE's locale. */
+  const deviceLocaleFormatSites = [];
 
   // A file's OWN maps win over the app-wide bag, so a control fixture with no
   // siblings resolves exactly as production does.
@@ -717,6 +734,30 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
   const visit = (node) => {
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       literals.push(node.text);
+    }
+
+    // H. a date formatted in the DEVICE's locale rather than the APP's (#488).
+    //
+    // Read off the AST rather than by grepping the text, and that is what makes
+    // it comment-immune: `StoreMenuSheet.tsx` documents the defect it fixed in
+    // prose containing the literal `toLocaleDateString`, and a text scan would
+    // report the file it just cleaned. There is no node for a comment here, so
+    // the population is the CALLS.
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)
+      && DEVICE_LOCALE_METHODS.has(node.expression.name.text)) {
+      const first = node.arguments[0];
+      // An explicit `undefined` is the device locale exactly as an omitted
+      // argument is — the same defect wearing a more deliberate face — so both
+      // count. Anything else has NAMED a locale and is what the remedy looks
+      // like.
+      const namesNoLocale = first === undefined
+        || (ts.isIdentifier(first) && first.text === "undefined");
+      if (namesNoLocale) {
+        deviceLocaleFormatSites.push({
+          line: lineOf(node),
+          method: node.expression.name.text,
+        });
+      }
     }
 
     // C. every `t('literal')` names a key the bundle must hold.
@@ -830,6 +871,7 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
     controlLabelSites,
     interpolatedSites,
     unreadableKeySources,
+    deviceLocaleFormatSites,
   };
 }
 
@@ -907,6 +949,41 @@ function pluralParentOf(key) {
   if (cut < 0) return null;
   return PLURAL_CATEGORIES.has(key.slice(cut + 1)) ? key.slice(0, cut) : null;
 }
+
+/**
+ * The three `Date` methods that resolve against the RUNTIME's default locale —
+ * the device — when handed no locale (#488, check H).
+ *
+ * `Intl.DateTimeFormat` is deliberately NOT in this set. Constructing one takes
+ * the locale as its FIRST argument, so the shape that omits it
+ * (`new Intl.DateTimeFormat()`) is vanishingly rare and the shape that supplies
+ * it is the remedy `formatDate` is built from — a detector covering both would
+ * fire on `packages/ui/src/lib/format.ts` itself.
+ */
+const DEVICE_LOCALE_METHODS = new Set([
+  "toLocaleDateString",
+  "toLocaleString",
+  "toLocaleTimeString",
+]);
+
+/**
+ * A placeholder in a syntax `i18n-js` DOES NOT INTERPOLATE (#487, check G).
+ *
+ * The interpolator reads `%{name}`. A `{{name}}` — the Mustache/Handlebars
+ * spelling, and what `i18next` uses — is passed through as literal text, so the
+ * braces reach the shopper. Twelve bundles carried `"{{count}}/1000 characters"`
+ * for exactly that reason.
+ *
+ * Check B could never have caught it: B asserts every bundle carries the SAME
+ * placeholders as `en`, and all twelve carried `{{count}}` identically. Parity
+ * is a consistency check, and twelve wrong things can be perfectly consistent —
+ * which is the general lesson worth keeping, not just this key.
+ */
+const FOREIGN_PLACEHOLDER = /\{\{[^{}]*\}\}/g;
+
+/** Every `{{…}}` in a bundle value — the input to check G and to its controls. */
+const foreignPlaceholdersOf = (value) => [...String(value).matchAll(FOREIGN_PLACEHOLDER)]
+  .map((match) => match[0]);
 
 const PLACEHOLDER = /%\{([^}]+)\}/g;
 const placeholdersOf = (value) =>
@@ -1089,6 +1166,95 @@ for (const source of CONTROL_MUST_NOT_FIND) {
 }
 
 /**
+ * Controls for check G (#487), run on every invocation.
+ *
+ * G's real-tree answer is ZERO findings, which is exactly what a broken regex
+ * also returns — so without these the check would go on reporting a clean tree
+ * after somebody edited the pattern into one that matches nothing.
+ *
+ * The negatives matter as much: `%{count}` is the CORRECT spelling and appears
+ * in roughly 150 real values, and a `${…}` is a JavaScript template that has
+ * already been substituted before the value reaches a bundle. A G that fired on
+ * either would be switched off the same day.
+ */
+for (const seeded of ['{{count}}/1000 characters', 'Hello {{ name }}', '{{a}} and {{b}}']) {
+  if (foreignPlaceholdersOf(seeded).length === 0) {
+    failures.push(
+      `positive control failed: check G found no foreign placeholder in ${JSON.stringify(seeded)} — `
+      + "the detector is broken, and a broken detector reports a clean bundle set",
+    );
+  }
+}
+for (const safe of ['%{count}/1000 characters', 'Order %{number}', 'no placeholder at all', '{}', '{ }']) {
+  if (foreignPlaceholdersOf(safe).length > 0) {
+    failures.push(
+      `negative control failed: check G fired on ${JSON.stringify(safe)}, which is the CORRECT `
+      + "i18n-js spelling — a guard that flags the remedy gets disabled",
+    );
+  }
+}
+
+/**
+ * Controls for check H (#488), run on every invocation.
+ *
+ * H's answer for the storefront is ZERO, and zero is also what a detector that
+ * stopped matching returns. The negatives pin the two shapes that must not
+ * fire: a call that NAMES a locale, and the `formatDate` remedy itself.
+ */
+const deviceLocaleFindings = (source) =>
+  analyseSource("control/device-locale.tsx", source, CONTROL_KEYS).deviceLocaleFormatSites;
+
+const DEVICE_LOCALE_MUST_FIND = [
+  "const d = new Date(x).toLocaleDateString();",
+  "const d = new Date(x).toLocaleString();",
+  "const d = new Date(x).toLocaleTimeString();",
+  // The explicit `undefined` — the same defect wearing a more deliberate face.
+  'const d = new Date(x).toLocaleDateString(undefined, { year: "numeric" });',
+];
+const DEVICE_LOCALE_MUST_NOT_FIND = [
+  "const d = new Date(x).toLocaleDateString(locale);",
+  'const d = new Date(x).toLocaleString(locale, { dateStyle: "medium" });',
+  "const d = formatDate(x, locale);",
+  "const d = formatDateTime(x, locale);",
+  // The remedy's own implementation, which names the locale positionally.
+  'const f = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(parsed);',
+  // A same-named method on something that is not a Date still takes a locale.
+  "const n = (1234.5).toLocaleString(locale);",
+];
+
+for (const source of DEVICE_LOCALE_MUST_FIND) {
+  if (deviceLocaleFindings(source).length === 0) {
+    failures.push(
+      `positive control failed: check H produced no finding for ${JSON.stringify(source)} — `
+      + "the detector is broken, and a broken detector reports a clean app",
+    );
+  }
+}
+for (const source of DEVICE_LOCALE_MUST_NOT_FIND) {
+  if (deviceLocaleFindings(source).length > 0) {
+    failures.push(
+      `negative control failed: check H fired on ${JSON.stringify(source)}, which NAMES a locale — `
+      + "a guard that flags the remedy gets disabled",
+    );
+  }
+}
+// Comment-immunity, asserted rather than assumed: `StoreMenuSheet.tsx` records
+// the defect it fixed in prose that contains the literal method name, and a
+// text-based scan would report the file it had just cleaned.
+{
+  const commented = deviceLocaleFindings(
+    "// Was `toLocaleDateString(undefined, …)`, which used the device locale.\n"
+    + "const d = formatDate(x, locale);",
+  );
+  if (commented.length > 0) {
+    failures.push(
+      "negative control failed: check H fired on a COMMENT naming the method. It reads the AST, so "
+      + "this must be impossible — if it fires, the detector has been rewritten as a text scan",
+    );
+  }
+}
+
+/**
  * Controls for check F's detector, run on every invocation.
  *
  * F's real-tree answer is an EMPTY intersection, which is what a completely
@@ -1233,6 +1399,8 @@ const filesByApp = new Map(OWNERS.map((owner) => [owner.name, 0]));
 /** F: `{ key -> site }` per owner for each of its two populations. */
 const controlLabelKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
 const interpolatedKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
+/** H: `{ file, line, method }` for every date formatted in the device's locale. */
+const deviceLocaleFormatsByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
 /** F: how many `t()` arguments it could not read, per owner. Reported, never assumed zero. */
 const unreadableKeySourcesByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
 
@@ -1273,6 +1441,12 @@ for (const [path, text] of textByPath) {
     path, text, knownKeysByApp.get(app.name), keyMapsByApp.get(app.name),
   );
   filesByApp.set(app.name, filesByApp.get(app.name) + 1);
+  // H runs for EVERY owner, including the two whose `hardcodedStrings` and
+  // `actionLabelCopy` are off: a date rendered in the wrong language is not a
+  // hardcoded string and is not an action label, so neither switch describes it.
+  for (const site of result.deviceLocaleFormatSites) {
+    deviceLocaleFormatsByApp.get(app.name).push({ ...site, file: path });
+  }
   if (app.actionLabelCopy) {
     const controls = controlLabelKeysByApp.get(app.name);
     for (const site of result.controlLabelSites) {
@@ -1369,6 +1543,53 @@ for (const app of OWNERS) {
         );
       }
     }
+  }
+
+  // G. the placeholder syntax is the one i18n-js actually reads (#487).
+  //
+  // Runs over EVERY bundle including `en` — the original defect was in the
+  // English source string too, and a check that skipped it would have reported
+  // eleven of the twelve. Needs no vacuity floor of its own: `minimumKeys` and
+  // `minimumLocales` above already floor this exact population, so a bundle set
+  // that read as empty fails there first.
+  for (const [path, flat] of flatByLocale) {
+    for (const [key, value] of flat) {
+      const foreign = foreignPlaceholdersOf(value);
+      if (foreign.length === 0) continue;
+      failures.push(
+        `${path}: "${key}" carries ${foreign.join(", ")}, which i18n-js does NOT interpolate — it `
+        + "reads %{name}. The braces render literally to a shopper. Check B cannot see this: it "
+        + "compares bundles against each other, and all twelve can be wrong together.",
+      );
+    }
+  }
+
+  // H. dates are formatted in the APP's locale, not the DEVICE's (#488).
+  //
+  // An EXACT count rather than a ceiling, and it is skipped on a fixture tree
+  // for the reason `fixtureFloors` exists: a scratch checkout of six files has
+  // none of the real call sites, so every pinned residual would fail for a
+  // reason that says nothing about the guard. H's own detector is still
+  // exercised on a fixture run — its positive and negative controls run on
+  // EVERY invocation, which is what keeps this from being untested there.
+  const deviceLocaleSites = deviceLocaleFormatsByApp.get(app.name) ?? [];
+  if (!fixtureFloors && app.deviceLocaleFormatSites !== null
+    && deviceLocaleSites.length !== app.deviceLocaleFormatSites) {
+    const listing = deviceLocaleSites
+      .map((site) => `${site.file}:${site.line} ${site.method}()`)
+      .join("\n      ");
+    failures.push(
+      `packages/${app.name}: ${deviceLocaleSites.length} date(s) formatted in the DEVICE locale, `
+      + `expected exactly ${app.deviceLocaleFormatSites}.\n`
+      + `      ${listing || "(none)"}\n`
+      + "      A `toLocale*String()` with no locale argument — or an explicit `undefined`, which is "
+      + "the same thing — renders in the DEVICE's language, so a shopper reading Mercaria in "
+      + "Japanese on an English phone gets an English date inside a Japanese sentence.\n"
+      + "      The remedy is `formatDate`/`formatDateTime` from @mercaria/ui with the locale "
+      + "`useTranslation()` already returns. If you FIXED some of these, lower the owner's "
+      + "`deviceLocaleFormatSites` in this file to the new count — it is an exact count, not a "
+      + "ceiling, so the number cannot quietly drift in either direction.",
+    );
   }
 
   // C. referential integrity

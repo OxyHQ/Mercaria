@@ -17,6 +17,9 @@ import {
   SectionHeader,
   Text,
   commercialSellerLabel,
+  formatDate,
+  formatDateTime,
+  formatRegionName,
   retailOrderProgressExplanation,
   retailOrderProgressLabel,
 } from "@mercaria/ui";
@@ -77,9 +80,9 @@ const PAYMENT_STATUS_KEY: Record<OrderPaymentStatus, string> = {
  * inventing half a promise.
  */
 function DeliveryLine({ label, statement }: { label: string; statement: RetailDeliveryStatement }) {
-  const { t } = useTranslation();
-  const earliest = statement.earliestAt ? new Date(statement.earliestAt).toLocaleDateString() : null;
-  const latest = statement.latestAt ? new Date(statement.latestAt).toLocaleDateString() : null;
+  const { t, locale } = useTranslation();
+  const earliest = statement.earliestAt ? formatDate(statement.earliestAt, locale) : null;
+  const latest = statement.latestAt ? formatDate(statement.latestAt, locale) : null;
   const window =
     earliest && latest
       ? `${earliest} – ${latest}`
@@ -232,7 +235,7 @@ function PaymentCard({ order }: { order: Order }) {
 }
 
 function ShippingAddressCard({ order }: { order: Order }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const a = order.shippingAddress;
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
@@ -244,13 +247,13 @@ function ShippingAddressCard({ order }: { order: Order }) {
         {a.city}
         {a.region ? `, ${a.region}` : ""} {a.postalCode}
       </Text>
-      <Text className="text-sm text-muted-foreground">{a.country}</Text>
+      <Text className="text-sm text-muted-foreground">{formatRegionName(a.country, locale)}</Text>
     </View>
   );
 }
 
 function OrderDetailBody({ orderId }: { orderId: string }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const { data: order, isLoading, isError } = useOrder(orderId);
   const cancel = useCancelOrder();
@@ -311,7 +314,7 @@ function OrderDetailBody({ orderId }: { orderId: string }) {
         <View className="flex-row items-center justify-between">
           <StatusPill status={order.status} />
           <Text className="text-xs text-muted-foreground">
-            {new Date(order.createdAt).toLocaleString()}
+            {formatDateTime(order.createdAt, locale)}
           </Text>
         </View>
         <Text className="text-sm text-muted-foreground">
