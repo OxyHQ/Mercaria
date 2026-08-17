@@ -240,6 +240,36 @@
         "moneyRange": "%{title} : la moitié centrale de ce que nous avons enregistré. %{sample}",
         "plain": "%{title}. %{sample}"
       }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Synchronisé depuis %{provider}",
+      "pinField": {
+        "title": "Titre",
+        "description": "Description",
+        "images": "Images",
+        "vendor": "Fournisseur",
+        "productType": "Type de produit",
+        "handle": "Identifiant d'URL",
+        "seo": "Titre et description SEO"
+      },
+      "pinTitle": "Champs que vous avez modifiés dans Mercaria",
+      "pinEffect": {
+        "honoured": "Une synchronisation ultérieure ne les écrase jamais : une modification que vous faites sur l'un d'eux sur la plateforme n'apparaîtra pas ici.",
+        "channelWins": "Le réglage « Conserver mes modifications locales » de ce canal est désactivé, la prochaine synchronisation les écrasera donc avec les valeurs de la plateforme.",
+        "unknown": "Qu'une synchronisation ultérieure les écrase dépend du réglage « Conserver mes modifications locales » du canal."
+      },
+      "pinRelease": "Pour tous les rendre d'un coup, désactivez « Conserver mes modifications locales » sur le canal. Cela s'applique à chaque champ modifié de chaque produit de ce canal.",
+      "pinUnnamed": {
+        "one": "%{count} champ de plus est retenu face à la synchronisation et cet écran ne peut pas le nommer.",
+        "other": "%{count} champs de plus sont retenus face à la synchronisation et cet écran ne peut pas les nommer."
+      }
     }
   }
 }

@@ -319,12 +319,13 @@ export {
   type ConnectorPinNoticeProps,
 } from "./components/ui/connector-pin-notice";
 export {
-  CONNECTOR_PIN_EFFECT_TEXT,
-  CONNECTOR_PIN_LABELS,
-  CONNECTOR_PIN_RELEASE_TEXT,
-  CONNECTOR_PIN_TITLE,
-  CONNECTOR_PROVIDER_LABELS,
-  connectorPinUnnamedText,
+  CONNECTOR_PIN_EFFECT_KEYS,
+  CONNECTOR_PIN_LABEL_KEYS,
+  CONNECTOR_PIN_RELEASE_KEY,
+  CONNECTOR_PIN_TITLE_KEY,
+  CONNECTOR_PIN_UNNAMED_KEY,
+  CONNECTOR_PROVIDER_LABEL_KEYS,
+  CONNECTOR_SYNCED_FROM_KEY,
   type ConnectorPinEffect,
 } from "./lib/connector-labels";
 

@@ -240,6 +240,36 @@
         "moneyRange": "%{title}: 記録した価格の中央半分です。%{sample}",
         "plain": "%{title}。%{sample}"
       }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "%{provider} から同期",
+      "pinField": {
+        "title": "タイトル",
+        "description": "説明",
+        "images": "画像",
+        "vendor": "ベンダー",
+        "productType": "商品タイプ",
+        "handle": "URL ハンドル",
+        "seo": "SEO タイトルと説明"
+      },
+      "pinTitle": "Mercaria で編集した項目",
+      "pinEffect": {
+        "honoured": "以降の同期で上書きされることはありません。そのため、プラットフォーム側でこれらを変更してもここには反映されません。",
+        "channelWins": "このチャネルの「ローカルの編集を保持する」設定がオフのため、次回の同期でプラットフォームの値に上書きされます。",
+        "unknown": "以降の同期で上書きされるかどうかは、チャネルの「ローカルの編集を保持する」設定によります。"
+      },
+      "pinRelease": "すべてをまとめて戻すには、チャネルの「ローカルの編集を保持する」をオフにしてください。これはこのチャネルの全商品の編集済み項目すべてに適用されます。",
+      "pinUnnamed": {
+        "one": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。",
+        "other": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。"
+      }
     }
   }
 }

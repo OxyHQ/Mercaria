@@ -240,6 +240,36 @@
         "moneyRange": "%{title}: die mittlere Hälfte dessen, was wir erfasst haben. %{sample}",
         "plain": "%{title}. %{sample}"
       }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Synchronisiert von %{provider}",
+      "pinField": {
+        "title": "Titel",
+        "description": "Beschreibung",
+        "images": "Bilder",
+        "vendor": "Anbieter",
+        "productType": "Produkttyp",
+        "handle": "URL-Kennung",
+        "seo": "SEO-Titel und -Beschreibung"
+      },
+      "pinTitle": "Felder, die du in Mercaria bearbeitet hast",
+      "pinEffect": {
+        "honoured": "Eine spätere Synchronisierung überschreibt sie nie, eine Änderung an einem davon auf der Plattform erscheint hier also nicht.",
+        "channelWins": "Die Einstellung „Meine lokalen Änderungen behalten“ dieses Kanals ist aus, die nächste Synchronisierung überschreibt sie also mit den Werten der Plattform.",
+        "unknown": "Ob eine spätere Synchronisierung sie überschreibt, entscheidet die Einstellung „Meine lokalen Änderungen behalten“ des Kanals."
+      },
+      "pinRelease": "Um alle auf einmal zurückzugeben, schalte „Meine lokalen Änderungen behalten“ am Kanal aus. Das gilt für jedes bearbeitete Feld jedes Produkts aus diesem Kanal.",
+      "pinUnnamed": {
+        "one": "%{count} weiteres Feld wird gegen die Synchronisierung gehalten, das dieser Bildschirm nicht benennen kann.",
+        "other": "%{count} weitere Felder werden gegen die Synchronisierung gehalten, die dieser Bildschirm nicht benennen kann."
+      }
     }
   }
 }

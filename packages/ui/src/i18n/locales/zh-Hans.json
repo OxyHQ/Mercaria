@@ -240,6 +240,36 @@
         "moneyRange": "%{title}：我们记录价格的中间一半。%{sample}",
         "plain": "%{title}。%{sample}"
       }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "从 %{provider} 同步",
+      "pinField": {
+        "title": "标题",
+        "description": "描述",
+        "images": "图片",
+        "vendor": "供应商",
+        "productType": "商品类型",
+        "handle": "URL 标识",
+        "seo": "SEO 标题和描述"
+      },
+      "pinTitle": "你在 Mercaria 中编辑过的字段",
+      "pinEffect": {
+        "honoured": "以后的同步不会覆盖它们，因此你在平台上对其中任何一项所做的修改都不会显示在这里。",
+        "channelWins": "此渠道的“保留我的本地修改”设置已关闭，因此下次同步会用平台的值覆盖它们。",
+        "unknown": "以后的同步是否会覆盖它们，取决于渠道的“保留我的本地修改”设置。"
+      },
+      "pinRelease": "若要一次性全部交还，请关闭渠道上的“保留我的本地修改”。这会作用于此渠道所有商品的每一个已编辑字段。",
+      "pinUnnamed": {
+        "one": "还有 %{count} 个字段处于不被同步覆盖的状态，本页面无法显示它们的名称。",
+        "other": "还有 %{count} 个字段处于不被同步覆盖的状态，本页面无法显示它们的名称。"
+      }
     }
   }
 }

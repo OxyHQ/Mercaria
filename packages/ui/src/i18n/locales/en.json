@@ -240,6 +240,36 @@
         "moneyRange": "%{title}: the middle half of what we recorded. %{sample}",
         "plain": "%{title}. %{sample}"
       }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Synced from %{provider}",
+      "pinField": {
+        "title": "Title",
+        "description": "Description",
+        "images": "Images",
+        "vendor": "Vendor",
+        "productType": "Product type",
+        "handle": "URL handle",
+        "seo": "SEO title and description"
+      },
+      "pinTitle": "Fields you edited in Mercaria",
+      "pinEffect": {
+        "honoured": "A later sync never overwrites them, so an edit you make to one of these on the platform will not appear here.",
+        "channelWins": "This channel's “Keep my local edits” setting is off, so the next sync overwrites them with the platform's values.",
+        "unknown": "Whether a later sync overwrites them is the channel's “Keep my local edits” setting."
+      },
+      "pinRelease": "To hand all of them back at once, turn off “Keep my local edits” on the channel. That applies to every edited field on every product from this channel.",
+      "pinUnnamed": {
+        "one": "%{count} more field is held against sync that this screen cannot name.",
+        "other": "%{count} more fields are held against sync that this screen cannot name."
+      }
     }
   }
 }

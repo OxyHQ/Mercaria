@@ -70,8 +70,17 @@ const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 
 
 /** The merchant screen that serves `Listing.overriddenFields` to a person. */
 const PRODUCT_SCREEN = 'dashboard/app/(app)/products/[id].tsx';
-/** The shared copy: one sentence per pinnable field and per policy state. */
+/** The shared pin VOCABULARY: one message id per pinnable field and per policy state. */
 const PIN_COPY = 'ui/src/lib/connector-labels.ts';
+/**
+ * The shared copy itself, since #437 moved the sentences out of `PIN_COPY`.
+ *
+ * The restore-promise assertion below MUST read this file and not `PIN_COPY`.
+ * `PIN_COPY` now holds only key strings, so it satisfies "contains no
+ * forbidden word" perfectly and would go on passing while guarding nothing —
+ * the exact vacuity the dashboard half of this test already floors against.
+ */
+const SHARED_EN_BUNDLE = 'ui/src/i18n/locales/en.json';
 /** The presentational notice itself. */
 const PIN_NOTICE = 'ui/src/components/ui/connector-pin-notice.tsx';
 /** The dashboard's English copy — where every sentence the release renders lives. */
@@ -243,7 +252,7 @@ describe('the merchant surface renders the pin set', () => {
   });
 
   it('names exactly the fields a merchant edit can pin', () => {
-    const labelled = recordKeys(stripComments(read(PIN_COPY)), 'CONNECTOR_PIN_LABELS');
+    const labelled = recordKeys(stripComments(read(PIN_COPY)), 'CONNECTOR_PIN_LABEL_KEYS');
     expect(
       labelled.sort(),
       'the pin copy and the pin vocabulary disagree — a key with no label renders blank, ' +
@@ -255,7 +264,7 @@ describe('the merchant surface renders the pin set', () => {
     // Equality above already forbids this; asserted separately because it is the
     // consequence that matters, and because the two would be reported as
     // completely different failures.
-    const labelled = new Set(recordKeys(stripComments(read(PIN_COPY)), 'CONNECTOR_PIN_LABELS'));
+    const labelled = new Set(recordKeys(stripComments(read(PIN_COPY)), 'CONNECTOR_PIN_LABEL_KEYS'));
     for (const excluded of UNPINNED_CONNECTOR_KEYS) {
       expect(labelled.has(excluded), `${excluded} is not pinnable by an edit — see #416`).toBe(
         false,
@@ -332,8 +341,15 @@ describe('the merchant can release a pin (#427)', () => {
       'the release copy offers to revert/restore/undo a pinned field — nothing stores the ' +
         "platform's previous value, so that is a promise the data cannot keep (#427)",
     ).not.toMatch(FALSE_RESTORE_PROMISE);
-    // The shared module's connection-wide sentence describes the same act and
-    // must not promise it either.
-    expect(stripComments(read(PIN_COPY))).not.toMatch(FALSE_RESTORE_PROMISE);
+    // The shared bundle's connection-wide sentence describes the same act and
+    // must not promise it either. Floored the same way, and for the same
+    // reason: an absent or renamed subtree contains no forbidden word.
+    const shared = JSON.parse(readFileSync(join(PACKAGES_ROOT, SHARED_EN_BUNDLE), 'utf8'));
+    const connector = shared?.ui?.connector;
+    expect(connector, 'the shared connector copy is missing from the bundle entirely').toBeDefined();
+    const sharedCopy = JSON.stringify(connector);
+    expect(sharedCopy.length, 'the shared connector copy is present but empty').toBeGreaterThan(200);
+    expect(connector.pinRelease, 'the connection-wide release sentence is gone').toBeTruthy();
+    expect(sharedCopy).not.toMatch(FALSE_RESTORE_PROMISE);
   });
 });

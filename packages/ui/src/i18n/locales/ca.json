@@ -240,6 +240,36 @@
         "moneyRange": "%{title}: la meitat central del que hem registrat. %{sample}",
         "plain": "%{title}. %{sample}"
       }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Sincronitzat des de %{provider}",
+      "pinField": {
+        "title": "Títol",
+        "description": "Descripció",
+        "images": "Imatges",
+        "vendor": "Proveïdor",
+        "productType": "Tipus de producte",
+        "handle": "Identificador d'URL",
+        "seo": "Títol i descripció SEO"
+      },
+      "pinTitle": "Camps que has editat a Mercaria",
+      "pinEffect": {
+        "honoured": "Una sincronització posterior no els sobreescriu mai, així que un canvi que facis en un d'ells a la plataforma no apareixerà aquí.",
+        "channelWins": "L'opció «Mantén les meves edicions locals» d'aquest canal està desactivada, així que la propera sincronització els sobreescriurà amb els valors de la plataforma.",
+        "unknown": "Que una sincronització posterior els sobreescrigui depèn de l'opció «Mantén les meves edicions locals» del canal."
+      },
+      "pinRelease": "Per tornar-los tots alhora, desactiva «Mantén les meves edicions locals» al canal. Això s'aplica a tots els camps editats de tots els productes d'aquest canal.",
+      "pinUnnamed": {
+        "one": "Hi ha %{count} camp més retingut davant la sincronització que aquesta pantalla no pot anomenar.",
+        "other": "Hi ha %{count} camps més retinguts davant la sincronització que aquesta pantalla no pot anomenar."
+      }
     }
   }
 }

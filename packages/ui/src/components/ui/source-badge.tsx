@@ -2,7 +2,11 @@ import { View } from "react-native";
 import { RefreshCw } from "lucide-react-native";
 import type { ConnectorProviderId } from "@mercaria/shared-types";
 import { cn } from "../../lib/cn";
-import { CONNECTOR_PROVIDER_LABELS } from "../../lib/connector-labels";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  CONNECTOR_PROVIDER_LABEL_KEYS,
+  CONNECTOR_SYNCED_FROM_KEY,
+} from "../../lib/connector-labels";
 import { Text } from "./text";
 import { Icon } from "./icon";
 
@@ -20,6 +24,7 @@ export interface SourceBadgeProps {
  * Admin/dashboard surfaces only; the storefront never receives `source`.
  */
 export function SourceBadge({ provider, className }: SourceBadgeProps) {
+  const t = useSharedUiTranslation();
   return (
     <View
       className={cn(
@@ -29,7 +34,7 @@ export function SourceBadge({ provider, className }: SourceBadgeProps) {
     >
       <Icon as={RefreshCw} size={10} className="text-muted-foreground" />
       <Text className="text-[10px] font-semibold text-muted-foreground">
-        Synced from {CONNECTOR_PROVIDER_LABELS[provider]}
+        {t(CONNECTOR_SYNCED_FROM_KEY, { provider: t(CONNECTOR_PROVIDER_LABEL_KEYS[provider]) })}
       </Text>
     </View>
   );

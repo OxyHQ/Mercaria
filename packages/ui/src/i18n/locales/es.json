@@ -240,6 +240,36 @@
         "moneyRange": "%{title}: la mitad central de lo que registramos. %{sample}",
         "plain": "%{title}. %{sample}"
       }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Sincronizado desde %{provider}",
+      "pinField": {
+        "title": "Título",
+        "description": "Descripción",
+        "images": "Imágenes",
+        "vendor": "Proveedor",
+        "productType": "Tipo de producto",
+        "handle": "Identificador de URL",
+        "seo": "Título y descripción SEO"
+      },
+      "pinTitle": "Campos que editaste en Mercaria",
+      "pinEffect": {
+        "honoured": "Una sincronización posterior nunca los sobrescribe, así que un cambio que hagas en uno de ellos en la plataforma no aparecerá aquí.",
+        "channelWins": "La opción «Mantener mis ediciones locales» de este canal está desactivada, así que la próxima sincronización los sobrescribirá con los valores de la plataforma.",
+        "unknown": "Que una sincronización posterior los sobrescriba depende de la opción «Mantener mis ediciones locales» del canal."
+      },
+      "pinRelease": "Para devolverlos todos a la vez, desactiva «Mantener mis ediciones locales» en el canal. Eso se aplica a todos los campos editados de todos los productos de este canal.",
+      "pinUnnamed": {
+        "one": "Hay %{count} campo más retenido frente a la sincronización que esta pantalla no puede nombrar.",
+        "other": "Hay %{count} campos más retenidos frente a la sincronización que esta pantalla no puede nombrar."
+      }
     }
   }
 }

@@ -1,16 +1,18 @@
 import type { ConnectorProviderId, PinnableConnectorField } from "@mercaria/shared-types";
 
 /**
- * Merchant-facing copy for connector provenance and field pins (#416/#419/#420).
+ * Merchant-facing copy for connector provenance and field pins
+ * (#416/#419/#420) — as TRANSLATION KEYS.
  *
  * Same split as every taxonomy in this package: the KEYS are
  * `@mercaria/shared-types` tuples that columns and a wire contract carry, and
- * the sentences are here so a wording change touches no stored value. Both maps
- * are exhaustive over their union by TYPE, so a member added to
- * `PINNABLE_CONNECTOR_FIELDS` fails this package's typecheck rather than
- * rendering a blank row on a merchant's product screen — and a key from
- * `UNPINNED_CONNECTOR_KEYS` cannot be added to the pin map at all, because it is
- * not in the union `Record` keys it.
+ * the sentences are in `packages/ui/src/i18n/locales/*.json` since #437, so a
+ * wording change touches no stored value and one sentence is translated once
+ * for all three apps. Both maps are exhaustive over their union by TYPE, so a
+ * member added to `PINNABLE_CONNECTOR_FIELDS` fails this package's typecheck
+ * rather than rendering a blank row on a merchant's product screen — and a key
+ * from `UNPINNED_CONNECTOR_KEYS` cannot be added to the pin map at all, because
+ * it is not in the union `Record` keys it.
  *
  * ## Why the pin copy is worded the way it is
  *
@@ -25,16 +27,38 @@ import type { ConnectorProviderId, PinnableConnectorField } from "@mercaria/shar
  * syncs will not overwrite these" under `connector_wins` would generate exactly
  * the false bug report — in the opposite direction — that showing the pins at
  * all exists to prevent.
+ *
+ * ## The sentence that must not promise a restore now lives in the BUNDLE
+ *
+ * `CONNECTOR_PIN_RELEASE_KEY`'s text deliberately does NOT say "restore":
+ * turning the switch off makes the pins inert without deleting them, so the
+ * platform overwrites those fields at its next sync and nothing anywhere holds
+ * the values they had before the merchant edited them. That property used to be
+ * asserted against THIS FILE by `connector-pin-visibility.test.ts`. Since the
+ * sentence moved, so did the assertion — it now reads
+ * `ui/src/i18n/locales/en.json`, with a vacuity floor, because a file holding
+ * only key strings satisfies "contains no forbidden word" perfectly and would
+ * have gone on passing while guarding nothing.
  */
 
-/** Human-friendly labels for each connector platform (exhaustive over the union). */
-export const CONNECTOR_PROVIDER_LABELS: Record<ConnectorProviderId, string> = {
-  shopify: "Shopify",
-  woocommerce: "WooCommerce",
-  etsy: "Etsy",
-  prestashop: "PrestaShop",
-  magento: "Magento",
+/**
+ * Each connector platform's name.
+ *
+ * These are BRAND names and most locales will render them identically. They are
+ * still keys, for the reason every brand name in this repository is one: some
+ * scripts transliterate, and the decision then sits in the bundle where a
+ * translator can see it rather than being unavailable to them.
+ */
+export const CONNECTOR_PROVIDER_LABEL_KEYS: Record<ConnectorProviderId, string> = {
+  shopify: "ui.connector.provider.shopify",
+  woocommerce: "ui.connector.provider.woocommerce",
+  etsy: "ui.connector.provider.etsy",
+  prestashop: "ui.connector.provider.prestashop",
+  magento: "ui.connector.provider.magento",
 };
+
+/** "Synced from %{provider}" — the whole sentence, never a `${}` around a name. */
+export const CONNECTOR_SYNCED_FROM_KEY = "ui.connector.syncedFrom";
 
 /**
  * What a merchant calls each pinnable field.
@@ -43,18 +67,18 @@ export const CONNECTOR_PROVIDER_LABELS: Record<ConnectorProviderId, string> = {
  * gallery a merchant reordered, `handle` is the URL they can see, and `seo`
  * covers both columns because the connector writes them together.
  */
-export const CONNECTOR_PIN_LABELS: Record<PinnableConnectorField, string> = {
-  title: "Title",
-  description: "Description",
-  images: "Images",
-  vendor: "Vendor",
-  productType: "Product type",
-  handle: "URL handle",
-  seo: "SEO title and description",
+export const CONNECTOR_PIN_LABEL_KEYS: Record<PinnableConnectorField, string> = {
+  title: "ui.connector.pinField.title",
+  description: "ui.connector.pinField.description",
+  images: "ui.connector.pinField.images",
+  vendor: "ui.connector.pinField.vendor",
+  productType: "ui.connector.pinField.productType",
+  handle: "ui.connector.pinField.handle",
+  seo: "ui.connector.pinField.seo",
 };
 
 /** Heading for the pinned-field notice — the switch's phrase, verbatim. */
-export const CONNECTOR_PIN_TITLE = "Fields you edited in Mercaria";
+export const CONNECTOR_PIN_TITLE_KEY = "ui.connector.pinTitle";
 
 /**
  * Whether the pins on a listing are currently in force.
@@ -67,13 +91,10 @@ export const CONNECTOR_PIN_TITLE = "Fields you edited in Mercaria";
 export type ConnectorPinEffect = "honoured" | "channel_wins" | "unknown";
 
 /** What the pins mean right now, one sentence per state. */
-export const CONNECTOR_PIN_EFFECT_TEXT: Record<ConnectorPinEffect, string> = {
-  honoured:
-    "A later sync never overwrites them, so an edit you make to one of these on the platform will not appear here.",
-  channel_wins:
-    "This channel's “Keep my local edits” setting is off, so the next sync overwrites them with the platform's values.",
-  unknown:
-    "Whether a later sync overwrites them is the channel's “Keep my local edits” setting.",
+export const CONNECTOR_PIN_EFFECT_KEYS: Record<ConnectorPinEffect, string> = {
+  honoured: "ui.connector.pinEffect.honoured",
+  channel_wins: "ui.connector.pinEffect.channelWins",
+  unknown: "ui.connector.pinEffect.unknown",
 };
 
 /**
@@ -86,13 +107,9 @@ export const CONNECTOR_PIN_EFFECT_TEXT: Record<ConnectorPinEffect, string> = {
  * edited field on every product of the connection at once, where the per-field
  * release beside each pin above reaches one.
  *
- * It deliberately does NOT say "restore". Turning the switch off makes the pins
- * inert without deleting them, so the platform overwrites those fields at its
- * next sync; nothing anywhere holds the values they had before the merchant
- * edited them.
+ * See the module note for where the "must not promise a restore" assertion went.
  */
-export const CONNECTOR_PIN_RELEASE_TEXT =
-  "To hand all of them back at once, turn off “Keep my local edits” on the channel. That applies to every edited field on every product from this channel.";
+export const CONNECTOR_PIN_RELEASE_KEY = "ui.connector.pinRelease";
 
 /**
  * A key held against sync that this surface has no name for.
@@ -101,9 +118,10 @@ export const CONNECTOR_PIN_RELEASE_TEXT =
  * edit is the only writer of. Counted rather than dropped: a hidden pin is the
  * exact defect this notice exists to close, and rendering the raw key would put
  * a column name in front of a merchant.
+ *
+ * A pluralised KEY, not a function that builds one of two sentences. The old
+ * version chose between two English literals on `count === 1`, which is a
+ * plural rule only English and a handful of others have — and, worse, was copy
+ * no extraction scan could find, because neither sentence was a map entry.
  */
-export function connectorPinUnnamedText(count: number): string {
-  return count === 1
-    ? "1 more field is held against sync that this screen cannot name."
-    : `${count} more fields are held against sync that this screen cannot name.`;
-}
+export const CONNECTOR_PIN_UNNAMED_KEY = "ui.connector.pinUnnamed";
