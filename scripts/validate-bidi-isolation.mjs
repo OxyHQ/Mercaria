@@ -68,6 +68,9 @@ import {
   formatReviewCount,
   formatSourceMoney,
 } from "../packages/ui/src/lib/format.ts";
+// The SAME module again, as a namespace, so the census below can enumerate what
+// it exports rather than pattern-match the text that declares them (#491).
+import * as formatModule from "../packages/ui/src/lib/format.ts";
 import { isolateBidi } from "../packages/ui/src/lib/bidi.ts";
 
 /**
@@ -277,15 +280,50 @@ check(
 
 const coveredFormatters = Array.from(exercisedFormatters);
 
-const exportedFormatters = Array.from(
-  readFileSync(formatModulePath, "utf8").matchAll(/^export function (\w+)/gm),
-  (match) => match[1],
-);
+/**
+ * What `format.ts` exports, read from the MODULE rather than from its text.
+ *
+ * This was `/^export function (\w+)/gm` over the source, and that pattern is a
+ * model of one declaration syntax rather than of the module (#491). The
+ * language has several others, and every one of them was invisible to it:
+ *
+ *     export const formatX = (n) => …      // an arrow, the common modern spelling
+ *     export async function formatX(n) {}  // `async` sits between the two words
+ *     export default function formatX() {} // `default` likewise
+ *     export { formatX };                  // declared above, exported below
+ *
+ * Measured before the fix: appending a real `export const formatAuditProbe` to
+ * `format.ts` and running the UNMUTATED guard printed "passed — 61 assertions
+ * over 4 formatters" and exited 0, never naming it. The census reconciled
+ * perfectly because the new formatter was not in the population it compared
+ * against — which is the failure mode a census has instead of a bug.
+ *
+ * A namespace import has no syntax to miss: whatever the module exports is what
+ * this sees. Types erase at runtime, so the `typeof` filter leaves exactly the
+ * callable exports — which is the right population, because a formatter that a
+ * screen renders is by definition a function.
+ */
+const exportedFormatters = Object.entries(formatModule)
+  .filter(([, value]) => typeof value === "function")
+  .map(([name]) => name);
 
 check(
-  "the source census found the formatters at all (a broken pattern reads as a clean zero)",
+  "the module census found the formatters at all (a broken census reads as a clean zero)",
   exportedFormatters.length > 0,
-  `no "export function" declarations matched in ${formatModulePath}`,
+  `no callable exports found on ${formatModulePath}`,
+);
+
+/**
+ * A floor on the population itself, not only on its non-emptiness. `format.ts`
+ * has carried at least these four since #429; a census reporting fewer has
+ * resolved the wrong module or been narrowed, and the reconciliation below
+ * would then pass while exercising a subset.
+ */
+const MINIMUM_EXPORTED_FORMATTERS = 4;
+check(
+  `at least ${MINIMUM_EXPORTED_FORMATTERS} formatters were found (vacuity floor on the census)`,
+  exportedFormatters.length >= MINIMUM_EXPORTED_FORMATTERS,
+  `found ${exportedFormatters.length}: ${exportedFormatters.join(", ")}`,
 );
 
 const uncovered = exportedFormatters.filter((name) => !coveredFormatters.includes(name));
