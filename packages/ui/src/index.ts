@@ -131,6 +131,33 @@ export {
 } from "./lib/condition";
 
 // ---------------------------------------------------------------------------
+// Facet rail copy (#367) — the half of `FacetLabel` the SERVER deliberately
+// does not hold. `services/facets/labels.ts` reports a commerce dimension and
+// the taxonomy refinement as `{ text: <machine key>, source: 'stable_key' }`,
+// because Mercaria has no localization row for a concept with no entity behind
+// it. A rail rendering `label.text` for one of those shows a shopper
+// `offer_price`. `facetStableBucketText` and `facetTitleLabelKey` are that
+// missing copy, and `validate:facet-label-copy` fails the build if a client
+// renders one of those labels without them.
+// ---------------------------------------------------------------------------
+export {
+  FACET_AVAILABILITY_LABEL_KEYS,
+  FACET_CHANNEL_LABEL_KEYS,
+  FACET_MARKET_ANY_BUCKET,
+  FACET_MARKET_ANY_LABEL_KEY,
+  FACET_TITLE_LABEL_KEYS,
+  facetBucketText,
+  facetGroupText,
+  facetStableBucketText,
+  facetStrandedValueText,
+  facetTitleLabelKey,
+  facetTitleText,
+  isFacetStableTitle,
+  type FacetChannelBucket,
+  type FacetStableTitle,
+} from "./lib/facet-labels";
+
+// ---------------------------------------------------------------------------
 // Offer comparison labels (#74) — the reader-facing copy for the labels and
 // reason codes the ranking service emits. Same split as the condition taxonomy
 // above and for the same reason: the reason CODE is what an impression and an

@@ -5,7 +5,14 @@ import type {
   FacetOrigin,
   FacetSelectionEntry,
 } from '@mercaria/shared-types';
-import { Text, useFormatters } from '@mercaria/ui';
+import {
+  Text,
+  facetBucketText,
+  facetGroupText,
+  facetStrandedValueText,
+  facetTitleText,
+  useFormatters,
+} from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import type { FacetReadResult } from '@/lib/api/facets';
 import { toggleFacetValue, unofferedSelections } from '@/lib/catalog/facet-selection';
@@ -42,6 +49,17 @@ import { toggleFacetValue, unofferedSelections } from '@/lib/catalog/facet-selec
  * `facetOffered: false`. They render as their own chips above the rail, because
  * the remedy for "no results" is to remove one and a shopper cannot remove a
  * chip from a rail that has stopped listing it.
+ *
+ * ## Not one string here is `label.text`, and that is the point
+ *
+ * `FacetLabel.source` distinguishes real copy from `stable_key` — the machine key
+ * the facet service returns for a concept it holds no localization row for,
+ * which is EVERY commerce dimension and the taxonomy refinement. Rendering
+ * `label.text` blindly put `offer_price`, `availability`, `condition`, `market`,
+ * `offer_channel` and `category` in front of a shopper as filter titles, in
+ * every locale. `facetTitleText`/`facetBucketText` in `@mercaria/ui` are the
+ * client half of that contract; `validate:facet-label-copy` fails the build if a
+ * client package reaches for `.label.text` outside them.
  */
 
 export interface FacetRailProps {
@@ -51,7 +69,7 @@ export interface FacetRailProps {
 }
 
 export function FacetRail({ response, selection, onSelectionChange }: FacetRailProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const stranded = unofferedSelections(response);
 
   if (response.facets.length === 0 && stranded.length === 0) {
@@ -97,10 +115,15 @@ export function FacetRail({ response, selection, onSelectionChange }: FacetRailP
                   }
                   className="rounded-radius-max border border-border-secondary px-space-12 py-space-6"
                 >
-                  {/* The stable key is what the server echoed; there is no label
-                      for a facet it did not offer, so the key is shown as the
-                      key it is rather than dressed up as a word. */}
-                  <Text className="text-caption text-text-secondary">{value} ✕</Text>
+                  {/* There is no `FacetLabel` for a facet the server did not
+                      offer, so this is the one place a bare stable VALUE
+                      arrives. `facetStrandedValueText` spells the ones
+                      `@mercaria/ui` holds copy for and returns the key
+                      unchanged for the rest — a shopper cannot tell which
+                      filter to drop when it reads `out_of_stock`. */}
+                  <Text className="text-caption text-text-secondary">
+                    {facetStrandedValueText(entry.facetKey, value, t, locale)} ✕
+                  </Text>
                 </Pressable>
               )),
             )}
@@ -129,21 +152,26 @@ function FacetBlock({
   selection: readonly FacetSelectionEntry[];
   onSelectionChange: (next: readonly FacetSelectionEntry[]) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { formatMoney } = useFormatters();
+  // Every string below is resolved through `@mercaria/ui`, group heading
+  // included — "this one happens to be safe" is the reasoning that puts a raw
+  // key on screen the next time the server's label sources change.
+  const groupText = facet.groupLabel === undefined ? undefined : facetGroupText(facet.groupLabel);
+  const titleText = facetTitleText(facet.key, facet.label, t);
 
   return (
     <View className="gap-space-8">
-      {facet.groupLabel === undefined ? null : (
-        <Text className="text-caption text-text-tertiary">{facet.groupLabel.text}</Text>
+      {groupText === undefined ? null : (
+        <Text className="text-caption text-text-tertiary">{groupText}</Text>
       )}
-      <Text className="text-captionBold text-text">{facet.label.text}</Text>
+      <Text className="text-captionBold text-text">{titleText}</Text>
 
       {facet.values.shape === 'buckets' ? (
         <View
           className="flex-row flex-wrap gap-space-8"
           accessibilityRole={facet.multiSelect ? 'none' : 'radiogroup'}
-          accessibilityLabel={facet.label.text}
+          accessibilityLabel={titleText}
         >
           {facet.values.buckets.map((bucket) => (
             <FacetBucketChip
@@ -154,6 +182,7 @@ function FacetBlock({
               multiSelect={facet.multiSelect}
               selection={selection}
               onSelectionChange={onSelectionChange}
+              text={facetBucketText(facet.key, bucket.key, bucket.label, t, locale)}
             />
           ))}
         </View>
@@ -216,6 +245,7 @@ function FacetBucketChip({
   multiSelect,
   selection,
   onSelectionChange,
+  text,
 }: {
   facetKey: string;
   origin: FacetOrigin;
@@ -223,6 +253,15 @@ function FacetBucketChip({
   multiSelect: boolean;
   selection: readonly FacetSelectionEntry[];
   onSelectionChange: (next: readonly FacetSelectionEntry[]) => void;
+  /**
+   * The resolved copy, passed IN rather than derived here.
+   *
+   * A required prop, so this chip cannot be rendered without somebody having
+   * resolved the label — where reaching for `bucket.label.text` inside would be
+   * available and silent. `bucket` is still passed whole for its key, count and
+   * selected state.
+   */
+  text: string;
 }) {
   return (
     <Pressable
@@ -231,7 +270,7 @@ function FacetBucketChip({
       // The COUNT is in the announced label rather than in a second element:
       // "Black, 12 products" is one thing to hear, and a count rendered as its
       // own node is a second focus stop that reads as another control.
-      accessibilityLabel={`${bucket.label.text}, ${String(bucket.count)}`}
+      accessibilityLabel={`${text}, ${String(bucket.count)}`}
       onPress={() =>
         onSelectionChange(
           toggleFacetValue(selection, origin, facetKey, bucket.key, multiSelect),
@@ -245,7 +284,7 @@ function FacetBucketChip({
     >
       {/* The selected state is spelled as well as announced, never colour alone. */}
       <Text className="text-caption text-text">
-        {bucket.selected ? `${bucket.label.text} ✓` : bucket.label.text} ({bucket.count})
+        {bucket.selected ? `${text} ✓` : text} ({bucket.count})
       </Text>
     </Pressable>
   );

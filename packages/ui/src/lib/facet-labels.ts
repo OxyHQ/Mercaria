@@ -55,6 +55,7 @@
 import type {
   ConditionGroup,
   FacetCommerceDimension,
+  FacetLabel,
   OfferAvailability,
 } from "@mercaria/shared-types";
 import { CONDITION_GROUPS, FACET_TAXONOMY_KEY } from "@mercaria/shared-types";
@@ -177,6 +178,93 @@ export function facetStableBucketText(
     return region.trim().length > 0 ? region : null;
   }
   return null;
+}
+
+/**
+ * A facet TITLE as a reader should see it.
+ *
+ * The `source` check is the whole point and it belongs here rather than at the
+ * render site: `stable_key` is the ONE source whose `text` is not copy, and a
+ * component deciding that for itself is a decision that has to be re-made
+ * correctly in every rail anybody writes next. `localization`,
+ * `registry_base` and `attribute_label` all carry text somebody wrote, so they
+ * pass through untouched — including a `registry_base` string in the wrong
+ * language, which is real copy in a fallback and not this function's problem.
+ *
+ * The fallback when this module holds no copy is the server's own `text`. That
+ * is the raw key for a `stable_key` label, which is the pre-existing behaviour
+ * — so a dimension nobody added copy for is no WORSE than before, and
+ * `validate:facet-label-copy` is what stops it reaching that state.
+ */
+export function facetTitleText(
+  facetKey: string,
+  label: FacetLabel,
+  translate: (key: string) => string,
+): string {
+  if (label.source !== "stable_key") return label.text;
+  const copyKey = facetTitleLabelKey(facetKey);
+  return copyKey === null ? label.text : translate(copyKey);
+}
+
+/**
+ * A facet GROUP heading as a reader should see it.
+ *
+ * A group name comes from the attribute registry, so today it always arrives
+ * `localization` or `registry_base` and this is a pass-through. It exists as its
+ * own function rather than sharing {@link facetTitleText} because the group is
+ * NOT the facet: passing the facet's key to the title map would resolve a
+ * `stable_key` group heading to the facet's own title and render "Price" as the
+ * name of the group containing it — wrong in a way nobody would question.
+ *
+ * There is no group-key vocabulary to hold copy for, so a `stable_key` group
+ * returns its key. If the service ever starts reporting one, this is the
+ * function that gains the map, and the gate is what makes that visible rather
+ * than letting a raw key appear under a heading nobody reads closely.
+ */
+export function facetGroupText(label: FacetLabel): string {
+  return label.text;
+}
+
+/**
+ * A facet BUCKET as a reader should see it.
+ *
+ * Same shape as {@link facetTitleText}, and the same reason. A taxonomy bucket
+ * is a category NAME resolved through the localization family, so it arrives
+ * `localization` or `registry_base` and returns immediately — only the commerce
+ * dimensions reach the key maps.
+ */
+export function facetBucketText(
+  facetKey: string,
+  bucketKey: string,
+  label: FacetLabel,
+  translate: (key: string) => string,
+  locale: string,
+): string {
+  if (label.source !== "stable_key") return label.text;
+  return facetStableBucketText(facetKey, bucketKey, translate, locale) ?? label.text;
+}
+
+/**
+ * A selection the current results can no longer offer, as a reader should see it.
+ *
+ * There is no `FacetLabel` at all here: the server echoed a stable VALUE for a
+ * facet it did not offer, so there is nothing to check a `source` on and the raw
+ * key is all that ever reached the screen. The remedy for "no results" is to
+ * remove one of these chips, and a shopper cannot recognise which filter to drop
+ * when it is spelled `out_of_stock`.
+ *
+ * Falls back to the key. That is deliberate and is the honest end of the chain:
+ * an attribute value Mercaria holds no copy for has no better spelling
+ * available, and inventing one here would be the server-side mistake
+ * `stableKeyLabel` exists to avoid, moved to the client.
+ */
+export function facetStrandedValueText(
+  facetKey: string,
+  value: string,
+  translate: (key: string) => string,
+  locale: string,
+): string {
+  return facetStableBucketText(facetKey, value, translate, locale) ?? value;
 }
 
 /**
