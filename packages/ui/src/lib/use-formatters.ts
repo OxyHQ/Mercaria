@@ -11,7 +11,25 @@ import {
 } from "./format";
 
 /**
- * The display formatters, bound to the locale in force (#500).
+ * `./format`'s six NUMBER formatters, bound to the locale in force (#500).
+ *
+ * ## What it does NOT bind, and why that is deliberate
+ *
+ * Not every formatter in this package — `./date`'s `formatDate`/`formatDateTime`
+ * and `./region`'s `formatRegionName` (#488/#489) take the same required
+ * `locale` and are absent from the set below. A screen calls those directly
+ * with the locale it already holds: `useTranslation()`'s in an app, or
+ * {@link useSharedUiLocale} in this package.
+ *
+ * That is a division rather than an omission. #488 established the explicit
+ * form across its own call sites, and binding those three here as well would
+ * give one function two spellings at the call site — which is how two habits
+ * start, not how one is removed. The value is identical either way: this hook
+ * reads the SAME locale `useTranslation()` returns, because the app root feeds
+ * the provider from that exact call.
+ *
+ * Stated because the earlier wording here said "the display formatters", which
+ * silently became an over-claim the moment three of them moved out.
  *
  * ## Why a hook and not a locale argument at every call site
  *
