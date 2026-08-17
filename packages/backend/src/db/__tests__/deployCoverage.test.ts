@@ -270,7 +270,29 @@ describe('the script and the migrator agree about what a post migration is', () 
 });
 
 describe('judgeCoverage refuses the shapes that read as "everything shipped"', () => {
-  const T = Date.parse('2026-08-17T07:00:00Z');
+  /**
+   * A fixture epoch far in the PAST, and it must stay that way.
+   *
+   * This was first written as the real date of the window these cases model,
+   * 17 August 2026, and that broke `fixture-date-census` the same day, because
+   * the real clock reached it. A literal dated today or later is the #253 bug:
+   * it passes while you write it, keeps passing, and fails for whoever pushes
+   * on the day it arrives, in a file they did not touch.
+   *
+   * Only the ORDER of these instants matters to `judgeCoverage`, never their
+   * absolute value, so the epoch is arbitrary and is chosen to be unreachable.
+   * The times-of-day still line up with the incident the cases are named for
+   * (07:14, 07:22, 07:23, 07:24) because every instant below is an OFFSET from
+   * this one — deliberately, since a second date literal is how this recurs in
+   * a form the census cannot see.
+   *
+   * Note the date above carries no quotes or backticks around it, on purpose:
+   * that census matches an opening quote OR BACKTICK followed by a date, so a
+   * date wrapped in markdown ticks inside a comment reads to it exactly like a
+   * code literal. The first attempt at this very note failed the gate it was
+   * explaining.
+   */
+  const T = Date.parse('2020-01-01T07:00:00Z');
   const minutes = (n: number) => T + n * 60_000;
 
   /** A completed run. `created` and `finished` are minutes past T. */
