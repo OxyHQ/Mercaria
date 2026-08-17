@@ -65,34 +65,68 @@ export function readsMinorUnits(transform: FeedFieldTransform | null): boolean {
 }
 
 /**
- * Remove tags from a description, without parsing HTML.
+ * Remove tag-shaped substrings, without parsing HTML.
  *
  * A bounded, non-backtracking replacement rather than a parser: the job is to
  * stop a `<script>` block and a table of markup reaching a product card, and a
  * real HTML parser here would be a dependency and an attack surface for a
  * cosmetic outcome. The `<` in `12 < 15` survives because the pattern requires a
- * name character after it, and the entity forms are decoded afterwards so
- * `&amp;` in a description reads as `&`.
+ * name character after it.
+ *
+ * `[^>]` cannot cross a `>`, so the match is always the shortest run to the next
+ * one and removing a tag never JOINS its neighbours into a new one: `<scr<b>ipt>`
+ * loses `<scr<b>` and leaves `ipt>`, not `<script>`.
+ *
+ * Exported because it is the one tag pattern in this repository and
+ * `lib/authored-text.ts` composes it in a different ORDER for a different job —
+ * one regex with two callers rather than two regexes that can disagree, which is
+ * the direction they would disagree in the first time somebody tightens one.
+ */
+export function stripHtmlTags(value: string): string {
+  return value.replace(/<\/?[A-Za-z][^>]{0,2000}>/gu, ' ');
+}
+
+/**
+ * Decode the five named entities plus `&nbsp;`.
+ *
+ * A closed table rather than a general decoder: a numeric-reference decoder is
+ * the other half of an XSS primitive and nothing in a product feed needs one.
+ * `&nbsp;` becomes a plain space, which is what the whitespace collapse below
+ * would do to it anyway.
+ */
+export function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(amp|lt|gt|quot|apos|nbsp);/gu, (_match, entity: string) => {
+    switch (entity) {
+      case 'amp':
+        return '&';
+      case 'lt':
+        return '<';
+      case 'gt':
+        return '>';
+      case 'quot':
+        return '"';
+      case 'apos':
+        return "'";
+      default:
+        return ' ';
+    }
+  });
+}
+
+/**
+ * `strip_html`, unchanged: tags out, entities decoded, whitespace collapsed.
+ *
+ * The ORDER is strip-then-decode and stays that way here, because this is a
+ * COSMETIC transform a merchant configured on a feed column and changing what it
+ * emits would change stored descriptions for every advertiser using it. Note
+ * what that order means and where it matters: decoding after stripping can
+ * PRODUCE a tag, so `&lt;script&gt;` in a feed reaches the listing row as
+ * `<script>`. Every Mercaria consumer escapes on output, so nothing renders it —
+ * but a control that can manufacture markup is not a sanitizer, which is exactly
+ * why `sanitizeAuthoredText` decodes FIRST and does not reuse this function.
  */
 function stripHtml(value: string): string {
-  return value
-    .replace(/<\/?[A-Za-z][^>]{0,2000}>/gu, ' ')
-    .replace(/&(amp|lt|gt|quot|apos|nbsp);/gu, (_match, entity: string) => {
-      switch (entity) {
-        case 'amp':
-          return '&';
-        case 'lt':
-          return '<';
-        case 'gt':
-          return '>';
-        case 'quot':
-          return '"';
-        case 'apos':
-          return "'";
-        default:
-          return ' ';
-      }
-    })
+  return decodeHtmlEntities(stripHtmlTags(value))
     .replace(/\s+/gu, ' ')
     .trim();
 }

@@ -29,6 +29,7 @@ import {
   MAX_MONEY_MINOR_UNITS,
   PRODUCT_TYPE_AUTHORING_FLOWS,
 } from '@mercaria/shared-types';
+import { sanitizeAuthoredText } from '../lib/authored-text.js';
 
 /** A shared-types list as the non-empty tuple `z.enum` requires. */
 function tuple<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
@@ -40,6 +41,20 @@ function tuple<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
 }
 
 const entityId = z.string().trim().min(1).max(64);
+
+/**
+ * A seller-authored title, sanitized at the boundary.
+ *
+ * The `.max()` is checked on the RAW input and `sanitizeAuthoredText` only ever
+ * shortens, so a caller cannot buy length by padding with markup. There is no
+ * `.min()` on a title, so nothing here can be sanitized into a value that
+ * bypasses a floor — the two proposal fields that DO have one carry an explicit
+ * post-sanitize check instead (`catalog-proposal-schemas.ts`).
+ */
+const authoredTitle = z.string().trim().max(255).transform(sanitizeAuthoredText);
+
+/** A seller-authored description. Line breaks survive — see `sanitizeAuthoredText`. */
+const authoredDescription = z.string().trim().max(20_000).transform(sanitizeAuthoredText);
 
 /**
  * A stable machine key — lowercase, snake_case, anchored.
@@ -111,7 +126,10 @@ const answer = z
   .object({
     ordinal: z.number().int().min(0).max(64).optional(),
     componentAxis: z.enum(tuple(ATTRIBUTE_COMPONENT_AXES)).optional(),
-    text: z.string().max(4096).optional(),
+    // A free-text attribute VALUE, sanitized like every other authored string.
+    // It is a value a product page renders, so the fact that it is a typed
+    // answer rather than prose buys it nothing.
+    text: z.string().max(4096).transform(sanitizeAuthoredText).optional(),
     number: z.number().finite().optional(),
     boolean: z.boolean().optional(),
     enumValueId: entityId.optional(),
@@ -137,7 +155,7 @@ const fieldAnswers = z
 
 const variantInput = z
   .object({
-    title: z.string().trim().max(255).optional(),
+    title: authoredTitle.optional(),
     sku: z.string().trim().max(255).optional(),
     barcode: z.string().trim().max(255).optional(),
     price: money.optional(),
@@ -158,8 +176,8 @@ export const createProductDraftSchema = z
     flow: z.enum(tuple(PRODUCT_TYPE_AUTHORING_FLOWS)).optional(),
     locale: locale.optional(),
     market,
-    title: z.string().trim().max(255).optional(),
-    description: z.string().trim().max(20_000).optional(),
+    title: authoredTitle.optional(),
+    description: authoredDescription.optional(),
   })
   .strict();
 
@@ -173,8 +191,8 @@ export const createProductDraftSchema = z
 export const patchProductDraftSchema = z
   .object({
     version: z.number().int().min(1),
-    title: z.string().trim().max(255).nullable().optional(),
-    description: z.string().trim().max(20_000).nullable().optional(),
+    title: authoredTitle.nullable().optional(),
+    description: authoredDescription.nullable().optional(),
     imageFileIds: z.array(entityId).max(64).optional(),
     tags: z.array(z.string().trim().min(1).max(64)).max(32).optional(),
     selectedCanonicalProductId: entityId.nullable().optional(),
