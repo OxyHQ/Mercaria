@@ -104,7 +104,14 @@ function enumerateDomain(): string[] {
    * below now cover the surface a shopper actually reaches — which is where a
    * ranking import or an offer read would be most tempting to add.
    */
-  const NAMED_FOR_THE_DOMAIN = /^compatibility.*\.ts$/;
+  // `internal-` is admitted, and that is not cosmetic. The regex is ANCHORED, so
+  // `routes/internal-compatibility.ts` — the name every one of the thirty-eight
+  // sibling operator routers uses — matched NOTHING and would have escaped all
+  // five walls silently. Measured, not supposed: nothing is named that today, so
+  // the set is unchanged at twelve, and the hole is closed before somebody
+  // reaches for the obvious filename. It is the same shape as the claim this
+  // file's header records having found unasserted.
+  const NAMED_FOR_THE_DOMAIN = /^(?:internal-)?compatibility.*\.ts$/;
   for (const directory of [
     join('db', 'schema'),
     'routes',
@@ -128,8 +135,8 @@ function enumerateDomain(): string[] {
  * shrinking scan looks exactly like a clean one — so the count is asserted, and
  * raising it when the domain grows is the point rather than an annoyance.
  *
- * **It sits AT the measured count, which means the next legitimate file fails
- * this line, and that is deliberate.** The number's job is to prove the
+ * **It IS the measured count, asserted by equality, so the next legitimate
+ * file fails this line — deliberately.** The number's job is to prove the
  * population was real at the moment somebody last looked — a floor parked
  * comfortably below the truth proves only that the walk found something, which is
  * what a floor of `>= 1` already does. Raising it is one line and forces whoever
@@ -137,7 +144,7 @@ function enumerateDomain(): string[] {
  * today: four services, four repositories, one schema file, one route, one
  * controller, one schema module.
  */
-const MINIMUM_DOMAIN_FILES = 12;
+const DOMAIN_FILES = 12;
 
 /** Strip comments, so a module that DESCRIBES what it refuses is not read as doing it. */
 function stripComments(source: string): string {
@@ -202,7 +209,16 @@ describe('the compatibility domain cannot reach what it must not', () => {
     process.stdout.write(
       `compatibility isolation: scanning ${String(files.length)} domain file(s)\n`,
     );
-    expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
+    // EQUALITY, because the comment on `DOMAIN_FILES` says "the next
+    // legitimate file fails this line, and that is deliberate" — and
+    // `toBeGreaterThanOrEqual` passed on every addition, so the mechanism the
+    // comment describes did not exist. The comment argues for the strict version
+    // at length; the code was the half that was wrong.
+    expect(
+      files.length,
+      `the domain holds ${String(files.length)} files; DOMAIN_FILES says ${String(DOMAIN_FILES)}. ` +
+        'Raising it is one line, and doing so is how you notice five walls now scan your new module.',
+    ).toBe(DOMAIN_FILES);
     // No test file may enter the scanned set: a gate that scans its own probes
     // reports violations it wrote itself.
     expect(files.filter((file) => file.includes('__tests__'))).toEqual([]);
