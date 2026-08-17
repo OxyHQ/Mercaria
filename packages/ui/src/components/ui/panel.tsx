@@ -10,6 +10,12 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "../../lib/cn";
+import {
+  innerEdgeBorderClassName,
+  offscreenTranslateX,
+  type LogicalSide,
+} from "../../lib/logical-side";
+import { useIsRtlLayout } from "../../lib/use-layout-direction";
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
 
@@ -18,8 +24,12 @@ interface PanelProps {
   open: boolean;
   /** Callback when panel should close */
   onClose: () => void;
-  /** Which side the panel appears on */
-  side?: "left" | "right";
+  /**
+   * Which LOGICAL side the panel appears on — the leading (`start`) or trailing
+   * (`end`) edge of the reading direction, so it mirrors under RTL along with
+   * the rest of the layout (#429).
+   */
+  side?: LogicalSide;
   /** Width of the panel on desktop */
   width?: number;
   /** Children to render inside the panel */
@@ -33,11 +43,17 @@ interface PanelProps {
  *
  * - Desktop (>=768px): Renders as part of flex layout
  * - Mobile (<768px): Renders as modal with slide animation
+ *
+ * The anchor is a LOGICAL inset (`insetInlineStart` / `insetInlineEnd`), which
+ * RN 0.85.3 registers and react-native-web passes through as a real CSS logical
+ * property, so it mirrors on its own. The two things that cannot mirror on their
+ * own — the transform sign and the divider edge — come from
+ * `../../lib/logical-side`, which explains why each is physical.
  */
 export function Panel({
   open,
   onClose,
-  side = "right",
+  side = "end",
   width = 320,
   children,
   className,
@@ -45,17 +61,24 @@ export function Panel({
   const { width: screenWidth } = useWindowDimensions();
   const isLargeScreen = screenWidth >= 768;
   const insets = useSafeAreaInsets();
+  const rtl = useIsRtlLayout();
+
+  /** Where the panel sits when closed. Collapses side, direction and width. */
+  const parkedX = offscreenTranslateX(side, rtl, screenWidth);
+  const edgeBorder = innerEdgeBorderClassName(side, rtl);
 
   // Animation values for mobile
-  const slideAnim = React.useRef(new Animated.Value(screenWidth)).current;
+  const slideAnim = React.useRef(new Animated.Value(parkedX)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
-  // Update animation when screen size changes
+  // Re-park when the screen size OR the direction changes. A web locale switch
+  // moves `parkedX` to the other sign, and a panel left parked at the old one
+  // would open from the wrong edge on its next press.
   React.useEffect(() => {
     if (!open) {
-      slideAnim.setValue(side === "right" ? screenWidth : -screenWidth);
+      slideAnim.setValue(parkedX);
     }
-  }, [screenWidth, open, side]);
+  }, [parkedX, open]);
 
   // Animate open/close on mobile
   React.useEffect(() => {
@@ -76,7 +99,7 @@ export function Panel({
       } else {
         Animated.parallel([
           Animated.timing(slideAnim, {
-            toValue: side === "right" ? screenWidth : -screenWidth,
+            toValue: parkedX,
             duration: 250,
             useNativeDriver: USE_NATIVE_DRIVER,
           }),
@@ -88,7 +111,7 @@ export function Panel({
         ]).start();
       }
     }
-  }, [open, isLargeScreen, screenWidth, side]);
+  }, [open, isLargeScreen, parkedX]);
 
   // Desktop: Render as part of flex layout
   if (isLargeScreen) {
@@ -97,11 +120,7 @@ export function Panel({
     return (
       <View
         style={{ width, paddingTop: insets.top }}
-        className={cn(
-          "bg-background",
-          side === "right" ? "border-l border-border" : "border-r border-border",
-          className
-        )}
+        className={cn("bg-background", edgeBorder, "border-border", className)}
       >
         {children}
       </View>
@@ -135,7 +154,7 @@ export function Panel({
         <Animated.View
           style={[
             styles.mobilePanel,
-            side === "left" ? { left: 0 } : { right: 0 },
+            side === "start" ? { insetInlineStart: 0 } : { insetInlineEnd: 0 },
             {
               width: screenWidth,
               transform: [{ translateX: slideAnim }],
@@ -143,11 +162,7 @@ export function Panel({
           ]}
         >
           <View
-            className={cn(
-              "flex-1 bg-background",
-              side === "right" ? "border-l border-border" : "border-r border-border",
-              className
-            )}
+            className={cn("flex-1 bg-background", edgeBorder, "border-border", className)}
             style={{ paddingTop: insets.top }}
           >
             {children}

@@ -25,7 +25,7 @@
     "typecheck:ui": "bun run --filter @mercaria/ui typecheck",
     "lint": "bun run --filter '*' lint",
     "validate:no-mongo": "bun ./scripts/validate-no-mongo.mjs && bun ./scripts/test-validate-no-mongo.mjs",
-    "validate:rtl-classes": "bun ./scripts/validate-rtl-logical-classes.mjs && bun ./scripts/test-validate-rtl-logical-classes.mjs && bun ./scripts/validate-rtl-direction.mjs",
+    "validate:rtl-classes": "bun ./scripts/validate-rtl-logical-classes.mjs && bun ./scripts/test-validate-rtl-logical-classes.mjs && bun ./scripts/validate-rtl-direction.mjs && bun ./scripts/validate-logical-side.mjs",
     "validate:bidi-isolation": "bun ./scripts/validate-bidi-isolation.mjs",
     "validate:i18n-strings": "bun ./scripts/validate-i18n-strings.mjs && bun ./scripts/test-validate-i18n-strings.mjs",
     "validate:authoring-schema": "bun ./scripts/validate-authoring-schema-driven.mjs && bun ./scripts/test-validate-authoring-schema-driven.mjs",

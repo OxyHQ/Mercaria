@@ -32,7 +32,7 @@ bun run build:shared-types                # ALWAYS before db:generate
 bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
 bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
 bun run --filter @mercaria/backend lint
-bun run validate:agents-md                # this file's budget; ci.yml names all six
+bun run validate:agents-md                # this file's budget; ci.yml names all 7
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```
 
@@ -52,9 +52,7 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 - **`typedRoutes` is armed** — `scripts/generate-router-types.mjs` runs inside
   each app's `typecheck` and `typed-routes-armed.test.ts` fails the build if it
   stops, so a literal navigation target that is not a real route fails `tsc`.
-  The product-page isolation gate's route-resolution wall was RETIRED for this
-  (#330) — it read only `router.push`'s literal argument, missing routes built
-  through a helper — and now checks only WHICH identity a page links (#252).
+  The product-page gate's route wall was retired for it (`docs/product-page.md`).
 
 ## Money
 
@@ -184,8 +182,10 @@ Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
   `validate:rtl-classes` gates all four. A physical `ml-2` half-mirrors its screen
   (row order flips, padding does not) with every build green. Direction follows the
   SHIPPED BUNDLES, never the tag: dashboard/POS mirror but ship no `ar` yet (#434).
-  `border-s-*` and `text-start` are MEASURED not to survive react-native-css/RN
-  0.85, so those stay physical. Residual: #429.
+  `border-s-*`/`text-start` are MEASURED not to survive react-native-css/RN 0.85,
+  so those stay physical — as are a sliding panel's `translateX` sign and divider
+  edge, computed from a LOGICAL `side` in `ui/src/lib/logical-side.ts` (pure, so
+  a guard runs it). Residual: #429 items 2–3.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails

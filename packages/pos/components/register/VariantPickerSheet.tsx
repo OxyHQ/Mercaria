@@ -19,15 +19,18 @@ interface VariantPickerSheetProps {
 }
 
 /**
- * Right-side sheet that lets the operator pick one of a listing's variants when
- * the listing has more than one in-stock SKU. Out-of-stock variants are dimmed
- * and non-interactive. Opens when `listing` is non-null.
+ * Trailing-edge sheet that lets the operator pick one of a listing's variants
+ * when the listing has more than one in-stock SKU. Out-of-stock variants are
+ * dimmed and non-interactive. Opens when `listing` is non-null.
+ *
+ * `side="end"` is logical, so the sheet enters from the right in a
+ * left-to-right till and from the left in a mirrored one (#429).
  */
 export function VariantPickerSheet({ listing, onClose, onPick }: VariantPickerSheetProps) {
   const { t } = useTranslation();
   return (
     <Sheet open={listing !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="right">
+      <SheetContent side="end">
         <SheetHeader>
           <SheetTitle>{listing?.title ?? t("catalog.chooseVariant")}</SheetTitle>
         </SheetHeader>

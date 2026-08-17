@@ -301,6 +301,12 @@ export {
   CollapsibleTrigger,
 } from "./components/ui/collapsible";
 export { Panel } from "./components/ui/panel";
+// The `side` both `Panel` and `SheetContent` take. LOGICAL (`start` / `end`), so
+// a sliding surface mirrors with the rest of the layout; the physical
+// `left` / `right` spelling is gone rather than aliased (#429). Exported because
+// it is in those two public prop signatures — a screen holding a side in a
+// variable has to be able to name its type.
+export type { LogicalSide } from "./lib/logical-side";
 export { ColorPicker, COLOR_OPTIONS } from "./components/ui/color-picker";
 export { SourceBadge, type SourceBadgeProps } from "./components/ui/source-badge";
 // Connector provenance's other half (#420): which fields a merchant's own edits
