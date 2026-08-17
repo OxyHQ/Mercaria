@@ -104,6 +104,27 @@ function offendingPaths(wall: Wall, files: readonly SourceFile[]): string[] {
     .map((file) => file.path);
 }
 
+/**
+ * One file per scanned directory, for the mutation self-tests to seed into.
+ *
+ * Derived from `SCANNED_DIRS` rather than hand-listed, so a THIRD directory added
+ * to the domain gets a victim automatically — and if one somehow contains no `.ts`
+ * file, the length assertion in the self-test fails rather than silently covering
+ * one directory fewer.
+ *
+ * One victim per directory rather than one overall, and this was MEASURED: with a
+ * single victim, reintroducing the exact path predicate this file was fixed for
+ * turned only ONE test red, because the lone victim happened to sit inside the
+ * surviving half. With a victim in each, the same mutation turns seventeen red. A
+ * gate whose self-test depends on which file the traversal happened to return
+ * last is a gate that goes quiet on a rename.
+ */
+const MUTATION_VICTIMS: readonly SourceFile[] = SCANNED_DIRS.flatMap((dir) => {
+  const inDir = SOURCES.filter((file) => file.path.startsWith(dir));
+  const last = inDir[inDir.length - 1];
+  return last === undefined ? [] : [last];
+});
+
 /** One prohibition, as data, so the mutation self-test can drive every one. */
 interface Wall {
   readonly name: string;
@@ -312,34 +333,37 @@ describe.each(WALLS)('$name', (wall) => {
   });
 
   it.each(wall.mutations)(
-    'MUTATION SELF-TEST — the REAL assertion goes red on `%s`',
+    'MUTATION SELF-TEST — the REAL assertion goes red on `%s`, in EVERY scanned directory',
     (mutation) => {
-      // The victim is the LAST file rather than the first, so the assertion below
-      // also proves the traversal reaches the end of its own population: a walk
-      // that stopped early would leave the mutated file unscanned and this test
-      // would report an empty offender set.
-      const victim = SOURCES[SOURCES.length - 1];
-      expect(victim, 'the traversal found no file to mutate').toBeDefined();
-      if (victim === undefined) return;
+      expect(
+        MUTATION_VICTIMS.length,
+        'a scanned directory has no file to mutate, so it is self-tested by nothing',
+      ).toBe(SCANNED_DIRS.length);
 
-      const mutatedRaw = `${victim.raw}\n${mutation}\n`;
-      // The mutation LANDED — asserted before its effect is measured, because a
-      // mutation that never applied is indistinguishable from one that survived.
-      expect(mutatedRaw).not.toBe(victim.raw);
-      expect(mutatedRaw).toContain(mutation);
+      for (const victim of MUTATION_VICTIMS) {
+        const mutatedRaw = `${victim.raw}\n${mutation}\n`;
+        // The mutation LANDED — asserted before its effect is measured, because a
+        // mutation that never applied is indistinguishable from one that survived.
+        expect(mutatedRaw).not.toBe(victim.raw);
+        expect(mutatedRaw).toContain(mutation);
 
-      // Run the REAL detector over a population with the mutated file swapped in,
-      // rather than regex-testing a string. `offendingPaths` is the same function
-      // the wall assertion above calls, so a narrowing of its filter — a path
-      // predicate, a truncated population, a `reads` mix-up — turns this red.
-      const mutatedSources = SOURCES.map((file) =>
-        file.path === victim.path
-          ? { path: file.path, raw: mutatedRaw, stripped: stripComments(mutatedRaw) }
-          : file,
-      );
-      // EXACTLY the mutated file, which also fails a filter grown so broad it
-      // flags its innocent neighbours.
-      expect(offendingPaths(wall, mutatedSources)).toEqual([victim.path]);
+        // Run the REAL detector over a population with the mutated file swapped
+        // in, rather than regex-testing a string. `offendingPaths` is the same
+        // function the wall assertion above calls, so a narrowing of its filter —
+        // a path predicate, a truncated population, a `reads` mix-up — turns this
+        // red.
+        const mutatedSources = SOURCES.map((file) =>
+          file.path === victim.path
+            ? { path: file.path, raw: mutatedRaw, stripped: stripComments(mutatedRaw) }
+            : file,
+        );
+        // EXACTLY the mutated file, which also fails a filter grown so broad it
+        // flags its innocent neighbours.
+        expect(
+          offendingPaths(wall, mutatedSources),
+          `mutating ${victim.path} did not produce exactly that one offender`,
+        ).toEqual([victim.path]);
+      }
     },
   );
 });
