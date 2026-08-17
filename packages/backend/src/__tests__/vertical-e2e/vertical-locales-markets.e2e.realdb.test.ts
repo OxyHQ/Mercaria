@@ -59,7 +59,7 @@ import { sql } from 'drizzle-orm';
 
 import type { AuthoringSchema } from '@mercaria/shared-types';
 
-import { connectPostgres, type Database } from '../../db/postgres.js';
+import { connectPostgres, type Database, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { findCategoryByKey } from '../../db/taxonomy/taxonomyRepository.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../services/catalog-authoring/publish.service.js';
@@ -394,7 +394,7 @@ describe.each(PAIRS)('the footwear journey in $name', (pair) => {
     const recorded = outcomes.get(pair.name);
     if (productId === undefined || recorded === undefined) return;
 
-    const reach = async (market: string, handle: Database | Parameters<typeof runCanonicalSearch>[1]): Promise<boolean> => {
+    const reach = async (market: string, handle: DatabaseOrTransaction): Promise<boolean> => {
       const found = await runCanonicalSearch(
         { term: 'Kestrel Trailwind 3', kinds: ['product'], filters: { market }, limit: 50 },
         handle,
