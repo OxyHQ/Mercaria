@@ -271,8 +271,9 @@ half-change here. The storefront has the same limitation.
 
 ## The guard
 
-`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Five
-checks, and the third is the one worth understanding.
+`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Six
+checks; the third is the one worth understanding and the sixth is the one that
+catches a defect no other gate in CI can see.
 
 - **A. No hardcoded user-facing string** in `packages/dashboard` or
   `packages/pos` — JSX text, a string in a JSX child expression, a user-facing
@@ -297,6 +298,9 @@ checks, and the third is the one worth understanding.
   substring. The regression it exists for is the element going while the import
   stays, which a substring check waves straight past, so that is one of its four
   negative controls.
+- **F. An action label is not a sentence fragment (#442)** — a key rendered as
+  an action CONTROL's own label must not also be interpolated into a translated
+  sentence. See below.
 
 **A does not run over `packages/ui`.** That package is only part way through
 extraction — #437 converted the condition and offer-label copy and the rest of
@@ -329,6 +333,64 @@ outcome (it pushes you to a literal map, which is greppable and which the
 exhaustive `Record` type-checks) but it is a refusal rather than a diagnosis,
 so it is worth knowing before you hit it. Neither app has one today.
 
+### F, and the failure that survived a full translation pass
+
+#442: `channels.disconnect.intro` read *"Choose what happens to the %{policy}
+this channel imported"*, and `%{policy}` was filled with the lowercased text of
+the toggle the merchant had just pressed. The three toggles say `Keep products`,
+`Unpublish` and `Archive`, so the three renderings were *"…happens to the keep
+products this channel imported"*, *"…to the unpublish…"*, *"…to the archive…"*.
+
+Nothing else in CI can see that. The string was extracted, the key resolved,
+parity passed, C found both keys referenced, `tsc` and lint were happy. It is
+also not an English-only accident: every locale's label is an imperative
+(`Produkte behalten`, `商品を残す`, `Оставить товары`) and every locale's frame
+wanted a term, so the sentence was ungrammatical in all eleven.
+
+What makes it worth a gate rather than a fix is how it survived. It predates the
+extraction (#398 preserved it faithfully, per its own rule against changing copy
+during a mechanical move), and then **five of the eleven translators worked
+around it** — `ca` and `pt-BR` with a parenthetical, `es`, `fr` and `ru` with a
+colon appositive — rather than reporting it. So the ten translated bundles read
+better than the English, and the one review that looked hardest at this copy is
+the review it walked past.
+
+F states the rule structurally: a key whose text is an action control's own
+label may not also be interpolated into a translated sentence. The remedy when
+it fires is to give the sentence its OWN key, which is the same remedy the
+no-exception-list note below describes — and the reason F needs no exception
+list either.
+
+Two things F deliberately does not do, both measured rather than assumed:
+
+- **A badge is not an action control.** `orders.status.paid` -> "Paid" is a
+  term, and it reads correctly in the appositive frames this surface actually
+  uses (`'%{when} · %{status}'`). Flagging it would push somebody to split a key
+  for no gain, and a guard whose cheapest green is busywork gets switched off.
+  `Pressable` is excluded for the same reason from the other end: 86 of them
+  wrap whole tappable rows, so treating one as a label would make every sentence
+  inside it a "label".
+- **A `t()` in a control's PROP is not its label.** `onPress={() =>
+  toast.success(t(k))}` is a toast. Without that distinction F reported two
+  false positives inside #442's own screen; with the stop written as "any
+  attribute" it stopped seeing `<Button title={t(k)} />` at all. Both spellings
+  have a control.
+
+Its blind spots are COUNTED, not assumed away: a key reached through a local
+alias (`s.labelKey`) or returned by a function cannot be read by a syntactic
+guard, and a passing run prints how many it could not read (5 in the dashboard
+today) rather than letting them look like zero. Two files in one app declaring
+the same map name make that name unreadable too — resolving it to whichever was
+read last would be a WRONG answer rather than a missing one.
+
+F's answer on a healthy tree is an EMPTY intersection, which is also what a
+completely broken detector returns. So both INPUT populations carry floors
+(dashboard 98 labels / 28 interpolations today, POS 8 / 11), and
+`test-validate-i18n-strings.mjs` puts #442's exact defect back into
+`[connectionId].tsx` and requires the real guard to go red naming
+`channels.disconnect.policy.keepListings` — asserting the mutation applied, and
+that the file is restored byte-for-byte and the guard green afterwards.
+
 There is deliberately **no exception list**, which is the one place this guard
 differs from its siblings in `scripts/`. A string here is either COPY, in which
 case the remedy is one key and costs nothing, or an IDENTIFIER, in which case no
@@ -339,10 +401,12 @@ the correct action — and for a string that must read the same in every languag
 languages transliterate and the decision then sits in the bundle where a
 translator can see it.
 
-`scripts/test-validate-i18n-strings.mjs` mutation-tests all three parts against
-real `git init` fixture trees, including the must-NOT-fire cases (Tailwind
-classes, routes, permissions, query keys, the storefront) that decide whether
-anyone leaves the guard switched on.
+`scripts/test-validate-i18n-strings.mjs` mutation-tests every part against real
+`git init` fixture trees, including the must-NOT-fire cases (Tailwind classes,
+routes, permissions, query keys, the storefront) that decide whether anyone
+leaves the guard switched on — plus, for F, one mutation of the REAL tree,
+because a fixture only proves a detector works on source shaped the way the
+fixture author imagined it.
 
 ## What the guard cannot see
 
@@ -356,6 +420,13 @@ Stated so nobody reads a green run as more than it is:
   refused — see above.)
 - Whether a TRANSLATION is any good. Parity says a key exists in `de.json`; it
   says nothing about whether the German is right.
+- **Whether an interpolated value is grammatical in the frame it lands in.** F
+  catches the one shape that is wrong by CONSTRUCTION — an action label, which
+  is an imperative, dropped into a slot that needs a term. It says nothing about
+  a value that is a noun and still wrong in some language's frame, because
+  gender, definiteness and word order are facts about the sentence rather than
+  about the call site. The only defence there is a whole sentence per case, and
+  #442's own remedy was to stop interpolating rather than to interpolate better.
 - `packages/frontend`. The registry convergence (#435a) did NOT add it to
   `OWNERS` and deliberately could not: measured with the real guard on this tree,
   the storefront holds **~810 hardcoded user-facing strings across 69 files**,

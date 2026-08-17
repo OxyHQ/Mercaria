@@ -980,10 +980,17 @@ function DisconnectPanel({ storeId, connection }: { storeId: string; connection:
         {t("channels.disconnect.title")}
       </Text>
       <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+        {/*
+          Policy-INDEPENDENT on purpose. This sits above the chooser, so it is an
+          instruction to choose, not a description of the current choice — the
+          per-policy sentence is DISCONNECT_POLICY_HELP_KEYS, rendered directly
+          below the toggle group and again in the confirm dialog. Interpolating
+          the selected label here read "…happens to the keep products this
+          channel imported" (#442), and giving the sentence its own per-policy
+          copy would be a second description of what policyHelp already says.
+        */}
         <Text className="text-xs text-muted-foreground">
-          {t("channels.disconnect.intro", {
-            policy: t(DISCONNECT_POLICY_LABEL_KEYS[policy]).toLowerCase(),
-          })}
+          {t("channels.disconnect.intro")}
         </Text>
         <ToggleGroup
           type="single"
