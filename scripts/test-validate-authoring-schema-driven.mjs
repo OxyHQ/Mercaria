@@ -26,7 +26,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AUTHORING_FINDING_PATH_COUNT } from "./validate-authoring-schema-driven.mjs";
+import { KNOWN_FINDING_PATH_EXCEPTION_COUNT } from "./validate-authoring-schema-driven.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const validator = resolve(repositoryRoot, "scripts/validate-authoring-schema-driven.mjs");
@@ -50,6 +50,30 @@ const FIXTURE_BUNDLE = JSON.stringify({
     },
   },
 });
+
+/**
+ * The two reasoned validation-path exceptions, reproduced so that a fixture
+ * which is supposed to PASS satisfies the both-directions reconciliation.
+ *
+ * Spreading this into every passing case is not boilerplate — it IS the
+ * reconciliation working. Without it each `mustPass` below would fail on two
+ * unmatched entries, which is precisely the behaviour that stops the list
+ * rotting into one nobody can audit.
+ *
+ * The path and the content both matter: the entries are scoped to
+ * `lib/authoring/findings.ts`, so the same literals at another path are NOT
+ * excused, and a case below asserts exactly that.
+ */
+function exceptionFixture() {
+  return {
+    [`${AUTHORING_DIR}/findings.ts`]:
+      "export function parseFindingPath(path: string) {\n" +
+      "  if (path === 'listing.title') return { kind: 'listing', field: 'title' };\n" +
+      "  if (path === 'listing.description') return { kind: 'listing', field: 'description' };\n" +
+      "  return { kind: 'unknown' };\n" +
+      "}\n",
+  };
+}
 
 /** Enough authoring files to clear the subtree floor under fixture floors. */
 function baseTree(extra = {}) {
@@ -293,6 +317,7 @@ await mustPass(
       "    case 'boolean':\n      return 1;\n" +
       "    case 'enum':\n      return 2;\n" +
       "    default:\n      return 0;\n  }\n}\n",
+    ...exceptionFixture(),
   }),
 );
 
@@ -304,6 +329,7 @@ await mustPass(
       "  if (field.requirement === 'required') return 1;\n" +
       "  if (field.scope === 'variant') return 2;\n" +
       "  return 0;\n}\n",
+    ...exceptionFixture(),
   }),
 );
 
@@ -320,6 +346,7 @@ await mustPass(
       "  if (!controlled.has(entry.enumValueId)) return 1;\n" +
       "  if (!axisKeys.has(field.key)) return 2;\n" +
       "  return 0;\n}\n",
+    ...exceptionFixture(),
   }),
 );
 
@@ -329,6 +356,7 @@ await mustPass(
     [`${AUTHORING_DIR}/compose.ts`]:
       "export function compose(field: { key: string }, values: unknown[]) {\n" +
       "  return { attributeKey: field.key, values };\n}\n",
+    ...exceptionFixture(),
   }),
 );
 
@@ -338,18 +366,50 @@ await mustPass(
     [`${AUTHORING_DIR}/copy.ts`]:
       "export const REQUIRED = 'products.wizard.fields.required';\n" +
       "export const DETAILS = 'products.wizard.steps.details';\n",
+    ...exceptionFixture(),
   }),
 );
 
 await mustPass(
-  "ADR 0007 D10's validation paths do NOT fire",
+  "the two reasoned validation paths do NOT fire in the file that owns them",
+  baseTree({ ...exceptionFixture() }),
+);
+
+/**
+ * The positive control on the DELETION (#494 finding 4).
+ *
+ * `classification.categoryId`, `classification.productType` and
+ * `draft.schemaEtag` were three of the six original exemptions. They are gone
+ * because `NAMESPACED_KEY` matches `[a-z][a-z0-9_]*` segments and a camelCase
+ * segment cannot match one — so each excused a finding that could not occur.
+ * This case is what says that out loud: the literals are present, in the
+ * authoring subtree, exempted by nothing, and the guard is still silent.
+ *
+ * Without it, "we removed four dead entries" rests on a measurement taken once.
+ */
+await mustPass(
+  "a camelCase validation path does not fire at all — the shape rule cannot match one",
   baseTree({
     [`${AUTHORING_DIR}/paths.ts`]:
       "export function step(path: string) {\n" +
-      "  if (path === 'listing.title') return 1;\n" +
-      "  if (path === 'classification.categoryId') return 2;\n" +
+      "  if (path === 'classification.categoryId') return 1;\n" +
+      "  if (path === 'classification.productType') return 2;\n" +
+      "  if (path === 'draft.schemaEtag') return 3;\n" +
       "  return 0;\n}\n",
+    ...exceptionFixture(),
   }),
+);
+
+// File scope is the other half of the fix, and it is the half a bare list of
+// names cannot express: `listing.title` was excused ANYWHERE under
+// packages/dashboard/, so parking it in a wizard component was free.
+await mustFail(
+  "an excused validation path in ANOTHER file is NOT excused",
+  baseTree({
+    [`${AUTHORING_DIR}/keys.ts`]: "export const TITLE = 'listing.title';\n",
+    ...exceptionFixture(),
+  }),
+  { expect: "[namespaced-key]", mutationMarker: "export const TITLE = 'listing.title'" },
 );
 
 await mustPass(
@@ -357,6 +417,7 @@ await mustPass(
   baseTree({
     "packages/dashboard/lib/themePersistence.ts":
       "export const KEY = 'mercaria.dashboard.bloom.theme';\n",
+    ...exceptionFixture(),
   }),
 );
 
@@ -366,6 +427,7 @@ await mustPass(
     [`${AUTHORING_DIR}/rows.ts`]:
       "export function same(row: { id: string }, other: { id: string }) {\n" +
       "  return row.id === other.id;\n}\n",
+    ...exceptionFixture(),
   }),
 );
 
@@ -373,7 +435,40 @@ await mustPass(
   "an import specifier that looks like a namespaced key does NOT fire",
   baseTree({
     [`${AUTHORING_DIR}/imports.ts`]: "import 'expo.router.shim';\nexport const x = 1;\n",
+    ...exceptionFixture(),
   }),
+);
+
+// ------------------------------- the exemption list, reconciled BOTH ways ---
+
+await mustFail(
+  "a reasoned exception that no longer fires is refused",
+  baseTree(),
+  { expect: "the count went DOWN to 0" },
+);
+
+/**
+ * The direction the audited guards were all missing, and the one that lets a new
+ * violation through.
+ *
+ * An excusing entry is a PREDICATE over (file, literal), so without a count it
+ * excuses unboundedly many occurrences and the reconciliation can only ever ask
+ * "did this fire at least once". Here a second, unreasoned use of the excused
+ * path — parked in a constant, which is the evasion wall 2 exists for — rides in
+ * behind the reasoned branch.
+ */
+await mustFail(
+  "a SECOND use of an excused validation path in the same file cannot ride in",
+  baseTree({
+    [`${AUTHORING_DIR}/findings.ts`]:
+      "export const TITLE_PATH = 'listing.title';\n" +
+      "export function parseFindingPath(path: string) {\n" +
+      "  if (path === 'listing.title') return { kind: 'listing', field: 'title' };\n" +
+      "  if (path === 'listing.description') return { kind: 'listing', field: 'description' };\n" +
+      "  return { kind: 'unknown' };\n" +
+      "}\n",
+  }),
+  { expect: "the count went UP", mutationMarker: "export const TITLE_PATH = 'listing.title'" },
 );
 
 // ------------------------------- test files are skipped, and ONLY test files ---
@@ -395,6 +490,7 @@ await mustPass(
   "a TEST file naming attribute fixtures is skipped by every wall",
   baseTree({
     [`${AUTHORING_DIR}/__tests__/findings.test.ts`]: FIXTURE_SHAPED_SOURCE,
+    ...exceptionFixture(),
   }),
 );
 
@@ -421,10 +517,13 @@ await mustFail(
 
 record(
   "the validation-path exemption list has an exact, asserted size",
-  AUTHORING_FINDING_PATH_COUNT === 6,
-  `AUTHORING_FINDING_PATHS holds ${AUTHORING_FINDING_PATH_COUNT}, expected 6. ` +
+  KNOWN_FINDING_PATH_EXCEPTION_COUNT === 2,
+  `KNOWN_FINDING_PATH_EXCEPTIONS holds ${KNOWN_FINDING_PATH_EXCEPTION_COUNT}, expected 2. ` +
     "Wall 2 subtracts every one of them by name, so a list that grew silently is a hole. " +
-    "Adding one is a decision: state why the new path cannot be told from a concept key.",
+    "Adding one is a decision: state why the new path cannot be told from a concept key. " +
+    "The size alone proves little on its own — six wrong strings satisfy a size of six, which is " +
+    "how four of the original entries came to excuse nothing (#494 finding 4) — so the guard also " +
+    "reconciles each entry against its FILE and an exact count, in both directions.",
 );
 
 // ---------------------------------------------------------------- report ----
