@@ -37,7 +37,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -51,30 +51,76 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** Every referral-NAMED module in a flat shared directory. */
+function referralNamed(directory: string): string[] {
+  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .filter((entry) => /referral/i.test(entry.name))
+    .map((entry) => `${directory}/${entry.name}`);
+}
+
 /**
- * The referral EDGE — every module #143 added or owns.
+ * The whole referral domain. WALKED, never listed — and WIDER than the edge
+ * these walls used to be asserted over.
  *
- * A new module in this path belongs on the list; the vacuity floor is what
- * forces whoever adds one to look here. #142's domain services
- * (`attribution.service.ts`, `conversion.service.ts`, …) are deliberately NOT
- * scanned: they are the model rather than the edge, and they have their own
- * realdb coverage.
+ * This was thirteen hand-written paths called "the referral EDGE", with #142's
+ * model services "deliberately NOT scanned: they are the model rather than the
+ * edge". Measured on `origin/main` at 4b30d5a2, the domain is 94 modules, and
+ * this gate plus `referral-enrollment-isolation.test.ts` covered 28 of them
+ * between them. Sixty-six modules — the whole of `earnings/`, `integrity/`,
+ * `dashboard/` and `rewards/`, fourteen repositories, three controllers and two
+ * schema modules — were behind neither wall.
+ *
+ * The scope split was defensible when written and had stopped being checkable:
+ * "which modules are the edge" is a judgement nobody re-makes, so what it
+ * actually produced was a wall around the thirteen files somebody remembered
+ * (#460). Every wall below now runs over the whole domain, which is where each
+ * of them was always TRUE — measured, not assumed: ranking, guest issuance,
+ * commerce writes, analytics emission, request-derived destinations and all
+ * fourteen forbidden identity signals trip on ZERO of the 94.
+ *
+ * The one wall that genuinely cannot span the domain is the payment rail, and it
+ * is narrowed explicitly below rather than by choosing a smaller population.
  */
-const EDGE_PATHS = [
-  'services/referrals/traffic.ts',
-  'services/referrals/referral-state.ts',
-  'services/referrals/redirect.service.ts',
-  'services/referrals/binding.service.ts',
-  'services/referrals/controls.service.ts',
-  'db/referrals/programControlRepository.ts',
-  'controllers/referral.controller.ts',
-  'controllers/referral-operator.controller.ts',
-  'middleware/referral-schemas.ts',
-  'middleware/referral-operator-authz.ts',
-  'routes/referral-redirect.ts',
-  'routes/referrals.ts',
-  'routes/internal-referrals.ts',
+const REFERRAL_DOMAIN_PATHS = [
+  ...walk('services/referrals'),
+  ...walk('db/referrals'),
+  ...referralNamed('controllers'),
+  ...referralNamed('routes'),
+  ...referralNamed('routes/admin'),
+  ...referralNamed('middleware'),
 ];
+
+/**
+ * #145's partner EARNINGS — the one sub-directory that may reach the ledger.
+ *
+ * A partner's commission is real money Mercaria owes and books, so these
+ * modules post to `ledger_entries` by design. The wall they are excused from is
+ * "a referral is acquisition history and must never be able to refuse, delay or
+ * re-price a purchase" — which is about the BUYER's payment, and these touch
+ * none of it.
+ *
+ * A DIRECTORY rather than three paths, so a fourth earnings module does not
+ * arrive outside a wall; and with an EXACT count on what it actually excuses,
+ * because a directory-shaped exemption with no count is a predicate that lets
+ * any number of modules ride in behind it (#448). The positive control below is
+ * what makes it safe rather than merely stated: each excused module must STILL
+ * reach the ledger, or the exemption is stale and is excusing nothing while
+ * looking like a decision.
+ */
+const LEDGER_POSTING_DIRECTORY = 'services/referrals/earnings/';
 
 /** Read a path in the edge, refusing an empty or moved file. */
 function readEdgeSource(relative: string): string {
@@ -130,38 +176,104 @@ const ANALYTICS_EMISSION_REFERENCE = /recordAnalyticsEvent|emitAnalyticsEvent|an
 const REQUEST_DERIVED_DESTINATION =
   /req\.(headers\.)?(host|hostname)\b|x-forwarded-host|req\.get\(\s*['"](host|origin|referer)|(body|query)\.(url|destination|redirect|returnTo|next)\b/i;
 
+/**
+ * The vacuity floors, PER SHAPE rather than one on the total.
+ *
+ * Called by every scan below. The six sources break independently, and a single
+ * total lets one walk collapse to zero while the others carry its number. Each
+ * is today's count, so a module REMOVED goes red rather than quietly narrowing
+ * every wall in this file at once.
+ *
+ * This replaces `expect(scanned).toBe(EDGE_PATHS.length)`, which appeared seven
+ * times and could not fail: it compared the loop's own counter to the list the
+ * loop had just iterated, which holds for any list including an empty one. It
+ * catches a broken loop and never a shrunk population — and the population was
+ * the thing that was wrong.
+ */
+function assertReferralDomainIsWhole(): void {
+  const from = (prefix: string) =>
+    REFERRAL_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(from('services/referrals/'), 'the referral service walk found too few modules').toBeGreaterThanOrEqual(48);
+  expect(from('db/referrals/'), 'the referral repository walk found too few modules').toBeGreaterThanOrEqual(17);
+  expect(from('controllers/'), 'no referral controller was derived').toBeGreaterThanOrEqual(7);
+  expect(from('routes/'), 'no referral route was derived').toBeGreaterThanOrEqual(5);
+  expect(from('middleware/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
+  // No test file may enter the scanned set: a gate that scans its own probes
+  // reports violations it wrote itself.
+  expect(REFERRAL_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+  // And the walk really reads the disk, rather than a `readdirSync` that has
+  // silently started returning a cached or empty result.
+  for (const path of REFERRAL_DOMAIN_PATHS) {
+    expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+  }
+}
+
 describe('the referral edge cannot reach the money path', () => {
   it('names no payment module, rail or ledger', () => {
-    let scanned = 0;
-    for (const relative of EDGE_PATHS) {
+    assertReferralDomainIsWhole();
+    for (const relative of REFERRAL_DOMAIN_PATHS) {
+      if (relative.startsWith(LEDGER_POSTING_DIRECTORY)) continue;
       expect(
         PAYMENT_REFERENCE.test(readEdgeCode(relative)),
         `${relative} reaches the payment rail; a referral is acquisition history and must ` +
           'never be able to refuse, delay or re-price a purchase (ADR 0005 I2/I4)',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(EDGE_PATHS.length);
+  });
+
+  /**
+   * The other half of the earnings exemption, and what makes it safe rather
+   * than merely justified.
+   *
+   * An exemption stated as a directory excuses everything in it forever. So:
+   * the modules it actually excuses are counted EXACTLY, and each must STILL
+   * reach the ledger. A module that stopped posting would go on being excused
+   * for a reason that had stopped being true, which is how a real violation
+   * ends up behind no wall while a comment says otherwise.
+   */
+  it('the earnings exemption excuses exactly the modules that really post', () => {
+    const excused = REFERRAL_DOMAIN_PATHS.filter(
+      (relative) =>
+        relative.startsWith(LEDGER_POSTING_DIRECTORY) && PAYMENT_REFERENCE.test(readEdgeCode(relative)),
+    );
+    expect(
+      excused.sort(),
+      'the ledger-posting exemption no longer matches — a module that stopped posting is ' +
+        'still being excused, or a fourth one started',
+    ).toEqual([
+      'services/referrals/earnings/accounts.ts',
+      'services/referrals/earnings/ledger-postings.ts',
+      'services/referrals/earnings/posting.service.ts',
+    ]);
+    // And the rest of `earnings/` is inside the wall like everything else: the
+    // exemption is what a module DOES, not which directory it sits in.
+    const inDirectory = REFERRAL_DOMAIN_PATHS.filter((relative) =>
+      relative.startsWith(LEDGER_POSTING_DIRECTORY),
+    );
+    expect(inDirectory.length, 'the earnings walk found nothing').toBeGreaterThanOrEqual(11);
+    expect(
+      inDirectory.length,
+      'every module of `earnings/` now posts to the ledger — the directory-shaped exemption ' +
+        'has become a blanket one and should be re-read',
+    ).toBeGreaterThan(excused.length);
   });
 
   it('names no ranking module or policy', () => {
-    let scanned = 0;
-    for (const relative of EDGE_PATHS) {
+    assertReferralDomainIsWhole();
+    for (const relative of REFERRAL_DOMAIN_PATHS) {
       expect(
         RANKING_REFERENCE.test(readEdgeCode(relative)),
         `${relative} reaches ranking; #74 forbids the reverse direction and ADR 0005 D20/I1 ` +
           'forbids this one — a paid partner may not influence organic order',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(EDGE_PATHS.length);
   });
 });
 
 describe('the referral edge cannot build an identity', () => {
   it('names none of the fourteen forbidden identity signals', () => {
-    let scanned = 0;
-    for (const relative of EDGE_PATHS) {
+    assertReferralDomainIsWhole();
+    for (const relative of REFERRAL_DOMAIN_PATHS) {
       const code = readEdgeCode(relative).toLowerCase();
       for (const signal of REFERRAL_FORBIDDEN_IDENTITY_SIGNALS) {
         // The VALUE list itself is allowed to appear where it is declared, and
@@ -171,72 +283,75 @@ describe('the referral edge cannot build an identity', () => {
           `${relative} names the forbidden identity signal "${signal}" (ADR 0005 A2)`,
         ).toBe(false);
       }
-      scanned += 1;
     }
-    expect(scanned).toBe(EDGE_PATHS.length);
   });
 
   it('creates no guest commerce session', () => {
-    let scanned = 0;
-    for (const relative of EDGE_PATHS) {
+    assertReferralDomainIsWhole();
+    for (const relative of REFERRAL_DOMAIN_PATHS) {
       expect(
         GUEST_ISSUANCE_REFERENCE.test(readEdgeCode(relative)),
         `${relative} mints or rotates a guest session; ADR 0003 T10 says a page view creates ` +
           'no row, which is the whole reason the referral carrier exists',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(EDGE_PATHS.length);
   });
 
   it('writes no cart, checkout, order or claim', () => {
-    let scanned = 0;
-    for (const relative of EDGE_PATHS) {
+    assertReferralDomainIsWhole();
+    for (const relative of REFERRAL_DOMAIN_PATHS) {
       expect(
         COMMERCE_WRITE_REFERENCE.test(readEdgeCode(relative)),
         `${relative} reaches a commerce write path; cart, checkout and claim each wall the ` +
           'referral domain off from THEIR side, and this is the same wall from this one',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(EDGE_PATHS.length);
   });
 
   it('emits no analytics event', () => {
-    let scanned = 0;
-    for (const relative of EDGE_PATHS) {
+    assertReferralDomainIsWhole();
+    for (const relative of REFERRAL_DOMAIN_PATHS) {
       expect(
         ANALYTICS_EMISSION_REFERENCE.test(readEdgeCode(relative)),
         `${relative} emits an analytics event; #143 privacy rule 8 keeps referral tokens, ` +
           'guest credentials and contact out of general analytics, and emitting nothing is ' +
           'the strongest form of that',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(EDGE_PATHS.length);
   });
 });
 
 describe('the redirect target cannot come from the request', () => {
   it('derives no host, origin or destination from the caller', () => {
-    let scanned = 0;
-    for (const relative of EDGE_PATHS) {
+    assertReferralDomainIsWhole();
+    for (const relative of REFERRAL_DOMAIN_PATHS) {
       expect(
         REQUEST_DERIVED_DESTINATION.test(readEdgeCode(relative)),
         `${relative} reads a host, origin or destination off the request; the redirect is ` +
           'composed from a configured allow-listed origin and a closed template (acceptance 2)',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(EDGE_PATHS.length);
   });
 
-  it('only `redirect.service.ts` composes an absolute URL at all', () => {
-    // `new URL(...)` is how a relative path becomes an absolute one, and there
-    // is exactly ONE place in the edge that may do it — the composer with the
-    // origin check and the loop guard around it.
-    const composers = EDGE_PATHS.filter((relative) => /new URL\(/.test(readEdgeCode(relative)));
-    expect(composers).toEqual(['services/referrals/redirect.service.ts']);
+  it('exactly two modules touch `new URL` at all, and each for a stated reason', () => {
+    // `new URL(...)` is how a relative path becomes an absolute one, and over
+    // the whole domain there are exactly two places that reach for it. EXACT,
+    // never a floor: a third is a decision somebody takes rather than a module
+    // that quietly starts composing destinations.
+    //
+    // `redirect.service.ts` COMPOSES, and is the one module that may — it is
+    // the composer with the origin check and the loop guard around it.
+    // `application-answers.ts` PARSES, to normalize a promotion URL an
+    // applicant typed, which is the opposite of composing one and is why
+    // `referral-enrollment-isolation.test.ts` pins the same module from its
+    // side. Scoping this assertion to thirteen edge files hid the second one.
+    const composers = REFERRAL_DOMAIN_PATHS.filter((relative) =>
+      /new URL\(/.test(readEdgeCode(relative)),
+    );
+    expect(composers.sort()).toEqual([
+      'services/referrals/application-answers.ts',
+      'services/referrals/redirect.service.ts',
+    ]);
   });
 });
 
