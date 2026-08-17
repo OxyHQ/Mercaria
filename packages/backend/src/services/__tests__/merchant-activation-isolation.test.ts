@@ -25,26 +25,47 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The domain's HTTP surface, from the filename convention (#472's device). */
+function httpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.startsWith('merchant-activation'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
 /**
- * The whole domain. A module added and not listed fails the floor below, which
- * is what forces whoever adds one to look here.
+ * Every module of the domain, WALKED rather than listed (#460).
+ *
+ * The list this replaces named 9 modules, all of them under
+ * `services/merchant-activation/`. The derivation finds 14: the three
+ * repositories and both HTTP modules were behind none of the walls below, which
+ * is the hybrid shape #460 measured across the tree — walls complete exactly
+ * where modules rarely appear and hand-maintained exactly where they do.
  */
 const ACTIVATION_PATHS = [
-  'services/merchant-activation/activation.service.ts',
-  'services/merchant-activation/capabilities.ts',
-  'services/merchant-activation/checkout-gate.ts',
-  'services/merchant-activation/facts.ts',
-  'services/merchant-activation/guest-activation.ts',
-  'services/merchant-activation/onboarding.ts',
-  'services/merchant-activation/requirements.ts',
-  'services/merchant-activation/settings.service.ts',
-  'services/merchant-activation/transitions.service.ts',
+  ...walk('services/merchant-activation'),
+  ...walk('db/merchantActivation'),
+  ...httpSurface(),
 ];
 
 /**
@@ -75,7 +96,14 @@ const CAPABILITY_TRAIL_REFERENCE =
   /readLatestCapabilityStates|listCapabilityEvents|merchantActivationCapabilityEvents|capabilityEventRepository/;
 
 /** Files allowed to touch the trail: the writer, and nothing else. */
-const TRAIL_READERS = ['services/merchant-activation/transitions.service.ts'];
+const TRAIL_READERS = [
+  'services/merchant-activation/transitions.service.ts',
+  // The repository that OWNS the table: it defines the very function names the
+  // detector looks for, so scanning it would fail the wall on the module that
+  // implements it. Named here for the same reason the writer is — by name, not
+  // by a pattern anybody could reuse.
+  'db/merchantActivation/capabilityEventRepository.ts',
+];
 
 /**
  * A hold column, a capability or a readiness verdict, named anywhere a MERCHANT
@@ -165,7 +193,25 @@ function readDomainCode(relative: string): string {
 
 describe('the activation domain cannot reach what it must not', () => {
   it('scans the whole domain — a module added and not listed fails here', () => {
-    expect(ACTIVATION_PATHS.length).toBeGreaterThanOrEqual(9);
+    // Vacuity floors PER SHAPE rather than one on the total: the three sources
+    // break independently, and one total would let a walk collapse to zero while
+    // the others carried the number.
+    const from = (prefix: string) =>
+      ACTIVATION_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/merchant-activation/'), 'the service walk found nothing').toBeGreaterThanOrEqual(9);
+    expect(from('db/merchantActivation/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(3);
+    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(2);
+    expect(ACTIVATION_PATHS.length).toBeGreaterThanOrEqual(14);
+    // EXACT: an unbounded exemption list lets any number of readers ride in
+    // behind the two somebody justified (#448).
+    expect(TRAIL_READERS.length, 'a third trail reader was exempted').toBe(2);
+    for (const path of ACTIVATION_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(ACTIVATION_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+    for (const path of TRAIL_READERS) {
+      expect(ACTIVATION_PATHS, `${path} is exempted but is not in the domain`).toContain(path);
+    }
     for (const relative of ACTIVATION_PATHS) {
       expect(readDomainSource(relative).length).toBeGreaterThan(200);
     }
