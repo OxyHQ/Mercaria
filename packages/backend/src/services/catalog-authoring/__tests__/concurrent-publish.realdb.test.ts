@@ -51,7 +51,7 @@ import * as schema from '../../../db/schema/index.js';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../draft.service.js';
-import { publishDraft, type PublishOutcome } from '../publish.service.js';
+import { publishDraft, type DraftPublication } from '../publish.service.js';
 import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
@@ -216,7 +216,7 @@ async function authorDraft(suffix: string): Promise<string> {
   return draft.id;
 }
 
-function publishOn(connection: SoloConnection, draftId: string): Promise<PublishOutcome> {
+function publishOn(connection: SoloConnection, draftId: string): Promise<DraftPublication> {
   return publishDraft(connection.db, {
     storeId,
     draftId,
@@ -342,7 +342,7 @@ describe('a publish WAITS for a publish already in flight', () => {
 
 describe('two publications of one draft, fired at once', () => {
   let draftId: string;
-  let outcomes: readonly PublishOutcome[];
+  let outcomes: readonly DraftPublication[];
 
   beforeAll(async () => {
     draftId = await authorDraft('race');
