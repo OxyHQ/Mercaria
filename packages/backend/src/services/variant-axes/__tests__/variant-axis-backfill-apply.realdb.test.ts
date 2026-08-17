@@ -112,18 +112,29 @@ const PAGE_CURSOR = `${TAIL_PREFIX}${RUN.slice(0, 11)}0`;
 const LISTING_ID = `${TAIL_PREFIX}${RUN.slice(0, 11)}1`;
 
 /**
- * The option that RESOLVES, and the one that cleanly does not.
+ * The two options that RESOLVE — by the two DIFFERENT routes the resolver has —
+ * and the one that cleanly does not.
  *
  * `legacyOptionNameToKey` trims, lowercases and folds spaces to `_`, so
- * `Axis Color <RUN>` folds onto the definition key published below. The second
- * name folds to a perfectly well-formed key nobody ever defined, which is the
- * ordinary `unmapped` outcome — a fixture of nothing but pathological rows
- * cannot observe a write, and a fixture of nothing but resolving rows cannot
- * observe the refusal counters beside it.
+ * `Axis Color <RUN>` and `Axis Storage <RUN>` fold onto the definition keys
+ * published below. `Axis Unmapped <RUN>` folds to a perfectly well-formed key
+ * nobody ever defined, which is the ordinary `unmapped` outcome — a fixture of
+ * nothing but pathological rows cannot observe a write, and a fixture of nothing
+ * but resolving rows cannot observe the refusal counters beside it.
+ *
+ * Both resolving routes are here because they write DIFFERENT COLUMNS. A
+ * controlled value lands as an `enum_value_id`; a measurement lands as
+ * `normalized_number` + `normalized_unit`, which
+ * `native_variant_axis_assignments_unit_check` constrains and which no test
+ * anywhere had ever written through this backfill.
  */
 const COLOR_KEY = `axis_color_${RUN}`.toLowerCase();
 const COLOR_NAME = `Axis Color ${RUN}`;
+const STORAGE_KEY = `axis_storage_${RUN}`.toLowerCase();
+const STORAGE_NAME = `Axis Storage ${RUN}`;
 const UNMAPPED_NAME = `Axis Unmapped ${RUN}`;
+/** Every definition key this file publishes, so the teardown reaches all of them. */
+const CREATED_KEYS = [COLOR_KEY, STORAGE_KEY];
 
 /** Both variants' ids, so every assertion is scoped to rows this file inserted. */
 let variantIds: string[] = [];
@@ -144,12 +155,12 @@ afterAll(async () => {
     await db
       .select({ id: attributeDefinitions.id })
       .from(attributeDefinitions)
-      .where(eq(attributeDefinitions.key, COLOR_KEY))
+      .where(inArray(attributeDefinitions.key, CREATED_KEYS))
   ).map((row) => row.id);
   if (definitionIds.length > 0) {
     await db
       .delete(attributeReindexRequests)
-      .where(eq(attributeReindexRequests.attributeKey, COLOR_KEY));
+      .where(inArray(attributeReindexRequests.attributeKey, CREATED_KEYS));
     // Demote first: a published version refuses DELETE, which IS the trigger
     // working. The same teardown as `attribute-registry.realdb.test.ts`.
     await db
@@ -171,22 +182,23 @@ afterAll(async () => {
 });
 
 /**
- * Publish the ONE active, variant-defining definition the resolving option needs.
+ * Publish the two active, variant-defining definitions the resolving options need.
  *
  * `mercaria_native_variant_axis_citation` refuses an axis whose definition is not
  * `variant_defining`, so a definition without it would make the resolving half of
  * this fixture fail at the database rather than resolve — the two are not
  * interchangeable and the trigger is the reason.
  */
-async function publishColorAxisDefinition(): Promise<void> {
+async function publishAxisDefinitions(): Promise<void> {
   await draftAttributeDefinition({
     key: COLOR_KEY,
     label: 'Axis colour',
     valueType: 'enum',
     variantDefining: true,
-    // `red` is reached through the canonical value's own self-alias and `blue`
-    // through a recorded alias, so both halves of the registry's ONE lookup are
-    // exercised by a value that has to survive to the assignment row.
+    // `red` is reached through a recorded alias (`Rojo`) and so is `blue`, but the
+    // registry folds a canonical value into its OWN alias map, so both halves of
+    // the ONE lookup `resolveLegacyOptionValue` performs stay exercised by a value
+    // that has to survive all the way to the assignment row.
     enumValues: [
       { value: 'red', label: 'Red', aliases: ['Rojo'] },
       { value: 'blue', label: 'Blue', aliases: ['Azul'] },
@@ -194,12 +206,27 @@ async function publishColorAxisDefinition(): Promise<void> {
     actorOxyUserId: OPERATOR,
   });
   await publishAttributeDefinition(COLOR_KEY, 1, OPERATOR);
+
+  // The OTHER resolving route: no controlled values, so the value goes through
+  // #94's `normalizeAttributeObservation` and lands as a base-unit magnitude.
+  // `digital_storage`'s base unit is `B`, so `256 GB` is stored as a number of
+  // bytes and two spellings of one capacity would collide — which is the property
+  // the signature depends on and which only a measurement axis reaches.
+  await draftAttributeDefinition({
+    key: STORAGE_KEY,
+    label: 'Axis storage',
+    valueType: 'measurement',
+    unitFamily: 'digital_storage',
+    variantDefining: true,
+    actorOxyUserId: OPERATOR,
+  });
+  await publishAttributeDefinition(STORAGE_KEY, 1, OPERATOR);
 }
 
 /**
- * One P2P listing with a resolving option, an unmapped option and two variants.
+ * One P2P listing with two resolving options, an unmapped option and two variants.
  *
- * The two variants resolve to DIFFERENT colours deliberately: two variants whose
+ * The two variants resolve to DIFFERENT values deliberately: two variants whose
  * typed values fold to one digest are withheld wholesale by
  * `listingsWithIndistinguishableVariants`, which would make this fixture write
  * nothing and look exactly like a fixture whose registry lookup failed.
@@ -211,7 +238,7 @@ async function makeFixtureListing(): Promise<void> {
     oxyUserId: `axis-apply-seller-${RUN}`,
     storeId: null,
     title: `Axis apply ${RUN}`,
-    description: 'A fixture listing with one resolving and one unmapped legacy option.',
+    description: 'A fixture listing with two resolving and one unmapped legacy option.',
     condition: 'new',
     conditionAssertion: 'seller_declared',
     status: 'active',
@@ -221,7 +248,8 @@ async function makeFixtureListing(): Promise<void> {
 
   await db.insert(listingOptions).values([
     { listingId: LISTING_ID, name: COLOR_NAME, values: ['Rojo', 'Azul'], position: 0 },
-    { listingId: LISTING_ID, name: UNMAPPED_NAME, values: ['Cualquiera'], position: 1 },
+    { listingId: LISTING_ID, name: STORAGE_NAME, values: ['256 GB', '512 GB'], position: 1 },
+    { listingId: LISTING_ID, name: UNMAPPED_NAME, values: ['Cualquiera'], position: 2 },
   ]);
 
   const inserted = await db
@@ -236,17 +264,32 @@ async function makeFixtureListing(): Promise<void> {
 
   await db.insert(productVariantOptionValues).values([
     { variantId: variantIds[0], name: COLOR_NAME, value: 'Rojo', position: 0 },
+    { variantId: variantIds[0], name: STORAGE_NAME, value: '256 GB', position: 1 },
     // Under the option that never resolves, so `attribute_unresolved` is
     // observed on a value the registry was never even asked about.
-    { variantId: variantIds[0], name: UNMAPPED_NAME, value: 'Cualquiera', position: 1 },
+    { variantId: variantIds[0], name: UNMAPPED_NAME, value: 'Cualquiera', position: 2 },
     { variantId: variantIds[1], name: COLOR_NAME, value: 'Azul', position: 0 },
+    { variantId: variantIds[1], name: STORAGE_NAME, value: '512 GB', position: 1 },
   ]);
 }
 
 /** Everything this fixture's own rows amount to, read back scoped to its ids. */
 async function readPersistedState(): Promise<{
-  axes: { attributeKey: string; attributeDefinitionVersion: number; legacyOptionName: string | null }[];
-  assignments: { variantId: string; attributeKey: string; normalizedValue: string; displayValue: string; enumValueId: string | null; sourceClaimId: string | null }[];
+  axes: {
+    attributeKey: string;
+    attributeDefinitionVersion: number;
+    legacyOptionName: string | null;
+  }[];
+  assignments: {
+    variantId: string;
+    attributeKey: string;
+    normalizedValue: string;
+    displayValue: string;
+    enumValueId: string | null;
+    normalizedNumber: number | null;
+    normalizedUnit: string | null;
+    sourceClaimId: string | null;
+  }[];
   signatures: { variantId: string; axisCount: number; signature: string }[];
   listingClaims: number;
   variantClaims: number;
@@ -270,6 +313,8 @@ async function readPersistedState(): Promise<{
             normalizedValue: nativeVariantAxisAssignments.normalizedValue,
             displayValue: nativeVariantAxisAssignments.displayValue,
             enumValueId: nativeVariantAxisAssignments.enumValueId,
+            normalizedNumber: nativeVariantAxisAssignments.normalizedNumber,
+            normalizedUnit: nativeVariantAxisAssignments.normalizedUnit,
             sourceClaimId: nativeVariantAxisAssignments.sourceClaimId,
           })
           .from(nativeVariantAxisAssignments)
@@ -369,27 +414,27 @@ async function runScopedPass(mode: 'dry_run' | 'apply'): Promise<VariantAxisBack
  */
 function expectFirstPassCounters(report: VariantAxisBackfillReport, label: string): void {
   expect(report.scanned.listings, `${label}: the page was not exactly this fixture`).toBe(1);
-  expect(report.scanned.listingOptions, `${label}: both legacy options must be read`).toBe(2);
-  expect(report.scanned.variantOptionValues, `${label}: all three option values must be read`).toBe(
-    3,
+  expect(report.scanned.listingOptions, `${label}: all three legacy options must be read`).toBe(3);
+  expect(report.scanned.variantOptionValues, `${label}: all five option values must be read`).toBe(
+    5,
   );
 
   // THE IN-TRANSACTION WITNESS, and the reason the rollback case below is not
   // vacuous. `declareVariantAxis` answers `created: true` only from a non-empty
   // `RETURNING` set, so a positive `axes.declared` is proof the INSERT executed
   // and produced a row — inside the transaction, whatever happened to it after.
-  expect(report.axes.declared, `${label}: no axis INSERT returned a row`).toBe(1);
+  expect(report.axes.declared, `${label}: no axis INSERT returned a row`).toBe(2);
   expect(report.axes.alreadyDeclared, `${label}: nothing should have been there yet`).toBe(0);
   expect(report.axes.unresolved, `${label}: the unmapped option must be refused`).toBe(1);
 
-  expect(report.assignments.written, `${label}: no assignment was written`).toBe(2);
+  expect(report.assignments.written, `${label}: no assignment was written`).toBe(4);
   expect(report.assignments.alreadyWritten, `${label}`).toBe(0);
   expect(report.assignments.unresolved, `${label}: the unmapped value must be refused`).toBe(1);
   expect(report.assignments.withheld, `${label}: nothing is indistinguishable here`).toBe(0);
 
-  // Two listing-grain claims and three variant-grain ones: every legacy row is
+  // Three listing-grain claims and five variant-grain ones: every legacy row is
   // preserved whether or not it resolved (ADR 0007 D7).
-  expect(report.claims.written, `${label}: every legacy row must become a claim`).toBe(5);
+  expect(report.claims.written, `${label}: every legacy row must become a claim`).toBe(8);
   expect(report.claims.alreadyPresent, `${label}`).toBe(0);
   expect(report.signatures.written, `${label}: both variants must get a signature`).toBe(2);
   expect(report.signatures.unchanged, `${label}`).toBe(0);
@@ -405,7 +450,7 @@ function expectFirstPassCounters(report: VariantAxisBackfillReport, label: strin
 
 describe('the backfill in apply mode', () => {
   beforeAll(async () => {
-    await publishColorAxisDefinition();
+    await publishAxisDefinitions();
     await makeFixtureListing();
   });
 
@@ -453,51 +498,81 @@ describe('the backfill in apply mode', () => {
 
     const persisted = await readPersistedState();
     expect(
-      persisted.axes,
+      [...persisted.axes].sort((a, b) => a.attributeKey.localeCompare(b.attributeKey)),
       'apply mode persisted no axis; the fixture cannot measure the rollback',
     ).toEqual([
       { attributeKey: COLOR_KEY, attributeDefinitionVersion: 1, legacyOptionName: COLOR_NAME },
+      { attributeKey: STORAGE_KEY, attributeDefinitionVersion: 1, legacyOptionName: STORAGE_NAME },
     ]);
 
-    // The typed values, and the reason the fixture is not only pathological:
-    // this is the first observation anywhere of a legacy option VALUE that
-    // resolved becoming a row. `Rojo` reaches `red` through a recorded alias and
-    // keeps the seller's own word in `display_value`.
-    const byValue = [...persisted.assignments].sort((a, b) =>
-      a.normalizedValue.localeCompare(b.normalizedValue),
-    );
-    expect(byValue.map((row) => [row.normalizedValue, row.displayValue])).toEqual([
+    // ── The CONTROLLED-VALUE route ──────────────────────────────────────────
+    //
+    // The first observation anywhere of a legacy option VALUE that resolved
+    // becoming a row. `Rojo` reaches `red` through a recorded alias and keeps the
+    // seller's own word in `display_value`.
+    const colour = persisted.assignments
+      .filter((row) => row.attributeKey === COLOR_KEY)
+      .sort((a, b) => a.normalizedValue.localeCompare(b.normalizedValue));
+    expect(colour.map((row) => [row.normalizedValue, row.displayValue])).toEqual([
       ['blue', 'Azul'],
       ['red', 'Rojo'],
     ]);
-    expect(
-      byValue.map((row) => row.attributeKey),
-      'an assignment landed on the wrong axis key',
-    ).toEqual([COLOR_KEY, COLOR_KEY]);
-    for (const row of byValue) {
+    for (const row of colour) {
       expect(row.enumValueId, 'a controlled value resolved to no enum row').not.toBeNull();
+      // A controlled value is not a magnitude, and `..._unit_check` is what would
+      // refuse a unit smuggled in beside it.
+      expect(row.normalizedNumber, 'a controlled value carries a magnitude').toBeNull();
+      expect(row.normalizedUnit, 'a controlled value carries a unit').toBeNull();
+    }
+
+    // ── The MEASUREMENT route, which writes different columns ────────────────
+    //
+    // `256 GB` and `512 GB` land as base-unit magnitudes (`digital_storage`'s base
+    // unit is the byte), so two spellings of one capacity would collide on the
+    // signature. These two columns had never been written by this backfill in any
+    // test, and `native_variant_axis_assignments_unit_check` is what refuses a
+    // unit with no magnitude beside it.
+    const storage = persisted.assignments
+      .filter((row) => row.attributeKey === STORAGE_KEY)
+      .sort((a, b) => (a.normalizedNumber ?? 0) - (b.normalizedNumber ?? 0));
+    expect(storage.map((row) => row.displayValue)).toEqual(['256 GB', '512 GB']);
+    for (const row of storage) {
+      expect(row.normalizedNumber, 'a measurement resolved to no magnitude').not.toBeNull();
+      expect(row.normalizedUnit, 'a measurement resolved to no unit').toBe('B');
+      expect(row.enumValueId, 'a measurement resolved to an enum value').toBeNull();
+      // The signature input is the magnitude rendered ONCE in the base unit, so
+      // the folded text has to contain the number and the base unit and nothing
+      // resembling the seller's own spelling.
+      expect(row.normalizedValue).toBe(`${row.normalizedNumber} b`);
+    }
+    expect(
+      (storage[1]?.normalizedNumber ?? 0) / (storage[0]?.normalizedNumber ?? 1),
+      '512 GB is not twice 256 GB in base units; the magnitudes are not comparable',
+    ).toBe(2);
+
+    for (const row of persisted.assignments) {
       // ADR 0007 D7: the typed value names the assertion it came from, and the
       // claim is undeletable while the variant lives.
       expect(row.sourceClaimId, 'the assignment cites no retained claim').not.toBeNull();
     }
     expect(
-      new Set(byValue.map((row) => row.variantId)).size,
-      'both assignments landed on one variant',
+      new Set(persisted.assignments.map((row) => row.variantId)).size,
+      'every assignment landed on one variant',
     ).toBe(2);
 
-    expect(persisted.signatures.map((row) => row.axisCount)).toEqual([1, 1]);
+    expect(persisted.signatures.map((row) => row.axisCount)).toEqual([2, 2]);
     expect(
       new Set(persisted.signatures.map((row) => row.signature)).size,
       'the two variants share a signature; the listing unique index should have refused it',
     ).toBe(2);
     // Every legacy row preserved, resolved or not.
-    expect(persisted.listingClaims, 'a legacy option was not retained as a claim').toBe(2);
-    expect(persisted.variantClaims, 'a legacy option value was not retained as a claim').toBe(3);
+    expect(persisted.listingClaims, 'a legacy option was not retained as a claim').toBe(3);
+    expect(persisted.variantClaims, 'a legacy option value was not retained as a claim').toBe(5);
 
     reportPopulation(
       `[apply] population: 1 listing, ${dryRun.scanned.listingOptions} legacy options, ` +
         `${dryRun.scanned.variantOptionValues} legacy option values, ` +
-        `${variantIds.length} variants; persisted ${persisted.axes.length} axis, ` +
+        `${variantIds.length} variants; persisted ${persisted.axes.length} axes, ` +
         `${persisted.assignments.length} assignments, ${persisted.signatures.length} signatures, ` +
         `${persisted.listingClaims + persisted.variantClaims} claims.`,
     );
@@ -511,31 +586,31 @@ describe('the backfill in apply mode', () => {
       firstApply,
       'the first apply case did not run; there is nothing for this to have converged on',
     ).toBeDefined();
-    expect(firstApply?.axes.declared, 'the first pass declared no axis').toBe(1);
-    expect(firstApply?.assignments.written, 'the first pass wrote no assignment').toBe(2);
-    expect(firstApply?.claims.written, 'the first pass wrote no claim').toBe(5);
+    expect(firstApply?.axes.declared, 'the first pass declared no axis').toBe(2);
+    expect(firstApply?.assignments.written, 'the first pass wrote no assignment').toBe(4);
+    expect(firstApply?.claims.written, 'the first pass wrote no claim').toBe(8);
     expect(firstApply?.signatures.written, 'the first pass wrote no signature').toBe(2);
 
     const before = await readRowIdentity();
-    expect(before.axes.length, 'there is no persisted axis to converge on').toBe(1);
-    expect(before.assignments.length, 'there is no persisted assignment to converge on').toBe(2);
+    expect(before.axes.length, 'there is no persisted axis to converge on').toBe(2);
+    expect(before.assignments.length, 'there is no persisted assignment to converge on').toBe(4);
     expect(before.signatures.length, 'there is no persisted signature to converge on').toBe(2);
-    expect(before.claims.length, 'there is no persisted variant claim to converge on').toBe(3);
+    expect(before.claims.length, 'there is no persisted variant claim to converge on').toBe(5);
 
     const second = await runScopedPass('apply');
 
     // Same population read, every outcome on the OTHER side of the ledger.
     expect(second.scanned.listings).toBe(1);
-    expect(second.scanned.listingOptions).toBe(2);
-    expect(second.scanned.variantOptionValues).toBe(3);
+    expect(second.scanned.listingOptions).toBe(3);
+    expect(second.scanned.variantOptionValues).toBe(5);
     expect(second.axes.declared, 'the second pass declared an axis again').toBe(0);
-    expect(second.axes.alreadyDeclared, 'the second pass did not recognise the existing axis').toBe(
-      1,
+    expect(second.axes.alreadyDeclared, 'the second pass did not recognise the existing axes').toBe(
+      2,
     );
     expect(second.assignments.written, 'the second pass rewrote an assignment').toBe(0);
-    expect(second.assignments.alreadyWritten).toBe(2);
+    expect(second.assignments.alreadyWritten).toBe(4);
     expect(second.claims.written, 'the second pass wrote a duplicate claim').toBe(0);
-    expect(second.claims.alreadyPresent).toBe(5);
+    expect(second.claims.alreadyPresent).toBe(8);
     expect(second.signatures.written, 'the second pass moved a signature').toBe(0);
     expect(second.signatures.unchanged).toBe(2);
     // The refusals are re-derived every pass rather than remembered, so they do
@@ -562,7 +637,7 @@ describe('the backfill in apply mode', () => {
     expect(after.claims, 'the claim rows were rewritten by a no-op pass').toEqual(before.claims);
 
     reportPopulation(
-      `[idempotency] first pass wrote 1 axis / 2 assignments / 5 claims / 2 signatures; ` +
+      `[idempotency] first pass wrote 2 axes / 4 assignments / 8 claims / 2 signatures; ` +
         `second pass wrote 0 of each over the same ${second.scanned.listingOptions} options and ` +
         `${second.scanned.variantOptionValues} option values, with ` +
         `${after.axes.length + after.assignments.length + after.signatures.length + after.claims.length} ` +
