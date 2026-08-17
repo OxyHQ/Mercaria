@@ -29,6 +29,21 @@
  * publication's "in the same transaction as the listing" guarantee would be a
  * sentence in a comment with nothing under it.
  *
+ * ## One structural finding, measured while mutation-testing this file
+ *
+ * For the PUBLISH path specifically, the database already refuses the mistake:
+ * mutating `enqueueOfferConvergence` to ignore its handle and use `getDb()`
+ * unconditionally does not merely leak a row past a rollback — it fails the
+ * publication outright with `23503` on
+ * `offer_outboxes_listing_id_listings_id_fk` ("Key (listing_id)=… is not present
+ * in table listings"), because the root connection cannot see a listing the
+ * transaction has not committed. So the foreign key, not the call site, is what
+ * makes the publish's enqueue transactional. That is worth knowing in both
+ * directions: it is stronger than a convention, and it holds ONLY where the
+ * enqueue names a row created in the same transaction — a caller enqueueing for
+ * an already-committed listing (moderation enforcement, `syncListingFacets`) gets
+ * no such protection, which is exactly the case the assertions below cover.
+ *
  * ## Why the negative control is the load-bearing half
  *
  * Case 1 alone is also what a test of PostgreSQL's rollback semantics looks
