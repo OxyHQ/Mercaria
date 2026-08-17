@@ -93,11 +93,40 @@ async function assertLockCeiling(adminUrl: string): Promise<void> {
         `this suite requires. Concurrent realdb migrations exhaust the shared lock table at ` +
         `the default 64 and fail with "out of shared memory" in whichever files happen to ` +
         `overlap.\n` +
-        `  Local: recreate the compose server so it picks up its \`command:\` —\n` +
-        `    docker compose -f docker-compose.postgres.yml up -d --force-recreate postgres\n` +
-        `  CI: the "Raise the Postgres lock ceiling" step in .github/workflows/ci.yml.\n` +
+        `\n` +
+        `This is a property of the SERVER, not of the test that reported it — this ` +
+        `check runs once for the whole package, so it stops files that never open a ` +
+        `connection.\n` +
+        `\n` +
         `The setting is postmaster context, so a running server cannot be changed into ` +
-        `compliance without a restart.`,
+        `compliance without a RESTART. That makes the remedy depend on where you are, ` +
+        `and one of the two is not safe to paste:\n` +
+        `\n` +
+        `  From the SHARED CHECKOUT — recreate the compose server so it picks up the\n` +
+        `  \`command:\` in docker-compose.postgres.yml:\n` +
+        `    docker compose -f docker-compose.postgres.yml up -d --force-recreate postgres\n` +
+        `\n` +
+        `  From a WORKTREE this will NOT work, and it fails as a Docker problem rather\n` +
+        `  than as this one: compose derives its network name from the directory, so a\n` +
+        `  new directory wants a new network, and with many worktrees open Docker\n` +
+        `  answers "all predefined address pools have been fully subnetted". It fails\n` +
+        `  SAFELY — the old container keeps running at the old setting — so the symptom\n` +
+        `  is that you run the remedy, see an unrelated error, and the ceiling is\n` +
+        `  unchanged.\n` +
+        `\n` +
+        `  DO NOT reach for \`ALTER SYSTEM\` + \`docker restart\` to get around that. It\n` +
+        `  works, and it is how CI does it (.github/workflows/ci.yml, "Raise the\n` +
+        `  Postgres lock ceiling") — but CI owns its container for one job, and this\n` +
+        `  one is SHARED by every worktree and agent on the machine. Restarting it\n` +
+        `  destroys every in-flight run against it: measured, four throwaway databases\n` +
+        `  and twenty-four connections went down, and the ~40s of crash recovery that\n` +
+        `  followed answered everyone else "the database system is not yet accepting\n` +
+        `  connections" — which reads as a bug in their own code.\n` +
+        `\n` +
+        `  Checking that it looks idle first does NOT make it safe. That check expires\n` +
+        `  before you can act on it; a sibling starting a run in the gap is exactly the\n` +
+        `  case that gets destroyed. Restarting the shared server is a COORDINATED\n` +
+        `  action — do it from the shared checkout, or ask.`,
     );
   }
 }
