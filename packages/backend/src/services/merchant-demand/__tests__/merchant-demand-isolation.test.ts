@@ -50,30 +50,65 @@ import { requireMerchantDemandMetric } from '../metrics.js';
 import { acquisitionFactsFrom } from '../acquisition.service.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services/merchant-demand');
+
+/**
+ * Every `.ts` under a directory, RECURSIVELY, excluding the domain's own tests.
+ *
+ * Recursive on purpose. The previous version read `services/merchant-demand/`
+ * one level deep, which is the shape that fails silently: the day this domain
+ * grows a sub-directory — every comparable domain in this tree has one
+ * (`services/referrals/integrity/`, `services/matching/benchmark/`,
+ * `services/payments/reconciliation/`) — its modules land outside all six walls
+ * and nothing says so (#460).
+ */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
 
 /** Every non-test module in the domain, read from the real directory. */
 function domainSources(): { relative: string; source: string }[] {
-  return readdirSync(DOMAIN_DIR)
-    .filter((entry) => entry.endsWith('.ts'))
-    .filter((entry) => statSync(join(DOMAIN_DIR, entry)).isFile())
-    .map((entry) => ({
-      relative: `services/merchant-demand/${entry}`,
-      source: readFileSync(join(DOMAIN_DIR, entry), 'utf8'),
-    }));
+  return walk('services/merchant-demand').map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
-/** The rest of the domain — the surfaces outside `services/merchant-demand/`. */
+/** Every demand- or acquisition-NAMED module in a shared flat directory. */
+function demandNamedSharedModules(): string[] {
+  return (['controllers', 'routes', 'middleware'] as const).flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /merchant-(demand|acquisition)/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
+/**
+ * The rest of the domain — the surfaces outside `services/merchant-demand/`.
+ * WALKED and DERIVED, never listed.
+ *
+ * This was nine hand-written paths. It happened to be complete on the day it was
+ * read, which is the whole difficulty with a list like this: complete and
+ * derived look identical until somebody adds the tenth module, and then only one
+ * of them still covers it. Both halves are derived now — `db/merchantDemand/`
+ * walked whole, and the flat HTTP surface from the filename convention every
+ * module in it already follows.
+ *
+ * `db/schema/merchantDemand.ts` stays NAMED: a schema file belongs to no domain
+ * directory, and walking `db/schema/` whole would scan every table in the
+ * database from a gate about one domain.
+ */
 const OUTER_PATHS = [
-  'db/merchantDemand/merchantDemandFactsRepository.ts',
-  'db/merchantDemand/merchantDemandSnapshotRepository.ts',
-  'db/merchantDemand/merchantAcquisitionRepository.ts',
+  ...walk('db/merchantDemand'),
   'db/schema/merchantDemand.ts',
-  'controllers/merchant-demand.controller.ts',
-  'controllers/merchant-acquisition.controller.ts',
-  'routes/merchant-demand.ts',
-  'routes/internal-merchant-demand.ts',
-  'middleware/merchant-demand-schemas.ts',
+  ...demandNamedSharedModules(),
 ];
 
 /** Every file this domain owns, inside and outside the service directory. */
@@ -120,15 +155,41 @@ const CONTACT_FIELD = /email|phone|mobile|contact_name|contactName|contact_value
 describe('the merchant demand domain has real modules — the vacuity floor', () => {
   it('scans a domain that exists and is not empty', () => {
     const domain = domainSources();
-    // A renamed directory or a moved module must fail here rather than make
-    // every scan below pass against an empty list.
-    expect(domain.length).toBeGreaterThanOrEqual(7);
+    // A floor PER SHAPE, each today's count, because the three walks break
+    // independently and one total lets a walk collapse to zero while the others
+    // carry its number. A renamed directory or a moved module must fail here
+    // rather than make every scan below pass against an empty list.
+    const outerFrom = (prefix: string) =>
+      OUTER_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(domain.length, 'the merchant-demand service walk found too few modules').toBeGreaterThanOrEqual(
+      8,
+    );
+    expect(outerFrom('db/merchantDemand/'), 'the repository walk found too few modules').toBeGreaterThanOrEqual(
+      3,
+    );
+    expect(outerFrom('controllers/'), 'no demand-named controller was derived').toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(outerFrom('routes/'), 'no demand-named route was derived').toBeGreaterThanOrEqual(2);
+    expect(outerFrom('middleware/'), 'no demand-named schema module was derived').toBeGreaterThanOrEqual(
+      1,
+    );
+    // No test file may enter the scanned set: a gate that scans its own probes
+    // reports violations it wrote itself.
+    expect(
+      [...domain.map((file) => file.relative), ...OUTER_PATHS].filter((path) =>
+        path.includes('__tests__'),
+      ),
+    ).toEqual([]);
+
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(statSync(join(SRC_ROOT, file.relative)).isFile()).toBe(true);
     }
     for (const relative of OUTER_PATHS) {
       const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
       expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(statSync(join(SRC_ROOT, relative)).isFile(), `${relative} is not a file`).toBe(true);
     }
   });
 });

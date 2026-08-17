@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,20 +26,45 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /** `packages/`, so the scan can reach the STOREFRONT — see {@link CLAIM_UI_PATHS}. */
 const PACKAGES_ROOT = join(SRC_ROOT, '..', '..');
 
+/** The storefront's translation bundles — where #435b moved the copy. */
+const LOCALES_ROOT = join(PACKAGES_ROOT, 'frontend', 'lib', 'i18n', 'locales');
+
+/** Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** Every claim-NAMED module in a shared flat directory, whoever owns it. */
+function claimNamedSharedModules(): string[] {
+  return (['controllers', 'routes', 'middleware'] as const).flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /guest-claim/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
 /**
- * The claim path, end to end. A new module in this path belongs on the list —
- * the vacuity floor is what forces whoever adds one to look here.
+ * The claim path, end to end. WALKED and DERIVED, never listed.
+ *
+ * This was nine hand-written paths under a comment saying "a new module in this
+ * path belongs on the list — the vacuity floor is what forces whoever adds one
+ * to look here." A floor cannot force that: a floor of nine is met by nine, and
+ * a tenth module lands outside all six walls without moving any number this file
+ * asserts (#460). The two owned directories are walked whole, so the walls hold
+ * for modules nobody has written yet.
  */
 const CLAIM_PATHS = [
-  'services/guest-claims/claim.service.ts',
-  'services/guest-claims/claim-outbox.service.ts',
-  'services/guest-claims/claim-projection.ts',
-  'services/guest-claims/operator.service.ts',
-  'services/guest-claims/revocation.service.ts',
-  'db/guestClaims/claimRepository.ts',
-  'db/guestClaims/claimOutboxRepository.ts',
-  'db/guestClaims/revocationRepository.ts',
-  'controllers/guest-claim-operator.controller.ts',
+  ...walk('services/guest-claims'),
+  ...walk('db/guestClaims'),
+  ...claimNamedSharedModules(),
 ];
 
 /**
@@ -52,13 +77,26 @@ const CLAIM_PATHS = [
  * about what a buyer reads, and the only place a buyer reads anything is a
  * screen. A backend-only scan would pass while the review screen listed a
  * wallet nobody built.
+ *
+ * The screen half is WALKED. Listing it missed `recover.tsx`, the third screen
+ * in the same directory — which is the guest-orders screen a buyer reaches when
+ * they cannot find their purchase, so it is if anything the likeliest of the
+ * three to grow a "sign up and get your FairCoin balance" line.
+ *
+ * The two `lib/` modules stay NAMED and are asserted to exist: they have no
+ * directory of their own, and `frontend/lib/` is ninety-odd files of which these
+ * two are the claim client.
  */
-const CLAIM_UI_PATHS = [
-  'frontend/app/(app)/guest-orders/claim.tsx',
-  'frontend/app/(app)/guest-orders/portal.tsx',
-  'frontend/lib/api/guest-claim.ts',
-  'frontend/lib/hooks/use-guest-claim.ts',
-];
+const CLAIM_UI_LIB_PATHS = ['frontend/lib/api/guest-claim.ts', 'frontend/lib/hooks/use-guest-claim.ts'];
+
+function claimScreens(): string[] {
+  const directory = join('frontend', 'app', '(app)', 'guest-orders');
+  return readdirSync(join(PACKAGES_ROOT, directory))
+    .filter((entry) => entry.endsWith('.tsx'))
+    .map((entry) => `${directory}/${entry}`);
+}
+
+const CLAIM_UI_PATHS = [...claimScreens(), ...CLAIM_UI_LIB_PATHS];
 
 /**
  * #109 acceptance 13, and `AGENTS.md`'s standing exclusion: no OxyPay and no
@@ -130,9 +168,47 @@ const AUTOMATIC_BENEFIT_REFERENCE =
  * path (`claim.service.ts`) and the LOOP (`claim-outbox.service.ts`) do, which
  * is why they are absent from this list rather than exempted inside it.
  */
+const FLAG_READING_CLAIM_MODULES = [
+  {
+    path: 'services/guest-claims/claim.service.ts',
+    reads: /config\.guest\.claim\.enabled/,
+    why: 'the WRITE path — `GUEST_CLAIM_ENABLED` refuses a NEW claim and never hides a stored one',
+  },
+  {
+    path: 'services/guest-claims/claim-outbox.service.ts',
+    reads: /config\.guest\.claim\.projectionEnabled/,
+    why: 'the LOOP — `GUEST_CLAIM_PROJECTION_ENABLED` gates the dispatcher, never the durable row',
+  },
+  {
+    path: 'services/guest-claims/revocation.service.ts',
+    reads: /config\.guest\.claim\.fourEyesRequired/,
+    why:
+      'the four-eyes POLICY, and it is SNAPSHOTTED onto the request at creation — the lever ' +
+      'decides how many approvers a NEW revocation needs, once, and is then a stored column. ' +
+      'It cannot hide, gate or unread a claim that already exists',
+  },
+] as const;
+
+/**
+ * Derived by SUBTRACTION, which is the direction that matters.
+ *
+ * The claim half used to be two named modules, which meant a new read path,
+ * projection or operator module defaulted to being outside this wall — the one
+ * wall whose failure is invisible, because a lever read in a read path shows no
+ * symptom until somebody flips it and an ownership record disappears. Now every
+ * module of the domain is IN unless it is one of the two below, each of which
+ * carries the assertion that justifies it rather than a sentence: it must still
+ * READ a lever, checked below against the real source. An exemption that stopped
+ * being true would otherwise go on excusing a module that no longer needs it.
+ *
+ * The two `services/orders/` modules stay NAMED: they belong to #106, sit flat
+ * among forty unrelated modules, and no rule derives them without deriving
+ * things that are not claim read paths.
+ */
 const NO_FLAG_PATHS = [
-  'services/guest-claims/claim-projection.ts',
-  'services/guest-claims/operator.service.ts',
+  ...walk('services/guest-claims').filter(
+    (path) => !FLAG_READING_CLAIM_MODULES.some((module) => module.path === path),
+  ),
   'services/orders/order-access.service.ts',
   'services/orders/order-buyer.ts',
 ];
@@ -182,99 +258,260 @@ function readClaimUiSource(relative: string): string {
   return source;
 }
 
+/**
+ * Every translated string the storefront ships, in EVERY locale.
+ *
+ * The OxyPay/FairCoin prohibition is explicitly a scan of COPY rather than only
+ * of code — acceptance 13 is about what a buyer READS, and a "coming soon", a
+ * disabled wallet row and a conversion teaser are all STRINGS. #435b moved
+ * exactly those strings out of the screens above and into these bundles:
+ * measured on `origin/main` at 81448ac6, `claim.tsx` makes 27 `t(` calls,
+ * `portal.tsx` 21 and `recover.tsx` 12, so the sentences this wall exists to
+ * forbid are no longer in the files it was reading. The screens still exist and
+ * still have bytes, so every assertion and every floor here went on passing —
+ * the silent-green half of #460, arriving through a copy extraction rather than
+ * through a new module.
+ *
+ * All twelve locales, not just `en`: a wallet teaser is as forbidden in
+ * Portuguese. Enumerated from disk so a locale added later is covered without an
+ * edit here (#396 and #434 keep adding them). A parse failure THROWS rather than
+ * being skipped, because an unreadable bundle is the "scanned nothing" state.
+ *
+ * #499 gave `commercial-presentation-isolation.test.ts` this treatment for the
+ * same prohibition on the checkout surface; this is the claim surface, which its
+ * census did not reach.
+ */
+function localeBundles(): {
+  readonly locale: string;
+  readonly source: string;
+  readonly leaves: readonly { readonly key: string; readonly value: string }[];
+}[] {
+  return readdirSync(LOCALES_ROOT)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => {
+      const source = readFileSync(join(LOCALES_ROOT, name), 'utf8');
+      // An unreadable bundle THROWS rather than being skipped: that is the
+      // "scanned nothing" state, and it is the one way this must never be green.
+      const leaves: { readonly key: string; readonly value: string }[] = [];
+      const collect = (node: unknown, path: string): void => {
+        if (typeof node === 'string') leaves.push({ key: path, value: node });
+        else if (node !== null && typeof node === 'object')
+          for (const [key, value] of Object.entries(node))
+            collect(value, path === '' ? key : `${path}.${key}`);
+      };
+      collect(JSON.parse(source), '');
+      return { locale: name.slice(0, -'.json'.length), source, leaves };
+    });
+}
+
+/**
+ * The keys where FairCoin may legitimately be NAMED, because it is the
+ * PRESENTMENT CURRENCY there and not a claim benefit.
+ *
+ * `AGENTS.md` makes FAIR the preferred presentment and display currency. What
+ * #109 acceptance 13 forbids is FairCoin as a payment RAIL or a BENEFIT of
+ * claiming — "claim your order and get your FairCoin balance", a wallet row, a
+ * conversion teaser. A currency picker saying which currency prices are shown in
+ * is none of those, and this file's own detector comment already draws that line
+ * for `FAIR` the code. #504 ruled on exactly this string in
+ * `commercial-presentation-isolation.test.ts`; the same key is excused here for
+ * the same reason rather than a second answer being invented for it.
+ *
+ * Scoped by KEY rather than by phrase, and the excused key must STILL match in
+ * every locale — asserted below — so a reworded or renamed key fails as stale
+ * instead of quietly excusing nothing.
+ */
+const CURRENCY_NAME_KEYS: readonly string[] = ['settings.currency.description'];
+
+/**
+ * The vacuity floors, PER SHAPE rather than one on the total.
+ *
+ * Called by every scan below. The five sources break independently, and one
+ * total lets a walk collapse to zero while the others carry its number — which
+ * is what a single `expect(scanned).toBe(LIST.length)` could never see either,
+ * since that compares the loop's own counter to the list the loop just iterated
+ * and is satisfied by any list, an empty one included.
+ *
+ * Each number is today's count, so a module REMOVED goes red rather than
+ * silently narrowing six walls at once.
+ */
+function assertClaimPopulationIsWhole(): void {
+  const from = (prefix: string) => CLAIM_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(from('services/guest-claims/'), 'the claim service walk found too few modules').toBeGreaterThanOrEqual(5);
+  expect(from('db/guestClaims/'), 'the claim repository walk found too few modules').toBeGreaterThanOrEqual(3);
+  expect(claimNamedSharedModules().length, 'no claim-named HTTP module was derived').toBeGreaterThanOrEqual(1);
+  expect(claimScreens().length, 'the guest-orders screen walk found too few screens').toBeGreaterThanOrEqual(3);
+  expect(CLAIM_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+  for (const path of CLAIM_PATHS) {
+    expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+  }
+  for (const path of CLAIM_UI_PATHS) {
+    expect(statSync(join(PACKAGES_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+  }
+}
+
 describe('the guest claim path cannot reach what it must not', () => {
   it('no claim module names OxyPay or FairCoin, in code or in copy', () => {
-    let scanned = 0;
+    assertClaimPopulationIsWhole();
     for (const relative of CLAIM_PATHS) {
       expect(
         OXYPAY_OR_FAIRCOIN_REFERENCE.test(readClaimSource(relative)),
         `${relative} names OxyPay or FairCoin; #109 acceptance 13 excludes both outright`,
       ).toBe(false);
-      scanned += 1;
     }
     for (const relative of CLAIM_UI_PATHS) {
       expect(
         OXYPAY_OR_FAIRCOIN_REFERENCE.test(readClaimUiSource(relative)),
         `${relative} names OxyPay or FairCoin as a claim benefit; #109 UX rule 11`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CLAIM_PATHS.length + CLAIM_UI_PATHS.length);
+
+    // …and in the BUNDLES, which is where the sentences actually live now.
+    // Without this the screens above stay clean while `en.json` carries
+    // "Claim your order and get your FairCoin balance" and every assertion and
+    // every floor in this file still passes.
+    const bundles = localeBundles();
+    expect(
+      bundles.length,
+      'the storefront ships twelve locales; a shorter list means the bundles moved and this ' +
+        'prohibition is no longer scanning the copy',
+    ).toBeGreaterThanOrEqual(12);
+    for (const bundle of bundles) {
+      // A bundle emptied to `{}` would scan clean; the floor is what tells that
+      // apart from a bundle that genuinely says nothing forbidden.
+      expect(
+        bundle.source.length,
+        `${bundle.locale}.json looks empty — an empty bundle passes this vacuously`,
+      ).toBeGreaterThan(500);
+      expect(
+        bundle.leaves.length,
+        `${bundle.locale}.json produced no strings — check the leaf walk`,
+      ).toBeGreaterThan(100);
+
+      // Scanned per LEAF so the currency-name exception can be scoped to a KEY.
+      const excused: string[] = [];
+      for (const leaf of bundle.leaves) {
+        if (CURRENCY_NAME_KEYS.includes(leaf.key)) {
+          if (OXYPAY_OR_FAIRCOIN_REFERENCE.test(leaf.value)) excused.push(leaf.key);
+          continue;
+        }
+        expect(
+          OXYPAY_OR_FAIRCOIN_REFERENCE.test(leaf.value),
+          `${bundle.locale}.json → ${leaf.key} names OxyPay or FairCoin as a claim benefit; ` +
+            '#109 acceptance 13 and UX rule 11 exclude both outright',
+        ).toBe(false);
+      }
+      // The exception is only safe while it is still true: every excused key
+      // must still be PRESENT and still be NAMING the currency, in every
+      // locale, or a reworded key would go on being excused for nothing.
+      expect(
+        excused.sort(),
+        `${bundle.locale}.json: the currency-name exceptions no longer match — ` +
+          'a renamed or reworded key excuses nothing while looking like a decision',
+      ).toEqual([...CURRENCY_NAME_KEYS].sort());
+    }
   });
 
   it('the claim UX never names a referral partner, its earnings or a conflict', () => {
     // #109 UX rule 12: none of that may be shown to the buyer unless a separate
     // transparent product requirement exists, and none does. The screens have
     // no code route to any of it.
-    let scanned = 0;
+    assertClaimPopulationIsWhole();
     for (const relative of CLAIM_UI_PATHS) {
       expect(
         REFERRAL_REFERENCE.test(readClaimUiSource(relative)),
         `${relative} names the referral domain; the buyer is never shown a partner (UX rule 12)`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CLAIM_UI_PATHS.length);
   });
 
   it('claiming can never touch referral attribution or conversion', () => {
-    let scanned = 0;
+    assertClaimPopulationIsWhole();
     for (const relative of CLAIM_PATHS) {
       expect(
         REFERRAL_REFERENCE.test(readClaimCode(relative)),
         `${relative} reaches the referral domain; a claim changes ACCESS, not acquisition history`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CLAIM_PATHS.length);
   });
 
   it('claiming can never reach the payment domain', () => {
-    let scanned = 0;
+    assertClaimPopulationIsWhole();
     for (const relative of CLAIM_PATHS) {
       expect(
         PAYMENT_REFERENCE.test(readClaimCode(relative)),
         `${relative} reaches the payment domain; a claim changes no currency, rail or method`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CLAIM_PATHS.length);
   });
 
   it('no claim module can find a purchase from a contact', () => {
-    let scanned = 0;
+    assertClaimPopulationIsWhole();
     for (const relative of CLAIM_PATHS) {
       expect(
         CONTACT_LOOKUP_REFERENCE.test(readClaimCode(relative)),
         `${relative} reaches a contact value; a matching email can never authorize a claim (I6)`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CLAIM_PATHS.length);
   });
 
   it('claiming confers no automatic address, payment method or marketing consent', () => {
-    let scanned = 0;
+    assertClaimPopulationIsWhole();
     for (const relative of CLAIM_PATHS) {
       expect(
         AUTOMATIC_BENEFIT_REFERENCE.test(readClaimCode(relative)),
         `${relative} writes an automatic account benefit; #109 forbidden effects 1, 2 and 3`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CLAIM_PATHS.length);
   });
 
   it('no lever can hide an ownership record that already exists', () => {
-    let scanned = 0;
+    // An EXACT count on the exemptions, never a floor: a list of excuses that
+    // may grow is the wall switching itself off a defensible module at a time.
+    expect(FLAG_READING_CLAIM_MODULES.length, 'a fourth module was excused from the flag wall').toBe(
+      3,
+    );
+    expect(NO_FLAG_PATHS.length, 'the flag wall covers too few modules').toBeGreaterThanOrEqual(4);
+
     for (const relative of NO_FLAG_PATHS) {
       expect(
         GUEST_FLAG_REFERENCE.test(readClaimCode(relative)),
         `${relative} reads a guest lever; a stored claim must survive every flag`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(NO_FLAG_PATHS.length);
+  });
+
+  /**
+   * The other half of the subtraction, and the reason it is safe rather than
+   * merely stated: each excused module must STILL read a lever. A stale
+   * exemption excuses nothing while looking like a decision, and here it would
+   * hold a real read path outside the only wall that protects a stored claim.
+   */
+  it('every module excused from the flag wall reads THAT lever and no enablement lever', () => {
+    for (const { path, reads, why } of FLAG_READING_CLAIM_MODULES) {
+      const code = readClaimCode(path);
+      expect(
+        reads.test(code),
+        `${path} was excused from the flag wall as ${why}, and no longer reads that lever`,
+      ).toBe(true);
+      expect(NO_FLAG_PATHS, `${path} is both excused and scanned`).not.toContain(path);
+      // The half that makes the exception SAFE rather than merely justified:
+      // the levers it reads must be the ones it was excused for. `revocation`
+      // reading a POLICY is why it is here; `revocation` learning to read an
+      // enablement flag would be the exact defect this wall exists to catch,
+      // and an exemption keyed on the module rather than on the lever would
+      // swallow it silently.
+      const levers = [...code.matchAll(/config\.guest\.[A-Za-z.]+/gu)].map((match) => match[0]);
+      expect(levers.length, `${path} matched the flag detector but reads no named lever`).toBeGreaterThan(
+        0,
+      );
+      for (const lever of levers) {
+        expect(
+          reads.test(lever) || /\.(job[A-Za-z]*|pollIntervalMs|leaseMs|batchSize|maxAttempts)$/u.test(lever),
+          `${path} reads ${lever}, which is not the lever it was excused for`,
+        ).toBe(true);
+      }
+    }
   });
 
   /**

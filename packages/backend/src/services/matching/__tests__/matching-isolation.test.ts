@@ -28,7 +28,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -39,30 +39,54 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every module of the matching domain — services, repositories, routes. */
+/** Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** Every match-NAMED module in a flat shared directory. */
+function matchNamed(directory: string): string[] {
+  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .filter((entry) => /match/i.test(entry.name))
+    .map((entry) => `${directory}/${entry.name}`);
+}
+
+/**
+ * Every module of the matching domain. WALKED, never listed.
+ *
+ * This was twenty-two hand-written paths under a comment claiming to be "every
+ * module of the matching domain — services, repositories, routes", and the claim
+ * was false in two ways that a reader could not see (#460).
+ *
+ * `services/matching/benchmark/` — `dataset.ts`, `in-memory-source.ts` and
+ * `runner.ts` — was outside all four walls, and it is the sub-directory that
+ * most needs them: it is the one place in the domain that legitimately builds a
+ * whole catalogue in memory, so it is where an import of a canonical WRITE
+ * service would look least out of place.
+ *
+ * `middleware/matching-schemas.ts` was the sharper one. Wall 4 already READS it
+ * by name to check the operator schemas carry no outcome field — so the file was
+ * in this gate, half-scanned, behind one wall of four and outside the other
+ * three. A hand list is where that asymmetry hides; a walk cannot express it.
+ *
+ * The two owned directories are walked whole, so the walls hold for modules
+ * nobody has written yet. The shared flat directories have no directory to walk,
+ * so the population is every match-NAMED module in them.
+ */
 const MATCHING_DOMAIN_PATHS = [
-  'services/matching/pipeline.ts',
-  'services/matching/features.ts',
-  'services/matching/policy.ts',
-  'services/matching/relation-detection.ts',
-  'services/matching/text-similarity.ts',
-  'services/matching/candidate-source.ts',
-  'services/matching/postgres-candidate-source.ts',
-  'services/matching/subject.ts',
-  'services/matching/subject-loader.ts',
-  'services/matching/semantic.ts',
-  'services/matching/match.service.ts',
-  'services/matching/match-policy.service.ts',
-  'services/matching/match-queue-dispatcher.ts',
-  'services/matching/match-sweep.service.ts',
-  'db/matching/matchDecisionRepository.ts',
-  'db/matching/matchPolicyRepository.ts',
-  'db/matching/matchQueueRepository.ts',
-  'db/matching/matchBlockedPairRepository.ts',
-  'db/matching/matchBenchmarkRepository.ts',
-  'db/matching/matchSweepRepository.ts',
-  'routes/internal-matching.ts',
-  'controllers/matching-operator.controller.ts',
+  ...walk('services/matching'),
+  ...walk('db/matching'),
+  ...matchNamed('controllers'),
+  ...matchNamed('routes'),
+  ...matchNamed('middleware'),
 ];
 
 
@@ -210,7 +234,35 @@ describe('the scanner itself is not vacuous', () => {
   });
 
   it('scans a floor of modules, so a domain that moved cannot shrink the gate', () => {
-    expect(MATCHING_DOMAIN_PATHS.length).toBeGreaterThanOrEqual(20);
+    // A floor PER SHAPE, never one total. The five sources break
+    // independently, and a single number stays satisfied while one walk
+    // returns nothing and the others carry it — which is exactly how a gate
+    // goes quietly narrow. Each is today's count, so a module REMOVED goes red
+    // rather than silently shrinking every wall above.
+    const from = (prefix: string) =>
+      MATCHING_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/matching/'), 'the services walk found too few modules').toBeGreaterThanOrEqual(
+      17,
+    );
+    expect(from('db/matching/'), 'the repository walk found too few modules').toBeGreaterThanOrEqual(
+      6,
+    );
+    expect(from('controllers/'), 'no match-named controller was derived').toBeGreaterThanOrEqual(1);
+    expect(from('routes/'), 'no match-named route was derived').toBeGreaterThanOrEqual(1);
+    expect(from('middleware/'), 'no match-named schema module was derived').toBeGreaterThanOrEqual(
+      1,
+    );
+
+    // No test file may enter the scanned set: a gate that scans its own probes
+    // reports violations it wrote itself.
+    expect(MATCHING_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+
+    // And the walk really reads the disk, rather than a `readdirSync` that has
+    // silently started returning a cached or empty result.
+    for (const path of MATCHING_DOMAIN_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+
     // The ranking surface carries its own PER-SHAPE floors, which is strictly
     // stronger than the total this line used to assert: a `>= 7` over a hand
     // list of fourteen was already satisfied by half of it, so the walk that

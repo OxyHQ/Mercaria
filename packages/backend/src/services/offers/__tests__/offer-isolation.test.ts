@@ -48,6 +48,21 @@ function walk(relative: string): string[] {
 /** The flat directories every domain's HTTP surface shares. */
 const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
 
+/**
+ * Every module in a flat directory whose name STARTS with `cart` or `checkout`.
+ *
+ * Anchored deliberately. An unanchored `checkout` also matches
+ * `guest-checkout.service.ts` and `retail-checkout` modules, which belong to the
+ * guest and retail domains — a wall that fails on another domain's file is one
+ * whoever hits it next narrows, and narrowing is how these gates die.
+ */
+function cartOrCheckoutNamed(directory: string): string[] {
+  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .filter((entry) => /^(cart|checkout)/i.test(entry.name))
+    .map((entry) => `${directory}/${entry.name}`);
+}
+
 /** Every offer-NAMED module in a shared flat directory, whoever owns it. */
 function offerNamedSharedModules(): string[] {
   return SHARED_DIRECTORIES.flatMap((directory) =>
@@ -152,18 +167,37 @@ const OFFER_DOMAIN_PATHS = [
 ];
 
 /**
- * The cart and checkout path. A new module that decides what is in a cart or
- * what is charged belongs on this list — the floor below is what forces whoever
- * adds one to look here.
+ * The cart and checkout path. WALKED and derived, never listed.
+ *
+ * This was seven hand-written paths under a comment saying "a new module that
+ * decides what is in a cart or what is charged belongs on this list", which is
+ * the shape #460 is about: the list was written when `services/checkout.service.ts`
+ * was the whole of checkout, and by the time it was read #105 had grown a
+ * `services/checkout/` DIRECTORY beside it. Measured on `origin/main` at
+ * 81448ac6: seven entries against fifteen, and the eight missing were the entire
+ * `services/checkout/` directory — `contact`, `destination`,
+ * `fulfilment-eligibility`, `guest-checkout.service`, `guest-rollout`, `refusal`,
+ * `retail` — plus `services/cart-owner.ts`.
+ *
+ * So wall 2 — "an external offer must have no path into a cart", which is #57's
+ * `offers_kind_shape_check` asserted from the commerce side — did not cover the
+ * modules that decide who may check out, what may be delivered and which lines
+ * are refused. `retail.ts` is the one to notice: it partitions the retail lines
+ * out of a checkout, which is the module in the tree closest to legitimately
+ * wanting an offer.
+ *
+ * The directory is walked whole so the wall holds for modules nobody has written
+ * yet; the flat shared directories have none to walk, so the population is every
+ * module in them whose name STARTS with `cart` or `checkout` — anchored, because
+ * an unanchored `checkout` also takes `guest-checkout-*` modules belonging to
+ * the guest domain, and a wall that fails on somebody else's file is one whoever
+ * hits it next narrows.
  */
 const CART_AND_CHECKOUT_PATHS = [
-  'services/cart.service.ts',
-  'services/cart-merge.service.ts',
-  'services/checkout.service.ts',
-  'controllers/cart.controller.ts',
-  'controllers/checkout.controller.ts',
-  'routes/cart.ts',
-  'routes/checkout.ts',
+  ...walk('services/checkout'),
+  ...cartOrCheckoutNamed('services'),
+  ...cartOrCheckoutNamed('controllers'),
+  ...cartOrCheckoutNamed('routes'),
 ];
 
 /** Reaching the offer domain, from any direction: an import, a table, a service name. */
@@ -195,26 +229,67 @@ const CANONICAL_WRITE_REFERENCE =
 const PAYMENT_REFERENCE = /payments\//;
 const PAYMENT_READINESS_SEAM = 'payments/provider-account.service.js';
 
+/**
+ * Source with comments removed — what every REACHABILITY detector below scans.
+ *
+ * Not a convenience, and not optional once the cart population is derived rather
+ * than listed. `OFFER_REFERENCE` contains `\boffers\b`, and the modules this
+ * gate now reaches DOCUMENT the rule in the same English word: widening the cart
+ * wall to the real `services/checkout/` directory made it fail on `retail.ts`'s
+ * comment "reaching here means a binding set disagrees with the offers behind
+ * it" — a sentence explaining a currency guard, in a module that imports nothing
+ * from this domain at all. That is the "cries wolf" failure `~/Oxy/AGENTS.md`
+ * names: the cheapest green for a gate with known false positives is deleting
+ * the gate, so the fix is to scan what the compiler sees. `matching`,
+ * `curation`, `guest-claim` and both referral gates already read their domains
+ * this way, for the same reason.
+ *
+ * The floor stays on the RAW source, so a file emptied down to a comment block
+ * fails as "did it move?"; a SECOND floor on the stripped text catches a
+ * stripper that ate the code, which would otherwise make every wall here pass
+ * against nothing.
+ */
 function readDomainFile(relative: string): string {
-  const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
+  const raw = readFileSync(join(SRC_ROOT, relative), 'utf8');
   // The vacuity floor: an empty or moved file must fail here, not pass the scan
   // by having nothing to match.
-  expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
-  return source;
+  expect(raw.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+  const code = raw.replace(/\/\*[\s\S]*?\*\//gu, ' ').replace(/(^|[^:])\/\/.*$/gmu, '$1');
+  expect(
+    code.replace(/\s+/gu, '').length,
+    `${relative} has almost no code left after comment stripping — check the stripper`,
+  ).toBeGreaterThan(100);
+  return code;
 }
 
 describe('the offer domain cannot reach the cart, and the cart cannot reach it', () => {
   it('no cart or checkout module references the offer domain', () => {
-    let scanned = 0;
+    // Floors PER SHAPE, each today's count. `expect(scanned).toBe(LIST.length)`
+    // used to sit here and could not fail: it compared the loop's own counter
+    // to the list the loop had just iterated, which is satisfied by any list
+    // including an empty one. What it could never see is the population being
+    // wrong, which it was — see the derivation above.
+    const from = (prefix: string) =>
+      CART_AND_CHECKOUT_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/checkout/'), "#105's checkout walk found nothing").toBeGreaterThanOrEqual(
+      7,
+    );
+    expect(from('services/cart'), 'no cart service was derived').toBeGreaterThanOrEqual(3);
+    expect(from('controllers/'), 'no cart or checkout controller was derived').toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(from('routes/'), 'no cart or checkout route was derived').toBeGreaterThanOrEqual(2);
+    for (const path of CART_AND_CHECKOUT_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+
     for (const relative of CART_AND_CHECKOUT_PATHS) {
       const source = readDomainFile(relative);
       expect(
         OFFER_REFERENCE.test(source),
         `${relative} references the offer domain; an external offer must have no path into a cart`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CART_AND_CHECKOUT_PATHS.length);
   });
 
   it('the schema makes a non-native offer unenterable, which is the stronger half', async () => {
