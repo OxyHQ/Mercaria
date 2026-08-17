@@ -1152,6 +1152,7 @@
         "inventoryNegative": "Le stock ne peut pas être négatif.",
         "titleMissing": "L'annonce a besoin d'un titre.",
         "descriptionMissing": "L'annonce a besoin d'une description.",
+        "conditionMissing": "Indiquez l'état de cet article.",
         "proposalPending": "Une valeur proposée est toujours en attente, et ce type de produit bloque la publication jusqu'à la décision.",
         "draftNotOpen": "Ce brouillon n'est plus ouvert."
       }

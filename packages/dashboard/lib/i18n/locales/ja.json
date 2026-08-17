@@ -1152,6 +1152,7 @@
         "inventoryNegative": "在庫を負の数にはできません。",
         "titleMissing": "出品にはタイトルが必要です。",
         "descriptionMissing": "出品には説明が必要です。",
+        "conditionMissing": "この商品の状態を指定してください。",
         "proposalPending": "提案された値がまだ保留中で、この商品タイプは決定するまで公開を止めます。",
         "draftNotOpen": "この下書きはもう開いていません。"
       }

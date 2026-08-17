@@ -1152,6 +1152,7 @@
         "inventoryNegative": "Der Bestand kann nicht negativ sein.",
         "titleMissing": "Die Anzeige braucht einen Titel.",
         "descriptionMissing": "Die Anzeige braucht eine Beschreibung.",
+        "conditionMissing": "Gib an, in welchem Zustand dieser Artikel ist.",
         "proposalPending": "Ein vorgeschlagener Wert ist noch offen, und dieser Produkttyp blockiert die Veröffentlichung bis zur Entscheidung.",
         "draftNotOpen": "Dieser Entwurf ist nicht mehr offen."
       }
