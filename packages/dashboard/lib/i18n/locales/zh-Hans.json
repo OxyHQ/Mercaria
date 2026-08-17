@@ -943,6 +943,211 @@
       "updateFailed": "无法更新变体",
       "updated": "变体已更新",
       "valuePlaceholder": "值"
+    },
+    "wizard": {
+      "documentTitle": "创建商品",
+      "title": "创建商品",
+      "readOnly": "此草稿已无法编辑。",
+      "start": {
+        "documentTitle": "你要卖什么？",
+        "title": "你要卖什么？",
+        "subtitle": "在目录中找到它，或者描述一件新的商品。",
+        "unavailableTitle": "此处无法使用引导式创建",
+        "unavailableBody": "本 Mercaria 部署未启用目录编写服务，因此引导式表单暂时无法使用。",
+        "useLegacy": "使用简易表单",
+        "createFailed": "无法创建该草稿。",
+        "linkFailed": "草稿已创建，但未能关联目录商品。你可以在向导中重新选择。",
+        "resumeTitle": "从上次的地方继续",
+        "untitledDraft": "未命名草稿",
+        "findTitle": "在目录中查找",
+        "findBody": "可按名称、型号或条码搜索。请核对标识符，以免选到其他地区的型号。",
+        "classifyAnyway": "我们仍然需要一个类目，因为它决定表单会向你询问哪些信息。",
+        "categoryTitle": "选择类目",
+        "typeTitle": "选择商品类型",
+        "noProductTypes": "此类目下还没有已发布的商品类型。",
+        "marketLabel": "市场",
+        "marketHelp": "此商品销售所在的国家/地区。它决定适用哪些文案和规则。",
+        "marketPlaceholder": "CN",
+        "marketInvalid": "市场是两位字母的国家/地区代码。",
+        "begin": "开始"
+      },
+      "load": {
+        "draftFailedTitle": "无法打开此草稿",
+        "draftFailedBody": "它可能已被丢弃，或者属于另一家店铺。",
+        "schemaFailedTitle": "无法加载表单",
+        "schemaFailedBody": "无法读取此草稿开始时所用的商品类型。"
+      },
+      "steps": {
+        "classification": "身份",
+        "details": "详情",
+        "variants": "规格",
+        "pricing": "价格与库存",
+        "listing": "商品信息",
+        "review": "检查",
+        "complete": "此步骤没有待办事项。",
+        "incomplete": "此步骤还有内容需要填写。",
+        "next": "继续"
+      },
+      "classification": {
+        "pinned": "类目和商品类型在草稿开始时已固定，因此你填写的内容含义不会改变。"
+      },
+      "canonical": {
+        "title": "这是目录中的哪件商品？",
+        "body": "选定后，你的商品会直接关联到它，并且不再进行自动匹配。",
+        "notPermitted": "你没有关联目录商品的权限。",
+        "searchPlaceholder": "名称、型号或条码",
+        "searchBrandPlaceholder": "搜索品牌",
+        "minQuery": "请至少输入两个字符。",
+        "exactMatch": "标识符完全匹配。",
+        "noResults": "目录中没有匹配项。",
+        "clearSelection": "清除选择",
+        "selectedRef": "已选择",
+        "clearRef": "清除",
+        "unnamedVariant": "未命名配置",
+        "variantLabel": "目录配置",
+        "variantPlaceholder": "选择对应的配置",
+        "clearVariant": "清除配置"
+      },
+      "category": {
+        "allCategories": "全部类目",
+        "loadFailed": "无法加载类目。",
+        "noChildren": "此类目下没有内容。",
+        "choose": "选择",
+        "chosen": "已选择"
+      },
+      "details": {
+        "noFields": "此商品类型不再需要其他信息。"
+      },
+      "fields": {
+        "required": "必填",
+        "recommended": "建议填写",
+        "optional": "选填",
+        "hidden": "不询问",
+        "forbidden": "此处不允许",
+        "addValue": "添加另一个值",
+        "removeValue": "删除此值",
+        "unitLabel": "单位",
+        "unsupportedEntry": "已保存的值不再适用于此字段。请查看商品类型的更新。",
+        "yes": "是",
+        "no": "否"
+      },
+      "values": {
+        "choose": "选择一个值",
+        "filterPlaceholder": "筛选值",
+        "noMatches": "没有匹配的值。"
+      },
+      "axes": {
+        "width": "宽度",
+        "height": "高度",
+        "depth": "深度",
+        "diagonal": "对角线",
+        "circumference": "周长"
+      },
+      "variants": {
+        "noAxesAvailable": "此商品类型没有可用于定义规格的属性。",
+        "addAxisValue": "添加一个值",
+        "removeAxisValue": "删除此值",
+        "generate": "生成组合",
+        "tooManyCombinations": "这会超过 200 种组合。请先减少一些值。",
+        "unsupportedAxisValue": "此属性无法在此处作为规格值编辑。",
+        "duplicate": "列表前面已有相同的组合。",
+        "sold": "在售",
+        "sku": "SKU",
+        "barcode": "条码",
+        "singleVariant": "单一配置",
+        "addSingle": "添加一个配置"
+      },
+      "pricing": {
+        "bulkTitle": "应用到所有组合",
+        "bulkPriceLabel": "所有组合的价格",
+        "bulkStockLabel": "所有组合的库存",
+        "applyToAll": "全部应用",
+        "price": "价格",
+        "compareAt": "对比价",
+        "currency": "货币",
+        "stock": "库存",
+        "trackStock": "跟踪库存",
+        "noSoldVariants": "请至少启用一个组合再设置价格。"
+      },
+      "listing": {
+        "mediaTitle": "照片",
+        "mediaUnavailable": "暂时无法从控制台添加照片。此草稿已有的照片会被保留。"
+      },
+      "review": {
+        "category": "类目",
+        "productType": "商品类型",
+        "productTypeVersion": "%{name}（版本 %{version}）",
+        "marketAndLocale": "市场 %{market} · 语言 %{locale}",
+        "market": "市场",
+        "canonicalLink": "目录商品",
+        "canonicalNone": "未选择",
+        "canonicalDeclared": "由你选择",
+        "fieldsAnswered": "已填写的详情",
+        "soldVariants": "在售组合",
+        "pricedVariants": "已定价组合",
+        "moreVariants": "另有 %{count} 个",
+        "empty": "空",
+        "provided": "已填写"
+      },
+      "save": {
+        "idle": "尚未保存",
+        "unsaved": "有未保存的更改",
+        "saving": "正在保存…",
+        "saved": "已保存",
+        "failed": "保存失败 — 点按重试",
+        "retry": "重试保存",
+        "conflict": "已在别处更改 — 点按重新加载",
+        "reload": "重新加载已保存的版本",
+        "conflictTitle": "此草稿在别处发生了更改",
+        "conflictBody": "它在另一台设备上被保存，或者已被发布或丢弃。请重新加载以继续；屏幕上的内容不会被保存。"
+      },
+      "publish": {
+        "check": "检查",
+        "publish": "发布",
+        "published": "商品已发布。",
+        "readyToPublish": "一切正常。",
+        "alreadyPublishedTitle": "此草稿已经发布",
+        "alreadyPublishedBody": "它的商品现在已在你的目录中。",
+        "openListing": "打开商品"
+      },
+      "summary": {
+        "errors": "发布前有 %{count} 处需要修正",
+        "warnings": "有 %{count} 处值得检查"
+      },
+      "finding": {
+        "categoryNotSelectable": "无法在此类目下直接上架商品。",
+        "categoryNotInScope": "此商品类型不涵盖所选类目。",
+        "productTypeNotPublished": "此商品类型未发布。草稿仍沿用开始时的版本。",
+        "schemaSuperseded": "自此草稿开始以来表单已发生变化。请在发布前查看更新。",
+        "requiredFieldMissing": "此项仍为空。",
+        "unknownField": "此内容属于表单中已不存在的字段。",
+        "fieldForbidden": "此字段无法在这里填写。",
+        "valueTypeMismatch": "此字段不接受该值。",
+        "valueNotInSet": "请从提供的值中选择。",
+        "valueBelowMinimum": "低于允许的最小值。",
+        "valueAboveMaximum": "高于允许的最大值。",
+        "valueTooLong": "超过了此字段允许的长度。",
+        "tooManyDecimals": "小数位数超过了此字段允许的范围。",
+        "valueImplausible": "这看起来像是小数点写错了，请核对。",
+        "cardinalityExceeded": "此字段接受的值比这少。",
+        "componentMissing": "缺少其中一项尺寸。",
+        "unknownComponentAxis": "该尺寸不属于此字段声明的范围。",
+        "unknownUnit": "请说明使用的单位。",
+        "currencyMismatch": "此字段没有可用于记录金额的货币。",
+        "canonicalRefNotPermitted": "此字段不接受目录引用。",
+        "proposalNotPermitted": "你不能为此字段提议新值。",
+        "noVariantDeclared": "请至少添加一个在售组合。",
+        "axisNotPermitted": "此属性无法用于定义该商品类型的规格。",
+        "axisValueMissing": "此组合缺少其中一个值。",
+        "duplicateVariant": "另一个组合的值与此相同。",
+        "priceMissing": "此组合没有价格。",
+        "priceCurrencyMissing": "此价格没有货币。",
+        "inventoryNegative": "库存不能为负数。",
+        "titleMissing": "商品需要一个标题。",
+        "descriptionMissing": "商品需要一段描述。",
+        "proposalPending": "有一个提议的值仍在等待处理，此商品类型在决定之前会阻止发布。",
+        "draftNotOpen": "此草稿已不再处于打开状态。"
+      }
     }
   },
   "settings": {

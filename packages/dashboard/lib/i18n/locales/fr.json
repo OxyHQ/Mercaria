@@ -943,6 +943,211 @@
       "updateFailed": "Impossible de mettre à jour la variante",
       "updated": "Variante mise à jour",
       "valuePlaceholder": "valeur"
+    },
+    "wizard": {
+      "documentTitle": "Créer un produit",
+      "title": "Créer un produit",
+      "readOnly": "Ce brouillon ne peut plus être modifié.",
+      "start": {
+        "documentTitle": "Que vendez-vous ?",
+        "title": "Que vendez-vous ?",
+        "subtitle": "Trouvez-le dans le catalogue, ou décrivez quelque chose de nouveau.",
+        "unavailableTitle": "La création guidée n'est pas disponible ici",
+        "unavailableBody": "Ce déploiement de Mercaria n'a pas activé le service de rédaction du catalogue : le formulaire guidé n'est donc pas encore utilisable.",
+        "useLegacy": "Utiliser le formulaire simple",
+        "createFailed": "Ce brouillon n'a pas pu être créé.",
+        "linkFailed": "Le brouillon a été créé, mais le produit du catalogue n'a pas pu être rattaché. Vous pouvez le choisir à nouveau dans l'assistant.",
+        "resumeTitle": "Reprenez où vous en étiez",
+        "untitledDraft": "Brouillon sans titre",
+        "findTitle": "Trouvez-le dans le catalogue",
+        "findBody": "Cherchez par nom, modèle ou code-barres. Vérifiez les identifiants pour ne pas choisir un autre modèle régional.",
+        "classifyAnyway": "Il nous faut quand même une catégorie : c'est elle qui décide des informations demandées par le formulaire.",
+        "categoryTitle": "Choisissez une catégorie",
+        "typeTitle": "Choisissez un type de produit",
+        "noProductTypes": "Aucun type de produit n'est encore publié pour cette catégorie.",
+        "marketLabel": "Marché",
+        "marketHelp": "Le pays où ce produit est vendu. Il décide des textes et des règles qui s'appliquent.",
+        "marketPlaceholder": "FR",
+        "marketInvalid": "Un marché est un code pays de deux lettres.",
+        "begin": "Commencer"
+      },
+      "load": {
+        "draftFailedTitle": "Ce brouillon n'a pas pu être ouvert",
+        "draftFailedBody": "Il a peut-être été abandonné, ou il appartient à une autre boutique.",
+        "schemaFailedTitle": "Le formulaire n'a pas pu être chargé",
+        "schemaFailedBody": "Le type de produit avec lequel ce brouillon a été commencé n'a pas pu être lu."
+      },
+      "steps": {
+        "classification": "Identité",
+        "details": "Détails",
+        "variants": "Variantes",
+        "pricing": "Prix et stock",
+        "listing": "Annonce",
+        "review": "Vérification",
+        "complete": "Rien ne reste en attente à cette étape.",
+        "incomplete": "Il reste quelque chose à remplir à cette étape.",
+        "next": "Continuer"
+      },
+      "classification": {
+        "pinned": "La catégorie et le type de produit ont été fixés au début de ce brouillon : vos réponses gardent donc leur sens."
+      },
+      "canonical": {
+        "title": "De quel produit du catalogue s'agit-il ?",
+        "body": "En choisir un rattache votre annonce directement à celui-ci et l'empêche d'être rapprochée automatiquement.",
+        "notPermitted": "Vous n'avez pas l'autorisation de rattacher un produit du catalogue.",
+        "searchPlaceholder": "Nom, modèle ou code-barres",
+        "searchBrandPlaceholder": "Rechercher des marques",
+        "minQuery": "Saisissez au moins deux caractères.",
+        "exactMatch": "Correspondance exacte par identifiant.",
+        "noResults": "Rien dans le catalogue ne correspond.",
+        "clearSelection": "Effacer la sélection",
+        "selectedRef": "Sélectionné",
+        "clearRef": "Effacer",
+        "unnamedVariant": "Configuration sans nom",
+        "variantLabel": "Configuration du catalogue",
+        "variantPlaceholder": "Choisissez la configuration correspondante",
+        "clearVariant": "Effacer la configuration"
+      },
+      "category": {
+        "allCategories": "Toutes les catégories",
+        "loadFailed": "Les catégories n'ont pas pu être chargées.",
+        "noChildren": "Il n'y a rien sous cette catégorie.",
+        "choose": "Choisir",
+        "chosen": "Choisie"
+      },
+      "details": {
+        "noFields": "Ce type de produit ne demande aucun autre détail."
+      },
+      "fields": {
+        "required": "Obligatoire",
+        "recommended": "Recommandé",
+        "optional": "Facultatif",
+        "hidden": "Non demandé",
+        "forbidden": "Non autorisé ici",
+        "addValue": "Ajouter une autre valeur",
+        "removeValue": "Retirer cette valeur",
+        "unitLabel": "Unité",
+        "unsupportedEntry": "Cette valeur enregistrée ne correspond plus au champ. Vérifiez la mise à jour du type de produit.",
+        "yes": "Oui",
+        "no": "Non"
+      },
+      "values": {
+        "choose": "Choisissez une valeur",
+        "filterPlaceholder": "Filtrer les valeurs",
+        "noMatches": "Aucune valeur ne correspond."
+      },
+      "axes": {
+        "width": "Largeur",
+        "height": "Hauteur",
+        "depth": "Profondeur",
+        "diagonal": "Diagonale",
+        "circumference": "Circonférence"
+      },
+      "variants": {
+        "noAxesAvailable": "Ce type de produit n'a aucun attribut pouvant définir des variantes.",
+        "addAxisValue": "Ajouter une valeur",
+        "removeAxisValue": "Retirer cette valeur",
+        "generate": "Générer les combinaisons",
+        "tooManyCombinations": "Cela ferait plus de 200 combinaisons. Retirez d'abord quelques valeurs.",
+        "unsupportedAxisValue": "Cet attribut ne peut pas être modifié ici comme valeur de variante.",
+        "duplicate": "La même combinaison apparaît plus haut dans la liste.",
+        "sold": "En vente",
+        "sku": "UGS",
+        "barcode": "Code-barres",
+        "singleVariant": "Une seule configuration",
+        "addSingle": "Ajouter une configuration"
+      },
+      "pricing": {
+        "bulkTitle": "Appliquer à toutes les combinaisons",
+        "bulkPriceLabel": "Prix pour toutes les combinaisons",
+        "bulkStockLabel": "Stock pour toutes les combinaisons",
+        "applyToAll": "Tout appliquer",
+        "price": "Prix",
+        "compareAt": "Prix barré",
+        "currency": "Devise",
+        "stock": "Stock",
+        "trackStock": "Suivre le stock",
+        "noSoldVariants": "Activez au moins une combinaison pour lui donner un prix."
+      },
+      "listing": {
+        "mediaTitle": "Photographies",
+        "mediaUnavailable": "Les photographies ne peuvent pas encore être ajoutées depuis le tableau de bord. Celles déjà rattachées à ce brouillon sont conservées."
+      },
+      "review": {
+        "category": "Catégorie",
+        "productType": "Type de produit",
+        "productTypeVersion": "%{name} (version %{version})",
+        "marketAndLocale": "Marché %{market} · langue %{locale}",
+        "market": "Marché",
+        "canonicalLink": "Produit du catalogue",
+        "canonicalNone": "Aucun choisi",
+        "canonicalDeclared": "Choisi par vous",
+        "fieldsAnswered": "Détails renseignés",
+        "soldVariants": "Combinaisons en vente",
+        "pricedVariants": "Combinaisons avec un prix",
+        "moreVariants": "et %{count} de plus",
+        "empty": "Vide",
+        "provided": "Renseigné"
+      },
+      "save": {
+        "idle": "Pas encore enregistré",
+        "unsaved": "Modifications non enregistrées",
+        "saving": "Enregistrement…",
+        "saved": "Enregistré",
+        "failed": "Enregistrement impossible — touchez pour réessayer",
+        "retry": "Réessayer l'enregistrement",
+        "conflict": "Modifié ailleurs — touchez pour recharger",
+        "reload": "Recharger la version enregistrée",
+        "conflictTitle": "Ce brouillon a changé ailleurs",
+        "conflictBody": "Il a été enregistré sur un autre appareil, ou il a été publié ou abandonné. Rechargez-le pour continuer ; ce qui est à l'écran n'est pas enregistré."
+      },
+      "publish": {
+        "check": "Vérifier",
+        "publish": "Publier",
+        "published": "Produit publié.",
+        "readyToPublish": "Tout est en ordre.",
+        "alreadyPublishedTitle": "Ce brouillon a déjà été publié",
+        "alreadyPublishedBody": "Son produit se trouve maintenant dans votre catalogue.",
+        "openListing": "Ouvrir le produit"
+      },
+      "summary": {
+        "errors": "%{count} point(s) à corriger avant de publier",
+        "warnings": "%{count} point(s) à vérifier"
+      },
+      "finding": {
+        "categoryNotSelectable": "Les produits ne peuvent pas être publiés directement dans cette catégorie.",
+        "categoryNotInScope": "Ce type de produit ne couvre pas la catégorie choisie.",
+        "productTypeNotPublished": "Ce type de produit n'est pas publié. Le brouillon garde la version avec laquelle il a été commencé.",
+        "schemaSuperseded": "Le formulaire a changé depuis le début de ce brouillon. Vérifiez la mise à jour avant de publier.",
+        "requiredFieldMissing": "C'est encore vide.",
+        "unknownField": "Cette réponse appartient à un champ que le formulaire n'a plus.",
+        "fieldForbidden": "Ce champ ne peut pas être rempli d'ici.",
+        "valueTypeMismatch": "Ce champ n'accepte pas cette valeur.",
+        "valueNotInSet": "Choisissez l'une des valeurs proposées.",
+        "valueBelowMinimum": "C'est en dessous de la valeur minimale autorisée.",
+        "valueAboveMaximum": "C'est au-dessus de la valeur maximale autorisée.",
+        "valueTooLong": "C'est plus long que ce que ce champ autorise.",
+        "tooManyDecimals": "Il y a plus de décimales que ce champ n'autorise.",
+        "valueImplausible": "Cela ressemble à une erreur de virgule. Vérifiez.",
+        "cardinalityExceeded": "Ce champ accepte moins de valeurs que cela.",
+        "componentMissing": "Une des mesures manque.",
+        "unknownComponentAxis": "Cette mesure n'est pas l'une de celles que ce champ déclare.",
+        "unknownUnit": "Indiquez dans quelle unité c'est exprimé.",
+        "currencyMismatch": "Ce champ n'a aucune devise pour enregistrer le montant.",
+        "canonicalRefNotPermitted": "Ce champ n'accepte pas de référence au catalogue.",
+        "proposalNotPermitted": "Vous ne pouvez pas proposer de nouvelle valeur pour ce champ.",
+        "noVariantDeclared": "Ajoutez au moins une combinaison à vendre.",
+        "axisNotPermitted": "Cet attribut ne peut pas définir de variantes de ce type de produit.",
+        "axisValueMissing": "Il manque une des valeurs de cette combinaison.",
+        "duplicateVariant": "Une autre combinaison a les mêmes valeurs.",
+        "priceMissing": "Cette combinaison n'a pas de prix.",
+        "priceCurrencyMissing": "Ce prix n'a pas de devise.",
+        "inventoryNegative": "Le stock ne peut pas être négatif.",
+        "titleMissing": "L'annonce a besoin d'un titre.",
+        "descriptionMissing": "L'annonce a besoin d'une description.",
+        "proposalPending": "Une valeur proposée est toujours en attente, et ce type de produit bloque la publication jusqu'à la décision.",
+        "draftNotOpen": "Ce brouillon n'est plus ouvert."
+      }
     }
   },
   "settings": {

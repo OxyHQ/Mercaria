@@ -943,6 +943,211 @@
       "updateFailed": "No s'ha pogut actualitzar la variant",
       "updated": "Variant actualitzada",
       "valuePlaceholder": "valor"
+    },
+    "wizard": {
+      "documentTitle": "Crear un producte",
+      "title": "Crear un producte",
+      "readOnly": "Aquest esborrany ja no es pot editar.",
+      "start": {
+        "documentTitle": "Què vols vendre?",
+        "title": "Què vols vendre?",
+        "subtitle": "Cerca'l al catàleg o descriu-ne un de nou.",
+        "unavailableTitle": "La creació guiada no està disponible aquí",
+        "unavailableBody": "Aquest desplegament de Mercaria no ha activat el servei d'autoria del catàleg, així que el formulari guiat encara no es pot fer servir.",
+        "useLegacy": "Fes servir el formulari senzill",
+        "createFailed": "No s'ha pogut crear l'esborrany.",
+        "linkFailed": "L'esborrany s'ha creat, però no s'ha pogut vincular el producte del catàleg. El pots triar un altre cop dins l'assistent.",
+        "resumeTitle": "Continua on ho vas deixar",
+        "untitledDraft": "Esborrany sense títol",
+        "findTitle": "Cerca'l al catàleg",
+        "findBody": "Cerca per nom, model o codi de barres. Comprova els identificadors per no triar un altre model regional.",
+        "classifyAnyway": "Tot i així ens cal una categoria, perquè és la que decideix quines dades et demana el formulari.",
+        "categoryTitle": "Tria una categoria",
+        "typeTitle": "Tria un tipus de producte",
+        "noProductTypes": "Encara no hi ha cap tipus de producte publicat per a aquesta categoria.",
+        "marketLabel": "Mercat",
+        "marketHelp": "El país on es ven aquest producte. Decideix quins textos i quines regles s'apliquen.",
+        "marketPlaceholder": "ES",
+        "marketInvalid": "Un mercat és un codi de país de dues lletres.",
+        "begin": "Comença"
+      },
+      "load": {
+        "draftFailedTitle": "No s'ha pogut obrir aquest esborrany",
+        "draftFailedBody": "Pot ser que s'hagi descartat o que pertanyi a una altra botiga.",
+        "schemaFailedTitle": "No s'ha pogut carregar el formulari",
+        "schemaFailedBody": "No s'ha pogut llegir el tipus de producte amb què va començar aquest esborrany."
+      },
+      "steps": {
+        "classification": "Identitat",
+        "details": "Detalls",
+        "variants": "Variants",
+        "pricing": "Preu i estoc",
+        "listing": "Anunci",
+        "review": "Revisió",
+        "complete": "No queda res pendent en aquest pas.",
+        "incomplete": "En aquest pas encara falta alguna cosa per omplir.",
+        "next": "Continua"
+      },
+      "classification": {
+        "pinned": "La categoria i el tipus de producte es van fixar en començar aquest esborrany, així que les teves respostes conserven el seu significat."
+      },
+      "canonical": {
+        "title": "Quin producte del catàleg és aquest?",
+        "body": "Triar-ne un vincula el teu anunci directament amb ell i evita que s'aparelli automàticament.",
+        "notPermitted": "No tens permís per vincular un producte del catàleg.",
+        "searchPlaceholder": "Nom, model o codi de barres",
+        "searchBrandPlaceholder": "Cerca marques",
+        "minQuery": "Escriu com a mínim dos caràcters.",
+        "exactMatch": "Coincidència exacta per identificador.",
+        "noResults": "No hi ha res al catàleg que hi coincideixi.",
+        "clearSelection": "Treu la selecció",
+        "selectedRef": "Seleccionat",
+        "clearRef": "Treu",
+        "unnamedVariant": "Configuració sense nom",
+        "variantLabel": "Configuració del catàleg",
+        "variantPlaceholder": "Tria la configuració que correspon",
+        "clearVariant": "Treu la configuració"
+      },
+      "category": {
+        "allCategories": "Totes les categories",
+        "loadFailed": "No s'han pogut carregar les categories.",
+        "noChildren": "No hi ha res per sota d'aquesta categoria.",
+        "choose": "Tria",
+        "chosen": "Triada"
+      },
+      "details": {
+        "noFields": "Aquest tipus de producte no demana més detalls."
+      },
+      "fields": {
+        "required": "Obligatori",
+        "recommended": "Recomanat",
+        "optional": "Opcional",
+        "hidden": "No es demana",
+        "forbidden": "No permès aquí",
+        "addValue": "Afegeix un altre valor",
+        "removeValue": "Treu aquest valor",
+        "unitLabel": "Unitat",
+        "unsupportedEntry": "Aquest valor desat ja no encaixa al camp. Revisa l'actualització del tipus de producte.",
+        "yes": "Sí",
+        "no": "No"
+      },
+      "values": {
+        "choose": "Tria un valor",
+        "filterPlaceholder": "Filtra els valors",
+        "noMatches": "Cap valor hi coincideix."
+      },
+      "axes": {
+        "width": "Amplada",
+        "height": "Alçada",
+        "depth": "Profunditat",
+        "diagonal": "Diagonal",
+        "circumference": "Circumferència"
+      },
+      "variants": {
+        "noAxesAvailable": "Aquest tipus de producte no té atributs que puguin definir variants.",
+        "addAxisValue": "Afegeix un valor",
+        "removeAxisValue": "Treu aquest valor",
+        "generate": "Genera les combinacions",
+        "tooManyCombinations": "Serien més de 200 combinacions. Treu-ne alguns valors primer.",
+        "unsupportedAxisValue": "Aquest atribut no es pot editar aquí com a valor de variant.",
+        "duplicate": "La mateixa combinació ja surt abans a la llista.",
+        "sold": "A la venda",
+        "sku": "SKU",
+        "barcode": "Codi de barres",
+        "singleVariant": "Una configuració",
+        "addSingle": "Afegeix una configuració"
+      },
+      "pricing": {
+        "bulkTitle": "Aplica-ho a totes les combinacions",
+        "bulkPriceLabel": "Preu per a totes les combinacions",
+        "bulkStockLabel": "Estoc per a totes les combinacions",
+        "applyToAll": "Aplica-ho a totes",
+        "price": "Preu",
+        "compareAt": "Preu de comparació",
+        "currency": "Moneda",
+        "stock": "Estoc",
+        "trackStock": "Controla l'estoc",
+        "noSoldVariants": "Activa com a mínim una combinació per posar-hi preu."
+      },
+      "listing": {
+        "mediaTitle": "Fotografies",
+        "mediaUnavailable": "Encara no es poden afegir fotografies des del tauler. Les que ja tingui aquest esborrany es conserven."
+      },
+      "review": {
+        "category": "Categoria",
+        "productType": "Tipus de producte",
+        "productTypeVersion": "%{name} (versió %{version})",
+        "marketAndLocale": "Mercat %{market} · idioma %{locale}",
+        "market": "Mercat",
+        "canonicalLink": "Producte del catàleg",
+        "canonicalNone": "Cap de triat",
+        "canonicalDeclared": "Triat per tu",
+        "fieldsAnswered": "Detalls respostos",
+        "soldVariants": "Combinacions a la venda",
+        "pricedVariants": "Combinacions amb preu",
+        "moreVariants": "i %{count} més",
+        "empty": "Buit",
+        "provided": "Omplert"
+      },
+      "save": {
+        "idle": "Encara sense desar",
+        "unsaved": "Canvis sense desar",
+        "saving": "S'està desant…",
+        "saved": "Desat",
+        "failed": "No s'ha pogut desar: toca per tornar-ho a provar",
+        "retry": "Torna a provar de desar",
+        "conflict": "Canviat en un altre lloc: toca per tornar a carregar",
+        "reload": "Torna a carregar la versió desada",
+        "conflictTitle": "Aquest esborrany ha canviat en un altre lloc",
+        "conflictBody": "S'ha desat en un altre dispositiu, o s'ha publicat o descartat. Torna'l a carregar per continuar; el que hi ha a la pantalla no s'està desant."
+      },
+      "publish": {
+        "check": "Comprova-ho",
+        "publish": "Publica",
+        "published": "Producte publicat.",
+        "readyToPublish": "Tot és correcte.",
+        "alreadyPublishedTitle": "Aquest esborrany ja s'ha publicat",
+        "alreadyPublishedBody": "El seu producte ja és al teu catàleg.",
+        "openListing": "Obre el producte"
+      },
+      "summary": {
+        "errors": "%{count} cosa/es per corregir abans de publicar",
+        "warnings": "%{count} cosa/es que convé revisar"
+      },
+      "finding": {
+        "categoryNotSelectable": "No es poden publicar productes directament en aquesta categoria.",
+        "categoryNotInScope": "Aquest tipus de producte no cobreix la categoria triada.",
+        "productTypeNotPublished": "Aquest tipus de producte no està publicat. L'esborrany conserva la versió amb què va començar.",
+        "schemaSuperseded": "El formulari ha canviat des que es va començar aquest esborrany. Revisa'n l'actualització abans de publicar.",
+        "requiredFieldMissing": "Això continua buit.",
+        "unknownField": "Aquesta resposta pertany a un camp que el formulari ja no té.",
+        "fieldForbidden": "Aquest camp no es pot omplir des d'aquí.",
+        "valueTypeMismatch": "Aquest camp no accepta aquest valor.",
+        "valueNotInSet": "Tria un dels valors oferts.",
+        "valueBelowMinimum": "És per sota del valor mínim permès.",
+        "valueAboveMaximum": "És per sobre del valor màxim permès.",
+        "valueTooLong": "És més llarg del que permet aquest camp.",
+        "tooManyDecimals": "Té més decimals dels que permet aquest camp.",
+        "valueImplausible": "Sembla un error de coma decimal. Comprova-ho.",
+        "cardinalityExceeded": "Aquest camp admet menys valors que aquests.",
+        "componentMissing": "Falta una de les mesures.",
+        "unknownComponentAxis": "Aquesta mesura no és una de les que declara aquest camp.",
+        "unknownUnit": "Indica en quina unitat està.",
+        "currencyMismatch": "Aquest camp no té cap moneda amb què registrar l'import.",
+        "canonicalRefNotPermitted": "Aquest camp no admet una referència del catàleg.",
+        "proposalNotPermitted": "No pots proposar un valor nou per a aquest camp.",
+        "noVariantDeclared": "Afegeix com a mínim una combinació a la venda.",
+        "axisNotPermitted": "Aquest atribut no pot definir variants d'aquest tipus de producte.",
+        "axisValueMissing": "A aquesta combinació li falta un dels seus valors.",
+        "duplicateVariant": "Una altra combinació té els mateixos valors.",
+        "priceMissing": "Aquesta combinació no té preu.",
+        "priceCurrencyMissing": "Aquest preu no té moneda.",
+        "inventoryNegative": "L'estoc no pot ser negatiu.",
+        "titleMissing": "L'anunci necessita un títol.",
+        "descriptionMissing": "L'anunci necessita una descripció.",
+        "proposalPending": "Hi ha un valor proposat pendent i aquest tipus de producte bloqueja la publicació fins que es decideixi.",
+        "draftNotOpen": "Aquest esborrany ja no està obert."
+      }
     }
   },
   "settings": {

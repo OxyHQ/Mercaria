@@ -943,6 +943,211 @@
       "updateFailed": "Die Variante konnte nicht aktualisiert werden",
       "updated": "Variante aktualisiert",
       "valuePlaceholder": "Wert"
+    },
+    "wizard": {
+      "documentTitle": "Produkt anlegen",
+      "title": "Produkt anlegen",
+      "readOnly": "Dieser Entwurf lässt sich nicht mehr bearbeiten.",
+      "start": {
+        "documentTitle": "Was verkaufst du?",
+        "title": "Was verkaufst du?",
+        "subtitle": "Finde es im Katalog oder beschreibe etwas Neues.",
+        "unavailableTitle": "Die geführte Anlage ist hier nicht verfügbar",
+        "unavailableBody": "In dieser Mercaria-Installation ist der Katalog-Autorendienst nicht aktiviert, deshalb lässt sich das geführte Formular noch nicht nutzen.",
+        "useLegacy": "Einfaches Formular verwenden",
+        "createFailed": "Der Entwurf konnte nicht angelegt werden.",
+        "linkFailed": "Der Entwurf wurde angelegt, aber das Katalogprodukt konnte nicht verknüpft werden. Du kannst es im Assistenten erneut auswählen.",
+        "resumeTitle": "Mach dort weiter, wo du aufgehört hast",
+        "untitledDraft": "Entwurf ohne Titel",
+        "findTitle": "Im Katalog suchen",
+        "findBody": "Suche nach Name, Modell oder Barcode. Prüfe die Kennungen, damit du kein anderes Regionalmodell erwischst.",
+        "classifyAnyway": "Wir brauchen trotzdem eine Kategorie, denn sie entscheidet, welche Angaben das Formular verlangt.",
+        "categoryTitle": "Kategorie wählen",
+        "typeTitle": "Produkttyp wählen",
+        "noProductTypes": "Für diese Kategorie ist noch kein Produkttyp veröffentlicht.",
+        "marketLabel": "Markt",
+        "marketHelp": "Das Land, in dem dieses Produkt verkauft wird. Es entscheidet über Texte und Regeln.",
+        "marketPlaceholder": "DE",
+        "marketInvalid": "Ein Markt ist ein zweibuchstabiger Ländercode.",
+        "begin": "Loslegen"
+      },
+      "load": {
+        "draftFailedTitle": "Dieser Entwurf ließ sich nicht öffnen",
+        "draftFailedBody": "Vielleicht wurde er verworfen, oder er gehört zu einem anderen Shop.",
+        "schemaFailedTitle": "Das Formular ließ sich nicht laden",
+        "schemaFailedBody": "Der Produkttyp, mit dem dieser Entwurf begonnen wurde, ließ sich nicht lesen."
+      },
+      "steps": {
+        "classification": "Identität",
+        "details": "Details",
+        "variants": "Varianten",
+        "pricing": "Preis und Bestand",
+        "listing": "Anzeige",
+        "review": "Prüfung",
+        "complete": "In diesem Schritt ist nichts offen.",
+        "incomplete": "In diesem Schritt fehlt noch etwas.",
+        "next": "Weiter"
+      },
+      "classification": {
+        "pinned": "Kategorie und Produkttyp wurden beim Anlegen dieses Entwurfs festgelegt, deshalb behalten deine Angaben ihre Bedeutung."
+      },
+      "canonical": {
+        "title": "Welches Katalogprodukt ist das?",
+        "body": "Eine Auswahl verknüpft deine Anzeige direkt damit und verhindert eine automatische Zuordnung.",
+        "notPermitted": "Du darfst kein Katalogprodukt verknüpfen.",
+        "searchPlaceholder": "Name, Modell oder Barcode",
+        "searchBrandPlaceholder": "Marken suchen",
+        "minQuery": "Gib mindestens zwei Zeichen ein.",
+        "exactMatch": "Exakter Treffer über die Kennung.",
+        "noResults": "Im Katalog passt nichts dazu.",
+        "clearSelection": "Auswahl aufheben",
+        "selectedRef": "Ausgewählt",
+        "clearRef": "Entfernen",
+        "unnamedVariant": "Ausführung ohne Namen",
+        "variantLabel": "Katalog-Ausführung",
+        "variantPlaceholder": "Passende Ausführung wählen",
+        "clearVariant": "Ausführung entfernen"
+      },
+      "category": {
+        "allCategories": "Alle Kategorien",
+        "loadFailed": "Die Kategorien ließen sich nicht laden.",
+        "noChildren": "Unter dieser Kategorie liegt nichts.",
+        "choose": "Wählen",
+        "chosen": "Gewählt"
+      },
+      "details": {
+        "noFields": "Dieser Produkttyp verlangt keine weiteren Angaben."
+      },
+      "fields": {
+        "required": "Pflicht",
+        "recommended": "Empfohlen",
+        "optional": "Optional",
+        "hidden": "Wird nicht abgefragt",
+        "forbidden": "Hier nicht erlaubt",
+        "addValue": "Weiteren Wert hinzufügen",
+        "removeValue": "Diesen Wert entfernen",
+        "unitLabel": "Einheit",
+        "unsupportedEntry": "Dieser gespeicherte Wert passt nicht mehr zum Feld. Sieh dir die Aktualisierung des Produkttyps an.",
+        "yes": "Ja",
+        "no": "Nein"
+      },
+      "values": {
+        "choose": "Wert wählen",
+        "filterPlaceholder": "Werte filtern",
+        "noMatches": "Kein Wert passt dazu."
+      },
+      "axes": {
+        "width": "Breite",
+        "height": "Höhe",
+        "depth": "Tiefe",
+        "diagonal": "Diagonale",
+        "circumference": "Umfang"
+      },
+      "variants": {
+        "noAxesAvailable": "Dieser Produkttyp hat keine Merkmale, die Varianten bilden können.",
+        "addAxisValue": "Wert hinzufügen",
+        "removeAxisValue": "Diesen Wert entfernen",
+        "generate": "Kombinationen erzeugen",
+        "tooManyCombinations": "Das wären mehr als 200 Kombinationen. Entferne zuerst einige Werte.",
+        "unsupportedAxisValue": "Dieses Merkmal lässt sich hier nicht als Variantenwert bearbeiten.",
+        "duplicate": "Dieselbe Kombination steht weiter oben in der Liste.",
+        "sold": "Im Verkauf",
+        "sku": "SKU",
+        "barcode": "Barcode",
+        "singleVariant": "Eine Ausführung",
+        "addSingle": "Eine Ausführung hinzufügen"
+      },
+      "pricing": {
+        "bulkTitle": "Auf alle Kombinationen anwenden",
+        "bulkPriceLabel": "Preis für alle Kombinationen",
+        "bulkStockLabel": "Bestand für alle Kombinationen",
+        "applyToAll": "Auf alle anwenden",
+        "price": "Preis",
+        "compareAt": "Vergleichspreis",
+        "currency": "Währung",
+        "stock": "Bestand",
+        "trackStock": "Bestand verfolgen",
+        "noSoldVariants": "Schalte mindestens eine Kombination ein, um sie zu bepreisen."
+      },
+      "listing": {
+        "mediaTitle": "Fotos",
+        "mediaUnavailable": "Fotos lassen sich noch nicht aus dem Dashboard hinzufügen. Bereits am Entwurf hängende Fotos bleiben erhalten."
+      },
+      "review": {
+        "category": "Kategorie",
+        "productType": "Produkttyp",
+        "productTypeVersion": "%{name} (Version %{version})",
+        "marketAndLocale": "Markt %{market} · Sprache %{locale}",
+        "market": "Markt",
+        "canonicalLink": "Katalogprodukt",
+        "canonicalNone": "Keins gewählt",
+        "canonicalDeclared": "Von dir gewählt",
+        "fieldsAnswered": "Beantwortete Details",
+        "soldVariants": "Verkaufte Kombinationen",
+        "pricedVariants": "Bepreiste Kombinationen",
+        "moreVariants": "und %{count} weitere",
+        "empty": "Leer",
+        "provided": "Ausgefüllt"
+      },
+      "save": {
+        "idle": "Noch nicht gespeichert",
+        "unsaved": "Nicht gespeicherte Änderungen",
+        "saving": "Wird gespeichert…",
+        "saved": "Gespeichert",
+        "failed": "Speichern fehlgeschlagen — zum Wiederholen tippen",
+        "retry": "Speichern wiederholen",
+        "conflict": "Woanders geändert — zum Neuladen tippen",
+        "reload": "Gespeicherte Fassung neu laden",
+        "conflictTitle": "Dieser Entwurf hat sich woanders geändert",
+        "conflictBody": "Er wurde auf einem anderen Gerät gespeichert oder inzwischen veröffentlicht oder verworfen. Lade ihn neu, um weiterzumachen; was auf dem Bildschirm steht, wird nicht gespeichert."
+      },
+      "publish": {
+        "check": "Prüfen",
+        "publish": "Veröffentlichen",
+        "published": "Produkt veröffentlicht.",
+        "readyToPublish": "Alles in Ordnung.",
+        "alreadyPublishedTitle": "Dieser Entwurf wurde bereits veröffentlicht",
+        "alreadyPublishedBody": "Sein Produkt liegt jetzt in deinem Katalog.",
+        "openListing": "Produkt öffnen"
+      },
+      "summary": {
+        "errors": "%{count} Punkt(e) vor dem Veröffentlichen zu beheben",
+        "warnings": "%{count} Punkt(e) zum Prüfen"
+      },
+      "finding": {
+        "categoryNotSelectable": "In dieser Kategorie lassen sich Produkte nicht direkt einstellen.",
+        "categoryNotInScope": "Dieser Produkttyp deckt die gewählte Kategorie nicht ab.",
+        "productTypeNotPublished": "Dieser Produkttyp ist nicht veröffentlicht. Der Entwurf behält die Version, mit der er begonnen wurde.",
+        "schemaSuperseded": "Das Formular hat sich seit Beginn dieses Entwurfs geändert. Prüfe die Aktualisierung vor dem Veröffentlichen.",
+        "requiredFieldMissing": "Das ist noch leer.",
+        "unknownField": "Diese Angabe gehört zu einem Feld, das das Formular nicht mehr hat.",
+        "fieldForbidden": "Dieses Feld lässt sich von hier aus nicht ausfüllen.",
+        "valueTypeMismatch": "Diesen Wert nimmt das Feld nicht an.",
+        "valueNotInSet": "Wähle einen der angebotenen Werte.",
+        "valueBelowMinimum": "Das liegt unter dem kleinsten erlaubten Wert.",
+        "valueAboveMaximum": "Das liegt über dem größten erlaubten Wert.",
+        "valueTooLong": "Das ist länger, als dieses Feld erlaubt.",
+        "tooManyDecimals": "Das hat mehr Nachkommastellen, als dieses Feld erlaubt.",
+        "valueImplausible": "Das sieht nach einem Komma-Fehler aus. Bitte prüfen.",
+        "cardinalityExceeded": "Dieses Feld nimmt weniger Werte an.",
+        "componentMissing": "Eines der Maße fehlt.",
+        "unknownComponentAxis": "Dieses Maß gehört nicht zu denen, die dieses Feld angibt.",
+        "unknownUnit": "Gib an, in welcher Einheit das ist.",
+        "currencyMismatch": "Dieses Feld hat keine Währung, in der sich der Betrag festhalten ließe.",
+        "canonicalRefNotPermitted": "Dieses Feld nimmt keinen Katalogverweis an.",
+        "proposalNotPermitted": "Du kannst für dieses Feld keinen neuen Wert vorschlagen.",
+        "noVariantDeclared": "Füge mindestens eine Kombination zum Verkauf hinzu.",
+        "axisNotPermitted": "Dieses Merkmal kann bei diesem Produkttyp keine Varianten bilden.",
+        "axisValueMissing": "Dieser Kombination fehlt einer ihrer Werte.",
+        "duplicateVariant": "Eine andere Kombination hat dieselben Werte.",
+        "priceMissing": "Diese Kombination hat keinen Preis.",
+        "priceCurrencyMissing": "Diesem Preis fehlt die Währung.",
+        "inventoryNegative": "Der Bestand kann nicht negativ sein.",
+        "titleMissing": "Die Anzeige braucht einen Titel.",
+        "descriptionMissing": "Die Anzeige braucht eine Beschreibung.",
+        "proposalPending": "Ein vorgeschlagener Wert ist noch offen, und dieser Produkttyp blockiert die Veröffentlichung bis zur Entscheidung.",
+        "draftNotOpen": "Dieser Entwurf ist nicht mehr offen."
+      }
     }
   },
   "settings": {

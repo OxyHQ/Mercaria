@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Package, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { Listing, ListingStatus } from "@mercaria/shared-types";
@@ -10,6 +10,7 @@ import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { useTranslation } from "@/lib/i18n";
 import { useProducts } from "@/lib/hooks/use-products";
+import { useAuthoringAvailability } from "@/lib/authoring/hooks";
 import { useActiveStoreContext } from "@/lib/hooks/use-stores";
 
 /**
@@ -43,12 +44,36 @@ export default function ProductsScreen() {
 
 function ProductsBody({ storeId }: { storeId: string }) {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { colors } = useColorScheme();
   const { can } = useActiveStoreContext();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const { data, isPending, isError } = useProducts(storeId, page, search);
+
+  /**
+   * Where "Add product" goes (#367 step 10).
+   *
+   * The schema-driven wizard exists only where the deployment has mounted the
+   * authoring surface (`CATALOG_AUTHORING_ENABLED`, ADR 0007 D12), so the
+   * destination is DERIVED from the server's own answer rather than from a
+   * client flag. The legacy `/products/new` stays exactly where it was and is
+   * still the destination everywhere the wizard is not available — parity
+   * first, and retiring it is a separate decision this screen does not make.
+   *
+   * Annotated `RoutePath` rather than with the two literals it can hold, and
+   * that is load-bearing twice over. `route-reachability.test.ts` reads a
+   * navigation edge out of a `const x: RoutePath = …` declaration and records
+   * BOTH sides of the conditional, so this is the one spelling under which the
+   * import graph can see what a user can reach. Writing the narrower union
+   * instead hid the edge — and it hid the two `/products/new` edges this screen
+   * used to carry as literals, which the gate caught as a route that had gone
+   * unreachable. `RoutePath` IS the generated route union, so a target that is
+   * not a real route still fails `tsc` here.
+   */
+  const authoring = useAuthoringAvailability(locale);
+  const createHref: RoutePath =
+    authoring.data?.outcome === "available" ? "/products/wizard" : "/products/new";
 
   const filtered = useMemo(() => {
     const items = data?.data ?? [];
@@ -61,7 +86,7 @@ function ProductsBody({ storeId }: { storeId: string }) {
     can("products:write") ? (
       <View className="flex-row items-center gap-2">
         <StoreSwitcher />
-        <Button onPress={() => router.push("/products/new")}>
+        <Button onPress={() => router.push(createHref)}>
           <View className="flex-row items-center gap-2">
             <Plus size={16} color={colors.primaryForeground} />
             <Text className="font-semibold text-primary-foreground">{t("products.addProduct")}</Text>
@@ -83,7 +108,7 @@ function ProductsBody({ storeId }: { storeId: string }) {
       ) : isError ? (
         <ScreenMessage title={t("products.loadFailed")} body={t("common.pleaseTryAgain")} />
       ) : filtered.length === 0 ? (
-        <EmptyProducts canWrite={can("products:write")} onCreate={() => router.push("/products/new")} />
+        <EmptyProducts canWrite={can("products:write")} onCreate={() => router.push(createHref)} />
       ) : (
         <View className="gap-2">
           {filtered.map((product) => (

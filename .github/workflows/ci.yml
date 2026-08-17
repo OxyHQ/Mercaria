@@ -104,6 +104,13 @@ jobs:
       - name: Guard dashboard and POS i18n
         run: bun run validate:i18n-strings
 
+      # The dashboard product form must stay schema-driven (#367 step 10):
+      # adding a product type is a DATA change, and a React component that knows
+      # one product type by name breaks that with tsc, lint and every build job
+      # still green.
+      - name: Guard the schema-driven product form
+        run: bun run validate:authoring-schema
+
       # `Money.amount` is integer MINOR units, so `{price.amount} {price.currency}`
       # prints 12345 for EUR 123.45 and 100000000 for 1 FAIR — and nothing else
       # in this repository can see it. It is valid TSX, tsc types it `number`,
