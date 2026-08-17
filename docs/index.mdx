@@ -46,6 +46,7 @@ The full command list is in `AGENTS.md`.
 | [0004](adr/0004-mercaria-retail-dropship.md) | Mercaria-retail and dropship |
 | [0005](adr/0005-referral-program.md) | The referral program |
 | [0006](adr/0006-stripe-guest-checkout.md) | Stripe guest checkout |
+| [0007](adr/0007-universal-catalog-taxonomy-and-authoring.md) | The universal multilingual catalog — taxonomy, localization, versioned product types, typed authoring |
 
 ## Platform
 
@@ -78,7 +79,14 @@ The full command list is in `AGENTS.md`.
 | Curation (#59) · backfill (#60) · ingestion framework (#62) | [curation.md](curation.md) · [backfill.md](backfill.md) · [ingestion.md](ingestion.md) |
 | Feed importer (#63) · eBay (#65) · Awin (#66) · offer freshness (#68) | [feed-importer.md](feed-importer.md) · [catalog-sources/](catalog-sources/) · [offer-freshness.md](offer-freshness.md) |
 | Attributes (#94) · condition (#90) · reviews (#76) | [attributes.md](attributes.md) · [condition.md](condition.md) · [reviews.md](reviews.md) |
+| **Start here for #367:** the vocabulary bound to the code, the ERDs and the write-ownership diagram | [catalog-glossary.md](catalog-glossary.md) |
+| Which module owns which catalog table, and the migration conventions the epic runs on | [catalog-table-ownership.md](catalog-table-ownership.md) |
+| `AuthoringSchema`, the shared DTOs, API examples with stable ids, and the "do not do this" list | [catalog-contracts.md](catalog-contracts.md) |
+| How to add a category, a product type version, an attribute or a controlled value; sizes, units and colours; the validation commands | [catalog-cookbook.md](catalog-cookbook.md) |
 | Taxonomy identity, lifecycle and redirects (#367) | [taxonomy.md](taxonomy.md) |
+| Catalog localization: the family, the fallback chain and the two triggers (#367 step 2) | [catalog-localization.md](catalog-localization.md) |
+| Typed variant axes, seller claims and the legacy option backfill (#367 step 4) | [variant-axes.md](variant-axes.md) |
+| External taxonomy, attribute and value mappings (#367 Workstream 11) | [catalog-external-mappings.md](catalog-external-mappings.md) |
 | Authoring service, drafts and the AuthoringSchema (#367 step 5) | [catalog-authoring.md](catalog-authoring.md) |
 | Proposals and operator review (#367 step 6) | [catalog-proposals.md](catalog-proposals.md) |
 | The dashboard product wizard (#367 step 10) | [dashboard-authoring.md](dashboard-authoring.md) |
