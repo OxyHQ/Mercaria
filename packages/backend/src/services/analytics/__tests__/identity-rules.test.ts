@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -44,6 +44,32 @@ import {
 } from '../envelope.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+/**
+ * Strip block and line comments before any census over source. These modules
+ * state what they refuse to do in exactly the vocabulary the detectors match,
+ * so a comment quoting a forbidden statement would count as one — most
+ * dangerously in a comment written to CORRECT somebody.
+ */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+/**
+ * An UPDATE or DELETE of the analytics event table, in every spelling a module
+ * in `db/analytics` can actually write it.
+ *
+ * Three idioms, because a detector that knows one of them is not a detector:
+ * the drizzle BUILDER call on either handle (`db`/`tx`), the raw statement
+ * naming the drizzle table object (`delete from ${analyticsEvents}` — how every
+ * raw statement in this directory refers to a table), and the raw statement
+ * naming the SQL identifier (`delete from analytics_events`).
+ *
+ * INSERT and SELECT are deliberately absent: an insert is the one write this
+ * table exists for, and a read is what every module here legitimately does.
+ */
+const EVENTS_TABLE_WRITE =
+  /\.(?:update|delete)\(\s*analyticsEvents\b|\b(?:update|delete\s+from)\s+(?:\$\{\s*)?analytics(?:Events|_events)\b/i;
 
 vi.mock('../../../config/index.js', () => ({
   config: { analytics: { enabled: true, collectionMode: 'full', pseudonymRotationHours: 24 } },
@@ -196,6 +222,80 @@ describe('#77 identity rule 5 — a claim connects only its own checkout', () =>
     expect(source.length).toBeGreaterThan(200);
     expect(/\.update\(/.test(source)).toBe(false);
     expect(/\.delete\(/.test(source)).toBe(false);
+  });
+
+  it('NO module in db/analytics writes the events table, in any spelling', () => {
+    // The check above is the strongest form of the rule for the ONE file it
+    // reads, and it is blind twice over. It matches the drizzle BUILDER call
+    // only, so `db.execute(sql`delete from ${analyticsEvents}`)` walks through
+    // it; and it reads a single hand-named path, so a new module beside it is
+    // never scanned at all.
+    //
+    // DELETE is the half that matters. UPDATE is backstopped by the append-only
+    // trigger the migration installs, so a hand-written UPDATE is refused by the
+    // server whatever this gate says. DELETE is deliberately PERMITTED on
+    // `analytics_events` — erasure on a schedule is the retention policy — so
+    // for a stray delete there is no trigger behind this gate and nothing else
+    // catches it.
+    const directory = join(SRC_ROOT, 'db/analytics');
+    const modules = readdirSync(directory).filter((name) => name.endsWith('.ts'));
+
+    // Vacuity floor: an emptied or moved directory must fail here rather than
+    // pass by having nothing to scan.
+    expect(modules.length, 'db/analytics looks empty — did it move?').toBeGreaterThanOrEqual(5);
+
+    let scanned = 0;
+    for (const name of modules) {
+      const source = withoutComments(readFileSync(join(directory, name), 'utf8'));
+      expect(
+        EVENTS_TABLE_WRITE.test(source),
+        `db/analytics/${name} writes the analytics_events table; the event log is append-only ` +
+          'and its only permitted removal is the retention sweep',
+      ).toBe(false);
+      scanned += 1;
+    }
+    expect(scanned).toBe(modules.length);
+  });
+
+  it('the events-table detector actually detects — the mutation self-test', () => {
+    // Written from the IDIOM: each probe is a line one of these repositories
+    // could plausibly contain. A probe copied out of the pattern would only
+    // confirm the pattern matches itself, which is how the single-spelling
+    // version of this gate stayed green.
+    expect(EVENTS_TABLE_WRITE.test('await db.delete(analyticsEvents).where(lt(a, b));')).toBe(true);
+    expect(EVENTS_TABLE_WRITE.test('await tx.update(analyticsEvents).set({ market: null });')).toBe(
+      true,
+    );
+    // The two raw spellings — the drizzle-interpolated table reference, which is
+    // how every raw statement in this directory names a table, and the bare
+    // SQL identifier.
+    expect(
+      EVENTS_TABLE_WRITE.test('await db.execute(sql`delete from ${analyticsEvents}`);'),
+    ).toBe(true);
+    expect(
+      EVENTS_TABLE_WRITE.test(
+        "await db.execute(sql`delete from analytics_events where occurred_at < ${cutoff}`);",
+      ),
+    ).toBe(true);
+    expect(
+      EVENTS_TABLE_WRITE.test('await db.execute(sql`update analytics_events set market = null`);'),
+    ).toBe(true);
+
+    // The negative half. A SELECT over the same table is what every read in
+    // this directory does, and a detector that fired on one would be loosened
+    // by whoever hit it next — which is how a gate stops meaning anything.
+    expect(EVENTS_TABLE_WRITE.test('await db.select().from(analyticsEvents);')).toBe(false);
+    expect(
+      EVENTS_TABLE_WRITE.test('await db.execute(sql`select count(*) from ${analyticsEvents}`);'),
+    ).toBe(false);
+    // And the insert, which is the one write this table exists for.
+    expect(EVENTS_TABLE_WRITE.test('await db.insert(analyticsEvents).values(rows);')).toBe(false);
+
+    // The comment stripper is load-bearing: these modules document what they
+    // refuse to do in the same vocabulary the detector matches.
+    expect(EVENTS_TABLE_WRITE.test(withoutComments('// never delete from analytics_events'))).toBe(
+      false,
+    );
   });
 });
 

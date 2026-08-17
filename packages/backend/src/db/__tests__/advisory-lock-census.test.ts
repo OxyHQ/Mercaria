@@ -121,6 +121,18 @@ const TRIGGER_TOGGLE_LOCK_OWNER = 'db/__tests__/trigger-toggle-lock.ts';
  */
 const STATEMENT_FLOOR = 8;
 
+/**
+ * Floor on `session_replication_role` statements found.
+ *
+ * ONE today — `buyer-requests.realdb.test.ts`'s teardown, which is also the
+ * site that showed the census was blind to this idiom: it has been live and
+ * unmeasured. A floor rather than an exact count because the spelling is a
+ * legitimate one that other teardowns may adopt; zero means the detector or the
+ * walk stopped working, which is indistinguishable from a clean tree without
+ * this line. A commit lowering it must name the teardown that went and why.
+ */
+const SESSION_ROLE_FLOOR = 1;
+
 /** Scanned-file floor. 1,673 `.ts` files under `src/` today. */
 const SCANNED_FILE_FLOOR = 1_000;
 
@@ -440,6 +452,32 @@ function advisorySites(file: string, source: string): AdvisorySite[] {
  */
 const DISABLES_TRIGGER = /\balter\s+table\b[\s\S]*?\bdisable\s+trigger\b/iu;
 
+/**
+ * The OTHER way to turn triggers off, and the broader one:
+ * `set [local] session_replication_role = replica` suppresses every trigger on
+ * every table for the rest of its scope.
+ *
+ * It is kept as a SEPARATE detector rather than folded into `DISABLES_TRIGGER`
+ * because it fits none of the machinery above: it names no table and no
+ * trigger, so `TOGGLE_SUBJECT` cannot read a subject out of it, there is no
+ * matching `enable` for the pairing walk to find, and rule 4's "one table per
+ * window" is not a question that can be asked of a statement whose scope is
+ * "all of them".
+ *
+ * It is deliberately NOT held to `withTriggerToggleLock`. That lock exists
+ * because `alter table … disable trigger` takes ShareRowExclusive on each table
+ * it names, which conflicts with an ordinary writer; `set local` takes no table
+ * lock at all, so requiring the mutex here would queue teardowns behind each
+ * other for no benefit and re-create the #301 deadlock — a gate that pushes you
+ * toward the hazard is worse than no gate.
+ *
+ * What it IS held to is the two ways this statement fails silently, below.
+ */
+const DISABLES_TRIGGERS_SESSION_WIDE = /\bsession_replication_role\b/iu;
+
+/** `SET LOCAL`, as opposed to a bare `SET` that outlives the transaction. */
+const SCOPED_TO_TRANSACTION = /\bset\s+local\s+session_replication_role\b/iu;
+
 interface TriggerWindowSite {
   readonly line: number;
   readonly handle: string | null;
@@ -489,6 +527,51 @@ const TOGGLE_SUBJECT =
  */
 const UNPAIRED_DISABLE_EXEMPTION = MEASUREMENT_EXEMPTION;
 const UNPAIRED_DISABLE_SITES = 1;
+
+interface SessionRoleSite {
+  readonly line: number;
+  /** `set local …` rather than a bare `set …`. */
+  readonly scopedToTransaction: boolean;
+  /** The handle the statement was issued on, as written. `null` when unreadable. */
+  readonly handle: string | null;
+  /** Whether that handle is a transaction handle by `transactionNames`' rules. */
+  readonly onTransactionHandle: boolean;
+}
+
+/**
+ * Every `session_replication_role` statement in one file.
+ *
+ * The handle is read the same way the advisory-lock walk reads one, and
+ * classified by the SAME `transactionNames` set, so "is this a transaction
+ * handle" has one answer in this file rather than two that can disagree.
+ */
+function sessionRoleSites(file: string, source: string): SessionRoleSite[] {
+  const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+  const names = transactionNames(parsed);
+  const sites: SessionRoleSite[] = [];
+
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && calleeName(node) === 'execute') {
+      const statement = node.arguments.map((argument) => argument.getText(parsed)).join(' ');
+      if (DISABLES_TRIGGERS_SESSION_WIDE.test(statement)) {
+        const callee = node.expression;
+        const handle =
+          ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression)
+            ? callee.expression.text
+            : null;
+        sites.push({
+          line: parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1,
+          scopedToTransaction: SCOPED_TO_TRANSACTION.test(statement),
+          handle,
+          onTransactionHandle: handle !== null && names.has(handle),
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(parsed, visit);
+  return sites;
+}
 
 /**
  * Every trigger-toggle window in one file, and whether the lock covers it.
@@ -715,6 +798,20 @@ describe('the advisory-lock census', () => {
     const found = triggerWindowSites(file, source);
     if (found.length > 0) windows.set(file, found);
   }
+  // The session-wide pass. Its own pre-filter for the same reason the window
+  // pass has one: a file can suppress every trigger without naming
+  // `disable trigger` or an advisory lock anywhere, and that population — the
+  // one this detector was added for — is invisible to both passes above.
+  const sessionRoles = new Map<string, SessionRoleSite[]>();
+  for (const [file, source] of sources) {
+    if (!DISABLES_TRIGGERS_SESSION_WIDE.test(source)) continue;
+    const found = sessionRoleSites(file, source);
+    if (found.length > 0) sessionRoles.set(file, found);
+  }
+  const allSessionRoles = [...sessionRoles].flatMap(([file, found]) =>
+    found.map((site) => ({ file, ...site })),
+  );
+
   // The call-site walk is a THIRD pass, hoisted here beside the other two so a
   // second consumer does not re-parse the same files a fourth time.
   const calls = [...sources].flatMap(([file, source]) =>
@@ -805,6 +902,105 @@ describe('the advisory-lock census', () => {
         'For a database-wide trigger-toggle window, call `withTriggerToggleLock`.',
       ].join(' '),
     ).toEqual([]);
+  });
+
+  it('scopes every session-wide trigger suppression to its own transaction', () => {
+    // The idiom the window detector above cannot see. `alter table … disable
+    // trigger` is one of TWO ways to turn triggers off, and this is the other —
+    // broader, since it suppresses every trigger on every table.
+    //
+    // The vacuity floor first: this detector was added because nothing matched
+    // the idiom at all, so "no sites" is exactly what the defect looked like.
+    expect(
+      allSessionRoles.length,
+      'no `session_replication_role` statement was found — the detector or the walk stopped working',
+    ).toBeGreaterThanOrEqual(SESSION_ROLE_FLOOR);
+
+    // Rule one: `SET LOCAL`. A bare `SET` outlives the transaction and, on a
+    // POOLED connection, outlives the test — the next file to borrow that
+    // backend runs with every trigger silenced and its append-only assertions
+    // pass vacuously. Exactly the pooled-leak shape #275 measured one domain
+    // over, with a blast radius of every table instead of one lock.
+    const unscoped = allSessionRoles
+      .filter((site) => !site.scopedToTransaction)
+      .map((site) => `${site.file}:${site.line}`);
+    expect(
+      unscoped,
+      'a `session_replication_role` statement is not `SET LOCAL`. A bare `SET` persists after the ' +
+        'transaction commits and, on a pooled connection, after the test releases it — every ' +
+        'later file on that backend then runs with all triggers off and passes vacuously.',
+    ).toEqual([]);
+
+    // Rule two: it must be issued on a TRANSACTION handle. `SET LOCAL` outside
+    // a transaction is scoped to the statement and silently does nothing, so
+    // the teardown it was meant to unblock fails on the trigger it thought it
+    // had disabled — the plausible failure, not an error.
+    const unscopedHandle = allSessionRoles
+      .filter((site) => !site.onTransactionHandle)
+      .map(
+        (site) =>
+          `${site.file}:${site.line} — issued on ${
+            site.handle === null ? 'an unidentifiable handle' : `\`${site.handle}\``
+          }`,
+      );
+    expect(
+      unscopedHandle,
+      'a `SET LOCAL session_replication_role` is issued outside a transaction. `SET LOCAL` outside ' +
+        'a transaction block applies to the current statement only, so it suppresses nothing and ' +
+        'the write it was meant to permit still hits the trigger.',
+    ).toEqual([]);
+  });
+
+  it('detects both ways of suppressing a session-wide trigger — the self-test', () => {
+    // Written from the IDIOM. There was no probe for this construct anywhere in
+    // the census before #454, which is the sharper version of the defect: a
+    // MISSING probe is invisible to review in a way a wrong assertion is not,
+    // because there is no line to read and disagree with.
+    //
+    // The detector is fed real statements rather than tokens lifted out of its
+    // own pattern, and the parser is run over a synthetic MODULE, so what is
+    // measured is the classifier a real file goes through — not the regex.
+    const specimen = [
+      'export async function teardown(db: Database) {',
+      '  await db.transaction(async (tx) => {',
+      '    await tx.execute(sql`set local session_replication_role = replica`);',
+      '  });',
+      '}',
+    ].join('\n');
+    const good = sessionRoleSites('specimen.ts', specimen);
+    expect(good.length, 'the detector no longer sees the statement at all').toBe(1);
+    expect(good[0]?.scopedToTransaction).toBe(true);
+    expect(good[0]?.onTransactionHandle).toBe(true);
+
+    // The bare `SET`, which is the leak.
+    const bare = sessionRoleSites(
+      'specimen.ts',
+      [
+        'export async function teardown(db: Database) {',
+        '  await db.transaction(async (tx) => {',
+        '    await tx.execute(sql`set session_replication_role = replica`);',
+        '  });',
+        '}',
+      ].join('\n'),
+    );
+    expect(bare[0]?.scopedToTransaction, 'a bare SET is being read as scoped').toBe(false);
+
+    // And the statement issued on the ROOT handle inside a transaction — the
+    // failure wearing the fix's clothes, the same shape the advisory-lock
+    // handle rule exists to catch.
+    const pooled = sessionRoleSites(
+      'specimen.ts',
+      [
+        'export async function teardown(db: Database) {',
+        '  await db.transaction(async (tx) => {',
+        '    await db.execute(sql`set local session_replication_role = replica`);',
+        '  });',
+        '}',
+      ].join('\n'),
+    );
+    expect(pooled[0]?.onTransactionHandle, 'a root-handle statement is being read as scoped').toBe(
+      false,
+    );
   });
 
   it('declares the shared trigger-toggle key in exactly one module', () => {

@@ -70,7 +70,29 @@ const EBAY_DOMAIN_PATHS = [
 const LINK_COMPOSITION = [
   {
     name: 'a composed eBay item-page URL',
-    pattern: /['"`]https?:\/\/(www\.)?ebay\.[a-z.]+\/itm/i,
+    /**
+     * Keyed on the `/itm` PATH, independently of how the host is spelled.
+     *
+     * This read `/['"`]https?:\/\/(www\.)?ebay\.[a-z.]+\/itm/i`, which required a
+     * LITERAL host immediately after the opening quote. So it saw
+     * `` `https://www.ebay.es/itm/${id}` `` and missed
+     * `` `https://${host}/itm/${id}` `` — and it missed the permitted
+     * `` `https://${EBAY_API_HOST[env]}${PATH}` `` for the SAME structural
+     * reason, which is why its negative control looked like a control and was
+     * really a description of the blind spot.
+     *
+     * That is not theoretical here: composing a URL from an interpolated host is
+     * already the house style in this exact directory (`token.ts:133`,
+     * `browse.ts:167` and `:224`). None of those composes an item link, so
+     * nothing evades the prohibition today — but an item-link version would look
+     * entirely ordinary beside them and would have passed.
+     *
+     * `/itm` appears NOWHERE in this domain outside a test, so keying on the
+     * path costs no legitimate spelling: the Browse API paths are
+     * `/buy/browse/v1/…`. The composed API URL therefore stays legal, which it
+     * must — the fix could not be to delete the negative control.
+     */
+    pattern: /['"`][^'"`]*\/itm(?:\/|\$\{)/i,
   },
   {
     name: 'an EPN campaign parameter written by Mercaria',
@@ -142,10 +164,45 @@ describe('Mercaria never composes or mutates an EPN link (#64 §6 rule 3)', () =
       expect(detector, `no detector at index ${index}`).toBeDefined();
       expect(detector?.pattern.test(line), `detector ${index} missed its own positive`).toBe(true);
     });
+    // The item-link detector, fed the spellings a module in THIS directory would
+    // actually reach for. Composing a URL from an interpolated host is already
+    // the house style here (`token.ts:133`, `browse.ts:167`, `browse.ts:224`),
+    // so an item-link version would look entirely ordinary beside them — and the
+    // literal-host pattern this replaced missed every one of these.
+    const itemLink = LINK_COMPOSITION[0];
+    expect(itemLink, 'the item-link detector moved out of index 0').toBeDefined();
+    const composed = [
+      'const url = `https://${host}/itm/${itemId}`;',
+      'const url = `https://${EBAY_ITEM_HOST[env]}/itm/${itemId}`;',
+      'const url = `${itemBase}/itm/${itemId}`;',
+      "const url = 'https://www.ebay.co.uk/itm/' + itemId;",
+    ];
+    for (const line of composed) {
+      expect(itemLink?.pattern.test(line), `the item-link detector misses: ${line}`).toBe(true);
+    }
+
     // And an ordinary line in this domain trips none of them.
+    //
+    // This control is NOT redundant with the widening and could not be deleted
+    // to make room for it: a composed API URL must stay legal, because that is
+    // how every real call in this domain is built. It used to pass for the same
+    // structural reason the composed item link evaded the detector — both lack a
+    // literal host after the quote — so the control and the blind spot shared
+    // one cause. Keying on the `/itm` PATH separates them: this line has no
+    // `/itm` segment, and `/itm` appears nowhere in the domain outside a test.
     const ordinary = "const url = `https://${EBAY_API_HOST[env]}${EBAY_BROWSE_SEARCH_PATH}?${params}`;";
     for (const { name, pattern } of LINK_COMPOSITION) {
       expect(pattern.test(ordinary), `${name} detector fires on an ordinary API URL`).toBe(false);
+    }
+    // The three real composed-host lines in the shipped domain, read from disk
+    // rather than retyped, so this control cannot drift away from the code it
+    // claims to protect.
+    for (const relative of ['services/ebay/token.ts', 'services/ebay/browse.ts']) {
+      const source = withoutComments(readDomainFile(relative));
+      expect(
+        itemLink?.pattern.test(source),
+        `${relative} trips the item-link detector; a composed API URL must stay legal`,
+      ).toBe(false);
     }
   });
 

@@ -133,8 +133,21 @@ const CARRIER_STATE_MAPPING_REFERENCE =
 const CREDENTIAL_REFERENCE =
   /guestPortalGrant|guest_portal_grants|resolveGuestPortalSubject|\bmgp_|\bmgx_|configureServiceAuth|OXY_SERVICE_KEY|serviceCredential/;
 
-/** ADR 0004 D1: this domain never reaches the money. */
-const PAYMENT_DOMAIN_REFERENCE = /services\/payments\/|db\/payments\/|\bstripe\b/i;
+/**
+ * ADR 0004 D1: this domain never reaches the money.
+ *
+ * `\.\./payments/` is the alternative that matters and it was missing. A sibling
+ * domain is one `../` away, so the import somebody here would actually write is
+ * `from '../payments/payment.service.js'` — which the absolute-looking
+ * `services/payments/` form never sees. One alternative covers every depth,
+ * because however many `../` segments precede it the LAST one always abuts the
+ * directory name: `../payments/`, `../../payments/` and `../../../payments/` all
+ * contain the literal `../payments/`.
+ *
+ * This is live rather than hypothetical — 22 modules under `services/` already
+ * import a sibling this way.
+ */
+const PAYMENT_DOMAIN_REFERENCE = /services\/payments\/|\.\.\/payments\/|db\/payments\/|\bstripe\b/i;
 
 describe('#126 acceptance 2 — no carrier system inside Mercaria', () => {
   it('scans every module in the domain, and there are some', () => {
@@ -207,12 +220,25 @@ describe('#126 acceptance 2 — no carrier system inside Mercaria', () => {
       CARRIER_STATE_MAPPING_REFERENCE.test("const CARRIER_STATUS = { NT: 'in_transit' };"),
     ).toBe(true);
     expect(CREDENTIAL_REFERENCE.test('const token = grant.mgp_token;')).toBe(true);
+    // The relative specifier. This assertion read `.toBe(false)` until #454 —
+    // the gate's own self-test recording the hole as intended behaviour, which
+    // is what kept it green. It is the spelling a module in THIS directory
+    // would actually write, since `services/payments` is one `../` away.
     expect(
       PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../payments/payment.service.js';"),
-    ).toBe(false);
+    ).toBe(true);
+    // And at depth, from a nested module.
+    expect(
+      PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../../payments/stripe/client.js';"),
+    ).toBe(true);
     expect(
       PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../../services/payments/payment.service.js';"),
     ).toBe(true);
+    // The negative half: a sibling that merely SHARES a prefix is not the
+    // payment domain, so the widening must not swallow it.
+    expect(
+      PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../payments-ui/format.js';"),
+    ).toBe(false);
   });
 });
 

@@ -87,9 +87,18 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-/** A commercial term reaching a calculation — statistical policy 10. */
+/**
+ * A commercial term reaching a calculation — statistical policy 10.
+ *
+ * The `\.\./(fees|referrals|retail-pricing)/` alternatives are the specifiers a
+ * module in `services/price-signals/` actually writes: each of those domains is
+ * one `../` away, so the absolute-looking `services/fees/` form never sees the
+ * import somebody here would type. One alternative per domain covers every
+ * depth, because however many `../` segments precede it the last always abuts
+ * the directory name.
+ */
 const COMMERCIAL_REFERENCE =
-  /services\/fees\/|services\/referrals\/|services\/retail-pricing\/|db\/fees\/|db\/ledger|ledger_entries|ledgerRepository|feeSchedule|fee_schedules|commissionAmount|commissionRate|merchantPlan|planTier|affiliateEarnings|sponsoredPlacement/;
+  /services\/fees\/|\.\.\/fees\/|services\/referrals\/|\.\.\/referrals\/|services\/retail-pricing\/|\.\.\/retail-pricing\/|db\/fees\/|db\/ledger|ledger_entries|ledgerRepository|feeSchedule|fee_schedules|commissionAmount|commissionRate|merchantPlan|planTier|affiliateEarnings|sponsoredPlacement/;
 
 /** A FairCoin or OxyPay assumption, in code OR in copy. */
 const FAIRCOIN_REFERENCE = /FairCoin|faircoin|OxyPay|oxy_pay|oxyPay|\bFAIR\b|⊜/;
@@ -290,15 +299,31 @@ describe('the prohibitions are stated as VALUES a test can walk', () => {
 
 describe('the detectors actually detect — the mutation self-tests', () => {
   it('the commercial detector sees a fee import and not an innocent one', () => {
+    // The relative specifier. This read `.toBe(false)` until #454 — the gate's
+    // own self-test recording the hole as intended behaviour, which is what kept
+    // it green. It is the spelling a module in `services/price-signals/` would
+    // actually write, `services/fees` being one `../` away.
     expect(
       COMMERCIAL_REFERENCE.test("import { planFees } from '../fees/fee.service.js';"),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       COMMERCIAL_REFERENCE.test("import { planFees } from '../../services/fees/fee.service.js';"),
     ).toBe(true);
+    // The other two sibling domains, at the depths they would be written.
+    expect(
+      COMMERCIAL_REFERENCE.test("import { attribute } from '../referrals/attribution.js';"),
+    ).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test("import { compose } from '../../retail-pricing/compose.js';"),
+    ).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const commissionRate = 0.1;')).toBe(true);
     expect(COMMERCIAL_REFERENCE.test('const merchantPlan = readPlan();')).toBe(true);
+    // The negative half: FX is NOT a commercial term, and a neighbour that
+    // merely shares a prefix is not the fee domain.
     expect(COMMERCIAL_REFERENCE.test("import { getRates } from '../fx.service.js';")).toBe(false);
+    expect(COMMERCIAL_REFERENCE.test("import { fmt } from '../fees-display/format.js';")).toBe(
+      false,
+    );
   });
 
   it('the FairCoin detector sees the code name, the symbol and the copy', () => {

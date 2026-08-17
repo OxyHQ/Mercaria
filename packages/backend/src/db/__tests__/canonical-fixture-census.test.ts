@@ -98,6 +98,25 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DIRECT_CANONICAL_DELETE = /\.\s*delete\s*\(\s*canonical(Products|Variants)\s*\)/u;
 
 /**
+ * The same deletion in EITHER spelling — the drizzle builder call above, or the
+ * raw statement.
+ *
+ * A fixture that reaches for `sql\`delete from canonical_products …\`` removes
+ * exactly the rows this census exists to protect, and the builder-only pattern
+ * never saw it. The direction of that blindness is the dangerous one: a census
+ * that finds FEWER deletions reads as a tidier tree, so the gate got quieter
+ * precisely as somebody worked around it.
+ *
+ * Both the interpolated form (`${canonicalProducts}`, how the raw statements in
+ * this repository name a table) and the bare SQL identifier are covered.
+ * `canonical_product_redirects` and `canonical_product_aliases` are deliberately
+ * NOT matched — a trailing `\b` after the table name keeps them out, because
+ * they are different tables and two fixtures legitimately clear them.
+ */
+const CANONICAL_DELETE_ANY_SPELLING =
+  /\.\s*delete\s*\(\s*canonical(Products|Variants)\s*\)|\bdelete\s+from\s+(?:\$\{\s*)?canonical(?:Products|Variants|_products|_variants)\b/iu;
+
+/**
  * Creating a canonical product — what puts a file in scope for the NAME rule.
  *
  * BOTH spellings, because a fixture built through the service is exactly as
@@ -375,8 +394,19 @@ describe('the canonical fixture census', () => {
   });
 
   it('finds ONLY the helper and the two RESTRICT proofs deleting canonical rows', () => {
+    // Matched in EITHER spelling. The builder-only reading below is kept for the
+    // parsed cross-check, which can only see call sites; this one is what
+    // decides whether a file is an offender, because a raw statement removes
+    // the same rows.
+    //
+    // THIS_CENSUS is excluded for the reason lines below already exclude it from
+    // the helper and creation scans: its mutation self-test necessarily CONTAINS
+    // the statements it detects, so a census that scanned itself would report a
+    // violation it wrote on purpose. The staleness guard above pins that the
+    // excluded path is a file the walk really read, so the exclusion cannot
+    // quietly cover nothing.
     const offenders = [...sources]
-      .filter(([, source]) => DIRECT_CANONICAL_DELETE.test(source))
+      .filter(([path, source]) => path !== THIS_CENSUS && CANONICAL_DELETE_ANY_SPELLING.test(source))
       .map(([path]) => path)
       .sort();
 
@@ -389,6 +419,43 @@ describe('the canonical fixture census', () => {
       offenders,
       'a fixture deletes canonical rows directly; route it through deleteTestCanonicalRows, so a match decision another file recorded against your fixture cannot fail your teardown with 23503',
     ).toEqual(PERMITTED.map((entry) => entry.file));
+  });
+
+  it('sees a canonical delete in EITHER spelling — the self-test', () => {
+    // Written from the idiom: each probe is a line a fixture teardown in this
+    // repository could plausibly contain. The builder forms are what the
+    // original pattern knew; the raw forms are what it missed, and a fixture
+    // reaching for raw SQL removes exactly the same rows.
+    expect(CANONICAL_DELETE_ANY_SPELLING.test('await db.delete(canonicalProducts);')).toBe(true);
+    expect(
+      CANONICAL_DELETE_ANY_SPELLING.test(
+        'await tx\n  .delete(canonicalVariants)\n  .where(inArray(canonicalVariants.id, ids));',
+      ),
+    ).toBe(true);
+    expect(
+      CANONICAL_DELETE_ANY_SPELLING.test(
+        'await db.execute(sql`delete from ${canonicalProducts} where id = ${id}`);',
+      ),
+    ).toBe(true);
+    expect(
+      CANONICAL_DELETE_ANY_SPELLING.test(
+        'await db.execute(sql`delete from canonical_variants where product_id = ${id}`);',
+      ),
+    ).toBe(true);
+
+    // The negative half, and it is load-bearing: two fixtures legitimately clear
+    // `canonical_product_redirects` and `canonical_product_aliases`, which are
+    // DIFFERENT tables. A pattern that swallowed them would make this census
+    // fire on correct teardowns, and the cheapest way to green that is to
+    // narrow the pattern back to where it started.
+    expect(
+      CANONICAL_DELETE_ANY_SPELLING.test('sql`delete from canonical_product_redirects where a = 1`'),
+    ).toBe(false);
+    expect(
+      CANONICAL_DELETE_ANY_SPELLING.test('sql`delete from canonical_product_aliases where a = 1`'),
+    ).toBe(false);
+    // A SELECT over the same table is not a deletion.
+    expect(CANONICAL_DELETE_ANY_SPELLING.test('sql`select id from canonical_products`')).toBe(false);
   });
 
   it('pins the permission list, and every permission states why', () => {
