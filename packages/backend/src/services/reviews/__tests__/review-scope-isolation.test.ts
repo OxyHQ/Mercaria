@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -44,22 +44,58 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
 /**
- * Every module of the review domain. A new one belongs on this list — the
- * vacuity floor below is what forces whoever adds one to look here.
+ * The domain's HTTP surface, derived from the filename convention these flat
+ * directories already follow (#472's device).
+ *
+ * Both modules it finds — `controllers/reviews.controller.ts` and
+ * `routes/reviews.ts` — were absent from the hand list this replaces, so the
+ * review HTTP surface was behind none of the four walls below.
+ */
+function httpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.startsWith('review'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
+/**
+ * The legacy review service, which has no directory of its own.
+ *
+ * `services/review.service.ts` predates `services/reviews/` and sits flat among
+ * ~150 unrelated modules, so no rule derives it without also deriving something
+ * that is not this domain — a `review` prefix over `services/` takes nothing
+ * else today but would take the first module anyone names for a review of
+ * something else. Kept as a hand list of ONE with its count asserted exactly,
+ * which is what #483 did with `LEGACY_ENGINE_PATHS` and for the same reason: a
+ * hand list without a count is a predicate rather than an identity (#448).
+ */
+const LEGACY_REVIEW_PATHS = ['services/review.service.ts'];
+
+/**
+ * Every module of the review domain, WALKED rather than listed (#460).
+ *
+ * The list this replaces named 11 modules; the derivation finds 13.
  */
 const REVIEW_DOMAIN_PATHS = [
-  'services/review.service.ts',
-  'services/reviews/review-scope.ts',
-  'services/reviews/review-eligibility.service.ts',
-  'services/reviews/review-aggregate.service.ts',
-  'services/reviews/review-self-review.ts',
-  'services/reviews/review-migration.service.ts',
-  'db/reviews/reviewRepository.ts',
-  'db/reviews/reviewEligibilityRepository.ts',
-  'db/reviews/reviewAggregateRepository.ts',
-  'db/reviews/reviewMigrationRepository.ts',
-  'db/reviews/reviewTargetResolver.ts',
+  ...walk('services/reviews'),
+  ...walk('db/reviews'),
+  ...httpSurface(),
+  ...LEGACY_REVIEW_PATHS,
 ];
 
 /** The five tables of the domain, with their SQL names for readable failures. */
@@ -133,6 +169,28 @@ describe('#76 wall 1 — a brand rating is unrepresentable', () => {
       scanned += 1;
     }
     expect(scanned).toBe(REVIEW_DOMAIN_PATHS.length);
+  });
+
+  it('the domain derivation is whole', () => {
+    // Vacuity floors PER SHAPE rather than one on the total: the four sources
+    // break independently, and one total would let a walk collapse to zero while
+    // the others carried the number. Each is today's count, so a SHRINK stops
+    // the build rather than quietly narrowing all four walls at once.
+    const from = (prefix: string) =>
+      REVIEW_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/reviews/'), 'the service walk found nothing').toBeGreaterThanOrEqual(5);
+    expect(from('db/reviews/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
+    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(
+      2,
+    );
+    // EXACT: the one hand list left is an identity, not a predicate (#448).
+    expect(LEGACY_REVIEW_PATHS.length, 'the legacy review list changed size').toBe(1);
+
+    // The walk really reads the disk, and no test file enters the scanned set.
+    for (const path of REVIEW_DOMAIN_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(REVIEW_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
   });
 
   it('no review table carries a brand-shaped target column', () => {

@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -27,43 +27,79 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
 /**
- * Every module in the domain. A new one belongs on this list — the vacuity
- * floor is what forces whoever adds one to come here and decide which side of
- * each wall it sits on.
+ * The domain's HTTP surface, derived from the filename convention every module
+ * in these flat directories already follows (#472's device).
+ *
+ * It does NOT reach `routes/orders.ts` or `routes/guest-orders.ts`, which MOUNT
+ * this domain's router: a route that mounts decides nothing and its imports are
+ * the union of every surface on it, so scanning one here would fail this gate
+ * for a co-location (#483's `AGGREGATOR_ROUTES` reasoning, reached by the
+ * derivation never selecting them rather than by an exclusion needing a count).
+ */
+function httpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.startsWith('retail-service'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
+/**
+ * Every module in the domain, WALKED rather than listed (#460).
+ *
+ * The hand list this replaces named all 26 and was complete on the day it was
+ * written, which is the defect rather than a defence: what a list omits is
+ * whatever somebody adds next, and that is the module nobody has reviewed.
  */
 const DOMAIN_PATHS = [
-  'services/retail-service-requests/request-kinds.ts',
-  'services/retail-service-requests/policy.ts',
-  'services/retail-service-requests/eligibility.ts',
-  'services/retail-service-requests/allocation.ts',
-  'services/retail-service-requests/order-facts.ts',
-  'services/retail-service-requests/authorization.ts',
-  'services/retail-service-requests/request.service.ts',
-  'services/retail-service-requests/decision.service.ts',
-  'services/retail-service-requests/return-case.service.ts',
-  'services/retail-service-requests/warranty.service.ts',
-  'services/retail-service-requests/cancellation.service.ts',
-  'services/retail-service-requests/dispute-coordination.service.ts',
-  'services/retail-service-requests/refund-bridge.ts',
-  'services/retail-service-requests/supplier-rma.port.ts',
-  'services/retail-service-requests/notifications.ts',
-  'services/retail-service-requests/projection.ts',
-  'services/retail-service-requests/reconciler.ts',
-  'services/retail-service-requests/registration.ts',
-  'db/retailServiceRequests/requestRepository.ts',
-  'db/retailServiceRequests/returnCaseRepository.ts',
-  'db/retailServiceRequests/warrantyRepository.ts',
-  'db/retailServiceRequests/supplierRecoveryRepository.ts',
-  'db/retailServiceRequests/policyRepository.ts',
-  'controllers/retail-service-requests.controller.ts',
-  'controllers/retail-service-operator.controller.ts',
-  'routes/retail-service-requests.ts',
+  ...walk('services/retail-service-requests'),
+  ...walk('db/retailServiceRequests'),
+  ...httpSurface(),
 ];
 
 /**
- * The BUYER path — everything a request travels through before Mercaria has
- * decided anything.
+ * The two modules that may reach a refund path or the payment domain — the ONLY
+ * crossings, each with the reason it is one, and an EXACT count (#448).
+ *
+ * `BUYER_PATHS` is DERIVED by subtracting these, so a module added tomorrow is
+ * held to the stricter wall by default. The hand list this replaces named the
+ * buyer half directly at 7 of 26 modules, so nineteen sat outside the wall with
+ * no reason recorded — and every one of them passes it.
+ */
+const PAYMENT_CROSSINGS = [
+  {
+    path: 'services/retail-service-requests/refund-bridge.ts',
+    /** The ONE place this domain moves money. */
+    reason: 'refund',
+  },
+  {
+    path: 'services/retail-service-requests/registration.ts',
+    /**
+     * Boot wiring, not a request path: it registers this domain's consumer with
+     * `services/payments/retail-dispute.port.ts`, which is what keeps the
+     * dependency pointing one way. It reaches the payment domain by NAMING the
+     * port it registers against and moves no money.
+     */
+    reason: 'payment',
+  },
+] as const;
+
+/**
+ * The BUYER path — DERIVED: the domain walk minus the counted payment crossings.
  *
  * These may not reach an order writer, a refund path, an inventory function or
  * the payment domain. That is #110's acceptance 2 applied to a retail order,
@@ -71,36 +107,54 @@ const DOMAIN_PATHS = [
  * to return money and respect a fulfilment state, and each belongs to a service
  * that already gets it right.
  */
-const BUYER_PATHS = [
-  'services/retail-service-requests/request-kinds.ts',
-  'services/retail-service-requests/policy.ts',
-  'services/retail-service-requests/eligibility.ts',
-  'services/retail-service-requests/order-facts.ts',
-  'services/retail-service-requests/request.service.ts',
-  'db/retailServiceRequests/requestRepository.ts',
-  'db/retailServiceRequests/policyRepository.ts',
-];
+const BUYER_PATHS = DOMAIN_PATHS.filter(
+  (path) => !PAYMENT_CROSSINGS.some((entry) => entry.path === path),
+);
 
 /**
- * The CUSTOMER half — everything that decides or reports what a BUYER is owed.
+ * The modules that may reach the SUPPLIER side, measured rather than listed.
  *
- * ADR 0004 D8.5 as a property of the import graph: none of these may reach the
- * supplier recovery repository, the supplier RMA port or #124's purchase-order
- * repository, so a customer's remedy cannot be a function of a supplier's
+ * ADR 0004 D8.5 as a property of the import graph: everything else in the domain
+ * decides or reports what a BUYER is owed, and may not reach the supplier
+ * recovery repository, the supplier RMA port or #124's purchase-order
+ * repository — so a customer's remedy cannot be a function of a supplier's
  * answer in any code path.
  *
- * `decision.service.ts` and `return-case.service.ts` are deliberately NOT here:
- * the first opens a return case and the second is where the two halves meet, in
- * the one ORDER that matters — customer first, supplier afterwards.
+ * `decision.service.ts` was named in the list this replaces as deliberately
+ * outside the customer half, on the grounds that it opens a return case. It
+ * reaches no supplier module today (measured), so the derivation puts it INSIDE
+ * the wall and it passes. That is a real widening and it is the safe direction:
+ * if #127's owner later gives it the supplier call the old comment anticipated,
+ * this gate names it and the crossing gets a row here with a reason — which is
+ * the decision being recorded rather than assumed.
  */
-const CUSTOMER_HALF_PATHS = [
-  'services/retail-service-requests/policy.ts',
-  'services/retail-service-requests/eligibility.ts',
-  'services/retail-service-requests/allocation.ts',
-  'services/retail-service-requests/request.service.ts',
-  'services/retail-service-requests/refund-bridge.ts',
-  'services/retail-service-requests/notifications.ts',
-];
+const SUPPLIER_CROSSINGS = [
+  {
+    path: 'services/retail-service-requests/return-case.service.ts',
+    /** Where the two halves meet, in the one ORDER that matters. */
+    reason: 'opens the supplier recovery after the customer is answered',
+  },
+  {
+    path: 'services/retail-service-requests/cancellation.service.ts',
+    /** Reaches #124's purchase-order repository and supplier cancellation. */
+    reason: 'cancels the supplier purchase order',
+  },
+  {
+    path: 'services/retail-service-requests/projection.ts',
+    /** A READ projection: reports recoveries, decides no remedy. */
+    reason: 'projects supplier recoveries for the operator surface',
+  },
+  {
+    path: 'controllers/retail-service-operator.controller.ts',
+    /** The operator surface, which reads the supplier side by design. */
+    reason: 'the operator surface reads supplier recovery state',
+  },
+] as const;
+
+/** The CUSTOMER half — DERIVED: the domain walk minus the counted supplier crossings. */
+const CUSTOMER_HALF_PATHS = DOMAIN_PATHS.filter(
+  (path) => !SUPPLIER_CROSSINGS.some((entry) => entry.path === path),
+);
 
 /** The module that MAY move money, listed so the positive half can assert it does. */
 const REFUND_BRIDGE_PATH = 'services/retail-service-requests/refund-bridge.ts';
@@ -186,9 +240,34 @@ describe('retail service isolation (static)', () => {
     // The vacuity floor. A gate that scanned nothing would pass every assertion
     // below, and the shape of that failure — a moved file, a renamed directory
     // — is exactly the one nobody notices.
-    expect(DOMAIN_PATHS.length).toBeGreaterThanOrEqual(24);
-    expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(7);
-    expect(CUSTOMER_HALF_PATHS.length).toBeGreaterThanOrEqual(6);
+    // Vacuity floors PER SHAPE rather than one on the total: the three sources
+    // break independently, and a single total would let one walk collapse to
+    // zero while the others carried the number. Each is today's count, so a
+    // SHRINK stops the build rather than quietly narrowing every assertion here.
+    const from = (prefix: string) => DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/retail-service-requests/'), 'the service walk found nothing').toBeGreaterThanOrEqual(18);
+    expect(from('db/retailServiceRequests/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
+    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(3);
+    expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(24);
+    expect(CUSTOMER_HALF_PATHS.length).toBeGreaterThanOrEqual(22);
+
+    // EXACT: an unbounded exclusion list lets any number of modules ride in
+    // behind the ones somebody justified (#448).
+    expect(PAYMENT_CROSSINGS.length, 'a third payment crossing was excluded').toBe(2);
+    expect(SUPPLIER_CROSSINGS.length, 'a fifth supplier crossing was excluded').toBe(4);
+
+    // The walk really reads the disk, and no test file enters the scanned set.
+    for (const path of DOMAIN_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+
+    // Every excluded crossing must still be IN the domain: an exclusion naming a
+    // module the walk no longer finds excuses nothing while looking like a
+    // decision.
+    for (const { path } of [...PAYMENT_CROSSINGS, ...SUPPLIER_CROSSINGS]) {
+      expect(DOMAIN_PATHS, `${path} is excluded from a wall but is not in the domain`).toContain(path);
+    }
     for (const path of DOMAIN_PATHS) {
       expect(readSource(path).length).toBeGreaterThan(200);
     }
@@ -274,6 +353,24 @@ describe('retail service isolation (static)', () => {
     expect(REFUND_WRITER_REFERENCE.test(stripComments(readSource(REFUND_BRIDGE_PATH)))).toBe(true);
     expect(PAYMENT_DOMAIN_REFERENCE.test(stripComments(readSource(REFUND_BRIDGE_PATH)))).toBe(true);
     expect(SUPPLIER_REFERENCE.test(stripComments(readSource(SUPPLIER_PATH)))).toBe(true);
+
+    // And EVERY excluded crossing, not only the two named above. This is what
+    // keeps the exclusion lists honest: a module that stops crossing stops being
+    // excludable and is named here, so both walls can only get wider by neglect,
+    // never narrower. Without it a stale exclusion goes on excusing a module
+    // that no longer needs excusing, which reads exactly like a decision.
+    for (const { path } of PAYMENT_CROSSINGS) {
+      expect(
+        PAYMENT_DOMAIN_REFERENCE.test(stripComments(readSource(path))),
+        `${path} is excused from the buyer wall as a payment crossing, and no longer is one`,
+      ).toBe(true);
+    }
+    for (const { path } of SUPPLIER_CROSSINGS) {
+      expect(
+        SUPPLIER_REFERENCE.test(stripComments(readSource(path))),
+        `${path} is excused from the customer half as a supplier crossing, and no longer is one`,
+      ).toBe(true);
+    }
   });
 
   it('the customer view has no member a supplier fact could arrive in', () => {

@@ -15,55 +15,71 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/**
- * Every module a portal REQUEST passes through. A new module in this path
- * belongs on the list — the vacuity floor is what forces whoever adds one to
- * look here.
- */
-const PORTAL_PATHS = [
-  'routes/guest-orders.ts',
-  'middleware/guest-portal.ts',
-  'services/guest-portal/grant.service.ts',
-  'services/guest-portal/grant-token.ts',
-  'services/guest-portal/scopes.ts',
-  'services/guest-portal/portal.service.ts',
-  'services/guest-portal/recovery.service.ts',
-  'services/guest-portal/templates.ts',
-  'services/guest-portal/transport.ts',
-  'services/guest-portal/message.service.ts',
-  'services/guest-portal/operator.service.ts',
-  'db/guestPortal/grantRepository.ts',
-  'db/guestPortal/messageRepository.ts',
-  'db/guestPortal/suppressionRepository.ts',
-  'db/guestPortal/recoveryAttemptRepository.ts',
-  'db/guestPortal/operatorActionRepository.ts',
-  'db/guestPortal/contactRoutingRepository.ts',
-];
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
 
 /**
- * The READ path specifically — the modules that must keep serving a placed
- * guest order when guest commerce is switched off (#108 acceptance 10,
- * ADR 0003 M8).
- *
- * `routes/guest-orders.ts` is deliberately EXCLUDED: it reads
- * `config.guest.portal.magicLinkBaseUrl` for its exported base-URL accessor,
- * which is portal configuration and not a guest LEVER. The distinction the gate
- * enforces is the levers, named individually below, rather than the whole
- * `config.guest` namespace — a namespace ban would be a gate nobody could
- * satisfy without moving the portal's own settings somewhere arbitrary.
+ * The portal's HTTP surface, derived from the filename convention these flat
+ * directories already follow (#472's device): the router, its middleware and
+ * the operator controller.
  */
-const PORTAL_READ_PATHS = [
-  'middleware/guest-portal.ts',
-  'services/guest-portal/grant.service.ts',
-  'services/guest-portal/portal.service.ts',
-  'services/guest-portal/recovery.service.ts',
-];
+function httpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /^guest-(portal|orders)/.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
+/**
+ * Every module a portal REQUEST passes through, WALKED rather than listed
+ * (#460).
+ *
+ * The list this replaces named 17 modules and the walk finds 18: it omitted
+ * `controllers/guest-portal-operator.controller.ts`, so the operator surface —
+ * the one place a Mercaria employee touches a buyer's portal — was behind none
+ * of the walls below. That is #472's `ebay-isolation` finding again, and it is
+ * the reason a list whose comment claims completeness is worse than no comment.
+ */
+const PORTAL_PATHS = [...walk('services/guest-portal'), ...walk('db/guestPortal'), ...httpSurface()];
+
+/**
+ * The READ path — the modules that must keep serving a placed guest order when
+ * guest commerce is switched off (#108 acceptance 10, ADR 0003 M8).
+ *
+ * DERIVED as the whole domain, which is a widening: the list this replaces named
+ * four modules of eighteen. No module in the domain reads one of the four levers
+ * (measured), so the stronger statement — *nothing in the portal is gated by a
+ * guest lever* — is the one that holds today, and a module added tomorrow is
+ * held to it by default rather than landing outside every wall.
+ *
+ * The distinction the detector draws is still levers versus portal CONFIGURATION:
+ * `routes/guest-orders.ts` reads `config.guest.portal.magicLinkBaseUrl` for its
+ * base-URL accessor, which is a setting rather than a switch. A ban on the whole
+ * `config.guest` namespace would be a gate nobody could satisfy without moving
+ * the portal's own settings somewhere arbitrary, so `GUEST_LEVER_REFERENCE`
+ * names the four switches individually.
+ *
+ * The fifth lever, `GUEST_PORTAL_MESSAGE_DELIVERY_ENABLED`, gates the dispatcher
+ * LOOP and never a row, and is deliberately not among the four.
+ */
+const PORTAL_READ_PATHS = PORTAL_PATHS;
 
 /**
  * The four guest LEVERS. None of them may gate a portal read.
@@ -142,7 +158,28 @@ describe('guest portal isolation (static)', () => {
     // The vacuity floor. A gate that scanned nothing would pass every assertion
     // below, and the shape of that failure — a moved file, a renamed directory
     // — is exactly the one nobody notices.
-    expect(PORTAL_PATHS.length).toBeGreaterThanOrEqual(16);
+    // Vacuity floors PER SHAPE rather than one on the total: the three sources
+    // break independently, and one total would let a walk collapse to zero while
+    // the others carried the number. Each is today's count, so a SHRINK stops
+    // the build.
+    const from = (prefix: string) => PORTAL_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/guest-portal/'), 'the service walk found nothing').toBeGreaterThanOrEqual(9);
+    expect(from('db/guestPortal/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(6);
+    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(3);
+    expect(PORTAL_PATHS.length).toBeGreaterThanOrEqual(18);
+
+    // The walk really reads the disk, and no test file enters the scanned set.
+    for (const path of PORTAL_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(PORTAL_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+
+    // The one permitted decrypt must still BE in the domain: an exemption naming
+    // a module the walk no longer finds excuses nothing while looking like a
+    // decision.
+    expect(PORTAL_PATHS, `${DECRYPT_ALLOWED} is exempted but is not in the domain`).toContain(
+      DECRYPT_ALLOWED,
+    );
     for (const path of PORTAL_PATHS) {
       expect(readPortalSource(path).length).toBeGreaterThan(200);
     }

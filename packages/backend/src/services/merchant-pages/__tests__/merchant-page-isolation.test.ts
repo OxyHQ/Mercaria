@@ -45,7 +45,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -58,29 +58,71 @@ import {
 /** `packages/`, from this file. */
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
 
-/** The whole merchant-page domain on the API side. */
+/**
+ * Every `.ts`/`.tsx` under `relative` (from `packages/`), recursively, excluding
+ * the test tree.
+ */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) found.push(child);
+  }
+  return found;
+}
+
+/** The API-side HTTP surface, from the filename convention (#472's device). */
+function backendHttpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(PACKAGES_ROOT, `backend/src/${directory}`), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.startsWith('merchant-page'))
+      .map((entry) => `backend/src/${directory}/${entry.name}`),
+  );
+}
+
+/**
+ * The whole merchant-page domain on the API side, WALKED rather than listed
+ * (#460).
+ *
+ * The list this replaces named the same ten modules and was complete on the day
+ * it was written; what it could not cover is the eleventh.
+ */
 const BACKEND_PATHS = [
-  'backend/src/services/merchant-pages/merchant-page.service.ts',
-  'backend/src/services/merchant-pages/merchant-catalog.service.ts',
-  'backend/src/services/merchant-pages/catalog-entry.ts',
-  'backend/src/services/merchant-pages/offer-mix.ts',
-  'backend/src/services/merchant-pages/standing.ts',
-  'backend/src/services/merchant-pages/native-store.ts',
-  'backend/src/services/merchant-pages/outbound.ts',
-  'backend/src/db/merchantPages/merchantCatalogRepository.ts',
-  'backend/src/controllers/merchant-pages.controller.ts',
-  'backend/src/middleware/merchant-page-schemas.ts',
+  ...walk('backend/src/services/merchant-pages'),
+  ...walk('backend/src/db/merchantPages'),
+  ...backendHttpSurface(),
 ];
 
-/** Every merchant-page surface in the storefront. */
-const FRONTEND_PATHS = [
+/**
+ * The storefront modules that cannot be derived from a directory.
+ *
+ * The SCREEN, the API client and the hook sit among the storefront's own
+ * hundreds of files, and no rule reaches them without reaching a different
+ * domain's surface. Kept as a hand list with an EXACT count and a comment
+ * claiming only what the list IS (#460's other sanctioned resolution) — walking
+ * `packages/frontend` whole would scan every screen in the app against a
+ * follow-identity wall, which is a different gate.
+ */
+const UNDERIVABLE_FRONTEND_PATHS = [
   'frontend/app/(app)/merchants/[idOrSlug].tsx',
-  'frontend/components/merchant/MerchantProductCard.tsx',
-  'frontend/components/merchant/MerchantChannelPicker.tsx',
-  'frontend/components/merchant/MerchantBrandStandings.tsx',
-  'frontend/components/merchant/MerchantStandingBanner.tsx',
   'frontend/lib/api/merchants.ts',
   'frontend/lib/hooks/use-merchant-page.ts',
+];
+
+/**
+ * Every merchant-page surface in the storefront.
+ *
+ * `frontend/components/merchant/` IS a directory this domain owns, so it is
+ * walked: a fifth merchant component added there was invisible to the follow
+ * wall below, which is the one that keeps a person's Oxy identity from being
+ * split across apps by whoever registers a follow URI first.
+ */
+const FRONTEND_PATHS = [
+  ...walk('frontend/components/merchant'),
+  ...UNDERIVABLE_FRONTEND_PATHS,
 ];
 
 /** A follow target being named, registered, rendered or stored. */
@@ -211,7 +253,33 @@ describe('the merchant page creates no second follow identity', () => {
       scanned += 1;
     }
     expect(scanned).toBe(BACKEND_PATHS.length + FRONTEND_PATHS.length);
-    // The scanned-file floor: a broken traversal cannot pass by scanning none.
+    // Vacuity floors PER SHAPE rather than one on the total: the five sources
+    // break independently, and a single total on 17 would let a walk collapse to
+    // zero while the others carried the number. Each is today's count,
+    // re-derived after the final rebase, so a SHRINK stops the build.
+    const backendFrom = (prefix: string) =>
+      BACKEND_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(
+      backendFrom('backend/src/services/merchant-pages/'),
+      'the service walk found nothing',
+    ).toBeGreaterThanOrEqual(7);
+    expect(
+      backendFrom('backend/src/db/merchantPages/'),
+      'the repository walk found nothing',
+    ).toBeGreaterThanOrEqual(1);
+    expect(backendHttpSurface().length, 'the HTTP surface found nothing').toBeGreaterThanOrEqual(2);
+    expect(
+      FRONTEND_PATHS.filter((path) => path.startsWith('frontend/components/merchant/')).length,
+      'the merchant component walk found nothing',
+    ).toBeGreaterThanOrEqual(4);
+    // EXACT: the one hand list left is an identity, not a predicate (#448).
+    expect(UNDERIVABLE_FRONTEND_PATHS.length, 'the underivable list changed size').toBe(3);
+    for (const path of [...BACKEND_PATHS, ...FRONTEND_PATHS]) {
+      expect(statSync(join(PACKAGES_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(
+      [...BACKEND_PATHS, ...FRONTEND_PATHS].filter((path) => path.includes('__tests__')),
+    ).toEqual([]);
     expect(scanned).toBeGreaterThanOrEqual(17);
   });
 

@@ -14,76 +14,110 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BUYER_REQUEST_FORBIDDEN_IDENTIFIERS } from '@mercaria/shared-types';
 import { SUPPORT_FORBIDDEN_AUTOMATIC_OUTCOMES } from '@mercaria/shared-types';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
 /**
- * Every module in the domain. A new one belongs on this list — the vacuity
- * floor is what forces whoever adds one to come here and decide which side of
- * each wall it sits on.
+ * The domain's HTTP surface, derived from the filename convention every module
+ * in these flat directories already follows (#472's device).
+ *
+ * `buyer-request` rather than `buyer-requests.` so a singular sibling is caught
+ * too: the cost of the looser prefix is nil here — nothing else in the tree is
+ * named for a buyer request — and the cost of the tighter one is a module that
+ * looks covered and is not.
+ *
+ * It deliberately does NOT reach `routes/orders.ts` or `routes/guest-orders.ts`,
+ * the two files that MOUNT this domain's router. A route that mounts decides
+ * nothing and its imports are the union of every surface on it, so scanning one
+ * as a buyer-request module would fail this gate for a co-location — #483's
+ * `AGGREGATOR_ROUTES` reasoning, reached here by the derivation never selecting
+ * them rather than by an exclusion that would need its own count.
+ */
+function httpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => basename(entry.name).startsWith('buyer-request'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
+/**
+ * Every module in the domain, WALKED rather than listed (#460).
+ *
+ * The hand list this replaces named all 20 modules and was complete on the day
+ * it was written, which is exactly the defect: what a list omits is whatever
+ * somebody adds next, and that is the module nobody has reviewed.
  */
 const DOMAIN_PATHS = [
-  'services/buyer-requests/authorization.ts',
-  'services/buyer-requests/policy.ts',
-  'services/buyer-requests/order-facts.ts',
-  'services/buyer-requests/cancellation-request.service.ts',
-  'services/buyer-requests/cancellation-decision.service.ts',
-  'services/buyer-requests/return-request.service.ts',
-  'services/buyer-requests/return-decision.service.ts',
-  'services/buyer-requests/support.service.ts',
-  'services/buyer-requests/redaction.ts',
-  'services/buyer-requests/notifications.ts',
-  'services/buyer-requests/projection.ts',
-  'services/buyer-requests/refund-bridge.ts',
-  'services/buyer-requests/reconciler.ts',
-  'db/buyerRequests/cancellationRepository.ts',
-  'db/buyerRequests/returnRepository.ts',
-  'db/buyerRequests/supportRepository.ts',
-  'db/buyerRequests/eventRepository.ts',
-  'controllers/buyer-requests.controller.ts',
-  'controllers/buyer-requests.schemas.ts',
-  'routes/buyer-requests.ts',
+  ...walk('services/buyer-requests'),
+  ...walk('db/buyerRequests'),
+  ...httpSurface(),
 ];
 
 /**
+ * The modules that may reach an order writer or the refund service — the ONLY
+ * crossings in the domain, each with the reason it is one.
+ *
+ * An EXACT count rather than a floor, because this is the one hand list left and
+ * an unbounded exclusion list is a predicate rather than an identity (#448). The
+ * positive half of the gate then asserts each of these genuinely DOES cross, so
+ * a stale exclusion cannot go on excusing a module that stopped needing it.
+ *
+ * The direction matters: `BUYER_PATHS` is derived by SUBTRACTING these from the
+ * domain walk, so a module added tomorrow lands in the buyer half by default and
+ * is held to the STRICTER wall. The list this replaced named the buyer half
+ * directly, so a new module landed in neither and was behind no wall at all —
+ * and six modules already sat outside the buyer wall for no reason:
+ * `notifications.ts`, `projection.ts`, `reconciler.ts`, both controllers and the
+ * route, every one of which passes it.
+ */
+const CROSSING_PATHS = [
+  {
+    path: 'services/buyer-requests/cancellation-decision.service.ts',
+    /** A seller's decision: transitions the order AND refunds. */
+    crosses: 'order',
+  },
+  {
+    path: 'services/buyer-requests/return-decision.service.ts',
+    /** A seller's decision: refunds once the goods are `received`. */
+    crosses: 'refund',
+  },
+  {
+    path: 'services/buyer-requests/refund-bridge.ts',
+    /** #110 refund rule 4's single crossing onto the payment domain. */
+    crosses: 'refund',
+  },
+] as const;
+
+/**
  * The BUYER path — everything a request travels through before a seller has
- * decided anything.
+ * decided anything. DERIVED: the domain walk minus the counted crossings.
  *
  * These may not reach an order writer, a refund service, an inventory function
  * or the payment domain. That is #110 acceptance 2 ("a guest cannot mutate
  * status or provider payment directly") as a property of the import graph.
  */
-const BUYER_PATHS = [
-  'services/buyer-requests/authorization.ts',
-  'services/buyer-requests/policy.ts',
-  'services/buyer-requests/order-facts.ts',
-  'services/buyer-requests/cancellation-request.service.ts',
-  'services/buyer-requests/return-request.service.ts',
-  'services/buyer-requests/support.service.ts',
-  'services/buyer-requests/redaction.ts',
-  'db/buyerRequests/cancellationRepository.ts',
-  'db/buyerRequests/returnRepository.ts',
-  'db/buyerRequests/supportRepository.ts',
-  'db/buyerRequests/eventRepository.ts',
-];
-
-/**
- * The two DECISION services, which may reach all four — and are the only
- * modules in the domain that may.
- *
- * Listed so the positive half of the gate can assert they actually do: a
- * scanner asserting only absences would pass just as happily if
- * `order.service` had been renamed out of existence.
- */
-const DECISION_PATHS = [
-  'services/buyer-requests/cancellation-decision.service.ts',
-  'services/buyer-requests/return-decision.service.ts',
-];
+const BUYER_PATHS = DOMAIN_PATHS.filter(
+  (path) => !CROSSING_PATHS.some((entry) => entry.path === path),
+);
 
 /** An order STATUS writer. `transition` is the only lifecycle authority. */
 const ORDER_WRITER_REFERENCE =
@@ -149,13 +183,42 @@ function stripComments(source: string): string {
 
 describe('buyer request isolation (static)', () => {
   it('scans every module in the domain', () => {
-    // The vacuity floor. A gate that scanned nothing would pass every assertion
-    // below, and the shape of that failure — a moved file, a renamed directory
-    // — is exactly the one nobody notices.
-    expect(DOMAIN_PATHS.length).toBeGreaterThanOrEqual(20);
-    expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(11);
+    // The vacuity floors, PER SHAPE rather than one on the total. The three
+    // sources break independently — a renamed `db/buyerRequests` would empty one
+    // walk while the other two carried the number, and a single total on 20
+    // would still pass. Each floor is today's count, so a SHRINK stops the build
+    // rather than quietly narrowing every assertion below.
+    const from = (prefix: string) => DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/buyer-requests/'), 'the service walk found nothing').toBeGreaterThanOrEqual(
+      13,
+    );
+    expect(from('db/buyerRequests/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(4);
+    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(
+      3,
+    );
+    expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(17);
+
+    // EXACT: an unbounded exclusion list lets any number of modules ride in
+    // behind the ones somebody justified (#448).
+    expect(CROSSING_PATHS.length, 'a fourth crossing was excluded from the buyer wall').toBe(3);
+
+    // The walk really reads the disk, rather than a `readdirSync` that has
+    // silently started returning a cached or empty result.
     for (const path of DOMAIN_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
       expect(readSource(path).length).toBeGreaterThan(200);
+    }
+
+    // No test file may enter the scanned set: a gate that scans its own probes
+    // reports violations it wrote itself.
+    expect(DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+
+    // Every excluded crossing must still BE in the domain — an exclusion naming
+    // a module the walk no longer finds excuses nothing while looking like a
+    // decision.
+    for (const { path } of CROSSING_PATHS) {
+      expect(DOMAIN_PATHS, `${path} is excluded from the buyer wall but is not in the domain`,
+      ).toContain(path);
     }
   });
 
@@ -181,14 +244,21 @@ describe('buyer request isolation (static)', () => {
     }
   });
 
-  it('the DECISION services do reach the order and refund services', () => {
-    // The positive half. Without it, every absence above would still hold if
-    // `order.service` and `refund.service` had simply been renamed, and the
-    // gate would be measuring nothing.
-    const cancellation = stripComments(readSource(DECISION_PATHS[0] ?? ''));
-    expect(ORDER_WRITER_REFERENCE.test(cancellation)).toBe(true);
-    const returns = stripComments(readSource(DECISION_PATHS[1] ?? ''));
-    expect(REFUND_REFERENCE.test(returns)).toBe(true);
+  it('every excluded crossing genuinely crosses', () => {
+    // The positive half, and the thing that keeps the exclusion list honest.
+    // Without it, every absence above would still hold if `order.service` and
+    // `refund.service` had simply been renamed, and the gate would be measuring
+    // nothing. With it, a module that stops crossing stops being excludable and
+    // this test names it — so the buyer wall can only ever get wider by neglect,
+    // never narrower.
+    for (const { path, crosses } of CROSSING_PATHS) {
+      const source = stripComments(readSource(path));
+      const pattern = crosses === 'order' ? ORDER_WRITER_REFERENCE : REFUND_REFERENCE;
+      expect(
+        pattern.test(source),
+        `${path} is excused from the buyer wall as a ${crosses} crossing, and no longer is one`,
+      ).toBe(true);
+    }
   });
 
   it('nothing in the domain writes a review, opens a moderation case or subscribes anybody', () => {

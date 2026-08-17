@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -36,12 +36,26 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 /** The whole domain — scanned as a DIRECTORY, so the walls hold for modules nobody has written yet. */
 const DOMAIN_DIRS = ['services/guest-governance', 'db/guestGovernance'];
 
-/** The modules outside those directories that are still part of the domain. */
-const DOMAIN_FILES = [
-  'controllers/guest-governance.controller.ts',
-  'routes/internal-guest-governance.ts',
-  'db/schema/guestGovernance.ts',
-];
+/**
+ * The modules outside those directories that are still part of the domain,
+ * DERIVED rather than listed (#460).
+ *
+ * The match is INCLUDES rather than startsWith, and that is load-bearing here:
+ * this domain's operator route is `routes/internal-guest-governance.ts`, and a
+ * `startsWith` rule — which is the right one for most domains — silently misses
+ * every `internal-<domain>.ts` operator surface. Checked against the tree: these
+ * three files are the only ones anywhere in the scanned roots whose name
+ * contains the domain, so the looser match costs nothing and covers the shape
+ * that would otherwise be invisible.
+ */
+function domainFiles(): string[] {
+  return ['controllers', 'routes', 'middleware', 'db/schema'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /guest-?[Gg]overnance/.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
 
 /**
  * Reading a DEVICE (#111 abuse control 1: "layered controls that avoid device
@@ -83,17 +97,22 @@ const PROVIDER_IDENTITY_REFERENCE =
 /** Every file in the domain, with its path, for the floor and the scans. */
 function domainSources(): readonly { path: string; text: string }[] {
   const files: { path: string; text: string }[] = [];
-  for (const dir of DOMAIN_DIRS) {
-    const absolute = join(SRC_ROOT, dir);
-    for (const entry of readdirSync(absolute, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
-      files.push({
-        path: `${dir}/${entry.name}`,
-        text: readFileSync(join(absolute, entry.name), 'utf8'),
-      });
+  // RECURSIVE. The previous walk stopped at each directory root, which is the
+  // exact shape #472 found hiding `services/ingestion/adapters/` — five provider
+  // modules behind no wall at all. Both directories are flat today; the point is
+  // that a subdirectory added tomorrow is covered without anybody remembering.
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(join(SRC_ROOT, dir), { withFileTypes: true })) {
+      if (entry.name === '__tests__') continue;
+      const child = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(child);
+      else if (entry.name.endsWith('.ts')) {
+        files.push({ path: child, text: readFileSync(join(SRC_ROOT, child), 'utf8') });
+      }
     }
-  }
-  for (const path of DOMAIN_FILES) {
+  };
+  for (const dir of DOMAIN_DIRS) walk(dir);
+  for (const path of domainFiles()) {
     files.push({ path, text: readFileSync(join(SRC_ROOT, path), 'utf8') });
   }
   return files;
@@ -118,7 +137,20 @@ describe('the guest-governance domain cannot fingerprint, rank or correlate (#11
     // Fourteen at the time of writing. The floor is what makes a moved or
     // emptied module fail the gate instead of shrinking it silently — a scan
     // over zero files passes every assertion below.
-    expect(sources.length).toBeGreaterThanOrEqual(10);
+    // Vacuity floors PER SHAPE rather than one on the total: the three sources
+    // break independently, and a single total on 10 would let a walk collapse to
+    // zero while the others carried the number. Each is today's count,
+    // re-derived after the final rebase, so a SHRINK stops the build.
+    const from = (prefix: string) =>
+      sources.filter((source) => source.path.startsWith(prefix)).length;
+    expect(from('services/guest-governance/'), 'the service walk found nothing').toBeGreaterThanOrEqual(6);
+    expect(from('db/guestGovernance/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
+    expect(domainFiles().length, 'the outlying-module derivation found nothing').toBeGreaterThanOrEqual(3);
+    expect(sources.length).toBeGreaterThanOrEqual(14);
+    for (const source of sources) {
+      expect(statSync(join(SRC_ROOT, source.path)).isFile(), `${source.path} is not a file`).toBe(true);
+    }
+    expect(sources.filter((source) => source.path.includes('__tests__'))).toEqual([]);
     expect(sources.every((source) => source.text.length > 200)).toBe(true);
   });
 

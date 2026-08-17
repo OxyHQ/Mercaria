@@ -41,7 +41,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -62,19 +62,41 @@ import {
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const REPO_PACKAGES = join(SRC_ROOT, '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
 /**
- * Every module that composes what a buyer reads about who is selling.
+ * The one route that serves this domain and cannot be derived from a name.
  *
- * A new module in `services/commercial-presentation/` belongs on this list —
- * the vacuity floor below is what forces whoever adds one to look at this file.
+ * `routes/retail-offers.ts` is named after its RESOURCE rather than after this
+ * domain, and no rule reaches it without also reaching something else: a
+ * `retail` prefix over `routes/` takes `retail-service-requests.ts`, which is
+ * #127's, and an `offer` prefix takes #57's and #74's surfaces — the six modules
+ * #472 scoped out of the offer wall for exactly this reason. So it stays a hand
+ * list, with an EXACT count and a comment claiming only what the list IS, which
+ * is #460's other sanctioned resolution ("where a hand list must stay, narrow
+ * the comment to what the list actually covers").
+ */
+const UNDERIVABLE_ROUTES = ['routes/retail-offers.ts'];
+
+/**
+ * Every backend module of the domain, WALKED plus the one counted route (#460).
+ *
+ * The list this replaces named all six and was complete on the day it was
+ * written; what it could not do is cover the module somebody adds next.
  */
 const PRESENTATION_PATHS = [
-  'services/commercial-presentation/presentation.ts',
-  'services/commercial-presentation/variant-commercial.service.ts',
-  'services/commercial-presentation/order-commercial.service.ts',
-  'services/commercial-presentation/retail-offer.service.ts',
-  'services/commercial-presentation/retail-order.service.ts',
-  'routes/retail-offers.ts',
+  ...walk('services/commercial-presentation'),
+  ...UNDERIVABLE_ROUTES,
 ];
 
 /**
@@ -229,6 +251,26 @@ describe('a customer commercial surface cannot reach what it must not', () => {
       ).toBe(false);
       scanned += 1;
     }
+    // Real floors, not `scanned === length`: that comparison is circular (the
+    // loop increments once per entry, so it holds for ANY list including an
+    // empty one) and catches a broken loop but never a shrunk population.
+    // PER SHAPE, because the three sources break independently.
+    expect(
+      PRESENTATION_PATHS.filter((path) => path.startsWith('services/commercial-presentation/'))
+        .length,
+      'the domain walk found nothing',
+    ).toBeGreaterThanOrEqual(5);
+    // EXACT: both hand lists are identities, not predicates (#448). The
+    // storefront list stays a hand list deliberately — walking `packages/frontend`
+    // whole would scan every screen in the app for a commercial-disclosure
+    // violation, which is a different gate, so the comment above it claims only
+    // what the list IS.
+    expect(UNDERIVABLE_ROUTES.length, 'a second underivable route was added').toBe(1);
+    expect(STOREFRONT_PATHS.length, 'the storefront list changed size').toBe(7);
+    for (const path of PRESENTATION_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(PRESENTATION_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
     expect(scanned).toBe(PRESENTATION_PATHS.length + STOREFRONT_PATHS.length);
     // Vacuity floor: a filter that emptied either list would pass every loop.
     expect(scanned).toBeGreaterThanOrEqual(12);
