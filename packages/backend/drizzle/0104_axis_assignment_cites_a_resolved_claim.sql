@@ -38,6 +38,18 @@
 -- not see it if it did, and that is recorded as the remaining gap rather than
 -- fixed here.
 --
+-- ## `--custom` writes the journal and the snapshot, and NOT these markers
+--
+-- This file was made with `drizzle-kit generate --custom`, which is the right
+-- tool for a trigger-body change (there is no schema diff, so `db:generate`
+-- emits nothing). It writes the journal entry and a snapshot correctly — and it
+-- does NOT write the `-- oxy:handwritten-begin=<name>` / `-end=<name>` anchors,
+-- which `migration-handwritten-markers.test.ts` requires and which a
+-- regeneration needs in order to re-apply a statement drizzle-kit cannot model.
+-- A `--custom` file's ENTIRE body is hand-written, so it is the one path where
+-- forgetting them is easiest and costs the most. Measured: this file went red on
+-- that gate before the anchors below were added.
+--
 -- ## Why a trigger and not a CHECK
 --
 -- The fact is cross-row (it is about the CITED row), and a CHECK may not contain
@@ -67,6 +79,7 @@
 --    where c.value_resolution <> 'resolved'
 --    group by 1 order by 2 desc;
 --
+-- oxy:handwritten-begin=mercaria_axis_assignment_claim_census
 do $$
 declare
   v_violators bigint;
@@ -84,7 +97,10 @@ begin
     raise notice
       'mercaria #367: no native_variant_axis_assignments row cites an unresolved claim.';
   end if;
-end $$;--> statement-breakpoint
+end $$;
+-- oxy:handwritten-end=mercaria_axis_assignment_claim_census
+--> statement-breakpoint
+-- oxy:handwritten-begin=mercaria_native_variant_axis_assignment_scope
 CREATE OR REPLACE FUNCTION mercaria_native_variant_axis_assignment_scope()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -164,3 +180,4 @@ begin
   return new;
 end;
 $$;
+-- oxy:handwritten-end=mercaria_native_variant_axis_assignment_scope
