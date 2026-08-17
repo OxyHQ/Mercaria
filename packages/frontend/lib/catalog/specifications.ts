@@ -150,10 +150,13 @@ function presentValue(value: PublicAttributeValue, locale: string): string {
     value.normalizedAmountMinor !== undefined &&
     value.normalizedCurrency !== undefined
   ) {
-    return formatMoney({
-      amount: value.normalizedAmountMinor,
-      currency: value.normalizedCurrency,
-    });
+    return formatMoney(
+      {
+        amount: value.normalizedAmountMinor,
+        currency: value.normalizedCurrency,
+      },
+      locale,
+    );
   }
 
   if (value.normalizedDate !== undefined) {

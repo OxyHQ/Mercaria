@@ -7,7 +7,7 @@ import type {
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
 import { conditionGroupLabelKey } from "../../lib/condition";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatMoney } from "../../lib/format";
 import {
   SHOPPING_AGENT_COMPLETENESS_LABELS,
@@ -71,6 +71,7 @@ export function ShoppingAgentFindingCard({
   constraintExplanations,
   onOpenProduct,
 }: ShoppingAgentFindingCardProps) {
+  const locale = useSharedUiLocale();
   const recordLabels: Record<string, string> = {};
   for (const record of finding.records) {
     if (record.label !== undefined) recordLabels[record.ref] = record.label;
@@ -109,7 +110,7 @@ export function ShoppingAgentFindingCard({
           />
           {finding.objectiveDelta ? (
             <Text className="text-caption text-text-tertiary">
-              {describeDelta(finding.objectiveDelta)}
+              {describeDelta(finding.objectiveDelta, locale)}
             </Text>
           ) : (
             <Text className="text-caption text-text-tertiary">
@@ -253,8 +254,8 @@ function SelectedLineRow({
  * the number: `formatMoney` puts the minus after the currency symbol, which
  * reads as a strange price rather than as a direction of travel.
  */
-function describeDelta(delta: Money): string {
+function describeDelta(delta: Money, locale: string): string {
   if (delta.amount === 0) return "unchanged since the last look";
-  const magnitude = formatMoney({ amount: Math.abs(delta.amount), currency: delta.currency });
+  const magnitude = formatMoney({ amount: Math.abs(delta.amount), currency: delta.currency }, locale);
   return delta.amount < 0 ? `${magnitude} lower than before` : `${magnitude} higher than before`;
 }

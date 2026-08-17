@@ -53,6 +53,7 @@ export {
 // ---------------------------------------------------------------------------
 export {
   SharedUiTranslationProvider,
+  useSharedUiLocale,
   useSharedUiTranslation,
   type SharedUiTranslationProviderProps,
 } from "./i18n/ui-translation";
@@ -79,19 +80,28 @@ export { syncLayoutDirection, type DirectionSyncResult } from "./i18n/layout-dir
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 // `./lib/bidi`'s `isolateBidi` is deliberately NOT exported here. It is applied
-// once, inside the four formatters below (#429 item 1), which is what makes this
+// once, inside the nine formatters below (#429 item 1), which is what makes this
 // module the chokepoint rather than a utility screens remember to call. An
 // export with no consumer is API surface inviting exactly the per-screen use the
 // issue rules out; the first screen that genuinely needs it — a raw quantity or
 // a Latin brand name in an Arabic sentence — adds the export in the diff that
 // uses it.
+//
+// Each takes a REQUIRED `locale` (#500). A SCREEN should reach them through
+// `useFormatters()`, which binds the locale the app already publishes; the bare
+// functions are for callers that are not components and already hold one
+// (`packages/frontend/lib/catalog/specifications.ts`, and the guard scripts,
+// which import them by path rather than through this barrel).
 export {
   formatDistance,
   formatMoney,
+  formatPercent,
+  formatRating,
   formatReviewCount,
   formatSourceMoney,
   type ProductSummary,
 } from "./lib/format";
+export { useFormatters, type Formatters } from "./lib/use-formatters";
 
 // Dates (#488) and country names (#489) are their OWN modules rather than part
 // of `./lib/format`, split by subject — see each module's note. They are

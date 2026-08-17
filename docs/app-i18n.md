@@ -114,6 +114,54 @@ The provider is handed the APP's own `t`, so there is one locale in force per
 app rather than a second one in this package that could disagree with the screen
 around it.
 
+Since #500 it is handed the `locale` too, from the SAME `useTranslation()` call.
+That is not a convenience: the formatters need a locale, and every other way of
+getting one — a second context, a module-level slot, re-deriving it the way
+`useIsRtlLayout` reads back `I18nManager.isRTL` — is a second answer to "what
+language is this app in". Two answers to that can disagree, and the place it
+shows is a price whose decimal separator does not match the sentence around it.
+
+## Numbers are spelled for the locale too (#500)
+
+`toFixed` emits an ASCII `.` whatever the reader's language is — wrong in eight
+of the twelve locales the registry ships. Every display formatter in
+`@mercaria/ui/src/lib/format.ts` therefore takes a **required** `locale`:
+`formatMoney`, `formatSourceMoney`, `formatDistance`, `formatReviewCount`, plus
+`formatPercent` (moved out of `price-signal-labels.ts`) and `formatRating`.
+
+- **Screens call `useFormatters()`**, which binds the locale once. The bare
+  functions are for callers that are not components and already hold one
+  (`packages/frontend/lib/catalog/specifications.ts`, the guard scripts).
+- **Required, not optional.** An optional locale defaulting to `en` keeps every
+  existing call site compiling and rendering English — the change would land,
+  look complete, and fix nothing. Required makes `tsc` the gate.
+- **The symbol is not localized, the number is.** `style: "currency"` would
+  place the symbol per locale but demands an ISO 4217 code, and FAIR is not one.
+  Using it for ISO codes and not for FAIR would be two conventions in one
+  formatter, so symbol placement stays LTR-prefixed for every currency.
+- **English output moves in exactly one way:** it gains grouping separators
+  (`$1234.56` → `$1,234.56`), which `toFixed` never emitted.
+- **`ar` and `bn` render their own digits.** That is CLDR's answer for those
+  locales and is pinned as a property (no ASCII digit survives), not as a
+  literal.
+
+Two gates hold it. `validate:bidi-isolation` runs the real functions and, beside
+the code-point assertions, checks that `en` and a non-`en` locale actually
+DIFFER — without that, a `format.ts` that accepted a locale and dropped it would
+pass every other case. `validate:money-formatting` gained a
+`raw-decimal-render` rule, because a raw `.toFixed(1)` in a render position was
+invisible to every gate here: `ReviewSummaryCard` shipped a localized review
+count and an ASCII rating in one template literal, and nothing caught it.
+
+**What is NOT verified:** `Intl` behaviour on Hermes. All three apps are built
+and deployed as Expo **web** exports today, where `Intl` is the browser's and
+complete; `packages/frontend/eas.json` exists but no workflow builds native and
+no store release has happened. `formatNumber` degrades to the pre-#500 ASCII
+spelling if the runtime refuses an option or the OS hands over a malformed tag,
+so a constrained engine renders what shipped before rather than something worse
+— but nobody has run these formatters on a device. Whoever ships the first
+native build should check `notation: "compact"` and `style: "unit"` there.
+
 ## The alias table is two entries, and that is deliberate
 
 `i18n-js` runs with `enableFallback`, whose chain already resolves `es-MX` ->

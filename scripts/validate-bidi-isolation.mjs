@@ -7,7 +7,7 @@
  * ## Why this exists rather than a review
  *
  * `FSI` (U+2068) and `PDI` (U+2069) are `Cf` format characters: zero-width and
- * default-ignorable. Isolation that was never applied, applied to three of four
+ * default-ignorable. Isolation that was never applied, applied to eight of nine
  * formatters, applied twice, or applied with the wrong character renders
  * IDENTICALLY to isolation that is correct — in every screenshot, every diff
  * view and every code review. There is no appearance to check. The only
@@ -40,8 +40,8 @@
  *
  * ## Vacuity floors
  *
- * A gate over four hand-listed functions goes quietly useless the moment a
- * fifth is added, so the covered set is checked for EXACT equality against the
+ * A gate over a hand-listed set of functions goes useless the moment another
+ * is added, so the covered set is checked for EXACT equality against the
  * functions `format.ts` actually exports — a new or renamed formatter fails the
  * build until it is covered here.
  *
@@ -65,6 +65,8 @@ import { fileURLToPath } from "node:url";
 import {
   formatDistance,
   formatMoney,
+  formatPercent,
+  formatRating,
   formatReviewCount,
   formatSourceMoney,
 } from "../packages/ui/src/lib/format.ts";
@@ -112,7 +114,7 @@ const formatModulePath = resolve(repositoryRoot, "packages/ui/src/lib/format.ts"
  * census has instead of a bug. Each entry is floored individually below.
  */
 const FORMATTER_MODULES = [
-  { path: "packages/ui/src/lib/format.ts", module: formatModule, minimum: 4 },
+  { path: "packages/ui/src/lib/format.ts", module: formatModule, minimum: 6 },
   { path: "packages/ui/src/lib/date.ts", module: dateModule, minimum: 2 },
   { path: "packages/ui/src/lib/region.ts", module: regionModule, minimum: 1 },
 ];
@@ -196,45 +198,71 @@ function checkIsolatedExactly(formatterName, caseName, actual, expectedVisible) 
 }
 
 // ---------------------------------------------------------------------------
-// The four formatters. Expected visible strings are the pre-#429 outputs.
+// The six formatters in ENGLISH. Every expected string below is the PRE-#500
+// output, byte for byte, which is what makes this half a regression floor
+// rather than a restatement: #500 made these locale-aware, and the one thing it
+// must not have done is move what an English reader already sees.
+//
+// The single deliberate exception is grouping — `toFixed` emitted none, `en`
+// CLDR does — so the money cases below stay under 1000 and the grouped case is
+// asserted explicitly further down as a CHANGE.
 // ---------------------------------------------------------------------------
+
+const EN = "en";
 
 checkIsolatedExactly(
   "formatMoney",
-  "USD",
-  formatMoney({ amount: 14800, currency: "USD" }),
+  "USD/en",
+  formatMoney({ amount: 14800, currency: "USD" }, EN),
   "$148.00",
 );
 checkIsolatedExactly(
   "formatMoney",
-  "FAIR (8dp)",
-  formatMoney({ amount: 14_800_000_000, currency: "FAIR" }),
+  "FAIR (8dp)/en",
+  formatMoney({ amount: 14_800_000_000, currency: "FAIR" }, EN),
   "⊜148.00",
 );
-checkIsolatedExactly("formatMoney", "zero", formatMoney({ amount: 0, currency: "EUR" }), "€0.00");
+checkIsolatedExactly(
+  "formatMoney",
+  "zero/en",
+  formatMoney({ amount: 0, currency: "EUR" }, EN),
+  "€0.00",
+);
 // A negative amount puts the minus BETWEEN the symbol and the digits, which is
 // the shape `ShoppingAgentFindingCard` avoids by rendering the sign as a word.
 // Isolation must not move it: this pins the whole token, sign included.
 checkIsolatedExactly(
   "formatMoney",
-  "negative",
-  formatMoney({ amount: -500, currency: "USD" }),
+  "negative/en",
+  formatMoney({ amount: -500, currency: "USD" }, EN),
   "$-5.00",
 );
 
 checkIsolatedExactly(
   "formatSourceMoney",
-  "convertible currency",
-  formatSourceMoney({ amount: 12_999, currency: "USD" }),
+  "convertible currency/en",
+  formatSourceMoney({ amount: 12_999, currency: "USD" }, EN),
   "129.99 USD",
 );
 
-checkIsolatedExactly("formatDistance", "metres", formatDistance(450), "450 m");
-checkIsolatedExactly("formatDistance", "kilometres", formatDistance(2500), "2.5 km");
+checkIsolatedExactly("formatDistance", "metres/en", formatDistance(450, EN), "450 m");
+checkIsolatedExactly("formatDistance", "kilometres/en", formatDistance(2500, EN), "2.5 km");
 
-checkIsolatedExactly("formatReviewCount", "bare", formatReviewCount(349), "349");
-checkIsolatedExactly("formatReviewCount", "abbreviated", formatReviewCount(10_300), "10.3K");
-checkIsolatedExactly("formatReviewCount", "rounded", formatReviewCount(1000), "1K");
+checkIsolatedExactly("formatReviewCount", "bare/en", formatReviewCount(349, EN), "349");
+checkIsolatedExactly(
+  "formatReviewCount",
+  "abbreviated/en",
+  formatReviewCount(10_300, EN),
+  "10.3K",
+);
+checkIsolatedExactly("formatReviewCount", "rounded/en", formatReviewCount(1000, EN), "1K");
+
+checkIsolatedExactly("formatPercent", "en", formatPercent(820, EN), "8.2%");
+// The sign is carried by which SENTENCE the caller selected, never by a minus.
+checkIsolatedExactly("formatPercent", "negative bps/en", formatPercent(-820, EN), "8.2%");
+
+checkIsolatedExactly("formatRating", "en", formatRating(4.5, EN), "4.5");
+checkIsolatedExactly("formatRating", "whole/en", formatRating(5, EN), "5.0");
 
 // ---------------------------------------------------------------------------
 // The #488/#489 formatters.
@@ -335,8 +363,144 @@ checkIsolatedExactly(
 
 check(
   "formatSourceMoney refuses an unknown precision with null, not an isolated empty string",
-  formatSourceMoney({ amount: 129_900, currency: "RON" }) === null,
-  `got ${JSON.stringify(formatSourceMoney({ amount: 129_900, currency: "RON" }))}`,
+  formatSourceMoney({ amount: 129_900, currency: "RON" }, EN) === null,
+  `got ${JSON.stringify(formatSourceMoney({ amount: 129_900, currency: "RON" }, EN))}`,
+);
+
+// ---------------------------------------------------------------------------
+// LOCALIZATION (#500), and the control that makes the rest of it mean anything.
+//
+// ## Why these are mostly properties rather than exact strings
+//
+// The expected values below were read from `Intl` DIRECTLY rather than from the
+// module under test — a guard whose expectations come from the code it checks
+// asserts only that the code equals itself. But CLDR data moves between ICU
+// releases, and the parts likeliest to move are exactly the invisible ones:
+// `de` puts U+00A0 before its percent sign and `es` puts one before "mil",
+// while `de` uses a plain U+0020 before "km". Pinning those exactly would make
+// this gate fail on a `bun` upgrade for a reason that has nothing to do with
+// Mercaria.
+//
+// So the EXACT assertions are limited to spellings that are stable and
+// load-bearing — a decimal comma, a 万 grouping, a non-Latin digit — and the
+// rest are asserted as the PROPERTY the issue is actually about.
+// ---------------------------------------------------------------------------
+
+checkIsolatedExactly(
+  "formatMoney",
+  "USD/de — decimal comma",
+  formatMoney({ amount: 14800, currency: "USD" }, "de"),
+  "$148,00",
+);
+checkIsolatedExactly(
+  "formatMoney",
+  "USD/es — decimal comma",
+  formatMoney({ amount: 14800, currency: "USD" }, "es"),
+  "$148,00",
+);
+checkIsolatedExactly(
+  "formatSourceMoney",
+  "convertible currency/de",
+  formatSourceMoney({ amount: 12_999, currency: "USD" }, "de"),
+  "129,99 USD",
+);
+checkIsolatedExactly(
+  "formatDistance",
+  "kilometres/de",
+  formatDistance(2500, "de"),
+  "2,5 km",
+);
+checkIsolatedExactly("formatRating", "de", formatRating(4.5, "de"), "4,5");
+// Abbreviation is a property of the LANGUAGE, not of the number: Japanese
+// groups by ten thousand and German does not abbreviate at this magnitude at
+// all. A hardcoded "K" is not a smaller version of either.
+checkIsolatedExactly(
+  "formatReviewCount",
+  "abbreviated/ja — 万, not K",
+  formatReviewCount(10_300, "ja"),
+  "1万",
+);
+checkIsolatedExactly(
+  "formatReviewCount",
+  "abbreviated/de — not abbreviated at all",
+  formatReviewCount(10_300, "de"),
+  "10.300",
+);
+
+/**
+ * THE CONTROL FOR THE WHOLE CHANGE.
+ *
+ * Every assertion above would still pass on a runtime whose `Intl` ignored the
+ * locale and answered `en` for everything — the English cases by definition,
+ * and the localized cases would simply go red one at a time in a way that reads
+ * as "CLDR moved". This asserts the thing itself: that the locale is REACHING
+ * the formatter and CHANGING the output.
+ *
+ * It is the question worth asking of any check — what would it report if the
+ * property it measures were absent? Without this, a `format.ts` that took a
+ * `locale` parameter and dropped it on the floor would fail the exact cases
+ * above with a confusing diff; with it, the failure names the defect.
+ *
+ * Note what it does NOT prove: it runs under `bun`, which has full ICU. It says
+ * nothing about a constrained Hermes build, where `formatNumber`'s documented
+ * fallback would take over and every locale WOULD collapse to the English
+ * spelling. That gap is real and is stated in the PR rather than papered over —
+ * no gate that runs here can close it.
+ */
+const localizedPairs = [
+  ["formatMoney", formatMoney({ amount: 14800, currency: "USD" }, EN), formatMoney({ amount: 14800, currency: "USD" }, "de")],
+  ["formatSourceMoney", formatSourceMoney({ amount: 12_999, currency: "USD" }, EN), formatSourceMoney({ amount: 12_999, currency: "USD" }, "de")],
+  ["formatDistance", formatDistance(2500, EN), formatDistance(2500, "de")],
+  ["formatReviewCount", formatReviewCount(10_300, EN), formatReviewCount(10_300, "ja")],
+  ["formatPercent", formatPercent(820, EN), formatPercent(820, "de")],
+  ["formatRating", formatRating(4.5, EN), formatRating(4.5, "de")],
+];
+
+for (const [name, english, localized] of localizedPairs) {
+  check(
+    `${name}: the locale reaches the output (en and a non-en locale differ)`,
+    english !== localized,
+    `both rendered ${JSON.stringify(english)} — the locale argument is being ignored, `
+    + "so every reader gets English no matter what they chose",
+  );
+}
+
+/**
+ * `ar` renders Arabic-Indic digits, which is the case that most needs isolation
+ * and the one a Latin-digit assumption breaks silently. Asserted as a property
+ * — no ASCII digit survives — rather than as a literal, because the point is
+ * the numbering system and not one particular spelling of 148.
+ */
+const arabicMoney = visibleText(formatMoney({ amount: 14800, currency: "USD" }, "ar"));
+check(
+  "formatMoney/ar uses the locale's own digits (no ASCII digit in the figure)",
+  !/[0-9]/.test(arabicMoney.replace("$", "")),
+  `got ${JSON.stringify(arabicMoney)} — ${describeCodePoints(arabicMoney)}`,
+);
+
+/**
+ * A malformed tag must DEGRADE, never throw. The locale in force is the OS's
+ * raw BCP-47 tag, and `Intl` throws `RangeError` on a structurally invalid one
+ * (`en_US` does). This is a price formatter: an uncaught throw white-screens a
+ * product page, so the fallback path is load-bearing rather than defensive
+ * decoration — and this is the only place it is exercised.
+ */
+check(
+  "formatMoney degrades to the pre-#500 spelling on a malformed locale tag rather than throwing",
+  visibleText(formatMoney({ amount: 14800, currency: "USD" }, "en_US")) === "$148.00",
+  `got ${JSON.stringify(visibleText(formatMoney({ amount: 14800, currency: "USD" }, "en_US")))}`,
+);
+
+/**
+ * English money GAINS grouping separators, which `toFixed` never emitted. This
+ * is the one way existing English rendering moves, so it is asserted rather
+ * than left to be discovered in a screenshot.
+ */
+checkIsolatedExactly(
+  "formatMoney",
+  "grouped/en — the one English change",
+  formatMoney({ amount: 123_456, currency: "USD" }, EN),
+  "$1,234.56",
 );
 
 // ---------------------------------------------------------------------------
@@ -358,9 +522,9 @@ check(
 
 check(
   "isolateBidi applied to formatter output does not double wrap",
-  isolateBidi(formatMoney({ amount: 100, currency: "USD" })) ===
-    formatMoney({ amount: 100, currency: "USD" }),
-  `got ${describeCodePoints(isolateBidi(formatMoney({ amount: 100, currency: "USD" })))}`,
+  isolateBidi(formatMoney({ amount: 100, currency: "USD" }, EN)) ===
+    formatMoney({ amount: 100, currency: "USD" }, EN),
+  `got ${describeCodePoints(isolateBidi(formatMoney({ amount: 100, currency: "USD" }, EN)))}`,
 );
 
 // The case a `startsWith`/`endsWith` idempotence test gets WRONG. Two isolated
@@ -475,7 +639,7 @@ check(
  * branches can raise this on different lines, merge with no conflict, and
  * silently keep one number.
  */
-const MINIMUM_EXPORTED_FORMATTERS = 7;
+const MINIMUM_EXPORTED_FORMATTERS = 9;
 check(
   `at least ${MINIMUM_EXPORTED_FORMATTERS} formatters were found (vacuity floor on the census)`,
   exportedFormatters.length >= MINIMUM_EXPORTED_FORMATTERS,
@@ -500,10 +664,10 @@ check(
  * list, this reports it rather than passing with two checks — the census needs
  * its own census.
  */
-// 121 run today. Was 40 while 97 ran — the same omission as the formatter floor
+// 189 run today. Was 40 while 97 ran — the same omission as the formatter floor
 // above: #513 added cases and left the number where it was. Both are
 // hand-written on purpose, and both must be re-derived when the case list moves.
-const MINIMUM_ASSERTIONS = 115;
+const MINIMUM_ASSERTIONS = 180;
 check(
   `at least ${MINIMUM_ASSERTIONS} assertions ran (vacuity floor on the gate itself)`,
   assertionCount >= MINIMUM_ASSERTIONS,

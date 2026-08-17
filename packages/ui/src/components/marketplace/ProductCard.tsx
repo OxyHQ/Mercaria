@@ -6,7 +6,8 @@ import { Heart } from "lucide-react-native";
 import { Text } from "../ui/text";
 import { ReviewStars } from "./ReviewStars";
 import { PriceDisplay } from "../PriceDisplay";
-import { formatMoney, formatReviewCount, type ProductSummary } from "../../lib/format";
+import type { ProductSummary } from "../../lib/format";
+import { useFormatters } from "../../lib/use-formatters";
 
 /** Light color used for content drawn over the image (badge text, heart). */
 const ON_IMAGE_LIGHT = "#FFFFFF";
@@ -35,6 +36,7 @@ function isOnSale(product: ProductSummary): boolean {
 
 export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCardProps) {
   const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);
+  const { formatMoney, formatReviewCount } = useFormatters();
   const onSale = isOnSale(product);
   const discountPercent =
     onSale && product.compareAtPrice

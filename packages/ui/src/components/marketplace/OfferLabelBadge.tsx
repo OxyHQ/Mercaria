@@ -9,7 +9,7 @@ import {
   offerLabelExplanationKey,
   offerLabelTextKey,
 } from "../../lib/offer-labels";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import type { Translate } from "../../i18n/create-app-i18n";
 
 export interface OfferLabelBadgeProps {
@@ -45,8 +45,9 @@ export interface OfferLabelBadgeProps {
  */
 export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBadgeProps) {
   const t = useSharedUiTranslation();
+  const locale = useSharedUiLocale();
   const label = t(offerLabelTextKey(award.label));
-  const basis = basisText(award, t);
+  const basis = basisText(award, t, locale);
 
   return (
     <View className="gap-space-4">
@@ -80,8 +81,8 @@ export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBa
  * inventing a basis for a label that states a fact rather than a comparison is
  * the shape of a UI claiming more than the server established.
  */
-function basisText(award: OfferLabelAward, t: Translate): string | undefined {
-  if (award.amount !== undefined) return formatMoney(award.amount);
+function basisText(award: OfferLabelAward, t: Translate, locale: string): string | undefined {
+  if (award.amount !== undefined) return formatMoney(award.amount, locale);
   if (award.days !== undefined) {
     // A pluralised key rather than `=== 1`, which is the English plural rule
     // written into a component that renders in twelve languages.
@@ -89,6 +90,6 @@ function basisText(award: OfferLabelAward, t: Translate): string | undefined {
   }
   // Shared with #93's location surfaces since that issue's client half: one
   // metre count must not render two ways depending on which screen shows it.
-  if (award.metres !== undefined) return formatDistance(award.metres);
+  if (award.metres !== undefined) return formatDistance(award.metres, locale);
   return undefined;
 }

@@ -1,5 +1,5 @@
 import { I18n } from "i18n-js";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { Translate } from "./create-app-i18n";
 import { DEFAULT_LOCALE } from "./locales";
 import { SHARED_UI_COPY } from "./shared-copy";
@@ -48,7 +48,29 @@ fallbackI18n.locale = DEFAULT_LOCALE;
 
 const fallbackTranslate: Translate = (key, options) => fallbackI18n.t(key, options);
 
-const SharedUiTranslationContext = createContext<Translate>(fallbackTranslate);
+/**
+ * What this package knows about the language around it: the sentence resolver
+ * and the locale its NUMBERS must be spelled for (#500).
+ *
+ * They travel together, in one context, on purpose. The formatters need a
+ * locale and there were three places to get one from — a second context, a
+ * module-level slot written at boot, or re-deriving it from the platform the
+ * way `useIsRtlLayout` reads back `I18nManager.isRTL`. Each is a SECOND answer
+ * to "what language is this app in", and two answers to that can disagree; the
+ * place that must not happen is a price, where the disagreement renders as a
+ * decimal separator that does not match the sentence around it. Carrying the
+ * locale on the same value as `t`, supplied by the same `useTranslation()` call
+ * at the app root, makes them one fact with one writer.
+ */
+interface SharedUiTranslation {
+  t: Translate;
+  locale: string;
+}
+
+const SharedUiTranslationContext = createContext<SharedUiTranslation>({
+  t: fallbackTranslate,
+  locale: DEFAULT_LOCALE,
+});
 
 export interface SharedUiTranslationProviderProps {
   /**
@@ -58,6 +80,14 @@ export interface SharedUiTranslationProviderProps {
    * disagree with the screen around it.
    */
   t: Translate;
+  /**
+   * The locale in force, from the SAME `useTranslation()` call that supplied
+   * `t`. It is the store's raw value — a device tag like `es-MX`, not narrowed
+   * to a `SupportedLocale` — because that is the right input for `Intl`: copy
+   * resolves `es-MX` to the `es` bundle through i18n-js's fallback chain while
+   * numbers keep Mexican grouping, and narrowing here would throw that away.
+   */
+  locale: string;
   children: ReactNode;
 }
 
@@ -67,13 +97,37 @@ export interface SharedUiTranslationProviderProps {
  * exactly when the locale does, which is what re-renders every shared component
  * on a language switch.
  */
-export function SharedUiTranslationProvider({ t, children }: SharedUiTranslationProviderProps) {
+export function SharedUiTranslationProvider({
+  t,
+  locale,
+  children,
+}: SharedUiTranslationProviderProps) {
+  // Memoised because the value is now an OBJECT rather than `t` itself. A fresh
+  // object each render would re-render every shared component on every parent
+  // render, where `t`'s own identity already changes exactly when the locale
+  // does — which is what re-rendered them on a language switch before and still
+  // does, since `t` is a dependency here.
+  const value = useMemo<SharedUiTranslation>(() => ({ t, locale }), [t, locale]);
   return (
-    <SharedUiTranslationContext.Provider value={t}>{children}</SharedUiTranslationContext.Provider>
+    <SharedUiTranslationContext.Provider value={value}>
+      {children}
+    </SharedUiTranslationContext.Provider>
   );
 }
 
 /** What a component in this package calls to render one of its own sentences. */
 export function useSharedUiTranslation(): Translate {
-  return useContext(SharedUiTranslationContext);
+  return useContext(SharedUiTranslationContext).t;
+}
+
+/**
+ * The locale in force, for a component that must SPELL something rather than
+ * translate it — a price, a distance, a review count (#500).
+ *
+ * Prefer {@link useFormatters}, which binds the formatters to this so a call
+ * site cannot hold a locale and forget to pass it. This is the escape hatch for
+ * a component that needs the tag itself.
+ */
+export function useSharedUiLocale(): string {
+  return useContext(SharedUiTranslationContext).locale;
 }

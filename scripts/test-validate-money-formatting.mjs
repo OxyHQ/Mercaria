@@ -96,14 +96,25 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
  */
 function cleanTree(extra = {}) {
   return {
-    // KNOWN_EXCEPTIONS[0] — the chokepoint's own `1234.00 RON` return.
+    // The three `packages/ui/src/lib/format.ts` entries: the chokepoint's own
+    // `1234.00 RON` return, and the two un-localized fallbacks `formatNumber`
+    // degrades to when the runtime refuses an Intl option (#500).
+    //
+    // Note what this file no longer contains: a `${major.toFixed(2)}` inside a
+    // template. That WAS `formatMoney` before #500 and is now a `formatNumber`
+    // call, so modelling it here would be this fixture asserting against a
+    // version of the chokepoint that no longer exists.
     "packages/ui/src/lib/format.ts":
-      "export function formatMoney(money) {\n"
-      + "  return `${symbol}${major.toFixed(2)}`;\n"
+      "export function formatSourceMoney(money) {\n"
+      + "  return `${figure} ${money.currency}`;\n"
       + "}\n"
-      + "export function formatSourceMoney(money) {\n"
-      + "  return `${major.toFixed(2)} ${money.currency}`;\n"
-      + "}\n",
+      + "const kmFallback = () => `${kilometres.toFixed(1)} km`;\n"
+      + "const pctFallback = () => `${(magnitude / BASIS_POINTS_PER_PERCENT).toFixed(1)}%`;\n",
+    // The `referral-labels.ts` entry — a percentage inside a hardcoded English
+    // sentence, left un-localized until that module is translated.
+    "packages/ui/src/lib/referral-labels.ts":
+      "export const describeRewardBasis = (basis) =>\n"
+      + "  `${(basis.rateBps / 100).toFixed(basis.rateBps % 100 === 0 ? 0 : 2)}% of ${basis.percentageOf}`;\n",
     // KNOWN_EXCEPTIONS[1] — the target-price TextInput prefill.
     "packages/frontend/app/(app)/price-alerts.tsx":
       "const prefill = (suggested.amount / 10 ** precision).toFixed(precision);\n"
@@ -170,6 +181,34 @@ const cases = [
     }),
     expectExit: 1,
     expectOutput: "hand-rolled-minor-units",
+  },
+  {
+    name: "a raw .toFixed() decimal reaching a reader fails, with no .amount in sight",
+    // The shape `ReviewSummaryCard` carried until #500: a rating rendered with
+    // `toFixed` in the SAME template as a localized review count, so a German
+    // reader saw `10.300 unverified · 4.5`. No rule here could see it — every
+    // other one keys on `.amount` or on a currency, and a rating is neither.
+    files: cleanTree({
+      "packages/ui/src/components/marketplace/regressed.tsx":
+        "export const Summary = ({ average, unverified }) => (\n"
+        + "  <Text>{average.toFixed(1)}</Text>\n"
+        + ");\n",
+    }),
+    expectExit: 1,
+    expectOutput: "raw-decimal-render",
+  },
+  {
+    name: "a .toFixed() that is NOT on its way to a reader does not fire",
+    // The discriminator is the brace. A parseable prefill and an intermediate
+    // value are not this rule's business — a rule that flagged them would be
+    // turned off by whoever hit it.
+    files: cleanTree({
+      "packages/ui/src/components/marketplace/intermediate.tsx":
+        "const ratio = (a, b) => (a / b).toFixed(2);\n"
+        + "export const E = () => <Text>{formatRating(score)}</Text>;\n",
+    }),
+    expectExit: 0,
+    expectOutput: "Money-formatting guard passed",
   },
   {
     name: "a bare number rendered beside a currency fails, even with no .amount in sight",

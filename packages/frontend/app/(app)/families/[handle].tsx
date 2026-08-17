@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { SectionHeader, Skeleton, Text, formatMoney } from "@mercaria/ui";
+import { SectionHeader, Skeleton, Text, useFormatters } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { CatalogProductGrid } from "@/components/brand/CatalogProductGrid";
 import { useTranslation } from "@/lib/i18n";
@@ -39,6 +39,7 @@ export default function ProductFamilyPageScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const router = useRouter();
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
 
   const { data: family, isLoading, isError } = useProductFamilyPage(handle);
   const products = useProductFamilyProducts(handle);

@@ -7,7 +7,7 @@ import type {
   MerchantOfferMixBucket,
   MerchantPage,
 } from "@mercaria/shared-types";
-import { ReviewStars, SectionHeader, Text, formatReviewCount } from "@mercaria/ui";
+import { ReviewStars, SectionHeader, Text, useFormatters } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { MerchantBrandStandings } from "@/components/merchant/MerchantBrandStandings";
 import { MerchantChannelPicker } from "@/components/merchant/MerchantChannelPicker";
@@ -148,6 +148,7 @@ export default function MerchantScreen() {
   const { idOrSlug } = useLocalSearchParams<{ idOrSlug: string }>();
   const router = useRouter();
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const [storefrontId, setStorefrontId] = useState<string | undefined>(undefined);
 
   const { data: page, isLoading, isError } = useMerchantPage(idOrSlug);

@@ -14,7 +14,7 @@ import {
   SectionHeader,
   Switch,
   Text,
-  formatReviewCount,
+  useFormatters,
   type ProductSummary,
 } from "@mercaria/ui";
 import type { Listing, StoreSummary } from "@mercaria/shared-types";
@@ -201,6 +201,7 @@ function GridSkeleton() {
 /** Body of the store page — only rendered once `store` is present. */
 function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const router = useRouter();
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the

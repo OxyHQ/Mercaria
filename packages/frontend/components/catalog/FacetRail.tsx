@@ -5,7 +5,7 @@ import type {
   FacetOrigin,
   FacetSelectionEntry,
 } from '@mercaria/shared-types';
-import { formatMoney, Text } from '@mercaria/ui';
+import { Text, useFormatters } from '@mercaria/ui';
 import { useTranslation } from '@/lib/i18n';
 import type { FacetReadResult } from '@/lib/api/facets';
 import { toggleFacetValue, unofferedSelections } from '@/lib/catalog/facet-selection';
@@ -130,6 +130,7 @@ function FacetBlock({
   onSelectionChange: (next: readonly FacetSelectionEntry[]) => void;
 }) {
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
 
   return (
     <View className="gap-space-8">

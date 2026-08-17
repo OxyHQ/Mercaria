@@ -19,8 +19,7 @@ import {
   ReviewSummaryCard,
   Text,
   VariantSwatches,
-  formatMoney,
-  formatReviewCount,
+  useFormatters,
   type RatingDistribution,
   type ProductSummary,
 } from "@mercaria/ui";
@@ -208,6 +207,7 @@ function distributionOf(reviews: Review[]): RatingDistribution {
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
 function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () => void }) {
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const toneColor = store.textTone === "light" ? "#FFFFFF" : "#111111";
   return (
     <View
@@ -300,6 +300,7 @@ interface ProductBodyProps {
 function ProductBody({ listing }: ProductBodyProps) {
   const router = useRouter();
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
   const addToCart = useAddCartItem();
 
   /**

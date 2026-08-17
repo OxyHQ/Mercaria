@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MoreHorizontal, Star } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { formatReviewCount } from "../../lib/format";
+import { useFormatters } from "../../lib/use-formatters";
 import { IncentiveHalo } from "./IncentiveHalo";
 
 /** Fixed gold star fill (mirrors ReviewStars / MerchantCard constant). */
@@ -60,6 +60,7 @@ function HeaderRating({
   reviewCount?: number;
   scopeLabel: string;
 }) {
+  const { formatReviewCount } = useFormatters();
   const figure = `${rating}${reviewCount !== undefined ? ` (${formatReviewCount(reviewCount)})` : ""}`;
   return (
     <View

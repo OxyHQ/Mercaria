@@ -89,7 +89,7 @@ function RootLayout() {
   // `t`, so a shared sentence and the screen around it are always in one
   // language. Read here rather than inside a nested component so the provider
   // below sits above every branch that renders anything.
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [loaded, error] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     Inter: require("../assets/fonts/Inter-VariableFont_opsz,wght.ttf"),
@@ -114,7 +114,7 @@ function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <SharedUiTranslationProvider t={t}>
+      <SharedUiTranslationProvider t={t} locale={locale}>
         <BloomThemeProvider
           defaultMode="system"
           defaultColorPreset="blue"

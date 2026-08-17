@@ -68,6 +68,7 @@ import type {
   PriceSignalUnmeasuredReason,
 } from "@mercaria/shared-types";
 import type { Translate } from "../i18n/create-app-i18n";
+import { formatPercent } from "./format";
 
 /** The short badge text for a quality label. */
 export const PRICE_QUALITY_LABEL_KEYS: Readonly<Record<PriceQualityLabel, string>> = {
@@ -252,8 +253,17 @@ const RELATIVE_SUMMARY_KEYS: Readonly<Record<PriceMarketPosition, string>> = {
  * It deliberately does NOT format money: an amount is a `PriceHistoryValue`
  * whose FX basis a caller must see, and `PriceDisplay` is the one place in this
  * package that renders one.
+ *
+ * `locale` rides beside `t` for the same reason the two travel together on
+ * `SharedUiTranslationProvider` (#500): the percentages this composes sit
+ * INSIDE the sentence `t` resolves, so a caller able to supply one and not the
+ * other could put an ASCII `8.2%` in the middle of a German sentence.
  */
-export function priceSignalAccessibleSummary(t: Translate, signal: PriceSignal): string {
+export function priceSignalAccessibleSummary(
+  t: Translate,
+  locale: string,
+  signal: PriceSignal,
+): string {
   const title = t(PRICE_SIGNAL_TITLE_KEYS[signal.kind]);
 
   if (signal.state === "unmeasured") {
@@ -286,7 +296,7 @@ export function priceSignalAccessibleSummary(t: Translate, signal: PriceSignal):
     return t(key, {
       title,
       label: t(PRICE_QUALITY_LABEL_KEYS[value.label]),
-      distance: formatPercent(value.deltaBps),
+      distance: formatPercent(value.deltaBps, locale),
       confidence: t(PRICE_QUALITY_CONFIDENCE_KEYS[value.confidence]),
       sample,
     });
@@ -294,36 +304,15 @@ export function priceSignalAccessibleSummary(t: Translate, signal: PriceSignal):
   if (value.measure === "relative") {
     return t(RELATIVE_SUMMARY_KEYS[value.position], {
       title,
-      distance: formatPercent(value.deltaBps),
+      distance: formatPercent(value.deltaBps, locale),
       sample,
     });
   }
   if (value.measure === "drop") {
-    return t(SUMMARY_KEYS.drop, { title, distance: formatPercent(value.deltaBps), sample });
+    return t(SUMMARY_KEYS.drop, { title, distance: formatPercent(value.deltaBps, locale), sample });
   }
   if (value.measure === "money_range") {
     return t(SUMMARY_KEYS.moneyRange, { title, sample });
   }
   return t(SUMMARY_KEYS.plain, { title, sample });
-}
-
-/**
- * Basis points as a percentage, to one decimal, always positive.
- *
- * The DIRECTION is carried by WHICH SENTENCE was selected rather than by a
- * minus sign, because a screen reader announcing "minus eight percent" beside
- * the word "below" reads as two different claims.
- *
- * The numeral itself is formatted the way every other formatter in this package
- * formats one — `toFixed` and an ASCII separator, no `Intl`. That is a
- * package-wide convention (`formatMoney`, `formatDistance`, `formatReviewCount`
- * all do it) and NOT a decision this file gets to make differently: these
- * numbers sit in the same sentence as a `formatMoney` amount, so one function
- * localising its separator while its neighbours do not is worse than none
- * doing it. Localising numerals is its own change across four formatters plus
- * `validate-bidi-isolation.mjs`, which pins their output by code point.
- */
-function formatPercent(deltaBps: number): string {
-  const percent = Math.abs(deltaBps) / 100;
-  return `${percent.toFixed(1)}%`;
 }

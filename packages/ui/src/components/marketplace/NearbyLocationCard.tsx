@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { type NearbyLocationResult } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { formatDistance, formatMoney } from "../../lib/format";
+import { useFormatters } from "../../lib/use-formatters";
 import { conditionLabelKey } from "../../lib/condition";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
@@ -104,6 +104,7 @@ export function NearbyLocationCard({
   onSignIn,
 }: NearbyLocationCardProps) {
   const t = useSharedUiTranslation();
+  const { formatDistance, formatMoney } = useFormatters();
   const { location } = result;
   const address = formatPublicAddress(location.address);
   const eligibility = result.checkoutEligibility;

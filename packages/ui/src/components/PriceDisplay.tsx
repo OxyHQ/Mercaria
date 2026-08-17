@@ -6,7 +6,7 @@ import {
 } from "@mercaria/shared-types";
 import { Text } from "./ui/text";
 import { cn } from "../lib/cn";
-import { formatMoney } from "../lib/format";
+import { useFormatters } from "../lib/use-formatters";
 import { useFx } from "./FxContext";
 
 /** Radix used to convert between a currency's major value and its minor units. */
@@ -89,6 +89,7 @@ export function PriceDisplay({
   secondaryClassName,
 }: PriceDisplayProps) {
   const { primaryCurrency, secondaryCurrency, dualDisplayEnabled, rates } = useFx();
+  const { formatMoney } = useFormatters();
 
   // Primary: convert to the shopper's display currency; if a needed rate is
   // missing, gracefully render the native amount rather than crash or fabricate.

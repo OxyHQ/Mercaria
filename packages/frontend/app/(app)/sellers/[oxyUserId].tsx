@@ -14,7 +14,7 @@ import {
   ReviewStars,
   SectionHeader,
   Text,
-  formatReviewCount,
+  useFormatters,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
@@ -198,6 +198,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
 /** Marketplace activity, the #76 seller aggregate and Oxy Trust — three labelled blocks. */
 function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
   const { t } = useTranslation();
+  const { formatReviewCount } = useFormatters();
   const marketplace = profile.marketplace;
   const reviews = profile.transactionReviews;
 

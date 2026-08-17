@@ -1,5 +1,5 @@
 import { Pressable, View } from "react-native";
-import { formatMoney, Text } from "@mercaria/ui";
+import { Text, useFormatters } from "@mercaria/ui";
 import type {
   WatchlistBasketLine,
   WatchlistItemUnresolvedReason,
@@ -42,6 +42,7 @@ export interface WatchlistItemRowProps {
 
 export function WatchlistItemRow({ line, onOpen, onRemove }: WatchlistItemRowProps) {
   const { t } = useTranslation();
+  const { formatMoney } = useFormatters();
   const { item, evaluation, priceChange, target } = line;
 
   return (
