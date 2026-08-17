@@ -64,8 +64,10 @@ came from `@mercaria/ui`. Three shapes were available:
 
 ### How (2) copes with the apps having DIFFERENT locale sets
 
-That asymmetry is the crux, not a detail. The storefront ships `ar`; the
-dashboard and the POS deliberately do not (#434, above). So:
+That asymmetry was the crux when #437 landed, and the mechanism it produced is
+what let `ar` arrive in the dashboard and the POS later without touching this
+package. At the time the storefront shipped `ar` and those two deliberately did
+not (#434, above); all four ship it now. So:
 
 - **`SHARED_UI_COPY` is TOTAL over `SUPPORTED_LOCALES`** — a `Record`, never a
   `Partial<Record>`, so a registry locale with no shared copy is a COMPILE
@@ -73,12 +75,14 @@ dashboard and the POS deliberately do not (#434, above). So:
   app can never ask for a locale this package lacks, because there is no such
   locale.
 - **The merge is the INTERSECTION, never the union.** `createAppI18n` registers
-  the locales the APP ships and merges shared copy into exactly those. So
-  `@mercaria/ui` shipping `ar` does NOT give the dashboard an Arabic locale: an
-  Arabic device there resolves `ar` → unregistered → `en` and gets a whole
-  English screen in a left-to-right layout, which is the state #434 chose. It
-  never gets Arabic condition labels inside an unmirrored English screen, which
-  is the half-mirrored state PR #428 existed to remove.
+  the locales the APP ships and merges shared copy into exactly those. While the
+  dashboard shipped no `ar`, `@mercaria/ui` shipping one did NOT give it an
+  Arabic locale: an Arabic device there resolved `ar` → unregistered → `en` and
+  got a whole English screen in a left-to-right layout, which is the state #434
+  chose. It never got Arabic condition labels inside an unmirrored English
+  screen, which is the half-mirrored state PR #428 existed to remove. Adding
+  `ar.json` to that app is therefore the ONLY edit #434 needed for the shared
+  condition and offer copy to start resolving in Arabic too — no change here.
 
 So "an app has no key for a shared sentence" is unrepresentable for a locale it
 ships. The remaining hole is an app that never mounts the provider, and that
@@ -156,11 +160,11 @@ outcome is not evidence of one.** The chain is short enough to state and long
 enough to get wrong, and nothing fails when it is. Resolution claims in this
 area get probed against the real library.
 
-## Neither app ships Arabic, and that is the point
+## All four apps ship Arabic, and the ORDER they got it in was the point
 
-The registry carries `ar` because the storefront ships it (#396) and mirrors its
-layout for it (#397). The dashboard and the POS ship the other ELEVEN locales
-and deliberately not `ar`.
+The registry carries `ar` because the storefront shipped it first (#396) and
+mirrored its layout for it (#397). The dashboard and the POS shipped the other
+ELEVEN locales and deliberately not `ar` until their own layouts mirrored.
 
 Arabic copy in an unmirrored layout is worse than English: the text reads
 right-to-left while the row order, the padding, the table columns, the sidebar
@@ -168,24 +172,29 @@ and the numeric keypad all stay left-to-right. That is the half-mirrored state
 PR #428 existed to remove from the storefront, and re-creating it in the two
 surfaces where a mistake costs money is not an improvement.
 
-So `ar.json` for these two apps is the LAST step of mirroring their layout
-(#434), not a separate favour that can land first.
+So `ar.json` for those two apps was the LAST step of mirroring their layout
+(#434), not a separate favour that could land first.
 
-### The layout half has landed; the bundles have not
+### Both halves have landed
 
-#434 split in two. The LAYOUT half is done: both apps are migrated to logical
-utilities, `validate:rtl-classes` now scans all four client packages rather than
-just the storefront path, and the direction bootstrap runs in both through
-`createI18nStore`'s `onLocaleApplied` hook. What is still missing is the copy —
-1,061 translated strings across the two `en.json` files, under the parity gate.
+#434 split in two. The LAYOUT half went first: both apps migrated to logical
+utilities, `validate:rtl-classes` widened to all four client packages, and the
+direction bootstrap wired through `createI18nStore`'s `onLocaleApplied` hook.
+#429 item 4 then gave `Panel`/`SheetContent` a logical side, so the POS variant
+picker mirrors with everything else. The COPY half followed: 1,228 translated
+strings (dashboard 1,088, POS 140) under the parity gate.
 
-Until those bundles exist, **both apps stay LTR, and that is enforced rather
-than incidental.** `isRtlLocale` reads the locales an app SHIPS, not the language
-subtag, so an Arabic device gets an English screen in a left-to-right layout —
-the same conclusion #437's intersection merge reaches from the other side.
-`scripts/validate-rtl-direction.mjs` asserts it as a biconditional (mirror
-exactly when the language is RTL *and* a bundle exists), so it keeps holding
-when `ar.json` arrives instead of failing that PR.
+**Direction follows the SHIPPED BUNDLES, never the language tag**, which is why
+adding `ar.json` is the whole of what turns mirroring on — `isRtlLocale` reads
+the locales an app ships, so the two apps were genuinely LTR beforehand rather
+than incidentally so. `scripts/validate-rtl-direction.mjs` states it as a
+biconditional (mirror exactly when the language is RTL *and* a bundle exists),
+which is why it kept holding across the change instead of failing it.
+
+**No device has run either app in Arabic.** Whether the mirrored layout RENDERS
+correctly is a property of a real device or a foregrounded tab, and neither
+`validate:rtl-classes`, `validate:rtl-direction` nor `validate:logical-side`
+runs one — they check classes, a pure decision and four pure functions.
 
 The residual the bundles could not have fixed on their own is now closed. #429
 item 4 replaced `Panel`'s and `SheetContent`'s physical `side: 'left' | 'right'`
@@ -268,6 +277,20 @@ key-parity check, which today requires every bundle to carry exactly `en`'s
 keys — correct while the pluralizer is English-shaped, and wrong the moment it
 is not. Both halves have to move together, so they are #436 rather than a
 half-change here. The storefront has the same limitation.
+
+**Arabic is the worst case and its shipped shape is deliberate.** CLDR gives
+Arabic SIX categories (`zero`, `one`, `two`, `few`, `many`, `other`) against
+English's two, so one `other` form has to cover 0, 2, 3–10, 11–99 and 100+,
+which take three different noun forms. Every Arabic plural in this repository
+therefore writes the SINGULAR in both `one` and `other`, matching the
+`ui.offer.days` precedent `@mercaria/ui` set (`%{count} يوم` for both) and the
+same trick `ru` uses there (the abbreviated `дн.`). It is correct for 11–99,
+where Arabic genuinely takes the singular, and visibly wrong for 3–10, where
+`3 طلب` should read `3 طلبات`. That is a **#436 case**, not something to work
+around per-key: a bundle that spelled the 3–10 form instead would be wrong for
+11–99, and there is no single form that is right for both. The 28 plural keys
+this affects are `customers.orderCount`, `collections.productCount` and the
+other 21 in the dashboard, plus the 5 in the POS.
 
 ## The guard
 
@@ -460,7 +483,7 @@ Stated so nobody reads a green run as more than it is:
 
 | # | What |
 | --- | --- |
-| #434 | Add `ar.json` to the dashboard and POS — 1,061 strings. The LAYOUT half landed; see above, and #429 item 4 unblocked the POS variant picker |
+| #486 | Native review of the 1,228 Arabic strings #434 shipped. The parity gate proves a key exists with the right placeholders; it cannot tell a good translation from a plausible one. The domain terms, the flipped arrows and the plural approximation are listed there |
 | #435b | Extract the storefront's ~810 remaining hardcoded strings across 69 files and its 58 dead `en.json` keys, then add it to the guard's `OWNERS` in that same PR. #435a converged the registry, the store and the RTL bootstrap |
 | #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
 | #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |

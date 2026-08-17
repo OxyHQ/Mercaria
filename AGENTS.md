@@ -180,7 +180,7 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`);
   `validate:rtl-classes` gates all four. A physical `ml-2` half-mirrors its screen
   (row order flips, padding does not) with every build green. Direction follows the
-  SHIPPED BUNDLES, never the tag: dashboard/POS mirror but ship no `ar` yet (#434).
+  SHIPPED BUNDLES, never the tag: all four now ship `ar` and mirror (#434).
   `border-s-*`/`text-start` are MEASURED not to survive react-native-css/RN 0.85,
   so those stay physical — as are a sliding panel's `translateX` sign and divider
   edge, computed from a LOGICAL `side` in `ui/src/lib/logical-side.ts` (pure, so

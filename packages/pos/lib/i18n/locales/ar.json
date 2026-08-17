@@ -1,0 +1,186 @@
+{
+  "auth": {
+    "appName": "Mercaria POS",
+    "signIn": "تسجيل الدخول",
+    "signInBody": "سجّل الدخول بحساب Oxy لفتح الصندوق — سجّل المبيعات الحضورية، وأرفِق العملاء، وحصّل المدفوعات."
+  },
+  "cart": {
+    "addCustomer": "إضافة عميل",
+    "clear": "مسح",
+    "clearCart": "إفراغ السلة",
+    "customerAttached": "مُرفَق بهذه العملية",
+    "decreaseQuantity": "إنقاص الكمية",
+    "discountCodePlaceholder": "رمز الخصم",
+    "documentTitle": "السلة | Mercaria POS",
+    "emptyBody": "اضغط على المنتجات لإضافتها إلى العملية.",
+    "emptyTitle": "السلة فارغة",
+    "increaseQuantity": "زيادة الكمية",
+    "itemCount": {
+      "one": "%{count} عنصر",
+      "other": "%{count} عنصر"
+    },
+    "removeItem": "إزالة العنصر",
+    "subtotal": "المجموع الفرعي",
+    "title": "السلة"
+  },
+  "catalog": {
+    "add": "إضافة",
+    "availableCount": {
+      "one": "%{count} متاح",
+      "other": "%{count} متاح"
+    },
+    "chooseVariant": "اختر متغيّرًا",
+    "codePlaceholder": "امسح أو اكتب رمز SKU / الباركود",
+    "emptyBody": "لا شيء يطابق بحثك.",
+    "emptyTitle": "لا توجد منتجات",
+    "inStockCount": {
+      "one": "%{count} في المخزون",
+      "other": "%{count} في المخزون"
+    },
+    "loadFailed": "تعذّر تحميل الكتالوج",
+    "lookupFailed": "تعذّر البحث",
+    "noProductForCode": "لا يوجد منتج بهذا الرمز",
+    "outOfStock": "نفد من المخزون",
+    "searchPlaceholder": "ابحث في الكتالوج",
+    "soldOut": "نفدت الكمية"
+  },
+  "charge": {
+    "action": "تحصيل",
+    "customer": "العميل",
+    "documentTitle": "التحصيل | Mercaria POS",
+    "expectedTotal": "الإجمالي المتوقع",
+    "failed": "تعذّر التحصيل",
+    "finalTotalNote": "يُحتسب الإجمالي النهائي (الخصومات والضريبة) عند إتمام العملية.",
+    "subtitle": "راجع العملية وأتمِمها",
+    "tender": "طريقة الدفع",
+    "tenderCard": "بطاقة",
+    "tenderCash": "نقدًا",
+    "title": "التحصيل"
+  },
+  "common": {
+    "all": "الكل",
+    "name": "الاسم",
+    "next": "التالي",
+    "noAccess": "لا يوجد وصول",
+    "noAccessBody": "ليس لديك إذن لعرض هذا القسم للمتجر النشط.",
+    "optional": "اختياري",
+    "pleaseTryAgain": "يرجى المحاولة مرة أخرى.",
+    "previous": "السابق",
+    "retry": "إعادة المحاولة",
+    "somethingWentWrong": "حدث خطأ ما"
+  },
+  "customer": {
+    "addAndAttach": "إضافة وإرفاق",
+    "addFailed": "تعذّرت إضافة العميل",
+    "added": "تمت إضافة العميل",
+    "documentTitle": "العميل | Mercaria POS",
+    "email": "البريد الإلكتروني",
+    "emailPlaceholder": "sara@example.com",
+    "fallbackName": "عميل",
+    "loadFailed": "تعذّر تحميل العملاء",
+    "namePlaceholder": "سارة أحمد",
+    "noMatches": "لا يوجد عملاء مطابقون.",
+    "phone": "الهاتف",
+    "phonePlaceholder": "+971 50 123 4567",
+    "quickAdd": "إضافة سريعة",
+    "quickAddEmpty": "أدخل اسمًا أو بريدًا إلكترونيًا أو رقم هاتف",
+    "searchPlaceholder": "ابحث عن العملاء",
+    "subtitle": "أرفِق عميلًا أو أبقِها عملية لعميل عابر",
+    "title": "العميل",
+    "walkIn": "عميل عابر",
+    "walkInOption": "عميل عابر (بدون عميل مسجَّل)"
+  },
+  "errors": {
+    "noRegisterAccessBody": "ليس لديك إذن لاستخدام الصندوق للمتجر النشط.",
+    "notFoundAction": "الذهاب إلى الصندوق",
+    "notFoundBody": "هذه الشاشة غير موجودة.",
+    "notFoundDocumentTitle": "404 - غير موجود | Mercaria POS",
+    "notFoundHeading": "عذرًا!",
+    "unexpectedBody": "حدث خطأ غير متوقع. يمكنك إعادة المحاولة، وإذا استمرت المشكلة فقد أُبلغ فريقنا بها."
+  },
+  "locations": {
+    "type": {
+      "popUp": "متجر مؤقت",
+      "retail": "متجر تجزئة",
+      "virtual": "افتراضي",
+      "warehouse": "مستودع"
+    }
+  },
+  "nav": {
+    "collapseSidebar": "طيّ الشريط الجانبي",
+    "expandSidebar": "توسيع الشريط الجانبي",
+    "register": "الصندوق",
+    "sales": "المبيعات",
+    "selectStore": "اختيار المتجر",
+    "switchStore": "تبديل المتجر"
+  },
+  "orders": {
+    "channel": {
+      "draft": "مسودة",
+      "pos": "نقطة البيع",
+      "storefront": "المتجر الإلكتروني"
+    },
+    "status": {
+      "cancelled": "ملغى",
+      "delivered": "تم التسليم",
+      "paid": "مدفوع",
+      "partiallyRefunded": "مُسترد جزئيًا",
+      "pendingPayment": "بانتظار الدفع",
+      "processing": "قيد المعالجة",
+      "refunded": "مُسترد",
+      "shipped": "تم الشحن"
+    }
+  },
+  "receipt": {
+    "channelAndStatus": "%{channel} · %{status}",
+    "discount": "الخصم",
+    "documentTitle": "الإيصال | Mercaria POS",
+    "loadFailed": "تعذّر تحميل الإيصال",
+    "loadFailedBody": "قد يكون الطلب غير متاح.",
+    "newSale": "عملية بيع جديدة",
+    "orderNumber": "الطلب %{number}",
+    "paymentRecorded": "تم تسجيل الدفعة",
+    "saleComplete": "اكتملت العملية",
+    "subtotal": "المجموع الفرعي",
+    "tax": "الضريبة",
+    "title": "الإيصال",
+    "total": "الإجمالي"
+  },
+  "register": {
+    "documentTitle": "الصندوق | Mercaria POS",
+    "reviewCart": "مراجعة السلة",
+    "reviewCartWithCount": {
+      "one": "%{count} عنصر · مراجعة السلة",
+      "other": "%{count} عنصر · مراجعة السلة"
+    }
+  },
+  "sales": {
+    "documentTitle": "المبيعات | Mercaria POS",
+    "emptyBody": "ستظهر العمليات المكتملة هنا.",
+    "emptyTitle": "لا توجد مبيعات بعد",
+    "loadFailed": "تعذّر تحميل المبيعات",
+    "orderLabel": "الطلب %{number}",
+    "pageNumber": "صفحة %{page}",
+    "rowMeta": "%{when} · %{status}",
+    "subtitle": "أحدث الطلبات"
+  },
+  "storeSetup": {
+    "changeStore": "تغيير المتجر",
+    "chooseRegisterSubtitle": "اختر الموقع الذي يخصم منه هذا الصندوق المخزون",
+    "chooseRegisterTitle": "اختر صندوقًا",
+    "chooseStoreSubtitle": "اختر المتجر الذي تبيع لحسابه",
+    "chooseStoreTitle": "اختر متجرًا",
+    "defaultLocation": "افتراضي",
+    "documentTitle": "إعداد المتجر | Mercaria POS",
+    "locationsLoadFailed": "تعذّر تحميل المواقع",
+    "noLocationsBody": "أنشئ موقعًا في لوحة التحكم أولًا، ثم عُد إلى هنا لفتح الصندوق.",
+    "noLocationsTitle": "لا توجد مواقع",
+    "noStoresBody": "أنشئ متجرًا في لوحة تحكم Mercaria أولًا، ثم عُد إلى هنا لفتح الصندوق.",
+    "noStoresTitle": "لا توجد متاجر بعد",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} منتج",
+      "other": "@%{handle} · %{count} منتج"
+    },
+    "storesLoadFailed": "تعذّر تحميل متاجرك"
+  }
+}

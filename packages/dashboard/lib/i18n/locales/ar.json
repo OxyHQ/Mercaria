@@ -1,0 +1,1442 @@
+{
+  "auth": {
+    "signInAction": "تسجيل الدخول",
+    "signInBody": "سجّل الدخول بحساب Oxy لإدارة متجرك — المنتجات والطلبات والمخزون والعملاء والخصومات والتقارير.",
+    "signInTitle": "Mercaria Dashboard"
+  },
+  "channels": {
+    "addChannel": "إضافة قناة",
+    "andJoin": " و ",
+    "availability": {
+      "notConfigured": "غير مُعد هنا",
+      "notImplemented": "غير متاح بعد"
+    },
+    "badge": {
+      "comparisonOnly": "للمقارنة فقط",
+      "sellsOnMercaria": "يبيع على Mercaria"
+    },
+    "collectionMapping": {
+      "body": "اختر مجموعة Mercaria التي تستورد إليها كل %{many} في هذه القناة. المنتجات في %{one} غير معيَّنة تُستورد أيضًا — لكنها لا تصل إلى أي مجموعة.",
+      "channelNoun": "%{noun} القناة",
+      "dontMap": "لا تعيّن هذه",
+      "fixMapping": "إصلاح التعيين",
+      "loadFailed": "تعذّر تحميل مجموعات هذه القناة.",
+      "map": "تعيين",
+      "noManualCollections": "لا يملك هذا المتجر مجموعات يدوية بعد. أنشئ واحدة أولًا — فالمجموعة التلقائية تملأ نفسها من قواعدها ولا يمكنها استقبال تعيين قناة.",
+      "noun": {
+        "category": {
+          "plural": "فئات",
+          "singular": "فئة"
+        },
+        "collection": {
+          "plural": "مجموعات",
+          "singular": "مجموعة"
+        }
+      },
+      "pickBody": "المجموعات اليدوية فقط هي التي يمكن تعيينها. المجموعة التلقائية تحدد عضويتها بنفسها من قواعدها.",
+      "pickTitle": "التعيين إلى مجموعة في Mercaria",
+      "productsOnChannel": {
+        "one": "%{count} منتج على القناة",
+        "other": "%{count} منتج على القناة"
+      },
+      "removeMapping": "إزالة هذا التعيين",
+      "state": {
+        "externalMissing": "لم يعد هذا موجودًا على القناة، لذا لن يُعيَّن شيء من خلاله. أزل التعيين، أو أعد إنشاءه على القناة.",
+        "targetAutomated": "مجموعة Mercaria تلك تملأ نفسها من قواعدها، لذا فإن تعيين القناة سيُضاف ويُزال مع كل مزامنة. اختر مجموعة يدوية بدلًا من ذلك.",
+        "targetMissing": "حُذفت مجموعة Mercaria. تستمر المنتجات في الاستيراد؛ لكنها لا تصل إلى أي مجموعة. اختر مجموعة أخرى."
+      },
+      "title": "تعيين المجموعات",
+      "unavailable": {
+        "disconnected": "هذه القناة مفصولة، لذا لا يمكن قراءة مجموعاتها. أعد ربطها للاختيار من القائمة الحية.",
+        "platformUnavailable": "تعذّر الوصول إلى القناة الآن، لذا لا تظهر مجموعاتها. تعيينك الحالي غير متأثر.",
+        "pushInConnection": "هذه القناة تدفع البيانات إلى Mercaria، لذا لا تملك Mercaria بيانات اعتماد لقراءة مجموعاتها. تعيينك الحالي معروض أدناه ولا يزال قابلًا للتعديل."
+      }
+    },
+    "connect": "ربط",
+    "coverage": {
+      "doesNotSyncHeading": "لا يزامن",
+      "doesNotSyncLabel": "لا يزامن: ",
+      "nothing": "لا شيء",
+      "partial": "%{direction} — %{caveat}",
+      "syncsHeading": "يزامن",
+      "syncsLabel": "يزامن: "
+    },
+    "direction": {
+      "bothWays": "في الاتجاهين",
+      "pull": "منصّتك ← Mercaria",
+      "push": "Mercaria ← منصّتك"
+    },
+    "disconnect": {
+      "action": "فصل القناة",
+      "confirmAction": "فصل",
+      "confirmTitle": "فصل %{provider}؟",
+      "intro": "اختر ما يحدث للمنتجات التي استوردتها هذه القناة. لا يُمَس أبدًا سجل أسعارك ولا أي شيء استوردته قناة أخرى.",
+      "policy": {
+        "archiveListings": "أرشفة",
+        "keepListings": "الإبقاء على المنتجات",
+        "unpublishListings": "إلغاء النشر"
+      },
+      "policyHelp": {
+        "archiveListings": "إيقاف المزامنة وأرشفة منتجات هذه القناة. تُترك المنتجات المباعة والخاضعة للإشراف كما هي.",
+        "keepListings": "إيقاف المزامنة وترك كل منتج كما هو تمامًا — ما زال معروضًا للبيع، وأصبح الآن لك لتعدّله في Mercaria.",
+        "unpublishListings": "إيقاف المزامنة وسحب منتجات هذه القناة من البيع، مع الاحتفاظ بها كمسودات يمكنك إعادة نشرها."
+      },
+      "productsChanged": {
+        "one": "%{count} منتج تغيّر",
+        "other": "%{count} منتج تغيّر"
+      },
+      "recordsKept": {
+        "one": "%{count} سجل سعر محفوظ",
+        "other": "%{count} سجل سعر محفوظ"
+      },
+      "title": "فصل"
+    },
+    "documentTitle": "قنوات البيع | Mercaria Dashboard",
+    "empty": {
+      "body": "اربط متجرًا أو خلاصة منتجات أدناه لجلب كتالوج موجود.",
+      "title": "كتالوج Mercaria الخاص بك فقط"
+    },
+    "entity": {
+      "collections": "المجموعات",
+      "customers": "العملاء",
+      "discounts": "الخصومات",
+      "giftCards": "بطاقات الهدايا",
+      "inventory": "المخزون",
+      "orders": "الطلبات",
+      "productReviews": "التقييمات",
+      "products": "المنتجات",
+      "refunds": "المبالغ المستردة",
+      "shippingRates": "أسعار التوصيل",
+      "taxRates": "معدلات الضريبة"
+    },
+    "entityAbsence": {
+      "channelNotImplemented": "لا تملك Mercaria موصّلًا لهذه المنصّة بعد.",
+      "channelTransportsProductsOnly": "خلاصة المنتجات هي ملف منتجات ولا تحمل أي شيء آخر.",
+      "importedOnlyAsPartOfAnOrder": "لا تُستورد أي قائمة. ما يظهر يأتي فقط من الطلبات المستوردة.",
+      "nativeCatalogIsNotASync": "لا يُستورد شيء — أنت تحرّر هذا الكتالوج في Mercaria.",
+      "notBuiltForThisChannel": "لا تتبادل Mercaria هذا مع منصّتك.",
+      "notModelledByMercaria": "لا تملك Mercaria سجلًا من هذا النوع ليصل إليه.",
+      "ownedByAnotherSystem": "يُدار في مكان آخر داخل Mercaria بدلًا من استيراده من منصّتك."
+    },
+    "entityCaveat": {
+      "breakdownOnlyOnImportedOrders": "يعرض كل طلب مستورد البنود التي حُسبت عليه، فتتطابق الإجماليات. أما القاعدة وراءها فلا تُنشأ في Mercaria، لذا لا يمكنك تعديلها أو إعادة استخدامها هنا.",
+      "membershipOnlyThroughAMapping": "لا تُنشأ مجموعات منصّتك في Mercaria. تنضم المنتجات إلى مجموعات Mercaria التي تعيّنها إليها."
+    },
+    "history": {
+      "counts": "%{created} مُنشأ · %{updated} مُحدَّث · %{skipped} متخطى · %{failed} فاشل",
+      "empty": "لا توجد عمليات مزامنة بعد",
+      "loadFailed": "تعذّر تحميل السجل",
+      "title": "سجل المزامنة",
+      "updatedNote": "«المُحدَّث» يحصي كل منتج جرى فحصه، وليس المنتجات المختلفة فقط."
+    },
+    "import": {
+      "blockedDirection": "اضبط المنتجات على سحب أو كليهما أعلاه، ثم احفظ — فالحفظ يبدأ أول استيراد من تلقاء نفسه.",
+      "blockedDisconnected": "أعد ربط هذه القناة قبل الاستيراد — فقد مُسحت بيانات اعتمادها المخزَّنة عند فصلها.",
+      "body": "يقرأ كل منتج مرة أخرى ويحدّث ما تغيّر. آمن للتشغيل أكثر من مرة.",
+      "bodyPaused": "يقرأ كل منتج مرة أخرى ويحدّث ما تغيّر. الاستيراد موقوف مؤقتًا للمزامنات المجدولة، لكن هذه العملية تعمل الآن.",
+      "heading": "استيراد المنتجات من %{provider}",
+      "now": "مزامنة الآن",
+      "title": "استيراد"
+    },
+    "keys": {
+      "apiKeySubject": "مفتاح API",
+      "body": "الصق مفتاحًا (ومعرّف اتصال هذه القناة) في إضافة Mercaria على موقع WordPress الخاص بك. المفاتيح لا تنتهي صلاحيتها — يمكنك إبطال أي مفتاح في أي وقت لقطع الوصول.",
+      "connectionId": "معرّف الاتصال",
+      "connectionIdSubject": "معرّف الاتصال",
+      "copied": "تم نسخ %{label}",
+      "copyAccessibility": "نسخ %{label}",
+      "copyNow": "انسخ هذا المفتاح الآن — لن تتمكن من رؤيته مرة أخرى.",
+      "empty": "لا توجد مفاتيح بعد. أنشئ مفتاحًا لربط الإضافة.",
+      "generate": "إنشاء مفتاح",
+      "generateBody": "أنشئ مفتاحًا طويل الأمد لهذه القناة. أعطه اسمًا لتتعرّف عليه لاحقًا (مثل الموقع المستخدَم فيه).",
+      "generateTitle": "إنشاء مفتاح API",
+      "heading": "بيانات اعتماد الإضافة طويلة الأمد",
+      "labelField": "التسمية",
+      "labelPlaceholder": "إضافة WordPress",
+      "lastUsed": "آخر استخدام %{when}",
+      "loadFailed": "تعذّر تحميل مفاتيح API.",
+      "loading": "جارٍ تحميل المفاتيح…",
+      "neverUsed": "لم يُستخدم أبدًا",
+      "revoke": "إبطال",
+      "revokeConfirmBody": "أي إضافة تستخدم «%{label}» ستتوقف عن المزامنة فورًا. لا يمكن التراجع عن هذا — ستحتاج إلى إنشاء مفتاح جديد.",
+      "revokeConfirmTitle": "إبطال هذا المفتاح؟",
+      "title": "مفاتيح API"
+    },
+    "lastRunCounts": "آخر تشغيل — %{created} مُنشأ، %{updated} مُحدَّث، %{skipped} متخطى، %{failed} فاشل",
+    "lastSynced": "آخر مزامنة %{when}",
+    "limitation": {
+      "knownIssue": "مشكلة معروفة #%{issue} — يجري العمل عليها"
+    },
+    "loadFailed": "تعذّر تحميل القنوات",
+    "never": "أبدًا",
+    "neverSynced": "لم تتم المزامنة أبدًا",
+    "nextScheduled": " · التالية %{when}",
+    "orderHorizon": {
+      "bounded": {
+        "one": "تُستورد طلبات آخر %{count} يوم فقط. الطلبات المقدَّمة قبل %{before} لم تُستورد قط ولن تصل لاحقًا — هذا حد على ما تسمح منصّتك لـ Mercaria بقراءته، وليس مزامنة متأخرة.",
+        "other": "تُستورد طلبات آخر %{count} يوم فقط. الطلبات المقدَّمة قبل %{before} لم تُستورد قط ولن تصل لاحقًا — هذا حد على ما تسمح منصّتك لـ Mercaria بقراءته، وليس مزامنة متأخرة."
+      },
+      "notSynced": "لا تُتبادل الطلبات على هذه القناة، في أي من الاتجاهين.",
+      "unknown": "لا تستطيع Mercaria تحديد إلى أي مدى ترجع طلبات هذا الاتصال."
+    },
+    "pause": {
+      "importing": "إيقاف الاستيراد مؤقتًا",
+      "importingHint": "أوقف القراءة من المنصّة. ما استُورد بالفعل يبقى معروضًا للبيع.",
+      "publishing": "إيقاف النشر مؤقتًا",
+      "publishingHint": "استمر في الاستيراد، لكن أوقف وصول منتجات هذه القناة إلى المشترين.",
+      "title": "إيقاف مؤقت"
+    },
+    "pausedScopes": "موقوف مؤقتًا: %{scopes}",
+    "readiness": {
+      "cardPaymentsOff": "مدفوعات البطاقات معطّلة في هذه النسخة",
+      "catalog": "الكتالوج",
+      "catalogDetail": "%{channels} · %{sync}",
+      "channelCount": {
+        "one": "%{count} قناة",
+        "other": "%{count} قناة"
+      },
+      "lastSynced": "آخر مزامنة %{when}",
+      "neverSynced": "لم تتم المزامنة أبدًا",
+      "noChannelConnected": "لا توجد قناة مرتبطة",
+      "notReady": "لا تبيع على Mercaria بعد",
+      "payouts": "التحويلات المالية",
+      "payoutsNotSetUp": "غير مُعدة",
+      "payoutsSetUp": "مُعدة",
+      "ready": "جاهز للبيع على Mercaria"
+    },
+    "readinessBlocker": {
+      "noConnectedChannel": "لا شيء يزوّدك بكتالوج بعد — اربط قناة أو أضف منتجًا.",
+      "noNativeCheckoutChannel": "قنواتك المرتبطة تعرض المنتجات للمقارنة لكنها لا تستطيع البيع عبر إتمام الشراء في Mercaria. اربط متجرًا، أو أضف منتجات مباشرةً.",
+      "noPublishableListing": "لا توجد منتجات نشطة — ليس لدى المشترين ما يضيفونه إلى السلة.",
+      "noSuccessfulSync": "توجد قناة مرتبطة لكنها لم تكمل أي مزامنة بعد.",
+      "paymentsNotReady": "التحويلات المالية غير مُعدة، لذا لا يمكن استقبال الطلبات."
+    },
+    "recently": "مؤخرًا",
+    "reconciliation": {
+      "alreadyIndexed": "مفهرس بالفعل",
+      "awaitingReview": "بانتظار المراجعة",
+      "awaitingReviewNote": {
+        "one": "%{count} منتج تعذّرت مطابقته تلقائيًا وهو في قائمة الانتظار ليؤكده شخص.",
+        "other": "%{count} منتج تعذّرت مطابقته تلقائيًا وهو في قائمة الانتظار ليؤكده شخص."
+      },
+      "body": "لا يُحذف شيء ولا يُدمج. وحيث يظهر المنتج نفسه مرتين، تعرض Mercaria إعلان متجرك أنت باعتباره الأساسي وتحتفظ بسجل أسعار الآخر سليمًا.",
+      "fromThisStore": "من هذا المتجر",
+      "gap": {
+        "channelHasNoDomain": "لا يوجد لهذه القناة عنوان ويب للمطابقة معه.",
+        "merchantNotClaimed": "هذا المتجر غير مرتبط بتاجر موثّق، لذا لا يوجد ما يُطابق معه بعد.",
+        "storeNotLinked": "هذا المتجر غير مرتبط بملف تاجر، لذا لا يوجد ما يُطابق معه بعد.",
+        "storefrontNotMatched": "لم تفهرس Mercaria هذا المتجر تحديدًا من قبل، لذا لا يوجد ما يُطابق معه."
+      },
+      "sameProductTwice": "المنتج نفسه، مرتين",
+      "title": "مطابقة كتالوجك الحالي"
+    },
+    "runFailures": {
+      "hide": "إخفاء",
+      "line": "%{subject}%{externalId} · %{reason}",
+      "loadFailed": "تعذّر تحميل السجلات التي رفضتها هذه المزامنة.",
+      "none": "لا تُخزَّن أسباب لكل سجل في هذه المزامنة.",
+      "reason": {
+        "databaseRefused": "رفضت قاعدة البيانات الكتابة",
+        "duplicateRecord": "نسخة مكررة من سجل مستورد بالفعل",
+        "refusedByRule": "مرفوض بقاعدة من قواعد Mercaria",
+        "unclassified": "فشل غير معروف"
+      },
+      "show": {
+        "one": "أظهر السجل الذي لم يصل",
+        "other": "أظهر السجلات التي لم تصل"
+      },
+      "showing": "عرض %{shown} من %{total}.",
+      "subject": {
+        "inventoryItem": "عنصر مخزون",
+        "order": "طلب",
+        "product": "منتج"
+      }
+    },
+    "scope": {
+      "title": "ما تحمله هذه القناة"
+    },
+    "settings": {
+      "autoPublish": "النشر التلقائي",
+      "autoPublishHint": "انشر المنتجات المسحوبة فورًا. عند الإيقاف، تصل كمسودات للمراجعة.",
+      "documentTitle": "إعدادات القناة | Mercaria Dashboard",
+      "inventoryHint": "مستويات المخزون في موقعك المتزامن.",
+      "inventoryLabel": "المخزون",
+      "keepLocalEdits": "احتفظ بتعديلاتي المحلية",
+      "keepLocalEditsHint": "عند التفعيل، لا تُستبدل أي حقل عدّلته في Mercaria بمزامنة لاحقة. وعند الإيقاف، تفوز القناة دائمًا.",
+      "neverSyncedYet": "لم تتم مزامنة هذه القناة بعد.",
+      "notFound": "لم يُعثر على القناة",
+      "notFoundBody": "قد يكون هذا الاتصال قد فُصل.",
+      "ordersHint": "الطلبات المقدَّمة على القناة الخارجية.",
+      "productsHint": "كتالوج المنتجات (العناوين والصور والأسعار والمتغيّرات).",
+      "providerTitle": "إعدادات %{provider}",
+      "save": "حفظ الإعدادات",
+      "syncDirections": "اتجاهات المزامنة",
+      "title": "إعدادات القناة"
+    },
+    "state": {
+      "connected": "مرتبطة",
+      "needsAttention": "تحتاج إلى انتباه",
+      "notConnected": "غير مرتبطة",
+      "paused": "موقوفة مؤقتًا"
+    },
+    "status": {
+      "disconnected": "مفصولة"
+    },
+    "subtitle": "كل الطرق التي تصل بها منتجاتك إلى Mercaria — المتاجر المرتبطة وخلاصات المنتجات وكتالوجك الخاص",
+    "syncDirection": {
+      "both": "كلاهما",
+      "off": "إيقاف",
+      "pull": "سحب",
+      "push": "دفع"
+    },
+    "title": "قنوات البيع",
+    "toast": {
+      "alreadyInThatState": "في تلك الحالة بالفعل",
+      "cancelFailed": "تعذّر الإلغاء",
+      "channelActivated": "تم تفعيل القناة",
+      "collectionMappingSaveFailed": "تعذّر حفظ التعيين",
+      "collectionMappingSaved": "تم حفظ تعيين المجموعات",
+      "consumerKeyAndSecretRequired": "أدخل مفتاح المستهلك وسرّه معًا",
+      "disconnectFailed": "تعذّر فصل القناة",
+      "disconnected": "تم الفصل — %{products}، %{records}",
+      "importStartFailed": "تعذّر بدء الاستيراد",
+      "importStarted": "بدأ الاستيراد — سيظهر في السجل أدناه",
+      "invalidShopifyDomain": "أدخل نطاق *.myshopify.com صالحًا",
+      "keyCreateFailed": "تعذّر إنشاء المفتاح",
+      "keyGenerateFailed": "تعذّر توليد المفتاح",
+      "keyGenerated": "تم توليد مفتاح API",
+      "keyLabelRequired": "أعطِ المفتاح تسمية",
+      "keyRevokeFailed": "تعذّر إبطال المفتاح",
+      "keyRevoked": "تم إبطال مفتاح API",
+      "notReadyToActivate": "غير جاهز للتفعيل بعد — راجع الأسباب أدناه",
+      "pauseFailed": "تعذّر تغيير حالة الإيقاف المؤقت",
+      "paused": "موقوف مؤقتًا",
+      "previewSaveFailed": "تعذّر حفظ المعاينة",
+      "resumed": "تم الاستئناف",
+      "settingsSaveFailed": "تعذّر حفظ إعدادات القناة",
+      "settingsSaved": "تم حفظ إعدادات القناة",
+      "shopifyConnectFailed": "تعذّر بدء الاتصال بـ Shopify",
+      "siteUrlMustBeHttps": "أدخل رابط موقعك بادئًا بـ https://",
+      "startConnectFailed": "تعذّر بدء ربط %{name}",
+      "webhooksRegisterFailed": "تعذّر بدء تسجيل Webhooks",
+      "webhooksRegistering": "جارٍ تسجيل Webhooks من جديد",
+      "wooConnectFailed": "تعذّر الربط — تحقّق من رابط الموقع ومفاتيح API",
+      "wooConnected": "تم ربط WooCommerce"
+    },
+    "type": {
+      "etsy": "Etsy",
+      "magento": "Magento",
+      "native": "كتالوج Mercaria",
+      "prestashop": "PrestaShop",
+      "productFeed": "خلاصة منتجات",
+      "shopify": "Shopify",
+      "woocommerce": "WooCommerce",
+      "woocommercePlugin": "إضافة WooCommerce"
+    },
+    "unscheduled": "غير مجدولة",
+    "webhookFailureReason": {
+      "permissionDenied": "أذونات الاتصال لا تغطيه",
+      "platformError": "أعادت المنصّة خطأً",
+      "rateLimited": "كانت المنصّة تحدّ من المعدل",
+      "topicNotSupported": "المنصّة لا توفّره",
+      "transportError": "تعذّر الوصول إلى المنصّة",
+      "unexpectedResponse": "تعذّرت قراءة رد المنصّة"
+    },
+    "webhooks": {
+      "bringForward": "يمكنك تقديم ذلك الآن بدلًا من الانتظار.",
+      "causeIncomplete": "تعذّر على Mercaria إكمال التسجيل. أعد ربط القناة إذا تكرر هذا.",
+      "causeUnreachable": "تعذّر على المحاولات الأخيرة الوصول إلى %{provider}. سجّل مرة أخرى عندما يصبح متاحًا.",
+      "dueNow": "مستحق الآن",
+      "failureDetail": " — %{reason}%{http} · آخر فحص %{when}",
+      "healthyDetail": {
+        "one": "%{provider} يرسل إلى Mercaria %{count} نوع من التحديثات. إذا أزلت Webhooks الخاصة بـ Mercaria من %{provider}، فسجّلها من جديد — لا شيء هنا يمكنه اكتشاف ذلك.",
+        "other": "%{provider} يرسل إلى Mercaria %{count} نوع من التحديثات. إذا أزلت Webhooks الخاصة بـ Mercaria من %{provider}، فسجّلها من جديد — لا شيء هنا يمكنه اكتشاف ذلك."
+      },
+      "healthyHeadline": "التغييرات تصل فور حدوثها",
+      "httpStatus": " (HTTP %{status})",
+      "refusedDetail": "أكملت Mercaria التسجيل، لكن %{provider} رفض الأحداث أدناه. ستُعاد المحاولة تلقائيًا؛ والزر يقدّم ذلك.",
+      "refusedHeadline": "بعض التحديثات لن تصل",
+      "register": "تسجيل Webhooks",
+      "registerAgain": "تسجيل Webhooks من جديد",
+      "remedyPermissionDenied": "أذونات Mercaria في %{provider} لا تغطي كل الأحداث — وسّعها هناك، ثم سجّل من جديد.",
+      "remedyTopicNotSupported": "%{provider} لا يوفّر بعض هذه الأحداث إطلاقًا، لذا فإن التسجيل من جديد لن يجعلها تصل.",
+      "retryingDetail": "تعيد Mercaria المحاولة تلقائيًا — المحاولة التالية %{due}. %{remedy}",
+      "retryingHeadline": "بعض التحديثات لا تصل بعد",
+      "stoppedDetail": {
+        "one": "توقفت Mercaria بعد %{count} محاولة. %{cause}",
+        "other": "توقفت Mercaria بعد %{count} محاولة. %{cause}"
+      },
+      "stoppedHeadline": "بعض التحديثات لا تصل، وقد توقفت Mercaria عن إعادة المحاولة",
+      "title": "التحديثات الفورية",
+      "tryNow": "جرّب الآن",
+      "unregisteredDetail": "تسجّل Mercaria هذه تلقائيًا لقناة %{provider} مرتبطة. يمكنك تسجيلها الآن بدلًا من الانتظار.",
+      "unregisteredHeadline": "التحديثات الفورية غير مسجّلة بعد"
+    },
+    "wizard": {
+      "activateChannel": "تفعيل القناة",
+      "activeConnectionBody": "هذه القناة نشطة. اختر ما تريد استيراده تاليًا — لا تتم أي مزامنة حتى تفعل.",
+      "activeFeedBody": "هذه القناة نشطة. يمكنك تغيير إعداداتها في أي وقت من قنوات البيع.",
+      "allSet": "كل شيء جاهز",
+      "backToChannels": "العودة إلى القنوات",
+      "beforeYouActivate": "قبل أن تتمكن من التفعيل",
+      "beforeYouStart": "قبل أن تبدأ",
+      "blocker": {
+        "channelLimitation": "لا يمكن تفعيل هذه القناة بعد.",
+        "connectionNotConnected": "أكمل الربط أولًا.",
+        "noPreview": "شغّل معاينة أولًا، لترى ما سيُستورد.",
+        "previewAllInvalid": "كل سجل قرأته المعاينة كان غير صالح. أصلح التعيين وحاول مرة أخرى.",
+        "previewScannedNothing": "لم تقرأ المعاينة أي سجلات إطلاقًا. تحقّق من أن الخلاصة أو المتجر يحتوي على منتجات — فالتعيين الذي لا يطابق شيئًا يبدو كالكتالوج الفارغ تمامًا.",
+        "unsupportedDirection": "تطلب إعدادات المزامنة اتجاهًا لا تدعمه هذه القناة. عدّلها وحاول مرة أخرى."
+      },
+      "canAndCannot": "ما تستطيعه هذه القناة وما لا تستطيعه",
+      "chooseWhatToImport": "اختر ما تريد استيراده",
+      "connectedTitle": "تم ربط %{channel}",
+      "documentTitle": "ربط قناة | Mercaria Dashboard",
+      "everythingChecksOut": "كل شيء سليم. التفعيل يبدأ أول مزامنة.",
+      "feed": {
+        "body": "تُعد خلاصة المنتجات في شاشتها الخاصة، حيث تعيّن أعمدة الملف على حقول Mercaria وتعاين النتيجة قبل أن يصبح أي شيء مباشرًا.",
+        "create": "إنشاء خلاصة",
+        "title": "أعدّ خلاصتك"
+      },
+      "merchantLinked": "هذا المتجر مرتبط بتاجر موثّق، لذا فإن أي شيء فهرسته Mercaria بالفعل لمتجرك ستتم مطابقته بدلًا من تكراره.",
+      "merchantNotLinked": "هذا المتجر غير مرتبط بتاجر موثّق بعد. الربط يعمل على أي حال؛ لكن Mercaria لن تطابق منتجاتك مع أي شيء فهرسته بالفعل لمتجرك.",
+      "notFound": "لم يُعثر على المعالج",
+      "notFoundBody": "ربما يكون قد اكتمل بالفعل.",
+      "notSetUpYet": " (لم يُعد بعد)",
+      "plugin": {
+        "body": "ثبّت إضافة Mercaria على موقع WordPress الخاص بك، ثم الصق المفتاح أدناه في إعداداتها. تدفع الإضافة منتجاتك ومخزونك إلى Mercaria فور تغيّرها.",
+        "createKey": "إنشاء مفتاح قناة",
+        "keyHeading": "مفتاح قناتك — انسخه الآن",
+        "keyNote": "هذه هي المرة الوحيدة التي يُعرض فيها. إذا فقدته، فأبطله وأنشئ مفتاحًا جديدًا.",
+        "title": "ربط إضافة Mercaria"
+      },
+      "preview": {
+        "body": "شغّل عيّنة محدودة قبل التفعيل، لترى ما سيُستورد وكم يحتاج إلى مراجعة.",
+        "duplicate": "مكرر",
+        "invalid": "غير صالح",
+        "matched": "مطابق",
+        "rerun": "إعادة تشغيل المعاينة",
+        "run": "تشغيل المعاينة",
+        "scanned": "مفحوص",
+        "title": "معاينة",
+        "toReview": "للمراجعة"
+      },
+      "shopify": {
+        "authNote": "يتم التفويض على Shopify. لا ترى Mercaria كلمة مرور Shopify الخاصة بك أبدًا، ويُخزَّن رمز الوصول الذي تستلمه مشفَّرًا.",
+        "continue": "المتابعة إلى Shopify",
+        "domainLabel": "نطاق المتجر",
+        "domainPlaceholder": "your-store.myshopify.com",
+        "openAgain": "افتح Shopify مرة أخرى",
+        "title": "تفويض Mercaria على Shopify",
+        "waitingBody": "أكمل التفويض في علامة التبويب التي فُتحت للتو. تتحدث هذه الصفحة من تلقاء نفسها — لا تحتاج إلى إعادة تحميلها أو العودة إلى هذه الخطوة.",
+        "waitingTitle": "بانتظار Shopify"
+      },
+      "step": {
+        "activate": "تفعيل",
+        "configure": "إعدادات المزامنة",
+        "connect": "ربط",
+        "map": "التعيين",
+        "preview": "معاينة",
+        "scope": "المتجر",
+        "selectChannel": "القناة"
+      },
+      "title": "ربط %{channel}",
+      "woo": {
+        "body": "WooCommerce ← الإعدادات ← خيارات متقدمة ← REST API. صلاحية القراءة تكفي لاستيراد كتالوجك.",
+        "connect": "ربط WooCommerce",
+        "consumerKeyLabel": "مفتاح المستهلك",
+        "consumerKeyPlaceholder": "ck_...",
+        "consumerSecretLabel": "سر المستهلك",
+        "consumerSecretPlaceholder": "cs_...",
+        "siteUrlLabel": "رابط الموقع",
+        "siteUrlPlaceholder": "https://your-store.com",
+        "title": "الصق مفتاح API الخاص بـ WooCommerce"
+      },
+      "youWillNeed": "ستحتاج إلى"
+    },
+    "yourChannels": "قنواتك"
+  },
+  "collections": {
+    "create": {
+      "dialogTitle": "مجموعة جديدة",
+      "error": "تعذّر إنشاء المجموعة",
+      "success": "تم إنشاء المجموعة",
+      "titlePlaceholder": "أساسيات الصيف",
+      "titleRequired": "العنوان مطلوب",
+      "typeAutomated": "تلقائية",
+      "typeManual": "يدوية"
+    },
+    "deleteError": "تعذّر حذف المجموعة",
+    "deleted": "تم حذف المجموعة",
+    "documentTitle": "المجموعات | Mercaria Dashboard",
+    "empty": {
+      "body": "أنشئ واحدة لتنظيم الكتالوج الخاص بك.",
+      "title": "لا توجد مجموعات بعد"
+    },
+    "loadError": "تعذّر تحميل المجموعات",
+    "productCount": {
+      "one": "%{count} منتج",
+      "other": "%{count} منتج"
+    },
+    "rowMeta": "%{type} · %{items} · %{state}",
+    "ruleCount": {
+      "one": "%{count} قاعدة",
+      "other": "%{count} قاعدة"
+    },
+    "state": {
+      "draft": "مسودة",
+      "published": "منشورة"
+    },
+    "subtitle": "جمّع المنتجات لعرضها معًا",
+    "type": {
+      "automated": "تلقائية",
+      "manual": "يدوية"
+    }
+  },
+  "common": {
+    "all": "الكل",
+    "back": "رجوع",
+    "cancel": "إلغاء",
+    "create": "إنشاء",
+    "description": "الوصف",
+    "done": "تم",
+    "loading": "جارٍ التحميل…",
+    "name": "الاسم",
+    "new": "جديد",
+    "noAccess": "لا يوجد وصول",
+    "noAccessBody": "ليس لديك إذن لعرض هذا القسم للمتجر النشط.",
+    "none": "بلا",
+    "pageOf": "صفحة %{current} من %{total}",
+    "pleaseTryAgain": "يرجى المحاولة مرة أخرى.",
+    "retry": "إعادة المحاولة",
+    "save": "حفظ",
+    "somethingWentWrong": "حدث خطأ ما",
+    "status": "الحالة",
+    "title": "العنوان",
+    "type": "النوع",
+    "unknown": "غير معروف"
+  },
+  "customers": {
+    "detail": {
+      "documentTitle": "العميل | Mercaria Dashboard",
+      "lifetimeSpend": "إجمالي الإنفاق",
+      "loadError": "تعذّر تحميل العميل",
+      "noOrders": "لا توجد طلبات بعد.",
+      "orders": "الطلبات",
+      "subtitle": "تفاصيل العميل",
+      "title": "العميل"
+    },
+    "documentTitle": "العملاء | Mercaria Dashboard",
+    "empty": {
+      "body": "يظهر العملاء هنا بعد أول طلب لهم.",
+      "title": "لا يوجد عملاء"
+    },
+    "fallbackName": "عميل",
+    "loadError": "تعذّر تحميل العملاء",
+    "orderCount": {
+      "one": "%{count} طلب",
+      "other": "%{count} طلب"
+    },
+    "searchPlaceholder": "ابحث عن العملاء…",
+    "subtitle": "الأشخاص الذين يشترون من متجرك",
+    "walkIn": "عميل عابر"
+  },
+  "discounts": {
+    "create": {
+      "amountOffLabel": "قيمة الخصم (⊜)",
+      "codeLabel": "الرمز",
+      "codePlaceholder": "SPRING20",
+      "codeRequired": "أدخل رمز خصم",
+      "dialogTitle": "خصم جديد",
+      "error": "تعذّر إنشاء الخصم",
+      "invalidAmount": "أدخل مبلغًا صالحًا",
+      "invalidPercentage": "أدخل نسبة مئوية صالحة",
+      "methodAutomatic": "تلقائي",
+      "methodCode": "رمز",
+      "methodLabel": "الطريقة",
+      "percentOffLabel": "نسبة الخصم",
+      "success": "تم إنشاء الخصم",
+      "titlePlaceholder": "تخفيضات الربيع",
+      "titleRequired": "العنوان مطلوب",
+      "valueTypeFixed": "مبلغ ثابت (⊜)",
+      "valueTypeLabel": "نوع القيمة",
+      "valueTypePercentage": "نسبة مئوية"
+    },
+    "deleteError": "تعذّر حذف الخصم",
+    "deleted": "تم حذف الخصم",
+    "documentTitle": "الخصومات | Mercaria Dashboard",
+    "empty": {
+      "body": "أنشئ خصمًا برمز أو خصمًا تلقائيًا.",
+      "title": "لا توجد خصومات بعد"
+    },
+    "fixedAmountOff": "خصم بمبلغ ثابت",
+    "loadError": "تعذّر تحميل الخصومات",
+    "methodAutomatic": "تلقائي",
+    "methodCode": "رمز",
+    "percentOff": "خصم %{percent}%",
+    "rowMeta": "%{method} · %{value} · %{state}",
+    "state": {
+      "active": "نشط",
+      "inactive": "غير نشط"
+    },
+    "subtitle": "الرموز والعروض التلقائية"
+  },
+  "errors": {
+    "boundaryBody": "حدث خطأ غير متوقع. يمكنك إعادة المحاولة، وإذا استمرت المشكلة فقد أُبلغ فريقنا بها.",
+    "notFoundAction": "الذهاب إلى لوحة التحكم",
+    "notFoundBody": "هذه الشاشة غير موجودة.",
+    "notFoundDocumentTitle": "404 - غير موجود | Mercaria Dashboard",
+    "notFoundHeading": "عذرًا!"
+  },
+  "feeds": {
+    "detail": {
+      "activateMappingFirst": "فعّل تعيينًا أولًا",
+      "documentTitle": "خلاصة المنتجات | Mercaria Dashboard",
+      "identityColumns": "أعمدة التعريف: %{columns} — ثابتة طوال عمر هذه الخلاصة.",
+      "neverRead": "لم تُقرأ هذه الخلاصة بعد.",
+      "notFound": "لم يُعثر على الخلاصة",
+      "notFoundBody": "ربما تكون قد أُزيلت.",
+      "readSchedule": "آخر قراءة %{last} · التالية %{next}",
+      "recentRuns": "أحدث عمليات التشغيل",
+      "runCounts": "%{fetched} مقروء · %{stored} مخزَّن · %{unchanged} دون تغيير · %{rejected} مرفوض · %{listed} معروض · %{retired} مسحوب",
+      "syncNow": "مزامنة الآن",
+      "title": "خلاصة المنتجات"
+    },
+    "draft": {
+      "columnPlaceholder": "اسم العمود لديك",
+      "columnsLabel": "عيّن أعمدتك",
+      "deliveryDelta": "ما تغيّر فقط",
+      "deliveryHint": "لا يوجد خيار افتراضي، وهذا مقصود. إذا كان الملف يسرد كل ما تبيعه، فالمنتج الغائب عنه هو منتج توقّفت عن بيعه وستزيله Mercaria من العرض. وإذا كان يسرد التغييرات فقط، فغياب المنتج لا يعني شيئًا وستتركه Mercaria كما هو. الخطأ هنا إمّا يزيل كتالوجًا سليمًا من العرض أو يُبقي منتجات نفدت معروضة للبيع.",
+      "deliveryLabel": "ماذا يحتوي هذا الملف؟",
+      "deliverySnapshot": "كل ما أبيعه",
+      "formatLabel": "الصيغة",
+      "requiredSuffix": " (مطلوب)",
+      "save": "حفظ التعيين",
+      "title": "تعيين جديد",
+      "urlHint": "HTTPS فقط. تحفظ Mercaria هذا بشكل خاص ولا تعرض لك سوى المضيف — فغالبًا ما يحمل رابط الخلاصة مفتاح وصول.",
+      "urlLabel": "رابط الخلاصة",
+      "urlPlaceholder": "https://example.com/products.csv"
+    },
+    "never": "أبدًا",
+    "new": {
+      "create": "إنشاء الخلاصة",
+      "documentTitle": "خلاصة منتجات جديدة | Mercaria Dashboard",
+      "identityColumnsHint": "مفصولة بفواصل، حتى أربعة أعمدة. لا يمكن تغييرها لاحقًا: فهي الطريقة التي تتعرّف بها Mercaria على المنتج نفسه بين ملف وآخر، وتغييرها سيبدو كأنك استبدلت كتالوجك بالكامل. إذا احتجت أعمدة مختلفة، فأنشئ خلاصة جديدة.",
+      "identityColumnsLabel": "الأعمدة التي تُعرّف كل منتج",
+      "identityColumnsPlaceholder": "id, sku",
+      "nameLabel": "اسم الخلاصة",
+      "namePlaceholder": "الكتالوج الرئيسي",
+      "sourceNameHint": "كيف تظهر هذه الخلاصة في سجلات الكتالوج الخاصة بـ Mercaria.",
+      "sourceNameLabel": "اسم المصدر",
+      "sourceNamePlaceholder": "كتالوج Acme Supplies",
+      "subtitle": "ملف CSV أو TSV أو XML أو JSON أو JSONL تقرأه Mercaria وفق جدول زمني",
+      "title": "خلاصة منتجات جديدة"
+    },
+    "reports": {
+      "counts": "%{scanned} مقروء · %{valid} صالح · %{invalid} يحتاج مراجعة",
+      "note": "يعطي التقرير القابل للتنزيل رقم الصف وما كان الخطأ فيه — دون القيم أبدًا، فالملف لديك بالفعل.",
+      "title": "التقارير"
+    },
+    "toast": {
+      "checkFailed": "تعذّر فحص الخلاصة",
+      "checked": "جرى فحص %{scanned} سجلًا — %{invalid} يحتاج مراجعة",
+      "createFailed": "تعذّر إنشاء الخلاصة",
+      "created": "تم إنشاء الخلاصة",
+      "deliveryModeRequired": "اختر ما إذا كان الملف لقطة كاملة أم التغييرات فقط",
+      "identityColumnsRequired": "سمِّ عمودًا واحدًا على الأقل يُعرّف كل منتج",
+      "mappingActivateFailed": "تعذّر تفعيل التعيين",
+      "mappingActivated": "تم تفعيل التعيين",
+      "mappingSaveFailed": "تعذّر حفظ التعيين",
+      "mappingSaved": "تم حفظ التعيين — عاينه قبل التفعيل",
+      "nameRequired": "أعطِ الخلاصة اسمًا",
+      "previewFailed": "تعذّرت معاينة الخلاصة",
+      "sourceNameTooShort": "يحتاج اسم المصدر إلى 3 أحرف على الأقل",
+      "syncStartFailed": "تعذّر بدء المزامنة",
+      "syncStarted": "بدأت المزامنة",
+      "titleMappingRequired": "عيّن عمودًا على عنوان المنتج",
+      "urlMustBeHttps": "يجب أن يبدأ رابط الخلاصة بـ https://"
+    },
+    "unscheduled": "غير مجدولة",
+    "versions": {
+      "activate": "تفعيل",
+      "checkItFirst": "افحصه أولًا",
+      "checkWholeFeed": "فحص الخلاصة كاملة",
+      "deliveryChangesOnly": "التغييرات فقط",
+      "deliveryFullSnapshot": "لقطة كاملة",
+      "empty": "لا يوجد تعيين بعد",
+      "emptyBody": "صِف ملفك أدناه وعيّن أعمدته على حقول Mercaria.",
+      "fetchedOverHttps": " · تم الجلب عبر HTTPS",
+      "preview": "معاينة",
+      "previewCounts": "%{scanned} مقروء · %{valid} صالح · %{invalid} غير صالح · %{matched} مطابق · %{created} جديد · %{review} للمراجعة",
+      "previewReadNothing": "لم تقرأ المعاينة شيئًا. النتيجة الفارغة والتعيين الذي لا يطابق أي صف يبدوان متطابقين — تحقّق من الملف ومن مسار السجل قبل التفعيل.",
+      "suggestedColumns": "الأعمدة المقترحة: %{columns}",
+      "summary": "%{format} · %{delivery}%{fetch}",
+      "title": "التعيينات",
+      "uploaded": " · تم الرفع",
+      "version": "الإصدار %{version}"
+    }
+  },
+  "home": {
+    "documentTitle": "لوحة التحكم | Mercaria",
+    "inventory": {
+      "lowStock": {
+        "one": "%{count} متغيّر متتبَّع عند حد انخفاض المخزون أو دونه.",
+        "other": "%{count} متغيّر متتبَّع عند حد انخفاض المخزون أو دونه."
+      },
+      "noneLow": "لا يوجد متغيّر متتبَّع منخفض المخزون.",
+      "title": "المخزون"
+    },
+    "orderStatus": {
+      "cancelled": "ملغى",
+      "delivered": "تم التسليم",
+      "paid": "مدفوع",
+      "partiallyRefunded": "مُسترد جزئيًا",
+      "pendingPayment": "بانتظار الدفع",
+      "processing": "قيد المعالجة",
+      "refunded": "مُسترد",
+      "shipped": "تم الشحن"
+    },
+    "reportsError": "تعذّر تحميل التقارير",
+    "sales": {
+      "empty": "لا توجد مبيعات في هذه الفترة بعد.",
+      "title": "المبيعات (الفترة الأخيرة)"
+    },
+    "stats": {
+      "averageOrder": "متوسط الطلب",
+      "paidOrders": "الطلبات المدفوعة",
+      "refunds": "المبالغ المستردة",
+      "revenue": "الإيرادات"
+    },
+    "statusBreakdown": {
+      "empty": "لا توجد طلبات بعد.",
+      "title": "الطلبات حسب الحالة"
+    },
+    "subtitle": "متجرك في لمحة",
+    "topProducts": {
+      "empty": "لا توجد مبيعات بعد.",
+      "title": "أفضل المنتجات",
+      "unitsSold": {
+        "one": "%{count} مباع",
+        "other": "%{count} مباع"
+      }
+    }
+  },
+  "nav": {
+    "channels": "قنوات البيع",
+    "collapseSidebar": "طيّ الشريط الجانبي",
+    "collections": "المجموعات",
+    "customers": "العملاء",
+    "dashboard": "لوحة التحكم",
+    "discounts": "الخصومات",
+    "expandSidebar": "توسيع الشريط الجانبي",
+    "orders": "الطلبات",
+    "products": "المنتجات",
+    "settings": "الإعدادات"
+  },
+  "orders": {
+    "detail": {
+      "documentTitle": "الطلب | Mercaria Dashboard",
+      "fulfilment": "التنفيذ",
+      "history": "السجل",
+      "itemVariantQuantity": "%{variant} · ×%{quantity}",
+      "items": "العناصر",
+      "loadFailed": "تعذّر تحميل الطلب",
+      "markedCancelled": "تم تعليم الطلب ملغى",
+      "markedDelivered": "تم تعليم الطلب مُسلَّمًا",
+      "markedProcessing": "تم تعليم الطلب قيد المعالجة",
+      "markedShipped": "تم تعليم الطلب مشحونًا",
+      "refund": "استرداد",
+      "refundFallbackLabel": "استرداد",
+      "refunds": "المبالغ المستردة",
+      "shipTo": "الشحن إلى",
+      "subtitle": "تفاصيل الطلب",
+      "title": "الطلب",
+      "trackingLabel": "رقم التتبّع (اختياري)",
+      "trackingPlaceholder": "1Z…",
+      "updateFailed": "تعذّر تحديث الطلب"
+    },
+    "documentTitle": "الطلبات | Mercaria Dashboard",
+    "empty": {
+      "body": "ستظهر الطلبات هنا بمجرد أن يشتري العملاء.",
+      "title": "لا توجد طلبات"
+    },
+    "loadFailed": "تعذّر تحميل الطلبات",
+    "pickup": {
+      "cancelAccessibilityLabel": "سبب إلغاء هذا الاستلام",
+      "cancelCollection": "إلغاء الاستلام",
+      "cancelLabel": "إلغاء هذا الاستلام — السبب",
+      "cancelNote": "يسحب هذا التسليم ويُبطل الرمز. لا يلغي الطلب ولا يسترد أي مبلغ — نفّذ ذلك على الطلب نفسه إذا كان للعميل مبلغ مستحق.",
+      "cancelPlaceholder": "تلفت البضاعة في المخزن",
+      "checkCodeAndHandOver": "تحقّق من الرمز وسلّم الطلب",
+      "codeAccessibilityLabel": "رمز الاستلام الذي قدّمه العميل",
+      "codeLabel": "الرمز الذي قدّمه العميل",
+      "codePlaceholder": "ABCD234567",
+      "event": {
+        "codeRejected": "رُفض الرمز",
+        "codeRevoked": "أُبطل الرمز",
+        "codeRotated": "أُصدر رمز جديد",
+        "codeValidated": "قُبل الرمز",
+        "collected": "تم التسليم",
+        "collectionRefused": "رُفض التسليم",
+        "fallbackOverride": "تم التسليم مع تجاوز",
+        "markedReady": "عُلّم جاهزًا",
+        "pickupCancelled": "أُلغي الاستلام"
+      },
+      "handOverWithOverride": "التسليم مع تجاوز",
+      "markReady": "تعليمه جاهزًا للاستلام",
+      "overrideAccessibilityLabel": "سبب التسليم دون رمز صالح",
+      "overrideLabel": "التسليم دون رمز صالح — السبب",
+      "overrideNote": "يُسجَّل هذا على حسابك، مع السبب، في السجل أدناه.",
+      "overridePlaceholder": "تعذّر مسح الرمز؛ جرى التحقق من الهوية شخصيًا",
+      "rotate": "إصدار رمز جديد",
+      "rotateAccessibilityLabel": "سبب إصدار رمز استلام جديد",
+      "rotateLabel": "إصدار رمز جديد — السبب",
+      "rotatePlaceholder": "يقول العميل إن الرمز قد تسرّب",
+      "rotatedCodeNote": "اقرأ هذا للعميل. لم يعد الرمز السابق صالحًا.",
+      "title": "الاستلام",
+      "toast": {
+        "cancelled": "أُلغي الاستلام",
+        "codeIssued": "صدر رمز جديد",
+        "collected": "تم تسجيل الاستلام",
+        "collectedWithOverride": "تم تسجيل الاستلام مع تجاوز",
+        "markedReady": "عُلّم جاهزًا للاستلام"
+      },
+      "trail": "سجل الاستلام",
+      "trailEmpty": "لم يحدث شيء عند الطاولة بعد."
+    },
+    "refund": {
+      "dialogTitle": "استرداد مبلغ الطلب",
+      "failed": "تعذّرت معالجة الاسترداد",
+      "itemMax": "%{variant} · بحد أقصى %{quantity}",
+      "processed": "تمت معالجة الاسترداد",
+      "quantityRequired": "أدخل الكمية المراد استردادها",
+      "reasonLabel": "السبب (اختياري)",
+      "reasonPlaceholder": "لماذا يجري استرداد هذا المبلغ؟",
+      "submit": "معالجة الاسترداد"
+    },
+    "refundState": {
+      "canceled": "ملغى",
+      "failed": "فشل",
+      "pending": "في الطريق",
+      "succeeded": "مكتمل"
+    },
+    "row": {
+      "itemsPlacedOn": {
+        "one": "%{count} عنصر · %{date}",
+        "other": "%{count} عنصر · %{date}"
+      }
+    },
+    "status": {
+      "cancelled": "ملغى",
+      "delivered": "تم التسليم",
+      "paid": "مدفوع",
+      "partiallyRefunded": "مُسترد جزئيًا",
+      "pendingPayment": "قيد الانتظار",
+      "processing": "قيد المعالجة",
+      "refunded": "مُسترد",
+      "shipped": "تم الشحن"
+    },
+    "subtitle": "نفّذ مبيعاتك وتابعها",
+    "title": "الطلبات",
+    "totals": {
+      "discounts": "الخصومات",
+      "heading": "الإجماليات",
+      "shipping": "الشحن",
+      "subtotal": "المجموع الفرعي",
+      "tax": "الضريبة",
+      "total": "الإجمالي"
+    }
+  },
+  "products": {
+    "addProduct": "إضافة منتج",
+    "detail": {
+      "archive": "أرشفة",
+      "archiveFailed": "تعذّرت أرشفة المنتج",
+      "archived": "تمت أرشفة المنتج",
+      "channelSettings": "إعدادات القناة",
+      "documentTitle": "المنتج | Mercaria Dashboard",
+      "loadFailed": "تعذّر تحميل المنتج",
+      "pins": {
+        "release": "تحرير",
+        "releaseFailed": "تعذّر تحرير الحقل",
+        "releaseNote": "تحرير حقل يتيح للمنصّة إدارته مجددًا اعتبارًا من المزامنة التالية. تبقى قيمتك الحالية حتى ذلك الحين — فـ Mercaria لا تحتفظ بقيمة المنصّة السابقة، ولذلك لا يُستعاد شيء.",
+        "releaseUnnamed": {
+          "one": "تحرير %{count} حقل",
+          "other": "تحرير %{count} حقل"
+        },
+        "released": "تم التحرير. لا يتغير شيء هنا حتى المزامنة التالية، حين تتولى قيمة المنصّة الأمر."
+      },
+      "restrictedNotice": "هذا المنتج مقيَّد بانتظار قرار إشراف، ولا يمكن إعادة نشره من هنا.",
+      "saveChanges": "حفظ التغييرات",
+      "saveFailed": "تعذّر حفظ المنتج",
+      "saved": "تم حفظ المنتج",
+      "title": "المنتج",
+      "variantCount": {
+        "one": "%{count} متغيّر",
+        "other": "%{count} متغيّر"
+      }
+    },
+    "documentTitle": "المنتجات | Mercaria Dashboard",
+    "empty": {
+      "action": "أضف منتجك الأول",
+      "title": "لا توجد منتجات بعد"
+    },
+    "loadFailed": "تعذّر تحميل المنتجات",
+    "new": {
+      "addVariant": "إضافة متغيّر",
+      "categoryLabel": "الفئة (المعرّف النصي)",
+      "categoryPlaceholder": "electronics",
+      "categoryRequired": "الفئة مطلوبة",
+      "createFailed": "تعذّر إنشاء المنتج",
+      "created": "تم إنشاء المنتج",
+      "descriptionPlaceholder": "صِف المنتج",
+      "documentTitle": "منتج جديد | Mercaria Dashboard",
+      "optionNameLabel": "اسم الخيار (اختياري، مثل المقاس)",
+      "optionNamePlaceholder": "المقاس",
+      "optionValueLabel": "قيمة %{option}",
+      "optionValuePlaceholder": "M",
+      "optionsHeading": "الخيارات والمتغيّرات",
+      "skuLabel": "SKU (اختياري)",
+      "skuPlaceholder": "SKU-123",
+      "submit": "إنشاء المنتج",
+      "subtitle": "أضف منتجًا إلى كتالوجك",
+      "title": "منتج جديد",
+      "titlePlaceholder": "اسم المنتج",
+      "titleRequired": "العنوان مطلوب",
+      "variantIndex": "المتغيّر %{index}",
+      "variantPriceInvalid": "كل متغيّر يحتاج إلى سعر صالح",
+      "vendorLabel": "المورّد / العلامة التجارية",
+      "vendorPlaceholder": "Acme"
+    },
+    "priceLabel": "السعر (⊜)",
+    "row": {
+      "variantsInStock": {
+        "one": "%{count} متغيّر · %{stock} في المخزون",
+        "other": "%{count} متغيّر · %{stock} في المخزون"
+      }
+    },
+    "searchPlaceholder": "ابحث في منتجات هذه الصفحة…",
+    "status": {
+      "active": "نشط",
+      "archived": "مؤرشف",
+      "draft": "مسودة",
+      "restricted": "مقيَّد",
+      "sold": "مباع"
+    },
+    "stockLabel": "المخزون",
+    "subtitle": "كتالوج متجرك",
+    "title": "المنتجات",
+    "variants": {
+      "add": "إضافة",
+      "addFailed": "تعذّرت إضافة المتغيّر",
+      "added": "تمت إضافة المتغيّر",
+      "available": "المتاح",
+      "heading": "المتغيّرات والمخزون",
+      "inventoryUpdateFailed": "تعذّر تحديث المخزون",
+      "inventoryUpdated": "تم تحديث المخزون",
+      "priceInvalid": "أدخل سعرًا صالحًا",
+      "removeFailed": "تعذّرت إزالة المتغيّر",
+      "removeVariant": "إزالة المتغيّر",
+      "removed": "تمت إزالة المتغيّر",
+      "saveVariant": "حفظ المتغيّر",
+      "set": "تعيين",
+      "updateFailed": "تعذّر تحديث المتغيّر",
+      "updated": "تم تحديث المتغيّر",
+      "valuePlaceholder": "القيمة"
+    },
+    "wizard": {
+      "documentTitle": "إنشاء منتج",
+      "title": "إنشاء منتج",
+      "readOnly": "لم يعد بالإمكان تعديل هذه المسودة.",
+      "start": {
+        "documentTitle": "ما الذي تبيعه؟",
+        "title": "ما الذي تبيعه؟",
+        "subtitle": "اعثر عليه في الكتالوج، أو صِف شيئًا جديدًا.",
+        "unavailableTitle": "الإنشاء الموجّه غير متاح هنا",
+        "unavailableBody": "لم تُفعّل نسخة Mercaria هذه خدمة تأليف الكتالوج، لذا لا يمكن استخدام النموذج الموجّه بعد.",
+        "useLegacy": "استخدم النموذج البسيط",
+        "createFailed": "تعذّر إنشاء تلك المسودة.",
+        "linkFailed": "أُنشئت المسودة، لكن تعذّر ربط منتج الكتالوج بها. يمكنك اختياره مرة أخرى داخل المعالج.",
+        "resumeTitle": "تابع من حيث توقفت",
+        "untitledDraft": "مسودة بلا عنوان",
+        "findTitle": "اعثر عليه في الكتالوج",
+        "findBody": "ابحث بالاسم أو الطراز أو الباركود. تحقّق من المعرّفات كي لا تختار طرازًا إقليميًا مختلفًا.",
+        "classifyAnyway": "ما زلنا بحاجة إلى فئة، لأنها ما يحدد التفاصيل التي يطلبها النموذج.",
+        "categoryTitle": "اختر فئة",
+        "typeTitle": "اختر نوع منتج",
+        "noProductTypes": "لم يُنشر أي نوع منتج لهذه الفئة بعد.",
+        "marketLabel": "السوق",
+        "marketHelp": "الدولة التي يُباع فيها هذا المنتج. هي التي تحدد الصياغة والقواعد المطبَّقة.",
+        "marketPlaceholder": "ES",
+        "marketInvalid": "السوق هو رمز دولة من حرفين.",
+        "begin": "ابدأ"
+      },
+      "load": {
+        "draftFailedTitle": "تعذّر فتح هذه المسودة",
+        "draftFailedBody": "ربما تكون قد أُلغيت، أو أنها تخص متجرًا آخر.",
+        "schemaFailedTitle": "تعذّر تحميل النموذج",
+        "schemaFailedBody": "تعذّرت قراءة نوع المنتج الذي بدأت هذه المسودة تحته."
+      },
+      "steps": {
+        "classification": "الهوية",
+        "details": "التفاصيل",
+        "variants": "المتغيّرات",
+        "pricing": "السعر والمخزون",
+        "listing": "الإعلان",
+        "review": "المراجعة",
+        "complete": "لا شيء معلّق في هذه الخطوة.",
+        "incomplete": "ما زال في هذه الخطوة ما يجب ملؤه.",
+        "next": "متابعة"
+      },
+      "classification": {
+        "pinned": "حُدِّدت الفئة ونوع المنتج عند بدء هذه المسودة، حتى تحتفظ إجاباتك بمعناها."
+      },
+      "canonical": {
+        "title": "أي منتج في الكتالوج هو هذا؟",
+        "body": "اختيار واحد يربط إعلانك به مباشرةً ويمنع مطابقته تلقائيًا.",
+        "notPermitted": "ليس لديك إذن لربط منتج من الكتالوج.",
+        "searchPlaceholder": "الاسم أو الطراز أو الباركود",
+        "searchBrandPlaceholder": "ابحث في العلامات التجارية",
+        "minQuery": "اكتب حرفين على الأقل.",
+        "exactMatch": "هذه مطابقة تامة للمعرّف.",
+        "noResults": "لم يطابق أي شيء في الكتالوج.",
+        "clearSelection": "مسح الاختيار",
+        "selectedRef": "المختار",
+        "clearRef": "مسح",
+        "unnamedVariant": "تكوين بلا اسم",
+        "variantLabel": "تكوين الكتالوج",
+        "variantPlaceholder": "اختر التكوين المطابق",
+        "clearVariant": "مسح التكوين"
+      },
+      "category": {
+        "allCategories": "كل الفئات",
+        "loadFailed": "تعذّر تحميل الفئات.",
+        "noChildren": "لا يوجد شيء تحت هذه الفئة.",
+        "choose": "اختيار",
+        "chosen": "مختارة"
+      },
+      "details": {
+        "noFields": "لا يطلب نوع المنتج هذا أي تفاصيل إضافية."
+      },
+      "fields": {
+        "required": "مطلوب",
+        "recommended": "موصى به",
+        "optional": "اختياري",
+        "hidden": "غير مطلوب",
+        "forbidden": "غير مسموح هنا",
+        "addValue": "إضافة قيمة أخرى",
+        "removeValue": "إزالة هذه القيمة",
+        "unitLabel": "الوحدة",
+        "unsupportedEntry": "لم تعد هذه القيمة المخزَّنة تناسب الحقل. راجع ترقية نوع المنتج.",
+        "yes": "نعم",
+        "no": "لا"
+      },
+      "values": {
+        "choose": "اختر قيمة",
+        "filterPlaceholder": "تصفية القيم",
+        "noMatches": "لم تطابق أي قيمة."
+      },
+      "axes": {
+        "width": "العرض",
+        "height": "الارتفاع",
+        "depth": "العمق",
+        "diagonal": "القطر",
+        "circumference": "المحيط"
+      },
+      "variants": {
+        "noAxesAvailable": "لا يملك نوع المنتج هذا سمات يمكنها تحديد المتغيّرات.",
+        "addAxisValue": "إضافة قيمة",
+        "removeAxisValue": "إزالة هذه القيمة",
+        "generate": "بناء التركيبات",
+        "tooManyCombinations": "سيتجاوز ذلك 200 تركيبة. أزل بعض القيم أولًا.",
+        "unsupportedAxisValue": "لا يمكن تحرير هذه السمة كقيمة متغيّر هنا.",
+        "duplicate": "التركيبة نفسها تظهر سابقًا في القائمة.",
+        "sold": "معروض للبيع",
+        "sku": "SKU",
+        "barcode": "الباركود",
+        "singleVariant": "تكوين واحد",
+        "addSingle": "إضافة تكوين واحد"
+      },
+      "pricing": {
+        "bulkTitle": "تطبيق على كل تركيبة",
+        "bulkPriceLabel": "السعر لكل تركيبة",
+        "bulkStockLabel": "المخزون لكل تركيبة",
+        "applyToAll": "تطبيق على الكل",
+        "price": "السعر",
+        "compareAt": "السعر قبل الخصم",
+        "currency": "العملة",
+        "stock": "المخزون",
+        "trackStock": "تتبّع المخزون",
+        "noSoldVariants": "فعّل تركيبة واحدة على الأقل لتسعيرها."
+      },
+      "listing": {
+        "mediaTitle": "الصور",
+        "mediaUnavailable": "لا يمكن إضافة الصور من لوحة التحكم بعد. وتبقى أي صور مرفقة بهذه المسودة كما هي."
+      },
+      "review": {
+        "category": "الفئة",
+        "productType": "نوع المنتج",
+        "productTypeVersion": "%{name} (الإصدار %{version})",
+        "marketAndLocale": "السوق %{market} · اللغة %{locale}",
+        "market": "السوق",
+        "canonicalLink": "منتج الكتالوج",
+        "canonicalNone": "لم يُختر أي منتج",
+        "canonicalDeclared": "اخترته بنفسك",
+        "fieldsAnswered": "التفاصيل المُجاب عنها",
+        "soldVariants": "التركيبات المعروضة للبيع",
+        "pricedVariants": "التركيبات المسعّرة",
+        "moreVariants": "و%{count} أخرى",
+        "empty": "فارغ",
+        "provided": "مُقدَّم"
+      },
+      "save": {
+        "idle": "لم يُحفظ بعد",
+        "unsaved": "تغييرات غير محفوظة",
+        "saving": "جارٍ الحفظ…",
+        "saved": "تم الحفظ",
+        "failed": "تعذّر الحفظ — اضغط لإعادة المحاولة",
+        "retry": "إعادة محاولة الحفظ",
+        "conflict": "تغيّر في مكان آخر — اضغط لإعادة التحميل",
+        "reload": "إعادة تحميل النسخة المحفوظة",
+        "conflictTitle": "تغيّرت هذه المسودة في مكان آخر",
+        "conflictBody": "حُفظت على جهاز آخر، أو نُشرت أو أُلغيت. أعد تحميلها للمتابعة؛ ما هو معروض على الشاشة لا يجري حفظه."
+      },
+      "publish": {
+        "check": "افحصه",
+        "publish": "نشر",
+        "published": "تم نشر المنتج.",
+        "readyToPublish": "كل شيء سليم.",
+        "alreadyPublishedTitle": "سبق نشر هذه المسودة",
+        "alreadyPublishedBody": "منتجها موجود الآن في كتالوجك.",
+        "openListing": "فتح المنتج"
+      },
+      "summary": {
+        "errors": "%{count} أمر يجب إصلاحه قبل النشر",
+        "warnings": "%{count} أمر يستحق المراجعة"
+      },
+      "finding": {
+        "categoryNotSelectable": "لا يمكن إدراج المنتجات مباشرةً في هذه الفئة.",
+        "categoryNotInScope": "لا يغطي نوع المنتج هذا الفئة المختارة.",
+        "productTypeNotPublished": "نوع المنتج هذا غير منشور. تحتفظ المسودة بالإصدار الذي بدأت تحته.",
+        "schemaSuperseded": "تغيّر النموذج منذ أن بدأت هذه المسودة. راجع الترقية قبل النشر.",
+        "requiredFieldMissing": "ما زال هذا فارغًا.",
+        "unknownField": "تخص هذه الإجابة حقلًا لم يعد النموذج يحتوي عليه.",
+        "fieldForbidden": "لا يمكن ملء هذا الحقل من هنا.",
+        "valueTypeMismatch": "هذه ليست قيمة يقبلها هذا الحقل.",
+        "valueNotInSet": "اختر إحدى القيم المعروضة.",
+        "valueBelowMinimum": "هذه أقل من أصغر قيمة مسموح بها.",
+        "valueAboveMaximum": "هذه أكبر من أكبر قيمة مسموح بها.",
+        "valueTooLong": "هذه أطول مما يسمح به هذا الحقل.",
+        "tooManyDecimals": "تحتوي هذه على منازل عشرية أكثر مما يسمح به هذا الحقل.",
+        "valueImplausible": "يبدو هذا خطأً في الفاصلة العشرية. تحقّق منه.",
+        "cardinalityExceeded": "يقبل هذا الحقل قيمًا أقل من ذلك.",
+        "componentMissing": "أحد القياسات مفقود.",
+        "unknownComponentAxis": "هذا القياس ليس من القياسات التي يعلنها هذا الحقل.",
+        "unknownUnit": "حدّد الوحدة المستخدمة هنا.",
+        "currencyMismatch": "لا توجد لهذا الحقل عملة لتسجيل المبلغ بها.",
+        "canonicalRefNotPermitted": "لا يقبل هذا الحقل مرجعًا من الكتالوج.",
+        "proposalNotPermitted": "لا يمكنك اقتراح قيمة جديدة لهذا الحقل.",
+        "noVariantDeclared": "أضف تركيبة واحدة على الأقل للبيع.",
+        "axisNotPermitted": "لا يمكن لهذه السمة تحديد متغيّرات نوع المنتج هذا.",
+        "axisValueMissing": "تنقص هذه التركيبة إحدى قيمها.",
+        "duplicateVariant": "توجد تركيبة أخرى بالقيم نفسها.",
+        "priceMissing": "لا يوجد سعر لهذه التركيبة.",
+        "priceCurrencyMissing": "لا توجد عملة لهذا السعر.",
+        "inventoryNegative": "لا يمكن أن يكون المخزون سالبًا.",
+        "titleMissing": "يحتاج الإعلان إلى عنوان.",
+        "descriptionMissing": "يحتاج الإعلان إلى وصف.",
+        "proposalPending": "ما زالت هناك قيمة مقترحة قيد الانتظار، ونوع المنتج هذا يمنع النشر حتى يُبتّ فيها.",
+        "draftNotOpen": "لم تعد هذه المسودة مفتوحة."
+      }
+    }
+  },
+  "settings": {
+    "documentTitle": "الإعدادات | Mercaria Dashboard",
+    "language": {
+      "description": "اللغة التي تُعرض بها لوحة التحكم هذه. تُحفظ على هذا الجهاز، ولا تغيّر ما يراه عملاؤك.",
+      "title": "اللغة"
+    },
+    "locations": {
+      "createFailed": "تعذّر إنشاء الموقع",
+      "created": "تم إنشاء الموقع",
+      "defaultFlag": " · افتراضي",
+      "deleteFailed": "تعذّر حذف الموقع",
+      "deleted": "تم حذف الموقع",
+      "documentTitle": "المواقع | Mercaria Dashboard",
+      "inactiveFlag": " · غير نشط",
+      "loadFailed": "تعذّر تحميل المواقع",
+      "namePlaceholder": "المستودع الرئيسي",
+      "nameRequired": "الاسم مطلوب",
+      "newTitle": "موقع جديد",
+      "subtitle": "أين تحتفظ بمخزونك",
+      "title": "المواقع",
+      "types": {
+        "popUp": "متجر مؤقت",
+        "retail": "متجر تجزئة",
+        "virtual": "افتراضي",
+        "warehouse": "مستودع"
+      }
+    },
+    "members": {
+      "addFailed": "تعذّرت إضافة العضو",
+      "addMember": "إضافة عضو",
+      "added": "تمت إضافة العضو",
+      "documentTitle": "الأعضاء | Mercaria Dashboard",
+      "explicitPermissions": {
+        "one": "%{count} إذن صريح ممنوح",
+        "other": "%{count} إذن صريح ممنوح"
+      },
+      "invite": "دعوة",
+      "inviteTitle": "دعوة عضو",
+      "joinedOn": "انضم في %{date}",
+      "loadFailed": "تعذّر تحميل الأعضاء",
+      "oxyUserIdLabel": "معرّف مستخدم Oxy",
+      "oxyUserIdPlaceholder": "معرّف مستخدم Oxy",
+      "oxyUserIdRequired": "أدخل معرّف مستخدم Oxy الخاص بالعضو",
+      "removeFailed": "تعذّرت إزالة العضو",
+      "removed": "تمت إزالة العضو",
+      "roleLabel": "الدور",
+      "roleUpdateFailed": "تعذّر تحديث العضو",
+      "roleUpdated": "تم تحديث الدور",
+      "roles": {
+        "admin": "مسؤول",
+        "owner": "مالك",
+        "staff": "موظف"
+      },
+      "subtitle": "من يمكنه إدارة هذا المتجر",
+      "title": "الأعضاء والأدوار"
+    },
+    "payments": {
+      "beingReviewed": "قيد المراجعة",
+      "documentTitle": "المدفوعات والتحويلات | Mercaria Dashboard",
+      "dueBy": "مستحق بحلول",
+      "itemCount": {
+        "one": "%{count} عنصر",
+        "other": "%{count} عنصر"
+      },
+      "loadFailed": "تعذّر تحميل إعدادات الدفع",
+      "neededNow": "مطلوب الآن",
+      "onboardingUnavailable": "إعداد التحويلات المالية غير متاح بعد في نسخة Mercaria هذه.",
+      "openFailed": "تعذّر فتح إعداد التحويلات المالية",
+      "outstandingTitle": "المعلّق لدى Stripe",
+      "paidOutIn": "تُحوَّل بعملة",
+      "payoutsTitle": "التحويلات المالية",
+      "quoteToSupport": "اذكر هذا لدعم Mercaria إذا احتجت إلى مساعدة.",
+      "registeredIn": "مسجَّل في",
+      "reportedByStripe": "بحسب Stripe",
+      "requirementsNote": "تحتفظ Stripe بهذه البيانات وهي المكان الوحيد لاستكمالها. لا تطّلع Mercaria عليها أبدًا.",
+      "schedule": "الجدول",
+      "scheduleWithDelay": {
+        "one": "%{interval}، بعد %{count} يوم",
+        "other": "%{interval}، بعد %{count} يوم"
+      },
+      "states": {
+        "actionRequired": {
+          "action": "متابعة الإعداد",
+          "body": "تحتاج Stripe إلى مزيد من المعلومات قبل أن تتمكن من تحويل أموالك. وإلى أن تكتمل لديها، لن يتمكن المشترون من إتمام الشراء من إعلاناتك.",
+          "heading": "ما زالت بعض البيانات مطلوبة"
+        },
+        "disabled": {
+          "body": "أغلقت Stripe هذا الحساب المرتبط، أو أُزيل ارتباطه بـ Mercaria. لا يمكن للمشترين إتمام الشراء من إعلاناتك. تواصل مع دعم Mercaria لبحث الأمر.",
+          "heading": "لم يعد بالإمكان استخدام هذا الحساب"
+        },
+        "notConnected": {
+          "action": "إعداد التحويلات المالية",
+          "body": "إعلاناتك ظاهرة ويمكنك استخدام كل أجزاء Mercaria الأخرى، لكن لا يمكن للمشترين إتمام الشراء منها بعد. لا يستغرق إعداد التحويلات المالية سوى بضع دقائق.",
+          "heading": "لم يُعد بعد"
+        },
+        "ready": {
+          "action": "إدارة بيانات التحويل",
+          "body": "يمكن للمشترين إتمام الشراء من إعلاناتك، وتحوّل Stripe رصيدك إلى حسابك المصرفي.",
+          "heading": "جاهز لاستلام المدفوعات"
+        },
+        "restricted": {
+          "action": "عالج الأمر الآن",
+          "body": "تأخّر تقديم شيء طلبته Stripe، فأوقفت التحويلات مؤقتًا ولم يعد بإمكان المشترين إتمام الشراء من إعلاناتك. استكماله يعيد الأمرين معًا.",
+          "heading": "التحويلات المالية متوقفة مؤقتًا"
+        },
+        "underReview": {
+          "body": "استلمت Stripe ما طلبته وهي تراجعه. لا يوجد ما تفعله — يستغرق ذلك عادةً يومًا أو يومين. لا يمكن للمشترين إتمام الشراء من إعلاناتك حتى تنتهي المراجعة.",
+          "heading": "قيد المراجعة"
+        }
+      },
+      "subtitle": "كيف تحصل على أموالك مقابل الطلبات المقدَّمة على Mercaria",
+      "title": "المدفوعات والتحويلات"
+    },
+    "plan": {
+      "alwaysIncludedBody": "إدارة كتالوجك، واستلام الطلبات وتنفيذها، وإصدار المبالغ المستردة، والاطلاع على سجلات مبيعاتك وتحويلاتك، وتصدير بياناتك — كل ذلك مجاني لكل متجر على Mercaria وليس جزءًا من أي خطة أبدًا. لا شيء في هذه الصفحة يمكنه تغيير ذلك، ولا تؤثر أي خطة على كيفية العثور على إعلاناتك أو ترتيبها.",
+      "alwaysIncludedTitle": "مشمول دائمًا",
+      "cancelFailed": "تعذّر الإلغاء. يرجى المحاولة مرة أخرى.",
+      "cancelPlan": "إلغاء الخطة",
+      "capabilityWithLimit": "%{name} · حتى %{limit}",
+      "choosePlan": "اختر %{plan}",
+      "documentTitle": "الخطة والفوترة | Mercaria Dashboard",
+      "endsOn": "تنتهي في %{date}.",
+      "free": "مجانية",
+      "graceEndsOn": "تتوقف مزايا هذه الخطة في %{date} ما لم تنجح عملية الدفع.",
+      "loadFailed": "تعذّر تحميل خطتك",
+      "manageBilling": "إدارة الفوترة",
+      "noExtras": "لا توجد مزايا خطة مفعّلة على هذا المتجر.",
+      "noPaidPlans": "لا توجد خطط مدفوعة متاحة بعد. وعندما تتوفر، سيُدرج هنا كل ما تشمله مع سعره قبل أن توافق على أي شيء.",
+      "notOnPaidPlan": "أنت لست على خطة مدفوعة. كل ما هو مذكور أعلاه مشمول.",
+      "paidPlansTitle": "الخطط المدفوعة",
+      "portalFailed": "تعذّر فتح الفوترة. يرجى المحاولة مرة أخرى.",
+      "pricePerMonth": "%{price} · شهريًا",
+      "pricePerYear": "%{price} · سنويًا",
+      "renewsOn": "تتجدد في %{date}.",
+      "statuses": {
+        "active": {
+          "body": "تتجدد خطتك تلقائيًا. يمكنك الإلغاء في أي وقت والاحتفاظ بها حتى نهاية الفترة التي دفعت مقابلها.",
+          "heading": "نشطة"
+        },
+        "cancelled": {
+          "body": "تحتفظ بمزايا هذه الخطة حتى التاريخ أدناه. لا يتغير أي شيء آخر.",
+          "heading": "تُلغى في نهاية الفترة"
+        },
+        "expired": {
+          "body": "لم تعد مزايا هذه الخطة مفعّلة. وكل ما هو مشمول مجانًا لم يتغير.",
+          "heading": "انتهت"
+        },
+        "pastDue": {
+          "body": "كتالوجك وطلباتك ومبالغك المستردة وسجلاتك غير متأثرة وستبقى كذلك. المتأثر هو مزايا هذه الخطة فقط، وبعد التاريخ أدناه فقط.",
+          "heading": "تعذّر علينا تحصيل الدفعة الأخيرة"
+        },
+        "paused": {
+          "body": "مزايا هذه الخطة غير مفعّلة أثناء إيقافها المؤقت.",
+          "heading": "موقوفة مؤقتًا"
+        },
+        "trialing": {
+          "body": "لديك وصول كامل إلى مزايا هذه الخطة حتى تنتهي الفترة التجريبية.",
+          "heading": "فترة تجريبية جارية"
+        }
+      },
+      "subtitle": "ما يحصل عليه متجرك، وما تدفعه مقابله",
+      "title": "الخطة والفوترة",
+      "trialNotice": {
+        "one": "تشمل فترة تجريبية مدتها %{count} يوم.",
+        "other": "تشمل فترة تجريبية مدتها %{count} يوم."
+      },
+      "upgradeFailed": "تعذّر بدء الترقية. يرجى المحاولة مرة أخرى.",
+      "usageIncluded": "مشمول",
+      "usageNoLimit": "استُخدم %{used} · بلا حد",
+      "usageOfLimit": "استُخدم %{used} من %{limit}"
+    },
+    "policies": {
+      "documentTitle": "السياسات | Mercaria Dashboard",
+      "loadFailed": "تعذّر تحميل الإعدادات",
+      "lowStockAlerts": "تنبيهات انخفاض المخزون",
+      "notifications": "الإشعارات",
+      "orderEmails": "رسائل الطلبات",
+      "privacyPolicyLabel": "سياسة الخصوصية",
+      "privacyPolicyPlaceholder": "سياسة الخصوصية الخاصة بك…",
+      "refundPolicyLabel": "سياسة الاسترداد",
+      "refundPolicyPlaceholder": "سياسة الاسترداد الخاصة بك…",
+      "returnWindowLabel": "مهلة الإرجاع (بالأيام)",
+      "saveFailed": "تعذّر حفظ الإعدادات",
+      "saveSettings": "حفظ الإعدادات",
+      "saved": "تم حفظ الإعدادات",
+      "subtitle": "قواعد وتنبيهات على مستوى المتجر",
+      "termsLabel": "شروط الخدمة",
+      "termsPlaceholder": "شروط الخدمة الخاصة بك…",
+      "title": "السياسات والإشعارات"
+    },
+    "sections": {
+      "channels": {
+        "description": "اربط Shopify ومتاجر أخرى للمزامنة",
+        "label": "قنوات البيع"
+      },
+      "locations": {
+        "description": "أين تحتفظ بمخزونك",
+        "label": "المواقع"
+      },
+      "members": {
+        "description": "ادعُ الأعضاء وعدّل الأدوار والأذونات",
+        "label": "الأعضاء والأدوار"
+      },
+      "payments": {
+        "description": "احصل على أموالك مقابل الطلبات المقدَّمة على Mercaria",
+        "label": "المدفوعات والتحويلات"
+      },
+      "plan": {
+        "description": "ما يحصل عليه متجرك، وما تدفعه مقابله",
+        "label": "الخطة والفوترة"
+      },
+      "policies": {
+        "description": "الإرجاع، وسياسات الاسترداد/الخصوصية/الشروط، والتنبيهات",
+        "label": "السياسات والإشعارات"
+      },
+      "profile": {
+        "description": "الاسم والمعرّف ولون العلامة والحالة",
+        "label": "ملف المتجر"
+      },
+      "tax": {
+        "description": "معدلات الضريبة وسلوكها",
+        "label": "الضرائب"
+      }
+    },
+    "store": {
+      "brandColorLabel": "لون العلامة التجارية",
+      "documentTitle": "ملف المتجر | Mercaria Dashboard",
+      "loadFailed": "تعذّر تحميل المتجر",
+      "nameLabel": "اسم المتجر",
+      "nameRequired": "اسم المتجر مطلوب",
+      "saveChanges": "حفظ التغييرات",
+      "title": "ملف المتجر",
+      "updateFailed": "تعذّر تحديث المتجر",
+      "updated": "تم تحديث المتجر"
+    },
+    "subtitle": "اضبط إعدادات متجرك",
+    "tax": {
+      "active": "نشط",
+      "countryLabel": "الدولة (ISO-2)",
+      "countryPlaceholder": "US",
+      "createFailed": "تعذّر إنشاء المعدل",
+      "created": "تم إنشاء معدل الضريبة",
+      "deleteFailed": "تعذّر حذف المعدل",
+      "deleted": "تم حذف معدل الضريبة",
+      "documentTitle": "الضرائب | Mercaria Dashboard",
+      "emptyBody": "أضف معدلًا لتحصيل الضريبة عند الدفع.",
+      "emptyTitle": "لا توجد معدلات ضريبة",
+      "inactive": "غير نشط",
+      "invalidRate": "أدخل معدلًا صالحًا",
+      "loadFailed": "تعذّر تحميل معدلات الضريبة",
+      "namePlaceholder": "ضريبة المبيعات الأمريكية",
+      "nameRequired": "الاسم مطلوب",
+      "newRate": "معدل جديد",
+      "newRateTitle": "معدل ضريبة جديد",
+      "rateLabel": "المعدل (%)",
+      "regionLabel": "المنطقة",
+      "regionPlaceholder": "CA",
+      "subtitle": "معدلات الضريبة المطبَّقة عند الدفع",
+      "title": "الضرائب"
+    },
+    "title": "الإعدادات"
+  },
+  "stores": {
+    "create": {
+      "descriptionPlaceholder": "ماذا تبيع؟",
+      "dialogTitle": "إنشاء متجر",
+      "error": "تعذّر إنشاء المتجر",
+      "nameLabel": "اسم المتجر",
+      "namePlaceholder": "Acme Supply Co.",
+      "nameRequired": "اسم المتجر مطلوب",
+      "success": "تم إنشاء المتجر"
+    },
+    "createStore": "إنشاء متجر",
+    "documentTitle": "المتاجر | Mercaria Dashboard",
+    "empty": {
+      "body": "أنشئ متجرك الأول لتبدأ البيع على Mercaria.",
+      "title": "لا توجد متاجر بعد"
+    },
+    "loadError": "تعذّر تحميل متاجرك",
+    "newStore": "متجر جديد",
+    "selectStore": "اختيار المتجر",
+    "storeMeta": {
+      "one": "@%{handle} · %{count} منتج",
+      "other": "@%{handle} · %{count} منتج"
+    },
+    "subtitle": "اختر متجرًا لإدارته",
+    "switch": "تبديل المتجر",
+    "title": "متاجرك"
+  }
+}

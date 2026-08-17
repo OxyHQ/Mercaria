@@ -1,4 +1,5 @@
 import { createAppI18n, createI18nStore, syncLayoutDirection } from '@mercaria/ui';
+import ar from './locales/ar.json';
 import bn from './locales/bn.json';
 import ca from './locales/ca.json';
 import de from './locales/de.json';
@@ -14,15 +15,17 @@ import zhHans from './locales/zh-Hans.json';
 /**
  * The POS register's copy.
  *
- * Eleven of the registry's twelve locales. `ar` is deliberately ABSENT: the
- * storefront mirrors its layout for Arabic (#397) and this app does not, so
- * shipping Arabic copy here would put right-to-left text into a left-to-right
- * till — the row order one way, the padding, the numeric keypad and the cart
- * totals the other. That is worse than English, which at least reads
- * consistently. Adding `ar.json` is the LAST step of mirroring the layout
- * (#434), not a separate favour.
+ * All twelve of the registry's locales. `ar` was deliberately absent until the
+ * till mirrored: right-to-left text in a left-to-right till puts the row order
+ * one way and the padding, the numeric keypad and the cart totals the other,
+ * which is worse than English. #434's layout half landed first, #429 item 4
+ * gave `SheetContent` a logical side so the variant picker mirrors with
+ * everything else, and this bundle is the last step. `syncLayoutDirection`
+ * reads these bundles rather than the language tag, so adding `ar` here is what
+ * turns mirroring on.
  */
 const bundles = {
+  ar,
   bn,
   ca,
   de,
@@ -55,8 +58,9 @@ export const { useTranslation } = createI18nStore({
   // locale here only ever comes from the device or from rehydration, which is
   // exactly why the hook has to cover both and not just `setLocale`.
   //
-  // `ar` is absent from `bundles` above, and `syncLayoutDirection` reads the
-  // bundles rather than the tag, so this is a no-op today by construction. It
-  // starts mirroring on the commit that adds `ar.json`, with no edit here.
+  // `ar` is in `bundles` above as of #434, so this now mirrors for an Arabic
+  // locale. The till has no picker, so that direction comes from the device or
+  // from rehydration — and on native it takes effect on the NEXT launch, which
+  // for a till means the next time the app is opened.
   onLocaleApplied: (locale) => syncLayoutDirection(i18n, locale),
 });
