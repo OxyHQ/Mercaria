@@ -26,7 +26,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { getTableColumns } from 'drizzle-orm';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { commerceRelationships } from '../../../db/schema/relationships.js';
@@ -38,15 +38,60 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** The relationship domain's own modules — the source side of claim 2. */
-const RELATIONSHIP_PATHS = [
-  'services/commerce-graph/relationship.service.ts',
-  'services/commerce-graph/relationship-authority.ts',
-  'services/commerce-graph/relationship-conflicts.ts',
-  'services/commerce-graph/relationship-resolution.ts',
-  'db/commerce-graph/relationshipRepository.ts',
-  'db/schema/relationships.ts',
-];
+/**
+ * The relationship domain's own modules — the source side of claim 2, DERIVED.
+ *
+ * `services/commerce-graph/` holds three sub-domains (merchants, storefronts,
+ * native-store links) and only one of them is this gate's subject, so the
+ * population cannot be the directory. It is the directory NARROWED BY NAME,
+ * which is a derivation rather than a list: every module of this domain is
+ * called `relationship*`, in all three places one can live.
+ *
+ * It was a six-entry hand list until #460. That list was COMPLETE — the
+ * derivation reproduces exactly the six it named, no more and no less — which is
+ * precisely why a floor could not defend it. A hand list is only ever blind in
+ * ONE direction, and it is the direction nothing else covers: a module ADDED to
+ * the domain tomorrow. Measured before this change: a new
+ * `services/commerce-graph/relationship-badge.ts` importing `rankOffers` — the
+ * exact thing this gate forbids — left the suite at 8 passed.
+ * {@link relationshipModules} closes that, and the added-module probe below is
+ * kept as a permanent test rather than a note saying it was run once.
+ */
+const RELATIONSHIP_DIRECTORIES = [
+  'services/commerce-graph',
+  'db/commerce-graph',
+  'db/schema',
+] as const;
+
+/** What a module of THIS sub-domain is called, wherever it lives. */
+const RELATIONSHIP_NAME_PATTERN = /relationship/i;
+
+/**
+ * MEASURED on this branch: 4 + 1 + 1. A floor rather than an exact count,
+ * because the derivation exists so a new module is covered the moment it is
+ * written — an exact count would fail the build on exactly that legitimate case
+ * and make "bump the number" the cheapest green.
+ */
+const MINIMUM_RELATIONSHIP_MODULES = 6;
+
+function relationshipModules(): string[] {
+  return RELATIONSHIP_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory))
+      .filter((entry) => entry.endsWith('.ts') && RELATIONSHIP_NAME_PATTERN.test(entry))
+      .sort()
+      .map((entry) => {
+        const relative = `${directory}/${entry}`;
+        // A derived population is only as honest as the assertion that every
+        // member resolves; a stale `readdirSync` would otherwise hand the scan
+        // names that no longer exist, which reads as a clean run.
+        expect(
+          statSync(join(SRC_ROOT, relative)).isFile(),
+          `${relative} is not a file — did it move?`,
+        ).toBe(true);
+        return relative;
+      }),
+  );
+}
 
 
 /**
@@ -140,7 +185,16 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
 
   it('never lets the relationship domain read the fee, payment or referral domains', () => {
     let scanned = 0;
-    for (const relative of RELATIONSHIP_PATHS) {
+    const modules = relationshipModules();
+    // A FLOOR on the derived population, never `toBe(LIST.length)` — comparing a
+    // counter against the list the loop just iterated is satisfied by any list
+    // including an empty one, so it catches a broken loop and never a shrunk
+    // population.
+    expect(
+      modules.length,
+      'the relationship module derivation shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_RELATIONSHIP_MODULES);
+    for (const relative of modules) {
       const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
       expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
       expect(
@@ -149,7 +203,65 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RELATIONSHIP_PATHS.length);
+    expect(scanned).toBe(modules.length);
+  });
+
+  it('the derivation covers what the hand list named, and only this sub-domain', () => {
+    // A derivation that replaced a list owes the proof that it still selects
+    // everything the list named — anything it stopped selecting silently left
+    // the scan.
+    const modules = relationshipModules();
+    for (const expected of [
+      'services/commerce-graph/relationship.service.ts',
+      'services/commerce-graph/relationship-authority.ts',
+      'services/commerce-graph/relationship-conflicts.ts',
+      'services/commerce-graph/relationship-resolution.ts',
+      'db/commerce-graph/relationshipRepository.ts',
+      'db/schema/relationships.ts',
+    ]) {
+      expect(modules, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // …and does NOT drag in the two sibling sub-domains that share the
+    // directory, or this wall would start firing at whoever edits a storefront.
+    for (const foreign of [
+      'services/commerce-graph/merchant.service.ts',
+      'services/commerce-graph/storefront.service.ts',
+      'services/commerce-graph/native-store-link.service.ts',
+    ]) {
+      expect(modules, `${foreign} is a different sub-domain`).not.toContain(foreign);
+    }
+    expect(RELATIONSHIP_NAME_PATTERN.test('relationshipRepository.ts')).toBe(true);
+    expect(RELATIONSHIP_NAME_PATTERN.test('relationships.ts')).toBe(true);
+    expect(RELATIONSHIP_NAME_PATTERN.test('merchant.service.ts')).toBe(false);
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // The probe that justifies the whole conversion, kept as a test rather than
+    // as a claim that one was run once. A hand list that is COMPLETE today
+    // passes every floor and every count; the only way it fails is a module
+    // nobody adds to it, so that is the case asserted here.
+    //
+    // Written against the DERIVATION rather than the filesystem: seeding a real
+    // file would make this test mutate the tree it shares with every parallel
+    // suite. What is under test is that the population is computed from a name
+    // rule over a directory, so a name the rule admits is a name the scan gets.
+    const admitted = ['relationship-badge.ts', 'relationship-projection.ts', 'relationships.ts'];
+    for (const name of admitted) {
+      expect(
+        RELATIONSHIP_NAME_PATTERN.test(name),
+        `a new ${name} would not be scanned; the population is not derived from the name`,
+      ).toBe(true);
+    }
+    // The population is the directory filtered by that rule and nothing else —
+    // so admitting the name IS admitting the module. Proven by reconstructing
+    // the derived set from the directory listing and comparing.
+    const reconstructed = RELATIONSHIP_DIRECTORIES.flatMap((directory) =>
+      readdirSync(join(SRC_ROOT, directory))
+        .filter((entry) => entry.endsWith('.ts') && RELATIONSHIP_NAME_PATTERN.test(entry))
+        .sort()
+        .map((entry) => `${directory}/${entry}`),
+    );
+    expect(reconstructed).toEqual(relationshipModules());
   });
 
   it('the commercial detector actually detects — the mutation self-test', () => {
