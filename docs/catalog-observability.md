@@ -359,8 +359,12 @@ Would separate "still retrying" from "given up".
 
 **None of #367's own queues has a dead-letter state.**
 `catalog_backfill_runs`, `catalog_external_mapping_runs` and
-`catalog_external_token_observations` record `attempts` and `last_error` only, so
-a run that has given up is indistinguishable from one still retrying. #58's
+`catalog_external_token_observations` record `last_error` and no more — **neither
+run table has an `attempts` column at all** (`db/schema/backfill.ts:140-200`,
+`db/schema/catalogExternalMappings.ts:764-802`; the `attempts` column that does
+exist is `attribute_reindex_requests`', `db/schema/attributeRegistry.ts:560`, and
+nothing increments it). So a run that has given up is indistinguishable from one
+still retrying, and there is no retry counter on the run to read either. #58's
 `match_queue` DOES have one and IS measured, as
 `match_queue_dead_letter_count` — which is precisely why this is `unmeasured`
 rather than zero: the concept exists one domain over, so a zero here would read
@@ -1421,7 +1425,7 @@ stops anybody looking.
 | Cache immutable published schema versions safely | **Done, elsewhere** — `schema.service.ts` memoizes only `published`/`deprecated` versions. |
 | Key caches by all semantic dimensions | **Done, elsewhere** — the key carries product type, category, flow, locale, market, permission fingerprint and the invalidation revisions. |
 | Invalidate through versioned events/outbox | **Done, elsewhere** — `catalog_authoring_schema_invalidations`. |
-| Make backfills, reindexing and mapping reprocessing resumable and idempotent | **Partial.** Backfill runs and mapping runs are leased and resumable; reindex requests have deterministic ids and NO consumer, so "resumable reindexing" is vacuous. |
+| Make backfills, reindexing and mapping reprocessing resumable and idempotent | **Partial, and narrower than this row said before.** `catalog_backfill_runs` is genuinely leased, cursored and drained — it is the ONE job here that resumes. **Mapping runs are NOT leased**: `catalog_external_mapping_runs.claimed_at`/`claimed_by`/`claim_expires_at` are written by no production code and `RUN_COLUMNS` omits them, and `openReprocessRun`/`runReprocessPage` have zero callers outside their own module — no route, no CLI, no dispatcher — so there is nothing to resume and nothing to start. Reindex requests have deterministic ids and NO consumer, so "resumable reindexing" is vacuous. Also untested where it matters: no test calls `claimBackfillRun`, so the expired-lease reclaim branch is unexercised. Detail and the operator steps: [`runbooks/catalog-backfill-resumption.md`](runbooks/catalog-backfill-resumption.md). |
 | Add dead-letter/retry handling for asynchronous jobs | **Not done** for this epic's own queues — that is seam 6, `no_dead_letter_state`. #58's `match_queue` has one. |
 | Define consistency behavior between DB publication and search index visibility | **Not done.** There is no index and no consumer; the trace's reindex hop says so. |
 | Add load tests for large variant matrices, deep category trees and popular facets | **Partial.** The ancestry benchmark is a deep-tree load test at 5,010 nodes. Variant matrices and popular facets are not covered. |
