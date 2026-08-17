@@ -13,6 +13,11 @@ prevents it.
 | Smartphone | Letting a spec-sheet fact become a variant axis | [`smartphone.md`](./smartphone.md) |
 | Brake pad | Modelling fitment as variants — 400 SKUs for one part | [`brake-pad.md`](./brake-pad.md) |
 
+The MERCHANT journeys on top of these catalogues — two locales, two markets,
+locale switching mid-draft, missing-translation fallback and publication
+rollback — are Workstream 18's and live in
+`packages/backend/src/__tests__/vertical-e2e/`: [`e2e.md`](./e2e.md).
+
 ## Running the seed
 
 ```bash
