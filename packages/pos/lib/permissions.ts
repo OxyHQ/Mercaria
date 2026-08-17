@@ -11,6 +11,13 @@ import type {
  * authority for every gated write; this mirror exists ONLY to hide nav items /
  * actions the caller could not perform anyway, so the UI doesn't surface
  * affordances that would 403. Keep this in lockstep with the backend matrix.
+ *
+ * `__tests__/permissions.test.ts` is what keeps it there. A permission added to
+ * `StorePermission` and omitted here type-checks (a subset is assignable to
+ * `readonly StorePermission[]`), so the drift is invisible to `tsc`, lint, every
+ * scanning gate and the export — and it hides the affordance from the store
+ * OWNER, who is the one member certain to hold it. `analytics:read` (#86) was
+ * missing here until #469.
  */
 const ALL_PERMISSIONS: readonly StorePermission[] = [
   "store:manage",
@@ -30,6 +37,7 @@ const ALL_PERMISSIONS: readonly StorePermission[] = [
   "draft_orders:write",
   "refunds:write",
   "channels:write",
+  "analytics:read",
 ];
 
 const ADMIN_PERMISSIONS: readonly StorePermission[] = ALL_PERMISSIONS.filter(

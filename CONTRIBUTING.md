@@ -59,17 +59,33 @@ Two layout facts that will otherwise cost you an afternoon:
 bun run --filter @mercaria/backend test
 ```
 
-Vitest. Place test files next to the source as `*.test.ts`. `packages/backend` is the only package with a suite today.
+Vitest. Four packages carry a suite: `backend`, and the three Expo apps.
+
+Each app's runner is deliberately narrow — `lib/**` only, node environment, no jsdom, no React — and each app has its OWN, which is a correctness property rather than a convenience. A test importing across a package boundary compiles the imported source under the **importing** package's `strict` setting; all four client packages are `strict: true` and `packages/backend` is `strict: false`, so an app module exercised from the API suite would lose every null-safety check it was written to rely on and pass anyway. `packages/frontend/vitest.config.ts` carries the full argument, including the measured reason component tests are out of scope (`react-native` ships Flow source a bundler cannot parse, so a renderer here would test a module graph neither shipped app uses).
+
+Put app tests under `lib/**/__tests__/*.test.ts` and backend tests next to the source as `*.test.ts`. `packages/backend/src/__tests__/client-test-runners.test.ts` fails the build if a package declares a real `test` script that no CI step runs, or if a CI step points at a package whose `test` is a placeholder.
 
 CI runs the following on every pull request, and each line runs locally as written:
 
 ```bash
+bun run validate:no-mongo
+bun run validate:agents-md
+bun run validate:rtl-classes
+bun run validate:bidi-isolation
+bun run validate:i18n-strings
+bun run validate:authoring-schema
+bun run validate:money-formatting
+bun run validate:storefront-catalog
+bun run validate:route-targets
 bun run --filter @mercaria/backend lint
 bun run --filter @mercaria/backend typecheck
 bun run --filter @mercaria/ui typecheck
 bun run --filter @mercaria/dashboard typecheck
+bun run --filter @mercaria/dashboard test
 bun run --filter @mercaria/frontend typecheck
+bun run --filter @mercaria/frontend test
 bun run --filter @mercaria/pos typecheck
+bun run --filter @mercaria/pos test
 bun run --filter @mercaria/backend test
 bun run build:backend
 ```
