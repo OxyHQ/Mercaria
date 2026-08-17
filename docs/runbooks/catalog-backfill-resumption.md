@@ -189,7 +189,7 @@ mapping needs reprocessing today it is a code change, not an operator action.
 ### What the stalled-lease detector can and cannot see
 
 `checkStalledQueueLeases`
-(`services/catalog-observability/integrity.service.ts:672-730`, registered at
+(`services/catalog-observability/integrity.service.ts:671-730`, registered at
 `:749`) covers three tables: `catalog_backfill_runs`,
 `catalog_external_mapping_runs` and `catalog_external_token_observations`. **Two
 of the three can never populate**, because nothing in production writes their

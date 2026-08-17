@@ -490,7 +490,7 @@ migration does either.
 So the sharp answer depends entirely on the SET list.
 `UPDATE order_items SET condition_key = …` fires and aborts the migration;
 `UPDATE order_items SET unit_price = …` **applies silently**, and that is proven
-deliberately — `db/__tests__/condition.realdb.test.ts:521-530` asserts
+deliberately — `db/__tests__/condition.realdb.test.ts:519-529` asserts
 `db.update(orderItems).set({ position: 3 })` **resolves**, because a trigger
 refusing every update to `order_items` would break refunds. The vacuity guard is
 also the hole.
@@ -733,7 +733,7 @@ a loop at `src/index.ts:143` and a real `dead_letter` state.
 
 **The stalled-lease detector is real for one table and permanently `0/0` for the
 other two.** `checkStalledQueueLeases`
-(`services/catalog-observability/integrity.service.ts:672-730`, registered `:749`)
+(`services/catalog-observability/integrity.service.ts:671-730`, registered `:749`)
 covers `catalog_backfill_runs`, `catalog_external_mapping_runs` and
 `catalog_external_token_observations`; two of the three can never populate,
 because nothing writes their claim columns — its own tests hand-INSERT them with
