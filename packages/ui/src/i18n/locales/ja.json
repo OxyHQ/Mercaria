@@ -499,6 +499,130 @@
         "one": "この店舗に %{count} 点在庫あり。",
         "other": "この店舗に %{count} 点在庫あり。"
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "価格のしきい値",
+          "used_or_refurbished_appearance": "中古・整備済みが登場",
+          "official_channel_availability": "公式チャネルに登場",
+          "basket_target_total": "目標合計を設定",
+          "materially_better_plan": "明らかに良い組み合わせ",
+          "constraint_satisfiable": "条件を満たせるようになる"
+        },
+        "explanation": {
+          "offer_price_threshold": "現在の対象オファーが設定した価格になったら知らせてください。",
+          "used_or_refurbished_appearance": "条件に合う中古または整備済み品が出たら知らせてください。",
+          "official_channel_availability": "認証済みの公式チャネルで入手できるようになったら知らせてください。",
+          "basket_target_total": "セット全体が設定した合計を下回ったら知らせてください。",
+          "materially_better_plan": "保存した内容について明らかに良い組み合わせが現れたら知らせてください。",
+          "constraint_satisfiable": "設定したすべての条件をようやく満たすものが出たら知らせてください。"
+        }
+      },
+      "state": {
+        "enabled": "監視中",
+        "paused": "一時停止",
+        "blocked": "回答が必要です",
+        "completed": "終了",
+        "deleted": "削除済み"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "一致",
+          "not_qualified": "一致なし",
+          "incomplete": "判断できず"
+        },
+        "explanation": {
+          "qualified": "ご指定の条件はこの時点で満たされていました。",
+          "not_qualified": "完全な情報を確認しましたが、ご指定の条件は満たされていませんでした。",
+          "incomplete": "判断できませんでした — 必要な情報の一部が欠けていました。"
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "最新",
+          "superseded": "置き換え済み",
+          "invalidated": "無効"
+        },
+        "explanation": {
+          "current": "これはお客様の目的に対する最新の確認結果です。",
+          "superseded": "より新しい確認がこれに取って代わりました。変化がわかるよう保持しています。",
+          "invalidated": "カタログの修正により、これはもう何も指していません。削除せず保持しています。"
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "そのときオファー比較を実行できませんでした。",
+        "no_eligible_offer": "比較できる対象がありませんでした。",
+        "price_not_convertible": "価格をお客様の通貨で表せませんでした。",
+        "delivery_cost_unknown": "配送料が公開されていませんでした。",
+        "basket_partially_covered": "セットの一部に比較対象がありませんでした。",
+        "constraint_set_invalid": "ご指定の条件の一つが無効になりました。",
+        "constraint_facts_unavailable": "ご指定の条件の裏付けとなる情報が取得できませんでした。",
+        "agent_ambiguous_after_split": "このエージェントは、どの製品を指すかのご回答をお待ちしています。",
+        "no_comparable_prior_finding": "比較できる以前の結果がありませんでした。",
+        "catalogue_discovery_unavailable": "裏側のカタログ検索を実行できませんでした。"
+      },
+      "completeness": {
+        "complete": "完全な根拠",
+        "partial": "部分的な根拠"
+      },
+      "freshness": {
+        "current": "新しい情報源",
+        "ageing": "古くなりつつある情報源",
+        "unknown": "鮮度不明"
+      },
+      "optimality": {
+        "proven_optimal": "最良と確認済み",
+        "approximate": "見つかった中で最良"
+      },
+      "priceBasis": {
+        "item_price": "商品価格（配送料を除く）",
+        "delivered_total": "配送料込みの合計"
+      },
+      "channelPolicy": {
+        "native_only": "Mercaria の出品者",
+        "external_only": "Mercaria 外の販売店",
+        "official_only": "認証済みの公式ストア",
+        "mixed": "すべての販売者"
+      },
+      "triggerSource": {
+        "offer_change": "カタログの変更後",
+        "scheduled": "定期確認で",
+        "manual": "ご依頼により"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Oxy の通知",
+        "email": "メール"
+      },
+      "notificationState": {
+        "queued": "待機中",
+        "delivering": "送信中",
+        "delivered": "送信済み",
+        "failed": "失敗",
+        "suppressed": "保留",
+        "dead_letter": "中止"
+      },
+      "suppressionReason": {
+        "cooldown_active": "保留 — 最近お知らせしたためです。",
+        "not_materially_better": "保留 — 前回と比べて大きな改善がないためです。",
+        "agent_not_enabled": "保留 — このエージェントは監視していませんでした。",
+        "agent_deleted": "保留 — このエージェントは削除されていました。",
+        "finding_superseded": "保留 — より新しい確認がこれに取って代わりました。",
+        "destination_no_longer_eligible": "保留 — 指していた対象が対象外になりました。",
+        "channel_unavailable": "保留 — そのチャネルが利用できませんでした。"
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "未送信 — 配信経路がまだ設定されていません。",
+        "transport_rejected": "未送信 — 配信経路に拒否されました。",
+        "transport_unavailable": "未送信 — 配信経路が利用できませんでした。",
+        "finding_unreadable": "未送信 — 観測内容を読み取れませんでした。",
+        "unexpected_error": "未送信 — 問題が発生しました。"
+      },
+      "summarySource": {
+        "deterministic_template": "観測内容そのものから Mercaria が作成しました。",
+        "provider": "観測内容をもとに言語モデルが文章にしました。記載の数値はすべて観測内容によるもので、モデルによるものではありません。"
+      },
+      "observationDisclaimer": "検出結果は、その時点で Mercaria が確認した内容です。お取り置きではなく、確定価格でもありません — 価格と在庫状況はいつでも変わる可能性があります。"
     }
   }
 }

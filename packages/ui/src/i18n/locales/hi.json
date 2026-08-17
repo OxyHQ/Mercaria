@@ -499,6 +499,130 @@
         "one": "इस दुकान में %{count} स्टॉक में।",
         "other": "इस दुकान में %{count} स्टॉक में।"
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "कीमत की सीमा",
+          "used_or_refurbished_appearance": "इस्तेमाल किया या रीफर्बिश्ड दिखे",
+          "official_channel_availability": "आधिकारिक चैनल दिखे",
+          "basket_target_total": "लक्ष्य कुल तय करें",
+          "materially_better_plan": "काफ़ी बेहतर योजना",
+          "constraint_satisfiable": "आवश्यकताएँ पूरी होने योग्य बनें"
+        },
+        "explanation": {
+          "offer_price_threshold": "जब कोई मौजूदा योग्य ऑफ़र मेरी तय कीमत पर आए तो बताएँ।",
+          "used_or_refurbished_appearance": "जब कोई मेल खाता इस्तेमाल किया या रीफर्बिश्ड सामान दिखे तो बताएँ।",
+          "official_channel_availability": "जब यह किसी सत्यापित आधिकारिक चैनल पर उपलब्ध हो तो बताएँ।",
+          "basket_target_total": "जब पूरा सेट मेरे तय कुल से नीचे आ जाए तो बताएँ।",
+          "materially_better_plan": "जब मेरे सहेजे हुए के लिए काफ़ी बेहतर योजना मौजूद हो तो बताएँ।",
+          "constraint_satisfiable": "जब कोई चीज़ आख़िरकार मेरी सभी शर्तें पूरी करे तो बताएँ।"
+        }
+      },
+      "state": {
+        "enabled": "नज़र रखी जा रही है",
+        "paused": "रोका गया",
+        "blocked": "आपके उत्तर की ज़रूरत",
+        "completed": "पूरा हुआ",
+        "deleted": "हटाया गया"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "मेल खाया",
+          "not_qualified": "कोई मेल नहीं",
+          "incomplete": "बता नहीं सके"
+        },
+        "explanation": {
+          "qualified": "आपने जो माँगा वह उस क्षण सही था।",
+          "not_qualified": "हमने पूरी जानकारी देखी और आपने जो माँगा वह सही नहीं था।",
+          "incomplete": "हम बता नहीं सके — ज़रूरी जानकारी का कुछ हिस्सा मौजूद नहीं था।"
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "मौजूदा",
+          "superseded": "प्रतिस्थापित",
+          "invalidated": "अब मान्य नहीं"
+        },
+        "explanation": {
+          "current": "यह आपके उद्देश्य पर सबसे हालिया नज़र है।",
+          "superseded": "बाद की एक नज़र ने इसे बदल दिया। इसे रखा गया है ताकि आप देख सकें कि क्या बदला।",
+          "invalidated": "कैटलॉग सुधार के कारण यह अब कुछ भी नहीं बताता। हटाने के बजाय इसे रखा गया है।"
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "उस समय ऑफ़र तुलना नहीं चलाई जा सकी।",
+        "no_eligible_offer": "तुलना के लिए कुछ भी योग्य उपलब्ध नहीं था।",
+        "price_not_convertible": "एक कीमत आपकी मुद्रा में व्यक्त नहीं की जा सकी।",
+        "delivery_cost_unknown": "डिलीवरी लागत कभी प्रकाशित ही नहीं हुई।",
+        "basket_partially_covered": "सेट के एक हिस्से के लिए तुलना करने को कुछ नहीं था।",
+        "constraint_set_invalid": "आपकी शर्तों में से एक अब मान्य नहीं है।",
+        "constraint_facts_unavailable": "आपकी एक शर्त के पीछे के तथ्य उपलब्ध नहीं थे।",
+        "agent_ambiguous_after_split": "यह एजेंट आपके बताने का इंतज़ार कर रहा है कि आपका मतलब किस उत्पाद से था।",
+        "no_comparable_prior_finding": "इसकी तुलना करने के लिए पहले का कुछ नहीं था।",
+        "catalogue_discovery_unavailable": "इसके पीछे की कैटलॉग खोज नहीं चलाई जा सकी।"
+      },
+      "completeness": {
+        "complete": "पूरा प्रमाण",
+        "partial": "आंशिक प्रमाण"
+      },
+      "freshness": {
+        "current": "ताज़ा स्रोत",
+        "ageing": "पुराने पड़ते स्रोत",
+        "unknown": "ताज़गी अज्ञात"
+      },
+      "optimality": {
+        "proven_optimal": "सिद्ध रूप से सर्वोत्तम",
+        "approximate": "जो सर्वोत्तम मिला"
+      },
+      "priceBasis": {
+        "item_price": "वस्तु की कीमत, डिलीवरी से पहले",
+        "delivered_total": "डिलीवरी सहित कुल"
+      },
+      "channelPolicy": {
+        "native_only": "Mercaria पर विक्रेता",
+        "external_only": "Mercaria के बाहर के व्यापारी",
+        "official_only": "सत्यापित आधिकारिक स्टोर",
+        "mixed": "कोई भी विक्रेता"
+      },
+      "triggerSource": {
+        "offer_change": "कैटलॉग में बदलाव के बाद",
+        "scheduled": "निर्धारित जाँच पर",
+        "manual": "क्योंकि आपने कहा"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Oxy सूचनाएँ",
+        "email": "ईमेल"
+      },
+      "notificationState": {
+        "queued": "कतार में",
+        "delivering": "भेजा जा रहा है",
+        "delivered": "भेजा गया",
+        "failed": "विफल",
+        "suppressed": "रोका गया",
+        "dead_letter": "छोड़ दिया"
+      },
+      "suppressionReason": {
+        "cooldown_active": "रोका गया — आपको हाल ही में बताया गया था।",
+        "not_materially_better": "रोका गया — पिछली बार से काफ़ी बेहतर नहीं है।",
+        "agent_not_enabled": "रोका गया — यह एजेंट नज़र नहीं रख रहा था।",
+        "agent_deleted": "रोका गया — यह एजेंट हटाया जा चुका था।",
+        "finding_superseded": "रोका गया — बाद की एक नज़र ने इसे बदल दिया।",
+        "destination_no_longer_eligible": "रोका गया — जिस पर यह इशारा कर रहा था वह अब योग्य नहीं है।",
+        "channel_unavailable": "रोका गया — वह चैनल उपलब्ध नहीं था।"
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "नहीं भेजा — अभी कोई डिलीवरी मार्ग तय नहीं है।",
+        "transport_rejected": "नहीं भेजा — डिलीवरी मार्ग ने इसे अस्वीकार कर दिया।",
+        "transport_unavailable": "नहीं भेजा — डिलीवरी मार्ग उपलब्ध नहीं था।",
+        "finding_unreadable": "नहीं भेजा — अवलोकन पढ़ा नहीं जा सका।",
+        "unexpected_error": "नहीं भेजा — कुछ गड़बड़ हो गई।"
+      },
+      "summarySource": {
+        "deterministic_template": "Mercaria ने अवलोकन से ही लिखा।",
+        "provider": "अवलोकन के आधार पर एक भाषा मॉडल ने शब्द दिए। इसमें हर आँकड़ा अवलोकन से आता है, मॉडल से कभी नहीं।"
+      },
+      "observationDisclaimer": "निष्कर्ष वह है जो Mercaria ने उस क्षण देखा। यह आपके लिए रोका नहीं जाता और यह कोई तय कीमत नहीं है — कीमतें और उपलब्धता कभी भी बदल सकती हैं।"
     }
   }
 }

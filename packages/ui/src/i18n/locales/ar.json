@@ -499,6 +499,130 @@
         "one": "%{count} متوفر في هذا المتجر.",
         "other": "%{count} متوفرة في هذا المتجر."
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "حد السعر",
+          "used_or_refurbished_appearance": "ظهور مستعمل أو مجدَّد",
+          "official_channel_availability": "ظهور قناة رسمية",
+          "basket_target_total": "تحديد الإجمالي المستهدف",
+          "materially_better_plan": "خطة أفضل بوضوح",
+          "constraint_satisfiable": "صيرورة المتطلبات قابلة للتحقق"
+        },
+        "explanation": {
+          "offer_price_threshold": "أبلِغني عندما يصل عرض حالي مؤهَّل إلى السعر الذي حدّدته.",
+          "used_or_refurbished_appearance": "أبلِغني عند ظهور منتج مستعمل أو مجدَّد مطابق.",
+          "official_channel_availability": "أبلِغني عندما يصبح هذا متاحًا من قناة رسمية موثَّقة.",
+          "basket_target_total": "أبلِغني عندما تنخفض المجموعة كلها دون الإجمالي الذي حدّدته.",
+          "materially_better_plan": "أبلِغني عندما تتوفر خطة أفضل بوضوح لما حفظته.",
+          "constraint_satisfiable": "أبلِغني عندما يستوفي شيء أخيرًا كل المتطلبات التي حدّدتها."
+        }
+      },
+      "state": {
+        "enabled": "قيد المراقبة",
+        "paused": "موقوف مؤقتًا",
+        "blocked": "يحتاج إلى ردّك",
+        "completed": "منتهٍ",
+        "deleted": "محذوف"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "مطابق",
+          "not_qualified": "لا يوجد تطابق",
+          "incomplete": "تعذّر التحديد"
+        },
+        "explanation": {
+          "qualified": "ما طلبته كان صحيحًا في تلك اللحظة.",
+          "not_qualified": "اطّلعنا على معلومات كاملة ولم يكن ما طلبته صحيحًا.",
+          "incomplete": "تعذّر علينا التحديد — إذ كان جزء مما نحتاجه مفقودًا."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "حالي",
+          "superseded": "مُستبدَل",
+          "invalidated": "لم يعد صالحًا"
+        },
+        "explanation": {
+          "current": "هذه أحدث نظرة على هدفك.",
+          "superseded": "حلّت نظرة لاحقة محل هذه. ونحتفظ بها لتتمكن من رؤية ما تغيّر.",
+          "invalidated": "أدّى تصحيح في الكتالوج إلى أن هذه لم تعد تصف شيئًا. ونحتفظ بها بدل حذفها."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "تعذّر تشغيل مقارنة العروض حينها.",
+        "no_eligible_offer": "لم يتوفر شيء مؤهَّل للمقارنة.",
+        "price_not_convertible": "تعذّر التعبير عن أحد الأسعار بعملتك.",
+        "delivery_cost_unknown": "لم يُنشر أي سعر توصيل قط.",
+        "basket_partially_covered": "لم يكن لجزء من المجموعة ما يُقارن به.",
+        "constraint_set_invalid": "لم يعد أحد متطلباتك صالحًا.",
+        "constraint_facts_unavailable": "لم تتوفر البيانات التي يستند إليها أحد متطلباتك.",
+        "agent_ambiguous_after_split": "ينتظر هذا الوكيل أن تحدّد أي منتج تقصد.",
+        "no_comparable_prior_finding": "لم يوجد شيء سابق تُقارن به هذه النتيجة.",
+        "catalogue_discovery_unavailable": "تعذّر تشغيل بحث الكتالوج الذي تستند إليه."
+      },
+      "completeness": {
+        "complete": "أدلة كاملة",
+        "partial": "أدلة جزئية"
+      },
+      "freshness": {
+        "current": "مصادر حديثة",
+        "ageing": "مصادر تتقادم",
+        "unknown": "الحداثة غير معروفة"
+      },
+      "optimality": {
+        "proven_optimal": "الأفضل المثبت",
+        "approximate": "الأفضل مما وجدنا"
+      },
+      "priceBasis": {
+        "item_price": "سعر المنتج، قبل التوصيل",
+        "delivered_total": "الإجمالي شاملًا التوصيل"
+      },
+      "channelPolicy": {
+        "native_only": "بائعون على Mercaria",
+        "external_only": "تجار خارج Mercaria",
+        "official_only": "متاجر رسمية موثَّقة",
+        "mixed": "أي بائع"
+      },
+      "triggerSource": {
+        "offer_change": "بعد تغيير في الكتالوج",
+        "scheduled": "في فحص مجدول",
+        "manual": "لأنك طلبت ذلك"
+      },
+      "notificationChannel": {
+        "oxy_notification": "إشعارات Oxy",
+        "email": "البريد الإلكتروني"
+      },
+      "notificationState": {
+        "queued": "في الانتظار",
+        "delivering": "قيد الإرسال",
+        "delivered": "أُرسل",
+        "failed": "فشل",
+        "suppressed": "محجوز",
+        "dead_letter": "تم التخلي عنه"
+      },
+      "suppressionReason": {
+        "cooldown_active": "محجوز — فقد أُبلغت مؤخرًا.",
+        "not_materially_better": "محجوز — ليس أفضل بوضوح من المرة السابقة.",
+        "agent_not_enabled": "محجوز — لم يكن هذا الوكيل يراقب.",
+        "agent_deleted": "محجوز — كان هذا الوكيل قد حُذف.",
+        "finding_superseded": "محجوز — حلّت نظرة لاحقة محل هذه.",
+        "destination_no_longer_eligible": "محجوز — لم يعد ما تشير إليه مؤهَّلًا.",
+        "channel_unavailable": "محجوز — لم تكن تلك القناة متاحة."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "لم يُرسل — لم تُهيَّأ بعد أي قناة تسليم.",
+        "transport_rejected": "لم يُرسل — رفضته قناة التسليم.",
+        "transport_unavailable": "لم يُرسل — لم تكن قناة التسليم متاحة.",
+        "finding_unreadable": "لم يُرسل — تعذّرت قراءة الملاحظة.",
+        "unexpected_error": "لم يُرسل — حدث خطأ ما."
+      },
+      "summarySource": {
+        "deterministic_template": "كتبته Mercaria من الملاحظة نفسها.",
+        "provider": "صاغه نموذج لغوي من الملاحظة. وكل رقم فيه مصدره الملاحظة، لا النموذج."
+      },
+      "observationDisclaimer": "النتيجة هي ما رأته Mercaria في تلك اللحظة. وهي ليست محجوزة لك وليست سعرًا مؤكدًا — فقد يتغيّر السعر والتوفر في أي وقت."
     }
   }
 }

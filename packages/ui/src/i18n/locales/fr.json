@@ -499,6 +499,130 @@
         "one": "%{count} en stock dans cette boutique.",
         "other": "%{count} en stock dans cette boutique."
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Seuil de prix",
+          "used_or_refurbished_appearance": "Un article d'occasion ou reconditionné apparaît",
+          "official_channel_availability": "Un canal officiel apparaît",
+          "basket_target_total": "Définir un total cible",
+          "materially_better_plan": "Plan nettement meilleur",
+          "constraint_satisfiable": "Les exigences deviennent satisfaisables"
+        },
+        "explanation": {
+          "offer_price_threshold": "Prévenez-moi quand une offre éligible en cours atteint le prix que j'ai fixé.",
+          "used_or_refurbished_appearance": "Prévenez-moi quand un article d'occasion ou reconditionné correspondant apparaît.",
+          "official_channel_availability": "Prévenez-moi quand cela devient disponible auprès d'un canal officiel vérifié.",
+          "basket_target_total": "Prévenez-moi quand l'ensemble passe sous le total que j'ai fixé.",
+          "materially_better_plan": "Prévenez-moi quand il existe un plan nettement meilleur pour ma sélection.",
+          "constraint_satisfiable": "Prévenez-moi quand quelque chose satisfait enfin toutes mes exigences."
+        }
+      },
+      "state": {
+        "enabled": "Sous surveillance",
+        "paused": "En pause",
+        "blocked": "Attend votre réponse",
+        "completed": "Terminé",
+        "deleted": "Supprimé"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Correspondance",
+          "not_qualified": "Aucune correspondance",
+          "incomplete": "Indéterminable"
+        },
+        "explanation": {
+          "qualified": "Ce que vous avez demandé était vrai à cet instant.",
+          "not_qualified": "Nous avons examiné des informations complètes et ce que vous avez demandé n'était pas vrai.",
+          "incomplete": "Nous n'avons pas pu le déterminer — une partie des éléments nécessaires manquait."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Actuel",
+          "superseded": "Remplacé",
+          "invalidated": "Plus valable"
+        },
+        "explanation": {
+          "current": "Il s'agit du regard le plus récent sur votre objectif.",
+          "superseded": "Un regard ultérieur a remplacé celui-ci. Il est conservé pour que vous puissiez voir ce qui a changé.",
+          "invalidated": "Une correction du catalogue fait que cela ne décrit plus rien. C'est conservé plutôt que supprimé."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "La comparaison des offres n'a pas pu être exécutée à ce moment-là.",
+        "no_eligible_offer": "Rien d'éligible n'était disponible pour la comparaison.",
+        "price_not_convertible": "Un prix n'a pas pu être exprimé dans votre devise.",
+        "delivery_cost_unknown": "Un coût de livraison n'a jamais été publié.",
+        "basket_partially_covered": "Une partie de l'ensemble n'avait rien à quoi se comparer.",
+        "constraint_set_invalid": "L'une de vos exigences n'est plus valable.",
+        "constraint_facts_unavailable": "Les données derrière l'une de vos exigences n'étaient pas disponibles.",
+        "agent_ambiguous_after_split": "Cet agent attend que vous précisiez de quel produit il s'agissait.",
+        "no_comparable_prior_finding": "Il n'y avait rien d'antérieur à quoi comparer ceci.",
+        "catalogue_discovery_unavailable": "La recherche catalogue sous-jacente n'a pas pu être exécutée."
+      },
+      "completeness": {
+        "complete": "Preuves complètes",
+        "partial": "Preuves partielles"
+      },
+      "freshness": {
+        "current": "Sources récentes",
+        "ageing": "Sources vieillissantes",
+        "unknown": "Fraîcheur inconnue"
+      },
+      "optimality": {
+        "proven_optimal": "Meilleur prouvé",
+        "approximate": "Le meilleur trouvé"
+      },
+      "priceBasis": {
+        "item_price": "prix de l'article, hors livraison",
+        "delivered_total": "total livré, livraison incluse"
+      },
+      "channelPolicy": {
+        "native_only": "vendeurs sur Mercaria",
+        "external_only": "marchands hors Mercaria",
+        "official_only": "boutiques officielles vérifiées",
+        "mixed": "n'importe quel vendeur"
+      },
+      "triggerSource": {
+        "offer_change": "après une modification du catalogue",
+        "scheduled": "lors d'un contrôle planifié",
+        "manual": "parce que vous l'avez demandé"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Notifications Oxy",
+        "email": "E-mail"
+      },
+      "notificationState": {
+        "queued": "En file d'attente",
+        "delivering": "Envoi en cours",
+        "delivered": "Envoyé",
+        "failed": "Échec",
+        "suppressed": "Retenu",
+        "dead_letter": "Abandonné"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Retenu — vous avez été prévenu récemment.",
+        "not_materially_better": "Retenu — pas nettement mieux que la dernière fois.",
+        "agent_not_enabled": "Retenu — cet agent ne surveillait pas.",
+        "agent_deleted": "Retenu — cet agent avait été supprimé.",
+        "finding_superseded": "Retenu — un regard ultérieur a remplacé celui-ci.",
+        "destination_no_longer_eligible": "Retenu — ce qu'il visait n'est plus éligible.",
+        "channel_unavailable": "Retenu — ce canal n'était pas disponible."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "Non envoyé — aucune voie de distribution n'est encore configurée.",
+        "transport_rejected": "Non envoyé — la voie de distribution l'a refusé.",
+        "transport_unavailable": "Non envoyé — la voie de distribution était indisponible.",
+        "finding_unreadable": "Non envoyé — l'observation n'a pas pu être lue.",
+        "unexpected_error": "Non envoyé — quelque chose s'est mal passé."
+      },
+      "summarySource": {
+        "deterministic_template": "Rédigé par Mercaria à partir de l'observation elle-même.",
+        "provider": "Formulé par un modèle de langage à partir de l'observation. Tous les chiffres proviennent de l'observation, jamais du modèle."
+      },
+      "observationDisclaimer": "Un constat est ce que Mercaria a vu à cet instant. Il n'est pas réservé pour vous et ne constitue pas un prix ferme — les prix et la disponibilité peuvent changer à tout moment."
     }
   }
 }

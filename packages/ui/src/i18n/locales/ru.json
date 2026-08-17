@@ -499,6 +499,130 @@
         "one": "%{count} шт. в наличии в этом магазине.",
         "other": "%{count} шт. в наличии в этом магазине."
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Порог цены",
+          "used_or_refurbished_appearance": "Появился б/у или восстановленный",
+          "official_channel_availability": "Появился официальный канал",
+          "basket_target_total": "Задать целевую сумму",
+          "materially_better_plan": "Заметно лучший вариант",
+          "constraint_satisfiable": "Требования становятся выполнимыми"
+        },
+        "explanation": {
+          "offer_price_threshold": "Сообщите, когда действующее подходящее предложение достигнет заданной мной цены.",
+          "used_or_refurbished_appearance": "Сообщите, когда появится подходящий б/у или восстановленный товар.",
+          "official_channel_availability": "Сообщите, когда это появится в проверенном официальном канале.",
+          "basket_target_total": "Сообщите, когда весь набор станет дешевле заданной мной суммы.",
+          "materially_better_plan": "Сообщите, когда появится заметно лучший вариант для сохранённого набора.",
+          "constraint_satisfiable": "Сообщите, когда что-то наконец удовлетворит всем моим требованиям."
+        }
+      },
+      "state": {
+        "enabled": "Наблюдаем",
+        "paused": "Приостановлен",
+        "blocked": "Нужен ваш ответ",
+        "completed": "Завершён",
+        "deleted": "Удалён"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Совпало",
+          "not_qualified": "Не совпало",
+          "incomplete": "Не удалось определить"
+        },
+        "explanation": {
+          "qualified": "То, о чём вы просили, было верно в тот момент.",
+          "not_qualified": "Мы изучили полные данные, и то, о чём вы просили, не подтвердилось.",
+          "incomplete": "Мы не смогли определить — части нужных данных не хватало."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Актуально",
+          "superseded": "Заменено",
+          "invalidated": "Больше не действует"
+        },
+        "explanation": {
+          "current": "Это самая свежая проверка вашей цели.",
+          "superseded": "Более поздняя проверка заменила эту. Она сохранена, чтобы вы видели, что изменилось.",
+          "invalidated": "Из-за исправления каталога это больше ничего не описывает. Запись сохранена, а не удалена."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "Сравнение предложений тогда не удалось выполнить.",
+        "no_eligible_offer": "Не нашлось ничего подходящего для сравнения.",
+        "price_not_convertible": "Цену не удалось выразить в вашей валюте.",
+        "delivery_cost_unknown": "Стоимость доставки так и не была опубликована.",
+        "basket_partially_covered": "Части набора не с чем было сравнить.",
+        "constraint_set_invalid": "Одно из ваших требований больше не действует.",
+        "constraint_facts_unavailable": "Данные по одному из ваших требований были недоступны.",
+        "agent_ambiguous_after_split": "Этот агент ждёт, чтобы вы указали, какой товар имели в виду.",
+        "no_comparable_prior_finding": "Не с чем было сравнить — более раннего результата нет.",
+        "catalogue_discovery_unavailable": "Поиск по каталогу не удалось выполнить."
+      },
+      "completeness": {
+        "complete": "Полные данные",
+        "partial": "Частичные данные"
+      },
+      "freshness": {
+        "current": "Свежие источники",
+        "ageing": "Стареющие источники",
+        "unknown": "Актуальность неизвестна"
+      },
+      "optimality": {
+        "proven_optimal": "Доказано лучший",
+        "approximate": "Лучшее из найденного"
+      },
+      "priceBasis": {
+        "item_price": "цена товара, без доставки",
+        "delivered_total": "итог с доставкой"
+      },
+      "channelPolicy": {
+        "native_only": "продавцы на Mercaria",
+        "external_only": "магазины вне Mercaria",
+        "official_only": "проверенные официальные магазины",
+        "mixed": "любой продавец"
+      },
+      "triggerSource": {
+        "offer_change": "после изменения в каталоге",
+        "scheduled": "при плановой проверке",
+        "manual": "потому что вы попросили"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Уведомления Oxy",
+        "email": "Эл. почта"
+      },
+      "notificationState": {
+        "queued": "В очереди",
+        "delivering": "Отправляется",
+        "delivered": "Отправлено",
+        "failed": "Ошибка",
+        "suppressed": "Придержано",
+        "dead_letter": "Отказались"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Придержано — вам сообщали недавно.",
+        "not_materially_better": "Придержано — не заметно лучше прошлого раза.",
+        "agent_not_enabled": "Придержано — этот агент не наблюдал.",
+        "agent_deleted": "Придержано — этот агент был удалён.",
+        "finding_superseded": "Придержано — более поздняя проверка заменила эту.",
+        "destination_no_longer_eligible": "Придержано — то, на что она указывала, больше не подходит.",
+        "channel_unavailable": "Придержано — этот канал был недоступен."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "Не отправлено — канал доставки ещё не настроен.",
+        "transport_rejected": "Не отправлено — канал доставки отклонил сообщение.",
+        "transport_unavailable": "Не отправлено — канал доставки был недоступен.",
+        "finding_unreadable": "Не отправлено — не удалось прочитать наблюдение.",
+        "unexpected_error": "Не отправлено — что-то пошло не так."
+      },
+      "summarySource": {
+        "deterministic_template": "Составлено Mercaria по самому наблюдению.",
+        "provider": "Сформулировано языковой моделью по наблюдению. Все цифры взяты из наблюдения, а не из модели."
+      },
+      "observationDisclaimer": "Находка — это то, что Mercaria увидела в тот момент. Она не резервируется за вами и не является твёрдой ценой: цены и наличие могут измениться в любой момент."
     }
   }
 }

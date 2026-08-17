@@ -499,6 +499,130 @@
         "one": "এই দোকানে %{count}টি স্টকে আছে।",
         "other": "এই দোকানে %{count}টি স্টকে আছে।"
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "দামের সীমা",
+          "used_or_refurbished_appearance": "ব্যবহৃত বা সংস্কার করা এলে",
+          "official_channel_availability": "আনুষ্ঠানিক চ্যানেলে এলে",
+          "basket_target_total": "লক্ষ্য মোট নির্ধারণ",
+          "materially_better_plan": "উল্লেখযোগ্য ভালো পরিকল্পনা",
+          "constraint_satisfiable": "শর্তগুলি পূরণযোগ্য হলে"
+        },
+        "explanation": {
+          "offer_price_threshold": "চলতি যোগ্য অফার আমার নির্ধারিত দামে এলে জানাবেন।",
+          "used_or_refurbished_appearance": "মিল থাকা ব্যবহৃত বা সংস্কার করা পণ্য এলে জানাবেন।",
+          "official_channel_availability": "এটি যাচাই করা আনুষ্ঠানিক চ্যানেলে পাওয়া গেলে জানাবেন।",
+          "basket_target_total": "পুরো সেট আমার নির্ধারিত মোটের নিচে নামলে জানাবেন।",
+          "materially_better_plan": "আমি যা সংরক্ষণ করেছি তার জন্য উল্লেখযোগ্য ভালো পরিকল্পনা থাকলে জানাবেন।",
+          "constraint_satisfiable": "কোনো কিছু অবশেষে আমার সব শর্ত পূরণ করলে জানাবেন।"
+        }
+      },
+      "state": {
+        "enabled": "নজর রাখা হচ্ছে",
+        "paused": "থামানো",
+        "blocked": "আপনার উত্তর দরকার",
+        "completed": "শেষ",
+        "deleted": "সরানো হয়েছে"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "মিলেছে",
+          "not_qualified": "মেলেনি",
+          "incomplete": "বলা যায়নি"
+        },
+        "explanation": {
+          "qualified": "আপনি যা চেয়েছিলেন তা সেই মুহূর্তে সত্য ছিল।",
+          "not_qualified": "আমরা সম্পূর্ণ তথ্য দেখেছি এবং আপনি যা চেয়েছিলেন তা সত্য ছিল না।",
+          "incomplete": "আমরা বলতে পারিনি — প্রয়োজনীয় কিছু তথ্য ছিল না।"
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "বর্তমান",
+          "superseded": "প্রতিস্থাপিত",
+          "invalidated": "আর বৈধ নয়"
+        },
+        "explanation": {
+          "current": "এটি আপনার লক্ষ্যের সবচেয়ে সাম্প্রতিক পর্যবেক্ষণ।",
+          "superseded": "পরবর্তী একটি পর্যবেক্ষণ এটিকে প্রতিস্থাপন করেছে। কী বদলেছে দেখতে পারেন বলে এটি রাখা হয়েছে।",
+          "invalidated": "ক্যাটালগ সংশোধনের ফলে এটি আর কিছুই বোঝায় না। মুছে না ফেলে রাখা হয়েছে।"
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "তখন অফার তুলনা চালানো যায়নি।",
+        "no_eligible_offer": "তুলনার জন্য যোগ্য কিছু ছিল না।",
+        "price_not_convertible": "একটি দাম আপনার মুদ্রায় প্রকাশ করা যায়নি।",
+        "delivery_cost_unknown": "ডেলিভারি খরচ কখনও প্রকাশিত হয়নি।",
+        "basket_partially_covered": "সেটের একটি অংশের সঙ্গে তুলনার কিছু ছিল না।",
+        "constraint_set_invalid": "আপনার একটি শর্ত আর বৈধ নয়।",
+        "constraint_facts_unavailable": "আপনার একটি শর্তের পেছনের তথ্য পাওয়া যায়নি।",
+        "agent_ambiguous_after_split": "আপনি কোন পণ্য বোঝাতে চেয়েছিলেন তা জানার অপেক্ষায় আছে এই এজেন্ট।",
+        "no_comparable_prior_finding": "তুলনার জন্য আগের কিছু ছিল না।",
+        "catalogue_discovery_unavailable": "এর পেছনের ক্যাটালগ অনুসন্ধান চালানো যায়নি।"
+      },
+      "completeness": {
+        "complete": "সম্পূর্ণ প্রমাণ",
+        "partial": "আংশিক প্রমাণ"
+      },
+      "freshness": {
+        "current": "নতুন উৎস",
+        "ageing": "পুরনো হয়ে আসা উৎস",
+        "unknown": "সতেজতা অজানা"
+      },
+      "optimality": {
+        "proven_optimal": "প্রমাণিত সেরা",
+        "approximate": "যা সেরা পেয়েছি"
+      },
+      "priceBasis": {
+        "item_price": "পণ্যের দাম, ডেলিভারি ছাড়া",
+        "delivered_total": "ডেলিভারিসহ মোট"
+      },
+      "channelPolicy": {
+        "native_only": "Mercaria-র বিক্রেতা",
+        "external_only": "Mercaria-র বাইরের ব্যবসায়ী",
+        "official_only": "যাচাই করা আনুষ্ঠানিক দোকান",
+        "mixed": "যেকোনো বিক্রেতা"
+      },
+      "triggerSource": {
+        "offer_change": "ক্যাটালগ বদলের পর",
+        "scheduled": "নির্ধারিত পর্যবেক্ষণে",
+        "manual": "কারণ আপনি বলেছিলেন"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Oxy বিজ্ঞপ্তি",
+        "email": "ইমেল"
+      },
+      "notificationState": {
+        "queued": "সারিতে",
+        "delivering": "পাঠানো হচ্ছে",
+        "delivered": "পাঠানো হয়েছে",
+        "failed": "ব্যর্থ",
+        "suppressed": "আটকে রাখা",
+        "dead_letter": "ছেড়ে দেওয়া"
+      },
+      "suppressionReason": {
+        "cooldown_active": "আটকে রাখা — সম্প্রতি আপনাকে জানানো হয়েছিল।",
+        "not_materially_better": "আটকে রাখা — গতবারের চেয়ে উল্লেখযোগ্য ভালো নয়।",
+        "agent_not_enabled": "আটকে রাখা — এই এজেন্ট নজর রাখছিল না।",
+        "agent_deleted": "আটকে রাখা — এই এজেন্ট সরানো হয়েছিল।",
+        "finding_superseded": "আটকে রাখা — পরবর্তী একটি পর্যবেক্ষণ এটিকে প্রতিস্থাপন করেছে।",
+        "destination_no_longer_eligible": "আটকে রাখা — এটি যা নির্দেশ করছিল তা আর যোগ্য নয়।",
+        "channel_unavailable": "আটকে রাখা — সেই চ্যানেল উপলব্ধ ছিল না।"
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "পাঠানো হয়নি — এখনও কোনো ডেলিভারি পথ নির্ধারিত নেই।",
+        "transport_rejected": "পাঠানো হয়নি — ডেলিভারি পথ এটি প্রত্যাখ্যান করেছে।",
+        "transport_unavailable": "পাঠানো হয়নি — ডেলিভারি পথ উপলব্ধ ছিল না।",
+        "finding_unreadable": "পাঠানো হয়নি — পর্যবেক্ষণটি পড়া যায়নি।",
+        "unexpected_error": "পাঠানো হয়নি — কিছু একটা ভুল হয়েছে।"
+      },
+      "summarySource": {
+        "deterministic_template": "পর্যবেক্ষণ থেকেই Mercaria লিখেছে।",
+        "provider": "পর্যবেক্ষণ থেকে একটি ভাষা মডেল ভাষা দিয়েছে। এর প্রতিটি সংখ্যা পর্যবেক্ষণ থেকে এসেছে, মডেল থেকে নয়।"
+      },
+      "observationDisclaimer": "একটি অনুসন্ধান হলো সেই মুহূর্তে Mercaria যা দেখেছে। এটি আপনার জন্য ধরে রাখা হয় না এবং এটি নির্ধারিত দাম নয় — দাম ও প্রাপ্যতা যেকোনো সময় বদলাতে পারে।"
     }
   }
 }

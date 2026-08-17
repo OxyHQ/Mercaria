@@ -499,6 +499,130 @@
         "one": "%{count} Stück in diesem Geschäft vorrätig.",
         "other": "%{count} Stück in diesem Geschäft vorrätig."
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Preisschwelle",
+          "used_or_refurbished_appearance": "Gebraucht oder generalüberholt erscheint",
+          "official_channel_availability": "Offizieller Kanal erscheint",
+          "basket_target_total": "Zielsumme festlegen",
+          "materially_better_plan": "Deutlich besserer Plan",
+          "constraint_satisfiable": "Anforderungen werden erfüllbar"
+        },
+        "explanation": {
+          "offer_price_threshold": "Sag mir Bescheid, wenn ein aktuelles zulässiges Angebot meinen Preis erreicht.",
+          "used_or_refurbished_appearance": "Sag mir Bescheid, wenn ein passender gebrauchter oder generalüberholter Artikel auftaucht.",
+          "official_channel_availability": "Sag mir Bescheid, wenn das über einen verifizierten offiziellen Kanal verfügbar wird.",
+          "basket_target_total": "Sag mir Bescheid, wenn das ganze Set unter meine Zielsumme fällt.",
+          "materially_better_plan": "Sag mir Bescheid, wenn es einen deutlich besseren Plan für meine Auswahl gibt.",
+          "constraint_satisfiable": "Sag mir Bescheid, wenn endlich etwas alle meine Anforderungen erfüllt."
+        }
+      },
+      "state": {
+        "enabled": "Wird beobachtet",
+        "paused": "Pausiert",
+        "blocked": "Benötigt Ihre Antwort",
+        "completed": "Abgeschlossen",
+        "deleted": "Entfernt"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Treffer",
+          "not_qualified": "Kein Treffer",
+          "incomplete": "Nicht feststellbar"
+        },
+        "explanation": {
+          "qualified": "Was Sie angefragt haben, traf in diesem Moment zu.",
+          "not_qualified": "Wir haben vollständige Informationen geprüft, und was Sie angefragt haben, traf nicht zu.",
+          "incomplete": "Wir konnten es nicht feststellen – ein Teil der benötigten Angaben fehlte."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Aktuell",
+          "superseded": "Ersetzt",
+          "invalidated": "Nicht mehr gültig"
+        },
+        "explanation": {
+          "current": "Dies ist der jüngste Blick auf Ihr Ziel.",
+          "superseded": "Ein späterer Blick hat diesen ersetzt. Er bleibt erhalten, damit Sie sehen, was sich geändert hat.",
+          "invalidated": "Eine Katalogkorrektur bedeutet, dass dies nichts mehr beschreibt. Es bleibt erhalten, statt entfernt zu werden."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "Der Angebotsvergleich konnte gerade nicht ausgeführt werden.",
+        "no_eligible_offer": "Es war nichts Zulässiges zum Vergleichen verfügbar.",
+        "price_not_convertible": "Ein Preis ließ sich nicht in Ihrer Währung ausdrücken.",
+        "delivery_cost_unknown": "Ein Lieferpreis wurde nie veröffentlicht.",
+        "basket_partially_covered": "Für einen Teil des Sets gab es nichts zum Vergleichen.",
+        "constraint_set_invalid": "Eine Ihrer Anforderungen ist nicht mehr gültig.",
+        "constraint_facts_unavailable": "Die Angaben hinter einer Ihrer Anforderungen waren nicht verfügbar.",
+        "agent_ambiguous_after_split": "Dieser Agent wartet darauf, dass Sie sagen, welches Produkt Sie meinten.",
+        "no_comparable_prior_finding": "Es gab nichts Früheres, womit sich das vergleichen ließe.",
+        "catalogue_discovery_unavailable": "Die dahinterliegende Katalogsuche konnte nicht ausgeführt werden."
+      },
+      "completeness": {
+        "complete": "Vollständige Belege",
+        "partial": "Teilweise Belege"
+      },
+      "freshness": {
+        "current": "Frische Quellen",
+        "ageing": "Alternde Quellen",
+        "unknown": "Aktualität unbekannt"
+      },
+      "optimality": {
+        "proven_optimal": "Nachweislich am besten",
+        "approximate": "Bestes gefundenes"
+      },
+      "priceBasis": {
+        "item_price": "Artikelpreis, ohne Lieferung",
+        "delivered_total": "Gesamtpreis inklusive Lieferung"
+      },
+      "channelPolicy": {
+        "native_only": "Verkäufer auf Mercaria",
+        "external_only": "Händler außerhalb von Mercaria",
+        "official_only": "verifizierte offizielle Shops",
+        "mixed": "beliebiger Verkäufer"
+      },
+      "triggerSource": {
+        "offer_change": "nach einer Katalogänderung",
+        "scheduled": "bei einem geplanten Blick",
+        "manual": "weil Sie darum gebeten haben"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Oxy-Benachrichtigungen",
+        "email": "E-Mail"
+      },
+      "notificationState": {
+        "queued": "In Warteschlange",
+        "delivering": "Wird gesendet",
+        "delivered": "Gesendet",
+        "failed": "Fehlgeschlagen",
+        "suppressed": "Zurückgehalten",
+        "dead_letter": "Aufgegeben"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Zurückgehalten – Sie wurden kürzlich informiert.",
+        "not_materially_better": "Zurückgehalten – nicht deutlich besser als beim letzten Mal.",
+        "agent_not_enabled": "Zurückgehalten – dieser Agent hat nicht beobachtet.",
+        "agent_deleted": "Zurückgehalten – dieser Agent war entfernt worden.",
+        "finding_superseded": "Zurückgehalten – ein späterer Blick hat diesen ersetzt.",
+        "destination_no_longer_eligible": "Zurückgehalten – worauf er verwies, ist nicht mehr zulässig.",
+        "channel_unavailable": "Zurückgehalten – dieser Kanal war nicht verfügbar."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "Nicht gesendet – es ist noch kein Zustellweg konfiguriert.",
+        "transport_rejected": "Nicht gesendet – der Zustellweg hat es abgelehnt.",
+        "transport_unavailable": "Nicht gesendet – der Zustellweg war nicht verfügbar.",
+        "finding_unreadable": "Nicht gesendet – die Beobachtung konnte nicht gelesen werden.",
+        "unexpected_error": "Nicht gesendet – etwas ist schiefgelaufen."
+      },
+      "summarySource": {
+        "deterministic_template": "Von Mercaria aus der Beobachtung selbst verfasst.",
+        "provider": "Von einem Sprachmodell aus der Beobachtung formuliert. Jede Zahl darin stammt aus der Beobachtung, nie aus dem Modell."
+      },
+      "observationDisclaimer": "Ein Fund ist das, was Mercaria in diesem Moment gesehen hat. Er wird nicht für Sie reserviert und ist kein verbindlicher Preis – Preise und Verfügbarkeit können sich jederzeit ändern."
     }
   }
 }

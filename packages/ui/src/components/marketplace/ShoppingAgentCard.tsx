@@ -10,12 +10,12 @@ import { PriceDisplay } from "../PriceDisplay";
 import { conditionGroupLabelKey } from "../../lib/condition";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
-  SHOPPING_AGENT_CHANNEL_POLICY_LABELS,
-  SHOPPING_AGENT_JOB_EXPLANATIONS,
-  SHOPPING_AGENT_JOB_LABELS,
-  SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABELS,
-  SHOPPING_AGENT_PRICE_BASIS_LABELS,
-  SHOPPING_AGENT_STATE_LABELS,
+  SHOPPING_AGENT_CHANNEL_POLICY_LABEL_KEYS,
+  SHOPPING_AGENT_JOB_EXPLANATION_KEYS,
+  SHOPPING_AGENT_JOB_LABEL_KEYS,
+  SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS,
+  SHOPPING_AGENT_PRICE_BASIS_LABEL_KEYS,
+  SHOPPING_AGENT_STATE_LABEL_KEYS,
 } from "../../lib/shopping-agent-labels";
 
 /** Icon size for the row's trailing affordances. */
@@ -97,7 +97,7 @@ export function ShoppingAgentCard({
       : agent.conditionGroups.map((group) => t(conditionGroupLabelKey(group))).join(", ");
   const scopeParts = [
     `priced in ${agent.displayCurrency}`,
-    SHOPPING_AGENT_CHANNEL_POLICY_LABELS[agent.channelPolicy],
+    t(SHOPPING_AGENT_CHANNEL_POLICY_LABEL_KEYS[agent.channelPolicy]),
     segments,
     agent.market ? `in ${agent.market}` : undefined,
     agent.excludedMerchantIds.length > 0
@@ -109,7 +109,7 @@ export function ShoppingAgentCard({
     agent.notificationChannels.length === 0
       ? "nowhere yet"
       : agent.notificationChannels
-          .map((channel) => SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABELS[channel])
+          .map((channel) => t(SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS[channel]))
           .join(", ");
 
   const constraints = agent.constraints.constraints;
@@ -130,7 +130,7 @@ export function ShoppingAgentCard({
             {agent.name}
           </Text>
           <Text className="text-caption text-text-tertiary">
-            {SHOPPING_AGENT_JOB_LABELS[agent.kind]} · {SHOPPING_AGENT_STATE_LABELS[agent.state]}
+            {t(SHOPPING_AGENT_JOB_LABEL_KEYS[agent.kind])} · {t(SHOPPING_AGENT_STATE_LABEL_KEYS[agent.state])}
           </Text>
         </View>
         {expanded ? (
@@ -150,12 +150,12 @@ export function ShoppingAgentCard({
           <Text className="text-caption text-text-tertiary">Tell me under</Text>
           <PriceDisplay price={agent.target} primaryClassName="text-bodyTitleSmall text-text" />
           <Text className="text-caption text-text-tertiary">
-            {SHOPPING_AGENT_PRICE_BASIS_LABELS[agent.priceBasis]}
+            {t(SHOPPING_AGENT_PRICE_BASIS_LABEL_KEYS[agent.priceBasis])}
           </Text>
         </View>
       ) : (
         <Text className="text-caption text-text">
-          {SHOPPING_AGENT_JOB_EXPLANATIONS[agent.kind]}
+          {t(SHOPPING_AGENT_JOB_EXPLANATION_KEYS[agent.kind])}
         </Text>
       )}
 

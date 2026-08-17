@@ -499,6 +499,130 @@
         "one": "%{count} in stock at this shop.",
         "other": "%{count} in stock at this shop."
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Price threshold",
+          "used_or_refurbished_appearance": "Used or refurbished appears",
+          "official_channel_availability": "Official channel appears",
+          "basket_target_total": "Set target total",
+          "materially_better_plan": "Materially better plan",
+          "constraint_satisfiable": "Requirements become satisfiable"
+        },
+        "explanation": {
+          "offer_price_threshold": "Tell me when a current eligible offer meets the price I set.",
+          "used_or_refurbished_appearance": "Tell me when a matching used or refurbished item appears.",
+          "official_channel_availability": "Tell me when this becomes available from a verified official channel.",
+          "basket_target_total": "Tell me when the whole set falls below the total I set.",
+          "materially_better_plan": "Tell me when a materially better plan exists for what I saved.",
+          "constraint_satisfiable": "Tell me when something finally meets every requirement I set."
+        }
+      },
+      "state": {
+        "enabled": "Watching",
+        "paused": "Paused",
+        "blocked": "Needs your answer",
+        "completed": "Finished",
+        "deleted": "Removed"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Matched",
+          "not_qualified": "No match",
+          "incomplete": "Could not tell"
+        },
+        "explanation": {
+          "qualified": "What you asked for was true at this moment.",
+          "not_qualified": "We looked at complete information and what you asked for was not true.",
+          "incomplete": "We could not tell — some of what we needed was missing."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Current",
+          "superseded": "Superseded",
+          "invalidated": "No longer valid"
+        },
+        "explanation": {
+          "current": "This is the most recent look at your objective.",
+          "superseded": "A later look replaced this one. It is kept so you can see what changed.",
+          "invalidated": "A catalogue correction means this no longer describes anything. It is kept rather than removed."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "The offer comparison could not be run just then.",
+        "no_eligible_offer": "Nothing eligible was available to compare.",
+        "price_not_convertible": "A price could not be expressed in your currency.",
+        "delivery_cost_unknown": "A delivery cost was never published.",
+        "basket_partially_covered": "Part of the set had nothing to price against.",
+        "constraint_set_invalid": "One of your requirements is no longer valid.",
+        "constraint_facts_unavailable": "The facts behind one of your requirements were unavailable.",
+        "agent_ambiguous_after_split": "This agent is waiting for you to say which product you meant.",
+        "no_comparable_prior_finding": "There was nothing earlier to compare this against.",
+        "catalogue_discovery_unavailable": "The catalogue search behind this could not be run."
+      },
+      "completeness": {
+        "complete": "Complete evidence",
+        "partial": "Partial evidence"
+      },
+      "freshness": {
+        "current": "Fresh sources",
+        "ageing": "Ageing sources",
+        "unknown": "Freshness unknown"
+      },
+      "optimality": {
+        "proven_optimal": "Proven best",
+        "approximate": "Best we found"
+      },
+      "priceBasis": {
+        "item_price": "item price, before delivery",
+        "delivered_total": "delivered total, delivery included"
+      },
+      "channelPolicy": {
+        "native_only": "sellers on Mercaria",
+        "external_only": "merchants outside Mercaria",
+        "official_only": "verified official stores",
+        "mixed": "any seller"
+      },
+      "triggerSource": {
+        "offer_change": "after a catalogue change",
+        "scheduled": "on a scheduled look",
+        "manual": "because you asked"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Oxy notifications",
+        "email": "Email"
+      },
+      "notificationState": {
+        "queued": "Queued",
+        "delivering": "Sending",
+        "delivered": "Sent",
+        "failed": "Failed",
+        "suppressed": "Held back",
+        "dead_letter": "Given up"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Held back — you were told recently.",
+        "not_materially_better": "Held back — not materially better than last time.",
+        "agent_not_enabled": "Held back — this agent was not watching.",
+        "agent_deleted": "Held back — this agent had been removed.",
+        "finding_superseded": "Held back — a later look replaced this one.",
+        "destination_no_longer_eligible": "Held back — what it pointed at is no longer eligible.",
+        "channel_unavailable": "Held back — that channel was unavailable."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "Not sent — no delivery route is configured yet.",
+        "transport_rejected": "Not sent — the delivery route refused it.",
+        "transport_unavailable": "Not sent — the delivery route was unavailable.",
+        "finding_unreadable": "Not sent — the observation could not be read.",
+        "unexpected_error": "Not sent — something went wrong."
+      },
+      "summarySource": {
+        "deterministic_template": "Written by Mercaria from the observation itself.",
+        "provider": "Worded by a language model from the observation. Every figure in it comes from the observation, never from the model."
+      },
+      "observationDisclaimer": "A finding is what Mercaria saw at that moment. It is not held for you and it is not a quoted price — prices and availability can change at any time."
     }
   }
 }

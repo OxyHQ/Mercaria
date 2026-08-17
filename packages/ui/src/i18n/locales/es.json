@@ -499,6 +499,130 @@
         "one": "%{count} unidad en stock en esta tienda.",
         "other": "%{count} unidades en stock en esta tienda."
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Umbral de precio",
+          "used_or_refurbished_appearance": "Aparece usado o reacondicionado",
+          "official_channel_availability": "Aparece canal oficial",
+          "basket_target_total": "Fijar total objetivo",
+          "materially_better_plan": "Plan mucho mejor",
+          "constraint_satisfiable": "Los requisitos pasan a ser satisfacibles"
+        },
+        "explanation": {
+          "offer_price_threshold": "Avísame cuando una oferta vigente y elegible alcance el precio que fijé.",
+          "used_or_refurbished_appearance": "Avísame cuando aparezca un artículo usado o reacondicionado que coincida.",
+          "official_channel_availability": "Avísame cuando esto esté disponible en un canal oficial verificado.",
+          "basket_target_total": "Avísame cuando el conjunto entero baje del total que fijé.",
+          "materially_better_plan": "Avísame cuando exista un plan mucho mejor para lo que guardé.",
+          "constraint_satisfiable": "Avísame cuando algo cumpla por fin todos los requisitos que fijé."
+        }
+      },
+      "state": {
+        "enabled": "Vigilando",
+        "paused": "En pausa",
+        "blocked": "Necesita tu respuesta",
+        "completed": "Terminado",
+        "deleted": "Eliminado"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Coincide",
+          "not_qualified": "Sin coincidencia",
+          "incomplete": "No se pudo determinar"
+        },
+        "explanation": {
+          "qualified": "Lo que pediste era cierto en ese momento.",
+          "not_qualified": "Miramos información completa y lo que pediste no era cierto.",
+          "incomplete": "No pudimos determinarlo: faltaba parte de lo que necesitábamos."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Actual",
+          "superseded": "Sustituido",
+          "invalidated": "Ya no válido"
+        },
+        "explanation": {
+          "current": "Esta es la revisión más reciente de tu objetivo.",
+          "superseded": "Una revisión posterior sustituyó a esta. Se conserva para que veas qué cambió.",
+          "invalidated": "Una corrección del catálogo hace que esto ya no describa nada. Se conserva en lugar de eliminarse."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "La comparación de ofertas no se pudo ejecutar en ese momento.",
+        "no_eligible_offer": "No había nada elegible que comparar.",
+        "price_not_convertible": "Un precio no se pudo expresar en tu moneda.",
+        "delivery_cost_unknown": "Nunca se publicó un coste de entrega.",
+        "basket_partially_covered": "Parte del conjunto no tenía nada con lo que compararse.",
+        "constraint_set_invalid": "Uno de tus requisitos ya no es válido.",
+        "constraint_facts_unavailable": "Los datos detrás de uno de tus requisitos no estaban disponibles.",
+        "agent_ambiguous_after_split": "Este agente espera a que digas a qué producto te referías.",
+        "no_comparable_prior_finding": "No había nada anterior con lo que comparar esto.",
+        "catalogue_discovery_unavailable": "La búsqueda de catálogo que hay detrás no se pudo ejecutar."
+      },
+      "completeness": {
+        "complete": "Evidencia completa",
+        "partial": "Evidencia parcial"
+      },
+      "freshness": {
+        "current": "Fuentes recientes",
+        "ageing": "Fuentes envejecidas",
+        "unknown": "Frescura desconocida"
+      },
+      "optimality": {
+        "proven_optimal": "Mejor demostrado",
+        "approximate": "Lo mejor que encontramos"
+      },
+      "priceBasis": {
+        "item_price": "precio del artículo, sin entrega",
+        "delivered_total": "total con entrega incluida"
+      },
+      "channelPolicy": {
+        "native_only": "vendedores en Mercaria",
+        "external_only": "comercios fuera de Mercaria",
+        "official_only": "tiendas oficiales verificadas",
+        "mixed": "cualquier vendedor"
+      },
+      "triggerSource": {
+        "offer_change": "tras un cambio del catálogo",
+        "scheduled": "en una revisión programada",
+        "manual": "porque lo pediste"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Notificaciones de Oxy",
+        "email": "Correo electrónico"
+      },
+      "notificationState": {
+        "queued": "En cola",
+        "delivering": "Enviando",
+        "delivered": "Enviado",
+        "failed": "Falló",
+        "suppressed": "Retenido",
+        "dead_letter": "Abandonado"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Retenido: te avisamos hace poco.",
+        "not_materially_better": "Retenido: no es mucho mejor que la última vez.",
+        "agent_not_enabled": "Retenido: este agente no estaba vigilando.",
+        "agent_deleted": "Retenido: este agente había sido eliminado.",
+        "finding_superseded": "Retenido: una revisión posterior sustituyó a esta.",
+        "destination_no_longer_eligible": "Retenido: aquello a lo que apuntaba ya no es elegible.",
+        "channel_unavailable": "Retenido: ese canal no estaba disponible."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "No enviado: aún no hay ninguna ruta de entrega configurada.",
+        "transport_rejected": "No enviado: la ruta de entrega lo rechazó.",
+        "transport_unavailable": "No enviado: la ruta de entrega no estaba disponible.",
+        "finding_unreadable": "No enviado: no se pudo leer la observación.",
+        "unexpected_error": "No enviado: algo salió mal."
+      },
+      "summarySource": {
+        "deterministic_template": "Redactado por Mercaria a partir de la propia observación.",
+        "provider": "Redactado por un modelo de lenguaje a partir de la observación. Todas las cifras vienen de la observación, nunca del modelo."
+      },
+      "observationDisclaimer": "Un hallazgo es lo que Mercaria vio en ese momento. No se reserva para ti y no es un precio en firme: los precios y la disponibilidad pueden cambiar en cualquier momento."
     }
   }
 }

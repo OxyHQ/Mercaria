@@ -10,21 +10,21 @@ import { conditionGroupLabelKey } from "../../lib/condition";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatMoney } from "../../lib/format";
 import {
-  SHOPPING_AGENT_COMPLETENESS_LABELS,
-  SHOPPING_AGENT_DELIVERY_FAILURE_TEXT,
-  SHOPPING_AGENT_FRESHNESS_LABELS,
-  SHOPPING_AGENT_INCOMPLETE_REASON_TEXT,
-  SHOPPING_AGENT_LIFECYCLE_EXPLANATIONS,
-  SHOPPING_AGENT_LIFECYCLE_LABELS,
-  SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABELS,
-  SHOPPING_AGENT_NOTIFICATION_STATE_LABELS,
-  SHOPPING_AGENT_OBSERVATION_DISCLAIMER,
-  SHOPPING_AGENT_OPTIMALITY_LABELS,
-  SHOPPING_AGENT_OUTCOME_EXPLANATIONS,
-  SHOPPING_AGENT_OUTCOME_LABELS,
-  SHOPPING_AGENT_SUMMARY_SOURCE_TEXT,
-  SHOPPING_AGENT_SUPPRESSION_REASON_TEXT,
-  SHOPPING_AGENT_TRIGGER_SOURCE_LABELS,
+  SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS,
+  SHOPPING_AGENT_DELIVERY_FAILURE_KEYS,
+  SHOPPING_AGENT_FRESHNESS_LABEL_KEYS,
+  SHOPPING_AGENT_INCOMPLETE_REASON_KEYS,
+  SHOPPING_AGENT_LIFECYCLE_EXPLANATION_KEYS,
+  SHOPPING_AGENT_LIFECYCLE_LABEL_KEYS,
+  SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS,
+  SHOPPING_AGENT_NOTIFICATION_STATE_LABEL_KEYS,
+  SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY,
+  SHOPPING_AGENT_OPTIMALITY_LABEL_KEYS,
+  SHOPPING_AGENT_OUTCOME_EXPLANATION_KEYS,
+  SHOPPING_AGENT_OUTCOME_LABEL_KEYS,
+  SHOPPING_AGENT_SUMMARY_SOURCE_KEYS,
+  SHOPPING_AGENT_SUPPRESSION_REASON_KEYS,
+  SHOPPING_AGENT_TRIGGER_SOURCE_LABEL_KEYS,
 } from "../../lib/shopping-agent-labels";
 
 export interface ShoppingAgentFindingCardProps {
@@ -72,6 +72,7 @@ export function ShoppingAgentFindingCard({
   onOpenProduct,
 }: ShoppingAgentFindingCardProps) {
   const locale = useSharedUiLocale();
+  const t = useSharedUiTranslation();
   const recordLabels: Record<string, string> = {};
   for (const record of finding.records) {
     if (record.label !== undefined) recordLabels[record.ref] = record.label;
@@ -84,20 +85,20 @@ export function ShoppingAgentFindingCard({
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
       <View className="gap-space-4">
         <Text className="text-bodyTitleSmall text-text">
-          {SHOPPING_AGENT_OUTCOME_LABELS[finding.outcome]} ·{" "}
-          {SHOPPING_AGENT_LIFECYCLE_LABELS[finding.lifecycle]}
+          {t(SHOPPING_AGENT_OUTCOME_LABEL_KEYS[finding.outcome])} ·{" "}
+          {t(SHOPPING_AGENT_LIFECYCLE_LABEL_KEYS[finding.lifecycle])}
         </Text>
         <Text className="text-caption text-text-tertiary">
           {new Date(finding.evaluatedAt).toLocaleString()} ·{" "}
-          {SHOPPING_AGENT_TRIGGER_SOURCE_LABELS[finding.triggerSource]}
+          {t(SHOPPING_AGENT_TRIGGER_SOURCE_LABEL_KEYS[finding.triggerSource])}
         </Text>
         <Text className="text-caption text-text-tertiary">
-          {SHOPPING_AGENT_OUTCOME_EXPLANATIONS[finding.outcome]}
+          {t(SHOPPING_AGENT_OUTCOME_EXPLANATION_KEYS[finding.outcome])}
         </Text>
         {/* UX rule 3 — a superseded or invalidated observation says so itself. */}
         {finding.lifecycle === "current" ? null : (
           <Text className="text-caption text-text-tertiary">
-            {SHOPPING_AGENT_LIFECYCLE_EXPLANATIONS[finding.lifecycle]}
+            {t(SHOPPING_AGENT_LIFECYCLE_EXPLANATION_KEYS[finding.lifecycle])}
           </Text>
         )}
       </View>
@@ -129,7 +130,7 @@ export function ShoppingAgentFindingCard({
             </Text>
           ))}
           <Text className="text-caption text-text-tertiary">
-            {SHOPPING_AGENT_SUMMARY_SOURCE_TEXT[summary.source]}
+            {t(SHOPPING_AGENT_SUMMARY_SOURCE_KEYS[summary.source])}
           </Text>
         </View>
       ) : null}
@@ -158,16 +159,16 @@ export function ShoppingAgentFindingCard({
         <View className="gap-space-4">
           {finding.incompleteReasons.map((reason) => (
             <Text key={reason} className="text-caption text-text-secondary">
-              {SHOPPING_AGENT_INCOMPLETE_REASON_TEXT[reason]}
+              {t(SHOPPING_AGENT_INCOMPLETE_REASON_KEYS[reason])}
             </Text>
           ))}
         </View>
       ) : null}
 
       <Text className="text-caption text-text-tertiary">
-        {SHOPPING_AGENT_COMPLETENESS_LABELS[finding.completeness]} ·{" "}
-        {SHOPPING_AGENT_FRESHNESS_LABELS[finding.freshness]}
-        {finding.optimality ? ` · ${SHOPPING_AGENT_OPTIMALITY_LABELS[finding.optimality]}` : ""}
+        {t(SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS[finding.completeness])} ·{" "}
+        {t(SHOPPING_AGENT_FRESHNESS_LABEL_KEYS[finding.freshness])}
+        {finding.optimality ? ` · ${t(SHOPPING_AGENT_OPTIMALITY_LABEL_KEYS[finding.optimality])}` : ""}
       </Text>
 
       {finding.selection.length > 0 ? (
@@ -188,13 +189,13 @@ export function ShoppingAgentFindingCard({
         <View className="gap-space-4">
           {finding.notifications.map((notification) => (
             <Text key={notification.id} className="text-caption text-text-tertiary">
-              {SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABELS[notification.channel]}:{" "}
-              {SHOPPING_AGENT_NOTIFICATION_STATE_LABELS[notification.state]}
+              {t(SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS[notification.channel])}:{" "}
+              {t(SHOPPING_AGENT_NOTIFICATION_STATE_LABEL_KEYS[notification.state])}
               {notification.suppressionReason
-                ? ` — ${SHOPPING_AGENT_SUPPRESSION_REASON_TEXT[notification.suppressionReason]}`
+                ? ` — ${t(SHOPPING_AGENT_SUPPRESSION_REASON_KEYS[notification.suppressionReason])}`
                 : ""}
               {notification.failureReason
-                ? ` — ${SHOPPING_AGENT_DELIVERY_FAILURE_TEXT[notification.failureReason]}`
+                ? ` — ${t(SHOPPING_AGENT_DELIVERY_FAILURE_KEYS[notification.failureReason])}`
                 : ""}
             </Text>
           ))}
@@ -203,7 +204,7 @@ export function ShoppingAgentFindingCard({
 
       {/* UX rule 7 — beside the figure, because that is where the misreading is. */}
       <Text className="text-caption text-text-tertiary">
-        {SHOPPING_AGENT_OBSERVATION_DISCLAIMER}
+        {t(SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY)}
       </Text>
     </View>
   );

@@ -499,6 +499,130 @@
         "one": "%{count} em estoque nesta loja.",
         "other": "%{count} em estoque nesta loja."
       }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Limite de preço",
+          "used_or_refurbished_appearance": "Aparece usado ou recondicionado",
+          "official_channel_availability": "Aparece canal oficial",
+          "basket_target_total": "Definir total desejado",
+          "materially_better_plan": "Plano bem melhor",
+          "constraint_satisfiable": "Os requisitos passam a ser atendíveis"
+        },
+        "explanation": {
+          "offer_price_threshold": "Avise-me quando uma oferta elegível atual atingir o preço que defini.",
+          "used_or_refurbished_appearance": "Avise-me quando aparecer um item usado ou recondicionado correspondente.",
+          "official_channel_availability": "Avise-me quando isto ficar disponível em um canal oficial verificado.",
+          "basket_target_total": "Avise-me quando o conjunto todo ficar abaixo do total que defini.",
+          "materially_better_plan": "Avise-me quando existir um plano bem melhor para o que salvei.",
+          "constraint_satisfiable": "Avise-me quando algo enfim atender a todos os requisitos que defini."
+        }
+      },
+      "state": {
+        "enabled": "Monitorando",
+        "paused": "Pausado",
+        "blocked": "Precisa da sua resposta",
+        "completed": "Concluído",
+        "deleted": "Removido"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Correspondeu",
+          "not_qualified": "Sem correspondência",
+          "incomplete": "Não foi possível dizer"
+        },
+        "explanation": {
+          "qualified": "O que você pediu era verdade naquele momento.",
+          "not_qualified": "Analisamos informações completas e o que você pediu não era verdade.",
+          "incomplete": "Não conseguimos dizer — faltava parte do que precisávamos."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Atual",
+          "superseded": "Substituído",
+          "invalidated": "Não é mais válido"
+        },
+        "explanation": {
+          "current": "Esta é a análise mais recente do seu objetivo.",
+          "superseded": "Uma análise posterior substituiu esta. Ela é mantida para você ver o que mudou.",
+          "invalidated": "Uma correção de catálogo faz com que isto não descreva mais nada. É mantido em vez de removido."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "A comparação de ofertas não pôde ser executada naquele momento.",
+        "no_eligible_offer": "Não havia nada elegível para comparar.",
+        "price_not_convertible": "Um preço não pôde ser expresso na sua moeda.",
+        "delivery_cost_unknown": "Um custo de entrega nunca foi publicado.",
+        "basket_partially_covered": "Parte do conjunto não tinha com o que ser comparada.",
+        "constraint_set_invalid": "Um dos seus requisitos não é mais válido.",
+        "constraint_facts_unavailable": "Os dados por trás de um dos seus requisitos não estavam disponíveis.",
+        "agent_ambiguous_after_split": "Este agente aguarda você dizer a qual produto se referia.",
+        "no_comparable_prior_finding": "Não havia nada anterior para comparar com isto.",
+        "catalogue_discovery_unavailable": "A busca de catálogo por trás disto não pôde ser executada."
+      },
+      "completeness": {
+        "complete": "Evidência completa",
+        "partial": "Evidência parcial"
+      },
+      "freshness": {
+        "current": "Fontes recentes",
+        "ageing": "Fontes envelhecendo",
+        "unknown": "Atualidade desconhecida"
+      },
+      "optimality": {
+        "proven_optimal": "Melhor comprovado",
+        "approximate": "O melhor que encontramos"
+      },
+      "priceBasis": {
+        "item_price": "preço do item, sem entrega",
+        "delivered_total": "total entregue, com entrega incluída"
+      },
+      "channelPolicy": {
+        "native_only": "vendedores na Mercaria",
+        "external_only": "lojistas fora da Mercaria",
+        "official_only": "lojas oficiais verificadas",
+        "mixed": "qualquer vendedor"
+      },
+      "triggerSource": {
+        "offer_change": "após uma mudança no catálogo",
+        "scheduled": "em uma verificação programada",
+        "manual": "porque você pediu"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Notificações da Oxy",
+        "email": "E-mail"
+      },
+      "notificationState": {
+        "queued": "Na fila",
+        "delivering": "Enviando",
+        "delivered": "Enviado",
+        "failed": "Falhou",
+        "suppressed": "Retido",
+        "dead_letter": "Desistimos"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Retido — avisamos você há pouco.",
+        "not_materially_better": "Retido — não é bem melhor do que da última vez.",
+        "agent_not_enabled": "Retido — este agente não estava monitorando.",
+        "agent_deleted": "Retido — este agente havia sido removido.",
+        "finding_superseded": "Retido — uma análise posterior substituiu esta.",
+        "destination_no_longer_eligible": "Retido — aquilo a que apontava não é mais elegível.",
+        "channel_unavailable": "Retido — aquele canal estava indisponível."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "Não enviado — nenhuma rota de entrega foi configurada ainda.",
+        "transport_rejected": "Não enviado — a rota de entrega recusou.",
+        "transport_unavailable": "Não enviado — a rota de entrega estava indisponível.",
+        "finding_unreadable": "Não enviado — não foi possível ler a observação.",
+        "unexpected_error": "Não enviado — algo deu errado."
+      },
+      "summarySource": {
+        "deterministic_template": "Escrito pela Mercaria a partir da própria observação.",
+        "provider": "Redigido por um modelo de linguagem a partir da observação. Todos os números vêm da observação, nunca do modelo."
+      },
+      "observationDisclaimer": "Uma constatação é o que a Mercaria viu naquele momento. Ela não fica reservada para você e não é um preço firme — preços e disponibilidade podem mudar a qualquer momento."
     }
   }
 }
