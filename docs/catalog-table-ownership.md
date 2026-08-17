@@ -57,6 +57,7 @@ them**, and that difference is the thing to know before adding a route.
 | `attribute_definitions` | `db/attributes/definitionRepository.ts:51`, `:174` | `/internal/catalog-attributes`, governance apply | **No** — the operator mount is gated and tested, but no repo-wide writer census exists |
 | `brands` | `db/canonical/brandRepository.ts` | nothing: `createBrand` has one caller, the vertical seed, reached only through governance `vertical_package_apply`; `updateBrand` has zero callers | **No** |
 | `canonical_products` | `db/canonical/canonicalProductRepository.ts` | `/internal/canonical-catalog` (operator), plus #60's backfill writer behind `CANONICAL_WRITE_PUBLICATION_ENABLED` | **No** |
+| `canonical_attribute_values` — the SELECTED fact | `db/canonical/attributeRepository.ts` (5 statements) | `/internal/canonical-catalog`, plus #59's operator correction, which flips `selection_state` between rows that already exist | **Yes** — `db/__tests__/canonical-attribute-value-chokepoint.test.ts` walks 1610 production modules and permits exactly three writers; `catalog-authoring-isolation.test.ts` names the table at the domain's own edge |
 
 So: **a new store-permission-gated route that wrote `brands`, `canonical_products`
 or `attribute_definitions` would land green.** The walls that exist

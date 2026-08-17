@@ -235,11 +235,28 @@ they cannot be defined as attributes at all. `product-type-isolation.test.ts:150
 asserts the product-type schema module declares no listing, offer, inventory or
 price column.
 
-A census of `db/schema/canonicalCatalog.ts` (17 tables, 156 declared columns)
-finds zero price, stock, availability, condition or fulfilment columns today —
-but **no gate walks those columns**, so that is a fact about today rather than a
-property. Adding `price_amount` to `canonical_variants` tomorrow fails no test in
-this repository.
+A walk of `db/schema/canonicalCatalog.ts` — 17 tables, 225 columns — finds zero
+price, stock, availability, condition or fulfilment columns, and that is now a
+property rather than a census:
+`db/__tests__/canonical-commerce-column-isolation.test.ts` refuses fifteen
+segment prohibitions across every canonical column. Adding `price_amount` or
+`available_quantity` to `canonical_variants` fails the build naming both the
+column and the prohibition.
+
+Two exemptions, both the money slot of a `money`-typed attribute value
+(`canonical_attribute_values.normalized_amount_minor` and `normalized_currency`).
+They are safe because `attribute_definitions_reserved_key_check` is rendered from
+`RESERVED_OFFER_FACT_KEYS`, so the attribute they belong to cannot be defined as
+a price, an availability or a condition in the first place — and the gate asserts
+that reason in its own terms, so narrowing the CHECK turns the exemption red
+instead of leaving it quietly unsafe. `msrp` is deliberately not reserved: a
+manufacturer's suggested price genuinely is a product fact, and a money-typed
+attribute is its right home.
+
+What the gate does **not** cover is stated in the file: a commerce fact under a
+name no prohibition carries — `rrp`, `msrp_snapshot` — passes. That is the
+direction a per-table allow-list would cover, and 225 entries across the
+repository's oldest schema module is a merge conflict resolved by pasting.
 
 Compatibility is not a variant axis either. One brake-pad SKU fits many vehicles
 and stays one variant; a year range, a make or a model as an option value is the
