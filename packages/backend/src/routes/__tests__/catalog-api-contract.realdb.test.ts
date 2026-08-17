@@ -1392,28 +1392,45 @@ describe('every registered route on the authoring, taxonomy and product-type sur
     for (const entry of EXEMPT) expect(entry.why.length).toBeGreaterThan(20);
   });
 
-  it('MUTATION SELF-TEST — a route nothing drives is reported', async () => {
-    // Without this, the coverage case above is indistinguishable from one whose
-    // matcher marks everything covered.
+  it('MUTATION SELF-TEST — the REAL matcher discriminates in both directions', async () => {
+    /*
+     * The coverage case above is worthless if `matches` is always true (everything
+     * covered) or always false (nothing covered, and `uncovered` would then be
+     * non-empty, so that direction fails loudly). The dangerous direction is
+     * always-true, and it is what these three assertions pin — using the REAL
+     * derived matchers, not a hand-written stand-in whose subject is itself.
+     */
     const routes = await registeredRoutes();
-    const invented: RegisteredRoute = {
-      method: 'GET',
-      full: 'GET /taxonomy/categories/:categoryId/nobody-drives-this',
-      matches: (path: string) => path.endsWith('/nobody-drives-this'),
-    };
+    const roots = routes.find((route) => route.full === 'GET /taxonomy/categories/roots');
+    const eligibility = routes.find(
+      (route) => route.full === 'GET /taxonomy/categories/:categoryId/eligibility',
+    );
+    expect(roots).toBeDefined();
+    expect(eligibility).toBeDefined();
+    if (roots === undefined || eligibility === undefined) return;
+
+    // Positive: the path this file really calls.
+    expect(roots.matches('/taxonomy/categories/roots')).toBe(true);
+    // Negative on a SIBLING path under the same mount — an always-true matcher
+    // fails here.
+    expect(roots.matches('/taxonomy/categories/search')).toBe(false);
+    // Negative ACROSS mounts. This is the one that fails when the prefix test is
+    // removed from `matches`: `/catalog-proposals` is `/` plus one segment, which
+    // the drafts router's `/:draftId` regexp matches once the prefix is not
+    // checked.
+    expect(eligibility.matches('/catalog-proposals')).toBe(false);
+    const drafts = routes.find(
+      (route) => route.full === 'GET /stores/:storeId/product-drafts/:draftId',
+    );
+    expect(drafts).toBeDefined();
+    expect(drafts?.matches('/catalog-proposals')).toBe(false);
+
+    // …and the recorded calls really do reach the roots route through it.
     const calls = CALLS.map((call) => ({
       method: call.method,
       path: call.path.split('?')[0] ?? call.path,
     }));
-    const covered = calls.some((call) => call.method === 'GET' && invented.matches(call.path));
-    expect(covered).toBe(false);
-    // …and the real routes ARE covered by the same instrument, which is the other
-    // half: a matcher that reported nothing covered would also pass the line above.
-    const roots = routes.find((route) => route.full === 'GET /taxonomy/categories/roots');
-    expect(roots).toBeDefined();
-    expect(calls.some((call) => call.method === 'GET' && roots?.matches(call.path) === true)).toBe(
-      true,
-    );
+    expect(calls.some((call) => call.method === 'GET' && roots.matches(call.path))).toBe(true);
   });
 
   it('every mount prefix this census claims is a prefix `app.ts` really mounts', async () => {
