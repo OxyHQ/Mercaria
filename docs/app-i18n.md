@@ -15,7 +15,9 @@ different problem with different constraints and lives in
 | How a shared component reaches an app's `t` (#437) | `packages/ui/src/i18n/ui-translation.tsx` |
 | Dashboard wiring + copy | `packages/dashboard/lib/i18n/` |
 | POS wiring + copy | `packages/pos/lib/i18n/` |
-| Storefront (still on its own instance — #435) | `packages/frontend/lib/i18n/` |
+| Storefront wiring + copy | `packages/frontend/lib/i18n/` |
+| Which locales are RTL (pure — a guard runs it) | `packages/ui/src/i18n/rtl-locales.ts` |
+| Applying a direction to the platform | `packages/ui/src/i18n/layout-direction.ts` |
 | The guard | `scripts/validate-i18n-strings.mjs` |
 
 ## One registry, three APP vocabularies, one SHARED one
@@ -86,8 +88,9 @@ the build on it.
 
 ### The reserved namespace, and why the collision is refused
 
-`mergeSharedUiCopy` is the ONE merge — `createAppI18n` calls it and so does the
-storefront, which still builds its instance by hand. Shared copy goes under the
+`mergeSharedUiCopy` is the ONE merge, and since #435 converged the storefront
+`createAppI18n` is its ONE caller — all three apps attach shared copy by the
+same path. Shared copy goes under the
 top-level key `ui`; an app bundle carrying one is REFUSED at boot rather than
 resolved by spread order, because an app naming a key `ui` is not doing anything
 wrong and silently letting one side win is unreadable in either tree. Check D
@@ -130,6 +133,28 @@ two cases:
   with no edit to the alias table.
 
 Both were verified against the real `i18n-js` resolution rather than assumed.
+
+### The Traditional Chinese question #435 was expected to decide, and did not
+
+The storefront's pre-#435 table carried the OPPOSITE decision in a comment:
+`zh-Hant` "is deliberately NOT aliased here — it falls back to the default
+locale instead", i.e. English. Converging it onto this registry was therefore
+sized as a silent product change, English -> Simplified, for every Traditional
+Chinese reader.
+
+**It was not one. The comment was wrong about its own table.** That table
+registered `zh`, and `zh-TW` -> `zh` is precisely the hop `enableFallback`
+makes, so those readers were already being served Simplified — the same answer
+this registry gives, by the same mechanism. Measured on both instances with the
+real `i18n-js` before the convergence landed: all thirty-one probed tags
+resolved identically, and the probe was mutation-tested (dropping the `zh` alias
+turned `zh-TW` from Simplified to English and the run red), so "no change" is a
+measurement rather than an absence of evidence.
+
+The lesson generalises past this locale: **a comment asserting a fallback
+outcome is not evidence of one.** The chain is short enough to state and long
+enough to get wrong, and nothing fails when it is. Resolution claims in this
+area get probed against the real library.
 
 ## Neither app ships Arabic, and that is the point
 
@@ -294,7 +319,11 @@ Stated so nobody reads a green run as more than it is:
   refused — see above.)
 - Whether a TRANSLATION is any good. Parity says a key exists in `de.json`; it
   says nothing about whether the German is right.
-- `packages/frontend`, which is out of scope for check A entirely (#435).
+- `packages/frontend`, which is out of scope for check A entirely (#435b). The
+  registry convergence (#435a) did NOT widen it and deliberately could not: the
+  storefront still holds ~825 hardcoded user-facing strings across 69 files, so
+  adding it to `APPS` is necessarily the LAST commit of the extraction rather
+  than part of the plumbing change. Checks B, C, D and E already cover it.
 - **Which subtree the provider covers.** Check E proves each app root MOUNTS
   `<SharedUiTranslationProvider>`, not that every rendered tree sits under it. A
   screen rendered outside the root tree falls back to `@mercaria/ui`'s English —
@@ -315,6 +344,6 @@ Stated so nobody reads a green run as more than it is:
 | # | What |
 | --- | --- |
 | #434 | Add `ar.json` to the dashboard and POS — 1,061 strings. The LAYOUT half landed; see above. Blocked for the POS variant picker on #429 |
-| #435 | Converge `packages/frontend/lib/i18n` onto the shared registry, and widen the guard to it |
+| #435b | Extract the storefront's ~825 remaining hardcoded strings across 69 files, then add `packages/frontend/` to the guard's `APPS` in that same PR. #435a converged the registry, the store and the RTL bootstrap |
 | #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
 | #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |

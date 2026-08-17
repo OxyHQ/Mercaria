@@ -7,7 +7,7 @@ import { useAuth } from "@oxyhq/services";
 import * as ExpoNotifications from "expo-notifications";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/lib/i18n";
 import {
   useNotifications,
   useMarkAsRead,

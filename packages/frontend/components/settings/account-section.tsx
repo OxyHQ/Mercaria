@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { Button, Text } from "@mercaria/ui";
 import { useOxy } from "@oxyhq/services";
 import { useRouter, type RoutePath } from "expo-router";
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/lib/i18n";
 import { ChevronRight, Package, MapPin, ListChecks, Bot, Users } from "lucide-react-native";
 
 export function AccountSection() {

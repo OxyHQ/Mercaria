@@ -1,6 +1,4 @@
-import { I18n } from 'i18n-js';
-import { getLocales } from 'expo-localization';
-import { mergeSharedUiCopy } from '@mercaria/ui';
+import { createAppI18n, createI18nStore, shippedLocales, syncLayoutDirection } from '@mercaria/ui';
 import ar from './locales/ar.json';
 import bn from './locales/bn.json';
 import ca from './locales/ca.json';
@@ -14,105 +12,71 @@ import ptBR from './locales/pt-BR.json';
 import ru from './locales/ru.json';
 import zhHans from './locales/zh-Hans.json';
 
-// Each bundle is this app's own copy PLUS `@mercaria/ui`'s shared reader-facing
-// copy under the reserved `ui` namespace (#437), merged through the ONE function
-// `createAppI18n` uses — so the storefront, the dashboard and the POS attach
-// shared copy the same way even while this app still builds its instance by
-// hand (#435 has not converged it). Merged once per bundle rather than once per
-// alias below: the aliases share the object, and merging per entry would build
-// forty-odd copies of the same tree.
-const enUi = mergeSharedUiCopy('en', en);
-const esUi = mergeSharedUiCopy('es', es);
-const zhHansUi = mergeSharedUiCopy('zh-Hans', zhHans);
-const hiUi = mergeSharedUiCopy('hi', hi);
-const frUi = mergeSharedUiCopy('fr', fr);
-const arUi = mergeSharedUiCopy('ar', ar);
-const bnUi = mergeSharedUiCopy('bn', bn);
-const ptBRUi = mergeSharedUiCopy('pt-BR', ptBR);
-const ruUi = mergeSharedUiCopy('ru', ru);
-const jaUi = mergeSharedUiCopy('ja', ja);
-const deUi = mergeSharedUiCopy('de', de);
-const caUi = mergeSharedUiCopy('ca', ca);
-
-// Create i18n instance with translations
-// Using BCP 47 locale codes (en-US, es-ES) with fallback to language codes (en, es)
-const i18n = new I18n({
-  'en': enUi,
-  'en-US': enUi,
-  'en-GB': enUi,
-  'en-CA': enUi,
-  'es': esUi,
-  'es-ES': esUi,
-  'es-MX': esUi,
-  'es-AR': esUi,
-  // Simplified Chinese only. zh-Hant (zh-TW, zh-HK) is a different script and is
-  // deliberately NOT aliased here — it falls back to the default locale instead.
-  'zh': zhHansUi,
-  'zh-Hans': zhHansUi,
-  'zh-CN': zhHansUi,
-  'zh-SG': zhHansUi,
-  'hi': hiUi,
-  'hi-IN': hiUi,
-  'fr': frUi,
-  'fr-FR': frUi,
-  'fr-CA': frUi,
-  'fr-BE': frUi,
-  'fr-CH': frUi,
-  'ar': arUi,
-  'ar-SA': arUi,
-  'ar-EG': arUi,
-  'ar-AE': arUi,
-  'ar-MA': arUi,
-  'bn': bnUi,
-  'bn-BD': bnUi,
-  'bn-IN': bnUi,
-  // The copy is Brazilian Portuguese. pt-PT is aliased to it because Brazilian
-  // Portuguese is far closer to European Portuguese than the English default is;
-  // a dedicated pt-PT bundle would still be an improvement.
-  'pt': ptBRUi,
-  'pt-BR': ptBRUi,
-  'pt-PT': ptBRUi,
-  'ru': ruUi,
-  'ru-RU': ruUi,
-  'ja': jaUi,
-  'ja-JP': jaUi,
-  'de': deUi,
-  'de-DE': deUi,
-  'de-AT': deUi,
-  'de-CH': deUi,
-  'ca': caUi,
-  'ca-ES': caUi,
-});
-
 /**
- * Get the device's current locale
- * Returns full locale code (e.g., "en-US") or falls back to language code (e.g., "en")
+ * The storefront's copy.
+ *
+ * All TWELVE of the registry's locales, `ar` included — this is the app that
+ * ships Arabic (#396) and mirrors its layout for it (#397). The dashboard and
+ * the POS ship the other eleven and deliberately not `ar` until their own
+ * bundles land (#434), which `AppLocaleBundles` being `Partial` is what allows:
+ * an app may be ahead of or behind the registry without either of them lying.
+ *
+ * This file used to build its own `I18n` from a hand-written table of forty
+ * region tags, and was the last of the three apps to do so (#435). The table is
+ * gone rather than trimmed: every tag in it beyond these twelve was already
+ * resolved by `enableFallback`'s own chain (`es-MX` -> `es` -> `en`), so it
+ * enumerated behaviour it did not create — which is the shape that eventually
+ * omits whichever region nobody thought of and makes the omission look
+ * deliberate.
+ *
+ * ## What converging did NOT change, measured rather than assumed
+ *
+ * The removed table carried a comment claiming `zh-TW`/`zh-HK` "falls back to
+ * the default locale" — i.e. English. It did not: that table registered `zh`,
+ * and `zh-TW` -> `zh` is exactly the hop `enableFallback` makes, so Traditional
+ * Chinese readers have been served SIMPLIFIED Chinese all along. The registry's
+ * `zh` -> `zh-Hans` alias reaches the same place by the same hop, so the
+ * convergence moves nobody. A `zh-Hant` bundle is what actually fixes it, and
+ * adding one to `SUPPORTED_LOCALES` makes `zh-TW` resolve to it with no alias
+ * edit at all.
  */
-function getDeviceLocale(): string {
-  const locales = getLocales();
-  if (!locales || locales.length === 0) {
-    return 'en-US';
-  }
+const bundles = {
+  ar,
+  bn,
+  ca,
+  de,
+  en,
+  es,
+  fr,
+  hi,
+  ja,
+  'pt-BR': ptBR,
+  ru,
+  'zh-Hans': zhHans,
+};
 
-  // Try to use full locale code (e.g., "en-US")
-  const fullLocale = locales[0]?.languageTag;
-  if (fullLocale) {
-    return fullLocale;
-  }
+const i18n = createAppI18n(bundles);
 
-  // Fallback to language code (e.g., "en")
-  return locales[0]?.languageCode ?? 'en-US';
-}
+/** Which locales this app has copy for — what the language picker offers. */
+export const STOREFRONT_LOCALES = shippedLocales(bundles);
 
-// Set the locale from device settings
-i18n.locale = getDeviceLocale();
-
-// Enable fallback to base language if specific regional variant is missing
-// e.g., if es-MX is not found, it will try 'es', then 'en'
-i18n.enableFallback = true;
-i18n.missingBehavior = 'guess';
-
-// Default locale
-i18n.defaultLocale = 'en-US';
-
-export default i18n;
+export const { useTranslation } = createI18nStore({
+  i18n,
+  // DELIBERATELY the pre-#435 key, not a `mercaria-storefront-i18n` matching the
+  // sibling apps' naming. This app is already installed; renaming the key orphans
+  // every stored preference in place, and the symptom is a shopper's language
+  // silently reverting to their device's on the deploy that "tidied" it. It is
+  // already distinct from `mercaria-dashboard-i18n` and `mercaria-pos-i18n`,
+  // which is the property that actually matters — three Mercaria apps can sit on
+  // one device.
+  persistKey: 'i18n-storage',
+  // The layout mirrors from LOGICAL utilities (#397/#434), which resolve against
+  // the platform's direction — so the direction has to be set, or the utilities
+  // mirror nothing. Applied from the store's own funnel rather than an effect:
+  // it must be settled before the tree renders, and `I18nManager.isRTL` is
+  // external mutable state that must never be read from a memoised position.
+  //
+  // Unlike the dashboard and the POS this is NOT a no-op: `ar` is in `bundles`,
+  // so an Arabic device mirrors here today.
+  onLocaleApplied: (locale) => syncLayoutDirection(i18n, locale),
+});

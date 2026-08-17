@@ -2,7 +2,7 @@ import React from "react";
 import { View, Pressable } from "react-native";
 import { vars } from "nativewind";
 import { Text, useColorScheme } from "@mercaria/ui";
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/language-selector";
 import {
   APP_COLOR_PRESETS,

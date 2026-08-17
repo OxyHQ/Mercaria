@@ -185,7 +185,7 @@ Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
   (row order flips, padding does not) with every build green. Direction follows the
   SHIPPED BUNDLES, never the tag: dashboard/POS mirror but ship no `ar` yet (#434).
   `border-s-*` and `text-start` are MEASURED not to survive react-native-css/RN
-  0.85, so those stay physical. Residual: #429, #435.
+  0.85, so those stay physical. Residual: #429.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails

@@ -9,7 +9,7 @@ import {
   DialogTitle,
   Text,
 } from "@mercaria/ui";
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/lib/i18n";
 
 interface ConfirmationDialogProps {
   open: boolean;

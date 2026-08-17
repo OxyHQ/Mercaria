@@ -34,11 +34,12 @@ export function resolveDeviceLocale(): string {
  * One locale's messages: the app's own copy plus `@mercaria/ui`'s shared
  * reader-facing copy, under the reserved `ui` namespace (#437).
  *
- * Exported because `createAppI18n` is not the only construction site: the
- * storefront still builds its own `I18n` from an explicit alias table (#435 has
- * not converged it yet) and must get the same shared copy through the same
- * merge. Two spellings of "how shared copy is attached" is exactly the drift
- * this issue exists to remove, so there is ONE.
+ * `createAppI18n` below is now the ONLY construction site — #435 converged the
+ * storefront, which was the second one, so every app attaches shared copy
+ * through this function. It stays exported rather than being folded inline
+ * because that is what makes the merge testable on its own, and because the
+ * collision refusal below is the interesting half: two spellings of "how shared
+ * copy is attached" is exactly the drift #398 and #435 exist to remove.
  *
  * The collision is REFUSED rather than resolved by spread order. An app naming
  * its own top-level `ui` key is not doing anything wrong; silently letting one

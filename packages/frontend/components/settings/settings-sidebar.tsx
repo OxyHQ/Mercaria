@@ -3,7 +3,7 @@ import { View, Pressable } from "react-native";
 import { Text } from "@mercaria/ui";
 import { BaseSidebar } from "@/components/base-sidebar";
 import { useRouter, usePathname, type RoutePath } from "expo-router";
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/lib/i18n";
 import {
   User,
   Settings2,

@@ -25,10 +25,13 @@ import { isRtlLocale } from './rtl-locales';
  * the default, a build can refuse to mirror and `forceRTL` then reports success
  * while changing nothing. So the order below is load-bearing.
  *
- * This is the storefront's `packages/frontend/lib/i18n/rtl.ts`, hoisted so the
- * dashboard and the POS share ONE implementation rather than growing a second
- * and a third copy of the rule. The storefront still has its own copy and its own
- * hand-rolled store; converging it onto `createI18nStore` is #435.
+ * This began as the storefront's `packages/frontend/lib/i18n/rtl.ts`, hoisted by
+ * #434 so the dashboard and the POS could share ONE implementation rather than
+ * growing a second and a third copy of the rule. #435 then converged the
+ * storefront itself and DELETED that file, so all three apps now reach the
+ * direction bootstrap through `createI18nStore`'s `onLocaleApplied` and there is
+ * exactly one copy of the rule. `scripts/validate-rtl-direction.mjs` lost its
+ * copy-drift comparison in the same change, having nothing left to compare.
  */
 
 /** What a caller must do for the direction to actually be visible. */
