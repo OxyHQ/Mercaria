@@ -87,7 +87,60 @@ const gateFiles = (d: string): string[] =>
   });
 
 const FILEISH = /^[@a-zA-Z][\w./@-]*\/[\w./@-]+\.tsx?$/;
-const SHARED_DIRS = new Set(['controllers', 'routes', 'middleware', 'routes/admin']);
+
+/**
+ * The BAG directories — those holding modules for MANY domains, named
+ * `<domain>.<role>.ts` or `<domain>.ts`.
+ *
+ * Used twice, for OPPOSITE purposes, which is why they must be ONE constant. As
+ * a GUARD they keep a bag out of `owned`, because walking one derives every
+ * domain's modules at once. In the FLAT half they are the directories a
+ * domain's own modules are picked out of BY FILENAME.
+ *
+ * This was two separate literals of four names each, and they had drifted from
+ * the truth in three ways — every one silent (#593):
+ *
+ * - **`db/schema` in neither.** Absent from the flat half, so
+ *   `db/schema/<domain>.ts` could not be derived and every figure for a domain
+ *   with a schema module read ONE LOW, in the flattering direction. Absent from
+ *   the guard, so a list that NAMES a schema module made `db/schema` an owned
+ *   directory and walked all 82 — measured: `compatibility`'s 2-entry
+ *   `AGGREGATE_EXCLUSIONS` derived 150 and reported `+148`, putting a
+ *   deliberate hand list in bucket A, whose advice is "convert to a walk". The
+ *   two errors point in OPPOSITE directions, which is how one of them survived
+ *   somebody reading the output.
+ * - **`controllers/admin` absent while `routes/admin` was present.** The
+ *   asymmetry is the tell that this was hand-maintained. Latent today — no gate
+ *   names one — and the same over-walk the day one does.
+ * - **`services` absent.** Its 37 top-level `<domain>.service.ts` modules are
+ *   the same shape as `controllers/<domain>.controller.ts`. `db`'s own eight
+ *   flat files are deliberately NOT here: they are infrastructure
+ *   (`postgres.ts`, `migrate.ts`, `protectedColumns.ts`), named after no domain.
+ *
+ * **This is a hand list and it stays one**, because the distinction is
+ * semantic. That was measured rather than assumed: a detector scoring "how many
+ * of this directory's filenames match some domain directory's leaf" separates
+ * `db/schema` (67 of 82) from every real domain directory (`db/referrals` 0 of
+ * 17, `db/payments` 0 of 8, `db/catalog` 0 of 6) — and then FAILS on
+ * `middleware` (2 of 70) and `services` (2 of 37), which are bags whose files
+ * are named after concerns that own no directory. A derivation that looks that
+ * clean and is wrong in a new way is worse than a list somebody must edit.
+ *
+ * So the list is DEFENDED rather than derived: `isolation-gate-census.test.ts`
+ * fails the build when a directory scores on the half of that signal which does
+ * discriminate and is not named here. That tripwire cannot see a
+ * `middleware`-shaped bag, and it says so rather than implying coverage.
+ */
+export const SHARED_FLAT_DIRS = [
+  'controllers',
+  'controllers/admin',
+  'routes',
+  'routes/admin',
+  'middleware',
+  'db/schema',
+  'services',
+] as const;
+const SHARED_DIRS = new Set<string>(SHARED_FLAT_DIRS);
 
 /** slug candidates from the OWNED directory names only: `db/guestClaims` -> guestclaims, guest-claim… */
 function slugsFor(owned: string[]): string[] {
@@ -168,7 +221,7 @@ for (const row of rows) {
     continue;
   }
   const slugs = slugsFor(owned);
-  const flat = [...new Set(['controllers', 'routes', 'middleware', 'routes/admin'].flatMap((d) => slugs.flatMap((s) => namedIn(d, new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')))))];
+  const flat = [...new Set(SHARED_FLAT_DIRS.flatMap((d) => slugs.flatMap((s) => namedIn(d, new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')))))];
   const derived = [...new Set([...owned.flatMap(walk), ...flat])];
   const missing = row.paths.filter((p) => !derived.includes(p));
   const added = derived.filter((p) => !row.paths.includes(p));
