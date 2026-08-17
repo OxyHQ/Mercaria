@@ -136,6 +136,16 @@ const SHARED_DATABASE_FILE_FLOOR = 80;
  * route. Set from the six that existed when the two numbers were split, so a
  * broken call/table detector still fails here even while the route detectors keep
  * matching new refusal tests.
+ *
+ * **What the floor catches that the call-shape probes below do not**, measured
+ * rather than assumed — because a floor sitting beside a more specific check is
+ * usually a sum floor that can never disagree with its terms. Breaking a call
+ * PATTERN fires the probe list, not this floor, so the floor looked inert.
+ * Breaking the SCAN instead — `read()` returning an empty string, every pattern
+ * intact and every probe still green, because the probes run against literal
+ * samples rather than against the estate — fires exactly this floor and its
+ * message. Broken pattern: caught earlier and more precisely by the probes.
+ * Broken scan: caught only here.
  */
 const TOUCHER_FLOOR = 6;
 
@@ -242,57 +252,69 @@ const ACQUIRES_SLOT = new RegExp(
 );
 
 /**
- * Touchers that are exempt, each with the reason a reader can check.
+ * Touchers that are exempt, each with a reason a reader can check.
  *
  * This list is pinned to an exact size below and every entry must still be a
  * detected toucher, because a list that only ever grows is how a gate switches
  * itself off one defensible line at a time — and an entry that stopped touching
  * is a stale excuse nobody would notice.
+ *
+ * ## `kind` is on the entry because the two exemptions are NOT the same fact
+ *
+ * Both entries are detected and neither can contend, which is what makes them
+ * exemptions rather than holders. But they are exempt for reasons of different
+ * strength, and only one of the two is checkable by a machine:
+ *
+ *  - `draft_policy_only` — the file really does reach the policy table, and writes
+ *    a DRAFT. Whether a row is a draft is a COLUMN VALUE, so no static rule can
+ *    confirm it; the excuse rests on the reason text and on review.
+ *  - `route_literal_only` — the file reaches no matching code at all and a ROUTE
+ *    detector matched a path literal. That IS checkable: a route detector must
+ *    match it and no call or table detector may, which the test below asserts per
+ *    entry. So an entry of this kind that starts really touching fails the build
+ *    instead of sitting here as a stale excuse.
+ *
+ * Keeping them in ONE list with a discriminant rather than two lists is
+ * deliberate: two lists is two places to look, two size assertions to keep
+ * honest, and two chances for an entry to be added to the wrong one. Keeping the
+ * DISTINCTION is equally deliberate — collapsing it would turn "the detector
+ * over-matched" into "this toucher is excused", and the second sentence is the one
+ * nobody re-examines.
+ *
+ * **Expect `route_literal_only` to grow, and not as erosion.** Naming the nine
+ * internal catalog surfaces and asserting 403-then-404 across them is the house
+ * shape for the operator allow-list convention, so the next file that does it
+ * matches too. The alternative — narrowing `ACTIVE_POLICY_ROUTES` to require a
+ * sub-path — was refused: a later file can compose
+ * `/internal/matching/<something>` from a prefix constant, and taking the prefix
+ * WHOLE is exactly what catches that. Narrowing would trade a loud false positive
+ * for a silent false negative.
  */
-const SLOT_EXEMPT: readonly { readonly file: string; readonly reason: string }[] = [
+const SLOT_EXEMPT: readonly {
+  readonly file: string;
+  readonly kind: 'draft_policy_only' | 'route_literal_only';
+  readonly reason: string;
+}[] = [
   {
     file: 'db/__tests__/canonical-teardown.realdb.test.ts',
+    kind: 'draft_policy_only',
     reason:
       "#268's gate constructs its interfering match_decisions row against a DRAFT policy version, " +
       'on purpose: the foreign key needs a row, not an active one, so it takes no global slot and ' +
       'cannot contend. It reads no active policy and drives no matcher.',
   },
-];
-
-/**
- * Files the ROUTE detectors match which reach no matching code AT ALL.
- *
- * A DIFFERENT category from {@link SLOT_EXEMPT} and the distinction is the point:
- * an exemption is a real toucher that cannot contend (it writes a DRAFT policy),
- * while these are files the detector is simply WRONG about. Collapsing the two
- * would turn "the detector over-matched" into "this toucher is excused", and the
- * second sentence is the one nobody re-examines.
- *
- * Why the route detectors over-match, and why that is not fixable by narrowing
- * them: they exist because an integration test drives the REAL app with `fetch`
- * against a path literal and would otherwise spell no function name at all. But a
- * file asserting that a surface is REFUSED names the same literal — and the
- * refusal is the whole of what it asserts. Telling those apart statically means a
- * regex over assertion text, which is more fragile than the census it would
- * protect. So the detector stays broad and the classification is explicit.
- *
- * **Expect this list to grow, and not as erosion.** Naming the nine internal
- * catalog surfaces and asserting 403-then-404 across them is the house shape for
- * the operator allow-list convention, so the next file that does it matches too.
- * Each entry carries a machine-checkable discriminator below, so an entry that
- * starts really touching fails the build instead of sitting here as a stale
- * excuse.
- */
-const ROUTE_LITERAL_ONLY: readonly { readonly file: string; readonly reason: string }[] = [
   {
     file: 'routes/__tests__/catalog-rollout.realdb.test.ts',
+    kind: 'route_literal_only',
     reason:
-      "ADR 0007 D12's rollback gate. It names the operator prefix in a list of nine internal " +
-      'surfaces and sends each one GET twice: once as a NON-operator expecting 403, and once ' +
-      'against a deployment with an empty allow-list expecting 404. Both are decided before any ' +
-      'handler runs, so no matching code is reached. MEASURED, not reasoned: a postgres.js debug ' +
-      'hook over a run of that file captured 28 statements naming categories, listings and ' +
-      'catalog_proposals, and NONE naming the policy table or any other matching table.',
+      "ADR 0007 D12's rollback gate. It names the operator prefix once, as the sixth member of a " +
+      'nine-element list of internal surfaces, and the TWO cases that consume that list assert ' +
+      'rejection BEFORE any handler runs: 403 for an ordinary caller, 404 against a deployment ' +
+      'with an empty allow-list. So a matching handler executing would FAIL those tests — the ' +
+      'exemption is defended by assertions rather than by a promise, and any reader can check it ' +
+      'in two cases. Measured as well: a postgres.js debug hook over a run of that file captured ' +
+      '28 statements naming categories, listings and catalog_proposals, and NONE naming the ' +
+      'policy table or any other matching table.',
   },
 ];
 
@@ -409,38 +431,35 @@ describe('the global active-matching-policy slot', () => {
       touchers.length,
       'the number of files the detectors match has CHANGED. If you added one, classify it: make '
         + 'it take the slot (a holder), or add it to SLOT_EXEMPT if it touches but cannot contend, '
-        + 'or to ROUTE_LITERAL_ONLY if a route detector matched a file that reaches no matching '
-        + 'code — then update TOUCHER_COUNT. Do not just bump the number.',
+        + "or to SLOT_EXEMPT with kind 'route_literal_only' if a route detector matched a file "
+        + 'that reaches no matching code — then update TOUCHER_COUNT. Do not just bump the number.',
     ).toBe(TOUCHER_COUNT);
 
     const exempt = SLOT_EXEMPT.map((entry) => entry.file);
-    const routeOnly = ROUTE_LITERAL_ONLY.map((entry) => entry.file);
 
     // Exact identity, never containment: a containment check passes when a file
     // stops touching, and pinning the sets is what makes a NEW toucher fail the
     // build rather than quietly widen a list.
-    expect([...holders, ...exempt, ...routeOnly].sort()).toEqual(touchers);
+    expect([...holders, ...exempt].sort()).toEqual(touchers);
     // Disjoint, so an excuse can never be spent on a file that already holds the
-    // slot — which would read as coverage for a file it does not cover. All three
-    // pairs, because two overlapping excuses hide each other.
+    // slot — which would read as coverage for a file it does not cover.
     expect(holders.filter((file) => exempt.includes(file))).toEqual([]);
-    expect(holders.filter((file) => routeOnly.includes(file))).toEqual([]);
-    expect(exempt.filter((file) => routeOnly.includes(file))).toEqual([]);
     // Every excuse still describes a real DETECTED file.
     expect(exempt.every((file) => touchers.includes(file))).toBe(true);
-    expect(routeOnly.every((file) => touchers.includes(file))).toBe(true);
   });
 
-  it('pins the route-literal class, and every entry PROVES it reaches no matching code', () => {
+  it("every 'route_literal_only' exemption PROVES it reaches no matching code", () => {
     // The machine-checkable half of the classification, and what stops this list
     // being the soft place a real toucher lands. An entry is only legitimate if a
     // ROUTE detector matched it and NEITHER a call detector NOR the table
     // detector did — so a file in here that starts calling `runMatch` or
     // selecting the policy table fails the build rather than staying excused.
-    expect(ROUTE_LITERAL_ONLY.length, 'the route-literal class is unexpectedly large').toBeLessThanOrEqual(
-      3,
-    );
-    for (const entry of ROUTE_LITERAL_ONLY) {
+    const routeLiteral = SLOT_EXEMPT.filter((entry) => entry.kind === 'route_literal_only');
+    // The floor is what stops this test passing over an empty selection — with the
+    // filter returning nothing, every assertion in the loop below is vacuous and
+    // reads exactly like a clean estate.
+    expect(routeLiteral.length, 'no route-literal exemption was selected').toBeGreaterThanOrEqual(1);
+    for (const entry of routeLiteral) {
       const source = read(entry.file);
       expect(
         ACTIVE_POLICY_ROUTES.some((pattern) => pattern.test(source)),
@@ -464,10 +483,19 @@ describe('the global active-matching-policy slot', () => {
   it('pins the exemption list, and every exemption states why', () => {
     // A list that only grows is the gate switching itself off. One file is
     // exempt today; adding a second is a decision somebody makes on purpose.
-    expect(SLOT_EXEMPT).toHaveLength(1);
+    expect(SLOT_EXEMPT).toHaveLength(2);
     for (const entry of SLOT_EXEMPT) {
       expect(entry.reason.length, entry.file).toBeGreaterThan(80);
     }
+    // Pinned PER KIND as well as in total, because the two are excused at
+    // different strengths: `draft_policy_only` rests on review, since whether a
+    // row is a draft is a column value no static rule can confirm, while
+    // `route_literal_only` is machine-checked in the test above. A third
+    // review-only excuse arriving unnoticed is the erosion this splits out.
+    const byKind = (kind: (typeof SLOT_EXEMPT)[number]['kind']) =>
+      SLOT_EXEMPT.filter((entry) => entry.kind === kind).length;
+    expect(byKind('draft_policy_only'), 'a review-only exemption was added').toBe(1);
+    expect(byKind('route_literal_only')).toBe(1);
   });
 
   it('excludes the one realdb file that owns its database, for the stated reason', () => {
