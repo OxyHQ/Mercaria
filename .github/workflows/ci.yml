@@ -149,6 +149,22 @@ jobs:
       - name: Guard the catalog-driven storefront
         run: bun run validate:storefront-catalog
 
+      # `typedRoutes` checks the OBJECT form of a navigation target completely,
+      # and a TEMPLATE LITERAL only when no dynamic route sits above the segment
+      # that was mistyped. Measured on the dashboard, armed: mutating
+      # `router.push({ pathname: "/products/wizard/[draftId]" })` gives TS2820,
+      # and mutating `` router.push(`/products/wizard/${draft.id}`) `` to
+      # `wizrd` exits 0 — `/products/[id]` absorbs it, because
+      # `SingleRoutePart`'s multi-segment exclusion cannot discharge against the
+      # unresolved `${string}` a template contributes. So the common typo — a
+      # deeper segment of an otherwise-real path — ships and dies under a user's
+      # thumb (#456). This resolves every target's static skeleton against the
+      # real route tree on disk. Per-app vacuity floors, positive and negative
+      # controls on every run, and a self-test that mutates a REAL call site;
+      # reads the tracked file listing, costs a second.
+      - name: Guard navigation targets against the route tree
+        run: bun run validate:route-targets
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 

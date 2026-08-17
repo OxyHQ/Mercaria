@@ -7,8 +7,7 @@ or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
 > **For anything about how this project WORKS, read `docs/index.mdx`** — every
 > domain has a file there, `docs/adr/` holds the binding decisions, and
 > `packages/backend/src/db/schema/CONVENTIONS.md` binds every schema decision.
-> Two you will want on almost any backend task: `docs/house-invariants.md` (the
-> patterns every domain here follows) and
+> Two you will want on almost any backend task: `docs/house-invariants.md` and
 > `docs/postgres-testing-and-migrations.md`. `HANDOFF.md` holds deferred work.
 >
 > **This file carries only RULES — things that break silently if you get them
@@ -26,13 +25,11 @@ or Wallapop style. A Shopify-grade commerce backend serving three Expo apps
 
 ```bash
 bun install
-bun run dev:backend                       # API on :3001
-bun run dev:frontend                      # storefront (also dev:dashboard, dev:pos)
 bun run build:shared-types                # ALWAYS before db:generate
 bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
 bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
 bun run --filter @mercaria/backend lint
-bun run validate:agents-md                # this file's budget; ci.yml names all 7
+bun run validate:agents-md                # this file's budget; ci.yml names all 8
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```
 
@@ -49,10 +46,14 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
   primitive).
 - **CI typechecks all three Expo apps.** A build is not a substitute: Babel
   strips types, so `expo export` bundles code `tsc` rejects.
-- **`typedRoutes` is armed** — `scripts/generate-router-types.mjs` runs inside
-  each app's `typecheck` and `typed-routes-armed.test.ts` fails the build if it
-  stops, so a literal navigation target that is not a real route fails `tsc`.
-  The product-page gate's route wall was retired for it (`docs/product-page.md`).
+- **`typedRoutes` is armed** (`generate-router-types.mjs` runs in each app's
+  `typecheck`; `typed-routes-armed.test.ts` fails the build if it stops) and it
+  checks the OBJECT form COMPLETELY — a wrong `{ pathname }` is TS2820. A
+  TEMPLATE LITERAL is checked ONLY when no dynamic route sits above the mistyped
+  segment, so `` `/products/wizrd/${id}` `` exits 0, absorbed by `/products/[id]`
+  (#456). Spell a dynamic target as the object form; `validate:route-targets`
+  resolves each against the real route tree and covers the wall #330 retired
+  (`docs/product-page.md`).
 
 ## Money
 
@@ -104,8 +105,6 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   ids your file owns, floor every count equality, never widen a global config
   bound, hold the advisory-lock mutex for the global active matching policy, and
   keep a trigger-toggle window to exactly ONE table.
-
-Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
 
 ## Auth and the identity surfaces
 
