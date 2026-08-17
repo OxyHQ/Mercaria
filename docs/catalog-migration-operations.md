@@ -259,16 +259,284 @@ claim more than it delivers.
 
 ---
 
-## Box 2 — legacy free text migrated only where deterministic
+## Box 2 — legacy free text migrated only where deterministic: **partial**
 
-See [§Box 2 verdict](#box-2-verdict) below; it is recorded after the backfill
-mechanics so the review queue and the provenance columns are already in view.
+The comparison baseline is #90, one domain over:
+`listings_unrefined_condition_check` (`db/schema/catalog.ts:457-466`, deployed at
+`drizzle/0034_closed_tattoo.sql:188-189`) is a CHECK keyed on a **provenance
+value** whose consequent restricts the **typed** column, so a legacy `used` can
+never become `used_like_new` whatever the writer — a service bug, a migration or
+`psql`. Pinned by `db/__tests__/condition.realdb.test.ts:376`. That is the shape
+box 2 asks for, and #367 ships it for some of the ambiguity space and not for the
+rest.
+
+The decision code is `services/variant-axes/legacy-resolution.ts:150-176` — pure,
+no database — driven by `services/variant-axes/backfill.service.ts` and reached
+from `scripts/backfill-variant-axes.ts`. Names resolve by **exact key fold only**
+(five folds, `legacy-resolution.ts:104-111`, enumerated as data at `:63-69`);
+values resolve through the registry alias map (`:245-251`) or #94's normalizer,
+with `facts.length !== 1 → 'ambiguous'` at `:272`.
+
+### Properties — something fails if you remove them
+
+- **The legacy columns are retained, and it is checkable.**
+  `listing_options` and `product_variant_option_values` appear in `drizzle/` only
+  in `0000_superb_moondragon.sql` (CREATE at `:254`, `:316`; FKs `:1034`,
+  `:1038`; indexes `:1100`, `:1114`). No later migration ALTERs, UPDATEs or DROPs
+  either. Positive control: the same grep finds real drops —
+  `drizzle/0025_complex_tattoo.sql:44,46`. Enforced against this domain by a
+  scanned build gate, `services/variant-axes/__tests__/variant-axis-isolation.test.ts:100-102`
+  plus wall 4 at `:216-243`, which carries a positive control at `:225-235`
+  proving the domain does read those tables (without it the wall passes
+  vacuously).
+- **The preserved claim copy is frozen and undeletable.**
+  `mercaria_native_listing_claim_frozen` refuses any UPDATE of
+  `raw_name`/`raw_value`/`provenance`/`asserted_at`
+  (`drizzle/0097_uneven_hedge_knight.sql:512-538`, variant grain `:551-590`) and
+  `mercaria_native_claim_no_delete` at `:592-621`.
+- **A forbidden axis is unrepresentable** —
+  `native_listing_variant_axes_forbidden_key_check` (`0097:65`,
+  `db/schema/variantAxes.ts:186-189`), rendered from the shared
+  `PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS` tuple. So a year range, a make or a
+  model can never become a variant option, which is ADR 0007 D8's own acceptance
+  scenario.
+- **A non-variant-defining attribute cannot carry an axis** — trigger
+  `mercaria_native_variant_axis_citation` (`0097:206-213`).
+- **Two variants that would be indistinguishable are refused** — UNIQUE
+  `native_variant_signatures_listing_signature_key` (`0097:175`) plus the
+  deferrable constraint trigger `mercaria_native_variant_signature_agrees`
+  (`0097:433-490`).
+- **"Blocked but carrying a guess" is unrepresentable** — three biconditional
+  CHECKs at both grains (`0097:100,105,107`; `db/schema/variantAxes.ts:478-492`),
+  pinned by `db/__tests__/variant-axes.realdb.test.ts:588`.
+- **No similarity metric can enter the domain** — a comment-stripped scan of the
+  whole domain for a similarity call or import
+  (`variant-axis-isolation.test.ts:157-186`), with detector self-tests at
+  `:165-179`, a fold-list disjointness assertion and
+  `expect(LEGACY_OPTION_NAME_FOLDS.length).toBe(5)` at `:181-186`. The comment
+  stripper is itself mutation-tested at `:129-139`.
+
+### Conventions — nothing fails if you remove them
+
+- **`Tono` → `color` staying unresolved has no database gate**, and it is the case
+  ADR 0007 D6 names by name. There is no
+  `native_*_claims_legacy_resolution_check`: the provenance-keyed CHECK that does
+  exist (`db/schema/variantAxes.ts:551-554`, `0097:32` and `:94`) has exactly
+  #90's shape and constrains a different fact —
+  `provenance <> 'legacy_option_migration' or asserted_by_oxy_user_id is null`,
+  i.e. *who* claimed it, not *what it resolved to*. Positive control that a
+  provenance-keyed-CHECK search works: it finds this one plus
+  `condition.ts:190`, `catalogExternalMappings.ts:292`, `navigation.ts:560`,
+  `pickup.ts:249`, `procurement.ts:755`, `sellYours.ts:352`,
+  `catalogLocalization.ts:138` and `:288`. If the name resolver grew a similarity
+  branch, every resulting row would be legal: `attribute_resolution = 'resolved'`
+  with a real definition id, an axis on a `variant_defining` `color` definition
+  and a normalized value from the alias map. Held instead by
+  `legacy-resolution.ts:154,162,174` and by two assertions —
+  `variant-axis-legacy-resolution.test.ts:171-182` (`REFUSES 'Tono', which is the
+  whole point (ADR 0007 D6)`) and `:184-192` for `Colour`.
+- **A typed axis assignment need not cite a RESOLVED claim, or any claim.**
+  `native_variant_axis_assignments.source_claim_id` is nullable (`0097:124`,
+  `db/schema/variantAxes.ts:265-276`) and the scope trigger
+  `mercaria_native_variant_axis_assignment_scope` (`0097:348-360`) checks only
+  that the claim is about the same variant — `c.id = new.source_claim_id and
+  c.variant_id = new.variant_id`, with **no clause on `c.value_resolution` or
+  `c.value_refusal`**. Verified directly. So a row carrying a normalized value
+  derived from a claim blocked as `ambiguous`, or from no claim at all, is
+  representable. **This is precisely the row #90's constraint shape forbids, and
+  it is the single cheapest thing that would move box 2 to satisfied.**
+- **The sibling-collision gate is absorbed by the writer's own conflict clause.**
+  `collidesWithSiblingOption` (`backfill.service.ts:179-192`, passed at `:235`)
+  is the only producer of the name-grain `ambiguous` refusal, and the unique index
+  `native_listing_variant_axes_listing_attribute_key` (`0097:164`) is not a
+  backstop for it, because `declareVariantAxis` uses
+  `.onConflictDoNothing({ target: [listingId, attributeKey] })`
+  (`db/variantAxes/variantAxisRepository.ts:76-79`) — verified directly. Pass
+  `false` at `:235` and the second colliding option silently converges on the
+  first axis (`created: false`, counted as `axesAlreadyDeclared`) and its values
+  get typed under it. The docblock at `legacy-resolution.ts:118-121` says the
+  unique index prevents exactly that coin toss. It does not; it absorbs it.
+- **`runVariantAxisBackfill` has no test at all.** Its only references are
+  `scripts/backfill-variant-axes.ts`,
+  `services/catalog-governance/impact-plan.ts` and its own module. Positive
+  control: the sister backfills are tested —
+  `services/catalog-proposals/__tests__/catalog-proposals.realdb.test.ts` imports
+  `runProposalBackfill`, and `services/__tests__/backfill.realdb.test.ts` drives
+  `runBackfill`. Consequence: the one-token change at `backfill.service.ts:235`
+  passes the entire suite.
+- **"Visible in a review queue" is one integer over one of the two claim
+  tables.** The design decision to have no queue table is recorded
+  (`db/schema/variantAxes.ts:705-727`, "the claim's own resolution columns ARE the
+  queue") and two partial indexes serve it (`variantAxes.ts:644-648`, `:697-701`).
+  But `countQueuedClaims` (`db/variantAxes/attributeClaimRepository.ts:278-345`)
+  queries `.from(nativeVariantAttributeClaims)` at `:313` and nothing else, so
+  `native_listing_attribute_claims_queue_idx` has **no reader** and an
+  `axis_declaration` claim refused on a listing with no variants is invisible to
+  every count. And there is **no row-level read path**:
+  `listListingAttributeClaims` (`:207-217`) and `listVariantAttributeClaims`
+  (`:219-…`) have zero callers repo-wide — positive control, the same grep shape
+  returns 11 hits for `countQueuedClaims`. So an operator can see that `n` things
+  are unresolved and cannot enumerate them.
+
+### Two docblocks asserting facts the code does not
+
+1. **`services/catalog-backfill/mapping-matrix.ts:182-185`** gives
+   `product_variant_option_values.position` the target
+   `native_variant_axis_assignments.position (ADR 0007 D6)`. **That table has no
+   `position` column** — `0097:113-131` and `db/schema/variantAxes.ts:240-277`
+   list ten columns and none is `position`; the `position` in that file
+   (`:165,180,197`) belongs to `native_listing_variant_axes`, a different table.
+   The guarding census only checks the target string is non-empty
+   (`services/catalog-backfill/__tests__/mapping-matrix-census.test.ts:149-156`),
+   so it cannot catch a target naming a column that does not exist.
+2. **`mapping-matrix.ts:141-153`** says of `listing_options.values`: "READ BY
+   NOTHING. Step 4's `legacyOptionRepository` does not select it." It does —
+   `db/variantAxes/legacyOptionRepository.ts:105-109` is a bare `db.select()`
+   with no projection and `LegacyListingOptionRow = typeof
+   listingOptions.$inferSelect` (`:96`) includes `values`. The substantive claim
+   (nothing *types* it) holds; the stated reason is false, and it is the kind of
+   reason a later reader relies on.
+
+### One caveat that belongs to the pre-existing write path, not to #367
+
+#367 does not delete the legacy rows, but `db/catalog/listingRepository.ts:278-280`
+and `db/catalog/variantRepository.ts:238-241` are delete-then-reinsert on every
+listing edit, and neither legacy table is in `db/protectedColumns.ts` (zero hits).
+So retention of the **source** rows is a fact about who writes them; retention of
+the **claim** is a trigger. A seller editing options after the backfill loses the
+original text and keeps the frozen claim — which is the right outcome, and is not
+what the ADR's wording ("preserved verbatim") would lead a reader to expect of the
+source column.
+
+**Verdict: partial.** Retention, forbidden axes, indistinguishable variants,
+blocked-value shape and the no-similarity wall are properties. The ADR's own named
+case (`Tono`), the sibling-collision refusal, and the link from a typed value to a
+*resolved* claim are conventions — and the last of the three has a ready-made
+constraint shape sitting in #90.
 
 ---
 
-## Box 3 — no historical commerce snapshot is rewritten
+## Box 3 — no historical commerce snapshot is rewritten: **satisfied as a fact, partial as a property**
 
-See [§Box 3 verdict](#box-3-verdict).
+Two claims that must be kept apart. Note that **#367's migration surface is TEN
+files, not twelve** — attributed by `git log --diff-filter=A --name-only --
+packages/backend/drizzle/`: `0088, 0089, 0090, 0091, 0093, 0094, 0097, 0098,
+0100, 0102`, every one carrying exactly one `-- oxy:deploy-phase=pre` on line 1.
+The interleaved `0092, 0095, 0096, 0099, 0101` belong to #390, #431, #427 and
+#445; the later #367 commits (W13, W14, W16/W17, W18, seams) added no migration.
+
+### The fact about the past — satisfied, strongly
+
+**No #367 migration writes, alters, deletes from or even references a commerce
+table.** Four independent searches over exactly those ten files:
+
+- Word-boundary mention of `orders`, `order_items`, `order_status_history`,
+  `payments`, `refunds`, `ledger_transactions`, `ledger_entries`,
+  `order_fee_snapshots`, `guest_checkouts`, `retail_procurement_intents`,
+  `purchase_orders`, `draft_orders` — **one hit and it is prose**
+  (`0100_same_iron_man.sql:261`, a comment).
+- All `UPDATE` / `DELETE FROM` / `INSERT INTO` — five statements, all catalog:
+  `0088:136`, `0088:162`, `0088:196` (the `categories` backfills) and `0091:173`,
+  `0091:198` (staleness marks inside trigger bodies).
+- All 133 `ALTER TABLE` statements — `ADD CONSTRAINT`/`ADD COLUMN` on catalog
+  tables, plus one `native_listing_links DROP CONSTRAINT` and 0088's
+  `categories ALTER COLUMN`. No `DROP COLUMN`, no `ALTER COLUMN` and no
+  `DROP CONSTRAINT` against any commerce table.
+- All 36 `REFERENCES "public"."…"` targets — catalog, vehicle and store only. No
+  foreign key reaches a placed order, so not even an `ON DELETE CASCADE`.
+- No dynamic SQL: no `EXECUTE format(...)` anywhere; every `EXECUTE` is
+  `EXECUTE FUNCTION` in a `CREATE TRIGGER`.
+
+**Positive control, and it fires.** The identical DML regex over all 103
+migrations finds exactly the shape #367 is accused of, in *pre*-#367 files:
+`0023_ambitious_proemial_gods.sql:91` (`UPDATE "orders" SET "buyer_origin" = …`),
+`0030_giant_energizer.sql:51` (`UPDATE "order_status_history" SET "actor_kind" =
+…`) and `0030:68`. So the search shape is sound, the repository *has* rewritten
+historical order rows before — deliberately, under ADR 0003 M4 — and the
+temptation D13 names was not taken this time. Note the ordering inside 0023: it
+backfills `orders` at `:91` and installs `orders_buyer_origin_immutable` at
+`:170`, so the same statement run today would be refused by the trigger that
+file created.
+
+Because all ten are `pre` — which `db/migrate.ts:46-58` defines as additive only,
+applied **before** the rollout while the previous image is still serving — a
+rewrite here would have corrupted live history. None does.
+
+### The property — partial, and the boundary is worth knowing exactly
+
+Three real triggers protect commerce snapshots, all plain `BEFORE … FOR EACH ROW`
+`plpgsql` raising `check_violation`. **None is row-level security**, which is the
+distinction that matters: RLS is bypassed by the table owner and a migration runs
+as the owner; a plain trigger is not bypassed. Only `ALTER TABLE … DISABLE
+TRIGGER` or `SET session_replication_role = replica` suppresses them and no
+migration does either.
+
+| Surface | Gated? | Where |
+|---|---|---|
+| `ledger_transactions`, `ledger_entries` | **yes** — whole table, UPDATE + DELETE | `mercaria_ledger_append_only`, `drizzle/0002_payment_domain.sql:258`, triggers `:267`, `:270` |
+| `order_fee_snapshots`, `order_fee_snapshot_lines`, `fee_schedule_acceptances` | **yes** — whole table, UPDATE + DELETE | `mercaria_fee_record_append_only`, `drizzle/0016_volatile_wiccan.sql:168`, triggers `:176`, `:179`, `:182` |
+| `order_items.condition_{key,assertion,notes}` | **yes** — 3 columns, UPDATE, refuses NULL → value too | `mercaria_order_item_condition_immutable`, `drizzle/0034_closed_tattoo.sql:358`, trigger `:371-373` |
+| `orders.buyer_origin`, `.buyer_guest_checkout_id`, `.buyer_oxy_user_id` | **yes** — 3 columns, UPDATE only | `orders_buyer_origin_immutable`, `drizzle/0023:170` |
+| `guest_checkouts` (5 columns) | **yes** — UPDATE only | `guest_checkouts_immutable`, `drizzle/0023:132` |
+| `purchase_orders`, `purchase_order_lines` | **yes** | `drizzle/0014_fantastic_patriot.sql:490`, `:439` |
+| **`order_items`' price, quantity and snapshot columns** | **no** | — |
+| **`orders`' money and status columns; `DELETE FROM orders`** | **no** | there is no `BEFORE DELETE` on `orders` at all |
+| **`order_status_history`, any column, any verb** | **no** — convention only | `db/schema/orders.ts:635-640`: "the ABSENCE of `updated_at` is the append-only contract". A missing column stops an ORM idiom, not an `UPDATE` |
+| **`payments`** | **no trigger exists** | — |
+| **`refunds`** | **no trigger exists** | — |
+| **`draft_orders`, `retail_procurement_intents`** | **no** | only `retail_procurement_intent_lines` is triggered |
+
+So the sharp answer depends entirely on the SET list.
+`UPDATE order_items SET condition_key = …` fires and aborts the migration;
+`UPDATE order_items SET unit_price = …` **applies silently**, and that is proven
+deliberately — `db/__tests__/condition.realdb.test.ts:521-530` asserts
+`db.update(orderItems).set({ position: 3 })` **resolves**, because a trigger
+refusing every update to `order_items` would break refunds. The vacuity guard is
+also the hole.
+
+**The three refusal tests are real and non-vacuous.**
+`condition.realdb.test.ts:486-530` (including the sharper
+`refuses a BACKFILL of a pre-#90 line`), `db/fees/__tests__/fee-schedules.realdb.test.ts:298-317`,
+and `db/payments/__tests__/ledger.realdb.test.ts:305-345`. All three assert
+`rejects`, which is what makes them self-defending: **a zero-row UPDATE succeeds
+in Postgres, so a vacuous version of any of them would go red rather than
+green.** Each also proves its row exists first. The ledger file walks
+`error.cause` and adds a fifth case (`leaves the row untouched after a refused
+UPDATE`) because "a trigger that raised AFTER the row version was written would
+pass every test above and still corrupt the book". They run in CI at
+`.github/workflows/ci.yml:257`.
+
+**Two absent gates, and neither is a capability gap.**
+
+1. **Nothing scans migration SQL for write targets.**
+   `db/__tests__/migration-handwritten-markers.test.ts` reads the whole `drizzle/`
+   directory and gates the `oxy:handwritten-*` pairing and the
+   `oxy:deploy-phase` marker through `@oxyhq/db`'s `readMigrationPhases` — it says
+   nothing about what a statement writes. No `validate:*` script in the root
+   `package.json` points at SQL. Positive control that the device is house
+   standard: `validate-no-mongo.mjs` and `validate-money-formatting.mjs` are
+   source-scanning gates with their own `test-validate-*.mjs` self-tests.
+2. **No census demands a trigger for a new commerce-adjacent table.** Searched
+   for `APPEND_ONLY`, `IMMUTABLE_TABLES`, `SNAPSHOT_TABLES`, `NEVER_REWRITTEN`
+   across `packages/` — only prose in comments (`schema/reviews.ts:725`,
+   `db/fees/feeScheduleRepository.ts:16`) and `disable trigger` statements in test
+   fixtures. No data structure. The four `pg_trigger` assertions in the suite are
+   per-domain vacuity floors naming their own triggers. Positive controls that the
+   device exists and is applied to four *other* properties:
+   `services/curation/__tests__/merge-plan-census.test.ts:1-28` (walks
+   `getTableConfig(...).foreignKeys` over the drizzle barrel and fails until every
+   referencing table has a disposition — and at `:219-236` enforces box 3's
+   sibling, `no plan entry names an order or a listing table`),
+   `db/__tests__/guest-data-inventory-census.test.ts:1-17`,
+   `services/catalog-governance/__tests__/catalog-governance-isolation.test.ts:109-115`
+   (a #367 wall forbidding order, payment and buyer **reads** in governance
+   source — TypeScript, not SQL), and
+   `db/__tests__/advisory-lock-census.test.ts:476-479`.
+
+**Verdict.** The narrowest true statement the evidence supports: *#367 did not
+rewrite a commerce snapshot, and a future migration cannot rewrite the ledger, the
+fee snapshots, an order line's recorded condition, or an order's buyer identity.
+It can still rewrite an order's money, its status trail, a payment and a refund.*
 
 ---
 
