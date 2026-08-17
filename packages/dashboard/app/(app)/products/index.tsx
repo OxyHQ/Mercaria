@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { View, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type RoutePath } from "expo-router";
 import Head from "expo-router/head";
 import { Plus, Package, ChevronLeft, ChevronRight } from "lucide-react-native";
 import type { Listing, ListingStatus } from "@mercaria/shared-types";
@@ -60,9 +60,19 @@ function ProductsBody({ storeId }: { storeId: string }) {
    * client flag. The legacy `/products/new` stays exactly where it was and is
    * still the destination everywhere the wizard is not available — parity
    * first, and retiring it is a separate decision this screen does not make.
+   *
+   * Annotated `RoutePath` rather than with the two literals it can hold, and
+   * that is load-bearing twice over. `route-reachability.test.ts` reads a
+   * navigation edge out of a `const x: RoutePath = …` declaration and records
+   * BOTH sides of the conditional, so this is the one spelling under which the
+   * import graph can see what a user can reach. Writing the narrower union
+   * instead hid the edge — and it hid the two `/products/new` edges this screen
+   * used to carry as literals, which the gate caught as a route that had gone
+   * unreachable. `RoutePath` IS the generated route union, so a target that is
+   * not a real route still fails `tsc` here.
    */
   const authoring = useAuthoringAvailability(locale);
-  const createHref: "/products/new" | "/products/wizard" =
+  const createHref: RoutePath =
     authoring.data?.outcome === "available" ? "/products/wizard" : "/products/new";
 
   const filtered = useMemo(() => {
