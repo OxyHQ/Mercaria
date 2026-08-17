@@ -917,13 +917,16 @@ describe('the queue: leases, revisions and coalescing', () => {
     // right there.
     const { variantId } = await makeNativeListing('claim-window-subject');
     const subjectKey = `native_variant:${variantId}`;
-    await enqueueMatch({
-      subjectKind: 'native_variant',
-      subjectKey,
-      sourceRecordId: null,
-      productVariantId: variantId,
-      trigger: 'catalog_write',
-    });
+    await enqueueMatch(
+      {
+        subjectKind: 'native_variant',
+        subjectKey,
+        sourceRecordId: null,
+        productVariantId: variantId,
+        trigger: 'catalog_write',
+      },
+      db,
+    );
 
     // The FIXED sequence, verbatim: backdate this subject so it is the oldest
     // due row, then take exactly ONE. Queue depth stops mattering, and no row
@@ -949,13 +952,16 @@ describe('the queue: leases, revisions and coalescing', () => {
     const { variantId } = await makeNativeListing('coalesce');
     const subjectKey = `native_variant:${variantId}`;
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      await enqueueMatch({
-        subjectKind: 'native_variant',
-        subjectKey,
-        sourceRecordId: null,
-        productVariantId: variantId,
-        trigger: 'catalog_write',
-      });
+      await enqueueMatch(
+        {
+          subjectKind: 'native_variant',
+          subjectKey,
+          sourceRecordId: null,
+          productVariantId: variantId,
+          trigger: 'catalog_write',
+        },
+        db,
+      );
     }
     const row = await findMatchQueueRow(db, subjectKey);
     expect(row?.requestedRevision).toBe(3);
@@ -965,13 +971,16 @@ describe('the queue: leases, revisions and coalescing', () => {
   it('an enqueue during a run leaves the row PENDING after completion', async () => {
     const { variantId } = await makeNativeListing('revision');
     const subjectKey = `native_variant:${variantId}`;
-    await enqueueMatch({
-      subjectKind: 'native_variant',
-      subjectKey,
-      sourceRecordId: null,
-      productVariantId: variantId,
-      trigger: 'catalog_write',
-    });
+    await enqueueMatch(
+      {
+        subjectKind: 'native_variant',
+        subjectKey,
+        sourceRecordId: null,
+        productVariantId: variantId,
+        trigger: 'catalog_write',
+      },
+      db,
+    );
 
     // Backdate THIS subject so it is the oldest due row, then take exactly ONE.
     //
@@ -997,13 +1006,16 @@ describe('the queue: leases, revisions and coalescing', () => {
 
     // A request lands MID-RUN. Without the revision pair the completion below
     // would mark it `done` and the request would be lost.
-    await enqueueMatch({
-      subjectKind: 'native_variant',
-      subjectKey,
-      sourceRecordId: null,
-      productVariantId: variantId,
-      trigger: 'operator',
-    });
+    await enqueueMatch(
+      {
+        subjectKind: 'native_variant',
+        subjectKey,
+        sourceRecordId: null,
+        productVariantId: variantId,
+        trigger: 'operator',
+      },
+      db,
+    );
     // …and it must NOT have released the live lease.
     const midRun = await findMatchQueueRow(db, subjectKey);
     expect(midRun?.status).toBe('processing');
@@ -1018,13 +1030,16 @@ describe('the queue: leases, revisions and coalescing', () => {
     const first = await makeNativeListing('skip-a');
     const second = await makeNativeListing('skip-b');
     for (const variantId of [first.variantId, second.variantId]) {
-      await enqueueMatch({
-        subjectKind: 'native_variant',
-        subjectKey: `native_variant:${variantId}`,
-        sourceRecordId: null,
-        productVariantId: variantId,
-        trigger: 'catalog_write',
-      });
+      await enqueueMatch(
+        {
+          subjectKind: 'native_variant',
+          subjectKey: `native_variant:${variantId}`,
+          sourceRecordId: null,
+          productVariantId: variantId,
+          trigger: 'catalog_write',
+        },
+        db,
+      );
     }
 
     const [left, right] = await Promise.all([
@@ -1039,13 +1054,16 @@ describe('the queue: leases, revisions and coalescing', () => {
   it('refuses a completion from a task that does not hold the lease', async () => {
     const { variantId } = await makeNativeListing('owner-check');
     const subjectKey = `native_variant:${variantId}`;
-    await enqueueMatch({
-      subjectKind: 'native_variant',
-      subjectKey,
-      sourceRecordId: null,
-      productVariantId: variantId,
-      trigger: 'catalog_write',
-    });
+    await enqueueMatch(
+      {
+        subjectKind: 'native_variant',
+        subjectKey,
+        sourceRecordId: null,
+        productVariantId: variantId,
+        trigger: 'catalog_write',
+      },
+      db,
+    );
     // Backdated and taken ONE, for the reason the sibling case above states: a
     // batch of fifty over a shared queue both misses its own row and steals
     // everybody else's.
@@ -1061,13 +1079,16 @@ describe('the queue: leases, revisions and coalescing', () => {
 
   it('reports queue AGE, which is what distinguishes a sweep from a stopped worker', async () => {
     const { variantId } = await makeNativeListing('age');
-    await enqueueMatch({
-      subjectKind: 'native_variant',
-      subjectKey: `native_variant:${variantId}`,
-      sourceRecordId: null,
-      productVariantId: variantId,
-      trigger: 'bulk_sweep',
-    });
+    await enqueueMatch(
+      {
+        subjectKind: 'native_variant',
+        subjectKey: `native_variant:${variantId}`,
+        sourceRecordId: null,
+        productVariantId: variantId,
+        trigger: 'bulk_sweep',
+      },
+      db,
+    );
     const summary = await summarizeMatchQueue(db);
     expect(summary.pending).toBeGreaterThanOrEqual(1);
     expect(summary.oldestPendingAgeSeconds).not.toBeNull();

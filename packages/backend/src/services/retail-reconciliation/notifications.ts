@@ -30,6 +30,7 @@
  * `adjustment.service.ts` reads a buyer origin, which is #128 acceptance 9.
  */
 
+import { getDb } from '../../db/postgres.js';
 import { log } from '../../lib/logger.js';
 import { enqueueGuestMessage } from '../guest-portal/message.service.js';
 
@@ -54,7 +55,7 @@ export function notifyRetailCostAdjustment(order: AdjustableOrder, adjustmentId:
     kind: 'cost_adjustment_issued',
     orderId: order.id,
     dedupeSuffix: adjustmentId,
-  }).catch((err: unknown) => {
+  }, getDb()).catch((err: unknown) => {
     log.guest.error(
       { err, orderId: order.id, adjustmentId },
       '[RetailReconciliation] failed to enqueue the cost-adjustment message; the refund stands',

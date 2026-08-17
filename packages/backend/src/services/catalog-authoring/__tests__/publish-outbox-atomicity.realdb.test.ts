@@ -11,16 +11,23 @@
  *
  * ## The direction that matters here is the opposite of moderation's
  *
- * `enqueueOfferConvergence` takes its handle OPTIONALLY —
- * `db: DatabaseOrTransaction = getDb()` (`db/offers/offerOutboxRepository.ts:49`)
- * — which is the opposite of `enqueueModerationOutboxEvent`, whose
- * `requireTransaction` refuses the root connection outright. That asymmetry is
- * deliberate and the repository's own docblock (`:36-46`) gives the reason: a
- * moderation row committing alone LOSES or duplicates an abuse report, while a
- * convergence row is a request for a recomputation that re-reads live state when
- * it runs, so one left behind by a rolled-back write converges against live
- * state and finds nothing to do. Escaping the transaction is therefore benign
- * here, and this file does not treat it as a defect — it uses it as a CONTROL.
+ * `enqueueOfferConvergence` REQUIRES its handle and accepts either kind, which
+ * sits between `enqueueModerationOutboxEvent` — whose `requireTransaction`
+ * refuses the root connection outright — and the defaulted
+ * `db: DatabaseOrTransaction = getDb()` this repository carried until #584. The
+ * middle position is deliberate and the repository's own docblock gives the
+ * reason: a moderation row committing alone LOSES or duplicates an abuse report,
+ * while a convergence row is a request for a recomputation that re-reads live
+ * state when it runs, so one left behind by a rolled-back write converges
+ * against live state and finds nothing to do. Escaping the transaction is
+ * therefore benign here, and this file does not treat it as a defect — it uses
+ * it as a CONTROL, by naming the root connection explicitly.
+ *
+ * What #584 removed was the ability to reach that connection by ACCIDENT. The
+ * two handles share one `DatabaseOrTransaction` type, so a default made
+ * forgetting to thread `tx` compile; requiring the parameter makes the same
+ * mistake a compile error while leaving the root connection a legitimate thing
+ * to ask for.
  *
  * What is NOT benign is the other direction: the listing committing without the
  * row. That is what these cases pin, and it rests on one property nothing
@@ -48,8 +55,8 @@
  *
  * Case 1 alone is also what a test of PostgreSQL's rollback semantics looks
  * like — it would pass against any function at all, including one that never
- * wrote anything. Case 2 runs the identical sequence with the handle OMITTED and
- * asserts the write SURVIVES the rollback. Two facts follow that one assertion
+ * wrote anything. Case 2 runs the identical sequence naming the ROOT CONNECTION
+ * and asserts the write SURVIVES the rollback. Two facts follow that one assertion
  * cannot give: the fixture really does roll back, and case 1 is measuring the
  * handle rather than the transaction.
  *
@@ -63,7 +70,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 
-import { connectPostgres, type Database } from '../../../db/postgres.js';
+import { getDb, connectPostgres, type Database } from '../../../db/postgres.js';
 import { enqueueOfferConvergence } from '../../../db/offers/offerOutboxRepository.js';
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../draft.service.js';
@@ -242,25 +249,36 @@ describe('the enqueue writes on the handle it is GIVEN', () => {
     ).toBe(before.revision);
   });
 
-  it('does NOT roll back when the handle is omitted — the control that makes the case above about the handle', async () => {
-    // The default parameter is `getDb()` (`offerOutboxRepository.ts:49`), and
-    // that optionality is a DELIBERATE, documented asymmetry with
-    // `enqueueModerationOutboxEvent` rather than an oversight: this row is a
-    // request for a recomputation that re-reads live state, so one left behind by
-    // a rolled-back write converges and finds nothing to do.
+  it('does NOT roll back when the ROOT connection is passed — the control that makes the case above about the handle', async () => {
+    // The control, not a defect report. Two things follow from this assertion
+    // that the previous case cannot give on its own: the fixture's rollback
+    // genuinely rolls back, and the previous case is measuring WHICH CONNECTION
+    // the enqueue used rather than PostgreSQL's transaction semantics.
     //
-    // It is used here as a control, not reported as a defect. Two things follow
-    // from this assertion that the previous case cannot give on its own: the
-    // fixture's rollback genuinely rolls back, and the previous case is
-    // measuring WHICH CONNECTION the enqueue used rather than PostgreSQL's
-    // transaction semantics.
+    // It used to make its point by OMITTING the handle, because the parameter
+    // defaulted to `getDb()`. #584 removed that default from every `enqueue*` —
+    // the root `Database` and a transaction share the `DatabaseOrTransaction`
+    // type, so a default made forgetting to thread `tx` compile — and this case
+    // now names the root connection instead. The control is unchanged in
+    // substance: the same connection, the same write, the same survival. What
+    // changed is that reaching it is now a decision a reader can see rather than
+    // an argument somebody left out.
+    //
+    // Escaping the transaction stays BENIGN for this particular row, which is
+    // the asymmetry with `enqueueModerationOutboxEvent`'s `requireTransaction`
+    // that the header describes: a convergence request re-reads live state when
+    // it runs, so one left behind by a rolled-back write converges and finds
+    // nothing to do. That is why the root connection is still a legitimate
+    // argument here and why #584 required the handle rather than refusing the
+    // root connection outright.
     const before = await outboxRow();
 
     await db
       .transaction(async (tx) => {
-        // Deliberately no handle. Nothing inside `tx` touches this row, so the
-        // root-connection write cannot block on a lock the transaction holds.
-        await enqueueOfferConvergence(listingId);
+        // The ROOT connection, deliberately. Nothing inside `tx` touches this
+        // row, so the root-connection write cannot block on a lock the
+        // transaction holds.
+        await enqueueOfferConvergence(listingId, getDb());
         tx.rollback();
       })
       .catch(() => undefined);
@@ -268,8 +286,8 @@ describe('the enqueue writes on the handle it is GIVEN', () => {
     const after = await outboxRow();
     expect(
       after.revision,
-      'A handle-less enqueue was expected to write on the root connection and therefore to ' +
-        'survive the rollback. If it did not, either the default changed or the previous case is ' +
+      'An enqueue on the root connection was expected to survive the rollback. If it did not, ' +
+        'either the enqueue no longer writes on the handle it is given or the previous case is ' +
         'no longer measuring the handle.',
     ).toBe(before.revision + 1);
   });

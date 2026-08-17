@@ -310,12 +310,15 @@ describe('ACCEPTANCE 2 — one finding, at most one notification under its coold
     const finding = await insertShoppingAgentFinding(newFinding(agentId, lineId, productId));
     if (!finding) throw new Error('the finding was not written');
 
-    await enqueueShoppingAgentNotification({
-      findingId: finding.id,
-      agentId,
-      channel: 'oxy_notification',
-      availableAt: new Date(),
-    });
+    await enqueueShoppingAgentNotification(
+      {
+        findingId: finding.id,
+        agentId,
+        channel: 'oxy_notification',
+        availableAt: new Date(),
+      },
+      db,
+    );
     await recordShoppingAgentNotificationSuppressed({
       findingId: finding.id,
       agentId,
@@ -338,18 +341,24 @@ describe('ACCEPTANCE 2 — one finding, at most one notification under its coold
     const finding = await insertShoppingAgentFinding(newFinding(agentId, lineId, productId));
     if (!finding) throw new Error('the finding was not written');
 
-    const first = await enqueueShoppingAgentNotification({
-      findingId: finding.id,
-      agentId,
-      channel: 'oxy_notification',
-      availableAt: new Date(),
-    });
-    const second = await enqueueShoppingAgentNotification({
-      findingId: finding.id,
-      agentId,
-      channel: 'oxy_notification',
-      availableAt: new Date(),
-    });
+    const first = await enqueueShoppingAgentNotification(
+      {
+        findingId: finding.id,
+        agentId,
+        channel: 'oxy_notification',
+        availableAt: new Date(),
+      },
+      db,
+    );
+    const second = await enqueueShoppingAgentNotification(
+      {
+        findingId: finding.id,
+        agentId,
+        channel: 'oxy_notification',
+        availableAt: new Date(),
+      },
+      db,
+    );
     expect(second).toBe(first);
     expect(await listShoppingAgentNotifications(finding.id)).toHaveLength(1);
   }, 60_000);
@@ -445,12 +454,15 @@ describe('ACCEPTANCE 5 — missing data can never become a positive finding', ()
     // makes #97 evaluation 6 an answer the database gives rather than a rule a
     // service follows.
     const message = await rejectionMessage(() =>
-      enqueueShoppingAgentNotification({
-        findingId: finding.id,
-        agentId,
-        channel: 'oxy_notification',
-        availableAt: new Date(),
-      }),
+      enqueueShoppingAgentNotification(
+        {
+          findingId: finding.id,
+          agentId,
+          channel: 'oxy_notification',
+          availableAt: new Date(),
+        },
+        db,
+      ),
     );
     expect(message).toContain('only a qualified finding may be notified');
     expect(await listShoppingAgentNotifications(finding.id)).toHaveLength(0);
@@ -523,12 +535,15 @@ describe('findings are APPENDED and never rewritten', () => {
     });
     const finding = await insertShoppingAgentFinding(newFinding(agentId, lineId, productId));
     if (!finding) throw new Error('the finding was not written');
-    await enqueueShoppingAgentNotification({
-      findingId: finding.id,
-      agentId,
-      channel: 'oxy_notification',
-      availableAt: new Date(),
-    });
+    await enqueueShoppingAgentNotification(
+      {
+        findingId: finding.id,
+        agentId,
+        channel: 'oxy_notification',
+        availableAt: new Date(),
+      },
+      db,
+    );
     await recordShoppingAgentAudit({
       agentId,
       action: 'created',

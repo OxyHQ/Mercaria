@@ -287,6 +287,15 @@ const LIFECYCLE_MESSAGE_KINDS: Partial<Record<string, GuestPortalMessageKind>> =
  * so a caller can log "enqueued" and "already owed" as the different facts they
  * are.
  *
+ * The handle is REQUIRED (#584). It defaulted to `getDb()`, and the sentence
+ * above is exactly what that default could silently break: the root `Database`
+ * and a transaction share the `DatabaseOrTransaction` type, so a caller who
+ * believed it was committing a message WITH a commerce fact, and forgot to
+ * thread `tx`, wrote on the root connection instead — leaving the message
+ * standing after the fact that owed it rolled back. Every caller today is
+ * outside a transaction and says so by passing `getDb()`, which is the
+ * difference between a decision and an omission.
+ *
  * An `oxy`-origin group has no `guest_checkouts` row and is silently skipped —
  * not an error: an authenticated buyer's transactional channel is Oxy's own
  * notifications, and this domain deliberately knows nothing about it.
@@ -303,7 +312,7 @@ export async function enqueueGuestMessage(
      */
     dedupeSuffix?: string;
   },
-  db: DatabaseOrTransaction = getDb(),
+  db: DatabaseOrTransaction,
 ): Promise<boolean> {
   const contact = await findGuestCheckoutByGroup(db, input.checkoutGroupId);
   if (!contact) return false;
@@ -358,12 +367,17 @@ export function notifyGuestOrderLifecycle(
   const checkoutGroupId = order.checkoutGroupId;
   if (checkoutGroupId === null) return;
 
-  void enqueueGuestMessage({ checkoutGroupId, kind, orderId: order.id }).catch((err: unknown) => {
-    log.guest.error(
-      { err, orderId: order.id, kind },
-      '[GuestPortal] failed to enqueue a lifecycle message; the order transition stands',
-    );
-  });
+  // The ROOT connection, stated (#584). Deliberately detached, so it must NOT
+  // join a caller's transaction: this promise outlives the transition that
+  // started it, and a handle whose transaction has closed writes nowhere.
+  void enqueueGuestMessage({ checkoutGroupId, kind, orderId: order.id }, getDb()).catch(
+    (err: unknown) => {
+      log.guest.error(
+        { err, orderId: order.id, kind },
+        '[GuestPortal] failed to enqueue a lifecycle message; the order transition stands',
+      );
+    },
+  );
 }
 
 /** The worker identity a lease is taken under. One per process. */

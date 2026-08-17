@@ -316,10 +316,13 @@ async function handleGuestPortalInitialization(event: PaymentOutboxRow): Promise
     throw new Error('guest_portal_initialization payload carries no checkoutGroupId');
   }
 
-  const enqueued = await enqueueGuestMessage({
-    checkoutGroupId,
-    kind: 'order_confirmation',
-  });
+  const enqueued = await enqueueGuestMessage(
+    {
+      checkoutGroupId,
+      kind: 'order_confirmation',
+    },
+    getDb(),
+  );
 
   log.general.info(
     { eventId: event.id, checkoutGroupId, guestCheckoutId, orders: orderIds?.length ?? 0, enqueued },

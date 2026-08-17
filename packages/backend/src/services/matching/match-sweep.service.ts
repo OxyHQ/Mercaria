@@ -71,13 +71,16 @@ async function sweepNativeVariantsPage(input: {
     .limit(input.limit);
 
   for (const row of rows) {
-    await enqueueMatch({
-      subjectKind: 'native_variant',
-      subjectKey: matchSubjectKey({ kind: 'native_variant', productVariantId: row.id }),
-      sourceRecordId: null,
-      productVariantId: row.id,
-      trigger: 'bulk_sweep',
-    });
+    await enqueueMatch(
+      {
+        subjectKind: 'native_variant',
+        subjectKey: matchSubjectKey({ kind: 'native_variant', productVariantId: row.id }),
+        sourceRecordId: null,
+        productVariantId: row.id,
+        trigger: 'bulk_sweep',
+      },
+      db,
+    );
   }
 
   return {
@@ -125,18 +128,21 @@ async function sweepSourceRecordsPage(input: {
     .limit(input.limit);
 
   for (const row of rows) {
-    await enqueueMatch({
-      subjectKind: 'source_record',
-      subjectKey: matchSubjectKey({
-        kind: 'source_record',
-        sourceId: row.sourceId,
-        externalType: row.externalType,
-        externalId: row.externalId,
-      }),
-      sourceRecordId: row.id,
-      productVariantId: null,
-      trigger: 'bulk_sweep',
-    });
+    await enqueueMatch(
+      {
+        subjectKind: 'source_record',
+        subjectKey: matchSubjectKey({
+          kind: 'source_record',
+          sourceId: row.sourceId,
+          externalType: row.externalType,
+          externalId: row.externalId,
+        }),
+        sourceRecordId: row.id,
+        productVariantId: null,
+        trigger: 'bulk_sweep',
+      },
+      db,
+    );
   }
 
   return {

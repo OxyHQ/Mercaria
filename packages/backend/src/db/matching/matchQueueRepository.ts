@@ -34,13 +34,26 @@ export interface EnqueueMatchInput {
 /**
  * Ask for a subject to be matched.
  *
- * Takes an OPTIONAL transaction so a catalogue write can enqueue inside its own
- * transaction and a rolled-back write leaves no request for a change that never
- * happened — `requestNativeOfferSync`'s shape, for the same reason.
+ * The handle is REQUIRED (#584) — `enqueueOfferConvergence`'s ruling, for the
+ * same reason and with one thing more. A catalogue write enqueues inside its own
+ * transaction so a rolled-back write leaves no request for a change that never
+ * happened, and forgetting to thread `tx` used to compile: the root `Database`
+ * and a transaction share the `DatabaseOrTransaction` type.
+ *
+ * The extra reason is that NOTHING here would have been loud about it. Both
+ * subject shapes carry a foreign key (`source_records` RESTRICT, `product_variants`
+ * CASCADE, exactly one non-null by `match_queue_subject_shape_check`), so an
+ * enqueue on the root connection inside the transaction that CREATES the subject
+ * raises `23503` — and `requestMatch`, this function's only wrapper, catches and
+ * logs by design so a catalogue write cannot fail because a matcher could not be
+ * QUEUED (#58 operations 4). So the loud failure is swallowed into a WARN and a
+ * lost match request, while an enqueue for an already-committed subject satisfies
+ * the key and leaves a row outside the caller's transaction. Neither shape
+ * reaches anybody, which is why the compile error is the whole fix.
  */
 export async function enqueueMatch(
   input: EnqueueMatchInput,
-  db: DatabaseOrTransaction = getDb(),
+  db: DatabaseOrTransaction,
   now: Date = new Date(),
 ): Promise<void> {
   await db

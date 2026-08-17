@@ -79,7 +79,13 @@ export async function enqueueShoppingAgentNotification(
     readonly channel: ShoppingAgentNotificationChannel;
     readonly availableAt: Date;
   },
-  db: DatabaseOrTransaction = getDb(),
+  /**
+   * REQUIRED (#584), never defaulted to `getDb()`. The paragraph above is the
+   * contract — this row commits with the finding or the finding reached nobody —
+   * and a default made forgetting to thread `tx` compile, because the root
+   * `Database` and a transaction share the `DatabaseOrTransaction` type.
+   */
+  db: DatabaseOrTransaction,
 ): Promise<string> {
   const id = shoppingAgentNotificationId(input.findingId, input.channel);
   await db

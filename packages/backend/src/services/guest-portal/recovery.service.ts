@@ -195,14 +195,17 @@ async function narrowByOrderNumber<T extends { checkoutGroupId: string }>(
 export async function requestStepUpLink(
   input: { checkoutGroupId: string; now: Date },
 ): Promise<boolean> {
-  return await enqueueGuestMessage({
-    checkoutGroupId: input.checkoutGroupId,
-    kind: 'access_link_step_up',
-    // A step-up is requested at the moment of an action, so a caller who
-    // abandons one and comes back an hour later must get a new link rather than
-    // converging on an expired one.
-    dedupeSuffix: String(currentWindowStart(input.now).getTime()),
-  });
+  return await enqueueGuestMessage(
+    {
+      checkoutGroupId: input.checkoutGroupId,
+      kind: 'access_link_step_up',
+      // A step-up is requested at the moment of an action, so a caller who
+      // abandons one and comes back an hour later must get a new link rather than
+      // converging on an expired one.
+      dedupeSuffix: String(currentWindowStart(input.now).getTime()),
+    },
+    getDb(),
+  );
 }
 
 /** Count one attempt on one axis and return the running total. */

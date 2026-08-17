@@ -160,11 +160,14 @@ export async function secureAccess(
   });
 
   try {
-    await enqueueGuestMessage({
-      checkoutGroupId: grant.checkoutGroupId,
-      kind: 'access_security_notice',
-      dedupeSuffix: grant.id,
-    });
+    await enqueueGuestMessage(
+      {
+        checkoutGroupId: grant.checkoutGroupId,
+        kind: 'access_security_notice',
+        dedupeSuffix: grant.id,
+      },
+      getDb(),
+    );
   } catch (err) {
     log.guest.error(
       { err, checkoutGroupId: grant.checkoutGroupId },

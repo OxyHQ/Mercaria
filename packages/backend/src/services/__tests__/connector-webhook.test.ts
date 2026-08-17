@@ -95,6 +95,23 @@ vi.mock('../catalog-write.service.js', () => ({
   resolveDefaultLocationId: vi.fn(),
 }));
 vi.mock('../inventory.service.js', () => ({ setAvailable: vi.fn() }));
+/**
+ * No database: this suite mocks every repository, so the real `getDb()` throws
+ * "PostgreSQL is not connected".
+ *
+ * That throw is not new. Before #584 it happened INSIDE `requestNativeOfferSync`,
+ * whose catch swallowed it — so the archive paths below have never enqueued an
+ * offer convergence here, and nothing said so. #584 made the handle a required
+ * argument, so the call site names the root connection and the throw moved OUT
+ * of that catch. Stubbing `getDb` puts it back where it was: the enqueue still
+ * fails, still inside the try, still swallowed. What the suite tests is the
+ * connector's own bookkeeping; offer convergence is #57's and is exercised
+ * against a real server by `offers.realdb.test.ts`.
+ */
+vi.mock('../../db/postgres.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../db/postgres.js')>()),
+  getDb: () => ({}) as ReturnType<typeof import('../../db/postgres.js').getDb>,
+}));
 
 import { processConnectorWebhook } from '../connector-sync.service.js';
 
