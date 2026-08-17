@@ -376,6 +376,47 @@ await mustPass(
   }),
 );
 
+// ------------------------------- test files are skipped, and ONLY test files ---
+
+/**
+ * The source both cases below use (#469).
+ *
+ * It carries one finding for each of the walls that can fire on a single file,
+ * so a partial exclusion — one that swallowed a wall it should not — shows up as
+ * a wall that stopped reporting rather than as a green run.
+ */
+const FIXTURE_SHAPED_SOURCE =
+  "export function probe(target: { attributeKey: string }) {\n" +
+  "  const path = 'fields.material';\n" +
+  "  return target.attributeKey === 'shoe_size' ? { attributeKey: 'shoe_size', path } : null;\n" +
+  "}\n";
+
+await mustPass(
+  "a TEST file naming attribute fixtures is skipped by every wall",
+  baseTree({
+    [`${AUTHORING_DIR}/__tests__/findings.test.ts`]: FIXTURE_SHAPED_SOURCE,
+  }),
+);
+
+await mustFail(
+  // The control that makes the exclusion honest. Byte-identical source at a
+  // NON-test path must still be refused — an exclusion able to swallow
+  // production code would pass this and hide the thing the guard exists for.
+  "the SAME source outside a test path is still refused",
+  baseTree({
+    [`${AUTHORING_DIR}/probe.ts`]: FIXTURE_SHAPED_SOURCE,
+  }),
+  { expect: "[hardcoded-identity]", mutationMarker: "attributeKey: 'shoe_size'" },
+);
+
+await mustFail(
+  "and by the namespaced-key wall too, not only the first one",
+  baseTree({
+    [`${AUTHORING_DIR}/probe.ts`]: FIXTURE_SHAPED_SOURCE,
+  }),
+  { expect: "[namespaced-key]", mutationMarker: "'fields.material'" },
+);
+
 // ------------------------------------------- the exemption list is BOUNDED ---
 
 record(

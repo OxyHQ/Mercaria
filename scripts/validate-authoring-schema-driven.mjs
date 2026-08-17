@@ -212,6 +212,30 @@ const GUARD_OWN_FILES = new Set([
 
 const SOURCE_FILE = /\.tsx?$/;
 
+/**
+ * A test file, which every wall deliberately skips (#469).
+ *
+ * The same decision `validate-storefront-catalog-driven.mjs` records, reached
+ * the same way and for the same reason. A test's job is to name specific values:
+ * a finding path of `fields.material`, an expected `attributeKey: "shoe_size"`,
+ * a variant position. Every one of those is what the walls exist to refuse in
+ * PRODUCTION code and what a test of a path parser cannot do without — the
+ * parser's whole contract is which concrete strings map to which control.
+ * Measured: `lib/authoring/__tests__/findings.test.ts` produced thirteen
+ * findings, all of them fixtures, none of them a defect.
+ *
+ * This is a CATEGORY rather than a hand-maintained list of paths, which is what
+ * keeps it from being the kind of exemption that rots — there is nothing to
+ * update when a test is added. What keeps it honest is the control in the
+ * self-test: the SAME source, at a non-test path, must still be refused by every
+ * wall. An exclusion able to swallow production code would pass that case.
+ *
+ * The count of skipped files is REPORTED on success, so a tree where production
+ * modules had been renamed into `__tests__` to quieten this guard shows up as a
+ * number nobody expected rather than as silence.
+ */
+const TEST_FILE = /(?:^|\/)__tests__\/|\.test\.tsx?$/;
+
 // --------------------------------------------------------------- utilities ---
 
 /** Every file git tracks, repo-relative — so ignored files cannot count. */
@@ -491,10 +515,12 @@ async function main() {
   }
   const translationKeys = bundleKeys(JSON.parse(bundleRaw));
 
-  const scanned = files.filter(
+  const inTree = files.filter(
     (path) =>
       path.startsWith(SCANNED_PREFIX) && SOURCE_FILE.test(path) && !GUARD_OWN_FILES.has(path),
   );
+  const scanned = inTree.filter((path) => !TEST_FILE.test(path));
+  const skippedTests = inTree.length - scanned.length;
   const authoring = scanned.filter((path) =>
     AUTHORING_PREFIXES.some((prefix) => path.startsWith(prefix)),
   );
@@ -552,7 +578,8 @@ async function main() {
 
   console.log(
     `authoring schema-driven guard passed — ${scanned.length} source files under ${SCANNED_PREFIX} ` +
-      `(${authoring.length} of them the wizard's); 4 walls; ${translationKeys.size} translation keys subtracted by wall 2.`,
+      `(${authoring.length} of them the wizard's, ${String(skippedTests)} test files skipped); 4 walls; ` +
+      `${translationKeys.size} translation keys subtracted by wall 2.`,
   );
 }
 

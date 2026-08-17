@@ -181,6 +181,23 @@ jobs:
       - name: Typecheck Dashboard
         run: bun run --filter @mercaria/dashboard typecheck
 
+      # The dashboard's own runner (#469), the same narrow shape as the
+      # storefront's: `lib/**` only, node environment, no jsdom. It has to be
+      # this package's runner rather than a case in the API suite, and that is a
+      # correctness property rather than tidiness — a test importing across a
+      # package boundary compiles the imported source under the IMPORTING
+      # package's `strict` setting, and this package is `strict: true` where the
+      # API is `strict: false`. Exercised from there, a module written to rely on
+      # `strictNullChecks` would be measured without them and go green.
+      #
+      # It seeded on a live defect nothing else here could see: `lib/permissions.ts`
+      # is a hand-kept mirror of the backend role matrix, its `ALL_PERMISSIONS` is
+      # typed `readonly StorePermission[]`, and a SUBSET is assignable to that —
+      # so `analytics:read` was missing from it with tsc, lint, all eight guards
+      # and the export green, hiding the affordance from the store OWNER.
+      - name: Test Dashboard
+        run: bun run --filter @mercaria/dashboard test
+
       - name: Typecheck App
         run: bun run --filter @mercaria/frontend typecheck
 
@@ -201,6 +218,17 @@ jobs:
 
       - name: Typecheck POS
         run: bun run --filter @mercaria/pos typecheck
+
+      # The POS's own runner (#469), same shape and same reasoning as the two
+      # above. `lib/permissions.ts` here is a byte-identical copy of the
+      # dashboard's, which is exactly why it gets its own cases: two copies drift
+      # one at a time, and the second one is the one nobody looks at.
+      #
+      # `client-test-runners.test.ts` in the API suite fails the build if a
+      # package declares a `test` script that no step here runs, so a runner
+      # cannot end up registered with zero callers.
+      - name: Test POS
+        run: bun run --filter @mercaria/pos test
 
       - name: Run API tests
         # TEST_DATABASE_URL names the SERVER, never the database the tests use:
