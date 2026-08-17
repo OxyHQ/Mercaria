@@ -6,11 +6,7 @@ import {
 } from '@/lib/api/catalog-navigation';
 import { queryKeys } from '@/lib/hooks/query-keys';
 import { useCatalogContext } from './context';
-import {
-  navigationFromCategoryTree,
-  navigationFromTrees,
-  type CatalogNavigation,
-} from './navigation';
+import { resolveCatalogNavigation, type CatalogNavigation } from './navigation';
 
 /**
  * Read the storefront's navigation, from taxonomy v2 where it is published and
@@ -46,24 +42,6 @@ export interface UseCatalogNavigationOptions {
   readonly surface?: NavigationSurface;
 }
 
-/**
- * The taxonomy-v2 answer, or `undefined` when this deployment does not give one.
- *
- * Written as `then(onFulfilled, onRejected)` rather than as a `try`/`catch` with
- * an empty block: the rejection handler is a value-producing branch and reads as
- * one, where an empty `catch` reads as an error somebody forgot to handle.
- */
-function readNavigationTrees(
-  market: string,
-  locale: string,
-  surface: NavigationSurface | undefined,
-): Promise<CatalogNavigation | undefined> {
-  return fetchNavigationTrees(market, locale, surface).then(
-    (response) => (response.trees.length > 0 ? navigationFromTrees(response) : undefined),
-    () => undefined,
-  );
-}
-
 export function useCatalogNavigation(
   options?: UseCatalogNavigationOptions,
 ): ReturnType<typeof useQuery<CatalogNavigation>> {
@@ -81,12 +59,16 @@ export function useCatalogNavigation(
     // deliberately-unmounted route is a cost with no benefit: the fallback below
     // already answers, so one attempt at each is enough.
     retry: false,
-    queryFn: async () => {
-      if (context.market !== undefined) {
-        const trees = await readNavigationTrees(context.market, context.locale, surface);
-        if (trees !== undefined) return trees;
-      }
-      return navigationFromCategoryTree(await fetchCategoryTree());
-    },
+    // The decision itself lives in `navigation.ts` as `resolveCatalogNavigation`,
+    // which is pure apart from the two readers it is handed — so the fallback is
+    // reachable by a test. This hook supplies the real fetchers and nothing else.
+    queryFn: () =>
+      resolveCatalogNavigation({
+        market: context.market,
+        locale: context.locale,
+        surface,
+        readTrees: fetchNavigationTrees,
+        readCategoryTree: fetchCategoryTree,
+      }),
   });
 }
