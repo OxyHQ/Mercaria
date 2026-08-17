@@ -150,7 +150,7 @@ export function CatalogPane({ storeId }: { storeId: string }) {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerClassName="gap-2 pr-4"
+            contentContainerClassName="gap-2 pe-4"
           >
             <CategoryChip
               label={t("common.all")}

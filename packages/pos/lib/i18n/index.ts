@@ -1,4 +1,4 @@
-import { createAppI18n, createI18nStore } from '@mercaria/ui';
+import { createAppI18n, createI18nStore, syncLayoutDirection } from '@mercaria/ui';
 import bn from './locales/bn.json';
 import ca from './locales/ca.json';
 import de from './locales/de.json';
@@ -48,4 +48,15 @@ export const { useTranslation } = createI18nStore({
   // sit on one device, and a cashier's till language is not the merchant's
   // admin language.
   persistKey: 'mercaria-pos-i18n',
+  // The layout mirrors from LOGICAL utilities (#434), which resolve against the
+  // platform's direction — so the direction has to be set, or the migration
+  // mirrors nothing. Applied from the store's own funnel rather than an effect:
+  // it must be settled before the tree renders. The till has no picker, so the
+  // locale here only ever comes from the device or from rehydration, which is
+  // exactly why the hook has to cover both and not just `setLocale`.
+  //
+  // `ar` is absent from `bundles` above, and `syncLayoutDirection` reads the
+  // bundles rather than the tag, so this is a no-op today by construction. It
+  // starts mirroring on the commit that adds `ar.json`, with no edit here.
+  onLocaleApplied: (locale) => syncLayoutDirection(i18n, locale),
 });

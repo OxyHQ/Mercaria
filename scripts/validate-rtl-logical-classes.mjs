@@ -22,9 +22,19 @@
  *
  * ## Scope
  *
- * `packages/frontend` and `packages/ui` only — the storefront path #397 covers.
- * The dashboard and POS are issue #398 and are deliberately NOT scanned: a gate
- * over an unmigrated tree is one whoever hits it first disables.
+ * All four client packages: `packages/frontend` and `packages/ui` (the storefront
+ * path, #397) plus `packages/dashboard` and `packages/pos` (#434).
+ *
+ * The two apps were deliberately NOT scanned until #434, because a gate over an
+ * unmigrated tree is one whoever hits it first disables. They joined in the SAME
+ * change that migrated them — four class conversions, measured with these very
+ * regexes rather than hand-written ones — which is the only ordering that does
+ * not leave a red gate sitting on somebody else's branch.
+ *
+ * What those two apps do NOT yet have is an `ar` bundle, so nothing in them
+ * mirrors today. That is not a reason to defer the gate: the migration is what
+ * decays, one `ml-2` at a time in unrelated PRs, and it decays in exactly the
+ * window between the classes landing and the copy landing.
  *
  * ## What "physical" means here, and what it deliberately does not match
  *
@@ -88,8 +98,13 @@ const repositoryRoot = process.env.RTL_CLASS_VALIDATOR_ROOT
  */
 const fixtureFloors = process.env.RTL_CLASS_VALIDATOR_FIXTURE_FLOORS === "1";
 
-/** The mirrored surface. Dashboard and POS belong to #398. */
-const SCANNED_PREFIXES = ["packages/frontend/", "packages/ui/"];
+/** The mirrored surface: all four client packages (#397 the first two, #434 the rest). */
+const SCANNED_PREFIXES = [
+  "packages/frontend/",
+  "packages/ui/",
+  "packages/dashboard/",
+  "packages/pos/",
+];
 
 const SOURCE_FILE = /\.(?:tsx?|jsx?)$/;
 
@@ -236,6 +251,31 @@ const KNOWN_EXCEPTIONS = [
       + "document direction.",
   },
   {
+    file: "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx",
+    pattern: "text-right",
+    count: 2,
+    reason:
+      "The wizard review panel's value column, right-aligned against its label. TWO findings, ONE "
+      + "decision: the class on the <Text>, and the comment above it that explains why it is the "
+      + "physical spelling — this guard matches on text and does not strip comments, so a docblock "
+      + "naming the utility it documents counts as an occurrence. text-start is rejected outright by "
+      + "react-native-css's parseTextAlign (auto|left|right|center|justify only), so the logical "
+      + "spelling compiles to nothing at all. Arrived with #367 while #434 was widening this scan; "
+      + "the author had already measured it and said so in that comment.",
+  },
+  {
+    file: "packages/pos/app/(app)/index.tsx",
+    pattern: "border-l",
+    count: 1,
+    reason:
+      "The POS register's cart panel divider — `md:border-l` on the desktop-only right-hand column, "
+      + "one occurrence. The single physical utility left in either app after #434's migration: the "
+      + "other four findings (two ml-auto, one pr-4, one left-2) all converted. border-s emits "
+      + "borderInlineStartWidth, which RN 0.85.3 does not register, so converting would drop the "
+      + "divider entirely on a native till while looking correct on web. Same upstream limitation as "
+      + "the storefront entries above.",
+  },
+  {
     file: "packages/ui/src/components/ui/dialog.tsx",
     pattern: "text-left",
     count: 1,
@@ -245,8 +285,28 @@ const KNOWN_EXCEPTIONS = [
   },
 ];
 
-/** Below this, the file listing is broken — and a broken listing reports a clean tree. */
-const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 200;
+/**
+ * Below this, the file listing is broken — and a broken listing reports a clean
+ * tree.
+ *
+ * DERIVED, not picked: the floor has to catch the silent loss of any ONE entry
+ * from `SCANNED_PREFIXES` — a typo'd prefix, or a package moved without this
+ * list following it. At #434 the four prefixes carry 452 source files
+ * (frontend 174, ui 96, dashboard 118, pos 64), so dropping the SMALLEST of them
+ * still leaves 388. A floor above that number fails on every single-prefix loss,
+ * including the cheapest one to make.
+ *
+ * 390 keeps the same character the 200-of-266 floor had before the scope
+ * widened: it caught either prefix going missing, with ~60 files of headroom so
+ * ordinary deletions do not turn it red for the wrong reason.
+ *
+ * RE-DERIVE IT WHEN THE TREE GROWS. This was 360 against a 422-file tree hours
+ * earlier in the same PR; #367 and #437 landed 30 files between the two
+ * measurements and 360 silently stopped covering the loss of `packages/pos/`.
+ * A floor is a measurement of a tree, and it goes stale in the safe-LOOKING
+ * direction — the run stays green.
+ */
+const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 390;
 
 /**
  * The guard cannot be its own subject: this file and its self-test both spell
@@ -466,7 +526,8 @@ if (unexcused.length > 0 || failures.length > 0) {
 
 console.log(
   `RTL logical-class guard passed — ${sources.length} source files scanned across `
-  + `${SCANNED_PREFIXES.join(" and ")}; ${RULES.length} rules positively controlled; `
+  + `${SCANNED_PREFIXES.join(", ")} (floor ${MINIMUM_SOURCE_FILES}); `
+  + `${RULES.length} rules positively controlled; `
   + `${KNOWN_EXCEPTIONS.length} known exceptions each matched their exact declared count `
   + `(${findings.length - unexcused.length} findings excused in total).`,
 );

@@ -47,7 +47,7 @@ export function ProductTile({ listing, imageUri, onPress }: ProductTileProps) {
           />
         ) : null}
         {outOfStock ? (
-          <View className="absolute left-2 top-2 rounded-full bg-foreground/80 px-2 py-1">
+          <View className="absolute start-2 top-2 rounded-full bg-foreground/80 px-2 py-1">
             <Text className="text-[11px] font-semibold text-background">
               {t("catalog.soldOut")}
             </Text>

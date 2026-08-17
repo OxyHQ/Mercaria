@@ -117,6 +117,19 @@ function migratedTree(extra = {}) {
       'export const I = () => <View className="h-full w-2.5 border-l border-l-transparent" />;\n',
     "packages/ui/src/components/ui/dialog.tsx":
       "export const J = () => <View className={cn('flex-col gap-2 text-center sm:text-left')} />;\n",
+    // `border-l` x1 (#434): the POS cart-panel divider, the one physical utility
+    // left in either app after the migration. `md:border-border` deliberately
+    // sits beside it — it is NOT a border SIDE, so a rule that matched it would
+    // push this entry's count to 2 and fail.
+    "packages/pos/app/(app)/index.tsx":
+      'export const Z = () => <View className="hidden md:flex md:border-l md:border-border" />;\n',
+    // `text-right` x2 (#434, arrived with #367): ONE decision, two matches — the
+    // class, and the comment explaining why it is the physical spelling. This
+    // guard does not strip comments, so the fixture carries both or the count
+    // cannot be reproduced.
+    "packages/dashboard/components/catalog-authoring/ReviewPanel.tsx":
+      "// `text-right` and not `text-end`: parseTextAlign rejects the logical one.\n"
+      + 'export const Z2 = () => <Text className="flex-1 text-right text-sm" />;\n',
     ...extra,
   };
 }
@@ -238,15 +251,26 @@ const cases = [
     expectOutput: "RTL logical-class guard passed",
   },
   {
-    name: "the dashboard and POS are out of scope and do NOT fire (#398)",
+    name: "a physical utility in the DASHBOARD fails (#434 widened the scope)",
+    // Was the inverse case until #434: the dashboard used to be out of scope and
+    // this tree had to PASS. Kept as two separate cases rather than one covering
+    // both apps, because a widening that added only ONE of the two prefixes
+    // would leave a single combined case green on the half it did add.
     files: migratedTree({
       "packages/dashboard/app/index.tsx":
-        'export const V = () => <View className="ml-2 pl-4 absolute left-0 border-l-2 text-left" />;\n',
+        'export const V = () => <View className="ml-2 pl-4 absolute left-0 text-left" />;\n',
+    }),
+    expectExit: 1,
+    expectOutput: 'packages/dashboard/app/index.tsx:1: physical directional utility "ml-2"',
+  },
+  {
+    name: "a physical utility in the POS fails (#434 widened the scope)",
+    files: migratedTree({
       "packages/pos/app/index.tsx":
         'export const W = () => <View className="mr-2 pr-4 absolute right-0" />;\n',
     }),
-    expectExit: 0,
-    expectOutput: "RTL logical-class guard passed",
+    expectExit: 1,
+    expectOutput: 'packages/pos/app/index.tsx:1: physical directional utility "mr-2"',
   },
   {
     name: "a non-source file in the scanned tree does NOT fire",
@@ -318,7 +342,11 @@ const cases = [
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "below the 200 floor",
+    // Tracks MINIMUM_SOURCE_FILES deliberately: #434 widened the scope to four
+    // packages and re-derived the floor from them (390, above the 388 that would
+    // survive losing the smallest prefix), so a floor edited without a reason
+    // fails here rather than passing quietly at a number nobody chose.
+    expectOutput: "below the 390 floor",
   },
   {
     name: "a tracked file the working tree lost is a loud failure, not a stack trace",

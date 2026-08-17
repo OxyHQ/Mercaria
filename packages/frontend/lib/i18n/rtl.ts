@@ -21,6 +21,21 @@ import i18n from './index';
  * `allowRTL(true)` is what makes `forceRTL` mean anything at all: with it left
  * at the default, a build can refuse to mirror and every call below silently
  * does nothing.
+ *
+ * ## This is the SECOND copy of the rule, and that is temporary
+ *
+ * #434 hoisted the same mechanism into `@mercaria/ui/src/i18n/`
+ * (`rtl-locales.ts` + `layout-direction.ts`) so the dashboard and the POS could
+ * share ONE implementation rather than growing a second and a third. The
+ * storefront still runs this copy because it also still builds its `I18n` by
+ * hand and drives it from its own store; converging both is #435, and doing the
+ * store half from #434 would have coupled a layout change to the storefront's
+ * locale plumbing for no behaviour gain.
+ *
+ * So there are two, deliberately and briefly. `scripts/validate-rtl-direction.mjs`
+ * compares this file's `RTL_LANGUAGE_CODES` against the shared set on every CI
+ * run, because two copies of a list that nobody diffs is exactly how they drift.
+ * #435 deletes this file; the shared module is canonical.
  */
 
 /**
