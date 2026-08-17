@@ -381,9 +381,18 @@ with `facts.length !== 1 → 'ambiguous'` at `:272`.
   (`db/variantAxes/variantAxisRepository.ts:76-79`) — verified directly. Pass
   `false` at `:235` and the second colliding option silently converges on the
   first axis (`created: false`, counted as `axesAlreadyDeclared`) and its values
-  get typed under it. The docblock at `legacy-resolution.ts:118-121` says the
+  get typed under it. The docblock at `legacy-resolution.ts:118-121` SAID the
   unique index prevents exactly that coin toss. It does not; it absorbs it.
-- **`runVariantAxisBackfill` has no test at all.** Its only references are
+  **#550 fixed that comment at source** — it now states outright that the index
+  does not refuse the collision, cites the `onConflictDoNothing` on exactly that
+  pair, and says `collidesWithSiblingOption` is the only thing stopping the toss.
+  #550 also supplied the realdb test whose absence the next bullet records. What
+  remains a convention is that the decision still lives in a service rather than
+  in the schema.
+- **`runVariantAxisBackfill` had no test at all — #550 supplied one**
+  (`services/variant-axes/__tests__/variant-axis-backfill.realdb.test.ts`), whose
+  first case is exactly the sibling collision above. The finding as originally
+  measured: its only references were
   `scripts/backfill-variant-axes.ts`,
   `services/catalog-governance/impact-plan.ts` and its own module. Positive
   control: the sister backfills are tested —
@@ -453,7 +462,7 @@ then:
   first case is the sibling collision: both names reported ambiguous, no axis
   declared. So the one-token change at `backfill.service.ts` no longer passes the
   suite.
-- **The `legacy-resolution.ts` docblock defect recorded below is FIXED** — it now
+- **The `legacy-resolution.ts` docblock defect recorded ABOVE is FIXED at source** — it now
   states that the unique index does not refuse the collision, cites the
   `onConflictDoNothing` on exactly that pair, and says `collidesWithSiblingOption`
   is the only thing stopping the coin toss.
