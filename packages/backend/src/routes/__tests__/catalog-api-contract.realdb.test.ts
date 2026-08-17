@@ -777,18 +777,53 @@ describe('the ETag exchange and locale cache separation', () => {
     expect(crossed.status).toBe(200);
   });
 
-  it('separates two locales that fall back to the SAME body', async () => {
-    // `leafA` has no translation, so `es` and `fr` both resolve to the base name
-    // and the two bodies are identical. The tags must still differ: the next
-    // translation to land changes one of them and not the other.
-    const es = await get(`/taxonomy/categories/${fx.leafAId}?locale=es`);
-    const fr = await get(`/taxonomy/categories/${fx.leafAId}?locale=fr`);
-    expect(es.status).toBe(200);
-    expect(fr.status).toBe(200);
-    const esName = (data(es)['category'] as { name: { value: string } }).name.value;
-    const frName = (data(fr)['category'] as { name: { value: string } }).name.value;
-    expect(esName).toBe(frName);
-    expect(es.etag).not.toBe(fr.etag);
+  /*
+   * MEASURED, and it corrected this file: the case here used to claim that two
+   * locales falling back to the same base name produce the SAME body and must
+   * still get different tags. That premise is FALSE — `LocalizedResolution` echoes
+   * `requestedLocale` inside the payload, so an `es` body and an `fr` body differ
+   * by that field and the tags differ through the BODY whatever the key does.
+   * Freezing the locale in the ETag key left the whole file green, which is how the
+   * vacuity was found.
+   *
+   * The dimensions genuinely NOT recoverable from the body are `read`, `subject`
+   * and `parameters`, because three different questions can share one
+   * byte-identical answer: the empty page. Each pair below asserts that its two
+   * bodies really are equal — the premise — and then that the tags differ. Without
+   * the premise the case would pass for any two reads that happen to answer
+   * differently, which is every other pair on this surface.
+   */
+  it('distinguishes reads whose bodies are BYTE-IDENTICAL', async () => {
+    const childrenA = await get(`/taxonomy/categories/${fx.leafAId}/children`);
+    const descendantsA = await get(`/taxonomy/categories/${fx.leafAId}/descendants`);
+    const childrenB = await get(`/taxonomy/categories/${fx.leafBId}/children`);
+    const childrenALimited = await get(`/taxonomy/categories/${fx.leafAId}/children?limit=2`);
+    for (const answer of [childrenA, descendantsA, childrenB, childrenALimited]) {
+      expect(answer.status).toBe(200);
+    }
+    // The premise: a leaf has no children and no descendants, so all four answers
+    // are the same empty page.
+    expect(data(childrenA)).toEqual({ categories: [], hasMore: false });
+    expect(data(descendantsA)).toEqual(data(childrenA));
+    expect(data(childrenB)).toEqual(data(childrenA));
+    expect(data(childrenALimited)).toEqual(data(childrenA));
+
+    // Different READ, same subject: a shared tag would let a `304` answer
+    // "what is below this" with "what is directly under this".
+    expect(descendantsA.etag).not.toBe(childrenA.etag);
+    // Different SUBJECT, same read.
+    expect(childrenB.etag).not.toBe(childrenA.etag);
+    // Different PARAMETER, same read and subject.
+    expect(childrenALimited.etag).not.toBe(childrenA.etag);
+    // …and the exchange really refuses the crossed validator rather than merely
+    // minting a different string.
+    expect(
+      (
+        await get(`/taxonomy/categories/${fx.leafAId}/descendants`, {
+          ifNoneMatch: childrenA.etag ?? '',
+        })
+      ).status,
+    ).toBe(200);
   });
 
   it('separates two PAGES of one read, so a cursor cannot be answered from the other', async () => {
