@@ -16,14 +16,15 @@
   this surface would have been positioned to catch, because the question it
   answers — *which lifecycle or status may an unprivileged caller read* — is
   asked once and answered separately in SEVEN places on this one surface, of which
-  two got it wrong (§3D and §5.1) and one is correct but pinned by nothing (§4).
-- **Outcome: both audit findings RESOLVED; seven further gaps recorded and NOT
-  fixed.** §2 lists all nine, and §5 and §4 state each open one plainly with what
-  would close it. **None of the seven is a blocker** — they are Low and
-  Informational, each in a domain this review does not own — so nothing here
-  argues against flipping the flags; what it argues is that the flags should not
-  be flipped without a record, and this is the record. The one to read first is
-  #7, because it is Finding 1's shape repeating one function over and it is the
+  two got it wrong (§3D and §5.1) and one was correct but pinned by nothing until
+  this review's own test (§4).
+- **Outcome: three findings RESOLVED (1, 2 and 7); six recorded and NOT fixed.**
+  §2 lists all nine, and §5 states each open one plainly with what would close it.
+  **None of the six is a blocker** — they are Low and Informational, each in a
+  domain this review does not own — so nothing here argues against flipping the
+  flags; what it argues is that the flags should not be flipped without a record,
+  and this is the record. The one to read is #7, because it was Finding 1's shape
+  repeating one function over, it was closed in this same change, and it is the
   reason §6 has a third lesson.
 - Nothing here is a sign-off on a launch gate; ADR 0007 defines none, unlike
   ADR 0003 M8.
@@ -71,7 +72,7 @@ check, and a review that assumed either way would be guessing about production.
 | 4 | Low | `categories.slug` has no shape CHECK and no reserved-word list, and arrives verbatim (untrimmed) from an operator parameter | **OPEN** — §5.2 |
 | 5 | Low | `listings.handle` is user-settable with no length and no shape bound; it reaches no URL today | **OPEN** — §5.3 |
 | 6 | Low | No route-level allow-list test on the four `/internal/catalog-*` surfaces that carry the redirect, merge and alias-minting powers | **OPEN** — §5.4 |
-| 7 | Low | `listSelectableCategories` is a correct positive allow-list pinned by NOTHING — deleting half of it leaves every test green | **OPEN** — §4 |
+| 7 | Low | `listSelectableCategories` was a correct positive allow-list pinned by NOTHING — deleting either clause left every test green | **FIXED** — §4 |
 | 8 | Informational | The localized-slug supersede chain has no cycle guard and no depth cap, where `category_redirects` has both | **OPEN** — §5.5 |
 | 9 | Informational | `strip_html`'s decode-after-strip order can manufacture markup from an entity-encoded feed value | **OPEN, scoped out** — §5.6 |
 
@@ -426,16 +427,32 @@ fine. **READ**, all four:
   `selectable = true AND lifecycle = 'published'`, and its comment states that the
   two are different facts: a grouping root is published and not selectable, a
   connector holding pen is selectable and suppressed. Offering either would let a
-  product land somewhere ADR 0007 D2 says it may not. **And it is pinned by
-  nothing** — **MEASURED**, no test file references `listSelectableCategories` or
-  its one caller `listAuthoringCategories`; *control:* the same grep finds
-  `composeAuthoringSchema` in three test files. The nearest backstop is a
-  different mechanism at a different layer, the trigger
+  product land somewhere ADR 0007 D2 says it may not. **And until this change it
+  was pinned by nothing** — **MEASURED** at review time, no test file referenced
+  `listSelectableCategories` or its one caller `listAuthoringCategories`;
+  *control:* the same grep found `composeAuthoringSchema` in three test files. The
+  nearest backstop was a different mechanism at a different layer, the trigger
   `mercaria_category_assignment_selectable` (`taxonomy.realdb.test.ts:580`), which
-  refuses the ASSIGNMENT but says nothing about what the picker OFFERS. **Deleting
-  the `lifecycle = 'published'` half of this function would leave every test in
+  refuses the ASSIGNMENT and says nothing about what the picker OFFERS. So
+  **deleting the `lifecycle = 'published'` half of this function left every test in
   the repository green while offering suppressed nodes in the authoring picker** —
-  the same shape as Finding 1, one function over. §6.
+  the same shape as Finding 1, one function over, and in the function this review
+  had cited as the contrast that gets it right.
+
+  **Closed here** (finding 7).
+  `schema-version-lifecycle-exposure.realdb.test.ts` now carries three picker
+  cases plus a fixture vacuity control, under a parent the file owns so an exact
+  equality is safe on the shared database. TWO cases rather than one, because a
+  single case is satisfied by either clause alone: the suppressed fixture is
+  `selectable` on purpose and the grouping fixture is `published` on purpose, so
+  each exclusion can only be performed by the clause its case is named for.
+  **MEASURED — mutation, independently per clause, each landed then reverted:**
+  removing the lifecycle clause reddens *"excludes a SUPPRESSED category, which is
+  selectable"* and leaves the non-selectable case GREEN; removing the selectable
+  clause reddens *"excludes a NON-SELECTABLE category, which is published"* and
+  leaves the suppressed case GREEN. Each also takes the exact-equality case, which
+  is expected. That each mutation leaves the OTHER case green is what shows the two
+  cases measure two clauses rather than one clause twice.
 - `listPublishedProductTypesForCategory` filters `d.lifecycle = 'published'` in
   the SQL, and deliberately does not copy #94's "empty scope applies everywhere"
   disjunct — an unscoped draft schema would otherwise be offered under every
@@ -611,14 +628,16 @@ condition: one tuple, so the day a fifth lifecycle lands the answer moves in bot
 places at once". A correct, careful docblock **describing behaviour that did not
 exist**. The fix makes that sentence true.
 
-**And it is not a one-off — finding 7 is the same shape, still open.**
+**And it was not a one-off — finding 7 was the same shape, in the function this
+review had cited as the contrast that gets it right.**
 `listSelectableCategories` filters `selectable AND lifecycle = 'published'`
-correctly, documents why both halves are needed, and is referenced by no test at
-all (§4, measured with a control). Deleting the lifecycle half would offer
-suppressed categories in the authoring picker with every suite green. Two instances
-of one failure mode in one epic is a pattern rather than an accident: **this
-codebase gates IMPORTS and ROWS thoroughly and does not systematically gate
-FILTERS.**
+correctly, documents why both halves are needed, and was referenced by no test at
+all (§4, measured with a control). Deleting the lifecycle half offered suppressed
+categories in the authoring picker with every suite green. It is closed in this
+same change, but the inversion is the finding: **two instances of one failure mode
+in one epic — one of them in the example held up as correct — is a pattern rather
+than an accident. This codebase gates IMPORTS and ROWS thoroughly and does not
+systematically gate FILTERS.**
 
 Three things to carry forward:
 
@@ -637,9 +656,15 @@ Three things to carry forward:
    answer, it is a reader nobody asked — and a positive allow-list is what turns
    the next unasked reader into a build failure instead of a disclosure.
 3. **A lifecycle or status filter in a READ path deserves a test the way a write
-   chokepoint does.** The cheap version is not a per-function test: it is one case
-   per surface that inserts a row in each excluded state and asserts it is not
-   returned. `SERVABLE_LOCALIZATION_STATUSES`' vacuity floor
+   chokepoint does, and asserting one requires ROWS IN THE STATES IT EXCLUDES.**
+   That is the whole reason this class survives: a test written without those rows
+   passes against the filter's absence, so writing one is not optional diligence,
+   it is the only version that measures anything. **One case per CLAUSE, not per
+   function** — §4's two picker cases exist separately because a single case is
+   satisfied by either clause alone, and a mutation that reddens one case while
+   leaving the other green is the only evidence that both clauses are covered.
+   `SERVABLE_LOCALIZATION_STATUSES`' vacuity floor
    (`catalog-localization.test.ts:113`, asserting the servable set is strictly
-   smaller than the full one) is the pattern to copy, because it fails if somebody
-   widens the allow-list to everything — which is the direction a filter erodes.
+   smaller than the full one) is the complementary pattern, because it fails if
+   somebody widens the allow-list to everything — which is the direction a filter
+   erodes.

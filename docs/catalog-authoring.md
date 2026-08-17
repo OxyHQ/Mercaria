@@ -325,7 +325,13 @@ about a product nobody made.
   sentence a nonexistent version gets — a refusal naming the lifecycle would
   enumerate the unlaunched verticals — and a `published` and a `deprecated`
   version still compose, without which the fix could be "refuse everything".
-  Mutation-verified.
+  Mutation-verified. It also pins the OTHER lifecycle filter on the same router:
+  `listSelectableCategories`' `selectable` and `lifecycle = 'published'` clauses,
+  which the function's own comment calls different facts and which nothing
+  referenced before. TWO cases, because one is satisfied by either clause alone —
+  the suppressed fixture is `selectable` on purpose and the grouping fixture is
+  `published` on purpose — and each clause is mutation-tested independently, with
+  the other case required to stay GREEN.
 - `lib/__tests__/authored-text-sanitization.test.ts` — seller-authored free text
   is sanitized where it ENTERS, asserted by `.parse()`ing the real zod objects
   the routes mount rather than by calling the transform. "No tag survives" is
