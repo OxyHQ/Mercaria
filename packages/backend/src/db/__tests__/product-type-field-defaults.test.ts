@@ -153,7 +153,6 @@ describe('the forbidden list and the walked population are both real', () => {
     // Loose enough to tolerate that, tight enough that a walk resolving a handful
     // of columns — the failure it exists for — still fails.
     expect(columnCount).toBeGreaterThanOrEqual(36);
-    // eslint-disable-next-line no-console
     console.log(
       `[product-type defaults gate] scanned ${names.length} tables, ${columnCount} columns, against ${DEFAULT_ANSWER_COLUMNS.length} forbidden spellings`,
     );
