@@ -100,18 +100,17 @@ export function navigationEtag(key: NavigationEtagKey, payload: unknown): string
   return `"nav-${digest.slice(0, 32)}"`;
 }
 
-/**
- * Whether an `If-None-Match` header matches the ETag we would serve.
+/*
+ * `navigationEtagMatches` used to live here and is GONE — a clean cut, not an
+ * alias.
  *
- * Handles the list form and `*`, and compares a `W/`-prefixed candidate on its
- * opaque part: a client that received a strong tag and echoes it weakly is still
- * telling us it holds this exact content, and answering 200 to it would send the
- * whole menu again on every navigation.
+ * `services/catalog-authoring/etag.ts` carried the identical six lines and said
+ * that the duplication was deliberate while there were only two spellings, and
+ * that a THIRD surface needing them is the point at which they stop being HTTP
+ * syntax two files happen to spell and become a helper somebody owns. `/taxonomy`
+ * (#367 Workstream 1's HTTP surface) is that third surface, so the owner now
+ * exists: `lib/http/if-none-match.ts`, `ifNoneMatchMatches`.
+ *
+ * What did NOT move is what is actually navigation knowledge — the dimensions a
+ * tree projection is keyed by, and the `nav-` prefix.
  */
-export function navigationEtagMatches(ifNoneMatch: string | undefined, etag: string): boolean {
-  if (ifNoneMatch === undefined) return false;
-  const candidates = ifNoneMatch.split(',').map((value) => value.trim());
-  if (candidates.includes('*')) return true;
-  const strip = (value: string): string => (value.startsWith('W/') ? value.slice(2) : value);
-  return candidates.some((candidate) => strip(candidate) === strip(etag));
-}

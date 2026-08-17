@@ -122,29 +122,20 @@ export function authoringEtag(key: AuthoringSchemaKey, body: unknown): string {
   return `"authschema-${digest.slice(0, 32)}"`;
 }
 
-/**
- * Whether an `If-None-Match` header matches the ETag we would serve.
+/*
+ * `authoringEtagMatches` used to live here and is GONE — a clean cut, not an
+ * alias.
  *
- * Handles the list form and `*`, and compares a `W/`-prefixed candidate on its
- * opaque part: a client that received a strong tag and echoes it weakly is still
- * telling us it holds this exact content, and answering 200 would send the whole
- * schema again on every keystroke that reopened the form.
+ * It said of itself that the six lines also existed as `navigationEtagMatches`,
+ * that the duplication was deliberate while there were only two, and that a
+ * THIRD surface needing them is the point at which they stop being HTTP syntax
+ * two files happen to spell and become a helper somebody owns. `/taxonomy`
+ * (#367 Workstream 1's HTTP surface) is that third surface, so the owner now
+ * exists: `lib/http/if-none-match.ts`, `ifNoneMatchMatches`.
  *
- * These six lines also exist as `navigationEtagMatches`, and the duplication is
- * deliberate rather than an oversight: an `If-None-Match` comparison is HTTP
- * syntax, not a fact about either domain, and importing a `navigation`-named
- * function into the authoring domain would assert a dependency between two
- * modules that share nothing. If a THIRD surface needs it, it stops being HTTP
- * syntax two files happen to spell and becomes a helper somebody owns — that is
- * the point at which to consolidate, and not before.
+ * What did NOT move is what is actually authoring knowledge — the six dimensions
+ * a composition is keyed by, and the `authschema-` prefix.
  */
-export function authoringEtagMatches(ifNoneMatch: string | undefined, etag: string): boolean {
-  if (ifNoneMatch === undefined) return false;
-  const candidates = ifNoneMatch.split(',').map((value) => value.trim());
-  if (candidates.includes('*')) return true;
-  const strip = (value: string): string => (value.startsWith('W/') ? value.slice(2) : value);
-  return candidates.some((candidate) => strip(candidate) === strip(etag));
-}
 
 /*
  * `variantAxisSignature` used to live here and is GONE — a clean cut, not an
