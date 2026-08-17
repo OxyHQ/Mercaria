@@ -484,7 +484,19 @@ afterAll(async () => {
   await db.execute(sql`delete from catalog_proposals where store_id = ${fx.storeId}`);
   await db.execute(sql`delete from catalog_authoring_drafts where store_id = ${fx.storeId}`);
   await db.execute(sql`delete from store_members where store_id = ${fx.storeId}`);
-  await db.execute(sql`delete from stores where id = ${fx.storeId}`);
+  /*
+   * `deleteTestStores` and NOT a `delete from stores`, and it is not optional:
+   * `services/backfill/stages/store-merchants.ts` pages EVERY active store in the
+   * shared throwaway database and writes a `native_store_links` row for each, so a
+   * store this file created can acquire a link between its last write and this
+   * teardown — and `native_store_links.store_id` is `ON DELETE RESTRICT`.
+   *
+   * MEASURED: the raw statement passed in isolation and failed the full parallel
+   * run with `23503` on a constraint this file has nothing to do with, which is
+   * exactly the failure `store-teardown.ts`'s header describes.
+   */
+  const { deleteTestStores } = await import('../../db/__tests__/store-teardown.js');
+  await deleteTestStores(db, [fx.storeId]);
 
   // Children first, and each of these is referenced by nothing: the two leaves and
   // the suppressed node have no children and no scope, and `underDraft` has to go
