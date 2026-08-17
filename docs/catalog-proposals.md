@@ -299,9 +299,6 @@ legitimate request away.
   `catalog-authoring.controller.ts`. The endpoint now exists behind it; flipping
   it is one line in a file this branch does not own, and it should flip WITH the
   dashboard control (#367 step 10) rather than announce a control nothing renders.
-- **`docs/index.mdx`** carries no row for this domain (nor for
-  `catalog-authoring.md`); adding one is a single line in a table several #367
-  branches are appending to at once.
 - **The listing-claim ATTACHMENT.** `listUnresolvedClaimsForRawValue` exists and
   nothing calls it: attaching a published listing's retained claims to an open
   proposal is a bulk operator action over #367 step 4's review queue, and it

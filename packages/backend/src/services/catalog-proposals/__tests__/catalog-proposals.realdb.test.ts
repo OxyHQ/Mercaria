@@ -25,12 +25,12 @@
  * missing" from "the CHECK I am testing rejected my row", and the second must
  * never become a skip.
  *
- * **This file SKIPS until #367 step 6's migration lands.** The tables are staged
- * in `db/schema/catalogProposals.pending.sql` plus the drizzle definitions, and
- * ADR 0007 D11 serialises `db:generate` across the parallel branches — so the
- * migration index is handed out rather than taken. The guard is what makes that
- * interval safe; it is not a permanent condition and the same guard is what goes
- * red first on a partially-migrated database afterwards.
+ * `0100_same_iron_man` created these four tables and their five triggers, so
+ * every case below RUNS. The guard is kept rather than deleted: this file is the
+ * first thing that goes red on a database the migration has not reached — a
+ * partially migrated throwaway, a `--phase=pre` run, a branch that dropped the
+ * file on a rebase — and a missing-relation error there is indistinguishable
+ * from a broken CHECK until somebody reads the stack.
  *
  * ## The shared-database rules this file follows
  *

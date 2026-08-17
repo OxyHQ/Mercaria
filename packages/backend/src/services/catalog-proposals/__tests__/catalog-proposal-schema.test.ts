@@ -41,18 +41,31 @@ import {
   catalogProposals,
 } from '../../../db/schema/catalogProposals.js';
 
-const PENDING_SQL = join(
+/**
+ * The MIGRATION, not a staging file.
+ *
+ * `db/schema/catalogProposals.pending.sql` held these statements while ADR 0007
+ * D11 serialised `db:generate` across the parallel #367 branches; it was deleted
+ * in the commit that took the slot, under CONVENTIONS' two-copies rule — a second
+ * copy that nothing applies is one somebody edits to no effect.
+ *
+ * So this gate reads the file that actually SHIPS. That is strictly stronger:
+ * the staging file could have been correct while the paste dropped a function,
+ * and the whole failure mode here is a migration that applies cleanly and
+ * enforces nothing.
+ */
+const MIGRATION_SQL = join(
   import.meta.dirname,
   '..',
   '..',
   '..',
-  'db',
-  'schema',
-  'catalogProposals.pending.sql',
+  '..',
+  'drizzle',
+  '0100_same_iron_man.sql',
 );
 
 function pendingSql(): string {
-  return readFileSync(PENDING_SQL, 'utf8');
+  return readFileSync(MIGRATION_SQL, 'utf8');
 }
 
 /**
@@ -66,7 +79,7 @@ function statementRegion(): string {
   const source = pendingSql();
   const lines = source.split('\n');
   const start = lines.findIndex((line) => line.startsWith('-- oxy:handwritten-begin='));
-  expect(start, 'no column-0 begin marker in the staging file').toBeGreaterThan(-1);
+  expect(start, 'no column-0 begin marker in the migration').toBeGreaterThan(-1);
   return lines.slice(start).join('\n');
 }
 
@@ -177,6 +190,16 @@ describe('the staging SQL carries every trigger this domain claims', () => {
     expect(source.match(/^CREATE TRIGGER /gim) ?? []).toHaveLength(functions.length);
     expect(source.match(/^-- oxy:handwritten-begin=/gm) ?? []).toHaveLength(functions.length);
     expect(source.match(/^-- oxy:handwritten-end=/gm) ?? []).toHaveLength(functions.length);
+    // EXACTLY ONE deploy-phase marker, and it is `pre`: every statement in this
+    // migration is additive and the previous image never reads these tables.
+    // `db:migrate` refuses an unmarked file before any DDL runs, and a SECOND
+    // marker is the failure an unanchored paste produces — it drags the staging
+    // header in, which carries one of its own.
+    expect(source.match(/^-- oxy:deploy-phase=/gm) ?? []).toHaveLength(1);
+    expect(source).toContain('-- oxy:deploy-phase=pre');
+    // And the drizzle half is still there: a gate that only counted triggers
+    // would pass on a file whose CREATE TABLEs had been lost.
+    expect(source.match(/^CREATE TABLE /gm) ?? []).toHaveLength(4);
   });
 
   it('never compares the STORED GENERATED column inside a BEFORE UPDATE body', () => {
@@ -233,7 +256,7 @@ describe('the staging SQL carries every trigger this domain claims', () => {
       }
       offset += line.length + 1;
     }
-    expect(inBody, 'the staging file leaves a dollar-quoted body open').toBe(false);
+    expect(inBody, 'the migration leaves a dollar-quoted body open').toBe(false);
 
     const separators = [...region.matchAll(/--> statement-breakpoint/g)];
     // A vacuity floor: a region with no separators at all would pass the loop
