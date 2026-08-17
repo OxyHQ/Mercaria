@@ -51,8 +51,10 @@ import type {
   AuthoringValidationResult,
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
+  ItemConditionKey,
   ListingOption,
 } from '@mercaria/shared-types';
+import { AUTHORING_DEFAULT_MERCHANT_CONDITION } from '../../db/schema/catalogAuthoring.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';
@@ -448,11 +450,41 @@ function buildStoreProductInput(
     title: draft.title ?? '',
     description: draft.description ?? '',
     category: categorySlug,
+    // #572. STATED, always — never left to `createStoreProductWithin`'s
+    // `resolveConditionInput(input) ?? { key: 'new', … }`, which is where this
+    // decision used to live unnamed and where it was silently asserting
+    // "factory new, declared by the seller" about every authored item.
+    //
+    // A `p2p` draft cannot reach the default: `condition_missing` refuses
+    // publication first, and a publish only runs on a publishable draft.
+    itemCondition: { key: conditionKeyFor(draft) },
     imageFileIds: [...draft.imageFileIds],
     tags: [...draft.tags],
     options,
     variants: storeVariants,
   };
+}
+
+/**
+ * The condition a publication states, and the one place the default is applied.
+ *
+ * `resolveConditionInput` stamps `seller_declared` on every `itemCondition` it
+ * reads, so the draft's own assertion column has nowhere to go through this
+ * path. Rather than let a different assertion be silently downgraded, a draft
+ * carrying one is REFUSED: no writer in this domain can produce it today, and a
+ * future one that could must fail visibly rather than have its statement
+ * rewritten on the way to the listing.
+ */
+function conditionKeyFor(draft: CatalogAuthoringDraftRow): ItemConditionKey {
+  if (draft.itemConditionKey === null) return AUTHORING_DEFAULT_MERCHANT_CONDITION.key;
+  if (draft.itemConditionAssertion !== AUTHORING_DEFAULT_MERCHANT_CONDITION.assertion) {
+    throw new Error(
+      `publishDraft: draft ${draft.id} states condition assertion ` +
+        `"${draft.itemConditionAssertion}", which this path would rewrite to ` +
+        `"${AUTHORING_DEFAULT_MERCHANT_CONDITION.assertion}"`,
+    );
+  }
+  return draft.itemConditionKey;
 }
 
 /**

@@ -75,15 +75,58 @@ import {
   AUTHORING_DRAFT_STATUSES,
   AUTHORING_INVALIDATION_SUBJECTS,
   AUTHORING_VALUE_KINDS,
+  CONDITION_ASSERTIONS,
+  ITEM_CONDITION_KEYS,
   PRODUCT_TYPE_AUTHORING_FLOWS,
   PRODUCT_TYPE_FIELD_SCOPES,
+  UNREFINED_CONDITION_ASSERTIONS,
+  UNREFINED_CONDITION_KEYS,
+  type ConditionAssertion,
   type AuthoringSchema,
+  type ItemConditionKey,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, optionalMoney } from './columns';
 import { attributeDefinitions, attributeEnumValues } from './attributeRegistry';
 import { categories, listings } from './catalog';
 import { productTypeDefinitions, productTypeFields } from './productTypes';
 import { stores } from './stores';
+
+/**
+ * The condition a publication applies when the flow does not demand one and the
+ * author stated none (#572).
+ *
+ * Declared HERE, as data, beside the columns it fills — and not left to
+ * `resolveConditionInput(input) ?? { key: 'new', … }` inside
+ * `catalog-write.service.ts`, which is where it lived and where nothing named
+ * it. The difference is not cosmetic: a default nobody can point at is a default
+ * nobody reviews, and this one was silently asserting "factory new, declared by
+ * the seller" about every item authored through the wizard.
+ *
+ * `new` + `seller_declared` is the same pair the write service falls back to, so
+ * this changes NO behaviour for a merchant draft; `authoring-condition.test.ts`
+ * pins the two against each other so they cannot drift apart later. What #572
+ * changes is that a `p2p` draft may no longer reach it — `condition_missing`
+ * refuses publication first.
+ */
+export const AUTHORING_DEFAULT_MERCHANT_CONDITION: {
+  readonly key: ItemConditionKey;
+  readonly assertion: ConditionAssertion;
+} = Object.freeze({ key: 'new', assertion: 'seller_declared' });
+
+/**
+ * The flows that may NOT publish without the author stating a condition.
+ *
+ * `p2p` is a person selling their own used thing, so "factory new, declared by
+ * the seller" is a claim about goods nobody made — a false statement in the
+ * seller's own name, which is what makes this different from a missing optional
+ * field. The other four flows describe stock, a feed or an operator acting on
+ * one, where the default is ordinarily true and is applied openly.
+ *
+ * A tuple rather than `flow === 'p2p'` so a sixth flow forces the question
+ * rather than inheriting the permissive answer by omission.
+ */
+export const CONDITION_REQUIRED_AUTHORING_FLOWS: readonly (typeof PRODUCT_TYPE_AUTHORING_FLOWS)[number][] =
+  Object.freeze(['p2p'] as const);
 
 /**
  * `catalog_authoring_drafts` — one product somebody is authoring.
@@ -176,6 +219,49 @@ export const catalogAuthoringDrafts = pgTable(
     selectedCanonicalProductId: text(),
 
     /**
+     * What the author says the GOODS are like (#572, #90's taxonomy).
+     *
+     * ## Nullable, with NO column default, and that is the whole point
+     *
+     * Before #572 the draft could not express a condition at all, and
+     * `createStoreProductWithin` fell through to
+     * `resolveConditionInput(input) ?? {key: 'new', assertion: 'seller_declared'}`
+     * — so EVERY authored listing was published as factory-new, declared in the
+     * seller's name. Harmless for merchant stock and a false assertion about the
+     * goods on the `p2p` flow.
+     *
+     * A column DEFAULT of `'new'` would move that bug rather than fix it: with
+     * one, "the author said new" and "nobody answered" become the same row, and
+     * `condition_missing` could not be raised for a p2p draft because there
+     * would be nothing to detect. NULL means UNSTATED, which is the fact the
+     * validation reads.
+     *
+     * ## Why the p2p rule is not a CHECK here
+     *
+     * `flow` is on this row, so `flow <> 'p2p' or item_condition_key is not
+     * null` is expressible — and it would refuse a p2p draft at CREATION, before
+     * the author has reached the question. A draft is working state and must be
+     * creatable empty. The rule is therefore a PUBLICATION rule
+     * (`condition_missing` in `validation.ts`), which is where `title_missing`
+     * and `description_missing` already live for the same reason.
+     *
+     * The merchant default a publication applies is
+     * `AUTHORING_DEFAULT_MERCHANT_CONDITION` below — named, exported and pinned
+     * by a test, rather than falling out of a `??` inside a write service.
+     */
+    itemConditionKey: text({ enum: asEnumValues(ITEM_CONDITION_KEYS) }),
+    /**
+     * WHO says so. Paired with the key by a biconditional below.
+     *
+     * Stored rather than derived, even though every value an author can write is
+     * `seller_declared` today: the assertion is what
+     * `listings_unrefined_condition_check` reads one table over, and a draft that
+     * carried a key with no statement of who asserted it would have to have one
+     * invented at publication.
+     */
+    itemConditionAssertion: text({ enum: asEnumValues(CONDITION_ASSERTIONS) }),
+
+    /**
      * The listing this draft became. `restrict`: a published draft is the audit
      * record of what was published, and a listing is never hard-deleted anyway.
      */
@@ -206,6 +292,52 @@ export const catalogAuthoringDrafts = pgTable(
     check('catalog_authoring_drafts_market_shape_check', sql`${t.market} ~ '^[A-Z]{2}$'`),
     check('catalog_authoring_drafts_version_check', sql`${t.version} >= 1`),
     check('catalog_authoring_drafts_schema_hash_check', sql`btrim(${t.schemaHash}) <> ''`),
+    // Rendered from `@mercaria/shared-types`, never hand-copied: the rule the
+    // type system states and the rule the database enforces are one list.
+    checkOneOf(
+      'catalog_authoring_drafts_item_condition_key_check',
+      t.itemConditionKey,
+      ITEM_CONDITION_KEYS,
+    ),
+    checkOneOf(
+      'catalog_authoring_drafts_item_condition_assertion_check',
+      t.itemConditionAssertion,
+      CONDITION_ASSERTIONS,
+    ),
+    /**
+     * A condition is a key AND who asserted it, or it is neither.
+     *
+     * A key with no assertion cannot be published — `conditionColumnsFor` needs
+     * both — and an assertion with no key is a statement about nothing. Written
+     * as ONE biconditional over the pair rather than two one-way requirements,
+     * for the reason this schema records in three other places.
+     */
+    check(
+      'catalog_authoring_drafts_item_condition_pair_check',
+      sql`(${t.itemConditionKey} is null) = (${t.itemConditionAssertion} is null)`,
+    ),
+    /**
+     * #90 MIGRATION RULE 2 at the DRAFT grain — `listings_unrefined_condition_check`,
+     * one table upstream.
+     *
+     * An UNREFINED assertion (`migrated_binary`, `legacy_client_binary`) may only
+     * carry an unrefined key (`new`, `used_good`). No authoring path writes
+     * either assertion today, which is exactly why the constraint is here rather
+     * than left to the service: the listing-grain CHECK would refuse such a row
+     * at PUBLICATION, naming a constraint on a table the author never touched,
+     * after the draft had been accepted for days. Refusing it at the draft is the
+     * same rule where somebody can act on it.
+     */
+    check(
+      'catalog_authoring_drafts_unrefined_condition_check',
+      sql`${t.itemConditionAssertion} is null
+          or ${t.itemConditionAssertion} not in (${sql.raw(
+            UNREFINED_CONDITION_ASSERTIONS.map((assertion) => `'${assertion}'`).join(', '),
+          )})
+          or ${t.itemConditionKey} in (${sql.raw(
+            UNREFINED_CONDITION_KEYS.map((key) => `'${key}'`).join(', '),
+          )})`,
+    ),
     /**
      * THREE biconditionals on the published state, not one over their
      * conjunction. The single-CHECK spelling is SATISFIED by an `open` row

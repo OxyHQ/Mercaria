@@ -12,13 +12,23 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type {
   AttributeComponentAxis,
   AuthoringField,
   AuthoringSchema,
   AuthoringValidationCode,
 } from '@mercaria/shared-types';
-import { AUTHORING_VALIDATION_CODES } from '@mercaria/shared-types';
+import {
+  AUTHORING_VALIDATION_CODES,
+  PRODUCT_TYPE_AUTHORING_FLOWS,
+} from '@mercaria/shared-types';
+import {
+  AUTHORING_DEFAULT_MERCHANT_CONDITION,
+  CONDITION_REQUIRED_AUTHORING_FLOWS,
+} from '../../../db/schema/catalogAuthoring.js';
 import {
   validateDraft,
   type DraftValidationInput,
@@ -130,6 +140,11 @@ function input(overrides: Partial<DraftValidationInput> = {}): DraftValidationIn
     status: 'open',
     title: 'A phone',
     description: 'A description',
+    // The default fixture is a MERCHANT draft with no stated condition, which is
+    // the case #572 leaves publishable — so every unrelated case below stays a
+    // case about the rule it names rather than acquiring a condition finding.
+    flow: 'merchant',
+    itemConditionKey: null,
     variants: [variant()],
     values: [value()],
     categorySelectable: true,
@@ -786,6 +801,107 @@ describe('classification and the pin', () => {
   });
 });
 
+/**
+ * The condition rule (#572).
+ *
+ * The defect it closes: the draft could not express a condition at all, so
+ * `createStoreProductWithin` fell through to `{key: 'new', assertion:
+ * 'seller_declared'}` and EVERY authored listing was published as factory-new —
+ * declared in the seller's name, about goods nobody described. Harmless for
+ * merchant stock; a false statement on `p2p`.
+ */
+describe('a p2p draft cannot publish without stating a condition', () => {
+  it('a p2p draft with NO condition is an ERROR, not a warning', () => {
+    const result = validateDraft(input({ flow: 'p2p', itemConditionKey: null }));
+    const entry = result.findings.find((one) => one.code === 'condition_missing');
+    expect(entry?.severity).toBe('error');
+    expect(entry?.path).toBe('condition.itemCondition');
+    expect(result.publishable).toBe(false);
+  });
+
+  it('a p2p draft that STATES one is clean — the positive control', () => {
+    // Without this, the case above would pass against a rule that refused every
+    // p2p draft there is.
+    const result = validateDraft(input({ flow: 'p2p', itemConditionKey: 'used_good' }));
+    expect(result.findings).toEqual([]);
+    expect(result.publishable).toBe(true);
+  });
+
+  it('a MERCHANT draft with no condition publishes, and is not even reported', () => {
+    // The other control, and the one that keeps the rule honest: a warning here
+    // would make every merchant draft carry a finding about a default that is
+    // ordinarily true, which is how a real finding stops being read.
+    const result = validateDraft(input({ flow: 'merchant', itemConditionKey: null }));
+    expect(codes(result)).not.toContain('condition_missing');
+    expect(result.publishable).toBe(true);
+  });
+
+  it('the requirement is read from the TUPLE, so every flow in it is covered', () => {
+    // Derived from the exported tuple rather than from a literal `'p2p'`: a
+    // sixth flow added to it is covered here without editing this case, and one
+    // added to the vocabulary but NOT to the tuple stays permissive on purpose.
+    expect(CONDITION_REQUIRED_AUTHORING_FLOWS.length).toBeGreaterThanOrEqual(1);
+    for (const flow of CONDITION_REQUIRED_AUTHORING_FLOWS) {
+      expect(
+        codes(validateDraft(input({ flow, itemConditionKey: null }))),
+        `${flow} is in CONDITION_REQUIRED_AUTHORING_FLOWS and does not demand a condition`,
+      ).toContain('condition_missing');
+    }
+    const permissive = PRODUCT_TYPE_AUTHORING_FLOWS.filter(
+      (flow) => !CONDITION_REQUIRED_AUTHORING_FLOWS.includes(flow),
+    );
+    // The victim list is DERIVED from the vocabulary and its length asserted, so
+    // a flow removed from the vocabulary cannot silently shrink what is checked.
+    expect(permissive.length).toBe(
+      PRODUCT_TYPE_AUTHORING_FLOWS.length - CONDITION_REQUIRED_AUTHORING_FLOWS.length,
+    );
+    for (const flow of permissive) {
+      expect(
+        codes(validateDraft(input({ flow, itemConditionKey: null }))),
+        `${flow} is not in the tuple and must not demand a condition`,
+      ).not.toContain('condition_missing');
+    }
+    console.log(
+      `[census] flows: ${PRODUCT_TYPE_AUTHORING_FLOWS.length}, ` +
+        `condition-required: ${CONDITION_REQUIRED_AUTHORING_FLOWS.length}, ` +
+        `permissive: ${permissive.length}`,
+    );
+  });
+});
+
+describe('the merchant default is NAMED rather than falling out of a write service', () => {
+  it('is `new` / `seller_declared` — the exact pair `catalog-write.service.ts` falls back to', () => {
+    // The anti-drift pin. `createStoreProductWithin` still carries
+    // `resolveConditionInput(input) ?? { key: 'new', assertion: 'seller_declared' }`
+    // for its OTHER callers, and #572 deliberately did not change it. What #572
+    // changed is that the authoring path STATES its condition rather than
+    // falling through — so the two values have to be asserted equal here, or a
+    // later edit to either makes an authored listing and a directly-created one
+    // disagree about what "unstated" means.
+    expect(AUTHORING_DEFAULT_MERCHANT_CONDITION.key).toBe('new');
+    expect(AUTHORING_DEFAULT_MERCHANT_CONDITION.assertion).toBe('seller_declared');
+
+    const service = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'catalog-write.service.ts'),
+      'utf8',
+    );
+    // Read from the SOURCE, because the fallback is an inline object literal
+    // with no exported name to import. A regex over one statement rather than a
+    // loose grep: matching `'new'` anywhere in a 1500-line file would pass
+    // against any listing status.
+    const fallback =
+      /resolveConditionInput\(input\)\s*\?\?\s*\{[\s\S]{0,200}?key:\s*'([a-z_]+)'[\s\S]{0,200}?assertion:\s*'([a-z_]+)'/u.exec(
+        service,
+      );
+    expect(
+      fallback,
+      'the write service fallback moved or was renamed — re-derive the default rather than deleting this',
+    ).not.toBeNull();
+    expect(fallback?.[1]).toBe(AUTHORING_DEFAULT_MERCHANT_CONDITION.key);
+    expect(fallback?.[2]).toBe(AUTHORING_DEFAULT_MERCHANT_CONDITION.assertion);
+  });
+});
+
 describe('the code vocabulary is closed and every produced code is in it', () => {
   it('every code this suite produced is a member of AUTHORING_VALIDATION_CODES', () => {
     const produced = new Set<string>();
@@ -992,6 +1108,7 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
       inventory_negative: input({ variants: [variant({ inventoryAvailable: -1 })] }),
       title_missing: input({ title: null }),
       description_missing: input({ description: null }),
+      condition_missing: input({ flow: 'p2p', itemConditionKey: null }),
       draft_not_open: input({ status: 'published' }),
     };
 
