@@ -134,6 +134,52 @@ export async function requestNativeVariantMatch(
 }
 
 /**
+ * May a matcher REPLACE an attachment that already carries this method?
+ *
+ * An exhaustive `Record` over `NativeListingLinkMethod` rather than a list of
+ * the protected ones, and the shape is the point: a list is satisfied by
+ * omission, so an eighth method would be displaceable with no diff anywhere
+ * saying so. Here `tsc` names it, and whoever adds it has to write `true` or
+ * `false` next to it.
+ *
+ * The two `false` entries are the two methods that record a PERSON asserting,
+ * about the item they are selling, on a surface that showed them the product:
+ *
+ * - `seller_declared` (#91), which `services/sell-yours/match-gate.ts` refuses
+ *   to write if a valid identifier, the brand, the pack count, the category, a
+ *   bundle relation or an operator's own rejection disagreed.
+ * - `merchant_declared` (#367 step 5), which ADR 0007 D10 states outright: a
+ *   directly selected canonical entity is LINKED and never re-matched. Before
+ *   this table existed the protection was claimed in `publish.service.ts`'s
+ *   header and did not exist — `native_listing_links_active_variant_key` was
+ *   cited as the mechanism, and it is not one: it forbids two SIMULTANEOUS
+ *   active links, while `attachIfAutomatic` supersedes first and inserts
+ *   second, so the unique never sees a conflict. A store member's explicit
+ *   choice was replaced by a confidence score, silently, which is precisely the
+ *   failure D10 names.
+ *
+ * `operator` is deliberately `true`, and that is the PRE-EXISTING behaviour
+ * rather than a new decision: nothing in #58/#59 states that a matcher may not
+ * move an operator's attachment, and flipping it here would change a rule this
+ * change has no measurement for. Recorded so the next reader can see it was
+ * looked at.
+ *
+ * The disagreement is never lost either way. The decision row is written before
+ * this is consulted, with its own `matched_canonical_variant_id`, so "the
+ * matcher would have chosen something else" stays readable.
+ */
+export const MATCHER_MAY_DISPLACE: Readonly<Record<NativeListingLinkMethod, boolean>> =
+  Object.freeze({
+    barcode_gtin: true,
+    connector_declared: true,
+    operator: true,
+    matcher: true,
+    backfill: true,
+    seller_declared: false,
+    merchant_declared: false,
+  });
+
+/**
  * The `native_listing_links.method` a decision's stage justifies.
  *
  * A table rather than a condition, so adding a stage forces a decision about
@@ -258,14 +304,13 @@ async function attachIfAutomatic(
 
   const existing = await findActiveLinkForVariant(tx, subject.productVariantId);
   /**
-   * A SELLER's own declaration is never overwritten by a score (#91).
+   * A PERSON's own declaration is never overwritten by a score (#91, #367).
    *
-   * `seller_declared` is written by `services/sell-yours/` only after the same
-   * deterministic blockers this pipeline reads have been checked against the
-   * exact pair the seller chose — so a matcher preferring a different candidate
-   * here is a heuristic disagreeing with a person who owns the item, about the
-   * item. #80's `save_intent` pin, one layer down: the strongest signal anybody
-   * can give must not lose to an automatic one.
+   * The set is `MATCHER_MAY_DISPLACE` and not a condition, for the reason
+   * recorded there: a hand-written `method === 'seller_declared'` is exactly how
+   * `merchant_declared` arrived unprotected while the publication path's own
+   * header said it was safe. #80's `save_intent` pin, one layer down — the
+   * strongest signal anybody can give must not lose to an automatic one.
    *
    * The disagreement is not lost. The decision row is still written above with
    * its own `matched_canonical_variant_id`, so "the matcher would have chosen
@@ -273,14 +318,15 @@ async function attachIfAutomatic(
    * is what `readSellerDraftConsistency` reports and what a `wrong_product_match`
    * report is investigated against.
    */
-  if (existing && existing.method === 'seller_declared') {
+  if (existing && !MATCHER_MAY_DISPLACE[existing.method]) {
     log.general.info(
       {
         productVariantId: subject.productVariantId,
+        declaredMethod: existing.method,
         declaredCanonicalVariantId: existing.canonicalVariantId,
         matcherCanonicalVariantId: evaluation.matchedCanonicalVariantId,
       },
-      '[Matching] leaving a seller-declared attachment in place',
+      '[Matching] leaving a declared attachment in place',
     );
     return false;
   }

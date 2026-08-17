@@ -571,15 +571,55 @@ export type AuthoringValidationCode =
   | 'cardinality_exceeded'
   | 'structured_component_missing'
   | 'unknown_component_axis'
+  /**
+   * No unit where the attribute declares a family, OR a unit token the unit
+   * registry cannot read.
+   *
+   * Both are the same fact for an author — "6.1 of what" — and #56's own
+   * vocabulary already calls an unreadable spelling `unknown_unit`. What is a
+   * DIFFERENT fact is a unit that reads perfectly and measures the wrong thing,
+   * which is {@link AuthoringValidationCode}'s `unit_not_in_family`.
+   */
   | 'unknown_unit'
+  /**
+   * A resolvable unit from the wrong DIMENSION — `kg` on a screen size.
+   *
+   * Its own code because the remedy is different: `unknown_unit` means "spell it
+   * so we can read it" and this means "you have measured the wrong property".
+   * Reported separately rather than folded in, so a form can say which.
+   */
+  | 'unit_not_in_family'
   | 'currency_mismatch'
   | 'canonical_reference_not_permitted'
   | 'proposal_not_permitted'
+  /**
+   * A `range` cardinality whose low bound is above its high bound.
+   *
+   * A range is exactly two magnitudes in ordinal order, and an inverted pair is
+   * not a smaller range — every comparison against it is false, so it filters
+   * nothing and looks like a value nobody entered.
+   */
+  | 'range_bounds_inverted'
   // Variants
   | 'no_variant_declared'
   | 'variant_axis_not_permitted'
   | 'variant_missing_axis_value'
   | 'duplicate_variant_signature'
+  /**
+   * Two variants of one draft carry the same SKU. A WARNING, deliberately.
+   *
+   * `product_variants.sku` is unique at NO grain and #296 dropped the index that
+   * pretended otherwise — Shopify enforces no SKU uniqueness at all, so one
+   * product legitimately carries two variants sharing one. Refusing publication
+   * would re-impose in the authoring surface exactly the constraint the schema
+   * removed for being wrong about real data.
+   *
+   * It is still REPORTED, because the consequence is real and invisible:
+   * `matchIncomingVariant` and `resolveInventoryVariant` both REFUSE to pick
+   * between several candidates, so the connector pull and the inventory push
+   * rails cannot address either of these variants by SKU afterwards.
+   */
+  | 'duplicate_variant_sku'
   | 'price_missing'
   | 'price_currency_missing'
   | 'inventory_negative'
@@ -609,13 +649,16 @@ export const AUTHORING_VALIDATION_CODES: readonly AuthoringValidationCode[] = [
   'structured_component_missing',
   'unknown_component_axis',
   'unknown_unit',
+  'unit_not_in_family',
   'currency_mismatch',
   'canonical_reference_not_permitted',
   'proposal_not_permitted',
+  'range_bounds_inverted',
   'no_variant_declared',
   'variant_axis_not_permitted',
   'variant_missing_axis_value',
   'duplicate_variant_signature',
+  'duplicate_variant_sku',
   'price_missing',
   'price_currency_missing',
   'inventory_negative',

@@ -47,6 +47,7 @@ import {
   effectiveFieldRequirement,
   evaluateVisibilityRule,
 } from '../product-types/visibility-rule.js';
+import { resolveUnit, unitFamilyOf } from '../canonical/units.js';
 
 /** One answer, as validation sees it. Deliberately the storage shape. */
 export interface DraftValueForValidation {
@@ -72,6 +73,8 @@ export interface DraftVariantForValidation {
   readonly priceCurrency: string | null;
   readonly inventoryAvailable: number;
   readonly axisSignature: string | null;
+  /** The merchant's own code. Reported on a DUPLICATE, never refused — see the code. */
+  readonly sku: string | null;
 }
 
 /** Everything a validation reads. */
@@ -321,6 +324,27 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
   }
 
   const seenSignatures = new Set<string>();
+  // SKU duplication is a WARNING and is folded per SKU rather than reported on
+  // every occurrence: three variants sharing one code is ONE thing to fix, and
+  // three findings on one path would read as three problems. The key is the
+  // trimmed, case-folded code, because `SKU-1` and `sku-1 ` address the same
+  // merchant code in every rail that looks one up.
+  const skuPositions = new Map<string, number[]>();
+  for (const variant of input.variants) {
+    if (variant.sku === null) continue;
+    const key = variant.sku.trim().toLowerCase();
+    if (key === '') continue;
+    skuPositions.set(key, [...(skuPositions.get(key) ?? []), variant.position]);
+  }
+  for (const positions of skuPositions.values()) {
+    if (positions.length < 2) continue;
+    // Named on the SECOND and every later occurrence, the
+    // `duplicate_variant_signature` shape: the first one is not the mistake.
+    for (const position of positions.slice(1)) {
+      findings.push(finding('duplicate_variant_sku', 'warning', `variants[${position}].sku`));
+    }
+  }
+
   for (const variant of input.variants) {
     if (variant.priceAmount === null) {
       findings.push(finding('price_missing', 'error', `variants[${variant.position}].price`));
@@ -399,7 +423,24 @@ function checkField(
 
   for (const answer of answers) {
     if (answer.kind !== expected) {
-      findings.push(finding('value_type_mismatch', 'error', path, about));
+      // A canonical REFERENCE on a field whose value policy does not admit one
+      // has its own code, and it is reported HERE rather than below because
+      // `expectedKind` returns `canonical_reference` only for a field whose
+      // policy IS `canonical_reference` — so an answer that reached the branch
+      // below had already proved the policy permits it, and the guard there was
+      // provably unreachable. It read as coverage: the code was in the closed
+      // set, a reviewer saw a check for it, and every real occurrence was
+      // reported as a plain `value_type_mismatch` instead.
+      findings.push(
+        finding(
+          answer.kind === 'canonical_reference'
+            ? 'canonical_reference_not_permitted'
+            : 'value_type_mismatch',
+          'error',
+          path,
+          about,
+        ),
+      );
       continue;
     }
     if (answer.kind === 'controlled_value') {
@@ -409,9 +450,10 @@ function checkField(
       continue;
     }
     if (answer.kind === 'canonical_reference') {
-      if (field.valuePolicy !== 'canonical_reference') {
-        findings.push(finding('canonical_reference_not_permitted', 'error', path, about));
-      }
+      // Permitted by construction — see the branch above. Nothing further is
+      // checkable HERE: whether the id names a row that exists is a READ, and
+      // this module takes no database. `validateDraftRow` is where that belongs
+      // and it does not do it yet (reported, not papered over).
       continue;
     }
     if (answer.kind === 'text' && answer.valueText !== null) {
@@ -426,8 +468,42 @@ function checkField(
     }
   }
 
+  if (field.validation.cardinality === 'range') {
+    checkRange(findings, answers, path, about);
+  }
+
   if (field.validation.valueType === 'structured') {
     checkStructured(findings, field, answers, path, about);
+  }
+}
+
+/**
+ * A `range` is a LOW bound and a HIGH bound, in ordinal order.
+ *
+ * `maxValuesFor` already refuses a third magnitude — "a range with no meaning
+ * rather than a longer one" — and this is the other half of the same rule.
+ * An inverted pair is not a narrower range: every `low <= x <= high` comparison
+ * against it is false, so it matches nothing, filters nothing and reads to a
+ * merchant exactly like a value nobody entered. `canonical_attribute_values`
+ * states the identical rule as a CHECK
+ * (`canonical_attribute_values_range_lower_check`); this is that rule where an
+ * author can still fix it.
+ *
+ * A range with fewer than two magnitudes is NOT reported here — the requirement
+ * level already decides whether an incomplete answer is a problem, and reporting
+ * one from two places would put two findings on one path.
+ */
+function checkRange(
+  findings: AuthoringValidationFinding[],
+  answers: readonly DraftValueForValidation[],
+  path: string,
+  about: { fieldId: string; attributeKey: string },
+): void {
+  const low = answers.find((answer) => answer.ordinal === 0)?.valueNumber;
+  const high = answers.find((answer) => answer.ordinal === 1)?.valueNumber;
+  if (low === undefined || low === null || high === undefined || high === null) return;
+  if (low > high) {
+    findings.push(finding('range_bounds_inverted', 'error', path, about));
   }
 }
 
@@ -467,16 +543,64 @@ function checkNumber(
       findings.push(finding('too_many_decimal_places', 'error', path, about));
     }
   }
-  if (validation.unitFamily !== null && answer.unit === null) {
-    // A magnitude with no unit is not a smaller fact, it is an ambiguous one:
-    // 6.1 of what. #94's normalization rule is that a unit comes from the
-    // source's own token or a recorded mapping and NEVER from the attribute's
-    // base unit, so imputing `baseUnit` here would be inventing what somebody
-    // meant.
-    findings.push(finding('unknown_unit', 'error', path, about));
+  if (validation.unitFamily !== null) {
+    checkUnit(findings, validation.unitFamily, answer.unit, path, about);
+  }
+  // A rating is a magnitude on a DECLARED scale, and the scale's ceiling is a
+  // bound like any other — #94 models percentages, ratios and ratings as
+  // distinct unit families precisely so a 42 cannot sit on a five-point scale.
+  // `value_above_maximum` rather than a code of its own: for an author it is the
+  // same fact ("too big for this field") and the path already names the field,
+  // while a second code would need a second branch in every client's renderer.
+  if (validation.ratingScaleMax !== null && value > validation.ratingScaleMax) {
+    findings.push(finding('value_above_maximum', 'error', path, about));
   }
   if (validation.valueType === 'money' && validation.currency === null) {
     findings.push(finding('currency_mismatch', 'error', path, about));
+  }
+}
+
+/**
+ * The unit an answer carries, against the family the attribute declares.
+ *
+ * Three outcomes and they are three different facts:
+ *
+ * - **absent** — `unknown_unit`. A magnitude with no unit is not a smaller fact,
+ *   it is an ambiguous one: 6.1 of what. #94's normalization rule is that a unit
+ *   comes from the source's own token or a recorded mapping and NEVER from the
+ *   attribute's base unit, so imputing `baseUnit` here would be inventing what
+ *   somebody meant.
+ * - **unreadable** — `unknown_unit` too. `resolveUnit` matches an explicit alias
+ *   table and returns `null` for anything else, which is the same "of what" for
+ *   an author and the same remedy.
+ * - **readable and of the wrong DIMENSION** — `unit_not_in_family`, which is a
+ *   different remedy and had no representation at all before: a `kg` on a screen
+ *   size validated clean, published, and became a length in millimetres nobody
+ *   could reconcile.
+ *
+ * The registry is `services/canonical/units.ts` — the same table
+ * `services/attributes/normalization.service.ts` normalizes against, so a value
+ * this function admits is one the normalizer can convert. A second alias table
+ * here would be the two-representations failure applied to a vocabulary.
+ */
+function checkUnit(
+  findings: AuthoringValidationFinding[],
+  unitFamily: NonNullable<AuthoringField['validation']['unitFamily']>,
+  unit: string | null,
+  path: string,
+  about: { fieldId: string; attributeKey: string },
+): void {
+  if (unit === null) {
+    findings.push(finding('unknown_unit', 'error', path, about));
+    return;
+  }
+  const resolved = resolveUnit(unit);
+  if (resolved === null) {
+    findings.push(finding('unknown_unit', 'error', path, about));
+    return;
+  }
+  if (unitFamilyOf(resolved) !== unitFamily) {
+    findings.push(finding('unit_not_in_family', 'error', path, about));
   }
 }
 
