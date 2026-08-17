@@ -11,15 +11,24 @@
  * file drives the merchant's whole journey twice over, and adds the three steps
  * those files stop short of:
  *
- *  1. **Offers.** Workstream 14 publishes a listing with no canonical selection,
- *     so `convergeNativeOffersForListing` materialises nothing ("a native variant
- *     nobody has matched has nothing to be an offer ON") and its product page
- *     renders variants with no offer rows. Here every published variant SELECTS
- *     its canonical configuration, so the journey reaches a product page with
- *     real offers in it — which is what the epic means by "through to a product
- *     page".
- *  2. **Search.** `runCanonicalSearch` is the epic checkbox no vertical suite
- *     drives; footwear stops at facets.
+ *  1. **Offers.** No Workstream 14 file calls `convergeNativeOffersForListing` at
+ *     all, so no `offers` row ever exists there — and the footwear one could not
+ *     produce any if it did, since its published variant selects no canonical
+ *     configuration ("a native variant nobody has matched has nothing to be an
+ *     offer ON"). Here every published variant SELECTS one and the converger is
+ *     driven, so real `offers` rows exist and the reads that consume them can be
+ *     driven. What the product page then does with them is the finding this file
+ *     records rather than the outcome it assumed: with `STRIPE_ENABLED` off — the
+ *     suite's configuration, and any
+ *     deployment without Stripe — every native offer is EXCLUDED from the
+ *     comparison as `seller_not_payment_ready`, while the search result's own
+ *     offer summary carries it. The page case asserts the exclusion BY REASON,
+ *     which is what makes it a control on the search case rather than a puzzle.
+ *  2. **Search.** Footwear stops at facets and never reaches
+ *     `runCanonicalSearch`; the smartphone suite drives it for its ALIAS stages
+ *     over a catalogue with no offers in it. What is new here is the search a
+ *     shopper actually performs — over a product a merchant has published, with
+ *     the offer projection populated, and with a market filter applied.
  *  3. **The locale/market matrix**, with a cross-pair comparison at the end that
  *     is the actual claim: the two locales agree on every RULE and disagree on
  *     every STRING.
@@ -37,14 +46,21 @@
  * - The market claim is the one that needed the most care. A native offer is
  *   market-LESS, so both markets legitimately see it; asserting that alone would
  *   pass against a build where the market predicate had been deleted. So the
- *   same search runs again inside a ROLLED-BACK transaction with the offer's
- *   `country` set, and the other market is shown to drop it.
+ *   same search runs again inside a ROLLED-BACK transaction with EVERY offer on
+ *   the canonical product pinned to one market, and the other market is shown to
+ *   drop it. Pinning only this pair's offers is not enough — the sibling pair has
+ *   published its own, and a search reaching the product through an unpinned
+ *   sibling reads as a failure of the predicate. Measured; that is how it first
+ *   failed.
  *
- * ## Two identities this file must vary per pair, and the constraint behind each
+ * ## Each pair carries its own title and SKUs, and NOT because of a constraint
  *
- * A listing handle is derived from its title and `listings_store_id_handle_key`
- * is unique, and `product_variants_sku_key` is unique over the WHOLE table
- * rather than per store. So each pair carries its own title and its own SKUs.
+ * Measured rather than assumed, because the obvious assumption is wrong in both
+ * halves: the publication path passes no `handle`, so `listings.handle` is NULL
+ * and `listings_store_id_handle_key` cannot fire on two listings sharing a title;
+ * and `product_variants.sku` carries no unique index at any scope (#296). The
+ * values are varied so each pair's rows are identifiable to the assertions that
+ * name them.
  *
  * ## The shared database
  *
@@ -237,8 +253,8 @@ describe.each(PAIRS)('the footwear journey in $name', (pair) => {
       market: pair.market,
       permissions: E2E_PERMISSIONS,
       ttlSeconds: 3600,
-      // Distinct per pair: the handle is derived from the title and
-      // `listings_store_id_handle_key` is unique.
+      // Distinct per pair so the assertions can name this pair's listing. Not a
+      // constraint: see the header — the publication path writes a NULL handle.
       title: `Kestrel Trailwind 3 (${pair.market})`,
     });
     // The draft stores the FOLDED locale — `createDraft` writes

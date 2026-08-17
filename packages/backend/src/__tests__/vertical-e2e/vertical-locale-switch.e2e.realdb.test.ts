@@ -16,7 +16,8 @@
  * This file therefore asserts three things rather than one:
  *
  *  1. the database REFUSES to move a draft's locale, with a control that shows
- *     the same UPDATE reaching the same row;
+ *     the same WHERE predicate reaching the row (a different SET clause on it
+ *     succeeds), so the refusal is a refusal and not a predicate matching nothing;
  *  2. re-composing the schema in the second locale moves every STRING and no
  *     RULE — asserted in both directions, so it cannot pass against a composer
  *     that stopped localizing;
@@ -210,9 +211,10 @@ async function composeIn(locale: string): Promise<AuthoringSchema> {
 }
 
 describe("a draft's locale cannot be moved", () => {
-  it('is REFUSED by the database, with the same UPDATE proven to reach the row', async () => {
+  it('is REFUSED by the database, with its WHERE predicate proven to reach the row', async () => {
     // The control first, so the refusal below is a refusal rather than a
-    // predicate that matched nothing. `title` is not one of the frozen pins.
+    // predicate that matched nothing. Same predicate, a SET clause the pins
+    // trigger does not freeze — `title` is not one of the six frozen columns.
     const touched = await db.execute(sql`
       update catalog_authoring_drafts set title = ${'Locale-switch fixture shoe'}
       where id = ${draftId} returning id
@@ -389,6 +391,9 @@ describe('the two fingerprints the locale claim rests on', () => {
     // And a key ORDER change moves neither: the digest sorts, so two locales
     // whose composer visited the same fields in a different order are not
     // reported as disagreeing about a rule.
+    // A floor first: reversing one entry, or none, is a no-op, so without this
+    // the key-order arm would pass while mutating nothing.
+    expect(Object.keys(schema.text.fields).length).toBeGreaterThan(1);
     const reordered: AuthoringSchema = {
       ...schema,
       text: { ...schema.text, fields: Object.fromEntries(Object.entries(schema.text.fields).reverse()) },

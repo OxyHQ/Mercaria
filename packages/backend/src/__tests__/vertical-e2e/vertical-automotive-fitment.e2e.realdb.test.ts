@@ -25,11 +25,15 @@
  *
  * ## The gap this file records rather than papers over
  *
- * There is no "which parts fit this vehicle" READ at any layer a route or a
- * service can reach. `SearchFilters` has no vehicle, fitment or compatibility
- * member; every `/compatibility` route requires exactly one SUBJECT; and the one
- * repository primitive that could answer it (`listFitmentsForVehicle` with the
- * subject omitted) is called by nothing, with its own docblock giving the reason.
+ * There is no "which parts fit this vehicle" READ any route or service exposes.
+ * `SearchFilters` has no vehicle, fitment or compatibility member; the three
+ * `/compatibility` routes that answer ABOUT a part each require exactly one
+ * SUBJECT (the four `/compatibility/vehicles/*` picker routes require none, and
+ * none of them returns a part); and the one repository primitive that could
+ * answer it — `listFitmentsForVehicle` with `filter.subject` omitted — is called
+ * by no route and no service (`fitment.service.ts` always passes a subject). It
+ * is called that way by `verticals-brake-pad.realdb.test.ts`, which is how the
+ * shape is known to work; what does not exist is a caller a shopper can reach.
  * So "vehicle filtering" today means `answerFitment` for a part a shopper is
  * already looking at, plus the selector walk — which is what this file drives.
  * A catalogue-wide vehicle filter is unbuilt, and a test asserting one would have
@@ -41,7 +45,9 @@
  *   thirteen configurations — because with one vehicle in the fixture the claim
  *   passes trivially. `verticals-package-controls.test.ts` carries the mutation
  *   that reduces the fixture to a single vehicle and shows the assertion notices.
- * - The reverse-fitment list is asserted to be NEITHER empty NOR everything.
+ * - The reverse-fitment list is asserted EQUAL to the statements production's own
+ *   `publishable` predicate admits, derived from the package — see that case for
+ *   why the range assertion it replaced could not fail.
  * - The facet suppression is paired with an attribute that is NOT suppressed.
  * - The claim/fitment separation counts fitments before AND after publication.
  */
@@ -58,6 +64,7 @@ import {
   listVehicleMakes,
   listVehicleModels,
 } from '../../db/compatibility/vehicleCatalogRepository.js';
+import { publishable } from '../../services/compatibility/compatibility.service.js';
 import { answerFitment, listPublishedVehiclesForPart } from '../../services/compatibility/fitment.service.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../../services/catalog-authoring/draft.service.js';
 import { publishDraft } from '../../services/catalog-authoring/publish.service.js';
@@ -373,17 +380,70 @@ describe('the vehicle walk reaches a BUYABLE part', () => {
     });
   });
 
-  it('lists what the part fits, and it is neither empty nor everything', async () => {
+  it('lists exactly the statements about this part that policy admits publishing', async () => {
     const published = await listPublishedVehiclesForPart(
       { kind: 'canonical_variant', variantId: partVariantId },
       100,
     );
-    // Non-empty first, then bounded. Either half alone is satisfiable by a bug:
-    // an empty list satisfies "not everything", and a list of every vehicle in
-    // the database satisfies "not empty".
-    expect(published.fitments.length).toBeGreaterThan(0);
-    expect(published.fitments.length).toBeLessThan(DECLARED.vehicleConfigurations);
+
+    /**
+     * An EQUALITY against a number derived from the package by PRODUCTION's own
+     * predicate — not a range, and not the vehicle count.
+     *
+     * The first version of this case asserted `length > 0 && length <
+     * vehicleConfigurations`, and the upper half could not fail: this read
+     * returns FITMENT STATEMENTS, of which the package declares nine for this
+     * part, against thirteen configurations. Worse, statements are SCOPED, so
+     * nine generation- and model-level rows can cover all thirteen cars — a
+     * count of statements cannot bound coverage of vehicles at all.
+     *
+     * `publishable` is the same function `admissibleForPublicVerdict` composes,
+     * so the expectation moves with the policy rather than restating it.
+     */
+    const declaredForThisPart = BRAKE_PAD_PACKAGE.fitments.filter(
+      (fitment) => fitment.variantKey === 'vp_4410_default',
+    );
+    const expectedPublishable = declaredForThisPart.filter((fitment) =>
+      publishable({ applicability: fitment.applicability, verification: fitment.verification }),
+    );
+    expect(declaredForThisPart.length).toBeGreaterThan(0);
+    expect(expectedPublishable.length).toBeGreaterThan(0);
+
+    /**
+     * MEASURED: every one of this part's statements IS publishable, so a
+     * "some are withheld" floor would be false here (it was, and it failed). The
+     * exclusion is `does_not_apply` at `candidate`, which the NEGATIVE rule
+     * admits — the asymmetry the brake-pad package exists to exercise.
+     *
+     * The predicate the equality rests on is therefore mutation-tested directly
+     * rather than through the data: an `unknown` applicability can never publish,
+     * so `publishable` is not a constant `true`.
+     */
+    expect(publishable({ applicability: 'unknown', verification: 'verified' })).toBe(false);
+    expect(publishable({ applicability: 'applies', verification: 'candidate' })).toBe(false);
+    expect(publishable({ applicability: 'does_not_apply', verification: 'candidate' })).toBe(true);
+
+    expect(published.fitments).toHaveLength(expectedPublishable.length);
+    // The number is specific to this PART, not a table-wide count: the namespace
+    // holds eleven statements over thirteen configurations, and this is neither.
+    expect(published.fitments.length).not.toBe(DECLARED.fitments);
+    expect(published.fitments.length).not.toBe(DECLARED.vehicleConfigurations);
+    // And the exclusion is IN the list, beside the fit it overrides — a "what does
+    // this fit" read that hid the negative would be the same length as one that
+    // did not, on a part with one exclusion.
+    expect(
+      published.fitments.some((entry) => entry.fitment.applicability === 'does_not_apply'),
+    ).toBe(true);
     expect(published.truncated).toBe(false);
+    // Every row is about THIS part, which the subject parameter is supposed to
+    // guarantee and nothing else here would notice. Every row also names a make,
+    // which is what makes it a VEHICLE statement rather than a bare fitment.
+    expect(
+      published.fitments.every((entry) => entry.fitment.subjectVariantId === partVariantId),
+    ).toBe(true);
+    expect(published.fitments.every((entry) => entry.make.key.startsWith(`${ns.snake}_`))).toBe(
+      true,
+    );
   });
 
   it('refuses the excluded car while its EU sibling still fits', async () => {

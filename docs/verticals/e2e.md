@@ -13,25 +13,28 @@ epic asks for by name.
 | `vertical-publication-recovery.e2e.realdb.test.ts` | Rollback and error recovery from a failed publication |
 | `vertical-automotive-fitment.e2e.realdb.test.ts` | Fitment authoring, the vehicle walk to a buyable part, and why a vehicle is not a catalogue filter |
 | `vertical-matrix-and-new-product.e2e.realdb.test.ts` | The order-independent duplicate refusal at three grains, the whole eight-configuration matrix, and a new model from proposal to a findable listing |
-| `journey.ts` | Shared permissions, the two schema fingerprints, an enum lookup, the population report. NOT a test file |
+| `journey.ts` | Shared permissions, the two schema fingerprints, an enum lookup, two counters, the population report. NOT a test file |
 
 ## How this differs from the Workstream 14 vertical suites
 
 `scripts/seed-verticals/__tests__/verticals-{footwear,smartphone,brake-pad}.realdb.test.ts`
 prove the MODELLING each vertical exists to prove — five size systems, a
 spec-sheet fact that is not an axis, thirteen vehicle configurations behind one
-SKU — each in one locale and one market, and they deliberately create no store,
-listing or offer.
+SKU — each in one locale and one market. The footwear and smartphone suites do
+publish a listing; the brake-pad one creates no store, listing or offer at all.
 
-These four take the same seeded catalogues and drive the parts that need a
+These five take the same seeded catalogues and drive the parts that need a
 merchant on top of them:
 
-- **Offers exist.** Every published variant SELECTS its canonical configuration,
-  so `convergeNativeOffersForListing` materialises real offers — Workstream 14
-  publishes without a selection, and a native variant nobody has matched has
-  nothing to be an offer on.
-- **Search is driven.** `runCanonicalSearch` is an epic checkbox no vertical
-  suite reaches; footwear stops at facets.
+- **Offers exist.** No Workstream 14 file calls
+  `convergeNativeOffersForListing`, so no `offers` row ever exists there — and the
+  footwear one could not produce any if it did, since its published variant
+  selects no canonical configuration. Here every published variant SELECTS one
+  and the converger is driven.
+- **A shopper's search is driven.** Footwear stops at facets; the smartphone suite
+  does drive `runCanonicalSearch`, for its ALIAS stages over a catalogue with no
+  offers in it. What is new is the search over a product a merchant has published,
+  with the offer projection populated and a market filter applied.
 - **The failure paths are driven**, which is what
   `docs/catalog-authoring.md` lists as deferred.
 - **Order-independence is driven.** Workstream 14's duplicate case asks for one
@@ -64,18 +67,19 @@ names an ID and never a count.
 Three cleanups these files add beyond `teardownVertical`, each forced by a real
 `RESTRICT` failure rather than added defensively: the proposal trail
 (`catalog_proposals.store_id` blocks the store's own delete, and
-`catalog_review_events` refuses DELETE by trigger), this file's own `fr`
-localization rows (the categories are RETIRED rather than deleted, so nothing
-cascades them), and the minted canonical product — which must go AFTER the
-store's listings, because a listing declares a link onto its configuration.
+`catalog_review_events` refuses DELETE by trigger), the locale-switch file's own
+`fr` localization rows (the categories are RETIRED rather than deleted, so nothing
+cascades them), and the minted canonical product — which must go AFTER the store's
+listings, because a listing declares a link onto its configuration.
 
-A residue probe run last and then thrown away confirms these five files leave no
-rows of their own. What survives is the seed packages' — attribute and
-product-type definitions the server refuses to delete once published, the
-categories they cite (moved to `deprecated`, which every read treats as
-inactive), and those categories' own localization rows, which cascade only on a
-category DELETE. All three are `vertical-fixture.ts`'s documented residue; the
-localization rows are the one it does not name.
+With those three in place, a residue probe run last and then thrown away shows
+these five files leave no rows of their own. What survives belongs to the SEED
+packages: attribute and product-type definitions the server refuses to delete once
+published, and the categories they cite, moved to `deprecated`, which every read
+treats as inactive. `vertical-fixture.ts` documents both. It does not mention a
+third — those categories' own `category_localizations` rows, which cascade only on
+a category DELETE and so survive with the retired category. Harmless (nothing
+shopper-visible reaches an inactive category) and not this branch's to fix.
 
 ## The measurement discipline
 
@@ -110,6 +114,20 @@ size.
   returned string, and then REMOVES the row to show the assertion notices.
 - The **rollback** claim gets positive evidence rather than only absences: see
   below.
+- The **reverse-fitment** claim was rewritten twice, and both failures are worth
+  keeping. Its first version asserted `0 < length < vehicleConfigurations`, whose
+  upper half could not fail: `listPublishedVehiclesForPart` returns fitment
+  STATEMENTS, of which the package declares nine for the part against thirteen
+  configurations — and, worse, statements are SCOPED, so nine can cover all
+  thirteen cars. Its second version replaced that with an EQUALITY against the
+  count production's own `publishable` predicate admits, plus a floor asserting
+  some statements are withheld — which is FALSE for this part, and the suite said
+  so: the exclusion is `does_not_apply` at `candidate`, which the negative rule
+  admits, so all nine publish. The predicate is now mutation-tested directly (an
+  `unknown` applicability can never publish, a `candidate` POSITIVE cannot, a
+  `candidate` NEGATIVE can), the count is asserted to be neither the namespace's
+  eleven statements nor its thirteen configurations, and the exclusion is asserted
+  to be IN the list beside the fit it overrides.
 
 ### 3. A narrowing is counted unfiltered first
 
@@ -181,13 +199,17 @@ shown to track the position rather than being a constant.
 
 - **A catalogue-wide vehicle filter.** There is no "which parts fit this vehicle"
   read at any layer a route or service can reach: `SearchFilters` has no vehicle,
-  fitment or compatibility member, every `/compatibility` route requires exactly
-  one SUBJECT, and the one repository primitive that could answer it
-  (`listFitmentsForVehicle` with the subject omitted) is called by nothing, with
-  its own docblock giving the reason. Vehicle filtering today is `answerFitment`
-  for a part a shopper is already looking at, plus the selector walk — which is
-  what the automotive file drives. A test asserting a catalogue-wide filter would
-  have had to invent the read it was testing.
+  fitment or compatibility member; the three `/compatibility` routes that answer
+  ABOUT a part each require exactly one SUBJECT (the four
+  `/compatibility/vehicles/*` picker routes require none, and none returns a part);
+  and the one repository primitive that could answer it —
+  `listFitmentsForVehicle` with `filter.subject` omitted — is called by no route
+  and no service, `fitment.service.ts` always passing a subject.
+  `verticals-brake-pad.realdb.test.ts` does call it that way, which is how the
+  shape is known to work; what is missing is a caller a shopper can reach. Vehicle
+  filtering today is `answerFitment` for a part already in hand plus the selector
+  walk — which is what the automotive file drives. A test asserting a
+  catalogue-wide filter would have had to invent the read it was testing.
 - **The post-commit failure window.** `finishStoreProductCreation` runs after the
   publication commits and has no `try`/`catch`, so a throw there answers 500 with
   the listing already created and the draft already stamped. Reaching it needs a
@@ -196,13 +218,19 @@ shown to track the position rather than being a constant.
   convergence cases, which are what a client's retry after that 500 actually
   takes.
 - **RTL layout, keyboard and accessibility behaviour** (two further Workstream 18
-  checkboxes). Those are client properties with no backend surface; `bun run
+  checkboxes). All three Expo apps DO have a vitest runner, so the limit is not
+  tooling — it is that these are RENDERED properties, and nothing in this repo
+  mounts a screen or drives a keyboard. What exists instead is static: `bun run
   validate:rtl-classes` and `validate:bidi-isolation` gate the mirroring rules
-  across all four client packages, and none of the three Expo apps has a test
-  runner.
-- **A merchant PROPOSING an attribute value or a category.** `submitProposal`
-  accepts those types and the review path is the same; what these suites drive is
-  the `canonical_product` type, because that is the one the epic's smartphone
-  new-product flow names. The controller additionally hard-codes
-  `canProposeValues: false`, so the value-proposal path is unreachable over HTTP
-  today whatever the service accepts.
+  across all four client packages. Closing these two checkboxes needs a rendering
+  harness, which is its own piece of work and not a backend one.
+- **A merchant PROPOSING an attribute value.** These suites drive the
+  `canonical_product` type, because that is the one the epic's smartphone
+  new-product flow names, and its review path is `mergeProposalIntoExisting` onto a
+  product an operator minted. A `controlled_value` proposal takes a genuinely
+  DIFFERENT path: it is the sole member of `CATALOG_PROPOSAL_MINTABLE_TYPES`, so
+  `approveProposal` → `mintForProposal` inserts the `attribute_enum_values` row
+  itself — which `mintForProposal` explicitly forbids for a `canonical_product`.
+  That path is untested here, and the controller additionally hard-codes
+  `canProposeValues: false`, so it is unreachable over HTTP today whatever the
+  service accepts.

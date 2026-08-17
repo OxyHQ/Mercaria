@@ -35,9 +35,12 @@
  * ## Recovery is the same draft, not a new one
  *
  * After (2) the draft is still `open`, still at its own version, and still
- * carries every answer and every variant. The recovery case fixes the one
- * offending field and publishes — no re-entry. That is what makes a rollback a
- * recovery rather than a loss.
+ * carries every answer and every variant. The recovery case corrects the one
+ * offending selection and publishes. The variant MATRIX is re-sent whole, because
+ * `replaceDraftVariants` is DELETE-then-INSERT and a partial variant patch is not
+ * expressible; what is genuinely not re-entered is the description, the two
+ * product-scope answers and the canonical product selection, which is what the
+ * case asserts. That is what makes a rollback a recovery rather than a loss.
  *
  * ## And a retry that lost its response creates nothing
  *
@@ -567,9 +570,12 @@ describe('a guard raised INSIDE the transaction leaves nothing behind', () => {
     const listingsBefore = await countStoreListings(db, storeId);
     const countBefore = await storeProductCount();
 
-    // ONE field moves: variant 1's canonical selection. The description, the
-    // chipset, the screen size, the product selection and variant 0 are all what
-    // the failed attempt already stored, and are not re-sent.
+    // ONE field CHANGES: variant 1's canonical selection. The matrix is re-sent
+    // whole because `replaceDraftVariants` is DELETE-then-INSERT and a partial
+    // variant patch has no representation — so variant 0 is spelled out again,
+    // identically. What is genuinely not re-sent is the description, the chipset,
+    // the screen size and the canonical product selection, asserted below off the
+    // rows the failed attempt left behind.
     const repaired = await patchDraft(db, {
       storeId,
       draftId: collidingDraftId,

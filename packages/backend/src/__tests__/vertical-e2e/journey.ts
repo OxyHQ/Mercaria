@@ -8,12 +8,12 @@
  *
  * ## What lives here and what deliberately does not
  *
- * Only things that would otherwise be copied between the three journey files:
- * the permission context, the two schema fingerprints, an enum-value lookup and
- * the population report. Every ASSERTION stays in the file that makes it, and
- * nothing here re-implements a resolver, a filter or a signature — the journeys
- * drive the functions the API drives, because a test that re-implements the code
- * under test measures the re-implementation.
+ * Only things that would otherwise be copied between the five journey files: the
+ * permission context, the two schema fingerprints, an enum-value lookup, two
+ * counters and the population report. Every ASSERTION stays in the file that makes
+ * it, and nothing here re-implements a resolver, a filter or a signature — the
+ * journeys drive the functions the API drives, because a test that re-implements
+ * the code under test measures the re-implementation.
  *
  * ## The population report is a deliverable, not a debug aid
  *
