@@ -126,10 +126,18 @@ export function stripComments(source: string): string {
  * `package-barrel-symbols.test.ts` carries a positive control on exactly this
  * shape. Quotes and semicolons bound it instead, which keeps it linear.
  *
+ * `export` is matched as well as `import`, because a RE-EXPORT reaches the
+ * module exactly as an import does — `packages/ui/src/lib/format.ts` writes
+ * `export type { ProductSummary } from '@mercaria/shared-types'` today. Matching
+ * only `import` would report that file as reaching nothing, which is the quiet
+ * direction and precisely this issue's failure one level down. On this side of a
+ * re-export the requested name is the one to the LEFT of `as`, the same as an
+ * import, so both go through {@link importedNames}.
+ *
  * Group 1 is the clause (`{ a, b }`, `* as NS`, `Default`), group 2 the specifier.
  */
 const IMPORT_CLAUSE =
-  /(?:^|\n)\s*import\s+(?:type\s+)?([^'";]*?)\s*from\s*['"]([^'"]+)['"]/g;
+  /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?([^'";]*?)\s*from\s*['"]([^'"]+)['"]/g;
 
 /** A re-export: `export * from`, `export * as NS from`, `export { … } from`. */
 const RE_EXPORT =

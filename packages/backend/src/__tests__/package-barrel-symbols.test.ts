@@ -180,6 +180,20 @@ describe('the extractor reads the shapes this repository actually writes', () =>
     );
   });
 
+  it('reads a RE-EXPORT of a package symbol', () => {
+    // A re-export reaches the module exactly as an import does, and one exists:
+    // `packages/ui/src/lib/format.ts` writes this line. Matching only `import`
+    // would report that file as reaching nothing — this issue's own failure, one
+    // level down.
+    expect(
+      packageModulesReachedBy('export type { ProductSummary } from "@mercaria/shared-types";'),
+    ).toEqual(['packages/shared-types/src/product.ts']);
+    // And the renamed form requests the name on the LEFT of `as`, as an import does.
+    expect(
+      packageModulesReachedBy("export { Listing as ListingDTO } from '@mercaria/shared-types';"),
+    ).toEqual(['packages/shared-types/src/listing.ts']);
+  });
+
   it('reads a type-only import', () => {
     // `import type` reaches the owning module exactly as a value import does,
     // and it is the commonest import shape in this tree.
