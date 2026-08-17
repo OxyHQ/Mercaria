@@ -186,6 +186,10 @@
       "publishingHint": "Continuar importando, mas impedir que os produtos deste canal cheguem aos compradores.",
       "title": "Pausar"
     },
+    "pauseScope": {
+      "fetch": "importação",
+      "publication": "publicação"
+    },
     "pausedScopes": "Pausado: %{scopes}",
     "readiness": {
       "cardPaymentsOff": "Os pagamentos com cartão estão desativados nesta instalação",

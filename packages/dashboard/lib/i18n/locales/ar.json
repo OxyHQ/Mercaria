@@ -6,7 +6,7 @@
   },
   "channels": {
     "addChannel": "إضافة قناة",
-    "andJoin": " و ",
+    "andJoin": " و",
     "availability": {
       "notConfigured": "غير مُعد هنا",
       "notImplemented": "غير متاح بعد"
@@ -185,6 +185,10 @@
       "publishing": "إيقاف النشر مؤقتًا",
       "publishingHint": "استمر في الاستيراد، لكن أوقف وصول منتجات هذه القناة إلى المشترين.",
       "title": "إيقاف مؤقت"
+    },
+    "pauseScope": {
+      "fetch": "الاستيراد",
+      "publication": "النشر"
     },
     "pausedScopes": "موقوف مؤقتًا: %{scopes}",
     "readiness": {

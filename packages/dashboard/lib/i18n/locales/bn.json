@@ -186,6 +186,10 @@
       "publishingHint": "ইমপোর্ট চলতে থাকবে, তবে এই চ্যানেলের পণ্য ক্রেতাদের কাছে পৌঁছানো বন্ধ হবে।",
       "title": "থামান"
     },
+    "pauseScope": {
+      "fetch": "ইমপোর্ট",
+      "publication": "প্রকাশ"
+    },
     "pausedScopes": "থামানো: %{scopes}",
     "readiness": {
       "cardPaymentsOff": "এই ডিপ্লয়মেন্টে কার্ড পেমেন্ট বন্ধ",

@@ -186,6 +186,10 @@
       "publishingHint": "继续导入，但不再让该渠道的商品出现在买家面前。",
       "title": "暂停"
     },
+    "pauseScope": {
+      "fetch": "导入",
+      "publication": "发布"
+    },
     "pausedScopes": "已暂停：%{scopes}",
     "readiness": {
       "cardPaymentsOff": "当前部署未启用银行卡支付",

@@ -186,6 +186,10 @@
       "publishingHint": "Continue d’importer, mais empêche les produits de ce canal d’atteindre les acheteurs.",
       "title": "Pause"
     },
+    "pauseScope": {
+      "fetch": "importation",
+      "publication": "publication"
+    },
     "pausedScopes": "En pause : %{scopes}",
     "readiness": {
       "cardPaymentsOff": "Les paiements par carte sont désactivés sur ce déploiement",

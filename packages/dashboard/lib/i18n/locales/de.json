@@ -186,6 +186,10 @@
       "publishingHint": "Weiter importieren, aber die Produkte dieses Kanals erreichen keine Käufer mehr.",
       "title": "Pausieren"
     },
+    "pauseScope": {
+      "fetch": "Import",
+      "publication": "Veröffentlichung"
+    },
     "pausedScopes": "Pausiert: %{scopes}",
     "readiness": {
       "cardPaymentsOff": "Kartenzahlungen sind für diese Installation deaktiviert",
