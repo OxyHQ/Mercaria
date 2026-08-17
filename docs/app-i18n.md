@@ -319,11 +319,20 @@ Stated so nobody reads a green run as more than it is:
   refused — see above.)
 - Whether a TRANSLATION is any good. Parity says a key exists in `de.json`; it
   says nothing about whether the German is right.
-- `packages/frontend`, which is out of scope for check A entirely (#435b). The
-  registry convergence (#435a) did NOT widen it and deliberately could not: the
-  storefront still holds ~825 hardcoded user-facing strings across 69 files, so
-  adding it to `APPS` is necessarily the LAST commit of the extraction rather
-  than part of the plumbing change. Checks B, C, D and E already cover it.
+- `packages/frontend`. The registry convergence (#435a) did NOT add it to
+  `OWNERS` and deliberately could not: measured with the real guard on this tree,
+  the storefront holds **~810 hardcoded user-facing strings across 69 files**,
+  plus 58 keys in its `en.json` that no literal names. So joining `OWNERS` is
+  necessarily the LAST commit of the extraction (#435b), not part of the
+  plumbing change.
+
+  Which checks reach it today is worth stating exactly, because "the storefront
+  is partly covered" is easy to round up. **D and E do; A, B and C do not.** D
+  and E are derived from the tracked file listing rather than from `OWNERS`, so
+  the storefront's root layout and the reserved `ui` namespace in its bundles ARE
+  gated. B and C key off `OWNERS`, so the storefront's twelve bundles are **not**
+  parity-checked and its dead keys are **not** reported — which is how those 58
+  accumulated unseen. All three arrive together with #435b.
 - **Which subtree the provider covers.** Check E proves each app root MOUNTS
   `<SharedUiTranslationProvider>`, not that every rendered tree sits under it. A
   screen rendered outside the root tree falls back to `@mercaria/ui`'s English —
@@ -344,6 +353,6 @@ Stated so nobody reads a green run as more than it is:
 | # | What |
 | --- | --- |
 | #434 | Add `ar.json` to the dashboard and POS — 1,061 strings. The LAYOUT half landed; see above. Blocked for the POS variant picker on #429 |
-| #435b | Extract the storefront's ~825 remaining hardcoded strings across 69 files, then add `packages/frontend/` to the guard's `APPS` in that same PR. #435a converged the registry, the store and the RTL bootstrap |
+| #435b | Extract the storefront's ~810 remaining hardcoded strings across 69 files and its 58 dead `en.json` keys, then add it to the guard's `OWNERS` in that same PR. #435a converged the registry, the store and the RTL bootstrap |
 | #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
 | #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |
