@@ -209,6 +209,51 @@ describe('every job holding production credentials waits for a verification', ()
   });
 });
 
+describe('a web deploy does not park runners waiting for the CI it depends on', () => {
+  /**
+   * The `gate` job POLLS, so it occupies a runner for its entire wait —
+   * measured under a real merge burst: nine idle gate jobs holding nine
+   * DISTINCT assigned runner ids, while the `ci.yml` runs they were waiting on
+   * sat `queued`, one of them having gone from `in_progress` BACK to `queued`.
+   *
+   * With no concurrency block, N merges park 3N runners against N CI runs. So
+   * this is not tidiness: it is the difference between a gate that waits under
+   * contention and a gate that CAUSES it, and the symptom is a deploy that goes
+   * red on a 30-minute timeout while its CI was fine and merely unscheduled.
+   *
+   * Asserting the KEY rather than mere presence, because three workflows
+   * sharing one group would serialise the three apps behind each other — a
+   * different bug with an identical green.
+   */
+  const EXPECTED_GROUP_KEY: Record<(typeof WEB_DEPLOY_WORKFLOWS)[number], string> = {
+    'deploy-cloudflare.yml': 'deploy-frontend-',
+    'deploy-dashboard.yml': 'deploy-dashboard-',
+    'deploy-pos.yml': 'deploy-pos-',
+  };
+
+  it.each(WEB_DEPLOY_WORKFLOWS)('%s serialises only itself, newest wins', (file) => {
+    const { concurrency } = readWorkflow(file);
+    expect(concurrency, `${file} must declare a concurrency block`).toBeDefined();
+
+    // A deploy owes only the NEWEST artifact, unlike `ci.yml`, which owes a
+    // verdict per commit and must therefore never cancel.
+    expect(concurrency?.['cancel-in-progress']).toBe(true);
+
+    const group = concurrency?.group ?? '';
+    expect(group).toContain(EXPECTED_GROUP_KEY[file]);
+    // Per-ref as well, so a topic-branch dispatch cannot evict a `main` deploy.
+    expect(group).toContain('github.ref');
+  });
+
+  it('gives the three apps three DIFFERENT groups', () => {
+    const groups = WEB_DEPLOY_WORKFLOWS.map((file) => readWorkflow(file).concurrency?.group);
+
+    // Vacuity floor: three `undefined`s are also "all distinct".
+    for (const group of groups) expect(group).toBeTruthy();
+    expect(new Set(groups).size).toBe(WEB_DEPLOY_WORKFLOWS.length);
+  });
+});
+
 describe('ci.yml gives every commit on main its own verdict', () => {
   const ci = readWorkflow(CI_WORKFLOW_FILE);
 
