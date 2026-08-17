@@ -258,9 +258,31 @@ a levers-off sellability proof — but that is a coincidence of the defaults, no
 named property, and it stops being evidence the moment somebody sets a lever in a
 test's environment.
 
-**Verdict: partial.** The property is true and measurable today. The defence is
-one narrow assertion over one domain's repository layer, and three docblocks
-claim more than it delivers.
+**Verdict: satisfied for the MOUNT property, partial for the isolation property.**
+`routes/__tests__/catalog-rollout.realdb.test.ts` now gates the whole of what this
+box asserts behaviourally: the five gated mounts withdraw and nothing else does,
+the pre-existing catalogue and commerce paths answer identically across lever
+states, and a stored record stays reachable. Mutation-tested per clause — making
+`/cart` lever-gated turns the sameness case red, and ungating each lever turns only
+that lever's paths red.
+
+**The ISOLATION half is now closed too, for all four levers**, and the walls are
+deliberately not the same shape because the domains are not:
+
+| Lever | Wall | Shape, and why |
+|---|---|---|
+| `CATALOG_AUTHORING_ENABLED` | `catalog-authoring-isolation.test.ts` | Both scanned directories, no exemption (the controller's bounds live outside them), plus the blanket "no configuration at all" wall. Self-test runs the real assertion with one victim PER directory. |
+| `CATALOG_PROPOSALS_ENABLED` | `catalog-proposal-isolation.test.ts` | Names the LEVER, not configuration generally — the services legitimately read six BOUNDS off the same object, so a blanket wall would be refused on its first run and then widened, taking the prohibition with it. Carries a positive control that the domain DOES read its bounds, plus a negative case asserting a bound does not trip it. |
+| `FACETS_ENABLED` | `facet-isolation.test.ts` | BLANKET, available because the domain reads no config — scoped to the two OWNED directories and NOT the shared controller/route/schema modules, where a page bound legitimately belongs. |
+| `CATALOG_TAXONOMY_V2_ENABLED` | `navigation-isolation.test.ts` | BLANKET over the whole population INCLUDING both routes and the controller, none of which reads config today, with a positive control that those three are inside the scan since they are where a lever read would really appear. |
+
+Each self-test runs the REAL scan over a population with a mutated member swapped
+in and asserts EXACTLY that file is named. Mutation-tested against production code:
+a lever read in a proposals service, a config import in a facets service, a
+`process.env` read in a facets repository, a config import in the navigation
+controller and a `process.env` read in a navigation repository each turn the right
+wall red. The two overclaiming docblocks (`config/index.ts:3459-3460` and D12) are
+now accurate, D12 having been corrected.
 
 ---
 
@@ -359,9 +381,18 @@ with `facts.length !== 1 → 'ambiguous'` at `:272`.
   (`db/variantAxes/variantAxisRepository.ts:76-79`) — verified directly. Pass
   `false` at `:235` and the second colliding option silently converges on the
   first axis (`created: false`, counted as `axesAlreadyDeclared`) and its values
-  get typed under it. The docblock at `legacy-resolution.ts:118-121` says the
+  get typed under it. The docblock at `legacy-resolution.ts:118-121` SAID the
   unique index prevents exactly that coin toss. It does not; it absorbs it.
-- **`runVariantAxisBackfill` has no test at all.** Its only references are
+  **#550 fixed that comment at source** — it now states outright that the index
+  does not refuse the collision, cites the `onConflictDoNothing` on exactly that
+  pair, and says `collidesWithSiblingOption` is the only thing stopping the toss.
+  #550 also supplied the realdb test whose absence the next bullet records. What
+  remains a convention is that the decision still lives in a service rather than
+  in the schema.
+- **`runVariantAxisBackfill` had no test at all — #550 supplied one**
+  (`services/variant-axes/__tests__/variant-axis-backfill.realdb.test.ts`), whose
+  first case is exactly the sibling collision above. The finding as originally
+  measured: its only references were
   `scripts/backfill-variant-axes.ts`,
   `services/catalog-governance/impact-plan.ts` and its own module. Positive
   control: the sister backfills are tested —
@@ -413,11 +444,36 @@ original text and keeps the frozen claim — which is the right outcome, and is 
 what the ADR's wording ("preserved verbatim") would lead a reader to expect of the
 source column.
 
-**Verdict: partial.** Retention, forbidden axes, indistinguishable variants,
-blocked-value shape and the no-similarity wall are properties. The ADR's own named
-case (`Tono`), the sibling-collision refusal, and the link from a typed value to a
-*resolved* claim are conventions — and the last of the three has a ready-made
-constraint shape sitting in #90.
+**Verdict: partial, and NARROWER than when this was written — #550 closed the
+biggest half.** Retention, forbidden axes, indistinguishable variants,
+blocked-value shape and the no-similarity wall were already properties. Since
+then:
+
+- **The typed-value → *resolved*-claim link is now a PROPERTY.**
+  `drizzle/0104_axis_assignment_cites_a_resolved_claim.sql` (`post`) extends the
+  citation trigger so an assignment may only cite a claim that resolved. This
+  audit proposed a CHECK by analogy to #90 and the trigger is the **better**
+  shape: the fact is cross-row — it is about the CITED row — and a CHECK may not
+  contain a subquery, so the clause joins the trigger that already validates the
+  citation rather than becoming a second answer to "is this citation true".
+  `source_claim_id` stays nullable, deliberately.
+- **`runVariantAxisBackfill` now has a realdb test**
+  (`services/variant-axes/__tests__/variant-axis-backfill.realdb.test.ts`), whose
+  first case is the sibling collision: both names reported ambiguous, no axis
+  declared. So the one-token change at `backfill.service.ts` no longer passes the
+  suite.
+- **The `legacy-resolution.ts` docblock defect recorded ABOVE is FIXED at source** — it now
+  states that the unique index does not refuse the collision, cites the
+  `onConflictDoNothing` on exactly that pair, and says `collidesWithSiblingOption`
+  is the only thing stopping the coin toss.
+
+**What remains a convention:** the ADR's own named `Tono` case, still held by
+`legacy-resolution.ts` plus two unit tests with no database gate; and the sibling
+collision itself, which is now correctly DOCUMENTED and tested but still decided
+in a service rather than by the schema. #550's own migration header records one
+further gap: `settleVariantAttributeClaim` re-settling an already-cited claim to
+`refused`, which has no caller today and which a trigger on that table could not
+observe if it did.
 
 ---
 
@@ -703,6 +759,38 @@ alone (zero is the worst case, not the best).
 
 ---
 
+## Two lessons this workstream's own gates taught, in general form
+
+Both were found by breaking my own work rather than by reasoning about it, and both
+generalise past this epic.
+
+**A cast in a fixture disables the only check a fixture gets.** The navigation
+fallback fixtures were first written as `as unknown as`, copied from the sibling
+`compatibility.test.ts` — which is how the pattern propagates. Deleting the cast
+surfaced THREE errors, one per typecheck: a `handle` field `CategoryNode` does not
+have, a missing required `parentId`, and `surface: 'header'` where
+`NavigationSurface` is `header_menu`. The third is the one that mattered: **a value
+no server would ever send, sitting inside the fixture every assertion in the file
+runs over.** A fixture is not production code, so nothing else checks it — the
+compiler is the whole of its defence, and a cast removes it while every assertion
+over the fixture keeps passing.
+
+**A mutation harness whose victim list is hand-written is defended by nothing —
+exactly like the populations it exists to check.** `catalog-authoring-isolation.test.ts`'s
+self-test seeded its mutation into ONE file. Reintroducing the narrowing it was
+written to catch turned exactly **one** test red, because the lone victim happened
+to sit inside the surviving half: a self-test that detects its own bug in one of two
+directions and reads as complete. Deriving one victim per scanned directory from
+`SCANNED_DIRS` — with a length assertion, so a directory holding no `.ts` file fails
+loudly rather than being self-tested by nothing — took the same mutation to
+seventeen red.
+
+The shared shape: **a check's own inputs need the defences the check applies to
+everything else.** A hand-listed victim set, an uncompiled fixture and a
+hand-maintained exemption list are all the same defect at different layers.
+
+---
+
 ## Box 4 — backfill/reindex jobs resume safely after interruption: **partial, and vacuous for three of the four queues**
 
 Procedure and the per-job operator steps:
@@ -790,7 +878,7 @@ resume because nothing runs.
 
 ---
 
-## Box 6 — rollback is documented and tested: **documented, NOT tested**
+## Box 6 — rollback is documented and tested: **documented, and tested apart from the rehearsal**
 
 Full procedure, the four things a rollback does not undo, and the rehearsal:
 [`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md).
@@ -803,14 +891,20 @@ navigation fallback INSIDE one React Query query
 tree list and a network error alike, and the facet rail rendering absence rather
 than an empty panel (`lib/catalog/use-facets.ts:18-22,73,75`).
 
-**Tested: no.** Nothing has been executed — no lever has been flipped on a running
-deployment anywhere — and **no automated test flips one.** The house pattern
-exists (`routes/__tests__/search-rollout.realdb.test.ts:1-18`,
-`routes/__tests__/guest-session.disabled.integration.test.ts`,
-`routes/__tests__/cart-guest.disabled.integration.test.ts`) and the catalog epic
-has no counterpart. Neither storefront fallback has a test either — confirmed with
-a positive control, and the exact precedent sits one file away
-(`packages/frontend/lib/catalog/__tests__/compatibility.test.ts:146`).
+**Tested: the levers are, the rehearsal is not.** Two gates landed.
+`routes/__tests__/catalog-rollout.realdb.test.ts` builds three deployments —
+levers on, levers off, and levers off with an EMPTY operator allow-list — in the
+`search-rollout.realdb.test.ts` shape, and
+`packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts` executes the
+storefront fallback after the decision was extracted out of the hook's closure so
+a test could reach it. Both are mutation-tested clause by clause; the numbers are
+in the runbook's §6.
+
+**What is still not tested is a lever flipped on a RUNNING deployment.** The gates
+prove what the app mounts at a given config; they do not prove a roll carries the
+value, that a task picks it up, or that an operator watching sees what the document
+says. The facet rail's absence also stays a convention — it is React Query
+configuration rather than a decision function, so there is nothing to extract.
 
 So of box 6's two halves:
 
@@ -841,12 +935,12 @@ written.
 
 | Box | Verdict | The one-line reason |
 |---|---|---|
-| 1. Existing products remain readable and sellable | **partial** | True and measurable — five lever-gated mounts, all new surfaces; no commerce path imports the epic. The gate covers 4 repository files of 1 domain of 9, and three docblocks claim more. |
+| 1. Existing products remain readable and sellable | **satisfied** | `catalog-rollout.realdb.test.ts` asserts the five withdrawals, the sameness of every pre-existing path, and a stored record staying reachable; all four levers now have an isolation wall, each shaped to what its domain legitimately reads. Every clause mutation-tested against production code. |
 | 2. Legacy free text migrated only where deterministic | **partial** | Retention, forbidden axes, indistinguishable variants and the no-similarity wall are properties. The ADR's own `Tono` case, the sibling-collision refusal and the typed-value → resolved-claim link are conventions; the last has a ready-made #90-shaped constraint. |
 | 3. No historical commerce snapshot is rewritten | **satisfied as a fact, partial as a property** | No #367 migration touches a commerce table (ten files, four search shapes, a positive control that fires on pre-#367 files). The ledger, fee snapshots, recorded condition and buyer identity are trigger-protected; an order's money, its status trail, payments and refunds are not, and nothing scans migration SQL. |
 | 4. Backfill/reindex jobs resume safely after interruption | **partial** | One job resumes, untested at the reclaim boundary, with a permanent strand on page failure. Three queues are vacuous — no consumer, and one has no producer path either. |
 | 5. Dashboards and alerts expose failures, lag, missing translations, review backlog | **partial** | The numbers exist as DATA with numerator, denominator, window, source, freshness and attribution limit, and each of the four has a runbook. No metric counts a failed publication; alerts and dashboards do not exist and belong to `oxy-infra`; no alert has ever fired. |
-| 6. Rollback is documented and tested before GA | **documented, NOT tested** | Nothing has been executed, no test flips a lever, and neither storefront fallback has a test. The rehearsal is five steps. |
+| 6. Rollback is documented and tested before GA | **documented, levers tested, rehearsal outstanding** | Three deployments gated in CI plus the storefront fallback executed, both mutation-tested. Still nothing flipped on a running deployment, and the facet rail's absence is not gated. |
 
 **None of the six is tickable as written.** Boxes 1–4 are tickable if the box is
 read as "the mechanism exists and is documented"; none is tickable if it is read as
@@ -857,15 +951,20 @@ during an incident.
 
 **Cheapest work that would change those verdicts**, in order of how much each buys:
 
-1. **A `routes/__tests__/catalog-rollout.realdb.test.ts`** in the shape of
-   `search-rollout.realdb.test.ts` — one module graph per lever value, asserting
-   the five paths 404 while `/categories`, `/listings`, `/cart` and `/checkout`
-   answer, and that a row written with a lever on is readable through `/internal/*`
-   with it off. Moves boxes 1 and 6 together.
-2. **A CHECK or trigger requiring a typed axis assignment to cite a
-   `value_resolution = 'resolved'` claim** (`native_variant_axis_assignments.source_claim_id`
-   is nullable and the scope trigger is silent on resolution state). Moves box 2's
-   remaining half, and the constraint shape already exists in #90.
+1. ~~**A `routes/__tests__/catalog-rollout.realdb.test.ts`**~~ — **DONE.** Three
+   deployments, mutation-tested per clause; moved boxes 1 and 6 together, and the
+   frontend navigation fallback landed with it
+   (`packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts`). What
+   neither can reach is a lever flipped on a running deployment — the rehearsal in
+   [`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md)
+   §"The rehearsal".
+2. ~~**A CHECK or trigger requiring a typed axis assignment to cite a
+   `value_resolution = 'resolved'` claim**~~ — **DONE by #550**, as a trigger
+   rather than the CHECK proposed here, for the reason in Box 2's verdict: the
+   fact is cross-row and a CHECK may not contain a subquery. #550 also added the
+   missing `runVariantAxisBackfill` realdb test and corrected the
+   `legacy-resolution.ts` docblock. What is left of box 2 is the `Tono` case and
+   the service-level sibling-collision decision.
 3. **A migration-SQL gate** in the `validate-no-mongo.mjs` shape, refusing DML and
    destructive ALTER against a named commerce set, with the exact-count exemption
    list `migration-handwritten-markers.test.ts` already uses. Moves box 3's
@@ -875,12 +974,12 @@ during an incident.
 4. **A terminal state plus a retry budget on `catalog_backfill_runs`**, which
    closes box 4's strand hole and W17's seam 6 at once, and a test that calls
    `claimBackfillRun` across an expired lease.
-5. **Widen the lever walls**: `catalog-authoring-isolation.test.ts`'s predicate to
-   the whole domain, its mutation self-test to run the real `offenders` filter, and
-   the same wall onto `facet-isolation.test.ts`,
-   `navigation-isolation.test.ts` and `catalog-proposal-isolation.test.ts`.
-   `services/__tests__/product-type-isolation.test.ts:92` already holds the
-   strongest form, aimed at a lever that was never built.
+5. ~~**Widen the lever walls**~~ — **DONE**, all four, each shaped to what its
+   domain legitimately reads (see Box 1's table). The one that was nearly wrong:
+   a blanket wall on `catalog-proposals` would have been refused by its own six
+   legitimate bound reads on the first run, and the natural repair — widening it —
+   would have removed the lever prohibition with it. That domain's wall names
+   `.enabled` for that reason.
 6. **Correct ADR 0007 D12** to name the four levers that exist, record
    `FACETS_ENABLED`, and state that the staged rollout order needs a cohort
    expression nobody built. Five documents quote D12 today.

@@ -5,11 +5,16 @@ previous behaviour back. Reference:
 [`../catalog-migration-operations.md`](../catalog-migration-operations.md) and
 ADR 0007 D12/D13.
 
-**This document has never been executed. Read §6 before you believe any of it.**
-A rollback document that has never been run is a hypothesis, and the incident is
-when somebody finds that out. What follows separates, line by line, what is
-verified by reading the code and by a reproducible census (most of it), from what
-is verified by having done it (none of it).
+**The levers are now GATED BY TESTS; the production rehearsal has still never been
+run. Read §6 before you believe any of it.** Two things changed and they are not
+the same thing. `routes/__tests__/catalog-rollout.realdb.test.ts` builds three
+real deployments — levers on, levers off, and levers off with an EMPTY operator
+allow-list — and asserts what each withdraws, what each keeps, and that a stored
+proposal survives; `packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts`
+executes the storefront's fallback. So the claims below are no longer conventions.
+What remains un-rehearsed is a lever flipped on a RUNNING deployment: no operator
+has watched a route stop answering and start again, and §6 lists exactly which
+steps that leaves open.
 
 **Owner:** the on-call engineer for the Mercaria API. Withdrawing a published
 taxonomy or navigation tree is the catalogue operator's, and is a data change
@@ -130,16 +135,26 @@ does not condition `enabled` on the flag (`:73`) and carries `retry: false`
 empty rail" — so consumers read `data === undefined` as "this deployment offers no
 filters here" and render nothing rather than an empty filter panel.
 
-**Neither fallback has a test.** Confirmed:
-`navigationFromCategoryTree`, `category_tree_fallback` and
-`useCatalogNavigation` appear in no test file in the repository, with the positive
-control that the same grep shape finds tested frontend catalog functions
-(`packages/frontend/lib/catalog/__tests__/composition.test.ts:52`). The frontend
-suite does run in CI (`.github/workflows/ci.yml:235`) and the exact precedent
-exists one file over — `lib/catalog/__tests__/compatibility.test.ts:146`,
-*"a failed read is not an absent fitment"* — so this is a missing test rather than
-a missing capability. **Until it exists, the single most load-bearing claim in
-this runbook is a convention.**
+**The NAVIGATION fallback is now gated; the facet rail's absence is not.**
+`packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts` executes the
+decision, which was moved out of the hook's `queryFn` closure into
+`resolveCatalogNavigation` in `lib/catalog/navigation.ts` so a test could reach it
+at all — the rule this package's `vitest.config.ts` states for exactly this case
+(extract the logic rather than mount the renderer; the runner has no jsdom). It
+asserts the three failures separately — the lever's 404, a RESOLVED-but-empty tree
+list, an unreachable API — because a single case passes against an implementation
+that handled only the one it was written for. It also asserts the case an
+over-broad `catch` would turn into a silent empty storefront: when `GET /categories`
+fails too, the resolver REJECTS. And it asserts the HOOK calls it, because a
+mechanism can be green and inert — measured: reverting the hook to an inline copy
+leaves all four resolver cases GREEN and turns only the three entrypoint
+assertions red.
+
+**The facet rail's "a 404 is no rail, never an empty rail" is still a convention.**
+It is React Query configuration (`enabled` not conditioned on the flag,
+`retry: false`) rather than a decision function, so there is nothing to extract
+and nothing behaviourally to assert without a renderer. It stays on the rehearsal
+list at §6 step 3.
 
 ---
 
@@ -239,40 +254,66 @@ the lever that actually exists.
   handle 404, empty and network failure.
 - No #367 migration touches a commerce table, and all ten are `pre`.
 
-**NOT verified, and this is the honest core of box 6:**
+**NOW GATED BY TESTS — what changed, and each gate's mutation evidence:**
 
-- **Nothing has been executed.** No lever has been flipped on a running
-  deployment, in production or anywhere else, and no route has been observed to
-  404 and then to answer again. Everything above is read from code and from
-  censuses over source.
-- **No automated test flips any of the four levers.** The only test file naming
-  one asserts a *string* in a metrics report
-  (`services/catalog-observability/__tests__/metrics.realdb.test.ts:467`). The
-  house pattern exists and is documented —
-  `routes/__tests__/search-rollout.realdb.test.ts:1-18` builds one module graph
-  per lever value with `vi.resetModules()` precisely because config reads
-  `process.env` once at import, and
-  `routes/__tests__/guest-session.disabled.integration.test.ts` and
-  `routes/__tests__/cart-guest.disabled.integration.test.ts` are the `*.disabled`
-  counterparts. **The catalog epic has no `*-rollout` and no `*.disabled` test.**
-- The levers-off case is covered **incidentally**, because the whole realdb suite
-  runs at default env and every existing cart and checkout test is therefore a
-  levers-off sellability proof. That is a coincidence of the defaults, not a named
-  property, and it stops being evidence the moment somebody sets a lever in a
-  test's environment.
-- **Neither storefront fallback has a test** (§3).
-- The one gate that does defend "no lever gates a durable record" covers **four
-  repository files of one domain of nine**
-  (`services/catalog-authoring/__tests__/catalog-authoring-isolation.test.ts:306-318`,
-  predicate at `:312-316`), while its own title and two docblocks
-  (`config/index.ts:3459-3460`, and D12 itself) claim it covers read paths too.
-  `CATALOG_TAXONOMY_V2_ENABLED`, `CATALOG_PROPOSALS_ENABLED` and `FACETS_ENABLED`
-  have **no gate at all**.
+- **`routes/__tests__/catalog-rollout.realdb.test.ts`** builds three real
+  deployments through `createApp()`, one module graph each. It asserts the five
+  gated mounts 404 with the levers off AND are not 404 with them on; that the
+  pre-existing catalogue and commerce paths (`/categories`, `/listings`, `/cart`,
+  `/checkout`, `/catalog-attributes`) answer IDENTICALLY across lever states, with
+  a not-404 floor so two 404s cannot satisfy sameness; that a proposal stored with
+  the lever on is still readable over HTTP through `/internal/catalog-proposals`
+  with it off while the merchant surface that created it is gone; that all nine
+  internal surfaces are mounted with every lever off; and that an EMPTY
+  `CATALOG_OPERATOR_OXY_USER_IDS` 404s all nine.
+  **Mutation-tested, one clause at a time** — ungating each of the four levers in
+  `app.ts` turns only that lever's paths red (authoring 2, proposals 2 including
+  the durable-record case, facets 1, navigation 1); making `/cart` lever-gated
+  turns the sameness case red; making `/internal/catalog-governance` follow a
+  lever turns the mounted case red; and replacing
+  `graphOperatorSurfaceEnabled: resolveCatalogOperatorIds().length > 0` with
+  `true` turns all nine failure-mode cases red.
+- **`packages/frontend/lib/catalog/__tests__/navigation-fallback.test.ts`**
+  executes the storefront fallback (§3), including the entrypoint assertions.
+  Mutation-tested per clause: removing the rejection branch turns 3 red, removing
+  the empty-tree branch turns exactly the D13-parity case red, swallowing the v1
+  read's own failure turns exactly that case red, and reverting the hook to an
+  inline copy leaves all four resolver cases GREEN and turns only the three
+  entrypoint assertions red — which is why they are there.
+- **All four levers now have an ISOLATION wall**, each shaped to what its domain
+  legitimately reads — blanket for authoring, facets and navigation, and named on
+  `.enabled` for proposals, whose services read six legitimate bounds off the same
+  config object. `catalog-authoring-isolation.test.ts`'s was widened from four
+  repository files to the whole domain, needs no exemption (the controller's page
+  bounds and draft TTL live outside the scanned directories), and gained the
+  blanket "no configuration at all" wall `product-type-isolation.test.ts` uses.
+  Its self-test now runs the REAL `offendingPaths` assertion over a population
+  with a mutated file swapped in, and seeds one victim PER scanned directory —
+  measured, because with a single victim the original narrowing turned only ONE
+  test red, and with one per directory the same mutation turns seventeen red.
+
+**STILL NOT verified, and this is what box 6 still owes:**
+
+- **No lever has been flipped on a running deployment**, in production or
+  anywhere else, and no operator has watched a route stop answering and start
+  again. The gates prove what the app MOUNTS at a given config; they do not prove
+  a roll behaves, that SSM carries the value, or that a task picks it up.
+- **The facet rail's absence is not gated** (§3) — it is React Query
+  configuration rather than a decision function.
+- **The selectability trigger has never been exercised in anger** (§4 item 2) —
+  rehearsal step 5.
+- The levers-off case is ALSO covered incidentally, because the whole realdb suite
+  runs at default env; that remains a coincidence of the defaults rather than a
+  named property, and it is no longer the only evidence.
 
 ### The rehearsal, and what each step would settle
 
-Do this on a staging deployment before general availability. It is the difference
-between box 6 being ticked and being true.
+Do this on a staging deployment before general availability. Steps 1, 2 and 4 now
+have their SERVER half gated by `catalog-rollout.realdb.test.ts` and step 3's
+navigation half by `navigation-fallback.test.ts`, so what each step still settles
+is narrower than it was — and it is the part a test cannot reach: that a real roll
+carries the value, that a task picks it up, and that a person watching sees what
+this document says they will.
 
 1. **All four levers on, then all four off, one roll each.** After each roll:
    the five paths in §1 answer as expected; the eight unconditional paths still

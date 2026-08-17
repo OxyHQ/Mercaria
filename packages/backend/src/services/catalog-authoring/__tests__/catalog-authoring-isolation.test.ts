@@ -82,6 +82,49 @@ function loadSources(): SourceFile[] {
 
 const SOURCES = loadSources();
 
+/**
+ * The ONE detection function. Every wall assertion and every mutation self-test
+ * calls exactly this, over a `files` argument rather than over `SOURCES`.
+ *
+ * That parameter is the whole point, and it was added because the lever wall
+ * below used to be checked one way and self-tested another: the wall applied a
+ * PATH predicate and its self-test asserted only that the regex matched a string,
+ * so it proved the pattern worked and said nothing about the filter — which meant
+ * it could not see that the filter's scope was four files of the domain's ten. A
+ * self-test that cannot detect its own gate's narrowing is worse than none,
+ * because the passing test is what stops the next reader looking.
+ *
+ * Returning PATHS rather than a boolean is deliberate too: a self-test can then
+ * assert the offender set is EXACTLY the file it mutated, which also fails a
+ * filter that has become so broad it flags everything.
+ */
+function offendingPaths(wall: Wall, files: readonly SourceFile[]): string[] {
+  return files
+    .filter((file) => wall.pattern.test(wall.reads === 'raw' ? file.raw : file.stripped))
+    .map((file) => file.path);
+}
+
+/**
+ * One file per scanned directory, for the mutation self-tests to seed into.
+ *
+ * Derived from `SCANNED_DIRS` rather than hand-listed, so a THIRD directory added
+ * to the domain gets a victim automatically — and if one somehow contains no `.ts`
+ * file, the length assertion in the self-test fails rather than silently covering
+ * one directory fewer.
+ *
+ * One victim per directory rather than one overall, and this was MEASURED: with a
+ * single victim, reintroducing the exact path predicate this file was fixed for
+ * turned only ONE test red, because the lone victim happened to sit inside the
+ * surviving half. With a victim in each, the same mutation turns seventeen red. A
+ * gate whose self-test depends on which file the traversal happened to return
+ * last is a gate that goes quiet on a rename.
+ */
+const MUTATION_VICTIMS: readonly SourceFile[] = SCANNED_DIRS.flatMap((dir) => {
+  const inDir = SOURCES.filter((file) => file.path.startsWith(dir));
+  const last = inDir[inDir.length - 1];
+  return last === undefined ? [] : [last];
+});
+
 /** One prohibition, as data, so the mutation self-test can drive every one. */
 interface Wall {
   readonly name: string;
@@ -192,7 +235,45 @@ const WALLS: readonly Wall[] = [
       '  await db.insert(listings).values({});',
     ],
   },
-
+  {
+    name: 'no module here may read the ROLLOUT LEVER — a flag gates the mount, never a stored row',
+    // ADR 0007 D12. The lever lives in `app.ts` (the mount); the page bounds and
+    // the draft TTL live in `controllers/catalog-authoring.controller.ts`, which
+    // is OUTSIDE both scanned directories, so this wall needs no exemption and
+    // has none — a wall with an exemption list is a wall plus a second thing to
+    // keep true.
+    //
+    // What it prevents: a repository or a service that read the lever could
+    // refuse to return a draft somebody already saved, which is precisely the
+    // rollback nobody would pull. This wall previously covered `db/catalogAuthoring`
+    // ONLY — four files of ten — while its own title claimed "repository or read
+    // path", so every service in the domain could gate on the flag with a green
+    // build. It now covers both directories.
+    pattern: /config\s*\.\s*catalogAuthoring/u,
+    reads: 'stripped',
+    mutations: [
+      '  if (config.catalogAuthoring.enabled) return null;',
+      '  const ttl = config . catalogAuthoring . draftTtlSeconds;',
+    ],
+  },
+  {
+    name: 'no module here may reach configuration at all',
+    // The strongest form of the wall above, and it is the shape
+    // `services/__tests__/product-type-isolation.test.ts` already uses. It holds
+    // today: the domain imports no config module and reads no `process.env`.
+    //
+    // It is kept BESIDE the specific lever wall rather than replacing it, even
+    // though it subsumes it — if a legitimate bound ever moves from the
+    // controller into a service, whoever hits this wall will excuse THIS one, and
+    // the lever prohibition has to survive that. The two also fail with different
+    // messages, and the specific one names the property.
+    pattern: /from\s+['"][^'"]*\/config(?:\/[^'"]*)?['"]|process\s*\.\s*env\b/u,
+    reads: 'stripped',
+    mutations: [
+      "import { config } from '../../config/index.js';",
+      '  const mode = process.env.CATALOG_AUTHORING_ENABLED;',
+    ],
+  },
 ];
 
 describe('the catalog authoring domain is scanned, not sampled', () => {
@@ -248,27 +329,41 @@ describe('the catalog authoring domain is scanned, not sampled', () => {
 
 describe.each(WALLS)('$name', (wall) => {
   it('holds across the whole domain', () => {
-    const offenders = SOURCES.filter((file) =>
-      wall.pattern.test(wall.reads === 'raw' ? file.raw : file.stripped),
-    ).map((file) => file.path);
-    expect(offenders).toEqual([]);
+    expect(offendingPaths(wall, SOURCES)).toEqual([]);
   });
 
   it.each(wall.mutations)(
-    'MUTATION SELF-TEST — the detector goes red on `%s`',
+    'MUTATION SELF-TEST — the REAL assertion goes red on `%s`, in EVERY scanned directory',
     (mutation) => {
-      const victim = SOURCES[0];
-      expect(victim, 'the traversal found no file to mutate').toBeDefined();
-      if (victim === undefined) return;
+      expect(
+        MUTATION_VICTIMS.length,
+        'a scanned directory has no file to mutate, so it is self-tested by nothing',
+      ).toBe(SCANNED_DIRS.length);
 
-      const mutated = `${victim.raw}\n${mutation}\n`;
-      // The mutation LANDED — asserted before its effect is measured, because a
-      // mutation that never applied is indistinguishable from one that survived.
-      expect(mutated).not.toBe(victim.raw);
-      expect(mutated).toContain(mutation);
+      for (const victim of MUTATION_VICTIMS) {
+        const mutatedRaw = `${victim.raw}\n${mutation}\n`;
+        // The mutation LANDED — asserted before its effect is measured, because a
+        // mutation that never applied is indistinguishable from one that survived.
+        expect(mutatedRaw).not.toBe(victim.raw);
+        expect(mutatedRaw).toContain(mutation);
 
-      const subject = wall.reads === 'raw' ? mutated : stripComments(mutated);
-      expect(wall.pattern.test(subject)).toBe(true);
+        // Run the REAL detector over a population with the mutated file swapped
+        // in, rather than regex-testing a string. `offendingPaths` is the same
+        // function the wall assertion above calls, so a narrowing of its filter —
+        // a path predicate, a truncated population, a `reads` mix-up — turns this
+        // red.
+        const mutatedSources = SOURCES.map((file) =>
+          file.path === victim.path
+            ? { path: file.path, raw: mutatedRaw, stripped: stripComments(mutatedRaw) }
+            : file,
+        );
+        // EXACTLY the mutated file, which also fails a filter grown so broad it
+        // flags its innocent neighbours.
+        expect(
+          offendingPaths(wall, mutatedSources),
+          `mutating ${victim.path} did not produce exactly that one offender`,
+        ).toEqual([victim.path]);
+      }
     },
   );
 });
@@ -303,26 +398,46 @@ describe('the forbidden field keys are named as VALUES, and disjoint from what a
   });
 });
 
-describe('a flag gates the MOUNT and never a stored row', () => {
-  it('no repository or read path in this domain reads `config.catalogAuthoring`', () => {
-    // ADR 0007 D12's house rule. The lever lives in `app.ts` (the mount) and in
-    // the controller (the TTL and the page bounds, which are numbers rather than
-    // gates). A repository that read it could refuse to return a draft somebody
-    // already saved, which is precisely the rollback nobody would pull.
-    const offenders = SOURCES.filter(
-      (file) =>
-        file.path.includes(`${'db'}/catalogAuthoring`) &&
-        /config\s*\.\s*catalogAuthoring/u.test(file.stripped),
-    ).map((file) => file.path);
-    expect(offenders).toEqual([]);
+describe('the lever wall covers the whole domain, not one directory of it', () => {
+  it('scans BOTH directories — the narrowing this wall used to carry', () => {
+    // The wall it replaced filtered on `path.includes('db/catalogAuthoring')`,
+    // so it measured 4 files while claiming "repository or read path". This
+    // asserts the population it now runs over spans both, by DIRECTORY rather
+    // than by count — a count floor would be satisfied by ten files from one
+    // directory, which is the exact shape of the bug.
+    const services = SOURCES.filter((file) =>
+      file.path.includes(join('services', 'catalog-authoring')),
+    );
+    const repositories = SOURCES.filter((file) =>
+      file.path.includes(join('db', 'catalogAuthoring')),
+    );
+    expect(services.length).toBeGreaterThanOrEqual(4);
+    expect(repositories.length).toBeGreaterThanOrEqual(3);
+    expect(services.length + repositories.length).toBe(SOURCES.length);
   });
 
-  it('MUTATION SELF-TEST — the detector goes red on a repository reading the lever', () => {
-    const victim = SOURCES.find((file) => file.path.includes(`${'db'}/catalogAuthoring`));
-    expect(victim, 'the traversal found no repository file').toBeDefined();
+  it('MUTATION SELF-TEST — a SERVICE reading the lever is caught, which the old wall missed', () => {
+    // The regression test for the narrowing itself. Under the old predicate this
+    // mutation survived: the file is in `services/`, the filter only looked at
+    // `db/`, and the old self-test seeded its mutation into a `db/` file so it
+    // never noticed.
+    const wall = WALLS.find((candidate) => candidate.name.includes('ROLLOUT LEVER'));
+    expect(wall, 'the lever wall is no longer in WALLS').toBeDefined();
+    if (wall === undefined) return;
+
+    const victim = SOURCES.find((file) =>
+      file.path.includes(join('services', 'catalog-authoring')),
+    );
+    expect(victim, 'the traversal found no service file').toBeDefined();
     if (victim === undefined) return;
-    const mutated = `${victim.raw}\nif (config.catalogAuthoring.enabled) { /* nothing */ }\n`;
-    expect(mutated).not.toBe(victim.raw);
-    expect(/config\s*\.\s*catalogAuthoring/u.test(stripComments(mutated))).toBe(true);
+
+    const mutatedRaw = `${victim.raw}\nif (config.catalogAuthoring.enabled) return null;\n`;
+    expect(mutatedRaw).not.toBe(victim.raw);
+    const mutatedSources = SOURCES.map((file) =>
+      file.path === victim.path
+        ? { path: file.path, raw: mutatedRaw, stripped: stripComments(mutatedRaw) }
+        : file,
+    );
+    expect(offendingPaths(wall, mutatedSources)).toEqual([victim.path]);
   });
 });

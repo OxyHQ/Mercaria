@@ -105,6 +105,36 @@ and missed both.
 
 **A name-keyed search cannot find a copy that does not carry the name.**
 
+### A barrel is where a census goes blind, in both directions
+
+**The file that names nothing is the file everything resolves through**, so it is
+simultaneously invisible to a name-based census and useless to a symbol-based one.
+Two instances, both measured:
+
+**A directory-keyed import detector cannot see a barrel re-export.** The house
+shape is `from\s+['"](?:[^'"]*\/)?(?:<domain>)\/[^'"]*['"]` — it requires a
+directory SEGMENT before the module. A barrel writes `export * from './compatibility'`:
+relative, extensionless, no directory segment, so the pattern that correctly
+matches `'../compatibility/claim.service.js'` and
+`'../../services/payments/redact.js'` matches neither `'./compatibility'` nor
+`'./payments'` nor `'./compatibility.js'`. `db/schema/index.ts` alone holds 79
+lines of exactly that shape. So a reachability gate can be green while the domain
+it forbids is re-exported through a barrel the population includes.
+
+**And a symbol-keyed search cannot see THROUGH one.** Grepping
+`shared-types/dist/index.d.ts` for a symbol returns 0 whether the build is stale
+or perfectly fresh, because `index.d.ts` holds only the `export *` line — the
+symbol lives in `dist/compatibility.d.ts`. That zero was read as proof of a stale
+`dist` and happened to be right for an unrelated reason (the mtime comparison was
+the real evidence). **A probe aimed at a barrel answers 0 for two causes at once**,
+and one of them is "everything is fine".
+
+The pair is the general form of the ranking finding above. A name-keyed search
+cannot find a copy that does not carry the name; a barrel is the case where
+NOTHING carries the name and every consumer still gets the thing. Aim a census at
+the modules, never at the barrel — and when a probe over a barrel returns zero,
+that is not a measurement yet.
+
 ### Domain populations: no instrument decides this
 
 There is no shared derivation to score against, and the difference between *the
