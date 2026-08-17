@@ -170,6 +170,12 @@ const ANALYTICS_SHARED_DIRECTORIES = [
   'db/schema',
 ] as const;
 
+/** Every directory the population is configured to draw from. */
+const ANALYTICS_SCANNED_DIRECTORIES = [
+  ...ANALYTICS_OWNED_DIRECTORIES,
+  ...ANALYTICS_SHARED_DIRECTORIES,
+] as const;
+
 /**
  * The whole analytics domain, DERIVED — not the eight modules somebody
  * remembered.
@@ -403,6 +409,68 @@ describe('analytics cannot read commercial standing', () => {
       ).toBe(true);
     }
     expect(ANALYTICS_NAME_PATTERN.test('orders.controller.ts')).toBe(false);
+  });
+
+  it('a violation planted in EVERY scanned directory is detected — one victim per directory', () => {
+    // A self-test with ONE seeded victim proves the detector fires where that
+    // victim sits and nothing about the rest of the population: a mutation
+    // aimed at half the derivation leaves the other half green, and the single
+    // red reads as proof. So the victims are DERIVED from the directories the
+    // population actually draws from, one each — a subdirectory added tomorrow
+    // is self-tested with no edit here, and the count is asserted so a
+    // directory that silently leaves the population takes this test red with
+    // it.
+    const modules = analyticsDomainModules();
+    const parentOf = (relative: string): string => relative.slice(0, relative.lastIndexOf('/'));
+    const directories = [...new Set(modules.map(parentOf))].sort();
+
+    // A CONFIGURED directory holding no `.ts` file must fail loudly rather than
+    // be covered by nothing — the clause that keeps this honest as the tree
+    // grows, and the one a population-derived victim list cannot state on its
+    // own (a directory that contributes nothing simply never appears).
+    for (const configured of ANALYTICS_SCANNED_DIRECTORIES) {
+      expect(
+        modules.some((relative) => relative.startsWith(`${configured}/`)),
+        `${configured} contributed no module, so nothing in it is self-tested — a configured ` +
+          'directory that holds no scanned file is a hole, not an empty set',
+      ).toBe(true);
+    }
+
+    const victims = directories.map((directory) => {
+      const inDirectory = modules.filter((relative) => parentOf(relative) === directory);
+      expect(inDirectory.length, `${directory} produced no mutation victim`).toBeGreaterThan(0);
+      return inDirectory[0] ?? '';
+    });
+    expect(
+      victims.length,
+      'a directory lost its victim; the self-test now covers less of the tree than the scan does',
+    ).toBe(directories.length);
+    expect(
+      directories.length,
+      'the population draws from fewer directories than are configured, so some configured ' +
+        'directory is contributing nothing',
+    ).toBeGreaterThanOrEqual(ANALYTICS_SCANNED_DIRECTORIES.length);
+
+    for (const victim of victims) {
+      const raw = readDomainSource(victim);
+      // The control: the real file passes TODAY, so the red below comes from
+      // the planted violation and not from the file it was planted in.
+      expect(
+        COMMERCIAL_REFERENCE.test(stripComments(raw)),
+        `${victim} already fails the wall, so it cannot serve as a mutation control`,
+      ).toBe(false);
+      expect(modules, `${victim} is not in the scanned population`).toContain(victim);
+      for (const violation of [
+        "\nimport { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';\n",
+        "\nimport { readReferralProgram } from '../referrals/program.service.js';\n",
+      ]) {
+        expect(
+          COMMERCIAL_REFERENCE.test(stripComments(raw + violation)),
+          `a violation planted in ${victim} is not detected, so ${parentOf(victim)} is scanned ` +
+            'by a detector that cannot see a violation in it',
+        ).toBe(true);
+      }
+    }
   });
 
   it('comment stripping removes prose and nothing else — and it is load-bearing here', () => {
