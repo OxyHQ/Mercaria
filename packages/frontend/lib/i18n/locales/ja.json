@@ -1,82 +1,36 @@
 {
   "common": {
-    "or": "または",
     "loading": "読み込み中…",
-    "error": "エラー",
-    "success": "完了しました",
     "cancel": "キャンセル",
     "confirm": "確認",
-    "save": "保存",
-    "saving": "保存中…",
-    "delete": "削除",
-    "edit": "編集",
-    "close": "閉じる",
     "back": "戻る",
-    "create": "作成",
-    "search": "検索…",
-    "comingSoon": "近日公開！",
-    "noResults": "結果が見つかりません",
     "user": "ユーザー",
-    "done": "完了",
     "tryAgain": "再試行",
     "processing": "処理中…"
   },
   "home": {
     "title": "Mercaria",
-    "emptyTitle": "Mercaria は近日公開",
-    "emptySubtitle": "新品も中古も、売って買える。出品はここに表示されます。"
+    "loadingProducts": "商品を読み込んでいます",
+    "loadError": "商品を読み込めませんでした。引っ張って更新するか、もう一度お試しください。"
   },
   "nav": {
     "home": "ホーム",
-    "settings": "設定"
+    "settings": "設定",
+    "explore": "さがす",
+    "cart": "カート",
+    "deals": "セール",
+    "saved": "保存済み",
+    "account": "アカウント",
+    "signIn": "ログイン"
   },
   "login": {
-    "title": "ログインまたは新規登録",
-    "subtitle": "Mercaria を続けるには",
-    "emailPlaceholder": "メールアドレス",
-    "passwordPlaceholder": "パスワード",
-    "forgotPassword": "パスワードをお忘れですか？",
     "signInButton": "ログイン",
-    "signingIn": "ログインしています…",
-    "footerText": "アカウントをお持ちでないですか？",
-    "footerLink": "新規登録",
-    "termsPrefix": "続行すると、以下に同意したものとみなされます：Mercaria の",
-    "termsOfService": "利用規約",
-    "termsAnd": "および",
-    "privacyPolicy": "プライバシーポリシー"
-  },
-  "register": {
-    "title": "Oxy アカウントを作成",
-    "subtitle": "登録して Mercaria を使い始めましょう",
-    "firstNamePlaceholder": "名",
-    "lastNamePlaceholder": "姓（任意）",
-    "emailPlaceholder": "メールアドレス",
-    "passwordPlaceholder": "パスワード（8 文字以上）",
-    "confirmPasswordPlaceholder": "パスワードを再入力",
-    "createAccountButton": "続ける",
-    "creatingAccount": "アカウントを作成しています…",
-    "footerText": "すでにアカウントをお持ちですか？",
-    "footerLink": "ログイン",
-    "termsPrefix": "続行すると、以下に同意したものとみなされます：Oxy の",
-    "termsOfService": "利用規約",
-    "termsAnd": "および",
-    "privacyPolicy": "プライバシーポリシー"
-  },
-  "errors": {
-    "passwordRequired": "パスワードを入力してください",
-    "loginFailed": "ログインできませんでした",
-    "loginError": "ログインエラー",
-    "failedToLogin": "ログインできませんでした。もう一度お試しください。",
-    "registrationError": "登録エラー",
-    "registrationFailed": "登録できませんでした",
-    "failedToRegister": "登録できませんでした。もう一度お試しください。"
+    "footerLink": "新規登録"
   },
   "settings": {
     "title": "設定",
-    "subtitle": "Mercaria の設定を管理します",
     "account": {
-      "title": "アカウント設定",
-      "description": "アカウントを管理します"
+      "title": "アカウント設定"
     },
     "appLanguage": {
       "title": "アプリの言語",
@@ -85,7 +39,6 @@
     },
     "appearance": {
       "title": "外観",
-      "description": "お好みの配色を選択します",
       "light": "ライト",
       "dark": "ダーク",
       "system": "システムに合わせる"
@@ -102,13 +55,18 @@
       "watchlists": "ウォッチリスト",
       "shoppingAgents": "ショッピングアシスタント",
       "referralPartner": "紹介プログラム"
+    },
+    "currency": {
+      "title": "表示通貨",
+      "description": "価格を表示する通貨を選んでください。既定は FairCoin（⊜）です。",
+      "signedOut": "表示通貨の設定を保存するにはログインしてください。",
+      "updateFailed": "表示通貨を更新できませんでした"
     }
   },
   "sidebar": {
     "account": "アカウント",
     "settings": "設定",
     "logOut": "ログアウト",
-    "termsOfService": "利用規約",
     "privacyPolicy": "プライバシーポリシー"
   },
   "feedback": {
@@ -134,9 +92,8 @@
     "featurePlaceholder": "ご希望の機能をご記入ください。どのように役立ちますか？",
     "improvementPlaceholder": "どこを改善してほしいですか？どうすればもっと良くなりますか？",
     "otherPlaceholder": "ご意見をお聞かせください…",
-    "characterCount": "{{count}}/1000 文字",
+    "characterCount": "%{count}/1000 文字",
     "submitButton": "フィードバックを送信",
-    "submitting": "送信中…",
     "footerText": "いただいたフィードバックは Mercaria の改善に役立てます。お時間をいただきありがとうございます。",
     "selectType": "フィードバックの種類を選択してください",
     "enterMessage": "フィードバックの内容を入力してください",
@@ -146,16 +103,112 @@
   },
   "notifications": {
     "title": "通知",
-    "subtitle": "通知の設定を管理します",
     "pushNotifications": "プッシュ通知",
     "pushDescription": "新着メッセージや更新のお知らせを受け取ります",
-    "permissionDenied": "通知がブロックされています。プッシュ通知を受け取るには、デバイスの設定で有効にしてください。"
-  },
-  "welcome": {
-    "appName": "Mercaria"
+    "permissionDenied": "通知がブロックされています。プッシュ通知を受け取るには、デバイスの設定で有効にしてください。",
+    "timeAgo": {
+      "justNow": "たった今",
+      "minutes": "%{count}分前",
+      "hours": "%{count}時間前",
+      "days": "%{count}日前"
+    },
+    "unreadCount": "未読 %{count} 件",
+    "markAllRead": "すべて既読にする",
+    "empty": {
+      "title": "通知はまだありません",
+      "body": "未読はありません。"
+    }
   },
   "product": {
-    "priceHistoryHeading": "価格の推移 — %{segment}"
+    "priceHistoryHeading": "価格の推移 — %{segment}",
+    "intent": {
+      "balanced": "総合的におすすめ",
+      "cheapest": "最安値",
+      "fastest": "最短でお届け",
+      "official": "公式ストア",
+      "used": "中古"
+    },
+    "sourceKind": {
+      "connector": "連携ストア",
+      "feed": "商品フィード",
+      "marketplaceApi": "マーケットプレイス",
+      "affiliateNetwork": "アフィリエイトネットワーク",
+      "operator": "オペレーター",
+      "backfill": "過去のインポート"
+    },
+    "appName": "Mercaria",
+    "documentTitle": "%{name} — Mercaria",
+    "loadingA11y": "商品を読み込んでいます",
+    "loadError": "この商品を読み込めませんでした。しばらくしてからお試しください。",
+    "notFound": "この商品は見つかりませんでした。",
+    "visitA11y": "%{name} を開く",
+    "moreFromStore": "%{name} のほかの商品",
+    "compareOffersA11y": "この商品のすべての出品を比較する",
+    "compareOffers": "すべての出品を比較",
+    "percentOff": "%{percent}%オフ",
+    "demandCopy": "先月10万個以上購入",
+    "exclusiveOffer": {
+      "label": "限定価格を見る",
+      "caption": "ログインすると限定オファーを表示できます"
+    },
+    "quantity": "数量",
+    "decreaseQuantity": "数量を減らす",
+    "increaseQuantity": "数量を増やす",
+    "save": {
+      "productA11y": "この商品を保存",
+      "removeProductA11y": "この商品を保存から削除",
+      "product": "商品を保存",
+      "productSaved": "商品を保存しました",
+      "exactListingA11y": "この出品を保存",
+      "removeListingA11y": "この出品を保存から削除",
+      "listing": "この出品を保存",
+      "listingSaved": "出品を保存しました",
+      "save": "保存",
+      "saved": "保存済み"
+    },
+    "shareA11y": "この商品を共有",
+    "share": "共有",
+    "deliveryAndReturns": "配送と返品",
+    "viewReturnPolicyA11y": "返品ポリシーを見る",
+    "returnPolicy": "返品ポリシー",
+    "description": "説明",
+    "viewMore": "もっと見る",
+    "viewLess": "表示を減らす",
+    "highlights": "ハイライト",
+    "sortOffersBy": "出品の並び順",
+    "reportProblemA11y": "この商品の情報の問題を報告する",
+    "reportProblem": "問題を報告",
+    "specifications": "仕様",
+    "modelIdentifiers": "型番",
+    "imageFromCatalogueA11y": "%{name} — カタログの画像",
+    "releasedYear": "%{year}年発売",
+    "discontinued": "生産終了",
+    "detailsLastConfirmed": "商品情報は %{date} に「%{source}」ソースで最後に確認されました。",
+    "variant": {
+      "configuration": "構成",
+      "allConfigurationsA11y": "すべての構成",
+      "all": "すべて",
+      "standard": "標準",
+      "offerCountA11y": {
+        "one": "%{label}、このページに %{count} 件の出品",
+        "other": "%{label}、このページに %{count} 件の出品"
+      }
+    },
+    "brandChannels": {
+      "officialTitle": "公式ストア",
+      "officialExplanation": "ブランドが自社のものとして確認したチャネルです。",
+      "resellersTitle": "正規販売店",
+      "resellersExplanation": "ブランドが正規と確認した販売店です。ブランド自身のストアではありません。"
+    },
+    "priceHistory": {
+      "lowestInWindow": "この期間の最安値: %{amount}",
+      "noOffersObserved": {
+        "one": "この期間のうち %{count} 区間では出品が確認されませんでした。",
+        "other": "この期間のうち %{count} 区間では出品が確認されませんでした。"
+      },
+      "notFullyBuilt": "この期間の一部はまだ作成されていません。",
+      "conversionDisplayOnly": "換算後の金額は表示用です。"
+    }
   },
   "catalog": {
     "breadcrumbs": {
@@ -190,7 +243,1247 @@
       "fallbackTitle": "カテゴリー",
       "notFound": "このカテゴリーは見つかりませんでした。",
       "subcategories": "サブカテゴリー",
-      "empty": "この絞り込みに合うものはまだありません。"
+      "empty": "この絞り込みに合うものはまだありません。",
+      "documentTitle": "%{title} — Mercaria"
+    }
+  },
+  "cart": {
+    "title": "カート",
+    "pageTitle": "カート — Mercaria",
+    "signIn": "サインイン",
+    "loadingA11yLabel": "カートを読み込んでいます",
+    "error": {
+      "title": "カートを読み込めませんでした",
+      "subtitle": "接続を確認してもう一度お試しください。中身は失われていません。"
+    },
+    "empty": {
+      "title": "カートは空です",
+      "subtitle": "マーケットを見て、気に入った商品を追加してください。"
+    },
+    "guestOffer": {
+      "title": "ゲストとして購入",
+      "intro": "アカウントがなくても購入できます。アカウントがあると、さらに:",
+      "benefits": {
+        "crossDevice": "カートがほかの端末にも引き継がれます",
+        "savedAddresses": "住所を保存できるので、購入手続きが1ステップ",
+        "orderHistory": "すべての注文がアカウントにひもづいて1か所にまとまります"
+      },
+      "footnote": "いつでもサインインできます。カートに入っている商品はそのまま引き継がれます。",
+      "signInA11yLabel": "Oxy アカウントにサインイン"
+    },
+    "storageWarning": {
+      "title": "このカートはアプリを閉じると失われる可能性があります",
+      "body": "この端末にカートを安全に保存できませんでした。このまま買い物を続けて購入することはできます。サインインするとカートが安全に保たれます。"
+    },
+    "group": {
+      "visitSellerA11yLabel": "%{seller} を見る",
+      "soldByA11yLabel": "販売者: %{seller}",
+      "subtotal": "小計",
+      "checkout": "購入手続きへ",
+      "checkoutWithA11yLabel": "%{seller} の商品の購入手続きへ"
+    },
+    "guestBlocked": {
+      "title": "個人から購入するにはアカウントが必要です",
+      "body": "%{seller} の商品はまだゲストでは購入できません。サインインして購入手続きへお進みください。カートに入っている商品はそのまま引き継がれます。",
+      "signInA11yLabel": "この販売者から購入するために Oxy アカウントにサインイン"
+    },
+    "summary": {
+      "totalAll": "カート合計",
+      "totalAvailable": "今すぐ購入できる分",
+      "checkoutAll": "すべて購入",
+      "checkoutAvailable": "購入できる商品を購入",
+      "checkoutAllA11yLabel": "カートの商品をすべて購入する",
+      "checkoutAvailableA11yLabel": "ゲストで購入できる商品を購入する"
+    },
+    "recommendations": {
+      "title": "こちらもおすすめ"
+    }
+  },
+  "orders": {
+    "title": "注文履歴",
+    "pageTitle": "注文履歴 — Mercaria",
+    "empty": {
+      "title": "まだ注文はありません",
+      "subtitle": "注文するとここに表示されます。",
+      "signedOutSubtitle": "サインインすると注文履歴を確認できます。"
+    },
+    "row": {
+      "openA11yLabel": "注文 %{number} を開く",
+      "meta": {
+        "one": "%{status} · %{seller} · %{count} 点",
+        "other": "%{status} · %{seller} · %{count} 点"
+      }
+    },
+    "pagination": {
+      "previous": "前へ",
+      "next": "次へ",
+      "pageOf": "%{pages} ページ中 %{page} ページ"
+    },
+    "status": {
+      "pendingPayment": "支払い待ち",
+      "paid": "支払い済み",
+      "processing": "準備中",
+      "shipped": "発送済み",
+      "delivered": "配達済み",
+      "cancelled": "キャンセル済み",
+      "refunded": "返金済み",
+      "partiallyRefunded": "一部返金済み"
+    },
+    "detail": {
+      "title": "注文 %{number}",
+      "pageTitle": "注文 — Mercaria",
+      "soldBy": "販売者: %{seller}",
+      "errorTitle": "この注文を読み込めませんでした",
+      "errorSubtitle": "戻ってもう一度お試しください。",
+      "backToOrders": "注文履歴に戻る"
+    },
+    "items": {
+      "title": "商品"
+    },
+    "totals": {
+      "title": "内訳",
+      "subtotal": "小計",
+      "discounts": "割引",
+      "tax": "税",
+      "shipping": "配送料",
+      "total": "合計"
+    },
+    "payment": {
+      "title": "支払い",
+      "unpaid": "未払い — この注文は確保されており、支払いをお待ちしています。",
+      "authorized": "支払いが承認されました。",
+      "paid": "支払いを受け取りました。",
+      "refunded": "支払いを返金しました。",
+      "failed": "支払いに失敗しました。"
+    },
+    "shipTo": {
+      "title": "お届け先"
+    },
+    "cancel": {
+      "action": "注文をキャンセル",
+      "success": "注文をキャンセルしました",
+      "error": "注文をキャンセルできませんでした"
+    },
+    "delivery": {
+      "promisedLabel": "お約束したお届け時期",
+      "latestLabel": "最新の見込み",
+      "noDates": "日付の記載なし",
+      "basisGuaranteed": "これはお約束したお届け時期です。",
+      "basisEstimate": "配送パートナーによる見込みで、お約束ではありません。",
+      "staleNote": "最近は更新できていません。",
+      "refreshFailing": "この見込みを更新できていません。古い情報の可能性があります。"
+    }
+  },
+  "reviews": {
+    "scopeHeading": {
+      "product": "商品レビュー",
+      "merchant": "販売者の対応",
+      "nativeTransaction": "この購入",
+      "p2pListing": "商品の状態と説明",
+      "p2pSeller": "販売者の評判"
+    },
+    "heading": "購入したものを評価",
+    "moreToRate": {
+      "one": "評価できる購入があと %{count} 件あります。",
+      "other": "評価できる購入があと %{count} 件あります。"
+    },
+    "notePlaceholder": "コメントを追加（任意）",
+    "publishAction": "レビューを公開",
+    "publishError": "そのレビューを公開できませんでした。",
+    "ratingChoice": "5 段階中 %{choice} — %{scopeLabel}",
+    "verifiedPurchase": "%{scopeLabel} · 購入確認済み",
+    "scope": {
+      "product": "商品",
+      "merchant": "出品者の対応",
+      "nativeTransaction": "この購入",
+      "p2pListing": "商品の説明",
+      "p2pSeller": "出品者"
+    },
+    "question": {
+      "product": "商品そのものはいかがですか？",
+      "merchant": "出品者の対応はいかがでしたか？",
+      "nativeTransaction": "この購入はいかがでしたか？",
+      "p2pListing": "商品は状態と説明どおりでしたか？",
+      "p2pSeller": "この出品者からの購入はいかがでしたか？"
+    },
+    "published": {
+      "product": "ありがとうございます。商品のレビューを公開しました。",
+      "merchant": "ありがとうございます。出品者の対応についてのレビューを公開しました。",
+      "nativeTransaction": "ありがとうございます。この購入についてのレビューを公開しました。",
+      "p2pListing": "ありがとうございます。商品の説明についてのレビューを公開しました。",
+      "p2pSeller": "ありがとうございます。この出品者についてのレビューを公開しました。"
+    },
+    "noteLabel": {
+      "product": "商品についてのレビュー",
+      "merchant": "出品者の対応についてのレビュー",
+      "nativeTransaction": "この購入についてのレビュー",
+      "p2pListing": "商品の説明についてのレビュー",
+      "p2pSeller": "この出品者についてのレビュー"
+    }
+  },
+  "search": {
+    "kind": {
+      "product": "商品",
+      "brand": "ブランド",
+      "productFamily": "商品シリーズ",
+      "merchant": "販売事業者",
+      "storefront": "ストア"
+    },
+    "headTitle": "検索 · Mercaria",
+    "box": {
+      "label": "検索",
+      "placeholder": "今日は何をお探しですか？"
+    },
+    "readError": "その検索を解釈できませんでした。",
+    "resultsUnavailable": "ここではまだ検索結果を表示できません。以下は、入力内容をどう理解したかです。",
+    "noMatches": "上のすべての条件に一致するものはありませんでした。条件を1つ外すと見つかるかもしれません。",
+    "dismissLabel": "入力どおりの言葉で検索する",
+    "skipLabel": "このまま検索"
+  },
+  "checkout": {
+    "address": {
+      "shipTo": "%{name} さんに送る"
+    },
+    "backToOrders": "注文履歴に戻る",
+    "checkLaterFromOrders": "あとで注文履歴から確認する",
+    "claim": {
+      "optional": "任意です。いずれの場合もご注文は確定しています。",
+      "saveToOxy": "この注文を Oxy に保存する"
+    },
+    "deliverElsewhere": "別の住所に届ける",
+    "destination": {
+      "collectInPerson": "店頭で受け取る",
+      "continueAsGuest": "ゲストとして続ける",
+      "deliverTo": "お届け先",
+      "guestDeliveryHint": "アカウントは不要です。お届け先と、このご注文についてご連絡する方法をお知らせください。",
+      "guestPickupHint": "アカウントは不要です。この受け取りについてご連絡する方法をお知らせください。必要のない住所はお尋ねしません。",
+      "pickupFallbackName": "選んだ店舗"
+    },
+    "discount": {
+      "accessibilityLabel": "割引コード",
+      "label": "割引コード（任意）",
+      "placeholder": "SAVE10"
+    },
+    "emailMeLink": "この注文へのリンクをメールで送る",
+    "empty": {
+      "backToCart": "カートに戻る",
+      "body": "カートが空か、これらの商品はもう取り扱いがありません。",
+      "title": "購入手続きするものがありません"
+    },
+    "error": {
+      "collectionEmailRequired": "受け取りの詳細を送るメールアドレスを入力してください。",
+      "emailAndAddressRequired": "続けるには、メールアドレスとお届け先住所を入力してください。",
+      "receiptEmailRequired": "領収書を送るメールアドレスを入力してください。"
+    },
+    "form": {
+      "cityLabel": "市区町村",
+      "cityPlaceholder": "Valencia",
+      "countryA11y": "2文字の国コード",
+      "countryLabel": "国",
+      "countryPlaceholder": "ES",
+      "deliverToAddress": "住所に届ける",
+      "deliveryMethodTitle": "受け取り方法は？",
+      "deliveryPhoneA11y": "配達員が連絡できる電話番号",
+      "deliveryPhoneLabel": "配達用の電話番号（任意）",
+      "emailA11y": "注文確認を受け取るメールアドレス",
+      "emailHelp": "このご注文の領収書とお届け状況をお送りするために使います。",
+      "emailLabel": "メールアドレス",
+      "emailPlaceholder": "you@example.com",
+      "line1A11y": "番地を含む住所",
+      "line1Label": "住所 1行目",
+      "line1Placeholder": "神宮前1-1-1",
+      "line2A11y": "建物名・部屋番号",
+      "line2Label": "住所 2行目（任意）",
+      "line2Placeholder": "〇〇マンション 401",
+      "marketingOptIn": "セール情報や新着をメールで受け取る。任意です。ご注文には影響しません。",
+      "marketingOptInA11y": "セール情報や新着をメールで受け取る",
+      "pickupPhoneA11y": "受け取り用の電話番号",
+      "pickupPhoneLabel": "受け取り用の電話番号（任意）",
+      "postalA11y": "郵便番号",
+      "postalLabel": "郵便番号",
+      "recipientA11y": "荷物を受け取る方のお名前",
+      "recipientLabel": "受取人の名前",
+      "recipientPlaceholder": "山田 太郎",
+      "regionA11y": "都道府県・州・地域",
+      "regionLabel": "都道府県（任意）",
+      "regionPlaceholder": "Valencia",
+      "saveAddress": "この住所をアカウントに保存する",
+      "sellerDataNotice": "各出品者には、ご注文のうち担当分を届けるために必要な情報だけをお伝えします。お届け先住所、受取人の名前、ご記入いただいた配達用の電話番号です。メールアドレスは Mercaria のみが保持します。"
+    },
+    "keepShopping": "買い物を続ける",
+    "orderNumbers": {
+      "headingOne": "注文番号",
+      "headingOther": "注文番号",
+      "keepToHand": "控えておいてください。お問い合わせの際にご購入を特定できます。"
+    },
+    "pageTitle": "購入手続き — Mercaria",
+    "placeOrder": "注文する",
+    "shippingAddress": "お届け先住所",
+    "signIn": {
+      "action": "ログイン",
+      "body": "ログインすると、保存した住所が使え、このカートが他の端末でも見られ、この注文がアカウントの履歴に残ります。ゲストのままでも購入できます。入力する手間は同じです。",
+      "title": "Oxy アカウントをお持ちですか？"
+    },
+    "summary": {
+      "calculatedAtPlacement": "割引・税・送料は、ご注文の確定時に計算されます。",
+      "subtotal": "小計",
+      "title": "注文内容"
+    },
+    "title": "購入手続き",
+    "toast": {
+      "orderPlaced": "注文しました",
+      "reservedGuest": "ご注文をしばらく確保しています。お支払いは、もう一度購入手続きへお進みください。",
+      "reservedSignedIn": "ご注文を確保しています。注文履歴からお支払いいただけます。"
+    },
+    "useSavedAddress": "保存した住所を使う",
+    "viewOrder": "注文を見る",
+    "viewOrders": "注文履歴を見る"
+  },
+  "payment": {
+    "cancelled": {
+      "body": "この支払いはキャンセルされ、請求は発生していません。",
+      "bodyItemsReturned": "この支払いはキャンセルされ、請求は発生していません。商品は店舗の在庫に戻りました。",
+      "title": "支払いをキャンセルしました"
+    },
+    "card": {
+      "detailsNotConfirmed": "お支払い情報を確認できませんでした。",
+      "expressHeading": "ワンタップで支払う",
+      "notCompleted": "お支払いを完了できませんでした。",
+      "notConfigured": "このアプリではカード決済がまだ設定されていません。",
+      "orPayByCard": "またはカードで支払う",
+      "payNow": "支払う"
+    },
+    "cardDetailsNotice": "カード情報は決済代行会社に直接送られ、Mercaria には届きません。",
+    "confirming": {
+      "bankStillCompleting": "銀行がこの支払いを処理中です。少し時間がかかることがあります。",
+      "checkingWithBank": "銀行に確認しています。その間、ご注文は確保されています。",
+      "continueWithoutWaiting": "待たずに進む",
+      "pageTitle": "支払いを確認しています — Mercaria",
+      "returnBody": "銀行での手続きが終わり、こちらで支払いを確認しています。通常は数秒で完了します。",
+      "title": "支払いを確認しています"
+    },
+    "continue": "続ける",
+    "received": {
+      "body": "ありがとうございます。ご注文が確定し、出品者に通知しました。",
+      "title": "お支払いを受け取りました"
+    },
+    "return": {
+      "missingGroup": "このリンクには対象の購入手続きが含まれていません。お支払いが完了していれば、ご注文は無事です。このページで変わることはありません。"
+    },
+    "title": "お支払い",
+    "totalToPay": "お支払い金額",
+    "unreadable": {
+      "body": "ここからはこの支払いを確認できませんでした。完了していれば、ご注文は無事です。このページで変わることはありません。",
+      "title": "この支払いを読み取れませんでした"
+    }
+  },
+  "sellers": {
+    "fallbackName": "出品者",
+    "verifiedBadge": "認証済みの出品者",
+    "unavailable": "この出品者は表示できません。",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "stats": {
+      "activeListings": "出品中",
+      "itemsSold": "販売実績",
+      "sellingSince": "販売開始"
+    },
+    "reviews": {
+      "none": "まだレビューがありません"
+    },
+    "trust": {
+      "source": "Oxy Trust による評価。Oxy エコシステム全体での実績です",
+      "tier": {
+        "restricted": "Oxy Trust により制限中",
+        "new": "Oxy に登録したばかり",
+        "trusted": "Oxy で信頼されています",
+        "highTrust": "Oxy で高く信頼されています",
+        "verified": "Oxy で認証済み"
+      }
+    },
+    "withheld": {
+      "privateProfile": "この出品者は Oxy プロフィールを非公開にしています。",
+      "unavailable": "この出品者の出品は現在表示できません。"
+    },
+    "listings": {
+      "title": "出品",
+      "loadingLabel": "出品を読み込んでいます",
+      "empty": "%{name} さんは現在出品していません。",
+      "loadMore": "もっと見る",
+      "loadMoreLabel": "出品をもっと読み込む",
+      "loadingMore": "読み込み中…"
+    },
+    "follow": {
+      "action": "フォロー",
+      "actionLabel": "%{name} さんをフォロー"
+    },
+    "linkCard": {
+      "viewProfile": "%{name} さんのプロフィールを見る"
+    },
+    "report": {
+      "action": "報告",
+      "title": "%{name} さんを報告",
+      "description": "問題の内容を教えてください。当てはまるものをすべて選んでください。",
+      "detailsPlaceholder": "ほかに伝えたいことはありますか？（任意）",
+      "send": "報告を送信",
+      "sending": "送信中…",
+      "signIn": "報告するにはサインイン",
+      "received": "ありがとうございます。報告を受け取りました。",
+      "category": {
+        "counterfeit": "偽造品の販売",
+        "prohibitedItem": "禁止品",
+        "misleadingListing": "誤解を招く出品",
+        "unsafeProduct": "安全でない商品",
+        "stolenGoods": "盗品",
+        "scam": "詐欺や不正行為",
+        "impersonation": "なりすまし",
+        "spam": "スパム",
+        "hatefulContent": "ヘイトコンテンツ",
+        "somethingElse": "その他"
+      }
+    }
+  },
+  "merchants": {
+    "unavailable": "この販売事業者は表示できません。",
+    "alsoKnownAs": "別名: %{names}",
+    "operatedBy": "運営: %{organization}",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "reviews": {
+      "none": "まだレビューがありません"
+    },
+    "nativeStore": {
+      "title": "Mercaria の %{store}",
+      "openLabel": "Mercaria の %{store} を開く",
+      "note": "フォロー、ポリシー、サポートはストアページにあります。"
+    },
+    "offerMix": {
+      "title": "オファー",
+      "allMarkets": "すべての市場",
+      "staleNotice": {
+        "one": "ほかに %{count} 件のオファーは、Mercaria が最近確認できていないため表示されていません。",
+        "other": "ほかに %{count} 件のオファーは、Mercaria が最近確認できていないため表示されていません。"
+      }
+    },
+    "channels": {
+      "title": "チャネル",
+      "groupLabel": "閲覧する販売チャネルを選択",
+      "all": "すべてのチャネル",
+      "operatedElsewhere": "%{channel} · %{operator} 内",
+      "unknownOperator": "別のマーケットプレイス",
+      "chipLabel": {
+        "one": "%{channel}、オファー %{count} 件",
+        "other": "%{channel}、オファー %{count} 件"
+      }
+    },
+    "standing": {
+      "a11yLabel": "販売事業者のステータス: %{status}",
+      "claim": "この販売事業者を申請する",
+      "claimHint": "このページを管理するには、この販売事業者を運営していることを証明してください",
+      "label": {
+        "unclaimed": "未申請",
+        "claimInProgress": "申請中",
+        "claimed": "申請済み",
+        "sellingOnMercaria": "Mercaria で販売中"
+      },
+      "explanation": {
+        "unclaimed": "この販売事業者を運営していることを証明した人はいません。商品は公開情報をもとに掲載されています。",
+        "claimInProgress": "この販売事業者を運営していることを証明中の人がいます。",
+        "claimed": "運営者がこの販売事業者を運営していることを証明しました。",
+        "sellingOnMercaria": "この販売事業者は Mercaria のストアに接続されており、ここで直接販売しています。"
+      }
+    },
+    "brandStandings": {
+      "title": "ブランド",
+      "listLabel": "ブランドとの関係",
+      "a11yLabel": "%{brand}：%{standing}。%{explanation}",
+      "label": {
+        "officialStore": "ブランド自身のストア",
+        "authorizedReseller": "正規販売店",
+        "noVerifiedRelationship": "確認された関係はありません"
+      },
+      "explanation": {
+        "officialStore": "この販売事業者はブランド自身の販売チャネルであることを Mercaria が確認しています。",
+        "authorizedReseller": "ブランドがこの販売事業者に再販を許可していることを Mercaria が確認しています。",
+        "noVerifiedRelationship": "この販売事業者はこのブランドの商品を販売しています。両者の関係について Mercaria は確認していません。"
+      }
+    },
+    "card": {
+      "priceNotPublished": "価格は非公開",
+      "priceUnconvertible": "価格は %{currency} 建てで、Mercaria では換算できません",
+      "offerCount": {
+        "one": "オファー %{count} 件",
+        "other": "オファー %{count} 件"
+      },
+      "offersAcrossChannels": {
+        "one": "%{channels} 件のチャネルでオファー %{count} 件",
+        "other": "%{channels} 件のチャネルでオファー %{count} 件"
+      },
+      "otherSellers": "· 他の出品者を含む"
+    },
+    "catalog": {
+      "title": "商品",
+      "loadingLabel": "商品を読み込んでいます",
+      "loadMore": "もっと見る",
+      "loadMoreLabel": "商品をもっと読み込む",
+      "loadingMore": "読み込み中…",
+      "empty": {
+        "noOffers": "Mercaria には現在、この販売事業者の商品がありません。",
+        "staleSources": "現在の価格を表示できるほど最近には、Mercaria はこの販売事業者の情報源から更新を受け取っていません。",
+        "filteredOut": "この条件に一致する商品はありません。"
+      }
+    }
+  },
+  "families": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "製品ファミリーが見つかりません",
+      "body": "このファミリーは別のファミリーに統合されたか、アドレスが間違っている可能性があります。"
+    },
+    "productCount": {
+      "one": "このファミリーの商品 %{count} 件",
+      "other": "このファミリーの商品 %{count} 件"
+    },
+    "prices": {
+      "withdrawn": "価格は現在表示できません。",
+      "none": "このファミリーの現在のオファーはありません。",
+      "unpriceable": "このファミリーの現在のオファーは %{currencies} 建てで、換算できません。"
+    },
+    "priceRange": {
+      "summary": {
+        "one": "%{scopeLabel} · 商品 %{count} 件",
+        "other": "%{scopeLabel} · 商品 %{count} 件"
+      },
+      "excludes": "%{currencies} 建てのオファーは含みません。",
+      "scope": {
+        "new": "新品",
+        "used": "中古",
+        "mixed": "新品・中古",
+        "unknown": "コンディションの記載なし"
+      }
+    },
+    "sharedAttributes": {
+      "title": "このファミリーで共通"
+    },
+    "products": {
+      "title": "商品",
+      "titleReleaseDesc": "世代（新しい順）"
+    }
+  },
+  "brands": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "ブランドが見つかりません",
+      "body": "このブランドは別のブランドに統合されたか、アドレスが間違っている可能性があります。"
+    },
+    "ownedBy": "所有者: %{organization}",
+    "productCount": {
+      "one": "商品 %{count} 件",
+      "other": "商品 %{count} 件"
+    },
+    "descriptionSource": "出典: %{attribution}",
+    "officialStores": {
+      "title": "公式ストア",
+      "description": "このブランド自身が運営する販売チャネル。Mercaria が確認しています。",
+      "empty": "このブランドの公式ストアはまだ確認されていません。"
+    },
+    "authorizedResellers": {
+      "title": "正規販売店",
+      "description": "このブランドが販売を許可した小売店です。公式ストアとは別の取り決めです。",
+      "empty": "このブランドの正規販売店はまだ確認されていません。"
+    },
+    "families": {
+      "title": "製品ファミリー"
+    },
+    "categories": {
+      "title": "カテゴリ"
+    },
+    "products": {
+      "title": "商品"
+    },
+    "grid": {
+      "empty": "このカタログにはまだ商品がありません。",
+      "emptyFiltered": "この条件に一致する商品はありません。条件を一つ外してみてください。",
+      "emptyPricesWithdrawn": "価格を取得できないため、この一覧は空です。しばらくしてからもう一度お試しください。",
+      "showMore": "もっと表示",
+      "loadingMore": "読み込み中…"
+    }
+  },
+  "guestOrders": {
+    "oneMoment": "少々お待ちください。",
+    "sendAccessLink": "アクセスリンクを送る",
+    "claim": {
+      "pageTitle": "注文を保存 — Mercaria",
+      "missingTitle": "保存する注文がありません",
+      "missingBody": "どのご購入かがわかるよう、注文からこのページを開いてください。",
+      "signInTitle": "サインインしてこの注文を保存",
+      "signInBody": "サインインすると、このご購入が Mercaria の注文履歴に追加されます。保存しない場合も、注文はこれまでどおりご利用いただけます。",
+      "signInAction": "Oxy にサインイン",
+      "checkingTitle": "この注文を確認しています",
+      "failedTitle": "この注文を開けませんでした",
+      "failedBody": "アクセスリンクの有効期限が切れている可能性があります。新しいリンクをリクエストしてもう一度お試しください。いずれの場合もご注文に影響はありません。",
+      "savedTitle": "アカウントに保存しました",
+      "savedBody": "この注文は Mercaria の注文履歴に追加されました。ご利用のアクセスリンクは無効になりました。今後はアカウントから開けます。",
+      "alreadySavedTitle": "保存済みです",
+      "alreadySavedBody": "この注文はすでに Mercaria の注文履歴にありました。",
+      "goToOrders": "注文履歴を見る",
+      "reviewTitle": "この注文を Oxy に保存",
+      "reviewAlreadyTitle": "アカウントに登録済みです",
+      "oneOrder": "この注文がアカウントに追加されます:",
+      "manyOrders": "同時に購入されたこの %{count} 件の注文がアカウントに追加されます:",
+      "notRequired": "注文を受け取るためにこの操作は必要ありません。",
+      "submit": "この注文をアカウントに保存",
+      "decline": "今はしない",
+      "benefits": {
+        "history": "この注文が通常の Mercaria の注文履歴に表示されます。",
+        "anyDevice": "サインインしているどの端末からでも開けます。",
+        "review": "購入した商品について購入確認済みのレビューを書けます。"
+      },
+      "blocked": {
+        "unavailable": "Oxy アカウントへの注文の保存は一時的にご利用いただけません。ご注文に影響はなく、アクセスリンクから引き続き開けます。",
+        "inboxNotVerified": "先にメールアドレスを確認してください。新しいアクセスリンクをリクエストし、そこからこのページを開いてください。",
+        "claimedByAnotherAccount": "この注文はすでに別の Oxy アカウントに保存されています。心当たりがない場合はサポートにご連絡ください。Mercaria が自動的に移すことはありません。"
+      }
+    },
+    "portal": {
+      "pageTitle": "ご注文 — Mercaria",
+      "openingTitle": "注文を開いています",
+      "linkRefusedTitle": "このリンクは使用できません",
+      "linkRefusedBody": "アクセスリンクは一度しか使えず、まもなく有効期限が切れます。新しいリンクをリクエストいただければ、ご注文時のアドレスにお送りします。",
+      "noCredentialTitle": "注文を探す",
+      "noCredentialBody": "安全なアクセスリンクをリクエストいただければ、ご注文時のアドレスにお送りします。",
+      "title": "ご注文",
+      "loading": "注文を読み込んでいます。",
+      "fullFailed": "ここからこの注文を開けませんでした。新しいアクセスリンクをリクエストしてもう一度お試しください。",
+      "boundedFailed": "ここからこの注文を読み取れませんでした。",
+      "confirmEmailBody": "お支払い金額やお届け先を含む注文の詳細を見るには、メールアドレスを確認してください。",
+      "confirmEmailAction": "メールアドレスを確認する",
+      "claimAction": "この注文を Oxy に保存",
+      "signOut": "この注文からサインアウト"
+    },
+    "recover": {
+      "pageTitle": "注文を探す — Mercaria",
+      "sentTitle": "メールをご確認ください",
+      "sentBody": "リンクは一度しか使えず、まもなく有効期限が切れます。期限が切れた場合は、もう一度リクエストしてください。",
+      "title": "注文を探す",
+      "body": "ご注文時のメールアドレスを入力してください。そのアドレスに安全なリンクをお送りします。ほかのアドレスにはお送りできません。",
+      "emailPlaceholder": "you@example.com",
+      "emailLabel": "メールアドレス",
+      "orderNumberPlaceholder": "注文番号（任意）",
+      "orderNumberLabel": "注文番号、任意",
+      "sending": "送信中",
+      "networkError": "現在 Mercaria に接続できませんでした。もう一度お試しください。"
+    }
+  },
+  "compare": {
+    "acrossCategories": "種類の異なる商品のため、すべてに記録されている %{count} 項目のみを比較しています。",
+    "basketFailed": "このカートを計画できませんでした。",
+    "channel": {
+      "externalOnly": "小売店のみ",
+      "mixed": "どこでも",
+      "nativeOnly": "Mercaria のみ",
+      "officialOnly": "公式チャネルのみ"
+    },
+    "channelLabel": "チャネル",
+    "choiceA11y": "%{label}：%{choice}",
+    "comparingA11y": "比較中",
+    "comparisonFailed": "この比較を作成できませんでした。",
+    "conditionLabel": "コンディション",
+    "gaps": "%{count} 項目はこれらの商品には記録されていません。",
+    "heading": "比較",
+    "noSharedFacts": "これらの商品すべてに共通して記録されている情報がないため、比較できる項目がまだありません。",
+    "notice": {
+      "addingToCart": "確認しました。これらの商品を Mercaria のカートに追加します。",
+      "noDestination": "その小売店の遷移先はまだありません。",
+      "pricesChanged": "読んでいる間に価格が変わりました。再計算しています。"
+    },
+    "objective": {
+      "allNative": "Mercaria で購入",
+      "cheapestKnownItemPrices": "商品が最安",
+      "cheapestKnownTotal": "配送料込みで最安",
+      "fastestKnownDelivery": "配送が最速",
+      "fewestMerchants": "出店者が最少"
+    },
+    "objectiveLabel": "目的",
+    "pageTitle": "比較 · Mercaria",
+    "pickTwo": "検索結果か商品ページから、比較する商品を2つ以上選んでください。",
+    "planningA11y": "計画中",
+    "whereToBuy": "購入先"
+  },
+  "priceAlerts": {
+    "create": {
+      "basisItemPrice": "商品価格",
+      "basisKnownTotal": "配送料込み",
+      "bestRightNow": "現在のベスト：%{price}",
+      "failed": "そのアラートを作成できませんでした",
+      "heading": "値下がりしたら知らせて",
+      "knownTotalNote": "配送料が公開されている出品のみが対象になります。",
+      "noPricedOffer": "現在、価格のある出品はありません（%{count} 件の出品）",
+      "nothingOnSale": "現在、この商品はどこでも販売されていません。アラートは設定できます。",
+      "submit": "アラートを作成",
+      "submitA11y": "この価格アラートを作成",
+      "submitting": "作成中…",
+      "targetPlaceholder": "%{currency} での目標額",
+      "targetPrice": "目標価格"
+    },
+    "empty": {
+      "body": "気になる商品のページから設定すると、値下がりしたときにお知らせします。",
+      "title": "価格アラートはまだありません"
+    },
+    "heading": "価格アラート",
+    "pageTitle": "価格アラート · Mercaria",
+    "signedOut": {
+      "body": "アラートはアカウントに保存されるので、どの端末でも引き継がれます。",
+      "signIn": "ログイン",
+      "title": "ログインすると価格アラートを設定できます"
+    }
+  },
+  "saved": {
+    "empty": {
+      "subtitle": "商品のハートをタップすると価格を追跡します。その一点が欲しいときは出品を保存してください。",
+      "title": "まだ何も保存していません"
+    },
+    "error": {
+      "subtitle": "接続を確認して、もう一度お試しください。",
+      "title": "保存した商品を読み込めませんでした"
+    },
+    "heading": "保存済み",
+    "loadMoreA11y": "保存した商品をさらに読み込む",
+    "loading": "読み込み中…",
+    "pageTitle": "保存済み · Mercaria",
+    "showMore": "もっと見る",
+    "signedOut": {
+      "body": "保存した商品は、すべての出品者の価格と在庫を、どの端末からでも追跡します。",
+      "signIn": "ログイン",
+      "title": "ログインすると保存できます"
+    }
+  },
+  "watchlists": {
+    "atLimit": "リストは最大 %{count} 件までです",
+    "basket": {
+      "basisDelivered": "配送料込み · 商品ごとの独立した最安値",
+      "basisItemPrice": "配送料別 · 商品ごとの独立した最安値",
+      "complete": "%{count} 点すべての価格を算出しました。",
+      "empty": "このリストに何か追加すると、いくらになるかが表示されます。",
+      "noPrice": "価格はまだありません",
+      "nonePriced": "ここにある %{count} 点のいずれも、現在価格を算出できませんでした。",
+      "partial": "%{total} 点中 %{included} 点の価格を算出しました。%{excluded} 点は算出できず、理由とともに以下に表示しています。",
+      "title": "現在のカート"
+    },
+    "createA11y": "ウォッチリストを作成",
+    "detail": {
+      "empty": "このリストにはまだ何もありません。商品ページから追加すると追跡が始まります。",
+      "keepBothA11y": "両方の商品をこのリストに残す",
+      "keepBothFor": "%{product} は両方を残す",
+      "loadError": "そのウォッチリストを読み込めませんでした。",
+      "pageTitle": "%{name} · Mercaria",
+      "pageTitleFallback": "ウォッチリスト · Mercaria",
+      "priceError": "現在このリストの金額を算出できませんでした。商品はすべて残っています。",
+      "priceUnavailable": "価格を取得できません",
+      "saveMeasurement": "この計測を保存",
+      "saving": "保存中…",
+      "splitPrompt": "これらの商品のひとつが2つに分割されました。どうするか選んでください。"
+    },
+    "duplicate": "複製",
+    "duplicateList": "%{name} を複製",
+    "empty": "リストはまだありません。作成して、比較したい商品を追加してください。",
+    "heading": "ウォッチリスト",
+    "intro": "買う予定のものをまとめて、セット全体でいくらになるかを見守れます。",
+    "item": {
+      "changeDown": "前回保存した計測から %{amount} 値下がり",
+      "changeUnchanged": "前回保存した計測から変化なし",
+      "changeUp": "前回保存した計測から %{amount} 値上がり",
+      "delivery": "配送料 %{amount}",
+      "deliveryUnknown": "この出品者は配送料を公開していません",
+      "openProduct": "この商品を開く",
+      "priceLine": "各 %{unitPrice} · %{quantity} 点で %{lineTotal}",
+      "remove": "削除",
+      "removeA11y": "この商品をウォッチリストから削除",
+      "targetReached": "目標の %{amount} 以下です",
+      "unresolved": {
+        "allOffersRetired": "この商品の出品はすべて期限切れです。再び出品されたらお知らせします。",
+        "ambiguousAfterSplit": "この商品は2つに分割されました。どちらのことか選んでください。",
+        "evaluationFailed": "現在この商品の価格を算出できませんでした。",
+        "noEligibleOffer": "この商品には、条件に合う出品がありません。条件を広げてみてください。",
+        "noOffersRecorded": "まだ誰も販売していません。",
+        "preferredVariantRetired": "指定していた構成は現在出品されていません。別のものを選んでください。",
+        "priceNotConvertible": "この価格をリストの通貨で表示できません。",
+        "productMergedIntoExistingItem": "この商品はこのリストの別の項目に統合されました。こちらを削除してください。",
+        "productUnavailable": "この商品はカタログにはもうありません。"
+      }
+    },
+    "listMeta": "%{count} 点 · %{currency}",
+    "loadError": "ウォッチリストを読み込めませんでした。接続を確認して、もう一度お試しください。",
+    "newList": "新しいリスト",
+    "openList": "%{name} を開く",
+    "pageTitle": "ウォッチリスト · Mercaria",
+    "signedOut": {
+      "body": "ログインすると、非公開のリストを保存して、その金額の推移を追えます。",
+      "signIn": "ログイン"
+    }
+  },
+  "nearby": {
+    "heading": "近くの在庫",
+    "intro": "店頭に在庫があることを確認し、店舗受け取りに対応しているショップです。オンラインで支払い、店頭で受け取ります。",
+    "chooseLocationPrompt": "場所を選ぶと、近くのどのショップで受け取れるかを表示します。この検索にのみ使用し、保存はしません。",
+    "loading": "近くのショップを探しています…",
+    "error": "現在、近くの在庫を確認できませんでした。配送には影響ありません。",
+    "empty": "この場所の近くに、現在この商品を受け取れるショップはありません。在庫切れ、その期間は休業、受け取り対象として公開されていない、在庫を最近確認していない場合は表示されません。",
+    "moreBeyond": "近い順に %{count} 件を表示しています。さらに遠くにもショップがあり、上の並べ替えは表示中のものに適用されます。",
+    "collectionOptionsLabel": "受け取るショップを選ぶ",
+    "collectInPerson": "店頭で受け取る",
+    "selectHere": "ここで受け取る",
+    "order": {
+      "nearest": "近い順",
+      "lowestPrice": "価格の安い順"
+    },
+    "origin": {
+      "showingDevice": "端末の位置情報の近くのショップを表示しています。",
+      "showingChosen": "選択した場所の近くのショップを表示しています。",
+      "changeLabel": "この検索結果の基準となる場所を変更",
+      "change": "変更",
+      "clearLabel": "この検索結果に場所を使わない",
+      "clear": "クリア",
+      "useDeviceLabel": "端末の位置情報を使って近くのショップを探す",
+      "checking": "確認中…",
+      "useMyLocation": "現在地を使う",
+      "choosePlaceLabel": "代わりに市区町村または郵便番号を選ぶ",
+      "hideCityList": "都市リストを閉じる",
+      "chooseCity": "都市を選ぶ",
+      "cityField": "市区町村または郵便番号",
+      "loadingCities": "都市を検索しています…",
+      "cityListError": "現在、都市リストを読み込めませんでした。",
+      "noCityMatch": "一致する都市に、受け取り可能な在庫はありません。",
+      "noStockAnywhere": "現在、この商品を受け取れるショップはありません。",
+      "searchNear": "%{place} の近くで検索",
+      "shopsWithStock": {
+        "one": "在庫のあるショップ %{count} 件",
+        "other": "在庫のあるショップ %{count} 件"
+      },
+      "refusal": {
+        "permissionDenied": "問題ありません。位置情報はオフのままです。下に市区町村または郵便番号を入力すれば、そこで検索します。",
+        "unsupported": "このアプリは端末の位置情報を取得できません。下に市区町村または郵便番号を入力してください。そこで検索します。",
+        "unavailable": "端末が現在地を特定できませんでした。下に市区町村または郵便番号を入力するか、もう一度お試しください。"
+      }
+    },
+    "screen": {
+      "emptyTitle": "受け取るものがありません",
+      "emptyBody": "商品を開いて「店頭で受け取る」を選ぶと、近くで在庫のあるショップが表示されます。",
+      "backToMercaria": "Mercaria に戻る",
+      "documentTitle": "店頭で受け取る · Mercaria",
+      "addedToCart": "カートに追加しました。カートを開いてお会計に進んでください。"
+    }
+  },
+  "store": {
+    "shopAll": "すべて見る",
+    "collections": "コレクション",
+    "report": "ストアを報告",
+    "loadError": "このストアを読み込めませんでした。しばらくしてからお試しください。",
+    "documentTitle": "%{store} — Mercaria",
+    "documentTitleFallback": "Mercaria",
+    "filters": {
+      "inStock": "在庫あり"
+    },
+    "sort": {
+      "label": "商品を並べ替え",
+      "best": "売れ筋順",
+      "newest": "新着順",
+      "priceAsc": "価格: 安い順",
+      "priceDesc": "価格: 高い順"
+    },
+    "products": {
+      "heading": "商品",
+      "searchPlaceholder": "%{store} 内を検索…",
+      "loadingLabel": "商品を読み込み中",
+      "loadError": "商品を読み込めませんでした。引っ張って更新するか、もう一度お試しください。",
+      "empty": "条件に一致する商品はありません。",
+      "loadMore": "もっと見る",
+      "loadMoreLabel": "商品をもっと読み込む"
+    },
+    "policies": {
+      "heading": "ポリシー",
+      "privacy": "プライバシーポリシー",
+      "returns": "返品ポリシー"
+    },
+    "menu": {
+      "dialogLabel": "%{store} のメニュー",
+      "openLabel": "%{store} のメニューを開く",
+      "close": "%{store} のメニューを閉じる",
+      "share": "%{store} を共有"
+    },
+    "follow": {
+      "follow": "フォロー",
+      "followStore": "%{store} をフォロー",
+      "unfollowStore": "%{store} のフォローを解除"
+    },
+    "reviews": {
+      "helpful": "参考になった",
+      "loading": "レビューを読み込み中…",
+      "none": "まだレビューはありません",
+      "viewProduct": "%{product} を見る",
+      "ratingsCount": "%{formattedCount} 件の評価",
+      "ratingsWithScope": "%{formattedCount} 件の評価 · %{scopeLabel}",
+      "fallbackAuthor": "購入確認済みの購入者",
+      "viewA11yLabel": "このストアの対応に関するレビューを見る"
+    }
+  },
+  "offer": {
+    "heading": "出品",
+    "comparisonUnavailable": "ここでの価格比較は一時的に利用できません。これはこの商品を販売している人がいるかどうかを示すものではありません。",
+    "noneShowable": "この商品の出品は把握していますが、現在表示できるものはありません。",
+    "none": "この商品に現在の出品はありません。",
+    "group": {
+      "heading": "%{title}（%{count}）",
+      "title": {
+        "officialDirect": "公式ストア",
+        "newRetail": "他の小売店の新品",
+        "openBox": "開封済み",
+        "refurbished": "再生品",
+        "used": "中古",
+        "forParts": "部品取り・ジャンク",
+        "conditionUnknown": "コンディション未記載"
+      },
+      "explanation": {
+        "officialDirect": "ブランドが自社のものとして確認したチャネルです。",
+        "conditionUnknown": "これらの出品者は商品の状態を記載していません。",
+        "forParts": "動作しない状態で販売 — 修理・再利用・部品取り用です。"
+      }
+    },
+    "showFewer": "表示を減らす",
+    "showAll": {
+      "one": "%{count} 件すべて表示",
+      "other": "%{count} 件すべて表示"
+    },
+    "showFewerA11y": "出品の表示を減らす · %{group}",
+    "showAllA11y": {
+      "one": "%{count} 件の出品を表示 · %{group}",
+      "other": "%{count} 件の出品をすべて表示 · %{group}"
+    },
+    "returnWindow": {
+      "one": "出品者は %{count} 日間の返品期間を提示しています。",
+      "other": "出品者は %{count} 日間の返品期間を提示しています。"
+    },
+    "buyOnMercaria": "Mercaria で購入",
+    "openSellerListingA11y": "この出品者の出品を開く",
+    "viewListing": "出品を見る",
+    "soldByOn": "%{channel} の %{seller} が販売",
+    "visitProfileA11y": "%{name} のプロフィールを見る",
+    "sellerNotIdentified": "出品者を特定できません",
+    "listedAt": "表示価格 %{amount}",
+    "priceNotAvailable": "価格は取得できません",
+    "priceNotConvertible": "この価格をお使いの通貨に換算できません。",
+    "priceNotPublished": "この出品者は価格を公開していません。",
+    "deliveryUnknownWithPickup": "配送料不明 · 引き取り可",
+    "deliveryUnknown": "配送料不明",
+    "freeDelivery": "送料無料",
+    "deliveryCost": "配送料 %{cost}",
+    "freeDeliveryWithWindow": "送料無料 · %{min}〜%{max} 日",
+    "deliveryCostWithWindow": "配送料 %{cost} · %{min}〜%{max} 日",
+    "availability": {
+      "inStock": "在庫あり",
+      "outOfStock": "在庫なし",
+      "preorder": "予約受付中",
+      "unavailable": "取り扱いなし",
+      "notPublished": "在庫状況は未公開"
+    },
+    "availabilityChecked": "%{availability} · %{date} に確認",
+    "availabilityCheckedStale": "%{availability} · %{date} に確認 · 最近は再確認できていません",
+    "goToHost": "%{host} へ移動",
+    "continueOnHost": "%{host} に移動します。Mercaria が手数料を受け取る場合があります。",
+    "cannotOpenYetA11y": "この出品はまだ開けません",
+    "openingNotAvailableA11y": "%{host} を開くことはまだできません",
+    "noLinkPublished": "リンクは未公開",
+    "noDestination": "この出品者は価格を公開していますが、リンクがありません。",
+    "outboundNotAvailable": "他のサイトの出品を開くことはまだできません。",
+    "blocked": {
+      "outOfStock": "この出品者は在庫切れです。",
+      "notPaymentReady": "この出品者はまだ支払いを受け取れません。",
+      "notAvailable": "この出品は現在購入できません。"
+    }
+  },
+  "referral": {
+    "documentTitle": "紹介パートナー · Mercaria",
+    "title": "紹介パートナー",
+    "loadError": "紹介ダッシュボードを読み込めませんでした。もう一度お試しください。",
+    "signedOut": {
+      "title": "紹介パートナーのアカウントを見るにはログインしてください",
+      "body": "あなたのリンクと、その成果、そして支払いの時期がわかります。",
+      "action": "ログイン"
+    },
+    "standing": {
+      "title": "あなたの状況",
+      "earning": "報酬が発生しています。いまあなたが紹介した分はあなたに計上されます。",
+      "notEarning": "まだ報酬は発生していません。",
+      "nothingOutstanding": "未対応の項目はありません。",
+      "beforePaid": "お支払いの前に必要なこと:",
+      "accrualContinues": "これらが未対応の間も報酬は積み上がります。失効するものはありません。"
+    },
+    "programs": {
+      "title": "プログラム",
+      "empty": "現在、参加できる紹介プログラムはありません。",
+      "attributionWindow": "計上期間: %{days} 日間。",
+      "termsAccepted": "この条件に同意済みです。",
+      "termsNotAccepted": "条件は未同意です。"
+    },
+    "earnings": {
+      "title": "報酬",
+      "empty": "まだ何も獲得していません。",
+      "availableNow": "現在支払い可能な金額: %{amount}",
+      "availableNowWithMinimum": "現在支払い可能な金額: %{amount}（最低 %{minimum}）",
+      "reconciling": "これらの数値は現在照合中です。失われるものはありません。元帳が正となり、サポートで追跡できます。",
+      "pendingConversions": {
+        "one": "%{count} 件の紹介を記録済みで、金額は未確定です。",
+        "other": "%{count} 件の紹介を記録済みで、金額は未確定です。"
+      }
+    },
+    "payouts": {
+      "title": "支払い",
+      "summary": "支払いは毎月行われます。本人確認: %{identity}。税務情報: %{tax}。支払い先: %{payout}。",
+      "readiness": {
+        "unknown": "情報なし",
+        "pending": "手続き中",
+        "ready": "完了",
+        "blocked": "停止中"
+      },
+      "destinationEnding": "下4桁が %{last4} の支払い先",
+      "noDestination": "支払い先はまだ登録されていません。",
+      "none": "支払いはまだありません。"
+    },
+    "performance": {
+      "title": "実績",
+      "totals": "クリック %{clicks} 件 · 有効な紹介 %{referrals} 件、%{from} 〜 %{through}",
+      "empty": "この期間に記録はありません。",
+      "row": "%{label}: クリック %{clicks} 件 · 紹介 %{referrals} 件"
+    },
+    "instruments": {
+      "title": "あなたのリンクとコード",
+      "empty": "紹介コードはまだありません。",
+      "disclosureIntro": "リンクを掲載するときは、必ずこの表示を添えてください:"
+    },
+    "support": {
+      "title": "ヘルプ",
+      "appeal": "参加に関する決定には異議を申し立てられます。",
+      "disputes": "計上・取り消し・支払いに関する申し立ては、まだここでは受け付けていません。上に表示されている日付と金額を添えてサポートにご連絡ください。",
+      "noEmails": "紹介に関するメールはまだ送信していません。変更はこのページでご確認ください。"
+    }
+  },
+  "brand": {
+    "wordmark": "Mercaria"
+  },
+  "sell": {
+    "sellYours": {
+      "thisOne": "これを出品する",
+      "yours": "自分のものを出品する"
+    },
+    "fact": {
+      "fromProduct": "商品情報から — あなたの品物についての記述ではありません",
+      "yourAnswer": "あなたの回答",
+      "yourAnswerNotConfirmed": "あなたの回答（未確認）"
+    },
+    "guidance": {
+      "heading": "価格の目安",
+      "scope": "%{currency} · %{since} から",
+      "scopeWithMarket": "%{market} · %{currency} · %{since} から",
+      "segmentStats": "目安 %{median} · 出品 %{count} 件 · 信頼度 %{confidence}",
+      "disclaimer": "この目安があなたの価格を決めることはありません。売れることを保証するものでもなく、どの価格で出品するかを妨げるものでもありません。",
+      "segment": {
+        "currentSameCondition": "同じような状態で、現在販売中",
+        "currentNew": "新品で、現在販売中",
+        "currentRefurbished": "整備済みで、現在販売中",
+        "recentSoldNative": "Mercaria で最近売れた価格"
+      },
+      "insufficient": {
+        "noObservations": "比較できる出品がまだありません",
+        "belowSampleFloor": "比較できる出品がまだ足りません",
+        "belowSellerFloor": "価格帯を示すには出品者の数が足りません",
+        "fallback": "データがまだ足りません"
+      },
+      "confidence": {
+        "low": "低",
+        "medium": "中",
+        "high": "高"
+      }
+    },
+    "index": {
+      "documentTitle": "出品する · Mercaria",
+      "heading": "何を出品しますか？",
+      "startingDraft": "出品の準備をしています…",
+      "signIn": {
+        "heading": "出品するにはサインイン",
+        "body": "出品はあなたの Oxy アカウントで公開されるので、購入者は誰から買うのかがわかります。",
+        "action": "サインイン"
+      },
+      "scan": {
+        "label": "バーコードをスキャン",
+        "accessibilityLabel": "バーコードまたは商品識別子",
+        "placeholder": "バーコードを入力またはスキャン"
+      },
+      "search": {
+        "label": "またはカタログから探す",
+        "accessibilityLabel": "商品を検索",
+        "placeholder": "例: iPhone 13 128 GB"
+      },
+      "candidate": {
+        "matchedByBarcode": "バーコードで一致",
+        "foundBySearch": "検索で見つかりました — 同じ品物かご確認ください"
+      },
+      "unmatched": {
+        "heading": "ひとつだけのもの",
+        "body": "手作り、コレクション品、カタログにないもの。ほかの出品と同じように公開され、検索でも見つかります。"
+      },
+      "drafts": {
+        "heading": "続きから再開",
+        "untitled": "無題の出品",
+        "savedAt": "保存: %{when} · ステップ %{step}"
+      }
+    },
+    "draft": {
+      "documentTitle": "%{title} · Mercaria",
+      "untitled": "あなたの出品",
+      "publish": "出品する",
+      "publishing": "公開しています…",
+      "loadError": {
+        "title": "この下書きを開けませんでした",
+        "body": "すでに公開されたか、破棄された可能性があります。"
+      },
+      "product": {
+        "heading": "商品",
+        "explanation": "これらは Mercaria のカタログの情報です。モデルを特定するためのもので、あなたの品物の状態・付属品・真正性については何も示しません。",
+        "titleLabel": "タイトル",
+        "brandLabel": "ブランド",
+        "modelLabel": "モデル",
+        "notMine": "これは私の商品ではありません"
+      },
+      "item": {
+        "heading": "あなたの品物",
+        "titleLabel": "出品タイトル",
+        "titleOverrideNote": "このタイトルはあなたの出品に表示されます。商品そのものは変わりません。",
+        "descriptionLabel": "説明",
+        "conditionLabel": "状態",
+        "photoRequirement": {
+          "one": "この状態では、実物の写真が %{count} 枚以上必要です。カタログやメーカーの画像は代わりになりません。",
+          "other": "この状態では、実物の写真が %{count} 枚以上必要です。カタログやメーカーの画像は代わりになりません。"
+        }
+      },
+      "placement": {
+        "heading": "掲載される場所",
+        "onProductPage": "商品ページに、ほかの出品者と並んで表示されます",
+        "ownSurfacesOnly": "検索とあなたの出品者プロフィールに表示され、商品ページには表示されません",
+        "localResults": "選んだおおよその地域で、近くの検索結果に表示されます"
+      },
+      "blocked": {
+        "titleMissing": "出品にタイトルを付けてください。",
+        "descriptionMissing": "何を売るのか説明してください。",
+        "categoryMissing": "カテゴリを選んでください。",
+        "conditionMissing": "品物の状態を選んでください。",
+        "itemPhotosMissing": "実物の写真を追加してください。",
+        "defectsNotAcknowledged": "不具合や欠品を記載したことを確認してください。",
+        "refurbisherNotNamed": "誰が整備したのか記載してください。",
+        "priceMissing": "価格を設定してください。",
+        "quantityInvalid": "数量は 1 以上にしてください。",
+        "matchVariantMissing": "商品のどのバージョンを売るのか選んでください。",
+        "matchReviewRequired": "同じ商品だと確認できませんでした。続けるには商品の紐づけを変更するか解除してください。",
+        "pickupNotSupported": "受け取りはまだ利用できません — 公開するには外してください。",
+        "categoryForbidsCondition": "このカテゴリではその状態は使えません。",
+        "alreadyPublished": "この出品はすでに公開されています。",
+        "draftDiscarded": "この下書きは破棄されました。"
+      },
+      "warning": {
+        "priceFarAboveGuidance": "あなたの価格は、似た品物の相場よりかなり高めです。このまま公開することもできます。",
+        "priceFarBelowGuidance": "あなたの価格は、似た品物の相場よりかなり安めです。このまま公開することもできます。"
+      }
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "expand": "サイドバーを開く",
+      "collapse": "サイドバーを閉じる",
+      "accountMenu": "アカウントメニュー"
+    },
+    "footer": {
+      "brand": "Mercaria",
+      "copyright": "© %{year} Oxy の Mercaria",
+      "links": {
+        "about": "概要",
+        "help": "ヘルプ",
+        "privacy": "プライバシー",
+        "terms": "利用規約"
+      }
+    },
+    "errorBoundary": {
+      "title": "問題が発生しました",
+      "body": "予期しないエラーが発生しました。もう一度お試しください。問題が続く場合も、当社のチームにはすでに通知されています。"
+    },
+    "notFound": {
+      "headTitle": "404 - ページが見つかりません | Mercaria",
+      "screenTitle": "エラー",
+      "message": "この画面は存在しません。",
+      "goHome": "ホーム画面へ"
+    }
+  },
+  "address": {
+    "form": {
+      "recipientNameLabel": "受取人の名前",
+      "recipientNamePlaceholder": "山田 花子",
+      "line1Label": "住所 1行目",
+      "line1Placeholder": "千代田区丸の内1-1",
+      "line2Label": "住所 2行目（任意）",
+      "line2Placeholder": "〇〇マンション 402",
+      "cityLabel": "市区町村",
+      "cityPlaceholder": "東京都",
+      "regionLabel": "都道府県（任意）",
+      "regionPlaceholder": "東京",
+      "postalCodeLabel": "郵便番号",
+      "postalCodePlaceholder": "100-0005",
+      "countryLabel": "国",
+      "countryPlaceholder": "JP",
+      "phoneLabel": "電話番号（任意）",
+      "phonePlaceholder": "+81 90 0000 0000",
+      "submit": "住所を保存"
+    },
+    "list": {
+      "default": "既定",
+      "deleteLabel": "住所を削除",
+      "setDefault": "既定に設定",
+      "signedOut": "配送先住所を管理するにはログインしてください。",
+      "empty": "保存された住所はまだありません。",
+      "newAddress": "新しい住所",
+      "addAddress": "住所を追加"
+    },
+    "toast": {
+      "saved": "住所を保存しました",
+      "saveFailed": "住所を保存できませんでした",
+      "updateFailed": "住所を更新できませんでした",
+      "removed": "住所を削除しました",
+      "removeFailed": "住所を削除できませんでした"
+    }
+  },
+  "shoppingAgents": {
+    "headTitle": "ショッピングエージェント · Mercaria",
+    "title": "ショッピングエージェント",
+    "intro": "Mercaria に見張りを頼んだものです。それぞれがカタログを観察し、依頼した条件が満たされたときにお知らせします。",
+    "loadError": "ショッピングエージェントを読み込めませんでした。接続を確認してもう一度お試しください。",
+    "findings": {
+      "asking": "もう一度確認しています…",
+      "intro": "このエージェントが見たすべての記録を、新しい順に表示しています。後の記録に置き換えられた古い観察もここに残ります。",
+      "loadError": "このエージェントが見つけた内容を読み込めませんでした。エージェント自体に影響はありません。",
+      "empty": "まだ何も見つかっていません。このエージェントが次に確認したとき、最初の観察がここに表示されます。"
+    },
+    "empty": {
+      "title": "ショッピングエージェントはまだありません",
+      "body": "探しているものを保存すると、Mercaria がカタログを見張ります。"
+    },
+    "signedOut": {
+      "title": "ショッピングエージェントを保存するにはログインしてください",
+      "body": "エージェントはアカウントに保存されるため、デバイスをまたいで引き継がれます。"
     }
   }
 }

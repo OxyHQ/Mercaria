@@ -23,6 +23,7 @@ import { Text, useColorScheme } from "@mercaria/ui";
 import { useTheme } from "@oxyhq/bloom/theme";
 import { useOxy, openAccountDialog } from "@oxyhq/services";
 import { useCart } from "@/lib/hooks/use-cart";
+import { useTranslation } from "@/lib/i18n";
 import {
   NAV_ITEMS,
   isNavItemActive,
@@ -121,8 +122,12 @@ interface AuthTabProps {
 function AuthTab({ isActive }: AuthTabProps) {
   const { colors } = useColorScheme();
   const { isAuthenticated } = useOxy();
+  const { t } = useTranslation();
 
-  const label = isAuthenticated ? "Account" : "Sign in";
+  // Resolved through `t` rather than held as a literal: the i18n guard reads
+  // JSX positions and cannot follow a string through a local variable, so this
+  // pair is one of its documented blind spots rather than something it cleared.
+  const label = isAuthenticated ? t("nav.account") : t("nav.signIn");
 
   const onPress = useCallback(() => {
     triggerHaptic();
@@ -155,6 +160,7 @@ function AuthTab({ isActive }: AuthTabProps) {
    ================================================================ */
 
 export function BottomTabBar() {
+  const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
@@ -268,7 +274,7 @@ export function BottomTabBar() {
           onPress={() => handlePress(item)}
           style={tabStyle}
           accessibilityRole="tab"
-          accessibilityLabel={item.label}
+          accessibilityLabel={t(item.labelKey)}
           accessibilityState={{ selected: isNavItemActive(item, pathname) }}
         >
           <View className="relative items-center justify-center">

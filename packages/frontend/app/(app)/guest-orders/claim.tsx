@@ -40,6 +40,7 @@ import type { GuestClaimBlockReason, GuestClaimOrderRef } from "@mercaria/shared
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useGuestClaim, useGuestClaimPreview } from "@/lib/hooks/use-guest-claim";
 import { track } from "@/lib/analytics";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * What a claim actually gets you, today.
@@ -51,29 +52,33 @@ import { track } from "@/lib/analytics";
  * here would be the "coming soon" copy acceptance 13 forbids for a different
  * feature and the same reason.
  */
-const CLAIM_BENEFITS = [
-  "These orders appear in your normal Mercaria order history.",
-  "You can open them from any device you are signed in on.",
-  "You can write a verified-purchase review of what you bought.",
+const CLAIM_BENEFIT_KEYS = [
+  "guestOrders.claim.benefits.history",
+  "guestOrders.claim.benefits.anyDevice",
+  "guestOrders.claim.benefits.review",
 ];
 
-/** The one sentence each refusal deserves. Exhaustive, so a new code fails `tsc`. */
-function blockMessage(reason: GuestClaimBlockReason): string {
-  switch (reason) {
-    case "claiming_unavailable":
-      return "Saving orders to an Oxy account is temporarily unavailable. Your order is unaffected and you can still open it from your access link.";
-    case "claim_scope_missing":
-    case "inbox_not_verified":
-      return "Confirm your email address first. Ask for a new access link and open this page from it.";
-    case "claimed_by_another_account":
-      // Deliberately does not say WHICH account: that is a fact about somebody
-      // else's purchase, and a rival claimant learns only that the group is
-      // taken.
-      return "These orders are already saved to another Oxy account. Contact support if that is not what you expected — Mercaria will not move them automatically.";
-  }
-}
+/**
+ * The one sentence each refusal deserves, as a KEY resolved at the render site.
+ *
+ * A `Record` rather than a `switch` for the reason the brief gives about
+ * module scope: a `const` evaluated at import cannot call `t()`, so the map
+ * holds keys and the sentence is looked up while rendering. It keeps the
+ * exhaustiveness the switch had — a new reason code fails `tsc` here.
+ *
+ * `claimed_by_another_account` deliberately does not say WHICH account: that is
+ * a fact about somebody else's purchase, and a rival claimant learns only that
+ * the group is taken.
+ */
+const CLAIM_BLOCK_MESSAGE_KEYS: Record<GuestClaimBlockReason, string> = {
+  claiming_unavailable: "guestOrders.claim.blocked.unavailable",
+  claim_scope_missing: "guestOrders.claim.blocked.inboxNotVerified",
+  inbox_not_verified: "guestOrders.claim.blocked.inboxNotVerified",
+  claimed_by_another_account: "guestOrders.claim.blocked.claimedByAnotherAccount",
+};
 
 function ClaimBody() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ group?: string }>();
   const router = useRouter();
   const { isAuthenticated } = useOxy();
@@ -101,9 +106,9 @@ function ClaimBody() {
   if (!checkoutGroupId) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Nothing to save" />
+        <SectionHeader title={t("guestOrders.claim.missingTitle")} />
         <Text className="text-sm text-muted-foreground">
-          Open this page from your order so we know which purchase you mean.
+          {t("guestOrders.claim.missingBody")}
         </Text>
       </View>
     );
@@ -116,14 +121,13 @@ function ClaimBody() {
     // way back.
     return (
       <View className="px-4 gap-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Sign in to save these orders" />
+        <SectionHeader title={t("guestOrders.claim.signInTitle")} />
         <Text className="text-sm text-muted-foreground">
-          Signing in adds this purchase to your Mercaria order history. Your order works
-          exactly as it does now if you would rather not.
+          {t("guestOrders.claim.signInBody")}
         </Text>
         <Button onPress={() => openAccountDialog()}>
           <Text className="text-sm font-semibold text-primary-foreground">
-            Sign in to Oxy
+            {t("guestOrders.claim.signInAction")}
           </Text>
         </Button>
       </View>
@@ -134,16 +138,20 @@ function ClaimBody() {
     return (
       <View className="px-4 gap-4" accessibilityLiveRegion="polite">
         <SectionHeader
-          title={claim.data.alreadyClaimed ? "Already saved" : "Saved to your account"}
+          title={
+            claim.data.alreadyClaimed
+              ? t("guestOrders.claim.alreadySavedTitle")
+              : t("guestOrders.claim.savedTitle")
+          }
         />
         <Text className="text-sm text-muted-foreground">
           {claim.data.alreadyClaimed
-            ? "These orders were already in your Mercaria order history."
-            : "These orders are now in your Mercaria order history. The access link you used has been retired — you can open them from your account from now on."}
+            ? t("guestOrders.claim.alreadySavedBody")
+            : t("guestOrders.claim.savedBody")}
         </Text>
         <Button onPress={() => router.replace("/orders")}>
           <Text className="text-sm font-semibold text-primary-foreground">
-            Go to my orders
+            {t("guestOrders.claim.goToOrders")}
           </Text>
         </Button>
       </View>
@@ -153,8 +161,8 @@ function ClaimBody() {
   if (preview.isPending) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Checking this order" />
-        <Text className="text-sm text-muted-foreground">One moment.</Text>
+        <SectionHeader title={t("guestOrders.claim.checkingTitle")} />
+        <Text className="text-sm text-muted-foreground">{t("guestOrders.oneMoment")}</Text>
       </View>
     );
   }
@@ -162,13 +170,14 @@ function ClaimBody() {
   if (preview.isError || !preview.data) {
     return (
       <View className="px-4 gap-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="We could not open this order" />
+        <SectionHeader title={t("guestOrders.claim.failedTitle")} />
         <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-          Your access link may have expired. Ask for a new one and try again — your order is
-          unaffected either way.
+          {t("guestOrders.claim.failedBody")}
         </Text>
         <Button variant="outline" onPress={() => router.replace("/guest-orders/recover")}>
-          <Text className="text-sm font-medium text-foreground">Send me an access link</Text>
+          <Text className="text-sm font-medium text-foreground">
+            {t("guestOrders.sendAccessLink")}
+          </Text>
         </Button>
       </View>
     );
@@ -179,15 +188,19 @@ function ClaimBody() {
   return (
     <View className="px-4 gap-6" accessibilityLiveRegion="polite">
       <SectionHeader
-        title={alreadyClaimedByYou ? "Already in your account" : "Save these orders to Oxy"}
+        title={
+          alreadyClaimedByYou
+            ? t("guestOrders.claim.reviewAlreadyTitle")
+            : t("guestOrders.claim.reviewTitle")
+        }
       />
 
       {/* UX rule 5: exactly which checkout and which sibling orders attach. */}
       <View className="gap-3">
         <Text className="text-sm text-muted-foreground">
           {orders.length === 1
-            ? "This order will be added to your account:"
-            : `These ${orders.length} orders were placed together and will be added to your account:`}
+            ? t("guestOrders.claim.oneOrder")
+            : t("guestOrders.claim.manyOrders", { count: orders.length })}
         </Text>
         {orders.map((order: GuestClaimOrderRef) => (
           <View key={order.id} className="gap-1">
@@ -201,19 +214,19 @@ function ClaimBody() {
 
       {/* UX rule 2: concrete benefits, without implying it is required. */}
       <View className="gap-2">
-        {CLAIM_BENEFITS.map((benefit) => (
-          <Text key={benefit} className="text-sm text-muted-foreground">
-            {benefit}
+        {CLAIM_BENEFIT_KEYS.map((benefitKey) => (
+          <Text key={benefitKey} className="text-sm text-muted-foreground">
+            {t(benefitKey)}
           </Text>
         ))}
         <Text className="text-sm text-muted-foreground">
-          You do not need to do this to receive your order.
+          {t("guestOrders.claim.notRequired")}
         </Text>
       </View>
 
       {blockReason ? (
         <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-          {blockMessage(blockReason)}
+          {t(CLAIM_BLOCK_MESSAGE_KEYS[blockReason])}
         </Text>
       ) : null}
 
@@ -230,7 +243,7 @@ function ClaimBody() {
           disabled={!claimable || claim.isPending}
         >
           <Text className="text-sm font-semibold text-primary-foreground">
-            {alreadyClaimedByYou ? "Confirm" : "Save these orders to my account"}
+            {alreadyClaimedByYou ? t("common.confirm") : t("guestOrders.claim.submit")}
           </Text>
         </Button>
         {/*
@@ -250,7 +263,9 @@ function ClaimBody() {
           }}
           disabled={claim.isPending}
         >
-          <Text className="text-sm font-medium text-foreground">Not now</Text>
+          <Text className="text-sm font-medium text-foreground">
+            {t("guestOrders.claim.decline")}
+          </Text>
         </Button>
       </View>
     </View>
@@ -258,10 +273,11 @@ function ClaimBody() {
 }
 
 export default function GuestOrderClaimScreen() {
+  const { t } = useTranslation();
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>Save your orders — Mercaria</title>
+        <title>{t("guestOrders.claim.pageTitle")}</title>
         {/* Reached from the portal, which is the page a credential lands on. */}
         <meta name="referrer" content="no-referrer" />
         <meta name="robots" content="noindex, nofollow" />

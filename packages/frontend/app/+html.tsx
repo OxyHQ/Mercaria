@@ -5,6 +5,20 @@ import { type PropsWithChildren } from 'react';
  * This file runs during static rendering in Node.js for SEO optimization
  * Don't wrap your app with Providers here - that should be in _layout.tsx
  */
+/**
+ * The pre-hydration site description, shared by the three `<meta>` tags and the
+ * JSON-LD block below so the four cannot drift apart.
+ *
+ * Deliberately NOT localized and deliberately not a `t()` call: this shell is
+ * rendered ONCE at export time, in Node, before any store exists and before
+ * anyone has chosen a language, so there is no locale to resolve against. It is
+ * also read by crawlers rather than by the person using the app. Localized
+ * per-route metadata is the SEO surface's job and is emitted from inside the
+ * React tree, where a locale is known.
+ */
+const SITE_DESCRIPTION =
+  'Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you.';
+
 export default function Root({ children }: PropsWithChildren) {
   return (
     // This shell is rendered ONCE at export time, in Node, before anyone has
@@ -33,7 +47,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="title" content="Mercaria" />
         <meta
           name="description"
-          content="Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you."
+          content={SITE_DESCRIPTION}
         />
         <meta
           name="keywords"
@@ -46,7 +60,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:title" content="Mercaria" />
         <meta
           property="og:description"
-          content="Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you."
+          content={SITE_DESCRIPTION}
         />
         <meta property="og:image" content="/og-image.png" />
 
@@ -56,7 +70,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="twitter:title" content="Mercaria" />
         <meta
           property="twitter:description"
-          content="Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you."
+          content={SITE_DESCRIPTION}
         />
         <meta property="twitter:image" content="/og-image.png" />
 
@@ -102,8 +116,7 @@ export default function Root({ children }: PropsWithChildren) {
               '@type': 'WebApplication',
               name: 'Mercaria',
               url: 'https://mercaria.co',
-              description:
-                'Mercaria by Oxy — buy and sell new and secondhand items from shops and people near you.',
+              description: SITE_DESCRIPTION,
               applicationCategory: 'ShoppingApplication',
               operatingSystem: 'Web, iOS, Android',
               offers: {

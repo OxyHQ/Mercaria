@@ -1,6 +1,8 @@
 import { Text as RNText } from "react-native";
 import { useColorScheme } from "@mercaria/ui";
 
+import { useTranslation } from "@/lib/i18n";
+
 export interface MercariaWordmarkProps {
   width?: number;
   height?: number;
@@ -15,8 +17,15 @@ export interface MercariaWordmarkProps {
  * `width` controls the font size (the wordmark is ~6:1 wide as tall, so the
  * type scale is derived from the requested width to keep callers' sizing
  * expectations roughly intact).
+ *
+ * The name resolves through `t('brand.wordmark')` even though every bundle
+ * currently spells it "Mercaria". A brand name is exactly the case where a key
+ * earns its keep: some scripts transliterate a wordmark and some do not, and
+ * putting it in the bundle is what moves that decision to where a translator
+ * can see it and make it, instead of leaving it unaskable in JSX.
  */
 export function MercariaWordmark({ width = 96, height, color }: MercariaWordmarkProps) {
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const fill = color ?? colors.foreground;
 
@@ -36,7 +45,7 @@ export function MercariaWordmark({ width = 96, height, color }: MercariaWordmark
         color: fill,
       }}
     >
-      Mercaria
+      {t("brand.wordmark")}
     </RNText>
   );
 }

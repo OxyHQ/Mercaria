@@ -12,6 +12,7 @@ import {
 } from "@mercaria/ui";
 import type { ShoppingAgent, ShoppingAgentFinding } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { useTranslation } from "@/lib/i18n";
 import {
   useDeleteShoppingAgent,
   useResolveShoppingAgentSplit,
@@ -59,6 +60,7 @@ const EMPTY_ICON_SIZE = 28;
  * that genuinely exists.
  */
 export default function ShoppingAgentsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated } = useOxy();
   const agents = useShoppingAgents();
@@ -97,15 +99,12 @@ export default function ShoppingAgentsScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>Shopping agents · Mercaria</title>
+        <title>{t("shoppingAgents.headTitle")}</title>
       </Head>
 
       <View className="gap-space-16 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">Shopping agents</Text>
-        <Text className="text-sm text-text-secondary">
-          Things you asked Mercaria to keep an eye on. Each one watches the catalogue and tells you
-          when what you asked for becomes true.
-        </Text>
+        <Text className="text-2xl font-bold text-foreground">{t("shoppingAgents.title")}</Text>
+        <Text className="text-sm text-text-secondary">{t("shoppingAgents.intro")}</Text>
         <Text className="text-caption text-text-tertiary">
           {SHOPPING_AGENT_OBSERVATION_DISCLAIMER}
         </Text>
@@ -122,7 +121,7 @@ export default function ShoppingAgentsScreen() {
 
             {agents.isError ? (
               <Text className="text-sm text-text-secondary">
-                We could not load your shopping agents. Check your connection and try again.
+                {t("shoppingAgents.loadError")}
               </Text>
             ) : null}
 
@@ -205,12 +204,11 @@ function FindingsTimeline({
   constraintExplanations: Record<string, string>;
   onOpenProduct: (canonicalProductId: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="gap-space-8 ps-space-12">
       <Text className="text-caption text-text-tertiary">
-        {asking
-          ? "Asking for another look…"
-          : "Everything this agent has seen, newest first. Older observations stay here even after a later one replaces them."}
+        {asking ? t("shoppingAgents.findings.asking") : t("shoppingAgents.findings.intro")}
       </Text>
 
       {pending ? (
@@ -221,13 +219,13 @@ function FindingsTimeline({
 
       {failed ? (
         <Text className="text-caption text-text-secondary">
-          We could not load what this agent found. Your agent is unaffected.
+          {t("shoppingAgents.findings.loadError")}
         </Text>
       ) : null}
 
       {!pending && !failed && findings.length === 0 ? (
         <Text className="text-caption text-text-secondary">
-          Nothing seen yet. The first observation appears here whenever this agent next looks.
+          {t("shoppingAgents.findings.empty")}
         </Text>
       ) : null}
 
@@ -244,36 +242,36 @@ function FindingsTimeline({
 }
 
 function EmptyState() {
+  const { t } = useTranslation();
   return (
     <View className="items-center gap-space-8 py-space-24">
       <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
         <Clock size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
       </View>
-      <Text className="text-bodyTitleSmall text-text">No shopping agents yet</Text>
-      <Text className="text-caption text-text-tertiary">
-        Save what you are looking for and Mercaria will watch the catalogue for it.
-      </Text>
+      <Text className="text-bodyTitleSmall text-text">{t("shoppingAgents.empty.title")}</Text>
+      <Text className="text-caption text-text-tertiary">{t("shoppingAgents.empty.body")}</Text>
     </View>
   );
 }
 
 function SignedOutInvitation() {
+  const { t } = useTranslation();
   return (
     <View className="items-center gap-space-8 py-space-24">
       <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
         <Clock size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
       </View>
-      <Text className="text-bodyTitleSmall text-text">Sign in to save a shopping agent</Text>
+      <Text className="text-bodyTitleSmall text-text">{t("shoppingAgents.signedOut.title")}</Text>
       <Text className="text-caption text-text-tertiary">
-        Agents live with your account, so they follow you between devices.
+        {t("shoppingAgents.signedOut.body")}
       </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Sign in"
+        accessibilityLabel={t("login.signInButton")}
         onPress={() => openAccountDialog()}
         className="rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
       >
-        <Text className="text-caption text-text">Sign in</Text>
+        <Text className="text-caption text-text">{t("login.signInButton")}</Text>
       </Pressable>
     </View>
   );

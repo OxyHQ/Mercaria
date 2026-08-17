@@ -10,7 +10,31 @@ import {
   type InterpretationChip,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { useTranslation } from "@/lib/i18n";
 import { useSearchIntent } from "@/lib/hooks/use-search-intent";
+import type { SearchResultKind } from "@mercaria/shared-types";
+
+/**
+ * What each result KIND is called on screen.
+ *
+ * The row used to render `result.kind` directly, so a shopper saw the wire
+ * value — `product_family`, underscore and all — in every language. There was
+ * no string literal anywhere for a scanner to find, which is why neither the
+ * i18n guard nor any census reported it.
+ *
+ * KEYS, and frozen on the NEXT line rather than `Object.freeze({ … })`: the
+ * guard's key reader matches a `const X = { … }` initializer, and a call
+ * expression is not one, so freezing inline would hide these five from its
+ * referential check.
+ */
+const SEARCH_RESULT_KIND_KEYS: Readonly<Record<SearchResultKind, string>> = {
+  product: "search.kind.product",
+  brand: "search.kind.brand",
+  product_family: "search.kind.productFamily",
+  merchant: "search.kind.merchant",
+  storefront: "search.kind.storefront",
+};
+Object.freeze(SEARCH_RESULT_KIND_KEYS);
 
 /**
  * `/search` — natural-language shopping search (#95 "Client experience").
@@ -43,6 +67,7 @@ import { useSearchIntent } from "@/lib/hooks/use-search-intent";
  * saying something false about the catalogue.
  */
 export default function SearchScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string }>();
   const initialQuery = typeof params.q === "string" ? params.q : "";
@@ -137,13 +162,13 @@ export default function SearchScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>Search · Mercaria</title>
+        <title>{t("search.headTitle")}</title>
       </Head>
 
       <View className="w-full max-w-3xl gap-4 self-center px-4 py-6">
         <Search
-          label="Search"
-          placeholder="What are you shopping for today?"
+          label={t("search.box.label")}
+          placeholder={t("search.box.placeholder")}
           value={term}
           onChangeText={setTerm}
           onClearText={() => setTerm("")}
@@ -164,7 +189,7 @@ export default function SearchScreen() {
                 act on. */}
             {interpret.error instanceof Error
               ? interpret.error.message
-              : "We could not read that search."}
+              : t("search.readError")}
           </Text>
         ) : null}
 
@@ -176,7 +201,7 @@ export default function SearchScreen() {
             mode={interpretation.mode}
             onRemove={removeChip}
             onDismiss={dismiss}
-            dismissLabel="Search my exact words instead"
+            dismissLabel={t("search.dismissLabel")}
           />
         ) : null}
 
@@ -186,7 +211,7 @@ export default function SearchScreen() {
             options={clarification.options}
             onAnswer={(optionId) => answer(clarification.id, optionId)}
             onSkip={() => undefined}
-            skipLabel="Search anyway"
+            skipLabel={t("search.skipLabel")}
           />
         ) : null}
 
@@ -197,17 +222,13 @@ export default function SearchScreen() {
         ) : null}
 
         {results.isError ? (
-          <Text className="text-sm text-muted-foreground">
-            Results are not available here yet — this is what we understood from your search.
-          </Text>
+          <Text className="text-sm text-muted-foreground">{t("search.resultsUnavailable")}</Text>
         ) : null}
 
         {results.data !== undefined ? (
           <View className="gap-3">
             {results.data.results.length === 0 ? (
-              <Text className="text-sm text-muted-foreground">
-                Nothing matched every requirement above. Removing one may help.
-              </Text>
+              <Text className="text-sm text-muted-foreground">{t("search.noMatches")}</Text>
             ) : null}
             {results.data.results.map((result) => (
               <View
@@ -225,7 +246,7 @@ export default function SearchScreen() {
                 className="rounded-xl border border-border bg-card px-4 py-3"
               >
                 <Text className="text-sm text-foreground">{result.name}</Text>
-                <Text className="text-xs text-muted-foreground">{result.kind}</Text>
+                <Text className="text-xs text-muted-foreground">{t(SEARCH_RESULT_KIND_KEYS[result.kind])}</Text>
               </View>
             ))}
           </View>

@@ -5,6 +5,7 @@ import type { NearbyLocationResult } from "@mercaria/shared-types";
 import { NearbyLocationCard, Text } from "@mercaria/ui";
 import { NearbyOriginControl } from "@/components/nearby/NearbyOriginControl";
 import { useNearbyAvailability, useNearbyOrigin } from "@/lib/hooks/use-nearby";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * "Available nearby" — the ONE nearby component every surface reuses
@@ -82,6 +83,7 @@ export function NearbyAvailability({
   onSignIn,
   onSeeCollectionOptions,
 }: NearbyAvailabilityProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const originState = useNearbyOrigin();
   const [order, setOrder] = useState<NearbyOrder>("nearest");
@@ -132,12 +134,9 @@ export function NearbyAvailability({
   return (
     <View className="gap-space-12">
       <Text className="text-sectionTitle text-text" accessibilityRole="header">
-        Available nearby
+        {t("nearby.heading")}
       </Text>
-      <Text className="text-caption text-text-secondary">
-        Shops that have confirmed this on a shelf and offer collection. Paid online, collected in
-        person.
-      </Text>
+      <Text className="text-caption text-text-secondary">{t("nearby.intro")}</Text>
 
       <NearbyOriginControl
         originState={originState}
@@ -147,21 +146,16 @@ export function NearbyAvailability({
 
       {originState.origin === null ? (
         <Text className="text-caption text-text-tertiary">
-          Choose a location to see which shops near you have this for collection. We use it for this
-          search only — it is not saved.
+          {t("nearby.chooseLocationPrompt")}
         </Text>
       ) : nearby.isLoading ? (
-        <Text className="text-caption text-text-tertiary">Looking for shops near you…</Text>
+        <Text className="text-caption text-text-tertiary">{t("nearby.loading")}</Text>
       ) : nearby.isError ? (
         <Text className="text-caption text-text-tertiary" accessibilityRole="alert">
-          We could not check nearby availability just now. Delivery is unaffected.
+          {t("nearby.error")}
         </Text>
       ) : results.length === 0 ? (
-        <Text className="text-caption text-text-tertiary">
-          No shop near this location currently has this for collection. Shops are left out when they
-          are out of stock, closed for the period, not published for collection, or have not
-          confirmed their stock recently enough.
-        </Text>
+        <Text className="text-caption text-text-tertiary">{t("nearby.empty")}</Text>
       ) : (
         <View className="gap-space-12">
           {/*
@@ -172,14 +166,14 @@ export function NearbyAvailability({
           <View className="flex-row flex-wrap gap-space-8" accessibilityRole="radiogroup">
             {(
               [
-                ["nearest", "Nearest first"],
-                ["lowest_price", "Lowest price first"],
+                ["nearest", "nearby.order.nearest"],
+                ["lowest_price", "nearby.order.lowestPrice"],
               ] as const
-            ).map(([value, label]) => (
+            ).map(([value, labelKey]) => (
               <Pressable
                 key={value}
                 accessibilityRole="radio"
-                accessibilityLabel={label}
+                accessibilityLabel={t(labelKey)}
                 accessibilityState={{ selected: order === value }}
                 onPress={() => setOrder(value)}
                 className={
@@ -195,7 +189,7 @@ export function NearbyAvailability({
                       : "text-captionBold text-text"
                   }
                 >
-                  {label}
+                  {t(labelKey)}
                 </Text>
               </Pressable>
             ))}
@@ -223,8 +217,7 @@ export function NearbyAvailability({
           */}
           {hasMore ? (
             <Text className="text-caption text-text-tertiary">
-              These are the nearest {results.length}. There are more shops further out, and the
-              ordering above applies to the ones shown.
+              {t("nearby.moreBeyond", { count: results.length })}
             </Text>
           ) : null}
 
@@ -237,11 +230,13 @@ export function NearbyAvailability({
           {onSeeCollectionOptions === undefined ? null : (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Choose a shop to collect from"
+              accessibilityLabel={t("nearby.collectionOptionsLabel")}
               onPress={onSeeCollectionOptions}
               className="self-start rounded-radius-max bg-bg-fill-inverse px-space-16 py-space-8"
             >
-              <Text className="text-buttonSmall text-text-inverse">Collect in person</Text>
+              <Text className="text-buttonSmall text-text-inverse">
+                {t("nearby.collectInPerson")}
+              </Text>
             </Pressable>
           )}
         </View>

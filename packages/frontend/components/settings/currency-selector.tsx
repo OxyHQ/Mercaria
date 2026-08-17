@@ -7,6 +7,7 @@ import {
   type CurrencyCode,
 } from "@mercaria/shared-types";
 import { Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { toast } from "@oxyhq/bloom/toast";
 import {
@@ -25,6 +26,7 @@ const DEFAULT_DISPLAY_CURRENCY: CurrencyCode = "FAIR";
  * no reload, no effect. Presentation-only: the stored amounts never change.
  */
 export function CurrencySelector() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
   const { data: preference } = useCurrencyPreferenceQuery();
   const updatePreference = useUpdateCurrencyPreference();
@@ -38,7 +40,7 @@ export function CurrencySelector() {
     }
     updatePreference.mutate(
       { preferredCurrency: code },
-      { onError: () => toast.error("Couldn't update your display currency") },
+      { onError: () => toast.error(t("settings.currency.updateFailed")) },
     );
   };
 
@@ -46,10 +48,10 @@ export function CurrencySelector() {
     <View className="gap-2">
       <View className="flex-row items-center gap-2">
         <Coins size={20} className="text-primary" />
-        <Text className="text-base font-semibold">Display currency</Text>
+        <Text className="text-base font-semibold">{t("settings.currency.title")}</Text>
       </View>
       <Text className="text-sm text-muted-foreground">
-        Choose the currency prices are shown in. FairCoin (⊜) is the default.
+        {t("settings.currency.description")}
       </Text>
 
       {isAuthenticated ? (
@@ -84,7 +86,7 @@ export function CurrencySelector() {
         </View>
       ) : (
         <Text className="text-sm text-muted-foreground">
-          Sign in to save your preferred display currency.
+          {t("settings.currency.signedOut")}
         </Text>
       )}
     </View>

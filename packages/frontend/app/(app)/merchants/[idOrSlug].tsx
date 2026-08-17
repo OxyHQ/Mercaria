@@ -13,7 +13,8 @@ import { MerchantBrandStandings } from "@/components/merchant/MerchantBrandStand
 import { MerchantChannelPicker } from "@/components/merchant/MerchantChannelPicker";
 import { MerchantProductCard } from "@/components/merchant/MerchantProductCard";
 import { MerchantStandingBanner } from "@/components/merchant/MerchantStandingBanner";
-import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
+import { useTranslation } from "@/lib/i18n";
+import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useMerchantCatalog, useMerchantPage } from "@/lib/hooks/use-merchant-page";
 
 /**
@@ -48,20 +49,29 @@ import { useMerchantCatalog, useMerchantPage } from "@/lib/hooks/use-merchant-pa
 /** Loading-grid placeholder count. */
 const SKELETON_TILE_COUNT = 8;
 
-/** What an empty catalogue means, in words a shopper can act on. */
-const EMPTY_COPY: Readonly<Record<MerchantCatalogEmptyReason, string>> = Object.freeze({
-  no_offers: "Mercaria has no products for this merchant right now.",
-  // The honest stale-source state: a statement about Mercaria's information
-  // rather than about the shop's shelves (#73 catalogue-browse rule 6).
-  stale_sources:
-    "Mercaria has not heard from this merchant’s sources recently enough to show current prices.",
-  filtered_out: "No products match these filters.",
-});
+/**
+ * What an empty catalogue means, in words a shopper can act on.
+ *
+ * KEYS rather than sentences: this is module scope, so a `t()` here would run
+ * before the locale store rehydrates and freeze whichever language loaded
+ * first. Each key is a literal so the i18n guard can see it is referenced. The
+ * honest stale-source state — a statement about Mercaria's information rather
+ * than about the shop's shelves (#73 catalogue-browse rule 6) — keeps its own
+ * leaf for that reason.
+ */
+const EMPTY_COPY_KEYS: Readonly<Record<MerchantCatalogEmptyReason, string>> = {
+  no_offers: "merchants.catalog.empty.noOffers",
+  stale_sources: "merchants.catalog.empty.staleSources",
+  filtered_out: "merchants.catalog.empty.filteredOut",
+};
+Object.freeze(EMPTY_COPY_KEYS);
 
 /** Loading placeholder grid matching the products grid rhythm. */
 function GridSkeleton() {
+  const { t } = useTranslation();
+
   return (
-    <View className="flex-row flex-wrap" accessibilityLabel="Loading products">
+    <View className="flex-row flex-wrap" accessibilityLabel={t("merchants.catalog.loadingLabel")}>
       {Array.from({ length: SKELETON_TILE_COUNT }).map((_, index) => (
         <View key={index} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
           <View className="gap-2">
@@ -93,6 +103,7 @@ function MixChip({ label, count }: { label: string; count: number }) {
  * twelfth kind of product.
  */
 function OfferMix({ page }: { page: MerchantPage }) {
+  const { t } = useTranslation();
   const mix = page.offerMix;
   const chips = useMemo(() => {
     const named: { label: string; count: number }[] = [];
@@ -102,18 +113,23 @@ function OfferMix({ page }: { page: MerchantPage }) {
       named.push({
         // A market-less offer is available everywhere; calling it "Unknown"
         // would misreport an explicit fact as a gap.
-        label: bucket.key ?? "All markets",
+        label: bucket.key ?? t("merchants.offerMix.allMarkets"),
         count: bucket.count,
       });
     }
     return named;
-  }, [mix]);
+    // `t` changes identity with the locale, so it belongs here: without it the
+    // fallback above would keep the language that was current when this page
+    // first rendered.
+  }, [mix, t]);
 
   if (mix.activeOfferCount === 0) return null;
 
   return (
     <View className="gap-2 px-4 pt-6">
-      <Text className="text-xs uppercase text-muted-foreground">Offers</Text>
+      <Text className="text-xs uppercase text-muted-foreground">
+        {t("merchants.offerMix.title")}
+      </Text>
       <View className="flex-row flex-wrap gap-2">
         {chips.map((chip) => (
           <MixChip key={`${chip.label}-${String(chip.count)}`} label={chip.label} count={chip.count} />
@@ -121,9 +137,7 @@ function OfferMix({ page }: { page: MerchantPage }) {
       </View>
       {mix.staleOfferCount > 0 ? (
         <Text className="text-xs text-muted-foreground">
-          {`${String(mix.staleOfferCount)} more offer${
-            mix.staleOfferCount === 1 ? "" : "s"
-          } are not shown because Mercaria has not confirmed them recently enough.`}
+          {t("merchants.offerMix.staleNotice", { count: mix.staleOfferCount })}
         </Text>
       ) : null}
     </View>
@@ -133,6 +147,7 @@ function OfferMix({ page }: { page: MerchantPage }) {
 export default function MerchantScreen() {
   const { idOrSlug } = useLocalSearchParams<{ idOrSlug: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const [storefrontId, setStorefrontId] = useState<string | undefined>(undefined);
 
   const { data: page, isLoading, isError } = useMerchantPage(idOrSlug);
@@ -172,7 +187,11 @@ export default function MerchantScreen() {
 
   const head = (
     <Head>
-      <title>{page ? `${page.merchant.name} — Mercaria` : "Mercaria"}</title>
+      <title>
+        {page
+          ? t("merchants.meta.title", { name: page.merchant.name })
+          : t("merchants.meta.fallbackTitle")}
+      </title>
     </Head>
   );
 
@@ -199,7 +218,7 @@ export default function MerchantScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
           <Text className="text-center text-base text-muted-foreground">
-            This merchant is not available.
+            {t("merchants.unavailable")}
           </Text>
         </View>
       </ScreenShell>
@@ -214,7 +233,9 @@ export default function MerchantScreen() {
         <Text className="text-2xl font-bold text-foreground">{page.merchant.name}</Text>
         {page.aliases.length > 0 ? (
           <Text numberOfLines={2} className="text-sm text-muted-foreground">
-            {`Also known as ${page.aliases.map((alias) => alias.alias).join(", ")}`}
+            {t("merchants.alsoKnownAs", {
+              names: page.aliases.map((alias) => alias.alias).join(", "),
+            })}
           </Text>
         ) : null}
         {/* The operating legal entity, shown only when a verified relationship
@@ -222,7 +243,9 @@ export default function MerchantScreen() {
             does not. Absent is the normal state. */}
         {page.organization ? (
           <Text className="text-sm text-muted-foreground">
-            {`Operated by ${page.organization.legalName ?? page.organization.name}`}
+            {t("merchants.operatedBy", {
+              organization: page.organization.legalName ?? page.organization.name,
+            })}
           </Text>
         ) : null}
       </View>
@@ -245,17 +268,17 @@ export default function MerchantScreen() {
               rating={page.reviews.rating}
               count={page.reviews.reviewCount}
               size={16}
-              scopeLabel={REVIEW_SCOPE_LABELS.merchant}
+              scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
             />
             <Text className="text-sm font-semibold text-foreground">
               {page.reviews.reviewCount > 0
                 ? `${String(page.reviews.rating)} (${formatReviewCount(page.reviews.reviewCount)})`
-                : "No reviews yet"}
+                : t("merchants.reviews.none")}
             </Text>
           </View>
           {/* The scope, spelled out. A page can carry several ratings and a
               reader must never have to guess which question one answers. */}
-          <Text className="text-xs text-muted-foreground">{REVIEW_SCOPE_LABELS.merchant}</Text>
+          <Text className="text-xs text-muted-foreground">{t(REVIEW_SCOPE_HEADING_KEYS.merchant)}</Text>
         </View>
       ) : null}
 
@@ -267,7 +290,9 @@ export default function MerchantScreen() {
         <View className="px-4 pt-6">
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel={`Open ${page.nativeStore.name} on Mercaria`}
+            accessibilityLabel={t("merchants.nativeStore.openLabel", {
+              store: page.nativeStore.name,
+            })}
             onPress={() =>
               router.push(
                 `/stores/${encodeURIComponent(
@@ -278,10 +303,10 @@ export default function MerchantScreen() {
             className="rounded-2xl border border-border p-4"
           >
             <Text className="text-sm font-semibold text-foreground">
-              {`${page.nativeStore.name} on Mercaria`}
+              {t("merchants.nativeStore.title", { store: page.nativeStore.name })}
             </Text>
             <Text className="text-xs text-muted-foreground">
-              Follow, policies and support live on the store page.
+              {t("merchants.nativeStore.note")}
             </Text>
           </Pressable>
         </View>
@@ -298,14 +323,14 @@ export default function MerchantScreen() {
       <MerchantBrandStandings standings={page.brandStandings} />
 
       <View className="pt-8">
-        <SectionHeader title="Products" />
+        <SectionHeader title={t("merchants.catalog.title")} />
 
         {catalogLoading && entries.length === 0 ? <GridSkeleton /> : null}
 
         {!catalogLoading && entries.length === 0 ? (
           <View className="items-center px-8 py-16">
             <Text className="text-center text-base text-muted-foreground">
-              {emptyReason ? EMPTY_COPY[emptyReason] : EMPTY_COPY.no_offers}
+              {t(emptyReason ? EMPTY_COPY_KEYS[emptyReason] : EMPTY_COPY_KEYS.no_offers)}
             </Text>
           </View>
         ) : null}
@@ -329,13 +354,15 @@ export default function MerchantScreen() {
           <View className="items-center px-4 py-6">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Load more products"
+              accessibilityLabel={t("merchants.catalog.loadMoreLabel")}
               disabled={isFetchingNextPage}
               onPress={() => void fetchNextPage()}
               className="rounded-full border border-border bg-secondary px-6 py-3 web:shadow-sm"
             >
               <Text className="text-sm font-semibold text-foreground">
-                {isFetchingNextPage ? "Loading…" : "Load more"}
+                {isFetchingNextPage
+                  ? t("merchants.catalog.loadingMore")
+                  : t("merchants.catalog.loadMore")}
               </Text>
             </Pressable>
           </View>

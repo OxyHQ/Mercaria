@@ -4,12 +4,14 @@ import { useRouter } from "expo-router";
 import { Search } from "@oxyhq/bloom/search";
 import { MercariaWordmark } from "@/components/ui/mercaria-wordmark";
 import { useColorScheme } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /* ================================================================
    HeroSearch — wordmark + large search bar (content-area header)
    ================================================================ */
 
 export function HeroSearch() {
+  const { t } = useTranslation();
   const { colors } = useColorScheme();
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -33,8 +35,8 @@ export function HeroSearch() {
           accessibility name; the shopping prompt is the visible placeholder. */}
       <View className="mt-3 w-full max-w-xl">
         <Search
-          label="Search"
-          placeholder="What are you shopping for today?"
+          label={t("search.box.label")}
+          placeholder={t("search.box.placeholder")}
           value={query}
           onChangeText={setQuery}
           onClearText={() => setQuery("")}

@@ -31,14 +31,31 @@ const STALE_TIME = 1000 * 60 * 2;
  *    exactly that by implication;
  *  - `merchant` says "service", not "seller rating", because the thing being
  *    rated is fulfilment and reliability rather than the goods.
+ *
+ * KEYS rather than the sentences themselves: this is a module-scope `const`,
+ * evaluated at import, and the locale store has not rehydrated by then — the
+ * wording above would freeze into whichever language loaded first. The render
+ * site resolves it with `t()`.
+ *
+ * Declared and THEN frozen, rather than `Object.freeze({ … })` in one
+ * expression. The i18n guard's key reader matches a `const X = { … }`
+ * initializer, and a call expression is not one — so freezing inline hides
+ * every key here from its referential check and all five read as dead copy.
+ * The runtime guarantee is identical. (`SCOPE_TERM_KEYS` in
+ * `components/reviews/ReviewEligibilityPrompts.tsx` records the same trap.)
+ *
+ * Distinct from that `SCOPE_TERM_KEYS`, which is the scope as a TERM that
+ * reads inside a sentence. These are HEADINGS, and dropping a heading into a
+ * sentence slot is the #442 defect.
  */
-export const REVIEW_SCOPE_LABELS: Readonly<Record<ReviewScope, string>> = Object.freeze({
-  product: 'Product reviews',
-  merchant: 'Seller service',
-  native_transaction: 'This purchase',
-  p2p_listing: 'Item condition and description',
-  p2p_seller: 'Seller reputation',
-});
+export const REVIEW_SCOPE_HEADING_KEYS: Readonly<Record<ReviewScope, string>> = {
+  product: 'reviews.scopeHeading.product',
+  merchant: 'reviews.scopeHeading.merchant',
+  native_transaction: 'reviews.scopeHeading.nativeTransaction',
+  p2p_listing: 'reviews.scopeHeading.p2pListing',
+  p2p_seller: 'reviews.scopeHeading.p2pSeller',
+};
+Object.freeze(REVIEW_SCOPE_HEADING_KEYS);
 
 /** A canonical product's PRODUCT reviews plus the aggregate the page shows. */
 export function useProductScopeReviews(canonicalProductId: string | undefined, page = 1, limit = 12) {

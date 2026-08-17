@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useOxy } from "@oxyhq/services";
 import type { CatalogProductBrowsePage } from "@mercaria/shared-types";
 import { Button, CanonicalProductCard, Skeleton, Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The product grid a brand or a family page renders (#72 product-browse rules).
@@ -41,6 +42,7 @@ export function CatalogProductGrid({
   onLoadMore,
   filtered,
 }: CatalogProductGridProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const { oxyServices } = useOxy();
 
@@ -63,10 +65,10 @@ export function CatalogProductGrid({
     return (
       <Text className="text-sm text-muted-foreground">
         {filtered
-          ? "No products match these filters. Try removing one."
+          ? t("brands.grid.emptyFiltered")
           : offersIncluded
-            ? "This catalogue has no products yet."
-            : "Prices are unavailable right now, so this grid is empty. Try again shortly."}
+            ? t("brands.grid.empty")
+            : t("brands.grid.emptyPricesWithdrawn")}
       </Text>
     );
   }
@@ -92,7 +94,9 @@ export function CatalogProductGrid({
       </View>
       {hasNextPage ? (
         <Button variant="outline" onPress={onLoadMore} disabled={isFetchingNextPage}>
-          <Text>{isFetchingNextPage ? "Loading…" : "Show more"}</Text>
+          <Text>
+            {isFetchingNextPage ? t("brands.grid.loadingMore") : t("brands.grid.showMore")}
+          </Text>
         </Button>
       ) : null}
     </View>

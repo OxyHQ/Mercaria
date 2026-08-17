@@ -2,6 +2,7 @@ import { View } from "react-native";
 import { Text } from "@mercaria/ui";
 import type { SellerPriceGuidance, SellerPriceGuidanceSegment } from "@mercaria/shared-types";
 import { formatMoney } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Price guidance, rendered so it cannot read as a price (#91 price guidance
@@ -31,53 +32,68 @@ export interface PriceGuidancePanelProps {
   guidance: SellerPriceGuidance;
 }
 
-const SEGMENT_LABELS: Record<SellerPriceGuidanceSegment["kind"], string> = {
-  current_same_condition: "Similar condition, on sale now",
-  current_new: "New, on sale now",
-  current_refurbished: "Refurbished, on sale now",
-  recent_sold_native: "Recently sold on Mercaria",
+const SEGMENT_LABEL_KEYS: Record<SellerPriceGuidanceSegment["kind"], string> = {
+  current_same_condition: "sell.guidance.segment.currentSameCondition",
+  current_new: "sell.guidance.segment.currentNew",
+  current_refurbished: "sell.guidance.segment.currentRefurbished",
+  recent_sold_native: "sell.guidance.segment.recentSoldNative",
 };
 
-const INSUFFICIENT_LABELS: Record<string, string> = {
-  no_observations: "No comparable offers yet",
-  below_sample_floor: "Not enough comparable offers yet",
-  below_seller_floor: "Not enough different sellers to show a range",
+const INSUFFICIENT_LABEL_KEYS: Record<string, string> = {
+  no_observations: "sell.guidance.insufficient.noObservations",
+  below_sample_floor: "sell.guidance.insufficient.belowSampleFloor",
+  below_seller_floor: "sell.guidance.insufficient.belowSellerFloor",
+};
+
+const CONFIDENCE_LABEL_KEYS: Record<string, string> = {
+  low: "sell.guidance.confidence.low",
+  medium: "sell.guidance.confidence.medium",
+  high: "sell.guidance.confidence.high",
 };
 
 export function PriceGuidancePanel({ guidance }: PriceGuidancePanelProps) {
+  const { t } = useTranslation();
+  const since = new Date(guidance.from).toLocaleDateString();
   return (
     <View className="gap-3 rounded-2xl border border-border p-4">
-      <Text className="text-base font-medium">Price guidance</Text>
+      <Text className="text-base font-medium">{t("sell.guidance.heading")}</Text>
       <Text className="text-xs text-muted-foreground">
-        {guidance.market ? `${guidance.market} · ` : ""}
-        {guidance.currency} · since {new Date(guidance.from).toLocaleDateString()}
+        {guidance.market
+          ? t("sell.guidance.scopeWithMarket", {
+              market: guidance.market,
+              currency: guidance.currency,
+              since,
+            })
+          : t("sell.guidance.scope", { currency: guidance.currency, since })}
       </Text>
 
       {guidance.segments.map((segment) => (
         <View key={segment.kind} className="gap-1">
-          <Text className="text-sm font-medium">{SEGMENT_LABELS[segment.kind]}</Text>
+          <Text className="text-sm font-medium">{t(SEGMENT_LABEL_KEYS[segment.kind])}</Text>
           {segment.state === "available" ? (
             <>
               <Text className="text-base">
                 {formatMoney(segment.low)} – {formatMoney(segment.high)}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                Typical {formatMoney(segment.median)} · {segment.sampleSize} offers ·{" "}
-                {segment.confidence} confidence
+                {t("sell.guidance.segmentStats", {
+                  median: formatMoney(segment.median),
+                  count: segment.sampleSize,
+                  confidence: t(CONFIDENCE_LABEL_KEYS[segment.confidence]),
+                })}
               </Text>
             </>
           ) : (
             <Text className="text-sm text-muted-foreground">
-              {INSUFFICIENT_LABELS[segment.reason] ?? "Not enough data yet"}
+              {INSUFFICIENT_LABEL_KEYS[segment.reason]
+                ? t(INSUFFICIENT_LABEL_KEYS[segment.reason])
+                : t("sell.guidance.insufficient.fallback")}
             </Text>
           )}
         </View>
       ))}
 
-      <Text className="text-xs text-muted-foreground">
-        Guidance never sets your price, does not guarantee a sale, and does not stop you
-        listing at any price you choose.
-      </Text>
+      <Text className="text-xs text-muted-foreground">{t("sell.guidance.disclaimer")}</Text>
     </View>
   );
 }

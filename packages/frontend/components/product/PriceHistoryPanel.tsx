@@ -75,13 +75,17 @@ export function PriceHistoryPanel({
 
       {response.summary.lowest !== undefined && response.summary.lowest.value.basis !== undefined ? (
         <Text className="text-caption text-text-secondary">
-          {`Lowest in this window: ${formatMoney(response.summary.lowest.value.money)}`}
+          {t('product.priceHistory.lowestInWindow', {
+            amount: formatMoney(response.summary.lowest.value.money),
+          })}
         </Text>
       ) : null}
 
       {response.gaps.length > 0 ? (
         <Text className="text-caption text-text-secondary">
-          {`No offers were observed for ${response.gaps.reduce((total, gap) => total + gap.buckets, 0)} periods in this window.`}
+          {t('product.priceHistory.noOffersObserved', {
+            count: response.gaps.reduce((total, gap) => total + gap.buckets, 0),
+          })}
         </Text>
       ) : null}
 
@@ -90,13 +94,13 @@ export function PriceHistoryPanel({
         // is a fact about Mercaria, and "nobody was selling it" is a fact about
         // the world.
         <Text className="text-caption text-text-secondary">
-          Part of this window has not been built yet.
+          {t('product.priceHistory.notFullyBuilt')}
         </Text>
       ) : null}
 
       {response.notice.conversionIsDisplayOnly ? (
         <Text className="text-caption text-text-tertiary">
-          Converted figures are for display only.
+          {t('product.priceHistory.conversionDisplayOnly')}
         </Text>
       ) : null}
     </View>

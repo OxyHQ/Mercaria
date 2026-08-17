@@ -37,7 +37,7 @@ import { Footer } from "@/components/shell/Footer";
 import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { SellerLinkCard } from "@/components/seller/SellerLinkCard";
 import { useProduct, useProductReviews } from "@/lib/hooks/use-product";
-import { REVIEW_SCOPE_LABELS, useProductScopeReviews } from "@/lib/hooks/use-reviews";
+import { REVIEW_SCOPE_HEADING_KEYS, useProductScopeReviews } from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
 import { useAddCartItem } from "@/lib/hooks/use-cart";
 import {
@@ -45,6 +45,7 @@ import {
   useToggleListingSave,
   useToggleProductSave,
 } from "@/lib/hooks/use-saves";
+import { useTranslation } from "@/lib/i18n";
 
 /** Gold star fill (mirrors ReviewStars / MerchantCard constant). */
 const STAR_COLOR = "#FFB800";
@@ -57,8 +58,14 @@ const REVIEW_PAGE_LIMIT = 12;
 /** Icon size for the quantity stepper + action-row icons (px). */
 const ICON_SIZE = 20;
 
-/** Static "social proof" demand chip copy shown under the title (decorative). */
-const DEMAND_COPY = "100K+ bought in past month";
+/**
+ * Static "social proof" demand chip copy shown under the title (decorative).
+ *
+ * The KEY rather than the sentence: this module-scope constant is evaluated at
+ * import, before the locale store has rehydrated, so holding the English here
+ * would freeze whichever language happened to load first.
+ */
+const DEMAND_COPY_KEY = "product.demandCopy";
 
 /** Project a catalog `Listing` into the `ProductSummary` shape the cards consume. */
 function toProductSummary(listing: Listing, brand: string): ProductSummary {
@@ -200,6 +207,7 @@ function distributionOf(reviews: Review[]): RatingDistribution {
 
 /** Inline store-link card (brand-bg cover + wordmark + footer name/rating). */
 function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () => void }) {
+  const { t } = useTranslation();
   const toneColor = store.textTone === "light" ? "#FFFFFF" : "#111111";
   return (
     <View
@@ -208,7 +216,7 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
     >
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`Visit ${store.name}`}
+        accessibilityLabel={t("product.visitA11y", { name: store.name })}
         onPress={onPress}
         className="relative h-[120px] items-center justify-center"
       >
@@ -260,6 +268,7 @@ function StoreLinkCard({ store, onPress }: { store: StoreSummary; onPress: () =>
 /** "More from <store>" related shelf, sourced from the same store's listings. */
 function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId: string }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { data } = useListings({ storeId: store.id, limit: RELATED_LIMIT });
 
   const items = useMemo(
@@ -276,7 +285,7 @@ function RelatedFromStore({ store, excludeId }: { store: StoreSummary; excludeId
 
   return (
     <ProductCarousel
-      title={`More from ${store.name}`}
+      title={t("product.moreFromStore", { name: store.name })}
       items={items}
       onPressItem={(id) => router.push(`/products/${id}`)}
     />
@@ -290,6 +299,7 @@ interface ProductBodyProps {
 /** The two-column PDP body (gallery + buy column) plus the full-width shelves. */
 function ProductBody({ listing }: ProductBodyProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const addToCart = useAddCartItem();
 
   /**
@@ -464,7 +474,7 @@ function ProductBody({ listing }: ProductBodyProps) {
               <RatingLine
                 rating={productAggregate.rating}
                 count={productAggregate.reviewCount}
-                scopeLabel={REVIEW_SCOPE_LABELS.product}
+                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
               />
             ) : null}
 
@@ -491,13 +501,15 @@ function ProductBody({ listing }: ProductBodyProps) {
             {listing.canonicalProductId ? (
               <Pressable
                 accessibilityRole="link"
-                accessibilityLabel="Compare every offer for this product"
+                accessibilityLabel={t("product.compareOffersA11y")}
                 onPress={() =>
                   router.push(`/p/${encodeURIComponent(listing.canonicalProductId ?? '')}`)
                 }
                 className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
               >
-                <Text className="text-buttonMedium text-text">Compare all offers</Text>
+                <Text className="text-buttonMedium text-text">
+                  {t("product.compareOffers")}
+                </Text>
               </Pressable>
             ) : null}
 
@@ -521,7 +533,7 @@ function ProductBody({ listing }: ProductBodyProps) {
             ) : null}
 
             {/* Demand pill (static social proof). */}
-            <DemandPill label={DEMAND_COPY} />
+            <DemandPill label={t(DEMAND_COPY_KEY)} />
 
             {/* Price block. */}
             <View className="gap-space-4">
@@ -533,7 +545,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                   </Text>
                   <View className="rounded-radius-max bg-bg-fill-inverse px-space-8 py-space-2">
                     <Text className="text-badgeBold text-text-inverse">
-                      {`${discountPercent}% off`}
+                      {t("product.percentOff", { percent: discountPercent })}
                     </Text>
                   </View>
                 </View>
@@ -544,8 +556,8 @@ function ProductBody({ listing }: ProductBodyProps) {
 
             {/* Exclusive-offer teaser card (static). */}
             <OfferCard
-              label="Unlock exclusive pricing"
-              caption="Sign in to view your exclusive offer"
+              label={t("product.exclusiveOffer.label")}
+              caption={t("product.exclusiveOffer.caption")}
               onPress={onPressOffer}
             />
 
@@ -563,11 +575,11 @@ function ProductBody({ listing }: ProductBodyProps) {
 
             {/* Quantity selector. */}
             <View className="gap-space-8">
-              <Text className="text-captionBold text-text">Quantity</Text>
+              <Text className="text-captionBold text-text">{t("product.quantity")}</Text>
               <View className="h-space-40 flex-row items-center self-start rounded-radius-max border border-border-secondary bg-bg-fill p-space-8">
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Decrease quantity"
+                  accessibilityLabel={t("product.decreaseQuantity")}
                   disabled={quantity <= 1}
                   onPress={() => setQuantity((q) => Math.max(1, q - 1))}
                   className={`items-center justify-center px-space-4 ${quantity <= 1 ? "opacity-40" : ""}`}
@@ -579,7 +591,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 </Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Increase quantity"
+                  accessibilityLabel={t("product.increaseQuantity")}
                   disabled={maxQuantity !== undefined && quantity >= maxQuantity}
                   onPress={() =>
                     setQuantity((q) =>
@@ -638,7 +650,9 @@ function ProductBody({ listing }: ProductBodyProps) {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={
-                      productSaved ? "Remove this product from saved" : "Save this product"
+                      productSaved
+                        ? t("product.save.removeProductA11y")
+                        : t("product.save.productA11y")
                     }
                     onPress={() =>
                       toggleProductSave.mutate({
@@ -656,13 +670,15 @@ function ProductBody({ listing }: ProductBodyProps) {
                       fill={productSaved ? STAR_COLOR : "transparent"}
                     />
                     <Text className="text-buttonMedium text-text">
-                      {productSaved ? "Product saved" : "Save product"}
+                      {productSaved ? t("product.save.productSaved") : t("product.save.product")}
                     </Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={
-                      listingSaved ? "Remove this listing from saved" : "Save this exact listing"
+                      listingSaved
+                        ? t("product.save.removeListingA11y")
+                        : t("product.save.exactListingA11y")
                     }
                     onPress={() =>
                       toggleListingSave.mutate({
@@ -678,7 +694,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                     className="flex-1 flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
                   >
                     <Text className="text-buttonMedium text-text">
-                      {listingSaved ? "Listing saved" : "Save this listing"}
+                      {listingSaved ? t("product.save.listingSaved") : t("product.save.listing")}
                     </Text>
                   </Pressable>
                 </View>
@@ -686,7 +702,7 @@ function ProductBody({ listing }: ProductBodyProps) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={
-                    listingSaved ? "Remove this listing from saved" : "Save this listing"
+                    listingSaved ? t("product.save.removeListingA11y") : t("product.save.listing")
                   }
                   onPress={() =>
                     toggleListingSave.mutate({ listingId: listing.id, saved: listingSaved })
@@ -699,29 +715,31 @@ function ProductBody({ listing }: ProductBodyProps) {
                     fill={listingSaved ? STAR_COLOR : "transparent"}
                   />
                   <Text className="text-buttonMedium text-text">
-                    {listingSaved ? "Saved" : "Save"}
+                    {listingSaved ? t("product.save.saved") : t("product.save.save")}
                   </Text>
                 </Pressable>
               )}
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Share this product"
+                accessibilityLabel={t("product.shareA11y")}
                 className="flex-row items-center justify-center gap-space-4 rounded-radius-max border border-border-secondary p-space-12"
               >
                 <Share2 size={ICON_SIZE} className="text-text" />
-                <Text className="text-buttonMedium text-text">Share</Text>
+                <Text className="text-buttonMedium text-text">{t("product.share")}</Text>
               </Pressable>
             </View>
 
             {/* Delivery & Returns (shipping hidden — Moovo not ready). */}
             <View className="gap-space-12 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
-              <Text className="text-sectionTitle text-text">Delivery &amp; Returns</Text>
+              <Text className="text-sectionTitle text-text">
+                {t("product.deliveryAndReturns")}
+              </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="View return policy"
+                accessibilityLabel={t("product.viewReturnPolicyA11y")}
                 className="self-start rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
               >
-                <Text className="text-buttonMedium text-text">Return policy</Text>
+                <Text className="text-buttonMedium text-text">{t("product.returnPolicy")}</Text>
               </Pressable>
             </View>
 
@@ -747,7 +765,7 @@ function ProductBody({ listing }: ProductBodyProps) {
           {/* Left column — description with the View more clamp. */}
           {listing.description ? (
             <View className="flex-1 gap-space-8">
-              <Text className="text-sectionTitle text-text">Description</Text>
+              <Text className="text-sectionTitle text-text">{t("product.description")}</Text>
               <Text
                 className="text-bodySmall text-text"
                 numberOfLines={descriptionExpanded ? undefined : DESCRIPTION_CLAMP_LINES}
@@ -756,12 +774,14 @@ function ProductBody({ listing }: ProductBodyProps) {
               </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={descriptionExpanded ? "View less" : "View more"}
+                accessibilityLabel={
+                  descriptionExpanded ? t("product.viewLess") : t("product.viewMore")
+                }
                 onPress={() => setDescriptionExpanded((e) => !e)}
                 className="self-start"
               >
                 <Text className="text-buttonMedium text-text-brand">
-                  {descriptionExpanded ? "View less" : "View more"}
+                  {descriptionExpanded ? t("product.viewLess") : t("product.viewMore")}
                 </Text>
               </Pressable>
             </View>
@@ -773,7 +793,7 @@ function ProductBody({ listing }: ProductBodyProps) {
           <View className="flex-1 gap-space-16">
             {listing.canonicalProductId ? (
               <ReviewSummaryCard
-                scopeLabel={REVIEW_SCOPE_LABELS.product}
+                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
                 average={productAggregate?.rating ?? 0}
                 total={productAggregate?.reviewCount ?? 0}
                 distribution={productDistribution}
@@ -792,7 +812,7 @@ function ProductBody({ listing }: ProductBodyProps) {
             */}
             {hasListingReviews || !listing.canonicalProductId ? (
               <ReviewSummaryCard
-                scopeLabel={REVIEW_SCOPE_LABELS.p2p_listing}
+                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)}
                 average={listingSummary.average}
                 total={listingReviewTotal}
                 distribution={listingSummary.distribution}
@@ -816,10 +836,12 @@ function ProductBody({ listing }: ProductBodyProps) {
 
 /** Loading placeholder mirroring the two-column PDP rhythm. */
 function ProductSkeleton() {
+  const { t } = useTranslation();
+
   return (
     <View
       className="web:mx-auto web:w-full web:max-w-[1600px] md:px-5"
-      accessibilityLabel="Loading product"
+      accessibilityLabel={t("product.loadingA11y")}
     >
       <View className="flex-col gap-space-16 md:flex-row">
         <View className="aspect-square flex-1 rounded-radius-28 bg-bg-fill-hover" />
@@ -837,11 +859,12 @@ function ProductSkeleton() {
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation();
   const { data: listing, isLoading, isError } = useProduct(id ?? "");
 
   const head = (
     <Head>
-      <title>{listing?.title ? `${listing.title} — Mercaria` : "Mercaria"}</title>
+      <title>{listing?.title ? t("product.documentTitle", { name: listing.title }) : t("product.appName")}</title>
       {listing?.description ? (
         <meta name="description" content={listing.description.slice(0, 160)} />
       ) : null}
@@ -865,7 +888,7 @@ export default function ProductScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
           <Text className="text-center text-body text-text-tertiary">
-            Couldn&apos;t load this product. Try again later.
+            {t("product.loadError")}
           </Text>
         </View>
       </ScreenShell>

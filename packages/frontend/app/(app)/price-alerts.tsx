@@ -21,6 +21,7 @@ import {
   useResolvePriceAlertSplit,
   useUpdatePriceAlert,
 } from "@/lib/hooks/use-price-alerts";
+import { useTranslation } from "@/lib/i18n";
 
 /** Icon size for the empty-state badge. */
 const EMPTY_ICON_SIZE = 28;
@@ -51,6 +52,7 @@ const EMPTY_ICON_SIZE = 28;
  */
 export default function PriceAlertsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
   const params = useLocalSearchParams<{ canonicalProductId?: string }>();
   const alerts = usePriceAlerts();
@@ -63,11 +65,11 @@ export default function PriceAlertsScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>Price alerts · Mercaria</title>
+        <title>{t("priceAlerts.pageTitle")}</title>
       </Head>
 
       <View className="gap-space-16 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">Price alerts</Text>
+        <Text className="text-2xl font-bold text-foreground">{t("priceAlerts.heading")}</Text>
 
         {!isAuthenticated ? (
           <SignedOutInvitation />
@@ -118,6 +120,7 @@ export default function PriceAlertsScreen() {
  * whole purpose is a number.
  */
 function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }) {
+  const { t } = useTranslation();
   const { primaryCurrency } = useFx();
   const currency = primaryCurrency as CurrencyCode;
   const suggestion = usePriceAlertSuggestion({ canonicalProductId, currency });
@@ -145,7 +148,7 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
 
   return (
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
-      <Text className="text-bodyTitleSmall text-text">Tell me when the price drops</Text>
+      <Text className="text-bodyTitleSmall text-text">{t("priceAlerts.create.heading")}</Text>
 
       {/* UX rule 3 — the current best eligible amount, in the alert's currency. */}
       {suggestion.isLoading ? (
@@ -153,45 +156,47 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
       ) : suggestion.data && suggestion.data.eligibleOfferCount > 0 ? (
         <Text className="text-caption text-text-tertiary">
           {suggested
-            ? `Best right now: ${formatMoney(suggested)}`
-            : `No priced offer right now (${suggestion.data.eligibleOfferCount} offers)`}
+            ? t("priceAlerts.create.bestRightNow", { price: formatMoney(suggested) })
+            : t("priceAlerts.create.noPricedOffer", {
+                count: suggestion.data.eligibleOfferCount,
+              })}
         </Text>
       ) : (
         <Text className="text-caption text-text-tertiary">
-          Nothing is on sale for this right now. You can still set an alert.
+          {t("priceAlerts.create.nothingOnSale")}
         </Text>
       )}
 
       <TextInput
-        accessibilityLabel="Target price"
+        accessibilityLabel={t("priceAlerts.create.targetPrice")}
         inputMode="decimal"
         value={value}
         onChangeText={setTyped}
-        placeholder={`Target in ${currency}`}
+        placeholder={t("priceAlerts.create.targetPlaceholder", { currency })}
         className="rounded-radius-12 border border-border-secondary px-space-12 py-space-8 text-text"
       />
 
       <View className="flex-row gap-space-8">
         <BasisChoice
-          label="Item price"
+          label={t("priceAlerts.create.basisItemPrice")}
           selected={basis === "item_price"}
           onPress={() => setBasis("item_price")}
         />
         <BasisChoice
-          label="Including delivery"
+          label={t("priceAlerts.create.basisKnownTotal")}
           selected={basis === "known_total"}
           onPress={() => setBasis("known_total")}
         />
       </View>
       {basis === "known_total" ? (
         <Text className="text-caption text-text-tertiary">
-          Only offers whose delivery cost is published can match this.
+          {t("priceAlerts.create.knownTotalNote")}
         </Text>
       ) : null}
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Create this price alert"
+        accessibilityLabel={t("priceAlerts.create.submitA11y")}
         disabled={!usable || create.isPending}
         onPress={() =>
           create.mutate({
@@ -203,13 +208,15 @@ function CreatePriceAlert({ canonicalProductId }: { canonicalProductId: string }
         className="self-start rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
       >
         <Text className="text-caption text-text">
-          {create.isPending ? "Creating…" : "Create alert"}
+          {create.isPending ? t("priceAlerts.create.submitting") : t("priceAlerts.create.submit")}
         </Text>
       </Pressable>
 
       {create.isError ? (
         <Text className="text-caption text-text-tertiary">
-          {create.error instanceof Error ? create.error.message : "Failed to create that alert"}
+          {create.error instanceof Error
+            ? create.error.message
+            : t("priceAlerts.create.failed")}
         </Text>
       ) : null}
     </View>
@@ -244,36 +251,34 @@ function BasisChoice({
 }
 
 function EmptyState() {
+  const { t } = useTranslation();
   return (
     <View className="items-center gap-space-8 py-space-24">
       <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
         <Bell size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
       </View>
-      <Text className="text-bodyTitleSmall text-text">No price alerts yet</Text>
-      <Text className="text-caption text-text-tertiary">
-        Set one from a product you are watching and we will tell you when it drops.
-      </Text>
+      <Text className="text-bodyTitleSmall text-text">{t("priceAlerts.empty.title")}</Text>
+      <Text className="text-caption text-text-tertiary">{t("priceAlerts.empty.body")}</Text>
     </View>
   );
 }
 
 function SignedOutInvitation() {
+  const { t } = useTranslation();
   return (
     <View className="items-center gap-space-8 py-space-24">
       <View className="rounded-radius-max bg-bg-fill-secondary p-space-12">
         <Bell size={EMPTY_ICON_SIZE} className="text-text-tertiary" />
       </View>
-      <Text className="text-bodyTitleSmall text-text">Sign in to set price alerts</Text>
-      <Text className="text-caption text-text-tertiary">
-        Alerts live with your account, so they follow you between devices.
-      </Text>
+      <Text className="text-bodyTitleSmall text-text">{t("priceAlerts.signedOut.title")}</Text>
+      <Text className="text-caption text-text-tertiary">{t("priceAlerts.signedOut.body")}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Sign in"
+        accessibilityLabel={t("priceAlerts.signedOut.signIn")}
         onPress={() => openAccountDialog()}
         className="rounded-radius-max bg-bg-fill-secondary px-space-16 py-space-8"
       >
-        <Text className="text-caption text-text">Sign in</Text>
+        <Text className="text-caption text-text">{t("priceAlerts.signedOut.signIn")}</Text>
       </Pressable>
     </View>
   );

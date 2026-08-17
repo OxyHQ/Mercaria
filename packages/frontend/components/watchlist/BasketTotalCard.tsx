@@ -1,10 +1,7 @@
 import { View } from "react-native";
 import { formatMoney, Text } from "@mercaria/ui";
-import {
-  hasKnownBasketTotal,
-  WATCHLIST_INDEPENDENT_MINIMA_LABEL,
-  type WatchlistBasket,
-} from "@mercaria/shared-types";
+import { hasKnownBasketTotal, type WatchlistBasket } from "@mercaria/shared-types";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The basket total, with an honest completeness label (#81 UX rules 4 and 5,
@@ -31,42 +28,52 @@ import {
  * comparing this week's total against last week's needs to know which one they
  * are looking at — the server refuses to mix them, and this is where that
  * refusal becomes visible.
+ *
+ * Each basis is ONE whole key carrying the honest
+ * `WATCHLIST_INDEPENDENT_MINIMA_LABEL` phrase with it, rather than a translated
+ * half joined to an English constant: a line reading "vor Versand · independent
+ * per-item minima" is the hedge failing in exactly the place it has to hold.
  */
 export function BasketTotalCard({ basket }: { basket: WatchlistBasket }) {
+  const { t } = useTranslation();
   const total = basket.total;
 
   if (!hasKnownBasketTotal(total)) {
     return (
       <View className="gap-space-4 rounded-radius-lg border border-border-secondary p-space-16">
-        <Text className="text-sm text-text-secondary">Current basket</Text>
-        <Text className="text-xl font-semibold text-foreground">No price yet</Text>
+        <Text className="text-sm text-text-secondary">{t("watchlists.basket.title")}</Text>
+        <Text className="text-xl font-semibold text-foreground">
+          {t("watchlists.basket.noPrice")}
+        </Text>
         <Text className="text-sm text-text-secondary">
           {basket.unresolved.length === 0
-            ? "Add something to this list to see what it would cost."
-            : `None of the ${basket.unresolved.length} item(s) here could be priced right now.`}
+            ? t("watchlists.basket.empty")
+            : t("watchlists.basket.nonePriced", { count: basket.unresolved.length })}
         </Text>
       </View>
     );
   }
 
-  const basisLabel =
-    total.basis === "delivered_total" ? "including delivery" : "before delivery";
-
   return (
     <View className="gap-space-4 rounded-radius-lg border border-border-secondary p-space-16">
-      <Text className="text-sm text-text-secondary">Current basket</Text>
+      <Text className="text-sm text-text-secondary">{t("watchlists.basket.title")}</Text>
       <Text className="text-2xl font-bold text-foreground">{formatMoney(total.amount)}</Text>
       <Text className="text-sm text-text-secondary">
-        {basisLabel} · {WATCHLIST_INDEPENDENT_MINIMA_LABEL}
+        {total.basis === "delivered_total"
+          ? t("watchlists.basket.basisDelivered")
+          : t("watchlists.basket.basisItemPrice")}
       </Text>
       {total.completeness === "partial" ? (
         <Text className="text-sm text-text-secondary">
-          {total.includedItems} of {total.includedItems + total.excludedItems} items priced.{" "}
-          {total.excludedItems} could not be, and are listed below with the reason.
+          {t("watchlists.basket.partial", {
+            included: total.includedItems,
+            total: total.includedItems + total.excludedItems,
+            excluded: total.excludedItems,
+          })}
         </Text>
       ) : (
         <Text className="text-sm text-text-secondary">
-          All {total.includedItems} item(s) priced.
+          {t("watchlists.basket.complete", { count: total.includedItems })}
         </Text>
       )}
     </View>

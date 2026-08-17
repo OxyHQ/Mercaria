@@ -13,6 +13,7 @@ import {
   useToggleListingSave,
   useToggleProductSave,
 } from "@/lib/hooks/use-saves";
+import { useTranslation } from "@/lib/i18n";
 
 /** Icon size for the empty-state badge. */
 const EMPTY_ICON_SIZE = 28;
@@ -38,6 +39,7 @@ const EMPTY_ICON_SIZE = 28;
  */
 export default function SavedScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
   const savedItems = useSavedItems();
   const toggleProduct = useToggleProductSave();
@@ -93,11 +95,11 @@ export default function SavedScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>Saved · Mercaria</title>
+        <title>{t("saved.pageTitle")}</title>
       </Head>
 
       <View className="gap-space-16 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">Saved</Text>
+        <Text className="text-2xl font-bold text-foreground">{t("saved.heading")}</Text>
 
         {!isAuthenticated ? (
           <SignedOutInvitation />
@@ -106,15 +108,9 @@ export default function SavedScreen() {
             <ActivityIndicator />
           </View>
         ) : savedItems.isError ? (
-          <EmptyState
-            title="We could not load your saved items"
-            subtitle="Check your connection and try again."
-          />
+          <EmptyState title={t("saved.error.title")} subtitle={t("saved.error.subtitle")} />
         ) : items.length === 0 ? (
-          <EmptyState
-            title="Nothing saved yet"
-            subtitle="Tap the heart on a product to follow its price, or save a listing when the exact item is what you want."
-          />
+          <EmptyState title={t("saved.empty.title")} subtitle={t("saved.empty.subtitle")} />
         ) : (
           <View className="gap-space-12">
             {items.map((item) => (
@@ -137,13 +133,13 @@ export default function SavedScreen() {
             {savedItems.hasNextPage ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Load more saved items"
+                accessibilityLabel={t("saved.loadMoreA11y")}
                 onPress={() => void savedItems.fetchNextPage()}
                 disabled={savedItems.isFetchingNextPage}
                 className="items-center rounded-radius-max border border-border-secondary py-space-12"
               >
                 <Text className="text-buttonMedium text-text">
-                  {savedItems.isFetchingNextPage ? "Loading…" : "Show more"}
+                  {savedItems.isFetchingNextPage ? t("saved.loading") : t("saved.showMore")}
                 </Text>
               </Pressable>
             ) : null}
@@ -167,19 +163,18 @@ function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 function SignedOutInvitation() {
+  const { t } = useTranslation();
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
-      <Text className="text-bodyTitleSmall text-text">Sign in to save things</Text>
-      <Text className="text-sm text-muted-foreground">
-        Saved products follow the price and availability across every seller, on all your devices.
-      </Text>
+      <Text className="text-bodyTitleSmall text-text">{t("saved.signedOut.title")}</Text>
+      <Text className="text-sm text-muted-foreground">{t("saved.signedOut.body")}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Sign in"
+        accessibilityLabel={t("saved.signedOut.signIn")}
         onPress={() => openAccountDialog()}
         className="items-center rounded-radius-max bg-bg-fill-brand py-space-12"
       >
-        <Text className="text-buttonMedium text-text-inverse">Sign in</Text>
+        <Text className="text-buttonMedium text-text-inverse">{t("saved.signedOut.signIn")}</Text>
       </Pressable>
     </View>
   );

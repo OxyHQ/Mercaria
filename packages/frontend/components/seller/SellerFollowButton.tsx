@@ -1,5 +1,6 @@
 import { Button } from "@oxyhq/bloom/button";
 import { FollowTargetButton, openAccountDialog, useOxy } from "@oxyhq/services";
+import { useTranslation } from "@/lib/i18n";
 import { useSellerFollowTarget } from "@/lib/hooks/use-seller-follow";
 
 /**
@@ -46,6 +47,7 @@ export function SellerFollowButton({
   displayName: string;
   size?: "small" | "medium" | "large";
 }) {
+  const { t } = useTranslation();
   const { canUsePrivateApi } = useOxy();
   const { data: followTargetId } = useSellerFollowTarget(oxyUserId);
 
@@ -73,9 +75,9 @@ export function SellerFollowButton({
       variant="primary"
       size={size}
       onPress={() => openAccountDialog()}
-      accessibilityLabel={`Follow ${displayName}`}
+      accessibilityLabel={t("sellers.follow.actionLabel", { name: displayName })}
     >
-      Follow
+      {t("sellers.follow.action")}
     </Button>
   );
 }

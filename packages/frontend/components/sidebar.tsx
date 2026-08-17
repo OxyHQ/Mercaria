@@ -164,7 +164,7 @@ const MainSidebar = React.memo(function MainSidebar() {
         <View className="flex-col items-center gap-2 p-2">
           <Pressable
             onPress={toggleSidebarCollapsed}
-            accessibilityLabel="Expand sidebar"
+            accessibilityLabel={t("shell.sidebar.expand")}
             className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
           >
             <ChevronsRight size={18} color={colors.mutedForeground} />
@@ -206,7 +206,7 @@ const MainSidebar = React.memo(function MainSidebar() {
           <View className="ms-auto">
             <Pressable
               onPress={toggleSidebarCollapsed}
-              accessibilityLabel="Collapse sidebar"
+              accessibilityLabel={t("shell.sidebar.collapse")}
               className="h-10 w-10 items-center justify-center rounded-full active:bg-muted"
             >
               <ChevronsLeft size={18} color={colors.mutedForeground} />
@@ -237,7 +237,7 @@ const MainSidebar = React.memo(function MainSidebar() {
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
               <Pressable
-                accessibilityLabel="Account menu"
+                accessibilityLabel={t("shell.sidebar.accountMenu")}
                 accessibilityRole="button"
                 className="flex-row items-center gap-2.5 rounded-xl p-1.5 active:bg-muted"
               >

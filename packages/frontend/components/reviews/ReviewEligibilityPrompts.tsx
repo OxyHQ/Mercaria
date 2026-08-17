@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { ReviewEligibility, ReviewScope } from "@mercaria/shared-types";
 import { Button, ReviewStars, Text, Textarea } from "@mercaria/ui";
-import { REVIEW_SCOPE_LABELS, useCreateReview, useReviewEligibilities } from "@/lib/hooks/use-reviews";
+import { useTranslation } from "@/lib/i18n";
+import { REVIEW_SCOPE_HEADING_KEYS, useCreateReview, useReviewEligibilities } from "@/lib/hooks/use-reviews";
 
 /** Star buttons offered by the rating picker, low → high. */
 const RATING_CHOICES = [1, 2, 3, 4, 5] as const;
@@ -19,14 +20,69 @@ const PROMPT_STAR_SIZE = 16;
  * must be able to tell which they are answering, or the two ratings they leave
  * are the same rating written twice (#76 UI rule 6, and the reason the whole
  * separation exists).
+ *
+ * KEYS, not sentences: this table is a module-scope `const` evaluated at import,
+ * before the locale store has rehydrated, so a sentence here would freeze
+ * whichever language loaded first. Every map below carries keys for that reason.
  */
-const PROMPT_QUESTION: Readonly<Record<ReviewScope, string>> = Object.freeze({
-  product: "How is the product itself?",
-  merchant: "How was the seller's service?",
-  native_transaction: "How was this purchase?",
-  p2p_listing: "Did the item match its condition and description?",
-  p2p_seller: "How was this seller to buy from?",
-});
+const PROMPT_QUESTION_KEYS: Readonly<Record<ReviewScope, string>> = {
+  product: "reviews.question.product",
+  merchant: "reviews.question.merchant",
+  native_transaction: "reviews.question.nativeTransaction",
+  p2p_listing: "reviews.question.p2pListing",
+  p2p_seller: "reviews.question.p2pSeller",
+};
+Object.freeze(PROMPT_QUESTION_KEYS);
+
+/**
+ * The scope as a TERM that reads inside another sentence.
+ *
+ * Separate from `REVIEW_SCOPE_HEADING_KEYS`, which is a HEADING ("Product reviews",
+ * "Seller reputation"). Dropping a heading into a sentence slot is exactly the
+ * #442 defect, and it was live here: `REVIEW_SCOPE_HEADING_KEYS.product` lowercased
+ * interpolated into "Thanks — your … review is published." rendered "Thanks —
+ * your product reviews review is published." in English, and worse everywhere a
+ * translator had to work around it.
+ *
+ * These are the only keys here that land in a SENTENCE SLOT, so they are the
+ * ones check F has to be able to read — and `validate-i18n-strings`' key reader
+ * matches a `const X = { … }` initializer, which `Object.freeze({ … })` is not.
+ * Frozen on the next line instead, so the guard sees the literal map and the
+ * runtime guarantee is unchanged.
+ */
+const SCOPE_TERM_KEYS: Readonly<Record<ReviewScope, string>> = {
+  product: "reviews.scope.product",
+  merchant: "reviews.scope.merchant",
+  native_transaction: "reviews.scope.nativeTransaction",
+  p2p_listing: "reviews.scope.p2pListing",
+  p2p_seller: "reviews.scope.p2pSeller",
+};
+Object.freeze(SCOPE_TERM_KEYS);
+
+/**
+ * The published confirmation, written out per scope rather than composed.
+ *
+ * A whole sentence per case, because "your %{term} review" puts the term in a
+ * slot whose grammar (article, gender, word order) differs by language.
+ */
+const PUBLISHED_KEYS: Readonly<Record<ReviewScope, string>> = {
+  product: "reviews.published.product",
+  merchant: "reviews.published.merchant",
+  native_transaction: "reviews.published.nativeTransaction",
+  p2p_listing: "reviews.published.p2pListing",
+  p2p_seller: "reviews.published.p2pSeller",
+};
+Object.freeze(PUBLISHED_KEYS);
+
+/** The note field's accessible name, per scope, for the same reason. */
+const NOTE_LABEL_KEYS: Readonly<Record<ReviewScope, string>> = {
+  product: "reviews.noteLabel.product",
+  merchant: "reviews.noteLabel.merchant",
+  native_transaction: "reviews.noteLabel.nativeTransaction",
+  p2p_listing: "reviews.noteLabel.p2pListing",
+  p2p_seller: "reviews.noteLabel.p2pSeller",
+};
+Object.freeze(NOTE_LABEL_KEYS);
 
 /** The body field for one scoped review, keyed by the scope's target. */
 function targetInput(eligibility: ReviewEligibility): Record<string, string> {
@@ -54,6 +110,7 @@ function targetInput(eligibility: ReviewEligibility): Record<string, string> {
  * one they tapped the one that gets spent.
  */
 function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
+  const { t } = useTranslation();
   const [rating, setRating] = useState<number | null>(null);
   const [body, setBody] = useState("");
   const createReview = useCreateReview();
@@ -73,7 +130,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
     return (
       <View className="rounded-2xl border border-border bg-card p-4">
         <Text className="text-sm text-muted-foreground">
-          {`Thanks — your ${REVIEW_SCOPE_LABELS[eligibility.scope].toLowerCase()} review is published.`}
+          {t(PUBLISHED_KEYS[eligibility.scope])}
         </Text>
       </View>
     );
@@ -83,7 +140,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
     <View className="gap-3 rounded-2xl border border-border bg-card p-4">
       <View>
         <Text className="text-sm font-bold text-foreground">
-          {PROMPT_QUESTION[eligibility.scope]}
+          {t(PROMPT_QUESTION_KEYS[eligibility.scope])}
         </Text>
         {/*
           The scope is named in visible copy as well as in the question, so a
@@ -91,7 +148,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
           questions rather than one asked four times.
         */}
         <Text className="mt-0.5 text-xs text-muted-foreground">
-          {`${REVIEW_SCOPE_LABELS[eligibility.scope]} · verified purchase`}
+          {t("reviews.verifiedPurchase", { scopeLabel: t(SCOPE_TERM_KEYS[eligibility.scope]) })}
         </Text>
       </View>
 
@@ -100,7 +157,10 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
           <Pressable
             key={choice}
             accessibilityRole="button"
-            accessibilityLabel={`${choice} of 5 — ${REVIEW_SCOPE_LABELS[eligibility.scope]}`}
+            accessibilityLabel={t("reviews.ratingChoice", {
+              choice,
+              scopeLabel: t(SCOPE_TERM_KEYS[eligibility.scope]),
+            })}
             accessibilityState={{ selected: rating === choice }}
             hitSlop={6}
             onPress={() => setRating(choice)}
@@ -109,24 +169,24 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
               rating={rating !== null && choice <= rating ? 1 : 0}
               count={1}
               size={PROMPT_STAR_SIZE}
-              scopeLabel={REVIEW_SCOPE_LABELS[eligibility.scope]}
+              scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS[eligibility.scope])}
             />
           </Pressable>
         ))}
       </View>
 
       <Textarea
-        placeholder="Add a note (optional)"
+        placeholder={t("reviews.notePlaceholder")}
         value={body}
         onChangeText={setBody}
-        accessibilityLabel={`Your ${REVIEW_SCOPE_LABELS[eligibility.scope].toLowerCase()} review`}
+        accessibilityLabel={t(NOTE_LABEL_KEYS[eligibility.scope])}
       />
 
       {createReview.isError ? (
         <Text className="text-xs text-destructive">
           {createReview.error instanceof Error
             ? createReview.error.message
-            : "Could not publish that review."}
+            : t("reviews.publishError")}
         </Text>
       ) : null}
 
@@ -136,7 +196,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
         isLoading={createReview.isPending}
         onPress={submit}
       >
-        <Text className="text-sm font-medium">Publish review</Text>
+        <Text className="text-sm font-medium">{t("reviews.publishAction")}</Text>
       </Button>
     </View>
   );
@@ -160,6 +220,7 @@ function ReviewPrompt({ eligibility }: { eligibility: ReviewEligibility }) {
  *    picker starts empty and the note starts empty.
  */
 export function ReviewEligibilityPrompts() {
+  const { t } = useTranslation();
   const { data, isLoading } = useReviewEligibilities();
   const eligibilities = data ?? [];
 
@@ -170,13 +231,13 @@ export function ReviewEligibilityPrompts() {
 
   return (
     <View className="gap-3 px-4 pb-6">
-      <Text className="text-sm font-bold text-foreground">Rate what you bought</Text>
+      <Text className="text-sm font-bold text-foreground">{t("reviews.heading")}</Text>
       {visible.map((eligibility) => (
         <ReviewPrompt key={eligibility.id} eligibility={eligibility} />
       ))}
       {remaining > 0 ? (
         <Text className="text-xs text-muted-foreground">
-          {`${remaining} more purchase${remaining === 1 ? "" : "s"} to rate.`}
+          {t("reviews.moreToRate", { count: remaining })}
         </Text>
       ) : null}
     </View>

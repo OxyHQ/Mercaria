@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { Pressable } from "react-native";
 import { Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The `Sell yours` entry point (#91 entry paths 1 and 2).
@@ -29,6 +30,7 @@ export function SellYoursButton({
   label,
 }: SellYoursButtonProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   return (
     <Pressable
       accessibilityRole="button"
@@ -45,7 +47,7 @@ export function SellYoursButton({
       }}
     >
       <Text className="text-base font-medium">
-        {label ?? (canonicalVariantId ? "Sell this one" : "Sell yours")}
+        {label ?? (canonicalVariantId ? t("sell.sellYours.thisOne") : t("sell.sellYours.yours"))}
       </Text>
     </Pressable>
   );

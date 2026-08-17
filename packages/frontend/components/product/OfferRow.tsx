@@ -15,6 +15,7 @@ import {
   formatSourceMoney,
 } from '@mercaria/ui';
 import config from '../../lib/config';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * One offer, as a shopper reads it (#71 §"Offer row").
@@ -47,6 +48,7 @@ export interface OfferRowProps {
 
 export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRowProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { offer, ranked, seller, outbound } = row;
 
   return (
@@ -82,7 +84,7 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
         // #71 offer row 8: a return-policy summary ONLY when the seller supplied
         // one. Mercaria states no return policy on somebody else's behalf.
         <Text className="text-caption text-text-secondary">
-          {`Seller states a ${offer.returnPolicy.windowDays}-day return window.`}
+          {t('offer.returnWindow', { count: offer.returnPolicy.windowDays })}
         </Text>
       ) : null}
 
@@ -100,7 +102,7 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
         <View className="flex-row gap-space-8">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Buy on Mercaria"
+            accessibilityLabel={t('offer.buyOnMercaria')}
             accessibilityState={{ disabled: addToCartPending }}
             disabled={addToCartPending}
             onPress={() =>
@@ -111,17 +113,17 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
             }
             className="flex-1 items-center rounded-radius-max bg-bg-fill-inverse p-space-12"
           >
-            <Text className="text-buttonMedium text-text-inverse">Buy on Mercaria</Text>
+            <Text className="text-buttonMedium text-text-inverse">{t('offer.buyOnMercaria')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel="Open this seller's listing"
+            accessibilityLabel={t('offer.openSellerListingA11y')}
             onPress={() =>
               router.push(`/products/${outbound.listingId}`)
             }
             className="items-center rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
-            <Text className="text-buttonMedium text-text">View listing</Text>
+            <Text className="text-buttonMedium text-text">{t('offer.viewListing')}</Text>
           </Pressable>
         </View>
       ) : outbound.kind === 'outbound' ? (
@@ -136,6 +138,7 @@ export function OfferRow({ row, onAddToCart, addToCartPending = false }: OfferRo
 /** Who is selling, with a link to their public page when they have one. */
 function SellerLine({ seller }: { seller: ProductPageSeller }) {
   const router = useRouter();
+  const { t } = useTranslation();
 
   if (seller.kind === 'merchant') {
     return (
@@ -162,7 +165,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
         */}
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={`Visit ${seller.name}`}
+          accessibilityLabel={t('product.visitA11y', { name: seller.name })}
           onPress={() =>
             router.push(`/merchants/${seller.slug}`)
           }
@@ -175,7 +178,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
               ? // ADR 0002 D8: a marketplace offer names BOTH, because the
                 // seller of record is who a buyer's warranty is with and the
                 // channel is where the transaction happens.
-                `Sold by ${seller.name} on ${seller.storefront.name}`
+                t('offer.soldByOn', { seller: seller.name, channel: seller.storefront.name })
               : seller.storefront.name}
           </Text>
         ) : null}
@@ -187,7 +190,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
     return (
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`Visit ${seller.name}`}
+        accessibilityLabel={t('product.visitA11y', { name: seller.name })}
         onPress={() =>
           router.push(`/stores/${seller.handle}`)
         }
@@ -201,7 +204,7 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
     return (
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`Visit ${seller.displayName}'s profile`}
+        accessibilityLabel={t('offer.visitProfileA11y', { name: seller.displayName })}
         onPress={() =>
           router.push(`/sellers/${encodeURIComponent(seller.oxyUserId)}`)
         }
@@ -212,7 +215,11 @@ function SellerLine({ seller }: { seller: ProductPageSeller }) {
   }
 
   // An unresolvable seller names NOBODY rather than naming somebody wrong.
-  return <Text className="text-bodyTitleSmall text-text-secondary">Seller not identified</Text>;
+  return (
+    <Text className="text-bodyTitleSmall text-text-secondary">
+      {t('offer.sellerNotIdentified')}
+    </Text>
+  );
 }
 
 /**
@@ -230,6 +237,7 @@ function PriceBlock({
   price: OfferComparisonPrice;
   sourcePrice?: OfferMoney;
 }) {
+  const { t } = useTranslation();
   const source = sourcePrice === undefined ? null : formatSourceMoney(sourcePrice);
 
   if (price.known === true) {
@@ -237,7 +245,9 @@ function PriceBlock({
       <View className="items-end gap-space-2">
         <Text className="text-bodyTitleLarge text-text">{formatMoney(price.amount)}</Text>
         {source !== null && sourcePrice !== undefined && sourcePrice.currency !== price.amount.currency ? (
-          <Text className="text-caption text-text-secondary">{`Listed at ${source}`}</Text>
+          <Text className="text-caption text-text-secondary">
+            {t('offer.listedAt', { amount: source })}
+          </Text>
         ) : null}
       </View>
     );
@@ -246,14 +256,16 @@ function PriceBlock({
   return (
     <View className="items-end gap-space-2">
       {source === null ? (
-        <Text className="text-bodyTitleSmall text-text-secondary">Price not available</Text>
+        <Text className="text-bodyTitleSmall text-text-secondary">
+          {t('offer.priceNotAvailable')}
+        </Text>
       ) : (
         <Text className="text-bodyTitleSmall text-text">{source}</Text>
       )}
       <Text className="text-caption text-text-secondary">
         {price.reason === 'not_convertible'
-          ? "We can't convert this price to your currency."
-          : 'This seller has not published a price.'}
+          ? t('offer.priceNotConvertible')
+          : t('offer.priceNotPublished')}
       </Text>
     </View>
   );
@@ -261,27 +273,36 @@ function PriceBlock({
 
 /** Delivery, or the honest statement that nobody published it. */
 function DeliveryLine({ row }: { row: ProductPageOfferRow }) {
+  const { t } = useTranslation();
   const delivery = row.offer.delivery;
 
   if (delivery.known === false) {
     return (
       <Text className="text-caption text-text-secondary">
         {delivery.pickup === 'available'
-          ? 'Delivery cost unknown · collection offered'
-          : 'Delivery cost unknown'}
+          ? t('offer.deliveryUnknownWithPickup')
+          : t('offer.deliveryUnknown')}
       </Text>
     );
   }
 
   const cost = formatSourceMoney(delivery.cost);
-  const window =
-    delivery.minDays !== undefined && delivery.maxDays !== undefined
-      ? ` · ${delivery.minDays}–${delivery.maxDays} days`
-      : '';
+  // Four WHOLE sentences rather than a base plus a suffix: a delivery window is
+  // a clause, and the order a clause takes relative to the cost is a fact about
+  // the language rather than about the offer.
+  const free = delivery.cost.amount === 0;
+  const hasWindow = delivery.minDays !== undefined && delivery.maxDays !== undefined;
+  const values = {
+    cost: cost ?? delivery.cost.currency,
+    min: delivery.minDays,
+    max: delivery.maxDays,
+  };
 
   return (
     <Text className="text-caption text-text-secondary">
-      {`${delivery.cost.amount === 0 ? 'Free delivery' : `Delivery ${cost ?? delivery.cost.currency}`}${window}`}
+      {hasWindow
+        ? t(free ? 'offer.freeDeliveryWithWindow' : 'offer.deliveryCostWithWindow', values)
+        : t(free ? 'offer.freeDelivery' : 'offer.deliveryCost', values)}
     </Text>
   );
 }
@@ -300,32 +321,38 @@ function AvailabilityLine({
   availability: string;
   freshness: OfferFreshnessAssessment;
 }) {
+  const { t } = useTranslation();
   const checked = new Date(freshness.lastSeenAt);
   const stale = freshness.level === 'warning';
+  const values = {
+    availability: t(AVAILABILITY_TEXT_KEYS[availability] ?? AVAILABILITY_UNKNOWN_KEY),
+    date: checked.toLocaleDateString(),
+  };
 
   return (
     <Text className="text-caption text-text-secondary">
-      {`${availabilityText(availability)} · Checked ${checked.toLocaleDateString()}${
-        stale ? ' · we have not been able to re-check this recently' : ''
-      }`}
+      {stale ? t('offer.availabilityCheckedStale', values) : t('offer.availabilityChecked', values)}
     </Text>
   );
 }
 
-function availabilityText(availability: string): string {
-  switch (availability) {
-    case 'in_stock':
-      return 'In stock';
-    case 'out_of_stock':
-      return 'Out of stock';
-    case 'preorder':
-      return 'Pre-order';
-    case 'unavailable':
-      return 'Unavailable';
-    default:
-      return 'Availability not published';
-  }
-}
+/**
+ * The availability vocabulary, as KEYS.
+ *
+ * A `switch` returning English would be evaluated per render and would still be
+ * English; a map of KEYS is resolved at the render site against the locale in
+ * force. An availability the server publishes and this map does not name falls
+ * to the "not published" key, which is the same answer the `default` gave.
+ */
+const AVAILABILITY_TEXT_KEYS: Readonly<Record<string, string | undefined>> = {
+  in_stock: 'offer.availability.inStock',
+  out_of_stock: 'offer.availability.outOfStock',
+  preorder: 'offer.availability.preorder',
+  unavailable: 'offer.availability.unavailable',
+};
+Object.freeze(AVAILABILITY_TEXT_KEYS);
+
+const AVAILABILITY_UNKNOWN_KEY = 'offer.availability.notPublished';
 
 /**
  * "Go to <merchant>" — the handoff to #67's redirect.
@@ -352,20 +379,24 @@ function OutboundAction({
 }: {
   outbound: Extract<ProductPageOfferRow['outbound'], { kind: 'outbound' }>;
 }) {
+  const { t } = useTranslation();
+
   return (
     <View className="gap-space-4">
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`Go to ${outbound.destinationHost}`}
+        accessibilityLabel={t('offer.goToHost', { host: outbound.destinationHost })}
         onPress={() => {
           void Linking.openURL(`${config.apiUrl}${outbound.redirectPath}`);
         }}
         className="items-center rounded-radius-max border border-border-secondary p-space-12"
       >
-        <Text className="text-buttonMedium text-text">{`Go to ${outbound.destinationHost}`}</Text>
+        <Text className="text-buttonMedium text-text">
+          {t('offer.goToHost', { host: outbound.destinationHost })}
+        </Text>
       </Pressable>
       <Text className="text-caption text-text-secondary">
-        {`You will continue on ${outbound.destinationHost}. Mercaria may earn a commission.`}
+        {t('offer.continueOnHost', { host: outbound.destinationHost })}
       </Text>
     </View>
   );
@@ -380,13 +411,14 @@ function OutboundAction({
  * carries no tracking parameters, because it is not a URL.
  */
 function UnavailableAction({ row }: { row: ProductPageOfferRow }) {
+  const { t } = useTranslation();
   const { outbound, offer } = row;
   if (outbound.kind !== 'unavailable') return null;
 
   if (outbound.reason === 'native_not_purchasable') {
     return (
       <Text className="text-caption text-text-secondary" accessibilityRole="text">
-        {nativeBlockText(offer.checkout.eligible === true ? [] : offer.checkout.reasons)}
+        {t(nativeBlockTextKey(offer.checkout.eligible === true ? [] : offer.checkout.reasons))}
       </Text>
     );
   }
@@ -397,8 +429,8 @@ function UnavailableAction({ row }: { row: ProductPageOfferRow }) {
         accessibilityRole="button"
         accessibilityLabel={
           outbound.destinationHost === undefined
-            ? 'This offer cannot be opened yet'
-            : `Opening ${outbound.destinationHost} is not available yet`
+            ? t('offer.cannotOpenYetA11y')
+            : t('offer.openingNotAvailableA11y', { host: outbound.destinationHost })
         }
         accessibilityState={{ disabled: true }}
         disabled
@@ -406,22 +438,28 @@ function UnavailableAction({ row }: { row: ProductPageOfferRow }) {
       >
         <Text className="text-buttonMedium text-text-secondary">
           {outbound.destinationHost === undefined
-            ? 'No link published'
-            : `Go to ${outbound.destinationHost}`}
+            ? t('offer.noLinkPublished')
+            : t('offer.goToHost', { host: outbound.destinationHost })}
         </Text>
       </Pressable>
       <Text className="text-caption text-text-secondary">
         {outbound.reason === 'no_destination'
-          ? 'This seller published a price but no link.'
-          : "Opening offers on other sites isn't available yet."}
+          ? t('offer.noDestination')
+          : t('offer.outboundNotAvailable')}
       </Text>
     </View>
   );
 }
 
-/** Why a native offer cannot be bought, in the buyer's terms. */
-function nativeBlockText(reasons: readonly string[]): string {
-  if (reasons.includes('out_of_stock')) return 'This seller is out of stock.';
-  if (reasons.includes('seller_not_payment_ready')) return 'This seller cannot take payment yet.';
-  return 'This offer is not available to buy right now.';
+/**
+ * Why a native offer cannot be bought, in the buyer's terms.
+ *
+ * A KEY rather than a sentence: this is a plain function rather than a
+ * component, so it has no `t` of its own, and threading one through would put
+ * the locale in a parameter list. The render site resolves it.
+ */
+function nativeBlockTextKey(reasons: readonly string[]): string {
+  if (reasons.includes('out_of_stock')) return 'offer.blocked.outOfStock';
+  if (reasons.includes('seller_not_payment_ready')) return 'offer.blocked.notPaymentReady';
+  return 'offer.blocked.notAvailable';
 }

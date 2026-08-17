@@ -1,82 +1,36 @@
 {
   "common": {
-    "or": "或",
     "loading": "加载中…",
-    "error": "错误",
-    "success": "成功",
     "cancel": "取消",
     "confirm": "确认",
-    "save": "保存",
-    "saving": "保存中…",
-    "delete": "删除",
-    "edit": "编辑",
-    "close": "关闭",
     "back": "返回",
-    "create": "创建",
-    "search": "搜索…",
-    "comingSoon": "敬请期待！",
-    "noResults": "未找到结果",
     "user": "用户",
-    "done": "完成",
     "tryAgain": "重试",
     "processing": "处理中…"
   },
   "home": {
     "title": "Mercaria",
-    "emptyTitle": "Mercaria 即将上线",
-    "emptySubtitle": "买卖全新与二手好物 —— 商品将在这里展示。"
+    "loadingProducts": "正在加载商品",
+    "loadError": "无法加载商品。下拉刷新或重试。"
   },
   "nav": {
     "home": "首页",
-    "settings": "设置"
+    "settings": "设置",
+    "explore": "发现",
+    "cart": "购物车",
+    "deals": "优惠",
+    "saved": "已保存",
+    "account": "账户",
+    "signIn": "登录"
   },
   "login": {
-    "title": "登录或注册",
-    "subtitle": "以继续使用 Mercaria",
-    "emailPlaceholder": "电子邮箱",
-    "passwordPlaceholder": "密码",
-    "forgotPassword": "忘记密码？",
     "signInButton": "登录",
-    "signingIn": "正在登录…",
-    "footerText": "还没有账号？",
-    "footerLink": "注册",
-    "termsPrefix": "继续即表示你同意 Mercaria 的",
-    "termsOfService": "服务条款",
-    "termsAnd": "和",
-    "privacyPolicy": "隐私政策"
-  },
-  "register": {
-    "title": "创建 Oxy 账号",
-    "subtitle": "注册后即可开始使用 Mercaria",
-    "firstNamePlaceholder": "名字",
-    "lastNamePlaceholder": "姓氏（选填）",
-    "emailPlaceholder": "电子邮箱",
-    "passwordPlaceholder": "密码（至少 8 个字符）",
-    "confirmPasswordPlaceholder": "确认密码",
-    "createAccountButton": "继续",
-    "creatingAccount": "正在创建账号…",
-    "footerText": "已有账号？",
-    "footerLink": "登录",
-    "termsPrefix": "继续即表示你同意 Oxy 的",
-    "termsOfService": "服务条款",
-    "termsAnd": "和",
-    "privacyPolicy": "隐私政策"
-  },
-  "errors": {
-    "passwordRequired": "请输入密码",
-    "loginFailed": "登录失败",
-    "loginError": "登录出错",
-    "failedToLogin": "无法登录，请重试。",
-    "registrationError": "注册出错",
-    "registrationFailed": "注册失败",
-    "failedToRegister": "无法完成注册，请重试。"
+    "footerLink": "注册"
   },
   "settings": {
     "title": "设置",
-    "subtitle": "管理你的 Mercaria 偏好设置",
     "account": {
-      "title": "账号设置",
-      "description": "管理你的账号"
+      "title": "账号设置"
     },
     "appLanguage": {
       "title": "应用语言",
@@ -85,7 +39,6 @@
     },
     "appearance": {
       "title": "外观",
-      "description": "选择你偏好的配色方案",
       "light": "浅色",
       "dark": "深色",
       "system": "跟随系统"
@@ -102,13 +55,18 @@
       "watchlists": "关注清单",
       "shoppingAgents": "购物助手",
       "referralPartner": "推荐伙伴"
+    },
+    "currency": {
+      "title": "显示货币",
+      "description": "选择价格显示所用的货币。默认是 FairCoin（⊜）。",
+      "signedOut": "登录后即可保存你偏好的显示货币。",
+      "updateFailed": "无法更新你的显示货币"
     }
   },
   "sidebar": {
     "account": "账号",
     "settings": "设置",
     "logOut": "退出登录",
-    "termsOfService": "服务条款",
     "privacyPolicy": "隐私政策"
   },
   "feedback": {
@@ -134,9 +92,8 @@
     "featurePlaceholder": "描述你希望看到的功能。它会给你带来什么帮助？",
     "improvementPlaceholder": "你希望我们改进什么？我们可以怎样做得更好？",
     "otherPlaceholder": "把你的想法告诉我们…",
-    "characterCount": "{{count}}/1000 个字符",
+    "characterCount": "%{count}/1000 个字符",
     "submitButton": "提交反馈",
-    "submitting": "提交中…",
     "footerText": "你的反馈能帮助我们改进 Mercaria。感谢你抽出时间与我们分享。",
     "selectType": "请选择反馈类型",
     "enterMessage": "请填写反馈内容",
@@ -146,16 +103,112 @@
   },
   "notifications": {
     "title": "通知",
-    "subtitle": "管理你的通知偏好设置",
     "pushNotifications": "推送通知",
     "pushDescription": "接收新消息和更新提醒",
-    "permissionDenied": "通知已被屏蔽。请在设备设置中开启，以接收推送通知。"
-  },
-  "welcome": {
-    "appName": "Mercaria"
+    "permissionDenied": "通知已被屏蔽。请在设备设置中开启，以接收推送通知。",
+    "timeAgo": {
+      "justNow": "刚刚",
+      "minutes": "%{count} 分钟前",
+      "hours": "%{count} 小时前",
+      "days": "%{count} 天前"
+    },
+    "unreadCount": "%{count} 条未读",
+    "markAllRead": "全部标为已读",
+    "empty": {
+      "title": "还没有通知",
+      "body": "你已经全部看完了。"
+    }
   },
   "product": {
-    "priceHistoryHeading": "价格记录 — %{segment}"
+    "priceHistoryHeading": "价格记录 — %{segment}",
+    "intent": {
+      "balanced": "综合最佳",
+      "cheapest": "最低价",
+      "fastest": "最快送达",
+      "official": "官方店铺",
+      "used": "二手"
+    },
+    "sourceKind": {
+      "connector": "已连接店铺",
+      "feed": "商品数据源",
+      "marketplaceApi": "市场平台",
+      "affiliateNetwork": "联盟营销网络",
+      "operator": "运营方",
+      "backfill": "早前的导入"
+    },
+    "appName": "Mercaria",
+    "documentTitle": "%{name} — Mercaria",
+    "loadingA11y": "正在加载商品",
+    "loadError": "无法加载该商品，请稍后再试。",
+    "notFound": "未找到该商品。",
+    "visitA11y": "访问 %{name}",
+    "moreFromStore": "%{name} 的更多商品",
+    "compareOffersA11y": "比较该商品的所有报价",
+    "compareOffers": "比较所有报价",
+    "percentOff": "省 %{percent}%",
+    "demandCopy": "过去一个月销量超过 10 万",
+    "exclusiveOffer": {
+      "label": "解锁专属价格",
+      "caption": "登录后查看你的专属优惠"
+    },
+    "quantity": "数量",
+    "decreaseQuantity": "减少数量",
+    "increaseQuantity": "增加数量",
+    "save": {
+      "productA11y": "收藏该商品",
+      "removeProductA11y": "从收藏中移除该商品",
+      "product": "收藏商品",
+      "productSaved": "已收藏商品",
+      "exactListingA11y": "收藏这条具体的商品信息",
+      "removeListingA11y": "从收藏中移除该商品信息",
+      "listing": "收藏该商品信息",
+      "listingSaved": "已收藏该商品信息",
+      "save": "收藏",
+      "saved": "已收藏"
+    },
+    "shareA11y": "分享该商品",
+    "share": "分享",
+    "deliveryAndReturns": "配送与退货",
+    "viewReturnPolicyA11y": "查看退货政策",
+    "returnPolicy": "退货政策",
+    "description": "商品描述",
+    "viewMore": "展开",
+    "viewLess": "收起",
+    "highlights": "亮点",
+    "sortOffersBy": "报价排序方式",
+    "reportProblemA11y": "举报该商品信息中的问题",
+    "reportProblem": "举报问题",
+    "specifications": "规格参数",
+    "modelIdentifiers": "型号标识",
+    "imageFromCatalogueA11y": "%{name} — 目录图片",
+    "releasedYear": "%{year} 年发布",
+    "discontinued": "已停产",
+    "detailsLastConfirmed": "商品信息最后确认于 %{date}，来源类型为“%{source}”。",
+    "variant": {
+      "configuration": "配置",
+      "allConfigurationsA11y": "所有配置",
+      "all": "全部",
+      "standard": "标准",
+      "offerCountA11y": {
+        "one": "%{label}，本页有 %{count} 个报价",
+        "other": "%{label}，本页有 %{count} 个报价"
+      }
+    },
+    "brandChannels": {
+      "officialTitle": "官方商店",
+      "officialExplanation": "品牌已确认为自有的渠道。",
+      "resellersTitle": "授权经销商",
+      "resellersExplanation": "品牌已确认为授权的经销商。它们不是品牌自营商店。"
+    },
+    "priceHistory": {
+      "lowestInWindow": "该时间段内最低价：%{amount}",
+      "noOffersObserved": {
+        "one": "该时间段内有 %{count} 个区间未观察到任何报价。",
+        "other": "该时间段内有 %{count} 个区间未观察到任何报价。"
+      },
+      "notFullyBuilt": "该时间段的一部分尚未生成。",
+      "conversionDisplayOnly": "换算金额仅供显示参考。"
+    }
   },
   "catalog": {
     "breadcrumbs": {
@@ -190,7 +243,1247 @@
       "fallbackTitle": "类目",
       "notFound": "没有找到这个类目。",
       "subcategories": "子类目",
-      "empty": "暂时没有符合这些筛选条件的内容。"
+      "empty": "暂时没有符合这些筛选条件的内容。",
+      "documentTitle": "%{title} — Mercaria"
+    }
+  },
+  "cart": {
+    "title": "购物车",
+    "pageTitle": "购物车 — Mercaria",
+    "signIn": "登录",
+    "loadingA11yLabel": "正在加载购物车",
+    "error": {
+      "title": "无法加载购物车",
+      "subtitle": "请检查网络后重试——里面的东西没有丢失。"
+    },
+    "empty": {
+      "title": "购物车是空的",
+      "subtitle": "去市场逛逛，把喜欢的商品加进来。"
+    },
+    "guestOffer": {
+      "title": "以访客身份购买",
+      "intro": "不注册也能结算。注册后还能获得：",
+      "benefits": {
+        "crossDevice": "购物车会同步到你的其他设备",
+        "savedAddresses": "保存地址，结算只需一步",
+        "orderHistory": "所有订单集中在一处，与你的账号关联"
+      },
+      "footnote": "随时可以登录——购物车里的商品会一起带过去。",
+      "signInA11yLabel": "登录你的 Oxy 账号"
+    },
+    "storageWarning": {
+      "title": "关闭应用后这个购物车可能会丢失",
+      "body": "我们无法在这台设备上安全保存你的购物车。你可以继续挑选并立即结算。登录后购物车就能安全保留。"
+    },
+    "group": {
+      "visitSellerA11yLabel": "查看 %{seller}",
+      "soldByA11yLabel": "由 %{seller} 销售",
+      "subtotal": "小计",
+      "checkout": "继续结算",
+      "checkoutWithA11yLabel": "继续与 %{seller} 结算"
+    },
+    "guestBlocked": {
+      "title": "向个人卖家购买需要账号",
+      "body": "%{seller} 的商品暂时无法以访客身份购买。请登录后结算——购物车里已有的商品会一起带过去。",
+      "signInA11yLabel": "登录你的 Oxy 账号以向该卖家购买"
+    },
+    "summary": {
+      "totalAll": "购物车合计",
+      "totalAvailable": "当前可购买",
+      "checkoutAll": "全部结算",
+      "checkoutAvailable": "结算可购买的商品",
+      "checkoutAllA11yLabel": "结算购物车中的全部商品",
+      "checkoutAvailableA11yLabel": "结算你可以以访客身份购买的商品"
+    },
+    "recommendations": {
+      "title": "你可能还喜欢"
+    }
+  },
+  "orders": {
+    "title": "我的订单",
+    "pageTitle": "我的订单 — Mercaria",
+    "empty": {
+      "title": "还没有订单",
+      "subtitle": "下单后会显示在这里。",
+      "signedOutSubtitle": "登录后即可查看订单记录。"
+    },
+    "row": {
+      "openA11yLabel": "打开订单 %{number}",
+      "meta": {
+        "one": "%{status} · %{seller} · %{count} 件商品",
+        "other": "%{status} · %{seller} · %{count} 件商品"
+      }
+    },
+    "pagination": {
+      "previous": "上一页",
+      "next": "下一页",
+      "pageOf": "第 %{page} 页，共 %{pages} 页"
+    },
+    "status": {
+      "pendingPayment": "待付款",
+      "paid": "已付款",
+      "processing": "备货中",
+      "shipped": "已发货",
+      "delivered": "已送达",
+      "cancelled": "已取消",
+      "refunded": "已退款",
+      "partiallyRefunded": "已部分退款"
+    },
+    "detail": {
+      "title": "订单 %{number}",
+      "pageTitle": "订单 — Mercaria",
+      "soldBy": "由 %{seller} 销售",
+      "errorTitle": "无法加载此订单",
+      "errorSubtitle": "请返回后重试。",
+      "backToOrders": "返回订单列表"
+    },
+    "items": {
+      "title": "商品"
+    },
+    "totals": {
+      "title": "金额明细",
+      "subtotal": "小计",
+      "discounts": "优惠",
+      "tax": "税费",
+      "shipping": "运费",
+      "total": "合计"
+    },
+    "payment": {
+      "title": "支付",
+      "unpaid": "未付款——此订单已为你保留，正在等待付款。",
+      "authorized": "付款已授权。",
+      "paid": "已收到付款。",
+      "refunded": "款项已退回。",
+      "failed": "付款失败。"
+    },
+    "shipTo": {
+      "title": "收货地址"
+    },
+    "cancel": {
+      "action": "取消订单",
+      "success": "订单已取消",
+      "error": "无法取消订单"
+    },
+    "delivery": {
+      "promisedLabel": "承诺的送达时间",
+      "latestLabel": "最新预计",
+      "noDates": "未提供日期",
+      "basisGuaranteed": "这是我们向你承诺的送达时间。",
+      "basisEstimate": "这是配送合作伙伴的预计，并非承诺。",
+      "staleNote": "我们最近未能更新它。",
+      "refreshFailing": "我们未能更新这个预计，可能已经过时。"
+    }
+  },
+  "reviews": {
+    "scopeHeading": {
+      "product": "商品评价",
+      "merchant": "卖家服务",
+      "nativeTransaction": "本次购买",
+      "p2pListing": "物品状况与描述",
+      "p2pSeller": "卖家信誉"
+    },
+    "heading": "为你买过的东西评价",
+    "moreToRate": {
+      "one": "还有 %{count} 笔购买可以评价。",
+      "other": "还有 %{count} 笔购买可以评价。"
+    },
+    "notePlaceholder": "添加备注（选填）",
+    "publishAction": "发布评价",
+    "publishError": "无法发布该评价。",
+    "ratingChoice": "5 分中的 %{choice} 分 — %{scopeLabel}",
+    "verifiedPurchase": "%{scopeLabel} · 已验证购买",
+    "scope": {
+      "product": "商品",
+      "merchant": "卖家服务",
+      "nativeTransaction": "这笔购买",
+      "p2pListing": "商品描述",
+      "p2pSeller": "卖家"
+    },
+    "question": {
+      "product": "商品本身怎么样？",
+      "merchant": "卖家的服务怎么样？",
+      "nativeTransaction": "这次购买体验怎么样？",
+      "p2pListing": "商品与其成色和描述相符吗？",
+      "p2pSeller": "从这位卖家购买的体验怎么样？"
+    },
+    "published": {
+      "product": "谢谢 —— 你对商品的评价已发布。",
+      "merchant": "谢谢 —— 你对卖家服务的评价已发布。",
+      "nativeTransaction": "谢谢 —— 你对这笔购买的评价已发布。",
+      "p2pListing": "谢谢 —— 你对商品描述的评价已发布。",
+      "p2pSeller": "谢谢 —— 你对这位卖家的评价已发布。"
+    },
+    "noteLabel": {
+      "product": "你对商品的评价",
+      "merchant": "你对卖家服务的评价",
+      "nativeTransaction": "你对这笔购买的评价",
+      "p2pListing": "你对商品描述的评价",
+      "p2pSeller": "你对这位卖家的评价"
+    }
+  },
+  "search": {
+    "kind": {
+      "product": "商品",
+      "brand": "品牌",
+      "productFamily": "商品系列",
+      "merchant": "商家",
+      "storefront": "店铺"
+    },
+    "headTitle": "搜索 · Mercaria",
+    "box": {
+      "label": "搜索",
+      "placeholder": "今天想找点什么？"
+    },
+    "readError": "我们无法理解这次搜索。",
+    "resultsUnavailable": "这里还无法显示结果 —— 以下是我们对你这次搜索的理解。",
+    "noMatches": "没有内容同时满足以上全部条件。去掉其中一个可能会有帮助。",
+    "dismissLabel": "按我输入的原词搜索",
+    "skipLabel": "仍然搜索"
+  },
+  "checkout": {
+    "address": {
+      "shipTo": "寄给 %{name}"
+    },
+    "backToOrders": "返回你的订单",
+    "checkLaterFromOrders": "稍后到订单里查看",
+    "claim": {
+      "optional": "可选。无论如何你的订单都已确认。",
+      "saveToOxy": "把这些订单保存到 Oxy"
+    },
+    "deliverElsewhere": "寄到其他地址",
+    "destination": {
+      "collectInPerson": "到店自取",
+      "continueAsGuest": "以访客身份继续",
+      "deliverTo": "寄送至",
+      "guestDeliveryHint": "无需账号。告诉我们寄到哪里，以及这笔订单怎么联系你。",
+      "guestPickupHint": "无需账号。告诉我们这次自取怎么联系你——用不上的地址我们不会问。",
+      "pickupFallbackName": "你选择的店铺"
+    },
+    "discount": {
+      "accessibilityLabel": "优惠码",
+      "label": "优惠码（可选）",
+      "placeholder": "SAVE10"
+    },
+    "emailMeLink": "把这笔订单的链接发到我的邮箱",
+    "empty": {
+      "backToCart": "返回购物车",
+      "body": "你的购物车是空的，或者这些商品已经下架。",
+      "title": "没有可结算的商品"
+    },
+    "error": {
+      "collectionEmailRequired": "请填写接收自取信息的邮箱地址。",
+      "emailAndAddressRequired": "请填写邮箱地址和收货地址后继续。",
+      "receiptEmailRequired": "请填写接收收据的邮箱地址。"
+    },
+    "form": {
+      "cityLabel": "城市",
+      "cityPlaceholder": "Valencia",
+      "countryA11y": "两位字母国家代码",
+      "countryLabel": "国家/地区",
+      "countryPlaceholder": "ES",
+      "deliverToAddress": "寄到地址",
+      "deliveryMethodTitle": "你想怎么拿到它？",
+      "deliveryPhoneA11y": "快递员可以拨打的电话号码",
+      "deliveryPhoneLabel": "配送电话（可选）",
+      "emailA11y": "接收订单确认的邮箱地址",
+      "emailHelp": "我们用它给你发这笔订单的收据和配送通知。",
+      "emailLabel": "邮箱",
+      "emailPlaceholder": "you@example.com",
+      "line1A11y": "街道地址",
+      "line1Label": "地址第 1 行",
+      "line1Placeholder": "南京东路1号",
+      "line2A11y": "公寓、楼层或房间",
+      "line2Label": "地址第 2 行（可选）",
+      "line2Placeholder": "4B室",
+      "marketingOptIn": "给我发送优惠和新品邮件。可选——你的订单不受影响。",
+      "marketingOptInA11y": "接收优惠和新品邮件",
+      "pickupPhoneA11y": "自取用的电话号码",
+      "pickupPhoneLabel": "自取电话（可选）",
+      "postalA11y": "邮政编码",
+      "postalLabel": "邮政编码",
+      "recipientA11y": "收件人的姓名",
+      "recipientLabel": "收件人姓名",
+      "recipientPlaceholder": "张伟",
+      "regionA11y": "省、州或地区",
+      "regionLabel": "省份（可选）",
+      "regionPlaceholder": "Valencia",
+      "saveAddress": "把这个地址保存到我的账号",
+      "sellerDataNotice": "每个卖家只会收到履行你订单中他们那部分所需的信息：收货地址、收件人姓名，以及你填写的配送电话。你的邮箱地址只留在 Mercaria。"
+    },
+    "keepShopping": "继续购物",
+    "orderNumbers": {
+      "headingOne": "你的订单号",
+      "headingOther": "你的订单号",
+      "keepToHand": "请保存好——需要联系我们时，它能对应到你的这笔购买。"
+    },
+    "pageTitle": "结算 — Mercaria",
+    "placeOrder": "提交订单",
+    "shippingAddress": "收货地址",
+    "signIn": {
+      "action": "登录",
+      "body": "登录后可以使用已保存的地址，这个购物车会同步到你的其他设备，这笔订单也会留在账号的订单记录里。你也可以以访客身份结算——要填的内容一样多。",
+      "title": "有 Oxy 账号吗？"
+    },
+    "summary": {
+      "calculatedAtPlacement": "优惠、税费和运费在提交订单时计算。",
+      "subtotal": "小计",
+      "title": "订单摘要"
+    },
+    "title": "结算",
+    "toast": {
+      "orderPlaced": "订单已提交",
+      "reservedGuest": "你的订单会保留一小段时间。再次结算即可付款。",
+      "reservedSignedIn": "你的订单已保留。可以在订单里完成付款。"
+    },
+    "useSavedAddress": "使用已保存的地址",
+    "viewOrder": "查看订单",
+    "viewOrders": "查看你的订单"
+  },
+  "payment": {
+    "cancelled": {
+      "body": "这笔付款已取消，未产生任何扣款。",
+      "bodyItemsReturned": "这笔付款已取消，未产生任何扣款。商品已经退回店铺。",
+      "title": "付款已取消"
+    },
+    "card": {
+      "detailsNotConfirmed": "无法确认你的付款信息。",
+      "expressHeading": "一键付款",
+      "notCompleted": "付款未能完成。",
+      "notConfigured": "此应用尚未配置银行卡付款。",
+      "orPayByCard": "或使用银行卡付款",
+      "payNow": "立即付款"
+    },
+    "cardDetailsNotice": "你的银行卡信息直接发送给我们的支付服务商，不会经过 Mercaria。",
+    "confirming": {
+      "bankStillCompleting": "你的银行还在处理这笔付款，可能需要一点时间。",
+      "checkingWithBank": "我们正在向你的银行确认。在此期间订单会为你保留。",
+      "continueWithoutWaiting": "不等待，继续",
+      "pageTitle": "正在确认付款 — Mercaria",
+      "returnBody": "银行已经把你带回这里，我们正在确认付款，通常只需几秒。",
+      "title": "正在确认付款"
+    },
+    "continue": "继续",
+    "received": {
+      "body": "谢谢。你的订单已确认，我们已通知卖家。",
+      "title": "已收到付款"
+    },
+    "return": {
+      "missingGroup": "这个链接缺少所属的结算信息。如果你已经完成付款，订单不受影响——这个页面不会改变它。"
+    },
+    "title": "付款",
+    "totalToPay": "应付总额",
+    "unreadable": {
+      "body": "我们无法从这里核对这笔付款。如果付款成功，订单不受影响——这个页面也无法改变它。",
+      "title": "无法读取这笔付款"
+    }
+  },
+  "sellers": {
+    "fallbackName": "卖家",
+    "verifiedBadge": "已验证卖家",
+    "unavailable": "该卖家不可用。",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "stats": {
+      "activeListings": "在售商品",
+      "itemsSold": "已售商品",
+      "sellingSince": "开始销售"
+    },
+    "reviews": {
+      "none": "暂无评价"
+    },
+    "trust": {
+      "source": "来自 Oxy Trust 的信誉，覆盖整个 Oxy 生态",
+      "tier": {
+        "restricted": "被 Oxy Trust 限制",
+        "new": "Oxy 新用户",
+        "trusted": "在 Oxy 上受信任",
+        "highTrust": "在 Oxy 上高度受信任",
+        "verified": "已在 Oxy 验证"
+      }
+    },
+    "withheld": {
+      "privateProfile": "该卖家将其 Oxy 个人资料设为私密。",
+      "unavailable": "该卖家的商品当前不可用。"
+    },
+    "listings": {
+      "title": "商品",
+      "loadingLabel": "正在加载商品",
+      "empty": "%{name} 当前没有在售商品。",
+      "loadMore": "加载更多",
+      "loadMoreLabel": "加载更多商品",
+      "loadingMore": "加载中…"
+    },
+    "follow": {
+      "action": "关注",
+      "actionLabel": "关注 %{name}"
+    },
+    "linkCard": {
+      "viewProfile": "查看 %{name} 的主页"
+    },
+    "report": {
+      "action": "举报",
+      "title": "举报 %{name}",
+      "description": "告诉我们哪里有问题。选择所有适用项。",
+      "detailsPlaceholder": "还有其他需要我们了解的吗？（可选）",
+      "send": "发送举报",
+      "sending": "发送中…",
+      "signIn": "登录后举报",
+      "received": "谢谢，我们已收到你的举报。",
+      "category": {
+        "counterfeit": "售卖假冒商品",
+        "prohibitedItem": "违禁物品",
+        "misleadingListing": "误导性商品信息",
+        "unsafeProduct": "不安全的商品",
+        "stolenGoods": "赃物",
+        "scam": "诈骗或欺诈",
+        "impersonation": "冒充他人",
+        "spam": "垃圾信息",
+        "hatefulContent": "仇恨内容",
+        "somethingElse": "其他问题"
+      }
+    }
+  },
+  "merchants": {
+    "unavailable": "该商家不可用。",
+    "alsoKnownAs": "又名 %{names}",
+    "operatedBy": "由 %{organization} 运营",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "reviews": {
+      "none": "暂无评价"
+    },
+    "nativeStore": {
+      "title": "Mercaria 上的 %{store}",
+      "openLabel": "在 Mercaria 上打开 %{store}",
+      "note": "关注、政策与支持都在店铺页面。"
+    },
+    "offerMix": {
+      "title": "报价",
+      "allMarkets": "所有市场",
+      "staleNotice": {
+        "one": "另有 %{count} 条报价未显示，因为 Mercaria 最近未确认它。",
+        "other": "另有 %{count} 条报价未显示，因为 Mercaria 最近未确认它们。"
+      }
+    },
+    "channels": {
+      "title": "渠道",
+      "groupLabel": "选择要浏览的销售渠道",
+      "all": "所有渠道",
+      "operatedElsewhere": "%{channel} · 在 %{operator}",
+      "unknownOperator": "另一个市场平台",
+      "chipLabel": {
+        "one": "%{channel}，%{count} 条报价",
+        "other": "%{channel}，%{count} 条报价"
+      }
+    },
+    "standing": {
+      "a11yLabel": "商家状态：%{status}",
+      "claim": "认领此商家",
+      "claimHint": "证明你运营此商家，即可管理其页面",
+      "label": {
+        "unclaimed": "未认领",
+        "claimInProgress": "认领进行中",
+        "claimed": "已认领",
+        "sellingOnMercaria": "在 Mercaria 上销售"
+      },
+      "explanation": {
+        "unclaimed": "尚无人证明其运营此商家。此处的商品来自公开来源。",
+        "claimInProgress": "有人正在证明其运营此商家。",
+        "claimed": "已有运营方证明其经营此商家。",
+        "sellingOnMercaria": "此商家已关联 Mercaria 店铺，并在此直接销售。"
+      }
+    },
+    "brandStandings": {
+      "title": "品牌",
+      "listLabel": "品牌关系",
+      "a11yLabel": "%{brand}：%{standing}。%{explanation}",
+      "label": {
+        "officialStore": "品牌自营店",
+        "authorizedReseller": "授权经销商",
+        "noVerifiedRelationship": "无已验证的关系"
+      },
+      "explanation": {
+        "officialStore": "此商家是该品牌自有的销售渠道，已由 Mercaria 验证。",
+        "authorizedReseller": "该品牌已授权此商家转售，已由 Mercaria 验证。",
+        "noVerifiedRelationship": "此商家销售该品牌的商品。Mercaria 未验证双方之间的任何关系。"
+      }
+    },
+    "card": {
+      "priceNotPublished": "未公布价格",
+      "priceUnconvertible": "价格以 %{currency} 计价，Mercaria 无法换算",
+      "offerCount": {
+        "one": "%{count} 条报价",
+        "other": "%{count} 条报价"
+      },
+      "offersAcrossChannels": {
+        "one": "%{channels} 个渠道共 %{count} 条报价",
+        "other": "%{channels} 个渠道共 %{count} 条报价"
+      },
+      "otherSellers": "· 含其他卖家"
+    },
+    "catalog": {
+      "title": "商品",
+      "loadingLabel": "正在加载商品",
+      "loadMore": "加载更多",
+      "loadMoreLabel": "加载更多商品",
+      "loadingMore": "加载中…",
+      "empty": {
+        "noOffers": "Mercaria 目前没有该商家的商品。",
+        "staleSources": "Mercaria 最近未从该商家的来源获取到足够新的数据，无法显示当前价格。",
+        "filteredOut": "没有商品符合这些筛选条件。"
+      }
+    }
+  },
+  "families": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "未找到该产品系列",
+      "body": "该系列可能已并入其他系列，或地址有误。"
+    },
+    "productCount": {
+      "one": "该系列中有 %{count} 件商品",
+      "other": "该系列中有 %{count} 件商品"
+    },
+    "prices": {
+      "withdrawn": "当前无法显示价格。",
+      "none": "该系列当前没有报价。",
+      "unpriceable": "该系列当前的报价以 %{currencies} 计价，我们无法换算。"
+    },
+    "priceRange": {
+      "summary": {
+        "one": "%{scopeLabel} · 覆盖 %{count} 件商品",
+        "other": "%{scopeLabel} · 覆盖 %{count} 件商品"
+      },
+      "excludes": "不包含以 %{currencies} 计价的报价。",
+      "scope": {
+        "new": "全新",
+        "used": "二手",
+        "mixed": "全新与二手",
+        "unknown": "未说明成色"
+      }
+    },
+    "sharedAttributes": {
+      "title": "该系列的共同点"
+    },
+    "products": {
+      "title": "商品",
+      "titleReleaseDesc": "各代产品，最新在前"
+    }
+  },
+  "brands": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "未找到该品牌",
+      "body": "该品牌可能已并入其他品牌，或地址有误。"
+    },
+    "ownedBy": "由 %{organization} 拥有",
+    "productCount": {
+      "one": "%{count} 件商品",
+      "other": "%{count} 件商品"
+    },
+    "descriptionSource": "来源：%{attribution}",
+    "officialStores": {
+      "title": "官方店铺",
+      "description": "该品牌自行运营的销售渠道，已由 Mercaria 验证。",
+      "empty": "该品牌尚无已验证的官方店铺。"
+    },
+    "authorizedResellers": {
+      "title": "授权经销商",
+      "description": "该品牌授权销售其商品的零售商。这与官方店铺是不同的安排。",
+      "empty": "该品牌尚无已验证的授权经销商。"
+    },
+    "families": {
+      "title": "产品系列"
+    },
+    "categories": {
+      "title": "分类"
+    },
+    "products": {
+      "title": "商品"
+    },
+    "grid": {
+      "empty": "该目录暂无商品。",
+      "emptyFiltered": "没有商品符合这些筛选条件。试着去掉一个。",
+      "emptyPricesWithdrawn": "当前无法显示价格，因此此列表为空。请稍后再试。",
+      "showMore": "显示更多",
+      "loadingMore": "加载中…"
+    }
+  },
+  "guestOrders": {
+    "oneMoment": "请稍候。",
+    "sendAccessLink": "给我发送访问链接",
+    "claim": {
+      "pageTitle": "保存你的订单 — Mercaria",
+      "missingTitle": "没有可保存的订单",
+      "missingBody": "请从你的订单打开此页面，以便我们知道你指的是哪笔购买。",
+      "signInTitle": "登录以保存这些订单",
+      "signInBody": "登录后，这笔购买会加入你的 Mercaria 订单记录。如果你不想这样做，你的订单仍会与现在完全一样。",
+      "signInAction": "登录 Oxy",
+      "checkingTitle": "正在检查此订单",
+      "failedTitle": "我们无法打开此订单",
+      "failedBody": "你的访问链接可能已过期。请索取新的链接后重试——无论如何，你的订单都不受影响。",
+      "savedTitle": "已保存到你的账户",
+      "savedBody": "这些订单现已在你的 Mercaria 订单记录中。你使用的访问链接已失效——从现在起你可以从账户中打开它们。",
+      "alreadySavedTitle": "已保存",
+      "alreadySavedBody": "这些订单已在你的 Mercaria 订单记录中。",
+      "goToOrders": "查看我的订单",
+      "reviewTitle": "将这些订单保存到 Oxy",
+      "reviewAlreadyTitle": "已在你的账户中",
+      "oneOrder": "此订单将加入你的账户：",
+      "manyOrders": "这 %{count} 笔订单是一起下单的，将加入你的账户：",
+      "notRequired": "收取订单并不需要执行此操作。",
+      "submit": "将这些订单保存到我的账户",
+      "decline": "暂时不用",
+      "benefits": {
+        "history": "这些订单会出现在你平常的 Mercaria 订单记录中。",
+        "anyDevice": "你可以在任何已登录的设备上打开它们。",
+        "review": "你可以为所购商品撰写已验证购买的评价。"
+      },
+      "blocked": {
+        "unavailable": "暂时无法将订单保存到 Oxy 账户。你的订单不受影响，仍可通过访问链接打开。",
+        "inboxNotVerified": "请先确认你的电子邮件地址。请索取新的访问链接，并通过它打开此页面。",
+        "claimedByAnotherAccount": "这些订单已保存到另一个 Oxy 账户。如果这与你的预期不符，请联系客服——Mercaria 不会自动转移它们。"
+      }
+    },
+    "portal": {
+      "pageTitle": "你的订单 — Mercaria",
+      "openingTitle": "正在打开你的订单",
+      "linkRefusedTitle": "此链接无法使用",
+      "linkRefusedBody": "访问链接只能使用一次，且很快过期。请索取新的链接，我们会发送到下单时使用的地址。",
+      "noCredentialTitle": "查找你的订单",
+      "noCredentialBody": "请索取安全访问链接，我们会发送到下单时使用的地址。",
+      "title": "你的订单",
+      "loading": "正在加载你的订单。",
+      "fullFailed": "我们无法从这里打开此订单。请索取新的访问链接后重试。",
+      "boundedFailed": "我们无法从这里读取此订单。",
+      "confirmEmailBody": "确认你的电子邮件地址后，即可查看完整订单，包括支付金额和配送地址。",
+      "confirmEmailAction": "确认我的电子邮件地址",
+      "claimAction": "将这些订单保存到 Oxy",
+      "signOut": "退出此订单"
+    },
+    "recover": {
+      "pageTitle": "查找你的订单 — Mercaria",
+      "sentTitle": "请查收邮件",
+      "sentBody": "该链接只能使用一次，且很快过期。如果已过期，请再索取一个。",
+      "title": "查找你的订单",
+      "body": "输入下单时使用的电子邮件地址，我们会向该地址发送一个安全链接。我们只能发送到该地址。",
+      "emailPlaceholder": "you@example.com",
+      "emailLabel": "电子邮件地址",
+      "orderNumberPlaceholder": "订单号（可选）",
+      "orderNumberLabel": "订单号，可选",
+      "sending": "发送中",
+      "networkError": "目前无法连接 Mercaria。请重试。"
+    }
+  },
+  "compare": {
+    "acrossCategories": "这些是不同类型的商品，因此只对比全部商品都有记录的 %{count} 项信息。",
+    "basketFailed": "无法规划这个购物篮。",
+    "channel": {
+      "externalOnly": "仅零售商",
+      "mixed": "不限",
+      "nativeOnly": "仅 Mercaria",
+      "officialOnly": "仅官方渠道"
+    },
+    "channelLabel": "渠道",
+    "choiceA11y": "%{label}：%{choice}",
+    "comparingA11y": "对比中",
+    "comparisonFailed": "无法生成此对比。",
+    "conditionLabel": "成色",
+    "gaps": "有 %{count} 项信息未记录在这些商品上。",
+    "heading": "对比",
+    "noSharedFacts": "这些商品没有共同记录的信息，因此暂时无法对比。",
+    "notice": {
+      "addingToCart": "已核对。正在把这些商品加入你的 Mercaria 购物篮。",
+      "noDestination": "我们还没有该零售商的跳转地址。",
+      "pricesChanged": "你阅读期间价格发生了变化，正在重新计算。"
+    },
+    "objective": {
+      "allNative": "在 Mercaria 购买",
+      "cheapestKnownItemPrices": "商品价最低",
+      "cheapestKnownTotal": "含配送费最低",
+      "fastestKnownDelivery": "配送最快",
+      "fewestMerchants": "卖家数最少"
+    },
+    "objectiveLabel": "目标",
+    "pageTitle": "对比 · Mercaria",
+    "pickTwo": "从搜索结果或商品页面中至少选择两件商品进行对比。",
+    "planningA11y": "规划中",
+    "whereToBuy": "在哪里买"
+  },
+  "priceAlerts": {
+    "create": {
+      "basisItemPrice": "商品价格",
+      "basisKnownTotal": "含配送费",
+      "bestRightNow": "当前最优：%{price}",
+      "failed": "无法创建该提醒",
+      "heading": "价格下降时通知我",
+      "knownTotalNote": "只有公开了配送费的报价才能匹配。",
+      "noPricedOffer": "目前没有标价的报价（%{count} 个报价）",
+      "nothingOnSale": "目前没有商家在售。你仍然可以设置提醒。",
+      "submit": "创建提醒",
+      "submitA11y": "创建此降价提醒",
+      "submitting": "创建中…",
+      "targetPlaceholder": "以 %{currency} 计的目标价",
+      "targetPrice": "目标价格"
+    },
+    "empty": {
+      "body": "在你关注的商品页面设置一个，价格下降时我们会通知你。",
+      "title": "还没有降价提醒"
+    },
+    "heading": "降价提醒",
+    "pageTitle": "降价提醒 · Mercaria",
+    "signedOut": {
+      "body": "提醒保存在你的账号中，因此会跟随你在各设备之间。",
+      "signIn": "登录",
+      "title": "登录后可设置降价提醒"
+    }
+  },
+  "saved": {
+    "empty": {
+      "subtitle": "点按商品上的爱心即可跟踪价格；想要的正是那一件时，就保存该商品的出售信息。",
+      "title": "还没有保存任何内容"
+    },
+    "error": {
+      "subtitle": "请检查网络后重试。",
+      "title": "无法加载你保存的内容"
+    },
+    "heading": "已保存",
+    "loadMoreA11y": "加载更多已保存的内容",
+    "loading": "加载中…",
+    "pageTitle": "已保存 · Mercaria",
+    "showMore": "显示更多",
+    "signedOut": {
+      "body": "已保存的商品会跟踪所有卖家的价格和有货情况，并同步到你的所有设备。",
+      "signIn": "登录",
+      "title": "登录后可保存内容"
+    }
+  },
+  "watchlists": {
+    "atLimit": "已达到 %{count} 个清单的上限",
+    "basket": {
+      "basisDelivered": "含配送费 · 每件商品各自的最低价",
+      "basisItemPrice": "不含配送费 · 每件商品各自的最低价",
+      "complete": "全部 %{count} 件均已计价。",
+      "empty": "往这份清单里加点东西，就能看到大概要多少钱。",
+      "noPrice": "暂无价格",
+      "nonePriced": "这里的 %{count} 件商品目前都无法计价。",
+      "partial": "%{total} 件中已为 %{included} 件计价。%{excluded} 件无法计价，下方列出了原因。",
+      "title": "当前购物篮"
+    },
+    "createA11y": "新建关注清单",
+    "detail": {
+      "empty": "这份清单里还没有内容。从商品页面添加，即可开始跟踪。",
+      "keepBothA11y": "两件商品都保留在此清单中",
+      "keepBothFor": "%{product} 两个都保留",
+      "loadError": "无法加载该关注清单。",
+      "pageTitle": "%{name} · Mercaria",
+      "pageTitleFallback": "关注清单 · Mercaria",
+      "priceError": "暂时无法为这份清单计价。你的商品都还在。",
+      "priceUnavailable": "暂无价格",
+      "saveMeasurement": "保存本次计量",
+      "saving": "保存中…",
+      "splitPrompt": "其中一件商品被拆分成了两件。请选择如何处理。"
+    },
+    "duplicate": "复制",
+    "duplicateList": "复制 %{name}",
+    "empty": "还没有清单。新建一个，把你正在比较的商品加进去。",
+    "heading": "关注清单",
+    "intro": "把打算买的东西归到一起，看看整套需要多少钱。",
+    "item": {
+      "changeDown": "比你上次保存的计量下降了 %{amount}",
+      "changeUnchanged": "与你上次保存的计量相比没有变化",
+      "changeUp": "比你上次保存的计量上涨了 %{amount}",
+      "delivery": "配送费 %{amount}",
+      "deliveryUnknown": "该卖家未公开配送费",
+      "openProduct": "打开此商品",
+      "priceLine": "每件 %{unitPrice} · %{quantity} 件共 %{lineTotal}",
+      "remove": "移除",
+      "removeA11y": "从关注清单中移除此商品",
+      "targetReached": "已达到或低于你设定的 %{amount}",
+      "unresolved": {
+        "allOffersRetired": "此商品的所有报价都已过期。有新报价时我们会重新跟踪。",
+        "ambiguousAfterSplit": "此商品被拆分成了两件。请选择你指的是哪一件。",
+        "evaluationFailed": "暂时无法为此商品计价。",
+        "noEligibleOffer": "没有符合你筛选条件的报价。可以试着放宽条件。",
+        "noOffersRecorded": "还没有人在卖。",
+        "preferredVariantRetired": "你指定的具体配置已不再出售。请另选一个。",
+        "priceNotConvertible": "无法按你清单的币种显示此价格。",
+        "productMergedIntoExistingItem": "此商品已并入本清单中的另一条。请移除这一条。",
+        "productUnavailable": "此商品已不在商品库中。"
+      }
+    },
+    "listMeta": "%{count} 件 · %{currency}",
+    "loadError": "无法加载你的关注清单。请检查网络后重试。",
+    "newList": "新清单",
+    "openList": "打开 %{name}",
+    "pageTitle": "关注清单 · Mercaria",
+    "signedOut": {
+      "body": "登录后可保存私密清单，并长期跟踪它们的花费。",
+      "signIn": "登录"
+    }
+  },
+  "nearby": {
+    "heading": "附近有货",
+    "intro": "已确认货架上有该商品并支持到店自提的商家。在线付款，到店自提。",
+    "chooseLocationPrompt": "选择一个位置，即可查看你附近哪些商家有该商品可自提。仅用于本次搜索，不会保存。",
+    "loading": "正在查找你附近的商家…",
+    "error": "暂时无法查询附近的库存。配送不受影响。",
+    "empty": "该位置附近暂无商家可提供此商品的自提。缺货、该时段停业、未开通自提，或库存确认时间过久的商家不会显示。",
+    "moreBeyond": "以下是最近的 %{count} 家。更远处还有其他商家，上面的排序仅适用于已显示的商家。",
+    "collectionOptionsLabel": "选择自提的商家",
+    "collectInPerson": "到店自提",
+    "selectHere": "在此自提",
+    "order": {
+      "nearest": "距离最近优先",
+      "lowestPrice": "价格最低优先"
+    },
+    "origin": {
+      "showingDevice": "正在显示你设备位置附近的商家。",
+      "showingChosen": "正在显示你所选地点附近的商家。",
+      "changeLabel": "更改计算这些结果所依据的地点",
+      "change": "更改",
+      "clearLabel": "不再为这些结果使用位置",
+      "clear": "清除",
+      "useDeviceLabel": "使用我的设备位置查找附近的商家",
+      "checking": "正在检查…",
+      "useMyLocation": "使用我的位置",
+      "choosePlaceLabel": "改为选择城市或邮编",
+      "hideCityList": "隐藏城市列表",
+      "chooseCity": "选择城市",
+      "cityField": "城市或邮编",
+      "loadingCities": "正在查找城市…",
+      "cityListError": "暂时无法加载城市列表。",
+      "noCityMatch": "没有匹配的城市有该商品的自提库存。",
+      "noStockAnywhere": "目前没有商家提供该商品的自提。",
+      "searchNear": "在 %{place} 附近搜索",
+      "shopsWithStock": {
+        "one": "%{count} 家商家有货",
+        "other": "%{count} 家商家有货"
+      },
+      "refusal": {
+        "permissionDenied": "没关系，位置权限保持关闭。在下方输入城市或邮编，我们就在那里查找。",
+        "unsupported": "此应用无法读取设备位置。请在下方输入城市或邮编，我们会在那里查找。",
+        "unavailable": "你的设备暂时无法定位。请在下方输入城市或邮编，或重试。"
+      }
+    },
+    "screen": {
+      "emptyTitle": "没有可自提的商品",
+      "emptyBody": "打开一件商品并选择“到店自提”，即可查看你附近有货的商家。",
+      "backToMercaria": "返回 Mercaria",
+      "documentTitle": "到店自提 · Mercaria",
+      "addedToCart": "已加入购物车。打开购物车即可结算。"
+    }
+  },
+  "store": {
+    "shopAll": "全部商品",
+    "collections": "系列",
+    "report": "举报店铺",
+    "loadError": "无法加载此店铺。请稍后再试。",
+    "documentTitle": "%{store} — Mercaria",
+    "documentTitleFallback": "Mercaria",
+    "filters": {
+      "inStock": "有货"
+    },
+    "sort": {
+      "label": "商品排序",
+      "best": "热卖优先",
+      "newest": "最新优先",
+      "priceAsc": "价格：从低到高",
+      "priceDesc": "价格：从高到低"
+    },
+    "products": {
+      "heading": "商品",
+      "searchPlaceholder": "在 %{store} 中搜索…",
+      "loadingLabel": "正在加载商品",
+      "loadError": "无法加载商品。下拉刷新或重试。",
+      "empty": "没有符合筛选条件的商品。",
+      "loadMore": "加载更多",
+      "loadMoreLabel": "加载更多商品"
+    },
+    "policies": {
+      "heading": "政策",
+      "privacy": "隐私政策",
+      "returns": "退货政策"
+    },
+    "menu": {
+      "dialogLabel": "%{store} 菜单",
+      "openLabel": "打开 %{store} 菜单",
+      "close": "关闭 %{store} 菜单",
+      "share": "分享 %{store}"
+    },
+    "follow": {
+      "follow": "关注",
+      "followStore": "关注 %{store}",
+      "unfollowStore": "取消关注 %{store}"
+    },
+    "reviews": {
+      "helpful": "有帮助",
+      "loading": "正在加载评价…",
+      "none": "暂无评价",
+      "viewProduct": "查看 %{product}",
+      "ratingsCount": "%{formattedCount} 条评分",
+      "ratingsWithScope": "%{formattedCount} 条评分 · %{scopeLabel}",
+      "fallbackAuthor": "已验证买家",
+      "viewA11yLabel": "查看该店铺的服务评价"
+    }
+  },
+  "offer": {
+    "heading": "报价",
+    "comparisonUnavailable": "此处的价格比较暂时不可用。这并不代表是否有人在售卖该商品。",
+    "noneShowable": "我们知道该商品有报价，但目前无法展示。",
+    "none": "该商品当前没有报价。",
+    "group": {
+      "heading": "%{title}（%{count}）",
+      "title": {
+        "officialDirect": "官方商店",
+        "newRetail": "其他零售商的全新商品",
+        "openBox": "开箱",
+        "refurbished": "翻新",
+        "used": "二手",
+        "forParts": "配件或无法使用",
+        "conditionUnknown": "未说明成色"
+      },
+      "explanation": {
+        "officialDirect": "品牌已确认为自有的渠道。",
+        "conditionUnknown": "这些卖家未说明商品的成色。",
+        "forParts": "按无法使用出售 — 用于维修、回收或拆件。"
+      }
+    },
+    "showFewer": "收起",
+    "showAll": {
+      "one": "查看全部 %{count} 个",
+      "other": "查看全部 %{count} 个"
+    },
+    "showFewerA11y": "收起报价 · %{group}",
+    "showAllA11y": {
+      "one": "查看 %{count} 个报价 · %{group}",
+      "other": "查看全部 %{count} 个报价 · %{group}"
+    },
+    "returnWindow": {
+      "one": "卖家表示退货期为 %{count} 天。",
+      "other": "卖家表示退货期为 %{count} 天。"
+    },
+    "buyOnMercaria": "在 Mercaria 购买",
+    "openSellerListingA11y": "打开该卖家的商品信息",
+    "viewListing": "查看商品信息",
+    "soldByOn": "由 %{seller} 在 %{channel} 出售",
+    "visitProfileA11y": "查看 %{name} 的主页",
+    "sellerNotIdentified": "卖家未识别",
+    "listedAt": "标价 %{amount}",
+    "priceNotAvailable": "暂无价格",
+    "priceNotConvertible": "我们无法将该价格换算成你的货币。",
+    "priceNotPublished": "该卖家未公布价格。",
+    "deliveryUnknownWithPickup": "配送费未知 · 提供自提",
+    "deliveryUnknown": "配送费未知",
+    "freeDelivery": "免运费",
+    "deliveryCost": "配送费 %{cost}",
+    "freeDeliveryWithWindow": "免运费 · %{min}–%{max} 天",
+    "deliveryCostWithWindow": "配送费 %{cost} · %{min}–%{max} 天",
+    "availability": {
+      "inStock": "有货",
+      "outOfStock": "缺货",
+      "preorder": "预售",
+      "unavailable": "不可用",
+      "notPublished": "库存情况未公布"
+    },
+    "availabilityChecked": "%{availability} · 于 %{date} 核对",
+    "availabilityCheckedStale": "%{availability} · 于 %{date} 核对 · 我们最近未能重新核对",
+    "goToHost": "前往 %{host}",
+    "continueOnHost": "你将前往 %{host}。Mercaria 可能获得佣金。",
+    "cannotOpenYetA11y": "该报价暂时无法打开",
+    "openingNotAvailableA11y": "暂时无法打开 %{host}",
+    "noLinkPublished": "未公布链接",
+    "noDestination": "该卖家公布了价格，但未提供链接。",
+    "outboundNotAvailable": "暂时无法打开其他网站上的报价。",
+    "blocked": {
+      "outOfStock": "该卖家已缺货。",
+      "notPaymentReady": "该卖家暂时无法收款。",
+      "notAvailable": "该报价目前无法购买。"
+    }
+  },
+  "referral": {
+    "documentTitle": "推荐伙伴 · Mercaria",
+    "title": "推荐伙伴",
+    "loadError": "无法加载你的推荐面板，请重试。",
+    "signedOut": {
+      "title": "登录后查看你的推荐伙伴账户",
+      "body": "你的链接、它们带来的收益，以及你何时会收到款项。",
+      "action": "登录"
+    },
+    "standing": {
+      "title": "你的状态",
+      "earning": "你正在赚取收益。你现在带来的推荐都会计入你的账户。",
+      "notEarning": "你还没有开始赚取收益。",
+      "nothingOutstanding": "没有待处理事项。",
+      "beforePaid": "在你能收到款项之前：",
+      "accrualContinues": "这些事项待处理期间，你的收益仍会继续累积，不会过期。"
+    },
+    "programs": {
+      "title": "推荐计划",
+      "empty": "目前没有向你开放的推荐计划。",
+      "attributionWindow": "归因窗口：%{days} 天。",
+      "termsAccepted": "你已接受这些条款。",
+      "termsNotAccepted": "尚未接受条款。"
+    },
+    "earnings": {
+      "title": "收益",
+      "empty": "尚未产生任何收益。",
+      "availableNow": "当前可支付：%{amount}",
+      "availableNowWithMinimum": "当前可支付：%{amount}（最低 %{minimum}）",
+      "reconciling": "这些数字正在核对中。不会有任何损失——账本是最终依据，客服可以追溯。",
+      "pendingConversions": {
+        "one": "已记录 %{count} 笔推荐，金额尚未核定。",
+        "other": "已记录 %{count} 笔推荐，金额尚未核定。"
+      }
+    },
+    "payouts": {
+      "title": "付款",
+      "summary": "付款每月进行一次。身份核验：%{identity}。税务信息：%{tax}。收款方式：%{payout}。",
+      "readiness": {
+        "unknown": "暂无信息",
+        "pending": "处理中",
+        "ready": "已就绪",
+        "blocked": "已受阻"
+      },
+      "destinationEnding": "尾号 %{last4} 的收款方式",
+      "noDestination": "尚未设置收款方式。",
+      "none": "尚无付款记录。"
+    },
+    "performance": {
+      "title": "表现",
+      "totals": "%{clicks} 次点击 · %{referrals} 笔有效推荐，%{from} 至 %{through}",
+      "empty": "此期间没有任何记录。",
+      "row": "%{label}：%{clicks} 次点击 · %{referrals} 笔推荐"
+    },
+    "instruments": {
+      "title": "你的链接和代码",
+      "empty": "你还没有推荐代码。",
+      "disclosureIntro": "发布每个链接时都要附上这段声明："
+    },
+    "support": {
+      "title": "帮助",
+      "appeal": "你可以对关于你参与资格的决定提出申诉。",
+      "disputes": "关于归因、冲正或付款的争议目前还无法在这里处理。请联系客服，并提供上方显示的日期和金额。",
+      "noEmails": "我们还不会发送推荐相关的邮件，请留意本页面的变化。"
+    }
+  },
+  "brand": {
+    "wordmark": "Mercaria"
+  },
+  "sell": {
+    "sellYours": {
+      "thisOne": "卖这一款",
+      "yours": "卖你的"
+    },
+    "fact": {
+      "fromProduct": "来自商品信息 —— 不代表你这件东西的情况",
+      "yourAnswer": "你的填写",
+      "yourAnswerNotConfirmed": "你的填写，尚未确认"
+    },
+    "guidance": {
+      "heading": "价格参考",
+      "scope": "%{currency} · 自 %{since}",
+      "scopeWithMarket": "%{market} · %{currency} · 自 %{since}",
+      "segmentStats": "常见 %{median} · %{count} 个在售 · 可信度 %{confidence}",
+      "disclaimer": "价格参考不会替你定价，不保证卖出，也不会限制你以任何价格发布。",
+      "segment": {
+        "currentSameCondition": "相近成色，正在出售",
+        "currentNew": "全新，正在出售",
+        "currentRefurbished": "翻新，正在出售",
+        "recentSoldNative": "近期在 Mercaria 售出"
+      },
+      "insufficient": {
+        "noObservations": "还没有可比较的在售商品",
+        "belowSampleFloor": "可比较的在售商品还不够多",
+        "belowSellerFloor": "不同卖家太少，无法显示价格区间",
+        "fallback": "数据还不够"
+      },
+      "confidence": {
+        "low": "低",
+        "medium": "中",
+        "high": "高"
+      }
+    },
+    "index": {
+      "documentTitle": "出售商品 · Mercaria",
+      "heading": "你要卖什么？",
+      "startingDraft": "正在为你准备商品…",
+      "signIn": {
+        "heading": "登录后即可出售",
+        "body": "你的商品会以你的 Oxy 账号发布，买家能看到自己在向谁购买。",
+        "action": "登录"
+      },
+      "scan": {
+        "label": "扫描条形码",
+        "accessibilityLabel": "条形码或商品标识",
+        "placeholder": "输入或扫描条形码"
+      },
+      "search": {
+        "label": "或在目录中搜索",
+        "accessibilityLabel": "搜索商品",
+        "placeholder": "例如 iPhone 13 128 GB"
+      },
+      "candidate": {
+        "matchedByBarcode": "按条形码匹配",
+        "foundBySearch": "由搜索找到 —— 请确认是同一件商品"
+      },
+      "unmatched": {
+        "heading": "独一无二的东西",
+        "body": "手工制作、收藏品，或目录里没有的东西。它会照常发布，也能被搜索到。"
+      },
+      "drafts": {
+        "heading": "继续上次的进度",
+        "untitled": "未命名商品",
+        "savedAt": "已保存 %{when} · 第 %{step} 步"
+      }
+    },
+    "draft": {
+      "documentTitle": "%{title} · Mercaria",
+      "untitled": "你的商品",
+      "publish": "发布商品",
+      "publishing": "正在发布…",
+      "loadError": {
+        "title": "无法打开这个草稿",
+        "body": "它可能已经发布或被丢弃。"
+      },
+      "product": {
+        "heading": "商品信息",
+        "explanation": "这些信息来自 Mercaria 的商品目录。它们用来确定型号 —— 并不说明你这件东西的成色、配件或真伪。",
+        "titleLabel": "标题",
+        "brandLabel": "品牌",
+        "modelLabel": "型号",
+        "notMine": "这不是我要卖的商品"
+      },
+      "item": {
+        "heading": "你的东西",
+        "titleLabel": "商品标题",
+        "titleOverrideNote": "这个标题会显示在你的商品上，不会改变商品本身。",
+        "descriptionLabel": "描述",
+        "conditionLabel": "成色",
+        "photoRequirement": {
+          "one": "这个成色至少需要 %{count} 张实物照片。目录图和厂商图片不能代替。",
+          "other": "这个成色至少需要 %{count} 张实物照片。目录图和厂商图片不能代替。"
+        }
+      },
+      "placement": {
+        "heading": "会出现在哪里",
+        "onProductPage": "在商品页面上，与其他卖家并列",
+        "ownSurfacesOnly": "在搜索和你的卖家主页上 —— 不在商品页面上",
+        "localResults": "在同城结果中，按你选择的大致区域显示"
+      },
+      "blocked": {
+        "titleMissing": "给你的商品起个标题。",
+        "descriptionMissing": "描述一下你要卖的东西。",
+        "categoryMissing": "选择一个分类。",
+        "conditionMissing": "说明你这件东西的成色。",
+        "itemPhotosMissing": "添加实物照片。",
+        "defectsNotAcknowledged": "确认你已说明瑕疵和缺失的部件。",
+        "refurbisherNotNamed": "说明是谁翻新的。",
+        "priceMissing": "设置价格。",
+        "quantityInvalid": "数量至少为 1。",
+        "matchVariantMissing": "选择你要卖的是哪个具体版本。",
+        "matchReviewRequired": "我们无法确认这是同一件商品。请更改或移除商品匹配后继续。",
+        "pickupNotSupported": "自提暂不支持 —— 请移除后再发布。",
+        "categoryForbidsCondition": "这个分类不接受该成色。",
+        "alreadyPublished": "这件商品已经发布。",
+        "draftDiscarded": "这个草稿已被丢弃。"
+      },
+      "warning": {
+        "priceFarAboveGuidance": "你的价格明显高于同类商品的售价。你仍然可以发布。",
+        "priceFarBelowGuidance": "你的价格明显低于同类商品的售价。你仍然可以发布。"
+      }
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "expand": "展开侧边栏",
+      "collapse": "收起侧边栏",
+      "accountMenu": "账户菜单"
+    },
+    "footer": {
+      "brand": "Mercaria",
+      "copyright": "© %{year} Mercaria，来自 Oxy",
+      "links": {
+        "about": "关于",
+        "help": "帮助",
+        "privacy": "隐私",
+        "terms": "条款"
+      }
+    },
+    "errorBoundary": {
+      "title": "出了点问题",
+      "body": "发生了意外错误。你可以重试；如果问题仍然存在，我们的团队已经收到通知。"
+    },
+    "notFound": {
+      "headTitle": "404 - 未找到页面 | Mercaria",
+      "screenTitle": "哎呀！",
+      "message": "此页面不存在。",
+      "goHome": "返回首页！"
+    }
+  },
+  "address": {
+    "form": {
+      "recipientNameLabel": "收件人姓名",
+      "recipientNamePlaceholder": "张小明",
+      "line1Label": "地址第 1 行",
+      "line1Placeholder": "南京东路 1 号",
+      "line2Label": "地址第 2 行（选填）",
+      "line2Placeholder": "4 号楼 402 室",
+      "cityLabel": "城市",
+      "cityPlaceholder": "上海",
+      "regionLabel": "省 / 地区（选填）",
+      "regionPlaceholder": "沪",
+      "postalCodeLabel": "邮政编码",
+      "postalCodePlaceholder": "200002",
+      "countryLabel": "国家或地区",
+      "countryPlaceholder": "CN",
+      "phoneLabel": "电话（选填）",
+      "phonePlaceholder": "+86 138 0000 0000",
+      "submit": "保存地址"
+    },
+    "list": {
+      "default": "默认",
+      "deleteLabel": "删除地址",
+      "setDefault": "设为默认",
+      "signedOut": "登录后即可管理你的收货地址。",
+      "empty": "你还没有保存任何地址。",
+      "newAddress": "新地址",
+      "addAddress": "添加地址"
+    },
+    "toast": {
+      "saved": "地址已保存",
+      "saveFailed": "无法保存该地址",
+      "updateFailed": "无法更新该地址",
+      "removed": "地址已删除",
+      "removeFailed": "无法删除该地址"
+    }
+  },
+  "shoppingAgents": {
+    "headTitle": "购物助手 · Mercaria",
+    "title": "购物助手",
+    "intro": "你请 Mercaria 帮忙留意的东西。每个助手都会关注商品目录，并在你要求的条件成立时通知你。",
+    "loadError": "无法加载你的购物助手。请检查网络连接后重试。",
+    "findings": {
+      "asking": "正在再看一次…",
+      "intro": "这个助手看到的全部记录，最新的在最前面。较早的观察即使被后来的取代也会保留在这里。",
+      "loadError": "无法加载这个助手找到的内容。你的助手不受影响。",
+      "empty": "目前还没有发现。这个助手下次查看时，第一条观察会出现在这里。"
+    },
+    "empty": {
+      "title": "还没有购物助手",
+      "body": "保存你想找的东西，Mercaria 会替你留意商品目录。"
+    },
+    "signedOut": {
+      "title": "登录后即可保存购物助手",
+      "body": "助手保存在你的账户里，因此可以在不同设备之间跟随你。"
     }
   }
 }

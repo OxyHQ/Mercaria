@@ -150,6 +150,35 @@ const NATIVE_STORE_CARD_DTO = /\bStoreSummary\b|\bMerchantSummary\b/;
 /** Where the DTO is declared — read by the vacuity floor, not by the wall. */
 const NATIVE_STORE_CARD_DECLARATION = 'shared-types/src/product.ts';
 
+/**
+ * The storefront's ENGLISH copy, flattened to dotted keys.
+ *
+ * A screen's accessibility label stopped being a literal in #435b — it is now
+ * `t('merchants.standing.claim')` and the sentence lives in twelve bundles. So
+ * a gate whose subject is "this control is labelled" has to follow the key into
+ * the bundle; asserting the English text in the SOURCE would now be asserting
+ * that the screen is NOT translated.
+ */
+function storefrontEnglish(): Readonly<Record<string, string>> {
+  const raw = readFileSync(
+    join(PACKAGES_ROOT, 'frontend', 'lib', 'i18n', 'locales', 'en.json'),
+    'utf8',
+  );
+  const flat: Record<string, string> = {};
+  const walk = (node: unknown, prefix: string): void => {
+    for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+      if (typeof value === 'string') flat[`${prefix}${key}`] = value;
+      else if (value !== null && typeof value === 'object') walk(value, `${prefix}${key}.`);
+    }
+  };
+  walk(JSON.parse(raw), '');
+  // The vacuity floor: an empty or moved bundle must fail HERE rather than make
+  // every key below look absent.
+  expect(Object.keys(flat).length, 'the storefront en.json looks empty — did it move?')
+    .toBeGreaterThan(500);
+  return flat;
+}
+
 function read(relative: string): string {
   const source = readFileSync(join(PACKAGES_ROOT, relative), 'utf8');
   // The per-file vacuity floor: an empty or moved file must fail HERE, not pass
@@ -314,8 +343,32 @@ describe('the three controls acceptance criterion 7 names are reachable without 
   it('the claim action is a labelled button with a hint', () => {
     const banner = read('frontend/components/merchant/MerchantStandingBanner.tsx');
     expect(banner).toContain('accessibilityRole="button"');
-    expect(banner).toContain('accessibilityLabel="Claim this merchant"');
-    expect(banner).toContain('accessibilityHint');
+
+    // The PROPERTY, not the sentence, and not the key NAME either.
+    //
+    // This asserted the literal `accessibilityLabel="Claim this merchant"` until
+    // #435b moved that sentence into the twelve locale bundles. Re-pinning it to
+    // the new key would break on any rename while proving no more than the old
+    // spelling did — and the old spelling could not tell a labelled button from
+    // one labelled in English only. What has to hold is that BOTH props are
+    // present, that each resolves through `t()`, and that the key each names is
+    // real copy in the bundle rather than a typo, which `missingBehavior:
+    // 'guess'` would otherwise render to a screen reader as a humanised spelling
+    // of the key itself.
+    const label = /accessibilityLabel=\{t\("([^"]+)"\)\}/.exec(banner);
+    const hint = /accessibilityHint=\{t\("([^"]+)"\)\}/.exec(banner);
+    expect(label, 'the claim button has no translated accessibility label').not.toBeNull();
+    expect(hint, 'the claim button has no translated accessibility hint').not.toBeNull();
+
+    const english = storefrontEnglish();
+    expect(
+      english[label?.[1] ?? ''],
+      `${label?.[1]} is not a key in the storefront bundle`,
+    ).toBeTruthy();
+    expect(
+      english[hint?.[1] ?? ''],
+      `${hint?.[1]} is not a key in the storefront bundle`,
+    ).toBeTruthy();
   });
 });
 

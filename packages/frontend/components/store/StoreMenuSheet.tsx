@@ -25,8 +25,9 @@ import {
 import type { Collection, StoreSummary, Review } from "@mercaria/shared-types";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStoreReviews } from "@/lib/hooks/use-store";
-import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
+import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useStoreFollowTarget } from "@/lib/hooks/use-store-follow";
+import { useTranslation } from "@/lib/i18n";
 
 /** Light text tone over a brand-tinted surface (mirrors the store page). */
 const TONE_LIGHT = "#FFFFFF";
@@ -66,8 +67,14 @@ const NAV_BREAKPOINT = 768;
  * inside the shell, clear of the rail.
  */
 const SHEET_INSET = { top: 16, bottom: 16, left: 8 } as const;
-/** Fallback author label when the Oxy profile doesn't resolve. */
-const FALLBACK_AUTHOR = "Verified buyer";
+/**
+ * Fallback author label when the Oxy profile doesn't resolve.
+ *
+ * A KEY rather than the sentence: this is read at import, before the locale
+ * store has rehydrated, so a literal here would freeze whichever language
+ * loaded first.
+ */
+const FALLBACK_AUTHOR_KEY = "store.reviews.fallbackAuthor";
 
 /** The pages the sheet can show. The menu is always the root of the stack. */
 type SheetPage = "menu" | "reviews";
@@ -195,12 +202,13 @@ function StoreReviewCard({
   toneColor: string;
   onPressProduct: (productId: string) => void;
 }) {
+  const { t } = useTranslation();
   const date = new Date(review.createdAt).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
-  const author = review.author?.displayName ?? FALLBACK_AUTHOR;
+  const author = review.author?.displayName ?? t(FALLBACK_AUTHOR_KEY);
 
   return (
     <View
@@ -210,7 +218,7 @@ function StoreReviewCard({
       {review.product ? (
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={`View ${review.product.title}`}
+          accessibilityLabel={t("store.reviews.viewProduct", { product: review.product.title })}
           onPress={() => onPressProduct(review.product?.id ?? "")}
           className="overflow-hidden rounded-radius-16"
           style={{ width: REVIEW_THUMB_SIZE, height: REVIEW_THUMB_SIZE, backgroundColor: GLASS_FILL }}
@@ -261,7 +269,7 @@ function StoreReviewCard({
         <View className="mt-space-4 flex-row">
           <View className="rounded-radius-max border border-white/30 px-space-12 py-space-4">
             <Text className="text-captionMedium" style={{ color: toneColor }}>
-              Helpful
+              {t("store.reviews.helpful")}
             </Text>
           </View>
         </View>
@@ -285,6 +293,7 @@ function ReviewsPage({
   toneColor: string;
   onPressProduct: (productId: string) => void;
 }) {
+  const { t } = useTranslation();
   const { data, isLoading } = useStoreReviews(store.handle);
   const reviews = data?.data ?? [];
   const total = data?.pagination.total ?? store.reviewCount;
@@ -295,7 +304,7 @@ function ReviewsPage({
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }}
     >
       <Text className="text-headerBold" style={{ color: toneColor }}>
-        {REVIEW_SCOPE_LABELS.merchant}
+        {t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
       </Text>
 
       {/*
@@ -314,25 +323,28 @@ function ReviewsPage({
             rating={store.rating}
             count={store.reviewCount}
             size={SUMMARY_STAR_SIZE}
-            scopeLabel={REVIEW_SCOPE_LABELS.merchant}
+            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
           />
           <Text className="text-caption" style={{ color: toneColor }}>
-            {`${formatReviewCount(store.reviewCount)} ratings · ${REVIEW_SCOPE_LABELS.merchant}`}
+            {t("store.reviews.ratingsWithScope", {
+              formattedCount: formatReviewCount(store.reviewCount),
+              scopeLabel: t(REVIEW_SCOPE_HEADING_KEYS.merchant),
+            })}
           </Text>
         </View>
       </View>
 
       <Text className="text-captionMedium" style={{ color: toneColor }}>
-        {`${REVIEW_SCOPE_LABELS.p2p_listing} · ${formatReviewCount(total)}`}
+        {`${t(REVIEW_SCOPE_HEADING_KEYS.p2p_listing)} · ${formatReviewCount(total)}`}
       </Text>
 
       {isLoading ? (
         <Text className="py-space-24 text-center text-body" style={{ color: toneColor }}>
-          Loading reviews…
+          {t("store.reviews.loading")}
         </Text>
       ) : reviews.length === 0 ? (
         <Text className="py-space-24 text-center text-body" style={{ color: toneColor }}>
-          No reviews yet
+          {t("store.reviews.none")}
         </Text>
       ) : (
         reviews.map((review) => (
@@ -365,6 +377,7 @@ function MenuPage({
   onSelectCollection: (id?: string) => void;
   onOpenReviews: () => void;
 }) {
+  const { t } = useTranslation();
   const hasReviews = store.reviewCount > 0;
 
   return (
@@ -406,7 +419,7 @@ function MenuPage({
       {/* ---- Collections card ---- */}
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
         <CollectionRow
-          title="Shop all"
+          title={t("store.shopAll")}
           toneColor={toneColor}
           onPress={() => onSelectCollection(undefined)}
         />
@@ -424,13 +437,13 @@ function MenuPage({
       {/* ---- Reviews summary (navigates to the Reviews page) ---- */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`View ${REVIEW_SCOPE_LABELS.merchant.toLowerCase()} reviews`}
+        accessibilityLabel={t("store.reviews.viewA11yLabel")}
         onPress={onOpenReviews}
         className="rounded-radius-16 p-space-16 web:transition-colors web:hover:bg-white/10"
         style={{ backgroundColor: GLASS_FILL }}
       >
         <Text className="text-subtitle" style={{ color: toneColor }}>
-          {REVIEW_SCOPE_LABELS.merchant}
+          {t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
         </Text>
         {hasReviews ? (
           <View className="mt-space-12 flex-row items-center gap-space-16">
@@ -442,17 +455,19 @@ function MenuPage({
                 rating={store.rating}
                 count={store.reviewCount}
                 size={SUMMARY_STAR_SIZE}
-                scopeLabel={REVIEW_SCOPE_LABELS.merchant}
+                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
               />
               <Text className="text-caption" style={{ color: toneColor }}>
-                {`${formatReviewCount(store.reviewCount)} ratings`}
+                {t("store.reviews.ratingsCount", {
+                  formattedCount: formatReviewCount(store.reviewCount),
+                })}
               </Text>
             </View>
             <ChevronRight size={ROW_ICON_SIZE} color={toneColor} />
           </View>
         ) : (
           <Text className="mt-space-12 text-body" style={{ color: toneColor }}>
-            No reviews yet
+            {t("store.reviews.none")}
           </Text>
         )}
       </Pressable>
@@ -461,16 +476,16 @@ function MenuPage({
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
         <View className="px-space-16 pt-space-16">
           <Text className="text-subtitle" style={{ color: toneColor }}>
-            Policies
+            {t("store.policies.heading")}
           </Text>
         </View>
         <PolicyRow
-          label="Privacy policy"
+          label={t("store.policies.privacy")}
           toneColor={toneColor}
           icon={<ShieldCheck size={ROW_ICON_SIZE} color={toneColor} />}
         />
         <PolicyRow
-          label="Return policy"
+          label={t("store.policies.returns")}
           toneColor={toneColor}
           icon={<RotateCcw size={ROW_ICON_SIZE} color={toneColor} />}
         />
@@ -479,7 +494,7 @@ function MenuPage({
       {/* ---- Report store ---- */}
       <View className="overflow-hidden rounded-radius-16" style={{ backgroundColor: GLASS_FILL }}>
         <PolicyRow
-          label="Report store"
+          label={t("store.report")}
           toneColor={toneColor}
           icon={<Flag size={ROW_ICON_SIZE} color={toneColor} />}
         />
@@ -517,6 +532,7 @@ export function StoreMenuSheet({
   onClose,
   onSelectCollection,
 }: StoreMenuSheetProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   // Offset the overlay past the nav rail on desktop so the side-sheet + backdrop
   // sit inside the content shell (not over the rail). On small screens the rail
@@ -586,16 +602,16 @@ export function StoreMenuSheet({
       contentPadding={0}
       containerStyle={[vars(storeThemeVars(store.brandColor, store.textTone)), railOffset]}
       panelStyle={{ backgroundColor: store.brandColor }}
-      label={`${store.name} menu`}
+      label={t("store.menu.dialogLabel", { store: store.name })}
     >
       {/* Pinned top bar: contextual Close/Back (left), Follow + Share (right). */}
       <View className="flex-row items-center justify-between px-space-16 pb-space-12 pt-space-16">
         {atRoot ? (
-          <ControlButton label={`Close ${store.name} menu`} onPress={handleClose}>
+          <ControlButton label={t("store.menu.close", { store: store.name })} onPress={handleClose}>
             <X size={CONTROL_ICON_SIZE} color={toneColor} />
           </ControlButton>
         ) : (
-          <ControlButton label="Back" onPress={pop}>
+          <ControlButton label={t("common.back")} onPress={pop}>
             <ArrowLeft size={CONTROL_ICON_SIZE} color={toneColor} />
           </ControlButton>
         )}
@@ -603,8 +619,8 @@ export function StoreMenuSheet({
           <ControlButton
             label={
               isFollowing
-                ? `Unfollow ${store.name}`
-                : `Follow ${store.name}`
+                ? t("store.follow.unfollowStore", { store: store.name })
+                : t("store.follow.followStore", { store: store.name })
             }
             onPress={onPressFollow}
           >
@@ -614,7 +630,7 @@ export function StoreMenuSheet({
               fill={isFollowing ? toneColor : "transparent"}
             />
           </ControlButton>
-          <ControlButton label={`Share ${store.name}`}>
+          <ControlButton label={t("store.menu.share", { store: store.name })}>
             <Share2 size={CONTROL_ICON_SIZE} color={toneColor} />
           </ControlButton>
         </View>

@@ -38,6 +38,7 @@ import { useCart } from "@/lib/hooks/use-cart";
 import { useAddresses } from "@/lib/hooks/use-addresses";
 import { useCheckout, useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
 import { usePortalConfirmation } from "@/lib/hooks/use-guest-portal";
+import { useTranslation } from "@/lib/i18n";
 import { CardPaymentStep } from "@/components/payment/CardPaymentStep";
 
 /** The stable seller-group key, matching the backend (`store:<id>` / `user:<id>`). */
@@ -79,11 +80,12 @@ function AddressOption({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
-      accessibilityLabel={`Ship to ${address.recipientName}`}
+      accessibilityLabel={t("checkout.address.shipTo", { name: address.recipientName })}
       onPress={onSelect}
       className={`flex-row items-start gap-3 rounded-2xl border p-4 ${
         selected ? "border-primary bg-secondary/40" : "border-border bg-card"
@@ -125,26 +127,26 @@ function AddressOption({
  * exist is not a property of having an account.
  */
 function SignInBenefit() {
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
-      <Text className="text-sm font-semibold text-foreground">Have an Oxy account?</Text>
-      <Text className="mt-1 text-sm text-muted-foreground">
-        Signing in brings your saved addresses, keeps this cart on your other devices, and keeps
-        this order in your account&apos;s order history. You can also check out as a guest — it
-        takes the same amount of typing.
-      </Text>
+      <Text className="text-sm font-semibold text-foreground">{t("checkout.signIn.title")}</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">{t("checkout.signIn.body")}</Text>
       <Button variant="outline" className="mt-3 self-start" onPress={() => openAccountDialog()}>
-        <Text className="text-sm font-medium text-foreground">Sign in</Text>
+        <Text className="text-sm font-medium text-foreground">{t("checkout.signIn.action")}</Text>
       </Button>
     </View>
   );
 }
 
 function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
+  const { t } = useTranslation();
   const subtotal = sumSubtotals(groups);
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
-      <Text className="mb-3 text-sm font-semibold text-foreground">Order summary</Text>
+      <Text className="mb-3 text-sm font-semibold text-foreground">
+        {t("checkout.summary.title")}
+      </Text>
       <View className="gap-4">
         {groups.map((group) => (
           <View key={groupKey(group)} className="gap-2">
@@ -182,11 +184,13 @@ function OrderSummaryCard({ groups }: { groups: CartGroup[] }) {
         ))}
         <View className="my-1 h-px bg-border" />
         <View className="flex-row items-center justify-between">
-          <Text className="text-sm font-semibold text-foreground">Subtotal</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {t("checkout.summary.subtotal")}
+          </Text>
           {subtotal ? <PriceDisplay price={subtotal} primaryClassName="text-base font-bold" /> : null}
         </View>
         <Text className="text-xs text-muted-foreground">
-          Discounts, taxes and shipping are calculated when your order is placed.
+          {t("checkout.summary.calculatedAtPlacement")}
         </Text>
       </View>
     </View>
@@ -236,17 +240,16 @@ function PaymentStep({
   onFailed: (message: string) => void;
   onDone: () => void;
 }) {
+  const { t } = useTranslation();
   if (status === "succeeded") {
     return (
       // A live region: this screen changes under the buyer while they are not
       // touching it (the poll answers), so a screen reader has to be told rather
       // than waiting to be asked.
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Payment received" />
+        <SectionHeader title={t("payment.received.title")} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">
-            Thank you. Your order is confirmed and the seller has been notified.
-          </Text>
+          <Text className="text-sm text-muted-foreground">{t("payment.received.body")}</Text>
           {isGuest ? (
             /*
               A guest is still NOT sent to `/orders/...`: that route is
@@ -265,29 +268,35 @@ function PaymentStep({
             <>
               <View className="rounded-2xl border border-border bg-card p-4">
                 <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {orderNumbers.length > 1 ? "Your order numbers" : "Your order number"}
+                  {orderNumbers.length > 1
+                    ? t("checkout.orderNumbers.headingOther")
+                    : t("checkout.orderNumbers.headingOne")}
                 </Text>
                 <Text className="mt-1 text-base font-bold text-foreground" selectable>
                   {orderNumbers.join("  ·  ")}
                 </Text>
                 <Text className="mt-2 text-sm text-muted-foreground">
-                  Keep this to hand — it identifies your purchase if you need to get in touch.
+                  {t("checkout.orderNumbers.keepToHand")}
                 </Text>
               </View>
               <Button variant="outline" onPress={onDone}>
-                <Text className="text-sm font-medium text-foreground">Keep shopping</Text>
+                <Text className="text-sm font-medium text-foreground">
+                  {t("checkout.keepShopping")}
+                </Text>
               </Button>
               <Link href="/guest-orders/recover" asChild>
                 <Button variant="outline">
                   <Text className="text-sm font-medium text-foreground">
-                    Email me a link to this order
+                    {t("checkout.emailMeLink")}
                   </Text>
                 </Button>
               </Link>
             </>
           ) : (
             <Button onPress={onDone}>
-              <Text className="text-sm font-semibold text-primary-foreground">View your order</Text>
+              <Text className="text-sm font-semibold text-primary-foreground">
+                {t("checkout.viewOrder")}
+              </Text>
             </Button>
           )}
         </View>
@@ -298,15 +307,14 @@ function PaymentStep({
   if (status === "canceled") {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Payment cancelled" />
+        <SectionHeader title={t("payment.cancelled.title")} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
-            This payment was cancelled and nothing was charged. Your items have been returned to
-            the shop.
+            {t("payment.cancelled.bodyItemsReturned")}
           </Text>
           <Button variant="outline" onPress={onDone}>
             <Text className="text-sm font-medium text-foreground">
-              {isGuest ? "Keep shopping" : "Back to your orders"}
+              {isGuest ? t("checkout.keepShopping") : t("checkout.backToOrders")}
             </Text>
           </Button>
         </View>
@@ -317,16 +325,16 @@ function PaymentStep({
   if (awaiting) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Confirming your payment" />
+        <SectionHeader title={t("payment.confirming.title")} />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
             {status === "requires_action" || status === "processing"
-              ? "Your bank is still completing this payment. This can take a moment."
-              : "We are confirming this with your bank. Your order is reserved meanwhile."}
+              ? t("payment.confirming.bankStillCompleting")
+              : t("payment.confirming.checkingWithBank")}
           </Text>
           <Button variant="outline" onPress={onDone}>
             <Text className="text-sm font-medium text-foreground">
-              {isGuest ? "Keep shopping" : "Check later from your orders"}
+              {isGuest ? t("checkout.keepShopping") : t("checkout.checkLaterFromOrders")}
             </Text>
           </Button>
         </View>
@@ -336,10 +344,10 @@ function PaymentStep({
 
   return (
     <View className="px-4">
-      <SectionHeader title="Payment" />
+      <SectionHeader title={t("payment.title")} />
       <View className="gap-4">
         <View className="flex-row items-baseline justify-between">
-          <Text className="text-sm text-muted-foreground">Total to pay</Text>
+          <Text className="text-sm text-muted-foreground">{t("payment.totalToPay")}</Text>
           {/*
             `formatMoney` and NOT `PriceDisplay`: this figure is what the card
             will actually be charged, in the currency the payment was created in.
@@ -364,9 +372,7 @@ function PaymentStep({
           onCancelled={onCancelled}
           onFailed={onFailed}
         />
-        <Text className="text-xs text-muted-foreground">
-          Your card details go straight to our payment provider and never reach Mercaria.
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t("payment.cardDetailsNotice")}</Text>
       </View>
       <View className="h-24" />
     </View>
@@ -374,6 +380,7 @@ function PaymentStep({
 }
 
 function CheckoutBody() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { seller, pickup, pickupName } = useLocalSearchParams<{
     seller?: string;
@@ -496,12 +503,14 @@ function CheckoutBody() {
   if (targetGroups.length === 0) {
     return (
       <View className="items-center px-8 py-24">
-        <Text className="text-center text-lg font-bold text-foreground">Nothing to check out</Text>
+        <Text className="text-center text-lg font-bold text-foreground">
+          {t("checkout.empty.title")}
+        </Text>
         <Text className="mt-1 text-center text-sm text-muted-foreground">
-          Your cart is empty or these items are no longer available.
+          {t("checkout.empty.body")}
         </Text>
         <Button variant="outline" className="mt-4" onPress={() => router.replace("/cart")}>
-          <Text className="text-sm font-medium text-foreground">Back to cart</Text>
+          <Text className="text-sm font-medium text-foreground">{t("checkout.empty.backToCart")}</Text>
         </Button>
       </View>
     );
@@ -572,8 +581,8 @@ function CheckoutBody() {
     if (!destination) {
       setFormError(
         collecting
-          ? "Enter the email address your collection details should go to."
-          : "Fill in your email and delivery address to continue.",
+          ? t("checkout.error.collectionEmailRequired")
+          : t("checkout.error.emailAndAddressRequired"),
       );
       return;
     }
@@ -582,7 +591,7 @@ function CheckoutBody() {
     // trip for a form the buyer can see is incomplete.
     const contact = cleanContact(draft.contact);
     if (!isAuthenticated && contact.email.length === 0) {
-      setFormError("Enter the email address your receipt should go to.");
+      setFormError(t("checkout.error.receiptEmailRequired"));
       return;
     }
     setFormError(null);
@@ -611,7 +620,7 @@ function CheckoutBody() {
           // before payments existed.
           if (!result.payment) {
             idempotencyKey.current = null;
-            toast.success("Order placed");
+            toast.success(t("checkout.toast.orderPlaced"));
             leaveCheckout(first?.id, result.checkoutGroupId);
             return;
           }
@@ -655,8 +664,8 @@ function CheckoutBody() {
           setSheetDone(false);
           toast.info(
             isAuthenticated
-              ? "Your order is reserved. You can pay for it from your orders."
-              : "Your order is reserved for a short while. Check out again to pay for it.",
+              ? t("checkout.toast.reservedSignedIn")
+              : t("checkout.toast.reservedGuest"),
           );
           leaveCheckout(placed.firstOrderId, placed.checkoutGroupId);
         }}
@@ -674,7 +683,7 @@ function CheckoutBody() {
 
   return (
     <View className="px-4">
-      <SectionHeader title="Checkout" />
+      <SectionHeader title={t("checkout.title")} />
       <View className="gap-5">
         {/*
           Signing in is offered ONCE, at the top, as an alternative to a path
@@ -687,7 +696,9 @@ function CheckoutBody() {
         {/* Saved addresses: an account feature, rendered only for an account. */}
         {isAuthenticated && savedAddresses.length > 0 ? (
           <View className="gap-3">
-            <Text className="text-sm font-semibold text-foreground">Shipping address</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t("checkout.shippingAddress")}
+            </Text>
             {usingInlineAddress ? null : (
               <>
                 {savedAddresses.map((address) => (
@@ -707,7 +718,9 @@ function CheckoutBody() {
             >
               <Plus size={16} className="text-foreground" />
               <Text className="ms-1 text-sm font-medium text-foreground">
-                {usingInlineAddress ? "Use a saved address" : "Deliver somewhere else"}
+                {usingInlineAddress
+                  ? t("checkout.useSavedAddress")
+                  : t("checkout.deliverElsewhere")}
               </Text>
             </Button>
           </View>
@@ -722,16 +735,16 @@ function CheckoutBody() {
           <View className="gap-3">
             <Text className="text-sm font-semibold text-foreground">
               {collecting
-                ? "Collect in person"
+                ? t("checkout.destination.collectInPerson")
                 : isAuthenticated
-                  ? "Deliver to"
-                  : "Continue as guest"}
+                  ? t("checkout.destination.deliverTo")
+                  : t("checkout.destination.continueAsGuest")}
             </Text>
             {isAuthenticated ? null : (
               <Text className="text-sm text-muted-foreground">
                 {collecting
-                  ? "No account needed. Tell us how to reach you about this collection — we will not ask for an address you do not need."
-                  : "No account needed. Tell us where it goes and how to reach you about this order."}
+                  ? t("checkout.destination.guestPickupHint")
+                  : t("checkout.destination.guestDeliveryHint")}
               </Text>
             )}
             <View className="rounded-2xl border border-border bg-card p-4">
@@ -742,7 +755,12 @@ function CheckoutBody() {
                 pickupLocations={
                   pickup === undefined
                     ? []
-                    : [{ id: pickup, name: pickupName ?? "the shop you chose" }]
+                    : [
+                        {
+                          id: pickup,
+                          name: pickupName ?? t("checkout.destination.pickupFallbackName"),
+                        },
+                      ]
                 }
                 {...(pickupLocationId === undefined ? {} : { pickupLocationId })}
                 onChangePickupLocation={(next) => setPickupDeclined(next === undefined)}
@@ -753,13 +771,13 @@ function CheckoutBody() {
 
         {/* Discount code (optional) */}
         <View className="gap-1.5">
-          <Label nativeID="checkout-discount">Discount code (optional)</Label>
+          <Label nativeID="checkout-discount">{t("checkout.discount.label")}</Label>
           <Input
             aria-labelledby="checkout-discount"
-            accessibilityLabel="Discount code"
+            accessibilityLabel={t("checkout.discount.accessibilityLabel")}
             value={discountCode}
             onChangeText={setDiscountCode}
-            placeholder="SAVE10"
+            placeholder={t("checkout.discount.placeholder")}
             autoCapitalize="characters"
             autoCorrect={false}
           />
@@ -777,7 +795,9 @@ function CheckoutBody() {
         ) : null}
 
         <Button isLoading={checkout.isPending} onPress={onPlaceOrder}>
-          <Text className="text-sm font-semibold text-primary-foreground">Place order</Text>
+          <Text className="text-sm font-semibold text-primary-foreground">
+            {t("checkout.placeOrder")}
+          </Text>
         </Button>
       </View>
       <View className="h-24" />
@@ -786,10 +806,11 @@ function CheckoutBody() {
 }
 
 export default function CheckoutScreen() {
+  const { t } = useTranslation();
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>Checkout — Mercaria</title>
+        <title>{t("checkout.pageTitle")}</title>
       </Head>
       <CheckoutBody />
     </ScreenShell>

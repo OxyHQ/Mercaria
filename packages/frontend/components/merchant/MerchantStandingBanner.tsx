@@ -4,6 +4,7 @@ import type {
   MerchantPublicStanding,
 } from "@mercaria/shared-types";
 import { Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The merchant's standing and the `Claim this merchant` action
@@ -26,21 +27,27 @@ import { Text } from "@mercaria/ui";
  * mover must not be able to lock the real operator out by squatting, which is
  * #83's own rule and the reason `claimInProgress` is a signal rather than a
  * refusal.
+ *
+ * Both maps hold KEYS rather than sentences: they are module scope, so a `t()`
+ * here would resolve before the locale store rehydrates and freeze whichever
+ * language loaded first. The keys are literals so the i18n guard can see each
+ * one is referenced.
  */
-const STANDING_LABEL: Readonly<Record<MerchantPublicStanding, string>> = Object.freeze({
-  unclaimed: "Unclaimed",
-  claim_in_progress: "Claim in progress",
-  claimed: "Claimed",
-  selling_on_mercaria: "Sells on Mercaria",
-});
+const STANDING_LABEL_KEYS: Readonly<Record<MerchantPublicStanding, string>> = {
+  unclaimed: "merchants.standing.label.unclaimed",
+  claim_in_progress: "merchants.standing.label.claimInProgress",
+  claimed: "merchants.standing.label.claimed",
+  selling_on_mercaria: "merchants.standing.label.sellingOnMercaria",
+};
+Object.freeze(STANDING_LABEL_KEYS);
 
-const STANDING_EXPLANATION: Readonly<Record<MerchantPublicStanding, string>> = Object.freeze({
-  unclaimed:
-    "Nobody has proved they operate this merchant. Its products are listed here from public sources.",
-  claim_in_progress: "Somebody is proving they operate this merchant.",
-  claimed: "An operator has proved they run this merchant.",
-  selling_on_mercaria: "This merchant is connected to a Mercaria store and sells here directly.",
-});
+const STANDING_EXPLANATION_KEYS: Readonly<Record<MerchantPublicStanding, string>> = {
+  unclaimed: "merchants.standing.explanation.unclaimed",
+  claim_in_progress: "merchants.standing.explanation.claimInProgress",
+  claimed: "merchants.standing.explanation.claimed",
+  selling_on_mercaria: "merchants.standing.explanation.sellingOnMercaria",
+};
+Object.freeze(STANDING_EXPLANATION_KEYS);
 
 export function MerchantStandingBanner({
   standing,
@@ -49,7 +56,8 @@ export function MerchantStandingBanner({
   standing: MerchantPageStanding;
   onClaim: () => void;
 }) {
-  const label = STANDING_LABEL[standing.standing];
+  const { t } = useTranslation();
+  const label = t(STANDING_LABEL_KEYS[standing.standing]);
 
   return (
     <View className="gap-2 px-4 pt-4">
@@ -58,7 +66,7 @@ export function MerchantStandingBanner({
           <Text
             className="text-xs font-semibold text-secondary-foreground"
             accessibilityRole="text"
-            accessibilityLabel={`Merchant status: ${label}`}
+            accessibilityLabel={t("merchants.standing.a11yLabel", { status: label })}
           >
             {label}
           </Text>
@@ -66,17 +74,19 @@ export function MerchantStandingBanner({
         {standing.eligibility.claimable ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Claim this merchant"
-            accessibilityHint="Prove that you operate this merchant to manage its page"
+            accessibilityLabel={t("merchants.standing.claim")}
+            accessibilityHint={t("merchants.standing.claimHint")}
             onPress={onClaim}
             className="rounded-full border border-border px-4 py-2"
           >
-            <Text className="text-sm font-medium text-foreground">Claim this merchant</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {t("merchants.standing.claim")}
+            </Text>
           </Pressable>
         ) : null}
       </View>
       <Text className="text-xs text-muted-foreground">
-        {STANDING_EXPLANATION[standing.standing]}
+        {t(STANDING_EXPLANATION_KEYS[standing.standing])}
       </Text>
     </View>
   );

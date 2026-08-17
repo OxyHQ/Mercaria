@@ -26,6 +26,7 @@ function AddressCard({
   onDelete: () => void;
   isMutating: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-card p-4">
       <View className="flex-row items-start justify-between gap-3">
@@ -36,7 +37,9 @@ function AddressCard({
             </Text>
             {address.isDefault ? (
               <View className="rounded-full bg-secondary px-2 py-0.5">
-                <Text className="text-[11px] font-medium text-muted-foreground">Default</Text>
+                <Text className="text-[11px] font-medium text-muted-foreground">
+                  {t("address.list.default")}
+                </Text>
               </View>
             ) : null}
           </View>
@@ -53,7 +56,7 @@ function AddressCard({
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Delete address"
+          accessibilityLabel={t("address.list.deleteLabel")}
           disabled={isMutating}
           onPress={onDelete}
           className="h-9 w-9 items-center justify-center rounded-full active:opacity-70"
@@ -70,7 +73,9 @@ function AddressCard({
           onPress={onSetDefault}
         >
           <Check size={14} className="text-foreground" />
-          <Text className="ms-1 text-sm font-medium text-foreground">Set as default</Text>
+          <Text className="ms-1 text-sm font-medium text-foreground">
+            {t("address.list.setDefault")}
+          </Text>
         </Button>
       ) : null}
     </View>
@@ -78,6 +83,7 @@ function AddressCard({
 }
 
 function AddressesBody() {
+  const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
   const { data: addresses, isLoading } = useAddresses();
   const createAddress = useCreateAddress();
@@ -92,7 +98,7 @@ function AddressesBody() {
     return (
       <View className="items-center py-16">
         <Text className="text-center text-sm text-muted-foreground">
-          Sign in to manage your shipping addresses.
+          {t("address.list.signedOut")}
         </Text>
       </View>
     );
@@ -101,10 +107,10 @@ function AddressesBody() {
   const onCreate = (input: CreateAddressInput) => {
     createAddress.mutate(input, {
       onSuccess: () => {
-        toast.success("Address saved");
+        toast.success(t("address.toast.saved"));
         setAdding(false);
       },
-      onError: () => toast.error("Couldn't save the address"),
+      onError: () => toast.error(t("address.toast.saveFailed")),
     });
   };
 
@@ -120,9 +126,7 @@ function AddressesBody() {
       ) : (
         <>
           {list.length === 0 && !adding ? (
-            <Text className="text-sm text-muted-foreground">
-              You have no saved addresses yet.
-            </Text>
+            <Text className="text-sm text-muted-foreground">{t("address.list.empty")}</Text>
           ) : null}
 
           {list.map((address) => (
@@ -133,13 +137,13 @@ function AddressesBody() {
               onSetDefault={() =>
                 updateAddress.mutate(
                   { id: address.id, input: { isDefault: true } },
-                  { onError: () => toast.error("Couldn't update the address") },
+                  { onError: () => toast.error(t("address.toast.updateFailed")) },
                 )
               }
               onDelete={() =>
                 deleteAddress.mutate(address.id, {
-                  onSuccess: () => toast.success("Address removed"),
-                  onError: () => toast.error("Couldn't remove the address"),
+                  onSuccess: () => toast.success(t("address.toast.removed")),
+                  onError: () => toast.error(t("address.toast.removeFailed")),
                 })
               }
             />
@@ -147,7 +151,9 @@ function AddressesBody() {
 
           {adding ? (
             <View className="rounded-2xl border border-border bg-card p-4">
-              <Text className="mb-3 text-sm font-semibold text-foreground">New address</Text>
+              <Text className="mb-3 text-sm font-semibold text-foreground">
+                {t("address.list.newAddress")}
+              </Text>
               <AddressForm
                 onSubmit={onCreate}
                 onCancel={() => setAdding(false)}
@@ -157,7 +163,9 @@ function AddressesBody() {
           ) : (
             <Button variant="outline" className="self-start" onPress={() => setAdding(true)}>
               <Plus size={16} className="text-foreground" />
-              <Text className="ms-1 text-sm font-medium text-foreground">Add address</Text>
+              <Text className="ms-1 text-sm font-medium text-foreground">
+                {t("address.list.addAddress")}
+              </Text>
             </Button>
           )}
         </>

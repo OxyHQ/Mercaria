@@ -1,82 +1,36 @@
 {
   "common": {
-    "or": "O",
     "loading": "Carregant...",
-    "error": "Error",
-    "success": "Èxit",
     "cancel": "Cancel·la",
     "confirm": "Confirma",
-    "save": "Desa",
-    "saving": "Desant...",
-    "delete": "Elimina",
-    "edit": "Edita",
-    "close": "Tanca",
     "back": "Enrere",
-    "create": "Crea",
-    "search": "Cerca...",
-    "comingSoon": "Molt aviat!",
-    "noResults": "No s'ha trobat cap resultat",
     "user": "Usuari",
-    "done": "Fet",
     "tryAgain": "Torna-ho a provar",
     "processing": "Processant..."
   },
   "home": {
     "title": "Mercaria",
-    "emptyTitle": "Mercaria arriba molt aviat",
-    "emptySubtitle": "Compra i ven articles nous i de segona mà — els anuncis apareixeran aquí."
+    "loadingProducts": "Carregant productes",
+    "loadError": "No s'han pogut carregar els productes. Llisca per actualitzar o torna-ho a provar."
   },
   "nav": {
     "home": "Inici",
-    "settings": "Configuració"
+    "settings": "Configuració",
+    "explore": "Explora",
+    "cart": "Cistella",
+    "deals": "Ofertes",
+    "saved": "Desats",
+    "account": "Compte",
+    "signIn": "Inicia la sessió"
   },
   "login": {
-    "title": "Inicia la sessió o registra't",
-    "subtitle": "per continuar a Mercaria",
-    "emailPlaceholder": "Correu electrònic",
-    "passwordPlaceholder": "Contrasenya",
-    "forgotPassword": "Has oblidat la contrasenya?",
     "signInButton": "Inicia la sessió",
-    "signingIn": "Iniciant la sessió...",
-    "footerText": "No tens cap compte?",
-    "footerLink": "Registra't",
-    "termsPrefix": "En continuar, acceptes els ",
-    "termsOfService": "Termes del servei de Mercaria",
-    "termsAnd": " i la ",
-    "privacyPolicy": "Política de privadesa"
-  },
-  "register": {
-    "title": "Crea un compte d'Oxy",
-    "subtitle": "Registra't per començar amb Mercaria",
-    "firstNamePlaceholder": "Nom",
-    "lastNamePlaceholder": "Cognom (opcional)",
-    "emailPlaceholder": "Correu electrònic",
-    "passwordPlaceholder": "Contrasenya (mín. 8 caràcters)",
-    "confirmPasswordPlaceholder": "Confirma la contrasenya",
-    "createAccountButton": "Continua",
-    "creatingAccount": "Creant el compte...",
-    "footerText": "Ja tens un compte?",
-    "footerLink": "Inicia la sessió",
-    "termsPrefix": "En continuar, acceptes els ",
-    "termsOfService": "Termes del servei d'Oxy",
-    "termsAnd": " i la ",
-    "privacyPolicy": "Política de privadesa"
-  },
-  "errors": {
-    "passwordRequired": "Introdueix la teva contrasenya",
-    "loginFailed": "No s'ha pogut iniciar la sessió",
-    "loginError": "Error d'inici de sessió",
-    "failedToLogin": "No s'ha pogut iniciar la sessió. Torna-ho a provar.",
-    "registrationError": "Error de registre",
-    "registrationFailed": "El registre ha fallat",
-    "failedToRegister": "No s'ha pogut completar el registre. Torna-ho a provar."
+    "footerLink": "Registra't"
   },
   "settings": {
     "title": "Configuració",
-    "subtitle": "Gestiona les teves preferències de Mercaria",
     "account": {
-      "title": "Configuració del compte",
-      "description": "Gestiona el teu compte"
+      "title": "Configuració del compte"
     },
     "appLanguage": {
       "title": "Idioma de l'aplicació",
@@ -85,7 +39,6 @@
     },
     "appearance": {
       "title": "Aparença",
-      "description": "Tria la teva combinació de colors preferida",
       "light": "Clar",
       "dark": "Fosc",
       "system": "Sistema"
@@ -102,13 +55,18 @@
       "watchlists": "Llistes de seguiment",
       "shoppingAgents": "Agents de compra",
       "referralPartner": "Programa de recomanació"
+    },
+    "currency": {
+      "title": "Moneda de visualització",
+      "description": "Tria la moneda en què es mostren els preus. FairCoin (⊜) és la predeterminada.",
+      "signedOut": "Inicia la sessió per desar la teva moneda de visualització preferida.",
+      "updateFailed": "No s'ha pogut actualitzar la teva moneda de visualització"
     }
   },
   "sidebar": {
     "account": "Compte",
     "settings": "Configuració",
     "logOut": "Tanca la sessió",
-    "termsOfService": "Termes del servei",
     "privacyPolicy": "Política de privadesa"
   },
   "feedback": {
@@ -134,9 +92,8 @@
     "featurePlaceholder": "Descriu la funció que t'agradaria veure. En què t'ajudaria?",
     "improvementPlaceholder": "Què t'agradaria que milloréssim? Com ho podríem fer millor?",
     "otherPlaceholder": "Comparteix les teves idees amb nosaltres...",
-    "characterCount": "{{count}}/1000 caràcters",
+    "characterCount": "%{count}/1000 caràcters",
     "submitButton": "Envia el comentari",
-    "submitting": "Enviant...",
     "footerText": "Els teus comentaris ens ajuden a millorar Mercaria. Gràcies per dedicar-hi el teu temps.",
     "selectType": "Selecciona un tipus de comentari",
     "enterMessage": "Escriu el teu comentari",
@@ -146,16 +103,112 @@
   },
   "notifications": {
     "title": "Notificacions",
-    "subtitle": "Gestiona les teves preferències de notificació",
     "pushNotifications": "Notificacions push",
     "pushDescription": "Rep avisos sobre missatges nous i actualitzacions",
-    "permissionDenied": "Les notificacions estan bloquejades. Activa-les a la configuració del dispositiu per rebre notificacions push."
-  },
-  "welcome": {
-    "appName": "Mercaria"
+    "permissionDenied": "Les notificacions estan bloquejades. Activa-les a la configuració del dispositiu per rebre notificacions push.",
+    "timeAgo": {
+      "justNow": "ara mateix",
+      "minutes": "fa %{count} min",
+      "hours": "fa %{count} h",
+      "days": "fa %{count} d"
+    },
+    "unreadCount": "%{count} sense llegir",
+    "markAllRead": "Marca-ho tot com a llegit",
+    "empty": {
+      "title": "Encara no hi ha notificacions",
+      "body": "Estàs al dia."
+    }
   },
   "product": {
-    "priceHistoryHeading": "Historial de preus — %{segment}"
+    "priceHistoryHeading": "Historial de preus — %{segment}",
+    "intent": {
+      "balanced": "Millor en conjunt",
+      "cheapest": "Més barat",
+      "fastest": "Lliurament més ràpid",
+      "official": "Botigues oficials",
+      "used": "De segona mà"
+    },
+    "sourceKind": {
+      "connector": "botiga connectada",
+      "feed": "catàleg de productes",
+      "marketplaceApi": "mercat",
+      "affiliateNetwork": "xarxa d'afiliació",
+      "operator": "operador",
+      "backfill": "importació anterior"
+    },
+    "appName": "Mercaria",
+    "documentTitle": "%{name} — Mercaria",
+    "loadingA11y": "Carregant el producte",
+    "loadError": "No hem pogut carregar aquest producte. Torna-ho a provar més tard.",
+    "notFound": "No hem trobat aquest producte.",
+    "visitA11y": "Visita %{name}",
+    "moreFromStore": "Més de %{name}",
+    "compareOffersA11y": "Compara totes les ofertes d'aquest producte",
+    "compareOffers": "Compara totes les ofertes",
+    "percentOff": "%{percent}% de descompte",
+    "demandCopy": "Més de 100.000 comprats el darrer mes",
+    "exclusiveOffer": {
+      "label": "Aconsegueix preus exclusius",
+      "caption": "Inicia la sessió per veure la teva oferta exclusiva"
+    },
+    "quantity": "Quantitat",
+    "decreaseQuantity": "Redueix la quantitat",
+    "increaseQuantity": "Augmenta la quantitat",
+    "save": {
+      "productA11y": "Desa aquest producte",
+      "removeProductA11y": "Treu aquest producte dels desats",
+      "product": "Desa el producte",
+      "productSaved": "Producte desat",
+      "exactListingA11y": "Desa aquest anunci concret",
+      "removeListingA11y": "Treu aquest anunci dels desats",
+      "listing": "Desa aquest anunci",
+      "listingSaved": "Anunci desat",
+      "save": "Desa",
+      "saved": "Desat"
+    },
+    "shareA11y": "Comparteix aquest producte",
+    "share": "Comparteix",
+    "deliveryAndReturns": "Enviament i devolucions",
+    "viewReturnPolicyA11y": "Consulta la política de devolucions",
+    "returnPolicy": "Política de devolucions",
+    "description": "Descripció",
+    "viewMore": "Mostra'n més",
+    "viewLess": "Mostra'n menys",
+    "highlights": "Destacats",
+    "sortOffersBy": "Ordena les ofertes per",
+    "reportProblemA11y": "Informa d'un problema amb la informació d'aquest producte",
+    "reportProblem": "Informa d'un problema",
+    "specifications": "Especificacions",
+    "modelIdentifiers": "Identificadors del model",
+    "imageFromCatalogueA11y": "%{name} — imatge del catàleg",
+    "releasedYear": "Llançat el %{year}",
+    "discontinued": "Descatalogat",
+    "detailsLastConfirmed": "Dades del producte confirmades per darrera vegada el %{date} des d'una font de tipus %{source}.",
+    "variant": {
+      "configuration": "Configuració",
+      "allConfigurationsA11y": "Totes les configuracions",
+      "all": "Totes",
+      "standard": "Estàndard",
+      "offerCountA11y": {
+        "one": "%{label}, %{count} oferta en aquesta pàgina",
+        "other": "%{label}, %{count} ofertes en aquesta pàgina"
+      }
+    },
+    "brandChannels": {
+      "officialTitle": "Botigues oficials",
+      "officialExplanation": "Canals que la marca ha verificat com a propis.",
+      "resellersTitle": "Distribuïdors autoritzats",
+      "resellersExplanation": "Distribuïdors que la marca ha verificat com a autoritzats. No són la botiga pròpia de la marca."
+    },
+    "priceHistory": {
+      "lowestInWindow": "Preu més baix en aquest període: %{amount}",
+      "noOffersObserved": {
+        "one": "No s'ha observat cap oferta durant %{count} període d'aquest interval.",
+        "other": "No s'ha observat cap oferta durant %{count} períodes d'aquest interval."
+      },
+      "notFullyBuilt": "Una part d'aquest període encara no s'ha calculat.",
+      "conversionDisplayOnly": "Les xifres convertides són només informatives."
+    }
   },
   "catalog": {
     "breadcrumbs": {
@@ -190,7 +243,1247 @@
       "fallbackTitle": "Categoria",
       "notFound": "No hem trobat aquesta categoria.",
       "subcategories": "Subcategories",
-      "empty": "Encara no hi ha res que coincideixi amb aquests filtres."
+      "empty": "Encara no hi ha res que coincideixi amb aquests filtres.",
+      "documentTitle": "%{title} — Mercaria"
+    }
+  },
+  "cart": {
+    "title": "La teva cistella",
+    "pageTitle": "La teva cistella — Mercaria",
+    "signIn": "Inicia la sessió",
+    "loadingA11yLabel": "S'està carregant la teva cistella",
+    "error": {
+      "title": "No hem pogut carregar la teva cistella",
+      "subtitle": "Comprova la connexió i torna-ho a provar — no s'ha perdut res."
+    },
+    "empty": {
+      "title": "La teva cistella és buida",
+      "subtitle": "Explora el mercat i afegeix-hi articles que t'agradin."
+    },
+    "guestOffer": {
+      "title": "Compres com a convidat",
+      "intro": "Pots finalitzar la compra sense compte. Amb un compte, a més tens:",
+      "benefits": {
+        "crossDevice": "La cistella t'acompanya als altres dispositius",
+        "savedAddresses": "Adreces desades, per finalitzar la compra en un pas",
+        "orderHistory": "Totes les comandes en un sol lloc, vinculades al teu compte"
+      },
+      "footnote": "Inicia la sessió quan vulguis — els articles que ja tens a la cistella t'acompanyen.",
+      "signInA11yLabel": "Inicia la sessió al teu compte d'Oxy"
+    },
+    "storageWarning": {
+      "title": "Pot ser que aquesta cistella no sobrevisqui al tancament de l'app",
+      "body": "No hem pogut desar la teva cistella de manera segura en aquest dispositiu. Pots continuar comprant i finalitzar la compra ara. Iniciar la sessió manté la cistella segura."
+    },
+    "group": {
+      "visitSellerA11yLabel": "Visita %{seller}",
+      "soldByA11yLabel": "Venut per %{seller}",
+      "subtotal": "Subtotal",
+      "checkout": "Continua amb la compra",
+      "checkoutWithA11yLabel": "Continua amb la compra amb %{seller}"
+    },
+    "guestBlocked": {
+      "title": "Comprar a un particular requereix un compte",
+      "body": "Els articles de %{seller} encara no es poden comprar com a convidat. Inicia la sessió per finalitzar la compra — tot el que ja tens a la cistella t'acompanya.",
+      "signInA11yLabel": "Inicia la sessió al teu compte d'Oxy per comprar a aquest venedor"
+    },
+    "summary": {
+      "totalAll": "Total de la cistella",
+      "totalAvailable": "Disponible ara",
+      "checkoutAll": "Compra-ho tot",
+      "checkoutAvailable": "Compra els disponibles",
+      "checkoutAllA11yLabel": "Compra tot el que hi ha a la teva cistella",
+      "checkoutAvailableA11yLabel": "Compra els articles que pots comprar com a convidat"
+    },
+    "recommendations": {
+      "title": "També et pot interessar"
+    }
+  },
+  "orders": {
+    "title": "Les teves comandes",
+    "pageTitle": "Les teves comandes — Mercaria",
+    "empty": {
+      "title": "Encara no hi ha comandes",
+      "subtitle": "Quan facis una comanda apareixerà aquí.",
+      "signedOutSubtitle": "Inicia la sessió per veure l'historial de comandes."
+    },
+    "row": {
+      "openA11yLabel": "Obre la comanda %{number}",
+      "meta": {
+        "one": "%{status} · %{seller} · %{count} article",
+        "other": "%{status} · %{seller} · %{count} articles"
+      }
+    },
+    "pagination": {
+      "previous": "Anterior",
+      "next": "Següent",
+      "pageOf": "Pàgina %{page} de %{pages}"
+    },
+    "status": {
+      "pendingPayment": "Pagament pendent",
+      "paid": "Pagada",
+      "processing": "En preparació",
+      "shipped": "Enviada",
+      "delivered": "Lliurada",
+      "cancelled": "Cancel·lada",
+      "refunded": "Reemborsada",
+      "partiallyRefunded": "Reemborsada parcialment"
+    },
+    "detail": {
+      "title": "Comanda %{number}",
+      "pageTitle": "Comanda — Mercaria",
+      "soldBy": "Venut per %{seller}",
+      "errorTitle": "No s'ha pogut carregar aquesta comanda",
+      "errorSubtitle": "Torna enrere i prova-ho de nou.",
+      "backToOrders": "Torna a les comandes"
+    },
+    "items": {
+      "title": "Articles"
+    },
+    "totals": {
+      "title": "Totals",
+      "subtotal": "Subtotal",
+      "discounts": "Descomptes",
+      "tax": "Impostos",
+      "shipping": "Enviament",
+      "total": "Total"
+    },
+    "payment": {
+      "title": "Pagament",
+      "unpaid": "Sense pagar — aquesta comanda està reservada i a l'espera de pagament.",
+      "authorized": "Pagament autoritzat.",
+      "paid": "Pagament rebut.",
+      "refunded": "Pagament reemborsat.",
+      "failed": "El pagament ha fallat."
+    },
+    "shipTo": {
+      "title": "Envia a"
+    },
+    "cancel": {
+      "action": "Cancel·la la comanda",
+      "success": "Comanda cancel·lada",
+      "error": "No s'ha pogut cancel·lar la comanda"
+    },
+    "delivery": {
+      "promisedLabel": "Lliurament promès",
+      "latestLabel": "Última estimació",
+      "noDates": "Sense dates",
+      "basisGuaranteed": "Aquest és el termini de lliurament que et vam prometre.",
+      "basisEstimate": "Una estimació del nostre soci logístic, no una promesa.",
+      "staleNote": "No l'hem pogut actualitzar recentment.",
+      "refreshFailing": "No hem pogut actualitzar aquesta estimació. Pot estar desactualitzada."
+    }
+  },
+  "reviews": {
+    "scopeHeading": {
+      "product": "Ressenyes del producte",
+      "merchant": "Servei del venedor",
+      "nativeTransaction": "Aquesta compra",
+      "p2pListing": "Estat i descripció de l'article",
+      "p2pSeller": "Reputació del venedor"
+    },
+    "heading": "Valora el que has comprat",
+    "moreToRate": {
+      "one": "%{count} compra més per valorar.",
+      "other": "%{count} compres més per valorar."
+    },
+    "notePlaceholder": "Afegeix un comentari (opcional)",
+    "publishAction": "Publica la valoració",
+    "publishError": "No s'ha pogut publicar aquesta valoració.",
+    "ratingChoice": "%{choice} de 5 — %{scopeLabel}",
+    "verifiedPurchase": "%{scopeLabel} · compra verificada",
+    "scope": {
+      "product": "Producte",
+      "merchant": "Servei del venedor",
+      "nativeTransaction": "Aquesta compra",
+      "p2pListing": "Descripció de l'article",
+      "p2pSeller": "Venedor"
+    },
+    "question": {
+      "product": "Què tal és el producte en si?",
+      "merchant": "Què tal ha estat el servei del venedor?",
+      "nativeTransaction": "Què tal ha estat aquesta compra?",
+      "p2pListing": "L'article coincidia amb el seu estat i la seva descripció?",
+      "p2pSeller": "Què tal ha estat comprar a aquest venedor?"
+    },
+    "published": {
+      "product": "Gràcies: la teva valoració del producte ja està publicada.",
+      "merchant": "Gràcies: la teva valoració del servei del venedor ja està publicada.",
+      "nativeTransaction": "Gràcies: la teva valoració d'aquesta compra ja està publicada.",
+      "p2pListing": "Gràcies: la teva valoració de la descripció de l'article ja està publicada.",
+      "p2pSeller": "Gràcies: la teva valoració d'aquest venedor ja està publicada."
+    },
+    "noteLabel": {
+      "product": "La teva valoració del producte",
+      "merchant": "La teva valoració del servei del venedor",
+      "nativeTransaction": "La teva valoració d'aquesta compra",
+      "p2pListing": "La teva valoració de la descripció de l'article",
+      "p2pSeller": "La teva valoració d'aquest venedor"
+    }
+  },
+  "search": {
+    "kind": {
+      "product": "Producte",
+      "brand": "Marca",
+      "productFamily": "Família de productes",
+      "merchant": "Comerciant",
+      "storefront": "Botiga"
+    },
+    "headTitle": "Cerca · Mercaria",
+    "box": {
+      "label": "Cerca",
+      "placeholder": "Què estàs buscant avui?"
+    },
+    "readError": "No hem pogut interpretar aquesta cerca.",
+    "resultsUnavailable": "Els resultats encara no estan disponibles aquí; això és el que hem entès de la teva cerca.",
+    "noMatches": "No hi ha res que compleixi tots els requisits de dalt. Treure'n algun pot ajudar.",
+    "dismissLabel": "Cerca les meves paraules exactes",
+    "skipLabel": "Cerca igualment"
+  },
+  "checkout": {
+    "address": {
+      "shipTo": "Enviar a %{name}"
+    },
+    "backToOrders": "Torna a les teves comandes",
+    "checkLaterFromOrders": "Consulta-ho més tard des de les teves comandes",
+    "claim": {
+      "optional": "Opcional. La teva comanda està confirmada igualment.",
+      "saveToOxy": "Desa aquestes comandes a Oxy"
+    },
+    "deliverElsewhere": "Envia-ho a una altra adreça",
+    "destination": {
+      "collectInPerson": "Recollir en persona",
+      "continueAsGuest": "Continua com a convidat",
+      "deliverTo": "Enviar a",
+      "guestDeliveryHint": "No cal cap compte. Digues-nos on va i com localitzar-te per a aquesta comanda.",
+      "guestPickupHint": "No cal cap compte. Digues-nos com localitzar-te per a aquesta recollida: no et demanarem una adreça que no necessites.",
+      "pickupFallbackName": "la botiga que has triat"
+    },
+    "discount": {
+      "accessibilityLabel": "Codi de descompte",
+      "label": "Codi de descompte (opcional)",
+      "placeholder": "SAVE10"
+    },
+    "emailMeLink": "Envia'm per correu un enllaç a aquesta comanda",
+    "empty": {
+      "backToCart": "Torna al carretó",
+      "body": "El teu carretó és buit o aquests articles ja no estan disponibles.",
+      "title": "No hi ha res per comprar"
+    },
+    "error": {
+      "collectionEmailRequired": "Escriu l'adreça electrònica on han d'arribar les dades de la recollida.",
+      "emailAndAddressRequired": "Omple el teu correu electrònic i l'adreça de lliurament per continuar.",
+      "receiptEmailRequired": "Escriu l'adreça electrònica on ha d'arribar el teu rebut."
+    },
+    "form": {
+      "cityLabel": "Ciutat",
+      "cityPlaceholder": "València",
+      "countryA11y": "Codi de país de dues lletres",
+      "countryLabel": "País",
+      "countryPlaceholder": "ES",
+      "deliverToAddress": "Enviar a una adreça",
+      "deliveryMethodTitle": "Com ho vols?",
+      "deliveryPhoneA11y": "Telèfon al qual pot trucar el missatger",
+      "deliveryPhoneLabel": "Telèfon de lliurament (opcional)",
+      "emailA11y": "Adreça electrònica per a la confirmació de la comanda",
+      "emailHelp": "L'utilitzem per enviar-te el rebut i les novetats de lliurament d'aquesta comanda.",
+      "emailLabel": "Correu electrònic",
+      "emailPlaceholder": "tu@exemple.com",
+      "line1A11y": "Adreça",
+      "line1Label": "Adreça, línia 1",
+      "line1Placeholder": "Carrer Major 1",
+      "line2A11y": "Pis, porta o unitat",
+      "line2Label": "Adreça, línia 2 (opcional)",
+      "line2Placeholder": "Pis 4B",
+      "marketingOptIn": "Envia'm ofertes i novetats per correu. Opcional: la teva comanda no en depèn.",
+      "marketingOptInA11y": "Rebre ofertes i novetats per correu",
+      "pickupPhoneA11y": "Telèfon per a la recollida",
+      "pickupPhoneLabel": "Telèfon per a la recollida (opcional)",
+      "postalA11y": "Codi postal",
+      "postalLabel": "Codi postal",
+      "recipientA11y": "Nom de la persona que rep el paquet",
+      "recipientLabel": "Nom del destinatari",
+      "recipientPlaceholder": "Marta Puig",
+      "regionA11y": "Província, estat o regió",
+      "regionLabel": "Província (opcional)",
+      "regionPlaceholder": "València",
+      "saveAddress": "Desa aquesta adreça al meu compte",
+      "sellerDataNotice": "Cada venedor rep només el que necessita per complir la seva part de la comanda: l'adreça de lliurament, el nom del destinatari i el telèfon de lliurament que indiquis. El teu correu electrònic es queda a Mercaria."
+    },
+    "keepShopping": "Continua comprant",
+    "orderNumbers": {
+      "headingOne": "El teu número de comanda",
+      "headingOther": "Els teus números de comanda",
+      "keepToHand": "Tingues-lo a mà: identifica la teva compra si necessites posar-te en contacte."
+    },
+    "pageTitle": "Finalitza la compra — Mercaria",
+    "placeOrder": "Fes la comanda",
+    "shippingAddress": "Adreça d'enviament",
+    "signIn": {
+      "action": "Inicia la sessió",
+      "body": "En iniciar la sessió tindràs les adreces desades, aquest carretó als teus altres dispositius i la comanda a l'historial del teu compte. També pots comprar com a convidat: s'escriu el mateix.",
+      "title": "Tens un compte d'Oxy?"
+    },
+    "summary": {
+      "calculatedAtPlacement": "Els descomptes, els impostos i l'enviament es calculen en fer la comanda.",
+      "subtotal": "Subtotal",
+      "title": "Resum de la comanda"
+    },
+    "title": "Finalitza la compra",
+    "toast": {
+      "orderPlaced": "Comanda feta",
+      "reservedGuest": "La teva comanda queda reservada una estona. Torna a finalitzar la compra per pagar-la.",
+      "reservedSignedIn": "La teva comanda queda reservada. La pots pagar des de les teves comandes."
+    },
+    "useSavedAddress": "Fes servir una adreça desada",
+    "viewOrder": "Mostra la comanda",
+    "viewOrders": "Mostra les teves comandes"
+  },
+  "payment": {
+    "cancelled": {
+      "body": "Aquest pagament s'ha cancel·lat i no s'ha cobrat res.",
+      "bodyItemsReturned": "Aquest pagament s'ha cancel·lat i no s'ha cobrat res. Els teus articles han tornat a la botiga.",
+      "title": "Pagament cancel·lat"
+    },
+    "card": {
+      "detailsNotConfirmed": "No s'han pogut confirmar les teves dades de pagament.",
+      "expressHeading": "Paga amb un toc",
+      "notCompleted": "No s'ha pogut completar el teu pagament.",
+      "notConfigured": "Els pagaments amb targeta encara no estan configurats en aquesta aplicació.",
+      "orPayByCard": "o paga amb targeta",
+      "payNow": "Paga ara"
+    },
+    "cardDetailsNotice": "Les dades de la teva targeta van directament al nostre proveïdor de pagaments i no arriben mai a Mercaria.",
+    "confirming": {
+      "bankStillCompleting": "El teu banc encara està completant aquest pagament. Pot trigar un moment.",
+      "checkingWithBank": "Ho estem confirmant amb el teu banc. Mentrestant, la teva comanda queda reservada.",
+      "continueWithoutWaiting": "Continua sense esperar",
+      "pageTitle": "Confirmant el teu pagament — Mercaria",
+      "returnBody": "El teu banc t'ha tornat aquí i estem confirmant el pagament. Sol trigar uns segons.",
+      "title": "Confirmant el teu pagament"
+    },
+    "continue": "Continua",
+    "received": {
+      "body": "Gràcies. La teva comanda està confirmada i hem avisat el venedor.",
+      "title": "Pagament rebut"
+    },
+    "return": {
+      "missingGroup": "A aquest enllaç li falta la compra a la qual pertany. Si has completat un pagament, la teva comanda és fora de perill: aquí no canvia res."
+    },
+    "title": "Pagament",
+    "totalToPay": "Total a pagar",
+    "unreadable": {
+      "body": "No hem pogut comprovar aquest pagament des d'aquí. Si s'ha fet, la teva comanda és fora de perill: aquesta pàgina no la pot canviar.",
+      "title": "No hem pogut llegir aquest pagament"
+    }
+  },
+  "sellers": {
+    "fallbackName": "Venedor",
+    "verifiedBadge": "Venedor verificat",
+    "unavailable": "Aquest venedor no està disponible.",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "stats": {
+      "activeListings": "Anuncis actius",
+      "itemsSold": "Articles venuts",
+      "sellingSince": "Ven des de"
+    },
+    "reviews": {
+      "none": "Encara no hi ha ressenyes"
+    },
+    "trust": {
+      "source": "Reputació d'Oxy Trust, en tot l'ecosistema Oxy",
+      "tier": {
+        "restricted": "Restringit per Oxy Trust",
+        "new": "Nou a Oxy",
+        "trusted": "De confiança a Oxy",
+        "highTrust": "Molt de confiança a Oxy",
+        "verified": "Verificat a Oxy"
+      }
+    },
+    "withheld": {
+      "privateProfile": "Aquest venedor manté privat el seu perfil d'Oxy.",
+      "unavailable": "Els anuncis d'aquest venedor no estan disponibles ara mateix."
+    },
+    "listings": {
+      "title": "Anuncis",
+      "loadingLabel": "S'estan carregant els anuncis",
+      "empty": "%{name} no té res a la venda ara mateix.",
+      "loadMore": "Carrega'n més",
+      "loadMoreLabel": "Carrega més anuncis",
+      "loadingMore": "S'està carregant…"
+    },
+    "follow": {
+      "action": "Segueix",
+      "actionLabel": "Segueix %{name}"
+    },
+    "linkCard": {
+      "viewProfile": "Mostra el perfil de %{name}"
+    },
+    "report": {
+      "action": "Denuncia",
+      "title": "Denuncia %{name}",
+      "description": "Digues-nos què passa. Tria tot el que s'apliqui.",
+      "detailsPlaceholder": "Alguna cosa més que hàgim de saber? (opcional)",
+      "send": "Envia la denúncia",
+      "sending": "S'està enviant…",
+      "signIn": "Inicia la sessió per denunciar",
+      "received": "Gràcies: hem rebut la teva denúncia.",
+      "category": {
+        "counterfeit": "Ven falsificacions",
+        "prohibitedItem": "Articles prohibits",
+        "misleadingListing": "Anuncis enganyosos",
+        "unsafeProduct": "Productes insegurs",
+        "stolenGoods": "Béns robats",
+        "scam": "Estafa o frau",
+        "impersonation": "Suplantació d'identitat",
+        "spam": "Contingut brossa",
+        "hatefulContent": "Contingut d'odi",
+        "somethingElse": "Una altra cosa"
+      }
+    }
+  },
+  "merchants": {
+    "unavailable": "Aquest comerciant no està disponible.",
+    "alsoKnownAs": "També conegut com a %{names}",
+    "operatedBy": "Operat per %{organization}",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "reviews": {
+      "none": "Encara no hi ha ressenyes"
+    },
+    "nativeStore": {
+      "title": "%{store} a Mercaria",
+      "openLabel": "Obre %{store} a Mercaria",
+      "note": "El seguiment, les polítiques i el suport són a la pàgina de la botiga."
+    },
+    "offerMix": {
+      "title": "Ofertes",
+      "allMarkets": "Tots els mercats",
+      "staleNotice": {
+        "one": "%{count} oferta més no es mostra perquè Mercaria no l'ha confirmada prou recentment.",
+        "other": "%{count} ofertes més no es mostren perquè Mercaria no les ha confirmades prou recentment."
+      }
+    },
+    "channels": {
+      "title": "Canals",
+      "groupLabel": "Tria un canal de venda per explorar",
+      "all": "Tots els canals",
+      "operatedElsewhere": "%{channel} · a %{operator}",
+      "unknownOperator": "un altre mercat",
+      "chipLabel": {
+        "one": "%{channel}, %{count} oferta",
+        "other": "%{channel}, %{count} ofertes"
+      }
+    },
+    "standing": {
+      "a11yLabel": "Estat del comerciant: %{status}",
+      "claim": "Reclama aquest comerciant",
+      "claimHint": "Demostra que operes aquest comerciant per gestionar-ne la pàgina",
+      "label": {
+        "unclaimed": "Sense reclamar",
+        "claimInProgress": "Reclamació en curs",
+        "claimed": "Reclamat",
+        "sellingOnMercaria": "Ven a Mercaria"
+      },
+      "explanation": {
+        "unclaimed": "Ningú no ha demostrat que operi aquest comerciant. Els seus productes es mostren aquí a partir de fonts públiques.",
+        "claimInProgress": "Algú està demostrant que opera aquest comerciant.",
+        "claimed": "Un operador ha demostrat que gestiona aquest comerciant.",
+        "sellingOnMercaria": "Aquest comerciant està connectat a una botiga de Mercaria i hi ven directament."
+      }
+    },
+    "brandStandings": {
+      "title": "Marques",
+      "listLabel": "Relacions amb marques",
+      "a11yLabel": "%{brand}: %{standing}. %{explanation}",
+      "label": {
+        "officialStore": "Botiga pròpia de la marca",
+        "authorizedReseller": "Revenedor autoritzat",
+        "noVerifiedRelationship": "Cap relació verificada"
+      },
+      "explanation": {
+        "officialStore": "Aquest comerciant és el canal de venda propi de la marca, verificat per Mercaria.",
+        "authorizedReseller": "La marca ha autoritzat aquest comerciant a revendre-la, verificat per Mercaria.",
+        "noVerifiedRelationship": "Aquest comerciant ven productes d'aquesta marca. Mercaria no ha verificat cap relació entre ells."
+      }
+    },
+    "card": {
+      "priceNotPublished": "Preu no publicat",
+      "priceUnconvertible": "Preu en %{currency}, que Mercaria no pot convertir",
+      "offerCount": {
+        "one": "%{count} oferta",
+        "other": "%{count} ofertes"
+      },
+      "offersAcrossChannels": {
+        "one": "%{count} oferta en %{channels} canals",
+        "other": "%{count} ofertes en %{channels} canals"
+      },
+      "otherSellers": "· inclou altres venedors"
+    },
+    "catalog": {
+      "title": "Productes",
+      "loadingLabel": "S'estan carregant els productes",
+      "loadMore": "Carrega'n més",
+      "loadMoreLabel": "Carrega més productes",
+      "loadingMore": "S'està carregant…",
+      "empty": {
+        "noOffers": "Mercaria no té cap producte d'aquest comerciant ara mateix.",
+        "staleSources": "Mercaria no ha rebut prou recentment dades de les fonts d'aquest comerciant per mostrar preus actuals.",
+        "filteredOut": "Cap producte coincideix amb aquests filtres."
+      }
+    }
+  },
+  "families": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "No s'ha trobat la família de productes",
+      "body": "Potser aquesta família s'ha fusionat amb una altra, o l'adreça és incorrecta."
+    },
+    "productCount": {
+      "one": "%{count} producte en aquesta família",
+      "other": "%{count} productes en aquesta família"
+    },
+    "prices": {
+      "withdrawn": "Els preus no estan disponibles ara mateix.",
+      "none": "No hi ha ofertes actuals per a aquesta família.",
+      "unpriceable": "Les ofertes actuals d'aquesta família tenen preus en %{currencies}, que no podem convertir."
+    },
+    "priceRange": {
+      "summary": {
+        "one": "%{scopeLabel} · en %{count} producte",
+        "other": "%{scopeLabel} · en %{count} productes"
+      },
+      "excludes": "Exclou les ofertes en %{currencies}.",
+      "scope": {
+        "new": "Nou",
+        "used": "Usat",
+        "mixed": "Nou i usat",
+        "unknown": "Estat no indicat"
+      }
+    },
+    "sharedAttributes": {
+      "title": "Compartit en aquesta família"
+    },
+    "products": {
+      "title": "Productes",
+      "titleReleaseDesc": "Generacions, de la més nova a la més antiga"
+    }
+  },
+  "brands": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "No s'ha trobat la marca",
+      "body": "Potser aquesta marca s'ha fusionat amb una altra, o l'adreça és incorrecta."
+    },
+    "ownedBy": "Propietat de %{organization}",
+    "productCount": {
+      "one": "%{count} producte",
+      "other": "%{count} productes"
+    },
+    "descriptionSource": "Font: %{attribution}",
+    "officialStores": {
+      "title": "Botigues oficials",
+      "description": "Canals de venda que aquesta marca gestiona ella mateixa, verificats per Mercaria.",
+      "empty": "Encara no hi ha cap botiga oficial verificada per a aquesta marca."
+    },
+    "authorizedResellers": {
+      "title": "Revenedors autoritzats",
+      "description": "Minoristes que aquesta marca ha autoritzat a vendre-la. És un acord diferent del d'una botiga oficial.",
+      "empty": "Encara no hi ha cap revenedor autoritzat verificat per a aquesta marca."
+    },
+    "families": {
+      "title": "Famílies de productes"
+    },
+    "categories": {
+      "title": "Categories"
+    },
+    "products": {
+      "title": "Productes"
+    },
+    "grid": {
+      "empty": "Aquest catàleg encara no té productes.",
+      "emptyFiltered": "Cap producte coincideix amb aquests filtres. Prova de treure'n un.",
+      "emptyPricesWithdrawn": "Els preus no estan disponibles ara mateix, així que aquesta graella és buida. Torna-ho a provar aviat.",
+      "showMore": "Mostra'n més",
+      "loadingMore": "S'està carregant…"
+    }
+  },
+  "guestOrders": {
+    "oneMoment": "Un moment.",
+    "sendAccessLink": "Envia'm un enllaç d'accés",
+    "claim": {
+      "pageTitle": "Desa les teves comandes — Mercaria",
+      "missingTitle": "No hi ha res per desar",
+      "missingBody": "Obre aquesta pàgina des de la teva comanda perquè sapiguem a quina compra et refereixes.",
+      "signInTitle": "Inicia la sessió per desar aquestes comandes",
+      "signInBody": "En iniciar la sessió, aquesta compra s'afegeix al teu historial de comandes de Mercaria. Si prefereixes no fer-ho, la teva comanda funciona exactament igual que ara.",
+      "signInAction": "Inicia la sessió a Oxy",
+      "checkingTitle": "Comprovant aquesta comanda",
+      "failedTitle": "No hem pogut obrir aquesta comanda",
+      "failedBody": "Pot ser que el teu enllaç d'accés hagi caducat. Demana'n un de nou i torna-ho a provar: la teva comanda no es veu afectada en cap cas.",
+      "savedTitle": "Desat al teu compte",
+      "savedBody": "Aquestes comandes ja són al teu historial de comandes de Mercaria. L'enllaç d'accés que has fet servir ha quedat anul·lat: a partir d'ara les pots obrir des del teu compte.",
+      "alreadySavedTitle": "Ja estava desat",
+      "alreadySavedBody": "Aquestes comandes ja eren al teu historial de comandes de Mercaria.",
+      "goToOrders": "Ves a les meves comandes",
+      "reviewTitle": "Desa aquestes comandes a Oxy",
+      "reviewAlreadyTitle": "Ja és al teu compte",
+      "oneOrder": "Aquesta comanda s'afegirà al teu compte:",
+      "manyOrders": "Aquestes %{count} comandes es van fer juntes i s'afegiran al teu compte:",
+      "notRequired": "No cal que ho facis per rebre la teva comanda.",
+      "submit": "Desa aquestes comandes al meu compte",
+      "decline": "Ara no",
+      "benefits": {
+        "history": "Aquestes comandes apareixen al teu historial de comandes habitual de Mercaria.",
+        "anyDevice": "Les pots obrir des de qualsevol dispositiu on hagis iniciat la sessió.",
+        "review": "Pots escriure una ressenya de compra verificada del que has comprat."
+      },
+      "blocked": {
+        "unavailable": "Desar comandes en un compte d'Oxy no està disponible temporalment. La teva comanda no es veu afectada i encara la pots obrir amb el teu enllaç d'accés.",
+        "inboxNotVerified": "Confirma primer la teva adreça electrònica. Demana un enllaç d'accés nou i obre aquesta pàgina des d'aquest enllaç.",
+        "claimedByAnotherAccount": "Aquestes comandes ja estan desades en un altre compte d'Oxy. Contacta amb el servei d'atenció si no és el que esperaves: Mercaria no les mourà automàticament."
+      }
+    },
+    "portal": {
+      "pageTitle": "La teva comanda — Mercaria",
+      "openingTitle": "Obrint la teva comanda",
+      "linkRefusedTitle": "Aquest enllaç no es pot fer servir",
+      "linkRefusedBody": "Els enllaços d'accés només es poden fer servir una vegada i caduquen aviat. Demana'n un de nou i l'enviarem a l'adreça amb què es va fer la comanda.",
+      "noCredentialTitle": "Troba la teva comanda",
+      "noCredentialBody": "Demana un enllaç d'accés segur i l'enviarem a l'adreça amb què es va fer la comanda.",
+      "title": "La teva comanda",
+      "loading": "Carregant la teva comanda.",
+      "fullFailed": "No hem pogut obrir aquesta comanda des d'aquí. Demana un enllaç d'accés nou i torna-ho a provar.",
+      "boundedFailed": "No hem pogut llegir aquesta comanda des d'aquí.",
+      "confirmEmailBody": "Confirma la teva adreça electrònica per veure la comanda completa, incloent-hi el que has pagat i on va.",
+      "confirmEmailAction": "Confirma la meva adreça electrònica",
+      "claimAction": "Desa aquestes comandes a Oxy",
+      "signOut": "Tanca la sessió d'aquesta comanda"
+    },
+    "recover": {
+      "pageTitle": "Troba la teva comanda — Mercaria",
+      "sentTitle": "Consulta la teva safata d'entrada",
+      "sentBody": "L'enllaç funciona una sola vegada i caduca aviat. Si ha caducat, demana'n un altre.",
+      "title": "Troba la teva comanda",
+      "body": "Introdueix l'adreça electrònica amb què es va fer la comanda i hi enviarem un enllaç segur. Només podem enviar-lo a aquesta adreça.",
+      "emailPlaceholder": "you@example.com",
+      "emailLabel": "Adreça electrònica",
+      "orderNumberPlaceholder": "Número de comanda (opcional)",
+      "orderNumberLabel": "Número de comanda, opcional",
+      "sending": "Enviant",
+      "networkError": "No hem pogut connectar amb Mercaria ara mateix. Torna-ho a provar."
+    }
+  },
+  "compare": {
+    "acrossCategories": "Són tipus de producte diferents, així que només es comparen les %{count} dades registrades per a tots ells.",
+    "basketFailed": "No s'ha pogut planificar aquesta cistella.",
+    "channel": {
+      "externalOnly": "Només botigues",
+      "mixed": "A qualsevol lloc",
+      "nativeOnly": "Només Mercaria",
+      "officialOnly": "Només canals oficials"
+    },
+    "channelLabel": "Canal",
+    "choiceA11y": "%{label}: %{choice}",
+    "comparingA11y": "Comparant",
+    "comparisonFailed": "No s'ha pogut construir aquesta comparació.",
+    "conditionLabel": "Estat",
+    "gaps": "%{count} dades no estan registrades per a aquests productes.",
+    "heading": "Comparar",
+    "noSharedFacts": "No hi ha res registrat en comú sobre tots aquests productes, així que encara no hi ha res en què comparar-los.",
+    "notice": {
+      "addingToCart": "Comprovat. Afegint aquests articles a la teva cistella de Mercaria.",
+      "noDestination": "Encara no tenim cap destinació per a aquesta botiga.",
+      "pricesChanged": "Els preus han canviat mentre llegies. Recalculant."
+    },
+    "objective": {
+      "allNative": "Comprar a Mercaria",
+      "cheapestKnownItemPrices": "Articles més barats",
+      "cheapestKnownTotal": "Més barat amb enviament",
+      "fastestKnownDelivery": "Lliurament més ràpid",
+      "fewestMerchants": "Menys venedors"
+    },
+    "objectiveLabel": "Objectiu",
+    "pageTitle": "Comparar · Mercaria",
+    "pickTwo": "Tria com a mínim dos productes per comparar, des de la cerca o des de la pàgina d'un producte.",
+    "planningA11y": "Planificant",
+    "whereToBuy": "On comprar"
+  },
+  "priceAlerts": {
+    "create": {
+      "basisItemPrice": "Preu de l'article",
+      "basisKnownTotal": "Amb enviament inclòs",
+      "bestRightNow": "Millor ara mateix: %{price}",
+      "failed": "No s'ha pogut crear aquesta alerta",
+      "heading": "Avisa'm quan baixi el preu",
+      "knownTotalNote": "Només hi poden coincidir les ofertes amb el cost d'enviament publicat.",
+      "noPricedOffer": "Ara mateix no hi ha cap oferta amb preu (%{count} ofertes)",
+      "nothingOnSale": "Ara mateix això no està a la venda. Tot i així pots crear una alerta.",
+      "submit": "Crear alerta",
+      "submitA11y": "Crear aquesta alerta de preu",
+      "submitting": "Creant…",
+      "targetPlaceholder": "Objectiu en %{currency}",
+      "targetPrice": "Preu objectiu"
+    },
+    "empty": {
+      "body": "Crea'n una des d'un producte que segueixis i t'avisarem quan baixi.",
+      "title": "Encara no tens cap alerta de preu"
+    },
+    "heading": "Alertes de preu",
+    "pageTitle": "Alertes de preu · Mercaria",
+    "signedOut": {
+      "body": "Les alertes viuen al teu compte, així que t'acompanyen entre dispositius.",
+      "signIn": "Inicia la sessió",
+      "title": "Inicia la sessió per crear alertes de preu"
+    }
+  },
+  "saved": {
+    "empty": {
+      "subtitle": "Toca el cor d'un producte per seguir-ne el preu, o desa un anunci quan vulguis aquell article exacte.",
+      "title": "Encara no has desat res"
+    },
+    "error": {
+      "subtitle": "Comprova la connexió i torna-ho a provar.",
+      "title": "No hem pogut carregar els teus articles desats"
+    },
+    "heading": "Desats",
+    "loadMoreA11y": "Carregar més articles desats",
+    "loading": "Carregant…",
+    "pageTitle": "Desats · Mercaria",
+    "showMore": "Veure'n més",
+    "signedOut": {
+      "body": "Els productes desats segueixen el preu i la disponibilitat de tots els venedors, a tots els teus dispositius.",
+      "signIn": "Inicia la sessió",
+      "title": "Inicia la sessió per desar coses"
+    }
+  },
+  "watchlists": {
+    "atLimit": "Has arribat al màxim de %{count} llistes",
+    "basket": {
+      "basisDelivered": "enviament inclòs · mínims independents per article",
+      "basisItemPrice": "sense enviament · mínims independents per article",
+      "complete": "Els %{count} article(s) tenen preu.",
+      "empty": "Afegeix alguna cosa a aquesta llista per veure què costaria.",
+      "noPrice": "Encara sense preu",
+      "nonePriced": "Ara mateix no hem pogut calcular el preu de cap dels %{count} article(s) que hi ha aquí.",
+      "partial": "%{included} de %{total} articles amb preu. %{excluded} no s'han pogut calcular i apareixen més avall amb el motiu.",
+      "title": "Cistella actual"
+    },
+    "createA11y": "Crear una llista de seguiment",
+    "detail": {
+      "empty": "Encara no hi ha res en aquesta llista. Afegeix-hi un producte des de la seva pàgina per començar a seguir-lo.",
+      "keepBothA11y": "Mantenir tots dos productes en aquesta llista",
+      "keepBothFor": "Mantenir tots dos per a %{product}",
+      "loadError": "No hem pogut carregar aquesta llista.",
+      "pageTitle": "%{name} · Mercaria",
+      "pageTitleFallback": "Llista de seguiment · Mercaria",
+      "priceError": "Ara mateix no hem pogut calcular el preu d'aquesta llista. Els teus articles hi són tots.",
+      "priceUnavailable": "Preu no disponible",
+      "saveMeasurement": "Desar aquest mesurament",
+      "saving": "Desant…",
+      "splitPrompt": "Un d'aquests productes s'ha dividit en dos. Tria què ha de passar."
+    },
+    "duplicate": "Duplicar",
+    "duplicateList": "Duplicar %{name}",
+    "empty": "Encara no hi ha llistes. Crea'n una i afegeix-hi els productes que estàs comparant.",
+    "heading": "Llistes de seguiment",
+    "intro": "Agrupa el que penses comprar i observa què costaria el conjunt.",
+    "item": {
+      "changeDown": "Ha baixat %{amount} des del teu últim mesurament desat",
+      "changeUnchanged": "Sense canvis des del teu últim mesurament desat",
+      "changeUp": "Ha pujat %{amount} des del teu últim mesurament desat",
+      "delivery": "Enviament %{amount}",
+      "deliveryUnknown": "Aquest venedor no publica el cost d'enviament",
+      "openProduct": "Obrir aquest producte",
+      "priceLine": "%{unitPrice} cada un · %{lineTotal} per %{quantity}",
+      "remove": "Treure",
+      "removeA11y": "Treure aquest article de la llista de seguiment",
+      "targetReached": "Igual o per sota del teu objectiu de %{amount}",
+      "unresolved": {
+        "allOffersRetired": "Totes les ofertes d'aquest producte han caducat. Ho reprendrem quan en torni alguna.",
+        "ambiguousAfterSplit": "Aquest producte s'ha dividit en dos. Tria a quin et referies.",
+        "evaluationFailed": "Ara mateix no hem pogut calcular el preu d'aquest article.",
+        "noEligibleOffer": "Cap oferta d'aquest article coincideix amb els teus filtres. Prova d'ampliar-los.",
+        "noOffersRecorded": "Encara no el ven ningú.",
+        "preferredVariantRetired": "La configuració exacta que vas fixar ja no està a la venda. Tria'n una altra.",
+        "priceNotConvertible": "No podem mostrar aquest preu en la moneda de la teva llista.",
+        "productMergedIntoExistingItem": "Aquest producte s'ha fusionat amb una altra entrada d'aquesta llista. Treu aquesta.",
+        "productUnavailable": "Aquest producte ja no està disponible al catàleg."
+      }
+    },
+    "listMeta": "%{count} article(s) · %{currency}",
+    "loadError": "No hem pogut carregar les teves llistes. Comprova la connexió i torna-ho a provar.",
+    "newList": "Llista nova",
+    "openList": "Obrir %{name}",
+    "pageTitle": "Llistes de seguiment · Mercaria",
+    "signedOut": {
+      "body": "Inicia la sessió per guardar llistes privades i seguir què costen amb el temps.",
+      "signIn": "Inicia la sessió"
+    }
+  },
+  "nearby": {
+    "heading": "Disponible a prop",
+    "intro": "Botigues que han confirmat que ho tenen a la prestatgeria i ofereixen recollida. Es paga en línia i es recull en persona.",
+    "chooseLocationPrompt": "Tria una ubicació per veure quines botigues a prop teu ho tenen per recollir. Només la fem servir per a aquesta cerca: no es desa.",
+    "loading": "Cercant botigues a prop teu…",
+    "error": "Ara mateix no hem pogut comprovar la disponibilitat propera. L'enviament no es veu afectat.",
+    "empty": "Cap botiga a prop d'aquesta ubicació ho té ara mateix per recollir. Se n'exclouen les botigues sense existències, tancades durant aquest període, no publicades per a recollida o que no han confirmat les existències recentment.",
+    "moreBeyond": "Aquestes són les %{count} més properes. Hi ha més botigues més lluny, i l'ordre de dalt s'aplica a les que es mostren.",
+    "collectionOptionsLabel": "Tria una botiga on recollir",
+    "collectInPerson": "Recollir en persona",
+    "selectHere": "Recollir aquí",
+    "order": {
+      "nearest": "Més properes primer",
+      "lowestPrice": "Preu més baix primer"
+    },
+    "origin": {
+      "showingDevice": "Mostrant botigues a prop de la ubicació del teu dispositiu.",
+      "showingChosen": "Mostrant botigues a prop del lloc que has triat.",
+      "changeLabel": "Canvia el lloc des d'on es mesuren aquests resultats",
+      "change": "Canvia",
+      "clearLabel": "Deixa d'utilitzar una ubicació per a aquests resultats",
+      "clear": "Treu",
+      "useDeviceLabel": "Utilitza la ubicació del meu dispositiu per trobar botigues a prop",
+      "checking": "Comprovant…",
+      "useMyLocation": "Utilitza la meva ubicació",
+      "choosePlaceLabel": "Tria una ciutat o codi postal en lloc d'això",
+      "hideCityList": "Amaga la llista de ciutats",
+      "chooseCity": "Tria una ciutat",
+      "cityField": "Ciutat o codi postal",
+      "loadingCities": "Cercant ciutats…",
+      "cityListError": "Ara mateix no hem pogut carregar la llista de ciutats.",
+      "noCityMatch": "Cap ciutat que hi coincideixi ho té en existències per recollir.",
+      "noStockAnywhere": "Ara mateix cap botiga ho té per recollir.",
+      "searchNear": "Cerca a prop de %{place}",
+      "shopsWithStock": {
+        "one": "%{count} botiga amb existències",
+        "other": "%{count} botigues amb existències"
+      },
+      "refusal": {
+        "permissionDenied": "Cap problema: la ubicació continua desactivada. Escriu a sota una ciutat o codi postal i hi buscarem.",
+        "unsupported": "Aquesta aplicació no pot llegir la ubicació del dispositiu. Escriu a sota una ciutat o codi postal i hi buscarem.",
+        "unavailable": "El teu dispositiu no ha pogut determinar una posició ara mateix. Escriu a sota una ciutat o codi postal, o torna-ho a provar."
+      }
+    },
+    "screen": {
+      "emptyTitle": "Res per recollir",
+      "emptyBody": "Obre un producte i tria «Recollir en persona» per veure les botigues a prop teu que el tenen.",
+      "backToMercaria": "Torna a Mercaria",
+      "documentTitle": "Recollir en persona · Mercaria",
+      "addedToCart": "Afegit al teu cistell. Obre el cistell per finalitzar la compra."
+    }
+  },
+  "store": {
+    "shopAll": "Mostra-ho tot",
+    "collections": "Col·leccions",
+    "report": "Denuncia la botiga",
+    "loadError": "No hem pogut carregar aquesta botiga. Torna-ho a provar més tard.",
+    "documentTitle": "%{store} — Mercaria",
+    "documentTitleFallback": "Mercaria",
+    "filters": {
+      "inStock": "En estoc"
+    },
+    "sort": {
+      "label": "Ordena els productes",
+      "best": "Més venuts",
+      "newest": "Més recents",
+      "priceAsc": "Preu: de menor a major",
+      "priceDesc": "Preu: de major a menor"
+    },
+    "products": {
+      "heading": "Productes",
+      "searchPlaceholder": "Cerca a %{store}…",
+      "loadingLabel": "Carregant productes",
+      "loadError": "No hem pogut carregar els productes. Llisca per actualitzar o torna-ho a provar.",
+      "empty": "Cap producte coincideix amb els teus filtres.",
+      "loadMore": "Carrega'n més",
+      "loadMoreLabel": "Carrega més productes"
+    },
+    "policies": {
+      "heading": "Polítiques",
+      "privacy": "Política de privadesa",
+      "returns": "Política de devolucions"
+    },
+    "menu": {
+      "dialogLabel": "Menú de %{store}",
+      "openLabel": "Obre el menú de %{store}",
+      "close": "Tanca el menú de %{store}",
+      "share": "Comparteix %{store}"
+    },
+    "follow": {
+      "follow": "Segueix",
+      "followStore": "Segueix %{store}",
+      "unfollowStore": "Deixa de seguir %{store}"
+    },
+    "reviews": {
+      "helpful": "Útil",
+      "loading": "Carregant ressenyes…",
+      "none": "Encara no hi ha ressenyes",
+      "viewProduct": "Mostra %{product}",
+      "ratingsCount": "%{formattedCount} valoracions",
+      "ratingsWithScope": "%{formattedCount} valoracions · %{scopeLabel}",
+      "fallbackAuthor": "Comprador verificat",
+      "viewA11yLabel": "Mostra les ressenyes del servei d'aquesta botiga"
+    }
+  },
+  "offer": {
+    "heading": "Ofertes",
+    "comparisonUnavailable": "La comparació de preus no està disponible aquí ara mateix. Això no diu res sobre si algú ven aquest producte.",
+    "noneShowable": "Coneixem ofertes d'aquest producte, però ara mateix no se'n pot mostrar cap.",
+    "none": "No hi ha ofertes actuals per a aquest producte.",
+    "group": {
+      "heading": "%{title} (%{count})",
+      "title": {
+        "officialDirect": "Botigues oficials",
+        "newRetail": "Nou d'altres botigues",
+        "openBox": "Capsa oberta",
+        "refurbished": "Reacondicionat",
+        "used": "De segona mà",
+        "forParts": "Per a peces o no funciona",
+        "conditionUnknown": "Estat no especificat"
+      },
+      "explanation": {
+        "officialDirect": "Canals que la marca ha verificat com a propis.",
+        "conditionUnknown": "Aquests venedors no han indicat en quin estat es troba l'article.",
+        "forParts": "Es ven com a no funcional: per a reparació, recanvis o peces."
+      }
+    },
+    "showFewer": "Mostra'n menys",
+    "showAll": {
+      "one": "Mostra-la %{count}",
+      "other": "Mostra-les %{count}"
+    },
+    "showFewerA11y": "Mostra menys ofertes · %{group}",
+    "showAllA11y": {
+      "one": "Mostra %{count} oferta · %{group}",
+      "other": "Mostra les %{count} ofertes · %{group}"
+    },
+    "returnWindow": {
+      "one": "El venedor indica un termini de devolució de %{count} dia.",
+      "other": "El venedor indica un termini de devolució de %{count} dies."
+    },
+    "buyOnMercaria": "Compra a Mercaria",
+    "openSellerListingA11y": "Obre l'anunci d'aquest venedor",
+    "viewListing": "Mostra l'anunci",
+    "soldByOn": "Venut per %{seller} a %{channel}",
+    "visitProfileA11y": "Mostra el perfil de %{name}",
+    "sellerNotIdentified": "Venedor no identificat",
+    "listedAt": "Publicat a %{amount}",
+    "priceNotAvailable": "Preu no disponible",
+    "priceNotConvertible": "No podem convertir aquest preu a la teva moneda.",
+    "priceNotPublished": "Aquest venedor no ha publicat cap preu.",
+    "deliveryUnknownWithPickup": "Cost d'enviament desconegut · s'ofereix recollida",
+    "deliveryUnknown": "Cost d'enviament desconegut",
+    "freeDelivery": "Enviament gratuït",
+    "deliveryCost": "Enviament %{cost}",
+    "freeDeliveryWithWindow": "Enviament gratuït · %{min}–%{max} dies",
+    "deliveryCostWithWindow": "Enviament %{cost} · %{min}–%{max} dies",
+    "availability": {
+      "inStock": "En estoc",
+      "outOfStock": "Sense estoc",
+      "preorder": "Reserva",
+      "unavailable": "No disponible",
+      "notPublished": "Disponibilitat no publicada"
+    },
+    "availabilityChecked": "%{availability} · Comprovat el %{date}",
+    "availabilityCheckedStale": "%{availability} · Comprovat el %{date} · no ho hem pogut tornar a comprovar recentment",
+    "goToHost": "Ves a %{host}",
+    "continueOnHost": "Continuaràs a %{host}. Mercaria hi pot guanyar una comissió.",
+    "cannotOpenYetA11y": "Aquesta oferta encara no es pot obrir",
+    "openingNotAvailableA11y": "Obrir %{host} encara no està disponible",
+    "noLinkPublished": "Sense enllaç publicat",
+    "noDestination": "Aquest venedor ha publicat un preu però cap enllaç.",
+    "outboundNotAvailable": "Encara no es poden obrir ofertes en altres llocs.",
+    "blocked": {
+      "outOfStock": "Aquest venedor no té estoc.",
+      "notPaymentReady": "Aquest venedor encara no pot acceptar pagaments.",
+      "notAvailable": "Aquesta oferta no es pot comprar ara mateix."
+    }
+  },
+  "referral": {
+    "documentTitle": "Soci de recomanacions · Mercaria",
+    "title": "Soci de recomanacions",
+    "loadError": "No hem pogut carregar el teu tauler de recomanacions. Torna-ho a provar.",
+    "signedOut": {
+      "title": "Inicia la sessió per veure el teu compte de soci de recomanacions",
+      "body": "Els teus enllaços, el que han generat i quan cobraràs.",
+      "action": "Inicia la sessió"
+    },
+    "standing": {
+      "title": "La teva situació",
+      "earning": "Estàs generant ingressos. Les recomanacions que portis ara se t'atribueixen.",
+      "notEarning": "Encara no estàs generant ingressos.",
+      "nothingOutstanding": "No queda res pendent.",
+      "beforePaid": "Abans que et puguem pagar:",
+      "accrualContinues": "Els teus guanys continuen acumulant-se mentre això està pendent. No caduca res."
+    },
+    "programs": {
+      "title": "Programes",
+      "empty": "Ara mateix no hi ha cap programa de recomanació obert per a tu.",
+      "attributionWindow": "Finestra d'atribució: %{days} dies.",
+      "termsAccepted": "Has acceptat aquestes condicions.",
+      "termsNotAccepted": "Condicions encara no acceptades."
+    },
+    "earnings": {
+      "title": "Guanys",
+      "empty": "Encara no s'ha generat res.",
+      "availableNow": "Disponible per pagar ara: %{amount}",
+      "availableNowWithMinimum": "Disponible per pagar ara: %{amount} (mínim %{minimum})",
+      "reconciling": "Aquestes xifres s'estan conciliant. No es perd res: el llibre major és la font autoritzada i el suport ho pot rastrejar.",
+      "pendingConversions": {
+        "one": "%{count} recomanació registrada i encara sense valorar.",
+        "other": "%{count} recomanacions registrades i encara sense valorar."
+      }
+    },
+    "payouts": {
+      "title": "Pagaments",
+      "summary": "Els pagaments es fan mensualment. Verificació d'identitat: %{identity}. Dades fiscals: %{tax}. Destinació del pagament: %{payout}.",
+      "readiness": {
+        "unknown": "sense informació",
+        "pending": "en curs",
+        "ready": "en regla",
+        "blocked": "amb un bloqueig"
+      },
+      "destinationEnding": "Destinació acabada en %{last4}",
+      "noDestination": "Encara no hi ha destinació de pagament.",
+      "none": "Encara no hi ha pagaments."
+    },
+    "performance": {
+      "title": "Rendiment",
+      "totals": "%{clicks} clics · %{referrals} recomanacions qualificades, del %{from} al %{through}",
+      "empty": "No s'ha registrat res en aquest període.",
+      "row": "%{label}: %{clicks} clics · %{referrals} recomanacions"
+    },
+    "instruments": {
+      "title": "Els teus enllaços i codis",
+      "empty": "Encara no tens cap codi de recomanació.",
+      "disclosureIntro": "Publica això amb cada enllaç:"
+    },
+    "support": {
+      "title": "Ajuda",
+      "appeal": "Pots recórrer la decisió sobre la teva participació.",
+      "disputes": "Les reclamacions sobre una atribució, una reversió o un pagament encara no es gestionen aquí. Contacta amb el suport i indica la data i l'import que es mostren més amunt.",
+      "noEmails": "Encara no enviem correus sobre recomanacions, així que consulta aquesta pàgina per veure els canvis."
+    }
+  },
+  "brand": {
+    "wordmark": "Mercaria"
+  },
+  "sell": {
+    "sellYours": {
+      "thisOne": "Ven-ne un d'igual",
+      "yours": "Ven el teu"
+    },
+    "fact": {
+      "fromProduct": "Del producte — no és una afirmació sobre el teu article",
+      "yourAnswer": "La teva resposta",
+      "yourAnswerNotConfirmed": "La teva resposta, encara sense confirmar"
+    },
+    "guidance": {
+      "heading": "Orientació de preu",
+      "scope": "%{currency} · des de %{since}",
+      "scopeWithMarket": "%{market} · %{currency} · des de %{since}",
+      "segmentStats": "Habitual %{median} · %{count} ofertes · confiança %{confidence}",
+      "disclaimer": "L'orientació mai no fixa el teu preu, no garanteix la venda i no t'impedeix publicar al preu que vulguis.",
+      "segment": {
+        "currentSameCondition": "Estat similar, a la venda ara",
+        "currentNew": "Nou, a la venda ara",
+        "currentRefurbished": "Reacondicionat, a la venda ara",
+        "recentSoldNative": "Venut recentment a Mercaria"
+      },
+      "insufficient": {
+        "noObservations": "Encara no hi ha ofertes comparables",
+        "belowSampleFloor": "Encara no hi ha prou ofertes comparables",
+        "belowSellerFloor": "No hi ha prou venedors diferents per mostrar un interval",
+        "fallback": "Encara no hi ha prou dades"
+      },
+      "confidence": {
+        "low": "baixa",
+        "medium": "mitjana",
+        "high": "alta"
+      }
+    },
+    "index": {
+      "documentTitle": "Vendre un article · Mercaria",
+      "heading": "Què vens?",
+      "startingDraft": "Preparant el teu anunci…",
+      "signIn": {
+        "heading": "Inicia la sessió per vendre",
+        "body": "El teu anunci es publica amb el teu compte d'Oxy, perquè qui compri sàpiga a qui compra.",
+        "action": "Inicia la sessió"
+      },
+      "scan": {
+        "label": "Escaneja un codi de barres",
+        "accessibilityLabel": "Codi de barres o identificador de producte",
+        "placeholder": "Escriu o escaneja un codi de barres"
+      },
+      "search": {
+        "label": "O cerca al catàleg",
+        "accessibilityLabel": "Cerca un producte",
+        "placeholder": "p. ex. iPhone 13 128 GB"
+      },
+      "candidate": {
+        "matchedByBarcode": "Trobat pel codi de barres",
+        "foundBySearch": "Trobat per la cerca: comprova que sigui el mateix article"
+      },
+      "unmatched": {
+        "heading": "Alguna cosa única",
+        "body": "Fet a mà, de col·leccionista o que no és al catàleg. Es publicarà i es podrà cercar igual que qualsevol altra cosa."
+      },
+      "drafts": {
+        "heading": "Continua on ho vas deixar",
+        "untitled": "Anunci sense títol",
+        "savedAt": "Desat %{when} · pas %{step}"
+      }
+    },
+    "draft": {
+      "documentTitle": "%{title} · Mercaria",
+      "untitled": "El teu anunci",
+      "publish": "Publica l'anunci",
+      "publishing": "Publicant…",
+      "loadError": {
+        "title": "No hem pogut obrir aquest esborrany",
+        "body": "Potser s'ha publicat o s'ha descartat."
+      },
+      "product": {
+        "heading": "El producte",
+        "explanation": "Aquestes dades vénen del catàleg de Mercaria. Identifiquen el model — no diuen res sobre l'estat, els accessoris ni l'autenticitat del teu article.",
+        "titleLabel": "Títol",
+        "brandLabel": "Marca",
+        "modelLabel": "Model",
+        "notMine": "Aquest no és el meu producte"
+      },
+      "item": {
+        "heading": "El teu article",
+        "titleLabel": "Títol de l'anunci",
+        "titleOverrideNote": "El teu títol es mostra al teu anunci. No canvia el producte.",
+        "descriptionLabel": "Descripció",
+        "conditionLabel": "Estat",
+        "photoRequirement": {
+          "one": "Aquest estat necessita almenys %{count} fotografia del teu article real. Les imatges del catàleg o del fabricant no serveixen.",
+          "other": "Aquest estat necessita almenys %{count} fotografies del teu article real. Les imatges del catàleg o del fabricant no serveixen."
+        }
+      },
+      "placement": {
+        "heading": "On apareixerà",
+        "onProductPage": "A la pàgina del producte, al costat d'altres venedors",
+        "ownSurfacesOnly": "A la cerca i al teu perfil de venedor — no a una pàgina de producte",
+        "localResults": "Als resultats locals, a la zona aproximada que vas triar"
+      },
+      "blocked": {
+        "titleMissing": "Posa un títol al teu anunci.",
+        "descriptionMissing": "Descriu què véns.",
+        "categoryMissing": "Tria una categoria.",
+        "conditionMissing": "Indica en quin estat està el teu article.",
+        "itemPhotosMissing": "Afegeix fotografies del teu article real.",
+        "defectsNotAcknowledged": "Confirma que has indicat els defectes i les peces que falten.",
+        "refurbisherNotNamed": "Indica qui va reacondicionar l'article.",
+        "priceMissing": "Posa un preu.",
+        "quantityInvalid": "La quantitat ha de ser almenys u.",
+        "matchVariantMissing": "Tria quina versió exacta del producte véns.",
+        "matchReviewRequired": "No hem pogut confirmar que sigui el mateix producte. Canvia o treu la coincidència de producte per continuar.",
+        "pickupNotSupported": "La recollida encara no està disponible — treu-la per publicar.",
+        "categoryForbidsCondition": "Aquesta categoria no admet aquest estat.",
+        "alreadyPublished": "Aquest anunci ja està publicat.",
+        "draftDiscarded": "Aquest esborrany s'ha descartat."
+      },
+      "warning": {
+        "priceFarAboveGuidance": "El teu preu és molt superior al que es paga per articles semblants. Tot i així el pots publicar.",
+        "priceFarBelowGuidance": "El teu preu és molt inferior al que es paga per articles semblants. Tot i així el pots publicar."
+      }
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "expand": "Amplia la barra lateral",
+      "collapse": "Replega la barra lateral",
+      "accountMenu": "Menú del compte"
+    },
+    "footer": {
+      "brand": "Mercaria",
+      "copyright": "© %{year} Mercaria d'Oxy",
+      "links": {
+        "about": "Quant a",
+        "help": "Ajuda",
+        "privacy": "Privadesa",
+        "terms": "Termes"
+      }
+    },
+    "errorBoundary": {
+      "title": "Alguna cosa ha anat malament",
+      "body": "S'ha produït un error inesperat. Pots tornar-ho a provar i, si el problema continua, el nostre equip ja n'està assabentat."
+    },
+    "notFound": {
+      "headTitle": "404 - Pàgina no trobada | Mercaria",
+      "screenTitle": "Ostres!",
+      "message": "Aquesta pantalla no existeix.",
+      "goHome": "Ves a la pantalla d'inici!"
+    }
+  },
+  "address": {
+    "form": {
+      "recipientNameLabel": "Nom del destinatari",
+      "recipientNamePlaceholder": "Anna Garcia",
+      "line1Label": "Adreça línia 1",
+      "line1Placeholder": "Carrer Major 1",
+      "line2Label": "Adreça línia 2 (opcional)",
+      "line2Placeholder": "4t B",
+      "cityLabel": "Ciutat",
+      "cityPlaceholder": "Barcelona",
+      "regionLabel": "Província (opcional)",
+      "regionPlaceholder": "B",
+      "postalCodeLabel": "Codi postal",
+      "postalCodePlaceholder": "08001",
+      "countryLabel": "País",
+      "countryPlaceholder": "ES",
+      "phoneLabel": "Telèfon (opcional)",
+      "phonePlaceholder": "+34 600 000 000",
+      "submit": "Desa l'adreça"
+    },
+    "list": {
+      "default": "Predeterminada",
+      "deleteLabel": "Elimina l'adreça",
+      "setDefault": "Estableix com a predeterminada",
+      "signedOut": "Inicia la sessió per gestionar les teves adreces d'enviament.",
+      "empty": "Encara no tens cap adreça desada.",
+      "newAddress": "Adreça nova",
+      "addAddress": "Afegeix una adreça"
+    },
+    "toast": {
+      "saved": "Adreça desada",
+      "saveFailed": "No s'ha pogut desar l'adreça",
+      "updateFailed": "No s'ha pogut actualitzar l'adreça",
+      "removed": "Adreça eliminada",
+      "removeFailed": "No s'ha pogut eliminar l'adreça"
+    }
+  },
+  "shoppingAgents": {
+    "headTitle": "Agents de compra · Mercaria",
+    "title": "Agents de compra",
+    "intro": "Coses que has demanat a Mercaria que vigili. Cada agent observa el catàleg i t'avisa quan es compleix el que has demanat.",
+    "loadError": "No hem pogut carregar els teus agents de compra. Comprova la connexió i torna-ho a provar.",
+    "findings": {
+      "asking": "Demanant una altra ullada…",
+      "intro": "Tot el que ha vist aquest agent, del més recent al més antic. Les observacions anteriors es queden aquí encara que una de posterior les substitueixi.",
+      "loadError": "No hem pogut carregar el que ha trobat aquest agent. El teu agent no en queda afectat.",
+      "empty": "Encara no ha vist res. La primera observació apareixerà aquí la propera vegada que l'agent hi miri."
+    },
+    "empty": {
+      "title": "Encara no hi ha agents de compra",
+      "body": "Desa el que estàs buscant i Mercaria vigilarà el catàleg per tu."
+    },
+    "signedOut": {
+      "title": "Inicia la sessió per desar un agent de compra",
+      "body": "Els agents viuen al teu compte, així que et segueixen d'un dispositiu a l'altre."
     }
   }
 }

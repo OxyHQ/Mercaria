@@ -54,6 +54,7 @@ import {
   usePortalSignOut,
 } from "@/lib/hooks/use-guest-portal";
 import { useGuestOrderCollection } from "@/lib/hooks/use-nearby";
+import { useTranslation } from "@/lib/i18n";
 
 /** The prefix an exchange token carries. Anything else is not one. */
 const EXCHANGE_PREFIX = "mgx_";
@@ -80,6 +81,7 @@ function takeTokenFromFragment(): string | null {
 }
 
 function PortalBody() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ token?: string; group?: string }>();
   const exchange = useMagicLinkExchange();
   const signOut = usePortalSignOut();
@@ -115,8 +117,8 @@ function PortalBody() {
   if (exchange.isPending || (session.isPending && !state)) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Opening your order" />
-        <Text className="text-sm text-muted-foreground">One moment.</Text>
+        <SectionHeader title={t("guestOrders.portal.openingTitle")} />
+        <Text className="text-sm text-muted-foreground">{t("guestOrders.oneMoment")}</Text>
       </View>
     );
   }
@@ -124,17 +126,23 @@ function PortalBody() {
   if (!state) {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title={linkRefused ? "This link cannot be used" : "Find your order"} />
+        <SectionHeader
+          title={
+            linkRefused
+              ? t("guestOrders.portal.linkRefusedTitle")
+              : t("guestOrders.portal.noCredentialTitle")
+          }
+        />
         <View className="gap-4">
           <Text className="text-sm text-muted-foreground">
             {linkRefused
-              ? "Access links can only be used once and expire quickly. Ask for a new one and we will send it to the address the order was placed with."
-              : "Ask for a secure access link and we will send it to the address the order was placed with."}
+              ? t("guestOrders.portal.linkRefusedBody")
+              : t("guestOrders.portal.noCredentialBody")}
           </Text>
           <Link href="/guest-orders/recover" asChild>
             <Button>
               <Text className="text-sm font-semibold text-primary-foreground">
-                Send me an access link
+                {t("guestOrders.sendAccessLink")}
               </Text>
             </Button>
           </Link>
@@ -145,7 +153,7 @@ function PortalBody() {
 
   return (
     <View className="px-4 gap-6" accessibilityLiveRegion="polite">
-      <SectionHeader title="Your order" />
+      <SectionHeader title={t("guestOrders.portal.title")} />
 
       {canReadOrders ? (
         <FullView
@@ -178,13 +186,17 @@ function PortalBody() {
       {canClaim && group ? (
         <Link href={{ pathname: "/guest-orders/claim", params: { group } }} asChild>
           <Button variant="outline">
-            <Text className="text-sm font-medium text-foreground">Save these orders to Oxy</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {t("guestOrders.portal.claimAction")}
+            </Text>
           </Button>
         </Link>
       ) : null}
 
       <Button variant="outline" onPress={() => signOut.mutate()} disabled={signOut.isPending}>
-        <Text className="text-sm font-medium text-foreground">Sign out of this order</Text>
+        <Text className="text-sm font-medium text-foreground">
+          {t("guestOrders.portal.signOut")}
+        </Text>
       </Button>
     </View>
   );
@@ -197,13 +209,14 @@ function FullView(props: {
   orders: { id: string; orderNumber: string; status: string }[] | undefined;
   checkoutGroupId: string | undefined;
 }) {
+  const { t } = useTranslation();
   if (props.loading) {
-    return <Text className="text-sm text-muted-foreground">Loading your order.</Text>;
+    return <Text className="text-sm text-muted-foreground">{t("guestOrders.portal.loading")}</Text>;
   }
   if (props.failed || !props.orders) {
     return (
       <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-        We could not open this order from here. Ask for a new access link and try again.
+        {t("guestOrders.portal.fullFailed")}
       </Text>
     );
   }
@@ -269,13 +282,14 @@ function BoundedView(props: {
   entries: { id: string; orderNumber: string; status: string; sellerLabel: string }[] | undefined;
   checkoutGroupId: string | undefined;
 }) {
+  const { t } = useTranslation();
   if (props.loading) {
-    return <Text className="text-sm text-muted-foreground">Loading your order.</Text>;
+    return <Text className="text-sm text-muted-foreground">{t("guestOrders.portal.loading")}</Text>;
   }
   if (props.failed || !props.entries) {
     return (
       <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-        We could not read this order from here.
+        {t("guestOrders.portal.boundedFailed")}
       </Text>
     );
   }
@@ -293,12 +307,13 @@ function BoundedView(props: {
         </View>
       ))}
       <Text className="text-sm text-muted-foreground">
-        Confirm your email address to see the full order, including what you paid and where it is
-        going.
+        {t("guestOrders.portal.confirmEmailBody")}
       </Text>
       <Link href="/guest-orders/recover" asChild>
         <Button variant="outline">
-          <Text className="text-sm font-medium text-foreground">Confirm my email address</Text>
+          <Text className="text-sm font-medium text-foreground">
+            {t("guestOrders.portal.confirmEmailAction")}
+          </Text>
         </Button>
       </Link>
     </View>
@@ -306,10 +321,11 @@ function BoundedView(props: {
 }
 
 export default function GuestOrderPortalScreen() {
+  const { t } = useTranslation();
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>Your order — Mercaria</title>
+        <title>{t("guestOrders.portal.pageTitle")}</title>
         {/*
           A STRICT referrer policy on the one page a credential ever reaches in
           a URL (#108 magic-link rule 5). Even in the window before the fragment

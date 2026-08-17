@@ -1,82 +1,36 @@
 {
   "common": {
-    "or": "या",
     "loading": "लोड हो रहा है...",
-    "error": "त्रुटि",
-    "success": "सफल",
     "cancel": "रद्द करें",
     "confirm": "पुष्टि करें",
-    "save": "सेव करें",
-    "saving": "सेव हो रहा है...",
-    "delete": "हटाएँ",
-    "edit": "एडिट करें",
-    "close": "बंद करें",
     "back": "वापस",
-    "create": "बनाएँ",
-    "search": "खोजें...",
-    "comingSoon": "जल्द आ रहा है!",
-    "noResults": "कोई नतीजा नहीं मिला",
     "user": "उपयोगकर्ता",
-    "done": "हो गया",
     "tryAgain": "फिर से कोशिश करें",
     "processing": "प्रोसेस हो रहा है..."
   },
   "home": {
     "title": "Mercaria",
-    "emptyTitle": "Mercaria जल्द आ रहा है",
-    "emptySubtitle": "नए और सेकंड-हैंड सामान खरीदें और बेचें — लिस्टिंग यहाँ दिखेंगी।"
+    "loadingProducts": "उत्पाद लोड हो रहे हैं",
+    "loadError": "उत्पाद लोड नहीं हो सके। रिफ़्रेश करने के लिए खींचें या दोबारा कोशिश करें।"
   },
   "nav": {
     "home": "होम",
-    "settings": "सेटिंग्स"
+    "settings": "सेटिंग्स",
+    "explore": "एक्सप्लोर करें",
+    "cart": "कार्ट",
+    "deals": "डील",
+    "saved": "सहेजे गए",
+    "account": "खाता",
+    "signIn": "साइन इन करें"
   },
   "login": {
-    "title": "साइन इन या साइन अप करें",
-    "subtitle": "Mercaria पर आगे बढ़ने के लिए",
-    "emailPlaceholder": "ईमेल",
-    "passwordPlaceholder": "पासवर्ड",
-    "forgotPassword": "पासवर्ड भूल गए?",
     "signInButton": "साइन इन करें",
-    "signingIn": "साइन इन हो रहा है...",
-    "footerText": "खाता नहीं है?",
-    "footerLink": "साइन अप करें",
-    "termsPrefix": "आगे बढ़ने पर आप Mercaria की इन शर्तों से सहमत होते हैं: ",
-    "termsOfService": "सेवा की शर्तें",
-    "termsAnd": " और ",
-    "privacyPolicy": "गोपनीयता नीति"
-  },
-  "register": {
-    "title": "Oxy खाता बनाएँ",
-    "subtitle": "Mercaria शुरू करने के लिए साइन अप करें",
-    "firstNamePlaceholder": "पहला नाम",
-    "lastNamePlaceholder": "उपनाम (वैकल्पिक)",
-    "emailPlaceholder": "ईमेल",
-    "passwordPlaceholder": "पासवर्ड (कम से कम 8 अक्षर)",
-    "confirmPasswordPlaceholder": "पासवर्ड की पुष्टि करें",
-    "createAccountButton": "आगे बढ़ें",
-    "creatingAccount": "खाता बनाया जा रहा है...",
-    "footerText": "पहले से खाता है?",
-    "footerLink": "साइन इन करें",
-    "termsPrefix": "आगे बढ़ने पर आप Oxy की इन शर्तों से सहमत होते हैं: ",
-    "termsOfService": "सेवा की शर्तें",
-    "termsAnd": " और ",
-    "privacyPolicy": "गोपनीयता नीति"
-  },
-  "errors": {
-    "passwordRequired": "कृपया अपना पासवर्ड डालें",
-    "loginFailed": "लॉगिन नहीं हो सका",
-    "loginError": "लॉगिन में गड़बड़ी",
-    "failedToLogin": "लॉगिन नहीं हो सका। कृपया फिर से कोशिश करें।",
-    "registrationError": "रजिस्ट्रेशन में गड़बड़ी",
-    "registrationFailed": "रजिस्ट्रेशन नहीं हो सका",
-    "failedToRegister": "रजिस्ट्रेशन पूरा नहीं हो सका। कृपया फिर से कोशिश करें।"
+    "footerLink": "साइन अप करें"
   },
   "settings": {
     "title": "सेटिंग्स",
-    "subtitle": "अपनी Mercaria प्राथमिकताएँ मैनेज करें",
     "account": {
-      "title": "खाता सेटिंग्स",
-      "description": "अपना खाता मैनेज करें"
+      "title": "खाता सेटिंग्स"
     },
     "appLanguage": {
       "title": "ऐप की भाषा",
@@ -85,7 +39,6 @@
     },
     "appearance": {
       "title": "दिखावट",
-      "description": "अपनी पसंद की रंग योजना चुनें",
       "light": "लाइट",
       "dark": "डार्क",
       "system": "सिस्टम के अनुसार"
@@ -102,13 +55,18 @@
       "watchlists": "वॉचलिस्ट",
       "shoppingAgents": "शॉपिंग एजेंट",
       "referralPartner": "रेफ़रल पार्टनर"
+    },
+    "currency": {
+      "title": "प्रदर्शन मुद्रा",
+      "description": "वह मुद्रा चुनें जिसमें कीमतें दिखाई जाएँ। FairCoin (⊜) डिफ़ॉल्ट है।",
+      "signedOut": "अपनी पसंदीदा प्रदर्शन मुद्रा सहेजने के लिए साइन इन करें।",
+      "updateFailed": "आपकी प्रदर्शन मुद्रा अपडेट नहीं की जा सकी"
     }
   },
   "sidebar": {
     "account": "खाता",
     "settings": "सेटिंग्स",
     "logOut": "लॉग आउट",
-    "termsOfService": "सेवा की शर्तें",
     "privacyPolicy": "गोपनीयता नीति"
   },
   "feedback": {
@@ -134,9 +92,8 @@
     "featurePlaceholder": "आप जो सुविधा चाहते हैं उसे बताएँ। यह आपके किस काम आएगी?",
     "improvementPlaceholder": "आप क्या बेहतर करवाना चाहते हैं? हम इसे कैसे और अच्छा बना सकते हैं?",
     "otherPlaceholder": "अपने विचार हमारे साथ साझा करें...",
-    "characterCount": "{{count}}/1000 अक्षर",
+    "characterCount": "%{count}/1000 अक्षर",
     "submitButton": "फ़ीडबैक भेजें",
-    "submitting": "भेजा जा रहा है...",
     "footerText": "आपका फ़ीडबैक Mercaria को बेहतर बनाने में मदद करता है। समय निकालकर अपनी बात साझा करने के लिए धन्यवाद।",
     "selectType": "कृपया फ़ीडबैक का प्रकार चुनें",
     "enterMessage": "कृपया अपना फ़ीडबैक लिखें",
@@ -146,16 +103,112 @@
   },
   "notifications": {
     "title": "सूचनाएँ",
-    "subtitle": "अपनी सूचना प्राथमिकताएँ मैनेज करें",
     "pushNotifications": "पुश सूचनाएँ",
     "pushDescription": "नए संदेशों और अपडेट के अलर्ट पाएँ",
-    "permissionDenied": "सूचनाएँ ब्लॉक हैं। पुश सूचनाएँ पाने के लिए इन्हें अपने डिवाइस की सेटिंग्स में चालू करें।"
-  },
-  "welcome": {
-    "appName": "Mercaria"
+    "permissionDenied": "सूचनाएँ ब्लॉक हैं। पुश सूचनाएँ पाने के लिए इन्हें अपने डिवाइस की सेटिंग्स में चालू करें।",
+    "timeAgo": {
+      "justNow": "अभी",
+      "minutes": "%{count} मि पहले",
+      "hours": "%{count} घं पहले",
+      "days": "%{count} दि पहले"
+    },
+    "unreadCount": "%{count} अपठित",
+    "markAllRead": "सभी को पढ़ा हुआ मार्क करें",
+    "empty": {
+      "title": "अभी तक कोई सूचना नहीं",
+      "body": "आपने सब देख लिया है।"
+    }
   },
   "product": {
-    "priceHistoryHeading": "क़ीमत का इतिहास — %{segment}"
+    "priceHistoryHeading": "क़ीमत का इतिहास — %{segment}",
+    "intent": {
+      "balanced": "कुल मिलाकर सर्वश्रेष्ठ",
+      "cheapest": "सबसे सस्ता",
+      "fastest": "सबसे तेज़ डिलीवरी",
+      "official": "आधिकारिक स्टोर",
+      "used": "सेकंड-हैंड"
+    },
+    "sourceKind": {
+      "connector": "कनेक्टेड स्टोर",
+      "feed": "उत्पाद फ़ीड",
+      "marketplaceApi": "मार्केटप्लेस",
+      "affiliateNetwork": "एफ़िलिएट नेटवर्क",
+      "operator": "ऑपरेटर",
+      "backfill": "पुराना इंपोर्ट"
+    },
+    "appName": "Mercaria",
+    "documentTitle": "%{name} — Mercaria",
+    "loadingA11y": "उत्पाद लोड हो रहा है",
+    "loadError": "यह उत्पाद लोड नहीं हो सका. बाद में फिर कोशिश करें.",
+    "notFound": "हमें यह उत्पाद नहीं मिला.",
+    "visitA11y": "%{name} पर जाएँ",
+    "moreFromStore": "%{name} से और",
+    "compareOffersA11y": "इस उत्पाद के सभी ऑफ़र की तुलना करें",
+    "compareOffers": "सभी ऑफ़र की तुलना करें",
+    "percentOff": "%{percent}% की छूट",
+    "demandCopy": "पिछले महीने 1 लाख से ज़्यादा बार खरीदा गया",
+    "exclusiveOffer": {
+      "label": "विशेष कीमतें देखें",
+      "caption": "अपना विशेष ऑफ़र देखने के लिए साइन इन करें"
+    },
+    "quantity": "मात्रा",
+    "decreaseQuantity": "मात्रा घटाएँ",
+    "increaseQuantity": "मात्रा बढ़ाएँ",
+    "save": {
+      "productA11y": "यह उत्पाद सहेजें",
+      "removeProductA11y": "इस उत्पाद को सहेजे गए से हटाएँ",
+      "product": "उत्पाद सहेजें",
+      "productSaved": "उत्पाद सहेजा गया",
+      "exactListingA11y": "बिल्कुल यही लिस्टिंग सहेजें",
+      "removeListingA11y": "इस लिस्टिंग को सहेजे गए से हटाएँ",
+      "listing": "यह लिस्टिंग सहेजें",
+      "listingSaved": "लिस्टिंग सहेजी गई",
+      "save": "सहेजें",
+      "saved": "सहेजा गया"
+    },
+    "shareA11y": "यह उत्पाद साझा करें",
+    "share": "साझा करें",
+    "deliveryAndReturns": "डिलीवरी और वापसी",
+    "viewReturnPolicyA11y": "वापसी नीति देखें",
+    "returnPolicy": "वापसी नीति",
+    "description": "विवरण",
+    "viewMore": "और देखें",
+    "viewLess": "कम देखें",
+    "highlights": "मुख्य बातें",
+    "sortOffersBy": "ऑफ़र इस क्रम में लगाएँ",
+    "reportProblemA11y": "इस उत्पाद की जानकारी में समस्या की रिपोर्ट करें",
+    "reportProblem": "समस्या की रिपोर्ट करें",
+    "specifications": "विशेषताएँ",
+    "modelIdentifiers": "मॉडल पहचानकर्ता",
+    "imageFromCatalogueA11y": "%{name} — कैटलॉग की तस्वीर",
+    "releasedYear": "%{year} में आया",
+    "discontinued": "बंद कर दिया गया",
+    "detailsLastConfirmed": "उत्पाद की जानकारी की अंतिम पुष्टि %{date} को «%{source}» स्रोत से हुई.",
+    "variant": {
+      "configuration": "कॉन्फ़िगरेशन",
+      "allConfigurationsA11y": "सभी कॉन्फ़िगरेशन",
+      "all": "सभी",
+      "standard": "मानक",
+      "offerCountA11y": {
+        "one": "%{label}, इस पेज पर %{count} ऑफ़र",
+        "other": "%{label}, इस पेज पर %{count} ऑफ़र"
+      }
+    },
+    "brandChannels": {
+      "officialTitle": "आधिकारिक स्टोर",
+      "officialExplanation": "ऐसे चैनल जिन्हें ब्रांड ने अपना बताया है.",
+      "resellersTitle": "अधिकृत रीसेलर",
+      "resellersExplanation": "ऐसे रीसेलर जिन्हें ब्रांड ने अधिकृत बताया है. ये ब्रांड का अपना स्टोर नहीं हैं."
+    },
+    "priceHistory": {
+      "lowestInWindow": "इस अवधि में सबसे कम कीमत: %{amount}",
+      "noOffersObserved": {
+        "one": "इस अवधि के %{count} हिस्से में कोई ऑफ़र दर्ज नहीं हुआ.",
+        "other": "इस अवधि के %{count} हिस्सों में कोई ऑफ़र दर्ज नहीं हुआ."
+      },
+      "notFullyBuilt": "इस अवधि का कुछ हिस्सा अभी तैयार नहीं हुआ है.",
+      "conversionDisplayOnly": "बदली गई राशियाँ केवल दिखाने के लिए हैं."
+    }
   },
   "catalog": {
     "breadcrumbs": {
@@ -190,7 +243,1247 @@
       "fallbackTitle": "श्रेणी",
       "notFound": "हमें यह श्रेणी नहीं मिली।",
       "subcategories": "उपश्रेणियाँ",
-      "empty": "इन फ़िल्टरों से मेल खाता अभी कुछ नहीं है।"
+      "empty": "इन फ़िल्टरों से मेल खाता अभी कुछ नहीं है।",
+      "documentTitle": "%{title} — Mercaria"
+    }
+  },
+  "cart": {
+    "title": "आपकी कार्ट",
+    "pageTitle": "आपकी कार्ट — Mercaria",
+    "signIn": "साइन इन करें",
+    "loadingA11yLabel": "आपकी कार्ट लोड हो रही है",
+    "error": {
+      "title": "हम आपकी कार्ट लोड नहीं कर सके",
+      "subtitle": "अपना कनेक्शन जाँचें और फिर कोशिश करें — कुछ भी नहीं खोया है।"
+    },
+    "empty": {
+      "title": "आपकी कार्ट खाली है",
+      "subtitle": "मार्केटप्लेस देखें और पसंद की चीज़ें जोड़ें।"
+    },
+    "guestOffer": {
+      "title": "मेहमान के रूप में खरीदारी",
+      "intro": "आप बिना खाते के भी ऑर्डर कर सकते हैं। खाते के साथ आपको यह भी मिलता है:",
+      "benefits": {
+        "crossDevice": "आपकी कार्ट आपके दूसरे डिवाइस पर भी साथ चलती है",
+        "savedAddresses": "सहेजे गए पते, ताकि ऑर्डर एक ही कदम में पूरा हो",
+        "orderHistory": "सभी ऑर्डर एक जगह, आपके खाते से जुड़े हुए"
+      },
+      "footnote": "कभी भी साइन इन करें — कार्ट में जो पहले से है वह आपके साथ चला आएगा।",
+      "signInA11yLabel": "अपने Oxy खाते में साइन इन करें"
+    },
+    "storageWarning": {
+      "title": "ऐप बंद करने पर यह कार्ट शायद न बचे",
+      "body": "हम इस डिवाइस पर आपकी कार्ट सुरक्षित रूप से सहेज नहीं सके। आप खरीदारी जारी रख सकते हैं और अभी ऑर्डर भी कर सकते हैं। साइन इन करने से आपकी कार्ट सुरक्षित रहती है।"
+    },
+    "group": {
+      "visitSellerA11yLabel": "%{seller} देखें",
+      "soldByA11yLabel": "%{seller} द्वारा बेचा गया",
+      "subtotal": "उप-योग",
+      "checkout": "ऑर्डर पूरा करें",
+      "checkoutWithA11yLabel": "%{seller} के साथ ऑर्डर पूरा करें"
+    },
+    "guestBlocked": {
+      "title": "किसी व्यक्ति से खरीदने के लिए खाता चाहिए",
+      "body": "%{seller} की चीज़ें अभी मेहमान के रूप में नहीं खरीदी जा सकतीं। ऑर्डर पूरा करने के लिए साइन इन करें — कार्ट में जो पहले से है वह आपके साथ चला आएगा।",
+      "signInA11yLabel": "इस विक्रेता से खरीदने के लिए अपने Oxy खाते में साइन इन करें"
+    },
+    "summary": {
+      "totalAll": "कार्ट का कुल",
+      "totalAvailable": "अभी उपलब्ध",
+      "checkoutAll": "सब कुछ खरीदें",
+      "checkoutAvailable": "उपलब्ध चीज़ें खरीदें",
+      "checkoutAllA11yLabel": "अपनी कार्ट की सारी चीज़ें खरीदें",
+      "checkoutAvailableA11yLabel": "वे चीज़ें खरीदें जो आप मेहमान के रूप में खरीद सकते हैं"
+    },
+    "recommendations": {
+      "title": "यह भी पसंद आ सकता है"
+    }
+  },
+  "orders": {
+    "title": "आपके ऑर्डर",
+    "pageTitle": "आपके ऑर्डर — Mercaria",
+    "empty": {
+      "title": "अभी कोई ऑर्डर नहीं",
+      "subtitle": "जब आप ऑर्डर करेंगे तो वह यहाँ दिखेगा।",
+      "signedOutSubtitle": "अपने ऑर्डर देखने के लिए साइन इन करें।"
+    },
+    "row": {
+      "openA11yLabel": "ऑर्डर %{number} खोलें",
+      "meta": {
+        "one": "%{status} · %{seller} · %{count} चीज़",
+        "other": "%{status} · %{seller} · %{count} चीज़ें"
+      }
+    },
+    "pagination": {
+      "previous": "पिछला",
+      "next": "अगला",
+      "pageOf": "पेज %{page}, कुल %{pages} में से"
+    },
+    "status": {
+      "pendingPayment": "भुगतान बाकी",
+      "paid": "भुगतान हो गया",
+      "processing": "तैयार हो रहा है",
+      "shipped": "भेज दिया गया",
+      "delivered": "पहुँच गया",
+      "cancelled": "रद्द",
+      "refunded": "रिफंड हो गया",
+      "partiallyRefunded": "आंशिक रिफंड"
+    },
+    "detail": {
+      "title": "ऑर्डर %{number}",
+      "pageTitle": "ऑर्डर — Mercaria",
+      "soldBy": "%{seller} द्वारा बेचा गया",
+      "errorTitle": "यह ऑर्डर लोड नहीं हो सका",
+      "errorSubtitle": "कृपया वापस जाकर फिर कोशिश करें।",
+      "backToOrders": "ऑर्डर पर वापस"
+    },
+    "items": {
+      "title": "चीज़ें"
+    },
+    "totals": {
+      "title": "राशि का ब्योरा",
+      "subtotal": "उप-योग",
+      "discounts": "छूट",
+      "tax": "कर",
+      "shipping": "शिपिंग",
+      "total": "कुल"
+    },
+    "payment": {
+      "title": "भुगतान",
+      "unpaid": "भुगतान नहीं हुआ — यह ऑर्डर आरक्षित है और भुगतान की प्रतीक्षा में है।",
+      "authorized": "भुगतान अधिकृत हो गया।",
+      "paid": "भुगतान मिल गया।",
+      "refunded": "भुगतान वापस कर दिया गया।",
+      "failed": "भुगतान विफल रहा।"
+    },
+    "shipTo": {
+      "title": "यहाँ भेजें"
+    },
+    "cancel": {
+      "action": "ऑर्डर रद्द करें",
+      "success": "ऑर्डर रद्द हो गया",
+      "error": "ऑर्डर रद्द नहीं हो सका"
+    },
+    "delivery": {
+      "promisedLabel": "वादा की गई डिलीवरी",
+      "latestLabel": "नवीनतम अनुमान",
+      "noDates": "कोई तारीख नहीं दी गई",
+      "basisGuaranteed": "यह वही डिलीवरी अवधि है जिसका हमने वादा किया था।",
+      "basisEstimate": "यह हमारे डिलीवरी साझेदार का अनुमान है, वादा नहीं।",
+      "staleNote": "हम इसे हाल में ताज़ा नहीं कर सके।",
+      "refreshFailing": "हम यह अनुमान ताज़ा नहीं कर सके। यह पुराना हो सकता है।"
+    }
+  },
+  "reviews": {
+    "scopeHeading": {
+      "product": "उत्पाद समीक्षाएँ",
+      "merchant": "विक्रेता सेवा",
+      "nativeTransaction": "यह खरीद",
+      "p2pListing": "वस्तु की स्थिति और विवरण",
+      "p2pSeller": "विक्रेता की प्रतिष्ठा"
+    },
+    "heading": "आपने जो खरीदा उसे रेट करें",
+    "moreToRate": {
+      "one": "रेट करने के लिए %{count} और खरीद बाकी है।",
+      "other": "रेट करने के लिए %{count} और खरीदें बाकी हैं।"
+    },
+    "notePlaceholder": "टिप्पणी जोड़ें (वैकल्पिक)",
+    "publishAction": "समीक्षा प्रकाशित करें",
+    "publishError": "वह समीक्षा प्रकाशित नहीं की जा सकी।",
+    "ratingChoice": "5 में से %{choice} — %{scopeLabel}",
+    "verifiedPurchase": "%{scopeLabel} · सत्यापित खरीद",
+    "scope": {
+      "product": "उत्पाद",
+      "merchant": "विक्रेता की सेवा",
+      "nativeTransaction": "यह खरीद",
+      "p2pListing": "वस्तु का विवरण",
+      "p2pSeller": "विक्रेता"
+    },
+    "question": {
+      "product": "उत्पाद अपने आप में कैसा है?",
+      "merchant": "विक्रेता की सेवा कैसी रही?",
+      "nativeTransaction": "यह खरीद कैसी रही?",
+      "p2pListing": "क्या वस्तु अपनी हालत और विवरण से मेल खाती थी?",
+      "p2pSeller": "इस विक्रेता से खरीदना कैसा रहा?"
+    },
+    "published": {
+      "product": "धन्यवाद — उत्पाद पर आपकी समीक्षा प्रकाशित हो गई है।",
+      "merchant": "धन्यवाद — विक्रेता की सेवा पर आपकी समीक्षा प्रकाशित हो गई है।",
+      "nativeTransaction": "धन्यवाद — इस खरीद पर आपकी समीक्षा प्रकाशित हो गई है।",
+      "p2pListing": "धन्यवाद — वस्तु के विवरण पर आपकी समीक्षा प्रकाशित हो गई है।",
+      "p2pSeller": "धन्यवाद — इस विक्रेता पर आपकी समीक्षा प्रकाशित हो गई है।"
+    },
+    "noteLabel": {
+      "product": "उत्पाद पर आपकी समीक्षा",
+      "merchant": "विक्रेता की सेवा पर आपकी समीक्षा",
+      "nativeTransaction": "इस खरीद पर आपकी समीक्षा",
+      "p2pListing": "वस्तु के विवरण पर आपकी समीक्षा",
+      "p2pSeller": "इस विक्रेता पर आपकी समीक्षा"
+    }
+  },
+  "search": {
+    "kind": {
+      "product": "उत्पाद",
+      "brand": "ब्रांड",
+      "productFamily": "उत्पाद शृंखला",
+      "merchant": "विक्रेता",
+      "storefront": "स्टोरफ़्रंट"
+    },
+    "headTitle": "खोज · Mercaria",
+    "box": {
+      "label": "खोजें",
+      "placeholder": "आज आप क्या ढूँढ़ रहे हैं?"
+    },
+    "readError": "हम उस खोज को समझ नहीं सके।",
+    "resultsUnavailable": "यहाँ नतीजे अभी उपलब्ध नहीं हैं — आपकी खोज से हमने यही समझा।",
+    "noMatches": "ऊपर दी गई सभी शर्तों पर कुछ भी खरा नहीं उतरा। कोई एक शर्त हटाने से मदद मिल सकती है।",
+    "dismissLabel": "मेरे लिखे शब्दों से ही खोजें",
+    "skipLabel": "फिर भी खोजें"
+  },
+  "checkout": {
+    "address": {
+      "shipTo": "%{name} को भेजें"
+    },
+    "backToOrders": "अपने ऑर्डर पर वापस जाएँ",
+    "checkLaterFromOrders": "बाद में अपने ऑर्डर में देखें",
+    "claim": {
+      "optional": "वैकल्पिक। आपका ऑर्डर वैसे भी कन्फ़र्म है।",
+      "saveToOxy": "इन ऑर्डर को Oxy में सहेजें"
+    },
+    "deliverElsewhere": "किसी दूसरे पते पर भेजें",
+    "destination": {
+      "collectInPerson": "खुद जाकर लें",
+      "continueAsGuest": "मेहमान के तौर पर जारी रखें",
+      "deliverTo": "यहाँ भेजें",
+      "guestDeliveryHint": "खाते की ज़रूरत नहीं। बताइए यह कहाँ भेजना है और इस ऑर्डर के बारे में आपसे कैसे संपर्क करें।",
+      "guestPickupHint": "खाते की ज़रूरत नहीं। बताइए इस पिकअप के बारे में आपसे कैसे संपर्क करें — जिस पते की ज़रूरत नहीं, वह हम नहीं पूछेंगे।",
+      "pickupFallbackName": "आपकी चुनी हुई दुकान"
+    },
+    "discount": {
+      "accessibilityLabel": "डिस्काउंट कोड",
+      "label": "डिस्काउंट कोड (वैकल्पिक)",
+      "placeholder": "SAVE10"
+    },
+    "emailMeLink": "इस ऑर्डर का लिंक मुझे ईमेल करें",
+    "empty": {
+      "backToCart": "कार्ट पर वापस जाएँ",
+      "body": "आपका कार्ट खाली है या ये सामान अब उपलब्ध नहीं हैं।",
+      "title": "चेकआउट के लिए कुछ नहीं है"
+    },
+    "error": {
+      "collectionEmailRequired": "वह ईमेल पता भरें जिस पर पिकअप की जानकारी भेजी जाए।",
+      "emailAndAddressRequired": "आगे बढ़ने के लिए अपना ईमेल और डिलीवरी का पता भरें।",
+      "receiptEmailRequired": "वह ईमेल पता भरें जिस पर आपकी रसीद भेजी जाए।"
+    },
+    "form": {
+      "cityLabel": "शहर",
+      "cityPlaceholder": "Valencia",
+      "countryA11y": "दो अक्षरों का देश कोड",
+      "countryLabel": "देश",
+      "countryPlaceholder": "ES",
+      "deliverToAddress": "किसी पते पर भेजें",
+      "deliveryMethodTitle": "आप इसे कैसे लेना चाहेंगे?",
+      "deliveryPhoneA11y": "वह फ़ोन नंबर जिस पर डिलीवरी वाला कॉल कर सके",
+      "deliveryPhoneLabel": "डिलीवरी के लिए फ़ोन (वैकल्पिक)",
+      "emailA11y": "आपके ऑर्डर की पुष्टि के लिए ईमेल पता",
+      "emailHelp": "इसका इस्तेमाल हम इस ऑर्डर की रसीद और डिलीवरी की जानकारी भेजने के लिए करते हैं।",
+      "emailLabel": "ईमेल",
+      "emailPlaceholder": "aap@example.com",
+      "line1A11y": "गली और मकान का पता",
+      "line1Label": "पता, पंक्ति 1",
+      "line1Placeholder": "1 एम.जी. रोड",
+      "line2A11y": "फ़्लैट, मंज़िल या यूनिट",
+      "line2Label": "पता, पंक्ति 2 (वैकल्पिक)",
+      "line2Placeholder": "फ़्लैट 4B",
+      "marketingOptIn": "मुझे ऑफ़र और नई चीज़ों की ईमेल भेजें। वैकल्पिक — आपका ऑर्डर इस पर निर्भर नहीं है।",
+      "marketingOptInA11y": "ऑफ़र और नई चीज़ों की ईमेल पाएँ",
+      "pickupPhoneA11y": "पिकअप के लिए फ़ोन नंबर",
+      "pickupPhoneLabel": "पिकअप के लिए फ़ोन (वैकल्पिक)",
+      "postalA11y": "पिन कोड या पोस्टल कोड",
+      "postalLabel": "पोस्टल कोड",
+      "recipientA11y": "पार्सल पाने वाले व्यक्ति का नाम",
+      "recipientLabel": "पाने वाले का नाम",
+      "recipientPlaceholder": "आरव शर्मा",
+      "regionA11y": "राज्य, प्रांत या क्षेत्र",
+      "regionLabel": "राज्य (वैकल्पिक)",
+      "regionPlaceholder": "Valencia",
+      "saveAddress": "यह पता मेरे खाते में सहेजें",
+      "sellerDataNotice": "हर विक्रेता को सिर्फ़ उतना ही मिलता है जितना आपके ऑर्डर का उसका हिस्सा पूरा करने के लिए ज़रूरी है: डिलीवरी का पता, पाने वाले का नाम, और आपने जो डिलीवरी फ़ोन दिया हो। आपका ईमेल पता Mercaria के पास ही रहता है।"
+    },
+    "keepShopping": "खरीदारी जारी रखें",
+    "orderNumbers": {
+      "headingOne": "आपका ऑर्डर नंबर",
+      "headingOther": "आपके ऑर्डर नंबर",
+      "keepToHand": "इसे संभालकर रखें — संपर्क करने पर इसी से आपकी खरीद पहचानी जाती है।"
+    },
+    "pageTitle": "चेकआउट — Mercaria",
+    "placeOrder": "ऑर्डर करें",
+    "shippingAddress": "डिलीवरी का पता",
+    "signIn": {
+      "action": "साइन इन करें",
+      "body": "साइन इन करने पर आपके सहेजे हुए पते मिलते हैं, यह कार्ट आपके दूसरे डिवाइस पर भी रहता है, और यह ऑर्डर आपके खाते के इतिहास में रहता है। आप मेहमान के तौर पर भी खरीद सकते हैं — टाइप उतना ही करना है।",
+      "title": "क्या आपके पास Oxy खाता है?"
+    },
+    "summary": {
+      "calculatedAtPlacement": "छूट, टैक्स और शिपिंग ऑर्डर करते समय जोड़े जाते हैं।",
+      "subtotal": "उप-योग",
+      "title": "ऑर्डर का सारांश"
+    },
+    "title": "चेकआउट",
+    "toast": {
+      "orderPlaced": "ऑर्डर हो गया",
+      "reservedGuest": "आपका ऑर्डर थोड़ी देर के लिए रोक रखा है। भुगतान के लिए फिर से चेकआउट करें।",
+      "reservedSignedIn": "आपका ऑर्डर रोक रखा है। आप इसका भुगतान अपने ऑर्डर से कर सकते हैं।"
+    },
+    "useSavedAddress": "सहेजा हुआ पता इस्तेमाल करें",
+    "viewOrder": "अपना ऑर्डर देखें",
+    "viewOrders": "अपने ऑर्डर देखें"
+  },
+  "payment": {
+    "cancelled": {
+      "body": "यह भुगतान रद्द कर दिया गया और कुछ भी नहीं काटा गया।",
+      "bodyItemsReturned": "यह भुगतान रद्द कर दिया गया और कुछ भी नहीं काटा गया। आपका सामान दुकान को वापस कर दिया गया है।",
+      "title": "भुगतान रद्द"
+    },
+    "card": {
+      "detailsNotConfirmed": "आपके भुगतान की जानकारी की पुष्टि नहीं हो सकी।",
+      "expressHeading": "एक टैप में भुगतान करें",
+      "notCompleted": "आपका भुगतान पूरा नहीं हो सका।",
+      "notConfigured": "इस ऐप में कार्ड से भुगतान अभी सेट नहीं है।",
+      "orPayByCard": "या कार्ड से भुगतान करें",
+      "payNow": "अभी भुगतान करें"
+    },
+    "cardDetailsNotice": "आपके कार्ड की जानकारी सीधे हमारे पेमेंट प्रोवाइडर तक जाती है और Mercaria तक कभी नहीं पहुँचती।",
+    "confirming": {
+      "bankStillCompleting": "आपका बैंक यह भुगतान अभी पूरा कर रहा है। इसमें थोड़ा समय लग सकता है।",
+      "checkingWithBank": "हम इसकी पुष्टि आपके बैंक से कर रहे हैं। तब तक आपका ऑर्डर रोक रखा है।",
+      "continueWithoutWaiting": "बिना इंतज़ार किए आगे बढ़ें",
+      "pageTitle": "आपके भुगतान की पुष्टि हो रही है — Mercaria",
+      "returnBody": "आपके बैंक ने आपको हमारे पास वापस भेज दिया है और हम भुगतान की पुष्टि कर रहे हैं। आमतौर पर इसमें कुछ सेकंड लगते हैं।",
+      "title": "आपके भुगतान की पुष्टि हो रही है"
+    },
+    "continue": "आगे बढ़ें",
+    "received": {
+      "body": "धन्यवाद। आपका ऑर्डर कन्फ़र्म है और विक्रेता को सूचित कर दिया गया है।",
+      "title": "भुगतान मिल गया"
+    },
+    "return": {
+      "missingGroup": "इस लिंक में वह चेकआउट नहीं है जिससे यह जुड़ा है। अगर आपने भुगतान पूरा किया है, तो आपका ऑर्डर सुरक्षित है — यहाँ कुछ नहीं बदलता।"
+    },
+    "title": "भुगतान",
+    "totalToPay": "कुल देय राशि",
+    "unreadable": {
+      "body": "हम यहाँ से इस भुगतान की जाँच नहीं कर सके। अगर यह हो गया है, तो आपका ऑर्डर सुरक्षित है — यह पेज इसे किसी भी तरह बदल नहीं सकता।",
+      "title": "हम यह भुगतान नहीं पढ़ सके"
+    }
+  },
+  "sellers": {
+    "fallbackName": "विक्रेता",
+    "verifiedBadge": "सत्यापित विक्रेता",
+    "unavailable": "यह विक्रेता उपलब्ध नहीं है।",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "stats": {
+      "activeListings": "सक्रिय लिस्टिंग",
+      "itemsSold": "बिके हुए आइटम",
+      "sellingSince": "बिक्री शुरू"
+    },
+    "reviews": {
+      "none": "अभी कोई समीक्षा नहीं"
+    },
+    "trust": {
+      "source": "Oxy Trust से प्राप्त प्रतिष्ठा, पूरे Oxy इकोसिस्टम में",
+      "tier": {
+        "restricted": "Oxy Trust द्वारा प्रतिबंधित",
+        "new": "Oxy पर नया",
+        "trusted": "Oxy पर भरोसेमंद",
+        "highTrust": "Oxy पर अत्यधिक भरोसेमंद",
+        "verified": "Oxy पर सत्यापित"
+      }
+    },
+    "withheld": {
+      "privateProfile": "इस विक्रेता ने अपनी Oxy प्रोफ़ाइल निजी रखी है।",
+      "unavailable": "इस विक्रेता की लिस्टिंग अभी उपलब्ध नहीं हैं।"
+    },
+    "listings": {
+      "title": "लिस्टिंग",
+      "loadingLabel": "लिस्टिंग लोड हो रही हैं",
+      "empty": "%{name} के पास अभी बिक्री के लिए कुछ नहीं है।",
+      "loadMore": "और लोड करें",
+      "loadMoreLabel": "और लिस्टिंग लोड करें",
+      "loadingMore": "लोड हो रहा है…"
+    },
+    "follow": {
+      "action": "फ़ॉलो करें",
+      "actionLabel": "%{name} को फ़ॉलो करें"
+    },
+    "linkCard": {
+      "viewProfile": "%{name} की प्रोफ़ाइल देखें"
+    },
+    "report": {
+      "action": "रिपोर्ट करें",
+      "title": "%{name} की रिपोर्ट करें",
+      "description": "बताएं कि क्या गलत है। जो भी लागू हो, सब चुनें।",
+      "detailsPlaceholder": "और कुछ बताना चाहेंगे? (वैकल्पिक)",
+      "send": "रिपोर्ट भेजें",
+      "sending": "भेजा जा रहा है…",
+      "signIn": "रिपोर्ट करने के लिए साइन इन करें",
+      "received": "धन्यवाद — आपकी रिपोर्ट हमें मिल गई है।",
+      "category": {
+        "counterfeit": "नकली सामान बेचना",
+        "prohibitedItem": "प्रतिबंधित वस्तुएं",
+        "misleadingListing": "भ्रामक लिस्टिंग",
+        "unsafeProduct": "असुरक्षित उत्पाद",
+        "stolenGoods": "चोरी का सामान",
+        "scam": "धोखाधड़ी या फ़्रॉड",
+        "impersonation": "किसी की नकल करना",
+        "spam": "स्पैम",
+        "hatefulContent": "नफ़रत फैलाने वाला कंटेंट",
+        "somethingElse": "कुछ और"
+      }
+    }
+  },
+  "merchants": {
+    "unavailable": "यह मर्चेंट उपलब्ध नहीं है।",
+    "alsoKnownAs": "%{names} के नाम से भी जाना जाता है",
+    "operatedBy": "%{organization} द्वारा संचालित",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "reviews": {
+      "none": "अभी कोई समीक्षा नहीं"
+    },
+    "nativeStore": {
+      "title": "Mercaria पर %{store}",
+      "openLabel": "Mercaria पर %{store} खोलें",
+      "note": "फ़ॉलो, नीतियां और सहायता स्टोर पेज पर हैं।"
+    },
+    "offerMix": {
+      "title": "ऑफ़र",
+      "allMarkets": "सभी बाज़ार",
+      "staleNotice": {
+        "one": "%{count} और ऑफ़र नहीं दिखाया जा रहा, क्योंकि Mercaria ने उसे हाल ही में पुष्ट नहीं किया।",
+        "other": "%{count} और ऑफ़र नहीं दिखाए जा रहे, क्योंकि Mercaria ने उन्हें हाल ही में पुष्ट नहीं किया।"
+      }
+    },
+    "channels": {
+      "title": "चैनल",
+      "groupLabel": "ब्राउज़ करने के लिए एक सेल्स चैनल चुनें",
+      "all": "सभी चैनल",
+      "operatedElsewhere": "%{channel} · %{operator} पर",
+      "unknownOperator": "किसी अन्य मार्केटप्लेस",
+      "chipLabel": {
+        "one": "%{channel}, %{count} ऑफ़र",
+        "other": "%{channel}, %{count} ऑफ़र"
+      }
+    },
+    "standing": {
+      "a11yLabel": "मर्चेंट की स्थिति: %{status}",
+      "claim": "इस मर्चेंट पर दावा करें",
+      "claimHint": "इस पेज को मैनेज करने के लिए साबित करें कि आप यह मर्चेंट चलाते हैं",
+      "label": {
+        "unclaimed": "बिना दावे का",
+        "claimInProgress": "दावा प्रक्रिया में",
+        "claimed": "दावा किया गया",
+        "sellingOnMercaria": "Mercaria पर बेचता है"
+      },
+      "explanation": {
+        "unclaimed": "किसी ने साबित नहीं किया कि वे यह मर्चेंट चलाते हैं। इसके उत्पाद यहां सार्वजनिक स्रोतों से सूचीबद्ध हैं।",
+        "claimInProgress": "कोई साबित कर रहा है कि वे यह मर्चेंट चलाते हैं।",
+        "claimed": "एक ऑपरेटर ने साबित किया है कि वे यह मर्चेंट चलाते हैं।",
+        "sellingOnMercaria": "यह मर्चेंट एक Mercaria स्टोर से जुड़ा है और यहां सीधे बेचता है।"
+      }
+    },
+    "brandStandings": {
+      "title": "ब्रांड",
+      "listLabel": "ब्रांड संबंध",
+      "a11yLabel": "%{brand}: %{standing}. %{explanation}",
+      "label": {
+        "officialStore": "ब्रांड का अपना स्टोर",
+        "authorizedReseller": "अधिकृत रीसेलर",
+        "noVerifiedRelationship": "कोई सत्यापित संबंध नहीं"
+      },
+      "explanation": {
+        "officialStore": "यह मर्चेंट ब्रांड का अपना बिक्री चैनल है, जिसे Mercaria ने सत्यापित किया है।",
+        "authorizedReseller": "ब्रांड ने इस मर्चेंट को पुनर्विक्रय की अनुमति दी है, जिसे Mercaria ने सत्यापित किया है।",
+        "noVerifiedRelationship": "यह मर्चेंट इस ब्रांड के उत्पाद बेचता है। Mercaria ने इनके बीच किसी संबंध की पुष्टि नहीं की है।"
+      }
+    },
+    "card": {
+      "priceNotPublished": "कीमत प्रकाशित नहीं",
+      "priceUnconvertible": "कीमत %{currency} में है, जिसे Mercaria परिवर्तित नहीं कर सकता",
+      "offerCount": {
+        "one": "%{count} ऑफ़र",
+        "other": "%{count} ऑफ़र"
+      },
+      "offersAcrossChannels": {
+        "one": "%{channels} चैनलों में %{count} ऑफ़र",
+        "other": "%{channels} चैनलों में %{count} ऑफ़र"
+      },
+      "otherSellers": "· इसमें अन्य विक्रेता भी शामिल"
+    },
+    "catalog": {
+      "title": "उत्पाद",
+      "loadingLabel": "उत्पाद लोड हो रहे हैं",
+      "loadMore": "और लोड करें",
+      "loadMoreLabel": "और उत्पाद लोड करें",
+      "loadingMore": "लोड हो रहा है…",
+      "empty": {
+        "noOffers": "Mercaria के पास अभी इस मर्चेंट के लिए कोई उत्पाद नहीं है।",
+        "staleSources": "मौजूदा कीमतें दिखाने के लिए Mercaria को इस मर्चेंट के स्रोतों से हाल ही में जानकारी नहीं मिली है।",
+        "filteredOut": "इन फ़िल्टर से कोई उत्पाद मेल नहीं खाता।"
+      }
+    }
+  },
+  "families": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "प्रोडक्ट फ़ैमिली नहीं मिली",
+      "body": "हो सकता है यह फ़ैमिली किसी दूसरी में मिला दी गई हो, या पता गलत हो।"
+    },
+    "productCount": {
+      "one": "इस फ़ैमिली में %{count} उत्पाद",
+      "other": "इस फ़ैमिली में %{count} उत्पाद"
+    },
+    "prices": {
+      "withdrawn": "कीमतें अभी उपलब्ध नहीं हैं।",
+      "none": "इस फ़ैमिली के लिए कोई मौजूदा ऑफ़र नहीं है।",
+      "unpriceable": "इस फ़ैमिली के मौजूदा ऑफ़र %{currencies} में हैं, जिन्हें हम परिवर्तित नहीं कर सकते।"
+    },
+    "priceRange": {
+      "summary": {
+        "one": "%{scopeLabel} · %{count} उत्पाद में",
+        "other": "%{scopeLabel} · %{count} उत्पादों में"
+      },
+      "excludes": "%{currencies} वाले ऑफ़र शामिल नहीं हैं।",
+      "scope": {
+        "new": "नया",
+        "used": "इस्तेमाल किया हुआ",
+        "mixed": "नया और इस्तेमाल किया हुआ",
+        "unknown": "स्थिति नहीं बताई गई"
+      }
+    },
+    "sharedAttributes": {
+      "title": "इस फ़ैमिली में समान"
+    },
+    "products": {
+      "title": "उत्पाद",
+      "titleReleaseDesc": "जेनरेशन, नई पहले"
+    }
+  },
+  "brands": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "ब्रांड नहीं मिला",
+      "body": "हो सकता है यह ब्रांड किसी दूसरे में मिला दिया गया हो, या पता गलत हो।"
+    },
+    "ownedBy": "%{organization} के स्वामित्व में",
+    "productCount": {
+      "one": "%{count} उत्पाद",
+      "other": "%{count} उत्पाद"
+    },
+    "descriptionSource": "स्रोत: %{attribution}",
+    "officialStores": {
+      "title": "आधिकारिक स्टोर",
+      "description": "इस ब्रांड द्वारा स्वयं संचालित बिक्री चैनल, जिन्हें Mercaria ने सत्यापित किया है।",
+      "empty": "इस ब्रांड के लिए अभी तक कोई आधिकारिक स्टोर सत्यापित नहीं है।"
+    },
+    "authorizedResellers": {
+      "title": "अधिकृत रीसेलर",
+      "description": "वे रिटेलर जिन्हें इस ब्रांड ने बेचने की अनुमति दी है। यह आधिकारिक स्टोर से अलग व्यवस्था है।",
+      "empty": "इस ब्रांड के लिए अभी तक कोई अधिकृत रीसेलर सत्यापित नहीं है।"
+    },
+    "families": {
+      "title": "प्रोडक्ट फ़ैमिली"
+    },
+    "categories": {
+      "title": "श्रेणियां"
+    },
+    "products": {
+      "title": "उत्पाद"
+    },
+    "grid": {
+      "empty": "इस कैटलॉग में अभी कोई उत्पाद नहीं है।",
+      "emptyFiltered": "इन फ़िल्टर से कोई उत्पाद मेल नहीं खाता। एक फ़िल्टर हटाकर देखें।",
+      "emptyPricesWithdrawn": "कीमतें अभी उपलब्ध नहीं हैं, इसलिए यह ग्रिड खाली है। थोड़ी देर बाद फिर कोशिश करें।",
+      "showMore": "और दिखाएं",
+      "loadingMore": "लोड हो रहा है…"
+    }
+  },
+  "guestOrders": {
+    "oneMoment": "एक क्षण।",
+    "sendAccessLink": "मुझे एक ऐक्सेस लिंक भेजें",
+    "claim": {
+      "pageTitle": "अपने ऑर्डर सहेजें — Mercaria",
+      "missingTitle": "सहेजने के लिए कुछ नहीं है",
+      "missingBody": "यह पेज अपने ऑर्डर से खोलें ताकि हमें पता चले कि आपका मतलब किस खरीद से है।",
+      "signInTitle": "इन ऑर्डर को सहेजने के लिए साइन इन करें",
+      "signInBody": "साइन इन करने पर यह खरीद आपके Mercaria ऑर्डर इतिहास में जुड़ जाती है। अगर आप ऐसा नहीं करना चाहते, तो आपका ऑर्डर बिल्कुल वैसे ही काम करेगा जैसे अभी करता है।",
+      "signInAction": "Oxy में साइन इन करें",
+      "checkingTitle": "इस ऑर्डर की जाँच हो रही है",
+      "failedTitle": "हम यह ऑर्डर नहीं खोल सके",
+      "failedBody": "हो सकता है आपका ऐक्सेस लिंक समाप्त हो गया हो। नया लिंक माँगें और फिर से कोशिश करें — किसी भी स्थिति में आपके ऑर्डर पर कोई असर नहीं पड़ता।",
+      "savedTitle": "आपके खाते में सहेजा गया",
+      "savedBody": "ये ऑर्डर अब आपके Mercaria ऑर्डर इतिहास में हैं। आपने जो ऐक्सेस लिंक इस्तेमाल किया था वह निष्क्रिय कर दिया गया है — अब से आप इन्हें अपने खाते से खोल सकते हैं।",
+      "alreadySavedTitle": "पहले से सहेजा गया",
+      "alreadySavedBody": "ये ऑर्डर पहले से ही आपके Mercaria ऑर्डर इतिहास में थे।",
+      "goToOrders": "मेरे ऑर्डर देखें",
+      "reviewTitle": "इन ऑर्डर को Oxy में सहेजें",
+      "reviewAlreadyTitle": "पहले से आपके खाते में",
+      "oneOrder": "यह ऑर्डर आपके खाते में जोड़ा जाएगा:",
+      "manyOrders": "ये %{count} ऑर्डर एक साथ किए गए थे और आपके खाते में जोड़े जाएँगे:",
+      "notRequired": "अपना ऑर्डर पाने के लिए आपको यह करने की ज़रूरत नहीं है।",
+      "submit": "इन ऑर्डर को मेरे खाते में सहेजें",
+      "decline": "अभी नहीं",
+      "benefits": {
+        "history": "ये ऑर्डर आपके सामान्य Mercaria ऑर्डर इतिहास में दिखते हैं।",
+        "anyDevice": "आप इन्हें किसी भी ऐसे डिवाइस से खोल सकते हैं जिस पर आप साइन इन हैं।",
+        "review": "आपने जो खरीदा है उसकी सत्यापित-खरीद समीक्षा लिख सकते हैं।"
+      },
+      "blocked": {
+        "unavailable": "Oxy खाते में ऑर्डर सहेजना फ़िलहाल उपलब्ध नहीं है। आपके ऑर्डर पर कोई असर नहीं पड़ा है और आप इसे अपने ऐक्सेस लिंक से खोल सकते हैं।",
+        "inboxNotVerified": "पहले अपना ईमेल पता सत्यापित करें। नया ऐक्सेस लिंक माँगें और यह पेज उसी से खोलें।",
+        "claimedByAnotherAccount": "ये ऑर्डर पहले से किसी दूसरे Oxy खाते में सहेजे गए हैं। अगर आपको ऐसी उम्मीद नहीं थी तो सहायता से संपर्क करें — Mercaria इन्हें अपने आप स्थानांतरित नहीं करेगा।"
+      }
+    },
+    "portal": {
+      "pageTitle": "आपका ऑर्डर — Mercaria",
+      "openingTitle": "आपका ऑर्डर खोला जा रहा है",
+      "linkRefusedTitle": "इस लिंक का उपयोग नहीं किया जा सकता",
+      "linkRefusedBody": "ऐक्सेस लिंक केवल एक बार उपयोग किए जा सकते हैं और जल्दी समाप्त हो जाते हैं। नया लिंक माँगें और हम उसे उसी पते पर भेजेंगे जिससे ऑर्डर किया गया था।",
+      "noCredentialTitle": "अपना ऑर्डर खोजें",
+      "noCredentialBody": "सुरक्षित ऐक्सेस लिंक माँगें और हम उसे उसी पते पर भेजेंगे जिससे ऑर्डर किया गया था।",
+      "title": "आपका ऑर्डर",
+      "loading": "आपका ऑर्डर लोड हो रहा है।",
+      "fullFailed": "हम यहाँ से यह ऑर्डर नहीं खोल सके। नया ऐक्सेस लिंक माँगें और फिर से कोशिश करें।",
+      "boundedFailed": "हम यहाँ से यह ऑर्डर नहीं पढ़ सके।",
+      "confirmEmailBody": "पूरा ऑर्डर देखने के लिए अपना ईमेल पता सत्यापित करें, जिसमें आपने कितना भुगतान किया और वह कहाँ जा रहा है यह भी शामिल है।",
+      "confirmEmailAction": "मेरा ईमेल पता सत्यापित करें",
+      "claimAction": "इन ऑर्डर को Oxy में सहेजें",
+      "signOut": "इस ऑर्डर से साइन आउट करें"
+    },
+    "recover": {
+      "pageTitle": "अपना ऑर्डर खोजें — Mercaria",
+      "sentTitle": "अपना इनबॉक्स देखें",
+      "sentBody": "लिंक एक बार काम करता है और जल्द ही समाप्त हो जाता है। अगर यह समाप्त हो गया है, तो दूसरा माँगें।",
+      "title": "अपना ऑर्डर खोजें",
+      "body": "वह ईमेल पता दर्ज करें जिससे ऑर्डर किया गया था और हम उस पर एक सुरक्षित लिंक भेजेंगे। हम केवल उसी पते पर भेज सकते हैं।",
+      "emailPlaceholder": "you@example.com",
+      "emailLabel": "ईमेल पता",
+      "orderNumberPlaceholder": "ऑर्डर नंबर (वैकल्पिक)",
+      "orderNumberLabel": "ऑर्डर नंबर, वैकल्पिक",
+      "sending": "भेजा जा रहा है",
+      "networkError": "हम अभी Mercaria तक नहीं पहुँच सके। कृपया फिर से कोशिश करें।"
+    }
+  },
+  "compare": {
+    "acrossCategories": "ये अलग-अलग तरह के उत्पाद हैं, इसलिए सिर्फ़ वे %{count} बातें तुलना में हैं जो सभी के लिए दर्ज हैं।",
+    "basketFailed": "यह टोकरी नहीं बनाई जा सकी।",
+    "channel": {
+      "externalOnly": "सिर्फ़ दुकानें",
+      "mixed": "कहीं से भी",
+      "nativeOnly": "सिर्फ़ Mercaria",
+      "officialOnly": "सिर्फ़ आधिकारिक चैनल"
+    },
+    "channelLabel": "चैनल",
+    "choiceA11y": "%{label}: %{choice}",
+    "comparingA11y": "तुलना हो रही है",
+    "comparisonFailed": "यह तुलना नहीं बनाई जा सकी।",
+    "conditionLabel": "हालत",
+    "gaps": "%{count} बातें इन उत्पादों के लिए दर्ज नहीं हैं।",
+    "heading": "तुलना",
+    "noSharedFacts": "इन सभी उत्पादों के बारे में कुछ भी साझा रूप से दर्ज नहीं है, इसलिए अभी इनकी तुलना करने को कुछ नहीं है।",
+    "notice": {
+      "addingToCart": "जाँच हो गई। ये वस्तुएँ आपकी Mercaria टोकरी में जोड़ी जा रही हैं।",
+      "noDestination": "उस दुकान के लिए हमारे पास अभी कोई गंतव्य नहीं है।",
+      "pricesChanged": "आपके पढ़ते समय क़ीमतें बदल गईं। दोबारा गणना हो रही है।"
+    },
+    "objective": {
+      "allNative": "Mercaria पर ख़रीदें",
+      "cheapestKnownItemPrices": "सबसे सस्ती वस्तुएँ",
+      "cheapestKnownTotal": "डिलीवरी सहित सबसे सस्ता",
+      "fastestKnownDelivery": "सबसे तेज़ डिलीवरी",
+      "fewestMerchants": "सबसे कम विक्रेता"
+    },
+    "objectiveLabel": "लक्ष्य",
+    "pageTitle": "तुलना · Mercaria",
+    "pickTwo": "तुलना के लिए कम से कम दो उत्पाद चुनें — खोज से या किसी उत्पाद के पन्ने से।",
+    "planningA11y": "योजना बन रही है",
+    "whereToBuy": "कहाँ से ख़रीदें"
+  },
+  "priceAlerts": {
+    "create": {
+      "basisItemPrice": "वस्तु की क़ीमत",
+      "basisKnownTotal": "डिलीवरी सहित",
+      "bestRightNow": "अभी सबसे अच्छा: %{price}",
+      "failed": "वह अलर्ट नहीं बनाया जा सका",
+      "heading": "क़ीमत घटे तो मुझे बताएँ",
+      "knownTotalNote": "सिर्फ़ वही ऑफ़र मेल खा सकते हैं जिनकी डिलीवरी लागत प्रकाशित है।",
+      "noPricedOffer": "अभी क़ीमत वाला कोई ऑफ़र नहीं है (%{count} ऑफ़र)",
+      "nothingOnSale": "यह अभी कहीं भी बिक्री पर नहीं है। फिर भी आप अलर्ट लगा सकते हैं।",
+      "submit": "अलर्ट बनाएँ",
+      "submitA11y": "यह क़ीमत अलर्ट बनाएँ",
+      "submitting": "बनाया जा रहा है…",
+      "targetPlaceholder": "%{currency} में लक्ष्य",
+      "targetPrice": "लक्ष्य क़ीमत"
+    },
+    "empty": {
+      "body": "जिस उत्पाद पर आपकी नज़र है, उसके पन्ने से एक लगाएँ और क़ीमत घटते ही हम बता देंगे।",
+      "title": "अभी कोई क़ीमत अलर्ट नहीं है"
+    },
+    "heading": "क़ीमत अलर्ट",
+    "pageTitle": "क़ीमत अलर्ट · Mercaria",
+    "signedOut": {
+      "body": "अलर्ट आपके खाते में रहते हैं, इसलिए हर डिवाइस पर आपके साथ चलते हैं।",
+      "signIn": "साइन इन करें",
+      "title": "क़ीमत अलर्ट लगाने के लिए साइन इन करें"
+    }
+  },
+  "saved": {
+    "empty": {
+      "subtitle": "किसी उत्पाद पर दिल दबाएँ और उसकी क़ीमत पर नज़र रखें, या जब बिलकुल वही वस्तु चाहिए हो तो उस लिस्टिंग को सहेज लें।",
+      "title": "अभी कुछ सहेजा नहीं गया"
+    },
+    "error": {
+      "subtitle": "अपना कनेक्शन जाँचें और फिर कोशिश करें।",
+      "title": "आपकी सहेजी गई वस्तुएँ लोड नहीं हो सकीं"
+    },
+    "heading": "सहेजे गए",
+    "loadMoreA11y": "और सहेजी गई वस्तुएँ लोड करें",
+    "loading": "लोड हो रहा है…",
+    "pageTitle": "सहेजे गए · Mercaria",
+    "showMore": "और दिखाएँ",
+    "signedOut": {
+      "body": "सहेजे गए उत्पाद हर विक्रेता की क़ीमत और उपलब्धता पर, आपके सभी डिवाइस पर नज़र रखते हैं।",
+      "signIn": "साइन इन करें",
+      "title": "चीज़ें सहेजने के लिए साइन इन करें"
+    }
+  },
+  "watchlists": {
+    "atLimit": "आपके पास अधिकतम %{count} सूचियाँ हो सकती हैं",
+    "basket": {
+      "basisDelivered": "डिलीवरी सहित · हर वस्तु का अलग-अलग न्यूनतम",
+      "basisItemPrice": "डिलीवरी से पहले · हर वस्तु का अलग-अलग न्यूनतम",
+      "complete": "सभी %{count} वस्तु(ओं) की क़ीमत निकल गई।",
+      "empty": "इस सूची में कुछ जोड़ें और देखें कि कितना ख़र्च होगा।",
+      "noPrice": "अभी कोई क़ीमत नहीं",
+      "nonePriced": "यहाँ मौजूद %{count} वस्तु(ओं) में से किसी की भी क़ीमत अभी नहीं निकाली जा सकी।",
+      "partial": "%{total} में से %{included} वस्तुओं की क़ीमत निकली। %{excluded} की नहीं निकल सकी; वे कारण के साथ नीचे दी गई हैं।",
+      "title": "मौजूदा टोकरी"
+    },
+    "createA11y": "वॉचलिस्ट बनाएँ",
+    "detail": {
+      "empty": "इस सूची में अभी कुछ नहीं है। किसी उत्पाद के पन्ने से उसे जोड़ें और नज़र रखना शुरू करें।",
+      "keepBothA11y": "दोनों उत्पाद इस सूची में रखें",
+      "keepBothFor": "%{product} के लिए दोनों रखें",
+      "loadError": "वह वॉचलिस्ट लोड नहीं हो सकी।",
+      "pageTitle": "%{name} · Mercaria",
+      "pageTitleFallback": "वॉचलिस्ट · Mercaria",
+      "priceError": "इस सूची की क़ीमत अभी नहीं निकाली जा सकी। आपकी सारी वस्तुएँ यहीं हैं।",
+      "priceUnavailable": "क़ीमत उपलब्ध नहीं",
+      "saveMeasurement": "यह माप सहेजें",
+      "saving": "सहेजा जा रहा है…",
+      "splitPrompt": "इनमें से एक उत्पाद दो में बँट गया है। चुनें कि क्या होना चाहिए।"
+    },
+    "duplicate": "नक़ल बनाएँ",
+    "duplicateList": "%{name} की नक़ल बनाएँ",
+    "empty": "अभी कोई सूची नहीं है। एक बनाएँ और जिन उत्पादों की तुलना कर रहे हैं उन्हें जोड़ें।",
+    "heading": "वॉचलिस्ट",
+    "intro": "जो ख़रीदने की योजना है उसे एक साथ रखें और देखें कि पूरे सेट का कितना ख़र्च होगा।",
+    "item": {
+      "changeDown": "आपके पिछले सहेजे माप से %{amount} कम",
+      "changeUnchanged": "आपके पिछले सहेजे माप से कोई बदलाव नहीं",
+      "changeUp": "आपके पिछले सहेजे माप से %{amount} ज़्यादा",
+      "delivery": "डिलीवरी %{amount}",
+      "deliveryUnknown": "यह विक्रेता डिलीवरी लागत प्रकाशित नहीं करता",
+      "openProduct": "यह उत्पाद खोलें",
+      "priceLine": "%{unitPrice} प्रति नग · %{quantity} के लिए %{lineTotal}",
+      "remove": "हटाएँ",
+      "removeA11y": "इस वस्तु को वॉचलिस्ट से हटाएँ",
+      "targetReached": "आपके %{amount} के लक्ष्य पर या उससे नीचे",
+      "unresolved": {
+        "allOffersRetired": "इसके सभी ऑफ़र समाप्त हो चुके हैं। कोई नया आते ही हम फिर से नज़र रखेंगे।",
+        "ambiguousAfterSplit": "यह उत्पाद दो में बँट गया है। चुनें कि आपका मतलब किससे था।",
+        "evaluationFailed": "इस वस्तु की क़ीमत अभी नहीं निकाली जा सकी।",
+        "noEligibleOffer": "इस वस्तु का कोई ऑफ़र आपके फ़िल्टर से मेल नहीं खाता। उन्हें थोड़ा चौड़ा करके देखें।",
+        "noOffersRecorded": "इसे अभी कोई नहीं बेच रहा।",
+        "preferredVariantRetired": "आपने जो सटीक कॉन्फ़िगरेशन चुना था वह अब बिक्री पर नहीं है। कोई दूसरा चुनें।",
+        "priceNotConvertible": "हम यह क़ीमत आपकी सूची की मुद्रा में नहीं दिखा सकते।",
+        "productMergedIntoExistingItem": "यह उत्पाद इस सूची की दूसरी प्रविष्टि में मिला दिया गया है। इसे हटा दें।",
+        "productUnavailable": "यह उत्पाद अब सूचीपत्र में उपलब्ध नहीं है।"
+      }
+    },
+    "listMeta": "%{count} वस्तु(एँ) · %{currency}",
+    "loadError": "आपकी वॉचलिस्ट लोड नहीं हो सकीं। अपना कनेक्शन जाँचें और फिर कोशिश करें।",
+    "newList": "नई सूची",
+    "openList": "%{name} खोलें",
+    "pageTitle": "वॉचलिस्ट · Mercaria",
+    "signedOut": {
+      "body": "निजी सूचियाँ रखने और समय के साथ उनका ख़र्च देखने के लिए साइन इन करें।",
+      "signIn": "साइन इन करें"
+    }
+  },
+  "nearby": {
+    "heading": "आस-पास उपलब्ध",
+    "intro": "वे दुकानें जिन्होंने इसे शेल्फ़ पर होने की पुष्टि की है और पिकअप देती हैं। ऑनलाइन भुगतान, ख़ुद जाकर लेना।",
+    "chooseLocationPrompt": "कोई जगह चुनें और देखें कि आपके पास की कौन-सी दुकानों में यह पिकअप के लिए है। हम इसे सिर्फ़ इसी खोज के लिए इस्तेमाल करते हैं — यह सेव नहीं होती।",
+    "loading": "आपके पास की दुकानें खोजी जा रही हैं…",
+    "error": "अभी आस-पास की उपलब्धता जाँची नहीं जा सकी। डिलीवरी पर कोई असर नहीं है।",
+    "empty": "इस जगह के पास किसी भी दुकान में यह अभी पिकअप के लिए नहीं है। स्टॉक ख़त्म होने, उस अवधि में बंद होने, पिकअप के लिए प्रकाशित न होने, या हाल में स्टॉक की पुष्टि न होने पर दुकानें नहीं दिखतीं।",
+    "moreBeyond": "ये सबसे पास की %{count} हैं। इससे आगे और भी दुकानें हैं, और ऊपर का क्रम सिर्फ़ दिखाई गई दुकानों पर लागू होता है।",
+    "collectionOptionsLabel": "पिकअप के लिए दुकान चुनें",
+    "collectInPerson": "ख़ुद जाकर लें",
+    "selectHere": "यहाँ से लें",
+    "order": {
+      "nearest": "पहले सबसे पास वाली",
+      "lowestPrice": "पहले सबसे कम क़ीमत"
+    },
+    "origin": {
+      "showingDevice": "आपके डिवाइस की लोकेशन के पास की दुकानें दिखाई जा रही हैं।",
+      "showingChosen": "आपकी चुनी हुई जगह के पास की दुकानें दिखाई जा रही हैं।",
+      "changeLabel": "वह जगह बदलें जिससे ये नतीजे मापे जाते हैं",
+      "change": "बदलें",
+      "clearLabel": "इन नतीजों के लिए लोकेशन का इस्तेमाल बंद करें",
+      "clear": "हटाएँ",
+      "useDeviceLabel": "पास की दुकानें खोजने के लिए मेरे डिवाइस की लोकेशन इस्तेमाल करें",
+      "checking": "जाँच हो रही है…",
+      "useMyLocation": "मेरी लोकेशन इस्तेमाल करें",
+      "choosePlaceLabel": "इसके बजाय शहर या पिन कोड चुनें",
+      "hideCityList": "शहरों की सूची छिपाएँ",
+      "chooseCity": "शहर चुनें",
+      "cityField": "शहर या पिन कोड",
+      "loadingCities": "शहर खोजे जा रहे हैं…",
+      "cityListError": "अभी शहरों की सूची लोड नहीं हो सकी।",
+      "noCityMatch": "इससे मेल खाने वाले किसी शहर में यह पिकअप के लिए स्टॉक में नहीं है।",
+      "noStockAnywhere": "अभी किसी दुकान में यह पिकअप के लिए उपलब्ध नहीं है।",
+      "searchNear": "%{place} के पास खोजें",
+      "shopsWithStock": {
+        "one": "स्टॉक वाली %{count} दुकान",
+        "other": "स्टॉक वाली %{count} दुकानें"
+      },
+      "refusal": {
+        "permissionDenied": "कोई बात नहीं — लोकेशन बंद ही रहेगी। नीचे शहर या पिन कोड लिखें, हम वहीं देख लेंगे।",
+        "unsupported": "यह ऐप डिवाइस की लोकेशन नहीं पढ़ सकता। नीचे शहर या पिन कोड लिखें, हम वहीं देखेंगे।",
+        "unavailable": "आपका डिवाइस अभी लोकेशन तय नहीं कर सका। नीचे शहर या पिन कोड लिखें, या फिर से कोशिश करें।"
+      }
+    },
+    "screen": {
+      "emptyTitle": "लेने के लिए कुछ नहीं",
+      "emptyBody": "कोई प्रोडक्ट खोलें और “ख़ुद जाकर लें” चुनें, ताकि आपके पास की वे दुकानें दिखें जिनमें यह है।",
+      "backToMercaria": "Mercaria पर वापस",
+      "documentTitle": "ख़ुद जाकर लें · Mercaria",
+      "addedToCart": "आपकी कार्ट में जुड़ गया। चेकआउट के लिए कार्ट खोलें।"
+    }
+  },
+  "store": {
+    "shopAll": "सब देखें",
+    "collections": "कलेक्शन",
+    "report": "स्टोर की शिकायत करें",
+    "loadError": "यह स्टोर लोड नहीं हो सका। बाद में कोशिश करें।",
+    "documentTitle": "%{store} — Mercaria",
+    "documentTitleFallback": "Mercaria",
+    "filters": {
+      "inStock": "स्टॉक में"
+    },
+    "sort": {
+      "label": "प्रोडक्ट क्रमबद्ध करें",
+      "best": "सबसे ज़्यादा बिकने वाले",
+      "newest": "सबसे नए",
+      "priceAsc": "क़ीमत: कम से ज़्यादा",
+      "priceDesc": "क़ीमत: ज़्यादा से कम"
+    },
+    "products": {
+      "heading": "प्रोडक्ट",
+      "searchPlaceholder": "%{store} में खोजें…",
+      "loadingLabel": "प्रोडक्ट लोड हो रहे हैं",
+      "loadError": "प्रोडक्ट लोड नहीं हो सके। रीफ़्रेश के लिए खींचें या फिर कोशिश करें।",
+      "empty": "आपके फ़िल्टर से कोई प्रोडक्ट मेल नहीं खाता।",
+      "loadMore": "और लोड करें",
+      "loadMoreLabel": "और प्रोडक्ट लोड करें"
+    },
+    "policies": {
+      "heading": "नीतियाँ",
+      "privacy": "प्राइवेसी नीति",
+      "returns": "रिटर्न नीति"
+    },
+    "menu": {
+      "dialogLabel": "%{store} का मेन्यू",
+      "openLabel": "%{store} का मेन्यू खोलें",
+      "close": "%{store} का मेन्यू बंद करें",
+      "share": "%{store} शेयर करें"
+    },
+    "follow": {
+      "follow": "फ़ॉलो करें",
+      "followStore": "%{store} को फ़ॉलो करें",
+      "unfollowStore": "%{store} को अनफ़ॉलो करें"
+    },
+    "reviews": {
+      "helpful": "मददगार",
+      "loading": "रिव्यू लोड हो रहे हैं…",
+      "none": "अभी कोई रिव्यू नहीं",
+      "viewProduct": "%{product} देखें",
+      "ratingsCount": "%{formattedCount} रेटिंग",
+      "ratingsWithScope": "%{formattedCount} रेटिंग · %{scopeLabel}",
+      "fallbackAuthor": "सत्यापित ख़रीदार",
+      "viewA11yLabel": "इस स्टोर की सेवा की समीक्षाएँ देखें"
+    }
+  },
+  "offer": {
+    "heading": "ऑफ़र",
+    "comparisonUnavailable": "यहाँ कीमतों की तुलना फ़िलहाल उपलब्ध नहीं है. इससे यह पता नहीं चलता कि कोई इस उत्पाद को बेच रहा है या नहीं.",
+    "noneShowable": "हमें इस उत्पाद के ऑफ़र की जानकारी है, पर अभी कोई दिखाया नहीं जा सकता.",
+    "none": "इस उत्पाद के लिए फ़िलहाल कोई ऑफ़र नहीं है.",
+    "group": {
+      "heading": "%{title} (%{count})",
+      "title": {
+        "officialDirect": "आधिकारिक स्टोर",
+        "newRetail": "दूसरे रिटेलर से नया",
+        "openBox": "खुला डिब्बा",
+        "refurbished": "रीफर्बिश्ड",
+        "used": "पुराना",
+        "forParts": "पुर्ज़ों के लिए या काम नहीं करता",
+        "conditionUnknown": "स्थिति नहीं बताई गई"
+      },
+      "explanation": {
+        "officialDirect": "ऐसे चैनल जिन्हें ब्रांड ने अपना बताया है.",
+        "conditionUnknown": "इन विक्रेताओं ने नहीं बताया कि सामान किस हालत में है.",
+        "forParts": "काम न करने की हालत में बेचा जा रहा है — मरम्मत, स्क्रैप या पुर्ज़ों के लिए."
+      }
+    },
+    "showFewer": "कम दिखाएँ",
+    "showAll": {
+      "one": "सभी %{count} दिखाएँ",
+      "other": "सभी %{count} दिखाएँ"
+    },
+    "showFewerA11y": "कम ऑफ़र दिखाएँ · %{group}",
+    "showAllA11y": {
+      "one": "%{count} ऑफ़र दिखाएँ · %{group}",
+      "other": "सभी %{count} ऑफ़र दिखाएँ · %{group}"
+    },
+    "returnWindow": {
+      "one": "विक्रेता %{count} दिन की वापसी अवधि बताता है.",
+      "other": "विक्रेता %{count} दिनों की वापसी अवधि बताता है."
+    },
+    "buyOnMercaria": "Mercaria पर खरीदें",
+    "openSellerListingA11y": "इस विक्रेता की लिस्टिंग खोलें",
+    "viewListing": "लिस्टिंग देखें",
+    "soldByOn": "%{channel} पर %{seller} द्वारा बेचा गया",
+    "visitProfileA11y": "%{name} की प्रोफ़ाइल देखें",
+    "sellerNotIdentified": "विक्रेता की पहचान नहीं हुई",
+    "listedAt": "सूचीबद्ध कीमत %{amount}",
+    "priceNotAvailable": "कीमत उपलब्ध नहीं",
+    "priceNotConvertible": "हम इस कीमत को आपकी मुद्रा में नहीं बदल सकते.",
+    "priceNotPublished": "इस विक्रेता ने कोई कीमत नहीं बताई है.",
+    "deliveryUnknownWithPickup": "डिलीवरी शुल्क अज्ञात · लेने की सुविधा उपलब्ध",
+    "deliveryUnknown": "डिलीवरी शुल्क अज्ञात",
+    "freeDelivery": "मुफ़्त डिलीवरी",
+    "deliveryCost": "डिलीवरी %{cost}",
+    "freeDeliveryWithWindow": "मुफ़्त डिलीवरी · %{min}–%{max} दिन",
+    "deliveryCostWithWindow": "डिलीवरी %{cost} · %{min}–%{max} दिन",
+    "availability": {
+      "inStock": "स्टॉक में",
+      "outOfStock": "स्टॉक में नहीं",
+      "preorder": "प्री-ऑर्डर",
+      "unavailable": "अनुपलब्ध",
+      "notPublished": "उपलब्धता नहीं बताई गई"
+    },
+    "availabilityChecked": "%{availability} · %{date} को जाँचा गया",
+    "availabilityCheckedStale": "%{availability} · %{date} को जाँचा गया · हाल में हम इसे दोबारा नहीं जाँच पाए",
+    "goToHost": "%{host} पर जाएँ",
+    "continueOnHost": "आप %{host} पर आगे बढ़ेंगे. Mercaria को कमीशन मिल सकता है.",
+    "cannotOpenYetA11y": "यह ऑफ़र अभी खोला नहीं जा सकता",
+    "openingNotAvailableA11y": "%{host} खोलना अभी उपलब्ध नहीं है",
+    "noLinkPublished": "कोई लिंक नहीं दिया गया",
+    "noDestination": "इस विक्रेता ने कीमत दी है पर कोई लिंक नहीं.",
+    "outboundNotAvailable": "दूसरी साइटों के ऑफ़र खोलना अभी उपलब्ध नहीं है.",
+    "blocked": {
+      "outOfStock": "इस विक्रेता के पास स्टॉक नहीं है.",
+      "notPaymentReady": "यह विक्रेता अभी भुगतान नहीं ले सकता.",
+      "notAvailable": "यह ऑफ़र अभी खरीदा नहीं जा सकता."
+    }
+  },
+  "referral": {
+    "documentTitle": "रेफ़रल पार्टनर · Mercaria",
+    "title": "रेफ़रल पार्टनर",
+    "loadError": "हम आपका रेफ़रल डैशबोर्ड लोड नहीं कर सके। कृपया दोबारा कोशिश करें।",
+    "signedOut": {
+      "title": "अपना रेफ़रल पार्टनर खाता देखने के लिए साइन इन करें",
+      "body": "आपके लिंक, उनसे हुई कमाई और आपको भुगतान कब मिलेगा।",
+      "action": "साइन इन करें"
+    },
+    "standing": {
+      "title": "आपकी स्थिति",
+      "earning": "आप कमा रहे हैं। अब आप जो रेफ़रल लाएँगे, वे आपके खाते में जुड़ेंगे।",
+      "notEarning": "आपकी कमाई अभी शुरू नहीं हुई है।",
+      "nothingOutstanding": "कुछ भी बाकी नहीं है।",
+      "beforePaid": "भुगतान मिलने से पहले:",
+      "accrualContinues": "जब तक ये बाकी हैं, तब तक भी आपकी कमाई जुड़ती रहती है। कुछ भी समाप्त नहीं होता।"
+    },
+    "programs": {
+      "title": "कार्यक्रम",
+      "empty": "इस समय आपके लिए कोई रेफ़रल कार्यक्रम उपलब्ध नहीं है।",
+      "attributionWindow": "एट्रिब्यूशन अवधि: %{days} दिन।",
+      "termsAccepted": "आपने ये शर्तें स्वीकार कर ली हैं।",
+      "termsNotAccepted": "शर्तें अभी स्वीकार नहीं की गई हैं।"
+    },
+    "earnings": {
+      "title": "कमाई",
+      "empty": "अभी तक कुछ भी नहीं कमाया गया है।",
+      "availableNow": "अभी भुगतान के लिए उपलब्ध: %{amount}",
+      "availableNowWithMinimum": "अभी भुगतान के लिए उपलब्ध: %{amount} (न्यूनतम %{minimum})",
+      "reconciling": "इन आँकड़ों का मिलान किया जा रहा है। कुछ भी नहीं खोता — बहीखाता ही अंतिम प्रमाण है और सहायता टीम इसे ट्रैक कर सकती है।",
+      "pendingConversions": {
+        "one": "%{count} रेफ़रल दर्ज है और उसका मूल्य अभी तय नहीं हुआ है।",
+        "other": "%{count} रेफ़रल दर्ज हैं और उनका मूल्य अभी तय नहीं हुआ है।"
+      }
+    },
+    "payouts": {
+      "title": "भुगतान",
+      "summary": "भुगतान हर महीने होते हैं। पहचान जाँच: %{identity}। कर संबंधी जानकारी: %{tax}। भुगतान का गंतव्य: %{payout}।",
+      "readiness": {
+        "unknown": "जानकारी नहीं",
+        "pending": "प्रक्रिया में",
+        "ready": "ठीक है",
+        "blocked": "रुकावट है"
+      },
+      "destinationEnding": "%{last4} पर समाप्त होने वाला गंतव्य",
+      "noDestination": "अभी तक कोई भुगतान गंतव्य नहीं है।",
+      "none": "अभी तक कोई भुगतान नहीं हुआ है।"
+    },
+    "performance": {
+      "title": "प्रदर्शन",
+      "totals": "%{clicks} क्लिक · %{referrals} योग्य रेफ़रल, %{from} से %{through} तक",
+      "empty": "इस अवधि में कुछ भी दर्ज नहीं हुआ।",
+      "row": "%{label}: %{clicks} क्लिक · %{referrals} रेफ़रल"
+    },
+    "instruments": {
+      "title": "आपके लिंक और कोड",
+      "empty": "आपके पास अभी कोई रेफ़रल कोड नहीं है।",
+      "disclosureIntro": "हर लिंक के साथ यह ज़रूर प्रकाशित करें:"
+    },
+    "support": {
+      "title": "सहायता",
+      "appeal": "आप अपनी भागीदारी के फ़ैसले के ख़िलाफ़ अपील कर सकते हैं।",
+      "disputes": "एट्रिब्यूशन, रिवर्सल या भुगतान से जुड़े विवाद यहाँ अभी नहीं निपटाए जाते। सहायता टीम से संपर्क करें और ऊपर दिखाई गई तारीख़ और राशि बताएँ।",
+      "noEmails": "हम अभी रेफ़रल से जुड़े ईमेल नहीं भेजते, इसलिए बदलावों के लिए यह पेज देखते रहें।"
+    }
+  },
+  "brand": {
+    "wordmark": "Mercaria"
+  },
+  "sell": {
+    "sellYours": {
+      "thisOne": "ऐसा ही बेचें",
+      "yours": "अपना बेचें"
+    },
+    "fact": {
+      "fromProduct": "प्रोडक्ट से — यह आपकी चीज़ के बारे में नहीं है",
+      "yourAnswer": "आपका जवाब",
+      "yourAnswerNotConfirmed": "आपका जवाब, अभी पुष्टि नहीं हुई"
+    },
+    "guidance": {
+      "heading": "कीमत का अंदाज़ा",
+      "scope": "%{currency} · %{since} से",
+      "scopeWithMarket": "%{market} · %{currency} · %{since} से",
+      "segmentStats": "आम तौर पर %{median} · %{count} लिस्टिंग · भरोसा %{confidence}",
+      "disclaimer": "यह अंदाज़ा आपकी कीमत कभी तय नहीं करता, बिक्री की गारंटी नहीं देता, और आपको किसी भी कीमत पर लिस्ट करने से नहीं रोकता।",
+      "segment": {
+        "currentSameCondition": "मिलती-जुलती हालत, अभी बिक्री पर",
+        "currentNew": "नया, अभी बिक्री पर",
+        "currentRefurbished": "रीफर्बिश्ड, अभी बिक्री पर",
+        "recentSoldNative": "Mercaria पर हाल ही में बिका"
+      },
+      "insufficient": {
+        "noObservations": "अभी तुलना करने लायक कोई लिस्टिंग नहीं",
+        "belowSampleFloor": "अभी तुलना करने लायक पर्याप्त लिस्टिंग नहीं",
+        "belowSellerFloor": "रेंज दिखाने के लिए अलग-अलग विक्रेता पर्याप्त नहीं",
+        "fallback": "अभी पर्याप्त डेटा नहीं"
+      },
+      "confidence": {
+        "low": "कम",
+        "medium": "मध्यम",
+        "high": "ज़्यादा"
+      }
+    },
+    "index": {
+      "documentTitle": "सामान बेचें · Mercaria",
+      "heading": "आप क्या बेच रहे हैं?",
+      "startingDraft": "आपकी लिस्टिंग तैयार की जा रही है…",
+      "signIn": {
+        "heading": "बेचने के लिए साइन इन करें",
+        "body": "आपकी लिस्टिंग आपके Oxy खाते से पब्लिश होती है, ताकि खरीदार देख सकें कि वे किससे खरीद रहे हैं।",
+        "action": "साइन इन करें"
+      },
+      "scan": {
+        "label": "बारकोड स्कैन करें",
+        "accessibilityLabel": "बारकोड या प्रोडक्ट पहचानकर्ता",
+        "placeholder": "बारकोड लिखें या स्कैन करें"
+      },
+      "search": {
+        "label": "या कैटलॉग में खोजें",
+        "accessibilityLabel": "प्रोडक्ट खोजें",
+        "placeholder": "जैसे iPhone 13 128 GB"
+      },
+      "candidate": {
+        "matchedByBarcode": "बारकोड से मिला",
+        "foundBySearch": "खोज से मिला — देख लें कि यह वही चीज़ है"
+      },
+      "unmatched": {
+        "heading": "कुछ अनोखा",
+        "body": "हाथ से बना, कलेक्शन की चीज़, या कैटलॉग में नहीं। यह बाकी सब की तरह ही लिस्ट होगा और खोज में मिलेगा।"
+      },
+      "drafts": {
+        "heading": "जहाँ छोड़ा था वहीं से जारी रखें",
+        "untitled": "बिना शीर्षक की लिस्टिंग",
+        "savedAt": "सेव किया %{when} · चरण %{step}"
+      }
+    },
+    "draft": {
+      "documentTitle": "%{title} · Mercaria",
+      "untitled": "आपकी लिस्टिंग",
+      "publish": "लिस्टिंग पब्लिश करें",
+      "publishing": "पब्लिश हो रहा है…",
+      "loadError": {
+        "title": "हम यह ड्राफ़्ट नहीं खोल सके",
+        "body": "शायद यह पब्लिश हो चुका है या हटा दिया गया है।"
+      },
+      "product": {
+        "heading": "प्रोडक्ट",
+        "explanation": "ये जानकारी Mercaria के कैटलॉग से आती है। इससे मॉडल पहचाना जाता है — आपकी चीज़ की हालत, साथ के सामान या असलियत के बारे में यह कुछ नहीं कहती।",
+        "titleLabel": "शीर्षक",
+        "brandLabel": "ब्रांड",
+        "modelLabel": "मॉडल",
+        "notMine": "यह मेरा प्रोडक्ट नहीं है"
+      },
+      "item": {
+        "heading": "आपकी चीज़",
+        "titleLabel": "लिस्टिंग का शीर्षक",
+        "titleOverrideNote": "आपका शीर्षक आपकी लिस्टिंग पर दिखता है। इससे प्रोडक्ट नहीं बदलता।",
+        "descriptionLabel": "विवरण",
+        "conditionLabel": "हालत",
+        "photoRequirement": {
+          "one": "इस हालत के लिए आपकी असली चीज़ की कम से कम %{count} तस्वीर चाहिए। कैटलॉग और कंपनी की तस्वीरें इनकी जगह नहीं ले सकतीं।",
+          "other": "इस हालत के लिए आपकी असली चीज़ की कम से कम %{count} तस्वीरें चाहिए। कैटलॉग और कंपनी की तस्वीरें इनकी जगह नहीं ले सकतीं।"
+        }
+      },
+      "placement": {
+        "heading": "यह कहाँ दिखेगी",
+        "onProductPage": "प्रोडक्ट पेज पर, दूसरे विक्रेताओं के साथ",
+        "ownSurfacesOnly": "खोज में और आपकी विक्रेता प्रोफ़ाइल पर — प्रोडक्ट पेज पर नहीं",
+        "localResults": "आपके चुने हुए इलाके के आसपास, लोकल नतीजों में"
+      },
+      "blocked": {
+        "titleMissing": "अपनी लिस्टिंग को एक शीर्षक दें।",
+        "descriptionMissing": "बताएं कि आप क्या बेच रहे हैं।",
+        "categoryMissing": "एक श्रेणी चुनें।",
+        "conditionMissing": "बताएं कि आपकी चीज़ किस हालत में है।",
+        "itemPhotosMissing": "अपनी असली चीज़ की तस्वीरें जोड़ें।",
+        "defectsNotAcknowledged": "पुष्टि करें कि आपने खराबी और गायब हिस्सों की जानकारी दे दी है।",
+        "refurbisherNotNamed": "बताएं कि चीज़ को किसने रीफर्बिश किया।",
+        "priceMissing": "कीमत तय करें।",
+        "quantityInvalid": "मात्रा कम से कम एक होनी चाहिए।",
+        "matchVariantMissing": "चुनें कि आप प्रोडक्ट का कौन-सा संस्करण बेच रहे हैं।",
+        "matchReviewRequired": "हम पुष्टि नहीं कर सके कि यह वही प्रोडक्ट है। आगे बढ़ने के लिए प्रोडक्ट मिलान बदलें या हटाएं।",
+        "pickupNotSupported": "पिकअप अभी उपलब्ध नहीं है — पब्लिश करने के लिए इसे हटाएं।",
+        "categoryForbidsCondition": "यह श्रेणी उस हालत को स्वीकार नहीं करती।",
+        "alreadyPublished": "यह लिस्टिंग पहले से पब्लिश है।",
+        "draftDiscarded": "यह ड्राफ़्ट हटा दिया गया था।"
+      },
+      "warning": {
+        "priceFarAboveGuidance": "आपकी कीमत मिलती-जुलती चीज़ों की कीमत से काफ़ी ज़्यादा है। फिर भी आप इसे पब्लिश कर सकते हैं।",
+        "priceFarBelowGuidance": "आपकी कीमत मिलती-जुलती चीज़ों की कीमत से काफ़ी कम है। फिर भी आप इसे पब्लिश कर सकते हैं।"
+      }
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "expand": "साइडबार खोलें",
+      "collapse": "साइडबार बंद करें",
+      "accountMenu": "खाता मेन्यू"
+    },
+    "footer": {
+      "brand": "Mercaria",
+      "copyright": "© %{year} Mercaria, Oxy द्वारा",
+      "links": {
+        "about": "परिचय",
+        "help": "मदद",
+        "privacy": "गोपनीयता",
+        "terms": "शर्तें"
+      }
+    },
+    "errorBoundary": {
+      "title": "कुछ गड़बड़ हो गई",
+      "body": "एक अनपेक्षित त्रुटि हुई। आप दोबारा कोशिश कर सकते हैं, और अगर समस्या बनी रहती है तो हमारी टीम को पहले ही सूचित किया जा चुका है।"
+    },
+    "notFound": {
+      "headTitle": "404 - पेज नहीं मिला | Mercaria",
+      "screenTitle": "अरे!",
+      "message": "यह स्क्रीन मौजूद नहीं है।",
+      "goHome": "होम स्क्रीन पर जाएँ!"
+    }
+  },
+  "address": {
+    "form": {
+      "recipientNameLabel": "पाने वाले का नाम",
+      "recipientNamePlaceholder": "अंजलि शर्मा",
+      "line1Label": "पता पंक्ति 1",
+      "line1Placeholder": "एम. जी. रोड 1",
+      "line2Label": "पता पंक्ति 2 (वैकल्पिक)",
+      "line2Placeholder": "फ्लैट 4बी",
+      "cityLabel": "शहर",
+      "cityPlaceholder": "मुंबई",
+      "regionLabel": "राज्य (वैकल्पिक)",
+      "regionPlaceholder": "MH",
+      "postalCodeLabel": "पिन कोड",
+      "postalCodePlaceholder": "400001",
+      "countryLabel": "देश",
+      "countryPlaceholder": "IN",
+      "phoneLabel": "फ़ोन (वैकल्पिक)",
+      "phonePlaceholder": "+91 90000 00000",
+      "submit": "पता सहेजें"
+    },
+    "list": {
+      "default": "डिफ़ॉल्ट",
+      "deleteLabel": "पता हटाएँ",
+      "setDefault": "डिफ़ॉल्ट बनाएँ",
+      "signedOut": "अपने शिपिंग पते प्रबंधित करने के लिए साइन इन करें।",
+      "empty": "आपने अभी तक कोई पता सहेजा नहीं है।",
+      "newAddress": "नया पता",
+      "addAddress": "पता जोड़ें"
+    },
+    "toast": {
+      "saved": "पता सहेजा गया",
+      "saveFailed": "पता सहेजा नहीं जा सका",
+      "updateFailed": "पता अपडेट नहीं किया जा सका",
+      "removed": "पता हटा दिया गया",
+      "removeFailed": "पता हटाया नहीं जा सका"
+    }
+  },
+  "shoppingAgents": {
+    "headTitle": "शॉपिंग एजेंट · Mercaria",
+    "title": "शॉपिंग एजेंट",
+    "intro": "वे चीज़ें जिन पर आपने Mercaria से नज़र रखने को कहा है। हर एजेंट कैटलॉग देखता रहता है और जब आपकी माँगी हुई बात पूरी होती है तो आपको बताता है।",
+    "loadError": "आपके शॉपिंग एजेंट लोड नहीं हो सके। अपना कनेक्शन जाँचें और दोबारा कोशिश करें।",
+    "findings": {
+      "asking": "एक बार और देखने को कहा जा रहा है…",
+      "intro": "इस एजेंट ने जो कुछ देखा है, सब यहाँ है — सबसे नया पहले। पुरानी टिप्पणियाँ यहीं रहती हैं, भले ही बाद की कोई उनकी जगह ले ले।",
+      "loadError": "इस एजेंट ने जो पाया, वह लोड नहीं हो सका। आपके एजेंट पर कोई असर नहीं पड़ा है।",
+      "empty": "अभी तक कुछ नहीं मिला। यह एजेंट अगली बार जब देखेगा, पहली टिप्पणी यहाँ दिखेगी।"
+    },
+    "empty": {
+      "title": "अभी तक कोई शॉपिंग एजेंट नहीं",
+      "body": "आप जो ढूँढ़ रहे हैं उसे सहेजें और Mercaria आपके लिए कैटलॉग पर नज़र रखेगा।"
+    },
+    "signedOut": {
+      "title": "शॉपिंग एजेंट सहेजने के लिए साइन इन करें",
+      "body": "एजेंट आपके खाते के साथ रहते हैं, इसलिए वे एक डिवाइस से दूसरे डिवाइस तक आपके साथ चलते हैं।"
     }
   }
 }

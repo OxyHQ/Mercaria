@@ -105,6 +105,32 @@ function storefrontSources(): ScannedFile[] {
 }
 
 /**
+ * The storefront's twelve TRANSLATION BUNDLES.
+ *
+ * WALL 1's subject is what a screen SAYS, and #435b moved every one of those
+ * sentences out of the `.tsx` files above and into these. Scanning only the
+ * source would therefore have gone on passing while
+ * "we found you the cheapest basket across every store" sat in a bundle — the
+ * floors above would still be met, because the screens still exist and still
+ * have bytes; they just no longer contain the copy.
+ *
+ * ALL TWELVE, not `en.json`: a forbidden claim is just as prohibited in
+ * Spanish, and a translator working from a permissive brief can introduce one
+ * that never existed in English — which is the case no English-only scan can
+ * ever see.
+ */
+function storefrontBundles(): ScannedFile[] {
+  const dir = join(STOREFRONT_ROOT, 'lib', 'i18n', 'locales');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => ({
+      relative: `frontend/lib/i18n/locales/${name}`,
+      source: readFileSync(join(dir, name), 'utf8'),
+    }));
+}
+
+/**
  * Strip comments before a REACHABILITY scan.
  *
  * These modules document what they refuse to do in the same vocabulary the
@@ -144,6 +170,7 @@ const ANALYTICS_REFERENCE =
 describe('a watchlist basket is honest, private, and reaches nothing commercial', () => {
   const domain = domainSources();
   const storefront = storefrontSources();
+  const bundles = storefrontBundles();
 
   it('is not vacuous: the domain has real modules and they are not empty', () => {
     // The floor catches a renamed directory, which would otherwise make every
@@ -169,11 +196,24 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
     }
   });
 
+  it('is not vacuous about the BUNDLES, which is where the copy lives since #435b', () => {
+    // Twelve locales (#396: the storefront is the app that ships `ar`). A
+    // directory that moved would read as zero forbidden claims, which is the
+    // same answer a clean tree gives.
+    expect(
+      bundles.length,
+      'the storefront locale bundles moved; WALL 1 can no longer see the copy it forbids',
+    ).toBeGreaterThanOrEqual(12);
+    for (const file of bundles) {
+      expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+    }
+  });
+
   it('WALL 1: nothing claims a multi-store optimum, and the honest label IS present', () => {
     // RAW source, comments included: a forbidden claim written in a comment is
     // a sentence that reaches a screen the next time somebody writes copy.
-    const scanned = [...domain, ...storefront];
-    expect(scanned.length).toBeGreaterThanOrEqual(domain.length);
+    const scanned = [...domain, ...storefront, ...bundles];
+    expect(scanned.length).toBeGreaterThanOrEqual(domain.length + bundles.length);
     for (const file of scanned) {
       for (const claim of WATCHLIST_FORBIDDEN_CLAIMS) {
         expect(

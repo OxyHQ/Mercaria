@@ -92,11 +92,25 @@ export function ensureStoreFollowKind(oxyServices: OxyServices): Promise<void> {
   return registration;
 }
 
+/**
+ * The follow kind's display label, as written into Oxy's GLOBAL follow registry.
+ *
+ * Deliberately NOT localized, and not a `t()` call. This value is sent to Oxy
+ * and stored once, server-side, for every surface in the ecosystem — so
+ * resolving it against the device locale would mean whichever device happened
+ * to register last writes ITS language into a registry every other Oxy app
+ * reads. That is a cross-app data write wearing a translation's clothing.
+ *
+ * Localizing the word a Mercaria SCREEN shows is a different thing and is done
+ * at those screens' own render sites.
+ */
+const STORE_FOLLOW_KIND_REGISTRY_LABEL = 'Store';
+
 async function registerStoreFollowKind(oxyServices: OxyServices): Promise<void> {
   await oxyServices.claimFollowNamespace(FOLLOW_NAMESPACE);
   await oxyServices.registerFollowKind({
     kind: STORE_FOLLOW_KIND,
-    label: 'Store',
+    label: STORE_FOLLOW_KIND_REGISTRY_LABEL,
     capabilities: {
       // NOT `subscribe`, which would be the natural word anywhere else:
       // "Subscribe" is already taken in Mercaria for a recurring PURCHASE

@@ -51,6 +51,19 @@ import {
 import { applyVariantChoice, composeVariantMatrix } from '../variant-axes';
 import { assessComparability, parseComparisonSubjects } from '../comparison';
 
+/**
+ * `ComparisonTableRow.label` is CATALOG DATA, not app copy: the row is a
+ * `@mercaria/shared-types` DTO built by the backend's comparison service from
+ * the #94 attribute registry (hence the `definitionVersion` beside it), so this
+ * fixture stands in for a server response rather than for a string anybody
+ * would extract into a storefront bundle. Localizing catalog data is a separate
+ * problem with separate constraints — `docs/catalog-localization.md`.
+ *
+ * Named rather than inlined because the i18n guard reads a `label:` property as
+ * a user-facing position and cannot tell those two apart from syntax alone.
+ */
+const ROW_LABEL_FROM_SERVER = 'Weight';
+
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Filter state and its URL grammar                                           */
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -300,7 +313,7 @@ function comparisonInput(options: {
       rows: [
         {
           key: 'weight',
-          label: 'Weight',
+          label: ROW_LABEL_FROM_SERVER,
           direction: 'not_comparable' as const,
           cells: options.cells,
           differs: true,

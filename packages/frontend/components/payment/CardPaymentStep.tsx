@@ -64,6 +64,7 @@ import {
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Button, Text } from '@mercaria/ui';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/config';
+import { useTranslation } from '@/lib/i18n';
 import type { CardPaymentStepProps } from './types';
 
 /**
@@ -90,6 +91,7 @@ export function CardPaymentStep({
   onCancelled,
   onFailed,
 }: CardPaymentStepProps) {
+  const { t } = useTranslation();
   // The server's key wins over the bundled one: it belongs to the account that
   // created this payment, and a client secret confirmed against a different
   // account's key fails in a way that reads as a client bug.
@@ -98,9 +100,7 @@ export function CardPaymentStep({
   if (!publishableKey) {
     return (
       <View className="rounded-2xl border border-border bg-card p-4">
-        <Text className="text-sm text-muted-foreground">
-          Card payments are not configured for this app yet.
-        </Text>
+        <Text className="text-sm text-muted-foreground">{t('payment.card.notConfigured')}</Text>
       </View>
     );
   }
@@ -138,6 +138,7 @@ export function CardPaymentStep({
 
 /** The two elements and the one submit button, inside the `Elements` context. */
 function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymentStepProps) {
+  const { t } = useTranslation();
   const stripe = useStripe();
   const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
@@ -204,7 +205,7 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
         // because that is exactly what it is — nothing reached Stripe, so no
         // server-side record of this attempt exists or ever will.
         track('guest_payment_client_failed');
-        onFailed(submitted.error.message ?? 'Your payment details could not be confirmed.');
+        onFailed(submitted.error.message ?? t('payment.card.detailsNotConfirmed'));
         return;
       }
       const { error } = await stripe.confirmPayment({
@@ -216,7 +217,7 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
       });
       if (error) {
         track('guest_payment_client_failed');
-        onFailed(error.message ?? 'Your payment could not be completed.');
+        onFailed(error.message ?? t('payment.card.notCompleted'));
         return;
       }
       // The buyer finished. Whether they PAID is the server's to say — and this
@@ -226,7 +227,7 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
     } finally {
       setSubmitting(false);
     }
-  }, [stripe, elements, payment.returnUrl, onCompleted, onFailed]);
+  }, [stripe, elements, payment.returnUrl, onCompleted, onFailed, t]);
 
   /**
    * What the sheet OFFERED, once the wallet answer has arrived.
@@ -260,7 +261,7 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
             accessibilityRole="header"
             className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
           >
-            Pay in one tap
+            {t('payment.card.expressHeading')}
           </Text>
           <ExpressCheckoutElement
             options={expressOptions}
@@ -284,7 +285,9 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
             }}
             onConfirm={() => void confirm()}
           />
-          <Text className="text-center text-xs text-muted-foreground">or pay by card</Text>
+          <Text className="text-center text-xs text-muted-foreground">
+            {t('payment.card.orPayByCard')}
+          </Text>
         </View>
       )}
       <PaymentElement />
@@ -295,12 +298,12 @@ function PaymentForm({ payment, onCompleted, onCancelled, onFailed }: CardPaymen
         }}
         disabled={!stripe || submitting}
         isLoading={submitting}
-        accessibilityLabel="Pay now"
+        accessibilityLabel={t('payment.card.payNow')}
       >
-        <Text>Pay now</Text>
+        <Text>{t('payment.card.payNow')}</Text>
       </Button>
       <Button variant="outline" onPress={onCancelled} disabled={submitting}>
-        <Text>Back</Text>
+        <Text>{t('common.back')}</Text>
       </Button>
     </View>
   );
