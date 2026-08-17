@@ -51,6 +51,12 @@ import {
   listingConditionRevisions,
 } from '../../../db/schema/condition.js';
 
+import {
+  assertRankingSurfaceIsWhole,
+  RANKING_SURFACE_PATHS,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /**
@@ -61,10 +67,36 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  * scans.
  */
 function conditionModulesUnder(relative: string): string[] {
-  return readdirSync(join(SRC_ROOT, relative))
-    .filter((name) => name.endsWith('.ts'))
-    .map((name) => `${relative}/${name}`)
-    .sort();
+  // RECURSIVE. The previous walk read the directory root only, which is the
+  // shape #472 found hiding `services/ingestion/adapters/`.
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...conditionModulesUnder(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found.sort();
+}
+
+/**
+ * The domain's HTTP surface, DERIVED — and the match is INCLUDES rather than
+ * startsWith, which is load-bearing here.
+ *
+ * This domain's operator router is `routes/internal-catalog-condition.ts`. A
+ * `startsWith('condition')` rule — the right one for most domains — misses every
+ * `internal-<domain>.ts` operator surface, and all three of these modules were
+ * outside every wall in this file: the operator controller, its schemas and the
+ * router itself. Checked against the tree before loosening the match: these are
+ * the only modules in the scanned roots whose name contains `condition`.
+ */
+function conditionHttpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.includes('condition'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
 }
 
 /**
@@ -82,6 +114,7 @@ function conditionModulesUnder(relative: string): string[] {
 const CONDITION_DOMAIN_PATHS = [
   ...conditionModulesUnder('services/condition'),
   ...conditionModulesUnder('db/condition'),
+  ...conditionHttpSurface(),
   'db/schema/condition.ts',
 ];
 
@@ -96,18 +129,21 @@ const CONDITION_TABLES = [
 ] as const;
 
 /**
- * Modules that decide what a shopper SEES first — the ranking surface #74 owns.
+ * Modules that decide what a shopper SEES first — #74's ranking surface, taken
+ * from the ONE shared derivation rather than copied.
  *
  * If any of these could read the condition domain, "a condition is a
  * description" and "a condition is a placement input" would be one hop apart,
  * and nothing in the code would say which one was intended.
+ *
+ * This file carried a FOUR-entry copy of that list — `feed.service`,
+ * `search.service`, `collection.service` and `collectionRules` — which is the
+ * drift #483 measured across eleven gates and ended by deriving the surface
+ * once. The copy here had never heard of `services/ranking/`, `db/ranking/`,
+ * `services/search/` or any derived controller, so the wall was computed over a
+ * population containing no #74 module at all.
  */
-const RANKING_SURFACE_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/collection.service.ts',
-  'db/merchandising/collectionRules.ts',
-];
+const CONDITION_RANKING_SURFACE = RANKING_SURFACE_PATHS;
 
 function read(relative: string): string {
   return readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -239,17 +275,78 @@ describe('#90 gate 4 — ranking cannot read the condition domain', () => {
   const DOMAIN_REACH =
     /from ['"][^'"]*(?:services\/condition|db\/condition|schema\/condition)[^'"]*['"]|listingConditionPhotos|listingConditionRevisions|conditionSourceMappings|conditionMappingRulesets/;
 
+/**
+ * The ONE ranking-surface module that may read the condition domain, with the
+ * assertion that justifies it and an EXACT count (#448).
+ *
+ * Widening this wall from a four-entry copy to #483's derived surface found it:
+ * `catalog-hydration.service.ts` is in the surface because it is the shared
+ * projection `feed.service` and `search.service` both order through, and it
+ * imports `db/condition/conditionRepository` — but every use is a batched READ
+ * and a DTO PROJECTION (`projectItemCondition`, `projectLegacyCondition`), which
+ * is #90's display path. It reorders nothing: its own bucketing comment says it
+ * preserves "the query's own order", and no ordering expression in the file
+ * mentions a condition.
+ *
+ * That distinction is the whole point of this wall — a condition is a
+ * DESCRIPTION, not a placement input — so the exception is held to it below
+ * rather than granted by name. If that module ever sorts, scores or filters by
+ * condition, the second assertion fails and the exception stops applying.
+ */
+const CONDITION_DISPLAY_READERS = ['services/catalog-hydration.service.ts'];
+
+/**
+ * An ordering expression that mentions a condition — what the exception forbids.
+ *
+ * Anchored on real ordering CONSTRUCTS (`.sort(`, `sortBy`, `orderBy`, `rankBy`,
+ * `scoreBy`) rather than on the word "sort" anywhere, and case-INSENSITIVE. The
+ * first version of this pattern was neither, and its mutation test proved it: a
+ * `zzSortByCondition` helper added to the excused module left the gate GREEN,
+ * because `sort` did not match `Sort` and `[^)]*` could not span
+ * `sort((left, right) =>`. An exception justified by an assertion that cannot
+ * fire is an exception justified by nothing.
+ */
+const CONDITION_ORDERING =
+  /(?:\.\s*sort\s*\(|\bsortBy\b|\borderBy\b|\brankBy\b|\bscoreBy\b)[\s\S]{0,100}?condition/i;
+
   it('no ranking surface imports a condition module or names its tables', () => {
     const offenders: string[] = [];
-    for (const path of RANKING_SURFACE_PATHS) {
+    for (const path of CONDITION_RANKING_SURFACE) {
+      if (CONDITION_DISPLAY_READERS.includes(path)) continue;
       const source = stripComments(read(path));
       if (DOMAIN_REACH.test(source)) offenders.push(path);
     }
     expect(offenders).toEqual([]);
-    // Vacuity: a renamed file would make this loop scan nothing.
-    expect(RANKING_SURFACE_PATHS.length).toBe(4);
-    for (const path of RANKING_SURFACE_PATHS) {
-      expect(read(path).length).toBeGreaterThan(500);
+    // Vacuity: a FLOOR, not the exact 4 the copied list pinned. That `toBe(4)`
+    // was correct for the copy and is exactly what made the copy permanent — it
+    // fails the moment the shared derivation grows, which is the behaviour a
+    // shared derivation exists to have. `assertRankingSurfaceIsWhole` carries
+    // the per-shape floors for the surface itself.
+    assertRankingSurfaceIsWhole();
+    expect(CONDITION_RANKING_SURFACE.length, 'the ranking surface derivation found nothing')
+      .toBeGreaterThanOrEqual(40);
+    for (const path of CONDITION_RANKING_SURFACE) {
+      expect(readRankingSurfaceFile(path).length).toBeGreaterThan(200);
+    }
+
+    // EXACT, and the exception must still BE one — measured, not asserted. A
+    // stale exemption excuses nothing while looking like a decision.
+    expect(CONDITION_DISPLAY_READERS.length, 'a second display reader was excused').toBe(1);
+    for (const path of CONDITION_DISPLAY_READERS) {
+      expect(
+        CONDITION_RANKING_SURFACE,
+        `${path} is excused from this wall but is not in the ranking surface`,
+      ).toContain(path);
+      const source = stripComments(read(path));
+      expect(
+        DOMAIN_REACH.test(source),
+        `${path} is excused as a condition DISPLAY reader and no longer reads the domain`,
+      ).toBe(true);
+      // The property that makes the exception safe rather than merely justified.
+      expect(
+        CONDITION_ORDERING.test(source),
+        `${path} now orders by condition; a condition is a DESCRIPTION, not a placement input`,
+      ).toBe(false);
     }
   });
 

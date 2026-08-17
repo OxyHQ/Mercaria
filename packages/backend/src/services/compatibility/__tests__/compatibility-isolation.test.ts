@@ -70,20 +70,34 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 
 /** Every file of the domain, enumerated from the real directories. */
 function enumerateDomain(): string[] {
-  const roots = [
-    join(SRC_ROOT, 'services', 'compatibility'),
-    join(SRC_ROOT, 'db', 'compatibility'),
+  // RECURSIVE. The previous walk did `if (statSync(full).isDirectory()) continue;`
+  // — it explicitly SKIPPED subdirectories, which is the shape #472 found hiding
+  // `services/ingestion/adapters/`, five provider modules behind no wall at all.
+  // Both roots are flat today; the point is that a subdirectory added tomorrow is
+  // covered without anybody remembering to come here.
+  const walk = (absolute: string): string[] => {
+    const found: string[] = [];
+    for (const entry of readdirSync(absolute, { withFileTypes: true })) {
+      if (entry.name === '__tests__') continue;
+      const child = join(absolute, entry.name);
+      if (entry.isDirectory()) found.push(...walk(child));
+      else if (entry.name.endsWith('.ts')) found.push(child);
+    }
+    return found;
+  };
+  const files = [
+    ...walk(join(SRC_ROOT, 'services', 'compatibility')),
+    ...walk(join(SRC_ROOT, 'db', 'compatibility')),
   ];
-  const files: string[] = [];
-  for (const root of roots) {
-    for (const entry of readdirSync(root)) {
-      const full = join(root, entry);
-      if (statSync(full).isDirectory()) continue;
-      if (!entry.endsWith('.ts')) continue;
-      files.push(full);
+  // The schema module, derived by the filename convention rather than named, so
+  // a second compatibility schema file is covered too. This domain has no HTTP
+  // surface — checked against the tree, not assumed: nothing in `controllers/`,
+  // `routes/` or `middleware/` is named for it.
+  for (const entry of readdirSync(join(SRC_ROOT, 'db', 'schema'), { withFileTypes: true })) {
+    if (entry.isFile() && /^compatibility.*\.ts$/.test(entry.name)) {
+      files.push(join(SRC_ROOT, 'db', 'schema', entry.name));
     }
   }
-  files.push(join(SRC_ROOT, 'db', 'schema', 'compatibility.ts'));
   return files;
 }
 
@@ -139,7 +153,17 @@ describe('the compatibility domain cannot reach what it must not', () => {
   const files = enumerateDomain();
 
   it('scans a domain that has not silently shrunk', () => {
+    // Vacuity floors PER SHAPE rather than one on the total: the three sources
+    // break independently, and a single total on 9 would let the service walk
+    // collapse to zero while the repositories carried the number.
+    const from = (segment: string) => files.filter((file) => file.includes(segment)).length;
+    expect(from('/services/compatibility/'), 'the service walk found nothing').toBeGreaterThanOrEqual(4);
+    expect(from('/db/compatibility/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(4);
+    expect(from('/db/schema/compatibility'), 'the schema derivation found nothing').toBeGreaterThanOrEqual(1);
     expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
+    // No test file may enter the scanned set: a gate that scans its own probes
+    // reports violations it wrote itself.
+    expect(files.filter((file) => file.includes('__tests__'))).toEqual([]);
     for (const file of files) {
       // The vacuity floor: an empty or moved file must fail here, not pass the
       // scans below by having nothing to match.
@@ -172,6 +196,13 @@ describe('the compatibility domain cannot reach what it must not', () => {
       ).toBe(false);
       scanned += 1;
     }
+    // EXACT, not `scanned === length`: that comparison is circular (the loop
+    // increments once per entry, so it holds for ANY list including an empty
+    // one). This list names modules in OTHER domains that legitimately write an
+    // option row, so it stays a hand list — a walk of `db/catalog/` would pull in
+    // every unrelated repository — but an unbounded one is a predicate rather
+    // than an identity (#448).
+    expect(OPTION_WRITER_PATHS.length, 'the option-writer list changed size').toBe(3);
     expect(scanned).toBe(OPTION_WRITER_PATHS.length);
   });
 
