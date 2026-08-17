@@ -441,3 +441,76 @@ function scanFor(
   }
   return violations;
 }
+
+/**
+ * ADR 0007 D12: `FACETS_ENABLED` gates the MOUNT and never anything durable.
+ *
+ * The wall is BLANKET here — no configuration at all — and it can be, because the
+ * facet domain reads none today. That is the stronger form
+ * `services/__tests__/product-type-isolation.test.ts` uses, and it is available
+ * here where it was not available to `catalog-proposal-isolation.test.ts`, whose
+ * services legitimately read six bounds off their own config object.
+ *
+ * Scoped to the two OWNED directories and deliberately NOT to the shared
+ * controller, route and schema modules `facetNamedHttpModules()` derives: those
+ * are where a page bound or a cache TTL legitimately belongs, and the mount flag
+ * itself is read in `app.ts`. A wall that covered them would be refused by the
+ * first legitimate bound and then widened, taking the prohibition with it.
+ *
+ * This domain owns no table and writes no row, so what the lever protects is not
+ * a record — it is the promise that nothing downstream of the flag CACHES a
+ * verdict taken while it was on, or refuses a read that another surface still
+ * serves.
+ */
+const FACET_LEVER_PATTERN = /from\s+['"][^'"]*\/config(?:\/[^'"]*)?['"]|process\s*\.\s*env\b/u;
+
+/** Only the directories the facet domain owns — see the docblock above. */
+function facetOwnedPaths(): string[] {
+  return BACKEND_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative), ['.ts']));
+}
+
+describe('the rollout lever gates the MOUNT, and the domain reaches no configuration', () => {
+  it('no module under services/facets or db/facets imports config or reads process.env', () => {
+    const paths = facetOwnedPaths();
+    // The vacuity floor, restated locally rather than borrowed: this wall runs
+    // over a NARROWER population than every other wall in this file, so
+    // `assertBackendPopulationIsWhole` would not notice this walk returning
+    // nothing.
+    expect(paths.length, 'the facet-owned walk found too few files').toBeGreaterThanOrEqual(
+      MINIMUM_FACET_SERVICES + MINIMUM_FACET_REPOSITORIES,
+    );
+    const offenders = paths.filter((path) =>
+      FACET_LEVER_PATTERN.test(stripComments(readFileSync(path, 'utf8'))),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('MUTATION SELF-TEST: the detector fires on both spellings, and not on a comment', () => {
+    expect(FACET_LEVER_PATTERN.test(stripComments("import { config } from '../../config/index.js';"))).toBe(
+      true,
+    );
+    expect(
+      FACET_LEVER_PATTERN.test(stripComments('const on = process.env.FACETS_ENABLED;')),
+    ).toBe(true);
+    expect(
+      FACET_LEVER_PATTERN.test(stripComments("// import { config } from '../../config/index.js';\n")),
+    ).toBe(false);
+  });
+
+  it('MUTATION SELF-TEST: the REAL scan goes red on a mutated member of the population', () => {
+    // The detector firing on a string is not the same as the scan firing on a
+    // file. This swaps a mutated source into the population the assertion above
+    // walks and asserts EXACTLY that file is named.
+    const paths = facetOwnedPaths();
+    const victim = paths[paths.length - 1];
+    expect(victim, 'the walk found no file to mutate').toBeDefined();
+    if (victim === undefined) return;
+    const mutated = `${readFileSync(victim, 'utf8')}\nconst leaked = process.env.FACETS_ENABLED;\n`;
+    const offenders = paths.filter((path) =>
+      FACET_LEVER_PATTERN.test(
+        stripComments(path === victim ? mutated : readFileSync(path, 'utf8')),
+      ),
+    );
+    expect(offenders).toEqual([victim]);
+  });
+});

@@ -409,3 +409,73 @@ describe('the detectors themselves', () => {
     expect(withoutComments("const u = 'https://example.test/x';")).toContain('example.test');
   });
 });
+
+/**
+ * ADR 0007 D12: `CATALOG_TAXONOMY_V2_ENABLED` gates the MOUNT and never a stored row.
+ *
+ * BLANKET — no configuration anywhere in the population, including the four flat
+ * members `domainSources()` adds, because none of them reads any today. That is
+ * unusual for a population containing a controller and two routes, and it is why
+ * the wall can be this strong here: the lever is read in `app.ts` and nowhere
+ * else, and `routes/internal-navigation.ts` is deliberately NOT gated on it, so an
+ * operator can still preview a tree during the incident that switched the public
+ * surface off.
+ *
+ * What it prevents: a repository or a projection that read the flag could refuse
+ * to return a published tree, node or label that already exists — and a rollback
+ * that deleted a merchandiser's work is not one anybody would pull. It also stops
+ * the subtler version, a read path that answers differently depending on a flag
+ * whose whole contract is that it only decides whether the ROUTE exists.
+ *
+ * If a page bound or a cache TTL ever legitimately belongs in this domain, narrow
+ * this to `config.catalog.taxonomyV2Enabled` — the shape
+ * `catalog-proposal-isolation.test.ts` uses for exactly that reason — rather than
+ * deleting the wall.
+ */
+const NAVIGATION_LEVER_PATTERN =
+  /from\s+['"][^'"]*\/config(?:\/[^'"]*)?['"]|process\s*\.\s*env\b/u;
+
+describe('the rollout lever gates the MOUNT and never a stored tree', () => {
+  it('no module in the navigation population reaches configuration', () => {
+    const sources = domainSources();
+    // The vacuity floor. A population of zero passes this wall and reads exactly
+    // like a clean one.
+    expect(sources.length, 'the navigation scan found too few files').toBeGreaterThanOrEqual(9);
+    const offenders = sources
+      .filter((file) => NAVIGATION_LEVER_PATTERN.test(withoutComments(file.source)))
+      .map((file) => file.relative);
+    expect(offenders).toEqual([]);
+  });
+
+  it('POSITIVE CONTROL: the population really includes the routes and the controller', () => {
+    // The wall above is only interesting because it covers the HTTP members —
+    // which is where a lever read would most plausibly appear. Without this, a
+    // `domainSources()` narrowed to the two service directories would satisfy it
+    // while exempting the three files most likely to offend.
+    const relatives = domainSources().map((file) => file.relative);
+    for (const expected of [
+      'routes/navigation.ts',
+      'routes/internal-navigation.ts',
+      'controllers/navigation.controller.ts',
+    ]) {
+      expect(relatives, `${expected} is outside the scanned population`).toContain(expected);
+    }
+  });
+
+  it('MUTATION SELF-TEST: the REAL scan names EXACTLY the mutated member', () => {
+    const sources = domainSources();
+    // The victim is the CONTROLLER rather than the first file found: it is the
+    // member a lever read would really be written into, and picking it means this
+    // self-test also proves the flat members are inside the scan.
+    const victim = sources.find((file) => file.relative === 'controllers/navigation.controller.ts');
+    expect(victim, 'the controller is not in the population').toBeDefined();
+    if (victim === undefined) return;
+    const mutated = `${victim.source}\nif (config.catalog.taxonomyV2Enabled) { /* x */ }\nimport { config } from '../config/index.js';\n`;
+    expect(mutated).not.toBe(victim.source);
+    const offenders = sources
+      .map((file) => (file.relative === victim.relative ? { ...file, source: mutated } : file))
+      .filter((file) => NAVIGATION_LEVER_PATTERN.test(withoutComments(file.source)))
+      .map((file) => file.relative);
+    expect(offenders).toEqual([victim.relative]);
+  });
+});
