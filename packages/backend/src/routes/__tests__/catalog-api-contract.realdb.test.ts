@@ -6,9 +6,10 @@
  * ## What was unproven
  *
  * The authoring domain has a large test surface and none of it was HTTP. A census
- * over `--include=*.test.ts` for files importing `createApp` finds 27, and the
- * only one naming `catalog-authoring` is `catalog-rollout.realdb.test.ts`, which
- * asserts MOUNTS and nothing about a response. Everything else calls the service:
+ * over `--include=*.test.ts` for files importing `createApp` found 27 BEFORE this
+ * file (28 with it), and the only one naming `catalog-authoring` was
+ * `catalog-rollout.realdb.test.ts`, which asserts MOUNTS and nothing about a
+ * response. Everything else calls the service:
  * `schema-version-lifecycle-exposure.realdb.test.ts` drives `composeAuthoringSchema`
  * directly, `catalog-authoring.realdb.test.ts` drives the CHECKs,
  * `authoring-etag.test.ts` drives the digest. The positive control for that census
