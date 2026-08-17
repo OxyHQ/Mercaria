@@ -218,7 +218,8 @@ Neither breaks reading or buying an existing listing; both qualify "turning ever
 lever off restores listing-first behaviour":
 
 1. **`categories.key` is narrowed to `NOT NULL` in a `pre` migration** —
-   `:116` adds it nullable, `:196` backfills, `:201` sets `NOT NULL`. The
+   `:116` adds it nullable, `:136` backfills it from `ancestor_slugs`, `:201` sets
+   `NOT NULL`. The
    migration header states the trade and it checks out: the previously serving
    image writes `categories` only from `src/scripts/provision-taxonomy.ts` and
    `src/scripts/seed.ts`, never from a request path. Recorded because it is the

@@ -144,7 +144,8 @@ this runbook is a convention.**
 Four things, and each has a remedy that is not a lever.
 
 **1. `categories.key` is `NOT NULL`.** `drizzle/0088_redundant_korvac.sql:116`
-adds it nullable, `:196` backfills, `:201` sets `NOT NULL` — in a `pre` migration,
+adds it nullable, `:136` backfills it from `ancestor_slugs`, `:201` sets
+`NOT NULL` — in a `pre` migration,
 and no lever affects it. It is safe (the previously serving image writes
 `categories` only from `scripts/provision-taxonomy.ts` and `scripts/seed.ts`,
 never from a request path) and it is the epic's only `SET NOT NULL` on a
