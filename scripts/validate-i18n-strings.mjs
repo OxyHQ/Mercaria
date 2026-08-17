@@ -158,12 +158,28 @@ const ts = createRequire(resolve(here, "../package.json"))("typescript");
  * Everything that OWNS a bundle set.
  *
  * `hardcodedStrings` is what separates a migrated app from a package that is
- * only PART way through: `packages/ui` is scanned for literals (part C needs
- * them) and its check-A findings are discarded, because most of that package's
- * component prose is still English and a gate over it would be switched off by
- * whoever hit it. It is a real distinction, not a special case — the next
- * package to start extracting joins the list with the flag off, and turns it on
- * in the change that finishes.
+ * only PART way through, and it takes two forms:
+ *
+ *   `true`  — every check-A finding is a FAILURE, reported with its file, line
+ *             and the string itself. What a finished app is held to.
+ *   `<n>`   — the owner is mid-extraction. Findings are not failures, but their
+ *             COUNT is pinned at exactly `<n>` and BOTH directions fail. What a
+ *             package on its way to `true` is held to.
+ *
+ * `packages/ui` is the second: it is scanned for literals (part C needs them)
+ * and its findings are not raised, because most of that package's component
+ * prose is still English and a gate over it would be switched off by whoever hit
+ * it. It is a real distinction, not a special case — the next package to start
+ * extracting joins the list with a pinned count, ratchets it down, and turns it
+ * to `true` in the change that finishes.
+ *
+ * It was a bare `false` until #528, which is the state the pin replaces: the
+ * findings were discarded with nothing recording how many there were, so
+ * "the conversion is progressing", "it has stalled" and "somebody added two
+ * hundred new hardcoded strings" produced the identical silence. A count that
+ * fails only when it RISES would still permit the second; H's
+ * `deviceLocaleFormatSites` is the model, and it fails in both directions for
+ * the same reason.
  */
 const OWNERS = [
   {
@@ -241,7 +257,12 @@ const OWNERS = [
     name: "ui",
     prefix: "packages/ui/",
     locales: "packages/ui/src/i18n/locales",
-    hardcodedStrings: false,
+    // Measured at 2cf4889d, which is #534's merge — that PR took six sentences
+    // out of `commercial-copy.ts` and the pin came down from 156 with it. It is
+    // MEANT to move: every conversion lowers it, the guard says so by name, and
+    // a PR that converts copy without lowering it is told exactly what to do.
+    // That is the pin working, not a maintenance burden.
+    hardcodedStrings: 150,
     // Check F is off here for a DIFFERENT reason than check A. This package
     // does not merely use the action controls, it DEFINES them — a `<Button>`
     // in `packages/ui` is the component, not a call site — so the population F
@@ -1401,6 +1422,17 @@ const controlLabelKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map
 const interpolatedKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
 /** H: `{ file, line, method }` for every date formatted in the device's locale. */
 const deviceLocaleFormatsByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+
+/**
+ * How many check-A findings an owner whose `hardcodedStrings` is a pinned COUNT
+ * produced.
+ *
+ * A count rather than the findings, because a count is the whole of what this
+ * pin can honestly assert: it cannot tell a newly-added string from one that was
+ * always there, so keeping the list would only invite a report that looks like
+ * it answers "which ones are new" and does not.
+ */
+const pinnedHardcodedByApp = new Map(OWNERS.map((owner) => [owner.name, 0]));
 /** F: how many `t()` arguments it could not read, per owner. Reported, never assumed zero. */
 const unreadableKeySourcesByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
 
@@ -1460,8 +1492,11 @@ for (const [path, text] of textByPath) {
     for (const site of result.unreadableKeySources) unreadable.push({ ...site, file: path });
   }
   // An owner that is only PART way through extraction contributes its literals
-  // (part C needs them) and none of its check-A findings.
-  if (app.hardcodedStrings) findings.push(...result.findings);
+  // (part C needs them) and none of its check-A findings — but the findings are
+  // COUNTED, and that count is pinned below. Discarding them outright is what
+  // made a stalled conversion and a regressing one look the same (#528).
+  if (app.hardcodedStrings === true) findings.push(...result.findings);
+  else pinnedHardcodedByApp.set(app.name, pinnedHardcodedByApp.get(app.name) + result.findings.length);
   translatedPositions += result.translatedPositions;
   translatedByApp.set(app.name, translatedByApp.get(app.name) + result.translatedPositions);
   const seen = literalsByApp.get(app.name);
@@ -1589,6 +1624,46 @@ for (const app of OWNERS) {
       + "`useTranslation()` already returns. If you FIXED some of these, lower the owner's "
       + "`deviceLocaleFormatSites` in this file to the new count — it is an exact count, not a "
       + "ceiling, so the number cannot quietly drift in either direction.",
+    );
+  }
+
+  // A'. a mid-extraction owner's hardcoded-string count is PINNED (#528).
+  //
+  // Skipped on a fixture tree for H's reason: a scratch checkout has none of the
+  // real call sites, so a pinned residual would fail for a reason that says
+  // nothing about the guard. Check A's own detector is exercised on a fixture
+  // run either way — its controls run on every invocation.
+  //
+  // Both directions fail. UP is the one this exists for: it is the direction a
+  // ceiling would permit, and the direction in which a package mid-conversion
+  // silently acquires two hundred new English strings. DOWN fails because a pin
+  // that only ratchets on regression stops describing the package the moment
+  // somebody makes progress, and a number nobody maintains is one nobody reads.
+  const pinnedHardcoded = pinnedHardcodedByApp.get(app.name) ?? 0;
+  if (!fixtureFloors && typeof app.hardcodedStrings === "number"
+    && pinnedHardcoded !== app.hardcodedStrings) {
+    const delta = pinnedHardcoded - app.hardcodedStrings;
+    // Deliberately NOT a listing of the findings. This check COUNTS; it cannot
+    // tell a new string from one that was always there, and printing forty of a
+    // hundred and fifty-six would look like an answer to "which ones are new"
+    // while not being one. The reader's own diff is where that lives, and
+    // saying so is more use than the dump.
+    failures.push(
+      `packages/${app.name}: ${pinnedHardcoded} hardcoded user-facing string(s), expected `
+      + `exactly ${app.hardcodedStrings} (${delta > 0 ? `+${delta}` : delta}).\n`
+      + "      This owner is mid-extraction, so check A does not RAISE its findings — it pins their\n"
+      + "      COUNT, in both directions, the way H pins `deviceLocaleFormatSites`.\n"
+      + `      ${delta > 0
+        ? "The count went UP: your change introduced English copy into a package that is being "
+          + "extracted OUT of it.\n"
+          + "      This check counts and cannot say which strings are new — your own diff can. The "
+          + "remedy is to put\n      the copy in this package's own bundles under the reserved `ui` "
+          + "namespace, or to raise the pin\n      with a reason covering it."
+        : "The count went DOWN, which is progress: lower the owner's `hardcodedStrings` in this "
+          + "file to the\n      new count. It is an exact count rather than a ceiling, so it cannot "
+          + "quietly drift in either\n      direction, and a pin nobody maintains is one nobody "
+          + "reads."}\n`
+      + "      When it reaches 0, change `hardcodedStrings` to `true` and this owner is finished.",
     );
   }
 
