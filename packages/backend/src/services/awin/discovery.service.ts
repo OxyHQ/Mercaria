@@ -204,9 +204,14 @@ async function discoverAwinAdvertiserSeenOnly(input: {
     // Its OWN current membership, re-applied. `membership_changed_at` moves only
     // when the value actually moves, so this is a genuine no-op on that column.
     membershipStatus: existing.membershipStatus,
+    // `primaryRegion` and `vertical` ARE feed-list facts, so they are re-passed:
+    // there is no readable listing to take them from and the upsert overwrites
+    // them. `declaredHost` is deliberately NOT here — the upsert preserves it
+    // (`awinAdvertiserRepository.ts`), and re-passing it would be a second
+    // mechanism for one fact. The two disagreed before #573: this path thought
+    // about preservation and the primary path was never asked to.
     primaryRegion: existing.primaryRegion,
     vertical: existing.vertical,
-    declaredHost: existing.declaredHost,
     now: input.now,
   });
   return existing.id;

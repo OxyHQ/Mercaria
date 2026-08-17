@@ -1,24 +1,23 @@
 /**
- * CHARACTERIZATION of a defect (#573): a feed-list poll NULLs `declared_host`.
+ * `awin_advertisers.declared_host` survives a feed-list poll (#573).
  *
- * This test pins CURRENT behaviour, which is WRONG, and it is expected to fail
- * the moment somebody fixes it — that failure is the point. It exists because
- * the claim it measures travelled between two people as established fact and
- * was false; a measurement against a real server cannot decay the same way.
+ * The defect: `discoverAwinAdvertiser`'s `ON CONFLICT DO UPDATE` wrote
+ * `declared_host = input ?? null`, and the PRIMARY discovery path
+ * (`discovery.service.ts`) passes no `declaredHost` because the feed list
+ * publishes no host column — so every poll ERASED the column. Measured, not
+ * inferred: the value was set, one ordinary re-poll returned it as `null`.
  *
- * `discoverAwinAdvertiser`'s `ON CONFLICT DO UPDATE` writes
- * `"declared_host" = $n` unconditionally (`awinAdvertiserRepository.ts:83`),
- * and the PRIMARY discovery path passes no `declaredHost`
- * (`discovery.service.ts:134`) — so every poll erases the column. The
- * seen-only path re-passes `existing.declaredHost` (`:209`) and preserves it,
- * so the two disagree.
+ * It had no practical effect only because nothing in production writes the
+ * column at all. That is #573's actual finding and it is why this file exists
+ * BEFORE the writer does: whoever adds one must not have to rediscover that
+ * their value evaporates on the next hourly poll.
  *
- * Whoever fixes this: make the upsert preserve (a `coalesce` on `excluded`,
- * spelled out — `~/Oxy/AGENTS.md` on `excluded.<col>`), then invert the
- * assertion below to `toBe('retailer.example')`.
+ * Three cases, and the third is the one that stops the fix from overshooting —
+ * `coalesce` preserves on absence, and a preservation that also froze the
+ * column against a real write would pass the first two on its own.
  *
- * A mock cannot host this: the fact under test is what the SERVER stores after
- * two statements, and a mocked upsert accepts any statement at all.
+ * A mock cannot host any of this: the fact under test is what the SERVER stores
+ * after two statements, and a mocked upsert accepts any statement at all.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -30,11 +29,16 @@ import { discoverAwinAdvertiser } from '../../db/awin/awinAdvertiserRepository.j
 
 let db: Database;
 const RUN = `${Date.now()}`;
-const ADVERTISER_ID = RUN.slice(-8);
 let accountId = '';
 
 beforeAll(async () => {
   db = await connectPostgres();
+  const account = await upsertAwinAccount({
+    publisherId: RUN.slice(-9),
+    label: `#573 declared_host ${RUN}`,
+    feedCredentialRef: 'env:AWIN_TEST_KEY',
+  });
+  accountId = account.id;
 });
 
 afterAll(async () => {
@@ -47,45 +51,94 @@ afterAll(async () => {
   await closePostgres();
 });
 
-describe('awin_advertisers.declared_host across a re-poll', () => {
-  it('is erased by a poll that passes no declaredHost (#573, current defect)', async () => {
-    const account = await upsertAwinAccount({
-      publisherId: RUN.slice(-9),
-      label: `#573 characterization ${RUN}`,
-      feedCredentialRef: 'env:AWIN_TEST_KEY',
-    });
-    accountId = account.id;
+/** A distinct advertiser id per case, so the three cannot interfere. */
+function advertiserIdFor(caseName: string): string {
+  let hash = 0;
+  for (const ch of `${RUN}${caseName}`) hash = (hash * 31 + ch.charCodeAt(0)) % 99_999_999;
+  return `${hash}`;
+}
 
-    // A row that HAS a declared host. Today only a test fixture produces this
-    // shape; that is the finding, not the setup.
+async function storedHostOf(rowId: string): Promise<string | null | undefined> {
+  const [row] = await db
+    .select({ declaredHost: awinAdvertisers.declaredHost })
+    .from(awinAdvertisers)
+    .where(eq(awinAdvertisers.id, rowId));
+  return row?.declaredHost;
+}
+
+describe('awin_advertisers.declared_host across a re-poll', () => {
+  it('survives a poll that passes no declaredHost', async () => {
+    const advertiserId = advertiserIdFor('survives');
     const first = await discoverAwinAdvertiser({
-      accountId: account.id,
-      advertiserId: ADVERTISER_ID,
-      displayName: 'Characterization advertiser',
+      accountId,
+      advertiserId,
+      displayName: 'Preserved advertiser',
       membershipStatus: 'joined',
       declaredHost: 'retailer.example',
     });
-    // Positive control: without this the assertion below passes against a
+    // Positive control: without this the assertion below would pass against a
     // column that was never set, which is a different fact entirely.
     expect(first.declaredHost).toBe('retailer.example');
 
-    // The PRIMARY discovery path re-polls. `discovery.service.ts:134` passes
-    // no `declaredHost` at all — reproduced by omitting the property.
+    // The PRIMARY discovery path re-polls: `discovery.service.ts` passes no
+    // `declaredHost`, reproduced by omitting the property.
     const second = await discoverAwinAdvertiser({
-      accountId: account.id,
-      advertiserId: ADVERTISER_ID,
-      displayName: 'Characterization advertiser',
+      accountId,
+      advertiserId,
+      displayName: 'Preserved advertiser',
       membershipStatus: 'joined',
     });
 
-    // MEASURED. Invert to `toBe('retailer.example')` when the clobber is fixed.
-    expect(second.declaredHost).toBeNull();
+    expect(second.declaredHost).toBe('retailer.example');
+    // The stored row, not just the RETURNING projection.
+    expect(await storedHostOf(first.id)).toBe('retailer.example');
+  });
 
-    // And it is the stored row, not just the RETURNING projection.
-    const [readBack] = await db
-      .select({ declaredHost: awinAdvertisers.declaredHost })
-      .from(awinAdvertisers)
-      .where(eq(awinAdvertisers.id, first.id));
-    expect(readBack?.declaredHost).toBeNull();
+  it('is still absent when it was never set', async () => {
+    const advertiserId = advertiserIdFor('absent');
+    const first = await discoverAwinAdvertiser({
+      accountId,
+      advertiserId,
+      displayName: 'Hostless advertiser',
+      membershipStatus: 'joined',
+    });
+    expect(first.declaredHost).toBeNull();
+
+    const second = await discoverAwinAdvertiser({
+      accountId,
+      advertiserId,
+      displayName: 'Hostless advertiser',
+      membershipStatus: 'not_joined',
+    });
+    // Preservation must not invent a value, and this is today's whole
+    // production population: every real row is NULL.
+    expect(second.declaredHost).toBeNull();
+    expect(await storedHostOf(first.id)).toBeNull();
+  });
+
+  it('is still UPDATED by a caller that supplies one', async () => {
+    const advertiserId = advertiserIdFor('updates');
+    const first = await discoverAwinAdvertiser({
+      accountId,
+      advertiserId,
+      displayName: 'Rehosted advertiser',
+      membershipStatus: 'joined',
+      declaredHost: 'old.example',
+    });
+    expect(first.declaredHost).toBe('old.example');
+
+    const second = await discoverAwinAdvertiser({
+      accountId,
+      advertiserId,
+      displayName: 'Rehosted advertiser',
+      membershipStatus: 'joined',
+      declaredHost: 'new.example',
+    });
+
+    // Preserve-on-absence must not become immutable-forever: a fix that froze
+    // the column would satisfy both cases above and make the eventual writer
+    // silently inert.
+    expect(second.declaredHost).toBe('new.example');
+    expect(await storedHostOf(first.id)).toBe('new.example');
   });
 });
