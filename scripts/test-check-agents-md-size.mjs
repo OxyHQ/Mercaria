@@ -16,6 +16,16 @@
  *
  * Fixtures are real trees with a real `git init`, so the gate's actual file
  * listing runs rather than a stand-in for it.
+ *
+ * ## Why some fixtures are deliberately NOT ASCII
+ *
+ * Every fixture here was once pure ASCII — `"#".repeat(20 * 1024)`,
+ * `"x".repeat(10 * 1024)` — and on pure ASCII `Buffer.byteLength(s, "utf8")` and
+ * `s.length` return the same number. So the one line the gate's correctness
+ * rests on was the one line no case could see: a "simplification" to `.length`
+ * passed all of them while quietly raising the real budget. The straddling
+ * fixtures below are under budget by CHARACTERS and over it by BYTES, so the two
+ * measures give opposite verdicts and the gate has to pick the right one.
  */
 
 import { execFileSync } from "node:child_process";
@@ -24,7 +34,12 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { checkAgentsMdSize, issueHeadings } from "./check-agents-md-size.mjs";
+import {
+  NESTED_BUDGET_BYTES,
+  ROOT_BUDGET_BYTES,
+  checkAgentsMdSize,
+  issueHeadings,
+} from "./check-agents-md-size.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -128,6 +143,81 @@ console.log("check-agents-md-size self-test\n");
   report(
     "control: the same 10 KB passes at the ROOT path",
     result?.failures.length === 0,
+    result ? result.failures.join("; ") : "threw",
+  );
+}
+
+// --- bytes, not characters --------------------------------------------------
+
+/**
+ * A file that is UNDER `budget` by character count and OVER it by byte count.
+ *
+ * The gap is not hypothetical and it is not small. Measured on the live root
+ * `AGENTS.md` at `4b30d5a2`: 12241 bytes against 12190 characters — 22 em-dashes
+ * at three bytes each, 5 middle-dots and an en-dash — so the two measures differ
+ * by 51 bytes while only 47 bytes remain under the 12288 ceiling. The em-dash is
+ * this repository's own house punctuation, so that gap widens with ordinary
+ * editing rather than needing anybody to do something unusual.
+ */
+function straddlesBudgetInBytesOnly(budget) {
+  const emDashes = 64; // U+2014: one character, THREE bytes.
+  return `${"—".repeat(emDashes)}${"x".repeat(budget - 32 - emDashes)}\n`;
+}
+
+{
+  // The positive control on the INPUT, not on the gate. A fixture that stopped
+  // straddling — because a budget moved, or because somebody "tidied" the
+  // em-dashes out — would let the two cases below pass under EITHER measure,
+  // which is exactly the vacuity they exist to remove.
+  const rootFixture = straddlesBudgetInBytesOnly(ROOT_BUDGET_BYTES);
+  const nestedFixture = straddlesBudgetInBytesOnly(NESTED_BUDGET_BYTES);
+  const straddles = (contents, budget) =>
+    contents.length < budget && Buffer.byteLength(contents, "utf8") > budget;
+  report(
+    "fixture control: both multi-byte fixtures are UNDER budget by characters and OVER it by bytes",
+    straddles(rootFixture, ROOT_BUDGET_BYTES) && straddles(nestedFixture, NESTED_BUDGET_BYTES),
+    `root ${rootFixture.length} chars / ${Buffer.byteLength(rootFixture, "utf8")} bytes vs ${ROOT_BUDGET_BYTES}; ` +
+      `nested ${nestedFixture.length} chars / ${Buffer.byteLength(nestedFixture, "utf8")} bytes vs ${NESTED_BUDGET_BYTES}`,
+  );
+}
+
+{
+  const { result } = await runAgainst({
+    "AGENTS.md": straddlesBudgetInBytesOnly(ROOT_BUDGET_BYTES),
+  });
+  report(
+    "a root AGENTS.md over budget only in BYTES fails — a .length measure would pass it",
+    result?.failures.length === 1 && /over its 12 KB budget/.test(result.failures[0]),
+    result ? result.failures.join("; ") : "threw",
+  );
+}
+
+{
+  // The nested budget separately: the two budgets are two comparisons, and a
+  // measure swapped in one of them is the likelier edit.
+  const { result } = await runAgainst({
+    "AGENTS.md": withinBudget,
+    "packages/backend/AGENTS.md": straddlesBudgetInBytesOnly(NESTED_BUDGET_BYTES),
+  });
+  report(
+    "a NESTED AGENTS.md over budget only in BYTES fails too",
+    result?.failures.length === 1 &&
+      /packages\/backend\/AGENTS\.md/.test(result.failures[0]) &&
+      /over its 8 KB budget/.test(result.failures[0]),
+    result ? result.failures.join("; ") : "threw",
+  );
+}
+
+{
+  // Control: multi-byte content is not itself the offence. Same characters, far
+  // fewer of them, so the BYTE count lands under budget. Without this, the two
+  // cases above would also be satisfied by a gate that had simply learned to
+  // dislike em-dashes.
+  const contents = `${"—".repeat(64)}${"x".repeat(64)}\n`;
+  const { result } = await runAgainst({ "AGENTS.md": contents });
+  report(
+    "control: multi-byte content whose BYTES are under budget passes",
+    Buffer.byteLength(contents, "utf8") < ROOT_BUDGET_BYTES && result?.failures.length === 0,
     result ? result.failures.join("; ") : "threw",
   );
 }

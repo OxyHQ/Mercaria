@@ -46,8 +46,11 @@
  *      is walked around. Two subtractions make the shape rule usable: the app's
  *      own `en.json` (a translation key has the identical shape, and a literal
  *      that RESOLVES to one is copy — a real data source rather than a
- *      heuristic about naming), and ADR 0007 D10's closed set of validation
- *      PATHS, which is a published vocabulary of the same shape.
+ *      heuristic about naming), and ADR 0007 D10's validation PATHS, which are a
+ *      published vocabulary of the same shape. The second is not a pattern and
+ *      cannot be one, so each path is named against the FILE it stands in and
+ *      the number of findings it covers, reconciled both ways after the scan
+ *      ({@link KNOWN_FINDING_PATH_EXCEPTIONS}).
  *
  *      Scoped to the authoring subtree rather than the whole dashboard, and
  *      that is a real limit rather than a preference: a dotted lowercase string
@@ -179,26 +182,66 @@ const MEMBERSHIP_METHODS = new Set(["includes", "has", "startsWith", "endsWith"]
 const NAMESPACED_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/u;
 
 /**
- * ADR 0007 D10's validation PATHS — the one spelling every producer uses.
+ * ADR 0007 D10's validation PATHS that wall 2 subtracts — each scoped to a FILE,
+ * carrying an EXACT count, and reconciled in BOTH directions after the scan.
  *
- * Wall 2's shape rule cannot tell these from a concept key, because they are
- * the same shape. They are subtracted by NAME rather than by a pattern, and the
- * self-test asserts this set's EXACT size: a list of exemptions that can grow
- * without anybody noticing is a hole rather than a decision.
+ * Wall 2's shape rule cannot tell one of these from a concept key, because they
+ * are the same shape, so they are subtracted by NAME rather than by a pattern.
+ * What that name is worth is the whole question. Until #494 this was a bare
+ * `Set` of six strings subtracted ANYWHERE under `packages/dashboard/`, with no
+ * count and no check that any of them still matched anything — and the self-test
+ * pinned only the list's SIZE, which six wrong strings satisfy exactly as well
+ * as six right ones.
  *
- * `variants[<n>].…` and `fields.<key>[<n>]` are not here because the bracket
- * takes them out of the shape; only the six bare dotted forms need naming.
+ * Measured by emptying the list and reading the findings the guard then
+ * reported: **four of the six subtracted nothing**, and three of those could
+ * never have subtracted anything.
+ *
+ *   - `classification.categoryId`, `classification.productType` and
+ *     `draft.schemaEtag` were STRUCTURALLY INERT. `NAMESPACED_KEY` matches
+ *     `[a-z][a-z0-9_]*` segments, so a camelCase segment — `categoryId`,
+ *     `productType`, `schemaEtag` — cannot match it at all, and each entry
+ *     excused a finding that could not occur. That is
+ *     `validate-storefront-catalog-driven.mjs`'s `category_tree` entry exactly,
+ *     one guard over, and it is why that list is reconciled too.
+ *   - `draft.status` was STALE. Production spells the branch
+ *     `path.startsWith("draft.")`, whose argument has no second segment and so
+ *     never matches the shape; the only literal occurrences are in
+ *     `__tests__/findings.test.ts`, which every wall skips (#469).
+ *
+ * So an entry now names the file it applies to and exactly how many findings it
+ * covers, and both directions fail. FEWER means it has stopped describing the
+ * tree, which is how a list of exemptions decays into one nobody can audit.
+ * MORE means a new hardcoded path rode in behind a reasoned one — the direction
+ * a set of bare names can never report, because it can only ever ask "did this
+ * fire at least once". `validate-rtl-logical-classes.mjs` and
+ * `validate-storefront-catalog-driven.mjs` are the reference implementations.
+ *
+ * `variants[<n>].…` and `fields.<key>[<n>]` never needed naming: the bracket
+ * takes them out of the shape.
  */
-const AUTHORING_FINDING_PATHS = new Set([
-  "classification.categoryId",
-  "classification.productType",
-  "draft.schemaEtag",
-  "draft.status",
-  "listing.description",
-  "listing.title",
-]);
+const KNOWN_FINDING_PATH_EXCEPTIONS = [
+  {
+    file: "packages/dashboard/lib/authoring/findings.ts",
+    literal: "listing.title",
+    count: 1,
+    reason:
+      "ADR 0007 D10's validation path for the listing title, in `parseFindingPath`'s branch on it. "
+      + "The path vocabulary is the server's and this function is the one place that maps it to a "
+      + "wizard control, so the string is a PATH rather than a catalogue concept.",
+  },
+  {
+    file: "packages/dashboard/lib/authoring/findings.ts",
+    literal: "listing.description",
+    count: 1,
+    reason:
+      "The same, for the listing description — the sibling branch one line down. TWO entries rather "
+      + "than one because they are two distinct literals and the count is per literal, so a second "
+      + "occurrence of either is reported instead of being absorbed by the other's allowance.",
+  },
+];
 
-export const AUTHORING_FINDING_PATH_COUNT = AUTHORING_FINDING_PATHS.size;
+export const KNOWN_FINDING_PATH_EXCEPTION_COUNT = KNOWN_FINDING_PATH_EXCEPTIONS.length;
 
 /** Below these, the traversal is broken — and a broken traversal reports clean. */
 const MINIMUM_SCANNED_FILES = fixtureFloors ? 1 : 60;
@@ -453,14 +496,19 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
       }
     }
 
-    // WALL 2 — a namespaced concept key that is neither a translation key nor
-    // one of D10's published validation paths. Authoring subtree only.
+    // WALL 2 — a namespaced concept key that is not a translation key.
+    // Authoring subtree only.
+    //
+    // D10's validation paths are NOT subtracted here. They are excused by the
+    // caller, against a FILE and a count, so that the guard can tell an
+    // exemption that is still doing work from one that stopped — which a
+    // subtraction made inside the detector cannot, because the finding it
+    // suppressed never existed to be counted.
     const asLiteral = namespacedKeys ? literalText(node) : null;
     if (
       asLiteral !== null &&
       NAMESPACED_KEY.test(asLiteral) &&
       !translationKeys.has(asLiteral) &&
-      !AUTHORING_FINDING_PATHS.has(asLiteral) &&
       !isModuleSpecifier(node)
     ) {
       report(node, "namespaced-key", `"${asLiteral}"`);
@@ -504,6 +552,8 @@ const WALL_TEXT = {
 
 async function main() {
   const failures = [];
+  /** exception id -> how many findings it actually excused. */
+  const matchedExceptions = new Map();
   const files = trackedFiles();
 
   let bundleRaw;
@@ -539,6 +589,17 @@ async function main() {
     for (const finding of analyseSource(path, text, translationKeys, {
       namespacedKeys: inAuthoringTree,
     })) {
+      const excused = KNOWN_FINDING_PATH_EXCEPTIONS.find(
+        (entry) =>
+          finding.wall === "namespaced-key" &&
+          entry.file === finding.file &&
+          finding.detail === `"${entry.literal}"`,
+      );
+      if (excused !== undefined) {
+        const id = `${excused.file}:${excused.literal}`;
+        matchedExceptions.set(id, (matchedExceptions.get(id) ?? 0) + 1);
+        continue;
+      }
       // The wall KEY is in the line as well as the sentence: it is what a
       // reader greps for and what this guard's own controls assert on, and a
       // control that could only match the prose would pass on any refusal at
@@ -547,6 +608,56 @@ async function main() {
         `${finding.file}:${finding.line} [${finding.wall}] ${finding.detail} — ${WALL_TEXT[finding.wall]}`,
       );
     }
+  }
+
+  // An entry must declare an integer `count` of at least 1, or the
+  // reconciliation below compares against `undefined` and every entry reports a
+  // mismatch it cannot explain. Checked here so the FIRST entry added without
+  // one fails naming itself, rather than turning the whole list red at once.
+  for (const entry of KNOWN_FINDING_PATH_EXCEPTIONS) {
+    if (Number.isInteger(entry.count) && entry.count >= 1) continue;
+    failures.push(
+      `KNOWN_FINDING_PATH_EXCEPTIONS entry "${entry.literal}" in ${entry.file} declares no integer `
+      + `count >= 1 (got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of `
+      + "that literal in that file — declare exactly how many findings it covers",
+    );
+  }
+
+  // The exemption list, reconciled in BOTH directions. An entry that no longer
+  // fires has stopped describing the tree; an entry that fires more often than
+  // it claims is excusing something nobody reasoned about.
+  for (const entry of KNOWN_FINDING_PATH_EXCEPTIONS) {
+    const id = `${entry.file}:${entry.literal}`;
+    const actual = matchedExceptions.get(id) ?? 0;
+    if (actual === entry.count) continue;
+
+    if (actual === 0) {
+      failures.push(
+        `${id} is listed as a reasoned validation-path exception ${entry.count} time(s), which no `
+        + "longer matches anything — the count went DOWN to 0. Either the path was removed or the file "
+        + "moved: delete the entry so the list keeps describing the tree. Check first that the literal "
+        + "CAN match NAMESPACED_KEY at all — a camelCase segment never could, which is how three of the "
+        + "original six entries came to excuse nothing, a fourth being simply stale (#494)",
+      );
+      continue;
+    }
+
+    if (actual < entry.count) {
+      failures.push(
+        `${id} is listed as a reasoned validation-path exception ${entry.count} time(s), but only `
+        + `${actual} matched — the count went DOWN. Part of what it excused is gone: lower the count to `
+        + `${actual}, or restore what was removed`,
+      );
+      continue;
+    }
+
+    failures.push(
+      `${id} is listed as a reasoned validation-path exception ${entry.count} time(s), but ${actual} `
+      + "finding(s) matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, "
+      + "so a NEW hardcoded use of the same path in the same file would otherwise ride in behind the "
+      + "reasoned one. Read the new occurrence off the schema, or raise the count with a reason "
+      + "covering it too",
+    );
   }
 
   // The vacuity floors. Both are needed: the whole tree could be scanned while
@@ -579,7 +690,9 @@ async function main() {
   console.log(
     `authoring schema-driven guard passed — ${scanned.length} source files under ${SCANNED_PREFIX} ` +
       `(${authoring.length} of them the wizard's, ${String(skippedTests)} test files skipped); 4 walls; ` +
-      `${translationKeys.size} translation keys subtracted by wall 2.`,
+      `${translationKeys.size} translation keys subtracted by wall 2, and ` +
+      `${KNOWN_FINDING_PATH_EXCEPTIONS.length} reasoned validation-path exception(s) each matched ` +
+      "their exact declared count.",
   );
 }
 

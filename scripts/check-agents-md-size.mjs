@@ -114,6 +114,13 @@ export async function checkAgentsMdSize({
 
   for (const path of paths) {
     const contents = await readFile(resolve(repositoryRoot, path), "utf8");
+    // BYTES, never `contents.length`. The two agree only on pure ASCII, and this
+    // repository's prose is not: the root file's em-dashes, middle-dots and
+    // en-dash put it 51 bytes above its character count today, which is more
+    // than the whole remaining margin under the ceiling. A `.length` measure
+    // would therefore raise the real budget by however much punctuation the file
+    // happens to carry, silently and in the direction nobody checks. Pinned by
+    // the straddling fixtures in `test-check-agents-md-size.mjs`.
     const bytes = Buffer.byteLength(contents, "utf8");
     const budget = path === "AGENTS.md" ? rootBudgetBytes : nestedBudgetBytes;
 
