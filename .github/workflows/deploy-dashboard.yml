@@ -6,6 +6,13 @@ name: Deploy Dashboard
 # `dashboard.mercaria.co` — no `*.workers.dev` / `*.pages.dev` URL is ever exposed.
 # HANDOFF: the Oxy RP client id for the dashboard must be registered and the repo
 # variable `EXPO_PUBLIC_OXY_CLIENT_ID_DASHBOARD` set to it for the SSO RP flow.
+#
+# WHAT IS VERIFIED BEFORE THIS SHIPS: the whole of `ci.yml`, asserted for THIS
+# commit by the `gate` job below. Not the export in `deploy-dashboard`:
+# `expo export` is a bundler, Babel strips types, and it ships code `tsc`
+# rejects — measured on 2026-08-17. So the build below proves the app BUNDLES,
+# and nothing about whether it is correct. Until #505 this workflow had no gate
+# at all. See `docs/deploy.md` §"What gates a deploy".
 
 on:
   workflow_dispatch:
@@ -13,14 +20,39 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/deploy-dashboard.yml'
+      - '.github/scripts/require-ci-success.mjs'
       - 'packages/dashboard/**'
       - 'packages/ui/**'
       - 'packages/shared-types/**'
       - 'package.json'
       - 'bun.lock'
 
+# The deploy authenticates to Cloudflare with its own secret; the workflow token
+# needs only enough to check out the gate script and read this commit's CI run.
+permissions:
+  contents: read
+  actions: read
+
 jobs:
+  gate:
+    name: CI passed for this commit
+    runs-on: ubuntu-latest
+    # Above the script's own 30-minute wait for a run to conclude, so a genuine
+    # refusal is reported by the script with its reason rather than by the runner
+    # killing the job.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require a green CI run for this commit
+        run: node .github/scripts/require-ci-success.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   deploy-dashboard:
+    needs: gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
