@@ -43,6 +43,27 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
       await writeFile(full, contents);
     }
 
+    // Every `packages/<name>/` a case creates gets a manifest declaring
+    // `react-native`, because since #494 the guard DERIVES its scanned prefixes
+    // from exactly that — a client package is one that renders a mirrored
+    // layout. Writing them here rather than giving the guard a fixture-only
+    // branch is what keeps these cases on PRODUCTION's code path: a control
+    // that exercises a different derivation than the real tree does is a
+    // control over the fixture.
+    const packageNames = new Set(
+      Object.keys(files)
+        .map((path) => /^packages\/([^/]+)\//.exec(path)?.[1])
+        .filter((name) => name !== undefined),
+    );
+    for (const name of packageNames) {
+      const manifest = join(root, "packages", name, "package.json");
+      await mkdir(dirname(manifest), { recursive: true });
+      await writeFile(
+        manifest,
+        `${JSON.stringify({ name: `@mercaria/${name}`, dependencies: { "react-native": "*" } }, null, 2)}\n`,
+      );
+    }
+
     Bun.spawnSync({ cmd: ["git", "-c", "init.defaultBranch=main", "init", "-q"], cwd: root });
     Bun.spawnSync({ cmd: ["git", "add", "-A", "-f"], cwd: root });
 
@@ -338,17 +359,55 @@ const cases = [
     expectOutput: 'excuses "border-r" in packages/frontend/components/sidebar.tsx 2 time(s), but only 1',
   },
   {
+    // The floor #494 added, and the one the old global floor could not provide.
+    // A client package that contributes NOTHING is a package that stopped being
+    // scanned — and no growth anywhere else can lift its count off zero, which
+    // is what makes this immune where a global number was merely well chosen.
+    //
+    // `realFloors`, because the whole point is the PRODUCTION floor firing: the
+    // relaxed fixture floor is 1 as well, so this case would pass for the wrong
+    // reason without it.
+    name: "a client package contributing NOTHING fails, however large the others are",
+    files: {
+      ...migratedTree(),
+      // A fifth package with a manifest and no source of its own: the manifest
+      // puts it in the derived population, and the empty tree is the loss.
+      "packages/kiosk/package.json":
+        `${JSON.stringify({ name: "@mercaria/kiosk", dependencies: { "react-native": "*" } }, null, 2)}\n`,
+    },
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "packages/kiosk/ contributed 0 scanned files",
+  },
+  {
+    // The floor on the DERIVATION itself. Discovery returning fewer client
+    // packages than exist shrinks the mirrored surface while every surviving
+    // per-prefix floor still passes, because each one still has files.
+    name: "a derivation that finds too few client packages fails",
+    files: {
+      "packages/frontend/components/clean.tsx":
+        'export const F = () => <View className="ms-2 ps-4" />;\n',
+    },
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "client packages discovered (floor 4)",
+  },
+  {
     name: "a broken file listing cannot pass silently (vacuity floor)",
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
     // Tracks MINIMUM_SOURCE_FILES deliberately, so a floor edited without a
     // reason fails here rather than passing quietly at a number nobody chose.
-    // 392 is above the 387 that would survive losing the smallest prefix
-    // (`packages/pos/`, 64 of 451) — #429 re-derived it after adding two files
-    // to `packages/ui` put drop-the-smallest at EXACTLY the old floor of 390,
-    // where a `<` comparison stops firing. Re-derive it here too.
-    expectOutput: "below the 392 floor",
+    //
+    // 200 since #494, and it is no longer derived from drop-the-smallest —
+    // that job moved to the PER-PREFIX floor, which is structurally immune
+    // rather than well chosen. This one is now only the weak net for "the whole
+    // listing collapsed", so it does not have to be re-derived every time the
+    // tree grows. The history of why is in the guard: it went inert twice by
+    // hand-derivation, and a third time live at 487 files, where dropping
+    // `packages/pos/` left 420 and cleared the 392 that used to sit here.
+    expectOutput: "below the 200 floor",
   },
   {
     name: "a tracked file the working tree lost is a loud failure, not a stack trace",

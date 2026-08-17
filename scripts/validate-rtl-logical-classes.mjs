@@ -79,8 +79,9 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -98,13 +99,51 @@ const repositoryRoot = process.env.RTL_CLASS_VALIDATOR_ROOT
  */
 const fixtureFloors = process.env.RTL_CLASS_VALIDATOR_FIXTURE_FLOORS === "1";
 
-/** The mirrored surface: all four client packages (#397 the first two, #434 the rest). */
-const SCANNED_PREFIXES = [
-  "packages/frontend/",
-  "packages/ui/",
-  "packages/dashboard/",
-  "packages/pos/",
-];
+/**
+ * The mirrored surface: every CLIENT package (#397 the first two, #434 the rest).
+ *
+ * DERIVED from the tree, not listed. A hand list has a failure mode the
+ * per-prefix floor below cannot see, because that floor is computed FROM this
+ * list: delete an entry and the prefix is not checked, it is simply not
+ * scanned, and nothing reports a package that stopped being covered.
+ *
+ * Measured at #494: deleting `packages/pos/` from the old hand list did fail —
+ * but only INCIDENTALLY, because a `KNOWN_EXCEPTIONS` entry happened to excuse a
+ * `border-l` inside that package, so the exact-count check noticed its count
+ * drop to zero. That defence is contingent on an unrelated list: migrate that
+ * one class, delete the exception as the guard instructs, and removing an entire
+ * app from this list goes silent again.
+ *
+ * The discriminator is `react-native` in the package manifest, which is what a
+ * client package IS — the four that render a mirrored layout, against `backend`
+ * and `shared-types` which render nothing. So a fifth client package is scanned
+ * on the day it appears, and a package cannot be dropped from the wall without
+ * being dropped from the product.
+ */
+const SCANNED_PREFIXES = readdirSync(join(repositoryRoot, "packages"), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .filter((entry) => {
+    const manifest = join(repositoryRoot, "packages", entry.name, "package.json");
+    if (!existsSync(manifest)) return false;
+    const parsed = JSON.parse(readFileSync(manifest, "utf8"));
+    return Boolean(
+      parsed.dependencies?.["react-native"]
+      ?? parsed.devDependencies?.["react-native"]
+      ?? parsed.peerDependencies?.["react-native"],
+    );
+  })
+  .map((entry) => `packages/${entry.name}/`)
+  .sort();
+
+/**
+ * The floor on the DERIVATION itself.
+ *
+ * Four client packages today. A derivation that silently returns fewer — an
+ * unreadable manifest, a renamed dependency, a `packages/` that moved — would
+ * otherwise shrink the scanned surface with every per-prefix floor still
+ * passing, because each surviving prefix still contributes files.
+ */
+const MINIMUM_CLIENT_PACKAGES = fixtureFloors ? 1 : 4;
 
 const SOURCE_FILE = /\.(?:tsx?|jsx?)$/;
 
@@ -274,32 +313,40 @@ const KNOWN_EXCEPTIONS = [
 ];
 
 /**
- * Below this, the file listing is broken — and a broken listing reports a clean
- * tree.
+ * The floors, and why the load-bearing one is PER PREFIX.
  *
- * DERIVED, not picked: the floor has to catch the silent loss of any ONE entry
- * from `SCANNED_PREFIXES` — a typo'd prefix, or a package moved without this
- * list following it. At #429 the four prefixes carry 451 source files
- * (frontend 171, ui 98, dashboard 118, pos 64), so dropping the SMALLEST of them
- * still leaves 387. A floor ABOVE that number fails on every single-prefix loss,
- * including the cheapest one to make.
+ * A floor exists so "found nothing" cannot be confused with "read nothing". The
+ * loss being defended against here is one entry of `SCANNED_PREFIXES` silently
+ * dropping out — a typo'd prefix, a package moved without this list following
+ * it, a `git ls-files` that returned nothing for it.
  *
- * 392 keeps the same character the 200-of-266 floor had before the scope
- * widened: it catches any one prefix going missing, with ~60 files of headroom
- * so ordinary deletions do not turn it red for the wrong reason.
+ * A GLOBAL floor defends that badly, and this file is the proof rather than the
+ * warning. It has to sit below "total minus the smallest prefix", so every file
+ * ADDED to the other three pushes that quantity UP until it reaches the floor
+ * and the floor is inert — while still reading as a floor, because the number
+ * beside it only ever grows. The history in this file records it going inert
+ * TWICE, each time inside the PR that moved the tree, each time re-derived by
+ * hand. Measured again at #494 on a 487-file tree: dropping `packages/pos/`
+ * (67 files) leaves 420, which CLEARS the 392 written below it. Total loss of
+ * one app's RTL coverage, reported clean. `packages/ui` was three files from
+ * the same fate.
  *
- * RE-DERIVE IT WHEN THE TREE MOVES — IN EITHER DIRECTION — and note that it goes
- * stale in the safe-LOOKING direction, so the run stays green. Twice now, both
- * times inside the PR that moved the tree. #434 set 360 against a 422-file tree,
- * then #367 and #437 landed 30 files and 360 stopped covering the loss of
- * `packages/pos/`; it was raised to 390 against 452. #429 then added two files
- * to `packages/ui`, which put drop-the-smallest at EXACTLY 390 — and the
- * comparison is `<`, so the floor had become inert for that case while still
- * reading as a floor. The counts above were themselves re-measured after
- * rebasing behind #435a, which DELETED three storefront files: a floor derived
- * before a rebase describes the tree the author had, not the one that merges.
+ * A rule that needs manual re-derivation is inert most of the time, because
+ * most of the time nobody re-derives it.
+ *
+ * So the load-bearing floor is PER PREFIX and it is ONE. That is structurally
+ * immune rather than well-chosen: losing a prefix zeroes THAT prefix's own
+ * count, and no amount of growth anywhere else can lift a zero. It never needs
+ * re-deriving. `validate-route-targets.mjs` already reasons exactly this way and
+ * this is a port of its shape, not a new idea.
+ *
+ * The global floor is KEPT, lowered, as a second and weaker net for "the whole
+ * listing collapsed". It is deliberately not derived from drop-the-smallest any
+ * more — that job now belongs to the per-prefix floors — so it does not go
+ * stale in the green direction as the tree grows.
  */
-const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 392;
+const MINIMUM_FILES_PER_PREFIX = fixtureFloors ? 1 : 1;
+const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 200;
 
 /**
  * The guard cannot be its own subject: this file and its self-test both spell
@@ -493,6 +540,37 @@ for (const entry of KNOWN_EXCEPTIONS) {
 
 // ---------------------------------------------------------- vacuity floor ---
 
+// The floor on the DERIVATION: fewer client packages than exist means the
+// discovery broke, and every surviving prefix would still pass its own floor.
+if (SCANNED_PREFIXES.length < MINIMUM_CLIENT_PACKAGES) {
+  failures.push(
+    `${SCANNED_PREFIXES.length} client packages discovered (floor ${MINIMUM_CLIENT_PACKAGES}) — `
+    + "the derivation over packages/*/package.json is broken, so the mirrored surface is smaller "
+    + "than the product and every per-prefix floor below would still pass",
+  );
+}
+
+/** How many scanned files each prefix contributed. */
+const perPrefix = new Map(
+  SCANNED_PREFIXES.map((prefix) => [
+    prefix,
+    sources.filter((path) => path.startsWith(prefix)).length,
+  ]),
+);
+
+// The load-bearing floor. A prefix that contributed NOTHING is a prefix that is
+// no longer scanned, whatever the total says.
+for (const [prefix, count] of perPrefix) {
+  if (count < MINIMUM_FILES_PER_PREFIX) {
+    failures.push(
+      `${prefix} contributed ${count} scanned files (floor ${MINIMUM_FILES_PER_PREFIX}) — `
+      + "that package is no longer being scanned for physical directional utilities, and its "
+      + "screens would half-mirror in Arabic with every job green",
+    );
+  }
+}
+
+// The weaker net: the whole listing collapsing.
 if (sources.length < MINIMUM_SOURCE_FILES) {
   failures.push(
     `${sources.length} source files scanned is below the ${MINIMUM_SOURCE_FILES} floor — `
@@ -519,7 +597,8 @@ if (unexcused.length > 0 || failures.length > 0) {
 
 console.log(
   `RTL logical-class guard passed — ${sources.length} source files scanned across `
-  + `${SCANNED_PREFIXES.join(", ")} (floor ${MINIMUM_SOURCE_FILES}); `
+  + `${[...perPrefix].map(([prefix, count]) => `${prefix} ${count}`).join(", ")} `
+  + `(floor ${MINIMUM_FILES_PER_PREFIX} per prefix, ${MINIMUM_SOURCE_FILES} overall); `
   + `${RULES.length} rules positively controlled; `
   + `${KNOWN_EXCEPTIONS.length} known exceptions each matched their exact declared count `
   + `(${findings.length - unexcused.length} findings excused in total).`,
