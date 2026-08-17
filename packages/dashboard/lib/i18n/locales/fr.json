@@ -856,6 +856,16 @@
       "channelSettings": "Paramètres du canal",
       "documentTitle": "Produit | Mercaria Dashboard",
       "loadFailed": "Impossible de charger le produit",
+      "pins": {
+        "release": "Libérer",
+        "releaseFailed": "Impossible de libérer le champ",
+        "releaseNote": "Libérer un champ permet à la plateforme de le gérer à nouveau à partir de la prochaine synchronisation. Votre valeur actuelle reste en place jusque-là : Mercaria ne conserve pas l’ancienne valeur de la plateforme, rien n’est donc restauré.",
+        "releaseUnnamed": {
+          "one": "Libérer %{count} champ",
+          "other": "Libérer %{count} champs"
+        },
+        "released": "Libéré. Rien ne change ici avant la prochaine synchronisation, où la valeur de la plateforme prendra le relais."
+      },
       "restrictedNotice": "Ce produit est restreint dans l’attente d’une décision de modération et ne peut pas être republié depuis cet écran.",
       "saveChanges": "Enregistrer les modifications",
       "saveFailed": "Impossible d’enregistrer le produit",

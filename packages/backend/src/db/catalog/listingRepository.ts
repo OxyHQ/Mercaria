@@ -473,6 +473,105 @@ export async function updateListingColumns(
   return row ?? null;
 }
 
+/** What one `releasePinnedFields` statement found and what it left behind. */
+export interface PinReleaseOutcome {
+  /** The stored set before the removal, in stored order. */
+  before: string[];
+  /** The stored set after it, in stored order. */
+  after: string[];
+  /**
+   * The keys this statement actually removed — `before` minus `after`,
+   * deduplicated, in stored order.
+   *
+   * Empty for a converging repeat, which is what makes the audit trail record
+   * decisions rather than requests.
+   */
+  released: string[];
+}
+
+/**
+ * Stop holding some of a listing's `overridden_fields` keys (#427).
+ *
+ * Returns `null` when there is no such listing.
+ *
+ * ## One statement, because a read-then-write here loses a concurrent release
+ *
+ * The removal is computed inside the UPDATE from the row the UPDATE itself
+ * locks, so two dashboards releasing two DIFFERENT fields at the same moment
+ * end with both removed. Reading the array into the process, filtering it there
+ * and writing the result back would give the loser a `before` it fetched
+ * outside the lock and put the winner's key straight back — a lost update whose
+ * only symptom is a pin that reappeared, which is indistinguishable from the
+ * merchant having re-edited the field. In READ COMMITTED the `for update` in
+ * the CTE walks the update chain, so both the locked row and the UPDATE's own
+ * re-fetch see the same committed version.
+ *
+ * `array_remove` would be enough for a single key; `unnest … with ordinality`
+ * is what lets one statement remove a SET while keeping the stored order of
+ * everything it did not touch. Order carries no meaning to the connector merge
+ * — `partitionPinnedFields` re-sorts for display — but rewriting it would make
+ * a diff of this column say something that did not happen.
+ *
+ * SUBTRACTIVE and nothing else: there is no branch here that can add a key, so
+ * no call can make a fourth key pinnable however `fields` is spelled.
+ */
+export async function releasePinnedFields(
+  listingId: string,
+  fields: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<PinReleaseOutcome | null> {
+  const requested = [...new Set(fields)];
+  /**
+   * `array[$1, $2, …]::text[]`, one bound parameter per key.
+   *
+   * NOT `${requested}`: drizzle's `sql` template SPREADS a JS array into
+   * separate placeholders, so a one-key release bound the bare string
+   * `'description'` to a `text[]` parameter and Postgres answered `22P02
+   * malformed array literal` — and a two-key release would have produced a
+   * different, equally wrong statement. Written out, every key is still a bound
+   * parameter and nothing is interpolated as text.
+   *
+   * An empty list renders `array[]::text[]`, and `x <> all('{}')` is TRUE for
+   * every row — so a request naming nothing removes nothing, which is the same
+   * answer as a request naming only keys that are not held.
+   */
+  const requestedArray = sql`array[${sql.join(
+    requested.map((field) => sql`${field}`),
+    sql`, `,
+  )}]::text[]`;
+  const rows = await db.execute<{ before: string[]; after: string[] }>(sql`
+    with locked as (
+      select ${listings.id} as id, ${listings.overriddenFields} as before
+      from ${listings}
+      where ${listings.id} = ${listingId}
+      for update
+    )
+    update ${listings}
+    set overridden_fields = coalesce(
+          (
+            select array_agg(held.field order by held.ord)
+            from unnest(locked.before) with ordinality as held(field, ord)
+            where held.field <> all(${requestedArray})
+          ),
+          '{}'::text[]
+        ),
+        updated_at = now()
+    from locked
+    where ${listings.id} = locked.id
+    returning locked.before as before, ${listings.overriddenFields} as after
+  `);
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+  const after = new Set(row.after);
+  return {
+    before: row.before,
+    after: row.after,
+    released: [...new Set(row.before)].filter((key) => !after.has(key)),
+  };
+}
+
 /**
  * Recompute a listing's denormalized facets from its variants.
  *

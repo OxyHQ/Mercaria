@@ -131,3 +131,54 @@ export function partitionPinnedFields(
     unnamed: [...stored].filter((key) => !nameable.includes(key)).sort(),
   };
 }
+
+/**
+ * Stop holding one or more of a listing's pinned keys (#427).
+ *
+ * ## What a release CAN mean, and what it cannot
+ *
+ * Nothing stores the platform's previous per-field value. `overriddenFields`
+ * records only WHICH keys were taken over; the title, description, gallery
+ * order, vendor, product type, handle and SEO pair the platform last sent are
+ * kept nowhere. So a release means exactly one thing — **the field resumes
+ * tracking the platform from the next sync** — and it can never mean *restore
+ * what it was*. The field keeps the merchant's current value until the platform
+ * next sends one, which on a webhook-driven connection may not be until they
+ * edit something upstream.
+ *
+ * Every surface that offers this has to say that, in those terms. A control
+ * labelled "undo", "revert" or "restore", or anything with a before/after, is a
+ * promise the data cannot keep, and it would fail the way this whole area keeps
+ * failing: silently, looking exactly like a working feature.
+ *
+ * ## It is SUBTRACTIVE, which is what keeps `status` unpinnable
+ *
+ * The only operation is removal from the stored set — there is deliberately no
+ * input that could ADD a key. So {@link UNPINNED_CONNECTOR_KEYS} stay outside
+ * what a merchant edit writes however this endpoint is called: releasing
+ * `status` is the platform getting a field BACK, which is the opposite
+ * direction from the one #416 refused, and no sequence of releases can make a
+ * fourth key pinnable.
+ *
+ * ## Any key, not only the seven this vocabulary names
+ *
+ * `fields` is `string[]` rather than `PinnableConnectorField[]` for the reason
+ * {@link partitionPinnedFields} reports `unnamed` at all: the column is a bare
+ * `text[]` that `mergePins` never removes from, and a fixture, a repair or a
+ * later issue can leave a key in it that no merchant edit writes — held by the
+ * connector's merge all the same. A release that could only reach the seven
+ * named keys would leave those permanently stuck, which is worse than not
+ * offering a release. Narrowing this to the union would be that bug, spelled as
+ * a type.
+ *
+ * A key that is not held is not an error: it is removed from nothing, and the
+ * request converges. That is what makes a retry, a double tap and two dashboards
+ * releasing the same field all end in one state.
+ */
+export interface ReleaseConnectorPinsInput {
+  /**
+   * The `overriddenFields` keys to stop holding. Keys that are not held are
+   * no-ops rather than failures.
+   */
+  fields: string[];
+}

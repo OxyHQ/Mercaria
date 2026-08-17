@@ -856,6 +856,16 @@
       "channelSettings": "渠道设置",
       "documentTitle": "商品 | Mercaria Dashboard",
       "loadFailed": "无法加载商品",
+      "pins": {
+        "release": "解除",
+        "releaseFailed": "无法解除该字段",
+        "releaseNote": "解除某个字段后，从下次同步开始将由平台重新管理该字段。在此之前会保留你当前的值——Mercaria 不会保存平台之前的值，因此不会恢复任何内容。",
+        "releaseUnnamed": {
+          "one": "解除 %{count} 个字段",
+          "other": "解除 %{count} 个字段"
+        },
+        "released": "已解除。在下次同步以平台的值为准之前，这里不会有任何变化。"
+      },
       "restrictedNotice": "该商品因等待审核裁决而被限制，无法从这里重新发布。",
       "saveChanges": "保存更改",
       "saveFailed": "无法保存该商品",

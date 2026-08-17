@@ -856,6 +856,16 @@
       "channelSettings": "Kanaleinstellungen",
       "documentTitle": "Produkt | Mercaria Dashboard",
       "loadFailed": "Das Produkt konnte nicht geladen werden",
+      "pins": {
+        "release": "Freigeben",
+        "releaseFailed": "Feld konnte nicht freigegeben werden",
+        "releaseNote": "Wenn Sie ein Feld freigeben, verwaltet die Plattform es ab der nächsten Synchronisierung wieder. Ihr aktueller Wert bleibt bis dahin erhalten — Mercaria speichert den früheren Wert der Plattform nicht, es wird also nichts wiederhergestellt.",
+        "releaseUnnamed": {
+          "one": "%{count} Feld freigeben",
+          "other": "%{count} Felder freigeben"
+        },
+        "released": "Freigegeben. Hier ändert sich nichts bis zur nächsten Synchronisierung, bei der der Wert der Plattform übernommen wird."
+      },
       "restrictedNotice": "Dieses Produkt ist bis zu einer Moderationsentscheidung gesperrt und kann von hier aus nicht erneut veröffentlicht werden.",
       "saveChanges": "Änderungen speichern",
       "saveFailed": "Das Produkt konnte nicht gespeichert werden",

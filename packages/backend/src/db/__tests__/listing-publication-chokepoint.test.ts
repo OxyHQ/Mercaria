@@ -53,12 +53,21 @@ const TABLE = 'listings';
  * that as clean. The raw-SQL spellings are here too: `db.execute` bypasses the
  * query builder entirely, so a scan for the builder alone would report clean on
  * the one shape that also bypasses the column mappers.
+ *
+ * The INTERPOLATED raw spelling — `update ${listings} set …` inside a `sql`
+ * template — is a fourth branch, added by #427, which wrote the first one. It is
+ * the spelling this census was most blind to: the table name never appears as
+ * text, so `update\s+"?listings"?\s+set` matched nothing at all and a `status`
+ * write in any file would have read as clean. Its first author happened to be
+ * the OWNER, so the gate's verdict was right by luck rather than by measurement,
+ * which is not a state to leave a census in.
  */
 const LISTING_WRITE = new RegExp(
   [
     `\\.\\s*insert\\s*\\(\\s*${TABLE}\\s*\\)`,
     `\\.\\s*update\\s*\\(\\s*${TABLE}\\s*\\)`,
     `update\\s+"?${TABLE}"?\\s+set`,
+    `update\\s+\\$\\{\\s*${TABLE}\\s*\\}`,
   ].join('|'),
   'iu',
 );
@@ -76,7 +85,7 @@ const PERMITTED_WRITERS: readonly { readonly path: string; readonly disposition:
   {
     path: join('db', 'catalog', 'listingRepository.ts'),
     disposition:
-      'the OWNER — `insertListing`, `updateListingColumns` and `setListingStatusIfIn` each derive `published_at` from the status they write',
+      'the OWNER — `insertListing`, `updateListingColumns` and `setListingStatusIfIn` each derive `published_at` from the status they write, and #427’s `releasePinnedFields` writes `overridden_fields` alone, touching neither column',
   },
   {
     path: join('db', 'productSaves', 'productSaveAggregateRepository.ts'),
@@ -154,7 +163,7 @@ describe('the listings write census', () => {
     expect(PERMITTED_WRITERS).toHaveLength(3);
   });
 
-  it('finds all three of the owner’s write statements', () => {
+  it('finds all four of the owner’s write statements', () => {
     const owner = productionSources().get(join('db', 'catalog', 'listingRepository.ts'));
     expect(owner, 'the owner path is stale').toBeDefined();
 
@@ -162,10 +171,26 @@ describe('the listings write census', () => {
     // that had stopped matching the builder spelling would make the census above
     // pass by finding nothing anywhere — including in the file that certainly does
     // write this table.
+    //
+    // FOUR since #427, and the fourth is what makes the interpolated branch a
+    // measured thing rather than a hopeful one: `releasePinnedFields` is the only
+    // `update ${listings}` in the tree, so deleting that branch from the pattern
+    // drops this count to three and fails HERE, naming it.
     const statements = owner.match(new RegExp(LISTING_WRITE.source, 'giu')) ?? [];
     expect(
       statements.length,
-      'the owner should carry the insert, the column patch and the status CAS',
-    ).toBeGreaterThanOrEqual(3);
+      'the owner should carry the insert, the column patch, the status CAS and the pin release',
+    ).toBeGreaterThanOrEqual(4);
+  });
+
+  it('matches the interpolated raw spelling that the table-name branch cannot see', () => {
+    // The detector self-test, against text held in memory. The two halves are the
+    // point: the interpolated form is CAUGHT, and the branch that reads a literal
+    // table name genuinely does not catch it — so this is a fourth branch rather
+    // than a second spelling of an existing one.
+    const interpolated = 'update ${listings}\n    set overridden_fields = 1';
+    expect(LISTING_WRITE.test(interpolated)).toBe(true);
+    expect(new RegExp(`update\\s+"?${TABLE}"?\\s+set`, 'iu').test(interpolated)).toBe(false);
+    expect(LISTING_WRITE.test('select ${listings.id} from ${listings}')).toBe(false);
   });
 });

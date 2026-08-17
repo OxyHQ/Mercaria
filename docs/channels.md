@@ -568,7 +568,7 @@ capability: both providers publish a complete named list, so the `false` branch
 would be one no provider takes — a gate that cannot fail, which reads as
 coverage.
 
-### A field pin is invisible unless a surface renders it (#416, #419, #420)
+### A field pin is invisible unless a surface renders it (#416, #419, #420, #427)
 
 A merchant editing a title, description, image set, vendor, product type,
 handle or SEO field on a connector-sourced listing PINS that field: it is
@@ -604,14 +604,71 @@ connector. That is why #420 is a gate
   product genuinely cannot be told. Asserting "later syncs will not overwrite
   these" under `connector_wins`, or under no knowledge at all, would generate
   the same false bug report in the opposite direction.
-- **It is READ-ONLY and must stay so.** There is no per-field pin/unpin
-  control: an explicit pinning control was considered and rejected in #416, and
-  releasing one pin is a different piece of work — nothing stores the platform's
-  previous per-field value, so "unpin" can only honestly mean *resume tracking
-  from the next sync*, never *restore what it was*. The only release that exists
-  today is the connection-wide switch, which makes every pin inert at once, and
-  the notice says so rather than leaving a merchant hunting for a control that
-  is not there.
+- **`ConnectorPinNotice` still writes nothing, and #427's control did not
+  change that.** An explicit PINNING control was considered and rejected in
+  #416 and stays rejected — pinning is a side effect of editing a field, never
+  a switch. What #427 added is the way out, and it reaches the shared component
+  as presentational SLOTS (`releaseNote`, `fieldAction`, `unnamedAction`) the
+  app fills, so the mutation, the permission behind it and the eleven
+  translations of its copy stay in the dashboard. A `useMutation` in the shared
+  package would hand every future consumer a write it never asked for, and the
+  gate that asserts the notice cannot write is unchanged.
+
+#### Releasing one pin (#427)
+
+`POST /admin/stores/:storeId/products/:id/pins/release` with `{fields: [...]}`,
+behind **`products:write`** — the permission an ordinary edit already needs, and
+therefore the one that CREATES a pin. Gating the way out more tightly than the
+way in would let `staff` accumulate pins only an admin could clear, and the act
+is strictly less destructive than the edit itself: releasing a title lets the
+platform overwrite it eventually, where `products:write` already lets that
+member overwrite it now. `channels:write` gates the connection-wide switch,
+whose blast radius is every field of every product; `store:manage` is for
+decisions that bind the store commercially.
+
+- **It can only mean *resume tracking from the next sync*.** Nothing stores the
+  platform's previous per-field value, so nothing can be put back. The
+  merchant's value stays until the platform next sends one — which on a
+  webhook-driven connection may not be until they edit something upstream. The
+  copy says exactly that, and
+  `connector-pin-visibility.test.ts` fails the build on `revert`, `restore` or
+  `undo` appearing anywhere in the release copy. What changes the moment the
+  control is pressed is the PIN, which disappears from the notice; the field
+  does not move, and a merchant told otherwise would report it as broken.
+- **It does not trigger a sync, and does not push.** A release changes
+  Mercaria's merge policy for future writes and asks the platform for nothing.
+  Pulling one product here would put a provider call, its rate budget and its
+  failure modes inside a merchant request — and it would quietly become the
+  restore this cannot promise, since the platform's CURRENT value is not the
+  value the field was taken over from either. Nothing edits a field, so there is
+  nothing for `schedulePush` to send.
+- **It is SUBTRACTIVE, which is what keeps `status` unpinnable.** No input can
+  ADD a key, so no sequence of calls makes a fourth key pinnable — the direction
+  #416 refused. `fields` is `string[]` rather than the seven-member union for
+  the same reason `partitionPinnedFields` reports `unnamed` at all: a release
+  limited to the named keys would leave the rest stuck permanently, which is
+  worse than not offering one.
+- **Idempotent, and safe against a concurrent release.** A key that is not held
+  is removed from nothing and the call succeeds. The removal is computed inside
+  a locked `UPDATE` (`releasePinnedFields` in `db/catalog/listingRepository.ts`),
+  so two dashboards releasing two different fields both win — a read-then-write
+  gives the loser a `before` fetched outside the lock and puts the winner's key
+  straight back, and its only symptom is a pin that reappeared, which looks
+  exactly like the merchant having re-edited the field. A realdb case holds both
+  racers against the same contended window.
+- **It is offered under every `conflictPolicy`, including `connector_wins`.**
+  That is not a control with no effect: `connector_wins` makes a pin INERT
+  without deleting it, so a merchant who released a field there and later turned
+  "Keep my local edits" back on would otherwise find every pin they thought they
+  had given up waiting for them. The notice's own policy sentence is what says
+  whether the platform is currently overwriting anything.
+- **The release is ATTRIBUTABLE and the pin is not, deliberately.** A pin
+  records itself — the key's presence in the column IS the evidence — while a
+  release removes that key and destroys the only trace it existed.
+  `listing_pin_releases` is one append-only row per key ACTUALLY removed (so a
+  converging repeat writes nothing), refusing UPDATE outright and DELETE while
+  the listing survives. It has no reader in the app: #427 asks for a release,
+  not a history screen, and the read arrives with the surface that wants it.
 
 ---
 

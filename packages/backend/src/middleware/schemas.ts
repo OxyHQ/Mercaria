@@ -176,6 +176,29 @@ export const updateListingSchema = z
   })
   .refine((obj) => Object.keys(obj).length > 0, { message: 'At least one field is required' });
 
+/**
+ * `POST /admin/stores/:storeId/products/:id/pins/release` — stop holding some
+ * of a connector-sourced listing's pinned fields (#427).
+ *
+ * `z.string()` rather than `z.enum(PINNABLE_CONNECTOR_FIELDS)`, deliberately.
+ * `listings.overridden_fields` is a bare `text[]` the connector merge honours
+ * whatever is in it, and `mergePins` never removes an entry — so a fixture, a
+ * repair or a later issue can leave a key there that no merchant edit writes.
+ * Narrowing this to the seven named keys would make exactly those permanently
+ * unreleasable, which is the state #420's `unnamed` count exists to expose
+ * rather than one to re-create here. Nothing is risked by the width: a release
+ * is SUBTRACTIVE, so a key that is not held is removed from nothing, and no
+ * spelling of this body can ADD one.
+ *
+ * `.strict()`, because the only thing another property could be is an attempt
+ * to pin from here.
+ */
+export const releasePinnedFieldsSchema = z
+  .object({
+    fields: z.array(z.string().trim().min(1).max(64)).min(1).max(32),
+  })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // Store product + variants
 // ---------------------------------------------------------------------------

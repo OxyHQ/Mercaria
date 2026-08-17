@@ -13,6 +13,7 @@ import { getRequiredOxyUserId } from '@oxyhq/core/server';
 import type {
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
+  ReleaseConnectorPinsInput,
   UpdateListingInput,
   Listing as ListingDTO,
   InventoryLevelDTO,
@@ -28,6 +29,7 @@ import { findLocation, findLocationsByStore } from '../../db/stores/locationRepo
 import {
   createStoreProduct,
   updateListing,
+  releasePinnedFields,
   archiveListing,
   addVariant,
   updateVariant,
@@ -167,6 +169,40 @@ export async function patchProduct(req: Request, res: Response): Promise<void> {
   } catch (err) {
     log.general.error({ err, productId: req.params.id }, 'Failed to update store product');
     respondWithError(res, err, 'Failed to update product');
+  }
+}
+
+/**
+ * POST /admin/stores/:storeId/products/:id/pins/release — stop holding some of
+ * a connector-sourced product's pinned fields (#427).
+ *
+ * Behind `products:write`, which is the permission that CREATES a pin: a pin is
+ * a side effect of editing a field, so any member who can edit the field can
+ * make one, and gating the way out more tightly than the way in would let
+ * `staff` accumulate pins only an admin could clear. It is also strictly less
+ * destructive than the edit itself — releasing a title lets the platform
+ * overwrite it eventually, where `products:write` already lets that member
+ * overwrite it right now. `channels:write` gates the connection-wide switch,
+ * whose blast radius is every field of every product on the connection;
+ * `store:manage` is for decisions that bind the store commercially.
+ *
+ * No `schedulePush`: nothing here changes a field value, so there is nothing
+ * the platform needs to hear.
+ *
+ * Answers with the re-hydrated product, so the caller's own `overriddenFields`
+ * is the server's — the pin disappearing is the whole of the visible feedback,
+ * because the FIELD does not move until the platform next sends one.
+ */
+export async function releaseProductPins(req: Request, res: Response): Promise<void> {
+  try {
+    const listing = await loadStoreProduct(req);
+    const { fields } = req.body as ReleaseConnectorPinsInput;
+    await releasePinnedFields(listing.id, fields, { oxyUserId: getRequiredOxyUserId(req) });
+    const dto = await hydrateById(listing.id, req.userId ?? '');
+    sendSuccess(res, dto);
+  } catch (err) {
+    log.general.error({ err, productId: req.params.id }, 'Failed to release product field pins');
+    respondWithError(res, err, 'Failed to release the pinned fields');
   }
 }
 

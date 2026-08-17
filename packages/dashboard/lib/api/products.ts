@@ -5,6 +5,7 @@ import type {
   Money,
   CreateStoreProductInput,
   UpdateListingInput,
+  ReleaseConnectorPinsInput,
   ProductVariantDTO,
   CreateStoreProductVariantInput,
   VariantOptionValue,
@@ -67,6 +68,26 @@ export async function archiveProduct(
 ): Promise<{ id: string; status: string }> {
   const { data } = await apiClient.delete<ApiResponse<{ id: string; status: string }>>(
     `${base(storeId)}/${id}`,
+  );
+  return unwrap(data);
+}
+
+/**
+ * POST a release of some of a connector-sourced product's pinned fields (#427).
+ *
+ * Answers with the re-hydrated product, so the caller's `overriddenFields` comes
+ * back from the server rather than being guessed at locally: the pins vanishing
+ * is the whole of what a merchant sees change, because the FIELD keeps its value
+ * until the platform next sends one.
+ */
+export async function releaseProductPins(
+  storeId: string,
+  id: string,
+  fields: string[],
+): Promise<Listing> {
+  const { data } = await apiClient.post<ApiResponse<Listing>>(
+    `${base(storeId)}/${id}/pins/release`,
+    { fields } satisfies ReleaseConnectorPinsInput,
   );
   return unwrap(data);
 }
