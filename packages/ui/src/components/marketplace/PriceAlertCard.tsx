@@ -3,7 +3,8 @@ import { Bell, BellOff, Trash2 } from "lucide-react-native";
 import type { PriceAlert, PriceAlertSplitResolution } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
-import { CONDITION_GROUP_LABELS } from "../../lib/condition";
+import { conditionGroupLabelKey } from "../../lib/condition";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 
 /** Icon size for the row's trailing affordances. */
 const ICON_SIZE = 18;
@@ -51,13 +52,14 @@ export function PriceAlertCard({
   onDelete,
   onResolveSplit,
 }: PriceAlertCardProps) {
+  const t = useSharedUiTranslation();
   const ambiguous = alert.resolution.state === "ambiguous_after_split";
   const basisText =
     alert.basis === "known_total" ? "including delivery" : "before delivery";
   const segments =
     alert.conditionGroups.length === 0
       ? "any condition"
-      : alert.conditionGroups.map((group) => CONDITION_GROUP_LABELS[group]).join(", ");
+      : alert.conditionGroups.map((group) => t(conditionGroupLabelKey(group))).join(", ");
   const sellers =
     alert.sellerScope === "native_only"
       ? "sellers on Mercaria"

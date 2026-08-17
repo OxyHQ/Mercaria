@@ -32,10 +32,7 @@ bun run build:shared-types                # ALWAYS before db:generate
 bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
 bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
 bun run --filter @mercaria/backend lint
-bun run validate:no-mongo                 # CI guard
-bun run validate:agents-md                # CI guard: this file's budget
-bun run validate:rtl-classes              # CI guard: storefront RTL logical classes
-bun run validate:i18n-strings             # CI guard: dashboard/POS i18n
+bun run validate:agents-md                # this file's budget; ci.yml names all six
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```
 
@@ -175,18 +172,19 @@ Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
   build shipping zones or rates, and the Moovo logistics port is registered on no
   deployment. Pickup/collection is a different thing and IS built
   (`docs/pickup.md`).
-- **ONE locale registry, `@mercaria/ui/src/i18n/`**; app copy lives in each app's
-  own `lib/i18n/locales/*.json`; module-scope data holds KEYS, never sentences.
-  `validate:i18n-strings` gates dashboard + POS on hardcoded strings, key and
-  placeholder parity, and keys nothing references — how a label map put back on
-  English is caught. Storefront keeps its own (#435).
+- **ONE locale registry, `@mercaria/ui/src/i18n/`**; module-scope data holds
+  KEYS, never sentences. App copy is per app; **`@mercaria/ui`'s own copy is in
+  ITS bundles**, merged under the reserved `ui` namespace for the locales that
+  app SHIPS — never the union, or the dashboard gains an `ar` it cannot mirror
+  — and read through `SharedUiTranslationProvider`, mounted at every app root.
+  `validate:i18n-strings` gates all of it plus hardcoded strings, parity and
+  unreferenced keys in dashboard + POS. `docs/app-i18n.md`; #435, #437.
 - **The storefront mirrors for Arabic from LOGICAL utilities only** (`ms-`, `me-`,
   `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`); `validate:rtl-classes` gates
   `packages/frontend` and `packages/ui`. A physical `ml-2` half-mirrors its screen
   (row order flips, padding does not) with every build green. Dashboard/POS are
   NOT mirrored, so no `ar` (#434). `border-s-*` and `text-start` are MEASURED not
-  to survive react-native-css/RN 0.85 (clean compile, no border on native), so
-  those stay physical. Residual: #429.
+  to survive react-native-css/RN 0.85, so those stay physical. Residual: #429.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails

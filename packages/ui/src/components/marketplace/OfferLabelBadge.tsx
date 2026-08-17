@@ -2,7 +2,15 @@ import { View } from "react-native";
 import type { OfferLabelAward } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { formatDistance, formatMoney } from "../../lib/format";
-import { explainOfferLabel, offerLabelText } from "../../lib/offer-labels";
+import {
+  OFFER_LABEL_A11Y_WITH_BASIS_KEY,
+  OFFER_LABEL_BADGE_WITH_BASIS_KEY,
+  OFFER_LABEL_DAYS_KEY,
+  offerLabelExplanationKey,
+  offerLabelTextKey,
+} from "../../lib/offer-labels";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import type { Translate } from "../../i18n/create-app-i18n";
 
 export interface OfferLabelBadgeProps {
   /** ONE award. A badge never summarises several (#74 §"Labels"). */
@@ -36,8 +44,9 @@ export interface OfferLabelBadgeProps {
  * rate moved between the ranking and the render.
  */
 export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBadgeProps) {
-  const label = offerLabelText(award.label);
-  const basis = basisText(award);
+  const t = useSharedUiTranslation();
+  const label = t(offerLabelTextKey(award.label));
+  const basis = basisText(award, t);
 
   return (
     <View className="gap-space-4">
@@ -48,12 +57,16 @@ export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBa
         // figure. Naming both is the `ConditionBadge` decision: a row carries
         // several chips and a screen reader cannot tell them apart from the
         // words alone.
-        accessibilityLabel={basis === undefined ? label : `${label}: ${basis}`}
+        accessibilityLabel={
+          basis === undefined ? label : t(OFFER_LABEL_A11Y_WITH_BASIS_KEY, { label, basis })
+        }
       >
-        <Text className="text-captionBold text-text">{basis === undefined ? label : `${label} · ${basis}`}</Text>
+        <Text className="text-captionBold text-text">
+          {basis === undefined ? label : t(OFFER_LABEL_BADGE_WITH_BASIS_KEY, { label, basis })}
+        </Text>
       </View>
       {showExplanation ? (
-        <Text className="text-caption text-text-secondary">{explainOfferLabel(award)}</Text>
+        <Text className="text-caption text-text-secondary">{t(offerLabelExplanationKey(award))}</Text>
       ) : null}
     </View>
   );
@@ -67,10 +80,12 @@ export function OfferLabelBadge({ award, showExplanation = false }: OfferLabelBa
  * inventing a basis for a label that states a fact rather than a comparison is
  * the shape of a UI claiming more than the server established.
  */
-function basisText(award: OfferLabelAward): string | undefined {
+function basisText(award: OfferLabelAward, t: Translate): string | undefined {
   if (award.amount !== undefined) return formatMoney(award.amount);
   if (award.days !== undefined) {
-    return award.days === 1 ? "1 day" : `${award.days} days`;
+    // A pluralised key rather than `=== 1`, which is the English plural rule
+    // written into a component that renders in twelve languages.
+    return t(OFFER_LABEL_DAYS_KEY, { count: award.days });
   }
   // Shared with #93's location surfaces since that issue's client half: one
   // metre count must not render two ways depending on which screen shows it.

@@ -45,7 +45,8 @@ Nine keys, in `@mercaria/shared-types` `./condition`:
 | `for_parts` | Sold as non-functional — repair, salvage, components |
 
 **Stored keys are stable; the copy is not.** Labels, explanations and segment
-names live in `@mercaria/ui` `lib/condition.ts`, because #90's base taxonomy
+names live in `@mercaria/ui` `lib/condition.ts` — as TRANSLATION KEYS since
+#437, resolved from that package's own bundles — because #90's base taxonomy
 says the exact wording is still to be finalized with localization and
 marketplace-policy review. That is the #94 registry's rule, one domain over: a
 stored value cites a key and never a label.
@@ -300,8 +301,11 @@ fails twice: it is inaccessible, and it is a QUALITY VERDICT — a red `for_part
 badge tells a shopper the listing is bad, when for-parts is a legitimate,
 correctly-labelled thing to sell.
 
-`CONDITION_DISCLAIMER` states #90 policy rule 7 in a sentence: the label is the
-seller's statement, not Mercaria's verification of it.
+`CONDITION_DISCLAIMER_KEY` names the sentence stating #90 policy rule 7: the
+label is the seller's statement, not Mercaria's verification of it. Since #437
+the sentence itself is in `packages/ui/src/i18n/locales/*.json` in twelve
+languages, so preserving that property is now a translator's job as well as an
+author's.
 
 The `refined` flag is deliberately not rendered on a product page. A migrated
 listing is a real listing a buyer can buy; the prompt to refine belongs on the

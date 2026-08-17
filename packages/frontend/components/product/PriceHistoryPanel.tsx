@@ -1,7 +1,8 @@
 import { View } from 'react-native';
 import type { ConditionGroup, CurrencyCode, PriceHistoryResponse } from '@mercaria/shared-types';
-import { CONDITION_GROUP_LABELS, Text, formatMoney } from '@mercaria/ui';
+import { Text, conditionGroupLabelKey, formatMoney } from '@mercaria/ui';
 import { useProductPriceHistory } from '@/lib/hooks/use-product-page';
+import { useTranslation } from '@/hooks/useTranslation';
 
 /**
  * What this product has cost (#78), rendered honestly.
@@ -42,6 +43,7 @@ export function PriceHistoryPanel({
   segment,
   currency,
 }: PriceHistoryPanelProps) {
+  const { t } = useTranslation();
   const history = useProductPriceHistory({ canonicalProductId, segment, currency });
 
   // A 404 is the ordinary answer on a deployment that has not enabled public
@@ -56,7 +58,10 @@ export function PriceHistoryPanel({
   return (
     <View className="gap-space-12 rounded-radius-28 border border-border-secondary p-space-20">
       <Text className="text-sectionTitle text-text" accessibilityRole="header">
-        {`Price history — ${CONDITION_GROUP_LABELS[segment]}`}
+        {/* The heading is this app's own copy; the segment name is
+            `@mercaria/ui`'s, resolved through the SAME `t` because #437 merges
+            the shared bundle into this app's i18n instance. */}
+        {t('product.priceHistoryHeading', { segment: t(conditionGroupLabelKey(segment)) })}
       </Text>
 
       {/* The server composes these, so three clients cannot each summarise a

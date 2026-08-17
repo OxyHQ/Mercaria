@@ -32,6 +32,7 @@ export {
 } from "./i18n/locales";
 export {
   createAppI18n,
+  mergeSharedUiCopy,
   resolveDeviceLocale,
   shippedLocales,
   type AppLocaleBundles,
@@ -42,6 +43,24 @@ export {
   type CreateI18nStoreOptions,
   type I18nStoreState,
 } from "./i18n/create-i18n-store";
+// ---------------------------------------------------------------------------
+// This package's OWN reader-facing copy (#437). The bundles are merged into
+// each app's i18n instance under the reserved `ui` namespace; the provider
+// hands this package's components the app's `t`, so one locale is in force per
+// app rather than a second one here that could disagree with the screen. Each
+// app's root layout mounts the provider, and `validate:i18n-strings` fails the
+// build if one stops.
+// ---------------------------------------------------------------------------
+export {
+  SharedUiTranslationProvider,
+  useSharedUiTranslation,
+  type SharedUiTranslationProviderProps,
+} from "./i18n/ui-translation";
+// `./i18n/shared-copy`'s `SHARED_UI_COPY` is deliberately NOT exported here.
+// It is the DATA `mergeSharedUiCopy` merges, and an app that could reach it
+// could read a sentence out of it directly — which is the per-screen use that
+// bypasses the app's own locale entirely. `isolateBidi`'s decision, below, for
+// the same reason: an export with no consumer is an invitation.
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 // `./lib/bidi`'s `isolateBidi` is deliberately NOT exported here. It is applied
@@ -60,19 +79,23 @@ export {
 } from "./lib/format";
 
 // ---------------------------------------------------------------------------
-// Item condition (#90) — the reader-facing copy for the shared taxonomy.
-// The KEYS live in `@mercaria/shared-types` and are frozen; these strings are
-// deliberately not, which is what "stored keys stay stable when copy changes"
-// means in practice.
+// Item condition (#90) — the TRANSLATION KEYS for the shared taxonomy's copy.
+// The taxonomy keys live in `@mercaria/shared-types` and are frozen; the
+// sentences live in `./i18n/locales/*.json` and are deliberately not, which is
+// what "stored keys stay stable when copy changes" means in practice. Resolve
+// one with an app's `t`, or `useSharedUiTranslation()` inside this package.
 // ---------------------------------------------------------------------------
 export {
-  CONDITION_DISCLAIMER,
-  CONDITION_EXPLANATIONS,
-  CONDITION_GROUP_LABELS,
-  CONDITION_LABELS,
-  conditionExplanation,
-  conditionGroupLabel,
-  conditionLabel,
+  CONDITION_A11Y_LABEL_KEY,
+  CONDITION_DISCLAIMER_KEY,
+  CONDITION_EXPLANATION_KEYS,
+  CONDITION_GROUP_LABEL_KEYS,
+  CONDITION_LABEL_KEYS,
+  CONDITION_NOT_STATED_KEY,
+  CONDITION_SELLER_WORDING_KEY,
+  conditionExplanationKey,
+  conditionGroupLabelKey,
+  conditionLabelKey,
 } from "./lib/condition";
 
 // ---------------------------------------------------------------------------
@@ -83,10 +106,13 @@ export {
 // the two is allowed to change without a contract change.
 // ---------------------------------------------------------------------------
 export {
-  OFFER_LABEL_EXPLANATIONS,
-  OFFER_LABEL_TEXT,
-  explainOfferLabel,
-  offerLabelText,
+  OFFER_LABEL_A11Y_WITH_BASIS_KEY,
+  OFFER_LABEL_BADGE_WITH_BASIS_KEY,
+  OFFER_LABEL_DAYS_KEY,
+  OFFER_LABEL_EXPLANATION_KEYS,
+  OFFER_LABEL_TEXT_KEYS,
+  offerLabelExplanationKey,
+  offerLabelTextKey,
 } from "./lib/offer-labels";
 
 // ---------------------------------------------------------------------------

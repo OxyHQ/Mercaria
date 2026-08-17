@@ -1,0 +1,71 @@
+{
+  "ui": {
+    "condition": {
+      "label": {
+        "new": "Neuf",
+        "open_box": "Boîte ouverte",
+        "refurbished_manufacturer": "Reconditionné par le fabricant",
+        "refurbished_seller": "Reconditionné par le vendeur",
+        "used_like_new": "Occasion — comme neuf",
+        "used_good": "Occasion — bon état",
+        "used_fair": "Occasion — état correct",
+        "used_poor": "Occasion — mauvais état",
+        "for_parts": "Pour pièces ou ne fonctionne pas"
+      },
+      "explanation": {
+        "new": "Neuf et non ouvert, dans l'emballage d'origine du fabricant.",
+        "open_box": "Jamais utilisé, mais l'emballage a été ouvert : un retour ou un article d'exposition.",
+        "refurbished_manufacturer": "Remis en état et recertifié par le fabricant ou son programme agréé.",
+        "refurbished_seller": "Remis en état par le vendeur ou par un tiers, indiqué sur cette annonce.",
+        "used_like_new": "D'occasion, sans usure visible par le vendeur à distance normale.",
+        "used_good": "D'occasion, avec une légère usure qui, selon le vendeur, n'affecte pas son fonctionnement.",
+        "used_fair": "D'occasion, avec une usure visible ou un défaut décrit par le vendeur.",
+        "used_poor": "D'occasion, très usé ou avec un défaut décrit qui gêne son utilisation.",
+        "for_parts": "Vendu comme non fonctionnel : pour réparation, récupération ou pièces."
+      },
+      "group": {
+        "new": "Neuf",
+        "open_box": "Boîte ouverte",
+        "refurbished": "Reconditionné",
+        "used": "Occasion",
+        "for_parts": "Pour pièces"
+      },
+      "disclaimer": "L'état est ce que le vendeur déclare à propos de son propre article. Ce n'est pas une garantie Mercaria.",
+      "a11yLabel": "État : %{label}",
+      "notStated": "État non précisé",
+      "sellerWording": "Le vendeur le décrit comme « %{label} »."
+    },
+    "offer": {
+      "label": {
+        "best_overall": "Meilleure offre globale",
+        "cheapest_item_price": "Prix de l'article le plus bas",
+        "cheapest_known_total": "Total connu le plus bas",
+        "official_direct_store": "Boutique officielle en direct",
+        "authorized_reseller": "Revendeur agréé",
+        "fastest_known_delivery": "Livraison connue la plus rapide",
+        "best_nearby_pickup": "Meilleur retrait à proximité",
+        "cheapest_new": "Neuf le moins cher",
+        "cheapest_used": "Occasion la moins chère",
+        "native_mercaria_checkout": "Acheter sur Mercaria"
+      },
+      "explanation": {
+        "highest_policy_score": "Obtient le meilleur score sur tout ce que nous savons de ces offres : prix, livraison, état, note du vendeur et date de notre dernière vérification.",
+        "lowest_item_price": "Le prix d'article le plus bas parmi les offres comparables dans cette devise.",
+        "lowest_known_total": "Le total le plus bas livraison comprise, parmi les offres dont nous connaissons les frais de livraison.",
+        "verified_official_channel": "Un canal que la marque a vérifié comme étant le sien.",
+        "verified_authorized_reseller": "Un revendeur que la marque a vérifié comme agréé.",
+        "shortest_known_delivery": "L'estimation de livraison la plus courte publiée par ces vendeurs.",
+        "nearest_collection_point": "Le point de retrait le plus proche que nous connaissons.",
+        "lowest_item_price_new_segment": "Le prix d'article le plus bas parmi les offres vendues comme neuves.",
+        "lowest_item_price_used_segment": "Le prix d'article le plus bas parmi les offres d'occasion.",
+        "buyable_on_mercaria": "Vous pouvez l'acheter ici, sans quitter Mercaria."
+      },
+      "badgeWithBasis": "%{label} · %{basis}",
+      "a11yLabelWithBasis": "%{label} : %{basis}",
+      "days": {
+        "one": "%{count} jour",
+        "other": "%{count} jours"
+      }
+    }
+  }
+}

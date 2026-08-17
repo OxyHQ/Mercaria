@@ -80,9 +80,48 @@ const ENGLISH = {
   products: { searchPlaceholder: "Search products", greeting: "Hello, %{name}" },
 };
 
+/**
+ * `@mercaria/ui`'s OWN copy (#437), under the reserved `ui` namespace. Every
+ * leaf here is named by a literal in the fixture `packages/ui` source below —
+ * that pairing is what part C checks, and it is the whole mechanism #437 added.
+ */
+const SHARED_UI_ENGLISH = {
+  ui: {
+    condition: { label: { new: "New" } },
+    offer: { days: { one: "%{count} day", other: "%{count} days" } },
+  },
+};
+
 /** A bundle for `locale`, with `mutate` applied to a deep copy. */
 function bundle(mutate = (value) => value) {
   return mutate(structuredClone(ENGLISH));
+}
+
+/** A shared-copy bundle, with `mutate` applied to a deep copy. */
+function sharedBundle(mutate = (value) => value) {
+  return mutate(structuredClone(SHARED_UI_ENGLISH));
+}
+
+/**
+ * An app root layout that mounts the provider (#437 check E).
+ *
+ * Deliberately carries the IMPORT as well as the element, because the
+ * regression the check exists for is the element going and the import staying —
+ * which is what a substring detector would wave straight past.
+ */
+function rootLayout() {
+  return (
+    'import { SharedUiTranslationProvider } from "@mercaria/ui";\n'
+    + 'import { useTranslation } from "@/lib/i18n";\n'
+    + "export default function RootLayout() {\n"
+    + "  const { t } = useTranslation();\n"
+    + "  return (\n"
+    + "    <SharedUiTranslationProvider t={t}>\n"
+    + "      <Stack />\n"
+    + "    </SharedUiTranslationProvider>\n"
+    + "  );\n"
+    + "}\n"
+  );
 }
 
 /**
@@ -132,10 +171,39 @@ function migratedTree(extra = {}) {
       "export default function Storefront() {\n"
       + '  return <View><Text>Buy it now</Text><Input placeholder="Search everything" /></View>;\n'
       + "}\n",
+
+    // #437: the shared package's own copy, its key maps, and a component that
+    // resolves one of them. The second file is the must-NOT-fire case for the
+    // `hardcodedStrings: false` flag — `packages/ui` is only PART way through
+    // extraction, so check A must not touch it while B and C do.
+    "packages/ui/src/lib/condition.ts":
+      'export const CONDITION_LABEL_KEYS = { new: "ui.condition.label.new" };\n'
+      + 'export const DAYS_KEY = "ui.offer.days";\n',
+    "packages/ui/src/components/ConditionBadge.tsx":
+      'import { CONDITION_LABEL_KEYS, DAYS_KEY } from "../lib/condition";\n'
+      + 'import { useSharedUiTranslation } from "../i18n/ui-translation";\n'
+      + "export function ConditionBadge({ days }) {\n"
+      + "  const t = useSharedUiTranslation();\n"
+      + "  return <View>\n"
+      + "    <Text>{t(CONDITION_LABEL_KEYS.new)}</Text>\n"
+      + "    <Text>{t(DAYS_KEY, { count: days })}</Text>\n"
+      + "  </View>;\n"
+      + "}\n",
+    "packages/ui/src/components/NotYetExtracted.tsx":
+      'export const Banner = () => <Text>Free delivery over 50</Text>;\n',
+
+    // #437 check E: every app root mounts the provider, the storefront included.
+    "packages/dashboard/app/_layout.tsx": rootLayout(),
+    "packages/pos/app/_layout.tsx": rootLayout(),
+    "packages/frontend/app/_layout.tsx": rootLayout(),
   };
   for (const app of ["dashboard", "pos"]) {
     files[`packages/${app}/lib/i18n/locales/en.json`] = bundle();
     for (const locale of LOCALES) files[`packages/${app}/lib/i18n/locales/${locale}.json`] = bundle();
+  }
+  files["packages/ui/src/i18n/locales/en.json"] = sharedBundle();
+  for (const locale of LOCALES) {
+    files[`packages/ui/src/i18n/locales/${locale}.json`] = sharedBundle();
   }
   return { ...files, ...extra };
 }
@@ -396,6 +464,118 @@ const cases = [
     expectOutput: '"orders.status.paid" is named by no string literal',
   },
 
+  // ------------------------------------- #437: the shared package's own copy ---
+
+  {
+    name: "@mercaria/ui's own copy put back on English fails — the #437 regression",
+    // The exact shape #437 exists for: the map goes back to a sentence, every
+    // app screen around it is still fully extracted, tsc and lint are happy,
+    // and a merchant reading German sees an English paragraph. Part C is what
+    // sees it, because the key it used to name is now referenced by nothing.
+    files: (() => {
+      const files = migratedTree();
+      files["packages/ui/src/lib/condition.ts"] = files["packages/ui/src/lib/condition.ts"]
+        .replace('new: "ui.condition.label.new"', 'new: "New"');
+      return files;
+    })(),
+    expectExit: 1,
+    expectOutput: '"ui.condition.label.new" is named by no string literal in packages/ui',
+  },
+  {
+    name: "a shared sentence missing from one locale fails",
+    files: (() => {
+      const files = migratedTree();
+      files["packages/ui/src/i18n/locales/de.json"] = sharedBundle((value) => {
+        delete value.ui.condition.label.new;
+        return value;
+      });
+      return files;
+    })(),
+    expectExit: 1,
+    expectOutput: 'missing key "ui.condition.label.new"',
+  },
+  {
+    name: "packages/ui's UNextracted prose does NOT fire check A",
+    // The flag that lets B and C run over a package check A cannot police yet.
+    // Without it every existing English string in @mercaria/ui fails the build
+    // on the day #437 lands, which is the version of this gate nobody keeps.
+    files: migratedTree({
+      "packages/ui/src/components/StillEnglish.tsx":
+        'export const S = () => <Empty title="Nothing here" body="Try another filter." />;\n',
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    name: "an app bundle claiming the reserved `ui` namespace fails",
+    files: (() => {
+      const files = migratedTree();
+      files["packages/dashboard/lib/i18n/locales/en.json"] = bundle((value) => {
+        value.ui = { somethingElse: "Hello" };
+        return value;
+      });
+      for (const locale of LOCALES) {
+        files[`packages/dashboard/lib/i18n/locales/${locale}.json`] = bundle((value) => {
+          value.ui = { somethingElse: "Hello" };
+          return value;
+        });
+      }
+      return files;
+    })(),
+    expectExit: 1,
+    expectOutput: 'has a top-level "ui" key, which is reserved',
+  },
+  {
+    name: "the STOREFRONT's bundle claiming the namespace fails, though it is out of scope for A",
+    // Check D covers every app: it is about the merge, not about copy, so the
+    // storefront's un-migrated screens are no reason to skip it.
+    files: migratedTree({
+      "packages/frontend/lib/i18n/locales/en.json": { common: { save: "Save" }, ui: { x: "y" } },
+    }),
+    expectExit: 1,
+    expectOutput: "packages/frontend/lib/i18n/locales/en.json: has a top-level \"ui\" key",
+  },
+  {
+    name: "a shared bundle with a key outside the reserved namespace fails",
+    files: (() => {
+      const files = migratedTree();
+      files["packages/ui/src/i18n/locales/en.json"] = sharedBundle((value) => {
+        value.loose = { key: "Escaped the namespace" };
+        return value;
+      });
+      return files;
+    })(),
+    expectExit: 1,
+    expectOutput: 'only top-level key must be "ui"',
+  },
+  {
+    name: "an app root that stops mounting the provider fails, import intact",
+    // The regression a substring check cannot see, and the one that actually
+    // happens: somebody refactors the tree and the element goes while the
+    // import stays. Every shared sentence then falls back to English silently.
+    files: (() => {
+      const files = migratedTree();
+      files["packages/pos/app/_layout.tsx"] = rootLayout()
+        .replace("    <SharedUiTranslationProvider t={t}>\n", "")
+        .replace("    </SharedUiTranslationProvider>\n", "");
+      return files;
+    })(),
+    expectExit: 1,
+    expectOutput: "packages/pos/app/_layout.tsx: does not mount <SharedUiTranslationProvider>",
+  },
+  {
+    name: "a NEW app is covered by D and E without editing the guard",
+    // Both populations are derived from the tracked listing. A hand list would
+    // report this tree clean — and "found fewer roots" reads exactly like
+    // "there are fewer roots".
+    files: migratedTree({
+      "packages/kiosk/app/_layout.tsx":
+        "export default function RootLayout() { return <Stack />; }\n",
+    }),
+    expectExit: 1,
+    expectOutput: "packages/kiosk/app/_layout.tsx: does not mount <SharedUiTranslationProvider>",
+  },
+
   // ------------------------------------------------------ the meta failures ---
 
   {
@@ -448,6 +628,11 @@ async function assertGuardSource() {
   const required = [
     "CONTROL_MUST_FIND",
     "CONTROL_MUST_NOT_FIND",
+    // #437's own detector has its own pair, and its negative half is the one
+    // that matters: it is what stops `mountsSharedUiProvider` degrading into a
+    // substring match that an import alone satisfies.
+    "PROVIDER_CONTROL_MOUNTED",
+    "PROVIDER_CONTROL_NOT_MOUNTED",
     "positive control failed",
     "negative control failed",
   ];

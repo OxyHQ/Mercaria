@@ -1,0 +1,71 @@
+{
+  "ui": {
+    "condition": {
+      "label": {
+        "new": "Neu",
+        "open_box": "Geöffnete Verpackung",
+        "refurbished_manufacturer": "Vom Hersteller generalüberholt",
+        "refurbished_seller": "Vom Verkäufer generalüberholt",
+        "used_like_new": "Gebraucht — wie neu",
+        "used_good": "Gebraucht — gut",
+        "used_fair": "Gebraucht — akzeptabel",
+        "used_poor": "Gebraucht — schlecht",
+        "for_parts": "Als Ersatzteil oder defekt"
+      },
+      "explanation": {
+        "new": "Unbenutzt und ungeöffnet, in der Originalverpackung des Herstellers.",
+        "open_box": "Nie benutzt, aber die Verpackung wurde geöffnet — eine Rücksendung oder ein Ausstellungsstück.",
+        "refurbished_manufacturer": "Vom Hersteller oder seinem autorisierten Programm instand gesetzt und neu zertifiziert.",
+        "refurbished_seller": "Vom Verkäufer oder einem Dritten instand gesetzt, der in diesem Angebot genannt wird.",
+        "used_like_new": "Gebraucht, ohne Gebrauchsspuren, die der Verkäufer aus normalem Betrachtungsabstand sieht.",
+        "used_good": "Gebraucht, mit leichten Gebrauchsspuren, die laut Verkäufer die Funktion nicht beeinträchtigen.",
+        "used_fair": "Gebraucht, mit deutlichen Gebrauchsspuren oder einem vom Verkäufer beschriebenen Mangel.",
+        "used_poor": "Gebraucht, stark abgenutzt oder mit einem beschriebenen Mangel, der die Nutzung beeinträchtigt.",
+        "for_parts": "Wird als defekt verkauft — zur Reparatur, Verwertung oder als Ersatzteil."
+      },
+      "group": {
+        "new": "Neu",
+        "open_box": "Geöffnete Verpackung",
+        "refurbished": "Generalüberholt",
+        "used": "Gebraucht",
+        "for_parts": "Ersatzteile"
+      },
+      "disclaimer": "Der Zustand ist die Angabe des Verkäufers zu seinem eigenen Artikel. Es ist keine Garantie von Mercaria.",
+      "a11yLabel": "Zustand: %{label}",
+      "notStated": "Zustand nicht angegeben",
+      "sellerWording": "Der Verkäufer beschreibt ihn als „%{label}“."
+    },
+    "offer": {
+      "label": {
+        "best_overall": "Insgesamt am besten",
+        "cheapest_item_price": "Niedrigster Artikelpreis",
+        "cheapest_known_total": "Niedrigster bekannter Gesamtpreis",
+        "official_direct_store": "Offizieller Direktshop",
+        "authorized_reseller": "Autorisierter Händler",
+        "fastest_known_delivery": "Schnellste bekannte Lieferung",
+        "best_nearby_pickup": "Beste Abholung in der Nähe",
+        "cheapest_new": "Neuware am günstigsten",
+        "cheapest_used": "Gebrauchtware am günstigsten",
+        "native_mercaria_checkout": "Auf Mercaria kaufen"
+      },
+      "explanation": {
+        "highest_policy_score": "Erzielt den besten Wert über alles, was wir über diese Angebote wissen — Preis, Lieferung, Zustand, Verkäuferbewertung und wann wir zuletzt geprüft haben.",
+        "lowest_item_price": "Der niedrigste Artikelpreis unter den Angeboten, die wir in dieser Währung vergleichen können.",
+        "lowest_known_total": "Der niedrigste Gesamtpreis inklusive Lieferung unter den Angeboten, deren Lieferkosten wir kennen.",
+        "verified_official_channel": "Ein Kanal, den die Marke als eigenen bestätigt hat.",
+        "verified_authorized_reseller": "Ein Händler, den die Marke als autorisiert bestätigt hat.",
+        "shortest_known_delivery": "Die kürzeste Lieferschätzung, die einer dieser Verkäufer angegeben hat.",
+        "nearest_collection_point": "Die nächstgelegene uns bekannte Abholstelle.",
+        "lowest_item_price_new_segment": "Der niedrigste Artikelpreis unter den als neu verkauften Angeboten.",
+        "lowest_item_price_used_segment": "Der niedrigste Artikelpreis unter den Gebrauchtangeboten.",
+        "buyable_on_mercaria": "Sie können es hier kaufen, ohne Mercaria zu verlassen."
+      },
+      "badgeWithBasis": "%{label} · %{basis}",
+      "a11yLabelWithBasis": "%{label}: %{basis}",
+      "days": {
+        "one": "%{count} Tag",
+        "other": "%{count} Tage"
+      }
+    }
+  }
+}

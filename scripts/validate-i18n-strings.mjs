@@ -35,6 +35,18 @@
  *      that app's `en.json`, and every key in `en.json` is named by some string
  *      literal in that app's source.
  *
+ *   D. THE RESERVED NAMESPACE (#437) — `@mercaria/ui` ships its OWN copy, which
+ *      `mergeSharedUiCopy` merges into every app's i18n instance under the
+ *      top-level key `ui`. So every shared bundle's only top-level key is `ui`,
+ *      and no APP bundle may have one. Both lists are derived from the tracked
+ *      file listing rather than written out here, so a fourth app is covered on
+ *      the day it appears.
+ *
+ *   E. THE PROVIDER IS MOUNTED (#437) — every app's root layout mounts
+ *      `<SharedUiTranslationProvider>`. Without it a shared component silently
+ *      resolves against `@mercaria/ui`'s own English, which is what shipped
+ *      before #437 and is therefore invisible in review.
+ *
  * ## What C buys that A cannot
  *
  * A decides only the positions it can decide from the syntax. It cannot see a
@@ -51,10 +63,22 @@
  *
  * ## Scope
  *
- * `packages/dashboard` and `packages/pos`. `packages/frontend` is deliberately
- * NOT scanned: its own extraction (#396) covers part of the app and adding it
- * here would be a gate over an unmigrated tree, which is one whoever hits it
- * first disables. Converging it onto the shared registry is #435.
+ * Check A runs over `packages/dashboard` and `packages/pos`. `packages/frontend`
+ * is deliberately NOT scanned by it: its own extraction (#396) covers part of
+ * the app and adding it here would be a gate over an unmigrated tree, which is
+ * one whoever hits it first disables. Converging it onto the shared registry is
+ * #435.
+ *
+ * `packages/ui` is scanned by B and C and deliberately NOT by A, for exactly
+ * that reason one package over: #437 converted the condition and offer-label
+ * copy and the rest of the package's component prose is still English. What B
+ * and C buy there is the whole point of #437 — a shared sentence exists in
+ * twelve languages and stays referenced — and neither of them needs the package
+ * to be finished first. Widening A to `packages/ui` is the residual on #437.
+ *
+ * D and E cover every app, including the storefront: they are about the
+ * PLUMBING (a reserved namespace, a mounted provider) rather than about copy,
+ * so an unmigrated tree has nothing to be excused from.
  *
  * Usage:  bun scripts/validate-i18n-strings.mjs
  */
@@ -87,14 +111,26 @@ const fixtureFloors = process.env.I18N_VALIDATOR_FIXTURE_FLOORS === "1";
 // fixture root with no node_modules of its own still parses.
 const ts = createRequire(resolve(here, "../package.json"))("typescript");
 
-/** The migrated surface. `packages/frontend` is #396/#435 and is not scanned. */
-const APPS = [
+/**
+ * Everything that OWNS a bundle set.
+ *
+ * `hardcodedStrings` is what separates a migrated app from a package that is
+ * only PART way through: `packages/ui` is scanned for literals (part C needs
+ * them) and its check-A findings are discarded, because most of that package's
+ * component prose is still English and a gate over it would be switched off by
+ * whoever hit it. It is a real distinction, not a special case — the next
+ * package to start extracting joins the list with the flag off, and turns it on
+ * in the change that finishes.
+ */
+const OWNERS = [
   {
     name: "dashboard",
     prefix: "packages/dashboard/",
     locales: "packages/dashboard/lib/i18n/locales",
-    // Per-app rather than one total: a traversal that broke for one app only
-    // would otherwise hide behind the other app's count.
+    hardcodedStrings: true,
+    // Per-owner rather than one total: a traversal that broke for one of them
+    // would otherwise hide behind another's count.
+    minimumSourceFiles: 60,
     minimumTranslatedPositions: 300,
     minimumKeys: 300,
     // Part B compares every sibling bundle against `en`, so with the siblings
@@ -106,11 +142,58 @@ const APPS = [
     name: "pos",
     prefix: "packages/pos/",
     locales: "packages/pos/lib/i18n/locales",
+    hardcodedStrings: true,
+    minimumSourceFiles: 30,
     minimumTranslatedPositions: 60,
     minimumKeys: 60,
     minimumLocales: 11,
   },
+  {
+    name: "ui",
+    prefix: "packages/ui/",
+    locales: "packages/ui/src/i18n/locales",
+    hardcodedStrings: false,
+    minimumSourceFiles: 50,
+    // No translated-position floor, deliberately. `inspectUserFacing` credits
+    // any value it cannot follow to a literal as "translated", and in a package
+    // that is mostly UNextracted that count would be large, stable and
+    // meaningless — a floor whose passing says nothing is worse than none,
+    // because it reads as coverage. The floors that bite here are the source
+    // file count above and the key count below, and the check that actually
+    // catches a map put back on English is C.
+    minimumTranslatedPositions: null,
+    // The 51 leaves #437 landed. All twelve registry locales: this package IS
+    // the registry's home, so it can never be behind an app — and that it has
+    // one bundle per `SupportedLocale` is enforced where it belongs, by
+    // `SHARED_UI_COPY` being a `Record` rather than a `Partial<Record>`, which
+    // `bun run --filter @mercaria/ui typecheck` decides.
+    minimumKeys: 51,
+    minimumLocales: 12,
+  },
 ];
+
+/** The reserved top-level key `mergeSharedUiCopy` merges shared copy under. */
+const SHARED_UI_NAMESPACE = "ui";
+
+/** The owner whose bundles ARE the shared copy — the only one that may use it. */
+const SHARED_UI_OWNER = "ui";
+
+/** The component every app's root layout must mount (#437 check E). */
+const SHARED_UI_PROVIDER = "SharedUiTranslationProvider";
+
+/**
+ * Every app root, DERIVED from the tracked listing rather than written out.
+ *
+ * A hand list would silently skip a fourth app — and "the guard found fewer
+ * roots" looks exactly like "there are fewer roots". The floor below is what
+ * tells them apart.
+ */
+const ROOT_LAYOUT = /^packages\/[^/]+\/app\/_layout\.tsx$/;
+const MINIMUM_ROOT_LAYOUTS = fixtureFloors ? 1 : 3;
+
+/** Every app's locale directory, derived the same way, for check D. */
+const APP_LOCALE_BUNDLE = /^packages\/[^/]+\/lib\/i18n\/locales\/[^/]+\.json$/;
+const MINIMUM_APP_BUNDLES = fixtureFloors ? 1 : 30;
 
 // Bundles are DATA and are never analysed for hardcoded strings — every value in
 // one IS a user-facing string. They are read as JSON by parts B and C instead.
@@ -443,6 +526,46 @@ export function analyseSource(relativePath, text, knownKeys) {
   return { findings: fileFindings, translatedPositions, literals, translateKeys };
 }
 
+/**
+ * Does this source MOUNT `<SharedUiTranslationProvider>`? (check E)
+ *
+ * Written from the IDIOM — a JSX element whose tag is that name — rather than
+ * from a substring or a regex. The difference is what the three negative
+ * controls below cover: an import of the symbol, a comment naming it and a
+ * string mentioning it are all things a repository legitimately contains, and a
+ * substring check would accept every one of them as proof the provider is
+ * mounted. It cannot tell WHERE in the tree the element sits, which is stated
+ * in `ui-translation.tsx` rather than implied here.
+ *
+ * Exported for the same reason `analyseSource` is: the controls run production's
+ * own code path over control SOURCE rather than asserting against a second copy
+ * of the rule.
+ */
+export function mountsSharedUiProvider(relativePath, text) {
+  const sourceFile = ts.createSourceFile(
+    relativePath,
+    text,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let mounted = false;
+  const visit = (node) => {
+    if (mounted) return;
+    if (
+      (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node))
+      && ts.isIdentifier(node.tagName)
+      && node.tagName.text === SHARED_UI_PROVIDER
+    ) {
+      mounted = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return mounted;
+}
+
 /** Flatten a bundle to `a.b.c` -> string, refusing a non-string leaf. */
 function flatten(value, prefix, into, file) {
   for (const [name, child] of Object.entries(value)) {
@@ -520,9 +643,11 @@ async function readTracked(path) {
 
 const tracked = trackedFiles();
 
-/** app name -> locale path -> flattened `a.b.c` -> value. */
+/** owner name -> locale path -> flattened `a.b.c` -> value. */
 const bundlesByApp = new Map();
-for (const app of APPS) {
+/** Every bundle path anywhere -> its TOP-LEVEL keys, for check D. */
+const topLevelKeysByPath = new Map();
+for (const app of OWNERS) {
   const bundlePaths = tracked.filter(
     (path) => path.startsWith(`${app.locales}/`) && path.endsWith(".json"),
   );
@@ -542,6 +667,7 @@ for (const app of APPS) {
       failures.push(`${path}: not valid JSON (${error.message})`);
       continue;
     }
+    topLevelKeysByPath.set(path, Object.keys(parsed));
     const flat = new Map();
     flatten(parsed, "", flat, path);
     flatByLocale.set(path, flat);
@@ -550,7 +676,7 @@ for (const app of APPS) {
 }
 
 const knownKeysByApp = new Map(
-  APPS.map((app) => [
+  OWNERS.map((app) => [
     app.name,
     resolvableKeys(bundlesByApp.get(app.name)?.get(`${app.locales}/en.json`) ?? new Map()),
   ]),
@@ -655,29 +781,73 @@ for (const source of CONTROL_MUST_NOT_FIND) {
   }
 }
 
+/**
+ * Controls for check E's detector, run on every invocation for the same reason.
+ *
+ * The three that must NOT fire are the whole point: an import, a comment and a
+ * string all name the provider without mounting it, and a substring check —
+ * which is the obvious way to write this — accepts all three. So does a root
+ * layout that imports the provider and then forgets the element, which is
+ * exactly the regression E exists for.
+ */
+const PROVIDER_CONTROL_MOUNTED = [
+  `const A = () => <${SHARED_UI_PROVIDER} t={t}><Stack /></${SHARED_UI_PROVIDER}>;`,
+  `const A = () => <Boundary><${SHARED_UI_PROVIDER} t={t}><Stack /></${SHARED_UI_PROVIDER}></Boundary>;`,
+  `const A = () => <${SHARED_UI_PROVIDER} t={t} />;`,
+];
+const PROVIDER_CONTROL_NOT_MOUNTED = [
+  `import { ${SHARED_UI_PROVIDER} } from "@mercaria/ui";\nconst A = () => <Stack />;`,
+  `// mount the ${SHARED_UI_PROVIDER} here\nconst A = () => <Stack />;`,
+  `const name = "${SHARED_UI_PROVIDER}";`,
+  "const A = () => <BloomThemeProvider><Stack /></BloomThemeProvider>;",
+];
+for (const source of PROVIDER_CONTROL_MOUNTED) {
+  if (!mountsSharedUiProvider("control/provider.tsx", source)) {
+    failures.push(
+      `positive control failed: ${JSON.stringify(source)} did not read as mounting `
+      + `${SHARED_UI_PROVIDER} — the detector is broken, and a broken detector reports every app `
+      + "as un-mounted, which is loud; this direction is the quiet one",
+    );
+  }
+}
+for (const source of PROVIDER_CONTROL_NOT_MOUNTED) {
+  if (mountsSharedUiProvider("control/provider.tsx", source)) {
+    failures.push(
+      `negative control failed: ${JSON.stringify(source)} read as mounting ${SHARED_UI_PROVIDER} — `
+      + "the detector is a substring match, so an app that imports the provider and never renders "
+      + "it would pass while every shared sentence fell back to English",
+    );
+  }
+}
+
 // -------------------------------------------------------------- the scan ----
 
 const sources = tracked.filter(
   (path) =>
     SOURCE_FILE.test(path)
-    && APPS.some((app) => path.startsWith(app.prefix))
+    && OWNERS.some((owner) => path.startsWith(owner.prefix))
     && !GUARD_OWN_FILES.has(path),
 );
 
 let translatedPositions = 0;
-/** Per app, so one app's count cannot cover for the other's broken traversal. */
-const translatedByApp = new Map(APPS.map((app) => [app.name, 0]));
-/** Every string literal seen per app — part C's evidence that a key is used. */
-const literalsByApp = new Map(APPS.map((app) => [app.name, new Set()]));
-/** Every `t('literal')` site per app, so part C can name the file and line. */
-const translateSitesByApp = new Map(APPS.map((app) => [app.name, []]));
+/** Per owner, so one owner's count cannot cover for another's broken traversal. */
+const translatedByApp = new Map(OWNERS.map((owner) => [owner.name, 0]));
+/** Every string literal seen per owner — part C's evidence that a key is used. */
+const literalsByApp = new Map(OWNERS.map((owner) => [owner.name, new Set()]));
+/** Every `t('literal')` site per owner, so part C can name the file and line. */
+const translateSitesByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+/** Files scanned per owner — the per-owner half of the vacuity floor below. */
+const filesByApp = new Map(OWNERS.map((owner) => [owner.name, 0]));
 
 for (const path of sources) {
   const text = await readTracked(path);
   if (text === null) continue;
-  const app = APPS.find((candidate) => path.startsWith(candidate.prefix));
+  const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
   const result = analyseSource(path, text, knownKeysByApp.get(app.name));
-  findings.push(...result.findings);
+  filesByApp.set(app.name, filesByApp.get(app.name) + 1);
+  // An owner that is only PART way through extraction contributes its literals
+  // (part C needs them) and none of its check-A findings.
+  if (app.hardcodedStrings) findings.push(...result.findings);
   translatedPositions += result.translatedPositions;
   translatedByApp.set(app.name, translatedByApp.get(app.name) + result.translatedPositions);
   const seen = literalsByApp.get(app.name);
@@ -688,7 +858,7 @@ for (const path of sources) {
 
 // ------------------------------------------------- B and C: the bundles -----
 
-for (const app of APPS) {
+for (const app of OWNERS) {
   const flatByLocale = bundlesByApp.get(app.name) ?? new Map();
   const englishPath = `${app.locales}/en.json`;
   const english = flatByLocale.get(englishPath);
@@ -712,8 +882,18 @@ for (const app of APPS) {
     );
   }
 
+  const scanned = filesByApp.get(app.name) ?? 0;
+  if (scanned < floorFor(app.minimumSourceFiles)) {
+    failures.push(
+      `${scanned} source files scanned under ${app.prefix}, below the `
+      + `${floorFor(app.minimumSourceFiles)} floor — a prefix that matches nothing reports a clean `
+      + "tree, and the repository-wide floor below cannot see one owner drop out",
+    );
+  }
+
   const seen = translatedByApp.get(app.name) ?? 0;
-  if (seen < floorFor(app.minimumTranslatedPositions)) {
+  if (app.minimumTranslatedPositions !== null
+    && seen < floorFor(app.minimumTranslatedPositions)) {
     failures.push(
       `${seen} translated positions seen in packages/${app.name}, below the `
       + `${floorFor(app.minimumTranslatedPositions)} floor — the analyser reached almost no `
@@ -772,6 +952,74 @@ for (const app of APPS) {
   }
 }
 
+// ------------------------------------------- D: the reserved `ui` namespace --
+
+// `mergeSharedUiCopy` spreads `@mercaria/ui`'s bundle over the app's, so a
+// top-level `ui` key on either side is one silently replacing the other. The
+// runtime merge throws on it; this is what stops it reaching a runtime. Both
+// populations are DERIVED from the tracked listing — a hand list would skip a
+// fourth app, and "the guard found fewer" reads identically to "there are
+// fewer", which is what the two floors are for.
+
+const sharedOwner = OWNERS.find((owner) => owner.name === SHARED_UI_OWNER);
+for (const [path, topLevel] of topLevelKeysByPath) {
+  if (!path.startsWith(`${sharedOwner.locales}/`)) continue;
+  if (topLevel.length !== 1 || topLevel[0] !== SHARED_UI_NAMESPACE) {
+    failures.push(
+      `${path}: a shared bundle's only top-level key must be "${SHARED_UI_NAMESPACE}", found `
+      + `[${topLevel.join(", ")}]. Anything else is merged into every app's instance outside the `
+      + "reserved namespace, where it silently overwrites app copy or is overwritten by it.",
+    );
+  }
+}
+
+const appBundlePaths = tracked.filter((path) => APP_LOCALE_BUNDLE.test(path));
+if (appBundlePaths.length < MINIMUM_APP_BUNDLES) {
+  failures.push(
+    `${appBundlePaths.length} app locale bundles found, below the ${MINIMUM_APP_BUNDLES} floor — `
+    + "the derivation matched almost nothing, and a derivation that matches nothing reports every "
+    + "app clean of the reserved-namespace collision",
+  );
+}
+for (const path of appBundlePaths) {
+  const text = await readTracked(path);
+  if (text === null) continue;
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    failures.push(`${path}: not valid JSON (${error.message})`);
+    continue;
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed, SHARED_UI_NAMESPACE)) {
+    failures.push(
+      `${path}: has a top-level "${SHARED_UI_NAMESPACE}" key, which is reserved for `
+      + "@mercaria/ui's own copy (#437). mergeSharedUiCopy refuses this at boot; rename the app key.",
+    );
+  }
+}
+
+// ------------------------------------------- E: the provider is mounted ------
+
+const rootLayouts = tracked.filter((path) => ROOT_LAYOUT.test(path));
+if (rootLayouts.length < MINIMUM_ROOT_LAYOUTS) {
+  failures.push(
+    `${rootLayouts.length} app root layouts found, below the ${MINIMUM_ROOT_LAYOUTS} floor — `
+    + "the derivation matched almost nothing, so this check verified almost nothing",
+  );
+}
+for (const path of rootLayouts) {
+  const text = await readTracked(path);
+  if (text === null) continue;
+  if (!mountsSharedUiProvider(path, text)) {
+    failures.push(
+      `${path}: does not mount <${SHARED_UI_PROVIDER}>. Every component in @mercaria/ui that renders `
+      + "its own copy resolves through it; without one they fall back to that package's English "
+      + "silently, in an app whose own screens are correctly translated (#437).",
+    );
+  }
+}
+
 // ---------------------------------------------------------- vacuity floors --
 
 if (sources.length < MINIMUM_SOURCE_FILES) {
@@ -803,6 +1051,9 @@ if (findings.length > 0 || failures.length > 0) {
 
 console.log(
   `i18n string guard passed — ${sources.length} source files scanned across `
-  + `${APPS.map((app) => app.prefix).join(" and ")}; ${translatedPositions} translated positions seen; `
-  + `${CONTROL_MUST_FIND.length} positive and ${CONTROL_MUST_NOT_FIND.length} negative controls run.`,
+  + `${OWNERS.map((owner) => owner.prefix).join(", ")}; ${translatedPositions} translated positions seen; `
+  + `${appBundlePaths.length} app bundles and ${rootLayouts.length} app roots checked for the `
+  + `reserved "${SHARED_UI_NAMESPACE}" namespace and <${SHARED_UI_PROVIDER}>; `
+  + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length} positive and `
+  + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length} negative controls run.`,
 );

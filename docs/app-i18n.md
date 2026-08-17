@@ -9,16 +9,20 @@ different problem with different constraints and lives in
 | Piece | Path |
 | --- | --- |
 | The locale registry — which locales exist, how a device tag resolves | `packages/ui/src/i18n/locales.ts` |
-| The i18n instance factory | `packages/ui/src/i18n/create-app-i18n.ts` |
+| The i18n instance factory, and the shared-copy merge | `packages/ui/src/i18n/create-app-i18n.ts` |
 | The per-app store and the `useTranslation` hook | `packages/ui/src/i18n/create-i18n-store.ts` |
+| `@mercaria/ui`'s OWN copy (#437) | `packages/ui/src/i18n/locales/*.json` + `shared-copy.ts` |
+| How a shared component reaches an app's `t` (#437) | `packages/ui/src/i18n/ui-translation.tsx` |
 | Dashboard wiring + copy | `packages/dashboard/lib/i18n/` |
 | POS wiring + copy | `packages/pos/lib/i18n/` |
-| Storefront (still on its own copy — #435) | `packages/frontend/lib/i18n/` |
+| Storefront (still on its own instance — #435) | `packages/frontend/lib/i18n/` |
 | The guard | `scripts/validate-i18n-strings.mjs` |
 
-## One registry, three vocabularies
+## One registry, three APP vocabularies, one SHARED one
 
-The registry is shared and the COPY is not.
+The registry is shared, each app's own copy is not, and `@mercaria/ui`'s own
+copy is shared again. Those are three different answers to three different
+questions, and the middle one is the one people collapse.
 
 Sharing the registry is what stops three apps disagreeing about what a locale is
 called. `pt-BR` in one app and `pt_BR` in another is a bundle that loads in one
@@ -26,11 +30,82 @@ place and silently falls back to English in the other, and nothing fails. So
 `SUPPORTED_LOCALES`, the alias policy and the fallback chain live in
 `@mercaria/ui`, which all three apps consume from source.
 
-Sharing the STRINGS would be wrong for the opposite reason. The dashboard's
+Sharing an APP's strings would be wrong for the opposite reason. The dashboard's
 "Add product" and the storefront's "Add to cart" are not one vocabulary; merging
 them would make every copy change a cross-app change, and would put merchant
 wording in a shopper's bundle where a translator cannot tell which audience a
 sentence is for. Each app keeps `lib/i18n/locales/*.json`.
+
+## `@mercaria/ui`'s own copy (#437)
+
+The shared package owns reader-facing COPY for every domain whose KEYS live in
+`@mercaria/shared-types` — the condition taxonomy, the comparison labels,
+pickup, price signals, referrals. That split is right and is not being undone: a
+stored key is what a column, a CHECK and a wire contract carry, a sentence is
+what a person reads, and only one of the two may change without a contract
+change.
+
+Until #437 those sentences were hardcoded English, so a dashboard screen could
+be fully extracted, pass this guard, and still render an English paragraph that
+came from `@mercaria/ui`. Three shapes were available:
+
+1. **The maps hold keys and each APP carries the copy.** The `NavItem.labelKey`
+   pattern one layer up. Rejected: the same twelve translations of
+   "Used — like new" would be copied into three bundles that nothing keeps in
+   step, and the drift is INVISIBLE, because each app's parity check passes
+   independently against its own `en.json`.
+2. **`@mercaria/ui` gets its own bundles, merged into each app's instance under
+   a reserved namespace.** Chosen.
+3. **The components take their strings as props.** Rejected: it moves the
+   exhaustive-`Record` property out of `packages/ui`'s typecheck and into every
+   caller, and that property is the entire reason the maps exist.
+
+### How (2) copes with the apps having DIFFERENT locale sets
+
+That asymmetry is the crux, not a detail. The storefront ships `ar`; the
+dashboard and the POS deliberately do not (#434, above). So:
+
+- **`SHARED_UI_COPY` is TOTAL over `SUPPORTED_LOCALES`** — a `Record`, never a
+  `Partial<Record>`, so a registry locale with no shared copy is a COMPILE
+  error rather than an English paragraph inside an otherwise Spanish page. An
+  app can never ask for a locale this package lacks, because there is no such
+  locale.
+- **The merge is the INTERSECTION, never the union.** `createAppI18n` registers
+  the locales the APP ships and merges shared copy into exactly those. So
+  `@mercaria/ui` shipping `ar` does NOT give the dashboard an Arabic locale: an
+  Arabic device there resolves `ar` → unregistered → `en` and gets a whole
+  English screen in a left-to-right layout, which is the state #434 chose. It
+  never gets Arabic condition labels inside an unmirrored English screen, which
+  is the half-mirrored state PR #428 existed to remove.
+
+So "an app has no key for a shared sentence" is unrepresentable for a locale it
+ships. The remaining hole is an app that never mounts the provider, and that
+resolves against `@mercaria/ui`'s own `en` — the exact text that shipped before
+#437, never a raw key and never `missingBehavior: 'guess'`. Check E below fails
+the build on it.
+
+### The reserved namespace, and why the collision is refused
+
+`mergeSharedUiCopy` is the ONE merge — `createAppI18n` calls it and so does the
+storefront, which still builds its instance by hand. Shared copy goes under the
+top-level key `ui`; an app bundle carrying one is REFUSED at boot rather than
+resolved by spread order, because an app naming a key `ui` is not doing anything
+wrong and silently letting one side win is unreadable in either tree. Check D
+fails the build before it can reach a boot.
+
+### How a shared component gets a `t`
+
+`SharedUiTranslationProvider` at each app root, `useSharedUiTranslation()`
+inside the package. A context rather than a module-level slot that
+`createI18nStore` writes: a slot is external mutable state read from a render
+position, which the React Compiler is free to memoise around, and it makes the
+number of hooks a component calls depend on whether boot has filled it. The hook
+is `useContext` and nothing else — the "never suspenseful" rule below applies to
+it identically.
+
+The provider is handed the APP's own `t`, so there is one locale in force per
+app rather than a second one in this package that could disagree with the screen
+around it.
 
 ## The alias table is two entries, and that is deliberate
 
@@ -112,7 +187,7 @@ half-change here. The storefront has the same limitation.
 
 ## The guard
 
-`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Three
+`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Five
 checks, and the third is the one worth understanding.
 
 - **A. No hardcoded user-facing string** in `packages/dashboard` or
@@ -128,6 +203,25 @@ checks, and the third is the one worth understanding.
   renamed placeholder renders the literal `%{count}` to a merchant.
 - **C. Referential integrity** — every `t('literal')` names a real key, and every
   key in `en.json` is named by some literal in that app's source.
+- **D. The reserved `ui` namespace (#437)** — every shared bundle's only
+  top-level key is `ui`, and no app bundle has one. Both populations are DERIVED
+  from the tracked file listing, so a fourth app is covered the day it appears;
+  a floor on each is what tells "the derivation found fewer" from "there are
+  fewer".
+- **E. The provider is mounted (#437)** — every app root layout renders
+  `<SharedUiTranslationProvider>`, detected as a JSX ELEMENT rather than as a
+  substring. The regression it exists for is the element going while the import
+  stays, which a substring check waves straight past, so that is one of its four
+  negative controls.
+
+**A does not run over `packages/ui`.** That package is only part way through
+extraction — #437 converted the condition and offer-label copy and the rest of
+its component prose is still English — and a gate over an unmigrated tree is one
+whoever hits it first disables, which is the same reasoning that keeps
+`packages/frontend` out. B and C DO run there, and neither needs the package
+finished: C is what catches a shared map put back on English, by name. Widening
+A to `packages/ui` is the residual on #437. D and E cover every app including
+the storefront, because they are about the plumbing rather than about copy.
 
 C is what catches the regression A cannot see. A decides only the positions it
 can decide from the syntax, and a plain map of status labels
@@ -178,16 +272,21 @@ Stated so nobody reads a green run as more than it is:
   refused — see above.)
 - Whether a TRANSLATION is any good. Parity says a key exists in `de.json`; it
   says nothing about whether the German is right.
-- `packages/frontend`, which is out of scope entirely (#435).
-- **`packages/ui`'s own reader-facing copy**, which is the largest residual and
-  is deliberately named here rather than left to be discovered. The shared
-  package holds English sentence maps for the condition taxonomy, offer labels,
-  pickup, price signals, commercial disclosures, referrals, shopping agents and
-  grounded comparison — every one of them rendered by all three apps and none of
-  them reachable from an app's bundle. A dashboard screen can therefore be fully
-  extracted, pass this guard, and still render an English paragraph that came
-  from `@mercaria/ui`. Fixing it is one decision about where shared copy lives,
-  not a per-app patch, and it is #437.
+- `packages/frontend`, which is out of scope for check A entirely (#435).
+- **Which subtree the provider covers.** Check E proves each app root MOUNTS
+  `<SharedUiTranslationProvider>`, not that every rendered tree sits under it. A
+  screen rendered outside the root tree falls back to `@mercaria/ui`'s English —
+  which is correct English, and is what shipped before #437, so the failure is a
+  missing translation rather than a broken screen.
+- **`packages/ui`'s REMAINING reader-facing copy.** #437 converted
+  `lib/condition.ts` and `lib/offer-labels.ts` completely. Still hardcoded
+  English, each rendered by all three apps: `pickup-labels.ts`,
+  `price-signal-labels.ts`, `commercial-copy.ts`, `shopping-agent-labels.ts`,
+  `comparison-labels.ts`, `referral-labels.ts`, `connector-labels.ts`, and the
+  prose inside the components themselves. The MECHANISM for all of them now
+  exists and is the one above; what each needs is its keys, its twelve
+  translations, and its call sites moved onto `useSharedUiTranslation`. Check A
+  can be widened to `packages/ui` in the change that finishes the last of them.
 
 ## Deferred
 
@@ -196,4 +295,4 @@ Stated so nobody reads a green run as more than it is:
 | #434 | Mirror the dashboard and POS layouts for RTL, then add `ar.json` to both |
 | #435 | Converge `packages/frontend/lib/i18n` onto the shared registry, and widen the guard to it |
 | #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
-| #437 | `packages/ui`'s shared reader-facing copy — where it lives once it has to exist in eleven languages |
+| #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |

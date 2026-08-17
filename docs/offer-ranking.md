@@ -7,7 +7,8 @@ letting affiliate economics or a currency preference distort the result.
 Code: `services/ranking/` (10 modules), `db/ranking/rankingPolicyRepository.ts`,
 `db/schema/ranking.ts` (1 table), `routes/offer-comparison.ts` (public),
 `routes/internal-ranking.ts` (operator), `@mercaria/shared-types`
-`offer-ranking.ts`, and `@mercaria/ui` `lib/offer-labels.ts` (the copy).
+`offer-ranking.ts`, and `@mercaria/ui` `lib/offer-labels.ts` (the translation
+keys, resolved from that package's own bundles — #437).
 
 Binding dependencies: #44's money and FX, #55's verified relationships, #57's
 offer model, #68's freshness, #76's review aggregates, #90's condition taxonomy.
@@ -238,9 +239,13 @@ it, because it states a fact about that offer rather than a comparison.
 nothing at all is known would otherwise present a digest tie-break as a
 judgement.
 
-The copy lives in `@mercaria/ui` `lib/offer-labels.ts`, keyed on the REASON code
-rather than the label, so two surfaces rendering the same explanation cannot
-drift and a copy change is not a contract change.
+The copy is keyed on the REASON code rather than the label, so two surfaces
+rendering the same explanation cannot drift and a copy change is not a contract
+change. `@mercaria/ui` `lib/offer-labels.ts` holds the TRANSLATION KEYS and
+`packages/ui/src/i18n/locales/*.json` holds the sentences in twelve languages
+(#437), which makes the qualifiers load-bearing for a translator too: an
+explanation that drops "known" claims something the ranking deliberately
+refused to.
 
 ## Policy versions
 

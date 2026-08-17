@@ -6,6 +6,7 @@ import {
   SUPPORTED_LOCALES,
   type SupportedLocale,
 } from './locales';
+import { SHARED_UI_COPY, SHARED_UI_COPY_NAMESPACE } from './shared-copy';
 
 /**
  * The message bundles one app ships, keyed by locale.
@@ -30,11 +31,43 @@ export function resolveDeviceLocale(): string {
 }
 
 /**
+ * One locale's messages: the app's own copy plus `@mercaria/ui`'s shared
+ * reader-facing copy, under the reserved `ui` namespace (#437).
+ *
+ * Exported because `createAppI18n` is not the only construction site: the
+ * storefront still builds its own `I18n` from an explicit alias table (#435 has
+ * not converged it yet) and must get the same shared copy through the same
+ * merge. Two spellings of "how shared copy is attached" is exactly the drift
+ * this issue exists to remove, so there is ONE.
+ *
+ * The collision is REFUSED rather than resolved by spread order. An app naming
+ * its own top-level `ui` key is not doing anything wrong; silently letting one
+ * side win would put a shared sentence where an app's copy should be, or the
+ * reverse, with nothing in either tree to read.
+ */
+export function mergeSharedUiCopy(locale: SupportedLocale, appBundle: object): object {
+  if (Object.prototype.hasOwnProperty.call(appBundle, SHARED_UI_COPY_NAMESPACE)) {
+    throw new Error(
+      `mergeSharedUiCopy: the ${locale} bundle already has a top-level `
+      + `"${SHARED_UI_COPY_NAMESPACE}" key. That namespace is reserved for `
+      + '@mercaria/ui\'s own copy (#437); rename the app key.',
+    );
+  }
+  return { ...appBundle, ...SHARED_UI_COPY[locale] };
+}
+
+/**
  * Build an app's i18n instance from the bundles it ships.
  *
  * Registration is the tag plus its `LOCALE_ALIASES` entries and NOTHING else;
  * every regional variant is left to i18n-js's own fallback chain (`es-MX` ->
  * `es` -> `en`), which is what makes the alias table short enough to be read.
+ *
+ * `@mercaria/ui`'s shared copy is merged into each REGISTERED locale, which is
+ * the intersection of the registry and what this app ships — never the union.
+ * So the dashboard shipping no `ar` bundle keeps no Arabic locale, even though
+ * the shared copy has one; an Arabic device there gets a whole English screen
+ * rather than Arabic condition labels inside an unmirrored English layout.
  */
 export function createAppI18n(bundles: AppLocaleBundles): I18n {
   if (!bundles[DEFAULT_LOCALE]) {
@@ -48,8 +81,9 @@ export function createAppI18n(bundles: AppLocaleBundles): I18n {
   for (const locale of SUPPORTED_LOCALES) {
     const bundle = bundles[locale];
     if (!bundle) continue;
-    translations[locale] = bundle;
-    for (const alias of LOCALE_ALIASES[locale] ?? []) translations[alias] = bundle;
+    const merged = mergeSharedUiCopy(locale, bundle);
+    translations[locale] = merged;
+    for (const alias of LOCALE_ALIASES[locale] ?? []) translations[alias] = merged;
   }
 
   const i18n = new I18n(translations);

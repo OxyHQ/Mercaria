@@ -153,5 +153,8 @@
   },
   "welcome": {
     "appName": "Mercaria"
+  },
+  "product": {
+    "priceHistoryHeading": "Historique des prix — %{segment}"
   }
 }

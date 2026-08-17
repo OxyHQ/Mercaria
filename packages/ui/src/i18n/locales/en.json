@@ -1,0 +1,71 @@
+{
+  "ui": {
+    "condition": {
+      "label": {
+        "new": "New",
+        "open_box": "Open box",
+        "refurbished_manufacturer": "Refurbished by the manufacturer",
+        "refurbished_seller": "Refurbished by the seller",
+        "used_like_new": "Used — like new",
+        "used_good": "Used — good",
+        "used_fair": "Used — fair",
+        "used_poor": "Used — poor",
+        "for_parts": "For parts or not working"
+      },
+      "explanation": {
+        "new": "Unused and unopened, in the packaging the manufacturer shipped it in.",
+        "open_box": "Never used, but the packaging has been opened — a return or a display unit.",
+        "refurbished_manufacturer": "Restored and re-certified by the manufacturer or its authorised programme.",
+        "refurbished_seller": "Restored by the seller or a third party, who is named on this listing.",
+        "used_like_new": "Used, with no wear the seller can see at normal viewing distance.",
+        "used_good": "Used, with light wear the seller says does not affect how it works.",
+        "used_fair": "Used, with obvious wear or a fault the seller has described.",
+        "used_poor": "Used, heavily worn or with a described fault that affects using it.",
+        "for_parts": "Sold as not working — for repair, salvage or components."
+      },
+      "group": {
+        "new": "New",
+        "open_box": "Open box",
+        "refurbished": "Refurbished",
+        "used": "Used",
+        "for_parts": "For parts"
+      },
+      "disclaimer": "A condition is what the seller states about their own item. It is not a Mercaria guarantee.",
+      "a11yLabel": "Condition: %{label}",
+      "notStated": "Condition not stated",
+      "sellerWording": "The seller describes it as “%{label}”."
+    },
+    "offer": {
+      "label": {
+        "best_overall": "Best overall",
+        "cheapest_item_price": "Cheapest item price",
+        "cheapest_known_total": "Cheapest known total",
+        "official_direct_store": "Official direct store",
+        "authorized_reseller": "Authorised reseller",
+        "fastest_known_delivery": "Fastest known delivery",
+        "best_nearby_pickup": "Best nearby pickup",
+        "cheapest_new": "Cheapest new",
+        "cheapest_used": "Cheapest used",
+        "native_mercaria_checkout": "Buy on Mercaria"
+      },
+      "explanation": {
+        "highest_policy_score": "Scores best across everything we know about these offers — price, delivery, condition, seller rating and how recently we checked.",
+        "lowest_item_price": "The lowest item price of the offers we can compare in this currency.",
+        "lowest_known_total": "The lowest total including delivery, among the offers whose delivery cost we know.",
+        "verified_official_channel": "A channel the brand has verified as its own.",
+        "verified_authorized_reseller": "A reseller the brand has verified as authorised.",
+        "shortest_known_delivery": "The shortest delivery estimate any of these sellers published.",
+        "nearest_collection_point": "The nearest collection point we know of.",
+        "lowest_item_price_new_segment": "The lowest item price among the offers sold as new.",
+        "lowest_item_price_used_segment": "The lowest item price among the second-hand offers.",
+        "buyable_on_mercaria": "You can buy this here, without leaving Mercaria."
+      },
+      "badgeWithBasis": "%{label} · %{basis}",
+      "a11yLabelWithBasis": "%{label}: %{basis}",
+      "days": {
+        "one": "%{count} day",
+        "other": "%{count} days"
+      }
+    }
+  }
+}

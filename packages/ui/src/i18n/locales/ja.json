@@ -1,0 +1,71 @@
+{
+  "ui": {
+    "condition": {
+      "label": {
+        "new": "新品",
+        "open_box": "開封済み",
+        "refurbished_manufacturer": "メーカーによる再生品",
+        "refurbished_seller": "出品者による再生品",
+        "used_like_new": "中古 — 新品同様",
+        "used_good": "中古 — 良好",
+        "used_fair": "中古 — 可",
+        "used_poor": "中古 — 難あり",
+        "for_parts": "部品取り・ジャンク品"
+      },
+      "explanation": {
+        "new": "未使用・未開封で、メーカーが出荷した梱包のままです。",
+        "open_box": "未使用ですが、梱包が開封されています。返品品または展示品です。",
+        "refurbished_manufacturer": "メーカーまたはその公認プログラムにより整備・再認定されています。",
+        "refurbished_seller": "出品者または第三者により整備されています。整備者はこの出品に記載されています。",
+        "used_like_new": "中古ですが、通常の距離では出品者が確認できる使用感はありません。",
+        "used_good": "中古で、出品者によれば動作に影響しない軽度の使用感があります。",
+        "used_fair": "中古で、明らかな使用感、または出品者が説明した不具合があります。",
+        "used_poor": "中古で、傷みが大きい、または使用に影響する不具合が説明されています。",
+        "for_parts": "動作しない品として販売されます。修理・部品取り用です。"
+      },
+      "group": {
+        "new": "新品",
+        "open_box": "開封済み",
+        "refurbished": "再生品",
+        "used": "中古",
+        "for_parts": "部品取り"
+      },
+      "disclaimer": "コンディションは出品者が自身の商品について申告した内容です。Mercaria の保証ではありません。",
+      "a11yLabel": "コンディション：%{label}",
+      "notStated": "コンディションの記載なし",
+      "sellerWording": "出品者は「%{label}」と記載しています。"
+    },
+    "offer": {
+      "label": {
+        "best_overall": "総合ベスト",
+        "cheapest_item_price": "商品価格が最安",
+        "cheapest_known_total": "判明している合計が最安",
+        "official_direct_store": "公式直販ストア",
+        "authorized_reseller": "正規販売店",
+        "fastest_known_delivery": "判明している中で最短の配送",
+        "best_nearby_pickup": "近くの受け取りで最適",
+        "cheapest_new": "新品で最安",
+        "cheapest_used": "中古で最安",
+        "native_mercaria_checkout": "Mercaria で購入"
+      },
+      "explanation": {
+        "highest_policy_score": "価格、配送、コンディション、出品者評価、最終確認の時期など、これらのオファーについて分かっているすべてで最も高い評価です。",
+        "lowest_item_price": "この通貨で比較できるオファーの中で最も安い商品価格です。",
+        "lowest_known_total": "配送料が分かっているオファーの中で、配送料込みの合計が最も安いものです。",
+        "verified_official_channel": "ブランドが自社のものとして認証したチャネルです。",
+        "verified_authorized_reseller": "ブランドが正規販売店として認証した販売者です。",
+        "shortest_known_delivery": "これらの出品者が公表した中で最も短い配送予定です。",
+        "nearest_collection_point": "当社が把握している中で最も近い受け取り場所です。",
+        "lowest_item_price_new_segment": "新品として販売されているオファーの中で最も安い商品価格です。",
+        "lowest_item_price_used_segment": "中古のオファーの中で最も安い商品価格です。",
+        "buyable_on_mercaria": "Mercaria を離れずに、ここで購入できます。"
+      },
+      "badgeWithBasis": "%{label} · %{basis}",
+      "a11yLabelWithBasis": "%{label}：%{basis}",
+      "days": {
+        "one": "%{count}日",
+        "other": "%{count}日"
+      }
+    }
+  }
+}

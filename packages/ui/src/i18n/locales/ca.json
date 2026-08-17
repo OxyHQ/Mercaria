@@ -1,0 +1,71 @@
+{
+  "ui": {
+    "condition": {
+      "label": {
+        "new": "Nou",
+        "open_box": "Capsa oberta",
+        "refurbished_manufacturer": "Recondicionat pel fabricant",
+        "refurbished_seller": "Recondicionat pel venedor",
+        "used_like_new": "Usat — com nou",
+        "used_good": "Usat — bon estat",
+        "used_fair": "Usat — estat acceptable",
+        "used_poor": "Usat — mal estat",
+        "for_parts": "Per a peces o no funciona"
+      },
+      "explanation": {
+        "new": "Sense usar i sense obrir, en l'embalatge amb què el va enviar el fabricant.",
+        "open_box": "Mai usat, però l'embalatge s'ha obert: una devolució o una unitat d'exposició.",
+        "refurbished_manufacturer": "Restaurat i recertificat pel fabricant o pel seu programa autoritzat.",
+        "refurbished_seller": "Restaurat pel venedor o per un tercer, que s'indica en aquest anunci.",
+        "used_like_new": "Usat, sense desgast visible per al venedor a una distància normal.",
+        "used_good": "Usat, amb un desgast lleu que, segons el venedor, no afecta el seu funcionament.",
+        "used_fair": "Usat, amb un desgast evident o un defecte que el venedor ha descrit.",
+        "used_poor": "Usat, molt desgastat o amb un defecte descrit que n'afecta l'ús.",
+        "for_parts": "Es ven com a no funcional: per a reparació, aprofitament o peces."
+      },
+      "group": {
+        "new": "Nou",
+        "open_box": "Capsa oberta",
+        "refurbished": "Recondicionat",
+        "used": "Usat",
+        "for_parts": "Per a peces"
+      },
+      "disclaimer": "L'estat és el que el venedor declara sobre el seu propi article. No és una garantia de Mercaria.",
+      "a11yLabel": "Estat: %{label}",
+      "notStated": "Estat no indicat",
+      "sellerWording": "El venedor el descriu com a «%{label}»."
+    },
+    "offer": {
+      "label": {
+        "best_overall": "Millor en conjunt",
+        "cheapest_item_price": "Preu de l'article més baix",
+        "cheapest_known_total": "Total conegut més baix",
+        "official_direct_store": "Botiga oficial directa",
+        "authorized_reseller": "Revenedor autoritzat",
+        "fastest_known_delivery": "Lliurament conegut més ràpid",
+        "best_nearby_pickup": "Millor recollida propera",
+        "cheapest_new": "Nou més barat",
+        "cheapest_used": "Usat més barat",
+        "native_mercaria_checkout": "Compra a Mercaria"
+      },
+      "explanation": {
+        "highest_policy_score": "És la millor puntuació tenint en compte tot el que sabem d'aquestes ofertes: preu, lliurament, estat, valoració del venedor i quan ho vam comprovar per última vegada.",
+        "lowest_item_price": "El preu d'article més baix entre les ofertes que podem comparar en aquesta moneda.",
+        "lowest_known_total": "El total més baix amb el lliurament inclòs, entre les ofertes de les quals coneixem el cost de lliurament.",
+        "verified_official_channel": "Un canal que la marca ha verificat com a propi.",
+        "verified_authorized_reseller": "Un revenedor que la marca ha verificat com a autoritzat.",
+        "shortest_known_delivery": "L'estimació de lliurament més curta publicada per aquests venedors.",
+        "nearest_collection_point": "El punt de recollida més proper que coneixem.",
+        "lowest_item_price_new_segment": "El preu d'article més baix entre les ofertes que es venen com a noves.",
+        "lowest_item_price_used_segment": "El preu d'article més baix entre les ofertes de segona mà.",
+        "buyable_on_mercaria": "Pots comprar-ho aquí, sense sortir de Mercaria."
+      },
+      "badgeWithBasis": "%{label} · %{basis}",
+      "a11yLabelWithBasis": "%{label}: %{basis}",
+      "days": {
+        "one": "%{count} dia",
+        "other": "%{count} dies"
+      }
+    }
+  }
+}
