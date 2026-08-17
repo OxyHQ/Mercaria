@@ -100,19 +100,18 @@ const HARDCODED_CATALOG_COMPARISON =
  * `untouched WITH A REASON is a decision the census accepts; silence is not` —
  * `merge-plan-census.test.ts`'s ruling. An exact array rather than a prefix rule,
  * so it cannot be widened by accident.
+ *
+ * EMPTY as of #478, which removed the last entry rather than re-dispositioning
+ * it: `VariantSwatches` picked a widget from `COLOR_OPTION_NAMES`, three English
+ * words, and drew a colour it had invented — no `attribute_enum_values` colour
+ * column and no per-value image exists, so the swatch showed a cycled gallery
+ * photo or a hash of the value string. It now renders pills for every option.
+ *
+ * An empty list costs this census the positive control the entry was doubling
+ * as — see `still catches a hardcoded list in a source the walk really read`,
+ * which replaces it at the same seam.
  */
-const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [
-  {
-    path: 'packages/ui/src/components/marketplace/VariantSwatches.tsx',
-    disposition:
-      'PRESENTATION, not a mapping: `COLOR_OPTION_NAMES` picks a widget (round swatches vs text ' +
-      'pills) from the legacy free-text `ListingOption.name`. It asserts no fact, writes nothing, ' +
-      'and cannot make `Colour` and `Tono` one attribute — but it does render `Colour` as colour ' +
-      'and `Tono` as a pill, which is the same false-equivalence shape one layer down. The fix ' +
-      'belongs with #367 step 4’s typed axes, which know which attribute an option resolved to; ' +
-      'nothing in workstream 13 writes to `packages/ui`',
-  },
-];
+const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [];
 
 describe('the ungated client packages', () => {
   it('reads a real, non-trivial set of client sources', () => {
@@ -143,14 +142,42 @@ describe('the ungated client packages', () => {
       .sort();
 
     // Exact identity, never containment: an allow-list that may only grow is the
-    // gate switching itself off one defensible entry at a time. It is also its
-    // own positive control — it can only pass by having FOUND the known list, so
-    // a probe that stopped matching fails here rather than reporting a tidy zero.
+    // gate switching itself off one defensible entry at a time.
+    //
+    // While PERMITTED held an entry this was ALSO its own positive control — it
+    // could only pass by having FOUND that list. #478 emptied it, so this
+    // assertion now passes two ways: because no client package hardcodes a
+    // catalog vocabulary, or because the walk and the probe stopped composing.
+    // The test below restores the control; do not delete it while this list is
+    // empty.
     expect(
       offenders,
       'a client package outside the two scanned by WS8/WS9 hardcodes a catalog vocabulary. ' +
         'Read it from the server, or add it here with a disposition (#367 workstream 13)',
     ).toEqual([...PERMITTED].map((entry) => entry.path).sort());
+  });
+
+  it('still catches a hardcoded list in a source the walk really read', () => {
+    // The positive control the allow-list used to provide for free, restored at
+    // the same seam after #478 emptied it. The mutation self-test below already
+    // proves the REGEX fires, but it feeds it a bare literal — which says
+    // nothing about whether that regex is still being applied to file content
+    // this walk produced. A control has to take production's path, so this one
+    // takes a source the walk really read and appends a known offender to it.
+    const sources = ungatedClientSources();
+    const [path, source] = [...sources].sort(([a], [b]) => a.localeCompare(b))[0] ?? [];
+    expect(path, 'the walk read nothing to control against').toBeTypeOf('string');
+
+    // Guards the arrangement rather than the conclusion: if this file already
+    // matched, the assertion below would pass without the appended line and
+    // would be measuring nothing.
+    expect(HARDCODED_CATALOG_LIST.test(source ?? ''), `${path} already matches`).toBe(false);
+    expect(
+      HARDCODED_CATALOG_LIST.test(
+        `${source ?? ''}\nconst COLOR_OPTION_NAMES = new Set(["color", "colour"]);\n`,
+      ),
+      'the walk/probe composition no longer catches a known hardcoded catalog list',
+    ).toBe(true);
   });
 
   it('branches on no catalog concept’s name', () => {
@@ -214,7 +241,10 @@ describe('the ungated client packages', () => {
         80,
       );
     }
-    expect(PERMITTED).toHaveLength(1);
+    // The exact-count assertion on the exemptions themselves. ZERO as of #478;
+    // it is not a formality, because the loop above is vacuous at this length
+    // and this line is the only thing that notices an entry coming back.
+    expect(PERMITTED).toHaveLength(0);
   });
 
   it('imports nothing from a client package', () => {
