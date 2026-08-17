@@ -751,3 +751,8 @@ export * from './catalog-backfill';
 // that never ran produce the same zeroes, and `0 = 0 + 0 + 0` satisfies a sum
 // check for both.
 export * from './catalog-governance';
+
+// Catalog observability (#367 W16/W17). The one to read is `CatalogMetricReading`:
+// its `unmeasured` branch carries no value, numerator or denominator, so a metric
+// nobody measured cannot be rendered as a number rather than merely should not be.
+export * from './catalog-metrics';
