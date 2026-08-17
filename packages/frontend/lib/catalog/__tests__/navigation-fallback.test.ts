@@ -45,22 +45,44 @@ import { resolveCatalogNavigation } from '../navigation';
 
 const LIB_CATALOG = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** A category tree with one root, which is what the v1 read returns. */
+/**
+ * A category tree with one root, which is what the v1 read returns.
+ *
+ * Fully typed rather than cast. The first draft of this file wrote both fixtures
+ * as `as unknown as` — the shape the sibling `compatibility.test.ts` uses — and
+ * the cast hid THREE errors in this one: a `handle` field `CategoryNode` does not
+ * have, a missing `parentId` it requires, and `surface: 'header'` — not a member of
+ * `NavigationSurface`, which is `header_menu`. All three were found by DELETING the
+ * cast, one per typecheck. A fixture the compiler never checked is a fixture that
+ * can drift away from the wire shape while every assertion over it keeps passing,
+ * and the third error is the one that mattered: a surface value no server would
+ * ever send.
+ */
 const CATEGORY_TREE: readonly CategoryNode[] = [
-  {
-    id: 'cat-root',
-    name: 'Electronics',
-    slug: 'electronics',
-    handle: 'electronics',
-    children: [],
-  } as unknown as CategoryNode,
+  { id: 'cat-root', name: 'Electronics', slug: 'electronics', parentId: null, children: [] },
 ];
 
 /** One published navigation tree, which is what taxonomy v2 returns. */
 const TREES: NavigationResponse = {
-  trees: [{ key: 'primary', surface: 'header', nodes: [], withheldNodeCount: 0 }],
+  market: 'ES',
+  requestedLocale: 'es',
+  etag: 'W/"navigation-fallback-fixture"',
+  trees: [
+    {
+      id: 'tree-1',
+      key: 'primary',
+      version: 1,
+      market: 'ES',
+      locale: 'es',
+      surface: 'header_menu',
+      nodes: [],
+    },
+  ],
   withheldNodeCount: 0,
-} as unknown as NavigationResponse;
+};
+
+/** The same response with nothing published — an unconfigured market. */
+const NO_TREES: NavigationResponse = { ...TREES, trees: [] };
 
 function readers(overrides: {
   trees?: () => Promise<NavigationResponse>;
@@ -120,7 +142,7 @@ describe('the fallback — three different failures, one answer', () => {
     // ADR 0007 D13's parity condition: rendering `{trees: []}` as an empty menu
     // would withdraw navigation on the deploy that ENABLED the flag, which is the
     // opposite of a rollout. This is the case a rejection-only `catch` misses.
-    const io = readers({ trees: () => Promise.resolve({ trees: [], withheldNodeCount: 0 } as unknown as NavigationResponse) });
+    const io = readers({ trees: () => Promise.resolve(NO_TREES) });
     const navigation = await resolveCatalogNavigation({
       market: 'ZZ',
       locale: 'es',
