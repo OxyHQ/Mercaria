@@ -33,6 +33,24 @@
   parameter, so a caller whose OWN handle is optional coalesces at the call site
   (`tx ?? getDb()`) — measured, a bare optional `tx` type-checked and silently
   materialized nothing.
+- **An enqueue whose only wrapper SWALLOWS exceptions cannot be guarded at
+  runtime — the compile error is the only mechanism that survives the `catch`.**
+  `requireTransaction` is the right guard for the moderation outbox, whose caller
+  lets the throw out. It is INERT on the two catalogue queues: `requestMatch` and
+  `requestNativeOfferSync` catch everything by design, so a catalogue write cannot
+  fail because a projection could not be queued (#58 operations 4) — and a guard
+  that throws there produces a WARN line and a lost job. The same `catch` is why
+  the foreign key that makes `offer_outboxes` refuse an uncommitted listing
+  (`23503`) is not loud either. Check what a guard's exception does two frames up
+  before choosing one; `match_queue` has no mandatory FK at all, so nothing but
+  the signature stands between it and a silent write.
+- **A defaulted handle is the house convention for a READ or a dispatcher's own
+  lifecycle statement** — ~1138 of them across 160 files in `db/` — and the
+  enqueues are the deliberate exception, not an inconsistency. The line is
+  whether the row must commit with a subject the CALLER is writing. `claim*`,
+  `complete*` and `release*` are the worker's own statements and belong to no
+  caller's transaction; `find*` and `summarize*` are reads. Only an enqueue owes
+  atomicity to somebody else's write.
 - **Idempotency is a partial unique index plus `ON CONFLICT DO NOTHING
   RETURNING`** — the empty result set IS the "already claimed" answer, so a real
   failure still propagates. Repeat the index's `WHERE` predicate on every
