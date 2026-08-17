@@ -14,10 +14,13 @@
   (`postgres.internal.oxy.so:5432`), owned by role `mercaria`, with PostGIS
   installed once by a privileged role — it is not a trusted extension. See
   `docs/runbooks/30-postgres-database-provisioning.md` in `oxy-infra`.
-- **The `test` job runs on `ubuntu-latest` (x86), deliberately NOT the
-  `ubuntu-24.04-arm` the `deploy` job uses** — GitHub-hosted ARM runners do not
-  support service containers at all, and `postgis/postgis` publishes
-  `linux/amd64` only. Don't "fix" the mismatch.
+- **`ci.yml`'s `Lint & Test` runs on `ubuntu-latest` (x86), deliberately NOT the
+  `ubuntu-24.04-arm` `deploy-aws.yml`'s `deploy` job uses** — GitHub-hosted ARM
+  runners do not support service containers at all, and `postgis/postgis`
+  publishes `linux/amd64` only. Don't "fix" the mismatch. This constraint used to
+  be recorded on `deploy-aws.yml`'s own `test` job as well; #518 deleted that job
+  as a drifted copy, so `Lint & Test` is now the only job in the repository with
+  a service container and the only place the rule applies.
 - **Web apps go to Cloudflare Workers (Static Assets), NOT Pages** — one Worker
   each (`deploy-cloudflare.yml`, `deploy-dashboard.yml`, `deploy-pos.yml`) via
   `bunx wrangler deploy` with a per-package advanced-mode `wrangler.jsonc`
@@ -41,11 +44,27 @@ of one is not. Measured over the 329 pushes to `main` before the fix: **93 web
 deploys shipped without a green CI** — 29 from an outright `failure`, and 64 from
 a run the next merge had `cancelled`.
 
-- **The API** (`deploy-aws.yml`) keeps its own `test` job and `needs: test`.
-- **The three web apps** each run a `gate` job first, which calls
-  `.github/scripts/require-ci-success.mjs`. That asks the Actions API what
-  `ci.yml` concluded **for this exact commit** and refuses unless every job it
-  defines is present and `success`.
+**All four now gate the SAME way** (#518). Each runs a `gate` job first, which
+calls `.github/scripts/require-ci-success.mjs`. That asks the Actions API what
+`ci.yml` concluded **for this exact commit** and refuses unless every job it
+defines is present and `success`.
+
+Until #518 the API was the exception: it had a `test` job of its own, and that
+job was a partial copy of `ci.yml` rather than CI. It ran **4 steps where
+`ci.yml`'s `Lint & Test` ran 21** — no `validate:*` guard and no typecheck at
+all — so the API deploy looked gated and was not. Demonstrated on `7071d999` by
+appending `export const X: number = PRODUCTION_ORIGINS[0];` to
+`packages/backend/src/lib/allowed-origins.ts`:
+
+| step | in the API's old gate? | result |
+|---|---|---|
+| `--filter @mercaria/backend typecheck` | **no** | **exit 2**, `TS2322` |
+| `--filter @mercaria/backend test` | yes | 82 tests passed |
+| `bun run build:backend` | yes | exit 0 |
+
+and the mutated symbol appeared **twice in `packages/backend/dist/index.js`** —
+the artifact baked into the ECS image. `build:backend` is esbuild and vitest
+transpiles rather than typechecks, so a backend type error was deployable.
 
 ### Why the gate reads CI's result instead of repeating CI
 
@@ -58,10 +77,13 @@ Both were rejected:
   trigger only runs the DEFAULT branch's copy of the file — so none of it is
   testable until it is merged, and the failure mode of getting it wrong is that
   deploys silently stop.
-- **A copy of the suite drifts, and `deploy-aws.yml` is the proof.** Its `test`
-  job runs the backend lint, the backend suite and the bundle — and NOT the ten
+- **A copy of the suite drifts, and `deploy-aws.yml` was the proof.** Its `test`
+  job ran the backend lint, the backend suite and the bundle — and NOT the ten
   `validate:*` guards, the five typechecks or the three app test runners that
-  `ci.yml` has grown since. A second copy is a second answer to "did CI pass".
+  `ci.yml` grew after it was written. A second copy is a second answer to "did CI
+  pass", and the two disagreed for as long as it existed. #518 deleted it rather
+  than widening it to 21 steps: widening leaves two lists to keep in sync, which
+  is how it drifted in the first place.
 
 Reading the real run keeps one definition, keeps every `paths:` filter exactly as
 it was, and is verifiable before merge — the script was run against real
@@ -114,7 +136,10 @@ the sha-keyed group landed, +70%**.
 
 So the right lever is reducing how many gates wait at once, which is what the
 per-app `concurrency:` block on each web deploy workflow does — nine concurrent
-gates become three. If that is ever not enough, the honest options are to stop
+gates become three. #518 added a fourth gate, for the API, and it is bounded at
+ONE by that workflow's `cancel-in-progress: false` group; it also removed a
+15-minute duplicate suite from every push, so the burst got cheaper rather than
+denser. If that is ever not enough, the honest options are to stop
 holding a runner at all (a `workflow_run` trigger, with `paths:` rebuilt from a
 diff — which is the option §"Why the gate reads CI's result" rejected, and its
 untestability comes back with it) or more runner capacity. Not a longer wait.
@@ -139,16 +164,32 @@ switch whose cheapest green is "ship the commit CI rejected" is worse than no
 gate. Shipping from a red commit means reverting the commit. If CI is re-run
 green after a failure, re-run the deploy workflow.
 
-### Known gap this did not close
+### The gap #505 left, closed by #518
 
-`deploy-aws.yml`'s `test` job is a partial copy of `ci.yml` and has drifted, as
-above; it also never typechecks the backend, because `build:backend` is esbuild
-(`packages/backend/build.ts`) and vitest does not typecheck either. So a backend
-type error can still reach the API — `ci.yml`'s `Typecheck API` catches it on the
-same push, but nothing makes the API deploy wait for that. Moving `deploy-aws.yml`
-onto this same gate would close it and remove the duplicate suite; it was left out
-of #505 to keep the API's deploy path unchanged in a PR about the three that had
-no gate at all.
+#505 left the API on its own drifted `test` job, to keep the API's deploy path
+unchanged in a PR about the three targets that had no gate at all. #518 moved it
+onto this gate and deleted the copy. Two consequences are worth knowing rather
+than rediscovering:
+
+- **The PostGIS service container went with the `test` job.** The gate job needs
+  no database — it runs one `fetch` loop — so `deploy-aws.yml` now starts no
+  service container at all. Nothing else in it depended on that environment:
+  `deploy` takes no output from the job it `needs:` and touches no Postgres.
+- **The API deploy is now COUPLED to `ci.yml` reaching a conclusion.** Before, it
+  re-ran the backend suite itself, so it was gated even on a commit whose CI run
+  was cancelled. Now a cancelled or absent CI run refuses the deploy. That is the
+  correct refusal — a cancelled run is not a pass — and it is only workable
+  because #505 keyed `ci.yml`'s concurrency group on the sha, which is what stops
+  back-to-back merges cancelling each other's verdicts. Reverting that line would
+  now block API deploys as well as web ones.
+
+The API's `concurrency` block was deliberately NOT touched. `cancel-in-progress`
+stays `false` there for reasons that have nothing to do with gating — cancelling
+between `run-task` and its exit-code check orphans a live migration task — and it
+also bounds the new gate's runner occupancy: at most one run of that workflow is
+in progress per ref, so at most one API gate ever polls, where the three web
+deploys can have three. Net, the workflow occupies less than before: a poll loop
+replaced a full duplicate run of the backend suite plus a service container.
 
 ### The gate is armed
 
@@ -160,6 +201,22 @@ EXACTLY the four known targets (so a fifth is classified rather than assumed),
 and `ci.yml`'s concurrency must still key `main` on the sha. Each of those four
 was mutation-tested. `judgeJobs` is unit-tested against the two shapes that read
 as green — a `skipped` job and a MISSING one.
+
+#518 NARROWED the second of those and added one. "A verification" used to accept
+`--filter @mercaria/backend test`, specifically so `deploy-aws.yml`'s own `test`
+job satisfied it — so the guard agreed a job was verified by the very copy that
+made a type error deployable. It now accepts only the gate script. The addition
+asserts no deploy workflow runs the API suite ITSELF, with a positive control on
+`ci.yml` so a rename cannot make it vacuous — the repair for a drifting copy is
+having no copy, so the guard states the absence.
+
+Mutation-tested three ways, each checked to fail with the reason it claims:
+restoring the old `--filter @mercaria/backend test` shape as the dependency goes
+red on "must wait for a green ci.yml run" (it was GREEN under the old predicate);
+replacing the gate step with a no-op goes red on the same assertion and NOT on
+the vacuity floor, which is what proves the narrowing rather than the floor is
+refusing; and removing `needs:` entirely goes red on the floor, naming it
+ungated.
 
 ### How a migration reaches production
 

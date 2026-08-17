@@ -29,6 +29,27 @@ concurrency:
 jobs:
   lint-and-test:
     name: Lint & Test
+    # x86, and it must stay x86 even though the API image `deploy-aws.yml` ships
+    # is `linux/arm64`. TWO independent things force it, and fixing either one
+    # alone still leaves the job broken:
+    #
+    #  1. GitHub-hosted ARM runners do not support service containers at all. A
+    #     run that requests one dies before its first job with `action_required`
+    #     and zero jobs (measured on runs 31263904439 / 31263963083).
+    #  2. `postgis/postgis` publishes linux/amd64 ONLY — checked against the
+    #     registry, where the tag's OCI index carries one platform entry plus an
+    #     attestation. So the container below could not start on an ARM host
+    #     regardless.
+    #
+    # Together those close the tempting repair: finding a multi-arch Postgres
+    # image does NOT make an ARM runner workable, and neither does waiting for
+    # ARM service-container support while this image stays amd64-only. Nothing
+    # here is architecture-sensitive anyway.
+    #
+    # This note used to sit on `deploy-aws.yml`'s `test` job, which #518 deleted
+    # as a drifted copy of this one. It moved rather than went, because the
+    # constraint is imposed by the service container below and this is now the
+    # only job in the repository that has one.
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

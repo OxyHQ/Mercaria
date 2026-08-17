@@ -189,10 +189,11 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails
   intermittently on ARM. Do NOT remove it.
-- **CI's `test` job runs on `ubuntu-latest` (x86), deliberately NOT the
-  `ubuntu-24.04-arm` the `deploy` job uses** — GitHub-hosted ARM runners do not
-  support service containers, and `postgis/postgis` publishes `linux/amd64` only.
-  Don't "fix" the mismatch.
+- **`ci.yml`'s `Lint & Test` must stay on x86** (`deploy-aws.yml` builds on ARM)
+  — ARM runners support no service containers and `postgis/postgis` is
+  amd64-only. Don't "fix" the mismatch.
 - **Web apps deploy to Cloudflare Workers, NOT Pages**, and via **`bunx wrangler`
   directly, never `cloudflare/wrangler-action`** — its `npm i wrangler` chokes on
-  `workspace:*`. Topology and the launch handoff: `docs/deploy.md`.
+  `workspace:*`. All four deploys gate on `ci.yml`'s verdict for that commit;
+  none may run a copy of the suite (#518). Topology, gating and handoff:
+  `docs/deploy.md`.
