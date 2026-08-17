@@ -6532,3 +6532,91 @@ state while nulling the pointer is refused by
 `catalog_review_events` refusing DELETE means the same teardown disables that ONE
 trigger on that ONE table inside a transaction — the narrowest window the
 shared-database rules permit.
+
+## Catalog administration and governance (#367 Workstream 12)
+
+Five tables that hold DECISIONS about the catalogue and no catalogue fact:
+`catalog_governance_change_requests`, `catalog_governance_impact_counts`,
+`catalog_governance_audit_events`, `catalog_governance_role_grants` and
+`catalog_governance_definition_snapshots`. Full reference:
+`docs/catalog-governance.md`.
+
+### The vacuity floor is a ROW COUNT, and that is why there is a child table
+
+`catalog_governance_impact_counts` is one row per inbound reference the plan
+declares — `listings.category_id`, `canonical_products.category_id` and the
+other thirty-one — each carrying its own count, **including zero**.
+
+A column per relation, or a single `impact_total`, could not do this job.
+Twenty relations counted all zero is a legitimate answer meaning the change is
+free; zero relations counted means nobody looked; and `0 = 0 + 0 + 0` satisfies
+a sum check for both. Only the ROW COUNT distinguishes them, which is why
+`impact_relations_counted >= impact_relations_declared` is a CHECK and the
+equality against the child rows is asserted in `insertChangeRequest` — the
+single writer — since a CHECK may not contain a subquery.
+
+### `impact_coverage` needs TWO CHECKs, not one over their conjunction
+
+`catalog_governance_change_requests_impact_measured_check` and
+`..._impact_unmeasured_check` are separate implications on purpose. Written as
+one CHECK over the conjunction of both shapes, a row that is NEITHER satisfies
+it because both sides evaluate false — admitting exactly the row the constraint
+exists to refuse. The #68 finding
+(`retail_delivery_promises_observed_shape_check`), hit again here; any future
+multi-column "present exactly when" CHECK in this schema must be written the
+same way.
+
+### `requires_second_approval` is snapshotted, and the state CHECK is what makes it real
+
+The `catalog_merge_jobs` decision for its reason: the threshold and
+`CATALOG_FOUR_EYES_REQUIRED` both move, and a request whose approval requirement
+changed after somebody approved it would either strand a legitimate change or
+let an unapproved one through.
+
+`..._second_approval_check` refuses a request that needs two people leaving
+`planned` without an approver, and `..._approver_distinct_check` refuses the
+requester approving their own. Both are the layer under a service refusal that
+says the same thing in words — so a service bug that skipped the gate is refused
+by the database.
+
+### Both subject pointers carry NO foreign key, and it is two decisions at once
+
+One column cannot reference nine subject kinds. And an audit row must OUTLIVE
+what it describes: a `restrict` key would let a decided change request block a
+catalogue merge, while every other `ON DELETE` would erase or silently empty the
+record of what an operator decided. The `catalog_proposals.resolved_entity_id`
+ruling. Both are ledgered in `deferredForeignKeys.ts`.
+
+The foreign keys onto `catalog_governance_change_requests` ARE real and are
+`restrict`, agreeing with the append-only triggers on both children — a cascade
+beside a no-delete trigger is a way to remove the evidence by removing its
+parent (`catalog_review_events`' rule).
+
+### Three jsonb columns, and each is an immutable snapshot
+
+`change_requests.parameters` (frozen the moment the row leaves `planned`),
+`audit_events.before`/`after`, and `definition_snapshots.document`. None is
+queried by any predicate and none is joined on; everything queryable — domain,
+action, subject, state, both actors, every count — is a real column beside them.
+
+`parameters` earns it as the genuinely sparse case: seventeen actions take
+genuinely different parameters, and `apply.ts` reads each by name. The audit
+pair earns it because reconstructing a definition's prior shape is the one thing
+a governance audit exists for and the shape differs per subject kind.
+`document` is the "immutable schema snapshot" case verbatim.
+
+### The snapshot's counts are the export's own positive control
+
+`entity_count` equals the sum of its five parts (a CHECK), and
+`..._vacuity_check` refuses `entity_count = 0` outright. An empty export
+digests cleanly, restores cleanly and reports "nothing to do" — the one failure
+mode a restore cannot recover from. #60's `catalog_backfill_runs` device.
+
+### `catalog_governance_role_grants` narrows the allow-list and can never extend it
+
+`CATALOG_OPERATOR_OXY_USER_IDS` decides who reaches the surface at all, so no
+row here can ADMIT anybody — which is what keeps it from being a seventh
+allow-list. The partial unique is `(subject, role) WHERE revoked_at is null`, so
+a re-grant after a revocation is permitted and the history of who held what
+survives. A grant is revoked, never deleted; the trigger refuses DELETE and
+freezes everything except the revocation pair, once.

@@ -732,3 +732,22 @@ export * from './authoring-schema';
 // submitted" is a shape rather than a rule somebody remembers.
 export * from './catalog-proposal';
 export * from './catalog-backfill';
+
+// Catalog administration and governance (#367 Workstream 12) — the operator
+// surface over the nine domains above. It defines no catalogue vocabulary of
+// its own: `CATALOG_GOVERNANCE_DOMAINS` NAMES them, `CATALOG_GOVERNANCE_ACTIONS`
+// names what an operator may do to one, and every apply drives that domain's
+// own writer.
+//
+// The three tuples to read together are `CATALOG_GOVERNANCE_ACTIONS`,
+// `CATALOG_GOVERNANCE_REVIEW_ACTIONS` and
+// `CATALOG_GOVERNANCE_LIFECYCLE_ACTIONS`: their union is
+// `CATALOG_GOVERNANCE_AUDIT_ACTIONS` exactly, reconciled in BOTH directions by a
+// test, so neither an act with no audit vocabulary nor an audit value nothing
+// produces can survive a build.
+//
+// The one to read for the reasoning is `CATALOG_GOVERNANCE_IMPACT_COVERAGES`:
+// `measured` and `unmeasured` exist because a read that found nothing and a read
+// that never ran produce the same zeroes, and `0 = 0 + 0 + 0` satisfies a sum
+// check for both.
+export * from './catalog-governance';

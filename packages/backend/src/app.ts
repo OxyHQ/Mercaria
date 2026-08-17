@@ -118,6 +118,7 @@ import catalogAuthoringRouter from './routes/catalog-authoring.js';
 import productDraftsRouter from './routes/product-drafts.js';
 import catalogProposalsRouter from './routes/catalog-proposals.js';
 import internalCatalogProposalsRouter from './routes/internal-catalog-proposals.js';
+import internalCatalogGovernanceRouter from './routes/internal-catalog-governance.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -973,6 +974,22 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/navigation', internalNavigationRouter);
+  }
+  /**
+   * Catalog administration and governance (#367 Workstream 12) — the operator
+   * surface over all nine catalog domains, on the SAME
+   * `CATALOG_OPERATOR_OXY_USER_IDS` allow-list and gated on nothing else.
+   *
+   * Deliberately NOT gated on `CATALOG_TAXONOMY_V2_ENABLED`,
+   * `CATALOG_PROPOSALS_ENABLED` or any other domain's rollout lever, for the
+   * reason `/internal/backfill` and `/internal/product-saves` are not: the
+   * evidence has to be readable during the incident that turned a domain off,
+   * and the audit trail of what an operator did to the catalogue is exactly
+   * what somebody reaches for at that moment. Empty list = not mounted at all
+   * (404, never 401).
+   */
+  if (config.catalog.graphOperatorSurfaceEnabled) {
+    app.use('/internal/catalog-governance', internalCatalogGovernanceRouter);
   }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
