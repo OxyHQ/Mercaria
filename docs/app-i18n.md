@@ -489,14 +489,72 @@ Stated so nobody reads a green run as more than it is:
   which is correct English, and is what shipped before #437, so the failure is a
   missing translation rather than a broken screen.
 - **`packages/ui`'s REMAINING reader-facing copy.** #437 converted
-  `lib/condition.ts` and `lib/offer-labels.ts` completely. Still hardcoded
-  English, each rendered by all three apps: `pickup-labels.ts`,
-  `price-signal-labels.ts`, `commercial-copy.ts`, `shopping-agent-labels.ts`,
-  `comparison-labels.ts`, `referral-labels.ts`, `connector-labels.ts`, and the
-  prose inside the components themselves. The MECHANISM for all of them now
-  exists and is the one above; what each needs is its keys, its twelve
-  translations, and its call sites moved onto `useSharedUiTranslation`. Check A
-  can be widened to `packages/ui` in the change that finishes the last of them.
+  `lib/condition.ts` and `lib/offer-labels.ts`; #502 converted
+  `lib/comparison-labels.ts`, `lib/price-signal-labels.ts` and
+  `lib/connector-labels.ts`. Still hardcoded English, each rendered by all three
+  apps: `pickup-labels.ts`, `commercial-copy.ts`, `shopping-agent-labels.ts`,
+  `referral-labels.ts`, and the prose inside the components themselves. The
+  MECHANISM for all of them exists and is the one above; what each needs is its
+  keys, its twelve translations, and its call sites moved onto
+  `useSharedUiTranslation`. Check A can be widened to `packages/ui` in the change
+  that finishes the last of them.
+
+  Read the section below first — converting one of the four can silently disarm
+  a guard somewhere else.
+
+## Moving copy out of a file can disarm a guard that reads it as TEXT
+
+**The same trap is waiting wherever a test reads one of these copy files as
+TEXT, and it fails silent and green.**
+
+A conversion takes the sentences out of `lib/<domain>-labels.ts` and leaves
+message ids behind. Any test that reads that file as a STRING and asserts the
+prose does not say something then passes for a reason that has nothing to do
+with the property: the words it forbids are no longer in the file at all.
+
+Measured three times so far, which is what makes it a class rather than an
+anecdote:
+
+| guard | reads | what went, or would have gone, vacuous |
+|---|---|---|
+| `services/__tests__/connector-pin-visibility.test.ts` (#427) | `ui/src/lib/connector-labels.ts` | "no revert/restore/undo promise" — nothing stores the platform's previous value, so offering to restore one is a promise the data cannot keep. Caught and re-pointed in #502, in the same commit that caused it. |
+| `services/watchlists/__tests__/watchlist-isolation.test.ts` (#492) | storefront source | no *cheapest basket* claim, from `WATCHLIST_FORBIDDEN_CLAIMS`. Fixed. |
+| `services/__tests__/commercial-presentation-isolation.test.ts` | the same screens | no OxyPay/FairCoin reference. Found only because the agent on #492 noticed its own name-keyed census had missed it — unlike the row above, that guard has no `*_FORBIDDEN_CLAIMS` constant to grep for. |
+
+### The two directions fail differently, and the second is the nastier one
+
+- **An ABSENT-assertion goes vacuous when the copy moves.** `not.toMatch(...)`
+  against a file that no longer holds prose is true forever. Nothing goes red,
+  nothing is reported, and the guard reads as coverage in every later audit.
+- **A PRESENT-assertion goes red** — `toMatch(...)`, or a census expecting N
+  sentences, fails loudly the moment the sentences leave. That looks better and
+  is worse in one specific way: **the cheapest way back to green is deleting the
+  assertion**, and a deleted line leaves no trace that a property stopped being
+  checked. #498 is living through this half now.
+
+Neither is a reason not to convert. Both are a reason to find the guard first.
+
+### What to do
+
+1. **Before** converting a map, `git grep` for that file's PATH across tests and
+   scripts. A guard that reads source TEXT will not show up in an import graph.
+2. **Re-point it in the SAME commit as the conversion.** The conversion and the
+   guard's move are one change, not two — split across two PRs, the window
+   between them is a period where the property is unguarded and nothing says so.
+3. **Give the moved assertion a vacuity floor.** Assert the subtree EXISTS and is
+   non-trivially long, THEN assert the prohibition. `connector-pin-visibility`'s
+   dashboard half already carried exactly that floor, which is what made the gap
+   visible by contrast.
+4. **Demonstrate both directions rather than asserting them.** Inject the
+   forbidden text and watch the re-pointed assertion fail; then show the old form
+   could not have caught it. #502 did this: with a false restore promise in the
+   shared bundle the new assertion goes red, and `connector-labels.ts` after
+   comment-stripping contains no restore/revert/undo text at all.
+
+**A check returning ZERO deserves the same suspicion as a check returning
+GREEN.** Both of these are that rule wearing different clothes, and it applies to
+the verification as much as to the guard — a `grep` for `quoting` against text
+that says `quotes` reports a confident, wrong zero.
 
 ## Deferred
 
