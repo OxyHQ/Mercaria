@@ -118,6 +118,7 @@ function variant(overrides: Partial<DraftVariantForValidation> = {}): DraftVaria
     priceCurrency: 'EUR',
     inventoryAvailable: 3,
     axisSignature: 'a'.repeat(64),
+    sku: null,
     ...overrides,
   };
 }
@@ -321,6 +322,146 @@ describe('values are checked against the CITED registry version', () => {
       }),
     );
     expect(codes(result)).toContain('unknown_unit');
+  });
+
+  /**
+   * The three unit outcomes, measured (#367 step 5).
+   *
+   * Before these, a `length` attribute accepted `kg` and `bananas` alike and
+   * produced ZERO findings — `publishable: true` — because the only unit rule
+   * was "is one present". A wrong-family unit then reached
+   * `native_variant_axis_assignments.normalized_unit` and became a mass stored
+   * as a length, which no later reader can tell from a correct value.
+   */
+  describe('a unit is checked against the family the attribute declares', () => {
+    const measured = field({
+      id: 'f-screen',
+      key: 'screen_size',
+      attributeDefinitionId: 'attr-screen',
+      valuePolicy: 'typed_scalar',
+      validation: {
+        ...field().validation,
+        valueType: 'measurement',
+        unitFamily: 'length',
+        baseUnit: 'mm',
+      },
+      controlledValues: [],
+    });
+    const withUnit = (unit: string | null): ReturnType<typeof validateDraft> =>
+      validateDraft(
+        input({
+          schema: schema([measured]),
+          values: [
+            value({
+              fieldId: 'f-screen',
+              attributeKey: 'screen_size',
+              kind: 'number',
+              valueEnumValueId: null,
+              valueNumber: 6.1,
+              unit,
+            }),
+          ],
+        }),
+      );
+
+    it('a unit of the RIGHT family is clean — the positive control', () => {
+      // Without this, every case below would pass against a function that
+      // refused every unit there is.
+      const result = withUnit('in');
+      expect(result.findings).toEqual([]);
+      expect(result.publishable).toBe(true);
+    });
+
+    it('a unit of the WRONG family is its own code, not `unknown_unit`', () => {
+      const result = withUnit('kg');
+      expect(codes(result)).toContain('unit_not_in_family');
+      expect(codes(result)).not.toContain('unknown_unit');
+      expect(result.publishable).toBe(false);
+    });
+
+    it('a token the unit registry cannot read is `unknown_unit`', () => {
+      const result = withUnit('bananas');
+      expect(codes(result)).toContain('unknown_unit');
+      expect(codes(result)).not.toContain('unit_not_in_family');
+    });
+
+    it('the finding names the field path, so a form can highlight it', () => {
+      const [entry] = withUnit('kg').findings;
+      expect(entry?.path).toBe('fields.screen_size');
+      expect(entry?.attributeKey).toBe('screen_size');
+    });
+  });
+
+  it('a magnitude above the declared RATING SCALE is refused', () => {
+    // `ratingScaleMax` was on `AuthoringFieldValidation` and read by nothing, so
+    // a 42 on a five-point scale published clean.
+    const rated = field({
+      id: 'f-rating',
+      key: 'energy_rating',
+      attributeDefinitionId: 'attr-rating',
+      valuePolicy: 'typed_scalar',
+      validation: { ...field().validation, valueType: 'decimal', ratingScaleMax: 5 },
+      controlledValues: [],
+    });
+    const rate = (valueNumber: number): ReturnType<typeof validateDraft> =>
+      validateDraft(
+        input({
+          schema: schema([rated]),
+          values: [
+            value({
+              fieldId: 'f-rating',
+              attributeKey: 'energy_rating',
+              kind: 'number',
+              valueEnumValueId: null,
+              valueNumber,
+            }),
+          ],
+        }),
+      );
+    // The positive control first: a value ON the scale is clean, so the refusal
+    // below is about the ceiling rather than about numbers being refused.
+    expect(rate(4.5).findings).toEqual([]);
+    expect(codes(rate(42))).toContain('value_above_maximum');
+  });
+
+  it('a `range` whose low bound is above its high bound is refused', () => {
+    const ranged = field({
+      id: 'f-temp',
+      key: 'operating_temperature',
+      attributeDefinitionId: 'attr-temp',
+      valuePolicy: 'typed_scalar',
+      validation: { ...field().validation, valueType: 'decimal', cardinality: 'range' },
+      controlledValues: [],
+    });
+    const bounds = (low: number, high: number): ReturnType<typeof validateDraft> =>
+      validateDraft(
+        input({
+          schema: schema([ranged]),
+          values: [
+            value({
+              fieldId: 'f-temp',
+              attributeKey: 'operating_temperature',
+              kind: 'number',
+              valueEnumValueId: null,
+              valueNumber: low,
+              ordinal: 0,
+            }),
+            value({
+              fieldId: 'f-temp',
+              attributeKey: 'operating_temperature',
+              kind: 'number',
+              valueEnumValueId: null,
+              valueNumber: high,
+              ordinal: 1,
+            }),
+          ],
+        }),
+      );
+    // A well-ordered range is clean, and an equal pair is a legitimate
+    // single-point range rather than an inversion.
+    expect(bounds(10, 90).findings).toEqual([]);
+    expect(bounds(50, 50).findings).toEqual([]);
+    expect(codes(bounds(90, 10))).toContain('range_bounds_inverted');
   });
 
   it('too many decimal places is refused, counted from the DECIMAL rendering', () => {
@@ -536,6 +677,70 @@ describe('variants', () => {
     );
     expect(codes(result)).toContain('variant_axis_not_permitted');
   });
+
+  /**
+   * A duplicate SKU is REPORTED and still publishes (#367 step 5, #296).
+   *
+   * `product_variants.sku` is unique at no grain — Shopify enforces none, so one
+   * product legitimately carries two variants sharing a code, and #296 dropped
+   * the index that refused it. An error here would re-impose in the authoring
+   * form exactly the constraint the schema removed for being wrong about real
+   * data; saying nothing would hide that `matchIncomingVariant` and
+   * `resolveInventoryVariant` can no longer address either variant by SKU.
+   */
+  describe('a duplicate SKU is a warning, never a refusal', () => {
+    const withSkus = (...skus: (string | null)[]): ReturnType<typeof validateDraft> =>
+      validateDraft(
+        input({
+          variants: skus.map((sku, index) => ({
+            id: `dv-${index + 1}`,
+            position: index,
+            priceAmount: 1_000,
+            priceCurrency: 'EUR',
+            inventoryAvailable: 1,
+            axisSignature: String(index).repeat(64),
+            sku,
+          })),
+        }),
+      );
+
+    it('DISTINCT skus are clean — the positive control', () => {
+      const result = withSkus('SKU-1', 'SKU-2');
+      expect(result.findings).toEqual([]);
+    });
+
+    it('two nulls are not a duplicate', () => {
+      expect(withSkus(null, null).findings).toEqual([]);
+    });
+
+    it('a repeat is reported as a WARNING and still publishes', () => {
+      const result = withSkus('SKU-1', 'SKU-1');
+      const entry = result.findings.find((one) => one.code === 'duplicate_variant_sku');
+      expect(entry?.severity).toBe('warning');
+      expect(result.publishable).toBe(true);
+    });
+
+    it('it names the SECOND occurrence, because the first is not the mistake', () => {
+      const entry = withSkus('SKU-1', 'SKU-1').findings.find(
+        (one) => one.code === 'duplicate_variant_sku',
+      );
+      expect(entry?.path).toBe('variants[1].sku');
+    });
+
+    it('case and surrounding space do not make two codes distinct', () => {
+      // Every rail that looks a SKU up folds it, so `sku-1 ` and `SKU-1` are one
+      // merchant code — and reporting them as distinct would be the false
+      // negative, not the false positive.
+      expect(codes(withSkus('SKU-1', ' sku-1 '))).toContain('duplicate_variant_sku');
+    });
+
+    it('three sharing one code produce TWO findings, not three', () => {
+      const entries = withSkus('SKU-1', 'SKU-1', 'SKU-1').findings.filter(
+        (one) => one.code === 'duplicate_variant_sku',
+      );
+      expect(entries.map((one) => one.path)).toEqual(['variants[1].sku', 'variants[2].sku']);
+    });
+  });
 });
 
 describe('classification and the pin', () => {
@@ -602,5 +807,242 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
     for (const code of produced) {
       expect(AUTHORING_VALIDATION_CODES).toContain(code as AuthoringValidationCode);
     }
+  });
+
+  /**
+   * The OTHER direction, which the containment above cannot see.
+   *
+   * `produced ⊆ AUTHORING_VALIDATION_CODES` is satisfied by a vocabulary with
+   * ten members nothing produces — and a code in a closed set with no producer
+   * is the shape a reviewer reads as coverage: the vocabulary says the rule
+   * exists, a client ships a message for it, and the check that would emit it is
+   * missing or, worse, unreachable.
+   *
+   * It found exactly that. `canonical_reference_not_permitted` had a guard,
+   * inside a branch only reachable when the field's value policy already
+   * permitted a canonical reference — provably dead, with every real occurrence
+   * reported as a plain `value_type_mismatch`. That branch is now the one above
+   * it, and this census is what would notice if it went dead again.
+   *
+   * The exemption list is EXPLICIT, is asserted at an exact length, and every
+   * member names why. A list that could grow silently would erode to "all of
+   * them" one green build at a time.
+   */
+  it('every code in the closed set has a PRODUCER, or a named exemption', () => {
+    const structured = (): AuthoringField =>
+      field({
+        id: 'f-dim',
+        key: 'dimensions',
+        attributeDefinitionId: 'attr-dim',
+        valuePolicy: 'typed_scalar',
+        validation: {
+          ...field().validation,
+          valueType: 'structured',
+          componentAxes: ['length', 'width'] as AttributeComponentAxis[],
+        },
+        controlledValues: [],
+      });
+    const numeric = (overrides: Partial<AuthoringField['validation']>): AuthoringField =>
+      field({
+        id: 'f-num',
+        key: 'measure',
+        attributeDefinitionId: 'attr-num',
+        valuePolicy: 'typed_scalar',
+        validation: { ...field().validation, valueType: 'decimal', ...overrides },
+        controlledValues: [],
+      });
+    const numberValue = (overrides: Partial<DraftValueForValidation> = {}) =>
+      value({
+        fieldId: 'f-num',
+        attributeKey: 'measure',
+        kind: 'number',
+        valueEnumValueId: null,
+        valueNumber: 5,
+        ...overrides,
+      });
+
+    /**
+     * Every case below is here to make ONE code fire. The map is keyed by the
+     * code so a case that stops producing its code is named by the failure
+     * rather than being absorbed into a total.
+     */
+    const cases: Record<string, DraftValidationInput> = {
+      category_not_selectable: input({ categorySelectable: false }),
+      category_not_in_product_type_scope: input({ categoryInScope: false }),
+      product_type_not_published: input({
+        schema: {
+          ...schema([field()]),
+          productType: { ...schema([field()]).productType, lifecycle: 'draft' },
+        },
+      }),
+      schema_version_superseded: input({ draftSchemaHash: '"older"' }),
+      required_field_missing: input({
+        schema: schema([field({ requirement: 'required' })]),
+        values: [],
+      }),
+      unknown_field: input({ values: [value({ fieldId: 'f-nowhere' })] }),
+      field_forbidden_in_flow: input({ schema: schema([field({ requirement: 'forbidden' })]) }),
+      value_type_mismatch: input({ values: [value({ kind: 'text', valueText: 'black' })] }),
+      value_not_in_controlled_set: input({ values: [value({ valueEnumValueId: 'v-purple' })] }),
+      value_below_minimum: input({
+        schema: schema([numeric({ minValue: 10 })]),
+        values: [numberValue({ valueNumber: 1 })],
+      }),
+      value_above_maximum: input({
+        schema: schema([numeric({ maxValue: 3 })]),
+        values: [numberValue({ valueNumber: 9 })],
+      }),
+      value_too_long: input({
+        schema: schema([
+          field({
+            id: 'f-text',
+            key: 'note',
+            valuePolicy: 'typed_scalar',
+            validation: { ...field().validation, valueType: 'string', maxLength: 2 },
+            controlledValues: [],
+          }),
+        ]),
+        values: [
+          value({
+            fieldId: 'f-text',
+            attributeKey: 'note',
+            kind: 'text',
+            valueEnumValueId: null,
+            valueText: 'far too long',
+          }),
+        ],
+      }),
+      too_many_decimal_places: input({
+        schema: schema([numeric({ decimalPlaces: 1 })]),
+        values: [numberValue({ valueNumber: 1.234 })],
+      }),
+      value_implausible: input({
+        schema: schema([numeric({ implausibleAbove: 10 })]),
+        values: [numberValue({ valueNumber: 999 })],
+      }),
+      cardinality_exceeded: input({ values: [value(), value({ ordinal: 1 })] }),
+      structured_component_missing: input({
+        schema: schema([structured()]),
+        values: [
+          value({
+            fieldId: 'f-dim',
+            attributeKey: 'dimensions',
+            kind: 'number',
+            valueEnumValueId: null,
+            valueNumber: 1,
+            componentAxis: 'length' as AttributeComponentAxis,
+          }),
+        ],
+      }),
+      unknown_component_axis: input({
+        schema: schema([structured()]),
+        values: (['length', 'width', 'height'] as AttributeComponentAxis[]).map((axis, index) =>
+          value({
+            fieldId: 'f-dim',
+            attributeKey: 'dimensions',
+            kind: 'number',
+            valueEnumValueId: null,
+            valueNumber: 1,
+            ordinal: index,
+            componentAxis: axis,
+          }),
+        ),
+      }),
+      unknown_unit: input({
+        schema: schema([numeric({ valueType: 'measurement', unitFamily: 'length', baseUnit: 'mm' })]),
+        values: [numberValue({ unit: null })],
+      }),
+      unit_not_in_family: input({
+        schema: schema([numeric({ valueType: 'measurement', unitFamily: 'length', baseUnit: 'mm' })]),
+        values: [numberValue({ unit: 'kg' })],
+      }),
+      currency_mismatch: input({
+        schema: schema([numeric({ valueType: 'money', currency: null })]),
+        values: [numberValue()],
+      }),
+      canonical_reference_not_permitted: input({
+        values: [value({ kind: 'canonical_reference', valueEnumValueId: null, canonicalRefId: 'cp-1' })],
+      }),
+      range_bounds_inverted: input({
+        schema: schema([numeric({ cardinality: 'range' })]),
+        values: [
+          numberValue({ valueNumber: 90, ordinal: 0 }),
+          numberValue({ valueNumber: 10, ordinal: 1 }),
+        ],
+      }),
+      no_variant_declared: input({ variants: [] }),
+      variant_axis_not_permitted: input({ values: [value({ draftVariantId: 'dv-1' })] }),
+      variant_missing_axis_value: input({
+        schema: schema([
+          field({ scope: 'variant', variantCapable: true, requirement: 'required' }),
+        ]),
+        values: [],
+      }),
+      duplicate_variant_signature: input({
+        variants: [variant(), variant({ id: 'dv-2', position: 1 })],
+      }),
+      duplicate_variant_sku: input({
+        variants: [
+          variant({ sku: 'SKU-1' }),
+          variant({ id: 'dv-2', position: 1, axisSignature: 'b'.repeat(64), sku: 'SKU-1' }),
+        ],
+      }),
+      price_missing: input({ variants: [variant({ priceAmount: null })] }),
+      price_currency_missing: input({ variants: [variant({ priceCurrency: null })] }),
+      inventory_negative: input({ variants: [variant({ inventoryAvailable: -1 })] }),
+      title_missing: input({ title: null }),
+      description_missing: input({ description: null }),
+      draft_not_open: input({ status: 'published' }),
+    };
+
+    // Each case must produce ITS OWN code. Without this, a case that produced
+    // some other code would still fill the union below, and a rule could be
+    // deleted while the census stayed green.
+    const produced = new Set<string>();
+    for (const [code, one] of Object.entries(cases)) {
+      const got = codes(validateDraft(one));
+      expect(got, `the case for ${code} did not produce it`).toContain(code);
+      for (const entry of got) produced.add(entry);
+    }
+
+    /**
+     * The codes no case above produces, each with the reason it cannot.
+     * `validateDraft` is PURE, so anything requiring a database read is out of
+     * its reach by construction.
+     */
+    const EXEMPT: Readonly<Record<string, string>> = {
+      proposal_pending_blocks_publication:
+        'produced by `pendingProposalFindings` in `services/catalog-proposals/publication-gate.ts`, ' +
+        'which reads OPEN proposal rows — a database fact this pure function cannot see. ' +
+        'Covered by that module’s own suite and merged in by `validateDraftRow`.',
+      proposal_not_permitted:
+        'has a FACTORY (`proposalNotPermittedFinding`) and NO production caller — only its own ' +
+        'test constructs one. The value policy that would trigger it is read at composition ' +
+        'time and nothing compares it against a stored proposal reference. This is a real gap ' +
+        'in #367 step 6, recorded here rather than hidden by deleting the code.',
+    };
+
+    const missing = AUTHORING_VALIDATION_CODES.filter(
+      (code) => !produced.has(code) && EXEMPT[code] === undefined,
+    );
+    expect(missing, 'these codes are in the closed set and nothing produces them').toEqual([]);
+
+    // The exemption list needs its own exact-count assertion, or it is a hole
+    // that widens one green build at a time.
+    expect(Object.keys(EXEMPT)).toHaveLength(2);
+    for (const code of Object.keys(EXEMPT)) {
+      expect(AUTHORING_VALIDATION_CODES, `${code} is exempted and is not in the set`).toContain(
+        code as AuthoringValidationCode,
+      );
+      expect(produced.has(code), `${code} is exempted and IS produced — drop the exemption`).toBe(
+        false,
+      );
+    }
+
+    console.log(
+      `[census] codes: ${AUTHORING_VALIDATION_CODES.length}, cases: ${Object.keys(cases).length}, ` +
+        `produced: ${produced.size}, exempt: ${Object.keys(EXEMPT).length}`,
+    );
+    expect(produced.size + Object.keys(EXEMPT).length).toBe(AUTHORING_VALIDATION_CODES.length);
   });
 });

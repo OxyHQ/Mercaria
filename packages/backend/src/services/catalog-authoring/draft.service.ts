@@ -410,6 +410,7 @@ export async function validateDraftRow(
       priceCurrency: variant.priceCurrency,
       inventoryAvailable: variant.inventoryAvailable,
       axisSignature: variant.axisSignature,
+      sku: variant.sku,
     })),
     values: values.map(toValidationValue),
   });
