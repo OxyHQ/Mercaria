@@ -6396,3 +6396,124 @@ the connector merge reads.
   re-edited the field. It is also the schema's first `update ${listings}` inside
   a `sql` template, which `listing-publication-chokepoint.test.ts` was blind to
   until #427 added that branch to its detector.
+
+## Catalog proposals and operator review (#367 step 6)
+
+ADR 0007 **D9**. Four tables — `catalog_proposals`,
+`catalog_proposal_duplicate_candidates`, `catalog_proposal_references`,
+`catalog_review_events` — plus five triggers. Full reference:
+`docs/catalog-proposals.md`.
+
+### There is no `key` column and no `slug` column, on any table here
+
+ADR 0007 D1 makes the machine key identity, frozen after insert and cited by
+every seed, fixture, external mapping and export. A submitter who could propose
+one would be proposing identity. The operator mints it at approval time, in the
+request body, so a merchant's spelling has no column it could arrive in — which
+is stronger than any check that would have to refuse it. The label is stored in
+three forms instead: `proposed_label` verbatim, `normalized_label` (convergence)
+and `search_label` (retrieval).
+
+`normalized_label` and `search_label` are two columns and not one because they
+disagree on a legal suffix. `Acme Ltd` normalizes to `acme` — right for "is this
+the same request" — and searches as `acme ltd`, because a trigram index built
+over the folded space cannot find `Acme Ltd` for somebody typing it. Both are
+PLAIN columns written by the service, the `organizations.normalized_name`
+decision: the folding is application vocabulary that may deepen, and a generated
+column's rewrite silently drops indexes.
+
+### `convergence_key` is GENERATED, and injective WITHOUT escaping
+
+`type : attribute : category : product type : normalized label`, STORED, with a
+partial unique over `CATALOG_PROPOSAL_OPEN_STATES` (rendered from that tuple, so
+the index predicate and the service's idea of "open" cannot drift). Two merchants
+asking for the same colour converge on ONE proposal and the second becomes a
+REFERENCE.
+
+The join needs no escaping because **only the LAST component is free text**:
+every other is a closed-tuple member or a uuid, none of which can contain the
+`:` separator. #63's `identity_key_fields` had to escape its parts precisely
+because they were all free text. Stating the difference is what stops somebody
+"simplifying" this into the ambiguous shape.
+
+`mercaria_catalog_proposal_freeze` therefore names the FIVE RAW COMPONENTS and
+never `new.convergence_key`: a stored generated column is computed AFTER a
+`BEFORE UPDATE` trigger, so `NEW.<col>` is NULL there and the comparison raises on
+every update. Third time in this schema (#59, Workstream 11, here).
+
+### The resolution biconditional is the row-level half of D9's rule
+
+`catalog_proposals_resolution_check` ties `resolved_entity_id`'s presence to
+membership of `CATALOG_PROPOSAL_RESOLVED_STATES`, rendered from that tuple. A
+`submitted` row naming a catalogue entity has no shape, so nothing that joins
+through the column can pick up an undecided request whatever a service does.
+
+`catalog_proposals_decider_distinct_check` is the one worth reading beside it:
+nobody approves their own request. It exists for the merchant who is also on the
+operator allow-list, and it costs a real operator nothing, because creating
+catalogue data directly is what the owning surface is for.
+
+### `resolved_entity_id` carries NO foreign key, and it is TWO reasons at once
+
+Polymorphic over eight entity kinds, so one column cannot reference eight tables
+and the `merchant_claim_scopes.scope_ref` ruling applies. AND four of the eight
+are MERGEABLE entities, where a `restrict` key would let an answered proposal
+block a catalogue merge while every other `ON DELETE` would erase or silently
+empty the record of what an operator decided. A resolved id that has since been
+merged resolves through the tombstone's own `merged_into_id`, the
+`catalog_authoring_drafts` selection ruling — **which is also why this domain
+needs no `services/curation/merge-plan.ts` entry.**
+
+### The vacuity floor is a CHECK
+
+`duplicate_scan_candidates <= duplicate_scan_population`, and
+`catalog_proposals_scan_dated_check` refuses a population with no instant. The
+population is the size of the set the detector actually READ, returned by the
+detector rather than supplied to it — so a scan that examined nothing and a scan
+that examined nine hundred labels and liked none are different rows, where an
+empty candidate list alone cannot tell them apart. Both counters are frozen by
+the request freeze: an editable population would make the one number that says
+whether detection looked at anything editable after the fact.
+
+### `catalog_review_events.proposal_id` is `restrict`, NOT `cascade`
+
+Because `mercaria_catalog_review_event_append_only` refuses DELETE. A cascade
+beside a no-delete trigger is a way to remove the audit trail by removing its
+parent, and the two would disagree with the trigger winning in the confusing
+direction — the delete of the PROPOSAL fails, naming a table the operator did not
+touch. The declaration agreeing with the trigger is what makes the refusal
+legible. The `buyer_request_events` rule.
+
+The same reasoning inverts one table over: `catalog_proposal_duplicate_candidates`
+refuses UPDATE and PERMITS DELETE (the `analytics_events` posture), because those
+rows cascade from their proposal and are a retention sweep's natural target, and
+a trigger refusing that would make the sweep fail SILENTLY.
+
+### `catalog_proposal_references` needs TWO partial uniques and a paired CHECK
+
+Postgres treats NULLs as DISTINCT, so a single unique over
+`(proposal_id, draft_value_id, listing_claim_id)` would admit any number of rows
+for either kind — each carries exactly one NULL. The kind discriminant is TWO
+biconditionals and never one over their conjunction: the single spelling is
+satisfied by a row carrying NEITHER pointer, because both sides evaluate false,
+which is exactly the reference that names nothing. Fourth time in this schema
+(`category_redirects`, `retail_delivery_promises`, `catalog_authoring_drafts`,
+here).
+
+`catalog_proposal_references_draft_pair_check` demands the DRAFT beside the
+value, because the backfill bumps the draft's optimistic-concurrency token after
+rewriting one of its answers and a value id alone cannot say which draft that is.
+
+### The teardown order this domain forces, measured
+
+`redirected_to_proposal_id` is a `restrict` SELF-FK, so a fixture teardown must
+delete the REDIRECTED row before its successor. Clearing the pointer instead does
+not work, and the failure is the schema behaving correctly: moving the row out of
+`redirected` is refused by `mercaria_catalog_proposal_state`, and leaving the
+state while nulling the pointer is refused by
+`catalog_proposals_redirect_check`. Measured on
+`catalog-proposals.realdb.test.ts`' first run.
+
+`catalog_review_events` refusing DELETE means the same teardown disables that ONE
+trigger on that ONE table inside a transaction — the narrowest window the
+shared-database rules permit.

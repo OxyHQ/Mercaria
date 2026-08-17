@@ -546,3 +546,22 @@ export * from './variantAxes';
 // through the services that own them, so a draft can never become a listing by
 // any route but `publish.service.ts`'s one transaction.
 export * from './catalogAuthoring';
+
+// Catalog proposals and operator review (#367 step 6, ADR 0007 D9) is the LAST
+// export and it sits ABOVE the authoring domain: it imports `./catalogAuthoring`
+// (the draft and the draft value a proposal blocks), `./variantAxes` (the
+// retained claim a published listing carries), `./attributeRegistry`,
+// `./catalog`, `./productTypes` and `./stores`. Nothing below it imports this
+// file, so a proposal can never become an input to a catalogue read: the
+// references point OUT of this domain at the rows waiting on a decision, never
+// into it.
+//
+// `catalog_proposals.resolved_entity_id` carries no foreign key and is ledgered
+// in `ID_COLUMNS_WITHOUT_FOREIGN_KEY` — it is polymorphic over eight entity
+// kinds, four of them MERGEABLE, so a `restrict` key would let an answered
+// proposal block a catalogue merge and every other `ON DELETE` would erase the
+// record of what an operator decided. A resolved id that has since been merged
+// resolves through the tombstone's own `merged_into_id`, the
+// `catalog_authoring_drafts` selection ruling — which is also why this domain
+// adds NO entry to `services/curation/merge-plan.ts`.
+export * from './catalogProposals';

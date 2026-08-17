@@ -80,6 +80,15 @@ import {
   type AuthoringSchemaComposition,
 } from './schema.service.js';
 import { validateDraft, type DraftValueForValidation } from './validation.js';
+// #367 step 6 (ADR 0007 D9). The ONE edge from authoring INTO the proposal
+// domain, and it points this way deliberately: a proposal is a request ABOUT a
+// draft, so the proposal domain reads authoring and never the reverse.
+import { listOpenProposalsBlockingDraft } from '../../db/catalogProposals/proposalRepository.js';
+import {
+  decidePendingProposalPublication,
+  pendingProposalFindings,
+  withProposalFindings,
+} from '../catalog-proposals/publication-gate.js';
 
 /** One answer a client sends. Exactly one value member is populated. */
 export interface DraftAnswerInput {
@@ -371,14 +380,15 @@ export async function validateDraftRow(
   row: CatalogAuthoringDraftRow,
   schema: AuthoringSchema,
 ): Promise<AuthoringValidationResult> {
-  const [category, inScope, variants, values] = await Promise.all([
+  const [category, inScope, variants, values, blocking] = await Promise.all([
     findCategoryRow(db, row.categoryId),
     productTypeIsScopedToCategory(db, row.productTypeDefinitionId, row.categoryId),
     listDraftVariants(db, row.id),
     listDraftValues(db, row.id),
+    listOpenProposalsBlockingDraft(db, row.id),
   ]);
 
-  return validateDraft({
+  const result = validateDraft({
     schema,
     draftSchemaHash: row.schemaHash,
     status: row.status,
@@ -396,6 +406,28 @@ export async function validateDraftRow(
     })),
     values: values.map(toValidationValue),
   });
+
+  // ADR 0007 D9's pending-proposal rule (#367 step 6), merged in HERE rather
+  // than inside `validateDraft` — which is PURE and takes no database, while
+  // "is a proposal still open" is a read. The decision itself is made by
+  // `decidePendingProposalPublication` from the product type VERSION's own
+  // `pendingProposalPolicy`, so it stays versioned and reviewable rather than a
+  // per-request choice, and `withProposalFindings` owns the one recomputation of
+  // `publishable` so no call site re-derives it.
+  //
+  // This is the producer the note at the foot of `validation.ts` names: both
+  // codes were in the closed set and produced by nothing, because until
+  // `catalog_proposals` existed a value that is "still a proposal" had no
+  // representation.
+  return withProposalFindings(
+    result,
+    pendingProposalFindings(
+      decidePendingProposalPublication({
+        pendingProposalPolicy: schema.productType.pendingProposalPolicy,
+        openProposalIds: blocking.map((entry) => entry.proposalId),
+      }),
+    ),
+  );
 }
 
 function toValidationValue(row: CatalogAuthoringDraftValueRow): DraftValueForValidation {
