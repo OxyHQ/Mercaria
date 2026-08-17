@@ -283,12 +283,29 @@ const OWNERS = [
     // file count above and the key count below, and the check that actually
     // catches a map put back on English is C.
     minimumTranslatedPositions: null,
-    // The 51 leaves #437 landed. All twelve registry locales: this package IS
-    // the registry's home, so it can never be behind an app — and that it has
-    // one bundle per `SupportedLocale` is enforced where it belongs, by
-    // `SHARED_UI_COPY` being a `Record` rather than a `Partial<Record>`, which
-    // `bun run --filter @mercaria/ui typecheck` decides.
-    minimumKeys: 51,
+    // Measured 432 leaves on `main` at fe72ef26; floored well below at 300, the
+    // ratio the frontend owner's note above justifies (700 against 1,019) and
+    // for its reason: a floor has to catch a traversal that found NOTHING, and
+    // one set just under the measurement fails the next PR that consolidates two
+    // keys into one.
+    //
+    // It read 51 until #528 — the count of leaves #437 originally landed, i.e.
+    // 100% of the population on the day it was written and 11.8% by the time
+    // three conversion PRs had taken the bundle to 432. That is the failure this
+    // number now demonstrates rather than merely describes: **a floor is a
+    // measurement that rots in the GREEN direction**, silently, because the tree
+    // grows underneath it. Unlike the `hardcodedStrings` pin four lines up, which
+    // fails LOUDLY in both directions and so re-derives itself, nothing about a
+    // stale floor announces itself — which is why this one sat at 19.7% and then
+    // 11.8% with every build green. Re-derive it whenever this bundle grows
+    // substantially; the extraction still owed (149 strings) will move it again.
+    //
+    // All twelve registry locales: this package IS the registry's home, so it can
+    // never be behind an app — and that it has one bundle per `SupportedLocale`
+    // is enforced where it belongs, by `SHARED_UI_COPY` being a `Record` rather
+    // than a `Partial<Record>`, which `bun run --filter @mercaria/ui typecheck`
+    // decides.
+    minimumKeys: 300,
     minimumLocales: 12,
     // H (#488): NOT fixed here, and pinned so the number cannot drift. #488 is
     // scoped to the storefront; these four are the shared components' own
