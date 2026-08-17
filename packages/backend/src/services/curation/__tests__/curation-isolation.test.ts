@@ -28,7 +28,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -43,26 +43,93 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every module of the curation domain — services, repositories, route, controller. */
+/** Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** Every curation-NAMED module in a flat shared directory. */
+function curationNamed(directory: string): string[] {
+  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .filter((entry) => /curation/i.test(entry.name))
+    .map((entry) => `${directory}/${entry.name}`);
+}
+
+/**
+ * Every module of the curation domain. WALKED, never listed.
+ *
+ * This was seventeen hand-written paths, and it is worth saying plainly that the
+ * list was CORRECT: measured on `857463b0` the walk finds the same seventeen
+ * modules, same set, no drift. That is exactly why it needed converting rather
+ * than why it did not (#460, #532).
+ *
+ * A complete population is not a defended one, and every probe that would
+ * normally catch the difference reports nothing here. Deleting a listed module
+ * makes `readFileSync` throw, so even the hand list went red. The per-file byte
+ * floor was met. And `expect(scanned).toBe(CURATION_DOMAIN_PATHS.length)` —
+ * which closed all three walls below — compares the loop's own counter to the
+ * list the loop just iterated, so it holds for any list, an empty one included:
+ * it catches a broken loop and never a wrong population.
+ *
+ * The direction a hand list is blind to is an ADDED module, and it is invisible
+ * to both numbers the gate asserted, because the list's length and the counter
+ * still agree. Measured before this change: a plausible eighteenth module,
+ * `controllers/curation-review.controller.ts` importing
+ * `services/fees/fee-schedule.service.js`, left this gate green at 11/11 with a
+ * commercial-domain reach sitting in a curation controller.
+ *
+ * The two owned directories are walked whole, so the three walls hold for
+ * modules nobody has written yet; the flat shared directories have none to walk,
+ * so the population is the filename convention every surface here follows.
+ */
 const CURATION_DOMAIN_PATHS = [
-  'services/curation/merge.service.ts',
-  'services/curation/merge-conflicts.ts',
-  'services/curation/merge-plan.ts',
-  'services/curation/split.service.ts',
-  'services/curation/review-queue.service.ts',
-  'services/curation/correction.service.ts',
-  'services/curation/revision.ts',
-  'services/curation/rollups.ts',
-  'services/curation/impact.ts',
-  'services/curation/entity-registry.ts',
-  'services/curation/curation-dispatcher.ts',
-  'db/curation/curationRepository.ts',
-  'db/curation/jobRepository.ts',
-  'db/curation/rehomeRepository.ts',
-  'db/curation/conflictRepository.ts',
-  'controllers/curation-operator.controller.ts',
-  'middleware/curation-schemas.ts',
+  ...walk('services/curation'),
+  ...walk('db/curation'),
+  ...curationNamed('controllers'),
+  ...curationNamed('routes'),
+  ...curationNamed('middleware'),
 ];
+
+/**
+ * The vacuity floors, PER SHAPE rather than one on the total.
+ *
+ * Called by every wall below. The five sources break independently, and a single
+ * total lets one walk collapse to zero while the others carry its number. Each
+ * is today's count, so a module REMOVED goes red rather than quietly narrowing
+ * three walls at once.
+ */
+/**
+ * The ONE module that may read the order tables, and it is a READ: `impact.ts`
+ * counts the order lines a merge leaves alone, which is the reassurance #59
+ * merge invariant 3 exists to give. Named once here rather than spelled inline,
+ * so the assertion that it is still in the derived population sits beside it.
+ */
+const ORDER_COUNTING_READER = 'services/curation/impact.ts';
+
+function assertCurationDomainIsWhole(): void {
+  const from = (prefix: string) =>
+    CURATION_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(from('services/curation/'), 'the curation service walk found too few modules').toBeGreaterThanOrEqual(11);
+  expect(from('db/curation/'), 'the curation repository walk found too few modules').toBeGreaterThanOrEqual(4);
+  expect(from('controllers/'), 'no curation-named controller was derived').toBeGreaterThanOrEqual(1);
+  expect(from('middleware/'), 'no curation-named schema module was derived').toBeGreaterThanOrEqual(1);
+  // No test file may enter the scanned set: a gate that scans its own probes
+  // reports violations it wrote itself.
+  expect(CURATION_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+  // And the walk really reads the disk, rather than a `readdirSync` that has
+  // silently started returning a cached or empty result.
+  for (const path of CURATION_DOMAIN_PATHS) {
+    expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+  }
+}
 
 /*
  * The organic discovery surface is `__tests__/ranking-surface.ts` — WALKED and
@@ -122,7 +189,7 @@ function readDomainFile(relative: string): string {
 
 describe('curation never deletes', () => {
   it('no curation module issues a delete', () => {
-    let scanned = 0;
+    assertCurationDomainIsWhole();
     for (const relative of CURATION_DOMAIN_PATHS) {
       const source = readDomainFile(relative);
       expect(
@@ -130,9 +197,7 @@ describe('curation never deletes', () => {
         `${relative} deletes. A merge leaves a tombstone, a suppression hides and a correction ` +
           'appends; there is no act in this domain whose effect is that a row stops existing.',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(CURATION_DOMAIN_PATHS.length);
   });
 });
 
@@ -141,9 +206,17 @@ describe('a merge cannot disturb a placed order or a native listing', () => {
     // `impact.ts` is the ONE exception and it is a READ: it counts the order
     // lines a merge leaves alone, which is the reassurance #59 merge invariant 3
     // exists to give. Excluding it by name rather than by loosening the regex is
-    // what keeps the gate meaningful for the other sixteen modules.
+    // what keeps the gate meaningful for every other module in the domain.
+    assertCurationDomainIsWhole();
+    // The exception is only safe while it is still ONE module and still IN the
+    // population: a path that stopped being derived would be excluded from a
+    // set it is not in, which excuses nothing while looking like a decision.
+    expect(
+      CURATION_DOMAIN_PATHS,
+      'the order-counting exception names a module the walk no longer finds',
+    ).toContain(ORDER_COUNTING_READER);
     for (const relative of CURATION_DOMAIN_PATHS) {
-      if (relative === 'services/curation/impact.ts') continue;
+      if (relative === ORDER_COUNTING_READER) continue;
       const source = readDomainFile(relative);
       expect(
         NATIVE_COMMERCE_REFERENCE.test(source),
@@ -181,6 +254,7 @@ describe('curation cannot become a ranking signal', () => {
   });
 
   it('no curation module references a fee, payment or referral module', () => {
+    assertCurationDomainIsWhole();
     for (const relative of CURATION_DOMAIN_PATHS) {
       const source = readDomainFile(relative);
       expect(
