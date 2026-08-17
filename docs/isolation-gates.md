@@ -135,6 +135,50 @@ NOTHING carries the name and every consumer still gets the thing. Aim a census a
 the modules, never at the barrel — and when a probe over a barrel returns zero,
 that is not a measurement yet.
 
+#### How it was closed (#556), and why not by widening the detectors
+
+Measured: **fourteen** gates are fooled by `db/schema/index.ts`, and ten modules
+already imported it — so the bypass was wired open around every wall that names a
+schema module. Demonstrated rather than argued: planting
+`import { referralAttributions } from '../schema/referrals.js'` in
+`db/retailReconciliation/adjustmentRepository.ts` turns
+`retail-reconciliation-isolation.test.ts` red on its referral wall, and the SAME
+symbol in the SAME file spelled `'../schema/index.js'` passes **30/30 green**.
+
+It was a hole and not a live violation: every symbol those ten modules pulled
+resolves to an owning module no wall forbids.
+
+**Widening the detectors is wrong, and so is the obvious two-hop version.**
+Teaching a detector to match `schema/index.js` fires on all ten legitimate
+importers. So does "a guarded module imports a barrel that re-exports a forbidden
+module" — `export *` re-exports everything, so importing the barrel always
+"reaches" everything, and no path-level predicate can separate a legitimate
+importer from a violating one. The only false-positive-free predicate is
+**symbol-level** (resolve each named import through the barrel to its owner), and
+it has to be adopted by each of the fourteen gates separately.
+
+So the bypass was removed instead, at the chokepoint:
+`src/__tests__/barrel-import-chokepoint.test.ts`. Every path-based wall becomes
+barrel-proof by construction — including walls in gates nobody has written yet —
+and no detector is widened, so no gate acquires an allow-list.
+
+Nothing in it is a hand list. Barrels are derived by walking for re-export
+density, and one is GUARDED only if it actually defeats a detector belonging to a
+real gate — which is why `lib/errors/index.ts` and
+`services/feed-import/parse/index.ts` (measured: they defeat nothing) stay
+unguarded, leaving `parse/index.ts`'s documented reuse by #66's Awin adapter
+alone. A barrel added tomorrow, or a detector added tomorrow that an existing
+barrel defeats, brings itself under the gate with no edit.
+
+**And the instrument failed twice on the way, both times in the quiet
+direction.** A `grep -viE "schema|contracts"` written to cut noise removed
+`db/schema/index.ts` — the only barrel in the tree — and the search then reported
+its own emptiness as a clean result. Then a specifier regex spelled `[^;\n]*?`
+could not cross a newline, so every multi-line `import {\n  a,\n  b,\n} from …`
+was invisible and it counted four barrel importers where there were seven. **A
+smaller number is indistinguishable from a cleaner tree**, so the gate carries a
+positive control on that exact multi-line shape.
+
 ### Domain populations: no instrument decides this
 
 There is no shared derivation to score against, and the difference between *the
