@@ -230,14 +230,28 @@ unavailable entirely.
 `unconvertible` NAMES its currency in the branch itself rather than carrying an
 optional field, so recording the exclusion without naming what was excluded is
 unrepresentable, and the page lists them in
-`SearchFxContext.unconvertibleCurrencies`. **That visibility has a boundary
-worth stating**: `SearchFxContext` requires a `provider` and an `asOf`, which
-describe a rate map that was actually fetched, and a currency outside
-`ALL_CURRENCY_CODES` is never sent to `getRates` at all — there is no pair to
-ask for. So an offer in a currency Mercaria does not model produces no context
-to be named in, and is excluded silently rather than with an invented provider.
-Closing that needs `SearchFxContext` to report an exclusion without asserting a
-conversion, which is a change to a wire contract several clients read.
+`SearchFxContext.unconvertibleCurrencies`.
+
+**The two reasons are reported apart, and the split is the point (#450).** A
+modelled currency the rate map could not serve is TRANSIENT and heals on the
+next `getRates`; a currency outside `ALL_CURRENCY_CODES` is PERMANENT until
+somebody adds the code, and until then every offer priced in it is invisible
+under every price filter. `unmodelledCurrencies` names that second set as a
+SUBSET of `unconvertibleCurrencies` rather than as a disjoint list, so a reader
+of the complete list alone still sees every exclusion — the storefront's family
+page renders exactly that field, and a disjoint split would have stopped it
+naming the currency most worth naming. Both are projected from one set by
+`services/fx-exclusions.ts`, so the subset relation holds by construction.
+
+`SearchFxContext` is emitted whenever a price filter was answered and there was
+either a conversion or an exclusion — NOT only when a rate map was fetched.
+Gating it on the rate map made its absence mean two different things, because a
+page whose foreign offers are all unmodelled asks for no rates at all and had
+nowhere to report the exclusions it had just made. `provider` is `identity`
+when no rates were needed, this repository's word for a conversion that did not
+happen. A filter whose OWN currency is unmodelled is the same silence one step
+earlier — every priced offer is refused — so `currency` carries the raw filter
+currency in that case, and the context is emitted rather than withheld.
 
 One `getRates` call per REQUEST, never per product: the lookup is cached and
 cheap, but a per-product call would make the page's FX behaviour depend on how
