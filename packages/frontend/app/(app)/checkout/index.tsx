@@ -21,6 +21,7 @@ import {
   SectionHeader,
   Text,
   formatMoney,
+  formatRegionName,
   CommercialDisclosure,
   commercialSellerLabel,
 } from "@mercaria/ui";
@@ -80,7 +81,7 @@ function AddressOption({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   return (
     <Pressable
       accessibilityRole="radio"
@@ -108,7 +109,8 @@ function AddressOption({
         </Text>
         <Text className="text-sm text-muted-foreground">
           {address.city}
-          {address.region ? `, ${address.region}` : ""} {address.postalCode}, {address.country}
+          {address.region ? `, ${address.region}` : ""} {address.postalCode},{" "}
+          {formatRegionName(address.country, locale)}
         </Text>
       </View>
     </Pressable>

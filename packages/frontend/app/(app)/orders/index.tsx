@@ -11,6 +11,7 @@ import {
   SectionHeader,
   Text,
   commercialSellerLabel,
+  formatDate,
 } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { ReviewEligibilityPrompts } from "@/components/reviews/ReviewEligibilityPrompts";
@@ -49,7 +50,7 @@ function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   // From the order's own commercial presentation (#129): a `platform` order has
   // neither `store` nor `seller`, so the old coalesce left Mercaria's own sales
   // with no seller in the list at all.
@@ -77,7 +78,7 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
           })}
         </Text>
         <Text className="mt-0.5 text-xs text-muted-foreground">
-          {new Date(order.createdAt).toLocaleDateString()}
+          {formatDate(order.createdAt, locale)}
         </Text>
       </View>
       <PriceDisplay price={order.grandTotal.presentment} primaryClassName="text-sm font-bold" />

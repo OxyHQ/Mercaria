@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import Head from "expo-router/head";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { openAccountDialog, useOxy } from "@oxyhq/services";
-import { Text } from "@mercaria/ui";
+import { Text, formatDateTime } from "@mercaria/ui";
 import type { SellerDraftEntryPath } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useTranslation } from "@/lib/i18n";
@@ -38,7 +38,7 @@ import {
  */
 export default function SellIndexScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { isAuthenticated } = useOxy();
   const params = useLocalSearchParams<{
     canonicalProductId?: string;
@@ -204,22 +204,29 @@ export default function SellIndexScreen() {
         {(drafts.data ?? []).length > 0 ? (
           <View className="gap-2 pt-4">
             <Text className="text-sm font-medium">{t("sell.index.drafts.heading")}</Text>
-            {(drafts.data ?? []).map((draft) => (
-              <Pressable
-                key={draft.id}
-                accessibilityRole="button"
-                className="rounded-xl border border-border p-4"
-                onPress={() => router.push(`/sell/${draft.id}`)}
-              >
-                <Text className="text-base">{draft.title ?? t("sell.index.drafts.untitled")}</Text>
-                <Text className="text-xs text-muted-foreground">
-                  {t("sell.index.drafts.savedAt", {
-                    when: new Date(draft.updatedAt).toLocaleString(),
-                    step: draft.currentStep,
-                  })}
-                </Text>
-              </Pressable>
-            ))}
+            {(drafts.data ?? []).map((draft) => {
+              const when = formatDateTime(draft.updatedAt, locale);
+              return (
+                <Pressable
+                  key={draft.id}
+                  accessibilityRole="button"
+                  className="rounded-xl border border-border p-4"
+                  onPress={() => router.push(`/sell/${draft.id}`)}
+                >
+                  <Text className="text-base">{draft.title ?? t("sell.index.drafts.untitled")}</Text>
+                  {/* The sentence is "Saved <when> · step <n>", so an
+                      unformattable timestamp drops the whole line rather than
+                      interpolating a null — which i18n-js renders as the literal
+                      `[missing "%{when}" value]`. The draft stays listed and
+                      openable. */}
+                  {when === null ? null : (
+                    <Text className="text-xs text-muted-foreground">
+                      {t("sell.index.drafts.savedAt", { when, step: draft.currentStep })}
+                    </Text>
+                  )}
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
 

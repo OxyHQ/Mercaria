@@ -63,8 +63,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  formatDate,
+  formatDateTime,
   formatDistance,
   formatMoney,
+  formatRegionName,
   formatReviewCount,
   formatSourceMoney,
 } from "../packages/ui/src/lib/format.ts";
@@ -212,6 +215,59 @@ checkIsolatedExactly("formatDistance", "kilometres", formatDistance(2500), "2.5 
 checkIsolatedExactly("formatReviewCount", "bare", formatReviewCount(349), "349");
 checkIsolatedExactly("formatReviewCount", "abbreviated", formatReviewCount(10_300), "10.3K");
 checkIsolatedExactly("formatReviewCount", "rounded", formatReviewCount(1000), "1K");
+
+// ---------------------------------------------------------------------------
+// The #488/#489 formatters.
+//
+// Their visible text comes from ICU rather than from arithmetic this repo
+// controls, so unlike `"$148.00"` above it is NOT hardcoded here. The
+// expectation is the SAME `Intl` call without the isolation, which is exactly
+// the property this gate is for — "isolation was not traded for a corrupted
+// string" — while being immune to an ICU version bump reformatting a date.
+//
+// That is not the circular "two representations of our own logic agree": the
+// reference is the PLATFORM's formatter, and what is under test is what
+// `formatDate` adds to it. A `formatDate` that dropped the isolation, wrapped
+// twice, or returned some other date all still fail.
+// ---------------------------------------------------------------------------
+
+/** A fixed instant, mid-day UTC so no plausible zone offset moves the DATE. */
+const SAMPLE_INSTANT = new Date("2026-08-17T12:00:00.000Z");
+
+checkIsolatedExactly(
+  "formatDate",
+  "en",
+  formatDate(SAMPLE_INSTANT, "en"),
+  new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(SAMPLE_INSTANT),
+);
+// A non-Latin locale, because the isolate has to survive a script whose digits
+// and month names are not the ones the LTR case exercises.
+checkIsolatedExactly(
+  "formatDate",
+  "ja",
+  formatDate(SAMPLE_INSTANT, "ja"),
+  new Intl.DateTimeFormat("ja", { dateStyle: "medium" }).format(SAMPLE_INSTANT),
+);
+checkIsolatedExactly(
+  "formatDateTime",
+  "en",
+  formatDateTime(SAMPLE_INSTANT, "en"),
+  new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" }).format(SAMPLE_INSTANT),
+);
+
+// `formatRegionName` resolves a name on this engine, so the LOCALIZED branch is
+// what gets pinned. "United States" is stable across ICU versions in a way a
+// date format is not, so it is written out.
+checkIsolatedExactly("formatRegionName", "resolved", formatRegionName("US", "en"), "United States");
+checkIsolatedExactly("formatRegionName", "localized", formatRegionName("ES", "es"), "España");
+// The FALLBACK branch — a well-formed but unassigned subtag. `fallback: "none"`
+// answers `undefined` for it, and the code comes back isolated rather than the
+// engine echoing it back as though it had resolved.
+checkIsolatedExactly("formatRegionName", "unassigned code", formatRegionName("XX", "en"), "XX");
+// Lowercase input, which an API or a hand-typed form can supply: the name still
+// resolves, so the guard cannot be satisfied by a formatter that only handles
+// the canonical spelling.
+checkIsolatedExactly("formatRegionName", "lowercase", formatRegionName("gb", "en"), "United Kingdom");
 
 // ---------------------------------------------------------------------------
 // The refusal path is deliberately NOT isolated: absence has nothing to lay out,

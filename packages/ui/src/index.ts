@@ -86,8 +86,11 @@ export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 // a Latin brand name in an Arabic sentence — adds the export in the diff that
 // uses it.
 export {
+  formatDate,
+  formatDateTime,
   formatDistance,
   formatMoney,
+  formatRegionName,
   formatReviewCount,
   formatSourceMoney,
   type ProductSummary,

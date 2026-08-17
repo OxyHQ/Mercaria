@@ -11,6 +11,7 @@ import {
   OfferConditionBadge,
   OfferLabelBadge,
   Text,
+  formatDate,
   formatMoney,
   formatSourceMoney,
 } from '@mercaria/ui';
@@ -321,17 +322,24 @@ function AvailabilityLine({
   availability: string;
   freshness: OfferFreshnessAssessment;
 }) {
-  const { t } = useTranslation();
-  const checked = new Date(freshness.lastSeenAt);
+  const { t, locale } = useTranslation();
+  const checked = formatDate(freshness.lastSeenAt, locale);
   const stale = freshness.level === 'warning';
-  const values = {
-    availability: t(AVAILABILITY_TEXT_KEYS[availability] ?? AVAILABILITY_UNKNOWN_KEY),
-    date: checked.toLocaleDateString(),
-  };
+  const availabilityText = t(AVAILABILITY_TEXT_KEYS[availability] ?? AVAILABILITY_UNKNOWN_KEY);
+
+  // Both "checked" sentences NAME the date. With no renderable one the
+  // availability term stands alone — it is already a complete translated
+  // phrase — rather than interpolating a null, which i18n-js renders as the
+  // literal `[missing "%{date}" value]`.
+  const values = { availability: availabilityText, date: checked };
 
   return (
     <Text className="text-caption text-text-secondary">
-      {stale ? t('offer.availabilityCheckedStale', values) : t('offer.availabilityChecked', values)}
+      {checked === null
+        ? availabilityText
+        : stale
+          ? t('offer.availabilityCheckedStale', values)
+          : t('offer.availabilityChecked', values)}
     </Text>
   );
 }
