@@ -15,12 +15,31 @@
 -- today's behaviour. This is also `migrate.ts`'s own one-line definition —
 -- anything that takes something away — and a DROP CONSTRAINT takes it away.
 --
--- Safe to apply: no stored row can violate either narrowing. The reasoning and
--- its census are in the PR and pinned by tests, not asserted here —
--- `product_type_definitions` has exactly one production writer
--- (`scripts/seed-verticals/apply.ts`, whose keys are `namespaceFor` output
--- prefixed onto a checked-in package key, both `[a-z][a-z0-9_]*`), and
--- `awin_advertisers.declared_host` is written only from an Awin feed-list host.
+-- Safe to apply, and this is a STRUCTURAL argument over the writers rather than
+-- a row count — there is no production database credential on any developer
+-- host and the RDS instance is internal-only, so no count was taken and none is
+-- claimed. What is claimed is censused:
+--
+--   `product_type_definitions.key` has exactly one production writer,
+--   `insertProductTypeDefinition`, whose only production caller is
+--   `scripts/seed-verticals/apply.ts`. It writes `nsKey(namespaceFor(token),
+--   pkg.key)`; `namespaceFor` folds everything outside `[a-z0-9]` to `_` and
+--   refuses a leading digit, and the shipped package keys are `smartphone`,
+--   `athletic_footwear` and `brake_pad`. Every producible key is therefore
+--   `[a-z][a-z0-9_]*`, a strict subset of the pattern. Pinned by
+--   `verticals-package-controls.test.ts`, so a fourth package with a dotted or
+--   hyphenated key fails the build.
+--
+--   `awin_advertisers.declared_host` has NO production writer that supplies a
+--   value at all. `discoverAwinAdvertiser` is the only statement that sets the
+--   column; the primary discovery path passes no `declaredHost`, so it stores
+--   NULL, and `discoverAwinAdvertiserSeenOnly` re-passes the row's own
+--   read-back. No raw SQL and no migration writes it. Every production row is
+--   NULL, which `is null or …` admits unconditionally.
+--
+-- The failure mode being accepted: if a violating row does exist, the ADD
+-- CONSTRAINT fails at apply time and the deploy stops. Loud, and the safe
+-- direction for an unknown of this kind.
 --
 -- There are NO hand-written statements below, so a regeneration of this file is
 -- safe. The patterns live in `PRODUCT_TYPE_KEY_PATTERN` and
