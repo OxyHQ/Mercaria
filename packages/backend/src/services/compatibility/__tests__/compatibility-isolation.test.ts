@@ -90,38 +90,42 @@ function enumerateDomain(): string[] {
     ...walk(join(SRC_ROOT, 'db', 'compatibility')),
   ];
   /**
-   * The schema module and the HTTP surface, both derived by FILENAME rather than
-   * named, so a second schema file or a second controller is covered without
-   * anybody remembering to come here.
+   * The schema module and the HTTP surface, in the four directories forty domains
+   * share.
    *
-   * The HTTP half is new. This file used to carry a comment saying the domain had
-   * no HTTP surface and that the claim was "checked against the tree, not assumed"
-   * — and no such check existed anywhere in it. It was true when written and
-   * unasserted, which is the worse of the two states: the day somebody published a
-   * route the comment became false and nothing went red. #367's own read surface
-   * (`routes/compatibility.ts` and its controller and schemas) is that day, so the
-   * claim is replaced by the derivation it always described, and the five walls
-   * below now cover the surface a shopper actually reaches — which is where a
-   * ranking import or an offer read would be most tempting to add.
+   * ## Why this is a UNION of two derivations and not a filename pattern
+   *
+   * A pattern is what this used to be, and it was anchored:
+   * `/^compatibility.*\.ts$/` matched nothing called
+   * `routes/internal-compatibility.ts` — the name every one of the thirty-eight
+   * sibling operator routers uses — so the natural filename for a compatibility
+   * operator surface escaped all five walls in silence. Admitting `internal-`
+   * closes that one hole and leaves the mechanism intact: the population is still
+   * whatever somebody predicted the file would be CALLED, and the next
+   * unpredicted name (`vehicle-fitment.controller.ts`, `fitment-admin.ts`) walks
+   * straight back through.
+   *
+   * So membership is now EITHER of two facts, and the second needs no prediction:
+   *
+   *  1. the name says so — which a schema file needs, because
+   *     `db/schema/compatibility.ts` DEFINES the tables and therefore imports
+   *     nothing from the domain; or
+   *  2. **the file reaches the domain in its imports.** A route, controller or
+   *     request schema that serves compatibility has to import
+   *     `services/compatibility/` or `db/compatibility/` to do anything at all,
+   *     whatever it is called.
+   *
+   * A union only ever GROWS the population, so it is strictly safer than either
+   * half — and (2) is the half that holds for a filename nobody has thought of.
+   * `belongsToDomain` is pure over `(fileName, source)` precisely so the
+   * self-test below can hand it a file that DOES NOT EXIST yet, which is the only
+   * way to prove a population derivation covers what has not been written.
    */
-  // `internal-` is admitted, and that is not cosmetic. The regex is ANCHORED, so
-  // `routes/internal-compatibility.ts` — the name every one of the thirty-eight
-  // sibling operator routers uses — matched NOTHING and would have escaped all
-  // five walls silently. Measured, not supposed: nothing is named that today, so
-  // the set is unchanged at twelve, and the hole is closed before somebody
-  // reaches for the obvious filename. It is the same shape as the claim this
-  // file's header records having found unasserted.
-  const NAMED_FOR_THE_DOMAIN = /^(?:internal-)?compatibility.*\.ts$/;
-  for (const directory of [
-    join('db', 'schema'),
-    'routes',
-    'controllers',
-    'middleware',
-  ]) {
+  for (const directory of [join('db', 'schema'), 'routes', 'controllers', 'middleware']) {
     for (const entry of readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })) {
-      if (entry.isFile() && NAMED_FOR_THE_DOMAIN.test(entry.name)) {
-        files.push(join(SRC_ROOT, directory, entry.name));
-      }
+      if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
+      const absolute = join(SRC_ROOT, directory, entry.name);
+      if (belongsToDomain(entry.name, readFileSync(absolute, 'utf8'))) files.push(absolute);
     }
   }
   return files;
@@ -145,6 +149,23 @@ function enumerateDomain(): string[] {
  * controller, one schema module.
  */
 const DOMAIN_FILES = 12;
+
+/** A filename that names the domain outright. Kept for the schema module, which imports none of it. */
+const NAMED_FOR_THE_DOMAIN = /^(?:internal-)?compatibility.*\.ts$/;
+
+/** An import specifier reaching either half of the domain. */
+const REACHES_THE_DOMAIN = /from\s+['"][^'"]*(?:services|db)\/compatibility\//u;
+
+/**
+ * Whether a file in a SHARED directory belongs to the compatibility domain.
+ *
+ * Pure over its two arguments so the self-test can ask about a file nobody has
+ * written. See the enumeration for why membership is a union.
+ */
+function belongsToDomain(fileName: string, source: string): boolean {
+  if (!fileName.endsWith('.ts')) return false;
+  return NAMED_FOR_THE_DOMAIN.test(fileName) || REACHES_THE_DOMAIN.test(source);
+}
 
 /** Strip comments, so a module that DESCRIBES what it refuses is not read as doing it. */
 function stripComments(source: string): string {
@@ -183,6 +204,58 @@ const OPTION_WRITER_PATHS = [
   'db/catalog/variantRepository.ts',
   'services/backfill/stages/provisional-products.ts',
 ];
+
+describe('the population derivation covers files nobody has written', () => {
+  // The point of `belongsToDomain` being pure: a floor over the CURRENT tree
+  // proves the walk found today's files, and says nothing about whether it would
+  // find tomorrow's. These cases hand it filenames that do not exist.
+
+  it('admits a file whose NAME nobody predicted, because it imports the domain', () => {
+    // The exact shape the old anchored pattern let through. Neither of these two
+    // names begins with `compatibility`, so the previous derivation scored both
+    // zero and both would have escaped all five walls.
+    expect(
+      belongsToDomain(
+        'vehicle-fitment.controller.ts',
+        "import { answerFitment } from '../services/compatibility/fitment.service.js';",
+      ),
+    ).toBe(true);
+    expect(
+      belongsToDomain(
+        'fitment-admin-schemas.ts',
+        "import { openAutomotiveFitment } from '../db/compatibility/automotiveFitmentRepository.js';",
+      ),
+    ).toBe(true);
+  });
+
+  it('still admits the schema module, which imports none of the domain', () => {
+    // Why the union has a name half at all: `db/schema/compatibility.ts` DEFINES
+    // the tables, so an import-only derivation would drop the one file every
+    // other member depends on.
+    expect(belongsToDomain('compatibility.ts', 'export const automotiveFitments = pgTable(')).toBe(
+      true,
+    );
+    expect(belongsToDomain('internal-compatibility.ts', '')).toBe(true);
+  });
+
+  it('excludes a neighbour that does neither — the control', () => {
+    // Without this the two cases above are satisfied by a predicate that returns
+    // true for everything, which would put four hundred files in a five-wall
+    // scan and read as thoroughness.
+    expect(
+      belongsToDomain(
+        'orders.controller.ts',
+        "import { transition } from '../services/order.service.js';",
+      ),
+    ).toBe(false);
+    // And a file that merely MENTIONS the domain in prose is not a member — the
+    // predicate reads an import specifier, not the word.
+    expect(
+      belongsToDomain('offers.controller.ts', '// see services/compatibility/ for fitment'),
+    ).toBe(false);
+    expect(belongsToDomain('compatibility.md', '')).toBe(false);
+  });
+});
 
 describe('the compatibility domain cannot reach what it must not', () => {
   const files = enumerateDomain();

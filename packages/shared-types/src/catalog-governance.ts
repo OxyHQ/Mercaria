@@ -715,7 +715,22 @@ export interface CompatibilityClaimReviewView {
   readonly subjectVariantId: string | null;
   /** NULL on an automotive claim — the kind is decided by what it is promoted into. */
   readonly kind: string | null;
-  /** The source's own words, verbatim and frozen by a trigger. The point of the queue. */
+  /**
+   * The source's own words, verbatim and frozen by a trigger. The point of the
+   * queue — an operator adjudicating "fits BMW 320d" needs the characters the
+   * supplier published, not a normalization of them.
+   *
+   * **Render as TEXT, never as markup, and never interpolate it into a template,
+   * an HTML attribute, a CSV cell or a log line unescaped.** It is attacker-
+   * influenced: a feed, a merchant or a connector supplies it and nothing
+   * sanitizes it on the way in, deliberately — sanitizing evidence would destroy
+   * the thing the queue exists to show. So the safety lives at the RENDER
+   * boundary. React's default escaping is enough; `dangerouslySetInnerHTML`, a
+   * spreadsheet export and a shell interpolation are not, and a leading `=`, `+`,
+   * `-` or `@` in a CSV cell is a formula.
+   *
+   * The same applies to `rawQualifierText` and `sourceUrl`.
+   */
   readonly rawTargetText: string;
   readonly rawQualifierText: string | null;
   /** Why it could not be resolved. NOT NULL on an unresolved row, by CHECK. */

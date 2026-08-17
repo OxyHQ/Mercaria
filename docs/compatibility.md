@@ -438,14 +438,32 @@ runner.
   resolution is what is owed, not the fetch.
 
 ## Seams, each named rather than stubbed
-- **The vehicle picker and the shopper's own verdict.**
+- **The vehicle picker and the shopper's own verdict.** DEFERRED, with a
+  condition — not merely unbuilt.
+
   `GET /compatibility/fitments/verdict` and the four `/compatibility/vehicles/…`
-  rungs are served and the storefront calls neither. That is an interaction rather
-  than a read — a cascading selection, a remembered vehicle, an answer that narrows
-  as the shopper chooses — and when it is built, `resolveFitment` on the SERVER
-  stays the only thing that may produce the verdict; a rule re-derived on the
-  client from the rendered list would be the second implementation the shared
-  resolver exists to prevent.
+  rungs are served, PROVEN over HTTP by
+  `routes/__tests__/compatibility-routes.realdb.test.ts`, and the storefront calls
+  neither. That is an interaction rather than a read — a cascading selection, a
+  remembered vehicle, an answer that narrows as the shopper chooses — and when it
+  is built, `resolveFitment` on the SERVER stays the only thing that may produce
+  the verdict; a rule re-derived on the client from the rendered list would be the
+  second implementation the shared resolver exists to prevent.
+
+  **What would CLOSE it: a populated vehicle tree.** No adapter is registered, so
+  `vehicle_makes` is empty on a real deployment and a picker shipped today would
+  cascade a shopper through four empty dropdowns. This repository has a name for
+  that — a control that renders only in a state nobody can reach, which is worse
+  than an absent one because it looks built. The reference-data import is the seam
+  below (`upsertVehicleMake` and its three siblings are ready for one); the picker
+  is downstream of it and of nothing else. Both routes and their four rungs are
+  finished, so the UI is the only remaining piece once a tree exists.
+
+  Recorded here deliberately rather than left implicit: #367 Workstream 14's box
+  asks that the selector and the reverse display be PROVEN, and they are — the
+  reverse list is rendered by `CompatibilityPanel.tsx` in twelve locales, and the
+  walk is proven at the service, HTTP and end-to-end layers. A green box must not
+  be read as "a shopper can pick their car today".
 - **D6's axis CHECK** (merge-order step 4) — the other wall around the option
   tables.
 - **The localization family** (merge-order step 2) — every display name for a
