@@ -114,9 +114,16 @@ describe('the legacy column partition', () => {
     // a tidy empty pair.
     const real = legacyCatalogColumnKeys();
 
-    const withNewColumn = [...real, 'listings.productTypeDefinitionId'];
+    // The probe names a column that CANNOT exist, and that is not fussiness.
+    // It used to be `listings.productTypeDefinitionId`, chosen because no such
+    // column existed — and #367 box 11 then added it for real and gave it a
+    // disposition, at which point the probe stopped being undecided and this
+    // self-test silently measured nothing. A synthetic probe that names a
+    // plausible future column is a control with an expiry date on it.
+    const PROBE = 'listings.__columnThatCannotExist';
+    const withNewColumn = [...real, PROBE];
     expect(withNewColumn.length, 'the mutation did not land').toBe(real.length + 1);
-    expect(partitionGaps(withNewColumn).undecided).toEqual(['listings.productTypeDefinitionId']);
+    expect(partitionGaps(withNewColumn).undecided).toEqual([PROBE]);
 
     const withoutVendor = real.filter((key) => key !== 'listings.vendor');
     expect(withoutVendor.length, 'the mutation did not land').toBe(real.length - 1);
@@ -128,7 +135,7 @@ describe('the legacy column partition', () => {
     // while a column MOVES from mapped to excluded — which is the one edit that
     // would quietly take a catalog concept out of the migration's scope.
     expect(LEGACY_CATALOG_COLUMNS).toHaveLength(10);
-    expect(Object.keys(LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT)).toHaveLength(46);
+    expect(Object.keys(LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT)).toHaveLength(47);
     expect(mappedKeys().length, 'a column is mapped twice').toBe(new Set(mappedKeys()).size);
   });
 
