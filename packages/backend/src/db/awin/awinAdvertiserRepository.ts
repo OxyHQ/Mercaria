@@ -80,7 +80,23 @@ export async function discoverAwinAdvertiser(
           else ${awinAdvertisers.membershipChangedAt} end`,
         primaryRegion: input.primaryRegion ?? null,
         vertical: input.vertical ?? null,
-        declaredHost: input.declaredHost ?? null,
+        // PRESERVED, not overwritten. `declared_host` is not a feed-list fact:
+        // the list publishes no host column, so the primary discovery path
+        // (`discovery.service.ts`) passes none — and writing `input ?? null`
+        // here meant every poll ERASED whatever the column held. Measured
+        // against a real server by `awin-declared-host-clobber.realdb.test.ts`.
+        //
+        // `excluded.declared_host` is what this statement WOULD have inserted,
+        // spelled out because drizzle has no binding for it; the fallback is
+        // the stored row. So a caller that supplies a host sets it and a caller
+        // that does not leaves it alone.
+        //
+        // The COST, for whoever gives this column a writer (#573 follow-up): a
+        // write can no longer CLEAR it. Passing `null` is now indistinguishable
+        // from passing nothing, so clearing needs its own statement rather than
+        // this one. Moot today — nothing writes it — and it is the constraint
+        // to design around rather than to discover.
+        declaredHost: sql`coalesce(excluded.declared_host, ${awinAdvertisers.declaredHost})`,
         lastSeenInListAt: now,
         updatedAt: now,
       },

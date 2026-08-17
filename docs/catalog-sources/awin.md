@@ -520,12 +520,32 @@ Quality control 4. An advertiser cannot reach `active` from `candidate`
 directly: it passes through `sampling`, and the transition to `active` requires
 a recorded `awin_link_samples` verdict of `passed`.
 
-A sample is a bounded number of rows whose destination and tracking link are
-checked: HTTPS, resolvable through `safeFetch`'s guard, tracking host in the
-approved set, and the destination host consistent with the advertiser's own
-declared host. Findings are a closed set
-(`AWIN_SAMPLE_FINDINGS`), so "it failed" is always accompanied by which of six
-things failed. The row is append-only and names the operator who took it.
+**What the sample is TODAY: an operator's recorded verdict, not a measurement
+Mercaria took.** `POST /internal/awin/advertisers/:id/samples` accepts the
+verdict, the counts and the `findings` array; every value is supplied by the
+caller and validated against the enum. **Nothing derives a finding.** All six
+`AWIN_SAMPLE_FINDINGS` members are produced by no production code path
+(measured in #573), so a `passed` sample means an operator asserted it — with an
+append-only row naming them, which is a real audit trail and is not the same
+thing as an automated check.
+
+The DESTINATION half in particular does not exist. `destinationMatchesAdvertiser`
+and `destinationHost` (`services/awin/tracking.ts`) are correct and tested and
+have **no production caller**; `awin_advertisers.declared_host`, the expectation
+they would compare against, has **no production writer**, so every row is NULL
+and the helper would return `null` on every real input. #573 records the trace.
+
+What IS measured automatically, on every ingested row rather than on a sample:
+`assessAwinTrackingLink` checks the rights, the membership, presence,
+parseability, HTTPS and tracking-host-in-approved-set (`isAwinTrackingHost`),
+and the outcome is counted into `awin_advertiser_quality` as
+`trackingApproved`/`trackingRejected`. So three of the four checks this section
+used to claim are genuinely enforced — through the quality snapshot, on the
+whole feed, which is stronger than a sample — and the fourth is absent.
+
+Building the destination check, and deriving the findings rather than accepting
+them, is tracked separately; until then read a `passed` sample as a human's
+attestation. The row is append-only and names the operator who took it.
 
 **A sample is evidence, not a gate that can be waived quietly.** There is no
 "activate anyway" parameter; an advertiser whose sample failed is re-sampled
