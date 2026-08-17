@@ -30,38 +30,74 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every file of the domain, enumerated from the real directories. */
-function enumerateDomain(): string[] {
-  const roots = [
-    join(SRC_ROOT, 'services', 'price-history'),
-    join(SRC_ROOT, 'db', 'priceHistory'),
-  ];
-  const files: string[] = [];
-  for (const root of roots) {
-    for (const entry of readdirSync(root)) {
-      const full = join(root, entry);
-      if (statSync(full).isDirectory()) continue;
-      if (!entry.endsWith('.ts')) continue;
-      files.push(full);
-    }
-  }
-  files.push(join(SRC_ROOT, 'controllers', 'price-history.controller.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'price-history.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'internal-price-history.ts'));
-  files.push(join(SRC_ROOT, 'middleware', 'price-history-schemas.ts'));
-  files.push(join(SRC_ROOT, 'db', 'schema', 'priceHistory.ts'));
-  return files;
+/** The domain's OWN directories, walked whole. */
+const DOMAIN_DIRECTORIES = ['services/price-history', 'db/priceHistory'];
+
+/**
+ * The shared directories, where this domain's files sit beside every other
+ * domain's and so cannot be walked wholesale.
+ */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/** What a file BELONGING to this domain is called, wherever it lives. */
+const DOMAIN_NAME_PATTERN = /price-?history/i;
+
+/**
+ * Read one scanned file, asserting it is a real file first.
+ *
+ * `statSync` rather than a bare `readFileSync`: a population that is DERIVED is
+ * only as honest as the assertion that every member of it resolves, and a
+ * `readdirSync` served from a stale cache would otherwise hand every scan below
+ * a list of names that no longer exist — which reads as a clean run.
+ */
+function readScanned(absolute: string): string {
+  expect(statSync(absolute).isFile(), `${absolute} is not a file — did it move?`).toBe(true);
+  return readFileSync(absolute, 'utf8');
+}
+
+/** Every `.ts` directly under one directory, sorted. */
+function filesIn(relative: string, matching?: RegExp): string[] {
+  return readdirSync(join(SRC_ROOT, relative))
+    .filter((entry) => entry.endsWith('.ts'))
+    .filter((entry) => matching === undefined || matching.test(entry))
+    .sort()
+    .map((entry) => join(SRC_ROOT, relative, entry));
 }
 
 /**
- * The enumeration FLOOR, read off the real directories rather than hard-coded
- * as a list of names.
+ * Every file of the domain, DERIVED from disk rather than listed.
  *
- * A file that moves out of the domain shrinks the scanned set silently, and a
- * shrinking scan looks exactly like a clean one — so the count is asserted, and
- * raising it when the domain grows is the point rather than an annoyance.
+ * The two domain directories are walked whole (they always were); what changed
+ * is the five files in the SHARED directories, which were pushed by name. Those
+ * are now selected by name PATTERN, so a `routes/internal-price-history-admin.ts`
+ * added tomorrow is scanned the moment it exists.
+ *
+ * A hand list cannot do that, and the way it fails is silent: a scan whose
+ * population stopped covering a module produces exactly the output of a scan
+ * over a clean one (#460).
  */
-const MINIMUM_DOMAIN_FILES = 11;
+function enumerateDomain(): string[] {
+  return [
+    ...DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative)),
+    ...OUTER_DIRECTORIES.flatMap((relative) => filesIn(relative, DOMAIN_NAME_PATTERN)),
+  ];
+}
+
+/**
+ * The floors, PER SHAPE and measured off this branch rather than carried over.
+ *
+ * Per shape because one total lets a directory collapse to nothing behind
+ * another's count — `services/price-history` losing all seven modules would sit
+ * inside a total of 11 as long as the shared directories grew by seven, and
+ * every scan below would then pass over a domain it no longer reads.
+ *
+ * MEASURED: 7 under `services/price-history`, 4 under `db/priceHistory`, 5 in
+ * the shared directories (the controller, two routes, the schema module and the
+ * drizzle table). The floors sit at those counts; raising one when the domain
+ * grows is the point rather than an annoyance.
+ */
+const MINIMUM_DOMAIN_DIRECTORY_FILES = 11;
+const MINIMUM_OUTER_FILES = 5;
 
 /** Strip comments, so a module that DESCRIBES what it refuses is not read as doing it. */
 function stripComments(source: string): string {
@@ -95,13 +131,24 @@ describe('the price-history domain cannot reach what it must not', () => {
   const files = enumerateDomain();
 
   it('scans a domain that has not silently shrunk', () => {
-    expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
+    const inDomain = DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative));
+    const inOuter = OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(relative, DOMAIN_NAME_PATTERN),
+    );
+    expect(
+      inDomain.length,
+      'services/price-history + db/priceHistory shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_DIRECTORY_FILES);
+    expect(
+      inOuter.length,
+      'no controller/route/middleware/schema is named for this domain — did the derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_OUTER_FILES);
+    expect(files.length).toBe(inDomain.length + inOuter.length);
+
     for (const file of files) {
       // The vacuity floor: an empty or moved file must fail here, not pass the
       // scans below by having nothing to match.
-      expect(readFileSync(file, 'utf8').length, `${file} looks empty — did it move?`).toBeGreaterThan(
-        200,
-      );
+      expect(readScanned(file).length, `${file} looks empty — did it move?`).toBeGreaterThan(200);
     }
   });
 
@@ -240,6 +287,32 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(PRICE_HISTORY_REFERENCE.test("import { listOffers } from './offers/offer.service.js';")).toBe(
       false,
     );
+  });
+
+  it('the domain-name derivation selects the real files and not their neighbours', () => {
+    // The derivation REPLACED a hand list, so it owes the same proof a detector
+    // does: that it still selects what the list named. Anything it stopped
+    // selecting is a file that silently left the scan.
+    const outer = OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(relative, DOMAIN_NAME_PATTERN),
+    ).map((absolute) => absolute.slice(SRC_ROOT.length + 1));
+    for (const expected of [
+      'controllers/price-history.controller.ts',
+      'routes/price-history.ts',
+      'routes/internal-price-history.ts',
+      'middleware/price-history-schemas.ts',
+      'db/schema/priceHistory.ts',
+    ]) {
+      expect(outer, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // `internal-price-history.ts` is the case a naive anchored pattern misses:
+    // the domain name does not start the basename.
+    expect(DOMAIN_NAME_PATTERN.test('internal-price-history.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('priceHistory.ts')).toBe(true);
+    // …and it must not drag in a neighbour that merely mentions a price.
+    expect(DOMAIN_NAME_PATTERN.test('price-alerts.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('price-signals.controller.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('order-history.ts')).toBe(false);
   });
 
   it('the comment stripper does not hide a real reference on the same line', () => {

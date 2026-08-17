@@ -35,35 +35,63 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every file of the domain, enumerated from the real directories. */
-function enumerateDomain(): string[] {
-  const roots = [
-    join(SRC_ROOT, 'services', 'price-alerts'),
-    join(SRC_ROOT, 'db', 'priceAlerts'),
-  ];
-  const files: string[] = [];
-  for (const root of roots) {
-    for (const entry of readdirSync(root)) {
-      const full = join(root, entry);
-      if (statSync(full).isDirectory()) continue;
-      if (!entry.endsWith('.ts')) continue;
-      files.push(full);
-    }
-  }
-  files.push(join(SRC_ROOT, 'controllers', 'price-alerts.controller.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'price-alerts.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'internal-price-alerts.ts'));
-  files.push(join(SRC_ROOT, 'middleware', 'price-alert-schemas.ts'));
-  files.push(join(SRC_ROOT, 'db', 'schema', 'priceAlerts.ts'));
-  return files;
+/** The domain's OWN directories, walked whole. */
+const DOMAIN_DIRECTORIES = ['services/price-alerts', 'db/priceAlerts'];
+
+/** The shared directories, where this domain sits beside every other domain's. */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/** What a file BELONGING to this domain is called, wherever it lives. */
+const DOMAIN_NAME_PATTERN = /price-?alerts?/i;
+
+/**
+ * Read one scanned file, asserting it is a real file first.
+ *
+ * `statSync` rather than a bare `readFileSync`: a DERIVED population is only as
+ * honest as the assertion that every member resolves, and a `readdirSync` served
+ * from a stale cache would hand every scan below names that no longer exist —
+ * which reads as a clean run.
+ */
+function readScanned(absolute: string): string {
+  expect(statSync(absolute).isFile(), `${absolute} is not a file — did it move?`).toBe(true);
+  return readFileSync(absolute, 'utf8');
+}
+
+/** Every `.ts` directly under one directory, sorted. */
+function filesIn(relative: string, matching?: RegExp): string[] {
+  return readdirSync(join(SRC_ROOT, relative))
+    .filter((entry) => entry.endsWith('.ts'))
+    .filter((entry) => matching === undefined || matching.test(entry))
+    .sort()
+    .map((entry) => join(SRC_ROOT, relative, entry));
 }
 
 /**
- * The enumeration FLOOR, read off the real directories rather than hard-coded as
- * a list of names. A file that moves out of the domain shrinks the scanned set
- * silently, and a shrinking scan looks exactly like a clean one.
+ * Every file of the domain, DERIVED from disk rather than listed.
+ *
+ * The two domain directories were always walked; the five files in the SHARED
+ * directories were pushed BY NAME and are now selected by name PATTERN, so a
+ * route or schema module added tomorrow is scanned the moment it exists. A hand
+ * list is complete on the day it is written and silently incomplete the day
+ * somebody adds a module — and what it then skips is exactly the module nobody
+ * has reviewed (#460).
  */
-const MINIMUM_DOMAIN_FILES = 14;
+function enumerateDomain(): string[] {
+  return [
+    ...DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative)),
+    ...OUTER_DIRECTORIES.flatMap((relative) => filesIn(relative, DOMAIN_NAME_PATTERN)),
+  ];
+}
+
+/**
+ * The floors, PER SHAPE and measured off this branch.
+ *
+ * Per shape because one total lets a directory collapse to nothing behind
+ * another's count. MEASURED: 10 under `services/price-alerts`, 5 under
+ * `db/priceAlerts`, 5 in the shared directories.
+ */
+const MINIMUM_DOMAIN_DIRECTORY_FILES = 15;
+const MINIMUM_OUTER_FILES = 5;
 
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
@@ -104,24 +132,63 @@ const ALERT_DOMAIN_REFERENCE =
 /** The three levers, none of which may gate a durable record. */
 const LEVER_REFERENCE = /config\.priceAlerts\.(enabled|evaluationEnabled|notificationsEnabled)/;
 
-/** The modules that write the durable records a lever must never reach. */
-const DURABLE_WRITERS = [
-  'db/priceAlerts/priceAlertRepository.ts',
-  'db/priceAlerts/priceAlertEvaluationRepository.ts',
-  'db/priceAlerts/priceAlertTriggerRepository.ts',
-  'db/priceAlerts/priceAlertNotificationRepository.ts',
-  'services/price-alerts/evaluation.service.ts',
-];
+/**
+ * The modules that write the durable records a lever must never reach.
+ *
+ * DERIVED as the whole of `db/priceAlerts/` plus the one service that writes
+ * through it, rather than the four repositories somebody listed. The hand list
+ * MISSED `observedPriceVersionRepository.ts` — measured on this branch: five
+ * repositories exist and four were named — so the observed-price-version write,
+ * which is the row a trigger's identity key is built on, sat behind no lever
+ * wall at all. Nothing failed, because a scan over a population that never
+ * included a file reports exactly what a clean one does.
+ *
+ * Every repository in that directory writes a durable record by construction,
+ * so the directory IS the rule; naming four of them was a snapshot of it.
+ */
+function durableWriters(): string[] {
+  return [
+    ...filesIn('db/priceAlerts'),
+    join(SRC_ROOT, 'services/price-alerts/evaluation.service.ts'),
+  ];
+}
+
+/** MEASURED: 5 repositories + the evaluation service. */
+const MINIMUM_DURABLE_WRITERS = 6;
+
+/**
+ * The DELIVERY modules, derived by name from the domain's own directory.
+ *
+ * Four today (`delivery.service`, `delivery-dispatcher`, `notification`,
+ * `transport`). A fifth delivery module would join the scan on its own, which
+ * is the point: acceptance 6 is a property of the delivery PATH, not of the
+ * four files that happened to make it up when the gate was written.
+ */
+const DELIVERY_NAME_PATTERN = /delivery|notification|transport/i;
+
+/** MEASURED: 4. */
+const MINIMUM_DELIVERY_FILES = 4;
 
 describe('the price-alert domain cannot reach what it must not', () => {
   const files = enumerateDomain();
 
   it('scans a domain that has not silently shrunk', () => {
-    expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
+    const inDomain = DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative));
+    const inOuter = OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(relative, DOMAIN_NAME_PATTERN),
+    );
+    expect(
+      inDomain.length,
+      'services/price-alerts + db/priceAlerts shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_DIRECTORY_FILES);
+    expect(
+      inOuter.length,
+      'no controller/route/middleware/schema is named for this domain — did the derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_OUTER_FILES);
+    expect(files.length).toBe(inDomain.length + inOuter.length);
+
     for (const file of files) {
-      expect(readFileSync(file, 'utf8').length, `${file} looks empty — did it move?`).toBeGreaterThan(
-        200,
-      );
+      expect(readScanned(file).length, `${file} looks empty — did it move?`).toBeGreaterThan(200);
     }
   });
 
@@ -173,33 +240,38 @@ describe('the price-alert domain cannot reach what it must not', () => {
   it('the DELIVERY path cannot evaluate a price — acceptance 6', () => {
     // The property is an IMPORT-GRAPH fact rather than a rule somebody follows:
     // a retry re-reads the trigger row and never the offers it was derived from.
-    for (const relative of [
-      'services/price-alerts/delivery.service.ts',
-      'services/price-alerts/delivery-dispatcher.ts',
-      'services/price-alerts/notification.ts',
-      'services/price-alerts/transport.ts',
-    ]) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    const delivery = filesIn('services/price-alerts', DELIVERY_NAME_PATTERN);
+    expect(
+      delivery.length,
+      'the delivery modules vanished from services/price-alerts; acceptance 6 now scans nothing',
+    ).toBeGreaterThanOrEqual(MINIMUM_DELIVERY_FILES);
+    for (const file of delivery) {
+      const source = readScanned(file);
+      expect(source.length, `${file} looks empty — did it move?`).toBeGreaterThan(200);
       expect(
         EVALUATION_REFERENCE.test(stripComments(source)),
-        `${relative} can evaluate a price; a delivery retry must never create a second trigger`,
+        `${file} can evaluate a price; a delivery retry must never create a second trigger`,
       ).toBe(false);
     }
   });
 
   it('NO lever gates a durable record', () => {
-    let scanned = 0;
-    for (const relative of DURABLE_WRITERS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    const writers = durableWriters();
+    // A FLOOR, never `toBe(LIST.length)`. Comparing a loop's counter against the
+    // list the loop just iterated is satisfied by any list including an empty
+    // one: it catches a broken loop and never a shrunk population.
+    expect(
+      writers.length,
+      'the durable-writer population shrank; a lever could now gate a row unwatched',
+    ).toBeGreaterThanOrEqual(MINIMUM_DURABLE_WRITERS);
+    for (const file of writers) {
+      const source = readScanned(file);
+      expect(source.length, `${file} looks empty — did it move?`).toBeGreaterThan(200);
       expect(
         LEVER_REFERENCE.test(stripComments(source)),
-        `${relative} reads a price-alert lever; a flag must stop a LOOP and never a row`,
+        `${file} reads a price-alert lever; a flag must stop a LOOP and never a row`,
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(DURABLE_WRITERS.length);
   });
 
   it('is not reachable FROM the organic ranking surface either', () => {
@@ -350,6 +422,55 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(ALERT_DOMAIN_REFERENCE.test("import { listOffers } from './offers/offer.service.js';")).toBe(
       false,
     );
+  });
+
+  it('the derivations select the real files and not their neighbours', () => {
+    // A derivation that replaced a hand list owes the same proof a detector
+    // does: that it still selects everything the list named. Anything it stopped
+    // selecting is a file that silently left the scan.
+    const outer = OUTER_DIRECTORIES.flatMap((relative) =>
+      filesIn(relative, DOMAIN_NAME_PATTERN),
+    ).map((absolute) => absolute.slice(SRC_ROOT.length + 1));
+    for (const expected of [
+      'controllers/price-alerts.controller.ts',
+      'routes/price-alerts.ts',
+      'routes/internal-price-alerts.ts',
+      'middleware/price-alert-schemas.ts',
+      'db/schema/priceAlerts.ts',
+    ]) {
+      expect(outer, `the derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // Singular AND plural, and the un-anchored case a naive pattern misses.
+    expect(DOMAIN_NAME_PATTERN.test('internal-price-alerts.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('price-alert-schemas.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('priceAlerts.ts')).toBe(true);
+    // …and must not drag in a sibling price domain.
+    expect(DOMAIN_NAME_PATTERN.test('price-history.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('price-signals.controller.ts')).toBe(false);
+
+    // The durable-writer derivation covers the repository the hand list MISSED.
+    const writers = durableWriters().map((absolute) => absolute.slice(SRC_ROOT.length + 1));
+    expect(
+      writers,
+      'observedPriceVersionRepository writes the row a trigger identity is keyed on and was ' +
+        'behind no lever wall while the list was hand-maintained',
+    ).toContain('db/priceAlerts/observedPriceVersionRepository.ts');
+    expect(writers).toContain('services/price-alerts/evaluation.service.ts');
+
+    // The delivery derivation selects exactly the four the list named.
+    const delivery = filesIn('services/price-alerts', DELIVERY_NAME_PATTERN).map((absolute) =>
+      absolute.slice(SRC_ROOT.length + 1),
+    );
+    for (const expected of [
+      'services/price-alerts/delivery.service.ts',
+      'services/price-alerts/delivery-dispatcher.ts',
+      'services/price-alerts/notification.ts',
+      'services/price-alerts/transport.ts',
+    ]) {
+      expect(delivery, `the delivery derivation stopped selecting ${expected}`).toContain(expected);
+    }
+    // …and not the evaluation service, which legitimately evaluates.
+    expect(delivery).not.toContain('services/price-alerts/evaluation.service.ts');
   });
 
   it('the comment stripper does not hide a real reference on the same line', () => {
