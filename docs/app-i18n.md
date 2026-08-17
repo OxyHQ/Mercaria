@@ -349,6 +349,14 @@ here can review (the #486 precedent), so check K pins the count EXACTLY per
 owner as `pluralCategoryResidual` and fails in both directions: it can be paid
 down, and it cannot grow back.
 
+**So a PR that adds or removes a PLURAL key must move the pin in the same
+change**, and the person who hits it will be mid-PR on an unrelated subject —
+adding one counted key to a screen, not thinking about Russian. It is not a
+broken gate. Both pins live in `OWNERS` in `scripts/validate-i18n-strings.mjs`,
+the failure prints the number it measured, and that number is the one to write
+down. A plain string key changes neither pin: #580 added five to the dashboard
+bundles the merge after #436 landed and both counts held.
+
 **Arabic is the worst case and its shipped shape is deliberate.** CLDR gives
 Arabic SIX categories against English's two, so one `other` form has to cover 0,
 2, 3–10, 11–99 and 100+, which take three different noun forms. Every Arabic
