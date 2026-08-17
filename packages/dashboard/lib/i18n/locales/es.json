@@ -1045,7 +1045,12 @@
         "height": "Alto",
         "depth": "Profundidad",
         "diagonal": "Diagonal",
-        "circumference": "Circunferencia"
+        "circumference": "Circunferencia",
+        "waist": "Cintura",
+        "inseam": "Entrepierna",
+        "chest": "Pecho",
+        "sleeve": "Manga",
+        "neck": "Cuello"
       },
       "variants": {
         "noAxesAvailable": "Este tipo de producto no tiene atributos que puedan definir variantes.",

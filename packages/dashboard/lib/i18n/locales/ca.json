@@ -1045,7 +1045,12 @@
         "height": "Alçada",
         "depth": "Profunditat",
         "diagonal": "Diagonal",
-        "circumference": "Circumferència"
+        "circumference": "Circumferència",
+        "waist": "Cintura",
+        "inseam": "Entrecuix",
+        "chest": "Pit",
+        "sleeve": "Màniga",
+        "neck": "Coll"
       },
       "variants": {
         "noAxesAvailable": "Aquest tipus de producte no té atributs que puguin definir variants.",

@@ -136,6 +136,19 @@ wrong number of components produces three `unparsed` facts rather than a guess:
 `155.6 x 71.5` could be width×height or width×depth, and the two are different
 products.
 
+The axis vocabulary is TWO groups in one tuple: five that name the geometry of
+an object (`width`, `height`, `depth`, `diagonal`, `circumference`) and five
+that name a position on a body or garment (`waist`, `inseam`, `chest`, `sleeve`,
+`neck`), so a 32×34 jean is one size with two named components rather than the
+string `32x34` compared as text. A definition DECLARES its own axes, which is
+why one tuple is safe — nothing can reach an axis its definition did not name.
+The garment set is exactly the components of the compound size tokens merchants
+write (waist × inseam, neck × sleeve, and chest for jackets); `hip`, `shoulder`,
+`rise` and `outseam` are rows of a size CHART, each its own attribute, and are
+deliberately absent. A bra (`34B`) or suit (`40R`) size is still not a
+structured measurement: its components are not in one unit family, and a
+`structured` definition pins one for all of them.
+
 A `range` attribute keeps both bounds and their strictness. Prose ranges are
 inclusive at both ends; an EXCLUSIVE bound arrives only through the structured
 API, because inferring strictness from punctuation would be a guess. An inverted

@@ -1045,7 +1045,12 @@
         "height": "Höhe",
         "depth": "Tiefe",
         "diagonal": "Diagonale",
-        "circumference": "Umfang"
+        "circumference": "Umfang",
+        "waist": "Taille",
+        "inseam": "Schrittlänge",
+        "chest": "Brust",
+        "sleeve": "Ärmel",
+        "neck": "Hals"
       },
       "variants": {
         "noAxesAvailable": "Dieser Produkttyp hat keine Merkmale, die Varianten bilden können.",
