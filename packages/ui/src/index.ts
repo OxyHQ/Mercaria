@@ -61,6 +61,21 @@ export {
 // could read a sentence out of it directly — which is the per-screen use that
 // bypasses the app's own locale entirely. `isolateBidi`'s decision, below, for
 // the same reason: an export with no consumer is an invitation.
+
+// ---------------------------------------------------------------------------
+// Layout direction (#434). Split in two on purpose: the DECISION (`isRtlLocale`)
+// imports nothing, which is what lets `validate:rtl-classes` run the REAL
+// function — none of these packages has a test runner, so a guard script is the
+// only place a property of theirs can be asserted. The APPLICATION needs
+// `I18nManager` and so cannot run outside a bundler.
+//
+// It reads the locales an app SHIPS, which is the same invariant #437's merge
+// keeps from the other side: shared copy is intersected with what the app ships,
+// never unioned, so an app can neither gain a locale it cannot mirror nor mirror
+// one it does not ship.
+// ---------------------------------------------------------------------------
+export { isRtlLocale, languageOf, RTL_LANGUAGE_CODES } from "./i18n/rtl-locales";
+export { syncLayoutDirection, type DirectionSyncResult } from "./i18n/layout-direction";
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
 // `./lib/bidi`'s `isolateBidi` is deliberately NOT exported here. It is applied

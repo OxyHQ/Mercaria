@@ -146,6 +146,28 @@ surfaces where a mistake costs money is not an improvement.
 So `ar.json` for these two apps is the LAST step of mirroring their layout
 (#434), not a separate favour that can land first.
 
+### The layout half has landed; the bundles have not
+
+#434 split in two. The LAYOUT half is done: both apps are migrated to logical
+utilities, `validate:rtl-classes` now scans all four client packages rather than
+just the storefront path, and the direction bootstrap runs in both through
+`createI18nStore`'s `onLocaleApplied` hook. What is still missing is the copy —
+1,061 translated strings across the two `en.json` files, under the parity gate.
+
+Until those bundles exist, **both apps stay LTR, and that is enforced rather
+than incidental.** `isRtlLocale` reads the locales an app SHIPS, not the language
+subtag, so an Arabic device gets an English screen in a left-to-right layout —
+the same conclusion #437's intersection merge reaches from the other side.
+`scripts/validate-rtl-direction.mjs` asserts it as a biconditional (mirror
+exactly when the language is RTL *and* a bundle exists), so it keeps holding
+when `ar.json` arrives instead of failing that PR.
+
+One residual the bundles cannot fix on their own:
+`packages/pos/components/register/VariantPickerSheet.tsx` uses
+`<SheetContent side="right">`, and a physical `side` prop plus `translateX` is an
+API change plus an animation change rather than a class swap. **The POS variant
+picker will not mirror until #429**, whatever `ar.json` says.
+
 ## Rules that are load-bearing
 
 - **Module-scope data holds KEYS, never sentences.** A `const` array or record
@@ -292,7 +314,7 @@ Stated so nobody reads a green run as more than it is:
 
 | # | What |
 | --- | --- |
-| #434 | Mirror the dashboard and POS layouts for RTL, then add `ar.json` to both |
+| #434 | Add `ar.json` to the dashboard and POS — 1,061 strings. The LAYOUT half landed; see above. Blocked for the POS variant picker on #429 |
 | #435 | Converge `packages/frontend/lib/i18n` onto the shared registry, and widen the guard to it |
 | #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
 | #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |

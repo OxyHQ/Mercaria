@@ -179,12 +179,13 @@ Procedure for the last two: **`docs/postgres-testing-and-migrations.md`**.
   — and read through `SharedUiTranslationProvider`, mounted at every app root.
   `validate:i18n-strings` gates all of it plus hardcoded strings, parity and
   unreferenced keys in dashboard + POS. `docs/app-i18n.md`; #435, #437.
-- **The storefront mirrors for Arabic from LOGICAL utilities only** (`ms-`, `me-`,
-  `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`); `validate:rtl-classes` gates
-  `packages/frontend` and `packages/ui`. A physical `ml-2` half-mirrors its screen
-  (row order flips, padding does not) with every build green. Dashboard/POS are
-  NOT mirrored, so no `ar` (#434). `border-s-*` and `text-start` are MEASURED not
-  to survive react-native-css/RN 0.85, so those stay physical. Residual: #429.
+- **All four client packages mirror for Arabic from LOGICAL utilities only**
+  (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`);
+  `validate:rtl-classes` gates all four. A physical `ml-2` half-mirrors its screen
+  (row order flips, padding does not) with every build green. Direction follows the
+  SHIPPED BUNDLES, never the tag: dashboard/POS mirror but ship no `ar` yet (#434).
+  `border-s-*` and `text-start` are MEASURED not to survive react-native-css/RN
+  0.85, so those stay physical. Residual: #429, #435.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails

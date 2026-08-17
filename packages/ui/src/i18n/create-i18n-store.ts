@@ -17,17 +17,26 @@ export interface CreateI18nStoreOptions {
   i18n: I18n;
   /** AsyncStorage key. Distinct per app, or two apps on one device share a preference. */
   persistKey: string;
+  /**
+   * Run whenever a locale TAKES EFFECT — `setLocale`, rehydration, and the
+   * module-scope initial apply below. All three, because a hook wired to only
+   * the first would leave a stored Arabic preference unmirrored on every launch
+   * after the one that chose it.
+   *
+   * `syncLayoutDirection` (`./layout-direction`) is what this exists for and the
+   * shape it takes. Typed to return `void` so it stays a general seam: a caller
+   * whose function returns something richer (it returns a `DirectionSyncResult`)
+   * assigns fine, and the store neither reads nor stores that result — nothing
+   * in these apps renders a restart notice yet, and a store field nothing reads
+   * is the "coverage of a mechanism nothing has run" this parameter was withheld
+   * for in the first place.
+   *
+   * Deliberately NOT an effect in a component: the direction must be settled
+   * before the tree using it renders, and `I18nManager.isRTL` is external mutable
+   * state, which must never be read from a memoised position.
+   */
+  onLocaleApplied?: (locale: string) => void;
 }
-
-/*
- * There is deliberately no `onLocaleApplied` hook here yet.
- *
- * The storefront mirrors its layout when the locale changes (#397's
- * `syncLayoutDirection`), so converging it onto this factory (#435) needs one.
- * Adding it NOW would ship a parameter no caller passes and no test exercises,
- * which reads as coverage of a mechanism nothing has ever run. It arrives in the
- * change that has a caller for it.
- */
 
 /**
  * One app's locale store, and the ONE hook its screens call.
@@ -41,9 +50,14 @@ export interface CreateI18nStoreOptions {
  * change re-render every screen; `i18n.locale` is still kept in step so any
  * direct reader agrees, but nothing in a render path reads it.
  */
-export function createI18nStore({ i18n, persistKey }: CreateI18nStoreOptions) {
+export function createI18nStore({ i18n, persistKey, onLocaleApplied }: CreateI18nStoreOptions) {
+  // The ONE funnel every locale change passes through: `setLocale`,
+  // `onRehydrateStorage`, and the module-scope call at the bottom. Hooking it
+  // here rather than at those three sites is what stops a fourth one being added
+  // later that mirrors the strings and not the layout.
   const apply = (locale: string) => {
     i18n.locale = locale;
+    onLocaleApplied?.(locale);
   };
 
   const useI18nStore = create<I18nStoreState>()(

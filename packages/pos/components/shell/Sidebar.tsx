@@ -80,7 +80,7 @@ export function Sidebar() {
         <Logo size={collapsed ? 26 : 30} />
       </Pressable>
       {!collapsed && (
-        <View className="ml-auto">
+        <View className="ms-auto">
           <GhostIconButton icon={ChevronsLeft} label={t("nav.collapseSidebar")} onPress={collapse} />
         </View>
       )}

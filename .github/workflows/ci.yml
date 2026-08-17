@@ -72,13 +72,21 @@ jobs:
         run: bun run validate:agents-md
 
       # The storefront ships an Arabic bundle (#396) and mirrors its layout from
-      # LOGICAL utilities (#397). A physical `ml-2` or `left-4` half-mirrors the
-      # screen it lands on — the row order flips while the padding does not —
-      # and nothing else here can see it: the class is valid Tailwind, tsc is
-      # happy and the export succeeds. Neither packages/frontend nor packages/ui
-      # has a test runner, so this is the step that carries it. Reads the tracked
-      # file listing; costs a second.
-      - name: Guard RTL logical classes
+      # LOGICAL utilities (#397); #434 migrated the dashboard and POS to the same
+      # utilities and widened the scan to all four client packages. A physical
+      # `ml-2` or `left-4` half-mirrors the screen it lands on — the row order
+      # flips while the padding does not — and nothing else here can see it: the
+      # class is valid Tailwind, tsc is happy and the export succeeds.
+      #
+      # The same step also carries the DIRECTION half (#434), because the two are
+      # one property: logical classes with no direction set mirror nothing, and a
+      # direction set on a locale with no bundle mirrors an ENGLISH screen. That
+      # second one is live — the dashboard and POS ship no `ar` yet — so the
+      # guard asserts direction follows the SHIPPED BUNDLES rather than the
+      # language tag. None of these packages has a test runner, so this is the
+      # step that carries all of it. Reads the tracked file listing and imports
+      # one dependency-free module; costs a second.
+      - name: Guard RTL logical classes and layout direction
         run: bun run validate:rtl-classes
 
       # The companion to the step above, and the reason it is a separate one:
