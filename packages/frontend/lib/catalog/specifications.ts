@@ -31,14 +31,15 @@ import { languageOf, type SpecificationLabelSource } from './locale';
  * which is also what makes a variant-specific fact comparable at the exact
  * variant rather than at the product. A group is EMITTED only when it has rows.
  *
- * The product type's own authoring GROUPS (`AuthoringGroup`, and the ordered
- * field groups #367 workstream 3 defines) are a **named seam**: they are served
- * only by `GET /catalog-authoring/schemas/:productTypeKey`, which is behind
- * `authenticateToken` and a false-by-default flag, and `ProductTypeVersionView`
- * is defined and served by no route at all. {@link SpecificationGrouping}
- * therefore has one member today, it is reported on the table, and closing the
- * seam is a second grouping member plus the read that supplies it — not a list
- * invented here.
+ * The product type's own ordered field groups (#367 workstream 3) now HAVE a
+ * public read: `GET /product-types/:key/specification-layout` serves the
+ * published version's group keys, labels, order and attribute placement, and
+ * refuses to place an attribute two authoring flows disagree about. That read is
+ * NOT the authenticated authoring schema and carries none of its five authoring
+ * facts. {@link SpecificationGrouping} still has one member because this module
+ * is not wired to it: adding a second one means fetching the layout, keying rows
+ * by `attributeKey` and rendering `ungroupedAttributeKeys` under their own
+ * heading. A list the SERVER supplies, still never one invented here.
  *
  * ## Values are FORMATTED, never converted
  *
@@ -57,9 +58,11 @@ export type SpecificationScope = 'product' | 'variant';
 /**
  * Where the grouping came from.
  *
- * ONE member. See the header: the product type's ordered field groups have no
- * anonymous read, and a grouping composed here would be the per-product-type
- * spec list this workstream exists to delete.
+ * ONE member, and the reason has MOVED. The product type's ordered field groups
+ * DO have an anonymous read now (see the header); what is missing is this module
+ * consuming it. A grouping composed HERE would still be the per-product-type
+ * spec list this workstream exists to delete, so the second member arrives with
+ * the fetch and not before it.
  */
 export type SpecificationGrouping = 'entity_scope';
 

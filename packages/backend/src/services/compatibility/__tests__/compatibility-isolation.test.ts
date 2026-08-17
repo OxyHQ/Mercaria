@@ -40,7 +40,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableConfig } from 'drizzle-orm/pg-core';
@@ -89,13 +89,32 @@ function enumerateDomain(): string[] {
     ...walk(join(SRC_ROOT, 'services', 'compatibility')),
     ...walk(join(SRC_ROOT, 'db', 'compatibility')),
   ];
-  // The schema module, derived by the filename convention rather than named, so
-  // a second compatibility schema file is covered too. This domain has no HTTP
-  // surface — checked against the tree, not assumed: nothing in `controllers/`,
-  // `routes/` or `middleware/` is named for it.
-  for (const entry of readdirSync(join(SRC_ROOT, 'db', 'schema'), { withFileTypes: true })) {
-    if (entry.isFile() && /^compatibility.*\.ts$/.test(entry.name)) {
-      files.push(join(SRC_ROOT, 'db', 'schema', entry.name));
+  /**
+   * The schema module and the HTTP surface, both derived by FILENAME rather than
+   * named, so a second schema file or a second controller is covered without
+   * anybody remembering to come here.
+   *
+   * The HTTP half is new. This file used to carry a comment saying the domain had
+   * no HTTP surface and that the claim was "checked against the tree, not assumed"
+   * — and no such check existed anywhere in it. It was true when written and
+   * unasserted, which is the worse of the two states: the day somebody published a
+   * route the comment became false and nothing went red. #367's own read surface
+   * (`routes/compatibility.ts` and its controller and schemas) is that day, so the
+   * claim is replaced by the derivation it always described, and the five walls
+   * below now cover the surface a shopper actually reaches — which is where a
+   * ranking import or an offer read would be most tempting to add.
+   */
+  const NAMED_FOR_THE_DOMAIN = /^compatibility.*\.ts$/;
+  for (const directory of [
+    join('db', 'schema'),
+    'routes',
+    'controllers',
+    'middleware',
+  ]) {
+    for (const entry of readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })) {
+      if (entry.isFile() && NAMED_FOR_THE_DOMAIN.test(entry.name)) {
+        files.push(join(SRC_ROOT, directory, entry.name));
+      }
     }
   }
   return files;
@@ -108,8 +127,17 @@ function enumerateDomain(): string[] {
  * A file that moves out of the domain shrinks the scanned set silently, and a
  * shrinking scan looks exactly like a clean one — so the count is asserted, and
  * raising it when the domain grows is the point rather than an annoyance.
+ *
+ * **It sits AT the measured count, which means the next legitimate file fails
+ * this line, and that is deliberate.** The number's job is to prove the
+ * population was real at the moment somebody last looked — a floor parked
+ * comfortably below the truth proves only that the walk found something, which is
+ * what a floor of `>= 1` already does. Raising it is one line and forces whoever
+ * adds a module to the domain to notice that five walls now scan it. Twelve
+ * today: four services, four repositories, one schema file, one route, one
+ * controller, one schema module.
  */
-const MINIMUM_DOMAIN_FILES = 9;
+const MINIMUM_DOMAIN_FILES = 12;
 
 /** Strip comments, so a module that DESCRIBES what it refuses is not read as doing it. */
 function stripComments(source: string): string {
@@ -160,6 +188,20 @@ describe('the compatibility domain cannot reach what it must not', () => {
     expect(from('/services/compatibility/'), 'the service walk found nothing').toBeGreaterThanOrEqual(4);
     expect(from('/db/compatibility/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(4);
     expect(from('/db/schema/compatibility'), 'the schema derivation found nothing').toBeGreaterThanOrEqual(1);
+    // The HTTP surface, floored per LAYER rather than as one total: a route file
+    // and its controller break independently, and one floor of three would let the
+    // controller vanish from the scan while the route and the schemas carried the
+    // number — which is the layer a forbidden import is most likely to enter.
+    expect(from('/routes/compatibility'), 'the route walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('/controllers/compatibility'), 'the controller walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('/middleware/compatibility'), 'the schema walk found nothing').toBeGreaterThanOrEqual(1);
+    // Printed on SUCCESS, not only in a failure message: the population size is
+    // the one number that says this census measured anything, and a reader who
+    // only ever sees it when the gate is red cannot tell a healthy scan of twelve
+    // files from a healthy scan of two.
+    process.stdout.write(
+      `compatibility isolation: scanning ${String(files.length)} domain file(s)\n`,
+    );
     expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
     // No test file may enter the scanned set: a gate that scans its own probes
     // reports violations it wrote itself.

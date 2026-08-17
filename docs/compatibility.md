@@ -319,16 +319,143 @@ is the safe one: `23514` blocks the phase loudly, `blocked` is not claimable so
 no dispatcher spins on it, and each phase is its own transaction so nothing is
 half-moved. The remedy is to close the relation before merging.
 
+## The public read surface
+
+`routes/compatibility.ts` + `controllers/compatibility.controller.ts` +
+`middleware/compatibility-schemas.ts`, mounted at `/compatibility`
+**unconditionally**. Eight reads, no writes.
+
+| Route | Answers |
+|---|---|
+| `GET /compatibility/relations` | Both directions. Exactly one selector: a subject (`subjectProductId` / `subjectVariantId`) or a target (`targetProductId` / `targetVariantId` / `targetFamilyId` / the `targetType`+`targetKey` pair). The response names the `lookup` it answered. |
+| `GET /compatibility/fitments` | The vehicles one part is stated to fit, **exclusions included**. |
+| `GET /compatibility/fitments/verdict` | One part against one car: the `FitmentVerdict` plus every statement it rested on. `makeId` required, the three narrower rungs optional, `year` optional. |
+| `GET /compatibility/vehicles/makes` | The picker's first rung. |
+| `GET /compatibility/vehicles/makes/:makeId/models` | …its second. |
+| `GET /compatibility/vehicles/models/:modelId/generations` | …its third. |
+| `GET /compatibility/vehicles/generations/:generationId/configurations` | …its fourth, optionally narrowed by `year`. |
+
+The rules that are load-bearing, each pinned by
+`services/compatibility/__tests__/compatibility-public-read.realdb.test.ts`:
+
+- **No `applicability`, `applicabilities`, `verification` or `includeUnpublished`
+  parameter exists, and `.strict()` refuses one.** A fitment read narrowed to
+  `applies` answers a confident yes for every vehicle somebody explicitly
+  excluded — the failure the four-valued applicability exists to prevent,
+  arriving through a query string. The repository's `FitmentLookupFilter` accepts
+  those narrowings because a merchandising caller that has already resolved a
+  verdict needs them; a shopper's URL is not that caller.
+- **`disputed` obeys the publication ASYMMETRY rather than escaping it.** A
+  disputed POSITIVE publishes nothing (picking one of two contradicting sources
+  is picking the side that makes a sale); a disputed NEGATIVE is published, as a
+  caution. Two modules used to claim in prose that it published nothing either
+  way while `PUBLISHABLE_NEGATIVE` listed it and nothing tested the sentence.
+  The tuples were right; the comments were wrong, and both are now pinned in both
+  directions.
+- **`truncated` is measured on what the QUERY examined, not on what survived the
+  policy.** The filter runs after the query (the `stale_at` posture), so
+  `rows.length < limit` is no evidence the end was reached. The bound is measured
+  with `limit + 1` and the extra row discarded. Filtering first and comparing the
+  length against the limit reports NOT truncated exactly when the discarded row
+  was one the policy withheld — a page claiming to be complete because part of it
+  was suppressed.
+- **A vehicle named at ANY rung resolves upward.** `findPartialVehicleAncestry`
+  widens from the narrowest id given and re-reads the levels above it, so a
+  generation named under somebody else's model cannot collect that model's
+  statements. The narrower rungs stay `null` — choosing a generation for somebody
+  who named only a model is inventing the question. `answerFitment` previously
+  widened only from a configuration, which left most of the picker's states with
+  no vehicle rows and made the verdict projection drop every statement it was
+  built from: `determined` with an empty evidence list and nothing reporting it.
+- **Mounted unconditionally**, unlike `/price-history` and `/price-signals`. Those
+  publish a derived claim over data production already holds, so a lever is the
+  only way to withdraw one; here the claim is withheld by the publication policy,
+  which is narrower than a mount, and withdrawal is per row through
+  `closeCompatibilityRelation`. A lever would additionally have to default false
+  to preserve today's behaviour, and today's behaviour is that a product page
+  renders no fitment at all.
+- **No analytics event is emitted.** `ANALYTICS_CLIENT_EMITTABLE_EVENT_TYPES` has
+  no compatibility member and `analytics_events.event_type` CHECKs against that
+  tuple, so an emission would be refused at the row. "This shopper asked whether a
+  part fits their car" is also a fact about a person's vehicle.
+- **The domain's five isolation walls now cover the HTTP surface.**
+  `compatibility-isolation.test.ts` enumerated `services/compatibility/`,
+  `db/compatibility/` and the schema file, and carried a comment claiming the
+  domain had no HTTP surface "checked against the tree, not assumed" — **there was
+  no such check**. The enumeration now derives `routes/`, `controllers/` and
+  `middleware/` files named for the domain by the same filename convention, with a
+  floor per layer, and prints its population size on success.
+
+## What the storefront renders
+
+`packages/frontend/lib/api/compatibility.ts` (the read),
+`lib/catalog/compatibility.ts` (the pure partition), `lib/catalog/use-compatibility.ts`
+(the query) and `components/catalog/CompatibilityPanel.tsx` (the rendering), reached
+from `app/(app)/p/[handle].tsx`. Pinned by
+`lib/catalog/__tests__/compatibility.test.ts` in the storefront's own `lib/**`
+runner.
+
+- **An exclusion renders AS an exclusion, and that is the whole of the client
+  half.** The read publishes `does_not_apply` statements with no parameter to
+  remove them, so the burden is entirely on the renderer — and it used to fail:
+  `CompatibilityPanel` printed a flat list of vehicle names under one
+  "Compatibility" heading, so an exclusion read as a fit. `partitionFitment` groups
+  by the statement's own applicability and the panel takes each heading from a
+  `Record` over the whole union, so a fifth applicability fails `tsc` rather than
+  inheriting whichever heading an `else` named. `unknown` has its own group and its
+  own words ("not confirmed"), because "we have no data for your car" is not "this
+  does not fit your car".
+- **`FITMENT_GROUP_POSITION` is a `Record`, never a member array.** The first
+  version re-listed `COMPATIBILITY_APPLICABILITIES` as an ordered array and
+  `validate:storefront-catalog` refused it by name — the hand-relisted-union shape
+  that has already shipped a live bug here. Members are iterated from the shared
+  tuple; only the ORDER is local, and it is deliberately not
+  `COMPATIBILITY_APPLICABILITY_SEVERITY` (that resolves contradicting statements
+  about ONE vehicle; this orders a list of different vehicles).
+- **Two subjects, at most, and the count matters.** Always the product; plus the
+  one configuration IN VIEW — the selected variant, or the product's only variant
+  when it has exactly one. That last clause is not a convenience: the brake-pad
+  reference vertical is "a product with ZERO variant axes, one canonical variant"
+  and attaches its eleven statements to that variant, so without it every one of
+  them is invisible until a shopper selects the only option there is, through a
+  selector the page does not render. With SEVERAL variants and none selected
+  nothing configuration-specific is shown, because a statement about one
+  configuration is not a statement about its siblings. The two sets are disjoint by
+  CHECK, so they concatenate with no deduplication question.
+- **A failed read and an absent fitment are different answers**, checked in that
+  order, so a broken endpoint is never presented as "this part fits nothing". Both
+  render as ABSENCE: a section saying "we do not publish fitment for this product"
+  on every product in the catalogue would be a permanent apology on a page where
+  the vast majority have no fitment relationship at all.
+- **Truncation is ORed across the subjects and surfaced.** A part fitting eleven
+  hundred vehicles is ordinary, and presenting a page as the whole set would tell a
+  shopper their car is absent from a list that simply ends.
+- **The generic RELATION lookup is served and deliberately not called.**
+  `CompatibilityRelationView.target` is a bare id union with no display name — a
+  typed target's localized name is ADR 0007 D4's and the public read resolves none
+  — so a relation fetched here would have nothing renderable in it. Counting them
+  is possible and is not done: "compatible with 4 things" helps nobody. The
+  resolution is what is owed, not the fetch.
+
 ## Seams, each named rather than stubbed
+- **The vehicle picker and the shopper's own verdict.**
+  `GET /compatibility/fitments/verdict` and the four `/compatibility/vehicles/…`
+  rungs are served and the storefront calls neither. That is an interaction rather
+  than a read — a cascading selection, a remembered vehicle, an answer that narrows
+  as the shopper chooses — and when it is built, `resolveFitment` on the SERVER
+  stays the only thing that may produce the verdict; a rule re-derived on the
+  client from the rendered list would be the second implementation the shared
+  resolver exists to prevent.
 - **D6's axis CHECK** (merge-order step 4) — the other wall around the option
   tables.
 - **The localization family** (merge-order step 2) — every display name for a
   vehicle record and a typed target.
 - **Ranking (#74).** A scanned gate keeps this domain out of it: "fits your
   vehicle" is an eligibility fact a shopper asked for, not a weight.
-- **The public and operator HTTP surfaces.** This issue ships the domain, its
-  reads and its gates; the routes belong with the storefront work that renders
-  them.
+- **The OPERATOR surface.** Still absent. A trace by relation id, a verification
+  and a revocation belong on the `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
+  #54/#55/#56 use, not a seventh list.
 - **A vehicle picker's own reference-data import.** `upsertVehicleMake` and its
   three siblings key on the stable machine key and are ready for one; no adapter
-  is registered, so nothing populates the tree today.
+  is registered, so nothing populates the tree today — which is also why the
+  public picker answers empty lists on a real deployment.

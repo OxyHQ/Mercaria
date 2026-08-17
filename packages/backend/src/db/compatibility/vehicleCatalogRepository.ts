@@ -233,3 +233,82 @@ export async function findVehicleAncestry(
     .limit(1);
   return row ?? null;
 }
+
+/** As much of one vehicle as a caller named, with the levels above it filled in. */
+export interface PartialVehicleAncestry {
+  readonly make: VehicleMakeRow | null;
+  readonly model: VehicleModelRow | null;
+  readonly generation: VehicleGenerationRow | null;
+  readonly configuration: VehicleConfigurationRow | null;
+}
+
+/**
+ * Resolve a vehicle from the NARROWEST id a caller named, upwards.
+ *
+ * A shopper part way down the picker has a make, or a make and a model, and no
+ * configuration — so {@link findVehicleAncestry}, which starts at a
+ * configuration, answers `null` for most of the picker's states. This widens
+ * from whichever level was named and reads the levels above it rather than
+ * trusting the caller's copies of them, which is what stops a request naming a
+ * generation under somebody else's model from collecting that model's
+ * statements: the fitment read pairs each SCOPE with its id, so a wrong
+ * `modelId` beside a right `generationId` gathers model-scoped fitments for a
+ * model this generation does not belong to and answers confidently.
+ *
+ * The narrower levels stay `null`. A caller who named a model gets a model and a
+ * make and no generation, because nothing was said about one — and filling one in
+ * would be choosing a generation on their behalf.
+ */
+export async function findPartialVehicleAncestry(
+  ids: {
+    readonly makeId?: string | null;
+    readonly modelId?: string | null;
+    readonly generationId?: string | null;
+    readonly configurationId?: string | null;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<PartialVehicleAncestry> {
+  const empty: PartialVehicleAncestry = {
+    make: null,
+    model: null,
+    generation: null,
+    configuration: null,
+  };
+
+  if (ids.configurationId !== undefined && ids.configurationId !== null) {
+    const ancestry = await findVehicleAncestry(ids.configurationId, db);
+    return ancestry === null ? empty : ancestry;
+  }
+
+  if (ids.generationId !== undefined && ids.generationId !== null) {
+    const [row] = await db
+      .select({ make: vehicleMakes, model: vehicleModels, generation: vehicleGenerations })
+      .from(vehicleGenerations)
+      .innerJoin(vehicleModels, eq(vehicleModels.id, vehicleGenerations.modelId))
+      .innerJoin(vehicleMakes, eq(vehicleMakes.id, vehicleModels.makeId))
+      .where(eq(vehicleGenerations.id, ids.generationId))
+      .limit(1);
+    return row === undefined ? empty : { ...row, configuration: null };
+  }
+
+  if (ids.modelId !== undefined && ids.modelId !== null) {
+    const [row] = await db
+      .select({ make: vehicleMakes, model: vehicleModels })
+      .from(vehicleModels)
+      .innerJoin(vehicleMakes, eq(vehicleMakes.id, vehicleModels.makeId))
+      .where(eq(vehicleModels.id, ids.modelId))
+      .limit(1);
+    return row === undefined ? empty : { ...row, generation: null, configuration: null };
+  }
+
+  if (ids.makeId !== undefined && ids.makeId !== null) {
+    const [row] = await db
+      .select()
+      .from(vehicleMakes)
+      .where(eq(vehicleMakes.id, ids.makeId))
+      .limit(1);
+    return row === undefined ? empty : { ...empty, make: row };
+  }
+
+  return empty;
+}

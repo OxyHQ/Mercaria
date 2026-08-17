@@ -23,14 +23,20 @@
  * `db/schema/compatibility.ts` for why that is the point.
  */
 
-import { and, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type {
   CompatibilityApplicability,
   CompatibilitySubject,
   CompatibilityVerificationState,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { automotiveFitments } from '../schema/compatibility.js';
+import {
+  automotiveFitments,
+  vehicleConfigurations,
+  vehicleGenerations,
+  vehicleMakes,
+  vehicleModels,
+} from '../schema/compatibility.js';
 
 export type AutomotiveFitmentRow = typeof automotiveFitments.$inferSelect;
 export type InsertAutomotiveFitment = typeof automotiveFitments.$inferInsert;
@@ -196,6 +202,78 @@ export async function listFitmentsForSubject(
     .where(and(subjectFilter(subject), openFitmentFilter(filter)))
     .orderBy(automotiveFitments.vehicleMakeId, automotiveFitments.vehicleModelId, automotiveFitments.id)
     .limit(boundedLimit(filter.limit));
+}
+
+/**
+ * One fitment beside the vehicle records it names.
+ *
+ * The three narrower levels are nullable because the scope ladder is: a
+ * make-scoped fitment names a make and nothing below it. `make` is not, because
+ * `vehicle_make_id` is `NOT NULL` on the table.
+ */
+export interface AutomotiveFitmentWithVehicles {
+  readonly fitment: AutomotiveFitmentRow;
+  readonly make: typeof vehicleMakes.$inferSelect;
+  readonly model: typeof vehicleModels.$inferSelect | null;
+  readonly generation: typeof vehicleGenerations.$inferSelect | null;
+  readonly configuration: typeof vehicleConfigurations.$inferSelect | null;
+}
+
+/**
+ * "Which vehicles does this part fit?", with the vehicle rows attached — ONE
+ * statement.
+ *
+ * The joined variant exists because `projectAutomotiveFitment` takes the vehicle
+ * records as an argument rather than looking them up, precisely so a part with
+ * four hundred fitments does not issue four hundred lookups. A caller that
+ * paired {@link listFitmentsForSubject} with a per-row ancestry read would be
+ * that N+1, and it would look correct.
+ *
+ * An INNER join on the make and LEFT joins on the other three, matching the
+ * columns' own nullability. Making all four left joins would compile, return the
+ * same rows today, and silently start emitting a fitment with no make the day a
+ * foreign key was dropped — which is a vehicle-less fitment rendered as a fit.
+ */
+export async function listFitmentsWithVehiclesForSubject(
+  subject: CompatibilitySubject,
+  filter: FitmentLookupFilter = {},
+  db: DatabaseOrTransaction = getDb(),
+): Promise<AutomotiveFitmentWithVehicles[]> {
+  const rows = await db
+    .select({
+      fitment: automotiveFitments,
+      make: vehicleMakes,
+      model: vehicleModels,
+      generation: vehicleGenerations,
+      configuration: vehicleConfigurations,
+    })
+    .from(automotiveFitments)
+    .innerJoin(vehicleMakes, eq(vehicleMakes.id, automotiveFitments.vehicleMakeId))
+    .leftJoin(vehicleModels, eq(vehicleModels.id, automotiveFitments.vehicleModelId))
+    .leftJoin(vehicleGenerations, eq(vehicleGenerations.id, automotiveFitments.vehicleGenerationId))
+    .leftJoin(
+      vehicleConfigurations,
+      eq(vehicleConfigurations.id, automotiveFitments.vehicleConfigurationId),
+    )
+    .where(and(subjectFilter(subject), openFitmentFilter(filter)))
+    // The same ordering `listFitmentsForSubject` uses, so the joined and unjoined
+    // reads of one part cannot present it in two orders. `asc` is written out
+    // rather than left implicit, because the two readers sitting beside each
+    // other is exactly where an unstated default becomes a difference.
+    .orderBy(
+      asc(automotiveFitments.vehicleMakeId),
+      asc(automotiveFitments.vehicleModelId),
+      asc(automotiveFitments.id),
+    )
+    .limit(boundedLimit(filter.limit));
+
+  return rows.map((row) => ({
+    fitment: row.fitment,
+    make: row.make,
+    model: row.model,
+    generation: row.generation,
+    configuration: row.configuration,
+  }));
 }
 
 export async function findFitmentById(

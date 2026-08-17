@@ -237,7 +237,12 @@
       "availabilityUnknown": "この商品の在庫状況は現在表示していません。"
     },
     "compatibility": {
-      "title": "対応情報"
+      "title": "対応情報",
+      "fits": "対応する車種",
+      "partiallyFits": "条件付きで対応",
+      "doesNotFit": "対応しない車種",
+      "notConfirmed": "未確認",
+      "truncated": "一覧の一部を表示しています。"
     },
     "category": {
       "fallbackTitle": "カテゴリー",

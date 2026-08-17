@@ -570,3 +570,83 @@ export interface ProductTypeVersionView {
   readonly fields: readonly ProductTypeFieldSummary[];
   readonly categoryScopes: readonly ProductTypeCategoryScopeSummary[];
 }
+
+/* -------------------------------------------------------------------------- */
+/* The PUBLIC specification layout                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One display group of a specification table.
+ *
+ * A different TYPE from {@link ProductTypeFieldGroupSummary} rather than a
+ * filtered one — the `MerchantOrder` device — because the two answer different
+ * questions and the authoring one carries a row `id`. This carries the group's
+ * stable KEY (D1: identity is a key, never a label), and a serializer that
+ * reached for an id fails `tsc` instead of publishing one.
+ */
+export interface PublicProductTypeSpecificationGroup {
+  readonly key: string;
+  readonly label: string;
+  readonly position: number;
+  /** The attribute keys this group holds, in the version's own layout order. */
+  readonly attributeKeys: readonly string[];
+}
+
+/**
+ * How a product type says its specifications are grouped — the PUBLIC read.
+ *
+ * ## Why it carries no flow, and what that costs
+ *
+ * `product_type_fields` rows are per AUTHORING FLOW: a P2P form is a different,
+ * shorter list from a merchant form, deliberately. A shopper's specification
+ * table must not depend on which form the seller happened to fill in — two
+ * listings of one phone would group their specs differently with nothing saying
+ * why — so this layout is derived across EVERY flow and names none.
+ *
+ * The cost is that two flows can legitimately place one attribute in two
+ * different groups, and nothing in the schema forbids it (the citation trigger
+ * pins `variant_capable` across flows, not `group_id`). Such an attribute is
+ * reported in {@link conflictingAttributeKeys} and is NOT placed — #94's
+ * `conflicting` selection state, applied to a layout: two sources disagree, so
+ * neither is selected, because picking one would make a shopper's spec table a
+ * function of which flow was read first.
+ *
+ * ## An unplaced attribute is not a missing one
+ *
+ * `ungroupedAttributeKeys` is the honest home for both an attribute no flow
+ * grouped and one the flows disagree about. A client renders those rows — under
+ * its own heading, or by entity scope, which is what the storefront does today —
+ * rather than dropping them, because a spec a seller filled in and a shopper
+ * cannot see is worse than an ungrouped one.
+ */
+export interface PublicProductTypeSpecificationLayout {
+  readonly productTypeKey: string;
+  readonly version: number;
+  /** The base-locale name. Localized names are ADR 0007 D4's, never this. */
+  readonly name: string;
+  readonly groups: readonly PublicProductTypeSpecificationGroup[];
+  /** Placed in no group: grouped by no flow, or disagreed about across flows. */
+  readonly ungroupedAttributeKeys: readonly string[];
+  /** The disagreed-about subset of {@link ungroupedAttributeKeys}. */
+  readonly conflictingAttributeKeys: readonly string[];
+}
+
+/**
+ * Five fields no public product-type DTO may declare.
+ *
+ * Stated as VALUES so the prohibition is testable, and gated both statically and
+ * by a walk of a real emitted layout (#92's two-gate rule). Each is an AUTHORING
+ * fact rather than a display one: `requirement` and `valuePolicy` say what a
+ * seller must supply, `visibilityRule` is form logic, `flow` says which form, and
+ * a row `id` is an identity D1 assigns to the key instead. A shopper reading a
+ * spec table needs none of them, and `visibilityRule` in particular is a
+ * conditional expression over other fields — publishing it would put the
+ * authoring form's branching on a product page.
+ */
+export const PUBLIC_PRODUCT_TYPE_FORBIDDEN_LAYOUT_FIELDS: readonly string[] = [
+  'id',
+  'flow',
+  'requirement',
+  'valuePolicy',
+  'visibilityRule',
+];

@@ -19,20 +19,30 @@
 import type {
   AutomotiveFitmentView,
   CompatibilityConditionKind,
+  CompatibilityLookupDirection,
+  CompatibilityRelationsView,
   CompatibilityRelationView,
   CompatibilitySubject,
   CompatibilityTarget,
   FitmentQualifier,
+  FitmentVerdictView,
+  PartFitmentsView,
+  VehicleCatalogLevel,
+  VehicleCatalogLevelView,
   VehicleReferenceView,
 } from '@mercaria/shared-types';
 import type { CompatibilityRelationRow } from '../../db/compatibility/compatibilityRelationRepository.js';
-import type { AutomotiveFitmentRow } from '../../db/compatibility/automotiveFitmentRepository.js';
+import type {
+  AutomotiveFitmentRow,
+  AutomotiveFitmentWithVehicles,
+} from '../../db/compatibility/automotiveFitmentRepository.js';
 import type {
   VehicleConfigurationRow,
   VehicleGenerationRow,
   VehicleMakeRow,
   VehicleModelRow,
 } from '../../db/compatibility/vehicleCatalogRepository.js';
+import type { FitmentAnswer } from './fitment.service.js';
 
 /**
  * The subject, as a union.
@@ -151,4 +161,114 @@ export function projectAutomotiveFitment(
     verification: row.verification,
     verificationMethod: row.verificationMethod,
   };
+}
+
+// ---------------------------------------------------------------------------
+// The response envelopes (#367 step 8's public read surface)
+// ---------------------------------------------------------------------------
+
+/**
+ * One page of relations, in the direction that was actually asked.
+ *
+ * `lookup` is passed IN by the caller that chose the read rather than derived
+ * from the rows, and that is the point: a page of zero relations carries no
+ * evidence of which question produced it, so deriving the direction from the
+ * rows would leave an empty forward read indistinguishable from an empty reverse
+ * one — and the two mean opposite things on a product page ("this fits nothing
+ * we know of" versus "nothing we know of fits this").
+ */
+export function projectCompatibilityRelations(
+  lookup: CompatibilityLookupDirection,
+  rows: readonly CompatibilityRelationRow[],
+  examinedLimit: number,
+  truncated: boolean,
+): CompatibilityRelationsView {
+  return {
+    lookup,
+    relations: rows.map(projectCompatibilityRelation),
+    examinedLimit,
+    truncated,
+  };
+}
+
+/** The vehicles one part is stated to fit — exclusions included, by design. */
+export function projectPartFitments(
+  subject: CompatibilitySubject,
+  rows: readonly AutomotiveFitmentWithVehicles[],
+  examinedLimit: number,
+  truncated: boolean,
+): PartFitmentsView {
+  return {
+    subject,
+    // Each row already carries its own vehicle records, so this is a map and not
+    // a lookup — the N+1 `projectAutomotiveFitment`'s own docblock warns about is
+    // absent here because the repository joined instead.
+    fitments: rows.map((row) => projectAutomotiveFitment(row.fitment, row)),
+    examinedLimit,
+    truncated,
+  };
+}
+
+/**
+ * "Does this fit?" — the verdict, the car it is about, and the statements behind
+ * it.
+ *
+ * The verdict is copied from {@link FitmentAnswer} and never recomputed here.
+ * `resolveFitment` in `@mercaria/shared-types` is the one authority, and a
+ * projection that re-derived it from `statements` would be the second
+ * implementation the whole arrangement exists to prevent — agreeing on every
+ * ordinary case and disagreeing exactly where two sources contradict each other.
+ *
+ * The statements are projected with the resolved ancestry as their vehicle
+ * context, which is correct at EVERY scope: a make-scoped statement's model,
+ * generation and configuration are NULL on the row, and
+ * `projectAutomotiveFitment` reads the row's own scope-appropriate ids through
+ * `AutomotiveFitmentView`'s nullable members rather than assuming the context
+ * describes the statement. What the context supplies is the NAMES.
+ */
+export function projectFitmentVerdict(
+  subject: CompatibilitySubject,
+  answer: FitmentAnswer,
+  year: number | null,
+): FitmentVerdictView {
+  const make = answer.vehicle.make;
+  return {
+    subject,
+    vehicle: {
+      make: make === null ? null : projectVehicleReference(make),
+      model: answer.vehicle.model === null ? null : projectVehicleReference(answer.vehicle.model),
+      generation:
+        answer.vehicle.generation === null
+          ? null
+          : projectVehicleReference(answer.vehicle.generation),
+      configuration:
+        answer.vehicle.configuration === null
+          ? null
+          : projectVehicleReference(answer.vehicle.configuration),
+    },
+    year,
+    verdict: answer.verdict,
+    // A statement whose make row was not resolved is DROPPED rather than emitted
+    // with an invented one, because `AutomotiveFitmentView.make` is not nullable
+    // and a view that could not name the make would have to put something there.
+    //
+    // It is unreachable, and written out anyway because the reason it is
+    // unreachable lives in another module: `automotive_fitments.vehicle_make_id`
+    // is NOT NULL with a foreign key, and the service resolves the make row
+    // BEFORE the query — so `make === null` means no such make exists, and a
+    // fitment referencing a make that does not exist cannot be stored. If that
+    // ever changes, this drops rows instead of publishing a fit for a car it
+    // cannot name.
+    statements: answer.statements.flatMap((row) =>
+      make === null ? [] : [projectAutomotiveFitment(row, { ...answer.vehicle, make })],
+    ),
+  };
+}
+
+/** One rung of the vehicle picker. Identity plus base name, whatever the rung. */
+export function projectVehicleCatalogLevel(
+  level: VehicleCatalogLevel,
+  rows: readonly (VehicleMakeRow | VehicleModelRow | VehicleGenerationRow | VehicleConfigurationRow)[],
+): VehicleCatalogLevelView {
+  return { level, vehicles: rows.map(projectVehicleReference) };
 }

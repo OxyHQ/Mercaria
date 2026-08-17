@@ -51,6 +51,7 @@ import {
 import { isUniqueViolation } from '@oxyhq/db';
 import {
   findListingById,
+  findListingCategoryPathsPage,
   findListingChildren,
   findListingHandleOwner,
   insertListing,
@@ -64,7 +65,7 @@ import {
   type ListingSourceProvenance,
 } from '../db/catalog/listingRepository.js';
 import { recordPinReleases } from '../db/catalog/pinReleaseRepository.js';
-import { getDb } from '../db/postgres.js';
+import { getDb, type DatabaseOrTransaction } from '../db/postgres.js';
 import {
   assertConditionAllowed,
   conditionColumnsFor,
@@ -87,7 +88,11 @@ import {
   type VariantSourceProvenance,
 } from '../db/catalog/variantRepository.js';
 import { insertLevels, setLevelAvailable } from '../db/catalog/inventoryLevelRepository.js';
-import { findCategoryBySlug } from '../db/catalog/categoryRepository.js';
+import {
+  findCategoryBySlug,
+  findCategorySubtreePaths,
+  type CategoryPathFacts,
+} from '../db/catalog/categoryRepository.js';
 import { findDefaultLocationId } from '../db/stores/locationRepository.js';
 import { adjustStoreProductCount } from '../db/stores/storeRepository.js';
 import { config } from '../config/index.js';
@@ -148,6 +153,28 @@ export async function recomputeVariantScalarFromLevels(variantId: string): Promi
   await recomputeVariantRollup(variantId);
 }
 
+/**
+ * A category's denormalized browse path — `[ancestor…, slug]`, root first.
+ *
+ * The ONE spelling this service uses, read by both the write resolver below and
+ * the re-derivation entry point. Two copies of `[...ancestorSlugs, slug]` in one
+ * module is how the value written at create time and the value repaired later
+ * start disagreeing — and the disagreement is invisible, because both produce a
+ * plausible path.
+ *
+ * `services/catalog-backfill/classification.ts` has its own `derivedCategoryPath`
+ * and is deliberately NOT imported here: that module's purity gate forbids it
+ * reaching a service, and importing it in this direction would make the request
+ * write path depend on the backfill domain. The two are pinned by their own tests
+ * against real stored rows, so a divergence fails a suite rather than shipping.
+ */
+function categoryBrowsePath(category: {
+  readonly slug: string;
+  readonly ancestorSlugs: readonly string[];
+}): string[] {
+  return [...category.ancestorSlugs, category.slug];
+}
+
 /** Resolve a category slug to its id + denormalized `[ancestor..., slug]` path. */
 async function resolveCategory(
   slug: string,
@@ -158,7 +185,166 @@ async function resolveCategory(
   }
   return {
     categoryId: category.id,
-    categorySlugs: [...category.ancestorSlugs, category.slug],
+    categorySlugs: categoryBrowsePath(category),
+  };
+}
+
+/** What one re-derivation pass read and what it changed. */
+export interface CategoryPathRederivation {
+  /** The category the pass was asked about. */
+  readonly categoryId: string;
+  /** How many categories the subtree turned out to hold, including the subject. */
+  readonly categoriesInSubtree: number;
+  readonly scannedListings: number;
+  readonly pathsAgreed: number;
+  readonly pathsRewritten: number;
+  readonly pathsCleared: number;
+  /**
+   * `true` when the bound was reached with listings still unvisited.
+   *
+   * Reported rather than hidden, and it is the figure an operator has to read: the
+   * remaining listings keep the path they were written with, which is exactly the
+   * state this pass exists to correct. `bun src/scripts/backfill-catalog-paths.ts
+   * --apply` finishes the job, and it converges because the value is a pure
+   * function of two rows that are still there.
+   */
+  readonly incomplete: boolean;
+}
+
+/**
+ * How many listings ONE governed taxonomy change may re-derive inline.
+ *
+ * A bound rather than a full pass, because this runs inside the transaction that
+ * moved the taxonomy (see {@link rederiveCategoryBrowsePaths}) and an unbounded
+ * loop would hold row locks on a subtree of arbitrary size — so a rename of a
+ * top-level category would be a taxonomy edit that times out, and the remedy
+ * somebody reaches for is to stop calling the repair.
+ *
+ * A module constant rather than an environment variable: a deployment tuning this
+ * up is choosing a longer lock hold in a governance transaction, which is not a
+ * decision to leave in a config file. Deliberately generous enough that an
+ * ordinary leaf rename completes in one pass.
+ */
+const MAX_INLINE_CATEGORY_PATH_REDERIVATIONS = 2_000;
+
+/**
+ * Re-derive `listings.category_slugs` for one category's whole subtree.
+ *
+ * ## Why this exists, and why it is here
+ *
+ * `resolveCategory` denormalizes the path at WRITE time and, until this function,
+ * nothing re-derived it — so a category rename left every listing beneath it
+ * carrying the old ancestor path, and five services filter on that path.
+ * `catalog-governance/apply.ts` recorded the gap honestly rather than adding a
+ * second writer of `listings`; this is the entry point that closes it, on the
+ * service that already owns the derivation and already calls the sanctioned
+ * writer. There is still exactly one funnel.
+ *
+ * ## It MUST run inside the caller's transaction, and that is why it is bounded
+ *
+ * The value is derived from the taxonomy the caller just rewrote. Read on a second
+ * connection it would see the PRE-change ancestry — because the caller has not
+ * committed — and would confidently rewrite every listing's path to the value it
+ * already had. So the handle is not optional, and being inside somebody's
+ * transaction is what makes an unbounded pass unacceptable: hence
+ * {@link MAX_INLINE_CATEGORY_PATH_REDERIVATIONS} and `incomplete`.
+ *
+ * ## Idempotent, and it destroys nothing
+ *
+ * A listing whose stored path already equals the derivation is not written at all.
+ * A listing with no category has its path CLEARED, because a path without a
+ * category is a browse filter matching a category the listing is not in. The
+ * `category_id` itself is never touched: re-pointing a listing whose category was
+ * merged overwrites a value that then exists nowhere, which needs a durable record
+ * before it can be reversible — `docs/catalog-backfill.md` §"The repair this
+ * domain does not perform" says what that record would be.
+ *
+ * One declared side effect: `updateListingColumns` stamps `updated_at`, so a
+ * repaired listing gets a fresh modification time and a fresh sitemap `lastmod`.
+ * The browse path genuinely changed, and routing around the sanctioned writer to
+ * avoid the stamp is precisely what the listing chokepoint census exists to
+ * prevent.
+ */
+export async function rederiveCategoryBrowsePaths(
+  tx: DatabaseOrTransaction,
+  categoryId: string,
+  maxListings: number = MAX_INLINE_CATEGORY_PATH_REDERIVATIONS,
+): Promise<CategoryPathRederivation> {
+  const subtree = await findCategorySubtreePaths(categoryId, tx);
+  const byId = new Map<string, CategoryPathFacts>();
+  for (const category of subtree) byId.set(category.id, category);
+
+  let scannedListings = 0;
+  let pathsAgreed = 0;
+  let pathsRewritten = 0;
+  let pathsCleared = 0;
+  let afterListingId: string | null = null;
+  let incomplete = false;
+
+  // Paged rather than one statement, so the memory a governance apply holds is a
+  // page and not a subtree. The page size is the smaller of the remaining budget
+  // and a fixed page, so the last page cannot overshoot the bound.
+  const pageSize = 200;
+  for (;;) {
+    const remaining = maxListings - scannedListings;
+    if (remaining <= 0) {
+      // Whether anything is actually left is a separate question from having hit
+      // the bound, so it is asked rather than assumed: a subtree of exactly
+      // `maxListings` listings is COMPLETE, and reporting it as incomplete would
+      // send an operator to run a repair pass with nothing to do.
+      const probe = await findListingCategoryPathsPage(
+        [...byId.keys()],
+        { afterListingId, limit: 1 },
+        tx,
+      );
+      incomplete = probe.length > 0;
+      break;
+    }
+    const page = await findListingCategoryPathsPage(
+      [...byId.keys()],
+      { afterListingId, limit: Math.min(pageSize, remaining) },
+      tx,
+    );
+    if (page.length === 0) break;
+
+    for (const listing of page) {
+      scannedListings += 1;
+      afterListingId = listing.id;
+      const category = listing.categoryId === null ? undefined : byId.get(listing.categoryId);
+      const derived = category === undefined ? [] : categoryBrowsePath(category);
+      if (
+        derived.length === listing.categorySlugs.length &&
+        derived.every((slug, index) => slug === listing.categorySlugs[index])
+      ) {
+        pathsAgreed += 1;
+        continue;
+      }
+      await updateListingColumns(listing.id, { categorySlugs: derived }, tx);
+      if (derived.length === 0) pathsCleared += 1;
+      else pathsRewritten += 1;
+    }
+  }
+
+  // The vacuity floor, as an EQUALITY: every row read must land in exactly one
+  // outcome. A pass that swallowed a listing would otherwise report a smaller
+  // repair that looks exactly like a smaller subtree.
+  const accounted = pathsAgreed + pathsRewritten + pathsCleared;
+  if (accounted !== scannedListings) {
+    throw new Error(
+      `category path re-derivation: ${String(scannedListings)} listing(s) were read and ` +
+        `${String(accounted)} outcome(s) recorded. A row was swallowed; the report is not ` +
+        'trustworthy.',
+    );
+  }
+
+  return {
+    categoryId,
+    categoriesInSubtree: subtree.length,
+    scannedListings,
+    pathsAgreed,
+    pathsRewritten,
+    pathsCleared,
+    incomplete,
   };
 }
 

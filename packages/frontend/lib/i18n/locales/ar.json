@@ -237,7 +237,12 @@
       "availabilityUnknown": "لا يُعرض التوفّر لهذا المنتج حاليًا."
     },
     "compatibility": {
-      "title": "التوافق"
+      "title": "التوافق",
+      "fits": "يتوافق مع هذه المركبات",
+      "partiallyFits": "يتوافق بشروط",
+      "doesNotFit": "لا يتوافق مع هذه المركبات",
+      "notConfirmed": "غير مؤكد",
+      "truncated": "يتم عرض جزء من قائمة أطول."
     },
     "category": {
       "fallbackTitle": "الفئة",

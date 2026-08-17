@@ -31,6 +31,8 @@ import type {
   ProductTypeFieldGroupSummary,
   ProductTypeFieldSummary,
   ProductTypeVersionView,
+  PublicProductTypeSpecificationGroup,
+  PublicProductTypeSpecificationLayout,
 } from '@mercaria/shared-types';
 import { PRODUCT_TYPE_AUTHORING_FLOWS, PRODUCT_TYPE_EDITABLE_LIFECYCLES } from '@mercaria/shared-types';
 import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';
@@ -44,6 +46,7 @@ import {
   listProductTypeCategoryScopes,
   listProductTypeFieldGroups,
   listProductTypeFields,
+  listProductTypeFieldsForEveryFlow,
   type ProductTypeCategoryScopeRow,
   type ProductTypeFieldGroupRow,
   type ProductTypeFieldRow,
@@ -307,4 +310,125 @@ export async function resolveProductTypeVersionView(
     fields: fields.map(toFieldSummary),
     categoryScopes: scopes.map(toScopeSummary),
   };
+}
+
+/**
+ * Derive the public specification layout from a version's groups and its fields
+ * across every flow.
+ *
+ * PURE, and exported so the rule is testable without a server. The rule, in full:
+ *
+ * 1. An attribute placed in the SAME group by every flow that mentions it is put
+ *    in that group.
+ * 2. An attribute placed in DIFFERENT groups by two flows is placed in NEITHER and
+ *    named in `conflictingAttributeKeys`. A flow that leaves it ungrouped
+ *    (`group_id` NULL) is a disagreement too, because "this belongs in Display"
+ *    and "this belongs nowhere" are two different statements about one attribute
+ *    — and resolving it toward the group would mean the P2P form's deliberately
+ *    shorter list silently decided the merchant form's layout.
+ * 3. An attribute no flow groups is ungrouped, and not a conflict.
+ * 4. Within a group, keys keep the version's own layout order — the row ordering
+ *    the repository applied — with the attribute key as the tie-break so two flows
+ *    stating the same position produce one stable order rather than whichever row
+ *    the planner returned first.
+ * 5. A group holding nothing is still EMITTED. An empty "Battery" section is a
+ *    fact about the schema, and a client deciding whether to render a heading with
+ *    no rows is a display decision; dropping it here would make "this type has no
+ *    battery attributes" indistinguishable from "no group by that name exists".
+ */
+export function deriveSpecificationLayout(
+  definition: ProductTypeDefinitionRow,
+  groups: readonly ProductTypeFieldGroupRow[],
+  fields: readonly ProductTypeFieldRow[],
+): PublicProductTypeSpecificationLayout {
+  const groupKeyById = new Map<string, string>();
+  for (const group of groups) groupKeyById.set(group.id, group.key);
+
+  /** attribute key → the group keys the flows placed it in, `null` for none. */
+  const placements = new Map<string, Set<string | null>>();
+  /** attribute key → its earliest layout position, for rule 4. */
+  const firstPosition = new Map<string, number>();
+
+  for (const field of fields) {
+    const placement =
+      field.groupId === null ? null : (groupKeyById.get(field.groupId) ?? null);
+    const seen = placements.get(field.attributeKey) ?? new Set<string | null>();
+    seen.add(placement);
+    placements.set(field.attributeKey, seen);
+    const known = firstPosition.get(field.attributeKey);
+    if (known === undefined || field.position < known) {
+      firstPosition.set(field.attributeKey, field.position);
+    }
+  }
+
+  const byGroupKey = new Map<string, string[]>();
+  for (const group of groups) byGroupKey.set(group.key, []);
+  const ungrouped: string[] = [];
+  const conflicting: string[] = [];
+
+  for (const [attributeKey, seen] of placements) {
+    if (seen.size > 1) {
+      conflicting.push(attributeKey);
+      ungrouped.push(attributeKey);
+      continue;
+    }
+    const [only] = [...seen];
+    if (only === null || only === undefined) {
+      ungrouped.push(attributeKey);
+      continue;
+    }
+    const bucket = byGroupKey.get(only);
+    if (bucket === undefined) {
+      // A `group_id` pointing at a row that is not in `groups` — impossible while
+      // the foreign key stands, and reported as ungrouped rather than dropped so
+      // the attribute still reaches a shopper if it ever happens.
+      ungrouped.push(attributeKey);
+      continue;
+    }
+    bucket.push(attributeKey);
+  }
+
+  const order = (left: string, right: string): number => {
+    const byPosition = (firstPosition.get(left) ?? 0) - (firstPosition.get(right) ?? 0);
+    return byPosition !== 0 ? byPosition : left.localeCompare(right);
+  };
+
+  const projected: PublicProductTypeSpecificationGroup[] = groups.map((group) => ({
+    key: group.key,
+    label: group.label,
+    position: group.position,
+    attributeKeys: (byGroupKey.get(group.key) ?? []).sort(order),
+  }));
+
+  return {
+    productTypeKey: definition.key,
+    version: definition.version,
+    name: definition.name,
+    groups: projected,
+    ungroupedAttributeKeys: ungrouped.sort(order),
+    conflictingAttributeKeys: conflicting.sort(order),
+  };
+}
+
+/**
+ * The published version of one product type, as a shopper's specification table
+ * groups it.
+ *
+ * `findPublishedProductTypeDefinition` and never "the newest of the published
+ * ones": `product_type_definitions_one_published_per_key` makes that a lookup
+ * rather than a query with a bug in it. A key with no published version answers
+ * `null` — a DRAFT layout is not a public fact, and serving one would publish a
+ * grouping nobody approved.
+ */
+export async function readPublicSpecificationLayout(
+  db: DatabaseOrTransaction,
+  productTypeKey: string,
+): Promise<PublicProductTypeSpecificationLayout | null> {
+  const definition = await findPublishedProductTypeDefinition(db, productTypeKey);
+  if (definition === null) return null;
+  const [groups, fields] = await Promise.all([
+    listProductTypeFieldGroups(db, definition.id),
+    listProductTypeFieldsForEveryFlow(db, definition.id),
+  ]);
+  return deriveSpecificationLayout(definition, groups, fields);
 }

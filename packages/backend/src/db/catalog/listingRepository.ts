@@ -1329,6 +1329,57 @@ export async function findListingsBySourceConnection(
     );
 }
 
+/** One listing's stored browse path, beside the category it was derived from. */
+export interface ListingCategoryPathRow {
+  readonly id: string;
+  readonly categoryId: string | null;
+  readonly categorySlugs: readonly string[];
+}
+
+/**
+ * A keyset page of the listings filed under any of these categories, with just
+ * their stored browse path.
+ *
+ * Three columns and nothing else, because the caller re-derives one denormalized
+ * projection and has no business seeing the rest of a listing — and because this
+ * page is read for every governed taxonomy change, so its width is paid on each
+ * one.
+ *
+ * Keyset on `id` rather than an offset: the pass it feeds runs inside the
+ * transaction that just moved the taxonomy, so it must be resumable across calls
+ * without re-reading what it has already written, and an offset drifts as rows are
+ * updated. An empty `categoryIds` returns nothing rather than everything —
+ * `inArray` with an empty list is a predicate that matches no row, which is the
+ * correct reading of "repair the listings under these zero categories" and the
+ * dangerous one to get backwards.
+ */
+export async function findListingCategoryPathsPage(
+  categoryIds: readonly string[],
+  input: { readonly afterListingId: string | null; readonly limit: number },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingCategoryPathRow[]> {
+  if (categoryIds.length === 0) return [];
+  const predicates: SQL[] = [inArray(listings.categoryId, [...categoryIds])];
+  if (input.afterListingId !== null) {
+    predicates.push(sql`${listings.id} > ${input.afterListingId}`);
+  }
+  const rows = await db
+    .select({
+      id: listings.id,
+      categoryId: listings.categoryId,
+      categorySlugs: listings.categorySlugs,
+    })
+    .from(listings)
+    .where(and(...predicates))
+    .orderBy(asc(listings.id))
+    .limit(input.limit);
+  return rows.map((row) => ({
+    id: row.id,
+    categoryId: row.categoryId,
+    categorySlugs: row.categorySlugs ?? [],
+  }));
+}
+
 /** Every listing id of a store, whatever its status — the store-wide review roll-up. */
 export async function findListingIdsByStore(
   storeId: string,
