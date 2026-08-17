@@ -461,7 +461,10 @@ file created.
 
 Because all ten are `pre` — which `db/migrate.ts:46-58` defines as additive only,
 applied **before** the rollout while the previous image is still serving — a
-rewrite here would have corrupted live history. None does.
+rewrite here would have corrupted live history. None does. **Vacuity control on
+that "all ten":** nine other migrations in `drizzle/` carry
+`-- oxy:deploy-phase=post`, so `pre` is a value this field genuinely varies over
+rather than the only one it can take.
 
 ### The property — partial, and the boundary is worth knowing exactly
 
