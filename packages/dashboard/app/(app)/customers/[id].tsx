@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, User } from "lucide-react-native";
 import type { Customer, OrderSummary } from "@mercaria/shared-types";
-import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, formatDate, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
 import { OrderStatusBadge } from "@/components/orders/OrderStatusBadge";
@@ -130,6 +130,7 @@ function CustomerCard({ customer, name }: { customer: Customer; name: string }) 
 }
 
 function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
+  const { locale } = useTranslation();
   return (
     <Pressable
       onPress={onPress}
@@ -137,8 +138,11 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
     >
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
+        {/* The date stands alone under the order number, so an unformattable
+            one renders nothing rather than "Invalid Date" — which is what the
+            replaced expression produced, untranslated, in all twelve locales. */}
         <Text className="text-xs text-muted-foreground">
-          {new Date(order.createdAt).toLocaleDateString()}
+          {formatDate(order.createdAt, locale)}
         </Text>
       </View>
       <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-sm font-semibold" />

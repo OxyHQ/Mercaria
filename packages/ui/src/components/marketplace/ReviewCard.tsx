@@ -3,6 +3,8 @@ import { Image } from "expo-image";
 import type { Review } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { ReviewStars } from "./ReviewStars";
+import { useSharedUiLocale } from "../../i18n/ui-translation";
+import { formatDate } from "../../lib/date";
 
 /** Star edge length (px) inside a review card. */
 const REVIEW_STAR_SIZE = 14;
@@ -37,11 +39,8 @@ export interface ReviewCardProps {
  * the canonical `name.displayName` author identity directly (no recomputation).
  */
 export function ReviewCard({ review, scopeLabel }: ReviewCardProps) {
-  const date = new Date(review.createdAt).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const locale = useSharedUiLocale();
+  const date = formatDate(review.createdAt, locale);
   const author = review.author?.displayName ?? FALLBACK_AUTHOR;
 
   return (
@@ -81,8 +80,12 @@ export function ReviewCard({ review, scopeLabel }: ReviewCardProps) {
             />
           ) : null}
         </View>
+        {/* The footer is "author · date", so an unformattable timestamp drops
+            the date and its separator rather than rendering `null` beside a
+            name. `formatDate` returns null only for a value that is not a date
+            at all. */}
         <Text numberOfLines={1} className="flex-1 text-caption text-text-tertiary">
-          {`${author} · ${date}`}
+          {date === null ? author : `${author} · ${date}`}
         </Text>
       </View>
     </View>

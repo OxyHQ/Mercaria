@@ -9,6 +9,7 @@ import {
   ORDER_PICKUP_STATE_KEYS,
   PICKUP_IDENTITY_REQUIREMENT_KEYS,
   Text,
+  formatDateTime,
   formatPublicAddress,
 } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
@@ -69,7 +70,7 @@ const EVENT_TEXT_KEYS: Record<PickupCollectionEventKind, string> = {
 };
 
 export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId: string }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const desk = useOrderPickup(storeId, orderId);
   const act = usePickupDeskAction(storeId, orderId);
   const rotate = useRotateCollectionCode(storeId, orderId);
@@ -269,12 +270,19 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
         {events.length === 0 ? (
           <Text className="text-xs text-muted-foreground">{t("orders.pickup.trailEmpty")}</Text>
         ) : (
-          events.map((event) => (
-            <Text key={event.id} className="text-xs text-muted-foreground">
-              {new Date(event.occurredAt).toLocaleString()} · {t(EVENT_TEXT_KEYS[event.kind])}
-              {event.reason === undefined ? "" : ` · ${event.reason}`}
-            </Text>
-          ))
+          events.map((event) => {
+            // The event text is a complete phrase on its own, so an
+            // unformattable instant drops the timestamp AND its separator
+            // rather than leaving a dangling middot (#529).
+            const when = formatDateTime(event.occurredAt, locale);
+            return (
+              <Text key={event.id} className="text-xs text-muted-foreground">
+                {when === null ? null : `${when} · `}
+                {t(EVENT_TEXT_KEYS[event.kind])}
+                {event.reason === undefined ? "" : ` · ${event.reason}`}
+              </Text>
+            );
+          })
         )}
       </View>
     </View>

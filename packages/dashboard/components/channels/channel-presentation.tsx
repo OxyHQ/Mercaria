@@ -31,7 +31,7 @@ import type {
   ConnectorWebhookFailureReason,
 } from "@mercaria/shared-types";
 import { CONNECTOR_WEBHOOK_UNRETRYABLE_FAILURE_REASONS } from "@mercaria/shared-types";
-import { Text, useColorScheme, type Translate } from "@mercaria/ui";
+import { Text, formatDate, formatDateTime, useColorScheme, type Translate } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -321,7 +321,11 @@ export function ChannelCoverage({
  * granted to an APP on Shopify's written approval, so the action is Mercaria's
  * and asking the merchant for it would send them somewhere they cannot go.
  */
-export function describeOrderHorizon(horizon: ChannelOrderHorizon, t: Translate): string | null {
+export function describeOrderHorizon(
+  horizon: ChannelOrderHorizon,
+  t: Translate,
+  locale: string,
+): string | null {
   switch (horizon.kind) {
     case "complete":
       return null;
@@ -330,11 +334,14 @@ export function describeOrderHorizon(horizon: ChannelOrderHorizon, t: Translate)
     case "unknown":
       return t("channels.orderHorizon.unknown");
     case "bounded": {
-      const before = new Date(Date.now() - horizon.days * 24 * 60 * 60 * 1000);
-      return t("channels.orderHorizon.bounded", {
-        count: horizon.days,
-        before: before.toLocaleDateString(),
-      });
+      // The locale is REQUIRED (#529): `toLocaleDateString()` with none renders
+      // the cut-off in the DEVICE's language inside a merchant's sentence. The
+      // sentence NAMES that date, so an unformattable one answers `null` — which
+      // this function's `complete` branch already returns and every caller
+      // already handles — rather than interpolating a null.
+      const before = formatDate(Date.now() - horizon.days * 24 * 60 * 60 * 1000, locale);
+      if (before === null) return null;
+      return t("channels.orderHorizon.bounded", { count: horizon.days, before });
     }
   }
 }
@@ -351,12 +358,18 @@ export const CHANNEL_TYPE_NAME_KEYS: Record<ChannelTypeId, string> = {
   native: "channels.type.native",
 };
 
-/** A timestamp a merchant can read, or an honest absence. */
-export function formatWhen(iso: string | undefined, absent: string): string {
+/**
+ * A timestamp a merchant can read, or an honest absence.
+ *
+ * The locale is a REQUIRED parameter (#529): `toLocaleString()` with none
+ * rendered every one of this helper's nine call sites in the DEVICE's language.
+ * `formatDateTime` answers `null` for a value that is not a date, so the
+ * unparseable case reaches the SAME `absent` copy the missing case already does
+ * — the caller supplies it and nothing here invents one.
+ */
+export function formatWhen(iso: string | undefined, absent: string, locale: string): string {
   if (!iso) return absent;
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return absent;
-  return when.toLocaleString();
+  return formatDateTime(iso, locale) ?? absent;
 }
 
 /**
@@ -447,6 +460,7 @@ export function deriveWebhookDelivery(
   connection: Connection,
   providerName: string,
   t: Translate,
+  locale: string,
   now: Date = new Date(),
 ): WebhookDeliveryPresentation {
   const failures = connection.webhookFailures ?? [];
@@ -489,7 +503,7 @@ export function deriveWebhookDelivery(
     const dueNow = t("channels.webhooks.dueNow");
     const due =
       scheduled !== undefined && new Date(scheduled).getTime() > now.getTime()
-        ? formatWhen(scheduled, dueNow)
+        ? formatWhen(scheduled, dueNow, locale)
         : dueNow;
     return {
       state: "retrying",

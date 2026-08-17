@@ -233,9 +233,11 @@ const OWNERS = [
     // gone it compares nothing and reports clean. Eleven of the registry's
     // twelve locales; `ar` waits on the layout mirroring (#434).
     minimumLocales: 11,
-    // H (#488): the dashboard's own residual, pinned rather than fixed — see
-    // the note on the `ui` owner below.
-    deviceLocaleFormatSites: 13,
+    // H (#488): ZERO, as of #529. Every date on this app now names the app's
+    // locale, so a reintroduced bare `toLocaleDateString()` fails here rather
+    // than waiting for a merchant to notice an English date in a German
+    // sentence.
+    deviceLocaleFormatSites: 0,
   },
   {
     name: "pos",
@@ -250,8 +252,8 @@ const OWNERS = [
     // Measured: 8 and 11.
     minimumControlLabelKeys: 4,
     minimumInterpolatedKeys: 4,
-    // H (#488): the POS's own residual, pinned rather than fixed.
-    deviceLocaleFormatSites: 1,
+    // H (#488): ZERO, as of #529 — see the dashboard owner's note above.
+    deviceLocaleFormatSites: 0,
   },
   {
     name: "ui",
@@ -307,11 +309,12 @@ const OWNERS = [
     // decides.
     minimumKeys: 300,
     minimumLocales: 12,
-    // H (#488): NOT fixed here, and pinned so the number cannot drift. #488 is
-    // scoped to the storefront; these four are the shared components' own
-    // residual and are owed a follow-up. `formatDate` lives in THIS package, so
-    // closing them is an import away — lower this number in the same change.
-    deviceLocaleFormatSites: 4,
+    // H (#488): ZERO, as of #529. `formatDate` lives in THIS package, so the
+    // four shared-component sites #488 left were an import away; they now take
+    // the locale from `useSharedUiLocale()`, which is the same value the apps
+    // feed the provider. All four owners are at zero, so H is now a pure
+    // regression gate rather than a residual ledger.
+    deviceLocaleFormatSites: 0,
   },
 ];
 

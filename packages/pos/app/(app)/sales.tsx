@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronRight } from "lucide-react-native";
 import type { OrderSummary } from "@mercaria/shared-types";
-import { Text, Button, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Text, Button, PriceDisplay, formatDateTime, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -82,22 +82,16 @@ function Sales({ storeId }: { storeId: string }) {
   );
 }
 
-/** Format an ISO timestamp to a short, locale-aware date-time label. */
-function formatCreatedAt(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function OrderRow({ order, storeId }: { order: OrderSummary; storeId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  // Replaces a local `formatCreatedAt` that called `toLocaleString()` with no
+  // locale, so the timestamp rendered in the DEVICE's language inside a sentence
+  // in the app's (#529). `@mercaria/ui` owns date formatting, and this app keeps
+  // no copy of it.
+  const when = formatDateTime(order.createdAt, locale);
+  const status = t(ORDER_STATUS_LABEL_KEYS[order.status]);
 
   return (
     <Pressable
@@ -108,11 +102,12 @@ function OrderRow({ order, storeId }: { order: OrderSummary; storeId: string }) 
     >
       <View className="flex-1">
         <Text className="text-base font-semibold text-foreground">{order.orderNumber}</Text>
+        {/* `sales.rowMeta` NAMES the timestamp, so with no renderable one the
+            status stands alone — it is already a complete translated phrase —
+            rather than interpolating a null, which i18n-js renders as the
+            literal `[missing "%{when}" value]`. */}
         <Text className="text-xs text-muted-foreground">
-          {t("sales.rowMeta", {
-            when: formatCreatedAt(order.createdAt),
-            status: t(ORDER_STATUS_LABEL_KEYS[order.status]),
-          })}
+          {when === null ? status : t("sales.rowMeta", { when, status })}
         </Text>
       </View>
       <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-base font-bold" />

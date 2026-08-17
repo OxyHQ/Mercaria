@@ -10,7 +10,7 @@ import type {
   MerchantPlanStatusView,
   MerchantSubscriptionStatus,
 } from "@mercaria/shared-types";
-import { Text, Button, useColorScheme, useFormatters } from "@mercaria/ui";
+import { Text, Button, formatDate, useColorScheme, useFormatters } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -173,12 +173,24 @@ const STATUS_COPY: Record<MerchantSubscriptionStatus, { headingKey: string; body
 
 function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPlanStatusView }) {
   const [opening, setOpening] = useState(false);
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const portal = useOpenBillingPortal(storeId);
   const cancel = useCancelPlan(storeId);
   const refresh = useRefreshPlan(storeId);
   const subscription = status.subscription;
   const copy = subscription ? STATUS_COPY[subscription.status] : undefined;
+  // Three plain dates, never a countdown. Each is bound here rather than
+  // formatted inline so the null a bad instant produces guards its own
+  // sentence: every one of them NAMES its date, and i18n-js renders a
+  // missing placeholder as the literal `[missing "%{date}" value]` (#529).
+  const graceEndsOn = subscription?.graceExpiresAt
+    ? formatDate(subscription.graceExpiresAt, locale)
+    : null;
+  const endsOn = subscription?.cancelAt ? formatDate(subscription.cancelAt, locale) : null;
+  const renewsOn =
+    subscription?.currentPeriodEnd && !subscription.cancelAt
+      ? formatDate(subscription.currentPeriodEnd, locale)
+      : null;
 
   async function openPortal(): Promise<void> {
     try {
@@ -212,21 +224,21 @@ function CurrentPlan({ storeId, status }: { storeId: string; status: MerchantPla
         </Text>
       )}
 
-      {subscription?.graceExpiresAt ? (
+      {graceEndsOn === null ? null : (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {t("settings.plan.graceEndsOn", { date: formatDate(subscription.graceExpiresAt) })}
+          {t("settings.plan.graceEndsOn", { date: graceEndsOn })}
         </Text>
-      ) : null}
-      {subscription?.cancelAt ? (
+      )}
+      {endsOn === null ? null : (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {t("settings.plan.endsOn", { date: formatDate(subscription.cancelAt) })}
+          {t("settings.plan.endsOn", { date: endsOn })}
         </Text>
-      ) : null}
-      {subscription?.currentPeriodEnd && !subscription.cancelAt ? (
+      )}
+      {renewsOn === null ? null : (
         <Text className="mt-2 text-xs text-muted-foreground">
-          {t("settings.plan.renewsOn", { date: formatDate(subscription.currentPeriodEnd) })}
+          {t("settings.plan.renewsOn", { date: renewsOn })}
         </Text>
-      ) : null}
+      )}
 
       <Entitlements entitlements={status.entitlements} />
 
@@ -417,7 +429,3 @@ function UpgradeAction({ storeId, plan }: { storeId: string; plan: MerchantPlanC
   );
 }
 
-/** A stored ISO instant as a plain date. Never a countdown — see the docblock. */
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString();
-}

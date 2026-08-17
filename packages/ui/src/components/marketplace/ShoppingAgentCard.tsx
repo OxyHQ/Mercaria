@@ -8,7 +8,8 @@ import type {
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
 import { conditionGroupLabelKey } from "../../lib/condition";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
+import { formatDateTime } from "../../lib/date";
 import {
   SHOPPING_AGENT_CHANNEL_POLICY_LABEL_KEYS,
   SHOPPING_AGENT_JOB_EXPLANATION_KEYS,
@@ -89,6 +90,11 @@ export function ShoppingAgentCard({
   busy,
 }: ShoppingAgentCardProps) {
   const t = useSharedUiTranslation();
+  const locale = useSharedUiLocale();
+  const lastLooked =
+    agent.lastEvaluatedAt === undefined ? null : formatDateTime(agent.lastEvaluatedAt, locale);
+  const nextScheduled =
+    agent.nextScheduledAt === undefined ? null : formatDateTime(agent.nextScheduledAt, locale);
   const ambiguous =
     agent.state === "blocked" && agent.ambiguityState === "ambiguous_after_split";
   const segments =
@@ -272,13 +278,12 @@ export function ShoppingAgentCard({
         />
       </View>
 
+      {/* Both halves NAME their timestamp, so an unformattable one falls back to
+          the "never looked" copy rather than rendering a sentence with a hole in
+          it, and the trailing clause disappears with its separator. */}
       <Text className="text-caption text-text-tertiary">
-        {agent.lastEvaluatedAt
-          ? `Last looked ${new Date(agent.lastEvaluatedAt).toLocaleString()}`
-          : "Not looked yet"}
-        {agent.nextScheduledAt
-          ? ` · next ${new Date(agent.nextScheduledAt).toLocaleString()}`
-          : ""}
+        {lastLooked === null ? "Not looked yet" : `Last looked ${lastLooked}`}
+        {nextScheduled === null ? "" : ` · next ${nextScheduled}`}
       </Text>
     </View>
   );
