@@ -23,6 +23,7 @@ import { validateBody, validateQuery } from '../middleware/validate.js';
 import {
   attributeDefinitionQuerySchema,
   attributeFacetQuerySchema,
+  attributeValuesQuerySchema,
   constraintSetEvaluateSchema,
   constraintSetValidateSchema,
 } from '../middleware/attribute-schemas.js';
@@ -62,7 +63,17 @@ router.post(
   evaluateConstraintsHandler,
 );
 
-/** The SELECTED values of one entity, with no internal provenance. */
-router.get('/values/:entityKind/:entityId', getPublicAttributeValuesHandler);
+/**
+ * The SELECTED values of one entity, with no internal provenance.
+ *
+ * `validateQuery` is not decoration here: the schema is `.strict()`, so the two
+ * display preferences are the ONLY things this route accepts, and a query able
+ * to carry a unit or a magnitude never reaches the handler.
+ */
+router.get(
+  '/values/:entityKind/:entityId',
+  validateQuery(attributeValuesQuerySchema),
+  getPublicAttributeValuesHandler,
+);
 
 export default router;

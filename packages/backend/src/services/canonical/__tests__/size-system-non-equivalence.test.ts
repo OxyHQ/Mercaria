@@ -347,8 +347,10 @@ describe('the property over every pair, not over the examples above', () => {
     for (const { facet, variant, reason } of cases) {
       // The variant really differs in ONE facet and nothing else, or the case
       // below would be measuring a different check than it names.
+      const facetOf = (system: SizeSystem, name: string): unknown =>
+        (system as unknown as Record<string, unknown>)[name];
       const differing = identityFacets.filter(
-        (name) => (variant as Record<string, unknown>)[name] !== (base as Record<string, unknown>)[name],
+        (name) => facetOf(variant, name) !== facetOf(base, name),
       );
       expect(differing, `${facet} variant differs in ${differing.join(', ')}`).toEqual([facet]);
       expect(compareSizeDeclarations(sized(base, '42'), sized(variant, '42'))).toEqual({

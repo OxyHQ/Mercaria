@@ -55,6 +55,10 @@ import {
   type TextPreferenceField,
   type UnitFamily,
 } from '@mercaria/shared-types';
+import {
+  MEASUREMENT_SYSTEMS,
+  type MeasurementSystem,
+} from '../services/canonical/display-units.js';
 
 const asEnum = <T extends string>(values: readonly T[]): readonly [T, ...T[]] => {
   const [first, ...rest] = values;
@@ -87,6 +91,7 @@ const EVIDENCE_POLICY_VALUES = asEnum(
   ATTRIBUTE_EVIDENCE_POLICIES as readonly AttributeEvidencePolicy[],
 );
 const ENTITY_KIND_VALUES = asEnum(ATTRIBUTE_ENTITY_KINDS as readonly AttributeEntityKind[]);
+const MEASUREMENT_SYSTEM_VALUES = asEnum(MEASUREMENT_SYSTEMS as readonly MeasurementSystem[]);
 const MISSING_DATA_VALUES = asEnum(MISSING_DATA_POLICIES as readonly MissingDataPolicy[]);
 const TAXONOMY_SUBJECT_VALUES = asEnum(TAXONOMY_SUBJECTS as readonly TaxonomySubject[]);
 const OFFER_CHANNEL_VALUES = asEnum(OFFER_CHANNEL_KINDS as readonly OfferChannelKind[]);
@@ -442,6 +447,30 @@ export const attributeDefinitionQuerySchema = z
 /** `GET /catalog-attributes/facets`. */
 export const attributeFacetQuerySchema = z.object({ categoryId: idSchema }).strict();
 
+/**
+ * `GET /catalog-attributes/values/:entityKind/:entityId`.
+ *
+ * Two OPTIONAL display preferences and nothing else. `.strict()`, so a client
+ * cannot smuggle in a unit, a magnitude or a precision: this endpoint chooses
+ * how a stored measurement is SHOWN, and a body or query able to carry a number
+ * is where one would eventually be trusted (the `checkoutSchema` reasoning).
+ *
+ * `unitSystem` is the shopper's own preference, which the storefront reads off
+ * the DEVICE's CLDR measurement system. `market` is the fallback for a client
+ * that has a market and no stated preference — and it is deliberately a SECOND
+ * parameter rather than something the server derives from a locale, because a
+ * shopper reading Spanish in Ohio is in a US-customary market and taking the
+ * system off the reading language is the collapse ADR 0007 D4 forbids. Neither
+ * is required, and with neither present the response is byte-identical to what
+ * it was before they existed.
+ */
+export const attributeValuesQuerySchema = z
+  .object({
+    unitSystem: z.enum(MEASUREMENT_SYSTEM_VALUES).optional(),
+    market: z.string().trim().regex(/^[A-Za-z]{2}$/u).optional(),
+  })
+  .strict();
+
 /** `GET /internal/catalog-attributes/coverage`. */
 export const attributeCoverageQuerySchema = z
   .object({
@@ -528,6 +557,12 @@ export interface AttributeReviewResolveBody {
   state: 'resolved' | 'dismissed';
   selectedValueId?: string;
   note?: string;
+}
+
+/** The two optional display preferences of the public values route. */
+export interface AttributeValuesQuery {
+  unitSystem?: MeasurementSystem;
+  market?: string;
 }
 
 export interface ConstraintSetValidateBody {

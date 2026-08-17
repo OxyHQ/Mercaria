@@ -142,8 +142,13 @@ describe('precision after conversion', () => {
   });
 
   it('lets a DECLARED precision win over both the source and the ceiling', () => {
-    expect(displayDecimals(154.94000000000001, '6.1', 1)).toBe(1);
-    expect(displayDecimals(154.94000000000001, '6.1', 3)).toBe(3);
+    // The magnitude is COMPUTED rather than written as a literal: the value a
+    // conversion really lands on carries more digits than a double holds, so
+    // pasting it in is a number the runtime silently rounds (and `eslint`'s
+    // `no-loss-of-precision` says so).
+    const noisy = toBaseUnit(1.1, 'in') as number;
+    expect(displayDecimals(noisy, '1.1', 1)).toBe(1);
+    expect(displayDecimals(noisy, '1.1', 3)).toBe(3);
     // Clamped rather than trusted, because the column admits 0–12 and this
     // module prints at most six.
     expect(displayDecimals(1, '1', 99)).toBe(MAX_DISPLAY_DECIMALS);
@@ -161,8 +166,24 @@ describe('precision after conversion', () => {
   });
 
   it('caps at a total-digit ceiling when nothing states a precision at all', () => {
-    expect(displayDecimals(27.940000000000005, null, null)).toBe(MAX_DISPLAY_DECIMALS - 2);
-    expect(displayDecimals(0.5, null, null)).toBe(MAX_DISPLAY_DECIMALS - 1);
+    // Six SIGNIFICANT digits, so the decimal count moves with the magnitude:
+    // 27.94… gets four and 0.5 gets six. A fixed decimal cap would print six
+    // places on a number in the hundreds and one significant digit on a small
+    // one.
+    expect(displayDecimals(toBaseUnit(1.1, 'in') as number, null, null)).toBe(
+      MAX_DISPLAY_DECIMALS - 2,
+    );
+    expect(displayDecimals(0.5, null, null)).toBe(MAX_DISPLAY_DECIMALS);
+  });
+
+  it('keeps a source’s digits through a conversion that lands BELOW one', () => {
+    // 187 g is three digits. In pounds that is 0.412 — three DECIMALS, because
+    // the leading zero is not a digit anybody measured. Under the naive
+    // "significant digits minus integer digits" rule this prints 0.41 and the
+    // source's third digit is silently gone.
+    const pounds = convertUnit(187, 'g', 'lb') as number;
+    expect(displayDecimals(pounds, '187', null)).toBe(3);
+    expect(displayDecimals(0.0412264, '187', null)).toBe(4);
   });
 });
 

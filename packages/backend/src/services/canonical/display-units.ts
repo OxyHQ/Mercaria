@@ -168,10 +168,19 @@ export function sourceNumberText(display: string): string | null {
   return match?.[0] ?? null;
 }
 
-/** The digits left of the point in a magnitude, at least 1. */
-function integerDigits(magnitude: number): number {
-  const whole = Math.floor(Math.abs(magnitude));
-  return whole === 0 ? 1 : String(whole).length;
+/**
+ * The base-10 exponent of a magnitude — the `e` of its exponential form.
+ *
+ * Read off `toExponential` rather than computed with `Math.log10`, which is
+ * inexact at the powers of ten (`Math.log10(0.001)` is not `-3`) and would
+ * therefore misjudge precision on exactly the round numbers a catalogue is full
+ * of. With it, "print N significant digits" is the single expression
+ * `N - 1 - exponent`, correct above and below one.
+ */
+function exponent10(magnitude: number): number {
+  if (!Number.isFinite(magnitude) || magnitude === 0) return 0;
+  const exponential = Math.abs(magnitude).toExponential();
+  return Number(exponential.slice(exponential.indexOf('e') + 1));
 }
 
 /** The most decimal places this module will ever print. */
@@ -211,9 +220,14 @@ export function displayDecimals(
     // {@link renderMeasurement}, because a zero printed under a precision nobody
     // stated is the false precision this whole function exists to prevent. The
     // ceiling is what stops `154.94000000000001` reaching a page.
-    return Math.max(0, MAX_DISPLAY_DECIMALS - integerDigits(convertedMagnitude));
+    const ceiling = MAX_DISPLAY_DECIMALS - 1 - exponent10(convertedMagnitude);
+    return Math.max(0, Math.min(MAX_DISPLAY_DECIMALS, ceiling));
   }
-  const available = significantDigits(sourceNumber) - integerDigits(convertedMagnitude);
+  // "Print exactly the digits the source knew", above and below one alike: a
+  // 187 g weight knows three, and in pounds that is `0.412` — three decimals,
+  // not three minus the (absent) integer digits. Getting this wrong under one
+  // is how a converted small measurement silently loses a digit.
+  const available = significantDigits(sourceNumber) - 1 - exponent10(convertedMagnitude);
   return Math.max(0, Math.min(MAX_DISPLAY_DECIMALS, available));
 }
 
