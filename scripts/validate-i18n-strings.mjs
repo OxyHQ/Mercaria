@@ -29,7 +29,13 @@
  *   B. BUNDLE PARITY — every non-`en` bundle has exactly `en`'s key set (missing
  *      AND extra), and every value carries exactly `en`'s `%{placeholders}`. A
  *      missing key falls back to English and looks fine; a renamed placeholder
- *      renders the literal `%{count}` to a merchant.
+ *      renders the literal `%{count}` to a merchant. PLURAL keys are exempt from
+ *      the key-set half and handed to K — see there.
+ *
+ *   K. PLURAL SHAPE (#436) — a plural key's categories are a fact about the
+ *      LOCALE, not about English, so parity is the wrong invariant for them the
+ *      moment the pluralizer stops being English-shaped. See "What K replaced"
+ *      below.
  *
  *   C. REFERENTIAL INTEGRITY — every `t('literal')` names a key that exists in
  *      that app's `en.json`, and every key in `en.json` is named by some string
@@ -50,6 +56,51 @@
  *   F. AN ACTION LABEL IS NOT A SENTENCE FRAGMENT (#442) — a key rendered as the
  *      text of an action CONTROL must not also be interpolated into a translated
  *      sentence. See "What F is for" below.
+ *
+ * ## What K replaced, and why relaxing B was not enough
+ *
+ * B used to require every sibling bundle to carry EXACTLY `en`'s key set. That
+ * was correct while `i18n-js`'s English-shaped default pluralizer was the only
+ * one registered, and #436 made it wrong in both directions at once:
+ *
+ *   * a Russian bundle carrying `few`/`many` — which Russian genuinely has and
+ *     English does not — would fail B as an "extra" key;
+ *   * a Russian bundle carrying only `one`/`other` AFTER the pluralizer landed
+ *     would pass B and render NOTHING at count 5. `i18n-js`'s
+ *     `helpers/pluralize.ts` walks the category list and, on a miss, returns
+ *     `missingTranslation` — it does NOT fall back to English the way an
+ *     ordinary missing key does.
+ *
+ * So dropping the extra-key half is not the fix: it would convert a visible
+ * wrong plural into an invisible missing string, which is the trap #436 names.
+ * What replaces it is an invariant stated against the LOCALE:
+ *
+ *   1. the sibling still has the key, and it is still a plural object;
+ *   2. every category it carries is one the runtime can actually SELECT for
+ *      that locale — so a `few` in a German bundle is dead copy, and a typo'd
+ *      `oher` is caught by the same clause;
+ *   3. it carries `other`, the terminal rung of the chain;
+ *   4. it carries every category English uses that is ALSO selectable there —
+ *      which is what stops a Russian bundle quietly losing `one`, and what
+ *      "non-empty" alone would have permitted;
+ *   5. every form's placeholders match English's, compared against `en`'s
+ *      `other` because a `many` form has no English twin to compare with.
+ *
+ * The permitted set in 2 and the runtime's chain come from ONE module,
+ * `packages/ui/src/i18n/plurals.ts`, imported here rather than restated. Two
+ * spellings of "which categories does Russian have" is exactly the drift that
+ * would let this guard pass a bundle the app cannot render, and the control
+ * below runs the REAL chain over a count sweep to prove the two still agree.
+ *
+ * ## What K does NOT do
+ *
+ * It does not require a locale to carry every category CLDR gives it. Arabic is
+ * missing four and Russian two, and writing those forms is grammar in six
+ * languages that nobody here can review — #436 leaves it to native speakers.
+ * They are counted instead, and pinned EXACTLY per owner, so the residual can
+ * be paid down but cannot silently grow. `pluralCategoryResidual` is that pin;
+ * `pluralUnreachableForms` is its mirror for copy that exists and can never be
+ * selected.
  *
  * ## What C buys that A cannot
  *
@@ -131,6 +182,20 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+// The REAL runtime module, imported and RUN rather than described — the
+// `validate-logical-side.mjs` idiom, and the only thing that makes check K's
+// permitted set the same fact as the pluralizer's chain. `plurals.ts` is
+// importable from a bare script precisely because it imports nothing a bundler
+// has to resolve; its sibling `create-app-i18n.ts` needs `expo-localization`
+// and could not be pulled in here, which is why the registration seam and the
+// chain live in separate files.
+import {
+  cldrCardinalCategories,
+  pluralCategoryChain,
+  selectablePluralCategories,
+} from "../packages/ui/src/i18n/plurals.ts";
+import { SUPPORTED_LOCALES } from "../packages/ui/src/i18n/locales.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -218,6 +283,12 @@ const OWNERS = [
     // I (#542): no pin. Check I RAISES, because a key map read in a render
     // position is a message id on screen with no legitimate spelling.
     minimumRenderableKeyMaps: 40,
+    // K (#436). Both EXACT, both fail in both directions.
+    // Missing category forms: ar 68 (zero/two/few/many x17), ru 34, ca/es/fr/pt-BR 17 each.
+    pluralCategoryResidual: 170,
+    // The ja and zh-Hans `one` forms — those locales select only `other`.
+    pluralUnreachableForms: 34,
+    minimumPluralKeys: 10,
   },
   {
     name: "dashboard",
@@ -251,6 +322,12 @@ const OWNERS = [
     // the SAME shape #513 fixed on the storefront with `formatRegionName`.
     wireIdentifierRenderSites: 8,
     minimumRenderableKeyMaps: 40,
+    // K (#436). Both EXACT, both fail in both directions.
+    // Missing category forms: ar 92, ru 46, ca/es/fr/pt-BR 23 each.
+    pluralCategoryResidual: 230,
+    // The ja and zh-Hans `one` forms — those locales select only `other`.
+    pluralUnreachableForms: 46,
+    minimumPluralKeys: 15,
   },
   {
     name: "pos",
@@ -272,6 +349,12 @@ const OWNERS = [
     // quietly wrong if the detector broke, hence the controls.
     wireIdentifierRenderSites: 0,
     minimumRenderableKeyMaps: 30,
+    // K (#436). Both EXACT, both fail in both directions.
+    // Missing category forms: ar 20, ru 10, ca/es/fr/pt-BR 5 each.
+    pluralCategoryResidual: 50,
+    // The ja and zh-Hans `one` forms — those locales select only `other`.
+    pluralUnreachableForms: 10,
+    minimumPluralKeys: 3,
   },
   {
     name: "ui",
@@ -340,6 +423,12 @@ const OWNERS = [
     // I (#542): this package DECLARES the maps every app reads, and #542 was
     // found converting three of them, so the floor here is the one that matters.
     minimumRenderableKeyMaps: 40,
+    // K (#436). Both EXACT, both fail in both directions.
+    // Missing category forms: ar 28, ru 14, ca/es/fr/pt-BR 7 each.
+    pluralCategoryResidual: 70,
+    // The ja and zh-Hans `one` forms — those locales select only `other`.
+    pluralUnreachableForms: 14,
+    minimumPluralKeys: 4,
   },
 ];
 
@@ -1188,6 +1277,136 @@ function pluralParentOf(key) {
 }
 
 /**
+ * Every PLURAL object in a parsed bundle: `a.b.c` -> {category -> string}.
+ *
+ * STRICTER than `pluralParentOf`, and it has to be. That function asks whether a
+ * key's last segment is a category word, which is right for part C — crediting a
+ * parent so its leaves are not reported unused — and wrong here, because it also
+ * matches a key that merely HAS a child called `other`. The storefront has
+ * exactly one: `feedback.other` is the "Other" option in a list of thirty
+ * feedback reasons, and reading `feedback` as a plural would demand `other` from
+ * a locale for a key that is not pluralised at all, then report the other
+ * twenty-nine children as categories that can never be selected.
+ *
+ * So a plural object is one whose children are ALL category words and are all
+ * strings. Derived from the PARSED bundle rather than the flattened map, because
+ * "what are this node's own children" is the question, and a flat map answers it
+ * only by prefix arithmetic.
+ */
+function collectPlurals(value, prefix, into) {
+  const entries = Object.entries(value);
+  if (
+    entries.length > 0
+    && entries.every(([name, child]) => PLURAL_CATEGORIES.has(name) && typeof child === "string")
+  ) {
+    into.set(prefix, new Map(entries));
+    return;
+  }
+  for (const [name, child] of entries) {
+    if (child && typeof child === "object" && !Array.isArray(child)) {
+      collectPlurals(child, prefix ? `${prefix}.${name}` : name, into);
+    }
+  }
+}
+
+/** `packages/pos/lib/i18n/locales/pt-BR.json` -> `pt-BR`, or null if unknown. */
+function localeOfBundlePath(path) {
+  const stem = path.slice(path.lastIndexOf("/") + 1).replace(/\.json$/u, "");
+  return SUPPORTED_LOCALES.includes(stem) ? stem : null;
+}
+
+/**
+ * Check K's whole decision for ONE sibling bundle (#436).
+ *
+ * A function rather than an inline loop so the controls below can run the REAL
+ * detector over synthetic bundles. K's healthy answer on this repository is "no
+ * failures and two residual counts", and a detector that had quietly stopped
+ * detecting would produce the same thing.
+ *
+ * Returns the failures plus the two residuals as LISTS of `key.category`, so
+ * the caller can both count them and name a few — a bare number tells whoever
+ * hits the pin nothing about which forms moved.
+ */
+function pluralShapeOf({ path, locale, englishPlurals, plurals }) {
+  const failures = [];
+  const missing = [];
+  const unreachable = [];
+
+  // What the runtime can SELECT, and — separately — what CLDR says the language
+  // NEEDS. They differ by `zero`, which i18n-js offers in every locale as an
+  // affordance ("You have no messages") and which CLDR lists only for Arabic
+  // among the twelve. So a missing `zero` in French is not residual (nobody owes
+  // it) while a PRESENT one would not be unreachable either (the chain uses it).
+  const selectable = selectablePluralCategories(locale);
+  const required = cldrCardinalCategories(locale);
+
+  for (const [key, englishForms] of englishPlurals) {
+    const forms = plurals.get(key);
+    if (!forms || forms.size === 0) {
+      failures.push(
+        `${path}: "${key}" is a plural key in en.json and is missing or not a plural object here. `
+        + "i18n-js resolves the whole object from ONE locale, so there is no per-category fallback "
+        + "to English — every count on this screen would render missingTranslation.",
+      );
+      continue;
+    }
+
+    if (!forms.has("other")) {
+      failures.push(
+        `${path}: "${key}" carries {${[...forms.keys()].join(", ")}} and no "other". That is the `
+        + "terminal rung of the category chain, so every count whose own category is absent renders "
+        + "NOTHING rather than an approximate form.",
+      );
+    }
+
+    // Required: what English uses AND this locale can select. `one` is demanded
+    // of Russian and NOT of Japanese, whose only category is `other`.
+    for (const category of englishForms.keys()) {
+      if (!selectable.includes(category) || forms.has(category)) continue;
+      failures.push(
+        `${path}: "${key}" is missing "${category}", which en.json uses and ${locale} can select. `
+        + "Dropping it renders the `other` form at a count the language distinguishes — the exact "
+        + "defect #436 exists to remove, arrived at from the other direction.",
+      );
+    }
+
+    // Against en's `other`, because a `many` form has no English twin to compare
+    // with. Every English plural key carries identical placeholders across its
+    // own forms, so `other` is a canonical rather than an arbitrary pick.
+    //
+    // `zero` is the ONE category held to a weaker rule, and a control is what
+    // established it: its entire purpose is to replace the number with a word
+    // ("You have no messages", "aucun produit"), which is i18n-js's own worked
+    // example for the category. Demanding equality there refuses the correct
+    // translation. It is still held to a SUBSET, so an invented or renamed
+    // placeholder is caught in `zero` exactly as anywhere else — what is
+    // permitted is dropping one, not inventing one.
+    const englishPlaceholders = placeholdersOf(englishForms.get("other") ?? "");
+    const englishNames = new Set(englishPlaceholders ? englishPlaceholders.split(",") : []);
+    for (const [category, value] of forms) {
+      if (!selectable.includes(category)) unreachable.push(`${key}.${category}`);
+      const own = placeholdersOf(value);
+      const foreign = (own ? own.split(",") : []).filter((name) => !englishNames.has(name));
+      const wrong = category === "zero" ? foreign.length > 0 : own !== englishPlaceholders;
+      if (wrong) {
+        failures.push(
+          `${path}: "${key}.${category}" carries placeholders {${own || "none"}} but en.json's `
+          + `"${key}.other" carries {${englishPlaceholders || "none"}}. A renamed placeholder `
+          + "renders the literal %{count} to a shopper."
+          + (category === "zero" ? "" : " Only a `zero` form may drop one."),
+        );
+      }
+    }
+
+    for (const category of required) {
+      if (!forms.has(category)) missing.push(`${key}.${category}`);
+    }
+  }
+
+  return { failures, missing, unreachable };
+}
+
+/**
  * The three `Date` methods that resolve against the RUNTIME's default locale —
  * the device — when handed no locale (#488, check H).
  *
@@ -1266,6 +1485,10 @@ const tracked = trackedFiles();
 
 /** owner name -> locale path -> flattened `a.b.c` -> value. */
 const bundlesByApp = new Map();
+/** owner name -> locale path -> plural key -> (category -> value), for check K. */
+const pluralsByApp = new Map();
+/** owner name -> how many plural keys en.json holds, for K's summary line. */
+const pluralKeysByApp = new Map();
 /** Every bundle path anywhere -> its TOP-LEVEL keys, for check D. */
 const topLevelKeysByPath = new Map();
 for (const app of OWNERS) {
@@ -1278,6 +1501,7 @@ for (const app of OWNERS) {
     );
   }
   const flatByLocale = new Map();
+  const pluralsByLocale = new Map();
   for (const path of bundlePaths) {
     const text = await readTracked(path);
     if (text === null) continue;
@@ -1292,8 +1516,12 @@ for (const app of OWNERS) {
     const flat = new Map();
     flatten(parsed, "", flat, path);
     flatByLocale.set(path, flat);
+    const plurals = new Map();
+    collectPlurals(parsed, "", plurals);
+    pluralsByLocale.set(path, plurals);
   }
   bundlesByApp.set(app.name, flatByLocale);
+  pluralsByApp.set(app.name, pluralsByLocale);
 }
 
 const knownKeysByApp = new Map(
@@ -1743,6 +1971,196 @@ for (const control of ACTION_LABEL_MUST_NOT_FIND) {
   }
 }
 
+// ------------------------------------------------- check K's controls (#436) ---
+
+/**
+ * The counts the sweep below runs the REAL chain over.
+ *
+ * Chosen to reach every category the twelve locales have, not to look thorough:
+ * Russian needs 21 for `one` and 5 for `many`, Arabic needs 2 for `two`, 3 for
+ * `few`, 11 for `many` and 100 for `other`, and Spanish/French/Catalan/
+ * Portuguese need a seven-figure number for `many` — which is the one a
+ * hand-written list quietly omits, because nothing smaller reaches it.
+ */
+const PLURAL_SWEEP_COUNTS = [0, 1, 2, 3, 5, 10, 11, 21, 100, 101, 1000, 1000000, 2000000];
+
+/**
+ * The control that makes K's permitted set the SAME FACT as the runtime's chain
+ * rather than a description of it.
+ *
+ * K passes a bundle whose categories all sit inside `selectablePluralCategories`.
+ * If the chain ever asked for a category outside that set, K would be approving
+ * bundles the app cannot render — and nothing else in CI would notice, because
+ * the app compiles, exports and renders the `other` form. So the chain is RUN,
+ * over every registry locale, and its output is checked against the set K uses.
+ *
+ * The second half is the vacuity control, and it is the one that matters: a
+ * chain that had degenerated to `["other"]` everywhere — which is precisely what
+ * a broken `CARDINAL` lookup would produce — satisfies the first half
+ * perfectly. So every category the sweep reaches is collected per locale, and
+ * the locales with more than two categories must actually REACH more than two.
+ */
+const pluralChainReach = new Map();
+for (const locale of SUPPORTED_LOCALES) {
+  const selectable = selectablePluralCategories(locale);
+  const reached = new Set();
+  for (const count of PLURAL_SWEEP_COUNTS) {
+    const chain = pluralCategoryChain(locale, count);
+    if (chain.length === 0) {
+      failures.push(
+        `control failed: the plural chain for ${locale} at count ${count} is EMPTY — i18n-js walks `
+        + "the list and would fall straight to missingTranslation",
+      );
+      continue;
+    }
+    if (chain[chain.length - 1] !== "other") {
+      failures.push(
+        `control failed: the plural chain for ${locale} at count ${count} is `
+        + `[${chain.join(", ")}] and does not END in "other". The terminal rung is what makes a `
+        + "missing `few` form render the approximate string instead of nothing at all.",
+      );
+    }
+    if (new Set(chain).size !== chain.length) {
+      failures.push(
+        `control failed: the plural chain for ${locale} at count ${count} repeats a category `
+        + `([${chain.join(", ")}]) — a duplicate rung is a second lookup of a key that just missed`,
+      );
+    }
+    for (const category of chain) {
+      reached.add(category);
+      if (selectable.includes(category)) continue;
+      failures.push(
+        `control failed: the plural chain for ${locale} at count ${count} asks for "${category}", `
+        + `which is not in selectablePluralCategories("${locale}") `
+        + `([${selectable.join(", ")}]). Check K would be REFUSING a form the runtime needs, or `
+        + "passing a bundle that cannot answer that count — the two halves of #436 have drifted.",
+      );
+    }
+  }
+  pluralChainReach.set(locale, reached);
+
+  // The vacuity half. `cldrCardinalCategories` is the language's own tuple, so
+  // this asserts the sweep actually exercised Russian's `few`/`many` and
+  // Arabic's `two`/`zero` rather than landing on `other` every time.
+  for (const category of cldrCardinalCategories(locale)) {
+    if (reached.has(category)) continue;
+    failures.push(
+      `control failed: no count in the sweep produced "${category}" for ${locale}, which CLDR says `
+      + "it has. Either the sweep no longer reaches that category — in which case K's residual "
+      + "count is measuring a category nothing can select — or the rule for this locale has "
+      + "collapsed onto a subset of its categories.",
+    );
+  }
+}
+
+/**
+ * Controls for check K's DETECTOR, run against `pluralShapeOf` itself.
+ *
+ * Every clause gets one, because K's answer on this repository is silence, and
+ * each of these is a real bundle somebody could write. The `en` side is held
+ * fixed at one key with `one`/`other` and a `%{count}`, which is the shape all
+ * 52 real ones have.
+ */
+const K_ENGLISH = new Map([["items", new Map([["one", "%{count} item"], ["other", "%{count} items"]])]]);
+const asForms = (entries) => new Map([["items", new Map(Object.entries(entries))]]);
+
+const PLURAL_SHAPE_CONTROLS = [
+  {
+    id: "ru missing `other`",
+    locale: "ru",
+    forms: asForms({ one: "%{count} товар" }),
+    mustFail: /no "other"/u,
+  },
+  {
+    id: "ru missing `one`, which Russian selects at 21",
+    locale: "ru",
+    forms: asForms({ other: "%{count} товаров" }),
+    mustFail: /is missing "one"/u,
+  },
+  {
+    id: "renamed placeholder in a form English has no twin for",
+    locale: "ru",
+    forms: asForms({
+      one: "%{count} товар", few: "%{n} товара", many: "%{count} товаров", other: "%{count} товаров",
+    }),
+    mustFail: /carries placeholders \{n\}/u,
+  },
+  {
+    id: "the key is absent entirely",
+    locale: "de",
+    forms: new Map(),
+    mustFail: /missing or not a plural object/u,
+  },
+  {
+    id: "ru carrying `few`/`many`, which en.json does not have",
+    locale: "ru",
+    forms: asForms({
+      one: "%{count} товар", few: "%{count} товара", many: "%{count} товаров",
+      other: "%{count} товаров",
+    }),
+    mustPass: true,
+  },
+  {
+    id: "ja carrying only `other`, its one category",
+    locale: "ja",
+    forms: asForms({ other: "商品 %{count} 件" }),
+    mustPass: true,
+  },
+  {
+    id: "fr carrying an optional `zero`, which the chain does select",
+    locale: "fr",
+    forms: asForms({ zero: "aucun produit", one: "%{count} produit", other: "%{count} produits" }),
+    mustPass: true,
+    // `zero` is not in French's CLDR tuple, so it must not be counted as
+    // unreachable either — the whole reason `selectable` and `required` differ.
+    mustNotBeUnreachable: true,
+  },
+  {
+    // The other side of the exemption above. `zero` may DROP `%{count}`; it may
+    // not INVENT one, and without this control the exemption would be a hole
+    // rather than a narrowing — which is how removing an exception removes a
+    // check.
+    id: "a `zero` form inventing a placeholder English does not have",
+    locale: "fr",
+    forms: asForms({
+      zero: "aucun %{produit}", one: "%{count} produit", other: "%{count} produits",
+    }),
+    mustFail: /"items\.zero" carries placeholders \{produit\}/u,
+  },
+];
+
+for (const control of PLURAL_SHAPE_CONTROLS) {
+  const result = pluralShapeOf({
+    path: `control/${control.locale}.json`,
+    locale: control.locale,
+    englishPlurals: K_ENGLISH,
+    plurals: control.forms,
+  });
+  if (control.mustFail) {
+    if (!result.failures.some((failure) => control.mustFail.test(failure))) {
+      failures.push(
+        `positive control failed: check K did not report ${control.mustFail} for "${control.id}" — `
+        + `it said ${JSON.stringify(result.failures)}. K's answer on the real tree is silence, so a `
+        + "clause that stopped firing is invisible.",
+      );
+    }
+  }
+  if (control.mustPass && result.failures.length > 0) {
+    failures.push(
+      `negative control failed: check K rejected "${control.id}" (${result.failures.join("; ")}). `
+      + "That is a bundle #436 exists to make legal, and a guard that refuses the correct answer is "
+      + "one whoever hits it will loosen.",
+    );
+  }
+  if (control.mustNotBeUnreachable && result.unreachable.length > 0) {
+    failures.push(
+      `negative control failed: check K counted ${result.unreachable.join(", ")} as unreachable in `
+      + `"${control.id}". The chain selects \`zero\` at count 0 in every locale, so counting it `
+      + "against the pin would push somebody to delete copy that renders.",
+    );
+  }
+}
+
 /**
  * Controls for check E's detector, run on every invocation for the same reason.
  *
@@ -1960,6 +2378,7 @@ for (const [path, text] of textByPath) {
 
 for (const app of OWNERS) {
   const flatByLocale = bundlesByApp.get(app.name) ?? new Map();
+  const pluralsByLocale = pluralsByApp.get(app.name) ?? new Map();
   const englishPath = `${app.locales}/en.json`;
   const english = flatByLocale.get(englishPath);
   if (!english) {
@@ -2022,9 +2441,25 @@ for (const app of OWNERS) {
   }
 
   // B. parity
+  //
+  // Every leaf UNDER an English plural key is handed to K instead, in all three
+  // loops. Leaving them here would fail a Russian `many` as an extra key and
+  // demand `one` from a Japanese bundle that can never select it — and the
+  // placeholder loop below `continue`s on a form with no English twin, which is
+  // precisely where a renamed `%{count}` in a `few` form would have slipped
+  // through. K re-checks all three properties against the locale's own
+  // categories; it is a narrowing of B's SUBJECT, not of what is asserted.
+  const englishPlurals = pluralsByLocale.get(englishPath) ?? new Map();
+  pluralKeysByApp.set(app.name, englishPlurals.size);
+  const underEnglishPlural = (key) => {
+    const parent = pluralParentOf(key);
+    return parent !== null && englishPlurals.has(parent);
+  };
+
   for (const [path, flat] of flatByLocale) {
     if (path === englishPath) continue;
     for (const key of english.keys()) {
+      if (underEnglishPlural(key)) continue;
       if (!flat.has(key)) {
         failures.push(
           `${path}: missing key "${key}". enableFallback renders the ENGLISH string for it, so this `
@@ -2033,11 +2468,13 @@ for (const app of OWNERS) {
       }
     }
     for (const key of flat.keys()) {
+      if (underEnglishPlural(key)) continue;
       if (!english.has(key)) {
         failures.push(`${path}: key "${key}" does not exist in en.json — it can never be rendered.`);
       }
     }
     for (const [key, value] of flat) {
+      if (underEnglishPlural(key)) continue;
       const source = english.get(key);
       if (source === undefined) continue;
       if (placeholdersOf(value) !== placeholdersOf(source)) {
@@ -2048,6 +2485,81 @@ for (const app of OWNERS) {
         );
       }
     }
+  }
+
+  // K. plural shape, per LOCALE rather than per English (#436).
+  //
+  // The module note above says what this replaced and why. Two residuals are
+  // counted here and pinned below; everything else is a failure.
+  let categoryResidual = 0;
+  let unreachableForms = 0;
+  const residualExamples = [];
+  const unreachableExamples = [];
+
+  for (const [path, plurals] of pluralsByLocale) {
+    if (path === englishPath) continue;
+    const locale = localeOfBundlePath(path);
+    if (locale === null) {
+      failures.push(
+        `${path}: not a bundle for any locale in SUPPORTED_LOCALES. Check K validates plural `
+        + "categories against the locale's own CLDR set, and it has no set for a file it cannot "
+        + "name — so an unrecognised bundle is refused rather than skipped.",
+      );
+      continue;
+    }
+    const result = pluralShapeOf({ path, locale, englishPlurals, plurals });
+    failures.push(...result.failures);
+    categoryResidual += result.missing.length;
+    unreachableForms += result.unreachable.length;
+    for (const at of result.missing) {
+      if (residualExamples.length < 4) residualExamples.push(`${path} "${at}"`);
+    }
+    for (const at of result.unreachable) {
+      if (unreachableExamples.length < 4) unreachableExamples.push(`${path} "${at}"`);
+    }
+  }
+
+  // Both residuals are EXACT counts and fail in both directions, for the reason
+  // `deviceLocaleFormatSites` is: a ceiling would let the gap grow back after
+  // somebody paid part of it down, and a floor would fail the PR that pays any
+  // of it down. Filling a form in, or deleting a dead one, moves the pin in the
+  // same change — which is the point, because that is when a human decided.
+  if (!fixtureFloors && app.pluralCategoryResidual !== null
+    && categoryResidual !== app.pluralCategoryResidual) {
+    failures.push(
+      `packages/${app.name}: ${categoryResidual} plural form(s) missing for a category the locale `
+      + `CAN select, expected exactly ${app.pluralCategoryResidual}.\n`
+      + `      e.g. ${residualExamples.join("\n           ") || "(none)"}\n`
+      + "      These render the `other` form today — no worse than before #436 and no better. "
+      + "Writing them is grammar in languages nobody here can review, so they are counted rather "
+      + "than invented. If you ADDED forms, lower this owner's `pluralCategoryResidual`; if this "
+      + "rose, a bundle lost a form or a locale gained a category.",
+    );
+  }
+  if (!fixtureFloors && app.pluralUnreachableForms !== null
+    && unreachableForms !== app.pluralUnreachableForms) {
+    failures.push(
+      `packages/${app.name}: ${unreachableForms} plural form(s) the runtime can NEVER select, `
+      + `expected exactly ${app.pluralUnreachableForms}.\n`
+      + `      e.g. ${unreachableExamples.join("\n           ") || "(none)"}\n`
+      + "      Copy no count can reach. Today's are the `one` forms in ja and zh-Hans, whose only "
+      + "CLDR category is `other`; deleting them changes what count=1 renders wherever the two "
+      + "strings differ, which is a copy decision rather than a cleanup. A RISE here is a category "
+      + "written into a locale that has no such form — dead the day it landed.",
+    );
+  }
+
+  // K's vacuity floor. Its healthy answer is "no failures", so an English plural
+  // population that came out EMPTY reports exactly what a correct tree reports —
+  // and that population is derived from `collectPlurals`, which a change to how
+  // a plural is spelled would shrink silently and in the green direction.
+  if (englishPlurals.size < floorFor(app.minimumPluralKeys)) {
+    failures.push(
+      `packages/${app.name}: check K found ${englishPlurals.size} plural key(s) in ${englishPath}, `
+      + `below the ${floorFor(app.minimumPluralKeys)} floor — with that population empty K validates `
+      + "nothing and passes, which is indistinguishable from a bundle set whose plurals are all "
+      + "correct.",
+    );
   }
 
   // G. the placeholder syntax is the one i18n-js actually reads (#487).
@@ -2376,6 +2888,14 @@ console.log(
   // at anything is the size of what it scanned.
   + `check I watched ${OWNERS.map((owner) => `${owner.name} `
     + `${renderableSeenByApp.get(owner.name) ?? 0}`).join("/")} key maps; `
+  // K's populations, reported for the same reason as I's: its healthy answer is
+  // silence, so the only numbers saying it was pointed at anything are how many
+  // plural keys it validated and how far the chain sweep reached.
+  + `check K validated ${OWNERS.map((owner) => `${owner.name} `
+    + `${pluralKeysByApp.get(owner.name) ?? 0}`).join("/")} plural keys against `
+  + `${SUPPORTED_LOCALES.length} locales, chain sweep reaching `
+  + `${[...pluralChainReach.values()].reduce((total, reached) => total + reached.size, 0)} `
+  + "locale/category pairs; "
   + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length + ACTION_LABEL_MUST_FIND.length
     + DEVICE_LOCALE_MUST_FIND.length + RAW_KEY_MUST_FIND.length
     + WIRE_IDENTIFIER_MUST_FIND.length} `
