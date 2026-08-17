@@ -11,6 +11,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { X } from "lucide-react-native";
 import { cn } from "../../lib/cn";
+import {
+  innerEdgeBorderClassName,
+  offscreenTranslateX,
+  oppositeLogicalSide,
+  resolvePhysicalSide,
+  type LogicalSide,
+} from "../../lib/logical-side";
+import { useIsRtlLayout } from "../../lib/use-layout-direction";
 import { Text } from "./text";
 
 interface SheetProps {
@@ -56,31 +64,51 @@ SheetTrigger.displayName = "SheetTrigger";
 
 interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof View> {
   overlayClassName?: string;
-  side?: "left" | "right";
+  /**
+   * Which LOGICAL edge the sheet slides in from — the leading (`start`) or
+   * trailing (`end`) edge of the reading direction, so it mirrors under RTL
+   * along with the rest of the layout (#429).
+   */
+  side?: LogicalSide;
 }
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof View>,
   SheetContentProps
->(({ className, overlayClassName, side = "right", children, ...props }, ref) => {
+>(({ className, overlayClassName, side = "end", children, ...props }, ref) => {
   const { open, onOpenChange } = React.useContext(SheetContext);
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const rtl = useIsRtlLayout();
 
   // Responsive: full width (fixed) on mobile, flex on desktop
   const isMobile = width < 640;
   // Animation distance: full width on mobile, 400px on desktop (max-width)
   const slideDistance = isMobile ? width : 400;
+  /** Where the sheet sits when closed. Collapses side, direction and distance. */
+  const parkedX = offscreenTranslateX(side, rtl, slideDistance);
 
-  const slideAnim = React.useRef(new Animated.Value(slideDistance)).current;
+  // The face turned towards the content is the OPPOSITE edge to the anchor. Its
+  // corner radius is logical and mirrors on its own; its divider cannot be —
+  // see `../../lib/logical-side` for the RN limitation behind that.
+  const innerEdge = oppositeLogicalSide(side);
+  const innerRadius = innerEdge === "start" ? "rounded-s-2xl" : "rounded-e-2xl";
+  const edgeBorder = innerEdgeBorderClassName(side, rtl);
+  // The drop shadow is cast from that same inner face, so its x offset points
+  // away from the screen edge the sheet occupies. Physical, like every shadow.
+  const shadowOffsetX = resolvePhysicalSide(side, rtl) === "right" ? -2 : 2;
+
+  const slideAnim = React.useRef(new Animated.Value(parkedX)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
-  // Update animation value when slide distance changes (window resize)
+  // Re-park when the slide distance (window resize) OR the direction changes. A
+  // web locale switch moves `parkedX` to the other sign, and a sheet left parked
+  // at the old one would open from the wrong edge on its next press.
   React.useEffect(() => {
     if (!open) {
-      slideAnim.setValue(slideDistance);
+      slideAnim.setValue(parkedX);
     }
-  }, [slideDistance, open]);
+  }, [parkedX, open]);
 
   React.useEffect(() => {
     if (open) {
@@ -99,7 +127,7 @@ const SheetContent = React.forwardRef<
     } else {
       Animated.parallel([
         Animated.timing(slideAnim, {
-          toValue: slideDistance,
+          toValue: parkedX,
           duration: 250,
           useNativeDriver: Platform.OS !== 'web',
         }),
@@ -110,7 +138,7 @@ const SheetContent = React.forwardRef<
         }),
       ]).start();
     }
-  }, [open, slideDistance]);
+  }, [open, parkedX]);
 
   return (
     <Modal
@@ -142,6 +170,7 @@ const SheetContent = React.forwardRef<
         <Animated.View
           style={[
             styles.sheetWrapper,
+            side === "start" ? { insetInlineStart: 0 } : { insetInlineEnd: 0 },
             isMobile ? { width: width } : { maxWidth: 400 },
             { transform: [{ translateX: slideAnim }] },
           ]}
@@ -151,12 +180,15 @@ const SheetContent = React.forwardRef<
             ref={ref}
             className={cn(
               "flex-1 bg-background",
-              !isMobile && "border-l border-border rounded-l-2xl",
+              !isMobile && cn(edgeBorder, "border-border", innerRadius),
               className
             )}
             style={[
               { paddingTop: insets.top },
-              !isMobile ? styles.sheetInner : undefined,
+              !isMobile ? styles.sheetInner : null,
+              !isMobile
+                ? { boxShadow: `${shadowOffsetX}px 0px 10px rgba(0, 0, 0, 0.25)` }
+                : null,
             ]}
             {...props}
           >
@@ -175,10 +207,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     bottom: 0,
-    right: 0,
   },
   sheetInner: {
-    boxShadow: '-2px 0px 10px rgba(0, 0, 0, 0.25)',
+    // The x offset is direction-dependent and is applied beside this, per
+    // render; `elevation` is Android's flat shadow and has no direction.
     elevation: 10,
   },
 });

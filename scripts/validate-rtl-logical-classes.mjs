@@ -214,31 +214,19 @@ const KNOWN_EXCEPTIONS = [
       + "and expanded. One divider, two renderings. Same borderInline* limitation as above.",
   },
   {
-    file: "packages/ui/src/components/ui/panel.tsx",
+    file: "packages/ui/src/lib/logical-side.ts",
     pattern: "border-",
-    count: 4,
+    count: 2,
     reason:
-      "Panel takes an explicit physical `side: 'left' | 'right'` prop and animates with translateX. "
-      + "Four findings, not four decisions: ONE `side === 'right' ? border-l : border-r` ternary, whose "
-      + "two arms both match this entry's `border-` pattern, written once in the desktop flex branch and "
-      + "once in the mobile modal branch. Making the panel direction-aware is an API change plus an "
-      + "animation change, not a class swap (#429).",
-  },
-  {
-    file: "packages/ui/src/components/ui/sheet.tsx",
-    pattern: "border-l",
-    count: 1,
-    reason:
-      "Sheet slides in on a physical translateX and pairs the border with rounded-l-2xl. "
-      + "Mirroring it needs the animation flipped too, so the whole component moves at once (#429).",
-  },
-  {
-    file: "packages/ui/src/components/ui/sheet.tsx",
-    pattern: "rounded-l-2xl",
-    count: 1,
-    reason:
-      "The matching corner for the border above. rounded-s-2xl IS safe on native, but converting the radius "
-      + "while the border it sits on stays physical would split one edge across two conventions (#429).",
+      "The divider on the inner face of a sliding surface, for BOTH Panel and Sheet, in the one function "
+      + "that resolves a logical side to a physical one. TWO findings, ONE decision: the two arms of a "
+      + "single ternary on the resolved direction. #429 replaced those components' physical "
+      + "side prop with a logical one, so the anchor is now insetInlineStart/insetInlineEnd and the "
+      + "corner is rounded-s-/rounded-e-, both of which mirror on their own. The divider cannot follow "
+      + "them: the logical spellings emit borderInline*, which RN 0.85.3 does not register, so it would "
+      + "vanish on native while looking right on web. Waiting on upstream support, like the storefront "
+      + "entries above — and it is ONE entry rather than three because centralising it is what let the "
+      + "panel.tsx and sheet.tsx entries be deleted.",
   },
   {
     file: "packages/ui/src/components/ui/scroll-area.tsx",
@@ -291,22 +279,27 @@ const KNOWN_EXCEPTIONS = [
  *
  * DERIVED, not picked: the floor has to catch the silent loss of any ONE entry
  * from `SCANNED_PREFIXES` — a typo'd prefix, or a package moved without this
- * list following it. At #434 the four prefixes carry 452 source files
- * (frontend 174, ui 96, dashboard 118, pos 64), so dropping the SMALLEST of them
- * still leaves 388. A floor above that number fails on every single-prefix loss,
+ * list following it. At #429 the four prefixes carry 451 source files
+ * (frontend 171, ui 98, dashboard 118, pos 64), so dropping the SMALLEST of them
+ * still leaves 387. A floor ABOVE that number fails on every single-prefix loss,
  * including the cheapest one to make.
  *
- * 390 keeps the same character the 200-of-266 floor had before the scope
- * widened: it caught either prefix going missing, with ~60 files of headroom so
- * ordinary deletions do not turn it red for the wrong reason.
+ * 392 keeps the same character the 200-of-266 floor had before the scope
+ * widened: it catches any one prefix going missing, with ~60 files of headroom
+ * so ordinary deletions do not turn it red for the wrong reason.
  *
- * RE-DERIVE IT WHEN THE TREE GROWS. This was 360 against a 422-file tree hours
- * earlier in the same PR; #367 and #437 landed 30 files between the two
- * measurements and 360 silently stopped covering the loss of `packages/pos/`.
- * A floor is a measurement of a tree, and it goes stale in the safe-LOOKING
- * direction — the run stays green.
+ * RE-DERIVE IT WHEN THE TREE MOVES — IN EITHER DIRECTION — and note that it goes
+ * stale in the safe-LOOKING direction, so the run stays green. Twice now, both
+ * times inside the PR that moved the tree. #434 set 360 against a 422-file tree,
+ * then #367 and #437 landed 30 files and 360 stopped covering the loss of
+ * `packages/pos/`; it was raised to 390 against 452. #429 then added two files
+ * to `packages/ui`, which put drop-the-smallest at EXACTLY 390 — and the
+ * comparison is `<`, so the floor had become inert for that case while still
+ * reading as a floor. The counts above were themselves re-measured after
+ * rebasing behind #435a, which DELETED three storefront files: a floor derived
+ * before a rebase describes the tree the author had, not the one that merges.
  */
-const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 390;
+const MINIMUM_SOURCE_FILES = fixtureFloors ? 1 : 392;
 
 /**
  * The guard cannot be its own subject: this file and its self-test both spell

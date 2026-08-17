@@ -86,6 +86,14 @@ jobs:
       # language tag. None of these packages has a test runner, so this is the
       # step that carries all of it. Reads the tracked file listing and imports
       # one dependency-free module; costs a second.
+      #
+      # It also carries the SLIDING-PANEL half (#429). `Panel` and `SheetContent`
+      # are the residual the class guard could not reach: a transform sign and a
+      # divider edge are computed from the direction rather than spelled as
+      # classes, because `translateX` is physical on both platforms and the
+      # logical border utilities emit `borderInline*`, which RN 0.85.3 drops.
+      # Arithmetic over a boolean fails by rendering perfectly from the wrong
+      # edge, which typechecks and exports.
       - name: Guard RTL logical classes and layout direction
         run: bun run validate:rtl-classes
 

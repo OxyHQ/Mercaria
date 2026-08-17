@@ -187,11 +187,48 @@ the same conclusion #437's intersection merge reaches from the other side.
 exactly when the language is RTL *and* a bundle exists), so it keeps holding
 when `ar.json` arrives instead of failing that PR.
 
-One residual the bundles cannot fix on their own:
-`packages/pos/components/register/VariantPickerSheet.tsx` uses
-`<SheetContent side="right">`, and a physical `side` prop plus `translateX` is an
-API change plus an animation change rather than a class swap. **The POS variant
-picker will not mirror until #429**, whatever `ar.json` says.
+The residual the bundles could not have fixed on their own is now closed. #429
+item 4 replaced `Panel`'s and `SheetContent`'s physical `side: 'left' | 'right'`
+with a logical `LogicalSide` (`start` / `end`), a clean cut with no alias
+accepting both, and
+`packages/pos/components/register/VariantPickerSheet.tsx` — the one call site in
+the repository — now passes `side="end"`. So the POS variant picker mirrors with
+everything else the moment `ar.json` lands.
+
+Most of that surface needed no direction at all. The anchor is
+`insetInlineStart` / `insetInlineEnd` (RN 0.85.3 registers both, and
+react-native-web 0.21.2 passes them through as real CSS logical properties) and
+the inner corner is `rounded-s-` / `rounded-e-`, so all three re-resolve on their
+own. **Two facts cannot**, and they are the whole of
+`packages/ui/src/lib/logical-side.ts`:
+
+* **`translateX` is physical on both platforms.** A CSS transform is never
+  mirrored by `dir`, and React Native consults `I18nManager` nowhere under
+  `Libraries/StyleSheet` or `Libraries/Animated` — Yoga's RTL mirroring is a
+  layout pass and does not reach a transform. So the sign of the parked position
+  is computed.
+* **The divider on the panel's inner face has no logical spelling that
+  survives** — `border-s-*` emits `borderInlineStartWidth`, which RN 0.85.3 does
+  not register (the same measurement as everything else above). Resolving it in
+  ONE function is what let the `panel.tsx` and `sheet.tsx` exception entries be
+  deleted and replaced by a single one.
+
+The direction itself is READ, never re-derived from a locale:
+`packages/ui/src/lib/use-layout-direction.ts` returns what
+`syncLayoutDirection` already applied — `document.documentElement.dir` on web
+(observed, because a language switch changes it mid-session) and
+`I18nManager.isRTL` on native (constant for the process, because `forceRTL`
+takes effect on the next launch). It goes through `useSyncExternalStore`: both
+are external mutable state, the React Compiler is on, and a memoised read would
+leave a panel animating in the previous direction with nothing to blame.
+
+`scripts/validate-logical-side.mjs` runs the four pure functions — the module
+imports nothing, for the reason `rtl-locales.ts` imports nothing — and asserts
+the 2×2 table, the mirror property (a resolver that ignored the direction would
+pass every other check), the transform sign and border edge cross-checked
+against the resolution, and that both components still call it. **It verifies no
+rendering.** Whether a mirrored sheet visibly enters from the correct edge is
+#429 item 2, and no device or foregrounded tab has run it.
 
 ## Rules that are load-bearing
 
@@ -352,7 +389,7 @@ Stated so nobody reads a green run as more than it is:
 
 | # | What |
 | --- | --- |
-| #434 | Add `ar.json` to the dashboard and POS — 1,061 strings. The LAYOUT half landed; see above. Blocked for the POS variant picker on #429 |
+| #434 | Add `ar.json` to the dashboard and POS — 1,061 strings. The LAYOUT half landed; see above, and #429 item 4 unblocked the POS variant picker |
 | #435b | Extract the storefront's ~810 remaining hardcoded strings across 69 files and its 58 dead `en.json` keys, then add it to the guard's `OWNERS` in that same PR. #435a converged the registry, the store and the RTL bootstrap |
 | #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
 | #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |

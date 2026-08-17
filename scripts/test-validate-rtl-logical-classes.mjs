@@ -106,12 +106,12 @@ function migratedTree(extra = {}) {
     "packages/frontend/components/sidebar.tsx":
       'export const F1 = () => <View className="h-full border-r border-border" />;\n'
       + 'export const F2 = () => <View className="h-full w-full border-r border-border" />;\n',
-    // `border-` x4: one two-armed ternary, written in the desktop and mobile branches.
-    "packages/ui/src/components/ui/panel.tsx":
-      'export const G1 = (side) => side === "right" ? "border-l border-border" : "border-r border-border";\n'
-      + 'export const G2 = (side) => side === "right" ? "border-l border-border" : "border-r border-border";\n',
-    "packages/ui/src/components/ui/sheet.tsx":
-      'export const H = () => <View className="border-l border-border rounded-l-2xl" />;\n',
+    // `border-` x2 (#429): the two arms of the ONE ternary that resolves a
+    // logical side to the physical divider edge, for Panel and Sheet alike.
+    // Those two components carry no directional class of their own any more,
+    // so they are deliberately absent from this fixture.
+    "packages/ui/src/lib/logical-side.ts":
+      'export const G = (side, rtl) => resolve(side, rtl) === "right" ? "border-l" : "border-r";\n',
     // `border-l` x2: the gutter width and its transparent colour, on one line.
     "packages/ui/src/components/ui/scroll-area.tsx":
       'export const I = () => <View className="h-full w-2.5 border-l border-l-transparent" />;\n',
@@ -342,11 +342,13 @@ const cases = [
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    // Tracks MINIMUM_SOURCE_FILES deliberately: #434 widened the scope to four
-    // packages and re-derived the floor from them (390, above the 388 that would
-    // survive losing the smallest prefix), so a floor edited without a reason
-    // fails here rather than passing quietly at a number nobody chose.
-    expectOutput: "below the 390 floor",
+    // Tracks MINIMUM_SOURCE_FILES deliberately, so a floor edited without a
+    // reason fails here rather than passing quietly at a number nobody chose.
+    // 392 is above the 387 that would survive losing the smallest prefix
+    // (`packages/pos/`, 64 of 451) — #429 re-derived it after adding two files
+    // to `packages/ui` put drop-the-smallest at EXACTLY the old floor of 390,
+    // where a `<` comparison stops firing. Re-derive it here too.
+    expectOutput: "below the 392 floor",
   },
   {
     name: "a tracked file the working tree lost is a loud failure, not a stack trace",
