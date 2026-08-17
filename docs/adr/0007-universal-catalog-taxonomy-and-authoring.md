@@ -1,6 +1,6 @@
 # ADR 0007: The universal, multilingual catalog — taxonomy, localization, versioned product types and typed authoring
 
-- **Status:** Accepted
+- **Status:** Accepted, **amended 2026-08-18** (see *Corrections* below)
 - **Date:** 2026-08-16
 - **Issue:** epic [#367](https://github.com/OxyHQ/Mercaria/issues/367)
 - **Builds on:** ADR 0002 (canonical commerce graph), and the shipped work of
@@ -10,6 +10,49 @@
   [#59](https://github.com/OxyHQ/Mercaria/issues/59),
   [#70](https://github.com/OxyHQ/Mercaria/issues/70),
   [#94](https://github.com/OxyHQ/Mercaria/issues/94)
+
+## Corrections (2026-08-18)
+
+Thirteen claims in this document were audited against the merged implementation
+and did not survive. Each is corrected **in place**, beside the text it replaces,
+in a blockquote that says what the old version claimed — because an amendment
+reaches the next reader and never reaches the previous one, and a body that
+simply reads correctly now teaches nobody that it moved.
+
+Two kinds, and the difference is what a reader planning work needs:
+
+**ASPIRATIONAL — decisions this epic still intends and has not delivered.**
+Correcting the prose does not close them; each needs a code change.
+
+| Where | The gap |
+|---|---|
+| **D5** (and D10's echo) | "Every authoring write pins the exact product type version" is true of DRAFTS and false of the PUBLISHED write. `listings` has no `product_type_definition_id`; the only citation is nullable and written only when axes exist. `publish.service.ts:634` records it as owed. |
+| **D4** | `attribute_labels` did not gain the localization family's columns. So the machine-translation trigger cannot protect attribute labels, and every one is served with a fabricated `effectiveLocale` and `status`. Needs a migration. |
+
+**MISTAKEN — the mechanism, the count or the file named was simply wrong.** The
+behaviour was always whatever the code did; only this document was incorrect.
+
+| Where | Was | Is |
+|---|---|---|
+| **D2** | "a CHECK on the assignment" | a TRIGGER — a CHECK cannot read the `categories` row |
+| **D5** | "enforced by trigger" (one) | two functions across four triggers; the children are the schema |
+| **D6** | "a CHECK on the axis's attribute scope" | one CHECK on the KEY (33, derived) plus two trigger clauses, one of them conditional |
+| **D8** | "the axis CHECK in D6" | three refusals, and this gate's reach is the LEGACY option pair |
+| **D12** | levers "read in exactly one place" | **six** non-test reads; the substantive claim survives |
+| **D12** | the localization reader has "two consumers" | **one**; authoring uses the pure resolver, and says why in place |
+| **D12** | "the **nine** `/internal/*` catalog surfaces" | **26**, counted twice by independent parsers |
+| **D13** | `listings` gains `product_type_definition_id` + version | it gains neither |
+
+**STALE — true when written, closed since, and left standing.** D12's "for three
+of the four levers it is a convention rather than a property" was overtaken by
+#552, which gave all four a scanned wall. A document describing a gap its own
+epic closed is the shape that reads as pending forever.
+
+**BECAME TRUE — recorded so a reader who checked in the interval knows they read
+the code correctly.** D1's item 3 named a scanned gate that did not exist for
+thirteen merged layers, and D7's "a claim never becomes a canonical fact without
+passing through the selection machinery" was a convention with nothing behind it.
+Both are gates as of #566.
 
 ## Context
 
@@ -75,11 +118,23 @@ exists to establish, and it is enforced three ways:
 2. `key` is frozen by trigger after insert. A concept whose key was wrong is
    deprecated and superseded, never renamed — a renamed key is indistinguishable
    from a different concept to every seed, mapping and export that cited it.
-3. A scanned gate (`catalog-identity-isolation.test.ts`) fails the build if a
-   public DTO or a request schema in the catalog domain accepts a bare
-   `category: string`, `optionName: string`, `attributeName: string` or
-   `value: string` where an id or key is the correct input. The gate carries a
-   vacuity floor and a mutation self-test, per the house rule.
+3. A scanned gate (`db/__tests__/catalog-identity-isolation.test.ts`) fails the
+   build if a foreign key targets a presentation column, and if a **new** bare
+   `category: string` / `productType: string` / `optionName: string` /
+   `attributeName: string` appears in a catalog request schema. The gate carries
+   per-shape vacuity floors and a mutation self-test per clause, per the house
+   rule.
+
+   > **This gate did not exist until #566, and for thirteen merged layers this
+   > numbered item described nothing.** It is called out because a reader who
+   > checked the earlier state and found no such file was right, and should be
+   > able to tell that it changed rather than that they misread. Two details
+   > differ from what this item originally promised. It cannot assert **zero**
+   > bare identity strings — seven exist, all in pre-#367 v1 listing contracts a
+   > shipped mobile build cannot be recalled from — so they are frozen as an
+   > exact set and an eighth fails the build. And `value: string` is deliberately
+   > **not** detected: a claim's raw value genuinely is a string (D7), so a
+   > detector for it would flag the rows this ADR exists to preserve.
 
 Slugs remain, and they are **per-locale presentation records** (D4), not keys.
 
@@ -100,8 +155,20 @@ Added to `categories`:
   authority.
 - `selectable boolean NOT NULL DEFAULT true` — a structural node (a root, a
   grouping level) is not a valid product assignment. Assigning a product to a
-  non-selectable node is refused at the write chokepoint AND by a CHECK on the
-  assignment.
+  non-selectable node is refused at the write chokepoint AND by a **trigger**,
+  `mercaria_category_assignment_selectable`
+  (`drizzle/0088_redundant_korvac.sql:442`, mounted on `listings` at `:461` and
+  on `canonical_products` at `:465`).
+
+  > **CORRECTED — mistaken, not aspirational.** This said "by a CHECK on the
+  > assignment". It cannot be a CHECK and never was: selectability lives on the
+  > `categories` row and a CHECK cannot read another row, which is the same
+  > reason this decision gives for cycles and self-parenting two paragraphs
+  > below. The schema's own comment at `db/schema/catalog.ts:160` named the
+  > trigger correctly all along, so this line was the only artefact saying
+  > otherwise. Nothing about the enforcement changed; what was wrong was the
+  > mechanism named, and it matters because "add a CHECK" is what somebody would
+  > have reached for on finding the constraint missing.
 - `ancestor_ids text[] NOT NULL` — the ancestry, keyed on **ids**, with a GIN
   index. This supersedes `ancestor_slugs`.
 - `merged_into_category_id` — set exactly when `lifecycle = 'merged'`
@@ -214,8 +281,42 @@ Every localized string in the catalog lives in a table dedicated to its entity:
 `category_localizations`, `product_type_localizations`,
 `attribute_value_localizations`, `navigation_node_localizations`, and so on.
 `attribute_labels` (#94) is the precedent and is **adopted, not duplicated** —
-it becomes the attribute-definition member of this family and gains the columns
-below.
+it becomes the attribute-definition member of this family.
+
+> **CORRECTED — this was ASPIRATIONAL and was not delivered, and the consequence
+> is live.** The original said `attribute_labels` "gains the columns below". It
+> did not. The table is `id`, `attribute_definition_id`, `locale`, `label`,
+> `description` and timestamps (`db/schema/attributeRegistry.ts:265`): **no
+> `status`, no `provenance`, no `source_locale`, no `source_revision`, no
+> `reviewed_by`, no `reviewed_at`.**
+>
+> **The consequence that matters is the trigger.** The machine-translation guard
+> below is mounted on `category_localizations`, `product_type_localizations` and
+> `attribute_value_localizations` (`drizzle/0091_slimy_the_fury.sql:143`, `:146`,
+> `:149`) and **not** on `attribute_labels`, which appears nowhere in that
+> migration — there is no `provenance` column for it to read. So a machine
+> translation CAN overwrite a reviewed attribute label, which is the one thing
+> D4 says a trigger rather than service discipline must prevent.
+>
+> The second consequence is smaller than it first looks, and the composer
+> deserves the credit: because there is no `status` or `provenance` column, a
+> localized attribute label cannot report its real translation status, so
+> `services/catalog-authoring/schema.service.ts:625-631` reports `step: 'base'`
+> and `status: 'approved'` — in its own words "the honest reading of a table that
+> records neither" — and **counts it as unresolved in the coverage figure so an
+> operator sees the gap rather than a confident 100%.** An earlier draft of this
+> correction called that "fabricated", which was unfair: the value is a stated
+> convention with a compensating counter, not an invention. What a client cannot
+> do is tell a reviewed attribute label from a base one.
+>
+> **This ADR was the only artefact carrying the false claim.**
+> `shared-types/src/catalog-localization.ts:440` records the table as a formal
+> `LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS` entry and
+> `docs/catalog-localization.md:43` states the truth — so the code and the domain
+> doc agreed with each other and disagreed with this decision, which is the worst
+> direction for the disagreement to run. **Closing it needs a migration and is
+> not a documentation change**; it is recorded here as outstanding rather than
+> quietly reworded.
 
 A single polymorphic `(entity_type, entity_id, locale, field, value)` table was
 rejected: `entity_id` could carry no foreign key, so every orphan would be
@@ -272,9 +373,27 @@ boundary.
 `fee_schedules` and `attribute_definitions` already use in this repository:
 
 - `(key, version)` unique; `lifecycle` is `draft | review | published |
-  deprecated`; **a published version is immutable, enforced by trigger**; at
-  most one `published` version per key is *current*, held by a partial unique
-  index.
+  deprecated`; **a published version is immutable, enforced by two trigger
+  functions across four triggers**; at most one `published` version per key is
+  *current*, held by a partial unique index
+  (`product_type_definitions_one_published_per_key`).
+
+  > **CORRECTED — mistaken, and understated rather than overstated.** This said
+  > "enforced by trigger", singular, which reads as one mechanism somebody could
+  > find and reason about. There are two functions and four triggers, and the
+  > split is the whole point: `mercaria_product_type_definition_immutable`
+  > (`drizzle/0089_kind_blink.sql:155`) mounted as
+  > `product_type_definitions_immutable_once_published` (`:193`) freezes the
+  > PARENT's `key`, `version`, `pending_proposal_policy` and audit column —
+  > leaving `name`, `description` and `lifecycle` editable by design — while
+  > `mercaria_product_type_child_frozen` (`:211`) is mounted three times, as
+  > `product_type_field_groups_frozen` (`:235`),
+  > `product_type_category_scopes_frozen` (`:239`) and
+  > `product_type_fields_frozen` (`:243`). **The children are the schema**, so a
+  > reader who checked only the parent trigger would conclude the fields were
+  > editable after publication. A fifth trigger,
+  > `product_type_fields_citation` (`:316`), is a different rule: it holds the
+  > field's citation of its attribute version.
 - `product_type_category_scopes` — the eligibility mapping (D2), relational.
 - `product_type_field_groups` — ordered authoring/display groups.
 - `product_type_fields` — each row **references an
@@ -302,10 +421,41 @@ never modelled as product-type attributes.** Price, stock, availability,
 condition and fulfilment stay in their own domains (a scanned gate), and the
 schema references them as separate steps.
 
-Canonical products, drafts and every authoring write **pin the exact product
-type version and the exact attribute definition versions** they were made
-under. A newer version never silently reinterprets an older record; a migration
-is offered as a preview and applied deliberately.
+Drafts **pin the exact product type version and the exact attribute definition
+versions** they were made under. A newer version never silently reinterprets an
+older record; a migration is offered as a preview and applied deliberately.
+
+> **CORRECTED — the DRAFT half shipped and the PUBLISHED half did not. This is
+> ASPIRATIONAL: a decision the epic still intends and has not delivered, not a
+> mistake about a mechanism.** The original sentence read "Canonical products,
+> drafts and every authoring write pin…", and only the middle term is true.
+>
+> Drafts are solid. `catalog_authoring_drafts` carries `category_id`,
+> `product_type_definition_id`, `locale` and `market`, all NOT NULL, and
+> `mercaria_catalog_authoring_value_citation`
+> (`drizzle/0098_young_lorna_dane.sql:231`, trigger `:274`) refuses a value whose
+> `(attribute_key, version)` disagrees with the definition it cites. A product
+> type definition id **is** a version pin, because `(key, version)` is unique and
+> each version is its own row.
+>
+> **The published write has no product-type pin.** `listings` carries no
+> `product_type_definition_id` column at all — verified, zero occurrences in
+> `db/schema/catalog.ts` — and the only carrier is
+> `native_listing_variant_axes.product_type_definition_id`
+> (`db/schema/variantAxes.ts:159`), which is **nullable** and written only inside
+> `if (axesByFieldId.size > 0)` (`services/catalog-authoring/publish.service.ts:624`,
+> the value at `:639`). So a published listing that declares no variant axes
+> carries no product-type version anywhere, and nothing asserts otherwise.
+>
+> `publish.service.ts:634-638` records it in place — "`listings` carries no such
+> column **yet** — step 4's doc names that as this workstream's to add" — and
+> `docs/variant-axes.md:326` states the owed change. **So the code beside this
+> decision recorded the gap while this decision asserted it closed**, which is the
+> worst of the three ways prose goes wrong: a stale fact is discovered, and an
+> assertion that something already holds stops anybody looking. Closing it needs a
+> migration adding the column plus a trigger clause comparing the axis citation
+> against the listing's own — **a code change, not a documentation one** — and it
+> is outstanding.
 
 ### D6. Variant axes reference the registry; free text becomes a retained claim
 
@@ -320,7 +470,42 @@ authoritative for that product**.
 - Zero, one and many axes are all supported, and matrices are **sparse** —
   nothing generates the full Cartesian product as rows.
 - Compatibility targets, seller condition, price and inventory are **refused as
-  axes**, by a CHECK on the axis's attribute scope.
+  axes**, in three places — one CHECK on the axis's KEY and two clauses of a
+  trigger.
+
+  > **CORRECTED — mistaken about the mechanism, and the true version is both
+  > stronger and narrower than what this said.** The original named "a CHECK on
+  > the axis's attribute scope". No such CHECK exists and none can: `scope` lives
+  > on `product_type_fields` and the axis row holds only an
+  > `attribute_definition_id`, so reading a scope means reading another row, which
+  > a CHECK cannot do. What actually refuses an axis is:
+  >
+  > 1. **`native_listing_variant_axes_forbidden_key_check`**
+  >    (`db/schema/variantAxes.ts:187`) — a CHECK on the axis's `attribute_key`,
+  >    rendered from `PRODUCT_TYPE_FORBIDDEN_VARIANT_AXIS_KEYS`. It is **33 keys**
+  >    and, worth knowing, it is not a hand list: it is the spread of
+  >    `RESERVED_OFFER_FACT_KEYS` (20) and `PRODUCT_TYPE_COMPATIBILITY_AXIS_KEYS`
+  >    (13), so the two vocabularies cannot diverge from what a CHECK admits.
+  > 2. **`mercaria_native_variant_axis_citation`'s `variant_defining` clause**
+  >    (`drizzle/0097_uneven_hedge_knight.sql:207`) — an attribute the registry
+  >    does not mark `variant_defining` may not be an axis, **unconditionally**.
+  >    This is the clause doing most of the work, and the original text did not
+  >    mention it.
+  > 3. **The same trigger's product-type field clause** (`:215`) — the cited
+  >    version must declare a `variant_capable`, `scope = 'variant'` field for that
+  >    attribute. This is where the word `scope` legitimately appears, and it is
+  >    **conditional**: it runs only `if new.product_type_definition_id is not
+  >    null`, and that column is nullable.
+  >
+  > So the residual gap is real but narrow, and stating it precisely matters more
+  > than stating it darkly: an attribute could become an axis despite meaning a
+  > compatibility target only if its key is outside the 33 **and** an operator has
+  > published a definition version marking it `variant_defining` **and** the axis
+  > row cites no product type version. All three, and the middle one is a
+  > deliberate act. `db/__tests__/variant-axes.realdb.test.ts` drives the
+  > refusals; the repo's own test comment at
+  > `services/__tests__/verticals-smartphone.realdb.test.ts:296` already stated
+  > this distinction correctly, so this decision was the outlier.
 
 `listing_options.name` and `product_variant_option_values.name` / `.value` are
 not deleted. They become **legacy claims**: preserved verbatim with their
@@ -341,6 +526,23 @@ without passing through the existing selection and provenance machinery, and a
 canonical fact never overwrites the claim that disagreed with it — both are
 retained, which is what makes a correction auditable.
 
+> **Amended — this became TRUE after the fact, and it is worth saying which
+> half.** The retention half was always a property: both claim tables are frozen
+> by trigger (`drizzle/0097_uneven_hedge_knight.sql:512`, `:551`, `:592`), so a
+> canonical selection cannot rewrite the claim that disagreed with it.
+>
+> "A claim never becomes a canonical fact without passing through the selection
+> and provenance machinery" was **a convention until #566** — the claim tables
+> were guarded, the selected fact was not, and the authoring domain's own
+> isolation wall named `canonical_products`, `canonical_variants` and
+> `product_identifiers` while omitting `canonical_attribute_values`. A publish
+> path promoting a claim straight into the selected fact would have shipped green.
+> It is now a census:
+> `db/__tests__/canonical-attribute-value-chokepoint.test.ts` permits exactly
+> three writers over 1610 production modules, and the authoring wall names the
+> table. Recorded rather than silently upgraded, because a reader who checked in
+> the interval and found no gate was reading the code correctly.
+
 ### D8. Compatibility and fitment are a relationship domain, not variants
 
 `generic_compatibility_relations` links a product/variant to compatible
@@ -354,8 +556,25 @@ with position, qualifiers, exclusions, source evidence and confidence.
 
 **A year range, a make or a model may never be stored as a variant option.**
 One brake-pad SKU fits many vehicles and remains one variant; this is the
-epic's own acceptance scenario and it is held by the axis CHECK in D6 plus a
+epic's own acceptance scenario and it is held by the three refusals in D6 plus a
 scanned gate forbidding the compatibility domain from writing option rows.
+
+> **Verified and left standing, with one thing to know about its reach.** This
+> sentence is accurate: `services/compatibility/__tests__/compatibility-isolation.test.ts:251`
+> forbids the domain from naming `listing_options`,
+> `product_variant_option_values`, either repository or `catalog-write.service`,
+> and `:593` additionally walks those tables' own COLUMNS so a
+> `listing_options.vehicle_generation_id` fails the build as well — which is more
+> than the sentence claims.
+>
+> What it does **not** cover is the TYPED axis tables (`native_listing_variant_axes`
+> and its siblings), which is where an axis lives after #367 step 4. So the typed
+> path is carried by D6's three refusals above rather than by this gate, and D6's
+> correction states the residual precisely. Recorded because the natural reading
+> of "option rows" is "any axis", and it is not: it is the legacy pair.
+>
+> Also corrected in passing: this said "the axis CHECK in D6", singular. D6 has
+> one CHECK and two trigger clauses; see the correction there.
 
 ### D9. A missing concept is a proposal, and a proposal is never auto-promoted
 
@@ -495,8 +714,37 @@ or a mount**, never a stored row:
   surface this epic added, it is one of the four things a rollback turns off, and
   the domain it gates owns no table and writes no row.
 
-Each is read in exactly one place — the `app.use` that mounts its router — and no
-repository, outbox enqueue, loop or checkout path reads any of them.
+The four levers are read in **six** non-test places, and no repository, outbox
+enqueue, loop or checkout path reads any of them.
+
+> **CORRECTED — mistaken, and the substantive half survives.** This said "read in
+> exactly one place — the `app.use` that mounts its router". The census, taken
+> per lever over the config PROPERTY rather than the env-var string:
+>
+> | Lever | Property | Non-test reads |
+> |---|---|---|
+> | `CATALOG_TAXONOMY_V2_ENABLED` | `config.catalog.taxonomyV2Enabled` | `app.ts:978` |
+> | `CATALOG_AUTHORING_ENABLED` | `config.catalogAuthoring.enabled` | `app.ts:258`, `services/catalog-observability/metrics.service.ts:745` |
+> | `CATALOG_PROPOSALS_ENABLED` | `config.catalogProposals.enabled` | `app.ts:274` |
+> | `FACETS_ENABLED` | `config.catalog.facetsEnabled` | `app.ts:737`, `metrics.service.ts:746` |
+>
+> Four mounts and two metrics reads, which decide whether a metric reports
+> `surface_not_mounted` rather than a figure. **The claim that matters — no
+> durable-record path reads a lever — is unaffected**, and `#552` gave all four a
+> scanned wall (see below). What was wrong is the number, and it is worth fixing
+> because "read in exactly one place" is the kind of sentence somebody verifies by
+> grepping once, finding two hits, and then not knowing which of the two the ADR
+> was wrong about.
+>
+> Two further notes. `app.ts:258` gates **two** mounts on one read (the authoring
+> router and `/stores/:storeId/product-drafts`), which is why
+> `routes/__tests__/catalog-rollout.realdb.test.ts:309` pins the withdrawal at
+> five mounts rather than four. And
+> `controllers/catalog-authoring.controller.ts` reads four SIBLING settings off
+> `config.catalogAuthoring` (page sizes, the draft TTL) which are not levers and do
+> not count here — a census that greps the namespace rather than the boolean
+> reports ten and is measuring something else.
+> `docs/runbooks/catalog-rollout-rollback.md:109` already states six.
 
 #### The three levers this decision named and nobody built
 
@@ -511,17 +759,35 @@ repository, outbox enqueue, loop or checkout path reads any of them.
   through the governance surface — not a lever.
 - **`CATALOG_LOCALIZATION_ENABLED` — unnecessary *today*, because localized
   reads are transitively contained.** `services/catalog-localization/read.service.ts`
-  exports two readers and they have exactly two external consumers:
-  `services/facets/facet.service.ts` (behind `FACETS_ENABLED`) and
-  `services/catalog-authoring/schema.service.ts` (behind
-  `CATALOG_AUTHORING_ENABLED`). `routes/categories.ts` reads no locale at all, so
-  with the four levers off no public surface serves a localized label and the
-  base-locale behaviour this decision promised is what a shopper gets.
-  **The condition under which that flips, stated so it is recognisable:** a THIRD
-  consumer of either reader on an unconditionally-mounted route would make
-  localized reads un-rollbackable, and nothing gates against it — there is no
-  `catalog-localization` isolation test. Adding such a consumer means either
-  building this lever or gating the new route.
+  exports two readers and has exactly **one** external production consumer:
+  `services/facets/facet.service.ts:82` (behind `FACETS_ENABLED`).
+  `routes/categories.ts` reads no locale at all, so with the four levers off no
+  public surface serves a localized label and the base-locale behaviour this
+  decision promised is what a shopper gets.
+
+  > **CORRECTED — mistaken about the consumer set, and the containment argument
+  > gets STRONGER rather than weaker.** This said "exactly two external
+  > consumers", naming `catalog-authoring/schema.service.ts` as the second. That
+  > module does not import `read.service.ts`. It imports the PURE resolver
+  > (`catalog-localization/resolve.ts`) instead, and says why in place at
+  > `schema.service.ts:695-704`: `readLocalizedAttributeValues` re-reads
+  > `attribute_enum_values` for the base label, a statement the schema
+  > composition has already issued, and two reads of one table in one request is
+  > the N+1 that file is arranged to avoid.
+  >
+  > So the reader has one consumer, not two — but the authoring path **does**
+  > still serve localized labels, through the resolver, behind
+  > `CATALOG_AUTHORING_ENABLED`. The conclusion holds by both routes; only the
+  > route named was wrong. It matters because the paragraph's whole purpose is to
+  > tell a future reader **which files to check**, and it sent them to the wrong
+  > one.
+
+  **The condition under which that flips, stated so it is recognisable:** a
+  SECOND consumer of either reader — or a first consumer of `resolve.ts` — on an
+  unconditionally-mounted route would make localized reads un-rollbackable, and
+  nothing gates against it: there is still no `catalog-localization` isolation
+  test. Adding such a consumer means either building this lever or gating the new
+  route.
 - **`CATALOG_AUTHORING_COHORTS` — not built, and it is the one that changes what
   this decision can promise.** Authoring is all-or-nothing on
   `CATALOG_AUTHORING_ENABLED`; nothing narrows the mount to a market, a locale, a
@@ -546,19 +812,43 @@ threshold is a proposal.
 **Nothing in a rollback deletes catalog evidence.** Turning every lever off
 restores listing-first behaviour and leaves every row readable, because the
 evidence has to be readable during the incident that turned the levers off.
-**Two qualifications found on audit**, both in
-`catalog-migration-operations.md`: the readability half is conditional on
-`CATALOG_OPERATOR_OXY_USER_IDS` being non-empty, since the nine `/internal/*`
-catalog surfaces are gated on that list's LENGTH and an empty list answers 404;
-and the guarantee is defended by one assertion over one domain's repository
-layer, so for three of the four levers it is a convention rather than a property.
+**One qualification stands and one has been retired.** The readability half is
+conditional on `CATALOG_OPERATOR_OXY_USER_IDS` being non-empty, since the
+`/internal/*` catalog surfaces are gated on that list's LENGTH and an empty list
+answers 404 — so populating it is part of the rollback plan, not an afterthought.
+
+> **CORRECTED, twice.**
+>
+> **The number was wrong.** This said "the **nine** `/internal/*` catalog
+> surfaces". There are **26** `app.use` mounts inside a
+> `config.catalog.graphOperatorSurfaceEnabled` block in `app.ts` — `:286, 471,
+> 519, 644, 724, 745, 749, 754, 755, 760, 765, 772, 782, 796, 810, 819, 823, 833,
+> 844, 854, 865, 876, 886, 992, 1008, 1014` — counted twice by independent
+> parsers. Nine is the length of the hand list in
+> `routes/__tests__/catalog-rollout.realdb.test.ts:281`, and that test's `:421`
+> asserts the length is nine and calls it a vacuity floor. **It is a floor
+> computed from the list it guards**, so deleting an entry leaves that surface
+> unscanned with the assertion still true, and seventeen surfaces are asserted in
+> neither direction. Purely a wrong number in this document; the under-coverage
+> in the test is a separate defect and is not fixed by editing prose.
+>
+> **The second qualification is STALE and is withdrawn.** It said the
+> durable-record guarantee "is defended by one assertion over one domain's
+> repository layer, so for three of the four levers it is a convention rather
+> than a property". `#552` gave all four a scanned wall:
+> `services/facets/__tests__/facet-isolation.test.ts:465` and
+> `services/__tests__/navigation-isolation.test.ts:436` are BLANKET (the domain
+> reaches no configuration at all), and the authoring and proposal gates carry
+> both a lever-specific and a blanket wall. This decision was describing a gap its
+> own epic had closed — which is the failure mode that reads as still-pending
+> forever, and the reason it is withdrawn here explicitly rather than deleted.
 
 ### D13. Retained, extended, retired
 
 | Existing | Disposition |
 | --- | --- |
 | `categories` | **Extended** in place (D2). `ancestor_slugs` retained as a v1 read contract; superseded by `ancestor_ids`, retired in a later `post` migration once no reader remains. `is_active` becomes derived from `lifecycle` and is retained as a v1 column. |
-| `listings`, `product_variants` | Retained. Gain nullable `category_id` semantics under the new lifecycle rules, `product_type_definition_id` + version, and the pinned definition versions. |
+| `listings`, `product_variants` | Retained. Gained nullable `category_id` semantics under the new lifecycle rules. **They did NOT gain `product_type_definition_id` or a pinned version** — see the correction under D5; the citation lives on `native_listing_variant_axes` and is nullable. |
 | `listing_options`, `product_variant_option_values` | **Retained as legacy claims** (D6). Not dropped, not silently normalized. |
 | `attribute_definitions` + 7 siblings | **Retained and extended** — the one authoritative registry. `attribute_labels` becomes the attribute member of the localization family (D4). |
 | `canonical_*` (17 tables) | Retained unchanged. This epic adds localization records beside them and never re-models them. |

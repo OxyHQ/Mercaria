@@ -33,7 +33,28 @@ perfectly; the shopper finds out at the size chart.
 A price from the cheapest seller and availability from a different one is the
 same failure a layer down, and it is the one a shopper discovers at checkout.
 
-### How they are held
+### How they are held — on THIS rail, and the scope is load-bearing
+
+> **Read this before quoting either guarantee elsewhere.** Everything below is
+> true of the **facet rail** (`POST /facets`). It is **not** true of the two rails
+> a shopper's result LIST comes from: canonical search
+> (`services/search/canonical-search.service.ts:487`, which loops one statement
+> per variant constraint) and category browse
+> (`services/catalog-pages/product-browse.service.ts:205`, which intersects
+> PRODUCT id sets one constraint at a time). Neither correlates to a single
+> variant: the candidate reader resolves a match through
+> `coalesce(v.product_id, cv.product_id)`
+> (`db/search/searchCandidateRepository.ts:1011`, `:1015`). That is
+> [#567](https://github.com/OxyHQ/Mercaria/issues/567), and the sharp edge is that
+> the correlated rail produces the **count** while an uncorrelated rail produces
+> the **list** — so a page can render `matchedProductCount: 1` above a result set
+> containing the crossed product.
+>
+> So the epic-level invariant *"filters and constraints are variant-aware"* is
+> **unmet** today, on the ordinary filtered-search path and behind no flag. This
+> document previously stated the guarantee without that qualification, which is
+> how a domain-scoped truth gets read as a system-wide one. Same-OFFER is
+> genuinely held on both rails (see the fixed observation at the end of this file).
 
 `buildEntityPredicate` in `db/facets/facetRepository.ts` is the **only** place a
 selection becomes SQL, and it takes the variant and offer requirement sets
@@ -515,25 +536,39 @@ variable and loses no evidence.
 
 ---
 
-## An observation about `services/search/offer-context.ts`
+## An observation about `services/search/offer-context.ts` — FIXED, and the record kept
 
-Not a change made here, and worth recording because it is the same failure this
-workstream is named after.
+> **This section documented an open bug that has been fixed, and read as open for
+> as long as it stood.** It was true when written. `c867eada`
+> (*fix(search): answer offer-side filters from ONE offer, not two* — #438/#449)
+> landed afterwards and nobody swept this page. The finding is kept rather than
+> deleted, because a reader who remembers it needs to be able to tell that it was
+> resolved rather than that they imagined it — and because it is the clearest
+> worked example this repository has of the failure the workstream is named after.
 
-`buildSearchOfferContexts` applies `market`, `offerKinds`, `availability`,
-`conditionGroups` and `merchantIds` in the SQL scope — same-offer by construction,
-one WHERE on one row. But `satisfiesPrice` and `fromOfficialChannel` are then
-computed in a loop over the surviving offers, each set by the first offer that
-satisfies it:
+**What was wrong.** `buildSearchOfferContexts` applied `market`, `offerKinds`,
+`availability`, `conditionGroups` and `merchantIds` in the SQL scope — same-offer
+by construction, one WHERE on one row — but then computed `satisfiesPrice` and
+`fromOfficialChannel` in a loop over the surviving offers, each set by the *first*
+offer that satisfied it:
 
 ```ts
+// as it WAS — do not restore this shape
 for (const offer of current) {
   if (… && !satisfiesPrice) { … satisfiesPrice = true; }
   if (officialMerchants?.has(offer.merchantId)) fromOfficialChannel = true;
 }
 ```
 
-So a product passes `price ≤ X` **and** `officialChannelOnly` when offer A is
-cheap and a different offer B is official. Same-offer between those two filters
-does not hold. It is `services/search/` territory and was not touched; it is
-reported for whoever owns #70.
+So a product passed `price ≤ X` **and** `officialChannelOnly` when offer A was
+cheap and a different offer B was official.
+
+**What it is now.** `matchOfferRequirements`
+(`services/search/offer-context.ts:373`) evaluates the whole requirement set
+against ONE offer and is called per product at `:603`; `satisfiesPrice` and
+`fromOfficialChannel` no longer exist as independent accumulators — a grep for
+either returns zero, against three hits for `matchOfferRequirements`. The
+negative case is pinned by
+`services/search/__tests__/same-offer-filters.realdb.test.ts:379`, with an
+assertion at `:342` that the fixture really is crossed — so the test cannot pass
+by measuring an uncrossed product.
