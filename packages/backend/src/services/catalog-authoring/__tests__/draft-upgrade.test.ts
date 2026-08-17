@@ -130,6 +130,25 @@ const db = {} as never;
 const PINNED = { id: 'ptd_v1', key: 'smartphone', version: 1 };
 const PUBLISHED = { id: 'ptd_v2', key: 'smartphone', version: 2 };
 
+/**
+ * The draft's row timestamps — safely in the PAST, and ONE literal that both of
+ * them read.
+ *
+ * Past, because `fixture-date-census.test.ts` refuses a fixture dated today or
+ * later: the real clock moves toward it, so it passes on the day it was written,
+ * keeps passing, and then breaks CI for whoever pushes on the day it arrives —
+ * in a file they did not touch. This file was written on 2026-08-17 and pinned to
+ * it, which the census caught the same day. That was the only day it was cheap to
+ * catch; a day later it would have gone quiet for a year.
+ *
+ * ONE constant rather than two identical literals, because two drift apart
+ * independently and the second one becomes the next census hit. Nothing here
+ * compares them — `hydrateDraft` only calls `.toISOString()` on them — so no
+ * later instant has to be derived; if one ever did, it would be an offset from
+ * what the code under test actually stamped, never a second literal.
+ */
+const FIXTURE_INSTANT = new Date('2026-01-05T00:00:00.000Z');
+
 const DRAFT = {
   id: 'dr_1',
   storeId: 'st_1',
@@ -148,8 +167,8 @@ const DRAFT = {
   selectedCanonicalProductId: null,
   publishedListingId: null,
   expiresAt: null,
-  createdAt: new Date('2026-08-17T00:00:00.000Z'),
-  updatedAt: new Date('2026-08-17T00:00:00.000Z'),
+  createdAt: FIXTURE_INSTANT,
+  updatedAt: FIXTURE_INSTANT,
 };
 
 function field(overrides: Record<string, unknown> = {}) {
