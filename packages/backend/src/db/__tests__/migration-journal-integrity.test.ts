@@ -18,7 +18,10 @@
  *    it, which `~/Oxy/AGENTS.md`'s rebase protocol asks for in one breath and is
  *    therefore easy to half-do. It is also blind to the deploy-phase gate: that
  *    check is keyed on tags, so an unnamed file's missing `-- oxy:deploy-phase=`
- *    marker is never looked for.
+ *    marker is never looked for. **Measured**, rather than reasoned: dropping a
+ *    `0109_stray_no_marker.sql` carrying no phase marker and no trigger into
+ *    `drizzle/` leaves `migration-handwritten-markers.test.ts` at 27/27 green and
+ *    turns this file red.
  * 2. **A missing snapshot.** `migrate.ts` reads `.sql` files and never opens a
  *    snapshot, so the whole suite is green and `db:generate` breaks for whoever
  *    runs it NEXT — a failure that lands on a different person from the one who
