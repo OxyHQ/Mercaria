@@ -110,11 +110,6 @@ function cleanTree(extra = {}) {
       + "}\n"
       + "const kmFallback = () => `${kilometres.toFixed(1)} km`;\n"
       + "const pctFallback = () => `${(magnitude / BASIS_POINTS_PER_PERCENT).toFixed(1)}%`;\n",
-    // The `referral-labels.ts` entry — a percentage inside a hardcoded English
-    // sentence, left un-localized until that module is translated.
-    "packages/ui/src/lib/referral-labels.ts":
-      "export const describeRewardBasis = (basis) =>\n"
-      + "  `${(basis.rateBps / 100).toFixed(basis.rateBps % 100 === 0 ? 0 : 2)}% of ${basis.percentageOf}`;\n",
     // KNOWN_EXCEPTIONS[1] — the target-price TextInput prefill.
     "packages/frontend/app/(app)/price-alerts.tsx":
       "const prefill = (suggested.amount / 10 ** precision).toFixed(precision);\n"

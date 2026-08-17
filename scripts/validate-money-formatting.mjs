@@ -219,21 +219,6 @@ const KNOWN_EXCEPTIONS = [
     reason: "`formatPercent`'s own un-localized fallback — the entry above, one formatter over.",
   },
   {
-    file: "packages/ui/src/lib/referral-labels.ts",
-    pattern: "basis.rateBps / 100).toFixed",
-    rule: "raw-decimal-render",
-    count: 1,
-    reason:
-      "DELIBERATELY out of #500's scope, and the reason is the issue's own principle rather than an "
-      + "oversight. Every sentence this module returns is a hardcoded English string ('A fixed amount "
-      + "per qualifying referral, drawn from …') — it predates the #437 conversion. Localizing the "
-      + "numeral inside one would give a German reader '8,2% of realized base': the number in their "
-      + "convention, the words not. That is the same mixed sentence #500 exists to remove, one level "
-      + "up. It goes through a formatter in the change that TRANSLATES this module, and the "
-      + "shrink-only discipline above is what makes this entry fail the build if that happens without "
-      + "somebody removing it.",
-  },
-  {
     file: "packages/ui/src/lib/format.ts",
     pattern: "${money.currency}",
     rule: "amount-beside-currency",
