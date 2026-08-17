@@ -13,13 +13,16 @@
  *
  * One throwaway database serves the whole suite and vitest runs files in
  * parallel workers. Every row this file writes carries a per-run suffix in a
- * column it owns, every aggregate is scoped to those ids, and teardown deletes
- * exactly what it created — children first, because the audit trail's foreign
- * key onto a change request is `restrict` and agrees with its no-delete trigger.
+ * column it owns, and every aggregate is scoped to those ids.
+ *
+ * Teardown deliberately does NOT delete most of them: four of this domain's
+ * five tables refuse DELETE by trigger, and those refusals are properties this
+ * file asserts. `afterAll` carries the full reasoning and the two things that
+ * were checked rather than assumed before leaving the rows in place.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray, like, sql } from 'drizzle-orm';
+import { eq, like, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import {
@@ -41,6 +44,40 @@ import {
   revokeRoleGrant,
 } from '../../../db/catalogGovernance/auditRepository.js';
 import { insertDefinitionSnapshot } from '../../../db/catalogGovernance/snapshotRepository.js';
+
+/**
+ * Assert that a statement was refused by a TRIGGER, matching its own message.
+ *
+ * Drizzle WRAPS a driver error: `error.message` is only ever
+ * `Failed query: update "…"`, and the trigger's `raise exception` text lives on
+ * `error.cause`. A plain `.rejects.toThrow(/…/)` therefore matches the wrapper
+ * and fails against a trigger that fired perfectly well — which is exactly what
+ * the first run of this file did, on all ten trigger assertions, while every
+ * `isCheckViolation` case passed because that helper already reads `cause`.
+ *
+ * The same fact `AGENTS.md` records for SQLSTATE ("a drizzle error's SQLSTATE
+ * lives on `cause`, never `error.code`"), one field over.
+ *
+ * It cannot pass vacuously: a statement the database ACCEPTED resolves, and the
+ * resolved branch fails naming the trigger that did not fire.
+ */
+async function expectTriggerRefusal(
+  run: Promise<unknown>,
+  pattern: RegExp,
+  what: string,
+): Promise<void> {
+  let raised: unknown;
+  try {
+    await run;
+  } catch (error) {
+    raised = error;
+  }
+  expect(raised, `${what}: the statement SUCCEEDED — the trigger did not fire`).toBeDefined();
+  const causeMessage = String(
+    ((raised as { cause?: { message?: string } }).cause ?? {}).message ?? '',
+  );
+  expect(causeMessage, `${what}: refused, but not by the expected trigger`).toMatch(pattern);
+}
 
 /** A per-run suffix so parallel workers cannot see each other's rows. */
 const RUN = uuidv7().slice(-12);
@@ -90,28 +127,41 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // Children first: `catalog_governance_audit_events.change_request_id` and
-  // `catalog_governance_impact_counts.change_request_id` are BOTH `restrict`,
-  // deliberately agreeing with their no-delete triggers.
-  if (createdRequests.length > 0) {
-    await db.execute(
-      sql`delete from catalog_governance_audit_events where change_request_id in ${sql.raw(
-        `(${createdRequests.map((id) => `'${id}'`).join(', ')})`,
-      )}`,
-    );
-    await db.execute(
-      sql`delete from catalog_governance_impact_counts where change_request_id in ${sql.raw(
-        `(${createdRequests.map((id) => `'${id}'`).join(', ')})`,
-      )}`,
-    );
-    await db
-      .delete(catalogGovernanceChangeRequests)
-      .where(inArray(catalogGovernanceChangeRequests.id, createdRequests));
-  }
-  await db.execute(
-    sql`delete from catalog_governance_audit_events where subject_id like ${`%${RUN}`}`,
-  );
-  await db.delete(catalogGovernanceRoleGrants).where(like(catalogGovernanceRoleGrants.subjectOxyUserId, `%${RUN}`));
+  // ## Four of this domain's five tables REFUSE the delete a teardown wants,
+  // ## and that is deliberate rather than an oversight to work around.
+  //
+  // `catalog_governance_audit_events` and `_impact_counts` are append-only
+  // against UPDATE *and* DELETE; `_change_requests` and `_role_grants` refuse
+  // DELETE outright. All four refusals are properties this file asserts, so a
+  // teardown that removed the rows would have to switch off the very triggers
+  // the suite exists to prove — the `catalog_review_events` situation, one
+  // domain over.
+  //
+  // That file solves it with ONE `withTriggerToggleLock` window on ONE table.
+  // Four windows is a different trade, and it is not worth taking here:
+  // `ALTER TABLE … DISABLE TRIGGER` takes ACCESS EXCLUSIVE, so four windows
+  // block every parallel file four times, and a throw between a disable and its
+  // enable leaves a trigger off DATABASE-WIDE for the rest of the run — which
+  // would make every later assertion that it refuses a write pass VACUOUSLY.
+  //
+  // Leaving the rows costs nothing measurable, and both halves of that were
+  // checked rather than assumed:
+  //
+  //   * the realdb database is a per-suite-run throwaway (`oxydb_test_<16 hex>`)
+  //     that is dropped at the end of the run, so nothing survives into another;
+  //   * NO other test file in this repository reads `catalog_governance_*`, so
+  //     no sibling aggregate can see them. Every row this file writes is
+  //     additionally suffixed with `RUN`, so a re-run against a long-lived dev
+  //     database collides with nothing either.
+  //
+  // If a sibling ever does read these tables, this comment is wrong and the
+  // answer is a scoped `withTriggerToggleLock` window per table — not a wider
+  // one.
+  //
+  // The snapshots ARE deleted: `mercaria_catalog_governance_snapshot_immutable`
+  // fires on UPDATE only, because a snapshot is bulk working state under a
+  // retention policy (the `analytics_events` posture). Doing it here proves that
+  // delete-permitted design is real rather than merely intended.
   await db
     .delete(catalogGovernanceDefinitionSnapshots)
     .where(like(catalogGovernanceDefinitionSnapshots.createdByOxyUserId, `%${RUN}`));
@@ -295,19 +345,23 @@ describe('the immutability triggers', () => {
     });
     // The plan an approver READ is the plan that executes. Without the freeze,
     // "approve" means "approve whatever this row says at apply time".
-    await expect(
+    await expectTriggerRefusal(
       db
         .update(catalogGovernanceChangeRequests)
         .set({ parameters: { intoCategoryId: 'somewhere-else' } })
         .where(eq(catalogGovernanceChangeRequests.id, id)),
-    ).rejects.toThrow(/frozen once it leaves planned/u);
+      /frozen once it leaves planned/u,
+      'the plan freeze',
+    );
   });
 
   it('refuses a DELETE of a change request', async () => {
     const id = await plan();
-    await expect(
+    await expectTriggerRefusal(
       db.execute(sql`delete from catalog_governance_change_requests where id = ${id}`),
-    ).rejects.toThrow(/refuses DELETE/u);
+      /refuses DELETE/u,
+      'the no-delete guard',
+    );
     // The row survives, so the teardown still has to clean it up.
   });
 
@@ -318,23 +372,27 @@ describe('the immutability triggers', () => {
       approvedByOxyUserId: actor('approver'),
       approvedAt: new Date(),
     });
-    await expect(
+    await expectTriggerRefusal(
       db
         .update(catalogGovernanceChangeRequests)
         .set({ approvedByOxyUserId: actor('other'), approvedAt: new Date() })
         .where(eq(catalogGovernanceChangeRequests.id, id)),
-    ).rejects.toThrow(/approval is written once/u);
+      /approval is written once/u,
+      'the write-once approval guard',
+    );
   });
 
   it('refuses moving a terminal request', async () => {
     const id = await plan();
     await transitionChangeRequest(db, id, ['planned'], { state: 'rejected' });
-    await expect(
+    await expectTriggerRefusal(
       db
         .update(catalogGovernanceChangeRequests)
         .set({ state: 'planned' })
         .where(eq(catalogGovernanceChangeRequests.id, id)),
-    ).rejects.toThrow(/is terminal/u);
+      /is terminal/u,
+      'the terminal-state guard',
+    );
   });
 
   it('makes the audit trail append-only against UPDATE and DELETE', async () => {
@@ -356,26 +414,32 @@ describe('the immutability triggers', () => {
       }),
     );
 
-    await expect(
+    await expectTriggerRefusal(
       db
         .update(catalogGovernanceAuditEvents)
         .set({ reason: 'a different reason' })
         .where(eq(catalogGovernanceAuditEvents.id, event.id)),
-    ).rejects.toThrow(/append-only/u);
-    await expect(
+      /append-only/u,
+      'the append-only trigger',
+    );
+    await expectTriggerRefusal(
       db.execute(sql`delete from catalog_governance_audit_events where id = ${event.id}`),
-    ).rejects.toThrow(/append-only/u);
+      /append-only/u,
+      'the append-only trigger',
+    );
   });
 
   it('makes impact counts append-only', async () => {
     const id = await plan();
     const [count] = await listImpactCounts(db, id);
-    await expect(
+    await expectTriggerRefusal(
       db
         .update(catalogGovernanceImpactCounts)
         .set({ rowCount: 0 })
         .where(eq(catalogGovernanceImpactCounts.id, count.id)),
-    ).rejects.toThrow(/append-only/u);
+      /append-only/u,
+      'the append-only trigger',
+    );
   });
 
   it('REFUSES an audit event whose actor kind and actor id disagree', async () => {
@@ -466,15 +530,19 @@ describe('role grants', () => {
         reason: 'translates the catalogue',
       }),
     );
-    await expect(
+    await expectTriggerRefusal(
       db.execute(sql`delete from catalog_governance_role_grants where id = ${grant?.id}`),
-    ).rejects.toThrow(/refuses DELETE/u);
-    await expect(
+      /refuses DELETE/u,
+      'the no-delete guard',
+    );
+    await expectTriggerRefusal(
       db
         .update(catalogGovernanceRoleGrants)
         .set({ reason: 'a different reason' })
         .where(eq(catalogGovernanceRoleGrants.id, grant?.id ?? '')),
-    ).rejects.toThrow(/immutable/u);
+      /immutable/u,
+      'the immutability trigger',
+    );
   });
 
   it('counts live grants and publishers together', async () => {
@@ -562,11 +630,13 @@ describe('definition snapshots', () => {
       .from(catalogGovernanceDefinitionSnapshots)
       .where(eq(catalogGovernanceDefinitionSnapshots.createdByOxyUserId, actor('exporter')))
       .limit(1);
-    await expect(
+    await expectTriggerRefusal(
       db
         .update(catalogGovernanceDefinitionSnapshots)
         .set({ reason: 'a different reason' })
         .where(eq(catalogGovernanceDefinitionSnapshots.id, row.id)),
-    ).rejects.toThrow(/immutable/u);
+      /immutable/u,
+      'the immutability trigger',
+    );
   });
 });

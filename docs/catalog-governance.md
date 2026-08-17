@@ -132,6 +132,28 @@ assignments), and `listings.category_slugs` — which has no foreign key of its
 own and is therefore documented on `listings.category_id`'s entry rather than
 counted separately.
 
+### The seam: this domain reaches into other domains' tables to count
+
+Stated plainly because it is a real cost, not a detail. **Impact counts are not
+computable from what the domains publish.** No domain in this repository exports
+a `countReferences`/`countUsage`-style function — measured, not assumed — so
+there is nothing to call. `measureImpact` therefore issues `count(*)` over **33
+columns across ten owning domains**. Reads only: `impact.service.ts` contains
+zero write statements, and the isolation gate fails the build if that changes.
+
+What makes it acceptable rather than a wall somebody climbed blind is that the
+reference set is not hand-maintained. `impact-plan.ts` holds each reference as
+the DRIZZLE COLUMN and `impact-plan-census.test.ts` reconciles the plan against
+the real foreign-key graph in **both** directions. A hand-written list beside
+real tables is a list nothing measures; this one fired on its first run and
+caught two references a careful manual survey had missed.
+
+**The honest end state is each domain publishing its own inbound-reference
+count, and this domain calling nine functions instead of issuing 33 reads.**
+That is nine cross-domain edits for a read that is already census-guarded, which
+is why it was not done here — and writing it down is the only thing that stops
+it never happening.
+
 ### What DOES rewire, and it is not new
 
 - `bumpAuthoringSchemaInvalidation` — every open authoring draft and every
