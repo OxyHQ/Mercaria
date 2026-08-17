@@ -31,6 +31,11 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -60,29 +65,6 @@ const MATCHING_DOMAIN_PATHS = [
   'controllers/matching-operator.controller.ts',
 ];
 
-/**
- * The organic discovery surface. A new ranking module belongs on this list — the
- * floor below is what forces whoever adds one to look here.
- */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  // The offer comparison (#74) — the surface that now decides which offers a
-  // shopper sees and in what order. It joined this list with the domain that
-  // created it, which is what these lists are for.
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-];
 
 /** Reaching the matching domain, from any direction. */
 const MATCHING_REFERENCE =
@@ -129,15 +111,16 @@ function readDomainFile(relative: string): string {
 describe('matching cannot become a ranking signal', () => {
   it('no feed, search or catalogue-read module references the matching domain', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readDomainFile(relative);
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
+      const source = readRankingSurfaceFile(relative);
       expect(
         MATCHING_REFERENCE.test(source),
         `${relative} references the matching domain; organic ranking must not read match data`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 
   it('no matching module references a fee, payment or referral module', () => {
@@ -228,7 +211,11 @@ describe('the scanner itself is not vacuous', () => {
 
   it('scans a floor of modules, so a domain that moved cannot shrink the gate', () => {
     expect(MATCHING_DOMAIN_PATHS.length).toBeGreaterThanOrEqual(20);
-    expect(RANKING_PATHS.length).toBeGreaterThanOrEqual(7);
+    // The ranking surface carries its own PER-SHAPE floors, which is strictly
+    // stronger than the total this line used to assert: a `>= 7` over a hand
+    // list of fourteen was already satisfied by half of it, so the walk that
+    // matters could have collapsed entirely while the number stayed green.
+    assertRankingSurfaceIsWhole();
   });
 
   it('strips comments without stripping code', () => {

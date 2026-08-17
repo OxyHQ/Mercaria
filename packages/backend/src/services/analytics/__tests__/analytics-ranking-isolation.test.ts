@@ -29,53 +29,48 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
 /**
- * The organic discovery surface — the same list `fee-ranking-isolation.test.ts`
- * scans, plus the offer comparison read, which decides what a shopper sees for
- * one product.
+ * The OFFER read surface, which this gate scans in addition to the shared
+ * ranking surface — and which no sibling gate scans.
+ *
+ * `/offers` (#57) is a plain cheapest-first SQL read under no ranking policy, so
+ * it is not part of `ranking-surface.ts`. It is here because it is still a
+ * surface that decides which offers a shopper is shown, and measured popularity
+ * reaching it would be an ordering input by another name.
+ *
+ * Four hand-written paths before (#460); the two owned directories are now
+ * WALKED, which is a strict superset — it went from `services/offers/offer.service.ts`
+ * and `db/offers/offerRepository.ts` to all four and all three. The two flat
+ * modules have no directory to walk and stay named, with an EXACT count.
  */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'services/offers/offer.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'controllers/offers.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'routes/offers.ts',
-  'db/catalog/listingRepository.ts',
-  'db/offers/offerRepository.ts',
-  // The offer comparison (#74) — the surface that now decides which offers a
-  // shopper sees and in what order. It joined this list with the domain that
-  // created it, which is what these lists are for.
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-  // #70's canonical discovery path. The controller is the ONE module here that
-  // may reach an analytics module at all, and it may reach exactly the two
-  // seams below — a search that could read `readTopQueries` would be ranking by
-  // what everybody else searched for, which is measured popularity by another
-  // name.
-  'services/search/canonical-search.service.ts',
-  'services/search/relevance.ts',
-  'services/search/offer-context.ts',
-  'controllers/search.controller.ts',
-  'routes/search.ts',
-  'db/search/searchCandidateRepository.ts',
-  'db/search/searchOfferRepository.ts',
-];
+const OFFER_FLAT_MODULES = ['controllers/offers.controller.ts', 'routes/offers.ts'];
+const OFFER_SURFACE_PATHS = [...walk('services/offers'), ...walk('db/offers'), ...OFFER_FLAT_MODULES];
+
+/** Everything this gate scans: the shared ranking surface plus the offer read. */
+const SCANNED_PATHS = [...RANKING_SURFACE_PATHS, ...OFFER_SURFACE_PATHS];
 
 /**
  * The analytics modules a discovery surface may import — and ONLY these.
@@ -97,11 +92,20 @@ const COMMERCIAL_REFERENCE =
 describe('organic ranking cannot read analytics', () => {
   it('no ranking module imports an analytics module other than the emitter seam', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      // The vacuity floor: an empty or moved file must fail here, not pass the
-      // scan by having nothing to match.
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    assertRankingSurfaceIsWhole();
+
+    // The offer read's own floors. Per SHAPE, for the reason the shared surface
+    // gives: three sources break independently and one total would let a walk
+    // collapse while the others carried the number.
+    const fromOffers = (prefix: string) =>
+      OFFER_SURFACE_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(fromOffers('services/offers/'), 'the offer service walk found nothing').toBeGreaterThanOrEqual(4);
+    expect(fromOffers('db/offers/'), 'the offer repository walk found nothing').toBeGreaterThanOrEqual(3);
+    // EXACT: a hand list with no count is a predicate, not an identity (#448).
+    expect(OFFER_FLAT_MODULES.length).toBe(2);
+
+    for (const relative of SCANNED_PATHS) {
+      const source = readRankingSurfaceFile(relative);
 
       for (const match of source.matchAll(ANALYTICS_IMPORT)) {
         const specifier = match[1] ?? '';
@@ -114,7 +118,7 @@ describe('organic ranking cannot read analytics', () => {
       }
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(SCANNED_PATHS.length);
   });
 
   it('the import detector actually detects — the mutation self-test', () => {

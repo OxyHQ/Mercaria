@@ -13,46 +13,22 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 /**
  * The organic discovery surface: everything that decides WHICH listings a buyer
- * sees, and in what order. A new ranking module belongs on this list — the
- * floor below is what forces whoever moves one to look here.
+ * sees, and in what order.
+ *
+ * This was nineteen hand-written paths, and the same nineteen (give or take a
+ * drifted copy) appeared in ten other isolation gates. It is now ONE derivation
+ * — `__tests__/ranking-surface.ts` — walked and derived from the import graph,
+ * so a ranking module nobody has written yet is behind this wall on the day it
+ * lands rather than on the day somebody remembers eleven files (#460).
  */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-  // The offer comparison (#74) — the surface that now decides which offers a
-  // shopper sees and in what order. It joined this list with the domain that
-  // created it, which is what these lists are for.
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-  // #70's canonical discovery path. Added here as well as being covered by
-  // `search-relevance-isolation.test.ts`, which gates all SEVEN prohibited
-  // relevance inputs over the whole domain: this list is the one a reader looks
-  // at to answer "what ranks listings", and a canonical search absent from it
-  // would read as a surface nobody had considered.
-  'services/search/canonical-search.service.ts',
-  'services/search/relevance.ts',
-  'services/search/offer-context.ts',
-  'controllers/search.controller.ts',
-];
 
 /**
  * What reaching the fee domain looks like, from any direction: an import of a
@@ -62,20 +38,21 @@ const RANKING_PATHS = [
 const FEE_REFERENCE = /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/;
 
 describe('organic ranking cannot read fee data', () => {
+  it('walks the ranking surface rather than listing it, and every shape found something', () => {
+    assertRankingSurfaceIsWhole();
+  });
+
   it('no feed, search or catalogue-read module references the fee domain', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      // The vacuity floor: an empty or moved file must fail here, not pass the
-      // scan by having nothing to match.
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    for (const relative of RANKING_SURFACE_PATHS) {
+      const source = readRankingSurfaceFile(relative);
       expect(
         FEE_REFERENCE.test(source),
         `${relative} references the fee domain; ranking must not be able to read fee data`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 
   it('the detector actually detects — the mutation self-test', () => {

@@ -45,25 +45,60 @@ import { fileURLToPath } from 'node:url';
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const DOMAIN_DIR = join(SRC_ROOT, 'services/seo');
 
-/** Every non-test module in the domain, read from the real directory. */
-function domainSources(): { relative: string; source: string }[] {
-  return readdirSync(DOMAIN_DIR)
-    .filter((entry) => entry.endsWith('.ts'))
-    .filter((entry) => statSync(join(DOMAIN_DIR, entry)).isFile())
-    .map((entry) => ({
-      relative: `services/seo/${entry}`,
-      source: readFileSync(join(DOMAIN_DIR, entry), 'utf8'),
-    }));
+/**
+ * Every `.ts` under `relative`, RECURSIVELY, excluding the test tree.
+ *
+ * Recursive although `services/seo/` is flat today: the walk it replaces read
+ * one directory level, which is precisely the shape that left
+ * `services/ingestion/adapters/` — five modules that talk to somebody else's
+ * server — outside every wall in its own file until #472. A subdirectory added
+ * here would have been invisible in exactly the same way.
+ */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
 }
 
-/** The pieces that live outside the domain directory. */
+/** Every non-test module in the domain, read from the real directory tree. */
+function domainSources(): { relative: string; source: string }[] {
+  return walk('services/seo').map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
+}
+
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+
+/**
+ * The pieces that live outside the domain directory. WALKED and DERIVED, never
+ * listed.
+ *
+ * This was six hand-written paths (#460). `db/seo/` is walked whole; the shared
+ * flat directories have no directory of their own, so every SEO-named module in
+ * them is taken — which today is exactly the five that were listed, and
+ * tomorrow is whatever somebody adds without having to remember this file.
+ *
+ * No exclusions: unlike `offer` and `comparison`, `seo` names one domain in this
+ * tree and no other issue has shipped an SEO-named surface. That is asserted
+ * rather than assumed — the floors below would go red on a shrink, and a new
+ * SEO-named module belonging to somebody else would show up here as a scanned
+ * file rather than as silence.
+ */
 const OUTER_PATHS = [
-  'db/seo/seoRepository.ts',
-  'controllers/seo.controller.ts',
-  'controllers/internal-seo.controller.ts',
-  'routes/seo.ts',
-  'routes/internal-seo.ts',
-  'middleware/seo-schemas.ts',
+  ...walk('db/seo'),
+  ...SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /seo/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  ),
 ];
 
 function outerSources(): { relative: string; source: string }[] {
@@ -141,6 +176,31 @@ describe('the SEO surface exists — the vacuity floor', () => {
     }
     for (const file of outerSources()) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+    }
+  });
+
+  it('derives the outer surface rather than listing it, and every shape found something', () => {
+    // Floors PER SHAPE rather than one on the total: the repository walk and the
+    // three shared-directory derivations break independently, and one total
+    // would let a walk collapse to zero while the others carried the number.
+    //
+    // Each is today's count, because these directories only grow and a SHRINK is
+    // the event that should stop the build rather than quietly narrowing every
+    // assertion in this file.
+    const from = (prefix: string) => OUTER_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('db/seo/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('controllers/'), 'no SEO controller was derived').toBeGreaterThanOrEqual(2);
+    expect(from('routes/'), 'no SEO route was derived').toBeGreaterThanOrEqual(2);
+    expect(from('middleware/'), 'no SEO request schema was derived').toBeGreaterThanOrEqual(1);
+
+    // No test file may enter the scanned set: a gate that scans its own probes
+    // reports violations it wrote itself.
+    expect(OUTER_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+
+    // And the walk really reads the disk rather than returning a cached or empty
+    // result: every path it produced resolves to a real file.
+    for (const path of OUTER_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
     }
   });
 

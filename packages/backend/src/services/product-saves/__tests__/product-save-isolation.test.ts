@@ -27,6 +27,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
 import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
+import {
   PRODUCT_SAVE_FORBIDDEN_SIDE_EFFECTS,
   PRODUCT_SAVE_FORBIDDEN_VISIBILITIES,
   PRODUCT_SAVE_VISIBILITIES,
@@ -96,30 +101,14 @@ const FAVORITE_WRITE =
   /\.delete\(\s*favorites|\.update\(\s*favorites|deleteFavorite|updateFavoriteSaveIntent|delete from "?favorites/;
 
 /**
- * The organic discovery surface — the same list `fee-ranking-isolation.test.ts`
- * scans, and for the same reason: a new ranking module belongs on it, and the
- * floor below is what forces whoever moves one to look here.
+ * The organic discovery surface — ONE derivation shared with the ten sibling
+ * gates that assert the same shape of wall (`__tests__/ranking-surface.ts`).
+ *
+ * This was fifteen hand-written paths said to be "the same list
+ * `fee-ranking-isolation.test.ts` scans". It was not: the fee gate's copy had
+ * nineteen. Eleven copies of one list is eleven chances to drift, and they had
+ * (#460).
  */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-  // The offer comparison (#74) — the surface that now decides which offers a
-  // shopper sees and in what order. It joined this list with the domain that
-  // created it, which is what these lists are for.
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-];
 
 describe('saving a product has no side effects and no reach', () => {
   const domain = domainSources();
@@ -158,9 +147,9 @@ describe('saving a product has no side effects and no reach', () => {
 
   it('WALL 2: no ranking module can reach the product-save domain', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
+      const source = readRankingSurfaceFile(relative);
       expect(
         SAVE_DOMAIN_REFERENCE.test(source),
         `${relative} references the product-save domain; how many people saved something is #74's ` +
@@ -168,7 +157,7 @@ describe('saving a product has no side effects and no reach', () => {
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 
   it('WALL 3: no module in the domain writes to `favorites`', () => {

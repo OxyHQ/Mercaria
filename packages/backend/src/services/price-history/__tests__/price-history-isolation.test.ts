@@ -22,6 +22,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PRICE_HISTORY_FORBIDDEN_DTO_FIELDS } from '@mercaria/shared-types';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -82,17 +87,6 @@ const RANKING_REFERENCE =
 const PAYMENT_REFERENCE =
   /payments\/|checkout\/|stripe|Stripe|PaymentIntent|payment_provider_events|ledger_entries|createPayment\w*\(/;
 
-/** The organic discovery surface — the OTHER direction of the ranking wall. */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-];
 
 const PRICE_HISTORY_REFERENCE =
   /price-history\/|priceHistory\/|offer_price_points|offer_price_snapshots|offerPricePoints|offerPriceSnapshots|derivePriceSeries|readPriceHistory/;
@@ -158,16 +152,16 @@ describe('the price-history domain cannot reach what it must not', () => {
 
   it('is not reachable FROM the organic ranking surface either', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
+      const source = readRankingSurfaceFile(relative);
       expect(
         PRICE_HISTORY_REFERENCE.test(stripComments(source)),
         `${relative} references price history; measured price movement is one join from ranking by it`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 });
 

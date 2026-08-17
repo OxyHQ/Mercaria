@@ -19,36 +19,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const RETAIL_DIR = join(SRC_ROOT, 'services', 'retail-pricing');
 
-/**
- * The organic discovery surface: everything that decides WHICH listings a buyer
- * sees, and in what order. Kept identical to the fee gate's list on purpose —
- * a new ranking module belongs on BOTH, and the floor below is what forces
- * whoever moves one to look here.
- */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-  // The offer comparison (#74) — the surface that now decides which offers a
-  // shopper sees and in what order. It joined this list with the domain that
-  // created it, which is what these lists are for.
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-];
 
 /**
  * What reaching retail cost data looks like, from any direction: an import of a
@@ -76,18 +55,16 @@ function sourceFiles(dir: string): string[] {
 describe('organic ranking cannot read retail cost data', () => {
   it('no feed, search or catalogue-read module references the retail pricing domain', () => {
     let scanned = 0;
-    for (const relativePath of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relativePath), 'utf8');
-      // The vacuity floor: an empty or moved file must fail here, not pass the
-      // scan by having nothing to match.
-      expect(source.length, `${relativePath} looks empty — did it move?`).toBeGreaterThan(200);
+    assertRankingSurfaceIsWhole();
+    for (const relativePath of RANKING_SURFACE_PATHS) {
+      const source = readRankingSurfaceFile(relativePath);
       expect(
         RETAIL_COST_REFERENCE.test(source),
         `${relativePath} references retail cost data; ranking must not be able to read it`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 
   it('the detector actually detects — the mutation self-test', () => {
