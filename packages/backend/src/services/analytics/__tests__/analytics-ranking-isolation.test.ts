@@ -184,6 +184,7 @@ const ANALYTICS_OWNED_DIRECTORIES = ['services/analytics', 'db/analytics'] as co
 /** The shared directories a domain module lives in under a domain NAME. */
 const ANALYTICS_SHARED_DIRECTORIES = [
   'controllers',
+  'controllers/admin',
   'routes',
   'routes/admin',
   'middleware',
@@ -203,8 +204,8 @@ const ANALYTICS_SCANNED_DIRECTORIES = [
  * It was an eight-entry hand list called `MEASUREMENT_PATHS`, whose docblock
  * read *"Every module in the domain that COMPUTES or SERVES a number. The
  * emitter and the schema are excluded deliberately — they carry no
- * measurement."* Measured (#535): the domain is **28** modules, so a stated
- * exclusion of TWO was doing the work of twenty — and four of the twenty are
+ * measurement."* Measured: the domain is **29** modules, so a stated exclusion
+ * of TWO was doing the work of twenty-one — and four of the twenty-one are
  * hard to read as carrying no measurement at all, quoting their own headers:
  * `verified-conversion.ts` is *"the ONE seam through which analytics reads
  * financial truth"*, `search-instrumentation.ts` is *"instrumenting one
@@ -214,12 +215,21 @@ const ANALYTICS_SCANNED_DIRECTORIES = [
  * #535 asked which half was wrong, the sentence or the list, and said only
  * #77's owner could say. The answer measured here is that **the distinction
  * was unnecessary**: the wall is *"no analytics module references the fee or
- * referral domain"*, and it is TRUE of all 28. So the population needs no
+ * referral domain"*, and it is TRUE of all 29. So the population needs no
  * notion of *"computes or serves a number"* — nothing has to be classified,
  * and **the exclusion set is EMPTY**. It is empty because it was measured, not
  * because it was guessed: a guessed exemption excuses what can never match,
  * and the two modules that DO look like exceptions turned out to mention
  * `fee_schedules` only in prose (see the comment-stripping test below).
+ *
+ * **#590 said 28 and that figure was one low**, which is worth leaving on the
+ * record rather than quietly correcting: it came from `#593`, my own correction
+ * of `scripts/isolation-gate-census.ts`'s hand-maintained bag-directory list —
+ * and correcting a hand list BY HAND reproduces its failure mode. #600 found
+ * two further gaps in the same list, one of which is `controllers/admin`, which
+ * is how the wall shipped over 28 of 29. The count is not the lesson; the
+ * lesson is that the whole-tree sweep below is now what establishes it, so no
+ * future reader has to trust a number in a comment.
  */
 function analyticsDomainModules(readDir: DirectoryReader = readDirectory): string[] {
   return [
@@ -229,8 +239,8 @@ function analyticsDomainModules(readDir: DirectoryReader = readDirectory): strin
 }
 
 /**
- * MEASURED on this branch: 16 + 5 in the owned directories, 2 + 2 + 1 + 1 + 1
- * in the shared ones.
+ * MEASURED on this branch: 16 + 5 in the owned directories, 2 + 1 + 2 + 1 + 1 + 1
+ * in the shared ones — 29 in total.
  *
  * Floors, never counts, and floors set BELOW the population rather than at it —
  * a floor at the population is a pin wearing a floor's name, and makes "bump the
@@ -248,6 +258,7 @@ const ANALYTICS_MODULE_FLOORS: ReadonlyArray<readonly [string, number]> = [
   ['services/analytics/', 12],
   ['db/analytics/', 3],
   ['controllers/', 1],
+  ['controllers/admin/', 1],
   ['routes/', 1],
   ['routes/admin/', 1],
   ['middleware/', 1],
@@ -292,6 +303,34 @@ function assertAnalyticsDomainIsWhole(modules: readonly string[]): void {
       `${relative} is not a file — did it move?`,
     ).toBe(true);
   }
+}
+
+/**
+ * Every `.ts` under `src/` whose PATH names this domain — the sweep behind the
+ * "nothing sits outside the population" wall.
+ *
+ * The PATH, not the filename. A module inside a directory named for this domain
+ * is a module of it whatever the file is called: `services/analytics/emit.ts`
+ * names the domain nowhere in its own name. Matching the filename swept 10 of
+ * the 29, and the sweep's own vacuity floor is what said so.
+ *
+ * Takes the reader for the same reason the derivation does — so the positive
+ * control can hand it a module that does not exist, and the empty result the
+ * wall asserts is shown to be a measurement rather than a probe that cannot
+ * fail.
+ */
+function analyticsNamedPathsInTree(readDir: DirectoryReader = readDirectory): string[] {
+  const found: string[] = [];
+  const sweep = (relative: string): void => {
+    for (const entry of readDir(relative)) {
+      if (entry.name === '__tests__') continue;
+      const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+      if (entry.isDirectory()) sweep(child);
+      else if (entry.name.endsWith('.ts') && ANALYTICS_NAME_PATTERN.test(child)) found.push(child);
+    }
+  };
+  sweep('');
+  return found;
 }
 
 /** Read a domain module, refusing an empty or moved file. */
@@ -388,6 +427,81 @@ describe('analytics cannot read commercial standing', () => {
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
     }
+  });
+
+  it('no analytics-named module anywhere in src/ sits outside the population', () => {
+    // The DIRECTORY list is the last hand list in this gate, and it failed
+    // exactly as a hand list does. `controllers/admin` was missing while
+    // `routes/admin` was present — an asymmetry inherited from
+    // `scripts/isolation-gate-census.ts`, whose own bag-directory list was
+    // hand-maintained and carried the same gap (#593, #600). So the wall was
+    // landed over 28 of the domain's 29 modules, with
+    // `controllers/admin/analytics-admin.controller.ts` — #77's merchant
+    // analytics handler — behind nothing.
+    //
+    // A walked population whose DIRECTORY list is a hand list is a hand list,
+    // and the remedy is the one this whole file is about: derive the exclusion
+    // rather than the inclusion, one level up. Sweep the entire source tree for
+    // modules NAMED for this domain and require each to be in the population or
+    // in a counted, justified exclusion — so a new bag directory brings its
+    // modules under the wall with no edit here, and a domain-named module that
+    // genuinely belongs to somebody else forces a decision instead of a gap.
+    const swept = analyticsNamedPathsInTree();
+
+    // A vacuity floor on the sweep itself: a traversal that found nothing would
+    // report no modules outside the population, which is the answer a correct
+    // tree gives. MEASURED at 29.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(20);
+
+    // ONE comparison, used by the wall AND by its positive control below. Two
+    // spellings of it would let the control pass while the wall went vacuous —
+    // measured: with the control re-deriving the population itself, mutating
+    // the wall's population to `new Set(swept)` left all 10 tests green.
+    const outsidePopulation = (paths: readonly string[]): string[] => {
+      const population = new Set(analyticsDomainModules());
+      return paths.filter((relative) => !population.has(relative));
+    };
+    const outside = outsidePopulation(swept);
+    // EXACT and empty. An exclusion list needs its own count in both directions
+    // (#448), and this one is empty because it was measured empty: every
+    // analytics-named module in the tree is a module of this domain. A future
+    // `search-analytics.ts` owned by discovery goes here WITH its reason, and
+    // the count moves in the same edit.
+    expect(
+      outside,
+      'an analytics-named module sits outside the scanned population, so the fee and referral ' +
+        'wall does not cover it — add its directory to ANALYTICS_SHARED_DIRECTORIES, or excuse ' +
+        'it here with a reason and move the count',
+    ).toEqual([]);
+
+    // THE POSITIVE CONTROL, and without it the assertion above cannot fail:
+    // an empty expected set is satisfied by a sweep that reaches nothing, by a
+    // population that contains everything, and by a correct tree, and those are
+    // three different worlds. So the same sweep is run against a reader that
+    // reports an analytics-named module in a directory the population does NOT
+    // draw from, and it must come back OUTSIDE.
+    const planted = 'lib/analytics-cache.ts';
+    const seeded = analyticsNamedPathsInTree((requested) =>
+      requested === 'lib'
+        ? [
+            ...readDirectory(requested),
+            { name: 'analytics-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
+        : readDirectory(requested),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      outsidePopulation(seeded),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    // …and the plant is not on disk, or the control is asserting about the tree
+    // rather than about the sweep.
+    expect(analyticsNamedPathsInTree()).not.toContain(planted);
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
