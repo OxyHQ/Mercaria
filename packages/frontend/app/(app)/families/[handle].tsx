@@ -121,16 +121,31 @@ export default function ProductFamilyPageScreen() {
               Prices are unavailable right now.
             </Text>
           ) : range === undefined ? (
+            // Nothing in this family publishes a price at all. Since #464 that
+            // is the ONLY thing absence means here — a family whose prices
+            // exist but could not be converted takes the branch below instead
+            // of this one, which used to claim it had no offers.
             <Text className="text-sm text-muted-foreground">
               No current offers for this family.
+            </Text>
+          ) : range.state === "unpriceable" ? (
+            // There ARE current offers and not one of them could be converted.
+            // Rendering "no current offers" for this was the silent exclusion
+            // #464 removes: it told a shopper the family was unsold and left
+            // the seller of those offers with no surface naming the reason.
+            <Text className="text-sm text-muted-foreground">
+              Current offers for this family are priced in{" "}
+              {range.unconvertibleCurrencies.join(", ")}, which we cannot convert.
             </Text>
           ) : (
             <View className="flex flex-col gap-1">
               {/*
-                `CatalogPriceRange.currency` is a `CurrencyCode`: the server
-                converts every contributing offer into it and NAMES the ones it
-                could not (`unconvertibleCurrencies`), so both ends go straight
-                through `formatMoney` with nothing to narrow.
+                `CatalogPriceRangeRanged.currency` is a `CurrencyCode`: the
+                server converts every contributing offer into it and NAMES the
+                ones it could not (`unconvertibleCurrencies`), so both ends go
+                straight through `formatMoney` with nothing to narrow. Reaching
+                this branch at all means `state === 'ranged'`, so `lowest` and
+                `highest` are present by the TYPE rather than by a check (#464).
 
                 The local `formatPrice` that used to stand here did a membership
                 test on a `string` parameter it was never passed, and its dead

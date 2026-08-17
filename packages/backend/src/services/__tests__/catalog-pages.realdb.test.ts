@@ -226,6 +226,13 @@ async function mintOffer(input: {
   variantId: string;
   externalOfferId: string;
   amount: number;
+  /**
+   * Defaults to EUR. `recordExternalOffer` types this `string` rather than
+   * `CurrencyCode` on purpose (ADR 0002 D18: a source reports whatever it
+   * trades in), so a currency outside Mercaria's presentment set is storable
+   * and needs no cast here.
+   */
+  currency?: string;
 }): Promise<string> {
   const observedAt = new Date();
   const offerId = await recordExternalOffer(
@@ -237,7 +244,7 @@ async function mintOffer(input: {
       provider: `pages-${RUN}`,
       externalOfferId: `${input.externalOfferId}-${RUN}`,
       destinationUrl: `https://example.test/${input.externalOfferId}`,
-      price: { amount: input.amount, currency: 'EUR' },
+      price: { amount: input.amount, currency: input.currency ?? 'EUR' },
       availability: 'in_stock',
       observedAt,
       staleAt: new Date(observedAt.getTime() + 86_400_000),
@@ -627,10 +634,139 @@ describe('#72 family rules 4 and 6 — ordering and the named price range', () =
       { handle: family.id, currency: 'EUR', offerContext: 'included' },
       db,
     );
-    expect(priced?.priceRange?.currency).toBe('EUR');
-    expect(priced?.priceRange?.lowest).toEqual({ amount: 80_000, currency: 'EUR' });
-    expect(priced?.priceRange?.highest).toEqual({ amount: 120_000, currency: 'EUR' });
-    expect(priced?.priceRange?.productCount).toBe(2);
+    // Narrowed on the discriminant rather than reached through `?.`: since #464
+    // a range is a union, and `state` is what says the ends exist.
+    expect(priced?.priceRange?.state).toBe('ranged');
+    if (priced?.priceRange?.state !== 'ranged') throw new Error('expected a ranged price range');
+    expect(priced.priceRange.currency).toBe('EUR');
+    expect(priced.priceRange.lowest).toEqual({ amount: 80_000, currency: 'EUR' });
+    expect(priced.priceRange.highest).toEqual({ amount: 120_000, currency: 'EUR' });
+    expect(priced.priceRange.productCount).toBe(2);
+  });
+});
+
+// ── #464: a price that exists and cannot be expressed ──────────────────────
+
+/**
+ * ISO 4217's reserved TEST code — NOT in `ALL_CURRENCY_CODES`, while still
+ * clearing `offers_price_currency_check`'s `^[A-Z]{3,4}$`.
+ *
+ * `same-offer-filters.realdb.test.ts` picked it for the search surface for the
+ * same reason it is right here: `asCurrencyCode` filters it out of the quote
+ * list, so `getRates` is never called at all and the outcome cannot depend on
+ * which FX provider the environment happened to resolve.
+ */
+const UNMODELLED_CURRENCY = 'XTS';
+
+describe('#464 — a family priced only in an unconvertible currency says so', () => {
+  it('answers `unpriceable` and NAMES the currency, where it used to answer nothing', async () => {
+    const brandId = await mintBrand('unpriceable');
+    const family = await createProductFamily({ name: `Pages Unpriceable ${RUN}`, brandId });
+    createdFamilyIds.push(family.id);
+
+    const productId = await mintProduct({ label: 'unpriceable-a', brandId, familyId: family.id });
+    const sourceId = await mintSource('unpriceable-offers', { mayDisplay: true });
+    const merchantId = await mintMerchant('unpriceable-seller');
+    await mintOffer({
+      sourceId,
+      merchantId,
+      variantId: await mintVariant(productId),
+      externalOfferId: 'unp-1',
+      amount: 42_000,
+      currency: UNMODELLED_CURRENCY,
+    });
+
+    // ── POSITIVE CONTROL, and it runs FIRST ──
+    // An assertion that a currency is NAMED is worth nothing on a fixture that
+    // was never created: a family that does not exist reports no exclusions
+    // either, and "absent" and "empty" read identically from the assertion's
+    // side. This proves the family resolves, the product is really in it, and
+    // the card really carries the unconvertible price — so the range
+    // derivation is handed something to exclude rather than nothing at all.
+    // Pointed at a never-created family id, it fails here instead of passing
+    // vacuously below.
+    const products = await readProductFamilyProducts(
+      { handle: family.id, filters: {}, offerContext: 'included' },
+      db,
+    );
+    expect(products?.products.map((card) => card.canonicalProductId)).toEqual([productId]);
+    expect(products?.products[0]?.offers?.summary.lowestPrice).toEqual({
+      amount: 42_000,
+      currency: UNMODELLED_CURRENCY,
+    });
+
+    const page = await readProductFamilyPage(
+      { handle: family.id, currency: 'EUR', offerContext: 'included' },
+      db,
+    );
+
+    // ── The load-bearing assertion ──
+    // Before #464 `priceRange` was `undefined` here, indistinguishable from a
+    // family nobody prices, and the storefront rendered "No current offers for
+    // this family" over a family that has one. The exclusions had already been
+    // computed and were thrown away on the way out.
+    expect(page?.priceRange).toBeDefined();
+    expect(page?.priceRange?.state).toBe('unpriceable');
+    if (page?.priceRange?.state !== 'unpriceable') throw new Error('expected an unpriceable range');
+    expect(page.priceRange.unconvertibleCurrencies).toContain(UNMODELLED_CURRENCY);
+    // Reported apart because the remedies are opposite: a missing rate heals on
+    // the next `getRates`, this needs somebody to add the code (#450).
+    expect(page.priceRange.unmodelledCurrencies).toContain(UNMODELLED_CURRENCY);
+    // The subset relation both fields are projected from one set to hold.
+    expect(page.priceRange.unconvertibleCurrencies).toEqual(
+      expect.arrayContaining([...page.priceRange.unmodelledCurrencies]),
+    );
+  });
+
+  it('still states a range when ONE product converts, and names the one that did not', async () => {
+    const brandId = await mintBrand('partly-priceable');
+    const family = await createProductFamily({ name: `Pages Partly ${RUN}`, brandId });
+    createdFamilyIds.push(family.id);
+
+    const convertibleId = await mintProduct({
+      label: 'partly-eur',
+      brandId,
+      familyId: family.id,
+    });
+    const excludedId = await mintProduct({ label: 'partly-xts', brandId, familyId: family.id });
+    const sourceId = await mintSource('partly-offers', { mayDisplay: true });
+    const merchantId = await mintMerchant('partly-seller');
+    await mintOffer({
+      sourceId,
+      merchantId,
+      variantId: await mintVariant(convertibleId),
+      externalOfferId: 'part-1',
+      amount: 55_000,
+    });
+    await mintOffer({
+      sourceId,
+      merchantId,
+      variantId: await mintVariant(excludedId),
+      externalOfferId: 'part-2',
+      amount: 42_000,
+      currency: UNMODELLED_CURRENCY,
+    });
+
+    const page = await readProductFamilyPage(
+      { handle: family.id, currency: 'EUR', offerContext: 'included' },
+      db,
+    );
+
+    // The distinction the case above cannot make alone: `unpriceable` is
+    // reached because NOTHING converted, not merely because something was
+    // excluded. A derivation that answered `unpriceable` on any exclusion at
+    // all would pass that case and fail this one — and it is the same fixture
+    // on the other side of the boundary, which is what makes the pair able to
+    // tell the strict rule from the loose one.
+    expect(page?.priceRange?.state).toBe('ranged');
+    if (page?.priceRange?.state !== 'ranged') throw new Error('expected a ranged price range');
+    expect(page.priceRange.productCount).toBe(1);
+    expect(page.priceRange.lowest).toEqual({ amount: 55_000, currency: 'EUR' });
+    expect(page.priceRange.highest).toEqual({ amount: 55_000, currency: 'EUR' });
+    // Excluded from the range AND named on it — the pre-#464 behaviour on a
+    // family that still had a range, which is the half that already worked.
+    expect(page.priceRange.unconvertibleCurrencies).toContain(UNMODELLED_CURRENCY);
+    expect(page.priceRange.unmodelledCurrencies).toContain(UNMODELLED_CURRENCY);
   });
 });
 
