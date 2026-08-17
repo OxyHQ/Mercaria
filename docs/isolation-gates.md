@@ -258,6 +258,16 @@ newline trap recurs here at ten times the scale — **1,051 files in this worksp
 carry a multi-line barrel import**, and a `[^;\n]*?` specifier regex drops the
 importer count from 1,809 to 934 while every wall stays green.
 
+**And a clause matcher must read `export … from` as well as `import`.** A
+RE-EXPORT reaches the module exactly as an import does, and one exists:
+`packages/ui/src/lib/format.ts` writes
+`export type { ProductSummary } from '@mercaria/shared-types'`. Matching only
+`import` reported that file as reaching nothing — this section's own failure one
+level down, in the quiet direction, and found by grepping for the shape rather
+than by any test. Note the `as` direction flips back on that side: a re-export's
+REQUEST is still the name to the left of `as`, while its PUBLICATION is the name
+to the right.
+
 ### Domain populations: no instrument decides this
 
 There is no shared derivation to score against, and the difference between *the
