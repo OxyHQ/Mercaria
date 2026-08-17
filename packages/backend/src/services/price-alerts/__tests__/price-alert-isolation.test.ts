@@ -27,6 +27,11 @@ import {
   PRICE_ALERT_PROXIMITY_SCOPES,
   PRICE_ALERT_COMPARISON_BASES,
 } from '@mercaria/shared-types';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -92,24 +97,6 @@ const EVALUATION_REFERENCE =
 const LOCAL_FRESHNESS_REFERENCE =
   /const\s+\w*(TTL|Ttl|StaleSeconds|FRESHNESS_SECONDS)\w*\s*=|function\s+isStale|OFFER_TTL_SECONDS/;
 
-/** The organic discovery surface — the OTHER direction, as #78 and #80 both scan. */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-];
 
 const ALERT_DOMAIN_REFERENCE =
   /price-alerts\/|priceAlerts\/|price_alerts\b|price_alert_triggers|priceAlertTriggers|qualifyAlert/;
@@ -217,16 +204,16 @@ describe('the price-alert domain cannot reach what it must not', () => {
 
   it('is not reachable FROM the organic ranking surface either', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
+      const source = readRankingSurfaceFile(relative);
       expect(
         ALERT_DOMAIN_REFERENCE.test(stripComments(source)),
         `${relative} references price alerts; how many people are waiting for a price is one join from ordering by it`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 });
 

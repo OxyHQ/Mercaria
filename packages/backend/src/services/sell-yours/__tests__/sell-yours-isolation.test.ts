@@ -48,6 +48,11 @@ import {
   SELLER_DECLARATION_BLOCKERS,
   SELLER_DECLARATION_EXEMPT_BLOCKERS,
 } from '../match-gate.js';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -100,28 +105,6 @@ const COMMERCIAL_REFERENCE =
 const SELL_YOURS_REFERENCE =
   /sell-yours\/|sellYours\/|sellerListingDrafts\b|seller_listing_drafts\b|buildSellerPriceGuidance\(|deriveSellerDraftReadiness\(/;
 
-/**
- * The organic discovery surface — the same list the fee and product-save gates
- * scan, and for the same reason: a new ranking module belongs on it, and the
- * floor below is what forces whoever moves one to look here.
- */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-];
 
 /** A `native_listing_links` INSERT, from any direction. */
 const ATTACHMENT_WRITE = /insertNativeListingLink\(/;
@@ -175,9 +158,9 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
 
   it('WALL 3b: no ranking module reaches the "Sell yours" domain', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
+      const source = readRankingSurfaceFile(relative);
       expect(
         SELL_YOURS_REFERENCE.test(source),
         `${relative} references the "Sell yours" domain; how a seller was guided to a price is ` +
@@ -185,7 +168,7 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 
   it('WALL 4: no column of the four tables could hold identity evidence', () => {

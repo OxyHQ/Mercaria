@@ -72,12 +72,61 @@ function domainSources(): { relative: string; source: string }[] {
   return files;
 }
 
-/** The rest of the domain — the surfaces outside `services/comparison/`. */
-const OUTER_PATHS = [
-  'controllers/comparison.controller.ts',
-  'routes/comparison.ts',
-  'middleware/comparison-schemas.ts',
-];
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+
+/** Every comparison-NAMED module in a shared flat directory, whoever owns it. */
+function comparisonNamedSharedModules(): string[] {
+  return SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /comparison/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
+/**
+ * Comparison-NAMED shared modules that belong to ANOTHER domain — the scope
+ * judgement, made explicitly rather than by silence, and with an EXACT count
+ * (#448: an excusing entry is a predicate, not an identity).
+ *
+ * `comparison` in a filename says what a module is ABOUT, not which wall it
+ * lives behind. #96's product comparison and #74's OFFER comparison are two
+ * different features that share an English word, and the line drawn here is the
+ * import graph rather than preference: neither module below imports anything
+ * under `services/comparison/`, and both import `services/ranking/` instead.
+ *
+ * Scoping them IN would be actively harmful rather than merely wrong. Wall 3
+ * below forbids reading the REVIEW domain and wall 1 forbids commercial
+ * standing — #74's comparison legitimately reads a merchant rating as a ranking
+ * signal, so this gate would fail on it for a CORRECT reason about the wrong
+ * domain, and the cheapest way to green that is to weaken wall 3. A gate that
+ * pushes you toward the hazard.
+ */
+const RANKING_OWNED_MODULES = [
+  {
+    path: 'controllers/offer-comparison.controller.ts',
+    owner: "#74's offer ranking",
+    reaches: 'services/ranking/',
+  },
+  {
+    path: 'routes/offer-comparison.ts',
+    owner: "#74's offer ranking",
+    reaches: 'middleware/ranking-schemas.js',
+  },
+] as const;
+
+/**
+ * The rest of the domain — the surfaces outside `services/comparison/`.
+ * WALKED and FILTERED, never listed.
+ *
+ * This was three hand-written paths (#460). The shared flat directories have no
+ * directory of their own to walk, so the population is every comparison-NAMED
+ * module in them MINUS the exact two that belong to #74.
+ */
+const OUTER_PATHS = comparisonNamedSharedModules().filter(
+  (path) => !RANKING_OWNED_MODULES.some((module) => module.path === path),
+);
 
 function outerSources(): { relative: string; source: string }[] {
   return OUTER_PATHS.map((relative) => ({
@@ -122,6 +171,52 @@ describe('the comparison domain has real modules — the vacuity floor', () => {
     }
     for (const file of outerSources()) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+    }
+  });
+
+  it('derives the outer surface rather than listing it, and every shape found something', () => {
+    // Floors PER SHAPE rather than one on the total: the domain walk and the
+    // shared-directory derivation break independently, and a single total lets
+    // one collapse to zero while the other carries the number.
+    //
+    // Each is today's count, because these directories only grow and a SHRINK
+    // is the event that should stop the build.
+    const outer = OUTER_PATHS;
+    expect(outer.filter((p) => p.startsWith('controllers/')).length).toBeGreaterThanOrEqual(1);
+    expect(outer.filter((p) => p.startsWith('routes/')).length).toBeGreaterThanOrEqual(1);
+    expect(outer.filter((p) => p.startsWith('middleware/')).length).toBeGreaterThanOrEqual(1);
+    expect(outer.filter((p) => p.includes('__tests__'))).toEqual([]);
+    for (const path of outer) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+
+    // EXACT, not a floor. An excusing entry is a predicate rather than an
+    // identity, so a list with no count lets a third comparison-named module be
+    // excluded without anybody deciding to (#448).
+    expect(RANKING_OWNED_MODULES.length).toBe(2);
+
+    const candidates = comparisonNamedSharedModules();
+    const OWNED = /(?:^|\/)services\/comparison\//;
+    for (const { path, owner, reaches } of RANKING_OWNED_MODULES) {
+      // The exclusion must name a module that really exists and really is
+      // comparison-named — otherwise it is a stale name excusing nothing.
+      expect(candidates, `${path} is excluded but is not a comparison-named module`).toContain(path);
+
+      // And the JUSTIFICATION is measured against the real imports: it must
+      // still reach #74, and must still NOT reach this domain. A module that
+      // starts importing `services/comparison/` stops being excludable and this
+      // gate says which.
+      const specifiers = [
+        ...readFileSync(join(SRC_ROOT, path), 'utf8').matchAll(/from\s+'([^']+)'/g),
+      ].map((match) => match[1] ?? '');
+      expect(
+        specifiers.some((specifier) => specifier.includes(reaches)),
+        `${path} was scoped out as ${owner}'s, and no longer imports ${reaches}`,
+      ).toBe(true);
+      expect(
+        specifiers.filter((specifier) => OWNED.test(specifier)),
+        `${path} was scoped out as ${owner}'s, but now imports the comparison domain`,
+      ).toEqual([]);
     }
   });
 });

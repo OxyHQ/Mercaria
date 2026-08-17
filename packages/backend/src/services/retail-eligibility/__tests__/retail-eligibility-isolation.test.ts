@@ -33,6 +33,11 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+  readRankingSurfaceFile,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -55,31 +60,17 @@ function domainFiles(): string[] {
 }
 
 /**
- * The organic discovery surface — the same list `fee-ranking-isolation.test.ts`
- * scans, and it is duplicated on purpose: a domain that adds a wall states the
- * wall's extent itself, so moving a ranking module fails BOTH gates rather than
- * silently leaving one of them scanning a file that no longer decides anything.
+ * The organic discovery surface — ONE derivation shared with the ten sibling
+ * gates that assert the same shape of wall (`__tests__/ranking-surface.ts`).
+ *
+ * This was fifteen hand-written paths under a docblock arguing the duplication
+ * was deliberate — "a domain that adds a wall states the wall's extent itself,
+ * so moving a ranking module fails BOTH gates". The measurement says otherwise:
+ * eleven copies existed, no two of the four largest agreed, and the copy in
+ * `price-history-isolation.test.ts` had drifted to EIGHT paths containing no
+ * ranking module at all. Duplication did not keep the gates honest; it gave each
+ * of them a different answer, and every one of them still passed (#460).
  */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  'db/catalog/listingRepository.ts',
-  // The offer comparison (#74) — the surface that now decides which offers a
-  // shopper sees and in what order. It joined this list with the domain that
-  // created it, which is what these lists are for.
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-];
 
 /** Reaching the fee domain, from any direction. */
 const FEE_REFERENCE = /fees\/|feeSchedule|orderFeeSnapshot|fee_schedules|order_fee_snapshots|marketplaceFee/;
@@ -124,16 +115,15 @@ describe('a mercaria_retail order pays no marketplace fee', () => {
 describe('organic ranking cannot read eligibility', () => {
   it('no feed, search or catalogue-read module references the eligibility domain', () => {
     let scanned = 0;
-    for (const relative of RANKING_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
       expect(
-        ELIGIBILITY_REFERENCE.test(stripComments(source)),
+        ELIGIBILITY_REFERENCE.test(stripComments(readRankingSurfaceFile(relative))),
         `${relative} references the retail eligibility domain`,
       ).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
+    expect(scanned).toBe(RANKING_SURFACE_PATHS.length);
   });
 });
 
