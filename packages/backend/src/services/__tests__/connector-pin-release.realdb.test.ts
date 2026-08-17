@@ -62,6 +62,7 @@ async function makeListing(storeId: string, overriddenFields: string[]): Promise
       ownerType: 'store',
       oxyUserId: null,
       storeId,
+      productTypeDefinitionId: null,
       title: 'Pinned product',
       description: '',
       condition: 'new',

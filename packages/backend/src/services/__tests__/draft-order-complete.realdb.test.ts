@@ -175,6 +175,7 @@ async function seedScenario(quantity = 2): Promise<Scenario> {
       ownerType: 'store',
       oxyUserId: null,
       storeId,
+      productTypeDefinitionId: null,
       title: 'Register Item',
       description: '',
       condition: 'new',

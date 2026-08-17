@@ -270,6 +270,7 @@ function listingRow(): ListingRecord {
     ownerType: 'store',
     oxyUserId: null,
     storeId: STORE,
+    productTypeDefinitionId: null,
     title: 'Thing',
     description: 'A thing',
     condition: 'new',

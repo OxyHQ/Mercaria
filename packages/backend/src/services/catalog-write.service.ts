@@ -476,6 +476,13 @@ export async function insertP2PListingWithin(
       ownerType: 'user',
       oxyUserId,
       storeId: null,
+      // A P2P listing is authored under no product-type schema. The authoring
+      // path (`publish.service.ts`) is the only writer that HAS a pin, and
+      // inventing one here would claim a contract this seller never answered —
+      // the same reason the migration declines a backfill. Stated rather than
+      // defaulted because `NewListing` is derived from the select type, which
+      // makes `tsc` the census of every listing writer.
+      productTypeDefinitionId: null,
       title: input.title,
       description: input.description,
       ...conditionColumns,
@@ -641,6 +648,8 @@ interface StoreProductInsert {
   readonly resolvedCondition: ResolvedConditionInput;
   readonly conditionColumns: ReturnType<typeof conditionColumnsFor>;
   readonly conditionActor: ConditionActor;
+  /** The authoring pin, resolved by the caller. NULL for a write under no schema. */
+  readonly productTypeDefinitionId: string | null;
   readonly now: Date;
 }
 
@@ -787,6 +796,9 @@ async function insertStoreProductWithin(
       latitude: null,
       vendor: input.vendor ?? null,
       productType: input.productType ?? null,
+      // The versioned pin, NOT the line above: `productType` is a platform's own
+      // free-text string and this is a citation of an authoring contract.
+      productTypeDefinitionId: spec.productTypeDefinitionId,
       handle: input.handle ?? null,
       seoTitle: input.seo?.title ?? null,
       seoDescription: input.seo?.description ?? null,
@@ -940,6 +952,20 @@ export async function createStoreProductWithin(
     source?: ListingSourceProvenance;
     status?: 'active' | 'draft';
     variantSources?: readonly VariantSourceProvenance[];
+    /**
+     * The EXACT product-type version this listing was authored under (ADR 0007
+     * D5/D10/D13), or absent for a write made under no schema.
+     *
+     * It rides `opts` — beside `source` and `status` — and is deliberately NOT a
+     * member of {@link CreateStoreProductInput}, which is a CLIENT-supplied DTO.
+     * A client able to state the pin could claim any product-type version for its
+     * listing, including one whose schema it never answered; the pin is only
+     * meaningful as a SERVER-derived fact, and the one caller that has it is
+     * `publish.service.ts`, which reads it off the draft the answers were stored
+     * against. The same server-side-id rule the house applies to owner ids,
+     * applied to a provenance claim.
+     */
+    productTypeDefinitionId?: string | null;
   } = {},
 ): Promise<ListingRecord> {
   const { categoryId, categorySlugs } = await resolveCategory(input.category);
@@ -983,6 +1009,7 @@ export async function createStoreProductWithin(
     resolvedCondition,
     conditionColumns,
     conditionActor,
+    productTypeDefinitionId: opts.productTypeDefinitionId ?? null,
     now,
   });
 }

@@ -47,6 +47,15 @@ import type { CategoryLifecycle, ItemConditionKey, ListingOwnerType } from '@mer
 import { asEnumValues, checkOneOf, currencyChecks, optionalMoney } from './columns';
 import { connections } from './connectors';
 import { locations, stores } from './stores';
+// `productTypeDefinitions` for `listings.product_type_definition_id` (ADR 0007
+// D13). This is a CIRCULAR module import — `productTypes.ts` imports
+// `categories` from this file — and it is safe only because both directions are
+// drizzle's LAZY `references(() => …)` callbacks, evaluated long after both
+// modules have finished. It is verified rather than assumed: this repository has
+// a measured case of drizzle-kit silently emitting NO `ADD CONSTRAINT` and NO
+// snapshot entry for a circular foreign key (`awin_advertisers.activating_sample_id`),
+// so the generated SQL and the snapshot are both checked for this one.
+import { productTypeDefinitions } from './productTypes';
 
 /** `Listing.ownerType`. */
 export const LISTING_OWNER_TYPES: readonly ListingOwnerType[] = ['user', 'store'];
@@ -365,7 +374,47 @@ export const listings = pgTable(
     ),
 
     vendor: text(),
+    /**
+     * The connector's own free-text product type (Shopify's `product_type`).
+     *
+     * NOT the versioned schema — see `productTypeDefinitionId` directly below.
+     * The two sit together deliberately: this is a string a platform sent, and
+     * that is a citation of an authoring contract. Nothing derives one from the
+     * other, and a reader who conflates them would take a Shopify string for a
+     * schema version.
+     */
     productType: text(),
+    /**
+     * The EXACT product-type version this listing was authored under — ADR 0007
+     * D5/D10's pin for the PUBLISHED write, and D13's `listings` widening.
+     *
+     * NULLABLE, and that is the same ruling `native_listing_variant_axes` made
+     * one table over: a connector listing and every pre-#367 row was authored
+     * under no schema at all, so a NOT NULL column would need a backfill that
+     * INVENTS a pin. Nothing distinguishes a listing authored under a product
+     * type from one that never had a schema, and a guessed pin is a false claim
+     * about how a record was authored — the `listings.published_at` no-backfill
+     * ruling, for the same reason.
+     *
+     * `restrict`, matching `product_type_fields.attribute_definition_id`: a
+     * version a live listing cites is not deletable, and #367 step 3's own
+     * trigger already refuses to delete a published one.
+     *
+     * There are deliberately NO denormalized `key`/`version` citation columns
+     * beside it, unlike `product_type_fields`. Those exist there only because a
+     * CHECK cannot contain a subquery; the one rule wanted here — that a
+     * listing's axes cite the same version the listing does — is CROSS-ROW and
+     * therefore a trigger, which reads the referenced row directly.
+     *
+     * `mercaria_listing_product_type_pin_not_cleared` permits NULL → a value (a
+     * first pin) and value → value (which IS the deliberate migration ADR 0007
+     * D10 describes) and REFUSES value → NULL: a pin that can be erased is not a
+     * pin, and erasing one would destroy the evidence of which rules a stored
+     * answer was recorded under.
+     */
+    productTypeDefinitionId: text().references(() => productTypeDefinitions.id, {
+      onDelete: 'restrict',
+    }),
     /** URL-safe handle for store products; unique per store WHEN SET. */
     handle: text(),
     seoTitle: text(),
@@ -550,6 +599,25 @@ export const listings = pgTable(
     index('listings_geo_idx').using('gist', t.geo),
     index('listings_store_id_vendor_idx').on(t.storeId, t.vendor),
     index('listings_store_id_product_type_idx').on(t.storeId, t.productType),
+    /**
+     * The governance impact count's predicate, and it has a reader in the same
+     * change rather than a speculative one (#61's rule).
+     *
+     * `services/catalog-governance/impact.service.ts` runs one `count(*)` per
+     * relation `impact-plan.ts` declares — `where <reference column> = <subject
+     * id>` — so the moment `listings.product_type_definition_id` joins the
+     * governed-reference plan, deprecating or moving a product-type version
+     * counts this table by this column. On `listings` that is the difference
+     * between an index lookup and a sequential scan of the whole catalogue,
+     * every time an operator asks what a publication would touch.
+     *
+     * PARTIAL, because the overwhelming majority of rows are legacy or connector
+     * listings that carry no pin at all: a plain index would be mostly NULLs, and
+     * the predicate is exactly the one every reader uses.
+     */
+    index('listings_product_type_definition_idx')
+      .on(t.productTypeDefinitionId)
+      .where(sql`${t.productTypeDefinitionId} is not null`),
     // Per-store handle uniqueness for the products that HAVE a handle. Partial
     // rather than plain: a compound `{storeId, handle}` unique would be satisfied
     // by NULL-distinctness anyway, but the partial keeps the index the size of

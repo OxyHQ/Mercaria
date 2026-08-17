@@ -650,3 +650,36 @@ export const PUBLIC_PRODUCT_TYPE_FORBIDDEN_LAYOUT_FIELDS: readonly string[] = [
   'valuePolicy',
   'visibilityRule',
 ];
+
+/* -------------------------------------------------------------------------- */
+/* The listing half of a publication impact                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many LISTINGS cite one product-type version (#367, ADR 0007 D5/D13).
+ *
+ * A discriminated union whose `unmeasurable` branch carries NO count, and that
+ * is the whole reason it is a union rather than a number.
+ *
+ * Before `listings.product_type_definition_id` existed there was no way to ask
+ * the question at all, and the tempting answer was `0` — which is the vacuous
+ * measurement this repository refuses everywhere else. "No listing cites this
+ * version" is a green light; "nothing can tell which listings cite this version"
+ * is not, and a caller must not be able to read the second as the first. The
+ * branch survives the column landing on purpose: a deployment whose schema
+ * predates the pin still answers honestly, and a reader has to handle it.
+ *
+ * `outcome` is a STRING discriminant, not a boolean: the backend compiles with
+ * `strict: false`, so without `strictNullChecks` TypeScript does not narrow a
+ * union on the truthiness of a boolean-literal discriminant and every consumer
+ * would be left holding the whole union (#68's finding, hit again by #110).
+ */
+export type ProductTypeListingImpact =
+  | {
+      readonly outcome: 'unmeasurable';
+      readonly reason: 'listings_carry_no_product_type_pin';
+    }
+  | {
+      readonly outcome: 'measured';
+      readonly listingCount: number;
+    };

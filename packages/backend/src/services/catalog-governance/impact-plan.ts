@@ -232,7 +232,7 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   },
 ];
 
-/** Every foreign key into a product-type definition version. Eight entries. */
+/** Every foreign key into a product-type definition version. Nine entries. */
 const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
   {
     column: productTypeCategoryScopes.productTypeDefinitionId,
@@ -273,6 +273,11 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
     column: nativeListingVariantAxes.productTypeDefinitionId,
     disposition: 'blocks',
     note: 'ON DELETE restrict. A declared axis cites the exact version whose variant_capable field authorised it; mercaria_native_variant_axis_citation refuses a row that disagrees',
+  },
+  {
+    column: listings.productTypeDefinitionId,
+    disposition: 'rewire_path_missing',
+    note: 'ON DELETE restrict, nullable. A listing KEEPS its pin through a deprecation deliberately (ADR 0007 D5/D10: a newer version never reinterprets an older record), so nothing rewires it and nothing may. What is missing is the deliberate-migration entry point #367 box 12 owes for a PUBLISHED listing — previewDraftUpgrade/applyDraftUpgrade cover drafts only — so an operator who wants a listing moved forward has no path today',
   },
 ];
 

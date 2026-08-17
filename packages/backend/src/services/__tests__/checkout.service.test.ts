@@ -265,6 +265,7 @@ function listingRow(
     ownerType: owner.ownerType,
     oxyUserId: owner.ownerType === 'user' ? owner.oxyUserId : null,
     storeId: owner.ownerType === 'store' ? owner.storeId : null,
+    productTypeDefinitionId: null,
     title: 'Thing',
     description: 'A thing',
     condition: 'new',

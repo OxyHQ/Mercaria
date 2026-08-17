@@ -66,6 +66,7 @@ type ListingInput = Parameters<typeof insertListing>[0];
 function baseListing(): Omit<ListingInput, 'ownerType' | 'oxyUserId' | 'storeId' | 'status'> {
   return {
     title: 'Seller realdb listing',
+    productTypeDefinitionId: null,
     description: '',
     condition: 'used_good',
     conditionAssertion: 'seller_declared',

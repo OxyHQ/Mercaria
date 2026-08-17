@@ -174,6 +174,37 @@ describe('every typed axis value a publication writes CITES the claim it came fr
     published = await publishOne('A', [`${TOKEN}-A-BLK`, `${TOKEN}-A-WHT`]);
   }, 300_000);
 
+  /**
+   * #367 box 11 (ADR 0007 D5/D10/D13): the PUBLISHED write pins the exact
+   * product-type version its answers were given under.
+   *
+   * Asserted end to end and against the DRAFT's own pin rather than against a
+   * literal, because the failure this guards is not "the column is empty" — it
+   * is the column carrying a DIFFERENT version from the one the author actually
+   * answered, which a composition re-derived at publish time would produce and
+   * which no assertion on a hardcoded id could ever see.
+   *
+   * The draft-side value is asserted non-null in the same statement: it is the
+   * positive control, and without it a publication that wrote NULL into both
+   * would satisfy an equality check.
+   */
+  it('carries the DRAFT\'s product-type version onto the listing', async () => {
+    const [row] = await db.execute<{
+      listing_pin: string | null;
+      draft_pin: string | null;
+    }>(sql`
+      select l.product_type_definition_id as listing_pin,
+             d.product_type_definition_id as draft_pin
+        from listings l
+        join catalog_authoring_drafts d on d.published_listing_id = l.id
+       where l.id = ${published.listingId}
+    `);
+
+    expect(row, 'the published listing and its draft should both be readable').toBeDefined();
+    expect(row?.draft_pin, 'the draft pinned no version — the fixture is vacuous').not.toBeNull();
+    expect(row?.listing_pin).toBe(row?.draft_pin);
+  });
+
   it('writes one assignment per axis per variant, and every one names a claim', async () => {
     const rows = [
       ...(await db.execute<{
