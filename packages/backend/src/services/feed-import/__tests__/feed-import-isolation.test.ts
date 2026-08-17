@@ -41,44 +41,90 @@ import {
 import { PROTECTED_COLUMNS } from '../../../db/protectedColumns.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services/feed-import');
 
-/** Every module of the feed-import domain, plus the adapter and the surface. */
-const DOMAIN_PATHS = [
-  'services/feed-import/auth.ts',
-  'services/feed-import/bytes.ts',
-  'services/feed-import/completion.ts',
-  'services/feed-import/configuration.service.ts',
-  'services/feed-import/errors.ts',
-  'services/feed-import/external-id.ts',
-  'services/feed-import/fetch.ts',
-  'services/feed-import/mapping.ts',
-  'services/feed-import/money.ts',
-  'services/feed-import/open.ts',
-  'services/feed-import/preview.service.ts',
-  'services/feed-import/redact.ts',
-  'services/feed-import/register.ts',
-  'services/feed-import/report.service.ts',
-  'services/feed-import/resolve.ts',
-  'services/feed-import/staging.ts',
-  'services/feed-import/suggest.ts',
-  'services/feed-import/transforms.ts',
-  'services/feed-import/upload.ts',
-  'services/feed-import/parse/delimited.ts',
-  'services/feed-import/parse/flatten.ts',
-  'services/feed-import/parse/index.ts',
-  'services/feed-import/parse/json.ts',
-  'services/feed-import/parse/jsonl.ts',
-  'services/feed-import/parse/types.ts',
-  'services/feed-import/parse/xml.ts',
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+
+/**
+ * The modules no filename rule reaches, each with the reason it is here.
+ *
+ * `product-feed.ts` is #62's adapter directory rather than this domain's, and
+ * lives there by the write-boundary rule — but every wall in this file has to
+ * hold across it, since it is the module that turns a merchant's rows into
+ * source records. `routes/admin/feeds.ts` is the merchant surface, named after
+ * the resource under `/admin/stores/:storeId/feeds` rather than after the
+ * domain, so `feed-import` does not match it and a bare `feed` rule would sweep
+ * in `routes/feed.ts` and `routes/feedback.ts`, which are two other domains.
+ *
+ * EXACT, not a floor: an excusing list without a count is a predicate, and this
+ * one is the residual a walk cannot derive — precisely the place a third
+ * differently-named module would quietly join and never be scanned (#448).
+ */
+const UNDERIVABLE_MODULES = [
   'services/ingestion/adapters/product-feed.ts',
-  'db/feedImport/feedConfigurationRepository.ts',
-  'db/feedImport/feedImportReportRepository.ts',
-  'controllers/feed-import.controller.ts',
-  'middleware/feed-import-schemas.ts',
   'routes/admin/feeds.ts',
-  'routes/internal-feed-imports.ts',
+] as const;
+
+/**
+ * Every module of the feed-import domain, plus the adapter and the surface.
+ * WALKED and FILTERED, never listed.
+ *
+ * This was thirty-three hand-written paths under exactly that claim, and it
+ * happened to be true on the day it was measured — which is the whole problem
+ * (#460): a list is complete when it is written and silently incomplete the day
+ * somebody adds a file, and what the gate then skips is precisely the module
+ * nobody has reviewed. The walk is recursive, so `parse/` needs no second
+ * entry and a third parser directory needs no edit here at all.
+ */
+const DOMAIN_PATHS = [
+  ...walk('services/feed-import'),
+  ...walk('db/feedImport'),
+  ...UNDERIVABLE_MODULES,
+  ...SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /feed-import/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  ),
 ];
+
+/**
+ * The enumeration floor, per SHAPE.
+ *
+ * Each number is the count on the day it was written: these directories only
+ * grow, and a SHRINK is the event that should stop the build rather than
+ * quietly narrowing every wall in this file. `parse/` gets its own, because it
+ * is the one a non-recursive walk would silently drop while every other number
+ * stayed right.
+ */
+function expectEveryShapeFoundSomething(): void {
+  const from = (prefix: string) => DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(
+    from('services/feed-import/parse/'),
+    'the parser walk found nothing — is the walk still recursive?',
+  ).toBeGreaterThanOrEqual(7);
+  expect(from('services/feed-import/'), 'the service walk found nothing').toBeGreaterThanOrEqual(26);
+  expect(from('db/feedImport/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(2);
+  expect(UNDERIVABLE_MODULES.length, 'the underivable set changed').toBe(2);
+  expect(from('routes/internal-feed-imports'), 'no feed route was derived').toBe(1);
+  expect(from('controllers/'), 'no feed-import controller was derived').toBeGreaterThanOrEqual(1);
+  expect(from('middleware/'), 'no feed-import request schema was derived').toBeGreaterThanOrEqual(
+    1,
+  );
+  expect(DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+}
 
 /** Anything that would EXECUTE a value. Issue security 4. */
 const EVALUATION_REFERENCE =
@@ -173,23 +219,14 @@ describe('the importer writes into the commerce graph nowhere', () => {
     }
   });
 
-  it('covers every module in services/feed-import and db/feedImport — the enumeration floor', () => {
-    // A file added to either directory and forgotten by the list above would
-    // make every scan here silently narrower. Read the real directories.
-    const walk = (relative: string): string[] =>
-      readdirSync(join(SRC_ROOT, relative))
-        .filter((entry) => entry.endsWith('.ts'))
-        .filter((entry) => statSync(join(SRC_ROOT, relative, entry)).isFile())
-        .map((entry) => `${relative}/${entry}`);
+  it('walks the domain rather than listing it, and every shape found something', () => {
+    expectEveryShapeFoundSomething();
 
-    const onDisk = [
-      ...walk('services/feed-import'),
-      ...walk('services/feed-import/parse'),
-      ...walk('db/feedImport'),
-    ];
-    const listed = new Set(DOMAIN_PATHS);
-    expect(onDisk.filter((path) => !listed.has(path))).toEqual([]);
-    expect(onDisk.length).toBeGreaterThanOrEqual(25);
+    // And the walk really reads the disk rather than returning a stale or empty
+    // result: every path it produced resolves to a real file.
+    for (const path of DOMAIN_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
   });
 });
 
@@ -308,8 +345,7 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     expect(withoutComments("const u = 'https://example.com/x';")).toContain('https://example.com/x');
   });
 
-  it('the domain directory really is where the gate thinks it is', () => {
-    const files = readdirSync(DOMAIN_DIR).filter((entry) => entry.endsWith('.ts'));
-    expect(files.length).toBeGreaterThanOrEqual(18);
+  it('the domain directories really are where the gate thinks they are', () => {
+    expectEveryShapeFoundSomething();
   });
 });
