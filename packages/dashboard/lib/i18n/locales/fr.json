@@ -1045,7 +1045,12 @@
         "height": "Hauteur",
         "depth": "Profondeur",
         "diagonal": "Diagonale",
-        "circumference": "Circonférence"
+        "circumference": "Circonférence",
+        "waist": "Taille",
+        "inseam": "Entrejambe",
+        "chest": "Poitrine",
+        "sleeve": "Manche",
+        "neck": "Encolure"
       },
       "variants": {
         "noAxesAvailable": "Ce type de produit n'a aucun attribut pouvant définir des variantes.",

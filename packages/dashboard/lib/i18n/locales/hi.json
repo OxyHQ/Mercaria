@@ -1045,7 +1045,12 @@
         "height": "ऊँचाई",
         "depth": "गहराई",
         "diagonal": "विकर्ण",
-        "circumference": "परिधि"
+        "circumference": "परिधि",
+        "waist": "कमर",
+        "inseam": "अंदरूनी लंबाई",
+        "chest": "छाती",
+        "sleeve": "आस्तीन",
+        "neck": "गर्दन"
       },
       "variants": {
         "noAxesAvailable": "इस उत्पाद प्रकार में ऐसा कोई गुण नहीं है जिससे वैरिएंट बन सकें।",

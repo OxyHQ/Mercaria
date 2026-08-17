@@ -34,6 +34,7 @@
 
 import axios from "axios";
 import type {
+  AttributeComponentAxis,
   AuthoringCanonicalSearchResult,
   AuthoringCategoryOption,
   AuthoringDraft,
@@ -62,7 +63,17 @@ import { unwrap } from "../api/unwrap";
  */
 export interface DraftAnswerPayload {
   readonly ordinal?: number;
-  readonly componentAxis?: "width" | "height" | "depth" | "diagonal" | "circumference";
+  /**
+   * IMPORTED, never restated.
+   *
+   * This was an inline literal union spelling out the five axes, which is a
+   * SECOND representation of a closed value set the registry already owns — and
+   * the two agreed only by coincidence. #367's apparel widening is what found
+   * it, but the dangerous direction is the other one: a member REMOVED upstream
+   * would leave this union still claiming it is sendable, and the request would
+   * fail its `.strict()` schema at the server with a type-clean client.
+   */
+  readonly componentAxis?: AttributeComponentAxis;
   readonly text?: string;
   readonly number?: number;
   readonly boolean?: boolean;

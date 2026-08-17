@@ -1045,7 +1045,12 @@
         "height": "高さ",
         "depth": "奥行き",
         "diagonal": "対角",
-        "circumference": "外周"
+        "circumference": "外周",
+        "waist": "ウエスト",
+        "inseam": "股下",
+        "chest": "胸囲",
+        "sleeve": "袖丈",
+        "neck": "首回り"
       },
       "variants": {
         "noAxesAvailable": "この商品タイプにはバリエーションを定義できる属性がありません。",

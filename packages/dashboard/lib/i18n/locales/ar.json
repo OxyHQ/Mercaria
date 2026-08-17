@@ -1045,7 +1045,12 @@
         "height": "الارتفاع",
         "depth": "العمق",
         "diagonal": "القطر",
-        "circumference": "المحيط"
+        "circumference": "المحيط",
+        "waist": "الخصر",
+        "inseam": "طول الساق الداخلي",
+        "chest": "الصدر",
+        "sleeve": "الكم",
+        "neck": "الرقبة"
       },
       "variants": {
         "noAxesAvailable": "لا يملك نوع المنتج هذا سمات يمكنها تحديد المتغيّرات.",

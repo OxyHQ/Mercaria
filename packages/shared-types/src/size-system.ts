@@ -187,12 +187,16 @@ export const SIZE_MEASUREMENT_BASES: readonly SizeMeasurementBasis[] = [
  * is meaningless and a bucket list over a continuous foot length is unusable.
  *
  * `compound` is the waist × inseam case: ONE size expressed as several named
- * components. It is representable in the registry as a `structured` attribute
- * with an axis per component — but the axis vocabulary
- * (`ATTRIBUTE_COMPONENT_AXES`) carries only the five geometric axes today, so
- * an apparel compound size has no axis to name its inseam. Closing that is one
- * additive migration widening `attribute_definitions_axes_domain_check`, and it
- * is named here rather than worked around.
+ * components, representable in the registry as a `structured` attribute with an
+ * axis per component. That was the one shape this file recorded as unbuildable
+ * — `ATTRIBUTE_COMPONENT_AXES` carried only the five geometric axes, so an
+ * apparel compound size had no axis to name its inseam — and
+ * `GARMENT_COMPONENT_AXES` closed it.
+ *
+ * What remains genuinely unrepresentable is a MIXED-TYPE compound: a bra size
+ * (`34B`) or a suit size (`40R`) pairs a measurement with a letter, and a
+ * `structured` definition pins one `unitFamily` for every component. Those stay
+ * `alphanumeric`, which is what they are.
  */
 export type SizeValueShape = 'numeric' | 'alphanumeric' | 'measurement' | 'compound';
 

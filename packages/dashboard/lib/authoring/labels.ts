@@ -17,13 +17,25 @@
 import type { AttributeComponentAxis, ProductTypeFieldRequirement } from "@mercaria/shared-types";
 import type { WizardStepId } from "./findings";
 
-/** The axes a `structured` attribute declares — width × height × depth. */
+/**
+ * The axes a `structured` attribute declares.
+ *
+ * Two groups: the geometry of an object (width × height × depth), and the
+ * garment positions a compound size names (waist × inseam, neck × sleeve). A
+ * definition declares its own axes, so the wizard only ever renders the subset
+ * that definition asked for.
+ */
 export const COMPONENT_AXIS_LABEL_KEYS: Record<AttributeComponentAxis, string> = {
   width: "products.wizard.axes.width",
   height: "products.wizard.axes.height",
   depth: "products.wizard.axes.depth",
   diagonal: "products.wizard.axes.diagonal",
   circumference: "products.wizard.axes.circumference",
+  waist: "products.wizard.axes.waist",
+  inseam: "products.wizard.axes.inseam",
+  chest: "products.wizard.axes.chest",
+  sleeve: "products.wizard.axes.sleeve",
+  neck: "products.wizard.axes.neck",
 };
 
 /** How hard the schema asks for a field, in this flow. */

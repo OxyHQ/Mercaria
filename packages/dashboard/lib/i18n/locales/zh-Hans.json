@@ -1045,7 +1045,12 @@
         "height": "高度",
         "depth": "深度",
         "diagonal": "对角线",
-        "circumference": "周长"
+        "circumference": "周长",
+        "waist": "腰围",
+        "inseam": "内长",
+        "chest": "胸围",
+        "sleeve": "袖长",
+        "neck": "领围"
       },
       "variants": {
         "noAxesAvailable": "此商品类型没有可用于定义规格的属性。",

@@ -1045,7 +1045,12 @@
         "height": "উচ্চতা",
         "depth": "গভীরতা",
         "diagonal": "কর্ণ",
-        "circumference": "পরিধি"
+        "circumference": "পরিধি",
+        "waist": "কোমর",
+        "inseam": "ভেতরের দৈর্ঘ্য",
+        "chest": "বুক",
+        "sleeve": "হাতা",
+        "neck": "গলা"
       },
       "variants": {
         "noAxesAvailable": "এই পণ্যের ধরনে ভ্যারিয়েন্ট নির্ধারণ করার মতো কোনো বৈশিষ্ট্য নেই।",

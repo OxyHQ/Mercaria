@@ -1045,7 +1045,12 @@
         "height": "Height",
         "depth": "Depth",
         "diagonal": "Diagonal",
-        "circumference": "Circumference"
+        "circumference": "Circumference",
+        "waist": "Waist",
+        "inseam": "Inseam",
+        "chest": "Chest",
+        "sleeve": "Sleeve",
+        "neck": "Neck"
       },
       "variants": {
         "noAxesAvailable": "This product type has no attributes that can define variants.",

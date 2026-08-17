@@ -189,13 +189,53 @@ export const UNIT_FAMILIES: readonly UnitFamily[] = [
  * "155.6 x 71.5 x 8.25 mm" without saying which axis is which produces three
  * `unparsed` source facts, not three guesses — the axis has to come from the
  * source's own labelling or from a per-source mapping.
+ *
+ * ## Two groups, one vocabulary
+ *
+ * The first five are the axes of an OBJECT — a parcel, a screen, a ring. The
+ * last five are POSITIONS ON A BODY OR GARMENT, added for #367's "support …
+ * inseam and compound dimensions": a 32×34 jean is one size with two named
+ * components, and with only the geometric axes there was no axis to call the
+ * inseam, so the size had to be stored as the string `32x34` and compared as
+ * text.
+ *
+ * They share one vocabulary rather than splitting into two because a definition
+ * DECLARES its own axes — a dimensions attribute declares width/height/depth
+ * and an apparel one declares waist/inseam — so nothing can reach an axis its
+ * definition did not name, and two tuples would mean two CHECKs, two validators
+ * and two label maps for one idea.
+ *
+ * ## Which garment axes, and why not more
+ *
+ * Exactly the components of the compound size tokens merchants actually write:
+ * **waist × inseam** (trousers, `32x34`), **neck × sleeve** (dress shirts,
+ * `16 x 34/35`) and **chest** for the jacket convention. `hip`, `shoulder`,
+ * `rise` and `outseam` are deliberately ABSENT — they are rows of a size CHART,
+ * each its own measurement attribute, not components of a size somebody selects.
+ * An axis with no compound convention behind it is a member nothing can write.
+ *
+ * ## What is still unrepresentable, and it is not an oversight
+ *
+ * A bra size (`34B`) and a suit size (`40R`) are NOT structured measurements:
+ * their components are not in one unit family — a band circumference beside a
+ * cup letter, a chest measurement beside a length letter — and a `structured`
+ * definition pins ONE `unitFamily` for every component. They stay `enum` or
+ * `string` sizes until something models a mixed-type compound, which this
+ * vocabulary deliberately does not pretend to do.
  */
 export type AttributeComponentAxis =
+  // The geometry of an object.
   | 'width'
   | 'height'
   | 'depth'
   | 'diagonal'
-  | 'circumference';
+  | 'circumference'
+  // Positions on a body or garment, for compound sizes.
+  | 'waist'
+  | 'inseam'
+  | 'chest'
+  | 'sleeve'
+  | 'neck';
 
 export const ATTRIBUTE_COMPONENT_AXES: readonly AttributeComponentAxis[] = [
   'width',
@@ -203,6 +243,27 @@ export const ATTRIBUTE_COMPONENT_AXES: readonly AttributeComponentAxis[] = [
   'depth',
   'diagonal',
   'circumference',
+  'waist',
+  'inseam',
+  'chest',
+  'sleeve',
+  'neck',
+];
+
+/**
+ * The axes that name a position on a body or garment rather than object
+ * geometry.
+ *
+ * A SUBSET of {@link ATTRIBUTE_COMPONENT_AXES}, derived rather than restated, so
+ * it cannot drift from the tuple the CHECKs are rendered from. Its one job is to
+ * let a gate assert the widening is exactly what it claims to be.
+ */
+export const GARMENT_COMPONENT_AXES: readonly AttributeComponentAxis[] = [
+  'waist',
+  'inseam',
+  'chest',
+  'sleeve',
+  'neck',
 ];
 
 /**
