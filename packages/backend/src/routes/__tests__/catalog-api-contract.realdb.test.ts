@@ -725,9 +725,46 @@ describe('localized category search', () => {
     expect(ids).not.toContain(fx.draftRootId);
   });
 
-  it('treats a LIKE metacharacter as text, not as a pattern', async () => {
-    // Unescaped, `%` matches every category — a caller-supplied PATTERN rather than
-    // a caller-supplied search.
+  it('drops a candidate the reader’s OWN label does not contain', async () => {
+    /*
+     * The load-bearing half of the search, and it is what makes the ranking honest.
+     *
+     * `mid` has base name `Sneakers <stem>` and an approved Spanish name
+     * `Zapatillas <stem>`. For `locale=es` the fallback chain is `['es', 'en']`, so
+     * the SQL candidate scan matches `mid` through its BASE name — and the resolver
+     * then serves the Spanish one, which does not contain "Sneakers". Returning it
+     * would put a hit in front of a Spanish shopper that is invisible in the text
+     * they are shown.
+     */
+    const spanish = await get(
+      `/taxonomy/categories/search?q=${encodeURIComponent(`Sneakers ${SEARCH_STEM}`)}&locale=es`,
+    );
+    expect(spanish.status).toBe(200);
+    expect((data(spanish)['hits'] as { category: { id: string } }[]).map((h) => h.category.id)).not.toContain(
+      fx.midId,
+    );
+    // POSITIVE CONTROL: the same query in the locale whose label DOES contain it
+    // returns the row — so the case above is about the drop and not about the query
+    // matching nothing.
+    const english = await get(
+      `/taxonomy/categories/search?q=${encodeURIComponent(`Sneakers ${SEARCH_STEM}`)}&locale=en`,
+    );
+    expect((data(english)['hits'] as { category: { id: string } }[]).map((h) => h.category.id)).toEqual([
+      fx.midId,
+    ]);
+  });
+
+  it('answers a LIKE metacharacter query with no hits', async () => {
+    /*
+     * MEASURED: this does NOT prove `escapeLikePattern` works, and it used to claim
+     * it did. Removing the escaping leaves this green, because an unescaped `%%`
+     * widens the SQL CANDIDATE set to every published category and the resolved-name
+     * filter above then drops all of them — the answer is right either way.
+     *
+     * So the escaping bounds the SCAN and the filter bounds the ANSWER. What is
+     * asserted here is the answer; the escaping's benefit is a bounded read that no
+     * response field can show, and it is kept for that reason rather than this one.
+     */
     const answer = await get('/taxonomy/categories/search?q=%25%25&locale=en');
     expect(answer.status).toBe(200);
     expect((data(answer)['hits'] as unknown[]).length).toBe(0);
