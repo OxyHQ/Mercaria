@@ -57,6 +57,7 @@ import {
   type AuthoringStep,
   type LocalizedResolution,
   type ProductTypeAuthoringFlow,
+  type ProductTypeLifecycle,
   type SupportedLocale,
 } from '@mercaria/shared-types';
 import { inArray } from 'drizzle-orm';
@@ -94,6 +95,37 @@ import { authoringEtag, authoringSchemaCacheKey, type AuthoringSchemaKey } from 
 
 /** The declared component axes, as a set, for the narrowing below. */
 const COMPONENT_AXES: ReadonlySet<string> = new Set(ATTRIBUTE_COMPONENT_AXES);
+
+/**
+ * The lifecycles a caller may NAME by `(key, version)` — an ALLOW-list.
+ *
+ * `?version=` lets any authenticated account address one exact product-type
+ * version, and `findProductTypeVersion` filters on `(key, version)` and nothing
+ * else. Without this list a `draft` or `review` version — the unlaunched schema
+ * of a vertical nobody has announced, with every field, attribute and grouping
+ * in it — was served identically to a published one to any buyer or seller who
+ * guessed a documented key and a small integer. Keys follow ADR 0007 D1's
+ * namespace convention, so guessing is cheap.
+ *
+ * It is stated POSITIVELY rather than as "not in `PRODUCT_TYPE_EDITABLE_LIFECYCLES`"
+ * because the two fail in opposite directions: a fifth lifecycle nobody
+ * classified is REFUSED here, and would have been SERVED by a deny-list. The
+ * complement relationship the two tuples have today is asserted by
+ * `schema-version-lifecycle-exposure.realdb.test.ts`, so adding a lifecycle
+ * fails the build until somebody decides which side it belongs on rather than
+ * landing on the permissive side in silence.
+ *
+ * `deprecated` is IN the list and that is not an oversight: a deprecated version
+ * still resolves the records that pin it (ADR 0007 D5), which is the same reason
+ * `productTypeIsScopedToCategory` deliberately does not filter on `published`.
+ * `checkSchemaVersionAvailability` already documents this exact set as what
+ * "retrievable" means and derives its own half from the complement — the claim
+ * it makes about this function is what this list makes true.
+ */
+export const RETRIEVABLE_AUTHORING_LIFECYCLES: readonly ProductTypeLifecycle[] = [
+  'published',
+  'deprecated',
+];
 
 /** What a caller asks for. Every member is a semantic dimension of the key. */
 export interface ComposeAuthoringSchemaInput {
@@ -276,7 +308,24 @@ function invalidationRefs(
   return refs;
 }
 
-/** Compose one authoring schema. */
+/**
+ * Compose one authoring schema from a caller-supplied `(key, version)`.
+ *
+ * This is the ONE place a caller NAMES a product-type version, which is why the
+ * lifecycle allow-list is applied here rather than inside
+ * `findProductTypeVersion`. That repository function promises exactly what its
+ * name says — the row at `(key, version)` — and it is the primitive an operator
+ * preview or an upgrade path would reach for to look at a `draft` deliberately;
+ * a hidden filter inside it would answer such a caller with `null`, which is
+ * indistinguishable from "no such version" and would send whoever hit it looking
+ * for a missing row rather than a refused one.
+ *
+ * `composeForDefinition` is deliberately NOT gated: it serves a PINNED
+ * definition id, which a draft, a validation and a publish already hold and did
+ * not choose. Nothing in this repository composes an editable version through it
+ * — `createDraft` refuses a non-published version outright — so the exposure is
+ * this function's alone.
+ */
 export async function composeAuthoringSchema(
   db: DatabaseOrTransaction,
   input: ComposeAuthoringSchemaInput,
@@ -285,13 +334,23 @@ export async function composeAuthoringSchema(
     input.version === undefined
       ? await findPublishedVersionForKey(db, input.productTypeKey)
       : await findProductTypeVersion(db, input.productTypeKey, input.version);
+  // ONE detail string for two different facts, deliberately. A version that does
+  // not exist and a version that exists and is still being argued about answer
+  // identically, in both the refusal CODE and the sentence — otherwise the
+  // refusal is an oracle enumerating the unlaunched verticals, which is most of
+  // what the exposure was worth.
+  const unavailable =
+    input.version === undefined
+      ? `No published version of product type "${input.productTypeKey}".`
+      : `No version ${input.version} of product type "${input.productTypeKey}".`;
   if (definition === null) {
-    return refused(
-      'product_type_not_found',
-      input.version === undefined
-        ? `No published version of product type "${input.productTypeKey}".`
-        : `No version ${input.version} of product type "${input.productTypeKey}".`,
-    );
+    return refused('product_type_not_found', unavailable);
+  }
+  // Unconditional rather than inside the `?version=` branch: the published
+  // finder's own filter already satisfies this, so there is no branch here to
+  // get wrong, and a change to either finder cannot walk around it.
+  if (!RETRIEVABLE_AUTHORING_LIFECYCLES.includes(definition.lifecycle)) {
+    return refused('product_type_not_found', unavailable);
   }
   return composeForDefinition(db, definition, input);
 }
