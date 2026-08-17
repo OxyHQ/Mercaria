@@ -259,7 +259,7 @@ Public — `/catalog-attributes`, no auth, `listings` rate-limit scope:
 | `GET /facets?categoryId=` | Filter facets, derived from the same registry |
 | `POST /constraints/validate` | Whether a set is answerable, with EVERY issue |
 | `POST /constraints/evaluate` | One product or variant, with its explanation |
-| `GET /values/:entityKind/:entityId` | SELECTED values, no provenance |
+| `GET /values/:entityKind/:entityId[?unitSystem=][&market=]` | SELECTED values, no provenance, in the preferred display unit |
 
 Operator — `/internal/catalog-attributes`, behind `CATALOG_OPERATOR_OXY_USER_IDS`
 (empty ⇒ not mounted, 404):
@@ -280,6 +280,84 @@ Provenance never appears in a public DTO, and the explanation composes from the
 evaluation alone — no source record, confidence, method or rule version. The one
 deliberate exception is `sourceBacked`, which says a recorded fact was behind the
 answer without saying which.
+
+## Display units and size systems (#367 workstream 4)
+
+#94 decided what a measurement MEANS and what it is stored in. Two questions it
+left open have answers now, and both are pure code with no schema behind them.
+
+### Which unit a shopper is SHOWN
+
+`services/canonical/display-units.ts`. `GET /catalog-attributes/values/…`
+composes `displayValue` in the unit the request prefers; with NEITHER parameter
+the response is what it always was — the source feed's own words.
+
+- **`unitSystem` (`metric | us | uk`) is the shopper's own preference**, which
+  the storefront reads off the DEVICE's CLDR measurement system. `market` is the
+  fallback for a client that has one and no stated preference, and it encodes
+  CLDR's own supplemental override list — the United States, Liberia and Myanmar
+  on US customary, the United Kingdom on imperial, everything else metric. A
+  market it cannot read answers `null`, never `metric`: "nobody stated a
+  preference" and "this shopper is metric" are different facts.
+- **Nothing is derived from the reading LANGUAGE.** A shopper reading Spanish in
+  Ohio is in a US-customary market, and taking the system off the language is
+  the collapse ADR 0007 D4 forbids. There is no locale parameter on this route.
+- **The override table is small, and its three ABSENCES are the load-bearing
+  part.** UK volume has no override, because the `fl_oz` in the unit table is
+  the US ounce (29.5735… ml) and the imperial one is 28.4130625 ml — mapping one
+  onto the other prints a number four per cent wrong on every bottle. Digital
+  storage, frequency and the three dimensionless families have no customary
+  variant at all. And selection never reads the MAGNITUDE: one unit per (family,
+  system), so a 900 g laptop and a 1.2 kg one stay comparable by eye.
+- **Precision is significant DIGITS, not decimal places.** A declared
+  `decimal_places` wins; otherwise a converted magnitude is printed to the
+  digits the source actually knew, so `6.1 in` becomes `155 mm` and `155 mm`
+  becomes `6.10 in`. A decimal-places rule gets the second direction wrong and
+  silently drops a digit the source had.
+- **An unknown stored unit REFUSES.** The route then serves the source's words;
+  printing the magnitude beside a base unit would assert a dimension the row
+  never claimed. Nothing on this path writes — `renderMeasurement` takes a
+  magnitude and has no parameter through which it could reach a row.
+- A PER-ATTRIBUTE display unit (a screen size in inches for every market) is the
+  right next refinement and is deliberately not faked: it belongs on the
+  definition, as a `display_unit` column, and arrives with that migration.
+
+### What a size system IS
+
+`@mercaria/shared-types` `size-system.ts`. A size system is still an ATTRIBUTE
+DEFINITION — `shoe_size_eu` and `shoe_size_uk` are two keys with two facets and
+two bucket sets — and what this adds is the four facts that were implicit in the
+spelling of the key: **domain**, **region**, **audience** and **measurement
+basis**, as four closed tuples.
+
+- **`compareSizeDeclarations` is the only comparison over sizes, and it does not
+  convert.** It answers `equal`, `different_value` (one system, two values) or
+  `refused` naming the facet that differs. There is no return value in which
+  "a UK 8 is an EU 42" could be expressed.
+- **Each facet is independently load-bearing**, driven by one constructed pair
+  per facet in `size-system-non-equivalence.test.ts` — the real-world pairs
+  differ in two or three facets at once, so a test built only from them stays
+  green when three of the four checks are dropped.
+- **`unspecified` audience is not a department.** Two systems that both declined
+  to say who they are cut for are refused, checked BEFORE equality.
+- **The reason there is no conversion table is measured, not stylistic.** Two
+  real footwear brands in the launch package put EU 42 at US 9 and at US 8.5, so
+  a universal table would be wrong for one of them on every product. A
+  cross-system statement is a fact about ONE product, recorded as that product's
+  own attribute value with its own source and confidence.
+- `SIZE_SYSTEM_FORBIDDEN_OPERATIONS` names the seven operations that may never
+  exist, and the whole backend source tree is scanned for them.
+
+### The one registry, gated
+
+`unit-registry-authority.test.ts` holds three properties nothing held before: no
+module outside `services/canonical/units.ts` carries a unit conversion constant
+(measured at zero across the tree, so a future one is a second authority rather
+than noise); every module naming a unit symbol imports it from that module; and
+a SNAPSHOT of the unit keys, which is the only check that can see a key being
+REMOVED — `normalized_unit` is plain text with no foreign key, so a rename
+orphans every stored row that names it and a table walked against itself would
+agree with the new table about anything.
 
 ## The benchmark dataset
 
