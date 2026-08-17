@@ -204,8 +204,8 @@ const ANALYTICS_SCANNED_DIRECTORIES = [
  * It was an eight-entry hand list called `MEASUREMENT_PATHS`, whose docblock
  * read *"Every module in the domain that COMPUTES or SERVES a number. The
  * emitter and the schema are excluded deliberately — they carry no
- * measurement."* Measured (#535): the domain is **28** modules, so a stated
- * exclusion of TWO was doing the work of twenty — and four of the twenty are
+ * measurement."* Measured: the domain is **29** modules, so a stated exclusion
+ * of TWO was doing the work of twenty-one — and four of the twenty-one are
  * hard to read as carrying no measurement at all, quoting their own headers:
  * `verified-conversion.ts` is *"the ONE seam through which analytics reads
  * financial truth"*, `search-instrumentation.ts` is *"instrumenting one
@@ -215,12 +215,21 @@ const ANALYTICS_SCANNED_DIRECTORIES = [
  * #535 asked which half was wrong, the sentence or the list, and said only
  * #77's owner could say. The answer measured here is that **the distinction
  * was unnecessary**: the wall is *"no analytics module references the fee or
- * referral domain"*, and it is TRUE of all 28. So the population needs no
+ * referral domain"*, and it is TRUE of all 29. So the population needs no
  * notion of *"computes or serves a number"* — nothing has to be classified,
  * and **the exclusion set is EMPTY**. It is empty because it was measured, not
  * because it was guessed: a guessed exemption excuses what can never match,
  * and the two modules that DO look like exceptions turned out to mention
  * `fee_schedules` only in prose (see the comment-stripping test below).
+ *
+ * **#590 said 28 and that figure was one low**, which is worth leaving on the
+ * record rather than quietly correcting: it came from `#593`, my own correction
+ * of `scripts/isolation-gate-census.ts`'s hand-maintained bag-directory list —
+ * and correcting a hand list BY HAND reproduces its failure mode. #600 found
+ * two further gaps in the same list, one of which is `controllers/admin`, which
+ * is how the wall shipped over 28 of 29. The count is not the lesson; the
+ * lesson is that the whole-tree sweep below is now what establishes it, so no
+ * future reader has to trust a number in a comment.
  */
 function analyticsDomainModules(readDir: DirectoryReader = readDirectory): string[] {
   return [
@@ -230,8 +239,8 @@ function analyticsDomainModules(readDir: DirectoryReader = readDirectory): strin
 }
 
 /**
- * MEASURED on this branch: 16 + 5 in the owned directories, 2 + 2 + 1 + 1 + 1
- * in the shared ones.
+ * MEASURED on this branch: 16 + 5 in the owned directories, 2 + 1 + 2 + 1 + 1 + 1
+ * in the shared ones — 29 in total.
  *
  * Floors, never counts, and floors set BELOW the population rather than at it —
  * a floor at the population is a pin wearing a floor's name, and makes "bump the
