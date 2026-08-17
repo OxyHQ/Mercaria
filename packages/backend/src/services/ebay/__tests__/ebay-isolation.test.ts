@@ -35,27 +35,85 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every module of the eBay domain. Kept explicit so a MOVED file fails the gate. */
-const EBAY_DOMAIN_PATHS = [
-  'services/ebay/constants.ts',
-  'services/ebay/ports.ts',
-  'services/ebay/errors.ts',
-  'services/ebay/http.ts',
-  'services/ebay/token.ts',
-  'services/ebay/attribution.ts',
-  'services/ebay/normalize.ts',
-  'services/ebay/browse.ts',
-  'services/ebay/cursor.ts',
-  'services/ebay/register.ts',
-  'services/ebay/reconciliation.ts',
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+
+/**
+ * The three modules this domain shares with #62's framework.
+ *
+ * They are not eBay's — `seller-identity.ts` and `marketplaceSellerRepository`
+ * are the per-record seller identity #65 opted into and #62 owns, and the
+ * adapter lives in the framework's `adapters/` directory by the write-boundary
+ * rule. They are scanned here because the eBay walls have to hold ACROSS them:
+ * the deletion obligation, the attribution loss detector and the "no local
+ * TTL" rule are all properties of what an eBay pass may conclude, and a pass
+ * runs through all three. EXACT, so a fourth borrowed module is a decision.
+ */
+const BORROWED_FRAMEWORK_MODULES = [
   'services/ingestion/adapters/ebay.ts',
   'services/ingestion/seller-identity.ts',
-  'db/ebay/ebayBudgetRepository.ts',
-  'db/ebay/ebayCohortRepository.ts',
-  'db/ebay/ebayDiscoveryRepository.ts',
-  'db/ebay/ebayReconciliationRepository.ts',
   'db/ingestion/marketplaceSellerRepository.ts',
+] as const;
+
+/**
+ * Every module of the eBay domain — services, repositories, route, operator
+ * controller, request schemas. WALKED and FILTERED, never listed.
+ *
+ * This was eighteen hand-written paths under a comment claiming exactly that,
+ * and the claim was false: the entire `/internal/ebay/*` operator surface —
+ * `routes/internal-ebay.ts`, `controllers/ebay-operator.controller.ts` and
+ * `middleware/ebay-schemas.ts` — was behind no wall at all (#460). The list's
+ * stated reason for staying explicit was "so a MOVED file fails the gate",
+ * which a walk plus the per-shape floors below gives without also failing to
+ * cover a file nobody moved.
+ *
+ * `ebay` is unambiguous in the shared flat directories — no other domain has
+ * taken the token — so this needs no exclusion list.
+ */
+const EBAY_DOMAIN_PATHS = [
+  ...walk('services/ebay'),
+  ...walk('db/ebay'),
+  ...BORROWED_FRAMEWORK_MODULES,
+  ...SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /ebay/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  ),
 ];
+
+/**
+ * The enumeration floor, per SHAPE.
+ *
+ * Each number is the count on the day it was written: these directories only
+ * grow, and a SHRINK is the event that should stop the build rather than
+ * quietly narrowing every wall in this file. Split by shape because the four
+ * sources break independently, and one total would let a walk collapse to zero
+ * while the others carried the number.
+ */
+function expectEveryShapeFoundSomething(): void {
+  const from = (prefix: string) =>
+    EBAY_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(from('services/ebay/'), 'the service walk found nothing').toBeGreaterThanOrEqual(11);
+  expect(from('db/ebay/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(4);
+  expect(BORROWED_FRAMEWORK_MODULES.length, 'the borrowed set changed').toBe(3);
+  expect(from('routes/'), 'no eBay route was derived').toBeGreaterThanOrEqual(1);
+  expect(from('controllers/'), 'no eBay controller was derived').toBeGreaterThanOrEqual(1);
+  expect(from('middleware/'), 'no eBay request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(EBAY_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+}
 
 /**
  * COMPOSING a URL against an eBay host.
@@ -150,7 +208,7 @@ describe('Mercaria never composes or mutates an EPN link (#64 §6 rule 3)', () =
       }
     }
     // The enumeration floor: a domain that shrank to nothing would pass.
-    expect(EBAY_DOMAIN_PATHS.length).toBeGreaterThanOrEqual(18);
+    expectEveryShapeFoundSomething();
   });
 
   it('the link detectors actually detect — the mutation self-test', () => {
@@ -344,7 +402,7 @@ describe('freshness and retirement stay #68s and #62s (#65 consumes, never redef
     }
     // The vacuity floor: a broken enumeration must not pass by scanning nothing.
     expect(scanned).toBe(EBAY_DOMAIN_PATHS.length);
-    expect(scanned).toBeGreaterThanOrEqual(18);
+    expectEveryShapeFoundSomething();
   });
 
   it('the TTL, staleness, grace and retirement detectors actually detect', () => {

@@ -40,29 +40,90 @@ import { rankingPolicyVersions } from '../../../db/schema/ranking.js';
 import { buildFacts } from './offer-fixtures.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services/ranking');
+
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
 
 /** Every non-test module in the domain, read from the real directory. */
 function domainSources(): { relative: string; source: string }[] {
-  return readdirSync(DOMAIN_DIR)
-    .filter((entry) => entry.endsWith('.ts'))
-    .filter((entry) => statSync(join(DOMAIN_DIR, entry)).isFile())
-    .map((entry) => ({
-      relative: `services/ranking/${entry}`,
-      source: readFileSync(join(DOMAIN_DIR, entry), 'utf8'),
-    }));
+  return walk('services/ranking').map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
-/** The rest of the domain — the surfaces outside `services/ranking/`. */
+/**
+ * The comparison SURFACE this domain serves under a different filename.
+ *
+ * `/offer-comparison` is #74's public read — `offer-comparison.controller.ts`
+ * imports `services/ranking/comparison.service.js` and nothing from the offer
+ * domain — but it is named after the endpoint rather than after the domain, so
+ * no filename rule reaches it. EXACT, so a second differently-named surface is
+ * a decision somebody takes rather than a file that quietly stays outside.
+ *
+ * The assertion below re-derives the claim from the imports instead of trusting
+ * this sentence: each must still reach `services/ranking/`, directly or through
+ * the controller beside it.
+ */
+const SURFACE_ALIASES = [
+  { path: 'controllers/offer-comparison.controller.ts', reaches: 'services/ranking/' },
+  { path: 'routes/offer-comparison.ts', reaches: 'controllers/offer-comparison.controller.js' },
+] as const;
+
+/**
+ * The rest of the domain — the surfaces outside `services/ranking/`. WALKED and
+ * FILTERED, never listed.
+ *
+ * This was seven hand-written paths under exactly that claim (#460). The two
+ * owned directories are walked whole; the shared flat directories are derived
+ * from the `ranking` filename convention plus the two comparison aliases above.
+ * `db/schema/ranking.ts` stays named because a schema file is not part of any
+ * domain directory and walking `db/schema/` whole would scan every table in the
+ * database from a gate about one domain.
+ */
 const OUTER_PATHS = [
-  'db/ranking/rankingPolicyRepository.ts',
+  ...walk('db/ranking'),
   'db/schema/ranking.ts',
-  'controllers/offer-comparison.controller.ts',
-  'controllers/ranking-operator.controller.ts',
-  'routes/offer-comparison.ts',
-  'routes/internal-ranking.ts',
-  'middleware/ranking-schemas.ts',
+  ...SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /ranking/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  ),
+  ...SURFACE_ALIASES.map((alias) => alias.path),
 ];
+
+/**
+ * The enumeration floor, per SHAPE.
+ *
+ * Each number is the count on the day it was written: these directories only
+ * grow, and a SHRINK is the event that should stop the build rather than
+ * quietly narrowing every wall in this file. Split by shape because the four
+ * sources break independently, and one total would let a walk collapse to zero
+ * while the others carried the number.
+ */
+function expectEveryShapeFoundSomething(): void {
+  const from = (prefix: string) => OUTER_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(domainSources().length, 'the service walk found nothing').toBeGreaterThanOrEqual(10);
+  expect(from('db/ranking/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(1);
+  expect(from('routes/'), 'no ranking route was derived').toBeGreaterThanOrEqual(2);
+  expect(from('controllers/'), 'no ranking controller was derived').toBeGreaterThanOrEqual(2);
+  expect(from('middleware/'), 'no ranking request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(SURFACE_ALIASES.length, 'the surface-alias set changed').toBe(2);
+  expect(OUTER_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+}
 
 /**
  * Reaching anything that could price a position, from any direction.
@@ -92,13 +153,30 @@ describe('the ranking domain has real modules — the vacuity floor', () => {
     const domain = domainSources();
     // A renamed directory or a moved module must fail here rather than make
     // every scan below pass against an empty list.
-    expect(domain.length).toBeGreaterThanOrEqual(9);
+    expectEveryShapeFoundSomething();
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
     }
     for (const relative of OUTER_PATHS) {
       const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
       expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(statSync(join(SRC_ROOT, relative)).isFile(), `${relative} is not a file`).toBe(true);
+    }
+  });
+
+  it('the comparison surface really is this domain’s, and still is', () => {
+    // The two aliases are in scope because of what they IMPORT, not because of
+    // what they are called — and the assertion is re-derived from the imports
+    // so it fails if that stops being true, rather than resting on the sentence
+    // above the list.
+    for (const { path, reaches } of SURFACE_ALIASES) {
+      const specifiers = [
+        ...readFileSync(join(SRC_ROOT, path), 'utf8').matchAll(/from\s+'([^']+)'/g),
+      ].map((match) => match[1]);
+      expect(
+        specifiers.some((specifier) => specifier.includes(reaches)),
+        `${path} is scanned as a ranking surface but no longer imports ${reaches}`,
+      ).toBe(true);
     }
   });
 });

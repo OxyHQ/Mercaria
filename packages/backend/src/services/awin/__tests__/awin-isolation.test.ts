@@ -48,35 +48,80 @@ import {
 } from '@mercaria/shared-types';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const SERVICE_DIR = join(SRC_ROOT, 'services/awin');
-const REPOSITORY_DIR = join(SRC_ROOT, 'db/awin');
 
-/** Every module of the Awin domain, plus the adapter and the surface. */
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+
+/**
+ * The one module this domain shares with #62's framework.
+ *
+ * `awin-feed.ts` is not Awin's directory — it lives in the framework's
+ * `adapters/` by the write-boundary rule — but every Awin wall has to hold
+ * across it, because the tracking-link prohibition and the "a feed cannot
+ * assert a badge" rule are properties of what an Awin pass may do. EXACT, so a
+ * second borrowed module is a decision.
+ */
+const BORROWED_FRAMEWORK_MODULES = ['services/ingestion/adapters/awin-feed.ts'] as const;
+
+/**
+ * Every module of the Awin domain, plus the adapter and the surface. WALKED and
+ * FILTERED, never listed.
+ *
+ * This was twenty-three hand-written paths under exactly that claim, and it
+ * happened to be true on the day it was measured — which is the whole problem
+ * (#460): a list is complete when it is written and silently incomplete the day
+ * somebody adds a file, and what the gate then skips is precisely the module
+ * nobody has reviewed. Nothing about the assertion changes when that happens;
+ * it just covers less.
+ *
+ * The two owned directories are walked whole. The shared flat directories have
+ * no directory of this domain's own to walk, so the population is derived from
+ * the filename convention every file in them already follows; `awin` is
+ * unambiguous, so this needs no exclusion list.
+ */
 const DOMAIN_PATHS = [
-  'services/awin/activation.service.ts',
-  'services/awin/constants.ts',
-  'services/awin/credential.ts',
-  'services/awin/discovery.service.ts',
-  'services/awin/feed-list.ts',
-  'services/awin/mapping.ts',
-  'services/awin/network.ts',
-  'services/awin/quality.ts',
-  'services/awin/reconciliation.ts',
-  'services/awin/register.ts',
-  'services/awin/resolve.ts',
-  'services/awin/source-binding.service.ts',
-  'services/awin/tracking.ts',
-  'services/ingestion/adapters/awin-feed.ts',
-  'db/awin/awinAccountRepository.ts',
-  'db/awin/awinAdvertiserRepository.ts',
-  'db/awin/awinFeedRepository.ts',
-  'db/awin/awinLinkSampleRepository.ts',
-  'db/awin/awinNetworkLeaseRepository.ts',
-  'db/awin/awinQualityRepository.ts',
-  'controllers/awin-operator.controller.ts',
-  'middleware/awin-schemas.ts',
-  'routes/internal-awin.ts',
+  ...walk('services/awin'),
+  ...walk('db/awin'),
+  ...BORROWED_FRAMEWORK_MODULES,
+  ...SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /awin/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  ),
 ];
+
+/**
+ * The enumeration floor, per SHAPE.
+ *
+ * Each number is the count on the day it was written: these directories only
+ * grow, and a SHRINK is the event that should stop the build rather than
+ * quietly narrowing every wall in this file. Split by shape because the four
+ * sources break independently, and one total would let a walk collapse to zero
+ * while the others carried the number.
+ */
+function expectEveryShapeFoundSomething(): void {
+  const from = (prefix: string) => DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(from('services/awin/'), 'the service walk found nothing').toBeGreaterThanOrEqual(13);
+  expect(from('db/awin/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(6);
+  expect(BORROWED_FRAMEWORK_MODULES.length, 'the borrowed set changed').toBe(1);
+  expect(from('routes/'), 'no Awin route was derived').toBeGreaterThanOrEqual(1);
+  expect(from('controllers/'), 'no Awin controller was derived').toBeGreaterThanOrEqual(1);
+  expect(from('middleware/'), 'no Awin request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+}
 
 /** #55's relationship layer. A feed's contents can never assert a badge. */
 const RELATIONSHIP_REFERENCE =
@@ -243,19 +288,14 @@ describe('the domain writes into the commerce graph nowhere', () => {
     }
   });
 
-  it('covers every module in services/awin and db/awin — the enumeration floor', () => {
-    // A file added to either directory and forgotten by the list above would
-    // make every scan here silently narrower. Read the real directories.
-    const walk = (relative: string): string[] =>
-      readdirSync(join(SRC_ROOT, relative))
-        .filter((entry) => entry.endsWith('.ts'))
-        .filter((entry) => statSync(join(SRC_ROOT, relative, entry)).isFile())
-        .map((entry) => `${relative}/${entry}`);
+  it('walks the domain rather than listing it, and every shape found something', () => {
+    expectEveryShapeFoundSomething();
 
-    const onDisk = [...walk('services/awin'), ...walk('db/awin')];
-    const listed = new Set(DOMAIN_PATHS);
-    expect(onDisk.filter((path) => !listed.has(path))).toEqual([]);
-    expect(onDisk.length).toBeGreaterThanOrEqual(19);
+    // And the walk really reads the disk rather than returning a stale or empty
+    // result: every path it produced resolves to a real file.
+    for (const path of DOMAIN_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
   });
 });
 
@@ -398,11 +438,6 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   });
 
   it('the domain directories really are where the gate thinks they are', () => {
-    expect(readdirSync(SERVICE_DIR).filter((entry) => entry.endsWith('.ts')).length).toBeGreaterThanOrEqual(
-      13,
-    );
-    expect(readdirSync(REPOSITORY_DIR).filter((entry) => entry.endsWith('.ts')).length).toBeGreaterThanOrEqual(
-      6,
-    );
+    expectEveryShapeFoundSomething();
   });
 });

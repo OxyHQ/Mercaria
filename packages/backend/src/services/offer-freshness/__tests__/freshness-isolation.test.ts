@@ -31,30 +31,85 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const SERVICE_DIR = join(SRC_ROOT, 'services', 'offer-freshness');
-const REPOSITORY_DIR = join(SRC_ROOT, 'db', 'offerFreshness');
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/offer-freshness', 'db/offerFreshness'] as const;
+
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
 
 /**
- * Every module of the domain, ENUMERATED FROM THE DIRECTORY.
+ * Every module of the domain, ENUMERATED FROM THE DIRECTORIES.
  *
  * A hand-written list is the version of this gate that silently stops covering
  * whatever somebody adds next — `ingestion-isolation.test.ts`'s reasoning, and
  * the reason the floors below are counted rather than assumed.
+ *
+ * It used to walk the two owned directories and stop there, which is the shape
+ * #460 measured across the suite: complete exactly where modules rarely appear
+ * and absent exactly where they do. The operator SURFACE — the route, the
+ * operator controller and the request schemas — was behind no wall at all, and
+ * the controller is the module in this domain with the most reach, since it
+ * drains the dispatcher, runs the expiry sweep and reads four repositories.
+ *
+ * The shared flat directories have no directory of this domain's own to walk,
+ * so the population is derived from the filename convention every file in them
+ * already follows. `offer-freshness` is unambiguous — no other domain has taken
+ * it — which is why this needs no exclusion list where `offer-isolation`, whose
+ * bare `offer` token four issues share, needs one.
  */
 function domainModules(): { path: string; source: string }[] {
-  const modules: { path: string; source: string }[] = [];
-  for (const dir of [SERVICE_DIR, REPOSITORY_DIR]) {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
-      const path = join(dir, entry.name);
-      const source = readFileSync(path, 'utf8');
-      // The vacuity floor, per file: an empty or moved module must fail here,
-      // not pass the scan by having nothing to match.
-      expect(source.length, `${entry.name} looks empty — did it move?`).toBeGreaterThan(200);
-      modules.push({ path: entry.name, source });
-    }
-  }
-  return modules;
+  const relatives = [
+    ...OWNED_DIRECTORIES.flatMap(walk),
+    ...SHARED_DIRECTORIES.flatMap((directory) =>
+      readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+        .filter((entry) => /offer-freshness/i.test(entry.name))
+        .map((entry) => `${directory}/${entry.name}`),
+    ),
+  ];
+  return relatives.map((relative) => {
+    const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
+    // The vacuity floor, per file: an empty or moved module must fail here,
+    // not pass the scan by having nothing to match.
+    expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+    return { path: relative, source };
+  });
+}
+
+/**
+ * The enumeration floor, per SHAPE.
+ *
+ * Each number is the count on the day it was written, because these
+ * directories only grow and a SHRINK is the event that should stop the build
+ * rather than quietly narrowing every assertion in this file. Split by shape
+ * rather than totalled: the three sources break independently — a renamed
+ * directory, a moved repository, a changed filename convention — and one total
+ * would let any of them collapse to zero while the other two carried the
+ * number.
+ */
+function expectEveryShapeFoundSomething(modules: { path: string }[]): void {
+  const from = (prefix: string) => modules.filter((module) => module.path.startsWith(prefix)).length;
+  expect(from('services/offer-freshness/'), 'the service walk found nothing').toBeGreaterThanOrEqual(
+    10,
+  );
+  expect(from('db/offerFreshness/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
+  expect(from('routes/'), 'no freshness route was derived').toBeGreaterThanOrEqual(1);
+  expect(from('controllers/'), 'no freshness controller was derived').toBeGreaterThanOrEqual(1);
+  expect(from('middleware/'), 'no freshness request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(modules.filter((module) => module.path.includes('__tests__'))).toEqual([]);
 }
 
 /**
@@ -90,7 +145,48 @@ const CONFIG_IMPORT = /from\s+'\.\.\/\.\.\/config\/index\.js'|\bconfig\.offerFre
  * exists to prevent.
  */
 const DURATION_CONSTANT =
-  /^\s*(?:export\s+)?const\s+[A-Z][A-Z0-9_]*(?:TTL|FRESHNESS|EXPIRY|EXPIRES|STALE|LIFETIME)[A-Z0-9_]*(?:SECONDS|MS|MILLIS|MINUTES|HOURS|DAYS)\b/mu;
+  /^\s*(?:export\s+)?const\s+([A-Z][A-Z0-9_]*(?:TTL|FRESHNESS|EXPIRY|EXPIRES|STALE|LIFETIME)[A-Z0-9_]*(?:SECONDS|MS|MILLIS|MINUTES|HOURS|DAYS))\b/gmu;
+
+/**
+ * A VALIDATION BOUND is not a lifetime, and the difference is a USE.
+ *
+ * Widening the population to the request-schema modules (#460) brought in
+ * `middleware/offer-freshness-schemas.ts`, which declares
+ * `MAX_FRESHNESS_SECONDS = 90 * 24 * 60 * 60` and spends it in four
+ * `z.number().max(…)` calls. That is a ceiling on what an operator may publish
+ * FOR ONE SOURCE, not a value any source is ever served: it makes nobody's
+ * freshness anything, it only refuses an absurd row. Every sibling schema
+ * module writes the same bound inline (`ingestion-schemas.ts:50`,
+ * `awin-schemas.ts:71`, `feed-import-schemas.ts:80`); this one named it because
+ * it uses it four times.
+ *
+ * So the carve-out is keyed on the USE and not on the NAME. A `MAX_`-prefixed
+ * exemption would be pure theatre — `ttl ?? MAX_FRESHNESS_SECONDS` is exactly
+ * how a bound becomes the default this gate exists to prevent, and renaming a
+ * constant would be the cheapest way through. A constant is a bound only when
+ * EVERY occurrence outside its own declaration is an argument to `.max(` or
+ * `.min(`; one use anywhere else and it is read as a lifetime again.
+ *
+ * An EXPORTED constant is never a bound here, whatever this file does with it.
+ * The use count is per file, so an exported one could be spent as a default in
+ * a module this function never reads — the one way the carve-out could be
+ * satisfied locally and false globally.
+ */
+function isValidationBoundOnly(source: string, name: string): boolean {
+  if (new RegExp(`\\bexport\\s+const\\s+${name}\\b`, 'u').test(source)) return false;
+  const uses = [...source.matchAll(new RegExp(`\\b${name}\\b`, 'gu'))];
+  const declarations = [...source.matchAll(new RegExp(`\\bconst\\s+${name}\\b`, 'gu'))].length;
+  const bounded = [...source.matchAll(new RegExp(`\\.(?:max|min)\\(\\s*${name}\\s*\\)`, 'gu'))]
+    .length;
+  return uses.length > declarations && uses.length === declarations + bounded;
+}
+
+/** The module-level duration constants a module declares that are NOT bounds. */
+function durationConstants(source: string): string[] {
+  return [...source.matchAll(DURATION_CONSTANT)]
+    .map((match) => match[1])
+    .filter((name) => !isValidationBoundOnly(source, name));
+}
 
 /** #37's outbound redirect. This domain DECIDES and never routes. */
 const REDIRECT_COMPOSITION =
@@ -105,7 +201,7 @@ const COMMERCE_REFERENCE = /services\/cart|services\/checkout|services\/payments
 
 describe('there is no global TTL, and the resolver cannot grow one', () => {
   it('the policy resolver imports no configuration', () => {
-    const raw = readFileSync(join(SERVICE_DIR, 'policy.ts'), 'utf8');
+    const raw = readFileSync(join(SRC_ROOT, 'services/offer-freshness/policy.ts'), 'utf8');
     expect(raw.length).toBeGreaterThan(1_000);
     // Comment-stripped, because the module NAMES the thing it refuses to do —
     // its docblock says `config.offerFreshness.defaultTtlSeconds` in as many
@@ -129,12 +225,13 @@ describe('there is no global TTL, and the resolver cannot grow one', () => {
 
   it('no module in the domain declares a module-level DURATION constant', () => {
     const modules = domainModules();
-    // The enumeration floor: the domain is fourteen modules today and a
-    // traversal that found three would pass this gate vacuously.
-    expect(modules.length).toBeGreaterThanOrEqual(12);
+    // The enumeration floor, per shape: a traversal that found three modules
+    // would pass this gate vacuously, and a total alone would let one of the
+    // three sources collapse while the other two carried the number.
+    expectEveryShapeFoundSomething(modules);
 
     const offenders = modules
-      .filter((module) => DURATION_CONSTANT.test(module.source))
+      .filter((module) => durationConstants(module.source).length > 0)
       .map((module) => module.path);
     expect(
       offenders,
@@ -143,24 +240,60 @@ describe('there is no global TTL, and the resolver cannot grow one', () => {
   });
 
   it('the mutation self-test: a duration constant IS detected, and a FRACTION is not', () => {
-    expect(DURATION_CONSTANT.test('const DEFAULT_FRESHNESS_SECONDS = 86_400;')).toBe(true);
-    expect(DURATION_CONSTANT.test('export const OFFER_TTL_MS = 3_600_000;')).toBe(true);
-    expect(DURATION_CONSTANT.test('const OFFER_STALE_AFTER_HOURS = 24;')).toBe(true);
+    expect(durationConstants('const DEFAULT_FRESHNESS_SECONDS = 86_400;')).toEqual([
+      'DEFAULT_FRESHNESS_SECONDS',
+    ]);
+    expect(durationConstants('export const OFFER_TTL_MS = 3_600_000;')).toEqual(['OFFER_TTL_MS']);
+    expect(durationConstants('const OFFER_STALE_AFTER_HOURS = 24;')).toEqual([
+      'OFFER_STALE_AFTER_HOURS',
+    ]);
     // A rate-limit window and a poll interval are NOT lifetimes: they are how
     // hard Mercaria knocks, which is Mercaria's own decision for every source.
-    expect(DURATION_CONSTANT.test('const WINDOW_MS = 60_000;')).toBe(false);
-    expect(DURATION_CONSTANT.test('const DEFAULT_LEASE_MS = 30_000;')).toBe(false);
+    expect(durationConstants('const WINDOW_MS = 60_000;')).toEqual([]);
+    expect(durationConstants('const DEFAULT_LEASE_MS = 30_000;')).toEqual([]);
     // The two shapes that are legitimate, because neither is itself a duration:
     // a fraction of a source's own number and a multiple of its own interval.
-    expect(DURATION_CONSTANT.test('export const SOURCE_WARNING_FRACTION = 2 / 3;')).toBe(false);
-    expect(DURATION_CONSTANT.test('export const SOURCE_OUTAGE_GRACE_INTERVALS = 2;')).toBe(false);
+    expect(durationConstants('export const SOURCE_WARNING_FRACTION = 2 / 3;')).toEqual([]);
+    expect(durationConstants('export const SOURCE_OUTAGE_GRACE_INTERVALS = 2;')).toEqual([]);
+  });
+
+  it('the bound carve-out is keyed on the USE, so it cannot be reached by renaming', () => {
+    // A ceiling spent only in `.max(…)` is not a lifetime, and this is the
+    // shape the request-schema module really has.
+    const bound = [
+      'const MAX_FRESHNESS_SECONDS = 90 * 24 * 60 * 60;',
+      'const schema = z.object({',
+      '  expiryAfterSeconds: z.number().int().min(60).max(MAX_FRESHNESS_SECONDS),',
+      '  warningAfterSeconds: z.number().int().min(60).max(MAX_FRESHNESS_SECONDS),',
+      '});',
+    ].join('\n');
+    expect(durationConstants(bound)).toEqual([]);
+
+    // The same NAME, spent once as a fallback, is the global default this gate
+    // exists to prevent — and it is still caught. Without this the carve-out
+    // would be a `MAX_` exemption anybody could rename their way into.
+    const fallback = `${bound}\nconst ttl = policy?.expiryAfterSeconds ?? MAX_FRESHNESS_SECONDS;`;
+    expect(durationConstants(fallback)).toEqual(['MAX_FRESHNESS_SECONDS']);
+
+    // And a bound that is never spent at all is not a bound: it is a value
+    // waiting for a use, so it stays an offender.
+    expect(durationConstants('const MAX_FRESHNESS_SECONDS = 90;')).toEqual([
+      'MAX_FRESHNESS_SECONDS',
+    ]);
+
+    // An EXPORTED bound is never carved out, however this file spends it: the
+    // use count is per file, so the fallback could live in a module this
+    // function never reads. That is the one way the carve-out could be true
+    // locally and false globally, and it is closed by the declaration rather
+    // than by looking for the caller.
+    expect(durationConstants(`export ${bound}`)).toEqual(['MAX_FRESHNESS_SECONDS']);
   });
 });
 
 describe('the domain decides, and does not do another issue’s job', () => {
   it('composes no tracked URL and performs no redirect (#37)', () => {
     const modules = domainModules();
-    expect(modules.length).toBeGreaterThanOrEqual(12);
+    expectEveryShapeFoundSomething(modules);
     for (const module of modules) {
       expect(
         REDIRECT_COMPOSITION.test(withoutComments(module.source)),

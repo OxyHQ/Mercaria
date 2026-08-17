@@ -44,29 +44,80 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every module of the ingestion domain — services, repositories, routes, controllers. */
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+
+/**
+ * Every module of the ingestion domain — services, adapters, repositories,
+ * route, operator controller, request schemas. WALKED and FILTERED, never
+ * listed.
+ *
+ * This was twenty hand-written paths under a comment claiming exactly that
+ * completeness, and the claim was false in the place it mattered most: the walk
+ * is recursive now, and `services/ingestion/adapters/` — five provider modules,
+ * the part of this domain that talks to somebody else's server — was outside
+ * every FRAMEWORK wall in this file (#460). The `ADAPTER_FORBIDDEN` wall below
+ * covered them and is a different, narrower set: it names repositories,
+ * database handles, canonical writes, the offer domain and the matcher, and
+ * says nothing about ranking, #37's redirect, #59's curation, the retail
+ * domain or writing a native offer. So an adapter that ranked its own results
+ * passed both walls — this one because it never read the file, that one
+ * because it does not ask.
+ *
+ * The two owned directories are walked whole, so the walls hold for adapters
+ * nobody has written yet — which is the point, since #63/#65/#66/#125 each
+ * added one after this list was written. The shared flat directories have no
+ * directory of this domain's own to walk, so the population is derived from the
+ * filename convention every file in them already follows; `ingestion` is
+ * unambiguous, so this needs no exclusion list.
+ */
 const INGESTION_DOMAIN_PATHS = [
-  'services/ingestion/adapter.ts',
-  'services/ingestion/registry.ts',
-  'services/ingestion/normalization.ts',
-  'services/ingestion/redact.ts',
-  'services/ingestion/rights.ts',
-  'services/ingestion/health.ts',
-  'services/ingestion/source.service.ts',
-  'services/ingestion/ingest.service.ts',
-  'services/ingestion/seller-identity.ts',
-  'services/ingestion/ingest-dispatcher.ts',
-  'services/ingestion/metrics.ts',
-  'db/ingestion/catalogSourceConfigRepository.ts',
-  'db/ingestion/catalogSourcePolicyRepository.ts',
-  'db/ingestion/catalogSourceObjectRepository.ts',
-  'db/ingestion/catalogSourceRunRepository.ts',
-  'db/ingestion/catalogSourceRejectionRepository.ts',
-  'db/ingestion/marketplaceSellerRepository.ts',
-  'routes/internal-ingestion.ts',
-  'controllers/ingestion-operator.controller.ts',
-  'middleware/ingestion-schemas.ts',
+  ...walk('services/ingestion'),
+  ...walk('db/ingestion'),
+  ...SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /ingestion/i.test(entry.name))
+      .map((entry) => `${directory}/${entry.name}`),
+  ),
 ];
+
+/**
+ * The enumeration floor, per SHAPE.
+ *
+ * Each number is the count on the day it was written: these directories only
+ * grow, and a SHRINK is the event that should stop the build rather than
+ * quietly narrowing every wall in this file. Split by shape because the four
+ * sources break independently — and `adapters/` gets its own, because it is the
+ * one this conversion added and a non-recursive walk would silently drop it
+ * while every other number stayed right.
+ */
+function expectEveryShapeFoundSomething(): void {
+  const from = (prefix: string) =>
+    INGESTION_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(
+    from('services/ingestion/adapters/'),
+    'the adapter walk found nothing — is the walk still recursive?',
+  ).toBeGreaterThanOrEqual(5);
+  expect(from('services/ingestion/'), 'the service walk found nothing').toBeGreaterThanOrEqual(16);
+  expect(from('db/ingestion/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(6);
+  expect(from('routes/'), 'no ingestion route was derived').toBeGreaterThanOrEqual(1);
+  expect(from('controllers/'), 'no ingestion controller was derived').toBeGreaterThanOrEqual(1);
+  expect(from('middleware/'), 'no ingestion request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(INGESTION_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+}
 
 /** The canonical WRITE services — minting, renaming or re-pointing an entity. */
 const CANONICAL_WRITE_REFERENCE =
@@ -120,8 +171,12 @@ describe('a provider module reaches nothing (issue write boundary 1, acceptance 
       .filter((entry) => entry.endsWith('.ts'))
       .filter((entry) => statSync(join(adaptersDir, entry)).isFile());
     // The enumeration floor, read off the real directory: a gate over an empty
-    // list passes vacuously and reads exactly like a clean one.
-    expect(files.length, 'no adapter modules found').toBeGreaterThan(0);
+    // list passes vacuously and reads exactly like a clean one. `> 0` was that
+    // gate one file wide — a walk returning ONE of the five adapters cleared it
+    // and reported the same green (#460). The number is the count on the day it
+    // was written, because this directory only grows and losing an adapter is
+    // an event, not a routine.
+    expect(files.length, 'the adapter walk found nothing').toBeGreaterThanOrEqual(5);
 
     for (const file of files) {
       const source = withoutComments(readFileSync(join(adaptersDir, file), 'utf8'));
@@ -159,18 +214,14 @@ describe('the framework does other issues’ jobs nowhere', () => {
     }
   });
 
-  it('covers every module in services/ingestion and db/ingestion — the enumeration floor', () => {
-    // A file added to either directory and forgotten by the list above would
-    // make every scan here silently narrower. Read the real directories.
-    const onDisk = ['services/ingestion', 'db/ingestion'].flatMap((relative) =>
-      readdirSync(join(SRC_ROOT, relative))
-        .filter((entry) => entry.endsWith('.ts'))
-        .filter((entry) => statSync(join(SRC_ROOT, relative, entry)).isFile())
-        .map((entry) => `${relative}/${entry}`),
-    );
-    const listed = new Set(INGESTION_DOMAIN_PATHS);
-    expect(onDisk.filter((path) => !listed.has(path))).toEqual([]);
-    expect(onDisk.length).toBeGreaterThanOrEqual(15);
+  it('walks the domain rather than listing it, and every shape found something', () => {
+    expectEveryShapeFoundSomething();
+
+    // And the walk really reads the disk rather than returning a stale or empty
+    // result: every path it produced resolves to a real file.
+    for (const path of INGESTION_DOMAIN_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
   });
 });
 
