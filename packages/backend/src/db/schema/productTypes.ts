@@ -419,4 +419,25 @@ export const productTypeFields = pgTable(
  *
  * Recorded here so the absence reads as a decision rather than an oversight —
  * the register discipline `CONVENTIONS.md` asks for.
+ *
+ * A DEFAULT ANSWER column is deliberately ABSENT from `product_type_fields`, and
+ * unlike the table above it is GATED.
+ *
+ * The epic permits defaults "only when semantically safe; never invent unknown
+ * facts", and the second clause is the one with teeth: a default is a fact about a
+ * product that nobody asserted. Prefill a phone form's `water_resistance` with
+ * `none` and every listing authored through it claims something its seller never
+ * said — indistinguishable, in the stored row, from a seller who answered. It is
+ * the reasoning `services/catalog-authoring/schema.service.ts` already records for
+ * `placeholder` and `example` ("an invented example is a claim about a product
+ * nobody made"), applied to the stronger case: a placeholder is help text a form
+ * SHOWS and a default is a value a form SUBMITS.
+ *
+ * No requirement in #367 names a field whose default would be safe, so none is
+ * modelled. `db/__tests__/product-type-field-defaults.test.ts` walks these four
+ * tables for sixteen spellings a default would arrive under — measured before it
+ * was written: adding `defaultValue: text()` here left the entire backend suite
+ * green. If a requirement ever names such a field, the answer is a column, a
+ * decision recorded beside it, and that list narrowed in the SAME change, which is
+ * the conversation a red there starts.
  */
