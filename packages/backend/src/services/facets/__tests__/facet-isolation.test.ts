@@ -48,18 +48,33 @@ const FRONTEND_ROOT = join(SRC_ROOT, '..', '..', 'frontend');
 /** The backend half of the domain, walked whole. */
 const BACKEND_DIRECTORIES = ['services/facets', 'db/facets'];
 
-/** The files that serve the domain from outside those directories. */
-const BACKEND_FILES = [
-  'controllers/facets.controller.ts',
-  'routes/facets.ts',
-  'middleware/facet-schemas.ts',
-];
+/** The flat directories every domain's HTTP surface shares. */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware'] as const;
 
 /** Frontend directories a filter rail would live in. */
 const FRONTEND_DIRECTORIES = ['app', 'components', 'lib'];
 
-const MINIMUM_BACKEND_FILES = 10;
-const MINIMUM_FRONTEND_FILES = 40;
+/**
+ * Vacuity floors PER WALKED SET, each today's count.
+ *
+ * Never one total, and never a number below what the walk finds. A single
+ * backend floor of 10 was already met by `services/facets/` alone, so the
+ * repository walk and the whole HTTP surface could each have collapsed to
+ * nothing behind it; a single frontend floor of 40 was met almost five times
+ * over by `lib` alone, so `app` and `components` — the two directories a
+ * hard-coded filter rail would actually live in — were effectively unfloored.
+ *
+ * Set to the count on the day it was derived, so a module REMOVED goes red
+ * rather than quietly narrowing every wall in this file (#460).
+ */
+const MINIMUM_FACET_SERVICES = 9;
+const MINIMUM_FACET_REPOSITORIES = 2;
+const MINIMUM_FACET_HTTP_MODULES = 3;
+const MINIMUM_FRONTEND_FILES: Readonly<Record<string, number>> = {
+  app: 37,
+  components: 58,
+  lib: 93,
+};
 
 /**
  * Reaching a commercial signal, from any direction.
@@ -149,10 +164,56 @@ function walk(directory: string, extensions: readonly string[]): string[] {
   return files;
 }
 
+/**
+ * Every facet-NAMED module in the shared flat directories. DERIVED, never
+ * listed.
+ *
+ * This was three hand-written paths — the controller, the route and the request
+ * schemas — which is exactly the population that was complete on the day it was
+ * written. A fourth facet surface (an operator controller, an internal route,
+ * a second schema module) lands outside both walls with nothing saying so, and
+ * the wall it lands outside of is the one this workstream exists to hold (#460).
+ *
+ * The two owned directories above are walked whole; these three have no
+ * directory of their own, so the population is the filename convention every
+ * surface in this tree already follows.
+ */
+function facetNamedHttpModules(): string[] {
+  return SHARED_DIRECTORIES.flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => /facet/i.test(entry.name))
+      .map((entry) => join(SRC_ROOT, directory, entry.name)),
+  );
+}
+
 function backendPaths(): string[] {
-  const paths = BACKEND_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative), ['.ts']));
-  paths.push(...BACKEND_FILES.map((relative) => join(SRC_ROOT, relative)));
-  return paths;
+  return [
+    ...BACKEND_DIRECTORIES.flatMap((relative) => walk(join(SRC_ROOT, relative), ['.ts'])),
+    ...facetNamedHttpModules(),
+  ];
+}
+
+/**
+ * The backend floor, PER SOURCE. Called by every backend scan, so no wall in
+ * this file can run against a walk that found nothing.
+ */
+function assertBackendPopulationIsWhole(paths: readonly string[]): void {
+  const from = (relative: string) =>
+    paths.filter((path) => path.startsWith(join(SRC_ROOT, relative))).length;
+  expect(from('services/facets'), 'the facet service walk found too few files').toBeGreaterThanOrEqual(
+    MINIMUM_FACET_SERVICES,
+  );
+  expect(from('db/facets'), 'the facet repository walk found too few files').toBeGreaterThanOrEqual(
+    MINIMUM_FACET_REPOSITORIES,
+  );
+  expect(
+    facetNamedHttpModules().length,
+    'no facet-named controller, route or schema module was derived',
+  ).toBeGreaterThanOrEqual(MINIMUM_FACET_HTTP_MODULES);
+  // And the walk really reads the disk, rather than a `readdirSync` that has
+  // silently started returning a cached or empty result.
+  for (const path of paths) expect(statSync(path).isFile(), `${path} is not a file`).toBe(true);
 }
 
 function frontendPaths(): string[] {
@@ -161,14 +222,27 @@ function frontendPaths(): string[] {
   );
 }
 
+/**
+ * The storefront floor, PER DIRECTORY.
+ *
+ * `lib` alone is over ninety files, so one total lets `app` and `components`
+ * return nothing and still pass — and those two are where a filter rail lives.
+ */
+function assertFrontendPopulationIsWhole(paths: readonly string[]): void {
+  for (const [directory, minimum] of Object.entries(MINIMUM_FRONTEND_FILES)) {
+    expect(
+      paths.filter((path) => path.startsWith(join(FRONTEND_ROOT, directory))).length,
+      `the storefront ${directory} walk found too few files`,
+    ).toBeGreaterThanOrEqual(minimum);
+  }
+}
+
 describe('the facet domain cannot be bought', () => {
   it('no module on the facet path reaches a commercial signal', () => {
     const paths = backendPaths();
     // The vacuity floor for the gate itself: a walk that found nothing produces
     // zero violations, which is what a healthy run also produces.
-    expect(paths.length, 'the backend facet scan found too few files').toBeGreaterThanOrEqual(
-      MINIMUM_BACKEND_FILES,
-    );
+    assertBackendPopulationIsWhole(paths);
 
     const violations: string[] = [];
     for (const path of paths) {
@@ -217,19 +291,18 @@ describe('the facet domain cannot be bought', () => {
 describe('no hard-coded per-category filter set exists in either package', () => {
   it('the backend carries none', () => {
     const paths = backendPaths();
-    expect(paths.length).toBeGreaterThanOrEqual(MINIMUM_BACKEND_FILES);
+    assertBackendPopulationIsWhole(paths);
     const violations = scanFor(paths, FORBIDDEN_HARDCODED_FILTERS);
     expect(violations, violations.join('\n')).toEqual([]);
   });
 
   it('the storefront carries none', () => {
     const paths = frontendPaths();
-    // A SEPARATE floor, not a share of one total. A single total would stay
-    // satisfied by the backend's own files while this walk returned nothing —
-    // which is precisely how a cross-package scan goes quietly vacuous.
-    expect(paths.length, 'the storefront scan found too few files').toBeGreaterThanOrEqual(
-      MINIMUM_FRONTEND_FILES,
-    );
+    // A SEPARATE floor per DIRECTORY, not a share of one total. One total stays
+    // satisfied by the backend's own files while this walk returns nothing —
+    // and, within this walk, by `lib` while `app` and `components` return
+    // nothing, which is where a filter rail would actually be.
+    assertFrontendPopulationIsWhole(paths);
     const violations = scanFor(paths, FORBIDDEN_HARDCODED_FILTERS);
     expect(violations, violations.join('\n')).toEqual([]);
   });
@@ -340,7 +413,7 @@ describe('no size-system conversion exists anywhere in the domain', () => {
 
   it('the domain contains no size conversion', () => {
     const paths = backendPaths();
-    expect(paths.length).toBeGreaterThanOrEqual(MINIMUM_BACKEND_FILES);
+    assertBackendPopulationIsWhole(paths);
     const violations = scanFor(paths, CONVERSION_PATTERNS);
     expect(violations, violations.join('\n')).toEqual([]);
   });
