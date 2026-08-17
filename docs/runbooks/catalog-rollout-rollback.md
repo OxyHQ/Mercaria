@@ -280,7 +280,10 @@ the lever that actually exists.
   read's own failure turns exactly that case red, and reverting the hook to an
   inline copy leaves all four resolver cases GREEN and turns only the three
   entrypoint assertions red — which is why they are there.
-- **The `catalog-authoring-isolation.test.ts` lever wall was widened** from four
+- **All four levers now have an ISOLATION wall**, each shaped to what its domain
+  legitimately reads — blanket for authoring, facets and navigation, and named on
+  `.enabled` for proposals, whose services read six legitimate bounds off the same
+  config object. `catalog-authoring-isolation.test.ts`'s was widened from four
   repository files to the whole domain, needs no exemption (the controller's page
   bounds and draft TTL live outside the scanned directories), and gained the
   blanket "no configuration at all" wall `product-type-isolation.test.ts` uses.
@@ -297,10 +300,6 @@ the lever that actually exists.
   a roll behaves, that SSM carries the value, or that a task picks it up.
 - **The facet rail's absence is not gated** (§3) — it is React Query
   configuration rather than a decision function.
-- **`CATALOG_TAXONOMY_V2_ENABLED`, `CATALOG_PROPOSALS_ENABLED` and
-  `FACETS_ENABLED` still have no ISOLATION gate** of the kind authoring now has.
-  The new rollout test covers what they MOUNT; it would not catch a repository in
-  those domains learning to read one, which is a different property.
 - **The selectability trigger has never been exercised in anger** (§4 item 2) —
   rehearsal step 5.
 - The levers-off case is ALSO covered incidentally, because the whole realdb suite
