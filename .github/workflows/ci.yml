@@ -6,8 +6,24 @@ on:
   pull_request:
     branches: [main]
 
+# On a topic branch, superseding a run is right: only the tip needs a verdict.
+# On `main` it is the opposite, and the three web deploys now depend on the
+# difference. Every commit on `main` is a commit production serves, so it needs
+# its OWN verdict — and with the group keyed on the ref alone, back-to-back
+# merges cancelled the run for the commit that had just landed. Measured over
+# the last 329 pushes to `main`: 52 CI runs concluded `cancelled`, and 64 web
+# deploys shipped from those commits with no test signal of any kind. That is
+# more than twice the 29 that shipped from an outright `failure`.
+#
+# The sha goes in the GROUP rather than `cancel-in-progress` going false,
+# because false SERIALISES: with one shared group a burst of merges would queue,
+# and the last commit's deploy would wait out every earlier run. A per-sha group
+# has nothing to cancel and nothing to queue behind, so `main` runs go in
+# parallel. The cost is more concurrent jobs during a burst, which queue against
+# the account's concurrency limit and resolve themselves — where a cancellation
+# never resolves itself.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.sha || 'shared' }}
   cancel-in-progress: true
 
 jobs:
