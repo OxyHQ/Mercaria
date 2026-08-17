@@ -662,11 +662,184 @@ the probe cadence is minutes, not seconds.
 
 ---
 
-## Boxes 4 and 6
+## Box 4 — backfill/reindex jobs resume safely after interruption: **partial, and vacuous for three of the four queues**
 
-Box 4 (resumption) is
+Procedure and the per-job operator steps:
 [`runbooks/catalog-backfill-resumption.md`](runbooks/catalog-backfill-resumption.md).
-Box 6 (rollback) is
-[`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md),
-including the honest statement of which half of the rollback claim is tested and
-which is not.
+The audit:
+
+**Exactly one job in the epic is genuinely leased, cursored and drained.**
+`catalog_backfill_runs`: `SELECT … FOR UPDATE SKIP LOCKED`
+(`db/backfill/backfillRunRepository.ts:145-200`, `SKIP LOCKED` at `:169`), a
+per-process owner UUID (`services/backfill/backfill.service.ts:110`) with an
+owner-checked release (`backfillRunRepository.ts:319-324`), a durable cursor
+(`db/schema/backfill.ts:161`) advanced only after the page commits
+(`backfill.service.ts:224`) and left untouched by a page that throws (`:197-219`),
+per-record identity keys with `ON CONFLICT`, and a real dispatcher
+(`startCatalogBackfillDispatcher`, `src/index.ts:164`).
+
+**Three queues carry lease-shaped columns that no production code writes, and none
+has a consumer.** For these the acceptance sentence is not failing — it is
+vacuous, because nothing runs:
+
+| Queue | Claim columns | Consumer |
+|---|---|---|
+| `attribute_reindex_requests` | `db/schema/attributeRegistry.ts:557-559`, CHECK `:566-571`, `attempts` `:560` | **none.** Only reader is `listPendingReindexRequests` (`db/attributes/attributeOpsRepository.ts:225-227`) → one read-only operator listing (`controllers/internal-catalog-attributes.controller.ts:285`). `grep "update(attributeReindexRequests"` exits 1; `processed_at` appears once, as an `is null` predicate |
+| `catalog_external_mapping_runs` | `db/schema/catalogExternalMappings.ts:792-794`, CHECK `:826-828` | **none, and NO PRODUCER PATH EITHER** — verified: `openReprocessRun` and `runReprocessPage` have zero callers outside `services/catalog-external-mappings/reprocess.service.ts`. No route, no controller, no CLI, no dispatcher. `RUN_COLUMNS` (`db/catalogExternalMappings/externalMappingRepository.ts:824-842`) deliberately omits the claim columns |
+| `catalog_external_token_observations` reprocess stamps | `db/schema/catalogExternalMappings.ts:666-668`, CHECK `:723` | **none.** `reprocessed_at` is written exactly once in the repository, as `null` (`externalMappingRepository.ts:816`), and `applyObservationResolution` (`:799`) is called only from the unreachable `reprocess.service.ts:259` |
+
+Positive control for those three absences, with the same grep shape: the
+moderation outbox has a claim at
+`db/moderation/moderationOutboxRepository.ts:195-217` (`for update skip locked`
+at `:213`), four production writers and a loop at `src/index.ts:120`; `offer_outboxes`
+has one at `db/offers/offerOutboxRepository.ts:110-140`, three production writers,
+a loop at `src/index.ts:143` and a real `dead_letter` state.
+
+**Two real holes on the one job that works.**
+
+1. **A page-level failure strands the run permanently, and the operator endpoint
+   misreports it.** `RESUMABLE = ['pending','paused']`
+   (`backfillRunRepository.ts:38`) and the claim additionally admits a `running`
+   row whose lease expired (`:158-166`) — `failed` is in neither, and
+   `listResumableBackfillRuns` (`:336-352`) excludes it, so the dispatcher never
+   touches that run again. There is no `attempts` on the run, no `available_at`
+   and no backoff. And `POST /internal/backfill/runs/:id/page` answers **409
+   "Another task is running this backfill page"**
+   (`controllers/backfill-operator.controller.ts:135-138`) when nothing is running
+   it. Both verified directly. The remedy is a new run over the same cohort, which
+   re-scans from zero and converges by record idempotency.
+2. **The reclaim path is untested**, and it is the single mechanism box 4 rests
+   on. No test calls `claimBackfillRun` — its four references are all production —
+   so the expired-lease branch (`backfillRunRepository.ts:158-166`) and the
+   mid-page reclaim guard (`backfill.service.ts:230-237`) are unexercised.
+   `services/__tests__/backfill.realdb.test.ts`'s `runToCompletion` (`:285-313`)
+   treats a lost lease as a test failure (`:301`) — it is a
+   runs-to-completion-once test.
+   `services/catalog-observability/__tests__/integrity.realdb.test.ts:761` tests
+   the stalled-lease **detector** against synthetic rows.
+
+**The stalled-lease detector is real for one table and permanently `0/0` for the
+other two.** `checkStalledQueueLeases`
+(`services/catalog-observability/integrity.service.ts:672-730`, registered `:749`)
+covers `catalog_backfill_runs`, `catalog_external_mapping_runs` and
+`catalog_external_token_observations`; two of the three can never populate,
+because nothing writes their claim columns — its own tests hand-INSERT them with
+raw SQL to make the check fire (`integrity.realdb.test.ts:796-838`).
+
+**No dead-letter or capped backoff anywhere in #367.** Confirmed by column:
+neither run table has an `attempts` column at all
+(`db/schema/backfill.ts:140-200`, `db/schema/catalogExternalMappings.ts:764-802`);
+positive control, `attribute_reindex_requests` does have one and it is never
+incremented. This is W17's declared seam 6 and it is correctly reported as
+`unmeasured` rather than zero.
+
+**Three more docblocks asserting mechanisms the code does not implement:**
+`db/schema/attributeRegistry.ts:544-548` ("claims are leases with an owner check"
+— no claim function exists); `services/catalog-external-mappings/reprocess.service.ts:13-17`
+("the next claim re-reads that page" — no claim and no caller); and, in the
+opposite direction, `services/catalog-proposals/backfill.service.ts:178-186`
+warns of an orphaned stamp a crash cannot leave, because the claim and the value
+write share one transaction (`:218-272`) — harmless, except that it sends an
+operator hunting for rows that cannot exist.
+
+**Verdict: partial.** True and mechanised for `catalog_backfill_runs`, untested at
+the reclaim boundary, with a permanent-strand hole on page failure. Vacuous for
+the other three, which is a stronger statement than "broken": there is nothing to
+resume because nothing runs.
+
+---
+
+## Box 6 — rollback is documented and tested: **documented, NOT tested**
+
+Full procedure, the four things a rollback does not undo, and the rehearsal:
+[`runbooks/catalog-rollout-rollback.md`](runbooks/catalog-rollout-rollback.md).
+
+**Documented: yes, and the design is sound.** Turning a lever off withdraws a
+mount and nothing else; every stored row stays readable through nine `/internal/*`
+surfaces gated on no rollout lever; the storefront degrades by design, with the
+navigation fallback INSIDE one React Query query
+(`packages/frontend/lib/catalog/use-navigation.ts:89`) catching the 404, the empty
+tree list and a network error alike, and the facet rail rendering absence rather
+than an empty panel (`lib/catalog/use-facets.ts:18-22,73,75`).
+
+**Tested: no.** Nothing has been executed — no lever has been flipped on a running
+deployment anywhere — and **no automated test flips one.** The house pattern
+exists (`routes/__tests__/search-rollout.realdb.test.ts:1-18`,
+`routes/__tests__/guest-session.disabled.integration.test.ts`,
+`routes/__tests__/cart-guest.disabled.integration.test.ts`) and the catalog epic
+has no counterpart. Neither storefront fallback has a test either — confirmed with
+a positive control, and the exact precedent sits one file away
+(`packages/frontend/lib/catalog/__tests__/compatibility.test.ts:146`).
+
+So of box 6's two halves:
+
+- **"turning any lever off must NOT make a durable record unreachable"** — the
+  strongest available evidence, and it is structural rather than behavioural: the
+  four levers are read in six places, four of them the mount, none in a
+  repository, a loop, an outbox or checkout. Reproducible in one grep.
+  **Conditional on `CATALOG_OPERATOR_OXY_USER_IDS` being non-empty**, because
+  `graphOperatorSurfaceEnabled` is derived from its length
+  (`config/index.ts:3716`) and an empty list 404s all nine internal surfaces.
+- **"turning a read lever off must restore the previous behaviour"** — true by
+  reading, defended by nothing. This is the half to be careful about, because the
+  mechanism that carries it lives in the FRONTEND, where the epic has no
+  isolation gate and two test files.
+
+**Four things a rollback does not undo**, each with a remedy that is a data change
+rather than a lever: `categories.key NOT NULL`
+(`drizzle/0088_redundant_korvac.sql:201`); the selectability trigger on the legacy
+listing-write path (`0088:461-469`, narrow — see Box 1); localized reads, which
+are contained transitively and ungated; and `/product-types`, which has no lever
+and is unpublished rather than unmounted. Authoring additionally **cannot be
+narrowed to a cohort**, so D12's staged rollout order is not executable as
+written.
+
+---
+
+## Summary: what can be ticked
+
+| Box | Verdict | The one-line reason |
+|---|---|---|
+| 1. Existing products remain readable and sellable | **partial** | True and measurable — five lever-gated mounts, all new surfaces; no commerce path imports the epic. The gate covers 4 repository files of 1 domain of 9, and three docblocks claim more. |
+| 2. Legacy free text migrated only where deterministic | **partial** | Retention, forbidden axes, indistinguishable variants and the no-similarity wall are properties. The ADR's own `Tono` case, the sibling-collision refusal and the typed-value → resolved-claim link are conventions; the last has a ready-made #90-shaped constraint. |
+| 3. No historical commerce snapshot is rewritten | **satisfied as a fact, partial as a property** | No #367 migration touches a commerce table (ten files, four search shapes, a positive control that fires on pre-#367 files). The ledger, fee snapshots, recorded condition and buyer identity are trigger-protected; an order's money, its status trail, payments and refunds are not, and nothing scans migration SQL. |
+| 4. Backfill/reindex jobs resume safely after interruption | **partial** | One job resumes, untested at the reclaim boundary, with a permanent strand on page failure. Three queues are vacuous — no consumer, and one has no producer path either. |
+| 5. Dashboards and alerts expose failures, lag, missing translations, review backlog | **partial** | The numbers exist as DATA with numerator, denominator, window, source, freshness and attribution limit, and each of the four has a runbook. No metric counts a failed publication; alerts and dashboards do not exist and belong to `oxy-infra`; no alert has ever fired. |
+| 6. Rollback is documented and tested before GA | **documented, NOT tested** | Nothing has been executed, no test flips a lever, and neither storefront fallback has a test. The rehearsal is five steps. |
+
+**None of the six is tickable as written.** Boxes 1–4 are tickable if the box is
+read as "the mechanism exists and is documented"; none is tickable if it is read as
+"a check would fail if somebody removed it". Box 3's *fact* half is tickable
+outright. Box 6 must not be ticked at all until §"The rehearsal" in the rollback
+runbook has been run, because that is the one whose failure mode is discovered
+during an incident.
+
+**Cheapest work that would change those verdicts**, in order of how much each buys:
+
+1. **A `routes/__tests__/catalog-rollout.realdb.test.ts`** in the shape of
+   `search-rollout.realdb.test.ts` — one module graph per lever value, asserting
+   the five paths 404 while `/categories`, `/listings`, `/cart` and `/checkout`
+   answer, and that a row written with a lever on is readable through `/internal/*`
+   with it off. Moves boxes 1 and 6 together.
+2. **A CHECK or trigger requiring a typed axis assignment to cite a
+   `value_resolution = 'resolved'` claim** (`native_variant_axis_assignments.source_claim_id`
+   is nullable and the scope trigger is silent on resolution state). Moves box 2's
+   remaining half, and the constraint shape already exists in #90.
+3. **A migration-SQL gate** in the `validate-no-mongo.mjs` shape, refusing DML and
+   destructive ALTER against a named commerce set, with the exact-count exemption
+   list `migration-handwritten-markers.test.ts` already uses. Moves box 3's
+   property half; and a snapshot-immutability census in the
+   `merge-plan-census.test.ts` shape would immediately report
+   `order_status_history`, `payments` and `refunds` as unprotected.
+4. **A terminal state plus a retry budget on `catalog_backfill_runs`**, which
+   closes box 4's strand hole and W17's seam 6 at once, and a test that calls
+   `claimBackfillRun` across an expired lease.
+5. **Widen the lever walls**: `catalog-authoring-isolation.test.ts`'s predicate to
+   the whole domain, its mutation self-test to run the real `offenders` filter, and
+   the same wall onto `facet-isolation.test.ts`,
+   `navigation-isolation.test.ts` and `catalog-proposal-isolation.test.ts`.
+   `services/__tests__/product-type-isolation.test.ts:92` already holds the
+   strongest form, aimed at a lever that was never built.
+6. **Correct ADR 0007 D12** to name the four levers that exist, record
+   `FACETS_ENABLED`, and state that the staged rollout order needs a cohort
+   expression nobody built. Five documents quote D12 today.

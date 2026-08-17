@@ -21,6 +21,12 @@ Alerts for the numbers below have a runbook each:
 | Integrity findings | [runbooks/catalog-integrity-findings.md](runbooks/catalog-integrity-findings.md) |
 | Latency budget breach | [runbooks/catalog-latency-budget-breach.md](runbooks/catalog-latency-budget-breach.md) |
 
+Two more that are procedures rather than alerts, plus the audit of what the
+rollout guarantees about existing commerce:
+[runbooks/catalog-rollout-rollback.md](runbooks/catalog-rollout-rollback.md),
+[runbooks/catalog-backfill-resumption.md](runbooks/catalog-backfill-resumption.md)
+and [catalog-migration-operations.md](catalog-migration-operations.md).
+
 ---
 
 ## What this domain is, and what it is not
