@@ -34,7 +34,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -49,17 +49,40 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
 /**
- * The retail checkout path, end to end. A new module here belongs on the list —
- * the vacuity floor is what forces whoever adds one to look at this file.
+ * The two entry modules that live outside this domain's directories.
+ *
+ * `services/checkout/retail.ts` sits in #105's checkout directory and
+ * `services/checkout.service.ts` is the marketplace shell — walking either root
+ * here would pull in the whole of another gate's population. Kept as a hand list
+ * with an EXACT count and a comment claiming only what the list IS (#460's other
+ * sanctioned resolution).
+ */
+const ENTRY_PATHS = ['services/checkout/retail.ts', 'services/checkout.service.ts'];
+
+/**
+ * The retail checkout path, end to end — WALKED plus the two counted entry
+ * modules (#460).
+ *
+ * The list this replaces named the same six and was complete on the day it was
+ * written; what it could not cover is the seventh.
  */
 const RETAIL_PATHS = [
-  'services/checkout/retail.ts',
-  'services/checkout.service.ts',
-  'services/retail-checkout/authorization.ts',
-  'services/retail-checkout/fulfilment.service.ts',
-  'services/retail-checkout/registration.ts',
-  'db/retailCheckout/retailCheckoutRepository.ts',
+  ...walk('services/retail-checkout'),
+  ...walk('db/retailCheckout'),
+  ...ENTRY_PATHS,
 ];
 
 /**
@@ -133,13 +156,23 @@ const TRANSFER_REFERENCE =
 /** The fee domain and the commission account — ADR 0004 D7 proof 1. */
 const FEE_DOMAIN_REFERENCE = /\/fees\/|calculateFee|feeScheduleRepository|commission_revenue/;
 
-/** The modules the fee wall applies to: the retail engine, not the checkout shell. */
-const NO_FEE_DOMAIN_PATHS = [
-  'services/checkout/retail.ts',
-  'services/retail-checkout/fulfilment.service.ts',
-  'services/retail-checkout/authorization.ts',
-  'db/retailCheckout/retailCheckoutRepository.ts',
-];
+/**
+ * The modules the fee wall applies to — DERIVED by subtracting the ONE module
+ * that legitimately prices a marketplace fee.
+ *
+ * `services/checkout.service.ts` is the marketplace shell and reaches the fee
+ * domain by design; nothing else in the retail path does (measured). The list
+ * this replaces named four of six directly, so `registration.ts` sat outside the
+ * wall with no reason recorded — and it passes. Deriving the EXCLUSION rather
+ * than the inclusion means a module added tomorrow is held to this wall by
+ * default, which matters here because ADR 0004 D7 proof 1 is that a
+ * zero-markup retail sale must never post `commission_revenue`.
+ */
+const FEE_PRICING_MODULES = ['services/checkout.service.ts'];
+
+const NO_FEE_DOMAIN_PATHS = RETAIL_PATHS.filter(
+  (relative) => !FEE_PRICING_MODULES.includes(relative),
+);
 
 /** Read a path in the retail set, refusing an empty or moved file. */
 function readRetailSource(relative: string): string {
@@ -183,6 +216,26 @@ describe('the Mercaria-retail checkout path cannot reach what it must not', () =
         `${relative} reaches an OxyPay or FairCoin rail; ADR 0004 D11 forbids one existing`,
       ).toBe(false);
       scanned += 1;
+    }
+    // Vacuity floors PER SHAPE rather than one on the total: the three sources
+    // break independently, and one total would let a walk collapse to zero while
+    // the others carried the number. `scanned === RETAIL_PATHS.length` is kept
+    // but is NOT a floor — it is circular, holding for any list including an
+    // empty one.
+    const from = (prefix: string) => RETAIL_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/retail-checkout/'), 'the service walk found nothing').toBeGreaterThanOrEqual(3);
+    expect(from('db/retailCheckout/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(1);
+    // EXACT: both hand lists are identities, not predicates (#448).
+    expect(ENTRY_PATHS.length, 'the entry list changed size').toBe(2);
+    expect(FEE_PRICING_MODULES.length, 'a second fee-pricing module was excused').toBe(1);
+    expect(POST_ENTRY_PATHS.length, 'the post-entry list changed size').toBe(5);
+    expect(RETAIL_PATHS.length, 'the retail path derivation found nothing').toBeGreaterThanOrEqual(6);
+    for (const path of RETAIL_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(RETAIL_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+    for (const path of FEE_PRICING_MODULES) {
+      expect(RETAIL_PATHS, `${path} is excused from the fee wall but is not in the path`).toContain(path);
     }
     expect(scanned).toBe(RETAIL_PATHS.length);
   });
