@@ -7,6 +7,8 @@ import {
   ComparisonExplanationBlock,
   ComparisonTableView,
   Text,
+  CONDITION_A11Y_LABEL_KEY,
+  conditionGroupLabelKey,
 } from "@mercaria/ui";
 import type {
   BasketChannelPolicy,
@@ -14,29 +16,48 @@ import type {
   BasketResult,
   ConditionGroup,
 } from "@mercaria/shared-types";
+import {
+  BASKET_CHANNEL_POLICIES,
+  BASKET_OBJECTIVES,
+  CONDITION_GROUPS,
+} from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import {
   useBasketSolution,
   useProductComparison,
   useRevalidateBasketPlan,
 } from "@/lib/hooks/use-comparison";
+import { assessComparability, parseComparisonSubjects } from "@/lib/catalog/comparison";
+import { useTranslation } from "@/lib/i18n";
 
-/** The channel choices a shopper can make, with the words they read. */
-const CHANNEL_CHOICES: readonly { value: BasketChannelPolicy; label: string }[] = [
-  { value: "mixed", label: "Anywhere" },
-  { value: "native_only", label: "Mercaria only" },
-  { value: "external_only", label: "Retailers only" },
-  { value: "official_only", label: "Official channels only" },
-];
+/**
+ * The words a shopper reads for each member of a server-owned vocabulary.
+ *
+ * A `Record` over the union, never an ARRAY of `{value, label}` pairs, and the
+ * difference is enforceable rather than stylistic: a `Record<Union, string>`
+ * cannot omit a member, so adding one to `BasketChannelPolicy` fails `tsc`
+ * here. An array is a SUBSET that goes on compiling while the control silently
+ * stops offering the new choice — which is the drift
+ * `scripts/validate-storefront-catalog-driven.mjs` wall 5 refuses, and which
+ * both of these lists had.
+ *
+ * The ORDER a shopper sees is the tuple's own, so the copy carries no ordering
+ * decision either.
+ */
+const CHANNEL_LABELS: Readonly<Record<BasketChannelPolicy, string>> = Object.freeze({
+  mixed: "Anywhere",
+  native_only: "Mercaria only",
+  external_only: "Retailers only",
+  official_only: "Official channels only",
+});
 
-/** The objectives a shopper can choose between. */
-const OBJECTIVE_CHOICES: readonly { value: BasketObjective; label: string }[] = [
-  { value: "cheapest_known_item_prices", label: "Cheapest items" },
-  { value: "cheapest_known_total", label: "Cheapest delivered" },
-  { value: "fewest_merchants", label: "Fewest merchants" },
-  { value: "all_native", label: "Buy on Mercaria" },
-  { value: "fastest_known_delivery", label: "Fastest delivery" },
-];
+const OBJECTIVE_LABELS: Readonly<Record<BasketObjective, string>> = Object.freeze({
+  cheapest_known_item_prices: "Cheapest items",
+  cheapest_known_total: "Cheapest delivered",
+  fewest_merchants: "Fewest merchants",
+  all_native: "Buy on Mercaria",
+  fastest_known_delivery: "Fastest delivery",
+});
 
 /**
  * Compare products and plan a basket (#96 §"User experience").
@@ -66,7 +87,12 @@ const OBJECTIVE_CHOICES: readonly { value: BasketObjective; label: string }[] = 
  */
 export default function CompareScreen() {
   const params = useLocalSearchParams<{ p?: string | string[]; watchlist?: string }>();
-  const handles = useMemo(() => normalizeHandles(params.p), [params.p]);
+  // `?p=handle` compares the MODEL and `?p=handle:variantId` compares that exact
+  // configuration — #367 workstream 9's "compare exact variants when a fact is
+  // variant-specific". Both spellings are legal in one list, so a shopper can
+  // compare one phone's 256 GB against another phone as a whole.
+  const subjects = useMemo(() => parseComparisonSubjects(params.p), [params.p]);
+  const handles = useMemo(() => subjects.map((subject) => subject.handle), [subjects]);
   const watchlistId = typeof params.watchlist === "string" ? params.watchlist : undefined;
 
   const [channelPolicy, setChannelPolicy] = useState<BasketChannelPolicy>("mixed");
@@ -75,12 +101,26 @@ export default function CompareScreen() {
   const [actionNotice, setActionNotice] = useState<string | undefined>(undefined);
 
   const comparison = useProductComparison(
-    handles.length >= 2
+    subjects.length >= 2
       ? {
-          subjects: handles.map((handle) => ({ handle })),
+          subjects,
           ...(conditionGroups.length === 0 ? {} : { conditionGroups }),
         }
       : undefined,
+  );
+
+  /**
+   * Whether these subjects can be compared, and on what.
+   *
+   * Derived from the server's own grounded package rather than from the
+   * categories a client guessed at: a shared row is one every subject has a
+   * STATED value on, and zero of them means the table is a grid of dashes. #367
+   * asks for comparable types decided by explicit rules, and
+   * `lib/catalog/comparison.ts` is where the four of them are written down.
+   */
+  const comparability = useMemo(
+    () => (comparison.data === undefined ? undefined : assessComparability(comparison.data.input)),
+    [comparison.data],
   );
 
   const basket = useBasketSolution(
@@ -166,11 +206,37 @@ export default function CompareScreen() {
 
         {comparison.data ? (
           <View className="gap-space-16">
+            {/*
+              What this comparison can and cannot say, BEFORE the table.
+
+              `no_shared_facts` renders instead of the table: a grid whose every
+              cell says "not recorded" is not a comparison, and presenting one
+              under the heading "Compare" implies these products were measured
+              against each other. `comparable_across_categories` renders WITH
+              the table and a caveat — comparing a laptop against a tablet is a
+              legitimate question whose answer has fewer shared rows.
+            */}
+            {comparability?.kind === "no_shared_facts" ? (
+              <Text className="text-body text-text-secondary">
+                Nothing is recorded about all of these products in common, so there is
+                nothing to compare them on yet.
+              </Text>
+            ) : null}
+            {comparability?.kind === "comparable_across_categories" ? (
+              <Text className="text-caption text-text-secondary">
+                {`These are different kinds of product, so only the ${String(
+                  comparability.sharedRowCount,
+                )} facts recorded for all of them are compared.`}
+              </Text>
+            ) : null}
+
             {/* The DETERMINISTIC table first, and the narrative after it. */}
-            <ComparisonTableView
-              table={comparison.data.input.table}
-              namesByRef={namesByRef}
-            />
+            {comparability?.kind === "no_shared_facts" ? null : (
+              <ComparisonTableView
+                table={comparison.data.input.table}
+                namesByRef={namesByRef}
+              />
+            )}
             <ComparisonExplanationBlock explanation={comparison.data.explanation} />
             {comparison.data.input.gaps.length === 0 ? null : (
               <Text className="text-caption text-text-secondary">
@@ -184,13 +250,15 @@ export default function CompareScreen() {
           <Text className="text-bodyBold text-text">Where to buy</Text>
           <ChoiceRow
             label="Channel"
-            choices={CHANNEL_CHOICES}
+            values={BASKET_CHANNEL_POLICIES}
+            labels={CHANNEL_LABELS}
             value={channelPolicy}
             onChange={setChannelPolicy}
           />
           <ChoiceRow
             label="Objective"
-            choices={OBJECTIVE_CHOICES}
+            values={BASKET_OBJECTIVES}
+            labels={OBJECTIVE_LABELS}
             value={objective}
             onChange={setObjective}
           />
@@ -246,15 +314,20 @@ export default function CompareScreen() {
 /** One row of mutually exclusive choices, as text buttons. No colour coding. */
 function ChoiceRow<T extends string>({
   label,
-  choices,
+  values,
+  labels,
   value,
   onChange,
 }: {
   label: string;
-  choices: readonly { value: T; label: string }[];
+  /** The vocabulary's own tuple. The order a shopper sees is the tuple's. */
+  values: readonly T[];
+  /** Copy per member. A `Record` over the union, so it cannot omit one. */
+  labels: Readonly<Record<T, string>>;
   value: T;
   onChange: (next: T) => void;
 }) {
+  const choices = values.map((member) => ({ value: member, label: labels[member] }));
   return (
     <View className="gap-space-4">
       <Text className="text-caption text-text-secondary">{label}</Text>
@@ -297,19 +370,29 @@ function ConditionRow({
   value: readonly ConditionGroup[];
   onChange: (next: readonly ConditionGroup[]) => void;
 }) {
-  const groups: readonly ConditionGroup[] = ["new", "open_box", "refurbished", "used"];
+  // The SEGMENT labels are `@mercaria/ui`'s, localized, under the reserved `ui`
+  // namespace — never an English map written here. #90 keeps the copy in the UI
+  // package "precisely so it can change without touching a stored value", and a
+  // second copy in this screen would be one that stops agreeing with the badge
+  // rendered three lines above it.
+  const { t } = useTranslation();
   return (
     <View className="gap-space-4">
       <Text className="text-caption text-text-secondary">Condition</Text>
       <View className="flex-row flex-wrap gap-space-8">
-        {groups.map((group) => {
+        {CONDITION_GROUPS.map((group) => {
           const selected = value.includes(group);
           return (
             <Pressable
               key={group}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: selected }}
-              accessibilityLabel={`Condition: ${group}`}
+              // `Condition: %{label}` from the shared bundle, never composed
+              // here: French puts a space before the colon and Chinese uses a
+              // full-width one, and a screen reader reads what the string says.
+              accessibilityLabel={t(CONDITION_A11Y_LABEL_KEY, {
+                label: t(conditionGroupLabelKey(group)),
+              })}
               onPress={() =>
                 onChange(
                   selected ? value.filter((entry) => entry !== group) : [...value, group],
@@ -322,7 +405,7 @@ function ConditionRow({
               }
             >
               <Text className="text-caption text-text">
-                {selected ? `${group} ✓` : group}
+                {selected ? `${t(conditionGroupLabelKey(group))} ✓` : t(conditionGroupLabelKey(group))}
               </Text>
             </Pressable>
           );
@@ -332,12 +415,3 @@ function ConditionRow({
   );
 }
 
-/** `?p=a&p=b` and `?p=a,b` both mean the same thing to a shopper. */
-function normalizeHandles(raw: string | string[] | undefined): readonly string[] {
-  if (raw === undefined) return [];
-  const values = Array.isArray(raw) ? raw : [raw];
-  return values
-    .flatMap((value) => value.split(","))
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-}

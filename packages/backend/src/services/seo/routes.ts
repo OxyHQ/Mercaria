@@ -139,16 +139,23 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = Object.freeze([
     screen: 'app/(app)/sellers/[oxyUserId].tsx',
   },
   /**
-   * Category and filtered browse. RECORDED and not built: no storefront screen
-   * renders one today, in this repository or in either page issue in flight.
-   * The row exists so the pattern is reserved and its sitemap collection is
-   * named; it emits no URL and no metadata until a screen lands.
+   * Category and filtered browse — LIVE since #367 workstream 9.
+   *
+   * The row was `planned` for as long as no screen rendered one. When
+   * `app/(app)/categories/[handle].tsx` landed, DIRECTION 3 of
+   * `seo-routes.test.ts` refused the tree — which is the gate doing exactly its
+   * job, and it caught a half-done acceptance criterion rather than a typo: the
+   * storefront asks `GET /seo/resolve` for this page's canonical URL and
+   * alternates, and until `resolveCategoryPage` existed the registry answered
+   * `category_browse: null`, so the page would have shipped with neither tag on
+   * every deployment while "SEO metadata where applicable" read as satisfied.
    */
   {
     id: 'category_browse',
     pattern: '/categories/:handle',
     identity: 'handle',
-    availability: 'planned',
+    availability: 'live',
+    screen: 'app/(app)/categories/[handle].tsx',
     sitemapCollection: 'categories',
   },
 ] satisfies readonly PublicRoute[]);

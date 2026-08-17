@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "क़ीमत का इतिहास — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "ब्रेडक्रम्ब"
+    },
+    "filters": {
+      "title": "फ़िल्टर",
+      "clear": "सभी हटाएँ",
+      "none": "यहाँ कोई फ़िल्टर उपलब्ध नहीं है।",
+      "unavailableHere": "अब भी लागू हैं, पर इन नतीजों के लिए उपलब्ध नहीं:",
+      "removeFilter": "यह फ़िल्टर हटाएँ",
+      "unknownCount": "%{count} में जानकारी नहीं दी गई",
+      "droppedFromLink": "इस लिंक के %{count} फ़िल्टर लागू नहीं हो सके।",
+      "pricesNotConverted": "कुछ कीमतें यहाँ शामिल नहीं हैं: %{currencies} को परिवर्तित नहीं किया जा सका।"
+    },
+    "specs": {
+      "title": "विशेषताएँ",
+      "product": "इस उत्पाद के बारे में",
+      "variant": "इस कॉन्फ़िगरेशन के बारे में",
+      "definitionsUnavailable": "कुछ नाम वैसे ही दिखाए जा रहे हैं जैसे वे संग्रहित हैं।",
+      "untranslated": "कुछ नाम अभी आपकी भाषा में अनूदित नहीं हैं।"
+    },
+    "variants": {
+      "unavailable": "उपलब्ध नहीं",
+      "impossible": "बनाया नहीं जाता",
+      "availabilityUnknown": "इस उत्पाद की उपलब्धता अभी नहीं दिखाई जा रही है।"
+    },
+    "compatibility": {
+      "title": "संगतता"
+    },
+    "category": {
+      "fallbackTitle": "श्रेणी",
+      "notFound": "हमें यह श्रेणी नहीं मिली।",
+      "subcategories": "उपश्रेणियाँ",
+      "empty": "इन फ़िल्टरों से मेल खाता अभी कुछ नहीं है।"
+    }
   }
 }

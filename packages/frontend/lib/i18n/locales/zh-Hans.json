@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "价格记录 — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "面包屑导航"
+    },
+    "filters": {
+      "title": "筛选",
+      "clear": "全部清除",
+      "none": "这里没有可用的筛选条件。",
+      "unavailableHere": "仍在生效，但当前结果不提供：",
+      "removeFilter": "移除此筛选条件",
+      "unknownCount": "%{count} 项未标注",
+      "droppedFromLink": "此链接中有 %{count} 个筛选条件无法应用。",
+      "pricesNotConverted": "部分价格未包含在内：%{currencies} 无法换算。"
+    },
+    "specs": {
+      "title": "规格参数",
+      "product": "关于此商品",
+      "variant": "关于此配置",
+      "definitionsUnavailable": "部分名称按存储的原样显示。",
+      "untranslated": "部分名称尚未翻译成你的语言。"
+    },
+    "variants": {
+      "unavailable": "暂无供应",
+      "impossible": "无此配置",
+      "availabilityUnknown": "当前不显示此商品的供应情况。"
+    },
+    "compatibility": {
+      "title": "兼容性"
+    },
+    "category": {
+      "fallbackTitle": "类目",
+      "notFound": "没有找到这个类目。",
+      "subcategories": "子类目",
+      "empty": "暂时没有符合这些筛选条件的内容。"
+    }
   }
 }

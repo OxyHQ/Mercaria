@@ -46,7 +46,12 @@ import { getDb } from '../../db/postgres.js';
 import { findListingById } from '../../db/catalog/listingRepository.js';
 import { findStoreByHandle } from '../../db/stores/storeRepository.js';
 import { findCanonicalProductIdForListing } from '../../db/reviews/reviewTargetResolver.js';
-import { findProductSeoFacts } from '../../db/seo/seoRepository.js';
+import {
+  countActiveListingsInCategories,
+  findCategorySeoRow,
+  findProductSeoFacts,
+  listCategoryBreadcrumb,
+} from '../../db/seo/seoRepository.js';
 import { getPublicBrand } from '../canonical/brand.service.js';
 import { getPublicProductFamily } from '../canonical/product-family.service.js';
 import { getMerchantPublic } from '../commerce-graph/merchant.service.js';
@@ -68,6 +73,7 @@ import { buildRoutePath, matchPublicRoute } from './routes.js';
 import { indexingPermittedFor } from './rollout.js';
 import {
   catalogueEntityFacts,
+  categoryPageFacts,
   homeFacts,
   listingPageFacts,
   merchantPageFacts,
@@ -224,8 +230,8 @@ const ROUTE_RESOLVERS: Readonly<Record<PublicRouteId, RouteResolver | null>> = O
    * later read can withdraw.
    */
   seller: null,
+  category_browse: ({ handle, request, origin }) => resolveCategoryPage(handle, request, origin),
   /** Reserved patterns: `planned` and `redirect_only` are answered above. */
-  category_browse: null,
   native_store_legacy: null,
 });
 
@@ -643,6 +649,120 @@ async function resolveFamilyPage(
     request,
     origin,
   });
+}
+
+/**
+ * `/categories/:handle` — a category landing page (#367 workstream 9).
+ *
+ * ## Three lifecycles, three different answers
+ *
+ * A `merged` category follows its successor and answers a 301, exactly as a
+ * merged brand does — the merge history is what `category_redirects` exists to
+ * make resolvable, and a shopper who followed an old link should land on the
+ * shelf that replaced it. Every other withdrawn state answers `not_found`
+ * rather than a suppressed document: a category nobody may browse into is not a
+ * page with a `noindex` on it, it is an address that leads nowhere.
+ *
+ * `published AND is_active` is the conjunction, not either alone — the derived
+ * flag and the lifecycle can disagree until `categories_is_active_derived_check`
+ * lands in its `post` migration, and a page should be withheld when either says
+ * withdrawn. That is `docs/navigation.md`'s rule, applied to the same rows.
+ *
+ * ## What judges it
+ *
+ * Its CATALOGUE, like a brand and a merchant: a category has no description
+ * column of its own, so the only thing it can be thin on is what is filed under
+ * it. The count comes from `category_slugs`, which is what the browse read
+ * filters on — so the number the policy judges is the number a shopper sees.
+ *
+ * ## Why the canary can include one
+ *
+ * `indexingPermittedFor` takes the row's OWN id here. Every other catalogue
+ * entity answers `null` unless it carries somebody else's category, so a
+ * category is the one page class a category-scoped canary can actually name.
+ */
+async function resolveCategoryPage(
+  handle: string,
+  request: ResolveSeoRequest,
+  origin: string,
+): Promise<SeoDiagnosis> {
+  const db = getDb();
+  const requested = await findCategorySeoRow(db, handle);
+  if (!requested) return { resolution: { outcome: 'not_found' } };
+
+  let category = requested;
+  if (requested.lifecycle === 'merged') {
+    const winner =
+      requested.mergedIntoCategoryId === null
+        ? undefined
+        : await findCategorySeoRow(db, requested.mergedIntoCategoryId);
+    if (!winner) return { resolution: { outcome: 'not_found' } };
+    category = winner;
+  }
+
+  if (category.lifecycle !== 'published' || !category.isActive) {
+    return { resolution: { outcome: 'not_found' } };
+  }
+
+  if (handle !== category.slug) {
+    // The same discrimination `catalogueRedirect` makes: an address naming the
+    // category's OWN id is a canonical-spelling correction, and anything else
+    // that resolved here came through a merge.
+    const reason = handle === category.id ? 'canonical_spelling' : 'merged';
+    return {
+      resolution: {
+        outcome: 'redirect',
+        redirect: buildIdentityRedirect(
+          buildRoutePath('category_browse', category.slug),
+          carryQueryAcrossRedirect(request.query),
+          reason,
+        ),
+      },
+    };
+  }
+
+  const ancestors = await listCategoryBreadcrumb(db, category.ancestorIds);
+  const counts = await countActiveListingsInCategories(db, [category.slug]);
+  const facts = categoryPageFacts({
+    slug: category.slug,
+    name: category.name,
+    ancestors: ancestors.map((step) => ({ slug: step.slug, name: step.name })),
+  });
+
+  const verdict = decideIndexability({
+    routeAvailability: 'live',
+    indexingPermitted: indexingPermittedFor(category.id),
+    identity: 'canonical',
+    moderation: 'clear',
+    sourceIndexRight: 'granted',
+    content: assessCatalogueContent(category.name, counts.get(category.slug) ?? 0),
+    offerInformation: 'not_applicable',
+    locale: 'complete',
+    // A bare `/categories/:handle` is the shelf itself. #75's filter-uniqueness
+    // rule is about the FILTERED variants of it, and `canonicalQueryOf` already
+    // strips every non-canonical parameter out of the URL below — so what this
+    // document is canonical for is the unfiltered shelf, whatever the shopper
+    // arrived with.
+    filterUniqueness: 'not_a_filter_page',
+  });
+
+  return {
+    resolution: {
+      outcome: 'document',
+      document: composeDocument({
+        routeId: 'category_browse',
+        facts,
+        canonicalUrl: buildCanonicalUrl(
+          origin,
+          buildRoutePath('category_browse', category.slug),
+          canonicalQueryOf('category_browse', request.query),
+        ),
+        origin,
+        indexability: verdict,
+      }),
+    },
+    indexability: verdict,
+  };
 }
 
 /**

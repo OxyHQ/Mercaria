@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "価格の推移 — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "パンくずリスト"
+    },
+    "filters": {
+      "title": "絞り込み",
+      "clear": "すべて解除",
+      "none": "ここで使える絞り込みはありません。",
+      "unavailableHere": "適用中ですが、この結果には表示されません:",
+      "removeFilter": "この絞り込みを外す",
+      "unknownCount": "%{count} 件は記載なし",
+      "droppedFromLink": "このリンクの絞り込み %{count} 件を適用できませんでした。",
+      "pricesNotConverted": "一部の価格は含まれていません: %{currencies} を換算できませんでした。"
+    },
+    "specs": {
+      "title": "仕様",
+      "product": "この商品について",
+      "variant": "この構成について",
+      "definitionsUnavailable": "一部の項目名は保存されているまま表示しています。",
+      "untranslated": "一部の項目名はまだあなたの言語に翻訳されていません。"
+    },
+    "variants": {
+      "unavailable": "在庫なし",
+      "impossible": "取り扱いなし",
+      "availabilityUnknown": "この商品の在庫状況は現在表示していません。"
+    },
+    "compatibility": {
+      "title": "対応情報"
+    },
+    "category": {
+      "fallbackTitle": "カテゴリー",
+      "notFound": "このカテゴリーは見つかりませんでした。",
+      "subcategories": "サブカテゴリー",
+      "empty": "この絞り込みに合うものはまだありません。"
+    }
   }
 }

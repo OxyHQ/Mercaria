@@ -138,6 +138,17 @@ jobs:
       - name: Guard money formatting
         run: bun run validate:money-formatting
 
+      # #367 workstream 9's non-negotiable: no category-specific or
+      # product-type-specific field list, filter list, spec list or controlled
+      # value anywhere in `packages/frontend`. Every shape it catches
+      # type-checks, lints, builds and renders — a storefront that knows one
+      # category's filters by name looks exactly like one that reads them from
+      # the server, right up until an operator publishes a new attribute and
+      # nobody's screen changes. Five walls, each with a vacuity floor and a
+      # mutation self-test; reads the tracked file listing, costs a second.
+      - name: Guard the catalog-driven storefront
+        run: bun run validate:storefront-catalog
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 
@@ -156,6 +167,21 @@ jobs:
 
       - name: Typecheck App
         run: bun run --filter @mercaria/frontend typecheck
+
+      # The storefront's own runner (#367 workstream 9), narrow by design:
+      # `lib/**` only, node environment, no jsdom. It EXECUTES the pure catalog
+      # composition, where every other storefront check in this repository SCANS
+      # source as text from the backend suite — and executing is what catches a
+      # behavioural bug. `parseComparisonSubjects` trimmed a `?p=` entry as a
+      # whole instead of each half, so a handle kept a trailing space and would
+      # have 404'd, with tsc, lint, the export and all five walls of
+      # `validate:storefront-catalog` green on it.
+      #
+      # It cannot live in the backend suite: that package's `rootDir` is its own
+      # root, so a test there cannot import across packages, and excluding one
+      # file to get around it also stops `parserOptions.project` parsing it.
+      - name: Test App
+        run: bun run --filter @mercaria/frontend test
 
       - name: Typecheck POS
         run: bun run --filter @mercaria/pos typecheck

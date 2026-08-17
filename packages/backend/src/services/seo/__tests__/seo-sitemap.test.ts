@@ -59,6 +59,30 @@ function brandRow(overrides: Partial<SeoSitemapCandidateRow> = {}): SeoSitemapCa
 }
 
 /**
+ * One category candidate.
+ *
+ * `categoryId` is the row's OWN id — every other candidate type answers `null`
+ * there unless it carries somebody else's category, and that is what lets a
+ * canary cohort name a category page at all.
+ */
+function categoryRow(overrides: Partial<SeoSitemapCandidateRow> = {}): SeoSitemapCandidateRow {
+  return {
+    id: 'cat-phones',
+    slug: 'phones',
+    name: 'Phones',
+    status: 'active',
+    categoryId: 'cat-phones',
+    lastmod: LASTMOD,
+    indexRightGranted: true,
+    descriptionLength: 0,
+    imageCount: 0,
+    identifierCount: 0,
+    catalogueEntryCount: 12,
+    ...overrides,
+  };
+}
+
+/**
  * The lever, as a parameter.
  *
  * `sitemapEntriesFor` takes the permission rather than reading `config`, which
@@ -177,15 +201,42 @@ describe('a catalogue page is judged by its catalogue', () => {
   });
 });
 
-describe('a route with no screen contributes NOTHING', () => {
-  it('categories are empty while the page is still planned', () => {
-    // The registry's `availability` reaching the sitemap: a URL advertised
-    // before its screen ships is a crawl target that answers "This screen does
-    // not exist". #73 landed and `merchants` emits (above), #72 landed and
-    // `brands` emits too (above) — `categories` is the one still `planned`,
-    // and `seo-routes.test.ts` is what forces its own flip rather than leaving
-    // that page unindexable in silence.
-    expect(sitemapEntriesFor('categories', [brandRow({ slug: 'phones' })], ORIGIN, INDEXING_ON)).toEqual([]);
+describe('categories reach the sitemap now their screen exists', () => {
+  it('emits a category URL under its own route pattern', () => {
+    // #367 workstream 9 shipped `app/(app)/categories/[handle].tsx`,
+    // `seo-routes.test.ts` forced `category_browse` to `live`, and the
+    // collection woke up — which is the registry's `availability` reaching the
+    // sitemap, the same path #72 and #73 took before it.
+    //
+    // A category carries its OWN id in `categoryId`, which is what makes it the
+    // one page class a category-scoped canary can name.
+    expect(
+      sitemapEntriesFor(
+        'categories',
+        [categoryRow({ slug: 'phones', id: 'cat-phones' })],
+        ORIGIN,
+        INDEXING_ON,
+      ),
+    ).toEqual([{ loc: 'https://mercaria.co/categories/phones', lastmod: LASTMOD.toISOString() }]);
+  });
+
+  it('refuses a category whose shelf is thin, like every other catalogue page', () => {
+    // Judged by its CATALOGUE: a category has no description of its own, so a
+    // shelf with one listing on it duplicates that listing's own page.
+    expect(
+      sitemapEntriesFor(
+        'categories',
+        [categoryRow({ catalogueEntryCount: 0 })],
+        ORIGIN,
+        INDEXING_ON,
+      ),
+    ).toEqual([]);
+  });
+
+  it('refuses a withdrawn category', () => {
+    expect(
+      sitemapEntriesFor('categories', [categoryRow({ status: 'suppressed' })], ORIGIN, INDEXING_ON),
+    ).toEqual([]);
   });
 });
 

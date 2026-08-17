@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "Preisverlauf — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "Navigationspfad"
+    },
+    "filters": {
+      "title": "Filter",
+      "clear": "Alle zurücksetzen",
+      "none": "Hier sind keine Filter verfügbar.",
+      "unavailableHere": "Weiterhin aktiv, aber für diese Ergebnisse nicht angeboten:",
+      "removeFilter": "Diesen Filter entfernen",
+      "unknownCount": "%{count} ohne Angabe",
+      "droppedFromLink": "%{count} Filter aus diesem Link konnten nicht angewendet werden.",
+      "pricesNotConverted": "Einige Preise fehlen hier: %{currencies} konnte nicht umgerechnet werden."
+    },
+    "specs": {
+      "title": "Technische Daten",
+      "product": "Über dieses Produkt",
+      "variant": "Über diese Konfiguration",
+      "definitionsUnavailable": "Einige Bezeichnungen werden genau so angezeigt, wie sie gespeichert sind.",
+      "untranslated": "Einige Bezeichnungen sind noch nicht in deine Sprache übersetzt."
+    },
+    "variants": {
+      "unavailable": "nicht verfügbar",
+      "impossible": "wird nicht hergestellt",
+      "availabilityUnknown": "Die Verfügbarkeit wird für dieses Produkt derzeit nicht angezeigt."
+    },
+    "compatibility": {
+      "title": "Kompatibilität"
+    },
+    "category": {
+      "fallbackTitle": "Kategorie",
+      "notFound": "Diese Kategorie konnten wir nicht finden.",
+      "subcategories": "Unterkategorien",
+      "empty": "Zu diesen Filtern passt hier noch nichts."
+    }
   }
 }

@@ -300,6 +300,53 @@ export function catalogueEntityFacts(input: CatalogueEntityFactsInput): SeoVisib
   };
 }
 
+/** One step of a category's ancestor trail, as the taxonomy orders them. */
+export interface CategoryTrailStep {
+  readonly slug: string;
+  readonly name: string;
+}
+
+/** What a category landing page displays about the category itself (#367 step 9). */
+export interface CategoryFactsInput {
+  readonly slug: string;
+  readonly name: string;
+  /** Root-first, EXCLUDING the category itself. */
+  readonly ancestors: readonly CategoryTrailStep[];
+}
+
+/**
+ * Project a category landing page (#367 workstream 9).
+ *
+ * Its own builder rather than a widening of {@link catalogueEntityFacts}, and
+ * the reason is the trail: a brand and a family sit directly under Home, while
+ * a category's breadcrumb IS its ancestor chain — which is the one fact a
+ * category page has that no other catalogue entity has. Widening the shared
+ * builder would mean an optional ancestors parameter that two of its three
+ * callers never pass.
+ *
+ * No image, no offers, no identifiers. A category page is a directory of what
+ * is filed under it, so `assessCatalogueContent` judges it by that catalogue —
+ * and emitting offers here would attach a price to a shelf.
+ */
+export function categoryPageFacts(input: CategoryFactsInput): SeoVisibleFacts {
+  return {
+    title: input.name,
+    imageUrls: [],
+    breadcrumbs: [
+      { name: 'Home', path: buildRoutePath('home') },
+      ...input.ancestors.map((step) => ({
+        name: step.name,
+        path: buildRoutePath('category_browse', step.slug),
+      })),
+      { name: input.name, path: buildRoutePath('category_browse', input.slug) },
+    ],
+    entityName: input.name,
+    gtins: [],
+    offers: [],
+    variantNames: [],
+  };
+}
+
 /** What a merchant page displays about the merchant itself. */
 export interface MerchantFactsInput {
   readonly slug: string;

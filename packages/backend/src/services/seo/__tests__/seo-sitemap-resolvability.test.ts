@@ -97,16 +97,22 @@ describe('resolvability is stated for every route', () => {
     for (const routeId of PUBLIC_ROUTE_IDS) {
       expect(typeof routeServesDocument(routeId), routeId).toBe('boolean');
     }
-    for (const routeId of ['home', 'canonical_product', 'legacy_listing', 'native_store', 'merchant', 'brand', 'product_family'] as const) {
+    for (const routeId of ['home', 'canonical_product', 'legacy_listing', 'native_store', 'merchant', 'brand', 'product_family', 'category_browse'] as const) {
       expect(routeServesDocument(routeId), routeId).toBe(true);
     }
   });
 
-  it('names the three this domain deliberately does not publish', () => {
-    // A seller is a person whose visibility Oxy derives per request (#92); the
-    // other two are reserved patterns with no screen.
+  it('names the two this domain deliberately does not publish', () => {
+    // A seller is a person whose visibility Oxy derives per request (#92);
+    // `native_store_legacy` is a reserved pattern with no screen, answered
+    // entirely by the redirect registry.
+    //
+    // `category_browse` was the third until #367 workstream 9 shipped its
+    // screen and `resolveCategoryPage` with it. It is asserted TRUE above
+    // rather than merely removed from here: a route dropping out of a negative
+    // list and out of the positive one at the same time is how a resolver gets
+    // deleted without anything noticing.
     expect(routeServesDocument('seller')).toBe(false);
-    expect(routeServesDocument('category_browse')).toBe(false);
     expect(routeServesDocument('native_store_legacy')).toBe(false);
   });
 
