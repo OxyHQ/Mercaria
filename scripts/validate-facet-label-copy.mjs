@@ -99,12 +99,18 @@ import { OFFER_AVAILABILITY_STATES } from "../packages/shared-types/src/offer.ts
 const failures = [];
 const notes = [];
 
-// A fixture root is how the paired self-test drives this guard, and its tree is
-// tiny — so every population floor drops to 1 rather than to 0. A floor of zero
-// is not a floor.
-const fixtureRoot = process.env.FACET_LABEL_FIXTURE_ROOT;
-const root = fixtureRoot === undefined ? repositoryRoot : resolve(fixtureRoot);
-const fixtureFloors = fixtureRoot !== undefined;
+// There is no fixture-root escape hatch, deliberately.
+//
+// The house pattern pairs a `validate-X.mjs` with a `test-validate-X.mjs` that
+// runs it against a tiny fixture tree, which needs every population floor to
+// drop to 1. This guard follows `validate-bidi-isolation.mjs` instead: its
+// controls are INTERNAL — check A self-tests its detector on ten synthetic cases
+// in the same invocation, check B runs the real resolvers, and check C fails
+// rather than skips when its pattern finds nothing. So the floors below are
+// always the real ones. An environment variable that lowered them would be a
+// documented way to make this guard measure almost nothing, with no caller to
+// justify it.
+const root = repositoryRoot;
 
 // --------------------------------------------------------------- utilities ---
 
@@ -176,7 +182,7 @@ const LABEL_TEXT_READERS = new Set(["packages/ui/src/lib/facet-labels.ts"]);
 /** The client packages a shopper's or a merchant's screen can be built from. */
 const CLIENT_PACKAGES = ["packages/frontend", "packages/dashboard", "packages/pos", "packages/ui"];
 
-const MINIMUM_CLIENT_SOURCE_FILES = fixtureFloors ? 1 : 300;
+const MINIMUM_CLIENT_SOURCE_FILES = 300;
 
 /** The property names whose `.text` is a `FacetLabel`'s. */
 const LABEL_PROPERTY_NAMES = new Set(["label", "groupLabel"]);
@@ -465,7 +471,7 @@ if (composedBucket === "in_stock") {
   );
 }
 
-const MINIMUM_BUCKET_VALUES = fixtureFloors ? 1 : 12;
+const MINIMUM_BUCKET_VALUES = 12;
 if (bucketValuesChecked < MINIMUM_BUCKET_VALUES) {
   failures.push(
     `check B: only ${bucketValuesChecked} bucket values were checked, expected at least `
