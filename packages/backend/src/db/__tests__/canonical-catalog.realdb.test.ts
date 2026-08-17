@@ -24,6 +24,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
+import { fixtureGtin } from '../../__tests__/fixture-gtin.js';
 import { log } from '../../lib/logger.js';
 import { deleteTestCanonicalRows } from './canonical-teardown.js';
 import { brands } from '../schema/organizations.js';
@@ -87,6 +88,16 @@ let db: Database;
 /** Unique to this run, so parallel files cannot collide on a shared database. */
 const RUN = uuidv7().slice(-12);
 const OPERATOR = `operator-${RUN}`;
+/**
+ * The half-filled-pair case's barcode.
+ *
+ * Both inserts using it are wrapped in `expectRefused`, so neither ever
+ * commits and this file is NOT one of the writers #594 found colliding. It is
+ * per-run anyway: a shared literal here is a hazard the day somebody makes one
+ * of those inserts succeed, and #594's guard is syntactic and cannot tell a
+ * refused insert from a committed one.
+ */
+const PAIR_GTIN = fixtureGtin(RUN, 1);
 
 const createdFamilyIds: string[] = [];
 const createdProductIds: string[] = [];
@@ -1197,8 +1208,8 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
       db.insert(productIdentifiers).values({
         variantId: variant.id,
         scheme: 'ean',
-        rawValue: '4006381333931',
-        normalizedValue: '4006381333931',
+        rawValue: PAIR_GTIN,
+        normalizedValue: PAIR_GTIN,
         canonicalScheme: 'gtin',
       }),
     );
@@ -1206,9 +1217,9 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
       db.insert(productIdentifiers).values({
         variantId: variant.id,
         scheme: 'ean',
-        rawValue: '4006381333931',
-        normalizedValue: '4006381333931',
-        canonicalValue: '00004006381333931'.slice(-14),
+        rawValue: PAIR_GTIN,
+        normalizedValue: PAIR_GTIN,
+        canonicalValue: `0000${PAIR_GTIN}`.slice(-14),
       }),
     );
   });

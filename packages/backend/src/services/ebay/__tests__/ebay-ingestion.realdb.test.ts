@@ -31,6 +31,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
+import { fixtureGtinBody } from '../../../__tests__/fixture-gtin.js';
 import type { CatalogRefreshMode } from '@mercaria/shared-types';
 import { EBAY_BROWSE_PROVIDER } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
@@ -1119,7 +1120,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
 
     it('gives two marketplace sellers of ONE product two offers under one canonical variant', async () => {
       await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('marketplace', '620000000091');
+      const canonical = await mintCanonicalVariant('marketplace', fixtureGtinBody(RUN, 1));
       const source = await bringUpSource('sellers', { queries: [{ value: '9355' }] });
 
       source.fake.items.set(
@@ -1193,7 +1194,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     });
     it('converges a seller seen twice onto ONE merchant', async () => {
       await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('repeat', '620000000107');
+      const canonical = await mintCanonicalVariant('repeat', fixtureGtinBody(RUN, 2));
       const source = await bringUpSource('repeatseller', { queries: [{ value: '444' }] });
       const seller = `gamma_${RUN}`;
       for (const suffix of ['a', 'b', 'c']) {
@@ -1235,7 +1236,7 @@ describe('the eBay Browse catalog source, end to end (#65)', () => {
     });
     it('writes NO offer for a per-record source whose item names no seller', async () => {
       await ensureMatchPolicy();
-      const canonical = await mintCanonicalVariant('noseller', '620000000114');
+      const canonical = await mintCanonicalVariant('noseller', fixtureGtinBody(RUN, 3));
       const source = await bringUpSource('noseller', { queries: [{ value: '555' }] });
       source.fake.items.set(
         'v1|ns|0',

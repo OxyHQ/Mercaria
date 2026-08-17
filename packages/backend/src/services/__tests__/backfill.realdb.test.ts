@@ -50,6 +50,7 @@ import './fixtures/enable-canonical-writes.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
+import { fixtureGtin } from '../../__tests__/fixture-gtin.js';
 import type { CatalogBackfillMode, CatalogBackfillStage } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../../db/postgres.js';
 import { listingOptions, listings } from '../../db/schema/catalog.js';
@@ -477,7 +478,7 @@ describe('the catalogue backfill, against a real database', () => {
         // A GTIN-13 whose check digit validates, and a second variant with none —
         // so both the identifier path and the no-identifier path are exercised.
         variants: [
-          { title: 'Small', barcode: '4006381333931', size: 'Small' },
+          { title: 'Small', barcode: fixtureGtin(RUN, 1), size: 'Small' },
           { title: 'Large', size: 'Large' },
         ],
       });
