@@ -6,6 +6,7 @@ import {
   SUPPORTED_LOCALES,
   type SupportedLocale,
 } from './locales';
+import { registerPluralizers } from './plurals';
 import { SHARED_UI_COPY, SHARED_UI_COPY_NAMESPACE } from './shared-copy';
 
 /**
@@ -79,11 +80,13 @@ export function createAppI18n(bundles: AppLocaleBundles): I18n {
   }
 
   const translations: Record<string, object> = {};
+  const registered: SupportedLocale[] = [];
   for (const locale of SUPPORTED_LOCALES) {
     const bundle = bundles[locale];
     if (!bundle) continue;
     const merged = mergeSharedUiCopy(locale, bundle);
     translations[locale] = merged;
+    registered.push(locale);
     for (const alias of LOCALE_ALIASES[locale] ?? []) translations[alias] = merged;
   }
 
@@ -97,6 +100,10 @@ export function createAppI18n(bundles: AppLocaleBundles): I18n {
   // `validate:i18n-strings` fails the build on. It exists so that if one ever
   // did ship, a merchant sees a humanised key rather than a blank control.
   i18n.missingBehavior = 'guess';
+  // Per-locale CLDR plural categories (#436), replacing i18n-js's English-shaped
+  // default. Driven by `registered` — the same list the loop above built — so a
+  // locale can never carry copy without a plural rule, or a rule without copy.
+  registerPluralizers(i18n, registered);
   return i18n;
 }
 

@@ -269,12 +269,100 @@ function treeWithBundle(mutate, extra = {}) {
   return files;
 }
 
+/**
+ * A tree where ONE locale's dashboard bundle differs (#436, check K).
+ *
+ * `treeWithBundle` mutates every locale identically, which is right for parity
+ * cases and useless here: K's whole subject is a bundle whose categories differ
+ * from its siblings' BECAUSE THE LANGUAGE DOES. A Russian `few` that every other
+ * bundle also carried would be a different (and wrong) tree.
+ */
+function treeWithLocaleBundle(locale, mutate, extra = {}) {
+  const files = migratedTree(extra);
+  files[`packages/dashboard/lib/i18n/locales/${locale}.json`] = bundle(mutate);
+  return files;
+}
+
 const cases = [
   {
     name: "a fully extracted set of three apps passes",
     files: migratedTree(),
     expectExit: 0,
     expectOutput: "i18n string guard passed",
+  },
+
+  // ------------------------------------------------ K: per-locale plurals ---
+  // The pair that has to move together. The first two are bundles the OLD
+  // key-parity check rejected and #436 makes legal; the rest are what stops
+  // that relaxation from becoming a hole.
+
+  {
+    name: "a Russian bundle carrying few/many — which en.json lacks — passes (K)",
+    files: treeWithLocaleBundle("ru", (value) => {
+      value.cart.lineCount = {
+        one: "%{count} товар",
+        few: "%{count} товара",
+        many: "%{count} товаров",
+        other: "%{count} товаров",
+      };
+      return value;
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    name: "a Japanese bundle carrying only `other`, its one category, passes (K)",
+    files: treeWithLocaleBundle("ja", (value) => {
+      value.cart.lineCount = { other: "商品 %{count} 件" };
+      return value;
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    name: "a plural key with no `other` fails — the chain's terminal rung (K)",
+    files: treeWithLocaleBundle("ru", (value) => {
+      value.cart.lineCount = { one: "%{count} товар", few: "%{count} товара" };
+      return value;
+    }),
+    expectExit: 1,
+    expectOutput: 'and no "other"',
+  },
+  {
+    name: "a Russian bundle dropping `one`, which Russian selects at 21, fails (K)",
+    files: treeWithLocaleBundle("ru", (value) => {
+      value.cart.lineCount = { other: "%{count} товаров" };
+      return value;
+    }),
+    expectExit: 1,
+    expectOutput: 'is missing "one"',
+  },
+  {
+    // The hole the relaxation would have opened. B compared each form against
+    // its English twin and `continue`d when there was none, so a renamed
+    // placeholder in a category English does not have was invisible to it.
+    name: "a renamed placeholder in a `many` form fails, though en.json has no `many` (K)",
+    files: treeWithLocaleBundle("ru", (value) => {
+      value.cart.lineCount = {
+        one: "%{count} товар", many: "%{n} товаров", other: "%{count} товаров",
+      };
+      return value;
+    }),
+    expectExit: 1,
+    expectOutput: "carries placeholders {n}",
+  },
+  {
+    // Dead copy: German has `one`/`other` and nothing else, so a `few` there can
+    // never be selected. Under `fixtureFloors` the pin is skipped, so this case
+    // proves the DETECTOR — the pin's own comparison is covered by its own case
+    // below, the `deviceLocaleFormatSites` pattern.
+    name: "a plural key that is not a plural object in a sibling fails (K)",
+    files: treeWithLocaleBundle("de", (value) => {
+      value.cart.lineCount = "%{count} Produkte";
+      return value;
+    }),
+    expectExit: 1,
+    expectOutput: "missing or not a plural object",
   },
 
   // ---------------------------------------------------- the mutation cases ---
@@ -832,6 +920,27 @@ const cases = [
     expectOutput: "renderable key map(s), below the",
   },
   {
+    // K's residual pin, same technique as J's above and for the same reason: on
+    // a fixture tree the pin is SKIPPED, so every K case above would pass with
+    // the comparison deleted. This is the one that asserts the number is read.
+    name: "check K's pinned plural residual is compared, not carried",
+    files: migratedTree(),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "missing for a category the locale CAN select, expected exactly",
+  },
+  {
+    // K's vacuity floor. A fixture bundle holds one plural key, so under
+    // production floors K must say it was pointed at almost nothing — otherwise
+    // a `collectPlurals` that had stopped finding plurals would report the same
+    // silence a correct tree does.
+    name: "check K's plural-key floor fires when the population is tiny",
+    files: migratedTree(),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "plural key(s) in",
+  },
+  {
     // J's negative half, through the real guard: the two field names measured
     // OUT of the list. Both are identifiers shown verbatim on purpose, both sit
     // beside real defects in the live tree, and a version of this check that
@@ -877,6 +986,12 @@ async function assertGuardSource() {
     // substring match that an import alone satisfies.
     "PROVIDER_CONTROL_MOUNTED",
     "PROVIDER_CONTROL_NOT_MOUNTED",
+    // #436's pair. `PLURAL_SHAPE_CONTROLS` exercises K's own clauses; the sweep
+    // is the one that cannot be replaced by a fixture, because what it asserts
+    // is that the guard's permitted set and the RUNTIME's chain are still the
+    // same fact — a property of two modules, not of any tree.
+    "PLURAL_SHAPE_CONTROLS",
+    "PLURAL_SWEEP_COUNTS",
     "positive control failed",
     "negative control failed",
   ];

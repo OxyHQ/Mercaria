@@ -311,39 +311,79 @@ rendering.** Whether a mirrored sheet visibly enters from the correct edge is
   device, and a cashier's till language is not the same merchant's admin
   language.
 
-## Plurals, and the limitation that is not hidden
+## Plurals: per-locale CLDR categories, and the residual that is not hidden (#436)
 
-Pluralised keys are a nested object with `one` / `other` and a `%{count}`
-placeholder, resolved by `i18n-js`'s DEFAULT pluralizer — which applies the
-English rule to every locale.
+Pluralised keys are a nested object of CLDR categories with a `%{count}`
+placeholder. `packages/ui/src/i18n/plurals.ts` registers a per-locale pluralizer
+for every locale an app ships, from the SAME loop in `createAppI18n` that
+registers the bundles — so a locale can never have copy without a plural rule,
+or a rule without copy.
 
-For Russian, Arabic, Polish and Czech that is an approximation: those languages
-have three or four plural categories and will render the `other` form where a
-`few` or `many` form is correct. Making it right means registering a per-locale
-pluralizer (`Intl.PluralRules` is the obvious source) AND relaxing the guard's
-key-parity check, which today requires every bundle to carry exactly `en`'s
-keys — correct while the pluralizer is English-shaped, and wrong the moment it
-is not. Both halves have to move together, so they are #436 rather than a
-half-change here. The storefront has the same limitation.
+**The rules come from `make-plural`, deliberately NOT from `Intl.PluralRules`.**
+`i18n-js` already depends on `make-plural` and exports `useMakePlural` for this
+purpose, and it contains no reference to `Intl` at all — every rule is
+arithmetic on a number. Hermes' `Intl` surface is narrower than V8's, this
+repository has already been bitten by a construct `hermesc` accepts and the
+Hermes runtime rejects, and a missing `Intl.PluralRules` would not fail to
+compile: it would throw at the first pluralised string on a screen. Choosing
+arithmetic removes the question rather than deferring it. It also gives the
+guard and the runtime ONE source for "which categories does Russian have",
+which is what lets them be checked against each other.
+
+**The chain is `[zero-if-0, the locale's category, other]`, and the last rung is
+what made this landable.** `useMakePlural` on its own returns no `other`, and
+`i18n-js`'s `helpers/pluralize.ts` does NOT fall back to English on a miss — it
+returns `missingTranslation`. So a Russian bundle carrying only `one`/`other`
+under a Russian pluralizer would render NOTHING at count 5, which is worse than
+the wrong-but-present form it replaced. With the terminal rung, a category whose
+form exists is used and one whose form does not lands on exactly what shipped
+before. Two things therefore got better with no new copy at all: Russian counts
+ending in 1 (`21 товар`, not `21 товаров`), and French/Hindi/Bengali at zero
+(`0 produit`), because CLDR puts those on `one`, which every bundle has.
+
+**Nothing was translated, and the gap is counted rather than guessed at.**
+520 category forms are missing across the four bundle sets — Arabic is short
+`zero`/`two`/`few`/`many`, Russian `few`/`many`, and Catalan, Spanish, French
+and Brazilian Portuguese `many`. Writing them is grammar in six languages nobody
+here can review (the #486 precedent), so check K pins the count EXACTLY per
+owner as `pluralCategoryResidual` and fails in both directions: it can be paid
+down, and it cannot grow back.
 
 **Arabic is the worst case and its shipped shape is deliberate.** CLDR gives
-Arabic SIX categories (`zero`, `one`, `two`, `few`, `many`, `other`) against
-English's two, so one `other` form has to cover 0, 2, 3–10, 11–99 and 100+,
-which take three different noun forms. Every Arabic plural in this repository
-therefore writes the SINGULAR in both `one` and `other`, matching the
+Arabic SIX categories against English's two, so one `other` form has to cover 0,
+2, 3–10, 11–99 and 100+, which take three different noun forms. Every Arabic
+plural here writes the SINGULAR in both `one` and `other`, matching the
 `ui.offer.days` precedent `@mercaria/ui` set (`%{count} يوم` for both) and the
 same trick `ru` uses there (the abbreviated `дн.`). It is correct for 11–99,
 where Arabic genuinely takes the singular, and visibly wrong for 3–10, where
-`3 طلب` should read `3 طلبات`. That is a **#436 case**, not something to work
-around per-key: a bundle that spelled the 3–10 form instead would be wrong for
-11–99, and there is no single form that is right for both. The 28 plural keys
-this affects are `customers.orderCount`, `collections.productCount` and the
-other 21 in the dashboard, plus the 5 in the POS.
+`3 طلب` should read `3 طلبات`. #436 supplied the machinery and left this to
+native speakers; it is 208 of the 520.
+
+**104 forms are the mirror case: copy that exists and can never be selected.**
+Japanese and Simplified Chinese have `other` as their only category, so their
+`one` forms are unreachable under CLDR — they were reachable before only because
+the English rule was being applied to them. They are NOT deleted here and are
+pinned separately as `pluralUnreachableForms`, because 5 of the 104 differ
+textually from their `other` sibling (`ui.referral.withheld.some` and
+`offer.showAllA11y` in both locales, plus `merchants.offerMix.staleNotice` in
+`zh-Hans`), so removing them changes what count = 1 renders. That is a copy
+decision for a speaker of those languages, not a cleanup. The other 99 are
+byte-identical to their sibling and their removal would change nothing.
+
+**A regional tag resolves through the language, and an unshipped language gets
+English.** `resolveDeviceLocale()` returns the OS's raw tag, so `i18n.locale` is
+routinely `es-MX` or `ru-RU`, and `i18n-js`'s pluralizer registry has no
+fallback chain of its own — hence the `default` registration, which resolves at
+call time. `pluralRuleLocaleFor` matches the exact tag, then an alias, then the
+language subtag, over the locales THIS app shipped. The last rung is the
+load-bearing one: a Swahili device gets English copy, so it must get the English
+rule. Applying Swahili's plural rule to English strings would be a fresh defect
+rather than the one being fixed.
 
 ## The guard
 
-`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Ten
-checks; the third is the one worth understanding, and F, I and J each catch a
+`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Eleven
+checks; the third is the one worth understanding, and F, I, J and K each catch a
 defect no other gate in CI can see.
 
 The last four all exist because **the type system cannot tell any of them from
@@ -357,6 +397,16 @@ correct code** — a date is a `string`, a key is a `string`, a wire enum is a
   (`Alert.alert`, `toast.*`, `useRailTooltip`). Named rather than "any call
   taking a string", which would flag every `fetch`, query key and
   `router.push`.
+- **K. Plural shape** (#436) — a plural key's categories are a fact about the
+  LOCALE, so B's key-set half is wrong for them: Russian legitimately carries
+  `few`/`many` that English lacks, and Japanese legitimately carries neither
+  `one` nor anything but `other`. K exempts them from B and asserts instead that
+  each sibling carries a non-empty set of categories the RUNTIME can select
+  there, including `other`, plus every category English uses that the locale can
+  also select, with placeholders matching `en`'s `other` form. The permitted set
+  is imported from `packages/ui/src/i18n/plurals.ts` rather than restated, and a
+  control runs the real chain over a count sweep — so if the runtime and the
+  guard ever stop agreeing, the guard says so.
 - **B. Bundle parity** — every non-`en` bundle carries exactly `en`'s key set
   (missing AND extra) with exactly `en`'s placeholders. A missing key falls back
   to the ENGLISH string, so the screen looks translated in review and is not; a
@@ -708,5 +758,5 @@ that says `quotes` reports a confident, wrong zero.
 | --- | --- |
 | #486 | Native review of the 1,228 Arabic strings #434 shipped. The parity gate proves a key exists with the right placeholders; it cannot tell a good translation from a plausible one. The domain terms, the flipped arrows and the plural approximation are listed there |
 | ~~#435b~~ | **DONE.** 806 strings across 70 files extracted, 55 dead `en.json` keys removed, `packages/frontend` joined `OWNERS` in the last commit. Residual: the `Error`-message surface above, and the four shapes A cannot decide. Its 9,000+ new translated values want the same native review #486 asks for |
-| #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
+| ~~#436~~ | **DONE.** Per-locale CLDR pluralizer (`make-plural`, not `Intl`) plus check K, landed together. Residual, both pinned exactly and neither invented here: 520 missing category forms across six languages, and 104 unreachable `one` forms in `ja`/`zh-Hans` of which 5 differ from their `other` sibling. Both want the native review #486 asks for |
 | #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |
