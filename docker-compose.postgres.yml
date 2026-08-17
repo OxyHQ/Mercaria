@@ -37,6 +37,37 @@ services:
     # Debian-based rather than alpine: PostGIS publishes no alpine variant, and
     # this is a local dev dependency, not a shipped artefact.
     image: postgis/postgis:17-3.5
+    # Raise the SHARED lock table above its 64 default.
+    #
+    # Five realdb files create their OWN throwaway database
+    # (src/db/testDatabase.ts), and the migrator applies the whole 109-migration
+    # chain in ONE transaction — so a single migration holds every object lock
+    # it takes until commit. Measured on this image: ~5,800 locks for one
+    # migration.
+    #
+    # PostgreSQL sizes ONE shared lock table from
+    # `max_locks_per_transaction * (max_connections + max_prepared_transactions)`,
+    # so this is not a per-transaction cap and concurrent migrations contend for
+    # a single pool. Measured on this image, by running N real migrations
+    # concurrently and escalating N until `out of shared memory`:
+    #
+    #     max_locks_per_transaction=64   ->  4 concurrent migrations, 5th fails
+    #     max_locks_per_transaction=256  -> 12 concurrent migrations, 16th fails
+    #
+    # The suite needs six (five private-database files plus the shared
+    # globalSetup database), so 64 has no headroom and 256 has roughly double
+    # what is required.
+    #
+    # It has to be a server ARGUMENT: the setting is `postmaster` context, so
+    # neither PGOPTIONS nor `ALTER SYSTEM` reaches it without a restart.
+    #
+    # CI raises the SAME floor on its service container, by a different
+    # mechanism it is forced into (.github/workflows/ci.yml). Because those are
+    # two mechanisms for one fact, `packages/backend/vitest.pg.globalSetup.ts`
+    # ASSERTS the floor on whatever server it is handed — so a half-applied
+    # change fails loudly in the environment that is wrong, instead of leaving
+    # lock exhaustion reproducible in only one of them.
+    command: postgres -c max_locks_per_transaction=256
     container_name: mercaria-postgres-dev
     restart: unless-stopped
     environment:

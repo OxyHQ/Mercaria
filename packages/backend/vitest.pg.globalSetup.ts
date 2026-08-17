@@ -23,10 +23,84 @@
  * a failure that reads as a bug in that file and is not.
  */
 
+import postgres from 'postgres';
+
 import { createMercariaTestDatabase, dropMercariaTestDatabase } from './src/db/testDatabase.js';
 
 /** Pool ceiling per vitest worker. See the header for why the default is unsafe here. */
 const TEST_POOL_SIZE = '4';
+
+/**
+ * The `max_locks_per_transaction` this suite requires of whatever server it is
+ * pointed at.
+ *
+ * Every realdb file that creates its own throwaway database migrates it with
+ * the real migrator, which applies the whole chain in ONE transaction and so
+ * holds every object lock it takes until commit — about 5,800 locks for one
+ * migration at the time of writing. PostgreSQL sizes ONE shared lock table from
+ * `max_locks_per_transaction * (max_connections + max_prepared_transactions)`,
+ * so those migrations contend for a single pool rather than each getting their
+ * own budget.
+ *
+ * Measured on `postgis/postgis:17-3.5` by running N real migrations
+ * concurrently and raising N until `out of shared memory`:
+ *
+ *     64 (the default)  ->   4 concurrent migrations, the 5th fails
+ *     256               ->  12 concurrent migrations, the 16th fails
+ *
+ * The suite needs six. At the default the failure does not arrive as a clean
+ * refusal — it lands mid-migration on whichever `ALTER TABLE … ADD CONSTRAINT`
+ * happened to be executing, in whichever files happened to overlap, so it reads
+ * as an unrelated flake that moves between files run to run.
+ *
+ * Asserted here rather than trusted, because the setting is `postmaster`
+ * context and the two places that raise it use two different mechanisms:
+ * `docker-compose.postgres.yml` passes a server argument, and CI has to write
+ * postgresql.auto.conf and restart, since a GitHub Actions service block has
+ * nowhere to put a command. Two mechanisms for one fact can drift, and the
+ * direction that matters is the silent one — lock exhaustion reproducing in
+ * only one environment.
+ */
+const REQUIRED_MAX_LOCKS_PER_TRANSACTION = 256;
+
+/**
+ * Fail before the first migration when the server cannot support the suite.
+ *
+ * Checked against the SERVER the harness was handed, so it covers a local
+ * compose server, a CI service container and anything `TEST_DATABASE_URL`
+ * names, without any of them having to be recognised.
+ */
+async function assertLockCeiling(adminUrl: string): Promise<void> {
+  const sql = postgres(adminUrl, { max: 1, onnotice: () => {} });
+  let setting: string;
+  try {
+    const [row] = await sql<{ setting: string }[]>`
+      select setting from pg_settings where name = 'max_locks_per_transaction'
+    `;
+    // A server that does not report the setting at all is a server this suite
+    // cannot make a claim about, so it is a failure rather than a pass.
+    if (!row) throw new Error('pg_settings has no max_locks_per_transaction row');
+    setting = row.setting;
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+
+  const actual = Number.parseInt(setting, 10);
+  if (Number.isNaN(actual) || actual < REQUIRED_MAX_LOCKS_PER_TRANSACTION) {
+    throw new Error(
+      `The Postgres server at ${new URL(adminUrl).host} has ` +
+        `max_locks_per_transaction=${setting}, below the ${REQUIRED_MAX_LOCKS_PER_TRANSACTION} ` +
+        `this suite requires. Concurrent realdb migrations exhaust the shared lock table at ` +
+        `the default 64 and fail with "out of shared memory" in whichever files happen to ` +
+        `overlap.\n` +
+        `  Local: recreate the compose server so it picks up its \`command:\` —\n` +
+        `    docker compose -f docker-compose.postgres.yml up -d --force-recreate postgres\n` +
+        `  CI: the "Raise the Postgres lock ceiling" step in .github/workflows/ci.yml.\n` +
+        `The setting is postmaster context, so a running server cannot be changed into ` +
+        `compliance without a restart.`,
+    );
+  }
+}
 
 /**
  * The server `docker-compose.postgres.yml` publishes, used when neither variable
@@ -47,6 +121,22 @@ let databaseUrl: string | null = null;
 
 export async function setup(): Promise<void> {
   const adminUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? LOCAL_COMPOSE_URL;
+
+  // Before the first migration, not after: at the default ceiling the failure
+  // lands mid-`ALTER TABLE` in whichever files overlap, which reads as a bug in
+  // one of them. This turns that into one sentence naming the real cause.
+  //
+  // A connection failure here is left to the handler below, which is the one
+  // that knows how to say "start the server".
+  try {
+    await assertLockCeiling(adminUrl);
+  } catch (error) {
+    // A server that is simply not running gets the better "start it with…"
+    // message from the create below, so only a REACHABLE server that failed the
+    // check itself stops the run here.
+    const unreachable = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/.test(String(error));
+    if (!unreachable) throw error;
+  }
 
   try {
     databaseUrl = await createMercariaTestDatabase(adminUrl);
