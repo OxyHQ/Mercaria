@@ -725,6 +725,38 @@ alone (zero is the worst case, not the best).
 
 ---
 
+## Two lessons this workstream's own gates taught, in general form
+
+Both were found by breaking my own work rather than by reasoning about it, and both
+generalise past this epic.
+
+**A cast in a fixture disables the only check a fixture gets.** The navigation
+fallback fixtures were first written as `as unknown as`, copied from the sibling
+`compatibility.test.ts` — which is how the pattern propagates. Deleting the cast
+surfaced THREE errors, one per typecheck: a `handle` field `CategoryNode` does not
+have, a missing required `parentId`, and `surface: 'header'` where
+`NavigationSurface` is `header_menu`. The third is the one that mattered: **a value
+no server would ever send, sitting inside the fixture every assertion in the file
+runs over.** A fixture is not production code, so nothing else checks it — the
+compiler is the whole of its defence, and a cast removes it while every assertion
+over the fixture keeps passing.
+
+**A mutation harness whose victim list is hand-written is defended by nothing —
+exactly like the populations it exists to check.** `catalog-authoring-isolation.test.ts`'s
+self-test seeded its mutation into ONE file. Reintroducing the narrowing it was
+written to catch turned exactly **one** test red, because the lone victim happened
+to sit inside the surviving half: a self-test that detects its own bug in one of two
+directions and reads as complete. Deriving one victim per scanned directory from
+`SCANNED_DIRS` — with a length assertion, so a directory holding no `.ts` file fails
+loudly rather than being self-tested by nothing — took the same mutation to
+seventeen red.
+
+The shared shape: **a check's own inputs need the defences the check applies to
+everything else.** A hand-listed victim set, an uncompiled fixture and a
+hand-maintained exemption list are all the same defect at different layers.
+
+---
+
 ## Box 4 — backfill/reindex jobs resume safely after interruption: **partial, and vacuous for three of the four queues**
 
 Procedure and the per-job operator steps:
