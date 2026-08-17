@@ -266,14 +266,23 @@ states, and a stored record stays reachable. Mutation-tested per clause — maki
 `/cart` lever-gated turns the sameness case red, and ungating each lever turns only
 that lever's paths red.
 
-What stays partial is the ISOLATION half. The authoring domain's lever wall now
-covers all ten of its files with no exemption, plus the blanket "no configuration
-at all" wall, and its self-test runs the real assertion with one victim per scanned
-directory. `CATALOG_TAXONOMY_V2_ENABLED`, `CATALOG_PROPOSALS_ENABLED` and
-`FACETS_ENABLED` still have no equivalent — the rollout test covers what they
-MOUNT, which would not catch a repository in those domains learning to read one.
-The two overclaiming docblocks (`config/index.ts:3459-3460` and D12) are now
-accurate, D12 having been corrected.
+**The ISOLATION half is now closed too, for all four levers**, and the walls are
+deliberately not the same shape because the domains are not:
+
+| Lever | Wall | Shape, and why |
+|---|---|---|
+| `CATALOG_AUTHORING_ENABLED` | `catalog-authoring-isolation.test.ts` | Both scanned directories, no exemption (the controller's bounds live outside them), plus the blanket "no configuration at all" wall. Self-test runs the real assertion with one victim PER directory. |
+| `CATALOG_PROPOSALS_ENABLED` | `catalog-proposal-isolation.test.ts` | Names the LEVER, not configuration generally — the services legitimately read six BOUNDS off the same object, so a blanket wall would be refused on its first run and then widened, taking the prohibition with it. Carries a positive control that the domain DOES read its bounds, plus a negative case asserting a bound does not trip it. |
+| `FACETS_ENABLED` | `facet-isolation.test.ts` | BLANKET, available because the domain reads no config — scoped to the two OWNED directories and NOT the shared controller/route/schema modules, where a page bound legitimately belongs. |
+| `CATALOG_TAXONOMY_V2_ENABLED` | `navigation-isolation.test.ts` | BLANKET over the whole population INCLUDING both routes and the controller, none of which reads config today, with a positive control that those three are inside the scan since they are where a lever read would really appear. |
+
+Each self-test runs the REAL scan over a population with a mutated member swapped
+in and asserts EXACTLY that file is named. Mutation-tested against production code:
+a lever read in a proposals service, a config import in a facets service, a
+`process.env` read in a facets repository, a config import in the navigation
+controller and a `process.env` read in a navigation repository each turn the right
+wall red. The two overclaiming docblocks (`config/index.ts:3459-3460` and D12) are
+now accurate, D12 having been corrected.
 
 ---
 
@@ -860,7 +869,7 @@ written.
 
 | Box | Verdict | The one-line reason |
 |---|---|---|
-| 1. Existing products remain readable and sellable | **satisfied (mount) / partial (isolation)** | Now gated: `catalog-rollout.realdb.test.ts` asserts the five withdrawals, the sameness of every pre-existing path, and a stored record staying reachable — mutation-tested per clause. The authoring lever wall widened to its whole domain; the other three domains still have no isolation wall. |
+| 1. Existing products remain readable and sellable | **satisfied** | `catalog-rollout.realdb.test.ts` asserts the five withdrawals, the sameness of every pre-existing path, and a stored record staying reachable; all four levers now have an isolation wall, each shaped to what its domain legitimately reads. Every clause mutation-tested against production code. |
 | 2. Legacy free text migrated only where deterministic | **partial** | Retention, forbidden axes, indistinguishable variants and the no-similarity wall are properties. The ADR's own `Tono` case, the sibling-collision refusal and the typed-value → resolved-claim link are conventions; the last has a ready-made #90-shaped constraint. |
 | 3. No historical commerce snapshot is rewritten | **satisfied as a fact, partial as a property** | No #367 migration touches a commerce table (ten files, four search shapes, a positive control that fires on pre-#367 files). The ledger, fee snapshots, recorded condition and buyer identity are trigger-protected; an order's money, its status trail, payments and refunds are not, and nothing scans migration SQL. |
 | 4. Backfill/reindex jobs resume safely after interruption | **partial** | One job resumes, untested at the reclaim boundary, with a permanent strand on page failure. Three queues are vacuous — no consumer, and one has no producer path either. |
@@ -896,13 +905,12 @@ during an incident.
 4. **A terminal state plus a retry budget on `catalog_backfill_runs`**, which
    closes box 4's strand hole and W17's seam 6 at once, and a test that calls
    `claimBackfillRun` across an expired lease.
-5. **Widen the lever walls** — **HALF DONE.**
-   `catalog-authoring-isolation.test.ts` now covers its whole domain with no
-   exemption, gained the blanket "no configuration at all" wall, and its self-test
-   runs the real `offendingPaths` assertion with one victim per scanned directory.
-   Still owed: the same wall on `facet-isolation.test.ts`,
-   `navigation-isolation.test.ts` and `catalog-proposal-isolation.test.ts`, whose
-   levers have no isolation gate at all.
+5. ~~**Widen the lever walls**~~ — **DONE**, all four, each shaped to what its
+   domain legitimately reads (see Box 1's table). The one that was nearly wrong:
+   a blanket wall on `catalog-proposals` would have been refused by its own six
+   legitimate bound reads on the first run, and the natural repair — widening it —
+   would have removed the lever prohibition with it. That domain's wall names
+   `.enabled` for that reason.
 6. **Correct ADR 0007 D12** to name the four levers that exist, record
    `FACETS_ENABLED`, and state that the staged rollout order needs a cohort
    expression nobody built. Five documents quote D12 today.
