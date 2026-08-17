@@ -146,6 +146,14 @@ interface Detector {
 }
 
 const DETECTORS: Detector[] = [];
+/**
+ * Candidates the literal scanner grabbed that are not regexes at all — a path
+ * inside a string, a division. COUNTED rather than swallowed: a silent `catch`
+ * here would let a systematic extraction change move detectors into this bucket
+ * while the floor below still held, and the gate would go on measuring a
+ * shrinking set of walls without saying so.
+ */
+let misSliced = 0;
 for (const gate of GATES) {
   for (const literal of new Set(read(gate).match(REGEX_LITERAL) ?? [])) {
     if (!/from|import/.test(literal)) continue;
@@ -158,8 +166,7 @@ for (const gate of GATES) {
         pattern: new RegExp(literal.slice(1, lastSlash), literal.slice(lastSlash + 1).replace(/[gy]/g, '')),
       });
     } catch {
-      // A literal this extractor mis-sliced is not a detector; the floor below
-      // is what stops that silently emptying the set.
+      misSliced += 1;
     }
   }
 }
@@ -235,6 +242,13 @@ describe('the instrument reads a real tree', () => {
     expect(GATES.length).toBeGreaterThanOrEqual(70);
     expect(DETECTORS.length).toBeGreaterThanOrEqual(80);
     for (const gate of GATES.slice(0, 5)) expect(statSync(gate).isFile()).toBe(true);
+
+    // Today: 121 compiled, 60 mis-sliced. The bound is what makes a change in
+    // extraction VISIBLE — detectors quietly draining into the discard pile is
+    // how this gate would come to guard fewer walls than it reports.
+    expect(misSliced, 'the literal scanner is discarding far more than it did').toBeLessThanOrEqual(
+      90,
+    );
   });
 
   it('finds the barrels by shape, not by name', () => {
