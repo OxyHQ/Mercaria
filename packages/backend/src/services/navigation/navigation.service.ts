@@ -237,7 +237,13 @@ export async function readPublishedNavigation(
       trees: [],
       withheldNodeCount: 0,
     };
-    return { ...empty, etag: navigationEtag(empty) };
+    return {
+      ...empty,
+      etag: navigationEtag(
+        { market: params.market, requestedLocale: params.locale },
+        empty,
+      ),
+    };
   }
 
   const nodes = await listNavigationNodes(
@@ -263,7 +269,10 @@ export async function readPublishedNavigation(
     trees: views,
     withheldNodeCount,
   };
-  return { ...body, etag: navigationEtag(body) };
+  return {
+    ...body,
+    etag: navigationEtag({ market: params.market, requestedLocale: params.locale }, body),
+  };
 }
 
 /**
@@ -292,6 +301,11 @@ export async function previewNavigationTree(
     lifecycle: tree.lifecycle as NavigationTreeLifecycle,
     internalLabel: tree.internalLabel,
     withheld: projection.withheld,
-    etag: navigationEtag(view),
+    // The preview is one TREE, scoped to that tree's own market, and its locale
+    // is the resolved one rather than the requested one — an operator asking for
+    // a locale the tree does not carry is previewing the FALLBACK, so the tag has
+    // to name what was actually rendered or two previews of different fallbacks
+    // would share it.
+    etag: navigationEtag({ market: tree.market, requestedLocale: locale }, view),
   };
 }

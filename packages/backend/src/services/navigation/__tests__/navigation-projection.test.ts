@@ -274,21 +274,68 @@ describe('projecting a tree', () => {
 });
 
 describe('the ETag', () => {
+  /** The dimensions every case below holds FIXED unless it is varying one. */
+  const KEY = { market: 'es', requestedLocale: 'es-es' } as const;
+
   it('is stable across key order, so a refactor does not invalidate every cache', () => {
-    expect(navigationEtag({ a: 1, b: [2, 3] })).toBe(navigationEtag({ b: [2, 3], a: 1 }));
+    expect(navigationEtag(KEY, { a: 1, b: [2, 3] })).toBe(navigationEtag(KEY, { b: [2, 3], a: 1 }));
   });
 
   it('changes when the content changes, including inside an array', () => {
-    expect(navigationEtag({ a: [1, 2] })).not.toBe(navigationEtag({ a: [2, 1] }));
-    expect(navigationEtag({ a: 1 })).not.toBe(navigationEtag({ a: 2 }));
+    expect(navigationEtag(KEY, { a: [1, 2] })).not.toBe(navigationEtag(KEY, { a: [2, 1] }));
+    expect(navigationEtag(KEY, { a: 1 })).not.toBe(navigationEtag(KEY, { a: 2 }));
   });
 
   it('treats an absent field and an undefined one as the same payload', () => {
-    expect(navigationEtag({ a: 1, b: undefined })).toBe(navigationEtag({ a: 1 }));
+    expect(navigationEtag(KEY, { a: 1, b: undefined })).toBe(navigationEtag(KEY, { a: 1 }));
+  });
+
+  /**
+   * ONE DIMENSION AT A TIME, which is the only shape that can fail usefully.
+   *
+   * Varying the locale AND the market together and asserting the tag moved is
+   * satisfied by a tag that reads either one, so it cannot tell a two-dimensional
+   * key from a one-dimensional one. The count assertion underneath is the vacuity
+   * floor: if a dimension were dropped, two of these variants would collapse onto
+   * the same tag and the set would be smaller than the number of variants.
+   */
+  it('varies by the locale and by the market, each on its own', () => {
+    const body = { trees: [], withheldNodeCount: 0 };
+    const variants = [
+      { market: 'es', requestedLocale: 'es-es' },
+      { market: 'es', requestedLocale: 'en' },
+      { market: 'mx', requestedLocale: 'es-es' },
+      { market: null, requestedLocale: 'es-es' },
+    ];
+    const tags = variants.map((key) => navigationEtag(key, body));
+
+    // Named individually as well as counted, so a failure says WHICH dimension
+    // stopped being read rather than only that a number is wrong.
+    expect(tags[0], 'the locale must reach the tag').not.toBe(tags[1]);
+    expect(tags[0], 'the market must reach the tag').not.toBe(tags[2]);
+    expect(tags[0], 'an unscoped market is not the market "es"').not.toBe(tags[3]);
+    expect(new Set(tags).size).toBe(variants.length);
+  });
+
+  it('does not confuse an unscoped market with a market literally named "null"', () => {
+    // `canonicalize` renders `null` and `'null'` differently; this is the case
+    // that would break if either side were coerced to a string on the way in.
+    expect(navigationEtag({ market: null, requestedLocale: 'en' }, {})).not.toBe(
+      navigationEtag({ market: 'null', requestedLocale: 'en' }, {}),
+    );
+  });
+
+  it('separates the key from the body, so no id can forge another key', () => {
+    // The key and the body are canonicalized as ONE NESTED object rather than
+    // concatenated with a separator. Both halves are JSON, so any separator can
+    // appear inside a string in either — these two must not collide.
+    expect(navigationEtag({ market: 'a', requestedLocale: 'b' }, {})).not.toBe(
+      navigationEtag({ market: 'a', requestedLocale: 'b"' }, {}),
+    );
   });
 
   it('matches a list, a weak form and a wildcard', () => {
-    const etag = navigationEtag({ a: 1 });
+    const etag = navigationEtag(KEY, { a: 1 });
     expect(navigationEtagMatches(etag, etag)).toBe(true);
     expect(navigationEtagMatches(`W/${etag}`, etag)).toBe(true);
     expect(navigationEtagMatches(`"other", ${etag}`, etag)).toBe(true);
