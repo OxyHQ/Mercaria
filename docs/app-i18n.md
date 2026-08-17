@@ -287,6 +287,60 @@ against the resolution, and that both components still call it. **It verifies no
 rendering.** Whether a mirrored sheet visibly enters from the correct edge is
 #429 item 2, and no device or foregrounded tab has run it.
 
+### The two upstream premises are re-measured now (#429 item 3)
+
+Fifteen physical directional utilities are excused by seven reasoned
+`KNOWN_EXCEPTIONS` entries, and each says a logical spelling would compile and
+then silently do nothing on a device. Those reasons are facts about UPSTREAM:
+React Native does not register `borderInline*`, and react-native-css's
+`parseTextAlign` allows only `auto|left|right|center|justify`.
+
+#429 item 3 said the entries would "fail the run for being stale" once upstream
+caught up. **They would not.** `validate-rtl-logical-classes.mjs` opens no file
+outside our own source tree, so its exact counts detect OUR drift and can never
+see a version bump that retires the reason for one. An exception whose
+justification has lapsed is worse than no exception: the count still
+reconciles, nothing looks wrong, and the next reader inherits the rationale as
+settled.
+
+`scripts/validate-rtl-upstream-premises.mjs` is what actually notices. It reads
+the INSTALLED packages and fails the day either premise expires, and its failure
+text names CONVERSION as the action — a gate whose cheapest green is deleting
+the gate would be worse than none. Both premises carry a positive control,
+because both are absence claims and a broken search reports absence: premise (a)
+requires `borderStartWidth` to be FOUND by the same walk (5 files today) before
+it will believe `borderInline*` is missing, and premise (b) requires the
+allow-list to parse to a non-empty set. A renamed `parseTextAlign`, a moved
+dist layout or an uninstalled package all fail CLOSED. Twelve mutation cases
+cover both expiries, both controls and both fail-closed paths.
+
+### What item 2 still needs, concretely
+
+It is not partially done; nothing has rendered. The residual, so the next
+person does not have to re-derive it:
+
+1. **Storefront home, a product page and checkout, in `ar`**, on a real
+   foregrounded web tab AND a real device build — web and native disagree here
+   by construction (`borderInline*` works in a browser and drops on native, and
+   `translateX` is mirrored by neither).
+2. **The sliding surfaces specifically** — `Panel` and `SheetContent` must enter
+   from the reader's leading edge. `validate:logical-side` proves the arithmetic
+   and cannot prove the animation.
+3. **The fifteen excused physical borders** — each was kept because the logical
+   spelling would DROP it on native. Confirm each still renders on a device;
+   that is the other half of the premise guard, which reads what upstream ships
+   and not what a phone does with it.
+4. **Bidi seams in situ** — `validate:bidi-isolation` asserts 215 code-point
+   properties over 10 formatters, which is the whole of what is checkable
+   without a renderer. Whether an isolated price sits correctly inside an Arabic
+   sentence is a rendering question.
+5. **Linguistic correctness is NOT any of the above and is blocked on #486.**
+   A screenshot shows the layout mirrored. It does not show that the copy reads
+   correctly, that the tone is right, or that a term is the one an Arabic
+   speaker would use. There is no Arabic reviewer on this repository, so until
+   #486 closes, **Arabic must not be described as fully supported** — which is
+   #429's own closing line and still stands.
+
 ## Rules that are load-bearing
 
 - **Module-scope data holds KEYS, never sentences.** A `const` array or record
