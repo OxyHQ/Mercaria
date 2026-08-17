@@ -38,7 +38,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableConfig } from 'drizzle-orm/pg-core';
@@ -60,34 +60,84 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** Every referral-NAMED module in a flat shared directory. */
+function referralNamed(directory: string): string[] {
+  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .filter((entry) => /referral/i.test(entry.name))
+    .map((entry) => `${directory}/${entry.name}`);
+}
+
 /**
- * Every module #146 increment 2 added or owns.
+ * The whole referral domain. WALKED, never listed — and WIDER than the
+ * enrollment path these walls used to be asserted over.
  *
- * A new module in the enrollment path belongs on this list; the vacuity floor
- * below is what forces whoever adds one to look here. #142's partner service is
- * INCLUDED because #146 widened two of its state sets and mounted all three of
- * its standing transitions — it is part of this surface now.
+ * This was fifteen hand-written paths called "every module #146 increment 2
+ * added or owns", with a floor of fifteen underneath it. Measured on
+ * `origin/main` at 4b30d5a2 the domain is 94 modules, and this gate plus
+ * `referral-attribution-isolation.test.ts` covered 28 between them.
+ *
+ * The walls below are all TRUE of the whole domain, measured rather than
+ * assumed — ranking trips on zero of the 94, the permission MATRIX on zero, the
+ * outbound-client detector on zero once it stops matching a bare word (see
+ * {@link OUTBOUND_FETCH}). The two that cannot span it, the merchant-claim grant
+ * and the store-membership read, are narrowed EXPLICITLY below with the
+ * assertion that justifies each, rather than by choosing a smaller population
+ * and calling the difference out of scope.
+ *
+ * Wall 5's own test was called "makes no outbound call anywhere in the domain"
+ * while scanning fifteen files of ninety-four, which is the shape worth naming:
+ * the sentence was the claim, the list was the measurement, and only one of them
+ * was true (#460).
  */
 const ENROLLMENT_PATHS = [
-  'services/referrals/enrollment.service.ts',
-  'services/referrals/application-review.service.ts',
-  'services/referrals/application-answers.ts',
-  'services/referrals/partner-standing.service.ts',
-  'services/referrals/partner-agreement.ts',
-  'services/referrals/terms.service.ts',
-  'services/referrals/duplicate-signals.ts',
-  'services/referrals/partner.service.ts',
-  'db/referrals/applicationRepository.ts',
-  'db/referrals/termsAcceptanceRepository.ts',
-  'controllers/referral-partner.controller.ts',
-  'controllers/referral-enrollment-operator.controller.ts',
-  'middleware/referral-partner-schemas.ts',
-  'routes/referral-partner.ts',
-  'routes/admin/referral-partner.ts',
+  ...walk('services/referrals'),
+  ...walk('db/referrals'),
+  ...referralNamed('controllers'),
+  ...referralNamed('routes'),
+  ...referralNamed('routes/admin'),
+  ...referralNamed('middleware'),
 ];
 
-/** The vacuity floor. A domain that shrank to nothing must fail, not pass. */
-const MINIMUM_SCANNED_FILES = 15;
+/**
+ * `binding.service.ts` READS merchant claims; it grants none.
+ *
+ * Wall 2 forbids enrollment PERFORMING a forbidden grant, and the
+ * `merchant_claim` detector cannot tell a read from a write — it matches the
+ * repository module, and `findClaimsByClaimant` is how a partner binding checks
+ * which merchants the caller has already proved they operate. Narrowing the
+ * detector to writes was rejected: it is the permissive direction, and a
+ * detector loosened to admit one legitimate reader is one that admits the write
+ * somebody adds beside it. Excused by NAME instead, with the probe below.
+ */
+const MERCHANT_CLAIM_READER = 'services/referrals/binding.service.ts';
+
+/**
+ * `self-referral.service.ts` reads store MEMBERSHIP, and must.
+ *
+ * #144's self-referral check asks whether the partner claiming a conversion is a
+ * member of the store that made the sale — which is a FACT it needs, not an
+ * authorization it derives. Wall 1 is about deriving a PERMISSION, and that half
+ * (`effectivePermissions`, `ROLE_PERMISSIONS`, `STORE_PERMISSIONS`, a
+ * `.permissions` array) still holds over all 94; only the membership read is
+ * excused, and only for this module.
+ */
+const MEMBERSHIP_READER = 'services/referrals/integrity/self-referral.service.ts';
+
+/** #145's partner earnings — the modules that may reach the ledger. See below. */
+const LEDGER_POSTING_DIRECTORY = 'services/referrals/earnings/';
 
 function readEnrollmentSource(relative: string): string {
   const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -126,7 +176,17 @@ function readEnrollmentCode(relative: string): string {
  * make the correct code fail the gate.
  */
 const PERMISSION_DERIVATION =
-  /effectivePermissions|ROLE_PERMISSIONS|findStoreMember|storeMembers\b|storeMembership|\.permissions\b|STORE_PERMISSIONS/;
+  /effectivePermissions|ROLE_PERMISSIONS|storeMembership|\.permissions\b|STORE_PERMISSIONS/;
+/**
+ * Reading store MEMBERSHIP — split out of {@link PERMISSION_DERIVATION} because
+ * the two are different acts and only one of them spans the whole domain.
+ *
+ * Deriving a permission is forbidden everywhere. Reading whether an account
+ * belongs to a store is a FACT, and #144's self-referral check legitimately
+ * needs it; splitting keeps the stronger half at full width instead of dropping
+ * both to accommodate one module.
+ */
+const MEMBERSHIP_READ = /findStoreMember|storeMembers\b/;
 /**
  * WALL 2. The WRITE that would perform each forbidden grant.
  *
@@ -153,11 +213,53 @@ const PAYMENT_REFERENCE =
   /services\/payments\/|paymentRepository|ledgerRepository|ledger_entries|PaymentIntent|openCheckoutPayment|stripe|Stripe/;
 const RANKING_REFERENCE =
   /services\/ranking\/|rankOffers|rankOfferComparison|OfferRankingFacts|ranking_policy_versions/;
-const OUTBOUND_FETCH = /\bfetch\s*\(|safeFetch|axios|node:https|node:http\b|got\s*\(|undici/;
+/**
+ * An outbound HTTP client, by IMPORT or by CALL — never as a bare word.
+ *
+ * `axios`, `got` and `undici` used to match anywhere in the text, which is fine
+ * across fifteen files and wrong across the domain: `traffic.ts` carries a
+ * BOT USER-AGENT list — `'wget/'`, `'python-requests'`, `'okhttp'`, `'axios/'`,
+ * `'node-fetch'` — so the module whose job is to DETECT crawlers read as one.
+ *
+ * That is the failure this pattern must not have. A gate that fires on correct
+ * code has its cheapest green in deleting the gate, and the wall here is real:
+ * a promotion URL an applicant typed must never be fetched. So the client names
+ * are matched as an import specifier or a member call, which is how an HTTP
+ * client is actually reached, and both directions are pinned in the mutation
+ * self-test below.
+ */
+const OUTBOUND_FETCH =
+  /\bfetch\s*\(|safeFetch|\baxios\.|\bgot\s*\(|from\s+'(?:axios|got|undici|node-fetch)'|require\(\s*'(?:axios|got|undici|node-fetch)'\s*\)|node:https|node:http\b/;
 const REVIEWER_NOTE_LEAK = /reviewerNote|reviewer_note/;
 
+/**
+ * The vacuity floors, PER SHAPE rather than one on the total.
+ *
+ * `MINIMUM_SCANNED_FILES = 15` used to sit here, compared against
+ * `ENROLLMENT_PATHS.length`, which was 15 — a constant asserted against the list
+ * it was derived from. It catches an entry being DELETED and can never see the
+ * population being too small, which it was by 79 modules.
+ *
+ * Each number is today's count, and the six sources are floored separately
+ * because they break independently: one total lets a walk collapse to zero while
+ * the others carry its number.
+ */
+function assertReferralDomainIsWhole(): void {
+  const from = (prefix: string) => ENROLLMENT_PATHS.filter((path) => path.startsWith(prefix)).length;
+  expect(from('services/referrals/'), 'the referral service walk found too few modules').toBeGreaterThanOrEqual(48);
+  expect(from('db/referrals/'), 'the referral repository walk found too few modules').toBeGreaterThanOrEqual(17);
+  expect(from('controllers/'), 'no referral controller was derived').toBeGreaterThanOrEqual(7);
+  expect(from('routes/'), 'no referral route was derived').toBeGreaterThanOrEqual(5);
+  expect(from('middleware/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
+  expect(ENROLLMENT_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+  for (const path of ENROLLMENT_PATHS) {
+    expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+  }
+}
+
 describe('enrollment answers no permission question of its own', () => {
-  it('reads no role, permission array, membership or role matrix', () => {
+  it('reads no role, permission array or role matrix', () => {
+    assertReferralDomainIsWhole();
     for (const path of ENROLLMENT_PATHS) {
       expect(
         readEnrollmentCode(path),
@@ -166,8 +268,22 @@ describe('enrollment answers no permission question of its own', () => {
     }
   });
 
-  it('scanned every file it claims to', () => {
-    expect(ENROLLMENT_PATHS.length).toBeGreaterThanOrEqual(MINIMUM_SCANNED_FILES);
+  it('reads store MEMBERSHIP in exactly one module, for a stated reason', () => {
+    const readers = ENROLLMENT_PATHS.filter((path) => MEMBERSHIP_READ.test(readEnrollmentCode(path)));
+    // EXACT, never a floor: a second module reading membership is a decision
+    // somebody takes rather than one that quietly joins an excused set. And
+    // asserting the reader is still HERE is what stops the exemption going
+    // stale — a `toEqual([])` would pass just as well if #144's check were
+    // deleted, and the separation being tested would be from nothing.
+    expect(
+      readers,
+      'store membership is read outside the self-referral check; wall 1 permits a membership ' +
+        'FACT only where #144 needs one, and nowhere else',
+    ).toEqual([MEMBERSHIP_READER]);
+  });
+
+  it('scans a floor of modules per SHAPE, so a walk that collapsed cannot pass', () => {
+    assertReferralDomainIsWhole();
     for (const path of ENROLLMENT_PATHS) expect(readEnrollmentSource(path).length).toBeGreaterThan(200);
   });
 
@@ -201,9 +317,14 @@ describe('enrollment grants nothing and reaches no money', () => {
     // nobody wrote down.
     expect(Object.keys(GRANT_DETECTORS).sort()).toEqual([...REFERRAL_ENROLLMENT_FORBIDDEN_GRANTS].sort());
 
+    assertReferralDomainIsWhole();
     for (const path of ENROLLMENT_PATHS) {
       const code = readEnrollmentCode(path);
       for (const [grant, detector] of Object.entries(GRANT_DETECTORS)) {
+        // The one narrowing, and it is a module rather than a pattern: see
+        // {@link MERCHANT_CLAIM_READER}. Every other grant detector still runs
+        // over it, which is the point of excusing the pair rather than the file.
+        if (grant === 'merchant_claim' && path === MERCHANT_CLAIM_READER) continue;
         expect(code, `${path} performs a ${grant} grant, which enrollment may not`).not.toMatch(
           detector,
         );
@@ -211,8 +332,34 @@ describe('enrollment grants nothing and reaches no money', () => {
     }
   });
 
+  /**
+   * The probe that makes the merchant-claim exemption safe rather than merely
+   * justified: the excused module must STILL be the reader it was excused for,
+   * and it must still be the ONLY one.
+   */
+  it('the merchant-claim exemption covers exactly one module, and it still reads', () => {
+    const readers = ENROLLMENT_PATHS.filter((path) =>
+      GRANT_DETECTORS['merchant_claim']?.test(readEnrollmentCode(path)),
+    );
+    expect(
+      readers,
+      'the merchant-claim exemption no longer matches — either the binding stopped reading ' +
+        'claims, or a second module started',
+    ).toEqual([MERCHANT_CLAIM_READER]);
+    // And it is a READ: the repository's write entry points must not appear.
+    expect(
+      readEnrollmentCode(MERCHANT_CLAIM_READER),
+      'the binding now WRITES a merchant claim, which is the grant wall 2 forbids',
+    ).not.toMatch(/insertMerchantClaim|updateMerchantClaim|verifyMerchantClaim|setClaimState/);
+  });
+
   it('names no payment rail or ledger, except through the published readiness port', () => {
+    assertReferralDomainIsWhole();
     for (const path of ENROLLMENT_PATHS) {
+      // #145's earnings modules post a partner's commission to the ledger by
+      // design — real money Mercaria owes. Excused as a DIRECTORY so a fourth
+      // one does not arrive outside a wall, and counted exactly below.
+      if (path.startsWith(LEDGER_POSTING_DIRECTORY)) continue;
       const code = readEnrollmentCode(path);
       // The ONE exemption, and it is narrow: the readiness PORT is a contract
       // the `services/referral-payouts/` join registers into, so reading it is
@@ -223,7 +370,29 @@ describe('enrollment grants nothing and reaches no money', () => {
     }
   });
 
+  it('the earnings exemption excuses exactly the modules that really post', () => {
+    const excused = ENROLLMENT_PATHS.filter(
+      (path) => path.startsWith(LEDGER_POSTING_DIRECTORY) && PAYMENT_REFERENCE.test(readEnrollmentCode(path)),
+    );
+    expect(
+      excused.sort(),
+      'the ledger-posting exemption no longer matches — a module that stopped posting is ' +
+        'still being excused, or a fourth one started',
+    ).toEqual([
+      'services/referrals/earnings/accounts.ts',
+      'services/referrals/earnings/ledger-postings.ts',
+      'services/referrals/earnings/posting.service.ts',
+    ]);
+    const inDirectory = ENROLLMENT_PATHS.filter((path) => path.startsWith(LEDGER_POSTING_DIRECTORY));
+    expect(inDirectory.length, 'the earnings walk found nothing').toBeGreaterThanOrEqual(11);
+    expect(
+      inDirectory.length,
+      'every module of `earnings/` now posts — the exemption has become a blanket one',
+    ).toBeGreaterThan(excused.length);
+  });
+
   it('names no ranking module or policy', () => {
+    assertReferralDomainIsWhole();
     for (const path of ENROLLMENT_PATHS) {
       expect(readEnrollmentCode(path), `${path} reaches ranking`).not.toMatch(RANKING_REFERENCE);
     }
@@ -232,6 +401,10 @@ describe('enrollment grants nothing and reaches no money', () => {
 
 describe('nothing fetches what an applicant typed', () => {
   it('makes no outbound call anywhere in the domain', () => {
+    // The test NAME says "anywhere in the domain"; until #460 the body scanned
+    // fifteen files of ninety-four, so the sentence was the claim and the list
+    // was the measurement. It really is the whole domain now.
+    assertReferralDomainIsWhole();
     for (const path of ENROLLMENT_PATHS) {
       expect(
         readEnrollmentCode(path),
@@ -245,9 +418,17 @@ describe('nothing fetches what an applicant typed', () => {
    * fetching — so the gate must not forbid it, and this pins that the parsing
    * is where it belongs rather than spread across the domain.
    */
-  it('parses URLs in exactly one module', () => {
+  it('parses URLs in exactly one module, and composes one in exactly one other', () => {
     const parsers = ENROLLMENT_PATHS.filter((path) => /new URL\s*\(/.test(readEnrollmentCode(path)));
-    expect(parsers).toEqual(['services/referrals/application-answers.ts']);
+    // Two over the whole domain, and they do opposite things:
+    // `application-answers.ts` PARSES an applicant's promotion URL to normalize
+    // it, and `redirect.service.ts` COMPOSES the outbound destination behind an
+    // origin check — which is `referral-attribution-isolation.test.ts`'s wall,
+    // pinned there from the other side. EXACT, so a third is a decision.
+    expect(parsers.sort()).toEqual([
+      'services/referrals/application-answers.ts',
+      'services/referrals/redirect.service.ts',
+    ]);
   });
 });
 
@@ -424,6 +605,15 @@ describe('each detector actually detects (mutation self-test)', () => {
     expect("import { rankOffers } from '../ranking/score.js';").toMatch(RANKING_REFERENCE);
     expect('const head = await fetch(application.promotionUrls[0]);').toMatch(OUTBOUND_FETCH);
     expect('const res = await safeFetch(url);').toMatch(OUTBOUND_FETCH);
+    // Every spelling the narrowed client pattern must still catch. A pattern
+    // narrowed to fix a false positive is exactly where the fix silently
+    // becomes a hole, so each is pinned rather than argued.
+    expect("import axios from 'axios';").toMatch(OUTBOUND_FETCH);
+    expect('const res = await axios.get(url);').toMatch(OUTBOUND_FETCH);
+    expect("const got = require('got');").toMatch(OUTBOUND_FETCH);
+    expect("import { request } from 'undici';").toMatch(OUTBOUND_FETCH);
+    expect("import fetch from 'node-fetch';").toMatch(OUTBOUND_FETCH);
+    expect("import { get } from 'node:https';").toMatch(OUTBOUND_FETCH);
     expect('reviewerNote: review.reviewerNote,').toMatch(REVIEWER_NOTE_LEAK);
   });
 
@@ -440,6 +630,20 @@ describe('each detector actually detects (mutation self-test)', () => {
     }
     // Parsing a URL is the opposite of fetching one.
     expect('const parsed = new URL(trimmed);').not.toMatch(OUTBOUND_FETCH);
+    // The real false positive that widening this wall to the whole domain
+    // produced: `traffic.ts` carries a bot USER-AGENT list, so the module whose
+    // job is to detect crawlers read as one. Pinned in both directions, on the
+    // literal entries, so a later re-widening of the pattern breaks here rather
+    // than in whoever hits it next and deletes the wall.
+    expect("const BOT_AGENTS = ['wget/', 'okhttp', 'axios/', 'node-fetch'];").not.toMatch(
+      OUTBOUND_FETCH,
+    );
+    expect("if (agent.includes('undici')) return 'bot';").not.toMatch(OUTBOUND_FETCH);
+    // …and the membership split: deriving a permission is forbidden, reading a
+    // membership row is a fact #144 needs, so the two must not be one detector.
+    expect('const held = effectivePermissions(membership);').not.toMatch(MEMBERSHIP_READ);
+    expect('.from(storeMembers)').toMatch(MEMBERSHIP_READ);
+    expect('.from(storeMembers)').not.toMatch(PERMISSION_DERIVATION);
     // The readiness port is the exempted seam, and stripping it must not strip
     // a real payment import beside it.
     expect(
