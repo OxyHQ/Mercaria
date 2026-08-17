@@ -731,3 +731,4 @@ export * from './authoring-schema';
 // are how "a merchant proposal never becomes globally trusted data by being
 // submitted" is a shape rather than a rule somebody remembers.
 export * from './catalog-proposal';
+export * from './catalog-backfill';
