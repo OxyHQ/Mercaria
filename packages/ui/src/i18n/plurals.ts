@@ -237,7 +237,12 @@ type Pluralizer = (i18n: unknown, count: number) => string[];
  *     returns the OS's raw value, so `i18n.locale` is routinely `es-MX` or
  *     `ru-RU`, and neither is a key any registration could enumerate.
  *
- * Both go through `pluralRuleLocaleFor`, so they cannot disagree.
+ * They resolve their locale differently — the first is exact by construction,
+ * the second runs `pluralRuleLocaleFor` at call time — and they cannot disagree
+ * because both then answer from `pluralCategoryChain`. The one case they are
+ * NOT identical on is a caller passing an explicit `options.locale` that
+ * differs from `i18n.locale`; `useTranslation` never does, since it sends the
+ * store's locale and `apply()` writes that same value onto the instance.
  */
 export function registerPluralizers(
   i18n: { locale: string; pluralization: { register: (locale: string, fn: Pluralizer) => void } },
