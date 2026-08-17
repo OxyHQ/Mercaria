@@ -64,12 +64,23 @@ or `attribute_definitions` would land green.** The walls that exist
 `catalog-proposal-isolation.test.ts:157`) are scoped to their own directories, so
 they defend the modules that exist and not a module somebody adds elsewhere.
 
-The operator mounts themselves are gated and the gate is tested in both
-directions: `routes/__tests__/catalog-rollout.realdb.test.ts:398` asserts each of
-the **nine** `/internal/*` catalog routers is still MOUNTED with every rollout
-lever off, `:408` asserts each answers **404 when `CATALOG_OPERATOR_OXY_USER_IDS`
-is empty**, and `:421` pins the router count at nine — the vacuity floor, so the
-loop above it cannot shrink to nothing and stay green.
+The operator mounts themselves are gated, and the gate is tested in both
+directions: `routes/__tests__/catalog-rollout.realdb.test.ts:398` asserts each
+listed `/internal/*` catalog router is still MOUNTED with every rollout lever
+off, and `:408` asserts each answers **404 when
+`CATALOG_OPERATOR_OXY_USER_IDS` is empty**.
+
+**Read that test's coverage before relying on it.** Its `INTERNAL` list
+(`:281`) names **nine** surfaces and `:421` pins the length at nine, calling it
+the vacuity floor. There are **26** `app.use` mounts inside a
+`config.catalog.graphOperatorSurfaceEnabled` block in `app.ts` — the count is
+`app.ts:286, 471, 519, 644, 724, 745, 749, 754, 755, 760, 765, 772, 782, 796,
+810, 819, 823, 833, 844, 854, 865, 876, 886, 992, 1008, 1014`. So seventeen
+surfaces are unasserted, and the floor cannot notice: it is computed from the
+same hand list it guards, so deleting an entry leaves that surface unscanned and
+the assertion still true. The number nine is also repeated as fact in ADR 0007
+D12 (`:551`), `catalog-migration-operations.md` and
+`runbooks/catalog-rollout-rollback.md`.
 
 One gate-scope note worth carrying: a wall that scans for `.insert(`/`.update(`
 against a table cannot see a repository CALL.
@@ -109,17 +120,26 @@ plain-text file, not applied, with each block wrapped in
 the paste into the generated `.sql` is mechanical rather than remembered.
 
 **The two-copies rule (`CONVENTIONS.md:669`): the staging file is DELETED in the
-same commit that applies it.** A surviving `.pending.sql` therefore means its DDL
-is *not in the database*, which is a fact about production and not a tidiness
-issue.
+same commit that applies it** — "a second copy that nothing applies is one
+somebody edits to no effect".
 
-One survives today:
-`packages/backend/src/db/schema/catalogExternalMappings.pending.sql` — five
-trigger functions and seven triggers for the external-mapping domain, additive,
-waiting for a slot. Read it as unenforced until it is gone.
+One survives today and it is a **stale artefact, not a pending change**:
+`packages/backend/src/db/schema/catalogExternalMappings.pending.sql`. Its own
+header says `NOT APPLIED` at `:4`, and that sentence is false — all five trigger
+functions and all seven triggers landed in
+`packages/backend/drizzle/0094_dizzy_makkari.sql`, journal idx 94, verified name
+by name. Its three siblings (`catalogLocalization`, `catalogProposals`,
+`variantAxes`) were deleted per the rule; this one was not, and
+`services/catalog-external-mappings/__tests__/external-mapping-schema.test.ts:40`
+reads the surviving file and repeats "the unapplied hand-written SQL" — so the
+test keeps the stale copy alive rather than catching it.
 
-`packages/backend/src/db/__tests__/migration-handwritten-markers.test.ts` is the
-gate over the marker discipline.
+**No gate flags a surviving `.pending.sql`**, which is why this one has outlived
+the migration it was staging.
+`packages/backend/src/db/__tests__/migration-handwritten-markers.test.ts:565` is
+the gate over the marker discipline — exactly one deploy-phase marker per file,
+read by the same `readMigrationPhases` the migrator uses, with a vacuity floor at
+`:570` — and it says nothing about staging files.
 
 ### Exactly one deploy-phase marker per file
 
@@ -127,6 +147,18 @@ gate over the marker discipline.
 narrowings, and **every `post` statement must break a write the previous image
 performs.** There is no default. A two-phase change is two generated files, never
 one split by hand.
+
+The epic has **thirteen** migrations — `0088`, `0089`, `0090`, `0091`, `0093`,
+`0094`, `0097`, `0098`, `0100`, `0102`, `0103`, `0104`, `0105` — and **twelve of
+them are `pre`.** `0104_axis_assignment_cites_a_resolved_claim.sql` is `post`,
+correctly: it `CREATE OR REPLACE`s `mercaria_native_variant_axis_assignment_scope`
+to add a refusal that breaks a write the previous image performs. Several docs
+say "ten files, every one `pre`"; that was true of an earlier state and is not
+true now. It matters for one reason and it is worth stating: **`0104` is behind
+no lever** — the variant-axes domain reads no configuration at all — so "turn
+every flag off" does not reverse it. The blast radius is bounded, because the
+narrowed write path is an operator backfill script
+(`src/scripts/backfill-variant-axes.ts:92`) rather than a request path.
 
 ### After a rebase, re-derive every count
 
@@ -167,6 +199,15 @@ Four levers, each gating a MOUNT and none gating a stored row:
 `catalog-rollout.realdb.test.ts:309` pins the withdrawal at **exactly five
 mounts and nothing else**, which is the assertion to read rather than the count
 of levers: `CATALOG_AUTHORING_ENABLED` gates two.
+
+ADR 0007 D12 says each lever "is read in exactly one place — the `app.use` that
+mounts its router". Measured over the config PROPERTY rather than the env string,
+there are **six** non-test reads: four mounts, plus
+`services/catalog-observability/metrics.service.ts:745` and `:746`, which decide
+whether a metric reports `surface_not_mounted`. D12's substantive claim survives
+— no repository, outbox enqueue, loop or checkout path reads a lever — but the
+count in it does not, and `runbooks/catalog-rollout-rollback.md:109` already
+states the correct six.
 
 Three levers ADR 0007 D12 originally named do not exist — `PRODUCT_TYPES_ENABLED`
 (deliberately not built), `CATALOG_LOCALIZATION_ENABLED` (unnecessary while
