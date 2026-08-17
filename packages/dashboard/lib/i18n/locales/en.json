@@ -1152,6 +1152,7 @@
         "inventoryNegative": "Stock cannot be negative.",
         "titleMissing": "The listing needs a title.",
         "descriptionMissing": "The listing needs a description.",
+        "conditionMissing": "Say what condition this item is in.",
         "proposalPending": "A proposed value is still waiting, and this product type blocks publishing until it is decided.",
         "draftNotOpen": "This draft is no longer open."
       }

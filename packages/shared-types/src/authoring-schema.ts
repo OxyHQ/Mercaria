@@ -109,6 +109,18 @@ export type AuthoringStepKind =
   | 'variants'
   /** Title, description, images — `listings`' own columns. */
   | 'listing'
+  /**
+   * What the GOODS are like — #90's nine-key taxonomy, per listing (#572).
+   *
+   * Its own step and emphatically NOT a product-type field: `condition` and
+   * `item_condition` are both in {@link AUTHORING_FORBIDDEN_FIELD_KEYS} and
+   * #94's `attribute_definitions_reserved_key_check` refuses to define either,
+   * because a condition is a fact about one seller's copy rather than about the
+   * product. So the only way an authoring surface can ask the question at all is
+   * a composed step pointing at the condition domain, exactly as `offer` points
+   * at money and `inventory` at stock.
+   */
+  | 'condition'
   /** Price and compare-at price — the catalogue's NATIVE-currency money. */
   | 'offer'
   /** Stock, per location. `inventory_levels`' domain. */
@@ -121,6 +133,7 @@ export const AUTHORING_STEP_KINDS: readonly AuthoringStepKind[] = [
   'product_fields',
   'variants',
   'listing',
+  'condition',
   'offer',
   'inventory',
   'canonical_link',
@@ -626,6 +639,18 @@ export type AuthoringValidationCode =
   // Listing
   | 'title_missing'
   | 'description_missing'
+  /**
+   * The flow requires a stated condition and the draft has none (#572).
+   *
+   * Only the flows in `CONDITION_REQUIRED_AUTHORING_FLOWS` raise it — `p2p`
+   * today. Everywhere else an unstated condition is filled from
+   * `AUTHORING_DEFAULT_MERCHANT_CONDITION`, openly, and publishes.
+   *
+   * It is an ERROR rather than a warning because the alternative is not a gap in
+   * a form: it is `new` / `seller_declared` written onto the listing in the
+   * seller's own name, about goods nobody described.
+   */
+  | 'condition_missing'
   // Publication
   | 'proposal_pending_blocks_publication'
   | 'draft_not_open';
@@ -664,6 +689,7 @@ export const AUTHORING_VALIDATION_CODES: readonly AuthoringValidationCode[] = [
   'inventory_negative',
   'title_missing',
   'description_missing',
+  'condition_missing',
   'proposal_pending_blocks_publication',
   'draft_not_open',
 ];

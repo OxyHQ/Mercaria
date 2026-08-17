@@ -1152,6 +1152,7 @@
         "inventoryNegative": "库存不能为负数。",
         "titleMissing": "商品需要一个标题。",
         "descriptionMissing": "商品需要一段描述。",
+        "conditionMissing": "请说明该商品的成色。",
         "proposalPending": "有一个提议的值仍在等待处理，此商品类型在决定之前会阻止发布。",
         "draftNotOpen": "此草稿已不再处于打开状态。"
       }

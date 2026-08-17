@@ -1152,6 +1152,7 @@
         "inventoryNegative": "L'estoc no pot ser negatiu.",
         "titleMissing": "L'anunci necessita un títol.",
         "descriptionMissing": "L'anunci necessita una descripció.",
+        "conditionMissing": "Indica en quin estat està aquest article.",
         "proposalPending": "Hi ha un valor proposat pendent i aquest tipus de producte bloqueja la publicació fins que es decideixi.",
         "draftNotOpen": "Aquest esborrany ja no està obert."
       }

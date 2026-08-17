@@ -1152,6 +1152,7 @@
         "inventoryNegative": "El stock no puede ser negativo.",
         "titleMissing": "El anuncio necesita un título.",
         "descriptionMissing": "El anuncio necesita una descripción.",
+        "conditionMissing": "Indica en qué estado está este artículo.",
         "proposalPending": "Hay un valor propuesto pendiente y este tipo de producto bloquea la publicación hasta que se decida.",
         "draftNotOpen": "Este borrador ya no está abierto."
       }

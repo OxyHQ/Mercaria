@@ -40,6 +40,8 @@ import {
   type AuthoringValidationFinding,
   type AuthoringValidationResult,
   type AuthoringValidationSeverity,
+  type ItemConditionKey,
+  type ProductTypeAuthoringFlow,
   type ProductTypeRuleFieldValue,
   type ProductTypeRuleValues,
 } from '@mercaria/shared-types';
@@ -48,6 +50,7 @@ import {
   evaluateVisibilityRule,
 } from '../product-types/visibility-rule.js';
 import { resolveUnit, unitFamilyOf } from '../canonical/units.js';
+import { CONDITION_REQUIRED_AUTHORING_FLOWS } from '../../db/schema/catalogAuthoring.js';
 
 /** One answer, as validation sees it. Deliberately the storage shape. */
 export interface DraftValueForValidation {
@@ -85,6 +88,18 @@ export interface DraftValidationInput {
   readonly status: 'open' | 'published' | 'discarded';
   readonly title: string | null;
   readonly description: string | null;
+  /**
+   * The DRAFT's own flow, which is what decides whether a condition is demanded.
+   *
+   * Read from the draft rather than from `schema.flow` even though the two agree
+   * today: the schema is COMPOSED per request and a composition takes a flow as
+   * an argument, so reading the answer to "must this draft state a condition"
+   * off the composition would make it a property of how somebody asked rather
+   * than of what they are selling.
+   */
+  readonly flow: ProductTypeAuthoringFlow;
+  /** #90's key, or `null` when the author has not said (#572). */
+  readonly itemConditionKey: ItemConditionKey | null;
   readonly variants: readonly DraftVariantForValidation[];
   readonly values: readonly DraftValueForValidation[];
   /** Whether the pinned category is still selectable and in the version's scope. */
@@ -250,6 +265,17 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
   }
   if (input.description === null || input.description.trim().length === 0) {
     findings.push(finding('description_missing', 'error', 'listing.description'));
+  }
+  if (
+    input.itemConditionKey === null &&
+    CONDITION_REQUIRED_AUTHORING_FLOWS.includes(input.flow)
+  ) {
+    // #572. An ERROR, and the alternative is not a blank field on a form: it is
+    // `new` / `seller_declared` written onto the listing in the SELLER's own
+    // name, about goods nobody described. Only the flows in the tuple raise it —
+    // everywhere else an unstated condition is filled from
+    // `AUTHORING_DEFAULT_MERCHANT_CONDITION`, openly, at publication.
+    findings.push(finding('condition_missing', 'error', 'condition.itemCondition'));
   }
 
   const fieldsById = new Map(input.schema.fields.map((field) => [field.id, field]));

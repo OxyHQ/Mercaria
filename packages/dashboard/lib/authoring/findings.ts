@@ -188,6 +188,7 @@ const MESSAGE_KEYS: Record<AuthoringValidationCode, string> = {
   inventory_negative: "products.wizard.finding.inventoryNegative",
   title_missing: "products.wizard.finding.titleMissing",
   description_missing: "products.wizard.finding.descriptionMissing",
+  condition_missing: "products.wizard.finding.conditionMissing",
   proposal_pending_blocks_publication: "products.wizard.finding.proposalPending",
   draft_not_open: "products.wizard.finding.draftNotOpen",
 };

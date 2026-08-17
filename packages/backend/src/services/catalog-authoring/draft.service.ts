@@ -401,6 +401,11 @@ export async function validateDraftRow(
     status: row.status,
     title: row.title,
     description: row.description,
+    // The DRAFT's flow, not `schema.flow`: a composition takes a flow as an
+    // argument, so reading it off the composition would make "must this state a
+    // condition" a property of how somebody asked (#572).
+    flow: row.flow,
+    itemConditionKey: row.itemConditionKey,
     categorySelectable: category?.selectable ?? false,
     categoryInScope: inScope,
     variants: variants.map((variant) => ({
