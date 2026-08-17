@@ -60,6 +60,8 @@ import {
   orphanQuerySchema,
   planChangeSchema,
   restoreSnapshotSchema,
+  compatibilityClaimQueueQuerySchema,
+  promoteCompatibilityClaimSchema,
   reviewCompatibilityClaimSchema,
   reviewExternalMappingSchema,
   reviewLocalizationSchema,
@@ -87,6 +89,8 @@ import {
   queuesHandler,
   rejectChangeHandler,
   restoreSnapshotHandler,
+  compatibilityClaimQueueHandler,
+  promoteCompatibilityClaimHandler,
   reviewCompatibilityClaimHandler,
   reviewExternalMappingHandler,
   reviewLocalizationHandler,
@@ -235,12 +239,40 @@ router.post(
   reviewExternalMappingHandler,
 );
 
-/** POST — review one compatibility claim. */
+/**
+ * GET — the unresolved compatibility-claim queue.
+ *
+ * Declared BEFORE the two `:claimId` routes below. Not load-bearing for routing
+ * (a literal `/reviews/compatibility-claims` cannot be captured by a sibling
+ * whose path has one more segment), and written this way round because the read
+ * an operator reaches for first should read first.
+ */
+router.get(
+  '/reviews/compatibility-claims',
+  validateQuery(compatibilityClaimQueueQuerySchema),
+  compatibilityClaimQueueHandler,
+);
+
+/** POST — review one compatibility claim. Publishes nothing. */
 router.post(
   '/reviews/compatibility-claims/:claimId',
   validateId('claimId'),
   validateBody(reviewCompatibilityClaimSchema),
   reviewCompatibilityClaimHandler,
+);
+
+/**
+ * POST — promote one claim to a canonical fitment.
+ *
+ * A different act from the review above and a different role (`publish`, not
+ * `review`), because this one creates the row a shopper acts on. The vehicle is
+ * required in the body; nothing here derives it.
+ */
+router.post(
+  '/reviews/compatibility-claims/:claimId/fitment',
+  validateId('claimId'),
+  validateBody(promoteCompatibilityClaimSchema),
+  promoteCompatibilityClaimHandler,
 );
 
 export default router;

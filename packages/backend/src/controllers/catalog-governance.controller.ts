@@ -48,6 +48,12 @@ import {
 } from '../services/catalog-governance/queue.service.js';
 import { readCatalogQuality } from '../services/catalog-governance/quality.service.js';
 import {
+  promoteCompatibilityClaimToFitment,
+  readCompatibilityClaimQueue,
+  type CompatibilityClaimQueueQuery,
+  type PromoteCompatibilityClaimInput,
+} from '../services/catalog-governance/compatibility-claim.service.js';
+import {
   exportDefinitions,
   readSnapshotDocument,
   readSnapshots,
@@ -457,5 +463,53 @@ export async function reviewCompatibilityClaimHandler(req: Request, res: Respons
     sendSuccess(res, { reviewed: true });
   } catch (error) {
     respondWithError(res, error, 'Failed to review the compatibility claim');
+  }
+}
+
+/**
+ * GET /internal/catalog-governance/reviews/compatibility-claims
+ *
+ * The queue the `unresolved_compatibility_claim` count on `GET /queues` was
+ * counting. Before this, that number was the only thing an operator could learn
+ * about the backlog — there was no read that said WHICH claims.
+ */
+export async function compatibilityClaimQueueHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const query = req.query as unknown as CompatibilityClaimQueueQuery;
+    sendSuccess(
+      res,
+      await readCompatibilityClaimQueue(getDb(), await actorFor(req), {
+        ...(query.sourceId === undefined ? {} : { sourceId: query.sourceId }),
+        ...(query.limit === undefined ? {} : { limit: query.limit }),
+      }),
+    );
+  } catch (error) {
+    respondWithError(res, error, 'Failed to read the compatibility claim queue');
+  }
+}
+
+/**
+ * POST /internal/catalog-governance/reviews/compatibility-claims/:claimId/fitment
+ *
+ * The vehicle arrives from the OPERATOR, in full, or the request is refused. This
+ * handler resolves no candidate and reads no raw text — see
+ * `compatibility-claim.service.ts`'s header for the four mechanisms that keep it
+ * that way.
+ */
+export async function promoteCompatibilityClaimHandler(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const body = req.body as Omit<PromoteCompatibilityClaimInput, 'claimId'>;
+    const fitment = await promoteCompatibilityClaimToFitment(getDb(), await actorFor(req), {
+      ...body,
+      claimId: routeParam(req, 'claimId'),
+    });
+    // The fitment id, so the operator can read the row they just published — and
+    // nothing else off it. The full fitment is a public projection's job.
+    sendSuccess(res, { promoted: true, fitmentId: fitment.id });
+  } catch (error) {
+    respondWithError(res, error, 'Failed to promote the compatibility claim');
   }
 }

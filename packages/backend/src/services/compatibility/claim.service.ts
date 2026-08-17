@@ -32,6 +32,7 @@ import type {
   CompatibilitySubject,
   CompatibilityUnresolvedReason,
 } from '@mercaria/shared-types';
+import type { DatabaseOrTransaction } from '../../db/postgres.js';
 import { getDb } from '../../db/postgres.js';
 import {
   findClaimById,
@@ -134,17 +135,39 @@ export async function promoteClaimToFitment(
   fitment: InsertAutomotiveFitment,
   now: Date = new Date(),
 ): Promise<AutomotiveFitmentRow> {
-  return getDb().transaction(async (tx) => {
-    const claim = await findClaimById(claimId, tx);
-    assertClaimMatchesSubject(
-      claim,
-      fitment.subjectProductId ?? null,
-      fitment.subjectVariantId ?? null,
-    );
-    const opened = await openAutomotiveFitment(fitment, tx);
-    await selectClaim(tx, claimId, { fitmentId: opened.id }, now);
-    return opened;
-  });
+  return getDb().transaction(async (tx) => promoteClaimToFitmentWithin(tx, claimId, fitment, now));
+}
+
+/**
+ * The same promotion, inside a transaction the CALLER owns.
+ *
+ * Split out because the operator surface has a third write to make in the same
+ * breath: `/internal/catalog-governance` audits every act it performs, and an
+ * audit row that commits separately from the fitment it describes is one a
+ * restart can lose — leaving a published fit with no record of who published it,
+ * which is the one question an incident asks about a wrong fitment. The two-write
+ * reasoning in {@link promoteClaimToRelation}'s header is the same reasoning; this
+ * is it with the boundary moved out one level.
+ *
+ * `promoteClaimToFitment` above is the standalone spelling and delegates here, so
+ * there is one body and not two — the `createStoreProduct`/`createStoreProductWithin`
+ * pattern.
+ */
+export async function promoteClaimToFitmentWithin(
+  tx: DatabaseOrTransaction,
+  claimId: string,
+  fitment: InsertAutomotiveFitment,
+  now: Date = new Date(),
+): Promise<AutomotiveFitmentRow> {
+  const claim = await findClaimById(claimId, tx);
+  assertClaimMatchesSubject(
+    claim,
+    fitment.subjectProductId ?? null,
+    fitment.subjectVariantId ?? null,
+  );
+  const opened = await openAutomotiveFitment(fitment, tx);
+  await selectClaim(tx, claimId, { fitmentId: opened.id }, now);
+  return opened;
 }
 
 /**

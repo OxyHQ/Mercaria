@@ -1,0 +1,29 @@
+-- oxy:deploy-phase=pre
+--
+-- Widen `catalog_governance_audit_events_action_check` by ONE value:
+-- `compatibility_claim_promote` (#367 Workstream 14).
+--
+-- The value is a new member of `CATALOG_GOVERNANCE_REVIEW_ACTIONS`, which flows
+-- into the DERIVED `CATALOG_GOVERNANCE_AUDIT_ACTIONS` union this CHECK is
+-- rendered from. It is the action the operator claim-promotion surface audits —
+-- deliberately NOT `compatibility_claim_review`, because a promotion CREATES the
+-- fitment a shopper acts on and a review publishes nothing, so one trail value
+-- for both could not answer "who decided this car".
+--
+-- `pre`, by the standard test: adding a PERMITTED value to a CHECK constrains
+-- nothing the previous image writes. The serving image never emits
+-- `compatibility_claim_promote`, so this statement breaks no write it performs.
+-- The reverse — landing the code without this migration — is what fails, with
+-- 23514 on the first promotion and a green build.
+--
+-- Verified a strict SUPERSET rather than assumed: the live constraint carried 37
+-- values, this one carries 38, the added set is exactly
+-- {compatibility_claim_promote} and the removed set is empty. The DROP/ADD pair
+-- is how drizzle-kit expresses every CHECK change and is not a narrowing here —
+-- which is worth stating because a stale `shared-types/dist` makes the same
+-- pair narrow a sibling's tuple back, in a diff that looks just like this one.
+--
+-- `catalog_governance_change_requests_action_check` is untouched: it renders from
+-- `CATALOG_GOVERNANCE_ACTIONS` alone, and this is a REVIEW action.
+ALTER TABLE "catalog_governance_audit_events" DROP CONSTRAINT "catalog_governance_audit_events_action_check";--> statement-breakpoint
+ALTER TABLE "catalog_governance_audit_events" ADD CONSTRAINT "catalog_governance_audit_events_action_check" CHECK ("catalog_governance_audit_events"."action" in ('taxonomy_rename', 'taxonomy_move', 'taxonomy_merge', 'taxonomy_redirect', 'taxonomy_publish', 'taxonomy_deprecate', 'taxonomy_suppress', 'taxonomy_restore', 'product_type_publish', 'product_type_deprecate', 'attribute_publish', 'attribute_deprecate', 'attribute_retire', 'navigation_publish', 'navigation_archive', 'definition_snapshot_restore', 'vertical_package_apply', 'localization_review', 'external_mapping_approve', 'external_mapping_reject', 'external_mapping_fan_out_approve', 'compatibility_claim_review', 'compatibility_claim_promote', 'proposal_approve', 'proposal_merge', 'proposal_reject', 'proposal_request_information', 'proposal_defer', 'proposal_redirect', 'change_requested', 'change_approved', 'change_applied', 'change_rejected', 'change_withdrawn', 'change_failed', 'role_granted', 'role_revoked', 'snapshot_exported'));

@@ -540,6 +540,28 @@ export const COMPATIBILITY_CLAIM_STATES: readonly CompatibilityClaimState[] = [
 ];
 
 /**
+ * The subset a REVIEW may set. Deliberately not all six.
+ *
+ * `selected` and `superseded` are written only by a PROMOTION, as part of
+ * creating the canonical row — a review able to set `selected` would mark a claim
+ * as chosen with nothing having chosen it, and the partial unique
+ * `compatibility_claims_selected_fitment_key` would then refuse the real
+ * promotion when it came.
+ *
+ * It lives here rather than in the service that enforces it because the request
+ * SCHEMA and the service were two spellings of one rule: the schema accepted all
+ * six and the service refused two of them at runtime, so a caller learned the
+ * boundary from a 400 that named a state rather than from the validator. One
+ * tuple, read by both.
+ */
+export const COMPATIBILITY_REVIEWABLE_CLAIM_STATES: readonly CompatibilityClaimState[] = [
+  'unresolved',
+  'corroborating',
+  'conflicting',
+  'rejected',
+];
+
+/**
  * Why a claim could not be resolved to a target.
  *
  * A closed vocabulary because the counts are what tell an operator whether a

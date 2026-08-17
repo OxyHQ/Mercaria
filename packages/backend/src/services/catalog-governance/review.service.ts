@@ -36,6 +36,7 @@
  * translation, not a claim about where the translation came from.
  */
 
+import { COMPATIBILITY_REVIEWABLE_CLAIM_STATES } from '@mercaria/shared-types';
 import type {
   CatalogGovernanceReviewAction,
   CompatibilityClaimState,
@@ -229,21 +230,6 @@ export interface ReviewCompatibilityClaimInput {
   readonly reason: string;
 }
 
-/**
- * States a review may set on a compatibility claim.
- *
- * `selected` and `superseded` are excluded: both are written by
- * `promoteClaimToRelation`/`promoteClaimToFitment` as part of creating the
- * canonical row, and a review surface able to set `selected` without one would
- * mark a claim as chosen with nothing having chosen it — the partial unique
- * would then refuse the real promotion.
- */
-const REVIEWABLE_CLAIM_STATES: readonly CompatibilityClaimState[] = [
-  'corroborating',
-  'conflicting',
-  'rejected',
-  'unresolved',
-];
 
 /**
  * Review one compatibility claim.
@@ -259,9 +245,9 @@ export async function reviewCompatibilityClaim(
 ): Promise<void> {
   requireGovernanceRole(actor, roleForAction('compatibility_claim_review'));
 
-  if (!REVIEWABLE_CLAIM_STATES.includes(input.state)) {
+  if (!COMPATIBILITY_REVIEWABLE_CLAIM_STATES.includes(input.state)) {
     throw validationError(
-      `A review may set ${REVIEWABLE_CLAIM_STATES.join(', ')}. "${input.state}" is written by promoting the claim to a canonical relation, not by reviewing it.`,
+      `A review may set ${COMPATIBILITY_REVIEWABLE_CLAIM_STATES.join(', ')}. "${input.state}" is written by promoting the claim to a canonical relation, not by reviewing it.`,
     );
   }
 

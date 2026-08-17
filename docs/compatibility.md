@@ -452,9 +452,27 @@ runner.
   vehicle record and a typed target.
 - **Ranking (#74).** A scanned gate keeps this domain out of it: "fits your
   vehicle" is an eligibility fact a shopper asked for, not a weight.
-- **The OPERATOR surface.** Still absent. A trace by relation id, a verification
-  and a revocation belong on the `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
-  #54/#55/#56 use, not a seventh list.
+- **The OPERATOR surface.** PARTLY built (#367 Workstream 14), and the part that
+  exists is the claim queue: `GET /internal/catalog-governance/reviews/compatibility-claims`
+  lists the unresolved claims the `unresolved_compatibility_claim` count was only
+  counting, and `POST .../:claimId/fitment` promotes one — the vehicle named in
+  full by the operator, audited with a mandatory reason, opening a fitment that
+  records `operator_review` so the row says a person decided. It is on the
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56 use and NOT a seventh
+  list, and it sits on the governance router beside the review route that was
+  already there rather than in an `internal-compatibility.ts` of its own.
+
+  **An ambiguous fitment is never resolved to the likeliest vehicle**, and that
+  is four mechanisms rather than a rule: the vehicle is required input at every
+  rung the scope demands, the promotion never reads `raw_target_text`,
+  `COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS` names ten shapes a
+  convenience would arrive under and is scanned over BOTH this domain and the
+  governance one, and `assertClaimMatchesSubject` refuses a cross-subject
+  promotion. See `services/catalog-governance/compatibility-claim.service.ts`.
+
+  Still absent: a trace by RELATION id, a verification and a revocation, and
+  `promoteClaimToRelation` — the generic half — which remains callerless. The
+  automotive half is what Workstream 14's box asked for.
 - **A vehicle picker's own reference-data import.** `upsertVehicleMake` and its
   three siblings key on the stable machine key and are ready for one; no adapter
   is registered, so nothing populates the tree today — which is also why the

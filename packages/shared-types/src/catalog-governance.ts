@@ -162,6 +162,17 @@ export const CATALOG_GOVERNANCE_REVIEW_ACTIONS = [
   'external_mapping_reject',
   'external_mapping_fan_out_approve',
   'compatibility_claim_review',
+  /**
+   * Turning one reviewed claim into a canonical fitment.
+   *
+   * Separate from `compatibility_claim_review` because they are different acts
+   * with different consequences: a review records a judgement ABOUT a claim and
+   * publishes nothing, while a promotion creates the row a shopper is shown. The
+   * review surface deliberately cannot set `selected` — that state is written
+   * only here, as part of creating the canonical row, so a claim cannot be
+   * marked as chosen with nothing having chosen it.
+   */
+  'compatibility_claim_promote',
   'proposal_approve',
   'proposal_merge',
   'proposal_reject',
@@ -283,6 +294,11 @@ export const CATALOG_GOVERNANCE_ACTION_ROLES: Record<
   external_mapping_reject: 'review',
   external_mapping_fan_out_approve: 'review',
   compatibility_claim_review: 'review',
+  // `publish` and not `review`: a promotion CREATES the fitment a shopper acts
+  // on, and a wrong one sells somebody a brake pad that does not fit their car.
+  // Reviewing a claim publishes nothing, so the two acts sit either side of the
+  // one role boundary this domain has.
+  compatibility_claim_promote: 'publish',
   proposal_approve: 'review',
   proposal_merge: 'review',
   proposal_reject: 'review',
@@ -667,3 +683,106 @@ export interface CatalogGovernanceRestoreReport {
   readonly present: number;
   readonly divergent: number;
 }
+
+/* -------------------------------------------------------------------------- */
+/* The unresolved compatibility-claim queue (#367 Workstream 14)               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One unresolved claim, as an OPERATOR sees it.
+ *
+ * ## Why this lives here and not in `compatibility.ts`
+ *
+ * `COMPATIBILITY_FORBIDDEN_VIEW_FIELDS` forbids `rawTargetText`, `confidence`,
+ * `claimId`, `sourceRecordId` and both `assertedBy*` ids from being DECLARED in
+ * that module at all, gated statically and by a runtime walk of a real emitted
+ * view. That gate is right and this view is the reason it has to be scoped: the
+ * PUBLIC surface must never carry the source's own words, and the operator queue
+ * exists precisely to show them. Somebody adjudicating "fits BMW 320d" needs the
+ * eleven characters the supplier actually published, not a normalization of
+ * them.
+ *
+ * So the prohibition keeps its full force where a shopper reads, and this type
+ * sits in the operator module behind `CATALOG_OPERATOR_OXY_USER_IDS` — where
+ * every other field an operator may see and a shopper may not already lives.
+ * `catalog-governance-isolation.test.ts` asserts the public projection cannot
+ * reach it.
+ */
+export interface CompatibilityClaimReviewView {
+  readonly id: string;
+  /** Exactly one is non-null; a claim naming no subject cannot be promoted. */
+  readonly subjectProductId: string | null;
+  readonly subjectVariantId: string | null;
+  /** NULL on an automotive claim — the kind is decided by what it is promoted into. */
+  readonly kind: string | null;
+  /** The source's own words, verbatim and frozen by a trigger. The point of the queue. */
+  readonly rawTargetText: string;
+  readonly rawQualifierText: string | null;
+  /** Why it could not be resolved. NOT NULL on an unresolved row, by CHECK. */
+  readonly unresolvedReason: string | null;
+  readonly assertedByKind: string;
+  readonly assertedBySourceId: string | null;
+  readonly sourceUrl: string | null;
+  readonly observedAt: string;
+  readonly confidence: number | null;
+  readonly reviewedByOxyUserId: string | null;
+  readonly reviewedAt: string | null;
+  readonly reviewNote: string | null;
+}
+
+/** How many unresolved claims carry each reason. */
+export interface CompatibilityClaimReasonCount {
+  readonly reason: string;
+  readonly count: number;
+}
+
+/**
+ * The queue, with its own vacuity control.
+ *
+ * `examinedLimit` and `truncated` come from the bound the query was GIVEN rather
+ * than from what survived it, so a full page and a page that happened to end at
+ * the limit are distinguishable — `readCompatibilityRelationPage`'s rule, one
+ * domain over. `byReason` is a breakdown over the WHOLE unresolved set and not
+ * over the page, because an operator deciding what to work on next needs the
+ * shape of the backlog rather than the shape of one screen.
+ */
+export interface CompatibilityClaimQueueView {
+  readonly claims: readonly CompatibilityClaimReviewView[];
+  readonly byReason: readonly CompatibilityClaimReasonCount[];
+  readonly unreviewed: number;
+  readonly examinedLimit: number;
+  readonly truncated: boolean;
+}
+
+/**
+ * Ten things that may never decide which vehicle a claim is promoted to, stated
+ * as VALUES so a plausible future addition fails a scan rather than a review.
+ *
+ * ## The failure this exists for
+ *
+ * An ambiguous fitment resolved to the LIKELIEST vehicle. It is the false merge
+ * #58 is shaped around, one domain over, and it is worse here: a wrong product
+ * match shows somebody the wrong page, and a wrong fitment sells them a brake
+ * pad that does not fit their car. It is discovered by the customer, and every
+ * naive convenience on this list makes it likelier.
+ *
+ * `promoteCompatibilityClaimToFitment` takes the vehicle as REQUIRED input from
+ * the operator and there is no shape in which it is optional or derived — which
+ * is the structural half. This list is the half that stops the derivation being
+ * added later under a helpful name, and it is scanned across BOTH the governance
+ * domain and `services/compatibility/`. Three of them are already refused by an
+ * existing wall (`RANKING_REFERENCE` forbids `search.service` under
+ * `services/compatibility/`); the other seven were not refused anywhere.
+ */
+export const COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS: readonly string[] = [
+  'likeliestVehicle',
+  'guessVehicle',
+  'inferVehicle',
+  'bestMatchVehicle',
+  'resolveClaimTargetAutomatically',
+  'autoPromoteClaim',
+  'suggestFitmentTarget',
+  'rankVehicleCandidates',
+  'fuzzyVehicleMatch',
+  'vehicleFromRawText',
+];
