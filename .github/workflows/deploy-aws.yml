@@ -58,6 +58,15 @@ on:
 # check ORPHANS a live migration task and reports nothing; and cancellation does
 # not prevent this workflow family's defensive rollback — it TRIGGERS it, which
 # was measured in Allo on 2026-08-09 while trying to stop one.
+#
+# It is ALSO what bounds the `gate` job's runner occupancy, which is the question
+# `docs/deploy.md` §"What to do when a gate times out" trains a reader to ask of
+# any polling gate. The three web deploys each cancel their own superseded runs
+# and can still have three gates polling at once; this group serialises instead,
+# so at most ONE run of this workflow is in progress per ref and therefore at
+# most one API gate ever polls. A queued run holds no runner at all. Net, this
+# workflow now occupies LESS: a poll loop replaced a full duplicate run of the
+# backend suite plus a PostGIS service container, on every push to `main`.
 concurrency:
   group: deploy-aws-${{ github.ref }}
   cancel-in-progress: false
@@ -87,78 +96,69 @@ env:
   PG_DATABASE: mercaria
 
 jobs:
-  test:
-    # x86, NOT the `ubuntu-24.04-arm` the deploy job uses, and TWO independent
-    # things force that — worth stating both, because fixing either one alone
-    # still leaves the job broken.
-    #
-    #  1. GitHub-hosted ARM runners do not support service containers at all. A
-    #     run that requests one dies before its first job with `action_required`
-    #     and zero jobs (measured on runs 31263904439 / 31263963083).
-    #  2. Even where they are supported, `postgis/postgis` publishes linux/amd64
-    #     ONLY — checked against the registry, where the tag's OCI index carries
-    #     one platform entry plus an attestation. So the container below could
-    #     not start on an ARM host regardless.
-    #
-    # Together those close the tempting repair: finding a multi-arch Postgres
-    # image does NOT make an ARM runner workable here, and neither does waiting
-    # for ARM service-container support while this image stays amd64-only.
-    #
-    # Nothing in this job needs ARM anyway — it lints, tests, and runs an esbuild
-    # bundle, none of which is architecture-sensitive. Only `deploy` builds the
-    # linux/arm64 image, and it stays on the ARM runner for that. Changing this
-    # back for consistency with `deploy` re-breaks the job.
+  # WHAT IS VERIFIED BEFORE THE API SHIPS: the whole of `ci.yml` — the ten
+  # `validate:*` guards, five typechecks, the three app test runners, the API
+  # suite and the four build jobs — asserted for THIS commit.
+  #
+  # This job REPLACED a `test` job that ran a partial copy of `ci.yml`, and the
+  # copy is why the gap existed rather than a reason to keep it. Measured on
+  # `main` by parsing both workflows (#518): the copy ran 4 steps where
+  # `ci.yml`'s `Lint & Test` ran 21, and the missing 18 included every
+  # `validate:*` guard and every typecheck. So the API deploy LOOKED gated —
+  # `needs: test` is visible — while shipping things CI rejected on the same
+  # push.
+  #
+  # The consequence was demonstrated, not reasoned. Appending
+  # `export const X: number = PRODUCTION_ORIGINS[0];` to
+  # `packages/backend/src/lib/allowed-origins.ts` on 7071d999:
+  #
+  #   bun run --filter @mercaria/backend typecheck  -> exit 2, TS2322   (NOT in the copy)
+  #   bun run --filter @mercaria/backend test       -> 82 tests passed  (in the copy)
+  #   bun run build:backend                         -> exit 0           (in the copy)
+  #
+  # and the mutated symbol appeared TWICE in `packages/backend/dist/index.js`,
+  # the artifact this workflow bakes into the ECS image. `build:backend` is
+  # esbuild and vitest transpiles rather than typechecks, so nothing the old
+  # gate ran could see it.
+  #
+  # Widening the copy to 21 steps was the WRONG repair: it leaves two lists to
+  # keep in sync, which is exactly how it got here. Reading the real run keeps
+  # ONE definition of "did CI pass".
+  #
+  # THE POSTGIS SERVICE CONTAINER WENT WITH THE COPY, deliberately. This job
+  # runs one `fetch` loop and needs no database; the container, its image pin and
+  # the x86-runner constraint that container imposes now live in exactly one
+  # place, on `ci.yml`'s `lint-and-test` job, which is the job that still needs
+  # them. Nothing else in this workflow read it — `deploy` takes no output from
+  # the job it `needs:` and touches no Postgres.
+  gate:
+    name: CI passed for this commit
     runs-on: ubuntu-latest
-
-    services:
-      # The API suite needs a real PostGIS server: the `*.realdb.test.ts` files
-      # run their SQL against a throwaway database the harness creates HERE
-      # (see packages/backend/vitest.pg.globalSetup.ts).
-      # Without it `vitest.pg.globalSetup.ts` throws and every deploy fails
-      # before it starts.
-      #
-      # Pinned to the SAME image as docker-compose.postgres.yml and ci.yml, on
-      # BOTH versions. A floating PostGIS minor is a floating set of function
-      # volatilities, and the generated `geography` column requires
-      # `ST_MakePoint` and the geometry→geography cast to be IMMUTABLE — so a
-      # developer's database, CI's and this one must not be able to disagree
-      # about what is installed.
-      postgres:
-        image: postgis/postgis:17-3.5
-        env:
-          POSTGRES_USER: mercaria
-          POSTGRES_PASSWORD: mercaria
-          POSTGRES_DB: mercaria_ci
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U mercaria -d mercaria_ci"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
+    # Above the script's own 30-minute wait for a run to conclude, so a genuine
+    # refusal is reported by the script with its reason rather than by the runner
+    # killing the job. See `docs/deploy.md` §"What to do when a gate times out"
+    # before raising it — a timeout here is runner occupancy, not an impatient
+    # budget.
+    timeout-minutes: 40
+    # Job-level, which REPLACES the workflow-level block for this job rather than
+    # adding to it. That is the point: the gate needs `actions: read` to ask what
+    # `ci.yml` concluded, and it must NOT hold `id-token: write` — a poll loop has
+    # no business being able to assume the AWS deploy role.
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
         with:
-          bun-version: 1.3.14
-
-      - run: bun install --frozen-lockfile
-
-      - run: bun run --filter @mercaria/backend lint
-
-      # TEST_DATABASE_URL names the SERVER, never the database the tests use: the
-      # harness creates its own throwaway database on it per run and drops it
-      # afterwards, so `mercaria_ci` is never written to.
-      - env:
-          TEST_DATABASE_URL: postgres://mercaria:mercaria@127.0.0.1:5432/mercaria_ci
-        run: bun run --filter @mercaria/backend test
-
-      - run: bun run build:backend
+          node-version: '22'
+      - name: Require a green CI run for this commit
+        run: node .github/scripts/require-ci-success.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
-    needs: test
+    needs: gate
     # Native arm64, matching the image this job builds.
     #
     # A CORRECTED RECORD, written down so the wrong version is not re-derived:

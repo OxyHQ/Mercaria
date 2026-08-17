@@ -31,6 +31,16 @@
  * `>= 4` floor cannot catch, because it is satisfied by the four that already
  * exist.
  *
+ * #518 NARROWED that second one, and the narrowing is the point of the change
+ * rather than a tidy-up. It used to accept `--filter @mercaria/backend test` as
+ * a verification, because `deploy-aws.yml` had a `test` job running it — so the
+ * assertion passed while the API's actual gate was a 4-step copy of a 21-step
+ * `ci.yml` that never ran `tsc`. Demonstrated on 7071d999: a `string` assigned
+ * to a `number` in `lib/allowed-origins.ts` fails `typecheck` with TS2322,
+ * passes the suite and `build:backend`, and lands TWICE in the shipped
+ * `dist/index.js`. A guard that accepts the weaker of two answers is measuring
+ * whichever one is cheapest to satisfy.
+ *
  * The third pins the `ci.yml` concurrency property the gate DEPENDS on. With
  * the group keyed on the ref alone, back-to-back merges cancelled the run for
  * the commit that had just landed, and a cancelled run is not a pass — so
@@ -97,6 +107,17 @@ const WEB_DEPLOY_WORKFLOWS = [
   'deploy-pos.yml',
 ] as const;
 
+/**
+ * Every workflow that must reach CI's verdict through the gate script.
+ *
+ * Deliberately a SUPERSET of `WEB_DEPLOY_WORKFLOWS` rather than a widening of
+ * it: the three web workflows also share a concurrency posture
+ * (`cancel-in-progress: true`) that `deploy-aws.yml` must NOT have — cancelling
+ * it between `run-task` and its exit-code check orphans a live migration task.
+ * Two different properties over two overlapping sets, so they are two lists.
+ */
+const GATED_DEPLOY_WORKFLOWS = [...WEB_DEPLOY_WORKFLOWS, 'deploy-aws.yml'] as const;
+
 describe('the deploy gate demands the CI jobs that actually exist', () => {
   it('requires exactly the jobs ci.yml defines, by their reported names', () => {
     const ci = readWorkflow(CI_WORKFLOW_FILE);
@@ -123,12 +144,48 @@ describe('the deploy gate demands the CI jobs that actually exist', () => {
   it('names a gate script that exists and is the one the workflows invoke', () => {
     expect(existsSync(GATE_SCRIPT_PATH)).toBe(true);
 
-    for (const file of WEB_DEPLOY_WORKFLOWS) {
+    for (const file of GATED_DEPLOY_WORKFLOWS) {
       const workflow = readWorkflow(file);
       const invocations = Object.values(workflow.jobs)
         .flatMap((job) => job.steps ?? [])
         .filter((step) => step.run?.includes('require-ci-success.mjs'));
       expect(invocations, `${file} must invoke the gate script`).toHaveLength(1);
+    }
+  });
+
+  /**
+   * The regression #518 fixed, stated as the thing that must not come back.
+   *
+   * `deploy-aws.yml` carried a second, partial copy of `ci.yml` — 4 steps against
+   * 21 — and the copy is what made a backend type error deployable: it ran the
+   * suite and the esbuild bundle and never `tsc`. The repair is not "widen the
+   * copy", it is "have no copy", so this asserts the ABSENCE rather than the
+   * contents of one, and a re-added `test` job fails here with the reason.
+   */
+  it('no deploy workflow re-grows its own copy of the suite', () => {
+    const RUNS_THE_API_SUITE = '--filter @mercaria/backend test';
+
+    // Positive control FIRST. Without it a rename of the script or the filter
+    // makes every assertion below pass by matching nothing, which is the exact
+    // shape of a guard that reads clean while measuring nothing.
+    const ciCommands = Object.values(readWorkflow(CI_WORKFLOW_FILE).jobs)
+      .flatMap((job) => job.steps ?? [])
+      .flatMap((step) => (step.run ? [step.run] : []));
+    expect(
+      ciCommands.some((command) => command.includes(RUNS_THE_API_SUITE)),
+      'ci.yml no longer runs the API suite by this spelling — this guard is now vacuous',
+    ).toBe(true);
+
+    for (const file of GATED_DEPLOY_WORKFLOWS) {
+      const commands = Object.values(readWorkflow(file).jobs)
+        .flatMap((job) => job.steps ?? [])
+        .flatMap((step) => (step.run ? [step.run] : []));
+      for (const command of commands) {
+        expect(
+          command,
+          `${file} runs the API suite itself — that is the drifted second copy #518 removed`,
+        ).not.toContain(RUNS_THE_API_SUITE);
+      }
     }
   });
 });
@@ -200,12 +257,13 @@ describe('every job holding production credentials waits for a verification', ()
       0,
     );
 
-    const verified = commands.some(
-      (command) =>
-        command.includes('require-ci-success.mjs') ||
-        command.includes('--filter @mercaria/backend test'),
-    );
-    expect(verified, `${key} must wait for CI or for its own test job`).toBe(true);
+    // NARROWED by #518. This used to also accept `--filter @mercaria/backend
+    // test`, specifically so `deploy-aws.yml`'s own `test` job satisfied it —
+    // which made the assertion agree that a job was verified by a copy of CI
+    // that ran 4 of `ci.yml`'s 21 steps and never typechecked anything. There is
+    // now ONE thing that counts as a verification, and it is CI's own verdict.
+    const verified = commands.some((command) => command.includes('require-ci-success.mjs'));
+    expect(verified, `${key} must wait for a green ci.yml run for this commit`).toBe(true);
   });
 });
 
