@@ -659,6 +659,28 @@ describe('the taxonomy reads', () => {
     const no = data(structural)['eligibility'] as { listable: boolean; refusals: string[] };
     expect(no.listable).toBe(false);
     expect(no.refusals).toContain('category_not_selectable');
+
+    /*
+     * The SECOND reason, and it is the one that makes `listable` a derivation
+     * rather than a rename of `selectable`. `underDraft` is published AND
+     * selectable, and no product-type version is scoped to it or to any ancestor —
+     * so nothing can be authored there and it is not listable.
+     *
+     * MEASURED: without this case, replacing `listable: refusals.length === 0` with
+     * `listable: row.selectable` passes — the two only disagree here.
+     */
+    const unscoped = await get(`/taxonomy/categories/${fx.underDraftId}/eligibility`);
+    expect(unscoped.status).toBe(200);
+    const neither = data(unscoped)['eligibility'] as {
+      listable: boolean;
+      selectable: boolean;
+      refusals: string[];
+      productTypes: unknown[];
+    };
+    expect(neither.selectable).toBe(true);
+    expect(neither.productTypes).toEqual([]);
+    expect(neither.refusals).toEqual(['no_scoped_product_type']);
+    expect(neither.listable).toBe(false);
   });
 
   it('refuses an undeclared query parameter — the `.strict()` schema', async () => {
