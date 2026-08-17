@@ -139,11 +139,54 @@ depth) and small (thousands of nodes, not millions), every hot read is
 "descendants of X" or "breadcrumb of X" — both single-statement on a GIN'd
 array — and a closure table is a second representation of one fact, which this
 ADR spends most of its length avoiding. A move rewrites the subtree's arrays in
-one statement inside the move's transaction. **The choice is provisional on a
-benchmark**: #61's harness gains taxonomy shapes (deep descendants, breadcrumb,
-category-scoped schema resolution) and if the materialized path loses to a
-recursive CTE at a realistic scale, the ADR is amended before the alternative
-is adopted — never after.
+one statement inside the move's transaction.
+
+**The benchmark has been RUN and it CONFIRMS this choice, so the provisionality
+is retired** (#367 W16). `services/catalog-observability/ancestry-benchmark.ts`
+seeds its own tree of 5,010 categories over six levels plus 5,760 canonical
+products and measures each shape both ways — materialized path against an
+equivalent `WITH RECURSIVE` over `parent_id` — with plan facts from one
+instrumented run and percentiles from N uninstrumented ones. Over seven runs:
+
+- **Deep descendants from a root, and descendants from a mid-depth node, are won
+  by the materialized path on every run, by 1.56x to 6.59x.** These carry the
+  decision.
+- **The breadcrumb is a TIE on every run**, with the recursive CTE the marginally
+  faster side (0.115-0.226 ms) held inside the tie band. The cause is a property
+  of the REPOSITORY rather than of the strategy: `findCategoryAncestors` answers
+  in two round trips where the CTE takes one. A single statement joining the row
+  to its own `ancestor_ids` removes it, and this is the shape most likely to
+  worsen where the database is a network hop away rather than a socket away.
+- **The category-scoped read is CONDITIONAL on the planner choosing
+  `categories_ancestor_ids_idx`**, and at this size that choice is not stable:
+  with the index it scans 6,261 rows and the materialized path wins by 2.32x;
+  without it, 10,771 rows, and the result is a tie or a marginal 1.18x CTE win.
+  Two of the seven runs therefore came out against the materialized path on that
+  shape alone.
+- **The index does real work, and SELECTIVITY decides whether it is used.** A
+  mid-depth subtree returning 30 of 5,010 rows (0.6%) gets a Bitmap Index Scan
+  and scans 30 rather than 5,010; a root subtree returning 500 of 5,010 (10%)
+  gets a sequential scan, correctly, because an index is the wrong tool for a
+  tenth of a small table. So "the shape is already in the schema and already
+  indexed" is right about both halves.
+
+No index was added and none is needed. **There is no crossover row count**, and
+no measurement here supports one: the harness reports which plan it got and
+asserts nothing about it, because a gate on a planner preference fails on a
+healthy change. What IS gated, deterministically, is that the index CAN serve
+`ancestor_ids @> array[$1]` when the sequential scan is taken away, and that
+dropping the index turns that assertion red naming it.
+
+**A note on method, because it cost three attempts.** Two earlier readings of
+this same measurement reached opposite confident conclusions — first that the
+planner never chooses the index at this scale and that a crossover sits between
+20,000 and 30,000 categories, then that it is simply chosen and the question is
+settled. Both were single-condition readings of a cost-model decision, the first
+taken before `ANALYZE` had settled statistics on a freshly seeded tree. **Both
+were written with plan costs attached, which is what made them credible.**
+Numbers are a format, not evidence. Anything re-opening this question should run
+the harness repeatedly, on settled statistics, and treat a single run's verdict
+as a sample.
 
 Cycles, self-parenting and merging into a descendant are refused by a trigger,
 because a CHECK cannot read another row.
@@ -530,8 +573,12 @@ independent of each other; only the migration slot (D11) serializes them.
 
 ## Open items (tracked, not blocking)
 
-- The taxonomy hierarchy benchmark (D2). The materialized path is adopted
-  provisionally and the ADR is amended if the measurement disagrees.
+- ~~The taxonomy hierarchy benchmark (D2).~~ **CLOSED** (#367 W16): the benchmark
+  ran and confirms the materialized path. D2 records the numbers, the one shape
+  whose result is conditional, and the breadcrumb's two-round-trip cause. The
+  remaining piece of work it identified is a repository fix rather than an
+  architectural one — `findCategoryAncestors` costing a round trip it does not
+  need — and it is not blocking.
 - Community translation contribution and its moderation rules, if enabled.
 - Whether bundles, services and digital goods get their own product-type
   scopes or are excluded at launch — decided in the product-type PR, recorded
