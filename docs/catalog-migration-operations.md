@@ -30,7 +30,11 @@ the findings below are docblocks asserting more than the code under them does.
 
 ## The lever inventory, measured rather than quoted
 
-**ADR 0007 D12 names six levers. Four exist.** This is the single most important
+**ADR 0007 D12 originally named six levers; three were never built, and one lever
+a rollout needs was not among the six — so four exist, and the arithmetic is
+`6 − 3 + 1` rather than a subtraction.** D12 has since been corrected (in this
+branch) to name the four and record why each absent one is absent. This is the
+single most important
 operational fact in the epic, because a runbook step naming a variable that does
 not exist is worse than no step, and D12 is quoted in five other documents.
 
@@ -670,11 +674,32 @@ This is a staffing alert far more often than an engineering one.
 
 Alerts and dashboards **do not exist**. This backend emits a JSON endpoint plus
 structured logs and has no prometheus dependency, no registry, no exporter and no
-scrape format; scraping, thresholds and routing belong to `oxy-infra`. Every
-threshold in the six runbooks is a **proposal, and no alert has ever fired**
-(`catalog-observability.md` §"What has not been rehearsed"). A metrics collection
-runs of the order of six hundred statements including a 60-scope facet sweep, so
-the probe cadence is minutes, not seconds.
+scrape format; scraping, thresholds and routing belong to `oxy-infra`. A metrics
+collection runs of the order of six hundred statements including a 60-scope facet
+sweep, so the probe cadence is minutes, not seconds.
+
+### The thresholds are deliberately left unset, and this is the honest reason
+
+Every number in the six runbooks is a **proposal, and no alert has ever fired**
+(`catalog-observability.md` §"What has not been rehearsed"). Nothing here picks
+one, because a threshold chosen before any traffic is a guess with a runbook
+wrapped around it, and the wrapping is what makes it look settled. What can be
+stated without traffic is the **shape** of each threshold and the **measurement
+that would set it** — so whoever wires `oxy-infra` knows what to collect first
+rather than what to type.
+
+| Signal | Threshold shape | The measurement that would set it |
+|---|---|---|
+| **Failures** | any non-zero on the three `mustStayZero` counters (no calibration needed — the conditions are structurally impossible, so one is as alarming as a thousand); a **rate** on `authoring_schema_error_rate` | for the rate: the p99 of that rate over two weeks of authoring traffic with `CATALOG_AUTHORING_ENABLED` on. Until then it answers `surface_not_mounted`, so there is nothing to calibrate against |
+| **Lag** | an **age** on `unresolved_subject_oldest_age` and `proposal_backlog_oldest_age`, never a depth | the observed distribution of time-to-decision once the review desk is staffed. The age is the right shape because a deep queue draining fast is healthier than a shallow stuck one; the number is a service-level choice somebody makes, not a fact to discover |
+| **Missing translations** | a **drop** in `translation_coverage` per locale relative to its own trailing value, plus an absolute floor per locale before that locale is advertised | the coverage series per locale over one translation cycle. A cross-locale constant is wrong on its face — a launch locale and a long-tail one are not comparable |
+| **Review backlog** | an **age**, as above, plus a rate-of-arrival alert on `proposal_creation_count` (`rolling_7d`) to catch a taxonomy gap rather than a staffing one | the arrival rate once merchants are authoring. The definition's own attribution limit is the trap: a rise means the taxonomy is missing concepts OR that more merchants are authoring, and only the completeness metrics separate them |
+
+**Three that must not get a threshold at all**, and the reason is in the metric
+rather than in the number: `reindex_pending_count` (only grows, no consumer),
+`backfill_dead_letter_count` (`unmeasured` — a zero would be a permanently green
+tile for a condition that cannot occur) and `translation_machine_share` read
+alone (zero is the worst case, not the best).
 
 ---
 

@@ -409,9 +409,18 @@ The derivation is pure and is tested without a server in
 - **ADR 0007 D9 — proposals.** `pending_proposal_policy` is the property of the
   version that decides whether a product may publish carrying a local claim while
   its proposal is pending. Nothing here creates or reviews a proposal.
-- **ADR 0007 D12 — `PRODUCT_TYPES_ENABLED`.** The flag gates product-type
-  resolution and the authoring schema route. This domain reads no configuration
-  at all (a scanned gate), so the lever lives with the surface that mounts.
+- **ADR 0007 D12 — there is NO `PRODUCT_TYPES_ENABLED`, and that is deliberate.**
+  D12 originally named the flag and it was never built; D12 has been corrected.
+  `/product-types` is mounted **unconditionally**, because a published product
+  type's group headings are catalogue metadata of the same kind `/categories` and
+  `/catalog-attributes` already serve unconditionally, and a key with no published
+  version answers 404 — so a deployment that has published nothing exposes
+  nothing, which is what the lever would have bought. This domain still reads no
+  configuration at all (a scanned gate, `product-type-isolation.test.ts`, which
+  holds the strongest form of that wall in the epic). **Withdrawing a product type
+  is an unpublish, not a lever**, and PUBLICATION is therefore the one staging
+  boundary the authoring rollout actually has — see
+  [catalog-migration-operations.md](catalog-migration-operations.md).
 - **An operator HTTP surface.** None exists yet — the public layout read above is
   not one. When it arrives it belongs on the existing
   `CATALOG_OPERATOR_OXY_USER_IDS` allow-list — the one #54, #56, #57, #58, #60,

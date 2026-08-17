@@ -1392,13 +1392,19 @@ would trip. `/internal/payments` mounts one because its surface can MOVE MONEY.
   `MATCH_PIPELINE_ENABLED`, `OFFER_MATERIALIZATION_ENABLED`,
   `CANONICAL_SEARCH_INDEXING_ENABLED`).
 
-  **Two of ADR 0007 D12's six levers do not exist in the code and must not be
-  quoted at anybody:** `CATALOG_LOCALIZATION_ENABLED` and
-  `CATALOG_AUTHORING_COHORTS` appear nowhere in `config/index.ts` or anywhere else
-  in `packages/backend/src`. So localized reads are not lever-gated today, and
-  authoring rollout is all-or-nothing on `CATALOG_AUTHORING_ENABLED` rather than
-  cohort-scoped. Recorded because a runbook step naming a variable that does not
-  exist is worse than no step.
+  **THREE of ADR 0007 D12's six levers do not exist in the code and must not be
+  quoted at anybody:** `CATALOG_LOCALIZATION_ENABLED`, `CATALOG_AUTHORING_COHORTS`
+  and — the one this note missed — `PRODUCT_TYPES_ENABLED` appear nowhere in
+  `config/index.ts` or anywhere else in `packages/backend/src`. **D12 has since
+  been corrected** and now names the four that exist, `FACETS_ENABLED` included,
+  with the reason each absent one is absent; the three reasons are different.
+  Localized reads are not lever-gated but ARE transitively contained behind the
+  two mounts whose surfaces consume them; `/product-types` is mounted
+  unconditionally on purpose; and authoring rollout is all-or-nothing on
+  `CATALOG_AUTHORING_ENABLED` rather than cohort-scoped, which makes D12's staged
+  rollout order not executable as written. Recorded because a runbook step naming
+  a variable that does not exist is worse than no step. Full inventory:
+  [catalog-migration-operations.md](catalog-migration-operations.md).
 
 ### A metrics read is not free
 

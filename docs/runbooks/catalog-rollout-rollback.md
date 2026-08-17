@@ -45,10 +45,14 @@ on the list; **404 with an operator's token means the list is empty.**
 
 ## 1. The levers, and what each one actually withdraws
 
-**ADR 0007 D12 names six levers. Four exist.** Do not quote the other two at
-anybody — `CATALOG_LOCALIZATION_ENABLED`, `PRODUCT_TYPES_ENABLED` and
-`CATALOG_AUTHORING_COHORTS` appear nowhere in `packages/backend/src`, and
-`FACETS_ENABLED` is a real lever D12 does not mention. Full inventory:
+**Four levers exist**, and the arithmetic is worth stating because it is not a
+subtraction: ADR 0007 D12 originally named six, **three of those were never
+built**, and **one lever a rollout needs was not among the six**. So 6 − 3 + 1 = 4.
+Do not quote `CATALOG_LOCALIZATION_ENABLED`, `PRODUCT_TYPES_ENABLED` or
+`CATALOG_AUTHORING_COHORTS` at anybody — they appear nowhere in
+`packages/backend/src` — and do not forget `FACETS_ENABLED`, which D12 did not
+mention and which turns off a live public surface. **D12 has since been corrected**
+to name the four and to record why each absent one is absent. Full inventory:
 [`../catalog-migration-operations.md`](../catalog-migration-operations.md)
 §"The lever inventory".
 
