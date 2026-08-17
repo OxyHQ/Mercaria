@@ -33,8 +33,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   SELLER_FOLLOW_KIND,
@@ -47,31 +47,80 @@ import {
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
 
 /**
- * Every file that decides how a follow target is named, in EITHER package.
+ * Every `.ts`/`.tsx` under one package, RECURSIVELY.
  *
- * A new follow surface belongs on this list — the floor below is what forces
- * whoever adds one to look here.
+ * Recursive rather than a directory listing, because the failure a flat read
+ * has is silent: a follow surface added one level deeper than the walk reaches
+ * is in no population and behind no wall, and the gate goes on reporting the
+ * same count it always did.
  */
-const FOLLOW_SURFACE_PATHS = [
-  'frontend/lib/follow-graph.ts',
-  'frontend/lib/hooks/use-store-follow.ts',
-  'frontend/lib/hooks/use-seller-follow.ts',
-  'frontend/components/store/StoreFollowButton.tsx',
-  'frontend/components/seller/SellerFollowButton.tsx',
-  'frontend/components/seller/SellerLinkCard.tsx',
-  'frontend/app/(app)/sellers/[oxyUserId].tsx',
-];
+function sourceFilesUnder(packageRelative: string): readonly string[] {
+  const found: string[] = [];
+  const walk = (directory: string): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      // Build output and vendored code are not this repository's source.
+      if (['node_modules', '__tests__', '.expo', 'dist', 'android', 'ios'].includes(entry.name)) {
+        continue;
+      }
+      const absolute = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        walk(absolute);
+        continue;
+      }
+      if (/\.tsx?$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+        found.push(relative(PACKAGES_ROOT, absolute));
+      }
+    }
+  };
+  walk(join(PACKAGES_ROOT, packageRelative));
+  return found.sort();
+}
 
-/** The whole public-seller domain on the API side. */
-const SELLER_DOMAIN_PATHS = [
-  'backend/src/services/sellers/public-seller-profile.service.ts',
-  'backend/src/services/sellers/seller-visibility.ts',
-  'backend/src/services/sellers/seller-trust.ts',
-  'backend/src/services/sellers/viewer-oxy-client.ts',
-  'backend/src/controllers/public-sellers.controller.ts',
-  'backend/src/routes/public-sellers.ts',
-  'backend/src/middleware/seller-schemas.ts',
-];
+/**
+ * What makes a file a FOLLOW SURFACE: it names the follow graph.
+ *
+ * The population is DERIVED from this predicate over a recursive walk of both
+ * packages, and is deliberately not a list. A hand list of follow surfaces
+ * fails in the one direction that matters — somebody adds an eighth and it is
+ * in no list, so the wall that exists to stop a `mercaria.*` person kind never
+ * looks at the file that introduces one.
+ */
+const FOLLOW_SYMBOL =
+  /\b(ensureFollowTarget|registerFollowKind|FollowTargetButton|follow_?targets?|followKind|use[A-Z]\w*Follow|[A-Z]\w*FollowButton)\b/;
+
+/**
+ * Files the follow predicate matches that are NOT follow surfaces, each with
+ * its reason.
+ *
+ * The EXCLUSION is what is written down, never the inclusion — a new file is in
+ * the population by default and has to be argued OUT, which is the opposite of
+ * the failure above. Every entry is asserted below to still MATCH the
+ * predicate, so one that stops applying fails as STALE rather than quietly
+ * excusing nothing (#448).
+ */
+const FOLLOW_SURFACE_EXCLUSIONS: readonly { readonly path: string; readonly why: string }[] = [];
+
+/** Every follow surface in either package, derived. */
+const FOLLOW_SURFACE_PATHS: readonly string[] = [
+  ...sourceFilesUnder('frontend'),
+  ...sourceFilesUnder('backend/src'),
+]
+  .filter((path) => FOLLOW_SYMBOL.test(readFileSync(join(PACKAGES_ROOT, path), 'utf8')))
+  .filter((path) => !FOLLOW_SURFACE_EXCLUSIONS.some((excluded) => excluded.path === path));
+
+/**
+ * The whole public-seller domain on the API side, DERIVED the same way.
+ *
+ * By PATH rather than by content: this domain is defined by where a file lives
+ * (`services/sellers/`) plus the three seam files that serve it, and a content
+ * predicate would sweep in every module that merely mentions a seller — which
+ * is most of a marketplace backend.
+ */
+const SELLER_DOMAIN_PATTERN = /^backend\/src\/(services\/sellers\/|controllers\/public-sellers|routes\/public-sellers|middleware\/seller-schemas)/;
+
+const SELLER_DOMAIN_PATHS: readonly string[] = sourceFilesUnder('backend/src').filter((path) =>
+  SELLER_DOMAIN_PATTERN.test(path),
+);
 
 /** A kind literal in Mercaria's own namespace naming a PERSON. */
 const MERCARIA_PERSON_KIND = /mercaria\.(seller|user|person|buyer|account)\b/;
@@ -130,7 +179,12 @@ describe('no Mercaria person identity can be registered', () => {
     }
     expect(scanned).toBe(FOLLOW_SURFACE_PATHS.length);
     // The scanned-file floor: a broken traversal cannot pass by scanning none.
-    expect(scanned).toBeGreaterThanOrEqual(7);
+    // TWELVE, measured, not the seven the hand list carried — the walk found
+    // five surfaces that were in no list and behind no wall
+    // (`products/[id]`, `stores/[handle]`, `StoreMenuSheet`, `storeLinkage`,
+    // `merchant-pages/native-store`). A floor left at seven cannot notice five
+    // of them disappearing again.
+    expect(scanned).toBeGreaterThanOrEqual(12);
   });
 
   it('registers exactly ONE kind, and it is the STORE', () => {
@@ -161,6 +215,21 @@ describe('no Mercaria person identity can be registered', () => {
     expect(sellerHook).toContain('localUserId');
     expect(SELLER_FOLLOW_KIND).toBe('oxy.user');
     expect(OXY_USER_URI_ORIGIN).toBe('https://oxy.so');
+  });
+
+  it('every follow-surface EXCLUSION is still real, and there are exactly none', () => {
+    // A list of exemptions needs its own exact-count assertion, or one arrives
+    // in a later diff and nothing says so (#448). It is empty today: every file
+    // the predicate matches IS a follow surface.
+    expect(FOLLOW_SURFACE_EXCLUSIONS).toHaveLength(0);
+    for (const excluded of FOLLOW_SURFACE_EXCLUSIONS) {
+      // An entry that no longer matches is excusing nothing and is STALE —
+      // it must fail here rather than sit in the file looking load-bearing.
+      expect(
+        FOLLOW_SYMBOL.test(readFileSync(join(PACKAGES_ROOT, excluded.path), 'utf8')),
+        `${excluded.path} is excluded (${excluded.why}) but no longer names the follow graph`,
+      ).toBe(true);
+    }
   });
 
   it('the detectors actually detect — the mutation self-test', () => {
@@ -196,6 +265,9 @@ describe('Mercaria stores no follow state of its own', () => {
       scanned += 1;
     }
     expect(scanned).toBe(FOLLOW_SURFACE_PATHS.length + SELLER_DOMAIN_PATHS.length);
+    // Self-referential above — both sides move together if the walk breaks.
+    // This is the floor that does not.
+    expect(scanned).toBeGreaterThanOrEqual(19);
   });
 
   it('names the follower family in the forbidden-field VALUE', () => {
