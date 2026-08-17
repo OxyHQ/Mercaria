@@ -258,6 +258,61 @@ newline trap recurs here at ten times the scale — **1,051 files in this worksp
 carry a multi-line barrel import**, and a `[^;\n]*?` specifier regex drops the
 importer count from 1,809 to 934 while every wall stays green.
 
+**An edge the resolver cannot read must FAIL, never be skipped.** This is the
+part that decides whether a symbol resolver is worth anything: it will meet
+syntax it cannot follow, and **if an unreadable edge is skipped, the barrel
+problem has been rebuilt one level up** — the gate reports clean because it could
+not see, which is indistinguishable from clean because there is nothing there.
+
+So coverage is MEASURED rather than assumed. `unfollowedPackageReferences`
+counts every occurrence of a guarded package specifier, subtracts everything a
+followed clause consumed, and what remains is an edge the resolver cannot read.
+The gate asserts that set is **empty across all 2,224 non-test modules**, so a
+new syntax that defeats the resolver goes red naming the file instead of quietly
+widening the hole. The four edges worth naming, and what each does here:
+
+| edge | treatment |
+|---|---|
+| `import { a as b }` | resolved — `import` requests `a`, `export` publishes `b`, opposite directions |
+| `import * as X` / bare `await import(pkg)` | reaches **every** module of that barrel; reporting "nothing" would be a one-line way around every wall |
+| a deeper re-export chain | followed, with a `seen` set, because a barrel is exactly where a cycle is plausible |
+| `import(pkg).Symbol` (inline import type) | resolved to that symbol |
+
+The test-file exclusion is DERIVED (every gate here walks a `.ts` filter that
+structurally omits `__tests__`) and **counted, not dropped** — the 21 unreadable
+occurrences inside test files are gate probe STRINGS, and that number being
+non-zero is the detector's own positive control.
+
+Mutation-tested: removing dynamic-import handling turns the coverage assertion
+red naming `services/payments/payment.service.ts` and
+`packages/frontend/lib/hooks/use-watchlists.ts` — **two production modules** that
+write `import('@mercaria/shared-types').FxRateSnapshot`. And one trap inside the
+fix: `import(pkg).then(…)` is the runtime form with a Promise method attached,
+not a property access, so reading `then` as a symbol makes it an unresolved name
+and the file an unreadable edge. A following `(` is what tells them apart.
+
+### Seed a mutation victim per SCANNED DIRECTORY, not one per gate
+
+One synthetic probe proves the DETECTOR matches. It proves nothing about the
+POPULATION. Measured elsewhere in this repo: a narrowing mutation turned exactly
+**one** test red because the single seeded victim sat in the surviving half — so
+the gate detected the bug it was written for in one direction and reported a
+**pass** in the other, and one-red reads as complete. With victims derived per
+scanned directory the same mutation turned **seventeen** red.
+
+`retail-reconciliation-isolation.test.ts` now derives its victims from
+`SCANNED_DIRS`, the same list `DOMAIN_FILES` is built from, plants the violation
+into each victim's REAL source, and asserts the victim is clean beforehand so the
+assertion measures the plant. Two clauses make it bite, both verified by
+mutation:
+
+- narrowing `SCANNED_DIRS` to one directory fails on the length floor
+  (`expected 1 to be greater than or equal to 2`) — a floor derived from the list
+  it defends could not catch this, so it is absolute;
+- **a directory holding no `.ts` file fails loudly** rather than being
+  self-tested by nothing (`../../db/migrations holds no .ts file to seed a victim
+  in`).
+
 **And a clause matcher must read `export … from` as well as `import`.** A
 RE-EXPORT reaches the module exactly as an import does, and one exists:
 `packages/ui/src/lib/format.ts` writes

@@ -129,7 +129,16 @@ interface Wall {
   };
 }
 
-const DOMAIN_FILES = [...sourceFiles(SERVICE_DIR), ...sourceFiles(REPOSITORY_DIR)];
+/**
+ * The directories this gate's file population is walked from.
+ *
+ * Named once so the per-directory mutation victims below are DERIVED from the
+ * same list `DOMAIN_FILES` is built from. A hand-written victim list would go
+ * stale against a third directory in exactly the silent direction.
+ */
+const SCANNED_DIRS = [SERVICE_DIR, REPOSITORY_DIR];
+
+const DOMAIN_FILES = SCANNED_DIRS.flatMap((dir) => sourceFiles(dir));
 
 const WALLS: Wall[] = [
   {
@@ -239,6 +248,44 @@ describe('the reconciliation domain cannot reach what it must not', () => {
       // predicate exists rather than a line somebody could delete as redundant.
       expect(reachesPackageModule(wall.packageWall.probe, wall.packageWall.modules)).toBe(true);
       expect(wall.pattern.test(wall.packageWall.probe)).toBe(false);
+    });
+
+    if (!wall.packageWall) continue;
+
+    it(`WOULD catch ${wall.name} in EVERY scanned directory (per-directory victims)`, () => {
+      // One synthetic probe proves the DETECTOR matches; it proves nothing about
+      // the POPULATION. A narrowing that dropped half the scanned tree turns a
+      // single-victim self-test red only if that victim happened to sit in the
+      // half that was dropped — so one red reads as complete while the gate has
+      // gone blind over everything else.
+      //
+      // The victims are DERIVED from the scanned directories, one per directory,
+      // and the count is asserted against the directory count. A directory
+      // holding no `.ts` file fails HERE rather than being self-tested by
+      // nothing.
+      const victims = SCANNED_DIRS.map((dir) => {
+        const first = sourceFiles(dir).sort()[0];
+        expect(first, `${relative(SERVICE_DIR, dir)} holds no .ts file to seed a victim in`).toBeDefined();
+        return first;
+      });
+      expect(victims.length).toBe(SCANNED_DIRS.length);
+      expect(victims.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(victims).size).toBe(victims.length);
+
+      for (const victim of victims) {
+        // The victim's REAL source with the forbidden import planted in it, so
+        // the wall is exercised against a file that is actually in its
+        // population rather than against a bare string.
+        const planted = `${wall.packageWall.probe}\n${code(victim)}`;
+        expect(
+          reachesPackageModule(planted, wall.packageWall.modules),
+          `a violation planted in ${relative(SERVICE_DIR, victim)} is not detected — the scan ` +
+            'does not cover that directory',
+        ).toBe(true);
+        // And the victim is clean as it stands, so the assertion above is
+        // measuring the plant rather than a pre-existing violation.
+        expect(reachesPackageModule(code(victim), wall.packageWall.modules)).toBe(false);
+      }
     });
   }
 });

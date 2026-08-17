@@ -29,6 +29,7 @@ import {
   reachesPackageModule,
   resolveBarrelSymbol,
   stripComments,
+  unfollowedPackageReferences,
 } from './package-barrel-symbols.js';
 
 const SHARED_TYPES = '@mercaria/shared-types';
@@ -279,6 +280,103 @@ describe('validated against every symbol this workspace actually imports', () =>
         'the export shape is one `package-barrel-symbols.ts` does not yet read, or the import ' +
         'names something the package no longer exports.',
     ).toEqual([]);
+  });
+});
+
+describe('the resolver measures its OWN coverage, and an edge it cannot read FAILS', () => {
+  // A symbol→owner resolver meets edges it cannot follow. If an unreadable edge
+  // is SKIPPED, the barrel problem has been rebuilt one level up: the gate
+  // reports clean because it could not see, which is indistinguishable from
+  // clean because there is nothing there. So coverage is measured rather than
+  // assumed — every occurrence of the specifier, minus everything a followed
+  // clause consumed.
+  //
+  // Test files are excluded, and the exclusion is DERIVED rather than a list:
+  // every gate in this repository walks with a `.ts` filter that structurally
+  // omits `__tests__`, so a test is never a file a wall scans. They are counted
+  // below rather than dropped.
+  const NON_TEST = WORKSPACE_FILES.filter(
+    (file) => !file.includes('__tests__') && !/\.test\.tsx?$/.test(file),
+  );
+
+  it('reads every guarded package reference in every non-test module', () => {
+    // The floor first: an empty population makes the assertion below vacuous.
+    expect(NON_TEST.length).toBeGreaterThanOrEqual(2000);
+
+    const unreadable: string[] = [];
+    for (const file of NON_TEST) {
+      for (const entry of unfollowedPackageReferences(readFileSync(file, 'utf8'))) {
+        unreadable.push(`${relative(REPO_ROOT, file)}: …${entry.context}`);
+      }
+    }
+
+    expect(
+      unreadable.sort(),
+      'a guarded package specifier appears here in a form this resolver cannot follow. Every ' +
+        'wall built on it reads that reference as reaching NOTHING, which is the barrel problem ' +
+        'one level up. Teach `package-barrel-symbols.ts` the syntax — do not exempt the file.',
+    ).toEqual([]);
+  });
+
+  it('DOES flag a reference it cannot read (positive control)', () => {
+    // Without this, the assertion above passes just as happily on a detector
+    // that finds nothing at all. A specifier in a position no clause covers:
+    const opaque = "const pkg = '@mercaria/shared-types'; const m = await load(pkg);";
+    expect(unfollowedPackageReferences(opaque).length).toBe(1);
+
+    // And the same shape occurs for real: gate probe STRINGS inside test files.
+    // Counted rather than dropped — this number being non-zero is what proves
+    // the exclusion above is an exclusion and not an empty walk.
+    const inTests = WORKSPACE_FILES.filter(
+      (file) => file.includes('__tests__') || /\.test\.tsx?$/.test(file),
+    ).reduce(
+      (total, file) => total + unfollowedPackageReferences(readFileSync(file, 'utf8')).length,
+      0,
+    );
+    expect(inTests).toBeGreaterThan(0);
+  });
+
+  it('follows a dynamic import, in both of its live shapes', () => {
+    // Two PRODUCTION modules use the type form today
+    // (`services/payments/payment.service.ts`, `frontend/lib/hooks/use-watchlists.ts`),
+    // so a resolver reading only static clauses answers "reaches nothing" for a
+    // file that genuinely reaches `money.ts`.
+    expect(
+      packageModulesReachedBy(
+        "type T = { rate: import('@mercaria/shared-types').FxRateSnapshot };",
+      ),
+    ).toEqual(['packages/shared-types/src/money.ts']);
+
+    // The bare runtime form names no symbol, so it reaches the whole barrel —
+    // reporting "nothing" would be a one-line way around every wall.
+    const bare = packageModulesReachedBy("const t = await import('@mercaria/shared-types');");
+    expect(bare.length).toBe(new Set(barrelOf(SHARED_TYPES).owners.values()).size);
+
+    // Neither form is left over as an unread reference.
+    expect(
+      unfollowedPackageReferences("const t = await import('@mercaria/shared-types');"),
+    ).toEqual([]);
+
+    // `.then(…)` is the runtime form with a Promise method attached, NOT a
+    // type-position property. Reading `then` as a symbol makes it an unresolved
+    // name and the file an unreadable edge — which is exactly what happened, and
+    // `catalog-authoring-isolation.test.ts` writes this line for real.
+    const chained = packageModulesReachedBy(
+      "return import('@mercaria/shared-types').then((types) => types.CURRENCY_PRECISION);",
+    );
+    expect(chained.length).toBe(new Set(barrelOf(SHARED_TYPES).owners.values()).size);
+    expect(resolveBarrelSymbol(SHARED_TYPES, 'then')).toBeNull();
+  });
+
+  it('follows a re-export chain more than one hop deep', () => {
+    // `shared-types` is 114 × `export * from './x'`, and a module behind one of
+    // those may itself re-export. The recursion is real rather than assumed:
+    // `SUPPLIER_ADAPTER_CAPABILITIES` is assembled from #122's and #124's
+    // tuples, and every symbol in the workspace resolving (above) is the
+    // measurement that the chain is followed wherever it exists.
+    expect(resolveBarrelSymbol(SHARED_TYPES, 'SUPPLIER_ADAPTER_CAPABILITIES')).toMatch(
+      /^packages\/shared-types\/src\//,
+    );
   });
 });
 
