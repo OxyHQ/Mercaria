@@ -8,6 +8,7 @@ import { ITEM_CONDITION_KEYS } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { InheritedFact } from "@/components/sell/InheritedFact";
 import { PriceGuidancePanel } from "@/components/sell/PriceGuidancePanel";
+import { useTranslation } from "@/lib/i18n";
 import {
   usePatchSellerDraft,
   usePublishSellerDraft,
@@ -36,38 +37,37 @@ import {
  * Whether a draft may be published is DERIVED from four tables in three domains
  * — including a category's condition restrictions and whether the match gate
  * refused a declaration — so a client-side "is it complete" check would be a
- * second answer that goes stale. Every block reason has its own sentence here;
- * the server sends codes precisely so they can be translated and tested.
+ * second answer that goes stale. Every block reason has its own key here and its
+ * own sentence in the bundles; the server sends codes precisely so they can be
+ * translated and tested.
  */
 
-const BLOCK_MESSAGES: Record<SellerDraftBlockReason, string> = {
-  title_missing: "Give your listing a title.",
-  description_missing: "Describe what you are selling.",
-  category_missing: "Choose a category.",
-  condition_missing: "Say what condition your item is in.",
-  item_photos_missing: "Add photographs of your actual item.",
-  defects_not_acknowledged: "Confirm you have disclosed any defects and missing parts.",
-  refurbisher_not_named: "Say who refurbished the item.",
-  price_missing: "Set a price.",
-  quantity_invalid: "Quantity must be at least one.",
-  match_variant_missing: "Choose which exact version of the product you are selling.",
-  match_review_required:
-    "We could not confirm this is the same product. Change or remove the product match to continue.",
-  pickup_not_supported: "Collection is not available yet — remove it to publish.",
-  category_forbids_condition: "This category does not accept that condition.",
-  already_published: "This listing is already published.",
-  draft_discarded: "This draft was discarded.",
+const BLOCK_MESSAGE_KEYS: Record<SellerDraftBlockReason, string> = {
+  title_missing: "sell.draft.blocked.titleMissing",
+  description_missing: "sell.draft.blocked.descriptionMissing",
+  category_missing: "sell.draft.blocked.categoryMissing",
+  condition_missing: "sell.draft.blocked.conditionMissing",
+  item_photos_missing: "sell.draft.blocked.itemPhotosMissing",
+  defects_not_acknowledged: "sell.draft.blocked.defectsNotAcknowledged",
+  refurbisher_not_named: "sell.draft.blocked.refurbisherNotNamed",
+  price_missing: "sell.draft.blocked.priceMissing",
+  quantity_invalid: "sell.draft.blocked.quantityInvalid",
+  match_variant_missing: "sell.draft.blocked.matchVariantMissing",
+  match_review_required: "sell.draft.blocked.matchReviewRequired",
+  pickup_not_supported: "sell.draft.blocked.pickupNotSupported",
+  category_forbids_condition: "sell.draft.blocked.categoryForbidsCondition",
+  already_published: "sell.draft.blocked.alreadyPublished",
+  draft_discarded: "sell.draft.blocked.draftDiscarded",
 };
 
-const WARNING_MESSAGES: Record<string, string> = {
-  price_far_above_guidance:
-    "Your price is well above what similar items are selling for. You can still publish it.",
-  price_far_below_guidance:
-    "Your price is well below what similar items are selling for. You can still publish it.",
+const WARNING_MESSAGE_KEYS: Record<string, string> = {
+  price_far_above_guidance: "sell.draft.warning.priceFarAboveGuidance",
+  price_far_below_guidance: "sell.draft.warning.priceFarBelowGuidance",
 };
 
 export default function SellDraftScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { draftId } = useLocalSearchParams<{ draftId: string }>();
   const preview = useSellerDraftPreview(draftId);
   const patch = usePatchSellerDraft(draftId);
@@ -90,9 +90,9 @@ export default function SellDraftScreen() {
     return (
       <ScreenShell>
         <View className="items-center gap-3 py-16">
-          <Text className="text-lg font-medium">We could not open this draft</Text>
+          <Text className="text-lg font-medium">{t("sell.draft.loadError.title")}</Text>
           <Text className="text-center text-muted-foreground">
-            {preview.error?.message ?? "It may have been published or discarded."}
+            {preview.error?.message ?? t("sell.draft.loadError.body")}
           </Text>
         </View>
       </ScreenShell>
@@ -104,26 +104,27 @@ export default function SellDraftScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{draft.title ?? "Your listing"} · Mercaria</title>
+        <title>
+          {t("sell.draft.documentTitle", { title: draft.title ?? t("sell.draft.untitled") })}
+        </title>
       </Head>
 
       <View className="gap-6 py-6">
         {draft.prefill ? (
           <View className="gap-1 rounded-2xl border border-border p-4">
-            <Text className="text-base font-medium">The product</Text>
+            <Text className="text-base font-medium">{t("sell.draft.product.heading")}</Text>
             <Text className="text-xs text-muted-foreground">
-              These come from Mercaria&apos;s catalogue. They identify the model — they say
-              nothing about the condition, the accessories or the authenticity of your item.
+              {t("sell.draft.product.explanation")}
             </Text>
             <InheritedFact
-              label="Title"
+              label={t("sell.draft.product.titleLabel")}
               value={draft.prefill.title.value}
               origin={draft.prefill.title.origin}
               confirmed={draft.prefill.title.confirmed}
             />
             {draft.prefill.brand ? (
               <InheritedFact
-                label="Brand"
+                label={t("sell.draft.product.brandLabel")}
                 value={draft.prefill.brand.value}
                 origin={draft.prefill.brand.origin}
                 confirmed={draft.prefill.brand.confirmed}
@@ -131,7 +132,7 @@ export default function SellDraftScreen() {
             ) : null}
             {draft.prefill.model ? (
               <InheritedFact
-                label="Model"
+                label={t("sell.draft.product.modelLabel")}
                 value={draft.prefill.model.value}
                 origin={draft.prefill.model.origin}
                 confirmed={draft.prefill.model.confirmed}
@@ -151,18 +152,18 @@ export default function SellDraftScreen() {
               className="mt-2 self-start rounded-full border border-border px-4 py-2"
               onPress={() => patch.mutate({ canonicalProductId: null })}
             >
-              <Text className="text-sm">This is not my product</Text>
+              <Text className="text-sm">{t("sell.draft.product.notMine")}</Text>
             </Pressable>
           </View>
         ) : null}
 
         <View className="gap-4 rounded-2xl border border-border p-4">
-          <Text className="text-base font-medium">Your item</Text>
+          <Text className="text-base font-medium">{t("sell.draft.item.heading")}</Text>
 
           <View className="gap-2">
-            <Text className="text-sm font-medium">Listing title</Text>
+            <Text className="text-sm font-medium">{t("sell.draft.item.titleLabel")}</Text>
             <TextInput
-              accessibilityLabel="Listing title"
+              accessibilityLabel={t("sell.draft.item.titleLabel")}
               className="rounded-xl border border-border px-4 py-3"
               value={title ?? draft.title ?? ""}
               onChangeText={setTitle}
@@ -172,15 +173,15 @@ export default function SellDraftScreen() {
             />
             {draft.titleOverridesCanonical ? (
               <Text className="text-xs text-muted-foreground">
-                Your title is shown on your listing. It does not change the product.
+                {t("sell.draft.item.titleOverrideNote")}
               </Text>
             ) : null}
           </View>
 
           <View className="gap-2">
-            <Text className="text-sm font-medium">Description</Text>
+            <Text className="text-sm font-medium">{t("sell.draft.item.descriptionLabel")}</Text>
             <TextInput
-              accessibilityLabel="Description"
+              accessibilityLabel={t("sell.draft.item.descriptionLabel")}
               className="min-h-24 rounded-xl border border-border px-4 py-3"
               multiline
               value={description ?? draft.description ?? ""}
@@ -194,7 +195,7 @@ export default function SellDraftScreen() {
           </View>
 
           <View className="gap-2">
-            <Text className="text-sm font-medium">Condition</Text>
+            <Text className="text-sm font-medium">{t("sell.draft.item.conditionLabel")}</Text>
             <View className="flex-row flex-wrap gap-2">
               {ITEM_CONDITION_KEYS.map((key: ItemConditionKey) => (
                 <Pressable
@@ -217,9 +218,9 @@ export default function SellDraftScreen() {
             </View>
             {readiness.requiredItemPhotos > 0 ? (
               <Text className="text-xs text-muted-foreground">
-                This condition needs at least {readiness.requiredItemPhotos} photograph
-                {readiness.requiredItemPhotos === 1 ? "" : "s"} of your actual item. Catalogue and
-                manufacturer pictures cannot stand in for them.
+                {t("sell.draft.item.photoRequirement", {
+                  count: readiness.requiredItemPhotos,
+                })}
               </Text>
             ) : null}
           </View>
@@ -228,28 +229,28 @@ export default function SellDraftScreen() {
         {guidance ? <PriceGuidancePanel guidance={guidance} /> : null}
 
         <View className="gap-2 rounded-2xl border border-border p-4">
-          <Text className="text-base font-medium">Where it will appear</Text>
+          <Text className="text-base font-medium">{t("sell.draft.placement.heading")}</Text>
           <Text className="text-sm text-muted-foreground">
             {placement.onCanonicalProduct
-              ? "On the product page, alongside other sellers"
-              : "In search and on your seller profile — not on a product page"}
+              ? t("sell.draft.placement.onProductPage")
+              : t("sell.draft.placement.ownSurfacesOnly")}
           </Text>
           {placement.inLocalResults ? (
             <Text className="text-sm text-muted-foreground">
-              In local results, at the rough area you chose
+              {t("sell.draft.placement.localResults")}
             </Text>
           ) : null}
         </View>
 
         {readiness.warnings.map((warning) => (
           <Text key={warning} className="text-sm text-muted-foreground">
-            {WARNING_MESSAGES[warning] ?? ""}
+            {WARNING_MESSAGE_KEYS[warning] ? t(WARNING_MESSAGE_KEYS[warning]) : ""}
           </Text>
         ))}
 
         {readiness.blockReasons.map((reason) => (
           <Text key={reason} className="text-sm text-destructive">
-            {BLOCK_MESSAGES[reason]}
+            {t(BLOCK_MESSAGE_KEYS[reason])}
           </Text>
         ))}
 
@@ -268,7 +269,7 @@ export default function SellDraftScreen() {
           }
         >
           <Text className={readiness.publishable ? "text-primary-foreground" : "text-muted-foreground"}>
-            {publish.isPending ? "Publishing…" : "Publish listing"}
+            {publish.isPending ? t("sell.draft.publishing") : t("sell.draft.publish")}
           </Text>
         </Pressable>
 

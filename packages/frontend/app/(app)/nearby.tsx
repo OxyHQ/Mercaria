@@ -9,6 +9,7 @@ import { ScreenShell } from "@/components/shell/ScreenShell";
 import { Footer } from "@/components/shell/Footer";
 import { NearbyAvailability } from "@/components/nearby/NearbyAvailability";
 import { useAddCartItem } from "@/lib/hooks/use-cart";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Collect in person — the screen where a shopper turns "a shop near me has
@@ -49,6 +50,7 @@ import { useAddCartItem } from "@/lib/hooks/use-cart";
  */
 
 export default function NearbyScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ product?: string; variant?: string }>();
   const router = useRouter();
   const { isAuthenticated } = useOxy();
@@ -80,7 +82,7 @@ export default function NearbyScreen() {
             // The line is in the cart and the cart is authoritative, so the
             // honest recovery is to send the buyer to it rather than to guess a
             // seller key and have checkout answer "no matching cart items".
-            setError("Added to your cart. Open your cart to check out.");
+            setError(t("nearby.screen.addedToCart"));
             return;
           }
           const query = new URLSearchParams({
@@ -100,13 +102,13 @@ export default function NearbyScreen() {
       <ScreenShell contentClassName="pt-6">
         <View className="items-center px-8 py-24">
           <Text className="text-center text-bodyTitleLarge text-text">
-            Nothing to collect
+            {t("nearby.screen.emptyTitle")}
           </Text>
           <Text className="mt-1 text-center text-caption text-text-secondary">
-            Open a product and choose “Collect in person” to see the shops near you that have it.
+            {t("nearby.screen.emptyBody")}
           </Text>
           <Button variant="outline" className="mt-4" onPress={() => router.replace("/")}>
-            <Text className="text-buttonSmall text-text">Back to Mercaria</Text>
+            <Text className="text-buttonSmall text-text">{t("nearby.screen.backToMercaria")}</Text>
           </Button>
         </View>
       </ScreenShell>
@@ -116,7 +118,7 @@ export default function NearbyScreen() {
   return (
     <ScreenShell contentClassName="pt-6">
       <Head>
-        <title>Collect in person · Mercaria</title>
+        <title>{t("nearby.screen.documentTitle")}</title>
       </Head>
       <View className="web:mx-auto web:w-full web:max-w-[900px] gap-space-24 md:px-5">
         <NearbyAvailability
@@ -124,7 +126,7 @@ export default function NearbyScreen() {
           {...(canonicalVariantId === undefined ? {} : { canonicalVariantId })}
           withCheckoutEligibility
           onSelectLocation={collectHere}
-          selectLabel="Collect here"
+          selectLabel={t("nearby.selectHere")}
           {...(isAuthenticated ? {} : { onSignIn: () => openAccountDialog() })}
         />
 

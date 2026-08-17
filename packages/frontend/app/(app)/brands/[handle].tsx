@@ -9,6 +9,7 @@ import { SectionHeader, Skeleton, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { OfficialChannelSection } from "@/components/brand/OfficialChannelSection";
 import { CatalogProductGrid } from "@/components/brand/CatalogProductGrid";
+import { useTranslation } from "@/lib/i18n";
 import { useBrandPage, useBrandProducts } from "@/lib/hooks/use-catalog-pages";
 
 /**
@@ -38,6 +39,7 @@ const LOGO_SIZE = 72;
 export default function BrandPageScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const { oxyServices } = useOxy();
 
   const { data: brand, isLoading, isError } = useBrandPage(handle);
@@ -75,10 +77,8 @@ export default function BrandPageScreen() {
     return (
       <ScreenShell>
         <View className="flex flex-col gap-2 p-4">
-          <Text className="text-lg font-semibold">Brand not found</Text>
-          <Text className="text-sm text-muted-foreground">
-            This brand may have been merged into another, or the address may be wrong.
-          </Text>
+          <Text className="text-lg font-semibold">{t("brands.notFound.title")}</Text>
+          <Text className="text-sm text-muted-foreground">{t("brands.notFound.body")}</Text>
         </View>
       </ScreenShell>
     );
@@ -92,7 +92,7 @@ export default function BrandPageScreen() {
   return (
     <>
       <Head>
-        <title>{`${brand.name} · Mercaria`}</title>
+        <title>{t("brands.meta.title", { name: brand.name })}</title>
         <link rel="canonical" href={brand.canonicalPath} />
         {brand.indexability === "indexable" ? null : (
           <meta name="robots" content="noindex,follow" />
@@ -131,11 +131,11 @@ export default function BrandPageScreen() {
                 // and printing a legal entity from a name match is the exact
                 // inference #55 exists to prevent.
                 <Text className="text-sm text-muted-foreground">
-                  Owned by {brand.owningOrganization.name}
+                  {t("brands.ownedBy", { organization: brand.owningOrganization.name })}
                 </Text>
               )}
               <Text className="text-xs text-muted-foreground">
-                {brand.productCount === 1 ? "1 product" : `${brand.productCount} products`}
+                {t("brands.productCount", { count: brand.productCount })}
               </Text>
             </View>
           </View>
@@ -147,29 +147,31 @@ export default function BrandPageScreen() {
                 // The source demanded attribution; showing the text without it
                 // would be using the licence without meeting its condition.
                 <Text className="text-xs text-muted-foreground">
-                  Source: {brand.description.provenance.attribution}
+                  {t("brands.descriptionSource", {
+                    attribution: brand.description.provenance.attribution,
+                  })}
                 </Text>
               )}
             </View>
           ) : null}
 
           <OfficialChannelSection
-            title="Official stores"
-            description="Sales channels this brand runs itself, verified by Mercaria."
+            title={t("brands.officialStores.title")}
+            description={t("brands.officialStores.description")}
             entries={brand.channels.officialStores}
-            emptyText="No official store is verified for this brand yet."
+            emptyText={t("brands.officialStores.empty")}
           />
 
           <OfficialChannelSection
-            title="Authorized resellers"
-            description="Retailers this brand has authorized to sell it. A different arrangement from an official store."
+            title={t("brands.authorizedResellers.title")}
+            description={t("brands.authorizedResellers.description")}
             entries={brand.channels.authorizedResellers}
-            emptyText="No authorized reseller is verified for this brand yet."
+            emptyText={t("brands.authorizedResellers.empty")}
           />
 
           {brand.families.length === 0 ? null : (
             <View className="flex flex-col gap-3">
-              <SectionHeader title="Product families" />
+              <SectionHeader title={t("brands.families.title")} />
               <View className="flex-row flex-wrap gap-2">
                 {brand.families.map((family) => (
                   <Text
@@ -187,7 +189,7 @@ export default function BrandPageScreen() {
 
           {brand.categories.length === 0 ? null : (
             <View className="flex flex-col gap-3">
-              <SectionHeader title="Categories" />
+              <SectionHeader title={t("brands.categories.title")} />
               <View className="flex-row flex-wrap gap-2">
                 {brand.categories.map((category) => (
                   <Text
@@ -202,7 +204,7 @@ export default function BrandPageScreen() {
           )}
 
           <View className="flex flex-col gap-3">
-            <SectionHeader title="Products" />
+            <SectionHeader title={t("brands.products.title")} />
             <CatalogProductGrid
               pages={products.data}
               isLoading={products.isLoading}

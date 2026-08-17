@@ -29,8 +29,10 @@ import Head from "expo-router/head";
 import { Button, Input, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { usePortalRecoveryRequest } from "@/lib/hooks/use-guest-portal";
+import { useTranslation } from "@/lib/i18n";
 
 function RecoverBody() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const request = usePortalRecoveryRequest();
@@ -47,7 +49,7 @@ function RecoverBody() {
   if (request.isSuccess) {
     return (
       <View className="px-4 gap-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Check your inbox" />
+        <SectionHeader title={t("guestOrders.recover.sentTitle")} />
         {/*
           The SERVER's sentence, rendered verbatim rather than reworded here:
           two places writing this message is two places for one of them to
@@ -55,7 +57,7 @@ function RecoverBody() {
         */}
         <Text className="text-sm text-muted-foreground">{request.data}</Text>
         <Text className="text-sm text-muted-foreground">
-          The link works once and expires shortly. If it has expired, ask for another.
+          {t("guestOrders.recover.sentBody")}
         </Text>
       </View>
     );
@@ -63,33 +65,32 @@ function RecoverBody() {
 
   return (
     <View className="px-4 gap-4">
-      <SectionHeader title="Find your order" />
+      <SectionHeader title={t("guestOrders.recover.title")} />
       <Text className="text-sm text-muted-foreground">
-        Enter the email address the order was placed with and we will send a secure link to it.
-        We can only send to that address.
+        {t("guestOrders.recover.body")}
       </Text>
 
       <Input
         value={email}
         onChangeText={setEmail}
-        placeholder="you@example.com"
+        placeholder={t("guestOrders.recover.emailPlaceholder")}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        accessibilityLabel="Email address"
+        accessibilityLabel={t("guestOrders.recover.emailLabel")}
       />
       <Input
         value={orderNumber}
         onChangeText={setOrderNumber}
-        placeholder="Order number (optional)"
+        placeholder={t("guestOrders.recover.orderNumberPlaceholder")}
         autoCapitalize="characters"
         autoCorrect={false}
-        accessibilityLabel="Order number, optional"
+        accessibilityLabel={t("guestOrders.recover.orderNumberLabel")}
       />
 
       <Button onPress={submit} disabled={request.isPending || email.trim().length < 3}>
         <Text className="text-sm font-semibold text-primary-foreground">
-          {request.isPending ? "Sending" : "Send me an access link"}
+          {request.isPending ? t("guestOrders.recover.sending") : t("guestOrders.sendAccessLink")}
         </Text>
       </Button>
 
@@ -97,7 +98,7 @@ function RecoverBody() {
         // A network failure, which is the ONLY error this screen can see: the
         // server never reports a non-match as one.
         <Text className="text-sm text-muted-foreground" accessibilityRole="alert">
-          We could not reach Mercaria just now. Please try again.
+          {t("guestOrders.recover.networkError")}
         </Text>
       ) : null}
     </View>
@@ -105,10 +106,11 @@ function RecoverBody() {
 }
 
 export default function GuestOrderRecoverScreen() {
+  const { t } = useTranslation();
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[720px]">
       <Head>
-        <title>Find your order — Mercaria</title>
+        <title>{t("guestOrders.recover.pageTitle")}</title>
         <meta name="referrer" content="no-referrer" />
         <meta name="robots" content="noindex, nofollow" />
       </Head>

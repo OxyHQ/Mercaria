@@ -23,10 +23,11 @@ import { StoreFollowButton } from "@/components/store/StoreFollowButton";
 import { StoreMenuSheet } from "@/components/store/StoreMenuSheet";
 import { storeThemeVars } from "@/lib/store-theme";
 import { useStore, useStoreCollections } from "@/lib/hooks/use-store";
-import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
+import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useListings } from "@/lib/hooks/use-listings";
 import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
 import { useWindowScrollY } from "@/lib/hooks/use-window-scroll";
+import { useTranslation } from "@/lib/i18n";
 
 /** Hero height (px) — full-bleed brand cover with the centered wordmark. */
 const HERO_HEIGHT = 360;
@@ -57,11 +58,16 @@ const SKELETON_TILE_COUNT = 8;
 
 type SortValue = "best" | "newest" | "price_asc" | "price_desc";
 
-const SORT_OPTIONS: { value: SortValue; label: string }[] = [
-  { value: "best", label: "Best selling" },
-  { value: "newest", label: "Newest" },
-  { value: "price_asc", label: "Price: low to high" },
-  { value: "price_desc", label: "Price: high to low" },
+/**
+ * KEYS rather than labels: this is evaluated at import, before the locale store
+ * has rehydrated, so a sentence here would freeze whichever language loaded
+ * first. Each is resolved with `t()` at its render site.
+ */
+const SORT_OPTIONS: { value: SortValue; labelKey: string }[] = [
+  { value: "best", labelKey: "store.sort.best" },
+  { value: "newest", labelKey: "store.sort.newest" },
+  { value: "price_asc", labelKey: "store.sort.priceAsc" },
+  { value: "price_desc", labelKey: "store.sort.priceDesc" },
 ];
 
 /** Map the page's sort selection to the listings query's `sort` param. */
@@ -101,7 +107,8 @@ function toProductSummary(listing: Listing, brand: string): ProductSummary {
  * number is read (and `resolveStoreRatingSource` is what keeps one review out of
  * two aggregates); it does not change what the number means.
  */
-const STORE_RATING_LABEL = REVIEW_SCOPE_LABELS.merchant;
+/** KEY, not the sentence: resolved with `t()` at each render site. */
+const STORE_RATING_LABEL_KEY = REVIEW_SCOPE_HEADING_KEYS.merchant;
 
 function glassStyle(store: StoreSummary) {
   return { backgroundColor: `${store.brandColor}${GLASS_ALPHA}` } as const;
@@ -175,8 +182,9 @@ function ParallaxCover({ uri }: { uri: string }) {
 
 /** Loading placeholder grid matching the products grid rhythm. */
 function GridSkeleton() {
+  const { t } = useTranslation();
   return (
-    <View className="flex-row flex-wrap" accessibilityLabel="Loading products">
+    <View className="flex-row flex-wrap" accessibilityLabel={t("store.products.loadingLabel")}>
       {Array.from({ length: SKELETON_TILE_COUNT }).map((_, i) => (
         <View key={i} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
           <View className="gap-2">
@@ -192,6 +200,7 @@ function GridSkeleton() {
 
 /** Body of the store page — only rendered once `store` is present. */
 function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const toneColor = store.textTone === "light" ? TONE_LIGHT : TONE_DARK;
   // Scoped shadcn theme tokens derived from the store's palette. Applied to the
@@ -261,8 +270,8 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
   );
 
   const hasNextPage = data?.pagination.hasNextPage ?? false;
-  const activeSortLabel =
-    SORT_OPTIONS.find((o) => o.value === sort)?.label ?? SORT_OPTIONS[0].label;
+  const activeSortLabelKey =
+    SORT_OPTIONS.find((o) => o.value === sort)?.labelKey ?? SORT_OPTIONS[0].labelKey;
 
   return (
     // Scopes the store's brand palette to the whole page via `themeVars` (the
@@ -290,7 +299,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
         {/* Top-left store identity (glassy) — opens the store menu sheet. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Open ${store.name} menu`}
+          accessibilityLabel={t("store.menu.openLabel", { store: store.name })}
           onPress={() => setMenuOpen(true)}
           className="absolute start-4 top-4 flex-row items-center gap-2 rounded-full border border-white/30 px-3 py-2 web:shadow"
           style={glassStyle(store)}
@@ -350,14 +359,14 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
               rating={store.rating}
               count={store.reviewCount}
               size={16}
-              scopeLabel={STORE_RATING_LABEL}
+              scopeLabel={t(STORE_RATING_LABEL_KEY)}
             />
             <Text className="text-sm font-semibold" style={{ color: toneColor }}>
               {`${store.rating} (${formatReviewCount(store.reviewCount)})`}
             </Text>
           </View>
           <Text className="mt-1 text-xs opacity-80" style={{ color: toneColor }}>
-            {STORE_RATING_LABEL}
+            {t(STORE_RATING_LABEL_KEY)}
           </Text>
         </View>
       </View>
@@ -374,7 +383,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
             className="mb-6"
           >
             <CollectionPill
-              title="Shop all"
+              title={t("store.shopAll")}
               active={activeCollectionId === undefined}
               toneColor={toneColor}
               store={store}
@@ -397,7 +406,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
         {/* ---- Collection tiles grid ---- */}
         {publishedCollections.length > 0 ? (
           <View className="mb-8">
-            <SectionHeader title="Collections" />
+            <SectionHeader title={t("store.collections")} />
             <View className="flex-row flex-wrap px-2">
               {publishedCollections.map((collection) => {
                 const isActive = activeCollectionId === collection.id;
@@ -443,7 +452,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
         ) : null}
 
         {/* ---- Products section ---- */}
-        <SectionHeader title="Products" />
+        <SectionHeader title={t("store.products.heading")} />
 
         {/* Search input */}
         <View className="mb-3 px-4">
@@ -454,7 +463,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
             <Input
               value={searchInput}
               onChangeText={onChangeSearch}
-              placeholder={`Search ${store.name}…`}
+              placeholder={t("store.products.searchPlaceholder", { store: store.name })}
               className="h-11 rounded-full bg-secondary ps-9"
               returnKeyType="search"
             />
@@ -467,11 +476,11 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
             <DropdownMenu.Trigger>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Sort products"
+                accessibilityLabel={t("store.sort.label")}
                 className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-secondary px-4"
               >
                 <SlidersHorizontal size={15} className="text-foreground" />
-                <Text className="text-sm font-medium text-foreground">{activeSortLabel}</Text>
+                <Text className="text-sm font-medium text-foreground">{t(activeSortLabelKey)}</Text>
                 <ChevronDown size={16} className="text-muted-foreground" />
               </Pressable>
             </DropdownMenu.Trigger>
@@ -483,14 +492,14 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
                   onValueChange={() => onSelectSort(option.value)}
                 >
                   <DropdownMenu.ItemIndicator />
-                  <DropdownMenu.ItemTitle>{option.label}</DropdownMenu.ItemTitle>
+                  <DropdownMenu.ItemTitle>{t(option.labelKey)}</DropdownMenu.ItemTitle>
                 </DropdownMenu.CheckboxItem>
               ))}
             </DropdownMenu.Content>
           </DropdownMenu.Root>
 
           <View className="h-10 flex-row items-center gap-2 rounded-full border border-border bg-secondary px-4">
-            <Text className="text-sm font-medium text-foreground">In stock</Text>
+            <Text className="text-sm font-medium text-foreground">{t("store.filters.inStock")}</Text>
             <Switch value={inStockOnly} onValueChange={onToggleInStock} />
           </View>
         </View>
@@ -501,7 +510,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
         {isError && !data ? (
           <View className="items-center px-8 py-16">
             <Text className="text-center text-base text-muted-foreground">
-              Couldn&apos;t load products. Pull to refresh or try again.
+              {t("store.products.loadError")}
             </Text>
           </View>
         ) : null}
@@ -509,7 +518,7 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
         {!isLoading && products.length === 0 && !isError ? (
           <View className="items-center px-8 py-16">
             <Text className="text-center text-base text-muted-foreground">
-              No products match your filters.
+              {t("store.products.empty")}
             </Text>
           </View>
         ) : null}
@@ -529,11 +538,13 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
           <View className="items-center px-4 py-6">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Load more products"
+              accessibilityLabel={t("store.products.loadMoreLabel")}
               onPress={() => setPage((p) => p + 1)}
               className="rounded-full border border-border bg-secondary px-6 py-3 web:shadow-sm"
             >
-              <Text className="text-sm font-semibold text-foreground">Load more</Text>
+              <Text className="text-sm font-semibold text-foreground">
+                {t("store.products.loadMore")}
+              </Text>
             </Pressable>
           </View>
         ) : null}
@@ -557,12 +568,17 @@ function StoreBody({ handle, store }: { handle: string; store: StoreSummary }) {
 }
 
 export default function StoreScreen() {
+  const { t } = useTranslation();
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const { data, isLoading, isError } = useStore(handle ?? "");
 
   const head = (
     <Head>
-      <title>{data?.store.name ? `${data.store.name} — Mercaria` : "Mercaria"}</title>
+      <title>
+        {data?.store.name
+          ? t("store.documentTitle", { store: data.store.name })
+          : t("store.documentTitleFallback")}
+      </title>
     </Head>
   );
 
@@ -587,7 +603,7 @@ export default function StoreScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
           <Text className="text-center text-base text-muted-foreground">
-            Couldn&apos;t load this store. Try again later.
+            {t("store.loadError")}
           </Text>
         </View>
       </ScreenShell>

@@ -16,8 +16,17 @@ import type { RoutePath } from "expo-router";
  */
 interface NavItemBase {
   key: string;
-  /** Accessible label / tooltip text. */
-  label: string;
+  /**
+   * i18n KEY for the accessible label / tooltip text, resolved with `t()` at
+   * the render site.
+   *
+   * Deliberately a key rather than the text: this table is a module-scope
+   * `const`, evaluated at import, and the locale store has not rehydrated by
+   * then — a sentence here would freeze whichever language loaded first and
+   * never change again, with nothing to blame. It is also what lets the i18n
+   * guard's referential check see these leaves at all, since they are literals.
+   */
+  labelKey: string;
   icon: LucideIcon;
 }
 
@@ -43,26 +52,26 @@ export type NavItem =
   | (NavItemBase & { available: false });
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "home", label: "Home", icon: Home, href: "/", available: true },
+  { key: "home", labelKey: "nav.home", icon: Home, href: "/", available: true },
   // No `href`: `/categories` is not a route. #367 workstream 9 built the
   // category LANDING page (`/categories/:handle`) and deliberately did not ship
   // an index hub — whether a page whose entire content is links to pages each
   // indexed on their own earns a `PublicRouteId` of its own is an SEO decision,
   // and it is not made yet. See `docs/storefront-catalog.md` §Seams.
-  { key: "explore", label: "Explore", icon: LayoutGrid, available: false },
+  { key: "explore", labelKey: "nav.explore", icon: LayoutGrid, available: false },
   {
     key: "cart",
-    label: "Cart",
+    labelKey: "nav.cart",
     icon: ShoppingCart,
     href: "/cart",
     available: true,
   },
   // No `href`: `/offers` is not a route.
-  { key: "deals", label: "Deals", icon: Tag, available: false },
+  { key: "deals", labelKey: "nav.deals", icon: Tag, available: false },
   // #80 shipped `app/(app)/saved.tsx`, so this is navigable now. It stays a
   // real route rather than a modal because a saved list is a place a buyer
   // returns to and links to.
-  { key: "saved", label: "Saved", icon: Heart, href: "/saved", available: true },
+  { key: "saved", labelKey: "nav.saved", icon: Heart, href: "/saved", available: true },
 ] as const;
 
 /**

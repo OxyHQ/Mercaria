@@ -31,10 +31,11 @@ import {
   composeVariantMatrix,
   type VariantSelection,
 } from '@/lib/catalog/variant-axes';
-import { OFFER_INTENT_LABELS, useProductPage } from '@/lib/hooks/use-product-page';
+import { OFFER_INTENT_LABEL_KEYS, useProductPage } from '@/lib/hooks/use-product-page';
 import { useProductScopeReviews } from '@/lib/hooks/use-reviews';
 import { useAddCartItem } from '@/lib/hooks/use-cart';
 import { useToggleProductSave } from '@/lib/hooks/use-saves';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The canonical product page (#71).
@@ -67,6 +68,7 @@ import { useToggleProductSave } from '@/lib/hooks/use-saves';
 
 export default function CanonicalProductPageScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ handle: string; variant?: string; intent?: string }>();
   const handle = params.handle ?? '';
   const selectedVariantId = params.variant;
@@ -154,7 +156,7 @@ export default function CanonicalProductPageScreen() {
 
   const head = (
     <Head>
-      <title>{page?.product.name ? `${page.product.name} — Mercaria` : 'Mercaria'}</title>
+      <title>{page?.product.name ? t('product.documentTitle', { name: page.product.name }) : t('product.appName')}</title>
       {page?.product.description ? (
         <meta name="description" content={page.product.description.slice(0, 160)} />
       ) : null}
@@ -176,7 +178,7 @@ export default function CanonicalProductPageScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16">
           <Text className="text-center text-body text-text-tertiary">
-            We couldn&apos;t find this product.
+            {t('product.notFound')}
           </Text>
         </View>
       </ScreenShell>
@@ -336,7 +338,7 @@ export default function CanonicalProductPageScreen() {
           */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Save this product"
+            accessibilityLabel={t('product.save.productA11y')}
             accessibilityState={{ disabled: toggleProductSave.isPending }}
             disabled={toggleProductSave.isPending}
             onPress={() =>
@@ -349,7 +351,7 @@ export default function CanonicalProductPageScreen() {
             className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
             <Text className="text-buttonMedium text-text">
-              {toggleProductSave.isSuccess ? 'Saved' : 'Save product'}
+              {toggleProductSave.isSuccess ? t('product.save.saved') : t('product.save.product')}
             </Text>
           </Pressable>
 
@@ -365,11 +367,11 @@ export default function CanonicalProductPageScreen() {
           */}
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel="Report a problem with this product's information"
+            accessibilityLabel={t('product.reportProblemA11y')}
             onPress={() => router.push('/settings/feedback')}
             className="rounded-radius-max border border-border-secondary px-space-16 py-space-12"
           >
-            <Text className="text-buttonMedium text-text">Report a problem</Text>
+            <Text className="text-buttonMedium text-text">{t('product.reportProblem')}</Text>
           </Pressable>
         </View>
 
@@ -396,6 +398,7 @@ export default function CanonicalProductPageScreen() {
  * label #74 awarded under the policy version the page names.
  */
 function Highlights({ page }: { page: CanonicalProductPage }) {
+  const { t } = useTranslation();
   const offers = page.offers;
   if (offers.available === false || offers.highlights.length === 0) return null;
 
@@ -404,7 +407,7 @@ function Highlights({ page }: { page: CanonicalProductPage }) {
   return (
     <View className="gap-space-8">
       <Text className="text-sectionTitle text-text" accessibilityRole="header">
-        Highlights
+        {t('product.highlights')}
       </Text>
       {offers.highlights.map((highlight) => {
         const row = rowsById.get(highlight.offerId);
@@ -415,7 +418,9 @@ function Highlights({ page }: { page: CanonicalProductPage }) {
             className="flex-row items-center gap-space-8"
           >
             <OfferLabelBadge award={highlight.award} />
-            <Text className="text-caption text-text-secondary">{sellerName(row.seller)}</Text>
+            <Text className="text-caption text-text-secondary">
+              {sellerName(row.seller) ?? t('offer.sellerNotIdentified')}
+            </Text>
           </View>
         );
       })}
@@ -446,25 +451,30 @@ function IntentPicker({
   // is a SUBSET that goes on compiling while the control silently stops offering
   // the new sort — the drift `scripts/validate-storefront-catalog-driven.mjs`
   // wall 5 exists to refuse.
+  const { t } = useTranslation();
   const options = OFFER_COMPARISON_INTENTS;
   const current = intent ?? DEFAULT_OFFER_INTENT;
 
   return (
-    <View className="gap-space-8" accessibilityRole="radiogroup" accessibilityLabel="Sort offers by">
-      <Text className="text-captionBold text-text">Sort offers by</Text>
+    <View
+      className="gap-space-8"
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t('product.sortOffersBy')}
+    >
+      <Text className="text-captionBold text-text">{t('product.sortOffersBy')}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         {options.map((option) => (
           <Pressable
             key={option}
             accessibilityRole="radio"
             accessibilityState={{ checked: current === option }}
-            accessibilityLabel={OFFER_INTENT_LABELS[option]}
+            accessibilityLabel={t(OFFER_INTENT_LABEL_KEYS[option])}
             onPress={() => onSelect(option === DEFAULT_OFFER_INTENT ? undefined : option)}
             className={`rounded-radius-max border px-space-16 py-space-8 ${
               current === option ? 'border-text bg-bg-fill' : 'border-border-secondary'
             }`}
           >
-            <Text className="text-buttonMedium text-text">{OFFER_INTENT_LABELS[option]}</Text>
+            <Text className="text-buttonMedium text-text">{t(OFFER_INTENT_LABEL_KEYS[option])}</Text>
           </Pressable>
         ))}
       </View>
@@ -479,8 +489,12 @@ function IntentPicker({
  * coalesce: the union has no common field on purpose (a person is an Oxy
  * account and a merchant is a canonical entity), and a coalesce is what would
  * eventually put one where the other belongs.
+ *
+ * An unresolvable seller answers `undefined` rather than a sentence: this
+ * function composes DATA, and the caller resolves `offer.sellerNotIdentified`
+ * against the locale in force.
  */
-function sellerName(seller: ProductPageSeller): string {
+function sellerName(seller: ProductPageSeller): string | undefined {
   switch (seller.kind) {
     case 'merchant':
       return seller.name;
@@ -489,7 +503,7 @@ function sellerName(seller: ProductPageSeller): string {
     case 'native_person':
       return seller.displayName;
     default:
-      return 'Seller not identified';
+      return undefined;
   }
 }
 
@@ -557,10 +571,12 @@ function readIntent(value: string | undefined): OfferComparisonIntent | undefine
 
 /** Loading placeholder mirroring the page's own rhythm. */
 function ProductPageSkeleton() {
+  const { t } = useTranslation();
+
   return (
     <View
       className="web:mx-auto web:w-full web:max-w-[1200px] gap-space-16 md:px-5"
-      accessibilityLabel="Loading product"
+      accessibilityLabel={t('product.loadingA11y')}
     >
       <View className="h-[180px] w-full rounded-radius-28 bg-bg-fill-hover" />
       <View className="h-8 w-2/3 rounded bg-bg-fill-hover" />

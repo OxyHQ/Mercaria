@@ -4,6 +4,7 @@ import { useOxy } from "@oxyhq/services";
 import { ALL_CURRENCY_CODES } from "@mercaria/shared-types";
 import type { CurrencyCode, MerchantCatalogEntry, Money } from "@mercaria/shared-types";
 import { PriceDisplay, Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * An offer's price, only when Mercaria can actually display it.
@@ -53,6 +54,7 @@ export function MerchantProductCard({
   entry: MerchantCatalogEntry;
   onPress: (canonicalProductId: string) => void;
 }) {
+  const { t } = useTranslation();
   const { oxyServices } = useOxy();
   const fileId = entry.image?.fileId ?? null;
   const imageUri = fileId
@@ -95,16 +97,19 @@ export function MerchantProductCard({
         // cannot convert — and neither is a zero.
         <Text className="text-sm text-muted-foreground">
           {offerPrice === undefined
-            ? "Price not published"
-            : `Price in ${offerPrice.currency}, which Mercaria cannot convert`}
+            ? t("merchants.card.priceNotPublished")
+            : t("merchants.card.priceUnconvertible", { currency: offerPrice.currency })}
         </Text>
       ) : null}
 
       <Text numberOfLines={1} className="text-xs text-muted-foreground">
         {entry.eligibleChannelCount > 1
-          ? `${String(entry.currentOfferCount)} offers across ${String(entry.eligibleChannelCount)} channels`
-          : `${String(entry.currentOfferCount)} offer${entry.currentOfferCount === 1 ? "" : "s"}`}
-        {entry.hasOtherSellers ? " · includes other sellers" : ""}
+          ? t("merchants.card.offersAcrossChannels", {
+              count: entry.currentOfferCount,
+              channels: entry.eligibleChannelCount,
+            })
+          : t("merchants.card.offerCount", { count: entry.currentOfferCount })}
+        {entry.hasOtherSellers ? ` ${t("merchants.card.otherSellers")}` : ""}
       </Text>
     </Pressable>
   );

@@ -19,15 +19,14 @@ import {
 } from "@mercaria/ui";
 import type { CartGroup, CartVendor, Money } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
-import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
+import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useCart, useUpdateCartItem, useRemoveCartItem } from "@/lib/hooks/use-cart";
 import { useGuestCredential } from "@/lib/stores/guest-credential-store";
 import { useFeed } from "@/lib/hooks/use-feed";
+import { useTranslation } from "@/lib/i18n";
 
 /** Vendor logo edge length (px) in the cart-group header. */
 const VENDOR_LOGO_SIZE = 40;
-/** Heading of the bottom recommendation shelf. */
-const RECOMMENDATION_TITLE = "You might also like";
 
 /**
  * What an Oxy account adds to a cart that already works without one (#104).
@@ -36,11 +35,15 @@ const RECOMMENDATION_TITLE = "You might also like";
  * the guest path genuinely does not have. "Cross-device" is deliberately worded
  * as a benefit of signing IN rather than as a description of the guest cart —
  * a guest cart lives on ONE device and the copy must never imply otherwise.
+ *
+ * KEYS rather than sentences: this `const` is evaluated at import, before the
+ * locale store has rehydrated, so a `t()` here would freeze whichever language
+ * loaded first. They are resolved at the render site instead.
  */
-const ACCOUNT_BENEFITS = [
-  "Your cart follows you to your other devices",
-  "Saved addresses, so checkout is one step",
-  "Every order in one place, tied to your account",
+const ACCOUNT_BENEFIT_KEYS = [
+  "cart.guestOffer.benefits.crossDevice",
+  "cart.guestOffer.benefits.savedAddresses",
+  "cart.guestOffer.benefits.orderHistory",
 ];
 
 /** Empty state — never crashes, mirrors the home error/empty rhythm. */
@@ -69,29 +72,26 @@ function CartEmptyState({ title, subtitle }: { title: string; subtitle: string }
  * cannot make.
  */
 function AccountBenefitsCard() {
+  const { t } = useTranslation();
   return (
     <View className="mb-4 rounded-3xl border border-border bg-card p-4 web:shadow">
-      <Text className="text-base font-bold text-foreground">Shopping as a guest</Text>
-      <Text className="mt-1 text-sm text-muted-foreground">
-        You can check out without an account. With one, you also get:
-      </Text>
+      <Text className="text-base font-bold text-foreground">{t("cart.guestOffer.title")}</Text>
+      <Text className="mt-1 text-sm text-muted-foreground">{t("cart.guestOffer.intro")}</Text>
       <View className="mt-3 gap-1.5">
-        {ACCOUNT_BENEFITS.map((benefit) => (
-          <Text key={benefit} className="text-sm text-foreground">
-            {`• ${benefit}`}
+        {ACCOUNT_BENEFIT_KEYS.map((benefitKey) => (
+          <Text key={benefitKey} className="text-sm text-foreground">
+            {`• ${t(benefitKey)}`}
           </Text>
         ))}
       </View>
-      <Text className="mt-3 text-xs text-muted-foreground">
-        Sign in any time — the items already in your cart come with you.
-      </Text>
+      <Text className="mt-3 text-xs text-muted-foreground">{t("cart.guestOffer.footnote")}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Sign in to your Oxy account"
+        accessibilityLabel={t("cart.guestOffer.signInA11yLabel")}
         onPress={() => openAccountDialog()}
         className="mt-4 items-center rounded-full border border-border py-3 web:hover:opacity-90 active:opacity-90"
       >
-        <Text className="text-sm font-semibold text-foreground">Sign in</Text>
+        <Text className="text-sm font-semibold text-foreground">{t("cart.signIn")}</Text>
       </Pressable>
     </View>
   );
@@ -106,15 +106,13 @@ function AccountBenefitsCard() {
  * storage actually failed, so a healthy device never sees it.
  */
 function GuestStorageWarning() {
+  const { t } = useTranslation();
   return (
     <View className="mb-4 rounded-3xl border border-destructive/40 bg-card p-4">
       <Text accessibilityRole="alert" className="text-sm font-semibold text-foreground">
-        This cart may not survive closing the app
+        {t("cart.storageWarning.title")}
       </Text>
-      <Text className="mt-1 text-sm text-muted-foreground">
-        We could not save your cart securely on this device. You can keep shopping and check out
-        now. Signing in keeps your cart safe.
-      </Text>
+      <Text className="mt-1 text-sm text-muted-foreground">{t("cart.storageWarning.body")}</Text>
     </View>
   );
 }
@@ -133,6 +131,7 @@ function CartGroupCard({
   onRemove: (variantId: string) => void;
   onCheckout: (group: CartGroup) => void;
 }) {
+  const { t } = useTranslation();
   const { vendor, commercial } = group;
   // #129 cart rules 1-3: the SELLER a buyer reads comes from the group's
   // commercial presentation, never from `vendor.name`. `vendor` names whose
@@ -152,7 +151,11 @@ function CartGroupCard({
       {/* Header: the seller, linked to the vendor page only when they are one. */}
       <Pressable
         accessibilityRole={linksToVendor ? "link" : "text"}
-        accessibilityLabel={linksToVendor ? `Visit ${sellerName}` : `Sold by ${sellerName}`}
+        accessibilityLabel={
+          linksToVendor
+            ? t("cart.group.visitSellerA11yLabel", { seller: sellerName })
+            : t("cart.group.soldByA11yLabel", { seller: sellerName })
+        }
         disabled={!linksToVendor}
         onPress={() => onPressVendor(vendor)}
         className="flex-row items-center gap-3"
@@ -177,7 +180,7 @@ function CartGroupCard({
                 rating={vendor.rating ?? 0}
                 count={vendor.reviewCount}
                 size={12}
-                scopeLabel={REVIEW_SCOPE_LABELS.merchant}
+                scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.merchant)}
               />
               <Text className="text-xs text-muted-foreground">
                 {`${vendor.rating} (${formatReviewCount(vendor.reviewCount ?? 0)})`}
@@ -206,7 +209,7 @@ function CartGroupCard({
 
       {/* Subtotal + checkout (sibling to the vendor link, never nested) */}
       <View className="mt-5 flex-row items-center justify-between border-t border-border pt-4">
-        <Text className="text-sm text-muted-foreground">Subtotal</Text>
+        <Text className="text-sm text-muted-foreground">{t("cart.group.subtotal")}</Text>
         <PriceDisplay price={group.subtotal} primaryClassName="text-base font-bold" />
       </View>
       {group.guestCheckout?.status === "blocked" ? (
@@ -214,12 +217,12 @@ function CartGroupCard({
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Continue to checkout with ${sellerName}`}
+          accessibilityLabel={t("cart.group.checkoutWithA11yLabel", { seller: sellerName })}
           onPress={() => onCheckout(group)}
           className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
         >
           <Text className="text-sm font-semibold text-primary-foreground">
-            Continue to checkout
+            {t("cart.group.checkout")}
           </Text>
         </Pressable>
       )}
@@ -242,21 +245,20 @@ function CartGroupCard({
  * a switchboard somebody could read out one item at a time.
  */
 function GuestGroupBlockedNotice({ vendorName }: { vendorName: string }) {
+  const { t } = useTranslation();
   return (
     <View className="mt-4 rounded-2xl border border-border bg-secondary p-4">
-      <Text className="text-sm font-semibold text-foreground">
-        Buying from a person needs an account
-      </Text>
+      <Text className="text-sm font-semibold text-foreground">{t("cart.guestBlocked.title")}</Text>
       <Text className="mt-1 text-sm text-muted-foreground">
-        {`Items from ${vendorName} cannot be bought as a guest yet. Sign in to check out — everything already in your cart comes with you.`}
+        {t("cart.guestBlocked.body", { seller: vendorName })}
       </Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Sign in to your Oxy account to buy from this seller"
+        accessibilityLabel={t("cart.guestBlocked.signInA11yLabel")}
         onPress={() => openAccountDialog()}
         className="mt-4 items-center rounded-full bg-primary py-3 web:hover:opacity-90 active:opacity-90"
       >
-        <Text className="text-sm font-semibold text-primary-foreground">Sign in</Text>
+        <Text className="text-sm font-semibold text-primary-foreground">{t("cart.signIn")}</Text>
       </Pressable>
     </View>
   );
@@ -264,6 +266,7 @@ function GuestGroupBlockedNotice({ vendorName }: { vendorName: string }) {
 
 /** Cart body — only the content; the host (web flow / native scroll) wraps it. */
 function CartBody() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isAuthenticated } = useOxy();
   const { data: cart, isLoading, isError } = useCart();
@@ -337,27 +340,31 @@ function CartBody() {
 
   return (
     <>
-      <SectionHeader title="Your cart" />
+      <SectionHeader title={t("cart.title")} />
 
       {/* Signing out of the cart is no longer a state this screen has: the cart
           belongs to whoever the server resolves the caller to be, so a guest
           sees their own real cart here and the auth check below decides only
           what to OFFER them, never what to withhold (#104). */}
       {isLoading && !cart ? (
-        <View className="px-4 py-16" accessibilityRole="progressbar" accessibilityLabel="Loading your cart">
+        <View
+          className="px-4 py-16"
+          accessibilityRole="progressbar"
+          accessibilityLabel={t("cart.loadingA11yLabel")}
+        >
           <View className="mb-4 h-40 w-full rounded-3xl bg-muted" />
           <View className="h-40 w-full rounded-3xl bg-muted" />
         </View>
       ) : isError && !cart ? (
         <CartEmptyState
-          title="We could not load your cart"
-          subtitle="Check your connection and try again — nothing has been lost."
+          title={t("cart.error.title")}
+          subtitle={t("cart.error.subtitle")}
         />
       ) : groups.length === 0 ? (
         <>
           <CartEmptyState
-            title="Your cart is empty"
-            subtitle="Browse the marketplace and add items you love."
+            title={t("cart.empty.title")}
+            subtitle={t("cart.empty.subtitle")}
           />
           {!isAuthenticated ? (
             <View className="px-4">
@@ -387,7 +394,9 @@ function CartBody() {
             <View className="mb-4 rounded-3xl border border-border bg-card p-4 web:shadow">
               <View className="flex-row items-center justify-between">
                 <Text className="text-sm text-muted-foreground">
-                  {blockedGroups.length === 0 ? "Cart total" : "Available now"}
+                  {blockedGroups.length === 0
+                    ? t("cart.summary.totalAll")
+                    : t("cart.summary.totalAvailable")}
                 </Text>
                 {/* The figure has to be the one the button will charge. Showing
                     the whole cart's subtotal beside a button that places only
@@ -398,14 +407,16 @@ function CartBody() {
                 accessibilityRole="button"
                 accessibilityLabel={
                   blockedGroups.length === 0
-                    ? "Check out everything in your cart"
-                    : "Check out the items you can buy as a guest"
+                    ? t("cart.summary.checkoutAllA11yLabel")
+                    : t("cart.summary.checkoutAvailableA11yLabel")
                 }
                 onPress={onCheckoutAll}
                 className="mt-4 items-center rounded-full bg-primary py-3.5 web:hover:opacity-90 active:opacity-90"
               >
                 <Text className="text-sm font-semibold text-primary-foreground">
-                  {blockedGroups.length === 0 ? "Checkout everything" : "Checkout available items"}
+                  {blockedGroups.length === 0
+                    ? t("cart.summary.checkoutAll")
+                    : t("cart.summary.checkoutAvailable")}
                 </Text>
               </Pressable>
             </View>
@@ -421,7 +432,8 @@ function CartBody() {
       {/* Bottom recommendation shelf — rendered only when feed products exist. */}
       {recommendations.length > 0 ? (
         <View className="mt-6">
-          <ProductShelf title={RECOMMENDATION_TITLE} items={recommendations} />
+          {/* Heading of the bottom recommendation shelf. */}
+          <ProductShelf title={t("cart.recommendations.title")} items={recommendations} />
         </View>
       ) : null}
 
@@ -431,12 +443,13 @@ function CartBody() {
 }
 
 export default function CartScreen() {
+  const { t } = useTranslation();
   return (
     // The cart is a narrower column than the home/store feed
     // (`max-w-[1200px]`) and gets `pt-5` on both platforms.
     <ScreenShell contentClassName="pt-5 web:max-w-[1200px]">
       <Head>
-        <title>Your cart — Mercaria</title>
+        <title>{t("cart.pageTitle")}</title>
       </Head>
       <CartBody />
     </ScreenShell>

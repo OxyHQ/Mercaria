@@ -1,82 +1,36 @@
 {
   "common": {
-    "or": "ODER",
     "loading": "Wird geladen...",
-    "error": "Fehler",
-    "success": "Erfolg",
     "cancel": "Abbrechen",
     "confirm": "Bestätigen",
-    "save": "Speichern",
-    "saving": "Wird gespeichert...",
-    "delete": "Löschen",
-    "edit": "Bearbeiten",
-    "close": "Schließen",
     "back": "Zurück",
-    "create": "Erstellen",
-    "search": "Suchen...",
-    "comingSoon": "Demnächst verfügbar!",
-    "noResults": "Keine Ergebnisse gefunden",
     "user": "Nutzer",
-    "done": "Fertig",
     "tryAgain": "Erneut versuchen",
     "processing": "Wird verarbeitet..."
   },
   "home": {
     "title": "Mercaria",
-    "emptyTitle": "Mercaria kommt bald",
-    "emptySubtitle": "Kaufe und verkaufe Neues und Gebrauchtes — Anzeigen erscheinen hier."
+    "loadingProducts": "Produkte werden geladen",
+    "loadError": "Produkte konnten nicht geladen werden. Zum Aktualisieren ziehen oder es erneut versuchen."
   },
   "nav": {
     "home": "Start",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "explore": "Entdecken",
+    "cart": "Warenkorb",
+    "deals": "Angebote",
+    "saved": "Gemerkt",
+    "account": "Konto",
+    "signIn": "Anmelden"
   },
   "login": {
-    "title": "Anmelden oder registrieren",
-    "subtitle": "um bei Mercaria fortzufahren",
-    "emailPlaceholder": "E-Mail",
-    "passwordPlaceholder": "Passwort",
-    "forgotPassword": "Passwort vergessen?",
     "signInButton": "Anmelden",
-    "signingIn": "Anmeldung läuft...",
-    "footerText": "Noch kein Konto?",
-    "footerLink": "Registrieren",
-    "termsPrefix": "Wenn du fortfährst, akzeptierst du die ",
-    "termsOfService": "Nutzungsbedingungen von Mercaria",
-    "termsAnd": " und die ",
-    "privacyPolicy": "Datenschutzerklärung"
-  },
-  "register": {
-    "title": "Oxy-Konto erstellen",
-    "subtitle": "Registriere dich, um mit Mercaria zu starten",
-    "firstNamePlaceholder": "Vorname",
-    "lastNamePlaceholder": "Nachname (optional)",
-    "emailPlaceholder": "E-Mail",
-    "passwordPlaceholder": "Passwort (mind. 8 Zeichen)",
-    "confirmPasswordPlaceholder": "Passwort bestätigen",
-    "createAccountButton": "Weiter",
-    "creatingAccount": "Konto wird erstellt...",
-    "footerText": "Du hast bereits ein Konto?",
-    "footerLink": "Anmelden",
-    "termsPrefix": "Wenn du fortfährst, akzeptierst du die ",
-    "termsOfService": "Nutzungsbedingungen von Oxy",
-    "termsAnd": " und die ",
-    "privacyPolicy": "Datenschutzerklärung"
-  },
-  "errors": {
-    "passwordRequired": "Bitte gib dein Passwort ein",
-    "loginFailed": "Anmeldung fehlgeschlagen",
-    "loginError": "Anmeldefehler",
-    "failedToLogin": "Anmeldung nicht möglich. Bitte versuche es erneut.",
-    "registrationError": "Registrierungsfehler",
-    "registrationFailed": "Registrierung fehlgeschlagen",
-    "failedToRegister": "Registrierung nicht möglich. Bitte versuche es erneut."
+    "footerLink": "Registrieren"
   },
   "settings": {
     "title": "Einstellungen",
-    "subtitle": "Verwalte deine Mercaria-Einstellungen",
     "account": {
-      "title": "Kontoeinstellungen",
-      "description": "Verwalte dein Konto"
+      "title": "Kontoeinstellungen"
     },
     "appLanguage": {
       "title": "App-Sprache",
@@ -85,7 +39,6 @@
     },
     "appearance": {
       "title": "Darstellung",
-      "description": "Wähle dein bevorzugtes Farbschema",
       "light": "Hell",
       "dark": "Dunkel",
       "system": "System"
@@ -102,13 +55,18 @@
       "watchlists": "Merklisten",
       "shoppingAgents": "Einkaufsassistenten",
       "referralPartner": "Empfehlungsprogramm"
+    },
+    "currency": {
+      "title": "Anzeigewährung",
+      "description": "Wähle die Währung, in der Preise angezeigt werden. FairCoin (⊜) ist die Voreinstellung.",
+      "signedOut": "Melde dich an, um deine bevorzugte Anzeigewährung zu speichern.",
+      "updateFailed": "Anzeigewährung konnte nicht aktualisiert werden"
     }
   },
   "sidebar": {
     "account": "Konto",
     "settings": "Einstellungen",
     "logOut": "Abmelden",
-    "termsOfService": "Nutzungsbedingungen",
     "privacyPolicy": "Datenschutzerklärung"
   },
   "feedback": {
@@ -134,9 +92,8 @@
     "featurePlaceholder": "Beschreibe die gewünschte Funktion. Wie würde sie dir helfen?",
     "improvementPlaceholder": "Was sollen wir verbessern? Wie könnten wir es besser machen?",
     "otherPlaceholder": "Teile uns deine Gedanken mit...",
-    "characterCount": "{{count}}/1000 Zeichen",
+    "characterCount": "%{count}/1000 Zeichen",
     "submitButton": "Feedback senden",
-    "submitting": "Wird gesendet...",
     "footerText": "Dein Feedback hilft uns, Mercaria zu verbessern. Danke, dass du dir die Zeit nimmst.",
     "selectType": "Bitte wähle eine Feedback-Art",
     "enterMessage": "Bitte gib dein Feedback ein",
@@ -146,16 +103,112 @@
   },
   "notifications": {
     "title": "Benachrichtigungen",
-    "subtitle": "Verwalte deine Benachrichtigungseinstellungen",
     "pushNotifications": "Push-Benachrichtigungen",
     "pushDescription": "Erhalte Hinweise zu neuen Nachrichten und Updates",
-    "permissionDenied": "Benachrichtigungen sind blockiert. Aktiviere sie in den Einstellungen deines Geräts, um Push-Benachrichtigungen zu erhalten."
-  },
-  "welcome": {
-    "appName": "Mercaria"
+    "permissionDenied": "Benachrichtigungen sind blockiert. Aktiviere sie in den Einstellungen deines Geräts, um Push-Benachrichtigungen zu erhalten.",
+    "timeAgo": {
+      "justNow": "gerade eben",
+      "minutes": "vor %{count} Min.",
+      "hours": "vor %{count} Std.",
+      "days": "vor %{count} Tg."
+    },
+    "unreadCount": "%{count} ungelesen",
+    "markAllRead": "Alle als gelesen markieren",
+    "empty": {
+      "title": "Noch keine Benachrichtigungen",
+      "body": "Du bist auf dem neuesten Stand."
+    }
   },
   "product": {
-    "priceHistoryHeading": "Preisverlauf — %{segment}"
+    "priceHistoryHeading": "Preisverlauf — %{segment}",
+    "intent": {
+      "balanced": "Insgesamt am besten",
+      "cheapest": "Günstigste",
+      "fastest": "Schnellste Lieferung",
+      "official": "Offizielle Shops",
+      "used": "Gebraucht"
+    },
+    "sourceKind": {
+      "connector": "verbundener Shop",
+      "feed": "Produktfeed",
+      "marketplaceApi": "Marktplatz",
+      "affiliateNetwork": "Affiliate-Netzwerk",
+      "operator": "Betreiber",
+      "backfill": "früherer Import"
+    },
+    "appName": "Mercaria",
+    "documentTitle": "%{name} — Mercaria",
+    "loadingA11y": "Produkt wird geladen",
+    "loadError": "Dieses Produkt konnte nicht geladen werden. Versuche es später noch einmal.",
+    "notFound": "Wir konnten dieses Produkt nicht finden.",
+    "visitA11y": "%{name} besuchen",
+    "moreFromStore": "Mehr von %{name}",
+    "compareOffersA11y": "Alle Angebote für dieses Produkt vergleichen",
+    "compareOffers": "Alle Angebote vergleichen",
+    "percentOff": "%{percent}% Rabatt",
+    "demandCopy": "100.000+ im letzten Monat gekauft",
+    "exclusiveOffer": {
+      "label": "Exklusive Preise freischalten",
+      "caption": "Melde dich an, um dein exklusives Angebot zu sehen"
+    },
+    "quantity": "Menge",
+    "decreaseQuantity": "Menge verringern",
+    "increaseQuantity": "Menge erhöhen",
+    "save": {
+      "productA11y": "Dieses Produkt merken",
+      "removeProductA11y": "Dieses Produkt aus den Merklisten entfernen",
+      "product": "Produkt merken",
+      "productSaved": "Produkt gemerkt",
+      "exactListingA11y": "Genau dieses Angebot merken",
+      "removeListingA11y": "Dieses Angebot aus den Merklisten entfernen",
+      "listing": "Dieses Angebot merken",
+      "listingSaved": "Angebot gemerkt",
+      "save": "Merken",
+      "saved": "Gemerkt"
+    },
+    "shareA11y": "Dieses Produkt teilen",
+    "share": "Teilen",
+    "deliveryAndReturns": "Versand & Rückgabe",
+    "viewReturnPolicyA11y": "Rückgaberichtlinie ansehen",
+    "returnPolicy": "Rückgaberichtlinie",
+    "description": "Beschreibung",
+    "viewMore": "Mehr anzeigen",
+    "viewLess": "Weniger anzeigen",
+    "highlights": "Highlights",
+    "sortOffersBy": "Angebote sortieren nach",
+    "reportProblemA11y": "Ein Problem mit den Angaben zu diesem Produkt melden",
+    "reportProblem": "Problem melden",
+    "specifications": "Technische Daten",
+    "modelIdentifiers": "Modellkennungen",
+    "imageFromCatalogueA11y": "%{name} — Bild aus dem Katalog",
+    "releasedYear": "Erschienen %{year}",
+    "discontinued": "Nicht mehr erhältlich",
+    "detailsLastConfirmed": "Produktangaben zuletzt am %{date} aus einer Quelle vom Typ %{source} bestätigt.",
+    "variant": {
+      "configuration": "Konfiguration",
+      "allConfigurationsA11y": "Alle Konfigurationen",
+      "all": "Alle",
+      "standard": "Standard",
+      "offerCountA11y": {
+        "one": "%{label}, %{count} Angebot auf dieser Seite",
+        "other": "%{label}, %{count} Angebote auf dieser Seite"
+      }
+    },
+    "brandChannels": {
+      "officialTitle": "Offizielle Shops",
+      "officialExplanation": "Kanäle, die die Marke als ihre eigenen bestätigt hat.",
+      "resellersTitle": "Autorisierte Händler",
+      "resellersExplanation": "Händler, die die Marke als autorisiert bestätigt hat. Sie sind nicht der eigene Shop der Marke."
+    },
+    "priceHistory": {
+      "lowestInWindow": "Niedrigster Preis in diesem Zeitraum: %{amount}",
+      "noOffersObserved": {
+        "one": "Für %{count} Zeitabschnitt in diesem Zeitraum wurde kein Angebot beobachtet.",
+        "other": "Für %{count} Zeitabschnitte in diesem Zeitraum wurde kein Angebot beobachtet."
+      },
+      "notFullyBuilt": "Ein Teil dieses Zeitraums wurde noch nicht aufgebaut.",
+      "conversionDisplayOnly": "Umgerechnete Beträge dienen nur der Anzeige."
+    }
   },
   "catalog": {
     "breadcrumbs": {
@@ -190,7 +243,1247 @@
       "fallbackTitle": "Kategorie",
       "notFound": "Diese Kategorie konnten wir nicht finden.",
       "subcategories": "Unterkategorien",
-      "empty": "Zu diesen Filtern passt hier noch nichts."
+      "empty": "Zu diesen Filtern passt hier noch nichts.",
+      "documentTitle": "%{title} — Mercaria"
+    }
+  },
+  "cart": {
+    "title": "Dein Warenkorb",
+    "pageTitle": "Dein Warenkorb — Mercaria",
+    "signIn": "Anmelden",
+    "loadingA11yLabel": "Dein Warenkorb wird geladen",
+    "error": {
+      "title": "Wir konnten deinen Warenkorb nicht laden",
+      "subtitle": "Prüfe deine Verbindung und versuche es erneut — es ist nichts verloren gegangen."
+    },
+    "empty": {
+      "title": "Dein Warenkorb ist leer",
+      "subtitle": "Sieh dich im Marktplatz um und füge Artikel hinzu, die dir gefallen."
+    },
+    "guestOffer": {
+      "title": "Einkaufen als Gast",
+      "intro": "Du kannst ohne Konto zur Kasse gehen. Mit einem Konto bekommst du außerdem:",
+      "benefits": {
+        "crossDevice": "Dein Warenkorb ist auch auf deinen anderen Geräten da",
+        "savedAddresses": "Gespeicherte Adressen — die Kasse ist ein einziger Schritt",
+        "orderHistory": "Alle Bestellungen an einem Ort, mit deinem Konto verknüpft"
+      },
+      "footnote": "Melde dich jederzeit an — was schon im Warenkorb liegt, kommt mit.",
+      "signInA11yLabel": "Bei deinem Oxy-Konto anmelden"
+    },
+    "storageWarning": {
+      "title": "Dieser Warenkorb übersteht das Schließen der App womöglich nicht",
+      "body": "Wir konnten deinen Warenkorb auf diesem Gerät nicht sicher speichern. Du kannst weiter einkaufen und jetzt zur Kasse gehen. Eine Anmeldung hält deinen Warenkorb sicher."
+    },
+    "group": {
+      "visitSellerA11yLabel": "%{seller} ansehen",
+      "soldByA11yLabel": "Verkauft von %{seller}",
+      "subtotal": "Zwischensumme",
+      "checkout": "Weiter zur Kasse",
+      "checkoutWithA11yLabel": "Weiter zur Kasse mit %{seller}"
+    },
+    "guestBlocked": {
+      "title": "Für den Kauf von einer Privatperson brauchst du ein Konto",
+      "body": "Artikel von %{seller} können noch nicht als Gast gekauft werden. Melde dich an, um zur Kasse zu gehen — alles, was schon im Warenkorb liegt, kommt mit.",
+      "signInA11yLabel": "Bei deinem Oxy-Konto anmelden, um bei diesem Verkäufer zu kaufen"
+    },
+    "summary": {
+      "totalAll": "Warenkorbsumme",
+      "totalAvailable": "Jetzt verfügbar",
+      "checkoutAll": "Alles kaufen",
+      "checkoutAvailable": "Verfügbare Artikel kaufen",
+      "checkoutAllA11yLabel": "Alles in deinem Warenkorb kaufen",
+      "checkoutAvailableA11yLabel": "Die Artikel kaufen, die du als Gast kaufen kannst"
+    },
+    "recommendations": {
+      "title": "Das könnte dir auch gefallen"
+    }
+  },
+  "orders": {
+    "title": "Deine Bestellungen",
+    "pageTitle": "Deine Bestellungen — Mercaria",
+    "empty": {
+      "title": "Noch keine Bestellungen",
+      "subtitle": "Sobald du etwas bestellst, erscheint es hier.",
+      "signedOutSubtitle": "Melde dich an, um deine Bestellungen zu sehen."
+    },
+    "row": {
+      "openA11yLabel": "Bestellung %{number} öffnen",
+      "meta": {
+        "one": "%{status} · %{seller} · %{count} Artikel",
+        "other": "%{status} · %{seller} · %{count} Artikel"
+      }
+    },
+    "pagination": {
+      "previous": "Zurück",
+      "next": "Weiter",
+      "pageOf": "Seite %{page} von %{pages}"
+    },
+    "status": {
+      "pendingPayment": "Zahlung ausstehend",
+      "paid": "Bezahlt",
+      "processing": "In Bearbeitung",
+      "shipped": "Versandt",
+      "delivered": "Zugestellt",
+      "cancelled": "Storniert",
+      "refunded": "Erstattet",
+      "partiallyRefunded": "Teilweise erstattet"
+    },
+    "detail": {
+      "title": "Bestellung %{number}",
+      "pageTitle": "Bestellung — Mercaria",
+      "soldBy": "Verkauft von %{seller}",
+      "errorTitle": "Diese Bestellung konnte nicht geladen werden",
+      "errorSubtitle": "Geh zurück und versuche es erneut.",
+      "backToOrders": "Zurück zu den Bestellungen"
+    },
+    "items": {
+      "title": "Artikel"
+    },
+    "totals": {
+      "title": "Summen",
+      "subtotal": "Zwischensumme",
+      "discounts": "Rabatte",
+      "tax": "Steuer",
+      "shipping": "Versand",
+      "total": "Gesamt"
+    },
+    "payment": {
+      "title": "Zahlung",
+      "unpaid": "Nicht bezahlt — diese Bestellung ist reserviert und wartet auf die Zahlung.",
+      "authorized": "Zahlung autorisiert.",
+      "paid": "Zahlung eingegangen.",
+      "refunded": "Zahlung erstattet.",
+      "failed": "Zahlung fehlgeschlagen."
+    },
+    "shipTo": {
+      "title": "Lieferadresse"
+    },
+    "cancel": {
+      "action": "Bestellung stornieren",
+      "success": "Bestellung storniert",
+      "error": "Die Bestellung konnte nicht storniert werden"
+    },
+    "delivery": {
+      "promisedLabel": "Zugesagte Lieferung",
+      "latestLabel": "Aktuelle Schätzung",
+      "noDates": "Keine Termine angegeben",
+      "basisGuaranteed": "Das ist der Lieferzeitraum, den wir dir zugesagt haben.",
+      "basisEstimate": "Eine Schätzung unseres Logistikpartners, keine Zusage.",
+      "staleNote": "Wir konnten sie zuletzt nicht aktualisieren.",
+      "refreshFailing": "Wir konnten diese Schätzung nicht aktualisieren. Sie ist möglicherweise nicht mehr aktuell."
+    }
+  },
+  "reviews": {
+    "scopeHeading": {
+      "product": "Produktbewertungen",
+      "merchant": "Service des Verkäufers",
+      "nativeTransaction": "Dieser Kauf",
+      "p2pListing": "Zustand und Beschreibung des Artikels",
+      "p2pSeller": "Reputation des Verkäufers"
+    },
+    "heading": "Bewerte, was du gekauft hast",
+    "moreToRate": {
+      "one": "Noch %{count} Kauf zu bewerten.",
+      "other": "Noch %{count} Käufe zu bewerten."
+    },
+    "notePlaceholder": "Kommentar hinzufügen (optional)",
+    "publishAction": "Bewertung veröffentlichen",
+    "publishError": "Diese Bewertung konnte nicht veröffentlicht werden.",
+    "ratingChoice": "%{choice} von 5 — %{scopeLabel}",
+    "verifiedPurchase": "%{scopeLabel} · verifizierter Kauf",
+    "scope": {
+      "product": "Produkt",
+      "merchant": "Service der verkaufenden Person",
+      "nativeTransaction": "Dieser Kauf",
+      "p2pListing": "Artikelbeschreibung",
+      "p2pSeller": "Verkäufer"
+    },
+    "question": {
+      "product": "Wie ist das Produkt selbst?",
+      "merchant": "Wie war der Service der verkaufenden Person?",
+      "nativeTransaction": "Wie war dieser Kauf?",
+      "p2pListing": "Entsprach der Artikel seinem Zustand und seiner Beschreibung?",
+      "p2pSeller": "Wie war der Kauf bei dieser verkaufenden Person?"
+    },
+    "published": {
+      "product": "Danke – deine Produktbewertung ist veröffentlicht.",
+      "merchant": "Danke – deine Bewertung des Services der verkaufenden Person ist veröffentlicht.",
+      "nativeTransaction": "Danke – deine Bewertung dieses Kaufs ist veröffentlicht.",
+      "p2pListing": "Danke – deine Bewertung der Artikelbeschreibung ist veröffentlicht.",
+      "p2pSeller": "Danke – deine Bewertung dieser verkaufenden Person ist veröffentlicht."
+    },
+    "noteLabel": {
+      "product": "Deine Produktbewertung",
+      "merchant": "Deine Bewertung des Services der verkaufenden Person",
+      "nativeTransaction": "Deine Bewertung dieses Kaufs",
+      "p2pListing": "Deine Bewertung der Artikelbeschreibung",
+      "p2pSeller": "Deine Bewertung dieser verkaufenden Person"
+    }
+  },
+  "search": {
+    "kind": {
+      "product": "Produkt",
+      "brand": "Marke",
+      "productFamily": "Produktfamilie",
+      "merchant": "Händler",
+      "storefront": "Shop"
+    },
+    "headTitle": "Suche · Mercaria",
+    "box": {
+      "label": "Suchen",
+      "placeholder": "Wonach suchst du heute?"
+    },
+    "readError": "Wir konnten diese Suche nicht auswerten.",
+    "resultsUnavailable": "Ergebnisse gibt es hier noch nicht – das ist, was wir aus deiner Suche verstanden haben.",
+    "noMatches": "Nichts erfüllt alle Anforderungen oben. Eine davon zu entfernen kann helfen.",
+    "dismissLabel": "Stattdessen genau nach meinen Worten suchen",
+    "skipLabel": "Trotzdem suchen"
+  },
+  "checkout": {
+    "address": {
+      "shipTo": "An %{name} senden"
+    },
+    "backToOrders": "Zurück zu deinen Bestellungen",
+    "checkLaterFromOrders": "Später in deinen Bestellungen nachsehen",
+    "claim": {
+      "optional": "Optional. Deine Bestellung ist so oder so bestätigt.",
+      "saveToOxy": "Diese Bestellungen in Oxy speichern"
+    },
+    "deliverElsewhere": "An eine andere Adresse liefern",
+    "destination": {
+      "collectInPerson": "Persönlich abholen",
+      "continueAsGuest": "Als Gast fortfahren",
+      "deliverTo": "Liefern an",
+      "guestDeliveryHint": "Kein Konto nötig. Sag uns, wohin es geht und wie wir dich zu dieser Bestellung erreichen.",
+      "guestPickupHint": "Kein Konto nötig. Sag uns, wie wir dich zu dieser Abholung erreichen — nach einer Adresse, die du nicht brauchst, fragen wir nicht.",
+      "pickupFallbackName": "der von dir gewählte Laden"
+    },
+    "discount": {
+      "accessibilityLabel": "Rabattcode",
+      "label": "Rabattcode (optional)",
+      "placeholder": "SAVE10"
+    },
+    "emailMeLink": "Schick mir einen Link zu dieser Bestellung per E-Mail",
+    "empty": {
+      "backToCart": "Zurück zum Warenkorb",
+      "body": "Dein Warenkorb ist leer oder diese Artikel sind nicht mehr verfügbar.",
+      "title": "Nichts zu bestellen"
+    },
+    "error": {
+      "collectionEmailRequired": "Gib die E-Mail-Adresse an, an die die Abholdaten gehen sollen.",
+      "emailAndAddressRequired": "Fülle deine E-Mail-Adresse und die Lieferadresse aus, um fortzufahren.",
+      "receiptEmailRequired": "Gib die E-Mail-Adresse an, an die dein Beleg gehen soll."
+    },
+    "form": {
+      "cityLabel": "Stadt",
+      "cityPlaceholder": "Valencia",
+      "countryA11y": "Zweibuchstabiger Ländercode",
+      "countryLabel": "Land",
+      "countryPlaceholder": "ES",
+      "deliverToAddress": "An eine Adresse liefern",
+      "deliveryMethodTitle": "Wie möchtest du es bekommen?",
+      "deliveryPhoneA11y": "Telefonnummer, unter der der Zusteller anrufen kann",
+      "deliveryPhoneLabel": "Telefon für die Lieferung (optional)",
+      "emailA11y": "E-Mail-Adresse für deine Bestellbestätigung",
+      "emailHelp": "Damit schicken wir dir den Beleg und die Lieferupdates zu dieser Bestellung.",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "du@beispiel.de",
+      "line1A11y": "Straße und Hausnummer",
+      "line1Label": "Adresszeile 1",
+      "line1Placeholder": "Musterstraße 1",
+      "line2A11y": "Wohnung, Etage oder Zusatz",
+      "line2Label": "Adresszeile 2 (optional)",
+      "line2Placeholder": "Whg. 4B",
+      "marketingOptIn": "Schickt mir Angebote und Neuheiten per E-Mail. Optional — deine Bestellung hängt nicht davon ab.",
+      "marketingOptInA11y": "Angebote und Neuheiten per E-Mail erhalten",
+      "pickupPhoneA11y": "Telefonnummer für die Abholung",
+      "pickupPhoneLabel": "Telefon für die Abholung (optional)",
+      "postalA11y": "Postleitzahl",
+      "postalLabel": "Postleitzahl",
+      "recipientA11y": "Name der Person, die das Paket erhält",
+      "recipientLabel": "Name des Empfängers",
+      "recipientPlaceholder": "Erika Mustermann",
+      "regionA11y": "Bundesland, Provinz oder Region",
+      "regionLabel": "Region (optional)",
+      "regionPlaceholder": "Valencia",
+      "saveAddress": "Diese Adresse in meinem Konto speichern",
+      "sellerDataNotice": "Jeder Verkäufer erhält nur das, was er für seinen Teil deiner Bestellung braucht: die Lieferadresse, den Namen des Empfängers und eine angegebene Telefonnummer für die Lieferung. Deine E-Mail-Adresse bleibt bei Mercaria."
+    },
+    "keepShopping": "Weiter einkaufen",
+    "orderNumbers": {
+      "headingOne": "Deine Bestellnummer",
+      "headingOther": "Deine Bestellnummern",
+      "keepToHand": "Halte sie bereit — damit lässt sich dein Kauf zuordnen, wenn du dich melden musst."
+    },
+    "pageTitle": "Kasse — Mercaria",
+    "placeOrder": "Bestellung aufgeben",
+    "shippingAddress": "Lieferadresse",
+    "signIn": {
+      "action": "Anmelden",
+      "body": "Mit der Anmeldung hast du deine gespeicherten Adressen, dieser Warenkorb ist auf deinen anderen Geräten da, und die Bestellung bleibt in der Bestellhistorie deines Kontos. Du kannst auch als Gast bestellen — es ist genauso viel zu tippen.",
+      "title": "Hast du ein Oxy-Konto?"
+    },
+    "summary": {
+      "calculatedAtPlacement": "Rabatte, Steuern und Versand werden bei der Bestellung berechnet.",
+      "subtotal": "Zwischensumme",
+      "title": "Bestellübersicht"
+    },
+    "title": "Kasse",
+    "toast": {
+      "orderPlaced": "Bestellung aufgegeben",
+      "reservedGuest": "Deine Bestellung ist für kurze Zeit reserviert. Geh erneut zur Kasse, um sie zu bezahlen.",
+      "reservedSignedIn": "Deine Bestellung ist reserviert. Du kannst sie in deinen Bestellungen bezahlen."
+    },
+    "useSavedAddress": "Gespeicherte Adresse verwenden",
+    "viewOrder": "Bestellung ansehen",
+    "viewOrders": "Deine Bestellungen ansehen"
+  },
+  "payment": {
+    "cancelled": {
+      "body": "Diese Zahlung wurde abgebrochen und es wurde nichts abgebucht.",
+      "bodyItemsReturned": "Diese Zahlung wurde abgebrochen und es wurde nichts abgebucht. Deine Artikel sind zurück im Shop.",
+      "title": "Zahlung abgebrochen"
+    },
+    "card": {
+      "detailsNotConfirmed": "Deine Zahlungsdaten konnten nicht bestätigt werden.",
+      "expressHeading": "Mit einem Tipp bezahlen",
+      "notCompleted": "Deine Zahlung konnte nicht abgeschlossen werden.",
+      "notConfigured": "Kartenzahlungen sind für diese App noch nicht eingerichtet.",
+      "orPayByCard": "oder mit Karte bezahlen",
+      "payNow": "Jetzt bezahlen"
+    },
+    "cardDetailsNotice": "Deine Kartendaten gehen direkt an unseren Zahlungsdienstleister und erreichen Mercaria nie.",
+    "confirming": {
+      "bankStillCompleting": "Deine Bank schließt diese Zahlung noch ab. Das kann einen Moment dauern.",
+      "checkingWithBank": "Wir bestätigen das gerade mit deiner Bank. Deine Bestellung bleibt so lange reserviert.",
+      "continueWithoutWaiting": "Weiter, ohne zu warten",
+      "pageTitle": "Zahlung wird bestätigt — Mercaria",
+      "returnBody": "Deine Bank hat dich zu uns zurückgeschickt und wir bestätigen die Zahlung. Das dauert meist ein paar Sekunden.",
+      "title": "Zahlung wird bestätigt"
+    },
+    "continue": "Weiter",
+    "received": {
+      "body": "Danke. Deine Bestellung ist bestätigt und der Verkäufer wurde benachrichtigt.",
+      "title": "Zahlung erhalten"
+    },
+    "return": {
+      "missingGroup": "Diesem Link fehlt der Kauf, zu dem er gehört. Falls du eine Zahlung abgeschlossen hast, ist deine Bestellung sicher — hier ändert sich nichts daran."
+    },
+    "title": "Zahlung",
+    "totalToPay": "Zu zahlen",
+    "unreadable": {
+      "body": "Wir konnten diese Zahlung von hier aus nicht prüfen. Falls sie durchging, ist deine Bestellung sicher — diese Seite kann daran ohnehin nichts ändern.",
+      "title": "Wir konnten diese Zahlung nicht auslesen"
+    }
+  },
+  "sellers": {
+    "fallbackName": "Verkäufer",
+    "verifiedBadge": "Verifizierter Verkäufer",
+    "unavailable": "Dieser Verkäufer ist nicht verfügbar.",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "stats": {
+      "activeListings": "Aktive Angebote",
+      "itemsSold": "Verkaufte Artikel",
+      "sellingSince": "Verkauft seit"
+    },
+    "reviews": {
+      "none": "Noch keine Bewertungen"
+    },
+    "trust": {
+      "source": "Reputation von Oxy Trust, im gesamten Oxy-Ökosystem",
+      "tier": {
+        "restricted": "Von Oxy Trust eingeschränkt",
+        "new": "Neu bei Oxy",
+        "trusted": "Vertrauenswürdig bei Oxy",
+        "highTrust": "Sehr vertrauenswürdig bei Oxy",
+        "verified": "Bei Oxy verifiziert"
+      }
+    },
+    "withheld": {
+      "privateProfile": "Dieser Verkäufer hält sein Oxy-Profil privat.",
+      "unavailable": "Die Angebote dieses Verkäufers sind derzeit nicht verfügbar."
+    },
+    "listings": {
+      "title": "Angebote",
+      "loadingLabel": "Angebote werden geladen",
+      "empty": "%{name} bietet derzeit nichts zum Verkauf an.",
+      "loadMore": "Mehr laden",
+      "loadMoreLabel": "Weitere Angebote laden",
+      "loadingMore": "Wird geladen…"
+    },
+    "follow": {
+      "action": "Folgen",
+      "actionLabel": "%{name} folgen"
+    },
+    "linkCard": {
+      "viewProfile": "Profil von %{name} ansehen"
+    },
+    "report": {
+      "action": "Melden",
+      "title": "%{name} melden",
+      "description": "Sag uns, was nicht stimmt. Wähle alles Zutreffende aus.",
+      "detailsPlaceholder": "Sonst noch etwas, das wir wissen sollten? (optional)",
+      "send": "Meldung senden",
+      "sending": "Wird gesendet…",
+      "signIn": "Zum Melden anmelden",
+      "received": "Danke – deine Meldung ist bei uns eingegangen.",
+      "category": {
+        "counterfeit": "Verkauf von Fälschungen",
+        "prohibitedItem": "Verbotene Artikel",
+        "misleadingListing": "Irreführende Angebote",
+        "unsafeProduct": "Unsichere Produkte",
+        "stolenGoods": "Gestohlene Waren",
+        "scam": "Betrug oder Abzocke",
+        "impersonation": "Identitätsvortäuschung",
+        "spam": "Spam",
+        "hatefulContent": "Hassinhalte",
+        "somethingElse": "Etwas anderes"
+      }
+    }
+  },
+  "merchants": {
+    "unavailable": "Dieser Händler ist nicht verfügbar.",
+    "alsoKnownAs": "Auch bekannt als %{names}",
+    "operatedBy": "Betrieben von %{organization}",
+    "meta": {
+      "title": "%{name} — Mercaria",
+      "fallbackTitle": "Mercaria"
+    },
+    "reviews": {
+      "none": "Noch keine Bewertungen"
+    },
+    "nativeStore": {
+      "title": "%{store} auf Mercaria",
+      "openLabel": "%{store} auf Mercaria öffnen",
+      "note": "Folgen, Richtlinien und Support findest du auf der Shop-Seite."
+    },
+    "offerMix": {
+      "title": "Angebote",
+      "allMarkets": "Alle Märkte",
+      "staleNotice": {
+        "one": "%{count} weiteres Angebot wird nicht angezeigt, weil Mercaria es nicht kürzlich genug bestätigt hat.",
+        "other": "%{count} weitere Angebote werden nicht angezeigt, weil Mercaria sie nicht kürzlich genug bestätigt hat."
+      }
+    },
+    "channels": {
+      "title": "Kanäle",
+      "groupLabel": "Wähle einen Vertriebskanal zum Stöbern",
+      "all": "Alle Kanäle",
+      "operatedElsewhere": "%{channel} · auf %{operator}",
+      "unknownOperator": "einem anderen Marktplatz",
+      "chipLabel": {
+        "one": "%{channel}, %{count} Angebot",
+        "other": "%{channel}, %{count} Angebote"
+      }
+    },
+    "standing": {
+      "a11yLabel": "Händlerstatus: %{status}",
+      "claim": "Diesen Händler beanspruchen",
+      "claimHint": "Weise nach, dass du diesen Händler betreibst, um seine Seite zu verwalten",
+      "label": {
+        "unclaimed": "Nicht beansprucht",
+        "claimInProgress": "Beanspruchung läuft",
+        "claimed": "Beansprucht",
+        "sellingOnMercaria": "Verkauft auf Mercaria"
+      },
+      "explanation": {
+        "unclaimed": "Niemand hat nachgewiesen, diesen Händler zu betreiben. Seine Produkte stammen hier aus öffentlichen Quellen.",
+        "claimInProgress": "Jemand weist gerade nach, diesen Händler zu betreiben.",
+        "claimed": "Ein Betreiber hat nachgewiesen, diesen Händler zu führen.",
+        "sellingOnMercaria": "Dieser Händler ist mit einem Mercaria-Shop verbunden und verkauft hier direkt."
+      }
+    },
+    "brandStandings": {
+      "title": "Marken",
+      "listLabel": "Markenbeziehungen",
+      "a11yLabel": "%{brand}: %{standing}. %{explanation}",
+      "label": {
+        "officialStore": "Eigener Shop der Marke",
+        "authorizedReseller": "Autorisierter Wiederverkäufer",
+        "noVerifiedRelationship": "Keine verifizierte Beziehung"
+      },
+      "explanation": {
+        "officialStore": "Dieser Händler ist der eigene Vertriebskanal der Marke, von Mercaria verifiziert.",
+        "authorizedReseller": "Die Marke hat diesen Händler zum Wiederverkauf autorisiert, von Mercaria verifiziert.",
+        "noVerifiedRelationship": "Dieser Händler verkauft Produkte dieser Marke. Mercaria hat keine Beziehung zwischen ihnen verifiziert."
+      }
+    },
+    "card": {
+      "priceNotPublished": "Preis nicht veröffentlicht",
+      "priceUnconvertible": "Preis in %{currency}, die Mercaria nicht umrechnen kann",
+      "offerCount": {
+        "one": "%{count} Angebot",
+        "other": "%{count} Angebote"
+      },
+      "offersAcrossChannels": {
+        "one": "%{count} Angebot in %{channels} Kanälen",
+        "other": "%{count} Angebote in %{channels} Kanälen"
+      },
+      "otherSellers": "· einschließlich anderer Verkäufer"
+    },
+    "catalog": {
+      "title": "Produkte",
+      "loadingLabel": "Produkte werden geladen",
+      "loadMore": "Mehr laden",
+      "loadMoreLabel": "Weitere Produkte laden",
+      "loadingMore": "Wird geladen…",
+      "empty": {
+        "noOffers": "Mercaria hat derzeit keine Produkte für diesen Händler.",
+        "staleSources": "Mercaria hat von den Quellen dieses Händlers nicht kürzlich genug gehört, um aktuelle Preise zu zeigen.",
+        "filteredOut": "Keine Produkte entsprechen diesen Filtern."
+      }
+    }
+  },
+  "families": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "Produktfamilie nicht gefunden",
+      "body": "Diese Familie wurde möglicherweise mit einer anderen zusammengeführt, oder die Adresse ist falsch."
+    },
+    "productCount": {
+      "one": "%{count} Produkt in dieser Familie",
+      "other": "%{count} Produkte in dieser Familie"
+    },
+    "prices": {
+      "withdrawn": "Preise sind derzeit nicht verfügbar.",
+      "none": "Keine aktuellen Angebote für diese Familie.",
+      "unpriceable": "Die aktuellen Angebote dieser Familie sind in %{currencies} ausgezeichnet, die wir nicht umrechnen können."
+    },
+    "priceRange": {
+      "summary": {
+        "one": "%{scopeLabel} · über %{count} Produkt",
+        "other": "%{scopeLabel} · über %{count} Produkte"
+      },
+      "excludes": "Ohne Angebote in %{currencies}.",
+      "scope": {
+        "new": "Neu",
+        "used": "Gebraucht",
+        "mixed": "Neu und gebraucht",
+        "unknown": "Zustand nicht angegeben"
+      }
+    },
+    "sharedAttributes": {
+      "title": "In dieser Familie gemeinsam"
+    },
+    "products": {
+      "title": "Produkte",
+      "titleReleaseDesc": "Generationen, neueste zuerst"
+    }
+  },
+  "brands": {
+    "meta": {
+      "title": "%{name} · Mercaria"
+    },
+    "notFound": {
+      "title": "Marke nicht gefunden",
+      "body": "Diese Marke wurde möglicherweise mit einer anderen zusammengeführt, oder die Adresse ist falsch."
+    },
+    "ownedBy": "Im Besitz von %{organization}",
+    "productCount": {
+      "one": "%{count} Produkt",
+      "other": "%{count} Produkte"
+    },
+    "descriptionSource": "Quelle: %{attribution}",
+    "officialStores": {
+      "title": "Offizielle Shops",
+      "description": "Vertriebskanäle, die diese Marke selbst betreibt, von Mercaria verifiziert.",
+      "empty": "Für diese Marke ist noch kein offizieller Shop verifiziert."
+    },
+    "authorizedResellers": {
+      "title": "Autorisierte Wiederverkäufer",
+      "description": "Händler, die diese Marke zum Verkauf autorisiert hat. Eine andere Vereinbarung als ein offizieller Shop.",
+      "empty": "Für diese Marke ist noch kein autorisierter Wiederverkäufer verifiziert."
+    },
+    "families": {
+      "title": "Produktfamilien"
+    },
+    "categories": {
+      "title": "Kategorien"
+    },
+    "products": {
+      "title": "Produkte"
+    },
+    "grid": {
+      "empty": "Dieser Katalog enthält noch keine Produkte.",
+      "emptyFiltered": "Keine Produkte entsprechen diesen Filtern. Entferne einen davon.",
+      "emptyPricesWithdrawn": "Preise sind derzeit nicht verfügbar, daher ist diese Ansicht leer. Versuche es gleich noch einmal.",
+      "showMore": "Mehr anzeigen",
+      "loadingMore": "Wird geladen…"
+    }
+  },
+  "guestOrders": {
+    "oneMoment": "Einen Moment.",
+    "sendAccessLink": "Zugangslink senden",
+    "claim": {
+      "pageTitle": "Bestellungen sichern — Mercaria",
+      "missingTitle": "Nichts zu sichern",
+      "missingBody": "Öffne diese Seite über deine Bestellung, damit wir wissen, welchen Kauf du meinst.",
+      "signInTitle": "Melde dich an, um diese Bestellungen zu sichern",
+      "signInBody": "Mit der Anmeldung wird dieser Kauf zu deiner Mercaria-Bestellhistorie hinzugefügt. Wenn du das lieber nicht möchtest, funktioniert deine Bestellung genauso wie jetzt.",
+      "signInAction": "Bei Oxy anmelden",
+      "checkingTitle": "Diese Bestellung wird geprüft",
+      "failedTitle": "Wir konnten diese Bestellung nicht öffnen",
+      "failedBody": "Dein Zugangslink ist möglicherweise abgelaufen. Fordere einen neuen an und versuche es erneut — deine Bestellung ist in beiden Fällen nicht betroffen.",
+      "savedTitle": "In deinem Konto gesichert",
+      "savedBody": "Diese Bestellungen sind jetzt in deiner Mercaria-Bestellhistorie. Der verwendete Zugangslink wurde deaktiviert — ab jetzt kannst du sie über dein Konto öffnen.",
+      "alreadySavedTitle": "Bereits gesichert",
+      "alreadySavedBody": "Diese Bestellungen waren bereits in deiner Mercaria-Bestellhistorie.",
+      "goToOrders": "Zu meinen Bestellungen",
+      "reviewTitle": "Diese Bestellungen in Oxy sichern",
+      "reviewAlreadyTitle": "Bereits in deinem Konto",
+      "oneOrder": "Diese Bestellung wird deinem Konto hinzugefügt:",
+      "manyOrders": "Diese %{count} Bestellungen wurden zusammen aufgegeben und werden deinem Konto hinzugefügt:",
+      "notRequired": "Du musst das nicht tun, um deine Bestellung zu erhalten.",
+      "submit": "Diese Bestellungen in meinem Konto sichern",
+      "decline": "Jetzt nicht",
+      "benefits": {
+        "history": "Diese Bestellungen erscheinen in deiner normalen Mercaria-Bestellhistorie.",
+        "anyDevice": "Du kannst sie auf jedem Gerät öffnen, auf dem du angemeldet bist.",
+        "review": "Du kannst eine Bewertung als verifizierter Käufer zu deinem Kauf schreiben."
+      },
+      "blocked": {
+        "unavailable": "Das Sichern von Bestellungen in einem Oxy-Konto ist vorübergehend nicht verfügbar. Deine Bestellung ist nicht betroffen und du kannst sie weiterhin über deinen Zugangslink öffnen.",
+        "inboxNotVerified": "Bestätige zuerst deine E-Mail-Adresse. Fordere einen neuen Zugangslink an und öffne diese Seite darüber.",
+        "claimedByAnotherAccount": "Diese Bestellungen sind bereits in einem anderen Oxy-Konto gesichert. Wende dich an den Support, wenn das nicht deinen Erwartungen entspricht — Mercaria verschiebt sie nicht automatisch."
+      }
+    },
+    "portal": {
+      "pageTitle": "Deine Bestellung — Mercaria",
+      "openingTitle": "Deine Bestellung wird geöffnet",
+      "linkRefusedTitle": "Dieser Link kann nicht verwendet werden",
+      "linkRefusedBody": "Zugangslinks können nur einmal verwendet werden und laufen schnell ab. Fordere einen neuen an und wir senden ihn an die Adresse, mit der die Bestellung aufgegeben wurde.",
+      "noCredentialTitle": "Bestellung finden",
+      "noCredentialBody": "Fordere einen sicheren Zugangslink an und wir senden ihn an die Adresse, mit der die Bestellung aufgegeben wurde.",
+      "title": "Deine Bestellung",
+      "loading": "Deine Bestellung wird geladen.",
+      "fullFailed": "Wir konnten diese Bestellung von hier aus nicht öffnen. Fordere einen neuen Zugangslink an und versuche es erneut.",
+      "boundedFailed": "Wir konnten diese Bestellung von hier aus nicht lesen.",
+      "confirmEmailBody": "Bestätige deine E-Mail-Adresse, um die vollständige Bestellung zu sehen, einschließlich des bezahlten Betrags und des Lieferziels.",
+      "confirmEmailAction": "Meine E-Mail-Adresse bestätigen",
+      "claimAction": "Diese Bestellungen in Oxy sichern",
+      "signOut": "Von dieser Bestellung abmelden"
+    },
+    "recover": {
+      "pageTitle": "Bestellung finden — Mercaria",
+      "sentTitle": "Sieh in deinem Posteingang nach",
+      "sentBody": "Der Link funktioniert einmal und läuft bald ab. Wenn er abgelaufen ist, fordere einen neuen an.",
+      "title": "Bestellung finden",
+      "body": "Gib die E-Mail-Adresse ein, mit der die Bestellung aufgegeben wurde, und wir senden einen sicheren Link dorthin. Wir können nur an diese Adresse senden.",
+      "emailPlaceholder": "you@example.com",
+      "emailLabel": "E-Mail-Adresse",
+      "orderNumberPlaceholder": "Bestellnummer (optional)",
+      "orderNumberLabel": "Bestellnummer, optional",
+      "sending": "Wird gesendet",
+      "networkError": "Wir konnten Mercaria gerade nicht erreichen. Bitte versuche es erneut."
+    }
+  },
+  "compare": {
+    "acrossCategories": "Das sind unterschiedliche Produktarten, deshalb werden nur die %{count} für alle erfassten Angaben verglichen.",
+    "basketFailed": "Dieser Warenkorb konnte nicht geplant werden.",
+    "channel": {
+      "externalOnly": "Nur Händler",
+      "mixed": "Überall",
+      "nativeOnly": "Nur Mercaria",
+      "officialOnly": "Nur offizielle Kanäle"
+    },
+    "channelLabel": "Kanal",
+    "choiceA11y": "%{label}: %{choice}",
+    "comparingA11y": "Wird verglichen",
+    "comparisonFailed": "Dieser Vergleich konnte nicht erstellt werden.",
+    "conditionLabel": "Zustand",
+    "gaps": "%{count} Angaben sind für diese Produkte nicht erfasst.",
+    "heading": "Vergleichen",
+    "noSharedFacts": "Über all diese Produkte ist nichts Gemeinsames erfasst, deshalb gibt es noch nichts, worin man sie vergleichen könnte.",
+    "notice": {
+      "addingToCart": "Geprüft. Diese Artikel werden deinem Mercaria-Warenkorb hinzugefügt.",
+      "noDestination": "Für diesen Händler haben wir noch kein Ziel.",
+      "pricesChanged": "Die Preise haben sich geändert, während du gelesen hast. Wird neu berechnet."
+    },
+    "objective": {
+      "allNative": "Auf Mercaria kaufen",
+      "cheapestKnownItemPrices": "Günstigste Artikel",
+      "cheapestKnownTotal": "Günstigster Preis mit Versand",
+      "fastestKnownDelivery": "Schnellste Lieferung",
+      "fewestMerchants": "Wenigste Händler"
+    },
+    "objectiveLabel": "Ziel",
+    "pageTitle": "Vergleichen · Mercaria",
+    "pickTwo": "Wähle mindestens zwei Produkte zum Vergleichen aus, aus der Suche oder von einer Produktseite.",
+    "planningA11y": "Wird geplant",
+    "whereToBuy": "Wo kaufen"
+  },
+  "priceAlerts": {
+    "create": {
+      "basisItemPrice": "Artikelpreis",
+      "basisKnownTotal": "Inklusive Versand",
+      "bestRightNow": "Aktuell am besten: %{price}",
+      "failed": "Dieser Alarm konnte nicht erstellt werden",
+      "heading": "Sag mir Bescheid, wenn der Preis fällt",
+      "knownTotalNote": "Nur Angebote mit veröffentlichten Versandkosten können darauf passen.",
+      "noPricedOffer": "Derzeit gibt es kein Angebot mit Preis (%{count} Angebote)",
+      "nothingOnSale": "Das ist derzeit nirgends im Angebot. Du kannst trotzdem einen Alarm einrichten.",
+      "submit": "Alarm erstellen",
+      "submitA11y": "Diesen Preisalarm erstellen",
+      "submitting": "Wird erstellt …",
+      "targetPlaceholder": "Ziel in %{currency}",
+      "targetPrice": "Zielpreis"
+    },
+    "empty": {
+      "body": "Richte einen von einem Produkt aus ein, das du beobachtest, und wir sagen dir Bescheid, wenn der Preis fällt.",
+      "title": "Noch keine Preisalarme"
+    },
+    "heading": "Preisalarme",
+    "pageTitle": "Preisalarme · Mercaria",
+    "signedOut": {
+      "body": "Alarme gehören zu deinem Konto und begleiten dich deshalb über alle Geräte hinweg.",
+      "signIn": "Anmelden",
+      "title": "Melde dich an, um Preisalarme einzurichten"
+    }
+  },
+  "saved": {
+    "empty": {
+      "subtitle": "Tippe bei einem Produkt auf das Herz, um seinen Preis zu verfolgen, oder speichere ein Angebot, wenn du genau diesen Artikel willst.",
+      "title": "Noch nichts gespeichert"
+    },
+    "error": {
+      "subtitle": "Prüfe deine Verbindung und versuche es noch einmal.",
+      "title": "Wir konnten deine gespeicherten Artikel nicht laden"
+    },
+    "heading": "Gespeichert",
+    "loadMoreA11y": "Weitere gespeicherte Artikel laden",
+    "loading": "Wird geladen …",
+    "pageTitle": "Gespeichert · Mercaria",
+    "showMore": "Mehr anzeigen",
+    "signedOut": {
+      "body": "Gespeicherte Produkte verfolgen Preis und Verfügbarkeit bei allen Verkäufern, auf all deinen Geräten.",
+      "signIn": "Anmelden",
+      "title": "Melde dich an, um Dinge zu speichern"
+    }
+  },
+  "watchlists": {
+    "atLimit": "Du hast das Maximum von %{count} Listen erreicht",
+    "basket": {
+      "basisDelivered": "inklusive Versand · unabhängige Minima je Artikel",
+      "basisItemPrice": "ohne Versand · unabhängige Minima je Artikel",
+      "complete": "Alle %{count} Artikel haben einen Preis.",
+      "empty": "Füge dieser Liste etwas hinzu, um zu sehen, was es kosten würde.",
+      "noPrice": "Noch kein Preis",
+      "nonePriced": "Für keinen der %{count} Artikel hier konnte gerade ein Preis ermittelt werden.",
+      "partial": "%{included} von %{total} Artikeln mit Preis. Für %{excluded} war das nicht möglich; sie stehen unten mit dem Grund.",
+      "title": "Aktueller Warenkorb"
+    },
+    "createA11y": "Merkliste anlegen",
+    "detail": {
+      "empty": "Auf dieser Liste steht noch nichts. Füge ein Produkt von seiner Seite aus hinzu, um es zu verfolgen.",
+      "keepBothA11y": "Beide Produkte auf dieser Liste behalten",
+      "keepBothFor": "Beide behalten für %{product}",
+      "loadError": "Wir konnten diese Merkliste nicht laden.",
+      "pageTitle": "%{name} · Mercaria",
+      "pageTitleFallback": "Merkliste · Mercaria",
+      "priceError": "Wir konnten für diese Liste gerade keinen Preis ermitteln. Deine Artikel sind alle noch da.",
+      "priceUnavailable": "Preis nicht verfügbar",
+      "saveMeasurement": "Diese Messung speichern",
+      "saving": "Wird gespeichert …",
+      "splitPrompt": "Eines dieser Produkte wurde in zwei geteilt. Entscheide, was passieren soll."
+    },
+    "duplicate": "Duplizieren",
+    "duplicateList": "%{name} duplizieren",
+    "empty": "Noch keine Listen. Leg eine an und füge die Produkte hinzu, die du vergleichst.",
+    "heading": "Merklisten",
+    "intro": "Fasse zusammen, was du kaufen möchtest, und beobachte, was das Ganze kosten würde.",
+    "item": {
+      "changeDown": "Seit deiner letzten gespeicherten Messung um %{amount} gefallen",
+      "changeUnchanged": "Unverändert seit deiner letzten gespeicherten Messung",
+      "changeUp": "Seit deiner letzten gespeicherten Messung um %{amount} gestiegen",
+      "delivery": "Versand %{amount}",
+      "deliveryUnknown": "Dieser Verkäufer veröffentlicht keine Versandkosten",
+      "openProduct": "Dieses Produkt öffnen",
+      "priceLine": "%{unitPrice} pro Stück · %{lineTotal} für %{quantity}",
+      "remove": "Entfernen",
+      "removeA11y": "Diesen Artikel von der Merkliste entfernen",
+      "targetReached": "Auf oder unter deinem Ziel von %{amount}",
+      "unresolved": {
+        "allOffersRetired": "Alle Angebote dafür sind abgelaufen. Wir melden uns, sobald wieder eines da ist.",
+        "ambiguousAfterSplit": "Dieses Produkt wurde in zwei geteilt. Wähle, welches du gemeint hast.",
+        "evaluationFailed": "Wir konnten für diesen Artikel gerade keinen Preis ermitteln.",
+        "noEligibleOffer": "Kein Angebot für diesen Artikel passt zu deinen Filtern. Versuche, sie zu erweitern.",
+        "noOffersRecorded": "Das verkauft noch niemand.",
+        "preferredVariantRetired": "Die genaue Konfiguration, die du festgelegt hast, wird nicht mehr angeboten. Wähle eine andere.",
+        "priceNotConvertible": "Wir können diesen Preis nicht in der Währung deiner Liste anzeigen.",
+        "productMergedIntoExistingItem": "Dieses Produkt wurde mit einem anderen Eintrag dieser Liste zusammengeführt. Entferne diesen hier.",
+        "productUnavailable": "Dieses Produkt ist im Katalog nicht mehr verfügbar."
+      }
+    },
+    "listMeta": "%{count} Artikel · %{currency}",
+    "loadError": "Wir konnten deine Merklisten nicht laden. Prüfe deine Verbindung und versuche es noch einmal.",
+    "newList": "Neue Liste",
+    "openList": "%{name} öffnen",
+    "pageTitle": "Merklisten · Mercaria",
+    "signedOut": {
+      "body": "Melde dich an, um private Listen zu führen und über die Zeit zu verfolgen, was sie kosten.",
+      "signIn": "Anmelden"
+    }
+  },
+  "nearby": {
+    "heading": "In der Nähe verfügbar",
+    "intro": "Geschäfte, die diesen Artikel im Regal bestätigt haben und Abholung anbieten. Online bezahlen, persönlich abholen.",
+    "chooseLocationPrompt": "Wähle einen Ort, um zu sehen, welche Geschäfte in deiner Nähe diesen Artikel zur Abholung haben. Wir verwenden ihn nur für diese Suche – er wird nicht gespeichert.",
+    "loading": "Wir suchen Geschäfte in deiner Nähe…",
+    "error": "Wir konnten die Verfügbarkeit in der Nähe gerade nicht prüfen. Der Versand ist davon nicht betroffen.",
+    "empty": "Kein Geschäft in der Nähe dieses Orts hat diesen Artikel derzeit zur Abholung. Geschäfte fehlen, wenn sie ausverkauft oder in diesem Zeitraum geschlossen sind, nicht für Abholung freigegeben sind oder ihren Bestand nicht kürzlich bestätigt haben.",
+    "moreBeyond": "Das sind die %{count} nächstgelegenen. Weiter entfernt gibt es weitere Geschäfte; die Sortierung oben gilt für die angezeigten.",
+    "collectionOptionsLabel": "Wähle ein Geschäft zur Abholung",
+    "collectInPerson": "Persönlich abholen",
+    "selectHere": "Hier abholen",
+    "order": {
+      "nearest": "Nächstgelegene zuerst",
+      "lowestPrice": "Niedrigster Preis zuerst"
+    },
+    "origin": {
+      "showingDevice": "Geschäfte in der Nähe deines Gerätestandorts.",
+      "showingChosen": "Geschäfte in der Nähe des von dir gewählten Orts.",
+      "changeLabel": "Ort ändern, von dem aus diese Ergebnisse gemessen werden",
+      "change": "Ändern",
+      "clearLabel": "Keinen Ort mehr für diese Ergebnisse verwenden",
+      "clear": "Entfernen",
+      "useDeviceLabel": "Meinen Gerätestandort verwenden, um Geschäfte in der Nähe zu finden",
+      "checking": "Wird geprüft…",
+      "useMyLocation": "Meinen Standort verwenden",
+      "choosePlaceLabel": "Stattdessen Stadt oder Postleitzahl wählen",
+      "hideCityList": "Städteliste ausblenden",
+      "chooseCity": "Stadt wählen",
+      "cityField": "Stadt oder Postleitzahl",
+      "loadingCities": "Wir suchen Städte…",
+      "cityListError": "Wir konnten die Städteliste gerade nicht laden.",
+      "noCityMatch": "Keine passende Stadt hat diesen Artikel zur Abholung auf Lager.",
+      "noStockAnywhere": "Derzeit führt kein Geschäft diesen Artikel zur Abholung.",
+      "searchNear": "In der Nähe von %{place} suchen",
+      "shopsWithStock": {
+        "one": "%{count} Geschäft mit Bestand",
+        "other": "%{count} Geschäfte mit Bestand"
+      },
+      "refusal": {
+        "permissionDenied": "Kein Problem – der Standort bleibt aus. Gib unten eine Stadt oder Postleitzahl ein, dann suchen wir dort.",
+        "unsupported": "Diese App kann den Gerätestandort nicht auslesen. Gib unten eine Stadt oder Postleitzahl ein, dann suchen wir dort.",
+        "unavailable": "Dein Gerät konnte gerade keine Position bestimmen. Gib unten eine Stadt oder Postleitzahl ein oder versuche es erneut."
+      }
+    },
+    "screen": {
+      "emptyTitle": "Nichts abzuholen",
+      "emptyBody": "Öffne ein Produkt und wähle „Persönlich abholen“, um die Geschäfte in deiner Nähe zu sehen, die es haben.",
+      "backToMercaria": "Zurück zu Mercaria",
+      "documentTitle": "Persönlich abholen · Mercaria",
+      "addedToCart": "Zum Warenkorb hinzugefügt. Öffne deinen Warenkorb, um zur Kasse zu gehen."
+    }
+  },
+  "store": {
+    "shopAll": "Alles ansehen",
+    "collections": "Kollektionen",
+    "report": "Shop melden",
+    "loadError": "Wir konnten diesen Shop nicht laden. Versuche es später noch einmal.",
+    "documentTitle": "%{store} — Mercaria",
+    "documentTitleFallback": "Mercaria",
+    "filters": {
+      "inStock": "Auf Lager"
+    },
+    "sort": {
+      "label": "Produkte sortieren",
+      "best": "Bestseller",
+      "newest": "Neueste",
+      "priceAsc": "Preis: aufsteigend",
+      "priceDesc": "Preis: absteigend"
+    },
+    "products": {
+      "heading": "Produkte",
+      "searchPlaceholder": "In %{store} suchen…",
+      "loadingLabel": "Produkte werden geladen",
+      "loadError": "Wir konnten die Produkte nicht laden. Zum Aktualisieren ziehen oder erneut versuchen.",
+      "empty": "Keine Produkte passen zu deinen Filtern.",
+      "loadMore": "Mehr laden",
+      "loadMoreLabel": "Mehr Produkte laden"
+    },
+    "policies": {
+      "heading": "Richtlinien",
+      "privacy": "Datenschutzerklärung",
+      "returns": "Rückgaberichtlinie"
+    },
+    "menu": {
+      "dialogLabel": "Menü von %{store}",
+      "openLabel": "Menü von %{store} öffnen",
+      "close": "Menü von %{store} schließen",
+      "share": "%{store} teilen"
+    },
+    "follow": {
+      "follow": "Folgen",
+      "followStore": "%{store} folgen",
+      "unfollowStore": "%{store} nicht mehr folgen"
+    },
+    "reviews": {
+      "helpful": "Hilfreich",
+      "loading": "Bewertungen werden geladen…",
+      "none": "Noch keine Bewertungen",
+      "viewProduct": "%{product} ansehen",
+      "ratingsCount": "%{formattedCount} Bewertungen",
+      "ratingsWithScope": "%{formattedCount} Bewertungen · %{scopeLabel}",
+      "fallbackAuthor": "Verifizierter Käufer",
+      "viewA11yLabel": "Bewertungen zum Service dieses Shops ansehen"
+    }
+  },
+  "offer": {
+    "heading": "Angebote",
+    "comparisonUnavailable": "Der Preisvergleich ist hier vorübergehend nicht verfügbar. Das sagt nichts darüber aus, ob jemand dieses Produkt verkauft.",
+    "noneShowable": "Wir kennen Angebote für dieses Produkt, können aber gerade keines anzeigen.",
+    "none": "Derzeit keine Angebote für dieses Produkt.",
+    "group": {
+      "heading": "%{title} (%{count})",
+      "title": {
+        "officialDirect": "Offizielle Shops",
+        "newRetail": "Neu von anderen Händlern",
+        "openBox": "Geöffnete Verpackung",
+        "refurbished": "Generalüberholt",
+        "used": "Gebraucht",
+        "forParts": "Als defekt oder für Ersatzteile",
+        "conditionUnknown": "Zustand nicht angegeben"
+      },
+      "explanation": {
+        "officialDirect": "Kanäle, die die Marke als ihre eigenen bestätigt hat.",
+        "conditionUnknown": "Diese Verkäufer haben nicht angegeben, in welchem Zustand der Artikel ist.",
+        "forParts": "Wird als nicht funktionsfähig verkauft — zur Reparatur, Verwertung oder als Ersatzteil."
+      }
+    },
+    "showFewer": "Weniger anzeigen",
+    "showAll": {
+      "one": "Alle %{count} anzeigen",
+      "other": "Alle %{count} anzeigen"
+    },
+    "showFewerA11y": "Weniger Angebote anzeigen · %{group}",
+    "showAllA11y": {
+      "one": "%{count} Angebot anzeigen · %{group}",
+      "other": "Alle %{count} Angebote anzeigen · %{group}"
+    },
+    "returnWindow": {
+      "one": "Der Verkäufer gibt eine Rückgabefrist von %{count} Tag an.",
+      "other": "Der Verkäufer gibt eine Rückgabefrist von %{count} Tagen an."
+    },
+    "buyOnMercaria": "Auf Mercaria kaufen",
+    "openSellerListingA11y": "Angebot dieses Verkäufers öffnen",
+    "viewListing": "Angebot ansehen",
+    "soldByOn": "Verkauft von %{seller} auf %{channel}",
+    "visitProfileA11y": "Profil von %{name} ansehen",
+    "sellerNotIdentified": "Verkäufer nicht ermittelt",
+    "listedAt": "Angegeben mit %{amount}",
+    "priceNotAvailable": "Preis nicht verfügbar",
+    "priceNotConvertible": "Wir können diesen Preis nicht in deine Währung umrechnen.",
+    "priceNotPublished": "Dieser Verkäufer hat keinen Preis veröffentlicht.",
+    "deliveryUnknownWithPickup": "Versandkosten unbekannt · Abholung möglich",
+    "deliveryUnknown": "Versandkosten unbekannt",
+    "freeDelivery": "Kostenloser Versand",
+    "deliveryCost": "Versand %{cost}",
+    "freeDeliveryWithWindow": "Kostenloser Versand · %{min}–%{max} Tage",
+    "deliveryCostWithWindow": "Versand %{cost} · %{min}–%{max} Tage",
+    "availability": {
+      "inStock": "Auf Lager",
+      "outOfStock": "Nicht auf Lager",
+      "preorder": "Vorbestellung",
+      "unavailable": "Nicht verfügbar",
+      "notPublished": "Verfügbarkeit nicht veröffentlicht"
+    },
+    "availabilityChecked": "%{availability} · Geprüft am %{date}",
+    "availabilityCheckedStale": "%{availability} · Geprüft am %{date} · wir konnten das zuletzt nicht erneut prüfen",
+    "goToHost": "Zu %{host}",
+    "continueOnHost": "Du setzt auf %{host} fort. Mercaria erhält möglicherweise eine Provision.",
+    "cannotOpenYetA11y": "Dieses Angebot kann noch nicht geöffnet werden",
+    "openingNotAvailableA11y": "%{host} zu öffnen ist noch nicht möglich",
+    "noLinkPublished": "Kein Link veröffentlicht",
+    "noDestination": "Dieser Verkäufer hat einen Preis, aber keinen Link veröffentlicht.",
+    "outboundNotAvailable": "Angebote auf anderen Websites zu öffnen ist noch nicht möglich.",
+    "blocked": {
+      "outOfStock": "Dieser Verkäufer hat keinen Bestand.",
+      "notPaymentReady": "Dieser Verkäufer kann noch keine Zahlungen annehmen.",
+      "notAvailable": "Dieses Angebot kann gerade nicht gekauft werden."
+    }
+  },
+  "referral": {
+    "documentTitle": "Empfehlungspartner · Mercaria",
+    "title": "Empfehlungspartner",
+    "loadError": "Wir konnten dein Empfehlungs-Dashboard nicht laden. Bitte versuche es erneut.",
+    "signedOut": {
+      "title": "Melde dich an, um dein Empfehlungspartner-Konto zu sehen",
+      "body": "Deine Links, was sie eingebracht haben und wann du bezahlt wirst.",
+      "action": "Anmelden"
+    },
+    "standing": {
+      "title": "Dein Status",
+      "earning": "Du verdienst. Empfehlungen, die du jetzt bringst, werden dir zugerechnet.",
+      "notEarning": "Du verdienst noch nicht.",
+      "nothingOutstanding": "Nichts offen.",
+      "beforePaid": "Bevor du bezahlt werden kannst:",
+      "accrualContinues": "Deine Einnahmen sammeln sich weiter an, solange diese Punkte offen sind. Nichts verfällt."
+    },
+    "programs": {
+      "title": "Programme",
+      "empty": "Zurzeit sind keine Empfehlungsprogramme für dich offen.",
+      "attributionWindow": "Zuordnungszeitraum: %{days} Tage.",
+      "termsAccepted": "Du hast diese Bedingungen akzeptiert.",
+      "termsNotAccepted": "Bedingungen noch nicht akzeptiert."
+    },
+    "earnings": {
+      "title": "Einnahmen",
+      "empty": "Es wurde noch nichts verdient.",
+      "availableNow": "Jetzt auszahlbar: %{amount}",
+      "availableNowWithMinimum": "Jetzt auszahlbar: %{amount} (Mindestbetrag %{minimum})",
+      "reconciling": "Diese Zahlen werden gerade abgeglichen. Es geht nichts verloren – das Hauptbuch ist maßgeblich und der Support kann es nachvollziehen.",
+      "pendingConversions": {
+        "one": "%{count} Empfehlung erfasst und noch nicht bewertet.",
+        "other": "%{count} Empfehlungen erfasst und noch nicht bewertet."
+      }
+    },
+    "payouts": {
+      "title": "Auszahlungen",
+      "summary": "Auszahlungen erfolgen monatlich. Identitätsprüfung: %{identity}. Steuerangaben: %{tax}. Auszahlungsziel: %{payout}.",
+      "readiness": {
+        "unknown": "keine Angabe",
+        "pending": "in Bearbeitung",
+        "ready": "in Ordnung",
+        "blocked": "blockiert"
+      },
+      "destinationEnding": "Ziel endet auf %{last4}",
+      "noDestination": "Noch kein Auszahlungsziel.",
+      "none": "Noch keine Auszahlungen."
+    },
+    "performance": {
+      "title": "Leistung",
+      "totals": "%{clicks} Klicks · %{referrals} qualifizierte Empfehlungen, %{from} bis %{through}",
+      "empty": "In diesem Zeitraum wurde nichts erfasst.",
+      "row": "%{label}: %{clicks} Klicks · %{referrals} Empfehlungen"
+    },
+    "instruments": {
+      "title": "Deine Links und Codes",
+      "empty": "Du hast noch keine Empfehlungscodes.",
+      "disclosureIntro": "Veröffentliche das mit jedem Link:"
+    },
+    "support": {
+      "title": "Hilfe",
+      "appeal": "Du kannst die Entscheidung über deine Teilnahme anfechten.",
+      "disputes": "Beschwerden über eine Zuordnung, eine Stornierung oder eine Auszahlung werden hier noch nicht bearbeitet. Wende dich an den Support und nenne das Datum und den oben angezeigten Betrag.",
+      "noEmails": "Wir versenden noch keine E-Mails zu Empfehlungen – sieh also auf dieser Seite nach Änderungen."
+    }
+  },
+  "brand": {
+    "wordmark": "Mercaria"
+  },
+  "sell": {
+    "sellYours": {
+      "thisOne": "Dieses verkaufen",
+      "yours": "Deines verkaufen"
+    },
+    "fact": {
+      "fromProduct": "Aus dem Produkt — keine Aussage über deinen Artikel",
+      "yourAnswer": "Deine Angabe",
+      "yourAnswerNotConfirmed": "Deine Angabe, noch nicht bestätigt"
+    },
+    "guidance": {
+      "heading": "Preisorientierung",
+      "scope": "%{currency} · seit %{since}",
+      "scopeWithMarket": "%{market} · %{currency} · seit %{since}",
+      "segmentStats": "Typisch %{median} · %{count} Angebote · Aussagekraft %{confidence}",
+      "disclaimer": "Die Orientierung legt deinen Preis nie fest, garantiert keinen Verkauf und hindert dich nicht daran, zu jedem Preis anzubieten.",
+      "segment": {
+        "currentSameCondition": "Ähnlicher Zustand, aktuell im Angebot",
+        "currentNew": "Neu, aktuell im Angebot",
+        "currentRefurbished": "Generalüberholt, aktuell im Angebot",
+        "recentSoldNative": "Kürzlich auf Mercaria verkauft"
+      },
+      "insufficient": {
+        "noObservations": "Noch keine vergleichbaren Angebote",
+        "belowSampleFloor": "Noch nicht genug vergleichbare Angebote",
+        "belowSellerFloor": "Nicht genug verschiedene Verkäufer für eine Spanne",
+        "fallback": "Noch nicht genug Daten"
+      },
+      "confidence": {
+        "low": "gering",
+        "medium": "mittel",
+        "high": "hoch"
+      }
+    },
+    "index": {
+      "documentTitle": "Artikel verkaufen · Mercaria",
+      "heading": "Was verkaufst du?",
+      "startingDraft": "Deine Anzeige wird vorbereitet…",
+      "signIn": {
+        "heading": "Zum Verkaufen anmelden",
+        "body": "Deine Anzeige wird unter deinem Oxy-Konto veröffentlicht, damit Käufer sehen, bei wem sie kaufen.",
+        "action": "Anmelden"
+      },
+      "scan": {
+        "label": "Barcode scannen",
+        "accessibilityLabel": "Barcode oder Produktkennung",
+        "placeholder": "Barcode eingeben oder scannen"
+      },
+      "search": {
+        "label": "Oder im Katalog suchen",
+        "accessibilityLabel": "Nach einem Produkt suchen",
+        "placeholder": "z. B. iPhone 13 128 GB"
+      },
+      "candidate": {
+        "matchedByBarcode": "Über den Barcode gefunden",
+        "foundBySearch": "Über die Suche gefunden — prüfe, ob es derselbe Artikel ist"
+      },
+      "unmatched": {
+        "heading": "Etwas Einzigartiges",
+        "body": "Handgemacht, Sammlerstück oder nicht im Katalog. Es wird genauso eingestellt und gefunden wie alles andere."
+      },
+      "drafts": {
+        "heading": "Mach da weiter, wo du aufgehört hast",
+        "untitled": "Anzeige ohne Titel",
+        "savedAt": "Gespeichert %{when} · Schritt %{step}"
+      }
+    },
+    "draft": {
+      "documentTitle": "%{title} · Mercaria",
+      "untitled": "Deine Anzeige",
+      "publish": "Anzeige veröffentlichen",
+      "publishing": "Wird veröffentlicht…",
+      "loadError": {
+        "title": "Wir konnten diesen Entwurf nicht öffnen",
+        "body": "Vielleicht wurde er veröffentlicht oder verworfen."
+      },
+      "product": {
+        "heading": "Das Produkt",
+        "explanation": "Diese Angaben stammen aus dem Katalog von Mercaria. Sie benennen das Modell — sie sagen nichts über den Zustand, das Zubehör oder die Echtheit deines Artikels.",
+        "titleLabel": "Titel",
+        "brandLabel": "Marke",
+        "modelLabel": "Modell",
+        "notMine": "Das ist nicht mein Produkt"
+      },
+      "item": {
+        "heading": "Dein Artikel",
+        "titleLabel": "Anzeigentitel",
+        "titleOverrideNote": "Dein Titel steht in deiner Anzeige. Er ändert das Produkt nicht.",
+        "descriptionLabel": "Beschreibung",
+        "conditionLabel": "Zustand",
+        "photoRequirement": {
+          "one": "Für diesen Zustand brauchst du mindestens %{count} Foto deines tatsächlichen Artikels. Katalog- und Herstellerbilder können sie nicht ersetzen.",
+          "other": "Für diesen Zustand brauchst du mindestens %{count} Fotos deines tatsächlichen Artikels. Katalog- und Herstellerbilder können sie nicht ersetzen."
+        }
+      },
+      "placement": {
+        "heading": "Wo sie erscheint",
+        "onProductPage": "Auf der Produktseite, neben anderen Verkäufern",
+        "ownSurfacesOnly": "In der Suche und in deinem Verkäuferprofil — nicht auf einer Produktseite",
+        "localResults": "In lokalen Ergebnissen, in der ungefähren Gegend, die du gewählt hast"
+      },
+      "blocked": {
+        "titleMissing": "Gib deiner Anzeige einen Titel.",
+        "descriptionMissing": "Beschreibe, was du verkaufst.",
+        "categoryMissing": "Wähle eine Kategorie.",
+        "conditionMissing": "Gib an, in welchem Zustand dein Artikel ist.",
+        "itemPhotosMissing": "Füge Fotos deines tatsächlichen Artikels hinzu.",
+        "defectsNotAcknowledged": "Bestätige, dass du Mängel und fehlende Teile angegeben hast.",
+        "refurbisherNotNamed": "Gib an, wer den Artikel generalüberholt hat.",
+        "priceMissing": "Lege einen Preis fest.",
+        "quantityInvalid": "Die Menge muss mindestens eins sein.",
+        "matchVariantMissing": "Wähle, welche genaue Version des Produkts du verkaufst.",
+        "matchReviewRequired": "Wir konnten nicht bestätigen, dass es dasselbe Produkt ist. Ändere oder entferne die Produktzuordnung, um fortzufahren.",
+        "pickupNotSupported": "Abholung ist noch nicht möglich — entferne sie, um zu veröffentlichen.",
+        "categoryForbidsCondition": "Diese Kategorie lässt diesen Zustand nicht zu.",
+        "alreadyPublished": "Diese Anzeige ist bereits veröffentlicht.",
+        "draftDiscarded": "Dieser Entwurf wurde verworfen."
+      },
+      "warning": {
+        "priceFarAboveGuidance": "Dein Preis liegt weit über dem, wofür ähnliche Artikel verkauft werden. Du kannst ihn trotzdem veröffentlichen.",
+        "priceFarBelowGuidance": "Dein Preis liegt weit unter dem, wofür ähnliche Artikel verkauft werden. Du kannst ihn trotzdem veröffentlichen."
+      }
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "expand": "Seitenleiste ausklappen",
+      "collapse": "Seitenleiste einklappen",
+      "accountMenu": "Kontomenü"
+    },
+    "footer": {
+      "brand": "Mercaria",
+      "copyright": "© %{year} Mercaria von Oxy",
+      "links": {
+        "about": "Über uns",
+        "help": "Hilfe",
+        "privacy": "Datenschutz",
+        "terms": "AGB"
+      }
+    },
+    "errorBoundary": {
+      "title": "Etwas ist schiefgelaufen",
+      "body": "Es ist ein unerwarteter Fehler aufgetreten. Du kannst es noch einmal versuchen; falls das Problem bleibt, ist unser Team bereits informiert."
+    },
+    "notFound": {
+      "headTitle": "404 - Seite nicht gefunden | Mercaria",
+      "screenTitle": "Hoppla!",
+      "message": "Diese Seite gibt es nicht.",
+      "goHome": "Zur Startseite!"
+    }
+  },
+  "address": {
+    "form": {
+      "recipientNameLabel": "Name der empfangenden Person",
+      "recipientNamePlaceholder": "Anna Schmidt",
+      "line1Label": "Adresszeile 1",
+      "line1Placeholder": "Hauptstraße 1",
+      "line2Label": "Adresszeile 2 (optional)",
+      "line2Placeholder": "4. OG rechts",
+      "cityLabel": "Stadt",
+      "cityPlaceholder": "Berlin",
+      "regionLabel": "Bundesland (optional)",
+      "regionPlaceholder": "BE",
+      "postalCodeLabel": "Postleitzahl",
+      "postalCodePlaceholder": "10115",
+      "countryLabel": "Land",
+      "countryPlaceholder": "DE",
+      "phoneLabel": "Telefon (optional)",
+      "phonePlaceholder": "+49 30 0000000",
+      "submit": "Adresse speichern"
+    },
+    "list": {
+      "default": "Standard",
+      "deleteLabel": "Adresse löschen",
+      "setDefault": "Als Standard festlegen",
+      "signedOut": "Melde dich an, um deine Lieferadressen zu verwalten.",
+      "empty": "Du hast noch keine gespeicherten Adressen.",
+      "newAddress": "Neue Adresse",
+      "addAddress": "Adresse hinzufügen"
+    },
+    "toast": {
+      "saved": "Adresse gespeichert",
+      "saveFailed": "Adresse konnte nicht gespeichert werden",
+      "updateFailed": "Adresse konnte nicht aktualisiert werden",
+      "removed": "Adresse entfernt",
+      "removeFailed": "Adresse konnte nicht entfernt werden"
+    }
+  },
+  "shoppingAgents": {
+    "headTitle": "Einkaufsagenten · Mercaria",
+    "title": "Einkaufsagenten",
+    "intro": "Dinge, die Mercaria für dich im Auge behalten soll. Jeder Agent beobachtet den Katalog und sagt dir Bescheid, sobald zutrifft, worum du gebeten hast.",
+    "loadError": "Wir konnten deine Einkaufsagenten nicht laden. Prüfe deine Verbindung und versuche es erneut.",
+    "findings": {
+      "asking": "Es wird noch einmal nachgesehen …",
+      "intro": "Alles, was dieser Agent gesehen hat, das Neueste zuerst. Ältere Beobachtungen bleiben hier, auch wenn eine spätere sie ersetzt.",
+      "loadError": "Wir konnten nicht laden, was dieser Agent gefunden hat. Dein Agent ist davon nicht betroffen.",
+      "empty": "Noch nichts gesehen. Die erste Beobachtung erscheint hier, sobald dieser Agent das nächste Mal nachsieht."
+    },
+    "empty": {
+      "title": "Noch keine Einkaufsagenten",
+      "body": "Speichere, wonach du suchst, und Mercaria behält den Katalog für dich im Auge."
+    },
+    "signedOut": {
+      "title": "Melde dich an, um einen Einkaufsagenten zu speichern",
+      "body": "Agenten gehören zu deinem Konto und begleiten dich von einem Gerät zum nächsten."
     }
   }
 }

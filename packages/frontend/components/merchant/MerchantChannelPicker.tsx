@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, View } from "react-native";
 import type { MerchantPageChannel } from "@mercaria/shared-types";
 import { Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Scoping the catalogue to a channel (#73 storefront-navigation rules 1, 3
@@ -31,22 +32,26 @@ export function MerchantChannelPicker({
   selectedStorefrontId: string | undefined;
   onSelect: (storefrontId: string | undefined) => void;
 }) {
+  const { t } = useTranslation();
+
   if (channels.length === 0) return null;
 
   return (
     <View className="gap-2 px-4 pt-6">
-      <Text className="text-xs uppercase text-muted-foreground">Channels</Text>
+      <Text className="text-xs uppercase text-muted-foreground">
+        {t("merchants.channels.title")}
+      </Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         accessibilityRole="radiogroup"
-        accessibilityLabel="Choose a sales channel to browse"
+        accessibilityLabel={t("merchants.channels.groupLabel")}
       >
         <View className="flex-row gap-2">
           <Pressable
             accessibilityRole="radio"
             accessibilityState={{ selected: selectedStorefrontId === undefined }}
-            accessibilityLabel="All channels"
+            accessibilityLabel={t("merchants.channels.all")}
             onPress={() => onSelect(undefined)}
             className={`rounded-full border px-4 py-2 ${
               selectedStorefrontId === undefined
@@ -54,13 +59,18 @@ export function MerchantChannelPicker({
                 : "border-border"
             }`}
           >
-            <Text className="text-sm font-medium text-foreground">All channels</Text>
+            <Text className="text-sm font-medium text-foreground">
+              {t("merchants.channels.all")}
+            </Text>
           </Pressable>
 
           {channels.map((channel) => {
             const label = channel.operatedByThisMerchant
               ? channel.storefront.name
-              : `${channel.storefront.name} · on ${channel.operatorName ?? "another marketplace"}`;
+              : t("merchants.channels.operatedElsewhere", {
+                  channel: channel.storefront.name,
+                  operator: channel.operatorName ?? t("merchants.channels.unknownOperator"),
+                });
             return (
               <Pressable
                 key={channel.storefront.id}
@@ -68,7 +78,10 @@ export function MerchantChannelPicker({
                 accessibilityState={{
                   selected: selectedStorefrontId === channel.storefront.id,
                 }}
-                accessibilityLabel={`${label}, ${String(channel.currentOfferCount)} offers`}
+                accessibilityLabel={t("merchants.channels.chipLabel", {
+                  channel: label,
+                  count: channel.currentOfferCount,
+                })}
                 onPress={() => onSelect(channel.storefront.id)}
                 className={`rounded-full border px-4 py-2 ${
                   selectedStorefrontId === channel.storefront.id

@@ -13,6 +13,7 @@ import type { CartVendor } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { HeroSearch } from "@/components/shell/HeroSearch";
 import { Footer } from "@/components/shell/Footer";
+import { useTranslation } from "@/lib/i18n";
 import { useFeed } from "@/lib/hooks/use-feed";
 import { useCart } from "@/lib/hooks/use-cart";
 import { categoryHref } from "@/lib/catalog/routes";
@@ -23,8 +24,9 @@ const SKELETON_SHELF_COUNT = 2;
 const SKELETON_CARD_COUNT = 3;
 
 function FeedSkeleton() {
+  const { t } = useTranslation();
   return (
-    <View accessibilityLabel="Loading products">
+    <View accessibilityLabel={t("home.loadingProducts")}>
       {Array.from({ length: SKELETON_SHELF_COUNT }).map((_, shelfIndex) => (
         <View key={shelfIndex} className="mb-6">
           {/* Heading placeholder */}
@@ -46,18 +48,17 @@ function FeedSkeleton() {
 }
 
 function FeedError({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <View className="items-center px-8 py-16">
-      <Text className="text-center text-base text-muted-foreground">
-        Couldn&apos;t load products. Pull to refresh or try again.
-      </Text>
+      <Text className="text-center text-base text-muted-foreground">{t("home.loadError")}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Try again"
+        accessibilityLabel={t("common.tryAgain")}
         onPress={onRetry}
         className="mt-4 rounded-full border border-border px-5 py-2"
       >
-        <Text className="text-sm font-semibold text-foreground">Try again</Text>
+        <Text className="text-sm font-semibold text-foreground">{t("common.tryAgain")}</Text>
       </Pressable>
     </View>
   );
@@ -160,13 +161,14 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
 }
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useFeed();
   const onRetry = () => refetch();
 
   return (
     <ScreenShell>
       <Head>
-        <title>Mercaria</title>
+        <title>{t("home.title")}</title>
         <meta
           name="description"
           content="Mercaria — buy and sell new and secondhand items."

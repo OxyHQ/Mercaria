@@ -12,6 +12,7 @@ import {
   useWatchlist,
   useWatchlistBasket,
 } from "@/lib/hooks/use-watchlists";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * One watchlist (#81 UX rules 2–6).
@@ -27,6 +28,7 @@ import {
  */
 export default function WatchlistDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { watchlistId } = useLocalSearchParams<{ watchlistId: string }>();
   const detail = useWatchlist(watchlistId);
   const basket = useWatchlistBasket(watchlistId);
@@ -40,7 +42,11 @@ export default function WatchlistDetailScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>{list ? `${list.name} · Mercaria` : "Watchlist · Mercaria"}</title>
+        <title>
+          {list
+            ? t("watchlists.detail.pageTitle", { name: list.name })
+            : t("watchlists.detail.pageTitleFallback")}
+        </title>
       </Head>
 
       <View className="gap-space-16 px-space-16 py-space-20">
@@ -49,9 +55,7 @@ export default function WatchlistDetailScreen() {
             <ActivityIndicator />
           </View>
         ) : detail.isError || !list ? (
-          <Text className="text-sm text-text-secondary">
-            We could not load that watchlist.
-          </Text>
+          <Text className="text-sm text-text-secondary">{t("watchlists.detail.loadError")}</Text>
         ) : (
           <>
             <Text className="text-2xl font-bold text-foreground">
@@ -68,9 +72,9 @@ export default function WatchlistDetailScreen() {
               </View>
             ) : basket.isError || !basket.data ? (
               <View className="gap-space-4 rounded-radius-lg border border-border-secondary p-space-16">
-                <Text className="text-sm text-text-secondary">Current basket</Text>
+                <Text className="text-sm text-text-secondary">{t("watchlists.basket.title")}</Text>
                 <Text className="text-base text-foreground">
-                  We could not price this list just now. Your items are all still here.
+                  {t("watchlists.detail.priceError")}
                 </Text>
               </View>
             ) : (
@@ -80,13 +84,15 @@ export default function WatchlistDetailScreen() {
             {basket.data ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Save this measurement"
+                accessibilityLabel={t("watchlists.detail.saveMeasurement")}
                 disabled={recordSnapshot.isPending}
                 onPress={() => recordSnapshot.mutate({ watchlistId })}
                 className="items-center rounded-radius-max border border-border-secondary py-space-12"
               >
                 <Text className="text-buttonMedium text-text">
-                  {recordSnapshot.isPending ? "Saving…" : "Save this measurement"}
+                  {recordSnapshot.isPending
+                    ? t("watchlists.detail.saving")
+                    : t("watchlists.detail.saveMeasurement")}
                 </Text>
               </Pressable>
             ) : null}
@@ -121,13 +127,15 @@ export default function WatchlistDetailScreen() {
                         {item.quantity > 1 ? `${item.quantity} × ` : ""}
                         {item.canonicalProductId}
                       </Text>
-                      <Text className="text-sm text-text-secondary">Price unavailable</Text>
+                      <Text className="text-sm text-text-secondary">
+                        {t("watchlists.detail.priceUnavailable")}
+                      </Text>
                     </View>
                   ))}
 
               {items.length === 0 ? (
                 <Text className="text-sm text-text-secondary">
-                  Nothing on this list yet. Add a product from its page to start tracking it.
+                  {t("watchlists.detail.empty")}
                 </Text>
               ) : null}
             </View>
@@ -135,7 +143,7 @@ export default function WatchlistDetailScreen() {
             {items.some((item) => item.resolution.state === "ambiguous_after_split") ? (
               <View className="gap-space-8 rounded-radius-lg border border-border-secondary p-space-16">
                 <Text className="text-base text-foreground">
-                  One of these products was split in two. Choose what should happen.
+                  {t("watchlists.detail.splitPrompt")}
                 </Text>
                 {items
                   .filter((item) => item.resolution.state === "ambiguous_after_split")
@@ -143,7 +151,7 @@ export default function WatchlistDetailScreen() {
                     <Pressable
                       key={item.id}
                       accessibilityRole="button"
-                      accessibilityLabel="Keep both products on this list"
+                      accessibilityLabel={t("watchlists.detail.keepBothA11y")}
                       onPress={() =>
                         resolveSplit.mutate({
                           watchlistId,
@@ -158,7 +166,9 @@ export default function WatchlistDetailScreen() {
                       }
                     >
                       <Text className="text-sm text-text-secondary">
-                        Keep both for {item.canonicalProductId}
+                        {t("watchlists.detail.keepBothFor", {
+                          product: item.canonicalProductId,
+                        })}
                       </Text>
                     </Pressable>
                   ))}

@@ -5,6 +5,7 @@ import type {
   MerchantBrandStandingKind,
 } from "@mercaria/shared-types";
 import { Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The three brand relationship states, with three different labels and three
@@ -27,33 +28,52 @@ import { Text } from "@mercaria/ui";
  * A claimed merchant cannot edit any of this: the page is a read, there is no
  * write route behind it, and the verification lives on a `commerce_relationships`
  * row an operator approved under four eyes.
+ *
+ * ## Both maps hold KEYS, and each of the six leaves is a WHOLE sentence
+ *
+ * Module scope, so a `t()` here would resolve before the locale store rehydrates
+ * and freeze whichever language loaded first. The keys are literals so the i18n
+ * guard can see each one is referenced.
+ *
+ * Each explanation is translated as a complete sentence rather than assembled
+ * from shared fragments: the three states are three different legal claims, and
+ * a shared clause is the mechanism by which two of them would come to read
+ * alike in some language nobody on this team reviews.
  */
-const STANDING_LABEL: Readonly<Record<MerchantBrandStandingKind, string>> = Object.freeze({
-  official_store: "Brand’s own store",
-  authorized_reseller: "Authorized reseller",
-  no_verified_relationship: "No verified relationship",
-});
+const STANDING_LABEL_KEYS: Readonly<Record<MerchantBrandStandingKind, string>> = {
+  official_store: "merchants.brandStandings.label.officialStore",
+  authorized_reseller: "merchants.brandStandings.label.authorizedReseller",
+  no_verified_relationship: "merchants.brandStandings.label.noVerifiedRelationship",
+};
+Object.freeze(STANDING_LABEL_KEYS);
 
-const STANDING_EXPLANATION: Readonly<Record<MerchantBrandStandingKind, string>> = Object.freeze({
-  official_store: "This merchant is the brand’s own sales channel, verified by Mercaria.",
-  authorized_reseller: "The brand has authorized this merchant to resell it, verified by Mercaria.",
-  no_verified_relationship:
-    "This merchant sells products of this brand. Mercaria has verified no relationship between them.",
-});
+const STANDING_EXPLANATION_KEYS: Readonly<Record<MerchantBrandStandingKind, string>> = {
+  official_store: "merchants.brandStandings.explanation.officialStore",
+  authorized_reseller: "merchants.brandStandings.explanation.authorizedReseller",
+  no_verified_relationship: "merchants.brandStandings.explanation.noVerifiedRelationship",
+};
+Object.freeze(STANDING_EXPLANATION_KEYS);
 
 export function MerchantBrandStandings({
   standings,
 }: {
   standings: readonly MerchantBrandStanding[];
 }) {
+  const { t } = useTranslation();
   const router = useRouter();
 
   if (standings.length === 0) return null;
 
   return (
     <View className="gap-3 px-4 pt-8">
-      <Text className="text-xs uppercase text-muted-foreground">Brands</Text>
-      <View className="gap-3" accessibilityRole="list" accessibilityLabel="Brand relationships">
+      <Text className="text-xs uppercase text-muted-foreground">
+        {t("merchants.brandStandings.title")}
+      </Text>
+      <View
+        className="gap-3"
+        accessibilityRole="list"
+        accessibilityLabel={t("merchants.brandStandings.listLabel")}
+      >
         {standings.map((standing) => (
           <View key={standing.brandId} className="gap-1">
             {/*
@@ -74,9 +94,11 @@ export function MerchantBrandStandings({
             */}
             <Pressable
               accessibilityRole="link"
-              accessibilityLabel={`${standing.brandName}: ${STANDING_LABEL[standing.standing]}. ${
-                STANDING_EXPLANATION[standing.standing]
-              }`}
+              accessibilityLabel={t("merchants.brandStandings.a11yLabel", {
+                brand: standing.brandName,
+                standing: t(STANDING_LABEL_KEYS[standing.standing]),
+                explanation: t(STANDING_EXPLANATION_KEYS[standing.standing]),
+              })}
               onPress={() =>
                 router.push({
                   pathname: "/brands/[handle]",
@@ -98,12 +120,12 @@ export function MerchantBrandStandings({
                     standing.badge === null ? "text-muted-foreground" : "text-secondary-foreground"
                   }`}
                 >
-                  {STANDING_LABEL[standing.standing]}
+                  {t(STANDING_LABEL_KEYS[standing.standing])}
                 </Text>
               </View>
             </Pressable>
             <Text className="text-xs text-muted-foreground">
-              {STANDING_EXPLANATION[standing.standing]}
+              {t(STANDING_EXPLANATION_KEYS[standing.standing])}
             </Text>
           </View>
         ))}

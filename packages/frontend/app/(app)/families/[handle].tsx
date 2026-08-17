@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SectionHeader, Skeleton, Text, formatMoney } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { CatalogProductGrid } from "@/components/brand/CatalogProductGrid";
+import { useTranslation } from "@/lib/i18n";
 import {
   useProductFamilyPage,
   useProductFamilyProducts,
@@ -37,6 +38,7 @@ import {
 export default function ProductFamilyPageScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const { data: family, isLoading, isError } = useProductFamilyPage(handle);
   const products = useProductFamilyProducts(handle);
@@ -66,10 +68,8 @@ export default function ProductFamilyPageScreen() {
     return (
       <ScreenShell>
         <View className="flex flex-col gap-2 p-4">
-          <Text className="text-lg font-semibold">Product family not found</Text>
-          <Text className="text-sm text-muted-foreground">
-            This family may have been merged into another, or the address may be wrong.
-          </Text>
+          <Text className="text-lg font-semibold">{t("families.notFound.title")}</Text>
+          <Text className="text-sm text-muted-foreground">{t("families.notFound.body")}</Text>
         </View>
       </ScreenShell>
     );
@@ -81,7 +81,7 @@ export default function ProductFamilyPageScreen() {
   return (
     <>
       <Head>
-        <title>{`${family.name} · Mercaria`}</title>
+        <title>{t("families.meta.title", { name: family.name })}</title>
         <link rel="canonical" href={family.canonicalPath} />
         {family.indexability === "indexable" ? null : (
           <meta name="robots" content="noindex,follow" />
@@ -104,9 +104,7 @@ export default function ProductFamilyPageScreen() {
             )}
             <Text className="text-2xl font-semibold">{family.name}</Text>
             <Text className="text-xs text-muted-foreground">
-              {family.productCount === 1
-                ? "1 product in this family"
-                : `${family.productCount} products in this family`}
+              {t("families.productCount", { count: family.productCount })}
             </Text>
           </View>
 
@@ -118,24 +116,23 @@ export default function ProductFamilyPageScreen() {
             // The lever is off. Saying so is what keeps this distinguishable
             // from a family nobody currently sells (#72 brand rule 10).
             <Text className="text-sm text-muted-foreground">
-              Prices are unavailable right now.
+              {t("families.prices.withdrawn")}
             </Text>
           ) : range === undefined ? (
             // Nothing in this family publishes a price at all. Since #464 that
             // is the ONLY thing absence means here — a family whose prices
             // exist but could not be converted takes the branch below instead
             // of this one, which used to claim it had no offers.
-            <Text className="text-sm text-muted-foreground">
-              No current offers for this family.
-            </Text>
+            <Text className="text-sm text-muted-foreground">{t("families.prices.none")}</Text>
           ) : range.state === "unpriceable" ? (
             // There ARE current offers and not one of them could be converted.
             // Rendering "no current offers" for this was the silent exclusion
             // #464 removes: it told a shopper the family was unsold and left
             // the seller of those offers with no surface naming the reason.
             <Text className="text-sm text-muted-foreground">
-              Current offers for this family are priced in{" "}
-              {range.unconvertibleCurrencies.join(", ")}, which we cannot convert.
+              {t("families.prices.unpriceable", {
+                currencies: range.unconvertibleCurrencies.join(", "),
+              })}
             </Text>
           ) : (
             <View className="flex flex-col gap-1">
@@ -163,15 +160,19 @@ export default function ProductFamilyPageScreen() {
                     )}`}
               </Text>
               <Text className="text-xs text-muted-foreground">
-                {CONDITION_SCOPE_TEXT[range.conditionScope]} · across{" "}
-                {range.productCount === 1 ? "1 product" : `${range.productCount} products`}
+                {t("families.priceRange.summary", {
+                  scopeLabel: t(CONDITION_SCOPE_KEYS[range.conditionScope]),
+                  count: range.productCount,
+                })}
               </Text>
               {range.unconvertibleCurrencies.length === 0 ? null : (
                 // Named rather than silently dropped: an offer Mercaria cannot
                 // convert is excluded from the range, and a reader is entitled
                 // to know the range does not cover everything.
                 <Text className="text-xs text-muted-foreground">
-                  Excludes offers in {range.unconvertibleCurrencies.join(", ")}.
+                  {t("families.priceRange.excludes", {
+                    currencies: range.unconvertibleCurrencies.join(", "),
+                  })}
                 </Text>
               )}
             </View>
@@ -179,7 +180,7 @@ export default function ProductFamilyPageScreen() {
 
           {family.sharedAttributes.length === 0 ? null : (
             <View className="flex flex-col gap-3">
-              <SectionHeader title="Shared across this family" />
+              <SectionHeader title={t("families.sharedAttributes.title")} />
               <View className="flex flex-col gap-1">
                 {family.sharedAttributes.map((attribute) => (
                   <Text key={attribute.key} className="text-sm text-muted-foreground">
@@ -192,7 +193,11 @@ export default function ProductFamilyPageScreen() {
 
           <View className="flex flex-col gap-3">
             <SectionHeader
-              title={ordering === "release_desc" ? "Generations, newest first" : "Products"}
+              title={
+                ordering === "release_desc"
+                  ? t("families.products.titleReleaseDesc")
+                  : t("families.products.title")
+              }
             />
             <CatalogProductGrid
               pages={products.data}
@@ -209,11 +214,18 @@ export default function ProductFamilyPageScreen() {
   );
 }
 
-/** What a range's condition coverage SAYS. */
-const CONDITION_SCOPE_TEXT: Readonly<Record<string, string>> = Object.freeze({
-  new: "New",
-  used: "Pre-owned",
-  mixed: "New & pre-owned",
-  unknown: "Condition not stated",
-});
+/**
+ * What a range's condition coverage SAYS.
+ *
+ * KEYS rather than sentences: this is module scope, so a `t()` here would run
+ * before the locale store rehydrates and freeze whichever language loaded
+ * first. Each key is a literal so the i18n guard can see it is referenced.
+ */
+const CONDITION_SCOPE_KEYS: Readonly<Record<string, string>> = {
+  new: "families.priceRange.scope.new",
+  used: "families.priceRange.scope.used",
+  mixed: "families.priceRange.scope.mixed",
+  unknown: "families.priceRange.scope.unknown",
+};
+Object.freeze(CONDITION_SCOPE_KEYS);
 

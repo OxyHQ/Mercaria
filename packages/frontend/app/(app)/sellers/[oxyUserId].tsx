@@ -19,7 +19,8 @@ import {
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
 import { ReportSellerDialog } from "@/components/seller/ReportSellerDialog";
-import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
+import { useTranslation } from "@/lib/i18n";
+import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 import { useSellerListings, useSellerProfile } from "@/lib/hooks/use-seller";
 
 /** Avatar edge length (px) in the profile header. */
@@ -37,16 +38,24 @@ const SKELETON_TILE_COUNT = 8;
  * them. Oxy Trust's tier is rendered separately and never as stars, because it
  * is not a review score and is not Mercaria's to average with one.
  */
-const SELLER_RATING_LABEL = REVIEW_SCOPE_LABELS.p2p_seller;
+/** KEY, not the sentence: resolved with `t()` at each render site. */
+const SELLER_RATING_LABEL_KEY = REVIEW_SCOPE_HEADING_KEYS.p2p_seller;
 
-/** Human wording for Oxy Trust's tiers. Descriptive, never a Mercaria verdict. */
-const TRUST_TIER_LABELS: Readonly<Record<string, string>> = Object.freeze({
-  restricted: "Restricted by Oxy Trust",
-  new: "New to Oxy",
-  trusted: "Trusted on Oxy",
-  high_trust: "Highly trusted on Oxy",
-  verified: "Verified on Oxy",
-});
+/**
+ * Human wording for Oxy Trust's tiers. Descriptive, never a Mercaria verdict.
+ *
+ * KEYS rather than sentences: this is module scope, so a `t()` here would run
+ * before the locale store rehydrates and freeze whichever language loaded
+ * first. Each key is a literal so the i18n guard can see it is referenced.
+ */
+const TRUST_TIER_LABEL_KEYS: Readonly<Record<string, string>> = {
+  restricted: "sellers.trust.tier.restricted",
+  new: "sellers.trust.tier.new",
+  trusted: "sellers.trust.tier.trusted",
+  high_trust: "sellers.trust.tier.highTrust",
+  verified: "sellers.trust.tier.verified",
+};
+Object.freeze(TRUST_TIER_LABEL_KEYS);
 
 /** Project a catalog `Listing` into the `ProductSummary` shape `ProductCard` consumes. */
 function toProductSummary(listing: Listing, sellerName: string): ProductSummary {
@@ -69,8 +78,10 @@ function toProductSummary(listing: Listing, sellerName: string): ProductSummary 
 
 /** Loading placeholder grid matching the products grid rhythm. */
 function GridSkeleton() {
+  const { t } = useTranslation();
+
   return (
-    <View className="flex-row flex-wrap" accessibilityLabel="Loading listings">
+    <View className="flex-row flex-wrap" accessibilityLabel={t("sellers.listings.loadingLabel")}>
       {Array.from({ length: SKELETON_TILE_COUNT }).map((_, i) => (
         <View key={i} className="w-1/2 p-2 md:w-1/3 lg:w-1/4">
           <View className="gap-2">
@@ -103,6 +114,7 @@ function Stat({ label, value }: { label: string; value: string }) {
  * surface below, not the person's name.
  */
 function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
+  const { t } = useTranslation();
   const { oxyServices } = useOxy();
   const [reportOpen, setReportOpen] = useState(false);
   const identity = profile.identity;
@@ -142,7 +154,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
             {profile.marketplace?.isVerified ? (
               <View className="rounded-full bg-secondary px-2 py-0.5">
                 <Text className="text-xs font-semibold text-secondary-foreground">
-                  Verified seller
+                  {t("sellers.verifiedBadge")}
                 </Text>
               </View>
             ) : null}
@@ -163,11 +175,13 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Report ${identity.displayName}`}
+          accessibilityLabel={t("sellers.report.title", { name: identity.displayName })}
           onPress={() => setReportOpen(true)}
           className="rounded-full border border-border px-4 py-2"
         >
-          <Text className="text-sm font-medium text-foreground">Report</Text>
+          <Text className="text-sm font-medium text-foreground">
+            {t("sellers.report.action")}
+          </Text>
         </Pressable>
       </View>
 
@@ -183,6 +197,7 @@ function SellerHeader({ profile }: { profile: PublicSellerProfile }) {
 
 /** Marketplace activity, the #76 seller aggregate and Oxy Trust — three labelled blocks. */
 function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
+  const { t } = useTranslation();
   const marketplace = profile.marketplace;
   const reviews = profile.transactionReviews;
 
@@ -190,11 +205,14 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
     <View className="gap-5 px-4 pt-6">
       {marketplace ? (
         <View className="flex-row flex-wrap gap-6">
-          <Stat label="Active listings" value={String(marketplace.activeListingCount)} />
-          <Stat label="Items sold" value={String(marketplace.salesCount)} />
+          <Stat
+            label={t("sellers.stats.activeListings")}
+            value={String(marketplace.activeListingCount)}
+          />
+          <Stat label={t("sellers.stats.itemsSold")} value={String(marketplace.salesCount)} />
           {marketplace.sellerSince ? (
             <Stat
-              label="Selling since"
+              label={t("sellers.stats.sellingSince")}
               value={new Date(marketplace.sellerSince).getFullYear().toString()}
             />
           ) : null}
@@ -208,31 +226,31 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
               rating={reviews.rating}
               count={reviews.reviewCount}
               size={16}
-              scopeLabel={SELLER_RATING_LABEL}
+              scopeLabel={t(SELLER_RATING_LABEL_KEY)}
             />
             <Text className="text-sm font-semibold text-foreground">
               {reviews.reviewCount > 0
                 ? `${reviews.rating} (${formatReviewCount(reviews.reviewCount)})`
-                : "No reviews yet"}
+                : t("sellers.reviews.none")}
             </Text>
           </View>
           {/* The scope, spelled out. A page can carry several ratings and a
               reader must never have to guess which question one answers. */}
-          <Text className="text-xs text-muted-foreground">{SELLER_RATING_LABEL}</Text>
+          <Text className="text-xs text-muted-foreground">{t(SELLER_RATING_LABEL_KEY)}</Text>
         </View>
       ) : null}
 
       {profile.trust ? (
         <View className="gap-1">
           <Text className="text-sm font-semibold text-foreground">
-            {TRUST_TIER_LABELS[profile.trust.tier] ?? profile.trust.tier}
+            {profile.trust.tier in TRUST_TIER_LABEL_KEYS
+              ? t(TRUST_TIER_LABEL_KEYS[profile.trust.tier])
+              : profile.trust.tier}
           </Text>
           {/* Named as Oxy's, because it IS Oxy's. Mercaria computes no trust
               score and this figure is passed through, never blended with the
               review rating above or with any activity count. */}
-          <Text className="text-xs text-muted-foreground">
-            Reputation from Oxy Trust, across the whole Oxy ecosystem
-          </Text>
+          <Text className="text-xs text-muted-foreground">{t("sellers.trust.source")}</Text>
         </View>
       ) : null}
     </View>
@@ -241,10 +259,11 @@ function SellerSignals({ profile }: { profile: PublicSellerProfile }) {
 
 /** The state a withheld profile renders instead of a marketplace surface. */
 function WithheldNotice({ profile }: { profile: PublicSellerProfile }) {
+  const { t } = useTranslation();
   const message =
     profile.withheldReason === "oxy_profile_private"
-      ? "This seller keeps their Oxy profile private."
-      : "This seller's listings are not available right now.";
+      ? t("sellers.withheld.privateProfile")
+      : t("sellers.withheld.unavailable");
 
   return (
     <View className="items-center px-8 py-16">
@@ -256,6 +275,7 @@ function WithheldNotice({ profile }: { profile: PublicSellerProfile }) {
 export default function SellerScreen() {
   const { oxyUserId } = useLocalSearchParams<{ oxyUserId: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const { data: profile, isLoading, isError } = useSellerProfile(oxyUserId);
 
   const isVisible = profile?.visibility === "visible";
@@ -267,7 +287,7 @@ export default function SellerScreen() {
     isFetchingNextPage,
   } = useSellerListings(oxyUserId, isVisible);
 
-  const sellerName = profile?.identity?.displayName ?? "Seller";
+  const sellerName = profile?.identity?.displayName ?? t("sellers.fallbackName");
   const products = useMemo(
     () => (pages ?? []).flatMap((page) => page.listings.map((l) => toProductSummary(l, sellerName))),
     [pages, sellerName],
@@ -275,7 +295,11 @@ export default function SellerScreen() {
 
   const head = (
     <Head>
-      <title>{profile?.identity ? `${sellerName} — Mercaria` : "Mercaria"}</title>
+      <title>
+        {profile?.identity
+          ? t("sellers.meta.title", { name: sellerName })
+          : t("sellers.meta.fallbackTitle")}
+      </title>
       {/* Indexability is the SERVER's derivation (#92 privacy rule 7): fully
           visible, and carrying at least one active listing. A thin page about a
           named person does not belong in an index, and a client deciding for
@@ -308,7 +332,7 @@ export default function SellerScreen() {
         {head}
         <View className="items-center justify-center px-8 py-16 web:min-h-screen">
           <Text className="text-center text-base text-muted-foreground">
-            This seller is not available.
+            {t("sellers.unavailable")}
           </Text>
         </View>
       </ScreenShell>
@@ -325,14 +349,14 @@ export default function SellerScreen() {
           <SellerSignals profile={profile} />
 
           <View className="pt-8">
-            <SectionHeader title="Listings" />
+            <SectionHeader title={t("sellers.listings.title")} />
 
             {listingsLoading && products.length === 0 ? <GridSkeleton /> : null}
 
             {!listingsLoading && products.length === 0 ? (
               <View className="items-center px-8 py-16">
                 <Text className="text-center text-base text-muted-foreground">
-                  {`${sellerName} has nothing for sale right now.`}
+                  {t("sellers.listings.empty", { name: sellerName })}
                 </Text>
               </View>
             ) : null}
@@ -356,13 +380,15 @@ export default function SellerScreen() {
               <View className="items-center px-4 py-6">
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Load more listings"
+                  accessibilityLabel={t("sellers.listings.loadMoreLabel")}
                   disabled={isFetchingNextPage}
                   onPress={() => void fetchNextPage()}
                   className="rounded-full border border-border bg-secondary px-6 py-3 web:shadow-sm"
                 >
                   <Text className="text-sm font-semibold text-foreground">
-                    {isFetchingNextPage ? "Loading…" : "Load more"}
+                    {isFetchingNextPage
+                      ? t("sellers.listings.loadingMore")
+                      : t("sellers.listings.loadMore")}
                   </Text>
                 </Pressable>
               </View>

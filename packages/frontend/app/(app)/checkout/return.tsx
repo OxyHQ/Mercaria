@@ -44,8 +44,10 @@ import { Button, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useCheckoutPaymentStatus } from "@/lib/hooks/use-checkout";
 import { usePortalConfirmation } from "@/lib/hooks/use-guest-portal";
+import { useTranslation } from "@/lib/i18n";
 
 function CheckoutReturnBody() {
+  const { t } = useTranslation();
   const router = useRouter();
   const portalConfirmation = usePortalConfirmation();
   const { isAuthenticated } = useOxy();
@@ -106,14 +108,11 @@ function CheckoutReturnBody() {
   if (!checkoutGroupId) {
     return (
       <View className="px-4">
-        <SectionHeader title="Payment" />
+        <SectionHeader title={t("payment.title")} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">
-            This link is missing the checkout it belongs to. If you completed a payment, your
-            order is safe — nothing here changes it.
-          </Text>
+          <Text className="text-sm text-muted-foreground">{t("payment.return.missingGroup")}</Text>
           <Button variant="outline" onPress={leave}>
-            <Text className="text-sm font-medium text-foreground">Continue</Text>
+            <Text className="text-sm font-medium text-foreground">{t("payment.continue")}</Text>
           </Button>
         </View>
       </View>
@@ -125,11 +124,9 @@ function CheckoutReturnBody() {
   if (status === "succeeded") {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Payment received" />
+        <SectionHeader title={t("payment.received.title")} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">
-            Thank you. Your order is confirmed and the seller has been notified.
-          </Text>
+          <Text className="text-sm text-muted-foreground">{t("payment.received.body")}</Text>
           {/*
             #109 UX rule 1: the OFFER, on the guest confirmation. Shown only to
             a signed-out buyer, because an authenticated one already has these
@@ -150,18 +147,16 @@ function CheckoutReturnBody() {
               >
                 <Button variant="outline">
                   <Text className="text-sm font-medium text-foreground">
-                    Save these orders to Oxy
+                    {t("checkout.claim.saveToOxy")}
                   </Text>
                 </Button>
               </Link>
-              <Text className="text-sm text-muted-foreground">
-                Optional. Your order is confirmed either way.
-              </Text>
+              <Text className="text-sm text-muted-foreground">{t("checkout.claim.optional")}</Text>
             </>
           ) : null}
           <Button onPress={leave}>
             <Text className="text-sm font-semibold text-primary-foreground">
-              {isAuthenticated ? "View your orders" : "Keep shopping"}
+              {isAuthenticated ? t("checkout.viewOrders") : t("checkout.keepShopping")}
             </Text>
           </Button>
         </View>
@@ -172,13 +167,11 @@ function CheckoutReturnBody() {
   if (status === "canceled") {
     return (
       <View className="px-4" accessibilityLiveRegion="polite">
-        <SectionHeader title="Payment cancelled" />
+        <SectionHeader title={t("payment.cancelled.title")} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">
-            This payment was cancelled and nothing was charged.
-          </Text>
+          <Text className="text-sm text-muted-foreground">{t("payment.cancelled.body")}</Text>
           <Button variant="outline" onPress={leave}>
-            <Text className="text-sm font-medium text-foreground">Continue</Text>
+            <Text className="text-sm font-medium text-foreground">{t("payment.continue")}</Text>
           </Button>
         </View>
       </View>
@@ -188,14 +181,11 @@ function CheckoutReturnBody() {
   if (paymentStatus.isError) {
     return (
       <View className="px-4" accessibilityRole="alert" accessibilityLiveRegion="assertive">
-        <SectionHeader title="We could not read this payment" />
+        <SectionHeader title={t("payment.unreadable.title")} />
         <View className="gap-4">
-          <Text className="text-sm text-muted-foreground">
-            We could not check this payment from here. If it went through, your order is safe —
-            this page cannot change it either way.
-          </Text>
+          <Text className="text-sm text-muted-foreground">{t("payment.unreadable.body")}</Text>
           <Button variant="outline" onPress={leave}>
-            <Text className="text-sm font-medium text-foreground">Continue</Text>
+            <Text className="text-sm font-medium text-foreground">{t("payment.continue")}</Text>
           </Button>
         </View>
       </View>
@@ -204,14 +194,13 @@ function CheckoutReturnBody() {
 
   return (
     <View className="px-4" accessibilityLiveRegion="polite">
-      <SectionHeader title="Confirming your payment" />
+      <SectionHeader title={t("payment.confirming.title")} />
       <View className="gap-4">
-        <Text className="text-sm text-muted-foreground">
-          Your bank has sent you back to us and we are confirming the payment. This usually takes
-          a few seconds.
-        </Text>
+        <Text className="text-sm text-muted-foreground">{t("payment.confirming.returnBody")}</Text>
         <Button variant="outline" onPress={leave}>
-          <Text className="text-sm font-medium text-foreground">Continue without waiting</Text>
+          <Text className="text-sm font-medium text-foreground">
+            {t("payment.confirming.continueWithoutWaiting")}
+          </Text>
         </Button>
       </View>
     </View>
@@ -219,10 +208,11 @@ function CheckoutReturnBody() {
 }
 
 export default function CheckoutReturnScreen() {
+  const { t } = useTranslation();
   return (
     <ScreenShell contentClassName="pt-5 web:max-w-[900px]">
       <Head>
-        <title>Confirming your payment — Mercaria</title>
+        <title>{t("payment.confirming.pageTitle")}</title>
       </Head>
       <CheckoutReturnBody />
     </ScreenShell>

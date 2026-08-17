@@ -31,7 +31,8 @@ import { assessComparability, parseComparisonSubjects } from "@/lib/catalog/comp
 import { useTranslation } from "@/lib/i18n";
 
 /**
- * The words a shopper reads for each member of a server-owned vocabulary.
+ * The KEY of the words a shopper reads for each member of a server-owned
+ * vocabulary.
  *
  * A `Record` over the union, never an ARRAY of `{value, label}` pairs, and the
  * difference is enforceable rather than stylistic: a `Record<Union, string>`
@@ -43,21 +44,29 @@ import { useTranslation } from "@/lib/i18n";
  *
  * The ORDER a shopper sees is the tuple's own, so the copy carries no ordering
  * decision either.
+ *
+ * These hold KEYS rather than sentences. A `const` evaluated at import cannot
+ * call `t()` — the locale store has not rehydrated — so English here would
+ * freeze whichever language loaded first, and `ChoiceRow` resolves each at the
+ * render site instead. The keys stay literal so the i18n guard can see every
+ * leaf is referenced.
  */
-const CHANNEL_LABELS: Readonly<Record<BasketChannelPolicy, string>> = Object.freeze({
-  mixed: "Anywhere",
-  native_only: "Mercaria only",
-  external_only: "Retailers only",
-  official_only: "Official channels only",
-});
+const CHANNEL_LABEL_KEYS: Readonly<Record<BasketChannelPolicy, string>> = {
+  mixed: "compare.channel.mixed",
+  native_only: "compare.channel.nativeOnly",
+  external_only: "compare.channel.externalOnly",
+  official_only: "compare.channel.officialOnly",
+};
+Object.freeze(CHANNEL_LABEL_KEYS);
 
-const OBJECTIVE_LABELS: Readonly<Record<BasketObjective, string>> = Object.freeze({
-  cheapest_known_item_prices: "Cheapest items",
-  cheapest_known_total: "Cheapest delivered",
-  fewest_merchants: "Fewest merchants",
-  all_native: "Buy on Mercaria",
-  fastest_known_delivery: "Fastest delivery",
-});
+const OBJECTIVE_LABEL_KEYS: Readonly<Record<BasketObjective, string>> = {
+  cheapest_known_item_prices: "compare.objective.cheapestKnownItemPrices",
+  cheapest_known_total: "compare.objective.cheapestKnownTotal",
+  fewest_merchants: "compare.objective.fewestMerchants",
+  all_native: "compare.objective.allNative",
+  fastest_known_delivery: "compare.objective.fastestKnownDelivery",
+};
+Object.freeze(OBJECTIVE_LABEL_KEYS);
 
 /**
  * Compare products and plan a basket (#96 §"User experience").
@@ -86,6 +95,7 @@ const OBJECTIVE_LABELS: Readonly<Record<BasketObjective, string>> = Object.freez
  * its own port and refuses when no watchlist source is registered.
  */
 export default function CompareScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ p?: string | string[]; watchlist?: string }>();
   // `?p=handle` compares the MODEL and `?p=handle:variantId` compares that exact
   // configuration — #367 workstream 9's "compare exact variants when a fact is
@@ -173,7 +183,7 @@ export default function CompareScreen() {
       records: basket.data.records,
     });
     if (!answer.mayProceed) {
-      setActionNotice("Prices changed while you were reading. Recalculating.");
+      setActionNotice(t("compare.notice.pricesChanged"));
       await basket.refetch();
       return;
     }
@@ -183,24 +193,24 @@ export default function CompareScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>Compare · Mercaria</title>
+        <title>{t("compare.pageTitle")}</title>
       </Head>
 
       <View className="gap-space-20 px-space-16 py-space-20">
-        <Text className="text-2xl font-bold text-foreground">Compare</Text>
+        <Text className="text-2xl font-bold text-foreground">{t("compare.heading")}</Text>
 
         {handles.length < 2 && watchlistId === undefined ? (
-          <Text className="text-body text-text-secondary">
-            Pick at least two products to compare, from search or from a product page.
-          </Text>
+          <Text className="text-body text-text-secondary">{t("compare.pickTwo")}</Text>
         ) : null}
 
-        {comparison.isLoading ? <ActivityIndicator accessibilityLabel="Comparing" /> : null}
+        {comparison.isLoading ? (
+          <ActivityIndicator accessibilityLabel={t("compare.comparingA11y")} />
+        ) : null}
         {comparison.error ? (
           <Text className="text-body text-text-secondary">
             {comparison.error instanceof Error
               ? comparison.error.message
-              : "This comparison could not be built."}
+              : t("compare.comparisonFailed")}
           </Text>
         ) : null}
 
@@ -217,16 +227,11 @@ export default function CompareScreen() {
               legitimate question whose answer has fewer shared rows.
             */}
             {comparability?.kind === "no_shared_facts" ? (
-              <Text className="text-body text-text-secondary">
-                Nothing is recorded about all of these products in common, so there is
-                nothing to compare them on yet.
-              </Text>
+              <Text className="text-body text-text-secondary">{t("compare.noSharedFacts")}</Text>
             ) : null}
             {comparability?.kind === "comparable_across_categories" ? (
               <Text className="text-caption text-text-secondary">
-                {`These are different kinds of product, so only the ${String(
-                  comparability.sharedRowCount,
-                )} facts recorded for all of them are compared.`}
+                {t("compare.acrossCategories", { count: comparability.sharedRowCount })}
               </Text>
             ) : null}
 
@@ -240,25 +245,25 @@ export default function CompareScreen() {
             <ComparisonExplanationBlock explanation={comparison.data.explanation} />
             {comparison.data.input.gaps.length === 0 ? null : (
               <Text className="text-caption text-text-secondary">
-                {comparison.data.input.gaps.length} facts are not recorded for these products.
+                {t("compare.gaps", { count: comparison.data.input.gaps.length })}
               </Text>
             )}
           </View>
         ) : null}
 
         <View className="gap-space-8">
-          <Text className="text-bodyBold text-text">Where to buy</Text>
+          <Text className="text-bodyBold text-text">{t("compare.whereToBuy")}</Text>
           <ChoiceRow
-            label="Channel"
+            label={t("compare.channelLabel")}
             values={BASKET_CHANNEL_POLICIES}
-            labels={CHANNEL_LABELS}
+            labelKeys={CHANNEL_LABEL_KEYS}
             value={channelPolicy}
             onChange={setChannelPolicy}
           />
           <ChoiceRow
-            label="Objective"
+            label={t("compare.objectiveLabel")}
             values={BASKET_OBJECTIVES}
-            labels={OBJECTIVE_LABELS}
+            labelKeys={OBJECTIVE_LABEL_KEYS}
             value={objective}
             onChange={setObjective}
           />
@@ -269,12 +274,12 @@ export default function CompareScreen() {
           <Text className="text-caption text-text-secondary">{actionNotice}</Text>
         )}
 
-        {basket.isLoading ? <ActivityIndicator accessibilityLabel="Planning" /> : null}
+        {basket.isLoading ? (
+          <ActivityIndicator accessibilityLabel={t("compare.planningA11y")} />
+        ) : null}
         {basket.error ? (
           <Text className="text-body text-text-secondary">
-            {basket.error instanceof Error
-              ? basket.error.message
-              : "This basket could not be planned."}
+            {basket.error instanceof Error ? basket.error.message : t("compare.basketFailed")}
           </Text>
         ) : null}
 
@@ -287,14 +292,14 @@ export default function CompareScreen() {
               : {})}
             onAddNativeToCart={() => {
               void actOnPlan(result, () => {
-                setActionNotice("Checked. Adding these items to your Mercaria cart.");
+                setActionNotice(t("compare.notice.addingToCart"));
               });
             }}
             onOpenExternalMerchant={(index) => {
               void actOnPlan(result, () => {
                 const merchant = basket.data?.actions[result.kind]?.externalMerchants[index];
                 if (merchant?.destinationHost === undefined) {
-                  setActionNotice("We do not have a destination for that retailer yet.");
+                  setActionNotice(t("compare.notice.noDestination"));
                   return;
                 }
                 // The HOST is what the server discloses; the destination itself
@@ -315,19 +320,21 @@ export default function CompareScreen() {
 function ChoiceRow<T extends string>({
   label,
   values,
-  labels,
+  labelKeys,
   value,
   onChange,
 }: {
+  /** Already-translated: the row's own caption, and the a11y frame's subject. */
   label: string;
   /** The vocabulary's own tuple. The order a shopper sees is the tuple's. */
   values: readonly T[];
-  /** Copy per member. A `Record` over the union, so it cannot omit one. */
-  labels: Readonly<Record<T, string>>;
+  /** A copy KEY per member. A `Record` over the union, so it cannot omit one. */
+  labelKeys: Readonly<Record<T, string>>;
   value: T;
   onChange: (next: T) => void;
 }) {
-  const choices = values.map((member) => ({ value: member, label: labels[member] }));
+  const { t } = useTranslation();
+  const choices = values.map((member) => ({ value: member, label: t(labelKeys[member]) }));
   return (
     <View className="gap-space-4">
       <Text className="text-caption text-text-secondary">{label}</Text>
@@ -337,7 +344,14 @@ function ChoiceRow<T extends string>({
             key={choice.value}
             accessibilityRole="button"
             accessibilityState={{ selected: choice.value === value }}
-            accessibilityLabel={`${label}: ${choice.label}`}
+            // `%{label}: %{choice}` from the bundle, never composed here — the
+            // reason `CONDITION_A11Y_LABEL_KEY` gives one component down:
+            // French puts a space before the colon and Chinese uses a full-width
+            // one, and a screen reader reads what the string says.
+            accessibilityLabel={t("compare.choiceA11y", {
+              label,
+              choice: choice.label,
+            })}
             onPress={() => onChange(choice.value)}
             className={
               choice.value === value
@@ -378,7 +392,7 @@ function ConditionRow({
   const { t } = useTranslation();
   return (
     <View className="gap-space-4">
-      <Text className="text-caption text-text-secondary">Condition</Text>
+      <Text className="text-caption text-text-secondary">{t("compare.conditionLabel")}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         {CONDITION_GROUPS.map((group) => {
           const selected = value.includes(group);

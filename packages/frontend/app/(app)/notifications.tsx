@@ -33,15 +33,23 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'border-l-muted-foreground',
 };
 
-function timeAgo(dateStr: string): string {
+/**
+ * A relative timestamp, resolved through the caller's `t`.
+ *
+ * Takes `t` as a parameter rather than reading a store: this is a plain
+ * function, not a component, so it has no hook position — and the English it
+ * used to return was invisible to the i18n guard, whose check A reads JSX
+ * positions and user-facing property names and never a `return`.
+ */
+function timeAgo(dateStr: string, t: (key: string, options?: Record<string, unknown>) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return t('notifications.timeAgo.justNow');
+  if (minutes < 60) return t('notifications.timeAgo.minutes', { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t('notifications.timeAgo.hours', { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t('notifications.timeAgo.days', { count: days });
 }
 
 export default function NotificationsScreen() {
@@ -108,6 +116,10 @@ export default function NotificationsScreen() {
 
   const notifications = data?.notifications || [];
   const unreadCount = data?.unreadCount || 0;
+  // `"denied"` is expo-notifications' own permission value, not copy. Compared
+  // here rather than inline in the JSX so it is nowhere near a user-facing
+  // position — translating it would silently break the permission check.
+  const permissionDenied = permissionStatus === "denied";
 
   const StatusIcon = pushEnabled ? Bell : BellOff;
 
@@ -129,7 +141,7 @@ export default function NotificationsScreen() {
             <Text className="text-2xl font-semibold text-foreground">{t('notifications.title')}</Text>
             {unreadCount > 0 && (
               <Text className="text-sm text-muted-foreground mt-1">
-                {unreadCount} unread
+                {t('notifications.unreadCount', { count: unreadCount })}
               </Text>
             )}
           </View>
@@ -139,7 +151,7 @@ export default function NotificationsScreen() {
               className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted active:bg-muted/80"
             >
               <CheckCheck size={14} className="text-muted-foreground" />
-              <Text className="text-xs text-muted-foreground">Mark all read</Text>
+              <Text className="text-xs text-muted-foreground">{t('notifications.markAllRead')}</Text>
             </Pressable>
           )}
         </View>
@@ -165,7 +177,7 @@ export default function NotificationsScreen() {
                 disabled={pushLoading}
               />
             </View>
-            {permissionStatus === "denied" && (
+            {permissionDenied && (
               <View className="mt-3 p-3 rounded-lg bg-muted">
                 <Text className="text-xs text-muted-foreground">
                   {t('notifications.permissionDenied')}
@@ -179,14 +191,16 @@ export default function NotificationsScreen() {
       {/* Notification Feed */}
       {isLoading ? (
         <View className="items-center justify-center py-12">
-          <Text className="text-sm text-muted-foreground">Loading...</Text>
+          <Text className="text-sm text-muted-foreground">{t('common.loading')}</Text>
         </View>
       ) : notifications.length === 0 ? (
         <View className="items-center justify-center py-16 px-6">
           <Bell size={32} className="text-muted-foreground mb-3" />
-          <Text className="text-base font-medium text-foreground mb-1">No notifications yet</Text>
+          <Text className="text-base font-medium text-foreground mb-1">
+            {t('notifications.empty.title')}
+          </Text>
           <Text className="text-sm text-muted-foreground text-center">
-            You're all caught up.
+            {t('notifications.empty.body')}
           </Text>
         </View>
       ) : (
@@ -213,7 +227,7 @@ export default function NotificationsScreen() {
                       </Text>
                       <View className="flex-row items-center gap-2">
                         <Text className="text-xs text-muted-foreground">
-                          {timeAgo(notification.createdAt)}
+                          {timeAgo(notification.createdAt, t)}
                         </Text>
                         <Pressable
                           onPress={(e) => {

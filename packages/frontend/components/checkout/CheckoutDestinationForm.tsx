@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { View } from "react-native";
 import type { CheckoutAddressInput, CheckoutContactInput } from "@mercaria/shared-types";
 import { Button, Input, Label, Switch, Text } from "@mercaria/ui";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * The ONE inline destination + contact form, shared by guests and signed-in
@@ -129,6 +130,7 @@ export function CheckoutDestinationForm({
   pickupLocationId,
   onChangePickupLocation,
 }: CheckoutDestinationFormProps) {
+  const { t } = useTranslation();
   const setAddress = (key: keyof CheckoutAddressInput) => (value: string) =>
     onChange({ ...draft, address: { ...draft.address, [key]: value } });
   const setContact = (key: keyof CheckoutContactInput) => (value: string) =>
@@ -147,13 +149,13 @@ export function CheckoutDestinationForm({
         payment surface renders (#105 frontend rule 5).
       */}
       <View className="gap-1.5">
-        <Label nativeID="checkout-email">Email</Label>
+        <Label nativeID="checkout-email">{t("checkout.form.emailLabel")}</Label>
         <Input
           aria-labelledby="checkout-email"
-          accessibilityLabel="Email address for your order confirmation"
+          accessibilityLabel={t("checkout.form.emailA11y")}
           value={draft.contact.email}
           onChangeText={setContact("email")}
-          placeholder="you@example.com"
+          placeholder={t("checkout.form.emailPlaceholder")}
           keyboardType="email-address"
           inputMode="email"
           autoCapitalize="none"
@@ -162,14 +164,14 @@ export function CheckoutDestinationForm({
           textContentType="emailAddress"
           returnKeyType="next"
         />
-        <Text className="text-xs text-muted-foreground">
-          We use this to send your receipt and delivery updates for this order.
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t("checkout.form.emailHelp")}</Text>
       </View>
 
       {offersPickup ? (
         <View className="gap-2">
-          <Text className="text-sm font-semibold text-foreground">How would you like it?</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {t("checkout.form.deliveryMethodTitle")}
+          </Text>
           <View className="flex-row gap-2">
             <Button
               variant={collecting ? "outline" : "default"}
@@ -177,7 +179,7 @@ export function CheckoutDestinationForm({
               accessibilityState={{ selected: !collecting }}
               onPress={() => onChangePickupLocation?.(undefined)}
             >
-              <Text className="text-sm font-medium">Deliver to an address</Text>
+              <Text className="text-sm font-medium">{t("checkout.form.deliverToAddress")}</Text>
             </Button>
             {pickupLocations.map((location) => (
               <Button
@@ -201,10 +203,10 @@ export function CheckoutDestinationForm({
       */}
       {collecting ? (
         <View className="gap-1.5">
-          <Label nativeID="checkout-pickup-phone">Phone for collection (optional)</Label>
+          <Label nativeID="checkout-pickup-phone">{t("checkout.form.pickupPhoneLabel")}</Label>
           <Input
             aria-labelledby="checkout-pickup-phone"
-            accessibilityLabel="Phone number for collection"
+            accessibilityLabel={t("checkout.form.pickupPhoneA11y")}
             value={draft.contact.phone ?? ""}
             onChangeText={setContact("phone")}
             placeholder="+34 600 000 000"
@@ -217,65 +219,65 @@ export function CheckoutDestinationForm({
       ) : (
         <>
           <View className="gap-1.5">
-            <Label nativeID="checkout-recipient">Recipient name</Label>
+            <Label nativeID="checkout-recipient">{t("checkout.form.recipientLabel")}</Label>
             <Input
               aria-labelledby="checkout-recipient"
-              accessibilityLabel="Name of the person receiving the parcel"
+              accessibilityLabel={t("checkout.form.recipientA11y")}
               value={draft.address.recipientName}
               onChangeText={setAddress("recipientName")}
-              placeholder="Jane Doe"
+              placeholder={t("checkout.form.recipientPlaceholder")}
               autoComplete="name"
               textContentType="name"
               returnKeyType="next"
             />
           </View>
           <View className="gap-1.5">
-            <Label nativeID="checkout-line1">Address line 1</Label>
+            <Label nativeID="checkout-line1">{t("checkout.form.line1Label")}</Label>
             <Input
               aria-labelledby="checkout-line1"
-              accessibilityLabel="Street address"
+              accessibilityLabel={t("checkout.form.line1A11y")}
               value={draft.address.line1}
               onChangeText={setAddress("line1")}
-              placeholder="1 Market Street"
+              placeholder={t("checkout.form.line1Placeholder")}
               autoComplete="street-address"
               textContentType="streetAddressLine1"
               returnKeyType="next"
             />
           </View>
           <View className="gap-1.5">
-            <Label nativeID="checkout-line2">Address line 2 (optional)</Label>
+            <Label nativeID="checkout-line2">{t("checkout.form.line2Label")}</Label>
             <Input
               aria-labelledby="checkout-line2"
-              accessibilityLabel="Apartment, suite or unit"
+              accessibilityLabel={t("checkout.form.line2A11y")}
               value={draft.address.line2 ?? ""}
               onChangeText={setAddress("line2")}
-              placeholder="Apt 4B"
+              placeholder={t("checkout.form.line2Placeholder")}
               textContentType="streetAddressLine2"
               returnKeyType="next"
             />
           </View>
           <View className="flex-row gap-3">
             <View className="flex-1 gap-1.5">
-              <Label nativeID="checkout-city">City</Label>
+              <Label nativeID="checkout-city">{t("checkout.form.cityLabel")}</Label>
               <Input
                 aria-labelledby="checkout-city"
-                accessibilityLabel="City"
+                accessibilityLabel={t("checkout.form.cityLabel")}
                 value={draft.address.city}
                 onChangeText={setAddress("city")}
-                placeholder="Valencia"
+                placeholder={t("checkout.form.cityPlaceholder")}
                 autoComplete="postal-address-locality"
                 textContentType="addressCity"
                 returnKeyType="next"
               />
             </View>
             <View className="flex-1 gap-1.5">
-              <Label nativeID="checkout-region">Region (optional)</Label>
+              <Label nativeID="checkout-region">{t("checkout.form.regionLabel")}</Label>
               <Input
                 aria-labelledby="checkout-region"
-                accessibilityLabel="State, province or region"
+                accessibilityLabel={t("checkout.form.regionA11y")}
                 value={draft.address.region ?? ""}
                 onChangeText={setAddress("region")}
-                placeholder="Valencia"
+                placeholder={t("checkout.form.regionPlaceholder")}
                 autoComplete="postal-address-region"
                 textContentType="addressState"
                 returnKeyType="next"
@@ -284,10 +286,10 @@ export function CheckoutDestinationForm({
           </View>
           <View className="flex-row gap-3">
             <View className="flex-1 gap-1.5">
-              <Label nativeID="checkout-postal">Postal code</Label>
+              <Label nativeID="checkout-postal">{t("checkout.form.postalLabel")}</Label>
               <Input
                 aria-labelledby="checkout-postal"
-                accessibilityLabel="Postal or ZIP code"
+                accessibilityLabel={t("checkout.form.postalA11y")}
                 value={draft.address.postalCode}
                 onChangeText={setAddress("postalCode")}
                 placeholder="46004"
@@ -298,13 +300,13 @@ export function CheckoutDestinationForm({
               />
             </View>
             <View className="flex-1 gap-1.5">
-              <Label nativeID="checkout-country">Country</Label>
+              <Label nativeID="checkout-country">{t("checkout.form.countryLabel")}</Label>
               <Input
                 aria-labelledby="checkout-country"
-                accessibilityLabel="Two-letter country code"
+                accessibilityLabel={t("checkout.form.countryA11y")}
                 value={draft.address.country}
                 onChangeText={setAddress("country")}
-                placeholder="ES"
+                placeholder={t("checkout.form.countryPlaceholder")}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 maxLength={2}
@@ -315,10 +317,10 @@ export function CheckoutDestinationForm({
             </View>
           </View>
           <View className="gap-1.5">
-            <Label nativeID="checkout-phone">Delivery phone (optional)</Label>
+            <Label nativeID="checkout-phone">{t("checkout.form.deliveryPhoneLabel")}</Label>
             <Input
               aria-labelledby="checkout-phone"
-              accessibilityLabel="Phone number the courier can call"
+              accessibilityLabel={t("checkout.form.deliveryPhoneA11y")}
               value={draft.address.phone ?? ""}
               onChangeText={setAddress("phone")}
               placeholder="+34 600 000 000"
@@ -339,11 +341,11 @@ export function CheckoutDestinationForm({
       */}
       {canSaveToAddressBook && !collecting ? (
         <View className="flex-row items-center justify-between gap-3">
-          <Text className="flex-1 text-sm text-foreground">Save this address to my account</Text>
+          <Text className="flex-1 text-sm text-foreground">{t("checkout.form.saveAddress")}</Text>
           <Switch
             value={draft.saveToAddressBook}
             onValueChange={(next) => onChange({ ...draft, saveToAddressBook: next })}
-            accessibilityLabel="Save this address to my account"
+            accessibilityLabel={t("checkout.form.saveAddress")}
           />
         </View>
       ) : null}
@@ -356,12 +358,12 @@ export function CheckoutDestinationForm({
       */}
       <View className="flex-row items-center justify-between gap-3">
         <Text className="flex-1 text-sm text-foreground">
-          Email me offers and new arrivals. Optional — your order does not depend on it.
+          {t("checkout.form.marketingOptIn")}
         </Text>
         <Switch
           value={draft.marketingOptIn}
           onValueChange={(next) => onChange({ ...draft, marketingOptIn: next })}
-          accessibilityLabel="Email me offers and new arrivals"
+          accessibilityLabel={t("checkout.form.marketingOptInA11y")}
         />
       </View>
 
@@ -372,9 +374,7 @@ export function CheckoutDestinationForm({
         snapshot and nothing else.
       */}
       <Text className="text-xs text-muted-foreground">
-        Each seller receives only what they need to fulfil their part of your order: the delivery
-        address, the recipient name and any delivery phone you give. Your email address stays with
-        Mercaria.
+        {t("checkout.form.sellerDataNotice")}
       </Text>
     </View>
   );

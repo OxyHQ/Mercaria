@@ -1,8 +1,33 @@
 import { View } from 'react-native';
 import { Image } from 'expo-image';
-import type { CanonicalProduct } from '@mercaria/shared-types';
+import type { CanonicalProduct, CatalogSourceKind } from '@mercaria/shared-types';
 import { RatingLine, Text } from '@mercaria/ui';
-import { REVIEW_SCOPE_LABELS } from '@/lib/hooks/use-reviews';
+import { REVIEW_SCOPE_HEADING_KEYS } from '@/lib/hooks/use-reviews';
+import { useTranslation } from '@/lib/i18n';
+
+/**
+ * What kind of place a fact came from, in the reader's language.
+ *
+ * The line used to interpolate `sourceKind.replace(/_/gu, ' ')`, so every
+ * canonical product page carrying provenance rendered `affiliate network` or
+ * `marketplace api` in the middle of an otherwise translated sentence — in all
+ * twelve languages. There was no string literal anywhere for a scanner or the
+ * i18n guard to find, because the English WAS the wire identifier.
+ *
+ * KEYS, declared and THEN frozen: the guard's key reader matches a
+ * `const X = { … }` initializer and a call expression is not one, so
+ * `Object.freeze({ … })` would hide all six from its referential check.
+ */
+const CATALOG_SOURCE_KIND_KEYS: Readonly<Record<CatalogSourceKind, string>> = {
+  connector: 'product.sourceKind.connector',
+  feed: 'product.sourceKind.feed',
+  marketplace_api: 'product.sourceKind.marketplaceApi',
+  affiliate_network: 'product.sourceKind.affiliateNetwork',
+  operator: 'product.sourceKind.operator',
+  backfill: 'product.sourceKind.backfill',
+};
+Object.freeze(CATALOG_SOURCE_KIND_KEYS);
+
 
 /**
  * What this product IS (#71 §"Product identity").
@@ -30,6 +55,7 @@ export interface ProductIdentityProps {
 }
 
 export function ProductIdentity({ product, rating }: ProductIdentityProps) {
+  const { t } = useTranslation();
   const images = product.images.filter((image) => image.fileId || image.sourceUrl);
   const specs = product.attributes.slice(0, 8);
   // ACTIVE only: a retired or disputed identifier keeps its row (ADR 0002 D14)
@@ -53,8 +79,10 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
               // when it published any, and a plain statement of what the image
               // is when it did not — never a caption Mercaria composed about a
               // photograph it did not take.
-              accessibilityLabel={image.alt ?? `${product.name} — image from the catalogue`}
-              alt={image.alt ?? `${product.name} — image from the catalogue`}
+              accessibilityLabel={
+                image.alt ?? t('product.imageFromCatalogueA11y', { name: product.name })
+              }
+              alt={image.alt ?? t('product.imageFromCatalogueA11y', { name: product.name })}
             />
           ))}
         </View>
@@ -80,7 +108,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
           <RatingLine
             rating={rating.rating}
             count={rating.reviewCount}
-            scopeLabel={REVIEW_SCOPE_LABELS.product}
+            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.product)}
           />
         ) : null}
 
@@ -94,7 +122,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
       {specs.length > 0 ? (
         <View className="gap-space-8">
           <Text className="text-sectionTitle text-text" accessibilityRole="header">
-            Specifications
+            {t('product.specifications')}
           </Text>
           {specs.map((attribute) => (
             <View key={attribute.key} className="flex-row justify-between gap-space-12">
@@ -108,7 +136,7 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
       {identifiers.length > 0 ? (
         <View className="gap-space-4">
           <Text className="text-sectionTitle text-text" accessibilityRole="header">
-            Model identifiers
+            {t('product.modelIdentifiers')}
           </Text>
           {identifiers.slice(0, 6).map((identifier) => (
             <Text key={identifier.id} className="text-caption text-text-secondary">
@@ -133,12 +161,13 @@ export function ProductIdentity({ product, rating }: ProductIdentityProps) {
  * the difference between a redirect and a substitution.
  */
 function LifecycleLine({ product }: { product: CanonicalProduct }) {
+  const { t } = useTranslation();
   const parts: string[] = [];
   if (product.releasedAt) {
-    parts.push(`Released ${new Date(product.releasedAt).getFullYear()}`);
+    parts.push(t('product.releasedYear', { year: new Date(product.releasedAt).getFullYear() }));
   }
   if (product.discontinuedAt) {
-    parts.push('Discontinued');
+    parts.push(t('product.discontinued'));
   }
   if (parts.length === 0) return null;
   return <Text className="text-caption text-text-secondary">{parts.join(' · ')}</Text>;
@@ -152,11 +181,15 @@ function LifecycleLine({ product }: { product: CanonicalProduct }) {
  * what, and that is operator material rather than something a shopper needs.
  */
 function ProvenanceLine({ product }: { product: CanonicalProduct }) {
+  const { t } = useTranslation();
   if (product.freshness === undefined) return null;
   const observed = new Date(product.freshness.observedAt);
   return (
     <Text className="text-caption text-text-secondary">
-      {`Product details last confirmed ${observed.toLocaleDateString()} from a ${product.freshness.sourceKind.replace(/_/gu, ' ')} source.`}
+      {t('product.detailsLastConfirmed', {
+        date: observed.toLocaleDateString(),
+        source: t(CATALOG_SOURCE_KIND_KEYS[product.freshness.sourceKind]),
+      })}
     </Text>
   );
 }

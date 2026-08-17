@@ -111,11 +111,21 @@ export function useProductPriceHistory(input: {
   });
 }
 
-/** What an intent control offers, in the order a shopper reads them (#74). */
-export const OFFER_INTENT_LABELS: Readonly<Record<OfferComparisonIntent, string>> = Object.freeze({
-  balanced: 'Best overall',
-  cheapest: 'Cheapest',
-  fastest: 'Fastest delivery',
-  official: 'Official stores',
-  used: 'Second-hand',
-});
+/**
+ * What an intent control offers, in the order a shopper reads them (#74).
+ *
+ * KEYS rather than the labels themselves: this is a module-scope `const`,
+ * evaluated at import, so a sentence here would freeze into whichever language
+ * loaded first. Declared and THEN frozen rather than `Object.freeze({ … })`,
+ * because the i18n guard's key reader matches a `const X = { … }` initializer
+ * and a call expression is not one — freezing inline would hide all five keys
+ * from its referential check and they would read as dead copy.
+ */
+export const OFFER_INTENT_LABEL_KEYS: Readonly<Record<OfferComparisonIntent, string>> = {
+  balanced: 'product.intent.balanced',
+  cheapest: 'product.intent.cheapest',
+  fastest: 'product.intent.fastest',
+  official: 'product.intent.official',
+  used: 'product.intent.used',
+};
+Object.freeze(OFFER_INTENT_LABEL_KEYS);

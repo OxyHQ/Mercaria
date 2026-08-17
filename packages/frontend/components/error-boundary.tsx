@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Pressable, ScrollView, Platform } from 'react-native';
 import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -79,7 +80,19 @@ export class AppErrorBoundary extends React.Component<
   }
 }
 
-/** Default full-screen error fallback UI. */
+/**
+ * Default full-screen error fallback UI.
+ *
+ * This renders while the tree below it is broken, so translating it is only safe
+ * because none of the three ways `t` could take the screen down with it apply:
+ * `useTranslation` is a zustand selector hook — not suspenseful, no provider to
+ * be missing; `i18n.missingBehavior` is `'guess'`, so a key absent from every
+ * bundle renders a humanised key rather than throwing; and `app/_layout.tsx`
+ * already imports `@/lib/i18n` beside `AppErrorBoundary`, so the module is
+ * evaluated before this component can mount and adds no new load-order failure.
+ * Before rehydration the store answers with the DEVICE locale, which is a real
+ * string — never a blank screen.
+ */
 function ErrorFallback({
   error,
   resetError,
@@ -87,6 +100,7 @@ function ErrorFallback({
   error: Error;
   resetError: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View
       style={{
@@ -137,7 +151,7 @@ function ErrorFallback({
             marginBottom: 8,
           }}
         >
-          Something went wrong
+          {t('shell.errorBoundary.title')}
         </Text>
 
         {/* Description */}
@@ -150,8 +164,7 @@ function ErrorFallback({
             marginBottom: 24,
           }}
         >
-          An unexpected error occurred. You can try again, and if the problem
-          persists, our team has been notified.
+          {t('shell.errorBoundary.body')}
         </Text>
 
         {/* Error details (collapsible in dev) */}
@@ -191,7 +204,7 @@ function ErrorFallback({
             alignItems: 'center',
           })}
           accessibilityRole="button"
-          accessibilityLabel="Try again"
+          accessibilityLabel={t('common.tryAgain')}
         >
           <Text
             style={{
@@ -200,7 +213,7 @@ function ErrorFallback({
               color: '#ffffff',
             }}
           >
-            Try Again
+            {t('common.tryAgain')}
           </Text>
         </Pressable>
       </View>

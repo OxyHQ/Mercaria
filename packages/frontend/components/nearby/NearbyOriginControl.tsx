@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import type { NearbyPlaceSuggestion } from "@mercaria/shared-types";
 import { Input, Text } from "@mercaria/ui";
 import { useNearbyPlaces, type NearbyOriginState } from "@/lib/hooks/use-nearby";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * How a shopper says where they are (#93 client rules 1 and 2, acceptance 5).
@@ -46,14 +47,17 @@ export interface NearbyOriginControlProps {
   canonicalVariantId?: string;
 }
 
-/** What a shopper is told when a device position could not be obtained. */
-const REFUSAL_COPY = {
-  permission_denied:
-    "No problem — location stays off. Type a city or postcode below and we will look there instead.",
-  unsupported:
-    "This app cannot read a device location. Type a city or postcode below and we will look there.",
-  unavailable:
-    "Your device could not fix a position just now. Type a city or postcode below, or try again.",
+/**
+ * What a shopper is told when a device position could not be obtained.
+ *
+ * KEYS rather than sentences: this is evaluated at import, before the locale
+ * store has rehydrated, so a sentence here would freeze whichever language
+ * loaded first. The copy is resolved at the render site.
+ */
+const REFUSAL_COPY_KEYS = {
+  permission_denied: "nearby.origin.refusal.permissionDenied",
+  unsupported: "nearby.origin.refusal.unsupported",
+  unavailable: "nearby.origin.refusal.unavailable",
 } as const;
 
 export function NearbyOriginControl({
@@ -61,6 +65,7 @@ export function NearbyOriginControl({
   canonicalProductId,
   canonicalVariantId,
 }: NearbyOriginControlProps) {
+  const { t } = useTranslation();
   const { origin, refusal, requesting, requestDeviceOrigin, selectPlace, clearOrigin } = originState;
   const [term, setTerm] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -83,28 +88,28 @@ export function NearbyOriginControl({
       <View className="flex-row flex-wrap items-center gap-space-8">
         <Text className="text-caption text-text-secondary">
           {origin.source === "device"
-            ? "Showing shops near your device location."
-            : "Showing shops near the place you chose."}
+            ? t("nearby.origin.showingDevice")
+            : t("nearby.origin.showingChosen")}
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Change the place these results are measured from"
+          accessibilityLabel={t("nearby.origin.changeLabel")}
           onPress={() => {
             clearOrigin();
             setPickerOpen(true);
           }}
         >
-          <Text className="text-captionBold text-text">Change</Text>
+          <Text className="text-captionBold text-text">{t("nearby.origin.change")}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Stop using a location for these results"
+          accessibilityLabel={t("nearby.origin.clearLabel")}
           onPress={() => {
             clearOrigin();
             setPickerOpen(false);
           }}
         >
-          <Text className="text-captionBold text-text">Clear</Text>
+          <Text className="text-captionBold text-text">{t("nearby.origin.clear")}</Text>
         </Pressable>
       </View>
     );
@@ -122,14 +127,14 @@ export function NearbyOriginControl({
         {refusal === null ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Use my device location to find nearby shops"
+            accessibilityLabel={t("nearby.origin.useDeviceLabel")}
             accessibilityState={{ busy: requesting }}
             disabled={requesting}
             onPress={requestDeviceOrigin}
             className="rounded-radius-max border border-border-secondary px-space-16 py-space-8"
           >
             <Text className="text-buttonSmall text-text">
-              {requesting ? "Checking…" : "Use my location"}
+              {requesting ? t("nearby.origin.checking") : t("nearby.origin.useMyLocation")}
             </Text>
           </Pressable>
         ) : null}
@@ -140,29 +145,29 @@ export function NearbyOriginControl({
         */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Choose a city or postcode instead"
+          accessibilityLabel={t("nearby.origin.choosePlaceLabel")}
           onPress={() => setPickerOpen((open) => !open)}
           className="rounded-radius-max border border-border-secondary px-space-16 py-space-8"
         >
           <Text className="text-buttonSmall text-text">
-            {pickerOpen ? "Hide city list" : "Choose a city"}
+            {pickerOpen ? t("nearby.origin.hideCityList") : t("nearby.origin.chooseCity")}
           </Text>
         </Pressable>
       </View>
 
       {refusal === null ? null : (
         <Text className="text-caption text-text-secondary" accessibilityRole="alert">
-          {REFUSAL_COPY[refusal]}
+          {t(REFUSAL_COPY_KEYS[refusal])}
         </Text>
       )}
 
       {pickerOpen || refusal !== null ? (
         <View className="gap-space-8">
           <Input
-            accessibilityLabel="City or postcode"
+            accessibilityLabel={t("nearby.origin.cityField")}
             value={term}
             onChangeText={setTerm}
-            placeholder="City or postcode"
+            placeholder={t("nearby.origin.cityField")}
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="search"
@@ -173,23 +178,25 @@ export function NearbyOriginControl({
             the first is true is how an empty list becomes a wrong answer.
           */}
           {places.isLoading ? (
-            <Text className="text-caption text-text-tertiary">Looking for cities…</Text>
+            <Text className="text-caption text-text-tertiary">
+              {t("nearby.origin.loadingCities")}
+            </Text>
           ) : places.isError ? (
             <Text className="text-caption text-text-tertiary">
-              We could not load the city list just now.
+              {t("nearby.origin.cityListError")}
             </Text>
           ) : (places.data ?? []).length === 0 ? (
             <Text className="text-caption text-text-tertiary">
               {term.trim().length > 0
-                ? "No city matching that has this in stock for collection."
-                : "No shop is currently stocking this for collection."}
+                ? t("nearby.origin.noCityMatch")
+                : t("nearby.origin.noStockAnywhere")}
             </Text>
           ) : (
             (places.data ?? []).map((place: NearbyPlaceSuggestion) => (
               <Pressable
                 key={`${place.country}:${place.city}:${place.cell.latIndex}:${place.cell.lonIndex}`}
                 accessibilityRole="button"
-                accessibilityLabel={`Search near ${place.label}`}
+                accessibilityLabel={t("nearby.origin.searchNear", { place: place.label })}
                 onPress={() => {
                   selectPlace(place);
                   setPickerOpen(false);
@@ -198,9 +205,7 @@ export function NearbyOriginControl({
               >
                 <Text className="text-bodySmall text-text">{place.label}</Text>
                 <Text className="text-caption text-text-tertiary">
-                  {place.locationCount === 1
-                    ? "1 shop with stock"
-                    : `${place.locationCount} shops with stock`}
+                  {t("nearby.origin.shopsWithStock", { count: place.locationCount })}
                 </Text>
               </Pressable>
             ))

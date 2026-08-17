@@ -175,7 +175,7 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   app SHIPS — never the union, or the dashboard gains an `ar` it cannot mirror
   — and read through `SharedUiTranslationProvider`, mounted at every app root.
   `validate:i18n-strings` gates all of it plus hardcoded strings, parity and
-  unreferenced keys in dashboard + POS. `docs/app-i18n.md`; #435, #437.
+  unreferenced keys in all three apps. `docs/app-i18n.md`; #437.
 - **All four client packages mirror for Arabic from LOGICAL utilities only**
   (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`);
   `validate:rtl-classes` gates all four. A physical `ml-2` half-mirrors its screen

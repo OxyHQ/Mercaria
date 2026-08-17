@@ -2,6 +2,7 @@ import { Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { ProductPageBrandChannel } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * The brand's verified channels (#71 relationships 3 and 4).
@@ -29,18 +30,20 @@ export interface BrandChannelsProps {
 }
 
 export function BrandChannels({ officialChannels, authorizedResellers }: BrandChannelsProps) {
+  const { t } = useTranslation();
+
   if (officialChannels.length === 0 && authorizedResellers.length === 0) return null;
 
   return (
     <View className="gap-space-16">
       <ChannelList
-        title="Official stores"
-        explanation="Channels the brand has verified as its own."
+        title={t('product.brandChannels.officialTitle')}
+        explanation={t('product.brandChannels.officialExplanation')}
         channels={officialChannels}
       />
       <ChannelList
-        title="Authorised resellers"
-        explanation="Resellers the brand has verified as authorised. They are not the brand's own store."
+        title={t('product.brandChannels.resellersTitle')}
+        explanation={t('product.brandChannels.resellersExplanation')}
         channels={authorizedResellers}
       />
     </View>
@@ -57,6 +60,7 @@ function ChannelList({
   channels: readonly ProductPageBrandChannel[];
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
 
   if (channels.length === 0) return null;
 
@@ -84,7 +88,7 @@ function ChannelList({
         <Pressable
           key={`${channel.merchantId}:${channel.storefrontId ?? 'all'}`}
           accessibilityRole="link"
-          accessibilityLabel={`Visit ${channel.merchantName}`}
+          accessibilityLabel={t('product.visitA11y', { name: channel.merchantName })}
           onPress={() =>
             router.push(`/merchants/${channel.merchantSlug}`)
           }

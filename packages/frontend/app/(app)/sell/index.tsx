@@ -6,6 +6,7 @@ import { openAccountDialog, useOxy } from "@oxyhq/services";
 import { Text } from "@mercaria/ui";
 import type { SellerDraftEntryPath } from "@mercaria/shared-types";
 import { ScreenShell } from "@/components/shell/ScreenShell";
+import { useTranslation } from "@/lib/i18n";
 import {
   useMatchCandidates,
   useSellerDrafts,
@@ -37,6 +38,7 @@ import {
  */
 export default function SellIndexScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isAuthenticated } = useOxy();
   const params = useLocalSearchParams<{
     canonicalProductId?: string;
@@ -86,20 +88,19 @@ export default function SellIndexScreen() {
     return (
       <ScreenShell>
         <Head>
-          <title>Sell an item · Mercaria</title>
+          <title>{t("sell.index.documentTitle")}</title>
         </Head>
         <View className="items-center gap-4 py-16">
-          <Text className="text-lg font-medium">Sign in to sell</Text>
+          <Text className="text-lg font-medium">{t("sell.index.signIn.heading")}</Text>
           <Text className="text-center text-muted-foreground">
-            Your listing is published under your Oxy account, so buyers can see who they are
-            buying from.
+            {t("sell.index.signIn.body")}
           </Text>
           <Pressable
             accessibilityRole="button"
             className="rounded-full bg-primary px-5 py-3"
             onPress={() => openAccountDialog()}
           >
-            <Text className="text-primary-foreground">Sign in</Text>
+            <Text className="text-primary-foreground">{t("sell.index.signIn.action")}</Text>
           </Pressable>
         </View>
       </ScreenShell>
@@ -109,25 +110,25 @@ export default function SellIndexScreen() {
   return (
     <ScreenShell>
       <Head>
-        <title>Sell an item · Mercaria</title>
+        <title>{t("sell.index.documentTitle")}</title>
       </Head>
 
       <View className="gap-6 py-6">
-        <Text className="text-2xl font-semibold">What are you selling?</Text>
+        <Text className="text-2xl font-semibold">{t("sell.index.heading")}</Text>
 
         {arrivedFromProduct ? (
           <View className="flex-row items-center gap-3">
             <ActivityIndicator />
-            <Text className="text-muted-foreground">Setting up your listing…</Text>
+            <Text className="text-muted-foreground">{t("sell.index.startingDraft")}</Text>
           </View>
         ) : null}
 
         <View className="gap-2">
-          <Text className="text-sm font-medium">Scan a barcode</Text>
+          <Text className="text-sm font-medium">{t("sell.index.scan.label")}</Text>
           <TextInput
-            accessibilityLabel="Barcode or product identifier"
+            accessibilityLabel={t("sell.index.scan.accessibilityLabel")}
             className="rounded-xl border border-border px-4 py-3"
-            placeholder="Type or scan a barcode"
+            placeholder={t("sell.index.scan.placeholder")}
             value={scanned}
             onChangeText={(next) => {
               setScanned(next);
@@ -137,11 +138,11 @@ export default function SellIndexScreen() {
         </View>
 
         <View className="gap-2">
-          <Text className="text-sm font-medium">Or search the catalogue</Text>
+          <Text className="text-sm font-medium">{t("sell.index.search.label")}</Text>
           <TextInput
-            accessibilityLabel="Search for a product"
+            accessibilityLabel={t("sell.index.search.accessibilityLabel")}
             className="rounded-xl border border-border px-4 py-3"
-            placeholder="e.g. iPhone 13 128 GB"
+            placeholder={t("sell.index.search.placeholder")}
             value={query}
             onChangeText={(next) => {
               setQuery(next);
@@ -177,8 +178,8 @@ export default function SellIndexScreen() {
             ) : null}
             <Text className="text-xs text-muted-foreground">
               {candidate.foundBy === "identifier"
-                ? "Matched by barcode"
-                : "Found by search — check it is the same item"}
+                ? t("sell.index.candidate.matchedByBarcode")
+                : t("sell.index.candidate.foundBySearch")}
             </Text>
           </Pressable>
         ))}
@@ -194,16 +195,15 @@ export default function SellIndexScreen() {
             )
           }
         >
-          <Text className="text-base font-medium">Something unique</Text>
+          <Text className="text-base font-medium">{t("sell.index.unmatched.heading")}</Text>
           <Text className="text-sm text-muted-foreground">
-            Handmade, collectible, or not in the catalogue. It will be listed and searchable
-            exactly like anything else.
+            {t("sell.index.unmatched.body")}
           </Text>
         </Pressable>
 
         {(drafts.data ?? []).length > 0 ? (
           <View className="gap-2 pt-4">
-            <Text className="text-sm font-medium">Pick up where you left off</Text>
+            <Text className="text-sm font-medium">{t("sell.index.drafts.heading")}</Text>
             {(drafts.data ?? []).map((draft) => (
               <Pressable
                 key={draft.id}
@@ -211,9 +211,12 @@ export default function SellIndexScreen() {
                 className="rounded-xl border border-border p-4"
                 onPress={() => router.push(`/sell/${draft.id}`)}
               >
-                <Text className="text-base">{draft.title ?? "Untitled listing"}</Text>
+                <Text className="text-base">{draft.title ?? t("sell.index.drafts.untitled")}</Text>
                 <Text className="text-xs text-muted-foreground">
-                  Saved {new Date(draft.updatedAt).toLocaleString()} · step {draft.currentStep}
+                  {t("sell.index.drafts.savedAt", {
+                    when: new Date(draft.updatedAt).toLocaleString(),
+                    step: draft.currentStep,
+                  })}
                 </Text>
               </Pressable>
             ))}

@@ -4,7 +4,8 @@ import { useOxy } from "@oxyhq/services";
 import type { Seller } from "@mercaria/shared-types";
 import { ReviewStars, Text, formatReviewCount } from "@mercaria/ui";
 import { SellerFollowButton } from "@/components/seller/SellerFollowButton";
-import { REVIEW_SCOPE_LABELS } from "@/lib/hooks/use-reviews";
+import { useTranslation } from "@/lib/i18n";
+import { REVIEW_SCOPE_HEADING_KEYS } from "@/lib/hooks/use-reviews";
 
 /** Avatar edge length (px) on the card. */
 const AVATAR_SIZE = 44;
@@ -39,6 +40,7 @@ export function SellerLinkCard({
   seller: Seller;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const { oxyServices } = useOxy();
   const avatarUrl = seller.avatar
     ? oxyServices.getFileDownloadUrl(seller.avatar, "thumb")
@@ -48,7 +50,7 @@ export function SellerLinkCard({
     <View className="gap-space-12 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`View ${seller.displayName}'s profile`}
+        accessibilityLabel={t("sellers.linkCard.viewProfile", { name: seller.displayName })}
         onPress={onPress}
         className="flex-row items-center gap-3"
       >
@@ -86,10 +88,10 @@ export function SellerLinkCard({
             rating={seller.rating}
             count={seller.reviewCount}
             size={14}
-            scopeLabel={REVIEW_SCOPE_LABELS.p2p_seller}
+            scopeLabel={t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller)}
           />
           <Text className="text-bodySmall text-text-secondary">
-            {`${seller.rating} (${formatReviewCount(seller.reviewCount)}) · ${REVIEW_SCOPE_LABELS.p2p_seller}`}
+            {`${seller.rating} (${formatReviewCount(seller.reviewCount)}) · ${t(REVIEW_SCOPE_HEADING_KEYS.p2p_seller)}`}
           </Text>
         </View>
       ) : null}

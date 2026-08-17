@@ -45,6 +45,7 @@ import {
 import { Button, Text } from '@mercaria/ui';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/config';
 import { track } from '@/lib/analytics';
+import { useTranslation } from '@/lib/i18n';
 import type { CardPaymentStepProps } from './types';
 
 export function CardPaymentStep({
@@ -53,15 +54,14 @@ export function CardPaymentStep({
   onCancelled,
   onFailed,
 }: CardPaymentStepProps) {
+  const { t } = useTranslation();
   // The server's key wins over the bundled one — see the web file for why.
   const publishableKey = payment.publishableKey ?? STRIPE_PUBLISHABLE_KEY;
 
   if (!publishableKey) {
     return (
       <View className="rounded-2xl border border-border bg-card p-4">
-        <Text className="text-sm text-muted-foreground">
-          Card payments are not configured for this app yet.
-        </Text>
+        <Text className="text-sm text-muted-foreground">{t('payment.card.notConfigured')}</Text>
       </View>
     );
   }
@@ -85,6 +85,7 @@ function PaymentSheetButton({
   onCancelled,
   onFailed,
 }: CardPaymentStepProps) {
+  const { t } = useTranslation();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -182,12 +183,12 @@ function PaymentSheetButton({
         onPress={() => void onPay()}
         disabled={!ready || busy}
         isLoading={busy || !ready}
-        accessibilityLabel="Pay now"
+        accessibilityLabel={t('payment.card.payNow')}
       >
-        <Text>Pay now</Text>
+        <Text>{t('payment.card.payNow')}</Text>
       </Button>
       <Button variant="outline" onPress={onCancelled} disabled={busy}>
-        <Text>Back</Text>
+        <Text>{t('common.back')}</Text>
       </Button>
     </View>
   );

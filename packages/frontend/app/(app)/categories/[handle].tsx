@@ -146,7 +146,7 @@ export default function CategoryScreen() {
 
   const head = (
     <Head>
-      <title>{`${document?.title ?? title} — Mercaria`}</title>
+      <title>{t('catalog.category.documentTitle', { title: document?.title ?? title })}</title>
       {document?.description === undefined ? null : (
         <meta name="description" content={document.description} />
       )}

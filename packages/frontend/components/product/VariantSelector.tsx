@@ -1,6 +1,7 @@
 import { Pressable, View } from 'react-native';
 import type { ProductPageVariant } from '@mercaria/shared-types';
 import { Text } from '@mercaria/ui';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * Which configuration a shopper is looking at (#71 identity 3, UX rules 2 and
@@ -31,26 +32,32 @@ export interface VariantSelectorProps {
 }
 
 export function VariantSelector({ variants, selectedVariantId, onSelect }: VariantSelectorProps) {
+  const { t } = useTranslation();
+
   if (variants.length <= 1) return null;
 
   return (
-    <View className="gap-space-8" accessibilityRole="radiogroup" accessibilityLabel="Configuration">
-      <Text className="text-captionBold text-text">Configuration</Text>
+    <View
+      className="gap-space-8"
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t('product.variant.configuration')}
+    >
+      <Text className="text-captionBold text-text">{t('product.variant.configuration')}</Text>
       <View className="flex-row flex-wrap gap-space-8">
         <Pressable
           accessibilityRole="radio"
           accessibilityState={{ checked: selectedVariantId === undefined }}
-          accessibilityLabel="All configurations"
+          accessibilityLabel={t('product.variant.allConfigurationsA11y')}
           onPress={() => onSelect(undefined)}
           className={`rounded-radius-max border px-space-16 py-space-8 ${
             selectedVariantId === undefined ? 'border-text bg-bg-fill' : 'border-border-secondary'
           }`}
         >
-          <Text className="text-buttonMedium text-text">All</Text>
+          <Text className="text-buttonMedium text-text">{t('product.variant.all')}</Text>
         </Pressable>
 
         {variants.map((variant) => {
-          const label = variant.name ?? optionSummary(variant);
+          const label = variant.name ?? optionSummary(variant) ?? t('product.variant.standard');
           return (
             <Pressable
               key={variant.id}
@@ -65,7 +72,7 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
               accessibilityLabel={
                 variant.offerCount === undefined
                   ? label
-                  : `${label}, ${variant.offerCount} offers on this page`
+                  : t('product.variant.offerCountA11y', { label, count: variant.offerCount })
               }
               onPress={() => onSelect(variant.id)}
               className={`rounded-radius-max border px-space-16 py-space-8 ${
@@ -87,8 +94,13 @@ export function VariantSelector({ variants, selectedVariantId, onSelect }: Varia
  * Never a generated name like "Variant 3": the identity of a configuration IS
  * its options (ADR 0002 D13), and a positional label would move the moment
  * another configuration was minted.
+ *
+ * `undefined` rather than a fallback word: the fallback is COPY and this
+ * function composes DATA, so the caller resolves `product.variant.standard`
+ * against the locale in force rather than this module freezing English into a
+ * value it returns at import time.
  */
-function optionSummary(variant: ProductPageVariant): string {
+function optionSummary(variant: ProductPageVariant): string | undefined {
   const parts = variant.options.map((option) => option.displayValue);
-  return parts.length > 0 ? parts.join(' · ') : 'Standard';
+  return parts.length > 0 ? parts.join(' · ') : undefined;
 }
