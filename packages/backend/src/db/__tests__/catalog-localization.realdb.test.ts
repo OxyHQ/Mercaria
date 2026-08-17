@@ -399,6 +399,55 @@ describe('the machine-write guard is ATTACHED to every table that can hold a pro
     expect([...byTable.keys()].length).toBeGreaterThanOrEqual(4);
   });
 
+  it('backs the trigger with a row-level CHECK on every one of them, because a trigger cannot see an INSERT', async () => {
+    // The trigger is BEFORE UPDATE, so it reads `OLD` — an INSERT never gives it
+    // a row to compare against, and a machine row can therefore be CREATED
+    // claiming approval. Three tables closed that with a pair of CHECKs;
+    // `navigation_node_localizations` did not, and was MEASURED accepting the
+    // exact row `category_localizations` refuses. Asserted here so a FIFTH member
+    // of the family cannot reopen it: the trigger census above would pass on a
+    // table that has the trigger and no CHECK, which is precisely the state
+    // navigation was in.
+    const rows = await db.execute<{ tableName: string; definition: string }>(sql`
+      select c.relname as "tableName", pg_get_constraintdef(con.oid) as "definition"
+        from pg_constraint con
+        join pg_class c on c.oid = con.conrelid
+        join pg_namespace n on n.oid = c.relnamespace
+       where con.contype = 'c'
+         and n.nspname = current_schema()
+         and c.relname = any(${sql.raw(`array[${protectableTables.map((name) => `'${name}'`).join(', ')}]`)})
+    `);
+
+    const byTable = new Map<string, string[]>();
+    for (const row of [...rows]) {
+      byTable.set(row.tableName, [...(byTable.get(row.tableName) ?? []), row.definition]);
+    }
+
+    const unchecked: string[] = [];
+    for (const table of protectableTables) {
+      const defs = byTable.get(table) ?? [];
+      // Identified by what the CHECK SAYS, not by its name, for the reason the
+      // trigger census reads function bodies: a differently-named equivalent is
+      // still protection, and a name census would need an exemption that hides a
+      // table carrying none.
+      const guardsStatus = defs.some(
+        (def) => /'machine'/u.test(def) && /'approved'/u.test(def) && /'reviewed'/u.test(def),
+      );
+      const guardsReviewer = defs.some(
+        (def) => /'machine'/u.test(def) && /reviewed_by_oxy_user_id/u.test(def),
+      );
+      if (!guardsStatus || !guardsReviewer) {
+        unchecked.push(
+          `${table} (status guard: ${String(guardsStatus)}, reviewer guard: ${String(guardsReviewer)})`,
+        );
+      }
+    }
+
+    expect(unchecked, 'localization tables whose INSERT path a machine row can walk').toEqual([]);
+    // The control on the query: it must have found CHECKs at all.
+    expect([...byTable.keys()].length).toBeGreaterThanOrEqual(4);
+  });
+
   it('protects the statuses shared-types calls human-settled, not a hand-typed pair', async () => {
     // The four behavioural cases below prove the guard refuses on `approved` and
     // `reviewed` and permits on `stale`. This asserts the trigger's own list is

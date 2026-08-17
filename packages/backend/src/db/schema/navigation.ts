@@ -579,6 +579,35 @@ export const navigationNodeLocalizations = pgTable(
       'navigation_node_localizations_reviewed_status_check',
       sql`${t.status} not in ('reviewed', 'approved') or ${t.reviewedAt} is not null`,
     ),
+    // Machine translation is a SUGGESTION (ADR 0007 D4), and the trigger that
+    // enforces it — `mercaria_navigation_localization_review_protected` — is
+    // BEFORE UPDATE, so it reads `OLD` and an INSERT never gives it a row to
+    // compare against. This table was the one member of the localization family
+    // where that gap was open: the other three carry both of these CHECKs.
+    //
+    // MEASURED before adding them, against a real server, with the protected
+    // table as a positive control: this exact row — `provenance = 'machine'`,
+    // `status = 'approved'`, with a reviewer id and a review instant — was
+    // ACCEPTED here and REFUSED by
+    // `category_localizations_machine_reviewer_check` three tables over.
+    //
+    // The statuses are literals rather than rendered from
+    // `HUMAN_SETTLED_LOCALIZATION_STATUSES`, matching the sibling constraints in
+    // `catalogLocalization.ts` exactly — two spellings of one rule is the drift
+    // this family exists to avoid. A widening of that tuple is caught by the
+    // trigger-attachment census in `catalog-localization.realdb.test.ts`, which
+    // asserts every settled status appears in the guard's own body.
+    check(
+      'navigation_node_localizations_machine_status_check',
+      sql`${t.provenance} <> 'machine' or ${t.status} not in ('reviewed', 'approved')`,
+    ),
+    // …and a machine row may not wear somebody else's review either. Without
+    // this, a machine write that also downgraded the status would keep the human
+    // reviewer's name on text they never saw.
+    check(
+      'navigation_node_localizations_machine_reviewer_check',
+      sql`${t.provenance} <> 'machine' or (${t.reviewedByOxyUserId} is null and ${t.reviewedAt} is null)`,
+    ),
     // A label is what this table exists to hold; an empty one is an absent
     // translation wearing a present one's clothes, and the public read would
     // serve it as a menu entry with no words on it.
