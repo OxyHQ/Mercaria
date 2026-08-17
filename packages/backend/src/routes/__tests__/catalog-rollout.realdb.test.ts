@@ -194,6 +194,10 @@ beforeAll(async () => {
 afterAll(async () => {
   for (const lever of LEVERS) delete process.env[lever];
   delete process.env.CATALOG_OPERATOR_OXY_USER_IDS;
+  // `build()` sets this too. Vitest isolates files, so leaving it set changes
+  // nothing today — but an afterAll that unsets some of what its setup set is a
+  // half-cleanup somebody later trusts.
+  delete process.env.STRIPE_ENABLED;
   for (const deployment of [leversOn, leversOff, leversOffNoOperators]) {
     if (deployment) await deployment.close();
   }
