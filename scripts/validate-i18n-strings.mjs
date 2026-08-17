@@ -211,6 +211,13 @@ const OWNERS = [
     // rather than waiting for somebody to notice an English date in a Japanese
     // sentence.
     deviceLocaleFormatSites: 0,
+    // J (#530): four, pinned rather than fixed — `{order.status}` twice on the
+    // guest-order screens, `{entry.status}` and `{code.status}` beside the
+    // `{code.code}` that is correct four lines above it.
+    wireIdentifierRenderSites: 4,
+    // I (#542): no pin. Check I RAISES, because a key map read in a render
+    // position is a message id on screen with no legitimate spelling.
+    minimumRenderableKeyMaps: 40,
   },
   {
     name: "dashboard",
@@ -238,6 +245,12 @@ const OWNERS = [
     // than waiting for a merchant to notice an English date in a German
     // sentence.
     deviceLocaleFormatSites: 0,
+    // J (#530): eight, pinned rather than fixed — the channel and feed screens
+    // render `{run.kind}`, `{run.status}`, `{version.status}` and `{report.mode}`
+    // straight out of the wire, and `{a.country}` on the order address card is
+    // the SAME shape #513 fixed on the storefront with `formatRegionName`.
+    wireIdentifierRenderSites: 8,
+    minimumRenderableKeyMaps: 40,
   },
   {
     name: "pos",
@@ -254,6 +267,11 @@ const OWNERS = [
     minimumInterpolatedKeys: 4,
     // H (#488): ZERO, as of #529 — see the dashboard owner's note above.
     deviceLocaleFormatSites: 0,
+    // J (#530): ZERO. The POS renders no wire enum raw, so this owner is a pure
+    // regression gate — which is also what makes it the one that would go
+    // quietly wrong if the detector broke, hence the controls.
+    wireIdentifierRenderSites: 0,
+    minimumRenderableKeyMaps: 30,
   },
   {
     name: "ui",
@@ -315,6 +333,13 @@ const OWNERS = [
     // feed the provider. All four owners are at zero, so H is now a pure
     // regression gate rather than a residual ledger.
     deviceLocaleFormatSites: 0,
+    // J (#530): one — `ComparisonExplanationBlock` names the provenance provider
+    // inside a hardcoded English sentence, which is a check-A finding too and is
+    // already inside the 149 above.
+    wireIdentifierRenderSites: 1,
+    // I (#542): this package DECLARES the maps every app reads, and #542 was
+    // found converting three of them, so the floor here is the one that matters.
+    minimumRenderableKeyMaps: 40,
   },
 ];
 
@@ -440,6 +465,52 @@ const ACTION_CONTROL_ELEMENTS = new Set([
   "SelectItem",
   "TabsTrigger",
   "ToggleGroupItem",
+]);
+
+/**
+ * Field names whose value is a WIRE ENUM a reader should never see raw (check J,
+ * #530/#489).
+ *
+ * This list IS the whole instrument, and it has to be, because the shape it
+ * catches is syntactically identical to a correct one: `{seller.name}` is fine
+ * and `{seller.status}` is not, and without type information only the field name
+ * separates them. So the test each entry passes is narrow — **does this field's
+ * value have a localized human-readable form?** A `status`, a `kind`, a `state`,
+ * a `country` all do (`formatRegionName` is #513's answer for the last), and
+ * rendering the wire token instead ships English, or worse a snake_case token,
+ * into every one of the twelve locales.
+ *
+ * `code` and `currency` were in the probe's list and are deliberately NOT here.
+ * Measured: they contributed FOUR candidates and all four were correct —
+ * `{code.code}` for a referral code and a pickup collection code, `{price.currency}`
+ * beside a number. Neither has a localized form: an ISO 4217 code and a claim
+ * code are language-independent identifiers shown verbatim by design. Dropping
+ * them is what takes this check from 17 candidates with 4 false positives to 13
+ * with none — which is the difference between a gate and a gate somebody turns
+ * off. `referral-partner.tsx` renders `{code.code}` and `{code.status}` four
+ * lines apart, so the two really are separated by nothing but the field name.
+ *
+ * What this cannot see, stated rather than implied: it reads a SYNTACTIC shape,
+ * so it cannot tell a wire enum from a display string that happens to be stored
+ * under one of these names, and it cannot see a raw identifier that reaches the
+ * screen through a variable or a helper. It catches the shape #489 found three
+ * times and #530 found thirteen more of.
+ */
+const WIRE_ENUM_FIELDS = new Set([
+  "channel",
+  "condition",
+  "country",
+  "kind",
+  "level",
+  "market",
+  "mode",
+  "provider",
+  "reason",
+  "role",
+  "source",
+  "state",
+  "status",
+  "type",
 ]);
 
 /** Below this, the file listing is broken — and a broken listing reports a clean tree. */
@@ -572,6 +643,27 @@ function readKeyMap(objectLiteral) {
   return { flat, byProp };
 }
 
+/**
+ * Does this module-scope record hold translation KEYS? (check I, #542)
+ *
+ * `collectKeyMaps` reads every module-scope object literal, most of which are
+ * not key maps at all — chip class names, icon sizes, colour tuples. What makes
+ * one a key map is that every leaf it holds is a key the owning app can actually
+ * resolve, which is why this takes the REAL vocabulary rather than matching a
+ * key-SHAPED string. The difference is the one check A already records for
+ * `label: "nav.register"`: a shape rule would accept a typo'd `"nav.regsiter"`
+ * and go on believing the map is fine, and it would accept a record of CSS
+ * classes as a key map and start firing on `{CHIP_CLASSES[x]}`.
+ *
+ * An EMPTY record answers `false`. Nothing is a key map by having no keys, and a
+ * vacuous `true` here would put every `{}` in the tree into check I's population.
+ */
+export function isKeyMap({ flat, byProp }, knownKeys) {
+  const values = [...flat, ...[...byProp.values()].flat()];
+  if (values.length === 0) return false;
+  return values.every((value) => knownKeys.has(value));
+}
+
 /** Every module-scope `const X = { … }` in one file, by name. */
 export function collectKeyMaps(relativePath, text) {
   const sourceFile = ts.createSourceFile(
@@ -691,7 +783,9 @@ function actionControlAncestor(node) {
  * below run production's own code path over control SOURCE, rather than
  * asserting against a second copy of the rules.
  */
-export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new Map()) {
+export function analyseSource(
+  relativePath, text, knownKeys, sharedKeyMaps = new Map(), keyMapNames = new Set(),
+) {
   const sourceFile = ts.createSourceFile(
     relativePath,
     text,
@@ -712,11 +806,25 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
   const unreadableKeySources = [];
   /** H: `{ line, method }` for every date formatted in the DEVICE's locale. */
   const deviceLocaleFormatSites = [];
+  /** I: `{ line, map, kind, text }` for every key map rendered without `t()`. */
+  const rawKeyRenderSites = [];
+  /** J: `{ line, field, text }` for every wire identifier rendered raw. */
+  const wireIdentifierRenderSites = [];
 
   // A file's OWN maps win over the app-wide bag, so a control fixture with no
   // siblings resolves exactly as production does.
   const keyMaps = new Map(sharedKeyMaps);
   for (const [name, value] of collectKeyMaps(relativePath, text)) keyMaps.set(name, value);
+
+  // I: which of those maps hold KEYS rather than anything else a module-scope
+  // record might hold. The caller supplies the app-wide answer (a map is
+  // routinely declared in one file and read in another, and `@mercaria/ui`'s are
+  // read from all three apps); this unions in the ones THIS file declares, so a
+  // self-contained control fixture is measured exactly as production is.
+  const renderableKeyMaps = new Set(keyMapNames);
+  for (const [name, value] of collectKeyMaps(relativePath, text)) {
+    if (isKeyMap(value, knownKeys)) renderableKeyMaps.add(name);
+  }
 
   const lineOf = (node) =>
     sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
@@ -772,6 +880,58 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
       // A value composed elsewhere. Following it is a type-checker's job, not a
       // syntactic guard's; part C is what keeps the far end honest.
       translatedPositions += 1;
+    }
+  };
+
+  /**
+   * I: a key map read in a position a READER sees, without `t()` around it.
+   *
+   * The population is the RENDER POSITION, not "a key-map read outside `t(`",
+   * and that distinction is the whole check. A key legitimately FLOWS —
+   * `basketResultTextKey` returns `RESULT_KIND_KEYS[kind]`, `NEXT_STATUSES`
+   * holds `ORDER_STATUS_LABEL_KEYS.shipped` in a `labelKey` field, and
+   * `payments.tsx` binds `STATE_COPY[state]` to a const it resolves two lines
+   * later. Measured: the read-outside-`t(` rule reports 33 candidates on this
+   * tree and every one of them is a legitimate flow; the render-position rule
+   * reports ZERO. So the loose version is not a noisier gate, it is a gate that
+   * would be deleted in its first week.
+   *
+   * Descends through the shapes a render position legitimately uses, exactly as
+   * `inspectUserFacing` does, and — unlike it — through a template's spans:
+   * `` {`${MAP[x]} · ${n}`} `` renders the key just as plainly.
+   *
+   * Deliberately does NOT descend into a conditional's CONDITION, which is what
+   * lets the presence test through: `{X[k] ? t(X[k]) : fallback}` reads the map
+   * once as a guard and once, correctly, as a translation.
+   */
+  const inspectKeyRender = (node, kind) => {
+    if (!node) return;
+    if (isTranslateCall(node)) return;
+    if (ts.isParenthesizedExpression(node)) return inspectKeyRender(node.expression, kind);
+    if (ts.isConditionalExpression(node)) {
+      inspectKeyRender(node.whenTrue, kind);
+      inspectKeyRender(node.whenFalse, kind);
+      return;
+    }
+    if (ts.isBinaryExpression(node)) {
+      inspectKeyRender(node.left, kind);
+      inspectKeyRender(node.right, kind);
+      return;
+    }
+    if (ts.isTemplateExpression(node)) {
+      for (const span of node.templateSpans) inspectKeyRender(span.expression, kind);
+      return;
+    }
+    const isRead = (ts.isElementAccessExpression(node) || ts.isPropertyAccessExpression(node))
+      && ts.isIdentifier(node.expression)
+      && renderableKeyMaps.has(node.expression.text);
+    if (isRead) {
+      rawKeyRenderSites.push({
+        line: lineOf(node),
+        map: node.expression.text,
+        kind,
+        text: node.getText(sourceFile).slice(0, 80),
+      });
     }
   };
 
@@ -870,6 +1030,23 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
       && (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent))
     ) {
       inspectUserFacing(node.expression, "jsx-child");
+      // I. the same position, asking a different question: is this a KEY?
+      inspectKeyRender(node.expression, "jsx-child");
+
+      // J. a wire enum rendered raw (#530, the class #489 named).
+      //
+      // Only a JSX CHILD, deliberately. The attribute and object-property
+      // positions check A also walks are where an `accessibilityLabel` or a
+      // `testID` legitimately carries an identifier, and widening to them turned
+      // a clean 13 into noise nobody would keep.
+      if (ts.isPropertyAccessExpression(node.expression)
+        && WIRE_ENUM_FIELDS.has(node.expression.name.text)) {
+        wireIdentifierRenderSites.push({
+          line: lineOf(node),
+          field: node.expression.name.text,
+          text: node.expression.getText(sourceFile).slice(0, 80),
+        });
+      }
     }
 
     // A. A user-facing ATTRIBUTE: `placeholder="Search"`
@@ -883,6 +1060,7 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
         ? node.initializer.expression
         : node.initializer;
       inspectUserFacing(value, `attribute:${node.name.text}`);
+      inspectKeyRender(value, `attribute:${node.name.text}`);
     }
 
     // A. A user-facing object PROPERTY: `{ label: "Register" }`
@@ -892,6 +1070,7 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
       && USER_FACING_OBJECT_PROPERTIES.has(node.name.text)
     ) {
       inspectUserFacing(node.initializer, `property:${node.name.text}`);
+      inspectKeyRender(node.initializer, `property:${node.name.text}`);
     }
 
     // A. `Alert.alert("Deleted", "The product is gone.")`, `toast.error("…")`,
@@ -899,7 +1078,10 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
     {
       const callee = ts.isCallExpression(node) ? calleeName(node) : null;
       if (callee !== null && USER_FACING_CALLEES.has(callee)) {
-        for (const argument of node.arguments) inspectUserFacing(argument, `call:${callee}`);
+        for (const argument of node.arguments) {
+          inspectUserFacing(argument, `call:${callee}`);
+          inspectKeyRender(argument, `call:${callee}`);
+        }
       }
     }
 
@@ -916,6 +1098,17 @@ export function analyseSource(relativePath, text, knownKeys, sharedKeyMaps = new
     interpolatedSites,
     unreadableKeySources,
     deviceLocaleFormatSites,
+    rawKeyRenderSites,
+    // How many key maps THIS CALL could have fired on. Reported rather than left
+    // to the caller's own copy of the derivation, because the two are not the
+    // same fact: a caller that stops PASSING the app-wide set still derives it
+    // perfectly, so a floor read off the deriver passes while the analyser sees
+    // only the maps each file declares itself — and `@mercaria/ui` declares the
+    // ones all three apps read. Measured: with the argument replaced by an empty
+    // set the whole guard stayed green and the summary went on printing the full
+    // population. Two derived representations agreeing is not a check.
+    renderableKeyMapCount: renderableKeyMaps.size,
+    wireIdentifierRenderSites,
   };
 }
 
@@ -1299,6 +1492,174 @@ for (const source of DEVICE_LOCALE_MUST_NOT_FIND) {
 }
 
 /**
+ * Controls for check I (#542), run on every invocation.
+ *
+ * These carry the check. Its real-tree answer is ZERO for all four owners —
+ * `@mercaria/ui`'s nineteen were fixed in #541 — and zero is exactly what a
+ * detector that stopped matching returns, so there is no live site to keep it
+ * honest. The positives are the REAL bug, reconstructed: a `*_LABEL_KEYS` map
+ * read straight into a render position with the `t(` dropped.
+ *
+ * The negatives are the more interesting half, because they are what separate
+ * this from the rule that does not work. A key legitimately FLOWS — returned
+ * from a function, held in another record, bound to a const, tested for
+ * presence — and a rule keyed on "a key-map read outside `t(`" fires on all four
+ * shapes. Measured on this tree: 33 candidates, every one of them correct code.
+ */
+const CONTROL_KEY_MAP = 'const M = { a: "a.b", c: "c.d" };\n';
+const rawKeyFindings = (source) =>
+  analyseSource("control/raw-key.tsx", CONTROL_KEY_MAP + source, CONTROL_KEYS).rawKeyRenderSites;
+
+const RAW_KEY_MUST_FIND = [
+  "const A = () => <Text>{M[x]}</Text>;",
+  "const A = () => <Text>{M.a}</Text>;",
+  // Inside a template — the id renders just as plainly with a middot after it.
+  "const A = () => <Text>{`${M[x]} · ${n}`}</Text>;",
+  // One half translated and one half not is the exact shape #542 measured.
+  "const A = () => <Text>{t(M.a)} · {M[x]}</Text>;",
+  "const A = () => <Text>{ready ? M[x] : M.c}</Text>;",
+  'const A = () => <Input placeholder={M[x]} />;',
+  "const A = () => <Text>{M[x] ?? M.c}</Text>;",
+];
+const RAW_KEY_MUST_NOT_FIND = [
+  // The remedy.
+  "const A = () => <Text>{t(M[x])}</Text>;",
+  "const A = () => <Text>{t(M.a)}</Text>;",
+  'const A = () => <Input placeholder={t(M[x])} />;',
+  // A key RETURNED for a caller to resolve — `basketResultTextKey`'s shape.
+  "export function labelKey(k) { return M[k]; }",
+  // A key held in another record — `NEXT_STATUSES`' shape.
+  "const NEXT = [{ key: 'shipped', labelKey: M.a }];",
+  // A key bound to a const and resolved later — `STATE_COPY`'s shape.
+  "const A = () => { const copy = M[x]; return <Text>{t(copy)}</Text>; };",
+  // The presence test: the guard reads the map, the render beside it is correct.
+  "const A = () => <Text>{M[x] ? t(M[x]) : fallback}</Text>;",
+  // An import of the name is not a render of it.
+  'import { M } from "./labels";\nconst A = () => <Text>{t("a.b")}</Text>;',
+];
+
+for (const source of RAW_KEY_MUST_FIND) {
+  if (rawKeyFindings(source).length === 0) {
+    failures.push(
+      `positive control failed: check I produced no finding for ${JSON.stringify(source)} — `
+      + "the detector is broken, and its answer for a broken detector and for a clean tree is the "
+      + "same zero",
+    );
+  }
+}
+for (const source of RAW_KEY_MUST_NOT_FIND) {
+  if (rawKeyFindings(source).length > 0) {
+    failures.push(
+      `negative control failed: check I fired on ${JSON.stringify(source)}, which is either the `
+      + "remedy or a key legitimately in FLIGHT to one — a guard that flags those reports 33 "
+      + "findings on a correct tree and gets deleted",
+    );
+  }
+}
+// A record that is NOT a key map must be invisible to I, or the check starts
+// firing on every `{CHIP_CLASSES[x]}` in the tree. This is what `isKeyMap`
+// buys, and it is why the population is matched against the REAL vocabulary
+// rather than against a key-SHAPED string.
+{
+  const classes = analyseSource(
+    "control/not-a-key-map.tsx",
+    'const CHIP = { ok: "bg-green-100", bad: "bg-red-100" };\nconst A = () => <Text>{CHIP[x]}</Text>;',
+    CONTROL_KEYS,
+  ).rawKeyRenderSites;
+  if (classes.length > 0) {
+    failures.push(
+      "negative control failed: check I fired on a record of CSS classes. Its population must be "
+      + "maps whose every value is a key the app can resolve — if this fires, `isKeyMap` has been "
+      + "loosened into a shape match",
+    );
+  }
+  // …and the same map with one value that is NOT a real key is not a key map
+  // either, which is what stops a typo'd key from arming the check on a record
+  // that is half something else.
+  const partial = analyseSource(
+    "control/half-a-key-map.tsx",
+    'const M = { a: "a.b", c: "not.a.real.key" };\nconst A = () => <Text>{M[x]}</Text>;',
+    CONTROL_KEYS,
+  ).rawKeyRenderSites;
+  if (partial.length > 0) {
+    failures.push(
+      "negative control failed: check I fired on a record holding a string that is NOT a key. "
+      + "`isKeyMap` requires EVERY value to resolve, so this must not fire",
+    );
+  }
+}
+// An empty record is not a key map. Without this, `every` over no values is
+// vacuously true and every `{}` in the tree joins I's population.
+if (isKeyMap({ flat: [], byProp: new Map() }, CONTROL_KEYS)) {
+  failures.push(
+    "negative control failed: an EMPTY record read as a key map — `every` over nothing is "
+    + "vacuously true, so check I's population would swallow every `{}` in the tree",
+  );
+}
+
+/**
+ * Controls for check J (#530), run on every invocation.
+ *
+ * J's per-owner answers are pinned, and three of the four are non-zero, so a
+ * broken detector fails those pins loudly. The POS's is ZERO, though, and these
+ * are what keep that one meaningful.
+ *
+ * The negatives are the reason this check is shippable at all. `{seller.name}`
+ * and `{code.code}` are syntactically identical to the defect and differ only in
+ * the FIELD NAME, so the field list is the entire instrument — and `code` and
+ * `currency` are out of it because measuring said so, not because it seemed
+ * tidy.
+ */
+const wireIdentifierFindings = (source) =>
+  analyseSource("control/wire-identifier.tsx", source, CONTROL_KEYS).wireIdentifierRenderSites;
+
+const WIRE_IDENTIFIER_MUST_FIND = [
+  "const A = () => <Text>{order.status}</Text>;",
+  "const A = () => <Text>{run.kind}</Text>;",
+  "const A = () => <Text>{a.country}</Text>;",
+  "const A = () => <Text>{report.mode}</Text>;",
+  // A deeper path still ends in the field that decides it.
+  "const A = () => <Text>{status.data.source.status}</Text>;",
+];
+const WIRE_IDENTIFIER_MUST_NOT_FIND = [
+  // The remedy, both spellings.
+  "const A = () => <Text>{t(ORDER_STATUS_LABEL_KEYS[order.status])}</Text>;",
+  "const A = () => <Text>{formatRegionName(a.country, locale)}</Text>;",
+  // Ordinary display fields, which the naive "any bare identifier" rule the
+  // issue first proposed would have fired on — that version is why this one is
+  // keyed on the field name at all.
+  "const A = () => <Text>{seller.name}</Text>;",
+  "const A = () => <Text>{order.orderNumber}</Text>;",
+  "const A = () => <Text>{count}</Text>;",
+  "const A = () => <Text>{product.title}</Text>;",
+  // The two fields measured OUT of the list: both are identifiers shown
+  // verbatim on purpose and neither has a localized form.
+  "const A = () => <Text>{code.code}</Text>;",
+  "const A = () => <Text>{price.currency}</Text>;",
+  // A wire field read somewhere that is not a render position.
+  "const A = () => <View testID={run.status} />;",
+  "const cls = CHIP[run.status];",
+];
+
+for (const source of WIRE_IDENTIFIER_MUST_FIND) {
+  if (wireIdentifierFindings(source).length === 0) {
+    failures.push(
+      `positive control failed: check J produced no finding for ${JSON.stringify(source)} — `
+      + "the detector is broken, and the POS owner's pin of ZERO would go on passing",
+    );
+  }
+}
+for (const source of WIRE_IDENTIFIER_MUST_NOT_FIND) {
+  if (wireIdentifierFindings(source).length > 0) {
+    failures.push(
+      `negative control failed: check J fired on ${JSON.stringify(source)}, which is either the `
+      + "remedy or an ordinary display value — this is the direction that gets a gate switched "
+      + "off, and it is the direction the issue's first phrasing failed in",
+    );
+  }
+}
+
+/**
  * Controls for check F's detector, run on every invocation.
  *
  * F's real-tree answer is an EMPTY intersection, which is what a completely
@@ -1445,6 +1806,20 @@ const controlLabelKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map
 const interpolatedKeysByApp = new Map(OWNERS.map((owner) => [owner.name, new Map()]));
 /** H: `{ file, line, method }` for every date formatted in the device's locale. */
 const deviceLocaleFormatsByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+/** I: `{ file, line, map, kind }` for every key map rendered without `t()`. */
+const rawKeyRendersByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+/**
+ * I: the FEWEST key maps any one of an owner's files could have fired on.
+ *
+ * The minimum rather than the total, and it is the minimum that makes this a
+ * witness: every file receives the app-wide set and adds whatever it declares
+ * itself, so the smallest value across an owner's files IS the size of the set
+ * the caller actually handed the analyser. A sum, or the deriver's own count,
+ * both stay right while the argument is empty.
+ */
+const renderableSeenByApp = new Map(OWNERS.map((owner) => [owner.name, null]));
+/** J: `{ file, line, field, text }` for every wire identifier rendered raw. */
+const wireIdentifierRendersByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
 
 /**
  * How many check-A findings an owner whose `hardcodedStrings` is a pinned COUNT
@@ -1490,17 +1865,70 @@ for (const owner of OWNERS) {
   for (const name of collidingKeyMapNames.get(owner.name)) bag.delete(name);
 }
 
+/**
+ * I: the key-map NAMES each owner's files may not render without `t()`.
+ *
+ * Derived, never hand-listed — which is what makes it self-maintaining as more
+ * copy converts, and #542's whole point is that EVERY future conversion
+ * reintroduces this risk. A map earns its place by holding keys the owner can
+ * actually resolve (`isKeyMap`), so a record of chip classes or icon sizes is
+ * not in the population and check I can never fire on one.
+ *
+ * A `packages/ui` map is in EVERY owner's set, because `mergeSharedUiCopy` puts
+ * that package's copy under the reserved `ui` namespace in all three apps at
+ * runtime — so a dashboard screen rendering `{CONDITION_LABEL_KEYS[x]}` ships a
+ * `ui.` message id to a merchant exactly as a `packages/ui` component would. It
+ * is matched against `ui`'s OWN vocabulary for the same reason: check D forbids
+ * an app bundle from claiming that namespace, so the app's `knownKeys` cannot
+ * contain a single one of those keys and filtering against it would empty the
+ * set silently.
+ *
+ * A name two files in one owner both declare is NOT dropped the way the check-F
+ * bag drops it. F resolves a name to a key SET and an ambiguous one gives a
+ * wrong answer; I only asks "is this name a key map", and two key maps sharing a
+ * name are still both key maps, so the ambiguity does not reach the question.
+ */
+const renderableKeyMapsByApp = new Map(OWNERS.map((owner) => [owner.name, new Set()]));
+{
+  const sharedOwner = OWNERS.find((owner) => owner.name === SHARED_UI_OWNER);
+  const sharedKeys = knownKeysByApp.get(SHARED_UI_OWNER);
+  for (const [path, text] of textByPath) {
+    const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
+    const isShared = path.startsWith(sharedOwner.prefix);
+    const vocabulary = isShared ? sharedKeys : knownKeysByApp.get(app.name);
+    for (const [name, value] of collectKeyMaps(path, text)) {
+      if (!isKeyMap(value, vocabulary)) continue;
+      if (isShared) for (const owner of OWNERS) renderableKeyMapsByApp.get(owner.name).add(name);
+      else renderableKeyMapsByApp.get(app.name).add(name);
+    }
+  }
+}
+
 for (const [path, text] of textByPath) {
   const app = OWNERS.find((candidate) => path.startsWith(candidate.prefix));
   const result = analyseSource(
     path, text, knownKeysByApp.get(app.name), keyMapsByApp.get(app.name),
+    renderableKeyMapsByApp.get(app.name),
   );
   filesByApp.set(app.name, filesByApp.get(app.name) + 1);
-  // H runs for EVERY owner, including the two whose `hardcodedStrings` and
-  // `actionLabelCopy` are off: a date rendered in the wrong language is not a
-  // hardcoded string and is not an action label, so neither switch describes it.
+  // H, I and J run for EVERY owner, including the two whose `hardcodedStrings`
+  // and `actionLabelCopy` are off: a date in the wrong language, a rendered
+  // message id and a raw wire enum are none of them a hardcoded string and none
+  // of them an action label, so neither switch describes any of the three.
   for (const site of result.deviceLocaleFormatSites) {
     deviceLocaleFormatsByApp.get(app.name).push({ ...site, file: path });
+  }
+  for (const site of result.rawKeyRenderSites) {
+    rawKeyRendersByApp.get(app.name).push({ ...site, file: path });
+  }
+  const seenSoFar = renderableSeenByApp.get(app.name);
+  renderableSeenByApp.set(
+    app.name,
+    seenSoFar === null ? result.renderableKeyMapCount
+      : Math.min(seenSoFar, result.renderableKeyMapCount),
+  );
+  for (const site of result.wireIdentifierRenderSites) {
+    wireIdentifierRendersByApp.get(app.name).push({ ...site, file: path });
   }
   if (app.actionLabelCopy) {
     const controls = controlLabelKeysByApp.get(app.name);
@@ -1571,6 +1999,25 @@ for (const app of OWNERS) {
       + `${floorFor(app.minimumTranslatedPositions)} floor — the analyser reached almost no `
       + "user-facing position there, which is exactly what a fully extracted app would also look "
       + "like if the traversal were broken",
+    );
+  }
+
+  // I's vacuity floor, and it is the one that carries this check (#542).
+  //
+  // Check I's real-tree answer is ZERO, so nothing in its own output can tell a
+  // clean tree from a POPULATION that came out empty — and the population is
+  // derived, which means a change to `collectKeyMaps`, to `isKeyMap`, or to how
+  // a map is spelled (an inline `Object.freeze({…})` is already one this cannot
+  // read) shrinks it silently and in the green direction. The controls prove the
+  // DETECTOR works; this proves it was pointed at something.
+  const renderable = renderableSeenByApp.get(app.name) ?? 0;
+  if (renderable < floorFor(app.minimumRenderableKeyMaps)) {
+    failures.push(
+      `packages/${app.name}: the analyser saw ${renderable} renderable key map(s), below the `
+      + `${floorFor(app.minimumRenderableKeyMaps)} floor — check I has almost nothing to fire on, `
+      + "which is indistinguishable from a tree where every key map is correctly wrapped in `t()`. "
+      + "Either the derivation broke, this app's copy moved somewhere `collectKeyMaps` cannot read "
+      + "it, or the population stopped being PASSED to `analyseSource`.",
     );
   }
 
@@ -1647,6 +2094,55 @@ for (const app of OWNERS) {
       + "`useTranslation()` already returns. If you FIXED some of these, lower the owner's "
       + "`deviceLocaleFormatSites` in this file to the new count — it is an exact count, not a "
       + "ceiling, so the number cannot quietly drift in either direction.",
+    );
+  }
+
+  // I. a key map rendered WITHOUT `t()` (#542).
+  //
+  // RAISED rather than pinned, unlike H and J, and the difference is confidence
+  // rather than taste: the population is derived from maps whose every value is
+  // a real key, so a read of one in a render position resolves to a message id
+  // by construction. There is no legitimate spelling of it and therefore no
+  // residual to hold a number against. The real-tree answer is ZERO for all
+  // four owners — the nineteen #541 found are fixed — so the controls below,
+  // not this loop, are what prove the detector still works.
+  for (const site of rawKeyRendersByApp.get(app.name) ?? []) {
+    failures.push(
+      `${site.file}:${site.line}: \`${site.text}\` renders a TRANSLATION KEY, not a sentence — `
+      + `\`${site.map}\` holds keys and this ${site.kind} is missing its \`t(…)\`.\n`
+      + "      The screen shows the raw message id in EVERY locale, English included, so this is "
+      + "not a \"shows English to a Spanish reader\" bug somebody eventually reports — it is "
+      + "visible to everyone and to no other check here.\n"
+      + "      `tsc` cannot see it: a key and a sentence are both `string`. Wrap the read: "
+      + `\`t(${site.map}[…])\`.`,
+    );
+  }
+
+  // J. a wire enum rendered raw to a reader (#530, the class #489 named).
+  //
+  // PINNED per owner like H, and for H's reason: the thirteen live sites are a
+  // known, enumerated set, and fixing them is a key map or a localized lookup
+  // apiece across three packages — work with its own review, handed over with
+  // the measurement attached rather than folded into the change that measures
+  // it. Exact in both directions, so a NEW one fails immediately and fixing
+  // some fails until the number comes down with them.
+  const wireSites = wireIdentifierRendersByApp.get(app.name) ?? [];
+  if (!fixtureFloors && app.wireIdentifierRenderSites !== null
+    && wireSites.length !== app.wireIdentifierRenderSites) {
+    const listing = wireSites
+      .map((site) => `${site.file}:${site.line} {${site.text}}`)
+      .join("\n      ");
+    failures.push(
+      `packages/${app.name}: ${wireSites.length} wire identifier(s) rendered raw to a reader, `
+      + `expected exactly ${app.wireIdentifierRenderSites}.\n`
+      + `      ${listing || "(none)"}\n`
+      + "      The English here is GENERATED AT RUNTIME from an identifier, so no literal-based "
+      + "instrument can find it: there is no key for parity or referential integrity to check, "
+      + "check A has no string to read, and `tsc` types it a perfectly good `string`.\n"
+      + "      The remedy is a key map (`SEARCH_RESULT_KIND_KEYS` in the storefront's `search.tsx`) "
+      + "or a localized lookup (`formatRegionName` for a country). If you FIXED some of these, "
+      + "lower the owner's `wireIdentifierRenderSites` in this file to the new count — an exact "
+      + "count, not a ceiling.",
     );
   }
 
@@ -1875,9 +2371,18 @@ console.log(
   + `${appBundlePaths.length} app bundles and ${rootLayouts.length} app roots checked for the `
   + `reserved "${SHARED_UI_NAMESPACE}" namespace and <${SHARED_UI_PROVIDER}>; `
   + `check F intersected ${actionLabelSummary}; `
-  + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length + ACTION_LABEL_MUST_FIND.length} `
+  // Check I's population, reported for check F's reason: its finding count is
+  // ZERO on a healthy tree, so the only number that says the check was pointed
+  // at anything is the size of what it scanned.
+  + `check I watched ${OWNERS.map((owner) => `${owner.name} `
+    + `${renderableSeenByApp.get(owner.name) ?? 0}`).join("/")} key maps; `
+  + `${CONTROL_MUST_FIND.length + PROVIDER_CONTROL_MOUNTED.length + ACTION_LABEL_MUST_FIND.length
+    + DEVICE_LOCALE_MUST_FIND.length + RAW_KEY_MUST_FIND.length
+    + WIRE_IDENTIFIER_MUST_FIND.length} `
   + "positive and "
-  + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length + ACTION_LABEL_MUST_NOT_FIND.length} `
+  + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length
+    + ACTION_LABEL_MUST_NOT_FIND.length + DEVICE_LOCALE_MUST_NOT_FIND.length
+    + RAW_KEY_MUST_NOT_FIND.length + WIRE_IDENTIFIER_MUST_NOT_FIND.length} `
   + "negative controls run.",
 );
 

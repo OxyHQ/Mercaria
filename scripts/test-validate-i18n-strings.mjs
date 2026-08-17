@@ -769,6 +769,96 @@ const cases = [
     expectExit: 1,
     expectOutput: "could not be read",
   },
+  {
+    // I (#542). Through the REAL guard on a REAL file listing rather than only
+    // through the in-process controls, because the two can come apart: the
+    // controls call `analyseSource` directly, and the population it fires on is
+    // assembled by the caller.
+    name: "a key map rendered without t() fails — the #542 regression",
+    files: migratedTree({
+      "packages/dashboard/lib/status-labels.ts":
+        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n',
+      "packages/dashboard/app/(app)/keys.tsx":
+        'import { STATUS_KEYS } from "@/lib/status-labels";\n'
+        + "export const S = ({ order }) => <Text>{STATUS_KEYS[order.status]}</Text>;\n",
+    }),
+    expectExit: 1,
+    expectOutput: "renders a TRANSLATION KEY, not a sentence",
+  },
+  {
+    // The other half, and the one that decides whether this check survives its
+    // first month: a key in FLIGHT to a `t()` is not a rendered key. All four
+    // legitimate shapes at once — returned, held in a record, bound to a const,
+    // and tested for presence — because the rule keyed on "a read outside `t(`"
+    // fires on every one of them and reports 33 findings on the real tree.
+    name: "a key legitimately in flight to t() does NOT fire check I",
+    files: migratedTree({
+      "packages/dashboard/lib/status-labels.ts":
+        'export const STATUS_KEYS = { paid: "orders.status.paid" };\n'
+        + "export function statusKey(s) { return STATUS_KEYS[s]; }\n"
+        + 'export const ROWS = [{ key: "paid", labelKey: STATUS_KEYS.paid }];\n',
+      "packages/dashboard/app/(app)/keys.tsx":
+        'import { STATUS_KEYS } from "@/lib/status-labels";\n'
+        + "export const A = ({ order }) => {\n"
+        + "  const copy = STATUS_KEYS[order.status];\n"
+        + "  return <Text>{t(copy)}</Text>;\n"
+        + "};\n"
+        + "export const B = ({ order }) => "
+        + "<Text>{STATUS_KEYS[order.status] ? t(STATUS_KEYS[order.status]) : null}</Text>;\n",
+    }),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
+    // J (#530). The pin is skipped on a fixture tree, so `realFloors` is the
+    // only configuration in which it runs here — and this proves it RUNS and
+    // COMPARES rather than being carried inertly, the `hardcodedStrings` case
+    // above applied to the other pin. It fires in the DOWN direction because
+    // this fixture holds none of the real sites the pins were measured on.
+    name: "check J's pinned wire-identifier count is compared, not carried",
+    files: migratedTree(),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "wire identifier(s) rendered raw to a reader, expected exactly",
+  },
+  {
+    // I's vacuity floor, same technique and same reason. A fixture tree carries
+    // none of the real key maps, so under production floors it must say so —
+    // if this stops firing, the floor has been turned into a comment.
+    name: "check I's key-map floor fires when the population is tiny",
+    files: migratedTree(),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "renderable key map(s), below the",
+  },
+  {
+    // J's negative half, through the real guard: the two field names measured
+    // OUT of the list. Both are identifiers shown verbatim on purpose, both sit
+    // beside real defects in the live tree, and a version of this check that
+    // fired on them would have four false positives out of seventeen.
+    //
+    // Asserted as a COUNT under `realFloors`, not as a passing run, and the
+    // difference is what makes this case exist at all. The first spelling of it
+    // expected exit 0 on a fixture tree — where J's pin is SKIPPED, exactly as
+    // H's is — so nothing compared J's findings and swapping `{code.code}` for
+    // `{code.status}` changed the result not at all. It measured nothing and
+    // read as coverage. Pinning the count instead asserts BOTH directions in one
+    // case: the real defect below counts, and the two verbatim spellings beside
+    // it do not.
+    name: "check J counts a wire enum and NOT a verbatim code or currency",
+    files: migratedTree({
+      "packages/dashboard/app/(app)/codes.tsx":
+        "export const A = ({ code, price, order }) => <View>\n"
+        + "  <Text>{code.code}</Text>\n"
+        + "  <Text>{price.currency}</Text>\n"
+        + "  <Text>{code.label}</Text>\n"
+        + "  <Text>{order.status}</Text>\n"
+        + "</View>;\n",
+    }),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "packages/dashboard: 1 wire identifier(s) rendered raw to a reader",
+  },
 ];
 
 /**

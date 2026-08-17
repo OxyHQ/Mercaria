@@ -342,9 +342,13 @@ other 21 in the dashboard, plus the 5 in the POS.
 
 ## The guard
 
-`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Six
-checks; the third is the one worth understanding and the sixth is the one that
-catches a defect no other gate in CI can see.
+`bun run validate:i18n-strings` (CI: "Guard dashboard and POS i18n"). Ten
+checks; the third is the one worth understanding, and F, I and J each catch a
+defect no other gate in CI can see.
+
+The last four all exist because **the type system cannot tell any of them from
+correct code** — a date is a `string`, a key is a `string`, a wire enum is a
+`string` — so `tsc`, lint and all four build jobs are green on every one.
 
 - **A. No hardcoded user-facing string** in `packages/dashboard`,
   `packages/pos` or `packages/frontend` — JSX text, a string in a JSX child expression, a user-facing
@@ -372,6 +376,23 @@ catches a defect no other gate in CI can see.
 - **F. An action label is not a sentence fragment (#442)** — a key rendered as
   an action CONTROL's own label must not also be interpolated into a translated
   sentence. See below.
+- **G. The placeholder syntax is the one i18n-js reads (#487)** — `{{name}}` is
+  never interpolated and renders literally to a reader. Runs over `en` too,
+  because the original defect was in the English source string and a check that
+  skipped it would have reported eleven of the twelve bundles.
+- **H. Dates name the APP's locale, not the DEVICE's (#488, #529)** — a
+  `toLocale*String()` with no locale argument (or an explicit `undefined`)
+  resolves against the runtime default. Pinned per owner as an EXACT count in
+  both directions; all four owners reached ZERO in #529, so it is now a pure
+  regression gate.
+- **I. A key map is resolved before it reaches a reader (#542)** — a module-scope
+  record of translation KEYS, read into a render position without `t()` around
+  it, renders the raw message id (`ui.shoppingAgent.state.enabled`) on screen in
+  every locale, English included. See below.
+- **J. A wire enum is not shown raw (#489, #530)** — `{order.status}`,
+  `{run.kind}`, `{a.country}`. The English is GENERATED AT RUNTIME from an
+  identifier, so there is no literal for A to read and no key for B or C to
+  check. Pinned per owner as an exact count. See below.
 
 **A does not run over `packages/ui`.** That package is only part way through
 extraction — #437 converted the condition and offer-label copy and the rest of
@@ -479,6 +500,75 @@ leaves the guard switched on — plus, for F, one mutation of the REAL tree,
 because a fixture only proves a detector works on source shaped the way the
 fixture author imagined it.
 
+### I, and why the obvious rule for it does not work
+
+The house pattern for shared copy is a module-scope map of translation KEYS
+resolved at the render site. Dropping the `t(` from one gives:
+
+```tsx
+{SHOPPING_AGENT_STATE_LABEL_KEYS[agent.state]}   // renders "ui.shoppingAgent.state.enabled"
+```
+
+Converting `shopping-agent-labels.ts` to keys left **nineteen** of these across
+two components with `bun run --filter @mercaria/ui typecheck` fully green (#541).
+It is not a "shows English to a Spanish reader" bug that somebody eventually
+reports — the raw message id is visible to everyone, in every locale, and to no
+other check here.
+
+**The population is the RENDER POSITION, not "a key-map read outside `t(`", and
+that is the whole check.** A key legitimately FLOWS: `basketResultTextKey`
+returns `RESULT_KIND_KEYS[kind]`, `NEXT_STATUSES` holds
+`ORDER_STATUS_LABEL_KEYS.shipped` in a `labelKey` field, `payments.tsx` binds
+`STATE_COPY[state]` to a const it resolves two lines later, and
+`{X[k] ? t(X[k]) : …}` reads the map once as a presence test. Measured on this
+tree: the loose rule reports **33** candidates and every one is correct code;
+the render-position rule reports **zero**. So the loose version is not a noisier
+gate, it is one that gets deleted in its first week.
+
+**What counts as a key map is DERIVED, never listed** — a module-scope record
+whose every leaf is a key the owner can actually resolve. That is what keeps it
+self-maintaining as more copy converts (which matters, because every future
+conversion reintroduces this risk) and what stops it firing on a record of chip
+classes. A `packages/ui` map is in every app's population, because
+`mergeSharedUiCopy` merges that copy into all three at runtime.
+
+Its real-tree answer is ZERO, so its controls carry it: seeded positives
+reconstructing the real bug, negatives for all four flow shapes, and a floor on
+the size of the population. **The floor measures what `analyseSource` was
+HANDED, not what the deriver produced** — replacing the argument with an empty
+set left the guard green and the summary still printing the full count, because
+both the floor and the summary read the deriver's own copy. Two derived
+representations agreeing is not a check.
+
+### J, and why the field list is the entire instrument
+
+#489 named three places where the English is generated at runtime from an
+identifier, so no literal-based instrument can find them. #530 measured thirteen
+more. `{a.country}` on the dashboard's order address card is the same defect, in
+the same shape, that #513 fixed on the storefront with `formatRegionName`.
+
+The issue's first phrasing — *flag a JSX child that resolves to a bare
+identifier* — fires on every legitimate `{name}` and `{count}` in the tree, and
+a gate people disable is worse than none. Keyed on a closed list of field NAMES
+instead, it is quiet: `{seller.name}` is fine and `{seller.status}` is not, and
+without type information only the field name separates them.
+
+**`code` and `currency` are deliberately NOT in the list.** They contributed
+four of the seventeen probe candidates and all four were correct —
+`{code.code}` for a referral code and a pickup collection code, `{price.currency}`
+beside a number. Neither has a localized human-readable form; an ISO 4217 code
+and a claim code are language-independent identifiers shown verbatim by design.
+Dropping them takes the check from 17 candidates with 4 false positives to 13
+with none, and removes the need for an exemption list entirely.
+`referral-partner.tsx` renders `{code.code}` and `{code.status}` four lines
+apart, which is the clearest possible demonstration that the field name is all
+there is to go on.
+
+The thirteen are PINNED per owner rather than fixed here: each needs a key map
+or a localized lookup, across three packages, which is its own change with its
+own review. Fixing some of them fails the build until the number comes down with
+them, exactly as H's does.
+
 ## What the guard cannot see
 
 Stated so nobody reads a green run as more than it is:
@@ -489,6 +579,14 @@ Stated so nobody reads a green run as more than it is:
 - An English SENTENCE assembled at runtime out of variables the analyser cannot
   follow back to a literal. (A runtime-built KEY is a different case and is
   refused — see above.)
+- **A key that reaches a render position through a VARIABLE.** I reads a
+  syntactic shape, so `const label = MAP[x]` followed by `{label}` is invisible
+  to it; following that is a type-checker's job. It catches the shape #542 found
+  nineteen of, which is the direct read.
+- **A wire enum under a field name J does not list**, and a display string that
+  happens to be stored under one it does. J cannot tell them apart without type
+  information, which is why the list is short and why two names were measured
+  out of it rather than argued out.
 - Whether a TRANSLATION is any good. Parity says a key exists in `de.json`; it
   says nothing about whether the German is right.
 - **Whether an interpolated value is grammatical in the frame it lands in.** F
