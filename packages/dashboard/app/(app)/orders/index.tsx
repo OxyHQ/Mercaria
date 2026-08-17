@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, ChevronRight, ShoppingBag } from "lucide-react-native";
 import type { OrderStatus, OrderSummary } from "@mercaria/shared-types";
-import { Text, PriceDisplay, useColorScheme } from "@mercaria/ui";
+import { Text, PriceDisplay, formatDate, useColorScheme } from "@mercaria/ui";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { StoreSwitcher } from "@/components/shell/StoreSwitcher";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -122,8 +122,9 @@ function OrdersBody({ storeId }: { storeId: string }) {
 }
 
 function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { colors } = useColorScheme();
+  const date = formatDate(order.createdAt, locale);
   return (
     <Pressable
       onPress={onPress}
@@ -134,12 +135,15 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
       </View>
       <View className="flex-1">
         <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
-        <Text className="text-xs text-muted-foreground">
-          {t("orders.row.itemsPlacedOn", {
-            count: order.itemCount,
-            date: new Date(order.createdAt).toLocaleDateString(),
-          })}
-        </Text>
+        {/* The sentence is "<n> items · <date>", so an unformattable timestamp
+            drops the whole line rather than interpolating a null, which i18n-js
+            renders as the literal `[missing "%{date}" value]` (#529). The order
+            number above it already identifies the row. */}
+        {date === null ? null : (
+          <Text className="text-xs text-muted-foreground">
+            {t("orders.row.itemsPlacedOn", { count: order.itemCount, date })}
+          </Text>
+        )}
       </View>
       <PriceDisplay price={order.grandTotal.shop} primaryClassName="text-sm font-semibold" />
       <OrderStatusBadge status={order.status} />

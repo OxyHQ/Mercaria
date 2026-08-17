@@ -157,7 +157,7 @@ function ChannelsBody({ storeId }: { storeId: string }) {
  */
 function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const ready = readiness.nativeCheckout.state === "healthy";
   const connectedCount = readiness.catalog.connectedChannelTypes.length;
 
@@ -188,6 +188,7 @@ function ReadinessPanel({ readiness }: { readiness: ChannelReadiness }) {
                         when: formatWhen(
                           readiness.catalog.lastSuccessfulSyncAt,
                           t("channels.never"),
+                          locale,
                         ),
                       })
                     : t("channels.readiness.neverSynced"),
@@ -247,7 +248,7 @@ function ReadinessAxis({
 function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
   const router = useRouter();
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   // The native catalogue is always present, so "nothing connected" means nothing
   // BESIDES it — a list that hid the native row would tell a merchant with fifty
@@ -304,7 +305,7 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
                 <Text className="text-xs text-muted-foreground">
                   {channel.lastSyncAt
                     ? t("channels.lastSynced", {
-                        when: formatWhen(channel.lastSyncAt, t("channels.never")),
+                        when: formatWhen(channel.lastSyncAt, t("channels.never"), locale),
                       })
                     : t("channels.neverSynced")}
                   {channel.nextScheduledSyncAt
@@ -312,6 +313,7 @@ function ConnectedChannels({ channels }: { channels: ChannelSummary[] }) {
                         when: formatWhen(
                           channel.nextScheduledSyncAt,
                           t("channels.unscheduled"),
+                          locale,
                         ),
                       })
                     : ""}

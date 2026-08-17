@@ -43,6 +43,7 @@ import {
   DialogDescription,
   DialogFooter,
   useColorScheme,
+  formatDateTime,
   type Translate,
 } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
@@ -108,12 +109,20 @@ function isSyncDirection(value: string): value is SyncResourceDirection {
   return value === "off" || value === "pull" || value === "push" || value === "bidirectional";
 }
 
-/** Human-readable timestamp, or a fallback when a channel has never synced. */
-function formatSyncedAt(iso: string | undefined, t: Translate): string {
+/**
+ * Human-readable timestamp, or a fallback when a channel has never synced.
+ *
+ * The locale is a REQUIRED parameter (#529): `toLocaleString()` with none
+ * rendered the timestamp in the DEVICE's language inside a sentence in the
+ * merchant's. `formatDateTime` answers `null` for a value that is not a date, so
+ * the unparseable case and the never-synced case reach the same existing copy
+ * rather than interpolating a null into `channels.lastSynced`.
+ */
+function formatSyncedAt(iso: string | undefined, t: Translate, locale: string): string {
   if (!iso) return t("channels.settings.neverSyncedYet");
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return t("channels.settings.neverSyncedYet");
-  return t("channels.lastSynced", { when: when.toLocaleString() });
+  const when = formatDateTime(iso, locale);
+  if (when === null) return t("channels.settings.neverSyncedYet");
+  return t("channels.lastSynced", { when });
 }
 
 export default function ChannelSettingsScreen() {
@@ -218,10 +227,10 @@ function ChannelSettingsBody({
  */
 function ChannelScope({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { data: catalog } = useChannelCatalog(storeId);
   const descriptor = catalog?.find((entry) => entry.channelType === connection.channelType);
-  const horizon = describeOrderHorizon(connection.orderHorizon, t);
+  const horizon = describeOrderHorizon(connection.orderHorizon, t, locale);
 
   // The catalog is a separate query, so it can still be in flight. Rendering a
   // partial answer here would be worse than rendering none: half a coverage list
@@ -596,7 +605,7 @@ function ManualSync({ storeId, connection }: { storeId: string; connection: Conn
 
 function SyncHistory({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const runs = useChannelRuns(storeId, connection.id);
 
   return (
@@ -621,7 +630,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
               {t("channels.history.empty")}
             </Text>
             <Text className="mt-0.5 text-xs text-muted-foreground">
-              {formatSyncedAt(connection.lastSyncAt, t)}
+              {formatSyncedAt(connection.lastSyncAt, t, locale)}
             </Text>
           </View>
         </View>
@@ -646,7 +655,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
                 </View>
               </View>
               <Text className="mt-0.5 text-xs text-muted-foreground">
-                {formatWhen(run.startedAt, t("common.unknown"))}
+                {formatWhen(run.startedAt, t("common.unknown"), locale)}
               </Text>
               <Text className="mt-1 text-xs text-muted-foreground">
                 {t("channels.history.counts", {
@@ -726,7 +735,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
  */
 function WebhookHealth({ storeId, connection }: { storeId: string; connection: Connection }) {
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const reregister = useReregisterChannelWebhooks(storeId);
 
   // Two of the endpoint's three refusals, kept as an ABSENT control rather than a
@@ -740,7 +749,7 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
   }
 
   const providerName = t(PROVIDER_NAME_KEYS[connection.provider]);
-  const delivery = deriveWebhookDelivery(connection, providerName, t);
+  const delivery = deriveWebhookDelivery(connection, providerName, t, locale);
   const failures = connection.webhookFailures ?? [];
 
   const retry = () => {
@@ -791,7 +800,7 @@ function WebhookHealth({ storeId, connection }: { storeId: string; connection: C
                     failure.httpStatus === undefined
                       ? ""
                       : t("channels.webhooks.httpStatus", { status: failure.httpStatus }),
-                  when: formatWhen(failure.recordedAt, t("channels.recently")),
+                  when: formatWhen(failure.recordedAt, t("channels.recently"), locale),
                 })}
               </Text>
             ))}
@@ -1079,12 +1088,16 @@ const DISCONNECT_POLICY_HELP_KEYS: Record<ChannelDisconnectPolicy, string> = {
   archive_listings: "channels.disconnect.policyHelp.archiveListings",
 };
 
-/** Human-readable "last used" line for a key, or a never-used fallback. */
-function formatLastUsed(iso: string | undefined, t: Translate): string {
+/**
+ * Human-readable "last used" line for a key, or a never-used fallback.
+ *
+ * The locale is required for {@link formatSyncedAt}'s reason (#529).
+ */
+function formatLastUsed(iso: string | undefined, t: Translate, locale: string): string {
   if (!iso) return t("channels.keys.neverUsed");
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return t("channels.keys.neverUsed");
-  return t("channels.keys.lastUsed", { when: when.toLocaleString() });
+  const when = formatDateTime(iso, locale);
+  if (when === null) return t("channels.keys.neverUsed");
+  return t("channels.keys.lastUsed", { when });
 }
 
 /**
@@ -1209,7 +1222,7 @@ function MintedKeyCard({
 /** A single existing key row: label, prefix, last-used, and a revoke action. */
 function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey }) {
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const revoke = useRevokeChannelKey(storeId);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -1230,7 +1243,7 @@ function KeyRow({ storeId, apiKey }: { storeId: string; apiKey: ChannelApiKey })
         <Text className="mt-0.5 text-[11px] text-muted-foreground">
           <Text className="font-mono text-[11px] text-muted-foreground">{apiKey.prefix}…</Text>
           {"  ·  "}
-          {formatLastUsed(apiKey.lastUsedAt, t)}
+          {formatLastUsed(apiKey.lastUsedAt, t, locale)}
         </Text>
       </View>
       <Pressable

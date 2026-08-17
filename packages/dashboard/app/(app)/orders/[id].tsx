@@ -10,6 +10,8 @@ import {
   Input,
   Label,
   PriceDisplay,
+  formatDate,
+  formatDateTime,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -85,12 +87,15 @@ function OrderDetailBody({ storeId, orderId }: { storeId: string; orderId: strin
 }
 
 function OrderContent({ storeId, order }: { storeId: string; order: MerchantOrder }) {
+  const { locale } = useTranslation();
   return (
     <View className="gap-5">
       <View className="flex-row items-center justify-between">
         <OrderStatusBadge status={order.status} />
+        {/* The instant sits alone beside the status badge, so an unformattable
+            one renders nothing rather than "Invalid Date" (#529). */}
         <Text className="text-xs text-muted-foreground">
-          {new Date(order.createdAt).toLocaleString()}
+          {formatDateTime(order.createdAt, locale)}
         </Text>
       </View>
 
@@ -205,7 +210,7 @@ function ShippingAddressCard({ order }: { order: MerchantOrder }) {
 }
 
 function StatusHistoryCard({ order }: { order: MerchantOrder }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
       <Text className="mb-3 text-sm font-semibold text-foreground">{t("orders.detail.history")}</Text>
@@ -221,7 +226,7 @@ function StatusHistoryCard({ order }: { order: MerchantOrder }) {
               ) : null}
             </View>
             <Text className="text-xs text-muted-foreground">
-              {new Date(event.at).toLocaleDateString()}
+              {formatDate(event.at, locale)}
             </Text>
           </View>
         ))}
@@ -280,7 +285,7 @@ function RefundsCard({ storeId, order }: { storeId: string; order: MerchantOrder
 }
 
 function RefundRow({ refund }: { refund: Refund }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   // A refund with no `provider` had no rail operation at all — cash handed back
   // at a register, or an order captured on Shopify/WooCommerce and refunded
   // there. That absence is a fact about the payment, not a gap in the record,
@@ -296,7 +301,7 @@ function RefundRow({ refund }: { refund: Refund }) {
             {refund.rmaNumber ?? t("orders.detail.refundFallbackLabel")}
           </Text>
           <Text className="text-xs text-muted-foreground">
-            {new Date(refund.createdAt).toLocaleDateString()}
+            {formatDate(refund.createdAt, locale)}
           </Text>
         </View>
         <PriceDisplay price={refund.totalRefunded.shop} primaryClassName="text-sm font-semibold" />

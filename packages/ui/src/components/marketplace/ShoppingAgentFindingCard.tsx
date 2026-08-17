@@ -8,6 +8,7 @@ import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
 import { conditionGroupLabelKey } from "../../lib/condition";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
+import { formatDateTime } from "../../lib/date";
 import { formatMoney } from "../../lib/format";
 import {
   SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS,
@@ -80,6 +81,7 @@ export function ShoppingAgentFindingCard({
   // Bound to a const so the union narrows inside the callbacks below; narrowing
   // a property access across a closure boundary is not something to lean on.
   const summary = finding.summary;
+  const evaluatedAt = formatDateTime(finding.evaluatedAt, locale);
 
   return (
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
@@ -88,8 +90,11 @@ export function ShoppingAgentFindingCard({
           {t(SHOPPING_AGENT_OUTCOME_LABEL_KEYS[finding.outcome])} ·{" "}
           {t(SHOPPING_AGENT_LIFECYCLE_LABEL_KEYS[finding.lifecycle])}
         </Text>
+        {/* The trigger source is a complete phrase on its own, so an
+            unformattable instant drops the timestamp AND the separator rather
+            than leaving a dangling middot. */}
         <Text className="text-caption text-text-tertiary">
-          {new Date(finding.evaluatedAt).toLocaleString()} ·{" "}
+          {evaluatedAt === null ? null : `${evaluatedAt} · `}
           {t(SHOPPING_AGENT_TRIGGER_SOURCE_LABEL_KEYS[finding.triggerSource])}
         </Text>
         <Text className="text-caption text-text-tertiary">

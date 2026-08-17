@@ -88,7 +88,7 @@ export default function FeedScreen() {
 function FeedBody({ storeId, configurationId }: { storeId: string; configurationId: string }) {
   const router = useRouter();
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const feed = useFeed(storeId, configurationId);
   const status = useFeedStatus(storeId, configurationId);
   const sync = useSyncFeed(storeId, configurationId);
@@ -139,10 +139,12 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
                   last: formatWhen(
                     status.data.source.lastAttemptAt ?? undefined,
                     t("feeds.never"),
+                    locale,
                   ),
                   next: formatWhen(
                     status.data.source.nextRunAt ?? undefined,
                     t("feeds.unscheduled"),
+                    locale,
                   ),
                 })}
               </Text>
@@ -192,7 +194,7 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
                   {run.outcome ? ` · ${run.outcome}` : ""}
                 </Text>
                 <Text className="mt-0.5 text-xs text-muted-foreground">
-                  {formatWhen(run.startedAt, t("common.unknown"))}
+                  {formatWhen(run.startedAt, t("common.unknown"), locale)}
                 </Text>
                 <Text className="mt-1 text-xs text-muted-foreground">
                   {t("feeds.detail.runCounts", {
@@ -522,7 +524,7 @@ function DraftVersion({
 
 /** The validation and import reports, and the CSV a merchant downloads. */
 function Reports({ storeId, configurationId }: { storeId: string; configurationId: string }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const reports = useFeedReports(storeId, configurationId);
   if (reports.isPending || reports.isError || (reports.data ?? []).length === 0) return null;
 
@@ -535,7 +537,7 @@ function Reports({ storeId, configurationId }: { storeId: string; configurationI
         <View key={report.id} className="rounded-2xl border border-border bg-surface p-4">
           <Text className="text-sm font-semibold text-foreground">{report.mode}</Text>
           <Text className="mt-0.5 text-xs text-muted-foreground">
-            {formatWhen(report.createdAt, t("common.unknown"))}
+            {formatWhen(report.createdAt, t("common.unknown"), locale)}
           </Text>
           <Text className="mt-1 text-xs text-muted-foreground">
             {t("feeds.reports.counts", {

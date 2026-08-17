@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   useColorScheme,
+  formatDate,
 } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -136,7 +137,8 @@ function MemberRow({
   onRemove: () => void;
 }) {
   const { colors } = useColorScheme();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const joinedOn = formatDate(member.joinedAt, locale);
   const isOwner = member.role === "owner";
 
   return (
@@ -149,11 +151,15 @@ function MemberRow({
           <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
             {member.oxyUserId}
           </Text>
-          <Text className="text-xs text-muted-foreground">
-            {t("settings.members.joinedOn", {
-              date: new Date(member.joinedAt).toLocaleDateString(),
-            })}
-          </Text>
+          {/* The sentence NAMES the date, so an unformattable one drops the
+              whole line rather than interpolating a null — i18n-js renders a
+              missing placeholder as the literal `[missing "%{date}" value]`
+              (#529). The account id above already identifies the member. */}
+          {joinedOn === null ? null : (
+            <Text className="text-xs text-muted-foreground">
+              {t("settings.members.joinedOn", { date: joinedOn })}
+            </Text>
+          )}
         </View>
         {!isOwner ? (
           <Pressable onPress={onRemove} className="p-2 active:opacity-70">

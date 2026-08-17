@@ -8,7 +8,7 @@ import type {
   ProviderOnboardingState,
   SellerPaymentSettings,
 } from "@mercaria/shared-types";
-import { Text, Button, Label, useColorScheme } from "@mercaria/ui";
+import { Text, Button, Label, formatDate, useColorScheme } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
 import { RequireStore } from "@/components/shell/RequireStore";
@@ -223,7 +223,11 @@ function PaymentsPanel({
 /** Counts and a deadline — never the list, which only Stripe holds. */
 function RequirementsCard({ settings }: { settings: SellerPaymentSettings }) {
   const { requirements } = settings.account;
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const deadline =
+    requirements.currentDeadline === undefined
+      ? null
+      : formatDate(requirements.currentDeadline, locale);
   const outstanding = requirements.currentlyDue + requirements.pastDue;
   if (outstanding === 0 && requirements.pendingVerification === 0) return null;
 
@@ -246,12 +250,10 @@ function RequirementsCard({ settings }: { settings: SellerPaymentSettings }) {
           value={t("settings.payments.itemCount", { count: requirements.pendingVerification })}
         />
       ) : null}
-      {requirements.currentDeadline !== undefined ? (
-        <Row
-          label={t("settings.payments.dueBy")}
-          value={new Date(requirements.currentDeadline).toLocaleDateString()}
-        />
-      ) : null}
+      {/* `Row`'s value is the whole of what the row says, so an unformattable
+          deadline drops the row rather than rendering "Invalid Date" beside a
+          "Due by" label (#529). */}
+      {deadline === null ? null : <Row label={t("settings.payments.dueBy")} value={deadline} />}
       <Text className="mt-3 text-xs text-muted-foreground">
         {t("settings.payments.requirementsNote")}
       </Text>
