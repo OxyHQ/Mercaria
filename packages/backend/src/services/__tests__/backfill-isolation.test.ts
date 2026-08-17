@@ -85,7 +85,7 @@ const DOMAIN_SOURCES: readonly { path: string; source: string }[] = [
  * know what was ordered would be a migration touching placed orders.
  */
 const ORDER_OR_MONEY_REFERENCE =
-  /db\/orders\/|db\/payments\/|db\/fees\/|services\/payments\/|services\/fees\/|services\/refund|order\.service|refund\.service|orderRepository|refundRepository|paymentRepository|ledgerRepository|insertOrder|order_items|ledger_entries|ledger_transactions/;
+  /db\/orders\/|db\/payments\/|db\/fees\/|services\/payments\/|\.\.\/payments\/|services\/fees\/|\.\.\/fees\/|services\/refund|order\.service|refund\.service|orderRepository|refundRepository|paymentRepository|ledgerRepository|insertOrder|order_items|ledger_entries|ledger_transactions/;
 
 /**
  * FAVORITES — issue immutable-history rule 4: "existing favorites remain listing
@@ -244,4 +244,44 @@ describe('the backfill cannot reach the domains it must not', () => {
       'insertOrder',
     );
   });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* #454: the detector must match the IDIOM, not one spelling of it            */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * These detectors named each forbidden domain by its `services/<domain>/` path
+ * only, which is not the specifier a module inside this domain writes: a
+ * sibling directory is one `../` away, so the real import is `'../<domain>/…'`
+ * and it passed the wall untouched. MEASURED on `origin/main` by executing each
+ * pattern against that spelling.
+ *
+ * One relative alternative per domain covers EVERY depth, because however many
+ * `../` segments precede it the last always abuts the directory name.
+ *
+ * The probes below are written from the IDIOM rather than from the regex — a
+ * self-test derived from the pattern can only confirm the pattern matches
+ * itself. The imported SYMBOL is deliberately neutral in each: the sibling
+ * probe in `freshness-isolation.test.ts` imported `rankOffers`, which its
+ * pattern matches by function NAME, so it passed without ever exercising the
+ * path alternative it appeared to cover.
+ */
+describe('#454: a relative import cannot walk around these detectors', () => {
+  it('ORDER_OR_MONEY_REFERENCE sees a sibling-relative import', () => {
+    expect(
+      ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../payments/thing.service.js';"),
+      "a module here reaches payments as '../payments/…' and that must not pass",
+    ).toBe(true);
+    expect(ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';")).toBe(true);
+    expect(
+      ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../fees/thing.service.js';"),
+      "a module here reaches fees as '../fees/…' and that must not pass",
+    ).toBe(true);
+    expect(ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../../services/fees/thing.service.js';")).toBe(true);
+    // The negative half, or the widening would fire on ordinary imports.
+    expect(ORDER_OR_MONEY_REFERENCE.test("import { helper } from '../payments-display/format.js';")).toBe(false);
+    expect(ORDER_OR_MONEY_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
+  });
+
 });

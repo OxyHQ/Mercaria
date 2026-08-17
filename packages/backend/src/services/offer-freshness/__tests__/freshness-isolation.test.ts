@@ -193,11 +193,11 @@ const REDIRECT_COMPOSITION =
   /buildAffiliateUrl|composeTrackedUrl|res\.redirect|services\/outbound\/|trackingTemplate\s*\.replace/;
 
 /** #74's ranking, and the signal domains whose entry points this one publishes. */
-const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\//;
-const SIGNAL_DOMAIN_REFERENCE = /services\/analytics\/|services\/referrals\/|priceAlertRepository/;
+const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\/|\.\.\/ranking\//;
+const SIGNAL_DOMAIN_REFERENCE = /services\/analytics\/|\.\.\/analytics\/|services\/referrals\/|\.\.\/referrals\/|priceAlertRepository/;
 
 /** The cart, the checkout and the money path. */
-const COMMERCE_REFERENCE = /services\/cart|services\/checkout|services\/payments\/|cartRepository/;
+const COMMERCE_REFERENCE = /services\/cart|services\/checkout|services\/payments\/|\.\.\/payments\/|cartRepository/;
 
 describe('there is no global TTL, and the resolver cannot grow one', () => {
   it('the policy resolver imports no configuration', () => {
@@ -330,9 +330,32 @@ describe('the domain decides, and does not do another issue’s job', () => {
   it('the mutation self-test: every detector IS able to fire', () => {
     expect(REDIRECT_COMPOSITION.test("res.redirect(302, destination);")).toBe(true);
     expect(REDIRECT_COMPOSITION.test("import { buildAffiliateUrl } from '../outbound/x.js';")).toBe(true);
+    // The ranking probe used to import `rankOffers`, which the pattern matches
+    // by FUNCTION NAME — so it passed without ever exercising the path
+    // alternative beside it, and read as coverage of both. The symbol here is
+    // deliberately neutral, so only the specifier can carry the match.
+    expect(RANKING_REFERENCE.test("import { helper } from '../ranking/x.js';")).toBe(true);
     expect(RANKING_REFERENCE.test("import { rankOffers } from '../ranking/x.js';")).toBe(true);
-    expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from '../analytics/seams.js';")).toBe(false);
+
+    // This line read `.toBe(false)` until #454. The specifier it names is the
+    // one a module in `services/offer-freshness/` actually writes to reach
+    // analytics — a sibling directory is one `../` away — so the assertion was
+    // recording the hole as intended behaviour, which is exactly what kept the
+    // gate green over it. `'services/analytics/…'` below is not a specifier any
+    // module writes; it was the REGEX being asserted against itself.
+    expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from '../analytics/seams.js';")).toBe(true);
+    expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from '../referrals/touch.js';")).toBe(true);
     expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from 'services/analytics/seams.js';")).toBe(true);
+
+    // Both depths: the sibling form AND the one written from a nested module.
+    expect(COMMERCE_REFERENCE.test("import { x } from '../payments/y.js';")).toBe(true);
     expect(COMMERCE_REFERENCE.test("import { x } from '../../services/payments/y.js';")).toBe(true);
+
+    // The negative half — a neighbour that merely shares a prefix is not the
+    // domain, or the widening would fire on ordinary imports.
+    expect(SIGNAL_DOMAIN_REFERENCE.test("import { x } from '../analytics-display/fmt.js';")).toBe(
+      false,
+    );
+    expect(COMMERCE_REFERENCE.test("import { getRates } from '../fx.service.js';")).toBe(false);
   });
 });

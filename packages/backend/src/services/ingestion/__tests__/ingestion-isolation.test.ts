@@ -127,7 +127,7 @@ const CANONICAL_WRITE_REFERENCE =
 const RETAIL_REFERENCE = /retail-eligibility|retail-pricing|retailEligibility|retailPricing|mercaria_retail/;
 
 /** #74's ranking. */
-const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\//;
+const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\/|\.\.\/ranking\//;
 
 /** #37's outbound redirect. This domain models routing metadata and never routes. */
 const REDIRECT_REFERENCE = /outboundRedirect|redirect\.service|buildAffiliateUrl|services\/outbound\//;
@@ -389,4 +389,39 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     // And it must not eat a URL's `//`, which is the classic over-strip.
     expect(withoutComments("const u = 'https://example.com/x';")).toContain('https://example.com/x');
   });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* #454: the detector must match the IDIOM, not one spelling of it            */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * These detectors named each forbidden domain by its `services/<domain>/` path
+ * only, which is not the specifier a module inside this domain writes: a
+ * sibling directory is one `../` away, so the real import is `'../<domain>/…'`
+ * and it passed the wall untouched. MEASURED on `origin/main` by executing each
+ * pattern against that spelling.
+ *
+ * One relative alternative per domain covers EVERY depth, because however many
+ * `../` segments precede it the last always abuts the directory name.
+ *
+ * The probes below are written from the IDIOM rather than from the regex — a
+ * self-test derived from the pattern can only confirm the pattern matches
+ * itself. The imported SYMBOL is deliberately neutral in each: the sibling
+ * probe in `freshness-isolation.test.ts` imported `rankOffers`, which its
+ * pattern matches by function NAME, so it passed without ever exercising the
+ * path alternative it appeared to cover.
+ */
+describe('#454: a relative import cannot walk around these detectors', () => {
+  it('RANKING_REFERENCE sees a sibling-relative import', () => {
+    expect(
+      RANKING_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
+      "a module here reaches ranking as '../ranking/…' and that must not pass",
+    ).toBe(true);
+    expect(RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    // The negative half, or the widening would fire on ordinary imports.
+    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(false);
+    expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
+  });
+
 });
