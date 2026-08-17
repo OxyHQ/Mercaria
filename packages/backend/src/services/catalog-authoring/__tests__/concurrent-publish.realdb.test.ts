@@ -412,3 +412,101 @@ describe('two publications of one draft, fired at once', () => {
     expect(alpha.pid).not.toBe(beta.pid);
   });
 });
+
+/**
+ * The other half of "concurrent draft/publish": two EDITS of one draft.
+ *
+ * `patchDraft` guards with an optimistic version CAS
+ * (`db/catalogAuthoring/draftRepository.ts:190`, `eq(version, expectedVersion)`)
+ * and answers a mismatch with "This draft changed while you were editing it"
+ * (`draft.service.ts:310`). **Nothing asserted the refusal** — a positive control
+ * finds that sentence in production code in two files, and in no test — so the
+ * CAS was a convention, and a `patchDraft` that dropped the version predicate
+ * would silently let a second editor overwrite the first's variant matrix.
+ *
+ * A CAS needs no barrier, unlike the publish lock: it is ONE statement, so a
+ * stale version is sufficient and deterministic. The concurrent case is here as
+ * well, because it is what the box actually names and because two editors racing
+ * is the situation the CAS exists for.
+ */
+describe('two edits of one draft', () => {
+  let draftId: string;
+  let currentVersion: number;
+
+  beforeAll(async () => {
+    const draft = await createDraft(db, {
+      storeId,
+      actorOxyUserId: phones.actorOxyUserId,
+      categoryId,
+      productTypeKey: nsKey(ns, 'smartphone'),
+      flow: 'merchant',
+      locale: 'en',
+      market: 'ES',
+      permissions: E2E_PERMISSIONS,
+      ttlSeconds: 3600,
+      title: `Concurrency phone edits`,
+    });
+    draftId = draft.id;
+    currentVersion = draft.version;
+  }, 300_000);
+
+  it('accepts an edit at the current version, and moves the version on', async () => {
+    // The positive control for both cases below: without it, a refusal could be
+    // about the PATCH being invalid rather than about the version being stale.
+    const patched = await patchDraft(db, {
+      storeId,
+      draftId,
+      expectedVersion: currentVersion,
+      permissions: E2E_PERMISSIONS,
+      description: 'The first editor wins.',
+    });
+    expect(patched.version).toBeGreaterThan(currentVersion);
+    currentVersion = patched.version;
+  });
+
+  it('refuses the SAME version a second time', async () => {
+    const stale = currentVersion - 1;
+    await expect(
+      patchDraft(db, {
+        storeId,
+        draftId,
+        expectedVersion: stale,
+        permissions: E2E_PERMISSIONS,
+        description: 'The second editor sends a version that has moved on.',
+      }),
+      'A stale `expectedVersion` was accepted, so the CAS at draftRepository.ts:190 is not being ' +
+        'applied — a second editor silently overwrites the first.',
+    ).rejects.toThrow(/changed while you were editing it/u);
+  });
+
+  it('lets exactly ONE of two concurrent edits at the same version through', async () => {
+    const at = currentVersion;
+    const results = await Promise.allSettled([
+      patchDraft(alpha.db, {
+        storeId,
+        draftId,
+        expectedVersion: at,
+        permissions: E2E_PERMISSIONS,
+        description: 'Editor alpha.',
+      }),
+      patchDraft(beta.db, {
+        storeId,
+        draftId,
+        expectedVersion: at,
+        permissions: E2E_PERMISSIONS,
+        description: 'Editor beta.',
+      }),
+    ]);
+    const won = results.filter((result) => result.status === 'fulfilled');
+    const lost = results.filter((result) => result.status === 'rejected');
+    console.log(`[concurrent edit] fulfilled=${won.length} rejected=${lost.length}`);
+    expect(won).toHaveLength(1);
+    expect(lost).toHaveLength(1);
+    // The loser is refused for the RIGHT reason. Without this the case is
+    // satisfied by any failure at all, including a connection error.
+    const rejection = lost[0] as PromiseRejectedResult;
+    expect(String(rejection.reason)).toMatch(/changed while you were editing it/u);
+    // Two connections, so this is a real overlap rather than a pipelined pair.
+    expect(alpha.pid).not.toBe(beta.pid);
+  });
+});
