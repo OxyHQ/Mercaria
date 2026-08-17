@@ -592,9 +592,21 @@ describe('localized search aliases', () => {
     let removed = 0;
     try {
       await db.transaction(async (tx) => {
+        // Scoped to THIS run's product, and that is load-bearing rather than
+        // tidy: the seed namespaces keys, slugs and handles and NOT alias text,
+        // so every sibling file that applies the smartphone package holds a row
+        // with this same `normalized_alias`. Deleting by text alone removed
+        // theirs too and the `toBe(1)` below failed — measured on CI as
+        // `expected 2 to be 1` once #367 Workstream 18's journeys began seeding
+        // the package as well. `canonical_products.slug` is unique and
+        // namespaced, and `canonical_product_aliases` is unique on
+        // `(product_id, normalized_alias)`, so the scoped delete can only ever
+        // match one row. The control that caught it stays exactly as it was.
         const deleted = await tx.execute<{ id: string }>(sql`
           delete from canonical_product_aliases
           where normalized_alias = ${'móvil lumira axon 9 pro'}
+            and product_id = (
+              select id from canonical_products where slug = ${nsSlug(ns, 'lumira-axon-9-pro')})
           returning id
         `);
         removed = [...deleted].length;
