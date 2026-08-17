@@ -575,10 +575,10 @@ export {
 // a financial state not depend on one, and a surface wanting colour writes it
 // beside the label so a reviewer can see the label carries the meaning alone.
 export {
-  REFERRAL_OUTSTANDING_LABELS,
-  REFERRAL_PAYOUT_STATUS_LABELS,
-  REFERRAL_REWARD_STATE_EXPLANATIONS,
-  REFERRAL_REWARD_STATE_LABELS,
+  REFERRAL_OUTSTANDING_KEYS,
+  REFERRAL_PAYOUT_STATUS_KEYS,
+  REFERRAL_REWARD_STATE_EXPLANATION_KEYS,
+  REFERRAL_REWARD_STATE_LABEL_KEYS,
   describeMetric,
   describeRewardBasis,
   describeWithheldRows,

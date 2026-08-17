@@ -348,6 +348,62 @@
         "destination_not_supplied": "Dites-nous où cela doit aller et nous pourrons en fixer le prix.",
         "retail_not_enabled": "Cet article n'est pas en vente actuellement."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "En attente",
+          "vested": "Acquis",
+          "frozen": "En cours d'examen",
+          "paid": "Payé",
+          "voided": "Annulé"
+        },
+        "explanation": {
+          "held": "Acquise et en période de rétention. Rien n'est perdu pendant l'attente, et le montant peut encore baisser si l'achat correspondant est remboursé.",
+          "vested": "La rétention est passée et aucune annulation ne l'a atteinte. Elle rejoindra le prochain versement dès que votre compte satisfera les contrôles de paiement et que le solde atteindra le minimum.",
+          "frozen": "En pause pendant un examen — un litige sur l'achat, ou une vérification du compte. Le compteur de rétention s'arrête au lieu de repartir, et reprend où il était si l'examen aboutit.",
+          "paid": "Envoyée vers votre destination de versement. Un paiement n'est jamais défait après coup.",
+          "voided": "L'argent dont elle provenait a disparu — généralement un remboursement — la récompense est partie avec. L'enregistrement reste, avec le motif."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "Terminez et envoyez votre candidature.",
+        "application_under_review": "Votre candidature est entre les mains de notre équipe.",
+        "application_changes_requested": "Nous avons demandé une modification de votre candidature.",
+        "partner_agreement_not_accepted": "Acceptez le contrat de partenariat.",
+        "partner_agreement_superseded": "Le contrat de partenariat a changé — acceptez la nouvelle version.",
+        "tax_questionnaire_not_completed": "Remplissez le court questionnaire fiscal.",
+        "identity_verification_not_ready": "Terminez la vérification d'identité auprès de notre prestataire de paiement.",
+        "payout_destination_not_ready": "Ajoutez une destination de versement.",
+        "partner_suspended": "Votre participation est suspendue.",
+        "partner_terminated": "Votre participation a pris fin.",
+        "enrollment_is_test_only": "Il s'agit d'une inscription de test, sans versement."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate} % de %{base}",
+        "fixedBudget": "Un montant fixe par parrainage éligible, prélevé sur un budget marketing approuvé.",
+        "fixedOther": "Un montant fixe par parrainage éligible, prélevé sur la source de financement approuvée.",
+        "notPublished": "Le taux de ce programme n'a pas encore été publié."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} Divisé par : %{denominator} Fenêtre : %{window} Source : %{source}. Ce qu'elle ne voit pas : %{limit}",
+        "withoutDenominator": "%{numerator} Fenêtre : %{window} Source : %{source}. Ce qu'elle ne voit pas : %{limit}"
+      },
+      "withheld": {
+        "all": "Cette ventilation est masquée jusqu'à ce que davantage de personnes soient arrivées. Un regroupement par marché ou appareil peut isoler quelqu'un à ces effectifs, nous affichons donc les totaux. Vos totaux ci-dessous sont complets.",
+        "some": {
+          "one": "%{count} groupe est masqué car il compte moins de %{floor} personnes. Son activité reste comptée dans les totaux.",
+          "other": "%{count} groupes sont masqués car ils comptent moins de %{floor} personnes. Leur activité reste comptée dans les totaux."
+        }
+      },
+      "payoutStatus": {
+        "open": "En préparation",
+        "approved": "Approuvé",
+        "processing": "En route",
+        "paid": "Payé",
+        "failed": "Envoi impossible",
+        "cancelled": "Annulé"
+      }
     }
   }
 }

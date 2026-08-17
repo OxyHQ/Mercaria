@@ -348,6 +348,62 @@
         "destination_not_supplied": "Tell us where this is going and we can price it.",
         "retail_not_enabled": "This item is not currently on sale."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "On hold",
+          "vested": "Vested",
+          "frozen": "Under review",
+          "paid": "Paid",
+          "voided": "Reversed"
+        },
+        "explanation": {
+          "held": "Earned and waiting out its hold period. Nothing is lost while it waits, and the amount can still fall if the purchase behind it is refunded.",
+          "vested": "The hold has passed and no reversal reached it. It joins the next payout run once your account clears the payout checks and the balance reaches the minimum.",
+          "frozen": "Paused while something is reviewed — a dispute on the purchase, or a check on the account. The hold clock stops rather than restarting, and it returns to where it was if the review clears.",
+          "paid": "Sent to your payout destination. A payment is never un-made after the fact.",
+          "voided": "The money it was drawn from went away — usually a refund — so the reward went with it. The record stays, with the reason."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "Finish and submit your application.",
+        "application_under_review": "Your application is with our team.",
+        "application_changes_requested": "We have asked for a change to your application.",
+        "partner_agreement_not_accepted": "Accept the partner agreement.",
+        "partner_agreement_superseded": "The partner agreement has changed — accept the new version.",
+        "tax_questionnaire_not_completed": "Complete the short tax questionnaire.",
+        "identity_verification_not_ready": "Finish identity verification with our payment provider.",
+        "payout_destination_not_ready": "Add a payout destination.",
+        "partner_suspended": "Your participation is suspended.",
+        "partner_terminated": "Your participation has ended.",
+        "enrollment_is_test_only": "This is a test enrolment and does not pay out."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate}% of %{base}",
+        "fixedBudget": "A fixed amount per qualifying referral, drawn from an approved marketing budget.",
+        "fixedOther": "A fixed amount per qualifying referral, drawn from the approved funding source.",
+        "notPublished": "The rate for this programme has not been published yet."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} Divided by: %{denominator} Window: %{window} Source: %{source}. What it cannot see: %{limit}",
+        "withoutDenominator": "%{numerator} Window: %{window} Source: %{source}. What it cannot see: %{limit}"
+      },
+      "withheld": {
+        "all": "This breakdown is hidden until more people have arrived. Grouping by market or device can single somebody out at these numbers, so we show the totals instead. Your totals below are complete.",
+        "some": {
+          "one": "%{count} group is hidden because it holds fewer than %{floor} people. Its activity is still counted in the totals.",
+          "other": "%{count} groups are hidden because they hold fewer than %{floor} people. Their activity is still counted in the totals."
+        }
+      },
+      "payoutStatus": {
+        "open": "Being prepared",
+        "approved": "Approved",
+        "processing": "On its way",
+        "paid": "Paid",
+        "failed": "Could not be sent",
+        "cancelled": "Cancelled"
+      }
     }
   }
 }

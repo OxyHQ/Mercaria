@@ -348,6 +348,62 @@
         "destination_not_supplied": "Sagen Sie uns das Ziel, dann können wir den Preis berechnen.",
         "retail_not_enabled": "Dieser Artikel steht derzeit nicht zum Verkauf."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "Zurückgehalten",
+          "vested": "Unverfallbar",
+          "frozen": "In Prüfung",
+          "paid": "Ausgezahlt",
+          "voided": "Storniert"
+        },
+        "explanation": {
+          "held": "Verdient und in der Haltefrist. Währenddessen geht nichts verloren, und der Betrag kann noch sinken, wenn der zugrunde liegende Kauf erstattet wird.",
+          "vested": "Die Haltefrist ist abgelaufen und keine Stornierung hat ihn erreicht. Er kommt in den nächsten Auszahlungslauf, sobald Ihr Konto die Auszahlungsprüfungen besteht und das Guthaben den Mindestbetrag erreicht.",
+          "frozen": "Pausiert, während etwas geprüft wird – eine Reklamation zum Kauf oder eine Kontoprüfung. Die Haltefrist stoppt, statt neu zu beginnen, und läuft weiter, wenn die Prüfung abgeschlossen ist.",
+          "paid": "An Ihr Auszahlungsziel gesendet. Eine Zahlung wird nachträglich nie rückgängig gemacht.",
+          "voided": "Das Geld, aus dem sie stammte, ist entfallen – meist durch eine Erstattung – also entfiel die Prämie mit. Der Eintrag bleibt, mit dem Grund."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "Schließen Sie Ihren Antrag ab und senden Sie ihn.",
+        "application_under_review": "Ihr Antrag liegt bei unserem Team.",
+        "application_changes_requested": "Wir haben eine Änderung an Ihrem Antrag angefragt.",
+        "partner_agreement_not_accepted": "Akzeptieren Sie die Partnervereinbarung.",
+        "partner_agreement_superseded": "Die Partnervereinbarung hat sich geändert – akzeptieren Sie die neue Fassung.",
+        "tax_questionnaire_not_completed": "Füllen Sie den kurzen Steuerfragebogen aus.",
+        "identity_verification_not_ready": "Schließen Sie die Identitätsprüfung bei unserem Zahlungsanbieter ab.",
+        "payout_destination_not_ready": "Fügen Sie ein Auszahlungsziel hinzu.",
+        "partner_suspended": "Ihre Teilnahme ist ausgesetzt.",
+        "partner_terminated": "Ihre Teilnahme ist beendet.",
+        "enrollment_is_test_only": "Dies ist eine Testanmeldung und zahlt nicht aus."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate} % von %{base}",
+        "fixedBudget": "Ein fester Betrag je qualifizierter Empfehlung, aus einem genehmigten Marketingbudget.",
+        "fixedOther": "Ein fester Betrag je qualifizierter Empfehlung, aus der genehmigten Finanzierungsquelle.",
+        "notPublished": "Der Satz für dieses Programm wurde noch nicht veröffentlicht."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} Geteilt durch: %{denominator} Zeitraum: %{window} Quelle: %{source}. Was sie nicht sieht: %{limit}",
+        "withoutDenominator": "%{numerator} Zeitraum: %{window} Quelle: %{source}. Was sie nicht sieht: %{limit}"
+      },
+      "withheld": {
+        "all": "Diese Aufschlüsselung bleibt verborgen, bis mehr Personen dazugekommen sind. Eine Gruppierung nach Markt oder Gerät kann bei diesen Zahlen Einzelne identifizierbar machen, daher zeigen wir die Summen. Ihre Summen unten sind vollständig.",
+        "some": {
+          "one": "%{count} Gruppe ist verborgen, weil sie weniger als %{floor} Personen umfasst. Ihre Aktivität zählt weiterhin in den Summen.",
+          "other": "%{count} Gruppen sind verborgen, weil sie weniger als %{floor} Personen umfassen. Ihre Aktivität zählt weiterhin in den Summen."
+        }
+      },
+      "payoutStatus": {
+        "open": "Wird vorbereitet",
+        "approved": "Genehmigt",
+        "processing": "Unterwegs",
+        "paid": "Ausgezahlt",
+        "failed": "Konnte nicht gesendet werden",
+        "cancelled": "Storniert"
+      }
     }
   }
 }

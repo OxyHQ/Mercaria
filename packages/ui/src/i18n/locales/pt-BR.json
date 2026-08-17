@@ -348,6 +348,62 @@
         "destination_not_supplied": "Diga-nos para onde vai e poderemos calcular o preço.",
         "retail_not_enabled": "Este item não está à venda no momento."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "Em espera",
+          "vested": "Liberado",
+          "frozen": "Em análise",
+          "paid": "Pago",
+          "voided": "Revertido"
+        },
+        "explanation": {
+          "held": "Ganho e aguardando o período de retenção. Nada se perde na espera, e o valor ainda pode cair se a compra por trás dele for reembolsada.",
+          "vested": "A retenção passou e nenhuma reversão chegou até ele. Entra na próxima remessa de pagamento assim que sua conta passar nas verificações e o saldo atingir o mínimo.",
+          "frozen": "Pausado enquanto algo é analisado — uma disputa na compra ou uma verificação da conta. O relógio da retenção para em vez de reiniciar, e volta de onde estava se a análise for concluída.",
+          "paid": "Enviado ao seu destino de pagamento. Um pagamento nunca é desfeito depois.",
+          "voided": "O dinheiro de onde saiu desapareceu — normalmente um reembolso — então a recompensa foi junto. O registro permanece, com o motivo."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "Conclua e envie sua inscrição.",
+        "application_under_review": "Sua inscrição está com nossa equipe.",
+        "application_changes_requested": "Pedimos uma alteração na sua inscrição.",
+        "partner_agreement_not_accepted": "Aceite o contrato de parceiro.",
+        "partner_agreement_superseded": "O contrato de parceiro mudou — aceite a nova versão.",
+        "tax_questionnaire_not_completed": "Preencha o breve questionário fiscal.",
+        "identity_verification_not_ready": "Conclua a verificação de identidade com nosso provedor de pagamento.",
+        "payout_destination_not_ready": "Adicione um destino de pagamento.",
+        "partner_suspended": "Sua participação está suspensa.",
+        "partner_terminated": "Sua participação foi encerrada.",
+        "enrollment_is_test_only": "Esta é uma inscrição de teste e não gera pagamento."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate}% de %{base}",
+        "fixedBudget": "Um valor fixo por indicação qualificada, retirado de um orçamento de marketing aprovado.",
+        "fixedOther": "Um valor fixo por indicação qualificada, retirado da fonte de financiamento aprovada.",
+        "notPublished": "A taxa deste programa ainda não foi publicada."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} Dividido por: %{denominator} Janela: %{window} Fonte: %{source}. O que não consegue ver: %{limit}",
+        "withoutDenominator": "%{numerator} Janela: %{window} Fonte: %{source}. O que não consegue ver: %{limit}"
+      },
+      "withheld": {
+        "all": "Este detalhamento fica oculto até que mais pessoas cheguem. Agrupar por mercado ou dispositivo pode identificar alguém nesses números, então mostramos os totais. Seus totais abaixo estão completos.",
+        "some": {
+          "one": "%{count} grupo está oculto porque tem menos de %{floor} pessoas. A atividade dele continua contando nos totais.",
+          "other": "%{count} grupos estão ocultos porque têm menos de %{floor} pessoas. A atividade deles continua contando nos totais."
+        }
+      },
+      "payoutStatus": {
+        "open": "Em preparação",
+        "approved": "Aprovado",
+        "processing": "A caminho",
+        "paid": "Pago",
+        "failed": "Não foi possível enviar",
+        "cancelled": "Cancelado"
+      }
     }
   }
 }

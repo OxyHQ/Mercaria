@@ -29,6 +29,7 @@
  * partner is agreeing to.
  */
 
+import type { Translate } from "../i18n/create-app-i18n";
 import type {
   ReferralMetricDefinition,
   ReferralPartnerOutstandingItem,
@@ -36,43 +37,41 @@ import type {
   ReferralRewardState,
 } from "@mercaria/shared-types";
 
-/** The short label a badge shows for one reward state. */
-export const REFERRAL_REWARD_STATE_LABELS: Readonly<Record<ReferralRewardState, string>> = {
-  held: "On hold",
-  vested: "Vested",
-  frozen: "Under review",
-  paid: "Paid",
-  voided: "Reversed",
+/** The short label a badge shows for one reward state, as a KEY (#437). */
+export const REFERRAL_REWARD_STATE_LABEL_KEYS: Readonly<Record<ReferralRewardState, string>> = {
+  held: "ui.referral.rewardState.label.held",
+  vested: "ui.referral.rewardState.label.vested",
+  frozen: "ui.referral.rewardState.label.frozen",
+  paid: "ui.referral.rewardState.label.paid",
+  voided: "ui.referral.rewardState.label.voided",
 };
 
-/** What is actually true of money in that state. */
-export const REFERRAL_REWARD_STATE_EXPLANATIONS: Readonly<Record<ReferralRewardState, string>> = {
-  held:
-    "Earned and waiting out its hold period. Nothing is lost while it waits, and the amount can still fall if the purchase behind it is refunded.",
-  vested:
-    "The hold has passed and no reversal reached it. It joins the next payout run once your account clears the payout checks and the balance reaches the minimum.",
-  frozen:
-    "Paused while something is reviewed — a dispute on the purchase, or a check on the account. The hold clock stops rather than restarting, and it returns to where it was if the review clears.",
-  paid: "Sent to your payout destination. A payment is never un-made after the fact.",
-  voided:
-    "The money it was drawn from went away — usually a refund — so the reward went with it. The record stays, with the reason.",
+/** What is actually true of money in that state, as a KEY. */
+export const REFERRAL_REWARD_STATE_EXPLANATION_KEYS: Readonly<
+  Record<ReferralRewardState, string>
+> = {
+  held: "ui.referral.rewardState.explanation.held",
+  vested: "ui.referral.rewardState.explanation.vested",
+  frozen: "ui.referral.rewardState.explanation.frozen",
+  paid: "ui.referral.rewardState.explanation.paid",
+  voided: "ui.referral.rewardState.explanation.voided",
 };
 
-/** Why a partner cannot be paid yet, in the partner's own words. */
-export const REFERRAL_OUTSTANDING_LABELS: Readonly<
+/** Why a partner cannot be paid yet, in the partner's own words, as KEYS. */
+export const REFERRAL_OUTSTANDING_KEYS: Readonly<
   Record<ReferralPartnerOutstandingItem, string>
 > = {
-  application_not_submitted: "Finish and submit your application.",
-  application_under_review: "Your application is with our team.",
-  application_changes_requested: "We have asked for a change to your application.",
-  partner_agreement_not_accepted: "Accept the partner agreement.",
-  partner_agreement_superseded: "The partner agreement has changed — accept the new version.",
-  tax_questionnaire_not_completed: "Complete the short tax questionnaire.",
-  identity_verification_not_ready: "Finish identity verification with our payment provider.",
-  payout_destination_not_ready: "Add a payout destination.",
-  partner_suspended: "Your participation is suspended.",
-  partner_terminated: "Your participation has ended.",
-  enrollment_is_test_only: "This is a test enrolment and does not pay out.",
+  application_not_submitted: "ui.referral.outstanding.application_not_submitted",
+  application_under_review: "ui.referral.outstanding.application_under_review",
+  application_changes_requested: "ui.referral.outstanding.application_changes_requested",
+  partner_agreement_not_accepted: "ui.referral.outstanding.partner_agreement_not_accepted",
+  partner_agreement_superseded: "ui.referral.outstanding.partner_agreement_superseded",
+  tax_questionnaire_not_completed: "ui.referral.outstanding.tax_questionnaire_not_completed",
+  identity_verification_not_ready: "ui.referral.outstanding.identity_verification_not_ready",
+  payout_destination_not_ready: "ui.referral.outstanding.payout_destination_not_ready",
+  partner_suspended: "ui.referral.outstanding.partner_suspended",
+  partner_terminated: "ui.referral.outstanding.partner_terminated",
+  enrollment_is_test_only: "ui.referral.outstanding.enrollment_is_test_only",
 };
 
 /**
@@ -82,16 +81,27 @@ export const REFERRAL_OUTSTANDING_LABELS: Readonly<
  * could render a bare rate — #147 acceptance 7 held by the shape rather than by
  * whoever writes the next surface.
  */
-export function describeRewardBasis(basis: ReferralRewardBasisCopy): string {
+export function describeRewardBasis(t: Translate, basis: ReferralRewardBasisCopy): string {
   switch (basis.kind) {
     case "percentage_of_realized_base":
-      return `${(basis.rateBps / 100).toFixed(basis.rateBps % 100 === 0 ? 0 : 2)}% of ${basis.percentageOf}`;
+      return t("ui.referral.rewardBasis.percentage", {
+        rate: (basis.rateBps / 100).toFixed(basis.rateBps % 100 === 0 ? 0 : 2),
+        base: basis.percentageOf,
+      });
     case "fixed_amount":
-      return `A fixed amount per qualifying referral, drawn from ${basis.fundingSourceId === "fixed_budget" ? "an approved marketing budget" : "the approved funding source"}.`;
+      // TWO keys rather than one with an interpolated clause: the funding
+      // source is a different sentence in a language that inflects the
+      // preposition, and splicing a translated fragment into a translated
+      // frame is how that goes wrong invisibly.
+      return t(
+        basis.fundingSourceId === "fixed_budget"
+          ? "ui.referral.rewardBasis.fixedBudget"
+          : "ui.referral.rewardBasis.fixedOther",
+      );
     case "not_published":
       // NOT "0%" and not an empty string: a program whose rule is still a draft
       // pays nothing YET, which is a different statement from paying nothing.
-      return "The rate for this programme has not been published yet.";
+      return t("ui.referral.rewardBasis.notPublished");
   }
 }
 
@@ -102,9 +112,24 @@ export function describeRewardBasis(basis: ReferralRewardBasisCopy): string {
  * number says what it cannot see, and it is the half somebody reconciling their
  * own earnings actually needs.
  */
-export function describeMetric(definition: ReferralMetricDefinition): string {
-  const denominator = definition.denominator ? ` Divided by: ${definition.denominator}` : "";
-  return `${definition.numerator}${denominator} Window: ${definition.window} Source: ${definition.source}. What it cannot see: ${definition.attributionLimit}`;
+export function describeMetric(t: Translate, definition: ReferralMetricDefinition): string {
+  // A whole sentence per shape, never a frame with an optional clause spliced
+  // in: the denominator clause sits in a different position in several of the
+  // twelve, which a conditional fragment cannot express.
+  return definition.denominator
+    ? t("ui.referral.metric.withDenominator", {
+        numerator: definition.numerator,
+        denominator: definition.denominator,
+        window: definition.window,
+        source: definition.source,
+        limit: definition.attributionLimit,
+      })
+    : t("ui.referral.metric.withoutDenominator", {
+        numerator: definition.numerator,
+        window: definition.window,
+        source: definition.source,
+        limit: definition.attributionLimit,
+      });
 }
 
 /**
@@ -114,24 +139,28 @@ export function describeMetric(definition: ReferralMetricDefinition): string {
  * because those are different facts and a partner told the wrong one goes
  * looking for a bug in their promotion.
  */
-export function describeWithheldRows(input: {
-  withheldRowCount: number;
-  floor: number;
-  everythingWithheld: boolean;
-}): string {
+export function describeWithheldRows(
+  t: Translate,
+  input: {
+    withheldRowCount: number;
+    floor: number;
+    everythingWithheld: boolean;
+  },
+): string {
   if (input.withheldRowCount === 0) return "";
-  if (input.everythingWithheld) {
-    return `This breakdown is hidden until more people have arrived. Grouping by market or device can single somebody out at these numbers, so we show the totals instead. Your totals below are complete.`;
-  }
-  return `${input.withheldRowCount} ${input.withheldRowCount === 1 ? "group is" : "groups are"} hidden because they hold fewer than ${input.floor} people. Their activity is still counted in the totals.`;
+  if (input.everythingWithheld) return t("ui.referral.withheld.all");
+  // `count` drives i18n-js's pluralisation, which is why the English reads
+  // "group is"/"groups are" from two leaves rather than from a ternary here —
+  // a language with a different plural rule cannot be served by an English one.
+  return t("ui.referral.withheld.some", { count: input.withheldRowCount, floor: input.floor });
 }
 
-/** How a payout batch's state reads to the partner waiting on it. */
-export const REFERRAL_PAYOUT_STATUS_LABELS: Readonly<Record<string, string>> = {
-  open: "Being prepared",
-  approved: "Approved",
-  processing: "On its way",
-  paid: "Paid",
-  failed: "Could not be sent",
-  cancelled: "Cancelled",
+/** How a payout batch's state reads to the partner waiting on it, as KEYS. */
+export const REFERRAL_PAYOUT_STATUS_KEYS: Readonly<Record<string, string>> = {
+  open: "ui.referral.payoutStatus.open",
+  approved: "ui.referral.payoutStatus.approved",
+  processing: "ui.referral.payoutStatus.processing",
+  paid: "ui.referral.payoutStatus.paid",
+  failed: "ui.referral.payoutStatus.failed",
+  cancelled: "ui.referral.payoutStatus.cancelled",
 };

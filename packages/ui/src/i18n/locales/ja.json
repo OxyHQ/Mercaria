@@ -348,6 +348,62 @@
         "destination_not_supplied": "お届け先をお知らせいただければ、価格をご提示できます。",
         "retail_not_enabled": "この商品は現在販売しておりません。"
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "保留中",
+          "vested": "確定済み",
+          "frozen": "確認中",
+          "paid": "支払い済み",
+          "voided": "取り消し済み"
+        },
+        "explanation": {
+          "held": "獲得済みで、保留期間の経過を待っています。待機中に失われるものはありませんが、対象の購入が返金されると金額が減ることがあります。",
+          "vested": "保留期間が終了し、取り消しも届きませんでした。アカウントが支払い審査を通過し、残高が最低額に達すると、次回の支払いに含まれます。",
+          "frozen": "何かの確認のため一時停止しています — 購入に関する異議、またはアカウントの確認です。保留期間はリセットされず停止し、確認が終われば元の状態から再開します。",
+          "paid": "支払い先に送金しました。支払いが後から取り消されることはありません。",
+          "voided": "原資となったお金がなくなったため — 通常は返金です — 報酬もなくなりました。記録は理由とともに残ります。"
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "申請を完了して送信してください。",
+        "application_under_review": "申請はチームで確認中です。",
+        "application_changes_requested": "申請の修正をお願いしました。",
+        "partner_agreement_not_accepted": "パートナー規約に同意してください。",
+        "partner_agreement_superseded": "パートナー規約が変更されました — 新しい版に同意してください。",
+        "tax_questionnaire_not_completed": "短い税務アンケートにご記入ください。",
+        "identity_verification_not_ready": "決済プロバイダーでの本人確認を完了してください。",
+        "payout_destination_not_ready": "支払い先を追加してください。",
+        "partner_suspended": "参加が停止されています。",
+        "partner_terminated": "参加は終了しました。",
+        "enrollment_is_test_only": "これはテスト登録のため、支払いは行われません。"
+      },
+      "rewardBasis": {
+        "percentage": "%{base} の %{rate}%",
+        "fixedBudget": "条件を満たす紹介ごとの定額で、承認済みのマーケティング予算から支払われます。",
+        "fixedOther": "条件を満たす紹介ごとの定額で、承認済みの資金源から支払われます。",
+        "notPublished": "このプログラムの料率はまだ公開されていません。"
+      },
+      "metric": {
+        "withDenominator": "%{numerator} 除数: %{denominator} 期間: %{window} 出典: %{source}。把握できないもの: %{limit}",
+        "withoutDenominator": "%{numerator} 期間: %{window} 出典: %{source}。把握できないもの: %{limit}"
+      },
+      "withheld": {
+        "all": "この内訳は、対象者がもう少し増えるまで非表示です。この人数で市場や端末ごとに分けると個人が特定されうるため、合計のみを表示しています。下の合計は完全な値です。",
+        "some": {
+          "one": "%{floor} 人未満のため、%{count} 件のグループを非表示にしています。その活動は合計には含まれています。",
+          "other": "%{floor} 人未満のため、%{count} 件のグループを非表示にしています。それらの活動は合計には含まれています。"
+        }
+      },
+      "payoutStatus": {
+        "open": "準備中",
+        "approved": "承認済み",
+        "processing": "送金中",
+        "paid": "支払い済み",
+        "failed": "送金できませんでした",
+        "cancelled": "キャンセル済み"
+      }
     }
   }
 }
