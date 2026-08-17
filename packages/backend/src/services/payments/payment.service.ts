@@ -76,6 +76,8 @@ import {
 import { findSellerAccount } from './provider-account.service.js';
 import {
   insertLedgerTransaction,
+  LEDGER_ENTRY_ORDER,
+  LEDGER_TRANSACTION_ORDER,
   type LedgerEntryInput,
 } from '../../db/payments/ledgerRepository.js';
 import { ledgerEntries, ledgerTransactions } from '../../db/schema/ledger.js';
@@ -753,7 +755,10 @@ export async function tracePayment(query: PaymentTraceQuery): Promise<PaymentTra
       .select()
       .from(ledgerTransactions)
       .where(eq(ledgerTransactions.paymentId, payment.id))
-      .orderBy(ledgerTransactions.createdAt),
+      // The published order, never a local spelling — `created_at` alone ties
+      // for anything booked in one database transaction. See #466 and
+      // `LEDGER_TRANSACTION_ORDER`: this is STABLE, not chronological.
+      .orderBy(...LEDGER_TRANSACTION_ORDER),
   ]);
 
   const transactionIds = ledgerTransactionRows.map((row) => row.id);
@@ -763,7 +768,9 @@ export async function tracePayment(query: PaymentTraceQuery): Promise<PaymentTra
           .select()
           .from(ledgerEntries)
           .where(inArray(ledgerEntries.transactionId, transactionIds))
-          .orderBy(ledgerEntries.createdAt)
+          // Every leg of one transaction shares one `created_at` — they are
+          // written by a single statement — so the key is what orders them.
+          .orderBy(...LEDGER_ENTRY_ORDER)
       : [];
 
   const orders = await findOrdersInCheckoutGroup(payment.checkoutGroupId);

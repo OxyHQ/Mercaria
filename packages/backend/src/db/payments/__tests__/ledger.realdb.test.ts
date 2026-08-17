@@ -26,9 +26,12 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { sql } from 'drizzle-orm';
+import type { PgColumn } from 'drizzle-orm/pg-core';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import { ledgerEntries, ledgerTransactions } from '../../schema/ledger.js';
 import {
+  LEDGER_ENTRY_ORDER,
+  LEDGER_TRANSACTION_ORDER,
   findUnbalancedCurrencies,
   insertLedgerTransaction,
   UnbalancedLedgerTransactionError,
@@ -384,5 +387,162 @@ describe('the ledger is append-only', () => {
     for (const row of perAccount) {
       expect(BigInt(row.total)).toBe(0n);
     }
+  });
+});
+
+/**
+ * Issue #466 — the read order is TOTAL, so it cannot be decided by the planner.
+ *
+ * ## What is under test, and why one passing read would prove nothing
+ *
+ * A tied `ORDER BY` is UNSPECIFIED in PostgreSQL. A test that reads once and
+ * finds the sequence it expected has learned nothing: the planner returned one
+ * of several valid answers, and it may return a different one tomorrow for no
+ * observable reason. That is exactly how #466 survived — it failed CI once
+ * during PR #462 and passed on the immediate re-run with no change.
+ *
+ * So the property asserted here is a statement about the DATA rather than about
+ * one execution: **no two rows compare equal on the published ordering key.**
+ * If that holds there is exactly one valid answer and every planner must give
+ * it. The key is derived from the SAME exported tuple the queries order by, so
+ * there is no second spelling to drift — remove the tiebreak from
+ * `LEDGER_ENTRY_ORDER` and this goes red naming the duplicates.
+ */
+describe('the ledger read order is total', () => {
+  /** `{k0: …, k1: …}` over the published tuple, so the key has ONE spelling. */
+  function keyProjection(columns: readonly PgColumn[]): Record<string, PgColumn> {
+    return Object.fromEntries(columns.map((column, index) => [`k${String(index)}`, column]));
+  }
+
+  /** One row's ordering key, read back out of that projection in tuple order. */
+  function keyOf(row: Record<string, unknown>, width: number): string {
+    return Array.from({ length: width }, (_, index) => {
+      const value = row[`k${String(index)}`];
+      return value instanceof Date ? value.toISOString() : String(value);
+    }).join(' | ');
+  }
+
+  /** The keys that appear more than once — empty is the healthy answer. */
+  function duplicates(keys: readonly string[]): string[] {
+    const seen = new Set<string>();
+    const repeated = new Set<string>();
+    for (const key of keys) {
+      if (seen.has(key)) repeated.add(key);
+      seen.add(key);
+    }
+    return [...repeated];
+  }
+
+  const TAG = `${RUN_TAG}-order`;
+
+  /** This case's transactions, in the order the fixture wrote them. */
+  let writtenTransactionIds: string[] = [];
+
+  /**
+   * This case's entries and nothing else's — the file's own scoping rule.
+   *
+   * A FUNCTION and not a `const`: a describe body runs before its `beforeAll`,
+   * so a fragment built at describe time would join an empty id list and emit
+   * `in ()`. The failure would be a syntax error at query time in a file whose
+   * fixture looks fine.
+   */
+  function caseTransactionIds() {
+    return sql.join(
+      writtenTransactionIds.map((id) => sql`${id}`),
+      sql`, `,
+    );
+  }
+
+  beforeAll(async () => {
+    // TWO ledger transactions, THREE legs each, inside ONE database
+    // transaction. That is the shape the real charge path produces and it is
+    // where every tie lives: `createdAt()` defaults to
+    // `date_trunc('milliseconds', now())`, and `now()` is
+    // `transaction_timestamp()` — constant for a whole database transaction —
+    // so all eight rows carry one instant, to the microsecond.
+    writtenTransactionIds = await db.transaction(async (tx) => {
+      const first = await insertLedgerTransaction(
+        tx,
+        { kind: 'charge_succeeded', description: `${TAG} charge` },
+        [
+          { account: 'provider_clearing', currency: 'EUR', amountMinor: 9_000n },
+          { account: 'processor_expense', currency: 'EUR', amountMinor: 1_000n },
+          { account: 'merchant_payable', currency: 'EUR', amountMinor: -10_000n },
+        ],
+      );
+      const second = await insertLedgerTransaction(
+        tx,
+        { kind: 'transfer_created', description: `${TAG} transfer` },
+        [
+          { account: 'merchant_payable', currency: 'EUR', amountMinor: 10_000n },
+          { account: 'provider_clearing', currency: 'EUR', amountMinor: -7_500n },
+          { account: 'reserves', currency: 'EUR', amountMinor: -2_500n },
+        ],
+      );
+      return [first.id, second.id];
+    });
+  }, 120_000);
+
+  it('writes every leg on ONE instant, so a timestamp alone cannot order them', async () => {
+    const rows = await db
+      .select({
+        // `to_char` at microsecond precision: a JS `Date` rounds to the
+        // millisecond and could report a tie the server does not have, which
+        // would make this pass for the wrong reason.
+        createdAt: sql<string>`to_char(${ledgerEntries.createdAt} at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS.US')`,
+      })
+      .from(ledgerEntries)
+      .where(sql`${ledgerEntries.transactionId} in (${caseTransactionIds()})`);
+
+    // The floor. Without it "every leg shares an instant" is also what ZERO
+    // legs would report, and this whole describe would be measuring nothing.
+    expect(writtenTransactionIds).toHaveLength(2);
+    expect(rows).toHaveLength(6);
+
+    // The tie, re-derived rather than taken on trust: all six legs carry the
+    // same microsecond, so `ORDER BY created_at` over them is unspecified —
+    // which is the defect #466 reports, and the reason the published order
+    // carries a tiebreak at all.
+    expect(new Set(rows.map((row) => row.createdAt)).size).toBe(1);
+  });
+
+  it('returns entries under a key no two rows share, in that key order', async () => {
+    const width = LEDGER_ENTRY_ORDER.length;
+    const rows = await db
+      .select(keyProjection(LEDGER_ENTRY_ORDER))
+      .from(ledgerEntries)
+      .where(sql`${ledgerEntries.transactionId} in (${caseTransactionIds()})`)
+      .orderBy(...LEDGER_ENTRY_ORDER);
+
+    expect(rows).toHaveLength(6);
+    const keys = rows.map((row) => keyOf(row, width));
+
+    // THE PROPERTY. All six rows tie on the timestamp (asserted above), so this
+    // is false for any key that stops there — which is the mutation: delete
+    // `ledgerEntries.id` from `LEDGER_ENTRY_ORDER` and this reports the
+    // duplicate. A total key means the planner has exactly one valid answer,
+    // which is the only form in which "the order is deterministic" is a fact
+    // about the query rather than about the run that happened to be observed.
+    expect(duplicates(keys)).toEqual([]);
+
+    // …and the rows actually come back in it. Totality is a fact about the KEY;
+    // this is what fails if a reader drops the `orderBy` or invents its own.
+    expect(keys).toEqual([...keys].sort());
+  });
+
+  it('returns transactions under a key no two rows share, in that key order', async () => {
+    const width = LEDGER_TRANSACTION_ORDER.length;
+    const rows = await db
+      .select(keyProjection(LEDGER_TRANSACTION_ORDER))
+      .from(ledgerTransactions)
+      .where(sql`${ledgerTransactions.description} like ${`${TAG}%`}`)
+      .orderBy(...LEDGER_TRANSACTION_ORDER);
+
+    // Two transactions booked in ONE database transaction, so they tie on
+    // `created_at` for the same reason the legs do.
+    expect(rows).toHaveLength(2);
+    const keys = rows.map((row) => keyOf(row, width));
+    expect(duplicates(keys)).toEqual([]);
+    expect(keys).toEqual([...keys].sort());
   });
 });

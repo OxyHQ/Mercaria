@@ -151,6 +151,68 @@ export function findUnbalancedCurrencies(entries: readonly LedgerEntryInput[]): 
 }
 
 /**
+ * The published READ ORDER for `ledger_transactions`, and the whole of it.
+ *
+ * ## The property this provides is STABILITY, and deliberately not chronology
+ *
+ * `created_at` alone is not a total order over these rows and cannot be made
+ * one, for two independent reasons that are both properties of the schema
+ * rather than of any caller:
+ *
+ *  1. `@oxyhq/db`'s `createdAt()` defaults to `date_trunc('milliseconds',
+ *     now())`, and `now()` is `transaction_timestamp()` — CONSTANT for a whole
+ *     database transaction. Two ledger transactions booked in one `db.transaction`
+ *     therefore carry the SAME instant, to the microsecond.
+ *  2. Even across separate transactions the value is truncated to a
+ *     millisecond, so two postings a few hundred microseconds apart tie as well.
+ *
+ * A tied `ORDER BY` is UNSPECIFIED in PostgreSQL: the planner may return the
+ * tied rows in any order, and which one it picks can change with plan shape or
+ * with nothing observable at all. That is issue #466 — a ledger assertion that
+ * passed or failed by luck, and failed CI once.
+ *
+ * The tiebreak is the primary key, which makes the order TOTAL and therefore
+ * deterministic for a given set of rows. It does **not** make it chronological:
+ * `@oxyhq/db`'s uuid v7 is not monotonic within a millisecond, and it is not
+ * close — measured over 5,000 samples, 96% of same-millisecond groups of four
+ * ids come back in an order that is not the order they were minted in, and half
+ * of all adjacent pairs are inversions. So within one millisecond this order is
+ * a coin flip that always lands the same way.
+ *
+ * **No reader may infer write order from this sequence below the millisecond**,
+ * and none does — see the census on issue #466. Nothing stored recovers it: the
+ * timestamp is truncated at the source (deliberately, so `created_at` keysets
+ * are correct) and the key carries no counter. Recovering it would mean a new
+ * column on an append-only financial table, which was considered and refused —
+ * for ENTRIES it would record the order a JS array happened to be built in and
+ * invite exactly the false inference that the accounting has a leg order.
+ */
+export const LEDGER_TRANSACTION_ORDER = [
+  ledgerTransactions.createdAt,
+  ledgerTransactions.id,
+] as const;
+
+/**
+ * The published READ ORDER for `ledger_entries`, and the whole of it.
+ *
+ * Everything in {@link LEDGER_TRANSACTION_ORDER}'s docblock applies, and the
+ * tie is TOTAL here rather than merely likely: `insertLedgerTransaction` writes
+ * every leg of a transaction in ONE `insert ... values` statement, so all of
+ * them carry one `created_at` by construction, always. A timestamp-only order
+ * over the legs of one transaction is therefore ALWAYS unspecified, not
+ * occasionally.
+ *
+ * That is also why no more meaningful tiebreak was chosen. The legs of a
+ * balanced transaction are simultaneous by construction — the sign convention
+ * (positive debit, negative credit, summing to zero per currency) is the whole
+ * of their relationship — so "which leg came first" is a question with no
+ * answer, and an order by `account` would be a canonical sequence that reads as
+ * meaning something and does not. Ordering by the key says the true thing: the
+ * sequence is stable, and it is not evidence of anything.
+ */
+export const LEDGER_ENTRY_ORDER = [ledgerEntries.createdAt, ledgerEntries.id] as const;
+
+/**
  * The GLOBAL per-currency sum of every ledger entry — issue #50's jobs 5(b).
  *
  * Should always be empty. Every transaction is refused unless it sums to zero
@@ -198,6 +260,24 @@ export async function findGlobalLedgerImbalances(
  * for one. That check is not in this query on purpose: it needs a jsonb payload
  * comparison per candidate, and doing it inside the aggregate would scan the
  * whole outbox to filter a handful of orders.
+ *
+ * ## The order is the GROUP KEY, and not just its first column
+ *
+ * The aggregate groups by `(order_id, currency)` and one order can legitimately
+ * carry a payable in more than one currency — its own caller says so, keying
+ * each discrepancy on `${orderId}:${currency}`. Ordering by `order_id` alone
+ * therefore ties, and `limit` cuts the page somewhere inside the tie: WHICH
+ * currency of a two-currency order survives the cut is unspecified, so the audit
+ * could report one currency this run and the other the next, with neither run
+ * looking wrong. Issue #466's mechanism, one query over. Ordering by the whole
+ * group key is total by definition of `GROUP BY`, and is meaningful rather than
+ * merely deterministic.
+ *
+ * `afterOrderId` is a cursor over `order_id` only, so it can still skip the
+ * remaining currencies of an order a page boundary landed inside. It is not
+ * widened here because nothing passes it — the one caller pages by `limit`
+ * alone — and a cursor parameter nobody supplies cannot be verified by the
+ * suite that would have to exercise it. Whoever wires paging owns widening it.
  */
 export async function findOpenMerchantPayables(
   db: DatabaseOrTransaction,
@@ -238,7 +318,9 @@ export async function findOpenMerchantPayables(
         sql`max(${ledgerTransactions.createdAt}) < ${input.settledBefore.toISOString()}::timestamptz`,
       ),
     )
-    .orderBy(sql`${ledgerEntries.orderId}`)
+    // The whole group key — see the docblock. `order_id` alone ties whenever an
+    // order holds a payable in two currencies, and `limit` cuts inside the tie.
+    .orderBy(sql`${ledgerEntries.orderId}`, ledgerEntries.currency)
     .limit(input.limit);
 
   return rows.map((row) => ({

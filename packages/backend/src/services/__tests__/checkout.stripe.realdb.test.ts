@@ -185,6 +185,10 @@ let findNativePaymentByCheckoutGroupId: typeof import('../../db/payments/payment
 let findOrdersInCheckoutGroup: typeof import('../../db/orders/orderRepository.js').findOrdersInCheckoutGroup;
 let paymentSchema: typeof import('../../db/schema/payments.js');
 let ledgerSchema: typeof import('../../db/schema/ledger.js');
+let ledgerOrder: Pick<
+  typeof import('../../db/payments/ledgerRepository.js'),
+  'LEDGER_ENTRY_ORDER' | 'LEDGER_TRANSACTION_ORDER'
+>;
 let orderSchema: typeof import('../../db/schema/orders.js');
 let catalogSchema: typeof import('../../db/schema/catalog.js');
 
@@ -230,6 +234,7 @@ beforeAll(async () => {
   ({ findOrdersInCheckoutGroup } = await import('../../db/orders/orderRepository.js'));
   paymentSchema = await import('../../db/schema/payments.js');
   ledgerSchema = await import('../../db/schema/ledger.js');
+  ledgerOrder = await import('../../db/payments/ledgerRepository.js');
   orderSchema = await import('../../db/schema/orders.js');
   catalogSchema = await import('../../db/schema/catalog.js');
 }, 120_000);
@@ -406,7 +411,23 @@ async function deliverIntentEvent(input: {
   });
 }
 
-/** Every ledger entry this payment produced, flattened for assertion. */
+/**
+ * Every ledger entry this payment produced, flattened for assertion.
+ *
+ * Ordered by the ledger's PUBLISHED read order rather than a spelling of its
+ * own — see `LEDGER_TRANSACTION_ORDER`. The timestamps alone tie (every leg of a
+ * transaction is written by ONE statement and `now()` is the transaction's, so
+ * they share an instant to the microsecond), and a tied `ORDER BY` is
+ * unspecified in PostgreSQL. That is issue #466: this helper's exact-sequence
+ * assertion below failed CI once and passed on the re-run with no change.
+ *
+ * The order is now TOTAL, so the sequence no longer flickers — but it is stable,
+ * not chronological, and the leg order it produces comes from freshly minted
+ * uuid v7 keys, so it is not reproducible from one run to the next. Assertions
+ * over the legs of a single transaction are therefore written as MULTISETS by
+ * {@link legsOfKind}, which is not a workaround: the ledger records no order
+ * among the legs of one balanced transaction, so there is none to assert.
+ */
 async function ledgerEntriesFor(
   paymentId: string,
 ): Promise<{ kind: string; account: string; currency: string; amount: bigint }[]> {
@@ -423,8 +444,37 @@ async function ledgerEntriesFor(
       eq(ledgerSchema.ledgerEntries.transactionId, ledgerSchema.ledgerTransactions.id),
     )
     .where(eq(ledgerSchema.ledgerTransactions.paymentId, paymentId))
-    .orderBy(ledgerSchema.ledgerTransactions.createdAt, ledgerSchema.ledgerEntries.createdAt);
+    .orderBy(...ledgerOrder.LEDGER_TRANSACTION_ORDER, ...ledgerOrder.LEDGER_ENTRY_ORDER);
   return rows.map((row) => ({ ...row, amount: BigInt(row.amount) }));
+}
+
+/**
+ * One ledger transaction's legs, as a MULTISET in a canonical order.
+ *
+ * The canonical order is `(account, currency, amount)` — a property of the legs
+ * themselves, so both sides of an assertion can be written in it and neither
+ * depends on the sequence the database returned. That is the honest shape for
+ * this comparison: the legs of a balanced transaction are simultaneous by
+ * construction, so "the third leg" names nothing.
+ *
+ * This is deliberately NOT sorting a result to paper over a non-deterministic
+ * query. The query is total (see {@link ledgerEntriesFor}); what this states is
+ * that the ASSERTION is about accounting content, and it fails on a missing leg,
+ * an extra leg, a wrong account, a wrong currency and a wrong amount alike.
+ */
+function legsOfKind(
+  entries: { kind: string; account: string; currency: string; amount: bigint }[],
+  kind: string,
+): { account: string; currency: string; amount: bigint }[] {
+  return entries
+    .filter((entry) => entry.kind === kind)
+    .map(({ account, currency, amount }) => ({ account, currency, amount }))
+    .sort(
+      (a, b) =>
+        a.account.localeCompare(b.account) ||
+        a.currency.localeCompare(b.currency) ||
+        (a.amount < b.amount ? -1 : a.amount > b.amount ? 1 : 0),
+    );
 }
 
 /** The payment's transfers, oldest first. */
@@ -546,12 +596,19 @@ describe('checkout on the Stripe rail — single seller', () => {
     // and the seller's payable closes to zero — which only happens if the two
     // modules agreed on the amount AND the currency.
     const entries = await ledgerEntriesFor(paymentId);
-    expect(entries).toEqual([
-      { kind: 'charge_succeeded', account: 'provider_clearing', currency: 'EUR', amount: BigInt(gross - api.fee) },
-      { kind: 'charge_succeeded', account: 'processor_expense', currency: 'EUR', amount: BigInt(api.fee) },
-      { kind: 'charge_succeeded', account: 'merchant_payable', currency: 'EUR', amount: BigInt(-gross) },
-      { kind: 'transfer_created', account: 'merchant_payable', currency: 'EUR', amount: BigInt(gross) },
-      { kind: 'transfer_created', account: 'provider_clearing', currency: 'EUR', amount: BigInt(-gross) },
+    // Asserted per transaction KIND, as a multiset — see `legsOfKind`. Both
+    // ledger transactions and both leg sets are pinned exactly; what is NOT
+    // asserted is a sequence among simultaneous legs, which the ledger does not
+    // record and which #466 shows a query cannot honestly report.
+    expect(entries).toHaveLength(5);
+    expect(legsOfKind(entries, 'charge_succeeded')).toEqual([
+      { account: 'merchant_payable', currency: 'EUR', amount: BigInt(-gross) },
+      { account: 'processor_expense', currency: 'EUR', amount: BigInt(api.fee) },
+      { account: 'provider_clearing', currency: 'EUR', amount: BigInt(gross - api.fee) },
+    ]);
+    expect(legsOfKind(entries, 'transfer_created')).toEqual([
+      { account: 'merchant_payable', currency: 'EUR', amount: BigInt(gross) },
+      { account: 'provider_clearing', currency: 'EUR', amount: BigInt(-gross) },
     ]);
     // There is no commission leg: the rate is zero until #88, so the residual
     // `chargeSucceeded` computes is zero and a zero leg is omitted rather than

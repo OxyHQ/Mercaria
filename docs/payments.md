@@ -151,7 +151,46 @@ at every posting builder.
 
 The trigger assertions were mutation-tested: with the two `CREATE TRIGGER`
 statements removed from the migration, five of those tests go red naming the
-missing trigger; with them restored, all ten pass.
+missing trigger; with them restored, the file is green. (A total is deliberately
+not quoted here — it drifts with every case added to the file, and a count that
+any addition falsifies is not an invariant.)
+
+### Read order — STABLE, and deliberately not chronological
+
+`LEDGER_TRANSACTION_ORDER` and `LEDGER_ENTRY_ORDER` in
+`db/payments/ledgerRepository.ts` are the published read order and the only
+spelling of it. Both are `(created_at, id)`, and the tiebreak is load-bearing
+rather than defensive: `insertLedgerTransaction` writes every leg of a
+transaction in ONE `insert ... values` statement, and `createdAt()` defaults to
+`date_trunc('milliseconds', now())` — `now()` being `transaction_timestamp()`,
+constant for a whole database transaction. So all the legs of a transaction, and
+all the transactions booked together, carry one instant to the microsecond. A
+tied `ORDER BY` is UNSPECIFIED in PostgreSQL, which is issue #466: an assertion
+over that order failed CI once and passed on the re-run with no change.
+
+The property the key provides is **stability** — one valid answer, so no planner
+can decide the sequence. It is **not** chronology, and nothing below a
+millisecond recovers it: the timestamp is truncated at the source (so
+`created_at` keysets stay correct) and `@oxyhq/db`'s uuid v7 is not monotonic
+within a millisecond — measured, 96% of same-millisecond id groups come back in
+an order that is not the order they were minted in. **No reader may infer write
+order from this sequence**, and none does.
+
+Nor is there anything more meaningful to order the legs by. They are simultaneous
+by construction — the sign convention is the whole of their relationship — so
+"which leg came first" is a question with no answer, and an order by `account`
+would be a canonical sequence that reads as meaning something and does not.
+Storing a leg index was considered and refused for the same reason: it would
+record the order a JS array happened to be built in, as though the accounting had
+one. Assertions over the legs of one transaction are therefore multisets.
+
+Two gates hold it: `ledger.realdb.test.ts` asserts the key is TOTAL over rows
+that tie on the timestamp (remove the `id` and it goes red naming the duplicate),
+and `db/__tests__/ledger-order-chokepoint.test.ts` fails the build on any reader,
+test fixtures included, that orders these tables by a spelling of its own without
+a named disposition. There are exactly two such dispositions:
+`findOpenMerchantPayables`, which orders by its own `GROUP BY` key, and
+`commissionBaseRepository`, which is the DESC reading of the same key.
 
 ### Corrections
 
