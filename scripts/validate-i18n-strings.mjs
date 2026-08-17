@@ -262,7 +262,7 @@ const OWNERS = [
     // MEANT to move: every conversion lowers it, the guard says so by name, and
     // a PR that converts copy without lowering it is told exactly what to do.
     // That is the pin working, not a maintenance burden.
-    hardcodedStrings: 150,
+    hardcodedStrings: 149,
     // Check F is off here for a DIFFERENT reason than check A. This package
     // does not merely use the action controls, it DEFINES them — a `<Button>`
     // in `packages/ui` is the component, not a call site — so the population F
