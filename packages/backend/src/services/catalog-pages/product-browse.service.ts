@@ -56,7 +56,7 @@ import {
 } from '../../db/catalogPages/catalogPageRepository.js';
 import {
   findCategoryIdsBySlugs,
-  findProductIdsSatisfyingAttribute,
+  findProductIdsSatisfyingAttributes,
 } from '../../db/search/searchCandidateRepository.js';
 import { buildSearchOfferContexts } from '../search/offer-context.js';
 import {
@@ -193,21 +193,20 @@ export async function browseCatalogProducts(
  * table into a keyset walk is not. Constraints are ANDed — a shopper naming two
  * attributes means both.
  *
- * KNOWN BUG, #567: that AND is per PRODUCT, not per VARIANT. The sentence above is
- * true at the grain this function works on, which is what makes the defect easy to
- * read past — a product survives when a red variant exists AND a size-43 variant
- * exists, even when no single variant is both.
+ * That AND is per VARIANT (#567), and the whole requirement set goes in ONE
+ * statement to make it so. The loop this replaces asked which products satisfied
+ * each constraint and intersected the ids, which ANDs them per PRODUCT — true at
+ * the grain this function works on, which is what made the defect easy to read
+ * past: a product survived when a red variant existed AND a size-43 variant
+ * existed, with no single variant being both.
  *
- * `db/facets/facetRepository.ts` does NOT have this bug: it nests every variant
- * predicate inside one `exists` correlated to a single `canonical_variants` row. The
- * two rails serve one page, so the correlated one produces the COUNT and this one
- * produces the LIST — a page can show a count that excludes the crossed product
- * above a list that contains it.
- *
- * The fix is one `exists` per requirement set correlated to a variant row, not
- * another intersection pass. And the test needs a genuinely crossed fixture with an
- * assertion that the crossed product is ABSENT: a fixture without one passes
- * against both the correct and the incorrect query.
+ * `db/facets/facetRepository.ts` never had it, and the two rails serve one page —
+ * so the correlated one produced the COUNT and this one produced the LIST, and a
+ * page could show a count that excluded the crossed product above a list that
+ * contained it. Splitting this back into a pass per constraint reintroduces that
+ * silently: every predicate is individually true and the page renders perfectly.
+ * `same-variant-filters.realdb.test.ts` drives this entry with a genuinely crossed
+ * fixture; one without a crossed product passes against both implementations.
  */
 async function applyAttributeFilters(
   db: DatabaseOrTransaction,
@@ -217,17 +216,18 @@ async function applyAttributeFilters(
   const constraints = filters.attributes ?? [];
   if (rows.length === 0 || constraints.length === 0) return [...rows];
 
-  let surviving = new Set(rows.map((row) => row.id));
-  for (const constraint of constraints) {
-    const matching = await findProductIdsSatisfyingAttribute(db, [...surviving], {
-      key: constraint.key,
-      ...(constraint.value === undefined ? {} : { value: constraint.value }),
-      ...(constraint.minNumber === undefined ? {} : { minNumber: constraint.minNumber }),
-      ...(constraint.maxNumber === undefined ? {} : { maxNumber: constraint.maxNumber }),
-    });
-    surviving = new Set(matching.filter((id) => surviving.has(id)));
-    if (surviving.size === 0) break;
-  }
+  const surviving = new Set(
+    await findProductIdsSatisfyingAttributes(
+      db,
+      rows.map((row) => row.id),
+      constraints.map((constraint) => ({
+        key: constraint.key,
+        ...(constraint.value === undefined ? {} : { value: constraint.value }),
+        ...(constraint.minNumber === undefined ? {} : { minNumber: constraint.minNumber }),
+        ...(constraint.maxNumber === undefined ? {} : { maxNumber: constraint.maxNumber }),
+      })),
+    ),
+  );
   return rows.filter((row) => surviving.has(row.id));
 }
 
