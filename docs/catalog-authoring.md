@@ -315,6 +315,24 @@ about a product nobody made.
   spelling was added because the self-test went red on it** — the first draft
   matched only `services/payments/…` and was blind to `../payments/…`, which is
   the only spelling a sibling module would ever write.
+- `services/catalog-authoring/__tests__/schema-version-lifecycle-exposure.realdb.test.ts`
+  — `?version=` may not serve an EDITABLE version.
+  `RETRIEVABLE_AUTHORING_LIFECYCLES` is asserted to be exactly the complement of
+  `PRODUCT_TYPE_EDITABLE_LIFECYCLES` over `PRODUCT_TYPE_LIFECYCLES`, so a fifth
+  lifecycle fails the build until somebody decides which side it is on rather
+  than landing on the permissive side in silence. Both directions run against
+  real rows: an editable version is refused with the SAME code and the SAME
+  sentence a nonexistent version gets — a refusal naming the lifecycle would
+  enumerate the unlaunched verticals — and a `published` and a `deprecated`
+  version still compose, without which the fix could be "refuse everything".
+  Mutation-verified.
+- `lib/__tests__/authored-text-sanitization.test.ts` — seller-authored free text
+  is sanitized where it ENTERS, asserted by `.parse()`ing the real zod objects
+  the routes mount rather than by calling the transform. "No tag survives" is
+  `stripHtmlTags(out) === out`, the owner's own pattern applied twice, so this
+  file holds no second copy of it. It pins the decode-BEFORE-strip order (the
+  reverse can manufacture markup from `&lt;script&gt;`), that line breaks
+  survive, and by contrast that `strip_html` keeps its own order.
 - `services/catalog-authoring/__tests__/authoring-etag.test.ts` — determinism,
   each of the six dimensions varied INDIVIDUALLY, and the axis signature's
   order-independence.
