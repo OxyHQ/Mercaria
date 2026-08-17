@@ -78,12 +78,17 @@ packages, and it is ONE rule rather than a list of exceptions: **a table is
 retained when its nearest deletable ancestor is one of the three parents the
 server refuses to delete** — attribute definitions and product-type definitions
 (immutable once published) and the categories they cite. The teardown moves a
-category to `deprecated`, which is an UPDATE, so nothing cascades from it: its
-localizations, aliases and localized slugs stay with it. Measured after a full
-five-file run: 76 attribute definitions and 24 categories, none of them active,
-plus their children; everything else zero. Harmless, because no shopper-visible
-read reaches an inactive category — `vertical-fixture.ts` is the place that
-explains it, and `w-verticals` is widening that header to state the rule.
+category to `deprecated`, which is an UPDATE, so nothing cascades from it and its
+localizations and aliases stay with it. (`category_localized_slugs` cascades from a
+category too, but no seed package and no spec writes one, so there are none to
+retain — worth saying, because the rule otherwise sends a reader looking for rows
+that were never there.)
+
+Measured after a full five-file run: 76 attribute definitions, 24 categories with
+NONE of them active, and those categories' localization and alias rows; everything
+else zero. Harmless, because no shopper-visible read reaches an inactive category.
+`vertical-fixture.ts` is the fixture that produces this residue and the place to
+read about it.
 
 ## The measurement discipline
 
