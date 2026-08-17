@@ -66,6 +66,93 @@
         "one": "%{count} يوم",
         "other": "%{count} يوم"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "أقل أسعار سلع معروفة",
+        "cheapestKnownTotal": "أقل إجمالي معروف",
+        "fewestMerchants": "أقل عدد من التجّار",
+        "bestNativePlan": "أفضل خطة على Mercaria",
+        "officialChannelPlan": "خطة القناة الرسمية",
+        "bestNearbyPickup": "استلام قريب",
+        "usedOrRefurbishedValue": "قيمة المستعمل أو المُجدَّد",
+        "partialCoverage": "خطة جزئية"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "تقارن أسعار السلع فقط. التوصيل والضرائب غير مشمولة في هذا الرقم.",
+        "cheapestKnownTotal": "تقارن الإجمالي الكامل مع التوصيل. تُحتسب فقط عندما يكون كل سعر سلعة وتوصيل كل تاجر والمعاملة الضريبية معروفة.",
+        "fewestMerchants": "الخطة التي توزّع سلّتك على أقل عدد من عمليات الشراء المنفصلة.",
+        "bestNativePlan": "السلع التي يمكنك شراؤها مباشرة على Mercaria، في سلّة واحدة.",
+        "officialChannelPlan": "كل السلع من القناة الرسمية المُوثَّقة للعلامة التجارية.",
+        "bestNearbyPickup": "لا تُخطَّط هنا — مقارنة السلّة ليس لديها موقع تقيس منه. تحقّق من الاستلام في صفحة المنتج نفسها.",
+        "usedOrRefurbishedValue": "كل السلع مستعملة أو مُجدَّدة.",
+        "partialCoverage": "تعذّر تخطيط بعض السلع. يُعرض الباقي مع الأسباب."
+      },
+      "reason": {
+        "noEligibleOffer": "لا أحد يعرض هذا حاليًا",
+        "noOfferInRequestedCondition": "لا يوجد عرض بالحالة التي طلبتها",
+        "noOfferFromRequestedMerchant": "لا يوجد عرض من التاجر الذي طلبته",
+        "everyOfferFromExcludedMerchant": "كل العروض من تاجر استبعدته",
+        "noOfferInChannelPolicy": "لا يوجد عرض يطابق القناة التي اخترتها",
+        "noConvertiblePrice": "مُسعَّر بعملة لا يمكننا تحويلها",
+        "quantityExceedsAvailableStock": "يذكر البائع أن المخزون غير كافٍ",
+        "quantityNotSplittable": "لا يمكن تقسيم هذه الكمية بين عدة بائعين",
+        "merchantLimitWouldBeExceeded": "إضافة هذه السلعة ستتجاوز حدّ التجّار لديك",
+        "hardConstraintFailed": "لم يتحقّق شرط حدّدته",
+        "watchlistItemUnresolved": "تحتاج هذه السلعة إلى أن تحدّد أي منتج كنت تقصد بعد تغيّر في الكتالوج",
+        "deliveryCostUnknown": "تكلفة التوصيل غير منشورة",
+        "taxInclusionUnknown": "لم يُنشر ما إذا كانت الضريبة مشمولة",
+        "objectiveRequiresCompleteCosts": "بعض التكاليف غير معروفة، لذا لا يمكن تأكيد إجمالي كامل",
+        "objectiveRequiresNativeOffer": "غير متاح للشراء على Mercaria",
+        "objectiveRequiresOfficialChannel": "لا تبيعه قناة رسمية مُوثَّقة",
+        "objectiveRequiresUsedOffer": "لا يوجد عرض مستعمل أو مُجدَّد",
+        "pickupDataUnavailable": "لا يوجد موقع نقيس منه الاستلام",
+        "offerNoLongerEligible": "لم يعد هذا العرض متاحًا",
+        "offerPriceChanged": "تغيّر السعر منذ حساب هذه الخطة"
+      },
+      "approximation": {
+        "candidateLimitReached": "العروض أكثر من أن تُفحص كلها",
+        "merchantLimitReached": "التجّار أكثر من أن تُفحص كل التوليفات",
+        "timeLimitReached": "نفد وقت البحث"
+      },
+      "optimalityProven": "أفضل خطة ممكنة من العروض التي نراها.",
+      "optimalityApproximate": "أفضل خطة وُجدت — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "؛ ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}، مُستنتَج",
+      "cellInferredNote": "محوَّل، غير مذكور",
+      "unknown": {
+        "notRecorded": "غير مسجَّل",
+        "conflictingSources": "المصادر غير متّفقة",
+        "lowConfidence": "الثقة غير كافية للتأكيد",
+        "unitNotComparable": "مسجَّل بوحدة مختلفة",
+        "definitionNotPublished": "لا يُعرض هنا"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "لا ينطبق",
+        "attributeNotComparable": "غير قابل للمقارنة"
+      },
+      "unavailable": {
+        "noEligibleOffer": "لا توجد عروض متاحة",
+        "allOffersConstrainedOut": "لا يوجد عرض يستوفي متطلباتك",
+        "noConvertiblePrice": "لا يوجد عرض يمكننا تسعيره بهذه العملة",
+        "offerComparisonWithheld": "لا تُعرض العروض هنا"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "استشهد بسجل لم يُقدَّم له",
+        "uncitedStatement": "أطلق ادعاءً بلا سجل يدعمه",
+        "introducedNumber": "أدخل رقمًا غير موجود في البيانات",
+        "constraintResultChanged": "غيّر نتيجة أحد الشروط",
+        "unknownConstraintReference": "استشهد بشرط لم يُقدَّم له",
+        "forbiddenTopic": "ذكر موضوعًا لا يجوز للتوصيات أخذه في الاعتبار",
+        "schemaInvalid": "لم يطابق الشكل المتوقَّع",
+        "outputTooLong": "كان أطول من المسموح",
+        "providerUnavailable": "غير مُهيَّأ",
+        "providerError": "تعذّر الوصول إليه"
+      },
+      "explanationFallbackNotice": "هذا الملخّص مُولَّد من جدول المقارنة أدناه، بدون أي نموذج لغوي."
     }
   }
 }

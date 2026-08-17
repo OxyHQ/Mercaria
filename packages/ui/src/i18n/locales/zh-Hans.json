@@ -66,6 +66,93 @@
         "one": "%{count} 天",
         "other": "%{count} 天"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "已知最低商品价格",
+        "cheapestKnownTotal": "已知最低总价",
+        "fewestMerchants": "商家最少",
+        "bestNativePlan": "Mercaria 最佳方案",
+        "officialChannelPlan": "官方渠道方案",
+        "bestNearbyPickup": "就近自提",
+        "usedOrRefurbishedValue": "二手或翻新价值",
+        "partialCoverage": "部分方案"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "仅比较商品价格。此金额不含配送费和税费。",
+        "cheapestKnownTotal": "比较含配送的完整总价。仅在每件商品价格、每个商家的配送费和税费处理均已知时才会计算。",
+        "fewestMerchants": "把你的购物车分成最少笔独立订单的方案。",
+        "bestNativePlan": "可以直接在 Mercaria 购买的商品，集中在一个购物车里。",
+        "officialChannelPlan": "所有商品均来自品牌已认证的官方渠道。",
+        "bestNearbyPickup": "这里不做规划——购物车比较没有可用于测算距离的位置。请在商品自身页面查看自提。",
+        "usedOrRefurbishedValue": "所有商品均为二手或翻新。",
+        "partialCoverage": "部分商品无法纳入方案，其余商品会连同原因一起显示。"
+      },
+      "reason": {
+        "noEligibleOffer": "目前没有人在售",
+        "noOfferInRequestedCondition": "没有你所要求成色的报价",
+        "noOfferFromRequestedMerchant": "没有你所指定商家的报价",
+        "everyOfferFromExcludedMerchant": "所有报价都来自你已排除的商家",
+        "noOfferInChannelPolicy": "没有报价符合你选择的渠道",
+        "noConvertiblePrice": "以我们无法换算的货币标价",
+        "quantityExceedsAvailableStock": "卖家表示库存不足",
+        "quantityNotSplittable": "此数量无法拆分给多个卖家",
+        "merchantLimitWouldBeExceeded": "加入此商品会超出你的商家数量上限",
+        "hardConstraintFailed": "未满足你设定的某项要求",
+        "watchlistItemUnresolved": "目录变更后，此商品需要你指明所指的是哪一款产品",
+        "deliveryCostUnknown": "未公布配送费",
+        "taxInclusionUnknown": "未公布是否含税",
+        "objectiveRequiresCompleteCosts": "部分费用未知，因此无法给出完整总价",
+        "objectiveRequiresNativeOffer": "无法在 Mercaria 购买",
+        "objectiveRequiresOfficialChannel": "并非由已认证的官方渠道销售",
+        "objectiveRequiresUsedOffer": "没有二手或翻新的报价",
+        "pickupDataUnavailable": "没有可用于测算自提距离的位置",
+        "offerNoLongerEligible": "此报价已不再可用",
+        "offerPriceChanged": "自本方案计算以来价格已发生变化"
+      },
+      "approximation": {
+        "candidateLimitReached": "报价太多，无法逐一查看",
+        "merchantLimitReached": "商家太多，无法查看所有组合",
+        "timeLimitReached": "搜索超时"
+      },
+      "optimalityProven": "在我们能看到的报价中，这是最优方案。",
+      "optimalityApproximate": "已找到的最佳方案——%{reason}。"
+    },
+    "comparison": {
+      "listSeparator": "；",
+      "cellA11y": "%{label}：%{value}",
+      "cellInferredA11y": "%{label}：%{value}（推算）",
+      "cellInferredNote": "换算所得，非标注值",
+      "unknown": {
+        "notRecorded": "未记录",
+        "conflictingSources": "各来源不一致",
+        "lowConfidence": "把握不足，无法给出结论",
+        "unitNotComparable": "以其他单位记录",
+        "definitionNotPublished": "此处不展示"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "不适用",
+        "attributeNotComparable": "无法比较"
+      },
+      "unavailable": {
+        "noEligibleOffer": "暂无可用报价",
+        "allOffersConstrainedOut": "没有报价符合你的要求",
+        "noConvertiblePrice": "没有可以用此货币计价的报价",
+        "offerComparisonWithheld": "此处不展示报价"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "引用了并未提供的记录",
+        "uncitedStatement": "做出了没有记录支撑的论断",
+        "introducedNumber": "引入了数据中不存在的数字",
+        "constraintResultChanged": "改动了某项要求的判定结果",
+        "unknownConstraintReference": "引用了并未提供的要求",
+        "forbiddenTopic": "提到了推荐不得考虑的话题",
+        "schemaInvalid": "与预期格式不符",
+        "outputTooLong": "超出了允许的长度",
+        "providerUnavailable": "尚未配置",
+        "providerError": "无法连接"
+      },
+      "explanationFallbackNotice": "此摘要由下方的比较表生成，未使用语言模型。"
     }
   }
 }

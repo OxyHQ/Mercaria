@@ -66,6 +66,93 @@
         "one": "%{count} день",
         "other": "%{count} дн."
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Самые низкие известные цены товаров",
+        "cheapestKnownTotal": "Самая низкая известная сумма",
+        "fewestMerchants": "Меньше всего продавцов",
+        "bestNativePlan": "Лучший план на Mercaria",
+        "officialChannelPlan": "План по официальным каналам",
+        "bestNearbyPickup": "Самовывоз поблизости",
+        "usedOrRefurbishedValue": "Б/у или восстановленное",
+        "partialCoverage": "Частичный план"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Сравнивает только цены товаров. Доставка и налоги в эту сумму не входят.",
+        "cheapestKnownTotal": "Сравнивает полную сумму с доставкой. Рассчитывается только когда известны все цены, доставка каждого продавца и налоговый режим.",
+        "fewestMerchants": "План, который распределяет вашу корзину по наименьшему числу отдельных заказов.",
+        "bestNativePlan": "Товары, которые можно купить прямо на Mercaria, в одной корзине.",
+        "officialChannelPlan": "Все товары из подтверждённого официального канала бренда.",
+        "bestNearbyPickup": "Здесь не планируется — у сравнения корзины нет точки, от которой можно измерять. Посмотрите самовывоз на странице самого товара.",
+        "usedOrRefurbishedValue": "Все товары б/у или восстановленные.",
+        "partialCoverage": "Некоторые товары не удалось включить в план. Остальные показаны с причинами."
+      },
+      "reason": {
+        "noEligibleOffer": "Сейчас это никто не предлагает",
+        "noOfferInRequestedCondition": "Нет предложений в запрошенном состоянии",
+        "noOfferFromRequestedMerchant": "Нет предложений от запрошенного продавца",
+        "everyOfferFromExcludedMerchant": "Все предложения — от продавца, которого вы исключили",
+        "noOfferInChannelPolicy": "Ни одно предложение не подходит под выбранный канал",
+        "noConvertiblePrice": "Цена в валюте, которую мы не можем конвертировать",
+        "quantityExceedsAvailableStock": "Продавец указывает, что товара не хватает",
+        "quantityNotSplittable": "Это количество нельзя разделить между продавцами",
+        "merchantLimitWouldBeExceeded": "Добавление этого товара превысит ваш лимит продавцов",
+        "hardConstraintFailed": "Заданное вами требование не выполнено",
+        "watchlistItemUnresolved": "После изменения каталога нужно указать, какой товар вы имели в виду",
+        "deliveryCostUnknown": "Стоимость доставки не опубликована",
+        "taxInclusionUnknown": "Не опубликовано, включены ли налоги",
+        "objectiveRequiresCompleteCosts": "Часть расходов неизвестна, поэтому полную сумму назвать нельзя",
+        "objectiveRequiresNativeOffer": "Нельзя купить на Mercaria",
+        "objectiveRequiresOfficialChannel": "Не продаётся подтверждённым официальным каналом",
+        "objectiveRequiresUsedOffer": "Нет предложений б/у или восстановленных",
+        "pickupDataUnavailable": "Нет точки, от которой измерять самовывоз",
+        "offerNoLongerEligible": "Это предложение больше недоступно",
+        "offerPriceChanged": "Цена изменилась с момента расчёта этого плана"
+      },
+      "approximation": {
+        "candidateLimitReached": "слишком много предложений, чтобы проверить все",
+        "merchantLimitReached": "слишком много продавцов, чтобы проверить все сочетания",
+        "timeLimitReached": "поиску не хватило времени"
+      },
+      "optimalityProven": "Лучший возможный план из предложений, которые мы видим.",
+      "optimalityApproximate": "Лучший найденный план — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, выведено",
+      "cellInferredNote": "пересчитано, не указано",
+      "unknown": {
+        "notRecorded": "Не зафиксировано",
+        "conflictingSources": "Источники расходятся",
+        "lowConfidence": "Недостаточно уверенности, чтобы утверждать",
+        "unitNotComparable": "Зафиксировано в других единицах",
+        "definitionNotPublished": "Здесь не показывается"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "Неприменимо",
+        "attributeNotComparable": "Несопоставимо"
+      },
+      "unavailable": {
+        "noEligibleOffer": "Нет доступных предложений",
+        "allOffersConstrainedOut": "Ни одно предложение не отвечает вашим требованиям",
+        "noConvertiblePrice": "Нет предложений, которые мы можем выразить в этой валюте",
+        "offerComparisonWithheld": "Предложения здесь не показываются"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "сослался на запись, которая не была предоставлена",
+        "uncitedStatement": "сделал утверждение, за которым нет ни одной записи",
+        "introducedNumber": "ввёл число, которого нет в данных",
+        "constraintResultChanged": "изменил результат требования",
+        "unknownConstraintReference": "сослался на требование, которое не было предоставлено",
+        "forbiddenTopic": "упомянул тему, которую рекомендации не могут учитывать",
+        "schemaInvalid": "не соответствовал ожидаемой форме",
+        "outputTooLong": "был длиннее допустимого",
+        "providerUnavailable": "не настроен",
+        "providerError": "оказался недоступен"
+      },
+      "explanationFallbackNotice": "Эта сводка составлена по таблице сравнения ниже, без языковой модели."
     }
   }
 }

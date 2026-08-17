@@ -475,15 +475,21 @@ export {
   type BasketPlanCardProps,
 } from "./components/marketplace/BasketPlanCard";
 export {
-  basketApproximationText,
-  basketReasonText,
-  basketResultDefinition,
-  basketResultText,
-  comparisonNotApplicableText,
-  comparisonUnavailableText,
-  comparisonUnknownText,
-  explanationFallbackNotice,
-  explanationRejectionText,
+  BASKET_OPTIMALITY_APPROXIMATE_KEY,
+  BASKET_OPTIMALITY_PROVEN_KEY,
+  COMPARISON_CELL_A11Y_KEY,
+  COMPARISON_CELL_INFERRED_A11Y_KEY,
+  COMPARISON_CELL_INFERRED_NOTE_KEY,
+  COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY,
+  COMPARISON_LIST_SEPARATOR_KEY,
+  basketApproximationTextKey,
+  basketReasonTextKey,
+  basketResultDefinitionKey,
+  basketResultTextKey,
+  comparisonNotApplicableTextKey,
+  comparisonUnavailableTextKey,
+  comparisonUnknownTextKey,
+  explanationRejectionTextKey,
 } from "./lib/comparison-labels";
 // ---------------------------------------------------------------------------
 // Brand and product-family pages (#72) — a CANONICAL product card and the

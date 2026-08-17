@@ -1,7 +1,8 @@
 import { View } from "react-native";
 import type { ComparisonExplanation } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { explanationFallbackNotice } from "../../lib/comparison-labels";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import { COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY } from "../../lib/comparison-labels";
 
 export interface ComparisonExplanationBlockProps {
   explanation: ComparisonExplanation;
@@ -36,6 +37,9 @@ export function ComparisonExplanationBlock({
   explanation,
   showProvenance = true,
 }: ComparisonExplanationBlockProps) {
+  // Before the early return: a hook may not sit behind a branch.
+  const t = useSharedUiTranslation();
+
   if (explanation.state === "unavailable") {
     return (
       <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-12">
@@ -67,7 +71,9 @@ export function ComparisonExplanationBlock({
       )}
 
       {explanation.state === "template" ? (
-        <Text className="text-caption text-text-secondary">{explanationFallbackNotice()}</Text>
+        <Text className="text-caption text-text-secondary">
+          {t(COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY)}
+        </Text>
       ) : null}
 
       {showProvenance ? (

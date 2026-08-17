@@ -66,6 +66,93 @@
         "one": "%{count} day",
         "other": "%{count} days"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Cheapest known item prices",
+        "cheapestKnownTotal": "Cheapest known total",
+        "fewestMerchants": "Fewest merchants",
+        "bestNativePlan": "Best Mercaria plan",
+        "officialChannelPlan": "Official channel plan",
+        "bestNearbyPickup": "Nearby pickup",
+        "usedOrRefurbishedValue": "Used or refurbished value",
+        "partialCoverage": "Partial plan"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Compares item prices only. Delivery and tax are not included in this figure.",
+        "cheapestKnownTotal": "Compares the full delivered total. Produced only when every item price, every merchant's delivery and the tax treatment are known.",
+        "fewestMerchants": "The plan that spreads your basket across the fewest separate checkouts.",
+        "bestNativePlan": "The items you can buy directly on Mercaria, in one cart.",
+        "officialChannelPlan": "Every item from a brand's verified official channel.",
+        "bestNearbyPickup": "Not planned here — a basket comparison has no location to measure from. Check collection on a product's own page.",
+        "usedOrRefurbishedValue": "Every item second-hand or refurbished.",
+        "partialCoverage": "Some items could not be planned. The rest are shown with the reasons."
+      },
+      "reason": {
+        "noEligibleOffer": "Nobody is offering this right now",
+        "noOfferInRequestedCondition": "No offer in the condition you asked for",
+        "noOfferFromRequestedMerchant": "No offer from the merchant you asked for",
+        "everyOfferFromExcludedMerchant": "Every offer is from a merchant you excluded",
+        "noOfferInChannelPolicy": "No offer matches the channel you chose",
+        "noConvertiblePrice": "Priced in a currency we cannot convert",
+        "quantityExceedsAvailableStock": "The seller states there is not enough stock",
+        "quantityNotSplittable": "This quantity cannot be split across sellers",
+        "merchantLimitWouldBeExceeded": "Adding this item would exceed your merchant limit",
+        "hardConstraintFailed": "A requirement you set is not met",
+        "watchlistItemUnresolved": "This item needs you to say which product you meant after a catalogue change",
+        "deliveryCostUnknown": "Delivery cost is not published",
+        "taxInclusionUnknown": "Whether tax is included is not published",
+        "objectiveRequiresCompleteCosts": "Some costs are unknown, so no full total can be claimed",
+        "objectiveRequiresNativeOffer": "Not available to buy on Mercaria",
+        "objectiveRequiresOfficialChannel": "Not sold by a verified official channel",
+        "objectiveRequiresUsedOffer": "No second-hand or refurbished offer",
+        "pickupDataUnavailable": "No location to measure collection from",
+        "offerNoLongerEligible": "This offer is no longer available",
+        "offerPriceChanged": "The price has changed since this plan was calculated"
+      },
+      "approximation": {
+        "candidateLimitReached": "too many offers to examine all of them",
+        "merchantLimitReached": "too many merchants to examine every combination",
+        "timeLimitReached": "the search ran out of time"
+      },
+      "optimalityProven": "Best possible plan from the offers we can see.",
+      "optimalityApproximate": "Best plan found — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, inferred",
+      "cellInferredNote": "converted, not stated",
+      "unknown": {
+        "notRecorded": "Not recorded",
+        "conflictingSources": "Sources disagree",
+        "lowConfidence": "Not confident enough to state",
+        "unitNotComparable": "Recorded in a different unit",
+        "definitionNotPublished": "Not being shown here"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "Does not apply",
+        "attributeNotComparable": "Not comparable"
+      },
+      "unavailable": {
+        "noEligibleOffer": "No offers available",
+        "allOffersConstrainedOut": "No offer meets your requirements",
+        "noConvertiblePrice": "No offer we can price in this currency",
+        "offerComparisonWithheld": "Offers are not being shown here"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "cited a record that was not supplied",
+        "uncitedStatement": "made a claim with no record behind it",
+        "introducedNumber": "introduced a number that is not in the data",
+        "constraintResultChanged": "changed a requirement's result",
+        "unknownConstraintReference": "cited a requirement that was not supplied",
+        "forbiddenTopic": "mentioned a topic recommendations may not consider",
+        "schemaInvalid": "did not match the expected shape",
+        "outputTooLong": "was longer than permitted",
+        "providerUnavailable": "is not configured",
+        "providerError": "could not be reached"
+      },
+      "explanationFallbackNotice": "This summary is generated from the comparison table below, without a language model."
     }
   }
 }

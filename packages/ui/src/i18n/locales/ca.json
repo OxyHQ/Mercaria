@@ -66,6 +66,93 @@
         "one": "%{count} dia",
         "other": "%{count} dies"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Preus d'article més baixos coneguts",
+        "cheapestKnownTotal": "Total més baix conegut",
+        "fewestMerchants": "Menys venedors",
+        "bestNativePlan": "Millor pla a Mercaria",
+        "officialChannelPlan": "Pla de canal oficial",
+        "bestNearbyPickup": "Recollida propera",
+        "usedOrRefurbishedValue": "Valor de segona mà o reacondicionat",
+        "partialCoverage": "Pla parcial"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Compara només els preus dels articles. El lliurament i els impostos no s'inclouen en aquesta xifra.",
+        "cheapestKnownTotal": "Compara el total complet amb lliurament. Només es calcula quan es coneixen tots els preus, el lliurament de cada venedor i el tractament fiscal.",
+        "fewestMerchants": "El pla que reparteix la teva cistella entre el menor nombre de compres separades.",
+        "bestNativePlan": "Els articles que pots comprar directament a Mercaria, en un sol carretó.",
+        "officialChannelPlan": "Tots els articles des del canal oficial verificat d'una marca.",
+        "bestNearbyPickup": "Aquí no es planifica: una comparació de cistella no té cap ubicació des d'on mesurar. Consulta la recollida a la pàgina del producte.",
+        "usedOrRefurbishedValue": "Tots els articles de segona mà o reacondicionats.",
+        "partialCoverage": "Alguns articles no s'han pogut planificar. La resta es mostra amb els motius."
+      },
+      "reason": {
+        "noEligibleOffer": "Ara mateix ningú no ho ofereix",
+        "noOfferInRequestedCondition": "No hi ha cap oferta en l'estat que has demanat",
+        "noOfferFromRequestedMerchant": "No hi ha cap oferta del venedor que has demanat",
+        "everyOfferFromExcludedMerchant": "Totes les ofertes són d'un venedor que has exclòs",
+        "noOfferInChannelPolicy": "Cap oferta coincideix amb el canal que has triat",
+        "noConvertiblePrice": "Amb un preu en una moneda que no podem convertir",
+        "quantityExceedsAvailableStock": "El venedor indica que no hi ha prou existències",
+        "quantityNotSplittable": "Aquesta quantitat no es pot repartir entre diversos venedors",
+        "merchantLimitWouldBeExceeded": "Afegir aquest article superaria el teu límit de venedors",
+        "hardConstraintFailed": "No es compleix un requisit que has establert",
+        "watchlistItemUnresolved": "Aquest article necessita que indiquis a quin producte et referies després d'un canvi al catàleg",
+        "deliveryCostUnknown": "El cost de lliurament no està publicat",
+        "taxInclusionUnknown": "No està publicat si els impostos hi són inclosos",
+        "objectiveRequiresCompleteCosts": "Alguns costos es desconeixen, així que no es pot afirmar cap total complet",
+        "objectiveRequiresNativeOffer": "No es pot comprar a Mercaria",
+        "objectiveRequiresOfficialChannel": "No el ven cap canal oficial verificat",
+        "objectiveRequiresUsedOffer": "No hi ha oferta de segona mà ni reacondicionada",
+        "pickupDataUnavailable": "No hi ha cap ubicació des d'on mesurar la recollida",
+        "offerNoLongerEligible": "Aquesta oferta ja no està disponible",
+        "offerPriceChanged": "El preu ha canviat des que es va calcular aquest pla"
+      },
+      "approximation": {
+        "candidateLimitReached": "hi ha massa ofertes per examinar-les totes",
+        "merchantLimitReached": "hi ha massa venedors per examinar totes les combinacions",
+        "timeLimitReached": "la cerca s'ha quedat sense temps"
+      },
+      "optimalityProven": "El millor pla possible amb les ofertes que podem veure.",
+      "optimalityApproximate": "Millor pla trobat: %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, deduït",
+      "cellInferredNote": "convertit, no indicat",
+      "unknown": {
+        "notRecorded": "Sense registrar",
+        "conflictingSources": "Les fonts no coincideixen",
+        "lowConfidence": "Sense prou confiança per afirmar-ho",
+        "unitNotComparable": "Registrat en una altra unitat",
+        "definitionNotPublished": "Aquí no es mostra"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "No s'aplica",
+        "attributeNotComparable": "No comparable"
+      },
+      "unavailable": {
+        "noEligibleOffer": "No hi ha ofertes disponibles",
+        "allOffersConstrainedOut": "Cap oferta compleix els teus requisits",
+        "noConvertiblePrice": "No hi ha cap oferta que puguem expressar en aquesta moneda",
+        "offerComparisonWithheld": "Aquí no es mostren les ofertes"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "va citar un registre que no se li va facilitar",
+        "uncitedStatement": "va fer una afirmació sense cap registre al darrere",
+        "introducedNumber": "va introduir una xifra que no és a les dades",
+        "constraintResultChanged": "va canviar el resultat d'un requisit",
+        "unknownConstraintReference": "va citar un requisit que no se li va facilitar",
+        "forbiddenTopic": "va esmentar un tema que les recomanacions no poden tenir en compte",
+        "schemaInvalid": "no coincidia amb la forma esperada",
+        "outputTooLong": "era més llarg del permès",
+        "providerUnavailable": "no està configurat",
+        "providerError": "no s'hi ha pogut contactar"
+      },
+      "explanationFallbackNotice": "Aquest resum es genera a partir de la taula de comparació de sota, sense cap model de llenguatge."
     }
   }
 }

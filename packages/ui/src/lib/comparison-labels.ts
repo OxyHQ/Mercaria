@@ -1,13 +1,33 @@
 /**
- * The COPY for #96's comparison and basket vocabularies.
+ * The COPY for #96's comparison and basket vocabularies — as TRANSLATION KEYS.
  *
  * Keyed on the REASON and STATE codes rather than on a rendered sentence, the
  * `offer-labels.ts` decision one issue over: two surfaces rendering the same
  * refusal cannot drift, and a copy change is not a contract change.
  *
+ * Since #437 the wording is not here either — it is in
+ * `packages/ui/src/i18n/locales/*.json`, translated once for all three apps,
+ * and these maps hold the message ids that resolve it. See `condition.ts` for
+ * why that is a third identifier rather than a collapse of the first two.
+ *
  * Every `Record` is exhaustive over its union, so a code added to
  * `@mercaria/shared-types` without copy here is a `tsc` error rather than a
  * blank chip a shopper cannot act on.
+ *
+ * ## Every sentence that SPLICES one of these is a key too
+ *
+ * A reason ("too many offers to examine all of them") is a TERM and a plan's
+ * verdict ("Best plan found — …") is a SENTENCE, and English is the only
+ * language in which gluing the second onto the first with an em dash happens to
+ * work. So {@link BASKET_OPTIMALITY_APPROXIMATE_KEY} and
+ * {@link COMPARISON_CELL_A11Y_KEY} carry the whole frame with a `%{}` slot, and
+ * the render site resolves both halves — never a `${}` around a translated
+ * fragment. That is #442's rule applied before it could be broken here: these
+ * terms are never rendered as an action control's own label, so they may fill a
+ * slot, and the frame they fill has to be one key per language.
+ *
+ * Even the list separator is a key. A basket's unresolved reasons are joined
+ * for display, and `"; "` is not what Japanese (`、`) or Arabic (`؛`) use.
  */
 
 import type {
@@ -21,19 +41,19 @@ import type {
 } from "@mercaria/shared-types";
 
 /** The named alternatives, as a shopper reads them. */
-const RESULT_KIND_TEXT: Readonly<Record<BasketResultKind, string>> = {
-  cheapest_known_item_prices: "Cheapest known item prices",
-  cheapest_known_total: "Cheapest known total",
-  fewest_merchants: "Fewest merchants",
-  best_native_plan: "Best Mercaria plan",
-  official_channel_plan: "Official channel plan",
-  best_nearby_pickup: "Nearby pickup",
-  used_or_refurbished_value: "Used or refurbished value",
-  partial_coverage: "Partial plan",
+const RESULT_KIND_KEYS: Readonly<Record<BasketResultKind, string>> = {
+  cheapest_known_item_prices: "ui.basket.result.cheapestKnownItemPrices",
+  cheapest_known_total: "ui.basket.result.cheapestKnownTotal",
+  fewest_merchants: "ui.basket.result.fewestMerchants",
+  best_native_plan: "ui.basket.result.bestNativePlan",
+  official_channel_plan: "ui.basket.result.officialChannelPlan",
+  best_nearby_pickup: "ui.basket.result.bestNearbyPickup",
+  used_or_refurbished_value: "ui.basket.result.usedOrRefurbishedValue",
+  partial_coverage: "ui.basket.result.partialCoverage",
 };
 
-export function basketResultText(kind: BasketResultKind): string {
-  return RESULT_KIND_TEXT[kind];
+export function basketResultTextKey(kind: BasketResultKind): string {
+  return RESULT_KIND_KEYS[kind];
 }
 
 /**
@@ -42,137 +62,172 @@ export function basketResultText(kind: BasketResultKind): string {
  * Shipped beside the name because "cheapest" and "cheapest known item prices"
  * mean different things and only the second one is true — #77's rule that a
  * number whose definition is unstated cannot be served, applied to a plan.
+ *
+ * `best_nearby_pickup`'s sentence is the one to read before editing any
+ * translation of it. #93 published collection points, so the ORIGINAL wording
+ * ("collection points are not published yet") became FALSE on that merge — the
+ * comment-sweep hazard, in reader-facing copy. The result is still never
+ * produced, but for a DIFFERENT reason, and stating the expired one would send
+ * a shopper to look for a feature nobody is missing: a basket comparison request
+ * carries no viewer position, so `resolvePickupProximity` answers
+ * `viewer_location_absent` for every item. Nearby collection is answered on the
+ * product page instead, where a shopper has chosen to share an origin. Every
+ * locale has to preserve that distinction, not just the English.
  */
-const RESULT_KIND_DEFINITION: Readonly<Record<BasketResultKind, string>> = {
-  cheapest_known_item_prices:
-    "Compares item prices only. Delivery and tax are not included in this figure.",
-  cheapest_known_total:
-    "Compares the full delivered total. Produced only when every item price, every merchant's delivery and the tax treatment are known.",
-  fewest_merchants: "The plan that spreads your basket across the fewest separate checkouts.",
-  best_native_plan: "The items you can buy directly on Mercaria, in one cart.",
-  official_channel_plan: "Every item from a brand's verified official channel.",
-  // #93 published collection points, so the old sentence ("collection points
-  // are not published yet") became FALSE on that merge — the comment-sweep
-  // hazard, in reader-facing copy. The result is still never produced, but for
-  // a DIFFERENT reason, and stating the expired one would send a shopper to
-  // look for a feature nobody is missing: a basket comparison request carries
-  // no viewer position, so `resolvePickupProximity` answers
-  // `viewer_location_absent` for every item. Nearby collection is answered on
-  // the product page instead, where a shopper has chosen to share an origin.
-  best_nearby_pickup:
-    "Not planned here — a basket comparison has no location to measure from. Check collection on a product's own page.",
-  used_or_refurbished_value: "Every item second-hand or refurbished.",
-  partial_coverage: "Some items could not be planned. The rest are shown with the reasons.",
+const RESULT_KIND_DEFINITION_KEYS: Readonly<Record<BasketResultKind, string>> = {
+  cheapest_known_item_prices: "ui.basket.resultDefinition.cheapestKnownItemPrices",
+  cheapest_known_total: "ui.basket.resultDefinition.cheapestKnownTotal",
+  fewest_merchants: "ui.basket.resultDefinition.fewestMerchants",
+  best_native_plan: "ui.basket.resultDefinition.bestNativePlan",
+  official_channel_plan: "ui.basket.resultDefinition.officialChannelPlan",
+  best_nearby_pickup: "ui.basket.resultDefinition.bestNearbyPickup",
+  used_or_refurbished_value: "ui.basket.resultDefinition.usedOrRefurbishedValue",
+  partial_coverage: "ui.basket.resultDefinition.partialCoverage",
 };
 
-export function basketResultDefinition(kind: BasketResultKind): string {
-  return RESULT_KIND_DEFINITION[kind];
+export function basketResultDefinitionKey(kind: BasketResultKind): string {
+  return RESULT_KIND_DEFINITION_KEYS[kind];
 }
 
-/** Why an item or a plan is what it is. */
-const REASON_TEXT: Readonly<Record<BasketReasonCode, string>> = {
-  no_eligible_offer: "Nobody is offering this right now",
-  no_offer_in_requested_condition: "No offer in the condition you asked for",
-  no_offer_from_requested_merchant: "No offer from the merchant you asked for",
-  every_offer_from_excluded_merchant: "Every offer is from a merchant you excluded",
-  no_offer_in_channel_policy: "No offer matches the channel you chose",
-  no_convertible_price: "Priced in a currency we cannot convert",
-  quantity_exceeds_available_stock: "The seller states there is not enough stock",
-  quantity_not_splittable: "This quantity cannot be split across sellers",
-  merchant_limit_would_be_exceeded: "Adding this item would exceed your merchant limit",
-  hard_constraint_failed: "A requirement you set is not met",
-  watchlist_item_unresolved:
-    "This item needs you to say which product you meant after a catalogue change",
-  delivery_cost_unknown: "Delivery cost is not published",
-  tax_inclusion_unknown: "Whether tax is included is not published",
-  objective_requires_complete_costs: "Some costs are unknown, so no full total can be claimed",
-  objective_requires_native_offer: "Not available to buy on Mercaria",
-  objective_requires_official_channel: "Not sold by a verified official channel",
-  objective_requires_used_offer: "No second-hand or refurbished offer",
-  // #93 published collection points, so the old sentence ("Collection points
-  // are not published yet") became FALSE on that merge — the same expiry the
-  // `best_nearby_pickup` definition above was corrected for, in a second
-  // string the first sweep did not reach. A basket comparison carries no
-  // viewer position, so this reason means Mercaria has nowhere to measure
-  // FROM, not that there is nothing to measure TO.
-  pickup_data_unavailable: "No location to measure collection from",
-  offer_no_longer_eligible: "This offer is no longer available",
-  offer_price_changed: "The price has changed since this plan was calculated",
+/**
+ * Why an item or a plan is what it is.
+ *
+ * `pickup_data_unavailable` carries the same #93 correction as the
+ * `best_nearby_pickup` definition above, in a second string the first sweep did
+ * not reach: it means Mercaria has nowhere to measure FROM, not that there is
+ * nothing to measure TO.
+ */
+const REASON_KEYS: Readonly<Record<BasketReasonCode, string>> = {
+  no_eligible_offer: "ui.basket.reason.noEligibleOffer",
+  no_offer_in_requested_condition: "ui.basket.reason.noOfferInRequestedCondition",
+  no_offer_from_requested_merchant: "ui.basket.reason.noOfferFromRequestedMerchant",
+  every_offer_from_excluded_merchant: "ui.basket.reason.everyOfferFromExcludedMerchant",
+  no_offer_in_channel_policy: "ui.basket.reason.noOfferInChannelPolicy",
+  no_convertible_price: "ui.basket.reason.noConvertiblePrice",
+  quantity_exceeds_available_stock: "ui.basket.reason.quantityExceedsAvailableStock",
+  quantity_not_splittable: "ui.basket.reason.quantityNotSplittable",
+  merchant_limit_would_be_exceeded: "ui.basket.reason.merchantLimitWouldBeExceeded",
+  hard_constraint_failed: "ui.basket.reason.hardConstraintFailed",
+  watchlist_item_unresolved: "ui.basket.reason.watchlistItemUnresolved",
+  delivery_cost_unknown: "ui.basket.reason.deliveryCostUnknown",
+  tax_inclusion_unknown: "ui.basket.reason.taxInclusionUnknown",
+  objective_requires_complete_costs: "ui.basket.reason.objectiveRequiresCompleteCosts",
+  objective_requires_native_offer: "ui.basket.reason.objectiveRequiresNativeOffer",
+  objective_requires_official_channel: "ui.basket.reason.objectiveRequiresOfficialChannel",
+  objective_requires_used_offer: "ui.basket.reason.objectiveRequiresUsedOffer",
+  pickup_data_unavailable: "ui.basket.reason.pickupDataUnavailable",
+  offer_no_longer_eligible: "ui.basket.reason.offerNoLongerEligible",
+  offer_price_changed: "ui.basket.reason.offerPriceChanged",
 };
 
-export function basketReasonText(reason: BasketReasonCode): string {
-  return REASON_TEXT[reason];
+export function basketReasonTextKey(reason: BasketReasonCode): string {
+  return REASON_KEYS[reason];
 }
 
-/** Why an answer is not proven optimal. */
-const APPROXIMATION_TEXT: Readonly<Record<BasketApproximationReason, string>> = {
-  candidate_limit_reached: "too many offers to examine all of them",
-  merchant_limit_reached: "too many merchants to examine every combination",
-  time_limit_reached: "the search ran out of time",
+/** Why an answer is not proven optimal. A TERM, filled into the frame below. */
+const APPROXIMATION_KEYS: Readonly<Record<BasketApproximationReason, string>> = {
+  candidate_limit_reached: "ui.basket.approximation.candidateLimitReached",
+  merchant_limit_reached: "ui.basket.approximation.merchantLimitReached",
+  time_limit_reached: "ui.basket.approximation.timeLimitReached",
 };
 
-export function basketApproximationText(reason: BasketApproximationReason): string {
-  return APPROXIMATION_TEXT[reason];
+export function basketApproximationTextKey(reason: BasketApproximationReason): string {
+  return APPROXIMATION_KEYS[reason];
 }
+
+/** "Best possible plan from the offers we can see." */
+export const BASKET_OPTIMALITY_PROVEN_KEY = "ui.basket.optimalityProven";
+
+/**
+ * "Best plan found — %{reason}." — the WHOLE sentence, so a language that puts
+ * the qualification first, or joins it with something other than an em dash,
+ * can. `%{reason}` is resolved from {@link basketApproximationTextKey}.
+ */
+export const BASKET_OPTIMALITY_APPROXIMATE_KEY = "ui.basket.optimalityApproximate";
+
+/** What separates two joined reasons. `"; "` in English, `、` in Japanese. */
+export const COMPARISON_LIST_SEPARATOR_KEY = "ui.comparison.listSeparator";
 
 /** Why a comparison cell has no value. */
-const UNKNOWN_TEXT: Readonly<Record<ComparisonUnknownReason, string>> = {
-  not_recorded: "Not recorded",
-  conflicting_sources: "Sources disagree",
-  low_confidence: "Not confident enough to state",
-  unit_not_comparable: "Recorded in a different unit",
-  definition_not_published: "Not being shown here",
+const UNKNOWN_KEYS: Readonly<Record<ComparisonUnknownReason, string>> = {
+  not_recorded: "ui.comparison.unknown.notRecorded",
+  conflicting_sources: "ui.comparison.unknown.conflictingSources",
+  low_confidence: "ui.comparison.unknown.lowConfidence",
+  unit_not_comparable: "ui.comparison.unknown.unitNotComparable",
+  definition_not_published: "ui.comparison.unknown.definitionNotPublished",
 };
 
-export function comparisonUnknownText(reason: ComparisonUnknownReason): string {
-  return UNKNOWN_TEXT[reason];
+export function comparisonUnknownTextKey(reason: ComparisonUnknownReason): string {
+  return UNKNOWN_KEYS[reason];
 }
 
 /** Why a fact does not apply to a product at all. */
-const NOT_APPLICABLE_TEXT: Readonly<Record<ComparisonNotApplicableReason, string>> = {
-  attribute_out_of_category: "Does not apply",
-  attribute_not_comparable: "Not comparable",
+const NOT_APPLICABLE_KEYS: Readonly<Record<ComparisonNotApplicableReason, string>> = {
+  attribute_out_of_category: "ui.comparison.notApplicable.attributeOutOfCategory",
+  attribute_not_comparable: "ui.comparison.notApplicable.attributeNotComparable",
 };
 
-export function comparisonNotApplicableText(reason: ComparisonNotApplicableReason): string {
-  return NOT_APPLICABLE_TEXT[reason];
+export function comparisonNotApplicableTextKey(reason: ComparisonNotApplicableReason): string {
+  return NOT_APPLICABLE_KEYS[reason];
 }
 
+/**
+ * "%{label}: %{value}" — one cell's accessible label.
+ *
+ * A key rather than a template literal because the separator is not a colon in
+ * every language, and because the value it carries is itself translated.
+ */
+export const COMPARISON_CELL_A11Y_KEY = "ui.comparison.cellA11y";
+
+/**
+ * "%{label}: %{value}, inferred" — the same frame for a cell whose value
+ * Mercaria CONVERTED rather than read.
+ *
+ * Its own key rather than the frame above plus an appended word: #96 product
+ * comparison rule 5 asks an inference to be labelled distinctly from a
+ * source-backed fact, and where that qualifier sits in the sentence is a
+ * per-language decision.
+ */
+export const COMPARISON_CELL_INFERRED_A11Y_KEY = "ui.comparison.cellInferredA11y";
+
+/** The visible note under an inferred cell — "converted, not stated". */
+export const COMPARISON_CELL_INFERRED_NOTE_KEY = "ui.comparison.cellInferredNote";
+
 /** Why a product cannot be bought. */
-const UNAVAILABLE_TEXT: Readonly<Record<ComparisonUnavailableReason, string>> = {
-  no_eligible_offer: "No offers available",
-  all_offers_constrained_out: "No offer meets your requirements",
-  no_convertible_price: "No offer we can price in this currency",
-  offer_comparison_withheld: "Offers are not being shown here",
+const UNAVAILABLE_KEYS: Readonly<Record<ComparisonUnavailableReason, string>> = {
+  no_eligible_offer: "ui.comparison.unavailable.noEligibleOffer",
+  all_offers_constrained_out: "ui.comparison.unavailable.allOffersConstrainedOut",
+  no_convertible_price: "ui.comparison.unavailable.noConvertiblePrice",
+  offer_comparison_withheld: "ui.comparison.unavailable.offerComparisonWithheld",
 };
 
-export function comparisonUnavailableText(reason: ComparisonUnavailableReason): string {
-  return UNAVAILABLE_TEXT[reason];
+export function comparisonUnavailableTextKey(reason: ComparisonUnavailableReason): string {
+  return UNAVAILABLE_KEYS[reason];
 }
 
 /**
  * Why a generated explanation was refused.
  *
  * Shown to a shopper only as the one neutral sentence
- * {@link explanationFallbackNotice} composes — the codes below are for an
- * operator reading a response, and naming a provider's failure mode on a
- * shopping page would be telling them about somebody else's outage.
+ * {@link COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY} carries — the codes below
+ * are for an operator reading a response, and naming a provider's failure mode
+ * on a shopping page would be telling them about somebody else's outage.
  */
-const REJECTION_TEXT: Readonly<Record<ExplanationRejectionReason, string>> = {
-  unknown_record_reference: "cited a record that was not supplied",
-  uncited_statement: "made a claim with no record behind it",
-  introduced_number: "introduced a number that is not in the data",
-  constraint_result_changed: "changed a requirement's result",
-  unknown_constraint_reference: "cited a requirement that was not supplied",
-  forbidden_topic: "mentioned a topic recommendations may not consider",
-  schema_invalid: "did not match the expected shape",
-  output_too_long: "was longer than permitted",
-  provider_unavailable: "is not configured",
-  provider_error: "could not be reached",
+const REJECTION_KEYS: Readonly<Record<ExplanationRejectionReason, string>> = {
+  unknown_record_reference: "ui.comparison.explanationRejection.unknownRecordReference",
+  uncited_statement: "ui.comparison.explanationRejection.uncitedStatement",
+  introduced_number: "ui.comparison.explanationRejection.introducedNumber",
+  constraint_result_changed: "ui.comparison.explanationRejection.constraintResultChanged",
+  unknown_constraint_reference: "ui.comparison.explanationRejection.unknownConstraintReference",
+  forbidden_topic: "ui.comparison.explanationRejection.forbiddenTopic",
+  schema_invalid: "ui.comparison.explanationRejection.schemaInvalid",
+  output_too_long: "ui.comparison.explanationRejection.outputTooLong",
+  provider_unavailable: "ui.comparison.explanationRejection.providerUnavailable",
+  provider_error: "ui.comparison.explanationRejection.providerError",
 };
 
-export function explanationRejectionText(reason: ExplanationRejectionReason): string {
-  return REJECTION_TEXT[reason];
+export function explanationRejectionTextKey(reason: ExplanationRejectionReason): string {
+  return REJECTION_KEYS[reason];
 }
 
 /**
@@ -182,6 +237,5 @@ export function explanationRejectionText(reason: ExplanationRejectionReason): st
  * table below is the real comparison and was not written by a model, which is
  * true in every branch and is the more useful fact.
  */
-export function explanationFallbackNotice(): string {
-  return "This summary is generated from the comparison table below, without a language model.";
-}
+export const COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY =
+  "ui.comparison.explanationFallbackNotice";

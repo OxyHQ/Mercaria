@@ -66,6 +66,93 @@
         "one": "%{count} दिन",
         "other": "%{count} दिन"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "ज्ञात सबसे कम वस्तु कीमतें",
+        "cheapestKnownTotal": "ज्ञात सबसे कम कुल",
+        "fewestMerchants": "सबसे कम विक्रेता",
+        "bestNativePlan": "Mercaria पर सबसे अच्छी योजना",
+        "officialChannelPlan": "आधिकारिक चैनल योजना",
+        "bestNearbyPickup": "आस-पास से पिकअप",
+        "usedOrRefurbishedValue": "पुराने या रीफर्बिश्ड का मूल्य",
+        "partialCoverage": "आंशिक योजना"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "केवल वस्तुओं की कीमतों की तुलना करता है। डिलीवरी और कर इस राशि में शामिल नहीं हैं।",
+        "cheapestKnownTotal": "डिलीवरी सहित पूरे कुल की तुलना करता है। यह तभी निकाला जाता है जब हर कीमत, हर विक्रेता की डिलीवरी और कर की व्यवस्था ज्ञात हो।",
+        "fewestMerchants": "वह योजना जो आपकी टोकरी को सबसे कम अलग-अलग खरीदों में बाँटती है।",
+        "bestNativePlan": "वे वस्तुएँ जो आप सीधे Mercaria पर, एक ही कार्ट में खरीद सकते हैं।",
+        "officialChannelPlan": "हर वस्तु किसी ब्रांड के सत्यापित आधिकारिक चैनल से।",
+        "bestNearbyPickup": "यहाँ इसकी योजना नहीं बनती — टोकरी की तुलना के पास मापने के लिए कोई स्थान नहीं होता। पिकअप उत्पाद के अपने पेज पर देखें।",
+        "usedOrRefurbishedValue": "हर वस्तु पुरानी या रीफर्बिश्ड।",
+        "partialCoverage": "कुछ वस्तुओं की योजना नहीं बन सकी। बाकी कारणों के साथ दिखाई गई हैं।"
+      },
+      "reason": {
+        "noEligibleOffer": "अभी इसे कोई नहीं बेच रहा",
+        "noOfferInRequestedCondition": "आपकी माँगी हुई स्थिति में कोई ऑफ़र नहीं है",
+        "noOfferFromRequestedMerchant": "आपके माँगे हुए विक्रेता का कोई ऑफ़र नहीं है",
+        "everyOfferFromExcludedMerchant": "सभी ऑफ़र उस विक्रेता के हैं जिसे आपने हटाया था",
+        "noOfferInChannelPolicy": "आपके चुने चैनल से कोई ऑफ़र मेल नहीं खाता",
+        "noConvertiblePrice": "ऐसी मुद्रा में कीमत है जिसे हम बदल नहीं सकते",
+        "quantityExceedsAvailableStock": "विक्रेता के अनुसार पर्याप्त स्टॉक नहीं है",
+        "quantityNotSplittable": "यह मात्रा कई विक्रेताओं में नहीं बाँटी जा सकती",
+        "merchantLimitWouldBeExceeded": "इस वस्तु को जोड़ने पर आपकी विक्रेता सीमा पार हो जाएगी",
+        "hardConstraintFailed": "आपकी तय की गई एक शर्त पूरी नहीं होती",
+        "watchlistItemUnresolved": "कैटलॉग बदलने के बाद इस वस्तु के लिए आपको बताना होगा कि आपका मतलब किस उत्पाद से था",
+        "deliveryCostUnknown": "डिलीवरी की लागत प्रकाशित नहीं है",
+        "taxInclusionUnknown": "कर शामिल है या नहीं, यह प्रकाशित नहीं है",
+        "objectiveRequiresCompleteCosts": "कुछ लागतें अज्ञात हैं, इसलिए पूरा कुल नहीं बताया जा सकता",
+        "objectiveRequiresNativeOffer": "Mercaria पर खरीदने के लिए उपलब्ध नहीं",
+        "objectiveRequiresOfficialChannel": "किसी सत्यापित आधिकारिक चैनल द्वारा नहीं बेचा जाता",
+        "objectiveRequiresUsedOffer": "कोई पुराना या रीफर्बिश्ड ऑफ़र नहीं",
+        "pickupDataUnavailable": "पिकअप की दूरी मापने के लिए कोई स्थान नहीं",
+        "offerNoLongerEligible": "यह ऑफ़र अब उपलब्ध नहीं है",
+        "offerPriceChanged": "यह योजना बनने के बाद कीमत बदल गई है"
+      },
+      "approximation": {
+        "candidateLimitReached": "इतने ऑफ़र हैं कि सबकी जाँच नहीं हो सकी",
+        "merchantLimitReached": "इतने विक्रेता हैं कि हर संयोजन की जाँच नहीं हो सकी",
+        "timeLimitReached": "खोज का समय समाप्त हो गया"
+      },
+      "optimalityProven": "हमें दिख रहे ऑफ़रों में से सबसे अच्छी संभव योजना।",
+      "optimalityApproximate": "मिली हुई सबसे अच्छी योजना — %{reason}।"
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, अनुमानित",
+      "cellInferredNote": "परिवर्तित, बताया नहीं गया",
+      "unknown": {
+        "notRecorded": "दर्ज नहीं",
+        "conflictingSources": "स्रोत आपस में मेल नहीं खाते",
+        "lowConfidence": "कहने भर का भरोसा नहीं",
+        "unitNotComparable": "किसी और इकाई में दर्ज",
+        "definitionNotPublished": "यहाँ नहीं दिखाया जा रहा"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "लागू नहीं",
+        "attributeNotComparable": "तुलना योग्य नहीं"
+      },
+      "unavailable": {
+        "noEligibleOffer": "कोई ऑफ़र उपलब्ध नहीं",
+        "allOffersConstrainedOut": "कोई ऑफ़र आपकी शर्तें पूरी नहीं करता",
+        "noConvertiblePrice": "इस मुद्रा में बताने लायक कोई ऑफ़र नहीं",
+        "offerComparisonWithheld": "यहाँ ऑफ़र नहीं दिखाए जा रहे"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "ऐसे रिकॉर्ड का हवाला दिया जो दिया ही नहीं गया था",
+        "uncitedStatement": "बिना किसी रिकॉर्ड के दावा किया",
+        "introducedNumber": "ऐसा आँकड़ा जोड़ा जो डेटा में नहीं है",
+        "constraintResultChanged": "किसी शर्त का परिणाम बदल दिया",
+        "unknownConstraintReference": "ऐसी शर्त का हवाला दिया जो दी ही नहीं गई थी",
+        "forbiddenTopic": "ऐसे विषय का ज़िक्र किया जिसे सिफ़ारिशें ध्यान में नहीं रख सकतीं",
+        "schemaInvalid": "अपेक्षित स्वरूप से मेल नहीं खाया",
+        "outputTooLong": "अनुमति से लंबा था",
+        "providerUnavailable": "कॉन्फ़िगर नहीं है",
+        "providerError": "उस तक पहुँचा नहीं जा सका"
+      },
+      "explanationFallbackNotice": "यह सारांश नीचे दी गई तुलना तालिका से बनाया गया है, किसी भाषा मॉडल के बिना।"
     }
   }
 }

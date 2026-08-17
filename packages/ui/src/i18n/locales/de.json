@@ -66,6 +66,93 @@
         "one": "%{count} Tag",
         "other": "%{count} Tage"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Niedrigste bekannte Artikelpreise",
+        "cheapestKnownTotal": "Niedrigste bekannte Gesamtsumme",
+        "fewestMerchants": "Wenigste Händler",
+        "bestNativePlan": "Bester Mercaria-Plan",
+        "officialChannelPlan": "Plan über offizielle Kanäle",
+        "bestNearbyPickup": "Abholung in der Nähe",
+        "usedOrRefurbishedValue": "Gebraucht oder generalüberholt",
+        "partialCoverage": "Teilplan"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Vergleicht nur die Artikelpreise. Lieferung und Steuern sind in dieser Zahl nicht enthalten.",
+        "cheapestKnownTotal": "Vergleicht die vollständige Summe inklusive Lieferung. Wird nur berechnet, wenn jeder Artikelpreis, die Lieferung jedes Händlers und die steuerliche Behandlung bekannt sind.",
+        "fewestMerchants": "Der Plan, der deinen Warenkorb auf die wenigsten getrennten Bestellungen verteilt.",
+        "bestNativePlan": "Die Artikel, die du direkt auf Mercaria kaufen kannst, in einem Warenkorb.",
+        "officialChannelPlan": "Alle Artikel aus dem verifizierten offiziellen Kanal einer Marke.",
+        "bestNearbyPickup": "Wird hier nicht geplant — ein Warenkorbvergleich hat keinen Ort, von dem aus gemessen werden könnte. Sieh dir die Abholung auf der Produktseite selbst an.",
+        "usedOrRefurbishedValue": "Alle Artikel gebraucht oder generalüberholt.",
+        "partialCoverage": "Einige Artikel konnten nicht eingeplant werden. Der Rest wird mit den Gründen angezeigt."
+      },
+      "reason": {
+        "noEligibleOffer": "Das bietet derzeit niemand an",
+        "noOfferInRequestedCondition": "Kein Angebot im gewünschten Zustand",
+        "noOfferFromRequestedMerchant": "Kein Angebot von dem gewünschten Händler",
+        "everyOfferFromExcludedMerchant": "Alle Angebote stammen von einem Händler, den du ausgeschlossen hast",
+        "noOfferInChannelPolicy": "Kein Angebot passt zum gewählten Kanal",
+        "noConvertiblePrice": "Preis in einer Währung, die wir nicht umrechnen können",
+        "quantityExceedsAvailableStock": "Der Verkäufer gibt an, dass nicht genug Bestand da ist",
+        "quantityNotSplittable": "Diese Menge lässt sich nicht auf mehrere Verkäufer aufteilen",
+        "merchantLimitWouldBeExceeded": "Dieser Artikel würde dein Händlerlimit überschreiten",
+        "hardConstraintFailed": "Eine von dir gesetzte Anforderung ist nicht erfüllt",
+        "watchlistItemUnresolved": "Bei diesem Artikel musst du nach einer Katalogänderung angeben, welches Produkt du meintest",
+        "deliveryCostUnknown": "Die Lieferkosten sind nicht veröffentlicht",
+        "taxInclusionUnknown": "Ob Steuern enthalten sind, ist nicht veröffentlicht",
+        "objectiveRequiresCompleteCosts": "Einige Kosten sind unbekannt, daher lässt sich keine vollständige Summe angeben",
+        "objectiveRequiresNativeOffer": "Auf Mercaria nicht kaufbar",
+        "objectiveRequiresOfficialChannel": "Wird von keinem verifizierten offiziellen Kanal verkauft",
+        "objectiveRequiresUsedOffer": "Kein gebrauchtes oder generalüberholtes Angebot",
+        "pickupDataUnavailable": "Kein Ort, von dem aus die Abholung gemessen werden könnte",
+        "offerNoLongerEligible": "Dieses Angebot ist nicht mehr verfügbar",
+        "offerPriceChanged": "Der Preis hat sich seit der Berechnung dieses Plans geändert"
+      },
+      "approximation": {
+        "candidateLimitReached": "zu viele Angebote, um alle zu prüfen",
+        "merchantLimitReached": "zu viele Händler, um jede Kombination zu prüfen",
+        "timeLimitReached": "die Suche hat die Zeit überschritten"
+      },
+      "optimalityProven": "Bestmöglicher Plan aus den Angeboten, die wir sehen können.",
+      "optimalityApproximate": "Bester gefundener Plan — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, abgeleitet",
+      "cellInferredNote": "umgerechnet, nicht angegeben",
+      "unknown": {
+        "notRecorded": "Nicht erfasst",
+        "conflictingSources": "Quellen widersprechen sich",
+        "lowConfidence": "Nicht sicher genug für eine Angabe",
+        "unitNotComparable": "In einer anderen Einheit erfasst",
+        "definitionNotPublished": "Wird hier nicht angezeigt"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "Trifft nicht zu",
+        "attributeNotComparable": "Nicht vergleichbar"
+      },
+      "unavailable": {
+        "noEligibleOffer": "Keine Angebote verfügbar",
+        "allOffersConstrainedOut": "Kein Angebot erfüllt deine Anforderungen",
+        "noConvertiblePrice": "Kein Angebot, das wir in dieser Währung angeben können",
+        "offerComparisonWithheld": "Angebote werden hier nicht angezeigt"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "hat einen Datensatz zitiert, der nicht bereitgestellt wurde",
+        "uncitedStatement": "hat eine Behauptung ohne Datengrundlage aufgestellt",
+        "introducedNumber": "hat eine Zahl eingeführt, die nicht in den Daten steht",
+        "constraintResultChanged": "hat das Ergebnis einer Anforderung verändert",
+        "unknownConstraintReference": "hat eine Anforderung zitiert, die nicht bereitgestellt wurde",
+        "forbiddenTopic": "hat ein Thema erwähnt, das Empfehlungen nicht berücksichtigen dürfen",
+        "schemaInvalid": "entsprach nicht der erwarteten Form",
+        "outputTooLong": "war länger als erlaubt",
+        "providerUnavailable": "ist nicht konfiguriert",
+        "providerError": "war nicht erreichbar"
+      },
+      "explanationFallbackNotice": "Diese Zusammenfassung wird aus der Vergleichstabelle unten erzeugt, ohne Sprachmodell."
     }
   }
 }

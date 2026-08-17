@@ -66,6 +66,93 @@
         "one": "%{count} día",
         "other": "%{count} días"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Precios de artículo más bajos conocidos",
+        "cheapestKnownTotal": "Total más bajo conocido",
+        "fewestMerchants": "Menos vendedores",
+        "bestNativePlan": "Mejor plan en Mercaria",
+        "officialChannelPlan": "Plan de canal oficial",
+        "bestNearbyPickup": "Recogida cercana",
+        "usedOrRefurbishedValue": "Valor de segunda mano o reacondicionado",
+        "partialCoverage": "Plan parcial"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Compara solo los precios de los artículos. La entrega y los impuestos no se incluyen en esta cifra.",
+        "cheapestKnownTotal": "Compara el total completo con entrega. Solo se calcula cuando se conocen todos los precios, la entrega de cada vendedor y el tratamiento fiscal.",
+        "fewestMerchants": "El plan que reparte tu cesta entre el menor número de compras separadas.",
+        "bestNativePlan": "Los artículos que puedes comprar directamente en Mercaria, en un solo carrito.",
+        "officialChannelPlan": "Todos los artículos desde el canal oficial verificado de una marca.",
+        "bestNearbyPickup": "No se planifica aquí: una comparación de cesta no tiene ninguna ubicación desde la que medir. Consulta la recogida en la página del propio producto.",
+        "usedOrRefurbishedValue": "Todos los artículos de segunda mano o reacondicionados.",
+        "partialCoverage": "Algunos artículos no se han podido planificar. El resto se muestra con los motivos."
+      },
+      "reason": {
+        "noEligibleOffer": "Ahora mismo nadie lo ofrece",
+        "noOfferInRequestedCondition": "No hay ninguna oferta en el estado que pediste",
+        "noOfferFromRequestedMerchant": "No hay ninguna oferta del vendedor que pediste",
+        "everyOfferFromExcludedMerchant": "Todas las ofertas son de un vendedor que excluiste",
+        "noOfferInChannelPolicy": "Ninguna oferta coincide con el canal que elegiste",
+        "noConvertiblePrice": "Con un precio en una moneda que no podemos convertir",
+        "quantityExceedsAvailableStock": "El vendedor indica que no hay suficientes existencias",
+        "quantityNotSplittable": "Esta cantidad no se puede repartir entre varios vendedores",
+        "merchantLimitWouldBeExceeded": "Añadir este artículo superaría tu límite de vendedores",
+        "hardConstraintFailed": "No se cumple un requisito que estableciste",
+        "watchlistItemUnresolved": "Este artículo necesita que indiques a qué producto te referías tras un cambio en el catálogo",
+        "deliveryCostUnknown": "El coste de entrega no está publicado",
+        "taxInclusionUnknown": "No está publicado si los impuestos están incluidos",
+        "objectiveRequiresCompleteCosts": "Algunos costes se desconocen, así que no puede afirmarse un total completo",
+        "objectiveRequiresNativeOffer": "No se puede comprar en Mercaria",
+        "objectiveRequiresOfficialChannel": "No lo vende un canal oficial verificado",
+        "objectiveRequiresUsedOffer": "No hay oferta de segunda mano ni reacondicionada",
+        "pickupDataUnavailable": "No hay ninguna ubicación desde la que medir la recogida",
+        "offerNoLongerEligible": "Esta oferta ya no está disponible",
+        "offerPriceChanged": "El precio ha cambiado desde que se calculó este plan"
+      },
+      "approximation": {
+        "candidateLimitReached": "hay demasiadas ofertas para examinarlas todas",
+        "merchantLimitReached": "hay demasiados vendedores para examinar todas las combinaciones",
+        "timeLimitReached": "la búsqueda se quedó sin tiempo"
+      },
+      "optimalityProven": "El mejor plan posible con las ofertas que podemos ver.",
+      "optimalityApproximate": "Mejor plan encontrado: %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, deducido",
+      "cellInferredNote": "convertido, no indicado",
+      "unknown": {
+        "notRecorded": "Sin registrar",
+        "conflictingSources": "Las fuentes no coinciden",
+        "lowConfidence": "Sin confianza suficiente para afirmarlo",
+        "unitNotComparable": "Registrado en otra unidad",
+        "definitionNotPublished": "No se muestra aquí"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "No aplica",
+        "attributeNotComparable": "No comparable"
+      },
+      "unavailable": {
+        "noEligibleOffer": "No hay ofertas disponibles",
+        "allOffersConstrainedOut": "Ninguna oferta cumple tus requisitos",
+        "noConvertiblePrice": "No hay ninguna oferta que podamos expresar en esta moneda",
+        "offerComparisonWithheld": "Aquí no se muestran las ofertas"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "citó un registro que no se le facilitó",
+        "uncitedStatement": "hizo una afirmación sin ningún registro que la respalde",
+        "introducedNumber": "introdujo una cifra que no está en los datos",
+        "constraintResultChanged": "cambió el resultado de un requisito",
+        "unknownConstraintReference": "citó un requisito que no se le facilitó",
+        "forbiddenTopic": "mencionó un tema que las recomendaciones no pueden tener en cuenta",
+        "schemaInvalid": "no coincidió con la forma esperada",
+        "outputTooLong": "era más largo de lo permitido",
+        "providerUnavailable": "no está configurado",
+        "providerError": "no se pudo contactar"
+      },
+      "explanationFallbackNotice": "Este resumen se genera a partir de la tabla de comparación de abajo, sin ningún modelo de lenguaje."
     }
   }
 }
