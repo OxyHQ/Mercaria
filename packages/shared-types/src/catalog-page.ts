@@ -375,16 +375,43 @@ export interface CatalogBrowseAttributeFilter {
 }
 
 /**
- * A price range over the current eligible offers of a whole scope, in ONE named
- * currency (#72 family rule 4).
+ * What a scope's current eligible offers cost, or why that cannot be said
+ * (#72 family rule 4, #464).
+ *
+ * A TWO-STATE union rather than a range with optional ends. A scope whose every
+ * priced offer was excluded has no `lowest` and no `highest` — those are facts
+ * about a conversion that produced nothing — and the two shapes a reader has to
+ * tell apart are "here is the range" and "there were prices and none of them
+ * could be expressed here, and these are the currencies they were in".
+ *
+ * Expressing the second as a `ranged` carrying optional ends was rejected: an
+ * optional field on a success shape is the shape this repository keeps out of
+ * exactly these unions (#74's `RankingSignalOutcome`, #449's `SearchOfferMatch`,
+ * #78's `PriceHistoryValue`), because a reader can take the success branch and
+ * read past the absent value. `CatalogPageAsset` and `CatalogPageText` in this
+ * same file already answer their own three-way question this way.
+ *
+ * ABSENCE of the whole field means exactly ONE thing: **no product in the scope
+ * publishes a price at all.** It does NOT mean "prices exist and were dropped" —
+ * that is `unpriceable` — and it does not mean the offer lever is off, which
+ * {@link ProductFamilyPage.offerContext} states in its own field and a reader is
+ * expected to check first (a second representation of that fact here could
+ * disagree with it).
+ */
+export type CatalogPriceRange = CatalogPriceRangeRanged | CatalogPriceRangeUnpriceable;
+
+/**
+ * The scope has a range, in ONE named currency.
  *
  * The currency is NAMED rather than assumed because the offers behind it are in
  * whatever their retailers publish; a range whose two ends came from different
- * currencies would be a number with no meaning. Offers whose currency has no
- * rate are EXCLUDED and counted, the #70 `SearchFxContext` posture — an
- * unconvertible price cannot be shown to be the cheapest.
+ * currencies would be a number with no meaning. Offers whose currency could not
+ * be converted are EXCLUDED and NAMED, the #70 `SearchFxContext` posture — an
+ * unconvertible price cannot be shown to be the cheapest — while the offers that
+ * DID convert still make a range worth stating.
  */
-export interface CatalogPriceRange {
+export interface CatalogPriceRangeRanged {
+  readonly state: 'ranged';
   readonly currency: CurrencyCode;
   readonly lowest: OfferMoney;
   readonly highest: OfferMoney;
@@ -402,6 +429,38 @@ export interface CatalogPriceRange {
   readonly unmodelledCurrencies: readonly string[];
   readonly fxProvider: string;
   readonly fxAsOf: string;
+}
+
+/**
+ * The scope HAS priced offers and not one of them could be converted (#464).
+ *
+ * Distinct from the field being absent, which means nothing was priced at all.
+ * Collapsing the two is the defect this state exists to end: a family whose
+ * offers are all in a currency Mercaria does not model reported no range and no
+ * exclusions, so a shopper was told there were no offers and a seller had no
+ * surface anywhere naming why theirs never appeared.
+ *
+ * It carries NO `currency`, `lowest`, `highest`, `productCount`,
+ * `conditionScope`, `fxProvider` or `fxAsOf`, and that is deliberate rather than
+ * economical: every one of them would describe a conversion that did not happen.
+ * `fxProvider: 'identity'` in particular would claim a conversion was
+ * unnecessary, which is the opposite of what occurred.
+ *
+ * `unconvertibleCurrencies` is non-empty by construction — this state is
+ * reachable only from at least one excluded offer — so the state cannot be a new
+ * way to be silent.
+ */
+export interface CatalogPriceRangeUnpriceable {
+  readonly state: 'unpriceable';
+  /** Every currency whose offers were excluded. Named, never silent. */
+  readonly unconvertibleCurrencies: readonly string[];
+  /**
+   * The subset of {@link unconvertibleCurrencies} Mercaria does not model at
+   * all. On this state it is usually the WHOLE list: a modelled currency the
+   * rate map could not serve heals by itself, where these need a code change
+   * nobody can make while no surface names the currency (#450).
+   */
+  readonly unmodelledCurrencies: readonly string[];
 }
 
 /** One page of a brand or family browse (#72 product-browse rules 1, 2 and 6). */
@@ -586,6 +645,14 @@ export interface ProductFamilyPage {
   readonly publishable: boolean;
   /** Attributes every live product in the family shares, with their values. */
   readonly sharedAttributes: readonly CatalogFamilySharedAttribute[];
+  /**
+   * What this family's offers cost, or why that cannot be said.
+   *
+   * ABSENT means no product in the family publishes a price at all — read
+   * {@link offerContext} first, which states separately whether the offer lever
+   * is off. A family whose prices exist but could not be converted answers
+   * `{ state: 'unpriceable' }` and NAMES the currencies (#464).
+   */
   readonly priceRange?: CatalogPriceRange;
   readonly offerContext: CatalogOfferContextState;
   readonly breadcrumbs: readonly CatalogBreadcrumb[];

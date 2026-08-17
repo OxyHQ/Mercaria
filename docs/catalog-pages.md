@@ -185,6 +185,28 @@ currency, and **excludes and NAMES** any offer whose currency has no rate — th
 rate, and that refusal IS the answer. A family whose offers all expired reports
 NO range rather than a range of zero.
 
+**`CatalogPriceRange` is a two-state union, and absence means exactly one thing
+(#464).** `{ state: 'ranged' }` carries `lowest`/`highest`;
+`{ state: 'unpriceable' }` says prices EXIST and not one could be converted, and
+names the currencies they were in. The field being ABSENT means no product in
+the family publishes a price at all — read `offerContext` first, which states
+separately whether the offer lever is off.
+
+Before #464 the unpriceable case returned nothing: the derivation accumulated a
+complete exclusion list and then dropped it whenever no product contributed, so
+a family priced entirely in a currency Mercaria does not model rendered as "no
+current offers for this family". That told a shopper the family was unsold and
+left the seller of those offers with no surface naming the reason — the #450
+complaint one page over, which #463 fixed for `GET /search` and left here.
+
+The unpriceable state deliberately carries no `currency`, `fxProvider`,
+`fxAsOf`, `productCount` or `conditionScope`: each would describe a conversion
+that did not happen, and `fxProvider: 'identity'` would positively claim one was
+unnecessary. Its `unconvertibleCurrencies` is non-empty by construction, so the
+state cannot become a new way to be silent. The storefront family page renders
+it as its own branch, which the compiler required rather than suggested — the
+union makes reading `lowest` without narrowing a type error.
+
 ---
 
 ## A public fact is shown only under recorded rights

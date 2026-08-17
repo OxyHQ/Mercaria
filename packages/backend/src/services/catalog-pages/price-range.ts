@@ -16,6 +16,17 @@
  * it would be a raw cross-currency comparison of minor units, which answers with
  * whichever currency has the smaller unit.
  *
+ * ## Naming them survives the case where NOTHING converted (#464)
+ *
+ * The exclusion list is worth nothing if it is thrown away in the one case it
+ * matters most. A family whose offers are ALL priced in a currency Mercaria does
+ * not model computed a complete list of what it dropped and then returned
+ * `undefined`, which a client renders as "no offers" — telling a shopper the
+ * family is unsold and leaving a seller's "why does my offer never appear"
+ * unanswerable from any surface, which is the #450 complaint one page over.
+ * That case is now its own state, so absence means one thing and the list is
+ * always reported.
+ *
  * ## The range is over the cheapest offer of each PRODUCT
  *
  * Not over every offer: a family page's range answers "what do these
@@ -44,12 +55,19 @@ import { asCurrencyCode, projectCurrencyExclusions } from '../fx-exclusions.js';
 import { foldConditionScopes } from './condition-scope.js';
 
 /**
- * The range over a page of cards, in one named currency.
+ * The range over a page of cards, in one named currency — or why there is none.
  *
- * `undefined` when nothing convertible is priced — ABSENT rather than a range
- * of zero, the `ProductOfferSummary.lowestPrice` rule: a zero would render as
- * "from 0 €", which is a claim about a price rather than about Mercaria's
- * information.
+ * Three answers, and each means exactly one thing (#464):
+ *
+ * - `undefined` — **no card publishes a price at all.** ABSENT rather than a
+ *   range of zero, the `ProductOfferSummary.lowestPrice` rule: a zero would
+ *   render as "from 0 €", a claim about a price rather than about Mercaria's
+ *   information.
+ * - `{ state: 'unpriceable', … }` — cards WERE priced and every one was
+ *   excluded, with the currencies named. Before #464 this returned `undefined`
+ *   too, so the two collapsed and the exclusions this function had just
+ *   accumulated were reported nowhere.
+ * - `{ state: 'ranged', … }` — at least one card converted.
  *
  * ONE `getRates` for the whole page. A call per card would make the page's FX
  * behaviour depend on how many products it happened to return.
@@ -117,10 +135,23 @@ export async function deriveFamilyPriceRange(
     if (highest === undefined || amount > highest) highest = amount;
   }
 
-  if (lowest === undefined || highest === undefined || contributing === 0) return undefined;
+  if (lowest === undefined || highest === undefined || contributing === 0) {
+    // Prices existed and not one survived conversion. Reporting `undefined`
+    // here — what this did before #464 — threw away the exclusions just
+    // computed and made absence mean two things: "nothing is priced" and
+    // "everything was dropped, and here is what it was priced in". The second
+    // is the case a seller needs to see, and it was reported nowhere.
+    //
+    // `unconvertible` is non-empty here by construction: `priced` is non-empty
+    // (returned above otherwise) and every one of its cards either contributed
+    // or was added to this set, so `contributing === 0` implies at least one
+    // excluded currency. That is what stops this branch being a new silence.
+    return { state: 'unpriceable', ...projectCurrencyExclusions(unconvertible) };
+  }
 
   const money = (amount: number): OfferMoney => ({ amount, currency: target });
   return {
+    state: 'ranged',
     currency: target,
     lowest: money(lowest),
     highest: money(highest),
