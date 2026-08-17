@@ -545,9 +545,15 @@ function afterCursor(
  * Escape the three characters `LIKE` treats as syntax.
  *
  * Without this a query of `%` matches every category and a query of `_` matches
- * every one-character name — a caller-supplied pattern rather than a
- * caller-supplied SEARCH. The backslash is escaped FIRST, or escaping the other
+ * every one-character name. The backslash is escaped FIRST, or escaping the other
  * two would then re-escape the backslashes this function just added.
+ *
+ * What it bounds is the SCAN and not the ANSWER, and that is measured: removing it
+ * leaves `catalog-api-contract.realdb.test.ts` entirely green, because the
+ * resolved-name filter above drops every row the widened pattern admitted. So the
+ * answer is right either way and this exists so a caller cannot turn one query
+ * into a full-table read. There is no response field that could show the
+ * difference, which is why no test asserts it.
  */
 function escapeLikePattern(value: string): string {
   return value.replace(/\\/gu, '\\\\').replace(/%/gu, '\\%').replace(/_/gu, '\\_');

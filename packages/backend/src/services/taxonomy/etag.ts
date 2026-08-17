@@ -16,13 +16,24 @@
  * property order, and a refactor moving one field would silently re-download the
  * whole taxonomy for every client.
  *
- * Including the dimensions is not redundant with the body carrying them. Two
- * different requested locales that both fell back to `en` produce IDENTICAL
- * bodies and must stay distinguishable, because the next translation to land
- * changes one of them and not the other. `subject` is in the key for the same
- * reason one level up: the children of a leaf, the descendants of a leaf and a
- * search that matched nothing are all the empty list, and a shared tag would let
- * a `304` answer the wrong question.
+ * `read`, `subject` and `parameters` are NOT recoverable from the body, and that
+ * is measured rather than argued: the children of a leaf, the descendants of that
+ * same leaf, the children of a DIFFERENT leaf and the same read under a different
+ * `limit` are all byte-identical empty pages, so a key missing any of the three
+ * would let a `304` answer one question with another's cached body. Removing each
+ * of them individually turns `catalog-api-contract.realdb.test.ts`'s
+ * BYTE-IDENTICAL case red.
+ *
+ * `requestedLocale` is DIFFERENT and the difference is stated rather than implied:
+ * no test can fail if it is removed. `LocalizedResolution` echoes the requested
+ * locale inside every field it resolves, so two locales always produce different
+ * BODIES and the tag differs through the body whatever this key does. Freezing it
+ * here was mutation-tested and SURVIVED. It stays because the key is the wrong
+ * place to depend on a payload's shape — a projection that stopped echoing the
+ * locale would silently start sharing cache entries across languages — and
+ * because a fallback-only difference is exactly what the next translation to land
+ * changes. It is defence in depth, not the load-bearing dimension it would look
+ * like otherwise.
  *
  * ## Nothing time-varying, and no caller identity
  *
