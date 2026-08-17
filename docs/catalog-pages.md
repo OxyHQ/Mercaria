@@ -83,8 +83,10 @@ know of none" from "this part did not load".
 edge: the channel list links to `/merchants/{slug}`. **That route is #73's and
 is a named cross-issue seam**. It used to be one `tsc` could not check —
 `typedRoutes` was ON but inert, so a mismatch surfaced only as "This screen does
-not exist" — until #330 generated the route union before the typecheck; a wrong
-route here is now a build failure. Dropping the link instead would fail #72
+not exist" — until #330 generated the route union before the typecheck. `tsc`
+catches a typo in `merchants` itself, since no dynamic route sits above it; it
+would NOT catch one in a deeper segment, which is #456's measurement and why
+`validate:route-targets` resolves this link against the real route tree too. Dropping the link instead would fail #72
 official-channel rule 3 outright.
 
 ---

@@ -315,6 +315,18 @@ at `/settings/support`, which is not a screen. **#330 closed the mechanism**:
 `.expo/types/router.d.ts` is generated inside every app's `typecheck`, so the
 compiler now rejects a route that does not exist.
 
+**#456 measured that closure and found it PARTIAL.** The compiler answers
+completely for the OBJECT form — a wrong `{ pathname }` is `TS2820`. For a
+TEMPLATE LITERAL it answers only when no dynamic route sits above the mistyped
+segment: `` router.push(`/products/wizrd/${draft.id}`) `` exits 0, because
+`/products/[id]` contributes `` `/products/${SingleRoutePart<T>}` `` and that
+type's multi-segment exclusion cannot discharge against the unresolved
+`${string}` a template contributes. Since the common typo is a deeper segment of
+an otherwise-real path, the retirement below leaned on a guarantee weaker than
+it was read as. `scripts/validate-route-targets.mjs` (`validate:route-targets`,
+named in `ci.yml`) now resolves every target's static skeleton against the real
+route tree in all three apps, which is what restores the cover WALL 6 gave up.
+
 WALL 6 used to be that gate — it walked the real `app/` tree and resolved every
 literal `router.push`/`replace` target from this issue's files. #330 retired the
 resolution half: generating `.expo/types/router.d.ts` before `tsc` makes the
