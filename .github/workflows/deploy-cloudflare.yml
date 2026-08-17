@@ -31,6 +31,38 @@ permissions:
   contents: read
   actions: read
 
+# ONE deploy of THIS app at a time, and the newest wins.
+#
+# This is the OPPOSITE setting from `ci.yml`, deliberately, and the asymmetry is
+# the whole point: `ci.yml` owes a VERDICT PER COMMIT, so it must never cancel —
+# that was the 52-of-329 bug #505 fixed. A DEPLOY owes only the NEWEST ARTIFACT,
+# which is the same reasoning that makes `deploy-aws.yml`'s eviction benign.
+# Two concurrency blocks with opposite settings in one repo read like a mistake
+# unless the reason sits beside them, so: the difference is what each one owes.
+#
+# It is safe in both places it can interrupt. Cancelling a `gate` job costs
+# nothing at all — it is a poll loop that has changed no state. Cancelling
+# mid-`wrangler deploy` leaves the PREVIOUS Worker version live and serving,
+# and the newer deploy ships moments later; a Worker version is activated after
+# upload, not during it.
+#
+# The group is keyed PER APP. Three workflows sharing one group would serialise
+# the storefront, dashboard and POS behind each other — a different bug with an
+# identical green — which is why `deployGating.test.ts` asserts the key and not
+# merely that some block exists.
+#
+# Note this gap PREDATES #505: with no block at all, two deploys of this app
+# could already race to Cloudflare and nothing stopped them. What #505 changed
+# is the cost of the omission — its `gate` job holds a runner for its whole
+# wait (measured: nine idle gates, nine distinct assigned runner ids), so
+# without this, a burst of N merges parks 3N runners against the very `ci.yml`
+# runs those gates are waiting for. Measured under a real burst: 9 of 16
+# running jobs were idle gates, and one `ci.yml` run went from `in_progress`
+# BACK to `queued`.
+concurrency:
+  group: deploy-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Kept as a separate job rather than a first step of `deploy-app` so a refusal
   # is legible on the run page as "CI did not pass", and so the deploy job's own

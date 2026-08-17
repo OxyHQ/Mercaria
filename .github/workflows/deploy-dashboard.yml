@@ -33,6 +33,14 @@ permissions:
   contents: read
   actions: read
 
+# ONE deploy of THIS app at a time, and the newest wins. The full reasoning —
+# why this is the OPPOSITE of `ci.yml`'s setting, why cancelling a gate or a
+# `wrangler deploy` is safe, and why the group must be keyed PER APP rather than
+# shared — is written out once in `deploy-cloudflare.yml`.
+concurrency:
+  group: deploy-dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   gate:
     name: CI passed for this commit
