@@ -141,6 +141,59 @@ export function navigationFromCategoryTree(
   };
 }
 
+/**
+ * WHICH source answers, and the fallback that makes ADR 0007 D12's rollback real.
+ *
+ * Extracted from `use-navigation.ts`'s query function, under the rule this
+ * package's `vitest.config.ts` states for exactly this case: when a component or
+ * a hook grows logic worth a test, extract the logic rather than mount the
+ * renderer. The decision used to live inside a closure inside a `useQuery`, where
+ * nothing could reach it — and it is the single most load-bearing claim in
+ * `docs/runbooks/catalog-rollout-rollback.md`: turning
+ * `CATALOG_TAXONOMY_V2_ENABLED` off must restore the v1 menu rather than break
+ * the storefront.
+ *
+ * Three failures fold into ONE fallback and they are deliberately not
+ * distinguished here, because the shopper's answer is the same for all three:
+ *
+ *  - the lever is off, so `GET /navigation` is a 404 (a REJECTED promise);
+ *  - the market is one nobody configured, so it answers `{trees: []}` (RESOLVED
+ *    and empty — which must fall back too, or enabling the flag would withdraw
+ *    navigation on the deploy that enabled it, exactly what ADR 0007 D13's parity
+ *    condition forbids);
+ *  - the API is unreachable (a REJECTED promise of a different kind).
+ *
+ * What is NOT swallowed is the fallback's own failure: if `GET /categories` — the
+ * always-mounted v1 read — also fails, this REJECTS. An empty menu presented as
+ * the catalogue would be a statement about the shop, and the caller's error state
+ * is the honest answer.
+ */
+export async function resolveCatalogNavigation(input: {
+  readonly market: string | undefined;
+  readonly locale: string;
+  readonly surface: NavigationSurface | undefined;
+  readonly readTrees: (
+    market: string,
+    locale: string,
+    surface: NavigationSurface | undefined,
+  ) => Promise<NavigationResponse>;
+  readonly readCategoryTree: () => Promise<readonly CategoryNode[]>;
+}): Promise<CatalogNavigation> {
+  if (input.market !== undefined) {
+    // `then(onFulfilled, onRejected)` rather than a `try`/`catch` with an empty
+    // block: the rejection handler is a value-producing branch and reads as one,
+    // where an empty `catch` reads as an error somebody forgot to handle.
+    const trees = await input
+      .readTrees(input.market, input.locale, input.surface)
+      .then(
+        (response) => (response.trees.length > 0 ? navigationFromTrees(response) : undefined),
+        () => undefined,
+      );
+    if (trees !== undefined) return trees;
+  }
+  return navigationFromCategoryTree(await input.readCategoryTree());
+}
+
 /** Every entry of a tree, depth-first, parents before children. */
 export function flattenMenuEntries(
   entries: readonly CatalogMenuEntry[],
