@@ -44,6 +44,7 @@ import {
   SEARCH_FORBIDDEN_RELEVANCE_SIGNALS,
   SEARCH_RELEVANCE_SIGNALS,
 } from '@mercaria/shared-types';
+import { RANKING_SURFACE_PATHS } from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -70,6 +71,47 @@ const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
  */
 const DOMAIN_NAME_PATTERN = /search/i;
 const NOT_THIS_DOMAIN_PATTERN = /search-intent/i;
+
+/**
+ * This gate is the FORWARD wall over #70's domain, and is deliberately NOT the
+ * shared discovery surface.
+ *
+ * A census flagged the four-entry list this derivation replaced because all four
+ * entries also appear in `__tests__/ranking-surface.ts`, which derives to 42
+ * modules — the shape three real copies of that surface took under three
+ * different names. It is worth stating why this one is not a fourth, because the
+ * overlap is genuine and the next census will flag it again.
+ *
+ * The two walls run in opposite directions. `RANKING_SURFACE_PATHS` is the
+ * REVERSE population: every gate that uses it asks "does the discovery surface
+ * reference MY domain", and each carries a test named for exactly that. This
+ * file has no such test. It asks the FORWARD question — "can #70's own modules
+ * reach a commercial payment" — so its population is #70's domain: two
+ * directories walked whole plus the HTTP surface serving them, which is the same
+ * shape `price-history` and `price-alerts` use for their own outer files and
+ * which nobody calls a ranking copy.
+ *
+ * MEASURED, and this is what settles it rather than the reasoning above:
+ * substituting the shared surface would scan 42 modules, of which 13 are
+ * search-domain, and would DROP `middleware/search-schemas.ts` — the one file
+ * this branch proved was a live hole (a `marketplaceFee` read there passed on
+ * `origin/main`). A straight swap would reopen it while widening by 28 modules
+ * other gates already own. Scanning all 42 with these seven detectors was also
+ * measured and produces zero violations, so the swap would have been GREEN: the
+ * decision cannot be made by running it.
+ *
+ * The one search module in the surface and not here is `services/search.service.ts`,
+ * the legacy listing-first engine. That is not a gap — `fee-ranking-isolation.test.ts`
+ * runs the same commercial prohibition over the whole surface, so it is covered
+ * there. {@link SURFACE_RELATIONSHIP} asserts both halves so neither can drift
+ * in silence.
+ */
+const SURFACE_RELATIONSHIP = {
+  /** Covered HERE and by no surface-derived gate; a substitution would lose it. */
+  onlyCoveredHere: 'middleware/search-schemas.ts',
+  /** A search module covered by the SURFACE instead, deliberately not by this gate. */
+  coveredBySurfaceInstead: 'services/search.service.ts',
+} as const;
 
 /**
  * The floors, PER SHAPE and measured off this branch.
@@ -274,6 +316,55 @@ describe('canonical search cannot rank by a commercial payment', () => {
     }
     expect(NOT_THIS_DOMAIN_PATTERN.test('internal-search-intent.controller.ts')).toBe(true);
     expect(NOT_THIS_DOMAIN_PATTERN.test('search-operator.controller.ts')).toBe(false);
+  });
+
+  it('is the FORWARD wall over #70, and its relation to the shared surface holds', () => {
+    // Not an exact count: this population is DERIVED so that a search module
+    // added tomorrow is covered the moment it exists, and an exact count would
+    // fail the build on exactly that — making "bump the number" the cheapest
+    // green, which is how a floor stops meaning anything. What is pinned instead
+    // is the RELATION, in both directions, because that is what a silent drift
+    // would move.
+    const mine = new Set(scannedPaths().map((path) => path.slice(SRC_ROOT.length + 1)));
+    const surface = new Set<string>(RANKING_SURFACE_PATHS);
+
+    // Both populations must be real, or every assertion below is vacuous.
+    expect(surface.size, 'the shared ranking surface derived nothing').toBeGreaterThanOrEqual(30);
+    expect(mine.size, 'this gate scans almost nothing').toBeGreaterThanOrEqual(
+      MINIMUM_DIRECTORY_FILES + MINIMUM_OUTER_FILES,
+    );
+    // They genuinely overlap — if they stopped, one of the two walls has moved
+    // off #70's domain and this whole comparison is measuring nothing.
+    const overlap = [...mine].filter((path) => surface.has(path));
+    expect(overlap.length, 'this gate and the shared surface no longer overlap').toBeGreaterThan(5);
+
+    // HALF ONE: the file only this gate covers. If the shared surface ever
+    // absorbs it, a substitution becomes safe and this assertion says so.
+    expect(
+      mine.has(SURFACE_RELATIONSHIP.onlyCoveredHere),
+      `${SURFACE_RELATIONSHIP.onlyCoveredHere} left this gate's population; it is the module that ` +
+        'validates every parameter reaching canonical retrieval and no surface-derived gate ' +
+        'covers it',
+    ).toBe(true);
+    expect(
+      surface.has(SURFACE_RELATIONSHIP.onlyCoveredHere),
+      `${SURFACE_RELATIONSHIP.onlyCoveredHere} is now in the shared surface too. Replacing this ` +
+        "gate's population with RANKING_SURFACE_PATHS no longer drops it — re-decide, and update " +
+        'SURFACE_RELATIONSHIP rather than deleting this assertion',
+    ).toBe(false);
+
+    // HALF TWO: the search module this gate deliberately does NOT cover, which
+    // is only acceptable while the surface still does.
+    expect(
+      mine.has(SURFACE_RELATIONSHIP.coveredBySurfaceInstead),
+      `${SURFACE_RELATIONSHIP.coveredBySurfaceInstead} is the legacy engine and is not #70's domain`,
+    ).toBe(false);
+    expect(
+      surface.has(SURFACE_RELATIONSHIP.coveredBySurfaceInstead),
+      `${SURFACE_RELATIONSHIP.coveredBySurfaceInstead} left the shared ranking surface, so the ` +
+        'commercial prohibition over the legacy search engine is now enforced NOWHERE — either ' +
+        'restore it there or bring it into this gate',
+    ).toBe(true);
   });
 
   it('the comment stripper does not hide code from the scan', () => {
