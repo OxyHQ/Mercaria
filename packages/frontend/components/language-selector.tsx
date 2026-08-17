@@ -1,37 +1,32 @@
 import { View, Pressable } from 'react-native';
-import { DropdownMenu, Text } from '@mercaria/ui';
-import { useTranslation } from '@/hooks/useTranslation';
+import { DropdownMenu, LOCALE_ENDONYMS, Text } from '@mercaria/ui';
+import { STOREFRONT_LOCALES, useTranslation } from '@/lib/i18n';
 import { ChevronDown, Globe2 } from 'lucide-react-native';
 
-const SUPPORTED_LOCALES = [
-  { code: 'en-US', label: 'English', nativeLabel: 'English' },
-  { code: 'en-GB', label: 'English (UK)', nativeLabel: 'English (UK)' },
-  { code: 'es-ES', label: 'Spanish', nativeLabel: 'Español' },
-  { code: 'es-MX', label: 'Spanish (Mexico)', nativeLabel: 'Español (México)' },
-  { code: 'ca-ES', label: 'Catalan', nativeLabel: 'Català' },
-  { code: 'zh-Hans', label: 'Chinese (Simplified)', nativeLabel: '简体中文' },
-  { code: 'hi-IN', label: 'Hindi', nativeLabel: 'हिन्दी' },
-  { code: 'fr-FR', label: 'French', nativeLabel: 'Français' },
-  { code: 'ar-SA', label: 'Arabic', nativeLabel: 'العربية' },
-  { code: 'bn-BD', label: 'Bengali', nativeLabel: 'বাংলা' },
-  { code: 'pt-BR', label: 'Portuguese (Brazil)', nativeLabel: 'Português (Brasil)' },
-  { code: 'ru-RU', label: 'Russian', nativeLabel: 'Русский' },
-  { code: 'ja-JP', label: 'Japanese', nativeLabel: '日本語' },
-  { code: 'de-DE', label: 'German', nativeLabel: 'Deutsch' },
-];
-
+/**
+ * Choose the storefront's language.
+ *
+ * The list comes from `STOREFRONT_LOCALES` — what the app actually SHIPS —
+ * rather than a hand-written array in this file. It used to be fourteen region
+ * tags written out here, which is exactly how a shipped bundle becomes
+ * unreachable: adding `locales/it.json` changed nothing until somebody
+ * remembered this file too. Now adding a bundle adds a row (#435).
+ *
+ * Each option is labelled with its ENDONYM (`Deutsch`, not `German`) and with
+ * nothing else. A picker that says "German" is useless to the one population
+ * that needs it — people who cannot currently read the interface — and the
+ * English half was fourteen hardcoded strings that no bundle could translate.
+ */
 export function LanguageSelector() {
-  const { locale, changeLocale, t, directionRestartRequired } = useTranslation();
+  const { locale, setLocale, t, directionRestartRequired } = useTranslation();
 
-  const getCurrentLocaleLabel = () => {
-    // A device locale such as fr-CA has no entry of its own; fall back to the
-    // base language so the trigger never mislabels the language actually in use.
-    const baseLanguage = locale.split('-')[0];
-    const current =
-      SUPPORTED_LOCALES.find((l) => l.code === locale) ??
-      SUPPORTED_LOCALES.find((l) => l.code.split('-')[0] === baseLanguage);
-    return current?.nativeLabel || SUPPORTED_LOCALES[0].nativeLabel;
-  };
+  // A device reporting `fr-CA`, or a preference stored as `en-GB` by the picker
+  // this replaced, has no bundle of its own and renders its base language. So
+  // the row in force is matched on the LANGUAGE SUBTAG; comparing whole tags
+  // would leave every regional locale showing no selection at all.
+  const activeLanguage = (locale.split('-')[0] ?? '').toLowerCase();
+  const currentLocale =
+    STOREFRONT_LOCALES.find((code) => (code.split('-')[0] ?? '').toLowerCase() === activeLanguage);
 
   return (
     <View className="gap-2">
@@ -45,22 +40,21 @@ export function LanguageSelector() {
       <DropdownMenu.Root>
         <DropdownMenu.Trigger>
           <Pressable className="border border-border rounded-lg px-4 py-3 bg-background flex-row items-center justify-between">
-            <Text className="text-foreground">{getCurrentLocaleLabel()}</Text>
+            <Text className="text-foreground">
+              {currentLocale ? LOCALE_ENDONYMS[currentLocale] : LOCALE_ENDONYMS.en}
+            </Text>
             <ChevronDown size={20} className="text-muted-foreground" />
           </Pressable>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content>
-          {SUPPORTED_LOCALES.map((lang) => (
+          {STOREFRONT_LOCALES.map((code) => (
             <DropdownMenu.CheckboxItem
-              key={lang.code}
-              value={locale === lang.code ? 'on' : 'off'}
-              onValueChange={() => changeLocale(lang.code)}
+              key={code}
+              value={code === currentLocale ? 'on' : 'off'}
+              onValueChange={() => setLocale(code)}
             >
               <DropdownMenu.ItemIndicator />
-              <DropdownMenu.ItemTitle>{lang.nativeLabel}</DropdownMenu.ItemTitle>
-              {lang.label !== lang.nativeLabel && (
-                <DropdownMenu.ItemSubtitle>{lang.label}</DropdownMenu.ItemSubtitle>
-              )}
+              <DropdownMenu.ItemTitle>{LOCALE_ENDONYMS[code]}</DropdownMenu.ItemTitle>
             </DropdownMenu.CheckboxItem>
           ))}
         </DropdownMenu.Content>

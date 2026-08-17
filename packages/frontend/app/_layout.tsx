@@ -18,7 +18,7 @@ import { setTokenGetter } from '@/lib/api/client';
 import { useGuestCartMerge } from '@/lib/hooks/use-cart';
 import { OXY_CLIENT_ID } from '@/lib/config';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from '@/lib/i18n';
 import 'react-native-reanimated';
 import '../global.css';
 import '@/lib/i18n';

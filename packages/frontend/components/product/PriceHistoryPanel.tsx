@@ -2,7 +2,7 @@ import { View } from 'react-native';
 import type { ConditionGroup, CurrencyCode, PriceHistoryResponse } from '@mercaria/shared-types';
 import { Text, conditionGroupLabelKey, formatMoney } from '@mercaria/ui';
 import { useProductPriceHistory } from '@/lib/hooks/use-product-page';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation } from '@/lib/i18n';
 
 /**
  * What this product has cost (#78), rendered honestly.

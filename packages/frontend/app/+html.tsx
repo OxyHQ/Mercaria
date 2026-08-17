@@ -9,9 +9,10 @@ export default function Root({ children }: PropsWithChildren) {
   return (
     // This shell is rendered ONCE at export time, in Node, before anyone has
     // chosen a language — so `lang`/`dir` here are the pre-hydration default and
-    // not the answer. `lib/i18n/rtl.ts` rewrites both on the document as soon as
-    // the client knows the locale. Stating `dir` explicitly rather than leaving
-    // it to the browser is what makes that a correction rather than a surprise.
+    // not the answer. `@mercaria/ui`'s `syncLayoutDirection`, driven from
+    // `lib/i18n`'s store, rewrites both on the document as soon as the client
+    // knows the locale. Stating `dir` explicitly rather than leaving it to the
+    // browser is what makes that a correction rather than a surprise.
     <html lang="en" dir="ltr">
       <head>
         <meta charSet="utf-8" />

@@ -40,7 +40,7 @@
  * Usage:  bun scripts/validate-rtl-direction.mjs
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -160,88 +160,35 @@ if (!isRtlLocale("ar", frontendTags)) {
   );
 }
 
-// --------------------------------------------------------------- copy drift ---
+// ------------------------------------------------------- the set is not empty ---
 
 /**
- * The storefront still runs its OWN copy of this rule
- * (`packages/frontend/lib/i18n/rtl.ts`), because #434 hoisted the mechanism for
- * the dashboard and POS without converging the storefront's hand-built `I18n`
- * and hand-rolled store — that is #435.
+ * There is now exactly ONE `RTL_LANGUAGE_CODES`, so there is nothing left to
+ * compare it against.
  *
- * Two copies of a list nobody diffs is how they drift, and the drift is silent
- * in the worst direction: a language added to one set mirrors in one app and not
- * in another, with both builds green. So they are compared here until #435
- * deletes the second one, at which point this block goes with it.
- */
-const RTL_SET_SOURCES = [
-  { label: "shared (@mercaria/ui)", path: "packages/ui/src/i18n/rtl-locales.ts" },
-  { label: "storefront", path: "packages/frontend/lib/i18n/rtl.ts" },
-];
-
-/**
- * The quoted subtags inside a file's `RTL_LANGUAGE_CODES = new Set([...])`.
+ * #434 left the storefront running a second copy in
+ * `packages/frontend/lib/i18n/rtl.ts` and this file diffed the two declarations
+ * on every run, because two copies of a list nobody diffs is how they drift.
+ * #435 deleted that copy along with the hand-built `I18n` and hand-rolled store
+ * it existed for, so the comparison can no longer FAIL — with one side gone it
+ * would either read a missing file or compare the shared set against nothing.
+ * A check whose cheapest green is the absence of the thing it measures is worse
+ * than no check, so it goes, exactly as its own note said it would.
  *
- * COMMENTS ARE STRIPPED FIRST, and that is not defensive tidying — it was a real
- * hole, found by mutation-testing this check rather than by reading it. Every
- * entry in both sets carries a trailing `// Arabic`-style comment, so commenting
- * a subtag OUT is the most natural way to remove one. Against the un-stripped
- * text the quoted string is still there, the parser still finds it, and the two
- * sets still compare equal — the guard reported a clean run over a real
- * divergence. A census over source must exclude comments.
+ * What that block also happened to enforce is kept, because losing it silently
+ * is the real risk: the loop over `RTL_LANGUAGE_CODES` above iterates the set,
+ * so an EMPTY set makes every per-language assertion pass by never running. The
+ * storefront Arabic control below is a genuine anchor for `ar` specifically;
+ * this is the floor for the rest of the set.
  */
-function declaredRtlCodes(path) {
-  const source = readFileSync(resolve(repositoryRoot, path), "utf8");
-  const declaration = source.indexOf("RTL_LANGUAGE_CODES");
-  if (declaration < 0) return null;
-  const open = source.indexOf("new Set([", declaration);
-  const close = source.indexOf("])", open);
-  if (open < 0 || close < 0) return null;
-  const body = source
-    .slice(open, close)
-    .split("\n")
-    .map((line) => line.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, ""))
-    .join("\n");
-  return [...body.matchAll(/'([a-z-]+)'/g)].map((match) => match[1]);
-}
+const MINIMUM_RTL_LANGUAGES = 8;
 
-const declaredSets = RTL_SET_SOURCES.map((entry) => ({
-  ...entry,
-  codes: declaredRtlCodes(entry.path),
-}));
-
-for (const entry of declaredSets) {
-  if (entry.codes === null) {
-    failures.push(
-      `could not read an RTL_LANGUAGE_CODES set out of ${entry.path} — the shape changed, and a `
-      + "parser that finds nothing compares two empty sets and reports them equal",
-    );
-    continue;
-  }
-  // A parse that silently returned a handful would make the equality below pass
-  // for the wrong reason. The real set is eleven subtags.
-  if (entry.codes.length < 8) {
-    failures.push(
-      `${entry.path} declares only ${entry.codes.length} RTL subtags, which is fewer than any real `
-      + "version of this list — the parse is broken, not the data",
-    );
-  }
-}
-
-const [sharedSet, storefrontSet] = declaredSets;
-if (sharedSet.codes && storefrontSet.codes) {
-  const shared = new Set(sharedSet.codes);
-  const storefront = new Set(storefrontSet.codes);
-  const onlyShared = [...shared].filter((code) => !storefront.has(code));
-  const onlyStorefront = [...storefront].filter((code) => !shared.has(code));
-  if (onlyShared.length > 0 || onlyStorefront.length > 0) {
-    failures.push(
-      "the storefront's RTL_LANGUAGE_CODES has drifted from the shared set"
-      + (onlyShared.length > 0 ? ` — only in shared: ${onlyShared.join(", ")}` : "")
-      + (onlyStorefront.length > 0 ? ` — only in the storefront: ${onlyStorefront.join(", ")}` : "")
-      + ". A language in one set and not the other mirrors in one app and not another with both "
-      + "builds green. Update both, or land #435 and delete the storefront's copy.",
-    );
-  }
+if (RTL_LANGUAGE_CODES.size < MINIMUM_RTL_LANGUAGES) {
+  failures.push(
+    `RTL_LANGUAGE_CODES has ${RTL_LANGUAGE_CODES.size} entries, below the `
+    + `${MINIMUM_RTL_LANGUAGES} floor — the per-language loop above iterates this set, so a gutted `
+    + "set makes every assertion in it pass by never running",
+  );
 }
 
 // ------------------------------------------------------------------- verdict ---
@@ -262,5 +209,5 @@ console.log(
   `RTL direction guard passed — ${summary}; `
   + `${RTL_LANGUAGE_CODES.size} RTL languages probed against each app's shipped bundles, `
   + `${CASES.length} synthetic cases covering both answers, storefront Arabic control anchored, `
-  + `${RTL_SET_SOURCES.length} declared RTL sets compared for drift (#435 removes the second).`,
+  + `one shared RTL set (#435 deleted the storefront's copy; the drift comparison went with it).`,
 );

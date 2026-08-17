@@ -4,7 +4,7 @@ import { useOxy } from "@oxyhq/services";
 import { Check, Plus, Trash2 } from "lucide-react-native";
 import type { Address, CreateAddressInput } from "@mercaria/shared-types";
 import { Button, Text } from "@mercaria/ui";
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/lib/i18n";
 import { SettingsHeader } from "@/components/settings/settings-header";
 import { AddressForm } from "@/components/address/AddressForm";
 import { toast } from "@oxyhq/bloom/toast";

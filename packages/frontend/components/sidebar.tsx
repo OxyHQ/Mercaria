@@ -16,7 +16,7 @@ import {
   UserPlus,
   type LucideIcon,
 } from "lucide-react-native";
-import { useTranslation } from "@/hooks/useTranslation";
+import { useTranslation } from "@/lib/i18n";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useRouter, usePathname, useNavigation } from "expo-router";
 import type { DrawerNavigationProp } from "@react-navigation/drawer";

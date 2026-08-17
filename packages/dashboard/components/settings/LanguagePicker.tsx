@@ -12,10 +12,11 @@ import { DASHBOARD_LOCALES, useTranslation } from "@/lib/i18n";
  * permission on the active store still has to be able to read it.
  *
  * The list comes from `DASHBOARD_LOCALES` — what the app actually ships —
- * rather than a hand-written array in this file. The storefront's picker keeps
- * its own copy of the list, which is exactly how a shipped bundle ends up
- * unreachable: adding `locales/it.json` there changes nothing until somebody
- * remembers this file too. Here, adding a bundle adds a row.
+ * rather than a hand-written array in this file, which is how a shipped bundle
+ * ends up unreachable: adding `locales/it.json` would change nothing until
+ * somebody remembered this file too. Here, adding a bundle adds a row. The
+ * storefront's picker was the counter-example when this was written and is now
+ * on the same shape (#435).
  *
  * Each option is labelled with its ENDONYM (`Deutsch`, not `German`). A picker
  * that says "German" is useless to the one population that needs it: people who
