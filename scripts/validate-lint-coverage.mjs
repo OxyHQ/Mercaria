@@ -115,7 +115,7 @@ const GATING_JOB = "lint-and-test";
 // ------------------------------------------------------- expected state -----
 
 /** Packages whose `lint` script runs a real linter. */
-const EXPECTED_REAL = ["backend"];
+const EXPECTED_REAL = ["backend", "dashboard", "frontend", "pos"];
 
 /** Packages whose `lint` script is an `exit 0` placeholder. */
 const EXPECTED_PLACEHOLDER = ["shared-types", "ui"];
@@ -124,11 +124,22 @@ const EXPECTED_PLACEHOLDER = ["shared-types", "ui"];
  * Packages with NO `lint` script at all — the category that has no analogue on
  * the `test` side, where all six declare something. A package here is skipped in
  * silence by the root wildcard.
+ *
+ * EMPTY since #496, and deliberately kept as a category rather than deleted:
+ * the set being empty is the decision, and a package arriving here later is
+ * exactly the silent loss this file exists to catch. The three Expo apps that
+ * used to sit here were measured at 0 errors and 13 warnings between them — the
+ * cost of linting them was not a wall, so there was nothing to ratchet.
  */
-const EXPECTED_NO_SCRIPT = ["dashboard", "frontend", "pos"];
+const EXPECTED_NO_SCRIPT = [];
 
 /** Workspace packages named by a `--filter <pkg> lint` step in the workflow. */
-const EXPECTED_CI_LINT_TARGETS = ["@mercaria/backend"];
+const EXPECTED_CI_LINT_TARGETS = [
+  "@mercaria/backend",
+  "@mercaria/dashboard",
+  "@mercaria/frontend",
+  "@mercaria/pos",
+];
 
 /**
  * Below this the `packages/` walk is broken. See the docblock: this does NOT
