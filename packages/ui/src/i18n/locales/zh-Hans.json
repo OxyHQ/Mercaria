@@ -348,6 +348,281 @@
         "destination_not_supplied": "告诉我们寄往何处，我们即可给出价格。",
         "retail_not_enabled": "此商品目前不发售。"
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "暂扣中",
+          "vested": "已确定",
+          "frozen": "审核中",
+          "paid": "已支付",
+          "voided": "已冲回"
+        },
+        "explanation": {
+          "held": "已赚取，正在等待暂扣期结束。等待期间不会有任何损失，但如果对应的购买被退款，金额仍可能减少。",
+          "vested": "暂扣期已过且未收到冲回。一旦您的账户通过支付审核且余额达到最低额，它将进入下一次付款。",
+          "frozen": "因需要审核而暂停 — 可能是购买争议，或账户核查。暂扣计时是停止而非重新开始，审核通过后从原处继续。",
+          "paid": "已发送至您的收款方式。付款一经完成绝不撤销。",
+          "voided": "其来源的款项已消失 — 通常是退款 — 奖励也随之消失。记录会保留，并附上原因。"
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "请完成并提交您的申请。",
+        "application_under_review": "您的申请正在我们团队处审核。",
+        "application_changes_requested": "我们已要求修改您的申请。",
+        "partner_agreement_not_accepted": "请接受合作伙伴协议。",
+        "partner_agreement_superseded": "合作伙伴协议已变更 — 请接受新版本。",
+        "tax_questionnaire_not_completed": "请填写简短的税务问卷。",
+        "identity_verification_not_ready": "请在我们的支付服务商处完成身份验证。",
+        "payout_destination_not_ready": "请添加收款方式。",
+        "partner_suspended": "您的参与已暂停。",
+        "partner_terminated": "您的参与已结束。",
+        "enrollment_is_test_only": "这是测试注册，不会产生付款。"
+      },
+      "rewardBasis": {
+        "percentage": "%{base}的 %{rate}%",
+        "fixedBudget": "每笔符合条件的推荐按固定金额计算，来自已批准的营销预算。",
+        "fixedOther": "每笔符合条件的推荐按固定金额计算，来自已批准的资金来源。",
+        "notPublished": "该计划的费率尚未公布。"
+      },
+      "metric": {
+        "withDenominator": "%{numerator} 除以：%{denominator} 时间窗口：%{window} 来源：%{source}。它无法看到的：%{limit}",
+        "withoutDenominator": "%{numerator} 时间窗口：%{window} 来源：%{source}。它无法看到的：%{limit}"
+      },
+      "withheld": {
+        "all": "在更多人到来之前，此明细处于隐藏状态。在这样的数量下按市场或设备分组可能会识别到个人，因此我们只显示合计。下方的合计是完整的。",
+        "some": {
+          "one": "有 %{count} 个分组因人数少于 %{floor} 人而被隐藏。其活动仍计入合计。",
+          "other": "有 %{count} 个分组因人数少于 %{floor} 人而被隐藏。它们的活动仍计入合计。"
+        }
+      },
+      "payoutStatus": {
+        "open": "准备中",
+        "approved": "已批准",
+        "processing": "发送中",
+        "paid": "已支付",
+        "failed": "无法发送",
+        "cancelled": "已取消"
+      }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "有货",
+          "low_stock": "库存不多",
+          "out_of_stock": "无货"
+        },
+        "explanation": {
+          "in_stock": "该店确认有货。",
+          "low_stock": "该店确认仅剩少量。",
+          "out_of_stock": "该店确认目前没有。"
+        }
+      },
+      "distanceBand": {
+        "under_1km": "1 公里以内",
+        "under_5km": "5 公里以内",
+        "under_10km": "10 公里以内",
+        "under_25km": "25 公里以内",
+        "under_50km": "50 公里以内",
+        "beyond_50km": "50 公里以上"
+      },
+      "identityRequirement": {
+        "order_number_only": "请带上您的订单号。",
+        "collection_code": "请带上您的取货码。",
+        "collection_code_and_photo_id": "请带上您的取货码和带照片的身份证件。"
+      },
+      "paymentRequirement": {
+        "prepaid": "已在线支付 — 取货时无需付款。"
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "备货中",
+          "ready_for_pickup": "可取货",
+          "collected": "已取货",
+          "pickup_cancelled": "取货已取消"
+        },
+        "explanation": {
+          "awaiting_preparation": "门店正在备货。请等到显示可取货再前往。",
+          "ready_for_pickup": "您的订单正在门店等候。",
+          "collected": "此订单已交付。",
+          "pickup_cancelled": "门店撤销了本次取货。您的订单与任何退款将分开处理 — 此处并未退回您的款项。"
+        }
+      },
+      "blockReason": {
+        "location_not_published": "此地点尚未发布，购物者无法找到。",
+        "location_not_active": "此地点已关闭，不分配任何库存。",
+        "pickup_paused": "您已暂停此地点的取货。",
+        "pickup_not_offered": "此地点不提供取货。",
+        "location_not_geocoded": "此地点没有地图标记，因此无法按距离查找。请添加一个。",
+        "location_restricted": "Mercaria 已限制此地点。请联系客服。",
+        "store_unavailable": "门店本身处于非活动或受限状态。",
+        "listing_unavailable": "该商品未上架，因此此处没有可取之物。",
+        "no_collectable_stock": "此地点目前没有可取货的库存。",
+        "inventory_stale": "此处库存的最后确认时间早于您为该地点设置的确认间隔。",
+        "location_closed": "此地点在所查询的时段处于关闭状态。",
+        "seller_not_payment_ready": "该卖家尚无法收款，因此无法购买以供取货。",
+        "guest_pickup_disabled": "本部署已关闭访客取货。",
+        "guest_seller_not_activated": "该卖家尚未开通访客结账。",
+        "guest_notifications_unavailable": "访客取货需要事务性消息通道，而本部署没有。",
+        "store_pickup_disabled": "本部署已关闭门店取货。",
+        "p2p_pickup_not_available": "个人之间的商品不支持取货。"
+      },
+      "buyerBlock": {
+        "guestSignIn": "使用 Mercaria 账户即可在此门店取货。在其他地方登录都是可选的 — 在这里，登录才让取货成为可能。",
+        "unavailable": "目前您无法在此取货。您仍然可以选择配送。"
+      },
+      "openState": {
+        "hoursNotPublished": "营业时间未公布",
+        "openNow": "正在营业",
+        "openUntil": "正在营业 — 至 %{time}",
+        "closedNote": "已关闭 — %{note}",
+        "closedNow": "当前已关闭",
+        "closedOpensAt": "已关闭 — %{time} 开门"
+      },
+      "stockConfirmed": {
+        "unknown": "最后确认时间不详",
+        "justNow": "刚刚确认库存",
+        "minutes": {
+          "one": "%{count} 分钟前确认库存",
+          "other": "%{count} 分钟前确认库存"
+        },
+        "hours": {
+          "one": "%{count} 小时前确认库存",
+          "other": "%{count} 小时前确认库存"
+        },
+        "days": {
+          "one": "%{count} 天前确认库存",
+          "other": "%{count} 天前确认库存"
+        }
+      },
+      "exactQuantity": {
+        "one": "此店有 %{count} 件库存。",
+        "other": "此店有 %{count} 件库存。"
+      }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "价格阈值",
+          "used_or_refurbished_appearance": "出现二手或翻新",
+          "official_channel_availability": "出现官方渠道",
+          "basket_target_total": "设置目标总价",
+          "materially_better_plan": "明显更优方案",
+          "constraint_satisfiable": "要求变为可满足"
+        },
+        "explanation": {
+          "offer_price_threshold": "当前符合条件的报价达到我设定的价格时通知我。",
+          "used_or_refurbished_appearance": "出现匹配的二手或翻新商品时通知我。",
+          "official_channel_availability": "当此商品可从已验证的官方渠道购得时通知我。",
+          "basket_target_total": "整套价格低于我设定的总价时通知我。",
+          "materially_better_plan": "当我保存的内容出现明显更优方案时通知我。",
+          "constraint_satisfiable": "当终于有商品满足我设定的全部要求时通知我。"
+        }
+      },
+      "state": {
+        "enabled": "监视中",
+        "paused": "已暂停",
+        "blocked": "需要您的回答",
+        "completed": "已结束",
+        "deleted": "已移除"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "已匹配",
+          "not_qualified": "无匹配",
+          "incomplete": "无法判断"
+        },
+        "explanation": {
+          "qualified": "您所要求的在那一刻是成立的。",
+          "not_qualified": "我们查看了完整信息，您所要求的并不成立。",
+          "incomplete": "我们无法判断 — 所需信息有部分缺失。"
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "当前",
+          "superseded": "已被取代",
+          "invalidated": "不再有效"
+        },
+        "explanation": {
+          "current": "这是对您目标的最新一次查看。",
+          "superseded": "后一次查看取代了这一次。保留它是为了让您看到变化。",
+          "invalidated": "目录更正使其不再指向任何内容。予以保留而非删除。"
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "当时无法执行报价比较。",
+        "no_eligible_offer": "没有符合条件的对象可供比较。",
+        "price_not_convertible": "某个价格无法用您的货币表示。",
+        "delivery_cost_unknown": "从未公布配送费用。",
+        "basket_partially_covered": "这一组中有部分没有可比对象。",
+        "constraint_set_invalid": "您的某项要求已不再有效。",
+        "constraint_facts_unavailable": "支撑您某项要求的信息无法获取。",
+        "agent_ambiguous_after_split": "此代理正等待您说明所指的是哪个商品。",
+        "no_comparable_prior_finding": "此前没有可用于比较的记录。",
+        "catalogue_discovery_unavailable": "其背后的目录搜索无法执行。"
+      },
+      "completeness": {
+        "complete": "证据完整",
+        "partial": "证据部分"
+      },
+      "freshness": {
+        "current": "来源较新",
+        "ageing": "来源渐旧",
+        "unknown": "新鲜度未知"
+      },
+      "optimality": {
+        "proven_optimal": "已证明最优",
+        "approximate": "已找到的最优"
+      },
+      "priceBasis": {
+        "item_price": "商品价格，不含配送",
+        "delivered_total": "含配送的总价"
+      },
+      "channelPolicy": {
+        "native_only": "Mercaria 上的卖家",
+        "external_only": "Mercaria 之外的商家",
+        "official_only": "已验证的官方店铺",
+        "mixed": "任何卖家"
+      },
+      "triggerSource": {
+        "offer_change": "在目录变更之后",
+        "scheduled": "按计划查看时",
+        "manual": "因为您提出了请求"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Oxy 通知",
+        "email": "电子邮件"
+      },
+      "notificationState": {
+        "queued": "排队中",
+        "delivering": "发送中",
+        "delivered": "已发送",
+        "failed": "失败",
+        "suppressed": "已扣留",
+        "dead_letter": "已放弃"
+      },
+      "suppressionReason": {
+        "cooldown_active": "已扣留 — 最近刚通知过您。",
+        "not_materially_better": "已扣留 — 与上次相比没有明显改善。",
+        "agent_not_enabled": "已扣留 — 此代理当时未在监视。",
+        "agent_deleted": "已扣留 — 此代理已被移除。",
+        "finding_superseded": "已扣留 — 后一次查看取代了这一次。",
+        "destination_no_longer_eligible": "已扣留 — 其所指的对象已不符合条件。",
+        "channel_unavailable": "已扣留 — 该渠道当时不可用。"
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "未发送 — 尚未配置任何投递通道。",
+        "transport_rejected": "未发送 — 投递通道拒绝了它。",
+        "transport_unavailable": "未发送 — 投递通道不可用。",
+        "finding_unreadable": "未发送 — 无法读取该观察记录。",
+        "unexpected_error": "未发送 — 出现了问题。"
+      },
+      "summarySource": {
+        "deterministic_template": "由 Mercaria 依据观察记录本身撰写。",
+        "provider": "由语言模型依据观察记录措辞。其中的每个数字均来自观察记录，而非模型。"
+      },
+      "observationDisclaimer": "发现是 Mercaria 在那一刻看到的情况。它不会为您保留，也不是报价 — 价格与可供情况随时可能变化。"
     }
   }
 }

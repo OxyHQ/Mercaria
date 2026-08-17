@@ -348,6 +348,281 @@
         "destination_not_supplied": "Dites-nous où cela doit aller et nous pourrons en fixer le prix.",
         "retail_not_enabled": "Cet article n'est pas en vente actuellement."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "En attente",
+          "vested": "Acquis",
+          "frozen": "En cours d'examen",
+          "paid": "Payé",
+          "voided": "Annulé"
+        },
+        "explanation": {
+          "held": "Acquise et en période de rétention. Rien n'est perdu pendant l'attente, et le montant peut encore baisser si l'achat correspondant est remboursé.",
+          "vested": "La rétention est passée et aucune annulation ne l'a atteinte. Elle rejoindra le prochain versement dès que votre compte satisfera les contrôles de paiement et que le solde atteindra le minimum.",
+          "frozen": "En pause pendant un examen — un litige sur l'achat, ou une vérification du compte. Le compteur de rétention s'arrête au lieu de repartir, et reprend où il était si l'examen aboutit.",
+          "paid": "Envoyée vers votre destination de versement. Un paiement n'est jamais défait après coup.",
+          "voided": "L'argent dont elle provenait a disparu — généralement un remboursement — la récompense est partie avec. L'enregistrement reste, avec le motif."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "Terminez et envoyez votre candidature.",
+        "application_under_review": "Votre candidature est entre les mains de notre équipe.",
+        "application_changes_requested": "Nous avons demandé une modification de votre candidature.",
+        "partner_agreement_not_accepted": "Acceptez le contrat de partenariat.",
+        "partner_agreement_superseded": "Le contrat de partenariat a changé — acceptez la nouvelle version.",
+        "tax_questionnaire_not_completed": "Remplissez le court questionnaire fiscal.",
+        "identity_verification_not_ready": "Terminez la vérification d'identité auprès de notre prestataire de paiement.",
+        "payout_destination_not_ready": "Ajoutez une destination de versement.",
+        "partner_suspended": "Votre participation est suspendue.",
+        "partner_terminated": "Votre participation a pris fin.",
+        "enrollment_is_test_only": "Il s'agit d'une inscription de test, sans versement."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate} % de %{base}",
+        "fixedBudget": "Un montant fixe par parrainage éligible, prélevé sur un budget marketing approuvé.",
+        "fixedOther": "Un montant fixe par parrainage éligible, prélevé sur la source de financement approuvée.",
+        "notPublished": "Le taux de ce programme n'a pas encore été publié."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} Divisé par : %{denominator} Fenêtre : %{window} Source : %{source}. Ce qu'elle ne voit pas : %{limit}",
+        "withoutDenominator": "%{numerator} Fenêtre : %{window} Source : %{source}. Ce qu'elle ne voit pas : %{limit}"
+      },
+      "withheld": {
+        "all": "Cette ventilation est masquée jusqu'à ce que davantage de personnes soient arrivées. Un regroupement par marché ou appareil peut isoler quelqu'un à ces effectifs, nous affichons donc les totaux. Vos totaux ci-dessous sont complets.",
+        "some": {
+          "one": "%{count} groupe est masqué car il compte moins de %{floor} personnes. Son activité reste comptée dans les totaux.",
+          "other": "%{count} groupes sont masqués car ils comptent moins de %{floor} personnes. Leur activité reste comptée dans les totaux."
+        }
+      },
+      "payoutStatus": {
+        "open": "En préparation",
+        "approved": "Approuvé",
+        "processing": "En route",
+        "paid": "Payé",
+        "failed": "Envoi impossible",
+        "cancelled": "Annulé"
+      }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "En stock",
+          "low_stock": "Stock faible",
+          "out_of_stock": "En rupture"
+        },
+        "explanation": {
+          "in_stock": "Cette boutique a confirmé l'avoir en stock.",
+          "low_stock": "Cette boutique a confirmé qu'il n'en reste que quelques-uns.",
+          "out_of_stock": "Cette boutique a confirmé n'en avoir aucun pour le moment."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "À moins d'1 km",
+        "under_5km": "À moins de 5 km",
+        "under_10km": "À moins de 10 km",
+        "under_25km": "À moins de 25 km",
+        "under_50km": "À moins de 50 km",
+        "beyond_50km": "À plus de 50 km"
+      },
+      "identityRequirement": {
+        "order_number_only": "Munissez-vous de votre numéro de commande.",
+        "collection_code": "Munissez-vous de votre code de retrait.",
+        "collection_code_and_photo_id": "Munissez-vous de votre code de retrait et d'une pièce d'identité avec photo."
+      },
+      "paymentRequirement": {
+        "prepaid": "Payé en ligne — rien à régler au retrait."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "En préparation",
+          "ready_for_pickup": "Prêt à retirer",
+          "collected": "Retiré",
+          "pickup_cancelled": "Retrait annulé"
+        },
+        "explanation": {
+          "awaiting_preparation": "La boutique prépare votre commande. Attendez la mention prêt à retirer avant de vous déplacer.",
+          "ready_for_pickup": "Votre commande vous attend en boutique.",
+          "collected": "Cette commande a été remise.",
+          "pickup_cancelled": "La boutique a annulé ce retrait. Votre commande et tout remboursement sont traités séparément — rien ici n'a repris votre argent."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "Ce point de retrait n'est pas publié, les clients ne peuvent donc pas le trouver.",
+        "location_not_active": "Ce point de retrait est désactivé et n'achemine aucun stock.",
+        "pickup_paused": "Vous avez suspendu le retrait à ce point de vente.",
+        "pickup_not_offered": "Ce point de vente ne propose pas le retrait.",
+        "location_not_geocoded": "Ce point de vente n'a pas de repère sur la carte et ne peut donc pas être trouvé par distance. Ajoutez-en un.",
+        "location_restricted": "Mercaria a restreint ce point de vente. Contactez le support.",
+        "store_unavailable": "La boutique elle-même est inactive ou restreinte.",
+        "listing_unavailable": "L'annonce n'est pas active, rien n'est donc à retirer ici.",
+        "no_collectable_stock": "Il n'y a aucune unité à retirer à ce point de vente pour le moment.",
+        "inventory_stale": "Le stock ici a été confirmé il y a plus longtemps que l'intervalle de confirmation que vous avez défini pour ce point de vente.",
+        "location_closed": "Ce point de vente est fermé pour la période demandée.",
+        "seller_not_payment_ready": "Ce vendeur ne peut pas encore être payé, rien ne peut donc être acheté pour retrait.",
+        "guest_pickup_disabled": "Le retrait par un invité est désactivé sur cette installation.",
+        "guest_seller_not_activated": "Ce vendeur n'a pas été activé pour le paiement en tant qu'invité.",
+        "guest_notifications_unavailable": "Le retrait par un invité nécessite un transport de messages transactionnels, absent de cette installation.",
+        "store_pickup_disabled": "Le retrait en boutique est désactivé sur cette installation.",
+        "p2p_pickup_not_available": "Le retrait n'est pas disponible pour les annonces entre particuliers."
+      },
+      "buyerBlock": {
+        "guestSignIn": "Vous pouvez retirer dans cette boutique avec un compte Mercaria. La connexion est facultative partout ailleurs — ici, c'est elle qui rend le retrait possible.",
+        "unavailable": "Le retrait n'est pas disponible ici pour vous en ce moment. Vous pouvez toujours vous le faire livrer."
+      },
+      "openState": {
+        "hoursNotPublished": "Horaires non publiés",
+        "openNow": "Ouvert maintenant",
+        "openUntil": "Ouvert maintenant — jusqu'à %{time}",
+        "closedNote": "Fermé — %{note}",
+        "closedNow": "Fermé actuellement",
+        "closedOpensAt": "Fermé — ouvre à %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "Dernière confirmation à un moment inconnu",
+        "justNow": "Stock confirmé à l'instant",
+        "minutes": {
+          "one": "Stock confirmé il y a %{count} minute",
+          "other": "Stock confirmé il y a %{count} minutes"
+        },
+        "hours": {
+          "one": "Stock confirmé il y a %{count} heure",
+          "other": "Stock confirmé il y a %{count} heures"
+        },
+        "days": {
+          "one": "Stock confirmé il y a %{count} jour",
+          "other": "Stock confirmé il y a %{count} jours"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} en stock dans cette boutique.",
+        "other": "%{count} en stock dans cette boutique."
+      }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Seuil de prix",
+          "used_or_refurbished_appearance": "Un article d'occasion ou reconditionné apparaît",
+          "official_channel_availability": "Un canal officiel apparaît",
+          "basket_target_total": "Définir un total cible",
+          "materially_better_plan": "Plan nettement meilleur",
+          "constraint_satisfiable": "Les exigences deviennent satisfaisables"
+        },
+        "explanation": {
+          "offer_price_threshold": "Prévenez-moi quand une offre éligible en cours atteint le prix que j'ai fixé.",
+          "used_or_refurbished_appearance": "Prévenez-moi quand un article d'occasion ou reconditionné correspondant apparaît.",
+          "official_channel_availability": "Prévenez-moi quand cela devient disponible auprès d'un canal officiel vérifié.",
+          "basket_target_total": "Prévenez-moi quand l'ensemble passe sous le total que j'ai fixé.",
+          "materially_better_plan": "Prévenez-moi quand il existe un plan nettement meilleur pour ma sélection.",
+          "constraint_satisfiable": "Prévenez-moi quand quelque chose satisfait enfin toutes mes exigences."
+        }
+      },
+      "state": {
+        "enabled": "Sous surveillance",
+        "paused": "En pause",
+        "blocked": "Attend votre réponse",
+        "completed": "Terminé",
+        "deleted": "Supprimé"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Correspondance",
+          "not_qualified": "Aucune correspondance",
+          "incomplete": "Indéterminable"
+        },
+        "explanation": {
+          "qualified": "Ce que vous avez demandé était vrai à cet instant.",
+          "not_qualified": "Nous avons examiné des informations complètes et ce que vous avez demandé n'était pas vrai.",
+          "incomplete": "Nous n'avons pas pu le déterminer — une partie des éléments nécessaires manquait."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Actuel",
+          "superseded": "Remplacé",
+          "invalidated": "Plus valable"
+        },
+        "explanation": {
+          "current": "Il s'agit du regard le plus récent sur votre objectif.",
+          "superseded": "Un regard ultérieur a remplacé celui-ci. Il est conservé pour que vous puissiez voir ce qui a changé.",
+          "invalidated": "Une correction du catalogue fait que cela ne décrit plus rien. C'est conservé plutôt que supprimé."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "La comparaison des offres n'a pas pu être exécutée à ce moment-là.",
+        "no_eligible_offer": "Rien d'éligible n'était disponible pour la comparaison.",
+        "price_not_convertible": "Un prix n'a pas pu être exprimé dans votre devise.",
+        "delivery_cost_unknown": "Un coût de livraison n'a jamais été publié.",
+        "basket_partially_covered": "Une partie de l'ensemble n'avait rien à quoi se comparer.",
+        "constraint_set_invalid": "L'une de vos exigences n'est plus valable.",
+        "constraint_facts_unavailable": "Les données derrière l'une de vos exigences n'étaient pas disponibles.",
+        "agent_ambiguous_after_split": "Cet agent attend que vous précisiez de quel produit il s'agissait.",
+        "no_comparable_prior_finding": "Il n'y avait rien d'antérieur à quoi comparer ceci.",
+        "catalogue_discovery_unavailable": "La recherche catalogue sous-jacente n'a pas pu être exécutée."
+      },
+      "completeness": {
+        "complete": "Preuves complètes",
+        "partial": "Preuves partielles"
+      },
+      "freshness": {
+        "current": "Sources récentes",
+        "ageing": "Sources vieillissantes",
+        "unknown": "Fraîcheur inconnue"
+      },
+      "optimality": {
+        "proven_optimal": "Meilleur prouvé",
+        "approximate": "Le meilleur trouvé"
+      },
+      "priceBasis": {
+        "item_price": "prix de l'article, hors livraison",
+        "delivered_total": "total livré, livraison incluse"
+      },
+      "channelPolicy": {
+        "native_only": "vendeurs sur Mercaria",
+        "external_only": "marchands hors Mercaria",
+        "official_only": "boutiques officielles vérifiées",
+        "mixed": "n'importe quel vendeur"
+      },
+      "triggerSource": {
+        "offer_change": "après une modification du catalogue",
+        "scheduled": "lors d'un contrôle planifié",
+        "manual": "parce que vous l'avez demandé"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Notifications Oxy",
+        "email": "E-mail"
+      },
+      "notificationState": {
+        "queued": "En file d'attente",
+        "delivering": "Envoi en cours",
+        "delivered": "Envoyé",
+        "failed": "Échec",
+        "suppressed": "Retenu",
+        "dead_letter": "Abandonné"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Retenu — vous avez été prévenu récemment.",
+        "not_materially_better": "Retenu — pas nettement mieux que la dernière fois.",
+        "agent_not_enabled": "Retenu — cet agent ne surveillait pas.",
+        "agent_deleted": "Retenu — cet agent avait été supprimé.",
+        "finding_superseded": "Retenu — un regard ultérieur a remplacé celui-ci.",
+        "destination_no_longer_eligible": "Retenu — ce qu'il visait n'est plus éligible.",
+        "channel_unavailable": "Retenu — ce canal n'était pas disponible."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "Non envoyé — aucune voie de distribution n'est encore configurée.",
+        "transport_rejected": "Non envoyé — la voie de distribution l'a refusé.",
+        "transport_unavailable": "Non envoyé — la voie de distribution était indisponible.",
+        "finding_unreadable": "Non envoyé — l'observation n'a pas pu être lue.",
+        "unexpected_error": "Non envoyé — quelque chose s'est mal passé."
+      },
+      "summarySource": {
+        "deterministic_template": "Rédigé par Mercaria à partir de l'observation elle-même.",
+        "provider": "Formulé par un modèle de langage à partir de l'observation. Tous les chiffres proviennent de l'observation, jamais du modèle."
+      },
+      "observationDisclaimer": "Un constat est ce que Mercaria a vu à cet instant. Il n'est pas réservé pour vous et ne constitue pas un prix ferme — les prix et la disponibilité peuvent changer à tout moment."
     }
   }
 }

@@ -8,6 +8,7 @@ import {
   type PickupIdentityRequirement,
   type PickupPaymentRequirement,
 } from "@mercaria/shared-types";
+import type { Translate } from "../i18n/create-app-i18n";
 
 /**
  * Reader-facing copy for location publication, nearby discovery and collection
@@ -21,7 +22,7 @@ import {
  *
  * ## The buyer never reads a block REASON, and that is enforced here
  *
- * `PICKUP_BLOCK_REASON_TEXT` is MERCHANT-facing copy. `docs/pickup.md` §2 is
+ * `PICKUP_BLOCK_REASON_KEYS` is MERCHANT-facing copy. `docs/pickup.md` §2 is
  * explicit: given three published shop fronts and a per-reason answer, a client
  * varying one input at a time reads out a merchant's stock position, their
  * pause levers and their moderation state. The public nearby read already
@@ -49,21 +50,21 @@ import {
  * "3 left" reads a property that is usually absent. These three sentences are
  * what every other case renders.
  */
-export const LOCATION_AVAILABILITY_TEXT: Readonly<
+export const LOCATION_AVAILABILITY_KEYS: Readonly<
   Record<LocationAvailabilityState, string>
 > = {
-  in_stock: "In stock",
-  low_stock: "Low stock",
-  out_of_stock: "Out of stock",
+  in_stock: "ui.pickup.availability.text.in_stock",
+  low_stock: "ui.pickup.availability.text.low_stock",
+  out_of_stock: "ui.pickup.availability.text.out_of_stock",
 };
 
 /** One sentence each, phrased as what the SHOP last confirmed — never a promise. */
-export const LOCATION_AVAILABILITY_EXPLANATIONS: Readonly<
+export const LOCATION_AVAILABILITY_EXPLANATION_KEYS: Readonly<
   Record<LocationAvailabilityState, string>
 > = {
-  in_stock: "This shop confirmed it had this in stock.",
-  low_stock: "This shop confirmed only a few left.",
-  out_of_stock: "This shop confirmed it has none right now.",
+  in_stock: "ui.pickup.availability.explanation.in_stock",
+  low_stock: "ui.pickup.availability.explanation.low_stock",
+  out_of_stock: "ui.pickup.availability.explanation.out_of_stock",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -77,13 +78,13 @@ export const LOCATION_AVAILABILITY_EXPLANATIONS: Readonly<
  * deliberately imprecise (#93 nearby rule 5). The band is what a filter and a
  * screen reader use; `formatDistance` renders the figure beside it.
  */
-export const PICKUP_DISTANCE_BAND_TEXT: Readonly<Record<PickupDistanceBand, string>> = {
-  under_1km: "Under 1 km away",
-  under_5km: "Under 5 km away",
-  under_10km: "Under 10 km away",
-  under_25km: "Under 25 km away",
-  under_50km: "Under 50 km away",
-  beyond_50km: "Over 50 km away",
+export const PICKUP_DISTANCE_BAND_KEYS: Readonly<Record<PickupDistanceBand, string>> = {
+  under_1km: "ui.pickup.distanceBand.under_1km",
+  under_5km: "ui.pickup.distanceBand.under_5km",
+  under_10km: "ui.pickup.distanceBand.under_10km",
+  under_25km: "ui.pickup.distanceBand.under_25km",
+  under_50km: "ui.pickup.distanceBand.under_50km",
+  beyond_50km: "ui.pickup.distanceBand.beyond_50km",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -91,12 +92,12 @@ export const PICKUP_DISTANCE_BAND_TEXT: Readonly<Record<PickupDistanceBand, stri
 /* -------------------------------------------------------------------------- */
 
 /** What the shop will ask for at the counter. */
-export const PICKUP_IDENTITY_REQUIREMENT_TEXT: Readonly<
+export const PICKUP_IDENTITY_REQUIREMENT_KEYS: Readonly<
   Record<PickupIdentityRequirement, string>
 > = {
-  order_number_only: "Bring your order number.",
-  collection_code: "Bring your collection code.",
-  collection_code_and_photo_id: "Bring your collection code and photo ID.",
+  order_number_only: "ui.pickup.identityRequirement.order_number_only",
+  collection_code: "ui.pickup.identityRequirement.collection_code",
+  collection_code_and_photo_id: "ui.pickup.identityRequirement.collection_code_and_photo_id",
 };
 
 /**
@@ -106,10 +107,10 @@ export const PICKUP_IDENTITY_REQUIREMENT_TEXT: Readonly<
  * every Mercaria collection is paid before you go, and "pay in store" is not a
  * rail this roadmap has (`pickup.ts` §`PICKUP_PAYMENT_REQUIREMENTS`).
  */
-export const PICKUP_PAYMENT_REQUIREMENT_TEXT: Readonly<
+export const PICKUP_PAYMENT_REQUIREMENT_KEYS: Readonly<
   Record<PickupPaymentRequirement, string>
 > = {
-  prepaid: "Paid online — nothing to pay when you collect.",
+  prepaid: "ui.pickup.paymentRequirement.prepaid",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -124,23 +125,21 @@ export const PICKUP_PAYMENT_REQUIREMENT_TEXT: Readonly<
  * and "ready to collect" are different facts about one order and a shopper acts
  * on each differently.
  */
-export const ORDER_PICKUP_STATE_TEXT: Readonly<Record<OrderPickupState, string>> = {
-  awaiting_preparation: "Being prepared",
-  ready_for_pickup: "Ready to collect",
-  collected: "Collected",
-  pickup_cancelled: "Collection cancelled",
+export const ORDER_PICKUP_STATE_KEYS: Readonly<Record<OrderPickupState, string>> = {
+  awaiting_preparation: "ui.pickup.orderState.text.awaiting_preparation",
+  ready_for_pickup: "ui.pickup.orderState.text.ready_for_pickup",
+  collected: "ui.pickup.orderState.text.collected",
+  pickup_cancelled: "ui.pickup.orderState.text.pickup_cancelled",
 };
 
 /** One sentence each, telling the buyer what to do next. */
-export const ORDER_PICKUP_STATE_EXPLANATIONS: Readonly<
+export const ORDER_PICKUP_STATE_EXPLANATION_KEYS: Readonly<
   Record<OrderPickupState, string>
 > = {
-  awaiting_preparation:
-    "The shop is getting your order ready. Wait until it says ready to collect before you travel.",
-  ready_for_pickup: "Your order is waiting at the shop.",
-  collected: "This order has been handed over.",
-  pickup_cancelled:
-    "The shop withdrew this collection. Your order and any refund are handled separately — nothing here has taken your money back.",
+  awaiting_preparation: "ui.pickup.orderState.explanation.awaiting_preparation",
+  ready_for_pickup: "ui.pickup.orderState.explanation.ready_for_pickup",
+  collected: "ui.pickup.orderState.explanation.collected",
+  pickup_cancelled: "ui.pickup.orderState.explanation.pickup_cancelled",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -159,27 +158,24 @@ export const ORDER_PICKUP_STATE_EXPLANATIONS: Readonly<
  * Buyer-facing rendering goes through {@link describeBuyerPickupBlock}, which
  * takes the same list and answers with one sentence.
  */
-export const PICKUP_BLOCK_REASON_TEXT: Readonly<Record<PickupBlockReason, string>> = {
-  location_not_published: "This location has not been published, so shoppers cannot find it.",
-  location_not_active: "This location is switched off and routes no inventory.",
-  pickup_paused: "You have paused collection at this location.",
-  pickup_not_offered: "This location does not offer collection.",
-  location_not_geocoded:
-    "This location has no map pin, so it cannot be found by distance. Add one to be discoverable.",
-  location_restricted: "Mercaria has restricted this location. Contact support.",
-  store_unavailable: "The store itself is inactive or restricted.",
-  listing_unavailable: "The listing is not active, so nothing here is collectable.",
-  no_collectable_stock: "There are no collectable units at this location right now.",
-  inventory_stale:
-    "Stock here was last confirmed longer ago than the confirmation interval you set for this location.",
-  location_closed: "This location is closed for the period being asked about.",
-  seller_not_payment_ready: "This seller cannot be paid yet, so nothing can be bought for collection.",
-  guest_pickup_disabled: "Guest collection is switched off for this deployment.",
-  guest_seller_not_activated: "This seller has not been activated for guest checkout.",
-  guest_notifications_unavailable:
-    "Guest collection needs a transactional message transport, and this deployment has none.",
-  store_pickup_disabled: "Store collection is switched off for this deployment.",
-  p2p_pickup_not_available: "Collection is not available for person-to-person listings.",
+export const PICKUP_BLOCK_REASON_KEYS: Readonly<Record<PickupBlockReason, string>> = {
+  location_not_published: "ui.pickup.blockReason.location_not_published",
+  location_not_active: "ui.pickup.blockReason.location_not_active",
+  pickup_paused: "ui.pickup.blockReason.pickup_paused",
+  pickup_not_offered: "ui.pickup.blockReason.pickup_not_offered",
+  location_not_geocoded: "ui.pickup.blockReason.location_not_geocoded",
+  location_restricted: "ui.pickup.blockReason.location_restricted",
+  store_unavailable: "ui.pickup.blockReason.store_unavailable",
+  listing_unavailable: "ui.pickup.blockReason.listing_unavailable",
+  no_collectable_stock: "ui.pickup.blockReason.no_collectable_stock",
+  inventory_stale: "ui.pickup.blockReason.inventory_stale",
+  location_closed: "ui.pickup.blockReason.location_closed",
+  seller_not_payment_ready: "ui.pickup.blockReason.seller_not_payment_ready",
+  guest_pickup_disabled: "ui.pickup.blockReason.guest_pickup_disabled",
+  guest_seller_not_activated: "ui.pickup.blockReason.guest_seller_not_activated",
+  guest_notifications_unavailable: "ui.pickup.blockReason.guest_notifications_unavailable",
+  store_pickup_disabled: "ui.pickup.blockReason.store_pickup_disabled",
+  p2p_pickup_not_available: "ui.pickup.blockReason.p2p_pickup_not_available",
 };
 
 /**
@@ -225,19 +221,19 @@ export interface BuyerPickupBlockCopy {
  * code.
  */
 export function describeBuyerPickupBlock(
+  t: Translate,
   reasons: readonly PickupBlockReason[],
 ): BuyerPickupBlockCopy {
   const guestOnly =
     reasons.length > 0 && reasons.every((reason) => GUEST_ONLY_BLOCK_REASONS.includes(reason));
   if (guestOnly) {
     return {
-      sentence:
-        "You can collect from this shop with a Mercaria account. Signing in is optional everywhere else — here it is what makes collection available.",
+      sentence: t("ui.pickup.buyerBlock.guestSignIn"),
       offerSignIn: true,
     };
   }
   return {
-    sentence: "Collection is not available here for you right now. You can still have it delivered.",
+    sentence: t("ui.pickup.buyerBlock.unavailable"),
     offerSignIn: false,
   };
 }
@@ -254,13 +250,19 @@ export function describeBuyerPickupBlock(
  * rule applied to a schedule. It is a real and common state: a merchant may
  * publish a location and never fill its opening hours in.
  */
-export function describeOpenState(state: LocationOpenState): string {
-  if (!state.known) return "Opening hours not published";
+export function describeOpenState(t: Translate, state: LocationOpenState): string {
+  if (!state.known) return t("ui.pickup.openState.hoursNotPublished");
   if (state.open) {
-    return state.changesAt === undefined ? "Open now" : `Open now — until ${state.changesAt}`;
+    return state.changesAt === undefined
+      ? t("ui.pickup.openState.openNow")
+      : t("ui.pickup.openState.openUntil", { time: state.changesAt });
   }
-  if (state.closureNote !== undefined) return `Closed — ${state.closureNote}`;
-  return state.changesAt === undefined ? "Closed now" : `Closed — opens ${state.changesAt}`;
+  if (state.closureNote !== undefined) {
+    return t("ui.pickup.openState.closedNote", { note: state.closureNote });
+  }
+  return state.changesAt === undefined
+    ? t("ui.pickup.openState.closedNow")
+    : t("ui.pickup.openState.closedOpensAt", { time: state.changesAt });
 }
 
 /** Seconds, minutes and hours, for the relative-time helper below. */
@@ -281,23 +283,22 @@ const DAY_MS = 24 * HOUR_MS;
  * a caller in a memoized position cannot pick up a clock that React Compiler
  * will not re-run.
  */
-export function describeStockConfirmed(isoInstant: string, now: number): string {
+export function describeStockConfirmed(t: Translate, isoInstant: string, now: number): string {
   const at = Date.parse(isoInstant);
-  if (Number.isNaN(at)) return "Last confirmed at an unknown time";
+  if (Number.isNaN(at)) return t("ui.pickup.stockConfirmed.unknown");
   const elapsed = now - at;
   // A future instant is clock skew, not a fact about the shop. Saying "just
   // now" is the honest floor; "in 3 minutes" would read as a prediction.
-  if (elapsed < MINUTE_MS) return "Stock confirmed just now";
+  if (elapsed < MINUTE_MS) return t("ui.pickup.stockConfirmed.justNow");
+  // `count` drives i18n-js's pluralisation, so the singular/plural split comes
+  // from the BUNDLE rather than from an English ternary no other language shares.
   if (elapsed < HOUR_MS) {
-    const minutes = Math.floor(elapsed / MINUTE_MS);
-    return `Stock confirmed ${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
+    return t("ui.pickup.stockConfirmed.minutes", { count: Math.floor(elapsed / MINUTE_MS) });
   }
   if (elapsed < DAY_MS) {
-    const hours = Math.floor(elapsed / HOUR_MS);
-    return `Stock confirmed ${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+    return t("ui.pickup.stockConfirmed.hours", { count: Math.floor(elapsed / HOUR_MS) });
   }
-  const days = Math.floor(elapsed / DAY_MS);
-  return `Stock confirmed ${days} ${days === 1 ? "day" : "days"} ago`;
+  return t("ui.pickup.stockConfirmed.days", { count: Math.floor(elapsed / DAY_MS) });
 }
 
 /**

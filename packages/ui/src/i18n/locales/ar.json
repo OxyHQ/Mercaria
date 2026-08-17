@@ -348,6 +348,281 @@
         "destination_not_supplied": "أخبِرنا بوجهة الشحن وسنحدّد السعر.",
         "retail_not_enabled": "هذا المنتج غير معروض للبيع حاليًا."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "قيد الانتظار",
+          "vested": "مستحق",
+          "frozen": "قيد المراجعة",
+          "paid": "مدفوع",
+          "voided": "معكوس"
+        },
+        "explanation": {
+          "held": "مكتسب وينتظر انقضاء فترة الاحتجاز. لا يُفقد شيء أثناء الانتظار، وقد ينخفض المبلغ إذا استُرد ثمن الشراء المرتبط به.",
+          "vested": "انقضت فترة الاحتجاز ولم يصله أي عكس. سينضم إلى دفعة الصرف التالية بمجرد اجتياز حسابك فحوص الصرف وبلوغ الرصيد الحد الأدنى.",
+          "frozen": "موقوف مؤقتًا ريثما تُراجَع مسألة ما — نزاع على الشراء أو تدقيق على الحساب. يتوقف عدّاد الاحتجاز بدل أن يبدأ من جديد، ويستأنف من موضعه إذا انتهت المراجعة.",
+          "paid": "أُرسل إلى وجهة الصرف الخاصة بك. لا يُلغى الدفع بأثر رجعي أبدًا.",
+          "voided": "المال الذي اقتُطع منه اختفى — غالبًا بسبب استرداد — فاختفت المكافأة معه. ويبقى السجل مع السبب."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "أكمل طلبك وأرسله.",
+        "application_under_review": "طلبك لدى فريقنا.",
+        "application_changes_requested": "طلبنا إجراء تعديل على طلبك.",
+        "partner_agreement_not_accepted": "اقبل اتفاقية الشريك.",
+        "partner_agreement_superseded": "تغيّرت اتفاقية الشريك — اقبل النسخة الجديدة.",
+        "tax_questionnaire_not_completed": "أكمل استبيان الضرائب القصير.",
+        "identity_verification_not_ready": "أكمل التحقق من الهوية لدى مزوّد الدفع لدينا.",
+        "payout_destination_not_ready": "أضف وجهة صرف.",
+        "partner_suspended": "مشاركتك موقوفة.",
+        "partner_terminated": "انتهت مشاركتك.",
+        "enrollment_is_test_only": "هذا تسجيل تجريبي ولا يترتب عليه صرف."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate}% من %{base}",
+        "fixedBudget": "مبلغ ثابت لكل إحالة مؤهَّلة، يُصرف من ميزانية تسويق معتمدة.",
+        "fixedOther": "مبلغ ثابت لكل إحالة مؤهَّلة، يُصرف من مصدر التمويل المعتمد.",
+        "notPublished": "لم يُنشر معدل هذا البرنامج بعد."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} مقسومًا على: %{denominator} النافذة: %{window} المصدر: %{source}. ما لا يمكنه رؤيته: %{limit}",
+        "withoutDenominator": "%{numerator} النافذة: %{window} المصدر: %{source}. ما لا يمكنه رؤيته: %{limit}"
+      },
+      "withheld": {
+        "all": "يظل هذا التفصيل مخفيًا حتى يصل عدد أكبر من الأشخاص. فالتجميع حسب السوق أو الجهاز عند هذه الأعداد قد يكشف هوية شخص بعينه، لذا نعرض الإجماليات. والإجماليات أدناه كاملة.",
+        "some": {
+          "one": "مخفية %{count} مجموعة لأن عدد أفرادها أقل من %{floor}. ويظل نشاطها محتسبًا في الإجماليات.",
+          "other": "مخفية %{count} مجموعات لأن عدد أفرادها أقل من %{floor}. ويظل نشاطها محتسبًا في الإجماليات."
+        }
+      },
+      "payoutStatus": {
+        "open": "قيد التحضير",
+        "approved": "معتمد",
+        "processing": "في الطريق",
+        "paid": "مدفوع",
+        "failed": "تعذّر الإرسال",
+        "cancelled": "ملغى"
+      }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "متوفر",
+          "low_stock": "الكمية محدودة",
+          "out_of_stock": "غير متوفر"
+        },
+        "explanation": {
+          "in_stock": "أكّد هذا المتجر توفره لديه.",
+          "low_stock": "أكّد هذا المتجر بقاء كمية قليلة.",
+          "out_of_stock": "أكّد هذا المتجر عدم توفره حاليًا."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "على بُعد أقل من كيلومتر واحد",
+        "under_5km": "على بُعد أقل من 5 كم",
+        "under_10km": "على بُعد أقل من 10 كم",
+        "under_25km": "على بُعد أقل من 25 كم",
+        "under_50km": "على بُعد أقل من 50 كم",
+        "beyond_50km": "على بُعد أكثر من 50 كم"
+      },
+      "identityRequirement": {
+        "order_number_only": "أحضِر رقم طلبك.",
+        "collection_code": "أحضِر رمز الاستلام.",
+        "collection_code_and_photo_id": "أحضِر رمز الاستلام وهوية تحمل صورة."
+      },
+      "paymentRequirement": {
+        "prepaid": "مدفوع عبر الإنترنت — لا شيء يُدفع عند الاستلام."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "قيد التحضير",
+          "ready_for_pickup": "جاهز للاستلام",
+          "collected": "تم الاستلام",
+          "pickup_cancelled": "أُلغي الاستلام"
+        },
+        "explanation": {
+          "awaiting_preparation": "يجهّز المتجر طلبك. انتظر ظهور «جاهز للاستلام» قبل أن تتوجّه إليه.",
+          "ready_for_pickup": "طلبك في انتظارك بالمتجر.",
+          "collected": "تم تسليم هذا الطلب.",
+          "pickup_cancelled": "سحب المتجر هذا الاستلام. ويُعالَج طلبك وأي استرداد بشكل منفصل — ولم يُسترد مالك من هنا."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "لم يُنشر هذا الموقع، لذا لا يستطيع المتسوقون العثور عليه.",
+        "location_not_active": "هذا الموقع مُطفأ ولا يوجّه أي مخزون.",
+        "pickup_paused": "لقد أوقفت الاستلام مؤقتًا في هذا الموقع.",
+        "pickup_not_offered": "لا يوفّر هذا الموقع خدمة الاستلام.",
+        "location_not_geocoded": "لا يحمل هذا الموقع علامة على الخريطة، لذا لا يمكن العثور عليه بالمسافة. أضِف علامة.",
+        "location_restricted": "قيّدت Mercaria هذا الموقع. تواصل مع الدعم.",
+        "store_unavailable": "المتجر نفسه غير نشط أو مقيّد.",
+        "listing_unavailable": "الإعلان غير نشط، لذا لا شيء هنا قابل للاستلام.",
+        "no_collectable_stock": "لا توجد وحدات قابلة للاستلام في هذا الموقع حاليًا.",
+        "inventory_stale": "آخر تأكيد للمخزون هنا كان أقدم من فاصل التأكيد الذي حدّدته لهذا الموقع.",
+        "location_closed": "هذا الموقع مغلق في الفترة المطلوبة.",
+        "seller_not_payment_ready": "لا يمكن الدفع لهذا البائع بعد، لذا لا يمكن شراء أي شيء للاستلام.",
+        "guest_pickup_disabled": "استلام الضيوف مُعطَّل في هذا التثبيت.",
+        "guest_seller_not_activated": "لم يُفعَّل هذا البائع للشراء كضيف.",
+        "guest_notifications_unavailable": "يحتاج استلام الضيوف إلى قناة رسائل معاملات، وهي غير متوفرة في هذا التثبيت.",
+        "store_pickup_disabled": "الاستلام من المتجر مُعطَّل في هذا التثبيت.",
+        "p2p_pickup_not_available": "الاستلام غير متاح للإعلانات بين الأفراد."
+      },
+      "buyerBlock": {
+        "guestSignIn": "يمكنك الاستلام من هذا المتجر بحساب Mercaria. تسجيل الدخول اختياري في كل مكان آخر — أما هنا فهو ما يتيح الاستلام.",
+        "unavailable": "الاستلام غير متاح لك هنا في الوقت الحالي. ما زال بإمكانك طلب التوصيل."
+      },
+      "openState": {
+        "hoursNotPublished": "ساعات العمل غير منشورة",
+        "openNow": "مفتوح الآن",
+        "openUntil": "مفتوح الآن — حتى %{time}",
+        "closedNote": "مغلق — %{note}",
+        "closedNow": "مغلق الآن",
+        "closedOpensAt": "مغلق — يفتح في %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "وقت آخر تأكيد غير معروف",
+        "justNow": "تم تأكيد المخزون للتو",
+        "minutes": {
+          "one": "تم تأكيد المخزون قبل %{count} دقيقة",
+          "other": "تم تأكيد المخزون قبل %{count} دقيقة"
+        },
+        "hours": {
+          "one": "تم تأكيد المخزون قبل %{count} ساعة",
+          "other": "تم تأكيد المخزون قبل %{count} ساعة"
+        },
+        "days": {
+          "one": "تم تأكيد المخزون قبل %{count} يوم",
+          "other": "تم تأكيد المخزون قبل %{count} يومًا"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} متوفر في هذا المتجر.",
+        "other": "%{count} متوفرة في هذا المتجر."
+      }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "حد السعر",
+          "used_or_refurbished_appearance": "ظهور مستعمل أو مجدَّد",
+          "official_channel_availability": "ظهور قناة رسمية",
+          "basket_target_total": "تحديد الإجمالي المستهدف",
+          "materially_better_plan": "خطة أفضل بوضوح",
+          "constraint_satisfiable": "صيرورة المتطلبات قابلة للتحقق"
+        },
+        "explanation": {
+          "offer_price_threshold": "أبلِغني عندما يصل عرض حالي مؤهَّل إلى السعر الذي حدّدته.",
+          "used_or_refurbished_appearance": "أبلِغني عند ظهور منتج مستعمل أو مجدَّد مطابق.",
+          "official_channel_availability": "أبلِغني عندما يصبح هذا متاحًا من قناة رسمية موثَّقة.",
+          "basket_target_total": "أبلِغني عندما تنخفض المجموعة كلها دون الإجمالي الذي حدّدته.",
+          "materially_better_plan": "أبلِغني عندما تتوفر خطة أفضل بوضوح لما حفظته.",
+          "constraint_satisfiable": "أبلِغني عندما يستوفي شيء أخيرًا كل المتطلبات التي حدّدتها."
+        }
+      },
+      "state": {
+        "enabled": "قيد المراقبة",
+        "paused": "موقوف مؤقتًا",
+        "blocked": "يحتاج إلى ردّك",
+        "completed": "منتهٍ",
+        "deleted": "محذوف"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "مطابق",
+          "not_qualified": "لا يوجد تطابق",
+          "incomplete": "تعذّر التحديد"
+        },
+        "explanation": {
+          "qualified": "ما طلبته كان صحيحًا في تلك اللحظة.",
+          "not_qualified": "اطّلعنا على معلومات كاملة ولم يكن ما طلبته صحيحًا.",
+          "incomplete": "تعذّر علينا التحديد — إذ كان جزء مما نحتاجه مفقودًا."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "حالي",
+          "superseded": "مُستبدَل",
+          "invalidated": "لم يعد صالحًا"
+        },
+        "explanation": {
+          "current": "هذه أحدث نظرة على هدفك.",
+          "superseded": "حلّت نظرة لاحقة محل هذه. ونحتفظ بها لتتمكن من رؤية ما تغيّر.",
+          "invalidated": "أدّى تصحيح في الكتالوج إلى أن هذه لم تعد تصف شيئًا. ونحتفظ بها بدل حذفها."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "تعذّر تشغيل مقارنة العروض حينها.",
+        "no_eligible_offer": "لم يتوفر شيء مؤهَّل للمقارنة.",
+        "price_not_convertible": "تعذّر التعبير عن أحد الأسعار بعملتك.",
+        "delivery_cost_unknown": "لم يُنشر أي سعر توصيل قط.",
+        "basket_partially_covered": "لم يكن لجزء من المجموعة ما يُقارن به.",
+        "constraint_set_invalid": "لم يعد أحد متطلباتك صالحًا.",
+        "constraint_facts_unavailable": "لم تتوفر البيانات التي يستند إليها أحد متطلباتك.",
+        "agent_ambiguous_after_split": "ينتظر هذا الوكيل أن تحدّد أي منتج تقصد.",
+        "no_comparable_prior_finding": "لم يوجد شيء سابق تُقارن به هذه النتيجة.",
+        "catalogue_discovery_unavailable": "تعذّر تشغيل بحث الكتالوج الذي تستند إليه."
+      },
+      "completeness": {
+        "complete": "أدلة كاملة",
+        "partial": "أدلة جزئية"
+      },
+      "freshness": {
+        "current": "مصادر حديثة",
+        "ageing": "مصادر تتقادم",
+        "unknown": "الحداثة غير معروفة"
+      },
+      "optimality": {
+        "proven_optimal": "الأفضل المثبت",
+        "approximate": "الأفضل مما وجدنا"
+      },
+      "priceBasis": {
+        "item_price": "سعر المنتج، قبل التوصيل",
+        "delivered_total": "الإجمالي شاملًا التوصيل"
+      },
+      "channelPolicy": {
+        "native_only": "بائعون على Mercaria",
+        "external_only": "تجار خارج Mercaria",
+        "official_only": "متاجر رسمية موثَّقة",
+        "mixed": "أي بائع"
+      },
+      "triggerSource": {
+        "offer_change": "بعد تغيير في الكتالوج",
+        "scheduled": "في فحص مجدول",
+        "manual": "لأنك طلبت ذلك"
+      },
+      "notificationChannel": {
+        "oxy_notification": "إشعارات Oxy",
+        "email": "البريد الإلكتروني"
+      },
+      "notificationState": {
+        "queued": "في الانتظار",
+        "delivering": "قيد الإرسال",
+        "delivered": "أُرسل",
+        "failed": "فشل",
+        "suppressed": "محجوز",
+        "dead_letter": "تم التخلي عنه"
+      },
+      "suppressionReason": {
+        "cooldown_active": "محجوز — فقد أُبلغت مؤخرًا.",
+        "not_materially_better": "محجوز — ليس أفضل بوضوح من المرة السابقة.",
+        "agent_not_enabled": "محجوز — لم يكن هذا الوكيل يراقب.",
+        "agent_deleted": "محجوز — كان هذا الوكيل قد حُذف.",
+        "finding_superseded": "محجوز — حلّت نظرة لاحقة محل هذه.",
+        "destination_no_longer_eligible": "محجوز — لم يعد ما تشير إليه مؤهَّلًا.",
+        "channel_unavailable": "محجوز — لم تكن تلك القناة متاحة."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "لم يُرسل — لم تُهيَّأ بعد أي قناة تسليم.",
+        "transport_rejected": "لم يُرسل — رفضته قناة التسليم.",
+        "transport_unavailable": "لم يُرسل — لم تكن قناة التسليم متاحة.",
+        "finding_unreadable": "لم يُرسل — تعذّرت قراءة الملاحظة.",
+        "unexpected_error": "لم يُرسل — حدث خطأ ما."
+      },
+      "summarySource": {
+        "deterministic_template": "كتبته Mercaria من الملاحظة نفسها.",
+        "provider": "صاغه نموذج لغوي من الملاحظة. وكل رقم فيه مصدره الملاحظة، لا النموذج."
+      },
+      "observationDisclaimer": "النتيجة هي ما رأته Mercaria في تلك اللحظة. وهي ليست محجوزة لك وليست سعرًا مؤكدًا — فقد يتغيّر السعر والتوفر في أي وقت."
     }
   }
 }

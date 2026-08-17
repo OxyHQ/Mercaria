@@ -348,6 +348,281 @@
         "destination_not_supplied": "Digues-nos on va i podrem calcular-ne el preu.",
         "retail_not_enabled": "Aquest article no està a la venda en aquest moment."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "En espera",
+          "vested": "Consolidat",
+          "frozen": "En revisió",
+          "paid": "Pagat",
+          "voided": "Revertit"
+        },
+        "explanation": {
+          "held": "Guanyat i a l'espera que passi el seu període de retenció. No es perd res mentre espera, i l'import encara pot baixar si es reemborsa la compra que hi ha al darrere.",
+          "vested": "La retenció ha passat i no li ha arribat cap reversió. Entrarà al proper pagament quan el teu compte superi les comprovacions de pagament i el saldo arribi al mínim.",
+          "frozen": "En pausa mentre es revisa alguna cosa: una disputa sobre la compra o una comprovació del compte. El rellotge de retenció s'atura en lloc de reiniciar-se, i torna on era si la revisió es resol.",
+          "paid": "Enviat a la teva destinació de pagament. Un pagament no es desfà mai després.",
+          "voided": "Els diners d'on va sortir van desaparèixer —normalment un reemborsament— així que la recompensa se'n va anar amb ells. El registre es manté, amb el motiu."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "Acaba i envia la teva sol·licitud.",
+        "application_under_review": "La teva sol·licitud és amb el nostre equip.",
+        "application_changes_requested": "Hem demanat un canvi a la teva sol·licitud.",
+        "partner_agreement_not_accepted": "Accepta l'acord de soci.",
+        "partner_agreement_superseded": "L'acord de soci ha canviat: accepta la nova versió.",
+        "tax_questionnaire_not_completed": "Completa el breu qüestionari fiscal.",
+        "identity_verification_not_ready": "Acaba la verificació d'identitat amb el nostre proveïdor de pagaments.",
+        "payout_destination_not_ready": "Afegeix una destinació de pagament.",
+        "partner_suspended": "La teva participació està suspesa.",
+        "partner_terminated": "La teva participació ha acabat.",
+        "enrollment_is_test_only": "Aquesta és una inscripció de prova i no genera pagaments."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate} % de %{base}",
+        "fixedBudget": "Un import fix per cada referit que compleixi, a càrrec d'un pressupost de màrqueting aprovat.",
+        "fixedOther": "Un import fix per cada referit que compleixi, a càrrec de la font de finançament aprovada.",
+        "notPublished": "La tarifa d'aquest programa encara no s'ha publicat."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} Dividit per: %{denominator} Finestra: %{window} Font: %{source}. El que no pot veure: %{limit}",
+        "withoutDenominator": "%{numerator} Finestra: %{window} Font: %{source}. El que no pot veure: %{limit}"
+      },
+      "withheld": {
+        "all": "Aquest desglossament està amagat fins que arribi més gent. Agrupar per mercat o dispositiu pot assenyalar algú amb aquestes xifres, així que mostrem els totals. Els teus totals de sota són complets.",
+        "some": {
+          "one": "%{count} grup està amagat perquè té menys de %{floor} persones. La seva activitat continua comptant en els totals.",
+          "other": "%{count} grups estan amagats perquè tenen menys de %{floor} persones. La seva activitat continua comptant en els totals."
+        }
+      },
+      "payoutStatus": {
+        "open": "En preparació",
+        "approved": "Aprovat",
+        "processing": "En camí",
+        "paid": "Pagat",
+        "failed": "No s'ha pogut enviar",
+        "cancelled": "Cancel·lat"
+      }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "En estoc",
+          "low_stock": "Poques unitats",
+          "out_of_stock": "Sense estoc"
+        },
+        "explanation": {
+          "in_stock": "Aquesta botiga va confirmar que en tenia en estoc.",
+          "low_stock": "Aquesta botiga va confirmar que en queden poques.",
+          "out_of_stock": "Aquesta botiga va confirmar que ara no en té cap."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "A menys d'1 km",
+        "under_5km": "A menys de 5 km",
+        "under_10km": "A menys de 10 km",
+        "under_25km": "A menys de 25 km",
+        "under_50km": "A menys de 50 km",
+        "beyond_50km": "A més de 50 km"
+      },
+      "identityRequirement": {
+        "order_number_only": "Porta el teu número de comanda.",
+        "collection_code": "Porta el teu codi de recollida.",
+        "collection_code_and_photo_id": "Porta el teu codi de recollida i un document amb foto."
+      },
+      "paymentRequirement": {
+        "prepaid": "Pagat en línia: no has de pagar res en recollir."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "En preparació",
+          "ready_for_pickup": "A punt per recollir",
+          "collected": "Recollit",
+          "pickup_cancelled": "Recollida cancel·lada"
+        },
+        "explanation": {
+          "awaiting_preparation": "La botiga està preparant la teva comanda. Espera que digui a punt per recollir abans de desplaçar-t'hi.",
+          "ready_for_pickup": "La teva comanda t'espera a la botiga.",
+          "collected": "Aquesta comanda ja s'ha lliurat.",
+          "pickup_cancelled": "La botiga va retirar aquesta recollida. La teva comanda i qualsevol reemborsament es gestionen a part: aquí no s'ha retornat els teus diners."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "Aquesta ubicació no està publicada, així que els compradors no la poden trobar.",
+        "location_not_active": "Aquesta ubicació està desactivada i no encamina inventari.",
+        "pickup_paused": "Has pausat la recollida en aquesta ubicació.",
+        "pickup_not_offered": "Aquesta ubicació no ofereix recollida.",
+        "location_not_geocoded": "Aquesta ubicació no té punt al mapa, així que no es pot trobar per distància. Afegeix-ne un per ser visible.",
+        "location_restricted": "Mercaria ha restringit aquesta ubicació. Contacta amb el suport.",
+        "store_unavailable": "La botiga mateixa és inactiva o restringida.",
+        "listing_unavailable": "L'anunci no està actiu, així que aquí no hi ha res recollible.",
+        "no_collectable_stock": "Ara mateix no hi ha unitats recollibles en aquesta ubicació.",
+        "inventory_stale": "L'estoc d'aquí es va confirmar per última vegada fa més temps que l'interval de confirmació que vas fixar per a aquesta ubicació.",
+        "location_closed": "Aquesta ubicació està tancada en el període consultat.",
+        "seller_not_payment_ready": "Aquest venedor encara no pot cobrar, així que no s'hi pot comprar res per recollir.",
+        "guest_pickup_disabled": "La recollida per a convidats està desactivada en aquesta instal·lació.",
+        "guest_seller_not_activated": "Aquest venedor no s'ha activat per a la compra com a convidat.",
+        "guest_notifications_unavailable": "La recollida per a convidats necessita un transport de missatges transaccionals, i aquesta instal·lació no en té cap.",
+        "store_pickup_disabled": "La recollida a botiga està desactivada en aquesta instal·lació.",
+        "p2p_pickup_not_available": "La recollida no està disponible per a anuncis entre particulars."
+      },
+      "buyerBlock": {
+        "guestSignIn": "Pots recollir en aquesta botiga amb un compte de Mercaria. Iniciar sessió és opcional a tota la resta: aquí és el que fa possible la recollida.",
+        "unavailable": "Ara mateix la recollida no està disponible per a tu aquí. Encara pots demanar que te'l portin."
+      },
+      "openState": {
+        "hoursNotPublished": "Horari no publicat",
+        "openNow": "Obert ara",
+        "openUntil": "Obert ara — fins a les %{time}",
+        "closedNote": "Tancat — %{note}",
+        "closedNow": "Tancat ara",
+        "closedOpensAt": "Tancat — obre a les %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "Última confirmació en un moment desconegut",
+        "justNow": "Estoc confirmat ara mateix",
+        "minutes": {
+          "one": "Estoc confirmat fa %{count} minut",
+          "other": "Estoc confirmat fa %{count} minuts"
+        },
+        "hours": {
+          "one": "Estoc confirmat fa %{count} hora",
+          "other": "Estoc confirmat fa %{count} hores"
+        },
+        "days": {
+          "one": "Estoc confirmat fa %{count} dia",
+          "other": "Estoc confirmat fa %{count} dies"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} unitat en estoc en aquesta botiga.",
+        "other": "%{count} unitats en estoc en aquesta botiga."
+      }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Llindar de preu",
+          "used_or_refurbished_appearance": "Apareix usat o reacondicionat",
+          "official_channel_availability": "Apareix canal oficial",
+          "basket_target_total": "Fixar total objectiu",
+          "materially_better_plan": "Pla molt millor",
+          "constraint_satisfiable": "Els requisits passen a ser satisfactoris"
+        },
+        "explanation": {
+          "offer_price_threshold": "Avisa'm quan una oferta vigent i elegible arribi al preu que he fixat.",
+          "used_or_refurbished_appearance": "Avisa'm quan aparegui un article usat o reacondicionat que hi coincideixi.",
+          "official_channel_availability": "Avisa'm quan això estigui disponible en un canal oficial verificat.",
+          "basket_target_total": "Avisa'm quan el conjunt sencer baixi del total que he fixat.",
+          "materially_better_plan": "Avisa'm quan existeixi un pla molt millor per al que he desat.",
+          "constraint_satisfiable": "Avisa'm quan alguna cosa compleixi per fi tots els requisits que he fixat."
+        }
+      },
+      "state": {
+        "enabled": "Vigilant",
+        "paused": "En pausa",
+        "blocked": "Necessita la teva resposta",
+        "completed": "Acabat",
+        "deleted": "Eliminat"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Coincideix",
+          "not_qualified": "Sense coincidència",
+          "incomplete": "No s'ha pogut determinar"
+        },
+        "explanation": {
+          "qualified": "El que has demanat era cert en aquell moment.",
+          "not_qualified": "Hem mirat informació completa i el que has demanat no era cert.",
+          "incomplete": "No ho hem pogut determinar: faltava part del que necessitàvem."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Actual",
+          "superseded": "Substituït",
+          "invalidated": "Ja no vàlid"
+        },
+        "explanation": {
+          "current": "Aquesta és la revisió més recent del teu objectiu.",
+          "superseded": "Una revisió posterior va substituir aquesta. Es conserva perquè vegis què ha canviat.",
+          "invalidated": "Una correcció del catàleg fa que això ja no descrigui res. Es conserva en lloc d'eliminar-se."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "La comparació d'ofertes no s'ha pogut executar en aquell moment.",
+        "no_eligible_offer": "No hi havia res elegible per comparar.",
+        "price_not_convertible": "Un preu no s'ha pogut expressar en la teva moneda.",
+        "delivery_cost_unknown": "Mai no s'ha publicat un cost de lliurament.",
+        "basket_partially_covered": "Una part del conjunt no tenia res amb què comparar-se.",
+        "constraint_set_invalid": "Un dels teus requisits ja no és vàlid.",
+        "constraint_facts_unavailable": "Les dades darrere d'un dels teus requisits no estaven disponibles.",
+        "agent_ambiguous_after_split": "Aquest agent espera que diguis a quin producte et referies.",
+        "no_comparable_prior_finding": "No hi havia res anterior amb què comparar això.",
+        "catalogue_discovery_unavailable": "La cerca de catàleg que hi ha darrere no s'ha pogut executar."
+      },
+      "completeness": {
+        "complete": "Evidència completa",
+        "partial": "Evidència parcial"
+      },
+      "freshness": {
+        "current": "Fonts recents",
+        "ageing": "Fonts envellides",
+        "unknown": "Frescor desconeguda"
+      },
+      "optimality": {
+        "proven_optimal": "Millor demostrat",
+        "approximate": "El millor que hem trobat"
+      },
+      "priceBasis": {
+        "item_price": "preu de l'article, sense lliurament",
+        "delivered_total": "total amb lliurament inclòs"
+      },
+      "channelPolicy": {
+        "native_only": "venedors a Mercaria",
+        "external_only": "comerços fora de Mercaria",
+        "official_only": "botigues oficials verificades",
+        "mixed": "qualsevol venedor"
+      },
+      "triggerSource": {
+        "offer_change": "després d'un canvi del catàleg",
+        "scheduled": "en una revisió programada",
+        "manual": "perquè ho has demanat"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Notificacions d'Oxy",
+        "email": "Correu electrònic"
+      },
+      "notificationState": {
+        "queued": "En cua",
+        "delivering": "Enviant",
+        "delivered": "Enviat",
+        "failed": "Ha fallat",
+        "suppressed": "Retingut",
+        "dead_letter": "Abandonat"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Retingut: t'ho hem dit fa poc.",
+        "not_materially_better": "Retingut: no és gaire millor que l'última vegada.",
+        "agent_not_enabled": "Retingut: aquest agent no vigilava.",
+        "agent_deleted": "Retingut: aquest agent havia estat eliminat.",
+        "finding_superseded": "Retingut: una revisió posterior va substituir aquesta.",
+        "destination_no_longer_eligible": "Retingut: allò a què apuntava ja no és elegible.",
+        "channel_unavailable": "Retingut: aquell canal no estava disponible."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "No enviat: encara no hi ha cap ruta de lliurament configurada.",
+        "transport_rejected": "No enviat: la ruta de lliurament l'ha rebutjat.",
+        "transport_unavailable": "No enviat: la ruta de lliurament no estava disponible.",
+        "finding_unreadable": "No enviat: no s'ha pogut llegir l'observació.",
+        "unexpected_error": "No enviat: alguna cosa ha anat malament."
+      },
+      "summarySource": {
+        "deterministic_template": "Redactat per Mercaria a partir de la mateixa observació.",
+        "provider": "Redactat per un model de llenguatge a partir de l'observació. Totes les xifres vénen de l'observació, mai del model."
+      },
+      "observationDisclaimer": "Una troballa és el que Mercaria va veure en aquell moment. No es reserva per a tu i no és un preu en ferm: els preus i la disponibilitat poden canviar en qualsevol moment."
     }
   }
 }

@@ -1,11 +1,12 @@
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { View } from "react-native";
 import type { OrderPickup, PickupCollectionCode } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import {
-  ORDER_PICKUP_STATE_EXPLANATIONS,
-  ORDER_PICKUP_STATE_TEXT,
-  PICKUP_IDENTITY_REQUIREMENT_TEXT,
-  PICKUP_PAYMENT_REQUIREMENT_TEXT,
+  ORDER_PICKUP_STATE_EXPLANATION_KEYS,
+  ORDER_PICKUP_STATE_KEYS,
+  PICKUP_IDENTITY_REQUIREMENT_KEYS,
+  PICKUP_PAYMENT_REQUIREMENT_KEYS,
   formatPublicAddress,
 } from "../../lib/pickup-labels";
 
@@ -47,6 +48,7 @@ export interface PickupCollectionPanelProps {
 }
 
 export function PickupCollectionPanel({ pickup, code }: PickupCollectionPanelProps) {
+  const t = useSharedUiTranslation();
   const address = formatPublicAddress(pickup.address);
 
   return (
@@ -60,10 +62,10 @@ export function PickupCollectionPanel({ pickup, code }: PickupCollectionPanelPro
           className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
           accessibilityRole="text"
         >
-          <Text className="text-captionBold text-text">{ORDER_PICKUP_STATE_TEXT[pickup.state]}</Text>
+          <Text className="text-captionBold text-text">{t(ORDER_PICKUP_STATE_KEYS[pickup.state])}</Text>
         </View>
         <Text className="text-caption text-text-secondary">
-          {ORDER_PICKUP_STATE_EXPLANATIONS[pickup.state]}
+          {t(ORDER_PICKUP_STATE_EXPLANATION_KEYS[pickup.state])}
         </Text>
       </View>
 
@@ -79,8 +81,8 @@ export function PickupCollectionPanel({ pickup, code }: PickupCollectionPanelPro
       )}
 
       <Text className="text-caption text-text-tertiary">
-        {PICKUP_PAYMENT_REQUIREMENT_TEXT[pickup.paymentRequirement]}{" "}
-        {PICKUP_IDENTITY_REQUIREMENT_TEXT[pickup.identityRequirement]}
+        {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[pickup.paymentRequirement])}{" "}
+        {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[pickup.identityRequirement])}
       </Text>
 
       {/*

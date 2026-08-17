@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { Clock } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxyhq/services";
 import {
-  SHOPPING_AGENT_OBSERVATION_DISCLAIMER,
+  SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY,
   ShoppingAgentCard,
   ShoppingAgentFindingCard,
   Text,
@@ -106,7 +106,7 @@ export default function ShoppingAgentsScreen() {
         <Text className="text-2xl font-bold text-foreground">{t("shoppingAgents.title")}</Text>
         <Text className="text-sm text-text-secondary">{t("shoppingAgents.intro")}</Text>
         <Text className="text-caption text-text-tertiary">
-          {SHOPPING_AGENT_OBSERVATION_DISCLAIMER}
+          {t(SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY)}
         </Text>
 
         {!isAuthenticated ? (

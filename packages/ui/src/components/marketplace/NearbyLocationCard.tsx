@@ -5,11 +5,11 @@ import { useFormatters } from "../../lib/use-formatters";
 import { conditionLabelKey } from "../../lib/condition";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
-  LOCATION_AVAILABILITY_EXPLANATIONS,
-  LOCATION_AVAILABILITY_TEXT,
-  PICKUP_DISTANCE_BAND_TEXT,
-  PICKUP_IDENTITY_REQUIREMENT_TEXT,
-  PICKUP_PAYMENT_REQUIREMENT_TEXT,
+  LOCATION_AVAILABILITY_EXPLANATION_KEYS,
+  LOCATION_AVAILABILITY_KEYS,
+  PICKUP_DISTANCE_BAND_KEYS,
+  PICKUP_IDENTITY_REQUIREMENT_KEYS,
+  PICKUP_PAYMENT_REQUIREMENT_KEYS,
   describeBuyerPickupBlock,
   describeOpenState,
   describeStockConfirmed,
@@ -109,7 +109,7 @@ export function NearbyLocationCard({
   const address = formatPublicAddress(location.address);
   const eligibility = result.checkoutEligibility;
   const blocked = eligibility !== undefined && eligibility.verdict === "blocked";
-  const blockCopy = blocked ? describeBuyerPickupBlock(eligibility.reasons) : undefined;
+  const blockCopy = blocked ? describeBuyerPickupBlock(t, eligibility.reasons) : undefined;
 
   return (
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
@@ -126,8 +126,8 @@ export function NearbyLocationCard({
       ) : null}
 
       <View className="flex-row flex-wrap gap-space-6">
-        <Chip>{`${PICKUP_DISTANCE_BAND_TEXT[result.distanceBand]} · ${formatDistance(result.approximateMetres)}`}</Chip>
-        <Chip>{LOCATION_AVAILABILITY_TEXT[result.availability]}</Chip>
+        <Chip>{`${t(PICKUP_DISTANCE_BAND_KEYS[result.distanceBand])} · ${formatDistance(result.approximateMetres)}`}</Chip>
+        <Chip>{t(LOCATION_AVAILABILITY_KEYS[result.availability])}</Chip>
         {result.condition === undefined ? null : <Chip>{t(conditionLabelKey(result.condition))}</Chip>}
       </View>
 
@@ -138,14 +138,14 @@ export function NearbyLocationCard({
       */}
       <Text className="text-caption text-text-secondary">
         {result.exactQuantity === undefined
-          ? LOCATION_AVAILABILITY_EXPLANATIONS[result.availability]
-          : `${result.exactQuantity} in stock at this shop.`}
+          ? t(LOCATION_AVAILABILITY_EXPLANATION_KEYS[result.availability])
+          : t("ui.pickup.exactQuantity", { count: result.exactQuantity })}
       </Text>
 
       {/* Hours and freshness: two facts a shopper acts on before travelling. */}
-      <Text className="text-caption text-text-secondary">{describeOpenState(location.openState)}</Text>
+      <Text className="text-caption text-text-secondary">{describeOpenState(t, location.openState)}</Text>
       <Text className="text-caption text-text-tertiary">
-        {describeStockConfirmed(result.stockConfirmedAt, now)}
+        {describeStockConfirmed(t, result.stockConfirmedAt, now)}
       </Text>
 
       {/*
@@ -195,8 +195,8 @@ export function NearbyLocationCard({
       )}
 
       <Text className="text-caption text-text-tertiary">
-        {PICKUP_PAYMENT_REQUIREMENT_TEXT[location.paymentRequirement]}{" "}
-        {PICKUP_IDENTITY_REQUIREMENT_TEXT[location.identityRequirement]}
+        {t(PICKUP_PAYMENT_REQUIREMENT_KEYS[location.paymentRequirement])}{" "}
+        {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[location.identityRequirement])}
       </Text>
 
       {location.pickupInstructions === undefined ? null : (

@@ -348,6 +348,281 @@
         "destination_not_supplied": "Tell us where this is going and we can price it.",
         "retail_not_enabled": "This item is not currently on sale."
       }
+    },
+    "referral": {
+      "rewardState": {
+        "label": {
+          "held": "On hold",
+          "vested": "Vested",
+          "frozen": "Under review",
+          "paid": "Paid",
+          "voided": "Reversed"
+        },
+        "explanation": {
+          "held": "Earned and waiting out its hold period. Nothing is lost while it waits, and the amount can still fall if the purchase behind it is refunded.",
+          "vested": "The hold has passed and no reversal reached it. It joins the next payout run once your account clears the payout checks and the balance reaches the minimum.",
+          "frozen": "Paused while something is reviewed — a dispute on the purchase, or a check on the account. The hold clock stops rather than restarting, and it returns to where it was if the review clears.",
+          "paid": "Sent to your payout destination. A payment is never un-made after the fact.",
+          "voided": "The money it was drawn from went away — usually a refund — so the reward went with it. The record stays, with the reason."
+        }
+      },
+      "outstanding": {
+        "application_not_submitted": "Finish and submit your application.",
+        "application_under_review": "Your application is with our team.",
+        "application_changes_requested": "We have asked for a change to your application.",
+        "partner_agreement_not_accepted": "Accept the partner agreement.",
+        "partner_agreement_superseded": "The partner agreement has changed — accept the new version.",
+        "tax_questionnaire_not_completed": "Complete the short tax questionnaire.",
+        "identity_verification_not_ready": "Finish identity verification with our payment provider.",
+        "payout_destination_not_ready": "Add a payout destination.",
+        "partner_suspended": "Your participation is suspended.",
+        "partner_terminated": "Your participation has ended.",
+        "enrollment_is_test_only": "This is a test enrolment and does not pay out."
+      },
+      "rewardBasis": {
+        "percentage": "%{rate}% of %{base}",
+        "fixedBudget": "A fixed amount per qualifying referral, drawn from an approved marketing budget.",
+        "fixedOther": "A fixed amount per qualifying referral, drawn from the approved funding source.",
+        "notPublished": "The rate for this programme has not been published yet."
+      },
+      "metric": {
+        "withDenominator": "%{numerator} Divided by: %{denominator} Window: %{window} Source: %{source}. What it cannot see: %{limit}",
+        "withoutDenominator": "%{numerator} Window: %{window} Source: %{source}. What it cannot see: %{limit}"
+      },
+      "withheld": {
+        "all": "This breakdown is hidden until more people have arrived. Grouping by market or device can single somebody out at these numbers, so we show the totals instead. Your totals below are complete.",
+        "some": {
+          "one": "%{count} group is hidden because it holds fewer than %{floor} people. Its activity is still counted in the totals.",
+          "other": "%{count} groups are hidden because they hold fewer than %{floor} people. Their activity is still counted in the totals."
+        }
+      },
+      "payoutStatus": {
+        "open": "Being prepared",
+        "approved": "Approved",
+        "processing": "On its way",
+        "paid": "Paid",
+        "failed": "Could not be sent",
+        "cancelled": "Cancelled"
+      }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "In stock",
+          "low_stock": "Low stock",
+          "out_of_stock": "Out of stock"
+        },
+        "explanation": {
+          "in_stock": "This shop confirmed it had this in stock.",
+          "low_stock": "This shop confirmed only a few left.",
+          "out_of_stock": "This shop confirmed it has none right now."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "Under 1 km away",
+        "under_5km": "Under 5 km away",
+        "under_10km": "Under 10 km away",
+        "under_25km": "Under 25 km away",
+        "under_50km": "Under 50 km away",
+        "beyond_50km": "Over 50 km away"
+      },
+      "identityRequirement": {
+        "order_number_only": "Bring your order number.",
+        "collection_code": "Bring your collection code.",
+        "collection_code_and_photo_id": "Bring your collection code and photo ID."
+      },
+      "paymentRequirement": {
+        "prepaid": "Paid online — nothing to pay when you collect."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "Being prepared",
+          "ready_for_pickup": "Ready to collect",
+          "collected": "Collected",
+          "pickup_cancelled": "Collection cancelled"
+        },
+        "explanation": {
+          "awaiting_preparation": "The shop is getting your order ready. Wait until it says ready to collect before you travel.",
+          "ready_for_pickup": "Your order is waiting at the shop.",
+          "collected": "This order has been handed over.",
+          "pickup_cancelled": "The shop withdrew this collection. Your order and any refund are handled separately — nothing here has taken your money back."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "This location has not been published, so shoppers cannot find it.",
+        "location_not_active": "This location is switched off and routes no inventory.",
+        "pickup_paused": "You have paused collection at this location.",
+        "pickup_not_offered": "This location does not offer collection.",
+        "location_not_geocoded": "This location has no map pin, so it cannot be found by distance. Add one to be discoverable.",
+        "location_restricted": "Mercaria has restricted this location. Contact support.",
+        "store_unavailable": "The store itself is inactive or restricted.",
+        "listing_unavailable": "The listing is not active, so nothing here is collectable.",
+        "no_collectable_stock": "There are no collectable units at this location right now.",
+        "inventory_stale": "Stock here was last confirmed longer ago than the confirmation interval you set for this location.",
+        "location_closed": "This location is closed for the period being asked about.",
+        "seller_not_payment_ready": "This seller cannot be paid yet, so nothing can be bought for collection.",
+        "guest_pickup_disabled": "Guest collection is switched off for this deployment.",
+        "guest_seller_not_activated": "This seller has not been activated for guest checkout.",
+        "guest_notifications_unavailable": "Guest collection needs a transactional message transport, and this deployment has none.",
+        "store_pickup_disabled": "Store collection is switched off for this deployment.",
+        "p2p_pickup_not_available": "Collection is not available for person-to-person listings."
+      },
+      "buyerBlock": {
+        "guestSignIn": "You can collect from this shop with a Mercaria account. Signing in is optional everywhere else — here it is what makes collection available.",
+        "unavailable": "Collection is not available here for you right now. You can still have it delivered."
+      },
+      "openState": {
+        "hoursNotPublished": "Opening hours not published",
+        "openNow": "Open now",
+        "openUntil": "Open now — until %{time}",
+        "closedNote": "Closed — %{note}",
+        "closedNow": "Closed now",
+        "closedOpensAt": "Closed — opens %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "Last confirmed at an unknown time",
+        "justNow": "Stock confirmed just now",
+        "minutes": {
+          "one": "Stock confirmed %{count} minute ago",
+          "other": "Stock confirmed %{count} minutes ago"
+        },
+        "hours": {
+          "one": "Stock confirmed %{count} hour ago",
+          "other": "Stock confirmed %{count} hours ago"
+        },
+        "days": {
+          "one": "Stock confirmed %{count} day ago",
+          "other": "Stock confirmed %{count} days ago"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} in stock at this shop.",
+        "other": "%{count} in stock at this shop."
+      }
+    },
+    "shoppingAgent": {
+      "job": {
+        "label": {
+          "offer_price_threshold": "Price threshold",
+          "used_or_refurbished_appearance": "Used or refurbished appears",
+          "official_channel_availability": "Official channel appears",
+          "basket_target_total": "Set target total",
+          "materially_better_plan": "Materially better plan",
+          "constraint_satisfiable": "Requirements become satisfiable"
+        },
+        "explanation": {
+          "offer_price_threshold": "Tell me when a current eligible offer meets the price I set.",
+          "used_or_refurbished_appearance": "Tell me when a matching used or refurbished item appears.",
+          "official_channel_availability": "Tell me when this becomes available from a verified official channel.",
+          "basket_target_total": "Tell me when the whole set falls below the total I set.",
+          "materially_better_plan": "Tell me when a materially better plan exists for what I saved.",
+          "constraint_satisfiable": "Tell me when something finally meets every requirement I set."
+        }
+      },
+      "state": {
+        "enabled": "Watching",
+        "paused": "Paused",
+        "blocked": "Needs your answer",
+        "completed": "Finished",
+        "deleted": "Removed"
+      },
+      "outcome": {
+        "label": {
+          "qualified": "Matched",
+          "not_qualified": "No match",
+          "incomplete": "Could not tell"
+        },
+        "explanation": {
+          "qualified": "What you asked for was true at this moment.",
+          "not_qualified": "We looked at complete information and what you asked for was not true.",
+          "incomplete": "We could not tell — some of what we needed was missing."
+        }
+      },
+      "lifecycle": {
+        "label": {
+          "current": "Current",
+          "superseded": "Superseded",
+          "invalidated": "No longer valid"
+        },
+        "explanation": {
+          "current": "This is the most recent look at your objective.",
+          "superseded": "A later look replaced this one. It is kept so you can see what changed.",
+          "invalidated": "A catalogue correction means this no longer describes anything. It is kept rather than removed."
+        }
+      },
+      "incompleteReason": {
+        "offer_comparison_unavailable": "The offer comparison could not be run just then.",
+        "no_eligible_offer": "Nothing eligible was available to compare.",
+        "price_not_convertible": "A price could not be expressed in your currency.",
+        "delivery_cost_unknown": "A delivery cost was never published.",
+        "basket_partially_covered": "Part of the set had nothing to price against.",
+        "constraint_set_invalid": "One of your requirements is no longer valid.",
+        "constraint_facts_unavailable": "The facts behind one of your requirements were unavailable.",
+        "agent_ambiguous_after_split": "This agent is waiting for you to say which product you meant.",
+        "no_comparable_prior_finding": "There was nothing earlier to compare this against.",
+        "catalogue_discovery_unavailable": "The catalogue search behind this could not be run."
+      },
+      "completeness": {
+        "complete": "Complete evidence",
+        "partial": "Partial evidence"
+      },
+      "freshness": {
+        "current": "Fresh sources",
+        "ageing": "Ageing sources",
+        "unknown": "Freshness unknown"
+      },
+      "optimality": {
+        "proven_optimal": "Proven best",
+        "approximate": "Best we found"
+      },
+      "priceBasis": {
+        "item_price": "item price, before delivery",
+        "delivered_total": "delivered total, delivery included"
+      },
+      "channelPolicy": {
+        "native_only": "sellers on Mercaria",
+        "external_only": "merchants outside Mercaria",
+        "official_only": "verified official stores",
+        "mixed": "any seller"
+      },
+      "triggerSource": {
+        "offer_change": "after a catalogue change",
+        "scheduled": "on a scheduled look",
+        "manual": "because you asked"
+      },
+      "notificationChannel": {
+        "oxy_notification": "Oxy notifications",
+        "email": "Email"
+      },
+      "notificationState": {
+        "queued": "Queued",
+        "delivering": "Sending",
+        "delivered": "Sent",
+        "failed": "Failed",
+        "suppressed": "Held back",
+        "dead_letter": "Given up"
+      },
+      "suppressionReason": {
+        "cooldown_active": "Held back — you were told recently.",
+        "not_materially_better": "Held back — not materially better than last time.",
+        "agent_not_enabled": "Held back — this agent was not watching.",
+        "agent_deleted": "Held back — this agent had been removed.",
+        "finding_superseded": "Held back — a later look replaced this one.",
+        "destination_no_longer_eligible": "Held back — what it pointed at is no longer eligible.",
+        "channel_unavailable": "Held back — that channel was unavailable."
+      },
+      "deliveryFailure": {
+        "transport_unconfigured": "Not sent — no delivery route is configured yet.",
+        "transport_rejected": "Not sent — the delivery route refused it.",
+        "transport_unavailable": "Not sent — the delivery route was unavailable.",
+        "finding_unreadable": "Not sent — the observation could not be read.",
+        "unexpected_error": "Not sent — something went wrong."
+      },
+      "summarySource": {
+        "deterministic_template": "Written by Mercaria from the observation itself.",
+        "provider": "Worded by a language model from the observation. Every figure in it comes from the observation, never from the model."
+      },
+      "observationDisclaimer": "A finding is what Mercaria saw at that moment. It is not held for you and it is not a quoted price — prices and availability can change at any time."
     }
   }
 }

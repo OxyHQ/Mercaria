@@ -4,10 +4,10 @@ import Head from "expo-router/head";
 import { Users } from "lucide-react-native";
 import { openAccountDialog, useOxy } from "@oxyhq/services";
 import {
-  REFERRAL_OUTSTANDING_LABELS,
-  REFERRAL_PAYOUT_STATUS_LABELS,
-  REFERRAL_REWARD_STATE_EXPLANATIONS,
-  REFERRAL_REWARD_STATE_LABELS,
+  REFERRAL_OUTSTANDING_KEYS,
+  REFERRAL_PAYOUT_STATUS_KEYS,
+  REFERRAL_REWARD_STATE_EXPLANATION_KEYS,
+  REFERRAL_REWARD_STATE_LABEL_KEYS,
   Text,
   describeMetric,
   describeRewardBasis,
@@ -235,7 +235,7 @@ function EnrollmentCard(props: {
           <Text className="text-sm text-foreground">{t("referral.standing.beforePaid")}</Text>
           {props.outstanding.map((item) => (
             <Text key={item} className="text-sm text-muted-foreground">
-              • {REFERRAL_OUTSTANDING_LABELS[item] ?? item}
+              • {REFERRAL_OUTSTANDING_KEYS[item] ? t(REFERRAL_OUTSTANDING_KEYS[item]) : item}
             </Text>
           ))}
           {/* Stated explicitly, because it is the thing a partner assumes
@@ -270,7 +270,7 @@ function ProgramsCard({
           <Text className="text-sm font-semibold text-foreground">{offer.program.name}</Text>
           {/* The revenue base, always, and never an abbreviation of it. */}
           <Text className="text-sm text-muted-foreground">
-            {describeRewardBasis(offer.rewardBasis)}
+            {describeRewardBasis(t, offer.rewardBasis)}
           </Text>
           <Text className="text-xs text-muted-foreground">{offer.program.publicTermsSummary}</Text>
           <Text className="text-xs text-muted-foreground">
@@ -348,13 +348,14 @@ function EarningsCard({
 
 /** One state, its amount and the sentence saying what is true of that money. */
 function StateRow({ state, amount }: { state: ReferralRewardState; amount: string }) {
+  const { t } = useTranslation();
   return (
     <View className="gap-space-2">
       <Text className="text-sm text-foreground">
-        {REFERRAL_REWARD_STATE_LABELS[state]}: {amount}
+        {t(REFERRAL_REWARD_STATE_LABEL_KEYS[state])}: {amount}
       </Text>
       <Text className="text-xs text-muted-foreground">
-        {REFERRAL_REWARD_STATE_EXPLANATIONS[state]}
+        {t(REFERRAL_REWARD_STATE_EXPLANATION_KEYS[state])}
       </Text>
     </View>
   );
@@ -391,7 +392,7 @@ function PayoutCard({
         payouts.recentPayouts.map((batch, index) => (
           <Text key={`${batch.date}:${index}`} className="text-sm text-foreground">
             {batch.date} — {money(batch.netPayoutMinor, batch.currency, locale)} —{" "}
-            {REFERRAL_PAYOUT_STATUS_LABELS[batch.status] ?? batch.status}
+            {REFERRAL_PAYOUT_STATUS_KEYS[batch.status] ? t(REFERRAL_PAYOUT_STATUS_KEYS[batch.status]) : batch.status}
           </Text>
         ))
       )}
@@ -469,7 +470,7 @@ function PerformanceCard(props: {
           )}
           {performance.withheldRowCount > 0 ? (
             <Text className="text-xs text-muted-foreground">
-              {describeWithheldRows({
+              {describeWithheldRows(t, {
                 withheldRowCount: performance.withheldRowCount,
                 floor: performance.disclosureFloor ?? 0,
                 everythingWithheld: performance.rows.length === 0,
@@ -547,13 +548,14 @@ function SupportCard({
  * reconciling their own earnings.
  */
 function MetricDefinitions({ definitions }: { definitions: readonly ReferralMetricDefinition[] }) {
+  const { t } = useTranslation();
   if (definitions.length === 0) return null;
   return (
     <View className="gap-space-4 pt-space-8">
       {definitions.map((definition) => (
         <View key={definition.key} className="gap-space-2">
           <Text className="text-xs font-semibold text-foreground">{definition.label}</Text>
-          <Text className="text-xs text-muted-foreground">{describeMetric(definition)}</Text>
+          <Text className="text-xs text-muted-foreground">{describeMetric(t, definition)}</Text>
         </View>
       ))}
     </View>

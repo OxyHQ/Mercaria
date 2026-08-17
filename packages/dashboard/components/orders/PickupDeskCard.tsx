@@ -5,9 +5,9 @@ import {
   Button,
   Input,
   Label,
-  ORDER_PICKUP_STATE_EXPLANATIONS,
-  ORDER_PICKUP_STATE_TEXT,
-  PICKUP_IDENTITY_REQUIREMENT_TEXT,
+  ORDER_PICKUP_STATE_EXPLANATION_KEYS,
+  ORDER_PICKUP_STATE_KEYS,
+  PICKUP_IDENTITY_REQUIREMENT_KEYS,
   Text,
   formatPublicAddress,
 } from "@mercaria/ui";
@@ -102,10 +102,10 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
 
       <View className="gap-1">
         <Text className="text-sm font-semibold text-foreground">
-          {ORDER_PICKUP_STATE_TEXT[pickup.state]}
+          {t(ORDER_PICKUP_STATE_KEYS[pickup.state])}
         </Text>
         <Text className="text-xs text-muted-foreground">
-          {ORDER_PICKUP_STATE_EXPLANATIONS[pickup.state]}
+          {t(ORDER_PICKUP_STATE_EXPLANATION_KEYS[pickup.state])}
         </Text>
       </View>
 
@@ -115,7 +115,7 @@ export function PickupDeskCard({ storeId, orderId }: { storeId: string; orderId:
           <Text className="text-xs text-muted-foreground">{address}</Text>
         ) : null}
         <Text className="text-xs text-muted-foreground">
-          {PICKUP_IDENTITY_REQUIREMENT_TEXT[pickup.identityRequirement]}
+          {t(PICKUP_IDENTITY_REQUIREMENT_KEYS[pickup.identityRequirement])}
         </Text>
       </View>
 
