@@ -15,7 +15,7 @@ import type {
 } from '@mercaria/shared-types';
 import { uuidv7 } from '@oxyhq/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { retailLedgerRecognitions, retailSupplierCredits } from '../schema/index.js';
+import { retailLedgerRecognitions, retailSupplierCredits } from '../schema/retailReconciliation.js';
 
 /** One supplier credit, linked to everything it affects. */
 export type RetailSupplierCreditRow = typeof retailSupplierCredits.$inferSelect;

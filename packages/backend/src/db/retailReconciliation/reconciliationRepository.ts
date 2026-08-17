@@ -26,7 +26,7 @@ import {
   retailReconciliationComponents,
   retailReconciliationEvidence,
   retailReconciliations,
-} from '../schema/index.js';
+} from '../schema/retailReconciliation.js';
 
 /** One evaluation of the equation for one order. */
 export type RetailReconciliationRow = typeof retailReconciliations.$inferSelect;

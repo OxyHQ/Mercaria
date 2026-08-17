@@ -24,13 +24,10 @@
 
 import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import {
-  disputes,
-  orders,
-  purchaseOrderDocuments,
-  purchaseOrders,
-  refunds,
-} from '../schema/index.js';
+import { orders, refunds } from '../schema/orders.js';
+import { disputes } from '../schema/payments.js';
+import { purchaseOrders } from '../schema/procurement.js';
+import { purchaseOrderDocuments } from '../schema/supplierOrders.js';
 
 /** The order facts a reconciliation needs, and no buyer identity at all. */
 export interface ReconcilableOrder {

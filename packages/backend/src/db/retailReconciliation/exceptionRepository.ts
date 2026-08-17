@@ -23,7 +23,7 @@ import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { RetailReconciliationExceptionKind } from '@mercaria/shared-types';
 import { uuidv7 } from '@oxyhq/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { retailReconciliationExceptions } from '../schema/index.js';
+import { retailReconciliationExceptions } from '../schema/retailReconciliation.js';
 
 /** One condition a person has to close. */
 export type RetailReconciliationExceptionRow =
