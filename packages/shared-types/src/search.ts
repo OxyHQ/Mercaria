@@ -446,20 +446,47 @@ export type SearchResult =
  * The conversion a price filter or a cross-currency comparison ran under
  * (#70 filter 3's "explicit FX behavior").
  *
- * Present exactly when the request carried a {@link SearchPriceFilter} AND at
- * least one candidate offer was priced in another currency. Its absence
- * therefore means no conversion happened, which is a stronger statement than an
- * empty rate map.
+ * Present exactly when the request carried a {@link SearchPriceFilter} AND
+ * either a conversion was attempted or at least one offer was EXCLUDED because
+ * it could not be priced. Its absence therefore means one thing only: every
+ * candidate was already priced in the filter's own currency and nothing was left
+ * out.
+ *
+ * It used to be assigned only when a rate map had been fetched, which made
+ * absence mean two different things — the page above, and a page whose foreign
+ * offers were ALL in currencies Mercaria does not model, where no rate was ever
+ * requested and the exclusions went unreported (#450).
  */
 export interface SearchFxContext {
-  /** The currency the filter was expressed in — every rate is INTO this one. */
+  /**
+   * The currency the filter was expressed in — every rate is INTO this one.
+   *
+   * A loose 3–4 letter string at the schema boundary, so it may be a currency
+   * Mercaria does not model. Nothing can be priced into such a currency, so
+   * every priced candidate appears in {@link unconvertibleCurrencies}.
+   */
   readonly currency: string;
-  /** The FX provider id whose rates were used. */
+  /** The FX provider id whose rates were used, or `identity` when none were needed. */
   readonly provider: string;
   /** When the rates were published, ISO-8601. */
   readonly asOf: string;
-  /** Currencies that had no rate, and whose offers were therefore EXCLUDED. */
+  /**
+   * Every currency whose offers were EXCLUDED because they could not be priced
+   * into {@link currency}. Complete — both reasons appear here.
+   */
   readonly unconvertibleCurrencies: readonly string[];
+  /**
+   * The subset of {@link unconvertibleCurrencies} that Mercaria does not model
+   * at all (no `CURRENCY_PRECISION` entry), as opposed to modelled currencies
+   * the rate map merely could not serve today.
+   *
+   * The two need opposite remedies: a missing rate is transient and retryable,
+   * while an unmodelled currency is permanent until the code is added, and until
+   * then every offer priced in it is invisible under every price filter. Kept as
+   * a subset rather than a disjoint list so a reader of
+   * {@link unconvertibleCurrencies} alone still sees the complete exclusion set.
+   */
+  readonly unmodelledCurrencies: readonly string[];
 }
 
 /** What the server actually applied, echoed so a client never has to guess. */

@@ -50,7 +50,7 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm';
-import type { ConditionGroup, CurrencyCode, OfferKind } from '@mercaria/shared-types';
+import type { ConditionGroup, OfferKind } from '@mercaria/shared-types';
 import { conditionKeysInGroup } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
@@ -883,10 +883,19 @@ export async function countCategoryBuckets(
 }
 
 /** Currencies present on in-scope offers — what a price bound must convert FROM. */
+/**
+ * The currencies offers in scope are priced in — RAW, never narrowed here.
+ *
+ * `string`, because `offers.price_currency` is constrained by SHAPE only
+ * (ADR 0002 D18) and a code outside the presentment tuple is storable. This used
+ * to answer `CurrencyCode[]` through an unchecked cast, which typed a value as
+ * something it was not and left the caller unable to tell (#450). The caller
+ * narrows, and reports what does not narrow.
+ */
 export async function listScopeOfferCurrencies(
   db: DatabaseOrTransaction,
   context: FacetQueryContext,
-): Promise<CurrencyCode[]> {
+): Promise<string[]> {
   const rows = await db.execute<{ currency: string }>(sql`
     select distinct o.price_currency as currency
     from canonical_products p
@@ -894,7 +903,7 @@ export async function listScopeOfferCurrencies(
     join offers o on o.canonical_variant_id = cv.id and o.status = 'active'
       and o.stale_at > ${instant(context.now)} and o.price_currency is not null
     where ${buildEntityPredicate(context)}`);
-  return [...rows].map((row) => row.currency as CurrencyCode);
+  return [...rows].map((row) => row.currency);
 }
 
 /** Re-exported so a caller never spells an offer kind's channel mapping twice. */

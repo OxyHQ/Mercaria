@@ -391,8 +391,15 @@ export interface CatalogPriceRange {
   readonly conditionScope: CatalogPriceConditionScope;
   /** How many products contributed a convertible price to this range. */
   readonly productCount: number;
-  /** Currencies excluded because no rate was available. Named, never silent. */
+  /** Currencies excluded because they could not be priced. Named, never silent. */
   readonly unconvertibleCurrencies: readonly string[];
+  /**
+   * The subset of {@link unconvertibleCurrencies} Mercaria does not model at all
+   * — permanent until the code is added, where a missing rate is transient
+   * (#450). A subset rather than a disjoint list, so a reader of the complete
+   * list alone still names every exclusion.
+   */
+  readonly unmodelledCurrencies: readonly string[];
   readonly fxProvider: string;
   readonly fxAsOf: string;
 }

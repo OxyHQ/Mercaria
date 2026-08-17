@@ -39,16 +39,9 @@ import type {
   CurrencyCode,
   OfferMoney,
 } from '@mercaria/shared-types';
-import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import { convert, getRates } from '../fx.service.js';
+import { asCurrencyCode, projectCurrencyExclusions } from '../fx-exclusions.js';
 import { foldConditionScopes } from './condition-scope.js';
-
-/** Narrow a wire currency string to the presentment set, or answer `null`. */
-function asCurrencyCode(value: string): CurrencyCode | null {
-  return (ALL_CURRENCY_CODES as readonly string[]).includes(value)
-    ? (value as CurrencyCode)
-    : null;
-}
 
 /**
  * The range over a page of cards, in one named currency.
@@ -138,7 +131,9 @@ export async function deriveFamilyPriceRange(
       scopes.flatMap((offers) => (offers === undefined ? [] : [offers.conditionScope])),
     ),
     productCount: contributing,
-    unconvertibleCurrencies: [...unconvertible].sort(),
+    // Both lists come from ONE set, so the permanent subset can never name a
+    // currency the complete list omits (#450).
+    ...projectCurrencyExclusions(unconvertible),
     fxProvider: rates === null ? 'identity' : rates.provider,
     fxAsOf: rates === null ? new Date().toISOString() : rates.asOf,
   };
