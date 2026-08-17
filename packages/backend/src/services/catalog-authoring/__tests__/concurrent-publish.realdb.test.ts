@@ -276,6 +276,37 @@ describe('a publish WAITS for a publish already in flight', () => {
     expect([...midFlight][0].status).toBe('open');
     expect([...midFlight][0].published_listing_id).toBeNull();
 
+    /**
+     * WHERE it blocked, which is the half a wait alone cannot report — and the
+     * only assertion in this case that is specific to `lockDraftForPublish`.
+     *
+     * Measured: with `.for('update')` deleted from the repository the two
+     * assertions above still PASS, because `publishDraft` ends by UPDATEing the
+     * draft row and that write blocks on the holder just as the read lock would.
+     * So a wait proves serialization and says nothing about the lock. What tells
+     * them apart is what the waiter has already DONE: taking the lock first, it
+     * has issued only `SELECT`s and holds no write lock on `listings`; without
+     * it, it has composed, validated and INSERTED a listing before reaching the
+     * stamp, so it holds `RowExclusiveLock` on `listings` while it waits — a
+     * listing already written against a draft the publication has not yet been
+     * allowed to read.
+     */
+    const writeLocks = await probe.client<{ relation: string }[]>`
+      select c.relname as relation
+        from pg_locks l
+        join pg_class c on c.oid = l.relation
+       where l.pid = ${alpha.pid}
+         and l.mode = 'RowExclusiveLock'
+         and c.relname in ('listings', 'product_variants', 'catalog_authoring_drafts')
+       order by c.relname
+    `;
+    expect(
+      writeLocks.map((row) => row.relation),
+      'The waiting publication had already written before it blocked, so the draft lock is not ' +
+        'being taken FIRST. `lockDraftForPublish` exists so a second publish waits BEFORE it ' +
+        'composes a schema and writes a listing against state that is about to change.',
+    ).toEqual([]);
+
     release();
     await holding;
     const outcome = await publishing;
