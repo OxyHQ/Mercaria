@@ -28,7 +28,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -142,8 +142,47 @@ const CONDITION_TABLES = [
  * once. The copy here had never heard of `services/ranking/`, `db/ranking/`,
  * `services/search/` or any derived controller, so the wall was computed over a
  * population containing no #74 module at all.
+ *
+ * Replacing the copy with the derivation was +40 modules and −2, and the two it
+ * dropped are the reason this is a UNION rather than a substitution. See
+ * {@link CONDITION_MERCHANDISING_SURFACE}.
  */
-const CONDITION_RANKING_SURFACE = RANKING_SURFACE_PATHS;
+
+/**
+ * The merchandising engine, which the shared derivation does not reach.
+ *
+ * `services/collection.service.ts` materializes a collection's automated rules
+ * into `Listing.collectionIds` and `db/merchandising/collectionRules.ts` is the
+ * rule evaluator underneath it. Deciding WHICH listings appear in a collection
+ * is a placement decision, which is exactly what this wall is about — and both
+ * were in the four-entry copy this file used to carry.
+ *
+ * They are not in `RANKING_SURFACE_PATHS` and that derivation is right to omit
+ * them: it walks four engine directories and derives the HTTP surface from the
+ * import graph, and neither module is under a walked directory nor a controller.
+ * The sharp version of the gap is that the derivation DOES contain
+ * `controllers/collections.controller.ts` — it reaches it from below, through
+ * `catalog-hydration` — so swapping the copy for the derivation kept the
+ * collections HTTP surface and dropped the engine that decides what is in one.
+ *
+ * A −2 that silently narrows a wall is worth exactly as little as the +40 is
+ * worth a lot, so the union is ASSERTED below in both directions: this half is
+ * an EXACT count of real files, and it must stay DISJOINT from the shared half.
+ * If #74's derivation ever grows to cover these, the disjointness assertion
+ * fails and the right move is to delete this list rather than to scan a module
+ * twice under two justifications.
+ *
+ * `RANKING_SURFACE_PATHS` is deliberately not edited to add them: it is the
+ * shared derivation eleven gates read, these two are #90's own concern, and a
+ * gate widening a shared population for its own reasons is how that file
+ * becomes the union of everybody's special cases.
+ */
+const CONDITION_MERCHANDISING_SURFACE = [
+  'services/collection.service.ts',
+  'db/merchandising/collectionRules.ts',
+];
+
+const CONDITION_RANKING_SURFACE = [...RANKING_SURFACE_PATHS, ...CONDITION_MERCHANDISING_SURFACE];
 
 function read(relative: string): string {
   return readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -323,8 +362,31 @@ const CONDITION_ORDERING =
     // shared derivation exists to have. `assertRankingSurfaceIsWhole` carries
     // the per-shape floors for the surface itself.
     assertRankingSurfaceIsWhole();
-    expect(CONDITION_RANKING_SURFACE.length, 'the ranking surface derivation found nothing')
+    expect(RANKING_SURFACE_PATHS.length, 'the ranking surface derivation found nothing')
       .toBeGreaterThanOrEqual(40);
+
+    // The union, asserted in BOTH directions, so neither half can vanish
+    // silently — which is precisely what a straight substitution did to the
+    // merchandising half. EXACT on the hand-listed half (a hand list is an
+    // identity, not a predicate, #448) and DISJOINT from the derived half, so a
+    // module that later enters the shared surface fails here as a decision to
+    // take rather than becoming a file scanned twice.
+    expect(CONDITION_MERCHANDISING_SURFACE.length, 'the merchandising half changed size').toBe(2);
+    for (const path of CONDITION_MERCHANDISING_SURFACE) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file — did it move?`).toBe(
+        true,
+      );
+      expect(
+        RANKING_SURFACE_PATHS,
+        `${path} is now in the shared derivation; delete it from the merchandising half rather ` +
+          'than scanning it twice under two justifications',
+      ).not.toContain(path);
+    }
+    expect(
+      CONDITION_RANKING_SURFACE.length,
+      'the union lost a member — it is not the sum of its two halves',
+    ).toBe(RANKING_SURFACE_PATHS.length + CONDITION_MERCHANDISING_SURFACE.length);
+
     for (const path of CONDITION_RANKING_SURFACE) {
       expect(readRankingSurfaceFile(path).length).toBeGreaterThan(200);
     }
