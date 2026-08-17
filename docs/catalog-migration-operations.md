@@ -617,9 +617,21 @@ honest content is that there is no indexer to recover.
 | `translation_missing_count` | eligible entity-locale pairs with **no localization row at all** | `instant` | `catalog_governance_queues` | 900 s | `:777` |
 | `translation_coverage` | rows `reviewed` or `approved` / eligible entity-locale pairs | `instant` | `catalog_governance_quality` | 900 s | `:738` |
 | `translation_stale_count` | rows `status = 'stale'` | `instant` | `category_localizations` | 900 s | `:764` |
-| `translation_machine_share` | — | `instant` | — | 900 s | `:751` |
-| `translation_fallback_use_rate` | — | — | — | — | **`unmeasured`**, `not_instrumented`, `:790` |
-| `attribute_localized_label_completeness` | — | `instant` | `catalog_governance_quality` | — | `:720` |
+| `translation_machine_share` | rows `status = 'machine_translated'` / all localization rows that exist for the locale | `instant` | `category_localizations` | 900 s | `:751` |
+| `translation_fallback_use_rate` | *(would be)* localized reads answered from a fallback locale / all localized reads | `rolling_24h` | `category_localizations` | 300 s | **`unmeasured`**, `not_instrumented`, `:790` |
+| `attribute_localized_label_completeness` | active attribute definitions carrying at least one `attribute_labels` row / all active attribute definitions | `instant` | `product_type_definitions` | 900 s | `:720` |
+
+Two attribution limits an operator has to read together, or the dashboard misleads
+in the dangerous direction:
+
+- **`translation_machine_share` is "of rows that EXIST".** A locale with nothing
+  translated has a machine share of **zero**, which is the worst case and looks
+  like the best. It is only readable beside `translation_coverage`.
+- **`attribute_localized_label_completeness` counts LOCALIZED label coverage
+  deliberately, not "does the attribute have a label"** — `attribute_definitions.label`
+  is `NOT NULL`, so the latter would be vacuously 100% and could never fall. One
+  label in one locale satisfies it, so it says nothing about whether the locales
+  this deployment serves are covered.
 
 `machine_translated` is deliberately **not** in `translation_coverage`'s
 numerator — counting it is how a locale reports 98% while a shopper reads a
@@ -640,7 +652,7 @@ costs every visit. **Operator action:**
 | `proposal_backlog_oldest_age` | seconds since the oldest undecided `catalog_proposals` row was submitted | `instant` | `catalog_proposals` | 300 s | `:679` |
 | `proposal_backlog_count` | undecided `catalog_proposals` rows | `instant` | `catalog_proposals` | 300 s | `:666` |
 | `external_mapping_review_backlog` | `catalog_external_mapping_reviews` in state `open` | `instant` | `catalog_external_mappings` | 300 s | `:928` |
-| `proposal_creation_count` | — | — | `catalog_proposals` | — | `:653` |
+| `proposal_creation_count` | `catalog_proposals` rows created in the window | `rolling_7d` | `catalog_proposals` | 300 s | `:653` |
 
 `proposal_backlog_count` counts a **deferred** proposal with a future
 `deferred_until` too, so a planned deferral reads as backlog — the attribution
