@@ -168,13 +168,22 @@ function boundedEntry(
     // money bound whose currency is refused is a 400, and a bound applied under
     // some other currency would be a filter the shopper never asked for.
     //
-    // Narrowed POSITIVELY into its own binding rather than refused by a negated
-    // guard. `if (currency !== undefined && !isCurrencyCode(currency)) return`
-    // reads identically and narrows NOTHING afterwards — the value stays
-    // `string`, and this package compiles with `strict: false`, so the widened
-    // `currency` reached the entry unchecked and only the backend's own `tsc`
-    // reported it. A type predicate is worth nothing if its result is thrown
-    // away.
+    // Narrowed POSITIVELY into its own binding rather than by the negated
+    // guard `if (currency !== undefined && !isCurrencyCode(currency)) return`.
+    //
+    // That guard is CORRECT here and the comment this replaces said otherwise.
+    // This package sets `strict: true`, so `strictNullChecks` is on and
+    // TypeScript narrows through the negated conjunction perfectly well.
+    // Measured on a two-file probe: `strict: true` reports nothing, and
+    // `strict: false` reports `TS2322: Type '{ currency?: string; }' is not
+    // assignable` — which is the error that briefly appeared here, produced by
+    // a cross-package test file that dragged this module into the BACKEND's
+    // program, where `strict: false` disables the narrowing.
+    //
+    // The positive form is kept because it is the one that holds under BOTH
+    // compilations, and this module is the sort a test in another package may
+    // legitimately import. A guard whose correctness depends on which
+    // program compiled it is a guard nobody can check by reading it.
     let priced: CurrencyCode | undefined;
     if (currency !== undefined) {
       if (!isCurrencyCode(currency)) return undefined;
