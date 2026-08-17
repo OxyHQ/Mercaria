@@ -315,7 +315,38 @@ await mustFail(
 await mustFail(
   "a reasoned exception that no longer fires is refused",
   baseTree(),
-  { expect: "no longer produces a finding", realFloors: false },
+  { expect: "the count went DOWN to 0", realFloors: false },
+);
+
+// The direction #448 asks for and #494 finding 2 found missing here. Matching is
+// `detail.startsWith(declaration + " ")`, so TWO declarations of one name in one
+// file both match the single entry; the old reconciliation recorded membership
+// in a Set, which collapses them and can only ever ask "did it fire at least
+// once". A second, differently-valued re-listing rode in behind the reasoned one
+// and the guard printed "1 reasoned exception, all still firing".
+await mustFail(
+  "a SECOND re-listing under an excused declaration name cannot ride in",
+  baseTree({
+    // `exceptionFixture()`'s file, plus a second declaration of the SAME name in
+    // a block scope — legal TypeScript, and both findings' details start
+    // "BUYER_CANCELLABLE ", so both match the single entry.
+    "packages/frontend/app/(app)/orders/[id].tsx":
+      "import type { OrderStatus } from '@mercaria/shared-types';\n" +
+      "const BUYER_CANCELLABLE: ReadonlySet<OrderStatus> = new Set<OrderStatus>([\n" +
+      "  'pending_payment',\n" +
+      "  'paid',\n" +
+      "  'processing',\n" +
+      "]);\n" +
+      "export const cancellable = BUYER_CANCELLABLE;\n" +
+      "{\n" +
+      "  const BUYER_CANCELLABLE: ReadonlySet<OrderStatus> = new Set<OrderStatus>([\n" +
+      "    'awaiting_pickup',\n" +
+      "    'in_transit',\n" +
+      "  ]);\n" +
+      "  void BUYER_CANCELLABLE;\n" +
+      "}\n",
+  }),
+  { expect: "the count went UP", realFloors: false },
 );
 
 // ------------------------------------ the NEGATIVE controls — correct code ----

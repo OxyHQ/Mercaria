@@ -262,6 +262,15 @@ const KNOWN_VOCABULARY_EXCEPTIONS = [
   {
     file: "packages/frontend/app/(app)/orders/[id].tsx",
     declaration: "BUYER_CANCELLABLE",
+    // EXACTLY how many findings this entry excuses, reconciled both ways below.
+    // Without it the entry is a PREDICATE with no bound: matching was
+    // `detail.startsWith(declaration + " ")` into a Set, so any number of
+    // findings sharing this declaration's name in this file collapsed to one
+    // membership and the reconciliation could only ever ask "did it fire at
+    // least once". A second, differently-valued re-listing of the same name
+    // rode in free and the guard printed "1 reasoned exception, all still
+    // firing" (#448, #494 finding 2).
+    count: 1,
     reason:
       "a policy subset of OrderStatus, not a catalog vocabulary; closed by reading #110's CancellationEligibility",
   },
@@ -667,7 +676,8 @@ const WALL_TEXT = {
 
 async function main() {
   const failures = [];
-  const matchedExceptions = new Set();
+  /** exception id -> how many findings it actually excused. */
+  const matchedExceptions = new Map();
   const subtractedPathLiterals = new Set();
   const files = trackedFiles();
 
@@ -714,7 +724,8 @@ async function main() {
           finding.detail.startsWith(`${entry.declaration} `),
       );
       if (excused !== undefined) {
-        matchedExceptions.add(`${excused.file}:${excused.declaration}`);
+        const id = `${excused.file}:${excused.declaration}`;
+        matchedExceptions.set(id, (matchedExceptions.get(id) ?? 0) + 1);
         continue;
       }
       // The wall KEY is in the line as well as the sentence: it is what a
@@ -739,9 +750,30 @@ async function main() {
   }
   for (const entry of KNOWN_VOCABULARY_EXCEPTIONS) {
     const id = `${entry.file}:${entry.declaration}`;
-    if (!matchedExceptions.has(id)) {
+    const actual = matchedExceptions.get(id) ?? 0;
+    if (actual === 0) {
       failures.push(
-        `${id} is listed as a reasoned wall-5 exception and no longer produces a finding — remove the entry`,
+        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), which no longer matches `
+        + "anything — the count went DOWN to 0. Either the re-listing was removed or the file moved: "
+        + "delete the entry so the list keeps describing the tree, and so its standing positive control "
+        + "keeps standing",
+      );
+      continue;
+    }
+    if (actual < entry.count) {
+      failures.push(
+        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), but only ${actual} `
+        + "finding(s) matched it — the count went DOWN. Lower the count to what remains, or restore what "
+        + "the entry was covering",
+      );
+      continue;
+    }
+    if (actual > entry.count) {
+      failures.push(
+        `${id} is listed as a reasoned wall-5 exception ${entry.count} time(s), but ${actual} finding(s) `
+        + "matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW "
+        + "re-listed vocabulary under the same declaration name in the same file would otherwise ride in "
+        + "behind the reasoned one. Fix the new occurrence, or raise the count with a reason covering it too",
       );
     }
   }
