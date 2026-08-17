@@ -46,8 +46,8 @@
  * Usage:  bun scripts/validate-logical-side.mjs
  */
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -56,6 +56,9 @@ import {
   oppositeLogicalSide,
   resolvePhysicalSide,
 } from "../packages/ui/src/lib/logical-side.ts";
+// The same module as a namespace, so the consumer census below can enumerate
+// what it exports rather than repeat a hand-written list of names (#491).
+import * as logicalSideModule from "../packages/ui/src/lib/logical-side.ts";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -256,16 +259,167 @@ for (const side of SIDES) {
  * `react-native`, which cannot be imported outside a bundler — the same
  * constraint that shaped the module split in the first place.
  */
-const CONSUMERS = [
-  {
-    path: "packages/ui/src/components/ui/panel.tsx",
-    calls: ["offscreenTranslateX(", "innerEdgeBorderClassName("],
-  },
-  {
-    path: "packages/ui/src/components/ui/sheet.tsx",
-    calls: ["offscreenTranslateX(", "innerEdgeBorderClassName(", "resolvePhysicalSide("],
-  },
-];
+/**
+ * WHO imports this module is DERIVED from the tree, not listed here (#491).
+ *
+ * It was a two-entry literal, and setting it to `[]` made this guard PASS,
+ * exit 0, printing "0 consumers confirmed to call it". Every assertion below
+ * lives inside a `for` over that list, so emptying it removed them all and left
+ * the reassuring sentence. It defeated the exact failure the block's own
+ * docstring names — "A mechanism can be correct and INERT" — and no floor on
+ * the list existed anywhere in the file.
+ *
+ * A hand list has a second, quieter failure the floor alone would not fix: a
+ * THIRD consumer added later is not in it, so the guard goes on reporting two
+ * while the new one derives its own sign. Deriving the list fixes both, and a
+ * new consumer is covered on the day it appears.
+ */
+const SOURCE_ROOTS = ["packages"];
+const SOURCE_FILE = /\.tsx?$/;
+const SKIP_DIRECTORY = /^(node_modules|dist|build|\.expo|\.next|ios|android)$/;
+
+/** Every `.ts`/`.tsx` under `packages/`, excluding build output. */
+function sourceFiles(root) {
+  const out = [];
+  const walk = (directory) => {
+    let entries;
+    try {
+      entries = readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (!SKIP_DIRECTORY.test(entry.name)) walk(join(directory, entry.name));
+      } else if (SOURCE_FILE.test(entry.name)) {
+        out.push(join(directory, entry.name));
+      }
+    }
+  };
+  walk(root);
+  return out;
+}
+
+const scanned = SOURCE_ROOTS.flatMap((root) => sourceFiles(resolve(repositoryRoot, root)));
+
+/**
+ * Below this the walk is broken, and a broken walk finds no consumers — which
+ * would fail the floor below for a reason that has nothing to do with the
+ * property under test, and say so unhelpfully. Measured: well over 1000.
+ */
+const MINIMUM_SCANNED_FILES = 400;
+if (scanned.length < MINIMUM_SCANNED_FILES) {
+  failures.push(
+    `the source walk found ${scanned.length} files under ${SOURCE_ROOTS.join(", ")}, below the `
+    + `${MINIMUM_SCANNED_FILES} floor — the walk is broken, and a broken walk finds no consumers `
+    + "and reports the mechanism inert for the wrong reason",
+  );
+}
+
+/**
+ * A consumer IMPORTS the module. A barrel that only re-exports it (`export …
+ * from`) is not one, and is excluded structurally rather than by "has no calls"
+ * — the latter would silently reclassify a consumer that had STOPPED calling as
+ * a barrel, which is precisely the regression this block exists to catch.
+ */
+const IMPORTS_LOGICAL_SIDE = /^\s*import\s[^;]*?["'][^"']*logical-side(?:\.ts)?["']/m;
+const MODULE_ITSELF = resolve(repositoryRoot, "packages/ui/src/lib/logical-side.ts");
+
+const CONSUMERS = scanned
+  .filter((absolute) => absolute !== MODULE_ITSELF)
+  .filter((absolute) => IMPORTS_LOGICAL_SIDE.test(readFileSync(absolute, "utf8")))
+  .map((absolute) => relative(repositoryRoot, absolute))
+  .sort();
+
+/**
+ * Non-zero, and specifically at least the two components #429 shipped. A floor
+ * of 1 would let one of them drop out unnoticed; the guard exists because BOTH
+ * a panel and a sheet compute a sign that nothing else can check.
+ */
+const MINIMUM_CONSUMERS = 2;
+if (CONSUMERS.length < MINIMUM_CONSUMERS) {
+  failures.push(
+    `${CONSUMERS.length} module(s) import logical-side.ts, below the ${MINIMUM_CONSUMERS} floor `
+    + `(found: ${CONSUMERS.join(", ") || "none"}). Either a component stopped importing it — in which `
+    + "case it is deriving its own sign and this whole file is asserting a mechanism nothing runs — "
+    + "or the census broke. Both are the inert-mechanism failure; neither is a passing state.",
+  );
+}
+
+/**
+ * Every callable export must be reached by some consumer.
+ *
+ * Enumerated from the module rather than repeated as a per-file list of call
+ * strings, so a FIFTH exported function is covered the day it is added instead
+ * of being inert until somebody remembers to name it here.
+ */
+const EXPORTED_FUNCTIONS = Object.entries(logicalSideModule)
+  .filter(([, value]) => typeof value === "function")
+  .map(([name]) => name);
+
+/**
+ * What each KNOWN consumer must call, per file.
+ *
+ * This map does NOT drive iteration — the DERIVED list above does — and that
+ * separation is the whole point. Emptying this map cannot empty the check, the
+ * way emptying the old `CONSUMERS` literal did: every derived consumer still
+ * has to appear here (below), so an empty map fails once per consumer.
+ *
+ * It exists because deriving alone is measurably WEAKER than the hand list it
+ * replaced. Measured while building this fix: with only "every consumer calls
+ * something" and "every export is called by someone", replacing panel.tsx's
+ * `offscreenTranslateX(` with a hardcoded sign PASSED — sheet.tsx still called
+ * the function, so the export was still reached, and panel still called
+ * `innerEdgeBorderClassName`, so it was still a caller. That is precisely the
+ * inert-`Panel` this file was written for, and shipping the derivation on its
+ * own would have traded one hole for another.
+ *
+ * A consumer that appears in the tree and NOT here fails the build until
+ * somebody says what it must call — the `merge-plan-census` device. That is a
+ * deliberate cost: adding a consumer is exactly the moment to decide whether it
+ * may compute a sign itself.
+ */
+const REQUIRED_CALLS = new Map([
+  ["packages/ui/src/components/ui/panel.tsx", ["offscreenTranslateX", "innerEdgeBorderClassName"]],
+  [
+    "packages/ui/src/components/ui/sheet.tsx",
+    ["offscreenTranslateX", "innerEdgeBorderClassName", "resolvePhysicalSide"],
+  ],
+]);
+
+/** A stale entry names a file that no longer imports the module — the exemption-list rule. */
+for (const path of REQUIRED_CALLS.keys()) {
+  if (CONSUMERS.includes(path)) continue;
+  failures.push(
+    `${path} has a required-call entry but does not import logical-side.ts. Either it stopped `
+    + "importing — in which case it derives its own sign now — or it moved and the entry is stale, "
+    + "and a stale entry is an assertion that runs against nothing.",
+  );
+}
+
+const MINIMUM_EXPORTED_FUNCTIONS = 4;
+if (EXPORTED_FUNCTIONS.length < MINIMUM_EXPORTED_FUNCTIONS) {
+  failures.push(
+    `the module exports ${EXPORTED_FUNCTIONS.length} function(s) (${EXPORTED_FUNCTIONS.join(", ")}), `
+    + `below the ${MINIMUM_EXPORTED_FUNCTIONS} floor — the census resolved the wrong module, and the `
+    + "reachability assertion below would then pass over a subset",
+  );
+}
+
+const consumerSources = new Map(
+  CONSUMERS.map((path) => [path, readFileSync(resolve(repositoryRoot, path), "utf8")]),
+);
+
+for (const name of EXPORTED_FUNCTIONS) {
+  const callers = CONSUMERS.filter((path) => consumerSources.get(path).includes(`${name}(`));
+  if (callers.length > 0) continue;
+  failures.push(
+    `${name} is exported by logical-side.ts and CALLED BY NOTHING that imports it `
+    + `(checked: ${CONSUMERS.join(", ") || "no consumers"}). Everything asserted above would still pass `
+    + "against a component that had gone back to a hardcoded sign — a mechanism can be correct and "
+    + "inert, and this is the assertion that can tell the difference.",
+  );
+}
 
 /**
  * Below this a file has been emptied, moved or truncated, and every `includes`
@@ -275,29 +429,42 @@ const CONSUMERS = [
 const MINIMUM_CONSUMER_BYTES = 1500;
 
 for (const consumer of CONSUMERS) {
-  let source;
-  try {
-    source = readFileSync(resolve(repositoryRoot, consumer.path), "utf8");
-  } catch (error) {
+  const source = consumerSources.get(consumer);
+
+  /**
+   * BEFORE the byte floor, deliberately. A newly added consumer is usually
+   * small, so running the floor first reports a brand-new file as "emptied,
+   * truncated or moved" — which is both wrong and the kind of message that
+   * gets a guard edited rather than answered. Measured: a 126-byte probe
+   * consumer failed with the truncation message and never reached this check.
+   */
+  const required = REQUIRED_CALLS.get(consumer);
+  if (required === undefined) {
     failures.push(
-      `${consumer.path} could not be read (${error.code ?? error.message}) — it is where the logical `
-      + "side is consumed, and an unreadable file makes every assertion about it vacuous",
+      `${consumer} imports logical-side.ts and has no entry in REQUIRED_CALLS. A new consumer of the `
+      + "logical side is exactly the moment to decide which of its facts it may compute itself, so "
+      + "state the calls it must make. Until then nothing here asserts that it makes any.",
     );
     continue;
   }
 
   if (source.length < MINIMUM_CONSUMER_BYTES) {
     failures.push(
-      `${consumer.path} is ${source.length} bytes, below the ${MINIMUM_CONSUMER_BYTES} floor — the file `
+      `${consumer} is ${source.length} bytes, below the ${MINIMUM_CONSUMER_BYTES} floor — the file `
       + "was emptied, truncated or moved, and a scan over it reports whatever it likes",
     );
     continue;
   }
 
-  for (const call of consumer.calls) {
-    if (source.includes(call)) continue;
+  /**
+   * An import that calls nothing is a component that went back to deriving its
+   * own sign and left the import behind — which still reads as a consumer to
+   * any census that counts imports.
+   */
+  for (const name of required) {
+    if (source.includes(`${name}(`)) continue;
     failures.push(
-      `${consumer.path} no longer calls ${call}…) — the resolution above is still correct and is no `
+      `${consumer} no longer calls ${name}(…) — the resolution above is still correct and is no `
       + "longer reaching the screen. A component that derives its own sign is exactly what this file "
       + "exists to stop, and it looks identical to a working one everywhere else.",
     );
@@ -311,7 +478,7 @@ for (const consumer of CONSUMERS) {
    */
   if (/["']left["']\s*\|\s*["']right["']|["']right["']\s*\|\s*["']left["']/.test(source)) {
     failures.push(
-      `${consumer.path} declares a physical 'left' | 'right' union again. #429 replaced it with the `
+      `${consumer} declares a physical 'left' | 'right' union again. #429 replaced it with the `
       + "logical `LogicalSide`, deliberately without a back-compatible alias: a component that accepts "
       + "both spellings mirrors for whichever call sites remembered, and the ones that did not are "
       + "invisible because they still compile.",
@@ -335,6 +502,8 @@ if (failures.length > 0) {
 console.log(
   `Logical-side guard passed — ${EXPECTED_PHYSICAL.length} side x direction combinations resolved, `
   + "mirror property asserted for both sides, translateX sign and inner border edge cross-checked "
-  + `against the resolution, ${CONSUMERS.length} consumers confirmed to call it and to declare no `
-  + "physical side union. It does NOT verify that anything renders — #429 item 2 is still open.",
+  + `against the resolution, all ${EXPORTED_FUNCTIONS.length} exported functions `
+  + `(${EXPORTED_FUNCTIONS.join(", ")}) reached from ${CONSUMERS.length} consumer(s) DERIVED from `
+  + `${scanned.length} scanned files (${CONSUMERS.join(", ")}), none declaring a physical side union. `
+  + "It does NOT verify that anything renders — #429 item 2 is still open.",
 );
