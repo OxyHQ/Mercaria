@@ -71,6 +71,20 @@
  * stripe and the sidebar divider on native while looking perfect on web — a
  * regression strictly worse than the mis-mirroring it was meant to fix.
  *
+ * ## Those two premises are RE-MEASURED, by a different guard
+ *
+ * Everything above is a fact about UPSTREAM, and this guard cannot see it: the
+ * only files it opens are our own source tree and a package manifest, so its
+ * exception counts detect OUR drift and never a version bump that retires the
+ * reason for one. #429 item 3 claimed the entries "fail the run for being
+ * stale" when upstream catches up; they would not, and would instead stay green
+ * with an expired justification, which is worse than having no exception.
+ *
+ * `validate-rtl-upstream-premises.mjs` is what actually notices. It reads the
+ * INSTALLED `react-native` and `react-native-css` and fails the day either
+ * premise expires, each with a positive control so a broken search cannot read
+ * as absence. It runs beside this one in `bun run validate:rtl-classes`.
+ *
  * The entries below are therefore not debt to pay down by converting them; they
  * are waiting on an upstream capability. They are listed so the residual is
  * visible in the tree rather than only in a PR description.

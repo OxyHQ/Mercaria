@@ -29,7 +29,7 @@ bun run build:shared-types                # ALWAYS before db:generate
 bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
 bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
 bun run --filter @mercaria/backend lint
-bun run validate:agents-md                # this file's budget; ci.yml names all 10
+bun run validate:agents-md                # budget; ci.yml names all 11
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```
 
@@ -178,13 +178,13 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   unreferenced keys in all three apps. `docs/app-i18n.md`; #437.
 - **All four client packages mirror for Arabic from LOGICAL utilities only**
   (`ms-`, `me-`, `ps-`, `pe-`, `start-`, `end-`, `rounded-s-`);
-  `validate:rtl-classes` gates all four. A physical `ml-2` half-mirrors its screen
-  (row order flips, padding does not) with every build green. Direction follows the
-  SHIPPED BUNDLES, never the tag: all four now ship `ar` and mirror (#434).
-  `border-s-*`/`text-start` are MEASURED not to survive react-native-css/RN 0.85,
-  so those stay physical — as are a sliding panel's `translateX` sign and divider
-  edge, computed from a LOGICAL `side` in `ui/src/lib/logical-side.ts` (pure, so
-  a guard runs it). Residual: #429 items 2–3.
+  `validate:rtl-classes` gates all four; a physical `ml-2` half-mirrors its
+  screen with every build green. Direction follows the SHIPPED BUNDLES, never the
+  tag (#434). `border-s-*`/`text-start` do NOT survive react-native-css/RN 0.85
+  and stay physical, as do a panel's `translateX` sign and divider edge (LOGICAL
+  `side` in `ui/src/lib/logical-side.ts`); `validate-rtl-upstream-premises.mjs`
+  re-measures both premises against the INSTALLED packages. Residual: #429 item 2
+  — nothing renders, #486 blocks review, Arabic NOT fully supported.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails
