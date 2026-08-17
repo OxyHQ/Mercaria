@@ -119,6 +119,8 @@ import productDraftsRouter from './routes/product-drafts.js';
 import catalogProposalsRouter from './routes/catalog-proposals.js';
 import internalCatalogProposalsRouter from './routes/internal-catalog-proposals.js';
 import internalCatalogGovernanceRouter from './routes/internal-catalog-governance.js';
+import internalCatalogMetricsRouter from './routes/internal-catalog-metrics.js';
+import { catalogObservability } from './middleware/catalog-observability.js';
 import { config } from './config/index.js';
 import {
   requireCanonicalReads,
@@ -169,6 +171,18 @@ export function createApp(): express.Express {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
   });
+
+  // Catalog observability (#367 W16/W17): a correlation id per request and the
+  // in-process route timer behind the W16 latency budgets.
+  //
+  // MUST be mounted here — above every router and above express.json() — for two
+  // independent reasons. A middleware added after the routers never runs for a
+  // request a router already answered, so it would observe exactly the traffic
+  // that matched no route: the opposite population, reporting a confident zero.
+  // And it sets the correlation id as a response header, which throws
+  // ERR_HTTP_HEADERS_SENT once a handler has replied. It reads no body and parses
+  // nothing, so it is safe above the raw-body webhook mounts below.
+  app.use(catalogObservability);
 
   // Inbound connector webhooks (server-to-server). MUST be mounted BEFORE the
   // global express.json() so the RAW request body survives for HMAC verification
@@ -990,6 +1004,12 @@ export function createApp(): express.Express {
    */
   if (config.catalog.graphOperatorSurfaceEnabled) {
     app.use('/internal/catalog-governance', internalCatalogGovernanceRouter);
+    // Catalog observability (#367 W16/W17). The SAME allow-list rather than a
+    // seventh: reading how much of the catalogue is translated is not a different
+    // power from publishing a taxonomy change. Read-only, and deliberately kept
+    // mounted alongside governance for the reason `/internal/backfill` is — the
+    // evidence has to be readable during the incident that turned a domain off.
+    app.use('/internal/catalog-metrics', internalCatalogMetricsRouter);
   }
   // (Inbound connector webhooks are mounted above, before express.json.)
 
