@@ -1,6 +1,6 @@
 # The vertical end-to-end journeys (#367 Workstream 18)
 
-Four real-database suites under
+Five real-database suites under
 `packages/backend/src/__tests__/vertical-e2e/`, driving a merchant's whole
 journey over the three reference verticals — authoring, publication, offers,
 search, filtering and the product page — plus the four cross-cutting flows the
@@ -12,6 +12,7 @@ epic asks for by name.
 | `vertical-locale-switch.e2e.realdb.test.ts` | Locale switching mid-draft, and telling an absent translation from a present one that reads the same |
 | `vertical-publication-recovery.e2e.realdb.test.ts` | Rollback and error recovery from a failed publication |
 | `vertical-automotive-fitment.e2e.realdb.test.ts` | Fitment authoring, the vehicle walk to a buyable part, and why a vehicle is not a catalogue filter |
+| `vertical-matrix-and-new-product.e2e.realdb.test.ts` | The order-independent duplicate refusal at three grains, the whole eight-configuration matrix, and a new model from proposal to a findable listing |
 | `journey.ts` | Shared permissions, the two schema fingerprints, an enum lookup, the population report. NOT a test file |
 
 ## How this differs from the Workstream 14 vertical suites
@@ -33,6 +34,12 @@ merchant on top of them:
   suite reaches; footwear stops at facets.
 - **The failure paths are driven**, which is what
   `docs/catalog-authoring.md` lists as deferred.
+- **Order-independence is driven.** Workstream 14's duplicate case asks for one
+  combination twice in the SAME order, so the sort inside
+  `typedVariantSignature` is untested and "reject duplicate combinations after
+  normalization" is only true for the order somebody typed.
+- **The proposal path reaches a sale.** Workstream 14 stops at the minted
+  product; a merchant's purpose is to sell the thing.
 
 ## No new step, deliberately
 
@@ -53,6 +60,22 @@ database and tears it down; see `scripts/seed-verticals/__tests__/vertical-fixtu
 for what the teardown cannot remove and why. Product NAMES are not namespaced by
 the seed — only keys, slugs and handles are — so every search assertion here
 names an ID and never a count.
+
+Three cleanups these files add beyond `teardownVertical`, each forced by a real
+`RESTRICT` failure rather than added defensively: the proposal trail
+(`catalog_proposals.store_id` blocks the store's own delete, and
+`catalog_review_events` refuses DELETE by trigger), this file's own `fr`
+localization rows (the categories are RETIRED rather than deleted, so nothing
+cascades them), and the minted canonical product — which must go AFTER the
+store's listings, because a listing declares a link onto its configuration.
+
+A residue probe run last and then thrown away confirms these five files leave no
+rows of their own. What survives is the seed packages' — attribute and
+product-type definitions the server refuses to delete once published, the
+categories they cite (moved to `deprecated`, which every read treats as
+inactive), and those categories' own localization rows, which cascade only on a
+category DELETE. All three are `vertical-fixture.ts`'s documented residue; the
+localization rows are the one it does not name.
 
 ## The measurement discipline
 
@@ -148,6 +171,11 @@ shown to track the position rather than being a constant.
   compatibility-scoped answer becomes a `native_listing_attribute_claims` row;
   `automotive_fitments` is untouched. That is the epic's "keep seller claims
   separate from selected canonical facts" as a measurement.
+- **`previewVariantSignature` does not fold — it THROWS on a value that is not
+  already normalized.** That is what stops a caller storing the raw value in the
+  column and the folded one in the digest, which produces a row nothing can
+  recompute. A folding digest would pass every other case in these suites, so the
+  refusal is asserted directly.
 
 ## What these suites do NOT cover, and why
 
@@ -172,7 +200,9 @@ shown to track the position rather than being a constant.
   validate:rtl-classes` and `validate:bidi-isolation` gate the mirroring rules
   across all four client packages, and none of the three Expo apps has a test
   runner.
-- **The proposal/review path for a genuinely new model.**
-  `verticals-smartphone.realdb.test.ts` already drives submission, review by a
-  different operator and resolution onto a minted product; repeating it here would
-  be a second copy of one flow.
+- **A merchant PROPOSING an attribute value or a category.** `submitProposal`
+  accepts those types and the review path is the same; what these suites drive is
+  the `canonical_product` type, because that is the one the epic's smartphone
+  new-product flow names. The controller additionally hard-codes
+  `canProposeValues: false`, so the value-proposal path is unreachable over HTTP
+  today whatever the service accepts.
