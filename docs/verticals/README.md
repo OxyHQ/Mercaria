@@ -160,8 +160,8 @@ own brands.
 
 ## What the teardown cannot remove, and why
 
-A test run leaves exactly three kinds of row behind, and all three are refusals
-by the server rather than omissions:
+A test run leaves three PARENTS behind, and all three are refusals by the server
+rather than omissions:
 
 - **Attribute definitions** — `mercaria_attribute_definition_immutable` refuses
   to DELETE a version that has left `draft`, and the seed must publish them
@@ -180,8 +180,37 @@ tidy-up and is wrong, because `listActiveDefinitionsForCategory` includes
 UNSCOPED definitions and thirty of them would appear in every sibling test's
 category.
 
-Measured after a full brake-pad run: everything else is zero, and zero of the
-retained categories are active.
+**And every CHILD of a retained parent survives with it.** That follows from the
+three above, and it is stated because the first version of this section said
+"everything else is zero" and a reader checking one table found that false. Those
+children `ON DELETE cascade` from their parent and nothing ever deletes the
+parent — a `deprecated` category is an UPDATE — so the cascade never fires.
+
+Measured after one smartphone-package teardown, which is the whole of what
+survives:
+
+```
+  13  attribute_definitions          1  product_type_definitions
+   4  attribute_value_localizations  3  product_type_localizations
+   3  categories (0 of them ACTIVE)  7  category_localizations
+   5  category_aliases               0  category_localized_slugs
+```
+
+Everything with an owner the fixture can delete is zero: brands, families,
+products, variants, identifiers, observed facts, vehicles, fitments, claims,
+sources, stores, listings and drafts.
+
+Harmless, and not nothing. Every read that could reach one of those rows is
+either scoped to explicit ids (`readLocalizedCategories`,
+`readLocalizedAttributeValues`) or filters `is_active`
+(`findActiveCategories`), and `category_aliases` has no caller on the retrieval
+path at all. What it costs is that a namespace's parents outlive its run — which
+is why the namespace is per-RUN rather than per-file, and why a count over any of
+these tables must be scoped before it is trusted.
+
+The rule for whoever extends the fixture: **a table is retained if its nearest
+deletable ancestor is one of the three parents above.** Enumerating the leaves is
+how this went stale once already.
 
 **Stores go through `deleteTestStores`, never a bare delete.**
 `services/backfill/stages/store-merchants.ts` pages EVERY active store in the

@@ -16,8 +16,8 @@
  *
  * ## What the teardown deliberately does NOT delete, and why
  *
- * Two kinds of row survive, and both are refusals by the SERVER rather than
- * omissions here:
+ * THREE PARENTS survive, and each is a refusal by the SERVER rather than an
+ * omission here:
  *
  * - **Attribute definitions.** `mercaria_attribute_definition_immutable`
  *   refuses to DELETE a version that has left `draft` ("stored values cite this
@@ -30,12 +30,45 @@
  *   would make thirty definitions appear in every sibling's category.
  * - **Product-type definitions.** `product_type_definitions_immutable_once_published`
  *   refuses DELETE from `published` onward, for the same reason.
+ * - **The CATEGORIES those two cite**, whose scope rows point at them with
+ *   `ON DELETE restrict`. They are moved to `deprecated` instead, which
+ *   `isCategoryLifecycleActive` reads as inactive, so `findActiveCategories` —
+ *   what `GET /categories` and `feed.service` serve — never sees them again.
+ *   The rows survive; the shelves do not.
  *
- * The CATEGORIES those two cite are deleted in neither direction: the scope
- * rows point at them with `ON DELETE restrict`. They are instead moved to
- * `deprecated`, which `isCategoryLifecycleActive` reads as inactive, so
- * `findActiveCategories` — what `GET /categories` and `feed.service` serve —
- * never sees them again. The rows survive; the shelves do not.
+ * ## And so does EVERY CHILD OF A RETAINED PARENT
+ *
+ * That follows from the three above and is stated because the previous version
+ * of this header did not: it said "everything else is deleted", and a reader
+ * checking one table against that sentence found it false. Those children
+ * `ON DELETE cascade` from their parent, and nothing here ever deletes the
+ * parent — a `deprecated` category is an UPDATE — so the cascade never fires.
+ *
+ * Measured after one smartphone-package teardown (2026-08-17), which is the
+ * whole of what survives:
+ *
+ * ```
+ *   13  attribute_definitions          1  product_type_definitions
+ *    4  attribute_value_localizations  3  product_type_localizations
+ *    3  categories (0 of them ACTIVE)  7  category_localizations
+ *    5  category_aliases               0  category_localized_slugs
+ * ```
+ *
+ * Everything with an owner this fixture can delete is zero: brands, families,
+ * products, variants, identifiers, observed facts, vehicles, fitments, claims,
+ * sources, stores, listings and drafts.
+ *
+ * It is harmless and it is not nothing. Every read that could reach one of
+ * those rows is either scoped to explicit ids (`readLocalizedCategories`,
+ * `readLocalizedAttributeValues`) or filters `is_active`
+ * (`findActiveCategories`), and `category_aliases` has no caller on the
+ * retrieval path at all. What it costs is that a namespace's parents outlive
+ * its run — which is why the namespace is per-run rather than per-file, and why
+ * a count over any of these tables must be scoped before it is trusted.
+ *
+ * The general rule, for whoever extends this: **a table is retained if its
+ * nearest deletable ancestor is one of the three parents above.** Enumerating
+ * the leaves is how this header went stale once already.
  *
  * Everything else is deleted, children first, so a wrong ordering still raises
  * loudly on a real `RESTRICT` rather than being swallowed.
