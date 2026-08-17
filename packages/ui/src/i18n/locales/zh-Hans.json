@@ -308,7 +308,46 @@
       },
       "a11ySeller": "卖家：%{label}",
       "a11yDisclosure": "提示：%{label}",
-      "rights": "下单后 %{cancellationHours} 小时内可取消，送达后 %{withdrawalDays} 天内可撤回，%{returnDays} 天内可退货，法定保修期为 %{warrantyMonths} 个月。"
+      "rights": "下单后 %{cancellationHours} 小时内可取消，送达后 %{withdrawalDays} 天内可撤回，%{returnDays} 天内可退货，法定保修期为 %{warrantyMonths} 个月。",
+      "progress": {
+        "label": {
+          "awaiting_payment": "等待付款",
+          "confirming_availability": "正在确认可供情况",
+          "confirmed": "已确认",
+          "on_the_way": "运送中",
+          "delivered": "已送达",
+          "cancelled": "已取消",
+          "partially_refunded": "部分退款",
+          "refunded": "已退款"
+        },
+        "explanation": {
+          "awaiting_payment": "我们尚未收到您的付款。",
+          "confirming_availability": "已收到付款 — 我们正在向履约合作伙伴确认可供情况。",
+          "confirmed": "履约合作伙伴已接受您的订单，正在备货。",
+          "on_the_way": "您的订单已从履约合作伙伴发出。",
+          "delivered": "您的订单已送达。",
+          "cancelled": "此订单已取消。",
+          "partially_refunded": "此订单的部分金额已退款。",
+          "refunded": "此订单已退款。"
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "告诉我们寄往何处，我们即可给出价格。",
+        "shipping_not_quotable": "目前无法获取寄往此目的地的配送价格。",
+        "undocumented_supplier_fee": "有一项费用我们无法说明，因此不会给出总价。",
+        "tax_undetermined": "我们无法确定此目的地的税费。",
+        "market_not_supported": "我们无法将此商品销售至该市场。",
+        "supplier_price_unavailable": "我们目前没有此商品的价格。",
+        "fx_rate_unavailable": "目前无法将此价格换算为您的货币。",
+        "payment_cost_undetermined": "我们无法确定此订单的支付成本。",
+        "component_not_permitted_by_policy": "此商品的部分成本不是我们可以转嫁的。",
+        "policy_missing": "此商品目前未定售价。"
+      },
+      "unquoted": {
+        "no_current_quote": "我们目前没有此商品的价格。",
+        "destination_not_supplied": "告诉我们寄往何处，我们即可给出价格。",
+        "retail_not_enabled": "此商品目前不发售。"
+      }
     }
   }
 }

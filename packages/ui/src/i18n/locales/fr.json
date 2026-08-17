@@ -308,7 +308,46 @@
       },
       "a11ySeller": "Vendeur : %{label}",
       "a11yDisclosure": "Avis : %{label}",
-      "rights": "Annulez dans les %{cancellationHours} heures suivant la commande, rétractez-vous dans les %{withdrawalDays} jours suivant la livraison, retournez dans les %{returnDays} jours, et la garantie légale court pendant %{warrantyMonths} mois."
+      "rights": "Annulez dans les %{cancellationHours} heures suivant la commande, rétractez-vous dans les %{withdrawalDays} jours suivant la livraison, retournez dans les %{returnDays} jours, et la garantie légale court pendant %{warrantyMonths} mois.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "En attente de paiement",
+          "confirming_availability": "Vérification de la disponibilité",
+          "confirmed": "Confirmée",
+          "on_the_way": "En route",
+          "delivered": "Livrée",
+          "cancelled": "Annulée",
+          "partially_refunded": "Partiellement remboursée",
+          "refunded": "Remboursée"
+        },
+        "explanation": {
+          "awaiting_payment": "Nous n'avons pas encore reçu votre paiement.",
+          "confirming_availability": "Paiement reçu — nous vérifions la disponibilité auprès de notre partenaire logistique.",
+          "confirmed": "Notre partenaire logistique a accepté votre commande et la prépare.",
+          "on_the_way": "Votre commande a quitté notre partenaire logistique.",
+          "delivered": "Votre commande a été livrée.",
+          "cancelled": "Cette commande a été annulée.",
+          "partially_refunded": "Une partie de cette commande a été remboursée.",
+          "refunded": "Cette commande a été remboursée."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Dites-nous où cela doit aller et nous pourrons en fixer le prix.",
+        "shipping_not_quotable": "Nous ne pouvons pas obtenir de prix de livraison pour cette destination pour le moment.",
+        "undocumented_supplier_fee": "Il existe un coût que nous ne pouvons pas justifier ; nous ne donnerons donc pas de total.",
+        "tax_undetermined": "Nous ne pouvons pas déterminer la taxe pour cette destination.",
+        "market_not_supported": "Nous ne pouvons pas vendre cet article sur ce marché.",
+        "supplier_price_unavailable": "Nous n'avons pas de prix actuel pour cet article.",
+        "fx_rate_unavailable": "Nous ne pouvons pas convertir ce prix dans votre devise pour le moment.",
+        "payment_cost_undetermined": "Nous ne pouvons pas déterminer les frais de paiement de cette commande.",
+        "component_not_permitted_by_policy": "Une partie du coût de cet article ne peut pas être répercutée.",
+        "policy_missing": "Cet article n'a pas de prix de vente actuellement."
+      },
+      "unquoted": {
+        "no_current_quote": "Nous n'avons pas de prix actuel pour cet article.",
+        "destination_not_supplied": "Dites-nous où cela doit aller et nous pourrons en fixer le prix.",
+        "retail_not_enabled": "Cet article n'est pas en vente actuellement."
+      }
     }
   }
 }

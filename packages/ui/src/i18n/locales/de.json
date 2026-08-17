@@ -308,7 +308,46 @@
       },
       "a11ySeller": "Verkäufer: %{label}",
       "a11yDisclosure": "Hinweis: %{label}",
-      "rights": "Stornierung innerhalb von %{cancellationHours} Stunden nach der Bestellung, Widerruf innerhalb von %{withdrawalDays} Tagen nach Lieferung, Rückgabe innerhalb von %{returnDays} Tagen, und die gesetzliche Gewährleistung läuft %{warrantyMonths} Monate."
+      "rights": "Stornierung innerhalb von %{cancellationHours} Stunden nach der Bestellung, Widerruf innerhalb von %{withdrawalDays} Tagen nach Lieferung, Rückgabe innerhalb von %{returnDays} Tagen, und die gesetzliche Gewährleistung läuft %{warrantyMonths} Monate.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "Warten auf Zahlung",
+          "confirming_availability": "Verfügbarkeit wird bestätigt",
+          "confirmed": "Bestätigt",
+          "on_the_way": "Unterwegs",
+          "delivered": "Zugestellt",
+          "cancelled": "Storniert",
+          "partially_refunded": "Teilweise erstattet",
+          "refunded": "Erstattet"
+        },
+        "explanation": {
+          "awaiting_payment": "Wir haben Ihre Zahlung noch nicht erhalten.",
+          "confirming_availability": "Zahlung erhalten – wir bestätigen die Verfügbarkeit mit unserem Fulfilment-Partner.",
+          "confirmed": "Unser Fulfilment-Partner hat Ihre Bestellung angenommen und bereitet sie vor.",
+          "on_the_way": "Ihre Bestellung hat unseren Fulfilment-Partner verlassen.",
+          "delivered": "Ihre Bestellung wurde zugestellt.",
+          "cancelled": "Diese Bestellung wurde storniert.",
+          "partially_refunded": "Ein Teil dieser Bestellung wurde erstattet.",
+          "refunded": "Diese Bestellung wurde erstattet."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Sagen Sie uns das Ziel, dann können wir den Preis berechnen.",
+        "shipping_not_quotable": "Für dieses Ziel können wir derzeit keinen Lieferpreis ermitteln.",
+        "undocumented_supplier_fee": "Es gibt Kosten, die wir nicht zuordnen können, daher nennen wir keinen Gesamtpreis.",
+        "tax_undetermined": "Wir können die Steuer für dieses Ziel nicht bestimmen.",
+        "market_not_supported": "Wir können diesen Artikel nicht in diesen Markt verkaufen.",
+        "supplier_price_unavailable": "Wir haben derzeit keinen Preis für diesen Artikel.",
+        "fx_rate_unavailable": "Wir können diesen Preis derzeit nicht in Ihre Währung umrechnen.",
+        "payment_cost_undetermined": "Wir können die Zahlungskosten für diese Bestellung nicht bestimmen.",
+        "component_not_permitted_by_policy": "Ein Teil der Kosten dieses Artikels darf nicht weitergegeben werden.",
+        "policy_missing": "Für diesen Artikel ist derzeit kein Verkaufspreis festgelegt."
+      },
+      "unquoted": {
+        "no_current_quote": "Wir haben derzeit keinen Preis für diesen Artikel.",
+        "destination_not_supplied": "Sagen Sie uns das Ziel, dann können wir den Preis berechnen.",
+        "retail_not_enabled": "Dieser Artikel steht derzeit nicht zum Verkauf."
+      }
     }
   }
 }

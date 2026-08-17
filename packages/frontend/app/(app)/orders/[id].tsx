@@ -122,10 +122,10 @@ function RetailProgressCard({ retail }: { retail: RetailOrderExperience }) {
         accessibilityRole="header"
         accessibilityLiveRegion="polite"
       >
-        {retailOrderProgressLabel(retail.stage)}
+        {retailOrderProgressLabel(t, retail.stage)}
       </Text>
       <Text className="text-sm text-muted-foreground">
-        {retailOrderProgressExplanation(retail.stage)}
+        {retailOrderProgressExplanation(t, retail.stage)}
       </Text>
       {retail.acceptedDelivery ? (
         <DeliveryLine

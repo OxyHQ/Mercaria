@@ -308,7 +308,46 @@
       },
       "a11ySeller": "Продавец: %{label}",
       "a11yDisclosure": "Уведомление: %{label}",
-      "rights": "Отменить можно в течение %{cancellationHours} ч после заказа, отказаться — в течение %{withdrawalDays} дн. после доставки, вернуть — в течение %{returnDays} дн., а законная гарантия действует %{warrantyMonths} мес."
+      "rights": "Отменить можно в течение %{cancellationHours} ч после заказа, отказаться — в течение %{withdrawalDays} дн. после доставки, вернуть — в течение %{returnDays} дн., а законная гарантия действует %{warrantyMonths} мес.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "Ожидание оплаты",
+          "confirming_availability": "Проверяем наличие",
+          "confirmed": "Подтверждён",
+          "on_the_way": "В пути",
+          "delivered": "Доставлен",
+          "cancelled": "Отменён",
+          "partially_refunded": "Частично возвращён",
+          "refunded": "Возвращён"
+        },
+        "explanation": {
+          "awaiting_payment": "Мы ещё не получили ваш платёж.",
+          "confirming_availability": "Платёж получен — уточняем наличие у партнёра.",
+          "confirmed": "Партнёр принял ваш заказ и готовит его.",
+          "on_the_way": "Ваш заказ отправлен от партнёра.",
+          "delivered": "Ваш заказ доставлен.",
+          "cancelled": "Этот заказ отменён.",
+          "partially_refunded": "Часть этого заказа возвращена.",
+          "refunded": "Этот заказ возвращён."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Укажите адрес доставки, и мы рассчитаем цену.",
+        "shipping_not_quotable": "Сейчас мы не можем получить стоимость доставки для этого адреса.",
+        "undocumented_supplier_fee": "Есть расход, который мы не можем обосновать, поэтому итог не назовём.",
+        "tax_undetermined": "Мы не можем определить налог для этого адреса.",
+        "market_not_supported": "Мы не можем продавать этот товар на этот рынок.",
+        "supplier_price_unavailable": "У нас нет актуальной цены на этот товар.",
+        "fx_rate_unavailable": "Сейчас мы не можем перевести эту цену в вашу валюту.",
+        "payment_cost_undetermined": "Мы не можем определить стоимость оплаты по этому заказу.",
+        "component_not_permitted_by_policy": "Часть стоимости этого товара мы не вправе перекладывать на покупателя.",
+        "policy_missing": "Для этого товара сейчас не установлена цена продажи."
+      },
+      "unquoted": {
+        "no_current_quote": "У нас нет актуальной цены на этот товар.",
+        "destination_not_supplied": "Укажите адрес доставки, и мы рассчитаем цену.",
+        "retail_not_enabled": "Этот товар сейчас не продаётся."
+      }
     }
   }
 }

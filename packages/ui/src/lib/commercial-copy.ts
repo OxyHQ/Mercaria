@@ -153,47 +153,54 @@ export function commercialSellerLabel(
   }
 }
 
-/** ADR 0004 D9.1's stages, in the words a buyer reads. */
-export const RETAIL_ORDER_PROGRESS_LABELS: Readonly<Record<RetailOrderProgressStage, string>> = {
-  awaiting_payment: "Waiting for payment",
-  confirming_availability: "Confirming availability",
-  confirmed: "Confirmed",
-  on_the_way: "On the way",
-  delivered: "Delivered",
-  cancelled: "Cancelled",
-  partially_refunded: "Partly refunded",
-  refunded: "Refunded",
+/** ADR 0004 D9.1's stages, as keys. */
+export const RETAIL_ORDER_PROGRESS_LABEL_KEYS: Readonly<
+  Record<RetailOrderProgressStage, string>
+> = {
+  awaiting_payment: "ui.commercial.progress.label.awaiting_payment",
+  confirming_availability: "ui.commercial.progress.label.confirming_availability",
+  confirmed: "ui.commercial.progress.label.confirmed",
+  on_the_way: "ui.commercial.progress.label.on_the_way",
+  delivered: "ui.commercial.progress.label.delivered",
+  cancelled: "ui.commercial.progress.label.cancelled",
+  partially_refunded: "ui.commercial.progress.label.partially_refunded",
+  refunded: "ui.commercial.progress.label.refunded",
 };
 
 /**
- * What each stage means, in one sentence.
+ * What each stage means, in one sentence, as keys.
  *
  * `confirming_availability` is the load-bearing one and its wording is ADR 0004
  * D9.1's, near enough verbatim: the ADR states the truthful sentence and states
- * that "confirmed" may not be used until every purchase order is accepted.
+ * that "confirmed" may not be used until every purchase order is accepted. That
+ * constraint now lives in the BUNDLES, which means it is a property a translator
+ * has to preserve — the `condition.ts` docblock makes the same point about not
+ * promising quality, for the same reason.
  */
-export const RETAIL_ORDER_PROGRESS_EXPLANATIONS: Readonly<
+export const RETAIL_ORDER_PROGRESS_EXPLANATION_KEYS: Readonly<
   Record<RetailOrderProgressStage, string>
 > = {
-  awaiting_payment: "We have not received your payment yet.",
-  confirming_availability:
-    "Payment received — we are confirming availability with our fulfilment partner.",
-  confirmed: "Our fulfilment partner has accepted your order and is preparing it.",
-  on_the_way: "Your order has left our fulfilment partner.",
-  delivered: "Your order has been delivered.",
-  cancelled: "This order was cancelled.",
-  partially_refunded: "Part of this order has been refunded.",
-  refunded: "This order has been refunded.",
+  awaiting_payment: "ui.commercial.progress.explanation.awaiting_payment",
+  confirming_availability: "ui.commercial.progress.explanation.confirming_availability",
+  confirmed: "ui.commercial.progress.explanation.confirmed",
+  on_the_way: "ui.commercial.progress.explanation.on_the_way",
+  delivered: "ui.commercial.progress.explanation.delivered",
+  cancelled: "ui.commercial.progress.explanation.cancelled",
+  partially_refunded: "ui.commercial.progress.explanation.partially_refunded",
+  refunded: "ui.commercial.progress.explanation.refunded",
 };
 
 /** The stage chip text. */
-export function retailOrderProgressLabel(stage: RetailOrderProgressStage): string {
-  return RETAIL_ORDER_PROGRESS_LABELS[stage];
+export function retailOrderProgressLabel(t: Translate, stage: RetailOrderProgressStage): string {
+  return t(RETAIL_ORDER_PROGRESS_LABEL_KEYS[stage]);
 }
 
 /** The stage sentence. */
-export function retailOrderProgressExplanation(stage: RetailOrderProgressStage): string {
-  return RETAIL_ORDER_PROGRESS_EXPLANATIONS[stage];
+export function retailOrderProgressExplanation(
+  t: Translate,
+  stage: RetailOrderProgressStage,
+): string {
+  return t(RETAIL_ORDER_PROGRESS_EXPLANATION_KEYS[stage]);
 }
 
 /**
@@ -205,22 +212,26 @@ export function retailOrderProgressExplanation(stage: RetailOrderProgressStage):
  * stored claiming an exact price, and a sentence like "roughly X" would put the
  * claim back on the screen the domain refused to make.
  */
-export const RETAIL_BLOCK_REASON_EXPLANATIONS: Readonly<Record<RetailCostBlockReason, string>> = {
-  destination_unknown: "Tell us where this is going and we can price it.",
-  shipping_not_quotable: "We cannot get a delivery price for this destination right now.",
-  undocumented_supplier_fee: "There is a cost we cannot account for, so we will not quote a total.",
-  tax_undetermined: "We cannot determine the tax for this destination.",
-  market_not_supported: "We cannot sell this item into that market.",
-  supplier_price_unavailable: "We do not have a current price for this item.",
-  fx_rate_unavailable: "We cannot convert this price into your currency right now.",
-  payment_cost_undetermined: "We cannot determine the payment cost for this order.",
-  component_not_permitted_by_policy: "Part of this item's cost is not one we may pass on.",
-  policy_missing: "This item is not currently priced for sale.",
+export const RETAIL_BLOCK_REASON_EXPLANATION_KEYS: Readonly<
+  Record<RetailCostBlockReason, string>
+> = {
+  destination_unknown: "ui.commercial.blockReason.destination_unknown",
+  shipping_not_quotable: "ui.commercial.blockReason.shipping_not_quotable",
+  undocumented_supplier_fee: "ui.commercial.blockReason.undocumented_supplier_fee",
+  tax_undetermined: "ui.commercial.blockReason.tax_undetermined",
+  market_not_supported: "ui.commercial.blockReason.market_not_supported",
+  supplier_price_unavailable: "ui.commercial.blockReason.supplier_price_unavailable",
+  fx_rate_unavailable: "ui.commercial.blockReason.fx_rate_unavailable",
+  payment_cost_undetermined: "ui.commercial.blockReason.payment_cost_undetermined",
+  component_not_permitted_by_policy: "ui.commercial.blockReason.component_not_permitted_by_policy",
+  policy_missing: "ui.commercial.blockReason.policy_missing",
 };
 
 /** Why nothing has been quoted at all — #129's own fourth state. */
-export const RETAIL_UNQUOTED_EXPLANATIONS: Readonly<Record<RetailOfferUnquotedReason, string>> = {
-  no_current_quote: "We do not have a current price for this item.",
-  destination_not_supplied: "Tell us where this is going and we can price it.",
-  retail_not_enabled: "This item is not currently on sale.",
+export const RETAIL_UNQUOTED_EXPLANATION_KEYS: Readonly<
+  Record<RetailOfferUnquotedReason, string>
+> = {
+  no_current_quote: "ui.commercial.unquoted.no_current_quote",
+  destination_not_supplied: "ui.commercial.unquoted.destination_not_supplied",
+  retail_not_enabled: "ui.commercial.unquoted.retail_not_enabled",
 };

@@ -308,7 +308,46 @@
       },
       "a11ySeller": "विक्रेता: %{label}",
       "a11yDisclosure": "सूचना: %{label}",
-      "rights": "ऑर्डर के %{cancellationHours} घंटे के भीतर रद्द करें, डिलीवरी के %{withdrawalDays} दिन के भीतर वापस लें, %{returnDays} दिन के भीतर लौटाएँ, और कानूनी गारंटी %{warrantyMonths} महीने तक चलती है।"
+      "rights": "ऑर्डर के %{cancellationHours} घंटे के भीतर रद्द करें, डिलीवरी के %{withdrawalDays} दिन के भीतर वापस लें, %{returnDays} दिन के भीतर लौटाएँ, और कानूनी गारंटी %{warrantyMonths} महीने तक चलती है।",
+      "progress": {
+        "label": {
+          "awaiting_payment": "भुगतान की प्रतीक्षा",
+          "confirming_availability": "उपलब्धता की पुष्टि हो रही है",
+          "confirmed": "पुष्ट",
+          "on_the_way": "रास्ते में",
+          "delivered": "वितरित",
+          "cancelled": "रद्द",
+          "partially_refunded": "आंशिक रूप से वापस",
+          "refunded": "वापस किया गया"
+        },
+        "explanation": {
+          "awaiting_payment": "हमें अभी तक आपका भुगतान नहीं मिला है।",
+          "confirming_availability": "भुगतान मिल गया — हम अपने पूर्ति साझेदार से उपलब्धता की पुष्टि कर रहे हैं।",
+          "confirmed": "हमारे पूर्ति साझेदार ने आपका ऑर्डर स्वीकार कर लिया है और तैयार कर रहे हैं।",
+          "on_the_way": "आपका ऑर्डर हमारे पूर्ति साझेदार से रवाना हो गया है।",
+          "delivered": "आपका ऑर्डर वितरित कर दिया गया है।",
+          "cancelled": "यह ऑर्डर रद्द कर दिया गया था।",
+          "partially_refunded": "इस ऑर्डर का कुछ हिस्सा वापस कर दिया गया है।",
+          "refunded": "यह ऑर्डर वापस कर दिया गया है।"
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "हमें बताएँ कि यह कहाँ जाना है, फिर हम कीमत बता सकते हैं।",
+        "shipping_not_quotable": "इस गंतव्य के लिए अभी हमें डिलीवरी की कीमत नहीं मिल पा रही।",
+        "undocumented_supplier_fee": "एक लागत ऐसी है जिसका हिसाब हम नहीं दे सकते, इसलिए हम कुल राशि नहीं बताएँगे।",
+        "tax_undetermined": "हम इस गंतव्य के लिए कर तय नहीं कर सकते।",
+        "market_not_supported": "हम यह वस्तु उस बाज़ार में नहीं बेच सकते।",
+        "supplier_price_unavailable": "हमारे पास इस वस्तु की मौजूदा कीमत नहीं है।",
+        "fx_rate_unavailable": "अभी हम यह कीमत आपकी मुद्रा में नहीं बदल सकते।",
+        "payment_cost_undetermined": "हम इस ऑर्डर की भुगतान लागत तय नहीं कर सकते।",
+        "component_not_permitted_by_policy": "इस वस्तु की लागत का एक हिस्सा ऐसा है जिसे हम आगे नहीं बढ़ा सकते।",
+        "policy_missing": "इस वस्तु की बिक्री कीमत फ़िलहाल तय नहीं है।"
+      },
+      "unquoted": {
+        "no_current_quote": "हमारे पास इस वस्तु की मौजूदा कीमत नहीं है।",
+        "destination_not_supplied": "हमें बताएँ कि यह कहाँ जाना है, फिर हम कीमत बता सकते हैं।",
+        "retail_not_enabled": "यह वस्तु फ़िलहाल बिक्री पर नहीं है।"
+      }
     }
   }
 }

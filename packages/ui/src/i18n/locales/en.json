@@ -308,7 +308,46 @@
       },
       "a11ySeller": "Seller: %{label}",
       "a11yDisclosure": "Disclosure: %{label}",
-      "rights": "Cancel within %{cancellationHours} hours of ordering, withdraw within %{withdrawalDays} days of delivery, return within %{returnDays} days, and the legal guarantee runs for %{warrantyMonths} months."
+      "rights": "Cancel within %{cancellationHours} hours of ordering, withdraw within %{withdrawalDays} days of delivery, return within %{returnDays} days, and the legal guarantee runs for %{warrantyMonths} months.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "Waiting for payment",
+          "confirming_availability": "Confirming availability",
+          "confirmed": "Confirmed",
+          "on_the_way": "On the way",
+          "delivered": "Delivered",
+          "cancelled": "Cancelled",
+          "partially_refunded": "Partly refunded",
+          "refunded": "Refunded"
+        },
+        "explanation": {
+          "awaiting_payment": "We have not received your payment yet.",
+          "confirming_availability": "Payment received — we are confirming availability with our fulfilment partner.",
+          "confirmed": "Our fulfilment partner has accepted your order and is preparing it.",
+          "on_the_way": "Your order has left our fulfilment partner.",
+          "delivered": "Your order has been delivered.",
+          "cancelled": "This order was cancelled.",
+          "partially_refunded": "Part of this order has been refunded.",
+          "refunded": "This order has been refunded."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Tell us where this is going and we can price it.",
+        "shipping_not_quotable": "We cannot get a delivery price for this destination right now.",
+        "undocumented_supplier_fee": "There is a cost we cannot account for, so we will not quote a total.",
+        "tax_undetermined": "We cannot determine the tax for this destination.",
+        "market_not_supported": "We cannot sell this item into that market.",
+        "supplier_price_unavailable": "We do not have a current price for this item.",
+        "fx_rate_unavailable": "We cannot convert this price into your currency right now.",
+        "payment_cost_undetermined": "We cannot determine the payment cost for this order.",
+        "component_not_permitted_by_policy": "Part of this item's cost is not one we may pass on.",
+        "policy_missing": "This item is not currently priced for sale."
+      },
+      "unquoted": {
+        "no_current_quote": "We do not have a current price for this item.",
+        "destination_not_supplied": "Tell us where this is going and we can price it.",
+        "retail_not_enabled": "This item is not currently on sale."
+      }
     }
   }
 }

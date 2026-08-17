@@ -308,7 +308,46 @@
       },
       "a11ySeller": "Vendedor: %{label}",
       "a11yDisclosure": "Aviso: %{label}",
-      "rights": "Cancela dentro de %{cancellationHours} horas desde el pedido, desiste dentro de %{withdrawalDays} días desde la entrega, devuelve dentro de %{returnDays} días, y la garantía legal dura %{warrantyMonths} meses."
+      "rights": "Cancela dentro de %{cancellationHours} horas desde el pedido, desiste dentro de %{withdrawalDays} días desde la entrega, devuelve dentro de %{returnDays} días, y la garantía legal dura %{warrantyMonths} meses.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "Esperando el pago",
+          "confirming_availability": "Confirmando disponibilidad",
+          "confirmed": "Confirmado",
+          "on_the_way": "En camino",
+          "delivered": "Entregado",
+          "cancelled": "Cancelado",
+          "partially_refunded": "Reembolsado en parte",
+          "refunded": "Reembolsado"
+        },
+        "explanation": {
+          "awaiting_payment": "Todavía no hemos recibido tu pago.",
+          "confirming_availability": "Pago recibido: estamos confirmando la disponibilidad con nuestro socio logístico.",
+          "confirmed": "Nuestro socio logístico ha aceptado tu pedido y lo está preparando.",
+          "on_the_way": "Tu pedido ha salido de nuestro socio logístico.",
+          "delivered": "Tu pedido ha sido entregado.",
+          "cancelled": "Este pedido se canceló.",
+          "partially_refunded": "Parte de este pedido ha sido reembolsada.",
+          "refunded": "Este pedido ha sido reembolsado."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Dinos a dónde va y podremos calcular el precio.",
+        "shipping_not_quotable": "Ahora mismo no podemos obtener un precio de entrega para este destino.",
+        "undocumented_supplier_fee": "Hay un coste que no podemos justificar, así que no daremos un total.",
+        "tax_undetermined": "No podemos determinar el impuesto para este destino.",
+        "market_not_supported": "No podemos vender este artículo en ese mercado.",
+        "supplier_price_unavailable": "No tenemos un precio actual para este artículo.",
+        "fx_rate_unavailable": "Ahora mismo no podemos convertir este precio a tu moneda.",
+        "payment_cost_undetermined": "No podemos determinar el coste de pago de este pedido.",
+        "component_not_permitted_by_policy": "Parte del coste de este artículo no es un coste que podamos repercutir.",
+        "policy_missing": "Este artículo no tiene precio de venta en este momento."
+      },
+      "unquoted": {
+        "no_current_quote": "No tenemos un precio actual para este artículo.",
+        "destination_not_supplied": "Dinos a dónde va y podremos calcular el precio.",
+        "retail_not_enabled": "Este artículo no está a la venta en este momento."
+      }
     }
   }
 }

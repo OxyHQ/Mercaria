@@ -308,7 +308,46 @@
       },
       "a11ySeller": "Vendedor: %{label}",
       "a11yDisclosure": "Aviso: %{label}",
-      "rights": "Cancele em até %{cancellationHours} horas após o pedido, desista em até %{withdrawalDays} dias após a entrega, devolva em até %{returnDays} dias, e a garantia legal vale por %{warrantyMonths} meses."
+      "rights": "Cancele em até %{cancellationHours} horas após o pedido, desista em até %{withdrawalDays} dias após a entrega, devolva em até %{returnDays} dias, e a garantia legal vale por %{warrantyMonths} meses.",
+      "progress": {
+        "label": {
+          "awaiting_payment": "Aguardando pagamento",
+          "confirming_availability": "Confirmando a disponibilidade",
+          "confirmed": "Confirmado",
+          "on_the_way": "A caminho",
+          "delivered": "Entregue",
+          "cancelled": "Cancelado",
+          "partially_refunded": "Parcialmente reembolsado",
+          "refunded": "Reembolsado"
+        },
+        "explanation": {
+          "awaiting_payment": "Ainda não recebemos o seu pagamento.",
+          "confirming_availability": "Pagamento recebido — estamos confirmando a disponibilidade com nosso parceiro logístico.",
+          "confirmed": "Nosso parceiro logístico aceitou o seu pedido e está preparando.",
+          "on_the_way": "Seu pedido saiu do nosso parceiro logístico.",
+          "delivered": "Seu pedido foi entregue.",
+          "cancelled": "Este pedido foi cancelado.",
+          "partially_refunded": "Parte deste pedido foi reembolsada.",
+          "refunded": "Este pedido foi reembolsado."
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "Diga-nos para onde vai e poderemos calcular o preço.",
+        "shipping_not_quotable": "No momento não conseguimos obter um preço de entrega para este destino.",
+        "undocumented_supplier_fee": "Há um custo que não conseguimos justificar, então não informaremos um total.",
+        "tax_undetermined": "Não conseguimos determinar o imposto para este destino.",
+        "market_not_supported": "Não podemos vender este item nesse mercado.",
+        "supplier_price_unavailable": "Não temos um preço atual para este item.",
+        "fx_rate_unavailable": "No momento não conseguimos converter este preço para a sua moeda.",
+        "payment_cost_undetermined": "Não conseguimos determinar o custo de pagamento deste pedido.",
+        "component_not_permitted_by_policy": "Parte do custo deste item não é um custo que possamos repassar.",
+        "policy_missing": "Este item não está precificado para venda no momento."
+      },
+      "unquoted": {
+        "no_current_quote": "Não temos um preço atual para este item.",
+        "destination_not_supplied": "Diga-nos para onde vai e poderemos calcular o preço.",
+        "retail_not_enabled": "Este item não está à venda no momento."
+      }
     }
   }
 }

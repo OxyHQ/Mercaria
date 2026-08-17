@@ -308,7 +308,46 @@
       },
       "a11ySeller": "販売者: %{label}",
       "a11yDisclosure": "開示事項: %{label}",
-      "rights": "ご注文から %{cancellationHours} 時間以内はキャンセル、配達から %{withdrawalDays} 日以内は撤回、%{returnDays} 日以内は返品が可能で、法定保証は %{warrantyMonths} か月間です。"
+      "rights": "ご注文から %{cancellationHours} 時間以内はキャンセル、配達から %{withdrawalDays} 日以内は撤回、%{returnDays} 日以内は返品が可能で、法定保証は %{warrantyMonths} か月間です。",
+      "progress": {
+        "label": {
+          "awaiting_payment": "支払い待ち",
+          "confirming_availability": "在庫を確認中",
+          "confirmed": "確定済み",
+          "on_the_way": "配送中",
+          "delivered": "配達済み",
+          "cancelled": "キャンセル済み",
+          "partially_refunded": "一部返金済み",
+          "refunded": "返金済み"
+        },
+        "explanation": {
+          "awaiting_payment": "お支払いをまだ確認できていません。",
+          "confirming_availability": "支払いを受け付けました — フルフィルメントパートナーに在庫を確認しています。",
+          "confirmed": "フルフィルメントパートナーがご注文を受け付け、準備しています。",
+          "on_the_way": "ご注文はフルフィルメントパートナーから出荷されました。",
+          "delivered": "ご注文は配達されました。",
+          "cancelled": "この注文はキャンセルされました。",
+          "partially_refunded": "この注文の一部が返金されました。",
+          "refunded": "この注文は返金されました。"
+        }
+      },
+      "blockReason": {
+        "destination_unknown": "お届け先をお知らせいただければ、価格をご提示できます。",
+        "shipping_not_quotable": "現在、この配送先の配送料を取得できません。",
+        "undocumented_supplier_fee": "説明できない費用があるため、合計金額はご提示しません。",
+        "tax_undetermined": "この配送先の税額を判断できません。",
+        "market_not_supported": "この商品をその市場に販売することはできません。",
+        "supplier_price_unavailable": "この商品の現在の価格がありません。",
+        "fx_rate_unavailable": "現在、この価格をお客様の通貨に換算できません。",
+        "payment_cost_undetermined": "この注文の決済費用を判断できません。",
+        "component_not_permitted_by_policy": "この商品の費用の一部は、お客様にご負担いただけないものです。",
+        "policy_missing": "この商品には現在、販売価格が設定されていません。"
+      },
+      "unquoted": {
+        "no_current_quote": "この商品の現在の価格がありません。",
+        "destination_not_supplied": "お届け先をお知らせいただければ、価格をご提示できます。",
+        "retail_not_enabled": "この商品は現在販売しておりません。"
+      }
     }
   }
 }
