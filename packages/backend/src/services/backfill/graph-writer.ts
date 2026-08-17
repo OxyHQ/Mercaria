@@ -292,13 +292,30 @@ export function applyGraphWriter(tx?: DatabaseOrTransaction): CanonicalGraphWrit
       return { id: link.id, persisted: true };
     },
 
+    /**
+     * `tx ?? getDb()`, like `attachNativeVariant` above, and the coalesce is
+     * load-bearing rather than defensive: this writer's `tx` is OPTIONAL, so a
+     * stage running outside a transaction has none to hand over.
+     *
+     * #584 made both handles required, which does NOT produce a compile error
+     * here — the backend compiles `strict: false`, so without `strictNullChecks`
+     * an `undefined` satisfies a required parameter silently. Passing the bare
+     * `tx` therefore type-checked and then threw inside the enqueue, where both
+     * wrappers swallow by design: the run reported success and materialized no
+     * offers at all. Measured — `backfill.realdb.test.ts` acceptance 1 went from
+     * two native offers to zero.
+     *
+     * So a caller holding an OPTIONAL handle states the fallback here, where the
+     * optionality is known. That is the same decision the required parameter is
+     * for; what it must not be is a default hidden in the callee.
+     */
     async requestVariantMatch(productVariantId) {
-      await requestNativeVariantMatch({ productVariantId, trigger: 'bulk_sweep' }, tx);
+      await requestNativeVariantMatch({ productVariantId, trigger: 'bulk_sweep' }, tx ?? getDb());
       return { id: productVariantId, persisted: true };
     },
 
     async requestOfferConvergence(listingId) {
-      await requestNativeOfferSync(listingId, tx);
+      await requestNativeOfferSync(listingId, tx ?? getDb());
       return { id: listingId, persisted: true };
     },
   };

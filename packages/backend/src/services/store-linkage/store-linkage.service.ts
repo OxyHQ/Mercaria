@@ -857,7 +857,9 @@ async function reconcileCatalogAndOffers(input: {
   const db = getDb();
 
   for (const listingId of await findListingIdsByStore(input.storeId)) {
-    await requestNativeOfferSync(listingId);
+    // `db` is the root connection this function already opened above (#584):
+    // convergence is requested for listings that are already committed.
+    await requestNativeOfferSync(listingId, db);
   }
 
   const findings = reconcileMerchantOfferOverlaps(

@@ -181,6 +181,7 @@ import {
   type UpdateVariantInput,
 } from './catalog-write.service.js';
 import { setAvailable } from './inventory.service.js';
+import { getDb } from '../db/postgres.js';
 import { requestNativeOfferSync } from './offers/native-offer.service.js';
 import { encryptSecret, decryptSecret } from '../lib/connector-crypto.js';
 import { getConnectorProvider, isImplementedProvider } from '../connectors/registry.js';
@@ -2042,7 +2043,8 @@ async function restoreListingArchivedByThisConnector(listing: ListingRecord): Pr
 
   const restored = await setListingStatusIfIn(listing.id, previous, ['archived']);
   if (restored) {
-    await requestNativeOfferSync(listing.id);
+    // The root connection, stated (#584): the CAS above committed on its own.
+    await requestNativeOfferSync(listing.id, getDb());
   }
   return restored;
 }
@@ -3236,7 +3238,8 @@ async function archiveSourcedListing(
     cause,
   );
   if (archived) {
-    await requestNativeOfferSync(listing.id);
+    // The root connection, stated (#584): the CAS above committed on its own.
+    await requestNativeOfferSync(listing.id, getDb());
   }
   return archived;
 }

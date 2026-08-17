@@ -35,18 +35,26 @@ export type OfferOutboxRow = typeof offerOutboxes.$inferSelect;
 /**
  * Ask for a listing's native offers to be converged.
  *
- * Takes an optional transaction handle rather than requiring one, which is the
- * opposite of `enqueueModerationOutboxEvent` and for a stated reason: that row
- * must commit with the abuse report or the report is lost, while this row is a
- * request for a recomputation that reads live state when it runs. A caller
- * inside a transaction should pass it (so a rolled-back catalogue write does not
- * leave a job for a change that never happened); a caller outside one — the
- * moderation enforcement path, which commits its listing write through its own
- * repository — correctly has none to pass.
+ * The handle is REQUIRED (#584). It used to default to `getDb()`, and the
+ * default is the whole hazard: the root `Database` and a transaction handle share
+ * the `DatabaseOrTransaction` type, so the compiler cannot tell them apart and a
+ * caller who simply forgets to thread `tx` writes on the root connection —
+ * outside the transaction it believed it was in, and surviving the rollback that
+ * was supposed to discard the row. Required, that mistake is a compile error.
+ *
+ * A caller outside a transaction is still legitimate — the moderation
+ * enforcement path commits its listing write through its own repository and has
+ * no transaction to pass — but it now says so by passing `getDb()`, which is the
+ * difference between a decision and an omission.
+ *
+ * This is deliberately NOT `enqueueModerationOutboxEvent`'s runtime
+ * `requireTransaction` refusal: that row must commit with the abuse report or the
+ * report is lost, while this one is a request for a recomputation that reads live
+ * state when it runs, so the root connection is a real answer here.
  */
 export async function enqueueOfferConvergence(
   listingId: string,
-  db: DatabaseOrTransaction = getDb(),
+  db: DatabaseOrTransaction,
   now: Date = new Date(),
 ): Promise<void> {
   await db

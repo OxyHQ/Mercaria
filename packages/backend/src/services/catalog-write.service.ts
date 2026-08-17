@@ -407,15 +407,23 @@ function toListingImages(imageFileIds: string[]): ListingImageInput[] {
  * QUEUED (#58 operations 4).
  */
 export async function syncListingFacets(listingId: string): Promise<void> {
+  // The ROOT connection, stated (#584). Both requests take a required handle now,
+  // and this chokepoint genuinely has none to thread: every caller reaches it
+  // AFTER its own transaction committed — which is the premise
+  // `publish.service.ts` relies on when it says this enqueues "the same row after
+  // the commit". Passing `getDb()` here is that premise written down; it is
+  // deliberately not a handle parameter on this function, because one would
+  // invite the in-transaction call the paragraph above says this is not.
+  const db = getDb();
   await recomputeListingFacets(listingId);
-  await requestNativeOfferSync(listingId);
+  await requestNativeOfferSync(listingId, db);
 
   // Per VARIANT, because that is the grain a canonical attachment lives at: two
   // variants of one listing are two different trade items and may match two
   // different canonical variants, or one may match and the other may not.
   const variants = await findVariantsByListing(listingId);
   for (const variant of variants) {
-    await requestNativeVariantMatch({ productVariantId: variant.id, trigger: 'catalog_write' });
+    await requestNativeVariantMatch({ productVariantId: variant.id, trigger: 'catalog_write' }, db);
   }
 }
 
@@ -1394,7 +1402,8 @@ export async function archiveListing(listingId: string): Promise<void> {
     // nothing. A second DELETE of the same listing is not an error.
   }
 
-  await requestNativeOfferSync(listingId);
+  // The root connection, stated (#584): the CAS above committed on its own.
+  await requestNativeOfferSync(listingId, getDb());
 }
 
 /**

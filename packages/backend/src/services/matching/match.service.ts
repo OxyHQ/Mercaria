@@ -96,14 +96,23 @@ export function toMatchPolicy(row: MatchPolicyVersionRow): MatchPolicy {
  * Ask for a subject to be matched. Durable, coalescing, and never fatal.
  *
  * Pass the caller's transaction when there is one, so a rolled-back catalogue
- * write leaves no request for a change that never happened.
+ * write leaves no request for a change that never happened. The handle is
+ * REQUIRED (#584): `db ?? getDb()` is `enqueueMatch`'s old default one frame up,
+ * and it hid the same mistake — the root `Database` and a transaction share the
+ * `DatabaseOrTransaction` type, so omitting it compiled. A caller outside a
+ * transaction passes `getDb()` and says so.
+ *
+ * The catch below is why nothing else would have reported it: a match subject
+ * always carries a foreign key, so an enqueue on the root connection from inside
+ * the transaction that creates the subject raises `23503` — and it is swallowed
+ * here, deliberately, for the reason stated below.
  */
 export async function requestMatch(
   input: EnqueueMatchInput,
-  db?: DatabaseOrTransaction,
+  db: DatabaseOrTransaction,
 ): Promise<void> {
   try {
-    await enqueueMatch(input, db ?? getDb());
+    await enqueueMatch(input, db);
   } catch (err) {
     // A catalogue write must not fail because a matcher could not be QUEUED
     // (#58 operations 4). The listing is the authority; the attachment is
@@ -113,10 +122,10 @@ export async function requestMatch(
   }
 }
 
-/** The convenience the catalogue write path calls. */
+/** The convenience the catalogue write path calls. Handle required — see {@link requestMatch}. */
 export async function requestNativeVariantMatch(
   input: { productVariantId: string; trigger: MatchQueueTrigger },
-  db?: DatabaseOrTransaction,
+  db: DatabaseOrTransaction,
 ): Promise<void> {
   await requestMatch(
     {

@@ -157,10 +157,13 @@ async function grantEligibilities(job: GuestClaimOutboxRow): Promise<void> {
  * worth retrying.
  */
 async function notifyClaimCompleted(job: GuestClaimOutboxRow): Promise<void> {
-  const created = await enqueueGuestMessage({
-    checkoutGroupId: job.checkoutGroupId,
-    kind: 'claim_completed',
-  });
+  const created = await enqueueGuestMessage(
+    {
+      checkoutGroupId: job.checkoutGroupId,
+      kind: 'claim_completed',
+    },
+    getDb(),
+  );
   if (!created) {
     log.guest.info(
       { checkoutGroupId: job.checkoutGroupId },

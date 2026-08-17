@@ -22,6 +22,17 @@
 - **An outbox row IS the job:** deterministic id, claims are leases with an owner
   check (`FOR UPDATE SKIP LOCKED`), capped exponential backoff, visible
   `dead_letter`.
+- **Every `enqueue*` takes its database handle as a REQUIRED parameter** — never
+  `= getDb()`, never `db?`, and never `db ?? getDb()` in the wrapper above it.
+  The root `Database` and a transaction share the one `DatabaseOrTransaction`
+  type, so a default makes "I forgot to thread `tx`" compile, and the write lands
+  outside the transaction the caller believed it was in. A caller with no
+  transaction passes `getDb()` and says so.
+  `outbox-enqueue-handle-census.test.ts` (#584). Required is NECESSARY and not
+  SUFFICIENT: under `strict: false` an `undefined` satisfies a required
+  parameter, so a caller whose OWN handle is optional coalesces at the call site
+  (`tx ?? getDb()`) — measured, a bare optional `tx` type-checked and silently
+  materialized nothing.
 - **Idempotency is a partial unique index plus `ON CONFLICT DO NOTHING
   RETURNING`** — the empty result set IS the "already claimed" answer, so a real
   failure still propagates. Repeat the index's `WHERE` predicate on every

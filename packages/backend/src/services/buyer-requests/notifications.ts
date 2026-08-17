@@ -38,6 +38,7 @@
  * separate column defaulting to false that nothing below consults.
  */
 
+import { getDb } from '../../db/postgres.js';
 import type { GuestPortalMessageKind } from '@mercaria/shared-types';
 import { log } from '../../lib/logger.js';
 import { enqueueGuestMessage } from '../guest-portal/message.service.js';
@@ -64,7 +65,7 @@ function notify(
 ): void {
   const checkoutGroupId = order.checkoutGroupId;
   if (checkoutGroupId === null) return;
-  void enqueueGuestMessage({ checkoutGroupId, kind, orderId: order.id, dedupeSuffix }).catch(
+  void enqueueGuestMessage({ checkoutGroupId, kind, orderId: order.id, dedupeSuffix }, getDb()).catch(
     (err: unknown) => {
       log.guest.error(
         { err, orderId: order.id, kind },

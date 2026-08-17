@@ -63,6 +63,12 @@ export function priceAlertNotificationId(
  * was written in: a trigger with no queued notification is a qualifying event
  * that reached nobody, and evaluation 10's whole point is that the delivery
  * survives independently once it exists.
+ *
+ * So the handle is REQUIRED (#584) rather than defaulted to `getDb()`, and this
+ * is the enqueue where that matters most — the sentence above is the whole
+ * contract, and a default made forgetting to thread `tx` compile. The root
+ * `Database` and a transaction share the `DatabaseOrTransaction` type, so nothing
+ * else could have caught it.
  */
 export async function enqueuePriceAlertNotification(
   input: {
@@ -71,7 +77,7 @@ export async function enqueuePriceAlertNotification(
     readonly channel: PriceAlertNotificationChannel;
     readonly availableAt: Date;
   },
-  db: DatabaseOrTransaction = getDb(),
+  db: DatabaseOrTransaction,
 ): Promise<string> {
   const id = priceAlertNotificationId(input.triggerId, input.channel);
   await db

@@ -52,6 +52,7 @@ import {
   setListingStatusIfIn,
   updateListingColumns,
 } from '../../db/catalog/listingRepository.js';
+import { getDb } from '../../db/postgres.js';
 import {
   findReviewById,
   scopedTargetOfReview,
@@ -144,7 +145,8 @@ async function restrictListing(listingId: string): Promise<EffectResult> {
    * product page stops SHOWING the restricted listing among its offers, which is
    * a display fact and correctly eventual.
    */
-  await requestNativeOfferSync(listingId);
+  // The root connection, stated (#584): the status write above committed on its own.
+  await requestNativeOfferSync(listingId, getDb());
   return { changed: true, previousState: { listingStatus: listing.status } };
 }
 
@@ -173,7 +175,8 @@ async function requestListingChanges(listingId: string): Promise<EffectResult> {
   await updateListingColumns(listingId, { status: 'draft' });
   // A draft is not offerable either — see `restrictListing` for why this is a
   // display catch-up and not the thing that stops a sale.
-  await requestNativeOfferSync(listingId);
+  // The root connection, stated (#584): the status write above committed on its own.
+  await requestNativeOfferSync(listingId, getDb());
 
   // Best-effort: a seller who is not told cannot fix the listing, but a
   // notification failure must not undo an enforcement that already committed.
@@ -370,7 +373,8 @@ async function restoreSubject(subject: EnforcementSubject): Promise<EffectResult
   // The other direction of the same request: a relisted item has to come BACK
   // into the comparison surface, and an accepted appeal that left the offer
   // retired would restore the listing and nothing a shopper can see.
-  await requestNativeOfferSync(subject.id);
+  // The root connection, stated (#584): the CAS above committed on its own.
+  await requestNativeOfferSync(subject.id, getDb());
   return { changed: true };
 }
 

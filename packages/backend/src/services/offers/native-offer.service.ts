@@ -74,18 +74,34 @@ const OFFERABLE_LISTING_STATUS = 'active';
  * transaction when there is one, so a rolled-back catalogue write does not leave
  * a request for a change that never happened.
  *
+ * The handle is REQUIRED (#584), and this wrapper is where that matters more
+ * than at the repository. `enqueueOfferConvergence`'s own default was the
+ * reported defect, but every caller who could omit one reaches it through HERE —
+ * so leaving `db?` in place would have moved the omission one frame up and
+ * changed nothing: `db ?? getDb()` is a default wearing a different spelling. A
+ * caller outside a transaction passes `getDb()` and says so.
+ *
+ * It matters more here for a second reason: the catch below. An enqueue on the
+ * root connection from inside the transaction that CREATES the listing raises
+ * `23503` on `offer_outboxes_listing_id_listings_id_fk`, and this wrapper
+ * swallows it — so even the shape that fails CLOSED at the database arrives as a
+ * WARN line nobody reads.
+ *
  * Failures are logged and swallowed. A catalogue write must not fail because a
  * comparison projection could not be QUEUED — the listing is the authority, the
  * offer is a projection of it, and the next write to that listing enqueues
  * again. This is the one place in the domain where that trade is made, and it is
- * made here rather than at each of the three call sites so it is one decision.
+ * made here rather than at each of the call sites so it is one decision. It is
+ * also why `catalog-authoring/publish.service.ts` calls the REPOSITORY directly:
+ * inside a transaction a swallowed error leaves every later statement failing on
+ * a poisoned transaction (`25P02`).
  */
 export async function requestNativeOfferSync(
   listingId: string,
-  db?: DatabaseOrTransaction,
+  db: DatabaseOrTransaction,
 ): Promise<void> {
   try {
-    await enqueueOfferConvergence(listingId, db ?? getDb());
+    await enqueueOfferConvergence(listingId, db);
   } catch (err) {
     log.general.warn({ err, listingId }, '[Offers] failed to enqueue native offer convergence');
   }
