@@ -476,8 +476,8 @@ migration does either.
 | `ledger_transactions`, `ledger_entries` | **yes** — whole table, UPDATE + DELETE | `mercaria_ledger_append_only`, `drizzle/0002_payment_domain.sql:258`, triggers `:267`, `:270` |
 | `order_fee_snapshots`, `order_fee_snapshot_lines`, `fee_schedule_acceptances` | **yes** — whole table, UPDATE + DELETE | `mercaria_fee_record_append_only`, `drizzle/0016_volatile_wiccan.sql:168`, triggers `:176`, `:179`, `:182` |
 | `order_items.condition_{key,assertion,notes}` | **yes** — 3 columns, UPDATE, refuses NULL → value too | `mercaria_order_item_condition_immutable`, `drizzle/0034_closed_tattoo.sql:358`, trigger `:371-373` |
-| `orders.buyer_origin`, `.buyer_guest_checkout_id`, `.buyer_oxy_user_id` | **yes** — 3 columns, UPDATE only | `orders_buyer_origin_immutable`, `drizzle/0023:170` |
-| `guest_checkouts` (5 columns) | **yes** — UPDATE only | `guest_checkouts_immutable`, `drizzle/0023:132` |
+| `orders.buyer_origin`, `.buyer_guest_checkout_id`, `.buyer_oxy_user_id` | **yes** — 3 columns, UPDATE only | `orders_buyer_origin_immutable`, `drizzle/0023_ambitious_proemial_gods.sql:170` (function `mercaria_order_buyer_origin_immutable`, `:155`) |
+| `guest_checkouts` (5 columns) | **yes** — UPDATE only | `guest_checkouts_immutable`, `drizzle/0023_ambitious_proemial_gods.sql:132` (function `mercaria_guest_checkout_immutable`, `:110`) |
 | `purchase_orders`, `purchase_order_lines` | **yes** | `drizzle/0014_fantastic_patriot.sql:490`, `:439` |
 | **`order_items`' price, quantity and snapshot columns** | **no** | — |
 | **`orders`' money and status columns; `DELETE FROM orders`** | **no** | there is no `BEFORE DELETE` on `orders` at all |
