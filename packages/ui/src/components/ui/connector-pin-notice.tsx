@@ -7,12 +7,13 @@ import {
   type SyncSettings,
 } from "@mercaria/shared-types";
 import { cn } from "../../lib/cn";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
-  CONNECTOR_PIN_EFFECT_TEXT,
-  CONNECTOR_PIN_LABELS,
-  CONNECTOR_PIN_RELEASE_TEXT,
-  CONNECTOR_PIN_TITLE,
-  connectorPinUnnamedText,
+  CONNECTOR_PIN_EFFECT_KEYS,
+  CONNECTOR_PIN_LABEL_KEYS,
+  CONNECTOR_PIN_RELEASE_KEY,
+  CONNECTOR_PIN_TITLE_KEY,
+  CONNECTOR_PIN_UNNAMED_KEY,
   type ConnectorPinEffect,
 } from "../../lib/connector-labels";
 import { Text } from "./text";
@@ -110,6 +111,8 @@ export function ConnectorPinNotice({
   action,
   className,
 }: ConnectorPinNoticeProps) {
+  // Before the early return: a hook may not sit behind a branch.
+  const t = useSharedUiTranslation();
   const { pinned, unnamed } = partitionPinnedFields(overriddenFields);
   if (pinned.length === 0 && unnamed.length === 0) {
     return null;
@@ -120,7 +123,7 @@ export function ConnectorPinNotice({
     <View className={cn("gap-2 rounded-2xl border border-border bg-surface p-4", className)}>
       <View className="flex-row items-center gap-2">
         <Icon as={Pin} size={14} className="text-muted-foreground" />
-        <Text className="text-sm font-semibold text-foreground">{CONNECTOR_PIN_TITLE}</Text>
+        <Text className="text-sm font-semibold text-foreground">{t(CONNECTOR_PIN_TITLE_KEY)}</Text>
       </View>
 
       {releaseNote}
@@ -133,7 +136,7 @@ export function ConnectorPinNotice({
               className="flex-row items-center gap-1.5 rounded-full bg-muted px-2 py-1"
             >
               <Text className="text-xs font-medium text-foreground">
-                {CONNECTOR_PIN_LABELS[field]}
+                {t(CONNECTOR_PIN_LABEL_KEYS[field])}
               </Text>
               {fieldAction?.(field)}
             </View>
@@ -141,19 +144,19 @@ export function ConnectorPinNotice({
         </View>
       ) : null}
 
-      <Text className="text-xs text-muted-foreground">{CONNECTOR_PIN_EFFECT_TEXT[effect]}</Text>
+      <Text className="text-xs text-muted-foreground">{t(CONNECTOR_PIN_EFFECT_KEYS[effect])}</Text>
 
       {unnamed.length > 0 ? (
         <View className="flex-row flex-wrap items-center gap-1.5">
           <Text className="text-xs text-muted-foreground">
-            {connectorPinUnnamedText(unnamed.length)}
+            {t(CONNECTOR_PIN_UNNAMED_KEY, { count: unnamed.length })}
           </Text>
           {unnamedAction}
         </View>
       ) : null}
 
       {effect === "honoured" ? (
-        <Text className="text-xs text-muted-foreground">{CONNECTOR_PIN_RELEASE_TEXT}</Text>
+        <Text className="text-xs text-muted-foreground">{t(CONNECTOR_PIN_RELEASE_KEY)}</Text>
       ) : null}
 
       {action}

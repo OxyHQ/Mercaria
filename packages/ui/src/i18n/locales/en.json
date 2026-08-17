@@ -66,6 +66,210 @@
         "one": "%{count} day",
         "other": "%{count} days"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Cheapest known item prices",
+        "cheapestKnownTotal": "Cheapest known total",
+        "fewestMerchants": "Fewest merchants",
+        "bestNativePlan": "Best Mercaria plan",
+        "officialChannelPlan": "Official channel plan",
+        "bestNearbyPickup": "Nearby pickup",
+        "usedOrRefurbishedValue": "Used or refurbished value",
+        "partialCoverage": "Partial plan"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Compares item prices only. Delivery and tax are not included in this figure.",
+        "cheapestKnownTotal": "Compares the full delivered total. Produced only when every item price, every merchant's delivery and the tax treatment are known.",
+        "fewestMerchants": "The plan that spreads your basket across the fewest separate checkouts.",
+        "bestNativePlan": "The items you can buy directly on Mercaria, in one cart.",
+        "officialChannelPlan": "Every item from a brand's verified official channel.",
+        "bestNearbyPickup": "Not planned here — a basket comparison has no location to measure from. Check collection on a product's own page.",
+        "usedOrRefurbishedValue": "Every item second-hand or refurbished.",
+        "partialCoverage": "Some items could not be planned. The rest are shown with the reasons."
+      },
+      "reason": {
+        "noEligibleOffer": "Nobody is offering this right now",
+        "noOfferInRequestedCondition": "No offer in the condition you asked for",
+        "noOfferFromRequestedMerchant": "No offer from the merchant you asked for",
+        "everyOfferFromExcludedMerchant": "Every offer is from a merchant you excluded",
+        "noOfferInChannelPolicy": "No offer matches the channel you chose",
+        "noConvertiblePrice": "Priced in a currency we cannot convert",
+        "quantityExceedsAvailableStock": "The seller states there is not enough stock",
+        "quantityNotSplittable": "This quantity cannot be split across sellers",
+        "merchantLimitWouldBeExceeded": "Adding this item would exceed your merchant limit",
+        "hardConstraintFailed": "A requirement you set is not met",
+        "watchlistItemUnresolved": "This item needs you to say which product you meant after a catalogue change",
+        "deliveryCostUnknown": "Delivery cost is not published",
+        "taxInclusionUnknown": "Whether tax is included is not published",
+        "objectiveRequiresCompleteCosts": "Some costs are unknown, so no full total can be claimed",
+        "objectiveRequiresNativeOffer": "Not available to buy on Mercaria",
+        "objectiveRequiresOfficialChannel": "Not sold by a verified official channel",
+        "objectiveRequiresUsedOffer": "No second-hand or refurbished offer",
+        "pickupDataUnavailable": "No location to measure collection from",
+        "offerNoLongerEligible": "This offer is no longer available",
+        "offerPriceChanged": "The price has changed since this plan was calculated"
+      },
+      "approximation": {
+        "candidateLimitReached": "too many offers to examine all of them",
+        "merchantLimitReached": "too many merchants to examine every combination",
+        "timeLimitReached": "the search ran out of time"
+      },
+      "optimalityProven": "Best possible plan from the offers we can see.",
+      "optimalityApproximate": "Best plan found — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, inferred",
+      "cellInferredNote": "converted, not stated",
+      "unknown": {
+        "notRecorded": "Not recorded",
+        "conflictingSources": "Sources disagree",
+        "lowConfidence": "Not confident enough to state",
+        "unitNotComparable": "Recorded in a different unit",
+        "definitionNotPublished": "Not being shown here"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "Does not apply",
+        "attributeNotComparable": "Not comparable"
+      },
+      "unavailable": {
+        "noEligibleOffer": "No offers available",
+        "allOffersConstrainedOut": "No offer meets your requirements",
+        "noConvertiblePrice": "No offer we can price in this currency",
+        "offerComparisonWithheld": "Offers are not being shown here"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "cited a record that was not supplied",
+        "uncitedStatement": "made a claim with no record behind it",
+        "introducedNumber": "introduced a number that is not in the data",
+        "constraintResultChanged": "changed a requirement's result",
+        "unknownConstraintReference": "cited a requirement that was not supplied",
+        "forbiddenTopic": "mentioned a topic recommendations may not consider",
+        "schemaInvalid": "did not match the expected shape",
+        "outputTooLong": "was longer than permitted",
+        "providerUnavailable": "is not configured",
+        "providerError": "could not be reached"
+      },
+      "explanationFallbackNotice": "This summary is generated from the comparison table below, without a language model."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "Good price",
+        "typicalPrice": "Typical price",
+        "aboveTypical": "Above typical"
+      },
+      "confidence": {
+        "sufficient": "Based on enough comparable offers to say",
+        "strong": "Based on a wide sample of comparable offers"
+      },
+      "position": {
+        "below": "below",
+        "near": "about the same as",
+        "above": "above"
+      },
+      "title": {
+        "lowestObservedItemPrice": "Lowest price we have seen",
+        "lowestObservedKnownTotal": "Lowest total we have seen",
+        "currentVsRecentMedian": "Against the recent typical price",
+        "materialPriceDrop": "Recent price drop",
+        "typicalRecentRange": "Typical recent range",
+        "officialStorePosition": "The official store's price",
+        "priceQualityLabel": "How this price compares"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "The lowest item price we recorded in this condition, in this market and over this window. Prices we judged to be data errors are set aside and listed separately.",
+        "lowestObservedKnownTotal": "The lowest total including delivery, among the offers whose delivery cost the seller actually published. Offers that published none are excluded rather than treated as free.",
+        "currentVsRecentMedian": "Today's price against the middle of what we recorded over this window — how it compares with itself lately, not with other sellers today.",
+        "materialPriceDrop": "How far the current price has fallen against the most recent earlier price we recorded and judged sound.",
+        "typicalRecentRange": "The middle half of the prices we recorded over this window. Both ends are prices somebody actually charged.",
+        "officialStorePosition": "The price at a store the brand has verified as its own, against the other new offers we can compare. It excludes the official store's own price from that comparison.",
+        "priceQualityLabel": "Today's price against the middle of the offers we can compare right now, one price per seller."
+      },
+      "badge": {
+        "priceDrop": "Price drop"
+      },
+      "unmeasured": {
+        "noActivePolicy": "We have not published a definition for this comparison yet.",
+        "insufficientObservations": "We have not recorded enough prices to say.",
+        "insufficientDistinctSellers": "Too few different sellers to call this a market.",
+        "insufficientDistinctOffers": "Too few separate offers to compare.",
+        "insufficientTimeCoverage": "We have not been watching this for long enough.",
+        "noEligibleCurrentOffer": "There is no offer we can compare right now.",
+        "noComparableHistory": "We have no comparable price history for this.",
+        "currencyNotConvertible": "We cannot express these prices in the currency you asked for.",
+        "segmentNotApplicable": "This comparison is only defined for new items.",
+        "measureNotApplicable": "This measure does not apply here.",
+        "demandMeasurementUnavailable": "We do not measure demand for a product yet."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "Against the market median",
+        "cheapestItemPrice": "Against the cheapest item price",
+        "cheapestKnownTotal": "Against the cheapest known total",
+        "losingEligibility": "Why this offer is not being compared",
+        "demandWithoutNativeOffer": "Demand without an offer from you",
+        "ownPriceMovement": "Against your own previous price",
+        "officialChannelPosition": "Your official-store position"
+      },
+      "eligibilityLoss": {
+        "observationStale": "We have not seen a fresh reading of this offer recently.",
+        "availabilityUnknown": "The source does not say whether this is in stock.",
+        "deliveryCostUnknown": "No delivery cost is published, so this offer cannot appear in a total-price comparison.",
+        "destinationMissing": "There is no link a buyer can follow to this offer.",
+        "conditionUnknown": "The condition of this item is not stated in a form we can map.",
+        "priceMissing": "No price is published for this offer."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "Your current price is above the median of the offers we can compare.",
+        "deliveryUnknownBlocksKnownTotal": "Delivery is unknown for this offer, so we cannot calculate a total price for it.",
+        "refreshWouldRestoreEligibility": "Refreshing this offer would bring it back into the comparison.",
+        "wouldBeCheapestItemPrice": "At this observed price, this offer would be the cheapest item price once it is being compared again."
+      },
+      "sample": "Based on %{observations} prices from %{sellers} sellers.",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: we compared %{observations} prices from %{sellers} sellers and found none.",
+        "labelBelow": "%{title}: %{label} — %{distance} below the middle of what we can compare. %{confidence}. %{sample}",
+        "labelAbove": "%{title}: %{label} — %{distance} above the middle of what we can compare. %{confidence}. %{sample}",
+        "labelSame": "%{title}: %{label} — the same as the middle of what we can compare. %{confidence}. %{sample}",
+        "relativeBelow": "%{title}: %{distance} below the reference. %{sample}",
+        "relativeNear": "%{title}: %{distance} from the reference, about the same. %{sample}",
+        "relativeAbove": "%{title}: %{distance} above the reference. %{sample}",
+        "drop": "%{title}: down %{distance} on the last price we recorded. %{sample}",
+        "moneyRange": "%{title}: the middle half of what we recorded. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Synced from %{provider}",
+      "pinField": {
+        "title": "Title",
+        "description": "Description",
+        "images": "Images",
+        "vendor": "Vendor",
+        "productType": "Product type",
+        "handle": "URL handle",
+        "seo": "SEO title and description"
+      },
+      "pinTitle": "Fields you edited in Mercaria",
+      "pinEffect": {
+        "honoured": "A later sync never overwrites them, so an edit you make to one of these on the platform will not appear here.",
+        "channelWins": "This channel's “Keep my local edits” setting is off, so the next sync overwrites them with the platform's values.",
+        "unknown": "Whether a later sync overwrites them is the channel's “Keep my local edits” setting."
+      },
+      "pinRelease": "To hand all of them back at once, turn off “Keep my local edits” on the channel. That applies to every edited field on every product from this channel.",
+      "pinUnnamed": {
+        "one": "%{count} more field is held against sync that this screen cannot name.",
+        "other": "%{count} more fields are held against sync that this screen cannot name."
+      }
     }
   }
 }

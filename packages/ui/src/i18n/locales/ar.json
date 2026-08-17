@@ -66,6 +66,210 @@
         "one": "%{count} يوم",
         "other": "%{count} يوم"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "أقل أسعار سلع معروفة",
+        "cheapestKnownTotal": "أقل إجمالي معروف",
+        "fewestMerchants": "أقل عدد من التجّار",
+        "bestNativePlan": "أفضل خطة على Mercaria",
+        "officialChannelPlan": "خطة القناة الرسمية",
+        "bestNearbyPickup": "استلام قريب",
+        "usedOrRefurbishedValue": "قيمة المستعمل أو المُجدَّد",
+        "partialCoverage": "خطة جزئية"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "تقارن أسعار السلع فقط. التوصيل والضرائب غير مشمولة في هذا الرقم.",
+        "cheapestKnownTotal": "تقارن الإجمالي الكامل مع التوصيل. تُحتسب فقط عندما يكون كل سعر سلعة وتوصيل كل تاجر والمعاملة الضريبية معروفة.",
+        "fewestMerchants": "الخطة التي توزّع سلّتك على أقل عدد من عمليات الشراء المنفصلة.",
+        "bestNativePlan": "السلع التي يمكنك شراؤها مباشرة على Mercaria، في سلّة واحدة.",
+        "officialChannelPlan": "كل السلع من القناة الرسمية المُوثَّقة للعلامة التجارية.",
+        "bestNearbyPickup": "لا تُخطَّط هنا — مقارنة السلّة ليس لديها موقع تقيس منه. تحقّق من الاستلام في صفحة المنتج نفسها.",
+        "usedOrRefurbishedValue": "كل السلع مستعملة أو مُجدَّدة.",
+        "partialCoverage": "تعذّر تخطيط بعض السلع. يُعرض الباقي مع الأسباب."
+      },
+      "reason": {
+        "noEligibleOffer": "لا أحد يعرض هذا حاليًا",
+        "noOfferInRequestedCondition": "لا يوجد عرض بالحالة التي طلبتها",
+        "noOfferFromRequestedMerchant": "لا يوجد عرض من التاجر الذي طلبته",
+        "everyOfferFromExcludedMerchant": "كل العروض من تاجر استبعدته",
+        "noOfferInChannelPolicy": "لا يوجد عرض يطابق القناة التي اخترتها",
+        "noConvertiblePrice": "مُسعَّر بعملة لا يمكننا تحويلها",
+        "quantityExceedsAvailableStock": "يذكر البائع أن المخزون غير كافٍ",
+        "quantityNotSplittable": "لا يمكن تقسيم هذه الكمية بين عدة بائعين",
+        "merchantLimitWouldBeExceeded": "إضافة هذه السلعة ستتجاوز حدّ التجّار لديك",
+        "hardConstraintFailed": "لم يتحقّق شرط حدّدته",
+        "watchlistItemUnresolved": "تحتاج هذه السلعة إلى أن تحدّد أي منتج كنت تقصد بعد تغيّر في الكتالوج",
+        "deliveryCostUnknown": "تكلفة التوصيل غير منشورة",
+        "taxInclusionUnknown": "لم يُنشر ما إذا كانت الضريبة مشمولة",
+        "objectiveRequiresCompleteCosts": "بعض التكاليف غير معروفة، لذا لا يمكن تأكيد إجمالي كامل",
+        "objectiveRequiresNativeOffer": "غير متاح للشراء على Mercaria",
+        "objectiveRequiresOfficialChannel": "لا تبيعه قناة رسمية مُوثَّقة",
+        "objectiveRequiresUsedOffer": "لا يوجد عرض مستعمل أو مُجدَّد",
+        "pickupDataUnavailable": "لا يوجد موقع نقيس منه الاستلام",
+        "offerNoLongerEligible": "لم يعد هذا العرض متاحًا",
+        "offerPriceChanged": "تغيّر السعر منذ حساب هذه الخطة"
+      },
+      "approximation": {
+        "candidateLimitReached": "العروض أكثر من أن تُفحص كلها",
+        "merchantLimitReached": "التجّار أكثر من أن تُفحص كل التوليفات",
+        "timeLimitReached": "نفد وقت البحث"
+      },
+      "optimalityProven": "أفضل خطة ممكنة من العروض التي نراها.",
+      "optimalityApproximate": "أفضل خطة وُجدت — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "؛ ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}، مُستنتَج",
+      "cellInferredNote": "محوَّل، غير مذكور",
+      "unknown": {
+        "notRecorded": "غير مسجَّل",
+        "conflictingSources": "المصادر غير متّفقة",
+        "lowConfidence": "الثقة غير كافية للتأكيد",
+        "unitNotComparable": "مسجَّل بوحدة مختلفة",
+        "definitionNotPublished": "لا يُعرض هنا"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "لا ينطبق",
+        "attributeNotComparable": "غير قابل للمقارنة"
+      },
+      "unavailable": {
+        "noEligibleOffer": "لا توجد عروض متاحة",
+        "allOffersConstrainedOut": "لا يوجد عرض يستوفي متطلباتك",
+        "noConvertiblePrice": "لا يوجد عرض يمكننا تسعيره بهذه العملة",
+        "offerComparisonWithheld": "لا تُعرض العروض هنا"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "استشهد بسجل لم يُقدَّم له",
+        "uncitedStatement": "أطلق ادعاءً بلا سجل يدعمه",
+        "introducedNumber": "أدخل رقمًا غير موجود في البيانات",
+        "constraintResultChanged": "غيّر نتيجة أحد الشروط",
+        "unknownConstraintReference": "استشهد بشرط لم يُقدَّم له",
+        "forbiddenTopic": "ذكر موضوعًا لا يجوز للتوصيات أخذه في الاعتبار",
+        "schemaInvalid": "لم يطابق الشكل المتوقَّع",
+        "outputTooLong": "كان أطول من المسموح",
+        "providerUnavailable": "غير مُهيَّأ",
+        "providerError": "تعذّر الوصول إليه"
+      },
+      "explanationFallbackNotice": "هذا الملخّص مُولَّد من جدول المقارنة أدناه، بدون أي نموذج لغوي."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "سعر جيد",
+        "typicalPrice": "سعر معتاد",
+        "aboveTypical": "أعلى من المعتاد"
+      },
+      "confidence": {
+        "sufficient": "استنادًا إلى عروض قابلة للمقارنة تكفي للحكم",
+        "strong": "استنادًا إلى عيّنة واسعة من العروض القابلة للمقارنة"
+      },
+      "position": {
+        "below": "أقل من",
+        "near": "قريب من",
+        "above": "أعلى من"
+      },
+      "title": {
+        "lowestObservedItemPrice": "أقل سعر رأيناه",
+        "lowestObservedKnownTotal": "أقل إجمالي رأيناه",
+        "currentVsRecentMedian": "مقارنةً بالسعر المعتاد مؤخرًا",
+        "materialPriceDrop": "انخفاض سعر حديث",
+        "typicalRecentRange": "النطاق المعتاد مؤخرًا",
+        "officialStorePosition": "سعر المتجر الرسمي",
+        "priceQualityLabel": "كيف يقارَن هذا السعر"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "أقل سعر سلعة سجّلناه بهذه الحالة وفي هذا السوق وخلال هذه المدة. الأسعار التي رأينا أنها أخطاء بيانات تُستبعد وتُدرج على حدة.",
+        "lowestObservedKnownTotal": "أقل إجمالي شامل التوصيل، بين العروض التي نشر بائعوها تكلفة التوصيل فعلًا. العروض التي لم تنشرها تُستبعد بدل اعتبارها مجانية.",
+        "currentVsRecentMedian": "سعر اليوم مقابل منتصف ما سجّلناه خلال هذه المدة — أي مقارنته بنفسه مؤخرًا، لا ببائعين آخرين اليوم.",
+        "materialPriceDrop": "مقدار انخفاض السعر الحالي مقابل أحدث سعر سابق سجّلناه ورأيناه سليمًا.",
+        "typicalRecentRange": "النصف الأوسط من الأسعار التي سجّلناها خلال هذه المدة. كلا الطرفين سعر طلبه أحدهم فعلًا.",
+        "officialStorePosition": "السعر في متجر وثّقته العلامة التجارية على أنه متجرها، مقابل بقية عروض الجديد التي يمكننا مقارنتها. ويُستثنى من هذه المقارنة سعر المتجر الرسمي نفسه.",
+        "priceQualityLabel": "سعر اليوم مقابل منتصف العروض التي يمكننا مقارنتها الآن، بسعر واحد لكل بائع."
+      },
+      "badge": {
+        "priceDrop": "انخفاض السعر"
+      },
+      "unmeasured": {
+        "noActivePolicy": "لم ننشر بعد تعريفًا لهذه المقارنة.",
+        "insufficientObservations": "لم نسجّل أسعارًا كافية للحكم.",
+        "insufficientDistinctSellers": "عدد البائعين المختلفين أقل من أن يُسمّى سوقًا.",
+        "insufficientDistinctOffers": "عدد العروض المنفصلة أقل من أن تُقارن.",
+        "insufficientTimeCoverage": "لم نراقب هذا مدة كافية بعد.",
+        "noEligibleCurrentOffer": "لا يوجد حاليًا عرض يمكننا مقارنته.",
+        "noComparableHistory": "ليس لدينا سجل أسعار قابل للمقارنة لهذا.",
+        "currencyNotConvertible": "لا يمكننا عرض هذه الأسعار بالعملة التي طلبتها.",
+        "segmentNotApplicable": "هذه المقارنة معرّفة للسلع الجديدة فقط.",
+        "measureNotApplicable": "هذا المقياس لا ينطبق هنا.",
+        "demandMeasurementUnavailable": "لا نقيس الطلب على منتج بعد."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "مقابل وسيط السوق",
+        "cheapestItemPrice": "مقابل أقل سعر سلعة",
+        "cheapestKnownTotal": "مقابل أقل إجمالي معروف",
+        "losingEligibility": "سبب عدم إدراج هذا العرض في المقارنة",
+        "demandWithoutNativeOffer": "طلب من دون عرض منك",
+        "ownPriceMovement": "مقابل سعرك السابق",
+        "officialChannelPosition": "موقعك كمتجر رسمي"
+      },
+      "eligibilityLoss": {
+        "observationStale": "لم نقرأ هذا العرض قراءة حديثة مؤخرًا.",
+        "availabilityUnknown": "المصدر لا يذكر ما إذا كان هذا متوفرًا.",
+        "deliveryCostUnknown": "لم تُنشر تكلفة توصيل، لذا لا يمكن أن يظهر هذا العرض في مقارنة السعر الإجمالي.",
+        "destinationMissing": "لا يوجد رابط يمكن للمشتري اتباعه إلى هذا العرض.",
+        "conditionUnknown": "حالة هذه السلعة غير مذكورة بصيغة يمكننا تحويلها.",
+        "priceMissing": "لم يُنشر سعر لهذا العرض."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "سعرك الحالي أعلى من وسيط العروض التي يمكننا مقارنتها.",
+        "deliveryUnknownBlocksKnownTotal": "التوصيل غير معروف لهذا العرض، لذا لا يمكننا حساب سعر إجمالي له.",
+        "refreshWouldRestoreEligibility": "تحديث هذا العرض سيعيده إلى المقارنة.",
+        "wouldBeCheapestItemPrice": "بهذا السعر المرصود، سيكون هذا العرض أقل سعر سلعة بمجرد عودته إلى المقارنة."
+      },
+      "sample": "استنادًا إلى %{observations} سعرًا من %{sellers} بائعًا.",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: قارنّا %{observations} سعرًا من %{sellers} بائعًا ولم نجد أيًا منها.",
+        "labelBelow": "%{title}: %{label} — أقل بنسبة %{distance} من منتصف ما يمكننا مقارنته. %{confidence}. %{sample}",
+        "labelAbove": "%{title}: %{label} — أعلى بنسبة %{distance} من منتصف ما يمكننا مقارنته. %{confidence}. %{sample}",
+        "labelSame": "%{title}: %{label} — مساوٍ تمامًا لمنتصف ما يمكننا مقارنته. %{confidence}. %{sample}",
+        "relativeBelow": "%{title}: أقل بنسبة %{distance} من المرجع. %{sample}",
+        "relativeNear": "%{title}: يبعد %{distance} عن المرجع، أي قريب منه. %{sample}",
+        "relativeAbove": "%{title}: أعلى بنسبة %{distance} من المرجع. %{sample}",
+        "drop": "%{title}: انخفض بنسبة %{distance} عن آخر سعر سجّلناه. %{sample}",
+        "moneyRange": "%{title}: النصف الأوسط مما سجّلناه. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "تمت المزامنة من %{provider}",
+      "pinField": {
+        "title": "العنوان",
+        "description": "الوصف",
+        "images": "الصور",
+        "vendor": "المورّد",
+        "productType": "نوع المنتج",
+        "handle": "معرّف الرابط",
+        "seo": "عنوان ووصف تحسين محركات البحث"
+      },
+      "pinTitle": "الحقول التي عدّلتها في Mercaria",
+      "pinEffect": {
+        "honoured": "لا تستبدلها أي مزامنة لاحقة، لذا فإن أي تعديل تجريه على أحدها في المنصة لن يظهر هنا.",
+        "channelWins": "إعداد «الاحتفاظ بتعديلاتي المحلية» في هذه القناة مُعطَّل، لذا ستستبدلها المزامنة التالية بقيم المنصة.",
+        "unknown": "ما إذا كانت مزامنة لاحقة ستستبدلها يحدّده إعداد «الاحتفاظ بتعديلاتي المحلية» في القناة."
+      },
+      "pinRelease": "لإعادتها كلها دفعة واحدة، عطّل «الاحتفاظ بتعديلاتي المحلية» في القناة. ينطبق ذلك على كل حقل معدَّل في كل منتج من هذه القناة.",
+      "pinUnnamed": {
+        "one": "هناك %{count} حقل آخر محجوز عن المزامنة لا تستطيع هذه الشاشة تسميته.",
+        "other": "هناك %{count} حقول أخرى محجوزة عن المزامنة لا تستطيع هذه الشاشة تسميتها."
+      }
     }
   }
 }

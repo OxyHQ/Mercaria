@@ -66,6 +66,210 @@
         "one": "%{count} день",
         "other": "%{count} дн."
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Самые низкие известные цены товаров",
+        "cheapestKnownTotal": "Самая низкая известная сумма",
+        "fewestMerchants": "Меньше всего продавцов",
+        "bestNativePlan": "Лучший план на Mercaria",
+        "officialChannelPlan": "План по официальным каналам",
+        "bestNearbyPickup": "Самовывоз поблизости",
+        "usedOrRefurbishedValue": "Б/у или восстановленное",
+        "partialCoverage": "Частичный план"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Сравнивает только цены товаров. Доставка и налоги в эту сумму не входят.",
+        "cheapestKnownTotal": "Сравнивает полную сумму с доставкой. Рассчитывается только когда известны все цены, доставка каждого продавца и налоговый режим.",
+        "fewestMerchants": "План, который распределяет вашу корзину по наименьшему числу отдельных заказов.",
+        "bestNativePlan": "Товары, которые можно купить прямо на Mercaria, в одной корзине.",
+        "officialChannelPlan": "Все товары из подтверждённого официального канала бренда.",
+        "bestNearbyPickup": "Здесь не планируется — у сравнения корзины нет точки, от которой можно измерять. Посмотрите самовывоз на странице самого товара.",
+        "usedOrRefurbishedValue": "Все товары б/у или восстановленные.",
+        "partialCoverage": "Некоторые товары не удалось включить в план. Остальные показаны с причинами."
+      },
+      "reason": {
+        "noEligibleOffer": "Сейчас это никто не предлагает",
+        "noOfferInRequestedCondition": "Нет предложений в запрошенном состоянии",
+        "noOfferFromRequestedMerchant": "Нет предложений от запрошенного продавца",
+        "everyOfferFromExcludedMerchant": "Все предложения — от продавца, которого вы исключили",
+        "noOfferInChannelPolicy": "Ни одно предложение не подходит под выбранный канал",
+        "noConvertiblePrice": "Цена в валюте, которую мы не можем конвертировать",
+        "quantityExceedsAvailableStock": "Продавец указывает, что товара не хватает",
+        "quantityNotSplittable": "Это количество нельзя разделить между продавцами",
+        "merchantLimitWouldBeExceeded": "Добавление этого товара превысит ваш лимит продавцов",
+        "hardConstraintFailed": "Заданное вами требование не выполнено",
+        "watchlistItemUnresolved": "После изменения каталога нужно указать, какой товар вы имели в виду",
+        "deliveryCostUnknown": "Стоимость доставки не опубликована",
+        "taxInclusionUnknown": "Не опубликовано, включены ли налоги",
+        "objectiveRequiresCompleteCosts": "Часть расходов неизвестна, поэтому полную сумму назвать нельзя",
+        "objectiveRequiresNativeOffer": "Нельзя купить на Mercaria",
+        "objectiveRequiresOfficialChannel": "Не продаётся подтверждённым официальным каналом",
+        "objectiveRequiresUsedOffer": "Нет предложений б/у или восстановленных",
+        "pickupDataUnavailable": "Нет точки, от которой измерять самовывоз",
+        "offerNoLongerEligible": "Это предложение больше недоступно",
+        "offerPriceChanged": "Цена изменилась с момента расчёта этого плана"
+      },
+      "approximation": {
+        "candidateLimitReached": "слишком много предложений, чтобы проверить все",
+        "merchantLimitReached": "слишком много продавцов, чтобы проверить все сочетания",
+        "timeLimitReached": "поиску не хватило времени"
+      },
+      "optimalityProven": "Лучший возможный план из предложений, которые мы видим.",
+      "optimalityApproximate": "Лучший найденный план — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, выведено",
+      "cellInferredNote": "пересчитано, не указано",
+      "unknown": {
+        "notRecorded": "Не зафиксировано",
+        "conflictingSources": "Источники расходятся",
+        "lowConfidence": "Недостаточно уверенности, чтобы утверждать",
+        "unitNotComparable": "Зафиксировано в других единицах",
+        "definitionNotPublished": "Здесь не показывается"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "Неприменимо",
+        "attributeNotComparable": "Несопоставимо"
+      },
+      "unavailable": {
+        "noEligibleOffer": "Нет доступных предложений",
+        "allOffersConstrainedOut": "Ни одно предложение не отвечает вашим требованиям",
+        "noConvertiblePrice": "Нет предложений, которые мы можем выразить в этой валюте",
+        "offerComparisonWithheld": "Предложения здесь не показываются"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "сослался на запись, которая не была предоставлена",
+        "uncitedStatement": "сделал утверждение, за которым нет ни одной записи",
+        "introducedNumber": "ввёл число, которого нет в данных",
+        "constraintResultChanged": "изменил результат требования",
+        "unknownConstraintReference": "сослался на требование, которое не было предоставлено",
+        "forbiddenTopic": "упомянул тему, которую рекомендации не могут учитывать",
+        "schemaInvalid": "не соответствовал ожидаемой форме",
+        "outputTooLong": "был длиннее допустимого",
+        "providerUnavailable": "не настроен",
+        "providerError": "оказался недоступен"
+      },
+      "explanationFallbackNotice": "Эта сводка составлена по таблице сравнения ниже, без языковой модели."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "Хорошая цена",
+        "typicalPrice": "Обычная цена",
+        "aboveTypical": "Выше обычной"
+      },
+      "confidence": {
+        "sufficient": "На основе достаточного числа сопоставимых предложений",
+        "strong": "На основе широкой выборки сопоставимых предложений"
+      },
+      "position": {
+        "below": "ниже",
+        "near": "примерно на уровне",
+        "above": "выше"
+      },
+      "title": {
+        "lowestObservedItemPrice": "Самая низкая цена, которую мы видели",
+        "lowestObservedKnownTotal": "Самая низкая сумма, которую мы видели",
+        "currentVsRecentMedian": "Относительно обычной цены за последнее время",
+        "materialPriceDrop": "Недавнее снижение цены",
+        "typicalRecentRange": "Обычный диапазон за последнее время",
+        "officialStorePosition": "Цена в официальном магазине",
+        "priceQualityLabel": "Как эта цена соотносится с другими"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "Самая низкая цена товара, которую мы зафиксировали в этом состоянии, на этом рынке и за этот период. Цены, которые мы сочли ошибками данных, отложены и перечислены отдельно.",
+        "lowestObservedKnownTotal": "Самая низкая сумма с доставкой среди предложений, для которых продавец действительно опубликовал стоимость доставки. Предложения без неё исключаются, а не считаются бесплатными.",
+        "currentVsRecentMedian": "Сегодняшняя цена относительно середины того, что мы зафиксировали за этот период, — сравнение с самой собой за последнее время, а не с другими продавцами сегодня.",
+        "materialPriceDrop": "Насколько текущая цена упала относительно последней более ранней цены, которую мы зафиксировали и сочли достоверной.",
+        "typicalRecentRange": "Средняя половина цен, зафиксированных за этот период. Обе границы — цены, которые кто-то действительно назначал.",
+        "officialStorePosition": "Цена в магазине, который бренд подтвердил как свой, относительно других новых предложений, доступных для сравнения. Собственная цена официального магазина из этого сравнения исключается.",
+        "priceQualityLabel": "Сегодняшняя цена относительно середины предложений, которые мы можем сравнить прямо сейчас, по одной цене на продавца."
+      },
+      "badge": {
+        "priceDrop": "Снижение цены"
+      },
+      "unmeasured": {
+        "noActivePolicy": "Мы ещё не опубликовали определение для этого сравнения.",
+        "insufficientObservations": "Мы зафиксировали недостаточно цен, чтобы это утверждать.",
+        "insufficientDistinctSellers": "Слишком мало разных продавцов, чтобы назвать это рынком.",
+        "insufficientDistinctOffers": "Слишком мало отдельных предложений для сравнения.",
+        "insufficientTimeCoverage": "Мы наблюдаем за этим ещё недостаточно долго.",
+        "noEligibleCurrentOffer": "Сейчас нет предложения, которое мы могли бы сравнить.",
+        "noComparableHistory": "У нас нет сопоставимой истории цен для этого.",
+        "currencyNotConvertible": "Мы не можем выразить эти цены в запрошенной вами валюте.",
+        "segmentNotApplicable": "Это сравнение определено только для новых товаров.",
+        "measureNotApplicable": "Этот показатель здесь неприменим.",
+        "demandMeasurementUnavailable": "Мы пока не измеряем спрос на товар."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "Относительно медианы рынка",
+        "cheapestItemPrice": "Относительно самой низкой цены товара",
+        "cheapestKnownTotal": "Относительно самой низкой известной суммы",
+        "losingEligibility": "Почему это предложение не участвует в сравнении",
+        "demandWithoutNativeOffer": "Спрос без вашего предложения",
+        "ownPriceMovement": "Относительно вашей прежней цены",
+        "officialChannelPosition": "Ваша позиция как официального магазина"
+      },
+      "eligibilityLoss": {
+        "observationStale": "Мы давно не считывали это предложение заново.",
+        "availabilityUnknown": "Источник не сообщает, есть ли это в наличии.",
+        "deliveryCostUnknown": "Стоимость доставки не опубликована, поэтому это предложение не может попасть в сравнение по полной цене.",
+        "destinationMissing": "Нет ссылки, по которой покупатель мог бы перейти к этому предложению.",
+        "conditionUnknown": "Состояние этого товара указано не в том виде, который мы можем распознать.",
+        "priceMissing": "Для этого предложения не опубликована цена."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "Ваша текущая цена выше медианы предложений, доступных для сравнения.",
+        "deliveryUnknownBlocksKnownTotal": "Доставка по этому предложению неизвестна, поэтому мы не можем рассчитать для него полную цену.",
+        "refreshWouldRestoreEligibility": "Обновление этого предложения вернёт его в сравнение.",
+        "wouldBeCheapestItemPrice": "При этой зафиксированной цене это предложение стало бы самой низкой ценой товара, как только вернётся в сравнение."
+      },
+      "sample": "На основе цен: %{observations}, от продавцов: %{sellers}.",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: мы сравнили цен — %{observations}, от продавцов — %{sellers}, и не нашли ни одной.",
+        "labelBelow": "%{title}: %{label} — на %{distance} ниже середины того, что мы можем сравнить. %{confidence}. %{sample}",
+        "labelAbove": "%{title}: %{label} — на %{distance} выше середины того, что мы можем сравнить. %{confidence}. %{sample}",
+        "labelSame": "%{title}: %{label} — ровно середина того, что мы можем сравнить. %{confidence}. %{sample}",
+        "relativeBelow": "%{title}: на %{distance} ниже эталона. %{sample}",
+        "relativeNear": "%{title}: на %{distance} от эталона, примерно столько же. %{sample}",
+        "relativeAbove": "%{title}: на %{distance} выше эталона. %{sample}",
+        "drop": "%{title}: на %{distance} ниже последней зафиксированной цены. %{sample}",
+        "moneyRange": "%{title}: средняя половина того, что мы зафиксировали. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Синхронизировано из %{provider}",
+      "pinField": {
+        "title": "Заголовок",
+        "description": "Описание",
+        "images": "Изображения",
+        "vendor": "Поставщик",
+        "productType": "Тип товара",
+        "handle": "Идентификатор URL",
+        "seo": "SEO-заголовок и описание"
+      },
+      "pinTitle": "Поля, которые вы изменили в Mercaria",
+      "pinEffect": {
+        "honoured": "Последующая синхронизация никогда их не перезаписывает, поэтому изменение, которое вы внесёте в одно из них на платформе, здесь не появится.",
+        "channelWins": "Настройка канала «Сохранять мои локальные правки» выключена, поэтому следующая синхронизация перезапишет их значениями платформы.",
+        "unknown": "Перезапишет ли их последующая синхронизация, определяет настройка канала «Сохранять мои локальные правки»."
+      },
+      "pinRelease": "Чтобы вернуть их все сразу, выключите «Сохранять мои локальные правки» у канала. Это относится к каждому изменённому полю каждого товара этого канала.",
+      "pinUnnamed": {
+        "one": "Ещё %{count} поле удерживается от синхронизации, и этот экран не может его назвать.",
+        "other": "Ещё полей удерживается от синхронизации: %{count}. Этот экран не может их назвать."
+      }
     }
   }
 }

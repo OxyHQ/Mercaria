@@ -139,17 +139,18 @@ export {
 // the other is the dishonesty the whole domain exists to prevent.
 // ---------------------------------------------------------------------------
 export {
-  MERCHANT_COMPETITIVENESS_TITLE,
-  MERCHANT_ELIGIBILITY_LOSS_TEXT,
-  PRICE_POSITION_TEXT,
-  PRICE_QUALITY_CONFIDENCE_TEXT,
-  PRICE_QUALITY_LABEL_TEXT,
-  PRICE_SIGNAL_MEANING,
-  PRICE_SIGNAL_RECOMMENDATION_TEXT,
-  PRICE_SIGNAL_TITLE,
-  PRICE_SIGNAL_UNMEASURED_TEXT,
+  MERCHANT_COMPETITIVENESS_TITLE_KEYS,
+  MERCHANT_ELIGIBILITY_LOSS_KEYS,
+  PRICE_POSITION_KEYS,
+  PRICE_QUALITY_CONFIDENCE_KEYS,
+  PRICE_QUALITY_LABEL_KEYS,
+  PRICE_SIGNAL_DROP_BADGE_KEY,
+  PRICE_SIGNAL_MEANING_KEYS,
+  PRICE_SIGNAL_RECOMMENDATION_KEYS,
+  PRICE_SIGNAL_TITLE_KEYS,
+  PRICE_SIGNAL_UNMEASURED_KEYS,
   priceSignalAccessibleSummary,
-  priceSignalBadgeText,
+  priceSignalBadgeTextKey,
 } from "./lib/price-signal-labels";
 
 // ---------------------------------------------------------------------------
@@ -318,12 +319,13 @@ export {
   type ConnectorPinNoticeProps,
 } from "./components/ui/connector-pin-notice";
 export {
-  CONNECTOR_PIN_EFFECT_TEXT,
-  CONNECTOR_PIN_LABELS,
-  CONNECTOR_PIN_RELEASE_TEXT,
-  CONNECTOR_PIN_TITLE,
-  CONNECTOR_PROVIDER_LABELS,
-  connectorPinUnnamedText,
+  CONNECTOR_PIN_EFFECT_KEYS,
+  CONNECTOR_PIN_LABEL_KEYS,
+  CONNECTOR_PIN_RELEASE_KEY,
+  CONNECTOR_PIN_TITLE_KEY,
+  CONNECTOR_PIN_UNNAMED_KEY,
+  CONNECTOR_PROVIDER_LABEL_KEYS,
+  CONNECTOR_SYNCED_FROM_KEY,
   type ConnectorPinEffect,
 } from "./lib/connector-labels";
 
@@ -475,15 +477,21 @@ export {
   type BasketPlanCardProps,
 } from "./components/marketplace/BasketPlanCard";
 export {
-  basketApproximationText,
-  basketReasonText,
-  basketResultDefinition,
-  basketResultText,
-  comparisonNotApplicableText,
-  comparisonUnavailableText,
-  comparisonUnknownText,
-  explanationFallbackNotice,
-  explanationRejectionText,
+  BASKET_OPTIMALITY_APPROXIMATE_KEY,
+  BASKET_OPTIMALITY_PROVEN_KEY,
+  COMPARISON_CELL_A11Y_KEY,
+  COMPARISON_CELL_INFERRED_A11Y_KEY,
+  COMPARISON_CELL_INFERRED_NOTE_KEY,
+  COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY,
+  COMPARISON_LIST_SEPARATOR_KEY,
+  basketApproximationTextKey,
+  basketReasonTextKey,
+  basketResultDefinitionKey,
+  basketResultTextKey,
+  comparisonNotApplicableTextKey,
+  comparisonUnavailableTextKey,
+  comparisonUnknownTextKey,
+  explanationRejectionTextKey,
 } from "./lib/comparison-labels";
 // ---------------------------------------------------------------------------
 // Brand and product-family pages (#72) — a CANONICAL product card and the

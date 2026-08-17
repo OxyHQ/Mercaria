@@ -66,6 +66,210 @@
         "one": "%{count} दिन",
         "other": "%{count} दिन"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "ज्ञात सबसे कम वस्तु कीमतें",
+        "cheapestKnownTotal": "ज्ञात सबसे कम कुल",
+        "fewestMerchants": "सबसे कम विक्रेता",
+        "bestNativePlan": "Mercaria पर सबसे अच्छी योजना",
+        "officialChannelPlan": "आधिकारिक चैनल योजना",
+        "bestNearbyPickup": "आस-पास से पिकअप",
+        "usedOrRefurbishedValue": "पुराने या रीफर्बिश्ड का मूल्य",
+        "partialCoverage": "आंशिक योजना"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "केवल वस्तुओं की कीमतों की तुलना करता है। डिलीवरी और कर इस राशि में शामिल नहीं हैं।",
+        "cheapestKnownTotal": "डिलीवरी सहित पूरे कुल की तुलना करता है। यह तभी निकाला जाता है जब हर कीमत, हर विक्रेता की डिलीवरी और कर की व्यवस्था ज्ञात हो।",
+        "fewestMerchants": "वह योजना जो आपकी टोकरी को सबसे कम अलग-अलग खरीदों में बाँटती है।",
+        "bestNativePlan": "वे वस्तुएँ जो आप सीधे Mercaria पर, एक ही कार्ट में खरीद सकते हैं।",
+        "officialChannelPlan": "हर वस्तु किसी ब्रांड के सत्यापित आधिकारिक चैनल से।",
+        "bestNearbyPickup": "यहाँ इसकी योजना नहीं बनती — टोकरी की तुलना के पास मापने के लिए कोई स्थान नहीं होता। पिकअप उत्पाद के अपने पेज पर देखें।",
+        "usedOrRefurbishedValue": "हर वस्तु पुरानी या रीफर्बिश्ड।",
+        "partialCoverage": "कुछ वस्तुओं की योजना नहीं बन सकी। बाकी कारणों के साथ दिखाई गई हैं।"
+      },
+      "reason": {
+        "noEligibleOffer": "अभी इसे कोई नहीं बेच रहा",
+        "noOfferInRequestedCondition": "आपकी माँगी हुई स्थिति में कोई ऑफ़र नहीं है",
+        "noOfferFromRequestedMerchant": "आपके माँगे हुए विक्रेता का कोई ऑफ़र नहीं है",
+        "everyOfferFromExcludedMerchant": "सभी ऑफ़र उस विक्रेता के हैं जिसे आपने हटाया था",
+        "noOfferInChannelPolicy": "आपके चुने चैनल से कोई ऑफ़र मेल नहीं खाता",
+        "noConvertiblePrice": "ऐसी मुद्रा में कीमत है जिसे हम बदल नहीं सकते",
+        "quantityExceedsAvailableStock": "विक्रेता के अनुसार पर्याप्त स्टॉक नहीं है",
+        "quantityNotSplittable": "यह मात्रा कई विक्रेताओं में नहीं बाँटी जा सकती",
+        "merchantLimitWouldBeExceeded": "इस वस्तु को जोड़ने पर आपकी विक्रेता सीमा पार हो जाएगी",
+        "hardConstraintFailed": "आपकी तय की गई एक शर्त पूरी नहीं होती",
+        "watchlistItemUnresolved": "कैटलॉग बदलने के बाद इस वस्तु के लिए आपको बताना होगा कि आपका मतलब किस उत्पाद से था",
+        "deliveryCostUnknown": "डिलीवरी की लागत प्रकाशित नहीं है",
+        "taxInclusionUnknown": "कर शामिल है या नहीं, यह प्रकाशित नहीं है",
+        "objectiveRequiresCompleteCosts": "कुछ लागतें अज्ञात हैं, इसलिए पूरा कुल नहीं बताया जा सकता",
+        "objectiveRequiresNativeOffer": "Mercaria पर खरीदने के लिए उपलब्ध नहीं",
+        "objectiveRequiresOfficialChannel": "किसी सत्यापित आधिकारिक चैनल द्वारा नहीं बेचा जाता",
+        "objectiveRequiresUsedOffer": "कोई पुराना या रीफर्बिश्ड ऑफ़र नहीं",
+        "pickupDataUnavailable": "पिकअप की दूरी मापने के लिए कोई स्थान नहीं",
+        "offerNoLongerEligible": "यह ऑफ़र अब उपलब्ध नहीं है",
+        "offerPriceChanged": "यह योजना बनने के बाद कीमत बदल गई है"
+      },
+      "approximation": {
+        "candidateLimitReached": "इतने ऑफ़र हैं कि सबकी जाँच नहीं हो सकी",
+        "merchantLimitReached": "इतने विक्रेता हैं कि हर संयोजन की जाँच नहीं हो सकी",
+        "timeLimitReached": "खोज का समय समाप्त हो गया"
+      },
+      "optimalityProven": "हमें दिख रहे ऑफ़रों में से सबसे अच्छी संभव योजना।",
+      "optimalityApproximate": "मिली हुई सबसे अच्छी योजना — %{reason}।"
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, अनुमानित",
+      "cellInferredNote": "परिवर्तित, बताया नहीं गया",
+      "unknown": {
+        "notRecorded": "दर्ज नहीं",
+        "conflictingSources": "स्रोत आपस में मेल नहीं खाते",
+        "lowConfidence": "कहने भर का भरोसा नहीं",
+        "unitNotComparable": "किसी और इकाई में दर्ज",
+        "definitionNotPublished": "यहाँ नहीं दिखाया जा रहा"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "लागू नहीं",
+        "attributeNotComparable": "तुलना योग्य नहीं"
+      },
+      "unavailable": {
+        "noEligibleOffer": "कोई ऑफ़र उपलब्ध नहीं",
+        "allOffersConstrainedOut": "कोई ऑफ़र आपकी शर्तें पूरी नहीं करता",
+        "noConvertiblePrice": "इस मुद्रा में बताने लायक कोई ऑफ़र नहीं",
+        "offerComparisonWithheld": "यहाँ ऑफ़र नहीं दिखाए जा रहे"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "ऐसे रिकॉर्ड का हवाला दिया जो दिया ही नहीं गया था",
+        "uncitedStatement": "बिना किसी रिकॉर्ड के दावा किया",
+        "introducedNumber": "ऐसा आँकड़ा जोड़ा जो डेटा में नहीं है",
+        "constraintResultChanged": "किसी शर्त का परिणाम बदल दिया",
+        "unknownConstraintReference": "ऐसी शर्त का हवाला दिया जो दी ही नहीं गई थी",
+        "forbiddenTopic": "ऐसे विषय का ज़िक्र किया जिसे सिफ़ारिशें ध्यान में नहीं रख सकतीं",
+        "schemaInvalid": "अपेक्षित स्वरूप से मेल नहीं खाया",
+        "outputTooLong": "अनुमति से लंबा था",
+        "providerUnavailable": "कॉन्फ़िगर नहीं है",
+        "providerError": "उस तक पहुँचा नहीं जा सका"
+      },
+      "explanationFallbackNotice": "यह सारांश नीचे दी गई तुलना तालिका से बनाया गया है, किसी भाषा मॉडल के बिना।"
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "अच्छी कीमत",
+        "typicalPrice": "सामान्य कीमत",
+        "aboveTypical": "सामान्य से ऊपर"
+      },
+      "confidence": {
+        "sufficient": "कहने भर की तुलनीय ऑफ़रों के आधार पर",
+        "strong": "तुलनीय ऑफ़रों के बड़े नमूने के आधार पर"
+      },
+      "position": {
+        "below": "से नीचे",
+        "near": "के लगभग बराबर",
+        "above": "से ऊपर"
+      },
+      "title": {
+        "lowestObservedItemPrice": "हमने जो सबसे कम कीमत देखी",
+        "lowestObservedKnownTotal": "हमने जो सबसे कम कुल देखा",
+        "currentVsRecentMedian": "हाल की सामान्य कीमत के मुक़ाबले",
+        "materialPriceDrop": "हाल में कीमत में गिरावट",
+        "typicalRecentRange": "हाल का सामान्य दायरा",
+        "officialStorePosition": "आधिकारिक स्टोर की कीमत",
+        "priceQualityLabel": "यह कीमत कैसी बैठती है"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "इस स्थिति में, इस बाज़ार में और इस अवधि में हमने जो सबसे कम वस्तु कीमत दर्ज की। जिन कीमतों को हमने डेटा त्रुटि माना, उन्हें अलग रखकर अलग से सूचीबद्ध किया गया है।",
+        "lowestObservedKnownTotal": "उन ऑफ़रों में सबसे कम कुल, डिलीवरी सहित, जिनकी डिलीवरी लागत विक्रेता ने वाकई प्रकाशित की। जिन्होंने कोई प्रकाशित नहीं की, उन्हें मुफ़्त मानने के बजाय बाहर रखा जाता है।",
+        "currentVsRecentMedian": "इस अवधि में हमारे दर्ज किए गए बीच के स्तर के मुक़ाबले आज की कीमत — यानी हाल में खुद से तुलना, आज के दूसरे विक्रेताओं से नहीं।",
+        "materialPriceDrop": "जिस पिछली कीमत को हमने दर्ज किया और भरोसेमंद माना, उसके मुक़ाबले मौजूदा कीमत कितनी गिरी है।",
+        "typicalRecentRange": "इस अवधि में हमारे दर्ज किए गए दामों का बीच का आधा हिस्सा। दोनों सिरे ऐसी कीमतें हैं जो किसी ने वाकई ली थीं।",
+        "officialStorePosition": "जिस स्टोर को ब्रांड ने अपना बताकर सत्यापित किया, उसकी कीमत, बाकी उन नए ऑफ़रों के मुक़ाबले जिनकी हम तुलना कर सकते हैं। उस तुलना में आधिकारिक स्टोर की अपनी कीमत शामिल नहीं है।",
+        "priceQualityLabel": "अभी जिन ऑफ़रों की हम तुलना कर सकते हैं उनके बीच के स्तर के मुक़ाबले आज की कीमत, हर विक्रेता की एक कीमत लेकर।"
+      },
+      "badge": {
+        "priceDrop": "कीमत गिरी"
+      },
+      "unmeasured": {
+        "noActivePolicy": "हमने इस तुलना की परिभाषा अभी प्रकाशित नहीं की है।",
+        "insufficientObservations": "कहने भर की कीमतें हमने दर्ज नहीं की हैं।",
+        "insufficientDistinctSellers": "इसे बाज़ार कहने के लिए अलग-अलग विक्रेता बहुत कम हैं।",
+        "insufficientDistinctOffers": "तुलना के लिए अलग ऑफ़र बहुत कम हैं।",
+        "insufficientTimeCoverage": "हम इसे अभी पर्याप्त समय से नहीं देख रहे।",
+        "noEligibleCurrentOffer": "अभी ऐसा कोई ऑफ़र नहीं है जिसकी हम तुलना कर सकें।",
+        "noComparableHistory": "इसके लिए हमारे पास तुलनीय कीमत इतिहास नहीं है।",
+        "currencyNotConvertible": "आपकी माँगी हुई मुद्रा में हम ये कीमतें नहीं बता सकते।",
+        "segmentNotApplicable": "यह तुलना केवल नई वस्तुओं के लिए परिभाषित है।",
+        "measureNotApplicable": "यह माप यहाँ लागू नहीं होता।",
+        "demandMeasurementUnavailable": "हम अभी किसी उत्पाद की माँग नहीं मापते।"
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "बाज़ार की मध्यिका के मुक़ाबले",
+        "cheapestItemPrice": "सबसे कम वस्तु कीमत के मुक़ाबले",
+        "cheapestKnownTotal": "ज्ञात सबसे कम कुल के मुक़ाबले",
+        "losingEligibility": "यह ऑफ़र तुलना में क्यों नहीं है",
+        "demandWithoutNativeOffer": "आपके ऑफ़र के बिना माँग",
+        "ownPriceMovement": "आपकी अपनी पिछली कीमत के मुक़ाबले",
+        "officialChannelPosition": "आधिकारिक स्टोर के रूप में आपकी स्थिति"
+      },
+      "eligibilityLoss": {
+        "observationStale": "हमने इस ऑफ़र को हाल में दोबारा नहीं पढ़ा है।",
+        "availabilityUnknown": "स्रोत यह नहीं बताता कि यह स्टॉक में है या नहीं।",
+        "deliveryCostUnknown": "कोई डिलीवरी लागत प्रकाशित नहीं है, इसलिए यह ऑफ़र कुल कीमत की तुलना में नहीं आ सकता।",
+        "destinationMissing": "इस ऑफ़र तक पहुँचने के लिए खरीदार के पास कोई लिंक नहीं है।",
+        "conditionUnknown": "इस वस्तु की स्थिति ऐसे रूप में नहीं बताई गई जिसे हम समझ सकें।",
+        "priceMissing": "इस ऑफ़र के लिए कोई कीमत प्रकाशित नहीं है।"
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "आपकी मौजूदा कीमत उन ऑफ़रों की मध्यिका से ऊपर है जिनकी हम तुलना कर सकते हैं।",
+        "deliveryUnknownBlocksKnownTotal": "इस ऑफ़र की डिलीवरी अज्ञात है, इसलिए हम इसके लिए कुल कीमत नहीं निकाल सकते।",
+        "refreshWouldRestoreEligibility": "इस ऑफ़र को ताज़ा करने पर यह फिर से तुलना में आ जाएगा।",
+        "wouldBeCheapestItemPrice": "इस देखी गई कीमत पर, दोबारा तुलना में आते ही यह ऑफ़र सबसे कम वस्तु कीमत होगा।"
+      },
+      "sample": "%{sellers} विक्रेताओं की %{observations} कीमतों के आधार पर।",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: हमने %{sellers} विक्रेताओं की %{observations} कीमतों की तुलना की और कोई नहीं मिला।",
+        "labelBelow": "%{title}: %{label} — जिनकी हम तुलना कर सकते हैं उनके बीच के स्तर से %{distance} नीचे। %{confidence}। %{sample}",
+        "labelAbove": "%{title}: %{label} — जिनकी हम तुलना कर सकते हैं उनके बीच के स्तर से %{distance} ऊपर। %{confidence}। %{sample}",
+        "labelSame": "%{title}: %{label} — जिनकी हम तुलना कर सकते हैं उनके बीच के स्तर के ठीक बराबर। %{confidence}। %{sample}",
+        "relativeBelow": "%{title}: संदर्भ से %{distance} नीचे। %{sample}",
+        "relativeNear": "%{title}: संदर्भ से %{distance} की दूरी पर, लगभग बराबर। %{sample}",
+        "relativeAbove": "%{title}: संदर्भ से %{distance} ऊपर। %{sample}",
+        "drop": "%{title}: हमारी दर्ज की गई पिछली कीमत से %{distance} नीचे। %{sample}",
+        "moneyRange": "%{title}: हमारे दर्ज किए गए दामों का बीच का आधा हिस्सा। %{sample}",
+        "plain": "%{title}। %{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "%{provider} से सिंक किया गया",
+      "pinField": {
+        "title": "शीर्षक",
+        "description": "विवरण",
+        "images": "चित्र",
+        "vendor": "विक्रेता",
+        "productType": "उत्पाद प्रकार",
+        "handle": "URL हैंडल",
+        "seo": "SEO शीर्षक और विवरण"
+      },
+      "pinTitle": "जिन फ़ील्ड को आपने Mercaria में बदला",
+      "pinEffect": {
+        "honoured": "बाद की कोई सिंक इन्हें कभी नहीं बदलती, इसलिए प्लेटफ़ॉर्म पर इनमें से किसी में किया गया आपका बदलाव यहाँ नहीं दिखेगा।",
+        "channelWins": "इस चैनल की «मेरे स्थानीय बदलाव रखें» सेटिंग बंद है, इसलिए अगली सिंक इन्हें प्लेटफ़ॉर्म के मानों से बदल देगी।",
+        "unknown": "बाद की सिंक इन्हें बदलेगी या नहीं, यह चैनल की «मेरे स्थानीय बदलाव रखें» सेटिंग तय करती है।"
+      },
+      "pinRelease": "इन सबको एक साथ वापस सौंपने के लिए, चैनल पर «मेरे स्थानीय बदलाव रखें» बंद करें। यह इस चैनल के हर उत्पाद के हर बदले हुए फ़ील्ड पर लागू होता है।",
+      "pinUnnamed": {
+        "one": "%{count} और फ़ील्ड सिंक से रोका गया है जिसका नाम यह स्क्रीन नहीं बता सकती।",
+        "other": "%{count} और फ़ील्ड सिंक से रोके गए हैं जिनका नाम यह स्क्रीन नहीं बता सकती।"
+      }
     }
   }
 }

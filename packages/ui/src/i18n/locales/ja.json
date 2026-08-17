@@ -66,6 +66,210 @@
         "one": "%{count}日",
         "other": "%{count}日"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "分かっている中で最安の商品価格",
+        "cheapestKnownTotal": "分かっている中で最安の合計",
+        "fewestMerchants": "販売者が最も少ない",
+        "bestNativePlan": "Mercaria での最適プラン",
+        "officialChannelPlan": "公式チャネルのプラン",
+        "bestNearbyPickup": "近くでの受け取り",
+        "usedOrRefurbishedValue": "中古・整備済みの価値",
+        "partialCoverage": "一部のみのプラン"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "商品価格のみを比較します。配送料と税はこの金額に含まれていません。",
+        "cheapestKnownTotal": "配送料込みの合計を比較します。すべての商品価格、各販売者の配送料、税の扱いが分かっている場合にのみ算出します。",
+        "fewestMerchants": "カートの中身を最も少ない回数の購入に分けるプランです。",
+        "bestNativePlan": "Mercaria で直接購入できる商品を、ひとつのカートにまとめたものです。",
+        "officialChannelPlan": "すべての商品をブランドの認証済み公式チャネルから購入します。",
+        "bestNearbyPickup": "ここでは算出しません。カートの比較には距離を測る起点がないためです。受け取りは商品ページでご確認ください。",
+        "usedOrRefurbishedValue": "すべての商品が中古または整備済みです。",
+        "partialCoverage": "一部の商品はプランに含められませんでした。残りは理由とともに表示しています。"
+      },
+      "reason": {
+        "noEligibleOffer": "現在これを出品している人はいません",
+        "noOfferInRequestedCondition": "指定したコンディションのオファーがありません",
+        "noOfferFromRequestedMerchant": "指定した販売者のオファーがありません",
+        "everyOfferFromExcludedMerchant": "オファーはすべて除外した販売者のものです",
+        "noOfferInChannelPolicy": "選んだチャネルに合うオファーがありません",
+        "noConvertiblePrice": "換算できない通貨で価格が付いています",
+        "quantityExceedsAvailableStock": "販売者は在庫が足りないとしています",
+        "quantityNotSplittable": "この数量は複数の販売者に分けられません",
+        "merchantLimitWouldBeExceeded": "この商品を追加すると販売者数の上限を超えます",
+        "hardConstraintFailed": "指定した条件を満たしていません",
+        "watchlistItemUnresolved": "カタログの変更後、どの商品を指していたかの指定が必要です",
+        "deliveryCostUnknown": "配送料が公開されていません",
+        "taxInclusionUnknown": "税込みかどうかが公開されていません",
+        "objectiveRequiresCompleteCosts": "一部の費用が不明なため、正確な合計は示せません",
+        "objectiveRequiresNativeOffer": "Mercaria では購入できません",
+        "objectiveRequiresOfficialChannel": "認証済みの公式チャネルでは販売されていません",
+        "objectiveRequiresUsedOffer": "中古・整備済みのオファーがありません",
+        "pickupDataUnavailable": "受け取りまでの距離を測る起点がありません",
+        "offerNoLongerEligible": "このオファーは現在ご利用いただけません",
+        "offerPriceChanged": "このプランを計算してから価格が変わりました"
+      },
+      "approximation": {
+        "candidateLimitReached": "オファーが多すぎてすべては確認できませんでした",
+        "merchantLimitReached": "販売者が多すぎてすべての組み合わせは確認できませんでした",
+        "timeLimitReached": "検索が時間切れになりました"
+      },
+      "optimalityProven": "確認できたオファーの中で最良のプランです。",
+      "optimalityApproximate": "見つかった中で最良のプランです（%{reason}）。"
+    },
+    "comparison": {
+      "listSeparator": "、",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}（推定）",
+      "cellInferredNote": "換算値、記載なし",
+      "unknown": {
+        "notRecorded": "記録なし",
+        "conflictingSources": "情報源が一致しません",
+        "lowConfidence": "断定できるほどの確度がありません",
+        "unitNotComparable": "別の単位で記録されています",
+        "definitionNotPublished": "ここでは表示していません"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "該当しません",
+        "attributeNotComparable": "比較できません"
+      },
+      "unavailable": {
+        "noEligibleOffer": "利用できるオファーがありません",
+        "allOffersConstrainedOut": "条件に合うオファーがありません",
+        "noConvertiblePrice": "この通貨で表示できるオファーがありません",
+        "offerComparisonWithheld": "ここではオファーを表示していません"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "提供されていない記録を引用しました",
+        "uncitedStatement": "裏づけとなる記録のない主張をしました",
+        "introducedNumber": "データにない数値を持ち込みました",
+        "constraintResultChanged": "条件の判定結果を変えました",
+        "unknownConstraintReference": "提供されていない条件を引用しました",
+        "forbiddenTopic": "推奨が考慮してはならない話題に触れました",
+        "schemaInvalid": "想定された形式と一致しませんでした",
+        "outputTooLong": "許容される長さを超えていました",
+        "providerUnavailable": "設定されていません",
+        "providerError": "接続できませんでした"
+      },
+      "explanationFallbackNotice": "この要約は下の比較表から生成したもので、言語モデルは使用していません。"
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "お買い得",
+        "typicalPrice": "標準的な価格",
+        "aboveTypical": "標準より高め"
+      },
+      "confidence": {
+        "sufficient": "判断できるだけの比較可能なオファーに基づいています",
+        "strong": "比較可能なオファーの幅広いサンプルに基づいています"
+      },
+      "position": {
+        "below": "下回っています",
+        "near": "ほぼ同じです",
+        "above": "上回っています"
+      },
+      "title": {
+        "lowestObservedItemPrice": "確認した中で最も安い価格",
+        "lowestObservedKnownTotal": "確認した中で最も安い合計",
+        "currentVsRecentMedian": "最近の標準的な価格との比較",
+        "materialPriceDrop": "最近の値下がり",
+        "typicalRecentRange": "最近の標準的な価格帯",
+        "officialStorePosition": "公式ストアの価格",
+        "priceQualityLabel": "この価格の位置づけ"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "このコンディション、この市場、この期間で記録した中で最も安い商品価格です。データの誤りと判断した価格は除外し、別に一覧にしています。",
+        "lowestObservedKnownTotal": "販売者が実際に配送料を公開しているオファーの中で、配送料込みの合計が最も安いものです。公開していないオファーは無料として扱わず、除外しています。",
+        "currentVsRecentMedian": "この期間に記録した価格の中央と比べた今日の価格です。今日の他の販売者との比較ではなく、最近の自分自身との比較です。",
+        "materialPriceDrop": "妥当と判断した直近の過去価格に対して、現在の価格がどれだけ下がったかです。",
+        "typicalRecentRange": "この期間に記録した価格の中央半分です。どちらの端も実際に付けられていた価格です。",
+        "officialStorePosition": "ブランドが自社のものとして認証したストアの価格を、比較できる他の新品オファーと比べたものです。この比較から公式ストア自身の価格は除いています。",
+        "priceQualityLabel": "今比較できるオファーの中央と比べた今日の価格です。販売者ごとに1つの価格を用いています。"
+      },
+      "badge": {
+        "priceDrop": "値下がり"
+      },
+      "unmeasured": {
+        "noActivePolicy": "この比較の定義はまだ公開していません。",
+        "insufficientObservations": "判断できるだけの価格をまだ記録できていません。",
+        "insufficientDistinctSellers": "市場と呼ぶには販売者の数が少なすぎます。",
+        "insufficientDistinctOffers": "比較するには個別のオファーが少なすぎます。",
+        "insufficientTimeCoverage": "観測期間がまだ十分ではありません。",
+        "noEligibleCurrentOffer": "現在、比較できるオファーがありません。",
+        "noComparableHistory": "これに比較できる価格履歴がありません。",
+        "currencyNotConvertible": "ご指定の通貨でこれらの価格を表示できません。",
+        "segmentNotApplicable": "この比較は新品にのみ定義されています。",
+        "measureNotApplicable": "この指標はここには当てはまりません。",
+        "demandMeasurementUnavailable": "商品の需要はまだ計測していません。"
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "市場の中央値との比較",
+        "cheapestItemPrice": "最安の商品価格との比較",
+        "cheapestKnownTotal": "分かっている最安の合計との比較",
+        "losingEligibility": "このオファーが比較されていない理由",
+        "demandWithoutNativeOffer": "あなたのオファーがない状態での需要",
+        "ownPriceMovement": "あなた自身の以前の価格との比較",
+        "officialChannelPosition": "公式ストアとしての位置づけ"
+      },
+      "eligibilityLoss": {
+        "observationStale": "このオファーを最近読み直せていません。",
+        "availabilityUnknown": "在庫があるかどうかを提供元が示していません。",
+        "deliveryCostUnknown": "配送料が公開されていないため、このオファーは合計価格の比較に含められません。",
+        "destinationMissing": "購入者がこのオファーへたどれるリンクがありません。",
+        "conditionUnknown": "この商品のコンディションが、当社で対応づけられる形で示されていません。",
+        "priceMissing": "このオファーには価格が公開されていません。"
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "現在の価格は、比較できるオファーの中央値を上回っています。",
+        "deliveryUnknownBlocksKnownTotal": "このオファーは配送料が不明なため、合計価格を算出できません。",
+        "refreshWouldRestoreEligibility": "このオファーを更新すれば、比較に戻せます。",
+        "wouldBeCheapestItemPrice": "この観測価格であれば、再び比較対象になった時点で最安の商品価格になります。"
+      },
+      "sample": "%{sellers} 件の販売者による %{observations} 件の価格に基づいています。",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: %{sellers} 件の販売者による %{observations} 件の価格を比較しましたが、該当はありませんでした。",
+        "labelBelow": "%{title}: %{label} — 比較できる価格の中央より %{distance} 低い価格です。%{confidence}。%{sample}",
+        "labelAbove": "%{title}: %{label} — 比較できる価格の中央より %{distance} 高い価格です。%{confidence}。%{sample}",
+        "labelSame": "%{title}: %{label} — 比較できる価格の中央とちょうど同じです。%{confidence}。%{sample}",
+        "relativeBelow": "%{title}: 基準より %{distance} 低い価格です。%{sample}",
+        "relativeNear": "%{title}: 基準との差は %{distance} で、ほぼ同じです。%{sample}",
+        "relativeAbove": "%{title}: 基準より %{distance} 高い価格です。%{sample}",
+        "drop": "%{title}: 最後に記録した価格から %{distance} 下がっています。%{sample}",
+        "moneyRange": "%{title}: 記録した価格の中央半分です。%{sample}",
+        "plain": "%{title}。%{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "%{provider} から同期",
+      "pinField": {
+        "title": "タイトル",
+        "description": "説明",
+        "images": "画像",
+        "vendor": "ベンダー",
+        "productType": "商品タイプ",
+        "handle": "URL ハンドル",
+        "seo": "SEO タイトルと説明"
+      },
+      "pinTitle": "Mercaria で編集した項目",
+      "pinEffect": {
+        "honoured": "以降の同期で上書きされることはありません。そのため、プラットフォーム側でこれらを変更してもここには反映されません。",
+        "channelWins": "このチャネルの「ローカルの編集を保持する」設定がオフのため、次回の同期でプラットフォームの値に上書きされます。",
+        "unknown": "以降の同期で上書きされるかどうかは、チャネルの「ローカルの編集を保持する」設定によります。"
+      },
+      "pinRelease": "すべてをまとめて戻すには、チャネルの「ローカルの編集を保持する」をオフにしてください。これはこのチャネルの全商品の編集済み項目すべてに適用されます。",
+      "pinUnnamed": {
+        "one": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。",
+        "other": "同期から保持されている項目があと %{count} 件ありますが、この画面では名前を表示できません。"
+      }
     }
   }
 }

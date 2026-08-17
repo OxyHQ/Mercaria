@@ -66,6 +66,210 @@
         "one": "%{count} 天",
         "other": "%{count} 天"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "已知最低商品价格",
+        "cheapestKnownTotal": "已知最低总价",
+        "fewestMerchants": "商家最少",
+        "bestNativePlan": "Mercaria 最佳方案",
+        "officialChannelPlan": "官方渠道方案",
+        "bestNearbyPickup": "就近自提",
+        "usedOrRefurbishedValue": "二手或翻新价值",
+        "partialCoverage": "部分方案"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "仅比较商品价格。此金额不含配送费和税费。",
+        "cheapestKnownTotal": "比较含配送的完整总价。仅在每件商品价格、每个商家的配送费和税费处理均已知时才会计算。",
+        "fewestMerchants": "把你的购物车分成最少笔独立订单的方案。",
+        "bestNativePlan": "可以直接在 Mercaria 购买的商品，集中在一个购物车里。",
+        "officialChannelPlan": "所有商品均来自品牌已认证的官方渠道。",
+        "bestNearbyPickup": "这里不做规划——购物车比较没有可用于测算距离的位置。请在商品自身页面查看自提。",
+        "usedOrRefurbishedValue": "所有商品均为二手或翻新。",
+        "partialCoverage": "部分商品无法纳入方案，其余商品会连同原因一起显示。"
+      },
+      "reason": {
+        "noEligibleOffer": "目前没有人在售",
+        "noOfferInRequestedCondition": "没有你所要求成色的报价",
+        "noOfferFromRequestedMerchant": "没有你所指定商家的报价",
+        "everyOfferFromExcludedMerchant": "所有报价都来自你已排除的商家",
+        "noOfferInChannelPolicy": "没有报价符合你选择的渠道",
+        "noConvertiblePrice": "以我们无法换算的货币标价",
+        "quantityExceedsAvailableStock": "卖家表示库存不足",
+        "quantityNotSplittable": "此数量无法拆分给多个卖家",
+        "merchantLimitWouldBeExceeded": "加入此商品会超出你的商家数量上限",
+        "hardConstraintFailed": "未满足你设定的某项要求",
+        "watchlistItemUnresolved": "目录变更后，此商品需要你指明所指的是哪一款产品",
+        "deliveryCostUnknown": "未公布配送费",
+        "taxInclusionUnknown": "未公布是否含税",
+        "objectiveRequiresCompleteCosts": "部分费用未知，因此无法给出完整总价",
+        "objectiveRequiresNativeOffer": "无法在 Mercaria 购买",
+        "objectiveRequiresOfficialChannel": "并非由已认证的官方渠道销售",
+        "objectiveRequiresUsedOffer": "没有二手或翻新的报价",
+        "pickupDataUnavailable": "没有可用于测算自提距离的位置",
+        "offerNoLongerEligible": "此报价已不再可用",
+        "offerPriceChanged": "自本方案计算以来价格已发生变化"
+      },
+      "approximation": {
+        "candidateLimitReached": "报价太多，无法逐一查看",
+        "merchantLimitReached": "商家太多，无法查看所有组合",
+        "timeLimitReached": "搜索超时"
+      },
+      "optimalityProven": "在我们能看到的报价中，这是最优方案。",
+      "optimalityApproximate": "已找到的最佳方案——%{reason}。"
+    },
+    "comparison": {
+      "listSeparator": "；",
+      "cellA11y": "%{label}：%{value}",
+      "cellInferredA11y": "%{label}：%{value}（推算）",
+      "cellInferredNote": "换算所得，非标注值",
+      "unknown": {
+        "notRecorded": "未记录",
+        "conflictingSources": "各来源不一致",
+        "lowConfidence": "把握不足，无法给出结论",
+        "unitNotComparable": "以其他单位记录",
+        "definitionNotPublished": "此处不展示"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "不适用",
+        "attributeNotComparable": "无法比较"
+      },
+      "unavailable": {
+        "noEligibleOffer": "暂无可用报价",
+        "allOffersConstrainedOut": "没有报价符合你的要求",
+        "noConvertiblePrice": "没有可以用此货币计价的报价",
+        "offerComparisonWithheld": "此处不展示报价"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "引用了并未提供的记录",
+        "uncitedStatement": "做出了没有记录支撑的论断",
+        "introducedNumber": "引入了数据中不存在的数字",
+        "constraintResultChanged": "改动了某项要求的判定结果",
+        "unknownConstraintReference": "引用了并未提供的要求",
+        "forbiddenTopic": "提到了推荐不得考虑的话题",
+        "schemaInvalid": "与预期格式不符",
+        "outputTooLong": "超出了允许的长度",
+        "providerUnavailable": "尚未配置",
+        "providerError": "无法连接"
+      },
+      "explanationFallbackNotice": "此摘要由下方的比较表生成，未使用语言模型。"
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "价格不错",
+        "typicalPrice": "价格正常",
+        "aboveTypical": "高于正常水平"
+      },
+      "confidence": {
+        "sufficient": "基于足以作出判断的可比报价",
+        "strong": "基于范围广泛的可比报价样本"
+      },
+      "position": {
+        "below": "低于",
+        "near": "大致相当于",
+        "above": "高于"
+      },
+      "title": {
+        "lowestObservedItemPrice": "我们见过的最低价格",
+        "lowestObservedKnownTotal": "我们见过的最低总价",
+        "currentVsRecentMedian": "与近期常见价格相比",
+        "materialPriceDrop": "近期降价",
+        "typicalRecentRange": "近期常见价格区间",
+        "officialStorePosition": "官方店铺的价格",
+        "priceQualityLabel": "此价格的水平"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "我们在此成色、此市场、此时间段内记录到的最低商品价格。被判定为数据错误的价格会被剔除并单独列出。",
+        "lowestObservedKnownTotal": "在卖家确实公布了配送费的报价中，含配送的最低总价。未公布配送费的报价会被排除，而不是当作免运费处理。",
+        "currentVsRecentMedian": "今天的价格与我们在此时间段内记录价格的中位水平相比——是与它自己近期的表现相比，而不是与今天其他卖家相比。",
+        "materialPriceDrop": "当前价格相较我们记录并判定可靠的最近一次历史价格下降了多少。",
+        "typicalRecentRange": "我们在此时间段内记录价格的中间一半。两端都是确实有人开出过的价格。",
+        "officialStorePosition": "品牌已认证为自有店铺的价格，与其他可比较的全新报价相比。该比较不包含官方店铺自身的价格。",
+        "priceQualityLabel": "今天的价格与当前可比较报价的中位水平相比，每位卖家取一个价格。"
+      },
+      "badge": {
+        "priceDrop": "降价"
+      },
+      "unmeasured": {
+        "noActivePolicy": "我们尚未公布此项比较的定义。",
+        "insufficientObservations": "我们记录的价格还不足以作出判断。",
+        "insufficientDistinctSellers": "不同卖家太少，还称不上一个市场。",
+        "insufficientDistinctOffers": "可供比较的独立报价太少。",
+        "insufficientTimeCoverage": "我们观察的时间还不够长。",
+        "noEligibleCurrentOffer": "目前没有可供我们比较的报价。",
+        "noComparableHistory": "我们没有与之可比的价格历史。",
+        "currencyNotConvertible": "我们无法用你所要求的货币表示这些价格。",
+        "segmentNotApplicable": "此项比较仅针对全新商品定义。",
+        "measureNotApplicable": "此项指标在这里不适用。",
+        "demandMeasurementUnavailable": "我们尚未衡量单个商品的需求。"
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "与市场中位价相比",
+        "cheapestItemPrice": "与最低商品价格相比",
+        "cheapestKnownTotal": "与已知最低总价相比",
+        "losingEligibility": "此报价未被纳入比较的原因",
+        "demandWithoutNativeOffer": "你没有报价时的需求",
+        "ownPriceMovement": "与你此前的价格相比",
+        "officialChannelPosition": "你作为官方店铺的水平"
+      },
+      "eligibilityLoss": {
+        "observationStale": "我们最近没有重新读取过此报价。",
+        "availabilityUnknown": "来源未说明此商品是否有货。",
+        "deliveryCostUnknown": "未公布配送费，因此此报价无法出现在总价比较中。",
+        "destinationMissing": "没有买家可以点进此报价的链接。",
+        "conditionUnknown": "此商品的成色未以我们能够对应的方式说明。",
+        "priceMissing": "此报价未公布价格。"
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "你当前的价格高于可比较报价的中位价。",
+        "deliveryUnknownBlocksKnownTotal": "此报价的配送费未知，因此我们无法为其计算总价。",
+        "refreshWouldRestoreEligibility": "刷新此报价即可让它重新进入比较。",
+        "wouldBeCheapestItemPrice": "按此观察到的价格，一旦重新纳入比较，此报价将是最低的商品价格。"
+      },
+      "sample": "基于 %{sellers} 位卖家的 %{observations} 个价格。",
+      "summary": {
+        "unmeasured": "%{title}：%{reason}",
+        "notPresent": "%{title}：我们比较了 %{sellers} 位卖家的 %{observations} 个价格，未找到符合的。",
+        "labelBelow": "%{title}：%{label}——比可比较价格的中位水平低 %{distance}。%{confidence}。%{sample}",
+        "labelAbove": "%{title}：%{label}——比可比较价格的中位水平高 %{distance}。%{confidence}。%{sample}",
+        "labelSame": "%{title}：%{label}——与可比较价格的中位水平持平。%{confidence}。%{sample}",
+        "relativeBelow": "%{title}：比基准低 %{distance}。%{sample}",
+        "relativeNear": "%{title}：与基准相差 %{distance}，大致相当。%{sample}",
+        "relativeAbove": "%{title}：比基准高 %{distance}。%{sample}",
+        "drop": "%{title}：较我们记录的上一次价格下降 %{distance}。%{sample}",
+        "moneyRange": "%{title}：我们记录价格的中间一半。%{sample}",
+        "plain": "%{title}。%{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "从 %{provider} 同步",
+      "pinField": {
+        "title": "标题",
+        "description": "描述",
+        "images": "图片",
+        "vendor": "供应商",
+        "productType": "商品类型",
+        "handle": "URL 标识",
+        "seo": "SEO 标题和描述"
+      },
+      "pinTitle": "你在 Mercaria 中编辑过的字段",
+      "pinEffect": {
+        "honoured": "以后的同步不会覆盖它们，因此你在平台上对其中任何一项所做的修改都不会显示在这里。",
+        "channelWins": "此渠道的“保留我的本地修改”设置已关闭，因此下次同步会用平台的值覆盖它们。",
+        "unknown": "以后的同步是否会覆盖它们，取决于渠道的“保留我的本地修改”设置。"
+      },
+      "pinRelease": "若要一次性全部交还，请关闭渠道上的“保留我的本地修改”。这会作用于此渠道所有商品的每一个已编辑字段。",
+      "pinUnnamed": {
+        "one": "还有 %{count} 个字段处于不被同步覆盖的状态，本页面无法显示它们的名称。",
+        "other": "还有 %{count} 个字段处于不被同步覆盖的状态，本页面无法显示它们的名称。"
+      }
     }
   }
 }

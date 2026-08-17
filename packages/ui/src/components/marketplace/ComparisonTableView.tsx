@@ -5,9 +5,13 @@ import type {
   ComparisonTableRow,
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
-  comparisonNotApplicableText,
-  comparisonUnknownText,
+  COMPARISON_CELL_A11Y_KEY,
+  COMPARISON_CELL_INFERRED_A11Y_KEY,
+  COMPARISON_CELL_INFERRED_NOTE_KEY,
+  comparisonNotApplicableTextKey,
+  comparisonUnknownTextKey,
 } from "../../lib/comparison-labels";
 
 /** How wide one product column is. Fixed, so the row header stays readable. */
@@ -124,10 +128,21 @@ function ComparisonRow({
  * converted.
  */
 function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: string }) {
+  const t = useSharedUiTranslation();
+
+  // The accessible label is ONE frame with a `%{}` slot rather than a template
+  // literal, because its separator is not a colon in every language and the
+  // value it carries is itself translated in four of these six branches.
   if (cell === undefined) {
+    // The same fact `unknown.not_recorded` states, so it resolves the same key
+    // rather than a second sentence that could be translated differently.
+    const notRecorded = t(comparisonUnknownTextKey("not_recorded"));
     return (
-      <Text className="text-caption text-text-secondary" accessibilityLabel={`${label}: not recorded`}>
-        Not recorded
+      <Text
+        className="text-caption text-text-secondary"
+        accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: notRecorded })}
+      >
+        {notRecorded}
       </Text>
     );
   }
@@ -135,7 +150,13 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
   switch (cell.state) {
     case "source_backed":
       return (
-        <Text className="text-caption text-text" accessibilityLabel={`${label}: ${cell.value.rendered}`}>
+        <Text
+          className="text-caption text-text"
+          accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, {
+            label,
+            value: cell.value.rendered,
+          })}
+        >
           {cell.value.rendered}
         </Text>
       );
@@ -144,21 +165,27 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
         <View className="gap-space-2">
           <Text
             className="text-caption text-text"
-            accessibilityLabel={`${label}: ${cell.value.rendered}, inferred`}
+            accessibilityLabel={t(COMPARISON_CELL_INFERRED_A11Y_KEY, {
+              label,
+              value: cell.value.rendered,
+            })}
           >
             {cell.value.rendered}
           </Text>
-          <Text className="text-caption text-text-secondary">converted, not stated</Text>
+          <Text className="text-caption text-text-secondary">
+            {t(COMPARISON_CELL_INFERRED_NOTE_KEY)}
+          </Text>
         </View>
       );
-    case "conflicting":
+    case "conflicting": {
+      const disagree = t(comparisonUnknownTextKey("conflicting_sources"));
       return (
         <View className="gap-space-2">
           <Text
             className="text-caption text-text"
-            accessibilityLabel={`${label}: sources disagree`}
+            accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: disagree })}
           >
-            Sources disagree
+            {disagree}
           </Text>
           {cell.candidates.map((value) => (
             <Text key={value.rendered} className="text-caption text-text-secondary">
@@ -167,24 +194,29 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
           ))}
         </View>
       );
-    case "unknown":
+    }
+    case "unknown": {
+      const unknown = t(comparisonUnknownTextKey(cell.reason));
       return (
         <Text
           className="text-caption text-text-secondary"
-          accessibilityLabel={`${label}: ${comparisonUnknownText(cell.reason)}`}
+          accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: unknown })}
         >
-          {comparisonUnknownText(cell.reason)}
+          {unknown}
         </Text>
       );
-    case "not_applicable":
+    }
+    case "not_applicable": {
+      const notApplicable = t(comparisonNotApplicableTextKey(cell.reason));
       return (
         <Text
           className="text-caption text-text-secondary"
-          accessibilityLabel={`${label}: ${comparisonNotApplicableText(cell.reason)}`}
+          accessibilityLabel={t(COMPARISON_CELL_A11Y_KEY, { label, value: notApplicable })}
         >
-          {comparisonNotApplicableText(cell.reason)}
+          {notApplicable}
         </Text>
       );
+    }
     default:
       return <Text className="text-caption text-text-secondary">Not recorded</Text>;
   }

@@ -5,11 +5,15 @@ import type {
   BasketTotal,
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
-  basketApproximationText,
-  basketReasonText,
-  basketResultDefinition,
-  basketResultText,
+  BASKET_OPTIMALITY_APPROXIMATE_KEY,
+  BASKET_OPTIMALITY_PROVEN_KEY,
+  COMPARISON_LIST_SEPARATOR_KEY,
+  basketApproximationTextKey,
+  basketReasonTextKey,
+  basketResultDefinitionKey,
+  basketResultTextKey,
 } from "../../lib/comparison-labels";
 
 export interface BasketPlanCardProps {
@@ -59,12 +63,13 @@ export function BasketPlanCard({
   onAddNativeToCart,
   onOpenExternalMerchant,
 }: BasketPlanCardProps) {
+  const t = useSharedUiTranslation();
   return (
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary p-space-16">
       <View className="gap-space-2">
-        <Text className="text-bodyBold text-text">{basketResultText(result.kind)}</Text>
+        <Text className="text-bodyBold text-text">{t(basketResultTextKey(result.kind))}</Text>
         <Text className="text-caption text-text-secondary">
-          {basketResultDefinition(result.kind)}
+          {t(basketResultDefinitionKey(result.kind))}
         </Text>
       </View>
 
@@ -73,7 +78,7 @@ export function BasketPlanCard({
           <Text className="text-caption text-text">Not available for this basket.</Text>
           {result.reasons.map((reason) => (
             <Text key={reason} className="text-caption text-text-secondary">
-              · {basketReasonText(reason)}
+              · {t(basketReasonTextKey(reason))}
             </Text>
           ))}
         </View>
@@ -94,10 +99,17 @@ export function BasketPlanCard({
             </Text>
           </View>
 
+          {/* Two WHOLE sentences, and the approximate one carries its reason in
+              a `%{}` slot rather than through a `${}` around a translated
+              fragment: "Best plan found" and "too many offers to examine all of
+              them" join with an em dash in English and with nothing like it in
+              several of the other eleven. */}
           <Text className="text-caption text-text-secondary">
             {result.optimality.status === "proven_optimal"
-              ? "Best possible plan from the offers we can see."
-              : `Best plan found — ${basketApproximationText(result.optimality.reason)}.`}
+              ? t(BASKET_OPTIMALITY_PROVEN_KEY)
+              : t(BASKET_OPTIMALITY_APPROXIMATE_KEY, {
+                  reason: t(basketApproximationTextKey(result.optimality.reason)),
+                })}
           </Text>
 
           {result.plan.freshness === "current" ? null : (
@@ -111,7 +123,10 @@ export function BasketPlanCard({
               <Text className="text-captionBold text-text">Not included</Text>
               {result.plan.unresolved.map((unresolved) => (
                 <Text key={unresolved.lineId} className="text-caption text-text-secondary">
-                  · {unresolved.reasons.map(basketReasonText).join("; ")}
+                  ·{" "}
+                  {unresolved.reasons
+                    .map((reason) => t(basketReasonTextKey(reason)))
+                    .join(t(COMPARISON_LIST_SEPARATOR_KEY))}
                 </Text>
               ))}
             </View>

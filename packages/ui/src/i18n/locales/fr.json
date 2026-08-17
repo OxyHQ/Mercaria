@@ -66,6 +66,210 @@
         "one": "%{count} jour",
         "other": "%{count} jours"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "Prix d'article les plus bas connus",
+        "cheapestKnownTotal": "Total le plus bas connu",
+        "fewestMerchants": "Le moins de marchands",
+        "bestNativePlan": "Meilleur plan sur Mercaria",
+        "officialChannelPlan": "Plan en canal officiel",
+        "bestNearbyPickup": "Retrait à proximité",
+        "usedOrRefurbishedValue": "Occasion ou reconditionné",
+        "partialCoverage": "Plan partiel"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "Compare uniquement les prix des articles. La livraison et les taxes ne sont pas incluses dans ce chiffre.",
+        "cheapestKnownTotal": "Compare le total complet livré. Calculé uniquement lorsque chaque prix d'article, la livraison de chaque marchand et le traitement fiscal sont connus.",
+        "fewestMerchants": "Le plan qui répartit votre panier sur le moins de commandes distinctes.",
+        "bestNativePlan": "Les articles que vous pouvez acheter directement sur Mercaria, dans un seul panier.",
+        "officialChannelPlan": "Tous les articles depuis le canal officiel vérifié d'une marque.",
+        "bestNearbyPickup": "Non planifié ici : une comparaison de panier n'a aucun lieu depuis lequel mesurer. Consultez le retrait sur la page du produit elle-même.",
+        "usedOrRefurbishedValue": "Tous les articles d'occasion ou reconditionnés.",
+        "partialCoverage": "Certains articles n'ont pas pu être planifiés. Les autres sont affichés avec les raisons."
+      },
+      "reason": {
+        "noEligibleOffer": "Personne ne le propose pour le moment",
+        "noOfferInRequestedCondition": "Aucune offre dans l'état demandé",
+        "noOfferFromRequestedMerchant": "Aucune offre du marchand demandé",
+        "everyOfferFromExcludedMerchant": "Toutes les offres proviennent d'un marchand que vous avez exclu",
+        "noOfferInChannelPolicy": "Aucune offre ne correspond au canal choisi",
+        "noConvertiblePrice": "Affiché dans une devise que nous ne pouvons pas convertir",
+        "quantityExceedsAvailableStock": "Le vendeur indique que le stock est insuffisant",
+        "quantityNotSplittable": "Cette quantité ne peut pas être répartie entre plusieurs vendeurs",
+        "merchantLimitWouldBeExceeded": "Ajouter cet article dépasserait votre limite de marchands",
+        "hardConstraintFailed": "Une exigence que vous avez définie n'est pas satisfaite",
+        "watchlistItemUnresolved": "Cet article nécessite que vous indiquiez quel produit vous vouliez dire après un changement de catalogue",
+        "deliveryCostUnknown": "Le coût de livraison n'est pas publié",
+        "taxInclusionUnknown": "La présence des taxes dans le prix n'est pas publiée",
+        "objectiveRequiresCompleteCosts": "Certains coûts sont inconnus, aucun total complet ne peut donc être annoncé",
+        "objectiveRequiresNativeOffer": "Non disponible à l'achat sur Mercaria",
+        "objectiveRequiresOfficialChannel": "Non vendu par un canal officiel vérifié",
+        "objectiveRequiresUsedOffer": "Aucune offre d'occasion ni reconditionnée",
+        "pickupDataUnavailable": "Aucun lieu depuis lequel mesurer le retrait",
+        "offerNoLongerEligible": "Cette offre n'est plus disponible",
+        "offerPriceChanged": "Le prix a changé depuis le calcul de ce plan"
+      },
+      "approximation": {
+        "candidateLimitReached": "trop d'offres pour toutes les examiner",
+        "merchantLimitReached": "trop de marchands pour examiner chaque combinaison",
+        "timeLimitReached": "la recherche a manqué de temps"
+      },
+      "optimalityProven": "Meilleur plan possible parmi les offres que nous pouvons voir.",
+      "optimalityApproximate": "Meilleur plan trouvé — %{reason}."
+    },
+    "comparison": {
+      "listSeparator": " ; ",
+      "cellA11y": "%{label} : %{value}",
+      "cellInferredA11y": "%{label} : %{value}, déduit",
+      "cellInferredNote": "converti, non indiqué",
+      "unknown": {
+        "notRecorded": "Non enregistré",
+        "conflictingSources": "Les sources divergent",
+        "lowConfidence": "Pas assez sûr pour l'affirmer",
+        "unitNotComparable": "Enregistré dans une autre unité",
+        "definitionNotPublished": "Non affiché ici"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "Ne s'applique pas",
+        "attributeNotComparable": "Non comparable"
+      },
+      "unavailable": {
+        "noEligibleOffer": "Aucune offre disponible",
+        "allOffersConstrainedOut": "Aucune offre ne répond à vos exigences",
+        "noConvertiblePrice": "Aucune offre que nous puissions exprimer dans cette devise",
+        "offerComparisonWithheld": "Les offres ne sont pas affichées ici"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "a cité un enregistrement qui ne lui a pas été fourni",
+        "uncitedStatement": "a affirmé quelque chose sans aucun enregistrement à l'appui",
+        "introducedNumber": "a introduit un chiffre absent des données",
+        "constraintResultChanged": "a modifié le résultat d'une exigence",
+        "unknownConstraintReference": "a cité une exigence qui ne lui a pas été fournie",
+        "forbiddenTopic": "a mentionné un sujet que les recommandations ne peuvent pas prendre en compte",
+        "schemaInvalid": "ne correspondait pas à la forme attendue",
+        "outputTooLong": "était plus long que permis",
+        "providerUnavailable": "n'est pas configuré",
+        "providerError": "n'a pas pu être joint"
+      },
+      "explanationFallbackNotice": "Ce résumé est généré à partir du tableau de comparaison ci-dessous, sans modèle de langage."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "Bon prix",
+        "typicalPrice": "Prix habituel",
+        "aboveTypical": "Au-dessus de l'habituel"
+      },
+      "confidence": {
+        "sufficient": "D'après suffisamment d'offres comparables pour l'affirmer",
+        "strong": "D'après un large échantillon d'offres comparables"
+      },
+      "position": {
+        "below": "en dessous de",
+        "near": "à peu près au niveau de",
+        "above": "au-dessus de"
+      },
+      "title": {
+        "lowestObservedItemPrice": "Le prix le plus bas que nous ayons vu",
+        "lowestObservedKnownTotal": "Le total le plus bas que nous ayons vu",
+        "currentVsRecentMedian": "Face au prix habituel récent",
+        "materialPriceDrop": "Baisse de prix récente",
+        "typicalRecentRange": "Fourchette habituelle récente",
+        "officialStorePosition": "Le prix de la boutique officielle",
+        "priceQualityLabel": "Comment ce prix se situe"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "Le prix d'article le plus bas que nous ayons enregistré dans cet état, sur ce marché et sur cette période. Les prix que nous avons jugés erronés sont écartés et listés à part.",
+        "lowestObservedKnownTotal": "Le total le plus bas livraison comprise, parmi les offres dont le vendeur a réellement publié les frais de livraison. Les offres sans frais publiés sont exclues plutôt que traitées comme gratuites.",
+        "currentVsRecentMedian": "Le prix d'aujourd'hui face au milieu de ce que nous avons enregistré sur cette période : comment il se compare à lui-même ces derniers temps, et non aux autres vendeurs aujourd'hui.",
+        "materialPriceDrop": "De combien le prix actuel a baissé par rapport au prix antérieur le plus récent que nous avons enregistré et jugé fiable.",
+        "typicalRecentRange": "La moitié centrale des prix que nous avons enregistrés sur cette période. Les deux extrémités sont des prix que quelqu'un a réellement pratiqués.",
+        "officialStorePosition": "Le prix dans une boutique que la marque a vérifiée comme étant la sienne, face aux autres offres neuves que nous pouvons comparer. Le prix de la boutique officielle elle-même est exclu de cette comparaison.",
+        "priceQualityLabel": "Le prix d'aujourd'hui face au milieu des offres que nous pouvons comparer en ce moment, à raison d'un prix par vendeur."
+      },
+      "badge": {
+        "priceDrop": "Baisse de prix"
+      },
+      "unmeasured": {
+        "noActivePolicy": "Nous n'avons pas encore publié de définition pour cette comparaison.",
+        "insufficientObservations": "Nous n'avons pas enregistré assez de prix pour l'affirmer.",
+        "insufficientDistinctSellers": "Trop peu de vendeurs différents pour parler d'un marché.",
+        "insufficientDistinctOffers": "Trop peu d'offres distinctes à comparer.",
+        "insufficientTimeCoverage": "Nous n'observons pas cela depuis assez longtemps.",
+        "noEligibleCurrentOffer": "Il n'y a aucune offre que nous puissions comparer pour le moment.",
+        "noComparableHistory": "Nous n'avons pas d'historique de prix comparable pour cela.",
+        "currencyNotConvertible": "Nous ne pouvons pas exprimer ces prix dans la devise demandée.",
+        "segmentNotApplicable": "Cette comparaison n'est définie que pour les articles neufs.",
+        "measureNotApplicable": "Cette mesure ne s'applique pas ici.",
+        "demandMeasurementUnavailable": "Nous ne mesurons pas encore la demande pour un produit."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "Face à la médiane du marché",
+        "cheapestItemPrice": "Face au prix d'article le plus bas",
+        "cheapestKnownTotal": "Face au total le plus bas connu",
+        "losingEligibility": "Pourquoi cette offre n'est pas comparée",
+        "demandWithoutNativeOffer": "Demande sans offre de votre part",
+        "ownPriceMovement": "Face à votre propre prix précédent",
+        "officialChannelPosition": "Votre position de boutique officielle"
+      },
+      "eligibilityLoss": {
+        "observationStale": "Nous n'avons pas relevé cette offre récemment.",
+        "availabilityUnknown": "La source n'indique pas si c'est en stock.",
+        "deliveryCostUnknown": "Aucun frais de livraison n'est publié, cette offre ne peut donc pas figurer dans une comparaison de prix total.",
+        "destinationMissing": "Il n'y a aucun lien qu'un acheteur puisse suivre vers cette offre.",
+        "conditionUnknown": "L'état de cet article n'est pas indiqué sous une forme que nous puissions interpréter.",
+        "priceMissing": "Aucun prix n'est publié pour cette offre."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "Votre prix actuel est au-dessus de la médiane des offres que nous pouvons comparer.",
+        "deliveryUnknownBlocksKnownTotal": "La livraison est inconnue pour cette offre, nous ne pouvons donc pas en calculer un prix total.",
+        "refreshWouldRestoreEligibility": "Actualiser cette offre la ramènerait dans la comparaison.",
+        "wouldBeCheapestItemPrice": "À ce prix relevé, cette offre serait le prix d'article le plus bas dès qu'elle sera de nouveau comparée."
+      },
+      "sample": "D'après %{observations} prix provenant de %{sellers} vendeurs.",
+      "summary": {
+        "unmeasured": "%{title} : %{reason}",
+        "notPresent": "%{title} : nous avons comparé %{observations} prix provenant de %{sellers} vendeurs et n'en avons trouvé aucun.",
+        "labelBelow": "%{title} : %{label} — %{distance} en dessous du milieu de ce que nous pouvons comparer. %{confidence}. %{sample}",
+        "labelAbove": "%{title} : %{label} — %{distance} au-dessus du milieu de ce que nous pouvons comparer. %{confidence}. %{sample}",
+        "labelSame": "%{title} : %{label} — exactement le milieu de ce que nous pouvons comparer. %{confidence}. %{sample}",
+        "relativeBelow": "%{title} : %{distance} en dessous de la référence. %{sample}",
+        "relativeNear": "%{title} : %{distance} de la référence, à peu près au même niveau. %{sample}",
+        "relativeAbove": "%{title} : %{distance} au-dessus de la référence. %{sample}",
+        "drop": "%{title} : en baisse de %{distance} par rapport au dernier prix enregistré. %{sample}",
+        "moneyRange": "%{title} : la moitié centrale de ce que nous avons enregistré. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "Synchronisé depuis %{provider}",
+      "pinField": {
+        "title": "Titre",
+        "description": "Description",
+        "images": "Images",
+        "vendor": "Fournisseur",
+        "productType": "Type de produit",
+        "handle": "Identifiant d'URL",
+        "seo": "Titre et description SEO"
+      },
+      "pinTitle": "Champs que vous avez modifiés dans Mercaria",
+      "pinEffect": {
+        "honoured": "Une synchronisation ultérieure ne les écrase jamais : une modification que vous faites sur l'un d'eux sur la plateforme n'apparaîtra pas ici.",
+        "channelWins": "Le réglage « Conserver mes modifications locales » de ce canal est désactivé, la prochaine synchronisation les écrasera donc avec les valeurs de la plateforme.",
+        "unknown": "Qu'une synchronisation ultérieure les écrase dépend du réglage « Conserver mes modifications locales » du canal."
+      },
+      "pinRelease": "Pour tous les rendre d'un coup, désactivez « Conserver mes modifications locales » sur le canal. Cela s'applique à chaque champ modifié de chaque produit de ce canal.",
+      "pinUnnamed": {
+        "one": "%{count} champ de plus est retenu face à la synchronisation et cet écran ne peut pas le nommer.",
+        "other": "%{count} champs de plus sont retenus face à la synchronisation et cet écran ne peut pas les nommer."
+      }
     }
   }
 }

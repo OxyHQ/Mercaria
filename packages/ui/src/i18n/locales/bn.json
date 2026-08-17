@@ -66,6 +66,210 @@
         "one": "%{count} দিন",
         "other": "%{count} দিন"
       }
+    },
+    "basket": {
+      "result": {
+        "cheapestKnownItemPrices": "জানা সবচেয়ে কম পণ্যমূল্য",
+        "cheapestKnownTotal": "জানা সবচেয়ে কম মোট",
+        "fewestMerchants": "সবচেয়ে কম বিক্রেতা",
+        "bestNativePlan": "Mercaria-তে সেরা পরিকল্পনা",
+        "officialChannelPlan": "অফিশিয়াল চ্যানেলের পরিকল্পনা",
+        "bestNearbyPickup": "কাছাকাছি সংগ্রহ",
+        "usedOrRefurbishedValue": "ব্যবহৃত বা রিফারবিশড মূল্য",
+        "partialCoverage": "আংশিক পরিকল্পনা"
+      },
+      "resultDefinition": {
+        "cheapestKnownItemPrices": "শুধু পণ্যের দাম তুলনা করে। ডেলিভারি ও কর এই অঙ্কে ধরা নেই।",
+        "cheapestKnownTotal": "ডেলিভারিসহ পুরো মোট তুলনা করে। প্রতিটি দাম, প্রতিটি বিক্রেতার ডেলিভারি ও করের হিসাব জানা থাকলেই কেবল বের করা হয়।",
+        "fewestMerchants": "যে পরিকল্পনা আপনার ঝুড়িকে সবচেয়ে কম আলাদা কেনাকাটায় ভাগ করে।",
+        "bestNativePlan": "যেসব পণ্য আপনি সরাসরি Mercaria থেকে, এক কার্টেই কিনতে পারেন।",
+        "officialChannelPlan": "প্রতিটি পণ্য কোনো ব্র্যান্ডের যাচাই করা অফিশিয়াল চ্যানেল থেকে।",
+        "bestNearbyPickup": "এখানে এটি পরিকল্পনা করা হয় না — ঝুড়ির তুলনার জন্য দূরত্ব মাপার কোনো অবস্থান নেই। সংগ্রহের তথ্য পণ্যের নিজস্ব পাতায় দেখুন।",
+        "usedOrRefurbishedValue": "প্রতিটি পণ্য ব্যবহৃত বা রিফারবিশড।",
+        "partialCoverage": "কিছু পণ্য পরিকল্পনায় আনা যায়নি। বাকিগুলো কারণসহ দেখানো হয়েছে।"
+      },
+      "reason": {
+        "noEligibleOffer": "এই মুহূর্তে কেউ এটি বিক্রি করছে না",
+        "noOfferInRequestedCondition": "আপনার চাওয়া অবস্থায় কোনো অফার নেই",
+        "noOfferFromRequestedMerchant": "আপনার চাওয়া বিক্রেতার কোনো অফার নেই",
+        "everyOfferFromExcludedMerchant": "সব অফারই আপনার বাদ দেওয়া বিক্রেতার",
+        "noOfferInChannelPolicy": "আপনার বেছে নেওয়া চ্যানেলের সঙ্গে কোনো অফার মেলে না",
+        "noConvertiblePrice": "এমন মুদ্রায় দাম, যা আমরা রূপান্তর করতে পারি না",
+        "quantityExceedsAvailableStock": "বিক্রেতা জানাচ্ছেন যথেষ্ট মজুত নেই",
+        "quantityNotSplittable": "এই পরিমাণ একাধিক বিক্রেতার মধ্যে ভাগ করা যায় না",
+        "merchantLimitWouldBeExceeded": "এই পণ্য যোগ করলে আপনার বিক্রেতা সীমা ছাড়িয়ে যাবে",
+        "hardConstraintFailed": "আপনার দেওয়া একটি শর্ত পূরণ হয়নি",
+        "watchlistItemUnresolved": "ক্যাটালগ বদলের পর এই পণ্যের জন্য আপনাকে জানাতে হবে আপনি কোন পণ্য বোঝাতে চেয়েছিলেন",
+        "deliveryCostUnknown": "ডেলিভারি খরচ প্রকাশ করা হয়নি",
+        "taxInclusionUnknown": "কর অন্তর্ভুক্ত কি না তা প্রকাশ করা হয়নি",
+        "objectiveRequiresCompleteCosts": "কিছু খরচ অজানা, তাই পুরো মোট বলা যাচ্ছে না",
+        "objectiveRequiresNativeOffer": "Mercaria থেকে কেনা যাবে না",
+        "objectiveRequiresOfficialChannel": "কোনো যাচাই করা অফিশিয়াল চ্যানেল এটি বিক্রি করে না",
+        "objectiveRequiresUsedOffer": "ব্যবহৃত বা রিফারবিশড কোনো অফার নেই",
+        "pickupDataUnavailable": "সংগ্রহের দূরত্ব মাপার কোনো অবস্থান নেই",
+        "offerNoLongerEligible": "এই অফারটি আর পাওয়া যাচ্ছে না",
+        "offerPriceChanged": "এই পরিকল্পনা করার পর দাম বদলে গেছে"
+      },
+      "approximation": {
+        "candidateLimitReached": "এত অফার যে সবগুলো দেখা যায়নি",
+        "merchantLimitReached": "এত বিক্রেতা যে সব সমন্বয় দেখা যায়নি",
+        "timeLimitReached": "খোঁজার সময় ফুরিয়ে গেছে"
+      },
+      "optimalityProven": "আমরা যেসব অফার দেখতে পাচ্ছি, তার মধ্যে সেরা সম্ভাব্য পরিকল্পনা।",
+      "optimalityApproximate": "পাওয়া সেরা পরিকল্পনা — %{reason}।"
+    },
+    "comparison": {
+      "listSeparator": "; ",
+      "cellA11y": "%{label}: %{value}",
+      "cellInferredA11y": "%{label}: %{value}, অনুমিত",
+      "cellInferredNote": "রূপান্তরিত, উল্লেখ করা নেই",
+      "unknown": {
+        "notRecorded": "নথিভুক্ত নয়",
+        "conflictingSources": "সূত্রগুলো মিলছে না",
+        "lowConfidence": "বলার মতো যথেষ্ট নিশ্চয়তা নেই",
+        "unitNotComparable": "অন্য এককে নথিভুক্ত",
+        "definitionNotPublished": "এখানে দেখানো হচ্ছে না"
+      },
+      "notApplicable": {
+        "attributeOutOfCategory": "প্রযোজ্য নয়",
+        "attributeNotComparable": "তুলনাযোগ্য নয়"
+      },
+      "unavailable": {
+        "noEligibleOffer": "কোনো অফার পাওয়া যাচ্ছে না",
+        "allOffersConstrainedOut": "কোনো অফার আপনার শর্ত পূরণ করে না",
+        "noConvertiblePrice": "এই মুদ্রায় দাম বলা যায় এমন কোনো অফার নেই",
+        "offerComparisonWithheld": "এখানে অফার দেখানো হচ্ছে না"
+      },
+      "explanationRejection": {
+        "unknownRecordReference": "এমন নথির উল্লেখ করেছে যা দেওয়াই হয়নি",
+        "uncitedStatement": "কোনো নথি ছাড়াই দাবি করেছে",
+        "introducedNumber": "ডেটায় নেই এমন সংখ্যা এনেছে",
+        "constraintResultChanged": "একটি শর্তের ফল বদলে দিয়েছে",
+        "unknownConstraintReference": "এমন শর্তের উল্লেখ করেছে যা দেওয়াই হয়নি",
+        "forbiddenTopic": "এমন বিষয় তুলেছে যা সুপারিশে বিবেচনা করা যায় না",
+        "schemaInvalid": "প্রত্যাশিত কাঠামোর সঙ্গে মেলেনি",
+        "outputTooLong": "অনুমোদিত দৈর্ঘ্যের চেয়ে বড় ছিল",
+        "providerUnavailable": "কনফিগার করা নেই",
+        "providerError": "তার সঙ্গে যোগাযোগ করা যায়নি"
+      },
+      "explanationFallbackNotice": "এই সারসংক্ষেপ নিচের তুলনা টেবিল থেকে তৈরি, কোনো ভাষা মডেল ছাড়াই।"
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "ভালো দাম",
+        "typicalPrice": "স্বাভাবিক দাম",
+        "aboveTypical": "স্বাভাবিকের চেয়ে বেশি"
+      },
+      "confidence": {
+        "sufficient": "বলার মতো যথেষ্ট তুলনীয় অফারের ভিত্তিতে",
+        "strong": "তুলনীয় অফারের বিস্তৃত নমুনার ভিত্তিতে"
+      },
+      "position": {
+        "below": "-এর নিচে",
+        "near": "-এর প্রায় সমান",
+        "above": "-এর উপরে"
+      },
+      "title": {
+        "lowestObservedItemPrice": "আমরা দেখেছি এমন সবচেয়ে কম দাম",
+        "lowestObservedKnownTotal": "আমরা দেখেছি এমন সবচেয়ে কম মোট",
+        "currentVsRecentMedian": "সাম্প্রতিক স্বাভাবিক দামের তুলনায়",
+        "materialPriceDrop": "সাম্প্রতিক দাম কমা",
+        "typicalRecentRange": "সাম্প্রতিক স্বাভাবিক পরিসর",
+        "officialStorePosition": "অফিশিয়াল স্টোরের দাম",
+        "priceQualityLabel": "এই দাম কেমন"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "এই অবস্থায়, এই বাজারে ও এই সময়ে আমাদের নথিভুক্ত সবচেয়ে কম পণ্যমূল্য। যেসব দামকে আমরা তথ্যগত ভুল মনে করেছি সেগুলো সরিয়ে আলাদা করে দেখানো হয়েছে।",
+        "lowestObservedKnownTotal": "যেসব অফারের ডেলিভারি খরচ বিক্রেতা সত্যিই প্রকাশ করেছেন, তাদের মধ্যে ডেলিভারিসহ সবচেয়ে কম মোট। যারা কিছু প্রকাশ করেননি, তাদের বিনামূল্যে ধরে না নিয়ে বাদ দেওয়া হয়।",
+        "currentVsRecentMedian": "এই সময়ে আমাদের নথিভুক্ত দামের মাঝামাঝির তুলনায় আজকের দাম — অর্থাৎ সম্প্রতি নিজের সঙ্গেই তুলনা, আজকের অন্য বিক্রেতাদের সঙ্গে নয়।",
+        "materialPriceDrop": "আমরা নথিভুক্ত করেছি ও নির্ভরযোগ্য মনে করেছি এমন সাম্প্রতিকতম আগের দামের তুলনায় বর্তমান দাম কতটা কমেছে।",
+        "typicalRecentRange": "এই সময়ে আমাদের নথিভুক্ত দামগুলোর মাঝের অর্ধেক। দুই প্রান্তই এমন দাম যা কেউ সত্যিই নিয়েছিলেন।",
+        "officialStorePosition": "ব্র্যান্ড নিজের বলে যাচাই করেছে এমন স্টোরের দাম, তুলনাযোগ্য অন্যান্য নতুন অফারের বিপরীতে। ওই তুলনায় অফিশিয়াল স্টোরের নিজের দাম ধরা হয় না।",
+        "priceQualityLabel": "এখন যেসব অফার তুলনা করা যায় তাদের মাঝামাঝির তুলনায় আজকের দাম, প্রতি বিক্রেতার একটি দাম নিয়ে।"
+      },
+      "badge": {
+        "priceDrop": "দাম কমেছে"
+      },
+      "unmeasured": {
+        "noActivePolicy": "এই তুলনার সংজ্ঞা আমরা এখনও প্রকাশ করিনি।",
+        "insufficientObservations": "বলার মতো যথেষ্ট দাম আমরা নথিভুক্ত করিনি।",
+        "insufficientDistinctSellers": "একে বাজার বলার মতো আলাদা বিক্রেতা খুব কম।",
+        "insufficientDistinctOffers": "তুলনা করার মতো আলাদা অফার খুব কম।",
+        "insufficientTimeCoverage": "আমরা এটি যথেষ্ট সময় ধরে দেখছি না।",
+        "noEligibleCurrentOffer": "এই মুহূর্তে তুলনা করার মতো কোনো অফার নেই।",
+        "noComparableHistory": "এর জন্য আমাদের তুলনীয় দামের ইতিহাস নেই।",
+        "currencyNotConvertible": "আপনার চাওয়া মুদ্রায় আমরা এই দামগুলো প্রকাশ করতে পারি না।",
+        "segmentNotApplicable": "এই তুলনা কেবল নতুন পণ্যের জন্য নির্ধারিত।",
+        "measureNotApplicable": "এই মাপকাঠি এখানে প্রযোজ্য নয়।",
+        "demandMeasurementUnavailable": "আমরা এখনও কোনো পণ্যের চাহিদা মাপি না।"
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "বাজারের মধ্যকের তুলনায়",
+        "cheapestItemPrice": "সবচেয়ে কম পণ্যমূল্যের তুলনায়",
+        "cheapestKnownTotal": "জানা সবচেয়ে কম মোটের তুলনায়",
+        "losingEligibility": "এই অফারটি কেন তুলনায় নেই",
+        "demandWithoutNativeOffer": "আপনার অফার ছাড়াই চাহিদা",
+        "ownPriceMovement": "আপনার আগের দামের তুলনায়",
+        "officialChannelPosition": "অফিশিয়াল স্টোর হিসেবে আপনার অবস্থান"
+      },
+      "eligibilityLoss": {
+        "observationStale": "সম্প্রতি আমরা এই অফারটি নতুন করে পড়িনি।",
+        "availabilityUnknown": "সূত্রটি জানায় না এটি মজুতে আছে কি না।",
+        "deliveryCostUnknown": "কোনো ডেলিভারি খরচ প্রকাশ করা হয়নি, তাই এই অফারটি মোট দামের তুলনায় আসতে পারে না।",
+        "destinationMissing": "এই অফারে যাওয়ার মতো কোনো লিঙ্ক ক্রেতার জন্য নেই।",
+        "conditionUnknown": "এই পণ্যের অবস্থা এমনভাবে বলা হয়নি যা আমরা মেলাতে পারি।",
+        "priceMissing": "এই অফারের জন্য কোনো দাম প্রকাশ করা হয়নি।"
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "আপনার বর্তমান দাম তুলনাযোগ্য অফারগুলোর মধ্যকের চেয়ে বেশি।",
+        "deliveryUnknownBlocksKnownTotal": "এই অফারের ডেলিভারি অজানা, তাই আমরা এর মোট দাম হিসাব করতে পারি না।",
+        "refreshWouldRestoreEligibility": "এই অফারটি নতুন করে নিলে সেটি আবার তুলনায় ফিরে আসবে।",
+        "wouldBeCheapestItemPrice": "এই পর্যবেক্ষিত দামে, আবার তুলনায় ফিরলেই এই অফারটি সবচেয়ে কম পণ্যমূল্য হবে।"
+      },
+      "sample": "%{sellers} জন বিক্রেতার %{observations}টি দামের ভিত্তিতে।",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: আমরা %{sellers} জন বিক্রেতার %{observations}টি দাম তুলনা করে কিছুই পাইনি।",
+        "labelBelow": "%{title}: %{label} — যা তুলনা করা যায় তার মাঝামাঝির চেয়ে %{distance} কম। %{confidence}। %{sample}",
+        "labelAbove": "%{title}: %{label} — যা তুলনা করা যায় তার মাঝামাঝির চেয়ে %{distance} বেশি। %{confidence}। %{sample}",
+        "labelSame": "%{title}: %{label} — যা তুলনা করা যায় তার মাঝামাঝির ঠিক সমান। %{confidence}। %{sample}",
+        "relativeBelow": "%{title}: মানদণ্ডের চেয়ে %{distance} কম। %{sample}",
+        "relativeNear": "%{title}: মানদণ্ড থেকে %{distance} দূরে, প্রায় সমান। %{sample}",
+        "relativeAbove": "%{title}: মানদণ্ডের চেয়ে %{distance} বেশি। %{sample}",
+        "drop": "%{title}: আমাদের নথিভুক্ত শেষ দামের চেয়ে %{distance} কম। %{sample}",
+        "moneyRange": "%{title}: আমাদের নথিভুক্ত দামগুলোর মাঝের অর্ধেক। %{sample}",
+        "plain": "%{title}। %{sample}"
+      }
+    },
+    "connector": {
+      "provider": {
+        "shopify": "Shopify",
+        "woocommerce": "WooCommerce",
+        "etsy": "Etsy",
+        "prestashop": "PrestaShop",
+        "magento": "Magento"
+      },
+      "syncedFrom": "%{provider} থেকে সিঙ্ক করা",
+      "pinField": {
+        "title": "শিরোনাম",
+        "description": "বিবরণ",
+        "images": "ছবি",
+        "vendor": "সরবরাহকারী",
+        "productType": "পণ্যের ধরন",
+        "handle": "URL হ্যান্ডেল",
+        "seo": "SEO শিরোনাম ও বিবরণ"
+      },
+      "pinTitle": "যেসব ক্ষেত্র আপনি Mercaria-তে সম্পাদনা করেছেন",
+      "pinEffect": {
+        "honoured": "পরবর্তী কোনো সিঙ্ক এগুলো কখনও মুছে লেখে না, তাই প্ল্যাটফর্মে এগুলোর কোনোটিতে আপনার করা পরিবর্তন এখানে দেখা যাবে না।",
+        "channelWins": "এই চ্যানেলের «আমার স্থানীয় সম্পাদনা রাখুন» সেটিংটি বন্ধ, তাই পরবর্তী সিঙ্ক প্ল্যাটফর্মের মান দিয়ে এগুলো মুছে লিখবে।",
+        "unknown": "পরবর্তী সিঙ্ক এগুলো মুছে লিখবে কি না তা চ্যানেলের «আমার স্থানীয় সম্পাদনা রাখুন» সেটিং ঠিক করে।"
+      },
+      "pinRelease": "সবগুলো একসঙ্গে ফিরিয়ে দিতে, চ্যানেলে «আমার স্থানীয় সম্পাদনা রাখুন» বন্ধ করুন। এটি এই চ্যানেলের প্রতিটি পণ্যের প্রতিটি সম্পাদিত ক্ষেত্রের ক্ষেত্রে প্রযোজ্য।",
+      "pinUnnamed": {
+        "one": "আরও %{count}টি ক্ষেত্র সিঙ্ক থেকে আটকে রাখা হয়েছে যার নাম এই স্ক্রিন বলতে পারে না।",
+        "other": "আরও %{count}টি ক্ষেত্র সিঙ্ক থেকে আটকে রাখা হয়েছে যেগুলোর নাম এই স্ক্রিন বলতে পারে না।"
+      }
     }
   }
 }
