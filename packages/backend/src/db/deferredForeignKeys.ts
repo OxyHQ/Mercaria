@@ -2043,4 +2043,37 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'at one instant rather than a live pointer, so a key would additionally make a stale scan ' +
       'record able to block a merge or a retirement it has no opinion about.',
   },
+
+  // ── Catalog administration and governance (#367 Workstream 12) ──
+  //
+  // Five tables that hold DECISIONS about the catalogue and no catalogue fact.
+  // The two subject pointers are polymorphic across nine subject kinds AND must
+  // outlive whatever they describe — a `restrict` key would let a decided change
+  // request block a catalogue merge, and every other `ON DELETE` would erase or
+  // silently empty the record of what an operator decided. The
+  // `catalog_proposals.resolved_entity_id` ruling, one domain up.
+  { column: 'catalog_governance_change_requests.requested_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_governance_change_requests.approved_by_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'catalog_governance_change_requests.subject_id',
+    reason:
+      'What a governance change points at (#367 Workstream 12) — a category, a product type ' +
+      'version, an attribute definition, a navigation tree, a definition snapshot, a vertical ' +
+      'package or an operator role. One column cannot reference seven tables, and a decided ' +
+      'request must remain readable after its subject has been merged away: the record of what ' +
+      'an operator decided is the one thing this table exists to keep.',
+  },
+  { column: 'catalog_governance_audit_events.actor_oxy_user_id', reason: OXY_ACCOUNT },
+  {
+    column: 'catalog_governance_audit_events.subject_id',
+    reason:
+      'What an audited act was about (#367 Workstream 12). Same polymorphism as the change ' +
+      'request above, and a stronger reason: this table is append-only against UPDATE and ' +
+      'DELETE, so a foreign key would make deleting the subject either impossible or a way to ' +
+      'remove the audit trail by removing what it describes.',
+  },
+  { column: 'catalog_governance_role_grants.subject_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_governance_role_grants.granted_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_governance_role_grants.revoked_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'catalog_governance_definition_snapshots.created_by_oxy_user_id', reason: OXY_ACCOUNT },
 ];

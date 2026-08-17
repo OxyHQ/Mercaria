@@ -565,3 +565,14 @@ export * from './catalogAuthoring';
 // `catalog_authoring_drafts` selection ruling — which is also why this domain
 // adds NO entry to `services/curation/merge-plan.ts`.
 export * from './catalogProposals';
+
+// Catalog administration and governance (#367 Workstream 12) — the LAST export,
+// because it references nothing and is referenced by nothing. Its five tables
+// hold decisions ABOUT the definitions above (change requests, their measured
+// impact, the audit trail, role grants and definition snapshots) and no
+// catalogue fact, so every subject pointer is polymorphic and carries no foreign
+// key. It deliberately does NOT import `catalog`, `productTypes`,
+// `attributeRegistry` or `navigation`: the impact PLAN
+// (`services/catalog-governance/impact-plan.ts`) names those columns, and a
+// schema-level dependency would be a second place the reference graph is stated.
+export * from './catalogGovernance';
