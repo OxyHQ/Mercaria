@@ -118,8 +118,18 @@ export function legacyOptionNameToKey(rawName: string): string | null {
  * looked up by the caller through `resolveActiveDefinition` — this module opens
  * no database. `collidesWithSiblingOption` is the one ambiguity the backfill can
  * genuinely produce: two of ONE listing's option names folding to one key, which
- * `native_listing_variant_axes_listing_attribute_key` would refuse and which
  * must not be resolved by taking whichever row came first.
+ *
+ * **And `collidesWithSiblingOption` is the ONLY thing that stops that coin
+ * toss.** An earlier version of this comment said
+ * `native_listing_variant_axes_listing_attribute_key` "would refuse" the
+ * collision. It does not: `insertListingVariantAxis` writes
+ * `.onConflictDoNothing({ target: [listingId, attributeKey] })` on exactly that
+ * pair, so the second of two colliding names is absorbed as "already declared"
+ * and returns `{ created: false }` — which is precisely "whichever came first",
+ * arrived at silently and with no error anywhere. The unique index makes the
+ * duplicate ROW impossible; it does nothing about the AMBIGUITY, and only a
+ * caller that computes this flag before writing does.
  */
 export interface LegacyOptionNameInput {
   readonly rawName: string;

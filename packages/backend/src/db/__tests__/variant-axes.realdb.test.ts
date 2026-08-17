@@ -40,7 +40,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { listings, productVariants } from '../schema/catalog.js';
@@ -357,6 +357,224 @@ describe('an assignment belongs to its own listing', () => {
         normalizedValue: 'black',
         sourceClaimId: claim.id,
       }),
+    );
+  });
+});
+
+describe('an assignment cites a claim that RESOLVED to something', () => {
+  /**
+   * The claims table carries
+   * `(value_resolution = 'resolved') = (normalized_value is not null)`, so a
+   * claim that is `unresolved`, `blocked` or `refused` resolved to NOTHING —
+   * while `native_variant_axis_assignments.normalized_value` is NOT NULL. An
+   * assignment citing one is not merely unsupported by its citation, it is
+   * CONTRADICTED by it, and in the `refused` case the contradiction is a person
+   * having said no.
+   *
+   * Reachable without any manual SQL: `recordVariantAttributeClaim` is
+   * `ON CONFLICT DO NOTHING` and the backfill reads the converged row back in
+   * order to cite it, so a run before the attribute definition is published
+   * writes a `blocked` claim and skips the assignment, and a run after it
+   * publishes converges on that same `blocked` claim and cites it.
+   */
+  async function axisAndVariant(
+    label: string,
+  ): Promise<{ listingId: string; axisId: string; variantId: string }> {
+    const listingId = await makeListing(label);
+    const [axis] = await db
+      .insert(nativeListingVariantAxes)
+      .values(axisValues(listingId, colorAttribute))
+      .returning();
+    return { listingId, axisId: axis.id, variantId: await makeVariant(listingId, label) };
+  }
+
+  /**
+   * Write the assignment WITH its signature, in one transaction.
+   *
+   * A deferred constraint trigger refuses a variant that has assignments and no
+   * signature row — the identity and its parts commit together or not at all —
+   * so an accepting case has to write both. The refusing cases below do not,
+   * because their insert never reaches the end of the transaction.
+   */
+  async function acceptAssignment(
+    where: { listingId: string; axisId: string; variantId: string },
+    sourceClaimId: string | null,
+  ): Promise<typeof nativeVariantAxisAssignments.$inferSelect> {
+    return db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(nativeVariantAxisAssignments)
+        .values(assignment(where.axisId, where.variantId, sourceClaimId))
+        .returning();
+      await tx.insert(nativeVariantSignatures).values({
+        variantId: where.variantId,
+        listingId: where.listingId,
+        signature: typedVariantSignature([
+          { attributeDefinitionId: colorAttribute.id, normalizedValue: 'negro' },
+        ]),
+        axisCount: 1,
+      });
+      return row;
+    });
+  }
+
+  function assignment(
+    axisId: string,
+    variantId: string,
+    sourceClaimId: string | null,
+  ): typeof nativeVariantAxisAssignments.$inferInsert {
+    return {
+      variantId,
+      axisId,
+      attributeDefinitionId: colorAttribute.id,
+      attributeKey: colorAttribute.key,
+      displayValue: 'Negro',
+      normalizedValue: 'negro',
+      sourceClaimId,
+    };
+  }
+
+  it('accepts a citation of a claim that resolved — the positive control', async () => {
+    // Without this the three refusals below are satisfied by a trigger that
+    // refuses every citation, which would break the backfill's whole audit trail
+    // while reading as three passing tests.
+    const where = await axisAndVariant('cite-resolved');
+    const { variantId } = where;
+    const [claim] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(
+        claimValues(variantId, {
+          attributeResolution: 'resolved',
+          attributeDefinitionId: colorAttribute.id,
+          attributeDefinitionVersion: colorAttribute.version,
+          valueResolution: 'resolved',
+          normalizedValue: 'negro',
+        }),
+      )
+      .returning();
+    const row = await acceptAssignment(where, claim.id);
+    expect(row.sourceClaimId).toBe(claim.id);
+  });
+
+  it('accepts an assignment citing NO claim, because the column is legitimately nullable', async () => {
+    // The authoring path IS the registry answer — the merchant picked from a form
+    // composed out of it — so there is no claim to cite. `NOT NULL` here would
+    // force a caller to invent a claim row to satisfy the schema, which is how a
+    // constraint manufactures the fiction it was added to prevent.
+    const where = await axisAndVariant('cite-none');
+    const row = await acceptAssignment(where, null);
+    expect(row.sourceClaimId).toBeNull();
+  });
+
+  it('refuses a citation of a BLOCKED claim — the backfill convergence case', async () => {
+    const { axisId, variantId } = await axisAndVariant('cite-blocked');
+    const [claim] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(
+        claimValues(variantId, {
+          attributeResolution: 'blocked',
+          attributeRefusal: 'unmapped',
+          valueResolution: 'blocked',
+          valueRefusal: 'attribute_unresolved',
+        }),
+      )
+      .returning();
+    expect(claim.normalizedValue, 'a blocked claim resolved to nothing, by CHECK').toBeNull();
+
+    await expectRaise(/cannot support a typed value/i, () =>
+      db.insert(nativeVariantAxisAssignments).values(assignment(axisId, variantId, claim.id)),
+    );
+  });
+
+  it('refuses a citation of a REFUSED claim — somebody said no', async () => {
+    const { axisId, variantId } = await axisAndVariant('cite-refused');
+    const [claim] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(
+        claimValues(variantId, {
+          attributeResolution: 'refused',
+          attributeRefusal: 'operator_refused',
+          valueResolution: 'refused',
+          valueRefusal: 'operator_refused',
+          // `_operator_refusal_audit_check`: a refusal is somebody's decision, so
+          // the row cannot exist without naming who made it and when.
+          resolvedByOxyUserId: `operator_${RUN}`,
+          resolvedAt: new Date('2026-02-01T00:00:00.000Z'),
+        }),
+      )
+      .returning();
+
+    await expectRaise(/cannot support a typed value/i, () =>
+      db.insert(nativeVariantAxisAssignments).values(assignment(axisId, variantId, claim.id)),
+    );
+  });
+
+  it('refuses a citation of an UNRESOLVED claim, which is the column default', async () => {
+    // `claimValues` states no resolution, so this is the row a connector import
+    // writes: an assertion with nothing settled about it yet.
+    const { axisId, variantId } = await axisAndVariant('cite-unresolved');
+    const [claim] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(claimValues(variantId))
+      .returning();
+    expect(claim.valueResolution).toBe('unresolved');
+
+    await expectRaise(/cannot support a typed value/i, () =>
+      db.insert(nativeVariantAxisAssignments).values(assignment(axisId, variantId, claim.id)),
+    );
+  });
+
+  it('runs the migration census query, in both directions, over its own rows', async () => {
+    // The migration counts violators and RAISES the number into the deploy log
+    // rather than repairing them. That count is only worth having if the query
+    // works, and a count of zero is what both a clean database and a broken join
+    // return — so this drives the SAME join scoped to this file's listings, in
+    // both directions.
+    //
+    // `count(*)::int` deliberately: postgres.js decodes `bigint` as a STRING,
+    // so an uncast count compares unequal to every number.
+    const scoped = async (predicate: 'resolved' | 'unresolved'): Promise<number> => {
+      const rows = await db.execute(sql`
+        select count(*)::int as n
+          from native_variant_axis_assignments a
+          join native_variant_attribute_claims c on c.id = a.source_claim_id
+          join product_variants v on v.id = a.variant_id
+         where v.listing_id in ${createdListingIds.length > 0 ? sql`(${sql.join(createdListingIds.map((id) => sql`${id}`), sql`, `)})` : sql`(null)`}
+           and c.value_resolution ${predicate === 'resolved' ? sql`=` : sql`<>`} 'resolved'
+      `);
+      return Number(rows[0].n);
+    };
+
+    // The POSITIVE control: the accepting case above wrote exactly this shape, so
+    // a join that matched nothing would fail here rather than reporting a
+    // reassuring zero below.
+    expect(
+      await scoped('resolved'),
+      'the census join found no citation at all — it is measuring nothing',
+    ).toBeGreaterThanOrEqual(1);
+
+    // And the census proper: with the trigger installed, no row this file could
+    // write cites a claim that did not resolve.
+    expect(await scoped('unresolved')).toBe(0);
+  });
+
+  it('still distinguishes the WRONG VARIANT from an unresolved one', async () => {
+    // Two facts, two messages. Folding them into one `not exists` made "that
+    // claim is about another variant" and "that claim resolved to nothing"
+    // indistinguishable in the trace, and they lead an operator to opposite
+    // conclusions. This asserts the FIRST message still fires for a claim that
+    // is both about another variant AND unresolved, so the new clause did not
+    // swallow the old refusal.
+    const first = await axisAndVariant('cite-order-a');
+    const second = await axisAndVariant('cite-order-b');
+    const [claim] = await db
+      .insert(nativeVariantAttributeClaims)
+      .values(claimValues(second.variantId))
+      .returning();
+
+    await expectRaise(/is not a claim about variant/i, () =>
+      db
+        .insert(nativeVariantAxisAssignments)
+        .values(assignment(first.axisId, first.variantId, claim.id)),
     );
   });
 });
