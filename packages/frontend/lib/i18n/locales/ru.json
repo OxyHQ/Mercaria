@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "История цен — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "Навигационная цепочка"
+    },
+    "filters": {
+      "title": "Фильтры",
+      "clear": "Сбросить всё",
+      "none": "Здесь нет доступных фильтров.",
+      "unavailableHere": "Всё ещё применены, но недоступны для этих результатов:",
+      "removeFilter": "Убрать этот фильтр",
+      "unknownCount": "%{count} не указано",
+      "droppedFromLink": "Не удалось применить фильтров из этой ссылки: %{count}.",
+      "pricesNotConverted": "Некоторые цены сюда не вошли: не удалось конвертировать %{currencies}."
+    },
+    "specs": {
+      "title": "Характеристики",
+      "product": "Об этом товаре",
+      "variant": "Об этой конфигурации",
+      "definitionsUnavailable": "Некоторые названия показаны так, как они хранятся.",
+      "untranslated": "Некоторые названия ещё не переведены на ваш язык."
+    },
+    "variants": {
+      "unavailable": "нет в наличии",
+      "impossible": "не выпускается",
+      "availabilityUnknown": "Наличие для этого товара сейчас не показывается."
+    },
+    "compatibility": {
+      "title": "Совместимость"
+    },
+    "category": {
+      "fallbackTitle": "Категория",
+      "notFound": "Мы не нашли эту категорию.",
+      "subcategories": "Подкатегории",
+      "empty": "Под эти фильтры пока ничего не подходит."
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Head from 'expo-router/head';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
@@ -7,6 +7,7 @@ import type {
   OfferComparisonIntent,
   ProductPageSeller,
 } from '@mercaria/shared-types';
+import { OFFER_COMPARISON_INTENTS } from '@mercaria/shared-types';
 import { OfferLabelBadge, Text } from '@mercaria/ui';
 import { ScreenShell } from '@/components/shell/ScreenShell';
 import { Footer } from '@/components/shell/Footer';
@@ -16,6 +17,20 @@ import { OfferGroups } from '@/components/product/OfferGroups';
 import { PriceHistoryPanel } from '@/components/product/PriceHistoryPanel';
 import { ProductIdentity } from '@/components/product/ProductIdentity';
 import { VariantSelector } from '@/components/product/VariantSelector';
+import { CompatibilityPanel } from '@/components/catalog/CompatibilityPanel';
+import { SpecificationGroups } from '@/components/catalog/SpecificationGroups';
+import { VariantAxisSelector } from '@/components/catalog/VariantAxisSelector';
+import { resolveProductCompatibility } from '@/lib/catalog/compatibility';
+import { useCatalogContext } from '@/lib/catalog/context';
+import {
+  useAttributeDefinitions,
+  useSpecificationTable,
+} from '@/lib/catalog/use-specifications';
+import {
+  applyVariantChoice,
+  composeVariantMatrix,
+  type VariantSelection,
+} from '@/lib/catalog/variant-axes';
 import { OFFER_INTENT_LABELS, useProductPage } from '@/lib/hooks/use-product-page';
 import { useProductScopeReviews } from '@/lib/hooks/use-reviews';
 import { useAddCartItem } from '@/lib/hooks/use-cart';
@@ -81,6 +96,62 @@ export default function CanonicalProductPageScreen() {
   const addToCart = useAddCartItem();
   const toggleProductSave = useToggleProductSave();
 
+  /*
+    The schema-driven half of the page (#367 workstream 9).
+
+    Every one of these hooks runs BEFORE the loading and error returns below,
+    because hook order is not allowed to depend on a fetch. Each is `enabled`ed
+    on the id it needs, so with the page still loading none of them issues a
+    request.
+  */
+  const catalogContext = useCatalogContext();
+  const definitions = useAttributeDefinitions(page?.product.categoryId);
+  const specifications = useSpecificationTable({
+    categoryId: page?.product.categoryId,
+    canonicalProductId: page?.product.id,
+    canonicalVariantId: selectedVariantId,
+  });
+
+  /**
+   * The axis selection.
+   *
+   * The URL carries the RESOLVED configuration (`?variant=`) and nothing else,
+   * which is what a shared link should mean: a shopper hands somebody a
+   * configuration, never a half-made choice. A partial selection is transient UI
+   * state, so it lives here and seeds itself from whatever `?variant=` names —
+   * `undefined` state meaning "nobody has touched the selector yet", which is
+   * different from an empty selection somebody arrived at by unselecting.
+   */
+  const [axisSelection, setAxisSelection] = useState<VariantSelection | undefined>(undefined);
+  const selectionFromUrl = useMemo<VariantSelection>(() => {
+    const variant = page?.variants.find((entry) => entry.id === selectedVariantId);
+    if (variant === undefined) return {};
+    const assignments: Record<string, string> = {};
+    for (const option of variant.options) assignments[option.key] = option.normalizedValue;
+    return assignments;
+  }, [page?.variants, selectedVariantId]);
+
+  const variantMatrix = useMemo(
+    () =>
+      composeVariantMatrix({
+        product: { variantDefiningAttributeKeys: page?.product.variantDefiningAttributeKeys ?? [] },
+        variants: page?.variants ?? [],
+        definitions: definitions.data ?? [],
+        locale: catalogContext.locale,
+        selection: axisSelection ?? selectionFromUrl,
+      }),
+    [
+      page?.product.variantDefiningAttributeKeys,
+      page?.variants,
+      definitions.data,
+      catalogContext.locale,
+      axisSelection,
+      selectionFromUrl,
+    ],
+  );
+
+  const compatibility = resolveProductCompatibility(page?.product.id ?? '');
+
   const head = (
     <Head>
       <title>{page?.product.name ? `${page.product.name} — Mercaria` : 'Mercaria'}</title>
@@ -128,16 +199,51 @@ export default function CanonicalProductPageScreen() {
               })}
         />
 
-        <VariantSelector
-          variants={page.variants}
-          {...(selectedVariantId === undefined ? {} : { selectedVariantId })}
-          onSelect={(variantId) =>
-            // `setParams` updates the URL WITHOUT pushing a history entry, so
-            // changing configuration does not bury the page somebody arrived
-            // from under a stack of swatch changes (#71 UX rule 6).
-            router.setParams({ variant: variantId ?? '' })
-          }
-        />
+        {/*
+          One control per ACTUAL axis where the product has axes (#367
+          workstream 9), and the configuration list where its configurations
+          differ on nothing recorded.
+
+          The fallback is not a legacy path being tolerated: a product whose
+          variants carry no option assignments has no axis to build a control
+          from, and `VariantSelector` names each configuration by the only thing
+          that identifies it — which is the honest selector for that case.
+        */}
+        {variantMatrix.axes.length > 0 ? (
+          <VariantAxisSelector
+            matrix={variantMatrix}
+            onChoose={(axisKey, normalizedValue) => {
+              const next = applyVariantChoice(
+                variantMatrix,
+                page.variants,
+                axisKey,
+                normalizedValue,
+              );
+              setAxisSelection(next);
+              const resolved = composeVariantMatrix({
+                product: {
+                  variantDefiningAttributeKeys: page.product.variantDefiningAttributeKeys,
+                },
+                variants: page.variants,
+                definitions: definitions.data ?? [],
+                locale: catalogContext.locale,
+                selection: next,
+              }).selectedVariantId;
+              // `setParams` updates the URL WITHOUT pushing a history entry, so
+              // changing configuration does not bury the page somebody arrived
+              // from under a stack of swatch changes (#71 UX rule 6). A
+              // selection that resolves to no single configuration clears it,
+              // because the page is then showing every configuration's offers.
+              router.setParams({ variant: resolved ?? '' });
+            }}
+          />
+        ) : (
+          <VariantSelector
+            variants={page.variants}
+            {...(selectedVariantId === undefined ? {} : { selectedVariantId })}
+            onSelect={(variantId) => router.setParams({ variant: variantId ?? '' })}
+          />
+        )}
 
         <Highlights page={page} />
 
@@ -182,6 +288,27 @@ export default function CanonicalProductPageScreen() {
             router.push(buildNearbyHref(page.product.id, selectedVariantId))
           }
         />
+
+        {/*
+          The specification table (#367 workstream 9), from #94's registry — the
+          SAME definitions the authoring wizard composes its form from. Seated
+          after the offers because a shopper decides who to buy from before they
+          read the spec sheet, and before the price history because the history
+          is about a decision they have already made.
+        */}
+        <SpecificationGroups
+          table={specifications.table}
+          definitionsUnavailable={specifications.definitionsUnavailable}
+        />
+
+        {/*
+          Compatibility and fitment (#367 workstream 5). Renders NOTHING today:
+          the domain is fully modelled and has no public read, so
+          `resolveProductCompatibility` refuses by name rather than composing a
+          fit claim from a title or an attribute. See
+          `lib/catalog/compatibility.ts`.
+        */}
+        <CompatibilityPanel compatibility={compatibility} />
 
         <PriceHistoryPanel
           canonicalProductId={page.product.id}
@@ -296,6 +423,16 @@ function Highlights({ page }: { page: CanonicalProductPage }) {
   );
 }
 
+/**
+ * The intent a page shows when the shopper has chosen none.
+ *
+ * The FIRST member of the tuple, not the literal `'balanced'`, so the default
+ * and the vocabulary cannot drift apart — and the read is total, because
+ * `OFFER_COMPARISON_INTENTS` is a closed set that is never empty. It also
+ * matches what the server does with an absent `intent` parameter.
+ */
+const DEFAULT_OFFER_INTENT: OfferComparisonIntent = OFFER_COMPARISON_INTENTS[0];
+
 /** The intent control — a documented primary sort key, never a re-weighting (#74). */
 function IntentPicker({
   intent,
@@ -304,8 +441,13 @@ function IntentPicker({
   intent: OfferComparisonIntent | undefined;
   onSelect: (intent: OfferComparisonIntent | undefined) => void;
 }) {
-  const options: OfferComparisonIntent[] = ['balanced', 'cheapest', 'fastest', 'official', 'used'];
-  const current = intent ?? 'balanced';
+  // The tuple, never a re-listing of it. A member added to
+  // `OfferComparisonIntent` appears here on the next build; a hand-written array
+  // is a SUBSET that goes on compiling while the control silently stops offering
+  // the new sort — the drift `scripts/validate-storefront-catalog-driven.mjs`
+  // wall 5 exists to refuse.
+  const options = OFFER_COMPARISON_INTENTS;
+  const current = intent ?? DEFAULT_OFFER_INTENT;
 
   return (
     <View className="gap-space-8" accessibilityRole="radiogroup" accessibilityLabel="Sort offers by">
@@ -317,7 +459,7 @@ function IntentPicker({
             accessibilityRole="radio"
             accessibilityState={{ checked: current === option }}
             accessibilityLabel={OFFER_INTENT_LABELS[option]}
-            onPress={() => onSelect(option === 'balanced' ? undefined : option)}
+            onPress={() => onSelect(option === DEFAULT_OFFER_INTENT ? undefined : option)}
             className={`rounded-radius-max border px-space-16 py-space-8 ${
               current === option ? 'border-text bg-bg-fill' : 'border-border-secondary'
             }`}
@@ -410,8 +552,7 @@ function buildNearbyHref(canonicalProductId: string, variant: string | undefined
 
 /** A query parameter is a string; only a real intent survives it. */
 function readIntent(value: string | undefined): OfferComparisonIntent | undefined {
-  const intents: OfferComparisonIntent[] = ['balanced', 'cheapest', 'fastest', 'official', 'used'];
-  return intents.find((intent) => intent === value);
+  return OFFER_COMPARISON_INTENTS.find((intent) => intent === value);
 }
 
 /** Loading placeholder mirroring the page's own rhythm. */

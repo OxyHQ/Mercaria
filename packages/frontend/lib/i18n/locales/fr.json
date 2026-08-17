@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "Historique des prix — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "Fil d'Ariane"
+    },
+    "filters": {
+      "title": "Filtres",
+      "clear": "Tout effacer",
+      "none": "Aucun filtre n'est disponible ici.",
+      "unavailableHere": "Toujours appliqués, mais non proposés pour ces résultats :",
+      "removeFilter": "Retirer ce filtre",
+      "unknownCount": "%{count} non précisé",
+      "droppedFromLink": "%{count} filtres de ce lien n'ont pas pu être appliqués.",
+      "pricesNotConverted": "Certains prix ne sont pas inclus ici : %{currencies} n'a pas pu être converti."
+    },
+    "specs": {
+      "title": "Caractéristiques",
+      "product": "À propos de ce produit",
+      "variant": "À propos de cette configuration",
+      "definitionsUnavailable": "Certains noms sont affichés tels qu'ils sont enregistrés.",
+      "untranslated": "Certains noms ne sont pas encore traduits dans votre langue."
+    },
+    "variants": {
+      "unavailable": "non disponible",
+      "impossible": "non fabriqué",
+      "availabilityUnknown": "La disponibilité n'est pas affichée pour ce produit pour le moment."
+    },
+    "compatibility": {
+      "title": "Compatibilité"
+    },
+    "category": {
+      "fallbackTitle": "Catégorie",
+      "notFound": "Nous n'avons pas trouvé cette catégorie.",
+      "subcategories": "Sous-catégories",
+      "empty": "Rien ne correspond encore à ces filtres."
+    }
   }
 }

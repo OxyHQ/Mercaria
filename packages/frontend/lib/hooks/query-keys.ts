@@ -321,4 +321,34 @@ export const queryKeys = {
     performance: (dimension: string, from: string, through: string) =>
       ["referral-partner", "performance", dimension, from, through] as const,
   },
+  /**
+   * The universal catalog surfaces the storefront reads (#367 workstream 9).
+   *
+   * Every key carries the DIMENSIONS the answer varies by, and the six of them
+   * are separate for the reason `lib/catalog/context.ts` keeps them separate: a
+   * navigation tree is published per `(market, locale, surface)`, so a key
+   * naming only the locale would serve Germany's menu to a Spanish shopper in
+   * Spain the moment they switched reading language.
+   *
+   * `navigation` carries no `source` discriminant even though the answer does.
+   * Which endpoint replied is a property of the DEPLOYMENT, not of the request,
+   * and putting it in the key would give the taxonomy-v2 answer and its parity
+   * fallback two cache entries that can never both be right.
+   */
+  catalog: {
+    all: ["catalog"] as const,
+    navigation: (market: string, locale: string, surface: string) =>
+      ["catalog", "navigation", market, locale, surface] as const,
+    facets: (scope: string, selection: string, locale: string, currency: string) =>
+      ["catalog", "facets", scope, selection, locale, currency] as const,
+    attributeDefinitions: (categoryId: string) =>
+      ["catalog", "attribute-definitions", categoryId] as const,
+    attributeValues: (entityKind: string, entityId: string) =>
+      ["catalog", "attribute-values", entityKind, entityId] as const,
+    /**
+     * `GET /seo/resolve`. Keyed on the PATH and nothing else: the answer is a
+     * property of the address, and the endpoint takes no other input.
+     */
+    seoPath: (path: string) => ["catalog", "seo", path] as const,
+  },
 } as const;

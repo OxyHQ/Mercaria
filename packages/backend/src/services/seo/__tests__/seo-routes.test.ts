@@ -241,11 +241,18 @@ describe('DIRECTION 3: a planned route has NOT quietly shipped', () => {
       ).toBe(false);
       checked += 1;
     }
-    // Floor DOWN from 3 to 2 with #72: `product_family` and `brand` flipped to
-    // `live` in the same change that shipped their screens, leaving
-    // `category_browse` (`planned`) and `native_store_legacy` (`redirect_only`)
-    // — a floor that could never drop would forbid exactly that flip.
-    expect(checked, 'no non-live route was checked').toBeGreaterThanOrEqual(2);
+    // Floor DOWN from 3 to 2 with #72 (`product_family` and `brand` flipped to
+    // `live` with their screens), and from 2 to 1 with #367 workstream 9
+    // (`category_browse` flipped with `app/(app)/categories/[handle].tsx`). A
+    // floor that could never drop would forbid exactly the flip this test
+    // exists to force.
+    //
+    // ONE is the last useful value: it proves the loop body ran. Only
+    // `native_store_legacy` is non-live now, and it is `redirect_only` on
+    // purpose and forever — so if this floor is ever asked to go to zero, the
+    // test has stopped measuring anything and should be deleted rather than
+    // weakened.
+    expect(checked, 'no non-live route was checked').toBeGreaterThanOrEqual(1);
   });
 });
 

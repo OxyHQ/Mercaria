@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "দামের ইতিহাস — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "ব্রেডক্রাম্ব"
+    },
+    "filters": {
+      "title": "ফিল্টার",
+      "clear": "সব মুছুন",
+      "none": "এখানে কোনো ফিল্টার নেই।",
+      "unavailableHere": "এখনও প্রযোজ্য, তবে এই ফলাফলের জন্য দেওয়া হয়নি:",
+      "removeFilter": "এই ফিল্টারটি সরান",
+      "unknownCount": "%{count}টির তথ্য দেওয়া নেই",
+      "droppedFromLink": "এই লিঙ্কের %{count}টি ফিল্টার প্রয়োগ করা যায়নি।",
+      "pricesNotConverted": "কিছু দাম এখানে অন্তর্ভুক্ত নয়: %{currencies} রূপান্তর করা যায়নি।"
+    },
+    "specs": {
+      "title": "বৈশিষ্ট্য",
+      "product": "এই পণ্য সম্পর্কে",
+      "variant": "এই কনফিগারেশন সম্পর্কে",
+      "definitionsUnavailable": "কিছু নাম যেভাবে সংরক্ষিত আছে ঠিক সেভাবেই দেখানো হচ্ছে।",
+      "untranslated": "কিছু নাম এখনও আপনার ভাষায় অনূদিত হয়নি।"
+    },
+    "variants": {
+      "unavailable": "পাওয়া যাচ্ছে না",
+      "impossible": "তৈরি হয় না",
+      "availabilityUnknown": "এই পণ্যের প্রাপ্যতা এখন দেখানো হচ্ছে না।"
+    },
+    "compatibility": {
+      "title": "সামঞ্জস্য"
+    },
+    "category": {
+      "fallbackTitle": "বিভাগ",
+      "notFound": "এই বিভাগটি আমরা খুঁজে পাইনি।",
+      "subcategories": "উপবিভাগ",
+      "empty": "এই ফিল্টারগুলোর সঙ্গে মেলে এমন কিছু এখনও নেই।"
+    }
   }
 }

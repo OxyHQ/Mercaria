@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "Price history — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "Breadcrumb"
+    },
+    "filters": {
+      "title": "Filters",
+      "clear": "Clear all",
+      "none": "No filters are available here.",
+      "unavailableHere": "Still applied, but not offered for these results:",
+      "removeFilter": "Remove this filter",
+      "unknownCount": "%{count} not stated",
+      "droppedFromLink": "%{count} filters in this link could not be applied.",
+      "pricesNotConverted": "Some prices are not included here: %{currencies} could not be converted."
+    },
+    "specs": {
+      "title": "Specifications",
+      "product": "About this product",
+      "variant": "About this configuration",
+      "definitionsUnavailable": "Some names are shown exactly as they are stored.",
+      "untranslated": "Some names are not translated into your language yet."
+    },
+    "variants": {
+      "unavailable": "not available",
+      "impossible": "not made",
+      "availabilityUnknown": "Availability is not shown for this product right now."
+    },
+    "compatibility": {
+      "title": "Compatibility"
+    },
+    "category": {
+      "fallbackTitle": "Category",
+      "notFound": "We couldn't find this category.",
+      "subcategories": "Subcategories",
+      "empty": "Nothing here matches these filters yet."
+    }
   }
 }

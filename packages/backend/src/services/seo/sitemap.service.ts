@@ -17,10 +17,12 @@ import { config } from '../../config/index.js';
 import { getDb } from '../../db/postgres.js';
 import {
   countBrandsForSitemap,
+  countCategoriesForSitemap,
   countCanonicalProductsForSitemap,
   countMerchantsForSitemap,
   latestProductLastmod,
   listBrandSitemapPage,
+  listCategorySitemapPage,
   listCanonicalProductSitemapPage,
   listMerchantSitemapPage,
   type SeoSitemapCandidateRow,
@@ -87,10 +89,10 @@ function readerFor(collection: SeoSitemapCollection): CollectionReader | null {
         page: (offset, limit) => listMerchantSitemapPage(db, offset, limit),
       };
     case 'categories':
-      // Unreachable: `category_browse` has no resolver, so the guard above
-      // already answered. The branch keeps the switch total, so adding a
-      // collection without a reader fails `tsc`.
-      return null;
+      return {
+        count: () => countCategoriesForSitemap(db),
+        page: (offset, limit) => listCategorySitemapPage(db, offset, limit),
+      };
   }
 }
 

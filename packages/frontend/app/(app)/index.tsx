@@ -15,6 +15,7 @@ import { HeroSearch } from "@/components/shell/HeroSearch";
 import { Footer } from "@/components/shell/Footer";
 import { useFeed } from "@/lib/hooks/use-feed";
 import { useCart } from "@/lib/hooks/use-cart";
+import { categoryHref } from "@/lib/catalog/routes";
 
 /** Number of placeholder shelves shown while the feed loads. */
 const SKELETON_SHELF_COUNT = 2;
@@ -108,7 +109,20 @@ function FeedBody({ data, isLoading, isError, refetch }: FeedBodyProps) {
           list and each section's items against undefined. */}
       {(data?.sections ?? []).map((section) => {
         if (section.kind === "category-pills") {
-          return <CategoryPills key={section.id} pills={section.pills ?? []} />;
+          return (
+            <CategoryPills
+              key={section.id}
+              pills={section.pills ?? []}
+              // #367 workstream 9: the pills were inert because `/categories`
+              // did not exist. They now open the category landing page, by the
+              // SLUG where the feed supplies one and by the id otherwise —
+              // `/categories/:handle` resolves either, so a pill whose slug is
+              // empty is still addressable rather than dead.
+              onPressPill={(id, slug) =>
+                router.push(categoryHref(slug.length > 0 ? slug : id))
+              }
+            />
+          );
         }
         if (section.kind === "products") {
           return (

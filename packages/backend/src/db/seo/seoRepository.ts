@@ -51,6 +51,7 @@ import {
   canonicalProductSourceLinks,
   productIdentifiers,
 } from '../schema/canonicalCatalog.js';
+import { categories, listings } from '../schema/catalog.js';
 import { catalogSourceConfigs, catalogSourcePolicies } from '../schema/ingestion.js';
 import { brands } from '../schema/organizations.js';
 import { merchants } from '../schema/merchants.js';
@@ -381,4 +382,190 @@ export async function latestProductLastmod(db: DatabaseOrTransaction): Promise<D
     .from(canonicalFieldProvenance)
     .where(isNotNull(canonicalFieldProvenance.productId));
   return row?.latest ?? null;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Categories (#367 workstream 9)                                             */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * One category, as the SEO resolver needs it.
+ *
+ * A narrow projection rather than the taxonomy DTO: this domain composes a
+ * title, a trail and an indexability verdict, and a row carrying a lifecycle it
+ * does not read is a row somebody eventually reads.
+ */
+export interface CategorySeoRow {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly lifecycle: string;
+  readonly isActive: boolean;
+  /** Root-first, excluding this row — the taxonomy's own authority (ADR 0007 D2). */
+  readonly ancestorIds: readonly string[];
+  readonly mergedIntoCategoryId: string | null;
+  readonly updatedAt: Date | null;
+}
+
+const CATEGORY_SEO_COLUMNS = {
+  id: categories.id,
+  slug: categories.slug,
+  name: categories.name,
+  lifecycle: categories.lifecycle,
+  isActive: categories.isActive,
+  ancestorIds: categories.ancestorIds,
+  mergedIntoCategoryId: categories.mergedIntoCategoryId,
+  updatedAt: categories.updatedAt,
+} as const;
+
+/**
+ * One category by its public handle — its ID or its current SLUG.
+ *
+ * The id is tried FIRST and in its own statement. An id is opaque and a slug is
+ * chosen, so one query `where id = $1 or slug = $1` would let a category whose
+ * slug happened to equal another's id shadow it — and the shadowing row is the
+ * one a shopper never asked for. Two statements make the precedence explicit
+ * rather than dependent on which row the planner returned.
+ *
+ * Every lifecycle is returned, including `merged` and `suppressed`: the caller
+ * decides what to do with a withdrawn category, and a read that hid them would
+ * make a tombstone indistinguishable from an address that never existed.
+ */
+export async function findCategorySeoRow(
+  db: DatabaseOrTransaction,
+  handle: string,
+): Promise<CategorySeoRow | undefined> {
+  const [byId] = await db
+    .select(CATEGORY_SEO_COLUMNS)
+    .from(categories)
+    .where(eq(categories.id, handle))
+    .limit(1);
+  if (byId) return byId;
+
+  const [bySlug] = await db
+    .select(CATEGORY_SEO_COLUMNS)
+    .from(categories)
+    .where(eq(categories.slug, handle))
+    .limit(1);
+  return bySlug;
+}
+
+/**
+ * The ancestors of one category, root-first, for its breadcrumb trail.
+ *
+ * Ordered in TypeScript from `ancestorIds` rather than by any column: that
+ * array IS the root-first order, and an `order by position` would re-derive it
+ * from sibling ordering, which says nothing about depth. An ancestor row that
+ * has gone missing is simply absent from the trail — a breadcrumb with a hole
+ * is better than one that invents a level.
+ */
+export async function listCategoryBreadcrumb(
+  db: DatabaseOrTransaction,
+  ancestorIds: readonly string[],
+): Promise<readonly { readonly id: string; readonly slug: string; readonly name: string }[]> {
+  if (ancestorIds.length === 0) return [];
+  const rows = await db
+    .select({ id: categories.id, slug: categories.slug, name: categories.name })
+    .from(categories)
+    .where(inArray(categories.id, [...ancestorIds]));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ancestorIds.flatMap((id) => {
+    const row = byId.get(id);
+    return row === undefined ? [] : [row];
+  });
+}
+
+/**
+ * How many active listings each of these categories' pages shows.
+ *
+ * Counted on `category_slugs`, which carries the category's own slug plus every
+ * ancestor's, because that is what the browse read filters on — so this is the
+ * number a shopper sees rather than a different one computed from
+ * `category_id`. A parent's page legitimately counts its descendants' listings;
+ * counting only direct assignments would call every grouping level thin.
+ */
+export async function countActiveListingsInCategories(
+  db: DatabaseOrTransaction,
+  slugs: readonly string[],
+): Promise<ReadonlyMap<string, number>> {
+  if (slugs.length === 0) return new Map();
+  const totals = new Map<string, number>();
+  for (const slug of slugs) {
+    const [row] = await db
+      .select({ total: count() })
+      .from(listings)
+      .where(
+        and(
+          eq(listings.status, 'active'),
+          sql`${listings.categorySlugs} @> array[${slug}]::text[]`,
+        ),
+      );
+    totals.set(slug, row?.total ?? 0);
+  }
+  return totals;
+}
+
+/** Every category the sitemap may consider. */
+export async function countCategoriesForSitemap(db: DatabaseOrTransaction): Promise<number> {
+  const [row] = await db.select({ total: count() }).from(categories);
+  return row?.total ?? 0;
+}
+
+/**
+ * One page of category sitemap candidates.
+ *
+ * `catalogueEntryCount` is the listing count its page shows, so the same
+ * `assessCatalogueContent` that judges a brand judges a category — a shelf with
+ * one item on it duplicates that item's own page, which is #75 policy rule 8
+ * arriving through the taxonomy's door.
+ *
+ * `categoryId` is the row's OWN id, which is what makes a canary cohort able to
+ * include a category at all: every other candidate type answers `null` there
+ * unless it carries somebody else's category.
+ */
+export async function listCategorySitemapPage(
+  db: DatabaseOrTransaction,
+  offset: number,
+  limit: number,
+): Promise<SeoSitemapCandidateRow[]> {
+  const rows = await db
+    .select({
+      id: categories.id,
+      slug: categories.slug,
+      name: categories.name,
+      lifecycle: categories.lifecycle,
+      isActive: categories.isActive,
+      updatedAt: categories.updatedAt,
+    })
+    .from(categories)
+    .orderBy(asc(categories.id))
+    .limit(limit)
+    .offset(offset);
+
+  const counts = await countActiveListingsInCategories(
+    db,
+    rows.map((row) => row.slug),
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    // The policy reads a `status`, and a category states its state in two
+    // columns. `published AND is_active` is the conjunction the public
+    // navigation read already uses (`docs/navigation.md`): the derived flag and
+    // the lifecycle can disagree until the `post` migration lands, and a page
+    // should be withheld when EITHER says withdrawn.
+    status: row.lifecycle === 'published' && row.isActive ? 'active' : 'suppressed',
+    categoryId: row.id,
+    lastmod: row.updatedAt,
+    // A category is Mercaria's own taxonomy record; the listings beneath it
+    // carry their sources' rights on their own pages.
+    indexRightGranted: true,
+    // A category has no description column, so its content IS its catalogue.
+    descriptionLength: 0,
+    imageCount: 0,
+    identifierCount: 0,
+    catalogueEntryCount: counts.get(row.slug) ?? 0,
+  }));
 }

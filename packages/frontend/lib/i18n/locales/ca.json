@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "Historial de preus — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "Ruta de navegació"
+    },
+    "filters": {
+      "title": "Filtres",
+      "clear": "Esborra-ho tot",
+      "none": "Aquí no hi ha filtres disponibles.",
+      "unavailableHere": "Encara s'apliquen, però no s'ofereixen per a aquests resultats:",
+      "removeFilter": "Elimina aquest filtre",
+      "unknownCount": "%{count} sense indicar",
+      "droppedFromLink": "No s'han pogut aplicar %{count} filtres d'aquest enllaç.",
+      "pricesNotConverted": "Alguns preus no s'inclouen aquí: no s'han pogut convertir %{currencies}."
+    },
+    "specs": {
+      "title": "Especificacions",
+      "product": "Sobre aquest producte",
+      "variant": "Sobre aquesta configuració",
+      "definitionsUnavailable": "Alguns noms es mostren tal com estan desats.",
+      "untranslated": "Alguns noms encara no estan traduïts al teu idioma."
+    },
+    "variants": {
+      "unavailable": "no disponible",
+      "impossible": "no es fabrica",
+      "availabilityUnknown": "Ara mateix no es mostra la disponibilitat d'aquest producte."
+    },
+    "compatibility": {
+      "title": "Compatibilitat"
+    },
+    "category": {
+      "fallbackTitle": "Categoria",
+      "notFound": "No hem trobat aquesta categoria.",
+      "subcategories": "Subcategories",
+      "empty": "Encara no hi ha res que coincideixi amb aquests filtres."
+    }
   }
 }

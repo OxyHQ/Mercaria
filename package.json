@@ -31,6 +31,7 @@
     "validate:authoring-schema": "bun ./scripts/validate-authoring-schema-driven.mjs && bun ./scripts/test-validate-authoring-schema-driven.mjs",
     "validate:money-formatting": "bun ./scripts/validate-money-formatting.mjs && bun ./scripts/test-validate-money-formatting.mjs",
     "validate:agents-md": "bun ./scripts/check-agents-md-size.mjs && bun ./scripts/test-check-agents-md-size.mjs",
+    "validate:storefront-catalog": "bun ./scripts/validate-storefront-catalog-driven.mjs && bun ./scripts/test-validate-storefront-catalog-driven.mjs",
     "android": "bun run --filter @mercaria/frontend android",
     "ios": "bun run --filter @mercaria/frontend ios",
     "web": "bun run --filter @mercaria/frontend web",

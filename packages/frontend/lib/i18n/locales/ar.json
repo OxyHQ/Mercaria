@@ -156,5 +156,41 @@
   },
   "product": {
     "priceHistoryHeading": "سجل الأسعار — %{segment}"
+  },
+  "catalog": {
+    "breadcrumbs": {
+      "label": "مسار التنقل"
+    },
+    "filters": {
+      "title": "عوامل التصفية",
+      "clear": "مسح الكل",
+      "none": "لا تتوفر عوامل تصفية هنا.",
+      "unavailableHere": "ما زالت مطبَّقة، لكنها غير متاحة لهذه النتائج:",
+      "removeFilter": "إزالة عامل التصفية هذا",
+      "unknownCount": "%{count} غير مذكورة",
+      "droppedFromLink": "تعذّر تطبيق %{count} من عوامل التصفية في هذا الرابط.",
+      "pricesNotConverted": "بعض الأسعار غير مُدرجة هنا: تعذّر تحويل %{currencies}."
+    },
+    "specs": {
+      "title": "المواصفات",
+      "product": "عن هذا المنتج",
+      "variant": "عن هذا التكوين",
+      "definitionsUnavailable": "تُعرض بعض الأسماء كما هي مخزَّنة تمامًا.",
+      "untranslated": "بعض الأسماء لم تُترجم إلى لغتك بعد."
+    },
+    "variants": {
+      "unavailable": "غير متوفر",
+      "impossible": "غير مُصنَّع",
+      "availabilityUnknown": "لا يُعرض التوفّر لهذا المنتج حاليًا."
+    },
+    "compatibility": {
+      "title": "التوافق"
+    },
+    "category": {
+      "fallbackTitle": "الفئة",
+      "notFound": "لم نتمكن من العثور على هذه الفئة.",
+      "subcategories": "الفئات الفرعية",
+      "empty": "لا يوجد بعد ما يطابق عوامل التصفية هذه."
+    }
   }
 }
