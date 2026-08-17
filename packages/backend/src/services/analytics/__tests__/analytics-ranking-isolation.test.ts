@@ -16,20 +16,20 @@
  *     which produces more clicks, which the rollup would then feed back into
  *     the ordering).
  *
- *  2. **Analytics must not read commercial standing.** The rollup and the read
- *     surfaces never touch the fee domain, the referral domain or any plan, so a
- *     metric cannot be weighted by what a merchant pays even if somebody wanted
- *     to. The ONE payment import the domain may make is the verified-conversion
- *     seam, which reads `payments`/`orders` for the conversion numerator —
- *     identity rule 8 requires exactly that, and it is named explicitly here so
- *     the exception is a decision rather than a hole.
+ *  2. **Analytics must not read commercial standing.** No module of the domain
+ *     touches the fee domain, the referral domain or any plan, so a metric
+ *     cannot be weighted by what a merchant pays even if somebody wanted to. The
+ *     ONE payment import the domain may make is the verified-conversion seam,
+ *     which reads `payments`/`orders` for the conversion numerator — identity
+ *     rule 8 requires exactly that, and it is named explicitly here so the
+ *     exception is a decision rather than a hole.
  *
  * Both scanners carry the metro-gate defences (`~/Oxy/AGENTS.md`): a vacuity
  * floor and a mutation self-test.
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -140,35 +140,306 @@ describe('organic ranking cannot read analytics', () => {
   });
 });
 
-describe('analytics cannot read commercial standing', () => {
-  /**
-   * Every module in the domain that COMPUTES or SERVES a number. The emitter
-   * and the schema are excluded deliberately — they carry no measurement.
-   */
-  const MEASUREMENT_PATHS = [
-    'services/analytics/rollup.ts',
-    'services/analytics/metrics.ts',
-    'services/analytics/merchant-analytics.service.ts',
-    'services/analytics/operator-analytics.service.ts',
-    'services/analytics/experiments.ts',
-    'db/analytics/rollupRepository.ts',
-    'db/analytics/eventRepository.ts',
-    'db/analytics/searchQueryRepository.ts',
-  ];
+/** What a module of this domain is called, wherever it lives. */
+const ANALYTICS_NAME_PATTERN = /analytics/i;
 
-  it('no measurement module references the fee or referral domain', () => {
-    let scanned = 0;
-    for (const relative of MEASUREMENT_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+/**
+ * Every `.ts` in a shared flat directory whose NAME carries the domain.
+ *
+ * `controllers/`, `routes/` and `db/schema/` hold every domain at once, so the
+ * population there cannot be the directory — it is the directory narrowed by
+ * name, which is still a derivation rather than a list.
+ */
+function analyticsNamedIn(directory: string): string[] {
+  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .filter((entry) => ANALYTICS_NAME_PATTERN.test(entry.name))
+    .map((entry) => `${directory}/${entry.name}`)
+    .sort();
+}
+
+/** The two directories this domain OWNS outright, walked recursively. */
+const ANALYTICS_OWNED_DIRECTORIES = ['services/analytics', 'db/analytics'] as const;
+
+/** The shared directories a domain module lives in under a domain NAME. */
+const ANALYTICS_SHARED_DIRECTORIES = [
+  'controllers',
+  'routes',
+  'routes/admin',
+  'middleware',
+  'db/schema',
+] as const;
+
+/**
+ * The whole analytics domain, DERIVED — not the eight modules somebody
+ * remembered.
+ *
+ * It was an eight-entry hand list called `MEASUREMENT_PATHS`, whose docblock
+ * read *"Every module in the domain that COMPUTES or SERVES a number. The
+ * emitter and the schema are excluded deliberately — they carry no
+ * measurement."* Measured (#535): the domain is **28** modules, so a stated
+ * exclusion of TWO was doing the work of twenty — and four of the twenty are
+ * hard to read as carrying no measurement at all, quoting their own headers:
+ * `verified-conversion.ts` is *"the ONE seam through which analytics reads
+ * financial truth"*, `search-instrumentation.ts` is *"instrumenting one
+ * search"*, `db/analytics/experimentRepository.ts` owns the experiment tables,
+ * and `retention.ts` performs the query redaction the shared sweep cannot.
+ *
+ * #535 asked which half was wrong, the sentence or the list, and said only
+ * #77's owner could say. The answer measured here is that **the distinction
+ * was unnecessary**: the wall is *"no analytics module references the fee or
+ * referral domain"*, and it is TRUE of all 28. So the population needs no
+ * notion of *"computes or serves a number"* — nothing has to be classified,
+ * and **the exclusion set is EMPTY**. It is empty because it was measured, not
+ * because it was guessed: a guessed exemption excuses what can never match,
+ * and the two modules that DO look like exceptions turned out to mention
+ * `fee_schedules` only in prose (see the comment-stripping test below).
+ */
+function analyticsDomainModules(): string[] {
+  return [
+    ...ANALYTICS_OWNED_DIRECTORIES.flatMap((directory) => walk(directory)),
+    ...ANALYTICS_SHARED_DIRECTORIES.flatMap((directory) => analyticsNamedIn(directory)),
+  ];
+}
+
+/**
+ * MEASURED on this branch: 16 + 5 in the owned directories, 2 + 2 + 1 + 1 + 1
+ * in the shared ones.
+ *
+ * Floors, never counts, and floors set BELOW the population rather than at it —
+ * a floor at the population is a pin wearing a floor's name, and makes "bump the
+ * number" the cheapest green for the legitimate case the derivation exists to
+ * serve (a module ADDED tomorrow). They are placed where a traversal that found
+ * NOTHING fails and a routine deletion does not.
+ *
+ * The three shared directories that hold exactly one analytics module get a
+ * floor of 1, which is unavoidably both — one is what "found nothing" means when
+ * there is one. That is the right failure anyway: `routes/admin/analytics.ts` is
+ * the whole merchant analytics surface, and its disappearance is a decision
+ * somebody should be made to take rather than a number to lower.
+ */
+const ANALYTICS_MODULE_FLOORS: ReadonlyArray<readonly [string, number]> = [
+  ['services/analytics/', 12],
+  ['db/analytics/', 3],
+  ['controllers/', 1],
+  ['routes/', 1],
+  ['routes/admin/', 1],
+  ['middleware/', 1],
+  ['db/schema/', 1],
+];
+
+/**
+ * The derived population is only as honest as the assertion that it was really
+ * traversed: per-SHAPE floors (never one total — the seven `readdirSync` calls
+ * break independently, and a single number lets one collapse to zero while the
+ * others carry it), plus a `statSync` on every member so a listing that has
+ * started returning stale or cached names goes red instead of handing the scan
+ * files that no longer exist.
+ */
+function assertAnalyticsDomainIsWhole(modules: readonly string[]): void {
+  const prefixes = ANALYTICS_MODULE_FLOORS.map(([prefix]) => prefix);
+  for (const [prefix, floor] of ANALYTICS_MODULE_FLOORS) {
+    // `routes/` would otherwise swallow `routes/admin/`, and then the admin
+    // floor could be met by a module that is not in that directory at all. The
+    // subtraction is against the other SHAPES rather than against "has another
+    // slash", so a future `services/analytics/rollups/` counts toward the
+    // owned-directory floor it belongs to instead of falling out of every shape.
+    const inShape = modules.filter(
+      (relative) =>
+        relative.startsWith(prefix) &&
+        !prefixes.some(
+          (other) => other !== prefix && other.startsWith(prefix) && relative.startsWith(other),
+        ),
+    );
+    expect(
+      inShape.length,
+      `the walk of ${prefix} produced ${inShape.length} modules; a traversal that found ` +
+        'nothing scans clean and reports the same green as a domain with no violations',
+    ).toBeGreaterThanOrEqual(floor);
+  }
+  // No test file may enter the scanned set: a gate that scans its own probes
+  // reports violations it wrote itself.
+  expect(modules.filter((relative) => relative.includes('__tests__'))).toEqual([]);
+  for (const relative of modules) {
+    expect(
+      statSync(join(SRC_ROOT, relative)).isFile(),
+      `${relative} is not a file — did it move?`,
+    ).toBe(true);
+  }
+}
+
+/** Read a domain module, refusing an empty or moved file. */
+function readDomainSource(relative: string): string {
+  const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
+  expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(200);
+  return source;
+}
+
+/** Comments removed — the house shape for a census over source. */
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+/**
+ * The same source with comments removed — what the commercial detector scans.
+ *
+ * Not a convenience, and not a narrowing taken to make the widened population
+ * fit. `db/schema/analytics.ts` explains that an active experiment's allocation
+ * is frozen by trigger *"the `fee_schedules` shape, for the same reason"*, and
+ * `db/analytics/experimentRepository.ts` says the same thing about the same
+ * trigger. Both are the domain documenting a MECHANISM it borrows, in exactly
+ * the vocabulary this detector looks for; scanning prose would make each honest
+ * explanation a violation, and a gate with known false positives is one whoever
+ * hits it next disables.
+ */
+function readDomainCode(relative: string): string {
+  const stripped = stripComments(readDomainSource(relative));
+  // A vacuity floor on the STRIPPED text too: a stripper that ate the file
+  // would make every assertion below pass against nothing. Measured minimum
+  // across the population: 332 non-whitespace characters.
+  expect(
+    stripped.replace(/\s+/g, '').length,
+    `${relative} has almost no code left after comment stripping — check the stripper`,
+  ).toBeGreaterThan(100);
+  return stripped;
+}
+
+describe('analytics cannot read commercial standing', () => {
+  it('no analytics module references the fee or referral domain', () => {
+    const modules = analyticsDomainModules();
+    assertAnalyticsDomainIsWhole(modules);
+    for (const relative of modules) {
       expect(
-        COMMERCIAL_REFERENCE.test(source),
+        COMMERCIAL_REFERENCE.test(readDomainCode(relative)),
         `${relative} references commercial standing; a metric weighted by what a merchant pays ` +
           'is the sale of organic rank one join away',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(MEASUREMENT_PATHS.length);
+  });
+
+  it('the derivation covers what the hand list named, and only this domain', () => {
+    // A derivation that replaced a list owes the proof that it still selects
+    // everything the list named — anything it stopped selecting silently left
+    // the scan, and a smaller population is indistinguishable from a cleaner
+    // tree.
+    const modules = analyticsDomainModules();
+    for (const named of [
+      'services/analytics/rollup.ts',
+      'services/analytics/metrics.ts',
+      'services/analytics/merchant-analytics.service.ts',
+      'services/analytics/operator-analytics.service.ts',
+      'services/analytics/experiments.ts',
+      'db/analytics/rollupRepository.ts',
+      'db/analytics/eventRepository.ts',
+      'db/analytics/searchQueryRepository.ts',
+    ]) {
+      expect(modules, `the derivation stopped selecting ${named}`).toContain(named);
+    }
+    // …and the four #535 named as behind no wall, which is the point of the
+    // conversion rather than a bonus.
+    for (const widened of [
+      'services/analytics/verified-conversion.ts',
+      'services/analytics/search-instrumentation.ts',
+      'services/analytics/retention.ts',
+      'db/analytics/experimentRepository.ts',
+    ]) {
+      expect(modules, `${widened} is still outside the wall`).toContain(widened);
+    }
+    // …and the shared directories contribute their analytics modules and NOT
+    // their neighbours', or this wall would fire at whoever edits an order.
+    expect(modules).toContain('controllers/analytics-operator.controller.ts');
+    expect(modules).toContain('routes/admin/analytics.ts');
+    expect(modules).toContain('db/schema/analytics.ts');
+    for (const foreign of [
+      'controllers/orders.controller.ts',
+      'routes/offers.ts',
+      'db/schema/orders.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(modules, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // The probe that justifies the whole conversion, kept as a test rather than
+    // as a claim that one was run once. A hand list that is COMPLETE today
+    // passes every floor and every count it carries; the only way it fails is a
+    // module nobody adds to it.
+    //
+    // Written against the DERIVATION rather than the filesystem: seeding a real
+    // file would mutate a tree shared with every parallel suite. What is under
+    // test is that the population is computed from a directory walk and a name
+    // rule, so a module the rule admits is a module the scan gets — proven by
+    // reconstructing the set independently and comparing.
+    const modules = analyticsDomainModules();
+    const reconstructed = [
+      ...ANALYTICS_OWNED_DIRECTORIES.flatMap((directory) => walk(directory)),
+      ...ANALYTICS_SHARED_DIRECTORIES.flatMap((directory) =>
+        readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+          .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+          .filter((entry) => ANALYTICS_NAME_PATTERN.test(entry.name))
+          .map((entry) => `${directory}/${entry.name}`)
+          .sort(),
+      ),
+    ];
+    expect(reconstructed).toEqual(modules);
+    // An owned directory admits ANY name, so a new module there is scanned
+    // whatever it is called — which is the case the hand list missed.
+    expect(walk('services/analytics')).toContain('services/analytics/seams.ts');
+    // A shared directory admits it by name; these are names a plausible new
+    // analytics module would carry.
+    for (const name of [
+      'analytics-demand.controller.ts',
+      'internal-analytics-exports.ts',
+      'analytics.ts',
+    ]) {
+      expect(
+        ANALYTICS_NAME_PATTERN.test(name),
+        `a new ${name} would not be scanned; the population is not derived from the name`,
+      ).toBe(true);
+    }
+    expect(ANALYTICS_NAME_PATTERN.test('orders.controller.ts')).toBe(false);
+  });
+
+  it('comment stripping removes prose and nothing else — and it is load-bearing here', () => {
+    // The stripper is the one narrowing this gate makes, so it carries its own
+    // self-test in BOTH directions: a mention in prose is removed, and a
+    // mention in CODE survives — including on a line that also carries a
+    // trailing comment, which is the shape a real violation would hide behind.
+    expect(COMMERCIAL_REFERENCE.test(stripComments('/** the `fee_schedules` shape */'))).toBe(false);
+    expect(COMMERCIAL_REFERENCE.test(stripComments('// mirrors fee_schedules'))).toBe(false);
+    expect(
+      COMMERCIAL_REFERENCE.test(stripComments("const t = 'fee_schedules';")),
+      'the stripper ate real code; every wall above would then pass against nothing',
+    ).toBe(true);
+    expect(
+      COMMERCIAL_REFERENCE.test(stripComments("import { x } from '../fees/y.js'; // seam")),
+    ).toBe(true);
+    // A URL is not a comment: `https://…` must survive, or the stripper is
+    // eating the rest of every line that carries one.
+    expect(stripComments("const u = 'https://example.test/a';")).toContain('example.test/a');
+
+    // And the measurement that makes the narrowing a decision rather than a
+    // convenience: at least one module of the population mentions the fee
+    // domain in PROSE and not in code, so raw-scanning this population is not
+    // available. If this ever reaches zero the stripping can be DROPPED and the
+    // wall tightened — the failure is an invitation to make the gate stricter,
+    // never to delete a line.
+    const modules = analyticsDomainModules();
+    const proseOnly = modules.filter(
+      (relative) =>
+        COMMERCIAL_REFERENCE.test(readDomainSource(relative)) &&
+        !COMMERCIAL_REFERENCE.test(readDomainCode(relative)),
+    );
+    expect(
+      proseOnly.length,
+      'no module documents the fee domain any more; comment stripping has stopped being ' +
+        'load-bearing here and this gate can scan raw source again',
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('the commercial detector actually detects — the mutation self-test', () => {
