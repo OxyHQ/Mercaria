@@ -1,7 +1,7 @@
 # Catalog observability and data quality (#367 Workstreams 16 and 17)
 
 The full reference for the catalog observability domain: the metric registry, the
-latency budgets, the ancestry benchmark ADR 0007 D2 is provisional on, the
+latency budgets, the ancestry benchmark that settled ADR 0007 D2, the
 periodic integrity checks, the publication trace, the structured-log allow-list
 and the operator surface that serves all of it.
 
@@ -745,7 +745,12 @@ text[]` plus the GIN index `categories_ancestor_ids_idx`) over a closure table
 and over a bare recursive CTE, and said in as many words: *"The choice is
 provisional on a benchmark … if the materialized path loses to a recursive CTE at
 a realistic scale, the ADR is amended before the alternative is adopted, never
-after."* It is also the first entry under the ADR's own "Open items".
+after."* It was also the first entry under the ADR's own "Open items".
+
+**Both are now settled.** The benchmark ran, it confirms the materialized path,
+D2 carries the numbers and the one shape whose result is conditional, and the
+open item is struck through and marked CLOSED. Read the rest of this section as
+the record of a decision that was made rather than one that is pending.
 
 `services/catalog-observability/ancestry-benchmark.ts` is that benchmark, and
 `__tests__/ancestry-benchmark.realdb.test.ts` runs it against a real PostgreSQL

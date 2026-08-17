@@ -90,7 +90,7 @@ is a trigger — the resolution the ADR itself reaches one paragraph later for
 cycles. `canonical_product_families` is deliberately not covered: a family is
 itself a grouping, which is the legitimate case `selectable = false` describes.
 
-## Ancestry is a materialized path, provisionally
+## Ancestry is a materialized path, and the benchmark settled it
 
 `ancestor_ids` (root-first, excluding the row) with a GIN index, and
 `ancestor_slugs` as its v1 spelling beside it. Both are written by the one
@@ -100,9 +100,23 @@ subtree's slug path from the id path.
 
 A materialized path rather than a closure table because the shape was already
 here and already indexed, the tree is shallow and small, and every hot read is
-descendants-of or breadcrumb-of. **ADR 0007 D2 makes the choice provisional on
-#61's benchmark** and says the ADR is amended before an alternative is adopted,
-never after.
+descendants-of or breadcrumb-of.
+
+**That choice was provisional on a benchmark; the benchmark has RUN and it
+confirms the choice, so the provisionality is retired.** ADR 0007 D2 carries the
+numbers: `services/catalog-observability/ancestry-benchmark.ts` seeds 5,010
+categories over six levels plus 5,760 canonical products and measures each shape
+both ways, and over seven runs the descendants reads — the ones that carry the
+decision — are won by the materialized path every time, by 1.56× to 6.59×.
+
+Two results are worth carrying rather than rounding off. The **breadcrumb is a
+tie on every run**, with the recursive CTE marginally ahead, and the cause is
+this repository rather than the strategy: `findCategoryAncestors` answers in two
+round trips where the CTE takes one. And the **category-scoped read is
+conditional on the planner choosing `categories_ancestor_ids_idx`**, which at
+this size is a selectivity decision and not a stable one — two of the seven runs
+came out against the materialized path on that shape alone. No index was added
+and none is needed.
 
 ## Redirects are append-only, and corrections chain
 

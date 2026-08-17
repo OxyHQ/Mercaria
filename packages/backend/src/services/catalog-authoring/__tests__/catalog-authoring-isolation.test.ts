@@ -228,11 +228,28 @@ const WALLS: readonly Wall[] = [
     // four. A read across a boundary is a join; a write across one is a second
     // authority — and the one that would arrive first is a "small" update of
     // `listings` that skipped the publication chokepoint.
-    pattern: /\.\s*(insert|update|delete)\s*\(\s*(attributeDefinitions|attributeLabels|attributeEnumValues|categories|productTypeDefinitions|productTypeFields|productTypeFieldGroups|productTypeCategoryScopes|canonicalProducts|canonicalVariants|brands|productIdentifiers|listings|productVariants)\s*\)/u,
+    //
+    // `canonicalAttributeValues` was MISSING from this alternation until #367's
+    // invariants audit, and it is the one whose absence had a rule behind it:
+    // ADR 0007 D7 says a claim becomes a canonical fact only through the
+    // selection and provenance machinery, and this wall omitting the SELECTED
+    // fact meant a publish path promoting a claim straight into it shipped
+    // green. `db/__tests__/canonical-attribute-value-chokepoint.test.ts` is the
+    // census over the whole tree; this is the same rule at the domain's own
+    // edge, so a violation fails in the diff that writes it.
+    //
+    // The list is still a hand list, which `docs/isolation-gates.md` records as
+    // blind in the ADD direction — `canonicalProductFamilies`, `canonicalImages`
+    // and `canonicalFieldProvenance` are named by nothing here. They are left
+    // out deliberately rather than forgotten: none of the three has a rule of
+    // its own that this domain could break, so adding them would widen the wall
+    // without a decision behind it.
+    pattern: /\.\s*(insert|update|delete)\s*\(\s*(attributeDefinitions|attributeLabels|attributeEnumValues|categories|productTypeDefinitions|productTypeFields|productTypeFieldGroups|productTypeCategoryScopes|canonicalProducts|canonicalVariants|canonicalAttributeValues|brands|productIdentifiers|listings|productVariants)\s*\)/u,
     reads: 'stripped',
     mutations: [
       '  await db.update(categories).set({ name: 1 });',
       '  await db.insert(listings).values({});',
+      '  await tx.insert(canonicalAttributeValues).values({});',
     ],
   },
   {
