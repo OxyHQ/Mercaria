@@ -93,6 +93,7 @@ import {
   type OrderableBucket,
 } from './ordering.js';
 import { composePriceSpan, convertPriceBound } from './price.js';
+import { projectCurrencyExclusions } from '../fx-exclusions.js';
 import { liftFacet, partitionSelection, withPriceBounds } from './selection.js';
 import { buildSortOptions, resolveFacetSort } from './sorting.js';
 import { composeEmptyState, emptyStateReason, type MeasuredRelaxation } from './suggestions.js';
@@ -175,7 +176,7 @@ export async function resolveFacets(
     levelOf: (key) => planByKey.get(key)?.level,
   });
   let requirements: FacetRequirements = partition.requirements;
-  let priceUnconvertible: readonly CurrencyCode[] = [];
+  let priceUnconvertible: readonly string[] = [];
 
   if (partition.requestedPrice !== undefined) {
     const present = await listScopeOfferCurrencies(db, { scope: scopeInput, requirements, now });
@@ -771,7 +772,7 @@ async function buildCommerceFacet(input: {
   matchedProductCount: number;
   selection: readonly FacetSelectionEntry[];
   hasSelection: boolean;
-  priceUnconvertible: readonly CurrencyCode[];
+  priceUnconvertible: readonly string[];
 }): Promise<BuiltFacet> {
   const context: FacetQueryContext = {
     scope: input.scopeInput,
@@ -787,15 +788,22 @@ async function buildCommerceFacet(input: {
 
   if (input.dimension === 'offer_price') {
     const spans = await measureOfferPriceSpans(input.db, context);
-    const span = await composePriceSpan(spans, input.displayCurrency);
+    const { span, unconvertible } = await composePriceSpan(spans, input.displayCurrency);
     const covered = spans.reduce((total, row) => total + row.productCount, 0);
+    // The span's OWN exclusions count towards the suppression reason, not just
+    // the selected bound's. A scope priced entirely in a currency Mercaria
+    // cannot convert has no span, and reporting `no_values` for it says the
+    // catalogue has no prices when what happened is that none could be read
+    // (#450). `priceUnconvertible` alone could not see this, because it is only
+    // populated when the shopper has already selected a price bound.
+    const excluded = [...new Set([...input.priceUnconvertible, ...unconvertible])];
     const suppression = suppressFacet({
       key: input.dimension,
       shape: 'money_range',
       buckets: [],
       ...(span === null ? {} : { rangeMin: span.minMinor, rangeMax: span.maxMinor }),
       hasSelection: input.hasSelection,
-      ...(span === null && input.priceUnconvertible.length > 0 ? { unconvertible: true } : {}),
+      ...(span === null && excluded.length > 0 ? { unconvertible: true } : {}),
     });
     if (suppression !== undefined || span === null) {
       return { suppression: suppression ?? 'no_values' };
@@ -804,6 +812,10 @@ async function buildCommerceFacet(input: {
       entry !== undefined && entry.origin === 'commerce' ? entry.minMinor : undefined;
     const selectedMaxMinor =
       entry !== undefined && entry.origin === 'commerce' ? entry.maxMinor : undefined;
+    // Both fields projected from ONE set by the shared classifier, so the
+    // permanent subset can never name a currency the complete list omits (#450).
+    // Each is omitted when empty, which is what this facet has always done.
+    const exclusions = projectCurrencyExclusions(span.unconvertible);
     return {
       facet: {
         key: input.dimension,
@@ -823,9 +835,12 @@ async function buildCommerceFacet(input: {
             currency: span.currency,
             ...(selectedMinMinor === undefined ? {} : { selectedMinMinor }),
             ...(selectedMaxMinor === undefined ? {} : { selectedMaxMinor }),
-            ...(span.unconvertible.length === 0
+            ...(exclusions.unconvertibleCurrencies.length === 0
               ? {}
-              : { unconvertibleCurrencies: span.unconvertible }),
+              : { unconvertibleCurrencies: exclusions.unconvertibleCurrencies }),
+            ...(exclusions.unmodelledCurrencies.length === 0
+              ? {}
+              : { unmodelledCurrencies: exclusions.unmodelledCurrencies }),
           },
         },
       },

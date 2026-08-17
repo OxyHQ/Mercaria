@@ -258,6 +258,17 @@ A currency the rate map cannot serve produces no bound, is reported in
 `SearchFxContext` posture. An unconvertible price is never shown as "too
 expensive".
 
+**That includes a currency Mercaria does not model at all**, which this facet
+used to drop instead (#450): `composePriceSpan` skipped it in both loops, and
+`FacetMoneyRange.unconvertibleCurrencies` was typed `CurrencyCode[]`, so an
+out-of-tuple code was unreportable BY TYPE rather than merely unreported —
+silent in the DTO, in the logs and in the types at once. The field is now
+`string[]`, and `unmodelledCurrencies` names the permanent subset beside it, as
+in search. A scope priced ENTIRELY in such a currency has no span at all, and
+`composePriceSpan` returns its exclusions anyway so the facet is suppressed as
+`unconvertible_currency` rather than `no_values` — the second says the catalogue
+has no prices, when what happened is that none could be read.
+
 The price **span** is grouped by the offer's own currency in SQL and converted
 afterwards, because `min(price_amount)` across currencies compares raw minor
 units.

@@ -31,7 +31,8 @@ import {
 } from '../ordering.js';
 import { buildSortOptions, resolveFacetSort } from '../sorting.js';
 import { composeEmptyState, emptyStateReason } from '../suggestions.js';
-import { convertPriceBound } from '../price.js';
+import { composePriceSpan, convertPriceBound } from '../price.js';
+import { projectCurrencyExclusions } from '../../fx-exclusions.js';
 
 function definition(overrides: Partial<FacetDefinitionInput> = {}): FacetDefinitionInput {
   return {
@@ -501,6 +502,70 @@ describe('a price bound is converted, never the amounts', () => {
     // the aggregate scan for rows that cannot exist.
     const converted = await convertPriceBound({ currency: 'EUR', maxMinor: 50_000 }, []);
     expect(converted.bounds).toEqual([]);
+  });
+
+  it('NAMES a present currency Mercaria does not model, and emits no bound for it', async () => {
+    // `XTS` is ISO 4217's reserved testing code and is deliberately outside
+    // `ALL_CURRENCY_CODES`, so `offers.price_currency`'s shape-only CHECK
+    // (ADR 0002 D18) admits it while nothing can price it.
+    const converted = await convertPriceBound({ currency: 'EUR', maxMinor: 50_000 }, [
+      'EUR',
+      'XTS',
+    ]);
+    // Named — this is the fix. It used to be dropped before it could be
+    // reported, and the field's type made reporting it impossible (#450).
+    expect(converted.unconvertible).toContain('XTS');
+    // And still excluded: no bound means its offers satisfy no price filter.
+    expect(converted.bounds.map((bound) => bound.currency)).not.toContain('XTS');
+  });
+});
+
+describe('an unmodelled currency is NAMED rather than dropped (#450)', () => {
+  const modelled = { currency: 'EUR', minMinor: 1_000, maxMinor: 5_000, productCount: 2 };
+  const unmodelled = { currency: 'XTS', minMinor: 9_000, maxMinor: 9_000, productCount: 1 };
+  const spans = [modelled, unmodelled];
+
+  it('reports it beside a span it could still compose', async () => {
+    // POSITIVE CONTROL first: the modelled row really did produce a span, so the
+    // assertions below are about a composition that ran rather than about one
+    // that never happened. Without this, an empty result would satisfy "XTS did
+    // not silently contribute" just as well as the fix does.
+    const composed = await composePriceSpan(spans, 'EUR');
+    expect(composed.span).not.toBeNull();
+    expect(composed.span?.minMinor).toBe(1_000);
+    expect(composed.span?.maxMinor).toBe(5_000);
+
+    // The load-bearing assertion: the excluded currency is NAMED.
+    expect(composed.span?.unconvertible).toContain('XTS');
+    expect(composed.unconvertible).toContain('XTS');
+
+    // And it was genuinely left out rather than folded in at face value — 9_000
+    // would have moved the ceiling had the raw minor units been compared.
+    expect(composed.span?.maxMinor).not.toBe(9_000);
+  });
+
+  it('reports it even when there is NO span to report it on', async () => {
+    // The case a bare `null` return could not express, and the one that matters
+    // most: a scope priced entirely in a currency Mercaria cannot read has no
+    // span AND the longest exclusion list there is. Reporting `no_values` for it
+    // would tell a shopper the catalogue has no prices.
+    const composed = await composePriceSpan([unmodelled], 'EUR');
+    expect(composed.span).toBeNull();
+    expect(composed.unconvertible).toEqual(['XTS']);
+  });
+
+  it('projects the two reported lists so the subset relation cannot break', () => {
+    const report = projectCurrencyExclusions(['XTS', 'JPY', 'EUR', 'XTS']);
+    // Complete: both reasons, deduplicated and sorted.
+    expect(report.unconvertibleCurrencies).toEqual(['EUR', 'JPY', 'XTS']);
+    // The permanent subset — only the code Mercaria has no precision entry for.
+    expect(report.unmodelledCurrencies).toEqual(['XTS']);
+    // Containment, which is what makes a reader of the complete list alone
+    // correct. It holds by construction (one filter over one set), so this
+    // asserts the construction rather than a rule somebody has to remember.
+    for (const code of report.unmodelledCurrencies) {
+      expect(report.unconvertibleCurrencies).toContain(code);
+    }
   });
 });
 

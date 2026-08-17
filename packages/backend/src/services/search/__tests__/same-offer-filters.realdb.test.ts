@@ -431,20 +431,55 @@ describe('an unknown price is neither inside a bound nor outside it', () => {
     // currency satisfies nothing, however generous the bound.
     expect(productIds(outcome.response.results)).not.toContain(fixture.unconvertibleProductId);
 
-    // And nothing fabricates the conversion that did not happen.
+    // And nothing fabricates the conversion that did not happen: no rate was
+    // ever requested for `XTS`, so no provider published anything about it.
+    expect(outcome.response.fx?.provider).toBe('identity');
+  });
+
+  it('and the excluded currency is NAMED, as permanent rather than transient (#450)', async () => {
+    // THE POSITIVE CONTROL, and it has to come first.
     //
-    // `SearchFxContext` REQUIRES `provider` and `asOf`, which describe a rate
-    // map that was actually fetched. A currency outside `ALL_CURRENCY_CODES` is
-    // never sent to `getRates` at all — there is no pair to ask for — so no rate
-    // map exists and the context is correctly absent rather than carrying an
-    // invented provider.
-    //
-    // The cost is stated rather than hidden: #70's "the exclusion is visible
-    // rather than silent" holds for a MODELLED currency the rate map could not
-    // serve, and NOT for one Mercaria does not model at all, which is dropped
-    // silently. Closing that needs `SearchFxContext` to be able to report an
-    // exclusion without asserting a conversion — a change to a wire contract
-    // several clients read, and a different issue from this one.
-    expect(outcome.response.fx).toBeUndefined();
+    // Every assertion below is about a currency appearing in a list, and a list
+    // assertion over a fixture that was never created fails LOUDLY — but the
+    // absence assertion in the test above passes silently in exactly that case.
+    // So prove the offer is real and reachable before asking what a price filter
+    // says about it: with no price filter there is nothing to convert, and the
+    // product must come back.
+    const unfiltered = productIds(await search({}));
+    expect(unfiltered).toContain(fixture.unconvertibleProductId);
+
+    const outcome = await runCanonicalSearch(
+      {
+        term: `Zysofer ${RUN}`,
+        kinds: ['product'],
+        filters: { price: GENEROUS },
+        limit: 20,
+        now: NOW,
+      },
+      db,
+    );
+
+    // #70's "the exclusion is visible rather than silent" now holds for a
+    // currency Mercaria does not model at all, which used to be dropped without
+    // reaching the DTO, the logs or even the types (#450). The context is
+    // emitted although no rate map was fetched: gating it on one is what made
+    // absence mean two different things.
+    const fx = outcome.response.fx;
+    expect(fx).toBeDefined();
+    expect(fx?.unconvertibleCurrencies).toContain(UNCONVERTIBLE_CURRENCY);
+
+    // The PERMANENT/transient split, which is the whole point of reporting it.
+    // A missing rate heals on the next `getRates`; an unmodelled currency is
+    // invisible under every price filter until somebody adds the code, and the
+    // two are indistinguishable to a seller unless the surface says which.
+    expect(fx?.unmodelledCurrencies).toContain(UNCONVERTIBLE_CURRENCY);
+
+    // The subset relation the two fields are projected under. Stated here rather
+    // than assumed, because a reader of `unconvertibleCurrencies` alone must
+    // still see the complete exclusion set — that is why this is a subset and
+    // not a second disjoint list.
+    for (const code of fx?.unmodelledCurrencies ?? []) {
+      expect(fx?.unconvertibleCurrencies).toContain(code);
+    }
   });
 });

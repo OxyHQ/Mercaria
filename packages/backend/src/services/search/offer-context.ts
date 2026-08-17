@@ -59,7 +59,6 @@
  * `search-relevance-isolation.test.ts` fails the build if it starts to.
  */
 
-import { ALL_CURRENCY_CODES } from '@mercaria/shared-types';
 import type {
   ConditionGroup,
   CurrencyCode,
@@ -84,6 +83,7 @@ import {
   SUMMARY_OFFER_LIMIT,
 } from '../offer-freshness/product-summary.js';
 import { convert, getRates } from '../fx.service.js';
+import { asCurrencyCode, projectCurrencyExclusions } from '../fx-exclusions.js';
 import { selectSearchOffer } from './selected-offer.port.js';
 import { log } from '../../lib/logger.js';
 
@@ -176,13 +176,6 @@ function contributesToSummary(offer: Offer): boolean {
   if (offer.kind !== 'native') return true;
   if (offer.checkout.eligible === true) return true;
   return !offer.checkout.reasons.some((reason) => NATIVE_UNPUBLISHED_REASONS.has(reason));
-}
-
-/** Narrow a wire currency string to the presentment set, or answer `null`. */
-function asCurrencyCode(value: string): CurrencyCode | null {
-  return (ALL_CURRENCY_CODES as readonly string[]).includes(value)
-    ? (value as CurrencyCode)
-    : null;
 }
 
 /**
@@ -631,17 +624,35 @@ export async function buildSearchOfferContexts(
     });
   }
 
-  if (priceFilter !== undefined && target !== null && rates !== null) {
+  // Emitted whenever a price filter was answered AND there was either a
+  // conversion or an exclusion to report. Gating it on `rates !== null` made
+  // absence mean two different things (#450): a page whose foreign offers are
+  // all in currencies Mercaria does not model asks for no rates at all, so the
+  // exclusions it just made had nowhere to be reported. A filter whose OWN
+  // currency is unmodelled (`target === null`) is the same silence one step
+  // earlier — every priced offer is refused and the shopper was told nothing.
+  if (priceFilter !== undefined && (rates !== null || unconvertible.size > 0)) {
+    const exclusions = projectCurrencyExclusions(unconvertible);
     fx = {
-      currency: target,
-      provider: rates.provider,
-      asOf: rates.asOf,
-      unconvertibleCurrencies: [...unconvertible].sort(),
+      // The RAW filter currency when it is not one Mercaria models: the field is
+      // "what the shopper asked in", and answering with a narrowed value would
+      // mean not answering at all.
+      currency: target ?? priceFilter.currency,
+      // No rate map was needed or obtainable, so no provider published anything.
+      // `identity` is this repository's word for a conversion that did not
+      // happen, and `catalog-pages` already reports the same fact the same way.
+      provider: rates === null ? 'identity' : rates.provider,
+      asOf: rates === null ? new Date().toISOString() : rates.asOf,
+      ...exclusions,
     };
-    if (unconvertible.size > 0) {
+    if (exclusions.unconvertibleCurrencies.length > 0) {
       log.general.warn(
-        { currencies: [...unconvertible], target },
-        '[search] offers in these currencies had no rate and were excluded from a price filter',
+        {
+          currencies: exclusions.unconvertibleCurrencies,
+          unmodelled: exclusions.unmodelledCurrencies,
+          target: fx.currency,
+        },
+        '[search] offers in these currencies could not be priced and were excluded from a price filter',
       );
     }
   }

@@ -457,11 +457,20 @@ export interface FacetMoneyRange {
   readonly selectedMinMinor?: number;
   readonly selectedMaxMinor?: number;
   /**
-   * Currencies present in scope that had no rate into {@link currency} and were
-   * therefore left out — the `SearchFxContext` posture. An unconvertible price
-   * is never reported as "too expensive".
+   * Currencies present in scope that could not be priced into {@link currency}
+   * and were therefore left out — the `SearchFxContext` posture. An
+   * unconvertible price is never reported as "too expensive".
+   *
+   * `string`, not `CurrencyCode`: a currency Mercaria does not model is exactly
+   * the one most worth naming here, and the narrower type made it unreportable
+   * even deliberately (#450).
    */
-  readonly unconvertibleCurrencies?: readonly CurrencyCode[];
+  readonly unconvertibleCurrencies?: readonly string[];
+  /**
+   * The subset of {@link unconvertibleCurrencies} Mercaria does not model at all
+   * — permanent until the code is added, where a missing rate is transient.
+   */
+  readonly unmodelledCurrencies?: readonly string[];
 }
 
 /** A facet's answers, shaped by the definition rather than by the data. */

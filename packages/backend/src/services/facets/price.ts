@@ -32,22 +32,20 @@
  * shown as "too expensive": the `SearchFxContext` posture, one surface over.
  */
 
-import { ALL_CURRENCY_CODES, assertSafeMoneyAmount } from '@mercaria/shared-types';
+import { assertSafeMoneyAmount } from '@mercaria/shared-types';
 import type { CurrencyCode } from '@mercaria/shared-types';
 import type { FacetPriceBound, FacetPriceSpanRow } from '../../db/facets/facetRepository.js';
 import { convert, getRates } from '../fx.service.js';
+import { asCurrencyCode } from '../fx-exclusions.js';
 
 /** The bound, per currency, plus what could not be converted. */
 export interface ConvertedPriceBounds {
   readonly bounds: readonly FacetPriceBound[];
-  readonly unconvertible: readonly CurrencyCode[];
-}
-
-/** Narrow a stored currency string to the presentment set, or `null`. */
-export function asCurrencyCode(value: string): CurrencyCode | null {
-  return (ALL_CURRENCY_CODES as readonly string[]).includes(value)
-    ? (value as CurrencyCode)
-    : null;
+  /**
+   * `string`, not `CurrencyCode`: a currency Mercaria does not model is exactly
+   * the one worth naming, and the narrower type made it unreportable (#450).
+   */
+  readonly unconvertible: readonly string[];
 }
 
 /**
@@ -56,16 +54,28 @@ export function asCurrencyCode(value: string): CurrencyCode | null {
  * ONE `getRates` for the whole request. A per-currency call would make the
  * request's FX behaviour depend on how many currencies a category happened to
  * contain, which is `offer-context.ts`'s reasoning at a different grain.
+ *
+ * A present currency Mercaria does not model gets no bound and is reported. It
+ * is never passed to `getRates`, which would only be asking for a rate that
+ * cannot exist; the exclusion is the same either way, and stating it here means
+ * the reason is decided rather than inferred from a thrown `convert`.
  */
 export async function convertPriceBound(
   bound: { readonly currency: CurrencyCode; readonly minMinor?: number; readonly maxMinor?: number },
-  presentCurrencies: readonly CurrencyCode[],
+  presentCurrencies: readonly string[],
 ): Promise<ConvertedPriceBounds> {
-  const targets = [...new Set(presentCurrencies)].filter((code) => code !== bound.currency);
+  const present = [...new Set(presentCurrencies)];
+  const unconvertible: string[] = [];
+  const targets: CurrencyCode[] = [];
+  for (const value of present) {
+    if (value === bound.currency) continue;
+    const code = asCurrencyCode(value);
+    if (code === null) unconvertible.push(value);
+    else targets.push(code);
+  }
   const bounds: FacetPriceBound[] = [];
-  const unconvertible: CurrencyCode[] = [];
 
-  if (presentCurrencies.includes(bound.currency)) {
+  if (present.includes(bound.currency)) {
     bounds.push({
       currency: bound.currency,
       ...(bound.minMinor === undefined ? {} : { minMinor: bound.minMinor }),
@@ -105,7 +115,23 @@ export interface FacetPriceSpan {
   readonly minMinor: number;
   readonly maxMinor: number;
   readonly currency: CurrencyCode;
-  readonly unconvertible: readonly CurrencyCode[];
+  /** See {@link ConvertedPriceBounds.unconvertible} for why this is `string`. */
+  readonly unconvertible: readonly string[];
+}
+
+/**
+ * The span, and what was left out of it — reported even when there is no span.
+ *
+ * Separated because the two answers are independent: a scope whose every offer
+ * is priced in a currency Mercaria cannot convert has NO span and the longest
+ * list of exclusions there is. Returning a bare `null` there is what let the
+ * facet be suppressed as `no_values`, which says there are no prices when in
+ * fact there are prices nobody here could read (#450).
+ */
+export interface ComposedPriceSpan {
+  readonly span: FacetPriceSpan | null;
+  /** Every currency in scope whose offers were left out, sorted. */
+  readonly unconvertible: readonly string[];
 }
 
 /**
@@ -118,29 +144,41 @@ export interface FacetPriceSpan {
  * value — which is the cross-currency comparison every money rule in this
  * repository forbids.
  *
- * `null` when nothing convertible was present at all: a slider with no endpoints
- * is not a slider, and reporting `0…0` would claim the catalogue is free.
+ * A `null` span when nothing convertible was present at all: a slider with no
+ * endpoints is not a slider, and reporting `0…0` would claim the catalogue is
+ * free. The exclusions come back either way — see {@link ComposedPriceSpan}.
  */
 export async function composePriceSpan(
   spans: readonly FacetPriceSpanRow[],
   display: CurrencyCode,
-): Promise<FacetPriceSpan | null> {
+): Promise<ComposedPriceSpan> {
+  const unconvertible: string[] = [];
   const sources = [
     ...new Set(
       spans.flatMap((span) => {
         const code = asCurrencyCode(span.currency);
-        return code === null ? [] : [code];
+        // An unmodelled currency is recorded HERE rather than skipped. It used
+        // to be dropped in both loops, which is what made the exclusion silent
+        // in the DTO, in the logs and in the types at once (#450). No rate is
+        // requested for it — there cannot be one — but its offers were still
+        // left out of this span, and that is the fact the shopper is owed.
+        if (code === null) {
+          unconvertible.push(span.currency);
+          return [];
+        }
+        return [code];
       }),
     ),
   ];
-  if (sources.length === 0) return null;
+  if (sources.length === 0) {
+    return { span: null, unconvertible: [...new Set(unconvertible)].sort() };
+  }
 
   const quotes = sources.filter((code) => code !== display);
   const rates = quotes.length === 0 ? null : await getRates(display, quotes);
 
   let low: number | undefined;
   let high: number | undefined;
-  const unconvertible: CurrencyCode[] = [];
 
   for (const span of spans) {
     const code = asCurrencyCode(span.currency);
@@ -164,15 +202,19 @@ export async function composePriceSpan(
     high = high === undefined ? max : Math.max(high, max);
   }
 
+  const excluded = [...new Set(unconvertible)].sort();
   if (low === undefined || high === undefined) {
-    return null;
+    return { span: null, unconvertible: excluded };
   }
   assertSafeMoneyAmount(low, 'facets.priceSpan.min');
   assertSafeMoneyAmount(high, 'facets.priceSpan.max');
   return {
-    minMinor: low,
-    maxMinor: high,
-    currency: display,
-    unconvertible: [...new Set(unconvertible)].sort(),
+    span: {
+      minMinor: low,
+      maxMinor: high,
+      currency: display,
+      unconvertible: excluded,
+    },
+    unconvertible: excluded,
   };
 }
