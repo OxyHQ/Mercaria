@@ -339,10 +339,21 @@ that could hold one.
   translated" is a query over these rows, and storing its answer would be a
   second representation going stale the moment a translator saves.
   `attribute_coverage_runs`' absence one file over is the precedent.
-- **A rollout flag.** D12's `CATALOG_LOCALIZATION_ENABLED` gates localized
-  READS, and `config/index.ts` belongs to another #367 branch. Nothing here is
-  mounted on a route, so there is nothing yet for a lever to gate — the flag
-  lands with the first surface that serves these reads.
+- **A rollout flag, and the prediction below was RESOLVED the other way.** This
+  bullet used to say D12's `CATALOG_LOCALIZATION_ENABLED` "lands with the first
+  surface that serves these reads". Two surfaces now serve them —
+  `services/facets/facet.service.ts` and
+  `services/catalog-authoring/schema.service.ts` — and **the flag was never
+  built, deliberately**: both consumers sit behind their own mounts
+  (`FACETS_ENABLED`, `CATALOG_AUTHORING_ENABLED`), so localized reads are
+  transitively contained and turning those two off leaves no public surface
+  serving a localized label. D12 has been corrected to say so. **The condition
+  that would flip it:** a THIRD consumer of `readLocalizedCategories` or
+  `readLocalizedAttributeValues` on an unconditionally-mounted route makes
+  localized reads un-rollbackable, and **nothing gates against that** — there is
+  no isolation test for this domain. Such a consumer means either building the
+  lever or gating the new route. See
+  [catalog-migration-operations.md](catalog-migration-operations.md).
 - **Any jsonb.** Every localized string, its status, its provenance and its
   review audit are real columns with real constraints (ADR 0007 D14).
 

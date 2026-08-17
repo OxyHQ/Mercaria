@@ -470,30 +470,88 @@ The protocol, binding on every #367 PR:
 
 ### D12. Rollout: flags per dimension, and no flag gates a durable record
 
-Six levers, and the split follows the house rule that a lever gates a **loop or
-a mount**, never a stored row:
+> **CORRECTED after implementation.** This decision originally named six levers.
+> **Four were built**, and one lever a rollout needs was added that this decision
+> did not name. The list below is the measured one; the three that do not exist
+> are recorded underneath with the reason each is absent, because the three
+> reasons are completely different and "removed" on its own teaches a reader
+> nothing. Operational detail, the read-site census behind the durable-record
+> claim, and the rollback procedure:
+> [`../catalog-migration-operations.md`](../catalog-migration-operations.md) and
+> [`../runbooks/catalog-rollout-rollback.md`](../runbooks/catalog-rollout-rollback.md).
 
-- `CATALOG_TAXONOMY_V2_ENABLED` — the extended taxonomy **reads**. Default
-  false; with it off, `categories` answers exactly as today.
-- `CATALOG_LOCALIZATION_ENABLED` — localized reads. Default false ⇒ base locale,
-  which is today's behaviour.
-- `PRODUCT_TYPES_ENABLED` — product-type resolution and the authoring schema
-  route. Default false.
+**Four levers**, and the split follows the house rule that a lever gates a **loop
+or a mount**, never a stored row:
+
+- `CATALOG_TAXONOMY_V2_ENABLED` — the navigation **mount** (`/navigation`).
+  Default false; with it off, `categories` answers exactly as today and the
+  storefront falls back to the v1 category tree.
 - `CATALOG_AUTHORING_ENABLED` — the authoring **mount** (drafts, validate,
   publish). Default false. The legacy product-creation route is untouched while
   it is off.
 - `CATALOG_PROPOSALS_ENABLED` — the proposal mount. Default false.
-- `CATALOG_AUTHORING_COHORTS` — the rollout cohort expression
-  (`market:locale:store:category:product_type`), empty meaning nobody.
+- `FACETS_ENABLED` — the facet, filter and sort rail (`POST /facets`). Default
+  false. **This decision did not name it and should have**: it is a public
+  surface this epic added, it is one of the four things a rollback turns off, and
+  the domain it gates owns no table and writes no row.
 
-Rollout order is internal users → selected stores → selected product types and
-categories → locales and markets → general availability, with the error,
-abandonment, matching, indexing and conversion metrics of Workstream 17 as the
-gate at each step.
+Each is read in exactly one place — the `app.use` that mounts its router — and no
+repository, outbox enqueue, loop or checkout path reads any of them.
+
+#### The three levers this decision named and nobody built
+
+- **`PRODUCT_TYPES_ENABLED` — deliberately not built, and the reasoning is
+  sound.** `/product-types` is mounted unconditionally, with the argument on the
+  block above it in `app.ts`: a published product type's group headings are
+  catalogue metadata of the same kind `/categories` and `/catalog-attributes`
+  already serve unconditionally, and a key with no published version answers 404,
+  so a deployment that has published nothing exposes nothing. **The defect was
+  this decision continuing to claim the lever**, and `docs/product-types.md`
+  quoting the claim. Withdrawing a product type is an unpublish — a data change
+  through the governance surface — not a lever.
+- **`CATALOG_LOCALIZATION_ENABLED` — unnecessary *today*, because localized
+  reads are transitively contained.** `services/catalog-localization/read.service.ts`
+  exports two readers and they have exactly two external consumers:
+  `services/facets/facet.service.ts` (behind `FACETS_ENABLED`) and
+  `services/catalog-authoring/schema.service.ts` (behind
+  `CATALOG_AUTHORING_ENABLED`). `routes/categories.ts` reads no locale at all, so
+  with the four levers off no public surface serves a localized label and the
+  base-locale behaviour this decision promised is what a shopper gets.
+  **The condition under which that flips, stated so it is recognisable:** a THIRD
+  consumer of either reader on an unconditionally-mounted route would make
+  localized reads un-rollbackable, and nothing gates against it — there is no
+  `catalog-localization` isolation test. Adding such a consumer means either
+  building this lever or gating the new route.
+- **`CATALOG_AUTHORING_COHORTS` — not built, and it is the one that changes what
+  this decision can promise.** Authoring is all-or-nothing on
+  `CATALOG_AUTHORING_ENABLED`; nothing narrows the mount to a market, a locale, a
+  store, a category or a product type. **So the rollout order below is not
+  executable as written**, and this decision says so rather than leaving a runbook
+  to discover it.
+
+Rollout order **as originally decided and NOT executable**: internal users →
+selected stores → selected product types and categories → locales and markets →
+general availability. The first three stages need the cohort expression above.
+
+**The stage boundary that does exist is product-type PUBLICATION.** A product
+type with no published version is invisible whatever the levers say, so the
+staging available today is: publish one product type → publish more → turn the
+authoring mount on for everybody. Per-store and per-market staging needs
+`CATALOG_AUTHORING_COHORTS` built, and until it is, "selected stores" is not a
+state this system can be in. Workstream 17's error, abandonment, matching,
+indexing and conversion metrics remain the gate at each step — with the caveat
+recorded in `catalog-observability.md` that no alert has ever fired, so every
+threshold is a proposal.
 
 **Nothing in a rollback deletes catalog evidence.** Turning every lever off
 restores listing-first behaviour and leaves every row readable, because the
 evidence has to be readable during the incident that turned the levers off.
+**Two qualifications found on audit**, both in
+`catalog-migration-operations.md`: the readability half is conditional on
+`CATALOG_OPERATOR_OXY_USER_IDS` being non-empty, since the nine `/internal/*`
+catalog surfaces are gated on that list's LENGTH and an empty list answers 404;
+and the guarantee is defended by one assertion over one domain's repository
+layer, so for three of the four levers it is a convention rather than a property.
 
 ### D13. Retained, extended, retired
 
