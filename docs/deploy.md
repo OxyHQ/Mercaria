@@ -93,6 +93,45 @@ to a `number` in `app/(app)/index.tsx` makes `tsc --noEmit` exit 2, while
 proves the app BUNDLES — a missing import, a syntax error — and says nothing
 about the typechecks, the ten guards or the three app test runners.
 
+### What to do when a gate times out — and the two wrong repairs
+
+**A gate timing out is a symptom of runner occupancy, not of an impatient
+budget. The two wrong repairs are raising the wait (it hides the queue and
+delays the refusal) and dropping the gate (it restores the bug).** Whoever hits
+this at 3am will reach for exactly one of those two.
+
+The `gate` job POLLS, so it holds a runner for its entire wait. Measured on
+2026-08-17 under a real merge burst, before the per-app concurrency groups
+existed: **9 of 16 running jobs were idle gates**, each with its own assigned
+runner id, while the `ci.yml` runs they were waiting on sat `queued` — one of
+them having gone from `in_progress` BACK to `queued`, losing runners it already
+held to the jobs waiting on it. The worst gate reached **14.9 minutes of its
+30-minute budget with its CI still `queued`**.
+
+The cost of the burst is measurable on CI itself: queue-to-conclusion was a
+**9.2 minute median all day (n=37)** and **17.4 minutes on the first run after
+the sha-keyed group landed, +70%**.
+
+So the right lever is reducing how many gates wait at once, which is what the
+per-app `concurrency:` block on each web deploy workflow does — nine concurrent
+gates become three. If that is ever not enough, the honest options are to stop
+holding a runner at all (a `workflow_run` trigger, with `paths:` rebuilt from a
+diff — which is the option §"Why the gate reads CI's result" rejected, and its
+untestability comes back with it) or more runner capacity. Not a longer wait.
+
+**One narrowing that looks cheap and is not:** the gate waits for the WHOLE
+`ci.yml` run, including the three ~80-second Expo builds. Measured on
+`c82ed408`, `Lint & Test` concluded at 08:57:17 while the gate polled until
+09:08 for the builds. Waiting only on `Lint & Test` would shorten the hold and
+weaken the gate to four-fifths of CI — the count-not-identity mistake this whole
+section exists to prevent.
+
+**Note the two concurrency settings in this repo are deliberately opposite.**
+`ci.yml` owes a VERDICT PER COMMIT, so it must never cancel. A deploy owes only
+the NEWEST ARTIFACT, so each web deploy workflow cancels its own superseded
+runs. Reading them side by side, one looks like a mistake; the difference is
+what each one owes.
+
 ### There is no bypass
 
 Deliberately, and symmetrically with `deploy-aws.yml`, which has none either. A
