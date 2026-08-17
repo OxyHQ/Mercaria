@@ -532,10 +532,12 @@ record(
   CATALOG_PATH_LITERAL_COUNT === 0,
   `CATALOG_PATH_LITERALS holds ${CATALOG_PATH_LITERAL_COUNT}, expected 0. ` +
     "Wall 2 subtracts every one of them by name, so a list that grew silently is a hole. " +
-    "Adding one is a decision: state why the new literal cannot be told from a concept key. " +
-    "It must also actually FIRE — the guard reconciles the list in both directions, " +
-    "because the first draft of it carried an entry with no dot in it, which " +
-    "`NAMESPACED_KEY` could never have matched.",
+    "Adding one is a decision: state why the new literal cannot be told from a concept key, " +
+    "and give it a FILE and an exact COUNT. It must also actually FIRE — the guard reconciles " +
+    "the list in both directions, because the first draft of it carried an entry with no dot " +
+    "in it, which `NAMESPACED_KEY` could never have matched. Because the list is empty, none " +
+    "of the three outcomes is exercised from here; they were driven through the real guard " +
+    "with a temporary entry and a scratch tree when the shape landed (#494).",
 );
 
 record(
@@ -543,7 +545,10 @@ record(
   KNOWN_VOCABULARY_EXCEPTION_COUNT === 1,
   `KNOWN_VOCABULARY_EXCEPTIONS holds ${KNOWN_VOCABULARY_EXCEPTION_COUNT}, expected 1. ` +
     "Each entry silences a real finding, so a list that grew silently is a hole. " +
-    "Adding one is a decision: state why the declaration is not a catalog vocabulary.",
+    "Adding one is a decision: state why the declaration is not a catalog vocabulary, " +
+    "and give it an integer `count` — an entry without one used to fall through every branch " +
+    "of the reconciliation in silence, because `actual < undefined` and `actual > undefined` " +
+    "are both false (#494).",
 );
 
 // ---------------------------------------------------------------- report ----

@@ -206,7 +206,8 @@ const MEMBERSHIP_METHODS = new Set(["includes", "has", "startsWith", "endsWith"]
 const NAMESPACED_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/u;
 
 /**
- * Dotted lowercase strings in the catalog subtree that are NOT concept keys.
+ * Dotted lowercase strings in the catalog subtree that are NOT concept keys —
+ * each scoped to a FILE, carrying an EXACT count, reconciled in BOTH directions.
  *
  * Wall 2's shape rule cannot tell these from a category key, because they are
  * the same shape, so they are subtracted by NAME rather than by a pattern.
@@ -221,14 +222,21 @@ const NAMESPACED_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/u;
  * work, which is the hole this repository's exemption discipline exists to
  * close.
  *
- * So the list is reconciled in BOTH directions after the scan: an entry that
- * subtracted nothing fails the build, the same rule
- * {@link KNOWN_VOCABULARY_EXCEPTIONS} is under. Adding one is a decision with a
- * reason attached; adding a dead one is a failure.
+ * It was ALSO, until #494, a bare `Set` of strings compared inside the detector
+ * with no file scope and no count, so its reconciliation ran in one direction
+ * only: an entry that subtracted nothing failed, and an entry that subtracted
+ * fifty occurrences across fifty files passed. Dormant purely because the list
+ * is empty — which is exactly why it was worth shaping now, while an entry
+ * costs nothing, rather than after somebody adds one.
+ *
+ * So an entry names its FILE and how many findings it covers, and both
+ * directions fail, the rule {@link KNOWN_VOCABULARY_EXCEPTIONS} is under.
+ * Adding one is a decision with a reason attached; adding a dead one, or one
+ * that quietly grows, is a failure.
  */
-const CATALOG_PATH_LITERALS = new Set([]);
+const CATALOG_PATH_LITERALS = [];
 
-export const CATALOG_PATH_LITERAL_COUNT = CATALOG_PATH_LITERALS.size;
+export const CATALOG_PATH_LITERAL_COUNT = CATALOG_PATH_LITERALS.length;
 
 /** The package a re-listed vocabulary is copied FROM — wall 5. */
 const VOCABULARY_PACKAGE = "@mercaria/shared-types";
@@ -538,10 +546,6 @@ function vocabularyLiteralCount(node) {
  */
 export function analyseSource(relativePath, text, translationKeys, options = {}) {
   const namespacedKeys = options.namespacedKeys ?? true;
-  // Which path-literal exemptions actually subtracted a finding. The caller
-  // reconciles it: an exemption that never fires is one nobody can tell from an
-  // exemption doing real work.
-  const subtracted = options.subtractedPathLiterals;
   const sourceFile = ts.createSourceFile(
     relativePath,
     text,
@@ -614,8 +618,11 @@ export function analyseSource(relativePath, text, translationKeys, options = {})
       !translationKeys.has(asLiteral) &&
       !isModuleSpecifier(node)
     ) {
-      if (CATALOG_PATH_LITERALS.has(asLiteral)) subtracted?.add(asLiteral);
-      else report(node, "namespaced-key", `"${asLiteral}"`);
+      // The path-literal exemptions are NOT subtracted here. They are excused by
+      // the caller, against a FILE and a count, because a finding suppressed
+      // inside the detector never exists to be counted — which is what left this
+      // list reconcilable in one direction only (#494).
+      report(node, "namespaced-key", `"${asLiteral}"`);
     }
 
     // WALLS 3 and 4 — an identity property whose value was decided HERE.
@@ -678,7 +685,8 @@ async function main() {
   const failures = [];
   /** exception id -> how many findings it actually excused. */
   const matchedExceptions = new Map();
-  const subtractedPathLiterals = new Set();
+  /** path-literal exemption id -> how many findings it actually excused. */
+  const matchedPathLiterals = new Map();
   const files = trackedFiles();
 
   let bundleRaw;
@@ -715,7 +723,6 @@ async function main() {
     const inCatalogTree = CATALOG_PREFIXES.some((prefix) => path.startsWith(prefix));
     for (const finding of analyseSource(path, text, translationKeys, {
       namespacedKeys: inCatalogTree,
-      subtractedPathLiterals,
     })) {
       const excused = KNOWN_VOCABULARY_EXCEPTIONS.find(
         (entry) =>
@@ -728,6 +735,17 @@ async function main() {
         matchedExceptions.set(id, (matchedExceptions.get(id) ?? 0) + 1);
         continue;
       }
+      const excusedLiteral = CATALOG_PATH_LITERALS.find(
+        (entry) =>
+          finding.wall === "namespaced-key" &&
+          entry.file === finding.file &&
+          finding.detail === `"${entry.literal}"`,
+      );
+      if (excusedLiteral !== undefined) {
+        const id = `${excusedLiteral.file}:${excusedLiteral.literal}`;
+        matchedPathLiterals.set(id, (matchedPathLiterals.get(id) ?? 0) + 1);
+        continue;
+      }
       // The wall KEY is in the line as well as the sentence: it is what a
       // reader greps for and what this guard's own controls assert on, and a
       // control that could only match the prose would pass on any refusal at
@@ -738,15 +756,59 @@ async function main() {
     }
   }
 
+  // Every entry in BOTH lists must declare an integer `count` of at least 1, or
+  // the reconciliations below compare against `undefined` — and `actual <
+  // undefined` and `actual > undefined` are BOTH false, so an entry missing the
+  // field falls straight through every branch and excuses without limit, in
+  // silence. Checked here so the FIRST entry added without one fails naming
+  // itself. (`validate-route-targets.mjs` needs no such check: it compares
+  // `hits === entry.count` and then pushes unconditionally, so an undefined
+  // count fails loudly there. The safety property is the comparison SHAPE, not
+  // the presence of this loop — #494.)
+  for (const [entry, name] of [
+    ...KNOWN_VOCABULARY_EXCEPTIONS.map((entry) => [entry, entry.declaration]),
+    ...CATALOG_PATH_LITERALS.map((entry) => [entry, entry.literal]),
+  ]) {
+    if (Number.isInteger(entry.count) && entry.count >= 1) continue;
+    failures.push(
+      `exemption entry "${name}" in ${entry.file} declares no integer count >= 1 `
+      + `(got ${JSON.stringify(entry.count)}). Without one it excuses EVERY occurrence of its shape in `
+      + "that file, which is the hole #448 closed — declare exactly how many findings it covers",
+    );
+  }
+
   // Both exemption lists, reconciled in BOTH directions. An entry that no
   // longer fires has stopped describing the tree, and a list that can only grow
   // is one nobody removes anything from.
-  for (const literal of CATALOG_PATH_LITERALS) {
-    if (!subtractedPathLiterals.has(literal)) {
+  for (const entry of CATALOG_PATH_LITERALS) {
+    const id = `${entry.file}:${entry.literal}`;
+    const actual = matchedPathLiterals.get(id) ?? 0;
+    if (actual === entry.count) continue;
+
+    if (actual === 0) {
       failures.push(
-        `"${literal}" is listed as a non-concept path literal and subtracted nothing — remove the entry, or it excuses a finding that cannot occur`,
+        `${id} is listed as a non-concept path literal ${entry.count} time(s), which no longer `
+        + "matches anything — the count went DOWN to 0. Remove the entry, or it excuses a finding "
+        + "that cannot occur. Check first that the literal CAN match NAMESPACED_KEY at all: it needs "
+        + "at least one dot and every segment lowercase, and the first draft of this list carried an "
+        + "entry with no dot in it",
       );
+      continue;
     }
+    if (actual < entry.count) {
+      failures.push(
+        `${id} is listed as a non-concept path literal ${entry.count} time(s), but only ${actual} `
+        + "matched — the count went DOWN. Lower the count to what remains, or restore what the entry "
+        + "was covering",
+      );
+      continue;
+    }
+    failures.push(
+      `${id} is listed as a non-concept path literal ${entry.count} time(s), but ${actual} finding(s) `
+      + "matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW "
+      + "use of the same literal in the same file would otherwise ride in behind the reasoned one. "
+      + "Read the value off the server's answer, or raise the count with a reason covering it too",
+    );
   }
   for (const entry of KNOWN_VOCABULARY_EXCEPTIONS) {
     const id = `${entry.file}:${entry.declaration}`;
@@ -811,8 +873,9 @@ async function main() {
       `(${catalog.length} of them the catalog surfaces', ${String(skippedTests)} test files ` +
       `skipped); 5 walls; ` +
       `${translationKeys.size} translation keys and ` +
-      `${String(CATALOG_PATH_LITERALS.size)} named literals subtracted by wall 2; ` +
-      `${String(KNOWN_VOCABULARY_EXCEPTIONS.length)} reasoned wall-5 exception(s), all still firing.`,
+      `${String(CATALOG_PATH_LITERALS.length)} named literals subtracted by wall 2; ` +
+      `${String(KNOWN_VOCABULARY_EXCEPTIONS.length)} reasoned wall-5 exception(s); ` +
+      "every exemption in both lists matched its exact declared count.",
   );
 }
 
