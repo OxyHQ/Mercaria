@@ -131,7 +131,11 @@ const LOCALES_ROOT = join(REPO_PACKAGES, 'frontend', 'lib', 'i18n', 'locales');
  * A parse failure THROWS rather than being skipped — an unreadable bundle is the
  * "scanned nothing" state, which is the one way this must never be green.
  */
-function localeBundles(): { readonly locale: string; readonly source: string }[] {
+function localeBundles(): {
+  readonly locale: string;
+  readonly source: string;
+  readonly leaves: readonly { readonly key: string; readonly value: string }[];
+}[] {
   return readdirSync(LOCALES_ROOT)
     .filter((name) => name.endsWith('.json'))
     .map((name) => {
@@ -139,10 +143,41 @@ function localeBundles(): { readonly locale: string; readonly source: string }[]
       // Parsed purely to refuse an unreadable bundle; the SCAN is over the raw
       // text, which is what the `.tsx` half does and what catches a forbidden
       // name wherever it sits.
-      JSON.parse(source);
-      return { locale: name.slice(0, -'.json'.length), source };
+      const leaves: { readonly key: string; readonly value: string }[] = [];
+      const walk = (node: unknown, path: string): void => {
+        if (typeof node === 'string') {
+          leaves.push({ key: path, value: node });
+          return;
+        }
+        if (node !== null && typeof node === 'object') {
+          for (const [child, value] of Object.entries(node)) {
+            walk(value, path === '' ? child : `${path}.${child}`);
+          }
+        }
+      };
+      walk(JSON.parse(source), '');
+      return { locale: name.slice(0, -'.json'.length), source, leaves };
     });
 }
+
+/**
+ * The keys where FairCoin may legitimately be NAMED, because it is the
+ * PRESENTMENT CURRENCY there and not a payment rail.
+ *
+ * `AGENTS.md` makes FAIR the preferred presentment and display currency — the
+ * currency a buyer gets when they have chosen none. What ADR 0004 D11 forbids
+ * is FairCoin as a payment RAIL or a benefit: "pay with FairCoin", a wallet
+ * row, a conversion teaser. A currency picker that says which currency is the
+ * default is the legitimate case, and `buyer-request-isolation.test.ts` already
+ * draws exactly this line one domain over, where it excludes the `FAIR` code
+ * deliberately because "what is forbidden is FairCoin as a payment rail".
+ *
+ * Scoped by KEY rather than by phrase: a phrase exclusion would excuse the same
+ * words anywhere, including in a checkout sentence. Each entry is asserted to
+ * still MATCH below, so an entry that stops naming the currency fails as stale
+ * rather than silently excusing nothing (#448).
+ */
+const CURRENCY_NAME_KEYS: readonly string[] = ['settings.currency.description'];
 
 /**
  * A commercial mode inferred from something that is not the authority.
@@ -247,10 +282,28 @@ describe('a customer commercial surface cannot reach what it must not', () => {
         bundle.source.length,
         `${bundle.locale}.json looks empty — an empty bundle passes this vacuously`,
       ).toBeGreaterThan(500);
+      // Scanned per LEAF so the currency-name exception can be scoped to a key
+      // rather than to a phrase. A phrase exclusion would excuse the same words
+      // in a checkout sentence, which is the thing this wall exists for.
+      const excused: string[] = [];
+      for (const leaf of bundle.leaves) {
+        if (CURRENCY_NAME_KEYS.includes(leaf.key)) {
+          if (OXYPAY_OR_FAIRCOIN_REFERENCE.test(leaf.value)) excused.push(leaf.key);
+          continue;
+        }
+        expect(
+          OXYPAY_OR_FAIRCOIN_REFERENCE.test(leaf.value),
+          `${bundle.locale}.json → ${leaf.key} names OxyPay or FairCoin`,
+        ).toBe(false);
+      }
+      // An excusing entry is a PREDICATE, not an identity (#448): assert every
+      // excused key is still present AND still naming the currency, so a
+      // renamed or reworded key fails here instead of quietly excusing nothing.
       expect(
-        OXYPAY_OR_FAIRCOIN_REFERENCE.test(bundle.source),
-        `${bundle.locale}.json names OxyPay or FairCoin`,
-      ).toBe(false);
+        excused.sort(),
+        `${bundle.locale}.json: the currency-name exceptions no longer match — ` +
+          'remove the stale entry rather than leaving it excusing nothing',
+      ).toEqual([...CURRENCY_NAME_KEYS].sort());
     }
   });
 
