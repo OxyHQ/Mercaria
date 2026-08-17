@@ -153,6 +153,93 @@
         "providerError": "no s'hi ha pogut contactar"
       },
       "explanationFallbackNotice": "Aquest resum es genera a partir de la taula de comparació de sota, sense cap model de llenguatge."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "Bon preu",
+        "typicalPrice": "Preu habitual",
+        "aboveTypical": "Per sobre de l'habitual"
+      },
+      "confidence": {
+        "sufficient": "Basat en prou ofertes comparables per afirmar-ho",
+        "strong": "Basat en una mostra àmplia d'ofertes comparables"
+      },
+      "position": {
+        "below": "per sota de",
+        "near": "més o menys igual que",
+        "above": "per sobre de"
+      },
+      "title": {
+        "lowestObservedItemPrice": "El preu més baix que hem vist",
+        "lowestObservedKnownTotal": "El total més baix que hem vist",
+        "currentVsRecentMedian": "Comparat amb el preu habitual recent",
+        "materialPriceDrop": "Baixada de preu recent",
+        "typicalRecentRange": "Interval habitual recent",
+        "officialStorePosition": "El preu de la botiga oficial",
+        "priceQualityLabel": "Com es compara aquest preu"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "El preu d'article més baix que hem registrat en aquest estat, en aquest mercat i durant aquest període. Els preus que hem considerat errors de dades s'aparten i es llisten a part.",
+        "lowestObservedKnownTotal": "El total més baix amb lliurament inclòs, entre les ofertes el cost de lliurament de les quals el venedor va publicar realment. Les ofertes que no en van publicar cap s'exclouen en lloc de donar-se per gratuïtes.",
+        "currentVsRecentMedian": "El preu d'avui comparat amb el punt mitjà del que hem registrat durant aquest període: com es compara amb ell mateix darrerament, no amb altres venedors avui.",
+        "materialPriceDrop": "Quant ha baixat el preu actual respecte al preu anterior més recent que vam registrar i vam considerar fiable.",
+        "typicalRecentRange": "La meitat central dels preus que hem registrat durant aquest període. Els dos extrems són preus que algú va cobrar realment.",
+        "officialStorePosition": "El preu en una botiga que la marca ha verificat com a pròpia, comparat amb les altres ofertes de producte nou que podem comparar. Exclou d'aquesta comparació el preu de la mateixa botiga oficial.",
+        "priceQualityLabel": "El preu d'avui comparat amb el punt mitjà de les ofertes que podem comparar ara mateix, amb un preu per venedor."
+      },
+      "badge": {
+        "priceDrop": "Baixada de preu"
+      },
+      "unmeasured": {
+        "noActivePolicy": "Encara no hem publicat cap definició per a aquesta comparació.",
+        "insufficientObservations": "No hem registrat prou preus per afirmar-ho.",
+        "insufficientDistinctSellers": "Hi ha massa pocs venedors diferents per considerar això un mercat.",
+        "insufficientDistinctOffers": "Hi ha massa poques ofertes separades per comparar.",
+        "insufficientTimeCoverage": "No fa prou temps que observem això.",
+        "noEligibleCurrentOffer": "Ara mateix no hi ha cap oferta que puguem comparar.",
+        "noComparableHistory": "No tenim cap historial de preus comparable per a això.",
+        "currencyNotConvertible": "No podem expressar aquests preus en la moneda que has demanat.",
+        "segmentNotApplicable": "Aquesta comparació només està definida per a articles nous.",
+        "measureNotApplicable": "Aquesta mesura no s'aplica aquí.",
+        "demandMeasurementUnavailable": "Encara no mesurem la demanda d'un producte."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "Comparat amb la mediana del mercat",
+        "cheapestItemPrice": "Comparat amb el preu d'article més baix",
+        "cheapestKnownTotal": "Comparat amb el total més baix conegut",
+        "losingEligibility": "Per què aquesta oferta no s'està comparant",
+        "demandWithoutNativeOffer": "Demanda sense cap oferta teva",
+        "ownPriceMovement": "Comparat amb el teu propi preu anterior",
+        "officialChannelPosition": "La teva posició com a botiga oficial"
+      },
+      "eligibilityLoss": {
+        "observationStale": "No hem vist cap lectura recent d'aquesta oferta.",
+        "availabilityUnknown": "La font no indica si això té estoc.",
+        "deliveryCostUnknown": "No hi ha cap cost de lliurament publicat, així que aquesta oferta no pot aparèixer en una comparació de preu total.",
+        "destinationMissing": "No hi ha cap enllaç que un comprador pugui seguir fins a aquesta oferta.",
+        "conditionUnknown": "L'estat d'aquest article no s'indica d'una manera que puguem interpretar.",
+        "priceMissing": "No hi ha cap preu publicat per a aquesta oferta."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "El teu preu actual està per sobre de la mediana de les ofertes que podem comparar.",
+        "deliveryUnknownBlocksKnownTotal": "El lliurament d'aquesta oferta es desconeix, així que no en podem calcular cap preu total.",
+        "refreshWouldRestoreEligibility": "Actualitzar aquesta oferta la tornaria a la comparació.",
+        "wouldBeCheapestItemPrice": "Amb aquest preu observat, aquesta oferta seria el preu d'article més baix quan torni a comparar-se."
+      },
+      "sample": "Basat en %{observations} preus de %{sellers} venedors.",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: hem comparat %{observations} preus de %{sellers} venedors i no n'hem trobat cap.",
+        "labelBelow": "%{title}: %{label}, un %{distance} per sota del punt mitjà del que podem comparar. %{confidence}. %{sample}",
+        "labelAbove": "%{title}: %{label}, un %{distance} per sobre del punt mitjà del que podem comparar. %{confidence}. %{sample}",
+        "labelSame": "%{title}: %{label}, igual que el punt mitjà del que podem comparar. %{confidence}. %{sample}",
+        "relativeBelow": "%{title}: un %{distance} per sota de la referència. %{sample}",
+        "relativeNear": "%{title}: a un %{distance} de la referència, més o menys igual. %{sample}",
+        "relativeAbove": "%{title}: un %{distance} per sobre de la referència. %{sample}",
+        "drop": "%{title}: ha baixat un %{distance} respecte a l'últim preu que vam registrar. %{sample}",
+        "moneyRange": "%{title}: la meitat central del que hem registrat. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
     }
   }
 }

@@ -153,6 +153,93 @@
         "providerError": "接続できませんでした"
       },
       "explanationFallbackNotice": "この要約は下の比較表から生成したもので、言語モデルは使用していません。"
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "お買い得",
+        "typicalPrice": "標準的な価格",
+        "aboveTypical": "標準より高め"
+      },
+      "confidence": {
+        "sufficient": "判断できるだけの比較可能なオファーに基づいています",
+        "strong": "比較可能なオファーの幅広いサンプルに基づいています"
+      },
+      "position": {
+        "below": "下回っています",
+        "near": "ほぼ同じです",
+        "above": "上回っています"
+      },
+      "title": {
+        "lowestObservedItemPrice": "確認した中で最も安い価格",
+        "lowestObservedKnownTotal": "確認した中で最も安い合計",
+        "currentVsRecentMedian": "最近の標準的な価格との比較",
+        "materialPriceDrop": "最近の値下がり",
+        "typicalRecentRange": "最近の標準的な価格帯",
+        "officialStorePosition": "公式ストアの価格",
+        "priceQualityLabel": "この価格の位置づけ"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "このコンディション、この市場、この期間で記録した中で最も安い商品価格です。データの誤りと判断した価格は除外し、別に一覧にしています。",
+        "lowestObservedKnownTotal": "販売者が実際に配送料を公開しているオファーの中で、配送料込みの合計が最も安いものです。公開していないオファーは無料として扱わず、除外しています。",
+        "currentVsRecentMedian": "この期間に記録した価格の中央と比べた今日の価格です。今日の他の販売者との比較ではなく、最近の自分自身との比較です。",
+        "materialPriceDrop": "妥当と判断した直近の過去価格に対して、現在の価格がどれだけ下がったかです。",
+        "typicalRecentRange": "この期間に記録した価格の中央半分です。どちらの端も実際に付けられていた価格です。",
+        "officialStorePosition": "ブランドが自社のものとして認証したストアの価格を、比較できる他の新品オファーと比べたものです。この比較から公式ストア自身の価格は除いています。",
+        "priceQualityLabel": "今比較できるオファーの中央と比べた今日の価格です。販売者ごとに1つの価格を用いています。"
+      },
+      "badge": {
+        "priceDrop": "値下がり"
+      },
+      "unmeasured": {
+        "noActivePolicy": "この比較の定義はまだ公開していません。",
+        "insufficientObservations": "判断できるだけの価格をまだ記録できていません。",
+        "insufficientDistinctSellers": "市場と呼ぶには販売者の数が少なすぎます。",
+        "insufficientDistinctOffers": "比較するには個別のオファーが少なすぎます。",
+        "insufficientTimeCoverage": "観測期間がまだ十分ではありません。",
+        "noEligibleCurrentOffer": "現在、比較できるオファーがありません。",
+        "noComparableHistory": "これに比較できる価格履歴がありません。",
+        "currencyNotConvertible": "ご指定の通貨でこれらの価格を表示できません。",
+        "segmentNotApplicable": "この比較は新品にのみ定義されています。",
+        "measureNotApplicable": "この指標はここには当てはまりません。",
+        "demandMeasurementUnavailable": "商品の需要はまだ計測していません。"
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "市場の中央値との比較",
+        "cheapestItemPrice": "最安の商品価格との比較",
+        "cheapestKnownTotal": "分かっている最安の合計との比較",
+        "losingEligibility": "このオファーが比較されていない理由",
+        "demandWithoutNativeOffer": "あなたのオファーがない状態での需要",
+        "ownPriceMovement": "あなた自身の以前の価格との比較",
+        "officialChannelPosition": "公式ストアとしての位置づけ"
+      },
+      "eligibilityLoss": {
+        "observationStale": "このオファーを最近読み直せていません。",
+        "availabilityUnknown": "在庫があるかどうかを提供元が示していません。",
+        "deliveryCostUnknown": "配送料が公開されていないため、このオファーは合計価格の比較に含められません。",
+        "destinationMissing": "購入者がこのオファーへたどれるリンクがありません。",
+        "conditionUnknown": "この商品のコンディションが、当社で対応づけられる形で示されていません。",
+        "priceMissing": "このオファーには価格が公開されていません。"
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "現在の価格は、比較できるオファーの中央値を上回っています。",
+        "deliveryUnknownBlocksKnownTotal": "このオファーは配送料が不明なため、合計価格を算出できません。",
+        "refreshWouldRestoreEligibility": "このオファーを更新すれば、比較に戻せます。",
+        "wouldBeCheapestItemPrice": "この観測価格であれば、再び比較対象になった時点で最安の商品価格になります。"
+      },
+      "sample": "%{sellers} 件の販売者による %{observations} 件の価格に基づいています。",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: %{sellers} 件の販売者による %{observations} 件の価格を比較しましたが、該当はありませんでした。",
+        "labelBelow": "%{title}: %{label} — 比較できる価格の中央より %{distance} 低い価格です。%{confidence}。%{sample}",
+        "labelAbove": "%{title}: %{label} — 比較できる価格の中央より %{distance} 高い価格です。%{confidence}。%{sample}",
+        "labelSame": "%{title}: %{label} — 比較できる価格の中央とちょうど同じです。%{confidence}。%{sample}",
+        "relativeBelow": "%{title}: 基準より %{distance} 低い価格です。%{sample}",
+        "relativeNear": "%{title}: 基準との差は %{distance} で、ほぼ同じです。%{sample}",
+        "relativeAbove": "%{title}: 基準より %{distance} 高い価格です。%{sample}",
+        "drop": "%{title}: 最後に記録した価格から %{distance} 下がっています。%{sample}",
+        "moneyRange": "%{title}: 記録した価格の中央半分です。%{sample}",
+        "plain": "%{title}。%{sample}"
+      }
     }
   }
 }

@@ -153,6 +153,93 @@
         "providerError": "could not be reached"
       },
       "explanationFallbackNotice": "This summary is generated from the comparison table below, without a language model."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "Good price",
+        "typicalPrice": "Typical price",
+        "aboveTypical": "Above typical"
+      },
+      "confidence": {
+        "sufficient": "Based on enough comparable offers to say",
+        "strong": "Based on a wide sample of comparable offers"
+      },
+      "position": {
+        "below": "below",
+        "near": "about the same as",
+        "above": "above"
+      },
+      "title": {
+        "lowestObservedItemPrice": "Lowest price we have seen",
+        "lowestObservedKnownTotal": "Lowest total we have seen",
+        "currentVsRecentMedian": "Against the recent typical price",
+        "materialPriceDrop": "Recent price drop",
+        "typicalRecentRange": "Typical recent range",
+        "officialStorePosition": "The official store's price",
+        "priceQualityLabel": "How this price compares"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "The lowest item price we recorded in this condition, in this market and over this window. Prices we judged to be data errors are set aside and listed separately.",
+        "lowestObservedKnownTotal": "The lowest total including delivery, among the offers whose delivery cost the seller actually published. Offers that published none are excluded rather than treated as free.",
+        "currentVsRecentMedian": "Today's price against the middle of what we recorded over this window — how it compares with itself lately, not with other sellers today.",
+        "materialPriceDrop": "How far the current price has fallen against the most recent earlier price we recorded and judged sound.",
+        "typicalRecentRange": "The middle half of the prices we recorded over this window. Both ends are prices somebody actually charged.",
+        "officialStorePosition": "The price at a store the brand has verified as its own, against the other new offers we can compare. It excludes the official store's own price from that comparison.",
+        "priceQualityLabel": "Today's price against the middle of the offers we can compare right now, one price per seller."
+      },
+      "badge": {
+        "priceDrop": "Price drop"
+      },
+      "unmeasured": {
+        "noActivePolicy": "We have not published a definition for this comparison yet.",
+        "insufficientObservations": "We have not recorded enough prices to say.",
+        "insufficientDistinctSellers": "Too few different sellers to call this a market.",
+        "insufficientDistinctOffers": "Too few separate offers to compare.",
+        "insufficientTimeCoverage": "We have not been watching this for long enough.",
+        "noEligibleCurrentOffer": "There is no offer we can compare right now.",
+        "noComparableHistory": "We have no comparable price history for this.",
+        "currencyNotConvertible": "We cannot express these prices in the currency you asked for.",
+        "segmentNotApplicable": "This comparison is only defined for new items.",
+        "measureNotApplicable": "This measure does not apply here.",
+        "demandMeasurementUnavailable": "We do not measure demand for a product yet."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "Against the market median",
+        "cheapestItemPrice": "Against the cheapest item price",
+        "cheapestKnownTotal": "Against the cheapest known total",
+        "losingEligibility": "Why this offer is not being compared",
+        "demandWithoutNativeOffer": "Demand without an offer from you",
+        "ownPriceMovement": "Against your own previous price",
+        "officialChannelPosition": "Your official-store position"
+      },
+      "eligibilityLoss": {
+        "observationStale": "We have not seen a fresh reading of this offer recently.",
+        "availabilityUnknown": "The source does not say whether this is in stock.",
+        "deliveryCostUnknown": "No delivery cost is published, so this offer cannot appear in a total-price comparison.",
+        "destinationMissing": "There is no link a buyer can follow to this offer.",
+        "conditionUnknown": "The condition of this item is not stated in a form we can map.",
+        "priceMissing": "No price is published for this offer."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "Your current price is above the median of the offers we can compare.",
+        "deliveryUnknownBlocksKnownTotal": "Delivery is unknown for this offer, so we cannot calculate a total price for it.",
+        "refreshWouldRestoreEligibility": "Refreshing this offer would bring it back into the comparison.",
+        "wouldBeCheapestItemPrice": "At this observed price, this offer would be the cheapest item price once it is being compared again."
+      },
+      "sample": "Based on %{observations} prices from %{sellers} sellers.",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: we compared %{observations} prices from %{sellers} sellers and found none.",
+        "labelBelow": "%{title}: %{label} — %{distance} below the middle of what we can compare. %{confidence}. %{sample}",
+        "labelAbove": "%{title}: %{label} — %{distance} above the middle of what we can compare. %{confidence}. %{sample}",
+        "labelSame": "%{title}: %{label} — the same as the middle of what we can compare. %{confidence}. %{sample}",
+        "relativeBelow": "%{title}: %{distance} below the reference. %{sample}",
+        "relativeNear": "%{title}: %{distance} from the reference, about the same. %{sample}",
+        "relativeAbove": "%{title}: %{distance} above the reference. %{sample}",
+        "drop": "%{title}: down %{distance} on the last price we recorded. %{sample}",
+        "moneyRange": "%{title}: the middle half of what we recorded. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
     }
   }
 }

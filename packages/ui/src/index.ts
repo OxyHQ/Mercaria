@@ -139,17 +139,18 @@ export {
 // the other is the dishonesty the whole domain exists to prevent.
 // ---------------------------------------------------------------------------
 export {
-  MERCHANT_COMPETITIVENESS_TITLE,
-  MERCHANT_ELIGIBILITY_LOSS_TEXT,
-  PRICE_POSITION_TEXT,
-  PRICE_QUALITY_CONFIDENCE_TEXT,
-  PRICE_QUALITY_LABEL_TEXT,
-  PRICE_SIGNAL_MEANING,
-  PRICE_SIGNAL_RECOMMENDATION_TEXT,
-  PRICE_SIGNAL_TITLE,
-  PRICE_SIGNAL_UNMEASURED_TEXT,
+  MERCHANT_COMPETITIVENESS_TITLE_KEYS,
+  MERCHANT_ELIGIBILITY_LOSS_KEYS,
+  PRICE_POSITION_KEYS,
+  PRICE_QUALITY_CONFIDENCE_KEYS,
+  PRICE_QUALITY_LABEL_KEYS,
+  PRICE_SIGNAL_DROP_BADGE_KEY,
+  PRICE_SIGNAL_MEANING_KEYS,
+  PRICE_SIGNAL_RECOMMENDATION_KEYS,
+  PRICE_SIGNAL_TITLE_KEYS,
+  PRICE_SIGNAL_UNMEASURED_KEYS,
   priceSignalAccessibleSummary,
-  priceSignalBadgeText,
+  priceSignalBadgeTextKey,
 } from "./lib/price-signal-labels";
 
 // ---------------------------------------------------------------------------

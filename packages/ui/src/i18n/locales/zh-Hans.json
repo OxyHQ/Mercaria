@@ -153,6 +153,93 @@
         "providerError": "无法连接"
       },
       "explanationFallbackNotice": "此摘要由下方的比较表生成，未使用语言模型。"
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "价格不错",
+        "typicalPrice": "价格正常",
+        "aboveTypical": "高于正常水平"
+      },
+      "confidence": {
+        "sufficient": "基于足以作出判断的可比报价",
+        "strong": "基于范围广泛的可比报价样本"
+      },
+      "position": {
+        "below": "低于",
+        "near": "大致相当于",
+        "above": "高于"
+      },
+      "title": {
+        "lowestObservedItemPrice": "我们见过的最低价格",
+        "lowestObservedKnownTotal": "我们见过的最低总价",
+        "currentVsRecentMedian": "与近期常见价格相比",
+        "materialPriceDrop": "近期降价",
+        "typicalRecentRange": "近期常见价格区间",
+        "officialStorePosition": "官方店铺的价格",
+        "priceQualityLabel": "此价格的水平"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "我们在此成色、此市场、此时间段内记录到的最低商品价格。被判定为数据错误的价格会被剔除并单独列出。",
+        "lowestObservedKnownTotal": "在卖家确实公布了配送费的报价中，含配送的最低总价。未公布配送费的报价会被排除，而不是当作免运费处理。",
+        "currentVsRecentMedian": "今天的价格与我们在此时间段内记录价格的中位水平相比——是与它自己近期的表现相比，而不是与今天其他卖家相比。",
+        "materialPriceDrop": "当前价格相较我们记录并判定可靠的最近一次历史价格下降了多少。",
+        "typicalRecentRange": "我们在此时间段内记录价格的中间一半。两端都是确实有人开出过的价格。",
+        "officialStorePosition": "品牌已认证为自有店铺的价格，与其他可比较的全新报价相比。该比较不包含官方店铺自身的价格。",
+        "priceQualityLabel": "今天的价格与当前可比较报价的中位水平相比，每位卖家取一个价格。"
+      },
+      "badge": {
+        "priceDrop": "降价"
+      },
+      "unmeasured": {
+        "noActivePolicy": "我们尚未公布此项比较的定义。",
+        "insufficientObservations": "我们记录的价格还不足以作出判断。",
+        "insufficientDistinctSellers": "不同卖家太少，还称不上一个市场。",
+        "insufficientDistinctOffers": "可供比较的独立报价太少。",
+        "insufficientTimeCoverage": "我们观察的时间还不够长。",
+        "noEligibleCurrentOffer": "目前没有可供我们比较的报价。",
+        "noComparableHistory": "我们没有与之可比的价格历史。",
+        "currencyNotConvertible": "我们无法用你所要求的货币表示这些价格。",
+        "segmentNotApplicable": "此项比较仅针对全新商品定义。",
+        "measureNotApplicable": "此项指标在这里不适用。",
+        "demandMeasurementUnavailable": "我们尚未衡量单个商品的需求。"
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "与市场中位价相比",
+        "cheapestItemPrice": "与最低商品价格相比",
+        "cheapestKnownTotal": "与已知最低总价相比",
+        "losingEligibility": "此报价未被纳入比较的原因",
+        "demandWithoutNativeOffer": "你没有报价时的需求",
+        "ownPriceMovement": "与你此前的价格相比",
+        "officialChannelPosition": "你作为官方店铺的水平"
+      },
+      "eligibilityLoss": {
+        "observationStale": "我们最近没有重新读取过此报价。",
+        "availabilityUnknown": "来源未说明此商品是否有货。",
+        "deliveryCostUnknown": "未公布配送费，因此此报价无法出现在总价比较中。",
+        "destinationMissing": "没有买家可以点进此报价的链接。",
+        "conditionUnknown": "此商品的成色未以我们能够对应的方式说明。",
+        "priceMissing": "此报价未公布价格。"
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "你当前的价格高于可比较报价的中位价。",
+        "deliveryUnknownBlocksKnownTotal": "此报价的配送费未知，因此我们无法为其计算总价。",
+        "refreshWouldRestoreEligibility": "刷新此报价即可让它重新进入比较。",
+        "wouldBeCheapestItemPrice": "按此观察到的价格，一旦重新纳入比较，此报价将是最低的商品价格。"
+      },
+      "sample": "基于 %{sellers} 位卖家的 %{observations} 个价格。",
+      "summary": {
+        "unmeasured": "%{title}：%{reason}",
+        "notPresent": "%{title}：我们比较了 %{sellers} 位卖家的 %{observations} 个价格，未找到符合的。",
+        "labelBelow": "%{title}：%{label}——比可比较价格的中位水平低 %{distance}。%{confidence}。%{sample}",
+        "labelAbove": "%{title}：%{label}——比可比较价格的中位水平高 %{distance}。%{confidence}。%{sample}",
+        "labelSame": "%{title}：%{label}——与可比较价格的中位水平持平。%{confidence}。%{sample}",
+        "relativeBelow": "%{title}：比基准低 %{distance}。%{sample}",
+        "relativeNear": "%{title}：与基准相差 %{distance}，大致相当。%{sample}",
+        "relativeAbove": "%{title}：比基准高 %{distance}。%{sample}",
+        "drop": "%{title}：较我们记录的上一次价格下降 %{distance}。%{sample}",
+        "moneyRange": "%{title}：我们记录价格的中间一半。%{sample}",
+        "plain": "%{title}。%{sample}"
+      }
     }
   }
 }

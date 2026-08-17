@@ -153,6 +153,93 @@
         "providerError": "تعذّر الوصول إليه"
       },
       "explanationFallbackNotice": "هذا الملخّص مُولَّد من جدول المقارنة أدناه، بدون أي نموذج لغوي."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "سعر جيد",
+        "typicalPrice": "سعر معتاد",
+        "aboveTypical": "أعلى من المعتاد"
+      },
+      "confidence": {
+        "sufficient": "استنادًا إلى عروض قابلة للمقارنة تكفي للحكم",
+        "strong": "استنادًا إلى عيّنة واسعة من العروض القابلة للمقارنة"
+      },
+      "position": {
+        "below": "أقل من",
+        "near": "قريب من",
+        "above": "أعلى من"
+      },
+      "title": {
+        "lowestObservedItemPrice": "أقل سعر رأيناه",
+        "lowestObservedKnownTotal": "أقل إجمالي رأيناه",
+        "currentVsRecentMedian": "مقارنةً بالسعر المعتاد مؤخرًا",
+        "materialPriceDrop": "انخفاض سعر حديث",
+        "typicalRecentRange": "النطاق المعتاد مؤخرًا",
+        "officialStorePosition": "سعر المتجر الرسمي",
+        "priceQualityLabel": "كيف يقارَن هذا السعر"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "أقل سعر سلعة سجّلناه بهذه الحالة وفي هذا السوق وخلال هذه المدة. الأسعار التي رأينا أنها أخطاء بيانات تُستبعد وتُدرج على حدة.",
+        "lowestObservedKnownTotal": "أقل إجمالي شامل التوصيل، بين العروض التي نشر بائعوها تكلفة التوصيل فعلًا. العروض التي لم تنشرها تُستبعد بدل اعتبارها مجانية.",
+        "currentVsRecentMedian": "سعر اليوم مقابل منتصف ما سجّلناه خلال هذه المدة — أي مقارنته بنفسه مؤخرًا، لا ببائعين آخرين اليوم.",
+        "materialPriceDrop": "مقدار انخفاض السعر الحالي مقابل أحدث سعر سابق سجّلناه ورأيناه سليمًا.",
+        "typicalRecentRange": "النصف الأوسط من الأسعار التي سجّلناها خلال هذه المدة. كلا الطرفين سعر طلبه أحدهم فعلًا.",
+        "officialStorePosition": "السعر في متجر وثّقته العلامة التجارية على أنه متجرها، مقابل بقية عروض الجديد التي يمكننا مقارنتها. ويُستثنى من هذه المقارنة سعر المتجر الرسمي نفسه.",
+        "priceQualityLabel": "سعر اليوم مقابل منتصف العروض التي يمكننا مقارنتها الآن، بسعر واحد لكل بائع."
+      },
+      "badge": {
+        "priceDrop": "انخفاض السعر"
+      },
+      "unmeasured": {
+        "noActivePolicy": "لم ننشر بعد تعريفًا لهذه المقارنة.",
+        "insufficientObservations": "لم نسجّل أسعارًا كافية للحكم.",
+        "insufficientDistinctSellers": "عدد البائعين المختلفين أقل من أن يُسمّى سوقًا.",
+        "insufficientDistinctOffers": "عدد العروض المنفصلة أقل من أن تُقارن.",
+        "insufficientTimeCoverage": "لم نراقب هذا مدة كافية بعد.",
+        "noEligibleCurrentOffer": "لا يوجد حاليًا عرض يمكننا مقارنته.",
+        "noComparableHistory": "ليس لدينا سجل أسعار قابل للمقارنة لهذا.",
+        "currencyNotConvertible": "لا يمكننا عرض هذه الأسعار بالعملة التي طلبتها.",
+        "segmentNotApplicable": "هذه المقارنة معرّفة للسلع الجديدة فقط.",
+        "measureNotApplicable": "هذا المقياس لا ينطبق هنا.",
+        "demandMeasurementUnavailable": "لا نقيس الطلب على منتج بعد."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "مقابل وسيط السوق",
+        "cheapestItemPrice": "مقابل أقل سعر سلعة",
+        "cheapestKnownTotal": "مقابل أقل إجمالي معروف",
+        "losingEligibility": "سبب عدم إدراج هذا العرض في المقارنة",
+        "demandWithoutNativeOffer": "طلب من دون عرض منك",
+        "ownPriceMovement": "مقابل سعرك السابق",
+        "officialChannelPosition": "موقعك كمتجر رسمي"
+      },
+      "eligibilityLoss": {
+        "observationStale": "لم نقرأ هذا العرض قراءة حديثة مؤخرًا.",
+        "availabilityUnknown": "المصدر لا يذكر ما إذا كان هذا متوفرًا.",
+        "deliveryCostUnknown": "لم تُنشر تكلفة توصيل، لذا لا يمكن أن يظهر هذا العرض في مقارنة السعر الإجمالي.",
+        "destinationMissing": "لا يوجد رابط يمكن للمشتري اتباعه إلى هذا العرض.",
+        "conditionUnknown": "حالة هذه السلعة غير مذكورة بصيغة يمكننا تحويلها.",
+        "priceMissing": "لم يُنشر سعر لهذا العرض."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "سعرك الحالي أعلى من وسيط العروض التي يمكننا مقارنتها.",
+        "deliveryUnknownBlocksKnownTotal": "التوصيل غير معروف لهذا العرض، لذا لا يمكننا حساب سعر إجمالي له.",
+        "refreshWouldRestoreEligibility": "تحديث هذا العرض سيعيده إلى المقارنة.",
+        "wouldBeCheapestItemPrice": "بهذا السعر المرصود، سيكون هذا العرض أقل سعر سلعة بمجرد عودته إلى المقارنة."
+      },
+      "sample": "استنادًا إلى %{observations} سعرًا من %{sellers} بائعًا.",
+      "summary": {
+        "unmeasured": "%{title}: %{reason}",
+        "notPresent": "%{title}: قارنّا %{observations} سعرًا من %{sellers} بائعًا ولم نجد أيًا منها.",
+        "labelBelow": "%{title}: %{label} — أقل بنسبة %{distance} من منتصف ما يمكننا مقارنته. %{confidence}. %{sample}",
+        "labelAbove": "%{title}: %{label} — أعلى بنسبة %{distance} من منتصف ما يمكننا مقارنته. %{confidence}. %{sample}",
+        "labelSame": "%{title}: %{label} — مساوٍ تمامًا لمنتصف ما يمكننا مقارنته. %{confidence}. %{sample}",
+        "relativeBelow": "%{title}: أقل بنسبة %{distance} من المرجع. %{sample}",
+        "relativeNear": "%{title}: يبعد %{distance} عن المرجع، أي قريب منه. %{sample}",
+        "relativeAbove": "%{title}: أعلى بنسبة %{distance} من المرجع. %{sample}",
+        "drop": "%{title}: انخفض بنسبة %{distance} عن آخر سعر سجّلناه. %{sample}",
+        "moneyRange": "%{title}: النصف الأوسط مما سجّلناه. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
     }
   }
 }

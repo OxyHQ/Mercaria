@@ -153,6 +153,93 @@
         "providerError": "n'a pas pu être joint"
       },
       "explanationFallbackNotice": "Ce résumé est généré à partir du tableau de comparaison ci-dessous, sans modèle de langage."
+    },
+    "priceSignal": {
+      "qualityLabel": {
+        "goodPrice": "Bon prix",
+        "typicalPrice": "Prix habituel",
+        "aboveTypical": "Au-dessus de l'habituel"
+      },
+      "confidence": {
+        "sufficient": "D'après suffisamment d'offres comparables pour l'affirmer",
+        "strong": "D'après un large échantillon d'offres comparables"
+      },
+      "position": {
+        "below": "en dessous de",
+        "near": "à peu près au niveau de",
+        "above": "au-dessus de"
+      },
+      "title": {
+        "lowestObservedItemPrice": "Le prix le plus bas que nous ayons vu",
+        "lowestObservedKnownTotal": "Le total le plus bas que nous ayons vu",
+        "currentVsRecentMedian": "Face au prix habituel récent",
+        "materialPriceDrop": "Baisse de prix récente",
+        "typicalRecentRange": "Fourchette habituelle récente",
+        "officialStorePosition": "Le prix de la boutique officielle",
+        "priceQualityLabel": "Comment ce prix se situe"
+      },
+      "meaning": {
+        "lowestObservedItemPrice": "Le prix d'article le plus bas que nous ayons enregistré dans cet état, sur ce marché et sur cette période. Les prix que nous avons jugés erronés sont écartés et listés à part.",
+        "lowestObservedKnownTotal": "Le total le plus bas livraison comprise, parmi les offres dont le vendeur a réellement publié les frais de livraison. Les offres sans frais publiés sont exclues plutôt que traitées comme gratuites.",
+        "currentVsRecentMedian": "Le prix d'aujourd'hui face au milieu de ce que nous avons enregistré sur cette période : comment il se compare à lui-même ces derniers temps, et non aux autres vendeurs aujourd'hui.",
+        "materialPriceDrop": "De combien le prix actuel a baissé par rapport au prix antérieur le plus récent que nous avons enregistré et jugé fiable.",
+        "typicalRecentRange": "La moitié centrale des prix que nous avons enregistrés sur cette période. Les deux extrémités sont des prix que quelqu'un a réellement pratiqués.",
+        "officialStorePosition": "Le prix dans une boutique que la marque a vérifiée comme étant la sienne, face aux autres offres neuves que nous pouvons comparer. Le prix de la boutique officielle elle-même est exclu de cette comparaison.",
+        "priceQualityLabel": "Le prix d'aujourd'hui face au milieu des offres que nous pouvons comparer en ce moment, à raison d'un prix par vendeur."
+      },
+      "badge": {
+        "priceDrop": "Baisse de prix"
+      },
+      "unmeasured": {
+        "noActivePolicy": "Nous n'avons pas encore publié de définition pour cette comparaison.",
+        "insufficientObservations": "Nous n'avons pas enregistré assez de prix pour l'affirmer.",
+        "insufficientDistinctSellers": "Trop peu de vendeurs différents pour parler d'un marché.",
+        "insufficientDistinctOffers": "Trop peu d'offres distinctes à comparer.",
+        "insufficientTimeCoverage": "Nous n'observons pas cela depuis assez longtemps.",
+        "noEligibleCurrentOffer": "Il n'y a aucune offre que nous puissions comparer pour le moment.",
+        "noComparableHistory": "Nous n'avons pas d'historique de prix comparable pour cela.",
+        "currencyNotConvertible": "Nous ne pouvons pas exprimer ces prix dans la devise demandée.",
+        "segmentNotApplicable": "Cette comparaison n'est définie que pour les articles neufs.",
+        "measureNotApplicable": "Cette mesure ne s'applique pas ici.",
+        "demandMeasurementUnavailable": "Nous ne mesurons pas encore la demande pour un produit."
+      },
+      "competitiveness": {
+        "positionVsEligibleMedian": "Face à la médiane du marché",
+        "cheapestItemPrice": "Face au prix d'article le plus bas",
+        "cheapestKnownTotal": "Face au total le plus bas connu",
+        "losingEligibility": "Pourquoi cette offre n'est pas comparée",
+        "demandWithoutNativeOffer": "Demande sans offre de votre part",
+        "ownPriceMovement": "Face à votre propre prix précédent",
+        "officialChannelPosition": "Votre position de boutique officielle"
+      },
+      "eligibilityLoss": {
+        "observationStale": "Nous n'avons pas relevé cette offre récemment.",
+        "availabilityUnknown": "La source n'indique pas si c'est en stock.",
+        "deliveryCostUnknown": "Aucun frais de livraison n'est publié, cette offre ne peut donc pas figurer dans une comparaison de prix total.",
+        "destinationMissing": "Il n'y a aucun lien qu'un acheteur puisse suivre vers cette offre.",
+        "conditionUnknown": "L'état de cet article n'est pas indiqué sous une forme que nous puissions interpréter.",
+        "priceMissing": "Aucun prix n'est publié pour cette offre."
+      },
+      "recommendation": {
+        "aboveEligibleMedian": "Votre prix actuel est au-dessus de la médiane des offres que nous pouvons comparer.",
+        "deliveryUnknownBlocksKnownTotal": "La livraison est inconnue pour cette offre, nous ne pouvons donc pas en calculer un prix total.",
+        "refreshWouldRestoreEligibility": "Actualiser cette offre la ramènerait dans la comparaison.",
+        "wouldBeCheapestItemPrice": "À ce prix relevé, cette offre serait le prix d'article le plus bas dès qu'elle sera de nouveau comparée."
+      },
+      "sample": "D'après %{observations} prix provenant de %{sellers} vendeurs.",
+      "summary": {
+        "unmeasured": "%{title} : %{reason}",
+        "notPresent": "%{title} : nous avons comparé %{observations} prix provenant de %{sellers} vendeurs et n'en avons trouvé aucun.",
+        "labelBelow": "%{title} : %{label} — %{distance} en dessous du milieu de ce que nous pouvons comparer. %{confidence}. %{sample}",
+        "labelAbove": "%{title} : %{label} — %{distance} au-dessus du milieu de ce que nous pouvons comparer. %{confidence}. %{sample}",
+        "labelSame": "%{title} : %{label} — exactement le milieu de ce que nous pouvons comparer. %{confidence}. %{sample}",
+        "relativeBelow": "%{title} : %{distance} en dessous de la référence. %{sample}",
+        "relativeNear": "%{title} : %{distance} de la référence, à peu près au même niveau. %{sample}",
+        "relativeAbove": "%{title} : %{distance} au-dessus de la référence. %{sample}",
+        "drop": "%{title} : en baisse de %{distance} par rapport au dernier prix enregistré. %{sample}",
+        "moneyRange": "%{title} : la moitié centrale de ce que nous avons enregistré. %{sample}",
+        "plain": "%{title}. %{sample}"
+      }
     }
   }
 }
