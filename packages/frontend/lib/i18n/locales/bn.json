@@ -237,7 +237,12 @@
       "availabilityUnknown": "এই পণ্যের প্রাপ্যতা এখন দেখানো হচ্ছে না।"
     },
     "compatibility": {
-      "title": "সামঞ্জস্য"
+      "title": "সামঞ্জস্য",
+      "fits": "এই গাড়িগুলিতে ফিট করে",
+      "partiallyFits": "শর্তসহ ফিট করে",
+      "doesNotFit": "এই গাড়িগুলিতে ফিট করে না",
+      "notConfirmed": "নিশ্চিত নয়",
+      "truncated": "তালিকার একটি অংশ দেখানো হচ্ছে।"
     },
     "category": {
       "fallbackTitle": "বিভাগ",

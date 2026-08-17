@@ -110,27 +110,62 @@ shape satisfies it because both sides evaluate false (the #68 finding).
 An `unmeasured` plan may be RECORDED and may never EXECUTE
 (`..._unmeasured_not_applied_check`).
 
-### The rewire that does NOT exist, stated rather than faked
+### The `category_slugs` rewire now EXISTS, and what it still refuses to do
 
 `listings.category_slugs` is denormalized at write time by
-`catalog-write.service.resolveCategory` and **nothing in this repository
-re-derives it**. A category rename leaves every listing beneath it carrying the
-old ancestor path.
+`catalog-write.service.resolveCategory`, and until #367's seam pass nothing
+re-derived it: a category rename left every listing beneath it carrying the old
+ancestor path, and five services filter on that path. This domain recorded the
+hole rather than building a second writer of `listings`.
 
-`updateListing` is the only writer of that table and is a merchant-facing entry
-point with pins, moderation refusals and facet sync attached. Building a second
-writer of `listings` here is exactly what the house rule forbids, so the plan
-NAMES the gap (`rewire_path_missing`) and the impact report surfaces it
-separately from the total — an operator reading "1,240 listings affected, 1,240
-of them not rewired" makes a different decision from one reading "1,240 listings
-affected".
+It is now closed, on the service that already owns the derivation and already
+calls the ONE sanctioned writer. `rederiveCategoryBrowsePaths(tx, categoryId)`
+re-derives the whole SUBTREE's paths through `updateListingColumns`, and
+`apply.ts` calls it after the taxonomy write. There is still no second writer
+here, which is what `taxonomy-write-chokepoint.test.ts` and the listing
+chokepoint census exist to hold.
 
-Three relations carry this disposition today: `seller_listing_drafts.category_id`
-(#91 exposes no re-pin entry point), `native_variant_axis_assignments.attribute_definition_id`
-(#367 step 4 exposes no re-normalization entry point for already-written
-assignments), and `listings.category_slugs` — which has no foreign key of its
-own and is therefore documented on `listings.category_id`'s entry rather than
-counted separately.
+**Which three actions call it, and why the other five do not.** The path is
+`[ancestor slugs…, own slug]`, so it moves only when a SLUG in it changes:
+`taxonomy_rename` **when the request carried a `slug`** (a name-only rename
+changes a label and no path); `taxonomy_move`, which re-splices the whole
+subtree's ancestry; and `taxonomy_merge`, which answers `null` explicitly
+because the loser's listings stay filed under the loser, whose own slug and
+ancestry are untouched — a conclusion worth finding stated rather than inferring
+from an absence. The four lifecycle actions and `taxonomy_redirect` change no
+slug and no ancestry.
+
+**It MUST run inside the caller's transaction, and that is why it is BOUNDED.**
+The value is derived from the taxonomy the caller just rewrote; read on a second
+connection it would see the PRE-change ancestry — the caller has not committed —
+and confidently rewrite every path to the value it already had. Being inside
+somebody's transaction is what makes an unbounded pass unacceptable: a top-level
+rename would hold row locks on an arbitrary subtree and time out, and the remedy
+somebody then reaches for is to stop calling the repair. So the bound is 2,000
+listings, a subtree larger than it reports `incomplete` in the audit event's
+`after` snapshot, and `scripts/backfill-catalog-paths.ts --apply` finishes the
+pass. `incomplete` is PROBED rather than inferred from the budget running out:
+a subtree of exactly the bound is complete, and reporting it as incomplete sends
+an operator to run a pass with nothing to do.
+
+**What it still refuses to do**, and this is why `listings.category_id` keeps
+its `blocks` disposition: it re-derives the PATH and never re-points the
+CATEGORY. Re-pointing a listing whose category was merged overwrites a value
+that then exists nowhere, so it needs a durable record before it can be
+reversible — `docs/catalog-backfill.md` §"The repair this domain does not
+perform" states what that record would have to be. One declared side effect:
+`updateListingColumns` stamps `updated_at`, so a repaired listing gets a fresh
+sitemap `lastmod`. The browse path genuinely changed.
+
+Pinned by `services/__tests__/category-path-rewire.realdb.test.ts`, which drives
+the rename inside a real transaction — the only place the post-change ancestry
+is visible — and mutation-tests both the subtree scope and the `incomplete`
+probe.
+
+Two relations still carry the `rewire_path_missing` disposition:
+`seller_listing_drafts.category_id` (#91 exposes no re-pin entry point) and
+`native_variant_axis_assignments.attribute_definition_id` (#367 step 4 exposes
+no re-normalization entry point for already-written assignments).
 
 ### The seam: this domain reaches into other domains' tables to count
 
@@ -408,10 +443,11 @@ The route set is CLOSED (28 routes), enumerated exactly by the isolation gate.
 
 Stated rather than claimed:
 
-- **`listings.category_slugs` re-derivation after a taxonomy rename or merge.**
-  No path exists and this domain did not build one. It is declared
-  `rewire_path_missing` and surfaced in every impact report. Closing it is an
-  entry point on `catalog-write.service`, which owns `listings`.
+- **`listings.category_slugs` re-derivation — CLOSED.** The entry point landed on
+  `catalog-write.service` (`rederiveCategoryBrowsePaths`) and `apply.ts` calls it
+  for a slug rename and a move. See §"The `category_slugs` rewire now EXISTS"
+  above for the bound, what `incomplete` means, and the re-pointing of
+  `category_id` it still refuses.
 - **Localization review covers categories and product types.**
   `attribute_value_localizations` has an upsert but no reviewed-status path
   through this surface yet; its backlog IS counted on the desk.

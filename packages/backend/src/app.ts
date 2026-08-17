@@ -120,6 +120,8 @@ import catalogProposalsRouter from './routes/catalog-proposals.js';
 import internalCatalogProposalsRouter from './routes/internal-catalog-proposals.js';
 import internalCatalogGovernanceRouter from './routes/internal-catalog-governance.js';
 import internalCatalogMetricsRouter from './routes/internal-catalog-metrics.js';
+import compatibilityRouter from './routes/compatibility.js';
+import productTypesRouter from './routes/product-types.js';
 import { catalogObservability } from './middleware/catalog-observability.js';
 import { config } from './config/index.js';
 import {
@@ -1011,6 +1013,31 @@ export function createApp(): express.Express {
     // evidence has to be readable during the incident that turned a domain off.
     app.use('/internal/catalog-metrics', internalCatalogMetricsRouter);
   }
+  /**
+   * Compatibility and automotive fitment (#367 step 8, ADR 0007 D8) — "does this
+   * part fit my car", plus the vehicle picker that lets somebody ask.
+   *
+   * Mounted UNCONDITIONALLY, unlike `/price-history` and `/price-signals`, and the
+   * reasoning is on `routes/compatibility.ts`: the claim a wrong answer here would
+   * make is withheld by the publication policy rather than by a mount — a positive
+   * fit publishes only at `verification = 'verified'`, and an absent fact answers
+   * `unknown` rather than `does_not_apply`. Withdrawal is per row
+   * (`closeCompatibilityRelation`) and is the correction this domain built instead
+   * of a delete.
+   */
+  app.use('/compatibility', compatibilityRouter);
+  /**
+   * Published product-type specification layouts (#367 step 3, ADR 0007 D5).
+   *
+   * Not behind `CATALOG_TAXONOMY_V2_ENABLED` and not behind
+   * `CATALOG_AUTHORING_ENABLED`, and the distinction is what the surface serves: a
+   * published product type's group headings are catalogue metadata of the same kind
+   * `/categories` and `/catalog-attributes` already serve unconditionally, while
+   * the authoring lever gates a SELLER's form and everything composed for it. A
+   * key with no published version answers 404, so a deployment that has published
+   * nothing exposes nothing.
+   */
+  app.use('/product-types', productTypesRouter);
   // (Inbound connector webhooks are mounted above, before express.json.)
 
   // Root route
@@ -1053,6 +1080,8 @@ export function createApp(): express.Express {
         '/store-linkage',
         '/guest/session',
         '/analytics',
+        '/compatibility',
+        '/product-types',
         // `/internal/payments`, `/internal/commerce-graph`,
         // `/internal/canonical-catalog`, `/internal/offers`,
         // `/internal/catalog-attributes`, `/internal/analytics`,

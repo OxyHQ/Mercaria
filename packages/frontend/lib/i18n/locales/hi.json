@@ -237,7 +237,12 @@
       "availabilityUnknown": "इस उत्पाद की उपलब्धता अभी नहीं दिखाई जा रही है।"
     },
     "compatibility": {
-      "title": "संगतता"
+      "title": "संगतता",
+      "fits": "इन वाहनों में फ़िट होता है",
+      "partiallyFits": "शर्तों के साथ फ़िट होता है",
+      "doesNotFit": "इन वाहनों में फ़िट नहीं होता",
+      "notConfirmed": "पुष्टि नहीं हुई",
+      "truncated": "सूची का एक हिस्सा दिखाया जा रहा है."
     },
     "category": {
       "fallbackTitle": "श्रेणी",

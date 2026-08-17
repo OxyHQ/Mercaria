@@ -343,8 +343,59 @@ fails the build until somebody justifies it.
 
 ---
 
+## The public specification layout
+
+`GET /product-types/:key/specification-layout` (`routes/product-types.ts` +
+`controllers/product-types.controller.ts`), mounted unconditionally. It closes the
+seam that left the product type's ordered field groups reachable only through
+`GET /catalog-authoring/schemas/:productTypeKey` — which is behind
+`authenticateToken` plus a false-by-default flag — while `ProductTypeVersionView`
+was served by no route at all. The consequence was that a product page could group
+its specification table by entity scope (`product` versus `variant`) and by
+nothing else.
+
+- **It is a different TYPE from the authoring view, not a filtered one.**
+  `PublicProductTypeSpecificationLayout` carries group keys, labels, positions and
+  attribute keys. `PUBLIC_PRODUCT_TYPE_FORBIDDEN_LAYOUT_FIELDS` names the five
+  authoring facts it may not carry — `id`, `flow`, `requirement`, `valuePolicy`,
+  `visibilityRule` — gated statically by the DTO's shape and at runtime by a walk
+  of a real emitted layout. `visibilityRule` is the one to read: it is a
+  conditional expression over other fields, and publishing it would put the
+  authoring form's branching on a product page.
+- **It names no authoring FLOW, and is derived across every one of them.**
+  `product_type_fields` rows are per flow — a P2P form is a deliberately shorter
+  list than a merchant form — so serving one flow's grouping would make a
+  shopper's spec table depend on which form the seller happened to fill in.
+  `listProductTypeFieldsForEveryFlow` reads them all in one statement.
+- **A cross-flow disagreement places NOTHING.** Two flows can put one attribute in
+  two different groups and nothing in the schema forbids it (the citation trigger
+  pins `variant_capable`, a different column). Such an attribute is reported in
+  `conflictingAttributeKeys` and left in `ungroupedAttributeKeys` — #94's
+  `conflicting` selection state applied to a layout, because picking one would
+  make the table a function of which flow was read first. Grouped-versus-ungrouped
+  counts as a disagreement too: "this belongs in Display" and "this belongs
+  nowhere" are two different statements.
+- **An empty group is still emitted**, because "this type declares no battery
+  attributes" and "no such group exists" are different facts, and whether to render
+  a heading with no rows is a display decision.
+- **Only a PUBLISHED version**, through `findPublishedProductTypeDefinition` (a
+  lookup, not "the newest of the published ones" —
+  `product_type_definitions_one_published_per_key` is what makes it one). A key
+  with no published version answers 404, and that 404 covers three states on
+  purpose: no such key, drafts only, and a deprecated version with no replacement.
+  Distinguishing them would report unpublished catalogue work to anybody who can
+  guess a key.
+
+The derivation is pure and is tested without a server in
+`services/__tests__/product-type-specification-layout.test.ts`.
+
 ## Seams left to their owners, none of them a stub that lies
 
+- **The STOREFRONT read.** The layout above exists and nothing consumes it:
+  `packages/frontend/lib/catalog/specifications.ts` still reports
+  `grouping: 'entity_scope'`. Closing it is a second `SpecificationGrouping`
+  member plus the fetch — never a list composed on the client, which is the
+  per-product-type spec list workstream 9 exists to delete.
 - **ADR 0007 D10 — the authoring service.** `ProductTypeVersionView` is
   deliberately *not* called an authoring schema: D10 gives that name to a
   composition over this plus the registry versions, the controlled-value
@@ -361,9 +412,10 @@ fails the build until somebody justifies it.
 - **ADR 0007 D12 — `PRODUCT_TYPES_ENABLED`.** The flag gates product-type
   resolution and the authoring schema route. This domain reads no configuration
   at all (a scanned gate), so the lever lives with the surface that mounts.
-- **An operator HTTP surface.** None exists yet. When one arrives it belongs on
-  the existing `CATALOG_OPERATOR_OXY_USER_IDS` allow-list — the one #54, #56,
-  #57, #58, #60, #62, #68, #78 and #94 already share — and not a seventh list.
+- **An operator HTTP surface.** None exists yet — the public layout read above is
+  not one. When it arrives it belongs on the existing
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list — the one #54, #56, #57, #58, #60,
+  #62, #68, #78 and #94 already share — and not a seventh list.
 - **The open item ADR 0007 records:** whether bundles, services and digital goods
   get their own product-type scopes or are excluded at launch. Nothing in this
   schema decides it; a product type is a key and a version, so either answer is a

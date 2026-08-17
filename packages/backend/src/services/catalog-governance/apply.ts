@@ -14,11 +14,11 @@
  * domain grows a `.insert(` / `.update(` / `.delete(` against a catalogue
  * table, which is what keeps that claim true for the driver somebody adds next.
  *
- * ## The rewire is `bumpAuthoringSchemaInvalidation`, and it is not new
+ * ## The rewire is four existing paths, and none of them was built here
  *
  * "Rewire affected products, listings and search documents safely after an
- * approved change" is answered by three paths that already exist, none of them
- * built here:
+ * approved change" is answered by four paths that already exist, all of them
+ * owned by the domain whose rows they touch:
  *
  * - `bumpAuthoringSchemaInvalidation` raises the revision every composed
  *   authoring schema is keyed on, so every open draft and every client ETag
@@ -30,17 +30,31 @@
  *   normalization rewire and it needs nothing from here.
  * - The category triggers already mark dependent localizations stale, and
  *   `moveCategory` already re-splices every descendant's ancestry.
+ * - `catalog-write.service.rederiveCategoryBrowsePaths` re-derives
+ *   `listings.category_slugs` for the moved subtree. That path did NOT exist when
+ *   this module was written — the gap was recorded rather than papered over, and
+ *   the entry point that closed it went on the service that already owns the
+ *   derivation and already calls the ONE sanctioned writer of `listings`. There is
+ *   still no second writer here, which is what
+ *   `taxonomy-write-chokepoint.test.ts` and the listing chokepoint census exist to
+ *   hold.
  *
- * ## The one rewire that does NOT exist, stated rather than faked
+ * ## What that rewire deliberately still does NOT do
  *
- * `listings.category_slugs` is denormalized at write time by
- * `catalog-write.service.resolveCategory` and nothing re-derives it. A category
- * rename therefore leaves every listing beneath it carrying the old ancestor
- * path. The honest response is `impact-plan.ts`'s `rewire_path_missing`
- * disposition and an impact report that says so — not a second writer of
- * `listings` here, which is precisely what the house rule forbids and what
- * `taxonomy-write-chokepoint.test.ts` and the listing chokepoints exist to
- * prevent.
+ * It re-derives the browse PATH and never `listings.category_id`. Re-pointing a
+ * listing whose category was MERGED overwrites a value that then exists nowhere,
+ * so it needs a durable record before it can be reversible —
+ * `docs/catalog-backfill.md` §"The repair this domain does not perform" states
+ * what that record would have to be, and `impact-plan.ts` keeps
+ * `listings.categoryId` at `blocks` because of it.
+ *
+ * And it is BOUNDED, because it runs inside this transaction: a subtree larger
+ * than the bound reports `incomplete` in the audit event's `after` snapshot, and
+ * the remaining listings keep the path they were written with until
+ * `scripts/backfill-catalog-paths.ts` finishes the pass. The alternative — an
+ * unbounded loop holding row locks on an arbitrary subtree inside a governance
+ * transaction — makes a top-level rename a change that times out, and the remedy
+ * somebody then reaches for is to stop calling the repair at all.
  */
 
 import type {
@@ -65,6 +79,10 @@ import {
   retireAttributeDefinition,
 } from '../attributes/definition-registry.service.js';
 import { publishProductTypeVersion } from '../product-types/product-type.service.js';
+import {
+  rederiveCategoryBrowsePaths,
+  type CategoryPathRederivation,
+} from '../catalog-write.service.js';
 import {
   archiveNavigationTree,
   publishNavigationTree,
@@ -198,6 +216,48 @@ async function applyTaxonomy(
 }
 
 /**
+ * Re-derive the browse paths a taxonomy action actually moved — or `null`.
+ *
+ * ## Which three actions move a path, and why the other five do not
+ *
+ * `listings.category_slugs` is `[ancestor slugs…, own slug]`, so it moves only
+ * when a SLUG in that path changes:
+ *
+ * - `taxonomy_rename` — only when the request carried a `slug`. A name-only rename
+ *   changes a label and no path, so it reads the parameter's PRESENCE rather than
+ *   re-deriving unconditionally. Re-deriving anyway would be harmless and would
+ *   also make every governed rename hold locks on a subtree for nothing.
+ * - `taxonomy_move` — `moveCategory` re-splices the whole subtree's ancestry, so
+ *   every listing beneath it has a new path.
+ * - `taxonomy_merge` — the LOSER's listings stay filed under the loser, whose own
+ *   slug and ancestry are untouched, so no path moves. It is in this list anyway,
+ *   answering `null` explicitly, because "a merge moves no browse path" is a
+ *   conclusion a reader should find stated rather than infer from an absence.
+ *
+ * The four lifecycle actions (`publish`, `restore`, `deprecate`, `suppress`) and
+ * `taxonomy_redirect` change no slug and no ancestry. A deprecated category keeps
+ * its listings and its path; whether that path may be BROWSED is the reading
+ * surface's question, and re-deriving here would rewrite every listing under it to
+ * the value it already holds.
+ */
+async function rewireCategoryBrowsePaths(
+  tx: DatabaseOrTransaction,
+  action: CatalogGovernanceAction,
+  parameters: Record<string, unknown>,
+  subjectId: string,
+): Promise<CategoryPathRederivation | null> {
+  if (action === 'taxonomy_move') {
+    return rederiveCategoryBrowsePaths(tx, subjectId);
+  }
+  if (action === 'taxonomy_rename') {
+    return optionalParam(parameters, 'slug') === null
+      ? null
+      : rederiveCategoryBrowsePaths(tx, subjectId);
+  }
+  return null;
+}
+
+/**
  * Apply one approved change.
  *
  * Runs inside the caller's transaction wherever the domain writer accepts one.
@@ -234,7 +294,14 @@ export async function applyChange(
       // Workstream 12, so every open authoring draft went on composing against
       // a category whose lifecycle or slug had moved until its own TTL expired.
       await bumpAuthoringSchemaInvalidation(tx, { subject: 'category', subjectId });
-      return { outcome: 'applied', after };
+      const categoryPathRewire = await rewireCategoryBrowsePaths(tx, action, parameters, subjectId);
+      // Folded into the audit event's `after` snapshot rather than returned
+      // separately, because the number an operator needs after a rename is how
+      // many listings had their browse path corrected and whether anything was
+      // left over — and the audit trail is where they look. `null` on an action
+      // that moves no path, so the snapshot distinguishes "nothing to rewire"
+      // from "rewired nothing".
+      return { outcome: 'applied', after: { category: after, categoryPathRewire } };
     }
 
     case 'product_type_publish': {

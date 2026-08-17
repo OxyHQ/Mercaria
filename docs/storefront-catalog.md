@@ -435,8 +435,9 @@ presentation-only collections from becoming false product facts", "track
 schema/version dependencies so changed mappings can trigger controlled
 recomputation") are properties of a recommendation SYSTEM and its indexing, not
 of a storefront screen, and the storefront reads no recommendation surface
-today. Two of the four additionally depend on the compatibility domain, which
-publishes nothing (below).
+today. Two of the four additionally depend on the compatibility domain, which this
+package now reads for a product's own fitment list — but a RELATED-PRODUCTS use of
+it needs the relation lookup, whose targets carry no display name (below).
 
 ---
 
@@ -512,21 +513,25 @@ is about the thing that changed last.
   category from the home feed's pills and from a published navigation tree, so
   nothing is unreachable without it.
 
-- **Compatibility and fitment (#367 workstream 5).**
-  `packages/backend/src/services/compatibility/` has **no importer outside its
-  own directory** and no route, controller or public DTO. The whole vocabulary
-  is published in `shared-types/src/compatibility.ts` and nothing serves it.
-  `resolveProductCompatibility` refuses unconditionally and
-  `CompatibilityPanel` renders nothing — a wrong fitment claim is the highest-cost
-  failure in this epic, and the only alternatives were composing one from a title
-  or refusing by name. The available branch is written out so the read that
-  closes the seam has a renderer to answer.
-- **The product type's ordered field GROUPS.** `AuthoringGroup` is served only by
-  `GET /catalog-authoring/schemas/:productTypeKey`, behind `authenticateToken`
-  and a false-by-default flag, and `ProductTypeVersionView` is defined and served
-  by no route at all. `SpecificationGrouping` therefore has one member,
-  `entity_scope`, reported on the table. Closing it is a second grouping member
-  plus the anonymous read that supplies it.
+- **The vehicle picker and a verdict for the shopper's OWN car (#367 workstream 5).**
+  Fitment itself now RENDERS — `lib/catalog/compatibility.ts`,
+  `lib/catalog/use-compatibility.ts` and `components/catalog/CompatibilityPanel.tsx`,
+  grouped by applicability so an exclusion reads as an exclusion; see
+  `docs/compatibility.md` §"What the storefront renders". What is still absent is
+  the picker: `GET /compatibility/fitments/verdict` and the four
+  `/compatibility/vehicles/…` rungs are served and this package calls neither,
+  because that is a cascading interaction rather than a read. When it is built the
+  verdict must come from the server's `resolveFitment` and never from a rule
+  re-derived here over the rendered list.
+- **The product type's ordered field GROUPS — the read now EXISTS.**
+  `GET /product-types/:key/specification-layout` serves the published version's
+  group keys, labels, order and attribute placement, unauthenticated and behind
+  no flag; it is a narrower TYPE than the authoring schema and carries none of
+  the five authoring facts `PUBLIC_PRODUCT_TYPE_FORBIDDEN_LAYOUT_FIELDS` names.
+  `SpecificationGrouping` still has one member, `entity_scope`, because this
+  package does not consume it yet: closing it is a second member plus the fetch,
+  keying rows by `attributeKey` and rendering `ungroupedAttributeKeys` under
+  their own heading.
 - **A canonical CATEGORY BROWSE endpoint.** `GET /search` REQUIRES `q` ("a
   canonical search with no term is a browse, and browse already exists"), and the
   only category-scoped product read is the v1 `GET /listings?category=`. So the

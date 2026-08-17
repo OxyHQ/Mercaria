@@ -147,6 +147,31 @@ export async function listProductTypeFields(
 }
 
 /**
+ * Every field of one version, across EVERY flow, in layout order.
+ *
+ * The public specification layout needs this and cannot use the per-flow read: a
+ * shopper's spec table must not be grouped differently depending on which
+ * authoring form the seller filled in, so its grouping is derived over all flows
+ * at once. Five per-flow reads would answer the same question in five round
+ * trips and would additionally make "did any flow group this attribute" a
+ * property of the loop rather than of the data.
+ *
+ * The flow is still on every row: the derivation has to be able to see that two
+ * flows placed one attribute in two groups, which is exactly the case it refuses
+ * to resolve.
+ */
+export async function listProductTypeFieldsForEveryFlow(
+  db: DatabaseOrTransaction,
+  productTypeDefinitionId: string,
+): Promise<ProductTypeFieldRow[]> {
+  return db
+    .select()
+    .from(productTypeFields)
+    .where(eq(productTypeFields.productTypeDefinitionId, productTypeDefinitionId))
+    .orderBy(asc(productTypeFields.position), asc(productTypeFields.attributeKey));
+}
+
+/**
  * The declared variant axes of one version — every field marked
  * `variant_capable`, across every flow.
  *

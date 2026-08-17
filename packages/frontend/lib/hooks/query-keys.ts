@@ -350,5 +350,16 @@ export const queryKeys = {
      * property of the address, and the endpoint takes no other input.
      */
     seoPath: (path: string) => ["catalog", "seo", path] as const,
+    /**
+     * `GET /compatibility/fitments`, keyed on the whole SUBJECT LIST.
+     *
+     * One entry per set of subjects rather than per subject, because the cached
+     * unit is the composed answer — a product's own statements plus the ones about
+     * the configuration in view belong in one list. The subjects arrive already
+     * namespaced (`product:` / `variant:`), so a product id and a variant id that
+     * happened to share a value cannot collide into one key.
+     */
+    partFitments: (subjects: readonly string[]) =>
+      ["catalog", "part-fitments", ...subjects] as const,
   },
 } as const;

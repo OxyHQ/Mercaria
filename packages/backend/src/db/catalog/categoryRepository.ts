@@ -26,7 +26,7 @@
  * v1 spelling of `ancestor_ids`, written from it and retired with it.
  */
 
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, or, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
@@ -99,4 +99,59 @@ export async function findActiveCategories(
     .from(categories)
     .where(eq(categories.isActive, true))
     .orderBy(asc(categories.parentId), asc(categories.position), asc(categories.slug));
+}
+
+/** One category's own denormalized browse path — `[ancestors…, slug]`. */
+export interface CategoryPathFacts {
+  readonly id: string;
+  readonly slug: string;
+  readonly ancestorSlugs: readonly string[];
+}
+
+/**
+ * One category and every descendant of it, with just enough to re-derive a
+ * listing's browse path.
+ *
+ * `ancestor_ids @> [id]` is what makes this a subtree read and it is served by
+ * `categories_ancestor_ids_idx` (GIN). The subject itself is included through the
+ * `or`, because its own row is not in its own ancestry — and it is the row whose
+ * slug changed.
+ *
+ * The subtree, not just the subject, because that is the population a taxonomy
+ * edit actually moves: `updateCategoryPresentation` rewrites every DESCENDANT's
+ * `ancestor_slugs` when a slug changes and `moveCategory` re-splices the whole
+ * subtree, so a repair scoped to the renamed node alone would leave every listing
+ * filed beneath it carrying the old path — which is the bug, one level down.
+ *
+ * `is_active` is deliberately NOT in the predicate. The path of a listing filed
+ * under a deprecated or suppressed category is still read by five filters, and a
+ * repair that skipped those rows would leave exactly the listings a lifecycle
+ * change touched carrying stale paths.
+ *
+ * Three columns rather than `select()`: this feeds a derivation, and a `lifecycle`
+ * or `effective_to` arriving here would invite a second reading of whether the
+ * category is usable — which is `classifyCategoryPath`'s question, not this one's.
+ */
+export async function findCategorySubtreePaths(
+  categoryId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CategoryPathFacts[]> {
+  const rows = await db
+    .select({
+      id: categories.id,
+      slug: categories.slug,
+      ancestorSlugs: categories.ancestorSlugs,
+    })
+    .from(categories)
+    .where(
+      or(
+        eq(categories.id, categoryId),
+        sql`${categories.ancestorIds} @> array[${categoryId}]::text[]`,
+      ),
+    );
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    ancestorSlugs: row.ancestorSlugs ?? [],
+  }));
 }

@@ -945,3 +945,101 @@ export const COMPATIBILITY_FORBIDDEN_VIEW_FIELDS: readonly string[] = [
   'rawTargetText',
   'sourceRecordId',
 ];
+
+// ---------------------------------------------------------------------------
+// The public read surface
+// ---------------------------------------------------------------------------
+
+/**
+ * Which of the two lookups a relation response answered.
+ *
+ * Carried on the response rather than left to the client to remember from the
+ * parameter it sent, because the two answers are lists of DIFFERENT things —
+ * `subject` returns what this product fits, `target` returns what fits it — and
+ * a client that renders one under the other's heading has produced a fitment
+ * claim nobody made. `subject_to_target` and `mutual` (the stored
+ * {@link CompatibilityDirection}) are a property of a ROW; this is a property of
+ * the QUESTION, and collapsing the two would give the reverse index a third
+ * direction to be stored as, which distinction 4 in this file's header forbids.
+ */
+export type CompatibilityLookupDirection = 'subject' | 'target';
+
+/**
+ * One page of relations, in one direction.
+ *
+ * `examinedLimit` is the bound the QUERY ran under and `truncated` says it was
+ * reached — deliberately not "there are more results". The publication policy
+ * runs after the query (`compatibility.service`'s documented `stale_at`
+ * posture), so the limit bounds what was EXAMINED and a page can legitimately
+ * return fewer rows than it examined. A `total` would be a count the read never
+ * took, and a `nextCursor` would promise a keyset this domain's ordering
+ * (`kind`, then `created_at`) does not carry.
+ */
+export interface CompatibilityRelationsView {
+  readonly lookup: CompatibilityLookupDirection;
+  readonly relations: readonly CompatibilityRelationView[];
+  readonly examinedLimit: number;
+  readonly truncated: boolean;
+}
+
+/**
+ * The vehicles one part is stated to fit — and the ones it is stated NOT to.
+ *
+ * Exclusions are IN the list, each carrying its own `applicability`, and there
+ * is no parameter that removes them. A list filtered to `applies` is a
+ * confident yes for every vehicle somebody explicitly excluded, which is the
+ * one failure this whole domain is shaped around; and an exclusion a shopper
+ * can read is the cheapest possible way for them to find out.
+ */
+export interface PartFitmentsView {
+  readonly subject: CompatibilitySubject;
+  readonly fitments: readonly AutomotiveFitmentView[];
+  readonly examinedLimit: number;
+  readonly truncated: boolean;
+}
+
+/**
+ * "Does this part fit this car?" — the verdict, and every statement behind it.
+ *
+ * The statements are returned WITH the verdict rather than instead of it: the
+ * verdict is {@link resolveFitment}'s answer and is the only thing a surface may
+ * render as the answer, while the statements are what let a shopper see that
+ * the `does_not_apply` came from their exact engine variant rather than from the
+ * model as a whole. A surface computing its own verdict from the statements
+ * would be the second implementation `resolveFitment` exists to prevent.
+ *
+ * `vehicle` echoes the ancestry the SERVER resolved, not the one the client
+ * sent. A caller naming a configuration under the wrong generation gets the
+ * real one back, so a page cannot render a verdict beside a car it was not
+ * about.
+ */
+export interface FitmentVerdictView {
+  readonly subject: CompatibilitySubject;
+  readonly vehicle: {
+    readonly make: VehicleReferenceView | null;
+    readonly model: VehicleReferenceView | null;
+    readonly generation: VehicleReferenceView | null;
+    readonly configuration: VehicleReferenceView | null;
+  };
+  /** The model year the question was asked about, when one was given. */
+  readonly year: number | null;
+  readonly verdict: FitmentVerdict;
+  readonly statements: readonly AutomotiveFitmentView[];
+}
+
+/** Which rung of the vehicle ladder a picker response answered for. */
+export type VehicleCatalogLevel = 'make' | 'model' | 'generation' | 'configuration';
+
+/**
+ * One rung of the vehicle picker.
+ *
+ * Every entry is a {@link VehicleReferenceView} — id, stable key, base name —
+ * whatever the rung, so the picker has one shape to render and no rung can
+ * quietly start publishing an engine code, a power figure or a market. Those
+ * are columns on `vehicle_configurations` and they belong to a fitment's own
+ * statement, not to the list a shopper walks down.
+ */
+export interface VehicleCatalogLevelView {
+  readonly level: VehicleCatalogLevel;
+  readonly vehicles: readonly VehicleReferenceView[];
+}

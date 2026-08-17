@@ -237,7 +237,12 @@
       "availabilityUnknown": "La disponibilité n'est pas affichée pour ce produit pour le moment."
     },
     "compatibility": {
-      "title": "Compatibilité"
+      "title": "Compatibilité",
+      "fits": "Compatible avec ces véhicules",
+      "partiallyFits": "Compatible sous conditions",
+      "doesNotFit": "Non compatible avec ces véhicules",
+      "notConfirmed": "Non confirmé",
+      "truncated": "Seule une partie de la liste est affichée."
     },
     "category": {
       "fallbackTitle": "Catégorie",

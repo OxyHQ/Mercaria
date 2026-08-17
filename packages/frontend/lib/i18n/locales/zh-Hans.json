@@ -237,7 +237,12 @@
       "availabilityUnknown": "当前不显示此商品的供应情况。"
     },
     "compatibility": {
-      "title": "兼容性"
+      "title": "兼容性",
+      "fits": "适配以下车型",
+      "partiallyFits": "有条件适配",
+      "doesNotFit": "不适配以下车型",
+      "notConfirmed": "未确认",
+      "truncated": "仅显示部分列表。"
     },
     "category": {
       "fallbackTitle": "类目",

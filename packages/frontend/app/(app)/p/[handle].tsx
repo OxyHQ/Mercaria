@@ -20,7 +20,7 @@ import { VariantSelector } from '@/components/product/VariantSelector';
 import { CompatibilityPanel } from '@/components/catalog/CompatibilityPanel';
 import { SpecificationGroups } from '@/components/catalog/SpecificationGroups';
 import { VariantAxisSelector } from '@/components/catalog/VariantAxisSelector';
-import { resolveProductCompatibility } from '@/lib/catalog/compatibility';
+import { useProductCompatibility } from '@/lib/catalog/use-compatibility';
 import { useCatalogContext } from '@/lib/catalog/context';
 import {
   useAttributeDefinitions,
@@ -108,6 +108,12 @@ export default function CanonicalProductPageScreen() {
   */
   const catalogContext = useCatalogContext();
   const definitions = useAttributeDefinitions(page?.product.categoryId);
+  /** Every configuration this product has — the fitment subject rule needs the count. */
+  const variantIds = useMemo(
+    () => (page?.variants ?? []).map((variant) => variant.id),
+    [page?.variants],
+  );
+
   const specifications = useSpecificationTable({
     categoryId: page?.product.categoryId,
     canonicalProductId: page?.product.id,
@@ -152,7 +158,20 @@ export default function CanonicalProductPageScreen() {
     ],
   );
 
-  const compatibility = resolveProductCompatibility(page?.product.id ?? '');
+  /**
+   * Fitment, from its own domain (#367 workstream 5).
+   *
+   * The variant ids come from the page's own `variants`, because the subject rule
+   * needs the COUNT: a product with exactly one configuration has no choice to
+   * make, so a statement about that configuration is a statement about the product.
+   * `lib/catalog/compatibility.ts` states the rule; nothing about it is decided
+   * here.
+   */
+  const compatibility = useProductCompatibility({
+    canonicalProductId: page?.product.id,
+    selectedVariantId: selectedVariantId,
+    variantIds: variantIds,
+  });
 
   const head = (
     <Head>
@@ -304,13 +323,22 @@ export default function CanonicalProductPageScreen() {
         />
 
         {/*
-          Compatibility and fitment (#367 workstream 5). Renders NOTHING today:
-          the domain is fully modelled and has no public read, so
-          `resolveProductCompatibility` refuses by name rather than composing a
-          fit claim from a title or an attribute. See
-          `lib/catalog/compatibility.ts`.
+          Compatibility and fitment (#367 workstream 5), from its own domain —
+          never from this product's title, attributes, family or category.
+
+          Renders nothing for the vast majority of products, which have no fitment
+          relationship to publish; a phone is not missing this data, it has none.
+          What it does render is grouped by APPLICABILITY, because the read
+          deliberately includes the vehicles a part is stated NOT to fit and an
+          exclusion printed under a "fits" heading is the highest-cost wrong answer
+          in this epic.
+
+          A verdict for the shopper's OWN car is still owed: the endpoint exists
+          (`/compatibility/fitments/verdict`, plus the four vehicle-picker rungs)
+          and this page calls neither, because that is a cascading interaction
+          rather than a read. See `components/catalog/CompatibilityPanel.tsx`.
         */}
-        <CompatibilityPanel compatibility={compatibility} />
+        <CompatibilityPanel compatibility={compatibility.compatibility} />
 
         <PriceHistoryPanel
           canonicalProductId={page.product.id}
