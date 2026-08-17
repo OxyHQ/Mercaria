@@ -88,7 +88,8 @@ import {
 } from '../../db/compatibility/vehicleCatalogRepository.js';
 import { openAutomotiveFitment } from '../../db/compatibility/automotiveFitmentRepository.js';
 import { recordCompatibilityClaim } from '../../services/compatibility/claim.service.js';
-import { attributeValueLocalizations, attributeEnumValues } from '../../db/schema/index.js';
+import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
+import { attributeValueLocalizations } from '../../db/schema/catalogLocalization.js';
 import type { VerticalPackage } from './types.js';
 
 /* -------------------------------------------------------------------------- */

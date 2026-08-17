@@ -15,7 +15,7 @@ import type {
 } from '@mercaria/shared-types';
 import { uuidv7 } from '@oxyhq/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { retailReconciliationOperatorActions } from '../schema/index.js';
+import { retailReconciliationOperatorActions } from '../schema/retailReconciliation.js';
 
 /** One attempt. */
 export type RetailReconciliationOperatorActionRow =

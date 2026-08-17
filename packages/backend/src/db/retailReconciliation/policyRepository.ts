@@ -25,7 +25,7 @@ import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import {
   retailReconciliationPolicies,
   retailReconciliationTolerances,
-} from '../schema/index.js';
+} from '../schema/retailReconciliation.js';
 
 /** One policy version, as stored. */
 export type RetailReconciliationPolicyRow = typeof retailReconciliationPolicies.$inferSelect;

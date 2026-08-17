@@ -32,7 +32,7 @@ import type {
 } from '@mercaria/shared-types';
 import { uuidv7 } from '@oxyhq/db';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
-import { retailCustomerAdjustments } from '../schema/index.js';
+import { retailCustomerAdjustments } from '../schema/retailReconciliation.js';
 
 /** One obligation to a buyer. */
 export type RetailCustomerAdjustmentRow = typeof retailCustomerAdjustments.$inferSelect;

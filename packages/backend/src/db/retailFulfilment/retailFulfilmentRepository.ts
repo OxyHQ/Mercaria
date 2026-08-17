@@ -39,13 +39,13 @@ import type {
   RetailPermittedFulfilmentMode,
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
+import { orderItems } from '../schema/orders.js';
 import {
-  orderItems,
   retailDeliveryPromises,
   retailFulfilmentIntents,
   retailFulfilmentLineAllocations,
   retailOrderRoleSnapshots,
-} from '../schema/index.js';
+} from '../schema/retailFulfilment.js';
 
 /** The immutable order-role snapshot, as stored. */
 export type RetailOrderRoleSnapshotRow = typeof retailOrderRoleSnapshots.$inferSelect;

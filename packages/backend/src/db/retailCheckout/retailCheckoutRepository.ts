@@ -21,7 +21,7 @@ import {
   retailOfferBindings,
   retailProcurementIntentLines,
   retailProcurementIntents,
-} from '../schema/index.js';
+} from '../schema/retailCheckout.js';
 
 /** A live or retired binding, as stored. */
 export type RetailOfferBindingRecord = typeof retailOfferBindings.$inferSelect;
