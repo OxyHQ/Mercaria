@@ -943,6 +943,211 @@
       "updateFailed": "バリエーションを更新できませんでした",
       "updated": "バリエーションを更新しました",
       "valuePlaceholder": "値"
+    },
+    "wizard": {
+      "documentTitle": "商品を作成",
+      "title": "商品を作成",
+      "readOnly": "この下書きはもう編集できません。",
+      "start": {
+        "documentTitle": "何を販売しますか？",
+        "title": "何を販売しますか？",
+        "subtitle": "カタログから探すか、新しいものを説明してください。",
+        "unavailableTitle": "ガイド付き作成はここでは利用できません",
+        "unavailableBody": "この Mercaria 環境ではカタログ編集サービスが有効になっていないため、ガイド付きフォームはまだ使えません。",
+        "useLegacy": "かんたんフォームを使う",
+        "createFailed": "下書きを作成できませんでした。",
+        "linkFailed": "下書きは作成されましたが、カタログ商品を紐づけできませんでした。ウィザード内でもう一度選べます。",
+        "resumeTitle": "続きから再開",
+        "untitledDraft": "無題の下書き",
+        "findTitle": "カタログから探す",
+        "findBody": "名称・型番・バーコードで検索できます。別の地域モデルを選ばないよう、識別子を確認してください。",
+        "classifyAnyway": "それでもカテゴリーは必要です。フォームがどの項目を尋ねるかを決めるのがカテゴリーだからです。",
+        "categoryTitle": "カテゴリーを選ぶ",
+        "typeTitle": "商品タイプを選ぶ",
+        "noProductTypes": "このカテゴリーにはまだ公開された商品タイプがありません。",
+        "marketLabel": "市場",
+        "marketHelp": "この商品を販売する国です。どの表記とどの規則が適用されるかを決めます。",
+        "marketPlaceholder": "JP",
+        "marketInvalid": "市場は 2 文字の国コードです。",
+        "begin": "はじめる"
+      },
+      "load": {
+        "draftFailedTitle": "この下書きを開けませんでした",
+        "draftFailedBody": "破棄されたか、別のストアのものかもしれません。",
+        "schemaFailedTitle": "フォームを読み込めませんでした",
+        "schemaFailedBody": "この下書きを開始した商品タイプを読み取れませんでした。"
+      },
+      "steps": {
+        "classification": "識別",
+        "details": "詳細",
+        "variants": "バリエーション",
+        "pricing": "価格と在庫",
+        "listing": "出品情報",
+        "review": "確認",
+        "complete": "このステップに残っている作業はありません。",
+        "incomplete": "このステップにはまだ入力すべき項目があります。",
+        "next": "次へ"
+      },
+      "classification": {
+        "pinned": "カテゴリーと商品タイプは下書き開始時に固定されているため、入力した内容の意味は変わりません。"
+      },
+      "canonical": {
+        "title": "これはカタログのどの商品ですか？",
+        "body": "選ぶと出品が直接そこに紐づき、自動照合されなくなります。",
+        "notPermitted": "カタログ商品を紐づける権限がありません。",
+        "searchPlaceholder": "名称・型番・バーコード",
+        "searchBrandPlaceholder": "ブランドを検索",
+        "minQuery": "2 文字以上入力してください。",
+        "exactMatch": "識別子が完全に一致しました。",
+        "noResults": "カタログに一致するものはありません。",
+        "clearSelection": "選択を解除",
+        "selectedRef": "選択済み",
+        "clearRef": "解除",
+        "unnamedVariant": "名称のない構成",
+        "variantLabel": "カタログの構成",
+        "variantPlaceholder": "該当する構成を選ぶ",
+        "clearVariant": "構成を解除"
+      },
+      "category": {
+        "allCategories": "すべてのカテゴリー",
+        "loadFailed": "カテゴリーを読み込めませんでした。",
+        "noChildren": "このカテゴリーの下には何もありません。",
+        "choose": "選ぶ",
+        "chosen": "選択済み"
+      },
+      "details": {
+        "noFields": "この商品タイプはこれ以上の詳細を求めていません。"
+      },
+      "fields": {
+        "required": "必須",
+        "recommended": "推奨",
+        "optional": "任意",
+        "hidden": "尋ねません",
+        "forbidden": "ここでは入力できません",
+        "addValue": "値を追加",
+        "removeValue": "この値を削除",
+        "unitLabel": "単位",
+        "unsupportedEntry": "保存されている値がこの項目に合わなくなりました。商品タイプの更新を確認してください。",
+        "yes": "はい",
+        "no": "いいえ"
+      },
+      "values": {
+        "choose": "値を選ぶ",
+        "filterPlaceholder": "値を絞り込む",
+        "noMatches": "一致する値はありません。"
+      },
+      "axes": {
+        "width": "幅",
+        "height": "高さ",
+        "depth": "奥行き",
+        "diagonal": "対角",
+        "circumference": "外周"
+      },
+      "variants": {
+        "noAxesAvailable": "この商品タイプにはバリエーションを定義できる属性がありません。",
+        "addAxisValue": "値を追加",
+        "removeAxisValue": "この値を削除",
+        "generate": "組み合わせを作成",
+        "tooManyCombinations": "200 通りを超えてしまいます。先に値を減らしてください。",
+        "unsupportedAxisValue": "この属性はここではバリエーションの値として編集できません。",
+        "duplicate": "同じ組み合わせがリストの前にあります。",
+        "sold": "販売する",
+        "sku": "SKU",
+        "barcode": "バーコード",
+        "singleVariant": "単一構成",
+        "addSingle": "構成を 1 つ追加"
+      },
+      "pricing": {
+        "bulkTitle": "すべての組み合わせに適用",
+        "bulkPriceLabel": "すべての組み合わせの価格",
+        "bulkStockLabel": "すべての組み合わせの在庫",
+        "applyToAll": "すべてに適用",
+        "price": "価格",
+        "compareAt": "比較価格",
+        "currency": "通貨",
+        "stock": "在庫",
+        "trackStock": "在庫を管理する",
+        "noSoldVariants": "価格を付けるには、少なくとも 1 つの組み合わせを有効にしてください。"
+      },
+      "listing": {
+        "mediaTitle": "写真",
+        "mediaUnavailable": "写真はまだダッシュボードから追加できません。この下書きに付いている写真はそのまま保持されます。"
+      },
+      "review": {
+        "category": "カテゴリー",
+        "productType": "商品タイプ",
+        "productTypeVersion": "%{name}（バージョン %{version}）",
+        "marketAndLocale": "市場 %{market} · 言語 %{locale}",
+        "market": "市場",
+        "canonicalLink": "カタログ商品",
+        "canonicalNone": "未選択",
+        "canonicalDeclared": "あなたが選択",
+        "fieldsAnswered": "入力済みの詳細",
+        "soldVariants": "販売する組み合わせ",
+        "pricedVariants": "価格を付けた組み合わせ",
+        "moreVariants": "ほか %{count} 件",
+        "empty": "未入力",
+        "provided": "入力済み"
+      },
+      "save": {
+        "idle": "まだ保存していません",
+        "unsaved": "未保存の変更",
+        "saving": "保存中…",
+        "saved": "保存しました",
+        "failed": "保存できませんでした — タップして再試行",
+        "retry": "保存を再試行",
+        "conflict": "他の場所で変更されました — タップして再読み込み",
+        "reload": "保存済みの内容を再読み込み",
+        "conflictTitle": "この下書きは他の場所で変更されました",
+        "conflictBody": "別の端末で保存されたか、公開または破棄されました。続けるには再読み込みしてください。画面の内容は保存されていません。"
+      },
+      "publish": {
+        "check": "チェックする",
+        "publish": "公開",
+        "published": "商品を公開しました。",
+        "readyToPublish": "問題ありません。",
+        "alreadyPublishedTitle": "この下書きはすでに公開されています",
+        "alreadyPublishedBody": "その商品はカタログに登録されています。",
+        "openListing": "商品を開く"
+      },
+      "summary": {
+        "errors": "公開前に直す項目が %{count} 件あります",
+        "warnings": "確認しておきたい項目が %{count} 件あります"
+      },
+      "finding": {
+        "categoryNotSelectable": "このカテゴリーには商品を直接出品できません。",
+        "categoryNotInScope": "この商品タイプは選んだカテゴリーを対象にしていません。",
+        "productTypeNotPublished": "この商品タイプは公開されていません。下書きは開始時のバージョンを保持します。",
+        "schemaSuperseded": "この下書きを開始してからフォームが変わりました。公開前に更新内容を確認してください。",
+        "requiredFieldMissing": "まだ空欄です。",
+        "unknownField": "この入力は、フォームにもう存在しない項目のものです。",
+        "fieldForbidden": "この項目はここからは入力できません。",
+        "valueTypeMismatch": "この項目はその値を受け付けません。",
+        "valueNotInSet": "提示された値から選んでください。",
+        "valueBelowMinimum": "許可されている最小値を下回っています。",
+        "valueAboveMaximum": "許可されている最大値を上回っています。",
+        "valueTooLong": "この項目で許可されている長さを超えています。",
+        "tooManyDecimals": "この項目で許可されている小数桁数を超えています。",
+        "valueImplausible": "小数点の誤りのようです。確認してください。",
+        "cardinalityExceeded": "この項目が受け付ける値の数を超えています。",
+        "componentMissing": "寸法のひとつが未入力です。",
+        "unknownComponentAxis": "その寸法はこの項目が宣言しているものではありません。",
+        "unknownUnit": "どの単位かを指定してください。",
+        "currencyMismatch": "この項目には金額を記録する通貨がありません。",
+        "canonicalRefNotPermitted": "この項目はカタログ参照を受け付けません。",
+        "proposalNotPermitted": "この項目に新しい値を提案することはできません。",
+        "noVariantDeclared": "販売する組み合わせを少なくとも 1 つ追加してください。",
+        "axisNotPermitted": "この属性はこの商品タイプのバリエーションを定義できません。",
+        "axisValueMissing": "この組み合わせに値がひとつ足りません。",
+        "duplicateVariant": "同じ値を持つ組み合わせが他にあります。",
+        "priceMissing": "この組み合わせに価格がありません。",
+        "priceCurrencyMissing": "この価格に通貨がありません。",
+        "inventoryNegative": "在庫を負の数にはできません。",
+        "titleMissing": "出品にはタイトルが必要です。",
+        "descriptionMissing": "出品には説明が必要です。",
+        "proposalPending": "提案された値がまだ保留中で、この商品タイプは決定するまで公開を止めます。",
+        "draftNotOpen": "この下書きはもう開いていません。"
+      }
     }
   },
   "settings": {

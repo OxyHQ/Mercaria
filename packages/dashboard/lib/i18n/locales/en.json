@@ -943,6 +943,211 @@
       "updateFailed": "Couldn't update the variant",
       "updated": "Variant updated",
       "valuePlaceholder": "value"
+    },
+    "wizard": {
+      "documentTitle": "Create a product",
+      "title": "Create a product",
+      "readOnly": "This draft can no longer be edited.",
+      "start": {
+        "documentTitle": "What are you selling?",
+        "title": "What are you selling?",
+        "subtitle": "Find it in the catalogue, or describe something new.",
+        "unavailableTitle": "Guided creation is not available here",
+        "unavailableBody": "This Mercaria deployment has not enabled the catalogue authoring service, so the guided form cannot be used yet.",
+        "useLegacy": "Use the simple form",
+        "createFailed": "That draft could not be created.",
+        "linkFailed": "The draft was created, but the catalogue product could not be attached. You can choose it again inside the wizard.",
+        "resumeTitle": "Pick up where you left off",
+        "untitledDraft": "Untitled draft",
+        "findTitle": "Find it in the catalogue",
+        "findBody": "Search by name, model or barcode. Check the identifiers so you do not pick a different regional model.",
+        "classifyAnyway": "We still need a category, because that is what decides which details the form asks for.",
+        "categoryTitle": "Choose a category",
+        "typeTitle": "Choose a product type",
+        "noProductTypes": "No product type is published for this category yet.",
+        "marketLabel": "Market",
+        "marketHelp": "The country this product is sold in. It decides which wording and which rules apply.",
+        "marketPlaceholder": "ES",
+        "marketInvalid": "A market is a two-letter country code.",
+        "begin": "Start"
+      },
+      "load": {
+        "draftFailedTitle": "This draft could not be opened",
+        "draftFailedBody": "It may have been discarded, or it belongs to another store.",
+        "schemaFailedTitle": "The form could not be loaded",
+        "schemaFailedBody": "The product type this draft was started under could not be read."
+      },
+      "steps": {
+        "classification": "Identity",
+        "details": "Details",
+        "variants": "Variants",
+        "pricing": "Price and stock",
+        "listing": "Listing",
+        "review": "Review",
+        "complete": "Nothing outstanding on this step.",
+        "incomplete": "This step still has something to fill in.",
+        "next": "Continue"
+      },
+      "classification": {
+        "pinned": "The category and product type were fixed when this draft was started, so your answers keep their meaning."
+      },
+      "canonical": {
+        "title": "Which catalogue product is this?",
+        "body": "Choosing one links your listing to it directly and stops it being matched automatically.",
+        "notPermitted": "You do not have permission to link a catalogue product.",
+        "searchPlaceholder": "Name, model or barcode",
+        "searchBrandPlaceholder": "Search brands",
+        "minQuery": "Type at least two characters.",
+        "exactMatch": "This is an exact identifier match.",
+        "noResults": "Nothing in the catalogue matched.",
+        "clearSelection": "Clear the selection",
+        "selectedRef": "Selected",
+        "clearRef": "Clear",
+        "unnamedVariant": "Unnamed configuration",
+        "variantLabel": "Catalogue configuration",
+        "variantPlaceholder": "Choose the matching configuration",
+        "clearVariant": "Clear the configuration"
+      },
+      "category": {
+        "allCategories": "All categories",
+        "loadFailed": "Categories could not be loaded.",
+        "noChildren": "There is nothing below this category.",
+        "choose": "Choose",
+        "chosen": "Chosen"
+      },
+      "details": {
+        "noFields": "This product type asks for no further details."
+      },
+      "fields": {
+        "required": "Required",
+        "recommended": "Recommended",
+        "optional": "Optional",
+        "hidden": "Not asked",
+        "forbidden": "Not allowed here",
+        "addValue": "Add another value",
+        "removeValue": "Remove this value",
+        "unitLabel": "Unit",
+        "unsupportedEntry": "This stored value no longer fits the field. Review the product type upgrade.",
+        "yes": "Yes",
+        "no": "No"
+      },
+      "values": {
+        "choose": "Choose a value",
+        "filterPlaceholder": "Filter values",
+        "noMatches": "No value matched."
+      },
+      "axes": {
+        "width": "Width",
+        "height": "Height",
+        "depth": "Depth",
+        "diagonal": "Diagonal",
+        "circumference": "Circumference"
+      },
+      "variants": {
+        "noAxesAvailable": "This product type has no attributes that can define variants.",
+        "addAxisValue": "Add a value",
+        "removeAxisValue": "Remove this value",
+        "generate": "Build the combinations",
+        "tooManyCombinations": "That would be more than 200 combinations. Remove some values first.",
+        "unsupportedAxisValue": "This attribute cannot be edited as a variant value here.",
+        "duplicate": "The same combination appears earlier in the list.",
+        "sold": "Sold",
+        "sku": "SKU",
+        "barcode": "Barcode",
+        "singleVariant": "One configuration",
+        "addSingle": "Add one configuration"
+      },
+      "pricing": {
+        "bulkTitle": "Apply to every combination",
+        "bulkPriceLabel": "Price for every combination",
+        "bulkStockLabel": "Stock for every combination",
+        "applyToAll": "Apply to all",
+        "price": "Price",
+        "compareAt": "Compare-at price",
+        "currency": "Currency",
+        "stock": "Stock",
+        "trackStock": "Track stock",
+        "noSoldVariants": "Switch on at least one combination to price it."
+      },
+      "listing": {
+        "mediaTitle": "Photographs",
+        "mediaUnavailable": "Photographs cannot be added from the dashboard yet. Any already attached to this draft are kept."
+      },
+      "review": {
+        "category": "Category",
+        "productType": "Product type",
+        "productTypeVersion": "%{name} (version %{version})",
+        "marketAndLocale": "Market %{market} · language %{locale}",
+        "market": "Market",
+        "canonicalLink": "Catalogue product",
+        "canonicalNone": "None chosen",
+        "canonicalDeclared": "Chosen by you",
+        "fieldsAnswered": "Details answered",
+        "soldVariants": "Combinations sold",
+        "pricedVariants": "Combinations priced",
+        "moreVariants": "and %{count} more",
+        "empty": "Empty",
+        "provided": "Provided"
+      },
+      "save": {
+        "idle": "Not saved yet",
+        "unsaved": "Unsaved changes",
+        "saving": "Saving…",
+        "saved": "Saved",
+        "failed": "Could not save — tap to retry",
+        "retry": "Retry the save",
+        "conflict": "Changed elsewhere — tap to reload",
+        "reload": "Reload the saved version",
+        "conflictTitle": "This draft changed somewhere else",
+        "conflictBody": "It was saved on another device, or it was published or discarded. Reload it to carry on; what is on screen is not being saved."
+      },
+      "publish": {
+        "check": "Check it",
+        "publish": "Publish",
+        "published": "Product published.",
+        "readyToPublish": "Everything checks out.",
+        "alreadyPublishedTitle": "This draft has already been published",
+        "alreadyPublishedBody": "Its product now lives in your catalogue.",
+        "openListing": "Open the product"
+      },
+      "summary": {
+        "errors": "%{count} thing(s) to fix before publishing",
+        "warnings": "%{count} thing(s) worth checking"
+      },
+      "finding": {
+        "categoryNotSelectable": "Products cannot be listed directly in this category.",
+        "categoryNotInScope": "This product type does not cover the chosen category.",
+        "productTypeNotPublished": "This product type is not published. The draft keeps the version it was started under.",
+        "schemaSuperseded": "The form has changed since this draft was started. Review the upgrade before publishing.",
+        "requiredFieldMissing": "This is still empty.",
+        "unknownField": "This answer belongs to a field the form no longer has.",
+        "fieldForbidden": "This field cannot be filled in from here.",
+        "valueTypeMismatch": "That is not a value this field accepts.",
+        "valueNotInSet": "Choose one of the offered values.",
+        "valueBelowMinimum": "That is below the smallest value allowed.",
+        "valueAboveMaximum": "That is above the largest value allowed.",
+        "valueTooLong": "That is longer than this field allows.",
+        "tooManyDecimals": "That has more decimal places than this field allows.",
+        "valueImplausible": "That looks like a decimal-point mistake. Check it.",
+        "cardinalityExceeded": "This field takes fewer values than that.",
+        "componentMissing": "One of the measurements is missing.",
+        "unknownComponentAxis": "That measurement is not one this field declares.",
+        "unknownUnit": "Say which unit this is in.",
+        "currencyMismatch": "This field has no currency to record the amount in.",
+        "canonicalRefNotPermitted": "This field does not take a catalogue reference.",
+        "proposalNotPermitted": "You cannot propose a new value for this field.",
+        "noVariantDeclared": "Add at least one combination to sell.",
+        "axisNotPermitted": "This attribute cannot define variants of this product type.",
+        "axisValueMissing": "This combination is missing one of its values.",
+        "duplicateVariant": "Another combination has the same values.",
+        "priceMissing": "This combination has no price.",
+        "priceCurrencyMissing": "This price has no currency.",
+        "inventoryNegative": "Stock cannot be negative.",
+        "titleMissing": "The listing needs a title.",
+        "descriptionMissing": "The listing needs a description.",
+        "proposalPending": "A proposed value is still waiting, and this product type blocks publishing until it is decided.",
+        "draftNotOpen": "This draft is no longer open."
+      }
     }
   },
   "settings": {

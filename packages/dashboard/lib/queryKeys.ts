@@ -94,6 +94,45 @@ export const queryKeys = {
     ["stores", storeId, "feeds", configurationId, "status"] as const,
   feedReports: (storeId: string, configurationId: string) =>
     ["stores", storeId, "feeds", configurationId, "reports"] as const,
+  /**
+   * The catalog-authoring schema surface (#367 step 10).
+   *
+   * NOT under `stores`, deliberately: `/catalog-authoring/*` is authenticated
+   * and not store-scoped, because a category list, a product-type list and a
+   * composed schema are the same answer for every member of every store. Keying
+   * them per store would hold one cache entry per store for an answer that does
+   * not vary by one.
+   */
+  authoring: {
+    availability: (locale: string) => ["catalog-authoring", "availability", locale] as const,
+    categories: (parentId: string | null, locale: string) =>
+      ["catalog-authoring", "categories", { parentId, locale }] as const,
+    productTypes: (categoryId: string, locale: string) =>
+      ["catalog-authoring", "product-types", { categoryId, locale }] as const,
+    schema: (
+      productTypeKey: string,
+      categoryId: string,
+      market: string,
+      locale: string,
+      version: number | null,
+    ) =>
+      [
+        "catalog-authoring",
+        "schemas",
+        { productTypeKey, categoryId, market, locale, version },
+      ] as const,
+    canonicalSearch: (query: string, kind: string, canonicalProductId: string | null) =>
+      ["catalog-authoring", "canonical-search", { query, kind, canonicalProductId }] as const,
+  },
+  /** A store's authoring DRAFTS — store-scoped, unlike the schema surface. */
+  productDrafts: {
+    list: (storeId: string, status: string) =>
+      ["stores", storeId, "product-drafts", { status }] as const,
+    detail: (storeId: string, draftId: string) =>
+      ["stores", storeId, "product-drafts", draftId] as const,
+    upgrade: (storeId: string, draftId: string) =>
+      ["stores", storeId, "product-drafts", draftId, "upgrade"] as const,
+  },
   customers: {
     list: (storeId: string, page: number, search: string) =>
       ["stores", storeId, "customers", { page, search }] as const,
