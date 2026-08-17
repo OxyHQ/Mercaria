@@ -32,6 +32,7 @@
     "validate:money-formatting": "bun ./scripts/validate-money-formatting.mjs && bun ./scripts/test-validate-money-formatting.mjs",
     "validate:agents-md": "bun ./scripts/check-agents-md-size.mjs && bun ./scripts/test-check-agents-md-size.mjs",
     "validate:lint-coverage": "bun ./scripts/validate-lint-coverage.mjs && bun ./scripts/test-validate-lint-coverage.mjs",
+    "validate:facet-label-copy": "bun ./scripts/validate-facet-label-copy.mjs",
     "validate:storefront-catalog": "bun ./scripts/validate-storefront-catalog-driven.mjs && bun ./scripts/test-validate-storefront-catalog-driven.mjs",
     "validate:route-targets": "bun ./scripts/validate-route-targets.mjs && bun ./scripts/test-validate-route-targets.mjs",
     "android": "bun run --filter @mercaria/frontend android",

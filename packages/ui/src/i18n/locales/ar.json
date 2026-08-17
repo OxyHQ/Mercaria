@@ -623,6 +623,30 @@
         "provider": "صاغه نموذج لغوي من الملاحظة. وكل رقم فيه مصدره الملاحظة، لا النموذج."
       },
       "observationDisclaimer": "النتيجة هي ما رأته Mercaria في تلك اللحظة. وهي ليست محجوزة لك وليست سعرًا مؤكدًا — فقد يتغيّر السعر والتوفر في أي وقت."
+    },
+    "facet": {
+      "title": {
+        "offer_price": "السعر",
+        "availability": "التوفر",
+        "condition": "الحالة",
+        "market": "السوق",
+        "offer_channel": "يُباع على",
+        "category": "الفئة"
+      },
+      "availability": {
+        "in_stock": "متوفر",
+        "out_of_stock": "غير متوفر",
+        "preorder": "طلب مسبق",
+        "unavailable": "غير متاح",
+        "unknown": "غير محدد"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "متاجر أخرى"
+      },
+      "market": {
+        "any": "جميع الأسواق"
+      }
     }
   }
 }

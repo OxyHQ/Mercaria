@@ -623,6 +623,30 @@
         "provider": "観測内容をもとに言語モデルが文章にしました。記載の数値はすべて観測内容によるもので、モデルによるものではありません。"
       },
       "observationDisclaimer": "検出結果は、その時点で Mercaria が確認した内容です。お取り置きではなく、確定価格でもありません — 価格と在庫状況はいつでも変わる可能性があります。"
+    },
+    "facet": {
+      "title": {
+        "offer_price": "価格",
+        "availability": "在庫状況",
+        "condition": "状態",
+        "market": "販売地域",
+        "offer_channel": "販売元",
+        "category": "カテゴリー"
+      },
+      "availability": {
+        "in_stock": "在庫あり",
+        "out_of_stock": "在庫なし",
+        "preorder": "予約注文",
+        "unavailable": "取扱なし",
+        "unknown": "記載なし"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "他のショップ"
+      },
+      "market": {
+        "any": "すべての販売地域"
+      }
     }
   }
 }

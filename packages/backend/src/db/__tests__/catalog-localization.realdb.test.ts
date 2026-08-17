@@ -22,9 +22,12 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { and, eq, getTableColumns, getTableName, inArray, is, sql } from 'drizzle-orm';
+import { PgTable } from 'drizzle-orm/pg-core';
+import { isCheckViolation, isUniqueViolation, sqlColumnName, uuidv7 } from '@oxyhq/db';
+import { HUMAN_SETTLED_LOCALIZATION_STATUSES } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
+import * as schema from '../schema/index.js';
 import { categories } from '../schema/catalog.js';
 import { attributeDefinitions, attributeEnumValues } from '../schema/attributeRegistry.js';
 import { productTypeDefinitions } from '../schema/productTypes.js';
@@ -67,6 +70,16 @@ async function expectTriggerRefusal(pattern: RegExp, run: () => Promise<unknown>
   const cause = (thrown as { cause?: { message?: string } }).cause;
   expect(String(cause?.message ?? thrown)).toMatch(pattern);
 }
+
+/**
+ * Every drizzle table the schema barrel exports.
+ *
+ * Walked rather than listed so the trigger census below covers a localization
+ * table somebody adds later — finding fewer tables to protect looks exactly like
+ * there BEING fewer, which is the failure this file's whole family census
+ * exists to prevent one layer up.
+ */
+const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [value] : []));
 
 let db: Database;
 
@@ -289,6 +302,172 @@ describe('the localization row shape', () => {
         name: 'Calzado',
       }),
     ).rejects.toSatisfy(isUniqueViolation);
+  });
+});
+
+describe('the machine-write guard is ATTACHED to every table that can hold a provenance', () => {
+  /**
+   * ADR 0007 D4 makes "machine translation may never overwrite reviewed or
+   * approved content" a TRIGGER rather than a service check. The trigger exists
+   * and the four behavioural cases below drive it — all four on
+   * `category_localizations`.
+   *
+   * That leaves the COVERAGE ungated, and this repository's migration protocol
+   * is exactly where coverage goes: a regeneration DROPS every hand-written
+   * trigger, so a rebase that re-emitted `0091` without two of its three
+   * `CREATE TRIGGER` lines would leave the function in place, the census over
+   * migration text passing ("the guard lives in exactly one file"), the status
+   * list passing, and the behavioural cases passing — because they only ever
+   * exercise categories. Protection would silently shrink from three tables to
+   * one, and the symptom is a machine translation quietly replacing a human's
+   * approved copy on product types and controlled values.
+   *
+   * So this asks the SERVER which triggers are installed, and derives the
+   * population from the drizzle schema rather than from the trigger list. A
+   * table's protection is identified by what its trigger's FUNCTION BODY says,
+   * not by the function's name: `navigation_node_localizations` carries its own
+   * narrower guard under a different name, and a name census would either miss
+   * it or need an exemption that hides a genuinely unprotected table.
+   */
+  const protectableTables = tables
+    .filter((table) => getTableName(table).endsWith('_localizations'))
+    .filter((table) =>
+      Object.values(getTableColumns(table)).some((column) => sqlColumnName(column) === 'provenance'),
+    )
+    .map(getTableName)
+    .sort();
+
+  it('finds the tables to protect, and there are several of them', () => {
+    // The floor. A broken barrel import or a renamed column traverses nothing
+    // and reports every table protected, which is the same output as every
+    // table being protected.
+    expect(protectableTables.length).toBeGreaterThanOrEqual(4);
+    // A table with a `provenance` column is one a machine can claim to have
+    // authored, which is exactly the set D4's rule is about.
+    expect(protectableTables).toContain('category_localizations');
+    expect(protectableTables).toContain('product_type_localizations');
+    expect(protectableTables).toContain('attribute_value_localizations');
+  });
+
+  it('has a trigger whose body refuses a machine write, on every one of them', async () => {
+    const rows = await db.execute<{
+      tableName: string;
+      triggerName: string;
+      definition: string;
+    }>(sql`
+      select c.relname            as "tableName",
+             t.tgname             as "triggerName",
+             pg_get_functiondef(t.tgfoid) as "definition"
+        from pg_trigger t
+        join pg_class c on c.oid = t.tgrelid
+        join pg_namespace n on n.oid = c.relnamespace
+       where not t.tgisinternal
+         and n.nspname = current_schema()
+         and c.relname = any(${sql.raw(`array[${protectableTables.map((name) => `'${name}'`).join(', ')}]`)})
+    `);
+
+    const byTable = new Map<string, { triggerName: string; definition: string }[]>();
+    for (const row of [...rows]) {
+      const list = byTable.get(row.tableName) ?? [];
+      list.push({ triggerName: row.triggerName, definition: row.definition });
+      byTable.set(row.tableName, list);
+    }
+
+    const unprotected: string[] = [];
+    for (const table of protectableTables) {
+      const triggers = byTable.get(table) ?? [];
+      // What makes a trigger THE guard is that its body names the machine
+      // provenance and refuses. Both halves: a body mentioning `machine` without
+      // raising is a trigger that reads the value and lets the write through.
+      const guards = triggers.filter(
+        (trigger) =>
+          /'machine'/u.test(trigger.definition) && /raise\s+exception/iu.test(trigger.definition),
+      );
+      if (guards.length === 0) unprotected.push(table);
+    }
+
+    // Asserted FIRST, so the failure NAMES the tables a reader has to go and fix.
+    // Measured: with this after the count control below, dropping two attachments
+    // failed as `expected 2 to be greater than or equal to 4`, which says a
+    // number is wrong and not which table lost its guard.
+    expect(unprotected, 'localization tables with no machine-write guard').toEqual([]);
+
+    // The control on the QUERY, kept as well as the verdict above. A predicate
+    // that matched nothing reports every table unprotected and is caught by the
+    // assertion above; this catches the subtler direction — a query narrowed so
+    // it happens to return only the tables that ARE protected.
+    expect([...byTable.keys()].length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('backs the trigger with a row-level CHECK on every one of them, because a trigger cannot see an INSERT', async () => {
+    // The trigger is BEFORE UPDATE, so it reads `OLD` — an INSERT never gives it
+    // a row to compare against, and a machine row can therefore be CREATED
+    // claiming approval. Three tables closed that with a pair of CHECKs;
+    // `navigation_node_localizations` did not, and was MEASURED accepting the
+    // exact row `category_localizations` refuses. Asserted here so a FIFTH member
+    // of the family cannot reopen it: the trigger census above would pass on a
+    // table that has the trigger and no CHECK, which is precisely the state
+    // navigation was in.
+    const rows = await db.execute<{ tableName: string; definition: string }>(sql`
+      select c.relname as "tableName", pg_get_constraintdef(con.oid) as "definition"
+        from pg_constraint con
+        join pg_class c on c.oid = con.conrelid
+        join pg_namespace n on n.oid = c.relnamespace
+       where con.contype = 'c'
+         and n.nspname = current_schema()
+         and c.relname = any(${sql.raw(`array[${protectableTables.map((name) => `'${name}'`).join(', ')}]`)})
+    `);
+
+    const byTable = new Map<string, string[]>();
+    for (const row of [...rows]) {
+      byTable.set(row.tableName, [...(byTable.get(row.tableName) ?? []), row.definition]);
+    }
+
+    const unchecked: string[] = [];
+    for (const table of protectableTables) {
+      const defs = byTable.get(table) ?? [];
+      // Identified by what the CHECK SAYS, not by its name, for the reason the
+      // trigger census reads function bodies: a differently-named equivalent is
+      // still protection, and a name census would need an exemption that hides a
+      // table carrying none.
+      const guardsStatus = defs.some(
+        (def) => /'machine'/u.test(def) && /'approved'/u.test(def) && /'reviewed'/u.test(def),
+      );
+      const guardsReviewer = defs.some(
+        (def) => /'machine'/u.test(def) && /reviewed_by_oxy_user_id/u.test(def),
+      );
+      if (!guardsStatus || !guardsReviewer) {
+        unchecked.push(
+          `${table} (status guard: ${String(guardsStatus)}, reviewer guard: ${String(guardsReviewer)})`,
+        );
+      }
+    }
+
+    expect(unchecked, 'localization tables whose INSERT path a machine row can walk').toEqual([]);
+    // The control on the query: it must have found CHECKs at all.
+    expect([...byTable.keys()].length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('protects the statuses shared-types calls human-settled, not a hand-typed pair', async () => {
+    // The four behavioural cases below prove the guard refuses on `approved` and
+    // `reviewed` and permits on `stale`. This asserts the trigger's own list is
+    // the SAME list the application reads, so adding a settled status to
+    // shared-types without widening the trigger fails here rather than leaving a
+    // status the code treats as human-settled and the database does not.
+    const rows = await db.execute<{ definition: string }>(sql`
+      select pg_get_functiondef(t.tgfoid) as "definition"
+        from pg_trigger t
+        join pg_class c on c.oid = t.tgrelid
+       where not t.tgisinternal
+         and c.relname = 'category_localizations'
+    `);
+    const guard = [...rows].find((row) => /'machine'/u.test(row.definition));
+    expect(guard).toBeDefined();
+    for (const status of HUMAN_SETTLED_LOCALIZATION_STATUSES) {
+      expect(guard?.definition).toContain(`'${status}'`);
+    }
+    // A vacuity floor on the loop above: an empty tuple would assert nothing.
+    expect(HUMAN_SETTLED_LOCALIZATION_STATUSES.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -623,6 +623,30 @@
         "provider": "由语言模型依据观察记录措辞。其中的每个数字均来自观察记录，而非模型。"
       },
       "observationDisclaimer": "发现是 Mercaria 在那一刻看到的情况。它不会为您保留，也不是报价 — 价格与可供情况随时可能变化。"
+    },
+    "facet": {
+      "title": {
+        "offer_price": "价格",
+        "availability": "库存状态",
+        "condition": "成色",
+        "market": "市场",
+        "offer_channel": "销售平台",
+        "category": "类别"
+      },
+      "availability": {
+        "in_stock": "有货",
+        "out_of_stock": "无货",
+        "preorder": "预售",
+        "unavailable": "不可用",
+        "unknown": "未说明"
+      },
+      "channel": {
+        "native": "Mercaria",
+        "external": "其他商店"
+      },
+      "market": {
+        "any": "所有市场"
+      }
     }
   }
 }

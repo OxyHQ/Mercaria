@@ -1,0 +1,40 @@
+-- oxy:deploy-phase=pre
+--
+-- ADR 0007 D4: machine translation may never overwrite reviewed or approved
+-- content. Three of the four `*_localizations` tables enforce that at the ROW as
+-- well as in the trigger; `navigation_node_localizations` enforced only the
+-- trigger, which is BEFORE UPDATE and so reads `OLD` — an INSERT never gives it
+-- a row to compare against.
+--
+-- MEASURED before this migration was written, against a real server, with the
+-- protected table as a positive control: a row with `provenance = 'machine'`,
+-- `status = 'approved'`, a reviewer id and a review instant was ACCEPTED by
+-- `navigation_node_localizations` and REFUSED by
+-- `category_localizations_machine_reviewer_check`.
+--
+-- `pre`, and both are added VALIDATED. Additive: nothing in this codebase writes
+-- machine provenance at all, and that is measured rather than assumed — a census
+-- of every non-test occurrence of 'machine' and 'machine_translated' outside
+-- these CHECK predicates finds only tuple members, one observability COUNT, and
+-- the constant MACHINE_LOCALIZATION_PROVENANCE, which has no writer. There is no
+-- MT provider, adapter or service. So neither statement breaks a write the
+-- previous image performs.
+--
+-- WHAT THIS MIGRATION DOES NOT ESTABLISH, and is owed by whoever applies it: that
+-- the PRODUCTION table holds no row already violating either predicate. A fresh
+-- database trivially holds none, so a green test run says nothing about it. Run
+-- this first — it must return two zeros:
+--
+--   select count(*) filter (
+--            where provenance = 'machine' and status in ('reviewed', 'approved')
+--          ) as would_fail_status_check,
+--          count(*) filter (
+--            where provenance = 'machine'
+--              and (reviewed_by_oxy_user_id is not null or reviewed_at is not null)
+--          ) as would_fail_reviewer_check
+--     from navigation_node_localizations;
+--
+-- If it ever returns non-zero, these become NOT VALID plus a separate VALIDATE
+-- CONSTRAINT once the offending rows are corrected. Do not weaken the predicate.
+ALTER TABLE "navigation_node_localizations" ADD CONSTRAINT "navigation_node_localizations_machine_status_check" CHECK ("navigation_node_localizations"."provenance" <> 'machine' or "navigation_node_localizations"."status" not in ('reviewed', 'approved'));--> statement-breakpoint
+ALTER TABLE "navigation_node_localizations" ADD CONSTRAINT "navigation_node_localizations_machine_reviewer_check" CHECK ("navigation_node_localizations"."provenance" <> 'machine' or ("navigation_node_localizations"."reviewed_by_oxy_user_id" is null and "navigation_node_localizations"."reviewed_at" is null));

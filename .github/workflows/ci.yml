@@ -188,6 +188,22 @@ jobs:
       - name: Guard the catalog-driven storefront
         run: bun run validate:storefront-catalog
 
+      # `services/facets/labels.ts` reports every commerce dimension and the
+      # taxonomy refinement as `{ text: <machine key>, source: 'stable_key' }`,
+      # deliberately: Mercaria holds no localization row for a concept with no
+      # entity behind it, so the CLIENT owns that copy. The client did not own
+      # it, so the rail rendered `offer_price`, `availability`, `condition`,
+      # `market`, `offer_channel` and `category` to shoppers as filter titles in
+      # every locale. Nothing could see it — `validate:i18n-strings` check A
+      # hunts string LITERALS and these are member expressions, and `tsc` types a
+      # key exactly like a word. Walks a TypeScript AST rather than grepping,
+      # because the only textual occurrences in the tree are the docblocks
+      # explaining the rule; the detector carries 5 positive and 5 negative
+      # controls in the same run, and the two vocabularies `tsc` cannot see are
+      # read out of the producing SQL. Costs a second.
+      - name: Guard facet label copy
+        run: bun run validate:facet-label-copy
+
       # `typedRoutes` checks the OBJECT form of a navigation target completely,
       # and a TEMPLATE LITERAL only when no dynamic route sits above the segment
       # that was mistyped. Measured on the dashboard, armed: mutating
