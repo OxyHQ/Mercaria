@@ -137,9 +137,15 @@ const PUBLISHED = { id: 'ptd_v2', key: 'smartphone', version: 2 };
  * Past, because `fixture-date-census.test.ts` refuses a fixture dated today or
  * later: the real clock moves toward it, so it passes on the day it was written,
  * keeps passing, and then breaks CI for whoever pushes on the day it arrives —
- * in a file they did not touch. This file was written on 2026-08-17 and pinned to
- * it, which the census caught the same day. That was the only day it was cheap to
- * catch; a day later it would have gone quiet for a year.
+ * in a file they did not touch. This fixture was originally pinned to the day the
+ * file was written and the census caught it that same day — the only day it was
+ * cheap to catch, because a day later the clock walks past and the gate goes quiet
+ * for a year.
+ *
+ * No date in this comment, deliberately: the census scans RAW source and does not
+ * strip comments (its own header says why), so a bare date in prose is a counted
+ * literal, and somebody "refreshing" it to the day they touched the file would go
+ * red having edited nothing but a comment.
  *
  * ONE constant rather than two identical literals, because two drift apart
  * independently and the second one becomes the next census hit. Nothing here
