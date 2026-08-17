@@ -20,10 +20,17 @@ import {
   CATALOG_GOVERNANCE_ROLES,
   CATALOG_GOVERNANCE_SNAPSHOT_SCOPES,
   CATALOG_GOVERNANCE_SUBJECT_KINDS,
-  COMPATIBILITY_CLAIM_STATES,
+  COMPATIBILITY_APPLICABILITIES,
+  COMPATIBILITY_REVIEWABLE_CLAIM_STATES,
+  FITMENT_POSITIONS,
+  FITMENT_QUALIFIERS,
+  FITMENT_TARGET_SCOPES,
   LOCALIZATION_STATUSES,
   SUPPORTED_LOCALES,
+  VEHICLE_MAX_YEAR,
+  VEHICLE_MIN_YEAR,
 } from '@mercaria/shared-types';
+import { CLAIM_QUEUE_MAX_LIMIT } from '../services/catalog-governance/compatibility-claim.service.js';
 
 /** `z.enum` wants a non-empty tuple; the shared constants are readonly arrays. */
 function tuple<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
@@ -207,7 +214,12 @@ export const reviewExternalMappingSchema = z
 /** `POST .../reviews/compatibility-claims/:claimId` */
 export const reviewCompatibilityClaimSchema = z
   .object({
-    state: z.enum(tuple(COMPATIBILITY_CLAIM_STATES)),
+    // The REVIEWABLE subset, not all six. The validator and the service were two
+    // spellings of one rule — the schema accepted `selected` and the service
+    // refused it at runtime — so a caller learned the boundary from a 400 naming
+    // a state rather than from the request contract. `selected` is written only
+    // by a promotion.
+    state: z.enum(tuple(COMPATIBILITY_REVIEWABLE_CLAIM_STATES)),
     reviewNote: z.string().trim().min(1).max(2000).nullable().default(null),
     reason,
   })
@@ -216,4 +228,40 @@ export const reviewCompatibilityClaimSchema = z
 /** `GET .../quality/orphans` */
 export const orphanQuerySchema = z
   .object({ limit: z.coerce.number().int().min(1).max(500).default(200) })
+  .strict();
+
+/** `GET .../reviews/compatibility-claims` — the unresolved queue. */
+export const compatibilityClaimQueueQuerySchema = z
+  .object({
+    sourceId: z.string().trim().min(1).max(64).optional(),
+    limit: z.coerce.number().int().min(1).max(CLAIM_QUEUE_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+/**
+ * `POST .../reviews/compatibility-claims/:claimId/fitment` — promote one claim.
+ *
+ * **The vehicle is REQUIRED and nothing here could suggest one.** `vehicleMakeId`
+ * is not optional, the three narrower rungs are checked against the scope by
+ * `assertScopeNamesItsVehicle`, and `.strict()` refuses any field the operator
+ * did not mean to send. There is deliberately no `candidateId`, no
+ * `acceptSuggestion` and no `confidence`: an ambiguous fitment resolved to the
+ * likeliest vehicle is the false merge this whole surface is shaped against, and
+ * the request has no shape in which a machine could offer the answer.
+ */
+export const promoteCompatibilityClaimSchema = z
+  .object({
+    scope: z.enum(tuple(FITMENT_TARGET_SCOPES)),
+    vehicleMakeId: z.string().trim().min(1).max(64),
+    vehicleModelId: z.string().trim().min(1).max(64).optional(),
+    vehicleGenerationId: z.string().trim().min(1).max(64).optional(),
+    vehicleConfigurationId: z.string().trim().min(1).max(64).optional(),
+    applicability: z.enum(tuple(COMPATIBILITY_APPLICABILITIES)),
+    position: z.enum(tuple(FITMENT_POSITIONS)),
+    qualifiers: z.array(z.enum(tuple(FITMENT_QUALIFIERS))).max(13).optional(),
+    conditionNote: z.string().trim().min(1).max(2000).optional(),
+    yearFrom: z.coerce.number().int().min(VEHICLE_MIN_YEAR).max(VEHICLE_MAX_YEAR).optional(),
+    yearTo: z.coerce.number().int().min(VEHICLE_MIN_YEAR).max(VEHICLE_MAX_YEAR).optional(),
+    reason,
+  })
   .strict();

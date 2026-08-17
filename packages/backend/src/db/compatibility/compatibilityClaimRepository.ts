@@ -129,18 +129,24 @@ export interface UnresolvedClaimCount {
 }
 
 export async function countUnresolvedBySource(
-  sourceId: string,
+  /**
+   * `null` counts EVERY source, which is what an operator queue needs before it
+   * knows which source to blame. Widened to match `listUnresolvedClaims`, whose
+   * `sourceId` has always been nullable — the two are read together and a
+   * breakdown that could only ever be per-source made the unscoped list
+   * impossible to characterise.
+   */
+  sourceId: string | null,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<UnresolvedClaimCount[]> {
+  const clauses = [eq(compatibilityClaims.state, 'unresolved')];
+  if (sourceId !== null) {
+    clauses.push(eq(compatibilityClaims.assertedBySourceId, sourceId));
+  }
   const rows = await db
     .select({ reason: compatibilityClaims.unresolvedReason, total: count() })
     .from(compatibilityClaims)
-    .where(
-      and(
-        eq(compatibilityClaims.state, 'unresolved'),
-        eq(compatibilityClaims.assertedBySourceId, sourceId),
-      ),
-    )
+    .where(and(...clauses))
     .groupBy(compatibilityClaims.unresolvedReason);
   const counts: UnresolvedClaimCount[] = [];
   for (const row of rows) {

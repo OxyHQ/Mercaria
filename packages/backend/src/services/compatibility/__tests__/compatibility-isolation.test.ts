@@ -41,7 +41,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { sqlColumnName } from '@oxyhq/db';
@@ -68,76 +68,172 @@ import { projectAutomotiveFitment, projectCompatibilityRelation } from '../proje
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every file of the domain, enumerated from the real directories. */
-function enumerateDomain(): string[] {
-  // RECURSIVE. The previous walk did `if (statSync(full).isDirectory()) continue;`
-  // — it explicitly SKIPPED subdirectories, which is the shape #472 found hiding
-  // `services/ingestion/adapters/`, five provider modules behind no wall at all.
-  // Both roots are flat today; the point is that a subdirectory added tomorrow is
-  // covered without anybody remembering to come here.
-  const walk = (absolute: string): string[] => {
-    const found: string[] = [];
-    for (const entry of readdirSync(absolute, { withFileTypes: true })) {
-      if (entry.name === '__tests__') continue;
-      const child = join(absolute, entry.name);
-      if (entry.isDirectory()) found.push(...walk(child));
-      else if (entry.name.endsWith('.ts')) found.push(child);
-    }
-    return found;
-  };
-  const files = [
-    ...walk(join(SRC_ROOT, 'services', 'compatibility')),
-    ...walk(join(SRC_ROOT, 'db', 'compatibility')),
-  ];
-  /**
-   * The schema module and the HTTP surface, both derived by FILENAME rather than
-   * named, so a second schema file or a second controller is covered without
-   * anybody remembering to come here.
-   *
-   * The HTTP half is new. This file used to carry a comment saying the domain had
-   * no HTTP surface and that the claim was "checked against the tree, not assumed"
-   * — and no such check existed anywhere in it. It was true when written and
-   * unasserted, which is the worse of the two states: the day somebody published a
-   * route the comment became false and nothing went red. #367's own read surface
-   * (`routes/compatibility.ts` and its controller and schemas) is that day, so the
-   * claim is replaced by the derivation it always described, and the five walls
-   * below now cover the surface a shopper actually reaches — which is where a
-   * ranking import or an offer read would be most tempting to add.
-   */
-  const NAMED_FOR_THE_DOMAIN = /^compatibility.*\.ts$/;
-  for (const directory of [
-    join('db', 'schema'),
-    'routes',
-    'controllers',
-    'middleware',
-  ]) {
-    for (const entry of readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })) {
-      if (entry.isFile() && NAMED_FOR_THE_DOMAIN.test(entry.name)) {
-        files.push(join(SRC_ROOT, directory, entry.name));
-      }
-    }
+/**
+ * Every `.ts` file under `packages/backend/src`, recursively, tests excluded.
+ *
+ * RECURSIVE, and over the WHOLE tree. The previous walk did
+ * `if (statSync(full).isDirectory()) continue;` — it explicitly SKIPPED
+ * subdirectories, which is the shape #472 found hiding
+ * `services/ingestion/adapters/`, five provider modules behind no wall at all.
+ */
+function walkSource(absolute: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(absolute, { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = join(absolute, entry.name);
+    if (entry.isDirectory()) found.push(...walkSource(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
   }
-  return files;
+  return found;
 }
 
 /**
- * The enumeration FLOOR, read off the real directories rather than hard-coded as
- * a list of names.
+ * The domain's files, derived by WALKING THE WHOLE TREE and SUBTRACTING a
+ * counted exclusion list — never by matching a name or a predicted directory.
+ *
+ * ## Two earlier versions of this, and why both were wrong
+ *
+ * **1. A filename pattern.** `/^compatibility.*\.ts$/`, anchored, matched
+ * nothing called `routes/internal-compatibility.ts` — the name every one of the
+ * thirty-eight sibling operator routers uses — so the natural filename for a
+ * compatibility operator surface escaped all five walls in silence.
+ *
+ * **2. A pattern plus an import test, over four named directories.** Admitting
+ * `internal-` and adding "or the file imports the domain" closed the filename
+ * hole and left a bigger one: the loop still visited exactly
+ * `db/schema`, `routes`, `controllers`, `middleware`. Anything the domain grew
+ * ANYWHERE ELSE was invisible. Measured, that was not hypothetical — it was
+ * missing five real files, one of them added in the same pull request as the
+ * gate: `services/catalog-governance/compatibility-claim.service.ts`, the module
+ * that promotes an unresolved claim into a fitment, behind no wall at all. Also
+ * `queue.service.ts`, `review.service.ts`, `controllers/catalog-governance.controller.ts`
+ * and `scripts/seed-verticals/apply.ts`, which writes the fixture every
+ * automotive E2E reads.
+ *
+ * So the population is now **total minus counted exclusions**. A file joins the
+ * domain the moment it names the domain in an import, wherever it lives and
+ * whatever it is called; the only way out is an entry in `AGGREGATE_EXCLUSIONS`
+ * with a reason, an exact count and its own three-directional probe.
+ *
+ * `belongsToDomain` is pure over `(relativePath, source)` — the PATH, not the
+ * basename, precisely so the self-test can hand it a file in a directory nobody
+ * has thought of. That is the only way to prove a population derivation covers
+ * what has not been written.
+ */
+function enumerateDomain(): { derived: string[]; scanned: string[]; walked: number } {
+  const all = walkSource(SRC_ROOT);
+  const derived = all.filter((absolute) =>
+    belongsToDomain(relativeToSrc(absolute), readFileSync(absolute, 'utf8')),
+  );
+  const excluded = new Set(AGGREGATE_EXCLUSIONS.map((entry) => entry.path));
+  return {
+    derived,
+    scanned: derived.filter((absolute) => !excluded.has(relativeToSrc(absolute))),
+    walked: all.length,
+  };
+}
+
+/** A path relative to `src`, with forward slashes, as the exclusion list spells them. */
+function relativeToSrc(absolute: string): string {
+  return relative(SRC_ROOT, absolute).split(sep).join('/');
+}
+
+/**
+ * The three files that reach this domain and belong to NO domain.
+ *
+ * Each is an AGGREGATE: it names the compatibility tables or router because it
+ * names every domain's, by construction. Scanning them would put four hundred
+ * unrelated symbols under five walls, and the first one to go red would be red
+ * for a legitimate reason — at which point the cheapest green is to weaken the
+ * wall. That is the failure an exclusion list exists to prevent, so each entry
+ * carries the falsifiable form of its reason and is probed in three directions
+ * below: it is still DERIVED (not a stale path), its reason still HOLDS, and the
+ * list's size is exact.
+ *
+ * Nothing else may be added here without the same three probes. `__tests__` is
+ * excluded by the walk rather than by this list, and separately asserted.
+ */
+const AGGREGATE_EXCLUSIONS: readonly {
+  readonly path: string;
+  readonly reason: string;
+}[] = [
+  {
+    path: 'app.ts',
+    reason: 'the composition root: it imports every router there is, so it reaches every domain',
+  },
+  {
+    path: 'db/schema/index.ts',
+    reason: 're-export barrel: it names every table in the database and defines none',
+  },
+  {
+    path: 'services/curation/merge-plan.ts',
+    reason:
+      "#59's rehoming plan, whose census FAILS THE BUILD unless it names every table referencing " +
+      'a mergeable entity — so naming other domains is the property it is gated on',
+  },
+];
+
+/**
+ * The measured size of the derived population, asserted by EQUALITY.
  *
  * A file that moves out of the domain shrinks the scanned set silently, and a
- * shrinking scan looks exactly like a clean one — so the count is asserted, and
- * raising it when the domain grows is the point rather than an annoyance.
+ * shrinking scan looks exactly like a clean one. **The next legitimate file
+ * fails this line — deliberately.** A floor parked comfortably below the truth
+ * proves only that the walk found something, which is what `>= 1` already does.
+ * Raising it is one line and forces whoever adds a module to the domain to
+ * notice that five walls now scan it.
  *
- * **It sits AT the measured count, which means the next legitimate file fails
- * this line, and that is deliberate.** The number's job is to prove the
- * population was real at the moment somebody last looked — a floor parked
- * comfortably below the truth proves only that the walk found something, which is
- * what a floor of `>= 1` already does. Raising it is one line and forces whoever
- * adds a module to the domain to notice that five walls now scan it. Twelve
- * today: four services, four repositories, one schema file, one route, one
- * controller, one schema module.
+ * Twenty-one today: four services and four repositories in the domain's own two
+ * directories, one schema module, one schema barrel, one route, two controllers,
+ * two request-schema modules, three catalog-governance services, the seed
+ * script, the merge plan and `app.ts`. Eighteen of them are scanned; three are
+ * the aggregates above.
  */
-const MINIMUM_DOMAIN_FILES = 12;
+const DERIVED_FILES = 21;
+
+/**
+ * The floor on the WALK ITSELF, which is a different measurement from the one
+ * above: it catches a walk that silently covered a fraction of the tree —
+ * a swallowed `readdirSync`, a wrong root, a rename of `src` — where the
+ * equality above would report a plausible-looking shortfall in the DOMAIN and
+ * send the reader hunting for a moved compatibility file. Deliberately a floor
+ * and not an equality: this number moves with every backend file anybody adds,
+ * and a gate that fails on an unrelated addition is one somebody deletes.
+ */
+const MINIMUM_WALKED_FILES = 1200;
+
+/** A filename that names the domain outright. Kept for the schema module, which imports none of it. */
+const NAMED_FOR_THE_DOMAIN = /^(?:internal-)?compatibility.*\.ts$/;
+
+/**
+ * An import or export specifier with a path segment that NAMES the domain.
+ *
+ * Deliberately not `(services|db)/compatibility/`: the schema barrel spells it
+ * `export * from './compatibility'` — relative, and with no extension — so an
+ * absolute-looking pattern missed the one file that re-exports the tables to
+ * everybody. Segment-prefixed, so `./compatibility.js`,
+ * `../db/compatibility/x.js`, `../middleware/compatibility-schemas.js` and
+ * `./compatibility-claim.service.js` all count, under any relative spelling.
+ */
+const REACHES_THE_DOMAIN = /(?:from|import)\s+['"](?:[^'"]*\/)?compatibility[^'"]*['"]/u;
+
+/**
+ * Whether a file belongs to the compatibility domain.
+ *
+ * Pure over `(relativePath, source)` so the self-test can ask about a file
+ * nobody has written, in a directory nobody has predicted.
+ */
+function belongsToDomain(relativePath: string, source: string): boolean {
+  if (!relativePath.endsWith('.ts')) return false;
+  if (
+    relativePath.startsWith('services/compatibility/') ||
+    relativePath.startsWith('db/compatibility/')
+  ) {
+    return true;
+  }
+  const basename = relativePath.slice(relativePath.lastIndexOf('/') + 1);
+  return NAMED_FOR_THE_DOMAIN.test(basename) || REACHES_THE_DOMAIN.test(source);
+}
 
 /** Strip comments, so a module that DESCRIBES what it refuses is not read as doing it. */
 function stripComments(source: string): string {
@@ -177,13 +273,196 @@ const OPTION_WRITER_PATHS = [
   'services/backfill/stages/provisional-products.ts',
 ];
 
+/** ONE enumeration for the whole file: it reads every source file, so twice is twice. */
+const DOMAIN = enumerateDomain();
+
+describe('the population derivation covers files nobody has written', () => {
+  // The point of `belongsToDomain` being pure over a PATH: a floor over the
+  // CURRENT tree proves the walk found today's files, and says nothing about
+  // whether it would find tomorrow's. These cases hand it paths that do not
+  // exist, in directories the old four-entry loop never visited.
+
+  it('admits a file in a directory nobody predicted, because it imports the domain', () => {
+    // Both of these are the shape that actually escaped: not an unpredicted NAME
+    // (the previous version fixed that) but an unpredicted PLACE. Neither `lib/`
+    // nor `services/storefront/` was in the four-directory loop, so both scored
+    // zero and both would have walked through all five walls.
+    expect(
+      belongsToDomain(
+        'lib/vehicle-picker.ts',
+        "import { answerFitment } from '../services/compatibility/fitment.service.js';",
+      ),
+    ).toBe(true);
+    expect(
+      belongsToDomain(
+        'services/storefront/fitment-widget.ts',
+        "import { openAutomotiveFitment } from '../../db/compatibility/automotiveFitmentRepository.js';",
+      ),
+    ).toBe(true);
+    // A deeply nested one, in a subdirectory of a subdirectory: the walk is
+    // recursive, and the predicate reads a path rather than a directory listing.
+    expect(
+      belongsToDomain(
+        'services/ingestion/adapters/fitment-feed.ts',
+        "import { recordCompatibilityClaim } from '../../compatibility/claim.service.js';",
+      ),
+    ).toBe(true);
+  });
+
+  it('admits an unpredicted NAME as well, which is the hole before this one', () => {
+    expect(
+      belongsToDomain(
+        'controllers/vehicle-fitment.controller.ts',
+        "import { answerFitment } from '../services/compatibility/fitment.service.js';",
+      ),
+    ).toBe(true);
+    expect(
+      belongsToDomain(
+        'middleware/fitment-admin-schemas.ts',
+        "import { openAutomotiveFitment } from '../db/compatibility/automotiveFitmentRepository.js';",
+      ),
+    ).toBe(true);
+  });
+
+  it('still admits the schema module, which imports none of the domain', () => {
+    // Why the union has a name half at all: `db/schema/compatibility.ts` DEFINES
+    // the tables, so an import-only derivation would drop the one file every
+    // other member depends on.
+    expect(
+      belongsToDomain('db/schema/compatibility.ts', 'export const automotiveFitments = pgTable('),
+    ).toBe(true);
+    expect(belongsToDomain('routes/internal-compatibility.ts', '')).toBe(true);
+  });
+
+  it('admits an extensionless relative re-export — the spelling the barrel uses', () => {
+    // `db/schema/index.ts` writes `export * from './compatibility';` — no
+    // extension, relative — and an `(services|db)/compatibility/` pattern missed
+    // it, which meant the one file that hands the tables to everybody was not
+    // even DERIVED, let alone excluded on purpose.
+    expect(belongsToDomain('db/schema/index.ts', "export * from './compatibility';")).toBe(true);
+  });
+
+  it('excludes a neighbour that does neither — the control', () => {
+    // Without this the cases above are satisfied by a predicate that returns
+    // true for everything, which would put sixteen hundred files in a five-wall
+    // scan and read as thoroughness.
+    expect(
+      belongsToDomain(
+        'controllers/orders.controller.ts',
+        "import { transition } from '../services/order.service.js';",
+      ),
+    ).toBe(false);
+    // And a file that merely MENTIONS the domain in prose is not a member — the
+    // predicate reads an import specifier, not the word.
+    expect(
+      belongsToDomain(
+        'controllers/offers.controller.ts',
+        '// see services/compatibility/ for fitment',
+      ),
+    ).toBe(false);
+    expect(belongsToDomain('docs/compatibility.md', '')).toBe(false);
+    // A path that merely CONTAINS the word outside a specifier, and a
+    // sibling-named module in another domain: both are non-members.
+    expect(
+      belongsToDomain(
+        'services/ranking/facts.ts',
+        "import { readOffer } from '../../db/offers/offerRepository.js';",
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('the exclusion list is exact, live and necessary', () => {
+  // Three directions, because an exemption fails in three ways and each looks
+  // like a pass: it goes STALE (the file moved, so it excuses nothing), it was
+  // never NEEDED (so it hides that the wall does no work on that file), or the
+  // list silently GROWS (so tomorrow's real violation is excused).
+  const derivedPaths = new Set(DOMAIN.derived.map(relativeToSrc));
+
+  it('names exactly three files, and every one of them is really derived', () => {
+    expect(AGGREGATE_EXCLUSIONS.length, 'the exclusion list changed size').toBe(3);
+    for (const entry of AGGREGATE_EXCLUSIONS) {
+      // Direction one: not stale. An entry naming a path the derivation does not
+      // produce excuses nothing and would go on excusing nothing forever.
+      expect(
+        derivedPaths.has(entry.path),
+        `${entry.path} is excluded but is not in the derived population — did it move or stop ` +
+          'importing the domain? A stale exclusion is indistinguishable from a working one',
+      ).toBe(true);
+      expect(entry.reason.length, `${entry.path} has no reason`).toBeGreaterThan(40);
+    }
+    // Direction three: subtraction is the ONLY way out of the population. If
+    // these two numbers stop differing by exactly the list's length, something
+    // else is dropping files.
+    expect(DOMAIN.scanned.length).toBe(DOMAIN.derived.length - AGGREGATE_EXCLUSIONS.length);
+  });
+
+  it("proves each exclusion's reason still holds, in the reason's own terms", () => {
+    // Direction two, and the one that is easy to fake: a reason stated as prose
+    // cannot fail. Each of these is the MEASURABLE form of the sentence in the
+    // list, so an entry whose justification evaporated goes red here.
+    const read = (path: string) => readFileSync(join(SRC_ROOT, path), 'utf8');
+
+    // `app.ts` is the composition root: it imports routers by the hundred.
+    const appRouterImports = read('app.ts').match(/from\s+'\.\/routes\//gu) ?? [];
+    expect(
+      appRouterImports.length,
+      'app.ts no longer imports routers wholesale, so "composition root" is not why it reaches ' +
+        'this domain — re-read the exclusion',
+    ).toBeGreaterThanOrEqual(40);
+
+    // The barrel re-exports every table and defines none.
+    const barrel = read('db/schema/index.ts');
+    expect((barrel.match(/export \* from/gu) ?? []).length).toBeGreaterThanOrEqual(30);
+    expect(
+      /pgTable\(/u.test(barrel),
+      'db/schema/index.ts now DEFINES a table, so it is not a pure re-export barrel',
+    ).toBe(false);
+
+    // The merge plan is the one exclusion whose necessity is demonstrable: it
+    // would go RED on a wall today. That is what makes it an exclusion rather
+    // than a member — and if it ever stops tripping one, it should be scanned.
+    const mergePlan = stripComments(read('services/curation/merge-plan.ts'));
+    expect(
+      RELATIONSHIP_REFERENCE.test(mergePlan) ||
+        COMMERCE_REFERENCE.test(mergePlan) ||
+        RANKING_REFERENCE.test(mergePlan) ||
+        OPTION_WRITE_REFERENCE.test(mergePlan),
+      'merge-plan.ts trips no wall any more; it is excluded for a cost it no longer has, so put ' +
+        'it back in the scanned set rather than leaving an exemption that hides nothing',
+    ).toBe(true);
+    // And it is derived for the right reason: it names the domain's own tables.
+    expect(COMPATIBILITY_REFERENCE.test(mergePlan)).toBe(true);
+  });
+
+  it('does not excuse a file the derivation would newly admit', () => {
+    // The ADD direction on the LIST rather than on the population: the
+    // exclusions are exact PATHS, never a pattern, so a new file cannot be
+    // excused by resembling one. Two paths that do not exist, either of which a
+    // prefix or suffix rule would have swallowed.
+    const excluded = new Set(AGGREGATE_EXCLUSIONS.map((entry) => entry.path));
+    expect(excluded.has('app.fitment.ts')).toBe(false);
+    expect(excluded.has('services/curation/merge-plan-vehicles.ts')).toBe(false);
+    expect(excluded.has('db/schema/index.compatibility.ts')).toBe(false);
+  });
+});
+
 describe('the compatibility domain cannot reach what it must not', () => {
-  const files = enumerateDomain();
+  const { derived, walked } = DOMAIN;
+  const files = DOMAIN.scanned;
 
   it('scans a domain that has not silently shrunk', () => {
-    // Vacuity floors PER SHAPE rather than one on the total: the three sources
-    // break independently, and a single total on 9 would let the service walk
-    // collapse to zero while the repositories carried the number.
+    // The floor on the walk comes FIRST: everything below is a subtraction from
+    // it, so a walk that covered a fraction of the tree makes every count under
+    // it meaningless while looking like a domain that shrank.
+    expect(
+      walked,
+      `the walk found ${String(walked)} source files under src/ — that is far too few; the walk ` +
+        'itself is broken, and the domain counts below are measuring a fragment',
+    ).toBeGreaterThanOrEqual(MINIMUM_WALKED_FILES);
+    // Vacuity floors PER SHAPE rather than one on the total: the sources break
+    // independently, and a single total would let the service walk collapse to
+    // zero while the repositories carried the number.
     const from = (segment: string) => files.filter((file) => file.includes(segment)).length;
     expect(from('/services/compatibility/'), 'the service walk found nothing').toBeGreaterThanOrEqual(4);
     expect(from('/db/compatibility/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(4);
@@ -193,16 +472,41 @@ describe('the compatibility domain cannot reach what it must not', () => {
     // controller vanish from the scan while the route and the schemas carried the
     // number — which is the layer a forbidden import is most likely to enter.
     expect(from('/routes/compatibility'), 'the route walk found nothing').toBeGreaterThanOrEqual(1);
-    expect(from('/controllers/compatibility'), 'the controller walk found nothing').toBeGreaterThanOrEqual(1);
-    expect(from('/middleware/compatibility'), 'the schema walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('/controllers/'), 'the controller derivation found nothing').toBeGreaterThanOrEqual(2);
+    expect(from('/middleware/'), 'the request-schema derivation found nothing').toBeGreaterThanOrEqual(2);
+    // The layer the four-directory loop could not see at all, floored on its own
+    // for exactly that reason: the claim-promotion service lives here, and a
+    // floor that lumped it in with the services above would have been satisfied
+    // by the domain's own directory while this one was empty.
+    expect(
+      from('/services/catalog-governance/'),
+      'the governance derivation found nothing — the promotion surface is unscanned',
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      from('/scripts/seed-verticals/'),
+      'the seed derivation found nothing — the fixture every automotive E2E reads is unscanned',
+    ).toBeGreaterThanOrEqual(1);
     // Printed on SUCCESS, not only in a failure message: the population size is
     // the one number that says this census measured anything, and a reader who
-    // only ever sees it when the gate is red cannot tell a healthy scan of twelve
-    // files from a healthy scan of two.
+    // only ever sees it when the gate is red cannot tell a healthy scan of
+    // eighteen files from a healthy scan of two.
     process.stdout.write(
-      `compatibility isolation: scanning ${String(files.length)} domain file(s)\n`,
+      `compatibility isolation: walked ${String(walked)} source file(s), derived ` +
+        `${String(derived.length)}, scanning ${String(files.length)} after ` +
+        `${String(AGGREGATE_EXCLUSIONS.length)} counted exclusion(s)\n`,
     );
-    expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
+    // EQUALITY on the DERIVED set, because the comment on `DERIVED_FILES` says
+    // "the next legitimate file fails this line, and that is deliberate" — and
+    // `toBeGreaterThanOrEqual` passed on every addition, so the mechanism the
+    // comment describes did not exist. It is asserted on `derived` rather than on
+    // `scanned` so that MOVING a file into the exclusion list cannot satisfy it:
+    // both numbers would have to be edited, and the exclusion needs its reason
+    // probed besides.
+    expect(
+      derived.length,
+      `the domain holds ${String(derived.length)} files; DERIVED_FILES says ${String(DERIVED_FILES)}. ` +
+        'Raising it is one line, and doing so is how you notice five walls now scan your new module.',
+    ).toBe(DERIVED_FILES);
     // No test file may enter the scanned set: a gate that scans its own probes
     // reports violations it wrote itself.
     expect(files.filter((file) => file.includes('__tests__'))).toEqual([]);

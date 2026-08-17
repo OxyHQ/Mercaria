@@ -438,23 +438,59 @@ runner.
   resolution is what is owed, not the fetch.
 
 ## Seams, each named rather than stubbed
-- **The vehicle picker and the shopper's own verdict.**
+- **The vehicle picker and the shopper's own verdict.** DEFERRED, with a
+  condition — not merely unbuilt.
+
   `GET /compatibility/fitments/verdict` and the four `/compatibility/vehicles/…`
-  rungs are served and the storefront calls neither. That is an interaction rather
-  than a read — a cascading selection, a remembered vehicle, an answer that narrows
-  as the shopper chooses — and when it is built, `resolveFitment` on the SERVER
-  stays the only thing that may produce the verdict; a rule re-derived on the
-  client from the rendered list would be the second implementation the shared
-  resolver exists to prevent.
+  rungs are served, PROVEN over HTTP by
+  `routes/__tests__/compatibility-routes.realdb.test.ts`, and the storefront calls
+  neither. That is an interaction rather than a read — a cascading selection, a
+  remembered vehicle, an answer that narrows as the shopper chooses — and when it
+  is built, `resolveFitment` on the SERVER stays the only thing that may produce
+  the verdict; a rule re-derived on the client from the rendered list would be the
+  second implementation the shared resolver exists to prevent.
+
+  **What would CLOSE it: a populated vehicle tree.** No adapter is registered, so
+  `vehicle_makes` is empty on a real deployment and a picker shipped today would
+  cascade a shopper through four empty dropdowns. This repository has a name for
+  that — a control that renders only in a state nobody can reach, which is worse
+  than an absent one because it looks built. The reference-data import is the seam
+  below (`upsertVehicleMake` and its three siblings are ready for one); the picker
+  is downstream of it and of nothing else. Both routes and their four rungs are
+  finished, so the UI is the only remaining piece once a tree exists.
+
+  Recorded here deliberately rather than left implicit: #367 Workstream 14's box
+  asks that the selector and the reverse display be PROVEN, and they are — the
+  reverse list is rendered by `CompatibilityPanel.tsx` in twelve locales, and the
+  walk is proven at the service, HTTP and end-to-end layers. A green box must not
+  be read as "a shopper can pick their car today".
 - **D6's axis CHECK** (merge-order step 4) — the other wall around the option
   tables.
 - **The localization family** (merge-order step 2) — every display name for a
   vehicle record and a typed target.
 - **Ranking (#74).** A scanned gate keeps this domain out of it: "fits your
   vehicle" is an eligibility fact a shopper asked for, not a weight.
-- **The OPERATOR surface.** Still absent. A trace by relation id, a verification
-  and a revocation belong on the `CATALOG_OPERATOR_OXY_USER_IDS` allow-list
-  #54/#55/#56 use, not a seventh list.
+- **The OPERATOR surface.** PARTLY built (#367 Workstream 14), and the part that
+  exists is the claim queue: `GET /internal/catalog-governance/reviews/compatibility-claims`
+  lists the unresolved claims the `unresolved_compatibility_claim` count was only
+  counting, and `POST .../:claimId/fitment` promotes one — the vehicle named in
+  full by the operator, audited with a mandatory reason, opening a fitment that
+  records `operator_review` so the row says a person decided. It is on the
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list #54/#55/#56 use and NOT a seventh
+  list, and it sits on the governance router beside the review route that was
+  already there rather than in an `internal-compatibility.ts` of its own.
+
+  **An ambiguous fitment is never resolved to the likeliest vehicle**, and that
+  is four mechanisms rather than a rule: the vehicle is required input at every
+  rung the scope demands, the promotion never reads `raw_target_text`,
+  `COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS` names ten shapes a
+  convenience would arrive under and is scanned over BOTH this domain and the
+  governance one, and `assertClaimMatchesSubject` refuses a cross-subject
+  promotion. See `services/catalog-governance/compatibility-claim.service.ts`.
+
+  Still absent: a trace by RELATION id, a verification and a revocation, and
+  `promoteClaimToRelation` — the generic half — which remains callerless. The
+  automotive half is what Workstream 14's box asked for.
 - **A vehicle picker's own reference-data import.** `upsertVehicleMake` and its
   three siblings key on the stable machine key and are ready for one; no adapter
   is registered, so nothing populates the tree today — which is also why the

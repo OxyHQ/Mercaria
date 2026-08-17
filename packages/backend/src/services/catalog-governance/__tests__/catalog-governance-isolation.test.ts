@@ -14,6 +14,7 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   CATALOG_GOVERNANCE_ACTIONS,
+  COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS,
   CATALOG_GOVERNANCE_ACTION_DOMAINS,
   CATALOG_GOVERNANCE_ACTION_ROLES,
   CATALOG_GOVERNANCE_ACTION_SUBJECTS,
@@ -130,6 +131,21 @@ const WALLS: readonly Wall[] = [
     why: 'A merchant role may never publish a global catalog change. The guarantee is the branded actor type; importing store authorization here would be the beginning of a second path.',
   },
   {
+    name: 'nothing derives the vehicle a claim is promoted to',
+    // The trap this whole surface is shaped around: an ambiguous fitment
+    // resolved to the LIKELIEST vehicle. It is #58's false merge one domain
+    // over, and worse — a wrong product match shows the wrong page, a wrong
+    // fitment sells somebody a brake pad that does not fit their car, and only
+    // the customer finds out.
+    //
+    // The pattern is RENDERED from `COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS`
+    // rather than written out, so a value added to that tuple is scanned for
+    // without anybody editing this file — and the values do not appear literally
+    // here, so the wall cannot trip over stating itself.
+    pattern: new RegExp(COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS.join('|'), 'u'),
+    why: 'The operator names the vehicle in full or the promotion is refused. Nothing here may suggest, rank, infer or read it out of the claim\'s own words.',
+  },
+  {
     name: 'no code execution from stored input',
     // `parameters`, the snapshot document and the audit before/after are all
     // caller-influenced jsonb.
@@ -176,6 +192,38 @@ describe('the catalog governance walls', () => {
     });
   }
 
+  it('holds the vehicle-derivation wall over `services/compatibility/` too', () => {
+    // The wall above scans THIS domain. A `likeliestVehicle` helper would just
+    // as naturally land in the domain that owns fitment, and be imported from
+    // here — so the prohibition is applied over both trees or it is applied over
+    // the half somebody did not use.
+    //
+    // `services/compatibility/`'s own isolation gate cannot carry this: its
+    // patterns are about what that domain may IMPORT, and this is about a
+    // function it may not DEFINE. Scanning it from here also keeps the tuple and
+    // both scans in one file, which is what stops them drifting.
+    const scanned = new Map<string, string>();
+    for (const directory of [join('services', 'compatibility'), join('db', 'compatibility')]) {
+      walk(join(SRC_ROOT, directory), scanned);
+    }
+    // Vacuity floor first: eight files today, and a walk that found nothing
+    // satisfies the assertion below without measuring anything.
+    expect(scanned.size, `the compatibility walk read ${String(scanned.size)} files`).toBeGreaterThanOrEqual(8);
+
+    const pattern = new RegExp(COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS.join('|'), 'u');
+    const offenders = [...scanned]
+      .filter(([, source]) => pattern.test(stripComments(source)))
+      .map(([path]) => path)
+      .sort();
+    expect(
+      offenders,
+      'a compatibility module derives the vehicle a claim is promoted to; the operator must name it',
+    ).toEqual([]);
+
+    // And the detector fires, so the clean zero above is a measurement.
+    expect(pattern.test('const v = guessVehicle(claim.rawTargetText);')).toBe(true);
+  });
+
   it('exempts nothing that does not exist', () => {
     // An exemption naming a file the scan never read permits nothing and reads
     // exactly like one doing work. Reconciled in BOTH directions: every
@@ -208,6 +256,8 @@ function plantedViolation(wallName: string): string {
       return "import { rankOffers } from '../services/ranking/rank.js';";
     case 'no store-scoped permission':
       return "import { requireStorePermission } from '../middleware/store-authz.js';";
+    case 'nothing derives the vehicle a claim is promoted to':
+      return 'const target = await likeliestVehicle(claim.rawTargetText);';
     case 'no code execution from stored input':
       return 'const run = new Function("return " + parameters.expression);';
     default:
@@ -406,9 +456,18 @@ describe('the route set is closed', () => {
         'POST /reviews/localization',
         'POST /reviews/external-mappings/:mappingId',
         'POST /reviews/compatibility-claims/:claimId',
+        // #367 Workstream 14. The queue READ is what made the
+        // `unresolved_compatibility_claim` count on `GET /queues` actionable —
+        // before it, the number was the only thing an operator could learn. The
+        // `/fitment` POST is the one act that empties the queue, and it is a
+        // separate route from the review beside it because it needs a different
+        // ROLE: a review publishes nothing, a promotion creates the fitment a
+        // shopper acts on.
+        'GET /reviews/compatibility-claims',
+        'POST /reviews/compatibility-claims/:claimId/fitment',
       ].sort(),
     );
-    expect(registered.length, `${String(registered.length)} routes registered`).toBe(28);
+    expect(registered.length, `${String(registered.length)} routes registered`).toBe(30);
   });
 
   it('mounts authentication before the allow-list', () => {

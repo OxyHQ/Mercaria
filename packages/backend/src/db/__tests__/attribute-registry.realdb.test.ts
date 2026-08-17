@@ -12,7 +12,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, is, sql } from 'drizzle-orm';
+import { PgTable, getTableConfig } from 'drizzle-orm/pg-core';
 import { isCheckViolation, isUniqueViolation, uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
@@ -830,5 +831,219 @@ describe('the reindex log', () => {
         claimedAt: new Date(),
       }),
     );
+  });
+});
+
+describe('ONE authoritative attribute definition registry (#367)', () => {
+  /**
+   * #94 says it EXTENDS #56's registry — "one registry, not two"
+   * (`db/schema/canonicalCatalog.ts:12`). That sentence is the whole of the
+   * enforcement: `attribute_definitions` is declared once, the two tables
+   * `canonicalCatalog.ts` used to own were MOVED here, and **nothing would fail
+   * if somebody added a second definition table.** A sentence asserting an
+   * invariant is evidence that somebody knew the invariant, not that it holds.
+   *
+   * ## Why this reads `information_schema` and not the drizzle barrel
+   *
+   * A walk of the barrel's `PgTable` exports measures what drizzle MODELS. This
+   * repo creates real objects from hand-written SQL in migrations — every trigger
+   * in the schema, for one — so a table created that way is invisible to a barrel
+   * walk and visible here. The database is the authority on what exists in it.
+   *
+   * ## Two instruments, because each catches what the other cannot
+   *
+   * The NAME census catches `product_type_attribute_definitions` — a plausible,
+   * well-intentioned second registry. The SHAPE census catches one called
+   * anything at all: a table that defines attributes has to say which attribute
+   * (`key`) and what type its values are (`value_type`), and today exactly one
+   * table in 445 carries that pair. Neither is a superset of the other, so both
+   * are asserted EXACTLY rather than as floors.
+   */
+  /**
+   * Live base tables that no drizzle `pgTable` declares.
+   *
+   * Measured, not assumed — the gate named it on its first run. There is exactly
+   * ONE: `spatial_ref_sys`, PostGIS's spatial-reference catalogue, created by
+   * `CREATE EXTENSION postgis` and owned by a privileged role rather than by any
+   * migration in this repo.
+   *
+   * Worth stating what it is NOT: the migration ledger. Drizzle keeps that in the
+   * `drizzle` SCHEMA, so a census filtered to `public` never sees it — which is
+   * why "the extra table is probably the ledger" would have been a plausible,
+   * confident and wrong answer.
+   *
+   * Kept EXACT: a new entry means somebody created a table from hand-written
+   * migration SQL, which is legitimate and is precisely the thing a barrel walk
+   * cannot see.
+   */
+  const UNMODELLED_LIVE_TABLES: readonly string[] = ['spatial_ref_sys'];
+
+  interface TableShape {
+    readonly name: string;
+    readonly columns: ReadonlySet<string>;
+  }
+
+  let shapes: TableShape[] = [];
+
+  beforeAll(async () => {
+    const rows = await db.execute<{ table_name: string; column_name: string }>(sql`
+      select c.table_name, c.column_name
+        from information_schema.columns c
+        join information_schema.tables t
+          on t.table_schema = c.table_schema and t.table_name = c.table_name
+       where c.table_schema = 'public' and t.table_type = 'BASE TABLE'
+    `);
+    const byTable = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const set = byTable.get(row.table_name) ?? new Set<string>();
+      set.add(row.column_name);
+      byTable.set(row.table_name, set);
+    }
+    shapes = [...byTable].map(([name, columns]) => ({ name, columns }));
+  });
+
+  it('walked the real database, not a fragment of it', () => {
+    // The vacuity floor. Both censuses below are ABSENCE claims over this set, so
+    // a query that returned three tables would report a clean registry for the
+    // same reason a broken one would. A floor rather than an equality because
+    // this number moves with every migration anybody lands.
+    expect(
+      shapes.length,
+      `the information_schema census found ${String(shapes.length)} tables, which is far too few — ` +
+        'it is measuring a fragment and every count below is meaningless',
+    ).toBeGreaterThanOrEqual(300);
+    process.stdout.write(
+      `attribute registry census: ${String(shapes.length)} tables in the live schema\n`,
+    );
+  });
+
+  it('accounts for every live table drizzle does not model', async () => {
+    // 446 live base tables against 445 `pgTable` declarations in source. That gap
+    // is the reason this census reads `information_schema` rather than the barrel
+    // — and a base table nothing in source models is boring 99 times and a
+    // finding the hundredth, so it is NAMED rather than left as an off-by-one.
+    const barrel = await import('../schema/index.js');
+    const modelled = new Set<string>();
+    for (const value of Object.values(barrel)) {
+      if (is(value, PgTable)) modelled.add(getTableConfig(value).name);
+    }
+    const unmodelled = shapes
+      .map((table) => table.name)
+      .filter((name) => !modelled.has(name))
+      .sort();
+    // The positive control: the barrel really was walked. An import that resolved
+    // to an empty module would make every live table "unmodelled" and the
+    // assertion below would fail loudly — but a floor says so in one line.
+    expect(modelled.size, 'the barrel walk found no tables at all').toBeGreaterThan(300);
+    expect(
+      unmodelled,
+      `live base tables that no \`pgTable\` in the barrel declares: ${unmodelled.join(', ')}`,
+    ).toEqual(UNMODELLED_LIVE_TABLES);
+  });
+
+  it('has exactly one table whose NAME claims to define attributes', () => {
+    const named = shapes
+      .filter((table) => table.name.includes('attribute') && table.name.includes('definition'))
+      .map((table) => table.name)
+      .sort();
+    // `attribute_definition_categories` is the SCOPE join — which categories a
+    // definition applies to — and is named here rather than excluded by a
+    // pattern, so a third table cannot arrive by resembling it.
+    expect(named).toEqual(['attribute_definition_categories', 'attribute_definitions']);
+  });
+
+  it('has exactly one table SHAPED like an attribute definition registry', () => {
+    // `key` says which attribute, `value_type` says what its values are. A second
+    // registry cannot avoid carrying both and still be one, whatever it is
+    // called — which is what makes this the instrument that survives a name
+    // nobody predicted. `product_type_definitions` and `navigation_trees` carry
+    // `key` and `version` and a lifecycle without carrying `value_type`, which is
+    // why the pair and not the triple.
+    const shaped = shapes
+      .filter((table) => table.columns.has('key') && table.columns.has('value_type'))
+      .map((table) => table.name)
+      .sort();
+    expect(shaped).toEqual(['attribute_definitions']);
+  });
+
+  it('goes RED on a second registry that does not exist yet — the mutation self-test', async () => {
+    // A census that has only ever seen the healthy state is a census nobody has
+    // watched fail. This creates the two tables it exists to catch — INSIDE a
+    // transaction that is rolled back, so nothing is left behind for the parallel
+    // files sharing this database — and re-runs the same two filters against the
+    // transaction's own view of `information_schema`.
+    //
+    // Both shapes are the plausible mistake rather than a contrived one:
+    // `product_type_attribute_definitions` is what somebody adds when product
+    // types need their own attribute meanings, and `spec_fields` is the same
+    // second registry under a name no pattern would predict.
+    const census = async (tx: typeof db) => {
+      const rows = await tx.execute<{ table_name: string; column_name: string }>(sql`
+        select c.table_name, c.column_name
+          from information_schema.columns c
+          join information_schema.tables t
+            on t.table_schema = c.table_schema and t.table_name = c.table_name
+         where c.table_schema = 'public' and t.table_type = 'BASE TABLE'
+      `);
+      const byTable = new Map<string, Set<string>>();
+      for (const row of rows) {
+        const set = byTable.get(row.table_name) ?? new Set<string>();
+        set.add(row.column_name);
+        byTable.set(row.table_name, set);
+      }
+      const all = [...byTable].map(([name, columns]) => ({ name, columns }));
+      return {
+        named: all
+          .filter((t) => t.name.includes('attribute') && t.name.includes('definition'))
+          .map((t) => t.name)
+          .sort(),
+        shaped: all
+          .filter((t) => t.columns.has('key') && t.columns.has('value_type'))
+          .map((t) => t.name)
+          .sort(),
+      };
+    };
+
+    let observed: Awaited<ReturnType<typeof census>> | null = null;
+    await db
+      .transaction(async (tx) => {
+        await tx.execute(sql`create table product_type_attribute_definitions (id text primary key)`);
+        await tx.execute(sql`create table spec_fields (id text primary key, key text, value_type text)`);
+        observed = await census(tx as unknown as typeof db);
+        tx.rollback();
+      })
+      .catch((error: unknown) => {
+        // `tx.rollback()` throws by design; anything else is a real failure.
+        if (!(error instanceof Error) || !/rollback/iu.test(error.message)) throw error;
+      });
+
+    expect(observed, 'the mutation transaction never ran').not.toBeNull();
+    // The NAME census sees the plausible second registry...
+    expect(observed?.named).toContain('product_type_attribute_definitions');
+    // ...and the SHAPE census sees the one whose name says nothing, which is the
+    // half a name pattern could never catch.
+    expect(observed?.shaped).toContain('spec_fields');
+    expect(observed?.shaped).toHaveLength(2);
+
+    // And the rollback really rolled back: neither table survives.
+    const after = await census(db);
+    expect(after.named).not.toContain('product_type_attribute_definitions');
+    expect(after.shaped).toEqual(['attribute_definitions']);
+  });
+
+  it('both censuses are non-vacuous — the positive control', () => {
+    // Each census above is an absence claim, and a filter that matched nothing
+    // would satisfy both by finding nothing at all. These assert the filters
+    // really do select on what they claim to: the name filter finds the table by
+    // name, and the shape filter finds a column pair that genuinely exists.
+    const registry = shapes.find((table) => table.name === 'attribute_definitions');
+    expect(registry, 'attribute_definitions is not in the live schema at all').toBeDefined();
+    expect(registry?.columns.has('key')).toBe(true);
+    expect(registry?.columns.has('value_type')).toBe(true);
+    // And a table that must NOT match either census, so neither is matching
+    // everything: the product-type registry is a different registry on purpose.
+    const productTypes = shapes.find((table) => table.name === 'product_type_definitions');
+    expect(productTypes, 'product_type_definitions is missing; the control is broken').toBeDefined();
+    expect(productTypes?.columns.has('value_type')).toBe(false);
   });
 });
