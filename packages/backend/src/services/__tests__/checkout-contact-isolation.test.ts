@@ -16,29 +16,62 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The domain's HTTP surface, from the filename convention (#472's device). */
+function httpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.startsWith('checkout'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
 /**
- * The contact and destination path, end to end. A new module in this path
- * belongs on the list — the vacuity floor is what forces whoever adds one to
- * look here.
+ * The two modules in this path that live outside it and cannot be derived.
+ *
+ * `db/guests/guestCheckoutRepository.ts` sits in the GUEST db directory because
+ * the row belongs to a guest session, and `lib/guest-pii.ts` is the encryption
+ * helper — neither is named for checkout and no rule reaches them without also
+ * reaching the rest of #103's guest domain, which is a different wall. Kept as a
+ * hand list with an EXACT count and a comment claiming only what the list IS
+ * (#460's other sanctioned resolution).
  */
-const CONTACT_PATHS = [
-  'services/checkout/contact.ts',
-  'services/checkout/destination.ts',
-  'services/checkout/fulfilment-eligibility.ts',
-  'services/checkout/guest-checkout.service.ts',
-  // #106's bounded refusal vocabulary — in this path because it is what the
-  // eligibility gates now throw, and therefore what a leak would travel in.
-  'services/checkout/refusal.ts',
+const UNDERIVABLE_CONTACT_PATHS = [
   'db/guests/guestCheckoutRepository.ts',
   'lib/guest-pii.ts',
-  'controllers/checkout.controller.ts',
-  'routes/checkout.ts',
+];
+
+/**
+ * Every module of the inline contact and destination path, WALKED (#460).
+ *
+ * The list this replaces named 9; the derivation finds 11. It omitted
+ * `services/checkout/guest-rollout.ts` (#107's five kill switches) and
+ * `services/checkout/retail.ts` (#123's retail entry) — two modules in the
+ * checkout directory that were behind none of these walls, and both of which
+ * pass every one of them.
+ */
+const CONTACT_PATHS = [
+  ...walk('services/checkout'),
+  ...UNDERIVABLE_CONTACT_PATHS,
+  ...httpSurface(),
 ];
 
 /**
@@ -79,13 +112,18 @@ const GEOCODING_REFERENCE =
  */
 const ADDRESS_BOOK_WRITE_REFERENCE = /insertAddress|updateAddress|deleteAddress/;
 
-/** The modules that must not be able to write the address book. */
-const NO_ADDRESS_WRITE_PATHS = [
-  'services/checkout/contact.ts',
-  'services/checkout/destination.ts',
-  'services/checkout/guest-checkout.service.ts',
-  'db/guests/guestCheckoutRepository.ts',
-];
+/**
+ * The modules that must not be able to write the address book — DERIVED as the
+ * whole path, which is a widening: the list this replaces named four of eleven.
+ *
+ * No module in the path writes it (measured), so the stronger statement holds
+ * today and a module added tomorrow is held to it by default. #105's rule is
+ * that an inline authenticated address is saved only on an explicit, separate
+ * opt-in and AFTER the order — a failed address-book write must never fail a
+ * purchase that already took stock, and a failed checkout must never grow the
+ * address book. Neither is true of a path that can reach the writer at all.
+ */
+const NO_ADDRESS_WRITE_PATHS = CONTACT_PATHS;
 
 /**
  * #105 GuestCheckout rules 4-5: no prior-order lookup by email to prefill, and
@@ -142,6 +180,23 @@ describe('the checkout contact and destination path cannot reach what it must no
       ).toBe(false);
       scanned += 1;
     }
+    // Real floors, PER SHAPE. `scanned === CONTACT_PATHS.length` is circular —
+    // the loop increments once per entry, so it holds for ANY list including an
+    // empty one; it catches a broken loop and never a shrunk population. The
+    // three sources break independently, so one total would let the walk
+    // collapse to zero while the others carried the number.
+    expect(
+      CONTACT_PATHS.filter((path) => path.startsWith('services/checkout/')).length,
+      'the checkout walk found nothing',
+    ).toBeGreaterThanOrEqual(7);
+    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(2);
+    // EXACT: the two out-of-tree modules are an identity, not a predicate (#448).
+    expect(UNDERIVABLE_CONTACT_PATHS.length, 'the underivable list changed size').toBe(2);
+    expect(CONTACT_PATHS.length, 'the contact path derivation found nothing').toBeGreaterThanOrEqual(11);
+    for (const path of CONTACT_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(CONTACT_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
     expect(scanned).toBe(CONTACT_PATHS.length);
   });
 

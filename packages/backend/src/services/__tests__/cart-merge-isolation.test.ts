@@ -16,24 +16,49 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
- * The guest cart path, end to end. A new module in this path belongs on the
- * list — the vacuity floor is what forces whoever moves one to look here.
+ * Every `.ts` directly in `relative` whose filename starts with `cart`.
+ *
+ * This domain has NO directory of its own — its modules sit flat among ~150
+ * unrelated ones in `services/`, beside two other domains' HTTP surfaces, and in
+ * TWO different `db/` subdirectories (`buyers/` and `guests/`), because a cart
+ * belongs to an Oxy user or to a guest session. So the derivation is by
+ * FILENAME, which #472 sanctioned for exactly this shape.
+ *
+ * The prefix is safe here in a way it is not everywhere: `feed` takes
+ * `feedback.service.ts` and `catalog` takes `catalog-write.service.ts`, which is
+ * why #483 kept `LEGACY_ENGINE_PATHS` as a hand list — but nothing in this tree
+ * begins `cart` that is not this domain, and the per-root floors below fail if
+ * that stops being true in the shrinking direction.
+ */
+function cartModulesIn(relative: string): string[] {
+  return readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .filter((entry) => entry.name.startsWith('cart'))
+    .map((entry) => `${relative}/${entry.name}`);
+}
+
+/**
+ * The guest cart path, end to end — DERIVED rather than listed (#460).
+ *
+ * The list this replaces named the same seven modules. What it could not do is
+ * cover the eighth: a new `cart-*.ts` in any of these roots was invisible to
+ * every wall below, and those walls are what keep a sign-in from silently
+ * replacing an in-flight payment.
  */
 const CART_PATHS = [
-  'services/cart.service.ts',
-  'services/cart-merge.service.ts',
-  'services/cart-owner.ts',
-  'controllers/cart.controller.ts',
-  'routes/cart.ts',
-  'db/buyers/cartRepository.ts',
-  'db/guests/cartMergeRepository.ts',
+  ...cartModulesIn('services'),
+  ...cartModulesIn('controllers'),
+  ...cartModulesIn('routes'),
+  ...cartModulesIn('middleware'),
+  ...cartModulesIn('db/buyers'),
+  ...cartModulesIn('db/guests'),
 ];
 
 /** The merge alone — the boundaries that are specifically about merging. */
@@ -97,6 +122,28 @@ describe('the guest cart path cannot reach the domains it must not', () => {
         `${relative} names OxyPay or FairCoin; #104 excludes both outright`,
       ).toBe(false);
       scanned += 1;
+    }
+    // Real floors, PER ROOT. The gate previously had none at all: only
+    // `scanned === CART_PATHS.length`, which is circular — the loop increments
+    // once per entry, so it holds for ANY list including an empty one. It
+    // catches a broken loop and never a shrunk population, which is the failure
+    // a vacuity floor exists for. The six roots break independently, so one
+    // total would let the `services/` derivation collapse to zero while the
+    // others carried the number.
+    expect(cartModulesIn('services').length, 'the services derivation found nothing').toBeGreaterThanOrEqual(3);
+    expect(cartModulesIn('controllers').length, 'the controller derivation found nothing').toBeGreaterThanOrEqual(1);
+    expect(cartModulesIn('routes').length, 'the route derivation found nothing').toBeGreaterThanOrEqual(1);
+    expect(cartModulesIn('db/buyers').length, 'the buyer-cart derivation found nothing').toBeGreaterThanOrEqual(1);
+    expect(cartModulesIn('db/guests').length, 'the guest-cart derivation found nothing').toBeGreaterThanOrEqual(1);
+    expect(CART_PATHS.length, 'the cart path derivation found nothing').toBeGreaterThanOrEqual(7);
+    for (const path of CART_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(CART_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+    // EXACT: the merge set is an identity, not a predicate (#448).
+    expect(MERGE_PATHS.length, 'the merge list changed size').toBe(1);
+    for (const path of MERGE_PATHS) {
+      expect(CART_PATHS, `${path} is scanned as the merge but is not in the cart path`).toContain(path);
     }
     expect(scanned).toBe(CART_PATHS.length);
   });

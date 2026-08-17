@@ -17,24 +17,46 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** The domain's HTTP surface, from the filename convention (#472's device). */
+function httpSurface(): string[] {
+  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .filter((entry) => entry.name.startsWith('guest-p2p'))
+      .map((entry) => `${directory}/${entry.name}`),
+  );
+}
+
 /**
- * The whole domain. A new module belongs on this list — the floor below is what
- * forces whoever adds one to look here.
+ * Every module of the domain, WALKED rather than listed (#460).
+ *
+ * The list this replaces named the same six modules and the walk finds the same
+ * six: converted for DURABILITY, and it found no gap. That is a complete result
+ * rather than a wasted one — a list is complete on the day it is written and
+ * silently incomplete the day somebody adds a module, and this domain's whole
+ * point is that no configuration, operator action or service bug can enable
+ * guest P2P checkout. A seventh module invisible to these walls is exactly how
+ * that stops being true.
  */
-const GUEST_P2P_PATHS = [
-  'services/guest-p2p/authorization.ts',
-  'services/guest-p2p/policy.ts',
-  'services/guest-p2p/eligibility.ts',
-  'services/guest-p2p/facts.ts',
-  'services/guest-p2p/gate.ts',
-  'controllers/guest-p2p-operator.controller.ts',
-];
+const GUEST_P2P_PATHS = [...walk('services/guest-p2p'), ...httpSurface()];
 
 /**
  * The two files that must stay PURE: the policy and the derivation.
@@ -137,7 +159,24 @@ function readDomainCode(relative: string): string {
 
 describe('the guest-P2P policy cannot reach what it must not', () => {
   it('scans the whole domain — a module added and not listed fails here', () => {
+    // Vacuity floors PER SHAPE rather than one on the total: the two sources break
+    // independently, and one total would let the walk collapse to zero while the
+    // HTTP surface carried the number.
+    expect(
+      GUEST_P2P_PATHS.filter((path) => path.startsWith('services/guest-p2p/')).length,
+      'the domain walk found nothing',
+    ).toBeGreaterThanOrEqual(5);
+    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(1);
     expect(GUEST_P2P_PATHS.length).toBeGreaterThanOrEqual(6);
+    for (const path of GUEST_P2P_PATHS) {
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
+    }
+    expect(GUEST_P2P_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
+    // EXACT: the pure set is an identity, not a predicate (#448).
+    expect(PURE_PATHS.length, 'the pure-module list changed size').toBe(2);
+    for (const path of PURE_PATHS) {
+      expect(GUEST_P2P_PATHS, `${path} is held pure but is not in the domain`).toContain(path);
+    }
     for (const relative of GUEST_P2P_PATHS) {
       expect(readDomainSource(relative).length).toBeGreaterThan(200);
     }
