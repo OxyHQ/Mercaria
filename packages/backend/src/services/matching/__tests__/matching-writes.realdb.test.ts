@@ -63,8 +63,10 @@ import {
   summarizeMatchQueue,
 } from '../../../db/matching/matchQueueRepository.js';
 import { blockPair } from '../../../db/matching/matchBlockedPairRepository.js';
+import { insertNativeListingLink } from '../../../db/offers/nativeListingLinkRepository.js';
 import { openCategoryGate } from '../match-policy.service.js';
 import { runMatch } from '../match.service.js';
+import { matchSubjectKey } from '../subject.js';
 import { convergeNativeOffersForListing } from '../../offers/native-offer.service.js';
 import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
@@ -1352,5 +1354,110 @@ describe("#57's seam, closed: a native listing becomes a native OFFER", () => {
     // The subject declares no MODEL, so the feature is UNKNOWN and stored as
     // NULL — never as a zero, which an operator would read as a disagreement.
     expect(selected[0]?.modelAgreement).toBeNull();
+  });
+});
+
+/**
+ * `MATCHER_MAY_DISPLACE`, exercised rather than asserted (#367 step 5, ADR 0007
+ * D10).
+ *
+ * ## The door this case goes through, because the obvious one is shut
+ *
+ * Stage 1 (`existing_source_link`) normally reuses whatever attachment a variant
+ * already carries, and `attachIfAutomatic` then sees the matched variant equal
+ * the existing one and writes nothing. So in the ORDINARY case a declared link
+ * survives incidentally, and a test built that way would be green with the guard
+ * deleted — it would be measuring stage 1.
+ *
+ * The reachable door is an operator BLOCKING the declared pair.
+ * `matchPipeline` skips stage 1 when the existing target is blocked, the
+ * identifier stage below then resolves a DIFFERENT canonical variant, and
+ * `attachIfAutomatic` supersedes and re-inserts. That is an ordinary #59
+ * operator action producing exactly the D10 failure: a store member's explicit
+ * selection replaced by a confidence score. (The second door is the declared
+ * canonical variant row no longer existing, which makes stage 1 answer `null`
+ * for the same reason and is not separately exercised here.)
+ *
+ * MEASURED: with the `MATCHER_MAY_DISPLACE` branch reverted to
+ * `existing.method === 'seller_declared'`, this case fails on `attached` —
+ * `expected true to be false`.
+ */
+describe('a merchant-declared attachment survives a matcher that disagrees', () => {
+  it('leaves the declared link in place when an operator has blocked the declared pair', async () => {
+    const policyId = await makePolicy('declared', { status: 'active' });
+    // Two canonical products. The barcode points at `matched`; the merchant
+    // declared `declared`, which is the disagreement.
+    const matched = await makeCanonicalProduct('declared-target', {
+      gtinPayload: '700000000404',
+    });
+    const declared = await makeCanonicalProduct('declared-choice');
+    const native = await makeNativeListing('declared', {
+      categoryId: matched.categoryId,
+      barcode: ean('700000000404'),
+    });
+
+    const link = await insertNativeListingLink(db, {
+      productVariantId: native.variantId,
+      listingId: native.listingId,
+      canonicalVariantId: declared.variantId,
+      method: 'merchant_declared',
+      matchRule: 'authoring.merchant_declared',
+      confidence: null,
+      status: 'active',
+      decidedByOxyUserId: `merchant-${RUN}`,
+    });
+
+    const subjectKey = matchSubjectKey({
+      kind: 'native_variant',
+      productVariantId: native.variantId,
+    });
+    const blocked = await blockPair(db, {
+      subjectKey,
+      subjectKind: 'native_variant',
+      targetCanonicalProductId: null,
+      targetCanonicalVariantId: declared.variantId,
+      decisionId: null,
+      blockedUnderPolicyVersionId: policyId,
+      blockedByOxyUserId: `operator-${RUN}`,
+      reason: 'an operator rejected the merchant’s pair',
+    });
+    // The premise of the whole case. Without the block, stage 1 reuses the
+    // declared link and nothing below is exercised at all.
+    expect(blocked, 'the block was not created, so stage 1 is not skipped').toBeDefined();
+
+    const result = await runMatch({
+      kind: 'native_variant',
+      productVariantId: native.variantId,
+    });
+
+    // The matcher DID reach an automatic match, on a different variant — which
+    // is what makes the assertion below about the guard rather than about the
+    // pipeline having found nothing.
+    expect(result.skipped).toBeNull();
+    expect(result.decision?.outcome).toBe('automatic_match');
+    expect(result.decision?.decidedStage).toBe('global_identifier');
+    expect(result.decision?.matchedCanonicalVariantId).toBe(matched.variantId);
+
+    // …and it attached NOTHING.
+    expect(result.attached, 'the matcher displaced a merchant-declared link').toBe(false);
+
+    const links = await db
+      .select()
+      .from(nativeListingLinks)
+      .where(eq(nativeListingLinks.productVariantId, native.variantId));
+    expect(links, 'a superseded row means the link was replaced and rolled forward').toHaveLength(1);
+    expect(links[0]?.id).toBe(link.id);
+    expect(links[0]?.status).toBe('active');
+    expect(links[0]?.method).toBe('merchant_declared');
+    expect(links[0]?.canonicalVariantId).toBe(declared.variantId);
+
+    // The disagreement is RECORDED rather than lost — the half that makes
+    // leaving the link in place an audited decision instead of silence.
+    const decisions = await db
+      .select()
+      .from(matchDecisions)
+      .where(eq(matchDecisions.productVariantId, native.variantId));
+    expect(decisions).toHaveLength(1);
+    expect(decisions[0]?.matchedCanonicalVariantId).toBe(matched.variantId);
   });
 });

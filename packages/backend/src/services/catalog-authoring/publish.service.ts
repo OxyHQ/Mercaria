@@ -26,13 +26,23 @@
  * ADR 0007 D10, and it is the reason `merchant_declared` is its own
  * `NativeListingLinkMethod`. The link is written HERE, in the same transaction,
  * with NULL confidence — a person chose, and a number beside that could only be
- * read as doubt about a fact nobody scored. The matcher still runs for every
- * variant the author did NOT resolve, because `syncListingFacets` requests it
- * after the commit and `native_listing_links_active_variant_key` means an
- * automatic attachment can never displace a declared one.
+ * read as doubt about a fact nobody scored.
  *
- * Running the matcher over a resolved variant is how an explicit human answer
- * gets overruled by a confidence score, which is the failure D10 names.
+ * `syncListingFacets` still requests a match for EVERY variant after the commit,
+ * including the resolved ones, and that is deliberate: the evaluation writes a
+ * `match_decisions` row, so "the matcher would have chosen something else" stays
+ * readable — the same posture #91 chose for `seller_declared`. What must never
+ * happen is the ATTACHMENT moving, and `MATCHER_MAY_DISPLACE` in
+ * `services/matching/match.service.ts` is what stops it.
+ *
+ * That protection is named here because this header used to claim a different
+ * one. It said `native_listing_links_active_variant_key` meant "an automatic
+ * attachment can never displace a declared one", and the partial unique does not
+ * say that: it forbids two SIMULTANEOUS active links, while `attachIfAutomatic`
+ * supersedes the incumbent and inserts afterwards, so the index never sees a
+ * conflict. Until `MATCHER_MAY_DISPLACE` landed, a merchant's explicit selection
+ * WAS overruled by a confidence score — which is the failure D10 names, arrived
+ * at through a comment that read like a proof.
  */
 
 import { and, eq } from 'drizzle-orm';
