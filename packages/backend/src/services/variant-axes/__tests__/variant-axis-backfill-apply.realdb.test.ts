@@ -58,6 +58,27 @@
  * Because the page is exactly one listing, every counter this file asserts is
  * EXACT rather than a lower bound, which is what makes the idempotency case
  * able to tell convergence from an empty pass.
+ *
+ * ## The three-part shape, and how it maps onto the house standard
+ *
+ * `catalog-authoring/__tests__/publish-outbox-atomicity.realdb.test.ts` is the
+ * pattern: observe the write INSIDE the transaction, then observe the rollback,
+ * then a control proving the case measures the rollback rather than a function
+ * that wrote nothing. That file can read inside the transaction because it opens
+ * the transaction itself and hands the handle in. This one cannot —
+ * `runVariantAxisBackfill` opens a transaction PER LISTING and rolls it back
+ * itself, and a test that reached inside would have to re-implement the loop it
+ * is measuring. So the two parts are supplied differently and neither is
+ * dropped:
+ *
+ *  - **Inside the transaction** is the REPORT. `declareVariantAxis` answers
+ *    `created: true` only from a non-empty `RETURNING` set and
+ *    `upsertVariantSignature` only from a `setWhere` that actually fired, so a
+ *    dry run reporting `axes.declared: 2` and `signatures.written: 2` is proof
+ *    those statements executed and produced rows.
+ *  - **The control** is the apply pass immediately after: same fixture, same
+ *    cursor, same limit, `mode` the only difference. The rows appearing there is
+ *    what attributes their absence here to `tx.rollback()`.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
