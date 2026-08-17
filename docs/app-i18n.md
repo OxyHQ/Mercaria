@@ -298,8 +298,8 @@ other 21 in the dashboard, plus the 5 in the POS.
 checks; the third is the one worth understanding and the sixth is the one that
 catches a defect no other gate in CI can see.
 
-- **A. No hardcoded user-facing string** in `packages/dashboard` or
-  `packages/pos` — JSX text, a string in a JSX child expression, a user-facing
+- **A. No hardcoded user-facing string** in `packages/dashboard`,
+  `packages/pos` or `packages/frontend` — JSX text, a string in a JSX child expression, a user-facing
   JSX attribute, a user-facing object property, and an argument to one of a
   short named list of calls that carry copy through a plain function
   (`Alert.alert`, `toast.*`, `useRailTooltip`). Named rather than "any call
@@ -328,8 +328,8 @@ catches a defect no other gate in CI can see.
 **A does not run over `packages/ui`.** That package is only part way through
 extraction — #437 converted the condition and offer-label copy and the rest of
 its component prose is still English — and a gate over an unmigrated tree is one
-whoever hits it first disables, which is the same reasoning that keeps
-`packages/frontend` out. B and C DO run there, and neither needs the package
+whoever hits it first disables — the same reasoning that kept
+`packages/frontend` out until #435b extracted it. B and C DO run there, and neither needs the package
 finished: C is what catches a shared map put back on English, by name. Widening
 A to `packages/ui` is the residual on #437. D and E cover every app including
 the storefront, because they are about the plumbing rather than about copy.
@@ -450,20 +450,39 @@ Stated so nobody reads a green run as more than it is:
   gender, definiteness and word order are facts about the sentence rather than
   about the call site. The only defence there is a whole sentence per case, and
   #442's own remedy was to stop interpolating rather than to interpolate better.
-- `packages/frontend`. The registry convergence (#435a) did NOT add it to
-  `OWNERS` and deliberately could not: measured with the real guard on this tree,
-  the storefront holds **~810 hardcoded user-facing strings across 69 files**,
-  plus 58 keys in its `en.json` that no literal names. So joining `OWNERS` is
-  necessarily the LAST commit of the extraction (#435b), not part of the
-  plumbing change.
+- **Four SHAPES check A cannot decide, in any app.** It reads JSX positions, a
+  named list of user-facing attributes and properties, and a named list of
+  callees. #435b found four things that reach a reader as English and sit in
+  none of those positions, and every one was live in the storefront:
 
-  Which checks reach it today is worth stating exactly, because "the storefront
-  is partly covered" is easy to round up. **D and E do; A, B and C do not.** D
-  and E are derived from the tracked file listing rather than from `OWNERS`, so
-  the storefront's root layout and the reserved `ui` namespace in its bundles ARE
-  gated. B and C key off `OWNERS`, so the storefront's twelve bundles are **not**
-  parity-checked and its dead keys are **not** reported — which is how those 58
-  accumulated unseen. All three arrive together with #435b.
+  1. a **module-scope initializer** holding sentences — an ARRAY or a RECORD;
+  2. a function or `switch` that **RETURNS** copy (`timeAgo` returned
+     `'just now'`, `` `${minutes}m ago` ``);
+  3. a **parameter default** (`submitLabel = "Save address"`), which is the same
+     thing one syntax over;
+  4. text **derived at runtime from an identifier** — `{result.kind}` rendering
+     `product_family`, `sourceKind.replace(/_/gu, ' ')` rendering
+     `affiliate network` into a translated sentence. **There is no string
+     literal at all**, so no scanner and no census can find it; only reading the
+     screen can.
+
+  The first three are caught by **check C once extracted**, and that is the
+  whole reason the migrated form stores KEYS in the map: writing English back
+  over `reviews.scopeHeading.merchant` leaves that key referenced by nothing and
+  C fails naming it. The fourth is caught by nothing here, and adding a detector
+  for it is not possible — the English IS the wire value.
+
+  This is stated in the guard's own PASSING output, not only here, because a
+  green line reading "guard passed" over a population it cannot see is the
+  failure this guard exists to prevent, one level up.
+- **An English sentence thrown as an `Error`.** `packages/frontend/lib/api/*`
+  throws ~112 of them (`throw new Error('Failed to load your watchlists')`) and
+  **17 screens render `error.message` directly**, so they are user-facing in all
+  twelve languages. Extracting them is not a string move: the render site would
+  still interleave them with SERVER messages, which are English too, so the fix
+  is an error-CODE vocabulary the client maps to keys. Left undone deliberately
+  rather than half-done, because keying only the client half would make the
+  surface look covered while every server refusal stayed English.
 - **Which subtree the provider covers.** Check E proves each app root MOUNTS
   `<SharedUiTranslationProvider>`, not that every rendered tree sits under it. A
   screen rendered outside the root tree falls back to `@mercaria/ui`'s English —
@@ -484,6 +503,6 @@ Stated so nobody reads a green run as more than it is:
 | # | What |
 | --- | --- |
 | #486 | Native review of the 1,228 Arabic strings #434 shipped. The parity gate proves a key exists with the right placeholders; it cannot tell a good translation from a plausible one. The domain terms, the flipped arrows and the plural approximation are listed there |
-| #435b | Extract the storefront's ~810 remaining hardcoded strings across 69 files and its 58 dead `en.json` keys, then add it to the guard's `OWNERS` in that same PR. #435a converged the registry, the store and the RTL bootstrap |
+| ~~#435b~~ | **DONE.** 806 strings across 70 files extracted, 55 dead `en.json` keys removed, `packages/frontend` joined `OWNERS` in the last commit. Residual: the `Error`-message surface above, and the four shapes A cannot decide. Its 9,000+ new translated values want the same native review #486 asks for |
 | #436 | Per-locale CLDR plural categories, plus the parity check that has to move with them |
 | #437 | The remaining `@mercaria/ui` copy maps listed above, on the mechanism #437 landed |

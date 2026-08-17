@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * The dashboard and the POS must stay translated (#398).
+ * The dashboard, the POS and the storefront must stay translated (#398, #435).
  *
  * ## Why a guard rather than a memory
  *
@@ -67,11 +67,11 @@
  *
  * ## Scope
  *
- * Check A runs over `packages/dashboard` and `packages/pos`. `packages/frontend`
- * is deliberately NOT scanned by it: its own extraction (#396) covers part of
- * the app and adding it here would be a gate over an unmigrated tree, which is
- * one whoever hits it first disables. Converging it onto the shared registry is
- * #435.
+ * Check A runs over all three apps — `packages/frontend`, `packages/dashboard`
+ * and `packages/pos`. The storefront joined them in #435, which finished the
+ * extraction #396 had started and converged it onto the shared registry. Until
+ * then it was deliberately excluded, because a gate over a half-migrated tree
+ * is one whoever hits it first disables.
  *
  * `packages/ui` is scanned by B and C and deliberately NOT by A, for exactly
  * that reason one package over: #437 converted the condition and offer-label
@@ -80,9 +80,10 @@
  * twelve languages and stays referenced — and neither of them needs the package
  * to be finished first. Widening A to `packages/ui` is the residual on #437.
  *
- * D and E cover every app, including the storefront: they are about the
- * PLUMBING (a reserved namespace, a mounted provider) rather than about copy,
- * so an unmigrated tree has nothing to be excused from.
+ * D and E cover every app the tracked listing turns up, extracted or not: they
+ * are about the PLUMBING (a reserved namespace, a mounted provider) rather than
+ * about copy, so an unmigrated tree has nothing to be excused from — which is
+ * what makes a fourth app covered on the day it appears.
  *
  * ## What F is for
  *
@@ -165,6 +166,31 @@ const ts = createRequire(resolve(here, "../package.json"))("typescript");
  * in the change that finishes.
  */
 const OWNERS = [
+  {
+    name: "frontend",
+    prefix: "packages/frontend/",
+    locales: "packages/frontend/lib/i18n/locales",
+    hardcodedStrings: true,
+    actionLabelCopy: true,
+    // Measured on the tree that joined this list (#435b): 194 source files,
+    // 1,330 translated positions, 1,019 keys. Floored well below each, because
+    // what a floor has to catch is a traversal that found NOTHING — a prefix
+    // that matches no file reports a clean tree — and a floor set just under
+    // the measurement fails the next PR that deletes a screen.
+    minimumSourceFiles: 120,
+    minimumTranslatedPositions: 900,
+    minimumKeys: 700,
+    // Check F's two INPUT populations. Measured: 55 and 36, with 3 key maps
+    // F could not read. Every module-scope key map in the storefront is declared
+    // and THEN frozen for that reason — `Object.freeze({ … })` is a call
+    // expression, which `collectKeyMaps` cannot read, so an inline-frozen map is
+    // one F silently does not check for the #442 property it exists to enforce.
+    minimumControlLabelKeys: 25,
+    minimumInterpolatedKeys: 8,
+    // TWELVE, not eleven: this is the app that ships `ar` (#396) and mirrors its
+    // layout for it (#397). The dashboard and the POS wait on #434.
+    minimumLocales: 12,
+  },
   {
     name: "dashboard",
     prefix: "packages/dashboard/",
@@ -1534,4 +1560,23 @@ console.log(
   + "positive and "
   + `${CONTROL_MUST_NOT_FIND.length + PROVIDER_CONTROL_NOT_MOUNTED.length + ACTION_LABEL_MUST_NOT_FIND.length} `
   + "negative controls run.",
+);
+
+// Printed on every PASS, deliberately, and phrased as an exclusion rather than
+// a caveat. Check A decides the positions it can decide FROM THE SYNTAX, and
+// #435b found four shapes it cannot — each of which reaches a reader as raw
+// English while this line says "passed". A green run that does not say so is
+// the failure this guard exists to prevent, one level up: it would read as
+// "this app has no hardcoded copy", which is not what was measured.
+//
+// Three of the four are caught by check C ONCE EXTRACTED, because the migrated
+// form stores KEYS in the map and writing English back leaves a key referenced
+// by nothing. The fourth cannot be caught by anything here: there is no literal.
+console.log(
+  "  Not decided by check A, and not a claim this run makes: a module-scope "
+  + "initializer holding sentences (array OR record), a function or `switch` "
+  + "that RETURNS copy, a parameter default, and text derived at runtime from "
+  + "an identifier (`kind.replace(/_/gu, ' ')`), which has no literal to find. "
+  + "Nor an English string thrown as an `Error` and rendered from "
+  + "`error.message`. See docs/app-i18n.md §\"What the guard cannot see\".",
 );

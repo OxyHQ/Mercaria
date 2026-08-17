@@ -71,7 +71,23 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
 
 const LOCALES = ["bn", "ca", "de", "es", "fr", "hi", "ja", "pt-BR", "ru", "zh-Hans"];
 
-/** The English copy both fixture apps ship. */
+/**
+ * What each app ships beside `en`.
+ *
+ * The storefront ships TWELVE locales and the other two eleven: it is the app
+ * that ships `ar` (#396) and mirrors its layout for it (#397), while the
+ * dashboard and the POS wait on #434. That asymmetry is real, and the fixture
+ * carries it rather than giving all three the same list — check B's per-app
+ * locale floor is the thing that notices an app's siblings going missing, and a
+ * fixture where every app ships the same set could never see it get one wrong.
+ */
+const APP_LOCALES = {
+  frontend: [...LOCALES, "ar"],
+  dashboard: LOCALES,
+  pos: LOCALES,
+};
+
+/** The English copy all three fixture apps ship. */
 const ENGLISH = {
   common: { save: "Save", cancel: "Cancel" },
   nav: { register: "Register" },
@@ -128,12 +144,18 @@ function rootLayout() {
 }
 
 /**
- * A fully migrated pair of apps.
+ * A fully migrated set of all three apps.
  *
- * Both apps carry the same bundle so a case can mutate either side without
- * having to describe two vocabularies. `packages/frontend` is present in every
- * tree and is deliberately full of hardcoded copy: it is out of scope (#396,
- * #435) and the guard must keep ignoring it.
+ * They carry the same bundle so a case can mutate any one side without having
+ * to describe three vocabularies. `packages/frontend` is one of them now: #435
+ * finished the extraction #396 started and converged the storefront onto the
+ * shared registry, so check A scans it exactly as it scans the other two and a
+ * hardcoded string there fails the build. It used to sit in this tree as the
+ * deliberate worst offender, asserting the guard ignored it.
+ *
+ * Every app screen here names every key the bundle defines, because part C
+ * refuses an UNREFERENCED key — an app whose fixture screen named only some of
+ * them would fail every case for a reason no case is about.
  */
 function migratedTree(extra = {}) {
   const files = {
@@ -177,10 +199,24 @@ function migratedTree(extra = {}) {
       + "}\n",
     "packages/pos/lib/queryKeys.ts":
       'export const keys = { orders: (id) => ["stores", id, "orders"] as const };\n',
-    // Out of scope, and deliberately the worst offender in the tree.
+    // In scope since #435, and migrated like the two above it.
     "packages/frontend/app/index.tsx":
-      "export default function Storefront() {\n"
-      + '  return <View><Text>Buy it now</Text><Input placeholder="Search everything" /></View>;\n'
+      'import { useTranslation } from "@/lib/i18n";\n'
+      + "export default function Storefront() {\n"
+      + "  const { t } = useTranslation();\n"
+      + '  return <View className="flex-1 gap-3 px-4">\n'
+      + '    <Text>{t("nav.register")}</Text>\n'
+      + '    <Text>{t("orders.status.paid")}</Text>\n'
+      + '    <Text>{t("cart.lineCount", { count })}</Text>\n'
+      + '    <Text>{t("products.greeting", { name })}</Text>\n'
+      // A t()-into-t() interpolation whose key is NOT a control label. Check F
+      // intersects two populations, so a fixture with an empty one would trip
+      // F's own vacuity floor in every case that uses this tree.
+      + '    <Text>{t("products.greeting", { name: t("orders.channel.pos") })}</Text>\n'
+      + '    <Input placeholder={t("products.searchPlaceholder")} />\n'
+      + '    <Button title={t("common.save")} />\n'
+      + '    <Button title={t("common.cancel")} />\n'
+      + "  </View>;\n"
       + "}\n",
 
     // #437: the shared package's own copy, its key maps, and a component that
@@ -208,12 +244,16 @@ function migratedTree(extra = {}) {
     "packages/pos/app/_layout.tsx": rootLayout(),
     "packages/frontend/app/_layout.tsx": rootLayout(),
   };
-  for (const app of ["dashboard", "pos"]) {
+  for (const [app, locales] of Object.entries(APP_LOCALES)) {
     files[`packages/${app}/lib/i18n/locales/en.json`] = bundle();
-    for (const locale of LOCALES) files[`packages/${app}/lib/i18n/locales/${locale}.json`] = bundle();
+    for (const locale of locales) files[`packages/${app}/lib/i18n/locales/${locale}.json`] = bundle();
   }
+  // The shared package IS the registry's home, so it ships the UNION and can
+  // never be behind an app — including the storefront's `ar`. Before #435 no
+  // app in this fixture shipped one, so eleven here was merely incomplete;
+  // beside a twelve-locale storefront it would be a tree no deployment can have.
   files["packages/ui/src/i18n/locales/en.json"] = sharedBundle();
-  for (const locale of LOCALES) {
+  for (const locale of APP_LOCALES.frontend) {
     files[`packages/ui/src/i18n/locales/${locale}.json`] = sharedBundle();
   }
   return { ...files, ...extra };
@@ -223,7 +263,7 @@ function migratedTree(extra = {}) {
 function treeWithBundle(mutate, extra = {}) {
   const files = migratedTree(extra);
   files["packages/dashboard/lib/i18n/locales/en.json"] = bundle(mutate);
-  for (const locale of LOCALES) {
+  for (const locale of APP_LOCALES.dashboard) {
     files[`packages/dashboard/lib/i18n/locales/${locale}.json`] = bundle(mutate);
   }
   return files;
@@ -231,7 +271,7 @@ function treeWithBundle(mutate, extra = {}) {
 
 const cases = [
   {
-    name: "a fully extracted pair of apps passes",
+    name: "a fully extracted set of three apps passes",
     files: migratedTree(),
     expectExit: 0,
     expectOutput: "i18n string guard passed",
@@ -407,13 +447,23 @@ const cases = [
     expectOutput: "i18n string guard passed",
   },
   {
-    name: "the storefront is out of scope and does NOT fire (#396/#435)",
+    // The mutation test for the widening itself, and this case is where it
+    // lives: it was the must-NOT-fire proof that check A ignored
+    // `packages/frontend`, and it is now the must-fire proof that it does not.
+    // Inverted rather than deleted — a deleted case leaves nothing asserting
+    // either direction, and "the storefront is scanned" would then rest on the
+    // OWNERS entry alone, which is exactly the kind of claim a prefix matching
+    // nothing satisfies silently.
+    name: "the storefront IS in scope and DOES fire (#435)",
     files: migratedTree({
       "packages/frontend/components/hardcoded.tsx":
         'export const I = () => <View><Text>Add to cart</Text><Input placeholder="Search" /></View>;\n',
     }),
-    expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectExit: 1,
+    // The file and the string in ONE substring, so the case cannot be satisfied
+    // by a finding in some other file happening to sit beside the right text.
+    expectOutput: 'packages/frontend/components/hardcoded.tsx:1: hardcoded user-facing string '
+      + '[jsx-text]\n    "Add to cart"',
   },
   {
     name: "a non-source file in the scanned tree does NOT fire",
@@ -571,7 +621,7 @@ const cases = [
         value.ui = { somethingElse: "Hello" };
         return value;
       });
-      for (const locale of LOCALES) {
+      for (const locale of APP_LOCALES.dashboard) {
         files[`packages/dashboard/lib/i18n/locales/${locale}.json`] = bundle((value) => {
           value.ui = { somethingElse: "Hello" };
           return value;
@@ -583,12 +633,33 @@ const cases = [
     expectOutput: 'has a top-level "ui" key, which is reserved',
   },
   {
-    name: "the STOREFRONT's bundle claiming the namespace fails, though it is out of scope for A",
-    // Check D covers every app: it is about the merge, not about copy, so the
-    // storefront's un-migrated screens are no reason to skip it.
-    files: migratedTree({
-      "packages/frontend/lib/i18n/locales/en.json": { common: { save: "Save" }, ui: { x: "y" } },
-    }),
+    name: "the STOREFRONT's bundle claiming the namespace fails too — D covers every app",
+    // Check D is about the MERGE rather than about copy, so it covers every app
+    // that owns a bundle, and this case says so from a third app.
+    //
+    // The fixture keeps the storefront's bundle otherwise INTACT, in all twelve
+    // locales, and names the added key from its screen. The earlier version
+    // replaced the whole of `en.json` with a two-key object, which was harmless
+    // while the storefront was unscanned and now trips parity against eleven
+    // siblings AND part C — so the case would go red for a compound reason
+    // while claiming exactly one, and would keep passing if check D were
+    // deleted outright.
+    files: (() => {
+      const files = migratedTree();
+      const claimNamespace = (value) => {
+        value.ui = { somethingElse: "Hello" };
+        return value;
+      };
+      files["packages/frontend/lib/i18n/locales/en.json"] = bundle(claimNamespace);
+      for (const locale of APP_LOCALES.frontend) {
+        files[`packages/frontend/lib/i18n/locales/${locale}.json`] = bundle(claimNamespace);
+      }
+      files["packages/frontend/app/index.tsx"] = files["packages/frontend/app/index.tsx"].replace(
+        '<Text>{t("nav.register")}</Text>',
+        '<Text>{t("nav.register")}</Text>\n    <Text>{t("ui.somethingElse")}</Text>',
+      );
+      return files;
+    })(),
     expectExit: 1,
     expectOutput: "packages/frontend/lib/i18n/locales/en.json: has a top-level \"ui\" key",
   },
