@@ -285,6 +285,55 @@ jobs:
       - name: Test POS
         run: bun run --filter @mercaria/pos test
 
+      # The same lock ceiling docker-compose.postgres.yml sets, by the only
+      # mechanism a service container leaves open.
+      #
+      # A service block accepts `image`, `credentials`, `env`, `ports`,
+      # `volumes` and `options` only, and `options` is handed to `docker create`
+      # BEFORE the image — so there is nowhere to append `postgres -c …` the way
+      # compose does. `volumes` cannot help either: services start before
+      # `actions/checkout`, so no config file from this repo exists yet.
+      # `max_locks_per_transaction` is `postmaster` context, so a session cannot
+      # set it. That leaves writing postgresql.auto.conf and restarting.
+      #
+      # If this step is deleted, the API tests do NOT silently go back to
+      # flaking with `out of shared memory` under load — vitest.pg.globalSetup.ts
+      # asserts the floor and fails immediately, naming this step.
+      - name: Raise the Postgres lock ceiling (see docker-compose.postgres.yml)
+        # Through `env` rather than interpolated into the script. The value is
+        # an Actions-generated container id, not attacker-controllable, but a
+        # `${{ }}` inside `run:` is the shape of a workflow injection and this
+        # is the house pattern for all of them.
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          CT="$POSTGRES_CONTAINER"
+          docker exec "$CT" psql -U mercaria -d mercaria_ci \
+            -c "ALTER SYSTEM SET max_locks_per_transaction = 256"
+          docker restart "$CT"
+
+          # Wait on a real query rather than pg_isready, which reports ready
+          # during the entrypoint's own restart, and require three consecutive
+          # successes so a momentary answer mid-restart is not mistaken for one.
+          ok=0
+          for _ in $(seq 1 60); do
+            if docker exec "$CT" psql -U mercaria -d mercaria_ci -tAc 'select 1' >/dev/null 2>&1; then
+              ok=$((ok + 1))
+            else
+              ok=0
+            fi
+            [ "$ok" -ge 3 ] && break
+            sleep 1
+          done
+          [ "$ok" -ge 3 ] || { echo "Postgres did not come back after the restart"; exit 1; }
+
+          # Read the value back. ALTER SYSTEM succeeds whether or not the
+          # restart applied it, so the write is not evidence on its own.
+          applied=$(docker exec "$CT" psql -U mercaria -d mercaria_ci -tAc 'show max_locks_per_transaction')
+          echo "max_locks_per_transaction = $applied"
+          [ "$applied" = "256" ] || { echo "expected 256, got '$applied'"; exit 1; }
+
       - name: Run API tests
         # TEST_DATABASE_URL names the SERVER, never the database the tests use:
         # the harness creates its own throwaway database on it per run and drops
