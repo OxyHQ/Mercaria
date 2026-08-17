@@ -404,6 +404,101 @@
         "failed": "Não foi possível enviar",
         "cancelled": "Cancelado"
       }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "Em estoque",
+          "low_stock": "Estoque baixo",
+          "out_of_stock": "Sem estoque"
+        },
+        "explanation": {
+          "in_stock": "Esta loja confirmou que tinha em estoque.",
+          "low_stock": "Esta loja confirmou que restam poucas unidades.",
+          "out_of_stock": "Esta loja confirmou que não tem nenhuma agora."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "A menos de 1 km",
+        "under_5km": "A menos de 5 km",
+        "under_10km": "A menos de 10 km",
+        "under_25km": "A menos de 25 km",
+        "under_50km": "A menos de 50 km",
+        "beyond_50km": "A mais de 50 km"
+      },
+      "identityRequirement": {
+        "order_number_only": "Leve o número do seu pedido.",
+        "collection_code": "Leve o seu código de retirada.",
+        "collection_code_and_photo_id": "Leve o seu código de retirada e um documento com foto."
+      },
+      "paymentRequirement": {
+        "prepaid": "Pago on-line — nada a pagar na retirada."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "Em preparação",
+          "ready_for_pickup": "Pronto para retirada",
+          "collected": "Retirado",
+          "pickup_cancelled": "Retirada cancelada"
+        },
+        "explanation": {
+          "awaiting_preparation": "A loja está preparando seu pedido. Espere aparecer pronto para retirada antes de se deslocar.",
+          "ready_for_pickup": "Seu pedido está esperando na loja.",
+          "collected": "Este pedido foi entregue.",
+          "pickup_cancelled": "A loja cancelou esta retirada. Seu pedido e qualquer reembolso são tratados separadamente — nada aqui devolveu o seu dinheiro."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "Este local não foi publicado, então os compradores não conseguem encontrá-lo.",
+        "location_not_active": "Este local está desligado e não encaminha estoque.",
+        "pickup_paused": "Você pausou a retirada neste local.",
+        "pickup_not_offered": "Este local não oferece retirada.",
+        "location_not_geocoded": "Este local não tem marcação no mapa, então não pode ser encontrado por distância. Adicione uma.",
+        "location_restricted": "A Mercaria restringiu este local. Fale com o suporte.",
+        "store_unavailable": "A própria loja está inativa ou restrita.",
+        "listing_unavailable": "O anúncio não está ativo, então não há nada para retirar aqui.",
+        "no_collectable_stock": "Não há unidades disponíveis para retirada neste local no momento.",
+        "inventory_stale": "O estoque aqui foi confirmado pela última vez há mais tempo do que o intervalo de confirmação definido para este local.",
+        "location_closed": "Este local está fechado no período consultado.",
+        "seller_not_payment_ready": "Este vendedor ainda não pode receber, então nada pode ser comprado para retirada.",
+        "guest_pickup_disabled": "A retirada por convidado está desligada nesta instalação.",
+        "guest_seller_not_activated": "Este vendedor não foi ativado para a compra como convidado.",
+        "guest_notifications_unavailable": "A retirada por convidado precisa de um transporte de mensagens transacionais, e esta instalação não tem nenhum.",
+        "store_pickup_disabled": "A retirada na loja está desligada nesta instalação.",
+        "p2p_pickup_not_available": "A retirada não está disponível para anúncios entre pessoas."
+      },
+      "buyerBlock": {
+        "guestSignIn": "Você pode retirar nesta loja com uma conta Mercaria. Entrar é opcional em todo o resto — aqui é o que torna a retirada possível.",
+        "unavailable": "A retirada não está disponível para você aqui no momento. Você ainda pode pedir entrega."
+      },
+      "openState": {
+        "hoursNotPublished": "Horário não publicado",
+        "openNow": "Aberto agora",
+        "openUntil": "Aberto agora — até %{time}",
+        "closedNote": "Fechado — %{note}",
+        "closedNow": "Fechado agora",
+        "closedOpensAt": "Fechado — abre às %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "Última confirmação em um momento desconhecido",
+        "justNow": "Estoque confirmado agora mesmo",
+        "minutes": {
+          "one": "Estoque confirmado há %{count} minuto",
+          "other": "Estoque confirmado há %{count} minutos"
+        },
+        "hours": {
+          "one": "Estoque confirmado há %{count} hora",
+          "other": "Estoque confirmado há %{count} horas"
+        },
+        "days": {
+          "one": "Estoque confirmado há %{count} dia",
+          "other": "Estoque confirmado há %{count} dias"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} em estoque nesta loja.",
+        "other": "%{count} em estoque nesta loja."
+      }
     }
   }
 }

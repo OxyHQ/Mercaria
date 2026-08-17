@@ -404,6 +404,101 @@
         "failed": "送金できませんでした",
         "cancelled": "キャンセル済み"
       }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "在庫あり",
+          "low_stock": "残りわずか",
+          "out_of_stock": "在庫なし"
+        },
+        "explanation": {
+          "in_stock": "この店舗が在庫ありと確認しました。",
+          "low_stock": "この店舗が残りわずかと確認しました。",
+          "out_of_stock": "この店舗が現在在庫なしと確認しました。"
+        }
+      },
+      "distanceBand": {
+        "under_1km": "1 km 以内",
+        "under_5km": "5 km 以内",
+        "under_10km": "10 km 以内",
+        "under_25km": "25 km 以内",
+        "under_50km": "50 km 以内",
+        "beyond_50km": "50 km 超"
+      },
+      "identityRequirement": {
+        "order_number_only": "注文番号をお持ちください。",
+        "collection_code": "受け取りコードをお持ちください。",
+        "collection_code_and_photo_id": "受け取りコードと写真付き身分証をお持ちください。"
+      },
+      "paymentRequirement": {
+        "prepaid": "オンラインで支払い済み — 受け取り時のお支払いはありません。"
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "準備中",
+          "ready_for_pickup": "受け取り可能",
+          "collected": "受け取り済み",
+          "pickup_cancelled": "受け取り取り消し"
+        },
+        "explanation": {
+          "awaiting_preparation": "店舗がご注文を準備中です。「受け取り可能」になるまでお待ちください。",
+          "ready_for_pickup": "ご注文は店舗でお待ちしています。",
+          "collected": "この注文はお渡し済みです。",
+          "pickup_cancelled": "店舗がこの受け取りを取り下げました。ご注文と返金は別に処理されます — ここで返金は行われていません。"
+        }
+      },
+      "blockReason": {
+        "location_not_published": "この所在地は公開されていないため、買い物客は見つけられません。",
+        "location_not_active": "この所在地はオフになっており、在庫を配分しません。",
+        "pickup_paused": "この所在地の受け取りを一時停止しています。",
+        "pickup_not_offered": "この所在地は受け取りに対応していません。",
+        "location_not_geocoded": "この所在地には地図上のピンがないため、距離では見つかりません。ピンを追加してください。",
+        "location_restricted": "Mercaria がこの所在地を制限しています。サポートにご連絡ください。",
+        "store_unavailable": "店舗自体が非アクティブまたは制限されています。",
+        "listing_unavailable": "出品がアクティブではないため、ここで受け取れるものはありません。",
+        "no_collectable_stock": "現在この所在地に受け取り可能な在庫はありません。",
+        "inventory_stale": "ここの在庫は、この所在地に設定した確認間隔よりも前に確認されたきりです。",
+        "location_closed": "この所在地は照会された期間は閉店です。",
+        "seller_not_payment_ready": "この販売者にはまだ支払いができないため、受け取り用に購入できません。",
+        "guest_pickup_disabled": "この環境ではゲストの受け取りが無効です。",
+        "guest_seller_not_activated": "この販売者はゲスト購入に対して有効化されていません。",
+        "guest_notifications_unavailable": "ゲストの受け取りには取引メッセージの送信手段が必要ですが、この環境にはありません。",
+        "store_pickup_disabled": "この環境では店舗受け取りが無効です。",
+        "p2p_pickup_not_available": "個人間の出品では受け取りをご利用いただけません。"
+      },
+      "buyerBlock": {
+        "guestSignIn": "Mercaria のアカウントがあれば、この店舗で受け取れます。ほかではログインは任意ですが、ここではログインが受け取りを可能にします。",
+        "unavailable": "現在、ここでの受け取りはご利用いただけません。配送はご利用いただけます。"
+      },
+      "openState": {
+        "hoursNotPublished": "営業時間は未公開",
+        "openNow": "営業中",
+        "openUntil": "営業中 — %{time} まで",
+        "closedNote": "閉店 — %{note}",
+        "closedNow": "現在閉店",
+        "closedOpensAt": "閉店 — %{time} に開店"
+      },
+      "stockConfirmed": {
+        "unknown": "最終確認の時刻は不明",
+        "justNow": "在庫をたった今確認しました",
+        "minutes": {
+          "one": "在庫を %{count} 分前に確認",
+          "other": "在庫を %{count} 分前に確認"
+        },
+        "hours": {
+          "one": "在庫を %{count} 時間前に確認",
+          "other": "在庫を %{count} 時間前に確認"
+        },
+        "days": {
+          "one": "在庫を %{count} 日前に確認",
+          "other": "在庫を %{count} 日前に確認"
+        }
+      },
+      "exactQuantity": {
+        "one": "この店舗に %{count} 点在庫あり。",
+        "other": "この店舗に %{count} 点在庫あり。"
+      }
     }
   }
 }

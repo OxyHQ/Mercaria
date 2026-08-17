@@ -404,6 +404,101 @@
         "failed": "无法发送",
         "cancelled": "已取消"
       }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "有货",
+          "low_stock": "库存不多",
+          "out_of_stock": "无货"
+        },
+        "explanation": {
+          "in_stock": "该店确认有货。",
+          "low_stock": "该店确认仅剩少量。",
+          "out_of_stock": "该店确认目前没有。"
+        }
+      },
+      "distanceBand": {
+        "under_1km": "1 公里以内",
+        "under_5km": "5 公里以内",
+        "under_10km": "10 公里以内",
+        "under_25km": "25 公里以内",
+        "under_50km": "50 公里以内",
+        "beyond_50km": "50 公里以上"
+      },
+      "identityRequirement": {
+        "order_number_only": "请带上您的订单号。",
+        "collection_code": "请带上您的取货码。",
+        "collection_code_and_photo_id": "请带上您的取货码和带照片的身份证件。"
+      },
+      "paymentRequirement": {
+        "prepaid": "已在线支付 — 取货时无需付款。"
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "备货中",
+          "ready_for_pickup": "可取货",
+          "collected": "已取货",
+          "pickup_cancelled": "取货已取消"
+        },
+        "explanation": {
+          "awaiting_preparation": "门店正在备货。请等到显示可取货再前往。",
+          "ready_for_pickup": "您的订单正在门店等候。",
+          "collected": "此订单已交付。",
+          "pickup_cancelled": "门店撤销了本次取货。您的订单与任何退款将分开处理 — 此处并未退回您的款项。"
+        }
+      },
+      "blockReason": {
+        "location_not_published": "此地点尚未发布，购物者无法找到。",
+        "location_not_active": "此地点已关闭，不分配任何库存。",
+        "pickup_paused": "您已暂停此地点的取货。",
+        "pickup_not_offered": "此地点不提供取货。",
+        "location_not_geocoded": "此地点没有地图标记，因此无法按距离查找。请添加一个。",
+        "location_restricted": "Mercaria 已限制此地点。请联系客服。",
+        "store_unavailable": "门店本身处于非活动或受限状态。",
+        "listing_unavailable": "该商品未上架，因此此处没有可取之物。",
+        "no_collectable_stock": "此地点目前没有可取货的库存。",
+        "inventory_stale": "此处库存的最后确认时间早于您为该地点设置的确认间隔。",
+        "location_closed": "此地点在所查询的时段处于关闭状态。",
+        "seller_not_payment_ready": "该卖家尚无法收款，因此无法购买以供取货。",
+        "guest_pickup_disabled": "本部署已关闭访客取货。",
+        "guest_seller_not_activated": "该卖家尚未开通访客结账。",
+        "guest_notifications_unavailable": "访客取货需要事务性消息通道，而本部署没有。",
+        "store_pickup_disabled": "本部署已关闭门店取货。",
+        "p2p_pickup_not_available": "个人之间的商品不支持取货。"
+      },
+      "buyerBlock": {
+        "guestSignIn": "使用 Mercaria 账户即可在此门店取货。在其他地方登录都是可选的 — 在这里，登录才让取货成为可能。",
+        "unavailable": "目前您无法在此取货。您仍然可以选择配送。"
+      },
+      "openState": {
+        "hoursNotPublished": "营业时间未公布",
+        "openNow": "正在营业",
+        "openUntil": "正在营业 — 至 %{time}",
+        "closedNote": "已关闭 — %{note}",
+        "closedNow": "当前已关闭",
+        "closedOpensAt": "已关闭 — %{time} 开门"
+      },
+      "stockConfirmed": {
+        "unknown": "最后确认时间不详",
+        "justNow": "刚刚确认库存",
+        "minutes": {
+          "one": "%{count} 分钟前确认库存",
+          "other": "%{count} 分钟前确认库存"
+        },
+        "hours": {
+          "one": "%{count} 小时前确认库存",
+          "other": "%{count} 小时前确认库存"
+        },
+        "days": {
+          "one": "%{count} 天前确认库存",
+          "other": "%{count} 天前确认库存"
+        }
+      },
+      "exactQuantity": {
+        "one": "此店有 %{count} 件库存。",
+        "other": "此店有 %{count} 件库存。"
+      }
     }
   }
 }

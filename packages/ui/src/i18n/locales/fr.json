@@ -404,6 +404,101 @@
         "failed": "Envoi impossible",
         "cancelled": "Annulé"
       }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "En stock",
+          "low_stock": "Stock faible",
+          "out_of_stock": "En rupture"
+        },
+        "explanation": {
+          "in_stock": "Cette boutique a confirmé l'avoir en stock.",
+          "low_stock": "Cette boutique a confirmé qu'il n'en reste que quelques-uns.",
+          "out_of_stock": "Cette boutique a confirmé n'en avoir aucun pour le moment."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "À moins d'1 km",
+        "under_5km": "À moins de 5 km",
+        "under_10km": "À moins de 10 km",
+        "under_25km": "À moins de 25 km",
+        "under_50km": "À moins de 50 km",
+        "beyond_50km": "À plus de 50 km"
+      },
+      "identityRequirement": {
+        "order_number_only": "Munissez-vous de votre numéro de commande.",
+        "collection_code": "Munissez-vous de votre code de retrait.",
+        "collection_code_and_photo_id": "Munissez-vous de votre code de retrait et d'une pièce d'identité avec photo."
+      },
+      "paymentRequirement": {
+        "prepaid": "Payé en ligne — rien à régler au retrait."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "En préparation",
+          "ready_for_pickup": "Prêt à retirer",
+          "collected": "Retiré",
+          "pickup_cancelled": "Retrait annulé"
+        },
+        "explanation": {
+          "awaiting_preparation": "La boutique prépare votre commande. Attendez la mention prêt à retirer avant de vous déplacer.",
+          "ready_for_pickup": "Votre commande vous attend en boutique.",
+          "collected": "Cette commande a été remise.",
+          "pickup_cancelled": "La boutique a annulé ce retrait. Votre commande et tout remboursement sont traités séparément — rien ici n'a repris votre argent."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "Ce point de retrait n'est pas publié, les clients ne peuvent donc pas le trouver.",
+        "location_not_active": "Ce point de retrait est désactivé et n'achemine aucun stock.",
+        "pickup_paused": "Vous avez suspendu le retrait à ce point de vente.",
+        "pickup_not_offered": "Ce point de vente ne propose pas le retrait.",
+        "location_not_geocoded": "Ce point de vente n'a pas de repère sur la carte et ne peut donc pas être trouvé par distance. Ajoutez-en un.",
+        "location_restricted": "Mercaria a restreint ce point de vente. Contactez le support.",
+        "store_unavailable": "La boutique elle-même est inactive ou restreinte.",
+        "listing_unavailable": "L'annonce n'est pas active, rien n'est donc à retirer ici.",
+        "no_collectable_stock": "Il n'y a aucune unité à retirer à ce point de vente pour le moment.",
+        "inventory_stale": "Le stock ici a été confirmé il y a plus longtemps que l'intervalle de confirmation que vous avez défini pour ce point de vente.",
+        "location_closed": "Ce point de vente est fermé pour la période demandée.",
+        "seller_not_payment_ready": "Ce vendeur ne peut pas encore être payé, rien ne peut donc être acheté pour retrait.",
+        "guest_pickup_disabled": "Le retrait par un invité est désactivé sur cette installation.",
+        "guest_seller_not_activated": "Ce vendeur n'a pas été activé pour le paiement en tant qu'invité.",
+        "guest_notifications_unavailable": "Le retrait par un invité nécessite un transport de messages transactionnels, absent de cette installation.",
+        "store_pickup_disabled": "Le retrait en boutique est désactivé sur cette installation.",
+        "p2p_pickup_not_available": "Le retrait n'est pas disponible pour les annonces entre particuliers."
+      },
+      "buyerBlock": {
+        "guestSignIn": "Vous pouvez retirer dans cette boutique avec un compte Mercaria. La connexion est facultative partout ailleurs — ici, c'est elle qui rend le retrait possible.",
+        "unavailable": "Le retrait n'est pas disponible ici pour vous en ce moment. Vous pouvez toujours vous le faire livrer."
+      },
+      "openState": {
+        "hoursNotPublished": "Horaires non publiés",
+        "openNow": "Ouvert maintenant",
+        "openUntil": "Ouvert maintenant — jusqu'à %{time}",
+        "closedNote": "Fermé — %{note}",
+        "closedNow": "Fermé actuellement",
+        "closedOpensAt": "Fermé — ouvre à %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "Dernière confirmation à un moment inconnu",
+        "justNow": "Stock confirmé à l'instant",
+        "minutes": {
+          "one": "Stock confirmé il y a %{count} minute",
+          "other": "Stock confirmé il y a %{count} minutes"
+        },
+        "hours": {
+          "one": "Stock confirmé il y a %{count} heure",
+          "other": "Stock confirmé il y a %{count} heures"
+        },
+        "days": {
+          "one": "Stock confirmé il y a %{count} jour",
+          "other": "Stock confirmé il y a %{count} jours"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} en stock dans cette boutique.",
+        "other": "%{count} en stock dans cette boutique."
+      }
     }
   }
 }

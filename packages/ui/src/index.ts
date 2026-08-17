@@ -549,19 +549,19 @@ export {
 // over its union, so a member added to `pickup.ts` fails THIS package's
 // typecheck rather than rendering a blank chip at a collection counter.
 //
-// `PICKUP_BLOCK_REASON_TEXT` is the one export here a storefront must not
+// `PICKUP_BLOCK_REASON_KEYS` is the one export here a storefront must not
 // render: it is merchant-facing, and `describeBuyerPickupBlock` beside it is
 // what a buyer-facing surface calls instead (`docs/pickup.md` §2).
 // ---------------------------------------------------------------------------
 export {
-  LOCATION_AVAILABILITY_EXPLANATIONS,
-  LOCATION_AVAILABILITY_TEXT,
-  ORDER_PICKUP_STATE_EXPLANATIONS,
-  ORDER_PICKUP_STATE_TEXT,
-  PICKUP_BLOCK_REASON_TEXT,
-  PICKUP_DISTANCE_BAND_TEXT,
-  PICKUP_IDENTITY_REQUIREMENT_TEXT,
-  PICKUP_PAYMENT_REQUIREMENT_TEXT,
+  LOCATION_AVAILABILITY_EXPLANATION_KEYS,
+  LOCATION_AVAILABILITY_KEYS,
+  ORDER_PICKUP_STATE_EXPLANATION_KEYS,
+  ORDER_PICKUP_STATE_KEYS,
+  PICKUP_BLOCK_REASON_KEYS,
+  PICKUP_DISTANCE_BAND_KEYS,
+  PICKUP_IDENTITY_REQUIREMENT_KEYS,
+  PICKUP_PAYMENT_REQUIREMENT_KEYS,
   describeBuyerPickupBlock,
   describeOpenState,
   describeStockConfirmed,

@@ -404,6 +404,101 @@
         "failed": "No s'ha pogut enviar",
         "cancelled": "Cancel·lat"
       }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "En estoc",
+          "low_stock": "Poques unitats",
+          "out_of_stock": "Sense estoc"
+        },
+        "explanation": {
+          "in_stock": "Aquesta botiga va confirmar que en tenia en estoc.",
+          "low_stock": "Aquesta botiga va confirmar que en queden poques.",
+          "out_of_stock": "Aquesta botiga va confirmar que ara no en té cap."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "A menys d'1 km",
+        "under_5km": "A menys de 5 km",
+        "under_10km": "A menys de 10 km",
+        "under_25km": "A menys de 25 km",
+        "under_50km": "A menys de 50 km",
+        "beyond_50km": "A més de 50 km"
+      },
+      "identityRequirement": {
+        "order_number_only": "Porta el teu número de comanda.",
+        "collection_code": "Porta el teu codi de recollida.",
+        "collection_code_and_photo_id": "Porta el teu codi de recollida i un document amb foto."
+      },
+      "paymentRequirement": {
+        "prepaid": "Pagat en línia: no has de pagar res en recollir."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "En preparació",
+          "ready_for_pickup": "A punt per recollir",
+          "collected": "Recollit",
+          "pickup_cancelled": "Recollida cancel·lada"
+        },
+        "explanation": {
+          "awaiting_preparation": "La botiga està preparant la teva comanda. Espera que digui a punt per recollir abans de desplaçar-t'hi.",
+          "ready_for_pickup": "La teva comanda t'espera a la botiga.",
+          "collected": "Aquesta comanda ja s'ha lliurat.",
+          "pickup_cancelled": "La botiga va retirar aquesta recollida. La teva comanda i qualsevol reemborsament es gestionen a part: aquí no s'ha retornat els teus diners."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "Aquesta ubicació no està publicada, així que els compradors no la poden trobar.",
+        "location_not_active": "Aquesta ubicació està desactivada i no encamina inventari.",
+        "pickup_paused": "Has pausat la recollida en aquesta ubicació.",
+        "pickup_not_offered": "Aquesta ubicació no ofereix recollida.",
+        "location_not_geocoded": "Aquesta ubicació no té punt al mapa, així que no es pot trobar per distància. Afegeix-ne un per ser visible.",
+        "location_restricted": "Mercaria ha restringit aquesta ubicació. Contacta amb el suport.",
+        "store_unavailable": "La botiga mateixa és inactiva o restringida.",
+        "listing_unavailable": "L'anunci no està actiu, així que aquí no hi ha res recollible.",
+        "no_collectable_stock": "Ara mateix no hi ha unitats recollibles en aquesta ubicació.",
+        "inventory_stale": "L'estoc d'aquí es va confirmar per última vegada fa més temps que l'interval de confirmació que vas fixar per a aquesta ubicació.",
+        "location_closed": "Aquesta ubicació està tancada en el període consultat.",
+        "seller_not_payment_ready": "Aquest venedor encara no pot cobrar, així que no s'hi pot comprar res per recollir.",
+        "guest_pickup_disabled": "La recollida per a convidats està desactivada en aquesta instal·lació.",
+        "guest_seller_not_activated": "Aquest venedor no s'ha activat per a la compra com a convidat.",
+        "guest_notifications_unavailable": "La recollida per a convidats necessita un transport de missatges transaccionals, i aquesta instal·lació no en té cap.",
+        "store_pickup_disabled": "La recollida a botiga està desactivada en aquesta instal·lació.",
+        "p2p_pickup_not_available": "La recollida no està disponible per a anuncis entre particulars."
+      },
+      "buyerBlock": {
+        "guestSignIn": "Pots recollir en aquesta botiga amb un compte de Mercaria. Iniciar sessió és opcional a tota la resta: aquí és el que fa possible la recollida.",
+        "unavailable": "Ara mateix la recollida no està disponible per a tu aquí. Encara pots demanar que te'l portin."
+      },
+      "openState": {
+        "hoursNotPublished": "Horari no publicat",
+        "openNow": "Obert ara",
+        "openUntil": "Obert ara — fins a les %{time}",
+        "closedNote": "Tancat — %{note}",
+        "closedNow": "Tancat ara",
+        "closedOpensAt": "Tancat — obre a les %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "Última confirmació en un moment desconegut",
+        "justNow": "Estoc confirmat ara mateix",
+        "minutes": {
+          "one": "Estoc confirmat fa %{count} minut",
+          "other": "Estoc confirmat fa %{count} minuts"
+        },
+        "hours": {
+          "one": "Estoc confirmat fa %{count} hora",
+          "other": "Estoc confirmat fa %{count} hores"
+        },
+        "days": {
+          "one": "Estoc confirmat fa %{count} dia",
+          "other": "Estoc confirmat fa %{count} dies"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} unitat en estoc en aquesta botiga.",
+        "other": "%{count} unitats en estoc en aquesta botiga."
+      }
     }
   }
 }

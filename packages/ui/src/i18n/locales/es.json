@@ -404,6 +404,101 @@
         "failed": "No se pudo enviar",
         "cancelled": "Cancelado"
       }
+    },
+    "pickup": {
+      "availability": {
+        "text": {
+          "in_stock": "En stock",
+          "low_stock": "Pocas unidades",
+          "out_of_stock": "Sin stock"
+        },
+        "explanation": {
+          "in_stock": "Esta tienda confirmó que lo tenía en stock.",
+          "low_stock": "Esta tienda confirmó que quedan pocas unidades.",
+          "out_of_stock": "Esta tienda confirmó que ahora no tiene ninguna."
+        }
+      },
+      "distanceBand": {
+        "under_1km": "A menos de 1 km",
+        "under_5km": "A menos de 5 km",
+        "under_10km": "A menos de 10 km",
+        "under_25km": "A menos de 25 km",
+        "under_50km": "A menos de 50 km",
+        "beyond_50km": "A más de 50 km"
+      },
+      "identityRequirement": {
+        "order_number_only": "Lleva tu número de pedido.",
+        "collection_code": "Lleva tu código de recogida.",
+        "collection_code_and_photo_id": "Lleva tu código de recogida y un documento con foto."
+      },
+      "paymentRequirement": {
+        "prepaid": "Pagado en línea: no hay nada que pagar al recoger."
+      },
+      "orderState": {
+        "text": {
+          "awaiting_preparation": "En preparación",
+          "ready_for_pickup": "Listo para recoger",
+          "collected": "Recogido",
+          "pickup_cancelled": "Recogida cancelada"
+        },
+        "explanation": {
+          "awaiting_preparation": "La tienda está preparando tu pedido. Espera a que diga listo para recoger antes de desplazarte.",
+          "ready_for_pickup": "Tu pedido te espera en la tienda.",
+          "collected": "Este pedido ya se ha entregado.",
+          "pickup_cancelled": "La tienda retiró esta recogida. Tu pedido y cualquier reembolso se gestionan aparte: aquí no se ha devuelto tu dinero."
+        }
+      },
+      "blockReason": {
+        "location_not_published": "Esta ubicación no está publicada, así que los compradores no pueden encontrarla.",
+        "location_not_active": "Esta ubicación está desactivada y no enruta inventario.",
+        "pickup_paused": "Has pausado la recogida en esta ubicación.",
+        "pickup_not_offered": "Esta ubicación no ofrece recogida.",
+        "location_not_geocoded": "Esta ubicación no tiene punto en el mapa, así que no se puede encontrar por distancia. Añade uno para ser visible.",
+        "location_restricted": "Mercaria ha restringido esta ubicación. Contacta con soporte.",
+        "store_unavailable": "La propia tienda está inactiva o restringida.",
+        "listing_unavailable": "El anuncio no está activo, así que aquí no hay nada recogible.",
+        "no_collectable_stock": "Ahora mismo no hay unidades recogibles en esta ubicación.",
+        "inventory_stale": "El stock de aquí se confirmó por última vez hace más tiempo que el intervalo de confirmación que fijaste para esta ubicación.",
+        "location_closed": "Esta ubicación está cerrada en el periodo consultado.",
+        "seller_not_payment_ready": "A este vendedor todavía no se le puede pagar, así que no se puede comprar nada para recoger.",
+        "guest_pickup_disabled": "La recogida para invitados está desactivada en esta instalación.",
+        "guest_seller_not_activated": "Este vendedor no se ha activado para la compra como invitado.",
+        "guest_notifications_unavailable": "La recogida para invitados necesita un transporte de mensajes transaccionales, y esta instalación no tiene ninguno.",
+        "store_pickup_disabled": "La recogida en tienda está desactivada en esta instalación.",
+        "p2p_pickup_not_available": "La recogida no está disponible para anuncios entre particulares."
+      },
+      "buyerBlock": {
+        "guestSignIn": "Puedes recoger en esta tienda con una cuenta de Mercaria. Iniciar sesión es opcional en todo lo demás: aquí es lo que hace posible la recogida.",
+        "unavailable": "Ahora mismo la recogida no está disponible para ti aquí. Aún puedes pedir que te lo envíen."
+      },
+      "openState": {
+        "hoursNotPublished": "Horario no publicado",
+        "openNow": "Abierto ahora",
+        "openUntil": "Abierto ahora — hasta las %{time}",
+        "closedNote": "Cerrado — %{note}",
+        "closedNow": "Cerrado ahora",
+        "closedOpensAt": "Cerrado — abre a las %{time}"
+      },
+      "stockConfirmed": {
+        "unknown": "Última confirmación en un momento desconocido",
+        "justNow": "Stock confirmado ahora mismo",
+        "minutes": {
+          "one": "Stock confirmado hace %{count} minuto",
+          "other": "Stock confirmado hace %{count} minutos"
+        },
+        "hours": {
+          "one": "Stock confirmado hace %{count} hora",
+          "other": "Stock confirmado hace %{count} horas"
+        },
+        "days": {
+          "one": "Stock confirmado hace %{count} día",
+          "other": "Stock confirmado hace %{count} días"
+        }
+      },
+      "exactQuantity": {
+        "one": "%{count} unidad en stock en esta tienda.",
+        "other": "%{count} unidades en stock en esta tienda."
+      }
     }
   }
 }
