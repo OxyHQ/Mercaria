@@ -80,6 +80,7 @@ import {
 } from '../catalog-write.service.js';
 import { enqueueOfferConvergence } from '../../db/offers/offerOutboxRepository.js';
 import {
+  findVariantAttributeClaim,
   recordListingAttributeClaim,
   recordVariantAttributeClaim,
 } from '../../db/variantAxes/attributeClaimRepository.js';
@@ -615,25 +616,29 @@ async function writeTypedAxesAndClaims(
     if (productVariantId === undefined) continue;
     const mine = axisValues.filter((value) => value.draftVariantId === variant.id);
 
-    const values: VariantAxisValueInput[] = mine.map((value) => ({
-      attributeKey: value.attributeKey,
-      displayValue: displayValueOf(value, valueStringById),
-      normalizedValue: normalizedValueOf(value, valueStringById),
-      enumValueId: value.valueEnumValueId,
-      normalizedNumber: value.valueNumber,
-      normalizedUnit: value.unit,
-    }));
-    await writeVariantAxisValues(tx, {
-      listingId: input.listing.id,
-      variantId: productVariantId,
-      values,
-    });
-
+    /**
+     * The CLAIM first, then the assignment that CITES it.
+     *
+     * `native_variant_axis_assignments.source_claim_id` is ADR 0007 D7's audit
+     * edge — "which assertion became this value" — and this path is the one
+     * writer that knows the answer, because it writes both halves in one
+     * transaction. It used to write NULL: legal (the column is nullable for a
+     * value authored typed from the start), and a fact thrown away, since a
+     * merchant's answer IS an assertion and it was recorded one statement later.
+     *
+     * The order is therefore reversed from the obvious one. The claim has to
+     * exist before the assignment can name it, and
+     * `mercaria_native_variant_axis_assignment_scope` (migration 0104) refuses a
+     * citation of a claim that did not RESOLVE — so an unresolved read-back is
+     * cited as NULL rather than being forced through.
+     */
+    const claimIdByDraftValueId = new Map<string, string>();
     for (const value of mine) {
-      await recordVariantAttributeClaim(tx, {
+      const rawValue = displayValueOf(value, valueStringById);
+      const claim = await recordVariantAttributeClaim(tx, {
         variantId: productVariantId,
         rawName: value.attributeKey,
-        rawValue: displayValueOf(value, valueStringById),
+        rawValue,
         provenance: 'merchant_declared',
         assertedByOxyUserId: input.actorOxyUserId,
         assertedAt: input.now,
@@ -646,7 +651,40 @@ async function writeTypedAxesAndClaims(
         resolvedByOxyUserId: input.actorOxyUserId,
         resolvedAt: input.now,
       });
+      // `ON CONFLICT DO NOTHING` returns nothing when the assertion was already
+      // there. On a variant created moments ago in this same transaction that
+      // needs two draft answers folding to one (name, value) pair — rare, and
+      // not unreachable, so it is read back rather than assumed away.
+      const settled =
+        claim ??
+        (await findVariantAttributeClaim(tx, {
+          variantId: productVariantId,
+          provenance: 'merchant_declared',
+          rawName: value.attributeKey,
+          rawValue,
+        }));
+      // The trigger's own rule, applied before the write instead of being
+      // answered by a 500: a claim that resolved to nothing cannot support a
+      // typed value, so the assignment cites nobody rather than citing it.
+      if (settled !== null && settled.valueResolution === 'resolved') {
+        claimIdByDraftValueId.set(value.id, settled.id);
+      }
     }
+
+    const values: VariantAxisValueInput[] = mine.map((value) => ({
+      attributeKey: value.attributeKey,
+      displayValue: displayValueOf(value, valueStringById),
+      normalizedValue: normalizedValueOf(value, valueStringById),
+      enumValueId: value.valueEnumValueId,
+      normalizedNumber: value.valueNumber,
+      normalizedUnit: value.unit,
+      sourceClaimId: claimIdByDraftValueId.get(value.id) ?? null,
+    }));
+    await writeVariantAxisValues(tx, {
+      listingId: input.listing.id,
+      variantId: productVariantId,
+      values,
+    });
   }
 
   // Product-scope assertions, which step 4's own seam note names as this
