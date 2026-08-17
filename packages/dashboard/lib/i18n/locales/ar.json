@@ -458,7 +458,24 @@
       },
       "youWillNeed": "ستحتاج إلى"
     },
-    "yourChannels": "قنواتك"
+    "yourChannels": "قنواتك",
+    "run": {
+      "kind": {
+        "backfill": "إعادة استيراد كاملة",
+        "product_pull": "استيراد المنتجات",
+        "product_push": "تصدير المنتجات",
+        "inventory_sync": "مزامنة المخزون",
+        "order_sync": "استيراد الطلبات",
+        "fulfillment_push": "تصدير عمليات الشحن",
+        "webhook": "Webhook",
+        "ingest": "منتجات مستلمة"
+      },
+      "status": {
+        "running": "قيد التنفيذ",
+        "completed": "اكتملت",
+        "failed": "فشلت"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} مقروء · %{valid} صالح · %{invalid} يحتاج مراجعة",
       "note": "يعطي التقرير القابل للتنزيل رقم الصف وما كان الخطأ فيه — دون القيم أبدًا، فالملف لديك بالفعل.",
-      "title": "التقارير"
+      "title": "التقارير",
+      "mode": {
+        "preview": "معاينة",
+        "validation": "تحقق",
+        "import": "استيراد"
+      }
     },
     "toast": {
       "checkFailed": "تعذّر فحص الخلاصة",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "التعيينات",
       "uploaded": " · تم الرفع",
-      "version": "الإصدار %{version}"
+      "version": "الإصدار %{version}",
+      "status": {
+        "draft": "مسودة",
+        "active": "نشطة",
+        "superseded": "مُستبدَلة"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "مسودة",
+        "active": "نشط",
+        "paused": "متوقف مؤقتًا",
+        "revoked": "ملغى",
+        "failed": "فشل"
+      },
+      "health": {
+        "unknown": "لم تتم القراءة بعد",
+        "full_feed_success": "تمت القراءة بالكامل",
+        "partial_feed": "تمت القراءة جزئيًا",
+        "auth_failure": "فشل المصادقة",
+        "rate_limit": "تم بلوغ حد الطلبات",
+        "source_outage": "المصدر غير متاح",
+        "schema_drift": "تغيّرت الأعمدة",
+        "rights_suspended": "الحقوق موقوفة",
+        "parse_failure": "تعذّرت القراءة",
+        "matching_ambiguity": "تطابقات غير محددة",
+        "anomalous_change": "تغيّر غير معتاد"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "قراءة كاملة",
+        "incremental": "تزايدي",
+        "webhook": "Webhook",
+        "manual": "يدوي"
+      },
+      "status": {
+        "pending": "قيد الانتظار",
+        "running": "قيد التنفيذ",
+        "completed": "اكتملت",
+        "failed": "فشلت"
+      }
     }
   },
   "home": {

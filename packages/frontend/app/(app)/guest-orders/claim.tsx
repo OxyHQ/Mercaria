@@ -40,6 +40,7 @@ import type { GuestClaimBlockReason, GuestClaimOrderRef } from "@mercaria/shared
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { useGuestClaim, useGuestClaimPreview } from "@/lib/hooks/use-guest-claim";
 import { track } from "@/lib/analytics";
+import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -206,7 +207,7 @@ function ClaimBody() {
           <View key={order.id} className="gap-1">
             <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
             <Text className="text-sm text-muted-foreground">
-              {order.sellerLabel} · {order.status}
+              {order.sellerLabel} · {t(ORDER_STATUS_LABEL_KEYS[order.status])}
             </Text>
           </View>
         ))}

@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "你的链接和代码",
       "empty": "你还没有推荐代码。",
-      "disclosureIntro": "发布每个链接时都要附上这段声明："
+      "disclosureIntro": "发布每个链接时都要附上这段声明：",
+      "status": {
+        "active": "有效",
+        "paused": "已暂停",
+        "expired": "已过期",
+        "revoked": "已撤销",
+        "retired": "已停用"
+      }
     },
     "support": {
       "title": "帮助",

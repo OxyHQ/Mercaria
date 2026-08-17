@@ -458,7 +458,24 @@
       },
       "youWillNeed": "Necesitarás"
     },
-    "yourChannels": "Tus canales"
+    "yourChannels": "Tus canales",
+    "run": {
+      "kind": {
+        "backfill": "Reimportación completa",
+        "product_pull": "Importación de productos",
+        "product_push": "Exportación de productos",
+        "inventory_sync": "Sincronización de existencias",
+        "order_sync": "Importación de pedidos",
+        "fulfillment_push": "Exportación de envíos",
+        "webhook": "Webhook",
+        "ingest": "Productos recibidos"
+      },
+      "status": {
+        "running": "En curso",
+        "completed": "Completada",
+        "failed": "Fallida"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} leídos · %{valid} válidos · %{invalid} requieren atención",
       "note": "El informe descargable indica el número de fila y qué fallaba en ella, nunca los valores, ya que el archivo lo tienes tú.",
-      "title": "Informes"
+      "title": "Informes",
+      "mode": {
+        "preview": "Vista previa",
+        "validation": "Validación",
+        "import": "Importación"
+      }
     },
     "toast": {
       "checkFailed": "No se ha podido comprobar el feed",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "Asignaciones",
       "uploaded": " · subido",
-      "version": "Versión %{version}"
+      "version": "Versión %{version}",
+      "status": {
+        "draft": "Borrador",
+        "active": "Activa",
+        "superseded": "Sustituida"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "Borrador",
+        "active": "Activa",
+        "paused": "En pausa",
+        "revoked": "Revocada",
+        "failed": "Con errores"
+      },
+      "health": {
+        "unknown": "Sin lecturas aún",
+        "full_feed_success": "Leído por completo",
+        "partial_feed": "Leído en parte",
+        "auth_failure": "Fallo de autenticación",
+        "rate_limit": "Límite de peticiones alcanzado",
+        "source_outage": "Origen no disponible",
+        "schema_drift": "Las columnas han cambiado",
+        "rights_suspended": "Derechos suspendidos",
+        "parse_failure": "No se ha podido leer",
+        "matching_ambiguity": "Coincidencias ambiguas",
+        "anomalous_change": "Cambio inusual"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "Lectura completa",
+        "incremental": "Incremental",
+        "webhook": "Webhook",
+        "manual": "Manual"
+      },
+      "status": {
+        "pending": "Pendiente",
+        "running": "En curso",
+        "completed": "Completada",
+        "failed": "Fallida"
+      }
     }
   },
   "home": {

@@ -25,6 +25,10 @@
 
 import type {
   ApiResponse,
+  CatalogSourceHealthState,
+  CatalogSourceRunKind,
+  CatalogSourceRunStatus,
+  CatalogSourceStatus,
   FeedCompression,
   FeedDeliveryMode,
   FeedDryRunCounts,
@@ -92,13 +96,24 @@ export interface FeedVersion {
   createdAt: string;
 }
 
-/** A feed's last runs, its next scheduled pass and its source health. */
+/**
+ * A feed's last runs, its next scheduled pass and its source health.
+ *
+ * The five vocabulary fields below are UNIONS rather than `string` (#560).
+ * They were widened here while the columns behind them
+ * (`catalog_sources.status` / `.health_state`, `catalog_source_runs.kind` /
+ * `.status` / `.outcome`) have always been `text({ enum })` over exactly these
+ * tuples, so the narrowing states what the server already sends rather than
+ * adding a constraint. What the widening cost was the screen: a `string` has no
+ * exhaustive `Record` to render it through, so `auth_failure` reached a
+ * merchant verbatim, in English, in every language.
+ */
 export interface FeedStatus {
   configuration: FeedConfiguration;
   activeVersion: FeedVersion | null;
   source: {
-    status: string;
-    healthState: string;
+    status: CatalogSourceStatus;
+    healthState: CatalogSourceHealthState;
     lastAttemptAt: string | null;
     lastSuccessAt: string | null;
     nextRunAt: string | null;
@@ -107,9 +122,9 @@ export interface FeedStatus {
   } | null;
   runs: {
     id: string;
-    kind: string;
-    status: string;
-    outcome: string | null;
+    kind: CatalogSourceRunKind;
+    status: CatalogSourceRunStatus;
+    outcome: CatalogSourceHealthState | null;
     fetched: number;
     stored: number;
     unchanged: number;

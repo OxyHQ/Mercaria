@@ -152,7 +152,11 @@
         "providerUnavailable": "is not configured",
         "providerError": "could not be reached"
       },
-      "explanationFallbackNotice": "This summary is generated from the comparison table below, without a language model."
+      "explanationFallbackNotice": "This summary is generated from the comparison table below, without a language model.",
+      "provenance": {
+        "template": "Written by Mercaria under comparison policy %{policy}. Every figure comes from the table below.",
+        "generated": "Worded by a language model under comparison policy %{policy}. Every figure comes from the table below."
+      }
     },
     "priceSignal": {
       "qualityLabel": {

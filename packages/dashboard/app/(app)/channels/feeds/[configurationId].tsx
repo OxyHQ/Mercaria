@@ -24,7 +24,16 @@ import { View, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Head from "expo-router/head";
 import { ChevronLeft, RefreshCw } from "lucide-react-native";
-import type { FeedDeliveryMode, FeedFieldRole, FeedFormat } from "@mercaria/shared-types";
+import type {
+  CatalogSourceHealthState,
+  CatalogSourceRunKind,
+  CatalogSourceRunStatus,
+  CatalogSourceStatus,
+  FeedDeliveryMode,
+  FeedFieldRole,
+  FeedFormat,
+  FeedImportReportMode,
+} from "@mercaria/shared-types";
 import { Button, Input, Label, Text, ToggleGroup, ToggleGroupItem, useColorScheme } from "@mercaria/ui";
 import { toast } from "@oxyhq/bloom/toast";
 import { Screen, ScreenLoading, ScreenMessage } from "@/components/shell/Screen";
@@ -42,6 +51,76 @@ import {
   useSyncFeed,
   useValidateFeedVersion,
 } from "@/lib/hooks/use-feeds";
+
+/**
+ * The six closed vocabularies this screen renders (#560).
+ *
+ * All six arrived here as bare identifiers — `auth_failure`, `superseded`,
+ * `incremental` — and were printed verbatim, so a merchant reading this screen
+ * in German got German chrome around English wire values. `Record`s over the
+ * shared-types unions rather than lookups with a fallback: a fallback renders
+ * the identifier again, which is the defect, and a member added upstream fails
+ * `tsc` here instead.
+ *
+ * ONE map serves the source's `healthState` and a run's `outcome`, because they
+ * are one union (`catalog_source_runs.outcome` is a
+ * `CatalogSourceHealthState`) — the health of a source IS the outcome of its
+ * last pass, and two maps over one union are two things a translator can make
+ * disagree.
+ *
+ * `outcome` and `healthState` are NOT findings of the i18n guard's check J: it
+ * reads a JSX child property access, and those two sit inside a template
+ * literal and beside a fixed separator respectively. They are fixed here anyway
+ * because they render on the SAME LINE as values that are — leaving them would
+ * have produced "Active · auth_failure", which is worse than either half.
+ */
+const SOURCE_STATUS_LABEL_KEYS: Record<CatalogSourceStatus, string> = {
+  draft: "feeds.source.status.draft",
+  active: "feeds.source.status.active",
+  paused: "feeds.source.status.paused",
+  revoked: "feeds.source.status.revoked",
+  failed: "feeds.source.status.failed",
+};
+
+const SOURCE_HEALTH_LABEL_KEYS: Record<CatalogSourceHealthState, string> = {
+  unknown: "feeds.source.health.unknown",
+  full_feed_success: "feeds.source.health.full_feed_success",
+  partial_feed: "feeds.source.health.partial_feed",
+  auth_failure: "feeds.source.health.auth_failure",
+  rate_limit: "feeds.source.health.rate_limit",
+  source_outage: "feeds.source.health.source_outage",
+  schema_drift: "feeds.source.health.schema_drift",
+  rights_suspended: "feeds.source.health.rights_suspended",
+  parse_failure: "feeds.source.health.parse_failure",
+  matching_ambiguity: "feeds.source.health.matching_ambiguity",
+  anomalous_change: "feeds.source.health.anomalous_change",
+};
+
+const RUN_KIND_LABEL_KEYS: Record<CatalogSourceRunKind, string> = {
+  backfill: "feeds.run.kind.backfill",
+  incremental: "feeds.run.kind.incremental",
+  webhook: "feeds.run.kind.webhook",
+  manual: "feeds.run.kind.manual",
+};
+
+const RUN_STATUS_LABEL_KEYS: Record<CatalogSourceRunStatus, string> = {
+  pending: "feeds.run.status.pending",
+  running: "feeds.run.status.running",
+  completed: "feeds.run.status.completed",
+  failed: "feeds.run.status.failed",
+};
+
+const VERSION_STATUS_LABEL_KEYS: Record<FeedVersion["status"], string> = {
+  draft: "feeds.versions.status.draft",
+  active: "feeds.versions.status.active",
+  superseded: "feeds.versions.status.superseded",
+};
+
+const REPORT_MODE_LABEL_KEYS: Record<FeedImportReportMode, string> = {
+  preview: "feeds.reports.mode.preview",
+  validation: "feeds.reports.mode.validation",
+  import: "feeds.reports.mode.import",
+};
 
 /** The formats the importer parses. */
 const FORMATS: readonly FeedFormat[] = ["csv", "tsv", "xml", "json", "jsonl"];
@@ -132,7 +211,8 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
           {status.data?.source ? (
             <View className="gap-1">
               <Text className="text-xs text-muted-foreground">
-                {status.data.source.status} · {status.data.source.healthState}
+                {t(SOURCE_STATUS_LABEL_KEYS[status.data.source.status])} ·{" "}
+                {t(SOURCE_HEALTH_LABEL_KEYS[status.data.source.healthState])}
               </Text>
               <Text className="text-xs text-muted-foreground">
                 {t("feeds.detail.readSchedule", {
@@ -190,8 +270,8 @@ function FeedBody({ storeId, configurationId }: { storeId: string; configuration
             {status.data.runs.map((run) => (
               <View key={run.id} className="rounded-2xl border border-border bg-surface p-4">
                 <Text className="text-sm font-semibold text-foreground">
-                  {run.kind} · {run.status}
-                  {run.outcome ? ` · ${run.outcome}` : ""}
+                  {t(RUN_KIND_LABEL_KEYS[run.kind])} · {t(RUN_STATUS_LABEL_KEYS[run.status])}
+                  {run.outcome ? ` · ${t(SOURCE_HEALTH_LABEL_KEYS[run.outcome])}` : ""}
                 </Text>
                 <Text className="mt-0.5 text-xs text-muted-foreground">
                   {formatWhen(run.startedAt, t("common.unknown"), locale)}
@@ -271,7 +351,7 @@ function Versions({
                   version.status === "active" ? "text-primary" : "text-muted-foreground"
                 }`}
               >
-                {version.status}
+                {t(VERSION_STATUS_LABEL_KEYS[version.status])}
               </Text>
             </View>
           </View>
@@ -535,7 +615,9 @@ function Reports({ storeId, configurationId }: { storeId: string; configurationI
       </Text>
       {(reports.data ?? []).map((report) => (
         <View key={report.id} className="rounded-2xl border border-border bg-surface p-4">
-          <Text className="text-sm font-semibold text-foreground">{report.mode}</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {t(REPORT_MODE_LABEL_KEYS[report.mode])}
+          </Text>
           <Text className="mt-0.5 text-xs text-muted-foreground">
             {formatWhen(report.createdAt, t("common.unknown"), locale)}
           </Text>

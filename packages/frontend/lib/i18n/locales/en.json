@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "Your links and codes",
       "empty": "You have no referral codes yet.",
-      "disclosureIntro": "Publish this with every link:"
+      "disclosureIntro": "Publish this with every link:",
+      "status": {
+        "active": "active",
+        "paused": "paused",
+        "expired": "expired",
+        "revoked": "revoked",
+        "retired": "retired"
+      }
     },
     "support": {
       "title": "Help",

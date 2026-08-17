@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "あなたのリンクとコード",
       "empty": "紹介コードはまだありません。",
-      "disclosureIntro": "リンクを掲載するときは、必ずこの表示を添えてください:"
+      "disclosureIntro": "リンクを掲載するときは、必ずこの表示を添えてください:",
+      "status": {
+        "active": "有効",
+        "paused": "一時停止中",
+        "expired": "期限切れ",
+        "revoked": "取り消し済み",
+        "retired": "運用終了"
+      }
     },
     "support": {
       "title": "ヘルプ",

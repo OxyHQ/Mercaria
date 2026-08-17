@@ -16,26 +16,8 @@ import {
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import { ReviewEligibilityPrompts } from "@/components/reviews/ReviewEligibilityPrompts";
 import { useOrders } from "@/lib/hooks/use-orders";
+import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
 import { useTranslation } from "@/lib/i18n";
-
-/**
- * Friendly label per order status, as translation KEYS.
- *
- * A module-scope `const` is evaluated at import, before the locale store has
- * rehydrated, so a sentence here would freeze whichever language loaded first.
- * The keys are literal so the i18n guard can see each leaf is referenced, and
- * they are resolved at the render site.
- */
-const STATUS_LABEL_KEY: Record<OrderStatus, string> = {
-  pending_payment: "orders.status.pendingPayment",
-  paid: "orders.status.paid",
-  processing: "orders.status.processing",
-  shipped: "orders.status.shipped",
-  delivered: "orders.status.delivered",
-  cancelled: "orders.status.cancelled",
-  refunded: "orders.status.refunded",
-  partially_refunded: "orders.status.partiallyRefunded",
-};
 
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -73,7 +55,7 @@ function OrderRow({ order, onPress }: { order: OrderSummary; onPress: () => void
         <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
           {t("orders.row.meta", {
             count: order.itemCount,
-            status: t(STATUS_LABEL_KEY[order.status]),
+            status: t(ORDER_STATUS_LABEL_KEYS[order.status]),
             seller: sellerName,
           })}
         </Text>

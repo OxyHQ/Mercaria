@@ -458,7 +458,24 @@
       },
       "youWillNeed": "Il vous faudra"
     },
-    "yourChannels": "Vos canaux"
+    "yourChannels": "Vos canaux",
+    "run": {
+      "kind": {
+        "backfill": "Réimport complet",
+        "product_pull": "Import de produits",
+        "product_push": "Export de produits",
+        "inventory_sync": "Synchronisation des stocks",
+        "order_sync": "Import de commandes",
+        "fulfillment_push": "Export des expéditions",
+        "webhook": "Webhook",
+        "ingest": "Produits reçus"
+      },
+      "status": {
+        "running": "En cours",
+        "completed": "Terminé",
+        "failed": "Échec"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} lus · %{valid} valides · %{invalid} à corriger",
       "note": "Le rapport téléchargeable indique le numéro de ligne et ce qui n’allait pas — jamais les valeurs, puisque vous avez déjà le fichier.",
-      "title": "Rapports"
+      "title": "Rapports",
+      "mode": {
+        "preview": "Aperçu",
+        "validation": "Validation",
+        "import": "Import"
+      }
     },
     "toast": {
       "checkFailed": "Impossible de vérifier le flux",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "Correspondances",
       "uploaded": " · téléversé",
-      "version": "Version %{version}"
+      "version": "Version %{version}",
+      "status": {
+        "draft": "Brouillon",
+        "active": "Active",
+        "superseded": "Remplacée"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "Brouillon",
+        "active": "Actif",
+        "paused": "En pause",
+        "revoked": "Révoqué",
+        "failed": "En échec"
+      },
+      "health": {
+        "unknown": "Pas encore lu",
+        "full_feed_success": "Lu en entier",
+        "partial_feed": "Lu en partie",
+        "auth_failure": "Échec d’authentification",
+        "rate_limit": "Limite de requêtes atteinte",
+        "source_outage": "Source indisponible",
+        "schema_drift": "Les colonnes ont changé",
+        "rights_suspended": "Droits suspendus",
+        "parse_failure": "Lecture impossible",
+        "matching_ambiguity": "Correspondances ambiguës",
+        "anomalous_change": "Changement inhabituel"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "Lecture complète",
+        "incremental": "Incrémental",
+        "webhook": "Webhook",
+        "manual": "Manuel"
+      },
+      "status": {
+        "pending": "En attente",
+        "running": "En cours",
+        "completed": "Terminé",
+        "failed": "Échec"
+      }
     }
   },
   "home": {

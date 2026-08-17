@@ -27,6 +27,7 @@ import { ScreenShell } from "@/components/shell/ScreenShell";
 import { toast } from "@oxyhq/bloom/toast";
 import { useOrder, useCancelOrder } from "@/lib/hooks/use-orders";
 import { useOrderCollection } from "@/lib/hooks/use-nearby";
+import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
 import { useTranslation } from "@/lib/i18n";
 
 /** Order statuses from which a buyer may still cancel (mirrors the backend graph). */
@@ -35,25 +36,6 @@ const BUYER_CANCELLABLE: ReadonlySet<OrderStatus> = new Set<OrderStatus>([
   "paid",
   "processing",
 ]);
-
-/**
- * Friendly label per order status, as translation KEYS.
- *
- * A module-scope `const` is evaluated at import, before the locale store has
- * rehydrated, so a sentence here would freeze whichever language loaded first.
- * The keys are literal so the i18n guard can see each leaf is referenced, and
- * they are resolved at the render site.
- */
-const STATUS_LABEL_KEY: Record<OrderStatus, string> = {
-  pending_payment: "orders.status.pendingPayment",
-  paid: "orders.status.paid",
-  processing: "orders.status.processing",
-  shipped: "orders.status.shipped",
-  delivered: "orders.status.delivered",
-  cancelled: "orders.status.cancelled",
-  refunded: "orders.status.refunded",
-  partially_refunded: "orders.status.partiallyRefunded",
-};
 
 /**
  * What the payment line says, per payment state, as translation KEYS.
@@ -155,7 +137,7 @@ function StatusPill({ status }: { status: OrderStatus }) {
   const { t } = useTranslation();
   return (
     <View className="self-start rounded-full bg-secondary px-3 py-1">
-      <Text className="text-xs font-semibold text-foreground">{t(STATUS_LABEL_KEY[status])}</Text>
+      <Text className="text-xs font-semibold text-foreground">{t(ORDER_STATUS_LABEL_KEYS[status])}</Text>
     </View>
   );
 }

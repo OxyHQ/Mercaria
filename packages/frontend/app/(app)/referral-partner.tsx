@@ -21,6 +21,7 @@ import {
   type ReferralEarningsByCurrency,
   type ReferralMetricDefinition,
   type ReferralPartnerOutstandingItem,
+  type ReferralInstrumentStatus,
   type ReferralPerformanceDimension,
   type ReferralRewardState,
 } from "@mercaria/shared-types";
@@ -62,6 +63,30 @@ const PAYOUT_READINESS_KEYS: Readonly<
   blocked: "referral.payouts.readiness.blocked",
 };
 Object.freeze(PAYOUT_READINESS_KEYS);
+
+/**
+ * An instrument's lifecycle, as translation KEYS (#560).
+ *
+ * `PAYOUT_READINESS_KEYS` above is the model, for its reasons: a `Record` over
+ * the union so a member added to `ReferralInstrumentStatus` fails `tsc` here
+ * rather than silently rendering a raw code, and KEYS rather than sentences
+ * because a module-scope `const` is evaluated before the locale store has
+ * rehydrated.
+ *
+ * `code.status` and `code.code` are rendered four lines apart and only ONE of
+ * them is a defect. A status is a wire enum with a localized form; a claim code
+ * is an identifier a partner publishes and types, so it is shown verbatim by
+ * design and must stay that way — which is why `code` is deliberately absent
+ * from the i18n guard's `WIRE_ENUM_FIELDS`.
+ */
+const INSTRUMENT_STATUS_KEYS: Readonly<Record<ReferralInstrumentStatus, string>> = {
+  active: "referral.instruments.status.active",
+  paused: "referral.instruments.status.paused",
+  expired: "referral.instruments.status.expired",
+  revoked: "referral.instruments.status.revoked",
+  retired: "referral.instruments.status.retired",
+};
+Object.freeze(INSTRUMENT_STATUS_KEYS);
 
 /**
  * The referral partner dashboard (#147 acceptance 1).
@@ -499,7 +524,7 @@ function InstrumentsCard({
           <View key={code.id} className="gap-space-2">
             <Text className="text-sm font-semibold text-foreground">{code.code}</Text>
             <Text className="text-xs text-muted-foreground">
-              {code.status}
+              {t(INSTRUMENT_STATUS_KEYS[code.status])}
               {code.market ? ` · ${code.market}` : ""}
               {code.campaignRef ? ` · ${code.campaignRef}` : ""}
             </Text>

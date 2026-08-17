@@ -458,7 +458,24 @@
       },
       "youWillNeed": "आपको यह चाहिए होगा"
     },
-    "yourChannels": "आपके चैनल"
+    "yourChannels": "आपके चैनल",
+    "run": {
+      "kind": {
+        "backfill": "पूर्ण पुन:आयात",
+        "product_pull": "उत्पाद आयात",
+        "product_push": "उत्पाद निर्यात",
+        "inventory_sync": "स्टॉक सिंक",
+        "order_sync": "ऑर्डर आयात",
+        "fulfillment_push": "पूर्ति निर्यात",
+        "webhook": "वेबहुक",
+        "ingest": "प्राप्त उत्पाद"
+      },
+      "status": {
+        "running": "चल रहा है",
+        "completed": "पूर्ण",
+        "failed": "विफल"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} पढ़े · %{valid} सही · %{invalid} पर ध्यान चाहिए",
       "note": "डाउनलोड होने वाली रिपोर्ट में पंक्ति संख्या और उसमें क्या गलत था, यह मिलता है — वैल्यू कभी नहीं, क्योंकि फ़ाइल तो आपके पास है ही।",
-      "title": "रिपोर्ट"
+      "title": "रिपोर्ट",
+      "mode": {
+        "preview": "पूर्वावलोकन",
+        "validation": "सत्यापन",
+        "import": "आयात"
+      }
     },
     "toast": {
       "checkFailed": "फ़ीड जाँची नहीं जा सकी",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "मैपिंग",
       "uploaded": " · अपलोड किया गया",
-      "version": "वर्शन %{version}"
+      "version": "वर्शन %{version}",
+      "status": {
+        "draft": "ड्राफ़्ट",
+        "active": "सक्रिय",
+        "superseded": "प्रतिस्थापित"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "ड्राफ़्ट",
+        "active": "सक्रिय",
+        "paused": "रोका गया",
+        "revoked": "निरस्त",
+        "failed": "विफल"
+      },
+      "health": {
+        "unknown": "अभी तक नहीं पढ़ा गया",
+        "full_feed_success": "पूरा पढ़ा गया",
+        "partial_feed": "आंशिक रूप से पढ़ा गया",
+        "auth_failure": "प्रमाणीकरण विफल",
+        "rate_limit": "अनुरोध सीमा पर पहुँचा",
+        "source_outage": "स्रोत उपलब्ध नहीं",
+        "schema_drift": "कॉलम बदल गए",
+        "rights_suspended": "अधिकार निलंबित",
+        "parse_failure": "पढ़ा नहीं जा सका",
+        "matching_ambiguity": "अस्पष्ट मिलान",
+        "anomalous_change": "असामान्य बदलाव"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "पूर्ण पठन",
+        "incremental": "वृद्धिशील",
+        "webhook": "वेबहुक",
+        "manual": "मैनुअल"
+      },
+      "status": {
+        "pending": "लंबित",
+        "running": "चल रहा है",
+        "completed": "पूर्ण",
+        "failed": "विफल"
+      }
     }
   },
   "home": {

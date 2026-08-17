@@ -152,7 +152,11 @@
         "providerUnavailable": "não está configurado",
         "providerError": "não pôde ser contatado"
       },
-      "explanationFallbackNotice": "Este resumo é gerado a partir da tabela de comparação abaixo, sem nenhum modelo de linguagem."
+      "explanationFallbackNotice": "Este resumo é gerado a partir da tabela de comparação abaixo, sem nenhum modelo de linguagem.",
+      "provenance": {
+        "template": "Escrito pela Mercaria conforme a política de comparação %{policy}. Todos os números vêm da tabela abaixo.",
+        "generated": "Redigido por um modelo de linguagem conforme a política de comparação %{policy}. Todos os números vêm da tabela abaixo."
+      }
     },
     "priceSignal": {
       "qualityLabel": {

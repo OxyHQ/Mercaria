@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "Vos liens et codes",
       "empty": "Vous n'avez pas encore de code de parrainage.",
-      "disclosureIntro": "Publiez ceci avec chaque lien :"
+      "disclosureIntro": "Publiez ceci avec chaque lien :",
+      "status": {
+        "active": "actif",
+        "paused": "en pause",
+        "expired": "expiré",
+        "revoked": "révoqué",
+        "retired": "retiré"
+      }
     },
     "support": {
       "title": "Aide",

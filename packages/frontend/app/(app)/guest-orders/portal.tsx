@@ -44,6 +44,7 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import Head from "expo-router/head";
 import { Link, useLocalSearchParams } from "expo-router";
+import type { OrderStatus } from "@mercaria/shared-types";
 import { Button, PickupCollectionPanel, SectionHeader, Text } from "@mercaria/ui";
 import { ScreenShell } from "@/components/shell/ScreenShell";
 import {
@@ -54,6 +55,7 @@ import {
   usePortalSignOut,
 } from "@/lib/hooks/use-guest-portal";
 import { useGuestOrderCollection } from "@/lib/hooks/use-nearby";
+import { ORDER_STATUS_LABEL_KEYS } from "@/lib/order-status";
 import { useTranslation } from "@/lib/i18n";
 
 /** The prefix an exchange token carries. Anything else is not one. */
@@ -206,7 +208,7 @@ function PortalBody() {
 function FullView(props: {
   loading: boolean;
   failed: boolean;
-  orders: { id: string; orderNumber: string; status: string }[] | undefined;
+  orders: { id: string; orderNumber: string; status: OrderStatus }[] | undefined;
   checkoutGroupId: string | undefined;
 }) {
   const { t } = useTranslation();
@@ -225,7 +227,9 @@ function FullView(props: {
       {props.orders.map((order) => (
         <View key={order.id} className="gap-1">
           <Text className="text-sm font-semibold text-foreground">{order.orderNumber}</Text>
-          <Text className="text-sm text-muted-foreground">{order.status}</Text>
+          <Text className="text-sm text-muted-foreground">
+            {t(ORDER_STATUS_LABEL_KEYS[order.status])}
+          </Text>
           {props.checkoutGroupId === undefined ? null : (
             <GuestOrderCollection checkoutGroupId={props.checkoutGroupId} orderId={order.id} />
           )}
@@ -279,7 +283,9 @@ function GuestOrderCollection({
 function BoundedView(props: {
   loading: boolean;
   failed: boolean;
-  entries: { id: string; orderNumber: string; status: string; sellerLabel: string }[] | undefined;
+  entries:
+    | { id: string; orderNumber: string; status: OrderStatus; sellerLabel: string }[]
+    | undefined;
   checkoutGroupId: string | undefined;
 }) {
   const { t } = useTranslation();
@@ -299,7 +305,7 @@ function BoundedView(props: {
         <View key={entry.id} className="gap-1">
           <Text className="text-sm font-semibold text-foreground">{entry.orderNumber}</Text>
           <Text className="text-sm text-muted-foreground">
-            {entry.sellerLabel} · {entry.status}
+            {entry.sellerLabel} · {t(ORDER_STATUS_LABEL_KEYS[entry.status])}
           </Text>
           {props.checkoutGroupId === undefined ? null : (
             <GuestOrderCollection checkoutGroupId={props.checkoutGroupId} orderId={entry.id} />

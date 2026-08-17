@@ -458,7 +458,24 @@
       },
       "youWillNeed": "Necessitaràs"
     },
-    "yourChannels": "Els teus canals"
+    "yourChannels": "Els teus canals",
+    "run": {
+      "kind": {
+        "backfill": "Reimportació completa",
+        "product_pull": "Importació de productes",
+        "product_push": "Exportació de productes",
+        "inventory_sync": "Sincronització d’existències",
+        "order_sync": "Importació de comandes",
+        "fulfillment_push": "Exportació d’enviaments",
+        "webhook": "Webhook",
+        "ingest": "Productes rebuts"
+      },
+      "status": {
+        "running": "En curs",
+        "completed": "Completada",
+        "failed": "Fallida"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} llegits · %{valid} vàlids · %{invalid} requereixen atenció",
       "note": "L'informe descarregable indica el número de fila i què hi havia malament, mai els valors, perquè el fitxer ja el tens tu.",
-      "title": "Informes"
+      "title": "Informes",
+      "mode": {
+        "preview": "Vista prèvia",
+        "validation": "Validació",
+        "import": "Importació"
+      }
     },
     "toast": {
       "checkFailed": "No s'ha pogut comprovar el feed",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "Assignacions",
       "uploaded": " · pujat",
-      "version": "Versió %{version}"
+      "version": "Versió %{version}",
+      "status": {
+        "draft": "Esborrany",
+        "active": "Activa",
+        "superseded": "Substituïda"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "Esborrany",
+        "active": "Activa",
+        "paused": "En pausa",
+        "revoked": "Revocada",
+        "failed": "Amb errors"
+      },
+      "health": {
+        "unknown": "Sense lectures encara",
+        "full_feed_success": "Llegit per complet",
+        "partial_feed": "Llegit en part",
+        "auth_failure": "Error d’autenticació",
+        "rate_limit": "Límit de peticions assolit",
+        "source_outage": "Origen no disponible",
+        "schema_drift": "Les columnes han canviat",
+        "rights_suspended": "Drets suspesos",
+        "parse_failure": "No s’ha pogut llegir",
+        "matching_ambiguity": "Coincidències ambigües",
+        "anomalous_change": "Canvi inusual"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "Lectura completa",
+        "incremental": "Incremental",
+        "webhook": "Webhook",
+        "manual": "Manual"
+      },
+      "status": {
+        "pending": "Pendent",
+        "running": "En curs",
+        "completed": "Completada",
+        "failed": "Fallida"
+      }
     }
   },
   "home": {

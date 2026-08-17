@@ -152,7 +152,11 @@
         "providerUnavailable": "ist nicht konfiguriert",
         "providerError": "war nicht erreichbar"
       },
-      "explanationFallbackNotice": "Diese Zusammenfassung wird aus der Vergleichstabelle unten erzeugt, ohne Sprachmodell."
+      "explanationFallbackNotice": "Diese Zusammenfassung wird aus der Vergleichstabelle unten erzeugt, ohne Sprachmodell.",
+      "provenance": {
+        "template": "Von Mercaria verfasst gemäß Vergleichsrichtlinie %{policy}. Alle Zahlen stammen aus der Tabelle unten.",
+        "generated": "Von einem Sprachmodell formuliert gemäß Vergleichsrichtlinie %{policy}. Alle Zahlen stammen aus der Tabelle unten."
+      }
     },
     "priceSignal": {
       "qualityLabel": {

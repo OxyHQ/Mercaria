@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "Tus enlaces y códigos",
       "empty": "Todavía no tienes códigos de recomendación.",
-      "disclosureIntro": "Publica esto con cada enlace:"
+      "disclosureIntro": "Publica esto con cada enlace:",
+      "status": {
+        "active": "activo",
+        "paused": "en pausa",
+        "expired": "caducado",
+        "revoked": "revocado",
+        "retired": "retirado"
+      }
     },
     "support": {
       "title": "Ayuda",

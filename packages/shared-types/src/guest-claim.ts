@@ -24,6 +24,8 @@
  * row id and a timestamp — the `GuestPortalTrace` discipline, one domain over.
  */
 
+import type { OrderStatus } from './order';
+
 /**
  * Where a claim stands.
  *
@@ -221,7 +223,7 @@ export interface GuestClaimOrderRef {
   /** The printed, sequential, PUBLIC order number (ADR 0003 T6). */
   orderNumber: string;
   /** The order's coarse lifecycle status. */
-  status: string;
+  status: OrderStatus;
   /** The seller's public display name. Never a payout account or a contact. */
   sellerLabel: string;
   /** ISO instant the order was placed. */

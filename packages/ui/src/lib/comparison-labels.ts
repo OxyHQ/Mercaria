@@ -239,3 +239,39 @@ export function explanationRejectionTextKey(reason: ExplanationRejectionReason):
  */
 export const COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY =
   "ui.comparison.explanationFallbackNotice";
+
+/**
+ * The provenance line, keyed on WHO wrote the narrative (#560).
+ *
+ * This sentence was hardcoded English with `provenance.provider` spliced into
+ * it — "Written by deterministic_template under comparison policy v3" — so it
+ * was a check-A finding and a check-J finding at once.
+ *
+ * ## Keyed on `state`, deliberately, and NOT on `provenance.provider`
+ *
+ * `ExplanationProvenance.provider` is documented as an OPAQUE id: the template
+ * renderer's own `deterministic_template`, or a vendor slug. It is an OPEN set,
+ * so a `Record` over it is impossible and the honest alternatives were a lookup
+ * with a fallback — which renders the raw slug again, the defect — or naming
+ * the vendor to a shopper, which {@link SHOPPING_AGENT_SUMMARY_SOURCE_KEYS} one
+ * domain over already declined to do.
+ *
+ * `ComparisonExplanation.state` carries the same distinction as a CLOSED union
+ * and the correspondence is exact rather than approximate: the service emits
+ * `state: 'generated'` with the provider's own id, and `renderTemplateExplanation`
+ * is the only producer of `state: 'template'` and hardcodes
+ * `provider: 'deterministic_template'`. `unavailable` has no provenance at all
+ * and its branch returns before this line. So the two members below are total
+ * over what can reach it, and no slug can be rendered from here.
+ *
+ * The POLICY VERSION is still interpolated, and that is not the same decision:
+ * it is the audit handle #96 explanation rule 10 asks a shopper to be able to
+ * inspect, it has no localized form, and it is shown verbatim by design — the
+ * `{code.code}` case on the referral screen, one package over.
+ */
+export const COMPARISON_PROVENANCE_KEYS: Readonly<
+  Record<"generated" | "template", string>
+> = {
+  generated: "ui.comparison.provenance.generated",
+  template: "ui.comparison.provenance.template",
+};

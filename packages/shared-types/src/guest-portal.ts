@@ -27,6 +27,8 @@
  * than a rule somebody has to remember.
  */
 
+import type { OrderStatus } from './order';
+
 /**
  * What a portal credential is allowed to DO, beyond naming its checkout group.
  *
@@ -230,6 +232,22 @@ export interface GuestOrderStatusView {
  * edge into the order DTOs — the portal's scope vocabulary is consumed by the
  * database schema, and a schema file pulling in the whole order graph to render
  * one CHECK is how a barrel cycle starts.
+ *
+ * **That premise no longer holds and this alias is now unjustified (#560).**
+ * The module imports `OrderStatus` from `./order` above, so the edge it was
+ * avoiding exists. It was never load-bearing: `report.ts` has imported
+ * `OrderStatus` from `./order` all along, `order.ts` reaches eighteen modules
+ * and none of them is this one, and this file is imported by nothing but the
+ * barrel — so there was never a cycle for an edge to close. What the alias
+ * actually costs is the direction the "it cannot drift" argument misses:
+ * ADDING a member upstream fails `tsc` at the producer's assignment, but
+ * REMOVING or renaming one does not, and the copy silently keeps a member that
+ * no longer exists.
+ *
+ * It is left alone here only because it is not #560's to change — it is
+ * exported, the database schema reads it, and collapsing it is a separate
+ * commit that should verify that consumer. Do not cite this docblock as
+ * precedent for a new local alias.
  */
 export type GuestCheckoutLifecycleRef =
   | 'pending_payment'
@@ -245,7 +263,7 @@ export interface GuestOrderStatusEntry {
   /** The printed, sequential, PUBLIC order number (ADR 0003 T6). */
   orderNumber: string;
   /** The order's coarse lifecycle status. */
-  status: string;
+  status: OrderStatus;
   /** The seller's public display name. Never a payout account or a contact. */
   sellerLabel: string;
   /** How many lines the order has. A count, never a title. */

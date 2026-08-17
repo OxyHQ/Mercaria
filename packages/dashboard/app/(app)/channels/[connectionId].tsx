@@ -26,6 +26,8 @@ import type {
   SyncRecordFailureReason,
   SyncResourceDirection,
   SyncRun,
+  SyncRunKind,
+  SyncRunStatus,
 } from "@mercaria/shared-types";
 import { CHANNEL_DISCONNECT_POLICIES } from "@mercaria/shared-types";
 import {
@@ -94,6 +96,38 @@ const STATUS_LABEL_KEYS: Record<ConnectionStatus, string> = {
   connected: "channels.state.connected",
   error: "channels.state.needsAttention",
   disconnected: "channels.status.disconnected",
+};
+
+/**
+ * What one sync RUN did, and where it got to (#560).
+ *
+ * Both were rendered straight out of the wire — `backfill`, `fulfillment_push`,
+ * `completed` — which is English to every merchant whatever language they read
+ * the rest of this screen in. `Record`s over the shared-types unions rather
+ * than lookups with a fallback: a fallback would render the identifier again,
+ * and a member added to either union fails `tsc` here instead.
+ *
+ * The direction words follow `channels.direction`, which already tells this
+ * merchant that a pull is their platform → Mercaria: `product_pull` is an
+ * import and `product_push` an export. `ingest` is the third direction and the
+ * one with no arrow in that map — the plugin PUSHING its catalogue in — so it
+ * reads from the merchant's side as products arriving.
+ */
+const RUN_KIND_LABEL_KEYS: Record<SyncRunKind, string> = {
+  backfill: "channels.run.kind.backfill",
+  product_pull: "channels.run.kind.product_pull",
+  product_push: "channels.run.kind.product_push",
+  inventory_sync: "channels.run.kind.inventory_sync",
+  order_sync: "channels.run.kind.order_sync",
+  fulfillment_push: "channels.run.kind.fulfillment_push",
+  webhook: "channels.run.kind.webhook",
+  ingest: "channels.run.kind.ingest",
+};
+
+const RUN_STATUS_LABEL_KEYS: Record<SyncRunStatus, string> = {
+  running: "channels.run.status.running",
+  completed: "channels.run.status.completed",
+  failed: "channels.run.status.failed",
 };
 
 const DIRECTIONS: readonly SyncResourceDirection[] = ["off", "pull", "push", "bidirectional"];
@@ -639,7 +673,9 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
           {(runs.data ?? []).map((run) => (
             <View key={run.id} className="rounded-2xl border border-border bg-surface p-4">
               <View className="flex-row items-center gap-2">
-                <Text className="text-sm font-semibold text-foreground">{run.kind}</Text>
+                <Text className="text-sm font-semibold text-foreground">
+                  {t(RUN_KIND_LABEL_KEYS[run.kind])}
+                </Text>
                 <View
                   className={`rounded-full px-2 py-0.5 ${
                     run.status === "failed" ? "bg-destructive/10" : "bg-muted"
@@ -650,7 +686,7 @@ function SyncHistory({ storeId, connection }: { storeId: string; connection: Con
                       run.status === "failed" ? "text-destructive" : "text-muted-foreground"
                     }`}
                   >
-                    {run.status}
+                    {t(RUN_STATUS_LABEL_KEYS[run.status])}
                   </Text>
                 </View>
               </View>

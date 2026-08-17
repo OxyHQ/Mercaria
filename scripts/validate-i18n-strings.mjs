@@ -276,10 +276,12 @@ const OWNERS = [
     // rather than waiting for somebody to notice an English date in a Japanese
     // sentence.
     deviceLocaleFormatSites: 0,
-    // J (#530): four, pinned rather than fixed — `{order.status}` twice on the
-    // guest-order screens, `{entry.status}` and `{code.status}` beside the
-    // `{code.code}` that is correct four lines above it.
-    wireIdentifierRenderSites: 4,
+    // J (#530, fixed by #560): ZERO. The three order statuses resolve through
+    // `lib/order-status.ts` and the referral instrument status through this
+    // screen's own `Record`. `{code.code}` four lines below one of them is
+    // still rendered verbatim and still correct — a claim code has no localized
+    // form, which is why `code` is absent from `WIRE_ENUM_FIELDS`.
+    wireIdentifierRenderSites: 0,
     // I (#542): no pin. Check I RAISES, because a key map read in a render
     // position is a message id on screen with no legitimate spelling.
     minimumRenderableKeyMaps: 40,
@@ -316,11 +318,11 @@ const OWNERS = [
     // than waiting for a merchant to notice an English date in a German
     // sentence.
     deviceLocaleFormatSites: 0,
-    // J (#530): eight, pinned rather than fixed — the channel and feed screens
-    // render `{run.kind}`, `{run.status}`, `{version.status}` and `{report.mode}`
-    // straight out of the wire, and `{a.country}` on the order address card is
-    // the SAME shape #513 fixed on the storefront with `formatRegionName`.
-    wireIdentifierRenderSites: 8,
+    // J (#530, fixed by #560): ZERO. The channel and feed screens resolve every
+    // run, source, version and report vocabulary through an exhaustive `Record`
+    // over the shared-types union, and `{a.country}` on the order address card
+    // goes through the same `formatRegionName` #513 used on the storefront.
+    wireIdentifierRenderSites: 0,
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
     // Missing category forms: ar 92, ru 46, ca/es/fr/pt-BR 23 each.
@@ -367,8 +369,11 @@ const OWNERS = [
     // inline template in `NearbyLocationCard` was the one in this population. It
     // is MEANT to move: every conversion lowers it, the guard says so by name,
     // and a PR that converts copy without lowering it is told exactly what to
-    // do. That is the pin working, not a maintenance burden.
-    hardcodedStrings: 149,
+    // do. That is the pin working, not a maintenance burden. #560 then took it
+    // 149 -> 146: ONE sentence, but check A counts findings and that sentence
+    // spanned three JSX children, which is the arithmetic to expect here — take
+    // the number from a printed failure rather than by subtracting sentences.
+    hardcodedStrings: 146,
     // Check F is off here for a DIFFERENT reason than check A. This package
     // does not merely use the action controls, it DEFINES them — a `<Button>`
     // in `packages/ui` is the component, not a call site — so the population F
@@ -416,10 +421,12 @@ const OWNERS = [
     // feed the provider. All four owners are at zero, so H is now a pure
     // regression gate rather than a residual ledger.
     deviceLocaleFormatSites: 0,
-    // J (#530): one — `ComparisonExplanationBlock` names the provenance provider
-    // inside a hardcoded English sentence, which is a check-A finding too and is
-    // already inside the 149 above.
-    wireIdentifierRenderSites: 1,
+    // J (#530, fixed by #560): ZERO. `ComparisonExplanationBlock`'s provenance
+    // line is now one key per WRITER, keyed on the explanation's `state` — a
+    // closed union — rather than on `provenance.provider`, which is an opaque
+    // vendor slug no `Record` could be exhaustive over. It was a check-A finding
+    // too, which is why the pin above moved in the SAME change.
+    wireIdentifierRenderSites: 0,
     // I (#542): this package DECLARES the maps every app reads, and #542 was
     // found converting three of them, so the floor here is the one that matters.
     minimumRenderableKeyMaps: 40,

@@ -458,7 +458,24 @@
       },
       "youWillNeed": "必要なもの"
     },
-    "yourChannels": "接続中のチャネル"
+    "yourChannels": "接続中のチャネル",
+    "run": {
+      "kind": {
+        "backfill": "全件再取り込み",
+        "product_pull": "商品の取り込み",
+        "product_push": "商品の書き出し",
+        "inventory_sync": "在庫の同期",
+        "order_sync": "注文の取り込み",
+        "fulfillment_push": "出荷情報の書き出し",
+        "webhook": "Webhook",
+        "ingest": "受信した商品"
+      },
+      "status": {
+        "running": "実行中",
+        "completed": "完了",
+        "failed": "失敗"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "読み取り %{scanned}件 · 有効 %{valid}件 · 要対応 %{invalid}件",
       "note": "ダウンロードできるレポートには、行番号と何が問題だったかのみが記載されます。ファイルはお手元にあるため、値そのものは含みません。",
-      "title": "レポート"
+      "title": "レポート",
+      "mode": {
+        "preview": "プレビュー",
+        "validation": "検証",
+        "import": "取り込み"
+      }
     },
     "toast": {
       "checkFailed": "フィードを確認できませんでした",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "マッピング",
       "uploaded": " · アップロード済み",
-      "version": "バージョン %{version}"
+      "version": "バージョン %{version}",
+      "status": {
+        "draft": "下書き",
+        "active": "有効",
+        "superseded": "置き換え済み"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "下書き",
+        "active": "有効",
+        "paused": "一時停止中",
+        "revoked": "取り消し済み",
+        "failed": "エラー"
+      },
+      "health": {
+        "unknown": "未読",
+        "full_feed_success": "全件読み取り済み",
+        "partial_feed": "一部のみ読み取り",
+        "auth_failure": "認証エラー",
+        "rate_limit": "レート制限",
+        "source_outage": "ソースに接続できません",
+        "schema_drift": "列構成が変わりました",
+        "rights_suspended": "利用許諾が停止中",
+        "parse_failure": "読み取れませんでした",
+        "matching_ambiguity": "一致の判定が曖昧",
+        "anomalous_change": "異常な変化"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "全件読み取り",
+        "incremental": "差分",
+        "webhook": "Webhook",
+        "manual": "手動"
+      },
+      "status": {
+        "pending": "待機中",
+        "running": "実行中",
+        "completed": "完了",
+        "failed": "失敗"
+      }
     }
   },
   "home": {

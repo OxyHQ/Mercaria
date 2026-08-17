@@ -458,7 +458,24 @@
       },
       "youWillNeed": "Sie benötigen"
     },
-    "yourChannels": "Ihre Kanäle"
+    "yourChannels": "Ihre Kanäle",
+    "run": {
+      "kind": {
+        "backfill": "Vollständiger Reimport",
+        "product_pull": "Produktimport",
+        "product_push": "Produktexport",
+        "inventory_sync": "Bestandsabgleich",
+        "order_sync": "Bestellimport",
+        "fulfillment_push": "Versandexport",
+        "webhook": "Webhook",
+        "ingest": "Empfangene Produkte"
+      },
+      "status": {
+        "running": "Läuft",
+        "completed": "Abgeschlossen",
+        "failed": "Fehlgeschlagen"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} gelesen · %{valid} gültig · %{invalid} zu prüfen",
       "note": "Der herunterladbare Bericht nennt die Zeilennummer und was daran falsch war — nie die Werte, da Sie die Datei bereits haben.",
-      "title": "Berichte"
+      "title": "Berichte",
+      "mode": {
+        "preview": "Vorschau",
+        "validation": "Prüfung",
+        "import": "Import"
+      }
     },
     "toast": {
       "checkFailed": "Der Feed konnte nicht geprüft werden",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "Zuordnungen",
       "uploaded": " · hochgeladen",
-      "version": "Version %{version}"
+      "version": "Version %{version}",
+      "status": {
+        "draft": "Entwurf",
+        "active": "Aktiv",
+        "superseded": "Ersetzt"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "Entwurf",
+        "active": "Aktiv",
+        "paused": "Pausiert",
+        "revoked": "Widerrufen",
+        "failed": "Fehlgeschlagen"
+      },
+      "health": {
+        "unknown": "Noch nicht gelesen",
+        "full_feed_success": "Vollständig gelesen",
+        "partial_feed": "Teilweise gelesen",
+        "auth_failure": "Anmeldung fehlgeschlagen",
+        "rate_limit": "Anfragelimit erreicht",
+        "source_outage": "Quelle nicht erreichbar",
+        "schema_drift": "Spalten haben sich geändert",
+        "rights_suspended": "Rechte ausgesetzt",
+        "parse_failure": "Konnte nicht gelesen werden",
+        "matching_ambiguity": "Mehrdeutige Zuordnungen",
+        "anomalous_change": "Ungewöhnliche Änderung"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "Vollständiger Lauf",
+        "incremental": "Inkrementell",
+        "webhook": "Webhook",
+        "manual": "Manuell"
+      },
+      "status": {
+        "pending": "Ausstehend",
+        "running": "Läuft",
+        "completed": "Abgeschlossen",
+        "failed": "Fehlgeschlagen"
+      }
     }
   },
   "home": {

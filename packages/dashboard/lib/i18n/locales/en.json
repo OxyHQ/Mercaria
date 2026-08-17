@@ -458,7 +458,24 @@
       },
       "youWillNeed": "You will need"
     },
-    "yourChannels": "Your channels"
+    "yourChannels": "Your channels",
+    "run": {
+      "kind": {
+        "backfill": "Backfill",
+        "product_pull": "Product import",
+        "product_push": "Product export",
+        "inventory_sync": "Stock sync",
+        "order_sync": "Order import",
+        "fulfillment_push": "Fulfilment export",
+        "webhook": "Webhook",
+        "ingest": "Products received"
+      },
+      "status": {
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} read · %{valid} valid · %{invalid} need attention",
       "note": "The downloadable report gives the row number and what was wrong with it — never the values, since you already have the file.",
-      "title": "Reports"
+      "title": "Reports",
+      "mode": {
+        "preview": "Preview",
+        "validation": "Validation",
+        "import": "Import"
+      }
     },
     "toast": {
       "checkFailed": "Couldn't check the feed",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "Mappings",
       "uploaded": " · uploaded",
-      "version": "Version %{version}"
+      "version": "Version %{version}",
+      "status": {
+        "draft": "Draft",
+        "active": "Active",
+        "superseded": "Superseded"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "Draft",
+        "active": "Active",
+        "paused": "Paused",
+        "revoked": "Revoked",
+        "failed": "Failed"
+      },
+      "health": {
+        "unknown": "Not read yet",
+        "full_feed_success": "Read in full",
+        "partial_feed": "Partly read",
+        "auth_failure": "Sign-in failed",
+        "rate_limit": "Rate limited",
+        "source_outage": "Source unavailable",
+        "schema_drift": "Columns changed",
+        "rights_suspended": "Rights suspended",
+        "parse_failure": "Could not be read",
+        "matching_ambiguity": "Ambiguous matches",
+        "anomalous_change": "Unusual change"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "Backfill",
+        "incremental": "Incremental",
+        "webhook": "Webhook",
+        "manual": "Manual"
+      },
+      "status": {
+        "pending": "Pending",
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      }
     }
   },
   "home": {
