@@ -184,6 +184,7 @@ const ANALYTICS_OWNED_DIRECTORIES = ['services/analytics', 'db/analytics'] as co
 /** The shared directories a domain module lives in under a domain NAME. */
 const ANALYTICS_SHARED_DIRECTORIES = [
   'controllers',
+  'controllers/admin',
   'routes',
   'routes/admin',
   'middleware',
@@ -248,6 +249,7 @@ const ANALYTICS_MODULE_FLOORS: ReadonlyArray<readonly [string, number]> = [
   ['services/analytics/', 12],
   ['db/analytics/', 3],
   ['controllers/', 1],
+  ['controllers/admin/', 1],
   ['routes/', 1],
   ['routes/admin/', 1],
   ['middleware/', 1],
@@ -388,6 +390,65 @@ describe('analytics cannot read commercial standing', () => {
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
     }
+  });
+
+  it('no analytics-named module anywhere in src/ sits outside the population', () => {
+    // The DIRECTORY list is the last hand list in this gate, and it failed
+    // exactly as a hand list does. `controllers/admin` was missing while
+    // `routes/admin` was present — an asymmetry inherited from
+    // `scripts/isolation-gate-census.ts`, whose own bag-directory list was
+    // hand-maintained and carried the same gap (#593, #600). So the wall was
+    // landed over 28 of the domain's 29 modules, with
+    // `controllers/admin/analytics-admin.controller.ts` — #77's merchant
+    // analytics handler — behind nothing.
+    //
+    // A walked population whose DIRECTORY list is a hand list is a hand list,
+    // and the remedy is the one this whole file is about: derive the exclusion
+    // rather than the inclusion, one level up. Sweep the entire source tree for
+    // modules NAMED for this domain and require each to be in the population or
+    // in a counted, justified exclusion — so a new bag directory brings its
+    // modules under the wall with no edit here, and a domain-named module that
+    // genuinely belongs to somebody else forces a decision instead of a gap.
+    const swept: string[] = [];
+    const sweep = (relative: string): void => {
+      for (const entry of readDirectory(relative)) {
+        if (entry.name === '__tests__') continue;
+        const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+        if (entry.isDirectory()) sweep(child);
+        // The PATH, not the filename. A module inside a directory named for
+        // this domain is a module of it whatever the file is called —
+        // `services/analytics/emit.ts` names the domain nowhere in its own
+        // name. Matching the filename swept 10 of the 29 and the vacuity floor
+        // below is what said so.
+        else if (entry.name.endsWith('.ts') && ANALYTICS_NAME_PATTERN.test(child)) {
+          swept.push(child);
+        }
+      }
+    };
+    sweep('');
+
+    // A vacuity floor on the sweep itself: a traversal that found nothing would
+    // report no modules outside the population, which is the answer a correct
+    // tree gives. MEASURED at 29.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(20);
+
+    const population = new Set(analyticsDomainModules());
+    const outside = swept.filter((relative) => !population.has(relative));
+    // EXACT and empty. An exclusion list needs its own count in both directions
+    // (#448), and this one is empty because it was measured empty: every
+    // analytics-named module in the tree is a module of this domain. A future
+    // `search-analytics.ts` owned by discovery goes here WITH its reason, and
+    // the count moves in the same edit.
+    expect(
+      outside,
+      'an analytics-named module sits outside the scanned population, so the fee and referral ' +
+        'wall does not cover it — add its directory to ANALYTICS_SHARED_DIRECTORIES, or excuse ' +
+        'it here with a reason and move the count',
+    ).toEqual([]);
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
