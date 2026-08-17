@@ -337,6 +337,20 @@ async function readRowIdentity(): Promise<{
   };
 }
 
+/**
+ * Print a population on SUCCESS — and NOT through `console.*`.
+ *
+ * Measured, because it is exactly the kind of thing that reads as done and is
+ * not: vitest 4's default reporter — which `bun run test` and CI both use —
+ * suppresses `console.info`/`console.log`/`console.error` from a test that
+ * PASSED, and shows them only under `--reporter=verbose`. A direct write to the
+ * stream survives both. So a population printed with `console.info` is a number
+ * nobody reading a CI log ever sees, which is the same as not printing it.
+ */
+function reportPopulation(line: string): void {
+  process.stdout.write(`${line}\n`);
+}
+
 /** One pass over exactly this file's listing and nothing else. */
 async function runScopedPass(mode: 'dry_run' | 'apply'): Promise<VariantAxisBackfillReport> {
   return runVariantAxisBackfill(db, {
@@ -480,9 +494,7 @@ describe('the backfill in apply mode', () => {
     expect(persisted.listingClaims, 'a legacy option was not retained as a claim').toBe(2);
     expect(persisted.variantClaims, 'a legacy option value was not retained as a claim').toBe(3);
 
-    // Printed on SUCCESS: a pass that measured a smaller population than it
-    // claims to would otherwise look identical to this one.
-    console.info(
+    reportPopulation(
       `[apply] population: 1 listing, ${dryRun.scanned.listingOptions} legacy options, ` +
         `${dryRun.scanned.variantOptionValues} legacy option values, ` +
         `${variantIds.length} variants; persisted ${persisted.axes.length} axis, ` +
@@ -549,7 +561,7 @@ describe('the backfill in apply mode', () => {
     );
     expect(after.claims, 'the claim rows were rewritten by a no-op pass').toEqual(before.claims);
 
-    console.info(
+    reportPopulation(
       `[idempotency] first pass wrote 1 axis / 2 assignments / 5 claims / 2 signatures; ` +
         `second pass wrote 0 of each over the same ${second.scanned.listingOptions} options and ` +
         `${second.scanned.variantOptionValues} option values, with ` +
