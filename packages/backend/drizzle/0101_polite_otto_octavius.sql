@@ -1,0 +1,82 @@
+-- oxy:deploy-phase=pre
+--
+-- #445 — one click, one transaction. The attribution guard that has to exist
+-- BEFORE the code that could breach it.
+--
+-- `affiliate_transactions_network_key` already stops one TRANSACTION being
+-- counted twice. Nothing stopped two transactions citing one CLICK, which is
+-- one click credited twice — an attribution error rather than a double
+-- commission, and the hazard that appears the moment somebody closes the
+-- attribution seam.
+--
+-- WHY `pre` AND NOT `post`.
+--
+-- The test #221's `0070` states is not "does it narrow" but "does it refuse a
+-- write today's image genuinely makes". This refuses NONE, and that is provable
+-- rather than assumed:
+--
+--   * `AFFILIATE_CLICK_REFERENCE_SUPPORT` (shared-types) marks BOTH networks
+--     `not_supported`. It is a code CONSTANT, not config and not a flag.
+--   * `matchReportedTransaction` therefore returns `unmatched` at its FIRST
+--     branch (`network_supplies_no_reference`) for every transaction either
+--     network reports, so `matchedClickId` is written NULL on both the insert
+--     and the update path (`sourceColumns`).
+--   * The partial predicate excludes NULL, so the serving image's every write
+--     lands outside this index entirely.
+--
+-- PRE-EXISTING VIOLATORS CANNOT EXIST, AND THAT IS MEASURED, NOT ASSUMED.
+--
+-- `0070` is emphatic that assuming a clean table is assuming the defect never
+-- fired, so the claim is made the strong way. `matched_click_id` and the
+-- constant were introduced by the SAME commit (`937a5fa0`, #334, which also
+-- wrote `0082`), and that file has exactly one commit in its history — both
+-- networks have read `not_supported` from the moment the column existed. There
+-- has never been a code path, in any shipped image, that could write a non-NULL
+-- value into it. So a duplicate is not merely unlikely: it is unwritable, and
+-- `CREATE UNIQUE INDEX` has nothing to fail on. No resolution step is needed,
+-- and inventing one would be a backfill over rows that cannot exist.
+--
+-- The failure mode is also the safer one round: a `pre` that somehow failed
+-- would block its own rollout, where `0070` records that a failed `post` blocks
+-- every later `pre` behind the ledger's high-water mark until cleared by hand.
+--
+-- THE PARTIAL PREDICATE IS DELIBERATE AND IS NOT REDUNDANT.
+--
+-- Postgres treats NULLs as DISTINCT, so a PLAIN unique index would admit
+-- today's all-NULL table too. The predicate is written anyway because an index
+-- whose correctness rests on an unstated NULL rule is one a later reader
+-- narrows by accident — this schema has been bitten by exactly that class twice
+-- (`array_length` vs `cardinality`, #68 and #81, both of which ADMITTED the row
+-- they existed to refuse). It also keeps the index the size of the real set,
+-- which is currently zero entries rather than one per row.
+--
+-- WHY THE DROP.
+--
+-- `affiliate_transactions_click_idx` was a PLAIN index on the same column with
+-- no reader — nothing in the backend filters on `matched_click_id` — and it
+-- stored an entry per row for a column that is always NULL. The new index
+-- serves the same future lookup, because `matched_click_id = $1` implies the
+-- partial predicate and the planner can use it, and unlike the old one it
+-- enforces something. Dropping it breaks no write (a plain index is not a
+-- constraint) and removes no read property, which is why the drop is `pre` too
+-- rather than owing a second migration.
+--
+-- LOCKING. `DROP INDEX` takes ACCESS EXCLUSIVE on `affiliate_transactions` and
+-- drizzle's runner holds every statement in ONE transaction until COMMIT, so
+-- reconciliation writes block from the DROP through the index build. Accepted
+-- because the build is over zero index entries and the table is small; the same
+-- caveat `0070` records applies if that ever stops being true.
+--
+-- NOT A FOREIGN KEY. `ID_COLUMNS_WITHOUT_FOREIGN_KEY` already records the
+-- ruling and this migration does not revisit it: clicks are swept on their own
+-- retention clock (`expiryTargets.ts`, 400 days) while a commission record is
+-- accounting and outlives them, so a key would make that sweep either fail or
+-- cascade — and a cascade would delete the money record along with the click.
+--
+-- REGENERATION: drizzle-kit emits exactly the two statements below, from
+-- `uniqueIndex('affiliate_transactions_matched_click_key')` in
+-- `db/schema/affiliateOutbound.ts`. This header is hand-written and must be
+-- re-applied — then grep the file for both index statements and for exactly one
+-- anchored `-- oxy:deploy-phase=` line.
+DROP INDEX "affiliate_transactions_click_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "affiliate_transactions_matched_click_key" ON "affiliate_transactions" USING btree ("matched_click_id") WHERE "affiliate_transactions"."matched_click_id" is not null;

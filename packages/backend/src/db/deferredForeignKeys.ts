@@ -1821,12 +1821,14 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   {
     column: 'affiliate_transactions.matched_click_id',
     reason:
-      'The click a network report was tied to. Deliberately inert text: the click table is ' +
-      'swept on its own retention clock (clicks are telemetry; a commission record is ' +
+      'The click a network report was tied to. Text with no REFERENCE, though not unconstrained ' +
+      '— `affiliate_transactions_matched_click_key` is a partial unique over it, so one click ' +
+      'cannot be credited to two transactions. What it is not is a foreign key: the click table ' +
+      'is swept on its own retention clock (clicks are telemetry; a commission record is ' +
       'accounting and is retained longer), so a foreign key would make the sweep either fail or ' +
       'cascade — and cascading would delete the money record along with the click. `match_state` ' +
       'stays `matched` and the id stays readable after the click is gone, which is the honest ' +
-      'account of what was known.',
+      'account of what was known, and is exactly what a key could not express.',
   },
 
   // ── Referral integrity: enforcement, signals, policy (#148, ADR 0005) ─────
