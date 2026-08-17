@@ -54,6 +54,7 @@ import {
   categoryExternalMappings,
   categoryRedirects,
 } from '../schema/taxonomy.js';
+import { categoryLocalizations } from '../schema/catalogLocalization.js';
 
 /** One row of `categories`. */
 export type CategoryRow = InferSelectModel<typeof categories>;
@@ -531,24 +532,107 @@ export async function findCategoryAncestors(
 }
 
 /**
+ * Where a paged tree read left off.
+ *
+ * `(position, slug)` and not the primary key: `slug` carries `categories_slug_key`
+ * so the pair is a TOTAL order, while `id` is a uuid v7 whose leading bits are a
+ * timestamp — paging on it would page by insertion time. Both columns are `NOT
+ * NULL`, so the comparison needs none of the NULL branches a nullable keyset does.
+ */
+export interface CategoryKeysetCursor {
+  readonly position: number;
+  readonly slug: string;
+}
+
+/** A tree read's lifecycle filter plus its optional page bound. */
+export interface CategoryPageFilter extends CategoryLifecycleFilter {
+  /** Strictly AFTER this point in `(position, slug)` order. */
+  after?: CategoryKeysetCursor;
+  /** How many rows at most. Omitted means every match. */
+  limit?: number;
+}
+
+/**
  * Every category beneath one, at any depth — the GIN'd `ancestor_ids @> [id]`
  * that made the materialized path the choice (ADR 0007 D2).
+ *
+ * Pageable, because this is the one tree read whose result is not bounded by a
+ * node's fan-out: the descendants of a root are the whole taxonomy beneath it.
+ * The bound is a keyset rather than an offset — an offset re-reads and re-skips
+ * every earlier row, and shifts under a concurrent insert.
  */
 export async function findCategoryDescendants(
   categoryId: string,
-  filter: CategoryLifecycleFilter = {},
+  filter: CategoryPageFilter = {},
   db: DatabaseOrTransaction = getDb(),
 ): Promise<CategoryRow[]> {
-  return db
+  const query = db
     .select()
     .from(categories)
     .where(
       and(
         sql`${categories.ancestorIds} @> array[${categoryId}]::text[]`,
         lifecycleClause(filter),
+        keysetClause(filter.after),
       ),
     )
     .orderBy(asc(categories.position), asc(categories.slug));
+  return filter.limit === undefined ? query : query.limit(filter.limit);
+}
+
+/**
+ * Categories whose NAME matches a pattern, in the reader's locale or the base one.
+ *
+ * Returns ROWS and no ranking. Ranking belongs to the caller and has to happen
+ * against the text the reader is actually served, which is the localization
+ * resolver's answer over the whole fallback chain — not whichever chain member
+ * this statement's `ilike` happened to hit. A hit here is therefore a CANDIDATE,
+ * and `services/taxonomy/read.service.ts` keeps the ones whose resolved name
+ * really contains the query.
+ *
+ * `ilike` and no trigram: `categories` carries no text index and the ADR's own
+ * scale statement is "thousands of nodes, not millions" (D2), so this is a
+ * bounded scan over a table small enough that adding an index would be a
+ * migration with no measurement behind it. `cap` is what keeps that promise
+ * honest — the caller reports whether it was reached rather than presenting a
+ * truncated scan as a complete one.
+ *
+ * The candidate set is ordered `(position, slug)` so the truncation point is
+ * deterministic. Ordering by relevance here would need the resolver, which is
+ * exactly what this statement must not re-implement.
+ */
+export async function findCategoriesByNameMatch(
+  pattern: string,
+  options: {
+    readonly localeChain: readonly string[];
+    readonly servableStatuses: readonly string[];
+    readonly lifecycles: readonly CategoryLifecycle[];
+    readonly cap: number;
+  },
+  db: DatabaseOrTransaction = getDb(),
+): Promise<CategoryRow[]> {
+  if (options.localeChain.length === 0 || options.lifecycles.length === 0) return [];
+  return db
+    .select()
+    .from(categories)
+    .where(
+      and(
+        inArray(categories.lifecycle, [...options.lifecycles]),
+        sql`(
+          ${categories.name} ilike ${pattern}
+          or exists (
+            select 1
+            from ${categoryLocalizations} cl
+            where cl.category_id = ${categories.id}
+              and cl.locale = any(${sql.param(options.localeChain)}::text[])
+              and cl.status = any(${sql.param(options.servableStatuses)}::text[])
+              and cl.name ilike ${pattern}
+          )
+        )`,
+      ),
+    )
+    .orderBy(asc(categories.position), asc(categories.slug))
+    .limit(options.cap);
 }
 
 /** The breadcrumb for one category: its ancestors root-first, then itself. */
@@ -661,6 +745,19 @@ function lifecycleClause(filter: CategoryLifecycleFilter) {
   const lifecycles = filter.lifecycles;
   if (!lifecycles || lifecycles.length === 0) return sql`true`;
   return inArray(categories.lifecycle, [...lifecycles]);
+}
+
+/**
+ * Strictly after a `(position, slug)` point, or `true` when there is no cursor.
+ *
+ * Written as a ROW comparison, which Postgres evaluates lexicographically and
+ * which matches the `ORDER BY` exactly. Both columns are `NOT NULL`, so the row
+ * comparison can never yield NULL — the failure that drops every undated row
+ * from a nullable keyset.
+ */
+function keysetClause(after: CategoryKeysetCursor | undefined) {
+  if (after === undefined) return sql`true`;
+  return sql`(${categories.position}, ${categories.slug}) > (${after.position}, ${after.slug})`;
 }
 
 async function findCategoryRow(
