@@ -142,10 +142,10 @@ const MATCHER_WRITE_REFERENCE = /matching\/match\.service|runMatch\(/;
 
 /** The payment and retail domains. A feed cannot make Mercaria the seller. */
 const COMMERCE_MONEY_REFERENCE =
-  /services\/payments\/|services\/retail-pricing\/|services\/retail-eligibility\/|mercaria_retail/;
+  /services\/payments\/|\.\.\/payments\/|services\/retail-pricing\/|\.\.\/retail-pricing\/|services\/retail-eligibility\/|\.\.\/retail-eligibility\/|mercaria_retail/;
 
 /** #74's ranking. A feed's contents are not a ranking input. */
-const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\//;
+const RANKING_REFERENCE = /rankOffers|offerRanking|services\/ranking\/|\.\.\/ranking\//;
 
 function readDomainFile(relative: string): string {
   const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
@@ -348,4 +348,60 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   it('the domain directories really are where the gate thinks they are', () => {
     expectEveryShapeFoundSomething();
   });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* #454: the detector must match the IDIOM, not one spelling of it            */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * These detectors named each forbidden domain by its `services/<domain>/` path
+ * only, which is not the specifier a module inside this domain writes: a
+ * sibling directory is one `../` away, so the real import is `'../<domain>/…'`
+ * and it passed the wall untouched. MEASURED on `origin/main` by executing each
+ * pattern against that spelling.
+ *
+ * One relative alternative per domain covers EVERY depth, because however many
+ * `../` segments precede it the last always abuts the directory name.
+ *
+ * The probes below are written from the IDIOM rather than from the regex — a
+ * self-test derived from the pattern can only confirm the pattern matches
+ * itself. The imported SYMBOL is deliberately neutral in each: the sibling
+ * probe in `freshness-isolation.test.ts` imported `rankOffers`, which its
+ * pattern matches by function NAME, so it passed without ever exercising the
+ * path alternative it appeared to cover.
+ */
+describe('#454: a relative import cannot walk around these detectors', () => {
+  it('COMMERCE_MONEY_REFERENCE sees a sibling-relative import', () => {
+    expect(
+      COMMERCE_MONEY_REFERENCE.test("import { helper } from '../payments/thing.service.js';"),
+      "a module here reaches payments as '../payments/…' and that must not pass",
+    ).toBe(true);
+    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../../services/payments/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCE_MONEY_REFERENCE.test("import { helper } from '../retail-pricing/thing.service.js';"),
+      "a module here reaches retail-pricing as '../retail-pricing/…' and that must not pass",
+    ).toBe(true);
+    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../../services/retail-pricing/thing.service.js';")).toBe(true);
+    expect(
+      COMMERCE_MONEY_REFERENCE.test("import { helper } from '../retail-eligibility/thing.service.js';"),
+      "a module here reaches retail-eligibility as '../retail-eligibility/…' and that must not pass",
+    ).toBe(true);
+    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../../services/retail-eligibility/thing.service.js';")).toBe(true);
+    // The negative half, or the widening would fire on ordinary imports.
+    expect(COMMERCE_MONEY_REFERENCE.test("import { helper } from '../payments-display/format.js';")).toBe(false);
+    expect(COMMERCE_MONEY_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
+  });
+
+  it('RANKING_REFERENCE sees a sibling-relative import', () => {
+    expect(
+      RANKING_REFERENCE.test("import { helper } from '../ranking/thing.service.js';"),
+      "a module here reaches ranking as '../ranking/…' and that must not pass",
+    ).toBe(true);
+    expect(RANKING_REFERENCE.test("import { helper } from '../../services/ranking/thing.service.js';")).toBe(true);
+    // The negative half, or the widening would fire on ordinary imports.
+    expect(RANKING_REFERENCE.test("import { helper } from '../ranking-display/format.js';")).toBe(false);
+    expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
+  });
+
 });
