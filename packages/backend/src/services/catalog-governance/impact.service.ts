@@ -53,10 +53,19 @@ import {
 /**
  * Whether a subject kind is one the plan counts.
  *
- * A real type predicate whose result is USED to narrow — a predicate whose
- * result is discarded narrows nothing and reads exactly like a narrowing, which
- * is how an uncountable subject kind would reach `GOVERNED_REFERENCE_PLAN[kind]`
- * and index it to `undefined`.
+ * The type predicate is load-bearing, and MEASURED to be so under this
+ * package's own compiler settings rather than assumed: replacing
+ * `kind is CatalogGovernanceCountedSubjectKind` with a plain `boolean` return
+ * fails `tsc` with three `TS2345`s, at the `declaredRelationCount` and
+ * `rewirePathsMissing` calls that take the narrower union.
+ *
+ * The part worth knowing is WHERE it does not fail. `GOVERNED_REFERENCE_PLAN[kind]`
+ * — indexing a `Record` over the narrow union with the WIDE one — raises
+ * nothing: `packages/backend` compiles with `strict: false` and no
+ * `noUncheckedIndexedAccess`, so that expression is typed as a present value
+ * and is `undefined` at run time. The guard is what stops an uncountable
+ * subject kind reaching it; the two helper calls beside it are what make
+ * removing the guard a build failure rather than a silent one.
  */
 export function isCountedSubjectKind(
   kind: CatalogGovernanceSubjectKind,
