@@ -1,5 +1,17 @@
 /**
- * `?version=` may not serve an UNLAUNCHED product-type schema (#367 step 5).
+ * The lifecycle and status FILTERS on the unprivileged authoring surface
+ * (#367 step 5).
+ *
+ * Two of them, and they are here together because they are one question —
+ * *which lifecycle or status may an unprivileged caller see* — asked in two
+ * places on one router. `docs/reviews/2026-08-17-catalog-authoring-security-review.md`
+ * counts seven readers of it on this surface; the `?version=` composition was one
+ * of the two that got it wrong, and `listSelectableCategories` was one of the five
+ * that got it right and was pinned by nothing at all. A filter is not an import a
+ * scan can walk or a row a CHECK can refuse, so nothing in this repository was
+ * looking at either.
+ *
+ * ## 1. `?version=` may not serve an UNLAUNCHED product-type schema
  *
  * `GET /catalog-authoring/schemas/:productTypeKey?version=N` is authenticated
  * and nothing more — no store permission, no operator allow-list — which is
@@ -24,12 +36,37 @@
  * the fix could be a blanket refusal of every explicitly-named version and this
  * file would be green.
  *
+ * ## 2. The categories picker must actually exclude what it says it excludes
+ *
+ * `listSelectableCategories` requires `selectable = true AND lifecycle =
+ * 'published'` and its own comment says the two are DIFFERENT facts — a
+ * connector holding pen is suppressed and selectable, a grouping root is
+ * published and not selectable. It was referenced by no test in the repository,
+ * so deleting either clause left every suite green while the authoring picker
+ * offered categories ADR 0007 D2 says a product may not be filed under.
+ *
+ * The two cases are separate, and that is the point rather than tidiness: ONE
+ * case is satisfied by either clause on its own, so a single mutation going red
+ * proves one clause exists and says nothing about the other. Each is
+ * mutation-tested independently.
+ *
+ * Asserting a filter needs ROWS IN THE STATES IT EXCLUDES, which is the whole
+ * reason this class of bug survives — a test written without them passes against
+ * the filter's absence.
+ *
  * ## Scoping, because this database is SHARED
  *
  * One throwaway database serves the whole suite and vitest runs files in
  * parallel workers, so every identifier here carries a per-run suffix and
  * teardown deletes exactly what it created — unpublishing FIRST, because
  * `product_type_fields_frozen` refuses to delete a published version's children.
+ *
+ * The categories cases add rows to a table siblings also read, so the picker is
+ * queried under a PARENT this file owns and every assertion names the ids it
+ * inserted. It never counts the table. **MEASURED:** the only two files that
+ * count `categories` whole — `ancestry-benchmark.realdb.test.ts` and
+ * `provision-taxonomy.realdb.test.ts` — each create their OWN throwaway
+ * database, so neither can see these fixtures and neither can truncate them.
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -54,6 +91,7 @@ import {
   clearAuthoringSchemaMemo,
   composeAuthoringSchema,
 } from '../schema.service.js';
+import { listSelectableCategories } from '../../../db/catalogAuthoring/schemaSourceRepository.js';
 
 let db: Database;
 
@@ -77,9 +115,16 @@ const versionByLifecycle = new Map<ProductTypeLifecycle, number>();
 
 const createdDefinitionIds: string[] = [];
 const createdCategoryIds: string[] = [];
+/** Children, deleted BEFORE their parent — `categories.parent_id` is `restrict`. */
+const createdChildCategoryIds: string[] = [];
 const createdAttributeIds: string[] = [];
 
 let categoryId: string;
+/** The parent the picker cases query under, so a sibling's rows cannot appear. */
+let pickerParentId: string;
+let pickerVisibleId: string;
+let pickerSuppressedId: string;
+let pickerNotSelectableId: string;
 
 /** Every permission on, so a refusal below can only be about the lifecycle. */
 const PERMISSIONS: AuthoringPermissionContext = {
@@ -183,6 +228,59 @@ beforeAll(async () => {
   createdCategoryIds.push(category.id);
   categoryId = category.id;
 
+  // The picker fixtures: a grouping ROOT this file owns, and three children in
+  // the three states that matter. The parent is itself a published,
+  // non-selectable grouping node — realistic, and it means the parent can never
+  // appear in a query for its own children.
+  const [parent] = await db
+    .insert(categories)
+    .values({
+      key: `pt_expo_root_${RUN}`.toLowerCase(),
+      name: `Picker root ${RUN}`,
+      slug: `pt-expo-root-${RUN}`,
+      selectable: false,
+    })
+    .returning();
+  createdCategoryIds.push(parent.id);
+  pickerParentId = parent.id;
+
+  const children = await db
+    .insert(categories)
+    .values([
+      // Published AND selectable — the one the picker must offer. Its presence in
+      // every assertion below is what stops a case passing on an empty result.
+      {
+        key: `pt_expo_kid_ok_${RUN}`.toLowerCase(),
+        name: `Picker offers ${RUN}`,
+        slug: `pt-expo-kid-ok-${RUN}`,
+        parentId: parent.id,
+      },
+      // The connector holding pen: SUPPRESSED and selectable. Excluded by the
+      // lifecycle clause and by nothing else — `selectable` is true here on
+      // purpose, so this case cannot be satisfied by the selectable clause.
+      {
+        key: `pt_expo_kid_sup_${RUN}`.toLowerCase(),
+        name: `Picker suppressed ${RUN}`,
+        slug: `pt-expo-kid-sup-${RUN}`,
+        parentId: parent.id,
+        lifecycle: 'suppressed',
+      },
+      // A grouping root: PUBLISHED and not selectable. Excluded by the selectable
+      // clause and by nothing else, for the mirror-image reason.
+      {
+        key: `pt_expo_kid_group_${RUN}`.toLowerCase(),
+        name: `Picker grouping ${RUN}`,
+        slug: `pt-expo-kid-group-${RUN}`,
+        parentId: parent.id,
+        selectable: false,
+      },
+    ])
+    .returning();
+  for (const child of children) createdChildCategoryIds.push(child.id);
+  pickerVisibleId = children[0].id;
+  pickerSuppressedId = children[1].id;
+  pickerNotSelectableId = children[2].id;
+
   const [attribute] = await db
     .insert(attributeDefinitions)
     .values({
@@ -227,6 +325,12 @@ afterAll(async () => {
     await db
       .delete(attributeDefinitions)
       .where(inArray(attributeDefinitions.id, createdAttributeIds));
+  }
+  // Children first, in their OWN statement: `categories.parent_id` is `restrict`,
+  // and a RESTRICT foreign key is checked immediately rather than at end of
+  // statement, so a single delete naming both ends would be refused.
+  if (createdChildCategoryIds.length > 0) {
+    await db.delete(categories).where(inArray(categories.id, createdChildCategoryIds));
   }
   if (createdCategoryIds.length > 0) {
     await db.delete(categories).where(inArray(categories.id, createdCategoryIds));
@@ -321,5 +425,56 @@ describe('a RETRIEVABLE version still composes', () => {
     expect(composition.outcome).toBe('composed');
     if (composition.outcome !== 'composed') return;
     expect(composition.schema.productType.version).toBe(versionByLifecycle.get('published'));
+  });
+});
+
+describe('the categories picker offers only what a product may be filed under', () => {
+  /** The picker's answer, scoped to the parent this file owns. */
+  async function offeredIds(): Promise<string[]> {
+    const rows = await listSelectableCategories(db, { parentId: pickerParentId, limit: 50 });
+    return rows.map((row) => row.id);
+  }
+
+  it('excludes a SUPPRESSED category, which is selectable', async () => {
+    // The connector holding pen. Only the `lifecycle` clause can refuse it, so
+    // this case measures that clause and nothing else.
+    const ids = await offeredIds();
+    expect(ids).not.toContain(pickerSuppressedId);
+    // The published, selectable sibling IS offered — without this the assertion
+    // above is satisfied by a picker that returns nothing at all.
+    expect(ids).toContain(pickerVisibleId);
+  });
+
+  it('excludes a NON-SELECTABLE category, which is published', async () => {
+    // A grouping root. Only the `selectable` clause can refuse it — the mirror
+    // image, and the reason these are two cases rather than one.
+    const ids = await offeredIds();
+    expect(ids).not.toContain(pickerNotSelectableId);
+    expect(ids).toContain(pickerVisibleId);
+  });
+
+  it('offers EXACTLY the published, selectable child and nothing else', async () => {
+    // Scoped to this file's own parent, so an exact equality is safe on a shared
+    // database — no sibling's category can be a child of a row created here.
+    expect(await offeredIds()).toEqual([pickerVisibleId]);
+  });
+
+  it('VACUITY CONTROL — the fixtures are the three distinct states they claim', async () => {
+    // Without this, a fixture that silently created one row three times, or that
+    // lost the `lifecycle`/`selectable` overrides, would make both exclusion
+    // cases pass by measuring the same excluded row twice.
+    const ids = [pickerVisibleId, pickerSuppressedId, pickerNotSelectableId];
+    expect(new Set(ids).size).toBe(3);
+    const rows = await db.select().from(categories).where(inArray(categories.id, ids));
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    expect(byId.get(pickerVisibleId)?.lifecycle).toBe('published');
+    expect(byId.get(pickerVisibleId)?.selectable).toBe(true);
+    expect(byId.get(pickerSuppressedId)?.lifecycle).toBe('suppressed');
+    // Selectable ON PURPOSE: the suppressed case must be refused by the lifecycle
+    // clause alone, and this is what proves the other clause could not have done
+    // it.
+    expect(byId.get(pickerSuppressedId)?.selectable).toBe(true);
+    expect(byId.get(pickerNotSelectableId)?.lifecycle).toBe('published');
+    expect(byId.get(pickerNotSelectableId)?.selectable).toBe(false);
   });
 });
