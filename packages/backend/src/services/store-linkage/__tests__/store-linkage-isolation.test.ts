@@ -31,7 +31,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -49,18 +49,40 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every module of the linkage domain — services, repository, routes, controllers. */
+/** Every `.ts` under `relative`, recursively, excluding the test tree. */
+function walk(relative: string): string[] {
+  const absolute = join(SRC_ROOT, relative);
+  const found: string[] = [];
+  for (const entry of readdirSync(absolute, { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/**
+ * Every module of the linkage domain — services, repository, routes, controllers.
+ *
+ * WALKED, never listed. A hand-maintained array is complete on the day it is
+ * written and silently incomplete on the day somebody adds a file: the gate then
+ * SKIPS exactly the new module, which is the one nobody has reviewed. The two
+ * dedicated directories are walked whole; the four shared directories are
+ * filtered on the domain's own filename prefix, which is the convention every
+ * file in them already follows.
+ *
+ * The floors below are what stop a walk that found nothing — a moved directory,
+ * a renamed prefix — from reading as a clean scan.
+ */
 const LINKAGE_DOMAIN_PATHS = [
-  'services/store-linkage/store-linkage.service.ts',
-  'services/store-linkage/linkage-candidates.ts',
-  'services/store-linkage/linkage-diff.ts',
-  'services/store-linkage/offer-overlap.ts',
-  'services/store-linkage/canonical-matcher.port.ts',
-  'db/store-linkage/storeLinkageRepository.ts',
-  'routes/store-linkage.ts',
-  'controllers/store-linkage.controller.ts',
-  'controllers/store-linkage-operator.controller.ts',
-  'middleware/store-linkage-schemas.ts',
+  ...walk('services/store-linkage'),
+  ...walk('db/store-linkage'),
+  ...(['routes', 'controllers', 'middleware'] as const).flatMap((directory) =>
+    readdirSync(join(SRC_ROOT, directory))
+      .filter((name) => name.startsWith('store-linkage') && name.endsWith('.ts'))
+      .map((name) => `${directory}/${name}`),
+  ),
 ];
 
 /** The module that decides which stores are candidates. The name-match wall. */
@@ -112,9 +134,21 @@ const RELATIONSHIP_REFERENCE =
  * `insertOffer`/`upsert…Offer`/`retireOffer…`/`updateOffer` are the offer
  * repository's own writers, and `db/offers/offerRepository` catches an import of
  * the module they live in.
+ *
+ * The function names are only the FIRST of the three idioms, and on their own
+ * they are the weakest: they catch a module that calls #57's repository and miss
+ * every module that writes the table itself. So the builder call
+ * (`db.update(offers)`, `tx.insert(offers)`) and the raw statement
+ * (`update offers set`, `insert into offers`) are both named here too — the
+ * shape the DELETE wall in this same file has always had, back-ported.
+ *
+ * That is not a hypothetical: `db/store-linkage/storeLinkageRepository.ts`
+ * already writes `sql\`… from offers …\`` READ-ONLY for the overlap count, so
+ * the raw-SQL vocabulary is live in a guarded file and one `update offers set`
+ * beside it would have left this wall green.
  */
 const OFFER_WRITE_REFERENCE =
-  /insertOffer|upsertNativeOffer|upsertExternalOffer|retireOffers|retireLapsedExternalOffers|retireOffersMissingFromSource|updateOffer\b|offerRepository/;
+  /insertOffer|upsertNativeOffer|upsertExternalOffer|retireOffers|retireLapsedExternalOffers|retireOffersMissingFromSource|updateOffer\b|offerRepository|\.(?:update|insert)\(\s*offers\b|\b(?:update|into)\s+offers\b|\binsert\s+into\s+offers\b/i;
 
 /** The ONE offer-domain function linkage may call, and the module it lives in. */
 const OFFER_SYNC_SEAM = 'offers/native-offer.service.js';
@@ -299,11 +333,67 @@ describe('linkage materializes offers through #57 and writes none itself', () =>
   });
 
   it('detects a seeded violation of the offer and canonical detectors', () => {
+    // Written from the IDIOM, not from the pattern. Every probe below is a line
+    // a module in this domain could plausibly contain — not a token lifted out
+    // of the regex, which can only ever confirm that the regex matches itself.
+    //
+    // The first two are the repository-call shape the pattern was originally
+    // built from. The rest are the three spellings that used to walk straight
+    // through it, and the reason this gate changed: the repository already
+    // composes raw `sql` naming `offers`, so the raw forms are the ones a real
+    // edit here would reach for.
     expect(OFFER_WRITE_REFERENCE.test('await upsertNativeOffer(db, row)')).toBe(true);
     expect(OFFER_WRITE_REFERENCE.test("from '../../db/offers/offerRepository.js'")).toBe(true);
+
+    // Builder call, both handles: a transaction handle is what a repository
+    // writing inside `db.transaction(...)` actually has in scope.
+    expect(
+      OFFER_WRITE_REFERENCE.test('await db.update(offers).set({ status: retired }).where(eq(a, b))'),
+    ).toBe(true);
+    expect(OFFER_WRITE_REFERENCE.test('await tx.insert(offers).values(row)')).toBe(true);
+
+    // Raw SQL, which is how this repository already talks to `offers`.
+    expect(
+      OFFER_WRITE_REFERENCE.test(
+        'await db.execute(sql`update offers set status = \'retired\' where store_id = ${id}`)',
+      ),
+    ).toBe(true);
+    expect(
+      OFFER_WRITE_REFERENCE.test('await db.execute(sql`insert into offers (id) values (${id})`)'),
+    ).toBe(true);
+
+    // The negative half, so the widening did not turn the wall into one that
+    // fires on the read the repository legitimately performs today. Without
+    // this the cheapest way to green a false positive is to loosen the pattern
+    // back to where it started.
+    expect(
+      OFFER_WRITE_REFERENCE.test('select count(*) from offers where merchant_id = ${merchantId}'),
+    ).toBe(false);
+
     expect(CANONICAL_WRITE_REFERENCE.test("from '../canonical/canonical-product.service.js'")).toBe(
       true,
     );
+  });
+
+  it('walks the domain rather than listing it, and the walk found every shape', () => {
+    // The vacuity floor for the walk. A walk that found nothing, a renamed
+    // directory or a changed filename prefix all produce an empty scan, which
+    // is indistinguishable from a domain that violates nothing.
+    expect(LINKAGE_DOMAIN_PATHS.length).toBeGreaterThanOrEqual(10);
+
+    // And a floor per SHAPE, because the three sources are separately breakable:
+    // the two walked directories and the prefix-filtered shared directories.
+    const from = (prefix: string) =>
+      LINKAGE_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/store-linkage/'), 'the service directory walk found nothing').toBeGreaterThanOrEqual(5);
+    expect(from('db/store-linkage/'), 'the repository directory walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('routes/'), 'the routes prefix filter found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('controllers/'), 'the controllers prefix filter found nothing').toBeGreaterThanOrEqual(2);
+    expect(from('middleware/'), 'the middleware prefix filter found nothing').toBeGreaterThanOrEqual(1);
+
+    // No test file may enter the scanned set: a gate scanning its own probes
+    // reports violations it wrote itself.
+    expect(LINKAGE_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
   });
 });
 

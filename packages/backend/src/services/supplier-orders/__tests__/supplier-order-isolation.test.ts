@@ -113,7 +113,12 @@ const WALLS: Wall[] = [
   {
     name: 'the payment domain',
     files: [...DOMAIN_FILES, ...REPOSITORY_FILES],
-    pattern: /from\s+['"][^'"]*(services\/payments|db\/payments|schema\/payments|schema\/ledger)[^'"]*['"]/,
+    // `\.\./payments/` is the specifier a module in `services/supplier-orders/`
+    // actually writes — the payment domain is one `../` away — and the
+    // absolute-looking forms alone never see it. One alternative covers every
+    // depth: the last `../` always abuts the directory name.
+    pattern:
+      /from\s+['"][^'"]*(services\/payments|\.\.\/payments\/|db\/payments|schema\/payments|schema\/ledger)[^'"]*['"]/,
   },
   {
     name: 'a refund, ledger or inventory writer',
@@ -154,22 +159,38 @@ describe('supplier order isolation (static)', () => {
       // The mutation self-test. Each pattern is fed a synthetic source that
       // genuinely contains what it forbids, so a detector that stopped matching
       // fails HERE rather than passing silently forever.
-      const probes: Record<string, string> = {
-        'a database, repository or service, from inside an adapter':
+      // A LIST per wall, not one string: a single probe can only demonstrate the
+      // one spelling whoever wrote it had in mind, and the spelling a real file
+      // here would use is usually a different one. The payment wall is the
+      // worked example — its absolute-looking probe passed for months while the
+      // relative form a sibling module actually writes walked straight through.
+      const probes: Record<string, readonly string[]> = {
+        'a database, repository or service, from inside an adapter': [
           "import { findPurchaseOrderById } from '../../../db/procurement/purchaseOrderRepository.js';",
-        'the adapter registry, from anywhere but the provider-call chokepoint':
+        ],
+        'the adapter registry, from anywhere but the provider-call chokepoint': [
           "import { findSupplierAdapter } from '../supplier-preflight/registry.js';",
-        'a procurement lever, from a durable-record path':
+        ],
+        'a procurement lever, from a durable-record path': [
           'if (config.procurement.orchestrationEnabled) { return; }',
-        'the payment domain':
+        ],
+        'the payment domain': [
           "import { paymentService } from '../../services/payments/payment.service.js';",
-        'a refund, ledger or inventory writer':
+          // The relative specifier — one `../` from here to a sibling domain.
+          "import { paymentService } from '../payments/payment.service.js';",
+          "import { bookLedger } from '../../payments/ledger-postings.js';",
+        ],
+        'a refund, ledger or inventory writer': [
           "import { bookLedger } from '../../db/payments/ledgerRepository.js';",
-        'OxyPay or FairCoin': 'const rail = "oxy_pay";',
+        ],
+        'OxyPay or FairCoin': ['const rail = "oxy_pay";'],
       };
-      const probe = probes[wall.name];
-      expect(probe).toBeDefined();
-      expect(wall.pattern.test(probe ?? '')).toBe(true);
+      const forWall = probes[wall.name];
+      expect(forWall, `no probe registered for the ${wall.name} wall`).toBeDefined();
+      expect((forWall ?? []).length).toBeGreaterThan(0);
+      for (const probe of forWall ?? []) {
+        expect(wall.pattern.test(probe), `the ${wall.name} wall misses: ${probe}`).toBe(true);
+      }
     });
   }
 });

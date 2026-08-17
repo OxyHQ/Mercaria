@@ -91,9 +91,19 @@ const FOLLOW_REFERENCE =
 const GRAPH_WRITE =
   /\.(insert|update|delete)\s*\(|\b(createMerchant|createStorefront|insertMerchant|insertStorefront|upsertStorefrontFromSource|markStorefrontVerified|setMerchantClaimVerdict|verifyDomainForMerchant|applySourceObservation|linkNativeStore|revokeLink|catalog-write|updateListing|recordExternalOffer)\b/;
 
-/** The payment and onboarding domain, from any direction. */
+/**
+ * The payment and onboarding domain, from any direction.
+ *
+ * `\.\./payments/` covers the relative specifier a sibling module actually
+ * writes. Without it this pattern caught a payments import only when the
+ * imported SYMBOL happened to match one of the identifier alternatives
+ * (`readProviderAccount` matching `providerAccount`) — an incidental catch that
+ * looks exactly like a working path detector until somebody imports
+ * `openCheckoutPayment` instead, which is how #454 measured it. One alternative
+ * covers every depth: the last `../` always abuts the directory name.
+ */
 const PAYMENT_REFERENCE =
-  /services\/payments\/|provider_accounts|providerAccount|onboardingState|payoutsEnabled|chargesEnabled|\bstripe\b/i;
+  /services\/payments\/|\.\.\/payments\/|provider_accounts|providerAccount|onboardingState|payoutsEnabled|chargesEnabled|\bstripe\b/i;
 
 /** A physical place, or the precise geography that would identify one. */
 const LOCATION_REFERENCE =
@@ -356,6 +366,22 @@ describe('the detectors actually detect — the mutation self-test', () => {
     );
     expect(PAYMENT_REFERENCE.test('onboardingState: "complete"')).toBe(true);
     expect(PAYMENT_REFERENCE.test('const market = "ES";')).toBe(false);
+
+    // The relative specifier, with an imported symbol that matches NONE of the
+    // identifier alternatives — so this probe tests the PATH half of the pattern
+    // rather than passing incidentally on the name. That distinction is the
+    // whole finding: `readProviderAccount` matched `providerAccount` and made
+    // the missing path alternative invisible.
+    expect(
+      PAYMENT_REFERENCE.test(
+        "import { openCheckoutPayment } from '../payments/checkout-payment.service.js';",
+      ),
+    ).toBe(true);
+    expect(
+      PAYMENT_REFERENCE.test("import { bookLedger } from '../../payments/ledger-postings.js';"),
+    ).toBe(true);
+    // A neighbour sharing the prefix is not the payment domain.
+    expect(PAYMENT_REFERENCE.test("import { fmt } from '../payments-ui/format.js';")).toBe(false);
 
     expect(LOCATION_REFERENCE.test('latitude: 41.38')).toBe(true);
     expect(LOCATION_REFERENCE.test('from(inventoryLocations)')).toBe(true);

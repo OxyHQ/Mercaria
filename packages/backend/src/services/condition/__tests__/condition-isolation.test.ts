@@ -28,7 +28,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -60,15 +60,28 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  * whoever adds one to look here rather than quietly landing a module no gate
  * scans.
  */
+function conditionModulesUnder(relative: string): string[] {
+  return readdirSync(join(SRC_ROOT, relative))
+    .filter((name) => name.endsWith('.ts'))
+    .map((name) => `${relative}/${name}`)
+    .sort();
+}
+
+/**
+ * Every module of the condition domain — WALKED, not listed.
+ *
+ * A hand-maintained array is complete on the day it is written and silently
+ * incomplete the day somebody adds a file, and the file it then skips is the
+ * one nobody has reviewed. The exact-count assertion this replaced pinned the
+ * ARRAY's length, which a new source file does not change, so it could never
+ * detect the omission it looked like it was guarding against.
+ *
+ * `db/schema/condition.ts` is named individually because it is the one member
+ * that lives in a directory this domain does not own.
+ */
 const CONDITION_DOMAIN_PATHS = [
-  'services/condition/condition-input.ts',
-  'services/condition/condition-evidence.service.ts',
-  'services/condition/condition-mapping.service.ts',
-  'services/condition/condition-projection.ts',
-  'services/condition/condition-write.service.ts',
-  'db/condition/conditionRepository.ts',
-  'db/condition/conditionMappingRepository.ts',
-  'db/condition/conditionPolicyRepository.ts',
+  ...conditionModulesUnder('services/condition'),
+  ...conditionModulesUnder('db/condition'),
   'db/schema/condition.ts',
 ];
 
@@ -251,8 +264,13 @@ describe('#90 gate 4 — ranking cannot read the condition domain', () => {
 });
 
 describe('#90 gate 5 — the condition domain cannot read commercial standing', () => {
+  // `\.\./(fees|referrals|payments)/` are the specifiers a module in
+  // `services/condition/` actually writes — each of those domains is one `../`
+  // away — and the absolute-looking forms alone never see them. One alternative
+  // per domain covers every depth, because however many `../` segments precede
+  // it the last always abuts the directory name.
   const COMMERCIAL_REACH =
-    /from ['"][^'"]*(?:services\/fees|db\/fees|schema\/fees|services\/referrals|db\/referrals|services\/payments|db\/payments)[^'"]*['"]/;
+    /from ['"][^'"]*(?:services\/fees|\.\.\/fees\/|db\/fees|schema\/fees|services\/referrals|\.\.\/referrals\/|db\/referrals|services\/payments|\.\.\/payments\/|db\/payments)[^'"]*['"]/;
 
   it('no condition module imports the fee, referral or payment domains', () => {
     const offenders: string[] = [];
@@ -261,7 +279,15 @@ describe('#90 gate 5 — the condition domain cannot read commercial standing', 
       if (COMMERCIAL_REACH.test(source)) offenders.push(path);
     }
     expect(offenders).toEqual([]);
-    expect(CONDITION_DOMAIN_PATHS.length).toBe(9);
+    // A vacuity floor rather than an exact count: the set is walked now, so it
+    // GROWS when the domain does, and an exact number would fail every honest
+    // addition while still not detecting the file a hand-maintained list omits.
+    // The floor is what stops a broken walk from reading as a clean scan.
+    expect(CONDITION_DOMAIN_PATHS.length).toBeGreaterThanOrEqual(9);
+    expect(CONDITION_DOMAIN_PATHS.filter((path) => path.startsWith('services/'))).not.toEqual([]);
+    expect(CONDITION_DOMAIN_PATHS.filter((path) => path.startsWith('db/condition/'))).not.toEqual(
+      [],
+    );
     for (const path of CONDITION_DOMAIN_PATHS) {
       expect(read(path).length).toBeGreaterThan(500);
     }
@@ -271,6 +297,19 @@ describe('#90 gate 5 — the condition domain cannot read commercial standing', 
     expect(
       COMMERCIAL_REACH.test("import { feeFor } from '../../services/fees/fee.service.js';"),
     ).toBe(true);
+    // The RELATIVE specifiers, which are what a module in `services/condition/`
+    // would actually write: each of the three forbidden domains is one `../`
+    // away. The absolute-looking probe above passes against a pattern that
+    // misses all three, which is why it kept this wall green.
+    expect(COMMERCIAL_REACH.test("import { feeFor } from '../fees/fee-calculation.js';")).toBe(true);
+    expect(
+      COMMERCIAL_REACH.test("import { paymentService } from '../payments/payment.service.js';"),
+    ).toBe(true);
+    expect(
+      COMMERCIAL_REACH.test("import { attribute } from '../../referrals/attribution.js';"),
+    ).toBe(true);
+    // Neighbours that merely share a prefix are not those domains.
+    expect(COMMERCIAL_REACH.test("import { x } from '../fees-display/format.js';")).toBe(false);
   });
 });
 

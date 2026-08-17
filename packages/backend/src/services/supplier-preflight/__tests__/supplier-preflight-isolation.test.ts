@@ -87,7 +87,13 @@ interface Wall {
 const WALLS: readonly Wall[] = [
   {
     name: 'the fee, referral and ranking layers (#122 selection 3)',
-    pattern: /from\s+['"][^'"]*(services\/fees|db\/fees|schema\/fees|services\/referrals|db\/referrals|schema\/referrals|feed\.service|search\.service)[^'"]*['"]/,
+    // `\.\./fees/` and `\.\./referrals/` are the specifiers a module in
+    // `services/supplier-preflight/` actually writes — each sibling domain is
+    // one `../` away — and the absolute-looking forms alone never see them. One
+    // alternative per domain covers every depth, because however many `../`
+    // segments precede it the last always abuts the directory name.
+    pattern:
+      /from\s+['"][^'"]*(services\/fees|\.\.\/fees\/|db\/fees|schema\/fees|services\/referrals|\.\.\/referrals\/|db\/referrals|schema\/referrals|feed\.service|search\.service)[^'"]*['"]/,
   },
   {
     name: 'purchase-order creation (#122: a quote is not a PurchaseOrder)',
@@ -103,7 +109,47 @@ const WALLS: readonly Wall[] = [
   },
 ];
 
+/**
+ * The mutation self-test's specimens, one list per wall, keyed by wall name.
+ *
+ * Written as lines a module in `services/supplier-preflight/` could plausibly
+ * contain — NOT as tokens lifted out of the patterns above. A probe copied from
+ * the pattern can only confirm the pattern matches itself; the relative-import
+ * probes here are the ones the previous, pattern-derived self-test could never
+ * have produced, and they are the spellings that actually evaded this gate.
+ *
+ * The list is keyed by name and asserted present per wall below, so a new wall
+ * with no probe FAILS rather than being silently unprobed.
+ */
+const PROBES: Record<string, readonly string[]> = {
+  'the fee, referral and ranking layers (#122 selection 3)': [
+    "import { calculateFees } from '../../services/fees/fee-calculation.js';",
+    // The relative specifiers — one `../` from here to each sibling domain.
+    "import { calculateFees } from '../fees/fee-calculation.js';",
+    "import { attribute } from '../../referrals/attribution.js';",
+  ],
+  'purchase-order creation (#122: a quote is not a PurchaseOrder)': [
+    "import { insertPurchaseOrder } from '../../db/procurement/purchaseOrderRepository.js';",
+    "import { submit } from '../supplier-orders/purchase-order.service.js';",
+  ],
+  'the offer, listing and cart layers (#122 mixed carts 5–6)': [
+    "import { listOffers } from '../../db/offers/offerRepository.js';",
+    "import { hydrateCart } from '../cart.service.js';",
+  ],
+  'FX conversion (#120 owns every conversion in the retail money path)': [
+    "import { convert } from '../fx.service.js';",
+    "import { getRates } from '../../services/fx/fx.service.js';",
+  ],
+};
+
 describe('supplier preflight isolation (static)', () => {
+  it('every wall carries at least one probe', () => {
+    // A wall with no probe is an unmeasured wall. Asserting the key sets match
+    // exactly is what stops a new wall being added without a specimen — and
+    // stops a stale probe outliving the wall it was written for.
+    expect(Object.keys(PROBES).sort()).toEqual(WALLS.map((wall) => wall.name).sort());
+  });
+
   it('scans a non-trivial number of files', () => {
     // The vacuity floor: a broken traversal produces an empty violation list,
     // which is exactly what a clean tree produces. Without this the whole suite
@@ -122,19 +168,26 @@ describe('supplier preflight isolation (static)', () => {
     });
 
     it(`would CATCH a reference to ${wall.name}`, () => {
-      // Mutation self-test: the detector must fire on a source that really does
-      // import the forbidden thing. Built from the pattern's own alternatives,
-      // so it cannot drift away from what the detector looks for.
-      const [, alternatives] = /\(([^)]*)\)/.exec(wall.pattern.source) ?? [];
-      // The alternatives are REGEX source, so `\/` and `\.` carry a backslash
-      // the specimen must not. Every escape in these patterns is a literal
-      // character escaped, so dropping the backslash recovers the text — and a
-      // self-test that silently specimens the wrong string is exactly the
-      // "check that cannot fail" this whole block exists to avoid, which is why
-      // the specimen is built from the pattern rather than typed beside it.
-      const first = (alternatives?.split('|')[0] ?? '').replace(/\\(.)/g, '$1');
-      expect(first).not.toEqual('');
-      expect(wall.pattern.test(`import { x } from '../../${first}.js';`)).toBe(true);
+      // Mutation self-test, written from the IDIOM.
+      //
+      // This block used to build its specimen out of the pattern's OWN first
+      // alternative — `pattern.test(<an alternative of pattern>)` — which is
+      // true by construction and could never fail. It said so in its own
+      // comment, as a virtue: "built from the pattern's own alternatives, so it
+      // cannot drift away from what the detector looks for." That is precisely
+      // the defect: it cannot drift away from the detector because it IS the
+      // detector, so it confirmed only that the regex matches itself while the
+      // relative specifier a real module here would write walked straight
+      // through the fee/referral wall.
+      //
+      // Every probe below is instead a line one of these modules could
+      // plausibly contain, at the depth it would contain it.
+      const probes = PROBES[wall.name];
+      expect(probes, `no probe registered for the ${wall.name} wall`).toBeDefined();
+      expect((probes ?? []).length).toBeGreaterThanOrEqual(1);
+      for (const probe of probes ?? []) {
+        expect(wall.pattern.test(probe), `the ${wall.name} wall misses: ${probe}`).toBe(true);
+      }
     });
   }
 });

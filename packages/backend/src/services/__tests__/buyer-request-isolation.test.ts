@@ -100,8 +100,15 @@ const INVENTORY_REFERENCE =
  * The payment domain. The buyer path never reads a provider, a payment
  * aggregate or a ledger — #110 refund rule 4 puts provider truth on the other
  * side of the seam, and `refund-bridge.ts` is the only crossing.
+ *
+ * `\.\./payments/` is the spelling a module in `services/buyer-requests/`
+ * actually writes — the payment domain is one `../` away — and matching only
+ * the absolute-looking `services/payments/` form missed it entirely. One
+ * alternative covers every depth: however many `../` segments precede it, the
+ * last always abuts the directory, so `../payments/`, `../../payments/` and
+ * deeper all contain the literal `../payments/`.
  */
-const PAYMENT_DOMAIN_REFERENCE = /services\/payments\//;
+const PAYMENT_DOMAIN_REFERENCE = /services\/payments\/|\.\.\/payments\//;
 
 /**
  * A REVIEW or a moderation case. #110 support rules 7 and 8: a support message
@@ -254,6 +261,21 @@ describe('buyer request isolation (static)', () => {
     expect(
       PAYMENT_DOMAIN_REFERENCE.test("import { x } from '../services/payments/provider.js';"),
     ).toBe(true);
+    // The RELATIVE specifier, which is what a module in `services/buyer-requests/`
+    // would actually write — the payment domain is one `../` away from here.
+    // The pattern above matched only the absolute-looking form until #454, so
+    // this probe is the one that had to be written from the idiom rather than
+    // copied out of the regex.
+    expect(
+      PAYMENT_DOMAIN_REFERENCE.test("import { paymentService } from '../payments/payment.service.js';"),
+    ).toBe(true);
+    expect(
+      PAYMENT_DOMAIN_REFERENCE.test("import { bookLedger } from '../../payments/ledger-postings.js';"),
+    ).toBe(true);
+    // A neighbour that merely shares the prefix is not the payment domain.
+    expect(PAYMENT_DOMAIN_REFERENCE.test("import { fmt } from '../payments-ui/format.js';")).toBe(
+      false,
+    );
     expect(REVIEW_OR_MODERATION_REFERENCE.test("import { y } from '../review.service.js';")).toBe(
       true,
     );
