@@ -179,6 +179,95 @@ was invisible and it counted four barrel importers where there were seven. **A
 smaller number is indistinguishable from a cleaner tree**, so the gate carries a
 positive control on that exact multi-line shape.
 
+#### A PACKAGE barrel gets no chokepoint, so it gets the resolver (#582)
+
+`@mercaria/shared-types` (114 re-exports, 1,464 non-test importers) and
+`@mercaria/ui` (95, 166) dwarf the schema barrel, and **#581's chokepoint can
+never cover them.** It works for `db/schema/index.ts` because that barrel is
+reached by a RELATIVE path and has two legitimate consumers. A package entry
+point is imported BY NAME, and importing it is how a package is consumed — there
+is no allow-list, no conversion, and no "import from the owner" alternative that
+is not a deep import into another package's internals.
+
+So these two get the predicate #556 identified and set aside: **symbol-level**.
+`src/__tests__/package-barrel-symbols.ts` resolves each named import through the
+barrel to its owning module, and a wall then applies to that owner.
+
+    import { ReferralProgramStatus } from '@mercaria/shared-types';
+      -> packages/shared-types/src/referral.ts   -> a referral wall refuses
+    import { CURRENCY_PRECISION }    from '@mercaria/shared-types';
+      -> packages/shared-types/src/money.ts      -> that same wall allows
+
+Nothing in it is a hand list either: packages are derived by walking `packages/*`
+for a `src/index.ts` with re-export density, so `packages/backend/src/index.ts`
+drops out on its shape, and the symbol map is a scan of what each re-exported
+module declares. Measured: **3,752 shared-types symbols over 114 owner modules,
+329 ui symbols over 95, and zero unresolved re-exports.**
+
+**Twelve gates carry a detector this defeats today** — the issue as filed
+expected none, because it looked for a wall naming a path INSIDE those packages
+and there is still no such wall. The live form is the reverse and commoner: a
+detector like `/from\s+['"][^'"]*(referral|affiliate)[^'"]*['"]/` matches the
+SPECIFIER, and the specifier of a package import is `@mercaria/shared-types`,
+which contains neither word. **Demonstrated, not argued** — planted in
+`services/retail-reconciliation/adjustment.service.ts` against
+`retail-reconciliation-isolation.test.ts`:
+
+| planted line | wall |
+|---|---|
+| `import { ReferralProgramStatus } from '@mercaria/shared-types';`, resolver ON | **RED**, names the file |
+| the same line, resolver OFF | **30/30 GREEN** |
+| `… from '../../../../shared-types/src/referral.js';`, resolver OFF | **RED**, names the file |
+
+The third row is what makes the second one blindness rather than a
+non-violation: the planted symbol genuinely qualifies as what the wall detects.
+
+**A wall is widened to a package module only where reaching that module IS the
+thing forbidden**, which is why exactly one wall was converted rather than all
+twelve gates' worth. Classified by measurement — does the walled domain ALREADY
+import the module the widening would forbid:
+
+| | gates |
+|---|---|
+| widening would **break** the domain | **5** — `navigation` (already imports `offer-ranking.ts`), `pickup` (`analytics.ts`), `compatibility`, `awin` and `feed-import` (their own contract modules) |
+| a tightening is genuinely available | **7** — `product-save`, `referral-pilot`, `referral-earnings`, `reward-funding`, `retail-pilot`, `retail-reconciliation`, `watchlist` |
+
+So a script that widened every fooled detector would turn five domains red on
+their own legitimate contracts. **Widening a deliberately narrow wall is the
+census that pushes you toward the hazard**, and "the detector's substring
+happens to match a module name" is not evidence that reaching that module is
+what the wall forbids. Note the second row is an OPPORTUNITY and not a defect
+list: none of those seven is violated today.
+
+The trap in classifying them is that a plausible reason is not a measurement.
+The first draft of this section justified leaving the FX wall alone by saying
+the domain legitimately reads `FxRateSnapshot` from `shared-types/src/fx.ts`.
+It does read `FxRateSnapshot` — from `money.ts`. `shared-types/src/fx.ts`
+exports exactly one type, and widening that wall would have broken nothing. **A
+guess with a rationale attached, sitting beside measured facts, is the shape an
+error takes here.**
+
+**Validate the resolver against every symbol the workspace actually imports.**
+It is free, exactly on-distribution, and it found a real defect on the first run:
+`import { A as B }` requests `A` while `export { A as B }` publishes `B`, and
+taking the local alias left 22 symbols (`Listing as ListingDTO`,
+`ORDER_SELLER_TYPES as SHARED_ORDER_SELLER_TYPES`, …) resolving to nothing. **An
+unresolved symbol is one a wall reads as reaching nothing**, so `null` is
+reported as UNKNOWN and asserted at zero rather than passed over. The #556
+newline trap recurs here at ten times the scale — **1,051 files in this workspace
+carry a multi-line barrel import**, and a `[^;\n]*?` specifier regex drops the
+importer count from 1,809 to 934 while every wall stays green.
+
+**And a clause matcher must read `export … from` as well as `import`.** A
+RE-EXPORT reaches the module exactly as an import does, and one exists:
+`packages/ui/src/lib/format.ts` writes
+`export type { ProductSummary } from '@mercaria/shared-types'`. Matching only
+`import` reported that file as reaching nothing — this section's own failure one
+level down, in the quiet direction, and found by grepping for the shape rather
+than by any test. Note the `as` direction flips back on that side: a re-export's
+REQUEST is still the name to the left of `as`, while its PUBLICATION is the name
+to the right.
+
 ### Domain populations: no instrument decides this
 
 There is no shared derivation to score against, and the difference between *the

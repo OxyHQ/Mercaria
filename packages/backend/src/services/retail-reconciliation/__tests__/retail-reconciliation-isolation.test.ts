@@ -36,6 +36,7 @@ import {
   assertNoForbiddenAccountingOutput,
   detectForbiddenAccountingOutputs,
 } from '../forbidden-outputs.js';
+import { reachesPackageModule } from '../../../__tests__/package-barrel-symbols.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVICE_DIR = join(HERE, '..');
@@ -86,6 +87,46 @@ interface Wall {
   pattern: RegExp;
   /** A source that genuinely contains what the pattern forbids. */
   probe: string;
+  /**
+   * The same wall asked of a PACKAGE barrel, matched against the OWNING module
+   * of each imported symbol (#582).
+   *
+   * `pattern` above requires a directory segment before the module it forbids,
+   * so it matches `from '../referrals/attribution.service.js'` and matches
+   * NOTHING in `from '@mercaria/shared-types'` — and nothing in this repository
+   * writes any other form, because importing a package by name is how a package
+   * is consumed. #581's chokepoint cannot close that: there is no allow-list and
+   * no "import from the owner" alternative that is not a deep import into
+   * another package's internals. So the predicate here is symbol-level.
+   *
+   * Deliberately set on ONE wall. A wall is only widened to a package module
+   * where reaching that module IS the thing forbidden, and measured across the
+   * twelve gates a package barrel defeats, FIVE would BREAK if widened
+   * mechanically: `navigation-isolation` forbids ranking and its domain already
+   * imports `shared-types/src/offer-ranking.ts`; `pickup-isolation` forbids
+   * analytics and already imports `shared-types/src/analytics.ts`; likewise
+   * `compatibility`, `awin` and `feed-import` on their own contract modules.
+   * Widening a deliberately narrow wall is the census that pushes you toward the
+   * hazard (`docs/isolation-gates.md`).
+   *
+   * The FX wall two entries above is left alone for a different reason:
+   * `shared-types/src/fx.ts` exports exactly one type, `FxRates`, while the
+   * `FxRateSnapshot` this domain is built on lives in `money.ts`. So converting
+   * it would break nothing today and would still be a wall about a live rate
+   * LOOKUP being restated as a wall about a DTO — a decision for whoever owns
+   * #128, not a mechanical follow-on from #582.
+   *
+   * ONE optional object rather than two optional fields, because this backend
+   * compiles with `strict: false`: a pattern set without its probe would
+   * type-check, and the mutation self-test would then hand `undefined` to the
+   * resolver instead of proving the wall catches the barrel form.
+   */
+  packageWall?: {
+    /** Matched against the OWNING module path of each imported symbol. */
+    modules: RegExp;
+    /** A source importing a forbidden module's symbol THROUGH the package barrel. */
+    probe: string;
+  };
 }
 
 const DOMAIN_FILES = [...sourceFiles(SERVICE_DIR), ...sourceFiles(REPOSITORY_DIR)];
@@ -128,6 +169,17 @@ const WALLS: Wall[] = [
     files: DOMAIN_FILES,
     pattern: /from\s+['"][^'"]*(referral|affiliate)[^'"]*['"]/,
     probe: "import { attributeReferral } from '../referrals/attribution.service.js';",
+    // The referral CONTRACTS live in `@mercaria/shared-types` — ten modules of
+    // them (`referral.ts`, `referral-attribution.ts`, … `affiliate-outbound.ts`)
+    // plus `@mercaria/ui`'s `referral-labels`. The path detector above cannot
+    // see one arriving through the package barrel, which is the whole of #582.
+    // Measured before this line existed: this domain reaches exactly two package
+    // modules, `money.ts` and `retail-reconciliation.ts`, so the wall is
+    // tightened here with no legitimate importer to excuse.
+    packageWall: {
+      modules: /(referral|affiliate)/,
+      probe: "import { ReferralProgramStatus } from '@mercaria/shared-types';",
+    },
   },
   {
     // #128 item 6: never restock inventory because of a price adjustment. An
@@ -163,7 +215,13 @@ describe('the reconciliation domain cannot reach what it must not', () => {
 
   for (const wall of WALLS) {
     it(`does not reach ${wall.name}`, () => {
-      const offenders = wall.files.filter((file) => wall.pattern.test(code(file)));
+      const offenders = wall.files.filter((file) => {
+        const source = code(file);
+        if (wall.pattern.test(source)) return true;
+        // The same question asked of a package barrel, resolved symbol by symbol
+        // to the module that owns it (#582).
+        return wall.packageWall ? reachesPackageModule(source, wall.packageWall.modules) : false;
+      });
       expect(offenders.map((file) => relative(SERVICE_DIR, file))).toEqual([]);
       expect(wall.files.length).toBeGreaterThan(0);
     });
@@ -173,6 +231,14 @@ describe('the reconciliation domain cannot reach what it must not', () => {
       // forbids. A pattern that stopped matching would otherwise pass the wall
       // above forever, reporting a clean domain because it reads nothing.
       expect(wall.pattern.test(wall.probe)).toBe(true);
+
+      if (!wall.packageWall) return;
+      // And the barrel form, which the path detector above CANNOT see. Both
+      // halves are asserted: that the resolver catches it, and that the path
+      // detector does not — so this stays a demonstration of why the second
+      // predicate exists rather than a line somebody could delete as redundant.
+      expect(reachesPackageModule(wall.packageWall.probe, wall.packageWall.modules)).toBe(true);
+      expect(wall.pattern.test(wall.packageWall.probe)).toBe(false);
     });
   }
 });
