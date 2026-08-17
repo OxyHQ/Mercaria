@@ -36,6 +36,10 @@ import {
   SPLITTABLE_ENTITY_TYPES,
 } from '@mercaria/shared-types';
 import { SPLIT_ITEM_COLUMNS } from '../split.service.js';
+import {
+  RANKING_SURFACE_PATHS,
+  assertRankingSurfaceIsWhole,
+} from '../../../__tests__/ranking-surface.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -60,26 +64,34 @@ const CURATION_DOMAIN_PATHS = [
   'middleware/curation-schemas.ts',
 ];
 
-/** The organic discovery surface. A new ranking module belongs on this list. */
-const RANKING_PATHS = [
-  'services/feed.service.ts',
-  'services/search.service.ts',
-  'services/catalog-hydration.service.ts',
-  'controllers/feed.controller.ts',
-  'controllers/listings.controller.ts',
-  'routes/feed.ts',
-  'routes/listings.ts',
-  // The offer comparison (#74) — the surface that now decides which offers a
-  // shopper sees and in what order. It joined this list with the domain that
-  // created it, which is what these lists are for.
-  'services/ranking/eligibility.ts',
-  'services/ranking/ranking.ts',
-  'services/ranking/labels.ts',
-  'services/ranking/facts.ts',
-  'services/ranking/comparison.service.ts',
-  'controllers/offer-comparison.controller.ts',
-  'routes/offer-comparison.ts',
-];
+/*
+ * The organic discovery surface is `__tests__/ranking-surface.ts` — WALKED and
+ * derived from the import graph, shared with every other gate asserting that a
+ * domain cannot influence what a buyer sees.
+ *
+ * It used to be a fourteen-entry `RANKING_PATHS` array here, under the comment
+ * "a new ranking module belongs on this list", which is the instruction #460 is
+ * about: nothing enforces it, and what a list like that ends up holding is the
+ * modules somebody remembered.
+ *
+ * #483 replaced eleven such copies with the shared derivation. Its own docblock
+ * table names this file beside `matching` at fourteen entries — and `matching`
+ * really was converted and imports the derivation today, while this one was not.
+ * So #483 ended ten copies and documented eleven, and this is the eleventh.
+ *
+ * Measured on `origin/main` at 4b30d5a2: fourteen entries against forty-two,
+ * missing all of `db/ranking/`, all of `db/search/`, five modules of
+ * `services/ranking/` (`dominance`, `money`, `policy`, `policy.service`,
+ * `seams`), six of `services/search/` including the canonical search service
+ * itself, `db/catalog/listingRepository.ts`, and eleven derived controllers and
+ * routes including both operator surfaces.
+ *
+ * The wall it computes — what an operator decided about an IDENTITY must not
+ * reach organic ranking — is the kind that goes silently green: a merge, a split
+ * or a review verdict leaking into an ordering produces no error and no symptom,
+ * and the modules the copy skipped were by construction the ones nobody had
+ * reviewed against this rule.
+ */
 
 const CURATION_REFERENCE =
   /curation\/|catalogRevisions|catalogMergeJobs|catalogReviewItems|catalog_revisions|catalog_merge_jobs|catalog_review_items|requestMerge|requestSplit/;
@@ -153,17 +165,19 @@ describe('a merge cannot disturb a placed order or a native listing', () => {
 
 describe('curation cannot become a ranking signal', () => {
   it('no feed, search or catalogue-read module references the curation domain', () => {
-    let scanned = 0;
-    for (const relative of RANKING_PATHS) {
+    // The derivation's own per-SHAPE floors and a `statSync` on every path.
+    // This assertion is only as wide as the walk behind it, and a walk that
+    // collapsed to nothing produces exactly the zero violations a healthy run
+    // produces.
+    assertRankingSurfaceIsWhole();
+    for (const relative of RANKING_SURFACE_PATHS) {
       const source = readDomainFile(relative);
       expect(
         CURATION_REFERENCE.test(source),
         `${relative} references the curation domain; what an operator decided about an identity ` +
           'must not reach organic ranking.',
       ).toBe(false);
-      scanned += 1;
     }
-    expect(scanned).toBe(RANKING_PATHS.length);
   });
 
   it('no curation module references a fee, payment or referral module', () => {
@@ -238,7 +252,11 @@ describe('the scanner itself is not vacuous', () => {
 
   it('scans a floor of modules, so a domain that moved cannot shrink the gate', () => {
     expect(CURATION_DOMAIN_PATHS.length).toBeGreaterThanOrEqual(17);
-    expect(RANKING_PATHS.length).toBeGreaterThanOrEqual(7);
+    // The ranking surface carries its own PER-SHAPE floors, which is strictly
+    // stronger than the total this line used to assert: a `>= 7` over a hand
+    // list of fourteen was already satisfied by half of it, so the walk that
+    // matters could have collapsed entirely while the number stayed green.
+    assertRankingSurfaceIsWhole();
   });
 
   it('strips comments without stripping code', () => {
