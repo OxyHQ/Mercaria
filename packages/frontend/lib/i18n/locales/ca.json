@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "Els teus enllaços i codis",
       "empty": "Encara no tens cap codi de recomanació.",
-      "disclosureIntro": "Publica això amb cada enllaç:"
+      "disclosureIntro": "Publica això amb cada enllaç:",
+      "status": {
+        "active": "actiu",
+        "paused": "en pausa",
+        "expired": "caducat",
+        "revoked": "revocat",
+        "retired": "retirat"
+      }
     },
     "support": {
       "title": "Ajuda",

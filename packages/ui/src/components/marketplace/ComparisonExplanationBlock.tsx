@@ -2,7 +2,10 @@ import { View } from "react-native";
 import type { ComparisonExplanation } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import { COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY } from "../../lib/comparison-labels";
+import {
+  COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY,
+  COMPARISON_PROVENANCE_KEYS,
+} from "../../lib/comparison-labels";
 
 export interface ComparisonExplanationBlockProps {
   explanation: ComparisonExplanation;
@@ -78,9 +81,9 @@ export function ComparisonExplanationBlock({
 
       {showProvenance ? (
         <Text className="text-caption text-text-secondary">
-          Written by {explanation.provenance.provider} under comparison policy{" "}
-          {explanation.provenance.comparisonPolicyVersion}. Every figure comes from the table
-          below.
+          {t(COMPARISON_PROVENANCE_KEYS[explanation.state], {
+            policy: explanation.provenance.comparisonPolicyVersion,
+          })}
         </Text>
       ) : null}
     </View>

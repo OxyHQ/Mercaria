@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "روابطك ورموزك",
       "empty": "ليس لديك رموز إحالة بعد.",
-      "disclosureIntro": "انشر هذا مع كل رابط:"
+      "disclosureIntro": "انشر هذا مع كل رابط:",
+      "status": {
+        "active": "نشط",
+        "paused": "متوقف مؤقتًا",
+        "expired": "منتهي الصلاحية",
+        "revoked": "ملغى",
+        "retired": "مسحوب نهائيًا"
+      }
     },
     "support": {
       "title": "المساعدة",

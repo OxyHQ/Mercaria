@@ -458,7 +458,24 @@
       },
       "youWillNeed": "Понадобится"
     },
-    "yourChannels": "Ваши каналы"
+    "yourChannels": "Ваши каналы",
+    "run": {
+      "kind": {
+        "backfill": "Полный повторный импорт",
+        "product_pull": "Импорт товаров",
+        "product_push": "Экспорт товаров",
+        "inventory_sync": "Синхронизация остатков",
+        "order_sync": "Импорт заказов",
+        "fulfillment_push": "Экспорт отправлений",
+        "webhook": "Вебхук",
+        "ingest": "Полученные товары"
+      },
+      "status": {
+        "running": "Выполняется",
+        "completed": "Завершено",
+        "failed": "Ошибка"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} прочитано · %{valid} корректных · %{invalid} требуют внимания",
       "note": "В скачиваемом отчёте указан номер строки и что с ней не так — но не сами значения, ведь файл у вас уже есть.",
-      "title": "Отчёты"
+      "title": "Отчёты",
+      "mode": {
+        "preview": "Предпросмотр",
+        "validation": "Проверка",
+        "import": "Импорт"
+      }
     },
     "toast": {
       "checkFailed": "Не удалось проверить фид",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "Сопоставления",
       "uploaded": " · загружено",
-      "version": "Версия %{version}"
+      "version": "Версия %{version}",
+      "status": {
+        "draft": "Черновик",
+        "active": "Активна",
+        "superseded": "Заменена"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "Черновик",
+        "active": "Активен",
+        "paused": "Приостановлен",
+        "revoked": "Отозван",
+        "failed": "Ошибка"
+      },
+      "health": {
+        "unknown": "Ещё не читался",
+        "full_feed_success": "Прочитан полностью",
+        "partial_feed": "Прочитан частично",
+        "auth_failure": "Ошибка авторизации",
+        "rate_limit": "Достигнут лимит запросов",
+        "source_outage": "Источник недоступен",
+        "schema_drift": "Изменились столбцы",
+        "rights_suspended": "Права приостановлены",
+        "parse_failure": "Не удалось прочитать",
+        "matching_ambiguity": "Неоднозначные совпадения",
+        "anomalous_change": "Необычное изменение"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "Полное чтение",
+        "incremental": "Инкрементальное",
+        "webhook": "Вебхук",
+        "manual": "Вручную"
+      },
+      "status": {
+        "pending": "Ожидает",
+        "running": "Выполняется",
+        "completed": "Завершено",
+        "failed": "Ошибка"
+      }
     }
   },
   "home": {

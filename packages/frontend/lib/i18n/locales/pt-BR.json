@@ -1271,7 +1271,14 @@
     "instruments": {
       "title": "Seus links e códigos",
       "empty": "Você ainda não tem códigos de indicação.",
-      "disclosureIntro": "Publique isto com cada link:"
+      "disclosureIntro": "Publique isto com cada link:",
+      "status": {
+        "active": "ativo",
+        "paused": "pausado",
+        "expired": "expirado",
+        "revoked": "revogado",
+        "retired": "retirado"
+      }
     },
     "support": {
       "title": "Ajuda",

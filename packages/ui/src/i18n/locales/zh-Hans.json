@@ -152,7 +152,11 @@
         "providerUnavailable": "尚未配置",
         "providerError": "无法连接"
       },
-      "explanationFallbackNotice": "此摘要由下方的比较表生成，未使用语言模型。"
+      "explanationFallbackNotice": "此摘要由下方的比较表生成，未使用语言模型。",
+      "provenance": {
+        "template": "由 Mercaria 依据比较政策 %{policy} 撰写。所有数字均来自下方表格。",
+        "generated": "由语言模型依据比较政策 %{policy} 撰写。所有数字均来自下方表格。"
+      }
     },
     "priceSignal": {
       "qualityLabel": {

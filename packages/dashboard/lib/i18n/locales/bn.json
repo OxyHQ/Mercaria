@@ -458,7 +458,24 @@
       },
       "youWillNeed": "আপনার যা লাগবে"
     },
-    "yourChannels": "আপনার চ্যানেল"
+    "yourChannels": "আপনার চ্যানেল",
+    "run": {
+      "kind": {
+        "backfill": "সম্পূর্ণ পুনরায় আমদানি",
+        "product_pull": "পণ্য আমদানি",
+        "product_push": "পণ্য রপ্তানি",
+        "inventory_sync": "স্টক সিঙ্ক",
+        "order_sync": "অর্ডার আমদানি",
+        "fulfillment_push": "ফুলফিলমেন্ট রপ্তানি",
+        "webhook": "ওয়েবহুক",
+        "ingest": "প্রাপ্ত পণ্য"
+      },
+      "status": {
+        "running": "চলছে",
+        "completed": "সম্পন্ন",
+        "failed": "ব্যর্থ"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} পড়া · %{valid} বৈধ · %{invalid}-এ নজর দরকার",
       "note": "ডাউনলোডযোগ্য রিপোর্টে সারির নম্বর ও তাতে কী ভুল ছিল তা থাকে — মানগুলো কখনোই নয়, কারণ ফাইলটি তো আপনার কাছেই আছে।",
-      "title": "রিপোর্ট"
+      "title": "রিপোর্ট",
+      "mode": {
+        "preview": "প্রিভিউ",
+        "validation": "যাচাই",
+        "import": "আমদানি"
+      }
     },
     "toast": {
       "checkFailed": "ফিড পরীক্ষা করা যায়নি",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "ম্যাপিং",
       "uploaded": " · আপলোড করা",
-      "version": "সংস্করণ %{version}"
+      "version": "সংস্করণ %{version}",
+      "status": {
+        "draft": "খসড়া",
+        "active": "সক্রিয়",
+        "superseded": "প্রতিস্থাপিত"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "খসড়া",
+        "active": "সক্রিয়",
+        "paused": "বিরতিতে",
+        "revoked": "বাতিল",
+        "failed": "ব্যর্থ"
+      },
+      "health": {
+        "unknown": "এখনও পড়া হয়নি",
+        "full_feed_success": "সম্পূর্ণ পড়া হয়েছে",
+        "partial_feed": "আংশিক পড়া হয়েছে",
+        "auth_failure": "প্রমাণীকরণ ব্যর্থ",
+        "rate_limit": "অনুরোধ সীমায় পৌঁছেছে",
+        "source_outage": "উৎস অনুপলব্ধ",
+        "schema_drift": "কলাম বদলে গেছে",
+        "rights_suspended": "অধিকার স্থগিত",
+        "parse_failure": "পড়া যায়নি",
+        "matching_ambiguity": "অস্পষ্ট মিল",
+        "anomalous_change": "অস্বাভাবিক পরিবর্তন"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "সম্পূর্ণ পঠন",
+        "incremental": "ইনক্রিমেন্টাল",
+        "webhook": "ওয়েবহুক",
+        "manual": "ম্যানুয়াল"
+      },
+      "status": {
+        "pending": "অপেক্ষমাণ",
+        "running": "চলছে",
+        "completed": "সম্পন্ন",
+        "failed": "ব্যর্থ"
+      }
     }
   },
   "home": {

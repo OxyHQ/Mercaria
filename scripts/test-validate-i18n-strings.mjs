@@ -900,14 +900,37 @@ const cases = [
   {
     // J (#530). The pin is skipped on a fixture tree, so `realFloors` is the
     // only configuration in which it runs here — and this proves it RUNS and
-    // COMPARES rather than being carried inertly, the `hardcodedStrings` case
-    // above applied to the other pin. It fires in the DOWN direction because
-    // this fixture holds none of the real sites the pins were measured on.
+    // COMPARES rather than being carried inertly.
+    //
+    // It fired in the DOWN direction until #560, on a fixture holding none of
+    // the thirteen real sites. #560 fixed all thirteen, so every owner's pin is
+    // now 0 and an empty fixture AGREES with it — the case went green while
+    // measuring nothing, which is the vacuity it exists to prevent, so it now
+    // supplies a site and fires UP.
+    //
+    // What that costs is worth writing down rather than discovering later: with
+    // all four pins at 0, "compares against the STORED NUMBER" and "tests for
+    // more than zero" are the same predicate for J, and no case here can tell
+    // them apart. `hardcodedStrings` is the pin that still holds that half (146,
+    // its own case above); what keeps J honest at zero is the DETECTOR's own
+    // positive and negative controls, which `assertGuardSource` requires to
+    // exist. The POS owner's note in the guard has said exactly this since #530
+    // — a zero pin is a pure regression gate, and the controls are why it can be
+    // trusted as one.
+    //
+    // The owner is the POS deliberately: it is the one that was ALREADY at zero,
+    // so this asserts the regression gate bites for an owner with no residual,
+    // where the case below asserts it for one whose residual was just cleared.
     name: "check J's pinned wire-identifier count is compared, not carried",
-    files: migratedTree(),
+    files: migratedTree({
+      "packages/pos/app/(app)/receipt.tsx":
+        "export const A = ({ order }) => <View>\n"
+        + "  <Text>{order.status}</Text>\n"
+        + "</View>;\n",
+    }),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "wire identifier(s) rendered raw to a reader, expected exactly",
+    expectOutput: "packages/pos: 1 wire identifier(s) rendered raw to a reader, expected exactly 0",
   },
   {
     // I's vacuity floor, same technique and same reason. A fixture tree carries

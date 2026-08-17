@@ -458,7 +458,24 @@
       },
       "youWillNeed": "Você vai precisar de"
     },
-    "yourChannels": "Seus canais"
+    "yourChannels": "Seus canais",
+    "run": {
+      "kind": {
+        "backfill": "Reimportação completa",
+        "product_pull": "Importação de produtos",
+        "product_push": "Exportação de produtos",
+        "inventory_sync": "Sincronização de estoque",
+        "order_sync": "Importação de pedidos",
+        "fulfillment_push": "Exportação de envios",
+        "webhook": "Webhook",
+        "ingest": "Produtos recebidos"
+      },
+      "status": {
+        "running": "Em andamento",
+        "completed": "Concluída",
+        "failed": "Falhou"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "%{scanned} lidos · %{valid} válidos · %{invalid} precisam de atenção",
       "note": "O relatório para download traz o número da linha e o que estava errado nela — nunca os valores, já que você já tem o arquivo.",
-      "title": "Relatórios"
+      "title": "Relatórios",
+      "mode": {
+        "preview": "Prévia",
+        "validation": "Validação",
+        "import": "Importação"
+      }
     },
     "toast": {
       "checkFailed": "Não foi possível verificar o feed",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "Mapeamentos",
       "uploaded": " · enviado",
-      "version": "Versão %{version}"
+      "version": "Versão %{version}",
+      "status": {
+        "draft": "Rascunho",
+        "active": "Ativa",
+        "superseded": "Substituída"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "Rascunho",
+        "active": "Ativa",
+        "paused": "Pausada",
+        "revoked": "Revogada",
+        "failed": "Com falhas"
+      },
+      "health": {
+        "unknown": "Ainda não lido",
+        "full_feed_success": "Lido por completo",
+        "partial_feed": "Lido em parte",
+        "auth_failure": "Falha de autenticação",
+        "rate_limit": "Limite de requisições atingido",
+        "source_outage": "Origem indisponível",
+        "schema_drift": "As colunas mudaram",
+        "rights_suspended": "Direitos suspensos",
+        "parse_failure": "Não foi possível ler",
+        "matching_ambiguity": "Correspondências ambíguas",
+        "anomalous_change": "Alteração incomum"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "Leitura completa",
+        "incremental": "Incremental",
+        "webhook": "Webhook",
+        "manual": "Manual"
+      },
+      "status": {
+        "pending": "Pendente",
+        "running": "Em andamento",
+        "completed": "Concluída",
+        "failed": "Falhou"
+      }
     }
   },
   "home": {

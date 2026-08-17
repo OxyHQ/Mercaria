@@ -152,7 +152,11 @@
         "providerUnavailable": "no està configurat",
         "providerError": "no s'hi ha pogut contactar"
       },
-      "explanationFallbackNotice": "Aquest resum es genera a partir de la taula de comparació de sota, sense cap model de llenguatge."
+      "explanationFallbackNotice": "Aquest resum es genera a partir de la taula de comparació de sota, sense cap model de llenguatge.",
+      "provenance": {
+        "template": "Redactat per Mercaria conforme a la política de comparació %{policy}. Totes les xifres provenen de la taula de sota.",
+        "generated": "Redactat per un model de llenguatge conforme a la política de comparació %{policy}. Totes les xifres provenen de la taula de sota."
+      }
     },
     "priceSignal": {
       "qualityLabel": {

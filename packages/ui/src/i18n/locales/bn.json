@@ -152,7 +152,11 @@
         "providerUnavailable": "কনফিগার করা নেই",
         "providerError": "তার সঙ্গে যোগাযোগ করা যায়নি"
       },
-      "explanationFallbackNotice": "এই সারসংক্ষেপ নিচের তুলনা টেবিল থেকে তৈরি, কোনো ভাষা মডেল ছাড়াই।"
+      "explanationFallbackNotice": "এই সারসংক্ষেপ নিচের তুলনা টেবিল থেকে তৈরি, কোনো ভাষা মডেল ছাড়াই।",
+      "provenance": {
+        "template": "তুলনা নীতি %{policy} অনুসারে Mercaria লিখেছে। সব সংখ্যা নিচের সারণি থেকে নেওয়া।",
+        "generated": "তুলনা নীতি %{policy} অনুসারে একটি ভাষা মডেল লিখেছে। সব সংখ্যা নিচের সারণি থেকে নেওয়া।"
+      }
     },
     "priceSignal": {
       "qualityLabel": {

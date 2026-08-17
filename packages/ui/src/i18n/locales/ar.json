@@ -152,7 +152,11 @@
         "providerUnavailable": "غير مُهيَّأ",
         "providerError": "تعذّر الوصول إليه"
       },
-      "explanationFallbackNotice": "هذا الملخّص مُولَّد من جدول المقارنة أدناه، بدون أي نموذج لغوي."
+      "explanationFallbackNotice": "هذا الملخّص مُولَّد من جدول المقارنة أدناه، بدون أي نموذج لغوي.",
+      "provenance": {
+        "template": "كتبته Mercaria وفق سياسة المقارنة %{policy}. جميع الأرقام مأخوذة من الجدول أدناه.",
+        "generated": "صاغه نموذج لغوي وفق سياسة المقارنة %{policy}. جميع الأرقام مأخوذة من الجدول أدناه."
+      }
     },
     "priceSignal": {
       "qualityLabel": {

@@ -12,6 +12,7 @@ import {
   PriceDisplay,
   formatDate,
   formatDateTime,
+  formatRegionName,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -192,7 +193,7 @@ function TotalsCard({ order }: { order: MerchantOrder }) {
 }
 
 function ShippingAddressCard({ order }: { order: MerchantOrder }) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const a = order.shippingAddress;
   return (
     <View className="rounded-2xl border border-border bg-surface p-4">
@@ -204,7 +205,9 @@ function ShippingAddressCard({ order }: { order: MerchantOrder }) {
         {a.city}
         {a.region ? `, ${a.region}` : ""} {a.postalCode}
       </Text>
-      <Text className="text-sm text-muted-foreground">{a.country}</Text>
+      {/* The country is an ISO alpha-2 CODE on the wire (#560). #513 fixed
+          this exact shape on the storefront; the remedy is the same import. */}
+      <Text className="text-sm text-muted-foreground">{formatRegionName(a.country, locale)}</Text>
     </View>
   );
 }

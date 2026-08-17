@@ -152,7 +152,11 @@
         "providerUnavailable": "設定されていません",
         "providerError": "接続できませんでした"
       },
-      "explanationFallbackNotice": "この要約は下の比較表から生成したもので、言語モデルは使用していません。"
+      "explanationFallbackNotice": "この要約は下の比較表から生成したもので、言語モデルは使用していません。",
+      "provenance": {
+        "template": "比較ポリシー %{policy} に基づき Mercaria が作成しました。数値はすべて下の表によります。",
+        "generated": "比較ポリシー %{policy} に基づき言語モデルが文章化しました。数値はすべて下の表によります。"
+      }
     },
     "priceSignal": {
       "qualityLabel": {

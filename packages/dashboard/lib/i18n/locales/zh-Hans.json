@@ -458,7 +458,24 @@
       },
       "youWillNeed": "你需要准备"
     },
-    "yourChannels": "你的渠道"
+    "yourChannels": "你的渠道",
+    "run": {
+      "kind": {
+        "backfill": "全量回填",
+        "product_pull": "商品导入",
+        "product_push": "商品导出",
+        "inventory_sync": "库存同步",
+        "order_sync": "订单导入",
+        "fulfillment_push": "履约信息导出",
+        "webhook": "Webhook",
+        "ingest": "已接收商品"
+      },
+      "status": {
+        "running": "进行中",
+        "completed": "已完成",
+        "failed": "失败"
+      }
+    }
   },
   "collections": {
     "create": {
@@ -639,7 +656,12 @@
     "reports": {
       "counts": "读取 %{scanned} · 有效 %{valid} · 需处理 %{invalid}",
       "note": "可下载的报告会给出行号以及问题所在 —— 不会包含具体数值，因为文件本来就在你手上。",
-      "title": "报告"
+      "title": "报告",
+      "mode": {
+        "preview": "预览",
+        "validation": "校验",
+        "import": "导入"
+      }
     },
     "toast": {
       "checkFailed": "无法检查该 Feed",
@@ -677,7 +699,48 @@
       "summary": "%{format} · %{delivery}%{fetch}",
       "title": "映射",
       "uploaded": " · 已上传",
-      "version": "版本 %{version}"
+      "version": "版本 %{version}",
+      "status": {
+        "draft": "草稿",
+        "active": "有效",
+        "superseded": "已被取代"
+      }
+    },
+    "source": {
+      "status": {
+        "draft": "草稿",
+        "active": "有效",
+        "paused": "已暂停",
+        "revoked": "已撤销",
+        "failed": "失败"
+      },
+      "health": {
+        "unknown": "尚未读取",
+        "full_feed_success": "已完整读取",
+        "partial_feed": "部分读取",
+        "auth_failure": "认证失败",
+        "rate_limit": "已达请求上限",
+        "source_outage": "来源不可用",
+        "schema_drift": "列结构已变更",
+        "rights_suspended": "权限已暂停",
+        "parse_failure": "无法解析",
+        "matching_ambiguity": "匹配存在歧义",
+        "anomalous_change": "异常变动"
+      }
+    },
+    "run": {
+      "kind": {
+        "backfill": "全量读取",
+        "incremental": "增量",
+        "webhook": "Webhook",
+        "manual": "手动"
+      },
+      "status": {
+        "pending": "等待中",
+        "running": "进行中",
+        "completed": "已完成",
+        "failed": "失败"
+      }
     }
   },
   "home": {
