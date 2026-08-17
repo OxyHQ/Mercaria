@@ -2,7 +2,8 @@ import { Pressable, View } from "react-native";
 import { type NearbyLocationResult } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { formatDistance, formatMoney } from "../../lib/format";
-import { conditionLabel } from "../../lib/condition";
+import { conditionLabelKey } from "../../lib/condition";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
   LOCATION_AVAILABILITY_EXPLANATIONS,
   LOCATION_AVAILABILITY_TEXT,
@@ -102,6 +103,7 @@ export function NearbyLocationCard({
   selectLabel = "Collect here",
   onSignIn,
 }: NearbyLocationCardProps) {
+  const t = useSharedUiTranslation();
   const { location } = result;
   const address = formatPublicAddress(location.address);
   const eligibility = result.checkoutEligibility;
@@ -125,7 +127,7 @@ export function NearbyLocationCard({
       <View className="flex-row flex-wrap gap-space-6">
         <Chip>{`${PICKUP_DISTANCE_BAND_TEXT[result.distanceBand]} · ${formatDistance(result.approximateMetres)}`}</Chip>
         <Chip>{LOCATION_AVAILABILITY_TEXT[result.availability]}</Chip>
-        {result.condition === undefined ? null : <Chip>{conditionLabel(result.condition)}</Chip>}
+        {result.condition === undefined ? null : <Chip>{t(conditionLabelKey(result.condition))}</Chip>}
       </View>
 
       {/*

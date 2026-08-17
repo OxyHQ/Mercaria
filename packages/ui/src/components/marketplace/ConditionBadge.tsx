@@ -1,6 +1,12 @@
 import { View } from "react-native";
 import { Text } from "../ui/text";
-import { conditionExplanation, conditionLabel } from "../../lib/condition";
+import {
+  CONDITION_A11Y_LABEL_KEY,
+  CONDITION_SELLER_WORDING_KEY,
+  conditionExplanationKey,
+  conditionLabelKey,
+} from "../../lib/condition";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import type { ItemConditionDTO } from "@mercaria/shared-types";
 
 export interface ConditionBadgeProps {
@@ -33,7 +39,8 @@ export interface ConditionBadgeProps {
  * than an unfinished form.
  */
 export function ConditionBadge({ condition, showExplanation = false }: ConditionBadgeProps) {
-  const label = conditionLabel(condition.key);
+  const t = useSharedUiTranslation();
+  const label = t(conditionLabelKey(condition.key));
 
   return (
     <View className="gap-space-4">
@@ -44,21 +51,23 @@ export function ConditionBadge({ condition, showExplanation = false }: Condition
         // is ABOUT is the `ReviewStars` `scopeLabel` decision, one component
         // over and for the same reason: a page carries several chips and a
         // screen reader cannot tell them apart from the value alone.
-        accessibilityLabel={`Condition: ${label}`}
+        accessibilityLabel={t(CONDITION_A11Y_LABEL_KEY, { label })}
       >
         <Text className="text-captionBold text-text">{label}</Text>
       </View>
       {showExplanation ? (
         <Text className="text-caption text-text-secondary">
-          {conditionExplanation(condition.key)}
+          {t(conditionExplanationKey(condition.key))}
         </Text>
       ) : null}
       {condition.sourceLabel ? (
         // #90 UI rule 4 and evidence rule 5: where a source's own wording
         // produced the key, showing both is what lets a shopper judge the
-        // mapping rather than trust it.
+        // mapping rather than trust it. The seller's own words are NOT
+        // translated — they are evidence, and translating evidence would defeat
+        // the comparison this line exists for.
         <Text className="text-caption text-text-secondary">
-          The seller describes it as “{condition.sourceLabel}”.
+          {t(CONDITION_SELLER_WORDING_KEY, { label: condition.sourceLabel })}
         </Text>
       ) : null}
     </View>

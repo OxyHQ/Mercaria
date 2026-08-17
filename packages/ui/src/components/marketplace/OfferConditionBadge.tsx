@@ -1,7 +1,14 @@
 import { View } from "react-native";
 import type { OfferConditionDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { conditionExplanation, conditionLabel } from "../../lib/condition";
+import {
+  CONDITION_A11Y_LABEL_KEY,
+  CONDITION_NOT_STATED_KEY,
+  CONDITION_SELLER_WORDING_KEY,
+  conditionExplanationKey,
+  conditionLabelKey,
+} from "../../lib/condition";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 
 export interface OfferConditionBadgeProps {
   /** An OFFER's condition (#90) — the taxonomy plus an honest `unknown`. */
@@ -33,32 +40,34 @@ export function OfferConditionBadge({
   condition,
   showExplanation = false,
 }: OfferConditionBadgeProps) {
-  // Narrowed by the KEY rather than by a boolean beside it: `conditionLabel`
+  const t = useSharedUiTranslation();
+  // Narrowed by the KEY rather than by a boolean beside it: `conditionLabelKey`
   // takes a taxonomy key and `unknown` is not one, so the compiler is what
   // stops an unknown condition being handed to a function that has no answer
   // for it.
   const key = condition.key;
-  const label = key === "unknown" ? "Condition not stated" : conditionLabel(key);
+  const label = key === "unknown" ? t(CONDITION_NOT_STATED_KEY) : t(conditionLabelKey(key));
 
   return (
     <View className="gap-space-4">
       <View
         className="self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-6"
         accessibilityRole="text"
-        accessibilityLabel={key === "unknown" ? label : `Condition: ${label}`}
+        accessibilityLabel={key === "unknown" ? label : t(CONDITION_A11Y_LABEL_KEY, { label })}
       >
         <Text className="text-captionBold text-text">{label}</Text>
       </View>
       {showExplanation && key !== "unknown" ? (
-        <Text className="text-caption text-text-secondary">{conditionExplanation(key)}</Text>
+        <Text className="text-caption text-text-secondary">{t(conditionExplanationKey(key))}</Text>
       ) : null}
       {condition.sourceLabel ? (
         // The source's own wording beside the normalized key (#90 UI rule 4):
         // what lets a shopper judge the mapping rather than trust it, and what
         // makes an operator's later correction of the RULE visible as a
-        // correction rather than as a silent change of fact.
+        // correction rather than as a silent change of fact. The wording itself
+        // is the source's and is never translated.
         <Text className="text-caption text-text-secondary">
-          The seller describes it as “{condition.sourceLabel}”.
+          {t(CONDITION_SELLER_WORDING_KEY, { label: condition.sourceLabel })}
         </Text>
       ) : null}
     </View>

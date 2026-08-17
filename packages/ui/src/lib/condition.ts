@@ -1,12 +1,26 @@
 /**
- * The reader-facing copy for the #90 condition taxonomy.
+ * The reader-facing copy for the #90 condition taxonomy — as TRANSLATION KEYS.
  *
- * The KEYS live in `@mercaria/shared-types` and never change; this file is the
- * part that is deliberately free to. #90's base taxonomy says the exact labels
- * are still to be finalized with localization and marketplace-policy review, so
- * keeping them out of shared-types is not tidiness — it is what makes "stored
- * keys remain stable when the copy changes" a fact about where the strings live
+ * The KEYS in `@mercaria/shared-types` never change; this file is the part that
+ * is deliberately free to. #90's base taxonomy says the exact labels are still
+ * to be finalized with localization and marketplace-policy review, so keeping
+ * them out of shared-types is not tidiness — it is what makes "stored keys
+ * remain stable when the copy changes" a fact about where the strings live
  * rather than a promise somebody keeps.
+ *
+ * ## Why these are keys and not sentences (#437)
+ *
+ * They were English sentences until #437. A dashboard screen could be fully
+ * string-extracted, pass `validate:i18n-strings`, and still render an English
+ * paragraph, because the paragraph came from here. Module-scope data now holds
+ * KEYS and the render site resolves them — the rule the two apps already follow
+ * — and the SENTENCES live in `packages/ui/src/i18n/locales/*.json`, translated
+ * once for all three apps.
+ *
+ * This is not the taxonomy key becoming the label: `ItemConditionKey` is still
+ * what a column and a CHECK carry, and `ui.condition.label.used_good` is a
+ * message id that only a bundle resolves. Two different identifiers for two
+ * different jobs, which is the split this file existed for in the first place.
  *
  * ## Every key carries a plain-language explanation (#90 policy rule 1)
  *
@@ -19,45 +33,47 @@
  *
  * Each explanation describes what the SELLER is stating. None of them says the
  * item works, is guaranteed, or has been checked by Mercaria, because none of
- * those is a thing a label can establish.
+ * those is a thing a label can establish. That property lives in the bundles
+ * now, so it is a property a TRANSLATOR has to preserve — which is why the
+ * disclaimer below is a key of its own rather than a sentence spliced onto each
+ * explanation.
  */
 
 import type { ConditionGroup, ItemConditionKey } from "@mercaria/shared-types";
 
 /** The short label a badge and a picker row show. */
-export const CONDITION_LABELS: Readonly<Record<ItemConditionKey, string>> = {
-  new: "New",
-  open_box: "Open box",
-  refurbished_manufacturer: "Refurbished by the manufacturer",
-  refurbished_seller: "Refurbished by the seller",
-  used_like_new: "Used — like new",
-  used_good: "Used — good",
-  used_fair: "Used — fair",
-  used_poor: "Used — poor",
-  for_parts: "For parts or not working",
+export const CONDITION_LABEL_KEYS: Readonly<Record<ItemConditionKey, string>> = {
+  new: "ui.condition.label.new",
+  open_box: "ui.condition.label.open_box",
+  refurbished_manufacturer: "ui.condition.label.refurbished_manufacturer",
+  refurbished_seller: "ui.condition.label.refurbished_seller",
+  used_like_new: "ui.condition.label.used_like_new",
+  used_good: "ui.condition.label.used_good",
+  used_fair: "ui.condition.label.used_fair",
+  used_poor: "ui.condition.label.used_poor",
+  for_parts: "ui.condition.label.for_parts",
 };
 
 /** One sentence saying what the seller is actually claiming. */
-export const CONDITION_EXPLANATIONS: Readonly<Record<ItemConditionKey, string>> = {
-  new: "Unused and unopened, in the packaging the manufacturer shipped it in.",
-  open_box: "Never used, but the packaging has been opened — a return or a display unit.",
-  refurbished_manufacturer:
-    "Restored and re-certified by the manufacturer or its authorised programme.",
-  refurbished_seller: "Restored by the seller or a third party, who is named on this listing.",
-  used_like_new: "Used, with no wear the seller can see at normal viewing distance.",
-  used_good: "Used, with light wear the seller says does not affect how it works.",
-  used_fair: "Used, with obvious wear or a fault the seller has described.",
-  used_poor: "Used, heavily worn or with a described fault that affects using it.",
-  for_parts: "Sold as not working — for repair, salvage or components.",
+export const CONDITION_EXPLANATION_KEYS: Readonly<Record<ItemConditionKey, string>> = {
+  new: "ui.condition.explanation.new",
+  open_box: "ui.condition.explanation.open_box",
+  refurbished_manufacturer: "ui.condition.explanation.refurbished_manufacturer",
+  refurbished_seller: "ui.condition.explanation.refurbished_seller",
+  used_like_new: "ui.condition.explanation.used_like_new",
+  used_good: "ui.condition.explanation.used_good",
+  used_fair: "ui.condition.explanation.used_fair",
+  used_poor: "ui.condition.explanation.used_poor",
+  for_parts: "ui.condition.explanation.for_parts",
 };
 
 /** The label a filter facet and a price-history segment show. */
-export const CONDITION_GROUP_LABELS: Readonly<Record<ConditionGroup, string>> = {
-  new: "New",
-  open_box: "Open box",
-  refurbished: "Refurbished",
-  used: "Used",
-  for_parts: "For parts",
+export const CONDITION_GROUP_LABEL_KEYS: Readonly<Record<ConditionGroup, string>> = {
+  new: "ui.condition.group.new",
+  open_box: "ui.condition.group.open_box",
+  refurbished: "ui.condition.group.refurbished",
+  used: "ui.condition.group.used",
+  for_parts: "ui.condition.group.for_parts",
 };
 
 /**
@@ -67,20 +83,34 @@ export const CONDITION_GROUP_LABELS: Readonly<Record<ConditionGroup, string>> = 
  * Mercaria's verification of it. Surfaced beside the explanation on any surface
  * where a shopper is choosing between conditions.
  */
-export const CONDITION_DISCLAIMER =
-  "A condition is what the seller states about their own item. It is not a Mercaria guarantee.";
+export const CONDITION_DISCLAIMER_KEY = "ui.condition.disclaimer";
 
-/** The label for one key. */
-export function conditionLabel(key: ItemConditionKey): string {
-  return CONDITION_LABELS[key];
+/**
+ * `Condition: %{label}` — the accessible name a badge announces.
+ *
+ * A key rather than a template built at the call site, because the punctuation
+ * moves: French puts a space before the colon and Chinese uses a full-width one,
+ * and a screen reader reads what the string actually says.
+ */
+export const CONDITION_A11Y_LABEL_KEY = "ui.condition.a11yLabel";
+
+/** An OFFER whose source published no condition at all (#90). */
+export const CONDITION_NOT_STATED_KEY = "ui.condition.notStated";
+
+/** `The seller describes it as “%{label}”.` — #90 UI rule 4's source wording. */
+export const CONDITION_SELLER_WORDING_KEY = "ui.condition.sellerWording";
+
+/** The translation key for one taxonomy key's label. */
+export function conditionLabelKey(key: ItemConditionKey): string {
+  return CONDITION_LABEL_KEYS[key];
 }
 
-/** The plain-language explanation for one key. */
-export function conditionExplanation(key: ItemConditionKey): string {
-  return CONDITION_EXPLANATIONS[key];
+/** The translation key for one taxonomy key's plain-language explanation. */
+export function conditionExplanationKey(key: ItemConditionKey): string {
+  return CONDITION_EXPLANATION_KEYS[key];
 }
 
-/** The label for one segment. */
-export function conditionGroupLabel(group: ConditionGroup): string {
-  return CONDITION_GROUP_LABELS[group];
+/** The translation key for one segment's label. */
+export function conditionGroupLabelKey(group: ConditionGroup): string {
+  return CONDITION_GROUP_LABEL_KEYS[group];
 }

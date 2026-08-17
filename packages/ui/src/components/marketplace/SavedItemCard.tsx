@@ -4,7 +4,8 @@ import { Bell, Heart, Package, TrendingDown, TrendingUp } from "lucide-react-nat
 import { ALL_CURRENCY_CODES, type CurrencyCode, type SavedItem } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
-import { CONDITION_GROUP_LABELS } from "../../lib/condition";
+import { conditionGroupLabelKey } from "../../lib/condition";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 
 /** Icon size for the row's leading and trailing affordances. */
 const ICON_SIZE = 18;
@@ -119,6 +120,8 @@ function ProductBody({
   onResolveSplit?: (item: SavedItem) => void;
   onCreatePriceAlert?: (item: SavedItem) => void;
 }) {
+  const t = useSharedUiTranslation();
+
   return (
     <>
       <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
@@ -131,7 +134,7 @@ function ProductBody({
           <OfferPrice price={item.offer.price} />
           {item.offer.conditionGroup ? (
             <Text className="text-caption text-text-tertiary">
-              {CONDITION_GROUP_LABELS[item.offer.conditionGroup]}
+              {t(conditionGroupLabelKey(item.offer.conditionGroup))}
             </Text>
           ) : null}
         </View>

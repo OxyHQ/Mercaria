@@ -260,7 +260,7 @@ export const SHOPPING_AGENT_SUMMARY_SOURCE_TEXT: Readonly<
  * (#97 UX 7).
  *
  * A finding is an OBSERVATION about a moment, and the two things it is most
- * likely to be mistaken for are the two named here. `CONDITION_DISCLAIMER` is
+ * likely to be mistaken for are the two named here. `CONDITION_DISCLAIMER_KEY` is
  * the precedent: the sentence sits beside the figure rather than in a help page,
  * because the misreading happens where the figure is.
  */

@@ -1,0 +1,71 @@
+{
+  "ui": {
+    "condition": {
+      "label": {
+        "new": "جديد",
+        "open_box": "عبوة مفتوحة",
+        "refurbished_manufacturer": "مُجدَّد من قِبل الشركة المصنّعة",
+        "refurbished_seller": "مُجدَّد من قِبل البائع",
+        "used_like_new": "مستعمل — كالجديد",
+        "used_good": "مستعمل — حالة جيدة",
+        "used_fair": "مستعمل — حالة مقبولة",
+        "used_poor": "مستعمل — حالة سيئة",
+        "for_parts": "لقطع الغيار أو لا يعمل"
+      },
+      "explanation": {
+        "new": "غير مستعمل وغير مفتوح، داخل العبوة التي شحنته بها الشركة المصنّعة.",
+        "open_box": "لم يُستعمل قط، لكن العبوة فُتحت — مرتجع أو وحدة عرض.",
+        "refurbished_manufacturer": "أُعيد إصلاحه واعتماده من قِبل الشركة المصنّعة أو برنامجها المعتمد.",
+        "refurbished_seller": "أُعيد إصلاحه من قِبل البائع أو طرف ثالث مذكور في هذا العرض.",
+        "used_like_new": "مستعمل، دون أي أثر استعمال يراه البائع من مسافة النظر المعتادة.",
+        "used_good": "مستعمل، مع أثر استعمال خفيف يقول البائع إنه لا يؤثر على عمله.",
+        "used_fair": "مستعمل، مع أثر استعمال واضح أو عيب وصفه البائع.",
+        "used_poor": "مستعمل، متهالك بشدة أو به عيب موصوف يؤثر على استخدامه.",
+        "for_parts": "يُباع على أنه لا يعمل — للإصلاح أو الاسترداد أو قطع الغيار."
+      },
+      "group": {
+        "new": "جديد",
+        "open_box": "عبوة مفتوحة",
+        "refurbished": "مُجدَّد",
+        "used": "مستعمل",
+        "for_parts": "لقطع الغيار"
+      },
+      "disclaimer": "الحالة هي ما يذكره البائع عن سلعته، وهي ليست ضمانًا من Mercaria.",
+      "a11yLabel": "الحالة: %{label}",
+      "notStated": "الحالة غير مذكورة",
+      "sellerWording": "يصفه البائع بأنه «%{label}»."
+    },
+    "offer": {
+      "label": {
+        "best_overall": "الأفضل إجمالًا",
+        "cheapest_item_price": "أقل سعر للسلعة",
+        "cheapest_known_total": "أقل إجمالي معروف",
+        "official_direct_store": "متجر رسمي مباشر",
+        "authorized_reseller": "بائع معتمد",
+        "fastest_known_delivery": "أسرع توصيل معروف",
+        "best_nearby_pickup": "أفضل استلام قريب",
+        "cheapest_new": "الأرخص بين الجديد",
+        "cheapest_used": "الأرخص بين المستعمل",
+        "native_mercaria_checkout": "الشراء على Mercaria"
+      },
+      "explanation": {
+        "highest_policy_score": "يحقّق أفضل تقييم بناءً على كل ما نعرفه عن هذه العروض: السعر والتوصيل والحالة وتقييم البائع وآخر مرة تحقّقنا فيها.",
+        "lowest_item_price": "أقل سعر للسلعة بين العروض التي يمكننا مقارنتها بهذه العملة.",
+        "lowest_known_total": "أقل إجمالي شامل التوصيل، بين العروض التي نعرف تكلفة توصيلها.",
+        "verified_official_channel": "قناة أكّدت العلامة التجارية أنها تابعة لها.",
+        "verified_authorized_reseller": "بائع أكّدت العلامة التجارية أنه معتمد.",
+        "shortest_known_delivery": "أقصر مدة توصيل متوقعة نشرها أيٌّ من هؤلاء البائعين.",
+        "nearest_collection_point": "أقرب نقطة استلام نعرفها.",
+        "lowest_item_price_new_segment": "أقل سعر للسلعة بين العروض المباعة على أنها جديدة.",
+        "lowest_item_price_used_segment": "أقل سعر للسلعة بين العروض المستعملة.",
+        "buyable_on_mercaria": "يمكنك شراؤه هنا دون مغادرة Mercaria."
+      },
+      "badgeWithBasis": "%{label} · %{basis}",
+      "a11yLabelWithBasis": "%{label}: %{basis}",
+      "days": {
+        "one": "%{count} يوم",
+        "other": "%{count} يوم"
+      }
+    }
+  }
+}

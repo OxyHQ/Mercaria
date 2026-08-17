@@ -12,12 +12,13 @@ import { Platform } from 'react-native';
 import { AppErrorBoundary } from '@/components/error-boundary';
 import AppSplashScreen from '@/components/AppSplashScreen';
 import { KeyboardProvider } from '@/lib/keyboard';
-import { useColorScheme } from '@mercaria/ui';
+import { SharedUiTranslationProvider, useColorScheme } from '@mercaria/ui';
 import { AppFxProvider } from '@/lib/fx';
 import { setTokenGetter } from '@/lib/api/client';
 import { useGuestCartMerge } from '@/lib/hooks/use-cart';
 import { OXY_CLIENT_ID } from '@/lib/config';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
+import { useTranslation } from '@/hooks/useTranslation';
 import 'react-native-reanimated';
 import '../global.css';
 import '@/lib/i18n';
@@ -86,6 +87,11 @@ function AppContent() {
 }
 
 function RootLayout() {
+  // `@mercaria/ui`'s own reader-facing copy (#437) resolves through THIS app's
+  // `t`, so a shared sentence and the screen around it are always in one
+  // language — and, here, in one layout DIRECTION: the storefront is the app
+  // that ships `ar` and mirrors for it (#397).
+  const { t } = useTranslation();
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     Inter: require('../assets/fonts/Inter-VariableFont_opsz,wght.ttf'),
@@ -105,26 +111,28 @@ function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <BloomThemeProvider
-        defaultMode="system"
-        defaultColorPreset="blue"
-        persistKey={BLOOM_THEME_PERSIST_KEY}
-        storage={BLOOM_THEME_STORAGE}
-        fonts={false}
-        onFontsLoading={<AppSplashScreen />}
-      >
-        {/* Mercaria is a marketplace: anonymous visitors browse listings without
-            being redirected to sign in. The SDK device-first cold boot restores
-            returning sessions from persisted device credentials; sign-in is only
-            required to buy or sell. */}
-        <OxyProvider
-          baseURL={OXY_API_URL}
-          clientId={OXY_CLIENT_ID}
-          authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
+      <SharedUiTranslationProvider t={t}>
+        <BloomThemeProvider
+          defaultMode="system"
+          defaultColorPreset="blue"
+          persistKey={BLOOM_THEME_PERSIST_KEY}
+          storage={BLOOM_THEME_STORAGE}
+          fonts={false}
+          onFontsLoading={<AppSplashScreen />}
         >
-          <AppContent />
-        </OxyProvider>
-      </BloomThemeProvider>
+          {/* Mercaria is a marketplace: anonymous visitors browse listings without
+              being redirected to sign in. The SDK device-first cold boot restores
+              returning sessions from persisted device credentials; sign-in is only
+              required to buy or sell. */}
+          <OxyProvider
+            baseURL={OXY_API_URL}
+            clientId={OXY_CLIENT_ID}
+            authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
+          >
+            <AppContent />
+          </OxyProvider>
+        </BloomThemeProvider>
+      </SharedUiTranslationProvider>
     </AppErrorBoundary>
   );
 }

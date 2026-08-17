@@ -6,7 +6,8 @@ import type {
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
-import { CONDITION_GROUP_LABELS } from "../../lib/condition";
+import { conditionGroupLabelKey } from "../../lib/condition";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatMoney } from "../../lib/format";
 import {
   SHOPPING_AGENT_COMPLETENESS_LABELS,
@@ -216,6 +217,8 @@ function SelectedLineRow({
   label?: string;
   onOpenProduct?: (canonicalProductId: string) => void;
 }) {
+  const t = useSharedUiTranslation();
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -232,7 +235,7 @@ function SelectedLineRow({
         ) : null}
         {line.conditionGroup ? (
           <Text className="text-caption text-text-tertiary">
-            {CONDITION_GROUP_LABELS[line.conditionGroup]}
+            {t(conditionGroupLabelKey(line.conditionGroup))}
           </Text>
         ) : null}
         {line.officialChannel ? (

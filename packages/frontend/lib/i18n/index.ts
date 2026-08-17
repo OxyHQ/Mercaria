@@ -1,5 +1,6 @@
 import { I18n } from 'i18n-js';
 import { getLocales } from 'expo-localization';
+import { mergeSharedUiCopy } from '@mercaria/ui';
 import ar from './locales/ar.json';
 import bn from './locales/bn.json';
 import ca from './locales/ca.json';
@@ -13,54 +14,74 @@ import ptBR from './locales/pt-BR.json';
 import ru from './locales/ru.json';
 import zhHans from './locales/zh-Hans.json';
 
+// Each bundle is this app's own copy PLUS `@mercaria/ui`'s shared reader-facing
+// copy under the reserved `ui` namespace (#437), merged through the ONE function
+// `createAppI18n` uses — so the storefront, the dashboard and the POS attach
+// shared copy the same way even while this app still builds its instance by
+// hand (#435 has not converged it). Merged once per bundle rather than once per
+// alias below: the aliases share the object, and merging per entry would build
+// forty-odd copies of the same tree.
+const enUi = mergeSharedUiCopy('en', en);
+const esUi = mergeSharedUiCopy('es', es);
+const zhHansUi = mergeSharedUiCopy('zh-Hans', zhHans);
+const hiUi = mergeSharedUiCopy('hi', hi);
+const frUi = mergeSharedUiCopy('fr', fr);
+const arUi = mergeSharedUiCopy('ar', ar);
+const bnUi = mergeSharedUiCopy('bn', bn);
+const ptBRUi = mergeSharedUiCopy('pt-BR', ptBR);
+const ruUi = mergeSharedUiCopy('ru', ru);
+const jaUi = mergeSharedUiCopy('ja', ja);
+const deUi = mergeSharedUiCopy('de', de);
+const caUi = mergeSharedUiCopy('ca', ca);
+
 // Create i18n instance with translations
 // Using BCP 47 locale codes (en-US, es-ES) with fallback to language codes (en, es)
 const i18n = new I18n({
-  'en': en,
-  'en-US': en,
-  'en-GB': en,
-  'en-CA': en,
-  'es': es,
-  'es-ES': es,
-  'es-MX': es,
-  'es-AR': es,
+  'en': enUi,
+  'en-US': enUi,
+  'en-GB': enUi,
+  'en-CA': enUi,
+  'es': esUi,
+  'es-ES': esUi,
+  'es-MX': esUi,
+  'es-AR': esUi,
   // Simplified Chinese only. zh-Hant (zh-TW, zh-HK) is a different script and is
   // deliberately NOT aliased here — it falls back to the default locale instead.
-  'zh': zhHans,
-  'zh-Hans': zhHans,
-  'zh-CN': zhHans,
-  'zh-SG': zhHans,
-  'hi': hi,
-  'hi-IN': hi,
-  'fr': fr,
-  'fr-FR': fr,
-  'fr-CA': fr,
-  'fr-BE': fr,
-  'fr-CH': fr,
-  'ar': ar,
-  'ar-SA': ar,
-  'ar-EG': ar,
-  'ar-AE': ar,
-  'ar-MA': ar,
-  'bn': bn,
-  'bn-BD': bn,
-  'bn-IN': bn,
+  'zh': zhHansUi,
+  'zh-Hans': zhHansUi,
+  'zh-CN': zhHansUi,
+  'zh-SG': zhHansUi,
+  'hi': hiUi,
+  'hi-IN': hiUi,
+  'fr': frUi,
+  'fr-FR': frUi,
+  'fr-CA': frUi,
+  'fr-BE': frUi,
+  'fr-CH': frUi,
+  'ar': arUi,
+  'ar-SA': arUi,
+  'ar-EG': arUi,
+  'ar-AE': arUi,
+  'ar-MA': arUi,
+  'bn': bnUi,
+  'bn-BD': bnUi,
+  'bn-IN': bnUi,
   // The copy is Brazilian Portuguese. pt-PT is aliased to it because Brazilian
   // Portuguese is far closer to European Portuguese than the English default is;
   // a dedicated pt-PT bundle would still be an improvement.
-  'pt': ptBR,
-  'pt-BR': ptBR,
-  'pt-PT': ptBR,
-  'ru': ru,
-  'ru-RU': ru,
-  'ja': ja,
-  'ja-JP': ja,
-  'de': de,
-  'de-DE': de,
-  'de-AT': de,
-  'de-CH': de,
-  'ca': ca,
-  'ca-ES': ca,
+  'pt': ptBRUi,
+  'pt-BR': ptBRUi,
+  'pt-PT': ptBRUi,
+  'ru': ruUi,
+  'ru-RU': ruUi,
+  'ja': jaUi,
+  'ja-JP': jaUi,
+  'de': deUi,
+  'de-DE': deUi,
+  'de-AT': deUi,
+  'de-CH': deUi,
+  'ca': caUi,
+  'ca-ES': caUi,
 });
 
 /**

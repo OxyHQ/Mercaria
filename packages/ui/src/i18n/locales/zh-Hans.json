@@ -1,0 +1,71 @@
+{
+  "ui": {
+    "condition": {
+      "label": {
+        "new": "全新",
+        "open_box": "已拆封",
+        "refurbished_manufacturer": "厂商翻新",
+        "refurbished_seller": "卖家翻新",
+        "used_like_new": "二手 — 近乎全新",
+        "used_good": "二手 — 良好",
+        "used_fair": "二手 — 一般",
+        "used_poor": "二手 — 较差",
+        "for_parts": "配件用途或无法使用"
+      },
+      "explanation": {
+        "new": "未使用、未拆封，保持厂商出货时的包装。",
+        "open_box": "从未使用，但包装已拆开——退货或展示样品。",
+        "refurbished_manufacturer": "由厂商或其授权计划修复并重新认证。",
+        "refurbished_seller": "由卖家或第三方修复，修复方在本商品信息中注明。",
+        "used_like_new": "二手，卖家在正常观看距离下看不到磨损。",
+        "used_good": "二手，有轻微磨损，卖家表示不影响使用。",
+        "used_fair": "二手，有明显磨损或卖家已说明的瑕疵。",
+        "used_poor": "二手，磨损严重，或存在已说明并影响使用的瑕疵。",
+        "for_parts": "按无法使用出售——用于维修、回收或零件。"
+      },
+      "group": {
+        "new": "全新",
+        "open_box": "已拆封",
+        "refurbished": "翻新",
+        "used": "二手",
+        "for_parts": "配件用途"
+      },
+      "disclaimer": "成色是卖家对自己商品的说明，并非 Mercaria 的保证。",
+      "a11yLabel": "成色：%{label}",
+      "notStated": "未说明成色",
+      "sellerWording": "卖家将其描述为“%{label}”。"
+    },
+    "offer": {
+      "label": {
+        "best_overall": "综合最佳",
+        "cheapest_item_price": "商品价格最低",
+        "cheapest_known_total": "已知总价最低",
+        "official_direct_store": "官方直营店",
+        "authorized_reseller": "授权经销商",
+        "fastest_known_delivery": "已知最快配送",
+        "best_nearby_pickup": "最佳附近自提",
+        "cheapest_new": "全新最低价",
+        "cheapest_used": "二手最低价",
+        "native_mercaria_checkout": "在 Mercaria 购买"
+      },
+      "explanation": {
+        "highest_policy_score": "在我们所掌握的这些报价的全部信息上评分最高——价格、配送、成色、卖家评分以及最近一次核对的时间。",
+        "lowest_item_price": "在我们能以此货币比较的报价中，商品价格最低。",
+        "lowest_known_total": "在配送费用已知的报价中，含配送的总价最低。",
+        "verified_official_channel": "品牌已核实为自有的渠道。",
+        "verified_authorized_reseller": "品牌已核实为授权的经销商。",
+        "shortest_known_delivery": "这些卖家公布的配送时间中最短的估计。",
+        "nearest_collection_point": "我们已知的最近自提点。",
+        "lowest_item_price_new_segment": "在按全新出售的报价中，商品价格最低。",
+        "lowest_item_price_used_segment": "在二手报价中，商品价格最低。",
+        "buyable_on_mercaria": "无需离开 Mercaria，即可在此购买。"
+      },
+      "badgeWithBasis": "%{label} · %{basis}",
+      "a11yLabelWithBasis": "%{label}：%{basis}",
+      "days": {
+        "one": "%{count} 天",
+        "other": "%{count} 天"
+      }
+    }
+  }
+}

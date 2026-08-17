@@ -7,7 +7,8 @@ import type {
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
-import { CONDITION_GROUP_LABELS } from "../../lib/condition";
+import { conditionGroupLabelKey } from "../../lib/condition";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
   SHOPPING_AGENT_CHANNEL_POLICY_LABELS,
   SHOPPING_AGENT_JOB_EXPLANATIONS,
@@ -87,12 +88,13 @@ export function ShoppingAgentCard({
   onOpenProduct,
   busy,
 }: ShoppingAgentCardProps) {
+  const t = useSharedUiTranslation();
   const ambiguous =
     agent.state === "blocked" && agent.ambiguityState === "ambiguous_after_split";
   const segments =
     agent.conditionGroups.length === 0
       ? "any condition"
-      : agent.conditionGroups.map((group) => CONDITION_GROUP_LABELS[group]).join(", ");
+      : agent.conditionGroups.map((group) => t(conditionGroupLabelKey(group))).join(", ");
   const scopeParts = [
     `priced in ${agent.displayCurrency}`,
     SHOPPING_AGENT_CHANNEL_POLICY_LABELS[agent.channelPolicy],
