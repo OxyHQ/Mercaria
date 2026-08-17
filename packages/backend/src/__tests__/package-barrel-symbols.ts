@@ -139,6 +139,23 @@ export function stripComments(source: string): string {
 const IMPORT_CLAUSE =
   /(?:^|\n)\s*(?:import|export)\s+(?:type\s+)?([^'";]*?)\s*from\s*['"]([^'"]+)['"]/g;
 
+/**
+ * A dynamic import, in both of its live shapes.
+ *
+ * `import('@mercaria/shared-types').FxRateSnapshot` — an inline import TYPE —
+ * names its symbol right there and resolves exactly. A bare
+ * `import('@mercaria/shared-types')` awaited at runtime names none, so it
+ * reaches the whole barrel. Both exist in this repository today, and TWO of the
+ * three are production modules (`services/payments/payment.service.ts`,
+ * `packages/frontend/lib/hooks/use-watchlists.ts`), so a resolver that read only
+ * static `import`/`export` clauses would answer "reaches nothing" for a file
+ * that genuinely reaches `money.ts`.
+ *
+ * Group 1 is the specifier, group 2 the property if the type form is used.
+ */
+const DYNAMIC_IMPORT =
+  /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)(?:\s*\.\s*([A-Za-z_$][\w$]*))?/g;
+
 /** A re-export: `export * from`, `export * as NS from`, `export { … } from`. */
 const RE_EXPORT =
   /(?:^|\n)\s*export\s+(?:type\s+)?(\*(?:\s+as\s+[A-Za-z_$][\w$]*)?|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]/g;
@@ -367,6 +384,14 @@ export interface BarrelImport {
   unresolved: string[];
   /** True for `import * as X` / a default import, where no symbol is named. */
   wholeNamespace: boolean;
+  /**
+   * `[start, end)` of the matched clause in the COMMENT-STRIPPED source.
+   *
+   * Carried so {@link unfollowedPackageReferences} can subtract what was
+   * followed from every occurrence of the specifier, which is how an edge this
+   * resolver cannot read becomes a FAILURE rather than a silent skip.
+   */
+  span: [number, number];
 }
 
 /**
@@ -379,6 +404,40 @@ export interface BarrelImport {
 export function packageBarrelImportsOf(source: string): BarrelImport[] {
   const stripped = stripComments(source);
   const out: BarrelImport[] = [];
+
+  for (const match of matchAll(DYNAMIC_IMPORT, stripped)) {
+    const barrel = BY_NAME.get(match[1]);
+    if (!barrel) continue;
+    // `import(pkg).then(…)` is the RUNTIME form with a Promise method attached,
+    // not a type-position property access — reading `then` as a symbol makes it
+    // an unresolved name and the file an unreadable edge. A following `(` is
+    // what tells them apart, and it errs toward the whole namespace, which is
+    // the loud direction.
+    const after = stripped.slice(match.index + match[0].length).trimStart();
+    const property = after.startsWith('(') ? undefined : match[2];
+    if (!property) {
+      // A bare `await import(pkg)` names no symbol, so it reaches everything.
+      out.push({
+        packageName: barrel.packageName,
+        symbols: [],
+        modules: [],
+        unresolved: [],
+        wholeNamespace: true,
+        span: [match.index, match.index + match[0].length],
+      });
+      continue;
+    }
+    const owner = barrel.owners.get(property);
+    out.push({
+      packageName: barrel.packageName,
+      symbols: [property],
+      modules: owner ? [repoRelative(owner)] : [],
+      unresolved: owner ? [] : [property],
+      wholeNamespace: false,
+      span: [match.index, match.index + match[0].length],
+    });
+  }
+
   for (const match of matchAll(IMPORT_CLAUSE, stripped)) {
     const barrel = BY_NAME.get(match[2]);
     if (!barrel) continue;
@@ -397,7 +456,14 @@ export function packageBarrelImportsOf(source: string): BarrelImport[] {
       if (!owner) unresolved.push(symbol);
       else if (!modules.includes(repoRelative(owner))) modules.push(repoRelative(owner));
     }
-    out.push({ packageName: barrel.packageName, symbols, modules, unresolved, wholeNamespace });
+    out.push({
+      packageName: barrel.packageName,
+      symbols,
+      modules,
+      unresolved,
+      wholeNamespace,
+      span: [match.index, match.index + match[0].length],
+    });
   }
   return out;
 }
@@ -418,6 +484,53 @@ export function packageModulesReachedBy(source: string): string[] {
     for (const module of entry.modules) reached.add(module);
   }
   return [...reached].sort();
+}
+
+/**
+ * Every mention of a guarded package specifier this resolver could NOT follow.
+ *
+ * **This is the measurement that decides whether the resolver is worth
+ * anything.** A symbol→owner resolver meets edges it cannot read — a dynamic
+ * `import()`, a namespace import, a deeper re-export chain, and whatever syntax
+ * somebody writes next. If an unreadable edge is SKIPPED, the barrel problem has
+ * been rebuilt one level up: the gate reports clean because it could not see,
+ * which is indistinguishable from clean because there is nothing there.
+ *
+ * So coverage is measured directly rather than assumed. Every occurrence of the
+ * specifier is counted, everything a followed clause consumed is subtracted, and
+ * what remains is an edge the resolver cannot read. `package-barrel-symbols.test.ts`
+ * asserts that set is EMPTY across every non-test module in the workspace, so a
+ * new syntax that defeats this goes RED naming the file instead of quietly
+ * widening the hole.
+ *
+ * Returns one entry per unfollowed occurrence, with the surrounding text so the
+ * failure says what it could not read rather than only that it could not.
+ */
+export function unfollowedPackageReferences(
+  source: string,
+): { packageName: string; context: string }[] {
+  const stripped = stripComments(source);
+  const spans = packageBarrelImportsOf(stripped).map((entry) => entry.span);
+  const out: { packageName: string; context: string }[] = [];
+
+  for (const barrel of PACKAGE_BARRELS) {
+    for (const quote of ["'", '"']) {
+      const needle = `${quote}${barrel.packageName}${quote}`;
+      let from = 0;
+      for (;;) {
+        const at = stripped.indexOf(needle, from);
+        if (at === -1) break;
+        from = at + needle.length;
+        const covered = spans.some(([start, end]) => at >= start && at < end);
+        if (covered) continue;
+        out.push({
+          packageName: barrel.packageName,
+          context: stripped.slice(Math.max(0, at - 60), at + needle.length + 20).replace(/\s+/g, ' '),
+        });
+      }
+    }
+  }
+  return out;
 }
 
 /**
