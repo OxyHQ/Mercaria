@@ -40,13 +40,33 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+/** What the derivations need of a directory entry — `Dirent`, structurally. */
+interface DirectoryEntry {
+  name: string;
+  isDirectory(): boolean;
+  isFile(): boolean;
+}
+
+/**
+ * How a derivation reads a directory.
+ *
+ * Injectable for ONE reason: the direction a hand list is blind in is a module
+ * that does not exist yet, and the only ways to test that are to seed a real
+ * file — which mutates a tree shared with every parallel suite — or to hand the
+ * derivation a reader that reports one. This is the second.
+ */
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
 /** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+  for (const entry of readDir(relative)) {
     if (entry.name === '__tests__') continue;
     const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
     else if (entry.name.endsWith('.ts')) found.push(child);
   }
   return found;
@@ -150,8 +170,8 @@ const ANALYTICS_NAME_PATTERN = /analytics/i;
  * population there cannot be the directory — it is the directory narrowed by
  * name, which is still a derivation rather than a list.
  */
-function analyticsNamedIn(directory: string): string[] {
-  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
+function analyticsNamedIn(directory: string, readDir: DirectoryReader = readDirectory): string[] {
+  return readDir(directory)
     .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
     .filter((entry) => ANALYTICS_NAME_PATTERN.test(entry.name))
     .map((entry) => `${directory}/${entry.name}`)
@@ -201,10 +221,10 @@ const ANALYTICS_SCANNED_DIRECTORIES = [
  * and the two modules that DO look like exceptions turned out to mention
  * `fee_schedules` only in prose (see the comment-stripping test below).
  */
-function analyticsDomainModules(): string[] {
+function analyticsDomainModules(readDir: DirectoryReader = readDirectory): string[] {
   return [
-    ...ANALYTICS_OWNED_DIRECTORIES.flatMap((directory) => walk(directory)),
-    ...ANALYTICS_SHARED_DIRECTORIES.flatMap((directory) => analyticsNamedIn(directory)),
+    ...ANALYTICS_OWNED_DIRECTORIES.flatMap((directory) => walk(directory, readDir)),
+    ...ANALYTICS_SHARED_DIRECTORIES.flatMap((directory) => analyticsNamedIn(directory, readDir)),
   ];
 }
 
@@ -377,38 +397,54 @@ describe('analytics cannot read commercial standing', () => {
     // module nobody adds to it.
     //
     // Written against the DERIVATION rather than the filesystem: seeding a real
-    // file would mutate a tree shared with every parallel suite. What is under
-    // test is that the population is computed from a directory walk and a name
-    // rule, so a module the rule admits is a module the scan gets — proven by
-    // reconstructing the set independently and comparing.
-    const modules = analyticsDomainModules();
-    const reconstructed = [
-      ...ANALYTICS_OWNED_DIRECTORIES.flatMap((directory) => walk(directory)),
-      ...ANALYTICS_SHARED_DIRECTORIES.flatMap((directory) =>
-        readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-          .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-          .filter((entry) => ANALYTICS_NAME_PATTERN.test(entry.name))
-          .map((entry) => `${directory}/${entry.name}`)
-          .sort(),
-      ),
-    ];
-    expect(reconstructed).toEqual(modules);
-    // An owned directory admits ANY name, so a new module there is scanned
-    // whatever it is called — which is the case the hand list missed.
-    expect(walk('services/analytics')).toContain('services/analytics/seams.ts');
-    // A shared directory admits it by name; these are names a plausible new
-    // analytics module would carry.
-    for (const name of [
-      'analytics-demand.controller.ts',
-      'internal-analytics-exports.ts',
-      'analytics.ts',
+    // file would mutate a tree shared with every parallel suite. The derivation
+    // takes its directory READER as a parameter, so a module that does not
+    // exist can be reported to it and the question "would the scan get it?"
+    // asked for real — of the actual `analyticsDomainModules`, not of a
+    // re-spelling of it. (This replaced a `expect(reconstructed).toEqual(modules)`
+    // that compared the derivation against the same two spreads inlined: one
+    // computation against itself, which no edit to the name rule, the directory
+    // lists or the filters could redden.)
+    const seededWith = (directory: string, added: string): string[] =>
+      analyticsDomainModules((requested) =>
+        requested === directory
+          ? [...readDirectory(requested), { name: added, isDirectory: () => false, isFile: () => true }]
+          : readDirectory(requested),
+      );
+
+    // A SHARED directory admits a new module by NAME …
+    expect(
+      seededWith('controllers', 'analytics-demand.controller.ts'),
+      'a new analytics controller does not enter the population; the shared-directory half of ' +
+        'the derivation has stopped admitting one, and it would sit behind no wall',
+    ).toContain('controllers/analytics-demand.controller.ts');
+    // … and ONLY by name, or this wall would start firing at whoever edits an
+    // order.
+    expect(
+      seededWith('controllers', 'orders.controller.ts'),
+      'a foreign controller entered the population; the name rule has stopped narrowing',
+    ).not.toContain('controllers/orders.controller.ts');
+    // An OWNED directory admits ANY name — the case the hand list missed, and
+    // the one where a name rule would be exactly wrong.
+    expect(
+      seededWith('services/analytics', 'demand.service.ts'),
+      'a new module in an owned directory does not enter the population',
+    ).toContain('services/analytics/demand.service.ts');
+
+    // The control: none of the seeded modules exists, so the assertions above
+    // are about the derivation and not about the tree. Without this, a file
+    // that happened to be added under one of those names would make them pass
+    // while proving nothing.
+    const real = analyticsDomainModules();
+    for (const seeded of [
+      'controllers/analytics-demand.controller.ts',
+      'services/analytics/demand.service.ts',
     ]) {
       expect(
-        ANALYTICS_NAME_PATTERN.test(name),
-        `a new ${name} would not be scanned; the population is not derived from the name`,
-      ).toBe(true);
+        real,
+        `${seeded} exists on disk, so the seeded assertions above prove nothing — rename the seed`,
+      ).not.toContain(seeded);
     }
-    expect(ANALYTICS_NAME_PATTERN.test('orders.controller.ts')).toBe(false);
   });
 
   it('a violation planted in EVERY scanned directory is detected — one victim per directory', () => {
@@ -441,14 +477,16 @@ describe('analytics cannot read commercial standing', () => {
       expect(inDirectory.length, `${directory} produced no mutation victim`).toBeGreaterThan(0);
       return inDirectory[0] ?? '';
     });
+    // NOT `toBe(directories.length)`: `directories.map(...)` makes that
+    // identity hold for ANY list, so it is `expect(scanned).toBe(LIST.length)`
+    // wearing a new costume — the defect this whole file exists to remove, and
+    // it was in the first draft of this test. The count is compared against the
+    // INDEPENDENT quantity instead: the configured directory list, which
+    // nothing in the victim derivation reads.
     expect(
       victims.length,
-      'a directory lost its victim; the self-test now covers less of the tree than the scan does',
-    ).toBe(directories.length);
-    expect(
-      directories.length,
-      'the population draws from fewer directories than are configured, so some configured ' +
-        'directory is contributing nothing',
+      'the self-test covers fewer directories than are configured, so a configured directory ' +
+        'is contributing nothing and is self-tested by nothing',
     ).toBeGreaterThanOrEqual(ANALYTICS_SCANNED_DIRECTORIES.length);
 
     for (const victim of victims) {
