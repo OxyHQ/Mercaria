@@ -206,10 +206,9 @@ async function discoverAwinAdvertiserSeenOnly(input: {
     membershipStatus: existing.membershipStatus,
     // `primaryRegion` and `vertical` ARE feed-list facts, so they are re-passed:
     // there is no readable listing to take them from and the upsert overwrites
-    // them. `declaredHost` is deliberately NOT here — the upsert preserves it
-    // (`awinAdvertiserRepository.ts`), and re-passing it would be a second
-    // mechanism for one fact. The two disagreed before #573: this path thought
-    // about preservation and the primary path was never asked to.
+    // them. Every column this upsert writes is now a feed-list fact, so there is
+    // nothing left for it to preserve — #589 deleted `declared_host`, which was
+    // the one exception and the reason this comment used to be longer.
     primaryRegion: existing.primaryRegion,
     vertical: existing.vertical,
     now: input.now,

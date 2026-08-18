@@ -1,0 +1,46 @@
+-- oxy:deploy-phase=post
+--
+-- #589, the CLEAN CUT. `post`, and every statement breaks a write the previous
+-- image performs.
+--
+-- ## `declared_host` and its shape CHECK
+--
+-- The column had no production writer for its whole life and no obtainable
+-- value: the feed list publishes no host column, Awin publishes an advertiser
+-- display URL only on the Publisher API's programme-details endpoint (which
+-- Mercaria neither calls nor has an account for), and deriving one from the
+-- feed's own destinations is circular by design. So
+-- `destinationMatchesAdvertiser`, the only reader, returned `null` on every real
+-- input — a check that could not fire, wearing the appearance of one that did.
+--
+-- The previous image still NAMES the column: `discoverAwinAdvertiser` inserts
+-- it and its `ON CONFLICT` set carries a `coalesce(excluded.declared_host, …)`.
+-- Both break the moment it is gone, which is what makes this `post`.
+--
+-- ## The findings CHECK, narrowed
+--
+-- `destination_host_mismatch` meant "the destination disagrees with the
+-- advertiser's DECLARED host", so it leaves with the column that held the
+-- expectation. `destination_is_tracking_host` — added in the previous
+-- migration, not renamed from it — is the new, MEASURED fact
+-- (`assessAwinDestination`, counted into
+-- `awin_advertiser_quality.destination_tracking_host`). Reusing the old name
+-- would have made every historical `awin_link_samples` row assert something
+-- nobody recorded.
+--
+-- The previous image accepts the retired value on
+-- `POST /internal/awin/advertisers/:id/samples`, which is the write this
+-- narrowing breaks.
+--
+-- **This statement REFUSES to apply if any stored sample carries the retired
+-- value**, and that is deliberate: a data statement quietly removing an element
+-- from a findings array would rewrite what an operator signed. It cannot happen
+-- on any deployment today — a sample requires an advertiser, an advertiser
+-- requires a publisher account, and there is no Awin account anywhere
+-- (`AWIN_ENABLED` defaults false and nothing is configured). A deployment that
+-- somehow holds one gets a loud 23514 naming the constraint, which is the right
+-- place for a person to decide what that row should say.
+ALTER TABLE "awin_advertisers" DROP CONSTRAINT "awin_advertisers_declared_host_shape_check";--> statement-breakpoint
+ALTER TABLE "awin_link_samples" DROP CONSTRAINT "awin_link_samples_findings_check";--> statement-breakpoint
+ALTER TABLE "awin_advertisers" DROP COLUMN "declared_host";--> statement-breakpoint
+ALTER TABLE "awin_link_samples" ADD CONSTRAINT "awin_link_samples_findings_check" CHECK ("awin_link_samples"."findings" <@ array['tracking_missing', 'tracking_host_not_approved', 'destination_insecure_scheme', 'destination_unresolvable', 'destination_is_tracking_host', 'destination_missing']::text[]);

@@ -123,25 +123,6 @@ export const AWIN_MAX_TEXT_LENGTH = 2_000;
 const AWIN_MAX_HANDLE_LENGTH = 200;
 
 /**
- * The shape of `awin_advertisers.declared_host` — a bare hostname, at least two
- * labels, no scheme, port, path or trailing dot.
- *
- * A module-level STRING rendered through `sql.raw`, not an inline template
- * literal, and that is the whole point of it existing (#477). Written inline the
- * separator has to be spelled `\.`, and a tagged template's cooked strings drop
- * that backslash before drizzle sees it — so the constraint reached production
- * as `(.[a-z0-9]…)`, where `.` matches ANY character and `axcom` is a legal
- * host. `CATEGORY_KEY_PATTERN` is the same decision one domain over.
- *
- * The separator is the character class `[.]` and NOT `\.`, so no layer has a
- * backslash to eat: a plain JS string drops `\.` to `.` exactly as the template
- * literal did, which is the same bug wearing the fix's clothes. `[.]` is a
- * literal dot in POSIX ERE with nothing to escape.
- */
-const AWIN_DECLARED_HOST_PATTERN =
-  '^[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)+$';
-
-/**
  * `awin_accounts` — one publisher account: its credentials' LOCATORS, its
  * network-level state and its fleet-wide call budget.
  *
@@ -320,8 +301,27 @@ export const awinAdvertisers = pgTable(
     /** What the feed list said about this advertiser, verbatim. */
     primaryRegion: text(),
     vertical: text(),
-    /** The advertiser's own site host, for the sample's destination check. */
-    declaredHost: text(),
+    /**
+     * There is deliberately NO `declared_host`, and there is no expectation
+     * column of any kind (#589).
+     *
+     * It existed for the pre-activation sample's destination check and had no
+     * production writer for its whole life. The feed list publishes no host
+     * column; Awin publishes an advertiser display URL only on the Publisher
+     * API's programme-details endpoint, which Mercaria neither calls nor has an
+     * account for; and deriving one from the feed's own destinations is
+     * circular. So the check it fed returned `null` on every real input.
+     *
+     * What replaced it catches the failure this table's sample comment names —
+     * the two URL columns mapped to each other's roles — from the FEED ALONE:
+     * `assessAwinDestination`, counted into `awin_advertiser_quality`.
+     *
+     * What it LOSES, stated rather than glossed: advertiser A's feed carrying
+     * links to retailer B, a genuine cross-retailer mismatch with no
+     * tracking-host signature. Nothing available to Mercaria can supply the host
+     * to catch it with. If it is later judged worth catching, it returns as a
+     * column, a writer and a caller in ONE change.
+     */
 
     /** When the list last mentioned it. Absence is what closure is inferred from. */
     lastSeenInListAt: timestamptz(),
@@ -341,11 +341,6 @@ export const awinAdvertisers = pgTable(
       'awin_advertisers_display_name_check',
       sql`btrim(${t.displayName}) <> ''
           and length(${t.displayName}) <= ${sql.raw(String(AWIN_MAX_HANDLE_LENGTH))}`,
-    ),
-    check(
-      'awin_advertisers_declared_host_shape_check',
-      sql`${t.declaredHost} is null
-          or ${t.declaredHost} ~ ${sql.raw(`'${AWIN_DECLARED_HOST_PATTERN}'`)}`,
     ),
     check(
       'awin_advertisers_note_length_check',

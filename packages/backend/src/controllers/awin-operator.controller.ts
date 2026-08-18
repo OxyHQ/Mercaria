@@ -121,7 +121,6 @@ function toAdvertiserDTO(row: AwinAdvertiserRow): Record<string, unknown> {
     activatingSampleId: row.activatingSampleId,
     primaryRegion: row.primaryRegion,
     vertical: row.vertical,
-    declaredHost: row.declaredHost,
     lastSeenInListAt: row.lastSeenInListAt,
   };
 }

@@ -381,7 +381,6 @@ async function bringUpAdvertiser(label: string): Promise<{
     displayName: `Advertiser ${label} ${RUN}`,
     membershipStatus: 'joined',
     primaryRegion: 'ES',
-    declaredHost: 'retailer.example',
   });
   createdAdvertiserIds.push(advertiser.id);
 

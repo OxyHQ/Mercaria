@@ -153,7 +153,6 @@ function resolvedFor(): ResolvedAwinFeed {
       activatingSampleId: 'sample-contract',
       primaryRegion: 'ES',
       vertical: 'Retail',
-      declaredHost: 'retailer.example',
       lastSeenInListAt: now,
       createdAt: now,
       updatedAt: now,

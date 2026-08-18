@@ -254,19 +254,20 @@ export const AWIN_APPROVED_TRACKING_VERDICT: AwinTrackingVerdict = 'approved';
  * programme is acting on a NAME, so the name has to be the fact that was
  * measured. `assessAwinDestination` states the same rule from the other side.
  *
- * This member is ADDITIVE and does not repurpose the one it supersedes.
- * `destination_host_mismatch` meant "the destination disagrees with the
- * advertiser's DECLARED host", and #589 deleted `awin_advertisers.declared_host`
- * — a column with no writer and no obtainable value. Giving the new fact the old
- * name would make every historical `awin_link_samples` row assert something
- * nobody recorded.
+ * It did not REPURPOSE the member it replaces, and that is the point of it
+ * being a new name. `destination_host_mismatch` meant "the destination
+ * disagrees with the advertiser's DECLARED host"; #589 deleted
+ * `awin_advertisers.declared_host` — a column with no writer, no obtainable
+ * value and no non-circular way to derive one — so that comparison has no
+ * expectation left to make. Reusing its name for the new fact would make every
+ * historical `awin_link_samples` row assert something nobody recorded, which is
+ * why it went with the column instead.
  */
 export type AwinSampleFinding =
   | 'tracking_missing'
   | 'tracking_host_not_approved'
   | 'destination_insecure_scheme'
   | 'destination_unresolvable'
-  | 'destination_host_mismatch'
   | 'destination_is_tracking_host'
   | 'destination_missing';
 
@@ -275,7 +276,6 @@ export const AWIN_SAMPLE_FINDINGS: readonly AwinSampleFinding[] = [
   'tracking_host_not_approved',
   'destination_insecure_scheme',
   'destination_unresolvable',
-  'destination_host_mismatch',
   'destination_is_tracking_host',
   'destination_missing',
 ];

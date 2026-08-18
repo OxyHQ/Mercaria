@@ -1,11 +1,17 @@
 /**
- * The two key-shape CHECKs #477 repaired, against a REAL Postgres server.
+ * The key-shape CHECK #477 repaired, against a REAL Postgres server.
  *
- * Both reached production with a bare `.` where a literal dot was meant, so both
- * admitted exactly what they exist to refuse. A mocked `insert` accepts any
+ * It reached production with a bare `.` where a literal dot was meant, so it
+ * admitted exactly what it exists to refuse. A mocked `insert` accepts any
  * statement, including one the server rejects outright — and more to the point
  * here, it accepts one the server ACCEPTS when it should not, which is the
  * direction this defect failed in. Only a server settles it.
+ *
+ * #477 repaired TWO such constraints. The other was
+ * `awin_advertisers_declared_host_shape_check`, and #589 deleted it with the
+ * column it guarded — a column with no writer and no obtainable value. The
+ * pattern constant it shared this decision with is `CATEGORY_KEY_PATTERN`,
+ * below.
  *
  * ## What makes each case non-vacuous
  *
@@ -30,7 +36,6 @@ import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
 import { productTypeDefinitions } from '../schema/productTypes.js';
-import { awinAccounts, awinAdvertisers } from '../schema/awin.js';
 
 let db: Database;
 
@@ -38,8 +43,6 @@ let db: Database;
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
 
 const definitionIds: string[] = [];
-const advertiserIds: string[] = [];
-const accountIds: string[] = [];
 
 /**
  * The write was refused, and refused by the constraint this case NAMES.
@@ -69,12 +72,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (advertiserIds.length > 0) {
-    await db.delete(awinAdvertisers).where(inArray(awinAdvertisers.id, advertiserIds));
-  }
-  if (accountIds.length > 0) {
-    await db.delete(awinAccounts).where(inArray(awinAccounts.id, accountIds));
-  }
   if (definitionIds.length > 0) {
     await db.delete(productTypeDefinitions).where(inArray(productTypeDefinitions.id, definitionIds));
   }
@@ -148,65 +145,3 @@ describe('product_type_definitions_key_shape_check', () => {
   });
 });
 
-describe('awin_advertisers_declared_host_shape_check', () => {
-  let accountId: string;
-
-  beforeAll(async () => {
-    const [account] = await db
-      .insert(awinAccounts)
-      .values({ publisherId: `477${RUN.replace(/\D/gu, '') || '1'}`, label: `#477 ${RUN}` })
-      .returning();
-    accountIds.push(account.id);
-    accountId = account.id;
-  });
-
-  /** A counter, because `(account_id, advertiser_id)` is unique. */
-  let seq = 0;
-  const advertiserId = (): string => String(477_000 + (seq += 1));
-
-  it.each([
-    ['a separator-less host', 'axcom'],
-    ['a space as the separator', 'example com'],
-    ['a slash as the separator', 'example/com'],
-    ['a scheme', 'https://example.com'],
-    ['a port', 'example.com:8080'],
-    ['a path', 'example.com/a'],
-  ])('refuses %s', async (_label, declaredHost) => {
-    await expectRefusedBy('awin_advertisers_declared_host_shape_check', () =>
-      db.insert(awinAdvertisers).values({
-        accountId,
-        advertiserId: advertiserId(),
-        displayName: 'refused',
-        declaredHost,
-      }),
-    );
-  });
-
-  // POSITIVE CONTROLS.
-  it.each([
-    ['an apex domain', 'apple.com'],
-    ['a subdomain', 'shop.apple.com'],
-    ['a hyphenated label', 'my-shop.example.co.uk'],
-  ])('accepts %s', async (_label, declaredHost) => {
-    const [row] = await db
-      .insert(awinAdvertisers)
-      .values({
-        accountId,
-        advertiserId: advertiserId(),
-        displayName: 'accepted',
-        declaredHost,
-      })
-      .returning();
-    advertiserIds.push(row.id);
-    expect(row.declaredHost).toBe(declaredHost);
-  });
-
-  it('accepts a NULL host, which is the ordinary state', async () => {
-    const [row] = await db
-      .insert(awinAdvertisers)
-      .values({ accountId, advertiserId: advertiserId(), displayName: 'accepted' })
-      .returning();
-    advertiserIds.push(row.id);
-    expect(row.declaredHost).toBeNull();
-  });
-});
