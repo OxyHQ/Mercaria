@@ -948,6 +948,23 @@ Ordering is `id desc` throughout, which on uuid v7 ids is "most recently created
 first" — the order an operator wants when something has just started going wrong,
 and the reason a truncated scan shows the newest breakage rather than the oldest.
 
+### The sample takes a turn from each sub-scan
+
+`orphaned_reference`, `schema_version_unavailable` and `stalled_queue_lease` are
+each two or three independent scans over different tables. The sample used to be
+the head of their CONCATENATION, which samples the earlier scans only: once they
+reached `INTEGRITY_SAMPLE_LIMIT` (20) handles between them, a later scan's
+findings were counted in `findings` and could never be named in `sample`. Reading
+`orphaned_reference 35 / 32` beside twenty `catalog_governance_change_requests`
+handles, an operator had no way to learn a dangling `catalog_proposals` row was
+among the thirty-two — and the handle is the only thing in a result they can open.
+
+The sample now takes a turn from each sub-scan, so every sub-scan that found
+anything is represented, newest first within each. The cost is stated rather than
+hidden: where several sub-scans report at once, a busy one shows fewer of its own
+handles than it did. `findings` is unaffected — it counts everything found and is
+never the size of the sample.
+
 ### `complete` is what makes a clean report readable
 
 `CatalogIntegrityResult` has no failed state and must not grow one: a result

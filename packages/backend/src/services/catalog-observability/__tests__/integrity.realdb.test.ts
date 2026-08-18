@@ -43,6 +43,7 @@ import {
   checkOrphanedReferences,
   checkSchemaVersionAvailability,
   checkStalledQueueLeases,
+  INTEGRITY_SAMPLE_LIMIT,
   runCatalogIntegrityChecks,
 } from '../integrity.service.js';
 
@@ -118,6 +119,32 @@ async function rolledBack<T>(work: (tx: Transaction) => Promise<T>): Promise<T> 
  * `population` is asserted to have grown too — or the delta could have come
  * from a scan that shrank, and a check whose denominator moves the other way
  * from its numerator is measuring something else.
+ *
+ * ## Why the sample assertion is answerable, and why it stays
+ *
+ * The third assertion is what makes the delta a fact about THIS row: a delta of
+ * one says a check found one more thing than it did a statement ago, and the
+ * handle is what says the thing it found is the row this case created rather
+ * than something that row disturbed. It is not redundant with the first.
+ *
+ * It was also the one that made this file roughly half-flaky on `main` (#622,
+ * #618) — not because a sample is the wrong thing to assert, but because the
+ * sample was the head of a CONCATENATION of the check's sub-scans, so a probe in
+ * a later sub-scan was unreachable once the earlier ones filled the cap with
+ * whatever parallel files had committed. `result()` now takes a turn from each
+ * sub-scan, which puts the newest finding of every sub-scan in the sample; the
+ * case below the proposal case fails on the old assembly deliberately.
+ *
+ * What remains is a bound rather than a coincidence: with S sub-scans reporting
+ * and a cap of {@link INTEGRITY_SAMPLE_LIMIT}, a probe is named as long as it is
+ * within the newest `⌈LIMIT / S⌉` findings of its OWN table. The `zz-` prefix on
+ * every id here is what buys that — under `order by id desc` it sorts above every
+ * uuid v7 id and above every sibling fixture prefix in this repository, so the
+ * probe is the newest finding in its table rather than merely a recent one.
+ *
+ * An empty sample fails this assertion rather than passing it, which is the
+ * property to preserve if it is ever rewritten: "no rows" and "my row is there"
+ * must never read the same.
  */
 function expectDetected(
   before: CatalogIntegrityResult,
@@ -173,6 +200,51 @@ async function insertCategory(
             'published', true)
   `);
   return categoryId;
+}
+
+/**
+ * A governance change request, inserted raw.
+ *
+ * `subject_kind` is `category` at every call site: the column is polymorphic
+ * over nine kinds and each takes the same `not exists` path, so a case that
+ * varied it would be measuring the discriminant rather than the check.
+ */
+async function insertChangeRequest(
+  tx: Transaction,
+  requestId: string,
+  subjectId: string,
+  state: 'planned' | 'withdrawn' = 'planned',
+): Promise<string> {
+  await tx.execute(sql`
+    insert into catalog_governance_change_requests
+      (id, domain, action, subject_kind, subject_id, state, parameters, reason,
+       requested_by_oxy_user_id, requested_at, requires_second_approval,
+       impact_coverage, impact_unmeasured_reason)
+    values (${requestId}, 'taxonomy', 'taxonomy_deprecate', 'category',
+            ${subjectId}, ${state}, '{}'::jsonb, 'an integrity probe',
+            ${`${requestId}-operator`}, now(), false, 'unmeasured', 'probe')
+  `);
+  return requestId;
+}
+
+/** An APPROVED proposal that resolved onto `resolvedEntityId`. */
+async function insertApprovedProposal(
+  tx: Transaction,
+  proposalId: string,
+  resolvedEntityId: string,
+): Promise<string> {
+  await tx.execute(sql`
+    insert into catalog_proposals
+      (id, type, origin, state, submitted_by_oxy_user_id, proposed_label, source_locale,
+       normalized_label, search_label, resolved_entity_id, decided_by_oxy_user_id,
+       decided_at, decision_reason)
+    values (${proposalId}, 'attribute', 'operator', 'approved',
+            ${`${proposalId}-submitter`}, 'Integrity probe', 'en',
+            ${`${proposalId}-label`}, ${`${proposalId}-label`},
+            ${resolvedEntityId}, ${`${proposalId}-reviewer`}, now(),
+            'merged into an existing definition')
+  `);
+  return proposalId;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -289,18 +361,11 @@ describe('checkOrphanedReferences', () => {
   it('finds an OPEN change request whose subject category no longer exists', async () => {
     await rolledBack(async (tx) => {
       const before = await checkOrphanedReferences(tx);
-      const requestId = id('orphan', 'request');
-
-      await tx.execute(sql`
-        insert into catalog_governance_change_requests
-          (id, domain, action, subject_kind, subject_id, state, parameters, reason,
-           requested_by_oxy_user_id, requested_at, requires_second_approval,
-           impact_coverage, impact_unmeasured_reason)
-        values (${requestId}, 'taxonomy', 'taxonomy_deprecate', 'category',
-                ${id('orphan', 'ghost-category')}, 'planned', '{}'::jsonb,
-                'an integrity probe', ${id('orphan', 'operator')}, now(), false,
-                'unmeasured', 'probe')
-      `);
+      const requestId = await insertChangeRequest(
+        tx,
+        id('orphan', 'request'),
+        id('orphan', 'ghost-category'),
+      );
 
       const after = await checkOrphanedReferences(tx);
       expectDetected(
@@ -319,29 +384,18 @@ describe('checkOrphanedReferences', () => {
       const categoryId = await insertCategory(tx, id('orphan2', 'cat'), 'zz_obs_integ.orphan2');
       const before = await checkOrphanedReferences(tx);
 
-      await tx.execute(sql`
-        insert into catalog_governance_change_requests
-          (id, domain, action, subject_kind, subject_id, state, parameters, reason,
-           requested_by_oxy_user_id, requested_at, requires_second_approval,
-           impact_coverage, impact_unmeasured_reason)
-        values (${id('orphan2', 'live')}, 'taxonomy', 'taxonomy_deprecate', 'category',
-                ${categoryId}, 'planned', '{}'::jsonb, 'an integrity probe',
-                ${id('orphan2', 'operator')}, now(), false, 'unmeasured', 'probe')
-      `);
+      await insertChangeRequest(tx, id('orphan2', 'live'), categoryId);
       expectIgnored(before, await checkOrphanedReferences(tx), 'a request naming a live category');
 
       // And a WITHDRAWN request naming a ghost. A terminal request is history —
       // `CATALOG_GOVERNANCE_OPEN_CHANGE_STATES` is what the scan reads, and this
       // is the case that tells that tuple from "every request".
-      await tx.execute(sql`
-        insert into catalog_governance_change_requests
-          (id, domain, action, subject_kind, subject_id, state, parameters, reason,
-           requested_by_oxy_user_id, requested_at, requires_second_approval,
-           impact_coverage, impact_unmeasured_reason)
-        values (${id('orphan2', 'withdrawn')}, 'taxonomy', 'taxonomy_deprecate', 'category',
-                ${id('orphan2', 'ghost')}, 'withdrawn', '{}'::jsonb, 'an integrity probe',
-                ${id('orphan2', 'operator')}, now(), false, 'unmeasured', 'probe')
-      `);
+      await insertChangeRequest(
+        tx,
+        id('orphan2', 'withdrawn'),
+        id('orphan2', 'ghost'),
+        'withdrawn',
+      );
       expectIgnored(
         before,
         await checkOrphanedReferences(tx),
@@ -353,25 +407,70 @@ describe('checkOrphanedReferences', () => {
   it('finds an APPROVED proposal whose resolved attribute definition is gone', async () => {
     await rolledBack(async (tx) => {
       const before = await checkOrphanedReferences(tx);
-      const proposalId = id('orphan3', 'proposal');
-
-      await tx.execute(sql`
-        insert into catalog_proposals
-          (id, type, origin, state, submitted_by_oxy_user_id, proposed_label, source_locale,
-           normalized_label, search_label, resolved_entity_id, decided_by_oxy_user_id,
-           decided_at, decision_reason)
-        values (${proposalId}, 'attribute', 'operator', 'approved',
-                ${id('orphan3', 'submitter')}, 'Integrity probe', 'en',
-                ${id('orphan3', 'label')}, ${id('orphan3', 'label')},
-                ${id('orphan3', 'ghost-attribute')}, ${id('orphan3', 'reviewer')}, now(),
-                'merged into an existing definition')
-      `);
+      const proposalId = await insertApprovedProposal(
+        tx,
+        id('orphan3', 'proposal'),
+        id('orphan3', 'ghost-attribute'),
+      );
 
       const after = await checkOrphanedReferences(tx);
       expectDetected(
         before,
         after,
         'an approved proposal resolved onto an attribute definition that does not exist',
+        `catalog_proposals:${proposalId}`,
+      );
+    });
+  });
+
+  /**
+   * The case above, with the condition that used to break it created HERE
+   * instead of waited for (#618, #622).
+   *
+   * `checkOrphanedReferences` is three sub-scans, and the sample used to be the
+   * head of their concatenation — so once the earlier two produced
+   * `INTEGRITY_SAMPLE_LIMIT` handles between them, no `catalog_proposals` handle
+   * could appear at all, whatever the check found. Both earlier sub-scans are
+   * database-wide and `catalog-governance.realdb.test.ts` legitimately leaves
+   * orphaned change requests behind, so on `main` whether the case above passed
+   * was decided by which files had committed before this one ran: measured over
+   * ten full-suite runs, five failed, every failing run reporting
+   * `orphaned_reference` findings at or above the cap and every passing run
+   * reporting none.
+   *
+   * Seeding the flood inside this file's own rolled-back transaction makes that
+   * condition hold on EVERY run, so this case fails on the unrepaired assembly
+   * rather than half the time.
+   */
+  it('names a dangling proposal behind a sample already full of change requests', async () => {
+    await rolledBack(async (tx) => {
+      for (let n = 0; n < INTEGRITY_SAMPLE_LIMIT; n += 1) {
+        await insertChangeRequest(
+          tx,
+          id('flood', `request-${String(n).padStart(2, '0')}`),
+          id('flood', 'ghost-category'),
+        );
+      }
+      const before = await checkOrphanedReferences(tx);
+
+      // The premise of the case, asserted rather than assumed: with the sample
+      // any shorter than the cap there is room for the proposal at the tail, the
+      // assertion below passes on the unrepaired assembly too, and this case
+      // measures nothing.
+      expect(before.sample, 'the flood did not fill the sample').toHaveLength(
+        INTEGRITY_SAMPLE_LIMIT,
+      );
+
+      const proposalId = await insertApprovedProposal(
+        tx,
+        id('flood', 'proposal'),
+        id('flood', 'ghost-attribute'),
+      );
+
+      expectDetected(
+        before,
+        await checkOrphanedReferences(tx),
+        'a dangling proposal behind a full sample of dangling change requests',
         `catalog_proposals:${proposalId}`,
       );
     });

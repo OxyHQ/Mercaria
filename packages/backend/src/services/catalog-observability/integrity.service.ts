@@ -43,12 +43,19 @@
  * operator id and a merchant handle both live one join away and neither belongs
  * in a health report.
  *
- * ## Ordering is newest first
+ * ## Ordering is newest first, and every sub-scan is represented
  *
  * Ids in this schema are uuid v7, so `order by id desc` is "most recently
  * created first" — which is the order an operator wants when something has just
  * started going wrong, and it is why a scan truncated at the limit shows the
  * newest breakage rather than the oldest.
+ *
+ * Three of these checks are two or three independent scans over different
+ * tables, and for those "newest first" is a claim about each scan rather than
+ * about one merged sequence: two tables' uuid v7 ids interleave by creation
+ * time, but a sample built by concatenating them and slicing the head is not
+ * newest-first at all, it is the first table's list. So {@link result} takes a
+ * turn from each sub-scan instead — see the reasoning there.
  */
 
 import { sql, type SQL } from 'drizzle-orm';
@@ -131,17 +138,57 @@ async function countExamined(db: DatabaseOrTransaction, examined: SQL): Promise<
   return Number(row?.total ?? 0);
 }
 
-/** Assemble a result, bounding the sample at the one place it is bounded. */
+/**
+ * Assemble a result, bounding the sample at the one place it is bounded.
+ *
+ * `segments` are the check's SUB-SCANS, each already ordered newest-first by its
+ * own query. Three of the six checks here are two or three independent scans
+ * over different tables; the other three pass a single segment.
+ *
+ * ## The sample takes a turn from each sub-scan, and that is not presentation
+ *
+ * This used to slice the head of the CONCATENATION of those sub-scans, which
+ * samples the earlier ones only: once they reach {@link INTEGRITY_SAMPLE_LIMIT}
+ * handles between them, a later sub-scan's findings are counted in `findings`
+ * and can never be named in `sample` — however few there are, and whatever their
+ * own ordering. An operator reading `orphaned_reference 35 / 32` beside twenty
+ * `catalog_governance_change_requests` handles has no way to learn that a
+ * dangling `catalog_proposals` row is among the thirty-two, and the handle is
+ * the only thing here they can open.
+ *
+ * Taking a turn from each sub-scan puts the newest finding of every sub-scan
+ * that found anything into the sample. The cost is stated rather than hidden:
+ * where several sub-scans report at once, a busy one now shows fewer of its own
+ * handles than it did. `findings` is unaffected either way — it counts
+ * everything found and is never the size of the sample.
+ *
+ * This is also what made `integrity.realdb.test.ts` roughly half-flaky on
+ * `main` (#622, #618): the earlier sub-scans are database-wide, so whether a
+ * probe row landed inside the cap was a property of what parallel test files
+ * had committed by then rather than of the check. Measured over ten full-suite
+ * runs before the change: five failed, and every failing run reported
+ * `orphaned_reference` findings at or above the cap while every passing run
+ * reported none.
+ */
 function result(
   kind: CatalogIntegrityCheckKind,
   population: number,
-  handles: readonly string[],
+  segments: readonly (readonly string[])[],
 ): CatalogIntegrityResult {
+  const sample: string[] = [];
+  for (let depth = 0; sample.length < INTEGRITY_SAMPLE_LIMIT; depth += 1) {
+    const reaching = segments.filter((segment) => depth < segment.length);
+    if (reaching.length === 0) break;
+    for (const segment of reaching) {
+      if (sample.length >= INTEGRITY_SAMPLE_LIMIT) break;
+      sample.push(segment[depth]);
+    }
+  }
   return {
     kind,
     population,
-    findings: handles.length,
-    sample: handles.slice(0, INTEGRITY_SAMPLE_LIMIT),
+    findings: segments.reduce((total, segment) => total + segment.length, 0),
+    sample,
     checkedAt: new Date().toISOString(),
   };
 }
@@ -200,7 +247,9 @@ export async function checkOrphanedReferences(
   limit: number = INTEGRITY_SCAN_LIMIT,
 ): Promise<CatalogIntegrityResult> {
   const governance = await scanOrphanedReferences(db, limit);
-  const handles = governance.findings.map((finding) => handle(finding.kind, finding.referenceId));
+  const governanceHandles = governance.findings.map((finding) =>
+    handle(finding.kind, finding.referenceId),
+  );
 
   const changeRequests = sql`
     select r.id, r.subject_kind, r.subject_id
@@ -222,9 +271,9 @@ export async function checkOrphanedReferences(
      order by e.id desc
      limit ${limit}
   `);
-  for (const row of danglingRequests) {
-    handles.push(handle('catalog_governance_change_requests', row.id));
-  }
+  const requestHandles = [...danglingRequests].map((row) =>
+    handle('catalog_governance_change_requests', row.id),
+  );
 
   // `type` is aliased out of the CTE. It is a non-reserved keyword in Postgres
   // and would parse, but a bare `e.type` in a later clause is one grammar change
@@ -250,16 +299,23 @@ export async function checkOrphanedReferences(
      order by e.id desc
      limit ${limit}
   `);
-  for (const row of danglingProposals) {
-    handles.push(handle('catalog_proposals', row.id));
-  }
+  const proposalHandles = [...danglingProposals].map((row) =>
+    handle('catalog_proposals', row.id),
+  );
 
   const population =
     governance.population +
     (await countExamined(db, changeRequests)) +
     (await countExamined(db, proposals));
 
-  return result('orphaned_reference', population, handles);
+  // Three sub-scans, three segments. The governance scan is folded in whole —
+  // as its `population` and `findings` already are — because from here it is
+  // one call answering one question.
+  return result('orphaned_reference', population, [
+    governanceHandles,
+    requestHandles,
+    proposalHandles,
+  ]);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -409,7 +465,7 @@ export async function checkInvalidRedirects(
     }
   }
 
-  return result('invalid_redirect', await countExamined(db, examined), handles);
+  return result('invalid_redirect', await countExamined(db, examined), [handles]);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -473,7 +529,7 @@ export async function checkCategoryCycles(
   `);
 
   const handles = [...cycles].map((row) => handle('categories', row.id));
-  return result('category_cycle', await countExamined(db, examined), handles);
+  return result('category_cycle', await countExamined(db, examined), [handles]);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -542,7 +598,7 @@ export async function checkAncestryPathDrift(
   `);
 
   const handles = [...drifted].map((row) => handle('categories', row.id));
-  return result('ancestry_path_drift', await countExamined(db, examined), handles);
+  return result('ancestry_path_drift', await countExamined(db, examined), [handles]);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -619,13 +675,11 @@ export async function checkSchemaVersionAvailability(
      limit ${limit}
   `);
 
-  const handles = [
-    ...[...unavailableDrafts].map((row) => handle('catalog_authoring_drafts', row.id)),
-    ...[...unavailableAxes].map((row) => handle('native_listing_variant_axes', row.id)),
-  ];
-
   const population = (await countExamined(db, drafts)) + (await countExamined(db, axes));
-  return result('schema_version_unavailable', population, handles);
+  return result('schema_version_unavailable', population, [
+    [...unavailableDrafts].map((row) => handle('catalog_authoring_drafts', row.id)),
+    [...unavailableAxes].map((row) => handle('native_listing_variant_axes', row.id)),
+  ]);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -714,20 +768,16 @@ export async function checkStalledQueueLeases(
      limit ${limit}
   `);
 
-  const handles = [
-    ...[...stalledBackfills].map((row) => handle('catalog_backfill_runs', row.id)),
-    ...[...stalledMappings].map((row) => handle('catalog_external_mapping_runs', row.id)),
-    ...[...stalledObservations].map((row) =>
-      handle('catalog_external_token_observations', row.id),
-    ),
-  ];
-
   const population =
     (await countExamined(db, backfillClaims)) +
     (await countExamined(db, mappingClaims)) +
     (await countExamined(db, observationClaims));
 
-  return result('stalled_queue_lease', population, handles);
+  return result('stalled_queue_lease', population, [
+    [...stalledBackfills].map((row) => handle('catalog_backfill_runs', row.id)),
+    [...stalledMappings].map((row) => handle('catalog_external_mapping_runs', row.id)),
+    [...stalledObservations].map((row) => handle('catalog_external_token_observations', row.id)),
+  ]);
 }
 
 /* -------------------------------------------------------------------------- */
