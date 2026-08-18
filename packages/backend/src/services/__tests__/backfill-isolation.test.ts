@@ -60,10 +60,23 @@ const BACKFILL_NAMED = /backfill/i;
 /**
  * The domain's own modules, by name, within the shared directories.
  *
- * ANCHORED at a path-segment boundary, unlike the whole-tree sweep: unanchored,
- * `backfill` matches `catalog-backfill` and `catalogBackfill`, and this
- * population would swallow two other domains. `internal-backfill.ts` is named
- * explicitly because the router convention puts the prefix first.
+ * ANCHORED at a path-segment boundary, unlike the whole-tree sweep.
+ *
+ * Measured, because the obvious claim for this anchor is not true today: the
+ * four shared directories hold NO `catalog-backfill` module — those live under
+ * `services/catalog-backfill/` and `db/catalogBackfill/` — so a loosened rule
+ * would change nothing here and now. Mutating the anchor away leaves this gate
+ * green, and an untested guard asserted to be load-bearing is worse than an
+ * absent one.
+ *
+ * What it actually protects against is an ADDITION: a
+ * `middleware/catalog-backfill-schemas.ts` would enter this population under a
+ * loose rule and be scanned by walls that are not about it. That is asserted
+ * against a seeded reader below rather than claimed here, so the anchor has a
+ * test that fails when it is removed.
+ *
+ * `internal-backfill.ts` is named explicitly because the router convention puts
+ * the prefix first.
  */
 const OWN_SHARED_MODULE = /(?:^|\/)(?:backfill[-.]|internal-backfill\.)/i;
 
@@ -242,6 +255,31 @@ describe('the backfill cannot reach the domains it must not', () => {
     // REACHED by the sweep and is NOT in the population; this is the count that
     // stops a sixteenth riding in behind them.
     expect(NOT_THIS_BACKFILL.length, 'a sixteenth foreign backfill was excused').toBe(15);
+  });
+
+  it('the shared-directory rule is ANCHORED, so a sibling domain cannot enter', () => {
+    // The anchor's own test, seeded rather than claimed. Nothing in the four
+    // shared directories exercises it today — mutating the anchor away leaves
+    // every other assertion in this file green — so without this the guard
+    // would read as load-bearing while being inert.
+    const seeded = (name: string): string[] =>
+      namedInSharedDirectories(DOMAIN_SHARED_DIRECTORIES, OWN_SHARED_MODULE, (relative) =>
+        relative === 'middleware'
+          ? [...readSrcDirectory(relative), { name, isDirectory: () => false, isFile: () => true }]
+          : readSrcDirectory(relative),
+      );
+
+    // This domain's own convention is admitted …
+    expect(
+      seeded('backfill-cohort-schemas.ts'),
+      'a new backfill middleware module does not enter the population',
+    ).toContain('middleware/backfill-cohort-schemas.ts');
+    // … and a SIBLING domain's is not, which is the whole job of the anchor.
+    expect(
+      seeded('catalog-backfill-schemas.ts'),
+      "a sibling domain's module entered this population; the shared-directory rule has stopped " +
+        'being anchored, and these walls would be applied to a domain they are not about',
+    ).not.toContain('middleware/catalog-backfill-schemas.ts');
   });
 
   it('no backfill module reaches an order, refund, payment, ledger or fee (acceptance 4)', () => {
