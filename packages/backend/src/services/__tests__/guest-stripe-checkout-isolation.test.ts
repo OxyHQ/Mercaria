@@ -196,6 +196,36 @@ function expectNoneOf(
 }
 
 describe('the guest Stripe checkout path cannot reach what it must not', () => {
+  it('scans a real population, and the durable half is the whole payment domain', () => {
+    // Vacuity floors PER SHAPE. Neither list had one: the only assertion on
+    // either was `expect(scanned).toBe(LIST.length)`, which compares the loop's
+    // own counter to the list it just iterated and holds for ANY list including
+    // an empty one. Measured (#460): with the durable list shrunk from 44
+    // entries to ONE, every test in this file still passed — so the walk that
+    // replaced the nine hand-named paths was a real widening with nothing
+    // defending it.
+    expect(
+      DURABLE_PAYMENT_PATHS.length,
+      'the payment-domain walk found too few modules; a shrunk population scans clean and ' +
+        'reports the same green as a domain with no violations',
+    ).toBeGreaterThanOrEqual(40);
+    expect(
+      DURABLE_PAYMENT_PATHS.filter((path) => path.startsWith('backend/src/services/payments/stripe/'))
+        .length,
+      'the Stripe half of the payment domain left the population',
+    ).toBeGreaterThanOrEqual(13);
+    // The cross-package half is a deliberate selection and stays EXACT (#448).
+    expect(GUEST_PAYMENT_PATHS.length, 'the guest payment list changed size').toBe(6);
+    // …and every member of both is a file that exists, so a listing that has
+    // started returning stale names goes red rather than handing the walls
+    // paths that no longer resolve.
+    for (const relative of [...GUEST_PAYMENT_PATHS, ...DURABLE_PAYMENT_PATHS]) {
+      expect(readSource(relative).length, `${relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
+    }
+  });
+
   it('no module names OxyPay or FairCoin, in code OR in copy', () => {
     let scanned = 0;
     for (const relative of [...GUEST_PAYMENT_PATHS, ...DURABLE_PAYMENT_PATHS]) {
