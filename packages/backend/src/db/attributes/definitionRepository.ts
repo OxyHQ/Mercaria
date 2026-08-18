@@ -67,6 +67,31 @@ export async function findAttributeDefinitionById(
 }
 
 /**
+ * The declared VALUE TYPE of many definitions, by id.
+ *
+ * A narrow projection rather than whole rows, and that is the boundary: the one
+ * caller is `publishProductTypeVersion`, which checks that a product-type
+ * field's `value_policy` agrees with the attribute it cites, and it has no
+ * business reading a definition's labels, bounds or units. #94 stays the one
+ * authority on what a value MEANS; this answers only "what kind of thing is it".
+ *
+ * Batched because publication walks every field of every flow, and one statement
+ * per field would make the cost of publishing a version a function of how many
+ * questions it asks.
+ */
+export async function listAttributeValueTypesByIds(
+  db: DatabaseOrTransaction,
+  ids: readonly string[],
+): Promise<Map<string, AttributeDefinitionRow['valueType']>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({ id: attributeDefinitions.id, valueType: attributeDefinitions.valueType })
+    .from(attributeDefinitions)
+    .where(inArray(attributeDefinitions.id, [...ids]));
+  return new Map(rows.map((row) => [row.id, row.valueType]));
+}
+
+/**
  * The ACTIVE version of one attribute — the meaning a new observation is read
  * under.
  *

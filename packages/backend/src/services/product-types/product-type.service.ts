@@ -52,6 +52,8 @@ import {
   type ProductTypeFieldRow,
 } from '../../db/productTypes/productTypeFieldRepository.js';
 import { assessVariantAxis, describeVariantAxisRefusal } from './variant-axis.js';
+import { assessValuePolicy, describeValuePolicyRefusal } from './value-policy.js';
+import { listAttributeValueTypesByIds } from '../../db/attributes/definitionRepository.js';
 
 /** Why a publication was refused. A closed set; a client never matches on text. */
 export type ProductTypePublicationRefusal =
@@ -60,7 +62,8 @@ export type ProductTypePublicationRefusal =
   | 'no_category_scope'
   | 'no_fields'
   | 'visibility_rule_names_unknown_field'
-  | 'variant_axis_refused';
+  | 'variant_axis_refused'
+  | 'value_policy_contradicts_attribute';
 
 /**
  * The outcome. A STRING discriminant, and the refused branch carries no
@@ -179,6 +182,35 @@ export async function publishProductTypeVersion(
           return refused(
             'variant_axis_refused',
             describeVariantAxisRefusal(verdict) ?? 'This field may not define variants.',
+          );
+        }
+      }
+
+      // The policy a field declares must agree with the attribute it cites.
+      // Read in ONE statement for the whole flow rather than per field: a
+      // version asks as many questions as it asks, and publishing it should not
+      // cost a round trip for each.
+      //
+      // A field whose cited definition cannot be read is NOT refused here. The
+      // foreign key makes that unreachable, and turning an unreadable row into a
+      // publication refusal would invent a rule whose failure mode is a version
+      // nobody can publish for a reason nobody can act on.
+      const valueTypes = await listAttributeValueTypesByIds(
+        tx,
+        fields.map((field) => field.attributeDefinitionId),
+      );
+      for (const field of fields) {
+        const valueType = valueTypes.get(field.attributeDefinitionId);
+        if (valueType === undefined) continue;
+        const agreement = assessValuePolicy({
+          attributeKey: field.attributeKey,
+          valuePolicy: field.valuePolicy,
+          valueType,
+        });
+        if (agreement.outcome === 'contradicts') {
+          return refused(
+            'value_policy_contradicts_attribute',
+            `In flow "${flow}", ${describeValuePolicyRefusal(agreement)}`,
           );
         }
       }

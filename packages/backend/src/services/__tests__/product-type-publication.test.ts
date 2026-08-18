@@ -33,6 +33,20 @@ vi.mock('../../db/productTypes/productTypeRepository.js', () => ({
   setProductTypeLifecycleIfIn: (...args: unknown[]) => setProductTypeLifecycleIfIn(...args),
 }));
 
+/**
+ * The value-policy agreement read (#367 box 5).
+ *
+ * Stubbed to AGREE by default — `ad_1` is an `enum` and the fixture field's
+ * policy is `controlled_value` — so every case in this file goes on testing the
+ * decision it was written for. The contradictions themselves are a file of their
+ * own (`product-type-value-policy.test.ts`), one case per shape.
+ */
+const listAttributeValueTypesByIds = vi.fn();
+
+vi.mock('../../db/attributes/definitionRepository.js', () => ({
+  listAttributeValueTypesByIds: (...args: unknown[]) => listAttributeValueTypesByIds(...args),
+}));
+
 vi.mock('../../db/productTypes/productTypeFieldRepository.js', () => ({
   listProductTypeCategoryScopes: (...args: unknown[]) => listProductTypeCategoryScopes(...args),
   listProductTypeFieldGroups: (...args: unknown[]) => listProductTypeFieldGroups(...args),
@@ -81,6 +95,7 @@ function field(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  listAttributeValueTypesByIds.mockResolvedValue(new Map([['ad_1', 'enum']]));
   findProductTypeDefinitionById.mockResolvedValue(DEFINITION);
   findPublishedProductTypeDefinition.mockResolvedValue(null);
   listProductTypeCategoryScopes.mockResolvedValue([
