@@ -443,6 +443,12 @@ export const productTypeFieldLocalizations = pgTable(
   (t) => [
     ...localizationChecks('product_type_field_localizations', { ...t, primaryText: t.label }),
     uniqueIndex('product_type_field_localizations_locale_key').on(t.productTypeFieldId, t.locale),
+    // The desk's index, for the reason the other three carry one: its read
+    // narrows on `locale` and the unique above leads with the FIELD id, so it
+    // cannot serve that predicate. This table is the largest of the four by
+    // construction — (fields × locales) rather than (entities × locales) — which
+    // makes it the one where the scan it removes matters most.
+    index('product_type_field_localizations_locale_status_idx').on(t.locale, t.status),
   ],
 );
 
