@@ -133,7 +133,24 @@ const PRESENTATION_PATHS = [
 ];
 
 /**
- * The STOREFRONT files that render a commercial disclosure.
+ * The STOREFRONT files this gate scans for commercial copy.
+ *
+ * NOT "every file that renders a disclosure" — `orders/index.tsx` renders none
+ * and is scanned so that it cannot acquire one unchecked. Measured 2026-08-18:
+ * the four screens plus the component and the copy module are exactly the files
+ * naming `CommercialDisclosure` or `commercial-copy`, and the only other file
+ * naming one is `ui/src/index.ts`, the barrel, which re-exports and renders
+ * nothing.
+ *
+ * **The list is complete today and nothing keeps it complete** (#460): a NEW
+ * storefront screen rendering the disclosure would not appear here, and the
+ * exact-count assertion below would still pass, because the count is of this
+ * list rather than of the screens. The rejection recorded beside that assertion
+ * — that walking `packages/frontend` whole would scan every screen in the app —
+ * argues against a BLANKET walk and not against a targeted derivation over the
+ * files that reference the disclosure or the copy module, which is what a
+ * conversion would actually use. Left as a hand list because that is a decision
+ * for whoever owns this wall, with the gap stated rather than implied.
  *
  * Scanned from here because `packages/frontend` has no test runner at all and
  * `packages/ui`'s `test` script is an `echo`. The file that would put

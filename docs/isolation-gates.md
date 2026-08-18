@@ -372,3 +372,91 @@ read as coverage.
 **Validate any new census against cases whose answer you already know, before
 reporting a single row.** If you have just fixed N instances, those N are the
 control set — free, and exactly on-distribution.
+
+## When a census cannot be made correct by a better pattern
+
+`scripts/isolation-gate-census.ts` above is a shortlist generator because the
+bucket is a judgement. This section is the measured evidence for *why*, and it
+cost six iterations to obtain.
+
+Classifying the same **78** gate files by "does its scan population include a
+hand-maintained file list", one definition, six instruments:
+
+| # | instrument | count | what was wrong |
+|---|---|---|---|
+| 1 | regex `\[([^\]]*)\]` | 17 | terminates at a `]` **inside a string literal** — and every Expo dynamic route has one (`'frontend/app/(app)/merchants/[idOrSlug].tsx'`), so the array fell under a `>= 2` threshold and a whole gate vanished |
+| 2 | regex `\[([\s\S]*?)\]\s*;` | 19 | an array not ending in `];` makes the non-greedy match **swallow the arrays that follow** |
+| 3 | AST, `isArrayLiteralExpression` | 13 | `const X = [...] as const` is an **AsExpression**; testing only for a bare array literal drops every such list |
+| 4 | AST + unwrap `as const`/`satisfies`/parens | 21 | required a `/` in an entry, dropping a repo-root `app.ts` |
+| 5 | same, `/` no longer required | 24 | began counting `{file, field, why}` exemption pairs and a local `const controls = [{name, module}]` test FIXTURE as populations |
+| 6 | — | — | stopped |
+
+**Iterations 4 and 5 are wrong in OPPOSITE directions with no syntactic rule
+between them, and that is the proof rather than a suggestion.**
+`AGGREGATE_EXCLUSIONS` (an exclusion attached to a walked population) and
+`LEGACY_BARE_IDENTITY_FIELDS` (an exemption of field-in-file pairs, not a
+population at all) are **the same shape** — a readonly array of objects carrying
+a file string and a reason. Nothing in the syntax separates them; only what the
+docblock CLAIMS does. So a seventh pattern is not the remedy, and **re-running a
+suspect census with a better regex is not the remedy either** — checking against
+known answers obtained another way is.
+
+**The free assertion available on every repair:**
+
+> **A fix that repairs a TRUNCATION can only ADD. If the count also DROPS, there
+> is a second bug.**
+
+17 → 19 gained two and **lost one**, and that single dropped entry was the whole
+evidence that the second regex had its own fault. Nothing else in the output said
+so. It costs one comparison.
+
+**And grep for the raw construct as an upper bound before quoting any census.**
+A sibling instrument matched only a LITERAL argument (`walk\('[^']+'`) and
+reported 27 where `grep -c 'walk('` gives **41** — fourteen gates hold the
+directory list in a CONSTANT (`DIRS.flatMap(walk)`) and it saw none of them. The
+missed form was the *more* hand-written one. The gap between "sites of the
+construct" and "sites my pattern parsed" is the measurement.
+
+**What all six share:** a pattern that matches one SPELLING of a thing reports
+the count of that spelling and calls it the population, and none of them
+announces a parse failure. The first apparent finding of the audit built on
+these — a docblock reading *"The three files"* over what the counter read as two
+entries — **was the counter being short, not the comment overclaiming.** Check
+each apparent contradiction against the file before writing it down.
+
+## A walked population whose DIRECTORY list is hand-written is still a hand list
+
+Converting a gate from a list of modules to a walk moves the hand list up one
+level, where it fails the same silent way. Measured (#590/#609): a gate's
+shared-directory list carried `routes/admin` and not `controllers/admin`,
+inherited from the census's own list, and the wall shipped over **28 of 29
+modules** with no floor or count able to see it.
+
+The remedy is the same rule applied one level up — **sweep the whole tree for
+paths naming the domain and require each to be in the population or in a counted
+exclusion.** Match the PATH, not the filename: a module inside a directory named
+for the domain names it nowhere in its own name, and a filename sweep found 10 of
+29.
+
+**And the asymmetry to look for is inside a single file.** Measured across the
+gates on `d46bef89`: **27 pair a RECURSIVE `walk()` with a ONE-LEVEL
+`isFile()` domain-name sweep** over the shared flat directories, ten lines apart,
+so the file reads as though it recurses throughout. `walk('controllers')` reaches
+`controllers/admin/`; the name sweep beside it does not. It is live, not latent —
+`merchant-activation-isolation.test.ts` sweeps with `entry.isFile()` while
+`routes/admin/merchant-activation.ts` exists and is named nowhere in that gate.
+Four more domain-named modules sit in those directories (`routes/admin/feeds.ts`,
+`routes/admin/referral-partner.ts`, `controllers/admin/pickup-admin.controller.ts`,
+and the analytics pair #609 fixed for one gate only). Most other domains are
+complete purely by where their modules happen to live.
+
+## An empty exclusion list needs a positive control that shares the wall's comparison
+
+`toEqual([])` is satisfied three ways: by a correct tree, by a sweep that reached
+nothing, and by a population containing everything. A vacuity floor covers the
+second; only a **planted module** covers the third — and if the control computes
+its own population, it tests the sweep rather than the wall.
+
+Measured (#609): with two spellings of the population, mutating the wall's to
+contain everything left **all ten tests green**. One comparison now serves both
+the wall and its control, and that mutation fails naming the planted module.
