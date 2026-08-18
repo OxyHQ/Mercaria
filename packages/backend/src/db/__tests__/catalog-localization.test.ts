@@ -647,9 +647,37 @@ describe('the hand-written trigger SQL', () => {
         .toBeGreaterThanOrEqual(1);
     }
 
+    // THE CONTROL, and its shape is the load-bearing part.
+    //
+    // The obvious control is to run the matcher against a table name that does
+    // not exist and watch it report nothing. That measures NOTHING: an absent
+    // name is absent from the chain whether the matcher works or is broken, so
+    // it passes identically either way. What is needed is a subject that REALLY
+    // EXISTS and really has no guard, so a matcher that has silently started
+    // matching everything is caught.
+    //
+    // `attribute_labels` is exactly that and it is not invented for the purpose:
+    // it is a REAL member of this family, it is the ONE exemption above, and it
+    // genuinely carries no BEFORE UPDATE trigger anywhere in the chain —
+    // verified against a real applied database. So the exemption doubles as the
+    // negative case, and if somebody ever gives it the family columns and a
+    // guard, this line fails and tells them to move it out of the exemption
+    // list, which is the conversation that change should start.
+    const exemptName = LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS[0]?.table ?? '';
+    expect(exemptName).not.toBe('');
+    const attachedToExempt = chain.filter((file) =>
+      new RegExp(String.raw`BEFORE\s+UPDATE\s+ON\s+"?${exemptName}"?`).test(file.text),
+    );
+    expect(
+      attachedToExempt,
+      `${exemptName} is expected to have NO update guard — if it now has one, ` +
+        `it has outgrown its exemption and this census should cover it`,
+    ).toHaveLength(0);
+
     process.stdout.write(
-      `\n  [family guard census] ${guarded.length} non-exempt text tables, ` +
-        `${exempt.size} exempt, ${chain.length} migration files scanned\n`,
+      `\n  [family guard census] ${guarded.length} non-exempt text tables guarded, ` +
+        `${exempt.size} exempt (control: ${exemptName} has none), ` +
+        `${chain.length} migration files scanned\n`,
     );
   });
 
