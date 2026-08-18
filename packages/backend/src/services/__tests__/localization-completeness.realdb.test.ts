@@ -42,7 +42,7 @@ import * as schema from '../../db/schema/index.js';
 import type { Database } from '../../db/postgres.js';
 import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../../db/testDatabase.js';
 import { categories } from '../../db/schema/catalog.js';
-import { productTypeDefinitions } from '../../db/schema/productTypes.js';
+import { productTypeDefinitions, productTypeFields } from '../../db/schema/productTypes.js';
 import { attributeDefinitions, attributeEnumValues } from '../../db/schema/attributeRegistry.js';
 import {
   attributeValueLocalizations,
@@ -55,7 +55,11 @@ import {
 } from '../catalog-localization/completeness.service.js';
 import { reviewLocalization } from '../catalog-localization/side-by-side.service.js';
 import { measureLocaleCompleteness } from '../catalog-governance/quality.service.js';
-import { LAUNCH_LOCALES, LOCALIZATION_COVERAGE_DOMAINS } from '@mercaria/shared-types';
+import {
+  LAUNCH_LOCALES,
+  LOCALIZATION_COVERAGE_DOMAINS,
+  type CategoryLifecycle,
+} from '@mercaria/shared-types';
 
 const ADMIN_URL =
   process.env['TEST_DATABASE_URL'] ??
@@ -93,7 +97,11 @@ function rowFor(
   return found;
 }
 
-async function addCategory(key: string, name: string, lifecycle: string): Promise<string> {
+async function addCategory(
+  key: string,
+  name: string,
+  lifecycle: CategoryLifecycle,
+): Promise<string> {
   const [row] = await db
     .insert(categories)
     .values({ key, name, slug: key.replace(/\./gu, '-'), lifecycle, isActive: lifecycle === 'published' })
@@ -285,6 +293,83 @@ describe('product types are owed per published VERSION', () => {
     // shown work on a version whose meaning may still change.
     const report = await readLocalizationCompleteness('launch', db);
     expect(rowFor(report, 'product_type', 'ja').owed).toBe(2);
+  });
+});
+
+describe('per-field authoring copy is owed only where there is copy', () => {
+  beforeAll(async () => {
+    // Built as a DRAFT and published afterwards: a published version's authoring
+    // contract is frozen by trigger, so its fields cannot be inserted after the
+    // fact. Its own key, because `_one_published_per_key` permits one published
+    // version per key and the versions above are already using theirs.
+    const [definition] = await db
+      .insert(productTypeDefinitions)
+      .values({ key: 'desk.fielded', version: 1, lifecycle: 'draft', name: 'Fielded' })
+      .returning();
+    // A field CITES its attribute by key and version, and a trigger refuses a
+    // citation that does not match the definition it points at — so each field
+    // needs its own definition rather than three citations of one.
+    const attributes = await db
+      .insert(attributeDefinitions)
+      .values(
+        ['desk_screen_a', 'desk_screen_b', 'desk_screen_c'].map((key) => ({
+          key,
+          label: key,
+          valueType: 'string' as const,
+          lifecycleState: 'draft' as const,
+        })),
+      )
+      .returning();
+    const field = (attribute: (typeof attributes)[number], position: number) => ({
+      productTypeDefinitionId: definition.id,
+      attributeDefinitionId: attribute.id,
+      attributeKey: attribute.key,
+      attributeDefinitionVersion: attribute.version,
+      scope: 'product' as const,
+      flow: 'merchant' as const,
+      requirement: 'optional' as const,
+      valuePolicy: 'typed_scalar' as const,
+      position,
+    });
+    await db.insert(productTypeFields).values([
+      // Carry base copy — owed.
+      { ...field(attributes[0], 1), label: 'Screen size' },
+      { ...field(attributes[1], 2), helpText: 'Measured diagonally' },
+      // Carries NONE of the four — nothing to translate.
+      field(attributes[2], 3),
+    ]);
+    await db
+      .update(productTypeDefinitions)
+      .set({
+        lifecycle: 'published',
+        publishedByOxyUserId: 'desk-publisher',
+        publishedAt: new Date(),
+      })
+      .where(eq(productTypeDefinitions.id, definition.id));
+  });
+
+  it('excludes a field with no base label, help text, placeholder or example', async () => {
+    // All four base columns are nullable. Counting a bare field would make every
+    // locale permanently incomplete by exactly the number of bare fields — a
+    // denominator nobody can ever satisfy, which is how a metric gets ignored.
+    const report = await readLocalizationCompleteness('launch', db);
+    expect(rowFor(report, 'product_type_field', 'es').owed).toBe(2);
+  });
+
+  it('publishes the #650 carry-forward gap beside the figure', async () => {
+    // The caveat this domain needs and no other does: nothing carries per-field
+    // translations onto a new product-type version, so this figure can collapse
+    // to zero for a key through no translator's doing. A desk reading it without
+    // the caveat would conclude its translators had stopped working.
+    const report = await readLocalizationCompleteness('launch', db);
+    const detection = report.stalenessDetections.find((d) => d.domain === 'product_type_field');
+    expect(detection).toBeDefined();
+    expect(detection.carriesForwardOnVersionBump).toBe('no');
+    expect(detection.knownGapIssue).toBe('#650');
+    // …and the version-level domain, which IS carried forward, says so — so the
+    // field is a real discriminator rather than a constant.
+    const versionLevel = report.stalenessDetections.find((d) => d.domain === 'product_type');
+    expect(versionLevel.carriesForwardOnVersionBump).toBe('yes');
   });
 });
 

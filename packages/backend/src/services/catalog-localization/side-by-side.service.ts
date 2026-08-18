@@ -21,12 +21,14 @@
  * in. `LocalizationCandidate` and `localeFallbackChain` are not imported here,
  * which is what keeps that true for whoever edits this next.
  *
- * ## Three of the six fields have no source to show
+ * ## Some fields have no source to show at all
  *
  * `LOCALIZED_FIELD_BASE_SOURCES` records which entity column holds each field's
  * base text and which fields have none — `categories` has no description and
  * `product_type_definitions` has no help text. The descriptor travels on every
  * comparison, so an empty source box is explained rather than ambiguous.
+ * `product_type_field` (#633) is the one domain where every registered field has
+ * a base column, so its review screen never shows one for a structural reason.
  */
 
 import { eq, inArray, and } from 'drizzle-orm';
@@ -43,11 +45,12 @@ import {
   type SupportedLocale,
 } from '@mercaria/shared-types';
 import { categories } from '../../db/schema/catalog.js';
-import { productTypeDefinitions } from '../../db/schema/productTypes.js';
+import { productTypeDefinitions, productTypeFields } from '../../db/schema/productTypes.js';
 import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
 import {
   attributeValueLocalizations,
   categoryLocalizations,
+  productTypeFieldLocalizations,
   productTypeLocalizations,
 } from '../../db/schema/catalogLocalization.js';
 import { stalenessDetectionFor } from './completeness.service.js';
@@ -240,6 +243,60 @@ export async function reviewAttributeValueLocalization(
   );
 }
 
+/** One product-type FIELD's authoring copy, source beside target (#633). */
+export async function reviewProductTypeFieldLocalization(
+  productTypeFieldId: string,
+  locale: SupportedLocale,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<LocalizedEntityComparison | undefined> {
+  const [base] = await db
+    .select({
+      id: productTypeFields.id,
+      label: productTypeFields.label,
+      helpText: productTypeFields.helpText,
+      placeholder: productTypeFields.placeholder,
+      example: productTypeFields.example,
+    })
+    .from(productTypeFields)
+    .where(eq(productTypeFields.id, productTypeFieldId))
+    .limit(1);
+  if (!base) return undefined;
+
+  const [row] = await db
+    .select()
+    .from(productTypeFieldLocalizations)
+    .where(
+      and(
+        eq(productTypeFieldLocalizations.productTypeFieldId, productTypeFieldId),
+        eq(productTypeFieldLocalizations.locale, locale),
+      ),
+    )
+    .limit(1);
+
+  return compose(
+    'product_type_field',
+    productTypeFieldId,
+    locale,
+    row && {
+      ...row,
+      texts: {
+        label: row.label,
+        helpText: row.helpText,
+        placeholder: row.placeholder,
+        example: row.example,
+      },
+    },
+    // Keyed by SQL column name, which is what `LOCALIZED_FIELD_BASE_SOURCES`
+    // names — `help_text`, not `helpText`.
+    {
+      label: base.label,
+      help_text: base.helpText,
+      placeholder: base.placeholder,
+      example: base.example,
+    },
+  );
+}
+
 /**
  * One entity in one locale, dispatched on the domain.
  *
@@ -259,6 +316,8 @@ export async function reviewLocalization(
       return reviewCategoryLocalization(entityId, locale, db);
     case 'product_type':
       return reviewProductTypeLocalization(entityId, locale, db);
+    case 'product_type_field':
+      return reviewProductTypeFieldLocalization(entityId, locale, db);
     case 'attribute_value':
       return reviewAttributeValueLocalization(entityId, locale, db);
     default: {

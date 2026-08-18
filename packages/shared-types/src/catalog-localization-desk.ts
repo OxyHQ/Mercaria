@@ -197,6 +197,21 @@ export interface LocalizationStalenessDetection {
   readonly watches: readonly string[];
   /** Source changes that leave a translation reading `approved` when it is not. */
   readonly unwatched: readonly string[];
+  /**
+   * What happens to this domain's translations when the parent version is
+   * SUPERSEDED — a different question from staleness, and the one that decides
+   * whether a completeness figure can fall for a reason that is not translator
+   * inaction.
+   *
+   * `not_applicable` for a domain with no versions at all. `yes` names the
+   * function that carries them. **`no` means the translations are silently LOST
+   * on a version bump**, which makes this domain's completeness collapse to zero
+   * for that key with nothing in the data saying why — so the report has to say
+   * so beside the figure rather than leave a desk to rediscover it.
+   */
+  readonly carriesForwardOnVersionBump: 'yes' | 'no' | 'not_applicable';
+  /** The issue that owes the gap, when `carriesForwardOnVersionBump` is `no`. */
+  readonly knownGapIssue?: string;
 }
 
 export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDetection[] = [
@@ -211,6 +226,7 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
       // until somebody does, a description edit leaves its translations approved.
       'categories.description',
     ],
+    carriesForwardOnVersionBump: 'not_applicable',
   },
   {
     domain: 'attribute_value',
@@ -218,6 +234,7 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
     performedBy: 'mercaria_attribute_enum_values_localization_stale',
     watches: ['attribute_enum_values.label', 'attribute_enum_values.value'],
     unwatched: [],
+    carriesForwardOnVersionBump: 'not_applicable',
   },
   {
     domain: 'product_type',
@@ -231,6 +248,33 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
       'product_type_definitions.name (while draft or review)',
       'product_type_definitions.description (while draft or review)',
     ],
+    carriesForwardOnVersionBump: 'yes',
+  },
+  {
+    // #633's per-field authoring copy (ADR 0007 D10). It DOES have a trigger,
+    // watching all four base columns, so its in-place staleness detection is the
+    // most complete of the four.
+    //
+    // Its gap is the other question entirely, and it is the reason that question
+    // is a field on this descriptor at all: `product_type_field_localizations`
+    // hangs off a FIELD, `product_type_fields` rows are frozen and re-minted per
+    // version, and `copyForwardProductTypeLocalizations` carries only
+    // VERSION-level text. So publishing a new product-type version silently
+    // drops every per-field translation, and this domain's completeness for that
+    // key collapses to zero with nothing in the data saying why. A desk reading
+    // the figure would conclude its translators had stopped working.
+    domain: 'product_type_field',
+    mechanism: 'database_trigger',
+    performedBy: 'mercaria_product_type_fields_localization_stale',
+    watches: [
+      'product_type_fields.label',
+      'product_type_fields.help_text',
+      'product_type_fields.placeholder',
+      'product_type_fields.example',
+    ],
+    unwatched: [],
+    carriesForwardOnVersionBump: 'no',
+    knownGapIssue: '#650',
   },
 ];
 
@@ -262,6 +306,11 @@ export const LOCALIZATION_OWED_POPULATION_RULES: Readonly<Record<LocalizedEntity
       'attribute_enum_values whose parent attribute_definitions.lifecycle_state is active. The ' +
       'enum value carries no lifecycle of its own, so the definition\'s is the only statement ' +
       'available about whether its labels are still worth translating.',
+    product_type_field:
+      'product_type_fields belonging to a PUBLISHED product-type version, and only those ' +
+      'carrying at least one base-locale string. All four base columns are nullable, so a field ' +
+      'with no label, help text, placeholder or example has nothing to translate and counting it ' +
+      'would make every locale permanently incomplete by exactly the number of bare fields.',
   });
 
 /**
@@ -486,6 +535,30 @@ export const LOCALIZED_FIELD_BASE_SOURCES: Readonly<Record<string, LocalizedFiel
       kind: 'column',
       table: 'attribute_enum_values',
       column: 'label',
+    },
+    // #633's four. Unlike every other entity here, `product_type_fields` carries
+    // a base-locale counterpart for ALL of its localized fields — which is why
+    // this domain is the only one whose review screen never shows an empty
+    // source box for a structural reason.
+    'product_type_field.label': {
+      kind: 'column',
+      table: 'product_type_fields',
+      column: 'label',
+    },
+    'product_type_field.help_text': {
+      kind: 'column',
+      table: 'product_type_fields',
+      column: 'help_text',
+    },
+    'product_type_field.placeholder': {
+      kind: 'column',
+      table: 'product_type_fields',
+      column: 'placeholder',
+    },
+    'product_type_field.example': {
+      kind: 'column',
+      table: 'product_type_fields',
+      column: 'example',
     },
   });
 

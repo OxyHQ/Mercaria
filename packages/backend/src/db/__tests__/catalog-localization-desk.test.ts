@@ -40,7 +40,7 @@ import {
   type LocalizedEntityKind,
 } from '@mercaria/shared-types';
 import { categories } from '../schema/catalog';
-import { productTypeDefinitions } from '../schema/productTypes';
+import { productTypeDefinitions, productTypeFields } from '../schema/productTypes';
 import { attributeEnumValues } from '../schema/attributeRegistry';
 import internalCatalogLocalizationRouter from '../../routes/internal-catalog-localization';
 
@@ -53,6 +53,7 @@ const REPO_ROOT = join(BACKEND_SRC, '..', '..', '..');
 const DOMAIN_TABLES: Readonly<Record<LocalizedEntityKind, string>> = {
   category: 'category_localizations',
   product_type: 'product_type_localizations',
+  product_type_field: 'product_type_field_localizations',
   attribute_value: 'attribute_value_localizations',
 };
 
@@ -244,14 +245,27 @@ describe('staleness detection is described per domain and matches the SQL', () =
       'utf8',
     );
     expect(repository).toContain(`export async function ${detection.performedBy}`);
-    // …and there is genuinely NO trigger for it, which is the asymmetry the
-    // whole descriptor exists to publish. A trigger added later must move this
-    // domain to `database_trigger` rather than leave two mechanisms disagreeing.
-    const anyTrigger = readdirSync(DRIZZLE_DIR)
+    // …and there is genuinely NO trigger writing `stale` into the VERSION-level
+    // table, which is the asymmetry the whole descriptor exists to publish. A
+    // trigger added later must move this domain to `database_trigger` rather
+    // than leave two mechanisms disagreeing.
+    //
+    // Keyed on the STATEMENT rather than on a trigger-name pattern. #633 added
+    // `mercaria_product_type_fields_localization_stale`, which a name pattern
+    // like `\w*product_type\w*_localization_stale` matches — so the obvious
+    // spelling started reporting a trigger for THIS domain that belongs to a
+    // different one. What the descriptor claims is that nothing marks
+    // `product_type_localizations` stale, and that is what is asserted.
+    const staleWrite = /UPDATE "product_type_localizations"\s*\n\s*SET status = 'stale'/u;
+    const files = readdirSync(DRIZZLE_DIR)
       .filter((entry) => entry.endsWith('.sql'))
-      .map((entry) => readFileSync(join(DRIZZLE_DIR, entry), 'utf8'))
-      .some((text) => /CREATE TRIGGER \w*product_type\w*_localization_stale/u.test(text));
-    expect(anyTrigger).toBe(false);
+      .map((entry) => readFileSync(join(DRIZZLE_DIR, entry), 'utf8'));
+    expect(files.length).toBeGreaterThan(0);
+    expect(files.some((text) => staleWrite.test(text))).toBe(false);
+    // Positive control: the SAME pattern against a table that IS staled by a
+    // trigger must match, or the assertion above is a regex that can never fire.
+    const fieldStaleWrite = /UPDATE "product_type_field_localizations"\s*\n\s*SET status = 'stale'/u;
+    expect(files.some((text) => fieldStaleWrite.test(text))).toBe(true);
   });
 
   it('mechanisms are not all the same value — the asymmetry is the finding', () => {
@@ -266,7 +280,12 @@ describe('staleness detection is described per domain and matches the SQL', () =
 /* -------------------------------------------------------------------------- */
 
 describe('every registered field states where its base text lives', () => {
-  const TABLES = { categories, product_type_definitions: productTypeDefinitions, attribute_enum_values: attributeEnumValues };
+  const TABLES = {
+    categories,
+    product_type_definitions: productTypeDefinitions,
+    product_type_fields: productTypeFields,
+    attribute_enum_values: attributeEnumValues,
+  };
 
   function columnNames(table: keyof typeof TABLES): string[] {
     const drizzleTable = TABLES[table];

@@ -288,6 +288,55 @@ export async function readAttributeValueLocalizationCompleteness(
 }
 
 /**
+ * Per-field authoring copy owed a translation (#633, ADR 0007 D10).
+ *
+ * Two predicates, and the second is the one that matters. The field must belong
+ * to a PUBLISHED version — the `product_type` rule, one level down — AND it must
+ * carry at least one base-locale string. All four base columns are nullable, so
+ * a field with no label, help text, placeholder or example has nothing to
+ * translate; counting it would make every locale permanently incomplete by
+ * exactly the number of bare fields, which is the "denominator nobody can ever
+ * satisfy" failure that gets a metric ignored.
+ *
+ * The figure this produces has a caveat no other domain needs, and it is
+ * published beside it in `LOCALIZATION_STALENESS_DETECTIONS`: nothing carries
+ * these translations forward when a version is superseded (#650), so this
+ * domain's completeness can collapse to zero for a key through no translator's
+ * doing.
+ */
+export async function readProductTypeFieldLocalizationCompleteness(
+  locales: readonly SupportedLocale[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly LocalizationDomainLocaleCounts[]> {
+  if (locales.length === 0) return [];
+  const rows = await db.execute<RawCountRow>(sql`
+    with owed as (
+      select f.id
+        from product_type_fields f
+        join product_type_definitions d
+          on d.id = f.product_type_definition_id and d.lifecycle = 'published'
+       where f.label is not null
+          or f.help_text is not null
+          or f.placeholder is not null
+          or f.example is not null
+    ),
+    requested as (
+      select unnest(${sql.raw(localeArrayLiteral(locales))}) as locale
+    )
+    select r.locale,
+           (select count(*) from owed)::int as owed,
+           ${STATUS_COUNTS}
+      from requested r
+      left join product_type_field_localizations l
+        on l.locale = r.locale
+       and l.product_type_field_id in (select id from owed)
+     group by r.locale
+     order by r.locale
+  `);
+  return rows.map((row) => toCounts('product_type_field', row));
+}
+
+/**
  * Every covered domain against every requested locale, in one call.
  *
  * Three statements whatever the locale count — the `readLocalizedCategories`
@@ -299,10 +348,11 @@ export async function readLocalizationCompletenessCounts(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<readonly LocalizationDomainLocaleCounts[]> {
   if (locales.length === 0) return [];
-  const [categories, productTypes, attributeValues] = await Promise.all([
+  const [categories, productTypes, productTypeFields, attributeValues] = await Promise.all([
     readCategoryLocalizationCompleteness(locales, db),
     readProductTypeLocalizationCompleteness(locales, db),
+    readProductTypeFieldLocalizationCompleteness(locales, db),
     readAttributeValueLocalizationCompleteness(locales, db),
   ]);
-  return [...categories, ...productTypes, ...attributeValues];
+  return [...categories, ...productTypes, ...productTypeFields, ...attributeValues];
 }
