@@ -1468,3 +1468,106 @@ describe('#405: a merge that collapses both ends of one compatibility relation',
     expect(closed?.targetVariantId).toBe(winner.variantId);
   });
 });
+
+/**
+ * #405, the redirect tables — `canonical_product_redirects_self_check` and its
+ * family twin.
+ *
+ * ONE shape, because only `to_id` moves: `from_id` is `untouched` (a hop OUT of
+ * the loser is history about the loser), so the row must already read
+ * `(winner, loser)`.
+ *
+ * That looks unreachable — a redirect FROM the winner means the winner was
+ * merged away, and `requestMerge` refuses a tombstone winner — until a SPLIT is
+ * taken into account, which is why these fixtures build the state the way
+ * production does rather than by inserting it. `revive_tombstone` clears
+ * `merged_into_id` and leaves the redirect rows standing, so a revived entity is
+ * a legal winner still naming the entity it later absorbs. The reachability
+ * comes from #59 acceptance 2 itself, and no race is involved.
+ */
+describe('#405: a merge that would turn a redirect hop into a self-redirect', () => {
+  it('cannot even STORE a redirect from an entity to itself', async () => {
+    const one = await seedProduct('redirect-unrepresentable');
+    const two = await seedProduct('redirect-unrepresentable-two');
+
+    // CONTROL: the same statement between two DIFFERENT products is accepted.
+    await db
+      .insert(canonicalProductRedirects)
+      .values({ fromId: one.productId, toId: two.productId, reason: 'merge' });
+
+    await expectConstraintViolation(
+      () =>
+        db
+          .insert(canonicalProductRedirects)
+          .values({ fromId: one.productId, toId: one.productId, reason: 'merge' }),
+      'canonical_product_redirects_self_check',
+    );
+  });
+
+  it('BLOCKS a re-merge after a split revived the tombstone, and keeps the hop', async () => {
+    const revived = await seedProduct('redirect-revived');
+    const absorber = await seedProduct('redirect-absorber');
+
+    // The state a real rollback leaves: `revived` was merged into `absorber`
+    // (so a hop `revived -> absorber` exists), then split back. The hop stays —
+    // `split.service.ts` says so in as many words — and `revived` is live again.
+    await db
+      .insert(canonicalProductRedirects)
+      .values({ fromId: revived.productId, toId: absorber.productId, reason: 'merge' });
+
+    // Now the operator merges the other way. `absorber` is the LOSER, and the
+    // winner already holds a hop naming it.
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: absorber.productId,
+      winnerId: revived.productId,
+      reason: 'the split was right and this one is the duplicate',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const blocked = await claimAndRunMerge(job.id, `lease-405rd-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+
+    const conflicts = await db
+      .select()
+      .from(catalogMergeConflicts)
+      .where(eq(catalogMergeConflicts.jobId, job.id));
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('redirect_endpoint_collapse');
+    expect(conflicts[0]?.collapsingProductRedirectId).not.toBeNull();
+    expect(conflicts[0]?.collapsingFamilyRedirectId).toBeNull();
+    expect(conflicts[0]?.collapsingRelationId).toBeNull();
+
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no conflict to resolve');
+
+    // `close_relation` is refused by the DATABASE: a redirect has no state to
+    // close, and the two collapse resolutions are not interchangeable.
+    await expectConstraintViolation(
+      () =>
+        resolveMergeConflict({
+          conflictId,
+          resolution: 'close_relation',
+          reason: 'a redirect has nothing to close',
+          actorOxyUserId: OPERATOR,
+        }),
+      'catalog_merge_conflicts_close_relation_kind_check',
+    );
+
+    await resolveMergeConflict({
+      conflictId,
+      resolution: 'retain_history',
+      reason: 'the hop really happened; it stays as history',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-405rd2-${RUN}`)).completed).toBe(true);
+
+    // The hop is intact and unmoved — neither repointed into a self-redirect nor
+    // deleted. Asserting BOTH ends is what stops a repoint passing as a retain.
+    const [hop] = await db
+      .select()
+      .from(canonicalProductRedirects)
+      .where(eq(canonicalProductRedirects.fromId, revived.productId));
+    expect(hop?.toId).toBe(absorber.productId);
+  });
+});
