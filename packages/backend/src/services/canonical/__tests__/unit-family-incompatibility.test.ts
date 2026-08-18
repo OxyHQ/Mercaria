@@ -24,10 +24,17 @@
  * ## Exhaustive, not by example
  *
  * The property is over ALL family pairs, so the test enumerates
- * `UNIT_FAMILIES × UNIT_FAMILIES` rather than picking three. That is 15×15 = 225
- * pairs from one loop, and it covers a family added later without anybody
- * remembering this file — the `fitment-resolution.test.ts` permutation precedent,
- * where an exhaustive walk over a small finite domain is stronger than a sample.
+ * `UNIT_FAMILIES × UNIT_FAMILIES` rather than picking three, and it covers a
+ * family added later without anybody remembering this file — the
+ * `fitment-resolution.test.ts` permutation precedent, where an exhaustive walk
+ * over a small finite domain is stronger than a sample.
+ *
+ * The pair COUNT is deliberately not written down here. It was, as `15×15 =
+ * 225`, and the tuple has sixteen members — the sentence had gone stale against
+ * assertions that were still right, because those compute the count from
+ * `UNIT_FAMILIES.length` rather than repeating it. A number in prose beside a
+ * number that is derived is a second representation of one fact, and it is
+ * always the prose that drifts.
  *
  * Every claim here is paired with the same-family case that MUST succeed. A file
  * asserting only refusals passes against `convertUnit` returning `null`
