@@ -91,7 +91,6 @@ let incumbent: ProductTypeDefinitionRow;
 let candidate: ProductTypeDefinitionRow;
 /** A key with no published version at all — the first-publication case. */
 let solo: ProductTypeDefinitionRow;
-let pinnedDraftId: string;
 
 /**
  * An actor holding exactly the named roles.
@@ -155,7 +154,7 @@ beforeAll(async () => {
   // The draft that PINS the incumbent. `createDraft` resolves the published
   // version itself, which is the production path — pinning by id here would be
   // this file asserting its own idea of what a draft points at.
-  const draft = await createDraft(db, {
+  await createDraft(db, {
     storeId,
     actorOxyUserId: phones.actorOxyUserId,
     categoryId: category.id,
@@ -167,8 +166,6 @@ beforeAll(async () => {
     ttlSeconds: 3600,
     title: `Impact preview phone ${TOKEN}`,
   });
-  pinnedDraftId = draft.id;
-
   candidate = await insertProductTypeDefinition(db, {
     key: nsKey(ns, 'smartphone'),
     version: incumbent.version + 1,

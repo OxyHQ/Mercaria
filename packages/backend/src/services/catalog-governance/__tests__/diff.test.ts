@@ -11,7 +11,14 @@
  * the right shape here because these functions take PLAIN DATA and no database:
  * the assumption under test is the diff RULE, and there is no read whose
  * behaviour a hand-built input could misrepresent.
- * `definition-diff.service.ts`'s hydration is what the realdb suite covers.
+ *
+ * The HYDRATION that feeds them — `definition-diff.service.ts`, the only thing
+ * `GET /diff/product-types/:key` and `GET /diff/attributes/:key` call — is
+ * covered by `definition-diff.realdb.test.ts`. That sentence was here before
+ * that file was, naming `catalog-governance.realdb.test.ts`, which never
+ * mentioned the hydration: the pure differ was well covered and the production
+ * path was covered by nothing, behind a comment saying otherwise. Do not
+ * restate a coverage claim here without checking that the file named makes it.
  */
 
 import { describe, expect, it } from 'vitest';
