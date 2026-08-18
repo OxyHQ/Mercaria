@@ -17,9 +17,9 @@ import {
 } from '@mercaria/shared-types';
 import { readAwinFeedList, awinFeedNeedsDownload } from '../feed-list.js';
 import {
+  assessAwinDestination,
   assessAwinTrackingLink,
   destinationHost,
-  destinationMatchesAdvertiser,
   isAwinTrackingHost,
   withAssessedAwinTracking,
 } from '../tracking.js';
@@ -146,25 +146,106 @@ describe('the tracking link is ADMITTED by a closed host set (adapter rule 6)', 
     expect(withheld.sourceUrl).toBe('https://retailer.example/p/1');
   });
 
-  it('reads a destination host label-wise, so `notapple.com` is not `apple.com`', () => {
+  /**
+   * `destinationHost` answers one question — which host is this — and every
+   * answer that is not a host is the SAME `null`. It had no production caller
+   * until #589; `assessAwinDestination` is its first.
+   */
+  it('reads a host out of a URL, and nothing out of anything else', () => {
     expect(destinationHost('https://shop.apple.com/x')).toBe('shop.apple.com');
+    // Lower-cased, so a host comparison cannot turn on how a feed shouted.
+    expect(destinationHost('https://SHOP.APPLE.COM/x')).toBe('shop.apple.com');
     expect(destinationHost('nonsense')).toBeNull();
+    expect(destinationHost('   ')).toBeNull();
     expect(destinationHost(undefined)).toBeNull();
+  });
+});
 
+/**
+ * The swapped-URL-columns detector (#589).
+ *
+ * `merchant_deep_link` is the DESTINATION and `aw_deep_link` is the TRACKED one
+ * (`AWIN_COLUMN_ROLES`). Mapped to each other's roles the catalogue works
+ * perfectly — right prices, right images, links that resolve — and the money
+ * routes through a link nobody validated as the destination. This is the one
+ * failure with no other signal, and it is answerable from the feed alone.
+ */
+describe('the destination detector is a CONJUNCTION', () => {
+  const TRACKED = 'https://www.awin1.com/cread.php?awinmid=1&p=https%3A%2F%2Fretailer.example';
+  const RETAILER = 'https://retailer.example/p/1';
+
+  it('reads the ordinary feed as a retailer host', () => {
+    expect(assessAwinDestination({ destination: RETAILER, deepLink: TRACKED })).toBe(
+      'retailer_host',
+    );
+  });
+
+  it('reports the SWAP when only the destination is tracked', () => {
+    expect(assessAwinDestination({ destination: TRACKED, deepLink: RETAILER })).toBe(
+      'tracking_host',
+    );
+    // zenaps is the other half of the set, and the `www` spellings are listed
+    // rather than derived — a "strip an optional www." rule is one more thing
+    // between a stranger's string and a redirect.
     expect(
-      destinationMatchesAdvertiser({ host: 'shop.apple.com', declaredHost: 'apple.com' }),
-    ).toBe(true);
-    expect(destinationMatchesAdvertiser({ host: 'apple.com', declaredHost: 'apple.com' })).toBe(
-      true,
+      assessAwinDestination({ destination: 'https://zenaps.com/rclick.php', deepLink: RETAILER }),
+    ).toBe('tracking_host');
+    // Host comparison is case-insensitive, so a feed shouting cannot hide.
+    expect(
+      assessAwinDestination({ destination: 'https://WWW.AWIN1.COM/cread.php', deepLink: RETAILER }),
+    ).toBe('tracking_host');
+  });
+
+  /**
+   * THE FALSE POSITIVE THE SECOND ARM EXISTS FOR.
+   *
+   * An advertiser whose feed carries only tracked links has a tracking host in
+   * both columns and nothing is wrong with it. A single test — "is the
+   * destination a tracking host" — reports every such advertiser as broken,
+   * which is a detector somebody turns off in its first week.
+   */
+  it('does NOT report a tracked-only feed as a swap', () => {
+    expect(assessAwinDestination({ destination: TRACKED, deepLink: TRACKED })).toBe('tracked_only');
+  });
+
+  it('claims nothing when there is no destination to read', () => {
+    expect(assessAwinDestination({ destination: undefined, deepLink: TRACKED })).toBe('unexamined');
+    expect(assessAwinDestination({ destination: '   ', deepLink: TRACKED })).toBe('unexamined');
+    expect(assessAwinDestination({ destination: 'not a url', deepLink: TRACKED })).toBe(
+      'unexamined',
     );
-    expect(destinationMatchesAdvertiser({ host: 'notapple.com', declaredHost: 'apple.com' })).toBe(
-      false,
+  });
+
+  /**
+   * The suffix trap, from the detector's side. `isAwinTrackingHost` compares the
+   * WHOLE host, so a destination on `awin1.com.evil.example` is a retailer host
+   * as far as this detector is concerned — and is refused as a tracking link by
+   * `assessAwinTrackingLink`, which is where that string is actually dangerous.
+   */
+  it('does not read an attacker-suffixed host as the network', () => {
+    expect(
+      assessAwinDestination({
+        destination: 'https://awin1.com.evil.example/p/1',
+        deepLink: TRACKED,
+      }),
+    ).toBe('retailer_host');
+  });
+
+  /**
+   * An UNREADABLE deep link beside a tracked destination is still the swap.
+   *
+   * The destination is tracked and nothing establishes that the deep-link column
+   * is doing its job. Reading an unparseable value as "probably tracked" would
+   * let an advertiser suppress the detector by publishing garbage in the one
+   * column the detector exists to check.
+   */
+  it('does not let an unreadable deep link suppress the finding', () => {
+    expect(assessAwinDestination({ destination: TRACKED, deepLink: undefined })).toBe(
+      'tracking_host',
     );
-    // An advertiser with no declared host is reported as NOTHING, never as a
-    // mismatch: Mercaria has no expectation to compare against, and inventing
-    // one from the feed's own contents would make the check circular.
-    expect(destinationMatchesAdvertiser({ host: 'apple.com', declaredHost: null })).toBeNull();
-    expect(destinationMatchesAdvertiser({ host: null, declaredHost: 'apple.com' })).toBeNull();
+    expect(assessAwinDestination({ destination: TRACKED, deepLink: 'not a url' })).toBe(
+      'tracking_host',
+    );
   });
 });
 
@@ -414,6 +495,116 @@ describe('quality is MEASURED and nothing is repaired', () => {
     const counts = readAwinQualityCounts(meter);
     expect(counts.duplicateExternalIds).toBe(1);
     expect(counts.duplicateGtins).toBe(1);
+  });
+
+  /**
+   * THE DETECTOR IS WIRED, and this is the test that goes red when it is not.
+   *
+   * `assessAwinDestination` is exercised on its own above; what this case pins
+   * is that `observeAwinRecord` CALLS it. Deleting the call from `quality.ts`
+   * leaves both counters at zero and fails here — a tested mechanism with no
+   * caller is the failure mode this whole issue is about.
+   *
+   * Note which URL it reads: the MAPPED `affiliateUrl`, not what leaves the
+   * adapter. `withAssessedAwinTracking` deletes that key when the link is not
+   * approved, and a rejected deep link is still evidence about which column is
+   * which.
+   */
+  it('counts the swap detector on both arms of the conjunction', () => {
+    const TRACKED = 'https://www.awin1.com/cread.php?awinmid=1';
+    const RETAILER = 'https://retailer.example/p/1';
+    const meter = createAwinQualityMeter();
+
+    // Swapped: the destination is the network's, the deep link is the shop's.
+    observeAwinRecord(meter, {
+      raw: rawRecord({}),
+      mapped: mapped(0, 'a', {
+        title: 'A',
+        identifiers: [],
+        options: [],
+        media: [],
+        sourceUrl: TRACKED,
+        affiliateUrl: RETAILER,
+      }),
+      // The tracking verdict is `rejected_host` on exactly this row, and it is
+      // NOT what the detector reads: an advertiser publishing an untracked
+      // `aw_deep_link` produces the same verdict with nothing swapped.
+      tracking: { verdict: 'rejected_host' },
+    });
+    // Tracked-only: both columns are the network's. Nothing is wrong.
+    observeAwinRecord(meter, {
+      raw: rawRecord({}, 1),
+      mapped: mapped(1, 'b', {
+        title: 'B',
+        identifiers: [],
+        options: [],
+        media: [],
+        sourceUrl: TRACKED,
+        affiliateUrl: TRACKED,
+      }),
+      tracking: { verdict: 'approved', url: TRACKED },
+    });
+    // Ordinary.
+    observeAwinRecord(meter, {
+      raw: rawRecord({}, 2),
+      mapped: mapped(2, 'c', {
+        title: 'C',
+        identifiers: [],
+        options: [],
+        media: [],
+        sourceUrl: RETAILER,
+        affiliateUrl: TRACKED,
+      }),
+      tracking: { verdict: 'approved', url: TRACKED },
+    });
+
+    const counts = readAwinQualityCounts(meter);
+    expect(counts.destinationTrackingHost).toBe(1);
+    expect(counts.destinationTrackedOnly).toBe(1);
+    // The CHECK the row carries, asserted here too: the two are disjoint
+    // verdicts over MAPPED records, so their sum can never exceed `mapped`.
+    expect(counts.destinationTrackingHost + counts.destinationTrackedOnly).toBeLessThanOrEqual(
+      counts.mapped,
+    );
+  });
+
+  /**
+   * The VACUITY FLOOR for the counter above, and the reason
+   * `destinationTrackedOnly` is a column rather than a comment.
+   *
+   * A feed with no swap and a feed where the conjunction could never fire both
+   * report `destinationTrackingHost: 0`. Only the second counter tells them
+   * apart, so this asserts the two readings really do differ.
+   */
+  it('distinguishes a clean feed from one where the swap could not have fired', () => {
+    const TRACKED = 'https://www.awin1.com/cread.php?awinmid=1';
+    const record = (
+      index: number,
+      sourceUrl: string,
+    ): Parameters<typeof observeAwinRecord>[1] => ({
+      raw: rawRecord({}, index),
+      mapped: mapped(index, `r${String(index)}`, {
+        title: 'R',
+        identifiers: [],
+        options: [],
+        media: [],
+        sourceUrl,
+        affiliateUrl: TRACKED,
+      }),
+      tracking: { verdict: 'approved', url: TRACKED },
+    });
+
+    const clean = createAwinQualityMeter();
+    observeAwinRecord(clean, record(0, 'https://retailer.example/p/1'));
+    const trackedOnly = createAwinQualityMeter();
+    observeAwinRecord(trackedOnly, record(0, TRACKED));
+
+    expect(readAwinQualityCounts(clean).destinationTrackingHost).toBe(0);
+    expect(readAwinQualityCounts(trackedOnly).destinationTrackingHost).toBe(0);
+    // Identical on the swap counter, different on the control. Without the
+    // second column these two feeds are indistinguishable in the snapshot.
+    expect(readAwinQualityCounts(clean).destinationTrackedOnly).toBe(0);
+    expect(readAwinQualityCounts(trackedOnly).destinationTrackedOnly).toBe(1);
   });
 
   it('tells a currency Mercaria does not list from an unreadable amount', () => {

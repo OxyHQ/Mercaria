@@ -140,12 +140,14 @@ export function withAssessedAwinTracking<T extends { readonly affiliateUrl?: str
 }
 
 /**
- * The host an outbound destination points at, or `null`.
+ * The host a feed's URL column points at, or `null` when there is nothing to
+ * read — absent, blank, or a string that will not parse as a URL.
  *
- * Used by the pre-activation sample to check that a deep link and a destination
- * agree about which retailer this is. A disagreement means the feed's two URL
- * columns were mapped to each other's roles, which produces a catalogue that
- * works perfectly until somebody audits where the money went.
+ * `null` is deliberately ONE value for all three. A caller here asks "which host
+ * is this", and every answer that is not a host leads to the same place: the
+ * question cannot be decided on this row. Splitting them would put a
+ * distinction into the swap detector that it has nothing to do with — an
+ * unreadable destination is #63's parse concern, counted where #63 counts it.
  */
 export function destinationHost(value: string | undefined): string | null {
   const candidate = value?.trim() ?? '';
@@ -158,22 +160,75 @@ export function destinationHost(value: string | undefined): string | null {
 }
 
 /**
- * Does a destination host belong to the advertiser Mercaria thinks it does?
+ * What one row's two URL columns say about which of them is which (#589).
  *
- * Label-wise containment, the `claim-scope.ts` rule (#83): `shop.apple.com` is
- * covered by `apple.com` and `notapple.com` is not. A bare `endsWith` would
- * admit the second, which is the whole reason that rule is written down.
+ * `unexamined` — no destination, or one that will not parse. Nothing is claimed.
+ * `retailer_host` — the ordinary state: the destination is somebody's shop.
+ * `tracked_only`  — BOTH columns are tracking hosts. A tracked-only feed.
+ * `tracking_host` — the destination is a tracking host and the deep link is not.
  *
- * An advertiser with no declared host is NOT reported as a mismatch — it is
- * reported as nothing, because Mercaria has no expectation to compare against
- * and inventing one from the feed's own contents would make the check circular.
+ * The last one is the finding `AwinSampleFinding.destination_is_tracking_host`
+ * names, and — as there — it is named for the OBSERVATION rather than the
+ * inferred cause. `columns_swapped` would assert an intent Mercaria cannot see.
  */
-export function destinationMatchesAdvertiser(input: {
-  host: string | null;
-  declaredHost: string | null;
-}): boolean | null {
-  if (input.host === null || input.declaredHost === null) return null;
-  const declared = input.declaredHost.trim().toLowerCase();
-  if (declared === '') return null;
-  return input.host === declared || input.host.endsWith(`.${declared}`);
+export type AwinDestinationVerdict =
+  | 'unexamined'
+  | 'retailer_host'
+  | 'tracked_only'
+  | 'tracking_host';
+
+/**
+ * The swapped-URL-columns detector: does this row's DESTINATION point at Awin's
+ * own redirector while its deep link does not?
+ *
+ * ## Why the destination is where a swap shows up
+ *
+ * `aw_deep_link` is the network's tracked link and the destination is the
+ * retailer's own page. Mapped to each other's roles, prices are still right,
+ * images are still right, links still resolve, and the money goes somewhere
+ * nobody validated as the destination — the failure
+ * `awin_link_samples`' schema comment describes, and one that shows in no other
+ * signal. It is detectable from the FEED ALONE: a tracking host is one of four
+ * code constants, so no declared host, no Publisher API call and no Awin account
+ * is needed to answer it.
+ *
+ * ## It is a CONJUNCTION, and the second arm is the whole point
+ *
+ * A destination on a tracking host is NOT sufficient. An advertiser whose feed
+ * publishes only tracked links has a tracking host in both columns and nothing
+ * is wrong with it; a single test would report every such advertiser as broken,
+ * which is the shape of a detector somebody turns off in its first week. So both
+ * columns are read and `tracked_only` is a NAMED outcome rather than an
+ * else-branch — a state the caller counts, so a zero swap count on such a feed
+ * is explained rather than merely quiet.
+ *
+ * ## What it deliberately cannot catch
+ *
+ * Advertiser A's feed carrying links to retailer B — a genuine cross-retailer
+ * mismatch with no tracking-host signature. That needed the advertiser's own
+ * host to compare against, which Mercaria cannot obtain (#589 deleted the
+ * column that would have held it, unwritten). Stated rather than glossed: if it
+ * is later judged worth catching, it returns as a column, a writer and a caller
+ * in ONE change.
+ *
+ * PURE, and it takes both strings rather than reading a row: the same two values
+ * are in scope wherever a record is examined, and a verdict carried across a
+ * staged pass is a second representation that a mapping change can make stale.
+ */
+export function assessAwinDestination(input: {
+  destination: string | undefined;
+  deepLink: string | undefined;
+}): AwinDestinationVerdict {
+  const destination = destinationHost(input.destination);
+  if (destination === null) return 'unexamined';
+  if (!isAwinTrackingHost(destination)) return 'retailer_host';
+
+  // The second arm. An UNREADABLE deep link is read as "not a tracking host":
+  // the destination is tracked and nothing establishes that the deep-link column
+  // is doing its job, which is exactly the state worth flagging. Reading it the
+  // other way would let an advertiser suppress the detector by publishing
+  // garbage in the column the detector exists to check.
+  const deepLink = destinationHost(input.deepLink);
+  if (deepLink !== null && isAwinTrackingHost(deepLink)) return 'tracked_only';
+  return 'tracking_host';
 }
