@@ -77,6 +77,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createdAt, generatedId, textArrayLiteral, timestamptz, updatedAt } from '@oxyhq/db';
 import {
+  PRODUCT_TYPE_ALIAS_KINDS,
   PRODUCT_TYPE_AUTHORING_FLOWS,
   PRODUCT_TYPE_FIELD_REQUIREMENTS,
   PRODUCT_TYPE_FIELD_SCOPES,
@@ -322,6 +323,37 @@ export const productTypeFields = pgTable(
     position: integer().notNull().default(0),
     /** The bounded declarative AST, or NULL for a field that is always shown. */
     visibilityRule: jsonb().$type<ProductTypeVisibilityRule>(),
+    /**
+     * The base-locale AUTHORING copy for this field, and all four are NULLABLE
+     * on purpose: absent means "use the cited attribute's own text", present
+     * means this product type asks the question differently.
+     *
+     * That nullability is the whole difference between an override and a second
+     * copy of the registry. `storage_capacity` is "Storage capacity" everywhere;
+     * a phone form calls it "Storage" and a drive form calls it "Capacity", and
+     * neither is a competing definition of what the attribute MEANS — the
+     * registry still answers that, and still answers it by default.
+     *
+     * They live here rather than only on `product_type_field_localizations`
+     * because `localizationChecks()`' `_locale_not_base_check` refuses a
+     * localization row carrying the base locale: the base string lives on the
+     * ENTITY's column, family-wide. Without these four, a field's base-locale
+     * placeholder and example would have no row shape at all — which is the
+     * state `services/catalog-authoring/schema.service.ts` records in-code
+     * ("the field arrives when a column does").
+     *
+     * They are frozen with everything else on this table once the version
+     * leaves `draft`/`review` (`mercaria_product_type_child_frozen`). The
+     * TRANSLATIONS are not, which is the same split `product_type_localizations`
+     * already makes: a published contract is fixed, its wording in Catalan is
+     * still a translator's to finish.
+     */
+    label: text(),
+    helpText: text(),
+    /** Shown INSIDE an empty input. Never a value, never submitted. */
+    placeholder: text(),
+    /** A worked illustration shown BESIDE the input. Also never submitted. */
+    example: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -339,6 +371,29 @@ export const productTypeFields = pgTable(
     check('product_type_fields_attribute_key_shape_check', sql`${t.attributeKey} ~ '^[a-z][a-z0-9_]*$'`),
     check('product_type_fields_attribute_version_check', sql`${t.attributeDefinitionVersion} >= 1`),
     check('product_type_fields_position_check', sql`${t.position} >= 0`),
+    // An override is ABSENT or it is text. An empty string is neither: it would
+    // satisfy every "is it set" read and then render as a blank label,
+    // shadowing the attribute's own perfectly good one with nothing. The
+    // family's `_text_not_blank_check` reasoning, applied to the base columns
+    // rather than the translated ones — and the reason it is four separate
+    // CHECKs is that a failure should name the column somebody actually typed
+    // into.
+    check(
+      'product_type_fields_label_not_blank_check',
+      sql`${t.label} is null or btrim(${t.label}) <> ''`,
+    ),
+    check(
+      'product_type_fields_help_text_not_blank_check',
+      sql`${t.helpText} is null or btrim(${t.helpText}) <> ''`,
+    ),
+    check(
+      'product_type_fields_placeholder_not_blank_check',
+      sql`${t.placeholder} is null or btrim(${t.placeholder}) <> ''`,
+    ),
+    check(
+      'product_type_fields_example_not_blank_check',
+      sql`${t.example} is null or btrim(${t.example}) <> ''`,
+    ),
     // ADR 0007 D6/D8, and the reason this table exists in the shape it does. Two
     // independent conjuncts:
     //
@@ -441,3 +496,105 @@ export const productTypeFields = pgTable(
  * decision recorded beside it, and that list narrowed in the SAME change, which is
  * the conversation a red there starts.
  */
+
+/**
+ * `product_type_aliases` — alternate names a person might search a product type
+ * by, per locale (#367 workstream 2, "localized aliases, synonyms, regional
+ * terms, abbreviations, common misspellings and transliterations").
+ *
+ * ## An alias is never rendered as the type's name, and that is an ABSENCE
+ *
+ * The `category_aliases` ruling, one domain over, for the same reason: there is
+ * no `is_primary`, `is_display` or `preferred` column here and no boolean beside
+ * `kind`, so an alias has no way to claim to be the name. The public name is
+ * `product_type_definitions.name` and, per locale, `product_type_localizations`.
+ * A second answer to "what is this type called" is what this table must not
+ * become.
+ *
+ * ## Not globally unique, deliberately
+ *
+ * `UNIQUE(product_type_definition_id, locale, normalized_alias)` — one version
+ * cannot hold one alias twice in a locale. It is NOT unique on `(locale,
+ * normalized_alias)`: "phone" legitimately names more than one product type
+ * (`smartphone`, `landline_phone`, `phone_case` in some catalogues), and a
+ * constraint refusing the second would make the registry unable to record
+ * something true. The AMBIGUITY is the reader's to resolve — the
+ * `findCategoriesByAlias` ruling, which returns a list rather than a row.
+ *
+ * ## `normalized_alias` is service-maintained, not GENERATED
+ *
+ * `attribute_value_aliases` generates its normalization as
+ * `lower(btrim(alias))`, and that is right for an enum value whose spellings
+ * differ only in case and padding. It is NOT enough here: `transliteration` is a
+ * member of the kind tuple, so folding accents and scripts is the normalizer's
+ * actual job and no IMMUTABLE SQL expression in this schema does it. The
+ * `category_aliases` shape — a real column the service writes, with its own
+ * present-not-blank CHECK — is what a normalizer that can grow needs. The CHECK
+ * on the normalized column is the load-bearing one of the three: a normalizer
+ * that returned `''` would otherwise write a row matching nothing and looking
+ * exactly like coverage.
+ *
+ * ## Per VERSION, and the consequence is stated rather than discovered
+ *
+ * The foreign key targets a definition ROW, which is a `(key, version)` pair —
+ * the `product_type_localizations` decision, and the same cascade for the same
+ * reason. The consequence a later reader would otherwise find the hard way:
+ * **an alias does not follow its key across a version bump.** Publishing v2 and
+ * not copying the aliases forward leaves "mobile" resolving only to the
+ * deprecated v1, which is a search that silently stops finding things rather
+ * than an error anybody sees.
+ *
+ * That is deliberate rather than overlooked — an alias attached to a key would
+ * outlive the meaning it was recorded against, which is the failure the whole
+ * versioned registry is built to prevent — and it makes copy-forward an
+ * explicit publication step, exactly as `PRODUCT_TYPE_LOCALIZED_FIELD_KEYS`
+ * already makes it for the localized text.
+ *
+ * Unlike the three tables above, these rows are deliberately NOT covered by
+ * `mercaria_product_type_child_frozen`. An alias is discovery vocabulary, not
+ * part of the authoring contract a version freezes: learning that shoppers type
+ * "mobile" is not a change to what the schema asks for, and refusing to record
+ * it until somebody publishes a new version would make the frozen contract an
+ * argument against ever improving search.
+ */
+export const productTypeAliases = pgTable(
+  'product_type_aliases',
+  {
+    id: generatedId(),
+    productTypeDefinitionId: text()
+      .notNull()
+      .references(() => productTypeDefinitions.id, { onDelete: 'cascade' }),
+    /** A BCP-47 tag. Not the `SUPPORTED_LOCALES` enum: see the CHECK below. */
+    locale: text().notNull(),
+    /** What somebody actually wrote or typed, verbatim. */
+    alias: text().notNull(),
+    /** Service-maintained normalization of `alias` — what a lookup compares. */
+    normalizedAlias: text().notNull(),
+    kind: text({ enum: asEnumValues(PRODUCT_TYPE_ALIAS_KINDS) }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex('product_type_aliases_definition_locale_normalized_key').on(
+      t.productTypeDefinitionId,
+      t.locale,
+      t.normalizedAlias,
+    ),
+    /** The lookup: a shopper's word in a locale → the types it might mean. */
+    index('product_type_aliases_lookup_idx').on(t.locale, t.normalizedAlias),
+    checkOneOf('product_type_aliases_kind_check', t.kind, PRODUCT_TYPE_ALIAS_KINDS),
+    /**
+     * The three `category_aliases` carries, and the reasoning transfers exactly:
+     * an empty or whitespace-only alias matches nothing and is a row that looks
+     * like coverage. Both text columns, because the normalization is what a
+     * lookup actually reads and a normalizer that returned `''` would be
+     * invisible to a CHECK on `alias` alone.
+     */
+    check('product_type_aliases_alias_present_check', sql`length(btrim(${t.alias})) > 0`),
+    check(
+      'product_type_aliases_normalized_present_check',
+      sql`length(btrim(${t.normalizedAlias})) > 0`,
+    ),
+    check('product_type_aliases_locale_present_check', sql`length(btrim(${t.locale})) > 0`),
+  ],
+);

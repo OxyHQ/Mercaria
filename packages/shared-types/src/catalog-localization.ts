@@ -310,7 +310,19 @@ export function fallbackPolicyForFieldClass(
  * until its owner adds the family columns, which is the honest state rather than
  * a resolver that reports a machine translation as approved.
  */
-export const LOCALIZED_ENTITY_KINDS = ['category', 'product_type', 'attribute_value'] as const;
+export const LOCALIZED_ENTITY_KINDS = [
+  'category',
+  'product_type',
+  /**
+   * One FIELD of one product-type version, which is a different subject from
+   * the version itself: `product_type.help_text` is guidance about the whole
+   * form, and `product_type_field.help_text` is guidance about one question on
+   * it. Sharing a key would make "what is this form for" and "what does this
+   * box want" the same string.
+   */
+  'product_type_field',
+  'attribute_value',
+] as const;
 
 /** A catalog concept this issue localizes. */
 export type LocalizedEntityKind = (typeof LOCALIZED_ENTITY_KINDS)[number];
@@ -328,6 +340,20 @@ export const LOCALIZED_FIELD_KEYS = [
   'product_type.name',
   'product_type.description',
   'product_type.help_text',
+  // One product-type FIELD's authoring copy. Before these existed a field's
+  // label and help were read off the cited ATTRIBUTE's `attribute_labels` row,
+  // which carries no `status` and no `provenance` — so a label genuinely found
+  // in the requested locale was still reported `step: 'base'` and counted as
+  // unresolved by the coverage counter (`schema.service.ts`'s `baseOnlyText`).
+  // That under-claim was the honest reading of that table and is not fixed by
+  // widening it; it is fixed by the field owning its own localized copy.
+  'product_type_field.label',
+  'product_type_field.help_text',
+  // `placeholder` and `example` were modelled by ADR 0007 D10 and absent
+  // because, in `schema.service.ts`'s own words, no table in this repository
+  // carried one. These are that table.
+  'product_type_field.placeholder',
+  'product_type_field.example',
   'attribute_value.label',
 ] as const;
 
@@ -395,6 +421,30 @@ export const CATALOG_LOCALIZED_FIELDS: Readonly<
     'helpText',
     'catalog_presentation',
   ),
+  'product_type_field.label': describeField(
+    'product_type_field.label',
+    'product_type_field',
+    'label',
+    'catalog_presentation',
+  ),
+  'product_type_field.help_text': describeField(
+    'product_type_field.help_text',
+    'product_type_field',
+    'helpText',
+    'catalog_presentation',
+  ),
+  'product_type_field.placeholder': describeField(
+    'product_type_field.placeholder',
+    'product_type_field',
+    'placeholder',
+    'catalog_presentation',
+  ),
+  'product_type_field.example': describeField(
+    'product_type_field.example',
+    'product_type_field',
+    'example',
+    'catalog_presentation',
+  ),
   'attribute_value.label': describeField(
     'attribute_value.label',
     'attribute_value',
@@ -416,6 +466,11 @@ export const CATALOG_LOCALIZED_FIELDS: Readonly<
 export const CATALOG_LOCALIZATION_TEXT_TABLES = [
   'category_localizations',
   'product_type_localizations',
+  // ADR 0007 D10's per-field authoring copy. It joined this list because the
+  // barrel walk below refused to pass without it — the census working on a
+  // table added after it was written, which is what it is for. It carries all
+  // seven family columns, so it needs no exemption.
+  'product_type_field_localizations',
   'attribute_value_localizations',
   'attribute_labels',
   // ADR 0007 D3's navigation copy, which D4 names as a member and which landed
