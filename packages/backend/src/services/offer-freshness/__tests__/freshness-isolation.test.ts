@@ -26,29 +26,48 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /** The two directories this domain owns outright. */
 const OWNED_DIRECTORIES = ['services/offer-freshness', 'db/offerFreshness'] as const;
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The hyphen is OPTIONAL, and here that is the whole of the fix rather than a
+ * detail. `db/schema` names its files in camelCase, so the previous
+ * `/offer-freshness/i` could not match `db/schema/offerFreshness.ts` — adding
+ * the directory below WITHOUT this would have selected nothing and looked
+ * exactly like a repair. The five tables this domain owns would have stayed
+ * outside every wall with the diff reading as a fix.
+ *
+ * Widening a pattern is the PERMISSIVE direction and owes a measurement: over
+ * the whole of `src/`, `/offer-?freshness/i` selects 19 modules and every one is
+ * this domain's. It is still unambiguous — `offer-isolation.test.ts`, whose bare
+ * `offer` token four issues share, is the gate that needs an exclusion list.
+ */
+const FRESHNESS_NAME_PATTERN = /offer-?freshness/i;
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
-    else if (entry.name.endsWith('.ts')) found.push(child);
-  }
-  return found;
-}
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` joins the three that were copied from gate to gate and from
+ * `scripts/isolation-gate-census.ts`'s own bag-directory list. It is the one
+ * place a lifetime COLUMN would be DECLARED, which makes it the directory this
+ * gate's central rule — there is no global TTL — most needs to cover.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /**
  * Every module of the domain, ENUMERATED FROM THE DIRECTORIES.
@@ -70,16 +89,18 @@ function walk(relative: string): string[] {
  * it — which is why this needs no exclusion list where `offer-isolation`, whose
  * bare `offer` token four issues share, needs one.
  */
-function domainModules(): { path: string; source: string }[] {
-  const relatives = [
-    ...OWNED_DIRECTORIES.flatMap(walk),
-    ...SHARED_DIRECTORIES.flatMap((directory) =>
-      readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-        .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-        .filter((entry) => /offer-freshness/i.test(entry.name))
-        .map((entry) => `${directory}/${entry.name}`),
-    ),
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    // RECURSIVE and matching the PATH, where this was one level deep beside the
+    // recursive walk above — so nothing under `routes/admin/` or
+    // `controllers/admin/` could enter the population (#460).
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, FRESHNESS_NAME_PATTERN, readDir),
   ];
+}
+
+function domainModules(): { path: string; source: string }[] {
+  const relatives = domainRelativePaths();
   return relatives.map((relative) => {
     const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
     // The vacuity floor, per file: an empty or moved module must fail here,
@@ -109,6 +130,7 @@ function expectEveryShapeFoundSomething(modules: { path: string }[]): void {
   expect(from('routes/'), 'no freshness route was derived').toBeGreaterThanOrEqual(1);
   expect(from('controllers/'), 'no freshness controller was derived').toBeGreaterThanOrEqual(1);
   expect(from('middleware/'), 'no freshness request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(from('db/schema/'), 'no freshness schema module was derived').toBeGreaterThanOrEqual(1);
   expect(modules.filter((module) => module.path.includes('__tests__'))).toEqual([]);
 }
 
@@ -357,5 +379,33 @@ describe('the domain decides, and does not do another issue’s job', () => {
       false,
     );
     expect(COMMERCE_REFERENCE.test("import { getRates } from '../fx.service.js';")).toBe(false);
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate, and hand lists
+ * fail silently — every floor and count stayed green while the five tables this
+ * domain owns sat outside every wall. So: sweep the whole of `src/` for paths
+ * NAMING this domain and require each to be in the population or in a counted
+ * exclusion. A bag directory nobody has invented yet brings its modules under
+ * these walls with no edit here.
+ *
+ * The exclusion set is EMPTY because it was MEASURED — the sweep selects 19
+ * modules and every one is this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every offer-freshness-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: FRESHNESS_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 19 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 14,
+      plantIn: 'lib',
+      plantName: 'offer-freshness-cache.ts',
+    });
   });
 });
