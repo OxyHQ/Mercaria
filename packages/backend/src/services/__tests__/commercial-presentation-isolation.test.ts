@@ -103,18 +103,6 @@ import {
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const REPO_PACKAGES = join(SRC_ROOT, '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
-    else if (entry.name.endsWith('.ts')) found.push(child);
-  }
-  return found;
-}
-
 /**
  * The one route that serves this domain and cannot be derived from a name.
  *
