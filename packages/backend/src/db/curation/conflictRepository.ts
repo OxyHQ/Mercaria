@@ -278,10 +278,19 @@ export async function detectActiveOfferConflicts(
  * undetected: `absenceGuard` and the pair detectors ask the same question, "does
  * the winner already hold an equivalent row", and a collapse answers no.
  *
- * The three shapes are `(loser, loser)`, `(loser, winner)` and `(winner,
- * loser)`, and all three are enumerated rather than written as a set test, so
- * the one that is easy to forget — the row that already names the winner and
- * only needs its OTHER end moved — cannot be dropped by a rewrite.
+ * ## TWO shapes, not three
+ *
+ * `(loser, winner)` and `(winner, loser)`. `(loser, loser)` — the shape #405's
+ * own text names first — is UNREPRESENTABLE: the CHECK is unconditional and
+ * total, so it refuses `(x, x)` at INSERT, which
+ * `merge-endpoint-collapse.realdb.test.ts` asserts against the named constraint
+ * with a passing control beside it. Probing for it would be a branch that can
+ * never match, and a branch that can never match reads as coverage.
+ *
+ * Both surviving shapes are enumerated rather than written as a set test,
+ * because the second is the one a rewrite drops: it already names the winner
+ * and only its OTHER end has to move, so nothing about it looks like the loser's
+ * row.
  *
  * ## Only OPEN relations, and the guard is deliberately wider
  *
@@ -304,16 +313,14 @@ export async function detectCompatibilityEndpointCollapse(
     select r.id as row_id,
            r.kind || ' relation ' ||
            case
-             when r.${subject} = ${loserId} and r.${target} = ${loserId}
-               then 'names the losing entity at BOTH ends'
              when r.${subject} = ${loserId} then 'points from the loser at the winner'
              else 'points from the winner at the loser'
            end as detail
     from generic_compatibility_relations r
     where r.valid_to is null
       and (
-        (r.${subject} = ${loserId} and r.${target} in (${loserId}, ${winnerId}))
-        or (r.${target} = ${loserId} and r.${subject} in (${loserId}, ${winnerId}))
+        (r.${subject} = ${loserId} and r.${target} = ${winnerId})
+        or (r.${target} = ${loserId} and r.${subject} = ${winnerId})
       )
   `);
   const detected: DetectedCollapseConflict[] = [];
