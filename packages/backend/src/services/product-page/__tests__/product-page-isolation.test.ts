@@ -36,21 +36,50 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services/product-page');
 /** `packages/`, from `packages/backend/src`. */
 const PACKAGES_ROOT = join(SRC_ROOT, '..', '..');
 const STOREFRONT_ROOT = join(PACKAGES_ROOT, 'frontend');
 
+/**
+ * Every module of the SERVER half, relative to `src/`.
+ *
+ * Both halves RECURSE now. The service-directory read and `filesIn` each read one
+ * directory level, so a sub-directory of `services/product-page/` was outside
+ * every wall and the shared sweep could reach neither `routes/admin/` nor
+ * `controllers/admin/` (#460). The shared half also matches the PATH rather than
+ * the filename.
+ *
+ * This domain owns no `db/schema` module — #71 added no tables, by design — so
+ * the directory is listed for the sweep's sake and contributes nothing today.
+ */
+function serverRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/product-page', readDir),
+    ...walkOwnedDirectory('db/productPage', readDir),
+    ...namedInSharedDirectories(
+      [...OUTER_DIRECTORIES, 'db/schema'],
+      DOMAIN_NAME_PATTERN,
+      readDir,
+    ),
+  ];
+}
+
 /** Every non-test module in the domain, read from the real directory. */
 function domainSources(): { relative: string; source: string }[] {
-  return readdirSync(DOMAIN_DIR)
-    .filter((entry) => entry.endsWith('.ts'))
-    .filter((entry) => statSync(join(DOMAIN_DIR, entry)).isFile())
-    .map((entry) => ({
-      relative: `services/product-page/${entry}`,
-      source: readFileSync(join(DOMAIN_DIR, entry), 'utf8'),
+  return serverRelativePaths()
+    .filter((relative) => relative.startsWith('services/product-page/'))
+    .map((relative) => ({
+      relative,
+      source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
     }));
 }
 
@@ -90,12 +119,12 @@ function filesIn(
  * the day somebody adds a module (#460).
  */
 function outerSources(): { relative: string; source: string }[] {
-  return [
-    ...filesIn(join(SRC_ROOT, 'db/productPage'), 'db/productPage', '.ts'),
-    ...OUTER_DIRECTORIES.flatMap((relative) =>
-      filesIn(join(SRC_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
-    ),
-  ];
+  return serverRelativePaths()
+    .filter((relative) => !relative.startsWith('services/product-page/'))
+    .map((relative) => ({
+      relative,
+      source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+    }));
 }
 
 /**
@@ -590,5 +619,42 @@ describe('WALL 5: the page names no currency', () => {
     expect(CURRENCY_NAME_REFERENCE.test("const currency = 'FAIR';")).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test('// FairCoin is the default')).toBe(true);
     expect(CURRENCY_NAME_REFERENCE.test("const currency = request.comparisonCurrency;")).toBe(false);
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate's server half, and
+ * hand lists fail silently. So: sweep the whole of `src/` for paths NAMING this
+ * domain and require each to be in the population or in a counted exclusion. A
+ * bag directory nobody has invented yet brings its modules under these walls
+ * with no edit here.
+ *
+ * The exclusion set is EMPTY because it was MEASURED — the sweep selects 9
+ * modules and every one is this domain's. The STOREFRONT half is out of scope
+ * for a sweep of `src/`; it has its own derivation and floor above.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every product-page-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: serverRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 9 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 6,
+      plantIn: 'lib',
+      plantName: 'product-page-cache.ts',
+    });
+  });
+
+  it('the two halves partition the server population', () => {
+    // domainSources() and outerSources() are complementary filters over one
+    // derivation, so this pins that they still cover it exactly — a module
+    // falling out of both would be scanned by neither while both floors held.
+    expect(
+      [...domainSources(), ...outerSources()].map((file) => file.relative).sort(),
+    ).toEqual(serverRelativePaths().slice().sort());
   });
 });
