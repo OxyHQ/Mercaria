@@ -50,6 +50,24 @@
  * through the HTTP surfaces (`POST /facets` with `GET /search?attributes=`) and
  * is not what that screen does today.
  *
+ * ## What kills these four cases, measured
+ *
+ * Two mutations, applied one at a time to a committed tree, and their halves do
+ * not overlap — which is what says neither half is riding on the other:
+ *
+ * - dropping the axis `union all` from `countVariantAttributeBuckets`
+ *   (`facetRepository.ts`) reds the two FACET cases and leaves the two list
+ *   ones green. It does more than remove `red` and `black`: with only `gold`
+ *   live the facet falls under `FACET_MIN_DISTINCT_VALUES` and is suppressed
+ *   `single_value`, so the whole control disappears. That is option 1's cost,
+ *   measured rather than argued.
+ * - teaching `findProductIdsSatisfyingAttributes`'s `atVariant` to read
+ *   `canonical_variant_attributes` reds the two LIST cases and leaves the two
+ *   facet ones green — and independently reds two pre-existing cases in
+ *   `db/__tests__/canonical-search.realdb.test.ts`, one of them
+ *   `a variant OPTION assignment does not satisfy an attribute filter`. That is
+ *   option 2, and the reason it is a decision to overturn #70 rather than a fix.
+ *
  * ## Scoping
  *
  * The test database is SHARED across parallel files. Every id, the category, the
