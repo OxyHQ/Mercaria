@@ -688,6 +688,19 @@ describe('variants', () => {
     expect(finding?.path).toBe('variants[1]');
   });
 
+  // WHAT THE CASE ABOVE DOES NOT COVER, so nobody counts it for #367's
+  // "reject duplicate combinations after normalization": `axisSignature` here is
+  // a hand-supplied literal from the `variant()` helper and `validateDraft`
+  // never computes one. So it can catch a DETECTOR regression — the loop, the
+  // `seenSignatures` set, the path — and can NEVER catch a normalization or an
+  // ordering one, because neither is exercised on the way in.
+  //
+  // Both of those are covered where the digest is actually computed:
+  // `services/variant-axes/__tests__/variant-axis-signature.test.ts` for the
+  // fold-then-digest composition, and
+  // `__tests__/vertical-e2e/vertical-matrix-and-new-product.e2e.realdb.test.ts`
+  // for order-independence at three grains against a real server.
+
   it('an answer on a field the schema does not mark variant-capable is refused', () => {
     const result = validateDraft(
       input({ values: [value({ draftVariantId: 'dv-1' })] }),
