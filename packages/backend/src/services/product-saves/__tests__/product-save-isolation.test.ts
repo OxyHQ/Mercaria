@@ -25,6 +25,13 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   RANKING_SURFACE_PATHS,
@@ -44,20 +51,42 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+/** What a module of this domain is called, wherever it lives. */
+const SAVE_NAME_PATTERN = /product-?saves?/i;
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/product-saves', 'db/productSaves'] as const;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * The population was the two owned directories and NOTHING ELSE, read one level
+ * deep. So SIX modules were behind none of the walls below (#460): both routes,
+ * the request schemas, both controllers — including the operator surface — and
+ * `db/schema/productSaves.ts`, which is where `UNIQUE(oxy_user_id,
+ * canonical_product_id)` and the `save_intent` CHECK are actually DECLARED.
+ *
+ * The hyphen is optional and the plural optional because `db/productSaves/` and
+ * `db/schema/productSaves.ts` are camelCase; a widening that changes nothing
+ * looks exactly like a fix, so it is measured: `/product-?saves?/i` over the
+ * whole of `src/` selects 19 modules and every one is this domain's.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    // RECURSIVE, where this read one directory level.
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, SAVE_NAME_PATTERN, readDir),
+  ];
+}
+
 /** Every module of the product-save domain, enumerated from disk. */
 function domainSources(): { relative: string; source: string }[] {
-  const roots = ['services/product-saves', 'db/productSaves'];
-  const files: { relative: string; source: string }[] = [];
-  for (const root of roots) {
-    for (const name of readdirSync(join(SRC_ROOT, root))) {
-      if (!name.endsWith('.ts')) continue;
-      files.push({
-        relative: `${root}/${name}`,
-        source: readFileSync(join(SRC_ROOT, root, name), 'utf8'),
-      });
-    }
-  }
-  return files;
+  return domainRelativePaths().map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
 /**
@@ -253,5 +282,48 @@ describe('saving a product has no side effects and no reach', () => {
     expect(withoutComments('/* issues no db.delete(favorites) */\nconst x = 1;')).not.toContain(
       'db.delete(favorites)',
     );
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate. Sweep the whole
+ * of `src/` for paths NAMING this domain and require each to be in the
+ * population or in a counted exclusion.
+ *
+ * The exclusion set is EMPTY because it was MEASURED — the sweep selects 19
+ * modules and every one is this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every product-save-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: SAVE_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 19 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 14,
+      plantIn: 'lib',
+      plantName: 'product-saves-cache.ts',
+    });
+  });
+
+  it('the six modules the old population could not reach are in it', () => {
+    // An identity assertion, not a floor. These are exactly what the two-owned-
+    // directory population missed, and a floor set below 19 would be met without
+    // any of them — the same shape as the sweep floor that could not see a
+    // narrowed pattern.
+    const population = domainRelativePaths();
+    for (const named of [
+      'routes/product-saves.ts',
+      'routes/internal-product-saves.ts',
+      'middleware/product-save-schemas.ts',
+      'controllers/product-saves.controller.ts',
+      'controllers/product-saves-operator.controller.ts',
+      'db/schema/productSaves.ts',
+    ]) {
+      expect(population, `${named} is outside the walls again`).toContain(named);
+    }
   });
 });
