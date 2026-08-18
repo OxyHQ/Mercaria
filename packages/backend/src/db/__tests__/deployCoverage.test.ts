@@ -824,3 +824,152 @@ describe('the check itself refuses to print "shipped" for a hollow green', () =>
     }
   });
 });
+
+describe('a healthy release must not read as hollow (the good-day baseline)', () => {
+  /**
+   * The `deploy` job's REAL step list, verbatim from run 32131834422 — a normal
+   * successful release of `e3e6ed6e` on `main` — with the four outcome steps
+   * appended as the workflow now emits them on that same path.
+   *
+   * ## The trap this exists to catch
+   *
+   * **`Migrate (all)` is `skipped` on EVERY normal release.** Its own name says
+   * so: *cutover only, never a normal release*. #608's cheap fix reads a skipped
+   * migrate step as a hollow green — and a version of it anchored on the wrong
+   * step of the three would have flagged all 147 healthy runs in the evidence
+   * window. A suite whose only cases are failures cannot tell you it stays quiet
+   * on a good day, and the good day HAS a skipped step in it.
+   *
+   * Kept as a literal rather than fetched: Actions history ages out, and this is
+   * evidence about a run nobody can re-read in ninety days.
+   */
+  const HEALTHY_DEPLOY_STEPS: OutcomeStep[] = [
+    { name: 'Set up job', conclusion: 'success' },
+    { name: 'Run actions/checkout@v4', conclusion: 'success' },
+    { name: 'Configure AWS credentials (OIDC, no stored keys)', conclusion: 'success' },
+    { name: 'Sync GitHub secrets -> SSM (GitHub is the source of truth)', conclusion: 'success' },
+    { name: 'Login to ECR', conclusion: 'success' },
+    { name: 'Set up Docker Buildx', conclusion: 'success' },
+    { name: 'Build and push (linux/arm64)', conclusion: 'success' },
+    { name: 'Resolve the ECS one-shot shape', conclusion: 'success' },
+    { name: 'Detect a post-rollout migration in the journal', conclusion: 'success' },
+    { name: 'Migrate (all) — cutover only, never a normal release', conclusion: 'skipped' },
+    { name: 'Migrate (pre) — before the rollout', conclusion: 'success' },
+    { name: 'Deploy to ECS (rolling)', conclusion: 'success' },
+    { name: 'Migrate (post) — after the new image is live', conclusion: 'success' },
+    { name: 'Outcome: migrations applied', conclusion: 'success' },
+    { name: 'Outcome: migrations NOT applied', conclusion: 'skipped' },
+    { name: 'Outcome: rollout performed', conclusion: 'success' },
+    { name: 'Outcome: rollout NOT performed', conclusion: 'skipped' },
+    { name: 'Post Set up Docker Buildx', conclusion: 'success' },
+    { name: 'Post Login to ECR', conclusion: 'success' },
+    { name: 'Post Configure AWS credentials (OIDC, no stored keys)', conclusion: 'success' },
+    { name: 'Post Run actions/checkout@v4', conclusion: 'success' },
+    { name: 'Complete job', conclusion: 'success' },
+  ];
+  const healthyRun = () => [
+    { steps: [{ name: 'Require a green CI run for this commit', conclusion: 'success' }] },
+    { steps: HEALTHY_DEPLOY_STEPS.map((step) => ({ ...step })) },
+  ];
+
+  it('reads a normal release as shipped, skipped Migrate (all) and all', () => {
+    // The literal names are asserted rather than assumed, so a fixture that
+    // silently stopped containing the skipped step could not pass this quietly.
+    expect(
+      HEALTHY_DEPLOY_STEPS.filter((step) => step.conclusion === 'skipped').map((step) => step.name),
+    ).toEqual([
+      'Migrate (all) — cutover only, never a normal release',
+      'Outcome: migrations NOT applied',
+      'Outcome: rollout NOT performed',
+    ]);
+    expect(coverage.judgeDeployOutcome({ jobs: healthyRun() }).state).toBe('shipped');
+  });
+
+  it('reads the STATEMENT, so no Migrate step can decide the verdict on its own', () => {
+    /**
+     * The other side of the trap. The check must not be re-deriving the answer
+     * from the migrate steps — that is the inference #608 proposed and this PR
+     * deliberately does not ship, because it cannot see the rollout half.
+     *
+     * So: flip every `Migrate (…)` step to `skipped` while leaving the
+     * statement positive, and the verdict must not move. If it does, something
+     * is reading the migrate steps behind the statement's back. The WORKFLOW is
+     * where those steps and the statement are tied together, and the De Morgan
+     * test above is what pins that end.
+     */
+    const jobs = healthyRun();
+    const deploy = jobs[1];
+    deploy.steps = deploy.steps.map((step) =>
+      step.name?.startsWith('Migrate (') ? { ...step, conclusion: 'skipped' } : step,
+    );
+    expect(deploy.steps.filter((s) => s.name?.startsWith('Migrate (')).length).toBe(3);
+    expect(coverage.judgeDeployOutcome({ jobs }).state).toBe('shipped');
+  });
+
+  it('turns the same healthy run hollow when the statement says the rollout did not happen', () => {
+    // The short-circuit, on an otherwise identical run: everything above the
+    // statement still reports `success`, which is exactly why the conclusion
+    // could never carry the answer.
+    const jobs = healthyRun();
+    jobs[1].steps = jobs[1].steps.map((step) => {
+      if (step.name === 'Outcome: rollout performed') return { ...step, conclusion: 'skipped' };
+      if (step.name === 'Outcome: rollout NOT performed') return { ...step, conclusion: 'success' };
+      return step;
+    });
+    const verdict = coverage.judgeDeployOutcome({ jobs });
+    expect(verdict.state).toBe('hollow');
+    expect(verdict.halves.filter((half) => half.verdict === 'negative').map((h) => h.half)).toEqual([
+      'rollout',
+    ]);
+  });
+});
+
+describe('an EVICTED run is a fourth path to "nothing shipped"', () => {
+  /**
+   * Measured on `main` on 2026-08-18: three of five consecutive `Deploy to AWS`
+   * runs concluded `cancelled`, and run 32131868824 (head `dcafc708`, carrying
+   * migration `0113_odd_tarot`) reported `total_count: 0` jobs.
+   *
+   * `deploy-aws.yml` sets `cancel-in-progress: false`, so nothing is cancelled
+   * by policy — a concurrency group holds at most one PENDING run and a newer
+   * push EVICTS it. **The evicted run never starts**, so it has no jobs, no
+   * steps and no step conclusions at all. That is the class every inference
+   * from a step's `skipped` state is structurally blind to: there is no
+   * `Migrate (pre)` to inspect.
+   */
+  it('is caught by the run-conclusion half, not by the outcome half', () => {
+    // An eviction concludes `cancelled`, so it is never the newest SUCCESS and
+    // the outcome check is never reached for it. #574 owns this path and
+    // already reports it — what #608 adds does not overlap.
+    const evicted = {
+      run_number: 3,
+      head_sha: 'dcafc708',
+      status: 'completed',
+      conclusion: 'cancelled',
+      created_at: '2020-01-01T07:28:00Z',
+      html_url: 'https://example.invalid/32131868824',
+    };
+    const verdict = coverage.judgeCoverage({
+      runs: [
+        {
+          run_number: 2,
+          head_sha: '085b405b',
+          status: 'completed',
+          conclusion: 'success',
+          created_at: '2020-01-01T07:02:00Z',
+        },
+        evicted,
+      ],
+      now: Date.parse('2020-01-01T09:00:00Z'),
+    });
+    expect(verdict.state).toBe('uncovered');
+    expect(verdict.uncovered.map((run) => run.head_sha)).toEqual(['dcafc708']);
+  });
+
+  it('would refuse rather than pass if its zero-job shape ever reached the outcome check', () => {
+    // Defence in depth, and the reason the vacuity floor is phrased as it is: a
+    // run that executed nothing produces `total_count: 0`, which is the exact
+    // shape of a read that failed. Neither may render as "no step said no".
+    expect(coverage.judgeDeployOutcome({ jobs: [] }).state).toBe('unreadable');
+  });
+});
