@@ -92,6 +92,14 @@ import {
   retailPresentationFromSnapshot,
 } from '../commercial-presentation/presentation';
 
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const REPO_PACKAGES = join(SRC_ROOT, '..', '..');
 
@@ -127,9 +135,39 @@ const UNDERIVABLE_ROUTES = ['routes/retail-offers.ts'];
  * The list this replaces named all six and was complete on the day it was
  * written; what it could not do is cover the module somebody adds next.
  */
+/** Anything whose PATH names this domain, in either spelling. */
+const DOMAIN_NAMED = /commercial-presentation|commercialPresentation/i;
+
+/**
+ * The shared flat directories a module of this domain lives in under a domain
+ * NAME.
+ *
+ * They contribute NOTHING today — the domain owns no controller, route,
+ * middleware or schema module carrying its name, `routes/retail-offers.ts`
+ * being named after its resource instead — and they are listed so that one
+ * appearing tomorrow is admitted rather than reported as an outsider.
+ */
+const PRESENTATION_SHARED_DIRECTORIES = [
+  'controllers',
+  'routes',
+  'middleware',
+  'db/schema',
+] as const;
+
+/**
+ * Every backend module of the domain, DERIVED as a function of its reader
+ * (#460), so the positive control below measures THIS derivation.
+ */
+function presentationPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/commercial-presentation', readDir),
+    ...namedInSharedDirectories(PRESENTATION_SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
+    ...UNDERIVABLE_ROUTES,
+  ];
+}
+
 const PRESENTATION_PATHS = [
-  ...walk('services/commercial-presentation'),
-  ...UNDERIVABLE_ROUTES,
+  ...presentationPopulation(),
 ];
 
 /**
@@ -441,6 +479,37 @@ function readCode(root: string, relative: string): string {
   ).toBeGreaterThan(200);
   return stripped;
 }
+
+describe('#460 — the population is closed against the tree', () => {
+  it('no commercial-presentation-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the positive
+    // control re-derives THIS population against the seeded reader.
+    //
+    // The population does NOT move: all five backend modules live under
+    // `services/commercial-presentation/` and the walk already had them. That is
+    // the complete-population case — every floor and count this gate carries was
+    // already satisfied, and the only thing a hand-shaped population fails on is
+    // the module somebody adds next. The plant is the proof, not a number.
+    //
+    // Scoped to `src/`. This gate also scans STOREFRONT files, which live in
+    // another package and are derived separately; sweeping them here would need
+    // a second root and would report every screen as an outsider.
+    assertNothingOutsideDomainPopulation({
+      population: presentationPopulation,
+      pattern: DOMAIN_NAMED,
+      // Measured empty: the only modules in `src/` naming this domain are its
+      // own five. `routes/retail-offers.ts` is in the population and NOT in the
+      // sweep — it is named after its resource — which the one-directional
+      // assertion permits.
+      notThisDomain: [],
+      sweepFloor: 4,
+      plantIn: 'lib',
+      plantName: 'commercial-presentation-cache.ts',
+    });
+    // EXACT: the one underivable route is an identity, not a predicate (#448).
+    expect(UNDERIVABLE_ROUTES.length, 'a second underivable route was added').toBe(1);
+  });
+});
 
 describe('a customer commercial surface cannot reach what it must not', () => {
   it('names no procurement economics in code (#129 retail 6, cart 9, order 6)', () => {
