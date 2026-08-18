@@ -1172,6 +1172,24 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
       'referral_attributions.winning_touch_id reasoning.',
   },
   {
+    column: 'catalog_localization_revisions.entity_id',
+    reason:
+      'The catalog_revisions.entity_id ruling, in an append-only trail that spans four ' +
+      'entity kinds. Its rows must OUTLIVE their subject: a localization row is deleted only ' +
+      'by cascade when its entity is, and the history of what a category used to be called in ' +
+      'Spanish is precisely what has to survive the category going away. The localization ' +
+      "family's own header rejects a polymorphic LOCALIZATION table because an orphaned " +
+      'translation would be invisible — that argument is about CURRENT state and it inverts ' +
+      'for a history, which is worthless if it dies with its subject.',
+  },
+  {
+    column: 'catalog_localization_revisions.credited_oxy_user_id',
+    reason:
+      OXY_ACCOUNT +
+      ' Written by a trigger from the row\'s own reviewed_by_oxy_user_id, so it is who the ' +
+      'translation CREDITS and never who ran the statement.',
+  },
+  {
     column: 'attribute_reindex_requests.entity_id',
     reason:
       'Polymorphic by entity_kind, exactly as attribute_value_reviews.entity_id is. The row ' +

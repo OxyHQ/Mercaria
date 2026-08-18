@@ -61,7 +61,11 @@ import { check, index, pgTable, text, uniqueIndex, type AnyPgColumn } from 'driz
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   LOCALIZATION_PROVENANCES,
+  LOCALIZATION_REVISION_ACTIONS,
+  LOCALIZATION_REVISION_FIELD_PAIRS,
   LOCALIZATION_STATUSES,
+  LOCALIZED_ENTITY_KINDS,
+  LOCALIZED_FIELD_KEYS,
   MERCARIA_BASE_LOCALE,
   SUPPORTED_LOCALES,
 } from '@mercaria/shared-types';
@@ -517,3 +521,154 @@ export const attributeValueLocalizations = pgTable(
  * other from the day they were written; the index named there is the one now
  * created, so the citation is true for the first time rather than merely tidied.)
  */
+
+/**
+ * `catalog_localization_revisions` — what a localized string used to say
+ * (#367 merge-order step 10, box 4).
+ *
+ * ## Written by TRIGGERS, which is what makes it complete
+ *
+ * Four `AFTER INSERT OR UPDATE` triggers, one per text table, are the only
+ * writers. A trail written by a repository records what the service did and
+ * misses a backfill script, an operator at a `psql` prompt and the stale
+ * triggers this same file already installs — and the gaps are invisible,
+ * because a missing revision looks exactly like a field nobody edited. Writing
+ * it at the row is the same reasoning the append-only guards elsewhere give for
+ * being triggers rather than service discipline.
+ *
+ * ## It is NOT a governance subject, deliberately
+ *
+ * Widening `CATALOG_GOVERNANCE_SUBJECT_KINDS` was considered and refused.
+ * `catalog_governance_audit_events` records THAT a translation's status changed
+ * and deliberately omits the body — "a translation body in an audit row is a
+ * copy of the text a correction can never reach" — which is correct for an
+ * audit trail and is exactly why it cannot be the home for a history whose
+ * point is the text. And a governance subject carries the operator gate, four
+ * eyes and the change-request flow, which would attach an operator's cadence to
+ * work translators and store staff do. `catalog_revisions` (#59) and
+ * `review_target_migrations` (#76) are the precedent: an append-only trail owned
+ * by its own domain.
+ *
+ * ## One row per FIELD, not per save
+ *
+ * A save that changes a name and a description writes two rows. That is what
+ * makes a per-field diff a `lag()` over one partition rather than a comparison
+ * of two blobs, and it is why there is no `jsonb` here — ADR 0007 D14 keeps
+ * every localized string a real column, and a revision of a string is a string.
+ *
+ * ## No foreign key on `entity_id`, permanently
+ *
+ * `catalog_revisions`' ruling, for its reason: this table spans four entity
+ * types and its rows must OUTLIVE their subject. A localization row is deleted
+ * only by cascade when its entity is, and the history of what a category used
+ * to be called in Spanish is precisely the thing that must survive the category
+ * going away. The family's own header rejects a polymorphic LOCALIZATION table
+ * because an orphaned translation would be invisible — that argument is about
+ * CURRENT state, and it inverts for a history, which is worthless if it dies
+ * with its subject.
+ */
+export const catalogLocalizationRevisions = pgTable(
+  'catalog_localization_revisions',
+  {
+    id: generatedId(),
+    action: text({ enum: asEnumValues(LOCALIZATION_REVISION_ACTIONS) }).notNull(),
+    entityKind: text({ enum: asEnumValues(LOCALIZED_ENTITY_KINDS) }).notNull(),
+    /** No foreign key, permanently. See the header. */
+    entityId: text().notNull(),
+    locale: text({ enum: LOCALE_VALUES }).notNull(),
+    fieldKey: text({ enum: asEnumValues(LOCALIZED_FIELD_KEYS) }).notNull(),
+    /** What the field said AFTER this revision. NULL is a real value. */
+    value: text(),
+    status: text({ enum: asEnumValues(LOCALIZATION_STATUSES) }).notNull(),
+    provenance: text({ enum: asEnumValues(LOCALIZATION_PROVENANCES) }).notNull(),
+    /**
+     * Who the ROW credited at this moment, never who ran the statement — a
+     * trigger sees the row and not the session. See the DTO's own note.
+     */
+    creditedOxyUserId: text(),
+    /**
+     * The revision this one undoes. `restrict`: the row somebody was pointed at
+     * must not vanish out from under the pointer, which is
+     * `category_localized_slugs.superseded_by_slug_id`'s reasoning one table up.
+     */
+    rollbackOfRevisionId: text().references((): AnyPgColumn => catalogLocalizationRevisions.id, {
+      onDelete: 'restrict',
+    }),
+    // Append-only: no `updated_at`, the `catalog_revisions` contract.
+    createdAt: createdAt(),
+  },
+  (t) => [
+    checkOneOf(
+      'catalog_localization_revisions_action_check',
+      t.action,
+      LOCALIZATION_REVISION_ACTIONS,
+    ),
+    checkOneOf(
+      'catalog_localization_revisions_entity_kind_check',
+      t.entityKind,
+      LOCALIZED_ENTITY_KINDS,
+    ),
+    checkOneOf('catalog_localization_revisions_locale_check', t.locale, SUPPORTED_LOCALES),
+    checkOneOf('catalog_localization_revisions_field_key_check', t.fieldKey, LOCALIZED_FIELD_KEYS),
+    checkOneOf('catalog_localization_revisions_status_check', t.status, LOCALIZATION_STATUSES),
+    checkOneOf(
+      'catalog_localization_revisions_provenance_check',
+      t.provenance,
+      LOCALIZATION_PROVENANCES,
+    ),
+    check('catalog_localization_revisions_entity_id_check', sql`btrim(${t.entityId}) <> ''`),
+    // The base locale has no revision because it has no row — the base string
+    // lives on the entity's own column, which this trail does not watch.
+    check(
+      'catalog_localization_revisions_locale_not_base_check',
+      sql`${t.locale} <> ${sql.raw(`'${MERCARIA_BASE_LOCALE}'`)}`,
+    ),
+    /**
+     * The entity kind and the field key must describe ONE registered field.
+     *
+     * A pair membership test and NOT a prefix rule, because a prefix rule is
+     * wrong in a way that is easy to miss: `product_type_field.label` begins
+     * with `product_type`, so "the key starts with the kind" would admit a
+     * `product_type` revision carrying a `product_type_field` column. Rendered
+     * from `LOCALIZATION_REVISION_FIELD_PAIRS`, which is derived from the field
+     * registry, so a field added there joins this CHECK in the same commit.
+     */
+    check(
+      'catalog_localization_revisions_field_pair_check',
+      sql`${t.entityKind} || '|' || ${t.fieldKey} in ${sql.raw(
+        `(${LOCALIZATION_REVISION_FIELD_PAIRS.map((pair) => `'${pair}'`).join(', ')})`,
+      )}`,
+    ),
+    // Only a rollback may name what it undoes, and it must. The
+    // `catalog_revisions_compensation_shape_check` biconditional.
+    check(
+      'catalog_localization_revisions_rollback_shape_check',
+      sql`(${t.action} = 'rollback') = (${t.rollbackOfRevisionId} is not null)`,
+    ),
+    check(
+      'catalog_localization_revisions_rollback_self_check',
+      sql`${t.rollbackOfRevisionId} is null or ${t.rollbackOfRevisionId} <> ${t.id}`,
+    ),
+    // A machine translation names no reviewer, so it credits nobody either —
+    // the family's `_machine_reviewer_check`, carried onto the trail so a
+    // revision cannot claim a person stood behind a machine's text.
+    check(
+      'catalog_localization_revisions_machine_credit_check',
+      sql`${t.provenance} <> 'machine' or ${t.creditedOxyUserId} is null`,
+    ),
+    /**
+     * THE HISTORY QUERY: one field's timeline, newest first. The index is that
+     * read's own shape, which is why `entity_id` has no foreign key and still
+     * has an ordering — `catalog_revisions_entity_idx`'s reasoning.
+     */
+    index('catalog_localization_revisions_field_idx').on(
+      t.entityKind,
+      t.entityId,
+      t.locale,
+      t.fieldKey,
+      t.createdAt.desc(),
+    ),
+    /** The desk's "what changed in Spanish lately" read. */
+    index('catalog_localization_revisions_locale_idx').on(t.locale, t.createdAt.desc()),
+  ],
+);
