@@ -183,6 +183,19 @@ export const AWIN_ACCOUNT_STATE_REASONS: readonly AwinAccountStateReason[] = [
  * A code CONSTANT and not a column, deliberately. A configurable set would make
  * "which hosts may Mercaria redirect to" answerable differently per deployment
  * and per row, which is the shape an open redirect eventually takes.
+ *
+ * ## The swap detector's false-positive analysis depends on WHAT these four are
+ *
+ * `assessAwinDestination` (#589) reads a tracking host in the DESTINATION column
+ * as evidence that the feed's two URL columns were mapped to each other's roles.
+ * That inference is only sound because these four are **Awin's own redirect
+ * infrastructure** — not a CDN, not a hosting provider and not a URL shortener.
+ * No retailer's storefront is served from any of them, so a destination landing
+ * here cannot be an advertiser whose own site happens to sit behind one.
+ *
+ * If this set ever became configurable, or grew a generic shortener, that
+ * inference stops holding and the conjunction stops being sufficient — which is
+ * a second, independent reason to keep it exactly four code constants.
  */
 export const AWIN_TRACKING_HOSTS: readonly string[] = [
   'awin1.com',
@@ -227,10 +240,26 @@ export const AWIN_APPROVED_TRACKING_VERDICT: AwinTrackingVerdict = 'approved';
  * What a pre-activation sample found (issue quality control 4).
  *
  * A closed set, so "the sample failed" is always accompanied by which of six
- * things failed. `destination_host_mismatch` is the subtle one: a deep link and
- * a destination that disagree about which retailer this is means the feed's two
- * URL columns were mapped to each other's roles, which produces a catalogue
+ * things failed. `destination_is_tracking_host` is the subtle one: a deep link
+ * and a destination that disagree about which retailer this is means the feed's
+ * two URL columns were mapped to each other's roles, which produces a catalogue
  * that works perfectly until somebody audits where the money went.
+ *
+ * ## It is named for the OBSERVATION, not the inferred cause
+ *
+ * `columns_swapped` would assert an intent Mercaria cannot observe — an
+ * advertiser could publish a retailer URL as the deep link and a tracked URL as
+ * the destination deliberately. That is operationally the same problem, and the
+ * finding still should not claim to know why: an operator pausing a live
+ * programme is acting on a NAME, so the name has to be the fact that was
+ * measured. `assessAwinDestination` states the same rule from the other side.
+ *
+ * This member is ADDITIVE and does not repurpose the one it supersedes.
+ * `destination_host_mismatch` meant "the destination disagrees with the
+ * advertiser's DECLARED host", and #589 deleted `awin_advertisers.declared_host`
+ * — a column with no writer and no obtainable value. Giving the new fact the old
+ * name would make every historical `awin_link_samples` row assert something
+ * nobody recorded.
  */
 export type AwinSampleFinding =
   | 'tracking_missing'
@@ -238,6 +267,7 @@ export type AwinSampleFinding =
   | 'destination_insecure_scheme'
   | 'destination_unresolvable'
   | 'destination_host_mismatch'
+  | 'destination_is_tracking_host'
   | 'destination_missing';
 
 export const AWIN_SAMPLE_FINDINGS: readonly AwinSampleFinding[] = [
@@ -246,6 +276,7 @@ export const AWIN_SAMPLE_FINDINGS: readonly AwinSampleFinding[] = [
   'destination_insecure_scheme',
   'destination_unresolvable',
   'destination_host_mismatch',
+  'destination_is_tracking_host',
   'destination_missing',
 ];
 
@@ -450,6 +481,29 @@ export interface AwinQualityCounts {
   readonly contradictoryAvailability: number;
   readonly trackingApproved: number;
   readonly trackingRejected: number;
+
+  /**
+   * Rows whose DESTINATION column carried a tracking host while the deep-link
+   * column did not — `assessAwinDestination`'s `tracking_host` verdict (#589).
+   *
+   * The observation `destination_is_tracking_host` names, counted over the whole
+   * feed rather than over a sample. Non-zero means the two URL columns disagree
+   * about which is which, and the money routes through a link nobody validated
+   * as the destination.
+   */
+  readonly destinationTrackingHost: number;
+
+  /**
+   * Rows where BOTH columns carried a tracking host — a tracked-only feed.
+   *
+   * This is the counter's POSITIVE CONTROL and it is not decoration. Without it
+   * `destinationTrackingHost: 0` reads identically on a feed whose destinations
+   * are all retailer hosts and on one where every destination is tracked and the
+   * conjunction therefore never fired. "What would this report if the thing it
+   * measures were absent?" has to have a different answer from what it reports
+   * now, and this column is what supplies it, per advertiser.
+   */
+  readonly destinationTrackedOnly: number;
 }
 
 /**

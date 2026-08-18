@@ -552,6 +552,25 @@ export const awinAdvertiserQuality = pgTable(
     trackingApproved: integer().notNull().default(0),
     trackingRejected: integer().notNull().default(0),
 
+    /**
+     * The swapped-URL-columns detector, counted over the whole feed (#589).
+     *
+     * `destination_tracking_host` is the observation: this row's DESTINATION was
+     * one of `AWIN_TRACKING_HOSTS` while its deep link was not.
+     * `destination_tracked_only` is the other arm of the conjunction — both
+     * columns tracked, which is a tracked-only feed and not a swap — and it is
+     * here as the detector's POSITIVE CONTROL. A zero in the first column reads
+     * the same on a clean feed and on one where the conjunction could never
+     * fire; the second column is the only thing that tells those apart.
+     *
+     * There is deliberately no example URL stored beside them. The feed's own
+     * `destination_url` and `affiliate_url` are already on every offer this pass
+     * wrote, so an operator has both URLs to look at without this table growing
+     * a second copy of one of them.
+     */
+    destinationTrackingHost: integer().notNull().default(0),
+    destinationTrackedOnly: integer().notNull().default(0),
+
     createdAt: createdAt(),
   },
   (t) => [
@@ -576,7 +595,8 @@ export const awinAdvertiserQuality = pgTable(
           and ${t.duplicateExternalIds} >= 0 and ${t.duplicateGtins} >= 0
           and ${t.rejectedCurrency} >= 0 and ${t.rejectedPrice} >= 0
           and ${t.contradictoryAvailability} >= 0
-          and ${t.trackingApproved} >= 0 and ${t.trackingRejected} >= 0`,
+          and ${t.trackingApproved} >= 0 and ${t.trackingRejected} >= 0
+          and ${t.destinationTrackingHost} >= 0 and ${t.destinationTrackedOnly} >= 0`,
     ),
     /**
      * A completeness count cannot exceed what was mapped.
@@ -591,7 +611,8 @@ export const awinAdvertiserQuality = pgTable(
       sql`${t.withGtin} <= ${t.mapped} and ${t.withMpn} <= ${t.mapped}
           and ${t.withBrand} <= ${t.mapped} and ${t.withImage} <= ${t.mapped}
           and ${t.withPrice} <= ${t.mapped}
-          and ${t.trackingApproved} + ${t.trackingRejected} <= ${t.mapped}`,
+          and ${t.trackingApproved} + ${t.trackingRejected} <= ${t.mapped}
+          and ${t.destinationTrackingHost} + ${t.destinationTrackedOnly} <= ${t.mapped}`,
     ),
     check('awin_advertiser_quality_mapping_version_check', sql`${t.mappingVersion} >= 1`),
     /** The board's read: this advertiser's history, newest first. */
@@ -613,10 +634,15 @@ export const awinAdvertiserQuality = pgTable(
  * has been live for a month.
  *
  * The findings are a closed set, so "it failed" always names which of six
- * things failed. `destination_host_mismatch` is the subtle one: a deep link and
- * a destination that disagree about which retailer this is means the feed's two
- * URL columns were mapped to each other's roles, which produces a catalogue
- * that works perfectly until somebody audits where the money went.
+ * things failed. `destination_is_tracking_host` is the subtle one: a deep link
+ * and a destination that disagree about which retailer this is means the feed's
+ * two URL columns were mapped to each other's roles, which produces a catalogue
+ * that works perfectly until somebody audits where the money went. It is the one
+ * finding a production code path MEASURES — `assessAwinDestination`, counted per
+ * import into `awin_advertiser_quality.destination_tracking_host` — while the
+ * verdict and the rest of the array remain an operator's attestation. Those are
+ * different kinds of claim and this table stores the second; see
+ * `docs/catalog-sources/awin.md` §"Sampling before activation".
  */
 export const awinLinkSamples = pgTable(
   'awin_link_samples',

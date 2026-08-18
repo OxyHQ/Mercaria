@@ -771,6 +771,13 @@
       "when": 1787005624704,
       "tag": "0109_nostalgic_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1787046127903,
+      "tag": "0110_shocking_shiver_man",
+      "breakpoints": true
     }
   ]
 }
