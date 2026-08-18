@@ -36,7 +36,55 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/** Anything whose PATH names this domain, in either spelling. */
+const DOMAIN_NAMED = /product-type|productType/i;
+
+const OWNED_DIRECTORIES = ['services/product-types', 'db/productTypes'] as const;
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the domain, DERIVED as a function of its reader (#460).
+ *
+ * The two owned directories were already scanned whole; the HTTP surface was
+ * not scanned at all, and `db/schema/productTypes.ts` was reached only by a
+ * separate `SCHEMA_FILE` constant for a column check — so the controller, the
+ * route and the schema module sat behind the reachability walls. 6 of 9.
+ */
+function productTypePopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
+  ];
+}
+
+/**
+ * The two modules that NAME a product type and belong to other domains.
+ *
+ * EXACT paths with reasons (#448). Neither is a module of this domain: one is
+ * the catalogue-backfill classifier's text helper and the other is the
+ * localization repository's product-type table accessor, and both have their
+ * own gates.
+ */
+const NOT_THIS_DOMAIN = [
+  {
+    path: 'services/catalog-backfill/product-type-text.ts',
+    why: "the catalogue-backfill classifier's text helper, gated by catalog-backfill-isolation",
+  },
+  {
+    path: 'db/catalogLocalization/productTypeLocalizationRepository.ts',
+    why: "the catalog-localization domain's repository, which happens to key on product types",
+  },
+];
 
 /** The two directories that ARE the domain, scanned whole. */
 const DOMAIN_DIRS = [
@@ -62,7 +110,7 @@ function sourceFiles(dir: string): string[] {
   return files;
 }
 
-const DOMAIN_FILES = DOMAIN_DIRS.flatMap(sourceFiles);
+const DOMAIN_FILES = productTypePopulation().map((relative) => join(SRC_ROOT, relative));
 
 /**
  * Source with comments stripped.
@@ -133,6 +181,31 @@ describe('the product-type domain scans a real, non-trivial file set', () => {
       expect(readFileSync(file, 'utf8').length, `${relative(SRC_ROOT, file)} looks empty`).toBeGreaterThan(400);
     }
     expect(statSync(SCHEMA_FILE).size).toBeGreaterThan(4_000);
+  });
+});
+
+describe('#460 — the population is closed against the tree', () => {
+  it('no product-type-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the positive
+    // control re-derives THIS population against the seeded reader.
+    //
+    // The two owned directories were already scanned whole, and the HTTP surface
+    // was not scanned at all: `controllers/product-types.controller.ts` and
+    // `routes/product-types.ts` were behind none of the reachability walls, and
+    // `db/schema/productTypes.ts` was reached only by a separate SCHEMA_FILE
+    // constant for a column check. 6 of 9.
+    assertNothingOutsideDomainPopulation({
+      population: productTypePopulation,
+      pattern: DOMAIN_NAMED,
+      notThisDomain: NOT_THIS_DOMAIN,
+      sweepFloor: 8,
+      plantIn: 'lib',
+      plantName: 'product-type-cache.ts',
+    });
+    // EXACT, in both directions (#448). The helper asserts each entry is still
+    // REACHED by the sweep and is NOT in the population; this stops a third
+    // riding in behind them.
+    expect(NOT_THIS_DOMAIN.length, 'a third foreign product-type module was excused').toBe(2);
   });
 });
 
