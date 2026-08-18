@@ -51,25 +51,109 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests. */
-function walk(relative: string): string[] {
+/** A directory entry, as `readdirSync(..., { withFileTypes: true })` reports one. */
+type DirectoryEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+/**
+ * Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests.
+ *
+ * Takes its reader so the positive controls below can ask "would the derivation
+ * get a module that does not exist yet?" of the REAL derivation rather than of a
+ * re-spelling of it.
+ */
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+  for (const entry of readDir(relative)) {
     if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
+    const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
     else if (entry.name.endsWith('.ts')) found.push(child);
   }
   return found;
 }
 
-/** Every referral-NAMED module in a flat shared directory. */
-function referralNamed(directory: string): string[] {
-  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .filter((entry) => /referral/i.test(entry.name))
-    .map((entry) => `${directory}/${entry.name}`);
+/** Anything whose name carries this domain. */
+const DOMAIN_NAMED = /referral/i;
+
+/**
+ * The directories this domain OWNS outright, walked whole.
+ *
+ * The three `db/` sub-domain directories and `services/referral-pilot/` joined
+ * this list in #460: measured, all twenty of the modules added here are clean
+ * against every wall in this file, so leaving them out was a gap rather than a
+ * decision.
+ */
+const REFERRAL_OWNED_DIRECTORIES = [
+  'services/referrals',
+  'services/referral-pilot',
+  'db/referrals',
+  'db/referralEarnings',
+  'db/referralIntegrity',
+  'db/referralPilot',
+] as const;
+
+/**
+ * The shared flat directories a referral module lives in under a domain NAME.
+ *
+ * `db/schema` joined this list in #460 — five referral schema modules were
+ * scanned by nothing here — and `routes/admin` LEFT it, which is not a
+ * narrowing: the sweep now recurses, so `walk('routes')` reaches it. That entry
+ * was a hand-patch of exactly this defect in one gate, and it covers the one
+ * subdirectory somebody thought of and no other.
+ */
+const REFERRAL_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every referral-NAMED module in a flat shared directory.
+ *
+ * RECURSES, via `walk`. It was `readdirSync(...).filter(entry.isFile())` — ONE
+ * level — sitting ten lines below a `walk` that recurses, so the file read as
+ * though it recursed throughout and it did not. #460 measured that asymmetry in
+ * 27 gates, and this file carried the hand-patched evidence of it.
+ */
+function referralNamed(directory: string, readDir: DirectoryReader = readDirectory): string[] {
+  return walk(directory, readDir).filter((path) => DOMAIN_NAMED.test(path.split('/').pop() ?? ''));
 }
+
+/**
+ * Every module in the tree whose PATH names this domain — the assertion that
+ * closes the population against the NEXT mechanism, not only these two.
+ *
+ * Matched on the PATH, not the filename: the sixty modules under
+ * `services/referrals/` name the domain nowhere in their own names, so a
+ * filename sweep reports a fraction of the domain and an empty "outside" set,
+ * which reads exactly like a clean pass.
+ */
+function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return walk('', readDir).filter((path) => DOMAIN_NAMED.test(path));
+}
+
+/**
+ * #344's partner PAYOUT rail — a referral-named sub-domain deliberately OUTSIDE
+ * this population, with an EXACT count (#448).
+ *
+ * Measured rather than assumed: three of its five modules trip the payment
+ * detector below, because reaching the payment rail is what a payout IS. So the
+ * choice was between admitting them and widening `LEDGER_POSTING_DIRECTORY` —
+ * this file's most sensitive exemption, and the one thing its own docblock says
+ * must be narrowed explicitly rather than by choosing a smaller population — or
+ * naming the sub-domain here. Widening an exemption to cover a directory also
+ * covers whatever is added to that directory next, so the exclusion is named.
+ *
+ * Asserted in BOTH directions below: the sweep must still reach each, and the
+ * population must not have absorbed it.
+ */
+const PAYOUT_RAIL_PATHS = [
+  'services/referral-payouts/beneficiary.ts',
+  'services/referral-payouts/rail.ts',
+  'services/referral-payouts/readiness.ts',
+  'services/referral-payouts/register.ts',
+  'services/referral-payouts/risk-payment-facts.ts',
+];
 
 /**
  * The whole referral domain. WALKED, never listed — and WIDER than the edge
@@ -95,12 +179,8 @@ function referralNamed(directory: string): string[] {
  * is narrowed explicitly below rather than by choosing a smaller population.
  */
 const REFERRAL_DOMAIN_PATHS = [
-  ...walk('services/referrals'),
-  ...walk('db/referrals'),
-  ...referralNamed('controllers'),
-  ...referralNamed('routes'),
-  ...referralNamed('routes/admin'),
-  ...referralNamed('middleware'),
+  ...REFERRAL_OWNED_DIRECTORIES.flatMap((directory) => walk(directory)),
+  ...REFERRAL_SHARED_DIRECTORIES.flatMap((directory) => referralNamed(directory)),
 ];
 
 /**
@@ -194,10 +274,15 @@ function assertReferralDomainIsWhole(): void {
   const from = (prefix: string) =>
     REFERRAL_DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
   expect(from('services/referrals/'), 'the referral service walk found too few modules').toBeGreaterThanOrEqual(48);
+  expect(from('services/referral-pilot/'), 'the pilot walk found too few modules').toBeGreaterThanOrEqual(4);
   expect(from('db/referrals/'), 'the referral repository walk found too few modules').toBeGreaterThanOrEqual(17);
+  expect(from('db/referralEarnings/'), 'the earnings repository walk found too few modules').toBeGreaterThanOrEqual(5);
+  expect(from('db/referralIntegrity/'), 'the integrity repository walk found too few modules').toBeGreaterThanOrEqual(3);
+  expect(from('db/referralPilot/'), 'the pilot repository walk found too few modules').toBeGreaterThanOrEqual(2);
   expect(from('controllers/'), 'no referral controller was derived').toBeGreaterThanOrEqual(7);
   expect(from('routes/'), 'no referral route was derived').toBeGreaterThanOrEqual(5);
-  expect(from('middleware/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
+  expect(from('middleware/'), 'no referral middleware module was derived').toBeGreaterThanOrEqual(5);
+  expect(from('db/schema/'), 'no referral schema module was derived').toBeGreaterThanOrEqual(5);
   // No test file may enter the scanned set: a gate that scans its own probes
   // reports violations it wrote itself.
   expect(REFERRAL_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
@@ -209,6 +294,142 @@ function assertReferralDomainIsWhole(): void {
 }
 
 describe('the referral edge cannot reach the money path', () => {
+  it('no referral-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion. This gate's population was already a walk,
+    // and it still missed twenty-four modules — because a walked population
+    // whose DIRECTORY list is hand-written is still a hand list, and the miss
+    // lives one level up. The evidence was sitting in the list itself: a
+    // `referralNamed('routes/admin')` line beside `referralNamed('routes')`,
+    // covering the one subdirectory somebody thought of.
+    //
+    // So the exclusion is derived rather than the inclusion. 94 -> 114, and the
+    // twenty added — three `db/` sub-domain directories, `services/referral-pilot/`
+    // and five schema modules — are clean against every wall in this file, so
+    // this is a widening rather than a false wall.
+    const swept = domainNamedModules();
+
+    // The sweep's OWN vacuity floor: a traversal that reached nothing reports no
+    // module outside the population, the same answer a complete population
+    // gives. MEASURED at 119.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(100);
+
+    // EXACT, because an unbounded exclusion list lets any number of modules ride
+    // in behind the five somebody justified (#448).
+    expect(
+      PAYOUT_RAIL_PATHS.length,
+      'a sixth module was excused from this gate as payout-rail',
+    ).toBe(5);
+
+    const population = new Set(REFERRAL_DOMAIN_PATHS);
+    const excluded = new Set(PAYOUT_RAIL_PATHS);
+    expect(
+      swept.filter((path) => !population.has(path) && !excluded.has(path)),
+      'names the referral domain but sits outside BOTH the population and the exclusion — add ' +
+        'its directory to REFERRAL_OWNED_DIRECTORIES or REFERRAL_SHARED_DIRECTORIES, or add it ' +
+        'to PAYOUT_RAIL_PATHS with its reason and move the count',
+    ).toEqual([]);
+
+    // Every exclusion, asserted in BOTH directions. An exemption is only safe
+    // while it is still TRUE, and it stops being true in two opposite ways: the
+    // sweep no longer REACHES the module (so the entry excuses nothing while
+    // looking like a decision), or the population has ABSORBED it (so the entry
+    // silently subtracts a module from every wall in this file).
+    for (const path of PAYOUT_RAIL_PATHS) {
+      expect(swept, `${path} is excused but the sweep no longer reaches it`).toContain(path);
+      expect(
+        population.has(path),
+        `${path} is excused but is ALSO in the population; the exclusion now subtracts a module ` +
+          'the walls would otherwise scan',
+      ).toBe(false);
+      expect(
+        statSync(join(SRC_ROOT, path)).isFile(),
+        `${path} no longer exists, so excusing it proves nothing`,
+      ).toBe(true);
+    }
+
+    // THE POSITIVE CONTROL: `toEqual([])` is also what a sweep that reached
+    // nothing produces, so the same sweep runs against a reader reporting a
+    // referral-named module in a directory neither the population nor the
+    // exclusion covers, and it must come back OUTSIDE.
+    const planted = 'lib/referral-cache.ts';
+    const seeded = domainNamedModules((relative) =>
+      relative === 'lib'
+        ? [...readDirectory(relative), { name: 'referral-cache.ts', isDirectory: () => false, isFile: () => true }]
+        : readDirectory(relative),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      seeded.filter((path) => !population.has(path) && !excluded.has(path)),
+      'a module neither covered nor excused was NOT reported — the empty result above is a ' +
+        'probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW — the third world `toEqual([])` admits
+    // and the one the plant cannot see, since a plant absent from the real sweep
+    // is reported outside a population built FROM that sweep exactly as it is
+    // outside a correct one. It is what stops a widening satisfying the sweep by
+    // absorbing the payout rail it was told to excuse.
+    for (const foreign of [
+      'services/referral-payouts/rail.ts',
+      'controllers/orders.controller.ts',
+      'db/schema/orders.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(REFERRAL_DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // Written against the DERIVATION rather than the filesystem: seeding a real
+    // file would mutate a tree shared with every parallel suite.
+    const seededWith = (directory: string, added: string): string[] =>
+      referralNamed(directory, (relative) =>
+        relative === directory
+          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          : readDirectory(relative),
+      );
+
+    expect(
+      seededWith('db/schema', 'referralDisputes.ts'),
+      'a new referral schema module does not enter the population',
+    ).toContain('db/schema/referralDisputes.ts');
+    expect(
+      seededWith('controllers', 'referral-dispute.controller.ts'),
+      'a new referral controller does not enter the population',
+    ).toContain('controllers/referral-dispute.controller.ts');
+    // … and ONLY by name, or these walls start firing at whoever edits an order.
+    expect(
+      seededWith('routes', 'orders.ts'),
+      'a foreign route entered the population; the name rule has stopped narrowing',
+    ).not.toContain('routes/orders.ts');
+
+    // And the RECURSION, the other half of the #460 repair — the half this file
+    // had hand-patched for `routes/admin` alone.
+    expect(
+      referralNamed('routes', (relative) =>
+        relative === 'routes'
+          ? [...readDirectory(relative), { name: 'internal', isDirectory: () => true, isFile: () => false }]
+          : relative === 'routes/internal'
+            ? [{ name: 'referral-audit.ts', isDirectory: () => false, isFile: () => true }]
+            : readDirectory(relative),
+      ),
+      'a module in a SUBDIRECTORY of a shared directory is not admitted; the sweep beside the ' +
+        'recursive walk is still one level deep',
+    ).toContain('routes/internal/referral-audit.ts');
+    // …and the real `routes/admin` module the hand-patched line used to cover is
+    // still in the population, reached now by recursion rather than by name.
+    expect(REFERRAL_DOMAIN_PATHS).toContain('routes/admin/referral-partner.ts');
+  });
+
   it('names no payment module, rail or ledger', () => {
     assertReferralDomainIsWhole();
     for (const relative of REFERRAL_DOMAIN_PATHS) {
