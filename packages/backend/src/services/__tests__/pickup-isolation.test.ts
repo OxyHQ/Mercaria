@@ -27,7 +27,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -36,23 +36,50 @@ import {
   LOCATION_GEOCODE_PROVENANCES,
 } from '@mercaria/shared-types';
 import { listingLocalDiscovery, orderPickups, pickupCollectionEvents } from '../../db/schema/pickup.js';
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Every module of the pickup domain, enumerated from disk. */
+/** Anything whose PATH names this domain. */
+const DOMAIN_NAMED = /pickup/i;
+
+/** The two directories the domain owns outright. */
+const PICKUP_OWNED_DIRECTORIES = ['services/pickup', 'db/pickup'] as const;
+
+/**
+ * The shared flat directories a pickup module lives in under a domain NAME.
+ *
+ * This gate had NONE — it read `services/pickup` and `db/pickup` with a
+ * one-level `readdirSync` and nothing else — so the domain's whole HTTP
+ * surface, both request-schema modules and its schema module sat behind none of
+ * the five walls below. 15 modules of 22.
+ */
+const PICKUP_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the pickup domain, DERIVED — as a function of its reader, so
+ * the positive control in `assertNothingOutsideDomainPopulation` measures this
+ * derivation rather than a re-spelling of it.
+ */
+function pickupPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...PICKUP_OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(PICKUP_SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
+  ];
+}
+
+/** Every module of the pickup domain, with its source. */
 function domainSources(): { relative: string; source: string }[] {
-  const roots = ['services/pickup', 'db/pickup'];
-  const files: { relative: string; source: string }[] = [];
-  for (const root of roots) {
-    for (const name of readdirSync(join(SRC_ROOT, root))) {
-      if (!name.endsWith('.ts')) continue;
-      files.push({
-        relative: `${root}/${name}`,
-        source: readFileSync(join(SRC_ROOT, root, name), 'utf8'),
-      });
-    }
-  }
-  return files;
+  return pickupPopulation().map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
 /**
@@ -106,18 +133,68 @@ const LEVER_ENTRY_POINTS = new Set([
   'services/pickup/nearby.service.ts',
   'services/pickup/local-discovery.service.ts',
   'services/pickup/collection-code.ts',
+  // The HTTP entry itself, brought into the population by #460 — it 404s
+  // `nearbyP2pHandler` when `config.pickup.p2pLocalDiscoveryEnabled` is off,
+  // which is the same job `local-discovery.service.ts` does one layer down and
+  // is ENTRY by any reading. It is named here rather than the detector being
+  // narrowed, because narrowing is the permissive direction: a detector
+  // loosened for one legitimate reader admits the violation added beside it.
+  'controllers/pickup.controller.ts',
 ]);
 
 describe('the pickup domain has no reach it should not have', () => {
   const domain = domainSources();
 
   it('is not vacuous: the domain has real modules and they are not empty', () => {
-    // The floor catches a renamed directory, which would otherwise make every
-    // scan below pass against an empty list.
-    expect(domain.length).toBeGreaterThanOrEqual(11);
+    // Floors PER SHAPE rather than one on the total: the sources break
+    // independently, and a single number lets one collapse to zero while the
+    // others carry it.
+    const from = (prefix: string) =>
+      domain.filter((file) => file.relative.startsWith(prefix)).length;
+    expect(from('services/pickup/'), 'the service walk found nothing').toBeGreaterThanOrEqual(10);
+    expect(from('db/pickup/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
+    expect(from('controllers/'), 'no pickup controller was derived').toBeGreaterThanOrEqual(3);
+    expect(from('middleware/'), 'no pickup middleware module was derived').toBeGreaterThanOrEqual(2);
+    expect(from('routes/'), 'no pickup route was derived').toBeGreaterThanOrEqual(1);
+    expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
+    expect(domain.length).toBeGreaterThanOrEqual(22);
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
     }
+    // EXACT: an unbounded exemption set lets any number of readers ride in
+    // behind the ones somebody justified (#448). This set had no count at all.
+    expect(LEVER_ENTRY_POINTS.size, 'a sixth lever reader was exempted').toBe(5);
+    for (const entry of LEVER_ENTRY_POINTS) {
+      expect(
+        domain.map((file) => file.relative),
+        `${entry} may read a lever but is not in the domain`,
+      ).toContain(entry);
+    }
+  });
+
+  it('no pickup-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the
+    // positive control measures THIS population rather than a re-spelling of
+    // it: handed the seeded reader, an over-broad derivation absorbs the plant
+    // and the control fires.
+    //
+    // This gate is the sharpest case in the flat directory. It read
+    // `services/pickup` and `db/pickup` with a one-level `readdirSync` and no
+    // shared directories at all, so the whole HTTP surface — including
+    // `controllers/admin/pickup-admin.controller.ts`, which a recursion fix
+    // alone would have been credited with catching — plus both schema-request
+    // modules and `db/schema/pickup.ts` were behind none of the five walls.
+    // 15 modules of 22.
+    assertNothingOutsideDomainPopulation({
+      population: pickupPopulation,
+      pattern: DOMAIN_NAMED,
+      // Measured empty: every pickup-named module in the tree is a module of
+      // this domain. One owned by somebody else goes here WITH its reason.
+      notThisDomain: [],
+      sweepFloor: 18,
+      plantIn: 'lib',
+      plantName: 'pickup-cache.ts',
+    });
   });
 
   it('WALL 1: no module can reach inventory, refunds, payments or the order writer', () => {
