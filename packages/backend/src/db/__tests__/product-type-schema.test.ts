@@ -16,7 +16,8 @@
  * see either.
  */
 
-import { getTableConfig, PgDialect } from 'drizzle-orm/pg-core';
+import { is } from 'drizzle-orm';
+import { getTableConfig, PgDialect, PgTable } from 'drizzle-orm/pg-core';
 import { DATABASE_CASING, sqlColumnName } from '@oxyhq/db';
 import { describe, expect, it } from 'vitest';
 import {
@@ -36,6 +37,7 @@ import {
   productTypeFieldGroups,
   productTypeFields,
 } from '../schema/productTypes.js';
+import * as productTypeSchema from '../schema/productTypes.js';
 
 /**
  * The dialect is constructed with `DATABASE_CASING`, and that is not cosmetic:
@@ -227,14 +229,22 @@ describe('every closed value set carries its CHECK, and the JSONB carries its bo
 });
 
 describe('the schema declares no jsonb beyond the one ADR 0007 D14 permits', () => {
-  it('has exactly one jsonb column across the four tables', () => {
+  it('has exactly one jsonb column across every table the module declares', () => {
+    // DERIVED from the module, not the hand list of four this replaced. The
+    // exact-equality assertion at the bottom is only as strong as the
+    // population it walks, and a hand list stops covering the module the moment
+    // a table is added to it — silently, because nothing about that fails.
+    // `product_type_aliases` was the first such addition.
+    const tables = Object.values(productTypeSchema).filter((value): value is PgTable =>
+      is(value, PgTable),
+    );
+    // The vacuity floor: an import resolving to nothing would walk zero tables,
+    // collect zero jsonb columns, and fail the assertion below for the wrong
+    // reason — or pass it if somebody "fixed" that by loosening it.
+    expect(tables.length).toBeGreaterThanOrEqual(5);
+
     const jsonbColumns: string[] = [];
-    for (const table of [
-      productTypeDefinitions,
-      productTypeCategoryScopes,
-      productTypeFieldGroups,
-      productTypeFields,
-    ]) {
+    for (const table of tables) {
       const config = getTableConfig(table);
       for (const column of config.columns) {
         if (column.getSQLType().startsWith('jsonb')) {
