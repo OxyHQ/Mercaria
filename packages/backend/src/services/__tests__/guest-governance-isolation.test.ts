@@ -31,10 +31,22 @@ import {
   GUEST_SECURITY_SIGNALS,
 } from '@mercaria/shared-types';
 
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** The whole domain — scanned as a DIRECTORY, so the walls hold for modules nobody has written yet. */
 const DOMAIN_DIRS = ['services/guest-governance', 'db/guestGovernance'];
+const OWNED_DIRECTORIES = DOMAIN_DIRS;
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+/** Anything whose name carries this domain, in either spelling. */
+const DOMAIN_NAMED = /guest-?governance/i;
 
 /**
  * The modules outside those directories that are still part of the domain,
@@ -48,13 +60,25 @@ const DOMAIN_DIRS = ['services/guest-governance', 'db/guestGovernance'];
  * contains the domain, so the looser match costs nothing and covers the shape
  * that would otherwise be invisible.
  */
-function domainFiles(): string[] {
-  return ['controllers', 'routes', 'middleware', 'db/schema'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /guest-?[Gg]overnance/.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  );
+function domainFiles(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAMED, readDir);
+}
+
+/** Anything whose PATH names this domain, in either spelling. */
+const DOMAIN_NAMED_PATH = DOMAIN_NAMED;
+
+/**
+ * Every module of the domain, DERIVED as a function of its reader (#460).
+ *
+ * The shared sweep RECURSES now. It was a one-level `readdirSync`, which is the
+ * asymmetry #460 measured in 27 gates — a `routes/admin/guest-governance.ts`
+ * would have been invisible to every wall here.
+ */
+function governancePopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...domainFiles(readDir),
+  ];
 }
 
 /**
@@ -129,6 +153,30 @@ function domainSources(): readonly { path: string; text: string }[] {
 function withoutComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
+
+describe('#460 — the population is closed against the tree', () => {
+  it('no governance-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the
+    // positive control re-derives THIS population against the seeded reader —
+    // an over-broad derivation then absorbs the plant and fires, which a
+    // control built on a finished array cannot do.
+    //
+    // The population does NOT move either: the shared sweep already covered all four
+    // directories. What moves is that it RECURSES, so a `routes/admin/guest-governance.ts`
+    // is admitted rather than invisible, and that a module named for this domain
+    // anywhere else in the tree now forces a decision.
+    assertNothingOutsideDomainPopulation({
+      population: governancePopulation,
+      pattern: DOMAIN_NAMED,
+      // Measured empty: every module in the tree naming this domain is a module
+      // of it. One owned by somebody else goes here WITH its reason.
+      notThisDomain: [],
+      sweepFloor: 11,
+      plantIn: 'lib',
+      plantName: 'guest-governance-cache.ts',
+    });
+  });
+});
 
 describe('the guest-governance domain cannot fingerprint, rank or correlate (#111)', () => {
   const sources = domainSources();
