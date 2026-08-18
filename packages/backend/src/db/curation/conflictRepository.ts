@@ -29,13 +29,30 @@ import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { commerceRelationships } from '../schema/relationships.js';
 import { offers } from '../schema/offers.js';
 
-/** One collision, in the shape `catalog_merge_conflicts` stores. */
-export interface DetectedConflict {
-  readonly kind: CatalogMergeConflictKind;
+/** A PAIR collision: two legal rows that become one illegal key. */
+export interface DetectedPairConflict {
+  readonly kind: Exclude<CatalogMergeConflictKind, 'compatibility_endpoint_collapse'>;
   readonly loserRowId: string;
   readonly winnerRowId: string;
   readonly detail: string;
 }
+
+/**
+ * A COLLAPSE: ONE row, legal before the merge and illegal after it (#405).
+ *
+ * A separate shape rather than a pair with a null side, and the difference is
+ * load-bearing rather than tidy. `toConflicts` DROPS any row missing either id,
+ * so a collapse squeezed into the pair shape would be silently discarded by the
+ * very helper that reads it — a detector that finds the case and reports
+ * nothing, which is indistinguishable from one that never fired.
+ */
+export interface DetectedCollapseConflict {
+  readonly kind: 'compatibility_endpoint_collapse';
+  readonly collapsingRowId: string;
+  readonly detail: string;
+}
+
+export type DetectedConflict = DetectedPairConflict | DetectedCollapseConflict;
 
 interface RawConflictRow {
   readonly loser_row_id: string;
@@ -45,7 +62,7 @@ interface RawConflictRow {
 
 /** Read a detector's rows without trusting the driver's row shape. */
 function toConflicts(
-  kind: CatalogMergeConflictKind,
+  kind: DetectedPairConflict['kind'],
   rows: readonly unknown[],
 ): readonly DetectedConflict[] {
   const detected: DetectedConflict[] = [];
@@ -247,6 +264,70 @@ export async function detectActiveOfferConflicts(
     where l.${sql.identifier(merged)} = ${loserId} and l.status = 'active' and l.kind <> 'native'
   `);
   return toConflicts('active_offer', rows);
+}
+
+/**
+ * `generic_compatibility_relations_distinct_endpoints_check` — a merge that
+ * would land BOTH ends of one relation on the winner (#405).
+ *
+ * ## Why this detector does not look like the others
+ *
+ * Every detector above JOINS the loser's rows to the winner's, because a pair
+ * collision needs two rows. Here there is one, and the winner side of the join
+ * would match nothing — which is precisely how this case reached production
+ * undetected: `absenceGuard` and the pair detectors ask the same question, "does
+ * the winner already hold an equivalent row", and a collapse answers no.
+ *
+ * The three shapes are `(loser, loser)`, `(loser, winner)` and `(winner,
+ * loser)`, and all three are enumerated rather than written as a set test, so
+ * the one that is easy to forget — the row that already names the winner and
+ * only needs its OTHER end moved — cannot be dropped by a rewrite.
+ *
+ * ## Only OPEN relations, and the guard is deliberately wider
+ *
+ * The CHECK is not partial, so a CLOSED relation would raise `23514` on the
+ * repoint just as surely — which is why `collapseGuard` skips those too. It
+ * raises no conflict, because a closed relation is history and staying with the
+ * tombstone is what history does; blocking a merge on one would be a decision
+ * with only one possible answer.
+ */
+export async function detectCompatibilityEndpointCollapse(
+  subjectColumn: AnyPgColumn,
+  targetColumn: AnyPgColumn,
+  loserId: string,
+  winnerId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly DetectedConflict[]> {
+  const subject = sql.identifier(sqlColumnName(subjectColumn));
+  const target = sql.identifier(sqlColumnName(targetColumn));
+  const rows = await db.execute(sql`
+    select r.id as row_id,
+           r.kind || ' relation ' ||
+           case
+             when r.${subject} = ${loserId} and r.${target} = ${loserId}
+               then 'names the losing entity at BOTH ends'
+             when r.${subject} = ${loserId} then 'points from the loser at the winner'
+             else 'points from the winner at the loser'
+           end as detail
+    from generic_compatibility_relations r
+    where r.valid_to is null
+      and (
+        (r.${subject} = ${loserId} and r.${target} in (${loserId}, ${winnerId}))
+        or (r.${target} = ${loserId} and r.${subject} in (${loserId}, ${winnerId}))
+      )
+  `);
+  const detected: DetectedCollapseConflict[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const typed = row as { row_id?: string; detail?: string };
+    if (!typed.row_id) continue;
+    detected.push({
+      kind: 'compatibility_endpoint_collapse',
+      collapsingRowId: typed.row_id,
+      detail: typed.detail ?? 'compatibility endpoint collapse',
+    });
+  }
+  return detected;
 }
 
 /**

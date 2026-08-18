@@ -21,7 +21,7 @@
  * tables preventing, arriving through the door marked "conflict resolution".
  */
 
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type {
   CatalogMergeConflictResolution,
   MergeableEntityType,
@@ -29,6 +29,7 @@ import type {
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   detectActiveOfferConflicts,
+  detectCompatibilityEndpointCollapse,
   detectDefaultVariantConflicts,
   detectIdentifierConflicts,
   detectRelationshipEndpointConflicts,
@@ -40,6 +41,7 @@ import {
 import { insertConflict, type InsertConflictInput } from '../../db/curation/jobRepository.js';
 import type { CatalogMergeConflictRow } from '../../db/schema/curation.js';
 import { canonicalVariants, productIdentifiers } from '../../db/schema/canonicalCatalog.js';
+import { genericCompatibilityRelations } from '../../db/schema/compatibility.js';
 import { commerceRelationships } from '../../db/schema/relationships.js';
 import { merchantClaims } from '../../db/schema/merchantClaims.js';
 import { offers } from '../../db/schema/offers.js';
@@ -118,11 +120,28 @@ export async function detectMergeConflicts(
         ...(await detectIdentifierConflicts(productIdentifiers.productId, loserId, winnerId, db)),
         ...(await detectVariantSignatureConflicts(loserId, winnerId, db)),
         ...(await detectDefaultVariantConflicts(loserId, winnerId, db)),
+        ...(await detectCompatibilityEndpointCollapse(
+          genericCompatibilityRelations.subjectProductId,
+          genericCompatibilityRelations.targetProductId,
+          loserId,
+          winnerId,
+          db,
+        )),
       ];
     case 'canonical_variant':
       return [
         ...(await detectIdentifierConflicts(productIdentifiers.variantId, loserId, winnerId, db)),
         ...(await detectActiveOfferConflicts(offers.canonicalVariantId, loserId, winnerId, db)),
+        // The SAME CHECK's second conjunct, one grain down. Shipping only the
+        // product grain would leave a variant merge failing with the identical
+        // `23514` in a change whose title says it was fixed.
+        ...(await detectCompatibilityEndpointCollapse(
+          genericCompatibilityRelations.subjectVariantId,
+          genericCompatibilityRelations.targetVariantId,
+          loserId,
+          winnerId,
+          db,
+        )),
       ];
   }
 }
@@ -146,6 +165,8 @@ function conflictColumns(jobId: string, detected: DetectedConflict): InsertConfl
       return { ...base, loserOfferId: detected.loserRowId, winnerOfferId: detected.winnerRowId };
     case 'verified_claim':
       return { ...base, loserClaimId: detected.loserRowId, winnerClaimId: detected.winnerRowId };
+    case 'compatibility_endpoint_collapse':
+      return { ...base, collapsingRelationId: detected.collapsingRowId };
   }
 }
 
@@ -164,15 +185,21 @@ export async function recordMergeConflicts(
 /**
  * Which of the two colliding rows an operator's decision retires.
  *
- * Naming it once is what keeps the six branches below from each re-deciding the
+ * Naming it once is what keeps the branches below from each re-deciding the
  * mapping — and `merge_pair` returns null because nothing is retired: the two
- * rows become one through a child job.
+ * rows become one through a child job. `close_relation` returns null for a
+ * different reason: there are not two sides. Answering it with the `keep_loser`
+ * default would hand the collapse branch a "retire the winner" instruction about
+ * a row that does not exist, which is a wrong answer sitting in a variable
+ * waiting for somebody to read it.
  */
 function retiredSide(
   row: CatalogMergeConflictRow,
   resolution: CatalogMergeConflictResolution,
 ): { readonly loser: string | null; readonly winner: string | null } {
-  if (resolution === 'merge_pair') return { loser: null, winner: null };
+  if (resolution === 'merge_pair' || resolution === 'close_relation') {
+    return { loser: null, winner: null };
+  }
   return resolution === 'keep_winner' ? { loser: 'retire', winner: null } : { loser: null, winner: 'retire' };
 }
 
@@ -269,6 +296,42 @@ export async function applyConflictResolution(
           revokeReason: 'operator_correction',
         })
         .where(and(eq(merchantClaims.id, target), eq(merchantClaims.state, 'verified')));
+      return;
+    }
+    case 'compatibility_endpoint_collapse': {
+      const target = row.collapsingRelationId;
+      if (!target) return;
+      // CLOSED, in this domain's own terms: `valid_to` is what takes a relation
+      // out of `generic_compatibility_relations_open_key`, and `revoked` plus
+      // its attribution is what `..._revoked_state_check` demands of a claim a
+      // person ended. Revoked rather than merely expired for the
+      // `relationship_endpoint` reason one domain over — time did not run out,
+      // an operator decided this claim should no longer stand.
+      //
+      // The row is NOT deleted and NOT moved: `collapseGuard` leaves it on the
+      // tombstone, where a closed claim about what the losing identity was
+      // compatible with is exactly the history `retained_by_tombstone` keeps.
+      // Repointing it is the statement the CHECK refuses.
+      //
+      // `valid_to is null` in the predicate makes a second application a no-op
+      // rather than a re-revocation under a later timestamp — the `identifier`
+      // branch's `status = 'active'`, and what lets `markConflictApplied` run
+      // after the write.
+      await db
+        .update(genericCompatibilityRelations)
+        .set({
+          verification: 'revoked',
+          validTo: now,
+          revokedAt: now,
+          revokedByOxyUserId: actorOxyUserId,
+          revokeReason: reason,
+        })
+        .where(
+          and(
+            eq(genericCompatibilityRelations.id, target),
+            isNull(genericCompatibilityRelations.validTo),
+          ),
+        );
       return;
     }
   }
