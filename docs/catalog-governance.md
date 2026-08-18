@@ -217,10 +217,37 @@ the rename inside a real transaction — the only place the post-change ancestry
 is visible — and mutation-tests both the subtree scope and the `incomplete`
 probe.
 
-Two relations still carry the `rewire_path_missing` disposition:
+### Exactly two relations still carry `rewire_path_missing`, and the census says so
+
 `seller_listing_drafts.category_id` (#91 exposes no re-pin entry point) and
 `native_variant_axis_assignments.attribute_definition_id` (#367 step 4 exposes
 no re-normalization entry point for already-written assignments).
+
+There were THREE until #587, and this paragraph said two — the plan and the
+prose had drifted, in the direction that reads as fewer gaps than there are.
+`listings.product_type_definition_id` was the third, and it is now
+`rewired_by_domain`: `previewListingProductTypeUpgrade` then
+`applyListingProductTypeUpgrade` move a published listing forward, per listing
+and never silently, which is the twin of the draft pair the plan already cited
+(`docs/catalog-authoring.md` §"Moving forward").
+
+**`impact-plan-census.test.ts` now pins the EXACT set**, which nothing did
+before. The two directions it stops are both silent: relabelling a real gap as
+`rewired_by_domain` tells an operator that N rows will be fixed by something
+that does not exist, which is the reading `unrewiredRowCount` exists to prevent;
+and leaving a CLOSED gap labelled `rewire_path_missing` makes an operator
+decline a change that is safe. Mutation-tested — flipping any one disposition
+turns exactly that case red.
+
+A BULK path over every listing pinned to a version is deferred rather than
+missing, and the cost is measured: it needs a `CATALOG_GOVERNANCE_ACTIONS`
+member, which `checkOneOf` renders into the CHECK on BOTH
+`catalog_governance_change_requests.action` and
+`catalog_governance_audit_events.action` (the second via
+`[...ACTIONS, ...REVIEW_ACTIONS, ...LIFECYCLE_ACTIONS]`), so it is a code change
+plus `db:generate` plus an additive `pre` migration in the same PR — the
+`CurrencyCode` rule. Whether such a path is store-scoped or operator-only is a
+policy nobody has decided.
 
 ### The seam: this domain reaches into other domains' tables to count
 

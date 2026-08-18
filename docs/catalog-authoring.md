@@ -156,6 +156,72 @@ preview has to say which individual answers move.
   draft by a partial index. Two variants entered in different orders collide by
   construction.
 
+### Moving forward: the draft upgrade, and the LISTING twin (#587)
+
+ADR 0007 D10 says a newer schema version produces a PREVIEW, never a silent
+rewrite. Two pairs implement it, and they are deliberately the same shape:
+
+| Record | Preview | Apply |
+|---|---|---|
+| An open draft | `previewDraftUpgrade` | `applyDraftUpgrade` |
+| A published listing | `previewListingProductTypeUpgrade` | `applyListingProductTypeUpgrade` |
+
+Both are `GET` and `POST` on one path — two verbs are what make "look" and "do"
+different requests, and one endpoint returning a preview AND applying it makes
+the rewrite reachable by a client that only meant to look. Both are store-scoped
+behind `products:write`.
+
+**The field comparison is ONE function.** `version-upgrade.ts`'s
+`compareProductTypeVersionFields` is pure, takes the two versions' fields for one
+flow plus the keys the record has answered, and both callers use it. It was
+written once inside `previewDraftUpgrade`; copying it for the listing would have
+been two statements of one rule, and the direction they drift in is the
+flattering one, because a preview that under-reports reads as a safe upgrade.
+
+**The listing half existed nowhere before #587.**
+`listings.product_type_definition_id` had only INSERT writers, so a listing
+published under v1 stayed there forever and `catalog-governance/impact-plan.ts`
+recorded that as `rewire_path_missing`. Migration 0109's trigger permits
+`value → value` "precisely so #367 box 12's published-listing migration has
+somewhere to land" — the database was ready and nothing called it. The
+disposition is now `rewired_by_domain` naming the pair, and
+`impact-plan-census.test.ts` pins the EXACT `rewire_path_missing` set so closing
+a gap is as visible as opening one.
+
+**The apply writes ONE COLUMN.** Every `native_listing_attribute_claims` and
+`native_variant_attribute_claims` row keeps the attribute version it was settled
+under; every `native_listing_variant_axes` row keeps the product-type version
+that authorised it. A field the target no longer declares becomes a
+`field_removed` line and `losesAnswers: true`, and nothing deletes the answer —
+`applyDraftUpgrade`'s ruling verbatim, because deleting one is the silent
+rewrite D10 forbids wearing a tidy-up's clothes.
+`listing-upgrade.realdb.test.ts` measures that as a READ-BACK rather than as an
+absence, and mutation-tests it.
+
+**Two blockers, both mechanical.** `variant_axis_not_authorised` is
+`mercaria_native_variant_axis_citation`'s own predicate applied at the listing
+grain: a target that declares no `variant_capable`, `variant`-scope field for a
+declared axis is a version the database would refuse an axis row under, so
+moving the LISTING onto it reaches that state through the one door the trigger
+does not watch. It refuses rather than repairing because the axis cannot follow
+— `mercaria_native_variant_axis_frozen` makes its citation immutable and
+re-declaring cascades every assignment away, so the alternatives are refuse or
+destroy. `listing_not_editable` covers `restricted`, `archived` and `sold`; the
+status list is stated positively, so a sixth status nobody classified is refused
+rather than admitted.
+
+**Deferred, with its cost measured.** A BULK operator path over every listing
+pinned to a version is a governance ACTION, and one needs a
+`CATALOG_GOVERNANCE_ACTIONS` member — CHECK-rendered onto both
+`catalog_governance_change_requests.action` and
+`catalog_governance_audit_events.action` — and therefore a `pre` migration in the
+same PR, exactly the `CurrencyCode` rule. It is also a policy nobody has decided:
+the draft upgrade is store-scoped, and "a merchant may re-pin their own draft but
+not their own listing" is not an asymmetry to introduce as a side effect of where
+an endpoint lives. The trigger clause that would state the axis rule at the row
+is separately owed, and named in `db/schema/variantAxes.ts` and
+`docs/variant-axes.md`.
+
 ### Expiry
 
 `expires_at` is NOT NULL exactly while a draft can still be abandoned and NULL
@@ -315,6 +381,16 @@ about a product nobody made.
   spelling was added because the self-test went red on it** — the first draft
   matched only `services/payments/…` and was blind to `../payments/…`, which is
   the only spelling a sibling module would ever write.
+- `services/catalog-authoring/__tests__/listing-upgrade.realdb.test.ts` — the
+  listing twin of the draft upgrade, end to end against a real server: the pin
+  moves, and every claim's settled attribute version and every axis's cited
+  product-type version are read back BYTE-IDENTICAL afterwards (and the axes are
+  asserted to still cite the OLD version positively, so the equality cannot pass
+  by both sides having moved). The axis blocker fires with its own control — the
+  same target version, a listing whose one axis it does still authorise, is
+  offered the upgrade — and both halves are mutation-tested: disabling the
+  blocker turns exactly the two blocked cases red, and making the apply delete
+  the listing's claims turns exactly the read-back case red.
 - `services/catalog-authoring/__tests__/schema-version-lifecycle-exposure.realdb.test.ts`
   — `?version=` may not serve an EDITABLE version.
   `RETRIEVABLE_AUTHORING_LIFECYCLES` is asserted to be exactly the complement of
