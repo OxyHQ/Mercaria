@@ -101,8 +101,8 @@ const DEFAULT_ANSWER_COLUMNS = [
  * falsifiable — an import that resolved to nothing would otherwise walk an
  * empty population and pass every assertion in the file.
  */
-const PRODUCT_TYPE_TABLES = Object.values(productTypeSchema).filter(
-  (value): value is PgTable => is(value, PgTable),
+const PRODUCT_TYPE_TABLES = Object.values(productTypeSchema).flatMap((value) =>
+  is(value, PgTable) ? [value] : [],
 );
 
 /**

@@ -235,8 +235,8 @@ describe('the schema declares no jsonb beyond the one ADR 0007 D14 permits', () 
     // population it walks, and a hand list stops covering the module the moment
     // a table is added to it — silently, because nothing about that fails.
     // `product_type_aliases` was the first such addition.
-    const tables = Object.values(productTypeSchema).filter((value): value is PgTable =>
-      is(value, PgTable),
+    const tables = Object.values(productTypeSchema).flatMap((value) =>
+      is(value, PgTable) ? [value] : [],
     );
     // The vacuity floor: an import resolving to nothing would walk zero tables,
     // collect zero jsonb columns, and fail the assertion below for the wrong
