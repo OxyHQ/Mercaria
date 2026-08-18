@@ -79,6 +79,17 @@ keeps every realdb suite green while validating a path production never takes.
   the day it arrives — `docs/pickup.md`'s "Teardown and the trigger-toggle
   window" section has the worked example (moving an injected clock back a
   week rather than extending a closure's date forward).
+- **A green realdb case is not evidence you measured what you NAMED — `tsc`
+  is.** The backend compiles with `strict: false`, so a bogus literal reaches a
+  service and the call still runs. Measured in #639: `offerContext: 'available'`
+  is not a `CatalogOfferContextState` (`included | withdrawn`), and it passed
+  four cases whose numbers happened to be unaffected — a green suite over a call
+  that was not the call the author meant to make. This is `AGENTS.md`'s "a build
+  is not a substitute for `tsc`" from the MEASUREMENT side: there Babel strips
+  types and `expo export` bundles what `tsc` rejects; here a passing assertion
+  says the rows were right and says nothing about whether the call was the one
+  you named. Typecheck before believing a realdb number, and before quoting one
+  in an issue.
 
 ## Rebasing a migration behind another branch's
 
