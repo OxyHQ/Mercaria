@@ -68,6 +68,14 @@ import {
 } from '@mercaria/shared-types';
 import * as retailFulfilmentSchema from '../../db/schema/retailFulfilment.js';
 
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DOMAIN_DIR = join(SRC_ROOT, 'services', 'retail-fulfilment');
 
@@ -80,18 +88,38 @@ const DOMAIN_DIR = join(SRC_ROOT, 'services', 'retail-fulfilment');
  * Tests are excluded — this very file names the forbidden vocabulary.
  */
 function domainModules(): string[] {
-  return readdirSync(DOMAIN_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .map((entry) => join(DOMAIN_DIR, entry.name));
+  return walkOwnedDirectory('services/retail-fulfilment').map((relative) =>
+    join(SRC_ROOT, relative),
+  );
 }
 
-/** The domain plus the two files outside it that belong to the same wall. */
-function scannedPaths(): string[] {
+/** Anything whose PATH names this domain. */
+const DOMAIN_NAMED = /retail-fulfilment|retailFulfilment/i;
+
+/** The owned directories, plus the shared ones a module lives in under a domain NAME. */
+const OWNED_DIRECTORIES = ['services/retail-fulfilment', 'db/retailFulfilment'] as const;
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the domain, DERIVED as a function of its reader (#460).
+ *
+ * This replaces `domainModules()` plus two HAND-NAMED paths — the repository and
+ * `db/schema/retailFulfilment.ts`. That pair was complete, which is the point: a
+ * hand list of two is complete on the day it is written and silently short the
+ * day somebody adds a third, and nothing in this file could tell the
+ * difference. The population does not move; what moves is whether it can fall
+ * behind.
+ */
+function fulfilmentPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
   return [
-    ...domainModules(),
-    join(SRC_ROOT, 'db', 'retailFulfilment', 'retailFulfilmentRepository.ts'),
-    join(SRC_ROOT, 'db', 'schema', 'retailFulfilment.ts'),
+    ...OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
   ];
+}
+
+/** The population, as absolute paths, for the readers below. */
+function scannedPaths(): string[] {
+  return fulfilmentPopulation().map((relative) => join(SRC_ROOT, relative));
 }
 
 /** Source with comments removed — what every REACHABILITY detector scans. */
@@ -148,6 +176,30 @@ const CREDENTIAL_REFERENCE =
  * import a sibling this way.
  */
 const PAYMENT_DOMAIN_REFERENCE = /services\/payments\/|\.\.\/payments\/|db\/payments\/|\bstripe\b/i;
+
+describe('#460 — the population is closed against the tree', () => {
+  it('no fulfilment-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the
+    // positive control re-derives THIS population against the seeded reader —
+    // an over-broad derivation then absorbs the plant and fires, which a
+    // control built on a finished array cannot do.
+    //
+    // The population does NOT move: the repository and `db/schema/retailFulfilment.ts`
+    // were already covered, by being NAMED. A hand list of two is complete on the
+    // day it is written and silently short the day somebody adds a third, so the
+    // proof here is the planted control rather than a number that grew.
+    assertNothingOutsideDomainPopulation({
+      population: fulfilmentPopulation,
+      pattern: DOMAIN_NAMED,
+      // Measured empty: every module in the tree naming this domain is a module
+      // of it. One owned by somebody else goes here WITH its reason.
+      notThisDomain: [],
+      sweepFloor: 7,
+      plantIn: 'lib',
+      plantName: 'retail-fulfilment-cache.ts',
+    });
+  });
+});
 
 describe('#126 acceptance 2 — no carrier system inside Mercaria', () => {
   it('scans every module in the domain, and there are some', () => {
