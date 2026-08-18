@@ -283,8 +283,8 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
   },
   {
     column: listings.productTypeDefinitionId,
-    disposition: 'rewire_path_missing',
-    note: 'ON DELETE restrict, nullable. A listing KEEPS its pin through a deprecation deliberately (ADR 0007 D5/D10: a newer version never reinterprets an older record), so nothing rewires it and nothing may. What is missing is the deliberate-migration entry point #367 box 12 owes for a PUBLISHED listing — previewDraftUpgrade/applyDraftUpgrade cover drafts only — so an operator who wants a listing moved forward has no path today',
+    disposition: 'rewired_by_domain',
+    note: 'ON DELETE restrict, nullable. A listing KEEPS its pin through a deprecation deliberately (ADR 0007 D5/D10: a newer version never reinterprets an older record), so nothing SWEEPS these rows and nothing may. What closes them is previewListingProductTypeUpgrade then applyListingProductTypeUpgrade, per listing and never silently — the twin of the draft pair above, and the deliberate migration migration 0109 permits value->value for. A BULK operator variant is deferred rather than missing: it needs a CATALOG_GOVERNANCE_ACTIONS member, which is CHECK-rendered onto this domain own change-request and audit tables and therefore a migration, and whether it is store-scoped or operator-only is a policy nobody has decided',
   },
 ];
 

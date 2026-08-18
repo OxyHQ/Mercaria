@@ -48,6 +48,8 @@ vi.mock('../../../controllers/admin/products-admin.controller.js', () => {
     setVariantInventory: echo,
     listVariantLevels: echo,
     setVariantLevelInventory: echo,
+    previewProductTypeUpgrade: echo,
+    applyProductTypeUpgrade: echo,
   };
 });
 

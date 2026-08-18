@@ -57,6 +57,7 @@ import {
   insertListing,
   recomputeListingFacets,
   releasePinnedFields as releaseListingPinnedFields,
+  repinListingProductTypeIfPinned,
   replaceListingImages,
   setListingStatusIfIn,
   updateListingColumns,
@@ -346,6 +347,60 @@ export async function rederiveCategoryBrowsePaths(
     pathsCleared,
     incomplete,
   };
+}
+
+/**
+ * Move ONE listing's product-type pin forward — the only writer of
+ * `listings.product_type_definition_id` after the row is created (#587,
+ * #367 box 12).
+ *
+ * ## Why it is here and not in the domain that decides
+ *
+ * `catalog-authoring/listing-upgrade.service.ts` decides WHETHER a listing may
+ * move and to what; this is the write, and it is here for the reason
+ * {@link rederiveCategoryBrowsePaths} is: `listings` has one sanctioned writer
+ * and a second one is what `listing-publication-chokepoint.test.ts` and the
+ * archive census exist to prevent. The statement itself is
+ * `repinListingProductTypeIfPinned`, in the repository that owns every other
+ * conditional listing write — `updateListingColumns` is keyed on the id alone
+ * and cannot express the guard. The `updated_at` stamp it writes is a declared
+ * side effect: the pin genuinely changed, and routing around the sanctioned
+ * writer to avoid a stamp is precisely what those censuses forbid.
+ *
+ * ## What it writes, and everything it does not
+ *
+ * ONE column. No stored answer is touched: every `native_listing_attribute_claims`
+ * and `native_variant_attribute_claims` row keeps the attribute version it was
+ * settled under, and every `native_listing_variant_axes` row keeps the product
+ * type version that authorised it — which the database enforces anyway
+ * (`mercaria_native_variant_axis_frozen` makes that citation immutable). A field
+ * the target version no longer declares becomes a visible finding on the
+ * preview, never a deletion. Deleting one would be the silent rewrite ADR 0007
+ * D10 forbids, wearing a tidy-up's clothes.
+ *
+ * ## It is a CAS on the version it was previewed against
+ *
+ * `expectedDefinitionId` is not decoration. The preview an operator read is a
+ * measurement at a moment, and a concurrent publication can move the incumbent
+ * between the preview and the apply — so the write states which version it
+ * believed the listing was on, and `null` means the belief was wrong rather than
+ * that the listing vanished. The `repinDraftIfVersion` device, one entity over.
+ *
+ * The database permits the move deliberately:
+ * `mercaria_listing_product_type_pin_not_cleared` allows `NULL → value` and
+ * `value → value` and refuses only `value → NULL`, and migration 0109 says in
+ * so many words that the second is permitted "precisely so #367 box 12's
+ * published-listing migration has somewhere to land". It checks nothing else —
+ * not key continuity, not version direction, not lifecycle — so every semantic
+ * guard is the calling service's, and they are stated there.
+ */
+export async function repinListingProductTypeVersion(
+  tx: DatabaseOrTransaction,
+  listingId: string,
+  expectedDefinitionId: string,
+  targetDefinitionId: string,
+): Promise<ListingRecord | null> {
+  return repinListingProductTypeIfPinned(listingId, expectedDefinitionId, targetDefinitionId, tx);
 }
 
 /** Map input image file ids to the `listing_images` rows they expand into. */

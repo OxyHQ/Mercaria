@@ -120,6 +120,61 @@ describe('the governed-reference census', () => {
     expect(checked, `${String(checked)} declared references carry a reason`).toBeGreaterThan(30);
   });
 
+  it('names the EXACT set of relations nothing rewires', () => {
+    // The exact-identity device the reference census uses, pointed at the
+    // DISPOSITIONS — because until #587 nothing pinned them, and the two
+    // directions this can go wrong are both silent and both bad.
+    //
+    // Relabelling a real gap as `rewired_by_domain` tells an operator that
+    // 1,240 rows will be fixed by something that does not exist, which is the
+    // exact reading `unrewiredRowCount` was built to prevent. And leaving a
+    // CLOSED gap labelled `rewire_path_missing` is the opposite failure: an
+    // operator reading "nothing will rewire these" declines a change that is
+    // safe, and a list that only ever grows is a warning about problems
+    // somebody solved.
+    //
+    // So the set is stated, and moving an entry means editing this line with
+    // the reason in the diff beside it.
+    const missing = CATALOG_GOVERNANCE_COUNTED_SUBJECT_KINDS.flatMap((kind) =>
+      GOVERNED_REFERENCE_PLAN[kind]
+        .filter((reference) => reference.disposition === 'rewire_path_missing')
+        .map(referenceKey),
+    ).sort();
+
+    expect(
+      missing,
+      'A disposition moved. `rewire_path_missing` names a MEASURED hole: adding one means ' +
+        'nothing in this repository fixes those rows after a governance change, and removing ' +
+        'one means naming the entry point that now does, in the note.',
+    ).toEqual(
+      [
+        // #91's seller draft pins a category and this domain has no re-pin
+        // entry point.
+        'seller_listing_drafts.categoryId',
+        // #367 workstream 2 owes a copy-forward in `publishProductTypeVersion`;
+        // until then a new version leaves every alias on the old one. This
+        // entry ARRIVED while #587 was in review, and this assertion is what
+        // reported it — which is the case it was written for.
+        'product_type_aliases.productTypeDefinitionId',
+        // #367 step 4 exposes no re-normalization entry point for assignments
+        // already written.
+        'native_variant_axis_assignments.attributeDefinitionId',
+      ].sort(),
+    );
+
+    // `listings.productTypeDefinitionId` was the third until #587, and it is
+    // the reason this case exists: closing a gap has to be as visible as
+    // opening one. It is now `rewired_by_domain`, and the assertion below is
+    // what stops it drifting back to a gap without anybody deciding to.
+    const listingPin = GOVERNED_REFERENCE_PLAN.product_type_definition.find(
+      (reference) => referenceKey(reference) === 'listings.productTypeDefinitionId',
+    );
+    expect(listingPin?.disposition, 'the listing product-type pin lost its rewire path').toBe(
+      'rewired_by_domain',
+    );
+    expect(listingPin?.note ?? '').toMatch(/applyListingProductTypeUpgrade/u);
+  });
+
   it('declares no duplicate reference within one subject kind', () => {
     for (const kind of CATALOG_GOVERNANCE_COUNTED_SUBJECT_KINDS) {
       const keys = GOVERNED_REFERENCE_PLAN[kind].map(referenceKey);

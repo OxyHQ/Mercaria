@@ -45,6 +45,11 @@ import { sendSuccess, sendPaginated } from '../../utils/api-response.js';
 import { respondWithError, forbidden, notFound } from '../../lib/errors/error-codes.js';
 import { routeParam } from '../../utils/request.js';
 import { log } from '../../lib/logger.js';
+import { getDb } from '../../db/postgres.js';
+import {
+  applyListingProductTypeUpgrade,
+  previewListingProductTypeUpgrade,
+} from '../../services/catalog-authoring/listing-upgrade.service.js';
 
 /** The loaded store id for the current request (guaranteed by `loadStore`). */
 function storeId(req: Request): string {
@@ -203,6 +208,46 @@ export async function releaseProductPins(req: Request, res: Response): Promise<v
   } catch (err) {
     log.general.error({ err, productId: req.params.id }, 'Failed to release product field pins');
     respondWithError(res, err, 'Failed to release the pinned fields');
+  }
+}
+
+/**
+ * `GET /admin/stores/:storeId/products/:id/product-type-upgrade` — the PREVIEW.
+ *
+ * A GET and a POST on one path, exactly as the draft upgrade is, and for its
+ * reason: ADR 0007 D10 says a newer schema version produces a preview and never
+ * a silent rewrite, and two verbs are what make "look" and "do" different
+ * requests. One endpoint returning a preview AND applying it would make the
+ * rewrite reachable by a client that only meant to look.
+ */
+export async function previewProductTypeUpgrade(req: Request, res: Response): Promise<void> {
+  const storeId = routeParam(req, 'storeId');
+  const listingId = routeParam(req, 'id');
+  try {
+    sendSuccess(res, {
+      preview: await previewListingProductTypeUpgrade(getDb(), storeId, listingId),
+    });
+  } catch (err) {
+    log.general.error({ err, storeId, listingId }, 'Failed to preview a listing product-type upgrade');
+    respondWithError(res, err, 'Failed to preview that upgrade');
+  }
+}
+
+/** `POST /admin/stores/:storeId/products/:id/product-type-upgrade` — APPLY it. */
+export async function applyProductTypeUpgrade(req: Request, res: Response): Promise<void> {
+  const storeId = routeParam(req, 'storeId');
+  const listingId = routeParam(req, 'id');
+  try {
+    const body = req.body as { targetDefinitionId: string };
+    const result = await applyListingProductTypeUpgrade(getDb(), {
+      storeId,
+      listingId,
+      targetDefinitionId: body.targetDefinitionId,
+    });
+    sendSuccess(res, result);
+  } catch (err) {
+    log.general.error({ err, storeId, listingId }, 'Failed to apply a listing product-type upgrade');
+    respondWithError(res, err, 'Failed to apply that upgrade');
   }
 }
 
