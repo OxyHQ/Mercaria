@@ -64,8 +64,6 @@ function domainFiles(readDir: DirectoryReader = readSrcDirectory): string[] {
   return namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAMED, readDir);
 }
 
-/** Anything whose PATH names this domain, in either spelling. */
-const DOMAIN_NAMED_PATH = DOMAIN_NAMED;
 
 /**
  * Every module of the domain, DERIVED as a function of its reader (#460).

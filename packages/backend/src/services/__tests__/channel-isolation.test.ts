@@ -51,7 +51,6 @@ import { channelAuditEvents, channelOnboardingSessions } from '../../db/schema/i
 import { walkOwnedDirectory } from '../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services', 'channels');
 
 /**
  * Every module in the domain, DISCOVERED rather than listed.
