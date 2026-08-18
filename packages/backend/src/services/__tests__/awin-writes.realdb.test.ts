@@ -381,7 +381,6 @@ async function bringUpAdvertiser(label: string): Promise<{
     displayName: `Advertiser ${label} ${RUN}`,
     membershipStatus: 'joined',
     primaryRegion: 'ES',
-    declaredHost: 'retailer.example',
   });
   createdAdvertiserIds.push(advertiser.id);
 
@@ -581,6 +580,8 @@ describe('the CHECKs and triggers, against a real server', () => {
         contradictoryAvailability: 0,
         trackingApproved: 3,
         trackingRejected: 0,
+        destinationTrackingHost: 0,
+        destinationTrackedOnly: 3,
       },
     });
     expect(

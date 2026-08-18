@@ -76,10 +76,12 @@ const REGEX_OPERAND = /(?:!~\*?|~\*?)\s*'((?:[^']|'')*)'/gu;
  *
  * Both exclusions matter and neither is optional. `\.` is the escaped literal
  * dot; `[.]` is the same thing spelled without a backslash, which is how
- * `CATEGORY_KEY_PATTERN` and `AWIN_DECLARED_HOST_PATTERN` sidestep the escaping
- * question entirely. A detector that ignored bracket expressions would flag
- * `[A-Za-z0-9_:.-]`, correct today in three `feed_import` constraints — and a
- * gate whose first act is three false positives is a gate somebody turns off.
+ * `CATEGORY_KEY_PATTERN` sidesteps the escaping question entirely (#589 deleted
+ * `AWIN_DECLARED_HOST_PATTERN`, the other constant that took that decision,
+ * along with the unwritten column it guarded). A detector that ignored bracket
+ * expressions would flag `[A-Za-z0-9_:.-]`, correct today in three
+ * `feed_import` constraints — and a gate whose first act is three false
+ * positives is a gate somebody turns off.
  */
 function wildcardDotOffsets(pattern: string): number[] {
   const offsets: number[] = [];

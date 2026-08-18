@@ -23,12 +23,22 @@
  * retailer said it, so the row is refused for that field by #63's engine and the
  * disagreement is counted here — which is what makes "this advertiser's stock
  * feed is broken" a figure somebody can act on rather than a support ticket.
+ *
+ * ## The swapped-URL-columns detector lives here, and not at the record's exit
+ *
+ * `assessAwinDestination` (#589) is called from this pass rather than from the
+ * adapter's `page`, for the reason everything else in this file is: this is the
+ * only place with somewhere durable to put an answer. `page` hands records to
+ * the framework and holds no measurement, so a verdict computed there would have
+ * to be carried, stored or recomputed. The two URLs are the same two either way
+ * — and here they are the MAPPED columns rather than what leaves the adapter,
+ * which is what the detector needs.
  */
 
 import type { AwinQualityCounts } from '@mercaria/shared-types';
 import type { FeedRawRecord } from '../feed-import/parse/index.js';
 import type { MappedFeedRecord } from '../feed-import/mapping.js';
-import type { AwinTrackingAssessment } from './tracking.js';
+import { assessAwinDestination, type AwinTrackingAssessment } from './tracking.js';
 
 /**
  * The running measurement.
@@ -74,6 +84,8 @@ export function createAwinQualityMeter(): AwinQualityMeter {
       contradictoryAvailability: 0,
       trackingApproved: 0,
       trackingRejected: 0,
+      destinationTrackingHost: 0,
+      destinationTrackedOnly: 0,
     },
     seenExternalIds: new Set<string>(),
     seenGtins: new Set<string>(),
@@ -165,6 +177,20 @@ export function observeAwinRecord(
   if (normalized.brandHint !== undefined) meter.counts.withBrand += 1;
   if (normalized.media.length > 0) meter.counts.withImage += 1;
   if (normalized.price !== undefined) meter.counts.withPrice += 1;
+
+  // The swapped-URL-columns detector (#589), over the WHOLE feed rather than
+  // over a sample. It reads the mapped columns rather than what leaves the
+  // adapter, which matters: `withAssessedAwinTracking` DELETES `affiliateUrl`
+  // when the link is not approved, and a deep link that was rejected is still
+  // evidence about which column is which. Both outcomes are counted, because a
+  // zero swap count means nothing without knowing whether the conjunction's
+  // second arm could ever have been false on this feed.
+  const destination = assessAwinDestination({
+    destination: normalized.sourceUrl,
+    deepLink: normalized.affiliateUrl,
+  });
+  if (destination === 'tracking_host') meter.counts.destinationTrackingHost += 1;
+  else if (destination === 'tracked_only') meter.counts.destinationTrackedOnly += 1;
 
   if (input.tracking.verdict === 'approved') {
     meter.counts.trackingApproved += 1;

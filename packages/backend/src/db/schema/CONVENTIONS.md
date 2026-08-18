@@ -3427,6 +3427,27 @@ cannot write the snapshot at all. Its companion
 would mean a counter was incremented somewhere the record was not, which is
 exactly the shape a partially-refactored measurement takes.
 
+**`destination_tracking_host` has a companion column and it is not decoration**
+(#589). The first counts rows whose DESTINATION was one of `AWIN_TRACKING_HOSTS`
+while the deep link was not — the feed's two URL columns mapped to each other's
+roles. `destination_tracked_only` counts rows where BOTH were, which is a
+tracked-only feed and not a fault. It exists because a zero in the first column
+reads identically on a clean feed and on one where the conjunction could never
+have fired, and "what would this report if the thing it measures were absent"
+must have a different answer from what it reports now. They are disjoint verdicts
+over MAPPED records, so `coverage_check` bounds their SUM by `mapped` exactly as
+it does the tracking pair.
+
+**There is no `awin_advertisers.declared_host` and no expectation column of any
+kind.** It was deleted with `awin_advertisers_declared_host_shape_check` and
+`AWIN_DECLARED_HOST_PATTERN` (#589) after having no production writer for its
+whole life: no Awin surface Mercaria can reach publishes an advertiser's host,
+and deriving one from the feed's own destinations is circular. What replaced it
+reads the feed alone. The loss is real and recorded rather than glossed — a
+cross-retailer mismatch with no tracking-host signature is now undetectable — and
+if it is judged worth catching it returns as a column, a writer and a caller in
+ONE change.
+
 **Two APPEND-ONLY tables, by trigger, against UPDATE and DELETE alike.** A
 quality history whose rows can be edited answers "was this feed always like
 this" with whatever somebody most recently believed, and the question is usually
