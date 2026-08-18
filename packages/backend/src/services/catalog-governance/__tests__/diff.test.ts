@@ -321,3 +321,243 @@ describe('diffAttributeVersions', () => {
     );
   });
 });
+
+/**
+ * The cases above are a HAND LIST, and a hand list is correct on the day it is
+ * written. Seven of the differ's inputs had no case at all when this block was
+ * added — `valuePolicy`, `attributeDefinitionVersion`, `unitFamily`,
+ * `baseUnit`, `variantDefining`, the attribute's own category scope, and the
+ * null branches of the UPPER bound — and nothing anywhere went red about it.
+ *
+ * Adding the seven is the small half. The half that lasts is the ADD-DIRECTION
+ * proof below: the census walks the KEYS of the two input types, so a property
+ * added to `DiffableAttributeVersion` or `DiffableProductTypeField` and not
+ * wired into the differ fails the build naming the key. `tsc` supplies the
+ * other half — the base builders return the full type, so a new field cannot
+ * be added to the type without appearing in the object the census enumerates.
+ */
+
+/** Change one property of a fixture into a value the differ must notice. */
+function mutated<T extends object>(base: T, key: keyof T): T {
+  const current = base[key] as unknown;
+  let next: unknown;
+  if (typeof current === 'boolean') next = !current;
+  else if (typeof current === 'number') next = current + 7;
+  else if (Array.isArray(current)) next = [...current, 'census-added-member'];
+  else if (typeof current === 'string') next = `${current}-census`;
+  else if (current === null) next = 1; // a null bound, unit or group appearing
+  else throw new Error(`the census has no mutation for ${String(key)}`);
+  return { ...base, [key]: next };
+}
+
+/**
+ * Inputs the differ may legitimately ignore. `version` is the diff's own
+ * COORDINATE — it is reported as `fromVersion`/`toVersion` and is never an
+ * entry, because "the version changed" is what a diff IS.
+ *
+ * The exact-count assertion is the point: a list of exemptions that can grow
+ * silently excuses whatever somebody adds to it next.
+ */
+const NON_DIFFABLE_KEYS = ['version'] as const;
+
+/**
+ * Keys whose change surfaces as `added`/`removed` under a DERIVED entry key
+ * rather than as a `changed` entry naming the property.
+ *
+ * `attributeKey`, `scope` and `flow` are the field's IDENTITY (`fieldKey`), so
+ * moving one is a field disappearing and another appearing — which is the
+ * honest report, not a missing case. `enumValues` and `categoryIds` are
+ * collections whose entries are keyed `value:<v>` / `category:<id>`.
+ */
+const STRUCTURAL_KEYS = ['attributeKey', 'scope', 'flow', 'enumValues', 'categoryIds'] as const;
+
+describe('the differ reads every input it is given (add-direction census)', () => {
+  it('exempts exactly one key, and names it', () => {
+    expect([...NON_DIFFABLE_KEYS]).toEqual(['version']);
+    expect(NON_DIFFABLE_KEYS).toHaveLength(1);
+    expect([...STRUCTURAL_KEYS]).toHaveLength(5);
+  });
+
+  it('emits an entry for every property of an attribute version', () => {
+    const base = attribute();
+    const keys = (Object.keys(base) as (keyof DiffableAttributeVersion)[]).filter(
+      (key) => !(NON_DIFFABLE_KEYS as readonly string[]).includes(key),
+    );
+    // A floor over the ENUMERATION, not over the differ: a builder that stopped
+    // returning the whole type would make every later assertion vacuous while
+    // the walk still "passed".
+    expect(keys.length).toBeGreaterThanOrEqual(12);
+
+    const unreported: string[] = [];
+    const misnamed: string[] = [];
+    for (const key of keys) {
+      const to = mutated(base, key);
+      // The mutation itself, asserted: a no-op mutator would make the differ's
+      // silence look like the differ's fault.
+      expect(to[key]).not.toEqual(base[key]);
+      const diff = diffAttributeVersions(base, { ...to, version: 2 });
+      if (diff.entries.length === 0) {
+        unreported.push(key);
+        continue;
+      }
+      if ((STRUCTURAL_KEYS as readonly string[]).includes(key)) continue;
+      if (!diff.entries.some((entry) => entry.property === key)) misnamed.push(key);
+    }
+    expect(unreported).toEqual([]);
+    expect(misnamed).toEqual([]);
+    process.stdout.write(`[diff census] attribute inputs walked: ${keys.length}\n`);
+  });
+
+  it('emits an entry for every property of a product-type field', () => {
+    const base = field();
+    const keys = Object.keys(base) as (keyof DiffableProductTypeField)[];
+    expect(keys.length).toBeGreaterThanOrEqual(8);
+
+    const unreported: string[] = [];
+    const misnamed: string[] = [];
+    for (const key of keys) {
+      const to = mutated(base, key);
+      expect(to[key]).not.toEqual(base[key]);
+      const diff = diffProductTypeVersions(
+        productType({ fields: [base] }),
+        productType({ version: 2, fields: [to] }),
+      );
+      if (diff.entries.length === 0) {
+        unreported.push(key);
+        continue;
+      }
+      if ((STRUCTURAL_KEYS as readonly string[]).includes(key)) continue;
+      if (!diff.entries.some((entry) => entry.property === key)) misnamed.push(key);
+    }
+    expect(unreported).toEqual([]);
+    expect(misnamed).toEqual([]);
+    process.stdout.write(`[diff census] product-type field inputs walked: ${keys.length}\n`);
+  });
+
+  it('emits an entry for every property of a product-type VERSION', () => {
+    const base = productType();
+    const keys = (Object.keys(base) as (keyof DiffableProductTypeVersion)[]).filter(
+      (key) => !(NON_DIFFABLE_KEYS as readonly string[]).includes(key),
+    );
+    expect(keys.length).toBeGreaterThanOrEqual(2);
+
+    const unreported: string[] = [];
+    for (const key of keys) {
+      // `fields` is walked field-by-field by the case above; here it only has to
+      // be SEEN, which an appended field is enough to prove.
+      const to =
+        key === 'fields'
+          ? productType({ version: 2, fields: [field(), field({ attributeKey: 'census' })] })
+          : { ...mutated(base, key), version: 2 };
+      const diff = diffProductTypeVersions(base, to);
+      if (diff.entries.length === 0) unreported.push(key);
+    }
+    expect(unreported).toEqual([]);
+    process.stdout.write(`[diff census] product-type version inputs walked: ${keys.length}\n`);
+  });
+});
+
+describe('the seven inputs the hand list had no case for', () => {
+  it('treats a changed value policy as breaking', () => {
+    // A value policy decides what a stored value IS — a controlled value, a
+    // reference, a scalar — so any move re-interprets what is already written.
+    const diff = diffProductTypeVersions(
+      productType({ fields: [field({ valuePolicy: 'controlled_value' })] }),
+      productType({ version: 2, fields: [field({ valuePolicy: 'typed_scalar' })] }),
+    );
+    expect(diff.entries).toEqual([
+      expect.objectContaining({ property: 'valuePolicy', breaking: true }),
+    ]);
+  });
+
+  it('treats a re-pin onto a newer attribute version as breaking, in BOTH directions', () => {
+    // Unlike a bound, this one has no safe direction: values written under
+    // either version cite a version the type no longer names.
+    const forward = diffProductTypeVersions(
+      productType({ fields: [field({ attributeDefinitionVersion: 1 })] }),
+      productType({ version: 2, fields: [field({ attributeDefinitionVersion: 2 })] }),
+    );
+    expect(forward.breakingCount).toBe(1);
+    expect(forward.entries[0].property).toBe('attributeDefinitionVersion');
+
+    const backward = diffProductTypeVersions(
+      productType({ fields: [field({ attributeDefinitionVersion: 2 })] }),
+      productType({ version: 2, fields: [field({ attributeDefinitionVersion: 1 })] }),
+    );
+    expect(backward.breakingCount).toBe(1);
+  });
+
+  it('treats a unit family or base unit move as breaking', () => {
+    // Not a conversion: the stored numbers keep their magnitudes and acquire a
+    // new meaning, which is the one failure a re-read cannot detect.
+    const family = diffAttributeVersions(
+      attribute({ unitFamily: 'length', baseUnit: 'mm' }),
+      attribute({ version: 2, unitFamily: 'mass', baseUnit: 'mm' }),
+    );
+    expect(family.entries).toEqual([
+      expect.objectContaining({ property: 'unitFamily', breaking: true }),
+    ]);
+
+    const base = diffAttributeVersions(
+      attribute({ unitFamily: 'length', baseUnit: 'mm' }),
+      attribute({ version: 2, unitFamily: 'length', baseUnit: 'cm' }),
+    );
+    expect(base.entries).toEqual([
+      expect.objectContaining({ property: 'baseUnit', breaking: true }),
+    ]);
+  });
+
+  it('treats withdrawing variant capability as breaking and granting it as not', () => {
+    // The same asymmetry `hardConstraintCapable` is tested for, on the other
+    // capability that goes through `capability()` — they share an
+    // implementation, so this is what stops one of them being special-cased.
+    const withdrawn = diffAttributeVersions(
+      attribute({ variantDefining: true }),
+      attribute({ version: 2, variantDefining: false }),
+    );
+    expect(withdrawn.breakingCount).toBe(1);
+
+    const granted = diffAttributeVersions(
+      attribute({ variantDefining: false }),
+      attribute({ version: 2, variantDefining: true }),
+    );
+    expect(granted.entries).toHaveLength(1);
+    expect(granted.breakingCount).toBe(0);
+  });
+
+  it('treats a withdrawn ATTRIBUTE category scope as breaking and an added one as not', () => {
+    const withdrawn = diffAttributeVersions(
+      attribute({ categoryIds: ['cat-1', 'cat-2'] }),
+      attribute({ version: 2, categoryIds: ['cat-1'] }),
+    );
+    expect(withdrawn.entries).toEqual([
+      expect.objectContaining({ change: 'removed', key: 'category:cat-2', breaking: true }),
+    ]);
+
+    const added = diffAttributeVersions(
+      attribute({ categoryIds: ['cat-1'] }),
+      attribute({ version: 2, categoryIds: ['cat-1', 'cat-2'] }),
+    );
+    expect(added.entries).toEqual([
+      expect.objectContaining({ change: 'added', key: 'category:cat-2', breaking: false }),
+    ]);
+  });
+
+  it('treats an APPEARING upper bound as breaking and a removed one as not', () => {
+    // `minValue`'s null branches are covered above; `narrowedUpperBound` is a
+    // SECOND function with its own two null branches, and a comparison that
+    // read `null` as a number would answer the opposite way round.
+    const appearing = diffAttributeVersions(
+      attribute({ maxValue: null }),
+      attribute({ version: 2, maxValue: 100 }),
+    );
+    expect(appearing.breakingCount).toBe(1);
+
+    const removed = diffAttributeVersions(
+      attribute({ maxValue: 100 }),
+      attribute({ version: 2, maxValue: null }),
+    );
+    expect(removed.entries).toHaveLength(1);
+    expect(removed.breakingCount).toBe(0);
+  });
+});

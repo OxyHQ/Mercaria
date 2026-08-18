@@ -157,3 +157,84 @@ describe('normalizeAxisValue folds exactly what #56 folds, and nothing else', ()
     expect(normalizeAxisValue('Black')).not.toBe(normalizeAxisValue('Blackout'));
   });
 });
+
+/**
+ * The COMPOSITION, which neither half above establishes (#367 Workstream 18,
+ * "reject duplicate normalized combinations").
+ *
+ * `normalizeAxisValue` is proven to fold and `typedVariantSignature` is proven
+ * to refuse an unfolded value, and both were proven separately. What nobody
+ * drove is the sentence the box actually asks for: **`Black` and `black ` are
+ * one combination**. Two correct halves compose into that only if the caller
+ * puts them in the right order, and the order is not checkable from either half.
+ *
+ * ## What this reaches, and what it deliberately does not
+ *
+ * ORDER-differing duplicates are covered end to end at three grains by
+ * `__tests__/vertical-e2e/vertical-matrix-and-new-product.e2e.realdb.test.ts`.
+ * NORMALIZATION-differing duplicates cannot be driven at those grains today, and
+ * the reason is structural rather than an omission: every seeded variant axis is
+ * `controlled_value`, so an answer is an ENUM VALUE ID and
+ * `attribute_enum_values.value` is already `lower(btrim(...))` by CHECK — there
+ * is no spelling for one enum answer to differ from another in case or space.
+ * `draft.service.ts`'s `normalizedAxisValue` folds the `text` and `number`
+ * branches for the free-text axes a product type MAY declare, and no seeded
+ * vertical declares one. So this is the grain where the composition is
+ * expressible at all.
+ *
+ * `authoring-validation.test.ts`'s duplicate-signature case does not cover it
+ * either, and should not be counted for it: the `axisSignature` there is a
+ * hand-supplied literal and the validator never computes one, so that case can
+ * catch a DETECTOR regression and can never catch a normalization or an ordering
+ * one.
+ */
+describe('a duplicate that differs only in normalization is one combination', () => {
+  /** What a free-text axis answer becomes on the way to the digest. */
+  const answered = (raw: string) => ({
+    attributeDefinitionId: COLOR,
+    normalizedValue: normalizeAxisValue(raw),
+  });
+
+  it('collapses onto ONE signature across case and surrounding and interior space', () => {
+    const spellings = ['Black Titanium', 'black titanium', '  BLACK TITANIUM  ', 'Black   Titanium'];
+    const digests = new Set(spellings.map((raw) => typedVariantSignature([answered(raw)])));
+    expect({ spellings: spellings.length, digests: digests.size }).toEqual({
+      spellings: spellings.length,
+      digests: 1,
+    });
+
+    // The sensitivity control, in the same shape: the fold is not collapsing
+    // everything. Without it a `normalizeAxisValue` that returned a constant
+    // would satisfy the assertion above.
+    expect(typedVariantSignature([answered('Blue Titanium')])).not.toBe(
+      typedVariantSignature([answered('Black Titanium')]),
+    );
+  });
+
+  it('is the ORDER of the two steps that makes it true, not either step alone', () => {
+    // Fold-then-digest is one signature; digest-without-folding is not a
+    // signature at all. Stated as a THROW rather than as a different digest,
+    // because the second is what a caller who reversed the two steps would get
+    // — and it is the failure mode `typedVariantSignature` asserts against
+    // instead of papering over.
+    expect(() =>
+      typedVariantSignature([{ attributeDefinitionId: COLOR, normalizedValue: 'Black Titanium' }]),
+    ).toThrow(/not normalized/u);
+  });
+
+  it('holds for a MULTI-axis combination, where the duplicate would actually collide', () => {
+    // One axis proves the fold; a real duplicate is a whole combination. Two
+    // axes, each spelled differently, still reach one digest — and the axes are
+    // listed in opposite ORDERS too, so the case covers both properties at once
+    // rather than assuming order-independence carries over.
+    const first = [
+      { attributeDefinitionId: COLOR, normalizedValue: normalizeAxisValue('Black Titanium') },
+      { attributeDefinitionId: STORAGE, normalizedValue: normalizeAxisValue('256 GB') },
+    ];
+    const second = [
+      { attributeDefinitionId: STORAGE, normalizedValue: normalizeAxisValue('  256   gb ') },
+      { attributeDefinitionId: COLOR, normalizedValue: normalizeAxisValue('BLACK titanium') },
+    ];
+    expect(typedVariantSignature(second)).toBe(typedVariantSignature(first));
+  });
+});

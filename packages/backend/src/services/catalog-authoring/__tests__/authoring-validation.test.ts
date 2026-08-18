@@ -16,12 +16,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
+  AttributeCardinality,
   AttributeComponentAxis,
   AuthoringField,
   AuthoringSchema,
   AuthoringValidationCode,
 } from '@mercaria/shared-types';
 import {
+  ATTRIBUTE_CARDINALITIES,
   AUTHORING_VALIDATION_CODES,
   PRODUCT_TYPE_AUTHORING_FLOWS,
 } from '@mercaria/shared-types';
@@ -686,6 +688,19 @@ describe('variants', () => {
     expect(finding?.path).toBe('variants[1]');
   });
 
+  // WHAT THE CASE ABOVE DOES NOT COVER, so nobody counts it for #367's
+  // "reject duplicate combinations after normalization": `axisSignature` here is
+  // a hand-supplied literal from the `variant()` helper and `validateDraft`
+  // never computes one. So it can catch a DETECTOR regression — the loop, the
+  // `seenSignatures` set, the path — and can NEVER catch a normalization or an
+  // ordering one, because neither is exercised on the way in.
+  //
+  // Both of those are covered where the digest is actually computed:
+  // `services/variant-axes/__tests__/variant-axis-signature.test.ts` for the
+  // fold-then-digest composition, and
+  // `__tests__/vertical-e2e/vertical-matrix-and-new-product.e2e.realdb.test.ts`
+  // for order-independence at three grains against a real server.
+
   it('an answer on a field the schema does not mark variant-capable is refused', () => {
     const result = validateDraft(
       input({ values: [value({ draftVariantId: 'dv-1' })] }),
@@ -1161,5 +1176,105 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
         `produced: ${produced.size}, exempt: ${Object.keys(EXEMPT).length}`,
     );
     expect(produced.size + Object.keys(EXEMPT).length).toBe(AUTHORING_VALIDATION_CODES.length);
+  });
+});
+
+/**
+ * Cardinality, over the WHOLE vocabulary rather than the two members somebody
+ * happened to write a case for.
+ *
+ * `single` and `set` had cases; `range` and `ordered_list` had none. That is
+ * not a tidiness gap: `maxValuesFor`'s `default` branch returns `null` —
+ * UNBOUNDED — so a member added to `ATTRIBUTE_CARDINALITIES` and not given a
+ * bound admits any number of answers, silently, and the two existing cases go
+ * on passing. The failure direction is the permissive one.
+ *
+ * The add-direction proof is the `Record<AttributeCardinality, …>` below: a new
+ * member makes the map incomplete and `tsc` refuses it, so the bound has to be
+ * DECIDED before the walk can run. The runtime key-set assertion covers the
+ * other direction — a member REMOVED from the tuple leaving a stale key here.
+ */
+describe('cardinality bounds every member of the vocabulary', () => {
+  /** The number of answers each cardinality admits. `null` is unbounded. */
+  const CARDINALITY_BOUNDS: Record<AttributeCardinality, number | null> = {
+    single: 1,
+    // Membership is the only question, so there is nothing to bound.
+    set: null,
+    // Order is information; length is not.
+    ordered_list: null,
+    // A low and a high. A third magnitude is a range with no meaning rather
+    // than a longer one.
+    range: 2,
+  };
+
+  const enumField = (cardinality: AttributeCardinality): AuthoringField =>
+    field({ validation: { ...field().validation, cardinality } });
+
+  /** `n` answers to the one field, distinguished only by ordinal. */
+  const answers = (n: number): DraftValueForValidation[] =>
+    Array.from({ length: n }, (_, ordinal) => value({ ordinal }));
+
+  const exceededAt = (cardinality: AttributeCardinality, n: number): boolean =>
+    codes(
+      validateDraft(input({ schema: schema([enumField(cardinality)]), values: answers(n) })),
+    ).includes('cardinality_exceeded');
+
+  it('declares a bound for exactly the members the vocabulary has', () => {
+    expect(Object.keys(CARDINALITY_BOUNDS).sort()).toEqual([...ATTRIBUTE_CARDINALITIES].sort());
+    // A floor on the walk itself: a vocabulary that shrank to nothing would make
+    // every assertion below vacuous while the file still passed.
+    expect(ATTRIBUTE_CARDINALITIES.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('admits the bound and refuses one more, for every member', () => {
+    for (const cardinality of ATTRIBUTE_CARDINALITIES) {
+      const bound = CARDINALITY_BOUNDS[cardinality];
+      if (bound === null) {
+        // Unbounded is a CLAIM and needs its own evidence: four answers, which
+        // is past every finite bound this vocabulary declares.
+        expect({ cardinality, exceeded: exceededAt(cardinality, 4) }).toEqual({
+          cardinality,
+          exceeded: false,
+        });
+        continue;
+      }
+      // At the bound: admitted. The positive control — without it a validator
+      // that refused EVERY count would satisfy the refusal below.
+      expect({ cardinality, at: bound, exceeded: exceededAt(cardinality, bound) }).toEqual({
+        cardinality,
+        at: bound,
+        exceeded: false,
+      });
+      // One past it: refused, with the offending answer actually present.
+      expect({ cardinality, at: bound + 1, exceeded: exceededAt(cardinality, bound + 1) }).toEqual({
+        cardinality,
+        at: bound + 1,
+        exceeded: true,
+      });
+    }
+    process.stdout.write(
+      `[cardinality census] members walked: ${ATTRIBUTE_CARDINALITIES.length}\n`,
+    );
+  });
+
+  it('accepts an unbounded answer set whose ordinals arrive out of order', () => {
+    // `set` and `ordered_list` are INDISTINGUISHABLE here, and saying so is the
+    // point: `validateDraft` is pure and takes no database, so the difference
+    // between them — whether an answer's position is information or only a slot
+    // — is carried by `catalog_authoring_draft_values.ordinal` and
+    // `canonical_attribute_values.position`, never by a validation rule. What
+    // this layer owes is that it refuses NEITHER, including when the ordinals
+    // do not arrive sorted: a validator that assumed a contiguous ascending
+    // sequence would reject the very shape an unordered set produces.
+    const ordinals = [2, 0, 1];
+    for (const cardinality of ['set', 'ordered_list'] as const) {
+      const result = validateDraft(
+        input({
+          schema: schema([enumField(cardinality)]),
+          values: ordinals.map((ordinal) => value({ ordinal })),
+        }),
+      );
+      expect({ cardinality, findings: result.findings }).toEqual({ cardinality, findings: [] });
+    }
   });
 });

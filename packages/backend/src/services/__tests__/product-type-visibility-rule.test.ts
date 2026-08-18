@@ -27,6 +27,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  PRODUCT_TYPE_FIELD_REQUIREMENTS,
   PRODUCT_TYPE_FORBIDDEN_RULE_OPERATORS,
   PRODUCT_TYPE_RULE_MAX_BRANCHES,
   PRODUCT_TYPE_RULE_MAX_DEPTH,
@@ -36,6 +37,7 @@ import {
   PRODUCT_TYPE_RULE_MAX_VALUES,
   PRODUCT_TYPE_RULE_OPERATORS,
   PRODUCT_TYPE_VISIBILITY_OUTCOMES,
+  type ProductTypeFieldRequirement,
   type ProductTypeRuleValues,
   type ProductTypeVisibilityRule,
 } from '@mercaria/shared-types';
@@ -302,6 +304,90 @@ describe('the effective requirement', () => {
     // The decision that keeps an authoring form from deadlocking: a field whose
     // precondition nobody has answered cannot be REQUIRED.
     expect(effectiveFieldRequirement('required', { outcome: 'unknown', unknownFields: ['storage'] })).toBe('hidden');
+  });
+
+  /**
+   * The case above passes ONE declared level in, and `required` is the level for
+   * which collapsing onto `hidden` is the carefully-reasoned right answer. The
+   * other four were never passed in at all, so nothing said what a conditional
+   * rule does to them — and the walk below is over
+   * `PRODUCT_TYPE_FIELD_REQUIREMENTS`, so a level added later arrives here
+   * without anybody remembering this file.
+   *
+   * `forbidden` is exempt from the CONDITIONAL half of the walk, and the reason
+   * is that the input is unrepresentable rather than that the answer is
+   * awkward. `hidden` and `forbidden` are deliberately different levels —
+   * `validation.ts`'s `checkField` reports an ERROR for a forbidden field
+   * carrying an answer and reports NOTHING for a hidden one, keeping the value —
+   * so if a `forbidden` field could carry a visibility rule, an unsatisfied or
+   * unanswered guard would turn the prohibition off. It cannot:
+   * `product_type_fields_forbidden_shape_check` is
+   * `requirement <> 'forbidden' or (visibility_rule is null and variant_capable
+   * is false)`, tested against a real server with a positive control at
+   * `db/__tests__/product-type.realdb.test.ts:573`. And
+   * `effectiveFieldRequirement` has exactly ONE production caller
+   * (`services/catalog-authoring/validation.ts:306-308`), which passes `null`
+   * whenever the field has no rule — so a `forbidden` field always arrives with
+   * `verdict === null`.
+   *
+   * That is why the UNCONDITIONAL half below covers every level including
+   * `forbidden`: `verdict === null` is the case a forbidden field actually
+   * reaches, and it is worth pinning. Asserting the collapse for it would pin
+   * the behaviour of an input the schema refuses to store, which is how a
+   * constraint quietly stops being the thing that holds the property.
+   *
+   * The FUZZ pass below does not reach any of this, and a later reader should
+   * not assume it does: both generators produce rules and values, never a
+   * declared requirement level, so `effectiveFieldRequirement`'s coverage over
+   * the five levels rests entirely on the table cases here.
+   */
+  const CONDITIONAL_COLLAPSE_UNREPRESENTABLE: readonly ProductTypeFieldRequirement[] = ['forbidden'];
+
+  it('exempts exactly one level from the conditional walk, and names why', () => {
+    expect([...CONDITIONAL_COLLAPSE_UNREPRESENTABLE]).toEqual(['forbidden']);
+    expect(CONDITIONAL_COLLAPSE_UNREPRESENTABLE).toHaveLength(1);
+    // A floor on the vocabulary, so a tuple that shrank to the exempt member
+    // alone could not make the walk below vacuous while still passing.
+    expect(PRODUCT_TYPE_FIELD_REQUIREMENTS.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('leaves EVERY level untouched with no rule, and with a satisfied one', () => {
+    const walked: ProductTypeFieldRequirement[] = [];
+    for (const declared of PRODUCT_TYPE_FIELD_REQUIREMENTS) {
+      walked.push(declared);
+      // No rule at all — the case a `forbidden` field always reaches, and the
+      // arm that fails if the collapse ever starts applying unconditionally.
+      expect({ declared, at: 'no rule', got: effectiveFieldRequirement(declared, null) }).toEqual({
+        declared,
+        at: 'no rule',
+        got: declared,
+      });
+      expect({
+        declared,
+        at: 'satisfied',
+        got: effectiveFieldRequirement(declared, { outcome: 'satisfied', unknownFields: [] }),
+      }).toEqual({ declared, at: 'satisfied', got: declared });
+    }
+    expect(walked.length).toBe(PRODUCT_TYPE_FIELD_REQUIREMENTS.length);
+    process.stdout.write(`[requirement census] levels walked: ${walked.length}\n`);
+  });
+
+  it('hides every representable level when the condition is unsatisfied or unknown', () => {
+    let walked = 0;
+    for (const declared of PRODUCT_TYPE_FIELD_REQUIREMENTS) {
+      if (CONDITIONAL_COLLAPSE_UNREPRESENTABLE.includes(declared)) continue;
+      walked += 1;
+      for (const outcome of ['unsatisfied', 'unknown'] as const) {
+        expect({
+          declared,
+          outcome,
+          got: effectiveFieldRequirement(declared, { outcome, unknownFields: ['storage'] }),
+        }).toEqual({ declared, outcome, got: 'hidden' });
+      }
+    }
+    // A floor on THIS walk too: the exemption removes one member, so anything
+    // below four means the vocabulary shrank rather than that the rule held.
+    expect(walked).toBeGreaterThanOrEqual(4);
   });
 });
 

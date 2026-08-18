@@ -29,6 +29,7 @@ import {
 import {
   canonicalAttributeValues,
 } from '../schema/canonicalCatalog.js';
+import { NORMALIZATION_RULE_VERSION } from '@mercaria/shared-types';
 import {
   draftAttributeDefinition,
   publishAttributeDefinition,
@@ -351,6 +352,185 @@ describe('a definition version is published, not edited', () => {
         alias: 'Type-C',
       }),
     );
+  });
+});
+
+describe('an alias resolves to exactly ONE canonical value (#367 Workstream 18)', () => {
+  /**
+   * `attribute_value_aliases_alias_key` is the whole of this guarantee, and
+   * until now nothing exercised it.
+   *
+   * The reason is worth writing down, because it is a failure mode a mutation
+   * test cannot find: the suites that DO resolve aliases build the alias table
+   * as an in-memory `Map`, where a second entry under one key silently
+   * last-write-wins. The fixture is structurally INCAPABLE of expressing the
+   * violation — the input space has no member that breaks the rule — so it
+   * reads as coverage and passes forever. No assertion could have been mutated
+   * into catching it.
+   *
+   * Which is why this lives against a real server: the constraint IS the
+   * mechanism, and only a server can refuse.
+   */
+  async function draftWithAlias(name: string, alias: string) {
+    const attributeKey = key(name);
+    const draft = await draftAttributeDefinition({
+      key: attributeKey,
+      label: 'Connector',
+      valueType: 'enum',
+      enumValues: [
+        { value: 'usb_c', label: 'USB-C', aliases: [alias] },
+        { value: 'usb_c_thunderbolt', label: 'USB-C (Thunderbolt)', aliases: [] },
+      ],
+      actorOxyUserId: OPERATOR,
+    });
+    const values = await db
+      .select()
+      .from(attributeEnumValues)
+      .where(eq(attributeEnumValues.attributeDefinitionId, draft.id));
+    const plain = values.find((row) => row.value === 'usb_c');
+    const thunderbolt = values.find((row) => row.value === 'usb_c_thunderbolt');
+    if (!plain || !thunderbolt) throw new Error('the enum values are missing');
+    return { draft, plain, thunderbolt };
+  }
+
+  it('refuses a second alias with the same spelling, under a DIFFERENT value', async () => {
+    const { draft, plain, thunderbolt } = await draftWithAlias('connector_exact', 'USB C');
+
+    // The positive control FIRST: a different spelling under the second value
+    // is legitimate and must still be admitted, or the refusal below would be
+    // satisfied by a table that refused every alias.
+    await db.insert(attributeValueAliases).values({
+      attributeDefinitionId: draft.id,
+      enumValueId: thunderbolt.id,
+      alias: 'Thunderbolt 4',
+    });
+
+    // Without the index, "USB C" resolves to `usb_c` or `usb_c_thunderbolt`
+    // depending on row order — a stored value's meaning decided by a physical
+    // detail nobody controls.
+    await expectRefused('unique', () =>
+      db.insert(attributeValueAliases).values({
+        attributeDefinitionId: draft.id,
+        enumValueId: thunderbolt.id,
+        alias: 'USB C',
+      }),
+    );
+    // And under the SAME value it is still one row, not two: the constraint is
+    // on the spelling, not on the pair.
+    await expectRefused('unique', () =>
+      db.insert(attributeValueAliases).values({
+        attributeDefinitionId: draft.id,
+        enumValueId: plain.id,
+        alias: 'USB C',
+      }),
+    );
+  });
+
+  it('folds case and surrounding space before comparing, so neither dodges the index', async () => {
+    const { draft, thunderbolt } = await draftWithAlias('connector_folded', 'USB C');
+
+    // `normalized_alias` is GENERATED as `lower(btrim(alias))`. This is the half
+    // an in-memory `Map` keyed on the raw spelling could never have caught: it
+    // holds `USB C` and `  usb c  ` as two different keys and admits both, which
+    // is exactly the collision that puts one source's spelling on the wrong
+    // canonical value.
+    //
+    // CASE and leading/trailing SPACES are all this asserts, and the omission is
+    // deliberate. Postgres `btrim(x)` trims SPACES only and collapses no
+    // interior run, while the READ side folds with `normalizeOptionValue`
+    // (`trim()` + `\s+` → one space + lowercase) — so `USB C\t` and `USB  C`
+    // are one key to a lookup and two rows to this index. That is issue #632,
+    // found here. Asserting either direction for those two spellings would pin
+    // the defect, so this asserts neither.
+    for (const spelling of ['usb c', '  USB C  ', 'Usb C']) {
+      await expectRefused('unique', () =>
+        db.insert(attributeValueAliases).values({
+          attributeDefinitionId: draft.id,
+          enumValueId: thunderbolt.id,
+          alias: spelling,
+        }),
+      );
+    }
+
+    // The control on the FOLDING rather than on the index: folding is not
+    // collapsing everything. An interior space is part of the spelling, so
+    // `USBC` is a different alias and is admitted.
+    await db.insert(attributeValueAliases).values({
+      attributeDefinitionId: draft.id,
+      enumValueId: thunderbolt.id,
+      alias: 'USBC',
+    });
+    const stored = await db
+      .select()
+      .from(attributeValueAliases)
+      .where(eq(attributeValueAliases.attributeDefinitionId, draft.id));
+    expect(stored.map((row) => row.normalizedAlias).sort()).toEqual(['usb c', 'usbc']);
+  });
+
+  it('scopes the uniqueness to the DEFINITION, so two attributes may share a spelling', async () => {
+    // "Black" means one thing under `colour` and another under `keyboard_backlight`.
+    // A globally unique alias would make the second definition unable to name it.
+    const first = await draftWithAlias('connector_scope_a', 'Shared Spelling');
+    const second = await draftWithAlias('connector_scope_b', 'Shared Spelling');
+    const rows = await db
+      .select()
+      .from(attributeValueAliases)
+      .where(
+        inArray(attributeValueAliases.attributeDefinitionId, [first.draft.id, second.draft.id]),
+      );
+    expect(rows.filter((row) => row.normalizedAlias === 'shared spelling')).toHaveLength(2);
+  });
+});
+
+describe('every stored claim cites the rule version it was read under (#367 Workstream 18)', () => {
+  it('stamps the ACTIVE normalization rule version and the definition version it used', async () => {
+    // The literals `'nr-2'` elsewhere in this file are INPUTS to inserts
+    // expected to be refused for unrelated reasons — a literal appearing in a
+    // test is not the same as a literal being asserted. This is the assertion:
+    // one side is the row the production write path produced, the other is the
+    // declared constant, so a service that hardcoded a version instead of
+    // reading the constant goes red here and nowhere else.
+    const attributeKey = key('rule_version_cited');
+    await draftAttributeDefinition({
+      key: attributeKey,
+      label: 'Coating',
+      valueType: 'string',
+      actorOxyUserId: OPERATOR,
+    });
+    await publishAttributeDefinition(attributeKey, 1, OPERATOR);
+    const definition = await resolveActiveDefinition(db, attributeKey);
+    if (!definition) throw new Error('the definition is missing');
+
+    const productId = await mintProduct('Coated');
+    const recordId = await mintSourceRecord('rulv');
+    await applyAttributeObservation({
+      grain: { kind: 'product', id: productId },
+      attributeKey,
+      displayValue: 'Anodised',
+      sourceRecordId: recordId,
+    });
+
+    const [stored] = await db
+      .select()
+      .from(canonicalAttributeValues)
+      .where(
+        and(
+          eq(canonicalAttributeValues.productId, productId),
+          eq(canonicalAttributeValues.attributeKey, attributeKey),
+        ),
+      );
+    if (!stored) throw new Error('the observation wrote no value');
+
+    // A vacuity floor on the constant itself: comparing a stored empty string
+    // against a declared empty string would pass and mean nothing.
+    expect(NORMALIZATION_RULE_VERSION.length).toBeGreaterThan(0);
+    expect(stored.normalizationRuleVersion).toBe(NORMALIZATION_RULE_VERSION);
+
+    // #94's other half of the same rule: the claim cites the definition it was
+    // read under, by id AND version, so a later version cannot silently
+    // reinterpret it.
+    expect(stored.attributeDefinitionId).toBe(definition.row.id);
+    expect(stored.definitionVersion).toBe(definition.row.version);
   });
 });
 

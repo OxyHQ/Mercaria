@@ -58,6 +58,7 @@ import {
   listProposalReferences,
   listReviewEvents,
 } from '../../../db/catalogProposals/proposalRepository.js';
+import { config } from '../../../config/index.js';
 import {
   proposalConvergenceKey,
   submitProposal,
@@ -510,5 +511,85 @@ describe.skipIf(!ready)('the idempotent backfill', () => {
         operatorOxyUserId: OPERATOR,
       }),
     ).rejects.toThrow(/approved or merged/i);
+  });
+});
+
+
+describe.skipIf(!ready)('the durable submission budget (#367 Workstream 18)', () => {
+  /**
+   * The per-submitter and per-store axes are counted in POSTGRES
+   * (`proposal.service.ts:assertWithinSubmissionBudget`), and until now nothing
+   * exercised either of them. That is the gap a rate-limit test most often has:
+   * the refusal is asserted with the offending attempt never made, so the
+   * assertion passes because there was nothing to refuse.
+   *
+   * This spends the REAL configured budget rather than narrowing it through the
+   * environment. Narrowing would be faster and is the wrong trade on a shared
+   * database: `config` is frozen at import and `process.env` is shared across
+   * every file a vitest worker runs, so a smaller budget set here would still be
+   * the budget the NEXT file loads — and the sibling it breaks is the one that
+   * submits several proposals legitimately.
+   */
+  it('refuses the submission past the per-submitter hourly bound, and admits a colleague', async () => {
+    const bound = config.catalogProposals.maxPerSubmitterPerHour;
+    // A floor on the fixture, not on the code: a bound of zero would make the
+    // refusal below fire without a single proposal having been submitted, which
+    // is the vacuous version of this test.
+    expect(bound).toBeGreaterThan(0);
+    // And the other axis must not fire first, or the refusal would be evidence
+    // about the store budget while claiming to be about the submitter's.
+    expect(config.catalogProposals.maxPerStorePerDay).toBeGreaterThan(bound);
+
+    // A submitter of this file's own, so the count is over rows this case wrote
+    // and nothing a sibling did. The `P` prefix is what the teardown deletes by.
+    const spender = `${P}-budget-spender`;
+    for (let i = 0; i < bound; i += 1) {
+      // DISTINCT concepts: identical labels CONVERGE onto one row, so a loop
+      // submitting one label `bound` times would spend a budget of 1 and the
+      // refusal would never arrive.
+      const result = await submitProposal(db, submission(`Budget Colour ${i}`, spender, false));
+      expect({ i, outcome: result.outcome }).toEqual({ i, outcome: 'created' });
+    }
+
+    await expect(
+      submitProposal(db, submission('Budget Colour Overflow', spender, false)),
+    ).rejects.toThrow(/too many catalogue proposals/iu);
+
+    // The axis control. Without it the refusal above is equally consistent with
+    // a budget counted per STORE, per category or over the whole table — and the
+    // per-store axis is the one a merchant would notice, because it would stop
+    // every colleague the moment one person was busy.
+    const colleague = `${P}-budget-colleague`;
+    const admitted = await submitProposal(db, submission('Colleague Colour', colleague, false));
+    expect(admitted.outcome).toBe('created');
+  });
+
+  it('counts within the WINDOW, so yesterday\'s proposals do not spend today\'s budget', async () => {
+    // The bound is "per hour", not "ever". Driven through `submitProposal`
+    // rather than through the counter, because the horizon under test is the
+    // SERVICE's: a case that called `countProposalsSince` with its own `since`
+    // would prove the repository honours the argument it was handed and say
+    // nothing about the argument the service hands it. Without this, a budget
+    // counted from the beginning of time passes every other case here and locks
+    // a busy store out permanently.
+    const spender = `${P}-budget-window`;
+    const bound = config.catalogProposals.maxPerSubmitterPerHour;
+    for (let i = 0; i < bound; i += 1) {
+      await submitProposal(db, submission(`Window Colour ${i}`, spender, false));
+    }
+    // Spent — the same refusal the case above asserts, restated here as this
+    // case's OWN precondition rather than assumed from the one before it.
+    await expect(
+      submitProposal(db, submission('Window Overflow Before', spender, false)),
+    ).rejects.toThrow(/too many catalogue proposals/iu);
+
+    // Backdated PAST the hour. Derived from what the server stamped rather than
+    // from a literal instant, so the case cannot rot into passing on a clock.
+    await db.execute(
+      sql`update catalog_proposals set created_at = created_at - interval '2 hours' where submitted_by_oxy_user_id = ${spender}`,
+    );
+
+    const admitted = await submitProposal(db, submission('Window Overflow After', spender, false));
+    expect(admitted.outcome).toBe('created');
   });
 });

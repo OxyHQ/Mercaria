@@ -386,8 +386,12 @@ describe('same-variant', () => {
     // The assertion above is only worth something if the wrong implementation
     // would have failed it. So here is the wrong implementation, written out:
     // one independent `exists` per requirement, each free to find its OWN
-    // variant. It is what `findProductIdsSatisfyingAttribute` does today when
-    // the service loops over constraints and intersects the product ids.
+    // variant — the shape a per-constraint loop that intersects product ids
+    // produces. The sentence here used to name `findProductIdsSatisfyingAttribute`
+    // in the present tense; that singular spelling was renamed to
+    // `findProductIdsSatisfyingAttributes` and the claim about what it "does
+    // today" is not this file's to make, so the wrong implementation is
+    // described on its own terms instead.
     //
     // Without this case, "returns 1" would pass just as well against a
     // predicate that had quietly stopped matching anything.
