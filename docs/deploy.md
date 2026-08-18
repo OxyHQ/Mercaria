@@ -157,6 +157,88 @@ the NEWEST ARTIFACT, so each web deploy workflow cancels its own superseded
 runs. Reading them side by side, one looks like a mistake; the difference is
 what each one owes.
 
+### What is merged is asserted to have shipped (#574)
+
+`deploy-coverage.yml` + `.github/scripts/require-deploy-coverage.mjs`. The
+invariant, in one line:
+
+> **The newest run of a deploy workflow on `main` must have concluded
+> `success`.** Every non-success run newer than the last success names a commit
+> that is merged and not shipped.
+
+**The hole it closes.** `deploy-aws.yml` serialises on ONE group per ref with
+`cancel-in-progress: false`, and GitHub keeps at most one PENDING run per group
+— so a third arrival **evicts the queued second**, which then executes nothing:
+no rollout, no migration, no notification.
+
+Measured over `Deploy to AWS` runs **60–358** on `main` (298 completed,
+2026-07-29 to 2026-08-17): **232 success, 42 cancelled, 15 failure, 9
+action_required.** Those 66 form **37 windows** in which a merged commit was not
+in production — median 23.1 minutes, worst **358.2 minutes** — and **two of them
+contained a newly added `post` migration** (`0003`+`0005` on 2026-08-08 across a
+4.5-hour window, and `0106_panoramic_patch` on 2026-08-17, the one #574 was
+opened for). Nothing reported any of it.
+
+The full table, every run id, and the two migration-carrying windows are in
+**`docs/deploy/2026-08-18-evicted-deploy-run-evidence.md`**, committed because
+Actions run history ages out and these numbers cannot be re-derived once it
+does. **The window is pinned to run NUMBERS rather than to a date range** — the
+repository is live and every figure above moved while it was first being
+written (300/41/36 became 298/42/37 inside twenty minutes), so "the last four
+weeks" reproduces nothing.
+
+**Why the concurrency block was not the thing changed.** Per-sha groups (the
+`ci.yml` shape) would let two runs migrate CONCURRENTLY, and `@oxyhq/db`'s
+migrator takes no lock — the interlock is exactly what that group is. And
+sparing a migration-carrying run from eviction needs a fact that is only
+readable after checkout, which is after the eviction has happened. So the
+eviction stays, and what was missing was never a different queue: it was that
+**nobody was told**.
+
+**Why an eviction is survivable at all**, and this is the part worth keeping:
+the evictor is always a DESCENDANT, so it ships a superset of the code, and
+`deploy-aws.yml`'s post-migration step greps the WHOLE journal rather than the
+release's diff — so it applies whatever the ledger says is pending, including
+the evicted run's migrations. That is how `f38227b7`, a commit adding no
+migration at all, applied `0106`. **Narrowing that grep to the release's own
+diff would read as a tightening and would delete the recovery**, turning a
+bounded window into a permanent one; `deployWorkflow.test.ts` fails the build if
+anybody does. The recovery holds exactly while the evictor SUCCEEDS, which is
+the condition this check asserts.
+
+**Three things about the implementation that are load-bearing:**
+
+- **It anchors on the newest RUN, never the newest COMMIT.** All four deploys
+  carry `paths:`/`paths-ignore:`, so a docs-only tip legitimately has no run —
+  anchoring on the commit would mean rebuilding those filters out of a diff, the
+  untestable reconstruction §"Why the gate reads CI's result" already rejected.
+- **Coverage is ordered by `run_number`, never by completion time.** An evicted
+  run completes in seconds while the run it queued behind takes fifteen minutes,
+  so a completion-order sort puts the success ABOVE cancellations it did not
+  cover. This shipped wrong the first time and was caught by replaying it against
+  real history: at 2026-08-17T07:39Z it reported 1 unshipped commit where the
+  truth was 3.
+- **A run still in flight DEFERS.** Without it every eviction reports a gap that
+  resolves on its own minutes later — 125 of those 298 completions had another
+  run in flight, which is high precisely because this is the one workflow that
+  SERIALISES — and an alarm that fires on work already in hand is one somebody
+  mutes. With it, the same window produces **23** reports rather than 66, each a
+  state where the pipeline had genuinely stopped.
+
+**It reports and does not act.** No bypass input (the cheapest green is a
+successful deploy, which is the remedy) and no re-dispatch: that would make a
+report an actor holding `actions: write`, and against a genuinely failing deploy
+— the ECR pull timeout on `203d8754` — it would loop. **To clear a report:**
+re-run the newest failed deploy, or merge again so a fresh deploy ships the tip.
+One successful deploy applies everything pending.
+
+**What it does NOT claim.** It does not fire for an eviction whose evictor
+succeeded, because nothing was lost — the five-minute window in #574's own
+timeline is a consistent older state, not a torn one, and removing it needs one
+of the rejected options. The guarantee is carried by the hourly `schedule`; the
+`workflow_run` trigger only makes the answer fast, so nothing rests on whether
+GitHub emits an event for a run cancelled by concurrency.
+
 ### There is no bypass
 
 Deliberately, and symmetrically with `deploy-aws.yml`, which has none either. A
@@ -199,7 +281,25 @@ really defines (so a new CI job forces a decision), every job holding a
 production credential must depend on a verification, the set of such jobs must be
 EXACTLY the four known targets (so a fifth is classified rather than assumed),
 and `ci.yml`'s concurrency must still key `main` on the sha. Each of those four
-was mutation-tested. `judgeJobs` is unit-tested against the two shapes that read
+was mutation-tested.
+
+**A fifth was added by #574, and its absence is the lesson.** `deploy-aws.yml`'s
+`cancel-in-progress: false` — the setting whose own thirty-line comment says it
+"reads like an optimisation to flip" — was asserted by **nothing**. The
+requirement was stated in a comment in this very test file, while the `it.each`
+that checks the posture iterates `WEB_DEPLOY_WORKFLOWS`, which excludes
+`deploy-aws.yml`. The control that settles it rather than suggesting it: **four
+`toBe(true)` in the file and zero `toBe(false)`.** So the exact flip everything
+warned against passed every gate in the repository. **A stated requirement is not
+a checked one, and prose is where an invariant goes to be admired.**
+
+Now asserted both ways, because the two break differently: `cancel-in-progress`
+must be explicitly `false` (deleting the line is behaviourally identical and
+orphans the comment, so absence fails too), and the group must **not** key on the
+sha — the tempting fix for #574's evictions, which would let two deploys migrate
+concurrently against a migrator that takes no lock. Mutation-tested three ways
+(flip to `true`, key on the sha, delete the line); all three go red naming the
+assertion, each with a one-line diff proving the mutation applied. `judgeJobs` is unit-tested against the two shapes that read
 as green — a `skipped` job and a MISSING one.
 
 #518 NARROWED the second of those and added one. "A verification" used to accept

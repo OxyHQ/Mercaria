@@ -1,0 +1,106 @@
+# Does what is merged on `main` actually run in production?
+#
+# #574: `deploy-aws.yml` serialises on ONE concurrency group per ref with
+# `cancel-in-progress: false`. GitHub keeps at most one PENDING run per group,
+# so a third arrival EVICTS the queued second — the run never executes, and a
+# `post`-phase migration it was carrying is never applied. That setting is
+# CORRECT and must not be flipped (cancelling between `run-task` and its
+# exit-code check orphans a live migration task), and the three web deploys'
+# opposite `cancel-in-progress: true` is correct for them for a different
+# reason. What was missing is not a different queue. It is that NOBODY WAS TOLD.
+#
+# An eviction is harmless exactly when the run that evicted it succeeds. That
+# condition was never asserted anywhere, which is this workflow.
+#
+# ## Why a separate workflow rather than a step in the deploy
+#
+# An evicted run executes NO steps. Whatever reports the eviction cannot live
+# inside the run that was evicted, so it has to be triggered by something else.
+#
+# ## Why the correctness does not depend on `workflow_run` firing for a
+# ## cancelled run
+#
+# It would be convenient if it did, and it is not testable before merge —
+# `workflow_run` only ever runs the DEFAULT branch's copy of this file. So the
+# guarantee is carried by the `schedule` instead, and the `workflow_run` trigger
+# is only what makes the answer FAST. The reasoning holds either way: an
+# eviction implies an EVICTOR, the evictor is a real run that always concludes,
+# and its conclusion fires this check whatever happened to the run it displaced.
+#
+# Note this is NOT the `workflow_run` that `docs/deploy.md` §"Why the gate reads
+# CI's result" rejected. That rejection was about using `workflow_run` to
+# TRIGGER A DEPLOY, where losing the `paths:` filter matters and getting it
+# wrong means deploys silently stop. Here the trigger drives a REPORT: if it
+# never fires, the worst case is today's behaviour, and it can never stop a
+# deploy or ship anything.
+#
+# ## There is no bypass, deliberately
+#
+# Symmetrically with `require-ci-success.mjs`. The cheapest way to make this
+# green is a successful deploy of `main` — which is the remedy — so the
+# invariant does not push anybody toward the hazard. It also never re-dispatches
+# a deploy: that would make a report into an actor holding `actions: write`, and
+# against a genuinely failing deploy (the ECR pull timeout on `203d8754`) it
+# would loop.
+name: Deploy coverage
+
+on:
+  # Every deploy conclusion re-decides the answer. Named by the `name:` of each
+  # workflow, which `deployCoverage.test.ts` asserts against the real files, so
+  # renaming one fails the build rather than dropping it out of the watch.
+  workflow_run:
+    workflows:
+      - Deploy to AWS
+      - Deploy Frontend
+      - Deploy Dashboard
+      - Deploy POS
+    types: [completed]
+  # The backstop that carries the guarantee. Hourly rather than every few
+  # minutes because the deploy events above are what make it prompt; this exists
+  # for the cases that emit no event at all — a run held `action_required`
+  # awaiting approval, a human cancellation, a queue that stalled. The worst
+  # unreported window measured before this existed was 358 minutes.
+  schedule:
+    - cron: '17 * * * *'
+  # So the wiring can be exercised by hand the moment it merges, instead of
+  # waiting for an incident to find out whether it works — and so "is main
+  # actually shipped?" is a question anybody can ask at any time.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+# This workflow owes only its NEWEST answer — it reports current state, so a
+# superseded report is worthless. `cancel-in-progress: true` is therefore right
+# here for the same reason it is right on the three web deploys, and it also
+# means this check can never build the queue that #574 is about.
+concurrency:
+  group: deploy-coverage
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: main is shipped
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A deploy on a topic branch concludes too, and this invariant is about
+    # `main`. Skipping keeps the report's runs meaningful rather than mostly
+    # no-ops.
+    if: >-
+      github.event_name != 'workflow_run'
+      || github.event.workflow_run.head_branch == 'main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Both values are bound as env rather than interpolated into the command.
+      # Neither is attacker-controlled, but this repository has already paid once
+      # for a `run:` block that composed secrets inline — see the allowlist note
+      # on `deploy-aws.yml`'s SSM sync — so the shape stays uniform.
+      - name: Assert every deploy workflow's newest run on main succeeded
+        run: node .github/scripts/require-deploy-coverage.mjs --repository="$REPOSITORY"
+        env:
+          REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
