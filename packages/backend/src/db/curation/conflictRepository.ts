@@ -33,7 +33,7 @@ import { offers } from '../schema/offers.js';
 export interface DetectedPairConflict {
   readonly kind: Exclude<
     CatalogMergeConflictKind,
-    'compatibility_endpoint_collapse' | 'redirect_endpoint_collapse'
+    'compatibility_endpoint_collapse' | 'redirect_endpoint_collapse' | 'bundle_self_containment'
   >;
   readonly loserRowId: string;
   readonly winnerRowId: string;
@@ -69,10 +69,25 @@ export interface DetectedRedirectCollapseConflict {
   readonly detail: string;
 }
 
+/**
+ * A bundle component a merge would make the bundle itself (#405).
+ *
+ * Named by the PAIR rather than the row id, because the row is removed — by the
+ * operator, through the catalogue — BEFORE the conflict is resolved, so an id
+ * reference would have to survive its own referent.
+ */
+export interface DetectedBundleCollapseConflict {
+  readonly kind: 'bundle_self_containment';
+  readonly bundleVariantId: string;
+  readonly componentVariantId: string;
+  readonly detail: string;
+}
+
 export type DetectedConflict =
   | DetectedPairConflict
   | DetectedCollapseConflict
-  | DetectedRedirectCollapseConflict;
+  | DetectedRedirectCollapseConflict
+  | DetectedBundleCollapseConflict;
 
 interface RawConflictRow {
   readonly loser_row_id: string;
@@ -406,6 +421,64 @@ export async function detectRedirectEndpointCollapse(
     });
   }
   return detected;
+}
+
+/**
+ * `bundle_components_self_check` — a merge that would make a bundle contain
+ * itself (#405).
+ *
+ * TWO shapes, `(loser, winner)` and `(winner, loser)`, and `(loser, loser)` is
+ * refused at INSERT by the very CHECK this detects. `quantity` and `position`
+ * ride in the detail so the composition an operator is about to change is
+ * legible from the conflict itself — this is the one collapse whose row will be
+ * GONE by the time anybody reads the decision.
+ */
+export async function detectBundleSelfContainment(
+  loserVariantId: string,
+  winnerVariantId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly DetectedConflict[]> {
+  const rows = await db.execute(sql`
+    select b.bundle_variant_id, b.component_variant_id,
+           'bundle ' || b.bundle_variant_id || ' contains component ' ||
+           b.component_variant_id || ' (quantity ' || b.quantity || ', position ' ||
+           b.position || '), which this merge would make the bundle itself' as detail
+    from bundle_components b
+    where (b.bundle_variant_id = ${loserVariantId} and b.component_variant_id = ${winnerVariantId})
+       or (b.component_variant_id = ${loserVariantId} and b.bundle_variant_id = ${winnerVariantId})
+  `);
+  const detected: DetectedBundleCollapseConflict[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const typed = row as {
+      bundle_variant_id?: string;
+      component_variant_id?: string;
+      detail?: string;
+    };
+    if (!typed.bundle_variant_id || !typed.component_variant_id) continue;
+    detected.push({
+      kind: 'bundle_self_containment',
+      bundleVariantId: typed.bundle_variant_id,
+      componentVariantId: typed.component_variant_id,
+      detail: typed.detail ?? 'bundle self containment',
+    });
+  }
+  return detected;
+}
+
+/** Whether that component row is still there — the gate on `drop_component`. */
+export async function bundleComponentStillExists(
+  bundleVariantId: string,
+  componentVariantId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const rows = await db.execute(sql`
+    select 1 from bundle_components
+    where bundle_variant_id = ${bundleVariantId}
+      and component_variant_id = ${componentVariantId}
+    limit 1
+  `);
+  return rows.length > 0;
 }
 
 /**

@@ -50,6 +50,8 @@ import {
 } from '../../../db/schema/canonicalCatalog.js';
 import { catalogSources, sourceRecords } from '../../../db/schema/provenance.js';
 import { genericCompatibilityRelations } from '../../../db/schema/compatibility.js';
+import { bundleComponents } from '../../../db/schema/canonicalCatalog.js';
+import { replaceBundleComponents } from '../../../db/canonical/canonicalVariantRepository.js';
 import { reviewAggregates, reviewTargetMigrations, reviews } from '../../../db/schema/reviews.js';
 import { productSaveAggregates } from '../../../db/schema/productSaves.js';
 import { normalizeEntityName } from '../../canonical/normalization.js';
@@ -79,6 +81,8 @@ const createdReviewIds: string[] = [];
  * happened to be deleted first.
  */
 const createdRelationIds: string[] = [];
+/** Bundle variants whose component rows this file wrote (#405). */
+const createdBundleVariantIds: string[] = [];
 
 beforeAll(async () => {
   db = await connectPostgres();
@@ -93,6 +97,7 @@ afterEach(async () => {
   const sourceIds = createdSourceIds.splice(0);
   const reviewIds = createdReviewIds.splice(0);
   const relationIds = createdRelationIds.splice(0);
+  const bundleVariantIds = createdBundleVariantIds.splice(0);
 
   if (productIds.length > 0) {
     const jobIds = (
@@ -181,6 +186,14 @@ afterEach(async () => {
         );
         await tx.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, jobIds));
       });
+    }
+    // `bundle_components.component_variant_id` is RESTRICT, so a component row
+    // left behind refuses its own variant's delete. `bundle_variant_id`
+    // CASCADEs, which covers only half of it.
+    if (bundleVariantIds.length > 0) {
+      await db
+        .delete(bundleComponents)
+        .where(inArray(bundleComponents.bundleVariantId, bundleVariantIds));
     }
     // AFTER the conflicts, which RESTRICT the relation they name, and BEFORE the
     // canonical rows, which the relation's own endpoints RESTRICT.
@@ -1569,5 +1582,126 @@ describe('#405: a merge that would turn a redirect hop into a self-redirect', ()
       .from(canonicalProductRedirects)
       .where(eq(canonicalProductRedirects.fromId, revived.productId));
     expect(hop?.toId).toBe(absorber.productId);
+  });
+});
+
+/**
+ * #405, the third table — `bundle_components_self_check`.
+ *
+ * The same collapse with no soft state anywhere: no `valid_to`, no status, both
+ * columns NOT NULL, and the table's own writer (`replaceBundleComponents`) is
+ * delete-then-insert. So the only way one of its rows stops being current is
+ * that it stops existing — and curation deletes nothing.
+ *
+ * The act therefore belongs to the catalogue and the DECISION belongs to the
+ * merge, and `resolveMergeConflict` REFUSES the decision while the row is still
+ * there. Checking at resolve time rather than at apply time is what keeps the
+ * job out of a state nothing can lift: a job leaves `blocked` only when a
+ * resolution is accepted.
+ */
+describe('#405: a merge that would make a bundle contain itself', () => {
+  async function seedBundleComponent(bundleVariantId: string, componentVariantId: string) {
+    await db
+      .insert(bundleComponents)
+      .values({ bundleVariantId, componentVariantId, quantity: 2, position: 3 });
+    createdBundleVariantIds.push(bundleVariantId);
+  }
+
+  it('cannot even STORE a bundle whose component is itself', async () => {
+    const bundle = await seedProduct('bundle-unrepresentable');
+    const part = await seedProduct('bundle-unrepresentable-part');
+
+    // CONTROL: the same statement with two DIFFERENT variants is accepted.
+    await seedBundleComponent(bundle.variantId, part.variantId);
+
+    await expectConstraintViolation(
+      () => seedBundleComponent(bundle.variantId, bundle.variantId),
+      'bundle_components_self_check',
+    );
+  });
+
+  it('BLOCKS, REFUSES the decision until the bundle is fixed, then completes', async () => {
+    const loser = await seedProduct('bundle-loser');
+    const winner = await seedProduct('bundle-winner');
+    const bystander = await seedProduct('bundle-bystander');
+
+    // The WINNER's bundle lists the loser as a component — the shape where
+    // leaving the row behind is actively wrong, because the winner is live and
+    // would go on listing a tombstone that resolves back to the bundle itself.
+    await seedBundleComponent(winner.variantId, loser.variantId);
+    // The control that the merge still moves ordinary component rows.
+    await seedBundleComponent(bystander.variantId, loser.variantId);
+
+    const job = await requestMerge({
+      entityType: 'canonical_variant',
+      loserId: loser.variantId,
+      winnerId: winner.variantId,
+      reason: 'one variant, listed twice',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const blocked = await claimAndRunMerge(job.id, `lease-405b-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+
+    const conflicts = await db
+      .select()
+      .from(catalogMergeConflicts)
+      .where(eq(catalogMergeConflicts.jobId, job.id));
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('bundle_self_containment');
+    expect(conflicts[0]?.collapsingBundleVariantId).toBe(winner.variantId);
+    expect(conflicts[0]?.collapsingComponentVariantId).toBe(loser.variantId);
+    // The quantity and position ride in `detail`, because this is the one
+    // collapse whose row is GONE by the time anybody reads the decision.
+    expect(conflicts[0]?.detail).toContain('quantity 2');
+    expect(conflicts[0]?.detail).toContain('position 3');
+
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no conflict to resolve');
+
+    /**
+     * THE LOAD-BEARING ASSERTION. The component is still there, so the decision
+     * is REFUSED and nothing is recorded.
+     *
+     * Accepting it would unblock the job, which would then re-block in the
+     * resolution phase with every conflict already resolved — and
+     * `unblockMergeJob` has exactly one caller, this path, so nothing could ever
+     * lift it again.
+     */
+    await expect(
+      resolveMergeConflict({
+        conflictId,
+        resolution: 'drop_component',
+        reason: 'claiming it is gone when it is not',
+        actorOxyUserId: OPERATOR,
+      }),
+    ).rejects.toThrow(/still lists/u);
+
+    const [unchanged] = await db
+      .select()
+      .from(catalogMergeConflicts)
+      .where(eq(catalogMergeConflicts.id, conflictId));
+    expect(unchanged?.resolution).toBeNull();
+
+    // The operator removes it through the catalogue's OWN writer, where
+    // deleting a component row is the ordinary edit.
+    await replaceBundleComponents(db, winner.variantId, []);
+
+    await resolveMergeConflict({
+      conflictId,
+      resolution: 'drop_component',
+      reason: 'the bundle and its component are one variant; removed',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-405b2-${RUN}`)).completed).toBe(true);
+
+    const remaining = await db
+      .select()
+      .from(bundleComponents)
+      .where(eq(bundleComponents.componentVariantId, winner.variantId));
+    // The bystander's row moved onto the winner. Asserting the survivor rather
+    // than only the absence is what stops "nothing moved" passing.
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.bundleVariantId).toBe(bystander.variantId);
   });
 });

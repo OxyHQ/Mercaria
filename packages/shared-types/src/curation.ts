@@ -640,6 +640,10 @@ export const CATALOG_JOB_CLAIMABLE_STATUSES: readonly CatalogJobStatus[] = ['pen
  *   merchant, which is an access decision and not a graph edge.
  * - `compatibility_endpoint_collapse` —
  *   `generic_compatibility_relations_distinct_endpoints_check` (#405).
+ * - `bundle_self_containment` — `bundle_components_self_check` (#405). Its
+ *   remedy is a THIRD one again: the table has no state short of existing, so
+ *   the component is removed through the catalogue's own writer and this records
+ *   that it was — curation itself deletes nothing.
  * - `redirect_endpoint_collapse` — `canonical_product_redirects_self_check` and
  *   `canonical_family_redirects_self_check` (#405). ONE kind for two tables
  *   because it is one constraint written twice over the same shape, and the
@@ -674,7 +678,8 @@ export type CatalogMergeConflictKind =
   | 'active_offer'
   | 'verified_claim'
   | 'compatibility_endpoint_collapse'
-  | 'redirect_endpoint_collapse';
+  | 'redirect_endpoint_collapse'
+  | 'bundle_self_containment';
 
 export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'identifier',
@@ -685,6 +690,7 @@ export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] =
   'verified_claim',
   'compatibility_endpoint_collapse',
   'redirect_endpoint_collapse',
+  'bundle_self_containment',
 ];
 
 /**
@@ -715,7 +721,8 @@ export type CatalogMergeConflictResolution =
   | 'keep_loser'
   | 'merge_pair'
   | 'close_relation'
-  | 'retain_history';
+  | 'retain_history'
+  | 'drop_component';
 
 export const CATALOG_MERGE_CONFLICT_RESOLUTIONS: readonly CatalogMergeConflictResolution[] = [
   'keep_winner',
@@ -723,6 +730,7 @@ export const CATALOG_MERGE_CONFLICT_RESOLUTIONS: readonly CatalogMergeConflictRe
   'merge_pair',
   'close_relation',
   'retain_history',
+  'drop_component',
 ];
 
 /** The conflict kinds `merge_pair` is a legal resolution for. */
@@ -744,12 +752,14 @@ export const CATALOG_MERGE_PAIR_CONFLICT_KINDS: readonly CatalogMergeConflictKin
 export const CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'compatibility_endpoint_collapse',
   'redirect_endpoint_collapse',
+  'bundle_self_containment',
 ];
 
 /** The resolutions a collapse kind admits. Disjoint from the pair ones. */
 export const CATALOG_MERGE_COLLAPSE_RESOLUTIONS: readonly CatalogMergeConflictResolution[] = [
   'close_relation',
   'retain_history',
+  'drop_component',
 ];
 
 /**
@@ -769,6 +779,24 @@ export const CATALOG_MERGE_CLOSE_RELATION_CONFLICT_KINDS: readonly CatalogMergeC
 
 export const CATALOG_MERGE_RETAIN_HISTORY_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'redirect_endpoint_collapse',
+];
+
+/**
+ * `drop_component` RECORDS that the operator already removed the component, in
+ * the catalogue, before deciding. It never performs the removal.
+ *
+ * `bundle_components` has no `valid_to`, no status and both columns NOT NULL, so
+ * the only way one of its rows stops being current is that it stops existing —
+ * and `curation-isolation.test.ts` fails the build on a delete anywhere in this
+ * domain, correctly: a merge leaves a tombstone, a suppression hides, a
+ * correction appends. So the ACT belongs to the catalogue's own writer and the
+ * DECISION belongs here, and `resolveMergeConflict` refuses the decision while
+ * the row is still there rather than taking it on trust — which is also what
+ * keeps the job out of a state nothing can unblock, since a job leaves `blocked`
+ * only when a resolution is accepted.
+ */
+export const CATALOG_MERGE_DROP_COMPONENT_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
+  'bundle_self_containment',
 ];
 
 // ── Split jobs ─────────────────────────────────────────────────────────────

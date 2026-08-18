@@ -100,6 +100,7 @@ import {
   CATALOG_MERGE_COLLAPSE_RESOLUTIONS,
   CATALOG_MERGE_CONFLICT_KINDS,
   CATALOG_MERGE_CONFLICT_RESOLUTIONS,
+  CATALOG_MERGE_DROP_COMPONENT_CONFLICT_KINDS,
   CATALOG_MERGE_PAIR_CONFLICT_KINDS,
   CATALOG_MERGE_RETAIN_HISTORY_CONFLICT_KINDS,
   CATALOG_MERGE_PHASES,
@@ -571,6 +572,23 @@ export const catalogMergeConflicts = pgTable(
     collapsingFamilyRedirectId: text().references(() => canonicalProductFamilyRedirects.id, {
       onDelete: 'restrict',
     }),
+    /**
+     * The bundle component a merge would make the bundle itself — named by its
+     * NATURAL key (`bundle_components_pair_key`), not by its row id (#405).
+     *
+     * A foreign key to `bundle_components.id` would be the obvious spelling and
+     * it is exactly wrong here: this conflict is resolved only AFTER the
+     * operator has removed that row through the catalogue, so a `restrict`
+     * reference would block the very act the resolution requires. The pair is a
+     * real unique, so it identifies the row precisely, and it outlives it —
+     * which is what an audit of a decision about a row that is now gone needs.
+     */
+    collapsingBundleVariantId: text().references(() => canonicalVariants.id, {
+      onDelete: 'restrict',
+    }),
+    collapsingComponentVariantId: text().references(() => canonicalVariants.id, {
+      onDelete: 'restrict',
+    }),
 
     /** What actually collides — the GTIN, the signature — for the operator to read. */
     detail: text().notNull(),
@@ -607,7 +625,9 @@ export const catalogMergeConflicts = pgTable(
             coalesce("loser_claim_id", '') || '|' || coalesce("winner_claim_id", '') || '|' ||
             coalesce("collapsing_relation_id", '') || '|' ||
             coalesce("collapsing_product_redirect_id", '') || '|' ||
-            coalesce("collapsing_family_redirect_id", '')`,
+            coalesce("collapsing_family_redirect_id", '') || '|' ||
+            coalesce("collapsing_bundle_variant_id", '') || '|' ||
+            coalesce("collapsing_component_variant_id", '')`,
       ),
   },
   (t) => [
@@ -687,6 +707,12 @@ export const catalogMergeConflicts = pgTable(
               and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
               and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
               and ${t.loserClaimId} is null and ${t.winnerClaimId} is null
+            when 'bundle_self_containment' then
+              ${t.loserIdentifierId} is null and ${t.winnerIdentifierId} is null
+              and ${t.loserVariantId} is null and ${t.winnerVariantId} is null
+              and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
+              and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
+              and ${t.loserClaimId} is null and ${t.winnerClaimId} is null
             else false
           end`,
     ),
@@ -709,10 +735,20 @@ export const catalogMergeConflicts = pgTable(
             when 'redirect_endpoint_collapse' then
               ${t.collapsingRelationId} is null
               and num_nonnulls(${t.collapsingProductRedirectId}, ${t.collapsingFamilyRedirectId}) = 1
+              and ${t.collapsingBundleVariantId} is null
+              and ${t.collapsingComponentVariantId} is null
+            when 'bundle_self_containment' then
+              ${t.collapsingBundleVariantId} is not null
+              and ${t.collapsingComponentVariantId} is not null
+              and ${t.collapsingRelationId} is null
+              and ${t.collapsingProductRedirectId} is null
+              and ${t.collapsingFamilyRedirectId} is null
             else
               ${t.collapsingRelationId} is null
               and ${t.collapsingProductRedirectId} is null
               and ${t.collapsingFamilyRedirectId} is null
+              and ${t.collapsingBundleVariantId} is null
+              and ${t.collapsingComponentVariantId} is null
           end`,
     ),
     /** A row cannot collide with itself; that is not a conflict, it is a bug upstream. */
@@ -772,6 +808,22 @@ export const catalogMergeConflicts = pgTable(
      * historical row stays. Offering either for the other's kind would mean
      * revoking a fact, or "closing" a table with no state to close.
      */
+    /**
+     * A bundle cannot contain itself, which is the very thing this conflict is
+     * ABOUT — so a conflict claiming it does is a bug upstream, exactly as
+     * `..._distinct_pair_check` says of a pair naming one row twice.
+     */
+    check(
+      'catalog_merge_conflicts_bundle_distinct_check',
+      sql`${t.collapsingBundleVariantId} is null
+          or ${t.collapsingComponentVariantId} is null
+          or ${t.collapsingBundleVariantId} <> ${t.collapsingComponentVariantId}`,
+    ),
+    check(
+      'catalog_merge_conflicts_drop_component_kind_check',
+      sql`${t.resolution} is distinct from 'drop_component'
+          or ${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_DROP_COMPONENT_CONFLICT_KINDS))})`,
+    ),
     check(
       'catalog_merge_conflicts_retain_history_kind_check',
       sql`${t.resolution} is distinct from 'retain_history'

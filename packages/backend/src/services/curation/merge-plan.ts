@@ -386,6 +386,16 @@ const COMPATIBILITY_BOTH_ENDS_NOTE =
   'that case (#405), and it is gated rather than skipped silently because an OPEN relation left ' +
   'on a tombstone still claims compatibility for a dead identity.';
 
+const BUNDLE_COLLAPSE_NOTE =
+  ' A merge can also make the two ends EQUAL -- a bundle containing the very variant it is ' +
+  'being merged with -- which `bundle_components_self_check` refuses with 23514 (#405). ' +
+  'Deliberately NO `distinctFromColumn`: a guard would skip the row and leave the WINNER\'s ' +
+  'bundle listing a tombstone, silently. The conflict blocks instead, the operator removes the ' +
+  'component through the catalogue\'s own writer, and `resolveMergeConflict` refuses the ' +
+  'decision until they have -- so by the time the phase runs there is nothing left to collide. ' +
+  'If somebody re-adds it in that window the repoint raises 23514 and the phase blocks, which ' +
+  'is the loud failure and the right one.';
+
 const RELATIONSHIP_NOTE =
   "An evidence-backed claim's endpoint. `commerce_relationships_open_claim_key` holds one OPEN " +
   'claim per (kind, endpoints), so two claims that would collapse into one are a judgement an ' +
@@ -1478,20 +1488,22 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
     {
       column: bundleComponents.bundleVariantId,
       phase: 'children',
-      disposition: 'repoint_if_absent',
+      disposition: 'conflict_gated',
+      conflictKind: 'bundle_self_containment',
       uniqueWith: [bundleComponents.componentVariantId],
       note:
         'What this bundle contains. `(bundle, component)` is unique, so a component the winner ' +
-        'already lists stays behind rather than duplicating the bundle.',
+        'already lists stays behind rather than duplicating the bundle.' + BUNDLE_COLLAPSE_NOTE,
     },
     {
       column: bundleComponents.componentVariantId,
       phase: 'children',
-      disposition: 'repoint_if_absent',
+      disposition: 'conflict_gated',
+      conflictKind: 'bundle_self_containment',
       uniqueWith: [bundleComponents.bundleVariantId],
       note:
         'Which bundles contain this variant — the other side of the same unique, and it must ' +
-        'move too or a bundle would claim to contain a tombstone.',
+        'move too or a bundle would claim to contain a tombstone.' + BUNDLE_COLLAPSE_NOTE,
     },
     {
       column: offers.canonicalVariantId,
@@ -1599,6 +1611,22 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'alerts',
       disposition: 'retained_by_tombstone',
       note: PRICE_ALERT_TRIGGER_NOTE,
+    },
+    {
+      column: catalogMergeConflicts.collapsingBundleVariantId,
+      phase: 'children',
+      disposition: 'untouched',
+      note:
+        'The RECORD of a bundle self-containment an operator decided about (#405), named by the ' +
+        'pair that identified the row. Untouched for the reason the conflict pair columns are: ' +
+        'repointing it would rewrite the history of a decision — and this pair is the only ' +
+        'surviving description of a component row the operator REMOVED before deciding.',
+    },
+    {
+      column: catalogMergeConflicts.collapsingComponentVariantId,
+      phase: 'children',
+      disposition: 'untouched',
+      note: 'The other half of that natural key. See above.',
     },
     {
       column: catalogMergeConflicts.loserVariantId,

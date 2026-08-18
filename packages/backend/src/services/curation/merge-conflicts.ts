@@ -29,6 +29,7 @@ import type {
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   detectActiveOfferConflicts,
+  detectBundleSelfContainment,
   detectCompatibilityEndpointCollapse,
   detectDefaultVariantConflicts,
   detectIdentifierConflicts,
@@ -164,6 +165,7 @@ export async function detectMergeConflicts(
           winnerId,
           db,
         )),
+        ...(await detectBundleSelfContainment(loserId, winnerId, db)),
       ];
   }
 }
@@ -193,6 +195,12 @@ function conflictColumns(jobId: string, detected: DetectedConflict): InsertConfl
       return detected.table === 'canonical_product_redirects'
         ? { ...base, collapsingProductRedirectId: detected.collapsingRowId }
         : { ...base, collapsingFamilyRedirectId: detected.collapsingRowId };
+    case 'bundle_self_containment':
+      return {
+        ...base,
+        collapsingBundleVariantId: detected.bundleVariantId,
+        collapsingComponentVariantId: detected.componentVariantId,
+      };
   }
 }
 
@@ -226,7 +234,8 @@ function retiredSide(
   if (
     resolution === 'merge_pair' ||
     resolution === 'close_relation' ||
-    resolution === 'retain_history'
+    resolution === 'retain_history' ||
+    resolution === 'drop_component'
   ) {
     return { loser: null, winner: null };
   }
@@ -378,6 +387,16 @@ export async function applyConflictResolution(
       //
       // Unlike a decision whose ACT belongs to another domain, nothing has to be
       // verified afterwards, so the job unblocks the ordinary way.
+      return;
+    case 'bundle_self_containment':
+      // NOTHING, and it is the `variant_signature` shape: the act is not this
+      // module's to perform and has ALREADY happened by the time a resolution
+      // exists. `resolveMergeConflict` refuses `drop_component` while the
+      // component row is still there, so an accepted decision is a statement
+      // that the catalogue's own writer already removed it — which keeps
+      // curation free of the one delete `curation-isolation.test.ts` forbids,
+      // and keeps the job out of a `blocked` state nothing can lift, since a job
+      // leaves `blocked` only when a resolution is ACCEPTED.
       return;
   }
 }
