@@ -1207,7 +1207,7 @@ describe('#405: a merge that collapses both ends of one compatibility relation',
   /** One OPEN relation, at whichever grain the caller names. */
   async function seedRelation(
     subject: { productId?: string; variantId?: string },
-    target: { productId?: string; variantId?: string },
+    target: { productId?: string; variantId?: string; typedKey?: string },
   ): Promise<string> {
     const rows = await db
       .insert(genericCompatibilityRelations)
@@ -1215,9 +1215,15 @@ describe('#405: a merge that collapses both ends of one compatibility relation',
         kind: 'works_with',
         subjectProductId: subject.productId ?? null,
         subjectVariantId: subject.variantId ?? null,
-        targetKind: target.productId ? 'canonical_product' : 'canonical_variant',
+        targetKind: target.typedKey
+          ? 'typed'
+          : target.productId
+            ? 'canonical_product'
+            : 'canonical_variant',
         targetProductId: target.productId ?? null,
         targetVariantId: target.variantId ?? null,
+        targetType: target.typedKey ? 'connector_standard' : null,
+        targetKey: target.typedKey ?? null,
         assertedByKind: 'operator',
       })
       .returning({ id: genericCompatibilityRelations.id });
@@ -1273,6 +1279,20 @@ describe('#405: a merge that collapses both ends of one compatibility relation',
     const ordinary = await seedRelation(
       { productId: loser.productId },
       { productId: bystander.productId },
+    );
+    /**
+     * The SECOND control, for `is distinct from` rather than for the guard's
+     * width.
+     *
+     * A relation to a TYPED target leaves `target_product_id` NULL, and
+     * `NULL <> '<winner>'` is NULL — so spelling the guard with a plain `<>`
+     * takes this row out of the UPDATE and it never reaches the winner, with no
+     * error anywhere. Every relation to a connector, a socket or a media format
+     * is this shape, so the mistake would strand most of the table.
+     */
+    const typedTarget = await seedRelation(
+      { productId: loser.productId },
+      { typedKey: 'connector.usb_c' },
     );
 
     const job = await requestMerge({
@@ -1342,6 +1362,12 @@ describe('#405: a merge that collapses both ends of one compatibility relation',
       .where(eq(genericCompatibilityRelations.id, ordinary));
     expect(moved?.subjectProductId).toBe(winner.productId);
     expect(moved?.validTo).toBeNull();
+
+    const [movedTyped] = await db
+      .select()
+      .from(genericCompatibilityRelations)
+      .where(eq(genericCompatibilityRelations.id, typedTarget));
+    expect(movedTyped?.subjectProductId).toBe(winner.productId);
   });
 
   /**

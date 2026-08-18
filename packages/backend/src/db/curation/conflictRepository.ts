@@ -283,7 +283,7 @@ export async function detectActiveOfferConflicts(
  * `(loser, winner)` and `(winner, loser)`. `(loser, loser)` — the shape #405's
  * own text names first — is UNREPRESENTABLE: the CHECK is unconditional and
  * total, so it refuses `(x, x)` at INSERT, which
- * `merge-endpoint-collapse.realdb.test.ts` asserts against the named constraint
+ * `curation-writes.realdb.test.ts` asserts against the named constraint
  * with a passing control beside it. Probing for it would be a branch that can
  * never match, and a branch that can never match reads as coverage.
  *

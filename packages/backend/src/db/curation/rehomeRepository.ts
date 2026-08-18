@@ -110,7 +110,7 @@ function absenceGuard(target: RehomeTarget, toId: string) {
  * ONE comparison, against the WINNER. Comparing the loser as well would cover
  * `(loser, loser)`, which cannot exist: the CHECK is unconditional and total, so
  * it refuses `(x, x)` at INSERT — asserted, with a control, in
- * `merge-endpoint-collapse.realdb.test.ts`. A comparison that can never fire is
+ * `curation-writes.realdb.test.ts`. A comparison that can never fire is
  * not defence in depth, it is a line that makes the guard look wider than it is.
  * A table whose distinct-endpoints CHECK is PARTIAL, or was added `NOT VALID`,
  * would need that second comparison and does not exist here.
