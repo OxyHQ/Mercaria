@@ -49,6 +49,7 @@ import {
   productIdentifiers,
 } from '../../../db/schema/canonicalCatalog.js';
 import { catalogSources, sourceRecords } from '../../../db/schema/provenance.js';
+import { genericCompatibilityRelations } from '../../../db/schema/compatibility.js';
 import { reviewAggregates, reviewTargetMigrations, reviews } from '../../../db/schema/reviews.js';
 import { productSaveAggregates } from '../../../db/schema/productSaves.js';
 import { normalizeEntityName } from '../../canonical/normalization.js';
@@ -71,6 +72,13 @@ const SECOND_OPERATOR = `op2-${RUN}`;
 const createdProductIds: string[] = [];
 const createdSourceIds: string[] = [];
 const createdReviewIds: string[] = [];
+/**
+ * #405's fixtures. Tracked rather than derived from the products, because both
+ * endpoint columns are `ON DELETE restrict` and a relation left behind refuses
+ * its own subject's delete — a teardown failure attributed to whichever product
+ * happened to be deleted first.
+ */
+const createdRelationIds: string[] = [];
 
 beforeAll(async () => {
   db = await connectPostgres();
@@ -84,6 +92,7 @@ afterEach(async () => {
   const productIds = createdProductIds.splice(0);
   const sourceIds = createdSourceIds.splice(0);
   const reviewIds = createdReviewIds.splice(0);
+  const relationIds = createdRelationIds.splice(0);
 
   if (productIds.length > 0) {
     const jobIds = (
@@ -172,6 +181,13 @@ afterEach(async () => {
         );
         await tx.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, jobIds));
       });
+    }
+    // AFTER the conflicts, which RESTRICT the relation they name, and BEFORE the
+    // canonical rows, which the relation's own endpoints RESTRICT.
+    if (relationIds.length > 0) {
+      await db
+        .delete(genericCompatibilityRelations)
+        .where(inArray(genericCompatibilityRelations.id, relationIds));
     }
     await db
       .delete(catalogEntitySuppressions)
@@ -1170,5 +1186,285 @@ describe('the CHECKs a service bug cannot walk around', () => {
           .where(and(eq(catalogMergeConflicts.jobId, job.id), sql`kind = 'default_variant'`)),
       'catalog_merge_conflicts_merge_pair_kind_check',
     );
+  });
+});
+
+/**
+ * #405 — a merge that would land BOTH ends of one relation on the winner.
+ *
+ * This is the case no `uniqueWith` can express and `absenceGuard` cannot see:
+ * that guard hunts a COLLIDING WINNER ROW, and here there is none. The offending
+ * row is the one being moved, legal before the merge and illegal after it, and
+ * before this it reached `relationships` and failed with a raw `23514` four
+ * phases in.
+ *
+ * A real server is the whole point. The property under test IS
+ * `generic_compatibility_relations_distinct_endpoints_check`; a mocked update
+ * accepts the statement that constraint refuses, so a mocked version of every
+ * case below passes whether or not anything was fixed.
+ */
+describe('#405: a merge that collapses both ends of one compatibility relation', () => {
+  /** One OPEN relation, at whichever grain the caller names. */
+  async function seedRelation(
+    subject: { productId?: string; variantId?: string },
+    target: { productId?: string; variantId?: string; typedKey?: string },
+  ): Promise<string> {
+    const rows = await db
+      .insert(genericCompatibilityRelations)
+      .values({
+        kind: 'works_with',
+        subjectProductId: subject.productId ?? null,
+        subjectVariantId: subject.variantId ?? null,
+        targetKind: target.typedKey
+          ? 'typed'
+          : target.productId
+            ? 'canonical_product'
+            : 'canonical_variant',
+        targetProductId: target.productId ?? null,
+        targetVariantId: target.variantId ?? null,
+        targetType: target.typedKey ? 'connector_standard' : null,
+        targetKey: target.typedKey ?? null,
+        assertedByKind: 'operator',
+      })
+      .returning({ id: genericCompatibilityRelations.id });
+    const id = rows[0]?.id;
+    if (!id) throw new Error('failed to seed a compatibility relation');
+    createdRelationIds.push(id);
+    return id;
+  }
+
+  async function collapseConflictsFor(jobId: string) {
+    return db.select().from(catalogMergeConflicts).where(eq(catalogMergeConflicts.jobId, jobId));
+  }
+
+  /**
+   * The shape #405's own text names FIRST, and the reason the detector probes
+   * two shapes rather than three.
+   *
+   * The CHECK is unconditional and total, so `(x, x)` cannot be stored at all —
+   * which makes a probe for it a branch that can never match, and a branch that
+   * can never match reads as coverage. The legal pair beside it is the control:
+   * without it, a refusal here could equally mean the fixture was malformed.
+   */
+  it('cannot even STORE a relation naming one entity at both ends', async () => {
+    const subject = await seedProduct('collapse-unrepresentable');
+    const other = await seedProduct('collapse-unrepresentable-other');
+
+    // CONTROL: the same statement with two DIFFERENT endpoints is accepted.
+    await seedRelation({ productId: subject.productId }, { productId: other.productId });
+
+    await expectConstraintViolation(
+      () => seedRelation({ productId: subject.productId }, { productId: subject.productId }),
+      'generic_compatibility_relations_distinct_endpoints_check',
+    );
+  });
+
+  it('BLOCKS a product merge, closes the relation, and leaves it on the tombstone', async () => {
+    const loser = await seedProduct('collapse-p-loser');
+    const winner = await seedProduct('collapse-p-winner');
+    const bystander = await seedProduct('collapse-p-bystander');
+
+    const collapsing = await seedRelation(
+      { productId: loser.productId },
+      { productId: winner.productId },
+    );
+    /**
+     * The POSITIVE CONTROL for the guard, and it is not optional.
+     *
+     * `collapseGuard` takes rows OUT of the repoint, so "the relation did not
+     * move" is the outcome of a working guard AND of a guard so wide it moves
+     * nothing at all. This relation names the loser and an unrelated third
+     * product, so it must still arrive on the winner.
+     */
+    const ordinary = await seedRelation(
+      { productId: loser.productId },
+      { productId: bystander.productId },
+    );
+    /**
+     * The SECOND control, for `is distinct from` rather than for the guard's
+     * width.
+     *
+     * A relation to a TYPED target leaves `target_product_id` NULL, and
+     * `NULL <> '<winner>'` is NULL — so spelling the guard with a plain `<>`
+     * takes this row out of the UPDATE and it never reaches the winner, with no
+     * error anywhere. Every relation to a connector, a socket or a media format
+     * is this shape, so the mistake would strand most of the table.
+     */
+    const typedTarget = await seedRelation(
+      { productId: loser.productId },
+      { typedKey: 'connector.usb_c' },
+    );
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'the same product, twice',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const blocked = await claimAndRunMerge(job.id, `lease-405p-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+    expect(blocked.completed).toBe(false);
+
+    const conflicts = await collapseConflictsFor(job.id);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('compatibility_endpoint_collapse');
+    // The ONE row, named. There is no winner counterpart and every pair column
+    // is NULL, which `catalog_merge_conflicts_pair_shape_check` requires.
+    expect(conflicts[0]?.collapsingRelationId).toBe(collapsing);
+    expect(conflicts[0]?.loserRelationshipId).toBeNull();
+    expect(conflicts[0]?.winnerRelationshipId).toBeNull();
+    expect(conflicts[0]?.resolution).toBeNull();
+
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no conflict to resolve');
+
+    // `keep_winner` is refused by the DATABASE, not by a service branch: there
+    // is no winner row to keep, and an accepted decision that changed nothing
+    // would unblock the job straight back into the 23514.
+    await expectConstraintViolation(
+      () =>
+        resolveMergeConflict({
+          conflictId,
+          resolution: 'keep_winner',
+          reason: 'there is no winner row, so this is meaningless',
+          actorOxyUserId: OPERATOR,
+        }),
+      'catalog_merge_conflicts_collapse_resolution_check',
+    );
+
+    await resolveMergeConflict({
+      conflictId,
+      resolution: 'close_relation',
+      reason: 'the two products are one, so the claim is degenerate',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const finished = await claimAndRunMerge(job.id, `lease-405p2-${RUN}`);
+    expect(finished.completed).toBe(true);
+
+    const [closed] = await db
+      .select()
+      .from(genericCompatibilityRelations)
+      .where(eq(genericCompatibilityRelations.id, collapsing));
+    // CLOSED, attributable, and still on the tombstone — never deleted, never
+    // moved. Repointing it is the statement the CHECK refuses.
+    expect(closed?.validTo).not.toBeNull();
+    expect(closed?.verification).toBe('revoked');
+    expect(closed?.revokedByOxyUserId).toBe(OPERATOR);
+    expect(closed?.subjectProductId).toBe(loser.productId);
+    expect(closed?.targetProductId).toBe(winner.productId);
+
+    const [moved] = await db
+      .select()
+      .from(genericCompatibilityRelations)
+      .where(eq(genericCompatibilityRelations.id, ordinary));
+    expect(moved?.subjectProductId).toBe(winner.productId);
+    expect(moved?.validTo).toBeNull();
+
+    const [movedTyped] = await db
+      .select()
+      .from(genericCompatibilityRelations)
+      .where(eq(genericCompatibilityRelations.id, typedTarget));
+    expect(movedTyped?.subjectProductId).toBe(winner.productId);
+  });
+
+  /**
+   * The SECOND shape, and the one a rewrite drops: the relation already names
+   * the winner and only its OTHER end has to move, so nothing about it looks
+   * like the loser's row.
+   */
+  it('BLOCKS when the relation points from the WINNER at the loser', async () => {
+    const loser = await seedProduct('collapse-rev-loser');
+    const winner = await seedProduct('collapse-rev-winner');
+    const collapsing = await seedRelation(
+      { productId: winner.productId },
+      { productId: loser.productId },
+    );
+
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'duplicate, and the winner already cites it',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const blocked = await claimAndRunMerge(job.id, `lease-405r-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+
+    const conflicts = await collapseConflictsFor(job.id);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('compatibility_endpoint_collapse');
+    expect(conflicts[0]?.collapsingRelationId).toBe(collapsing);
+
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no conflict to resolve');
+    await resolveMergeConflict({
+      conflictId,
+      resolution: 'close_relation',
+      reason: 'degenerate once the two are one',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-405r2-${RUN}`)).completed).toBe(true);
+
+    const [closed] = await db
+      .select()
+      .from(genericCompatibilityRelations)
+      .where(eq(genericCompatibilityRelations.id, collapsing));
+    expect(closed?.validTo).not.toBeNull();
+    expect(closed?.targetProductId).toBe(loser.productId);
+  });
+
+  /**
+   * The SAME CHECK's second conjunct, one grain down.
+   *
+   * `generic_compatibility_relations_distinct_endpoints_check` is two clauses,
+   * products and variants, and a fix that wired only the product grain would
+   * leave a variant merge failing with the identical `23514` — in a change whose
+   * title said it was fixed.
+   */
+  it('BLOCKS a VARIANT merge on the same CHECK, at the variant grain', async () => {
+    const loser = await seedProduct('collapse-v-loser');
+    const winner = await seedProduct('collapse-v-winner');
+    const collapsing = await seedRelation(
+      { variantId: loser.variantId },
+      { variantId: winner.variantId },
+    );
+
+    const job = await requestMerge({
+      entityType: 'canonical_variant',
+      loserId: loser.variantId,
+      winnerId: winner.variantId,
+      reason: 'one configuration, recorded twice',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const blocked = await claimAndRunMerge(job.id, `lease-405v-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+
+    const conflicts = await collapseConflictsFor(job.id);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]?.kind).toBe('compatibility_endpoint_collapse');
+    expect(conflicts[0]?.collapsingRelationId).toBe(collapsing);
+
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no conflict to resolve');
+    await resolveMergeConflict({
+      conflictId,
+      resolution: 'close_relation',
+      reason: 'degenerate once the two variants are one',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-405v2-${RUN}`)).completed).toBe(true);
+
+    const [closed] = await db
+      .select()
+      .from(genericCompatibilityRelations)
+      .where(eq(genericCompatibilityRelations.id, collapsing));
+    expect(closed?.validTo).not.toBeNull();
+    expect(closed?.subjectVariantId).toBe(loser.variantId);
+    expect(closed?.targetVariantId).toBe(winner.variantId);
   });
 });

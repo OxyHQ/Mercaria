@@ -92,6 +92,34 @@ function absenceGuard(target: RehomeTarget, toId: string) {
   )`;
 }
 
+/**
+ * `and <other endpoint> is distinct from <winner>` — the rows a
+ * distinct-endpoints CHECK would refuse after the move (#405).
+ *
+ * A DIFFERENT question from {@link absenceGuard}, and the reason that one cannot
+ * be widened to cover it: the absence guard asks whether the WINNER already
+ * holds an equivalent row, and in a collapse no such row exists — the offending
+ * row is the one being moved. Both are applied where a target names both.
+ *
+ * `is distinct from`, never `<>`. The other endpoint is nullable (a relation's
+ * target may be a family, a variant or a typed key), and `NULL <> '…'` is NULL,
+ * so a plain `<>` would drop every row whose other endpoint is empty out of the
+ * UPDATE — silently refusing to move exactly the ordinary rows this guard is not
+ * about.
+ *
+ * ONE comparison, against the WINNER. Comparing the loser as well would cover
+ * `(loser, loser)`, which cannot exist: the CHECK is unconditional and total, so
+ * it refuses `(x, x)` at INSERT — asserted, with a control, in
+ * `curation-writes.realdb.test.ts`. A comparison that can never fire is
+ * not defence in depth, it is a line that makes the guard look wider than it is.
+ * A table whose distinct-endpoints CHECK is PARTIAL, or was added `NOT VALID`,
+ * would need that second comparison and does not exist here.
+ */
+function collapseGuard(target: RehomeTarget, toId: string) {
+  if (!target.distinctFromColumn) return sql``;
+  return sql` and ${qualified(target.distinctFromColumn)} is distinct from ${toId}`;
+}
+
 /** The mirror of {@link absenceGuard}: the rows that WOULD collide. */
 function presenceGuard(target: RehomeTarget, toId: string) {
   const uniqueWith = target.uniqueWith ?? [];
@@ -185,12 +213,13 @@ export async function applyRehomeTarget(
     (target.disposition === 'conflict_gated' && (target.uniqueWith?.length ?? 0) > 0)
       ? absenceGuard(target, toId)
       : sql``;
+  const collapse = collapseGuard(target, toId);
 
   moved += await runCounted(
     db,
     sql`update ${table}
         set ${columnName} = ${toId}${alsoSetClause}${bumpUpdatedAt}
-        where ${qualified(target.column)} = ${fromId}${guard}
+        where ${qualified(target.column)} = ${fromId}${guard}${collapse}
         returning 1`,
   );
 

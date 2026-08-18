@@ -133,13 +133,25 @@ function enumerateDomain(): { derived: string[]; scanned: string[]; walked: numb
   };
 }
 
+/**
+ * Every module in `db/schema/`, by basename — DERIVED from the directory, never
+ * listed, so it cannot go stale as domains are added.
+ *
+ * Used to measure "names a row per domain" for the two curation exclusions: a
+ * file reaching one schema module is coupled to it, and a file reaching several
+ * is an aggregate.
+ */
+const SCHEMA_MODULES: readonly string[] = readdirSync(join(SRC_ROOT, 'db/schema'))
+  .filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+  .map((entry) => entry.replace(/\.ts$/u, ''));
+
 /** A path relative to `src`, with forward slashes, as the exclusion list spells them. */
 function relativeToSrc(absolute: string): string {
   return relative(SRC_ROOT, absolute).split(sep).join('/');
 }
 
 /**
- * The three files that reach this domain and belong to NO domain.
+ * The five files that reach this domain and belong to NO domain.
  *
  * Each is an AGGREGATE: it names the compatibility tables or router because it
  * names every domain's, by construction. Scanning them would put four hundred
@@ -171,6 +183,20 @@ const AGGREGATE_EXCLUSIONS: readonly {
       "#59's rehoming plan, whose census FAILS THE BUILD unless it names every table referencing " +
       'a mergeable entity — so naming other domains is the property it is gated on',
   },
+  {
+    path: 'db/schema/curation.ts',
+    reason:
+      '`catalog_merge_conflicts` names the colliding ROW in whichever domain collided — an ' +
+      'identifier, a variant, a relationship, an offer, a claim, and since #405 a compatibility ' +
+      'relation — so reaching six domains is the shape of the table, not a coupling',
+  },
+  {
+    path: 'services/curation/merge-conflicts.ts',
+    reason:
+      'the module that applies each merge conflict in ITS OWN domain\'s terms — retired, revoked, ' +
+      'retired-offer, closed — so it imports one writer per domain by construction, exactly as ' +
+      'the merge plan names one column per domain',
+  },
 ];
 
 /**
@@ -183,13 +209,15 @@ const AGGREGATE_EXCLUSIONS: readonly {
  * Raising it is one line and forces whoever adds a module to the domain to
  * notice that five walls now scan it.
  *
- * Twenty-one today: four services and four repositories in the domain's own two
- * directories, one schema module, one schema barrel, one route, two controllers,
- * two request-schema modules, three catalog-governance services, the seed
- * script, the merge plan and `app.ts`. Eighteen of them are scanned; three are
- * the aggregates above.
+ * Twenty-three today: four services and four repositories in the domain's own
+ * two directories, one schema module, one schema barrel, one route, two
+ * controllers, two request-schema modules, three catalog-governance services,
+ * the seed script, the merge plan, `app.ts`, and — since #405 gave a merge
+ * conflict a way to name a collapsing compatibility relation — the curation
+ * schema and its conflict applier. Eighteen of them are scanned; five are the
+ * aggregates above.
  */
-const DERIVED_FILES = 21;
+const DERIVED_FILES = 23;
 
 /**
  * The floor on the WALK ITSELF, which is a different measurement from the one
@@ -379,8 +407,8 @@ describe('the exclusion list is exact, live and necessary', () => {
   // list silently GROWS (so tomorrow's real violation is excused).
   const derivedPaths = new Set(DOMAIN.derived.map(relativeToSrc));
 
-  it('names exactly three files, and every one of them is really derived', () => {
-    expect(AGGREGATE_EXCLUSIONS.length, 'the exclusion list changed size').toBe(3);
+  it('names exactly five files, and every one of them is really derived', () => {
+    expect(AGGREGATE_EXCLUSIONS.length, 'the exclusion list changed size').toBe(5);
     for (const entry of AGGREGATE_EXCLUSIONS) {
       // Direction one: not stale. An entry naming a path the derivation does not
       // produce excuses nothing and would go on excusing nothing forever.
@@ -433,6 +461,41 @@ describe('the exclusion list is exact, live and necessary', () => {
     ).toBe(true);
     // And it is derived for the right reason: it names the domain's own tables.
     expect(COMPATIBILITY_REFERENCE.test(mergePlan)).toBe(true);
+
+    /**
+     * #405's two, measured the same way the merge plan is.
+     *
+     * Each would go RED on a wall today, and each is derived because it names
+     * this domain's own table — which together is what makes them exclusions
+     * rather than members. The extra probe below is the reason in ITS own terms:
+     * the sentence says these files name a row (or a writer) PER DOMAIN, so the
+     * falsifiable form is that they still reach several, not merely one.
+     */
+    for (const path of ['db/schema/curation.ts', 'services/curation/merge-conflicts.ts']) {
+      const source = stripComments(read(path));
+      expect(
+        RELATIONSHIP_REFERENCE.test(source) ||
+          COMMERCE_REFERENCE.test(source) ||
+          RANKING_REFERENCE.test(source) ||
+          OPTION_WRITE_REFERENCE.test(source),
+        `${path} trips no wall any more; it is excluded for a cost it no longer has, so put it ` +
+          'back in the scanned set rather than leaving an exemption that hides nothing',
+      ).toBe(true);
+      expect(
+        COMPATIBILITY_REFERENCE.test(source),
+        `${path} no longer names this domain, so the exclusion is stale`,
+      ).toBe(true);
+      // "one per domain": a conflict row that named ONE other domain would be a
+      // coupling rather than an aggregate, and belongs in the scanned set.
+      const reached = SCHEMA_MODULES.filter((module) =>
+        new RegExp(`from '[^']*/${module}(?:\\.js)?'`, 'u').test(source),
+      );
+      expect(
+        reached.length,
+        `${path} reaches only ${String(reached.length)} schema module(s); "one per domain" ` +
+          'is no longer why it is here',
+      ).toBeGreaterThanOrEqual(4);
+    }
   });
 
   it('does not excuse a file the derivation would newly admit', () => {

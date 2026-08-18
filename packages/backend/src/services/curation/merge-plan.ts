@@ -130,9 +130,14 @@ import { navigationNodes } from '../../db/schema/navigation.js';
  *   unique is scoped to an ACTIVE status. The colliding row moves AND is
  *   superseded, so the loser's provenance history follows its entity instead of
  *   being stranded. ADR 0002 D19's source-link design names exactly this.
- * - `conflict_gated` — a unique the merge CANNOT resolve on its own, because
- *   which side survives is a judgement. The planning phase raises a
+ * - `conflict_gated` — a constraint the merge CANNOT resolve on its own, because
+ *   what to do about it is a judgement. The planning phase raises a
  *   `catalog_merge_conflicts` row and the job blocks (#59 merge invariant 4).
+ *   Usually that constraint is a unique and the judgement is which of two rows
+ *   survives; on an entry carrying {@link RehomeTarget.distinctFromColumn} it is
+ *   a distinct-endpoints CHECK and the judgement is about ONE row (#405). Such
+ *   an entry still repoints every row that does NOT collapse, so it keeps its
+ *   `uniqueWith` guard as well.
  * - `flatten` — the self-reference. Tombstones that pointed at the loser are
  *   retargeted at the winner so resolution stays one hop (ADR 0002 D16).
  * - `retained_by_tombstone` — the row stays with the loser ON PURPOSE, because
@@ -242,6 +247,26 @@ export interface RehomeTarget {
    * wide as the index it guards, never wider.
    */
   readonly guardWhereNullColumn?: AnyPgColumn;
+  /**
+   * The OTHER end of a relation this column must never be made equal to (#405).
+   *
+   * A merge can land both ends of one row on the winner —
+   * `generic_compatibility_relations_distinct_endpoints_check` then refuses the
+   * repoint with `23514`, mid-phase. `absenceGuard` cannot see it: that guard
+   * hunts a COLLIDING WINNER ROW and here there is none. The row is legal before
+   * the merge and illegal after it.
+   *
+   * So the executor skips such a row, and the `plan` phase raises the conflict
+   * that makes leaving it a DECISION rather than a silent omission — an OPEN
+   * relation left behind on a tombstone still claims compatibility for a dead
+   * identity, which is exactly the thing #59 merge invariant 4 refuses to do
+   * without a person. The skip is deliberately WIDER than the probe: it covers
+   * closed rows too (the CHECK is not partial, so they would raise `23514` just
+   * the same), while the probe raises a conflict only for OPEN ones, because a
+   * closed relation is already history and staying with the tombstone is what
+   * `retained_by_tombstone` means.
+   */
+  readonly distinctFromColumn?: AnyPgColumn;
   /** Which conflict a `conflict_gated` target raises. */
   readonly conflictKind?: CatalogMergeConflictKind;
   /** Why, in one sentence. Quoted back by the census when it fails. */
@@ -347,12 +372,12 @@ const COMPATIBILITY_CLAIM_NOTE =
   'the winner through the relation and fitment entries.';
 
 const COMPATIBILITY_BOTH_ENDS_NOTE =
-  ' This is the OBJECT side, gated separately because a merge can collapse BOTH ends of one ' +
-  'relation -- subject and target both becoming the winner, which ' +
-  '`generic_compatibility_relations_distinct_endpoints_check` refuses with 23514. No `uniqueWith` ' +
-  'can express "skip this row because the other endpoint is also moving", so that case is #405 ' +
-  'and it fails LOUDLY: the phase blocks, `blocked` is not claimable, and each phase is its own ' +
-  'transaction so nothing is half-moved.';
+  ' A merge can collapse BOTH ends of one relation -- subject and target both becoming the ' +
+  'winner, which `generic_compatibility_relations_distinct_endpoints_check` refuses with 23514. ' +
+  'No `uniqueWith` can express "skip this row because the other endpoint is also moving", because ' +
+  '`absenceGuard` hunts a colliding WINNER row and a collapse has none; `distinctFromColumn` is ' +
+  'that case (#405), and it is gated rather than skipped silently because an OPEN relation left ' +
+  'on a tombstone still claims compatibility for a dead identity.';
 
 const RELATIONSHIP_NOTE =
   "An evidence-backed claim's endpoint. `commerce_relationships_open_claim_key` holds one OPEN " +
@@ -982,7 +1007,9 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
     {
       column: genericCompatibilityRelations.subjectProductId,
       phase: 'relationships',
-      disposition: 'repoint_if_absent',
+      disposition: 'conflict_gated',
+      conflictKind: 'compatibility_endpoint_collapse',
+      distinctFromColumn: genericCompatibilityRelations.targetProductId,
       uniqueWith: [
         genericCompatibilityRelations.kind,
         genericCompatibilityRelations.subjectVariantId,
@@ -994,12 +1021,14 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       ],
       guardWhereNullColumn: genericCompatibilityRelations.validTo,
       activeStatusColumn: genericCompatibilityRelations.validTo,
-      note: COMPATIBILITY_RELATION_NOTE,
+      note: COMPATIBILITY_RELATION_NOTE + COMPATIBILITY_BOTH_ENDS_NOTE,
     },
     {
       column: genericCompatibilityRelations.targetProductId,
       phase: 'relationships',
-      disposition: 'repoint_if_absent',
+      disposition: 'conflict_gated',
+      conflictKind: 'compatibility_endpoint_collapse',
+      distinctFromColumn: genericCompatibilityRelations.subjectProductId,
       uniqueWith: [
         genericCompatibilityRelations.kind,
         genericCompatibilityRelations.subjectProductId,
@@ -1308,7 +1337,9 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
     {
       column: genericCompatibilityRelations.subjectVariantId,
       phase: 'relationships',
-      disposition: 'repoint_if_absent',
+      disposition: 'conflict_gated',
+      conflictKind: 'compatibility_endpoint_collapse',
+      distinctFromColumn: genericCompatibilityRelations.targetVariantId,
       uniqueWith: [
         genericCompatibilityRelations.kind,
         genericCompatibilityRelations.subjectProductId,
@@ -1320,12 +1351,14 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       ],
       guardWhereNullColumn: genericCompatibilityRelations.validTo,
       activeStatusColumn: genericCompatibilityRelations.validTo,
-      note: COMPATIBILITY_RELATION_NOTE,
+      note: COMPATIBILITY_RELATION_NOTE + COMPATIBILITY_BOTH_ENDS_NOTE,
     },
     {
       column: genericCompatibilityRelations.targetVariantId,
       phase: 'relationships',
-      disposition: 'repoint_if_absent',
+      disposition: 'conflict_gated',
+      conflictKind: 'compatibility_endpoint_collapse',
+      distinctFromColumn: genericCompatibilityRelations.subjectVariantId,
       uniqueWith: [
         genericCompatibilityRelations.kind,
         genericCompatibilityRelations.subjectProductId,
