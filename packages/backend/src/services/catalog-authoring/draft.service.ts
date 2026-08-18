@@ -36,7 +36,6 @@ import {
   type AuthoringDraftVariant,
   type AuthoringSchema,
   type AuthoringPermissionContext,
-  type AuthoringUpgradeChange,
   type AuthoringUpgradePreview,
   type AuthoringValidationResult,
   type CurrencyCode,
@@ -80,6 +79,7 @@ import {
   type AuthoringSchemaComposition,
 } from './schema.service.js';
 import { validateDraft, type DraftValueForValidation } from './validation.js';
+import { compareProductTypeVersionFields } from './version-upgrade.js';
 // #367 step 6 (ADR 0007 D9). The ONE edge from authoring INTO the proposal
 // domain, and it points this way deliberately: a proposal is a request ABOUT a
 // draft, so the proposal domain reads authoring and never the reverse.
@@ -499,55 +499,15 @@ export async function previewDraftUpgrade(
     listDraftValues(db, row.id),
   ]);
 
-  const currentByKey = new Map(currentFields.map((field) => [field.attributeKey, field]));
-  const targetByKey = new Map(targetFields.map((field) => [field.attributeKey, field]));
-  const answeredKeys = new Set(values.map((value) => value.attributeKey));
-
-  const changes: AuthoringUpgradeChange[] = [];
-  let losesAnswers = false;
-
-  for (const [key, field] of currentByKey) {
-    const target = targetByKey.get(key);
-    const path = `fields.${key}`;
-    if (target === undefined) {
-      changes.push({ effect: 'field_removed', attributeKey: key, path });
-      if (answeredKeys.has(key)) losesAnswers = true;
-      continue;
-    }
-    if (target.attributeDefinitionVersion !== field.attributeDefinitionVersion) {
-      changes.push({
-        effect: 'attribute_version_changed',
-        attributeKey: key,
-        path,
-        fromAttributeVersion: field.attributeDefinitionVersion,
-        toAttributeVersion: target.attributeDefinitionVersion,
-      });
-      // A newer attribute version can narrow a controlled set or a bound, so an
-      // answer given under the old one may no longer be permitted. It is
-      // reported as a version change rather than as `value_no_longer_permitted`
-      // because deciding the second needs the target's controlled values, and
-      // this preview is about the SHAPE — the validation the author runs after
-      // applying is what checks their actual answers.
-      if (answeredKeys.has(key)) losesAnswers = true;
-      continue;
-    }
-    if (target.requirement !== field.requirement) {
-      changes.push({
-        effect: 'requirement_changed',
-        attributeKey: key,
-        path,
-        fromRequirement: field.requirement,
-        toRequirement: target.requirement,
-      });
-      continue;
-    }
-    changes.push({ effect: 'unchanged', attributeKey: key, path });
-  }
-
-  for (const [key] of targetByKey) {
-    if (currentByKey.has(key)) continue;
-    changes.push({ effect: 'field_added', attributeKey: key, path: `fields.${key}` });
-  }
+  // The SAME comparison a published LISTING runs (#587). Extracted rather than
+  // copied: a draft and a listing ask one question of one pair of field sets,
+  // and two statements of that rule drift in the flattering direction — a
+  // preview that under-reports reads as a safe upgrade.
+  const { changes, losesAnswers } = compareProductTypeVersionFields(
+    currentFields,
+    targetFields,
+    new Set(values.map((value) => value.attributeKey)),
+  );
 
   return {
     outcome: 'upgrade_available',

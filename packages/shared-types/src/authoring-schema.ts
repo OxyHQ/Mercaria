@@ -815,6 +815,105 @@ export type AuthoringUpgradePreview =
       readonly losesAnswers: boolean;
     };
 
+/**
+ * Why a PUBLISHED listing cannot be moved forward, even though a newer version
+ * exists (#587).
+ *
+ * A closed set, and both members name a mechanical reason rather than a policy:
+ *
+ * - `variant_axis_not_authorised` — the listing declares a variant axis the
+ *   target version does not declare as a `variant_capable`, `variant`-scope
+ *   field. That is `mercaria_native_variant_axis_citation`'s own predicate,
+ *   applied at the listing grain: an axis row naming the target for that
+ *   attribute is a row the database would REFUSE, so moving the listing onto it
+ *   would reach that state through the one door the trigger does not watch. It
+ *   is not repairable by moving the axes either —
+ *   `mercaria_native_variant_axis_frozen` makes an axis's cited version
+ *   immutable, and the only way to re-cite one is to retire and re-declare it,
+ *   which cascades every assignment away. Refusing is the sole non-destructive
+ *   answer.
+ * - `listing_not_editable` — the listing is `restricted` or `archived`. Moving a
+ *   pin is an EDIT, and `catalog-write.service.updateListing` refuses to edit a
+ *   restricted listing at all; reaching one through a different function is the
+ *   moderation escape that rule exists to close.
+ */
+export type ListingUpgradeBlocker = 'variant_axis_not_authorised' | 'listing_not_editable';
+
+export const LISTING_UPGRADE_BLOCKERS: readonly ListingUpgradeBlocker[] = [
+  'variant_axis_not_authorised',
+  'listing_not_editable',
+];
+
+/** One reason, with the thing it is about. */
+export interface ListingUpgradeBlockerDetail {
+  readonly blocker: ListingUpgradeBlocker;
+  /** The attribute key for `variant_axis_not_authorised`; absent otherwise. */
+  readonly attributeKey?: string;
+  /** Operator-facing, bounded, and never a stack trace. */
+  readonly detail: string;
+}
+
+/**
+ * What moving a PUBLISHED listing to a newer product-type version would do.
+ *
+ * The listing twin of {@link AuthoringUpgradePreview}, and it carries the same
+ * rule for the same reason (ADR 0007 D10): a newer schema version produces a
+ * preview, never a silent rewrite. There is no `apply` affordance on the type.
+ *
+ * `blocked` carries **no `targetDefinitionId`**, which is the same device the
+ * draft preview uses on its unavailable branch: the apply takes that id, so a
+ * caller holding only a blocked preview has nothing to send. It DOES carry the
+ * changes, because an operator deciding what to fix first needs to see what the
+ * move would have done.
+ */
+export type ListingProductTypeUpgradePreview =
+  | {
+      /**
+       * The listing is pinned to no product-type version — every P2P listing,
+       * and every store listing created outside the authoring flow. There is
+       * nothing to move forward, and a FIRST pin is not this operation.
+       */
+      readonly outcome: 'not_pinned';
+    }
+  | {
+      readonly outcome: 'up_to_date';
+      readonly currentVersion: number;
+    }
+  | {
+      readonly outcome: 'blocked';
+      readonly currentVersion: number;
+      readonly targetVersion: number;
+      readonly changes: readonly AuthoringUpgradeChange[];
+      readonly blockers: readonly ListingUpgradeBlockerDetail[];
+    }
+  | {
+      readonly outcome: 'upgrade_available';
+      readonly currentVersion: number;
+      readonly targetVersion: number;
+      readonly targetDefinitionId: string;
+      readonly changes: readonly AuthoringUpgradeChange[];
+      /**
+       * Whether any change would leave something the listing already recorded
+       * without a field in the new version.
+       *
+       * Reported and NEVER acted on: nothing in the apply deletes or rewrites a
+       * stored answer. Every claim keeps the attribute version it was settled
+       * under, and a field the target no longer declares becomes a visible
+       * finding rather than a deletion — deleting it would be the silent
+       * rewrite ADR 0007 D10 forbids, wearing a tidy-up's clothes.
+       */
+      readonly losesAnswers: boolean;
+    };
+
+/** What one applied listing upgrade moved. */
+export interface ListingProductTypeUpgradeResult {
+  readonly listingId: string;
+  readonly fromDefinitionId: string;
+  readonly fromVersion: number;
+  readonly toDefinitionId: string;
+  readonly toVersion: number;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Canonical search                                                            */
 /* -------------------------------------------------------------------------- */

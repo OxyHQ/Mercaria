@@ -92,6 +92,29 @@ export async function listAttributeValueTypesByIds(
 }
 
 /**
+ * The KEY of many definitions, by id.
+ *
+ * The same narrow-projection boundary `listAttributeValueTypesByIds` draws, one
+ * column over: a caller holding a settled claim has an `attribute_definition_id`
+ * and needs the stable key to compare against a product-type version's fields,
+ * and has no business reading that definition's labels, bounds or units to get
+ * it. Batched for the same reason — a listing's claims are asked about together,
+ * and one statement per claim would make the cost of previewing an upgrade a
+ * function of how many questions the seller answered.
+ */
+export async function listAttributeKeysByIds(
+  db: DatabaseOrTransaction,
+  ids: readonly string[],
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db
+    .select({ id: attributeDefinitions.id, key: attributeDefinitions.key })
+    .from(attributeDefinitions)
+    .where(inArray(attributeDefinitions.id, [...ids]));
+  return new Map(rows.map((row) => [row.id, row.key]));
+}
+
+/**
  * The ACTIVE version of one attribute — the meaning a new observation is read
  * under.
  *

@@ -1193,6 +1193,52 @@ export async function searchListingsKeyset(
  *
  * @returns `true` when this call made the change, `false` when the guard refused.
  */
+/**
+ * Move a listing's product-type pin, if it is still on the version the caller
+ * previewed (#587, #367 box 12).
+ *
+ * A CAS and not a patch, for `setListingStatusIfIn`'s reason one column over:
+ * the preview an operator read is a measurement at a moment, and a concurrent
+ * publication can move the incumbent between the preview and the apply. Stating
+ * the version the caller BELIEVED the listing was on turns that race into a
+ * `null` the service can answer with "re-read the preview", where a
+ * read-then-write would move a listing onto a version nobody looked at.
+ * `repinDraftIfVersion` is the same device one entity over.
+ *
+ * `ListingColumnPatch` does not subtract this column, so `updateListingColumns`
+ * could write it — and deliberately never does. A patch keyed on the id alone
+ * cannot express the guard, and this is the ONE statement in this repository
+ * that moves the pin after the row is created, which is what makes
+ * `catalog-write.service.repinListingProductTypeVersion` the single service-level
+ * entry point rather than one of several.
+ *
+ * The database permits the transition on purpose:
+ * `mercaria_listing_product_type_pin_not_cleared` allows `NULL → value` and
+ * `value → value` and refuses only `value → NULL`. It validates NOTHING else —
+ * not key continuity, not version direction, not lifecycle — so every semantic
+ * guard lives in `catalog-authoring/listing-upgrade.service.ts`.
+ *
+ * @returns the updated row, or `null` when the listing had already moved.
+ */
+export async function repinListingProductTypeIfPinned(
+  listingId: string,
+  expectedDefinitionId: string,
+  targetDefinitionId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingRecord | null> {
+  const [row] = await db
+    .update(listings)
+    .set({ productTypeDefinitionId: targetDefinitionId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(listings.id, listingId),
+        eq(listings.productTypeDefinitionId, expectedDefinitionId),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
 export async function setListingStatusIfIn(
   listingId: string,
   next: ListingRecord['status'],
