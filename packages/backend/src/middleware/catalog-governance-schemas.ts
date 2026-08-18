@@ -99,11 +99,20 @@ export const changeQuerySchema = z
   })
   .strict();
 
-/** `GET .../impact` — the preview an operator reads BEFORE planning. */
+/**
+ * `GET .../impact` — the preview an operator reads BEFORE planning.
+ *
+ * `action` is optional and is what makes the preview agree with the plan: a
+ * PUBLICATION disturbs the incumbent it deprecates as well as its own subject,
+ * so without the action this reads zero for exactly the change that needs the
+ * number most (#587). It is optional rather than required because "what points
+ * at this row" is also a legitimate question, and answering it needs no action.
+ */
 export const impactQuerySchema = z
   .object({
     subjectKind: z.enum(tuple(CATALOG_GOVERNANCE_SUBJECT_KINDS)),
     subjectId: id,
+    action: z.enum(tuple(CATALOG_GOVERNANCE_ACTIONS)).optional(),
   })
   .strict();
 

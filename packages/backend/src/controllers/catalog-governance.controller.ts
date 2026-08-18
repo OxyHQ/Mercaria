@@ -15,12 +15,14 @@
 
 import type { Request, Response } from 'express';
 import type {
+  CatalogGovernanceAction,
   CatalogGovernanceChangeState,
   CatalogGovernanceDomain,
   CatalogGovernanceSnapshotScope,
   CatalogGovernanceSubjectKind,
 } from '@mercaria/shared-types';
 import { respondWithError } from '../lib/errors/index.js';
+import { conflict } from '../lib/errors/error-codes.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { routeParam } from '../utils/request.js';
 import { getDb } from '../db/postgres.js';
@@ -36,6 +38,11 @@ import {
   withdrawChangeRequest,
 } from '../services/catalog-governance/change-request.service.js';
 import { measureImpact } from '../services/catalog-governance/impact.service.js';
+import {
+  onlySubject,
+  resolveImpactSubjects,
+  subjectKindForAction,
+} from '../services/catalog-governance/impact-subjects.js';
 import {
   grantRole,
   listRoleGrants,
@@ -103,14 +110,39 @@ export async function governanceCapabilitiesHandler(req: Request, res: Response)
   }
 }
 
-/** GET /internal/catalog-governance/impact */
+/**
+ * GET /internal/catalog-governance/impact
+ *
+ * The preview an operator reads BEFORE planning, so it has to measure what
+ * planning will measure. `action` is optional and, when given, resolves the
+ * same affected-version set `planChange` resolves — without it a PUBLICATION
+ * previews as zero, which is the #587 defect one surface over.
+ *
+ * A `subjectKind` that disagrees with the action's own is REFUSED rather than
+ * silently corrected: counting one kind's relations against another kind's id
+ * produces a tidy page of zeros, which is the answer this whole domain exists
+ * to stop being mistaken for a safe change.
+ */
 export async function governanceImpactHandler(req: Request, res: Response): Promise<void> {
   try {
     const query = req.query as unknown as {
       subjectKind: CatalogGovernanceSubjectKind;
       subjectId: string;
+      action?: CatalogGovernanceAction;
     };
-    sendSuccess(res, await measureImpact(query.subjectKind, query.subjectId, getDb()));
+    const db = getDb();
+    if (query.action === undefined) {
+      sendSuccess(res, await measureImpact(query.subjectKind, onlySubject(query.subjectId), db));
+      return;
+    }
+    const kind = subjectKindForAction(query.action);
+    if (kind !== query.subjectKind) {
+      throw conflict(
+        `${query.action} acts on a ${kind}, not on a ${query.subjectKind}. Drop the subjectKind or name the one the action acts on.`,
+      );
+    }
+    const subjects = await resolveImpactSubjects(db, query.action, query.subjectId);
+    sendSuccess(res, await measureImpact(kind, subjects, db));
   } catch (error) {
     respondWithError(res, error, 'Failed to measure impact');
   }

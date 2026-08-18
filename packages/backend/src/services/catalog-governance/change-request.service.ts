@@ -60,6 +60,7 @@ import { recordAuditEvent } from '../../db/catalogGovernance/auditRepository.js'
 import type { CatalogGovernanceActor } from './actor.js';
 import { applyChange, DIRECT_APPLY_ACTIONS } from './apply.js';
 import { measureImpact, reportFromStoredRows, requiresSecondApproval } from './impact.service.js';
+import { resolveImpactSubjects } from './impact-subjects.js';
 import { requireGovernanceRole, roleForAction } from './role.service.js';
 
 /** What a plan states. */
@@ -108,7 +109,13 @@ export async function planChange(
   const subjectKind = CATALOG_GOVERNANCE_ACTION_SUBJECTS[input.action];
   const domain = CATALOG_GOVERNANCE_ACTION_DOMAINS[input.action];
 
-  const impact = await measureImpact(subjectKind, input.subjectId, db);
+  // WHICH versions this action disturbs, then how many rows point at them.
+  // Splitting the two is what closed #587's impact half: a publication's
+  // subject is a draft, nothing may point at a draft, so counting the subject
+  // alone reported zero for a change that reinterprets every record pinned to
+  // the incumbent it deprecates. `impact-subjects.ts` carries the measurement.
+  const subjects = await resolveImpactSubjects(db, input.action, input.subjectId);
+  const impact = await measureImpact(subjectKind, subjects, db);
   const needsApproval = requiresSecondApproval(impact, config.catalog.fourEyesRequired);
   const now = new Date();
 
@@ -149,6 +156,13 @@ export async function planChange(
         impactTotal: impact.coverage === 'measured' ? impact.total : null,
         impactCoverage: impact.coverage,
         requiresSecondApproval: needsApproval,
+        // The versions this change DEPRECATES, and therefore the ones the
+        // counts above cover besides the subject. It lives here rather than on
+        // the impact report because `reportFromStoredRows` rebuilds that report
+        // from columns that do not hold it — a field right at plan time and
+        // wrong on every later read is worse than no field. The audit event is
+        // append-only jsonb and already carries the impact facts.
+        impactSupersededSubjectIds: subjects.supersededIds,
       },
       at: now,
     });

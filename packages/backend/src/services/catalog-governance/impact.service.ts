@@ -30,7 +30,7 @@
  * unable to execute.
  */
 
-import { count, eq } from 'drizzle-orm';
+import { count, inArray } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type {
   CatalogGovernanceCountedSubjectKind,
@@ -49,6 +49,7 @@ import {
   rewirePathsMissing,
   type GovernedReference,
 } from './impact-plan.js';
+import { countedSubjectIds, type ImpactSubjects } from './impact-subjects.js';
 
 /**
  * Whether a subject kind is one the plan counts.
@@ -73,33 +74,51 @@ export function isCountedSubjectKind(
   return (CATALOG_GOVERNANCE_COUNTED_SUBJECT_KINDS as readonly string[]).includes(kind);
 }
 
-/** One relation's row count. */
+/**
+ * One relation's row count, over every version this change disturbs.
+ *
+ * `IN` and not `=`, because a PUBLICATION touches two versions — the one being
+ * published and the incumbent the same transaction deprecates. A row points at
+ * exactly one definition id, so the union counts each row once and there is no
+ * double count to correct for. `impact-subjects.ts` carries why the set is the
+ * right subject and why the counts cannot be split per version.
+ */
 async function countReference(
   db: DatabaseOrTransaction,
   reference: GovernedReference,
-  subjectId: string,
+  subjectIds: readonly string[],
 ): Promise<number> {
   const table = reference.column.table as unknown as PgTable;
   const [row] = await db
     .select({ total: count() })
     .from(table)
-    .where(eq(reference.column, subjectId));
+    .where(inArray(reference.column, [...subjectIds]));
   return Number(row?.total ?? 0);
 }
 
 /**
- * Measure everything that points at a subject.
+ * Measure everything the change to this subject disturbs.
  *
  * Counts run sequentially rather than through `Promise.all`. Twenty concurrent
  * aggregate reads on one pooled connection are pipelined by postgres.js onto
  * that connection anyway, so the concurrency buys nothing measurable and costs
  * the ability to name which relation failed.
+ *
+ * The report's `subjectId` is the CHANGE's subject — what the request row
+ * stores and what `reportFromStoredRows` rebuilds from — while the counts
+ * cover `countedSubjectIds(subjects)`. The two agree for every action but the
+ * two publications, and for those the difference is recorded on the
+ * `change_requested` audit event rather than in a report field that could not
+ * survive a re-read. See `impact-subjects.ts`.
  */
 export async function measureImpact(
   subjectKind: CatalogGovernanceSubjectKind,
-  subjectId: string,
+  subjects: ImpactSubjects,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<CatalogGovernanceImpactReport> {
+  const subjectId = subjects.subjectId;
+  const countedIds = countedSubjectIds(subjects);
+
   if (!isCountedSubjectKind(subjectKind)) {
     // A snapshot restore and a vertical package apply are planned by DIFFING
     // against what is stored, not by counting inbound references — there is no
@@ -125,7 +144,7 @@ export async function measureImpact(
   for (const reference of references) {
     let rowCount: number;
     try {
-      rowCount = await countReference(db, reference, subjectId);
+      rowCount = await countReference(db, reference, countedIds);
     } catch (error) {
       const key = `${referenceTableName(reference)}.${referenceColumnName(reference)}`;
       log.general.error(
