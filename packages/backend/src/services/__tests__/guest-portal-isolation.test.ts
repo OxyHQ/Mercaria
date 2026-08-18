@@ -306,6 +306,33 @@ describe('guest portal isolation (static)', () => {
     // …and the plant is not on disk, or the control asserts about the tree
     // rather than about the sweep.
     expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW. This is the clause the plant above
+    // cannot supply, and it is here rather than trusted to the shared
+    // comparison because that device does not do what it is documented to do:
+    // an empty "outside" set is also what a population that swallowed the tree
+    // produces, and a plant absent from the real sweep is reported outside a
+    // population built FROM the real sweep exactly as it is outside a correct
+    // one. MEASURED against `analytics-ranking-isolation.test.ts`, whose own
+    // comment claims the shared comparison closes this: replacing its wall's
+    // population with `new Set(swept)` leaves all TEN of its tests green.
+    //
+    // What does bite is naming modules that EXIST and belong to somebody else,
+    // so a widening broad enough to empty the set above fails here instead.
+    // Mutation-tested: `...walk('')` added to the population fails this clause
+    // naming `controllers/orders.controller.ts`.
+    for (const foreign of [
+      'controllers/orders.controller.ts',
+      'routes/cart.ts',
+      'db/schema/orders.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(PORTAL_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
