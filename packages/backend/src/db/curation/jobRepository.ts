@@ -414,6 +414,8 @@ export interface InsertConflictInput {
   readonly winnerClaimId?: string | null;
   /** The ONE row a collapse names; there is no winner twin (#405). */
   readonly collapsingRelationId?: string | null;
+  readonly collapsingProductRedirectId?: string | null;
+  readonly collapsingFamilyRedirectId?: string | null;
 }
 
 /**
@@ -444,6 +446,8 @@ export async function insertConflict(
       loserClaimId: input.loserClaimId ?? null,
       winnerClaimId: input.winnerClaimId ?? null,
       collapsingRelationId: input.collapsingRelationId ?? null,
+      collapsingProductRedirectId: input.collapsingProductRedirectId ?? null,
+      collapsingFamilyRedirectId: input.collapsingFamilyRedirectId ?? null,
     })
     .onConflictDoNothing();
 }

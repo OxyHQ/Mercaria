@@ -32,6 +32,7 @@ import {
   detectCompatibilityEndpointCollapse,
   detectDefaultVariantConflicts,
   detectIdentifierConflicts,
+  detectRedirectEndpointCollapse,
   detectRelationshipEndpointConflicts,
   detectVariantSignatureConflicts,
   detectVerifiedBrandOwnerConflicts,
@@ -116,12 +117,20 @@ export async function detectMergeConflicts(
         ...(await detectActiveOfferConflicts(offers.storefrontId, loserId, winnerId, db)),
       ];
     case 'canonical_product_family':
-      return detectRelationshipEndpointConflicts(
-        commerceRelationships.productFamilyId,
-        loserId,
-        winnerId,
-        db,
-      );
+      return [
+        ...(await detectRelationshipEndpointConflicts(
+          commerceRelationships.productFamilyId,
+          loserId,
+          winnerId,
+          db,
+        )),
+        ...(await detectRedirectEndpointCollapse(
+          'canonical_product_family_redirects',
+          loserId,
+          winnerId,
+          db,
+        )),
+      ];
     case 'canonical_product':
       return [
         ...(await detectIdentifierConflicts(productIdentifiers.productId, loserId, winnerId, db)),
@@ -130,6 +139,12 @@ export async function detectMergeConflicts(
         ...(await detectCompatibilityEndpointCollapse(
           genericCompatibilityRelations.subjectProductId,
           genericCompatibilityRelations.targetProductId,
+          loserId,
+          winnerId,
+          db,
+        )),
+        ...(await detectRedirectEndpointCollapse(
+          'canonical_product_redirects',
           loserId,
           winnerId,
           db,
@@ -174,6 +189,10 @@ function conflictColumns(jobId: string, detected: DetectedConflict): InsertConfl
       return { ...base, loserClaimId: detected.loserRowId, winnerClaimId: detected.winnerRowId };
     case 'compatibility_endpoint_collapse':
       return { ...base, collapsingRelationId: detected.collapsingRowId };
+    case 'redirect_endpoint_collapse':
+      return detected.table === 'canonical_product_redirects'
+        ? { ...base, collapsingProductRedirectId: detected.collapsingRowId }
+        : { ...base, collapsingFamilyRedirectId: detected.collapsingRowId };
   }
 }
 
@@ -204,7 +223,11 @@ function retiredSide(
   row: CatalogMergeConflictRow,
   resolution: CatalogMergeConflictResolution,
 ): { readonly loser: string | null; readonly winner: string | null } {
-  if (resolution === 'merge_pair' || resolution === 'close_relation') {
+  if (
+    resolution === 'merge_pair' ||
+    resolution === 'close_relation' ||
+    resolution === 'retain_history'
+  ) {
     return { loser: null, winner: null };
   }
   return resolution === 'keep_winner' ? { loser: 'retire', winner: null } : { loser: null, winner: 'retire' };
@@ -341,6 +364,21 @@ export async function applyConflictResolution(
         );
       return;
     }
+    case 'redirect_endpoint_collapse':
+      // NOTHING, and it is the `variant_signature` shape rather than an
+      // omission: there is no act, only a decision.
+      //
+      // `(winner -> loser)` is TRUE history — the winner really did redirect
+      // there once, which is how #59 acceptance 2's tombstone revival leaves a
+      // live entity holding a redirect to the entity it later absorbs. Moving it
+      // would claim a hop nobody made and is what the CHECK refuses; deleting it
+      // would erase the record the redirect tables exist to keep, and curation
+      // deletes nothing. So `collapseGuard` leaves the row where it is and the
+      // operator's `retain_history` records that they saw it.
+      //
+      // Unlike a decision whose ACT belongs to another domain, nothing has to be
+      // verified afterwards, so the job unblocks the ordinary way.
+      return;
   }
 }
 

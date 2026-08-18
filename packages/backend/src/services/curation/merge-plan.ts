@@ -336,11 +336,18 @@ function redirectHistoryTargets(fromColumn: AnyPgColumn, toColumn: AnyPgColumn):
     {
       column: toColumn,
       phase: 'redirects',
-      disposition: 'repoint_if_absent',
+      disposition: 'conflict_gated',
+      conflictKind: 'redirect_endpoint_collapse',
       uniqueWith: [fromColumn],
+      distinctFromColumn: fromColumn,
       note:
         'A hop INTO the loser must follow the flattening, or an old URL resolves to a ' +
-        'tombstone. `(from_id, to_id)` is unique, so a hop the winner already records stays.',
+        'tombstone. `(from_id, to_id)` is unique, so a hop the winner already records stays. ' +
+        'And a hop the WINNER already made INTO the loser would become a self-redirect, which ' +
+        '`..._self_check` refuses with 23514 (#405) -- reachable without any race, because ' +
+        "#59 acceptance 2's `revive_tombstone` brings an entity back while deliberately leaving " +
+        'its redirect rows standing, so a revived entity is a legal winner still naming the ' +
+        'loser. That row is TRUE history and stays where it is; the operator records it.',
     },
   ];
 }

@@ -640,6 +640,10 @@ export const CATALOG_JOB_CLAIMABLE_STATUSES: readonly CatalogJobStatus[] = ['pen
  *   merchant, which is an access decision and not a graph edge.
  * - `compatibility_endpoint_collapse` —
  *   `generic_compatibility_relations_distinct_endpoints_check` (#405).
+ * - `redirect_endpoint_collapse` — `canonical_product_redirects_self_check` and
+ *   `canonical_family_redirects_self_check` (#405). ONE kind for two tables
+ *   because it is one constraint written twice over the same shape, and the
+ *   conflict names whichever row it is about.
  *
  * ## The collapse kinds are ONE row, and that is why they are separate members
  *
@@ -669,7 +673,8 @@ export type CatalogMergeConflictKind =
   | 'relationship_endpoint'
   | 'active_offer'
   | 'verified_claim'
-  | 'compatibility_endpoint_collapse';
+  | 'compatibility_endpoint_collapse'
+  | 'redirect_endpoint_collapse';
 
 export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'identifier',
@@ -679,6 +684,7 @@ export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] =
   'active_offer',
   'verified_claim',
   'compatibility_endpoint_collapse',
+  'redirect_endpoint_collapse',
 ];
 
 /**
@@ -694,7 +700,7 @@ export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] =
  * nothing links to. It opens a CHILD merge job for the two variants, which the
  * parent's `children` phase waits on.
  *
- * `close_relation` is the only resolution for a COLLAPSE kind, and reusing
+ * `close_relation` and `retain_history` are the COLLAPSE resolutions, and reusing
  * `keep_winner` for it was refused deliberately. That word is defined two lines
  * above as "which of the two colliding rows stays ACTIVE", and a collapse has
  * one row; making it mean something else for one kind would put the difference
@@ -708,13 +714,15 @@ export type CatalogMergeConflictResolution =
   | 'keep_winner'
   | 'keep_loser'
   | 'merge_pair'
-  | 'close_relation';
+  | 'close_relation'
+  | 'retain_history';
 
 export const CATALOG_MERGE_CONFLICT_RESOLUTIONS: readonly CatalogMergeConflictResolution[] = [
   'keep_winner',
   'keep_loser',
   'merge_pair',
   'close_relation',
+  'retain_history',
 ];
 
 /** The conflict kinds `merge_pair` is a legal resolution for. */
@@ -735,6 +743,32 @@ export const CATALOG_MERGE_PAIR_CONFLICT_KINDS: readonly CatalogMergeConflictKin
  */
 export const CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'compatibility_endpoint_collapse',
+  'redirect_endpoint_collapse',
+];
+
+/** The resolutions a collapse kind admits. Disjoint from the pair ones. */
+export const CATALOG_MERGE_COLLAPSE_RESOLUTIONS: readonly CatalogMergeConflictResolution[] = [
+  'close_relation',
+  'retain_history',
+];
+
+/**
+ * And which collapse kind admits which, because they are NOT interchangeable.
+ *
+ * An OPEN compatibility relation left on a tombstone is a live claim about a
+ * dead identity, so it must be CLOSED. A redirect naming the winner and the
+ * loser is TRUE HISTORY — the winner really did once redirect there, which is
+ * reachable because #59 acceptance 2 revives a tombstone and leaves its redirect
+ * rows standing — so the row stays and the operator's decision is RECORDED
+ * rather than executed. Offering either resolution for the other's kind would
+ * mean revoking a historical fact, or "closing" a table with no state to close.
+ */
+export const CATALOG_MERGE_CLOSE_RELATION_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
+  'compatibility_endpoint_collapse',
+];
+
+export const CATALOG_MERGE_RETAIN_HISTORY_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
+  'redirect_endpoint_collapse',
 ];
 
 // ── Split jobs ─────────────────────────────────────────────────────────────

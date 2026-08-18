@@ -31,7 +31,10 @@ import { offers } from '../schema/offers.js';
 
 /** A PAIR collision: two legal rows that become one illegal key. */
 export interface DetectedPairConflict {
-  readonly kind: Exclude<CatalogMergeConflictKind, 'compatibility_endpoint_collapse'>;
+  readonly kind: Exclude<
+    CatalogMergeConflictKind,
+    'compatibility_endpoint_collapse' | 'redirect_endpoint_collapse'
+  >;
   readonly loserRowId: string;
   readonly winnerRowId: string;
   readonly detail: string;
@@ -52,7 +55,24 @@ export interface DetectedCollapseConflict {
   readonly detail: string;
 }
 
-export type DetectedConflict = DetectedPairConflict | DetectedCollapseConflict;
+/**
+ * A redirect hop a merge would turn into a self-redirect (#405).
+ *
+ * `table` rather than two shapes, because it is ONE constraint written twice
+ * over the same columns — the mapping to a column is `conflictColumns`'s job and
+ * a `switch` over it fails `tsc` on a third table nobody wired up.
+ */
+export interface DetectedRedirectCollapseConflict {
+  readonly kind: 'redirect_endpoint_collapse';
+  readonly table: 'canonical_product_redirects' | 'canonical_product_family_redirects';
+  readonly collapsingRowId: string;
+  readonly detail: string;
+}
+
+export type DetectedConflict =
+  | DetectedPairConflict
+  | DetectedCollapseConflict
+  | DetectedRedirectCollapseConflict;
 
 interface RawConflictRow {
   readonly loser_row_id: string;
@@ -332,6 +352,57 @@ export async function detectCompatibilityEndpointCollapse(
       kind: 'compatibility_endpoint_collapse',
       collapsingRowId: typed.row_id,
       detail: typed.detail ?? 'compatibility endpoint collapse',
+    });
+  }
+  return detected;
+}
+
+/**
+ * `canonical_product_redirects_self_check` / `canonical_family_redirects_self_check`
+ * — a merge that would turn a redirect hop into a self-redirect (#405).
+ *
+ * ## ONE shape, and the reachability is #59 acceptance 2 rather than a race
+ *
+ * Only `to_id` moves (`from_id` is `untouched`: a hop OUT of the loser is
+ * history about the loser). So the row must already read `(winner, loser)` —
+ * a hop INTO the loser whose other end is the winner already. `(loser, loser)`
+ * is refused at INSERT by the very CHECK this detects, and `(loser, winner)`
+ * has `to_id = winner`, which the repoint's own `where to_id = <loser>` never
+ * matches. One shape, therefore, not three.
+ *
+ * That state looks unreachable — a redirect FROM the winner means the winner was
+ * merged away, and `requestMerge` refuses a tombstone winner — until a SPLIT is
+ * taken into account. `revive_tombstone` clears `merged_into_id` and returns the
+ * status to active while deliberately leaving the redirect rows standing (they
+ * are the record that the hop happened). So a revived entity is a legal merge
+ * WINNER that still carries a redirect naming the loser, and no race is needed:
+ * the reachability comes from the rollback path #59 acceptance 2 exists for.
+ *
+ * @param table the redirect table, which is also its `catalog_merge_conflicts` column.
+ */
+export async function detectRedirectEndpointCollapse(
+  table: DetectedRedirectCollapseConflict['table'],
+  loserId: string,
+  winnerId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly DetectedConflict[]> {
+  const rows = await db.execute(sql`
+    select r.id as row_id,
+           'redirect from ' || r.from_id || ' to ' || r.to_id ||
+           ', which this merge would make a self-redirect' as detail
+    from ${sql.identifier(table)} r
+    where r.to_id = ${loserId} and r.from_id = ${winnerId}
+  `);
+  const detected: DetectedRedirectCollapseConflict[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const typed = row as { row_id?: string; detail?: string };
+    if (!typed.row_id) continue;
+    detected.push({
+      kind: 'redirect_endpoint_collapse',
+      table,
+      collapsingRowId: typed.row_id,
+      detail: typed.detail ?? 'redirect endpoint collapse',
     });
   }
   return detected;

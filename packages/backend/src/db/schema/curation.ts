@@ -95,10 +95,13 @@ import {
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CATALOG_JOB_STATUSES,
+  CATALOG_MERGE_CLOSE_RELATION_CONFLICT_KINDS,
   CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS,
+  CATALOG_MERGE_COLLAPSE_RESOLUTIONS,
   CATALOG_MERGE_CONFLICT_KINDS,
   CATALOG_MERGE_CONFLICT_RESOLUTIONS,
   CATALOG_MERGE_PAIR_CONFLICT_KINDS,
+  CATALOG_MERGE_RETAIN_HISTORY_CONFLICT_KINDS,
   CATALOG_MERGE_PHASES,
   CATALOG_REVISION_ACTIONS,
   CATALOG_REVISION_ACTOR_KINDS,
@@ -121,7 +124,12 @@ import {
   SPLITTABLE_ENTITY_TYPES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
-import { canonicalVariants, productIdentifiers } from './canonicalCatalog';
+import {
+  canonicalProductFamilyRedirects,
+  canonicalProductRedirects,
+  canonicalVariants,
+  productIdentifiers,
+} from './canonicalCatalog';
 import { genericCompatibilityRelations } from './compatibility';
 import { commerceRelationships } from './relationships';
 import { merchantClaims } from './merchantClaims';
@@ -548,6 +556,21 @@ export const catalogMergeConflicts = pgTable(
     collapsingRelationId: text().references(() => genericCompatibilityRelations.id, {
       onDelete: 'restrict',
     }),
+    /**
+     * The redirect hop a merge would turn into a self-redirect (#405).
+     *
+     * TWO columns for one kind, because the constraint is written twice over the
+     * same shape — one redirect table per mergeable grain — and a conflict names
+     * the row it is about. Unlike the compatibility case the resolution keeps
+     * the row, so a real `restrict` reference is both possible and right: a
+     * conflict explaining a hop that no longer exists explains nothing.
+     */
+    collapsingProductRedirectId: text().references(() => canonicalProductRedirects.id, {
+      onDelete: 'restrict',
+    }),
+    collapsingFamilyRedirectId: text().references(() => canonicalProductFamilyRedirects.id, {
+      onDelete: 'restrict',
+    }),
 
     /** What actually collides — the GTIN, the signature — for the operator to read. */
     detail: text().notNull(),
@@ -582,7 +605,9 @@ export const catalogMergeConflicts = pgTable(
             coalesce("loser_relationship_id", '') || '|' || coalesce("winner_relationship_id", '') || '|' ||
             coalesce("loser_offer_id", '') || '|' || coalesce("winner_offer_id", '') || '|' ||
             coalesce("loser_claim_id", '') || '|' || coalesce("winner_claim_id", '') || '|' ||
-            coalesce("collapsing_relation_id", '')`,
+            coalesce("collapsing_relation_id", '') || '|' ||
+            coalesce("collapsing_product_redirect_id", '') || '|' ||
+            coalesce("collapsing_family_redirect_id", '')`,
       ),
   },
   (t) => [
@@ -656,6 +681,12 @@ export const catalogMergeConflicts = pgTable(
               and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
               and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
               and ${t.loserClaimId} is null and ${t.winnerClaimId} is null
+            when 'redirect_endpoint_collapse' then
+              ${t.loserIdentifierId} is null and ${t.winnerIdentifierId} is null
+              and ${t.loserVariantId} is null and ${t.winnerVariantId} is null
+              and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
+              and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
+              and ${t.loserClaimId} is null and ${t.winnerClaimId} is null
             else false
           end`,
     ),
@@ -670,8 +701,19 @@ export const catalogMergeConflicts = pgTable(
      */
     check(
       'catalog_merge_conflicts_collapse_shape_check',
-      sql`(${t.collapsingRelationId} is not null)
-          = (${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS))}))`,
+      sql`case ${t.kind}
+            when 'compatibility_endpoint_collapse' then
+              ${t.collapsingRelationId} is not null
+              and ${t.collapsingProductRedirectId} is null
+              and ${t.collapsingFamilyRedirectId} is null
+            when 'redirect_endpoint_collapse' then
+              ${t.collapsingRelationId} is null
+              and num_nonnulls(${t.collapsingProductRedirectId}, ${t.collapsingFamilyRedirectId}) = 1
+            else
+              ${t.collapsingRelationId} is null
+              and ${t.collapsingProductRedirectId} is null
+              and ${t.collapsingFamilyRedirectId} is null
+          end`,
     ),
     /** A row cannot collide with itself; that is not a conflict, it is a bug upstream. */
     check(
@@ -722,7 +764,18 @@ export const catalogMergeConflicts = pgTable(
     check(
       'catalog_merge_conflicts_close_relation_kind_check',
       sql`${t.resolution} is distinct from 'close_relation'
-          or ${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS))})`,
+          or ${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_CLOSE_RELATION_CONFLICT_KINDS))})`,
+    ),
+    /**
+     * And its sibling. The two collapse resolutions are NOT interchangeable:
+     * `close_relation` ends a live claim, `retain_history` records that a TRUE
+     * historical row stays. Offering either for the other's kind would mean
+     * revoking a fact, or "closing" a table with no state to close.
+     */
+    check(
+      'catalog_merge_conflicts_retain_history_kind_check',
+      sql`${t.resolution} is distinct from 'retain_history'
+          or ${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_RETAIN_HISTORY_CONFLICT_KINDS))})`,
     ),
     /**
      * And the direction the rule above cannot express: a collapse kind admits
@@ -741,7 +794,7 @@ export const catalogMergeConflicts = pgTable(
       'catalog_merge_conflicts_collapse_resolution_check',
       sql`${t.kind} not in (${sql.raw(inValues(CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS))})
           or ${t.resolution} is null
-          or ${t.resolution} = 'close_relation'`,
+          or ${t.resolution} in (${sql.raw(inValues(CATALOG_MERGE_COLLAPSE_RESOLUTIONS))})`,
     ),
     /**
      * A child job exists exactly when the resolution is the one that opens one.
