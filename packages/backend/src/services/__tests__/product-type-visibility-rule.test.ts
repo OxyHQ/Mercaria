@@ -27,6 +27,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  PRODUCT_TYPE_FIELD_REQUIREMENTS,
   PRODUCT_TYPE_FORBIDDEN_RULE_OPERATORS,
   PRODUCT_TYPE_RULE_MAX_BRANCHES,
   PRODUCT_TYPE_RULE_MAX_DEPTH,
@@ -36,6 +37,7 @@ import {
   PRODUCT_TYPE_RULE_MAX_VALUES,
   PRODUCT_TYPE_RULE_OPERATORS,
   PRODUCT_TYPE_VISIBILITY_OUTCOMES,
+  type ProductTypeFieldRequirement,
   type ProductTypeRuleValues,
   type ProductTypeVisibilityRule,
 } from '@mercaria/shared-types';
@@ -302,6 +304,76 @@ describe('the effective requirement', () => {
     // The decision that keeps an authoring form from deadlocking: a field whose
     // precondition nobody has answered cannot be REQUIRED.
     expect(effectiveFieldRequirement('required', { outcome: 'unknown', unknownFields: ['storage'] })).toBe('hidden');
+  });
+
+  /**
+   * The case above passes ONE declared level in, and `required` is the level for
+   * which collapsing onto `hidden` is the carefully-reasoned right answer. The
+   * other four were never passed in at all, so nothing said what a conditional
+   * rule does to them — and the walk below is over
+   * `PRODUCT_TYPE_FIELD_REQUIREMENTS`, so a level added later arrives here
+   * without anybody remembering this file.
+   *
+   * `forbidden` is EXEMPT, and the exemption is the finding rather than a
+   * convenience. `hidden` and `forbidden` are deliberately different levels —
+   * `validation.ts`'s `checkField` reports an ERROR for a forbidden field
+   * carrying an answer and reports NOTHING for a hidden one, keeping the value —
+   * so collapsing `forbidden` onto `hidden` turns the prohibition off whenever
+   * the guard is not definitely satisfied, the unanswered-guard case included.
+   * Measured end to end: a forbidden field with a visibility rule and an
+   * unanswered guard produces zero findings and `publishable: true`, while the
+   * identical field with no rule produces `field_forbidden_in_flow`. That is
+   * issue #640. Asserting today's answer for `forbidden` would pin it, so this
+   * asserts nothing about it and names it instead.
+   *
+   * The FUZZ pass below does not reach any of this, and a later reader should
+   * not assume it does: both generators produce rules and values, never a
+   * declared requirement level, so `effectiveFieldRequirement`'s coverage over
+   * the five levels rests entirely on the table cases here.
+   */
+  const CONDITIONAL_COLLAPSE_EXEMPT: readonly ProductTypeFieldRequirement[] = ['forbidden'];
+
+  it('exempts exactly one level from the collapse walk, and names it', () => {
+    expect([...CONDITIONAL_COLLAPSE_EXEMPT]).toEqual(['forbidden']);
+    expect(CONDITIONAL_COLLAPSE_EXEMPT).toHaveLength(1);
+    // A floor on the vocabulary, so a tuple that shrank to the exempt member
+    // alone could not make the walk below vacuous while still passing.
+    expect(PRODUCT_TYPE_FIELD_REQUIREMENTS.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('leaves every other level untouched with no rule, and with a satisfied one', () => {
+    const walked: ProductTypeFieldRequirement[] = [];
+    for (const declared of PRODUCT_TYPE_FIELD_REQUIREMENTS) {
+      if (CONDITIONAL_COLLAPSE_EXEMPT.includes(declared)) continue;
+      walked.push(declared);
+      // No rule at all: the declared level, unchanged. This is the arm that
+      // fails if the collapse ever starts applying to an unconditional field.
+      expect({ declared, at: 'no rule', got: effectiveFieldRequirement(declared, null) }).toEqual({
+        declared,
+        at: 'no rule',
+        got: declared,
+      });
+      expect({
+        declared,
+        at: 'satisfied',
+        got: effectiveFieldRequirement(declared, { outcome: 'satisfied', unknownFields: [] }),
+      }).toEqual({ declared, at: 'satisfied', got: declared });
+    }
+    expect(walked.length).toBeGreaterThanOrEqual(4);
+    process.stdout.write(`[requirement census] levels walked: ${walked.length}\n`);
+  });
+
+  it('hides every other level when the condition is unsatisfied or unknown', () => {
+    for (const declared of PRODUCT_TYPE_FIELD_REQUIREMENTS) {
+      if (CONDITIONAL_COLLAPSE_EXEMPT.includes(declared)) continue;
+      for (const outcome of ['unsatisfied', 'unknown'] as const) {
+        expect({
+          declared,
+          outcome,
+          got: effectiveFieldRequirement(declared, { outcome, unknownFields: ['storage'] }),
+        }).toEqual({ declared, outcome, got: 'hidden' });
+      }
+    }
   });
 });
 
