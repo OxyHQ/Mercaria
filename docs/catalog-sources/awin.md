@@ -572,9 +572,9 @@ operator pausing a live programme is acting on it.
 destination is tracked is flagged, and cannot be told from a deliberate
 configuration by inspection. Flagging it is judged correct — the money still
 routes through a link nobody validated as the destination — and the person
-deciding needs **both URLs in front of them**.
+deciding needs **both sides of the disagreement in front of them**.
 
-They are not obtainable from the offer, which is why
+The OFFER cannot supply them, which is why
 `awin_advertiser_quality.swap_example_destination_host` /
 `swap_example_deep_link_host` exist. On exactly the flagged rows the deep-link
 column holds a RETAILER url, so `assessAwinTrackingLink` refuses it as
