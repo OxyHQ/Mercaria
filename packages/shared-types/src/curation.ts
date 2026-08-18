@@ -638,6 +638,24 @@ export const CATALOG_JOB_CLAIMABLE_STATUSES: readonly CatalogJobStatus[] = ['pen
  *   partial unique (#83 acceptance 4). It is a SEPARATE kind rather than a
  *   relationship one because what it decides is who may OPERATE the surviving
  *   merchant, which is an access decision and not a graph edge.
+ * - `compatibility_endpoint_collapse` —
+ *   `generic_compatibility_relations_distinct_endpoints_check` (#405).
+ *
+ * ## The collapse kinds are ONE row, and that is why they are separate members
+ *
+ * The six kinds above are all PAIR collisions: two legal rows that become one
+ * illegal key, where an operator picks a survivor and the other is retired in
+ * its own domain's terms. `catalog_merge_conflicts_pair_shape_check` requires
+ * BOTH sides to be NOT NULL for every one of them, which is that shape stated
+ * once.
+ *
+ * A COLLAPSE is not that. One row names the losing entity on BOTH of its ends —
+ * or on one end with the winner on the other — and rehoming makes the two equal,
+ * which a distinct-endpoints CHECK refuses with `23514`. There is no winner
+ * counterpart to point at and nothing to choose between, so `keep_winner` and
+ * `keep_loser` have no referent here and are refused by a CHECK rather than
+ * reinterpreted per kind. It is also why `absenceGuard` cannot express the case:
+ * that guard hunts a COLLIDING WINNER ROW, and in a collapse none exists.
  *
  * A SLUG collision is deliberately absent. Slugs are unique forever and a
  * tombstone keeps its own (D12), so a merge never contends for one: the loser
@@ -650,7 +668,8 @@ export type CatalogMergeConflictKind =
   | 'default_variant'
   | 'relationship_endpoint'
   | 'active_offer'
-  | 'verified_claim';
+  | 'verified_claim'
+  | 'compatibility_endpoint_collapse';
 
 export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'identifier',
@@ -659,6 +678,7 @@ export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] =
   'relationship_endpoint',
   'active_offer',
   'verified_claim',
+  'compatibility_endpoint_collapse',
 ];
 
 /**
@@ -673,18 +693,48 @@ export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] =
  * the same option assignments would silently strand the loser's offers on a row
  * nothing links to. It opens a CHILD merge job for the two variants, which the
  * parent's `children` phase waits on.
+ *
+ * `close_relation` is the only resolution for a COLLAPSE kind, and reusing
+ * `keep_winner` for it was refused deliberately. That word is defined two lines
+ * above as "which of the two colliding rows stays ACTIVE", and a collapse has
+ * one row; making it mean something else for one kind would put the difference
+ * in a `switch` an operator never sees, in a vocabulary frozen into a CHECK
+ * where correcting it costs a migration. It CLOSES the relation — `valid_to`,
+ * plus the revocation attribution `generic_compatibility_relations_revoked_state_check`
+ * demands — and the merge then leaves the closed row on the tombstone, because
+ * the row it would move is the row the CHECK refuses.
  */
-export type CatalogMergeConflictResolution = 'keep_winner' | 'keep_loser' | 'merge_pair';
+export type CatalogMergeConflictResolution =
+  | 'keep_winner'
+  | 'keep_loser'
+  | 'merge_pair'
+  | 'close_relation';
 
 export const CATALOG_MERGE_CONFLICT_RESOLUTIONS: readonly CatalogMergeConflictResolution[] = [
   'keep_winner',
   'keep_loser',
   'merge_pair',
+  'close_relation',
 ];
 
 /** The conflict kinds `merge_pair` is a legal resolution for. */
 export const CATALOG_MERGE_PAIR_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'variant_signature',
+];
+
+/**
+ * The conflict kinds that name ONE row rather than a colliding pair, and the
+ * only kinds `close_relation` is a legal resolution for (#405).
+ *
+ * Two CHECKs read this tuple and neither implies the other: one refuses
+ * `close_relation` on a pair kind, the other refuses `keep_winner`/`keep_loser`
+ * on a collapse kind. Without the second, an operator could "keep the winner" of
+ * a conflict that has no winner row, and the applier would look up a column the
+ * shape CHECK guarantees is NULL — a resolution that records a decision and
+ * changes nothing, after which the merge proceeds into the same `23514`.
+ */
+export const CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
+  'compatibility_endpoint_collapse',
 ];
 
 // ── Split jobs ─────────────────────────────────────────────────────────────

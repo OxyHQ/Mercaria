@@ -95,6 +95,7 @@ import {
 import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
 import {
   CATALOG_JOB_STATUSES,
+  CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS,
   CATALOG_MERGE_CONFLICT_KINDS,
   CATALOG_MERGE_CONFLICT_RESOLUTIONS,
   CATALOG_MERGE_PAIR_CONFLICT_KINDS,
@@ -121,6 +122,7 @@ import {
 } from '@mercaria/shared-types';
 import { asEnumValues, checkEveryElementOf, checkOneOf } from './columns';
 import { canonicalVariants, productIdentifiers } from './canonicalCatalog';
+import { genericCompatibilityRelations } from './compatibility';
 import { commerceRelationships } from './relationships';
 import { merchantClaims } from './merchantClaims';
 import { matchDecisions, matchPolicyVersions } from './matching';
@@ -475,28 +477,38 @@ export const catalogMergeJobs = pgTable(
  * ## Every kind names a real constraint, and that is the membership test
  *
  * A "conflict" with no constraint behind it is a warning, and warnings do not
- * block. The five kinds are `product_identifiers_canonical_active_key`,
+ * block. The constraints are `product_identifiers_canonical_active_key`,
  * `canonical_variants_product_signature_key`,
  * `canonical_variants_product_default_key`,
- * `commerce_relationships_open_claim_key` and `offers_active_commercial_key` —
- * so the planning phase's job is to run each merge's repoint AS A QUERY and
- * report what Postgres would reject.
+ * `commerce_relationships_open_claim_key`, `offers_active_commercial_key`,
+ * `merchant_claims`' verified-operator partial unique and
+ * `generic_compatibility_relations_distinct_endpoints_check` — so the planning
+ * phase's job is to run each merge's repoint AS A QUERY and report what Postgres
+ * would reject.
  *
  * A SLUG collision is deliberately not among them: slugs are unique forever and
  * a tombstone keeps its own (ADR 0002 D12), so a merge never contends for one.
  * Invariant 5's "slug collisions produce deterministic redirects" is satisfied
  * by the identity model rather than by a decision anybody makes.
  *
- * ## Eight nullable foreign keys, not two opaque refs
+ * ## Real foreign keys, not two opaque refs — ten for the PAIRS and one alone
  *
- * The five kinds span exactly four tables and every conflict names two rows in
- * the SAME one, so real references are available and the
- * `commerce_relationships` endpoint reasoning applies: a conflict naming a
- * variant that no longer exists is a dangling pointer, and RESTRICT makes the
- * conflict row able to BLOCK a delete rather than vanish with what it explains.
- * `conflict_key` collapses them for the convergence unique, because Postgres
- * treats NULLs as distinct — the `endpoint_key` device, for its fourth time in
- * this graph.
+ * Six kinds span four tables and every one of them names two rows in the SAME
+ * one, so real references are available and the `commerce_relationships`
+ * endpoint reasoning applies: a conflict naming a variant that no longer exists
+ * is a dangling pointer, and RESTRICT makes the conflict row able to BLOCK a
+ * delete rather than vanish with what it explains. `conflict_key` collapses them
+ * for the convergence unique, because Postgres treats NULLs as distinct — the
+ * `endpoint_key` device, for its fourth time in this graph.
+ *
+ * The seventh names ONE row and the asymmetry is the fact rather than an
+ * omission (#405). A merge that lands both ends of a relation on the winner has
+ * no second row to weigh: the row is legal before the merge and illegal after
+ * it. `collapsing_relation_id` is therefore a lone reference, it is in
+ * `conflict_key` like every other — two relations collapsing under one job are
+ * two conflicts, and leaving it out would make the second converge onto the
+ * first and disappear — and the shape CHECKs keep the two families apart in both
+ * directions.
  */
 export const catalogMergeConflicts = pgTable(
   'catalog_merge_conflicts',
@@ -520,6 +532,22 @@ export const catalogMergeConflicts = pgTable(
     winnerOfferId: text().references(() => offers.id, { onDelete: 'restrict' }),
     loserClaimId: text().references(() => merchantClaims.id, { onDelete: 'restrict' }),
     winnerClaimId: text().references(() => merchantClaims.id, { onDelete: 'restrict' }),
+
+    // ── The COLLAPSING row: one reference, because there is no pair (#405) ───
+    /**
+     * The single relation whose two ends the merge would make equal.
+     *
+     * There is no `winner…` twin and adding one would be a lie about the shape:
+     * nothing on the winning side collides, which is exactly why `absenceGuard`
+     * — a hunt for a colliding winner row — cannot see this case at all.
+     * RESTRICT for the reason every other conflict reference is: a conflict
+     * naming a relation that no longer exists is a dangling pointer, and the
+     * conflict row should be able to BLOCK a delete rather than vanish with what
+     * it explains.
+     */
+    collapsingRelationId: text().references(() => genericCompatibilityRelations.id, {
+      onDelete: 'restrict',
+    }),
 
     /** What actually collides — the GTIN, the signature — for the operator to read. */
     detail: text().notNull(),
@@ -553,7 +581,8 @@ export const catalogMergeConflicts = pgTable(
             coalesce("loser_variant_id", '') || '|' || coalesce("winner_variant_id", '') || '|' ||
             coalesce("loser_relationship_id", '') || '|' || coalesce("winner_relationship_id", '') || '|' ||
             coalesce("loser_offer_id", '') || '|' || coalesce("winner_offer_id", '') || '|' ||
-            coalesce("loser_claim_id", '') || '|' || coalesce("winner_claim_id", '')`,
+            coalesce("loser_claim_id", '') || '|' || coalesce("winner_claim_id", '') || '|' ||
+            coalesce("collapsing_relation_id", '')`,
       ),
   },
   (t) => [
@@ -572,6 +601,15 @@ export const catalogMergeConflicts = pgTable(
      * `default_variant` names TWO variants like `variant_signature` does, and
      * the two are separate kinds because their resolutions differ — one may be
      * answered by `keep_winner`, the other may not.
+     *
+     * `compatibility_endpoint_collapse` is the one branch that names NO pair,
+     * and it is written as ten `is null`s rather than left out (#405): a kind
+     * with no branch falls to `else false` and cannot be stored at all, and a
+     * kind whose branch said nothing would let a collapse carry a stray offer or
+     * claim reference. Which reference it DOES carry is
+     * `catalog_merge_conflicts_collapse_shape_check` below — a biconditional
+     * over the whole tuple, so a seventh kind cannot be admitted to the pair
+     * shape while quietly also carrying a collapsing relation.
      */
     check(
       'catalog_merge_conflicts_pair_shape_check',
@@ -612,8 +650,28 @@ export const catalogMergeConflicts = pgTable(
               and ${t.loserVariantId} is null and ${t.winnerVariantId} is null
               and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
               and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
+            when 'compatibility_endpoint_collapse' then
+              ${t.loserIdentifierId} is null and ${t.winnerIdentifierId} is null
+              and ${t.loserVariantId} is null and ${t.winnerVariantId} is null
+              and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
+              and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
+              and ${t.loserClaimId} is null and ${t.winnerClaimId} is null
             else false
           end`,
+    ),
+    /**
+     * The collapsing reference is present on EXACTLY the collapse kinds (#405).
+     *
+     * A biconditional rather than a clause repeated through the six pair
+     * branches above, because the repeated form has to be remembered once per
+     * branch and the direction it fails in is silent: a pair conflict carrying a
+     * collapsing relation would resolve as a pair, leave the relation open, and
+     * the merge would then hit the same `23514` the conflict existed to prevent.
+     */
+    check(
+      'catalog_merge_conflicts_collapse_shape_check',
+      sql`(${t.collapsingRelationId} is not null)
+          = (${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS))}))`,
     ),
     /** A row cannot collide with itself; that is not a conflict, it is a bug upstream. */
     check(
@@ -656,6 +714,34 @@ export const catalogMergeConflicts = pgTable(
       'catalog_merge_conflicts_merge_pair_kind_check',
       sql`${t.resolution} is distinct from 'merge_pair'
           or ${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_PAIR_CONFLICT_KINDS))})`,
+    ),
+    /**
+     * `close_relation` belongs to exactly the kinds that name ONE row (#405) —
+     * the mirror of the rule above.
+     */
+    check(
+      'catalog_merge_conflicts_close_relation_kind_check',
+      sql`${t.resolution} is distinct from 'close_relation'
+          or ${t.kind} in (${sql.raw(inValues(CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS))})`,
+    ),
+    /**
+     * And the direction the rule above cannot express: a collapse kind admits
+     * NOTHING BUT `close_relation`.
+     *
+     * `keep_winner` on a collapse is not a wrong answer that fails somewhere —
+     * it is an answer to a question nobody asked, and `retiredSide` would map it
+     * to "retire the loser row", whose column the shape CHECK guarantees is
+     * NULL. The applier returns, the conflict is marked applied, the job
+     * unblocks, and the rehoming phase walks into the `23514` this whole
+     * mechanism exists to have decided. The UNDECIDED case is spelled out as
+     * its own `is null` disjunct rather than left to three-valued logic: a
+     * detected collapse is written with no resolution and has to be storable.
+     */
+    check(
+      'catalog_merge_conflicts_collapse_resolution_check',
+      sql`${t.kind} not in (${sql.raw(inValues(CATALOG_MERGE_COLLAPSE_CONFLICT_KINDS))})
+          or ${t.resolution} is null
+          or ${t.resolution} = 'close_relation'`,
     ),
     /**
      * A child job exists exactly when the resolution is the one that opens one.
