@@ -54,7 +54,6 @@ import { sql } from 'drizzle-orm';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 import {
-  countProposalsSince,
   findOpenProposalByConvergenceKey,
   listProposalReferences,
   listReviewEvents,
@@ -565,31 +564,32 @@ describe.skipIf(!ready)('the durable submission budget (#367 Workstream 18)', ()
     expect(admitted.outcome).toBe('created');
   });
 
-  it('counts within the WINDOW, so an old proposal does not spend today\'s budget', async () => {
-    // The bound is "per hour", not "ever". Backdating is the only way to observe
-    // it: a proposal outside the window must not be counted, or the budget
-    // becomes a lifetime cap that silently locks a store out after a busy week.
+  it('counts within the WINDOW, so yesterday\'s proposals do not spend today\'s budget', async () => {
+    // The bound is "per hour", not "ever". Driven through `submitProposal`
+    // rather than through the counter, because the horizon under test is the
+    // SERVICE's: a case that called `countProposalsSince` with its own `since`
+    // would prove the repository honours the argument it was handed and say
+    // nothing about the argument the service hands it. Without this, a budget
+    // counted from the beginning of time passes every other case here and locks
+    // a busy store out permanently.
     const spender = `${P}-budget-window`;
-    const first = await submitProposal(db, submission('Window Colour', spender, false));
+    const bound = config.catalogProposals.maxPerSubmitterPerHour;
+    for (let i = 0; i < bound; i += 1) {
+      await submitProposal(db, submission(`Window Colour ${i}`, spender, false));
+    }
+    // Spent — the same refusal the case above asserts, restated here as this
+    // case's OWN precondition rather than assumed from the one before it.
+    await expect(
+      submitProposal(db, submission('Window Overflow Before', spender, false)),
+    ).rejects.toThrow(/too many catalogue proposals/iu);
+
+    // Backdated PAST the hour. Derived from what the server stamped rather than
+    // from a literal instant, so the case cannot rot into passing on a clock.
     await db.execute(
-      sql`update catalog_proposals set created_at = now() - interval '2 hours' where id = ${first.proposal.id}`,
+      sql`update catalog_proposals set created_at = created_at - interval '2 hours' where submitted_by_oxy_user_id = ${spender}`,
     );
 
-    const counted = await countProposalsSince(
-      db,
-      { submittedByOxyUserId: spender },
-      new Date(Date.now() - 60 * 60 * 1000),
-    );
-    expect(counted).toBe(0);
-
-    // The positive control on the COUNTER rather than on the window: it can see
-    // the row when the horizon reaches back far enough, so the zero above is the
-    // window working and not a predicate matching nothing.
-    const everything = await countProposalsSince(
-      db,
-      { submittedByOxyUserId: spender },
-      new Date(Date.now() - 24 * 60 * 60 * 1000),
-    );
-    expect(everything).toBe(1);
+    const admitted = await submitProposal(db, submission('Window Overflow After', spender, false));
+    expect(admitted.outcome).toBe('created');
   });
 });
