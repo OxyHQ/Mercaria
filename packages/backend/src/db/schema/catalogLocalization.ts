@@ -222,6 +222,10 @@ export const categoryLocalizations = pgTable(
   (t) => [
     ...localizationChecks('category_localizations', { ...t, primaryText: t.name }),
     uniqueIndex('category_localizations_locale_key').on(t.categoryId, t.locale),
+    // The translation desk's index — see the closing note. `locale` leads
+    // because every desk read narrows to a locale first; `status` follows so the
+    // per-status counts are answered from the index rather than the heap.
+    index('category_localizations_locale_status_idx').on(t.locale, t.status),
   ],
 );
 
@@ -358,6 +362,7 @@ export const productTypeLocalizations = pgTable(
   (t) => [
     ...localizationChecks('product_type_localizations', { ...t, primaryText: t.name }),
     uniqueIndex('product_type_localizations_locale_key').on(t.productTypeDefinitionId, t.locale),
+    index('product_type_localizations_locale_status_idx').on(t.locale, t.status),
   ],
 );
 
@@ -469,31 +474,40 @@ export const attributeValueLocalizations = pgTable(
   (t) => [
     ...localizationChecks('attribute_value_localizations', { ...t, primaryText: t.label }),
     uniqueIndex('attribute_value_localizations_locale_key').on(t.attributeEnumValueId, t.locale),
+    index('attribute_value_localizations_locale_status_idx').on(t.locale, t.status),
   ],
 );
 
 /*
- * A `(locale, status)` index is deliberately ABSENT from all three text tables.
+ * The `(locale, status)` indexes above arrived with their reader (#367 step 10).
  *
- * It is the obvious index for "every category still owing a Spanish name", and
- * nothing reads that question today: the translation desk that asks it is #367
- * merge-order step 10. Three indexes over three tables that will each carry
- * roughly (entities × locales) rows is a real write cost paid on every
- * translation save, and #61's own findings are the precedent for recording an
- * index decision rather than adding one speculatively — an index whose reader
- * arrives later is a one-statement additive migration, and one whose reader
- * never arrives is permanent.
+ * They were deliberately absent until it did: the note this replaces recorded
+ * that "the translation desk that asks it is #367 merge-order step 10", that
+ * three indexes over three tables each carrying roughly (entities × locales)
+ * rows is a real write cost paid on every translation save, and that an index
+ * whose reader arrives later is a one-statement additive migration while one
+ * whose reader never arrives is permanent. The desk is that reader:
+ * `db/catalogLocalization/completenessRepository.ts` joins each of the three
+ * tables on `locale` for every locale in scope, and `<table>_locale_key` cannot
+ * serve that — its leading column is the ENTITY id, not the locale. The write
+ * cost is now paid for a query somebody runs rather than banked against one
+ * nobody does.
  *
- * `findCategoryLocalizationCoverage`'s one-category read is served by the
- * leading column of `category_localizations_locale_key`.
+ * `findCategoryLocalizationCoverage`'s one-category read is still served by the
+ * leading column of `category_localizations_locale_key` and is unaffected.
  *
- * A `localization_coverage_runs` table is deliberately ABSENT too.
+ * A `localization_coverage_runs` table is deliberately ABSENT, and the desk
+ * landing did NOT change that.
  *
  * "How much of the catalogue is translated into Spanish" is a QUERY over these
- * tables — `category_localizations_locale_status_idx` is there to serve it — and
- * storing its answer would be a second representation of a fact the rows already
- * carry, going stale the moment a translator saves. `attribute_coverage_runs`'
- * absence one file over is the precedent and the reasoning is identical.
+ * tables — the indexes above are what serve it — and storing its answer would be
+ * a second representation of a fact the rows already carry, going stale the
+ * moment a translator saves. `attribute_coverage_runs`' absence one file over is
+ * the precedent and the reasoning is identical.
  *
- * Recorded so the absence reads as a decision rather than an oversight.
+ * (The sentence this note replaces cited
+ * `category_localizations_locale_status_idx` as though it existed while the
+ * paragraph above it said the index was absent. The two halves contradicted each
+ * other from the day they were written; the index named there is the one now
+ * created, so the citation is true for the first time rather than merely tidied.)
  */
