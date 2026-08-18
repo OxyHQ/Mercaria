@@ -494,6 +494,7 @@ not opinions:
 | `rejected_currency`, `rejected_price`, `contradictory_availability` | quality control 2 — routed to errors, never guessed |
 | `tracking_approved`, `tracking_rejected` | §7's verdicts, so a deep-link regression is visible |
 | `destination_tracking_host`, `destination_tracked_only` | the swapped-URL-columns detector (#589) and its positive control. The first is the finding; the second is what tells a clean feed from one where the conjunction could never have fired. See §"Sampling before activation" |
+| `swap_example_destination_host`, `swap_example_deep_link_host` | the first flagged row's two HOSTS. The evidence the residual needs and the OFFER cannot supply — a swapped row's deep link is withheld by the tracking assessment, so `affiliate_tracking_template` is NULL. Hosts rather than URLs, so this schema still stores none |
 
 **A contradictory availability is a REJECTION, not a repair.** `in_stock = 1`
 beside `stock_quantity = 0`, or an availability word beside a quantity that
@@ -571,9 +572,31 @@ operator pausing a live programme is acting on it.
 destination is tracked is flagged, and cannot be told from a deliberate
 configuration by inspection. Flagging it is judged correct — the money still
 routes through a link nobody validated as the destination — and the person
-deciding needs both URLs in front of them. They are: every offer this pass wrote
-carries the feed's own `destination_url` and `affiliate_url`, so the quality
-snapshot deliberately stores no second copy of either.
+deciding needs **both sides of the disagreement in front of them**.
+
+The OFFER cannot supply them, which is why
+`awin_advertiser_quality.swap_example_destination_host` /
+`swap_example_deep_link_host` exist. On exactly the flagged rows the deep-link
+column holds a RETAILER url, so `assessAwinTrackingLink` refuses it as
+`rejected_host` and `withAssessedAwinTracking` withholds it:
+`offers.affiliate_tracking_template` is NULL and only the tracked destination
+survives. The half needed to make the judgement is the half the tracking
+assessment removes.
+
+**HOSTS and never URLs.** This domain stores no URL of any kind, because the
+product-data API key lives in the PATH of a feed URL and
+`awin-isolation.test.ts` fails the build on any column here whose name reads as
+one. The evidence deliberately does not ask that gate for an exemption — a host
+has no path and no query, so the hazard is removed rather than excused — and
+nothing is lost, because a host is exactly what the detector compared.
+
+One example per import rather than a list: the finding is about the feed's
+column MAPPING and every flagged row says the same thing about it, while the
+counter carries the magnitude. `awin_advertiser_quality_swap_example_check`
+makes the pair bounded, paired, and EARNED — no example on a snapshot whose swap
+counter is zero, so a row cannot carry evidence for a finding it did not make.
+Both appear on `GET /internal/awin/advertisers/:id`, which returns quality rows
+whole.
 
 **`awin_advertisers.declared_host` is GONE** (#589), with
 `awin_advertisers_declared_host_shape_check`, `AWIN_DECLARED_HOST_PATTERN`, the

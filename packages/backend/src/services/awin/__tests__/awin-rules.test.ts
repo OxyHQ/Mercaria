@@ -607,6 +607,88 @@ describe('quality is MEASURED and nothing is repaired', () => {
     expect(readAwinQualityCounts(trackedOnly).destinationTrackedOnly).toBe(1);
   });
 
+  /**
+   * The EVIDENCE, and why it is stored rather than looked up on the offer.
+   *
+   * On exactly the rows the counter flags, the deep-link column holds a RETAILER
+   * url, so `assessAwinTrackingLink` refuses it and `withAssessedAwinTracking`
+   * withholds it — `offers.affiliate_tracking_template` is NULL and only the
+   * tracked destination survives. The half an operator needs in order to tell a
+   * swap from a deliberate configuration is the half that is removed.
+   */
+  it('keeps the FIRST flagged row’s two hosts and never overwrites them', () => {
+    const meter = createAwinQualityMeter();
+    const flagged = (index: number, deepLink: string): void => {
+      observeAwinRecord(meter, {
+        raw: rawRecord({}, index),
+        mapped: mapped(index, `f${String(index)}`, {
+          title: 'F',
+          identifiers: [],
+          options: [],
+          media: [],
+          sourceUrl: `https://www.awin1.com/cread.php?awinmid=${String(index)}`,
+          affiliateUrl: deepLink,
+        }),
+        tracking: { verdict: 'rejected_host' },
+      });
+    };
+    flagged(0, 'https://retailer.example/first');
+    flagged(1, 'https://retailer.example/second');
+
+    expect(readAwinQualityCounts(meter).destinationTrackingHost).toBe(2);
+    // "The first one we saw" is a fact an operator can reason about; "the last
+    // one before the pass ended" is not.
+    expect(meter.swapExample).toEqual({
+      destinationHost: 'www.awin1.com',
+      deepLinkHost: 'retailer.example',
+    });
+  });
+
+  /**
+   * A deep link that will not parse leaves the destination host standing.
+   *
+   * That row is still the swap — the destination is the network's and nothing
+   * establishes that the deep-link column is doing its job — so dropping the
+   * whole example would remove the evidence for a finding that was made.
+   */
+  it('records the destination host even when the deep link is unreadable', () => {
+    const meter = createAwinQualityMeter();
+    observeAwinRecord(meter, {
+      raw: rawRecord({}),
+      mapped: mapped(0, 'a', {
+        title: 'A',
+        identifiers: [],
+        options: [],
+        media: [],
+        sourceUrl: 'https://www.awin1.com/cread.php?awinmid=1',
+        affiliateUrl: 'not a url',
+      }),
+      tracking: { verdict: 'rejected_shape' },
+    });
+    expect(readAwinQualityCounts(meter).destinationTrackingHost).toBe(1);
+    expect(meter.swapExample).toEqual({
+      destinationHost: 'www.awin1.com',
+      deepLinkHost: null,
+    });
+  });
+
+  it('keeps no example when nothing was flagged', () => {
+    const meter = createAwinQualityMeter();
+    observeAwinRecord(meter, {
+      raw: rawRecord({}),
+      mapped: mapped(0, 'a', {
+        title: 'A',
+        identifiers: [],
+        options: [],
+        media: [],
+        sourceUrl: 'https://retailer.example/p/1',
+        affiliateUrl: 'https://www.awin1.com/cread.php?awinmid=1',
+      }),
+      tracking: { verdict: 'approved', url: 'https://www.awin1.com/cread.php?awinmid=1' },
+    });
+    expect(meter.swapExample).toBeNull();
+  });
+
   it('tells a currency Mercaria does not list from an unreadable amount', () => {
     const meter = createAwinQualityMeter();
     observeAwinRecord(meter, {

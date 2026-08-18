@@ -3438,6 +3438,22 @@ must have a different answer from what it reports now. They are disjoint verdict
 over MAPPED records, so `coverage_check` bounds their SUM by `mapped` exactly as
 it does the tracking pair.
 
+**`swap_example_destination_host` / `swap_example_deep_link_host` are stored
+because the OFFER cannot supply them, and they are HOSTS because this schema
+stores no URL.** The obvious objection is that both values are already on every
+offer the pass wrote — and on exactly the flagged rows they are not: the
+deep-link column holds a RETAILER url, `assessAwinTrackingLink` refuses it and
+`withAssessedAwinTracking` withholds it, so
+`offers.affiliate_tracking_template` is NULL and only the tracked destination
+survives. Storing hosts rather than URLs is what lets the domain's no-URL wall
+(`awin-isolation.test.ts`, guarding a feed URL whose PATH carries the API key)
+stay unexempted: a host has no path and no query, and a host is exactly what the
+detector compared. `awin_advertiser_quality_swap_example_check` makes the pair
+BOUNDED by the same handle length every provider-supplied host here carries,
+PAIRED (a deep-link host with no destination describes nothing) and EARNED (no
+example on a snapshot whose swap counter is zero, so a row cannot carry evidence
+for a finding it did not make).
+
 **There is no `awin_advertisers.declared_host` and no expectation column of any
 kind.** It was deleted with `awin_advertisers_declared_host_shape_check` and
 `AWIN_DECLARED_HOST_PATTERN` (#589) after having no production writer for its

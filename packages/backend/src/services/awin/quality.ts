@@ -35,10 +35,14 @@
  * which is what the detector needs.
  */
 
-import type { AwinQualityCounts } from '@mercaria/shared-types';
+import type { AwinDestinationSwapExample, AwinQualityCounts } from '@mercaria/shared-types';
 import type { FeedRawRecord } from '../feed-import/parse/index.js';
 import type { MappedFeedRecord } from '../feed-import/mapping.js';
-import { assessAwinDestination, type AwinTrackingAssessment } from './tracking.js';
+import {
+  assessAwinDestination,
+  destinationHost,
+  type AwinTrackingAssessment,
+} from './tracking.js';
 
 /**
  * The running measurement.
@@ -64,6 +68,14 @@ export interface AwinQualityMeter {
    */
   readonly seenExternalIds: Set<string>;
   readonly seenGtins: Set<string>;
+  /**
+   * The FIRST flagged row's two hosts, or `null` while nothing has been flagged.
+   *
+   * Written once and never overwritten: a later row would say the same thing
+   * about the same column mapping, and "the first one we saw" is a fact an
+   * operator can reason about where "the last one before the pass ended" is not.
+   */
+  swapExample: AwinDestinationSwapExample | null;
 }
 
 export function createAwinQualityMeter(): AwinQualityMeter {
@@ -89,6 +101,7 @@ export function createAwinQualityMeter(): AwinQualityMeter {
     },
     seenExternalIds: new Set<string>(),
     seenGtins: new Set<string>(),
+    swapExample: null,
   };
 }
 
@@ -189,8 +202,22 @@ export function observeAwinRecord(
     destination: normalized.sourceUrl,
     deepLink: normalized.affiliateUrl,
   });
-  if (destination === 'tracking_host') meter.counts.destinationTrackingHost += 1;
-  else if (destination === 'tracked_only') meter.counts.destinationTrackedOnly += 1;
+  if (destination === 'tracking_host') {
+    meter.counts.destinationTrackingHost += 1;
+    // The EVIDENCE, kept once, and taken from the SAME pure function the verdict
+    // was computed with, so the two cannot describe different hosts. A
+    // `tracking_host` verdict is unreachable without a destination that parsed,
+    // which is why the `?? null` branch is unreachable rather than a fallback.
+    if (meter.swapExample === null) {
+      const destinationValue = destinationHost(normalized.sourceUrl);
+      if (destinationValue !== null) {
+        meter.swapExample = {
+          destinationHost: destinationValue,
+          deepLinkHost: destinationHost(normalized.affiliateUrl),
+        };
+      }
+    }
+  } else if (destination === 'tracked_only') meter.counts.destinationTrackedOnly += 1;
 
   if (input.tracking.verdict === 'approved') {
     meter.counts.trackingApproved += 1;
