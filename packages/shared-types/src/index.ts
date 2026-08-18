@@ -663,6 +663,12 @@ export * from './navigation';
 // markets" a property of the field rather than a discipline every reader has to
 // remember.
 export * from './catalog-localization';
+// The translation desk (#367 step 10) — the MEASUREMENT vocabulary over the
+// family above. Separate from `./catalog-localization` because every symbol in
+// it depends on facts the localization tables cannot state: how many entities
+// are OWED a translation, and how each domain comes to know its text went out
+// of date. It imports from `./catalog-localization` and nothing imports from it.
+export * from './catalog-localization-desk';
 // Compatibility and automotive fitment (#367 step 8, ADR 0007 D8). LAST, and it
 // depends on nothing above it — the domain is a relationship between catalogue
 // identities and defines no money, no offer and no ranking vocabulary. Its
