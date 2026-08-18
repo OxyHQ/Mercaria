@@ -1,11 +1,23 @@
 # Arabic review pack (#486)
 
-Generated from `051b3139 on 2026-08-18`. Every number below is derived; none is typed by hand.
+Generated from `2fa1b207 on 2026-08-18`. Every number below is derived; none is typed by hand.
 
 ```bash
 bun scripts/extract-arabic-review.mjs            # the counts
 bun scripts/extract-arabic-review.mjs --markdown # this document
 bun scripts/extract-arabic-review.mjs --json     # the same data, for tooling
+```
+
+**This file is GENERATED, so it goes stale silently.** Its inputs are the two `ar.json`/
+`en.json` bundles and every `.ts`/`.tsx` under `packages/dashboard` and `packages/pos`. When
+any of those move, this document keeps asserting the old counts and **nothing in a diff or a
+gate can see it** — the file is unchanged because the file is unchanged; what moved is what it
+describes. One command answers it:
+
+```bash
+diff <(grep -v '^Generated from' docs/i18n/arabic-review-486.md) \
+     <(bun scripts/extract-arabic-review.mjs --markdown | grep -v '^Generated from') \
+  && echo 'not stale'
 ```
 
 **Arabic in a markdown table bidi-scrambles against the Latin key beside it.** This file is
