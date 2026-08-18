@@ -32,6 +32,13 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   MERCHANT_DEMAND_COUNT_NOUNS,
@@ -80,14 +87,39 @@ function domainSources(): { relative: string; source: string }[] {
   }));
 }
 
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The hyphen after `merchant` is OPTIONAL, and that widening is load-bearing
+ * rather than tidy: the schema directory names its files in camelCase, so
+ * `db/schema/merchantDemand.ts` cannot match a hyphenated spelling. Deriving it
+ * below instead of naming it by hand — which is what this gate did — depends
+ * entirely on the optional hyphen.
+ *
+ * Widening a pattern is the PERMISSIVE direction and owes a measurement: over
+ * the whole of `src/`, `/merchant-?(demand|acquisition)/i` selects 17 modules
+ * and every one is this domain's. `merchants.ts`, `merchantClaims.ts`,
+ * `merchantPlans.ts` and `merchantActivation.ts` do not match it.
+ */
+const DEMAND_NAME_PATTERN = /merchant-?(demand|acquisition)/i;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` joins the three copied from gate to gate, which lets
+ * `db/schema/merchantDemand.ts` be DERIVED rather than named. A hand list of one
+ * is still a hand list, and the stated objection — that walking `db/schema/`
+ * whole would scan every table in the database from a gate about one domain —
+ * is an objection to walking it WHOLE, not to filtering it by name.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
 /** Every demand- or acquisition-NAMED module in a shared flat directory. */
-function demandNamedSharedModules(): string[] {
-  return (['controllers', 'routes', 'middleware'] as const).flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /merchant-(demand|acquisition)/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  );
+function demandNamedSharedModules(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // RECURSIVE and matching the PATH, where this was one level deep beside a
+  // recursive `walk()` — so nothing under `routes/admin/` or `controllers/admin/`
+  // could enter the population (#460).
+  return namedInSharedDirectories(SHARED_DIRECTORIES, DEMAND_NAME_PATTERN, readDir);
 }
 
 /**
@@ -105,11 +137,11 @@ function demandNamedSharedModules(): string[] {
  * directory, and walking `db/schema/` whole would scan every table in the
  * database from a gate about one domain.
  */
-const OUTER_PATHS = [
-  ...walk('db/merchantDemand'),
-  'db/schema/merchantDemand.ts',
-  ...demandNamedSharedModules(),
-];
+function outerPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [...walkOwnedDirectory('db/merchantDemand', readDir), ...demandNamedSharedModules(readDir)];
+}
+
+const OUTER_PATHS = outerPaths();
 
 /** Every file this domain owns, inside and outside the service directory. */
 function allDomainFiles(): { relative: string; source: string }[] {
@@ -472,5 +504,37 @@ describe('WALL 6: the operator surface is read plus a CLOSED write set', () => {
     // The newline guard itself: two quoted strings on two lines must not be
     // read as one string spanning the word between them.
     expect(forbiddenPath.test("import { sendSuccess } from 'x';\nconst a = 'b';")).toBe(false);
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate's derivation, and
+ * hand lists fail silently. So: sweep the whole of `src/` for paths naming this
+ * domain and require each to be in the population or in a counted exclusion.
+ *
+ * Both halves go in, because a module is covered if any wall in this file
+ * reaches it: `services/merchant-demand/`, which the detectors scan through
+ * `domainSources()`, and the outer paths.
+ *
+ * The exclusion set is EMPTY because it was MEASURED — the sweep selects 17
+ * modules and every one is this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every merchant-demand-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: (readDir) => [
+        ...walkOwnedDirectory('services/merchant-demand', readDir),
+        ...outerPaths(readDir),
+      ],
+      pattern: DEMAND_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 17 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 12,
+      plantIn: 'lib',
+      plantName: 'merchant-demand-cache.ts',
+    });
   });
 });
