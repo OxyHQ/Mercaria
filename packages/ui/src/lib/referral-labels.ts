@@ -34,6 +34,7 @@ import type { Translate } from "../i18n/create-app-i18n";
 import type {
   ReferralMetricDefinition,
   ReferralPartnerOutstandingItem,
+  ReferralPayoutBatchStatus,
   ReferralRewardBasisCopy,
   ReferralRewardState,
 } from "@mercaria/shared-types";
@@ -165,9 +166,25 @@ export function describeWithheldRows(
   return t("ui.referral.withheld.some", { count: input.withheldRowCount, floor: input.floor });
 }
 
-/** How a payout batch's state reads to the partner waiting on it, as KEYS. */
-export const REFERRAL_PAYOUT_STATUS_KEYS: Readonly<Record<string, string>> = {
-  open: "ui.referral.payoutStatus.open",
+/**
+ * How a payout batch's state reads to the partner waiting on it, as KEYS.
+ *
+ * `Record<ReferralPayoutBatchStatus, …>`, not `Record<string, …>` (#596). Typed
+ * over `string` this map claimed a member the union does not have — `open` —
+ * and was MISSING the one a batch is created in, `draft`, which is the column's
+ * DEFAULT. So the first state every payout passes through rendered the bare
+ * word `draft` to the partner in all twelve locales, while `open`'s translated
+ * sentence was unreachable in all twelve. Neither half could fail: `tsc` checks
+ * nothing against a `string` key, and the call site's `KEYS[x] ? t(KEYS[x]) : x`
+ * fallback turned the miss into the identifier instead of a visible break.
+ *
+ * The copy did not move — every locale already said "being prepared", which is
+ * what `draft` means. Only the key was wrong.
+ */
+export const REFERRAL_PAYOUT_STATUS_KEYS: Readonly<
+  Record<ReferralPayoutBatchStatus, string>
+> = {
+  draft: "ui.referral.payoutStatus.draft",
   approved: "ui.referral.payoutStatus.approved",
   processing: "ui.referral.payoutStatus.processing",
   paid: "ui.referral.payoutStatus.paid",

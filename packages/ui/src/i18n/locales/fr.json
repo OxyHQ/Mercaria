@@ -401,7 +401,7 @@
         }
       },
       "payoutStatus": {
-        "open": "En préparation",
+        "draft": "En préparation",
         "approved": "Approuvé",
         "processing": "En route",
         "paid": "Payé",

@@ -401,7 +401,7 @@
         }
       },
       "payoutStatus": {
-        "open": "準備中",
+        "draft": "準備中",
         "approved": "承認済み",
         "processing": "送金中",
         "paid": "支払い済み",

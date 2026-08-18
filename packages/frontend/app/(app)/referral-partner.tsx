@@ -260,7 +260,7 @@ function EnrollmentCard(props: {
           <Text className="text-sm text-foreground">{t("referral.standing.beforePaid")}</Text>
           {props.outstanding.map((item) => (
             <Text key={item} className="text-sm text-muted-foreground">
-              • {REFERRAL_OUTSTANDING_KEYS[item] ? t(REFERRAL_OUTSTANDING_KEYS[item]) : item}
+              • {t(REFERRAL_OUTSTANDING_KEYS[item])}
             </Text>
           ))}
           {/* Stated explicitly, because it is the thing a partner assumes
@@ -417,7 +417,7 @@ function PayoutCard({
         payouts.recentPayouts.map((batch, index) => (
           <Text key={`${batch.date}:${index}`} className="text-sm text-foreground">
             {batch.date} — {money(batch.netPayoutMinor, batch.currency, locale)} —{" "}
-            {REFERRAL_PAYOUT_STATUS_KEYS[batch.status] ? t(REFERRAL_PAYOUT_STATUS_KEYS[batch.status]) : batch.status}
+            {t(REFERRAL_PAYOUT_STATUS_KEYS[batch.status])}
           </Text>
         ))
       )}
