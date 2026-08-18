@@ -450,13 +450,104 @@ Four more domain-named modules sit in those directories (`routes/admin/feeds.ts`
 and the analytics pair #609 fixed for one gate only). Most other domains are
 complete purely by where their modules happen to live.
 
-## An empty exclusion list needs a positive control that shares the wall's comparison
+## An empty exclusion list needs a positive control, and sharing the comparison is not enough
 
 `toEqual([])` is satisfied three ways: by a correct tree, by a sweep that reached
 nothing, and by a population containing everything. A vacuity floor covers the
-second; only a **planted module** covers the third — and if the control computes
-its own population, it tests the sweep rather than the wall.
+second. The third is the hard one, and **this section previously credited a
+mechanism that does not close it.**
 
-Measured (#609): with two spellings of the population, mutating the wall's to
-contain everything left **all ten tests green**. One comparison now serves both
-the wall and its control, and that mutation fails naming the planted module.
+What it said, and what #609 measured, was this: with two spellings of the
+population — the wall computing one and its control computing another — mutating
+the wall's to contain everything left **all ten tests green**, so one comparison
+was made to serve both.
+
+**That was a real defect and the shared comparison is a real improvement, but it
+does not close the case this section is named for.** Sharing the comparison
+catches a population spelled `new Set(paths)` — the argument — and does **not**
+catch one spelled `new Set(swept)`. Re-measured on `analytics-ranking-isolation.test.ts`,
+which carries the shared comparison and quotes the sentence above:
+
+    perl -0pi -e 's/const population = new Set\(analyticsDomainModules\(\)\);/const population = new Set(swept);/' \
+      packages/backend/src/services/analytics/__tests__/analytics-ranking-isolation.test.ts
+    # -> Tests  10 passed (10)
+
+**The reason is structural, so every copy of the pattern inherits it.** The
+planted module is not on disk. It is therefore outside a population derived from
+the real sweep *exactly* as it is outside a correct one, and the control cannot
+tell those apart — it reports `[planted]` either way. A control built on a
+FINISHED ARRAY passes whatever the derivation does.
+
+### What does close it: make the population a FUNCTION OF THE READER
+
+The population has to be a `(readDir) => string[]`, and the control has to
+re-derive it against the **seeded** reader. Then an over-broad derivation —
+one that is the sweep, or that walks `src/` — ABSORBS the plant, the comparison
+returns `[]`, and `toEqual([planted])` fires.
+
+`src/__tests__/domain-population.ts`'s `assertNothingOutsideDomainPopulation` is
+that shape. It arrives with **#638**, so until that lands this paragraph names a
+file the tree does not have — measured against the helper on that branch, one
+honest call and two mutated ones:
+
+| population passed to the assertion | result |
+|---|---|
+| the domain's real derivation | passes |
+| `(readDir) => sweepSrcTreeForDomain(pattern, readDir)` | **red** |
+| `(readDir) => walkOwnedDirectory('', readDir)` | **red** |
+
+Both reds land on the control, not on the wall — which is the point: the wall is
+vacuous in both, and only the control says so.
+
+### The weaker compensating control, for a gate not on the helper
+
+A gate that still builds its population as an array can get most of the way with
+a different clause: assert that modules which **exist** and belong to other
+domains are NOT in the population, each with a `statSync` proving the exclusion
+is not vacuous.
+
+    for (const foreign of ['controllers/orders.controller.ts', 'db/schema/orders.ts']) {
+      expect(POPULATION, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`).toBe(true);
+    }
+
+Mutation-tested both ways across eleven gates: adding `...walk('')` to a
+population fails it naming `controllers/orders.controller.ts`, and without the
+clause the same widening passes.
+
+**It is strictly weaker and should not be read as an alternative.** It catches a
+widening that swallows a real module — the realistic drift, and the one a
+directory list acquires by accident — and it would NOT catch a wall whose
+population expression was swapped for the sweep, because the named foreigns do
+not name the domain and never enter the sweep. Prefer the helper; use this only
+where the population cannot be expressed as a function of a reader, and say in
+the file which one you have.
+
+### And re-check the name pattern before believing an empty result
+
+A whole-tree assertion reporting zero modules outside the population is either
+complete or asking the wrong question, and **those look identical** — the vacuity
+floor does not separate them, because the sweep did reach the modules the pattern
+matches.
+
+Measured: `guest-portal-isolation.test.ts` matched `guest-orders` while #106's
+`services/orders/guest-order-portal.service.ts` — the portal view projection —
+is spelled `guest-order` **singular**. One character. It matched nothing, the
+assertion reported a clean empty set, every floor and count in the file was met,
+and that module was named in **no isolation gate in the repository**.
+
+The check is one line per gate: sweep for the domain's least-specific word and
+subtract what the pattern already matches.
+
+    find . -name '*.ts' -not -path '*/__tests__/*' | sed 's|^\./||' \
+      | grep -iE '<bare word>' | grep -viE '<the pattern's alternatives>'
+
+Most hits are other domains and triage takes seconds — `portal` minus
+`guest-portal` returned the one real miss, while `claim` minus `guest-claim`
+returned #83's merchant claims, `activation` minus `merchant-activation`
+returned #66's Awin advertiser activation, and `buyer` minus `buyer-request`
+returned the buyer domain. **Measure a candidate against the gate's own
+detectors before adding it**: the one above was clean against all six of that
+gate's walls, so it was a widening; one that trips a wall needs a counted
+exclusion instead, or the conversion builds a false wall.
