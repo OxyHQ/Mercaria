@@ -23,25 +23,75 @@ import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
+/** A directory entry, as `readdirSync(..., { withFileTypes: true })` reports one. */
+type DirectoryEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+/**
+ * Every `.ts` under `relative`, recursively, excluding the test tree.
+ *
+ * Takes its reader so the positive controls below can ask "would the derivation
+ * get a module that does not exist yet?" of the REAL derivation rather than of a
+ * re-spelling of it.
+ */
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+  for (const entry of readDir(relative)) {
     if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
+    const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
     else if (entry.name.endsWith('.ts')) found.push(child);
   }
   return found;
 }
 
-/** The domain's HTTP surface, from the filename convention (#472's device). */
-function httpSurface(): string[] {
-  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => entry.name.startsWith('guest-p2p'))
-      .map((entry) => `${directory}/${entry.name}`),
+/** Anything whose name carries this domain, in either spelling. */
+const DOMAIN_NAMED = /guest-p2p|guestP2P/i;
+
+/**
+ * The shared flat directories a module of this domain lives in under a domain
+ * NAME.
+ *
+ * `db/schema` is deliberately NOT here, and that is a decision rather than the
+ * omission #460 found in this gate's siblings. #112's answer was NO-GO and the
+ * domain owns no table at all — so there is nothing to scan, a floor over it
+ * could only ever be zero, and listing it would make a `db/schema/guestP2p.ts`
+ * appearing one day slide silently into the population. The whole-tree
+ * assertion below reports one instead, which for THIS domain is the right
+ * failure: a table means somebody built durable guest-P2P state, and that is a
+ * decision a person should be made to take.
+ */
+const P2P_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware'] as const;
+
+/**
+ * Every module in the tree whose PATH names this domain — the assertion that
+ * closes the population against the NEXT mechanism, not only this one.
+ *
+ * Matched on the PATH, not the filename: the five modules under
+ * `services/guest-p2p/` name the domain nowhere in their own names, so a
+ * filename sweep reports a fraction of the domain and an empty "outside" set,
+ * which reads exactly like a clean pass.
+ */
+function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return walk('', readDir).filter((path) => DOMAIN_NAMED.test(path));
+}
+
+/**
+ * The domain's HTTP surface, from the filename convention (#472's device).
+ *
+ * RECURSES, via `walk`. It was `readdirSync(...).filter(entry.isFile())` — ONE
+ * level — sitting ten lines below a `walk` that recurses, so the file read as
+ * though it recursed throughout and it did not. #460 measured that asymmetry in
+ * 27 gates; it is live rather than latent, `routes/admin/merchant-activation.ts`
+ * being the module it dropped in a sibling gate. Nothing of this domain sits in
+ * a subdirectory today, so this adds no module — it closes the mechanism.
+ */
+function httpSurface(readDir: DirectoryReader = readDirectory): string[] {
+  return P2P_SHARED_DIRECTORIES.flatMap((directory) =>
+    walk(directory, readDir).filter((path) => DOMAIN_NAMED.test(path.split('/').pop() ?? '')),
   );
 }
 
@@ -180,6 +230,108 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
     for (const relative of GUEST_P2P_PATHS) {
       expect(readDomainSource(relative).length).toBeGreaterThan(200);
     }
+  });
+
+  it('no guest-p2p-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, and the reason this gate needed it even
+    // though the conversion found NO gap: a walked population whose DIRECTORY
+    // list is hand-written is still a hand list, and the miss lives one level
+    // up, in the list of directories the walk reads. Nothing here is outside
+    // the population TODAY — which is a complete result rather than a wasted
+    // one, because the direction a list is blind in is the module somebody
+    // adds next, and the plant below is what measures that.
+    const swept = domainNamedModules();
+
+    // The sweep's OWN vacuity floor: a traversal that reached nothing reports
+    // no module outside the population, the same answer a complete population
+    // gives. MEASURED at 6.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(5);
+
+    // EXACT and empty, and empty because MEASURED empty rather than guessed.
+    const population = new Set(GUEST_P2P_PATHS);
+    expect(
+      swept.filter((path) => !population.has(path)),
+      'names guest P2P but sits outside the population every wall here scans — add its ' +
+        'directory to P2P_SHARED_DIRECTORIES, or excuse it here with a reason and move the count',
+    ).toEqual([]);
+
+    // THE POSITIVE CONTROL, and the whole justification for converting a gate
+    // whose population did not change: `toEqual([])` is also what a sweep that
+    // reached nothing produces. A guest-p2p-named module is reported to the
+    // real sweep in a directory the population does NOT draw from, and it must
+    // come back OUTSIDE.
+    const planted = 'db/schema/guestP2p.ts';
+    const seeded = domainNamedModules((relative) =>
+      relative === 'db/schema'
+        ? [...readDirectory(relative), { name: 'guestP2p.ts', isDirectory: () => false, isFile: () => true }]
+        : readDirectory(relative),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      seeded.filter((path) => !population.has(path)),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    // …and the plant is not on disk, or the control asserts about the tree
+    // rather than about the sweep. It is deliberately the SCHEMA module #112
+    // does not have: a table here would mean somebody built durable guest-P2P
+    // state, and this is the assertion that would say so.
+    expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW — the third world `toEqual([])` admits
+    // and the one the plant cannot see, since a plant absent from the real
+    // sweep is reported outside a population built FROM that sweep exactly as
+    // it is outside a correct one.
+    for (const foreign of [
+      'controllers/checkout.controller.ts',
+      'routes/cart.ts',
+      'services/checkout.service.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(GUEST_P2P_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // Written against the DERIVATION rather than the filesystem: seeding a real
+    // file would mutate a tree shared with every parallel suite.
+    const seededWith = (directory: string, added: string): string[] =>
+      httpSurface((relative) =>
+        relative === directory
+          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          : readDirectory(relative),
+      );
+
+    expect(
+      seededWith('routes', 'guest-p2p.ts'),
+      'a new guest-p2p route does not enter the population; it would sit behind no wall',
+    ).toContain('routes/guest-p2p.ts');
+    // … and ONLY by name, or this wall starts firing at whoever edits checkout.
+    expect(
+      seededWith('routes', 'checkout.ts'),
+      'a foreign route entered the population; the name rule has stopped narrowing',
+    ).not.toContain('routes/checkout.ts');
+
+    // And the RECURSION, the other half of the #460 repair.
+    expect(
+      httpSurface((relative) =>
+        relative === 'routes'
+          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          : relative === 'routes/admin'
+            ? [{ name: 'guest-p2p.ts', isDirectory: () => false, isFile: () => true }]
+            : readDirectory(relative),
+      ),
+      'a module in a SUBDIRECTORY of a shared directory is not admitted; the sweep beside the ' +
+        'recursive walk is still one level deep',
+    ).toContain('routes/admin/guest-p2p.ts');
   });
 
   it('the policy and the derivation read nothing at all', () => {
