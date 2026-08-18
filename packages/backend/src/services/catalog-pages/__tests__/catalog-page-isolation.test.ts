@@ -29,6 +29,13 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
+import {
   CATALOG_PAGE_FORBIDDEN_OFFICIAL_SIGNALS,
   CATALOG_PAGE_OFFICIAL_EVIDENCE,
   CATALOG_PAGE_FORBIDDEN_FIELDS,
@@ -36,7 +43,6 @@ import {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC_ROOT = join(HERE, '..', '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services', 'catalog-pages');
 
 /**
  * Every `.ts` under a directory, RECURSIVELY, excluding the test tree.
@@ -75,14 +81,34 @@ function domainModules(): { relative: string; source: string }[] {
  * written; a fifth catalog-page module in any of these roots was invisible to
  * every wall below.
  */
+const CATALOG_PAGE_NAME_PATTERN = /catalog-?pages?/i;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` is listed and contributes NOTHING today — this domain owns no
+ * table, it is a projection over the canonical graph. It is here so a table
+ * added later is covered on the day it lands rather than on the day somebody
+ * remembers this file, which is the same reason the walk above is recursive
+ * over a directory that is flat.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+function surfaceRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    // RECURSIVE and matching the PATH, where this was one level deep beside the
+    // recursive walk above (#460). The pattern also allows an optional hyphen
+    // and a plural, because `startsWith('catalog-page')` cannot match
+    // `db/catalogPages/` — a widening that changes nothing looks exactly like a
+    // fix, so it is measured: `/catalog-?pages?/i` over the whole of `src/`
+    // selects 15 modules and every one is this domain's.
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, CATALOG_PAGE_NAME_PATTERN, readDir),
+    ...walkOwnedDirectory('db/catalogPages', readDir),
+  ];
+}
+
 function surfacePaths(): string[] {
-  const named = ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => entry.name.startsWith('catalog-page'))
-      .map((entry) => `${directory}/${entry.name}`),
-  );
-  return [...named, ...walk('db/catalogPages')];
+  return surfaceRelativePaths();
 }
 
 /**
@@ -317,3 +343,32 @@ function surfaceModules(): { relative: string; source: string }[] {
     return { relative, source };
   });
 }
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate. Sweep the whole
+ * of `src/` for paths NAMING this domain and require each to be in the
+ * population or in a counted exclusion, so a bag directory nobody has invented
+ * yet brings its modules under these walls with no edit here.
+ *
+ * The exclusion set is EMPTY because it was MEASURED — the sweep selects 15
+ * modules and every one is this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every catalog-page-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: (readDir) => [
+        ...walkOwnedDirectory('services/catalog-pages', readDir),
+        ...surfaceRelativePaths(readDir),
+      ],
+      pattern: CATALOG_PAGE_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 15 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 11,
+      plantIn: 'lib',
+      plantName: 'catalog-pages-cache.ts',
+    });
+  });
+});

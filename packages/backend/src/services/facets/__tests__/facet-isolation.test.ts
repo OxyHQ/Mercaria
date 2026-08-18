@@ -35,6 +35,13 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
+import {
   FACET_COMMERCE_DIMENSIONS,
   FACET_FORBIDDEN_EQUIVALENCES,
   FACET_FORBIDDEN_ORDERING_INPUTS,
@@ -178,13 +185,23 @@ function walk(directory: string, extensions: readonly string[]): string[] {
  * directory of their own, so the population is the filename convention every
  * surface in this tree already follows.
  */
+const FACET_NAME_PATTERN = /facet/i;
+
+/**
+ * `db/schema` joins the three shared directories. It contributes NOTHING today —
+ * this domain owns no table — and is here so one added later is covered on the
+ * day it lands rather than on the day somebody remembers this file.
+ */
+const SHARED_DIRECTORIES_WITH_SCHEMA = [...SHARED_DIRECTORIES, 'db/schema'] as const;
+
+function facetNamedRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // RECURSIVE and matching the PATH, where this was one level deep beside a
+  // recursive walk (#460).
+  return namedInSharedDirectories(SHARED_DIRECTORIES_WITH_SCHEMA, FACET_NAME_PATTERN, readDir);
+}
+
 function facetNamedHttpModules(): string[] {
-  return SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /facet/i.test(entry.name))
-      .map((entry) => join(SRC_ROOT, directory, entry.name)),
-  );
+  return facetNamedRelativePaths().map((relative) => join(SRC_ROOT, relative));
 }
 
 function backendPaths(): string[] {
@@ -512,5 +529,55 @@ describe('the rollout lever gates the MOUNT, and the domain reaches no configura
       ),
     );
     expect(offenders).toEqual([victim]);
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate's backend half.
+ * Sweep the whole of `src/` for paths NAMING this domain and require each to be
+ * in the population or in a counted exclusion.
+ *
+ * The FRONTEND half is out of scope for a sweep of `src/`; it has its own
+ * derivation and its own floors above.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  /**
+   * The two facet-NAMED modules that are not facet-domain modules, EXACT.
+   *
+   * Neither fires a wall in this file today — measured before excluding them,
+   * which is what makes this an exclusion rather than a repair. That is exactly
+   * why they must NOT join the population: admitting another domain's module
+   * because it happens to be harmless now is how a gate starts failing for
+   * whoever edits #94 or the observability sweep later.
+   */
+  const NOT_THIS_DOMAIN = [
+    {
+      path: 'services/attributes/facets.service.ts',
+      why: "#94's attribute registry projecting its own facets; covered by hard-constraint-isolation",
+    },
+    {
+      path: 'services/catalog-observability/facet-scope-sweep.ts',
+      why: "the catalogue-observability sweep that MEASURES facet scope; it observes, it does not serve",
+    },
+  ] as const;
+
+  it('every facet-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: (readDir) => [
+        ...BACKEND_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+        ...facetNamedRelativePaths(readDir),
+      ],
+      pattern: FACET_NAME_PATTERN,
+      notThisDomain: NOT_THIS_DOMAIN,
+      // Below today's 16 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 12,
+      plantIn: 'lib',
+      plantName: 'facet-cache.ts',
+    });
+    // The exclusion's own count, so a third entry is a decision (#448).
+    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(2);
   });
 });
