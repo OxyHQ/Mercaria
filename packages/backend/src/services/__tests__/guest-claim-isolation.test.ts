@@ -29,26 +29,80 @@ const PACKAGES_ROOT = join(SRC_ROOT, '..', '..');
 /** The storefront's translation bundles — where #435b moved the copy. */
 const LOCALES_ROOT = join(PACKAGES_ROOT, 'frontend', 'lib', 'i18n', 'locales');
 
-/** Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests. */
-function walk(relative: string): string[] {
+/** A directory entry, as `readdirSync(..., { withFileTypes: true })` reports one. */
+type DirectoryEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+/**
+ * Every `.ts` under `relative`, RECURSIVELY, excluding the domain's own tests.
+ *
+ * Takes its reader so the positive controls below can ask "would the derivation
+ * get a module that does not exist yet?" of the REAL derivation rather than of a
+ * re-spelling of it. Walking `''` yields paths with no leading slash, which is
+ * what makes the whole-tree sweep comparable with the population.
+ */
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+  for (const entry of readDir(relative)) {
     if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
+    const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
     else if (entry.name.endsWith('.ts')) found.push(child);
   }
   return found;
 }
 
-/** Every claim-NAMED module in a shared flat directory, whoever owns it. */
-function claimNamedSharedModules(): string[] {
-  return (['controllers', 'routes', 'middleware'] as const).flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /guest-claim/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
+/** Anything whose name carries this domain, in either spelling. */
+const DOMAIN_NAMED = /guest-claim|guestClaims?/i;
+
+/**
+ * The shared flat directories a claim module lives in under a domain NAME.
+ *
+ * `db/schema` joined this list in #460: the domain owns `db/schema/guestClaims.ts`
+ * — the three tables, the partial unique that makes a second claimant a DISPUTE
+ * rather than a replacement, and the CHECK behind it — and it was scanned by
+ * nothing here.
+ */
+const CLAIM_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every claim-NAMED module in a shared flat directory, whoever owns it.
+ *
+ * RECURSES, via `walk`. It was `readdirSync(...).filter(entry.isFile())` — ONE
+ * level — sitting fifteen lines below a `walk` that recurses, so the file read as
+ * though it recursed throughout and it did not. Measured across the tree (#460):
+ * 27 gates carry that exact asymmetry, and it is live rather than latent —
+ * `routes/admin/merchant-activation.ts` is the module it dropped in a sibling
+ * gate. Nothing of this domain sits in a subdirectory today, so this half adds no
+ * module; it stops a `routes/admin/guest-claims.ts` being invisible on the day
+ * somebody writes one.
+ */
+function claimNamedSharedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return CLAIM_SHARED_DIRECTORIES.flatMap((directory) =>
+    walk(directory, readDir).filter((path) => DOMAIN_NAMED.test(path.split('/').pop() ?? '')),
   );
+}
+
+/**
+ * Every module in the BACKEND tree whose PATH names this domain — the assertion
+ * that closes the population against the NEXT mechanism, not only these two.
+ *
+ * A gate can be walk-only, with no hand list anywhere, and still miss a module,
+ * because the miss lives in the DIRECTORY list the walk reads. Two mechanisms
+ * produced misses here (a non-recursing shared sweep and an unscanned
+ * `db/schema`) and this one assertion covers both, plus whatever is found next.
+ *
+ * Matched on the PATH, not the filename: a module inside `services/guest-claims/`
+ * names the domain nowhere in its own name, so a filename sweep reports a
+ * fraction of the domain and an empty "outside" set — which reads exactly like a
+ * clean pass. Scoped to `src/`; the STOREFRONT half of this gate is derived
+ * separately by `claimScreens()` against a different root.
+ */
+function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return walk('', readDir).filter((path) => DOMAIN_NAMED.test(path));
 }
 
 /**
@@ -339,7 +393,8 @@ function assertClaimPopulationIsWhole(): void {
   const from = (prefix: string) => CLAIM_PATHS.filter((path) => path.startsWith(prefix)).length;
   expect(from('services/guest-claims/'), 'the claim service walk found too few modules').toBeGreaterThanOrEqual(5);
   expect(from('db/guestClaims/'), 'the claim repository walk found too few modules').toBeGreaterThanOrEqual(3);
-  expect(claimNamedSharedModules().length, 'no claim-named HTTP module was derived').toBeGreaterThanOrEqual(1);
+  expect(claimNamedSharedModules().length, 'no claim-named shared module was derived').toBeGreaterThanOrEqual(2);
+  expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
   expect(claimScreens().length, 'the guest-orders screen walk found too few screens').toBeGreaterThanOrEqual(3);
   expect(CLAIM_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
   for (const path of CLAIM_PATHS) {
@@ -351,6 +406,115 @@ function assertClaimPopulationIsWhole(): void {
 }
 
 describe('the guest claim path cannot reach what it must not', () => {
+  it('no claim-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion. A walked population whose DIRECTORY list is
+    // hand-written is still a hand list, and it failed the same silent way here:
+    // the list carried `controllers`, `routes` and `middleware` and not
+    // `db/schema`, so every wall below ran over 9 of the domain's 10 modules.
+    //
+    // So the exclusion is derived rather than the inclusion — sweep the tree for
+    // modules NAMED for this domain and require each to be in the population or
+    // in a counted, justified exclusion.
+    const swept = domainNamedModules();
+
+    // The sweep's OWN vacuity floor first: a traversal that reached nothing
+    // reports no module outside the population, which is the same answer a
+    // complete population gives. MEASURED at 10.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(8);
+
+    // EXACT and empty, and empty because it was MEASURED empty rather than
+    // guessed: every claim-named module in the backend tree is a module of this
+    // domain. One owned by somebody else goes here WITH its reason, and the
+    // count moves in the same edit (#448).
+    const population = new Set(CLAIM_PATHS);
+    expect(
+      swept.filter((path) => !population.has(path)),
+      'names the claim domain but sits outside the population every wall below scans — add its ' +
+        'directory to CLAIM_SHARED_DIRECTORIES, or excuse it here with a reason and move the count',
+    ).toEqual([]);
+
+    // THE POSITIVE CONTROL, and without it the assertion above cannot fail: an
+    // empty expected set is satisfied by a sweep that reached nothing as well as
+    // by a correct tree. The same sweep runs against a reader reporting a
+    // claim-named module in a directory the population does NOT draw from, and
+    // it must come back OUTSIDE.
+    const planted = 'lib/guest-claim-cache.ts';
+    const seeded = domainNamedModules((relative) =>
+      relative === 'lib'
+        ? [...readDirectory(relative), { name: 'guest-claim-cache.ts', isDirectory: () => false, isFile: () => true }]
+        : readDirectory(relative),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      seeded.filter((path) => !population.has(path)),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW — the third world `toEqual([])` admits,
+    // and the one the plant cannot see: a population that swallowed the tree
+    // empties the set above too, and a plant absent from the real sweep is
+    // reported outside such a population exactly as it is outside a correct one.
+    // (Measured on `analytics-ranking-isolation.test.ts`, whose comment claims
+    // its shared comparison closes this: mutating that wall's population to
+    // `new Set(swept)` leaves all ten of its tests green.)
+    for (const foreign of [
+      'controllers/orders.controller.ts',
+      'routes/cart.ts',
+      'db/schema/orders.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(CLAIM_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // The probe that justifies the conversion, kept as a test rather than as a
+    // claim that one was run once. Written against the DERIVATION rather than
+    // the filesystem: seeding a real file would mutate a tree shared with every
+    // parallel suite.
+    const seededWith = (directory: string, added: string): string[] =>
+      claimNamedSharedModules((relative) =>
+        relative === directory
+          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          : readDirectory(relative),
+      );
+
+    expect(
+      seededWith('db/schema', 'guestClaimArchive.ts'),
+      'a new claim schema module does not enter the population',
+    ).toContain('db/schema/guestClaimArchive.ts');
+    // … and ONLY by name, or this wall starts firing at whoever edits an order.
+    expect(
+      seededWith('routes', 'orders.ts'),
+      'a foreign route entered the population; the name rule has stopped narrowing',
+    ).not.toContain('routes/orders.ts');
+
+    // And the RECURSION, the other half of the #460 repair: a module in a
+    // SUBDIRECTORY of a shared directory must be admitted. The one-level
+    // `readdirSync` this replaced could not see one.
+    expect(
+      claimNamedSharedModules((relative) =>
+        relative === 'routes'
+          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          : relative === 'routes/admin'
+            ? [{ name: 'guest-claims.ts', isDirectory: () => false, isFile: () => true }]
+            : readDirectory(relative),
+      ),
+      'a module in a SUBDIRECTORY of a shared directory is not admitted; the sweep beside the ' +
+        'recursive walk is still one level deep',
+    ).toContain('routes/admin/guest-claims.ts');
+  });
+
   it('no claim module names OxyPay or FairCoin, in code or in copy', () => {
     assertClaimPopulationIsWhole();
     for (const relative of CLAIM_PATHS) {
