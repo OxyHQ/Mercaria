@@ -401,7 +401,7 @@
         }
       },
       "payoutStatus": {
-        "open": "Готовится",
+        "draft": "Готовится",
         "approved": "Одобрено",
         "processing": "В пути",
         "paid": "Выплачено",

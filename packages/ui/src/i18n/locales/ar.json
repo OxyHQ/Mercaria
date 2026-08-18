@@ -401,7 +401,7 @@
         }
       },
       "payoutStatus": {
-        "open": "قيد التحضير",
+        "draft": "قيد التحضير",
         "approved": "معتمد",
         "processing": "في الطريق",
         "paid": "مدفوع",

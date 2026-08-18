@@ -282,6 +282,14 @@ const OWNERS = [
     // still rendered verbatim and still correct — a claim code has no localized
     // form, which is why `code` is absent from `WIRE_ENUM_FIELDS`.
     wireIdentifierRenderSites: 0,
+    // J' (#596): ZERO, and it was TWO until this change. Both sites sat on this
+    // screen, in a fully translated sentence, so the identifier was the only
+    // English in it: `REFERRAL_PAYOUT_STATUS_KEYS` was typed `Record<string,
+    // string>`, carried an `open` the union does not have and lacked `draft` —
+    // the status a payout batch is CREATED in — so a partner's newest payout
+    // read `draft` in all twelve locales while `open`'s translation was
+    // unreachable in all twelve. Check J read ZERO throughout.
+    wireIdentifierFallbackSites: 0,
     // I (#542): no pin. Check I RAISES, because a key map read in a render
     // position is a message id on screen with no legitimate spelling.
     minimumRenderableKeyMaps: 40,
@@ -323,6 +331,10 @@ const OWNERS = [
     // over the shared-types union, and `{a.country}` on the order address card
     // goes through the same `formatRegionName` #513 used on the storefront.
     wireIdentifierRenderSites: 0,
+    // J' (#596): ZERO. The feed and channel screens resolve every vocabulary
+    // through an exhaustive `Record`, so there is no miss branch to fall back
+    // from.
+    wireIdentifierFallbackSites: 0,
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
     // Missing category forms: ar 92, ru 46, ca/es/fr/pt-BR 23 each.
@@ -350,6 +362,9 @@ const OWNERS = [
     // regression gate — which is also what makes it the one that would go
     // quietly wrong if the detector broke, hence the controls.
     wireIdentifierRenderSites: 0,
+    // J' (#596): ZERO, and a pure regression gate like this owner's J — which is
+    // what makes the controls, not the pin, the thing keeping it honest.
+    wireIdentifierFallbackSites: 0,
     minimumRenderableKeyMaps: 30,
     // K (#436). Both EXACT, both fail in both directions.
     // Missing category forms: ar 20, ru 10, ca/es/fr/pt-BR 5 each.
@@ -427,6 +442,21 @@ const OWNERS = [
     // vendor slug no `Record` could be exhaustive over. It was a check-A finding
     // too, which is why the pin above moved in the SAME change.
     wireIdentifierRenderSites: 0,
+    // J' (#596): TWO, and deliberately NOT fixed here.
+    //
+    // `ComparisonTableView` falls back to a subject ref and
+    // `ShoppingAgentFindingCard` to a constraint id. Both sit INSIDE the 146
+    // hardcoded strings pinned above: those components render "Specification"
+    // and "Nobody could answer N of your requirements" in English to every
+    // reader already, so translating the fallback alone changes nothing anybody
+    // sees and leaves a half-extracted component behind. That is the line this
+    // number draws, and it is a real one — the storefront's two were the only
+    // English in an otherwise translated sentence.
+    //
+    // Exact in both directions, so a third cannot arrive quietly and the two
+    // cannot be forgotten: they come out with the extraction that owns the
+    // components, and this pin goes to zero in the same change.
+    wireIdentifierFallbackSites: 2,
     // I (#542): this package DECLARES the maps every app reads, and #542 was
     // found converting three of them, so the floor here is the one that matters.
     minimumRenderableKeyMaps: 40,
@@ -592,6 +622,63 @@ const ACTION_CONTROL_ELEMENTS = new Set([
  * screen through a variable or a helper. It catches the shape #489 found three
  * times and #530 found thirteen more of.
  */
+/**
+ * J'. The defect J catches, wearing the FIX's clothing (#596).
+ *
+ * ```tsx
+ * {KEYS[status] ? t(KEYS[status]) : status}   // renders `draft` to the reader
+ * {KEYS[status] ?? status}                    // same, one operator over
+ * ```
+ *
+ * The false branch renders the raw wire value on exactly the unmapped member
+ * the gate exists to catch, and it reads as MORE careful than the correct
+ * version — somebody handling an unmapped enum "defensively". The defensive
+ * branch IS the defect: a lookup that misses should fail loudly, not print the
+ * identifier. Both real sites proved it. `REFERRAL_PAYOUT_STATUS_KEYS` was typed
+ * `Record<string, string>`, held an `open` the union does not have and lacked
+ * the `draft` a batch is CREATED in, so every partner's newest payout read
+ * `draft` in all twelve locales — and the fallback is what turned a missing key
+ * into that word instead of a visible break.
+ *
+ * Check J cannot see either one, and that is not a bug in J: J matches a bare
+ * property access in a JSX child, and these are a conditional. Neither is this a
+ * reason to widen `WIRE_ENUM_FIELDS` (measured, see its docblock) — the second
+ * site's false branch is a bare `item` with no field name to widen TO.
+ *
+ * Keyed on the USE, not on the name. The issue proposed matching a `*_KEYS[…]`
+ * test, which a rename silently defeats; what actually makes this shape wrong is
+ * that the miss branch is the SUBSCRIPT ITSELF, whatever the map is called. That
+ * is also what keeps the two correct spellings out: `AVAILABILITY_TEXT_KEYS[a]
+ * ?? AVAILABILITY_UNKNOWN_KEY` falls back to a KEY, and `WARNING_MESSAGE_KEYS[w]
+ * ? … : ""` falls back to empty — neither is its own subscript, and both are
+ * live in the storefront today.
+ *
+ * Limits, stated rather than implied: a JSX CHILD only, for J's measured reason
+ * (an attribute or `testID` legitimately carries an identifier), and syntactic
+ * text equality, so a parenthesised or re-spelled subscript reads as a miss.
+ */
+function wireIdentifierFallback(node, sourceFile) {
+  let lookup = null;
+  let fallback = null;
+  if (ts.isConditionalExpression(node)) {
+    lookup = node.condition;
+    fallback = node.whenFalse;
+  } else if (
+    ts.isBinaryExpression(node)
+    && (node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+      || node.operatorToken.kind === ts.SyntaxKind.BarBarToken)
+  ) {
+    lookup = node.left;
+    fallback = node.right;
+  }
+  if (!lookup || !fallback || !ts.isElementAccessExpression(lookup)) return null;
+  const subscript = lookup.argumentExpression;
+  if (!subscript) return null;
+  const key = subscript.getText(sourceFile);
+  if (key !== fallback.getText(sourceFile)) return null;
+  return { map: lookup.expression.getText(sourceFile), key };
+}
+
 const WIRE_ENUM_FIELDS = new Set([
   "channel",
   "condition",
@@ -906,6 +993,8 @@ export function analyseSource(
   const rawKeyRenderSites = [];
   /** J: `{ line, field, text }` for every wire identifier rendered raw. */
   const wireIdentifierRenderSites = [];
+  /** J': `{ line, map, key, text }` for every lookup that falls back to its own subscript. */
+  const wireIdentifierFallbackSites = [];
 
   // A file's OWN maps win over the app-wide bag, so a control fixture with no
   // siblings resolves exactly as production does.
@@ -1143,6 +1232,19 @@ export function analyseSource(
           text: node.expression.getText(sourceFile).slice(0, 80),
         });
       }
+
+      // J'. the same defect wearing the fix's clothing (#596). See the
+      // recogniser's docblock for why this is a separate shape rather than a
+      // wider field list.
+      const fallback = wireIdentifierFallback(node.expression, sourceFile);
+      if (fallback) {
+        wireIdentifierFallbackSites.push({
+          line: lineOf(node),
+          map: fallback.map,
+          key: fallback.key,
+          text: node.expression.getText(sourceFile).slice(0, 80),
+        });
+      }
     }
 
     // A. A user-facing ATTRIBUTE: `placeholder="Search"`
@@ -1195,6 +1297,7 @@ export function analyseSource(
     unreadableKeySources,
     deviceLocaleFormatSites,
     rawKeyRenderSites,
+    wireIdentifierFallbackSites,
     // How many key maps THIS CALL could have fired on. Reported rather than left
     // to the caller's own copy of the derivation, because the two are not the
     // same fact: a caller that stops PASSING the app-wide set still derives it
@@ -1895,6 +1998,66 @@ for (const source of WIRE_IDENTIFIER_MUST_NOT_FIND) {
 }
 
 /**
+ * Controls for check J' (#596), run on every invocation.
+ *
+ * ALL FOUR of J's owner pins are ZERO, and so are all four of J''s — every one
+ * of these owners is a pure regression gate, which is exactly the state in which
+ * a broken detector reports a clean tree forever. These controls are the whole
+ * of what keeps eight zeros meaningful.
+ *
+ * The negatives carry the weight. Two of them are LIVE in the storefront today
+ * (`AVAILABILITY_TEXT_KEYS ?? AVAILABILITY_UNKNOWN_KEY`, `WARNING_MESSAGE_KEYS
+ * ? … : ""`) and both are correct: a fallback to a KEY or to empty renders no
+ * identifier. Firing on those is the direction that gets a gate switched off.
+ */
+const wireFallbackFindings = (source) =>
+  analyseSource("control/wire-fallback.tsx", source, CONTROL_KEYS).wireIdentifierFallbackSites;
+
+const WIRE_FALLBACK_MUST_FIND = [
+  // The two real sites, both spellings of the subscript.
+  "const A = () => <Text>{K[batch.status] ? t(K[batch.status]) : batch.status}</Text>;",
+  "const A = () => <Text>{K[item] ? t(K[item]) : item}</Text>;",
+  // Same defect, other operators.
+  "const A = () => <Text>{K[item] ?? item}</Text>;",
+  "const A = () => <Text>{K[item] || item}</Text>;",
+  // The map's NAME is not the instrument, so a rename does not defeat it.
+  "const A = () => <Text>{anything[item] ? t(anything[item]) : item}</Text>;",
+];
+const WIRE_FALLBACK_MUST_NOT_FIND = [
+  // The remedy: exhaustive map, no branch left to take.
+  "const A = () => <Text>{t(K[batch.status])}</Text>;",
+  // Both LIVE correct spellings — a fallback to a KEY, and to empty.
+  "const A = () => <Text>{t(AVAILABILITY_TEXT_KEYS[a] ?? AVAILABILITY_UNKNOWN_KEY)}</Text>;",
+  "const A = () => <Text>{WARNING_MESSAGE_KEYS[warning] ? t(WARNING_MESSAGE_KEYS[warning]) : \"\"}</Text>;",
+  // A fallback to a DIFFERENT value is not this shape.
+  "const A = () => <Text>{K[item] ? t(K[item]) : t(\"common.unknown\")}</Text>;",
+  "const A = () => <Text>{K[a] ? t(K[a]) : b}</Text>;",
+  // An ordinary conditional over a lookup that renders no identifier.
+  "const A = () => <Text>{K[item] ? t(K[item]) : null}</Text>;",
+  // Not a render position: J' is a JSX CHILD check, for J's measured reason.
+  "const cls = CHIP[run.status] ?? run.status;",
+  "const A = () => <View testID={K[run.status] ?? run.status} />;",
+];
+
+for (const source of WIRE_FALLBACK_MUST_FIND) {
+  if (wireFallbackFindings(source).length === 0) {
+    failures.push(
+      `positive control failed: check J' produced no finding for ${JSON.stringify(source)} — `
+      + "the detector is broken, and all four owners' pins of ZERO would go on passing",
+    );
+  }
+}
+for (const source of WIRE_FALLBACK_MUST_NOT_FIND) {
+  if (wireFallbackFindings(source).length > 0) {
+    failures.push(
+      `negative control failed: check J' fired on ${JSON.stringify(source)}, which falls back to `
+      + "a KEY, to empty or to something other than its own subscript — none of those renders an "
+      + "identifier, and two of them are live in the storefront",
+    );
+  }
+}
+
+/**
  * Controls for check F's detector, run on every invocation.
  *
  * F's real-tree answer is an EMPTY intersection, which is what a completely
@@ -2245,6 +2408,8 @@ const rawKeyRendersByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
 const renderableSeenByApp = new Map(OWNERS.map((owner) => [owner.name, null]));
 /** J: `{ file, line, field, text }` for every wire identifier rendered raw. */
 const wireIdentifierRendersByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
+/** J': `{ file, line, map, key, text }` for every lookup falling back to its subscript. */
+const wireIdentifierFallbacksByApp = new Map(OWNERS.map((owner) => [owner.name, []]));
 
 /**
  * How many check-A findings an owner whose `hardcodedStrings` is a pinned COUNT
@@ -2354,6 +2519,9 @@ for (const [path, text] of textByPath) {
   );
   for (const site of result.wireIdentifierRenderSites) {
     wireIdentifierRendersByApp.get(app.name).push({ ...site, file: path });
+  }
+  for (const site of result.wireIdentifierFallbackSites) {
+    wireIdentifierFallbacksByApp.get(app.name).push({ ...site, file: path });
   }
   if (app.actionLabelCopy) {
     const controls = controlLabelKeysByApp.get(app.name);
@@ -2662,6 +2830,34 @@ for (const app of OWNERS) {
       + "or a localized lookup (`formatRegionName` for a country). If you FIXED some of these, "
       + "lower the owner's `wireIdentifierRenderSites` in this file to the new count — an exact "
       + "count, not a ceiling.",
+    );
+  }
+
+  // J'. a lookup whose miss branch renders its own subscript (#596).
+  //
+  // Its own pin, NOT folded into J's, because the two answer different
+  // questions and J's number is the one somebody reads as "the wire identifiers
+  // are gone". They were not: J went to zero in #560 while these two went on
+  // rendering `draft` and an outstanding item's identifier to every partner in
+  // every locale. A gate's population is what it can SEE, and zero on one
+  // instrument is not zero on the defect.
+  const fallbackSites = wireIdentifierFallbacksByApp.get(app.name) ?? [];
+  if (!fixtureFloors && app.wireIdentifierFallbackSites !== null
+    && fallbackSites.length !== app.wireIdentifierFallbackSites) {
+    const listing = fallbackSites
+      .map((site) => `${site.file}:${site.line} {${site.text}}`)
+      .join("\n      ");
+    failures.push(
+      `packages/${app.name}: ${fallbackSites.length} key lookup(s) falling back to the raw `
+      + `subscript, expected exactly ${app.wireIdentifierFallbackSites}.\n`
+      + `      ${listing || "(none)"}\n`
+      + "      `KEYS[x] ? t(KEYS[x]) : x` renders the WIRE VALUE on exactly the unmapped member "
+      + "a key map exists to catch, and it reads as more careful than the correct version. Check "
+      + "J cannot see it: J matches a bare property access and this is a conditional.\n"
+      + "      The remedy is to make the map exhaustive over the closed union — "
+      + "`Record<TheUnion, string>`, so a member added upstream fails `tsc` here — and then drop "
+      + "the branch, which has become unreachable. If the set is genuinely open, fall back to a "
+      + "KEY (`AVAILABILITY_UNKNOWN_KEY` in `OfferRow.tsx`), never to the subscript.",
     );
   }
 

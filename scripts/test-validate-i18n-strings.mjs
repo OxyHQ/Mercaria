@@ -991,6 +991,43 @@ const cases = [
     expectExit: 1,
     expectOutput: "packages/dashboard: 1 wire identifier(s) rendered raw to a reader",
   },
+  {
+    // J''s pin, J's technique and J's reason: on a fixture tree the pin is
+    // SKIPPED, so without this case the comparison could be deleted and every
+    // other J' case would stay green. The POS again, because it is an owner with
+    // no residual — the one where a broken detector is invisible.
+    name: "check J's fallback pin is compared, not carried",
+    files: migratedTree({
+      "packages/pos/app/(app)/receipt.tsx":
+        "export const A = ({ order, K }) => <View>\n"
+        + "  <Text>{K[order.status] ? K[order.status] : order.status}</Text>\n"
+        + "</View>;\n",
+    }),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput:
+      "packages/pos: 1 key lookup(s) falling back to the raw subscript, expected exactly 0",
+  },
+  {
+    // J''s negative half, through the real guard and asserted as a COUNT for the
+    // reason J's own negative case records: on a fixture tree a passing run
+    // compares nothing, so "expect exit 0" would measure nothing and read as
+    // coverage. Both correct spellings here are LIVE in the storefront —
+    // `?? AVAILABILITY_UNKNOWN_KEY` and `: ""` — and a version of this check
+    // that fired on either is the version somebody switches off.
+    name: "check J' counts a subscript fallback and NOT a key or empty fallback",
+    files: migratedTree({
+      "packages/dashboard/app/(app)/fallbacks.tsx":
+        "export const A = ({ K, UNKNOWN_KEY, item, warning }) => <View>\n"
+        + "  <Text>{K[item] ?? UNKNOWN_KEY}</Text>\n"
+        + '  <Text>{K[warning] ? K[warning] : ""}</Text>\n'
+        + "  <Text>{K[item] ?? item}</Text>\n"
+        + "</View>;\n",
+    }),
+    realFloors: true,
+    expectExit: 1,
+    expectOutput: "packages/dashboard: 1 key lookup(s) falling back to the raw subscript",
+  },
 ];
 
 /**
@@ -1015,6 +1052,11 @@ async function assertGuardSource() {
     // same fact — a property of two modules, not of any tree.
     "PLURAL_SHAPE_CONTROLS",
     "PLURAL_SWEEP_COUNTS",
+    // #596's pair. All four of J''s owner pins are 0 or a frozen residual, so
+    // nothing in the real tree would go red if the detector broke — these are
+    // the whole of what keeps those four numbers meaningful.
+    "WIRE_FALLBACK_MUST_FIND",
+    "WIRE_FALLBACK_MUST_NOT_FIND",
     "positive control failed",
     "negative control failed",
   ];
