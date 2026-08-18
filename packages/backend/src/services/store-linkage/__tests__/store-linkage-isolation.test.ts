@@ -34,6 +34,13 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   STORE_LINKAGE_CANDIDATE_SOURCES,
@@ -75,15 +82,42 @@ function walk(relative: string): string[] {
  * The floors below are what stop a walk that found nothing — a moved directory,
  * a renamed prefix — from reading as a clean scan.
  */
-const LINKAGE_DOMAIN_PATHS = [
-  ...walk('services/store-linkage'),
-  ...walk('db/store-linkage'),
-  ...(['routes', 'controllers', 'middleware'] as const).flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory))
-      .filter((name) => name.startsWith('store-linkage') && name.endsWith('.ts'))
-      .map((name) => `${directory}/${name}`),
-  ),
-];
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * This was `name.startsWith('store-linkage')`, and the hyphen is why the four
+ * tables this domain owns were behind none of the walls below: the schema
+ * directory names its files in camelCase, so `db/schema/storeLinkage.ts` cannot
+ * match a hyphenated prefix. Adding `db/schema` to the directory list without
+ * this would have changed NOTHING while looking exactly like a fix.
+ *
+ * Widening a pattern is the PERMISSIVE direction and owes its own measurement,
+ * so here it is: `/store-?linkage/i` over the whole of `src/` selects 11
+ * modules, all of them this domain's — five services, one repository, the
+ * schema module, two controllers, the route and the request schemas. It admits
+ * nothing that is not already here, and `stores`, `storefronts` and
+ * `store-admin` do not match it.
+ */
+const LINKAGE_NAME_PATTERN = /store-?linkage/i;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` was missing, inherited from the three-name list copied from gate
+ * to gate. The sweep at the end of this file is what stops the next omission
+ * being silent, and it is the general remedy rather than this one entry.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+function linkageDomainPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/store-linkage', readDir),
+    ...walkOwnedDirectory('db/store-linkage', readDir),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, LINKAGE_NAME_PATTERN, readDir),
+  ];
+}
+
+const LINKAGE_DOMAIN_PATHS = linkageDomainPaths();
 
 /** The module that decides which stores are candidates. The name-match wall. */
 const CANDIDATE_DISCOVERY_PATH = 'services/store-linkage/linkage-candidates.ts';
@@ -483,5 +517,28 @@ describe('claim revocation still removes the management linkage (revocation rule
     // owns the authoritative version.
     const claimService = strippedSource('services/merchant-claims/merchant-claim.service.ts');
     expect(/native_store_links|nativeStoreLink/i.test(claimService)).toBe(false);
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the `db/schema` fix.
+ *
+ * Adding one directory closes today's gap; this closes the class. `store-linkage`
+ * is an unambiguous token in this tree, so the exclusion set is EMPTY — and it
+ * is empty because it was MEASURED rather than guessed, which is the difference
+ * between an exclusion list and a guess that excuses what can never match.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every store-linkage-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: linkageDomainPaths,
+      pattern: LINKAGE_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 11 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 8,
+      plantIn: 'lib',
+      plantName: 'store-linkage-cache.ts',
+    });
   });
 });

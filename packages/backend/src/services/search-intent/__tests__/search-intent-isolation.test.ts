@@ -48,6 +48,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
+import {
   INTENT_CANDIDATE_ELEMENTS,
   INTENT_FORBIDDEN_MODEL_OUTPUTS,
 } from '@mercaria/shared-types';
@@ -57,8 +64,17 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 /** Walked whole, so the wall holds for modules nobody has written yet. */
 const SCANNED_DIRECTORIES = ['services/search-intent', 'db/searchIntent'];
 
-/** The shared directories, where this domain sits beside every other domain's. */
-const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
+/**
+ * The shared directories, where this domain sits beside every other domain's.
+ *
+ * `db/schema` was missing, inherited from the three-name list copied from gate
+ * to gate and from `scripts/isolation-gate-census.ts`'s own bag-directory list.
+ * The four tables this domain owns — sessions, turns, benchmark runs and the
+ * enablement, the one place a raw-query column would be DECLARED, and this
+ * domain's central privacy claim is that no such column exists — were behind
+ * none of the walls below.
+ */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
 
 /**
  * What a file BELONGING to this domain is called, wherever it lives.
@@ -66,8 +82,16 @@ const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
  * Deliberately the FULL `search-intent`, never a bare `search`: #70's canonical
  * retrieval is a different domain with its own gate, and folding its five files
  * in here would make this wall fire at whoever edits them.
+ *
+ * The HYPHEN is optional, and that widening is load-bearing rather than tidy:
+ * the schema directory names its files in camelCase, so `db/schema/searchIntent.ts`
+ * cannot match a hyphenated spelling, and adding `db/schema` to the directory
+ * list above without this would have changed NOTHING while looking exactly like
+ * a fix. Widening a pattern is the PERMISSIVE direction and owes a measurement:
+ * `/search-?intent/i` over the whole of `src/` selects 25 modules, all of them
+ * this domain's, and `services/search/` still does not match it.
  */
-const DOMAIN_NAME_PATTERN = /search-intent/i;
+const DOMAIN_NAME_PATTERN = /search-?intent/i;
 
 /**
  * The STOREFRONT's search path, relative to the repository root.
@@ -176,13 +200,15 @@ function assertFile(absolute: string, label: string): string {
 }
 
 /** The files serving this domain from the SHARED directories, DERIVED by name. */
+function outerRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // RECURSIVE, and matching the PATH rather than the filename. The sweep this
+  // replaces was one level deep beside a recursive `walk()`, so anything under
+  // `routes/admin/` or `controllers/admin/` was outside every wall here (#460).
+  return namedInSharedDirectories(OUTER_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir);
+}
+
 function outerPaths(): string[] {
-  return OUTER_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory))
-      .filter((entry) => entry.endsWith('.ts') && DOMAIN_NAME_PATTERN.test(entry))
-      .sort()
-      .map((entry) => assertFile(join(SRC_ROOT, directory, entry), `${directory}/${entry}`)),
-  );
+  return outerRelativePaths().map((relative) => assertFile(join(SRC_ROOT, relative), relative));
 }
 
 /** The client files: the two derived by name plus the two that carry none. */
@@ -355,5 +381,47 @@ describe('the natural-language intent domain cannot reach what it must not', () 
     // …and neither is empty, so the disjointness above is not vacuous.
     expect(INTENT_CANDIDATE_ELEMENTS.length).toBeGreaterThanOrEqual(10);
     expect(INTENT_FORBIDDEN_MODEL_OUTPUTS.length).toBe(10);
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the `db/schema` fix.
+ *
+ * Adding one directory closes today's gap; this closes the class. The DIRECTORY
+ * list above is the last hand list in this gate's server half, and hand lists
+ * fail silently — every floor and count stayed green while the four tables this
+ * domain owns sat outside every wall.
+ *
+ * The population is re-derived here in RELATIVE form because the scan above
+ * works in absolute paths; it is the same two sources, so the two cannot
+ * describe different sets.
+ *
+ * `search-intent` is unambiguous once the hyphen is optional, so the exclusion
+ * set is EMPTY — measured, not guessed.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  const relativePopulation = (readDir: DirectoryReader): string[] => [
+    ...SCANNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...outerRelativePaths(readDir),
+  ];
+
+  it('every search-intent-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: relativePopulation,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 25 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 18,
+      plantIn: 'lib',
+      plantName: 'search-intent-cache.ts',
+    });
+  });
+
+  it('the relative population really is the one the walls scan', () => {
+    // Two spellings of one population can disagree, so this pins them together:
+    // every absolute path the detectors run over has a relative twin here.
+    const absolute = scannedPaths().map((path) => path.slice(SRC_ROOT.length + 1)).sort();
+    expect(relativePopulation(readSrcDirectory).sort()).toEqual(absolute);
   });
 });

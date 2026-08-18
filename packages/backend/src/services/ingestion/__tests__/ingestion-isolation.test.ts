@@ -35,6 +35,13 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   CATALOG_SOURCE_FORBIDDEN_PAYLOAD_FIELDS,
@@ -44,20 +51,24 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
-    else if (entry.name.endsWith('.ts')) found.push(child);
-  }
-  return found;
-}
+/** What a module of this domain is called, wherever it lives. */
+const INGESTION_NAME_PATTERN = /ingestion/i;
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` was missing — the five tables this framework owns
+ * (`catalog_sources`, `catalog_source_configs`, `catalog_source_policies`,
+ * `catalog_source_runs`, `catalog_source_rejections`) were behind none of the
+ * walls below, which is the directory where a rights column or a payload bag
+ * would be DECLARED. The omission is not this gate's invention: the same
+ * three-name list was copied from gate to gate and from
+ * `scripts/isolation-gate-census.ts`'s own bag-directory list.
+ *
+ * The sweep at the end of this file is what stops the next omission being
+ * silent, and it is the general remedy rather than this one entry.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /**
  * Every module of the ingestion domain — services, adapters, repositories,
@@ -83,16 +94,15 @@ const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
  * filename convention every file in them already follows; `ingestion` is
  * unambiguous, so this needs no exclusion list.
  */
-const INGESTION_DOMAIN_PATHS = [
-  ...walk('services/ingestion'),
-  ...walk('db/ingestion'),
-  ...SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /ingestion/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  ),
-];
+function ingestionDomainPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/ingestion', readDir),
+    ...walkOwnedDirectory('db/ingestion', readDir),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, INGESTION_NAME_PATTERN, readDir),
+  ];
+}
+
+const INGESTION_DOMAIN_PATHS = ingestionDomainPaths();
 
 /**
  * The enumeration floor, per SHAPE.
@@ -116,6 +126,7 @@ function expectEveryShapeFoundSomething(): void {
   expect(from('routes/'), 'no ingestion route was derived').toBeGreaterThanOrEqual(1);
   expect(from('controllers/'), 'no ingestion controller was derived').toBeGreaterThanOrEqual(1);
   expect(from('middleware/'), 'no ingestion request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(from('db/schema/'), 'no ingestion schema module was derived').toBeGreaterThanOrEqual(1);
   expect(INGESTION_DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
 }
 
@@ -424,4 +435,35 @@ describe('#454: a relative import cannot walk around these detectors', () => {
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
 
+});
+
+/**
+ * The population's own defence, and the general form of the `db/schema` fix.
+ *
+ * Adding one directory closes today's gap; this closes the class. The DIRECTORY
+ * list above is the last hand list in this gate, and hand lists fail silently —
+ * every floor and count stayed green while the five tables this framework owns
+ * sat outside every wall.
+ *
+ * So: sweep the whole of `src/` for paths NAMING this domain and require each to
+ * be in the derived population or in a counted exclusion. A bag directory nobody
+ * has invented yet brings its modules under these walls with no edit here.
+ *
+ * `ingestion` is an unambiguous token in this tree — no other domain has taken
+ * it — so the exclusion set is EMPTY, and it is empty because it was MEASURED
+ * rather than guessed. A guessed exemption excuses what can never match.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every ingestion-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: ingestionDomainPaths,
+      pattern: INGESTION_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's count so a routine deletion does not fail the build, and
+      // far enough above zero that a traversal which reached nothing does.
+      sweepFloor: 20,
+      plantIn: 'lib',
+      plantName: 'ingestion-cache.ts',
+    });
+  });
 });
