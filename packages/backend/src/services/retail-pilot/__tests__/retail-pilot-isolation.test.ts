@@ -58,7 +58,6 @@ function pilotPopulation(readDir: DirectoryReader = readSrcDirectory): string[] 
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PILOT_DIR = join(HERE, '..');
 const PRINTFUL_DIR = join(HERE, '..', '..', 'printful');
 const PRINTFUL_ADAPTER = join(HERE, '..', '..', 'supplier-orders', 'adapters', 'printful.ts');
 const PRINTFUL_CATALOG_ADAPTER = join(
