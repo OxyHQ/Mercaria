@@ -206,9 +206,17 @@ export async function readCategoryLocalizationCompleteness(
  *
  * Per version and not per key, because `product_type_localizations` is per
  * version and D5 freezes a published version's meaning: a v2 that changed what a
- * field asks for must not inherit v1's help text. A key with two published
- * versions is therefore owed two translations, which is correct rather than
- * double-counting.
+ * field asks for must not inherit v1's help text.
+ *
+ * Measured rather than assumed: `product_type_definitions_one_published_per_key`
+ * permits exactly ONE published version per key, so today the per-version grain
+ * and a per-published-key grain COINCIDE — "a key with two published versions"
+ * is unrepresentable. The grain is still stated per version because that is what
+ * the localization table is keyed by, so a scheme that ever published two would
+ * be counted correctly with no edit here. What the predicate genuinely excludes
+ * is the DRAFT successor of a published key: its meaning may still change
+ * (`PRODUCT_TYPE_EDITABLE_LIFECYCLES`), and putting it in a translator's backlog
+ * is asking for work that a later edit invalidates.
  *
  * This is the grain `measureProductTypeCompleteness` does not have — that one is
  * keyed by product-type key with `SUPPORTED_LOCALES.length` as its denominator,
