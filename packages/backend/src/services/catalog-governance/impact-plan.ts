@@ -68,7 +68,7 @@ import { categoryLocalizations, categoryLocalizedSlugs, productTypeLocalizations
 import { catalogProposals } from '../../db/schema/catalogProposals.js';
 import { conditionCategoryPolicies } from '../../db/schema/condition.js';
 import { navigationNodes, navigationSavedQueries, navigationTrees } from '../../db/schema/navigation.js';
-import { productTypeCategoryScopes, productTypeFieldGroups, productTypeFields, productTypeDefinitions } from '../../db/schema/productTypes.js';
+import { productTypeAliases, productTypeCategoryScopes, productTypeFieldGroups, productTypeFields, productTypeDefinitions } from '../../db/schema/productTypes.js';
 import { retailServicePolicyExceptions } from '../../db/schema/retailServiceRequests.js';
 import { sellerListingDrafts } from '../../db/schema/sellYours.js';
 import { categoryAliases, categoryExternalMappings, categoryRedirects } from '../../db/schema/taxonomy.js';
@@ -232,7 +232,7 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   },
 ];
 
-/** Every foreign key into a product-type definition version. Nine entries. */
+/** Every foreign key into a product-type definition version. Ten entries. */
 const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
   {
     column: productTypeCategoryScopes.productTypeDefinitionId,
@@ -247,7 +247,14 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
   {
     column: productTypeFields.productTypeDefinitionId,
     disposition: 'cascades',
-    note: 'ON DELETE cascade — the version own fields. The count is what a diff is a diff OF, so it is the first number an operator reads before publishing',
+    note:
+      'ON DELETE cascade — the version own fields. The count is what a diff is a diff OF, so it is the first number an operator reads before publishing. NOTE the second-order gap this census cannot see: product_type_field_localizations hangs off a FIELD rather than off a definition, so it is out of this population by construction, it cascades away with the fields, and copyForwardProductTypeLocalizations carries only the VERSION-level text. Publishing a new version therefore loses every per-field translation, silently — the same copy-forward the product_type_aliases entry above owes, at a different grain',
+  },
+  {
+    column: productTypeAliases.productTypeDefinitionId,
+    disposition: 'rewire_path_missing',
+    note:
+      'ON DELETE cascade. An alias is per VERSION, so publishing a new version leaves every alias on the OLD one and nothing carries them forward — copyForwardProductTypeLocalizations covers the localizations beside them and deliberately not these. The failure mode is silent and is the reason this is not `cascades`: nothing errors, a shopper search simply stops resolving "movil" to the live version. The entry point #367 workstream 2 owes is a copy-forward in publishProductTypeVersion',
   },
   {
     column: productTypeLocalizations.productTypeDefinitionId,

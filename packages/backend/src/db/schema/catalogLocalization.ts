@@ -68,7 +68,7 @@ import {
 import { asEnumValues, checkOneOf } from './columns';
 import { categories } from './catalog';
 import { attributeEnumValues } from './attributeRegistry';
-import { productTypeDefinitions } from './productTypes';
+import { productTypeDefinitions, productTypeFields } from './productTypes';
 
 /** `SUPPORTED_LOCALES` as the tuple both the column type and its CHECK read. */
 const LOCALE_VALUES = asEnumValues(SUPPORTED_LOCALES);
@@ -358,6 +358,86 @@ export const productTypeLocalizations = pgTable(
   (t) => [
     ...localizationChecks('product_type_localizations', { ...t, primaryText: t.name }),
     uniqueIndex('product_type_localizations_locale_key').on(t.productTypeDefinitionId, t.locale),
+  ],
+);
+
+/**
+ * `product_type_field_localizations` — one locale's authoring copy for ONE
+ * FIELD of one product-type version (ADR 0007 D10).
+ *
+ * ## Why this is a different subject from `product_type_localizations`
+ *
+ * That table localizes the FORM — what a smartphone schema is and what it is
+ * for. This one localizes a QUESTION on it. Folding the two together would make
+ * "what is this form for" and "what does this box want" the same string, and the
+ * second is the one a merchant is actually stuck on.
+ *
+ * ## What it replaces, and the direction the old behaviour was wrong in
+ *
+ * Before this table a field's label and help were read off the cited
+ * ATTRIBUTE's `attribute_labels` row. That table is the family's one
+ * exemption — it carries no `status` and no `provenance` — so
+ * `services/catalog-authoring/schema.service.ts` walks the fallback chain for
+ * those rows and then reports every hit as `step: 'base'`, `status: 'approved'`,
+ * counting it as UNRESOLVED in the coverage figure.
+ *
+ * That is worth stating precisely, because the tempting description is the
+ * wrong one: the service **under**-claims. A label genuinely found in the
+ * requested locale is reported as base and counted as a gap. It is not a
+ * confident 100% over machine output — it is the honest reading of a table that
+ * records neither fact, with a counter that errs toward showing an operator
+ * work rather than hiding it. Nothing here is fixing a lie; it is giving the
+ * field somewhere to record what the attribute registry structurally cannot.
+ *
+ * ## Four localized columns, and the base of each lives on the FIELD
+ *
+ * `product_type_fields` gained nullable `label`, `help_text`, `placeholder` and
+ * `example` in the same change, because `_locale_not_base_check` refuses a row
+ * here carrying the base locale — the base string lives on the entity's own
+ * column, family-wide. Without those four the base-locale placeholder and
+ * example would have had no row shape at all, which is exactly the state
+ * `schema.service.ts` recorded in-code: "the field arrives when a column does."
+ *
+ * `label` is the `primaryText`, so a `missing` row is one somebody opened to say
+ * a translation is owed. `placeholder` and `example` are deliberately NOT
+ * primary: a field can be perfectly well translated and legitimately have
+ * neither, and making either define `missing` would fill the translation queue
+ * with work nobody owes.
+ *
+ * ## Not frozen, unlike the field it hangs off
+ *
+ * `mercaria_product_type_child_frozen` freezes `product_type_fields` once the
+ * version leaves `draft`/`review`. These rows are deliberately outside it — the
+ * split `product_type_localizations` already makes. A published contract is
+ * fixed; its wording in Catalan is still a translator's to finish, and freezing
+ * the translations with the contract would mean a version could never be
+ * localized after it went live, which is when localizing it matters.
+ *
+ * `cascade`: a translation of a deleted field is meaningless and nothing else
+ * points at it.
+ */
+export const productTypeFieldLocalizations = pgTable(
+  'product_type_field_localizations',
+  {
+    id: generatedId(),
+    productTypeFieldId: text()
+      .notNull()
+      .references(() => productTypeFields.id, { onDelete: 'cascade' }),
+    ...localizationColumns(),
+    /** The localized field label. NULL exactly when `status = 'missing'`. */
+    label: text(),
+    /** Authoring guidance for this one question, in the merchant's language. */
+    helpText: text(),
+    /** Shown INSIDE an empty input. Never a value, never submitted. */
+    placeholder: text(),
+    /** A worked illustration shown BESIDE the input. Also never submitted. */
+    example: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    ...localizationChecks('product_type_field_localizations', { ...t, primaryText: t.label }),
+    uniqueIndex('product_type_field_localizations_locale_key').on(t.productTypeFieldId, t.locale),
   ],
 );
 

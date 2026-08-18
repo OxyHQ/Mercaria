@@ -34,7 +34,8 @@
  *
  * ## Scope, stated rather than assumed
  *
- * The four product-type tables and no others. `attribute_definitions` is #94's
+ * Every table `schema/productTypes.ts` declares, DERIVED from the module rather
+ * than hand-listed, and no others. `attribute_definitions` is #94's
  * and legitimately carries `assumed_unit` on a sibling table — a recorded fact
  * about a FEED's convention, not a value handed to an author — so a scan wide
  * enough to include the registry would need an exemption on its first run, and an
@@ -49,14 +50,10 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { getTableConfig, pgTable, text } from 'drizzle-orm/pg-core';
+import { is } from 'drizzle-orm';
+import { PgTable, getTableConfig, pgTable, text } from 'drizzle-orm/pg-core';
 import { sqlColumnName } from '@oxyhq/db';
-import {
-  productTypeCategoryScopes,
-  productTypeDefinitions,
-  productTypeFieldGroups,
-  productTypeFields,
-} from '../schema/productTypes.js';
+import * as productTypeSchema from '../schema/productTypes.js';
 
 /**
  * The spellings a default answer would arrive under, as SQL column names.
@@ -87,13 +84,26 @@ const DEFAULT_ANSWER_COLUMNS = [
   'placeholder_value',
 ] as const;
 
-/** The four tables ADR 0007 D5 names, walked whole. */
-const PRODUCT_TYPE_TABLES = [
-  productTypeDefinitions,
-  productTypeCategoryScopes,
-  productTypeFieldGroups,
-  productTypeFields,
-] as const;
+/**
+ * Every table the product-type module declares, DERIVED from the module.
+ *
+ * This was a hand list of the four tables ADR 0007 D5 names, and a hand list is
+ * the wrong shape here for a reason that has nothing to do with tidiness: the
+ * module GROWS. `product_type_aliases` landed later, and against the hand list
+ * it was simply not scanned — a `default_value` on it would have been invisible
+ * and this gate would have stayed green while covering less of the schema than
+ * it did the day it was written. Nothing fails in that story; the population
+ * quietly stops keeping up, which is the one failure a green suite cannot
+ * report.
+ *
+ * Derived, a table added to `schema/productTypes.ts` tomorrow is in scope
+ * tomorrow. The count assertion below is what makes the derivation itself
+ * falsifiable — an import that resolved to nothing would otherwise walk an
+ * empty population and pass every assertion in the file.
+ */
+const PRODUCT_TYPE_TABLES = Object.values(productTypeSchema).flatMap((value) =>
+  is(value, PgTable) ? [value] : [],
+);
 
 /**
  * Every forbidden column one table declares.
@@ -130,14 +140,32 @@ describe('the forbidden list and the walked population are both real', () => {
     expect(new Set(DEFAULT_ANSWER_COLUMNS).size).toBe(DEFAULT_ANSWER_COLUMNS.length);
   });
 
-  it('walks four tables and a non-trivial number of columns', () => {
-    const names = PRODUCT_TYPE_TABLES.map((table) => getTableConfig(table).name);
-    expect(names).toEqual([
+  it('walks every table the module declares, and a non-trivial number of columns', () => {
+    const names = PRODUCT_TYPE_TABLES.map((table) => getTableConfig(table).name).sort();
+
+    // A CONTAINMENT assertion plus a count, not an exact list. The exact list is
+    // what made the old hand-rolled population silently stop covering the module
+    // when it grew — and re-stating the derived set here would reintroduce
+    // exactly that, one indirection further along.
+    //
+    // These five must be present because each is named by ADR 0007 D5 or landed
+    // with a decision recorded beside it; the count is what fails when a SIXTH
+    // arrives, which is the conversation this gate exists to start.
+    for (const required of [
       'product_type_definitions',
       'product_type_category_scopes',
       'product_type_field_groups',
       'product_type_fields',
-    ]);
+      'product_type_aliases',
+    ]) {
+      expect(names, `${required} is not in the derived population`).toContain(required);
+    }
+    expect(names).toHaveLength(5);
+
+    process.stdout.write(
+      `\n  [product-type defaults census] ${names.length} tables derived from the module: ` +
+        `${names.join(', ')}\n`,
+    );
 
     const columnCount = PRODUCT_TYPE_TABLES.reduce(
       (total, table) => total + getTableConfig(table).columns.length,
@@ -190,10 +218,10 @@ describe('the detector actually detects — the mutation self-test', () => {
     // It also pins the CASING, which is the half that actually went wrong here:
     // asserting `value_policy` is present is what fails if somebody replaces
     // `sqlColumnName` with `column.name` and turns the whole gate vacuous.
-    const real = getTableConfig(productTypeFields).columns.map((column) => sqlColumnName(column));
+    const real = getTableConfig(productTypeSchema.productTypeFields).columns.map((column) => sqlColumnName(column));
     expect(real).toContain('value_policy');
     expect(real).toContain('requirement');
     expect(real).toContain('position');
-    expect(defaultAnswerColumnsOf(productTypeFields)).toEqual([]);
+    expect(defaultAnswerColumnsOf(productTypeSchema.productTypeFields)).toEqual([]);
   });
 });

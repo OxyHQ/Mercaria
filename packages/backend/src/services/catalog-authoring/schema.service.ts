@@ -642,9 +642,23 @@ async function composeText(
       ...(label === undefined ? {} : { label }),
       ...(help === undefined ? {} : { help }),
       // `placeholder` and `example` are modelled because ADR 0007 D10 names
-      // them and are ABSENT because no table in this repository carries one.
-      // An invented example is a claim about a product nobody made; the field
-      // arrives when a column does.
+      // them, and they used to be ABSENT here because no table in this
+      // repository carried one — "the field arrives when a column does".
+      //
+      // THE COLUMNS NOW EXIST: `product_type_fields.placeholder`/`.example`
+      // hold the base-locale text and `product_type_field_localizations`
+      // holds the translations. They are still not emitted HERE, and that is
+      // now a wiring gap rather than a modelling one: this function reads its
+      // field text from the cited ATTRIBUTE's `attribute_labels` rows, which
+      // have no placeholder or example to give it, and reading the new tables
+      // means a new query and a fallback-chain resolution per field.
+      //
+      // Deliberately left to the change that adds that read, so this stays a
+      // NAMED seam rather than a comment asserting an absence that is no
+      // longer true. The original reasoning still stands and still binds
+      // whoever wires it: an invented example is a claim about a product
+      // nobody made, so an absent column stays absent from the response —
+      // it never becomes a plausible default.
     };
   }
 

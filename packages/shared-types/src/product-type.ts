@@ -239,6 +239,56 @@ export const PRODUCT_TYPE_ATTRIBUTE_KEY_PATTERN = /^[a-z][a-z0-9_]*$/;
  */
 export const PRODUCT_TYPE_KEY_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/;
 
+/**
+ * `product_type_aliases.kind` — what an alternate name for a product type IS.
+ *
+ * ## Its own tuple, and NOT `CATEGORY_ALIAS_KINDS`
+ *
+ * The two vocabularies overlap on four members and are deliberately separate
+ * objects, for a mechanical reason and a semantic one.
+ *
+ * Mechanically: `CATEGORY_ALIAS_KINDS` renders
+ * `category_aliases_kind_check` on another domain's table. Adding
+ * `transliteration`, `abbreviation` and `regional_term` to it to serve this
+ * table would widen a CHECK on `category_aliases` — a constraint change on rows
+ * this issue does not own, arriving in a migration whose title says
+ * "product types".
+ *
+ * Semantically: these are the three the epic names under
+ * "localized aliases, synonyms, regional terms, abbreviations, common
+ * misspellings and transliterations" and that nothing in the repository could
+ * previously represent. `misspelling` is kept because a search alias is exactly
+ * where one belongs; `legacy_name` is kept because a renamed product type is
+ * the commonest reason a stored key stops matching what people type.
+ *
+ * `external_label` is deliberately NOT a member. A source's own word for a
+ * product type is a source MAPPING — it belongs beside the source that said it,
+ * with its provenance, the way `attribute_source_mappings` and
+ * `category_external_mappings` already record theirs. Admitting it here would
+ * make an importer's vocabulary indistinguishable from Mercaria's own, which is
+ * the "imported source taxonomies leaking into Mercaria's public model" failure
+ * the epic is written against.
+ */
+export type ProductTypeAliasKind =
+  | 'synonym'
+  | 'search_term'
+  | 'legacy_name'
+  | 'misspelling'
+  | 'transliteration'
+  | 'abbreviation'
+  | 'regional_term';
+
+/** The tuple `product_type_aliases_kind_check` is rendered from. */
+export const PRODUCT_TYPE_ALIAS_KINDS: readonly ProductTypeAliasKind[] = [
+  'synonym',
+  'search_term',
+  'legacy_name',
+  'misspelling',
+  'transliteration',
+  'abbreviation',
+  'regional_term',
+];
+
 /* -------------------------------------------------------------------------- */
 /* The conditional-visibility rule AST (ADR 0007 D5, D14)                      */
 /* -------------------------------------------------------------------------- */
