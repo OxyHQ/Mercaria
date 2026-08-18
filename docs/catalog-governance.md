@@ -217,15 +217,17 @@ the rename inside a real transaction — the only place the post-change ancestry
 is visible — and mutation-tests both the subtree scope and the `incomplete`
 probe.
 
-### Exactly two relations still carry `rewire_path_missing`, and the census says so
+### Exactly three relations carry `rewire_path_missing`, and the census says so
 
-`seller_listing_drafts.category_id` (#91 exposes no re-pin entry point) and
+`seller_listing_drafts.category_id` (#91 exposes no re-pin entry point),
+`product_type_aliases.product_type_definition_id` (#367 workstream 2 owes a
+copy-forward in `publishProductTypeVersion`) and
 `native_variant_axis_assignments.attribute_definition_id` (#367 step 4 exposes
 no re-normalization entry point for already-written assignments).
 
-There were THREE until #587, and this paragraph said two — the plan and the
-prose had drifted, in the direction that reads as fewer gaps than there are.
-`listings.product_type_definition_id` was the third, and it is now
+This paragraph said TWO while the plan carried three — the plan and the prose
+had drifted, in the direction that reads as fewer gaps than there are.
+`listings.product_type_definition_id` was that third, and it is now
 `rewired_by_domain`: `previewListingProductTypeUpgrade` then
 `applyListingProductTypeUpgrade` move a published listing forward, per listing
 and never silently, which is the twin of the draft pair the plan already cited
@@ -238,6 +240,13 @@ that does not exist, which is the reading `unrewiredRowCount` exists to prevent;
 and leaving a CLOSED gap labelled `rewire_path_missing` makes an operator
 decline a change that is safe. Mutation-tested — flipping any one disposition
 turns exactly that case red.
+
+**It fired on its first rebase**, which is the `merge-plan-census.test.ts`
+precedent repeating: `product_type_aliases.product_type_definition_id` arrived
+from another branch while #587 was in review, and the pinned set is what
+reported it rather than it landing as a fourth silent gap. That is the whole
+argument for the case existing — a hand-written paragraph in this file had
+already lost count once.
 
 A BULK path over every listing pinned to a version is deferred rather than
 missing, and the cost is measured: it needs a `CATALOG_GOVERNANCE_ACTIONS`

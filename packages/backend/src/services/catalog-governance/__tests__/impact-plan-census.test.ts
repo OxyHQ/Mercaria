@@ -151,6 +151,11 @@ describe('the governed-reference census', () => {
         // #91's seller draft pins a category and this domain has no re-pin
         // entry point.
         'seller_listing_drafts.categoryId',
+        // #367 workstream 2 owes a copy-forward in `publishProductTypeVersion`;
+        // until then a new version leaves every alias on the old one. This
+        // entry ARRIVED while #587 was in review, and this assertion is what
+        // reported it — which is the case it was written for.
+        'product_type_aliases.productTypeDefinitionId',
         // #367 step 4 exposes no re-normalization entry point for assignments
         // already written.
         'native_variant_axis_assignments.attributeDefinitionId',
