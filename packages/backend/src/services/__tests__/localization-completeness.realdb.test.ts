@@ -44,11 +44,7 @@ import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../../db/t
 import { categories } from '../../db/schema/catalog.js';
 import { productTypeDefinitions, productTypeFields } from '../../db/schema/productTypes.js';
 import { attributeDefinitions, attributeEnumValues } from '../../db/schema/attributeRegistry.js';
-import {
-  attributeValueLocalizations,
-  categoryLocalizations,
-  productTypeLocalizations,
-} from '../../db/schema/catalogLocalization.js';
+import { categoryLocalizations } from '../../db/schema/catalogLocalization.js';
 import {
   readLocalizationAlerts,
   readLocalizationCompleteness,

@@ -327,18 +327,38 @@ make a stored fact mean different things in different markets, which is the
 identity failure ADR 0007 D1 exists to prevent. There is no column anywhere here
 that could hold one.
 
+## The translation desk (#367 step 10)
+
+Full reference: **[translation-desk.md](translation-desk.md)**. What is worth
+knowing from here:
+
+- The desk is `services/catalog-localization/completeness.service.ts` +
+  `side-by-side.service.ts` over
+  `db/catalogLocalization/completenessRepository.ts`, read through
+  `/internal/catalog-localization/*` behind the SAME
+  `CATALOG_OPERATOR_OXY_USER_IDS` allow-list.
+- **The `(locale, status)` indexes landed with it** (migration `0114`, `pre`) —
+  the reader the absence below was waiting for. All four tables carry one.
+- **`localization_coverage_runs` is still absent and the desk did not change
+  that.** Every figure is derived at read time, so a translation settled a
+  second ago is in the next answer with no sweep having run.
+- **Side-by-side review deliberately does not use `resolve.ts`.** The resolver
+  falls back so a shopper never sees a raw key; a reviewer asking "is the Spanish
+  approved" must never be shown the English that would be served in its place.
+  It reads the exact-locale row or none.
+
 ## What is deliberately absent
 
-- **A `(locale, status)` index.** It is the obvious index for "every category
-  still owing a Spanish name", and nothing reads that question today — the
-  translation desk that asks it is #367 merge-order step 10. Three indexes over
-  three tables each carrying roughly (entities × locales) rows is a real write
-  cost paid on every translation save; adding one later is a one-statement
-  additive migration, and one whose reader never arrives is permanent.
 - **A `localization_coverage_runs` table.** "How much of the catalogue is
   translated" is a query over these rows, and storing its answer would be a
   second representation going stale the moment a translator saves.
-  `attribute_coverage_runs`' absence one file over is the precedent.
+  `attribute_coverage_runs`' absence one file over is the precedent. The
+  translation desk (#367 step 10) reads it live and stores nothing.
+- **A route that settles a translation on the desk's own surface.**
+  `POST /internal/catalog-governance/reviews/localization` owns that decision,
+  behind the same gate and narrowed by the `translate` role grant, writing the
+  audit trail. A second route to one decision is how two surfaces come to
+  disagree about what it meant.
 - **A rollout flag, and the prediction below was RESOLVED the other way.** This
   bullet used to say D12's `CATALOG_LOCALIZATION_ENABLED` "lands with the first
   surface that serves these reads". Two surfaces now serve them —
@@ -379,5 +399,17 @@ that could hold one.
   — its name must be added to `CATALOG_LOCALIZATION_TEXT_TABLES` or the census
   fails the build, which is the point — and its campaign copy is the first
   plausible `legal_text` / `seller_authored` member of the field registry.
-- **#367 step 10 (dashboard).** The translation desk, and the coverage index it
-  justifies.
+- **#367 step 10 (dashboard).** The translation desk LANDED — see
+  [translation-desk.md](translation-desk.md) — and with it the coverage indexes
+  it justifies. What is still owed is the dashboard SCREEN: every endpoint it
+  needs exists and nothing in `packages/dashboard` consumes them.
+- **#650 (per-field carry-forward).** `product_type_field_localizations` hangs
+  off a FIELD and `copyForwardProductTypeLocalizations` carries only
+  version-level text, so publishing a new product-type version silently drops
+  every per-field translation. The desk PUBLISHES this rather than fixing it —
+  `LOCALIZATION_STALENESS_DETECTIONS`' `carriesForwardOnVersionBump: 'no'` plus
+  `knownGapIssue: '#650'` — because a completeness figure that can collapse to
+  zero for a key through no translator's doing is one a desk would otherwise
+  read as its translators having stopped. The closing condition is a join on
+  `attribute_key`, not on the row id: a field's identity across versions is its
+  key.
