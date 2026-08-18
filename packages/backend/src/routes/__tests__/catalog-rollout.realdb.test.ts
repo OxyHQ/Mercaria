@@ -5,7 +5,7 @@
  * recorded both as conventions:
  *
  *  1. **Turning a lever off restores the previous behaviour** — the previous
- *     behaviour being that these five surfaces did not exist.
+ *     behaviour being that these six surfaces did not exist.
  *  2. **No lever gates a durable record** — a draft or a proposal stored with the
  *     lever on is still there, and still reachable, with it off.
  *
@@ -29,7 +29,7 @@
  * unconditional paths are called on BOTH deployments and their statuses compared.
  * The gated paths need the opposite treatment: 404-with-the-lever-off is worthless
  * without 404's absence with it on, or a route deleted outright would satisfy
- * every case here. Both directions are asserted for all five.
+ * every case here. Both directions are asserted for all six.
  *
  * ## The third deployment is the one that shows the failure mode
  *
@@ -240,7 +240,7 @@ async function call(deployment: Deployment, target: Call): Promise<number> {
 }
 
 /**
- * The five mounts the four levers gate, one call each.
+ * The six mounts the four levers gate, one call each.
  *
  * `/stores/:storeId/product-drafts` is the one to read carefully: `storesRouter`
  * is mounted at `/stores` UNCONDITIONALLY, so with the authoring lever off this
@@ -256,6 +256,17 @@ const GATED: readonly Call[] = [
   { method: 'POST', path: '/catalog-proposals', body: {} },
   { method: 'POST', path: '/facets', body: {} },
   { method: 'GET', path: '/navigation?market=ES&locale=es' },
+  /*
+   * #367 Workstream 1's public taxonomy reads, behind the SAME
+   * `CATALOG_TAXONOMY_V2_ENABLED` lever `/navigation` is behind — the lever
+   * `config/index.ts` calls "the extended taxonomy READS", and which until this
+   * surface landed gated only the menu.
+   *
+   * `/categories/roots` rather than a `:categoryId` path: a probe naming an id
+   * would 404 for the id as well as for the mount, which is the `probesMount:
+   * false` situation below, and this list is better with one fewer of those.
+   */
+  { method: 'GET', path: '/taxonomy/categories/roots' },
 ];
 
 /**
@@ -306,11 +317,11 @@ describe('the four levers gate a MOUNT — and turning them off restores the pre
     },
   );
 
-  it('withdraws EXACTLY those five mounts and nothing else', async () => {
+  it('withdraws EXACTLY those six mounts and nothing else', async () => {
     // The vacuity floor on the two lists: an empty GATED array would make both
     // cases above pass trivially, and an empty UNCONDITIONAL array would make the
     // sameness case below pass trivially.
-    expect(GATED.length).toBe(5);
+    expect(GATED.length).toBe(6);
     expect(UNCONDITIONAL.length).toBeGreaterThanOrEqual(6);
   });
 });

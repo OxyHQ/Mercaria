@@ -30,7 +30,7 @@ import {
   publishNavigationTree,
   replaceNavigationTreeNodes,
 } from '../services/navigation/authoring.service.js';
-import { navigationEtagMatches } from '../services/navigation/etag.js';
+import { ifNoneMatchMatches } from '../lib/http/if-none-match.js';
 import {
   previewNavigationTree,
   readPublishedNavigation,
@@ -59,7 +59,7 @@ export async function navigationReadHandler(req: Request, res: Response): Promis
     // proxy that ignored the query would serve one market's menu to another's
     // shoppers, and stating it costs nothing.
     res.setHeader('Vary', 'Accept-Encoding');
-    if (navigationEtagMatches(req.headers['if-none-match'], response.etag)) {
+    if (ifNoneMatchMatches(req.headers['if-none-match'], response.etag)) {
       res.status(304).end();
       return;
     }

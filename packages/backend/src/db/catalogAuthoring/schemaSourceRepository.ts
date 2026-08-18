@@ -195,7 +195,13 @@ export async function listSelectableCategories(
           ? and(selectable, sql`${categories.parentId} is null`)
           : and(selectable, eq(categories.parentId, options.parentId)),
     )
-    .orderBy(asc(categories.position), asc(categories.name))
+    // `(position, name, slug)` and NOT `(position, name)`: `categories.name` carries
+    // no unique index, so two siblings sharing a position and a name were ordered by
+    // whatever the planner returned — a page-2 read could then repeat or drop one,
+    // and nothing anywhere would say so. `slug` carries `categories_slug_key`, so
+    // adding it makes the order TOTAL. `name` stays the leading display key because
+    // this is a picker a human reads.
+    .orderBy(asc(categories.position), asc(categories.name), asc(categories.slug))
     .limit(options.limit);
 }
 

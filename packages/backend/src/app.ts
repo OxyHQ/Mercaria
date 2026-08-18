@@ -113,6 +113,9 @@ import internalSupplierPreflightRouter from './routes/internal-supplier-prefligh
 import internalRetailPilotRouter from './routes/internal-retail-pilot.js';
 import internalRetailReconciliationRouter from './routes/internal-retail-reconciliation.js';
 import navigationRouter from './routes/navigation.js';
+// #367 Workstream 1's public taxonomy reads, behind the SAME
+// `CATALOG_TAXONOMY_V2_ENABLED` lever `/navigation` is behind.
+import taxonomyRouter from './routes/taxonomy.js';
 import internalNavigationRouter from './routes/internal-navigation.js';
 import catalogAuthoringRouter from './routes/catalog-authoring.js';
 import productDraftsRouter from './routes/product-drafts.js';
@@ -977,6 +980,19 @@ export function createApp(): express.Express {
    */
   if (config.catalog.taxonomyV2Enabled) {
     app.use('/navigation', navigationRouter);
+    /**
+     * …and the extended taxonomy READS the lever is actually named for
+     * (#367 Workstream 1, ADR 0007 D1/D2). Roots, children, ancestors,
+     * descendants, breadcrumbs, localized search and category eligibility — the
+     * `db/taxonomy/taxonomyRepository.ts` reads that had shipped with no
+     * controller calling them.
+     *
+     * Anonymous and mounted here rather than beside `/categories`, which is the
+     * v1 tree (D13) and stays exactly as it is: this is additive, and a new
+     * subpath under `/categories` would sit next to `/:slug/listings` and make
+     * `roots` ambiguous with a category slug.
+     */
+    app.use('/taxonomy', taxonomyRouter);
   }
   /**
    * …and its operator surface, on the SAME `CATALOG_OPERATOR_OXY_USER_IDS`

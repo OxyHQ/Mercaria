@@ -21,6 +21,10 @@ identity established here and on nothing else in the epic.
 | Migration, with five hand-written triggers | `packages/backend/drizzle/0087_productive_namorita.sql` |
 | Real-server proof | `packages/backend/src/db/__tests__/taxonomy.realdb.test.ts` |
 | The chokepoint gate | `packages/backend/src/db/__tests__/taxonomy-write-chokepoint.test.ts` |
+| The PUBLIC read surface (#367 Workstream 1's HTTP half) | `packages/backend/src/routes/taxonomy.ts`, `controllers/taxonomy.controller.ts`, `services/taxonomy/` |
+| Its request schemas and its ETag | `packages/backend/src/middleware/taxonomy-schemas.ts`, `services/taxonomy/etag.ts` |
+| The read contract | `packages/shared-types/src/taxonomy-api.ts` |
+| HTTP proof | `packages/backend/src/routes/__tests__/catalog-api-contract.realdb.test.ts` |
 
 ## There is one category table
 
@@ -198,4 +202,87 @@ statement against these tables is an unqualified DELETE) and
   because the row is frozen with the published version. ADR 0007 names it
   twice — `category_product_type_scopes` in D2's list, the D5 name in D5 —
   and the D5 name is the correct one; the D2 spelling is an error in the ADR.
-- **Any HTTP surface.** This step is schema, repository and gates only.
+- **Any WRITE route.** A taxonomy change is planned, approved and applied through
+  `/internal/catalog-governance/changes` on the `CATALOG_OPERATOR_OXY_USER_IDS`
+  allow-list, where it gets an impact estimate, four eyes and an audit row, and
+  export/import is `/internal/catalog-governance/snapshots`. A second way to move a
+  category would be a second authority over the one table whose write chokepoint has
+  a build-failing gate.
+
+  This bullet used to read *"Any HTTP surface. This step is schema, repository and
+  gates only."* — which was accurate and had a consequence: `findRootCategories`,
+  `findChildCategories`, `findCategoryAncestors`, `findCategoryDescendants` and
+  `findCategoryBreadcrumb` shipped with NO controller calling them. See the section
+  below.
+
+## The public read surface
+
+`GET /taxonomy/categories/*`, nine reads, behind `CATALOG_TAXONOMY_V2_ENABLED`
+(default **false**) — the lever `config/index.ts` already calls *"the extended
+taxonomy READS"* and which until this landed gated only `/navigation`. Mount only:
+every category, alias, redirect and localization stays readable with it off.
+
+```text
+GET /taxonomy/categories/roots                             ?locale= &limit= &cursor=
+GET /taxonomy/categories/search                            ?q= &locale= &limit=
+GET /taxonomy/categories/by-key/:key                       ?locale=
+GET /taxonomy/categories/:categoryId                       ?locale=
+GET /taxonomy/categories/:categoryId/children              ?locale= &limit= &cursor=
+GET /taxonomy/categories/:categoryId/descendants           ?locale= &limit= &cursor=
+GET /taxonomy/categories/:categoryId/ancestors             ?locale=
+GET /taxonomy/categories/:categoryId/breadcrumb            ?locale=
+GET /taxonomy/categories/:categoryId/eligibility           ?locale=
+```
+
+Anonymous, on the `'listings'` rate-limit bucket the other catalogue reads share.
+`GET /categories` — the v1 tree, ADR 0007 D13 — is untouched and keeps serving
+`CategoryNode`, which carries no `key` and no localization; this surface is
+additive. Every query schema is `.strict()`.
+
+**Identity is two routes, not one `:idOrKey`.** `generatedId()` mints a uuid v7,
+whose lowercase-hex-and-hyphen spelling also satisfies `CATEGORY_KEY_PATTERN`, so a
+single route would have to guess — and a guess that resolves an id as a key answers
+with a different category rather than failing.
+
+**There is no `?lifecycle=` parameter.** A tree read admits
+`TAXONOMY_BROWSABLE_LIFECYCLES` (`published`) and a single node admits
+`TAXONOMY_ADDRESSABLE_LIFECYCLES` (`published | deprecated | merged`, because a
+deprecated node's handle keeps resolving by design). Anything else is the SAME 404
+as a category that does not exist — a distinguishable answer is an oracle over
+unannounced verticals, which is the `?version=` exposure
+`schema-version-lifecycle-exposure.realdb.test.ts` closed one surface over.
+
+**A trail keeps its shape without disclosing an undisclosable step.** The repository
+never lifecycle-filters an ancestor list and is right not to — a breadcrumb missing
+its middle is not a shorter breadcrumb, it is a wrong one — but a published node can
+sit under a `draft` parent. So the step survives with its position and its
+lifecycle and loses its text: `TaxonomyBreadcrumbStepView`'s `withheld` branch has
+no `key`, `name` or `slug` property for a renderer to reach for.
+
+**Ordering is total, and descendants are not depth-first.** Every tree read is
+`(position, slug)`, and `slug` carries `categories_slug_key`, so the order is total
+and a keyset cursor over it cannot repeat or drop a row. Across depths that is
+sibling order applied to a flat list, not a tree walk — a client re-nests by
+`parentId`. The keyset goes to the database for `descendants` (unbounded by fan-out)
+and is applied in memory for `roots` and `children` (bounded by it).
+
+**Search matches on the text the reader is SERVED.** The candidate scan matches a
+base name or any servable localization in the fallback chain; the resolver then
+picks ONE, and a candidate whose resolved name does not contain the query is
+DROPPED — so a Spanish shopper never gets a hit that is invisible in the Spanish
+label they are shown. The candidate cap is reported (`truncated`), because ten hits
+out of a truncated scan is a different answer from ten out of a complete one.
+
+**Eligibility is a VERDICT with named reasons**, which is the thing
+`GET /catalog-authoring/product-types` cannot give: that read answers with the
+scoped SET, and an empty array there means "nothing is scoped here" —
+indistinguishable from "you may not file a product here" by a client holding only
+the array. It says nothing about the caller; a store permission is not a taxonomy
+question and the route takes no store id.
+
+**Every read carries a deterministic ETag** keyed by the read, its subject, the
+locale and the cursor, and honours `If-None-Match` including the weak and list
+forms. `Cache-Control: public, no-cache`, because the answer is identical for every
+reader. The `If-None-Match` comparison itself is `lib/http/if-none-match.ts` —
+this was the THIRD surface to need it, which is the condition
+`services/catalog-authoring/etag.ts` named for consolidating the two copies.

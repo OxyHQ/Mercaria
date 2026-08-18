@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { navigationLocaleFallbackChain } from '@mercaria/shared-types';
-import { navigationEtag, navigationEtagMatches } from '../etag.js';
+import { navigationEtag } from '../etag.js';
 import {
   NAVIGATION_BASE_LOCALE,
   navigationFallbackChain,
@@ -334,13 +334,19 @@ describe('the ETag', () => {
     );
   });
 
-  it('matches a list, a weak form and a wildcard', () => {
-    const etag = navigationEtag(KEY, { a: 1 });
-    expect(navigationEtagMatches(etag, etag)).toBe(true);
-    expect(navigationEtagMatches(`W/${etag}`, etag)).toBe(true);
-    expect(navigationEtagMatches(`"other", ${etag}`, etag)).toBe(true);
-    expect(navigationEtagMatches('*', etag)).toBe(true);
-    expect(navigationEtagMatches('"other"', etag)).toBe(false);
-    expect(navigationEtagMatches(undefined, etag)).toBe(false);
+  /*
+   * The `If-None-Match` case used to be here and has MOVED to
+   * `lib/http/__tests__/if-none-match.test.ts`, with the function it tested.
+   *
+   * `navigationEtagMatches` is gone — a clean cut. The identical six lines also
+   * lived in `services/catalog-authoring/etag.ts`, which said that a THIRD
+   * surface needing them is the point at which they stop being HTTP syntax two
+   * files happen to spell and become a helper somebody owns. `/taxonomy` is that
+   * surface, so the owner is `lib/http/if-none-match.ts`.
+   */
+  it('exports the tag and the key type, and no comparison', async () => {
+    const module = await import('../etag.js');
+    expect(Object.keys(module)).not.toContain('navigationEtagMatches');
+    expect(Object.keys(module).sort()).toEqual(['navigationEtag']);
   });
 });

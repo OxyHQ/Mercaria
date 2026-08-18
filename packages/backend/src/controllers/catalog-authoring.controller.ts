@@ -31,7 +31,7 @@ import { respondWithError } from '../lib/errors/error-codes.js';
 import { effectivePermissions } from '../middleware/store-authz.js';
 import { routeParam } from '../utils/request.js';
 import { sendSuccess } from '../utils/api-response.js';
-import { authoringEtagMatches } from '../services/catalog-authoring/etag.js';
+import { ifNoneMatchMatches } from '../lib/http/if-none-match.js';
 import {
   composeAuthoringSchema,
   listAuthoringCategories,
@@ -186,7 +186,7 @@ export async function authoringSchemaHandler(req: Request, res: Response): Promi
     // which is the whole point of a deterministic ETag.
     res.setHeader('Cache-Control', 'private, no-cache');
     res.setHeader('Vary', 'Accept-Encoding');
-    if (authoringEtagMatches(req.headers['if-none-match'], composition.schema.etag)) {
+    if (ifNoneMatchMatches(req.headers['if-none-match'], composition.schema.etag)) {
       res.status(304).end();
       return;
     }

@@ -73,6 +73,12 @@ export * from './category';
 // `./category`, which holds the v1 tree DTO this extends rather than replaces.
 export * from './taxonomy';
 
+// The PUBLIC taxonomy read contract (#367 Workstream 1's HTTP surface): the
+// views `/taxonomy/*` serves, which carry stable id + key AND a resolved
+// localized presentation. FOLLOWS `./taxonomy`, whose row projections it wraps,
+// and is separate from it because a row and a reader's view are not one type.
+export * from './taxonomy-api';
+
 // Cart DTOs (Cart, CartItemDTO, AddCartItemInput, UpdateCartItemInput).
 export * from './cart';
 

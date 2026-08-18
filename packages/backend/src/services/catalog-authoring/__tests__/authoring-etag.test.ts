@@ -15,7 +15,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   authoringEtag,
-  authoringEtagMatches,
   authoringSchemaCacheKey,
   type AuthoringSchemaKey,
 } from '../etag.js';
@@ -110,30 +109,16 @@ describe('every semantic dimension is IN the key, varied one at a time', () => {
   });
 });
 
-describe('If-None-Match', () => {
-  const tag = authoringEtag(KEY, BODY);
-
-  it('matches an exact echo', () => {
-    expect(authoringEtagMatches(tag, tag)).toBe(true);
-  });
-
-  it('matches inside a list', () => {
-    expect(authoringEtagMatches(`"other", ${tag}`, tag)).toBe(true);
-  });
-
-  it('matches a weakly-prefixed echo of a strong tag', () => {
-    expect(authoringEtagMatches(`W/${tag}`, tag)).toBe(true);
-  });
-
-  it('matches `*`', () => {
-    expect(authoringEtagMatches('*', tag)).toBe(true);
-  });
-
-  it('does not match an absent header or a different tag', () => {
-    expect(authoringEtagMatches(undefined, tag)).toBe(false);
-    expect(authoringEtagMatches('"nope"', tag)).toBe(false);
-  });
-});
+/*
+ * The `If-None-Match` cases used to be here and have MOVED to
+ * `lib/http/__tests__/if-none-match.test.ts`, with the function they test.
+ *
+ * `authoringEtagMatches` is gone — a clean cut. It said of itself that a THIRD
+ * surface needing the comparison is the point at which it stops being HTTP syntax
+ * two files happen to spell; `/taxonomy` is that surface, so the owner is
+ * `lib/http/if-none-match.ts`. Re-testing it here would be this domain asserting
+ * a property of HTTP.
+ */
 
 describe('the axis digest is #367 step 4\'s, and this domain defines none', () => {
   // The order-independence PROPERTY is step 4's own
@@ -164,9 +149,12 @@ describe('the axis digest is #367 step 4\'s, and this domain defines none', () =
     // keeping it would have meant a draft and its published variant disagreeing
     // about which two variants are the same thing.
     expect(Object.keys(authoringEtagModule)).not.toContain('variantAxisSignature');
+    // `authoringEtagMatches` is gone too, and for a different reason than
+    // `variantAxisSignature`: not a competing digest, but HTTP syntax that
+    // acquired a third caller and therefore an owner (`lib/http/if-none-match.ts`).
+    expect(Object.keys(authoringEtagModule)).not.toContain('authoringEtagMatches');
     expect(Object.keys(authoringEtagModule).sort()).toEqual([
       'authoringEtag',
-      'authoringEtagMatches',
       'authoringSchemaCacheKey',
     ]);
   });
