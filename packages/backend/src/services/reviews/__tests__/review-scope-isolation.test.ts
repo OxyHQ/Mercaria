@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -446,16 +446,31 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     // A negative control on the pattern itself: without the anchor these five
     // would each need an exclusion, so this asserts the anchor is doing the work
     // the docblock claims rather than the tree happening to be tidy.
-    for (const foreign of [
+    //
+    // EVERY path is asserted to EXIST first, and that is not decoration. Both
+    // loops below test a regex against a STRING LITERAL, so without the
+    // existence check they go on passing after the module is renamed or deleted
+    // — the control would then be measuring the pattern against a name nothing
+    // in the tree carries, which is a guard whose subject is absent reporting
+    // that the guard works. Found by applying `gatesA`'s rule (an anchor
+    // mutated away stayed green because its subject did not exist in the
+    // scanned directories) to my own already-merged control.
+    const foreignModules = [
       'services/catalog-governance/review.service.ts',
       'services/catalog-proposals/review.service.ts',
       'services/curation/review-queue.service.ts',
       'services/attributes/review-queue.service.ts',
       'services/referrals/application-review.service.ts',
-    ]) {
+    ];
+    for (const foreign of foreignModules) {
+      expect(
+        existsSync(join(SRC_ROOT, foreign)) && statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so testing the pattern against its name proves nothing`,
+      ).toBe(true);
       expect(REVIEW_TREE_PATTERN.test(foreign), `${foreign} is another domain's`).toBe(false);
       expect(/review/i.test(foreign), 'the unanchored pattern really would take it').toBe(true);
     }
+    expect(foreignModules.length, 'the measured foreign set changed').toBe(5);
     // …and the anchor still admits every shape this domain uses.
     for (const own of [
       'services/reviews/review-scope.ts',
@@ -464,6 +479,10 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       'controllers/reviews.controller.ts',
       'services/review.service.ts',
     ]) {
+      expect(
+        existsSync(join(SRC_ROOT, own)) && statSync(join(SRC_ROOT, own)).isFile(),
+        `${own} no longer exists, so asserting the pattern admits it proves nothing`,
+      ).toBe(true);
       expect(REVIEW_TREE_PATTERN.test(own), `${own} is this domain's`).toBe(true);
     }
   });

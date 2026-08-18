@@ -656,5 +656,10 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     expect(
       [...domainSources(), ...outerSources()].map((file) => file.relative).sort(),
     ).toEqual(serverRelativePaths().slice().sort());
+    // A non-empty floor on each half was written here and REMOVED: measured,
+    // collapsing either half fires the gate's existing per-shape floors first
+    // and the new clause reported zero occurrences. A clause that can never be
+    // the one that fires is decoration, and decoration in a gate reads as
+    // coverage.
   });
 });
