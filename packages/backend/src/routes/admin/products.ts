@@ -10,6 +10,7 @@ import {
   setInventorySchema,
   setLevelInventorySchema,
 } from '../../middleware/schemas.js';
+import { upgradeListingProductTypeSchema } from '../../middleware/catalog-authoring-schemas.js';
 import {
   listProducts,
   createProduct,
@@ -23,6 +24,8 @@ import {
   setVariantInventory,
   listVariantLevels,
   setVariantLevelInventory,
+  previewProductTypeUpgrade,
+  applyProductTypeUpgrade,
 } from '../../controllers/admin/products-admin.controller.js';
 
 /**
@@ -47,6 +50,35 @@ router.patch(
   patchProduct,
 );
 router.delete('/:id', requireStorePermission('products:write'), validateId('id'), deleteProduct);
+
+/**
+ * #587 — move a published listing forward to a newer product-type version.
+ *
+ * The PREVIEW is a GET and applying it is a POST, on one path — the
+ * `/product-drafts/:draftId/upgrade` shape, one entity over, and for its reason
+ * (ADR 0007 D10: a newer schema version produces a preview, never a silent
+ * rewrite).
+ *
+ * `products:write` and not a new permission string: `store_members_permissions_check`
+ * renders the tuple, so an unlisted one is a runtime refusal at the row — and
+ * moving a listing's schema version is exactly what that permission names.
+ * The PREVIEW is behind `products:write` too rather than `products:read`,
+ * because it exists to be acted on and reads a version comparison a shopper has
+ * no business seeing; the draft upgrade made the same call for the same reason.
+ */
+router.get(
+  '/:id/product-type-upgrade',
+  requireStorePermission('products:write'),
+  validateId('id'),
+  previewProductTypeUpgrade,
+);
+router.post(
+  '/:id/product-type-upgrade',
+  requireStorePermission('products:write'),
+  validateId('id'),
+  validateBody(upgradeListingProductTypeSchema),
+  applyProductTypeUpgrade,
+);
 
 /**
  * #427 — release connector field pins. `products:write` because an ordinary

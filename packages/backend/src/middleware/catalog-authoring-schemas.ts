@@ -206,6 +206,21 @@ export const upgradeProductDraftSchema = z
   .object({ version: z.number().int().min(1), targetDefinitionId: entityId })
   .strict();
 
+/**
+ * `POST /admin/stores/:storeId/products/:listingId/product-type-upgrade` (#587).
+ *
+ * `targetDefinitionId` and NOTHING else. There is deliberately no `force`, no
+ * `acknowledge` and no way to name a version other than the published one: the
+ * service re-resolves the target and refuses a mismatch, so this field states
+ * which version the operator was SHOWN rather than choosing one. A parameter
+ * able to select the destination would make "move a listing forward" into "pin
+ * this listing to whatever version I name", which is a different and much larger
+ * power — and one nobody has argued for.
+ */
+export const upgradeListingProductTypeSchema = z
+  .object({ targetDefinitionId: entityId })
+  .strict();
+
 /** `DELETE /stores/:storeId/product-drafts/:draftId`. */
 export const discardProductDraftQuerySchema = z
   .object({ version: z.coerce.number().int().min(1) })
