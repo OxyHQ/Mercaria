@@ -28,6 +28,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { walkOwnedDirectory } from '../../__tests__/domain-population.js';
+
 /** `packages/`, so a path below can name either package explicitly. */
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
@@ -54,18 +56,35 @@ const GUEST_PAYMENT_PATHS = [
  * guest checkout switched off while an intent is open must still reach a
  * terminal state. The way to make that true is for these modules to have no way
  * to read the flag.
+ *
+ * WALKED, not listed (#460). It was NINE hand-named paths and the domain is
+ * **44** modules: the list held three of the thirteen under
+ * `services/payments/stripe/`, so `event-dispatcher.ts`, `verify.ts`,
+ * `account.service.ts` and seven more — every one of them a durable path a
+ * captured payment travels — could have read the rollout flag with nothing
+ * saying so. Measured before widening: **zero of the 44 trip the detector**, so
+ * this is a widening rather than a false wall.
+ *
+ * ## Why this gate gets no whole-tree assertion
+ *
+ * #460's device does not fit here and forcing it would produce something broad
+ * and green. The population is a deliberate CROSS-PACKAGE selection — paths
+ * relative to `packages/`, naming backend modules and storefront components —
+ * while the shared `assertNothingOutsideDomainPopulation` derives one relative
+ * to `packages/backend/src`. And there is no domain NAME to sweep for: the two
+ * modules actually named for this work are `guest-correlation.ts` and
+ * `guest-rollout.ts`, so a pattern narrow enough to be right would assert over
+ * two files, while `/stripe/i` or `/guest/i` would pull in domains carrying the
+ * OPPOSITE obligation — `guest-rollout.ts` exists to read the flag these
+ * modules may not.
+ *
+ * What the walk above buys instead is the same guarantee for the half that has
+ * a directory: a module added to `services/payments/` is under this wall by
+ * default.
  */
-const DURABLE_PAYMENT_PATHS = [
-  'backend/src/services/payments/stripe/ingress.ts',
-  'backend/src/services/payments/stripe/event-processor.ts',
-  'backend/src/services/payments/stripe/stripe-event-router.ts',
-  'backend/src/services/payments/payment-outbox.service.ts',
-  'backend/src/services/payments/outbox-dispatcher.ts',
-  'backend/src/services/payments/outbox-handlers.ts',
-  'backend/src/services/payments/settlement.service.ts',
-  'backend/src/services/payments/refund-execution.service.ts',
-  'backend/src/services/payments/payment.service.ts',
-];
+const DURABLE_PAYMENT_PATHS = walkOwnedDirectory('services/payments').map(
+  (relative) => `backend/src/${relative}`,
+);
 
 /**
  * #107's "Future OxyPay and FairCoin boundary", rules 1-5, and `AGENTS.md`'s
@@ -177,6 +196,36 @@ function expectNoneOf(
 }
 
 describe('the guest Stripe checkout path cannot reach what it must not', () => {
+  it('scans a real population, and the durable half is the whole payment domain', () => {
+    // Vacuity floors PER SHAPE. Neither list had one: the only assertion on
+    // either was `expect(scanned).toBe(LIST.length)`, which compares the loop's
+    // own counter to the list it just iterated and holds for ANY list including
+    // an empty one. Measured (#460): with the durable list shrunk from 44
+    // entries to ONE, every test in this file still passed — so the walk that
+    // replaced the nine hand-named paths was a real widening with nothing
+    // defending it.
+    expect(
+      DURABLE_PAYMENT_PATHS.length,
+      'the payment-domain walk found too few modules; a shrunk population scans clean and ' +
+        'reports the same green as a domain with no violations',
+    ).toBeGreaterThanOrEqual(40);
+    expect(
+      DURABLE_PAYMENT_PATHS.filter((path) => path.startsWith('backend/src/services/payments/stripe/'))
+        .length,
+      'the Stripe half of the payment domain left the population',
+    ).toBeGreaterThanOrEqual(13);
+    // The cross-package half is a deliberate selection and stays EXACT (#448).
+    expect(GUEST_PAYMENT_PATHS.length, 'the guest payment list changed size').toBe(6);
+    // …and every member of both is a file that exists, so a listing that has
+    // started returning stale names goes red rather than handing the walls
+    // paths that no longer resolve.
+    for (const relative of [...GUEST_PAYMENT_PATHS, ...DURABLE_PAYMENT_PATHS]) {
+      expect(readSource(relative).length, `${relative} looks empty — did it move?`).toBeGreaterThan(
+        200,
+      );
+    }
+  });
+
   it('no module names OxyPay or FairCoin, in code OR in copy', () => {
     let scanned = 0;
     for (const relative of [...GUEST_PAYMENT_PATHS, ...DURABLE_PAYMENT_PATHS]) {

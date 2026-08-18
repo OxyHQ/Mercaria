@@ -47,6 +47,14 @@ import {
   navigationTrees,
 } from '../../db/schema/navigation.js';
 
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DRIZZLE_ROOT = join(SRC_ROOT, '..', 'drizzle');
 
@@ -73,32 +81,36 @@ function navigationMigration(): string {
   return matches[0].source;
 }
 
-/** Every module of the navigation domain, enumerated from disk. */
+/** Anything whose PATH names this domain. */
+const DOMAIN_NAMED = /navigation/i;
+
+const OWNED_DIRECTORIES = ['services/navigation', 'db/navigation'] as const;
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the navigation domain, DERIVED as a function of its reader
+ * (#460).
+ *
+ * This replaces four HAND-NAMED single files under a comment saying the route
+ * files "are exactly where a publish-this-category endpoint would be added, so
+ * leaving either out would exempt the most likely place". The reasoning was
+ * right and the list was still one short: `db/schema/navigation.ts` — where such
+ * an endpoint's COLUMN would be declared — was named nowhere and sat behind
+ * every wall in this file. 11 modules of 12.
+ */
+function navigationPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
+  ];
+}
+
+/** Every module of the navigation domain, with its source. */
 function domainSources(): { relative: string; source: string }[] {
-  const directories = ['services/navigation', 'db/navigation'];
-  const files: { relative: string; source: string }[] = [];
-  for (const directory of directories) {
-    for (const name of readdirSync(join(SRC_ROOT, directory))) {
-      if (!name.endsWith('.ts')) continue;
-      files.push({
-        relative: `${directory}/${name}`,
-        source: readFileSync(join(SRC_ROOT, directory, name), 'utf8'),
-      });
-    }
-  }
-  // The four single-file members: both surfaces, the handlers and the schemas.
-  // The route files are exactly where a "publish this category" endpoint would
-  // be added — the OPERATOR one most of all — so leaving either out would exempt
-  // the most likely place.
-  for (const relative of [
-    'routes/navigation.ts',
-    'routes/internal-navigation.ts',
-    'controllers/navigation.controller.ts',
-    'middleware/navigation-schemas.ts',
-  ]) {
-    files.push({ relative, source: readFileSync(join(SRC_ROOT, relative), 'utf8') });
-  }
-  return files;
+  return navigationPopulation().map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
 /**
@@ -140,6 +152,30 @@ const RANKING_REFERENCE =
  */
 const RANKING_INPUT_REFERENCE =
   /\b(rankingWeight|scoreWeight|boostBps|boostFactor|sponsoredSlot|sponsoredRank|paidPlacement|promotedWeight)\b/;
+
+describe('#460 — the population is closed against the tree', () => {
+  it('no navigation-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the positive
+    // control re-derives THIS population against the seeded reader.
+    //
+    // The four hand-named single files this replaces carried a comment arguing
+    // that the route files are "exactly where a publish-this-category endpoint
+    // would be added, so leaving either out would exempt the most likely place".
+    // That reasoning was right and the list was still one short:
+    // `db/schema/navigation.ts` — where such an endpoint's COLUMN would be
+    // declared — was named nowhere. 11 of 12.
+    assertNothingOutsideDomainPopulation({
+      population: navigationPopulation,
+      pattern: DOMAIN_NAMED,
+      // Measured empty: every navigation-named module in the tree is a module of
+      // this domain. One owned by somebody else goes here WITH its reason.
+      notThisDomain: [],
+      sweepFloor: 10,
+      plantIn: 'lib',
+      plantName: 'navigation-cache.ts',
+    });
+  });
+});
 
 describe('the navigation domain has no reach it should not have', () => {
   const domain = domainSources();

@@ -28,7 +28,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -43,6 +43,14 @@ import {
   assertRankingSurfaceIsWhole,
   readRankingSurfaceFile,
 } from '../../__tests__/ranking-surface.js';
+
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -70,23 +78,44 @@ function withoutComments(source: string): string {
 }
 
 /** Every `.ts` file under a directory, tests excluded — the scan's own input. */
-function sourceFilesUnder(relative: string): string[] {
-  const root = join(SRC_ROOT, relative);
-  const out: string[] = [];
-  const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
-        if (entry === '__tests__') continue;
-        walk(full);
-        continue;
-      }
-      if (entry.endsWith('.ts')) out.push(full);
-    }
-  };
-  walk(root);
-  return out;
+/** Anything whose PATH names this domain, in either spelling. */
+const DOMAIN_NAMED = /merchant-plan|merchantPlan/i;
+
+/** The three directories the plan and billing domain owns outright. */
+const PLAN_OWNED_DIRECTORIES = [
+  'services/entitlements',
+  'services/billing',
+  'db/merchantPlans',
+] as const;
+
+/** The shared flat directories a plan module lives in under a domain NAME. */
+const PLAN_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the plan and billing domain, DERIVED as a function of its
+ * reader (#460).
+ *
+ * The three owned directories were already walked. What was scanned by NOTHING
+ * is the domain's own HTTP surface and its tables: both controllers,
+ * `middleware/merchant-plans-schemas.ts` and `db/schema/merchantPlans.ts` —
+ * four of the eight merchant-plan-named modules in the tree — sat outside BOTH
+ * plan-side walls, including the one that says a billing customer can never be
+ * cross-linked with a Connect account. All four are measured clean against both
+ * detectors, so this is a widening rather than a false wall.
+ *
+ * Note the population is a SUPERSET of what the whole-tree sweep matches:
+ * `services/entitlements/` and `services/billing/` name no merchant plan in
+ * their paths. The assertion is one-directional by design — everything the tree
+ * calls this domain must be covered, and the population may additionally cover
+ * modules it names itself.
+ */
+function planPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...PLAN_OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(PLAN_SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
+  ];
 }
+
 
 /*
  * The organic discovery surface is `__tests__/ranking-surface.ts` — WALKED and
@@ -135,6 +164,30 @@ const CONNECTED_ACCOUNT_REFERENCE =
 /** Reading a deployment feature flag. */
 const CONFIG_REFERENCE = /from '.*config\/index\.js'|config\.[a-z]/;
 
+describe('#460 — the population is closed against the tree', () => {
+  it('no merchant-plan-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the positive
+    // control re-derives THIS population against the seeded reader.
+    //
+    // The three owned directories were already walked; the domain's own HTTP
+    // surface and its tables were scanned by nothing. Four of the eight
+    // merchant-plan-named modules in the tree — both controllers,
+    // `middleware/merchant-plans-schemas.ts` and `db/schema/merchantPlans.ts` —
+    // sat outside BOTH plan-side walls, including the one that says a billing
+    // customer can never be cross-linked with a Connect account.
+    assertNothingOutsideDomainPopulation({
+      population: planPopulation,
+      pattern: DOMAIN_NAMED,
+      // Measured empty: every merchant-plan-named module in the tree is a module
+      // of this domain. One owned by somebody else goes here WITH its reason.
+      notThisDomain: [],
+      sweepFloor: 7,
+      plantIn: 'lib',
+      plantName: 'merchant-plan-cache.ts',
+    });
+  });
+});
+
 describe('a merchant plan cannot reach organic discovery', () => {
   it('no discovery module references the plan domain', () => {
     // The derivation's own floors, per SHAPE: this assertion is only as wide as
@@ -155,13 +208,19 @@ describe('a merchant plan cannot reach organic discovery', () => {
     // while one walk returns nothing and the other carries it, which is the
     // failure a two-directory scan is prone to. Each is today's count, so a
     // module REMOVED goes red rather than quietly narrowing the wall.
-    const entitlements = sourceFilesUnder('services/entitlements');
-    const billing = sourceFilesUnder('services/billing');
-    expect(entitlements.length, 'the entitlements walk found too few files').toBeGreaterThanOrEqual(
-      5,
-    );
-    expect(billing.length, 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
-    const files = [...entitlements, ...billing];
+    // WIDENED in #460 from `entitlements` + `billing` to the whole derived
+    // population, which adds both controllers, the request schemas and
+    // `db/schema/merchantPlans.ts` — measured clean, so a widening rather than a
+    // false wall.
+    const population = planPopulation();
+    const from = (prefix: string) => population.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/entitlements/'), 'the entitlements walk found too few files').toBeGreaterThanOrEqual(5);
+    expect(from('services/billing/'), 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
+    expect(from('db/merchantPlans/'), 'the merchantPlans walk found too few files').toBeGreaterThanOrEqual(4);
+    expect(from('controllers/'), 'no plan controller was derived').toBeGreaterThanOrEqual(2);
+    expect(from('middleware/'), 'no plan middleware module was derived').toBeGreaterThanOrEqual(1);
+    expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
+    const files = population.map((relative) => join(SRC_ROOT, relative));
     for (const file of files) {
       const source = withoutComments(readFileSync(file, 'utf8'));
       expect(
@@ -190,17 +249,17 @@ describe('a billing customer cannot be confused with a Connect account', () => {
     // Three walks, three floors. `db/merchantPlans` is the one that would go
     // missing silently: it is the smallest, and under a single total the other
     // two carry the number on its behalf.
-    const entitlements = sourceFilesUnder('services/entitlements');
-    const billing = sourceFilesUnder('services/billing');
-    const repositories = sourceFilesUnder('db/merchantPlans');
-    expect(entitlements.length, 'the entitlements walk found too few files').toBeGreaterThanOrEqual(
-      5,
-    );
-    expect(billing.length, 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
-    expect(repositories.length, 'the merchantPlans walk found too few files').toBeGreaterThanOrEqual(
-      4,
-    );
-    const files = [...entitlements, ...billing, ...repositories];
+    // WIDENED in #460 to the whole derived population, for the reason above and
+    // one sharper: this is the wall that says a billing customer can never be
+    // cross-linked with a seller's Connect account, and the HTTP surface — the
+    // place a request carrying both would arrive — was outside it.
+    const population = planPopulation();
+    const from = (prefix: string) => population.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/entitlements/'), 'the entitlements walk found too few files').toBeGreaterThanOrEqual(5);
+    expect(from('services/billing/'), 'the billing walk found too few files').toBeGreaterThanOrEqual(6);
+    expect(from('db/merchantPlans/'), 'the merchantPlans walk found too few files').toBeGreaterThanOrEqual(4);
+    expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
+    const files = population.map((relative) => join(SRC_ROOT, relative));
     for (const file of files) {
       const source = withoutComments(readFileSync(file, 'utf8'));
       expect(
