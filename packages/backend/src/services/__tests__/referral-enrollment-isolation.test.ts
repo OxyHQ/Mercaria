@@ -92,7 +92,7 @@ const DOMAIN_NAMED = /referral/i;
  * The directories this domain OWNS outright, walked whole.
  *
  * The three `db/` sub-domain directories and `services/referral-pilot/` joined
- * this list in #460. Measured, all twenty modules added here are clean against
+ * this list in #460. Measured, all nineteen modules added here are clean against
  * every wall this file applies to the whole population, so leaving them out was
  * a gap rather than a decision. (`db/schema/referrals.ts` DECLARES
  * `reviewer_note` and so matches `REVIEWER_NOTE_LEAK` — which is not a
@@ -351,13 +351,13 @@ describe('the enrollment population is closed against the tree', () => {
     // one level up. The evidence was in the list: a
     // `referralNamed('routes/admin')` line beside `referralNamed('routes')`.
     //
-    // 94 -> 114, and the twenty added are clean against every wall this file
+    // 94 -> 113, and the nineteen added are clean against every wall this file
     // applies to the whole population.
     const swept = domainNamedModules();
 
     // The sweep's OWN vacuity floor: a traversal that reached nothing reports no
     // module outside the population, the same answer a complete population
-    // gives. MEASURED at 119.
+    // gives. MEASURED at 118.
     expect(
       swept.length,
       'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +

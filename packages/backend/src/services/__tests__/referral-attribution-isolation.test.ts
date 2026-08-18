@@ -83,7 +83,7 @@ const DOMAIN_NAMED = /referral/i;
  * The directories this domain OWNS outright, walked whole.
  *
  * The three `db/` sub-domain directories and `services/referral-pilot/` joined
- * this list in #460: measured, all twenty of the modules added here are clean
+ * this list in #460: measured, all nineteen of the modules added here are clean
  * against every wall in this file, so leaving them out was a gap rather than a
  * decision.
  */
@@ -302,15 +302,15 @@ describe('the referral edge cannot reach the money path', () => {
     // `referralNamed('routes/admin')` line beside `referralNamed('routes')`,
     // covering the one subdirectory somebody thought of.
     //
-    // So the exclusion is derived rather than the inclusion. 94 -> 114, and the
-    // twenty added — three `db/` sub-domain directories, `services/referral-pilot/`
+    // So the exclusion is derived rather than the inclusion. 94 -> 113, and the
+    // nineteen added — three `db/` sub-domain directories, `services/referral-pilot/`
     // and five schema modules — are clean against every wall in this file, so
     // this is a widening rather than a false wall.
     const swept = domainNamedModules();
 
     // The sweep's OWN vacuity floor: a traversal that reached nothing reports no
     // module outside the population, the same answer a complete population
-    // gives. MEASURED at 119.
+    // gives. MEASURED at 118.
     expect(
       swept.length,
       'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
