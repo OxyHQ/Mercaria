@@ -27,34 +27,77 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
+/** A directory entry, as `readdirSync(..., { withFileTypes: true })` reports one. */
+type DirectoryEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+/**
+ * Every `.ts` under `relative`, recursively, excluding the test tree.
+ *
+ * Takes its reader so the positive controls below can ask "would the derivation
+ * get a module that does not exist yet?" of the REAL derivation rather than of a
+ * re-spelling of it. Walking `''` yields paths with no leading slash, which is
+ * what makes the whole-tree sweep comparable with the population.
+ */
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+  for (const entry of readDir(relative)) {
     if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
+    const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
     else if (entry.name.endsWith('.ts')) found.push(child);
   }
   return found;
 }
 
+/** Anything whose name carries this domain, in either spelling. */
+const DOMAIN_NAMED = /retail-service|retailService/i;
+
 /**
- * The domain's HTTP surface, derived from the filename convention every module
- * in these flat directories already follows (#472's device).
+ * The shared flat directories a module of this domain lives in under a domain
+ * NAME.
+ *
+ * `db/schema` joined this list in #460: the domain owns
+ * `db/schema/retailServiceRequests.ts` and no wall in this file reached it.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module in the tree whose PATH names this domain — the assertion that
+ * closes the population against the NEXT mechanism, not only this one.
+ *
+ * Matched on the PATH, not the filename: the eighteen modules under
+ * `services/retail-service-requests/` name the domain nowhere in their own
+ * names, so a filename sweep reports a fraction of the domain and an empty
+ * "outside" set, which reads exactly like a clean pass.
+ */
+function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return walk('', readDir).filter((path) => DOMAIN_NAMED.test(path));
+}
+
+/**
+ * The domain's HTTP surface AND its schema module, derived from the filename
+ * convention every module in these flat directories already follows (#472's
+ * device).
  *
  * It does NOT reach `routes/orders.ts` or `routes/guest-orders.ts`, which MOUNT
  * this domain's router: a route that mounts decides nothing and its imports are
  * the union of every surface on it, so scanning one here would fail this gate
  * for a co-location (#483's `AGGREGATOR_ROUTES` reasoning, reached by the
  * derivation never selecting them rather than by an exclusion needing a count).
+ *
+ * RECURSES, via `walk`. It was `readdirSync(...).filter(entry.isFile())` — ONE
+ * level — sitting twenty lines below a `walk` that recurses, so the file read as
+ * though it recursed throughout and it did not. #460 measured that asymmetry in
+ * 27 gates, and it is live rather than latent: `routes/admin/merchant-activation.ts`
+ * is the module it dropped in a sibling gate.
  */
-function httpSurface(): string[] {
-  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => entry.name.startsWith('retail-service'))
-      .map((entry) => `${directory}/${entry.name}`),
+function httpSurface(readDir: DirectoryReader = readDirectory): string[] {
+  return SHARED_DIRECTORIES.flatMap((directory) =>
+    walk(directory, readDir).filter((path) => DOMAIN_NAMED.test(path.split('/').pop() ?? '')),
   );
 }
 
@@ -247,9 +290,10 @@ describe('retail service isolation (static)', () => {
     const from = (prefix: string) => DOMAIN_PATHS.filter((path) => path.startsWith(prefix)).length;
     expect(from('services/retail-service-requests/'), 'the service walk found nothing').toBeGreaterThanOrEqual(18);
     expect(from('db/retailServiceRequests/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(5);
-    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(3);
-    expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(24);
-    expect(CUSTOMER_HALF_PATHS.length).toBeGreaterThanOrEqual(22);
+    expect(httpSurface().length, 'the shared-directory derivation found nothing').toBeGreaterThanOrEqual(4);
+    expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
+    expect(BUYER_PATHS.length).toBeGreaterThanOrEqual(25);
+    expect(CUSTOMER_HALF_PATHS.length).toBeGreaterThanOrEqual(23);
 
     // EXACT: an unbounded exclusion list lets any number of modules ride in
     // behind the ones somebody justified (#448).
@@ -271,6 +315,113 @@ describe('retail service isolation (static)', () => {
     for (const path of DOMAIN_PATHS) {
       expect(readSource(path).length).toBeGreaterThan(200);
     }
+  });
+
+  it('no retail-service-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion. A walked population whose DIRECTORY list is
+    // hand-written is still a hand list, and it failed the same silent way: the
+    // list carried `controllers`, `routes` and `middleware` and not `db/schema`,
+    // so every wall in this file ran over 26 of the domain's 27 modules.
+    //
+    // So the exclusion is derived rather than the inclusion — sweep the tree for
+    // modules NAMED for this domain and require each to be in the population or
+    // in a counted, justified exclusion.
+    const swept = domainNamedModules();
+
+    // The sweep's OWN vacuity floor: a traversal that reached nothing reports no
+    // module outside the population, the same answer a complete population
+    // gives. MEASURED at 27.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(22);
+
+    // EXACT and empty, and empty because MEASURED empty rather than guessed.
+    const population = new Set(DOMAIN_PATHS);
+    expect(
+      swept.filter((path) => !population.has(path)),
+      'names this domain but sits outside the population every wall here scans — add its ' +
+        'directory to SHARED_DIRECTORIES, or excuse it here with a reason and move the count',
+    ).toEqual([]);
+
+    // THE POSITIVE CONTROL: `toEqual([])` is also what a sweep that reached
+    // nothing produces, so the same sweep runs against a reader reporting a
+    // domain-named module in a directory the population does NOT draw from, and
+    // it must come back OUTSIDE.
+    const planted = 'lib/retail-service-cache.ts';
+    const seeded = domainNamedModules((relative) =>
+      relative === 'lib'
+        ? [...readDirectory(relative), { name: 'retail-service-cache.ts', isDirectory: () => false, isFile: () => true }]
+        : readDirectory(relative),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      seeded.filter((path) => !population.has(path)),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW — the third world `toEqual([])` admits
+    // and the one the plant cannot see, since a plant absent from the real sweep
+    // is reported outside a population built FROM that sweep exactly as it is
+    // outside a correct one. It bites hardest here: `routes/orders.ts` and
+    // `routes/guest-orders.ts` MOUNT this domain's router, and the docblock
+    // above turns on the derivation never selecting them.
+    for (const foreign of [
+      'routes/orders.ts',
+      'routes/guest-orders.ts',
+      'db/schema/orders.ts',
+      'services/payments/refund-execution.service.ts',
+    ]) {
+      expect(DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // The probe that justifies the conversion, kept as a test rather than as a
+    // claim that one was run once. Written against the DERIVATION rather than
+    // the filesystem: seeding a real file would mutate a tree shared with every
+    // parallel suite.
+    const seededWith = (directory: string, added: string): string[] =>
+      httpSurface((relative) =>
+        relative === directory
+          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          : readDirectory(relative),
+      );
+
+    expect(
+      seededWith('db/schema', 'retailServiceWarranties.ts'),
+      'a new schema module of this domain does not enter the population',
+    ).toContain('db/schema/retailServiceWarranties.ts');
+    expect(
+      seededWith('controllers', 'retail-service-disputes.controller.ts'),
+      'a new controller of this domain does not enter the population',
+    ).toContain('controllers/retail-service-disputes.controller.ts');
+    // … and ONLY by name, or these walls start firing at whoever edits an order
+    // — which is exactly what scanning the mounting routers would do.
+    expect(
+      seededWith('routes', 'orders.ts'),
+      'a foreign route entered the population; the name rule has stopped narrowing',
+    ).not.toContain('routes/orders.ts');
+
+    // And the RECURSION, the other half of the #460 repair.
+    expect(
+      httpSurface((relative) =>
+        relative === 'routes'
+          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          : relative === 'routes/admin'
+            ? [{ name: 'retail-service-requests.ts', isDirectory: () => false, isFile: () => true }]
+            : readDirectory(relative),
+      ),
+      'a module in a SUBDIRECTORY of a shared directory is not admitted; the sweep beside the ' +
+        'recursive walk is still one level deep',
+    ).toContain('routes/admin/retail-service-requests.ts');
   });
 
   it('no BUYER path can write an order, commit a refund or reach the payment domain', () => {
