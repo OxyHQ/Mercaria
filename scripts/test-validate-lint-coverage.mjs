@@ -87,6 +87,7 @@ function tree(extra = {}) {
     "packages/backend/package.json": {
       name: "@mercaria/backend",
       scripts: { lint: "eslint src scripts build.ts", test: "vitest run" },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
     },
     "packages/ui/package.json": {
       name: "@mercaria/ui",
@@ -99,14 +100,17 @@ function tree(extra = {}) {
     "packages/frontend/package.json": {
       name: "@mercaria/frontend",
       scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
     },
     "packages/dashboard/package.json": {
       name: "@mercaria/dashboard",
       scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
     },
     "packages/pos/package.json": {
       name: "@mercaria/pos",
       scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
     },
     ".github/workflows/ci.yml": CI_YML,
     ...extra,
@@ -297,6 +301,7 @@ const cases = [
         typecheck: "tsc --noEmit",
         build: "expo export",
       },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
     }),
     expectExit: 0,
     expectOutput: "lint coverage guard passed",
@@ -308,9 +313,66 @@ const cases = [
     files: withPackage("backend", {
       name: "@mercaria/backend",
       scripts: { lint: "bun run eslint src", test: "vitest run" },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.39.5" },
     }),
     expectExit: 0,
     expectOutput: "lint coverage guard passed",
+  },
+
+  // --------------------------------------------- the linter is declared -----
+  // #607. All four of these mutate the state `main` was actually in, or a
+  // neighbouring one, and none of them is a red BUILD in real life — which is
+  // the point: an undeclared or drifting linter changes which findings appear,
+  // and fewer findings exits 0.
+  {
+    // The exact state of every package on `main` before #607.
+    name: "a package running eslint but DECLARING none fails",
+    files: withPackage("backend", {
+      name: "@mercaria/backend",
+      scripts: { lint: "eslint src scripts build.ts", test: "vitest run" },
+      devDependencies: { "@eslint/js": "^9.39.5" },
+    }),
+    expectExit: 1,
+    expectOutput: "packages/backend runs eslint in its lint script but DECLARES no eslint",
+  },
+  {
+    // Divergent ranges are how a workspace resolves TWO linters and lints half
+    // its packages with each — invisible in every manifest read on its own.
+    name: "one package's eslint range drifting from its siblings fails",
+    files: withPackage("frontend", {
+      name: "@mercaria/frontend",
+      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
+      devDependencies: { "@eslint/js": "^9.39.5", eslint: "^9.0.0" },
+    }),
+    expectExit: 1,
+    expectOutput: "packages/frontend declares eslint ^9.0.0, expected ^9.39.5",
+  },
+  {
+    // The skew #607 MEASURED on main: @eslint/js 9.39.5 over an eslint 9.39.4
+    // nobody declared, so the two halves of the linter's own ruleset ran on
+    // different versions by accident.
+    name: "@eslint/js skewed from the eslint beside it fails",
+    files: withPackage("dashboard", {
+      name: "@mercaria/dashboard",
+      scripts: { lint: "eslint .", test: "vitest run", typecheck: "tsc --noEmit" },
+      devDependencies: { "@eslint/js": "^9.39.4", eslint: "^9.39.5" },
+    }),
+    expectExit: 1,
+    expectOutput: "packages/dashboard declares @eslint/js ^9.39.4 beside eslint ^9.39.5",
+  },
+  {
+    // The negative direction, and the reason `RUNS_ESLINT` is narrower than
+    // `RUNS_A_LINTER`: a package that migrated to biome must not be told to
+    // declare a linter it does not run. `ui` moving into the real set is the
+    // expected failure here; the eslint demand must NOT be among the reasons.
+    name: "a package running biome is NOT asked to declare eslint",
+    files: withPackage("ui", {
+      name: "@mercaria/ui",
+      scripts: { lint: "biome check .", typecheck: "tsc --noEmit" },
+    }),
+    expectExit: 1,
+    expectOutput: "packages running a REAL linter are [backend, dashboard, frontend, pos, ui]",
+    rejectOutput: "packages/ui runs eslint",
   },
 ];
 
@@ -324,6 +386,11 @@ async function assertGuardSource() {
   const required = [
     "LINTER_CONTROL_MUST_MATCH",
     "LINTER_CONTROL_MUST_NOT_MATCH",
+    // #607's pair. `RUNS_ESLINT` decides the population every declaration check
+    // examines, so one that matched nothing would leave all of them vacuously
+    // true — and the guard would print a tidy summary saying so.
+    "ESLINT_CONTROL_MUST_MATCH",
+    "ESLINT_CONTROL_MUST_NOT_MATCH",
     "positive control failed",
     "negative control failed",
   ];
@@ -343,6 +410,12 @@ for (const testCase of cases) {
   }
   if (!output.includes(testCase.expectOutput)) {
     problems.push(`expected output to contain ${JSON.stringify(testCase.expectOutput)}`);
+  }
+  // A case that must fail for ONE reason and not another. Without this, a case
+  // asserting only exit 1 passes on any failure at all — including the one it
+  // exists to rule out, which is how a gate that over-fires reads as covered.
+  if (testCase.rejectOutput !== undefined && output.includes(testCase.rejectOutput)) {
+    problems.push(`expected output NOT to contain ${JSON.stringify(testCase.rejectOutput)}`);
   }
   if (problems.length > 0) {
     failed += 1;
