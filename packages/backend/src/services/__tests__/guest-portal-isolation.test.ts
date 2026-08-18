@@ -47,8 +47,22 @@ function walk(relative: string, readDir: DirectoryReader = readDirectory): strin
   return found;
 }
 
-/** Anything whose name carries this domain, in either spelling. */
-const DOMAIN_NAMED = /guest-portal|guestPortal|guest-orders|guestOrders/i;
+/**
+ * Anything whose name carries this domain, in every spelling it uses.
+ *
+ * `guest-order` singular, not `guest-orders`, and that one character is the
+ * whole reason this constant is worth a comment: the pattern was
+ * `guest-orders`, and #106's `services/orders/guest-order-portal.service.ts` —
+ * the portal VIEW projection, which builds exactly what a grant authorizes — is
+ * spelled with the singular and matched nothing. It was named in NO isolation
+ * gate in the repository.
+ *
+ * Found by the check #460 asks for and that nothing automates: a gate whose
+ * whole-tree assertion reports ZERO modules outside the population is either
+ * complete or asking the wrong question, and those look identical. Re-running
+ * the sweep against the bare word `portal` is what told them apart.
+ */
+const DOMAIN_NAMED = /guest-portal|guestPortal|guest-order|guestOrder/i;
 
 /**
  * The shared flat directories a portal module lives in under a domain NAME.
@@ -57,7 +71,19 @@ const DOMAIN_NAMED = /guest-portal|guestPortal|guest-orders|guestOrders/i;
  * — five tables including the credential table whose two CHECKs carry the whole
  * verification model — and it was scanned by nothing here.
  */
-const PORTAL_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+const PORTAL_SHARED_DIRECTORIES = [
+  'controllers',
+  'routes',
+  'middleware',
+  'db/schema',
+  // #106's `services/orders/` holds forty unrelated modules, so it is read the
+  // same way the other four are — walked, then narrowed by NAME — rather than
+  // walked whole or named as a path. `guest-claim-isolation.test.ts` names its
+  // two `services/orders/` modules by hand for want of "a rule that derives
+  // them without deriving things that are not claim read paths"; the domain
+  // name IS that rule here.
+  'services/orders',
+] as const;
 
 /**
  * The portal's HTTP surface and schema module, derived from the filename
@@ -89,8 +115,10 @@ function sharedSurface(readDir: DirectoryReader = readDirectory): string[] {
  * of the walls below. That is #472's `ebay-isolation` finding again, and it is
  * the reason a list whose comment claims completeness is worse than no comment.
  *
- * It is now **19**: `db/schema/guestPortal.ts` was outside every wall, found by
- * the whole-tree assertion below rather than by anybody reading the list.
+ * It is now **20**: `db/schema/guestPortal.ts` was outside every wall, found by
+ * the whole-tree assertion below rather than by anybody reading the list, and
+ * `services/orders/guest-order-portal.service.ts` was outside every wall in the
+ * REPOSITORY, found by re-checking this gate's own name pattern.
  */
 const PORTAL_PATHS = [
   ...walk('services/guest-portal'),
@@ -223,9 +251,13 @@ describe('guest portal isolation (static)', () => {
     const from = (prefix: string) => PORTAL_PATHS.filter((path) => path.startsWith(prefix)).length;
     expect(from('services/guest-portal/'), 'the service walk found nothing').toBeGreaterThanOrEqual(9);
     expect(from('db/guestPortal/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(6);
-    expect(sharedSurface().length, 'the shared-directory derivation found nothing').toBeGreaterThanOrEqual(4);
+    expect(sharedSurface().length, 'the shared-directory derivation found nothing').toBeGreaterThanOrEqual(5);
     expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
-    expect(PORTAL_PATHS.length).toBeGreaterThanOrEqual(19);
+    expect(PORTAL_PATHS.length).toBeGreaterThanOrEqual(20);
+    expect(
+      PORTAL_PATHS.filter((path) => path.startsWith('services/orders/')).length,
+      "#106's portal projection left the population",
+    ).toBeGreaterThanOrEqual(1);
 
     // The walk really reads the disk, and no test file enters the scanned set.
     for (const path of PORTAL_PATHS) {
@@ -259,7 +291,7 @@ describe('guest portal isolation (static)', () => {
 
     // The sweep's OWN vacuity floor, first: a traversal that reached nothing
     // reports no module outside the population, which is the same answer a
-    // complete population gives. MEASURED at 19.
+    // complete population gives. MEASURED at 20.
     expect(
       swept.length,
       'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
