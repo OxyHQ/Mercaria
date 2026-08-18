@@ -13,11 +13,23 @@
  * transaction as the change, so a cache entry composed before the commit is
  * unreachable the instant it lands, in every task at once.
  *
- * Today the authoring domain is its only caller, and that is stated rather than
- * hidden: the composition additionally never memoizes anything that is not
- * frozen by somebody else's trigger, so an un-bumped subject cannot produce a
- * stale answer — it can only produce a slower one. Closing the seam is one call
- * per writer, in that writer's own file.
+ * ## "An un-bumped subject can only produce a SLOWER answer" was FALSE
+ *
+ * This paragraph used to say exactly that, reasoning that the composition
+ * memoizes only what somebody else's trigger has frozen. The step that does not
+ * follow is the one that mattered: a frozen product-type VERSION does not imply
+ * a frozen COMPOSITION over it. Its translations stay mutable by design
+ * (`db/schema/productTypes.ts`), and `localization` was a declared subject in
+ * the key with NO producer — so an approved translation was served stale until
+ * the process restarted (#655), which is a wrong answer and not a slow one.
+ *
+ * Two things follow for whoever adds the next subject. A subject in the key
+ * needs a WRITER that bumps it, and the two live in different files
+ * (`invalidationRefs` and the writer's own transaction), so neither half looks
+ * incomplete on its own. And the absence is invisible to a test of either half:
+ * `localization-invalidation.realdb.test.ts` catches it only because it composes
+ * TWICE and proves the memo served the second call before asserting anything
+ * about staleness.
  */
 
 import { and, eq, inArray, sql } from 'drizzle-orm';

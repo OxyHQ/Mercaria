@@ -29,9 +29,21 @@
  * because no lookup can name it. There is nothing to evict and no window during
  * which a task still serves the old answer.
  *
+ * **That last sentence is only true while every mutable subject in the key has a
+ * PRODUCER**, and for two years of this file's life one did not: `localization`
+ * was folded into the key and the ETag and bumped by nothing, so an approved
+ * translation was served stale until the process restarted (#655). The
+ * mechanism was sound and one writer had simply not been wired to it, which is
+ * the failure this comment previously described away. `invalidationRefs` and
+ * `bumpAuthoringSchemaInvalidation`'s call sites are the two halves to check
+ * together when a subject is added.
+ *
  * A DRAFT or in-review product type version is never memoized at all: its fields
- * are still editable, so the only honest cache lifetime for one is zero. The
- * memo therefore holds exactly what somebody else's trigger has frozen.
+ * are still editable, so the only honest cache lifetime for one is zero. So the
+ * memo holds only versions somebody else's trigger has frozen — but a frozen
+ * version is not a frozen COMPOSITION: its translations stay mutable by design
+ * (`db/schema/productTypes.ts`), which is exactly why the `localization` subject
+ * exists and why it has to be bumped rather than assumed constant.
  */
 
 import {
@@ -289,6 +301,14 @@ function composeSteps(permissions: AuthoringPermissionContext): AuthoringStep[] 
  * never inform anything, and putting one in the key would cost a round trip to
  * learn a constant. The `product_type` subject appears only for a version that
  * is still editable, which is also the case the memo refuses outright.
+ *
+ * `localization` appears TWICE, once per entity whose name this composition
+ * resolves through the localization registry (#655). The category half was
+ * missing, so approving a category translation moved a revision nothing read —
+ * the `category` subject beside it is bumped by taxonomy edits and carries a
+ * different meaning, and borrowing it would make one subject mean two things.
+ * Both ids cost nothing extra to read: `readAuthoringSchemaRevisions` is ONE
+ * statement whatever the ref count.
  */
 function invalidationRefs(
   definition: ProductTypeDefinitionRow,
@@ -298,6 +318,7 @@ function invalidationRefs(
   const refs: AuthoringInvalidationRef[] = [
     { subject: 'category', subjectId: categoryId },
     { subject: 'localization', subjectId: definition.id },
+    { subject: 'localization', subjectId: categoryId },
   ];
   for (const id of attributeDefinitionIds) {
     refs.push({ subject: 'attribute_values', subjectId: id });
