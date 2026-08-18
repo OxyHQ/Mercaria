@@ -3,14 +3,23 @@
 /**
  * `bun run lint` must not report success while covering a sixth of the repo.
  *
- * ## What is actually wrong today
+ * ## The shape this exists for
  *
- * The root script is `lint: bun run --filter '*' lint`. Three of the six
- * workspace packages — `frontend`, `dashboard`, `pos` — define no `lint` script
- * at all, and a WILDCARD filter skips a package with no such script SILENTLY.
- * Two more (`ui`, `shared-types`) define `echo "No lint configured…" && exit 0`.
- * So the command exits 0 having really linted ONE package, and nothing in the
- * command, the workflow or `package.json` says so.
+ * The root script is `lint: bun run --filter '*' lint`, and a WILDCARD filter
+ * skips a package with no `lint` script SILENTLY. When this file was written
+ * three of the six — `frontend`, `dashboard`, `pos` — had none and two more
+ * (`ui`, `shared-types`) defined `echo "No lint configured…" && exit 0`, so the
+ * command exited 0 having really linted ONE package with nothing anywhere
+ * saying so. #496 moved the three Expo apps into the real set and
+ * `EXPECTED_NO_SCRIPT` is now empty; the current answer is 4 of 6, which the
+ * summary prints on every run. The hazard is unchanged — a package falling back
+ * out is silent — which is why the empty set is kept as a category.
+ *
+ * #607 added the other half of the question: `bun run lint` covering a package
+ * says nothing about WHICH linter it used. Every one of them invokes `eslint`
+ * and none DECLARED it, so it resolved as an auto-installed peer at a version
+ * nothing pinned. That failure is not a red build — a resolution that moves
+ * eslint changes which findings appear, and fewer findings exits 0.
  *
  * The asymmetry is the part worth remembering, because it is why this hole is
  * invisible while the same shape one command over is not:
@@ -99,6 +108,17 @@ const repositoryRoot = process.env.LINT_COVERAGE_VALIDATOR_ROOT
  */
 const RUNS_A_LINTER = /\b(eslint|biome|oxlint)\b/u;
 
+/**
+ * A script that runs ESLINT specifically (#607).
+ *
+ * Narrower than `RUNS_A_LINTER` on purpose: only eslint's declaration is in
+ * question here, and a package that migrated to `biome` must not be asked to
+ * declare a linter it does not run. The lookahead is what keeps
+ * `eslint-config-check` and friends out — `\beslint\b` alone matches
+ * `eslint-plugin-react`, because a hyphen IS a word boundary.
+ */
+const RUNS_ESLINT = /\beslint\b(?!-)/u;
+
 /** The wildcard spelling whose silent skip is the whole reason for this file. */
 const WILDCARD_FILTER = "--filter '*'";
 
@@ -140,6 +160,26 @@ const EXPECTED_CI_LINT_TARGETS = [
   "@mercaria/frontend",
   "@mercaria/pos",
 ];
+
+/**
+ * The eslint range every eslint-running package declares (#607).
+ *
+ * ONE range across all of them, because divergent ranges are how a workspace
+ * ends up resolving two linters and linting half its packages with each. The
+ * value is here so the gate can say which one drifted rather than only that they
+ * disagree.
+ *
+ * `@eslint/js` must match it. That is not tidiness: eslint depends on its own
+ * `@eslint/js` at an EXACT version, so a repo declaring a different range gets
+ * TWO copies and spreads `js.configs.recommended` from one while running the
+ * core of the other. Measured on `main` before #607 — `@eslint/js` 9.39.5
+ * hoisted, 9.39.4 nested under an eslint nobody declared — the two halves of
+ * the linter's own ruleset on different versions by accident.
+ */
+const EXPECTED_ESLINT_RANGE = "^9.39.5";
+
+/** Packages that must carry it — DERIVED from the walk, never a hand list. */
+const MINIMUM_ESLINT_PACKAGES = 4;
 
 /**
  * Below this the `packages/` walk is broken. See the docblock: this does NOT
@@ -190,6 +230,46 @@ for (const script of LINTER_CONTROL_MUST_NOT_MATCH) {
   }
 }
 
+/**
+ * `RUNS_ESLINT`'s own pair (#607).
+ *
+ * Its negative half carries the weight, in BOTH directions a wrong answer goes:
+ * a detector matching `biome check .` would demand a package declare a linter it
+ * does not run, and one matching a bare `eslint-plugin-*` mention would file a
+ * package as an eslint runner on the strength of a plugin name. Either way the
+ * derived population stops describing who actually runs eslint — and it is the
+ * population that decides what the declaration checks examine.
+ */
+const ESLINT_CONTROL_MUST_MATCH = [
+  "eslint .",
+  "eslint src scripts build.ts",
+  "eslint . --max-warnings 0",
+];
+const ESLINT_CONTROL_MUST_NOT_MATCH = [
+  "biome check .",
+  "oxlint",
+  'echo "No lint configured for ui" && exit 0',
+  // A plugin name is not a linter invocation.
+  "eslint-config-check",
+];
+
+for (const script of ESLINT_CONTROL_MUST_MATCH) {
+  if (!RUNS_ESLINT.test(script)) {
+    failures.push(
+      `positive control failed: ${JSON.stringify(script)} did not read as running eslint — the `
+      + "derived population would then be empty, and every declaration check vacuously true",
+    );
+  }
+}
+for (const script of ESLINT_CONTROL_MUST_NOT_MATCH) {
+  if (RUNS_ESLINT.test(script)) {
+    failures.push(
+      `negative control failed: ${JSON.stringify(script)} read as running eslint — a package would `
+      + "be asked to declare a linter it does not run",
+    );
+  }
+}
+
 // ------------------------------------------------------- the three sets -----
 
 /** Every workspace package directory, from the FILESYSTEM. */
@@ -219,9 +299,13 @@ const real = [];
 const placeholder = [];
 const noScript = [];
 
+/** Kept so the declaration check below reads the SAME manifests this walk did. */
+const manifests = new Map();
+
 for (const directory of directories) {
   const manifest = manifestOf(directory);
   if (manifest === null) continue;
+  manifests.set(directory, manifest);
   const script = manifest.scripts?.lint;
   if (script === undefined) noScript.push(directory);
   else if (RUNS_A_LINTER.test(script)) real.push(directory);
@@ -270,6 +354,64 @@ if (!sameSet(partitioned, directories)) {
     `the three sets cover [${partitioned.join(", ")}] but packages/ holds [${directories.join(", ")}] `
     + "— a package in none of them is one this gate says nothing about",
   );
+}
+
+// ------------------------------------------------- the linter is DECLARED ---
+
+// #607. `bun run lint` covering a package says nothing about WHICH linter it
+// covered it with, and on `main` the answer was one no manifest named: eslint
+// arrived purely as an auto-installed peer, at a version nothing pinned, under
+// peer ranges spanning three majors.
+//
+// The failure this prevents is not a red build. A resolution that moves eslint
+// changes which findings appear, and FEWER findings is a green build — the shape
+// this repo gates against everywhere else, arriving through the lockfile with no
+// manifest diff to review.
+//
+// The population is DERIVED from the walk above, so a fifth package that starts
+// running eslint is covered on the day it appears rather than when somebody
+// remembers to add it here.
+const eslintRunners = real.filter((directory) => RUNS_ESLINT.test(manifests.get(directory).scripts.lint));
+
+if (eslintRunners.length < MINIMUM_ESLINT_PACKAGES) {
+  failures.push(
+    `${eslintRunners.length} package(s) run eslint, below the ${MINIMUM_ESLINT_PACKAGES} floor — `
+    + "a derivation that finds none makes every declaration check below vacuously true, which is "
+    + "exactly the silence this gate exists to break",
+  );
+}
+
+const declaredRanges = new Map();
+for (const directory of eslintRunners) {
+  const manifest = manifests.get(directory);
+  const declared = manifest.devDependencies?.eslint ?? manifest.dependencies?.eslint;
+  if (declared === undefined) {
+    failures.push(
+      `packages/${directory} runs eslint in its lint script but DECLARES no eslint. It resolves as `
+      + "an auto-installed peer, so nothing in any manifest pins it and the peer ranges in play "
+      + `span three majors. Add "eslint": "${EXPECTED_ESLINT_RANGE}" to its devDependencies.`,
+    );
+    continue;
+  }
+  declaredRanges.set(directory, declared);
+  if (declared !== EXPECTED_ESLINT_RANGE) {
+    failures.push(
+      `packages/${directory} declares eslint ${declared}, expected ${EXPECTED_ESLINT_RANGE}. Every `
+      + "eslint-running package states ONE range, because divergent ranges resolve to two linters "
+      + "and lint half the workspace with each.",
+    );
+  }
+  // The skew #607 measured: eslint pins its own `@eslint/js` EXACTLY, so a
+  // different range here is a second copy and a ruleset running under a core it
+  // does not match.
+  const js = manifest.devDependencies?.["@eslint/js"] ?? manifest.dependencies?.["@eslint/js"];
+  if (js !== undefined && js !== declared) {
+    failures.push(
+      `packages/${directory} declares @eslint/js ${js} beside eslint ${declared}. eslint depends on `
+      + "@eslint/js at an EXACT version, so these must state the same range or the repo carries two "
+      + "copies and spreads `js.configs.recommended` from one while running the core of the other.",
+    );
+  }
 }
 
 // ------------------------------------------------------ the root script -----
@@ -363,7 +505,11 @@ console.log(
   + `\`bun run lint\` is \`--filter '*'\`, which SKIPS the last group in SILENCE and exits 0, so it `
   + `reports success while really linting ${real.length} of ${directories.length} packages. `
   + "A NAMED filter with a missing script exits 1 instead, indistinguishably from naming a package "
-  + `that does not exist. ci.yml runs lint for ${ciLintTargets.join(", ")} in \`${GATING_JOB}\`; `
-  + `${LINTER_CONTROL_MUST_MATCH.length} positive and ${LINTER_CONTROL_MUST_NOT_MATCH.length} `
+  + `that does not exist. ci.yml runs lint for ${ciLintTargets.join(", ")} in \`${GATING_JOB}\`. `
+  + `${eslintRunners.length} of them run eslint (${eslintRunners.join(", ")}) and all `
+  + `${declaredRanges.size} DECLARE it at ${EXPECTED_ESLINT_RANGE}, matching their @eslint/js — `
+  + "before #607 none declared it at all and it resolved as an auto-installed peer. "
+  + `${LINTER_CONTROL_MUST_MATCH.length + ESLINT_CONTROL_MUST_MATCH.length} positive and `
+  + `${LINTER_CONTROL_MUST_NOT_MATCH.length + ESLINT_CONTROL_MUST_NOT_MATCH.length} `
   + "negative detector controls run.",
 );
