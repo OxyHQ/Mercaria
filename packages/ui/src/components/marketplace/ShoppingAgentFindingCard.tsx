@@ -6,6 +6,7 @@ import type {
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
+import type { Translate } from "../../i18n/create-app-i18n";
 import { conditionGroupLabelKey } from "../../lib/condition";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatDateTime } from "../../lib/date";
@@ -13,19 +14,29 @@ import { formatMoney } from "../../lib/format";
 import {
   SHOPPING_AGENT_COMPLETENESS_LABEL_KEYS,
   SHOPPING_AGENT_DELIVERY_FAILURE_KEYS,
+  SHOPPING_AGENT_DELTA_HIGHER_KEY,
+  SHOPPING_AGENT_DELTA_LOWER_KEY,
+  SHOPPING_AGENT_DELTA_UNCHANGED_KEY,
   SHOPPING_AGENT_FRESHNESS_LABEL_KEYS,
   SHOPPING_AGENT_INCOMPLETE_REASON_KEYS,
   SHOPPING_AGENT_LIFECYCLE_EXPLANATION_KEYS,
   SHOPPING_AGENT_LIFECYCLE_LABEL_KEYS,
+  SHOPPING_AGENT_NO_EARLIER_COMPARISON_KEY,
   SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS,
   SHOPPING_AGENT_NOTIFICATION_STATE_LABEL_KEYS,
   SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY,
+  SHOPPING_AGENT_OFFICIAL_CHANNEL_KEY,
+  SHOPPING_AGENT_OPEN_PRODUCT_KEY,
   SHOPPING_AGENT_OPTIMALITY_LABEL_KEYS,
   SHOPPING_AGENT_OUTCOME_EXPLANATION_KEYS,
   SHOPPING_AGENT_OUTCOME_LABEL_KEYS,
+  SHOPPING_AGENT_REQUIREMENT_TALLY_KEY,
   SHOPPING_AGENT_SUMMARY_SOURCE_KEYS,
   SHOPPING_AGENT_SUPPRESSION_REASON_KEYS,
   SHOPPING_AGENT_TRIGGER_SOURCE_LABEL_KEYS,
+  SHOPPING_AGENT_UNKNOWN_VERDICT_KEY,
+  SHOPPING_AGENT_UNNAMED_REQUIREMENT_KEY,
+  SHOPPING_AGENT_WHAT_IT_LOOKED_AT_KEY,
 } from "../../lib/shopping-agent-labels";
 
 export interface ShoppingAgentFindingCardProps {
@@ -116,11 +127,11 @@ export function ShoppingAgentFindingCard({
           />
           {finding.objectiveDelta ? (
             <Text className="text-caption text-text-tertiary">
-              {describeDelta(finding.objectiveDelta, locale)}
+              {describeDelta(t, finding.objectiveDelta, locale)}
             </Text>
           ) : (
             <Text className="text-caption text-text-tertiary">
-              nothing earlier to compare it against
+              {t(SHOPPING_AGENT_NO_EARLIER_COMPARISON_KEY)}
             </Text>
           )}
         </View>
@@ -142,19 +153,22 @@ export function ShoppingAgentFindingCard({
 
       {/* UX rule 4, second half — what was met, and what nobody could answer. */}
       <Text className="text-caption text-text-tertiary">
-        {finding.satisfiedConstraintIds.length} requirement(s) met ·{" "}
-        {finding.failedConstraintIds.length} not met ·{" "}
-        {finding.unknownConstraintIds.length} still unknown
+        {t(SHOPPING_AGENT_REQUIREMENT_TALLY_KEY, {
+          met: finding.satisfiedConstraintIds.length,
+          failed: finding.failedConstraintIds.length,
+          unknown: finding.unknownConstraintIds.length,
+        })}
       </Text>
       {finding.unknownConstraintIds.length > 0 ? (
         <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-8">
           <Text className="text-caption text-text">
-            Nobody could answer {finding.unknownConstraintIds.length} of your requirements, so this
-            is not a complete verdict.
+            {t(SHOPPING_AGENT_UNKNOWN_VERDICT_KEY, {
+              unanswered: finding.unknownConstraintIds.length,
+            })}
           </Text>
           {finding.unknownConstraintIds.map((constraintId) => (
             <Text key={constraintId} className="text-caption text-text-secondary">
-              {constraintExplanations?.[constraintId] ?? constraintId}
+              {constraintExplanations?.[constraintId] ?? t(SHOPPING_AGENT_UNNAMED_REQUIREMENT_KEY)}
             </Text>
           ))}
         </View>
@@ -178,7 +192,9 @@ export function ShoppingAgentFindingCard({
 
       {finding.selection.length > 0 ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text-tertiary">What it looked at</Text>
+          <Text className="text-caption text-text-tertiary">
+            {t(SHOPPING_AGENT_WHAT_IT_LOOKED_AT_KEY)}
+          </Text>
           {finding.selection.map((line) => (
             <SelectedLineRow
               key={line.lineId}
@@ -229,7 +245,7 @@ function SelectedLineRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label ?? "Open this product"}
+      accessibilityLabel={label ?? t(SHOPPING_AGENT_OPEN_PRODUCT_KEY)}
       onPress={() => onOpenProduct?.(line.canonicalProductId)}
       className="gap-space-4"
     >
@@ -246,7 +262,9 @@ function SelectedLineRow({
           </Text>
         ) : null}
         {line.officialChannel ? (
-          <Text className="text-caption text-text-tertiary">verified official channel</Text>
+          <Text className="text-caption text-text-tertiary">
+            {t(SHOPPING_AGENT_OFFICIAL_CHANNEL_KEY)}
+          </Text>
         ) : null}
       </View>
     </Pressable>
@@ -260,8 +278,13 @@ function SelectedLineRow({
  * the number: `formatMoney` puts the minus after the currency symbol, which
  * reads as a strange price rather than as a direction of travel.
  */
-function describeDelta(delta: Money, locale: string): string {
-  if (delta.amount === 0) return "unchanged since the last look";
+function describeDelta(t: Translate, delta: Money, locale: string): string {
+  if (delta.amount === 0) return t(SHOPPING_AGENT_DELTA_UNCHANGED_KEY);
   const magnitude = formatMoney({ amount: Math.abs(delta.amount), currency: delta.currency }, locale);
-  return delta.amount < 0 ? `${magnitude} lower than before` : `${magnitude} higher than before`;
+  // The whole sentence is one key with an `%{amount}` slot rather than a
+  // translated tail appended to the figure: the amount does not sit at the same
+  // end of the clause in every one of the twelve.
+  return t(delta.amount < 0 ? SHOPPING_AGENT_DELTA_LOWER_KEY : SHOPPING_AGENT_DELTA_HIGHER_KEY, {
+    amount: magnitude,
+  });
 }

@@ -265,6 +265,45 @@ export const SHOPPING_AGENT_SUMMARY_SOURCE_KEYS: Readonly<
 export const SHOPPING_AGENT_OBSERVATION_DISCLAIMER_KEY =
   "ui.shoppingAgent.observationDisclaimer";
 
+/**
+ * One finding CARD's own chrome (#437).
+ *
+ * Each is a whole frame with its slots, never a fragment concatenated at the
+ * render site: `REQUIREMENT_TALLY` carries all three counts and both separators
+ * because the order of the three clauses is not fixed across these twelve, and
+ * `DELTA_LOWER`/`DELTA_HIGHER` carry the amount for the reason `describeDelta`
+ * already documents — the sign belongs in the WORDS, since `formatMoney` puts a
+ * minus after the currency symbol where it reads as a strange price rather than
+ * as a direction of travel.
+ *
+ * Deliberately NOT plurals, and the slot in `UNKNOWN_VERDICT` is `%{unanswered}`
+ * rather than `%{count}`: `count` is what i18n-js pluralises on, every one of
+ * these reads correctly at one, and adding plural objects here would grow
+ * #436's residual for sentences that do not need them.
+ */
+export const SHOPPING_AGENT_NO_EARLIER_COMPARISON_KEY =
+  "ui.shoppingAgent.finding.noEarlierComparison";
+export const SHOPPING_AGENT_REQUIREMENT_TALLY_KEY =
+  "ui.shoppingAgent.finding.requirementTally";
+export const SHOPPING_AGENT_UNKNOWN_VERDICT_KEY = "ui.shoppingAgent.finding.unknownVerdict";
+export const SHOPPING_AGENT_WHAT_IT_LOOKED_AT_KEY = "ui.shoppingAgent.finding.whatItLookedAt";
+export const SHOPPING_AGENT_OPEN_PRODUCT_KEY = "ui.shoppingAgent.finding.openProduct";
+/**
+ * The miss branch for a requirement whose description was not supplied.
+ *
+ * The explanation map is keyed by CONSTRAINT ID, an open set, so it can never be
+ * a `Record` over a union — which means the branch exists and has to render
+ * something. It renders this rather than the id: an opaque handle in front of a
+ * shopper is #596's defect, and the surrounding sentence already carries the
+ * count, so a row with no description is still an honest row.
+ */
+export const SHOPPING_AGENT_UNNAMED_REQUIREMENT_KEY =
+  "ui.shoppingAgent.finding.unnamedRequirement";
+export const SHOPPING_AGENT_OFFICIAL_CHANNEL_KEY = "ui.shoppingAgent.finding.officialChannel";
+export const SHOPPING_AGENT_DELTA_UNCHANGED_KEY = "ui.shoppingAgent.finding.deltaUnchanged";
+export const SHOPPING_AGENT_DELTA_LOWER_KEY = "ui.shoppingAgent.finding.deltaLower";
+export const SHOPPING_AGENT_DELTA_HIGHER_KEY = "ui.shoppingAgent.finding.deltaHigher";
+
 /** The short name of a job kind. */
 export function shoppingAgentJobLabel(t: Translate, kind: ShoppingAgentJobKind): string {
   return t(SHOPPING_AGENT_JOB_LABEL_KEYS[kind]);

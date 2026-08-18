@@ -156,6 +156,14 @@
       "provenance": {
         "template": "Redactat per Mercaria conforme a la política de comparació %{policy}. Totes les xifres provenen de la taula de sota.",
         "generated": "Redactat per un model de llenguatge conforme a la política de comparació %{policy}. Totes les xifres provenen de la taula de sota."
+      },
+      "table": {
+        "specification": "Especificació",
+        "unnamedProduct": "Producte sense nom",
+        "noDifferences": "Res del que s'ha registrat difereix entre aquests productes.",
+        "inUnit": "en %{unit}",
+        "higherIsBetter": "més alt és millor",
+        "lowerIsBetter": "més baix és millor"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "Redactat per Mercaria a partir de la mateixa observació.",
         "provider": "Redactat per un model de llenguatge a partir de l'observació. Totes les xifres vénen de l'observació, mai del model."
       },
-      "observationDisclaimer": "Una troballa és el que Mercaria va veure en aquell moment. No es reserva per a tu i no és un preu en ferm: els preus i la disponibilitat poden canviar en qualsevol moment."
+      "observationDisclaimer": "Una troballa és el que Mercaria va veure en aquell moment. No es reserva per a tu i no és un preu en ferm: els preus i la disponibilitat poden canviar en qualsevol moment.",
+      "finding": {
+        "noEarlierComparison": "no hi ha res anterior amb què comparar-ho",
+        "requirementTally": "%{met} complerts · %{failed} no complerts · %{unknown} encara sense saber",
+        "unknownVerdict": "Ningú no ha pogut respondre a %{unanswered} dels teus requisits, així que aquest veredicte no és complet.",
+        "whatItLookedAt": "Què ha mirat",
+        "openProduct": "Obre aquest producte",
+        "officialChannel": "canal oficial verificat",
+        "deltaUnchanged": "sense canvis des de l'última consulta",
+        "deltaLower": "%{amount} menys que abans",
+        "deltaHigher": "%{amount} més que abans",
+        "unnamedRequirement": "Un requisit sense descripció registrada"
+      }
     },
     "facet": {
       "title": {

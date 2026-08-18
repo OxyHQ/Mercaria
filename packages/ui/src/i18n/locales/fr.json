@@ -156,6 +156,14 @@
       "provenance": {
         "template": "Rédigé par Mercaria selon la politique de comparaison %{policy}. Tous les chiffres proviennent du tableau ci-dessous.",
         "generated": "Rédigé par un modèle de langage selon la politique de comparaison %{policy}. Tous les chiffres proviennent du tableau ci-dessous."
+      },
+      "table": {
+        "specification": "Caractéristique",
+        "unnamedProduct": "Produit sans nom",
+        "noDifferences": "Rien de ce qui est enregistré ne diffère entre ces produits.",
+        "inUnit": "en %{unit}",
+        "higherIsBetter": "plus c'est élevé, mieux c'est",
+        "lowerIsBetter": "plus c'est bas, mieux c'est"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "Rédigé par Mercaria à partir de l'observation elle-même.",
         "provider": "Formulé par un modèle de langage à partir de l'observation. Tous les chiffres proviennent de l'observation, jamais du modèle."
       },
-      "observationDisclaimer": "Un constat est ce que Mercaria a vu à cet instant. Il n'est pas réservé pour vous et ne constitue pas un prix ferme — les prix et la disponibilité peuvent changer à tout moment."
+      "observationDisclaimer": "Un constat est ce que Mercaria a vu à cet instant. Il n'est pas réservé pour vous et ne constitue pas un prix ferme — les prix et la disponibilité peuvent changer à tout moment.",
+      "finding": {
+        "noEarlierComparison": "rien d'antérieur à quoi le comparer",
+        "requirementTally": "%{met} satisfaites · %{failed} non satisfaites · %{unknown} encore inconnues",
+        "unknownVerdict": "Personne n'a pu répondre à %{unanswered} de vos exigences ; ce verdict n'est donc pas complet.",
+        "whatItLookedAt": "Ce qu'il a examiné",
+        "openProduct": "Ouvrir ce produit",
+        "officialChannel": "canal officiel vérifié",
+        "deltaUnchanged": "inchangé depuis la dernière vérification",
+        "deltaLower": "%{amount} de moins qu'avant",
+        "deltaHigher": "%{amount} de plus qu'avant",
+        "unnamedRequirement": "Une exigence sans description enregistrée"
+      }
     },
     "facet": {
       "title": {

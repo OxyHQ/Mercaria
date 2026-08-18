@@ -156,6 +156,14 @@
       "provenance": {
         "template": "Escrito pela Mercaria conforme a política de comparação %{policy}. Todos os números vêm da tabela abaixo.",
         "generated": "Redigido por um modelo de linguagem conforme a política de comparação %{policy}. Todos os números vêm da tabela abaixo."
+      },
+      "table": {
+        "specification": "Especificação",
+        "unnamedProduct": "Produto sem nome",
+        "noDifferences": "Nada do que foi registrado difere entre esses produtos.",
+        "inUnit": "em %{unit}",
+        "higherIsBetter": "quanto maior, melhor",
+        "lowerIsBetter": "quanto menor, melhor"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "Escrito pela Mercaria a partir da própria observação.",
         "provider": "Redigido por um modelo de linguagem a partir da observação. Todos os números vêm da observação, nunca do modelo."
       },
-      "observationDisclaimer": "Uma constatação é o que a Mercaria viu naquele momento. Ela não fica reservada para você e não é um preço firme — preços e disponibilidade podem mudar a qualquer momento."
+      "observationDisclaimer": "Uma constatação é o que a Mercaria viu naquele momento. Ela não fica reservada para você e não é um preço firme — preços e disponibilidade podem mudar a qualquer momento.",
+      "finding": {
+        "noEarlierComparison": "não há nada anterior para comparar",
+        "requirementTally": "%{met} atendidos · %{failed} não atendidos · %{unknown} ainda desconhecidos",
+        "unknownVerdict": "Ninguém pôde responder a %{unanswered} dos seus requisitos, então este veredicto não está completo.",
+        "whatItLookedAt": "O que foi analisado",
+        "openProduct": "Abrir este produto",
+        "officialChannel": "canal oficial verificado",
+        "deltaUnchanged": "sem alteração desde a última verificação",
+        "deltaLower": "%{amount} a menos que antes",
+        "deltaHigher": "%{amount} a mais que antes",
+        "unnamedRequirement": "Um requisito sem descrição registrada"
+      }
     },
     "facet": {
       "title": {

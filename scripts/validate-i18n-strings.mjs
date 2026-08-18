@@ -388,7 +388,13 @@ const OWNERS = [
     // 149 -> 146: ONE sentence, but check A counts findings and that sentence
     // spanned three JSX children, which is the arithmetic to expect here — take
     // the number from a printed failure rather than by subtracting sentences.
-    hardcodedStrings: 146,
+    // 146 -> 131: #437's first extraction slice, `ComparisonTableView` (6) and
+    // `ShoppingAgentFindingCard` (9). Fifteen findings and TWELVE sentences —
+    // the tally line alone is three again — while `describeDelta`'s three
+    // sentences moved it by NOTHING, because a function that RETURNS copy is in
+    // check A's own list of what it cannot see. The gap runs in BOTH directions,
+    // which is why this number is read off a failure and never computed.
+    hardcodedStrings: 131,
     // Check F is off here for a DIFFERENT reason than check A. This package
     // does not merely use the action controls, it DEFINES them — a `<Button>`
     // in `packages/ui` is the component, not a call site — so the population F
@@ -442,7 +448,17 @@ const OWNERS = [
     // vendor slug no `Record` could be exhaustive over. It was a check-A finding
     // too, which is why the pin above moved in the SAME change.
     wireIdentifierRenderSites: 0,
-    // J' (#596): TWO, and deliberately NOT fixed here.
+    // J' (#596): ZERO since #437's first extraction slice, and it was TWO. Both
+    // sat in components that rendered English prose to every reader anyway,
+    // which is why #596 pinned rather than fixed them: translating a fallback
+    // alone would have changed nothing anybody sees. They came out with their
+    // components, exactly as that pin's note said they would.
+    //
+    // Neither map could be made exhaustive — one is keyed by subject REF and the
+    // other by constraint ID, both open sets — so each miss branch resolves a
+    // KEY instead, which is #596's remedy for a genuinely open set.
+    //
+    // The note that stood here while they were pinned:
     //
     // `ComparisonTableView` falls back to a subject ref and
     // `ShoppingAgentFindingCard` to a constraint id. Both sit INSIDE the 146
@@ -456,7 +472,7 @@ const OWNERS = [
     // Exact in both directions, so a third cannot arrive quietly and the two
     // cannot be forgotten: they come out with the extraction that owns the
     // components, and this pin goes to zero in the same change.
-    wireIdentifierFallbackSites: 2,
+    wireIdentifierFallbackSites: 0,
     // I (#542): this package DECLARES the maps every app reads, and #542 was
     // found converting three of them, so the floor here is the one that matters.
     minimumRenderableKeyMaps: 40,

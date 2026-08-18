@@ -156,6 +156,14 @@
       "provenance": {
         "template": "Von Mercaria verfasst gemäß Vergleichsrichtlinie %{policy}. Alle Zahlen stammen aus der Tabelle unten.",
         "generated": "Von einem Sprachmodell formuliert gemäß Vergleichsrichtlinie %{policy}. Alle Zahlen stammen aus der Tabelle unten."
+      },
+      "table": {
+        "specification": "Merkmal",
+        "unnamedProduct": "Produkt ohne Namen",
+        "noDifferences": "Nichts Erfasstes unterscheidet sich zwischen diesen Produkten.",
+        "inUnit": "in %{unit}",
+        "higherIsBetter": "höher ist besser",
+        "lowerIsBetter": "niedriger ist besser"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "Von Mercaria aus der Beobachtung selbst verfasst.",
         "provider": "Von einem Sprachmodell aus der Beobachtung formuliert. Jede Zahl darin stammt aus der Beobachtung, nie aus dem Modell."
       },
-      "observationDisclaimer": "Ein Fund ist das, was Mercaria in diesem Moment gesehen hat. Er wird nicht für Sie reserviert und ist kein verbindlicher Preis – Preise und Verfügbarkeit können sich jederzeit ändern."
+      "observationDisclaimer": "Ein Fund ist das, was Mercaria in diesem Moment gesehen hat. Er wird nicht für Sie reserviert und ist kein verbindlicher Preis – Preise und Verfügbarkeit können sich jederzeit ändern.",
+      "finding": {
+        "noEarlierComparison": "nichts Früheres zum Vergleich",
+        "requirementTally": "%{met} erfüllt · %{failed} nicht erfüllt · %{unknown} weiterhin offen",
+        "unknownVerdict": "Zu %{unanswered} Ihrer Anforderungen konnte niemand etwas sagen, daher ist dies kein vollständiges Urteil.",
+        "whatItLookedAt": "Was geprüft wurde",
+        "openProduct": "Dieses Produkt öffnen",
+        "officialChannel": "verifizierter offizieller Kanal",
+        "deltaUnchanged": "unverändert seit der letzten Prüfung",
+        "deltaLower": "%{amount} niedriger als zuvor",
+        "deltaHigher": "%{amount} höher als zuvor",
+        "unnamedRequirement": "Eine Anforderung ohne erfasste Beschreibung"
+      }
     },
     "facet": {
       "title": {

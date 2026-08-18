@@ -156,6 +156,14 @@
       "provenance": {
         "template": "तुलना नीति %{policy} के तहत Mercaria द्वारा लिखा गया। सभी आंकड़े नीचे दी गई तालिका से हैं।",
         "generated": "तुलना नीति %{policy} के तहत एक भाषा मॉडल द्वारा शब्दबद्ध। सभी आंकड़े नीचे दी गई तालिका से हैं।"
+      },
+      "table": {
+        "specification": "विनिर्देश",
+        "unnamedProduct": "बिना नाम का उत्पाद",
+        "noDifferences": "इन उत्पादों के बीच दर्ज की गई कोई भी जानकारी भिन्न नहीं है।",
+        "inUnit": "%{unit} में",
+        "higherIsBetter": "अधिक बेहतर है",
+        "lowerIsBetter": "कम बेहतर है"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "Mercaria ने अवलोकन से ही लिखा।",
         "provider": "अवलोकन के आधार पर एक भाषा मॉडल ने शब्द दिए। इसमें हर आँकड़ा अवलोकन से आता है, मॉडल से कभी नहीं।"
       },
-      "observationDisclaimer": "निष्कर्ष वह है जो Mercaria ने उस क्षण देखा। यह आपके लिए रोका नहीं जाता और यह कोई तय कीमत नहीं है — कीमतें और उपलब्धता कभी भी बदल सकती हैं।"
+      "observationDisclaimer": "निष्कर्ष वह है जो Mercaria ने उस क्षण देखा। यह आपके लिए रोका नहीं जाता और यह कोई तय कीमत नहीं है — कीमतें और उपलब्धता कभी भी बदल सकती हैं।",
+      "finding": {
+        "noEarlierComparison": "तुलना के लिए पहले का कोई रिकॉर्ड नहीं",
+        "requirementTally": "%{met} पूरी · %{failed} पूरी नहीं · %{unknown} अब भी अज्ञात",
+        "unknownVerdict": "आपकी %{unanswered} आवश्यकताओं का उत्तर कोई नहीं दे सका, इसलिए यह पूर्ण निर्णय नहीं है।",
+        "whatItLookedAt": "इसने क्या देखा",
+        "openProduct": "यह उत्पाद खोलें",
+        "officialChannel": "सत्यापित आधिकारिक चैनल",
+        "deltaUnchanged": "पिछली जाँच से अपरिवर्तित",
+        "deltaLower": "पहले से %{amount} कम",
+        "deltaHigher": "पहले से %{amount} अधिक",
+        "unnamedRequirement": "बिना दर्ज विवरण वाली एक आवश्यकता"
+      }
     },
     "facet": {
       "title": {

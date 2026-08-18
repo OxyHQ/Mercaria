@@ -156,6 +156,14 @@
       "provenance": {
         "template": "كتبته Mercaria وفق سياسة المقارنة %{policy}. جميع الأرقام مأخوذة من الجدول أدناه.",
         "generated": "صاغه نموذج لغوي وفق سياسة المقارنة %{policy}. جميع الأرقام مأخوذة من الجدول أدناه."
+      },
+      "table": {
+        "specification": "المواصفة",
+        "unnamedProduct": "منتج بلا اسم",
+        "noDifferences": "لا يوجد اختلاف بين هذه المنتجات فيما تم تسجيله.",
+        "inUnit": "بـ %{unit}",
+        "higherIsBetter": "الأعلى أفضل",
+        "lowerIsBetter": "الأقل أفضل"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "كتبته Mercaria من الملاحظة نفسها.",
         "provider": "صاغه نموذج لغوي من الملاحظة. وكل رقم فيه مصدره الملاحظة، لا النموذج."
       },
-      "observationDisclaimer": "النتيجة هي ما رأته Mercaria في تلك اللحظة. وهي ليست محجوزة لك وليست سعرًا مؤكدًا — فقد يتغيّر السعر والتوفر في أي وقت."
+      "observationDisclaimer": "النتيجة هي ما رأته Mercaria في تلك اللحظة. وهي ليست محجوزة لك وليست سعرًا مؤكدًا — فقد يتغيّر السعر والتوفر في أي وقت.",
+      "finding": {
+        "noEarlierComparison": "لا يوجد سجل سابق للمقارنة به",
+        "requirementTally": "%{met} مستوفاة · %{failed} غير مستوفاة · %{unknown} لا تزال مجهولة",
+        "unknownVerdict": "لم يتمكن أحد من الإجابة عن %{unanswered} من متطلباتك، لذا فهذا ليس حكمًا كاملًا.",
+        "whatItLookedAt": "ما الذي تم فحصه",
+        "openProduct": "افتح هذا المنتج",
+        "officialChannel": "قناة رسمية موثّقة",
+        "deltaUnchanged": "دون تغيير منذ آخر فحص",
+        "deltaLower": "أقل بمقدار %{amount} عن السابق",
+        "deltaHigher": "أعلى بمقدار %{amount} عن السابق",
+        "unnamedRequirement": "متطلب بلا وصف مسجَّل"
+      }
     },
     "facet": {
       "title": {
