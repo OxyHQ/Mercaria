@@ -110,6 +110,61 @@ shape satisfies it because both sides evaluate false (the #68 finding).
 An `unmeasured` plan may be RECORDED and may never EXECUTE
 (`..._unmeasured_not_applied_check`).
 
+### WHICH version a publication measures (#587)
+
+A floor on the number of measurements says nothing about whether they were taken
+against the right subject, and for the two PUBLICATION actions they were not.
+
+`planChange` counted inbound references to the request's own `subjectId`. For
+`product_type_publish` and `attribute_publish` that subject is the version being
+published — a `draft` — and a draft is exactly what nothing may point at:
+`RETRIEVABLE_AUTHORING_LIFECYCLES` is `['published', 'deprecated']`, so
+`catalog_authoring_drafts.product_type_definition_id` cannot hold one, and the
+attribute half is held by `attribute_definitions_one_active_per_key` plus
+`publishAttributeDefinition`'s own `draft` precondition. Every count that
+mattered was **zero by construction** — an operator publishing v3 read "nothing
+is affected" while every draft, listing and axis pinned to v2 was about to be
+reinterpreted. Not a stale number: one structurally incapable of being anything
+else.
+
+The population a publication disturbs is the **incumbent it deprecates**, which
+both publishers deprecate FIRST in the same transaction, because the
+one-published-per-key partial unique index refuses the other order.
+
+`services/catalog-governance/impact-subjects.ts` resolves it, and `measureImpact`
+counts over the union with `IN` rather than `=`. Three things decide that shape:
+
+- `catalog_governance_impact_counts_relation_key` is UNIQUE on
+  `(change_request_id, reference_table, reference_column)`, so a request has
+  exactly ONE measurement per relation. The measurement is therefore over the
+  whole affected population, not one per version.
+- The subject stays IN the union. `product_type_fields`' own plan entry says its
+  count "is what a diff is a diff OF, so it is the first number an operator reads
+  before publishing"; and a union can only make a publication read as LARGER,
+  which errs toward `GOVERNANCE_HIGH_IMPACT_THRESHOLD` and a second operator.
+  Measuring the incumbent alone could make one read as smaller than it is, which
+  is the direction of the bug.
+- The KEY is read from the subject ROW, never from `parameters`.
+  `attribute_publish` carries `attributeKey` as operator-supplied input, and
+  resolving the measured population from it would let a caller choose which
+  population is reported as this change's blast radius.
+
+The superseded ids are recorded on the `change_requested` audit event's `after`
+snapshot and **not** on `CatalogGovernanceImpactReport`. `reportFromStoredRows`
+rebuilds that report from columns that do not hold them, so a report field would
+be right at plan time and wrong on every later read — two representations of one
+fact that can disagree.
+
+`GET /internal/catalog-governance/impact` takes an optional `action` for the same
+reason: it is documented as "the preview an operator reads BEFORE planning", so
+without the action it previews a publication as zero. A `subjectKind` that
+disagrees with the action's own is refused rather than corrected.
+
+The gate is `publication-impact.realdb.test.ts`, which measures the positive
+control first (the candidate is a draft, nothing points at it, and the incumbent
+genuinely has a draft pinned to it) so that "the count is 1" and "the fixture
+built nothing" cannot produce the same green.
+
 ### The `category_slugs` rewire now EXISTS, and what it still refuses to do
 
 `listings.category_slugs` is denormalized at write time by
@@ -468,7 +523,14 @@ Stated rather than claimed:
 - `catalog-governance-isolation.test.ts` — six scanned walls, each with a
   vacuity floor and a mutation self-test; the vocabulary reconciliations; the
   closed route set; the auth-before-allow-list ordering.
-- `diff.test.ts` — the direction rules, as tables.
+- `diff.test.ts` — the direction rules, as tables, over the PURE differ.
+- `definition-diff.realdb.test.ts` — the HYDRATION the two diff routes actually
+  call, which had no behavioural test at all until #587: per-flow field
+  concatenation (mutation-tested), group comparison by KEY across per-version
+  group rows, category scopes, the attribute half through
+  `resolveDefinitionVersion`, and the three refusals.
+- `publication-impact.realdb.test.ts` — a publication's impact preview counts the
+  version it DEPRECATES, with the positive control taken first.
 - `catalog-governance.realdb.test.ts` — both impact-coverage CHECKs, the
   four-eyes CHECKs, the freeze and append-only triggers, the role-grant partial
   unique and its immutability, the snapshot count identity.
