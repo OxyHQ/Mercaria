@@ -22,8 +22,58 @@ import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/** A directory entry, as `readdirSync(..., { withFileTypes: true })` reports one. */
+type DirectoryEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
 /**
- * Every `.ts` directly in `relative` whose filename starts with `cart`.
+ * Every `.ts` under `relative`, recursively, excluding the test tree.
+ *
+ * Takes its reader so the positive controls below can ask "would the derivation
+ * get a module that does not exist yet?" of the REAL derivation rather than of a
+ * re-spelling of it. Walking `''` yields paths with no leading slash, which is
+ * what makes the whole-tree sweep comparable with the population.
+ */
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
+  const found: string[] = [];
+  for (const entry of readDir(relative)) {
+    if (entry.name === '__tests__') continue;
+    const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
+    else if (entry.name.endsWith('.ts')) found.push(child);
+  }
+  return found;
+}
+
+/** Anything whose name carries this domain. */
+const DOMAIN_NAMED = /cart/i;
+
+/**
+ * The six roots a cart module lives in.
+ *
+ * `db/schema` is deliberately NOT among them, and it is the one rejection in
+ * this file that was MEASURED rather than reasoned: the cart tables are
+ * declared in `db/schema/buyers.ts`, which holds SEVEN tables of which two are
+ * the cart's, is named for another domain, and TRIPS the payment detector
+ * below. Adding it would scan a foreign module and turn this gate red on a
+ * declaration — the false wall #460 warns a widening builds. Nothing selects it
+ * either way, since the name rule is `cart` and the module is `buyers.ts`; this
+ * note exists so the next reader does not "finish" the conversion by adding it.
+ */
+const CART_ROOTS = [
+  'services',
+  'controllers',
+  'routes',
+  'middleware',
+  'db/buyers',
+  'db/guests',
+] as const;
+
+/**
+ * Every `.ts` under `relative` whose FILENAME starts with `cart`.
  *
  * This domain has NO directory of its own — its modules sit flat among ~150
  * unrelated ones in `services/`, beside two other domains' HTTP surfaces, and in
@@ -36,12 +86,31 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * why #483 kept `LEGACY_ENGINE_PATHS` as a hand list — but nothing in this tree
  * begins `cart` that is not this domain, and the per-root floors below fail if
  * that stops being true in the shrinking direction.
+ *
+ * RECURSES, via `walk`. It was a one-level `readdirSync`, which is the #460
+ * defect in its purest form here: this gate had no recursive walk anywhere to
+ * be inconsistent with, so `controllers/admin/` and `routes/admin/` were simply
+ * out of reach. Nothing of this domain sits in a subdirectory today, so this
+ * adds no module; it stops a `routes/admin/cart-*.ts` being invisible to five
+ * walls on the day somebody writes one.
  */
-function cartModulesIn(relative: string): string[] {
-  return readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .filter((entry) => entry.name.startsWith('cart'))
-    .map((entry) => `${relative}/${entry.name}`);
+function cartModulesIn(relative: string, readDir: DirectoryReader = readDirectory): string[] {
+  return walk(relative, readDir).filter((path) =>
+    (path.split('/').pop() ?? '').startsWith('cart'),
+  );
+}
+
+/**
+ * Every module in the tree whose PATH names the cart — the assertion that closes
+ * the population against the NEXT mechanism, not only this one.
+ *
+ * Matched on the PATH and with a LOOSER rule than the population's: the
+ * derivation takes filenames STARTING with `cart`, so a
+ * `services/guest-cart-hydration.ts` would satisfy this sweep and not that
+ * prefix. That gap is the point — the sweep is what reports it.
+ */
+function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return walk('', readDir).filter((path) => DOMAIN_NAMED.test(path));
 }
 
 /**
@@ -52,14 +121,7 @@ function cartModulesIn(relative: string): string[] {
  * every wall below, and those walls are what keep a sign-in from silently
  * replacing an in-flight payment.
  */
-const CART_PATHS = [
-  ...cartModulesIn('services'),
-  ...cartModulesIn('controllers'),
-  ...cartModulesIn('routes'),
-  ...cartModulesIn('middleware'),
-  ...cartModulesIn('db/buyers'),
-  ...cartModulesIn('db/guests'),
-];
+const CART_PATHS = CART_ROOTS.flatMap((root) => cartModulesIn(root));
 
 /** The merge alone — the boundaries that are specifically about merging. */
 const MERGE_PATHS = ['services/cart-merge.service.ts'];
@@ -146,6 +208,114 @@ describe('the guest cart path cannot reach the domains it must not', () => {
       expect(CART_PATHS, `${path} is scanned as the merge but is not in the cart path`).toContain(path);
     }
     expect(scanned).toBe(CART_PATHS.length);
+  });
+
+  it('no cart-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, and this gate needed it even though the
+    // conversion found NO gap: a walked population whose ROOT list is
+    // hand-written is still a hand list, and the miss lives one level up. The
+    // direction a list is blind in is the module somebody adds next, so the
+    // plant below is what measures the conversion rather than a count that
+    // moved.
+    const swept = domainNamedModules();
+
+    // The sweep's OWN vacuity floor: a traversal that reached nothing reports no
+    // module outside the population, the same answer a complete population
+    // gives. MEASURED at 7.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(6);
+
+    // EXACT and empty, and empty because MEASURED empty rather than guessed:
+    // every cart-named module in the tree is a module of this domain. The cart
+    // TABLES are the deliberate absence, declared in `db/schema/buyers.ts` —
+    // see CART_ROOTS for why that module is not scanned and why nothing selects
+    // it in either direction.
+    const population = new Set(CART_PATHS);
+    expect(
+      swept.filter((path) => !population.has(path)),
+      'names the cart but sits outside the population every wall here scans — add its root to ' +
+        'CART_ROOTS, or excuse it here with a reason and move the count',
+    ).toEqual([]);
+
+    // THE POSITIVE CONTROL, and the whole justification for converting a gate
+    // whose population did not change: `toEqual([])` is also what a sweep that
+    // reached nothing produces. The plant is deliberately a name the SWEEP
+    // accepts and the population's `startsWith('cart')` prefix would also take,
+    // placed in a root the population does not read.
+    const planted = 'lib/cart-cache.ts';
+    const seeded = domainNamedModules((relative) =>
+      relative === 'lib'
+        ? [...readDirectory(relative), { name: 'cart-cache.ts', isDirectory: () => false, isFile: () => true }]
+        : readDirectory(relative),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      seeded.filter((path) => !population.has(path)),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW — the third world `toEqual([])` admits
+    // and the one the plant cannot see, since a plant absent from the real sweep
+    // is reported outside a population built FROM that sweep exactly as it is
+    // outside a correct one.
+    for (const foreign of [
+      'services/checkout.service.ts',
+      'controllers/orders.controller.ts',
+      'db/schema/buyers.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(CART_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // Written against the DERIVATION rather than the filesystem: seeding a real
+    // file would mutate a tree shared with every parallel suite.
+    const seededWith = (root: string, added: string): string[] =>
+      CART_ROOTS.flatMap((r) =>
+        cartModulesIn(r, (relative) =>
+          relative === root
+            ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+            : readDirectory(relative),
+        ),
+      );
+
+    expect(
+      seededWith('services', 'cart-pricing.service.ts'),
+      'a new cart service does not enter the population; it would sit behind five walls' +
+        ' — none of them',
+    ).toContain('services/cart-pricing.service.ts');
+    // … and ONLY by name, or these walls start firing at whoever edits checkout.
+    expect(
+      seededWith('services', 'checkout.service.ts'),
+      'a foreign service entered the population; the name rule has stopped narrowing',
+    ).not.toContain('services/checkout.service.ts');
+
+    // And the RECURSION, the other half of the #460 repair. This gate had no
+    // recursive walk at all, so `controllers/admin/` and `routes/admin/` were
+    // simply out of reach.
+    expect(
+      CART_ROOTS.flatMap((r) =>
+        cartModulesIn(r, (relative) =>
+          relative === 'routes'
+            ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+            : relative === 'routes/admin'
+              ? [{ name: 'cart-admin.ts', isDirectory: () => false, isFile: () => true }]
+              : readDirectory(relative),
+        ),
+      ),
+      'a module in a SUBDIRECTORY of a scanned root is not admitted; the derivation is still ' +
+        'one level deep',
+    ).toContain('routes/admin/cart-admin.ts');
   });
 
   it('cart ownership never decides which payment providers exist', () => {
