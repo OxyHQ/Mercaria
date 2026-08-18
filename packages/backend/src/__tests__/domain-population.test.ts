@@ -202,6 +202,102 @@ describe('assertNothingOutsideDomainPopulation', () => {
     ).toThrow(/was NOT reported outside it/);
   });
 
+  /**
+   * The mutation `docs/isolation-gates.md` credits to #609 as the fix — and
+   * which does NOT bite on the array-shaped control.
+   *
+   * Measured by `gatesA` on `main`: replacing a gate's wall population with
+   * `new Set(swept)` leaves all ten of that gate's tests green, because a plant
+   * that is absent from the REAL sweep reads as outside a sweep-derived
+   * population exactly as it reads outside a correct one. Sharing the
+   * comparison catches a population replaced by a LITERAL LIST and not one
+   * built FROM the sweep.
+   *
+   * The reader-parameterised population is what closes it: the control
+   * re-derives against the SEEDED reader, so a population defined as "whatever
+   * the sweep found" absorbs the plant and the comparison fires. This asserts
+   * the failure message is the CONTROL's, not an incidental one — a mutation
+   * that throws for the wrong reason is not a measurement.
+   */
+  it('fails when the population IS the sweep — the shape that defeats a shared comparison', () => {
+    expect(() =>
+      assertNothingOutsideDomainPopulation({
+        population: (readDir) => sweepSrcTreeForDomain(/analytics/i, readDir),
+        pattern: /analytics/i,
+        notThisDomain: [],
+        sweepFloor: 20,
+        plantIn: 'lib',
+        plantName: 'analytics-cache.ts',
+      }),
+    ).toThrow(/was NOT reported outside it/);
+  });
+
+  /**
+   * What the reader-parameterised control does NOT close, stated rather than
+   * papered over — and why the remaining case is not the hazard it looks like.
+   *
+   * `gatesA` measured that replacing a wall's population with the SWEEP ITSELF
+   * leaves every test green, and that is true here too: the plant is not on
+   * disk, so it is outside a captured real sweep exactly as it is outside a
+   * correct population, and no reader plumbing can see the difference.
+   *
+   * Reading what that state actually IS changes the verdict. A population equal
+   * to "every module whose path names this domain" is not a narrowed population
+   * — it is a reasonable one derived another way, and the gate's REAL walls go
+   * on scanning the same set. What it makes tautological is only this meta-wall,
+   * whose job is to catch a population that is too NARROW; and the narrow
+   * direction is caught, by the tests above.
+   *
+   * So the honest statement is: this shape silences the meta-wall and cannot
+   * hide a missing module from the walls that matter. It is left uncaught
+   * deliberately, because the checks that would catch it (population != sweep)
+   * fire on legitimate gates — every module of `ingestion` sits under an
+   * ingestion-named path, so its population and its sweep ARE the same set.
+   */
+  it('a population equal to the sweep silences this wall — known, and named', () => {
+    // Asserted so the limit is a measured fact in the suite rather than a
+    // sentence in a docblock that nobody re-runs.
+    assertNothingOutsideDomainPopulation({
+      population: () => sweepSrcTreeForDomain(/analytics/i),
+      pattern: /analytics/i,
+      notThisDomain: [],
+      sweepFloor: 20,
+      plantIn: 'lib',
+      plantName: 'analytics-cache.ts',
+    });
+  });
+
+  /**
+   * The case the foreign-module clause exists for, and which the plant alone
+   * does NOT catch: a population that swallowed the tree.
+   */
+  it('fails when the population swallows the tree — foreign modules are in it', () => {
+    expect(() =>
+      assertNothingOutsideDomainPopulation({
+        population: (readDir) => walkOwnedDirectory('', readDir),
+        pattern: /analytics/i,
+        notThisDomain: [],
+        sweepFloor: 20,
+        plantIn: 'lib',
+        plantName: 'analytics-cache.ts',
+      }),
+    ).toThrow(/belongs to another domain and is in this population/);
+  });
+
+  it('the foreign-module control refuses a path that no longer exists', () => {
+    expect(() =>
+      assertNothingOutsideDomainPopulation({
+        population: analyticsPopulation,
+        pattern: /analytics/i,
+        notThisDomain: [],
+        sweepFloor: 20,
+        plantIn: 'lib',
+        plantName: 'analytics-cache.ts',
+        foreignModules: ['controllers/orders.controller.ts', 'routes/cart.ts', 'routes/gone.ts'],
+      }),
+    ).toThrow(/no longer exists, so excluding it from the population proves nothing/);
+  });
+
   it('fails when the sweep reached almost nothing', () => {
     expect(() =>
       assertNothingOutsideDomainPopulation({

@@ -61,7 +61,7 @@
  */
 
 import { expect } from 'vitest';
-import { readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -169,6 +169,35 @@ export function sweepSrcTreeForDomain(
 }
 
 /**
+ * Real modules belonging to the COMMERCE CORE, foreign to every domain that has
+ * a gate here — the control that catches a population containing everything.
+ *
+ * This exists because the reader-parameterised control below is NOT sufficient
+ * on its own, and I claimed it was. Measured: a population expression that USES
+ * the reader it is handed (`(readDir) => sweepSrcTreeForDomain(p, readDir)`)
+ * absorbs the plant and fires, as intended — but one that IGNORES it
+ * (`() => sweepSrcTreeForDomain(p)`, capturing the REAL sweep) does not, because
+ * the plant is not on disk and so is outside the captured sweep exactly as it is
+ * outside a correct population. `gatesA` found the same hole in the array-shaped
+ * control on `main` and its remedy is this one.
+ *
+ * A plant that does not exist can only ever prove the comparison is not
+ * degenerate. A REAL module that exists and belongs elsewhere proves the
+ * population did not swallow the tree — and it works whatever the reader
+ * plumbing does, because it never goes through the reader at all.
+ *
+ * Each is asserted to EXIST: without that the clause goes vacuous the day
+ * somebody renames the file, and excluding a path that is not there proves
+ * nothing.
+ */
+export const FOREIGN_CONTROL_MODULES = [
+  'controllers/orders.controller.ts',
+  'routes/cart.ts',
+  'db/schema/orders.ts',
+  'middleware/auth.ts',
+] as const;
+
+/**
  * A module that NAMES the domain and is not OF it.
  *
  * EXACT paths, never a prefix: a directory-shaped exclusion excuses everything
@@ -217,6 +246,12 @@ export interface OutsidePopulationOptions {
    */
   readonly plantIn: string;
   readonly plantName: string;
+  /**
+   * Real, EXISTING modules of other domains that must stay OUT of the
+   * population. Defaults to the commerce-core set above; override only where a
+   * domain legitimately owns one of them.
+   */
+  readonly foreignModules?: readonly string[];
 }
 
 /**
@@ -272,6 +307,25 @@ export function assertNothingOutsideDomainPopulation(options: OutsidePopulationO
       statSync(join(SRC_ROOT, relative)).isFile(),
       `${relative} is in the population but is not a file — did it move?`,
     ).toBe(true);
+  }
+
+  // The clause that catches a population containing everything, and it does not
+  // go through the reader — so it holds even when the population expression
+  // ignores the one it is handed, which is the case the plant below cannot see.
+  const foreign = options.foreignModules ?? FOREIGN_CONTROL_MODULES;
+  expect(foreign.length, 'the foreign-module control is empty, so it cannot fail').toBeGreaterThan(
+    2,
+  );
+  for (const other of foreign) {
+    expect(
+      existsSync(join(SRC_ROOT, other)) && statSync(join(SRC_ROOT, other)).isFile(),
+      `${other} no longer exists, so excluding it from the population proves nothing`,
+    ).toBe(true);
+    expect(
+      derived,
+      `${other} belongs to another domain and is in this population — the derivation has ` +
+        'widened to swallow modules nobody reviewed',
+    ).not.toContain(other);
   }
 
   // The positive control, sharing the comparison above. Without it `toEqual([])`
