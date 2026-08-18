@@ -38,7 +38,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -348,7 +348,30 @@ describe('WALL 5: the emitters cannot reach the database', () => {
       ).toBe(false);
       scanned += 1;
     }
+    // `expect(scanned).toBe(PURE_MODULES.length)` alone is CIRCULAR — it compares
+    // the loop's counter to the list the loop just filtered on, so it holds for
+    // ANY list including a one-entry one. Measured on this branch: shrinking
+    // PURE_MODULES from nine entries to one left all 210 tests in the package
+    // green, and the purity wall then covered ONE module while reading exactly
+    // as it does now. `gatesA` found the same shape in `guest-stripe-checkout`
+    // at a worse ratio (a 44-entry walked list shrunk to one, everything green).
+    //
+    // What it DOES catch is a renamed module — `scanned` then falls short of the
+    // list — so it stays. What it cannot catch is the list itself shrinking, and
+    // that needs the two assertions below.
     expect(scanned).toBe(PURE_MODULES.length);
+    // An EXACT count, so removing a module from the pure set is a decision
+    // somebody takes rather than a line that disappears (#448).
+    expect(PURE_MODULES.length, 'the pure-module set changed size').toBe(9);
+    // …and every name still resolves to a real module. Without this the list
+    // rots green on the first rename: the entry stops matching anything, the
+    // filter skips it, and both sides of the circular comparison shrink together.
+    for (const name of PURE_MODULES) {
+      expect(
+        existsSync(join(SRC_ROOT, 'services/seo', name)),
+        `${name} is in the pure-module set but no longer exists`,
+      ).toBe(true);
+    }
   });
 
   it('the persistence detector actually detects — the mutation self-test', () => {
