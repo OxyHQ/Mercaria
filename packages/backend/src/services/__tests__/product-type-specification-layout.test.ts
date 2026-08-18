@@ -83,6 +83,13 @@ function field(
     variantCapable: false,
     position,
     visibilityRule: null,
+    // The per-type authoring OVERRIDES, absent here on purpose: this fixture
+    // exercises layout, and `null` is the state that means "use the cited
+    // attribute's own text", which is what every field in it does.
+    label: null,
+    helpText: null,
+    placeholder: null,
+    example: null,
     createdAt: NOW,
     updatedAt: NOW,
   };

@@ -625,7 +625,9 @@ describe('the hand-written trigger SQL', () => {
     // added later is in this population automatically, which is the direction
     // that matters. The exempt member carries no `status` and no `provenance`,
     // so the guard's own body could not read it.
-    const exempt = new Set(LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS.map((entry) => entry.table));
+    const exempt = new Set<string>(
+      LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS.map((entry) => entry.table),
+    );
     const guarded = CATALOG_LOCALIZATION_TEXT_TABLES.filter((name) => !exempt.has(name));
 
     // The floor. A population that shrank to nothing would pass every loop
