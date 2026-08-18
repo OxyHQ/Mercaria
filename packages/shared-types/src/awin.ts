@@ -507,6 +507,46 @@ export interface AwinQualityCounts {
 }
 
 /**
+ * The two HOSTS the first flagged row disagreed about, so the person reading
+ * `destinationTrackingHost` can see what the detector saw.
+ *
+ * ## Why it is stored at all, when the offer holds the destination
+ *
+ * On exactly the rows this counter flags, it does not. A swapped row's deep-link
+ * column holds a RETAILER url, `assessAwinTrackingLink` refuses it as
+ * `rejected_host`, and `withAssessedAwinTracking` then withholds it — so
+ * `offers.affiliate_tracking_template` is NULL and the only value that survives
+ * is the tracked destination. The half an operator needs in order to tell a swap
+ * from a deliberate configuration is precisely the half the tracking assessment
+ * removes.
+ *
+ * ## Why HOSTS and never the URLs
+ *
+ * The Awin domain stores no URL of any kind, and that is a wall rather than a
+ * habit: the product-data API key lives in the PATH of a feed URL, so a `text`
+ * column named for a URL is somewhere a key can eventually land.
+ * `awin-isolation.test.ts` fails the build on any column in this schema whose
+ * name reads as a URL, and this evidence deliberately does not ask for an
+ * exemption — a host has no path and no query, so the hazard is removed rather
+ * than excused.
+ *
+ * Nothing is lost, because a host is exactly what the detector compared: the
+ * question an operator answers is "is the destination Awin's own redirector
+ * while the deep link names a retailer", and both sides of it are hosts.
+ *
+ * ONE example rather than a list: the finding is about the feed's column MAPPING
+ * and every flagged row in a pass says the same thing about it. The COUNT
+ * carries the magnitude.
+ *
+ * `deepLinkHost` is null when the row published no deep link, or one that would
+ * not parse — which is itself a state the detector treats as the swap.
+ */
+export interface AwinDestinationSwapExample {
+  readonly destinationHost: string;
+  readonly deepLinkHost: string | null;
+}
+
+/**
  * There is deliberately NO `AwinOfferRouting` type here.
  *
  * The obvious shape — an `affiliate | external | informational` verdict derived

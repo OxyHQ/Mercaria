@@ -557,6 +557,89 @@ describe('the CHECKs and triggers, against a real server', () => {
     ).toMatch(/coverage_check/u);
   });
 
+  /**
+   * The swap evidence is BOUNDED, PAIRED and EARNED (#589).
+   *
+   * A CHECK rather than a service comparison, because the evidence and the
+   * counter it explains are two halves of one claim: a row carrying an example
+   * for a finding it did not make is a row that says a feed was swapped when the
+   * pass measured nothing of the kind.
+   */
+  it('refuses swap evidence that is unearned, unpaired or unbounded', async () => {
+    const { advertiserRowId, feedRowId } = await bringUpAdvertiser('swapevidence');
+    const base = {
+      advertiserRowId,
+      feedRowId,
+      runId: null,
+      measuredAt: new Date(),
+      mappingVersion: AWIN_MAPPING_VERSION,
+      scanned: 2,
+      mapped: 2,
+      rejected: 0,
+    };
+
+    // UNEARNED: an example on a snapshot whose swap counter is zero.
+    expect(
+      await rejectionMessage(async () =>
+        db.insert(awinAdvertiserQuality).values({
+          ...base,
+          destinationTrackingHost: 0,
+          swapExampleDestinationHost: 'www.awin1.com',
+        }),
+      ),
+    ).toMatch(/swap_example_check/u);
+
+    // UNPAIRED: a deep-link host with no destination beside it describes nothing.
+    expect(
+      await rejectionMessage(async () =>
+        db.insert(awinAdvertiserQuality).values({
+          ...base,
+          destinationTrackingHost: 1,
+          swapExampleDeepLinkHost: 'retailer.example',
+        }),
+      ),
+    ).toMatch(/swap_example_check/u);
+
+    // UNBOUNDED: a host is a value a stranger writes into a CSV.
+    expect(
+      await rejectionMessage(async () =>
+        db.insert(awinAdvertiserQuality).values({
+          ...base,
+          destinationTrackingHost: 1,
+          swapExampleDestinationHost: `${'a'.repeat(300)}.example`,
+        }),
+      ),
+    ).toMatch(/swap_example_check/u);
+
+    // POSITIVE CONTROL. Without it every case above passes against a constraint
+    // of `false`, and so does a table that does not exist.
+    const row = await recordAwinQuality({
+      ...base,
+      counts: {
+        scanned: 2,
+        mapped: 2,
+        rejected: 0,
+        withGtin: 0,
+        withMpn: 0,
+        withBrand: 0,
+        withImage: 0,
+        withPrice: 0,
+        duplicateExternalIds: 0,
+        duplicateGtins: 0,
+        rejectedCurrency: 0,
+        rejectedPrice: 0,
+        contradictoryAvailability: 0,
+        trackingApproved: 0,
+        trackingRejected: 1,
+        destinationTrackingHost: 1,
+        destinationTrackedOnly: 1,
+      },
+      swapExample: { destinationHost: 'www.awin1.com', deepLinkHost: 'retailer.example' },
+    });
+    expect(row.swapExampleDestinationHost).toBe('www.awin1.com');
+    expect(row.swapExampleDeepLinkHost).toBe('retailer.example');
+  });
+
   it('makes a quality snapshot APPEND-ONLY', async () => {
     const { advertiserRowId, feedRowId } = await bringUpAdvertiser('appendquality');
     const row = await recordAwinQuality({

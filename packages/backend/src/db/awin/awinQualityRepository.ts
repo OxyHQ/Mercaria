@@ -15,7 +15,7 @@
  */
 
 import { desc, eq } from 'drizzle-orm';
-import type { AwinQualityCounts } from '@mercaria/shared-types';
+import type { AwinDestinationSwapExample, AwinQualityCounts } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { awinAdvertiserQuality } from '../schema/awin.js';
 
@@ -27,6 +27,14 @@ export interface RecordAwinQualityInput {
   runId: string | null;
   mappingVersion: number;
   counts: AwinQualityCounts;
+  /**
+   * The first flagged row's two HOSTS, when the pass flagged one.
+   *
+   * A separate field rather than a member of `counts`, which is deliberately
+   * numbers only — and the CHECK refuses an example on a snapshot whose swap
+   * counter is zero, so the two cannot describe different passes.
+   */
+  swapExample?: AwinDestinationSwapExample | null;
   measuredAt?: Date;
 }
 
@@ -44,6 +52,8 @@ export async function recordAwinQuality(
       mappingVersion: input.mappingVersion,
       measuredAt: input.measuredAt ?? new Date(),
       ...input.counts,
+      swapExampleDestinationHost: input.swapExample?.destinationHost ?? null,
+      swapExampleDeepLinkHost: input.swapExample?.deepLinkHost ?? null,
     })
     .returning();
   if (row === undefined) throw new Error('awin_advertiser_quality insert returned no row');

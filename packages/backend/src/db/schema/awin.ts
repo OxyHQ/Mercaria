@@ -557,14 +557,36 @@ export const awinAdvertiserQuality = pgTable(
      * here as the detector's POSITIVE CONTROL. A zero in the first column reads
      * the same on a clean feed and on one where the conjunction could never
      * fire; the second column is the only thing that tells those apart.
-     *
-     * There is deliberately no example URL stored beside them. The feed's own
-     * `destination_url` and `affiliate_url` are already on every offer this pass
-     * wrote, so an operator has both URLs to look at without this table growing
-     * a second copy of one of them.
      */
     destinationTrackingHost: integer().notNull().default(0),
     destinationTrackedOnly: integer().notNull().default(0),
+
+    /**
+     * The two HOSTS the first flagged row disagreed about, so the person reading
+     * the counter can see what the detector saw.
+     *
+     * The residual is that a tracked destination beside a retailer deep link
+     * cannot be told from a deliberate configuration by inspection, so an
+     * operator has to look at the values. **They are not obtainable from the
+     * offer**, which is why these columns exist: on exactly the rows this
+     * counter flags, the deep-link column holds a RETAILER url,
+     * `assessAwinTrackingLink` refuses it as `rejected_host`, and
+     * `withAssessedAwinTracking` withholds it — so
+     * `offers.affiliate_tracking_template` is NULL and only the tracked
+     * destination survives.
+     *
+     * HOSTS and never URLs. This schema stores no URL of any kind because the
+     * product-data API key lives in the PATH of a feed URL, and
+     * `awin-isolation.test.ts` fails the build on any column here whose name
+     * reads as one. A host has no path and no query, so the hazard is removed
+     * rather than excused — and nothing is lost, because a host is exactly what
+     * the detector compared.
+     *
+     * ONE example rather than a list: this is a fact about the feed's column
+     * MAPPING and every flagged row in a pass says the same thing about it.
+     */
+    swapExampleDestinationHost: text(),
+    swapExampleDeepLinkHost: text(),
 
     createdAt: createdAt(),
   },
@@ -610,6 +632,26 @@ export const awinAdvertiserQuality = pgTable(
           and ${t.destinationTrackingHost} + ${t.destinationTrackedOnly} <= ${t.mapped}`,
     ),
     check('awin_advertiser_quality_mapping_version_check', sql`${t.mappingVersion} >= 1`),
+    /**
+     * The swap evidence is BOUNDED, PAIRED and EARNED.
+     *
+     * Bounded by the handle length every provider-supplied host in this schema
+     * carries, because these are values a stranger writes into a CSV. Paired,
+     * because a deep-link host with no destination beside it describes nothing.
+     * And earned: an example may only sit on a snapshot that actually flagged
+     * something, so a row cannot carry evidence for a finding it did not make.
+     */
+    check(
+      'awin_advertiser_quality_swap_example_check',
+      sql`(${t.swapExampleDestinationHost} is null
+           or (length(${t.swapExampleDestinationHost})
+               <= ${sql.raw(String(AWIN_MAX_HANDLE_LENGTH))}
+               and ${t.destinationTrackingHost} > 0))
+          and (${t.swapExampleDeepLinkHost} is null
+               or (length(${t.swapExampleDeepLinkHost})
+                   <= ${sql.raw(String(AWIN_MAX_HANDLE_LENGTH))}
+                   and ${t.swapExampleDestinationHost} is not null))`,
+    ),
     /** The board's read: this advertiser's history, newest first. */
     index('awin_advertiser_quality_advertiser_measured_idx').on(
       t.advertiserRowId,

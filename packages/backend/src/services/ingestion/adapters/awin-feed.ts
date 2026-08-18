@@ -46,7 +46,12 @@
  * is not one, and only the LAST page may report it.
  */
 
-import type { AwinFeedColumn, AwinQualityCounts, CatalogSourceKind } from '@mercaria/shared-types';
+import type {
+  AwinDestinationSwapExample,
+  AwinFeedColumn,
+  AwinQualityCounts,
+  CatalogSourceKind,
+} from '@mercaria/shared-types';
 import {
   CatalogSourceFetchError,
   type AdapterFetchPage,
@@ -88,6 +93,8 @@ export interface AwinStagedPass {
   readonly stage: FeedStage;
   readonly declaredColumns: readonly AwinFeedColumn[];
   readonly counts: AwinQualityCounts;
+  /** The first swapped row's two hosts, when the pass found one. */
+  readonly swapExample: AwinDestinationSwapExample | null;
   readonly validators: FeedValidators;
 }
 
@@ -383,6 +390,7 @@ export async function stageAwinFeed(input: {
     stage,
     declaredColumns: declaredAwinColumns(observedColumns),
     counts: readAwinQualityCounts(meter),
+    swapExample: meter.swapExample,
     validators: input.validators,
   };
 }

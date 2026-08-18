@@ -76,6 +76,7 @@ export function registerAwinFeedAdapter(): void {
           consumedLastImportedAt: resolved.feed.listedLastImportedAt,
           validators: pass.validators,
           counts: pass.counts,
+          swapExample: pass.swapExample,
           // #66 records no run id: the adapter is handed no run, by #62's own
           // contract, and inventing one from the dispatcher's context would make
           // a snapshot cite a pass it cannot prove it belonged to. The column is

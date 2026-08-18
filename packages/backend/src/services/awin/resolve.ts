@@ -34,7 +34,12 @@ import { resolveSourceRights } from '../ingestion/rights.js';
 import { toPolicyRights } from '../ingestion/source.service.js';
 import type { AwinNetworkBudget } from '../../db/awin/awinNetworkLeaseRepository.js';
 import { AWIN_FEED_COLUMNS, AWIN_MAPPING_VERSION } from '@mercaria/shared-types';
-import type { AwinFeedColumn, AwinQualityCounts, CatalogSourceRightsVerdict } from '@mercaria/shared-types';
+import type {
+  AwinDestinationSwapExample,
+  AwinFeedColumn,
+  AwinQualityCounts,
+  CatalogSourceRightsVerdict,
+} from '@mercaria/shared-types';
 import { awinParseOptions } from './constants.js';
 import { buildAwinMapping } from './mapping.js';
 import type { FeedParseOptions } from '../feed-import/parse/types.js';
@@ -186,6 +191,8 @@ export interface AwinImportOutcome {
   readonly consumedLastImportedAt: Date | null;
   readonly validators: FeedValidators;
   readonly counts: AwinQualityCounts;
+  /** The first swapped row's two hosts, when the pass found one. */
+  readonly swapExample: AwinDestinationSwapExample | null;
   readonly runId: string | null;
 }
 
@@ -231,6 +238,7 @@ export async function recordAwinImport(
         runId: outcome.runId,
         mappingVersion: resolved.mappingVersion,
         counts: outcome.counts,
+        swapExample: outcome.swapExample,
         measuredAt: now,
       },
       tx,
