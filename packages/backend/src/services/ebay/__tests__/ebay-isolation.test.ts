@@ -517,8 +517,23 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
    */
   const NOT_THIS_DOMAIN = ['services/outbound/reconciliation/ebay.ts'] as const;
 
-  // ONE comparison, shared by the wall and its control below: two spellings
-  // would let the control pass while the wall went vacuous.
+  // ONE comparison, shared by the wall and its control below.
+  //
+  // Sharing it is worth doing and is NOT the guarantee this comment used to
+  // claim. Measured (`gatesA`, on `main`, against the identical shape in
+  // `analytics-ranking-isolation.test.ts`): with the comparison shared exactly
+  // as it is here, replacing the wall's population with `new Set(swept)` still
+  // left every test green. The planted module is not on disk, so it reads as
+  // outside a population built FROM the sweep exactly as it reads outside a
+  // correct one — sharing catches a population replaced by a LITERAL LIST and
+  // cannot catch one derived from the sweep.
+  //
+  // What holds regardless of that is a control that never goes through the
+  // sweep at all: real modules of OTHER domains, asserted to exist and asserted
+  // absent from the population, so a population that swallowed the tree fails on
+  // one of them. `src/__tests__/domain-population.ts`'s
+  // `FOREIGN_CONTROL_MODULES` is that clause, and this gate should adopt the
+  // shared derivation rather than keep its own copy of this shape.
   const outsidePopulation = (paths: readonly string[]): string[] => {
     const population = new Set([...EBAY_DOMAIN_PATHS, ...NOT_THIS_DOMAIN]);
     return paths.filter((relative) => !population.has(relative));

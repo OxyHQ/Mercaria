@@ -126,11 +126,23 @@ export function walkOwnedDirectory(
  *
  * **The PATH, not the filename.** A module inside a directory named for the
  * domain names it nowhere in its own name; measured in #609, matching the
- * filename swept 10 of one domain's 29 modules. Matching the path costs nothing
- * here because no shared directory name (`routes`, `controllers`, `middleware`,
- * `db/schema`) carries a domain token — a domain whose name collides with one
- * of those would need its own narrowing, and would see it immediately as a
- * population full of strangers rather than as silence.
+ * filename swept 10 of one domain's 29 modules.
+ *
+ * **The free-ness is a property of the DIRECTORIES, not of the pattern**, and
+ * that distinction is load-bearing rather than pedantic. Matching the path costs
+ * nothing for the four shared directories above because none of `routes`,
+ * `controllers`, `middleware` or `db/schema` carries a domain token. It is NOT
+ * free for a pattern that would match a SIBLING DOMAIN's directory: `gatesA`
+ * reports that an unanchored `checkout` matched against the path pulls in
+ * `services/retail-checkout/*` and `services/payments/checkout-payment.service.ts`,
+ * so its `checkout-contact` gate keeps an anchored FILENAME rule and stays out
+ * of this helper deliberately.
+ *
+ * So before passing a pattern here, ask what it matches over a PATH rather than
+ * over a name. A domain whose token appears inside a sibling's directory name
+ * needs an anchor (`seo`, `reviews` — see their gates) or needs to keep its own
+ * filename rule. The failure is loud either way — a population full of
+ * strangers rather than silence — but it is cheaper to see it here.
  */
 export function namedInSharedDirectories(
   directories: readonly string[],
