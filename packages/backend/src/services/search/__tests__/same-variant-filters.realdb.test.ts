@@ -388,19 +388,23 @@ describe('a variant-level filter set is answered by ONE variant (#567)', () => {
       facetCount,
       'the facet rail matched NOTHING — every agreement below would be vacuous',
     ).toBe(1);
-    expect(searchList, 'SEARCH lost the control product').toEqual([genuineProductId]);
-    expect(browseList, 'BROWSE lost the control product').toEqual([genuineProductId]);
-
-    // …and now the rails against EACH OTHER, which is the part a per-rail test
-    // cannot express: under the defect this read 2 against a facet count of 1.
+    // Then the rails against EACH OTHER — the part a per-rail test cannot
+    // express, and the headline diagnosis, so it is asserted BEFORE membership.
+    // Under the defect this read 2 against a facet count of 1, which is
+    // literally the page: a list longer than the number rendered above it.
     expect(
       searchList.length,
-      'SEARCH disagrees with the facet count — a list longer than the number rendered above it',
+      'SEARCH disagrees with the FACET COUNT — the list and the number above it describe different sets',
     ).toBe(facetCount);
     expect(
       browseList.length,
-      'BROWSE disagrees with the facet count — a list longer than the number rendered above it',
+      'BROWSE disagrees with the FACET COUNT — the list and the number above it describe different sets',
     ).toBe(facetCount);
+
+    // …and finally WHICH product each rail returned. Agreement on a count is
+    // not agreement on a set: two rails could each answer 1 with different rows.
+    expect(searchList, 'SEARCH returned the wrong product').toEqual([genuineProductId]);
+    expect(browseList, 'BROWSE returned the wrong product').toEqual([genuineProductId]);
 
     // Populations on SUCCESS, via stdout: vitest's default reporter (what CI
     // runs) suppresses `console.*` from a test that PASSED, so a `console.log`
