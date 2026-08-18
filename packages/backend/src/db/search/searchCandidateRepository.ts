@@ -1029,6 +1029,42 @@ function attributeConstraintPredicate(alias: string, constraint: AttributeConstr
  * inside retrieval: the attribute table is large, the candidate set is bounded,
  * and intersecting a bounded set is cheap where joining the whole table into
  * seven retrieval stages is not.
+ *
+ * ## The `cv` join below carries NO status predicate, and that is UNDECIDED
+ *
+ * Three spellings of one question — which variants may answer a filter —
+ * measured across the two rails that serve one page (#616):
+ *
+ * | where | predicate on `canonical_variants.status` |
+ * | --- | --- |
+ * | `db/facets/facetRepository.ts`, all ten variant-grain reads | `cv.status = 'active'` |
+ * | `findVariantIntentMatches`, in THIS file | `in ('active', 'discontinued')`, via {@link SEARCHABLE_CATALOG_STATUSES} |
+ * | the `exists` below | none at all |
+ *
+ * The third is not between the other two, it is WIDER than either: the status
+ * vocabulary is `draft | active | discontinued | merged | suppressed`, so with
+ * no predicate a `suppressed` variant — the operator's own "do not show" — and
+ * a `merged` tombstone both still satisfy an attribute filter here.
+ *
+ * Both candidate answers are defensible and each moves results the other way,
+ * so this is deliberately NOT decided here:
+ *
+ * - **copy the facet rail** (`cv.status = 'active'`) and this filter DROPS
+ *   results. It would also make the attribute filter NARROWER than
+ *   `findVariantIntentMatches` twenty lines up, whose own docblock argues the
+ *   opposite by name: "`discontinued` IS included — somebody searching a
+ *   discontinued model means that model."
+ * - **copy {@link SEARCHABLE_CATALOG_STATUSES} into the facet rail** and the
+ *   counts ADMIT products they exclude today. Which is why the facet rail is as
+ *   likely to be the side that should move.
+ *
+ * Whoever decides it should decide it for BOTH rails in one change, together
+ * with #616's other divergence (the facet rail counts values drawn from
+ * `canonical_variant_attributes` and this filter reads only
+ * `canonical_attribute_values`). The two pull in opposite directions — reading
+ * the axis table admits more products, filtering variant status admits fewer —
+ * so a change that settles one without naming the other looks like it made the
+ * rails agree when it has only moved where they disagree.
  */
 export async function findProductIdsSatisfyingAttributes(
   db: DatabaseOrTransaction,
