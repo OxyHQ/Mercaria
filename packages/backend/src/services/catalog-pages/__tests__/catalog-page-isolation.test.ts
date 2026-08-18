@@ -33,6 +33,7 @@ import {
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
   readSrcDirectory,
+  sweepSrcTreeForDomain,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
 import {
@@ -370,5 +371,33 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       plantIn: 'lib',
       plantName: 'catalog-pages-cache.ts',
     });
+  });
+
+  /**
+   * What the optional hyphen and plural actually buy — asserted, because the
+   * first version of this conversion CLAIMED the widening reached
+   * `db/catalogPages/` and that claim was false in the way that matters.
+   *
+   * `db/catalogPages/` is WALKED as an owned directory, so the pattern has
+   * nothing to do with whether its modules are in the POPULATION. What the
+   * pattern decides is what the SWEEP examines — and narrowing it back to
+   * `/catalog-page/i` drops `db/catalogPages/catalogPageRepository.ts` from the
+   * sweep silently: every module the sweep still finds is in the population, so
+   * the wall stays empty, and the sweep floor of 11 is met by the remaining 14.
+   *
+   * So the widening needed its own assertion rather than a floor. Measured: 15
+   * with the hyphen optional, 14 without, and the one that disappears is the
+   * camelCase repository.
+   */
+  it('the sweep reaches the camelCase repository the pattern was widened for', () => {
+    const swept = sweepSrcTreeForDomain(CATALOG_PAGE_NAME_PATTERN);
+    expect(
+      swept,
+      'the name pattern no longer reaches db/catalogPages/ — the sweep is examining less than ' +
+        'the domain while every floor and the wall stay green',
+    ).toContain('db/catalogPages/catalogPageRepository.ts');
+    // …and the narrow spelling really would miss it, so this measures the
+    // widening rather than the tree happening to be convenient.
+    expect(/catalog-page/i.test('db/catalogPages/catalogPageRepository.ts')).toBe(false);
   });
 });
