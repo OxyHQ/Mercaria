@@ -164,6 +164,15 @@ export const DEPLOY_WORKFLOWS = Object.freeze([
  * name would also travel, at the cost of an upload step and a 90-day expiry
  * that would silently turn every older run `unstated`.
  *
+ * MEASURED against run 32131834422 (the newest successful `Deploy to AWS` on
+ * `main` on 2026-08-18) rather than assumed: a job object's keys are exactly
+ * check_run_url, completed_at, conclusion, created_at, head_branch, head_sha,
+ * html_url, id, labels, name, node_id, run_attempt, run_id, run_url,
+ * runner_group_id, runner_group_name, runner_id, runner_name, started_at,
+ * status, steps, url, workflow_name — no `outputs`. The same read shows step
+ * names coming back verbatim, em dashes included, and `Migrate (all)` reported
+ * as `skipped` inside a green run.
+ *
  * Each half is a PAIR whose two `if:` conditions are one predicate and its
  * negation, so exactly one member runs whenever the job reaches them. That is
  * what makes "neither" and "both" refusable rather than interpretable —
