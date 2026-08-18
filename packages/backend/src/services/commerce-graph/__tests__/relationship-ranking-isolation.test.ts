@@ -26,9 +26,15 @@
 
 import { describe, expect, it } from 'vitest';
 import { getTableColumns } from 'drizzle-orm';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+} from '../../../__tests__/domain-population.js';
 import { commerceRelationships } from '../../../db/schema/relationships.js';
 import {
   RANKING_SURFACE_PATHS,
@@ -57,10 +63,34 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
  * {@link relationshipModules} closes that, and the added-module probe below is
  * kept as a permanent test rather than a note saying it was run once.
  */
-const RELATIONSHIP_DIRECTORIES = [
-  'services/commerce-graph',
-  'db/commerce-graph',
+const RELATIONSHIP_OWNED_DIRECTORIES = ['services/commerce-graph', 'db/commerce-graph'] as const;
+
+/**
+ * The flat directories a module of this sub-domain lives in under a domain NAME.
+ *
+ * `db/schema` was here and the three HTTP directories were NOT, so FOUR modules
+ * were behind none of the walls below (#460): `routes/brand-relationships.ts`,
+ * `controllers/brand-relationships.controller.ts`,
+ * `controllers/relationships-operator.controller.ts` and
+ * `middleware/relationship-schemas.ts` — the public badge read and the whole
+ * `/internal/commerce-graph/relationships*` operator surface. The operator
+ * controller is the module in this domain with the most reach: it approves,
+ * revokes and reviews the very claims a badge is derived from.
+ *
+ * Verified before adding: none of the four matches `COMMERCIAL_COLUMN` in
+ * comment-stripped code, so this is a widening of coverage rather than a new
+ * false wall.
+ */
+const RELATIONSHIP_SHARED_DIRECTORIES = [
+  'routes',
+  'controllers',
+  'middleware',
   'db/schema',
+] as const;
+
+const RELATIONSHIP_DIRECTORIES = [
+  ...RELATIONSHIP_OWNED_DIRECTORIES,
+  ...RELATIONSHIP_SHARED_DIRECTORIES,
 ] as const;
 
 /** What a module of THIS sub-domain is called, wherever it lives. */
@@ -74,13 +104,25 @@ const RELATIONSHIP_NAME_PATTERN = /relationship/i;
  */
 const MINIMUM_RELATIONSHIP_MODULES = 6;
 
+function relationshipRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // EVERY directory is narrowed by NAME here, including the two this gate calls
+  // its own — and that is a real difference from the other gates converted
+  // under #460, where the owned directory is walked WHOLE.
+  //
+  // `services/commerce-graph/` hosts SEVERAL sub-domains: `merchant.service.ts`,
+  // `storefront.service.ts` and the relationship modules share it. Walking it
+  // whole was tried and the gate's own "is a different sub-domain" assertion
+  // caught it immediately, which is the assertion doing its job. So the
+  // narrowing stays, and what #460 adds here is the three HTTP directories
+  // rather than a change of shape.
+  return namedInSharedDirectories(RELATIONSHIP_DIRECTORIES, RELATIONSHIP_NAME_PATTERN, readDir);
+}
+
 function relationshipModules(): string[] {
-  return RELATIONSHIP_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory))
-      .filter((entry) => entry.endsWith('.ts') && RELATIONSHIP_NAME_PATTERN.test(entry))
+  return relationshipRelativePaths()
       .sort()
       .map((entry) => {
-        const relative = `${directory}/${entry}`;
+        const relative = entry;
         // A derived population is only as honest as the assertion that every
         // member resolves; a stale `readdirSync` would otherwise hand the scan
         // names that no longer exist, which reads as a clean run.
@@ -89,8 +131,7 @@ function relationshipModules(): string[] {
           `${relative} is not a file — did it move?`,
         ).toBe(true);
         return relative;
-      }),
-  );
+      });
 }
 
 
@@ -252,16 +293,25 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
         `a new ${name} would not be scanned; the population is not derived from the name`,
       ).toBe(true);
     }
-    // The population is the directory filtered by that rule and nothing else —
-    // so admitting the name IS admitting the module. Proven by reconstructing
-    // the derived set from the directory listing and comparing.
-    const reconstructed = RELATIONSHIP_DIRECTORIES.flatMap((directory) =>
-      readdirSync(join(SRC_ROOT, directory))
-        .filter((entry) => entry.endsWith('.ts') && RELATIONSHIP_NAME_PATTERN.test(entry))
-        .sort()
-        .map((entry) => `${directory}/${entry}`),
-    );
-    expect(reconstructed).toEqual(relationshipModules());
+    // The second spelling of the population that used to live here is GONE.
+    //
+    // It re-derived the set inline — `RELATIONSHIP_DIRECTORIES.flatMap(readdirSync
+    // ...)` — and compared it to `relationshipModules()`. Two spellings of one
+    // population is the defect this workstream is about: it broke the moment the
+    // real derivation started recursing and matching the PATH, and it broke on
+    // ORDER rather than on membership, which reads like a bug in the conversion
+    // rather than like a stale copy. Kept in step by hand, it would have gone on
+    // agreeing with itself while both drifted.
+    //
+    // What replaces it is strictly stronger and has no second spelling: the
+    // whole-tree wall at the end of this file requires every relationship-named
+    // module in `src/` to be in this population or in a counted exclusion. A
+    // module admitted by the name rule and missing from the scan is exactly what
+    // it reports.
+    expect(
+      relationshipModules().length,
+      'the derivation found almost nothing',
+    ).toBeGreaterThanOrEqual(8);
   });
 
   it('the commercial detector actually detects — the mutation self-test', () => {
@@ -387,5 +437,49 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
     expect(RELATIONSHIP_REFERENCE.test(stripComments('const x = 1; // commerce_relationships'))).toBe(
       true,
     );
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate. Sweep the whole
+ * of `src/` for paths NAMING this sub-domain and require each to be in the
+ * population or in a counted exclusion — which is what replaces the inline
+ * reconstruction removed above.
+ *
+ * The exclusion set is EMPTY because it was MEASURED: `relationship` selects 10
+ * modules across the tree and every one is this sub-domain's. Note the sweep
+ * would also reach a `relationship`-named module in ANY directory, which is
+ * precisely the four HTTP modules this conversion brought in — they had been
+ * outside every wall because the directory list named none of their homes.
+ */
+describe('#460: nothing named for this sub-domain sits outside the scanned population', () => {
+  it('every relationship-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: relationshipRelativePaths,
+      pattern: RELATIONSHIP_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 10 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 7,
+      plantIn: 'lib',
+      plantName: 'relationship-cache.ts',
+    });
+  });
+
+  it('the four HTTP modules the old directory list could not reach are in it', () => {
+    // An identity assertion, not a floor: the old population was the two owned
+    // directories plus `db/schema`, so a floor set below 10 would be met without
+    // any of these four.
+    const population = relationshipRelativePaths();
+    for (const named of [
+      'routes/brand-relationships.ts',
+      'controllers/brand-relationships.controller.ts',
+      'controllers/relationships-operator.controller.ts',
+      'middleware/relationship-schemas.ts',
+    ]) {
+      expect(population, `${named} is outside the walls again`).toContain(named);
+    }
   });
 });
