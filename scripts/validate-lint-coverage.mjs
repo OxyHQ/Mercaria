@@ -3,14 +3,23 @@
 /**
  * `bun run lint` must not report success while covering a sixth of the repo.
  *
- * ## What is actually wrong today
+ * ## The shape this exists for
  *
- * The root script is `lint: bun run --filter '*' lint`. Three of the six
- * workspace packages — `frontend`, `dashboard`, `pos` — define no `lint` script
- * at all, and a WILDCARD filter skips a package with no such script SILENTLY.
- * Two more (`ui`, `shared-types`) define `echo "No lint configured…" && exit 0`.
- * So the command exits 0 having really linted ONE package, and nothing in the
- * command, the workflow or `package.json` says so.
+ * The root script is `lint: bun run --filter '*' lint`, and a WILDCARD filter
+ * skips a package with no `lint` script SILENTLY. When this file was written
+ * three of the six — `frontend`, `dashboard`, `pos` — had none and two more
+ * (`ui`, `shared-types`) defined `echo "No lint configured…" && exit 0`, so the
+ * command exited 0 having really linted ONE package with nothing anywhere
+ * saying so. #496 moved the three Expo apps into the real set and
+ * `EXPECTED_NO_SCRIPT` is now empty; the current answer is 4 of 6, which the
+ * summary prints on every run. The hazard is unchanged — a package falling back
+ * out is silent — which is why the empty set is kept as a category.
+ *
+ * #607 added the other half of the question: `bun run lint` covering a package
+ * says nothing about WHICH linter it used. Every one of them invokes `eslint`
+ * and none DECLARED it, so it resolved as an auto-installed peer at a version
+ * nothing pinned. That failure is not a red build — a resolution that moves
+ * eslint changes which findings appear, and fewer findings exits 0.
  *
  * The asymmetry is the part worth remembering, because it is why this hole is
  * invisible while the same shape one command over is not:
