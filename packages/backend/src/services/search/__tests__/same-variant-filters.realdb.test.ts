@@ -35,14 +35,20 @@
  * green. That is the failure this test class actually has: a predicate matching
  * NOTHING returns nothing too, and reads identically green.
  *
- * ## Four things, not one
+ * ## Five things, not one
  *
  * 1. the crossed fixture, with its crossing asserted from the rows;
  * 2. a POSITIVE control — `genuine` returned under exactly the same filters, so
  *    "the crossed one is absent" cannot be satisfied by a dead predicate;
  * 3. EACH HALF alone, which returns `crossed` from each of its two variants, so
  *    both requirements are demonstrably live rather than jointly broken;
- * 4. both RAILS, because the fix has to land on both and each has its own entry.
+ * 4. both RAILS, because the fix has to land on both and each has its own entry;
+ * 5. the two rails AGREEING — the facet COUNT against the result LIST, over one
+ *    filter set. That is the assertion the original defect would have failed:
+ *    each rail was internally consistent and only their DISAGREEMENT was the
+ *    bug, so no test of either rail alone was ever going to name it. Cases 2-4
+ *    pin this rail against a known answer; case 5 pins it against the rail a
+ *    shopper sees it beside.
  *
  * ## A real server, through the PUBLIC entries
  *
@@ -67,6 +73,11 @@ import {
 } from '../../../db/schema/canonicalCatalog.js';
 import { brands } from '../../../db/schema/organizations.js';
 import { catalogSources, sourceRecords } from '../../../db/schema/provenance.js';
+import {
+  countFacetMatchedProducts,
+  NO_FACET_REQUIREMENTS,
+  type FacetQueryContext,
+} from '../../../db/facets/facetRepository.js';
 import { runCanonicalSearch } from '../canonical-search.service.js';
 import { browseCatalogProducts } from '../../catalog-pages/product-browse.service.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
@@ -341,6 +352,67 @@ describe('a variant-level filter set is answered by ONE variant (#567)', () => {
       ids,
       'the crossed product was returned: red in one variant, 43 in another, and no variant both',
     ).not.toContain(crossedProductId);
+  }, 60_000);
+
+  it('the FACET COUNT and the RESULT LIST agree over the same filters', async () => {
+    // The assertion #567 was missing. Each rail was internally consistent — the
+    // facet count was right and the result list was wrong — so nothing that
+    // measured ONE of them could name the defect. What a shopper saw was the
+    // DISAGREEMENT: `matchedProductCount: 1` rendered above a list of two.
+    const fixture = [crossedProductId, genuineProductId];
+
+    const context: FacetQueryContext = {
+      // Scoped to the two products this file inserted, never to a category:
+      // this database is shared with every other worktree, and a count over a
+      // category would be a number about somebody else's rows.
+      scope: { kind: 'products', canonicalProductIds: fixture },
+      requirements: {
+        ...NO_FACET_REQUIREMENTS,
+        variant: [
+          { key: COLOUR, values: ['red'] },
+          { key: SIZE, values: ['43'] },
+        ],
+      },
+      now: NOW,
+    };
+
+    const facetCount = await countFacetMatchedProducts(db, context);
+    // Both lists narrowed to the SAME two ids the facet scope names, so the
+    // three numbers are answers to one question rather than three.
+    const searchList = (await searchIds(RED_AND_43)).filter((id) => fixture.includes(id));
+    const browseList = (await browseIds(RED_AND_43)).filter((id) => fixture.includes(id));
+
+    // The vacuity floor FIRST. Three rails agreeing at ZERO is exactly what a
+    // filter matching nothing looks like, and it satisfies every equality below.
+    expect(
+      facetCount,
+      'the facet rail matched NOTHING — every agreement below would be vacuous',
+    ).toBe(1);
+    // Then the rails against EACH OTHER — the part a per-rail test cannot
+    // express, and the headline diagnosis, so it is asserted BEFORE membership.
+    // Under the defect this read 2 against a facet count of 1, which is
+    // literally the page: a list longer than the number rendered above it.
+    expect(
+      searchList.length,
+      'SEARCH disagrees with the FACET COUNT — the list and the number above it describe different sets',
+    ).toBe(facetCount);
+    expect(
+      browseList.length,
+      'BROWSE disagrees with the FACET COUNT — the list and the number above it describe different sets',
+    ).toBe(facetCount);
+
+    // …and finally WHICH product each rail returned. Agreement on a count is
+    // not agreement on a set: two rails could each answer 1 with different rows.
+    expect(searchList, 'SEARCH returned the wrong product').toEqual([genuineProductId]);
+    expect(browseList, 'BROWSE returned the wrong product').toEqual([genuineProductId]);
+
+    // Populations on SUCCESS, via stdout: vitest's default reporter (what CI
+    // runs) suppresses `console.*` from a test that PASSED, so a `console.log`
+    // here would be invisible in exactly the run somebody reads.
+    process.stdout.write(
+      `[#567 rails agree] scope=${fixture.length} facet=${facetCount} ` +
+        `search=${searchList.length} browse=${browseList.length}\n`,
+    );
   }, 60_000);
 
   it('each half ALONE returns the crossed product, so both requirements are live', async () => {
