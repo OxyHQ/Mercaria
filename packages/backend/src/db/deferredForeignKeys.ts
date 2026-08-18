@@ -1914,6 +1914,7 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   // column exists at all rather than a bare boolean.
   { column: 'category_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'product_type_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  { column: 'product_type_field_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'attribute_value_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'category_localized_slugs.issued_by_oxy_user_id', reason: OXY_ACCOUNT },
   // ── #367 step 8's compatibility and automotive fitment (ADR 0007 D8) ──────

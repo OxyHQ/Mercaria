@@ -59,6 +59,7 @@ import {
   attributeValueLocalizations,
   categoryLocalizations,
   categoryLocalizedSlugs,
+  productTypeFieldLocalizations,
   productTypeLocalizations,
 } from '../schema/catalogLocalization.js';
 import {
@@ -172,6 +173,7 @@ describe('the field registry', () => {
     const tableForEntity = {
       category: categoryLocalizations,
       product_type: productTypeLocalizations,
+      product_type_field: productTypeFieldLocalizations,
       attribute_value: attributeValueLocalizations,
     } as const;
     for (const key of LOCALIZED_FIELD_KEYS) {
@@ -186,7 +188,16 @@ describe('the field registry', () => {
     // carries no status and no provenance, so a candidate built from one of its
     // rows would have to invent both. This is the line that fails when somebody
     // adds the kind without adding the columns.
-    expect([...LOCALIZED_ENTITY_KINDS]).toEqual(['category', 'product_type', 'attribute_value']);
+    expect([...LOCALIZED_ENTITY_KINDS]).toEqual([
+      'category',
+      'product_type',
+      // `product_type_field` is a SEPARATE kind from `product_type` on purpose:
+      // one localizes the form, the other one question on it, and they resolve
+      // against different tables. Folding them would make a field's help text
+      // and the whole schema's help text the same string.
+      'product_type_field',
+      'attribute_value',
+    ]);
   });
 });
 
@@ -548,15 +559,37 @@ describe('the hand-written trigger SQL', () => {
    */
   const GUARD_FUNCTION = 'mercaria_localization_machine_write_guard';
 
-  function candidateSqlFiles(): { path: string; text: string }[] {
+  /**
+   * The DEFINITION of the guard, not a mention of it.
+   *
+   * The distinction is load-bearing and was found by this gate firing. A
+   * migration that attaches the existing guard to a NEW family table names the
+   * function on its `EXECUTE FUNCTION` line and carries no copy of the body —
+   * that is the mechanism being reused, which is the outcome this file wants.
+   * A migration that re-declares the body is the second representation it
+   * forbids, and the hazard is worse than duplication: migrations apply in
+   * journal order, so on a from-zero apply the LATER copy wins and a correction
+   * made to the earlier one is silently reverted.
+   *
+   * Matching on the bare name could not tell those apart, so it reported the
+   * safe case and the dangerous one identically.
+   */
+  const GUARD_DEFINITION = new RegExp(
+    String.raw`CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+${GUARD_FUNCTION}\s*\(`,
+  );
+
+  function allSqlFiles(): { path: string; text: string }[] {
     const files = [join(BACKEND_SRC, 'db', 'schema', 'catalogLocalization.pending.sql')];
     for (const entry of readdirSync(DRIZZLE_DIR)) {
       if (entry.endsWith('.sql')) files.push(join(DRIZZLE_DIR, entry));
     }
     return files
       .filter((path) => existsSync(path))
-      .map((path) => ({ path, text: readFileSync(path, 'utf8') }))
-      .filter((file) => file.text.includes(GUARD_FUNCTION));
+      .map((path) => ({ path, text: readFileSync(path, 'utf8') }));
+  }
+
+  function candidateSqlFiles(): { path: string; text: string }[] {
+    return allSqlFiles().filter((file) => GUARD_DEFINITION.test(file.text));
   }
 
   function renderList(values: readonly string[]): string {
@@ -566,6 +599,56 @@ describe('the hand-written trigger SQL', () => {
   it('lives in exactly one file', () => {
     const found = candidateSqlFiles();
     expect(found.map((file) => file.path)).toHaveLength(1);
+  });
+
+  it('tells a DEFINITION from a mention — the mutation self-test', () => {
+    // The safe shape: a later migration attaching the existing guard to a new
+    // family table. It names the function and carries no body.
+    const attachesOnly = [
+      'CREATE TRIGGER mercaria_product_type_field_localizations_machine_guard',
+      '  BEFORE UPDATE ON "product_type_field_localizations"',
+      `  FOR EACH ROW EXECUTE FUNCTION ${GUARD_FUNCTION}();`,
+    ].join('\n');
+    expect(GUARD_DEFINITION.test(attachesOnly)).toBe(false);
+
+    // The dangerous shape this gate exists for: a second copy of the body. On a
+    // from-zero apply it runs last and wins, silently reverting any correction
+    // made to the original.
+    const redeclares = `CREATE OR REPLACE FUNCTION ${GUARD_FUNCTION}()\nRETURNS trigger AS $$`;
+    expect(GUARD_DEFINITION.test(redeclares)).toBe(true);
+    // …and a plain CREATE, which is the same hazard without the OR REPLACE.
+    expect(GUARD_DEFINITION.test(`CREATE FUNCTION ${GUARD_FUNCTION}()`)).toBe(true);
+  });
+
+  it('attaches an update-time guard to every non-exempt family text table', () => {
+    // DERIVED from the shared-types tuple, never hand-listed: a family member
+    // added later is in this population automatically, which is the direction
+    // that matters. The exempt member carries no `status` and no `provenance`,
+    // so the guard's own body could not read it.
+    const exempt = new Set(LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS.map((entry) => entry.table));
+    const guarded = CATALOG_LOCALIZATION_TEXT_TABLES.filter((name) => !exempt.has(name));
+
+    // The floor. A population that shrank to nothing would pass every loop
+    // below while measuring no table at all.
+    expect(guarded.length).toBeGreaterThanOrEqual(4);
+
+    const chain = allSqlFiles();
+    // The table name is matched BOTH quoted and bare, because the family does
+    // not spell it consistently — `navigation_node_localizations`' trigger is
+    // written unquoted, and a quoted-only matcher reports it as UNGUARDED. That
+    // false absence was produced by an earlier draft of this very check.
+    for (const name of guarded) {
+      const attached = chain.filter((file) =>
+        new RegExp(String.raw`BEFORE\s+UPDATE\s+ON\s+"?${name}"?`).test(file.text),
+      );
+      expect(attached.length, `${name} has no BEFORE UPDATE guard in the migration chain`)
+        .toBeGreaterThanOrEqual(1);
+    }
+
+    process.stdout.write(
+      `\n  [family guard census] ${guarded.length} non-exempt text tables, ` +
+        `${exempt.size} exempt, ${chain.length} migration files scanned\n`,
+    );
   });
 
   it('names the same settled statuses the tuple does', () => {
