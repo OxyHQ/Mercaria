@@ -29,6 +29,11 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  namedInSharedDirectories,
+  readSrcDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -45,8 +50,16 @@ function walk(relative: string): string[] {
   return found;
 }
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` was missing, inherited from the three-name list copied from gate
+ * to gate and from `scripts/isolation-gate-census.ts`'s own bag-directory list.
+ * `db/schema/offers.ts` — the three tables this domain owns, and the one place
+ * `offers_kind_shape_check` (the CHECK wall 2 below asserts from the commerce
+ * side) is actually DECLARED — was in no population and behind no wall here.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /**
  * Every module in a flat directory whose name STARTS with `cart` or `checkout`.
@@ -64,13 +77,11 @@ function cartOrCheckoutNamed(directory: string): string[] {
 }
 
 /** Every offer-NAMED module in a shared flat directory, whoever owns it. */
-function offerNamedSharedModules(): string[] {
-  return SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /offer/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  );
+function offerNamedSharedModules(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // RECURSIVE and matching the PATH, where this was one level deep beside a
+  // recursive `walk()` ten lines up, so nothing under `routes/admin/` or
+  // `controllers/admin/` could enter the population (#460).
+  return namedInSharedDirectories(SHARED_DIRECTORIES, /offer/i, readDir);
 }
 
 /**
@@ -130,6 +141,25 @@ const SIBLING_DOMAIN_MODULES = [
   },
   {
     path: 'middleware/offer-freshness-schemas.ts',
+    owner: "#68's freshness",
+    reaches: [],
+  },
+  {
+    /**
+     * #68's five tables, which arrived in this population with `db/schema`.
+     *
+     * Adding that directory closed a real gap — `db/schema/offers.ts`, where
+     * `offers_kind_shape_check` is declared, was behind no wall — and it opened
+     * this one in the same move: the `offer` token belongs to four domains, so
+     * the widening took #68's schema module too. Left in, the walls below would
+     * fire at whoever edits #68's tables, which is a FALSE WALL rather than a
+     * fix. It is #68's `freshness-isolation.test.ts` that has to cover it.
+     *
+     * `reaches` is empty for the reason `offer-freshness-schemas.ts` above has
+     * none: a schema module is a leaf, so there is no downward edge to measure
+     * and only the second half of the assertion below applies.
+     */
+    path: 'db/schema/offerFreshness.ts',
     owner: "#68's freshness",
     reaches: [],
   },
@@ -419,7 +449,7 @@ describe('the offer domain does other issues’ jobs nowhere', () => {
     // EXACT, not a floor. An excusing entry is a predicate rather than an
     // identity, so a list with no count lets a seventh sibling module be
     // excluded without anybody deciding to (#448).
-    expect(SIBLING_DOMAIN_MODULES.length).toBe(6);
+    expect(SIBLING_DOMAIN_MODULES.length).toBe(7);
 
     // Every excluded module must really exist — otherwise the exclusion is a
     // stale name that quietly excuses nothing while looking like a decision.
@@ -488,5 +518,68 @@ describe('the detectors actually detect — the mutation self-tests', () => {
 
     expect(PAYMENT_REFERENCE.test("from '../payments/payment.service.js'")).toBe(true);
     expect(PAYMENT_REFERENCE.test('sellerPaymentReady')).toBe(false);
+  });
+});
+
+/**
+ * #460's whole-tree sweep is DEFERRED here, and this is the measurement.
+ *
+ * Every other gate converted under #460 ends with a sweep of the whole of `src/`
+ * for paths naming the domain, requiring each to be in the population or in a
+ * counted exclusion — the general remedy, because it closes the class rather
+ * than today's entry. It is not applied here, deliberately, and the reason is a
+ * property of the token rather than of this gate.
+ *
+ * `offer` belongs to FOUR domains. Measured over the tree on this branch, a
+ * sweep for `/offer/i` selects 26 modules outside this population, and an
+ * anchored `/(?:^|\/)(?:internal-)?offers?(?:[-.\/]|$)/i` still selects 15:
+ * the whole of `services/offer-freshness/` and `db/offerFreshness/` (#68),
+ * `services/search/offer-context.ts` and `selected-offer.port.ts` (#70),
+ * `services/store-linkage/offer-overlap.ts` (#84),
+ * `services/merchant-pages/offer-mix.ts` (#73),
+ * `services/attributes/offer-facts.port.ts` (#94),
+ * `services/product-saves/best-offer.ts` (#80),
+ * `db/procurement/procurementOfferRepository.ts` (#123),
+ * `services/backfill/stages/native-offers.ts` (#60) and
+ * `services/commercial-presentation/retail-offer.service.ts` (#116).
+ *
+ * So the sweep here would need a fifteen-entry exclusion list naming other
+ * domains' modules, and it would need a new entry every time any of those eight
+ * domains grew a file. That is a hand list that churns — the exact failure this
+ * issue exists to remove — and it would push whoever hits it toward the
+ * permissive fix of widening this population to swallow another domain's
+ * modules, which is the false wall `db/schema/offerFreshness.ts` above already
+ * demonstrates in miniature.
+ *
+ * What covers those fifteen is their OWN gates, which is the right place: #68's
+ * `freshness-isolation.test.ts`, #70's `search-relevance-isolation.test.ts`,
+ * #84's `store-linkage-isolation.test.ts` and so on. What is owed here is a
+ * sweep whose exclusion is "another domain's OWNED directory, and here is the
+ * gate that covers it" — a checkable claim rather than a list of paths — and
+ * that mechanism does not exist yet. Stated rather than half-built: a sweep
+ * with fifteen guessed exclusions would read as coverage.
+ */
+describe('#460: the whole-tree sweep is deferred, and the reason is measured', () => {
+  it('the token really is shared with other domains', () => {
+    // The deferral rests on a fact about the tree, so the fact is asserted here
+    // rather than left in the docblock to rot. If `offer` ever stops being a
+    // shared token, this goes red and the sweep becomes available.
+    const foreignOfferNamedModules = [
+      'services/offer-freshness/freshness.ts',
+      'services/search/offer-context.ts',
+      'services/store-linkage/offer-overlap.ts',
+      'services/merchant-pages/offer-mix.ts',
+      'services/attributes/offer-facts.port.ts',
+      'db/procurement/procurementOfferRepository.ts',
+    ];
+    for (const foreign of foreignOfferNamedModules) {
+      expect(statSync(join(SRC_ROOT, foreign)).isFile(), `${foreign} moved`).toBe(true);
+      expect(/offer/i.test(foreign), 'this module does not name the token').toBe(true);
+      expect(
+        OFFER_DOMAIN_PATHS,
+        `${foreign} is another domain's and must not be in this population`,
+      ).not.toContain(foreign);
+    }
+    expect(foreignOfferNamedModules.length, 'the measured set changed').toBe(6);
   });
 });

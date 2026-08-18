@@ -25,6 +25,13 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   REVIEW_EVIDENCE_TYPES,
@@ -64,13 +71,16 @@ function walk(relative: string): string[] {
  * `routes/reviews.ts` — were absent from the hand list this replaces, so the
  * review HTTP surface was behind none of the four walls below.
  */
-function httpSurface(): string[] {
-  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => entry.name.startsWith('review'))
-      .map((entry) => `${directory}/${entry.name}`),
-  );
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+function httpSurface(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // RECURSIVE and matching the PATH, where this was one level deep and matched
+  // the filename beside a recursive `walk()` (#460). `db/schema` joins the list
+  // for the same reason: the five tables this domain owns were in no population
+  // and behind none of the four walls below, which is the one directory where a
+  // brand-shaped COLUMN — the thing wall 1 exists to make unrepresentable —
+  // would actually be declared.
+  return namedInSharedDirectories(SHARED_DIRECTORIES, /(?:^|\/)reviews?[-.]/i, readDir);
 }
 
 /**
@@ -91,12 +101,16 @@ const LEGACY_REVIEW_PATHS = ['services/review.service.ts'];
  *
  * The list this replaces named 11 modules; the derivation finds 13.
  */
-const REVIEW_DOMAIN_PATHS = [
-  ...walk('services/reviews'),
-  ...walk('db/reviews'),
-  ...httpSurface(),
-  ...LEGACY_REVIEW_PATHS,
-];
+function reviewDomainPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/reviews', readDir),
+    ...walkOwnedDirectory('db/reviews', readDir),
+    ...httpSurface(readDir),
+    ...LEGACY_REVIEW_PATHS,
+  ];
+}
+
+const REVIEW_DOMAIN_PATHS = reviewDomainPaths();
 
 /** The five tables of the domain, with their SQL names for readable failures. */
 const REVIEW_TABLES = [
@@ -142,6 +156,37 @@ const PAYMENT_OR_REFERRAL_REFERENCE =
 const FORBIDDEN_COLUMN_SHAPE =
   /email|phone|contact|address|token|secret|password|card|fingerprint|wallet|stripe|payment_method|paymentMethod|ipAddress|ip_address|device/i;
 
+/**
+ * A domain module's source with COMMENTS REMOVED — what the two import walls
+ * scan.
+ *
+ * Not a convenience, and not a narrowing taken to make the widened population
+ * fit. `db/schema/reviews.ts` is the module that DOCUMENTS this domain's
+ * central claims, in exactly the vocabulary the detectors look for: its header
+ * says "**A brand rating.** No `brand_id`, no `organization_id`" and "no
+ * affiliate/referral column — so a matching email, a Stripe Customer, a wallet,
+ * a saved card…". Every hit is inside a docblock; the CODE is clean, measured.
+ *
+ * Scanning prose would make each honest explanation a violation, and a gate
+ * with known false positives is one whoever hits it next disables — which is
+ * how the wall would really be lost. `analytics-ranking-isolation.test.ts`
+ * reached the same place for the same reason.
+ */
+function readDomainCode(relative: string): string {
+  const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
+  // The vacuity floor: an emptied or moved file must fail here, not pass the
+  // scan by having nothing to match.
+  expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(400);
+  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  // A vacuity floor on the STRIPPED text too: a stripper that ate the file would
+  // make every assertion below pass against nothing.
+  expect(
+    stripped.replace(/\s+/g, '').length,
+    `${relative} has almost no code left after comment stripping — check the stripper`,
+  ).toBeGreaterThan(100);
+  return stripped;
+}
+
 describe('#76 wall 1 — a brand rating is unrepresentable', () => {
   it('no forbidden scope is also a real scope', () => {
     // The two unions must be DISJOINT. A later widening that admitted `brand`
@@ -158,12 +203,8 @@ describe('#76 wall 1 — a brand rating is unrepresentable', () => {
   it('no review-domain module can reach the brand layer', () => {
     let scanned = 0;
     for (const relative of REVIEW_DOMAIN_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      // The vacuity floor: an emptied or moved file must fail here, not pass the
-      // scan by having nothing to match.
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(400);
       expect(
-        BRAND_REFERENCE.test(source),
+        BRAND_REFERENCE.test(readDomainCode(relative)),
         `${relative} references the brand layer; a brand rating must be uncomputable here`,
       ).toBe(false);
       scanned += 1;
@@ -300,10 +341,8 @@ describe('#76 wall 4 — the domain cannot reach payments or referrals', () => {
   it('no review-domain module imports the payment or referral domain', () => {
     let scanned = 0;
     for (const relative of REVIEW_DOMAIN_PATHS) {
-      const source = readFileSync(join(SRC_ROOT, relative), 'utf8');
-      expect(source.length, `${relative} looks empty — did it move?`).toBeGreaterThan(400);
       expect(
-        PAYMENT_OR_REFERRAL_REFERENCE.test(source),
+        PAYMENT_OR_REFERRAL_REFERENCE.test(readDomainCode(relative)),
         `${relative} can reach payment or referral data; eligibility must come from an order line`,
       ).toBe(false);
       scanned += 1;
@@ -368,6 +407,76 @@ describe('#76 — the scope/dimension vocabulary keeps product and service apart
     for (const scope of REVIEW_SCOPES) {
       expect(REVIEW_SCOPE_DIMENSION_KEYS[scope].length, `${scope} declares no dimensions`)
         .toBeGreaterThan(0);
+    }
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the `db/schema` fix.
+ *
+ * Adding one directory closes today's gap; this closes the class. The DIRECTORY
+ * list above is the last hand list in this gate, and hand lists fail silently —
+ * every floor and count stayed green while the five tables this domain owns sat
+ * outside every wall.
+ *
+ * The sweep pattern is ANCHORED rather than a bare `/review/i`, and the anchor
+ * is what makes the exclusion set empty. `review` is a word five other domains
+ * use for their own workflows — `services/catalog-governance/review.service.ts`,
+ * `services/catalog-proposals/review.service.ts`,
+ * `services/curation/review-queue.service.ts`,
+ * `services/attributes/review-queue.service.ts` and
+ * `services/referrals/application-review.service.ts` — so an unanchored sweep
+ * would demand five exclusions naming other domains' modules, and that list
+ * would need an entry every time one of them grew a file. Requiring `reviews`
+ * at a path-segment boundary, plus the ONE legacy module by its exact path,
+ * selects 14 modules and every one of them is this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  /**
+   * `reviews` at a segment boundary, or the legacy service by exact path.
+   *
+   * `^services/review\.service\.ts$` is exact rather than a `review.service`
+   * suffix rule, because five other domains name a module exactly that and a
+   * suffix rule would take all of them.
+   */
+  const REVIEW_TREE_PATTERN = /(?:^|\/)reviews(?:[-.\/]|$)|^services\/review\.service\.ts$/i;
+
+  it('every review-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: reviewDomainPaths,
+      pattern: REVIEW_TREE_PATTERN,
+      notThisDomain: [],
+      // Below today's 14 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 10,
+      plantIn: 'lib',
+      plantName: 'reviews-cache.ts',
+    });
+  });
+
+  it('the anchor is what keeps the exclusion set empty', () => {
+    // A negative control on the pattern itself: without the anchor these five
+    // would each need an exclusion, so this asserts the anchor is doing the work
+    // the docblock claims rather than the tree happening to be tidy.
+    for (const foreign of [
+      'services/catalog-governance/review.service.ts',
+      'services/catalog-proposals/review.service.ts',
+      'services/curation/review-queue.service.ts',
+      'services/attributes/review-queue.service.ts',
+      'services/referrals/application-review.service.ts',
+    ]) {
+      expect(REVIEW_TREE_PATTERN.test(foreign), `${foreign} is another domain's`).toBe(false);
+      expect(/review/i.test(foreign), 'the unanchored pattern really would take it').toBe(true);
+    }
+    // …and the anchor still admits every shape this domain uses.
+    for (const own of [
+      'services/reviews/review-scope.ts',
+      'db/reviews/reviewRepository.ts',
+      'db/schema/reviews.ts',
+      'controllers/reviews.controller.ts',
+      'services/review.service.ts',
+    ]) {
+      expect(REVIEW_TREE_PATTERN.test(own), `${own} is this domain's`).toBe(true);
     }
   });
 });
