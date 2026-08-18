@@ -13,9 +13,17 @@
 # The service-existence guard below is therefore a GUARD, not the normal path:
 # it finds the service ACTIVE on every ordinary run, and only short-circuits
 # (image pushed to ECR, deploy and migrations skipped) if the service is ever
-# torn down or renamed. A run that reports "not created yet" means the
+# torn down or renamed. A run that reports no active service means the
 # infrastructure moved, not that Mercaria is still awaiting its first
 # provisioning.
+#
+# It guards against an ABSENT SERVICE and nothing else (#608). A
+# `describe-services` call that FAILS — throttled, expired credential, network
+# blip, missing cluster — is now a red run rather than a green no-op, because
+# those are different facts and only one of them is a reason to ship nothing.
+# And this run STATES what it did, in the four `Outcome:` steps at the end of
+# the deploy job, so `deploy-coverage.yml` reads a statement instead of
+# inferring "shipped" from a conclusion that cannot carry it.
 #
 # Migrations normally run as the pre/post one-shot pair around the rollout. Use
 # `migration_phase=all` from workflow_dispatch only for a from-zero batch, where
@@ -376,10 +384,38 @@ jobs:
           REQUESTED_PHASE: ${{ github.event.inputs.migration_phase }}
         run: |
           echo "phase_mode=${REQUESTED_PHASE:-pre-post}" >> "$GITHUB_OUTPUT"
-          STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text 2>/dev/null || echo NONE)
+          # A FAILED QUERY AND AN ABSENT SERVICE ARE DIFFERENT FACTS (#608).
+          #
+          # This used to read `... 2>/dev/null || echo NONE`, which collapsed
+          # them into one sentinel: a throttled call, an expired credential or a
+          # network blip became "no service", every downstream step skipped, and
+          # the run concluded SUCCESS having shipped nothing. Measured against
+          # the real account on 2026-08-18 (us-west-2, oxy-cluster):
+          #
+          #   service mercaria ACTIVE          -> exit 0, "ACTIVE"
+          #   service absent, cluster present  -> exit 0, "None"   <- the guard
+          #   cluster absent                   -> exit 254 (ClusterNotFoundException)
+          #   invalid credential               -> exit 254 (UnrecognizedClientException)
+          #   endpoint unreachable             -> exit 255
+          #
+          # So the discriminator is the EXIT CODE and `|| echo NONE` is exactly
+          # what destroyed it — note the literal `NONE` was never even produced
+          # by the guard path, which prints `None`; the sentinel was reachable
+          # only when the query had failed.
+          #
+          # The guard is preserved verbatim: a query that SUCCEEDS and reports no
+          # active service still short-circuits, pushes the image and skips the
+          # rest. A query that FAILS is now red, because the cheapest green must
+          # not be "let one AWS call fail and ship nothing". Every other `aws`
+          # call in this step already fails the job under `set -e`; this one was
+          # the exception.
+          if ! STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text); then
+            echo "::error title=ECS query failed::aws ecs describe-services exited non-zero for service $APP on cluster $CLUSTER. This is NOT the service-existence guard — an absent service exits 0 and reports None. Re-run this deploy; nothing was migrated or rolled out."
+            exit 1
+          fi
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           if [ "$STATUS" != "ACTIVE" ]; then
-            echo "ECS service $APP not created yet — nothing to migrate or deploy against"
+            echo "ECS service $APP reported status '$STATUS' — the query SUCCEEDED and found no active service, so there is nothing to migrate or deploy against"
             exit 0
           fi
           TD=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].taskDefinition' --output text)
@@ -438,6 +474,7 @@ jobs:
       # empty database `--phase=pre` refuses and names both files, while `all`
       # applies all of them and leaves both later phases clean no-ops.
       - name: Migrate (all) — cutover only, never a normal release
+        id: migrate_all
         if: steps.ecs.outputs.status == 'ACTIVE' && steps.ecs.outputs.phase_mode == 'all'
         run: |
           .github/scripts/run-migration-task.sh all
@@ -447,6 +484,7 @@ jobs:
           NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
 
       - name: Migrate (pre) — before the rollout
+        id: migrate_pre
         if: steps.ecs.outputs.status == 'ACTIVE' && steps.ecs.outputs.phase_mode != 'all'
         run: |
           .github/scripts/run-migration-task.sh pre
@@ -455,16 +493,28 @@ jobs:
           CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
           NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
 
-      - name: Deploy to ECS (rolling; skipped until the service exists)
+      # ONE authority for "does the service exist", and it is the Resolve step
+      # above (#608).
+      #
+      # This step used to re-query ECS through a SECOND `|| echo NONE`, with its
+      # own independent failure mode — and it had no `if:`, so whatever its shell
+      # decided it always reported `success`. That produced the worst of the
+      # three states this workflow can end in: `Migrate (pre)` ran, so the
+      # DATABASE moved forward, while the rollout was silently skipped and the
+      # PREVIOUS image kept serving. Two queries for one fact are two
+      # representations that can disagree, and this is what disagreeing cost.
+      #
+      # Gating on the resolved output instead makes the step report `skipped`
+      # when the service is absent, which is what lets the outcome below be a
+      # statement rather than a guess.
+      - name: Deploy to ECS (rolling)
+        id: rollout
+        if: steps.ecs.outputs.status == 'ACTIVE'
         run: |
-          STATUS=$(aws ecs describe-services --cluster "$CLUSTER" --services "$APP" --query 'services[0].status' --output text 2>/dev/null || echo NONE)
-          if [ "$STATUS" = "ACTIVE" ]; then
-            aws ecs update-service --cluster "$CLUSTER" --service "$APP" --force-new-deployment >/dev/null
-            aws ecs wait services-stable --cluster "$CLUSTER" --services "$APP"
-            echo "deployed $APP"
-          else
-            echo "ECS service $APP not created yet — image is in ECR, skipping deploy"
-          fi
+          aws ecs update-service --cluster "$CLUSTER" --service "$APP" --force-new-deployment >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$APP"
+          echo "performed=true" >> "$GITHUB_OUTPUT"
+          echo "deployed $APP"
 
       # Runs on every ordinary release, because `has_post` is true whenever the
       # journal holds a post migration at all (see the Detect step). That is
@@ -491,3 +541,59 @@ jobs:
           TASK_DEFINITION: ${{ steps.ecs.outputs.task_definition }}
           CONTAINER_NAME: ${{ steps.ecs.outputs.container }}
           NETWORK_CONFIGURATION: ${{ steps.ecs.outputs.network }}
+
+      # ── The run STATES ITS OWN OUTCOME ──────────────────────────────────────
+      #
+      # #608: `deploy-coverage.yml` asserts that the newest run of this workflow
+      # concluded `success` and reports the commit as SHIPPED. A run that
+      # short-circuited concludes `success` too, so "shipped" was being inferred
+      # from a conclusion that cannot carry it.
+      #
+      # The four steps below are the statement, and they are read by
+      # `.github/scripts/require-deploy-coverage.mjs` through
+      # `/actions/runs/{id}/jobs` — the ONLY machine-readable channel there is.
+      # A job `outputs:` block is not returned by that endpoint at all, and a
+      # step summary has no REST representation, so neither could be read by
+      # anything; the step NAME is what the API carries. The names are pinned
+      # against the script's `DEPLOY_OUTCOME_STEPS` by `deployCoverage.test.ts`,
+      # so renaming one here fails the build rather than silently making the
+      # coverage check unable to find it.
+      #
+      # Each pair is EXHAUSTIVE and MUTUALLY EXCLUSIVE by construction — the two
+      # conditions are one predicate and its negation — so exactly one member of
+      # each runs whenever the job reaches them, and the reader asserts exactly
+      # that. "Neither ran" and "both ran" are therefore states the check
+      # refuses rather than states it has to interpret. Silence is not a valid
+      # outcome.
+      #
+      # No `always()`, deliberately. If an earlier step FAILED the job, the run
+      # does not conclude `success` and `judgeCoverage` already reports the
+      # commit as unshipped — a statement composed after a failure would be a
+      # second, weaker answer to a question already answered.
+      #
+      # The step summary lines are for the human reading the run page. They are
+      # not what the check reads, and nothing may come to depend on them being
+      # there: the API does not expose them.
+      - name: 'Outcome: migrations applied'
+        if: steps.migrate_all.outcome == 'success' || steps.migrate_pre.outcome == 'success'
+        run: |
+          echo "the pre-rollout migration task ran and exited 0"
+          echo '- **migrations applied**: the pre-rollout migration task ran and exited 0.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 'Outcome: migrations NOT applied'
+        if: steps.migrate_all.outcome != 'success' && steps.migrate_pre.outcome != 'success'
+        run: |
+          echo "no pre-rollout migration task ran — this run did not touch the database"
+          echo '- **migrations NOT applied**: no pre-rollout migration task ran; this run did not touch the database.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 'Outcome: rollout performed'
+        if: steps.rollout.outputs.performed == 'true'
+        run: |
+          echo "the ECS service was updated and reached a stable state on the new image"
+          echo '- **rollout performed**: the ECS service was updated and reached a stable state on the new image.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 'Outcome: rollout NOT performed'
+        if: steps.rollout.outputs.performed != 'true'
+        run: |
+          echo "no rollout happened — the image is in ECR and is NOT being served"
+          echo '- **rollout NOT performed**: the image is in ECR and is NOT being served.' >> "$GITHUB_STEP_SUMMARY"

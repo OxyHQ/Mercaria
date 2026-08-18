@@ -36,10 +36,16 @@
  * ## The invariant, and why it is stated this way
  *
  * > The newest run of a deploy workflow on `main` must have concluded
- * > `success`. Every non-success run newer than the last success names a commit
- * > that is merged and not shipped.
+ * > `success` — and, where the workflow declares what it did, that declaration
+ * > must say it shipped. Every non-success run newer than the last success
+ * > names a commit that is merged and not shipped.
  *
- * Three things about that phrasing are load-bearing:
+ * The second clause is #608 and it is not decoration: a `Deploy to AWS` run
+ * that hits the service-existence guard skips every migration and the rollout
+ * and still concludes `success`, so the first clause alone printed "shipped"
+ * for a run that shipped nothing. See `DEPLOY_OUTCOME_STEPS`.
+ *
+ * Three things about the first clause's phrasing are load-bearing:
  *
  *  - **It is anchored on the newest RUN, never on the newest COMMIT.** All four
  *    deploy workflows carry `paths:`/`paths-ignore:` filters, so a docs-only
@@ -93,12 +99,98 @@ import { pathToFileURL } from 'node:url';
  * merely the code. It is what turns "a deploy was cancelled" — which happened
  * 41 times last month and is routinely ignored — into "commit X carrying
  * migration 0106 is merged and not applied".
+ *
+ * `statesOutcome: true` marks the one that declares what it DID (see
+ * `DEPLOY_OUTCOME_STEPS`). It is not a synonym for `migrations`: the three web
+ * deploys have no short-circuit of that shape at all — measured, neither
+ * `|| echo` nor an early `exit 0` appears in any of them, so `wrangler deploy`
+ * failing is the only way for them to ship nothing, and that fails the job.
+ * `deployCoverage.test.ts` DERIVES this flag by reading the workflow files for
+ * the outcome step names, so a workflow that grows a statement, or loses one,
+ * fails the build instead of being watched by the wrong rule.
  */
 export const DEPLOY_WORKFLOWS = Object.freeze([
-  Object.freeze({ file: 'deploy-aws.yml', name: 'Deploy to AWS', migrations: true }),
-  Object.freeze({ file: 'deploy-cloudflare.yml', name: 'Deploy Frontend', migrations: false }),
-  Object.freeze({ file: 'deploy-dashboard.yml', name: 'Deploy Dashboard', migrations: false }),
-  Object.freeze({ file: 'deploy-pos.yml', name: 'Deploy POS', migrations: false }),
+  Object.freeze({
+    file: 'deploy-aws.yml',
+    name: 'Deploy to AWS',
+    migrations: true,
+    statesOutcome: true,
+  }),
+  Object.freeze({
+    file: 'deploy-cloudflare.yml',
+    name: 'Deploy Frontend',
+    migrations: false,
+    statesOutcome: false,
+  }),
+  Object.freeze({
+    file: 'deploy-dashboard.yml',
+    name: 'Deploy Dashboard',
+    migrations: false,
+    statesOutcome: false,
+  }),
+  Object.freeze({
+    file: 'deploy-pos.yml',
+    name: 'Deploy POS',
+    migrations: false,
+    statesOutcome: false,
+  }),
+]);
+
+/**
+ * The outcome a deploy run STATES about itself, by step name (#608).
+ *
+ * ## Why this is read instead of inferred
+ *
+ * A `Deploy to AWS` run can conclude `success` having migrated and rolled out
+ * NOTHING: the service-existence guard short-circuits, every later step is
+ * skipped, and the job exits 0. So "the newest run succeeded" — the whole of
+ * what #574 asserted — does not carry "the commit shipped", and this check was
+ * printing the second from the first.
+ *
+ * The obvious cheap fix is to infer the hollow green from `Migrate (pre)` being
+ * `skipped`. It was rejected: the rollout used to be decided by a SECOND,
+ * independent ECS query inside a step with no `if:`, which therefore always
+ * reported `success` whatever its shell decided — so the inference could not
+ * reach the state that leaves a MIGRATED database served by the PREVIOUS image,
+ * the worst of the three. #608 fixed that half at the source (one query, one
+ * verdict, a failed query is now red), and this constant is the other half: the
+ * workflow says what happened and this script reads the statement.
+ *
+ * ## Why STEP NAMES, of all channels
+ *
+ * Because they are the only machine-readable one. `/actions/runs/{id}/jobs`
+ * returns `jobs[].steps[].name` and `.conclusion` and does NOT return a job's
+ * `outputs:`; a step summary has no REST representation at all. An artifact
+ * name would also travel, at the cost of an upload step and a 90-day expiry
+ * that would silently turn every older run `unstated`.
+ *
+ * MEASURED against run 32131834422 (the newest successful `Deploy to AWS` on
+ * `main` on 2026-08-18) rather than assumed: a job object's keys are exactly
+ * check_run_url, completed_at, conclusion, created_at, head_branch, head_sha,
+ * html_url, id, labels, name, node_id, run_attempt, run_id, run_url,
+ * runner_group_id, runner_group_name, runner_id, runner_name, started_at,
+ * status, steps, url, workflow_name — no `outputs`. The same read shows step
+ * names coming back verbatim, em dashes included, and `Migrate (all)` reported
+ * as `skipped` inside a green run.
+ *
+ * Each half is a PAIR whose two `if:` conditions are one predicate and its
+ * negation, so exactly one member runs whenever the job reaches them. That is
+ * what makes "neither" and "both" refusable rather than interpretable —
+ * `judgeDeployOutcome` reports them as `contradictory` rather than guessing.
+ */
+export const DEPLOY_OUTCOME_STEPS = Object.freeze([
+  Object.freeze({
+    half: 'migrations',
+    positive: 'Outcome: migrations applied',
+    negative: 'Outcome: migrations NOT applied',
+    absentMeans: 'the database was not touched by this run',
+  }),
+  Object.freeze({
+    half: 'rollout',
+    positive: 'Outcome: rollout performed',
+    negative: 'Outcome: rollout NOT performed',
+    absentMeans: 'the image is in ECR and is NOT being served',
+  }),
 ]);
 
 /**
@@ -210,6 +302,75 @@ export function judgeCoverage({ runs, now = Date.now(), staleRunMs = DEFAULT_STA
   };
 }
 
+/**
+ * What one half of the outcome statement says, from the steps of a run.
+ *
+ * Four answers, and the two failure ones are kept apart because they lead
+ * somewhere different: `unstated` means the run carries no such statement at
+ * all — an older run, or a workflow whose statement was deleted — while
+ * `ambiguous` means it carries a self-contradictory one, which is a defect in
+ * the workflow rather than in its age.
+ */
+function judgeHalf(half, byName) {
+  const positives = byName.get(half.positive) ?? [];
+  const negatives = byName.get(half.negative) ?? [];
+  if (positives.length === 0 && negatives.length === 0) return 'unstated';
+  // Exactly one of the pair, once. A duplicated name is as unreadable as a
+  // missing one: the two copies can disagree and nothing says which is meant.
+  if (positives.length > 1 || negatives.length > 1) return 'ambiguous';
+  const succeeded = [...positives, ...negatives].filter((step) => step.conclusion === 'success');
+  if (succeeded.length !== 1) return 'ambiguous';
+  return succeeded[0].name === half.positive ? 'positive' : 'negative';
+}
+
+/**
+ * Did this run actually ship, by its own account?
+ *
+ * Pure and exported so every state can be pinned without the network — which
+ * matters more here than for `judgeCoverage`, because three of the five states
+ * are ones no healthy repository ever produces and an integration test would
+ * therefore never reach.
+ *
+ * `unreadable` is the VACUITY FLOOR and it is deliberately first: a run whose
+ * jobs came back empty, or whose jobs carry no steps, is what a token that lost
+ * `actions: read`, a wrong run id or an API shape change produces — and it is
+ * indistinguishable from a run that stated nothing. "I found no steps" must
+ * never render as "no step said no".
+ */
+export function judgeDeployOutcome({ jobs }) {
+  const jobList = jobs ?? [];
+  const steps = jobList.flatMap((job) => job.steps ?? []);
+  if (jobList.length === 0 || steps.length === 0) {
+    return {
+      state: 'unreadable',
+      jobCount: jobList.length,
+      stepCount: steps.length,
+      halves: [],
+    };
+  }
+
+  const byName = new Map();
+  for (const step of steps) {
+    const seen = byName.get(step.name) ?? [];
+    seen.push(step);
+    byName.set(step.name, seen);
+  }
+
+  const halves = DEPLOY_OUTCOME_STEPS.map((half) => ({
+    half: half.half,
+    absentMeans: half.absentMeans,
+    verdict: judgeHalf(half, byName),
+  }));
+
+  const base = { jobCount: jobList.length, stepCount: steps.length, halves };
+  if (halves.every((entry) => entry.verdict === 'unstated')) return { state: 'unstated', ...base };
+  if (halves.some((entry) => entry.verdict === 'unstated' || entry.verdict === 'ambiguous')) {
+    return { state: 'contradictory', ...base };
+  }
+  if (halves.some((entry) => entry.verdict === 'negative')) return { state: 'hollow', ...base };
+  return { state: 'shipped', ...base };
+}
+
 /** Migration files a commit ADDED, from the commit endpoint's file list. */
 export function addedMigrationFiles(files) {
   return (files ?? [])
@@ -262,8 +423,75 @@ async function readRuns({ repository, file, branch, token }) {
   return payload.workflow_runs ?? [];
 }
 
+/**
+ * The jobs of one run, for its LATEST attempt.
+ *
+ * That default (`filter=latest`) is what this wants: a re-run replaces the
+ * answer rather than adding a second one, so the outcome read here is the
+ * outcome of the attempt that currently stands.
+ *
+ * Any failure PROPAGATES, exactly as `readRuns` does. There is no fallback and
+ * no `catch`, because every recovery available here answers "I could not tell"
+ * and the only safe rendering of that is a refusal. `readPostMigrations` may
+ * swallow because it is enrichment printed beside a verdict already reached;
+ * this IS the verdict.
+ */
+async function readRunJobs({ repository, runId, token }) {
+  const payload = await api(
+    `/repos/${repository}/actions/runs/${runId}/jobs?per_page=${RUNS_PER_PAGE}`,
+    token,
+  );
+  return payload.jobs ?? [];
+}
+
 function describeRun(run) {
   return `${(run.head_sha ?? '').slice(0, 8)} ${run.conclusion ?? run.status} — ${run.html_url}`;
+}
+
+/**
+ * The report for a run that succeeded without shipping.
+ *
+ * Names WHICH HALF is missing, because the two lead to different remedies and
+ * to very different urgency: a rollout that did not happen leaves the previous
+ * image serving code that is a release behind, while migrations that did not
+ * happen leave the database behind the image — and the pair of them apart is
+ * the state the workflow now cannot reach and this check would still catch.
+ */
+function describeHollowGreen(workflow, run, outcome) {
+  const lines = [`${workflow.name}: HOLLOW GREEN — the newest run succeeded and shipped nothing.`];
+  lines.push(`  - ${describeRun(run)}`);
+
+  if (outcome.state === 'unreadable') {
+    lines.push(
+      `  read ${outcome.jobCount} job(s) and ${outcome.stepCount} step(s) for this run. An empty` +
+        ` read is what a token without \`actions: read\` or a changed API shape looks like —` +
+        ` it is not evidence that the run shipped.`,
+    );
+    return lines.join('\n');
+  }
+  if (outcome.state === 'unstated') {
+    lines.push(
+      `  the run states no outcome at all. Every deploy since #608 declares one through the` +
+        ` steps named ${DEPLOY_OUTCOME_STEPS.map((half) => `"${half.positive}"`).join(' and ')},` +
+        ` so this is a run that predates the statement or a workflow that lost it.`,
+    );
+    return lines.join('\n');
+  }
+  if (outcome.state === 'contradictory') {
+    for (const entry of outcome.halves) {
+      lines.push(`  ${entry.half}: ${entry.verdict}`);
+    }
+    lines.push(
+      '  the two steps of a half are one predicate and its negation, so exactly one of each' +
+        ' must have run. This run says otherwise, which is a defect in the workflow.',
+    );
+    return lines.join('\n');
+  }
+
+  for (const entry of outcome.halves.filter((half) => half.verdict === 'negative')) {
+    lines.push(`  *** ${entry.half.toUpperCase()} DID NOT HAPPEN: ${entry.absentMeans}`);
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -293,6 +521,17 @@ export async function checkDeployCoverage({
     if (runs.length > 0) workflowsWithRuns += 1;
 
     if (verdict.state === 'covered') {
+      // `covered` says the newest run CONCLUDED success. For a workflow that
+      // declares what it did, that is not yet "shipped" — one more call, on one
+      // run, turns a conclusion into a statement (#608).
+      if (workflow.statesOutcome) {
+        const jobs = await readRunJobs({ repository, runId: verdict.lastSuccess.id, token });
+        const outcome = judgeDeployOutcome({ jobs });
+        if (outcome.state !== 'shipped') {
+          problems.push(describeHollowGreen(workflow, verdict.lastSuccess, outcome));
+          continue;
+        }
+      }
       log(`${workflow.name}: shipped — newest run ${describeRun(verdict.lastSuccess)}`);
       continue;
     }
@@ -398,12 +637,17 @@ async function main() {
   );
   console.error(`${report}\n`);
   console.error(
-    'A deploy run was evicted from the queue, failed, or is awaiting approval, and the\n' +
-      'run that superseded it did not succeed either. The code and any migrations on\n' +
-      `those commits are NOT in production.\n\n` +
-      'To fix: re-run the newest failed deploy run linked above, or merge/push again so a\n' +
-      'fresh deploy ships the current tip. Migrations are cumulative and the post-rollout\n' +
-      'step runs on every deploy, so one successful deploy applies everything pending.\n',
+    'Either a deploy run was evicted from the queue, failed, or is awaiting approval and\n' +
+      'the run that superseded it did not succeed either — or a run CONCLUDED SUCCESS while\n' +
+      'shipping nothing, which is the HOLLOW GREEN above. Both leave the code and any\n' +
+      `migrations on those commits OUT of production.\n\n` +
+      'To fix: re-run the newest deploy run linked above, or merge/push again so a fresh\n' +
+      'deploy ships the current tip. Migrations are cumulative and the post-rollout step\n' +
+      'runs on every deploy, so one successful deploy applies everything pending.\n\n' +
+      'A hollow green additionally means the ECS service was not found. That is a fact\n' +
+      'about the infrastructure, not about this repository: check that service `mercaria`\n' +
+      'on cluster `oxy-cluster` still exists (oxy-infra owns it). Re-running the deploy\n' +
+      'will not help until it does.\n',
   );
 
   if (process.env.GITHUB_STEP_SUMMARY) {

@@ -163,8 +163,12 @@ what each one owes.
 invariant, in one line:
 
 > **The newest run of a deploy workflow on `main` must have concluded
-> `success`.** Every non-success run newer than the last success names a commit
-> that is merged and not shipped.
+> `success` — and, where the workflow declares what it did, that declaration
+> must say it shipped.** Every non-success run newer than the last success names
+> a commit that is merged and not shipped.
+
+The second clause is #608 and it has its own subsection below; the first is
+#574 and is what the rest of this section is about.
 
 **The hole it closes.** `deploy-aws.yml` serialises on ONE group per ref with
 `cancel-in-progress: false`, and GitHub keeps at most one PENDING run per group
@@ -238,6 +242,80 @@ timeline is a consistent older state, not a torn one, and removing it needs one
 of the rejected options. The guarantee is carried by the hourly `schedule`; the
 `workflow_run` trigger only makes the answer fast, so nothing rests on whether
 GitHub emits an event for a run cancelled by concurrency.
+
+### A green deploy run can have shipped nothing (#608)
+
+`success` from a workflow is not "the thing happened". A `Deploy to AWS` run
+that hits the service-existence guard skips every migration and the rollout and
+still exits 0, so the check above printed **shipped** for a run that shipped
+nothing. Measured before it was fixed: `Migrate (pre)` was skipped or absent in
+**0 of the 147** successful runs in #574's evidence window, so this was a latent
+hole rather than an incident — and one that is invisible when it fires, because
+the run is green, the PR is green and the report positively confirms the commit.
+
+**The root defect was one shell idiom, in two places.**
+`aws ecs describe-services … 2>/dev/null || echo NONE` made a FAILED query
+indistinguishable from an ABSENT service, so a throttle, an expired credential
+or a network blip silently converted a real release into a green no-op. Measured
+against the real account on 2026-08-18 (`us-west-2`, `oxy-cluster`):
+
+| what happened | exit | stdout |
+|---|---|---|
+| service `mercaria` is ACTIVE | 0 | `ACTIVE` |
+| service absent, cluster present — **the guard** | 0 | `None` |
+| cluster absent (`ClusterNotFoundException`) | 254 | — |
+| invalid credential (`UnrecognizedClientException`) | 254 | — |
+| endpoint unreachable | 255 | — |
+
+So the **exit code IS the discriminator** and `|| echo NONE` is precisely what
+destroyed it. The literal `NONE` was never even produced by the guard path,
+which prints `None`: the sentinel was reachable only when the query had failed.
+
+**What changed in `deploy-aws.yml`.** Three things, none of which weakens the
+guard:
+
+- **A failed query is now RED.** A query that SUCCEEDS and reports no active
+  service still short-circuits exactly as before. Asking "what is the cheapest
+  green?" settles it: it used to be *let one AWS call fail and ship nothing*,
+  which is the dangerous action; now it is a deploy that actually queried ECS.
+  Every other `aws` call in that step already failed the job under `set -e` —
+  this one was the exception, not the rule. **A missing CLUSTER is now loud
+  too**, which is a deliberate narrowing of the guard to the SERVICE it says it
+  covers.
+- **`Deploy to ECS` no longer re-queries ECS.** It was a SECOND `|| echo NONE`
+  with its own failure mode, in a step with no `if:` — so it always reported
+  `success` whatever its shell decided. That combination produced the worst of
+  the three states: `Migrate (pre)` ran, so the **database moved forward while
+  the previous image kept serving**. It is now gated on the one resolved verdict,
+  so it reports `skipped` like everything else.
+- **The run STATES its own outcome.** Four steps — `Outcome: migrations
+  applied` / `NOT applied` and `Outcome: rollout performed` / `NOT performed` —
+  each pair being one predicate and its negation, so exactly one member runs.
+  `require-deploy-coverage.mjs` reads them through `/actions/runs/{id}/jobs`
+  (one extra call, on one run) and reports a **HOLLOW GREEN naming the missing
+  half** rather than "shipped".
+
+**Why step NAMES and not a job output or a step summary.** Neither is readable.
+`/actions/runs/{id}/jobs` returns `jobs[].steps[].name` and `.conclusion` and
+does not return a job's `outputs:` at all; a step summary has no REST
+representation. An artifact name would travel, at the cost of an upload step and
+a 90-day expiry that would silently turn every older run unstated.
+
+**Five states, and three of them are red for different reasons.** `shipped`;
+`hollow` (a half said no); `contradictory` (a pair where both or neither ran —
+a defect in the workflow, not in its age); `unstated` (no statement at all —
+every run created before #608, or a workflow that lost its statement); and
+`unreadable`, the **vacuity floor**: zero jobs or zero steps is what a token
+without `actions: read` or a changed API shape produces, and it passes every
+"is this step skipped" test there is, because there is no step.
+
+**The residual, accepted rather than omitted.** The three web deploys do not
+state an outcome, and they are not asked to: measured, none of them contains
+`|| echo` or an early `exit 0`, so `wrangler deploy` failing is the only way for
+them to ship nothing and that fails the job. `deployCoverage.test.ts` DERIVES
+which workflows state an outcome by walking the files, so one that grows a
+statement — or loses one — fails the build rather than being watched by the
+wrong rule.
 
 ### There is no bypass
 

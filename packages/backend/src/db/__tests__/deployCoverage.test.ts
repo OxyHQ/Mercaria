@@ -33,7 +33,7 @@
  * 2026-08-17T07:39Z reported 1 unshipped commit where the truth was 3.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -63,6 +63,29 @@ interface Verdict {
   lastSuccess?: CoverageRun | null;
 }
 
+interface WatchedWorkflow {
+  file: string;
+  name: string;
+  migrations: boolean;
+  statesOutcome: boolean;
+}
+interface OutcomeHalfSteps {
+  half: string;
+  positive: string;
+  negative: string;
+  absentMeans: string;
+}
+interface OutcomeStep {
+  name?: string;
+  conclusion?: string | null;
+}
+interface OutcomeVerdict {
+  state: 'shipped' | 'hollow' | 'unstated' | 'contradictory' | 'unreadable';
+  jobCount: number;
+  stepCount: number;
+  halves: { half: string; absentMeans: string; verdict: string }[];
+}
+
 /**
  * Loaded through a runtime-computed specifier, for `deployGating.test.ts`'s
  * reason: this package's `rootDir` is its own root, so a static import of a
@@ -71,22 +94,27 @@ interface Verdict {
  * is exactly what this file exists to forbid.
  */
 const coverage: {
-  DEPLOY_WORKFLOWS: readonly { file: string; name: string; migrations: boolean }[];
+  DEPLOY_WORKFLOWS: readonly WatchedWorkflow[];
+  DEPLOY_OUTCOME_STEPS: readonly OutcomeHalfSteps[];
   POST_PHASE_MARKER: string;
   MIGRATIONS_PATH: string;
   DEFAULT_STALE_RUN_MS: number;
   judgeCoverage: (input: { runs: CoverageRun[]; now?: number; staleRunMs?: number }) => Verdict;
+  judgeDeployOutcome: (input: { jobs: { steps?: OutcomeStep[] }[] }) => OutcomeVerdict;
   addedMigrationFiles: (files: { status?: string; filename: string }[]) => string[];
   declaresPostPhase: (body: string) => boolean;
   checkDeployCoverage: (input: {
     repository: string;
     token?: string;
-    workflows?: readonly { file: string; name: string; migrations: boolean }[];
+    workflows?: readonly WatchedWorkflow[];
     log?: (line: string) => void;
   }) => Promise<{ problems: string[]; deferred: string[] }>;
 } = await import(pathToFileURL(SCRIPT_PATH).href);
 
 interface WorkflowStep {
+  name?: string;
+  id?: string;
+  if?: string;
   uses?: string;
   run?: string;
   env?: Record<string, string>;
@@ -462,5 +490,486 @@ describe('the check refuses to report a green it did not measure', () => {
       }),
     ).rejects.toThrow(/not a quiet week/);
     expect(lines).toEqual([]);
+  });
+});
+
+/**
+ * Every step name declared anywhere in a workflow file.
+ *
+ * PARSED, never grepped: the workflow explains the outcome mechanism in its own
+ * comments and in the shell comments inside its `run:` blocks, so a text search
+ * for these names would match the prose that describes them and read as a
+ * statement that is not there.
+ */
+function declaredStepNames(file: string): string[] {
+  return Object.values(readWorkflow(file).jobs ?? {})
+    .flatMap((job) => job.steps ?? [])
+    .flatMap((step) => (typeof step.name === 'string' ? [step.name] : []));
+}
+
+/** Every name either half of the outcome statement can take. */
+const OUTCOME_STEP_NAMES = coverage.DEPLOY_OUTCOME_STEPS.flatMap((half) => [
+  half.positive,
+  half.negative,
+]);
+
+/** Workflow files that really carry an outcome statement, derived by walking them. */
+const FILES_STATING_AN_OUTCOME = readdirSync(WORKFLOWS_DIR)
+  .filter((file) => file.endsWith('.yml'))
+  .filter((file) => declaredStepNames(file).some((name) => OUTCOME_STEP_NAMES.includes(name)))
+  .sort();
+
+describe('a deploy run states its own outcome, and the check reads the statement (#608)', () => {
+  it('marks exactly the workflows that really declare one', () => {
+    // Vacuity floor on the vocabulary itself. An empty `DEPLOY_OUTCOME_STEPS`
+    // would make every containment below pass against every workflow, and the
+    // derived population would be empty and trivially equal to an empty flag
+    // set — a gate watching nothing, reading green.
+    expect(coverage.DEPLOY_OUTCOME_STEPS.length).toBeGreaterThanOrEqual(2);
+    expect(OUTCOME_STEP_NAMES.length).toBe(coverage.DEPLOY_OUTCOME_STEPS.length * 2);
+    expect(new Set(OUTCOME_STEP_NAMES).size).toBe(OUTCOME_STEP_NAMES.length);
+    expect(FILES_STATING_AN_OUTCOME.length).toBeGreaterThanOrEqual(1);
+
+    // EQUALITY both ways. A workflow that grows a statement must be read for
+    // one, and a workflow whose statement was deleted must stop being trusted
+    // to make it — the second is the direction that reads green while the check
+    // silently starts inferring "shipped" from a conclusion again.
+    expect(
+      coverage.DEPLOY_WORKFLOWS.filter((entry) => entry.statesOutcome)
+        .map((entry) => entry.file)
+        .sort(),
+    ).toEqual(FILES_STATING_AN_OUTCOME);
+  });
+
+  it('declares every half of the statement, exactly once, in the deploy job', () => {
+    const names = declaredStepNames('deploy-aws.yml');
+    for (const name of OUTCOME_STEP_NAMES) {
+      expect(names.filter((declared) => declared === name), `step "${name}"`).toHaveLength(1);
+    }
+  });
+
+  it('writes each half as one predicate and its negation, so exactly one runs', () => {
+    /**
+     * The property the reader depends on: "neither ran" and "both ran" are
+     * states `judgeDeployOutcome` REFUSES rather than interprets, which is only
+     * honest if the workflow cannot produce them.
+     *
+     * The transform below is De Morgan for the shape these conditions actually
+     * take — a disjunction of `==` comparisons — and it deliberately does not
+     * generalise. A condition it cannot negate fails this test rather than
+     * being waved through, which is the right outcome: a pair whose
+     * exhaustiveness needs a paragraph to see is a pair somebody will get
+     * wrong.
+     */
+    const negate = (condition: string): string =>
+      condition
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' || ')
+        .map((clause) => clause.replace(' == ', ' != '))
+        .join(' && ');
+
+    const steps = Object.values(readWorkflow('deploy-aws.yml').jobs ?? {}).flatMap(
+      (job) => job.steps ?? [],
+    );
+    const conditionOf = (name: string): string => {
+      const step = steps.find((candidate) => candidate.name === name);
+      expect(step, `no step named "${name}"`).toBeDefined();
+      return (step?.if ?? '').replace(/\s+/g, ' ').trim();
+    };
+
+    for (const half of coverage.DEPLOY_OUTCOME_STEPS) {
+      const positive = conditionOf(half.positive);
+      // Vacuity floor: an unconditional step has no `if:` at all, and `negate('')`
+      // is `''`, so without this the equality below would pass for a pair that
+      // BOTH always run.
+      expect(positive, `"${half.positive}" has no if:`).toContain(' == ');
+      expect(conditionOf(half.negative), `the ${half.half} pair is not exhaustive`).toBe(
+        negate(positive),
+      );
+    }
+  });
+
+  it('asks ECS whether the service exists exactly once, and never swallows the answer', () => {
+    /**
+     * #608's root defect: `aws ecs describe-services ... 2>/dev/null || echo NONE`
+     * made a FAILED query indistinguishable from an ABSENT service. Measured
+     * against the real account on 2026-08-18 — an absent service exits 0 and
+     * prints `None`, while a missing cluster, an invalid credential and an
+     * unreachable endpoint exit 254, 254 and 255 — so the exit code is the
+     * discriminator and the `||` is what destroyed it.
+     *
+     * There were TWO such call sites, and the second (inside a step with no
+     * `if:`, which therefore always reported `success`) is what could leave a
+     * MIGRATED database served by the PREVIOUS image.
+     */
+    const stripShellComments = (block: string): string =>
+      block
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('#'))
+        .join('\n');
+
+    const runBlocks = Object.values(readWorkflow('deploy-aws.yml').jobs ?? {})
+      .flatMap((job) => job.steps ?? [])
+      .flatMap((step) => (typeof step.run === 'string' ? [step.run] : []));
+    const swallows = (block: string): boolean => /\|\|\s*echo\s+NONE/.test(block);
+
+    // The detector can fail. Without this the census below would also pass
+    // against a spelling that never matches anything — and it is the comment
+    // stripping that makes the difference here, because this workflow now
+    // EXPLAINS the old idiom in shell comments inside the very blocks censused.
+    expect(swallows('S=$(aws ecs describe-services ... 2>/dev/null || echo NONE)')).toBe(true);
+    expect(stripShellComments('  # ... || echo NONE ...\nreal_command')).not.toContain('NONE');
+
+    // Vacuity floor on the population.
+    expect(runBlocks.length).toBeGreaterThanOrEqual(5);
+    expect(runBlocks.map(stripShellComments).filter(swallows)).toEqual([]);
+
+    // One authority for "does the service exist". The rollout must READ the
+    // resolved verdict rather than take its own, or the two can disagree.
+    const rollout = Object.values(readWorkflow('deploy-aws.yml').jobs ?? {})
+      .flatMap((job) => job.steps ?? [])
+      .find((step) => step.name?.startsWith('Deploy to ECS'));
+    expect(rollout, 'the rollout step is gone').toBeDefined();
+    expect(rollout?.if ?? '').toContain("steps.ecs.outputs.status == 'ACTIVE'");
+
+    // And a failed query must be loud rather than silently "no service".
+    const resolve = Object.values(readWorkflow('deploy-aws.yml').jobs ?? {})
+      .flatMap((job) => job.steps ?? [])
+      .find((step) => step.name === 'Resolve the ECS one-shot shape');
+    expect(stripShellComments(resolve?.run ?? '')).toContain('exit 1');
+  });
+});
+
+describe('judgeDeployOutcome refuses every green it did not read a statement from', () => {
+  const [MIGRATIONS, ROLLOUT] = coverage.DEPLOY_OUTCOME_STEPS;
+
+  /** A run's steps, given what each half of the statement said. */
+  const runWith = (
+    migrations: 'positive' | 'negative',
+    rollout: 'positive' | 'negative',
+  ): { steps: OutcomeStep[] }[] => [
+    { steps: [{ name: 'Build and push (linux/arm64)', conclusion: 'success' }] },
+    {
+      steps: [
+        { name: 'Resolve the ECS one-shot shape', conclusion: 'success' },
+        {
+          name: MIGRATIONS.positive,
+          conclusion: migrations === 'positive' ? 'success' : 'skipped',
+        },
+        {
+          name: MIGRATIONS.negative,
+          conclusion: migrations === 'negative' ? 'success' : 'skipped',
+        },
+        { name: ROLLOUT.positive, conclusion: rollout === 'positive' ? 'success' : 'skipped' },
+        { name: ROLLOUT.negative, conclusion: rollout === 'negative' ? 'success' : 'skipped' },
+      ],
+    },
+  ];
+
+  it('passes only when both halves say it happened', () => {
+    const verdict = coverage.judgeDeployOutcome({ jobs: runWith('positive', 'positive') });
+    expect(verdict.state).toBe('shipped');
+    expect(verdict.halves.map((half) => half.verdict)).toEqual(['positive', 'positive']);
+  });
+
+  it('names the rollout when the database moved and the image did not', () => {
+    // THE WORST OF THE THREE STATES, and the one the cheap fix could not reach:
+    // `Migrate (pre)` ran, so inferring from its `skipped` conclusion reports
+    // this run as shipped. Here the run says otherwise itself.
+    const verdict = coverage.judgeDeployOutcome({ jobs: runWith('positive', 'negative') });
+    expect(verdict.state).toBe('hollow');
+    expect(verdict.halves.filter((half) => half.verdict === 'negative')).toEqual([
+      { half: ROLLOUT.half, absentMeans: ROLLOUT.absentMeans, verdict: 'negative' },
+    ]);
+  });
+
+  it('names the migrations when the image rolled and the database did not', () => {
+    const verdict = coverage.judgeDeployOutcome({ jobs: runWith('negative', 'positive') });
+    expect(verdict.state).toBe('hollow');
+    expect(verdict.halves.filter((half) => half.verdict === 'negative').map((h) => h.half)).toEqual([
+      MIGRATIONS.half,
+    ]);
+  });
+
+  it('reports the short-circuit, where neither half happened', () => {
+    expect(coverage.judgeDeployOutcome({ jobs: runWith('negative', 'negative') }).state).toBe(
+      'hollow',
+    );
+  });
+
+  it('does not read "no steps" as "no step said no"', () => {
+    // THE VACUITY FLOOR. A token that lost `actions: read`, a wrong run id and
+    // an API shape change all produce an empty read, and an empty read passes
+    // every "is this step skipped" test there is — because there is no step.
+    expect(coverage.judgeDeployOutcome({ jobs: [] }).state).toBe('unreadable');
+    expect(coverage.judgeDeployOutcome({ jobs: [{ steps: [] }, {}] }).state).toBe('unreadable');
+  });
+
+  it('refuses a run that states nothing rather than assuming the best', () => {
+    // Every run created before #608 is in this state, as is any run of a
+    // workflow whose statement was deleted. Both must be red: the entire point
+    // is that a conclusion of `success` does not carry "it shipped".
+    const verdict = coverage.judgeDeployOutcome({
+      jobs: [{ steps: [{ name: 'Deploy to ECS (rolling)', conclusion: 'success' }] }],
+    });
+    expect(verdict.state).toBe('unstated');
+  });
+
+  it('refuses a half-stated run', () => {
+    const jobs = runWith('positive', 'positive');
+    jobs[1].steps = (jobs[1].steps ?? []).filter((step) => step.name !== MIGRATIONS.positive);
+    const verdict = coverage.judgeDeployOutcome({ jobs });
+    expect(verdict.state).toBe('contradictory');
+    expect(verdict.halves.find((half) => half.half === MIGRATIONS.half)?.verdict).toBe('ambiguous');
+  });
+
+  it('refuses a run where both members of a pair ran, or neither did', () => {
+    const both = runWith('positive', 'positive');
+    both[1].steps = (both[1].steps ?? []).map((step) =>
+      step.name === ROLLOUT.negative ? { ...step, conclusion: 'success' } : step,
+    );
+    expect(coverage.judgeDeployOutcome({ jobs: both }).state).toBe('contradictory');
+
+    const neither = runWith('positive', 'positive');
+    neither[1].steps = (neither[1].steps ?? []).map((step) =>
+      step.name === ROLLOUT.positive ? { ...step, conclusion: 'skipped' } : step,
+    );
+    expect(coverage.judgeDeployOutcome({ jobs: neither }).state).toBe('contradictory');
+  });
+
+  it('refuses a duplicated statement instead of believing the first copy', () => {
+    const jobs = runWith('positive', 'positive');
+    jobs.push({ steps: [{ name: ROLLOUT.positive, conclusion: 'skipped' }] });
+    expect(coverage.judgeDeployOutcome({ jobs }).state).toBe('contradictory');
+  });
+});
+
+describe('the check itself refuses to print "shipped" for a hollow green', () => {
+  /**
+   * End to end through `checkDeployCoverage`, over a stubbed transport.
+   *
+   * The pure verdict above is worth nothing if nothing calls it, and "the
+   * mechanism is green and inert" is the failure this repository has paid for
+   * more than once. So this drives the REAL entry point and asserts both that
+   * the second API call is made and that its answer changes the report.
+   */
+  const run = {
+    id: 4242,
+    run_number: 7,
+    head_sha: 'abcdef1234567890',
+    status: 'completed',
+    conclusion: 'success',
+    created_at: new Date(Date.parse('2020-01-01T07:00:00Z')).toISOString(),
+    html_url: 'https://example.invalid/4242',
+  };
+  const watched: WatchedWorkflow[] = [
+    { file: 'deploy-aws.yml', name: 'Deploy to AWS', migrations: true, statesOutcome: true },
+  ];
+
+  /** Serves the runs list, then the jobs of run 4242 with the given step list. */
+  const transport = (steps: OutcomeStep[], seen: string[]) => (url: string) => {
+    seen.push(url);
+    const body = url.includes('/jobs') ? { jobs: [{ steps }] } : { workflow_runs: [run] };
+    return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+  };
+
+  const statement = (rollout: 'success' | 'skipped'): OutcomeStep[] => [
+    { name: coverage.DEPLOY_OUTCOME_STEPS[0].positive, conclusion: 'success' },
+    { name: coverage.DEPLOY_OUTCOME_STEPS[0].negative, conclusion: 'skipped' },
+    { name: coverage.DEPLOY_OUTCOME_STEPS[1].positive, conclusion: rollout },
+    {
+      name: coverage.DEPLOY_OUTCOME_STEPS[1].negative,
+      conclusion: rollout === 'success' ? 'skipped' : 'success',
+    },
+  ];
+
+  it('reads the run it just called green, and reports the missing half', async () => {
+    const seen: string[] = [];
+    const lines: string[] = [];
+    vi.stubGlobal('fetch', transport(statement('skipped'), seen));
+    try {
+      const { problems } = await coverage.checkDeployCoverage({
+        repository: 'OxyHQ/Mercaria',
+        workflows: watched,
+        log: (line) => lines.push(line),
+      });
+      // The second call is the whole mechanism; without it there is nothing to
+      // judge and the report is the old one.
+      expect(seen.some((url) => url.includes('/actions/runs/4242/jobs'))).toBe(true);
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('HOLLOW GREEN');
+      expect(problems[0]).toContain('ROLLOUT DID NOT HAPPEN');
+      // And it must NOT have said the thing #608 is about.
+      expect(lines.join('\n')).not.toContain('shipped —');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('still says shipped when the run says it shipped', async () => {
+    const seen: string[] = [];
+    const lines: string[] = [];
+    vi.stubGlobal('fetch', transport(statement('success'), seen));
+    try {
+      const { problems } = await coverage.checkDeployCoverage({
+        repository: 'OxyHQ/Mercaria',
+        workflows: watched,
+        log: (line) => lines.push(line),
+      });
+      expect(problems).toEqual([]);
+      expect(lines.join('\n')).toContain('Deploy to AWS: shipped —');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('a healthy release must not read as hollow (the good-day baseline)', () => {
+  /**
+   * The `deploy` job's REAL step list, verbatim from run 32131834422 — a normal
+   * successful release of `e3e6ed6e` on `main` — with the four outcome steps
+   * appended as the workflow now emits them on that same path.
+   *
+   * ## The trap this exists to catch
+   *
+   * **`Migrate (all)` is `skipped` on EVERY normal release.** Its own name says
+   * so: *cutover only, never a normal release*. #608's cheap fix reads a skipped
+   * migrate step as a hollow green — and a version of it anchored on the wrong
+   * step of the three would have flagged all 147 healthy runs in the evidence
+   * window. A suite whose only cases are failures cannot tell you it stays quiet
+   * on a good day, and the good day HAS a skipped step in it.
+   *
+   * Kept as a literal rather than fetched: Actions history ages out, and this is
+   * evidence about a run nobody can re-read in ninety days.
+   */
+  const HEALTHY_DEPLOY_STEPS: OutcomeStep[] = [
+    { name: 'Set up job', conclusion: 'success' },
+    { name: 'Run actions/checkout@v4', conclusion: 'success' },
+    { name: 'Configure AWS credentials (OIDC, no stored keys)', conclusion: 'success' },
+    { name: 'Sync GitHub secrets -> SSM (GitHub is the source of truth)', conclusion: 'success' },
+    { name: 'Login to ECR', conclusion: 'success' },
+    { name: 'Set up Docker Buildx', conclusion: 'success' },
+    { name: 'Build and push (linux/arm64)', conclusion: 'success' },
+    { name: 'Resolve the ECS one-shot shape', conclusion: 'success' },
+    { name: 'Detect a post-rollout migration in the journal', conclusion: 'success' },
+    { name: 'Migrate (all) — cutover only, never a normal release', conclusion: 'skipped' },
+    { name: 'Migrate (pre) — before the rollout', conclusion: 'success' },
+    { name: 'Deploy to ECS (rolling)', conclusion: 'success' },
+    { name: 'Migrate (post) — after the new image is live', conclusion: 'success' },
+    { name: 'Outcome: migrations applied', conclusion: 'success' },
+    { name: 'Outcome: migrations NOT applied', conclusion: 'skipped' },
+    { name: 'Outcome: rollout performed', conclusion: 'success' },
+    { name: 'Outcome: rollout NOT performed', conclusion: 'skipped' },
+    { name: 'Post Set up Docker Buildx', conclusion: 'success' },
+    { name: 'Post Login to ECR', conclusion: 'success' },
+    { name: 'Post Configure AWS credentials (OIDC, no stored keys)', conclusion: 'success' },
+    { name: 'Post Run actions/checkout@v4', conclusion: 'success' },
+    { name: 'Complete job', conclusion: 'success' },
+  ];
+  const healthyRun = () => [
+    { steps: [{ name: 'Require a green CI run for this commit', conclusion: 'success' }] },
+    { steps: HEALTHY_DEPLOY_STEPS.map((step) => ({ ...step })) },
+  ];
+
+  it('reads a normal release as shipped, skipped Migrate (all) and all', () => {
+    // The literal names are asserted rather than assumed, so a fixture that
+    // silently stopped containing the skipped step could not pass this quietly.
+    expect(
+      HEALTHY_DEPLOY_STEPS.filter((step) => step.conclusion === 'skipped').map((step) => step.name),
+    ).toEqual([
+      'Migrate (all) — cutover only, never a normal release',
+      'Outcome: migrations NOT applied',
+      'Outcome: rollout NOT performed',
+    ]);
+    expect(coverage.judgeDeployOutcome({ jobs: healthyRun() }).state).toBe('shipped');
+  });
+
+  it('reads the STATEMENT, so no Migrate step can decide the verdict on its own', () => {
+    /**
+     * The other side of the trap. The check must not be re-deriving the answer
+     * from the migrate steps — that is the inference #608 proposed and this PR
+     * deliberately does not ship, because it cannot see the rollout half.
+     *
+     * So: flip every `Migrate (…)` step to `skipped` while leaving the
+     * statement positive, and the verdict must not move. If it does, something
+     * is reading the migrate steps behind the statement's back. The WORKFLOW is
+     * where those steps and the statement are tied together, and the De Morgan
+     * test above is what pins that end.
+     */
+    const jobs = healthyRun();
+    const deploy = jobs[1];
+    deploy.steps = deploy.steps.map((step) =>
+      step.name?.startsWith('Migrate (') ? { ...step, conclusion: 'skipped' } : step,
+    );
+    expect(deploy.steps.filter((s) => s.name?.startsWith('Migrate (')).length).toBe(3);
+    expect(coverage.judgeDeployOutcome({ jobs }).state).toBe('shipped');
+  });
+
+  it('turns the same healthy run hollow when the statement says the rollout did not happen', () => {
+    // The short-circuit, on an otherwise identical run: everything above the
+    // statement still reports `success`, which is exactly why the conclusion
+    // could never carry the answer.
+    const jobs = healthyRun();
+    jobs[1].steps = jobs[1].steps.map((step) => {
+      if (step.name === 'Outcome: rollout performed') return { ...step, conclusion: 'skipped' };
+      if (step.name === 'Outcome: rollout NOT performed') return { ...step, conclusion: 'success' };
+      return step;
+    });
+    const verdict = coverage.judgeDeployOutcome({ jobs });
+    expect(verdict.state).toBe('hollow');
+    expect(verdict.halves.filter((half) => half.verdict === 'negative').map((h) => h.half)).toEqual([
+      'rollout',
+    ]);
+  });
+});
+
+describe('an EVICTED run is a fourth path to "nothing shipped"', () => {
+  /**
+   * Measured on `main` on 2026-08-18: three of five consecutive `Deploy to AWS`
+   * runs concluded `cancelled`, and run 32131868824 (head `dcafc708`, carrying
+   * migration `0113_odd_tarot`) reported `total_count: 0` jobs.
+   *
+   * `deploy-aws.yml` sets `cancel-in-progress: false`, so nothing is cancelled
+   * by policy — a concurrency group holds at most one PENDING run and a newer
+   * push EVICTS it. **The evicted run never starts**, so it has no jobs, no
+   * steps and no step conclusions at all. That is the class every inference
+   * from a step's `skipped` state is structurally blind to: there is no
+   * `Migrate (pre)` to inspect.
+   */
+  it('is caught by the run-conclusion half, not by the outcome half', () => {
+    // An eviction concludes `cancelled`, so it is never the newest SUCCESS and
+    // the outcome check is never reached for it. #574 owns this path and
+    // already reports it — what #608 adds does not overlap.
+    const evicted = {
+      run_number: 3,
+      head_sha: 'dcafc708',
+      status: 'completed',
+      conclusion: 'cancelled',
+      created_at: '2020-01-01T07:28:00Z',
+      html_url: 'https://example.invalid/32131868824',
+    };
+    const verdict = coverage.judgeCoverage({
+      runs: [
+        {
+          run_number: 2,
+          head_sha: '085b405b',
+          status: 'completed',
+          conclusion: 'success',
+          created_at: '2020-01-01T07:02:00Z',
+        },
+        evicted,
+      ],
+      now: Date.parse('2020-01-01T09:00:00Z'),
+    });
+    expect(verdict.state).toBe('uncovered');
+    expect(verdict.uncovered.map((run) => run.head_sha)).toEqual(['dcafc708']);
+  });
+
+  it('would refuse rather than pass if its zero-job shape ever reached the outcome check', () => {
+    // Defence in depth, and the reason the vacuity floor is phrased as it is: a
+    // run that executed nothing produces `total_count: 0`, which is the exact
+    // shape of a read that failed. Neither may render as "no step said no".
+    expect(coverage.judgeDeployOutcome({ jobs: [] }).state).toBe('unreadable');
   });
 });
