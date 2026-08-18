@@ -156,6 +156,14 @@
       "provenance": {
         "template": "由 Mercaria 依据比较政策 %{policy} 撰写。所有数字均来自下方表格。",
         "generated": "由语言模型依据比较政策 %{policy} 撰写。所有数字均来自下方表格。"
+      },
+      "table": {
+        "specification": "规格",
+        "unnamedProduct": "未命名商品",
+        "noDifferences": "这些商品已记录的内容没有差异。",
+        "inUnit": "单位：%{unit}",
+        "higherIsBetter": "越高越好",
+        "lowerIsBetter": "越低越好"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "由 Mercaria 依据观察记录本身撰写。",
         "provider": "由语言模型依据观察记录措辞。其中的每个数字均来自观察记录，而非模型。"
       },
-      "observationDisclaimer": "发现是 Mercaria 在那一刻看到的情况。它不会为您保留，也不是报价 — 价格与可供情况随时可能变化。"
+      "observationDisclaimer": "发现是 Mercaria 在那一刻看到的情况。它不会为您保留，也不是报价 — 价格与可供情况随时可能变化。",
+      "finding": {
+        "noEarlierComparison": "没有更早的记录可供比较",
+        "requirementTally": "%{met} 项符合 · %{failed} 项不符合 · %{unknown} 项仍未知",
+        "unknownVerdict": "有 %{unanswered} 项要求无人能够回答，因此这不是完整的结论。",
+        "whatItLookedAt": "查看的内容",
+        "openProduct": "打开该商品",
+        "officialChannel": "已验证的官方渠道",
+        "deltaUnchanged": "自上次查看以来没有变化",
+        "deltaLower": "比之前低 %{amount}",
+        "deltaHigher": "比之前高 %{amount}",
+        "unnamedRequirement": "未记录说明的要求"
+      }
     },
     "facet": {
       "title": {

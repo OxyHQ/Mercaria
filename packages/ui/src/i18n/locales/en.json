@@ -156,6 +156,14 @@
       "provenance": {
         "template": "Written by Mercaria under comparison policy %{policy}. Every figure comes from the table below.",
         "generated": "Worded by a language model under comparison policy %{policy}. Every figure comes from the table below."
+      },
+      "table": {
+        "specification": "Specification",
+        "unnamedProduct": "Unnamed product",
+        "noDifferences": "Nothing recorded differs between these products.",
+        "inUnit": "in %{unit}",
+        "higherIsBetter": "higher is better",
+        "lowerIsBetter": "lower is better"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "Written by Mercaria from the observation itself.",
         "provider": "Worded by a language model from the observation. Every figure in it comes from the observation, never from the model."
       },
-      "observationDisclaimer": "A finding is what Mercaria saw at that moment. It is not held for you and it is not a quoted price — prices and availability can change at any time."
+      "observationDisclaimer": "A finding is what Mercaria saw at that moment. It is not held for you and it is not a quoted price — prices and availability can change at any time.",
+      "finding": {
+        "noEarlierComparison": "nothing earlier to compare it against",
+        "requirementTally": "%{met} met · %{failed} not met · %{unknown} still unknown",
+        "unknownVerdict": "Nobody could answer %{unanswered} of your requirements, so this is not a complete verdict.",
+        "whatItLookedAt": "What it looked at",
+        "openProduct": "Open this product",
+        "officialChannel": "verified official channel",
+        "deltaUnchanged": "unchanged since the last look",
+        "deltaLower": "%{amount} lower than before",
+        "deltaHigher": "%{amount} higher than before",
+        "unnamedRequirement": "A requirement with no description recorded"
+      }
     },
     "facet": {
       "title": {

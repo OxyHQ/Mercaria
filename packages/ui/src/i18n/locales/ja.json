@@ -156,6 +156,14 @@
       "provenance": {
         "template": "比較ポリシー %{policy} に基づき Mercaria が作成しました。数値はすべて下の表によります。",
         "generated": "比較ポリシー %{policy} に基づき言語モデルが文章化しました。数値はすべて下の表によります。"
+      },
+      "table": {
+        "specification": "仕様",
+        "unnamedProduct": "名称未設定の商品",
+        "noDifferences": "記録された内容に、これらの商品間の違いはありません。",
+        "inUnit": "単位: %{unit}",
+        "higherIsBetter": "高いほど良い",
+        "lowerIsBetter": "低いほど良い"
       }
     },
     "priceSignal": {
@@ -626,7 +634,19 @@
         "deterministic_template": "観測内容そのものから Mercaria が作成しました。",
         "provider": "観測内容をもとに言語モデルが文章にしました。記載の数値はすべて観測内容によるもので、モデルによるものではありません。"
       },
-      "observationDisclaimer": "検出結果は、その時点で Mercaria が確認した内容です。お取り置きではなく、確定価格でもありません — 価格と在庫状況はいつでも変わる可能性があります。"
+      "observationDisclaimer": "検出結果は、その時点で Mercaria が確認した内容です。お取り置きではなく、確定価格でもありません — 価格と在庫状況はいつでも変わる可能性があります。",
+      "finding": {
+        "noEarlierComparison": "比較できる過去の記録がありません",
+        "requirementTally": "%{met} 件が一致 · %{failed} 件が不一致 · %{unknown} 件は不明",
+        "unknownVerdict": "%{unanswered} 件の要件について誰も回答できなかったため、これは完全な判断ではありません。",
+        "whatItLookedAt": "確認した対象",
+        "openProduct": "この商品を開く",
+        "officialChannel": "認証済みの公式チャネル",
+        "deltaUnchanged": "前回の確認から変化なし",
+        "deltaLower": "前回より %{amount} 安い",
+        "deltaHigher": "前回より %{amount} 高い",
+        "unnamedRequirement": "説明が記録されていない要件"
+      }
     },
     "facet": {
       "title": {

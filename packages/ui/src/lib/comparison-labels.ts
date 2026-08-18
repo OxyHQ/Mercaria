@@ -193,6 +193,30 @@ export const COMPARISON_CELL_INFERRED_A11Y_KEY = "ui.comparison.cellInferredA11y
 /** The visible note under an inferred cell — "converted, not stated". */
 export const COMPARISON_CELL_INFERRED_NOTE_KEY = "ui.comparison.cellInferredNote";
 
+/**
+ * The comparison TABLE's own chrome (#437).
+ *
+ * Not a `Record` over a union, because none of these is keyed on a code — they
+ * are the table's column header, its empty state, its unit frame and the two
+ * directions it states in words. A constant apiece is the `COMPARISON_CELL_*`
+ * shape above, for the same reason: there is nothing to be exhaustive over.
+ *
+ * `IN_UNIT` carries the whole frame with a `%{unit}` slot rather than a
+ * translated preposition glued to the unit — the preposition inflects, and in
+ * several of the twelve the unit does not follow it at all.
+ *
+ * `UNNAMED_PRODUCT` exists because the table carries subject REFS and the name
+ * map is keyed by ref, so it can never be exhaustive: the miss branch has to
+ * render something, and rendering the ref would put a wire identifier in front
+ * of a shopper (#596's finding, one component over).
+ */
+export const COMPARISON_TABLE_SPECIFICATION_KEY = "ui.comparison.table.specification";
+export const COMPARISON_TABLE_UNNAMED_PRODUCT_KEY = "ui.comparison.table.unnamedProduct";
+export const COMPARISON_TABLE_NO_DIFFERENCES_KEY = "ui.comparison.table.noDifferences";
+export const COMPARISON_TABLE_IN_UNIT_KEY = "ui.comparison.table.inUnit";
+export const COMPARISON_TABLE_HIGHER_IS_BETTER_KEY = "ui.comparison.table.higherIsBetter";
+export const COMPARISON_TABLE_LOWER_IS_BETTER_KEY = "ui.comparison.table.lowerIsBetter";
+
 /** Why a product cannot be bought. */
 const UNAVAILABLE_KEYS: Readonly<Record<ComparisonUnavailableReason, string>> = {
   no_eligible_offer: "ui.comparison.unavailable.noEligibleOffer",

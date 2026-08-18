@@ -10,6 +10,12 @@ import {
   COMPARISON_CELL_A11Y_KEY,
   COMPARISON_CELL_INFERRED_A11Y_KEY,
   COMPARISON_CELL_INFERRED_NOTE_KEY,
+  COMPARISON_TABLE_HIGHER_IS_BETTER_KEY,
+  COMPARISON_TABLE_IN_UNIT_KEY,
+  COMPARISON_TABLE_LOWER_IS_BETTER_KEY,
+  COMPARISON_TABLE_NO_DIFFERENCES_KEY,
+  COMPARISON_TABLE_SPECIFICATION_KEY,
+  COMPARISON_TABLE_UNNAMED_PRODUCT_KEY,
   comparisonNotApplicableTextKey,
   comparisonUnknownTextKey,
 } from "../../lib/comparison-labels";
@@ -52,6 +58,7 @@ export function ComparisonTableView({
   namesByRef,
   differencesOnly = false,
 }: ComparisonTableViewProps) {
+  const t = useSharedUiTranslation();
   const rows = differencesOnly ? table.rows.filter((row) => row.differs) : table.rows;
 
   return (
@@ -59,12 +66,18 @@ export function ComparisonTableView({
       <View className="gap-space-2">
         <View className="flex-row border-b border-border-secondary pb-space-8">
           <View style={{ width: COLUMN_WIDTH }}>
-            <Text className="text-captionBold text-text-secondary">Specification</Text>
+            <Text className="text-captionBold text-text-secondary">
+              {t(COMPARISON_TABLE_SPECIFICATION_KEY)}
+            </Text>
           </View>
           {table.subjectRefs.map((subjectRef) => (
             <View key={subjectRef} style={{ width: COLUMN_WIDTH }} className="px-space-8">
+              {/* A subject ref is an opaque handle, so the miss branch resolves a
+                  KEY rather than the subscript — rendering the ref would put a
+                  wire identifier in front of a shopper (#596). The map is keyed
+                  by ref and cannot be exhaustive over one. */}
               <Text className="text-captionBold text-text">
-                {namesByRef[subjectRef] ?? subjectRef}
+                {namesByRef[subjectRef] ?? t(COMPARISON_TABLE_UNNAMED_PRODUCT_KEY)}
               </Text>
             </View>
           ))}
@@ -76,7 +89,7 @@ export function ComparisonTableView({
 
         {rows.length === 0 ? (
           <Text className="py-space-12 text-body text-text-secondary">
-            Nothing recorded differs between these products.
+            {t(COMPARISON_TABLE_NO_DIFFERENCES_KEY)}
           </Text>
         ) : null}
       </View>
@@ -92,16 +105,27 @@ function ComparisonRow({
   row: ComparisonTableRow;
   subjectRefs: readonly string[];
 }) {
+  const t = useSharedUiTranslation();
+
   return (
     <View className="flex-row border-b border-border-secondary py-space-8">
       <View style={{ width: COLUMN_WIDTH }} className="gap-space-2">
         <Text className="text-caption text-text">{row.label}</Text>
         {row.unit === undefined ? null : (
-          <Text className="text-caption text-text-secondary">in {row.unit}</Text>
+          // ONE frame with a `%{unit}` slot, not a translated word glued to the
+          // unit: the preposition inflects and in several of these twelve the
+          // unit does not follow it at all.
+          <Text className="text-caption text-text-secondary">
+            {t(COMPARISON_TABLE_IN_UNIT_KEY, { unit: row.unit })}
+          </Text>
         )}
         {row.direction === "not_comparable" ? null : (
           <Text className="text-caption text-text-secondary">
-            {row.direction === "higher_is_better" ? "higher is better" : "lower is better"}
+            {t(
+              row.direction === "higher_is_better"
+                ? COMPARISON_TABLE_HIGHER_IS_BETTER_KEY
+                : COMPARISON_TABLE_LOWER_IS_BETTER_KEY,
+            )}
           </Text>
         )}
       </View>
@@ -218,6 +242,14 @@ function CellText({ cell, label }: { cell: ComparisonCell | undefined; label: st
       );
     }
     default:
-      return <Text className="text-caption text-text-secondary">Not recorded</Text>;
+      // Unreachable over the five-state union, and it resolves the SAME key the
+      // `undefined` branch above does rather than a second sentence — for that
+      // branch's reason: one fact, one message id, so they cannot be translated
+      // into two different claims.
+      return (
+        <Text className="text-caption text-text-secondary">
+          {t(comparisonUnknownTextKey("not_recorded"))}
+        </Text>
+      );
   }
 }
