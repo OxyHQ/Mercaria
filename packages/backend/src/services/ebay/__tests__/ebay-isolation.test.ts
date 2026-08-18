@@ -47,8 +47,22 @@ function walk(relative: string): string[] {
   return found;
 }
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` was missing until #460's schema batch, and the omission is not
+ * this gate's invention: the same four-name list — `routes`, `controllers`,
+ * `middleware`, sometimes `routes/admin` — was copied from gate to gate, and
+ * from `scripts/isolation-gate-census.ts`, whose own bag-directory list carried
+ * exactly this gap until #600. **A walked population whose DIRECTORY list is
+ * hand-written is still a hand list**, and it fails the way hand lists fail:
+ * silently, with every floor and count green. `db/schema/ebay.ts` — the three
+ * tables this domain owns — was behind none of the walls below.
+ *
+ * The sweep at the end of this file is what stops the next omission being
+ * silent, and it is the general remedy rather than this one entry.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /**
  * The three modules this domain shares with #62's framework.
@@ -453,4 +467,111 @@ describe('#454: a relative import cannot walk around these detectors', () => {
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
 
+});
+
+/**
+ * The population's own defence, and the general form of the `db/schema` fix.
+ *
+ * Adding one directory closes today's gap; this closes the class. The DIRECTORY
+ * list above is the last hand list in this gate, and hand lists fail silently —
+ * `db/schema` was missing from it, inherited from a census list carrying the
+ * same gap (#593/#600), and the wall ran over a population that excluded the
+ * three tables this domain owns with every floor and count green.
+ *
+ * So: sweep the whole tree for paths NAMING this domain and require each to be
+ * in the derived population or in a counted exclusion. A new bag directory
+ * brings its modules under the wall with no edit here.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  const sweepTree = (
+    readDir: (relative: string) => { name: string; isDirectory(): boolean; isFile(): boolean }[],
+  ): string[] => {
+    const found: string[] = [];
+    const walkAll = (relative: string): void => {
+      for (const entry of readDir(relative)) {
+        if (entry.name === '__tests__') continue;
+        const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+        if (entry.isDirectory()) walkAll(child);
+        else if (entry.name.endsWith('.ts') && /ebay/i.test(child)) found.push(child);
+      }
+    };
+    walkAll('');
+    return found;
+  };
+  const realReader = (relative: string) =>
+    readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+  /**
+   * The one ebay-NAMED module that is not an eBay-domain module, EXACT.
+   *
+   * `services/outbound/reconciliation/ebay.ts` belongs to #37's outbound
+   * redirect domain — it is that domain's eBay-specific reconciliation, not
+   * this domain's. It cannot join the population: `REDIRECT_REFERENCE` above
+   * forbids every module here from reaching `services/outbound/`, so admitting
+   * it would make this gate fire on itself. A sweep that closed its own row by
+   * widening the population would have built a false wall, which is the failure
+   * this exclusion exists to avoid rather than an inconvenience.
+   *
+   * EXACT rather than a prefix, and asserted in both directions below: a
+   * directory-shaped exclusion excuses everything in it forever.
+   */
+  const NOT_THIS_DOMAIN = ['services/outbound/reconciliation/ebay.ts'] as const;
+
+  // ONE comparison, shared by the wall and its control below: two spellings
+  // would let the control pass while the wall went vacuous.
+  const outsidePopulation = (paths: readonly string[]): string[] => {
+    const population = new Set([...EBAY_DOMAIN_PATHS, ...NOT_THIS_DOMAIN]);
+    return paths.filter((relative) => !population.has(relative));
+  };
+
+  it('every ebay-named module in src/ is inside the population', () => {
+    const swept = sweepTree(realReader);
+    // A vacuity floor: a traversal that reached nothing reports no module
+    // outside the population, which is what a correct tree also reports.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing — it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(8);
+    expect(
+      outsidePopulation(swept),
+      'an ebay-named module sits outside the scanned population, so none of the walls above ' +
+        'covers it — add its directory to SHARED_DIRECTORIES, or excuse it in NOT_THIS_DOMAIN ' +
+        'with a reason and move its count',
+    ).toEqual([]);
+    // The exclusion's own count, in BOTH directions (#448). One entry, and it
+    // must still be a module the sweep actually reaches — an exemption pointing
+    // at a path the sweep never produces excuses nothing while looking like a
+    // decision.
+    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(1);
+    for (const excused of NOT_THIS_DOMAIN) {
+      expect(swept, `${excused} is excused but the sweep never reaches it`).toContain(excused);
+      expect(
+        EBAY_DOMAIN_PATHS,
+        `${excused} is excused AND in the population — the exclusion is doing nothing`,
+      ).not.toContain(excused);
+    }
+  });
+
+  it('the empty result is a measurement, not a probe that cannot fail', () => {
+    // Without this, `toEqual([])` is satisfied by a correct tree, by a sweep
+    // that reached nothing, AND by a population containing everything. The
+    // floor covers the second; only a planted module covers the third.
+    const planted = 'lib/ebay-cache.ts';
+    const seeded = sweepTree((relative) =>
+      relative === 'lib'
+        ? [
+            ...realReader(relative),
+            { name: 'ebay-cache.ts', isDirectory: () => false, isFile: () => true },
+          ]
+        : realReader(relative),
+    );
+    expect(seeded, 'the sweep did not reach the planted module').toContain(planted);
+    expect(
+      outsidePopulation(seeded),
+      'a module the population does not cover was NOT reported outside it',
+    ).toEqual([planted]);
+    // …and the plant is not on disk, or this asserts about the tree.
+    expect(sweepTree(realReader)).not.toContain(planted);
+  });
 });

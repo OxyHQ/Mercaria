@@ -53,10 +53,17 @@ function walk(relative: string): string[] {
 
 /** Every match-NAMED module in a flat shared directory. */
 function matchNamed(directory: string): string[] {
-  return readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .filter((entry) => /match/i.test(entry.name))
-    .map((entry) => `${directory}/${entry.name}`);
+  const found: string[] = [];
+  for (const entry of readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })) {
+    if (entry.name === '__tests__') continue;
+    const child = `${directory}/${entry.name}`;
+    // RECURSE. The `walk()` above does; this sweep did not, ten lines away, so
+    // the file read as though it recursed throughout and anything under
+    // `controllers/admin/` or `routes/admin/` was outside every wall (#460).
+    if (entry.isDirectory()) found.push(...matchNamed(child));
+    else if (entry.name.endsWith('.ts') && /match/i.test(entry.name)) found.push(child);
+  }
+  return found;
 }
 
 /**
@@ -87,6 +94,13 @@ const MATCHING_DOMAIN_PATHS = [
   ...matchNamed('controllers'),
   ...matchNamed('routes'),
   ...matchNamed('middleware'),
+  // `db/schema` was absent — the nine tables this domain owns were behind none
+  // of the walls below. Verified before adding: `db/schema/matching.ts` passes
+  // both walls applied to this domain, so it is a fix and not a new false wall.
+  // (`MATCHING_REFERENCE` DOES fire on it, which reads like a refusal — but
+  // that detector runs over the ranking surface, the OUTSIDE, never over this
+  // domain. The naive read rejects it; reading says the firing is irrelevant.)
+  ...matchNamed('db/schema'),
 ];
 
 
@@ -276,5 +290,102 @@ describe('the scanner itself is not vacuous', () => {
     const source = readDomainFile('services/matching/pipeline.ts');
     expect(source).not.toContain('canonical-product.service');
     expect(source).toContain('export async function evaluateMatch');
+  });
+});
+
+/**
+ * The population's own defence — the general form of the two fixes above.
+ *
+ * Recursing the sweep closed one mechanism and adding `db/schema` closed
+ * another; both were invisible to every floor and count in this file. This
+ * closes the class, by asking whether anything NAMED for this domain sits
+ * outside the derived population regardless of what missed it.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  type Entry = { name: string; isDirectory(): boolean; isFile(): boolean };
+  const realReader = (relative: string): Entry[] =>
+    readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+  const sweepTree = (readDir: (relative: string) => Entry[]): string[] => {
+    const found: string[] = [];
+    const walkAll = (relative: string): void => {
+      for (const entry of readDir(relative)) {
+        if (entry.name === '__tests__') continue;
+        const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+        if (entry.isDirectory()) walkAll(child);
+        else if (entry.name.endsWith('.ts') && /matching/i.test(child)) found.push(child);
+      }
+    };
+    walkAll('');
+    return found;
+  };
+
+  /**
+   * The matching-NAMED modules that belong to other domains, EXACT.
+   *
+   * Neither may join the population, and admitting either to close the sweep's
+   * own row would build a false wall:
+   *
+   * - `services/backfill/stages/variant-matching.ts` is #60's backfill stage.
+   *   This gate's own header says `create_new` is a recommendation *for #60's
+   *   backfill* — backfill CONSUMES matching, so it is downstream, and putting
+   *   a backfill module under this domain's walls would fire on the consumer.
+   * - `services/outbound/reconciliation/matching.ts` is #37's outbound domain,
+   *   the same shape as `reconciliation/ebay.ts` in the eBay gate.
+   *
+   * Asserted in both directions below: the sweep must still reach each, and
+   * each must still be absent from the population.
+   */
+  const NOT_THIS_DOMAIN = [
+    'services/backfill/stages/variant-matching.ts',
+    'services/outbound/reconciliation/matching.ts',
+  ] as const;
+
+  // ONE comparison, shared by the wall and its control (measured on #609: two
+  // spellings let the control pass while the wall goes vacuous).
+  const outsidePopulation = (paths: readonly string[]): string[] => {
+    const population = new Set([...MATCHING_DOMAIN_PATHS, ...NOT_THIS_DOMAIN]);
+    return paths.filter((relative) => !population.has(relative));
+  };
+
+  it('every matching-named module in src/ is inside the population', () => {
+    const swept = sweepTree(realReader);
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing — it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(10);
+    expect(
+      outsidePopulation(swept),
+      'a matching-named module sits outside the scanned population, so none of the walls above ' +
+        'covers it — add its directory to the derivation, or excuse it in NOT_THIS_DOMAIN ' +
+        'with a reason and move its count',
+    ).toEqual([]);
+    // The exclusion's own count, in BOTH directions (#448): an exemption
+    // pointing at a path the sweep never produces excuses nothing while looking
+    // like a decision.
+    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(2);
+    for (const excused of NOT_THIS_DOMAIN) {
+      expect(swept, `${excused} is excused but the sweep never reaches it`).toContain(excused);
+      expect(
+        MATCHING_DOMAIN_PATHS,
+        `${excused} is excused AND in the population — the exclusion is doing nothing`,
+      ).not.toContain(excused);
+    }
+  });
+
+  it('the empty result is a measurement, not a probe that cannot fail', () => {
+    const planted = 'lib/matching-cache.ts';
+    const seeded = sweepTree((relative) =>
+      relative === 'lib'
+        ? [...realReader(relative), { name: 'matching-cache.ts', isDirectory: () => false, isFile: () => true }]
+        : realReader(relative),
+    );
+    expect(seeded, 'the sweep did not reach the planted module').toContain(planted);
+    expect(
+      outsidePopulation(seeded),
+      'a module the population does not cover was NOT reported outside it',
+    ).toEqual([planted]);
+    expect(sweepTree(realReader)).not.toContain(planted);
   });
 });
