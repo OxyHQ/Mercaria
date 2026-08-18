@@ -35,6 +35,8 @@ import { MERGEABLE_ENTITY_TYPES, type MergeableEntityType } from '@mercaria/shar
 import * as schema from '../../../db/schema/index.js';
 import { MERGE_REHOMING_PLAN, rehomeTargetKey } from '../merge-plan.js';
 import { CURATED_ENTITIES } from '../entity-registry.js';
+import { detectMergeConflicts } from '../merge-conflicts.js';
+import type { DatabaseOrTransaction } from '../../../db/postgres.js';
 
 /** Every drizzle table the barrel exports — the set drizzle-kit emits DDL for. */
 const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [value] : []));
@@ -149,6 +151,94 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
         expect(target.note.length, `${key} has no reason recorded`).toBeGreaterThan(20);
       }
     }
+  });
+
+  /**
+   * #405 — a `conflict_gated` entry names a kind a detector for that entity
+   * ACTUALLY PRODUCES.
+   *
+   * The test above asserts only that the entry names SOME kind, which a
+   * half-wired addition satisfies perfectly: a plan entry gated on a kind no
+   * detector emits blocks nothing, moves the row anyway, and fails in
+   * `relationships` with the raw constraint error the gate existed to replace.
+   * A `conflict_gated` disposition that raises no conflict is the silent no-op
+   * this whole file exists to make impossible.
+   *
+   * The produced set is DERIVED by running the real `detectMergeConflicts`
+   * against a stub connection that answers every probe with one synthetic row —
+   * so it is what the shipped code path emits, never a list maintained beside
+   * it. A hand-written map of "which detectors run for which entity" would go
+   * stale in exactly the direction that reads as coverage.
+   */
+  it('#405: every conflict-gated entry names a kind a detector for that entity produces', async () => {
+    /** One row shaped to satisfy every detector's reader at once. */
+    const row = { loser_row_id: 'loser-row', winner_row_id: 'winner-row', row_id: 'row', detail: 'd' };
+    let probes = 0;
+    const stub = {
+      execute: async () => {
+        probes += 1;
+        return [row];
+      },
+    } as unknown as DatabaseOrTransaction;
+
+    let checked = 0;
+    for (const type of MERGEABLE_ENTITY_TYPES) {
+      const gated = MERGE_REHOMING_PLAN[type].filter(
+        (target) => target.disposition === 'conflict_gated',
+      );
+      if (gated.length === 0) continue;
+      const produced = new Set(
+        (await detectMergeConflicts(type, 'loser-id', 'winner-id', stub)).map((c) => c.kind),
+      );
+      for (const target of gated) {
+        checked += 1;
+        expect(
+          produced.has(target.conflictKind),
+          `${rehomeTargetKey(target.column)} is gated on \`${target.conflictKind}\`, and no ` +
+            `detector registered for a ${type} merge produces that kind. The entry would block ` +
+            'nothing and the merge would fail on the constraint instead.',
+        ).toBe(true);
+      }
+    }
+    // Vacuity floors. Zero gated entries, or a stub nothing ever queried, would
+    // make every assertion above pass without comparing anything.
+    expect(checked, 'no conflict-gated entry was checked; this test measured nothing').toBeGreaterThan(0);
+    expect(probes, 'no detector issued a probe; the produced sets are empty by accident').toBeGreaterThan(0);
+  });
+
+  /**
+   * #405 — a `distinctFromColumn` names the OTHER end of the same row, and the
+   * entry carrying it is gated.
+   *
+   * The guard it drives silently REMOVES rows from the repoint. Pointed at a
+   * column on another table it would compare something unrelated; carried by an
+   * entry with no conflict kind it would drop a live relation onto the tombstone
+   * with nobody told, which is the outcome #59 merge invariant 4 refuses.
+   */
+  it('#405: a collapse guard names a column on its own table, and its entry is gated', () => {
+    let checked = 0;
+    for (const type of MERGEABLE_ENTITY_TYPES) {
+      for (const target of MERGE_REHOMING_PLAN[type]) {
+        if (!target.distinctFromColumn) continue;
+        checked += 1;
+        const key = rehomeTargetKey(target.column);
+        expect(
+          getTableName(target.distinctFromColumn.table),
+          `${key}'s collapse guard names a column on another table`,
+        ).toBe(getTableName(target.column.table));
+        expect(
+          sqlColumnName(target.distinctFromColumn),
+          `${key}'s collapse guard names the column being moved, so it can never fire`,
+        ).not.toBe(sqlColumnName(target.column));
+        expect(target.disposition, `${key} guards a collapse without gating it`).toBe(
+          'conflict_gated',
+        );
+        expect(target.conflictKind, `${key} guards a collapse and raises no conflict`).toBeDefined();
+      }
+    }
+    // Four today: both grains of `generic_compatibility_relations`, from both
+    // ends. A floor, not an equality — a new one must not have to edit this.
+    expect(checked, 'no collapse guard was checked; this test measured nothing').toBeGreaterThanOrEqual(4);
   });
 
   /**

@@ -53,9 +53,16 @@ import { validationError } from '../../lib/errors/error-codes.js';
  * A TABLE rather than a `switch`, the `claim-methods.ts` device, so "does a
  * storefront merge probe identifiers" is answered by reading one place. An
  * entity with no entry probes nothing, which is only correct when it genuinely
- * has no unique to violate — and the census test is what makes that claim
+ * has no constraint to violate — and the census test is what makes that claim
  * checkable, because every `conflict_gated` plan entry must name a kind some
  * detector produces.
+ *
+ * That last sentence described an intention until #405: the census asserted
+ * only that a gated entry named SOME kind, which a plan entry gated on a kind
+ * nothing emits satisfies exactly. `merge-plan-census.test.ts`'s
+ * "every conflict-gated entry names a kind a detector for that entity produces"
+ * now DERIVES the produced set by running this function against a stub
+ * connection, so the claim is measured rather than asserted.
  */
 export async function detectMergeConflicts(
   entityType: MergeableEntityType,
