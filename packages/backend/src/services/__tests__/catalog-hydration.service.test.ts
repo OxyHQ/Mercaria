@@ -111,6 +111,7 @@ function listingRow(source: Partial<ListingRecord> = NATIVE_SOURCE): ListingReco
     ownerType: 'store',
     oxyUserId: null,
     storeId: 'store-1',
+    productTypeDefinitionId: null,
     title: 'A listing',
     description: 'A thing',
     condition: 'new',

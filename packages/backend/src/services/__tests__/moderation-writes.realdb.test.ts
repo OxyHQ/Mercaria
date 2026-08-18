@@ -733,6 +733,7 @@ describe('the composed report is byte-identical between deliveries', () => {
         ownerType: 'user',
         oxyUserId: `seller-${RUN}`,
         storeId: null,
+        productTypeDefinitionId: null,
         title: 'A reported item',
         description: 'Body text',
         condition: 'new',

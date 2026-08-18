@@ -139,6 +139,7 @@ function listingRow(overrides: Partial<ListingRecord> = {}): ListingRecord {
     ownerType: 'store',
     oxyUserId: null,
     storeId: STORE_ID,
+    productTypeDefinitionId: null,
     title: 'Cool Thing',
     description: 'A cool thing',
     condition: 'new',

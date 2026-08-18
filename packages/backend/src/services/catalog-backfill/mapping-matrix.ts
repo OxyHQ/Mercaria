@@ -64,6 +64,16 @@ export const LEGACY_COLUMN_EXCLUSIONS = [
   'timestamps',
   /** Merchandising keywords. See the note on `tags`. */
   'merchandising',
+  /**
+   * A column THIS epic added as the DESTINATION of the migration.
+   *
+   * The other ten members all say "this legacy column carries no catalog
+   * concept". This one says the opposite and still excludes the column: it
+   * carries the concept exactly, and has nothing to map FROM because it is what
+   * the mapping maps INTO. Listing it as a legacy source would make the matrix
+   * report the epic's own output as unmigrated input.
+   */
+  'canonical_target',
 ] as const;
 
 /** One of {@link LEGACY_COLUMN_EXCLUSIONS}. */
@@ -236,6 +246,12 @@ export const LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT: Readonly<
   // count comes back high — a tag is seller-entered free text with no registry
   // behind it, and mining one for a category is
   // `LEGACY_CATALOG_FORBIDDEN_SIGNALS.listing_tag_keyword`.
+  // The #367 box 11 pin (ADR 0007 D5/D10/D13) — the exact product-type version a
+  // PUBLISHED listing was authored under. It is this epic's destination column,
+  // not a legacy source: `listings.productType` beside it is the free-text
+  // platform string the matrix DOES map, and conflating the two would have the
+  // backfill read its own output back as input.
+  'listings.productTypeDefinitionId': 'canonical_target',
   'listings.tags': 'merchandising',
   'listings.createdAt': 'timestamps',
   'listings.updatedAt': 'timestamps',

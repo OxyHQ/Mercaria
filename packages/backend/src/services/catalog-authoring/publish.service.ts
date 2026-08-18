@@ -216,7 +216,19 @@ export async function publishDraft(
       tx,
       draft.storeId,
       buildStoreProductInput(draft, category.slug, composition.schema, variants, values),
-      { actorOxyUserId: input.actorOxyUserId, status: 'active' },
+      {
+        actorOxyUserId: input.actorOxyUserId,
+        status: 'active',
+        // ADR 0007 D5/D10/D13's pin for the PUBLISHED write, and the reason it is
+        // taken from the DRAFT rather than from the composition: the draft's
+        // `product_type_definition_id` is the version its stored answers were
+        // given under and is frozen by
+        // `mercaria_catalog_authoring_draft_pins_frozen`, while a composition is
+        // re-derived per request and could resolve a newer version between the
+        // last save and this publish. Pinning what was composed would record a
+        // schema the author never answered.
+        productTypeDefinitionId: draft.productTypeDefinitionId,
+      },
     );
 
     // The canonical links the AUTHOR declared, in the same transaction as the

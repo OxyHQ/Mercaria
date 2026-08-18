@@ -106,6 +106,7 @@ async function makeListing(categoryId: string, categorySlugs: string[]): Promise
       ownerType: 'store',
       oxyUserId: null,
       storeId,
+      productTypeDefinitionId: null,
       title: `Path rewire ${RUN}`,
       description: '',
       condition: 'new',

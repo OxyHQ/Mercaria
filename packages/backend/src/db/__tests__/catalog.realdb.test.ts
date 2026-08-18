@@ -109,6 +109,7 @@ async function makeListing(
       ownerType: 'store',
       oxyUserId: null,
       storeId,
+      productTypeDefinitionId: null,
       title: 'Realdb product',
       description: '',
       condition: 'new',

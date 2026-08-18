@@ -109,6 +109,7 @@ async function seedActiveListing(): Promise<string> {
       ownerType: 'user',
       oxyUserId: `seller-${RUN}`,
       storeId: null,
+      productTypeDefinitionId: null,
       title: 'A reported item',
       description: 'Body text',
       condition: 'new',
