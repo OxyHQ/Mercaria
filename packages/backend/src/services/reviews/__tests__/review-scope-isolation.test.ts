@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -50,18 +50,6 @@ import {
 } from '../../../db/schema/reviews.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
-    else if (entry.name.endsWith('.ts')) found.push(child);
-  }
-  return found;
-}
 
 /**
  * The domain's HTTP surface, derived from the filename convention these flat
@@ -439,7 +427,7 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
    * suffix rule, because five other domains name a module exactly that and a
    * suffix rule would take all of them.
    */
-  const REVIEW_TREE_PATTERN = /(?:^|\/)reviews(?:[-.\/]|$)|^services\/review\.service\.ts$/i;
+  const REVIEW_TREE_PATTERN = /(?:^|\/)reviews(?:[-./]|$)|^services\/review\.service\.ts$/i;
 
   it('every review-named module in src/ is inside the population', () => {
     assertNothingOutsideDomainPopulation({
