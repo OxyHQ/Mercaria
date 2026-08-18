@@ -18,9 +18,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, dirname, relative as relativePath } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -31,17 +39,81 @@ const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
  * domain is scanned automatically (a hand-written list is how a new stage
  * escapes the gate), and the floor below catches a module REMOVED from it.
  */
-const DOMAIN_DIRECTORIES = [
-  join(SRC_ROOT, 'services', 'backfill'),
-  join(SRC_ROOT, 'db', 'backfill'),
-];
+const DOMAIN_DIRECTORIES = ['services/backfill', 'db/backfill'] as const;
 
-/** Modules outside those directories that are still part of the domain. */
-const DOMAIN_FILES = [
-  join(SRC_ROOT, 'controllers', 'backfill-operator.controller.ts'),
-  join(SRC_ROOT, 'routes', 'internal-backfill.ts'),
-  join(SRC_ROOT, 'middleware', 'backfill-schemas.ts'),
-  join(SRC_ROOT, 'db', 'schema', 'backfill.ts'),
+/**
+ * The shared flat directories a backfill module lives in under a domain NAME.
+ *
+ * This replaces four HAND-NAMED paths — `controllers/backfill-operator.controller.ts`,
+ * `routes/internal-backfill.ts`, `middleware/backfill-schemas.ts` and
+ * `db/schema/backfill.ts`. That list was COMPLETE, which is the point: a hand
+ * list of four is complete on the day it is written and silently short the day
+ * somebody adds a fifth, and nothing in this file could have told the
+ * difference. The population does not move here; what moves is whether it can
+ * fall behind.
+ */
+const DOMAIN_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/** Anything whose PATH names a backfill — deliberately broader than this domain. */
+const BACKFILL_NAMED = /backfill/i;
+
+/**
+ * The domain's own modules, by name, within the shared directories.
+ *
+ * ANCHORED at a path-segment boundary, unlike the whole-tree sweep: unanchored,
+ * `backfill` matches `catalog-backfill` and `catalogBackfill`, and this
+ * population would swallow two other domains. `internal-backfill.ts` is named
+ * explicitly because the router convention puts the prefix first.
+ */
+const OWN_SHARED_MODULE = /(?:^|\/)(?:backfill[-.]|internal-backfill\.)/i;
+
+/**
+ * Every module of the domain, DERIVED as a function of its reader.
+ */
+function backfillPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...DOMAIN_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(DOMAIN_SHARED_DIRECTORIES, OWN_SHARED_MODULE, readDir),
+  ];
+}
+
+/**
+ * Everything else in `src/` that is called a backfill and is NOT this domain.
+ *
+ * FIFTEEN, which is the finding: this repository has five different things
+ * called "backfill", and #60's flag-gated catalogue backfill — the one these
+ * walls are about — is one of them. An EXACT list of exact paths (#448, and
+ * `domain-population.ts`'s rule that a directory-shaped exclusion excuses
+ * whatever is added inside it tomorrow).
+ *
+ * The cost is stated rather than hidden: a new module under
+ * `services/catalog-backfill/` turns THIS gate red until somebody adds a line
+ * here. That is cross-domain friction and it is the deliberate trade — the
+ * alternative is narrowing the sweep until it names only this domain, and then
+ * a genuinely-#60 module called `catalog-backfill-repair.ts` would be missed in
+ * silence. The failure message names the file and this list.
+ */
+const NOT_THIS_BACKFILL = [
+  // #61's catalogue classification backfill, gated by
+  // `services/catalog-backfill/__tests__/catalog-backfill-isolation.test.ts`.
+  { path: 'services/catalog-backfill/classification.ts', why: "#61's catalogue classification backfill, which has its own gate" },
+  { path: 'services/catalog-backfill/classify.service.ts', why: "#61's catalogue classification backfill, which has its own gate" },
+  { path: 'services/catalog-backfill/cohort-argument.ts', why: "#61's catalogue classification backfill, which has its own gate" },
+  { path: 'services/catalog-backfill/mapping-matrix.ts', why: "#61's catalogue classification backfill, which has its own gate" },
+  { path: 'services/catalog-backfill/product-type-text.ts', why: "#61's catalogue classification backfill, which has its own gate" },
+  { path: 'services/catalog-backfill/reconciliation.service.ts', why: "#61's catalogue classification backfill, which has its own gate" },
+  { path: 'services/catalog-backfill/repair.service.ts', why: "#61's catalogue classification backfill, which has its own gate" },
+  { path: 'db/catalogBackfill/legacyCatalogRepository.ts', why: "#61's catalogue classification backfill, its repository" },
+  // Two other domains that each own a module called `backfill.service.ts`.
+  { path: 'services/catalog-proposals/backfill.service.ts', why: "the catalog-proposals domain's own backfill, gated by its own isolation test" },
+  { path: 'db/catalogProposals/backfillRepository.ts', why: "the catalog-proposals domain's own backfill repository" },
+  { path: 'services/variant-axes/backfill.service.ts', why: "the variant-axes domain's own backfill, gated by its own isolation test" },
+  // One-off operator scripts, in no domain and behind no gate. They are not
+  // silently excused: they are named, so a person decided they are scripts.
+  { path: 'scripts/backfill-catalog-classify.ts', why: 'a one-off operator script, not a module of any service domain' },
+  { path: 'scripts/backfill-catalog-paths.ts', why: 'a one-off operator script, not a module of any service domain' },
+  { path: 'scripts/backfill-catalog-reconcile.ts', why: 'a one-off operator script, not a module of any service domain' },
+  { path: 'scripts/backfill-variant-axes.ts', why: 'a one-off operator script, not a module of any service domain' },
 ];
 
 /**
@@ -54,23 +126,10 @@ const DOMAIN_FILES = [
  */
 const MINIMUM_DOMAIN_FILES = 16;
 
-function collect(directory: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(directory)) {
-    const full = join(directory, entry);
-    if (statSync(full).isDirectory()) {
-      found.push(...collect(full));
-      continue;
-    }
-    if (entry.endsWith('.ts') && !entry.endsWith('.test.ts')) found.push(full);
-  }
-  return found;
-}
 
-const DOMAIN_SOURCES: readonly { path: string; source: string }[] = [
-  ...DOMAIN_DIRECTORIES.flatMap(collect),
-  ...DOMAIN_FILES,
-].map((path) => ({ path: relativePath(SRC_ROOT, path), source: readFileSync(path, 'utf8') }));
+const DOMAIN_SOURCES: readonly { path: string; source: string }[] = backfillPopulation().map(
+  (path) => ({ path, source: readFileSync(join(SRC_ROOT, path), 'utf8') }),
+);
 
 /**
  * The MONEY and ORDER domains — issue acceptance 4, and the whole "Immutable
@@ -143,11 +202,46 @@ function withoutComments(source: string): string {
 
 describe('the backfill cannot reach the domains it must not', () => {
   it('scans the whole domain (vacuity floor)', () => {
+    // Floors PER SHAPE rather than one on the total: the sources break
+    // independently, and a single number lets one collapse to zero while the
+    // others carry it.
+    const from = (prefix: string) =>
+      DOMAIN_SOURCES.filter((entry) => entry.path.startsWith(prefix)).length;
+    expect(from('services/backfill/'), 'the service walk found nothing').toBeGreaterThanOrEqual(16);
+    expect(from('db/backfill/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(3);
+    expect(from('controllers/'), 'no backfill controller was derived').toBeGreaterThanOrEqual(1);
+    expect(from('routes/'), 'no backfill route was derived').toBeGreaterThanOrEqual(1);
+    expect(from('middleware/'), 'no backfill middleware module was derived').toBeGreaterThanOrEqual(1);
+    expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
     expect(DOMAIN_SOURCES.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
     expect(STAGE_SOURCES.length).toBeGreaterThanOrEqual(6);
     for (const entry of DOMAIN_SOURCES) {
       expect(entry.source.length, `${entry.path} looks empty — did it move?`).toBeGreaterThan(200);
     }
+  });
+
+  it('no backfill-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion. The population did NOT move here — the four
+    // hand-named shared modules it replaces were all four of them — and that is
+    // the case worth being explicit about: a complete hand list passes every
+    // floor and every count it carries, and the only thing it fails on is the
+    // module somebody adds next. So the proof is the planted control below
+    // rather than a number that grew.
+    //
+    // The exclusion list is the other finding: FIFTEEN modules in this
+    // repository are called a backfill and are not this one.
+    assertNothingOutsideDomainPopulation({
+      population: backfillPopulation,
+      pattern: BACKFILL_NAMED,
+      notThisDomain: NOT_THIS_BACKFILL,
+      sweepFloor: 30,
+      plantIn: 'lib',
+      plantName: 'backfill-cache.ts',
+    });
+    // EXACT, in both directions (#448). The helper asserts each entry is still
+    // REACHED by the sweep and is NOT in the population; this is the count that
+    // stops a sixteenth riding in behind them.
+    expect(NOT_THIS_BACKFILL.length, 'a sixteenth foreign backfill was excused').toBe(15);
   });
 
   it('no backfill module reaches an order, refund, payment, ledger or fee (acceptance 4)', () => {
