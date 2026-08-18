@@ -493,6 +493,7 @@ not opinions:
 | `duplicate_external_ids`, `duplicate_gtins` | duplicate rate (quality control 1). A duplicate external id is a broken feed; a duplicate GTIN across rows is a variant-grouping question for #59 |
 | `rejected_currency`, `rejected_price`, `contradictory_availability` | quality control 2 — routed to errors, never guessed |
 | `tracking_approved`, `tracking_rejected` | §7's verdicts, so a deep-link regression is visible |
+| `destination_tracking_host`, `destination_tracked_only` | the swapped-URL-columns detector (#589) and its positive control. The first is the finding; the second is what tells a clean feed from one where the conjunction could never have fired. See §"Sampling before activation" |
 
 **A contradictory availability is a REJECTION, not a repair.** `in_stock = 1`
 beside `stock_quantity = 0`, or an availability word beside a quantity that
@@ -520,32 +521,86 @@ Quality control 4. An advertiser cannot reach `active` from `candidate`
 directly: it passes through `sampling`, and the transition to `active` requires
 a recorded `awin_link_samples` verdict of `passed`.
 
-**What the sample is TODAY: an operator's recorded verdict, not a measurement
-Mercaria took.** `POST /internal/awin/advertisers/:id/samples` accepts the
-verdict, the counts and the `findings` array; every value is supplied by the
-caller and validated against the enum. **Nothing derives a finding.** All six
-`AWIN_SAMPLE_FINDINGS` members are produced by no production code path
-(measured in #573), so a `passed` sample means an operator asserted it — with an
-append-only row naming them, which is a real audit trail and is not the same
-thing as an automated check.
+**The sample's VERDICT is an operator's, and it is still an operator's.**
+`POST /internal/awin/advertisers/:id/samples` accepts the verdict, the counts and
+the `findings` array; every value is supplied by the caller and validated against
+the enum. Nothing derives the verdict, so a `passed` sample means an operator
+asserted it — with an append-only row naming them, which is a real audit trail
+and is not the same thing as an automated check. Turning that attestation into a
+measurement means changing the operator contract to accept EVIDENCE (the sampled
+rows' two URLs) rather than a verdict, and that is deliberately not done here.
 
-The DESTINATION half in particular does not exist. `destinationMatchesAdvertiser`
-and `destinationHost` (`services/awin/tracking.ts`) are correct and tested and
-have **no production caller**; `awin_advertisers.declared_host`, the expectation
-they would compare against, has **no production writer**, so every row is NULL
-and the helper would return `null` on every real input. #573 records the trace.
+**What IS measured automatically runs on every ingested row rather than on a
+sample**, and after #589 it covers both halves of quality control 4:
 
-What IS measured automatically, on every ingested row rather than on a sample:
-`assessAwinTrackingLink` checks the rights, the membership, presence,
-parseability, HTTPS and tracking-host-in-approved-set (`isAwinTrackingHost`),
-and the outcome is counted into `awin_advertiser_quality` as
-`trackingApproved`/`trackingRejected`. So three of the four checks this section
-used to claim are genuinely enforced — through the quality snapshot, on the
-whole feed, which is stronger than a sample — and the fourth is absent.
+| Fact | Function | Counted as |
+|---|---|---|
+| rights, membership, presence, parseability, HTTPS, tracking host approved | `assessAwinTrackingLink` | `trackingApproved` / `trackingRejected` |
+| the two URL columns mapped to each other's roles | `assessAwinDestination` | `destinationTrackingHost` / `destinationTrackedOnly` |
 
-Building the destination check, and deriving the findings rather than accepting
-them, is tracked separately; until then read a `passed` sample as a human's
-attestation. The row is append-only and names the operator who took it.
+### The destination check, and why it needs no declared host
+
+`merchant_deep_link` is the DESTINATION and `aw_deep_link` is the TRACKED one
+(`AWIN_COLUMN_ROLES`). Mapped to each other's roles the catalogue works
+perfectly — right prices, right images, links that resolve — and the money routes
+through a link nobody validated as the destination. It is the failure with no
+other signal, and it is answerable **from the feed alone**: a tracking host is
+one of four code constants, so no declared host, no Publisher API call and no
+Awin account is needed.
+
+`assessAwinDestination` is a **conjunction**, and the second arm is the point:
+
+> the destination host is in `AWIN_TRACKING_HOSTS` **and** the deep-link column
+> is not
+
+A single test would report every tracked-only advertiser as broken — an
+advertiser whose feed carries only tracked links has a tracking host in both
+columns and nothing is wrong with it. So `tracked_only` is a named verdict with
+its own counter rather than an else-branch, and that counter is the detector's
+**positive control**: without it, `destinationTrackingHost: 0` reads identically
+on a clean feed and on one where the conjunction could never have fired.
+
+The finding it produces is `destination_is_tracking_host`, named for the
+OBSERVATION rather than the inferred cause. `columns_swapped` would assert an
+intent Mercaria cannot see — an advertiser could publish a retailer URL as the
+deep link and a tracked URL as the destination deliberately. Operationally the
+same problem; the name should still be the fact that was measured, because an
+operator pausing a live programme is acting on it.
+
+**The residual, stated:** a feed whose deep link is a retailer host and whose
+destination is tracked is flagged, and cannot be told from a deliberate
+configuration by inspection. Flagging it is judged correct — the money still
+routes through a link nobody validated as the destination — and the person
+deciding needs both URLs in front of them. They are: every offer this pass wrote
+carries the feed's own `destination_url` and `affiliate_url`, so the quality
+snapshot deliberately stores no second copy of either.
+
+**`awin_advertisers.declared_host` is GONE** (#589), with
+`awin_advertisers_declared_host_shape_check`, `AWIN_DECLARED_HOST_PATTERN`, the
+`declaredHost` discovery input, #588's `coalesce` upsert branch and
+`destinationMatchesAdvertiser`. The column had no production writer for its whole
+life and no obtainable value — the feed list publishes no host column, Awin
+publishes an advertiser display URL only on the Publisher API's
+programme-details endpoint (which Mercaria neither calls nor has an account for),
+and deriving one from the feed's own destinations is circular by design. #573
+records the trace; #588 fixed a clobber that made a value able to SURVIVE a poll,
+which made keeping the column worse rather than better, because the next reader
+would find a working write path and conclude the check worked.
+
+What that deletion loses, rather than glossed: **advertiser A's feed carrying
+links to retailer B** — a genuine cross-retailer mismatch with no tracking-host
+signature, which the swap detector cannot see. Nothing available to Mercaria can
+supply the host to catch it with. If it is later judged worth catching, it
+returns as a column, a writer and a caller in ONE change.
+
+`destinationHost` was kept and is no longer dead: `assessAwinDestination` is its
+first production caller.
+
+**Still open:** the other five `AWIN_SAMPLE_FINDINGS` members are produced by no
+production code path — only `destination_is_tracking_host` corresponds to
+something Mercaria measures, and even that reaches `awin_link_samples` only when
+an operator records it. Closing that gap is the evidence-versus-verdict contract
+change above. Until then, read a `passed` sample as a human's attestation.
 
 **A sample is evidence, not a gate that can be waived quietly.** There is no
 "activate anyway" parameter; an advertiser whose sample failed is re-sampled
