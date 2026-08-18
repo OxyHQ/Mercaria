@@ -53,6 +53,7 @@ import {
   approveExternalMappingFanOutDecision,
   rejectExternalMapping,
 } from '../catalog-external-mappings/mapping.service.js';
+import { bumpAuthoringSchemaInvalidation } from '../../db/catalogAuthoring/schemaInvalidationRepository.js';
 import { recordAuditEvent } from '../../db/catalogGovernance/auditRepository.js';
 import type { CatalogGovernanceActor } from './actor.js';
 import { requireGovernanceRole, roleForAction } from './role.service.js';
@@ -137,6 +138,26 @@ export async function reviewLocalization(
         tx,
       );
     }
+
+    // IN the same transaction as the upsert (#655). Without this the
+    // `localization` subject had no producer at all: the revision never moved,
+    // so the memo key and the ETag never moved, and every task that had already
+    // composed that schema served the previous text until it RESTARTED. It is
+    // reachable by the ordinary path — translations stay mutable after the
+    // version freezes, which is the point of separating them from the frozen
+    // contract (`db/schema/productTypes.ts`).
+    //
+    // Keyed on the ENTITY, for both kinds. `invalidationRefs` reads
+    // `localization:<productTypeDefinitionId>` and
+    // `localization:<categoryId>`, because the composition resolves both names
+    // through the localization registry — so one subject means one thing
+    // (\"the translations of this entity\") rather than the product-type half
+    // using `localization` and the category half riding on `category`, which
+    // is also bumped by every taxonomy edit.
+    await bumpAuthoringSchemaInvalidation(tx, {
+      subject: 'localization',
+      subjectId: input.entityId,
+    });
 
     await recordAuditEvent(tx, {
       domain: 'localization',
