@@ -582,4 +582,23 @@ describe('#460: the whole-tree sweep is deferred, and the reason is measured', (
     }
     expect(foreignOfferNamedModules.length, 'the measured set changed').toBe(6);
   });
+
+  /**
+   * What defends `db/schema` here, since the sweep that would normally do it is
+   * deferred above.
+   *
+   * In every other gate converted under #460 the whole-tree sweep reports a
+   * domain module that leaves the population. With that sweep deferred,
+   * dropping `db/schema` from `SHARED_DIRECTORIES` would silently take this
+   * domain's three tables back out of every wall and no floor or count would
+   * move — the exact defect #460 is about, reintroduced by the deferral. So the
+   * membership is asserted directly: an identity, not a floor (#448).
+   */
+  it('the tables this domain owns are in the population', () => {
+    expect(
+      OFFER_DOMAIN_PATHS,
+      'db/schema/offers.ts left the population — offers_kind_shape_check is declared there, and ' +
+        'wall 2 asserts it from the commerce side',
+    ).toContain('db/schema/offers.ts');
+  });
 });
