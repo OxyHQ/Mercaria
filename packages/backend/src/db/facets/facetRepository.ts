@@ -34,6 +34,24 @@
  * reads beside a checkbox, and it would exceed the number of results the
  * checkbox produces.
  *
+ * ## `cv.status = 'active'` is spelled ten times here and NOWHERE on the list rail
+ *
+ * The two rails serve one page and disagree about which variants may answer a
+ * filter (#616). Measured: this file requires `active`;
+ * `findVariantIntentMatches` in `db/search/searchCandidateRepository.ts`
+ * requires `in ('active', 'discontinued')`; and
+ * `findProductIdsSatisfyingAttributes` beside it carries NO status predicate at
+ * all — wider than either, since the vocabulary is
+ * `draft | active | discontinued | merged | suppressed`.
+ *
+ * Do not close the gap by copying either spelling into the other rail without a
+ * decision. Narrowing the list rail to `active` would make it narrower than the
+ * variant read twenty lines above it, whose docblock argues by name that
+ * somebody searching a discontinued model means that model; widening this file
+ * to match would admit products these counts exclude today. The full statement
+ * of both candidate answers is on `findProductIdsSatisfyingAttributes`, which is
+ * where a reader arrives holding the change.
+ *
  * ## No index was added and none is needed
  *
  * The scope narrows on `canonical_products.category_id`
