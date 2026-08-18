@@ -439,16 +439,70 @@ export type LocalizedFieldTarget =
     }
   | { readonly kind: 'absent' };
 
+/**
+ * Which entity column holds a registered field's BASE-locale text, or the fact
+ * that no column holds it.
+ *
+ * Three of the six registered fields have no base-locale counterpart in the
+ * schema at all: `categories` has no `description`, and
+ * `product_type_definitions` has no help text. `read.service.ts` already knows
+ * one of them — it resolves `category.description` with `baseValue: null` — and
+ * this states all three in one place so a reviewer's screen can say "there is no
+ * source for this field" rather than rendering an empty box that reads as "the
+ * source was blank".
+ *
+ * `catalog-localization-desk.test.ts` walks the real drizzle tables and asserts
+ * every `column` named here EXISTS and every `none` genuinely has no
+ * same-named column — so a base column ADDED later fails the build here rather
+ * than silently continuing to report "no source".
+ */
+export type LocalizedFieldBaseSource =
+  | { readonly kind: 'column'; readonly table: string; readonly column: string }
+  | { readonly kind: 'none'; readonly reason: string };
+
+export const LOCALIZED_FIELD_BASE_SOURCES: Readonly<Record<string, LocalizedFieldBaseSource>> =
+  Object.freeze({
+    'category.name': { kind: 'column', table: 'categories', column: 'name' },
+    'category.description': {
+      kind: 'none',
+      reason:
+        '`categories` carries no description column. A category with no description in any ' +
+        'locale has none, and inventing one from the name is how a catalogue starts asserting ' +
+        'things nobody wrote.',
+    },
+    'product_type.name': { kind: 'column', table: 'product_type_definitions', column: 'name' },
+    'product_type.description': {
+      kind: 'column',
+      table: 'product_type_definitions',
+      column: 'description',
+    },
+    'product_type.help_text': {
+      kind: 'none',
+      reason:
+        '`product_type_definitions` carries no help-text column — authoring guidance exists ' +
+        'only as localized text, so every locale including the base one is a row.',
+    },
+    'attribute_value.label': {
+      kind: 'column',
+      table: 'attribute_enum_values',
+      column: 'label',
+    },
+  });
+
 /** One field's source text beside its target, for a reviewer. */
 export interface LocalizedFieldComparison {
   readonly field: string;
   /**
-   * The base-locale text, read from the ENTITY's own column.
+   * Where this field's base-locale text lives, or that nowhere does.
    *
-   * `null` where the entity has none — `categories.description` has no
-   * base-locale counterpart at all, so a translation of it has nothing to be
-   * compared against and a reviewer needs to see that rather than an empty box
-   * implying the source was blank.
+   * Carried on every comparison rather than looked up by the client, so a screen
+   * showing one field in isolation still shows why its source box is empty.
+   */
+  readonly baseSource: LocalizedFieldBaseSource;
+  /**
+   * The base-locale text itself. `null` both when `baseSource.kind === 'none'`
+   * and when the column exists and holds nothing — `baseSource` is what tells
+   * those two apart, which is the whole reason it travels beside this.
    */
   readonly source: string | null;
   readonly target: LocalizedFieldTarget;
