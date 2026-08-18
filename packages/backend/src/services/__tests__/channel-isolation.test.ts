@@ -36,7 +36,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName } from 'drizzle-orm';
@@ -48,6 +48,8 @@ import {
 } from '@mercaria/shared-types';
 import { channelAuditEvents, channelOnboardingSessions } from '../../db/schema/index.js';
 
+import { walkOwnedDirectory } from '../../__tests__/domain-population.js';
+
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DOMAIN_DIR = join(SRC_ROOT, 'services', 'channels');
 
@@ -56,11 +58,41 @@ const DOMAIN_DIR = join(SRC_ROOT, 'services', 'channels');
  *
  * A hard-coded list protects the files somebody remembered, and the file that
  * breaks a wall is by definition the one nobody was thinking about.
+ *
+ * RECURSES (#460). It was a one-level `readdirSync`, and `services/channels/`
+ * is flat today so this admits no module now — it stops a
+ * `services/channels/onboarding/` being invisible to four walls on the day
+ * somebody adds one.
+ *
+ * ## Why this population is NOT widened to every channel-named module
+ *
+ * #460's whole-tree assertion is deliberately NOT applied here, and the reason
+ * is measured rather than argued. The tree holds 28 channel-named modules; this
+ * population is 9. Probing the other 19 against these four detectors:
+ * **five trip `CREDENTIAL_REFERENCE`** — `services/channel-key.service.ts`,
+ * `middleware/channels-schemas.ts`, `routes/channels-webhooks.ts` and two admin
+ * controllers — because handling a channel credential is precisely what they
+ * exist to do.
+ *
+ * So "channel" names a FEATURE spanning six surfaces (the channels service
+ * layer, ingest, keys, OAuth, webhooks, and the admin console) while these four
+ * walls are about the service layer alone. Forcing every channel-named module
+ * into the population or into an exclusion list would produce a nineteen-entry
+ * list that mostly reads "handles credentials, which one of these walls forbids
+ * and this module exists to do" — the list doing the narrowing the population
+ * already expresses, and a false wall for anybody who removed an entry.
+ *
+ * The gate that SHOULD cover the credential surface is a different gate about
+ * different walls, and it does not exist yet. That is a real gap and it is
+ * recorded here rather than papered over with an exclusion list.
  */
 function domainModules(): string[] {
-  return readdirSync(DOMAIN_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .map((entry) => join(DOMAIN_DIR, entry.name));
+  return [
+    ...walkOwnedDirectory('services/channels').map((relative) => join(SRC_ROOT, relative)),
+    // The domain's own tables. Measured clean against all four detectors, so
+    // this is a widening rather than a false wall.
+    join(SRC_ROOT, 'db', 'schema', 'channels.ts'),
+  ];
 }
 
 /** The domain plus the files outside it that belong to the same walls. */
