@@ -813,6 +813,13 @@
       "when": 1787054097694,
       "tag": "0115_lying_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1787055688346,
+      "tag": "0116_medical_vindicator",
+      "breakpoints": true
     }
   ]
 }

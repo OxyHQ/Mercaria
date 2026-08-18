@@ -60,6 +60,7 @@ import {
   resolveConflict,
   unblockMergeJob,
 } from '../../db/curation/jobRepository.js';
+import { bundleComponentStillExists } from '../../db/curation/conflictRepository.js';
 import { applyRehomeTarget } from '../../db/curation/rehomeRepository.js';
 import { stampPriceAlertRehoming } from '../../db/priceAlerts/priceAlertRepository.js';
 import { requestPriceAlertEvaluationForProduct } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
@@ -270,6 +271,36 @@ export async function resolveMergeConflict(
   }
   const job = await findMergeJobById(row.jobId, db);
   if (!job) throw notFound(`Merge job ${row.jobId} no longer exists.`);
+
+  /**
+   * A decision whose ACT belongs to another domain is REFUSED until that act has
+   * happened — never recorded and verified later (#405).
+   *
+   * `drop_component` says the operator removed the component from the bundle, in
+   * the catalogue, where deleting a component row is the ordinary edit; curation
+   * itself deletes nothing. Checking it HERE rather than when the resolution is
+   * applied is what keeps a job out of a state nothing can lift: a job leaves
+   * `blocked` only when a resolution is ACCEPTED, and `unblockMergeJob` has
+   * exactly one caller — this function. Accept a decision that cannot yet be
+   * carried out and the job unblocks, re-blocks in the resolution phase with
+   * every conflict already resolved, and no code path can ever unblock it again.
+   */
+  if (
+    input.resolution === 'drop_component' &&
+    row.collapsingBundleVariantId &&
+    row.collapsingComponentVariantId &&
+    (await bundleComponentStillExists(
+      row.collapsingBundleVariantId,
+      row.collapsingComponentVariantId,
+      db,
+    ))
+  ) {
+    throw conflict(
+      `Bundle ${row.collapsingBundleVariantId} still lists ${row.collapsingComponentVariantId} ` +
+        'as a component. Remove it from the bundle in the catalogue first: this merge makes the ' +
+        'two one variant, and a bundle cannot contain itself.',
+    );
+  }
 
   let childJobId: string | null = null;
   if (input.resolution === 'merge_pair') {

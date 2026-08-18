@@ -172,7 +172,23 @@ describe('the rehoming plan covers every reference to a mergeable entity', () =>
    */
   it('#405: every conflict-gated entry names a kind a detector for that entity produces', async () => {
     /** One row shaped to satisfy every detector's reader at once. */
-    const row = { loser_row_id: 'loser-row', winner_row_id: 'winner-row', row_id: 'row', detail: 'd' };
+    /**
+     * One row shaped to satisfy every detector's reader at once.
+     *
+     * A detector reading a column NOT in here filters its own row out and
+     * reports nothing, which this test then reads as "that kind is not
+     * produced" — a FAILURE, loudly, naming the entry. So the stub going stale
+     * fails closed rather than passing vacuously, which is why it is a literal
+     * rather than a Proxy answering every key.
+     */
+    const row = {
+      loser_row_id: 'loser-row',
+      winner_row_id: 'winner-row',
+      row_id: 'row',
+      bundle_variant_id: 'bundle-variant',
+      component_variant_id: 'component-variant',
+      detail: 'd',
+    };
     let probes = 0;
     const stub = {
       execute: async () => {
