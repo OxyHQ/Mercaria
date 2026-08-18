@@ -18,6 +18,13 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { describe, expect, it } from 'vitest';
 import {
   RANKING_SURFACE_PATHS,
@@ -27,6 +34,40 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const RETAIL_DIR = join(SRC_ROOT, 'services', 'retail-pricing');
+
+/** What a module of this domain is called, wherever it lives. */
+const RETAIL_PRICING_NAME_PATTERN = /retail-?pricing/i;
+
+/** The flat directories a module of this domain lives in under a domain NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * The WHOLE retail-pricing domain, DERIVED.
+ *
+ * The two walls below scanned `services/retail-pricing/` alone — six of the
+ * domain's twelve modules. So `db/retailPricing/`'s two repositories,
+ * `db/schema/retailPricing.ts`, `controllers/retail-pricing-operator.controller.ts`
+ * and `middleware/retail-pricing-schemas.ts` were outside "nothing here imports
+ * the referral domain" and outside "no module names FairCoin or OxyPay",
+ * silently (#460).
+ *
+ * The schema module is the sharp one: the ranking wall above already READS it
+ * by name to check no policy column could scope on a ranking figure — so it was
+ * in this gate, half-scanned, behind one wall of three and outside the other
+ * two. That asymmetry is exactly what a hand-picked population hides and a
+ * derivation cannot express.
+ *
+ * The hyphen is optional because `db/schema` names its files in camelCase;
+ * measured over the whole of `src/`, the pattern selects 12 modules and every
+ * one is this domain's.
+ */
+function retailPricingDomainPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/retail-pricing', readDir),
+    ...walkOwnedDirectory('db/retailPricing', readDir),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, RETAIL_PRICING_NAME_PATTERN, readDir),
+  ];
+}
 
 
 /**
@@ -89,10 +130,13 @@ describe('organic ranking cannot read retail cost data', () => {
 });
 
 describe('the retail price cannot contain referral or affiliate economics', () => {
-  it('nothing in services/retail-pricing imports the referral domain', () => {
-    const files = sourceFiles(RETAIL_DIR);
-    // Vacuity floor: the retail-pricing domain has real files to scan.
-    expect(files.length).toBeGreaterThanOrEqual(6);
+  it('nothing in the retail pricing domain imports the referral domain', () => {
+    const files = retailPricingDomainPaths().map((relativePath) => join(SRC_ROOT, relativePath));
+    // Vacuity floor: the retail-pricing domain has real files to scan. Raised
+    // from 6 to 10 with the population — the old number was the service
+    // directory alone, and a floor left at the old half would be met by a
+    // derivation that had collapsed back to it.
+    expect(files.length).toBeGreaterThanOrEqual(10);
 
     const offenders: string[] = [];
     for (const file of files) {
@@ -128,8 +172,8 @@ describe('the retail price cannot contain referral or affiliate economics', () =
     // #120 currency rule 4 and ADR 0004 D11.3: nothing here anticipates them,
     // and no conversion is routed through a pivot this domain names. The FX
     // service's own pivot is its private business and is never asked for here.
-    const files = sourceFiles(RETAIL_DIR);
-    expect(files.length).toBeGreaterThanOrEqual(6);
+    const files = retailPricingDomainPaths().map((relativePath) => join(SRC_ROOT, relativePath));
+    expect(files.length).toBeGreaterThanOrEqual(10);
     const offenders: string[] = [];
     for (const file of files) {
       const source = readFileSync(file, 'utf8');
@@ -140,5 +184,36 @@ describe('the retail price cannot contain referral or affiliate economics', () =
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate's domain half.
+ * Sweep the whole of `src/` for paths naming this domain and require each to be
+ * in the population or in a counted exclusion, so a bag directory nobody has
+ * invented yet brings its modules under these walls with no edit here.
+ *
+ * The exclusion set is EMPTY because it was MEASURED — `retail-pricing` is
+ * unambiguous once the hyphen is optional, and none of the six modules this
+ * conversion ADDED fires either wall today, which is what makes it a widening
+ * of coverage rather than a new false wall.
+ *
+ * The RANKING half of this gate scans `RANKING_SURFACE_PATHS` — the outside,
+ * which is `ranking-surface.ts`'s own derivation and is defended there.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every retail-pricing-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: retailPricingDomainPaths,
+      pattern: RETAIL_PRICING_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 12 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 9,
+      plantIn: 'lib',
+      plantName: 'retail-pricing-cache.ts',
+    });
   });
 });

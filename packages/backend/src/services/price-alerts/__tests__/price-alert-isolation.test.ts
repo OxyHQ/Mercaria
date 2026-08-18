@@ -20,6 +20,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
+import {
   PRICE_ALERT_FORBIDDEN_NOTIFICATION_FIELDS,
   PRICE_ALERT_FORBIDDEN_SCOPES,
   PRICE_ALERT_SELLER_SCOPES,
@@ -76,11 +83,21 @@ function filesIn(relative: string, matching?: RegExp): string[] {
  * somebody adds a module — and what it then skips is exactly the module nobody
  * has reviewed (#460).
  */
-function enumerateDomain(): string[] {
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
   return [
-    ...DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative)),
-    ...OUTER_DIRECTORIES.flatMap((relative) => filesIn(relative, DOMAIN_NAME_PATTERN)),
+    // BOTH halves recurse now. `filesIn` read one directory level, so a
+    // sub-directory of the domain's own service directory was outside every
+    // wall, and the shared-directory sweep could reach neither `routes/admin/`
+    // nor `controllers/admin/` (#460). The shared half also matches the PATH
+    // rather than the filename, because a module inside a directory named for
+    // the domain names it nowhere in its own name.
+    ...DOMAIN_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(OUTER_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir),
   ];
+}
+
+function enumerateDomain(): string[] {
+  return domainRelativePaths().map((relative) => join(SRC_ROOT, relative));
 }
 
 /**
@@ -477,5 +494,42 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     const stripped = stripComments("import { x } from '../fees/y.js'; // a note");
     expect(COMMERCIAL_REFERENCE.test(stripped)).toBe(true);
     expect(stripComments('/* fee_schedules */').trim()).toBe('');
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY lists above are the last hand lists in this gate's derivation,
+ * and hand lists fail silently. So: sweep the whole of `src/` for paths NAMING
+ * this domain and require each to be in the population or in a counted
+ * exclusion. A bag directory nobody has invented yet brings its modules under
+ * these walls with no edit here.
+ *
+ * The exclusion set is EMPTY, and it is empty because it was MEASURED rather
+ * than guessed. A guessed exemption excuses what can never match.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  const NOT_THIS_DOMAIN = [] as const;
+
+  it('every price-alert-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: NOT_THIS_DOMAIN,
+      // Below today's count so a routine deletion does not fail the build, and
+      // far enough above zero that a traversal which reached nothing does.
+      sweepFloor: 15,
+      plantIn: 'lib',
+      plantName: 'price-alerts-cache.ts',
+    });
+  });
+
+  it('the relative population really is the one the walls scan', () => {
+    // Two spellings of one population can disagree, so this pins them together:
+    // every absolute path the detectors run over has a relative twin here.
+    expect(enumerateDomain().map((absolute) => absolute.slice(SRC_ROOT.length + 1)).sort()).toEqual(
+      domainRelativePaths().sort(),
+    );
   });
 });

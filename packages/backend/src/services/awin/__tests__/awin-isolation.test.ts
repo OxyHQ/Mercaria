@@ -31,9 +31,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   AWIN_ACTIVATIONS,
@@ -49,20 +56,21 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
-    else if (entry.name.endsWith('.ts')) found.push(child);
-  }
-  return found;
-}
+/** What a module of this domain is called, wherever it lives. */
+const AWIN_NAME_PATTERN = /awin/i;
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` was missing, and the omission is not this gate's invention: the
+ * same three-name list was copied from gate to gate and from
+ * `scripts/isolation-gate-census.ts`'s own bag-directory list. The six tables
+ * this domain owns — the one place a forbidden COLUMN would be declared — were
+ * behind none of the walls below. The sweep at the end of this file is what
+ * stops the next omission being silent, and it is the general remedy rather
+ * than this one entry.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /**
  * The one module this domain shares with #62's framework.
@@ -91,17 +99,16 @@ const BORROWED_FRAMEWORK_MODULES = ['services/ingestion/adapters/awin-feed.ts'] 
  * the filename convention every file in them already follows; `awin` is
  * unambiguous, so this needs no exclusion list.
  */
-const DOMAIN_PATHS = [
-  ...walk('services/awin'),
-  ...walk('db/awin'),
-  ...BORROWED_FRAMEWORK_MODULES,
-  ...SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /awin/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  ),
-];
+function domainPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/awin', readDir),
+    ...walkOwnedDirectory('db/awin', readDir),
+    ...BORROWED_FRAMEWORK_MODULES,
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, AWIN_NAME_PATTERN, readDir),
+  ];
+}
+
+const DOMAIN_PATHS = domainPaths();
 
 /**
  * The enumeration floor, per SHAPE.
@@ -120,6 +127,7 @@ function expectEveryShapeFoundSomething(): void {
   expect(from('routes/'), 'no Awin route was derived').toBeGreaterThanOrEqual(1);
   expect(from('controllers/'), 'no Awin controller was derived').toBeGreaterThanOrEqual(1);
   expect(from('middleware/'), 'no Awin request schema was derived').toBeGreaterThanOrEqual(1);
+  expect(from('db/schema/'), 'no Awin schema module was derived').toBeGreaterThanOrEqual(1);
   expect(DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
 }
 
@@ -496,4 +504,62 @@ describe('#454: a relative import cannot walk around these detectors', () => {
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
 
+});
+
+/**
+ * The population's own defence, and the general form of the `db/schema` fix.
+ *
+ * Adding one directory closes today's gap; this closes the class. The DIRECTORY
+ * list above is the last hand list in this gate, and hand lists fail silently —
+ * every floor and count stayed green while the six tables this domain owns sat
+ * outside every wall.
+ *
+ * So: sweep the whole of `src/` for paths NAMING this domain and require each to
+ * be in the derived population or in a counted exclusion.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  /**
+   * The two awin-NAMED modules that are not Awin-domain modules, EXACT.
+   *
+   * Both belong to #37's outbound redirect and commission reconciliation —
+   * `services/outbound/reconciliation/` is that domain's per-network half, not
+   * this one's. They cannot join the population, and that is MEASURED rather
+   * than asserted: `awin-transport.ts` calls `safeFetch`, which
+   * `OUTBOUND_CALL_REFERENCE` above permits in exactly one module of this
+   * domain, and `awin.ts` matches `SECOND_PARSER_REFERENCE`. Admitting them
+   * would turn this gate red on #37's legitimate code, so a sweep that closed
+   * its own row by widening the population would have built a false wall —
+   * which is the failure this exclusion exists to avoid rather than an
+   * inconvenience.
+   *
+   * EXACT rather than a `services/outbound/` prefix: a directory-shaped
+   * exclusion excuses everything in it forever, including the third network
+   * somebody adds beside these two.
+   */
+  const NOT_THIS_DOMAIN = [
+    {
+      path: 'services/outbound/reconciliation/awin.ts',
+      why: "#37's outbound commission reconciliation for the Awin network, not this domain's",
+    },
+    {
+      path: 'services/outbound/reconciliation/awin-transport.ts',
+      why: "#37's transport for that reconciliation; it holds the one safeFetch this gate forbids",
+    },
+  ] as const;
+
+  it('every awin-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainPaths,
+      pattern: AWIN_NAME_PATTERN,
+      notThisDomain: NOT_THIS_DOMAIN,
+      // Below today's 26 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 20,
+      plantIn: 'lib',
+      plantName: 'awin-cache.ts',
+    });
+    // The exclusion's own count, so a third entry is a decision somebody takes
+    // rather than a line that appears (#448).
+    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(2);
+  });
 });

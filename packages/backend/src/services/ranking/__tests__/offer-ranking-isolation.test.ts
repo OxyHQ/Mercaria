@@ -31,6 +31,13 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   OFFER_FORBIDDEN_RANKING_SIGNALS,
@@ -53,8 +60,20 @@ function walk(relative: string): string[] {
   return found;
 }
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/** What a module of this domain is called, wherever it lives. */
+const RANKING_NAME_PATTERN = /ranking/i;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` joins the three that were copied from gate to gate, which lets
+ * `db/schema/ranking.ts` be DERIVED below rather than named — a hand list of one
+ * is still a hand list, and this one sat under a comment explaining why it had
+ * to stay. It did not: the objection was to walking `db/schema/` WHOLE, which
+ * would scan every table in the database from a gate about one domain, and
+ * name-filtering the directory is not that.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /** Every non-test module in the domain, read from the real directory. */
 function domainSources(): { relative: string; source: string }[] {
@@ -93,17 +112,19 @@ const SURFACE_ALIASES = [
  * domain directory and walking `db/schema/` whole would scan every table in the
  * database from a gate about one domain.
  */
-const OUTER_PATHS = [
-  ...walk('db/ranking'),
-  'db/schema/ranking.ts',
-  ...SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /ranking/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  ),
-  ...SURFACE_ALIASES.map((alias) => alias.path),
-];
+function outerPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('db/ranking', readDir),
+    // RECURSIVE and matching the PATH, where this was one level deep beside a
+    // recursive `walk()` — so nothing under `routes/admin/` or
+    // `controllers/admin/` could enter the population (#460). It also DERIVES
+    // `db/schema/ranking.ts`, which was the one hand-written entry left.
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, RANKING_NAME_PATTERN, readDir),
+    ...SURFACE_ALIASES.map((alias) => alias.path),
+  ];
+}
+
+const OUTER_PATHS = outerPaths();
 
 /**
  * The enumeration floor, per SHAPE.
@@ -345,5 +366,43 @@ describe('WALL 5: the operator surface cannot sell a position', () => {
     expect(forbiddenPath.test("router.post('/offers/:id/boost', handler);")).toBe(true);
     expect(forbiddenPath.test("router.post('/offers/:id/pin', handler);")).toBe(true);
     expect(forbiddenPath.test("router.post('/policies/:id/activate', handler);")).toBe(false);
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate's derivation, and
+ * hand lists fail silently. So: sweep the whole of `src/` for paths naming this
+ * domain and require each to be in the population or in a counted exclusion. A
+ * bag directory nobody has invented yet brings its modules under these walls
+ * with no edit here.
+ *
+ * The population for the sweep is BOTH halves — `services/ranking/`, which the
+ * detectors scan through `domainSources()`, and the outer paths — because a
+ * module is covered if any wall in this file reaches it, and splitting the
+ * comparison would report every module of the service directory as missing.
+ *
+ * `ranking` is an unambiguous token in this tree, so the exclusion set is EMPTY,
+ * and it is empty because it was MEASURED rather than guessed: the sweep selects
+ * 15 modules and every one is this domain's. `offer-comparison` — the surface
+ * this domain serves under a different name — carries no `ranking` in its path,
+ * which is why `SURFACE_ALIASES` above exists and is asserted from the imports.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every ranking-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: (readDir) => [
+        ...walkOwnedDirectory('services/ranking', readDir),
+        ...outerPaths(readDir),
+      ],
+      pattern: RANKING_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 15 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 11,
+      plantIn: 'lib',
+      plantName: 'ranking-cache.ts',
+    });
   });
 });

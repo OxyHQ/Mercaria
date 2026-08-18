@@ -28,9 +28,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   CONDITION_ASSERTIONS,
@@ -60,26 +67,6 @@ import {
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /**
- * Every module of the condition domain.
- *
- * A new one belongs on this list, and the vacuity floor below is what forces
- * whoever adds one to look here rather than quietly landing a module no gate
- * scans.
- */
-function conditionModulesUnder(relative: string): string[] {
-  // RECURSIVE. The previous walk read the directory root only, which is the
-  // shape #472 found hiding `services/ingestion/adapters/`.
-  const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...conditionModulesUnder(child));
-    else if (entry.name.endsWith('.ts')) found.push(child);
-  }
-  return found.sort();
-}
-
-/**
  * The domain's HTTP surface, DERIVED — and the match is INCLUDES rather than
  * startsWith, which is load-bearing here.
  *
@@ -90,13 +77,23 @@ function conditionModulesUnder(relative: string): string[] {
  * router itself. Checked against the tree before loosening the match: these are
  * the only modules in the scanned roots whose name contains `condition`.
  */
-function conditionHttpSurface(): string[] {
-  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => entry.name.includes('condition'))
-      .map((entry) => `${directory}/${entry.name}`),
-  );
+const CONDITION_NAME_PATTERN = /condition/i;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` joins the three copied from gate to gate, which lets
+ * `db/schema/condition.ts` be DERIVED below rather than named individually. A
+ * hand list of one is still a hand list: it is complete the day it is written
+ * and silent the day this domain grows a second schema module.
+ */
+const CONDITION_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+function conditionHttpSurface(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // RECURSIVE and matching the PATH, where this was one level deep beside a
+  // recursive walk — so nothing under `routes/admin/` or `controllers/admin/`
+  // could enter the population (#460).
+  return namedInSharedDirectories(CONDITION_SHARED_DIRECTORIES, CONDITION_NAME_PATTERN, readDir);
 }
 
 /**
@@ -111,12 +108,15 @@ function conditionHttpSurface(): string[] {
  * `db/schema/condition.ts` is named individually because it is the one member
  * that lives in a directory this domain does not own.
  */
-const CONDITION_DOMAIN_PATHS = [
-  ...conditionModulesUnder('services/condition'),
-  ...conditionModulesUnder('db/condition'),
-  ...conditionHttpSurface(),
-  'db/schema/condition.ts',
-];
+function conditionDomainPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/condition', readDir),
+    ...walkOwnedDirectory('db/condition', readDir),
+    ...conditionHttpSurface(readDir),
+  ];
+}
+
+const CONDITION_DOMAIN_PATHS = conditionDomainPaths();
 
 /** The six tables, with their SQL names so a failure reads as a table name. */
 const CONDITION_TABLES = [
@@ -499,5 +499,54 @@ describe('#90 gate 6 — a sub-floor mapping can never carry a taxonomy key', ()
     expect(`if (rule.confidence < ${CONDITION_MAPPING_CONFIDENCE_FLOOR}) return;`).toContain(
       String(CONDITION_MAPPING_CONFIDENCE_FLOOR),
     );
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY list above is the last hand list in this gate's derivation, and
+ * hand lists fail silently. So: sweep the whole of `src/` for paths naming this
+ * domain and require each to be in the population or in a counted exclusion. A
+ * bag directory nobody has invented yet brings its modules under these walls
+ * with no edit here.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  /**
+   * The one condition-NAMED module that is not a condition-domain module, EXACT.
+   *
+   * `services/catalog-pages/condition-scope.ts` belongs to #73's catalogue
+   * pages — it is that domain's condition-scoped page selection, not this
+   * domain's taxonomy. It fires none of the walls here TODAY, which is exactly
+   * why admitting it would be the wrong fix rather than a harmless one: it would
+   * put another domain's module behind this domain's walls, and the failure
+   * would arrive later as a red build for whoever edits #73. Its own gate,
+   * `catalog-page-isolation.test.ts`, is what covers it.
+   *
+   * EXACT rather than a `services/catalog-pages/` prefix: a directory-shaped
+   * exclusion excuses everything in it forever, including the module somebody
+   * adds there next.
+   */
+  const NOT_THIS_DOMAIN = [
+    {
+      path: 'services/catalog-pages/condition-scope.ts',
+      why: "#73's catalogue-page condition scope, covered by catalog-page-isolation.test.ts",
+    },
+  ] as const;
+
+  it('every condition-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: conditionDomainPaths,
+      pattern: CONDITION_NAME_PATTERN,
+      notThisDomain: NOT_THIS_DOMAIN,
+      // Below today's 13 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 9,
+      plantIn: 'lib',
+      plantName: 'condition-cache.ts',
+    });
+    // The exclusion's own count, so a second entry is a decision somebody takes
+    // rather than a line that appears (#448).
+    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(1);
   });
 });

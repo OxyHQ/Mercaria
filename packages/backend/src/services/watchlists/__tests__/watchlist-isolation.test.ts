@@ -31,6 +31,13 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   WATCHLIST_BASKET_OPTIMIZATION_SEAM,
@@ -99,15 +106,23 @@ function filesIn(
  * derivation also picks up `db/schema/watchlists.ts`, which the hand list did
  * not name at all (#460).
  */
-function domainSources(): ScannedFile[] {
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
   return [
-    ...DOMAIN_DIRECTORIES.flatMap((relative) =>
-      filesIn(join(SRC_ROOT, relative), relative, '.ts'),
-    ),
-    ...OUTER_DIRECTORIES.flatMap((relative) =>
-      filesIn(join(SRC_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
-    ),
+    // BOTH halves recurse now. `filesIn` read one directory level, so a
+    // sub-directory of `services/watchlists/` was outside every wall and the
+    // shared-directory sweep could reach neither `routes/admin/` nor
+    // `controllers/admin/` (#460). The shared half also matches the PATH rather
+    // than the filename, because a module inside a directory named for the
+    // domain names it nowhere in its own name.
+    ...DOMAIN_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(OUTER_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir),
   ];
+}
+
+function domainSources(): ScannedFile[] {
+  return domainRelativePaths().map((relative) =>
+    readScanned(join(SRC_ROOT, relative), relative),
+  );
 }
 
 /**
@@ -504,6 +519,44 @@ describe('a watchlist basket is honest, private, and reaches nothing commercial'
     );
     expect(withoutComments('/* never imports ../fees/a.js */\nconst x = 1;')).not.toContain(
       '../fees/a.js',
+    );
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The DIRECTORY lists above are the last hand lists in this gate's server
+ * derivation, and hand lists fail silently. So: sweep the whole of `src/` for
+ * paths NAMING this domain and require each to be in the population or in a
+ * counted exclusion. A bag directory nobody has invented yet brings its modules
+ * under these walls with no edit here.
+ *
+ * The exclusion set is EMPTY because it was MEASURED — `watchlist` is an
+ * unambiguous token in this tree and the sweep selects 16 modules, every one of
+ * them this domain's.
+ *
+ * The STOREFRONT half is out of scope for this sweep, which walks `src/` only;
+ * it has its own derivation and its own floor above.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every watchlist-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 16 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 12,
+      plantIn: 'lib',
+      plantName: 'watchlists-cache.ts',
+    });
+  });
+
+  it('the relative population really is the one the walls scan', () => {
+    // Two spellings of one population can disagree, so this pins them together.
+    expect(domainSources().map((file) => file.relative).sort()).toEqual(
+      domainRelativePaths().sort(),
     );
   });
 });

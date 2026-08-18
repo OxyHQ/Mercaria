@@ -26,9 +26,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   FEED_FIELD_TRANSFORMS,
@@ -42,20 +49,35 @@ import { PROTECTED_COLUMNS } from '../../../db/protectedColumns.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
-    else if (entry.name.endsWith('.ts')) found.push(child);
-  }
-  return found;
-}
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The hyphen is OPTIONAL, and that widening is the point rather than tidiness.
+ * The pattern read `/feed-import/i`, which cannot match `db/schema/feedImport.ts`
+ * — the seven tables this domain owns, in the one directory whose files are
+ * named in camelCase. So the entry that closes the `db/schema` gap below is
+ * unreachable to the old spelling, and adding the directory alone would have
+ * changed NOTHING while looking exactly like a fix.
+ *
+ * Widening a pattern is the PERMISSIVE direction and owes its own measurement,
+ * so here it is: `/feed-?import/i` over the whole of `src/` selects 32 modules,
+ * all of them this domain's — the 27 under `services/feed-import/`, the two
+ * repositories, the schema module and the two HTTP modules. It admits nothing
+ * that is not already here. `feedback`, `feed.ts` and `routes/admin/feeds.ts`
+ * do not match it, which is why the last of those is still listed in
+ * `UNDERIVABLE_MODULES` rather than derived.
+ */
+const FEED_IMPORT_NAME_PATTERN = /feed-?import/i;
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` was missing, inherited from the three-name list copied from gate
+ * to gate and from `scripts/isolation-gate-census.ts`'s own bag-directory list.
+ * The sweep at the end of this file is what stops the next omission being
+ * silent, and it is the general remedy rather than this one entry.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /**
  * The modules no filename rule reaches, each with the reason it is here.
@@ -88,17 +110,16 @@ const UNDERIVABLE_MODULES = [
  * nobody has reviewed. The walk is recursive, so `parse/` needs no second
  * entry and a third parser directory needs no edit here at all.
  */
-const DOMAIN_PATHS = [
-  ...walk('services/feed-import'),
-  ...walk('db/feedImport'),
-  ...UNDERIVABLE_MODULES,
-  ...SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /feed-import/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  ),
-];
+function domainPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('services/feed-import', readDir),
+    ...walkOwnedDirectory('db/feedImport', readDir),
+    ...UNDERIVABLE_MODULES,
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, FEED_IMPORT_NAME_PATTERN, readDir),
+  ];
+}
+
+const DOMAIN_PATHS = domainPaths();
 
 /**
  * The enumeration floor, per SHAPE.
@@ -123,6 +144,7 @@ function expectEveryShapeFoundSomething(): void {
   expect(from('middleware/'), 'no feed-import request schema was derived').toBeGreaterThanOrEqual(
     1,
   );
+  expect(from('db/schema/'), 'no feed-import schema module was derived').toBeGreaterThanOrEqual(1);
   expect(DOMAIN_PATHS.filter((path) => path.includes('__tests__'))).toEqual([]);
 }
 
@@ -404,4 +426,31 @@ describe('#454: a relative import cannot walk around these detectors', () => {
     expect(RANKING_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
 
+});
+
+/**
+ * The population's own defence, and the general form of the `db/schema` fix.
+ *
+ * Adding one directory closes today's gap; this closes the class. The DIRECTORY
+ * list above is the last derived hand list in this gate, and hand lists fail
+ * silently — every floor and count stayed green while the seven tables this
+ * domain owns sat outside every wall.
+ *
+ * The two `UNDERIVABLE_MODULES` are in the POPULATION and so are covered; they
+ * simply do not match the name pattern, which is why they were listed in the
+ * first place. The sweep only has to report what nothing covers.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every feed-import-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainPaths,
+      pattern: FEED_IMPORT_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 32 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 25,
+      plantIn: 'lib',
+      plantName: 'feed-import-cache.ts',
+    });
+  });
 });

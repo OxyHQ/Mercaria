@@ -41,9 +41,15 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services/seo');
 
 /**
  * Every `.ts` under `relative`, RECURSIVELY, excluding the test tree.
@@ -73,8 +79,34 @@ function domainSources(): { relative: string; source: string }[] {
   }));
 }
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
+/**
+ * What a module of this domain is called, wherever it lives — ANCHORED.
+ *
+ * A bare `/seo/i` is a three-letter substring and it collides: it matches
+ * `db/procurement/purchaseOrderRepository.ts`, because `purcha[seO]rder`
+ * contains the letters. That is harmless while the pattern only ever meets a
+ * filename in three flat directories, and stops being harmless the moment it
+ * is pointed at the whole tree — which is exactly what the sweep at the end of
+ * this file does. Requiring the token at a path-segment boundary (or after
+ * `internal-`) selects 19 modules, every one of them this domain's, and drops
+ * the procurement repository.
+ *
+ * So the anchor is not tidiness: without it the sweep below would demand an
+ * exclusion for a module that has nothing to do with SEO, and the honest fix
+ * for that is a pattern that does not claim it in the first place.
+ */
+const SEO_NAME_PATTERN = /(?:^|\/)(?:internal-)?seo(?:[-./]|$)/i;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * This domain owns no `db/schema` module — it is a projection over other
+ * domains' tables — so the directory is listed for the sweep's sake and
+ * contributes nothing today. That is the right shape: if #75 ever grows a table,
+ * it is covered on the day it lands rather than on the day somebody remembers
+ * this file.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /**
  * The pieces that live outside the domain directory. WALKED and DERIVED, never
@@ -91,15 +123,17 @@ const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
  * SEO-named module belonging to somebody else would show up here as a scanned
  * file rather than as silence.
  */
-const OUTER_PATHS = [
-  ...walk('db/seo'),
-  ...SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /seo/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  ),
-];
+function outerPaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory('db/seo', readDir),
+    // RECURSIVE and matching the PATH, where this was one level deep beside a
+    // recursive walk — so nothing under `routes/admin/` or `controllers/admin/`
+    // could enter the population (#460).
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, SEO_NAME_PATTERN, readDir),
+  ];
+}
+
+const OUTER_PATHS = outerPaths();
 
 function outerSources(): { relative: string; source: string }[] {
   return OUTER_PATHS.map((relative) => ({
@@ -353,5 +387,55 @@ describe('WALL 6: the rollout levers are interpreted in ONE module', () => {
     expect(CONFIG_REFERENCE.test("import { config } from '../../config/index.js';")).toBe(true);
     expect(CONFIG_REFERENCE.test('if (process.env.SEO_INDEXING_MODE) return true;')).toBe(true);
     expect(CONFIG_REFERENCE.test('const mode = request.mode;')).toBe(false);
+  });
+});
+
+/**
+ * The population's own defence.
+ *
+ * The docblock above `OUTER_PATHS` used to claim that a new SEO-named module
+ * belonging to somebody else "would show up here as a scanned file rather than
+ * as silence". That was true only of the three flat directories it read; a
+ * module anywhere else in the tree showed up as neither. This is what makes the
+ * claim general.
+ *
+ * The exclusion set is EMPTY because the pattern is ANCHORED — see
+ * `SEO_NAME_PATTERN`. An unanchored `/seo/i` would need one entry here for
+ * `db/procurement/purchaseOrderRepository.ts`, which would be an exclusion
+ * apologising for the pattern rather than recording a decision.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every seo-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: (readDir) => [
+        ...walkOwnedDirectory('services/seo', readDir),
+        ...outerPaths(readDir),
+      ],
+      pattern: SEO_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 19 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 14,
+      plantIn: 'lib',
+      plantName: 'seo-cache.ts',
+    });
+  });
+
+  it('the anchor is what keeps the exclusion set empty', () => {
+    // A negative control on the pattern itself, naming the real collision.
+    const collision = 'db/procurement/purchaseOrderRepository.ts';
+    expect(statSync(join(SRC_ROOT, collision)).isFile(), `${collision} moved`).toBe(true);
+    expect(/seo/i.test(collision), 'the unanchored pattern really would take it').toBe(true);
+    expect(SEO_NAME_PATTERN.test(collision), 'the anchor drops it').toBe(false);
+    // …and the anchor still admits every shape this domain uses.
+    for (const own of [
+      'services/seo/sitemap.ts',
+      'db/seo/seoRepository.ts',
+      'controllers/internal-seo.controller.ts',
+      'middleware/seo-schemas.ts',
+      'routes/seo.ts',
+    ]) {
+      expect(SEO_NAME_PATTERN.test(own), `${own} is this domain's`).toBe(true);
+    }
   });
 });
