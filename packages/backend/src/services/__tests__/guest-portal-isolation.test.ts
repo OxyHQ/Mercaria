@@ -21,29 +21,87 @@ import { fileURLToPath } from 'node:url';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
+/** A directory entry, as `readdirSync(..., { withFileTypes: true })` reports one. */
+type DirectoryEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+/**
+ * Every `.ts` under `relative`, recursively, excluding the test tree.
+ *
+ * Takes its reader so the positive controls below can ask "would the derivation
+ * get a module that does not exist yet?" of the REAL derivation rather than of a
+ * re-spelling of it. Walking `''` yields paths with no leading slash, which is
+ * what makes the whole-tree sweep comparable with the population.
+ */
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+  for (const entry of readDir(relative)) {
     if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
+    const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
     else if (entry.name.endsWith('.ts')) found.push(child);
   }
   return found;
 }
 
 /**
- * The portal's HTTP surface, derived from the filename convention these flat
- * directories already follow (#472's device): the router, its middleware and
- * the operator controller.
+ * Anything whose name carries this domain, in every spelling it uses.
+ *
+ * `guest-order` singular, not `guest-orders`, and that one character is the
+ * whole reason this constant is worth a comment: the pattern was
+ * `guest-orders`, and #106's `services/orders/guest-order-portal.service.ts` —
+ * the portal VIEW projection, which builds exactly what a grant authorizes — is
+ * spelled with the singular and matched nothing. It was named in NO isolation
+ * gate in the repository.
+ *
+ * Found by the check #460 asks for and that nothing automates: a gate whose
+ * whole-tree assertion reports ZERO modules outside the population is either
+ * complete or asking the wrong question, and those look identical. Re-running
+ * the sweep against the bare word `portal` is what told them apart.
  */
-function httpSurface(): string[] {
-  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /^guest-(portal|orders)/.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
+const DOMAIN_NAMED = /guest-portal|guestPortal|guest-order|guestOrder/i;
+
+/**
+ * The shared flat directories a portal module lives in under a domain NAME.
+ *
+ * `db/schema` joined this list in #460: the domain owns `db/schema/guestPortal.ts`
+ * — five tables including the credential table whose two CHECKs carry the whole
+ * verification model — and it was scanned by nothing here.
+ */
+const PORTAL_SHARED_DIRECTORIES = [
+  'controllers',
+  'routes',
+  'middleware',
+  'db/schema',
+  // #106's `services/orders/` holds forty unrelated modules, so it is read the
+  // same way the other four are — walked, then narrowed by NAME — rather than
+  // walked whole or named as a path. `guest-claim-isolation.test.ts` names its
+  // two `services/orders/` modules by hand for want of "a rule that derives
+  // them without deriving things that are not claim read paths"; the domain
+  // name IS that rule here.
+  'services/orders',
+] as const;
+
+/**
+ * The portal's HTTP surface and schema module, derived from the filename
+ * convention these flat directories already follow (#472's device).
+ *
+ * RECURSES, via `walk`. It was `readdirSync(...).filter(entry.isFile())` — ONE
+ * level — sitting fifteen lines below a `walk` that recurses, so the file read as
+ * though it recursed throughout and it did not. Measured across the tree (#460):
+ * 27 gates carry that exact asymmetry, and it is live rather than latent —
+ * `routes/admin/merchant-activation.ts` is the module it dropped in a sibling
+ * gate. Nothing of this domain sits in a subdirectory TODAY, so this half of the
+ * repair adds no module; what it does is stop `routes/admin/guest-orders.ts` from
+ * being invisible on the day somebody writes it. The whole-tree assertion below
+ * is what would report such a module in the meantime.
+ */
+function sharedSurface(readDir: DirectoryReader = readDirectory): string[] {
+  return PORTAL_SHARED_DIRECTORIES.flatMap((directory) =>
+    walk(directory, readDir).filter((path) => DOMAIN_NAMED.test(path.split('/').pop() ?? '')),
   );
 }
 
@@ -51,13 +109,41 @@ function httpSurface(): string[] {
  * Every module a portal REQUEST passes through, WALKED rather than listed
  * (#460).
  *
- * The list this replaces named 17 modules and the walk finds 18: it omitted
+ * The list this replaces named 17 modules and the walk found 18: it omitted
  * `controllers/guest-portal-operator.controller.ts`, so the operator surface —
  * the one place a Mercaria employee touches a buyer's portal — was behind none
  * of the walls below. That is #472's `ebay-isolation` finding again, and it is
  * the reason a list whose comment claims completeness is worse than no comment.
+ *
+ * It is now **20**: `db/schema/guestPortal.ts` was outside every wall, found by
+ * the whole-tree assertion below rather than by anybody reading the list, and
+ * `services/orders/guest-order-portal.service.ts` was outside every wall in the
+ * REPOSITORY, found by re-checking this gate's own name pattern.
  */
-const PORTAL_PATHS = [...walk('services/guest-portal'), ...walk('db/guestPortal'), ...httpSurface()];
+const PORTAL_PATHS = [
+  ...walk('services/guest-portal'),
+  ...walk('db/guestPortal'),
+  ...sharedSurface(),
+];
+
+/**
+ * Every module in the tree whose PATH names this domain — the assertion that
+ * closes the population against the NEXT mechanism rather than only these two.
+ *
+ * A gate can be walk-only, with no hand list anywhere, and still miss a module,
+ * because the miss lives in the DIRECTORY list the walk reads. Two different
+ * mechanisms produced misses in this file (a non-recursing shared sweep and an
+ * unscanned `db/schema`) and this one assertion covers both, plus whatever is
+ * found next.
+ *
+ * Matched on the PATH, not the filename: a module inside `services/guest-portal/`
+ * names the domain nowhere in its own name, so a filename sweep would report a
+ * fraction of the domain and an empty "outside" set — which reads exactly like a
+ * clean pass.
+ */
+function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return walk('', readDir).filter((path) => DOMAIN_NAMED.test(path));
+}
 
 /**
  * The READ path — the modules that must keep serving a placed guest order when
@@ -165,8 +251,13 @@ describe('guest portal isolation (static)', () => {
     const from = (prefix: string) => PORTAL_PATHS.filter((path) => path.startsWith(prefix)).length;
     expect(from('services/guest-portal/'), 'the service walk found nothing').toBeGreaterThanOrEqual(9);
     expect(from('db/guestPortal/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(6);
-    expect(httpSurface().length, 'the HTTP surface derivation found nothing').toBeGreaterThanOrEqual(3);
-    expect(PORTAL_PATHS.length).toBeGreaterThanOrEqual(18);
+    expect(sharedSurface().length, 'the shared-directory derivation found nothing').toBeGreaterThanOrEqual(5);
+    expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
+    expect(PORTAL_PATHS.length).toBeGreaterThanOrEqual(20);
+    expect(
+      PORTAL_PATHS.filter((path) => path.startsWith('services/orders/')).length,
+      "#106's portal projection left the population",
+    ).toBeGreaterThanOrEqual(1);
 
     // The walk really reads the disk, and no test file enters the scanned set.
     for (const path of PORTAL_PATHS) {
@@ -183,6 +274,144 @@ describe('guest portal isolation (static)', () => {
     for (const path of PORTAL_PATHS) {
       expect(readPortalSource(path).length).toBeGreaterThan(200);
     }
+  });
+
+  it('no portal-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion. A walked population whose DIRECTORY list is
+    // hand-written is still a hand list, and it fails the same silent way: this
+    // gate's list carried `controllers`, `routes` and `middleware` and not
+    // `db/schema`, so the wall shipped over 18 of the domain's 19 modules with
+    // no floor, count or walk able to see it.
+    //
+    // So the exclusion is derived rather than the inclusion. Sweep the whole
+    // source tree for modules NAMED for this domain and require each to be in
+    // the population or in a counted, justified exclusion — and a new bag
+    // directory brings its modules under the wall with no edit here.
+    const swept = domainNamedModules();
+
+    // The sweep's OWN vacuity floor, first: a traversal that reached nothing
+    // reports no module outside the population, which is the same answer a
+    // complete population gives. MEASURED at 20.
+    expect(
+      swept.length,
+      'the whole-tree sweep found almost nothing; it cannot report a module outside the ' +
+        'population if it never reached one',
+    ).toBeGreaterThanOrEqual(15);
+
+    // ONE comparison, shared by the wall and by its positive control below. Two
+    // spellings would let the control pass while the wall went vacuous —
+    // measured in #609: with the control re-deriving the population itself,
+    // mutating the wall's to contain everything left every test green.
+    const outsidePopulation = (paths: readonly string[]): string[] => {
+      const population = new Set(PORTAL_PATHS);
+      return paths.filter((path) => !population.has(path));
+    };
+    // EXACT and empty, and empty because it was MEASURED empty rather than
+    // guessed: every guest-portal-named and guest-orders-named module in the
+    // tree is a module of this domain. A future `guest-orders` module owned by
+    // somebody else goes here WITH its reason, and the count moves in the same
+    // edit (#448).
+    expect(
+      outsidePopulation(swept),
+      'names the guest portal but sits outside the population every wall above scans — add its ' +
+        'directory to PORTAL_SHARED_DIRECTORIES, or excuse it here with a reason and move the count',
+    ).toEqual([]);
+
+    // THE POSITIVE CONTROL, and without it the assertion above cannot fail. An
+    // empty expected set is satisfied by a sweep that reaches nothing, by a
+    // population that contains everything, and by a correct tree — three
+    // different worlds. So the same sweep runs against a reader reporting a
+    // portal-named module in a directory the population does NOT draw from, and
+    // it must come back OUTSIDE.
+    const planted = 'lib/guest-portal-cache.ts';
+    const seeded = domainNamedModules((relative) =>
+      relative === 'lib'
+        ? [...readDirectory(relative), { name: 'guest-portal-cache.ts', isDirectory: () => false, isFile: () => true }]
+        : readDirectory(relative),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain(planted);
+    expect(
+      outsidePopulation(seeded),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    // …and the plant is not on disk, or the control asserts about the tree
+    // rather than about the sweep.
+    expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW. This is the clause the plant above
+    // cannot supply, and it is here rather than trusted to the shared
+    // comparison because that device does not do what it is documented to do:
+    // an empty "outside" set is also what a population that swallowed the tree
+    // produces, and a plant absent from the real sweep is reported outside a
+    // population built FROM the real sweep exactly as it is outside a correct
+    // one. MEASURED against `analytics-ranking-isolation.test.ts`, whose own
+    // comment claims the shared comparison closes this: replacing its wall's
+    // population with `new Set(swept)` leaves all TEN of its tests green.
+    //
+    // What does bite is naming modules that EXIST and belong to somebody else,
+    // so a widening broad enough to empty the set above fails here instead.
+    // Mutation-tested: `...walk('')` added to the population fails this clause
+    // naming `controllers/orders.controller.ts`.
+    for (const foreign of [
+      'controllers/orders.controller.ts',
+      'routes/cart.ts',
+      'db/schema/orders.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(PORTAL_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
+    // The probe that justifies the conversion, kept as a test rather than as a
+    // claim that one was run once. A population that is COMPLETE today passes
+    // every floor and every count it carries; the only way it fails is a module
+    // nobody adds to it. Written against the DERIVATION rather than the
+    // filesystem, because seeding a real file would mutate a tree shared with
+    // every parallel suite.
+    const seededWith = (directory: string, added: string): string[] =>
+      sharedSurface((relative) =>
+        relative === directory
+          ? [...readDirectory(relative), { name: added, isDirectory: () => false, isFile: () => true }]
+          : readDirectory(relative),
+      );
+
+    // A shared directory admits a new module BY NAME …
+    expect(
+      seededWith('routes', 'guest-orders-support.ts'),
+      'a new guest-orders route does not enter the population; it would sit behind no wall',
+    ).toContain('routes/guest-orders-support.ts');
+    expect(
+      seededWith('db/schema', 'guestPortalArchive.ts'),
+      'a new portal schema module does not enter the population',
+    ).toContain('db/schema/guestPortalArchive.ts');
+    // … and ONLY by name, or this wall starts firing at whoever edits an order.
+    expect(
+      seededWith('routes', 'orders.ts'),
+      'a foreign route entered the population; the name rule has stopped narrowing',
+    ).not.toContain('routes/orders.ts');
+
+    // And the RECURSION, which is the other half of the #460 repair: a module in
+    // a SUBDIRECTORY of a shared directory must be admitted. The one-level
+    // `readdirSync` this replaced could not see one, and that is how
+    // `routes/admin/merchant-activation.ts` ended up behind no wall in a sibling
+    // gate.
+    expect(
+      sharedSurface((relative) =>
+        relative === 'routes'
+          ? [...readDirectory(relative), { name: 'admin', isDirectory: () => true, isFile: () => false }]
+          : relative === 'routes/admin'
+            ? [{ name: 'guest-orders.ts', isDirectory: () => false, isFile: () => true }]
+            : readDirectory(relative),
+      ),
+      'a module in a SUBDIRECTORY of a shared directory is not admitted; the sweep beside the ' +
+        'recursive walk is still one level deep',
+    ).toContain('routes/admin/guest-orders.ts');
   });
 
   it('no portal READ path is gated by a guest feature lever', () => {

@@ -22,13 +22,27 @@ import { SUPPORT_FORBIDDEN_AUTOMATIC_OUTCOMES } from '@mercaria/shared-types';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Every `.ts` under `relative`, recursively, excluding the test tree. */
-function walk(relative: string): string[] {
+/** A directory entry, as `readdirSync(..., { withFileTypes: true })` reports one. */
+type DirectoryEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type DirectoryReader = (relative: string) => DirectoryEntry[];
+
+const readDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(SRC_ROOT, relative), { withFileTypes: true });
+
+/**
+ * Every `.ts` under `relative`, recursively, excluding the test tree.
+ *
+ * Takes its reader so the positive control below can ask "would the sweep get a
+ * module that does not exist yet?" of the REAL sweep rather than of a
+ * re-spelling of it. Walking `''` yields paths with no leading slash, which is
+ * what makes the whole-tree sweep comparable with the population.
+ */
+function walk(relative: string, readDir: DirectoryReader = readDirectory): string[] {
   const found: string[] = [];
-  for (const entry of readdirSync(join(SRC_ROOT, relative), { withFileTypes: true })) {
+  for (const entry of readDir(relative)) {
     if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
+    const child = relative === '' ? entry.name : `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walk(child, readDir));
     else if (entry.name.endsWith('.ts')) found.push(child);
   }
   return found;
@@ -90,12 +104,8 @@ const DOMAIN_PATHS = [
  * domain nowhere in its own name and a filename sweep would report an empty
  * "outside" set, which reads as a clean pass.
  */
-function domainNamedModules(): string[] {
-  // `walk` composes `${relative}/${entry.name}`, so the ROOT walk yields a
-  // leading slash and nothing would match — reporting every module as outside.
-  return walk('')
-    .map((path) => path.replace(/^\//, ''))
-    .filter((path) => DOMAIN_NAMED.test(path));
+function domainNamedModules(readDir: DirectoryReader = readDirectory): string[] {
+  return walk('', readDir).filter((path) => DOMAIN_NAMED.test(path));
 }
 
 /**
@@ -233,6 +243,49 @@ describe('buyer request isolation (static)', () => {
       named.filter((path) => !DOMAIN_PATHS.includes(path)).sort(),
       'names this domain but is outside the population every wall below scans',
     ).toEqual([]);
+
+    // THE POSITIVE CONTROL, added in #460's follow-up, and without it the
+    // assertion above cannot fail: `toEqual([])` is satisfied by a correct
+    // tree, by a sweep that reached nothing AND by a population containing
+    // everything, and the vacuity floor covers only the second. So the same
+    // sweep runs against a reader reporting a domain-named module in a
+    // directory the population does NOT draw from, and it must come back
+    // OUTSIDE.
+    const planted = 'lib/buyer-request-cache.ts';
+    const seeded = domainNamedModules((relative) =>
+      relative === 'lib'
+        ? [...readDirectory(relative), { name: 'buyer-request-cache.ts', isDirectory: () => false, isFile: () => true }]
+        : readDirectory(relative),
+    );
+    expect(seeded, 'the sweep did not reach a planted module').toContain('lib/buyer-request-cache.ts');
+    expect(
+      seeded.filter((path) => !DOMAIN_PATHS.includes(path)).sort(),
+      'a module the population does not cover was NOT reported outside it — the empty result ' +
+        'above is a probe that cannot fail rather than a measurement',
+    ).toEqual([planted]);
+    // …and the plant is not on disk, or the control asserts about the tree
+    // rather than about the sweep.
+    expect(domainNamedModules()).not.toContain(planted);
+
+    // And the POPULATION is still NARROW — the third world, and the one the
+    // plant cannot see, because a plant absent from the real sweep is reported
+    // outside a population built FROM that sweep exactly as it is outside a
+    // correct one. MEASURED on `analytics-ranking-isolation.test.ts`, whose
+    // comment claims its shared comparison closes this: replacing that wall's
+    // population with `new Set(swept)` leaves all ten of its tests green. What
+    // bites is naming modules that EXIST and belong to somebody else.
+    for (const foreign of [
+      'routes/orders.ts',
+      'routes/guest-orders.ts',
+      'db/schema/orders.ts',
+      'middleware/auth.ts',
+    ]) {
+      expect(DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+    }
 
     // EXACT: an unbounded exclusion list lets any number of modules ride in
     // behind the ones somebody justified (#448).
