@@ -16,9 +16,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
 import {
@@ -31,11 +38,52 @@ import { OUTBOUND_REFUSAL_REASONS } from '../../offer-freshness/outbound-gate.js
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * One word, matched against the PATH, and it reaches `db/affiliateOutbound/`
+ * and `db/schema/affiliateOutbound.ts` on the case-insensitive flag. It is NOT
+ * free the way a hyphenated token is: three modules in other domains carry it,
+ * each excused by name below.
+ */
+const OUTBOUND_NAME_PATTERN = /outbound/i;
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/outbound', 'db/affiliateOutbound'] as const;
+
+/** The flat directories a module of this domain lives in under a domain NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * Domain-named modules that belong to somebody else.
+ *
+ * They were never EXCLUDED before #460 — they were never asked about. The
+ * enumeration walked two directories and appended three exact filenames, so a
+ * module named `outbound` inside another domain's own directory was outside
+ * every wall here and outside every count that could have said so.
+ *
+ * Each is a NAMED SEAM in the domain that owns it, and each is walked whole by
+ * that domain's own gate.
+ */
+const FOREIGN_OUTBOUND_MODULES = [
+  {
+    path: 'services/merchant-pages/outbound.ts',
+    why: "#73's storefront outbound ACTION — the merchant page's own seam onto this domain, walked by merchant-page-isolation.test.ts.",
+  },
+  {
+    path: 'services/offer-freshness/outbound-gate.ts',
+    why: "#68's freshness check the redirect RUNS before sending anybody anywhere. This gate imports its refusal vocabulary; the module is #68's and freshness-isolation.test.ts walks it.",
+  },
+  {
+    path: 'services/product-page/outbound.ts',
+    why: "#71's product-row primary ACTION, which decides what a row's button does. Walked by product-page-isolation.test.ts.",
+  },
+] as const;
+
 /** Every file of the domain, enumerated from the real directories. */
-function enumerateDomain(): string[] {
-  const roots = [join(SRC_ROOT, 'services', 'outbound'), join(SRC_ROOT, 'db', 'affiliateOutbound')];
-  const files: string[] = [];
-  /**
+function enumerateDomain(readDir: DirectoryReader = readSrcDirectory): string[] {
+  const excused = new Set<string>(FOREIGN_OUTBOUND_MODULES.map((module) => module.path));
+  /*
    * RECURSIVE, and that is a correction rather than a flourish.
    *
    * The first version of this walk skipped directories, which silently left
@@ -46,23 +94,20 @@ function enumerateDomain(): string[] {
    *
    * `__tests__` is excluded deliberately: a test file names the things it
    * asserts are absent, so scanning it would flag this very file.
+   *
+   * The controller, the route and the schema were three appended FILENAMES
+   * (#460). They arrive through the NAME pattern now, so there is one derivation
+   * rather than a walk plus a hand list ten lines below it.
    */
-  const walk = (root: string): void => {
-    for (const entry of readdirSync(root)) {
-      const full = join(root, entry);
-      if (statSync(full).isDirectory()) {
-        if (entry !== '__tests__') walk(full);
-        continue;
-      }
-      if (!entry.endsWith('.ts')) continue;
-      files.push(full);
-    }
-  };
-  for (const root of roots) walk(root);
-  files.push(join(SRC_ROOT, 'controllers', 'outbound.controller.ts'));
-  files.push(join(SRC_ROOT, 'routes', 'outbound.ts'));
-  files.push(join(SRC_ROOT, 'db', 'schema', 'affiliateOutbound.ts'));
-  return files;
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, OUTBOUND_NAME_PATTERN, readDir),
+  ].filter((relative) => !excused.has(relative));
+}
+
+/** The same population, as absolute paths, for the readers below. */
+function enumerateDomainAbsolute(): string[] {
+  return enumerateDomain().map((relative) => join(SRC_ROOT, relative));
 }
 
 /**
@@ -82,7 +127,7 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-const DOMAIN_FILES = enumerateDomain();
+const DOMAIN_FILES = enumerateDomainAbsolute();
 
 interface ScannedFile {
   readonly path: string;
@@ -490,5 +535,79 @@ describe('outbound isolation (#67)', () => {
     expect(OUTBOUND_REDIRECT_REFUSAL_REASONS.length).toBeGreaterThan(
       OUTBOUND_REFUSAL_REASONS.length,
     );
+  });
+});
+
+describe('the population every wall above is applied to (#460)', () => {
+  it('nothing naming outbound sits outside it', () => {
+    // The three foreign modules were never EXCLUDED before this — they were
+    // never asked about. The enumeration walked two directories and appended
+    // three exact filenames, so a module named `outbound` inside another
+    // domain's own directory was invisible to every floor and count here.
+    assertNothingOutsideDomainPopulation({
+      population: enumerateDomain,
+      pattern: OUTBOUND_NAME_PATTERN,
+      notThisDomain: FOREIGN_OUTBOUND_MODULES.map((module) => ({
+        path: module.path,
+        why: module.why,
+      })),
+      // Below today's 26 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 20,
+      plantIn: 'lib',
+      plantName: 'outbound-cache.ts',
+    });
+  });
+
+  it('ONE list of foreign modules feeds both the population and the exclusion', () => {
+    // Two spellings of one fact disagree in the permissive direction. The
+    // enumeration filters on the same array the exclusion is built from.
+    const population = enumerateDomain();
+    for (const { path } of FOREIGN_OUTBOUND_MODULES) {
+      expect(population, `${path} is excused AND scanned`).not.toContain(path);
+      expect(
+        statSync(join(SRC_ROOT, path)).isFile(),
+        `${path} no longer exists, so excusing it proves nothing`,
+      ).toBe(true);
+    }
+    // EXACT, not a floor: an excusing entry is a predicate rather than an
+    // identity, so a list with no count lets a fourth module be excluded
+    // without anybody deciding to (#448).
+    expect(FOREIGN_OUTBOUND_MODULES.length).toBe(3);
+  });
+
+  it('the three modules that used to be appended by FILENAME are still covered', () => {
+    const population = enumerateDomain();
+    for (const named of [
+      'controllers/outbound.controller.ts',
+      'routes/outbound.ts',
+      'db/schema/affiliateOutbound.ts',
+    ]) {
+      expect(population, `${named} left the population`).toContain(named);
+      expect(statSync(join(SRC_ROOT, named)).isFile()).toBe(true);
+    }
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, OUTBOUND_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(16);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      3,
+    );
+  });
+
+  it('the case-insensitive flag is load-bearing, and it is the only thing reaching db/', () => {
+    // `affiliateOutbound` is the domain's storage spelling, and a case-SENSITIVE
+    // `outbound` reaches neither the repository directory nor the schema module —
+    // the two places the click, posting and transaction tables are declared.
+    for (const camelCase of [
+      'db/affiliateOutbound/clickRepository.ts',
+      'db/schema/affiliateOutbound.ts',
+    ]) {
+      expect(OUTBOUND_NAME_PATTERN.test(camelCase)).toBe(true);
+      expect(/outbound/.test(camelCase), 'the lower-case spelling already matched').toBe(false);
+      expect(enumerateDomain()).toContain(camelCase);
+    }
   });
 });

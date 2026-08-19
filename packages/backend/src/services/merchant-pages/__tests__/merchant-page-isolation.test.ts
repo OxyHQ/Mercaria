@@ -46,6 +46,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -73,14 +80,48 @@ function walk(relative: string): string[] {
   return found;
 }
 
-/** The API-side HTTP surface, from the filename convention (#472's device). */
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The hyphen is optional because `db/merchantPages/` is camelCase, and the
+ * plural is optional because `middleware/merchant-page-schemas.ts` is singular.
+ * Measured over the whole of the backend's `src/`, this selects ten modules and
+ * every one is this domain's.
+ */
+const MERCHANT_PAGE_NAME_PATTERN = /merchant-?pages?/i;
+
+/** The two directories the API side owns outright, relative to the backend's `src/`. */
+const BACKEND_OWNED_DIRECTORIES = ['services/merchant-pages', 'db/merchantPages'] as const;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `db/schema` joined the three with #460. This domain declares NO table — it is
+ * a projection, and `docs/merchant-pages.md` says so — which is exactly why the
+ * directory is listed: one appearing here is a fact worth failing on rather
+ * than a module quietly outside the follow wall.
+ */
+const BACKEND_SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * The API-side population, as paths relative to the backend's `src/`.
+ *
+ * The HTTP surface was `startsWith('merchant-page')` over three directories,
+ * ONE LEVEL deep, matched on the FILENAME (#460). Two narrowings in one line: a
+ * module inside `routes/admin/` — 23 of them exist — was unreachable, and so was
+ * one whose own name does not carry the domain token. It is the same
+ * path-matched recursive sweep every other gate uses now.
+ */
+function backendRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...BACKEND_OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(BACKEND_SHARED_DIRECTORIES, MERCHANT_PAGE_NAME_PATTERN, readDir),
+  ];
+}
+
+/** The API-side HTTP surface alone, for the per-shape floor below. */
 function backendHttpSurface(): string[] {
-  return ['controllers', 'routes', 'middleware'].flatMap((directory) =>
-    readdirSync(join(PACKAGES_ROOT, `backend/src/${directory}`), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => entry.name.startsWith('merchant-page'))
-      .map((entry) => `backend/src/${directory}/${entry.name}`),
-  );
+  return namedInSharedDirectories(BACKEND_SHARED_DIRECTORIES, MERCHANT_PAGE_NAME_PATTERN);
 }
 
 /**
@@ -90,11 +131,7 @@ function backendHttpSurface(): string[] {
  * The list this replaces named the same ten modules and was complete on the day
  * it was written; what it could not cover is the eleventh.
  */
-const BACKEND_PATHS = [
-  ...walk('backend/src/services/merchant-pages'),
-  ...walk('backend/src/db/merchantPages'),
-  ...backendHttpSurface(),
-];
+const BACKEND_PATHS = backendRelativePaths().map((relative) => `backend/src/${relative}`);
 
 /**
  * The storefront modules that cannot be derived from a directory.
@@ -545,5 +582,62 @@ describe('the detectors actually detect — the mutation self-test', () => {
     );
     expect(stripComments("const f = 'ensureFollowTarget';\n")).toContain('ensureFollowTarget');
     expect(stripComments("const url = 'https://x/y';\n")).toContain('https://x/y');
+  });
+});
+
+describe('the API-side population every wall above is applied to (#460)', () => {
+  it('nothing naming this domain sits outside it', () => {
+    // Backend only, deliberately. The helper sweeps the API package's `src/`,
+    // and the storefront half is a hand list with an exact count for the reason
+    // stated on `UNDERIVABLE_FRONTEND_PATHS` — walking `packages/frontend` whole
+    // would scan every screen in the app against a follow-identity wall.
+    assertNothingOutsideDomainPopulation({
+      population: backendRelativePaths,
+      pattern: MERCHANT_PAGE_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // all ten modules the whole-tree sweep finds are this domain's.
+      notThisDomain: [],
+      // Below today's 10 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 8,
+      plantIn: 'lib',
+      plantName: 'merchant-pages-cache.ts',
+    });
+  });
+
+  it('the HTTP sweep RECURSES and matches the PATH, which the filename rule did not', () => {
+    // Two narrowings in one line, both measured with a seeded reader. A module
+    // in `routes/admin/` — 23 exist — was unreachable one level deep, and one
+    // whose own filename does not carry the token was unreachable either way.
+    const seeded: DirectoryReader = (relative) =>
+      relative === 'routes'
+        ? [
+            ...readSrcDirectory(relative),
+            { name: 'admin', isDirectory: () => true, isFile: () => false },
+          ]
+        : relative === 'routes/admin'
+          ? [
+              ...readSrcDirectory(relative),
+              { name: 'merchant-page-overrides.ts', isDirectory: () => false, isFile: () => true },
+            ]
+          : readSrcDirectory(relative);
+    const planted = 'routes/admin/merchant-page-overrides.ts';
+    expect(backendRelativePaths(seeded), 'the HTTP sweep does not recurse').toContain(planted);
+    expect(
+      backendRelativePaths(),
+      'the seeded module exists on disk, so this proves nothing',
+    ).not.toContain(planted);
+  });
+
+  it('the optional hyphen and plural are load-bearing', () => {
+    const camelCase = 'db/merchantPages/merchantCatalogRepository.ts';
+    const singular = 'middleware/merchant-page-schemas.ts';
+    expect(MERCHANT_PAGE_NAME_PATTERN.test(camelCase)).toBe(true);
+    expect(MERCHANT_PAGE_NAME_PATTERN.test(singular)).toBe(true);
+    expect(/merchant-pages/.test(camelCase), 'the hyphenated spelling already matched').toBe(false);
+    expect(/merchant-pages/.test(singular), 'the plural spelling already matched').toBe(false);
+    const population = backendRelativePaths();
+    expect(population).toContain(camelCase);
+    expect(population).toContain(singular);
   });
 });
