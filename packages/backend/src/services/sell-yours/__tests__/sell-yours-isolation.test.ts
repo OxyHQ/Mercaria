@@ -28,10 +28,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import {
   MATCH_BLOCKERS,
   SELLER_OWNED_FIELDS,
@@ -56,20 +63,67 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+/** Walked whole, so a module added to the domain tomorrow is gated the moment it exists. */
+const OWNED_DIRECTORIES = ['services/sell-yours', 'db/sellYours'];
+
+/**
+ * The shared directories, where this domain sits beside every other domain's.
+ *
+ * They were absent entirely. The two-directory read this replaces covered
+ * `services/sell-yours/` and `db/sellYours/` and NOTHING else, so the HTTP
+ * surface (`controllers/sell-yours.controller.ts`), the request schemas
+ * (`middleware/sell-yours-schemas.ts`) and the four tables this domain owns
+ * (`db/schema/sellYours.ts`) sat behind NONE of the five walls below — including
+ * WALL 4, which is about what a COLUMN of those tables may hold, and whose
+ * subject is therefore the one file that was outside it (#460).
+ *
+ * `namedInSharedDirectories` recurses, so `routes/admin/` and
+ * `controllers/admin/` are reached too. Measured: this domain has no module in
+ * either today, so the recursion adds nothing HERE and is the class fix rather
+ * than a count.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/**
+ * What a module BELONGING to this domain is called, wherever it lives.
+ *
+ * The HYPHEN is optional, and that half is load-bearing rather than tidy: the
+ * schema directory names its files in camelCase, so `db/schema/sellYours.ts`
+ * cannot match a hyphenated spelling, and adding `db/schema` above WITHOUT this
+ * would have changed nothing while looking exactly like a fix. Measured:
+ * `/sell-?yours/i` over the whole of `src/` selects 13 modules and every one of
+ * them is this domain's, so the widening costs no false wall.
+ */
+const DOMAIN_NAME_PATTERN = /sell-?yours/i;
+
+/**
+ * The floors, PER SHAPE and measured off this branch.
+ *
+ * One TOTAL floor was the previous spelling, and a total lets one shape collapse
+ * to zero behind another's number: the whole shared half disappearing sits
+ * comfortably inside a total of 10 as long as the owned directories still hold
+ * ten, and every wall below then runs over a domain missing its HTTP surface and
+ * its tables.
+ *
+ * MEASURED: 10 under the owned directories, 3 in the shared ones.
+ */
+const MINIMUM_OWNED_FILES = 9;
+const MINIMUM_SHARED_FILES = 2;
+
+/** Every module of the domain, DERIVED, relative to `src/`. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir),
+  ];
+}
+
 /** Every module of the domain, enumerated from disk. */
 function domainSources(): { relative: string; source: string }[] {
-  const roots = ['services/sell-yours', 'db/sellYours'];
-  const files: { relative: string; source: string }[] = [];
-  for (const root of roots) {
-    for (const name of readdirSync(join(SRC_ROOT, root))) {
-      if (!name.endsWith('.ts')) continue;
-      files.push({
-        relative: `${root}/${name}`,
-        source: readFileSync(join(SRC_ROOT, root, name), 'utf8'),
-      });
-    }
-  }
-  return files;
+  return domainRelativePaths().map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
 /**
@@ -113,12 +167,59 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
   const domain = domainSources();
 
   it('is not vacuous: the domain has real modules and they are not empty', () => {
-    // The floor catches a renamed directory, which would otherwise make every
-    // scan below pass against an empty list.
-    expect(domain.length).toBeGreaterThanOrEqual(7);
+    // Floored PER SHAPE: a broken traversal of either half scans nothing, and
+    // every wall below then passes by having nothing to match — which is
+    // exactly what a healthy run also produces.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN);
+    expect(
+      owned.length,
+      'the owned directories shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_OWNED_FILES);
+    expect(
+      shared.length,
+      'no controller, route, middleware or schema module is named for this domain — did the ' +
+        'derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_SHARED_FILES);
+    expect(domain.length).toBe(owned.length + shared.length);
     for (const file of domain) {
       expect(file.source.length, `${file.relative} looks empty — did it move?`).toBeGreaterThan(200);
+      expect(
+        statSync(join(SRC_ROOT, file.relative)).isFile(),
+        `${file.relative} is in the population but is not a file — did it move?`,
+      ).toBe(true);
     }
+  });
+
+  it('the widening reaches the three modules it exists for', () => {
+    // NAMED rather than floored. A floor on the population cannot detect the
+    // derivation examining LESS, because the modules it stops examining are
+    // exactly the ones a smaller number is consistent with — and the three
+    // below are the whole reason the shared half was added, so a floor met by
+    // the ten owned modules alone would report a healthy run.
+    const population = domainRelativePaths();
+    const widening = [
+      'controllers/sell-yours.controller.ts',
+      'middleware/sell-yours-schemas.ts',
+      'db/schema/sellYours.ts',
+    ];
+    for (const expected of widening) {
+      expect(population, `${expected} left the population`).toContain(expected);
+    }
+
+    // The half that makes this a measurement rather than an assertion about a
+    // tree that happens to be convenient: the OWNED walk alone reaches none of
+    // them, so the shared sweep is what is being measured.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    for (const expected of widening) {
+      expect(owned, `${expected} is reached without the shared sweep`).not.toContain(expected);
+    }
+
+    // …and the same, one level down, for the optional hyphen: the HYPHEN-ONLY
+    // spelling cannot reach the module DECLARING this domain's four tables,
+    // which is what WALL 4 is about.
+    expect(/sell-yours/i.test('db/schema/sellYours.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('db/schema/sellYours.ts')).toBe(true);
   });
 
   it('WALL 1: what a product may prefill and what only a seller may state are DISJOINT', () => {
@@ -276,6 +377,44 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
     );
     expect(COMMERCIAL_REFERENCE.test("import { listOffers } from '../offers/offer.service.js';")).toBe(
       false,
+    );
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the fix above.
+ *
+ * Adding the shared directories closes today's gap; this closes the CLASS. The
+ * DIRECTORY list is the last hand list in this gate, and a hand list fails
+ * silently — every floor and count here stayed green while the controller, the
+ * schemas and the four tables sat outside all five walls. A bag directory
+ * nobody has invented yet now brings its modules under the walls with no edit.
+ *
+ * The exclusion set is EMPTY, and that is measured rather than assumed:
+ * `/sell-?yours/i` over the whole of `src/` selects 13 modules and all 13 are
+ * this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every sell-yours-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 13 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 11,
+      plantIn: 'lib',
+      plantName: 'sell-yours-cache.ts',
+    });
+  });
+
+  it('the derived population really is the one the walls scan', () => {
+    // Two spellings of one population can disagree, so this pins them together:
+    // every module the detectors run over has a twin here.
+    expect(domainRelativePaths(readSrcDirectory).sort()).toEqual(
+      domainSources()
+        .map((file) => file.relative)
+        .sort(),
     );
   });
 });

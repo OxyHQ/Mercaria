@@ -43,6 +43,13 @@ import {
   shoppingAgents,
 } from '../../../db/schema/shoppingAgents.js';
 import { shoppingAgentNotificationPayload } from '../notification.js';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const REPO_ROOT = join(SRC_ROOT, '..', '..', '..');
@@ -62,17 +69,52 @@ function enumerateDirectory(root: string): string[] {
   return files;
 }
 
+/** Walked whole, so a module added to the domain tomorrow is gated the moment it exists. */
+const OWNED_DIRECTORIES = ['services/shopping-agents', 'db/shoppingAgents'];
+
+/**
+ * The shared directories, where this domain sits beside every other domain's.
+ *
+ * They were FOUR HAND-NAMED PATHS, and a hand list fails in the one direction
+ * no number here can see: `routes/internal-shopping-agents.ts` — the OPERATOR
+ * surface, the one place a Mercaria employee can reach an agent belonging to
+ * somebody else — was written after the list and is named in it nowhere, so it
+ * sat behind none of the walls below. Every floor and count stayed green (#460).
+ *
+ * `namedInSharedDirectories` recurses, so `routes/admin/` and
+ * `controllers/admin/` are reached too. Measured: this domain has no module in
+ * either today, so the recursion adds nothing HERE and is the class fix rather
+ * than a count.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/**
+ * What a module BELONGING to this domain is called, wherever it lives.
+ *
+ * SINGULAR-or-plural and the hyphen OPTIONAL, because this domain spells itself
+ * four ways across four directories — `services/shopping-agents/`,
+ * `middleware/shopping-agent-schemas.ts`, `db/shoppingAgents/` and
+ * `db/schema/shoppingAgents.ts`. The camelCase half is load-bearing rather than
+ * tidy: adding `db/schema` above without it would have changed nothing while
+ * looking exactly like a fix, and the module it reaches is the one DECLARING the
+ * eight tables whose columns three of the walls below are about.
+ *
+ * Measured: `/shopping-?agents?/i` over the whole of `src/` selects 26 modules
+ * and every one of them is this domain's, so the widening costs no false wall.
+ */
+const DOMAIN_NAME_PATTERN = /shopping-?agents?/i;
+
+/** Every module of the backend half, DERIVED, relative to `src/`. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir),
+  ];
+}
+
 /** Every file of the backend half of the domain, enumerated from the real tree. */
 function enumerateDomain(): string[] {
-  const files = [
-    ...enumerateDirectory(join(SRC_ROOT, 'services', 'shopping-agents')),
-    ...enumerateDirectory(join(SRC_ROOT, 'db', 'shoppingAgents')),
-    join(SRC_ROOT, 'controllers', 'shopping-agents.controller.ts'),
-    join(SRC_ROOT, 'routes', 'shopping-agents.ts'),
-    join(SRC_ROOT, 'middleware', 'shopping-agent-schemas.ts'),
-    join(SRC_ROOT, 'db', 'schema', 'shoppingAgents.ts'),
-  ];
-  return files;
+  return domainRelativePaths().map((relative) => join(SRC_ROOT, relative));
 }
 
 /**
@@ -121,7 +163,20 @@ const PROHIBITION_AUTHORS: readonly string[] = [
   join(SRC_ROOT, 'services', 'shopping-agents', 'summary.ts'),
 ];
 
-const MINIMUM_DOMAIN_FILES = 16;
+/**
+ * The floors, PER SHAPE and measured off this branch.
+ *
+ * One TOTAL floor was the previous spelling, and a total lets one shape collapse
+ * to zero behind another's number: the whole shared half disappearing sits
+ * comfortably inside a total of 16 as long as the owned directories still hold
+ * twenty-one, and every wall below then runs over a domain missing its HTTP
+ * surface and its tables.
+ *
+ * MEASURED: 21 under the owned directories, 5 in the shared ones.
+ */
+const MINIMUM_OWNED_FILES = 19;
+const MINIMUM_SHARED_FILES = 4;
+const MINIMUM_DOMAIN_FILES = MINIMUM_OWNED_FILES + MINIMUM_SHARED_FILES;
 
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
@@ -190,12 +245,64 @@ const FORBIDDEN_COLUMN =
 
 describe('the scan is not vacuous', () => {
   it('reads a domain that has not silently shrunk', () => {
-    expect(files.length).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES);
+    // Floored PER SHAPE: a broken traversal of either half scans nothing, and
+    // every wall then passes by having nothing to match — which is exactly what
+    // a healthy run also produces.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN);
+    expect(
+      owned.length,
+      'the owned directories shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_OWNED_FILES);
+    expect(
+      shared.length,
+      'no controller, route, middleware or schema module is named for this domain — did the ' +
+        'derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_SHARED_FILES);
+    expect(files.length).toBe(owned.length + shared.length);
     for (const file of files) {
       expect(
         readFileSync(file, 'utf8').length,
         `${file} looks empty — did it move?`,
       ).toBeGreaterThan(200);
+      expect(statSync(file).isFile(), `${file} is in the population but is not a file`).toBe(true);
+    }
+  });
+
+  it('the widening reaches the operator route it exists for', () => {
+    // NAMED rather than floored. A floor on the population cannot detect the
+    // derivation examining LESS — the module it stops examining is exactly the
+    // one a smaller number is consistent with — and `internal-shopping-agents`
+    // is the whole reason the four hand-named paths became a sweep, so a floor
+    // met by the other twenty-five would report a healthy run.
+    const population = domainRelativePaths();
+    expect(
+      population,
+      'routes/internal-shopping-agents.ts is the OPERATOR surface — the one place a Mercaria ' +
+        'employee reaches an agent belonging to somebody else — and it left the population',
+    ).toContain('routes/internal-shopping-agents.ts');
+
+    // The half that makes this a measurement rather than an assertion about a
+    // tree that happens to be convenient: the four paths the hand list named
+    // reach it nowhere, so the sweep is what is being measured.
+    const handList = [
+      'controllers/shopping-agents.controller.ts',
+      'routes/shopping-agents.ts',
+      'middleware/shopping-agent-schemas.ts',
+      'db/schema/shoppingAgents.ts',
+    ];
+    expect(handList).not.toContain('routes/internal-shopping-agents.ts');
+    for (const named of handList) {
+      expect(population, `${named} left the population`).toContain(named);
+    }
+
+    // …and the same, one level down, for the optional hyphen: the HYPHEN-ONLY
+    // spelling cannot reach either camelCase half of this domain.
+    for (const camel of ['db/schema/shoppingAgents.ts', 'db/shoppingAgents/shoppingAgentRepository.ts']) {
+      expect(/shopping-agents?/i.test(camel), `${camel} is reached without the optional hyphen`).toBe(
+        false,
+      );
+      expect(DOMAIN_NAME_PATTERN.test(camel)).toBe(true);
     }
   });
 
@@ -519,5 +626,43 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     const stripped = stripComments("import { x } from '../fees/y.js'; // a note");
     expect(COMMERCIAL_REFERENCE.test(stripped)).toBe(true);
     expect(stripComments('/* fee_schedules */').trim()).toBe('');
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the fix above.
+ *
+ * Replacing four hand-named paths with a sweep closes today's gap; this closes
+ * the CLASS. The DIRECTORY list is the last hand list in this gate's server
+ * half, and hand lists fail silently — every floor and count here stayed green
+ * while the operator route sat outside all six walls. A bag directory nobody has
+ * invented yet now brings its modules under the walls with no edit.
+ *
+ * The exclusion set is EMPTY, and that is measured rather than assumed:
+ * `/shopping-?agents?/i` over the whole of `src/` selects 26 modules and all 26
+ * are this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every shopping-agent-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 26 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 22,
+      plantIn: 'lib',
+      plantName: 'shopping-agent-cache.ts',
+    });
+  });
+
+  it('the derived population really is the one the walls scan', () => {
+    // Two spellings of one population can disagree, so this pins them together:
+    // every absolute path the detectors run over has a relative twin here.
+    expect(domainRelativePaths(readSrcDirectory).sort()).toEqual(
+      enumerateDomain()
+        .map((path) => path.slice(SRC_ROOT.length + 1))
+        .sort(),
+    );
   });
 });
