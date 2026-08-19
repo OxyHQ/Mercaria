@@ -29,10 +29,17 @@
  * no scan, because it reads as a guarantee.
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import {
   SUPPLIER_ADAPTER_CAPABILITIES,
   SUPPLIER_EMULATED_COMMITMENTS,
@@ -40,25 +47,76 @@ import {
   SUPPLIER_ORDER_EMULATED_COMMITMENTS,
 } from '@mercaria/shared-types';
 
-const HERE = fileURLToPath(new URL('.', import.meta.url));
-const DOMAIN_DIR = join(HERE, '..');
-const ADAPTERS_DIR = join(HERE, '..', 'adapters');
-const REPOSITORY_DIR = join(HERE, '..', '..', '..', 'db', 'supplierOrders');
+const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** Every `.ts` under a directory, excluding its own tests. */
-function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) {
-      if (entry === '__tests__') continue;
-      out.push(...sourceFiles(path));
-      continue;
-    }
-    if (entry.endsWith('.ts')) out.push(path);
-  }
-  return out;
+/**
+ * Walked whole, so a module added to the domain tomorrow is gated the moment it
+ * exists.
+ *
+ * `adapters/` is a SUBSET of the first, kept separate on purpose: wall 1 is
+ * deliberately narrow — it is about what an ADAPTER may reach, not about the
+ * domain — and widening a deliberately narrow wall is the census that pushes
+ * you toward the hazard (`docs/isolation-gates.md`).
+ */
+const OWNED_DIRECTORIES = ['services/supplier-orders', 'db/supplierOrders'];
+const ADAPTERS_DIRECTORY = 'services/supplier-orders/adapters';
+
+/**
+ * The shared directories, where this domain sits beside every other domain's.
+ *
+ * They were ABSENT, so two modules sat behind none of the walls that scan "the
+ * domain":
+ *
+ * - **`db/schema/supplierOrders.ts`**, the module DECLARING the seven tables.
+ *   Wall 6 says OxyPay and FairCoin may appear here as "not a type, not a
+ *   column, not a mock, not a comment" — and the one file in which a COLUMN is
+ *   declared was outside it.
+ * - **`routes/supplier-webhook.ts`**, `POST /webhooks/suppliers/:supplierAccountId`
+ *   — this domain's HTTP ingress, the FOURTH raw-body mount, and the module
+ *   that resolves a supplier's credential and hands it to the adapter. It
+ *   imports `services/supplier-orders/credential.port.js` and
+ *   `provider-call.js` and is named in this gate nowhere.
+ *
+ * `namedInSharedDirectories` recurses, so `routes/admin/` and
+ * `controllers/admin/` are reached too. Measured: this domain has no module in
+ * either today, so the recursion adds nothing HERE and is the class fix rather
+ * than a count.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/**
+ * What a module BELONGING to this domain is called, wherever it lives.
+ *
+ * Three spellings, each measured rather than assumed:
+ *
+ * - the HYPHEN is optional, because `db/schema/supplierOrders.ts` and
+ *   `db/supplierOrders/` are camelCase and a hyphenated pattern reaches
+ *   neither — adding `db/schema` above without this would have changed nothing
+ *   while looking exactly like a fix;
+ * - the PLURAL is optional, for symmetry with the other spellings this
+ *   repository uses;
+ * - `webhook` is an alternative rather than a named path, because
+ *   `routes/supplier-webhook.ts` is this domain's ingress and a NAMED path
+ *   would leave the module somebody adds beside it in no population at all —
+ *   the #460 failure, one file later.
+ *
+ * The FULL two words, never a bare `supplier`: `services/supplier-preflight/`
+ * is #122's domain with its own gate and `db/procurement/supplierRepository.ts`
+ * is #118's. Measured: `/supplier-?(orders?|webhook)/i` over the whole of
+ * `src/` selects 31 modules and every one is this domain's, while a bare
+ * `/supplier/i` selects 32 more across four foreign domains.
+ */
+const DOMAIN_NAME_PATTERN = /supplier-?(orders?|webhook)/i;
+
+/** Every module of the domain, DERIVED, relative to `src/`. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir),
+  ];
 }
+
+const absolute = (relative: string): string => join(SRC_ROOT, relative);
 
 /**
  * Source with comments stripped.
@@ -82,9 +140,11 @@ interface Wall {
   exempt?: string[];
 }
 
-const DOMAIN_FILES = sourceFiles(DOMAIN_DIR);
-const ADAPTER_FILES = sourceFiles(ADAPTERS_DIR);
-const REPOSITORY_FILES = sourceFiles(REPOSITORY_DIR);
+const DOMAIN_FILES = walkOwnedDirectory('services/supplier-orders').map(absolute);
+const ADAPTER_FILES = walkOwnedDirectory(ADAPTERS_DIRECTORY).map(absolute);
+const REPOSITORY_FILES = walkOwnedDirectory('db/supplierOrders').map(absolute);
+/** The modules serving this domain from a shared directory. */
+const SHARED_FILES = namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN).map(absolute);
 
 const WALLS: Wall[] = [
   {
@@ -107,12 +167,20 @@ const WALLS: Wall[] = [
   },
   {
     name: 'a procurement lever, from a durable-record path',
-    files: [...REPOSITORY_FILES, join(DOMAIN_DIR, 'event-ingest.service.ts'), join(DOMAIN_DIR, 'exception.service.ts')],
+    // Deliberately NARROW: the durable-record paths named by #124 acceptance 5,
+    // not the domain. Widening it to the whole population would make this wall
+    // a restatement of "no module reads a lever", which is not what the rule
+    // says — the LOOP is allowed to read one.
+    files: [
+      ...REPOSITORY_FILES,
+      absolute('services/supplier-orders/event-ingest.service.ts'),
+      absolute('services/supplier-orders/exception.service.ts'),
+    ],
     pattern: /config\.procurement\.\w*(Enabled|enabled)/,
   },
   {
     name: 'the payment domain',
-    files: [...DOMAIN_FILES, ...REPOSITORY_FILES],
+    files: [...DOMAIN_FILES, ...REPOSITORY_FILES, ...SHARED_FILES],
     // `\.\./payments/` is the specifier a module in `services/supplier-orders/`
     // actually writes — the payment domain is one `../` away — and the
     // absolute-looking forms alone never see it. One alternative covers every
@@ -122,7 +190,7 @@ const WALLS: Wall[] = [
   },
   {
     name: 'a refund, ledger or inventory writer',
-    files: [...DOMAIN_FILES, ...REPOSITORY_FILES],
+    files: [...DOMAIN_FILES, ...REPOSITORY_FILES, ...SHARED_FILES],
     pattern: /from\s+['"][^'"]*(refund\.service|ledgerRepository|inventory\.service|inventoryRepository)[^'"]*['"]/,
   },
   {
@@ -130,7 +198,7 @@ const WALLS: Wall[] = [
     // RAW source, comments included, deliberately: ADR 0004 D11 says nothing
     // here may NAME them, and a comment naming one is exactly the anticipation
     // it forbids.
-    files: [...DOMAIN_FILES, ...REPOSITORY_FILES],
+    files: [...DOMAIN_FILES, ...REPOSITORY_FILES, ...SHARED_FILES],
     pattern: /oxy[_\s-]?pay|oxypay|faircoin|fair[_\s-]coin/i,
   },
 ];
@@ -139,9 +207,58 @@ describe('supplier order isolation (static)', () => {
   it('scans a non-trivial number of files', () => {
     // The anti-vacuity floor. A broken traversal scans nothing and every wall
     // below passes, which is exactly what a BROKEN scan produces.
+    // Floored PER SHAPE, measured off this branch: 24 service modules
+    // (including 2 adapters), 5 repositories, 2 shared. A TOTAL floor lets one
+    // shape collapse to zero behind another's number.
     expect(DOMAIN_FILES.length).toBeGreaterThanOrEqual(15);
     expect(ADAPTER_FILES.length).toBeGreaterThanOrEqual(1);
     expect(REPOSITORY_FILES.length).toBeGreaterThanOrEqual(4);
+    expect(
+      SHARED_FILES.length,
+      'no route or schema module is named for this domain — did the derivation break?',
+    ).toBeGreaterThanOrEqual(2);
+    for (const path of [...DOMAIN_FILES, ...REPOSITORY_FILES, ...SHARED_FILES]) {
+      expect(statSync(path).isFile(), `${path} is in the population but is not a file`).toBe(true);
+    }
+  });
+
+  it('the widening reaches the two modules it exists for', () => {
+    // NAMED rather than floored. A floor on the population cannot detect the
+    // derivation examining LESS — the modules it stops examining are exactly
+    // the ones a smaller number is consistent with — and these two are the
+    // whole reason the shared half was added, so a floor met by the
+    // twenty-nine owned modules alone would report a healthy run.
+    const population = domainRelativePaths();
+    for (const expected of ['db/schema/supplierOrders.ts', 'routes/supplier-webhook.ts']) {
+      expect(population, `${expected} left the population`).toContain(expected);
+    }
+
+    // The half that makes this a measurement rather than an assertion about a
+    // tree that happens to be convenient: the OWNED walk alone reaches neither.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    for (const expected of ['db/schema/supplierOrders.ts', 'routes/supplier-webhook.ts']) {
+      expect(owned, `${expected} is reached without the shared sweep`).not.toContain(expected);
+    }
+
+    // …and the same for each half of the pattern, so neither can be narrowed
+    // back in silence. The hyphen-only spelling cannot reach the module
+    // declaring this domain's seven tables; the `orders`-only spelling cannot
+    // reach its HTTP ingress.
+    expect(/supplier-orders?/i.test('db/schema/supplierOrders.ts')).toBe(false);
+    expect(/supplier-?orders?/i.test('routes/supplier-webhook.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('db/schema/supplierOrders.ts')).toBe(true);
+    expect(DOMAIN_NAME_PATTERN.test('routes/supplier-webhook.ts')).toBe(true);
+
+    // And the neighbours the pattern must NOT drag in, or these walls fire at
+    // whoever edits #122 or #118.
+    for (const foreign of [
+      'services/supplier-preflight/preflight.service.ts',
+      'db/procurement/supplierRepository.ts',
+      'db/supplierPreflight/quoteRepository.ts',
+    ]) {
+      expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
+      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+    }
   });
 
   for (const wall of WALLS) {
@@ -226,5 +343,41 @@ describe('supplier order vocabularies', () => {
     // would pass that and fail this.
     const forbidden = /commission|affiliate|referral|rank|sponsor|placement|stripe|oxypay|faircoin/i;
     expect(SUPPLIER_ORDER_CAPABILITIES.filter((entry) => forbidden.test(entry))).toEqual([]);
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the fix above.
+ *
+ * Adding the shared directories closes today's gap; this closes the CLASS. The
+ * DIRECTORY list is the last hand list here, and hand lists fail silently —
+ * every floor and count stayed green while the schema module and the HTTP
+ * ingress sat outside every wall that scans "the domain".
+ *
+ * The exclusion set is EMPTY, measured rather than assumed:
+ * `/supplier-?(orders?|webhook)/i` over the whole of `src/` selects 31 modules
+ * and all 31 are this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every supplier-order-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 31 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 26,
+      plantIn: 'lib',
+      plantName: 'supplier-order-cache.ts',
+    });
+  });
+
+  it('the derived population really is the one the walls scan', () => {
+    // Two spellings of one population can disagree, so this pins them together.
+    expect(domainRelativePaths(readSrcDirectory).sort()).toEqual(
+      [...DOMAIN_FILES, ...REPOSITORY_FILES, ...SHARED_FILES]
+        .map((path) => path.slice(SRC_ROOT.length + 1))
+        .sort(),
+    );
   });
 });

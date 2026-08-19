@@ -18,7 +18,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
@@ -37,11 +37,17 @@ import {
   detectForbiddenAccountingOutputs,
 } from '../forbidden-outputs.js';
 import { reachesPackageModule } from '../../../__tests__/package-barrel-symbols.js';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const SRC_ROOT = join(HERE, '..', '..', '..');
 const SERVICE_DIR = join(HERE, '..');
-const REPOSITORY_DIR = join(HERE, '..', '..', '..', 'db', 'retailReconciliation');
-const SCHEMA_FILE = join(HERE, '..', '..', '..', 'db', 'schema', 'retailReconciliation.ts');
 const ROUTE_FILE = join(HERE, '..', '..', '..', 'routes', 'internal-retail-reconciliation.ts');
 const CONTROLLER_FILE = join(
   HERE,
@@ -51,21 +57,6 @@ const CONTROLLER_FILE = join(
   'controllers',
   'retail-reconciliation-operator.controller.ts',
 );
-
-/** Every `.ts` under a directory, excluding its own tests. */
-function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) {
-      if (entry === '__tests__') continue;
-      out.push(...sourceFiles(path));
-      continue;
-    }
-    if (entry.endsWith('.ts')) out.push(path);
-  }
-  return out;
-}
 
 /**
  * Source with comments stripped.
@@ -130,15 +121,64 @@ interface Wall {
 }
 
 /**
- * The directories this gate's file population is walked from.
- *
- * Named once so the per-directory mutation victims below are DERIVED from the
- * same list `DOMAIN_FILES` is built from. A hand-written victim list would go
- * stale against a third directory in exactly the silent direction.
+ * Walked whole, so a module added to the domain tomorrow is gated the moment it
+ * exists.
  */
-const SCANNED_DIRS = [SERVICE_DIR, REPOSITORY_DIR];
+const OWNED_DIRECTORIES = ['services/retail-reconciliation', 'db/retailReconciliation'];
 
-const DOMAIN_FILES = SCANNED_DIRS.flatMap((dir) => sourceFiles(dir));
+/**
+ * The shared directories, where this domain sits beside every other domain's.
+ *
+ * They were THREE HAND-NAMED PATHS reaching exactly ONE of the six walls below.
+ * `SCHEMA_FILE`, `ROUTE_FILE` and `CONTROLLER_FILE` were passed only to the
+ * OxyPay/FairCoin wall, so the operator route and its controller — the whole
+ * human path into this domain — were outside the catalogue-price wall, the FX
+ * wall, the REFERRAL wall, the inventory wall and the ranking wall, and outside
+ * the "only the runner reads the flag" check whose own docblock is about an
+ * operator reconciling an order BY HAND. Every floor and count stayed green
+ * (#460).
+ *
+ * `namedInSharedDirectories` recurses, so `routes/admin/` and
+ * `controllers/admin/` are reached too. Measured: this domain has no module in
+ * either today, so the recursion adds nothing HERE and is the class fix rather
+ * than a count.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/**
+ * What a module BELONGING to this domain is called, wherever it lives.
+ *
+ * The HYPHEN is optional, and that half is load-bearing rather than tidy: the
+ * schema directory names its files in camelCase, so
+ * `db/schema/retailReconciliation.ts` cannot match a hyphenated spelling.
+ *
+ * The FULL two words, never a bare `reconcil`: that word selects 33 modules
+ * across ten domains in this tree — payments, ebay, awin, outbound, billing,
+ * buyer-requests, channels, catalog-backfill, referrals and
+ * retail-service-requests — and folding any of them in would make these walls
+ * fire at whoever edits them. Measured: `/retail-?reconciliation/i` selects 22
+ * modules and every one is this domain's.
+ */
+const DOMAIN_NAME_PATTERN = /retail-?reconciliation/i;
+
+/** Every module of the domain, DERIVED, relative to `src/`. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir),
+  ];
+}
+
+const DOMAIN_FILES = domainRelativePaths().map((path) => join(SRC_ROOT, path));
+
+/**
+ * The floors, PER SHAPE and measured off this branch: 12 under
+ * `services/retail-reconciliation`, 7 under `db/retailReconciliation`, 3 in the
+ * shared directories. A TOTAL floor lets one shape collapse to zero behind
+ * another's number.
+ */
+const MINIMUM_OWNED_FILES = 17;
+const MINIMUM_SHARED_FILES = 2;
 
 const WALLS: Wall[] = [
   {
@@ -166,7 +206,7 @@ const WALLS: Wall[] = [
     // included — a comment naming one is exactly the anticipation it forbids.
     // Scanned over RAW source for that reason.
     name: 'OxyPay or FairCoin, anywhere in the domain',
-    files: [...DOMAIN_FILES, SCHEMA_FILE, ROUTE_FILE, CONTROLLER_FILE],
+    files: DOMAIN_FILES,
     pattern: /oxy[_\s-]?pay|oxypay|faircoin|fair[_\s-]coin/i,
     probe: 'const rail = "oxy_pay";',
   },
@@ -219,7 +259,23 @@ describe('the reconciliation domain cannot reach what it must not', () => {
   it('scans a real file set', () => {
     // The vacuity floor. A broken traversal reads nothing and every wall below
     // passes; this is what makes that impossible.
-    expect(DOMAIN_FILES.length).toBeGreaterThanOrEqual(10);
+    // Floored PER SHAPE: a total lets one half collapse to zero behind the
+    // other's number.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN);
+    expect(
+      owned.length,
+      'the owned directories shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_OWNED_FILES);
+    expect(
+      shared.length,
+      'no controller, route, middleware or schema module is named for this domain — did the ' +
+        'derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_SHARED_FILES);
+    expect(DOMAIN_FILES.length).toBe(owned.length + shared.length);
+    for (const path of DOMAIN_FILES) {
+      expect(statSync(path).isFile(), `${path} is in the population but is not a file`).toBe(true);
+    }
   });
 
   for (const wall of WALLS) {
@@ -263,13 +319,35 @@ describe('the reconciliation domain cannot reach what it must not', () => {
       // and the count is asserted against the directory count. A directory
       // holding no `.ts` file fails HERE rather than being self-tested by
       // nothing.
-      const victims = SCANNED_DIRS.map((dir) => {
-        const first = sourceFiles(dir).sort()[0];
-        expect(first, `${relative(SERVICE_DIR, dir)} holds no .ts file to seed a victim in`).toBeDefined();
-        return first;
-      });
-      expect(victims.length).toBe(SCANNED_DIRS.length);
-      expect(victims.length).toBeGreaterThanOrEqual(2);
+      // DERIVED FROM THE POPULATION ITSELF, grouped by the directory each
+      // module lives in — not from a parallel list of directories. A parallel
+      // list is what let the three shared modules be added to one wall and to
+      // no victim set: the self-test would have gone on proving the two owned
+      // directories were scanned while saying nothing about the other three.
+      const byDirectory = new Map<string, string[]>();
+      for (const file of DOMAIN_FILES) {
+        const directory = dirname(file);
+        byDirectory.set(directory, [...(byDirectory.get(directory) ?? []), file]);
+      }
+      const victims = [...byDirectory.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([directory, members]) => {
+          const first = members.sort()[0];
+          expect(
+            first,
+            `${relative(SERVICE_DIR, directory)} holds no .ts file to seed a victim in`,
+          ).toBeDefined();
+          return first;
+        });
+      expect(victims.length).toBe(byDirectory.size);
+      // FIVE directories, absolute rather than derived from the list it
+      // defends: the two owned ones plus `db/schema`, `routes` and
+      // `controllers`. A floor computed from `byDirectory` could never fail.
+      expect(
+        victims.length,
+        'the population no longer spans the shared directories — the three modules #460 added ' +
+          'are self-tested by nothing',
+      ).toBeGreaterThanOrEqual(5);
       expect(new Set(victims).size).toBe(victims.length);
 
       for (const victim of victims) {
@@ -547,6 +625,73 @@ describe('the twelve components are the complete accounting model', () => {
         'mercaria_absorbed_variance',
         'dispute_movement',
       ].sort(),
+    );
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the fix above.
+ *
+ * Adding the shared directories closes today's gap; this closes the CLASS. The
+ * DIRECTORY list is the last hand list in this gate, and hand lists fail
+ * silently — every floor, count and per-directory victim stayed green while the
+ * operator route and its controller sat outside five of the six walls.
+ *
+ * The exclusion set is EMPTY, measured rather than assumed:
+ * `/retail-?reconciliation/i` over the whole of `src/` selects 22 modules and
+ * all 22 are this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every retail-reconciliation-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 22 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 18,
+      plantIn: 'lib',
+      plantName: 'retail-reconciliation-cache.ts',
+    });
+  });
+
+  it('the widening reaches the three modules it exists for', () => {
+    // NAMED rather than floored. A floor on the population cannot detect the
+    // derivation examining LESS, and these three are the whole reason the
+    // shared half was added — a floor met by the nineteen owned modules alone
+    // would report a healthy run.
+    const population = domainRelativePaths();
+    const widening = [
+      'controllers/retail-reconciliation-operator.controller.ts',
+      'routes/internal-retail-reconciliation.ts',
+      'db/schema/retailReconciliation.ts',
+    ];
+    for (const expected of widening) {
+      expect(population, `${expected} left the population`).toContain(expected);
+    }
+    // The half that makes it a measurement rather than an assertion about a
+    // tree that happens to be convenient: the OWNED walk alone reaches none.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    for (const expected of widening) {
+      expect(owned, `${expected} is reached without the shared sweep`).not.toContain(expected);
+    }
+    // …and the same, one level down, for the optional hyphen.
+    expect(/retail-reconciliation/i.test('db/schema/retailReconciliation.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('db/schema/retailReconciliation.ts')).toBe(true);
+    // The bare word this pattern must NOT be widened to: ten other domains.
+    for (const foreign of [
+      'services/payments/reconciliation/runner.ts',
+      'services/ebay/reconciliation.ts',
+      'services/retail-service-requests/reconciler.ts',
+    ]) {
+      expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
+      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+    }
+  });
+
+  it('the derived population really is the one the walls scan', () => {
+    expect(domainRelativePaths(readSrcDirectory).sort()).toEqual(
+      DOMAIN_FILES.map((path) => path.slice(SRC_ROOT.length + 1)).sort(),
     );
   });
 });

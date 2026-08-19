@@ -30,9 +30,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import {
   RANKING_SURFACE_PATHS,
   assertRankingSurfaceIsWhole,
@@ -41,22 +48,73 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
+/**
+ * Walked whole, so a module added to the domain tomorrow is gated the moment it
+ * exists.
+ *
+ * The read this replaces was a ONE-LEVEL `readdirSync` of each, which reads as
+ * a walk and is not one: a `services/retail-eligibility/policy/` added next
+ * year is in no population and behind none of the five walls, and every floor
+ * and count here goes on reporting exactly what it does today.
+ */
+const OWNED_DIRECTORIES = ['services/retail-eligibility', 'db/retailEligibility'];
+
+/**
+ * The shared directories, where this domain sits beside every other domain's.
+ *
+ * They were FOUR HAND-NAMED PATHS, and **the four were complete** — the walk
+ * finds exactly the same nineteen modules the list named. That is not a reason
+ * to leave it: `docs/isolation-gates.md` §"A complete population is not a
+ * defended one" is this exact case, measured on `curation` (17 -> 17). The
+ * direction a hand list is blind to is an ADDED module, and it is invisible to
+ * every number a gate asserts — a deleted one makes `readFileSync` throw, so
+ * the list goes red, while a new `routes/internal-retail-eligibility-recalls.ts`
+ * would sit behind no wall with the gate green.
+ *
+ * `namedInSharedDirectories` recurses, so `routes/admin/` and
+ * `controllers/admin/` are reached too. Measured: this domain has no module in
+ * either today, so the recursion adds nothing HERE and is the class fix rather
+ * than a count.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
+
+/**
+ * What a module BELONGING to this domain is called, wherever it lives.
+ *
+ * The HYPHEN is optional, and that half is load-bearing rather than tidy: the
+ * schema directory names its files in camelCase, so
+ * `db/schema/retailEligibility.ts` cannot match a hyphenated spelling — and it
+ * is the module DECLARING the nine tables, which is the one place a forbidden
+ * COLUMN would appear.
+ *
+ * The FULL two words, never a bare `eligib`: that word selects 10 more modules
+ * across #74's ranking, #93's pickup, #76's reviews, #112's guest-P2P, #118's
+ * procurement, checkout, price-history, catalog-proposals and
+ * retail-service-requests. Folding any of them in would make these walls fire
+ * at whoever edits them. Measured: `/retail-?eligibility/i` selects 19 modules
+ * and every one is this domain's.
+ */
+const DOMAIN_NAME_PATTERN = /retail-?eligibility/i;
+
+/** Every module of the domain, DERIVED, relative to `src/`. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir),
+  ];
+}
+
+/**
+ * The floors, PER SHAPE and measured off this branch: 15 under the owned
+ * directories, 4 in the shared ones. A TOTAL floor lets one shape collapse to
+ * zero behind another's number.
+ */
+const MINIMUM_OWNED_FILES = 13;
+const MINIMUM_SHARED_FILES = 3;
+
 /** Every module of the retail eligibility domain, enumerated from disk. */
 function domainFiles(): string[] {
-  const service = join(SRC_ROOT, 'services', 'retail-eligibility');
-  const repository = join(SRC_ROOT, 'db', 'retailEligibility');
-  return [
-    ...readdirSync(service)
-      .filter((name) => name.endsWith('.ts'))
-      .map((name) => join(service, name)),
-    ...readdirSync(repository)
-      .filter((name) => name.endsWith('.ts'))
-      .map((name) => join(repository, name)),
-    join(SRC_ROOT, 'db', 'schema', 'retailEligibility.ts'),
-    join(SRC_ROOT, 'controllers', 'retail-eligibility-operator.controller.ts'),
-    join(SRC_ROOT, 'middleware', 'retail-eligibility-schemas.ts'),
-    join(SRC_ROOT, 'routes', 'internal-retail-eligibility.ts'),
-  ];
+  return domainRelativePaths().map((relative) => join(SRC_ROOT, relative));
 }
 
 /**
@@ -106,9 +164,21 @@ describe('a mercaria_retail order pays no marketplace fee', () => {
       );
       scanned += 1;
     }
-    // The vacuity floor: the domain is thirteen modules and a broken traversal
-    // that found none would otherwise pass this whole file.
-    expect(scanned).toBeGreaterThanOrEqual(13);
+    // The vacuity floor, PER SHAPE: a broken traversal of either half found
+    // none, and every scan in this file then passes by having nothing to match.
+    // A TOTAL floor lets one half collapse to zero behind the other's number.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAME_PATTERN);
+    expect(
+      owned.length,
+      'the owned directories shrank; a walk that lost a module scans clean',
+    ).toBeGreaterThanOrEqual(MINIMUM_OWNED_FILES);
+    expect(
+      shared.length,
+      'no controller, route, middleware or schema module is named for this domain — did the ' +
+        'derivation break?',
+    ).toBeGreaterThanOrEqual(MINIMUM_SHARED_FILES);
+    expect(scanned).toBe(owned.length + shared.length);
   });
 });
 
@@ -163,7 +233,7 @@ describe('this domain does no FX and names no currency as special', () => {
         .toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(13);
+    expect(scanned).toBeGreaterThanOrEqual(MINIMUM_OWNED_FILES + MINIMUM_SHARED_FILES);
   });
 });
 
@@ -175,7 +245,7 @@ describe('the verdict has no override', () => {
       expect(OVERRIDE_FIELD.test(source), `${path} accepts an override-shaped field`).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(13);
+    expect(scanned).toBeGreaterThanOrEqual(MINIMUM_OWNED_FILES + MINIMUM_SHARED_FILES);
   });
 });
 
@@ -212,6 +282,9 @@ describe('the detectors actually detect — the mutation self-tests', () => {
 
   it('the file enumeration finds the whole domain, not a subset', () => {
     const files = domainFiles();
+    for (const path of files) {
+      expect(statSync(path).isFile(), `${path} is in the population but is not a file`).toBe(true);
+    }
     const names = files.map((path) => path.split('/').slice(-1)[0]);
     // Named explicitly rather than counted, so a module that is DELETED fails
     // here instead of being silently excused by a lowered floor.
@@ -234,6 +307,68 @@ describe('the detectors actually detect — the mutation self-tests', () => {
       'retailEligibility.ts',
     ]) {
       expect(names, expected).toContain(expected);
+    }
+  });
+});
+
+/**
+ * The population's own defence, and the reason a COMPLETE hand list was still
+ * converted.
+ *
+ * The four hand-named paths were right, and the walk finds the same nineteen
+ * modules — so no number in this gate moved. `docs/isolation-gates.md`
+ * §"A complete population is not a defended one" is this exact case: a DELETED
+ * module makes `readFileSync` throw, so even the hand list went red, while an
+ * ADDED one is invisible to every floor, count and probe the gate asserts. That
+ * is the direction this closes, and it is the only one that was open.
+ *
+ * The exclusion set is EMPTY, measured rather than assumed:
+ * `/retail-?eligibility/i` over the whole of `src/` selects 19 modules and all
+ * 19 are this domain's.
+ */
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('every retail-eligibility-named module in src/ is inside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_NAME_PATTERN,
+      notThisDomain: [],
+      // Below today's 19 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 16,
+      plantIn: 'lib',
+      plantName: 'retail-eligibility-cache.ts',
+    });
+  });
+
+  it('the derivation reaches what the hand list named, and the walk is RECURSIVE', () => {
+    const population = domainRelativePaths();
+    // Everything the four hand-named paths carried is still here…
+    for (const expected of [
+      'db/schema/retailEligibility.ts',
+      'controllers/retail-eligibility-operator.controller.ts',
+      'middleware/retail-eligibility-schemas.ts',
+      'routes/internal-retail-eligibility.ts',
+    ]) {
+      expect(population, `${expected} left the population`).toContain(expected);
+    }
+    // …the OWNED walk alone reaches none of them, so the shared sweep is what
+    // is being measured…
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    expect(owned, 'the shared sweep is measuring nothing').not.toContain(
+      'routes/internal-retail-eligibility.ts',
+    );
+    // …and the hyphen-only spelling cannot reach the module DECLARING the nine
+    // tables, which is where a forbidden column would be added.
+    expect(/retail-eligibility/i.test('db/schema/retailEligibility.ts')).toBe(false);
+    expect(DOMAIN_NAME_PATTERN.test('db/schema/retailEligibility.ts')).toBe(true);
+    // The bare word this pattern must NOT be widened to: nine other domains.
+    for (const foreign of [
+      'services/ranking/eligibility.ts',
+      'services/pickup/eligibility.ts',
+      'services/checkout/fulfilment-eligibility.ts',
+    ]) {
+      expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
+      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
     }
   });
 });
