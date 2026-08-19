@@ -9,9 +9,16 @@
  * in a passing run is what makes an unrelated red legible later.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import {
   CATALOG_GOVERNANCE_ACTIONS,
   COMPATIBILITY_CLAIM_PROMOTION_FORBIDDEN_INPUTS,
@@ -34,36 +41,45 @@ import { RESTORE_UNSUPPORTED_SCOPES } from '../snapshot.service.js';
 
 const SRC_ROOT = join(import.meta.dirname, '..', '..', '..');
 
-/** The whole domain — services, repositories, schema, route, controller, schemas. */
-const SCANNED_PATHS: readonly string[] = [
-  join('services', 'catalog-governance'),
-  join('db', 'catalogGovernance'),
-  join('db', 'schema', 'catalogGovernance.ts'),
-  join('routes', 'internal-catalog-governance.ts'),
-  join('controllers', 'catalog-governance.controller.ts'),
-  join('middleware', 'catalog-governance-schemas.ts'),
-];
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The hyphen is optional because `db/catalogGovernance/` and
+ * `db/schema/catalogGovernance.ts` are camelCase. Measured over the whole of
+ * `src/`, this selects twenty-two modules and every one is this domain's —
+ * the bare word `governance` adds only #102's guest-governance domain, which
+ * has its own gate.
+ */
+const GOVERNANCE_NAME_PATTERN = /catalog-?governance/i;
 
-function walk(dir: string, into: Map<string, string>): void {
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) {
-      if (entry === '__tests__') continue;
-      walk(path, into);
-      continue;
-    }
-    if (!entry.endsWith('.ts') || entry.endsWith('.test.ts')) continue;
-    into.set(relative(SRC_ROOT, path), readFileSync(path, 'utf8'));
-  }
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/catalog-governance', 'db/catalogGovernance'] as const;
+
+/** The flat directories a module of this domain lives in under a domain NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the domain, as paths RELATIVE to `src/`.
+ *
+ * This was a hand-written list of two directories plus FOUR exact filenames
+ * (#460). It was complete — the whole-tree sweep finds the same twenty-two — and
+ * complete is not the same as defended: the direction a hand list is blind to is
+ * a module ADDED, and no floor or count in this file could see one. The four
+ * filenames in particular were the shape that rots, because each names a module
+ * that a rename would silently drop out of every wall below.
+ */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, GOVERNANCE_NAME_PATTERN, readDir),
+  ];
 }
 
 /** `{relative path → source}` for every production file in the domain. */
 function domainSources(): Map<string, string> {
   const sources = new Map<string, string>();
-  for (const path of SCANNED_PATHS) {
-    const absolute = join(SRC_ROOT, path);
-    if (statSync(absolute).isDirectory()) walk(absolute, sources);
-    else sources.set(path, readFileSync(absolute, 'utf8'));
+  for (const path of domainRelativePaths()) {
+    sources.set(path, readFileSync(join(SRC_ROOT, path), 'utf8'));
   }
   return sources;
 }
@@ -203,8 +219,10 @@ describe('the catalog governance walls', () => {
     // function it may not DEFINE. Scanning it from here also keeps the tuple and
     // both scans in one file, which is what stops them drifting.
     const scanned = new Map<string, string>();
-    for (const directory of [join('services', 'compatibility'), join('db', 'compatibility')]) {
-      walk(join(SRC_ROOT, directory), scanned);
+    for (const directory of ['services/compatibility', 'db/compatibility']) {
+      for (const path of walkOwnedDirectory(directory)) {
+        scanned.set(path, readFileSync(join(SRC_ROOT, path), 'utf8'));
+      }
     }
     // Vacuity floor first: eight files today, and a walk that found nothing
     // satisfies the assertion below without measuring anything.
@@ -498,21 +516,85 @@ describe('the route set is closed', () => {
   });
 });
 
-/** The scan paths themselves, reconciled against what exists on disk. */
+/** The population itself, reconciled against the whole tree (#460). */
 describe('the scan covers the whole domain', () => {
-  it('names only paths that exist, and reads every file under them', () => {
-    for (const path of SCANNED_PATHS) {
-      expect(() => statSync(join(SRC_ROOT, path)), `scanned path is stale: ${path}`).not.toThrow();
-    }
+  it('every scanned path exists and is a file', () => {
     const sources = domainSources();
+    for (const path of sources.keys()) {
+      expect(
+        statSync(join(SRC_ROOT, path)).isFile(),
+        `scanned path is stale: ${path}`,
+      ).toBe(true);
+    }
     // Every module the domain ships must be IN the scan. A file added under a
     // directory nobody scans is a wall that stops covering it silently.
     const services = [...sources.keys()].filter((path) =>
-      path.startsWith(join('services', 'catalog-governance')),
+      path.startsWith('services/catalog-governance/'),
     );
     expect(
       services.length,
       `${String(services.length)} service modules scanned`,
     ).toBeGreaterThanOrEqual(10);
+  });
+
+  it('nothing naming this domain sits outside the population', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: GOVERNANCE_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // all twenty-two modules the whole-tree sweep finds are this domain's.
+      notThisDomain: [],
+      // Below today's 22 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 17,
+      plantIn: 'lib',
+      plantName: 'catalog-governance-cache.ts',
+    });
+  });
+
+  it('the four modules that used to be named by FILENAME are still covered', () => {
+    // They were four exact entries in a hand-written list. They arrive through
+    // the NAME pattern now, so a rename keeps them inside the walls instead of
+    // silently dropping them out of every one — but a rename that also drops the
+    // domain token would show up in the whole-tree assertion above rather than
+    // here, which is the point of having both.
+    const population = domainRelativePaths();
+    for (const named of [
+      'db/schema/catalogGovernance.ts',
+      'routes/internal-catalog-governance.ts',
+      'controllers/catalog-governance.controller.ts',
+      'middleware/catalog-governance-schemas.ts',
+    ]) {
+      expect(population, `${named} left the population`).toContain(named);
+      expect(statSync(join(SRC_ROOT, named)).isFile()).toBe(true);
+    }
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, GOVERNANCE_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(14);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      3,
+    );
+  });
+
+  it('the optional hyphen is load-bearing, and the bare word would be too wide', () => {
+    const camelCase = 'db/schema/catalogGovernance.ts';
+    expect(GOVERNANCE_NAME_PATTERN.test(camelCase)).toBe(true);
+    expect(/catalog-governance/.test(camelCase), 'the hyphenated spelling already matched').toBe(
+      false,
+    );
+    // And the narrowness: #102's guest-governance domain has its own gate, and a
+    // bare `governance` would pull all fourteen of its modules in here.
+    for (const foreign of [
+      'services/guest-governance/abuse.service.ts',
+      'db/schema/guestGovernance.ts',
+      'routes/internal-guest-governance.ts',
+    ]) {
+      expect(statSync(join(SRC_ROOT, foreign)).isFile()).toBe(true);
+      expect(GOVERNANCE_NAME_PATTERN.test(foreign), `${foreign} matches the name`).toBe(false);
+      expect(domainRelativePaths(), `${foreign} belongs to another domain`).not.toContain(foreign);
+    }
   });
 });
