@@ -4,6 +4,13 @@
  * Six scanned gates over every module in `services/catalog-backfill/`,
  * `db/catalogBackfill/` and the three `scripts/backfill-catalog-*.ts` — the
  * whole DIRECTORIES, so each wall holds for modules nobody has written yet.
+ *
+ * #460 did NOT move the count: the whole-tree sweep finds the same eleven
+ * modules the two directories plus the script prefix already reached. What it
+ * adds is the direction a directory list is blind to — a module ADDED somewhere
+ * neither names, which no floor and no count in this file could ever see. The
+ * script prefix in particular was a hand-written rule (`startsWith`), and it is
+ * now the same NAME pattern everything else uses.
  * Every one carries a vacuity floor read off the real tree (a scan of nothing
  * passes every pattern) and a mutation self-test proving the detector fires on
  * the shape it is hunting.
@@ -37,34 +44,63 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 
-const SCANNED_DIRECTORIES = [
-  join(SRC_ROOT, 'services', 'catalog-backfill'),
-  join(SRC_ROOT, 'db', 'catalogBackfill'),
-];
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * BOTH orders, because the scripts are spelled the other way round
+ * (`scripts/backfill-catalog-classify.ts`), and the hyphen is optional for
+ * `db/catalogBackfill/`.
+ *
+ * **The narrowness is the point.** A bare `backfill` would swallow #60's
+ * separate flag-gated catalogue backfill — `services/backfill/`, `db/backfill/`,
+ * `db/schema/backfill.ts`, `routes/internal-backfill.ts` and eleven more, all
+ * covered by `services/__tests__/backfill-isolation.test.ts` — plus #367's
+ * `scripts/backfill-variant-axes.ts` and two sibling `backfill.service.ts`
+ * modules. Measured: bare `backfill` selects 27 modules that are NOT this
+ * domain's; this pattern selects 11 and every one is.
+ */
+const CATALOG_BACKFILL_NAME_PATTERN = /catalog-?backfill|backfill-catalog/i;
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/catalog-backfill', 'db/catalogBackfill'] as const;
+
+/**
+ * The flat directories a module of this domain lives in under a domain NAME.
+ *
+ * `scripts` is in the list and is where the three operator entry points live;
+ * the other four hold nothing named for this domain today, and they are here so
+ * that a route or a schema table added tomorrow lands inside the walls rather
+ * than turning the whole-tree assertion red for a module that plainly belongs.
+ */
+const SHARED_DIRECTORIES = ['scripts', 'routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/** Every module of the catalog-backfill domain, enumerated from disk. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    // RECURSIVE, where this read one directory level.
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, CATALOG_BACKFILL_NAME_PATTERN, readDir),
+  ];
+}
 
 /** Every production module in the domain. Tests are excluded — they name what they refuse. */
 function domainFiles(): string[] {
-  const files: string[] = [];
-  for (const root of SCANNED_DIRECTORIES) {
-    for (const entry of readdirSync(root)) {
-      const full = join(root, entry);
-      if (statSync(full).isDirectory()) continue;
-      if (!entry.endsWith('.ts')) continue;
-      files.push(full);
-    }
-  }
-  for (const entry of readdirSync(join(SRC_ROOT, 'scripts'))) {
-    if (entry.startsWith('backfill-catalog-') && entry.endsWith('.ts')) {
-      files.push(join(SRC_ROOT, 'scripts', entry));
-    }
-  }
-  return files.sort();
+  return domainRelativePaths()
+    .map((path) => join(SRC_ROOT, path))
+    .sort();
 }
 
 /**
@@ -399,4 +435,84 @@ describe('#454: a relative import cannot walk around these detectors', () => {
     expect(COMMERCIAL_REFERENCE.test("import { getDb } from '../../db/postgres.js';")).toBe(false);
   });
 
+});
+
+describe('the population the six walls above are applied to (#460)', () => {
+  it('nothing naming this domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: CATALOG_BACKFILL_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // all eleven modules the whole-tree sweep finds are this domain's.
+      notThisDomain: [],
+      // Below today's 11 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 8,
+      plantIn: 'lib',
+      plantName: 'catalog-backfill-cache.ts',
+    });
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    // One total lets the owned walk collapse to zero while the scripts carry it,
+    // which is exactly the pair this domain has.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, CATALOG_BACKFILL_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(6);
+    expect(shared.length, 'the shared-directory name sweep reached no script').toBeGreaterThanOrEqual(
+      3,
+    );
+  });
+
+  it('the three operator scripts arrive through the NAME pattern, not a prefix rule', () => {
+    // They used to be selected by `entry.startsWith('backfill-catalog-')`, a
+    // second spelling of the population living ten lines from the first. These
+    // are the modules that rule reached, and each must still be covered.
+    const population = domainRelativePaths();
+    for (const script of [
+      'scripts/backfill-catalog-classify.ts',
+      'scripts/backfill-catalog-paths.ts',
+      'scripts/backfill-catalog-reconcile.ts',
+    ]) {
+      expect(population, `${script} is outside the walls`).toContain(script);
+      expect(
+        statSync(join(SRC_ROOT, script)).isFile(),
+        `${script} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('and #60’s separate backfill domain stays OUT of it', () => {
+    // The narrowness of the name pattern, measured rather than described. A bare
+    // `backfill` would pull in a whole other domain that has its own gate, and
+    // the walls here are not the walls there.
+    const population = domainRelativePaths();
+    for (const foreign of [
+      'services/backfill/backfill.service.ts',
+      'db/schema/backfill.ts',
+      'routes/internal-backfill.ts',
+      'scripts/backfill-variant-axes.ts',
+      'services/catalog-proposals/backfill.service.ts',
+    ]) {
+      expect(
+        statSync(join(SRC_ROOT, foreign)).isFile(),
+        `${foreign} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+      expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+      expect(CATALOG_BACKFILL_NAME_PATTERN.test(foreign), `${foreign} matches the name`).toBe(false);
+    }
+  });
+
+  it('both spellings of the NAME pattern are load-bearing', () => {
+    // The scripts are `backfill-catalog-*` and the repository directory is
+    // `catalogBackfill` — three different orders and casings for one domain, and
+    // each alternative is asserted to reach what the others do not.
+    expect(/catalog-?backfill/i.test('scripts/backfill-catalog-paths.ts')).toBe(false);
+    expect(/backfill-catalog/i.test('db/catalogBackfill/legacyCatalogRepository.ts')).toBe(false);
+    expect(/catalog-backfill/.test('db/catalogBackfill/legacyCatalogRepository.ts')).toBe(false);
+    expect(CATALOG_BACKFILL_NAME_PATTERN.test('scripts/backfill-catalog-paths.ts')).toBe(true);
+    expect(CATALOG_BACKFILL_NAME_PATTERN.test('db/catalogBackfill/legacyCatalogRepository.ts')).toBe(
+      true,
+    );
+  });
 });

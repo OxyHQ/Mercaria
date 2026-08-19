@@ -3,7 +3,17 @@
  * STRUCTURALLY.
  *
  * Nine properties, each a scan or a schema read rather than a fixture, because
- * "cannot" is a stronger statement than "did not in this case":
+ * "cannot" is a stronger statement than "did not in this case".
+ *
+ * ## The population (#460)
+ *
+ * It was `readdirSync` over the two owned directories, ONE LEVEL DEEP each:
+ * eleven modules. `db/schema/catalogExternalMappings.ts` — 42 KB declaring every
+ * table, CHECK and unique index this domain's nine properties are ABOUT — was
+ * behind none of them. Measured clean against all eleven detectors on
+ * comment-stripped source before being added.
+ *
+ * The nine:
  *
  * 1. **Nothing here ranks anything.** #74 owns ranking behind a versioned
  *    policy, and a taxonomy mapping is one join from "the categories that pay
@@ -37,9 +47,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { getTableColumns } from 'drizzle-orm';
 import {
   CATALOG_EXTERNAL_FORBIDDEN_TRANSFORMS,
@@ -60,20 +77,39 @@ function catalogExternalMappingsTable() {
 }
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const SERVICE_DIR = join(SRC_ROOT, 'services/catalog-external-mappings');
-const REPOSITORY_DIR = join(SRC_ROOT, 'db/catalogExternalMappings');
+
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The `catalog-` prefix is deliberately NOT in the pattern: `external-mapping`
+ * is the distinctive half, and the two camelCase spellings
+ * (`db/catalogExternalMappings/`, `db/schema/catalogExternalMappings.ts`) are
+ * reached by the optional hyphen. Measured over the whole of `src/`, this
+ * selects twelve modules and every one is this domain's.
+ */
+const EXTERNAL_MAPPING_NAME_PATTERN = /external-?mappings?/i;
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = [
+  'services/catalog-external-mappings',
+  'db/catalogExternalMappings',
+] as const;
+
+/** The flat directories a module of this domain lives in under a domain NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/** Every module of the external-mapping domain, enumerated from disk. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    // RECURSIVE, where this read one directory level.
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, EXTERNAL_MAPPING_NAME_PATTERN, readDir),
+  ];
+}
 
 /** Every module of the domain, read off the real directories. */
 function domainFiles(): readonly string[] {
-  const files: string[] = [];
-  for (const dir of [SERVICE_DIR, REPOSITORY_DIR]) {
-    for (const entry of readdirSync(dir)) {
-      if (!entry.endsWith('.ts')) continue;
-      if (!statSync(join(dir, entry)).isFile()) continue;
-      files.push(join(dir, entry));
-    }
-  }
-  return files;
+  return domainRelativePaths().map((relative) => join(SRC_ROOT, relative));
 }
 
 function readDomainFile(path: string): string {
@@ -138,7 +174,10 @@ describe('the domain does other issues’ jobs nowhere', () => {
     // A gate over an empty list passes vacuously and reads exactly like a clean
     // one, so the file list is read off disk and floored.
     const files = domainFiles();
-    expect(files.length, 'no domain modules found — did the directories move?').toBeGreaterThanOrEqual(9);
+    expect(
+      files.length,
+      'no domain modules found — did the directories move?',
+    ).toBeGreaterThanOrEqual(10);
   });
 
   it('ranks nothing, reads no fee and reaches no referral', () => {
@@ -150,7 +189,7 @@ describe('the domain does other issues’ jobs nowhere', () => {
       expect(REFERRAL_REFERENCE.test(source), `${path} reaches the referral domain`).toBe(false);
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(9);
+    expect(scanned).toBeGreaterThanOrEqual(10);
   });
 
   it('mints no canonical entity, runs no matcher and writes no offer', () => {
@@ -299,7 +338,7 @@ describe('a mapping can never point at a NAME (ADR 0007 D1)', () => {
 describe('confidence is never an authority, and a preview never writes', () => {
   it('the resolver does not read `confidence`', () => {
     const source = withoutComments(
-      readDomainFile(join(SERVICE_DIR, 'resolution.service.ts')),
+      readDomainFile(join(SRC_ROOT, 'services/catalog-external-mappings', 'resolution.service.ts')),
     );
     expect(
       /confidence/i.test(source),
@@ -309,7 +348,7 @@ describe('confidence is never an authority, and a preview never writes', () => {
   });
 
   it('the preview imports no writer and issues no statement that could write', () => {
-    const source = withoutComments(readDomainFile(join(SERVICE_DIR, 'preview.service.ts')));
+    const source = withoutComments(readDomainFile(join(SRC_ROOT, 'services/catalog-external-mappings', 'preview.service.ts')));
     for (const writer of [
       'insertExternalMapping',
       'upsertExternalMappingReview',
@@ -393,6 +432,58 @@ describe('the detectors actually detect — the mutation self-tests', () => {
   it('the domain-file reader refuses an empty file', () => {
     // The vacuity floor's own control: if `readDomainFile` accepted a stub,
     // every scan above would pass on a domain somebody had emptied.
-    expect(() => readDomainFile(join(SERVICE_DIR, 'does-not-exist.ts'))).toThrow();
+    expect(() => readDomainFile(join(SRC_ROOT, 'services/catalog-external-mappings', 'does-not-exist.ts'))).toThrow();
+  });
+});
+
+describe('the population the nine walls above are applied to (#460)', () => {
+  it('nothing naming this domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: EXTERNAL_MAPPING_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // all twelve modules the whole-tree sweep finds are this domain's.
+      notThisDomain: [],
+      // Below today's 12 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 9,
+      plantIn: 'lib',
+      plantName: 'external-mapping-cache.ts',
+    });
+  });
+
+  it('`db/schema/catalogExternalMappings.ts` — the one module outside every wall — is in it', () => {
+    // An identity assertion, not a floor. It is 42 KB declaring every table,
+    // CHECK and unique index the nine properties above are ABOUT, and a floor
+    // set below 12 is met without it.
+    const population = domainRelativePaths();
+    const schema = 'db/schema/catalogExternalMappings.ts';
+    expect(population, `${schema} is outside the walls again`).toContain(schema);
+    expect(
+      statSync(join(SRC_ROOT, schema)).isFile(),
+      `${schema} no longer exists, so naming it proves nothing`,
+    ).toBe(true);
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    // One total lets the walk collapse to zero while the sweep carries it.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, EXTERNAL_MAPPING_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(9);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      1,
+    );
+  });
+
+  it('the optional hyphen is load-bearing', () => {
+    // The camelCase spelling is the ONLY way the schema module enters, so the
+    // widening is measured rather than assumed: the hyphen-only pattern must NOT
+    // reach it.
+    const camelCase = 'db/schema/catalogExternalMappings.ts';
+    expect(EXTERNAL_MAPPING_NAME_PATTERN.test(camelCase)).toBe(true);
+    expect(/external-mappings?/i.test(camelCase), 'the hyphenated spelling already matched').toBe(
+      false,
+    );
+    expect(domainRelativePaths()).toContain(camelCase);
   });
 });
