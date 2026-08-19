@@ -429,6 +429,15 @@ export async function applyConflictResolution(
       // and keeps the job out of a `blocked` state nothing can lift, since a job
       // leaves `blocked` only when a resolution is ACCEPTED.
       return;
+    case 'entity_suppressed':
+      // NOTHING, and the same shape again (#694). The act — lifting the
+      // suppression, or suppressing the other side — belongs to the suppression
+      // domain and has ALREADY happened by the time a resolution exists:
+      // `resolveMergeConflict` refuses `suppression_cleared` while the row is
+      // still open. So an accepted decision is a statement about a change
+      // somebody already made, curation neither lifts nor suppresses anything,
+      // and the job cannot unblock into a state nothing can lift.
+      return;
   }
 }
 

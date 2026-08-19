@@ -513,6 +513,26 @@ export async function bundleComponentStillExists(
 }
 
 /**
+ * Whether that suppression is still open — the gate on `suppression_cleared`.
+ *
+ * `bundleComponentStillExists` one domain over. The ACT (lifting it, or
+ * suppressing the other side) belongs to the suppression domain, so what
+ * curation records is that it ALREADY happened — and this is what makes the
+ * record true rather than trusted.
+ */
+export async function suppressionStillOpen(
+  suppressionId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const rows = await db.execute(sql`
+    select 1 from catalog_entity_suppressions
+    where id = ${suppressionId} and lifted_at is null
+    limit 1
+  `);
+  return rows.length > 0;
+}
+
+/**
  * `merchant_claims`' `(merchant_id) WHERE state = 'verified'` — #83 acceptance 4.
  *
  * Two claimed merchants cannot become one without deciding who operates the
