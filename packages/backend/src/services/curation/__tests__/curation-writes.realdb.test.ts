@@ -56,7 +56,13 @@ import { reviewAggregates, reviewTargetMigrations, reviews } from '../../../db/s
 import { productSaveAggregates } from '../../../db/schema/productSaves.js';
 import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
-import { claimMergeJobs, claimSplitJobs } from '../../../db/curation/jobRepository.js';
+import {
+  approveSplitJob,
+  claimMergeJobs,
+  claimSplitJobs,
+  findSplitJobById,
+  listSplitJobs,
+} from '../../../db/curation/jobRepository.js';
 import {
   approveMerge,
   mergeJobBlockingState,
@@ -65,7 +71,13 @@ import {
   resumeBlockedMergeJobs,
   runMergeJob,
 } from '../merge.service.js';
-import { requestSplit, runSplitJob } from '../split.service.js';
+import {
+  approveSplit,
+  requestSplit,
+  resumeBlockedSplitJobs,
+  runSplitJob,
+  splitJobBlockingState,
+} from '../split.service.js';
 import { estimateMergeImpact } from '../impact.js';
 import { recordRevision, recordCompensation } from '../revision.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
@@ -2038,5 +2050,213 @@ describe('#663: resuming a merge job whose blocking condition has cleared', () =
 
     await resumeBlockedMergeJobs(50);
     expect(await statusOf(job.id)).toBe('blocked');
+  });
+});
+
+describe('#679: a split blocked on its second approval PARKS instead of spinning', () => {
+  /**
+   * A four-eyes split, requested and then marked on the ROW.
+   *
+   * `requires_second_approval` is snapshotted at request time precisely so a
+   * threshold change cannot retroactively unapprove a job, and the gate under
+   * test reads the COLUMN. Raising `config.catalog.fourEyesRequired` instead
+   * would widen a global bound for every file sharing this database — the
+   * hazard `~/Oxy/AGENTS.md` records — where this touches one row this file
+   * owns. #663's four-eyes case does exactly the same.
+   */
+  async function seedFourEyesSplit(label: string) {
+    const source = await seedProduct(`679${label}-src`);
+    const split = await requestSplit({
+      entityType: 'canonical_product',
+      sourceEntityId: source.productId,
+      targetMode: 'new_entity',
+      targetSlug: `679${label}-dest-${RUN}`,
+      targetName: `679${label} destination`,
+      reason: 'a split whose impact needs a second pair of eyes',
+      actorOxyUserId: OPERATOR,
+      items: [{ itemType: 'canonical_variant', itemRef: source.variantId }],
+    });
+    await db
+      .update(catalogSplitJobs)
+      .set({ requiresSecondApproval: true })
+      .where(eq(catalogSplitJobs.id, split.id));
+    return { source, split };
+  }
+
+  async function splitRow(jobId: string) {
+    const rows = await db
+      .select({
+        status: catalogSplitJobs.status,
+        phase: catalogSplitJobs.phase,
+        attempts: catalogSplitJobs.attempts,
+        lastError: catalogSplitJobs.lastError,
+      })
+      .from(catalogSplitJobs)
+      .where(eq(catalogSplitJobs.id, jobId));
+    const row = rows[0];
+    if (!row) throw new Error(`split job ${jobId} vanished`);
+    return row;
+  }
+
+  /**
+   * What the dispatcher's claim would take right now — in a ROLLED-BACK
+   * transaction, so asking the question changes nothing.
+   *
+   * #663's `claimWouldTake`, for splits, and it carries the same two lessons: a
+   * plain claim with a real batch steals rows from sibling files, and it must
+   * BACKDATE first so `batchSize: 1` is a real question rather than a vacuous
+   * one — if this job were claimable at all it would sort first.
+   */
+  async function claimWouldTakeSplit(jobId: string, owner: string): Promise<readonly string[]> {
+    await db.execute(
+      sql`update catalog_split_jobs set available_at = to_timestamp(0) where id = ${jobId}`,
+    );
+    let taken: readonly string[] = [];
+    await db
+      .transaction(async (tx) => {
+        taken = (await claimSplitJobs({ leaseOwner: owner, batchSize: 1 }, tx)).map((row) => row.id);
+        tx.rollback();
+      })
+      .catch(() => undefined);
+    return taken;
+  }
+
+  it('parks at `plan`, stays out of the claim, and does NOT count the wait as an attempt', async () => {
+    const { split } = await seedFourEyesSplit('park');
+
+    const blocked = await claimAndRunSplit(split.id, `lease-679park-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+    expect(blocked.completed).toBe(false);
+
+    /**
+     * On `main` this row read `{status:'processing', phase:'plan'}` with the
+     * lease still held, because `runSplitJob` reported a blocked phase and
+     * wrote nothing — there was no `blockSplitJob` at all. The lease then
+     * expired, `claimSplitJobs` reclaimed it, and `attempts` climbed until it
+     * dead-lettered FOR WAITING.
+     */
+    const parked = await splitRow(split.id);
+    expect(parked.status).toBe('blocked');
+    expect(parked.phase).toBe('plan');
+    expect(parked.lastError).toContain("second operator's approval");
+
+    // It is now reachable as work-in-waiting, which nothing could make true
+    // before: `catalog_split_jobs_blocked_idx` had no writer.
+    const inbox = await listSplitJobs({ status: 'blocked', limit: 100 }, db);
+    expect(inbox.map((row) => row.id)).toContain(split.id);
+
+    // And the dispatcher declines it. The positive control is in the next test:
+    // "the claim returned nothing" and "the claim declined this row" are
+    // otherwise indistinguishable.
+    expect(await claimWouldTakeSplit(split.id, `lease-679park-claim-${RUN}`)).not.toContain(
+      split.id,
+    );
+
+    /**
+     * WAITING IS NOT AN ATTEMPT, and this is the assertion #679 asks for by
+     * name. It holds structurally rather than by a special case: parking means
+     * `releaseSplitJob` is never reached, and `attempts` is only incremented by
+     * a claim. A second drain leaves it exactly where it is.
+     */
+    const before = parked.attempts;
+    await resumeBlockedSplitJobs(50);
+    const after = await splitRow(split.id);
+    expect(after.attempts).toBe(before);
+    expect(after.status).toBe('blocked');
+  });
+
+  it('resumes the moment the SECOND APPROVAL arrives, and not before', async () => {
+    const { split } = await seedFourEyesSplit('resume');
+    await claimAndRunSplit(split.id, `lease-679resume-${RUN}`);
+    expect((await splitRow(split.id)).status).toBe('blocked');
+
+    // Unapproved, the sweep leaves it exactly where it is.
+    await resumeBlockedSplitJobs(50);
+    expect((await splitRow(split.id)).status).toBe('blocked');
+
+    // `approveSplit` evaluates the gate EAGERLY, so this is `pending` without
+    // waiting for a sweep — the latency half of the same guarantee.
+    await approveSplit(split.id, SECOND_OPERATOR, 'reviewed the assignment list');
+    expect((await splitRow(split.id)).status).toBe('pending');
+
+    // The positive control the previous test owes: the same claim now takes it.
+    expect(await claimWouldTakeSplit(split.id, `lease-679resume-claim-${RUN}`)).toEqual([split.id]);
+    expect((await claimAndRunSplit(split.id, `lease-679resume2-${RUN}`)).completed).toBe(true);
+  });
+
+  it('is resumed by the SWEEP even when nothing evaluated the gate eagerly', async () => {
+    /**
+     * The eager evaluation in `approveSplit` is a latency optimisation; the
+     * SWEEP is the guarantee. So this drives the approval through the
+     * repository — the write `approveSplit` performs, without the unblock
+     * beside it — and asserts the sweep still lifts the job. Without this, both
+     * paths would be proven by one code path and a regression in the sweep
+     * would be invisible.
+     */
+    const { split } = await seedFourEyesSplit('sweep');
+    await claimAndRunSplit(split.id, `lease-679sweep-${RUN}`);
+    expect((await splitRow(split.id)).status).toBe('blocked');
+
+    await approveSplitJob(split.id, SECOND_OPERATOR, db);
+    expect((await splitRow(split.id)).status).toBe('blocked');
+
+    expect(await resumeBlockedSplitJobs(50)).toBeGreaterThanOrEqual(1);
+    expect((await splitRow(split.id)).status).toBe('pending');
+  });
+
+  it('REFUSES to vouch for a phase it does not own', async () => {
+    // The fail-closed half. A phase added later that blocks for some other
+    // reason must not be auto-resumed by a predicate that never heard of it.
+    const { split } = await seedFourEyesSplit('phase');
+    const job = await findSplitJobById(split.id, db);
+    if (!job) throw new Error('the split vanished');
+
+    const atPlan = splitJobBlockingState(job);
+    expect(atPlan.state).toBe('blocked');
+    expect(atPlan.state === 'blocked' && atPlan.reason).toContain("second operator's approval");
+
+    const elsewhere = splitJobBlockingState({ ...job, phase: 'assignments' });
+    expect(elsewhere.state).toBe('blocked');
+    expect(elsewhere.state === 'blocked' && elsewhere.reason).toContain("'assignments'");
+
+    // …and it says CLEAR for the one phase it owns, once the condition is met,
+    // so the refusals above are not a predicate that says `blocked` to
+    // everything.
+    expect(splitJobBlockingState({ ...job, approvedByOxyUserId: SECOND_OPERATOR }).state).toBe(
+      'clear',
+    );
+  });
+
+  it('the CHECK is why the gate lives at `plan`, and it still says so', async () => {
+    /**
+     * The design reason, made checkable rather than left in a docblock.
+     *
+     * `catalog_split_jobs_second_approval_check` permits an unapproved
+     * four-eyes split at `plan` and NOWHERE ELSE, which is why the gate cannot
+     * sit at `mint` — the advance raises before the phase body runs, which is
+     * exactly what `main` did. If somebody widens this CHECK, the gate's
+     * position becomes arbitrary and this fails, which is the moment to
+     * re-decide rather than months later.
+     */
+    const { split } = await seedFourEyesSplit('check');
+    await expectConstraintViolation(
+      () =>
+        db
+          .update(catalogSplitJobs)
+          .set({ phase: 'mint' })
+          .where(eq(catalogSplitJobs.id, split.id)),
+      'catalog_split_jobs_second_approval_check',
+    );
+    // The positive control: the same UPDATE is accepted once approved, so the
+    // refusal above is about the approval rather than about the statement.
+    await db
+      .update(catalogSplitJobs)
+      .set({ approvedByOxyUserId: SECOND_OPERATOR, approvedAt: new Date() })
+      .where(eq(catalogSplitJobs.id, split.id));
+    await db
+      .update(catalogSplitJobs)
+      .set({ phase: 'mint' })
+      .where(eq(catalogSplitJobs.id, split.id));
+    expect((await splitRow(split.id)).phase).toBe('mint');
   });
 });

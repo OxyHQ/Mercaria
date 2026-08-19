@@ -39,7 +39,7 @@ import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { claimMergeJobs, claimSplitJobs, releaseMergeJob, releaseSplitJob } from '../../db/curation/jobRepository.js';
 import { resumeBlockedMergeJobs, runMergeJob } from './merge.service.js';
-import { runSplitJob } from './split.service.js';
+import { resumeBlockedSplitJobs, runSplitJob } from './split.service.js';
 
 /** The retry ladder, capped. The moderation outbox's numbers. */
 const BASE_BACKOFF_MS = 5_000;
@@ -61,6 +61,10 @@ export interface CurationDrainResult {
   readonly failures: number;
   /** Blocked jobs whose condition had cleared, returned to `pending` (#663). */
   readonly mergesResumed: number;
+  /** The same, for splits (#679). Counted separately: the two park for
+   *  different reasons and one collapsing to zero must not hide behind the
+   *  other's number. */
+  readonly splitsResumed: number;
 }
 
 /**
@@ -80,6 +84,7 @@ export async function drainCurationJobs(batchSize: number): Promise<CurationDrai
   // `pending` by the time the claim below runs, so it is resumed AND run in one
   // pass. See the note at the top of this file.
   const mergesResumed = await resumeBlockedMergeJobs(batchSize);
+  const splitsResumed = await resumeBlockedSplitJobs(batchSize);
 
   for (const job of await claimMergeJobs({ leaseOwner: owner, batchSize })) {
     try {
@@ -125,7 +130,7 @@ export async function drainCurationJobs(batchSize: number): Promise<CurationDrai
     }
   }
 
-  return { mergesRun, splitsRun, failures, mergesResumed };
+  return { mergesRun, splitsRun, failures, mergesResumed, splitsResumed };
 }
 
 let timer: NodeJS.Timeout | null = null;

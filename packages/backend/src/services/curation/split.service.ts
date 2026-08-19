@@ -65,15 +65,19 @@ import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   advanceSplitPhase,
   approveSplitJob,
+  blockSplitJob,
   completeSplitJob,
   findSplitJobById,
   insertSplitAssignment,
   insertSplitJob,
+  listBlockedSplitJobs,
   listPendingSplitAssignments,
   markAssignmentApplied,
   markAssignmentSkipped,
   summarizeSplitAssignments,
+  unblockSplitJob,
 } from '../../db/curation/jobRepository.js';
+import { log } from '../../lib/logger.js';
 import { reassignRowById } from '../../db/curation/rehomeRepository.js';
 import { markProductSavesAmbiguousAfterSplit } from '../../db/productSaves/productSaveRepository.js';
 import { markPriceAlertsAmbiguousAfterSplit } from '../../db/priceAlerts/priceAlertRepository.js';
@@ -302,6 +306,18 @@ export async function approveSplit(
   }
   const approved = await approveSplitJob(jobId, approverOxyUserId, db);
   if (!approved) throw conflict(`Split job ${jobId} already carries an approval.`);
+  /**
+   * Evaluate the gate EAGERLY, so the approval restarts the job now rather than
+   * whenever the sweep next runs.
+   *
+   * `resolveMergeConflict` does the same and for the same reason: the sweep is
+   * the guarantee, this is the latency. It asks the predicate rather than
+   * assuming the approval was the last thing outstanding — a second opinion is
+   * exactly what #663 showed cannot be allowed to exist.
+   */
+  if (approved.status === 'blocked' && splitJobBlockingState(approved).state === 'clear') {
+    await unblockSplitJob(approved.id, db);
+  }
   await recordRevision(
     {
       entityType: job.entityType,
@@ -318,10 +334,131 @@ export async function approveSplit(
   return approved;
 }
 
+/**
+ * Why a split job cannot proceed right now — or that it can (#679).
+ *
+ * ## This is the ONE spelling of the `plan` gate
+ *
+ * `blocked` is not claimable, deliberately: a dispatcher that retried a job
+ * waiting on a person would spin against a judgement only a person can make.
+ * Splits never reached that state at all. {@link runMintPhase} carried an
+ * approval gate that was UNREACHABLE, because
+ * `catalog_split_jobs_second_approval_check` permits an unapproved four-eyes
+ * split at `phase = 'plan'` and nowhere else — so the `plan -> mint` advance
+ * raised on the CHECK first, the dispatcher released the job to `pending`, and
+ * it span until it dead-lettered FOR WAITING while never appearing in the
+ * operator's blocked inbox.
+ *
+ * So the gate lives at `plan`, and its position is a property of the SCHEMA
+ * rather than a convention: `plan` is the only phase the CHECK lets an
+ * unapproved job occupy. {@link mergeJobBlockingState} sits at
+ * `awaiting_resolution` for exactly the same reason, because the merge's own
+ * CHECK permits that phase.
+ *
+ * ## Why this cannot resume a job whose precondition is unmet
+ *
+ * Because the thing that decides to resume is the same function that decided to
+ * block — #663's reasoning verbatim. There is no second opinion available to be
+ * wrong, which is what an operator "retry" button would have been. Resuming is
+ * also not RUNNING: {@link resumeBlockedSplitJobs} flips a status and claims
+ * nothing, so `blocked` stays non-claimable.
+ *
+ * ## It refuses to vouch for a phase it does not own
+ *
+ * Only `plan` blocks today. A phase added later that blocks for some other
+ * reason must NOT be auto-resumed by a predicate that never heard of it, so an
+ * unrecognised phase answers `blocked` naming itself. {@link SplitPhaseOutcome}
+ * states the same thing to the compiler.
+ */
+export type SplitJobBlockingState =
+  /** The `clear` branch carries no reason: there is none to read. */
+  | { readonly state: 'clear' }
+  | { readonly state: 'blocked'; readonly reason: string };
+
+/**
+ * PURE, and it takes no database handle — unlike `mergeJobBlockingState`.
+ *
+ * That asymmetry is a fact rather than an oversight. A merge blocks on things
+ * that live on OTHER rows — unresolved conflicts, a child job's status — so its
+ * predicate must read, and #584/#599's ruling then applies (the handle is
+ * required, because a default lets a caller inside a transaction escape to the
+ * root connection and see pre-commit state). Every condition that can park a
+ * SPLIT today is on the job's own row, so there is nothing to read and no
+ * handle to get wrong. Taking one and ignoring it would state a dependency this
+ * function does not have.
+ *
+ * A future condition needing a read makes this async and adds the required
+ * handle at all three call sites — a loud change, which is the right kind.
+ */
+export function splitJobBlockingState(job: CatalogSplitJobRow): SplitJobBlockingState {
+  if (job.phase !== 'plan') {
+    return {
+      state: 'blocked',
+      reason:
+        `This job is parked at the '${job.phase}' phase, which nothing here knows how to clear. ` +
+        'Only `plan` has a resume condition; a phase that blocks for another reason owes one ' +
+        'before it can be resumed automatically.',
+    };
+  }
+
+  if (job.requiresSecondApproval && !job.approvedByOxyUserId) {
+    return {
+      state: 'blocked',
+      reason: `This split moves ${job.impactTotalMoving} rows and needs a second operator's approval.`,
+    };
+  }
+
+  return { state: 'clear' };
+}
+
+/**
+ * Every blocked split whose condition has since cleared, back to `pending`.
+ *
+ * Bounded and driven from `drainCurationJobs`, so a manual drain and the loop
+ * resume the same jobs. It needs no lease: `unblockSplitJob`'s CAS makes a
+ * second sweeper's pass a no-op, and the work it schedules is claimed under the
+ * ordinary lease like any other pending job.
+ */
+export async function resumeBlockedSplitJobs(batchSize: number): Promise<number> {
+  const db = getDb();
+  let resumed = 0;
+  for (const job of await listBlockedSplitJobs(batchSize, db)) {
+    if (splitJobBlockingState(job).state === 'blocked') continue;
+    if (await unblockSplitJob(job.id, db)) {
+      resumed += 1;
+      log.general.info(
+        { jobId: job.id, phase: job.phase },
+        '[Curation] split job resumed: its blocking condition has cleared',
+      );
+    }
+  }
+  return resumed;
+}
+
+/**
+ * One phase's outcome.
+ *
+ * It carries NO `blockedReason`, and NO phase outcome in this domain does —
+ * which is STRONGER than #663's `PhaseOutcome` device rather than a copy of it.
+ *
+ * The merge lets exactly one phase's return type carry a reason. That works
+ * there because every merge phase is its own function with its own declared
+ * type. Several SPLIT phases are inline literals in {@link runSplitPhase}, and
+ * an inline literal is typed by the SWITCH's return type — so widening that
+ * type to admit a blocking `plan` let ANY of them invent a block with no error.
+ * Measured, and it is why this is not a copy: with the wider return type in
+ * place, planting `blockedReason` in the `redirects` case COMPILED CLEAN. The
+ * device was found by mutating this gate rather than by reading it.
+ *
+ * So the decision was lifted OUT of the phases entirely. {@link runSplitJob}
+ * asks {@link splitJobBlockingState} directly, no phase can return a blocking
+ * outcome at all, and a future phase that needs to block has to add a branch in
+ * the runner AND teach the predicate — which cannot be silent about it, because
+ * it answers `blocked` for every phase but `plan`.
+ */
 interface SplitPhaseOutcome {
   readonly rowsAffected: number;
   readonly targetEntityId: string | null;
-  readonly blockedReason?: string;
 }
 
 /**
@@ -337,13 +474,22 @@ async function runMintPhase(
   job: CatalogSplitJobRow,
   db: DatabaseOrTransaction,
 ): Promise<SplitPhaseOutcome> {
-  if (job.requiresSecondApproval && !job.approvedByOxyUserId) {
-    return {
-      rowsAffected: 0,
-      targetEntityId: null,
-      blockedReason: `This split moves ${job.impactTotalMoving} rows and needs a second operator's approval.`,
-    };
-  }
+  /**
+   * The approval gate used to be HERE, and it was unreachable (#679).
+   *
+   * `catalog_split_jobs_second_approval_check` permits an unapproved four-eyes
+   * split at `phase = 'plan'` and NOWHERE ELSE, so the `plan -> mint` advance
+   * raised on the CHECK one statement before this line ever ran. Measured: the
+   * `update … set phase = 'mint'` fails naming that constraint, the job is left
+   * `processing` at `plan`, the dispatcher catches it and releases to `pending`,
+   * and the job spins until it dead-letters FOR WAITING.
+   *
+   * So the gate moved to the phase the schema actually permits an unapproved
+   * job to occupy, and this is a CLEAN CUT rather than a second opinion left
+   * behind. The merge's equivalent gate lives at `awaiting_resolution` because
+   * `catalog_merge_jobs_second_approval_check` permits that phase; the two
+   * differ because their CHECKs differ, not by convention.
+   */
   const definition = CURATED_ENTITIES[job.entityType];
 
   if (job.targetMode === 'revive_tombstone') {
@@ -608,6 +754,9 @@ async function runSplitPhase(
 ): Promise<SplitPhaseOutcome> {
   switch (phase) {
     case 'plan':
+      // Nothing to do: the assignment list IS the plan, written at request time
+      // and frozen by a trigger once the job leaves this phase. The GATE that
+      // guards it lives in `runSplitJob` — see {@link SplitPhaseOutcome}.
       return { rowsAffected: 0, targetEntityId: job.targetEntityId };
     case 'mint':
       return runMintPhase(job, db);
@@ -659,10 +808,32 @@ export async function runSplitJob(jobId: string, leaseOwner: string): Promise<Ru
   for (;;) {
     const phase = job.phase;
     if (phase === 'done') break;
-    const outcome = await db.transaction(async (tx) => runSplitPhase(job, phase, tx));
-    if (outcome.blockedReason) {
+    /**
+     * The gate, asked BEFORE the phase runs and before a transaction is opened.
+     *
+     * Until #679 the approval gate sat inside `runMintPhase` and was
+     * UNREACHABLE: `catalog_split_jobs_second_approval_check` permits an
+     * unapproved four-eyes split at `plan` and nowhere else, so the
+     * `plan -> mint` advance raised on the CHECK first. The job kept its lease
+     * at `processing`, `claimSplitJobs` reclaimed it on lease expiry, and
+     * `attempts` climbed until it dead-lettered FOR WAITING — while
+     * `listSplitJobs({status:'blocked'})`, reachable from the operator surface,
+     * could never return it.
+     *
+     * Parking is also what stops `attempts` counting a WAIT as an attempt: the
+     * release path is not reached at all, so nothing increments.
+     */
+    const blocking = splitJobBlockingState(job);
+    if (phase === 'plan' && blocking.state === 'blocked') {
+      await blockSplitJob(job.id, leaseOwner, blocking.reason, db);
+      log.general.info(
+        { jobId: job.id, phase, reason: blocking.reason },
+        '[Curation] split job blocked on an operator decision',
+      );
       return { jobId: job.id, finalPhase: phase, completed: false, blocked: true, rowsAffected: totalRows };
     }
+
+    const outcome = await db.transaction(async (tx) => runSplitPhase(job, phase, tx));
     totalRows += outcome.rowsAffected;
 
     const next = nextSplitPhase(phase);
