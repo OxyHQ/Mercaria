@@ -42,6 +42,7 @@ import {
 } from '../db/curation/curationRepository.js';
 import {
   approveMerge,
+  mergeJobBlockingState,
   requestMerge,
   resolveMergeConflict,
 } from '../services/curation/merge.service.js';
@@ -292,6 +293,22 @@ export async function getMergeJobHandler(req: Request, res: Response): Promise<v
     }
     sendSuccess(res, {
       job: toMergeJobView(job),
+      /**
+       * What this job is waiting on RIGHT NOW, derived (#663).
+       *
+       * `lastError` is what was true when the job blocked and is not refreshed
+       * afterwards, so on its own it cannot tell an operator whether the thing
+       * they are looking at will resume by itself on the next dispatcher pass
+       * or is waiting on them. This is the same predicate the sweep evaluates,
+       * so what it reports is exactly what will happen.
+       *
+       * It is deliberately a READ and there is no route beside it that acts on
+       * the answer: when the state is `clear` the sweep has already scheduled
+       * the resume, and when it is `blocked` a "resume" control could only
+       * re-block, which is a button that teaches an operator they fixed
+       * something they did not.
+       */
+      blocking: job.status === 'blocked' ? await mergeJobBlockingState(job, db) : null,
       conflicts: await listConflicts(id, db),
       phases: await listMergePhases(id, db),
       revisions: await findRevisionsForJob({ mergeJobId: id }, db),

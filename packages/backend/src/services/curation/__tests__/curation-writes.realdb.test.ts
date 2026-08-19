@@ -57,7 +57,14 @@ import { productSaveAggregates } from '../../../db/schema/productSaves.js';
 import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
 import { claimMergeJobs, claimSplitJobs } from '../../../db/curation/jobRepository.js';
-import { requestMerge, resolveMergeConflict, runMergeJob } from '../merge.service.js';
+import {
+  approveMerge,
+  mergeJobBlockingState,
+  requestMerge,
+  resolveMergeConflict,
+  resumeBlockedMergeJobs,
+  runMergeJob,
+} from '../merge.service.js';
 import { requestSplit, runSplitJob } from '../split.service.js';
 import { estimateMergeImpact } from '../impact.js';
 import { recordRevision, recordCompensation } from '../revision.js';
@@ -1703,5 +1710,333 @@ describe('#405: a merge that would make a bundle contain itself', () => {
     // than only the absence is what stops "nothing moved" passing.
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.bundleVariantId).toBe(bystander.variantId);
+  });
+});
+
+/**
+ * #663 — a blocked job whose condition has CLEARED gets back to `pending`.
+ *
+ * `unblockMergeJob` used to have exactly one caller, `resolveMergeConflict`,
+ * which fires on a resolution. So a job that reached `blocked` with every
+ * conflict ALREADY resolved was stranded: there was nothing left to resolve, the
+ * dispatcher will not claim `blocked`, and no route existed. Two conditions
+ * reach that state and both are exercised below.
+ *
+ * These cases need a REAL server for the ordinary reason the rest of this file
+ * does — `claimMergeJobs` is `FOR UPDATE SKIP LOCKED` against a status a mocked
+ * update would happily ignore — and for one more: the strand is only real
+ * because a blocked job is genuinely unclaimable, which is a property of the
+ * claim STATEMENT. Each case asserts that directly rather than assuming it.
+ *
+ * ## Why `resumeBlockedMergeJobs` may be called against the shared database
+ *
+ * It reads every blocked merge job, not only this file's. That is safe here and
+ * the reason is not "no sibling writes these tables" — `product-saves.realdb.
+ * test.ts` does — it is that the sweep resumes a job only when the SAME
+ * predicate that blocked it now says clear, so a sibling's job blocked on an
+ * undecided conflict is untouched by construction. What this file must not do
+ * is assert on the sweep's RETURN COUNT, which legitimately includes rows it
+ * does not own; every assertion below is on this file's own job id.
+ */
+describe('#663: resuming a merge job whose blocking condition has cleared', () => {
+  /** Two products whose variants share a signature — a `merge_pair` conflict. */
+  async function seedSignatureCollision(label: string) {
+    const loser = await seedProduct(`${label}-loser`);
+    const winner = await seedProduct(`${label}-winner`);
+    const shared = variantSignature([{ key: 'colour', normalizedValue: `shared-${label}` }]);
+    await db
+      .update(canonicalVariants)
+      .set({ signature: shared })
+      .where(inArray(canonicalVariants.id, [loser.variantId, winner.variantId]));
+    return { loser, winner };
+  }
+
+  async function statusOf(jobId: string): Promise<string> {
+    const rows = await db
+      .select({ status: catalogMergeJobs.status })
+      .from(catalogMergeJobs)
+      .where(eq(catalogMergeJobs.id, jobId));
+    const status = rows[0]?.status;
+    if (!status) throw new Error(`merge job ${jobId} vanished`);
+    return status;
+  }
+
+  /**
+   * What the dispatcher's claim would take right now — in a ROLLED-BACK
+   * transaction, so asking the question changes nothing.
+   *
+   * A plain claim here is destructive twice over, and the first version of this
+   * helper was both: `claimMergeJobs` has no filter beyond the due predicate, so
+   * a batch of 25 steals rows from whatever sibling file is running (the hazard
+   * `claimAndRunMerge` above already records) AND it claimed this test's own
+   * CHILD job, leaving it `processing` under a lease owner that would never run
+   * it. That showed up as the child's status being wrong in an assertion about
+   * the parent, which is the least legible way for it to show up.
+   *
+   * `tx.rollback()` throws by design, so the ids are captured in a closure
+   * before it and the promise's rejection is the expected path — the
+   * `connectors.realdb.test.ts` idiom.
+   *
+   * It BACKDATES first, to this file's own `to_timestamp(0)`, which is older
+   * than any other file's instant. That is what makes `batchSize: 1` a real
+   * question rather than a vacuous one: if this job were claimable at all it
+   * would sort first, so it is the one row a batch of one must return.
+   */
+  async function claimWouldTake(jobId: string, owner: string): Promise<readonly string[]> {
+    await db.execute(
+      sql`update catalog_merge_jobs set available_at = to_timestamp(0) where id = ${jobId}`,
+    );
+    let taken: readonly string[] = [];
+    await db
+      .transaction(async (tx) => {
+        taken = (await claimMergeJobs({ leaseOwner: owner, batchSize: 1 }, tx)).map((row) => row.id);
+        tx.rollback();
+      })
+      .catch(() => undefined);
+    return taken;
+  }
+
+  it('resumes a `merge_pair` parent when its CHILD completes, and not before', async () => {
+    const { loser, winner } = await seedSignatureCollision('663mp');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'one product, listed twice',
+      actorOxyUserId: OPERATOR,
+    });
+
+    const blocked = await claimAndRunMerge(job.id, `lease-663mp-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+
+    const conflicts = await db
+      .select()
+      .from(catalogMergeConflicts)
+      .where(eq(catalogMergeConflicts.jobId, job.id));
+    expect(conflicts.map((row) => row.kind)).toEqual(['variant_signature']);
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no signature conflict to resolve');
+
+    const { childJobId } = await resolveMergeConflict({
+      conflictId,
+      resolution: 'merge_pair',
+      reason: 'the two configurations are the same thing',
+      actorOxyUserId: OPERATOR,
+    });
+    if (!childJobId) throw new Error('`merge_pair` opened no child job');
+
+    /**
+     * Resolving the last conflict does NOT unblock this job, and that is the
+     * change #663 asks for.
+     *
+     * Before it, `resolveMergeConflict` asked only whether anything was
+     * undecided, so this job went `pending`, was claimed, re-blocked on the
+     * incomplete child, and could never be lifted again. It now asks the whole
+     * predicate, which still names the child.
+     */
+    expect(await statusOf(job.id)).toBe('blocked');
+
+    // The control for everything below: while it is blocked, nothing claims it.
+    expect(await claimWouldTake(job.id, `lease-663mp-claim-${RUN}`)).not.toContain(job.id);
+
+    // And the sweep will not resume it either, because the condition it blocked
+    // on is still true. This is the property that separates a real
+    // re-evaluation from a retry button.
+    await resumeBlockedMergeJobs(50);
+    expect(await statusOf(job.id)).toBe('blocked');
+
+    const state = await mergeJobBlockingState(
+      (await db.select().from(catalogMergeJobs).where(eq(catalogMergeJobs.id, job.id)))[0],
+      db,
+    );
+    expect(state.state).toBe('blocked');
+    /**
+     * The child's CURRENT status, not "must complete first": a running child
+     * and a dead-lettered one lead an operator to opposite actions.
+     *
+     * Read from the row rather than written out, so this cannot pass by
+     * agreeing with a guess — and so the child is asserted to be genuinely
+     * untouched by everything above, which the first draft of this file was not.
+     */
+    const childStatus = (
+      await db
+        .select({ status: catalogMergeJobs.status })
+        .from(catalogMergeJobs)
+        .where(eq(catalogMergeJobs.id, childJobId))
+    )[0]?.status;
+    expect(childStatus).toBe('pending');
+    expect(state.state === 'blocked' && state.reason).toContain(childStatus);
+    expect(state.state === 'blocked' && state.reason).toContain(childJobId);
+
+    // The child runs. Nothing in the child's path touches the parent.
+    expect((await claimAndRunMerge(childJobId, `lease-663mp-child-${RUN}`)).completed).toBe(true);
+    expect(await statusOf(job.id)).toBe('blocked');
+
+    // NOW the sweep lifts it — the whole of #663.
+    await resumeBlockedMergeJobs(50);
+    expect(await statusOf(job.id)).toBe('pending');
+
+    /**
+     * The POSITIVE control for every `not.toContain` above.
+     *
+     * The same call, the same backdate, the same batch of one — and now it
+     * takes this job. Without it, "the claim did not return it" would also be
+     * satisfied by a claim that returns nothing at all, which is what a
+     * mis-scoped fixture looks like.
+     */
+    expect(await claimWouldTake(job.id, `lease-663mp-claim2-${RUN}`)).toEqual([job.id]);
+
+    expect((await claimAndRunMerge(job.id, `lease-663mp2-${RUN}`)).completed).toBe(true);
+
+    // The merge actually happened, rather than the job merely reaching `done`.
+    const tombstone = await db
+      .select({ status: canonicalProducts.status, mergedIntoId: canonicalProducts.mergedIntoId })
+      .from(canonicalProducts)
+      .where(eq(canonicalProducts.id, loser.productId));
+    expect(tombstone[0]?.status).toBe('merged');
+    expect(tombstone[0]?.mergedIntoId).toBe(winner.productId);
+  });
+
+  it('resumes a four-eyes job when the SECOND APPROVAL arrives, and not before', async () => {
+    const loser = await seedProduct('663fe-loser');
+    const winner = await seedProduct('663fe-winner');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'duplicate listing of one product',
+      actorOxyUserId: OPERATOR,
+    });
+
+    /**
+     * The requirement is set on the ROW rather than by moving the four-eyes
+     * threshold.
+     *
+     * `requires_second_approval` is snapshotted at request time precisely so a
+     * threshold change cannot retroactively unapprove a job, and the gate under
+     * test reads the COLUMN. Raising `config.catalog.fourEyesRequired` instead
+     * would widen a global bound for every file sharing this database, which is
+     * the hazard `~/Oxy/AGENTS.md` records; this touches one row this file owns.
+     */
+    await db
+      .update(catalogMergeJobs)
+      .set({ requiresSecondApproval: true })
+      .where(eq(catalogMergeJobs.id, job.id));
+
+    const blocked = await claimAndRunMerge(job.id, `lease-663fe-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+    expect(await statusOf(job.id)).toBe('blocked');
+    expect(await claimWouldTake(job.id, `lease-663fe-claim-${RUN}`)).not.toContain(job.id);
+
+    // Unapproved, the sweep leaves it exactly where it is.
+    await resumeBlockedMergeJobs(50);
+    expect(await statusOf(job.id)).toBe('blocked');
+
+    /**
+     * On `main` this is where the job died, and NOTHING covered it.
+     *
+     * `catalog_merge_jobs_second_approval_check` permits `awaiting_resolution`
+     * unapproved, so a four-eyes merge advances there within seconds of being
+     * requested and blocks; `approveMergeJob` writes the two approval columns
+     * and does not unblock. Every merge over the impact threshold was stranded.
+     */
+    await approveMerge(job.id, SECOND_OPERATOR, 'reviewed the impact and the pair');
+
+    await resumeBlockedMergeJobs(50);
+    expect(await statusOf(job.id)).toBe('pending');
+    // The positive control, as above: the same claim now takes it.
+    expect(await claimWouldTake(job.id, `lease-663fe-claim2-${RUN}`)).toEqual([job.id]);
+    expect((await claimAndRunMerge(job.id, `lease-663fe2-${RUN}`)).completed).toBe(true);
+
+    const tombstone = await db
+      .select({ status: canonicalProducts.status, mergedIntoId: canonicalProducts.mergedIntoId })
+      .from(canonicalProducts)
+      .where(eq(canonicalProducts.id, loser.productId));
+    expect(tombstone[0]?.status).toBe('merged');
+    expect(tombstone[0]?.mergedIntoId).toBe(winner.productId);
+  });
+
+  it('never resumes a parent whose child DEAD-LETTERED, and says so', async () => {
+    const { loser, winner } = await seedSignatureCollision('663dl');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'one product, listed twice',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-663dl-${RUN}`)).blocked).toBe(true);
+
+    const conflicts = await db
+      .select()
+      .from(catalogMergeConflicts)
+      .where(eq(catalogMergeConflicts.jobId, job.id));
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no signature conflict to resolve');
+    const { childJobId } = await resolveMergeConflict({
+      conflictId,
+      resolution: 'merge_pair',
+      reason: 'the two configurations are the same thing',
+      actorOxyUserId: OPERATOR,
+    });
+    if (!childJobId) throw new Error('`merge_pair` opened no child job');
+
+    await db
+      .update(catalogMergeJobs)
+      .set({ status: 'dead_letter', lastError: 'exhausted its attempts' })
+      .where(eq(catalogMergeJobs.id, childJobId));
+
+    /**
+     * A child that will never complete is a genuine dead end, and resuming the
+     * parent is the WRONG answer to it — the parent must not repoint a variant
+     * whose signature twin never became a tombstone. What the predicate owes is
+     * an accurate name for the thing a person has to go and look at.
+     */
+    await resumeBlockedMergeJobs(50);
+    expect(await statusOf(job.id)).toBe('blocked');
+
+    const state = await mergeJobBlockingState(
+      (await db.select().from(catalogMergeJobs).where(eq(catalogMergeJobs.id, job.id)))[0],
+      db,
+    );
+    expect(state.state === 'blocked' && state.reason).toContain(childJobId);
+    expect(state.state === 'blocked' && state.reason).toContain('dead_letter');
+  });
+
+  it('refuses to vouch for a phase it does not own, so a future one fails closed', async () => {
+    const loser = await seedProduct('663ph-loser');
+    const winner = await seedProduct('663ph-winner');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'duplicate listing of one product',
+      actorOxyUserId: OPERATOR,
+    });
+
+    /**
+     * A SYNTHETIC state, deliberately, and the only way to reach this branch.
+     *
+     * `awaiting_resolution` is the one phase that blocks today, so a job parked
+     * anywhere else cannot be produced by any code path — which is exactly why
+     * the branch needs a test: it is the guard for the phase somebody adds
+     * later, and a guard nobody has ever seen fire is a guard nobody knows is
+     * inert. Its companion is a `tsc` error (`PhaseOutcome` carries no
+     * `blockedReason`); this is the runtime half.
+     */
+    await db
+      .update(catalogMergeJobs)
+      .set({ status: 'blocked', phase: 'offers', lastError: 'a phase nobody has written yet' })
+      .where(eq(catalogMergeJobs.id, job.id));
+
+    const state = await mergeJobBlockingState(
+      (await db.select().from(catalogMergeJobs).where(eq(catalogMergeJobs.id, job.id)))[0],
+      db,
+    );
+    expect(state.state).toBe('blocked');
+    expect(state.state === 'blocked' && state.reason).toContain('offers');
+
+    await resumeBlockedMergeJobs(50);
+    expect(await statusOf(job.id)).toBe('blocked');
   });
 });

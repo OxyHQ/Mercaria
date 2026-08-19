@@ -55,6 +55,7 @@ import {
   findMergeJobById,
   findOpenMergeJobFor,
   insertMergeJob,
+  listBlockedMergeJobs,
   listUnappliedConflicts,
   markConflictApplied,
   resolveConflict,
@@ -346,19 +347,167 @@ export async function resolveMergeConflict(
     db,
   );
 
-  // A blocked job becomes claimable again once nothing is undecided. Checking
-  // here rather than on a timer is what makes the operator's decision the thing
-  // that restarts the job.
-  if ((await countUnresolvedConflicts(job.id, db)) === 0) {
+  // A blocked job becomes claimable again the moment nothing is outstanding.
+  // Checking here rather than only on the sweep is what makes the operator's
+  // decision the thing that restarts the job — but the QUESTION is the shared
+  // predicate's, not this function's, so an eager unblock and a swept one
+  // cannot disagree about what "outstanding" means.
+  const state = await mergeJobBlockingState({ ...job, status: 'blocked' }, db);
+  if (state.state === 'clear') {
     await unblockMergeJob(job.id, db);
   }
   return { resolved: true, childJobId };
 }
 
-/** One phase's outcome, so the runner can record rows moved and decide the next step. */
+/**
+ * Why a merge job cannot proceed right now — or that it can (#663).
+ *
+ * ## This is the ONE spelling of the `awaiting_resolution` gate
+ *
+ * `blocked` is not claimable, deliberately: a dispatcher that retried a job
+ * waiting on a person would spin against a judgement only a person can make.
+ * The cost of that, until #663, was a DEAD END. `unblockMergeJob` had exactly
+ * one caller — `resolveMergeConflict` — so a job that reached `blocked` with
+ * every conflict already resolved could never be lifted by anything, because
+ * the one thing that lifts it fires on a resolution and there was nothing left
+ * to resolve. TWO conditions reach that state and neither is exotic:
+ *
+ * - **`merge_pair`**, the case #663 was filed for. Resolving the conflict opens
+ *   a CHILD job and unblocks the parent; the parent then re-blocks waiting on
+ *   that child, and the child completing lifts nothing.
+ * - **The second approval**, which #663 does not name and which is worse.
+ *   `catalog_merge_jobs_second_approval_check` permits `awaiting_resolution`
+ *   unapproved, so a four-eyes job advances there within seconds of being
+ *   requested and blocks; the approval arrives hours later and lifts nothing.
+ *   EVERY merge over the impact threshold was stranded.
+ *
+ * The repair is not a hook on each of those two clearing acts. That is a
+ * hand-maintained map of "things that unblock a job", and the failure it
+ * produces is silent: the third condition somebody adds has no hook and strands
+ * again, with nothing red. So the gate is written ONCE, here, as a predicate
+ * over stored state, and the three places that need the answer all ask it:
+ * {@link runResolutionPhase} (which blocks on its verdict),
+ * {@link resolveMergeConflict} (an eager evaluation, for latency) and
+ * {@link resumeBlockedMergeJobs} (the sweep).
+ *
+ * ## Why this cannot resume a job whose precondition is unmet
+ *
+ * Because the thing that decides to resume is the same function that decided to
+ * block. There is no second opinion available to be wrong, which is what an
+ * operator "retry" button would have been. Resuming is also not RUNNING: the
+ * sweep flips a status and claims nothing, so `blocked` stays non-claimable and
+ * the dispatcher still cannot spin on a decision a person owes.
+ *
+ * ## It refuses to vouch for a phase it does not own
+ *
+ * Only `awaiting_resolution` blocks today. A phase added later that blocks for
+ * some other reason must NOT be auto-resumed by a predicate that never heard of
+ * it, so an unrecognised phase answers `blocked` naming itself — fails closed,
+ * loudly, in the operator's own trace. {@link PhaseOutcome} states the same
+ * thing to the compiler.
+ */
+export type MergeJobBlockingState =
+  /** The `clear` branch carries no reason: there is none to read. */
+  | { readonly state: 'clear' }
+  | { readonly state: 'blocked'; readonly reason: string };
+
+export async function mergeJobBlockingState(
+  job: CatalogMergeJobRow,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<MergeJobBlockingState> {
+  if (job.phase !== 'awaiting_resolution') {
+    return {
+      state: 'blocked',
+      reason:
+        `This job is parked at the '${job.phase}' phase, which nothing here knows how to clear. ` +
+        'Only `awaiting_resolution` has a resume condition; a phase that blocks for another ' +
+        'reason owes one before it can be resumed automatically.',
+    };
+  }
+
+  const unresolved = await countUnresolvedConflicts(job.id, db);
+  if (unresolved > 0) {
+    return {
+      state: 'blocked',
+      reason: `${unresolved} conflict(s) await an explicit decision before this merge may commit.`,
+    };
+  }
+
+  if (job.requiresSecondApproval && !job.approvedByOxyUserId) {
+    return {
+      state: 'blocked',
+      reason: `This merge moves ${job.impactTotalMoving} rows and needs a second operator's approval.`,
+    };
+  }
+
+  for (const row of await listUnappliedConflicts(job.id, db)) {
+    if (row.resolution !== 'merge_pair') continue;
+    const child = row.childJobId ? await findMergeJobById(row.childJobId, db) : undefined;
+    if (child?.status === 'completed') continue;
+    /**
+     * The child's CURRENT status, not "must complete first".
+     *
+     * A child that is still running and a child that dead-lettered lead an
+     * operator to opposite actions, and the old wording could not tell them
+     * apart. Neither can be resumed from here — a parent whose child failed
+     * genuinely must not proceed — so what this owes is an accurate name for
+     * the thing a person has to go and look at.
+     */
+    return {
+      state: 'blocked',
+      reason:
+        `Child merge job ${row.childJobId ?? '(missing)'} is ${child?.status ?? 'missing'} and ` +
+        'must be completed before this merge may commit.',
+    };
+  }
+
+  return { state: 'clear' };
+}
+
+/**
+ * Every blocked job whose condition has since cleared, back to `pending`.
+ *
+ * Bounded and driven from {@link drainCurationJobs}, so a manual drain and the
+ * loop resume the same jobs — the property that file already promises about
+ * claiming. It needs no lease: `unblockMergeJob`'s CAS makes a second sweeper's
+ * pass a no-op, and the work it schedules is claimed under the ordinary lease
+ * like any other pending job.
+ */
+export async function resumeBlockedMergeJobs(batchSize: number): Promise<number> {
+  const db = getDb();
+  let resumed = 0;
+  for (const job of await listBlockedMergeJobs(batchSize, db)) {
+    const state = await mergeJobBlockingState(job, db);
+    if (state.state === 'blocked') continue;
+    if (await unblockMergeJob(job.id, db)) {
+      resumed += 1;
+      log.general.info(
+        { jobId: job.id, phase: job.phase },
+        '[Curation] merge job resumed: its blocking condition has cleared',
+      );
+    }
+  }
+  return resumed;
+}
+
+/**
+ * One phase's outcome, so the runner can record rows moved and decide the next
+ * step.
+ *
+ * It carries NO `blockedReason`, and that omission is a gate. Blocking is only
+ * safe where {@link mergeJobBlockingState} can decide the job is safe to
+ * RESUME, and it can decide that for `awaiting_resolution` alone. So a phase
+ * runner declared to return this type cannot return a blocking outcome —
+ * excess-property checking on the returned literal refuses it — and a future
+ * phase that needs to block fails `tsc` until somebody has taught the predicate
+ * how its condition clears. Which is the whole of #663 stated to the compiler.
+ */
 interface PhaseOutcome {
   readonly rowsAffected: number;
-  /** Set when the phase cannot proceed and the job must wait on a person. */
+}
+
+/** The one phase that may block, because it is the one the predicate covers. */
+interface ResolutionPhaseOutcome extends PhaseOutcome {
   readonly blockedReason?: string;
 }
 
@@ -380,37 +529,32 @@ async function runPlanPhase(job: CatalogMergeJobRow, db: DatabaseOrTransaction):
 async function runResolutionPhase(
   job: CatalogMergeJobRow,
   db: DatabaseOrTransaction,
-): Promise<PhaseOutcome> {
-  const unresolved = await countUnresolvedConflicts(job.id, db);
-  if (unresolved > 0) {
-    return {
-      rowsAffected: 0,
-      blockedReason: `${unresolved} conflict(s) await an explicit decision before this merge may commit.`,
-    };
-  }
-  if (job.requiresSecondApproval && !job.approvedByOxyUserId) {
-    return {
-      rowsAffected: 0,
-      blockedReason:
-        `This merge moves ${job.impactTotalMoving} rows and needs a second operator's approval.`,
-    };
-  }
+): Promise<ResolutionPhaseOutcome> {
+  /**
+   * The gate is asked, never re-implemented.
+   *
+   * It used to be spelled out here — the unresolved count, the second approval
+   * and the child job, each inline. That is what made #663's dead end possible:
+   * the conditions that park a job lived in the runner and the one thing that
+   * un-parked it lived somewhere else, so the two could not agree and nothing
+   * noticed. Asking `mergeJobBlockingState` means the phase blocks on exactly
+   * the condition the sweep will later test for having cleared.
+   *
+   * It is evaluated in full BEFORE anything is applied, which also fixes a
+   * smaller fault in the old loop: it applied resolutions one at a time and
+   * blocked partway through when it reached an incomplete `merge_pair`, so
+   * whether a decision had been carried out depended on the order conflicts
+   * happened to be created in.
+   */
+  const state = await mergeJobBlockingState(job, db);
+  if (state.state === 'blocked') return { rowsAffected: 0, blockedReason: state.reason };
 
-  const pending = await listUnappliedConflicts(job.id, db);
   let applied = 0;
-  for (const row of pending) {
-    if (row.resolution === 'merge_pair') {
-      // The pair is merged by a CHILD job. Waiting for it here rather than
-      // applying anything is what keeps the parent from repointing a variant
-      // whose signature twin has not yet become a tombstone.
-      const child = row.childJobId ? await findMergeJobById(row.childJobId, db) : undefined;
-      if (!child || child.status !== 'completed') {
-        return {
-          rowsAffected: applied,
-          blockedReason: `Child merge job ${row.childJobId ?? '(missing)'} must complete first.`,
-        };
-      }
-    } else {
+  for (const row of await listUnappliedConflicts(job.id, db)) {
+    // A `merge_pair` is carried out by the CHILD job, which the predicate has
+    // just confirmed completed; there is nothing for this phase to apply, and
+    // applying anything would repoint a variant its signature twin already owns.
+    if (row.resolution !== 'merge_pair') {
       await applyConflictResolution(row, row.resolvedByOxyUserId ?? job.requestedByOxyUserId, db);
     }
     await markConflictApplied(row.id, db);
@@ -682,12 +826,19 @@ async function runVerifyPhase(
   return { rowsAffected: 0 };
 }
 
-/** Dispatch one phase to the code that owns it. */
+/**
+ * Dispatch one phase to the code that owns it.
+ *
+ * The return type is the RESOLUTION outcome because exactly one branch can
+ * block. Every other runner is declared `Promise<PhaseOutcome>`, so widening
+ * this signature is not what admits a second blocking phase — teaching
+ * {@link mergeJobBlockingState} how that phase's condition clears is.
+ */
 async function runPhase(
   job: CatalogMergeJobRow,
   phase: CatalogMergePhase,
   db: DatabaseOrTransaction,
-): Promise<PhaseOutcome> {
+): Promise<ResolutionPhaseOutcome> {
   if (phase === 'plan') return runPlanPhase(job, db);
   if (phase === 'awaiting_resolution') return runResolutionPhase(job, db);
   if (REHOMING_PHASES.includes(phase)) return runRehomingPhase(job, phase, db);
