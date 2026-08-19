@@ -341,8 +341,12 @@ export const LOCALIZATION_OWED_POPULATION_RULES: Readonly<Record<LocalizedEntity
       'too: it is still readable history, but nobody should be paying to translate a product ' +
       'that cannot be bought.',
     canonical_product_family:
-      "canonical_product_families whose status is 'active', for the reasons the product rule " +
-      'gives. A family is a mergeable entity on the same terms.',
+      'canonical_product_families that are not merge tombstones (`merged_into_id is null`). ' +
+      'DIFFERENT from the product rule and not by choice: `canonical_product_families` carries ' +
+      'NO status column at all, so there is no `active` to filter on and the tombstone pointer ' +
+      'is the only lifecycle statement the table makes. Checked against the columns rather than ' +
+      "assumed from the product's shape, which is where the first version of this rule was " +
+      'wrong.',
     product_type_field:
       'product_type_fields belonging to a PUBLISHED product-type version, and only those ' +
       'carrying at least one base-locale string. All four base columns are nullable, so a field ' +

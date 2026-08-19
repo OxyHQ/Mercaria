@@ -337,6 +337,73 @@ export async function readProductTypeFieldLocalizationCompleteness(
 }
 
 /**
+ * Canonical products owed a translation: `status = 'active'` (#367 L2).
+ *
+ * A draft is not copy anybody reads, a suppressed one is withheld, and a MERGED
+ * one is a tombstone whose translations follow the winner rather than being owed
+ * on the loser. `discontinued` is excluded too: still readable history, but
+ * nobody should be paying to translate a product that cannot be bought.
+ */
+export async function readCanonicalProductLocalizationCompleteness(
+  locales: readonly SupportedLocale[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly LocalizationDomainLocaleCounts[]> {
+  if (locales.length === 0) return [];
+  const rows = await db.execute<RawCountRow>(sql`
+    with owed as (
+      select id from canonical_products where status = 'active'
+    ),
+    requested as (
+      select unnest(${sql.raw(localeArrayLiteral(locales))}) as locale
+    )
+    select r.locale,
+           (select count(*) from owed)::int as owed,
+           ${STATUS_COUNTS}
+      from requested r
+      left join canonical_product_localizations l
+        on l.locale = r.locale
+       and l.canonical_product_id in (select id from owed)
+     group by r.locale
+     order by r.locale
+  `);
+  return rows.map((row) => toCounts('canonical_product', row));
+}
+
+/**
+ * Product families owed a translation: those that are not merge tombstones.
+ *
+ * DIFFERENT from the product predicate and not by choice —
+ * `canonical_product_families` carries NO status column at all, so
+ * `merged_into_id is null` is the only lifecycle statement the table makes.
+ * Checked against the columns rather than assumed from the product's shape,
+ * which is where the first version of this rule was wrong.
+ */
+export async function readCanonicalProductFamilyLocalizationCompleteness(
+  locales: readonly SupportedLocale[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly LocalizationDomainLocaleCounts[]> {
+  if (locales.length === 0) return [];
+  const rows = await db.execute<RawCountRow>(sql`
+    with owed as (
+      select id from canonical_product_families where merged_into_id is null
+    ),
+    requested as (
+      select unnest(${sql.raw(localeArrayLiteral(locales))}) as locale
+    )
+    select r.locale,
+           (select count(*) from owed)::int as owed,
+           ${STATUS_COUNTS}
+      from requested r
+      left join canonical_product_family_localizations l
+        on l.locale = r.locale
+       and l.canonical_product_family_id in (select id from owed)
+     group by r.locale
+     order by r.locale
+  `);
+  return rows.map((row) => toCounts('canonical_product_family', row));
+}
+
+/**
  * Every covered domain against every requested locale, in one call.
  *
  * Three statements whatever the locale count — the `readLocalizedCategories`
@@ -348,11 +415,21 @@ export async function readLocalizationCompletenessCounts(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<readonly LocalizationDomainLocaleCounts[]> {
   if (locales.length === 0) return [];
-  const [categories, productTypes, productTypeFields, attributeValues] = await Promise.all([
-    readCategoryLocalizationCompleteness(locales, db),
-    readProductTypeLocalizationCompleteness(locales, db),
-    readProductTypeFieldLocalizationCompleteness(locales, db),
-    readAttributeValueLocalizationCompleteness(locales, db),
-  ]);
-  return [...categories, ...productTypes, ...productTypeFields, ...attributeValues];
+  const [categories, productTypes, productTypeFields, attributeValues, products, families] =
+    await Promise.all([
+      readCategoryLocalizationCompleteness(locales, db),
+      readProductTypeLocalizationCompleteness(locales, db),
+      readProductTypeFieldLocalizationCompleteness(locales, db),
+      readAttributeValueLocalizationCompleteness(locales, db),
+      readCanonicalProductLocalizationCompleteness(locales, db),
+      readCanonicalProductFamilyLocalizationCompleteness(locales, db),
+    ]);
+  return [
+    ...categories,
+    ...productTypes,
+    ...productTypeFields,
+    ...attributeValues,
+    ...products,
+    ...families,
+  ];
 }

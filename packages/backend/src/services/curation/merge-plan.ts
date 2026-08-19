@@ -1838,6 +1838,25 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'subject reference is `subject_product_id`/`subject_variant_id`, both FK.',
   },
   {
+    table: 'catalog_localization_revisions',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      "#367 box 4's append-only translation trail. `entity_kind` now spans " +
+      '`canonical_product` and `canonical_product_family` (L2), both mergeable, with a bare ' +
+      '`entity_id` beside it and deliberately no FK — the trail must OUTLIVE its subject. A ' +
+      'merge leaves every row where it is, for the reason `watchlist_snapshot_lines` and the ' +
+      'curation timeline are left: a revision is a record of what a string SAID at a moment, on ' +
+      'the entity it was written for, and repointing it would make the winner appear to have ' +
+      'once been called something it never was. ' +
+      'The consequence is real and is not hidden: the localization ROWS are rehomed ' +
+      '(`repoint_if_absent`) while their history stays under the loser id, so ' +
+      '`readLocalizationFieldHistory` on the winner does not show pre-merge revisions. A reader ' +
+      'follows `merged_into_id`, one hop by construction (ADR 0002 D16). That split is also what ' +
+      'makes the merge legible in the trail at all, which is what the rehoming note above relies ' +
+      'on when it declines to mark carried rows stale.',
+  },
+  {
     table: 'catalog_authoring_draft_values',
     disposition: 'untouched',
     idColumns: ['canonical_ref_id'],
