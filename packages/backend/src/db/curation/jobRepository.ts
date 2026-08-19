@@ -320,7 +320,19 @@ export async function releaseMergeJob(
   return rows.length === 1;
 }
 
-/** Un-block a job whose conflicts an operator has now decided. */
+/**
+ * Un-block a job whose blocking condition has cleared.
+ *
+ * The CAS on `status = 'blocked'` is what makes this safe to call from N tasks
+ * at once: the second caller matches no row and reports `false`, which is the
+ * "somebody already did it" answer rather than an error. It is deliberately NOT
+ * an owner-checked transition like the terminal ones — a blocked job holds no
+ * lease, so there is no owner to check.
+ *
+ * Callers must decide with {@link mergeJobBlockingState} and nothing else. This
+ * function asks no questions, so a caller inventing its own answer is how a job
+ * whose precondition is unmet gets resumed.
+ */
 export async function unblockMergeJob(
   id: string,
   db: DatabaseOrTransaction = getDb(),
@@ -332,6 +344,27 @@ export async function unblockMergeJob(
     .where(and(eq(catalogMergeJobs.id, id), eq(catalogMergeJobs.status, 'blocked')))
     .returning({ id: catalogMergeJobs.id });
   return rows.length === 1;
+}
+
+/**
+ * A bounded page of jobs parked on a condition, oldest first.
+ *
+ * The read the resume sweep evaluates, and the operator inbox's own order —
+ * `catalog_merge_jobs_blocked_idx` is `(created_at) WHERE status = 'blocked'`,
+ * so this is an index-only walk of the parked set rather than a scan of the
+ * table. It reads and never writes: what a job is waiting on is a question for
+ * the service that owns the phase, not for this repository.
+ */
+export async function listBlockedMergeJobs(
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly CatalogMergeJobRow[]> {
+  return db
+    .select()
+    .from(catalogMergeJobs)
+    .where(eq(catalogMergeJobs.status, 'blocked'))
+    .orderBy(asc(catalogMergeJobs.createdAt))
+    .limit(Math.max(1, limit));
 }
 
 // ── Phase records ──────────────────────────────────────────────────────────

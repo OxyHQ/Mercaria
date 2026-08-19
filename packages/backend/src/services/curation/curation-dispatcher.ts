@@ -19,13 +19,26 @@
  * A job waiting on an operator's conflict decision is not an error and must not
  * be retried. Claiming it would spin this loop against a judgement only a person
  * can make, and burying a real fault among things "waiting for review" is the
- * other half of the same mistake. `resolveMergeConflict` is what un-blocks it.
+ * other half of the same mistake.
+ *
+ * ## Which is why each pass RESUMES before it claims (#663)
+ *
+ * Not claiming a blocked job is right; leaving one blocked after its condition
+ * has cleared is how that became a dead end. `resumeBlockedMergeJobs` asks
+ * `mergeJobBlockingState` — the same predicate the phase blocked on — and moves
+ * the ones it calls clear back to `pending`, where the ordinary claim below
+ * picks them up. It runs FIRST so a job whose child completed since the last
+ * pass is resumed and claimed in one tick rather than two.
+ *
+ * That is not a retry and does not weaken the paragraph above: nothing is
+ * claimed, leased or run on the strength of it, and a job whose condition still
+ * holds is left exactly where it is.
  */
 
 import { config } from '../../config/index.js';
 import { log } from '../../lib/logger.js';
 import { claimMergeJobs, claimSplitJobs, releaseMergeJob, releaseSplitJob } from '../../db/curation/jobRepository.js';
-import { runMergeJob } from './merge.service.js';
+import { resumeBlockedMergeJobs, runMergeJob } from './merge.service.js';
 import { runSplitJob } from './split.service.js';
 
 /** The retry ladder, capped. The moderation outbox's numbers. */
@@ -46,6 +59,8 @@ export interface CurationDrainResult {
   readonly mergesRun: number;
   readonly splitsRun: number;
   readonly failures: number;
+  /** Blocked jobs whose condition had cleared, returned to `pending` (#663). */
+  readonly mergesResumed: number;
 }
 
 /**
@@ -60,6 +75,11 @@ export async function drainCurationJobs(batchSize: number): Promise<CurationDrai
   let mergesRun = 0;
   let splitsRun = 0;
   let failures = 0;
+
+  // Before anything is claimed: a blocked job whose condition has cleared is
+  // `pending` by the time the claim below runs, so it is resumed AND run in one
+  // pass. See the note at the top of this file.
+  const mergesResumed = await resumeBlockedMergeJobs(batchSize);
 
   for (const job of await claimMergeJobs({ leaseOwner: owner, batchSize })) {
     try {
@@ -105,7 +125,7 @@ export async function drainCurationJobs(batchSize: number): Promise<CurationDrai
     }
   }
 
-  return { mergesRun, splitsRun, failures };
+  return { mergesRun, splitsRun, failures, mergesResumed };
 }
 
 let timer: NodeJS.Timeout | null = null;
