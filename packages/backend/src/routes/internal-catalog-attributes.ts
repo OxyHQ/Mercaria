@@ -29,6 +29,7 @@ import {
   attributeSourceMappingSchema,
 } from '../middleware/attribute-schemas.js';
 import {
+  aliasFoldAuditHandler,
   applyObservationHandler,
   coverageHandler,
   deprecateDefinitionHandler,
@@ -85,6 +86,13 @@ router.post(
 
 /** Completeness by category, source and field. */
 router.get('/coverage', validateQuery(attributeCoverageQuerySchema), coverageHandler);
+
+/**
+ * #632 — how far apart the write-side and read-side alias folds have carried the
+ * registry. READ ONLY, and deliberately with no repair beside it: a collision
+ * pointing at two canonical values is a catalogue judgement, not a patch.
+ */
+router.get('/alias-fold-audit', aliasFoldAuditHandler);
 
 /** What is waiting to be re-indexed. Read-only — see the controller. */
 router.get('/reindex-requests', listReindexRequestsHandler);
