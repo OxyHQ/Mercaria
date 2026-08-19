@@ -1714,3 +1714,378 @@ export function conflictTargets(entityType: MergeableEntityType): readonly Rehom
     (target) => target.disposition === 'conflict_gated',
   );
 }
+
+// ── The POLYMORPHIC register (#654) ────────────────────────────────────────
+
+/**
+ * What a merge does with a reference the FK census cannot see.
+ *
+ * ## The blind spot, and why a hand list of three would have re-created it
+ *
+ * `merge-plan-census.test.ts` derives its population by walking drizzle FOREIGN
+ * KEYS. A polymorphic reference — an id column whose target TABLE is decided by
+ * a sibling discriminator — has no foreign key to walk, because there is
+ * nothing for one to point at. So the census cannot see it, and neither can the
+ * gate that exists to make the census self-maintaining: for a polymorphic
+ * reference it CANNOT FIRE. A future decision to rehome one arms an
+ * endpoint-collapse hazard with the build staying green.
+ *
+ * #654 named three such tables. Measured against the schema, that list was
+ * wrong in both directions, which is the whole argument for deriving rather
+ * than listing:
+ *
+ * - A rule admitting only enums that are a SUBSET of `MERGEABLE_ENTITY_TYPES`
+ *   MISSES `catalog_review_items`, whose `subject_type` is the wider
+ *   `CURATION_SUBJECT_TYPES` — and with it every mixed vocabulary, which is
+ *   where the review family lives.
+ * - A rule admitting any enum that SHARES a value finds 38 tables, of which
+ *   roughly a dozen hold a real bare polymorphic reference. Three was never the
+ *   population.
+ *
+ * ## So the POPULATION is derived and only the DISPOSITION is declared
+ *
+ * `merge-plan-census.test.ts`'s own shape, one level up. The derivation is
+ * deliberately OVER-WIDE — any column whose drizzle `enumValues` shares even
+ * one value with `MERGEABLE_ENTITY_TYPES` — because the alternative is a rule
+ * that silently omits, and omission is the failure this exists to prevent. The
+ * cost is that `orders.source_channel` and `product_type_fields.flow` are in
+ * the population on a coincidence of vocabulary. That is not noise to be
+ * filtered: it is a line somebody ticks off ONCE so that the thirty-ninth
+ * cannot arrive unnoticed.
+ *
+ * A table in the derived set with no entry here fails the build, and an entry
+ * here whose table is no longer in the derived set fails it too — a stale
+ * declaration is the exemption that can never fire, and this domain has paid
+ * for one of those already.
+ */
+export type PolymorphicReferenceDisposition =
+  /**
+   * The enum shares a word with a mergeable entity type and NO column in this
+   * table holds a mergeable entity id. Distinct from `untouched` on purpose:
+   * this says the reference does not exist, that one says it exists and a merge
+   * leaves it. Collapsing them loses the fact that somebody checked.
+   */
+  | 'not_an_entity_reference'
+  /**
+   * The enum says WHICH of several real foreign-key columns is populated, so
+   * the reference itself is FK'd and `merge-plan-census.test.ts` already forces
+   * a decision on it. Recorded rather than omitted, so the pairing is visible
+   * to whoever reads either gate.
+   */
+  | 'discriminates_foreign_keys'
+  /** A real bare polymorphic reference that a merge deliberately does not move. */
+  | 'untouched'
+  /** A real bare polymorphic reference that a merge rehomes. */
+  | 'rehomed';
+
+export interface PolymorphicEntityReference {
+  /** The POSTGRES table name, as the derivation reports it. */
+  readonly table: string;
+  readonly disposition: PolymorphicReferenceDisposition;
+  /**
+   * The id columns, required for `untouched` and `rehomed` and forbidden for
+   * the other two — an entry claiming a merge leaves a reference alone has to
+   * say WHICH reference, or it is a sentence rather than a decision.
+   */
+  readonly idColumns?: readonly string[];
+  readonly reason: string;
+}
+
+/**
+ * Every table the derivation finds, and what a merge does with it.
+ *
+ * Ordered as the derivation reports them (alphabetically by table), so a diff
+ * that adds one lands next to its neighbours rather than at the end.
+ */
+export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[] = [
+  {
+    table: 'automotive_fitments',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`asserted_by_kind` names WHO asserted a fitment (manufacturer, catalog source, merchant, ' +
+      'operator, matcher). `merchant` there is an actor role, not a `merchants.id`. The real ' +
+      'subject reference is `subject_product_id`/`subject_variant_id`, both FK.',
+  },
+  {
+    table: 'catalog_authoring_draft_values',
+    disposition: 'untouched',
+    idColumns: ['canonical_ref_id'],
+    reason:
+      'A real bare reference: `canonical_ref_kind` over product/variant/family/brand with ' +
+      '`canonical_ref_id` beside it and no FK. A merge leaves it — a draft records what an ' +
+      'author picked at the time, and repointing it would silently change what they chose. The ' +
+      'draft resolves through the tombstone when it is published.',
+  },
+  {
+    table: 'catalog_authoring_drafts',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`flow` names the authoring path (merchant, p2p, operator, connector, verified_brand), an ' +
+      'actor route rather than an entity. `selected_canonical_product_id` IS a bare product ' +
+      'reference but carries no discriminator, so it is invisible to this derivation too — see ' +
+      'the note on the gate about what neither census reaches.',
+  },
+  {
+    table: 'catalog_backfill_records',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      '`subject_kind` says which subject a backfill record is about; the canonical reference is ' +
+      '`canonical_product_id`/`canonical_variant_id`, both FK and both in the plan. `subject_key` ' +
+      'is the idempotency key of the SOURCE subject (a store, a listing), not a mergeable id.',
+  },
+  {
+    table: 'catalog_consistency_findings',
+    disposition: 'untouched',
+    idColumns: ['subject_key'],
+    reason:
+      'The sweep records what it FOUND at a moment, and `subject_key` names the subject it ' +
+      'examined. Evidence is never rehomed: a finding about the loser is a true statement about ' +
+      'the loser, and moving it to the winner would attribute one entity’s inconsistency to ' +
+      'another. Nothing in #60 deletes evidence either.',
+  },
+  {
+    table: 'catalog_entity_suppressions',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      'A real bare reference (`entity_type` + `entity_id`). Deliberately NOT rehomed here: a ' +
+      'suppression is a decision about one identity, and this is the one entry a later reader ' +
+      'should challenge rather than copy — see `retail_suppressions`, where a recall DOES follow ' +
+      'its entity and the plan moves both of its representations together.',
+  },
+  {
+    table: 'catalog_merge_jobs',
+    disposition: 'untouched',
+    idColumns: ['loser_id', 'winner_id'],
+    reason:
+      'The merge’s own history (#654’s first named table). A merge must never rewrite the record ' +
+      'of merges: repointing `loser_id` would make a completed job claim it merged something it ' +
+      'did not, and repointing `winner_id` would make the ordering of two merges unrecoverable. ' +
+      '`catalog_merge_jobs_distinct_check` would additionally refuse the collapse.',
+  },
+  {
+    table: 'catalog_proposals',
+    disposition: 'untouched',
+    idColumns: ['resolved_entity_id'],
+    reason:
+      '`type` + `resolved_entity_id` names the entity a proposal was resolved INTO. Left alone ' +
+      'for the reason a revision is: it records what an operator decided at a moment, and the ' +
+      'tombstone resolves the pointer without falsifying the decision.',
+  },
+  {
+    table: 'catalog_review_items',
+    disposition: 'untouched',
+    idColumns: ['subject_id', 'counterpart_id'],
+    reason:
+      '#654’s third named table. A review item is the QUESTION somebody was asked about two ' +
+      'specific rows; rehoming either side would silently change the question after the fact, ' +
+      'and `catalog_review_items_self_pair_check` would refuse the case where both collapse onto ' +
+      'the winner.',
+  },
+  {
+    table: 'catalog_revisions',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      'The audit trail, append-only by trigger. Rehoming it would move one entity’s history onto ' +
+      'another — the single most misleading thing a merge could do — and the trigger refuses the ' +
+      'UPDATE anyway, so a plan entry that tried would fail at runtime rather than in review.',
+  },
+  {
+    table: 'catalog_source_objects',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`external_type` describes the type of object the SOURCE published (product, offer, ' +
+      'merchant, brand). `external_id` is the source’s own identifier in its own key space, ' +
+      'never a Mercaria id. The canonical attachment lives in `canonical_*_source_links`, which ' +
+      'are FK and are in the plan.',
+  },
+  {
+    table: 'catalog_source_rejections',
+    disposition: 'not_an_entity_reference',
+    reason: 'The residual of an ingestion pass. `external_type`/`external_id` are the SOURCE’s, as above.',
+  },
+  {
+    table: 'catalog_split_assignments',
+    disposition: 'untouched',
+    idColumns: ['item_ref'],
+    reason:
+      '`item_type` + `item_ref` names each child a split assigns. Frozen by trigger once the job ' +
+      'leaves `plan`, precisely so the set an operator approved is the set that executes — a ' +
+      'merge rehoming one would edit an approved plan from outside.',
+  },
+  {
+    table: 'catalog_split_jobs',
+    disposition: 'untouched',
+    idColumns: ['source_entity_id', 'target_entity_id'],
+    reason:
+      '#654’s second named table, and the merge-job reasoning exactly: a split’s record of what ' +
+      'it split must not be rewritten by a later merge of either side.',
+  },
+  {
+    table: 'compatibility_claims',
+    disposition: 'not_an_entity_reference',
+    reason: '`asserted_by_kind` is an actor role, as in `automotive_fitments`; the subject columns are FK.',
+  },
+  {
+    table: 'feed_configurations',
+    disposition: 'not_an_entity_reference',
+    reason: '`owner_kind` is `merchant | operator` — who owns the feed, an actor role rather than a `merchants.id`.',
+  },
+  {
+    table: 'feed_field_mappings',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`role` is the FEED COLUMN’s role (title, gtin, price, merchant, storefront…). `merchant` ' +
+      'there names a column in somebody’s CSV, not an entity.',
+  },
+  {
+    table: 'feed_import_report_entries',
+    disposition: 'not_an_entity_reference',
+    reason: 'The same `role` vocabulary, on the error report.',
+  },
+  {
+    table: 'generic_compatibility_relations',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      '`target_kind` says which of `target_family_id`/`target_product_id`/`target_variant_id` is ' +
+      'populated — all three FK and all three in the plan, conflict-gated on the ' +
+      'distinct-endpoints CHECK (#405). `target_key` is a GENERATED key over them, and ' +
+      '`asserted_by_kind` is an actor role.',
+  },
+  {
+    table: 'guest_abuse_counters',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`axis` names a throttle dimension and the subject is `subject_hash`, an HMAC — there is no ' +
+      'id here in either direction, which is the privacy property that domain is built on.',
+  },
+  {
+    table: 'guest_abuse_interventions',
+    disposition: 'not_an_entity_reference',
+    reason: 'The same `axis` vocabulary and the same hashed subject.',
+  },
+  {
+    table: 'merchant_activation_capability_events',
+    disposition: 'not_an_entity_reference',
+    reason: '`actor_kind` is `merchant | operator | system` — who acted, not which merchant.',
+  },
+  {
+    table: 'merchant_claim_scopes',
+    disposition: 'untouched',
+    idColumns: ['scope_ref'],
+    reason:
+      'A real bare reference: `scope_kind` over merchant/storefront/domain with `scope_ref` ' +
+      'beside it. A claim’s scope is the set of facts somebody PROVED; rehoming it would widen ' +
+      'or move a proof nobody re-verified, which is the one thing #83’s scope model exists to ' +
+      'prevent. Revocation and a fresh claim are the supported path.',
+  },
+  {
+    table: 'navigation_nodes',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      '`target_kind` selects among FK’d columns including `brand_id` and `product_family_id`, ' +
+      'both in the plan. `campaign_url` and `product_type_key` are not entity ids.',
+  },
+  {
+    table: 'offer_price_series',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      '`scope_kind` selects between `canonical_product_id` and `canonical_variant_id`, both FK ' +
+      'and both in the plan (#78 retains the series with the TOMBSTONE — two series cannot be ' +
+      'concatenated). `series_key` is GENERATED from them.',
+  },
+  {
+    table: 'orders',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`source_channel` is `storefront | pos | draft` — where an order came from. `storefront` ' +
+      'matches by word only and names no `storefronts.id`; #59 merge invariant 3 keeps orders ' +
+      'out of the plan entirely.',
+  },
+  {
+    table: 'price_signal_evaluations',
+    disposition: 'discriminates_foreign_keys',
+    reason: '`scope_kind` selects between the FK’d product and variant columns; `subject_key` is GENERATED from them.',
+  },
+  {
+    table: 'price_signal_feedback',
+    disposition: 'discriminates_foreign_keys',
+    reason: 'As `price_signal_evaluations`, plus an FK’d `merchant_id`.',
+  },
+  {
+    table: 'product_type_fields',
+    disposition: 'not_an_entity_reference',
+    reason: '`flow` is the authoring path a field appears in, as in `catalog_authoring_drafts`.',
+  },
+  {
+    table: 'referral_attributions',
+    disposition: 'untouched',
+    idColumns: ['subject_ref'],
+    reason:
+      'A real bare reference — `subject_kind` is `oxy_user | guest_checkout | merchant` and a ' +
+      '`merchant` subject’s `subject_ref` IS a `merchants.id`. Left alone deliberately: an ' +
+      'attribution records who acquired whom at a moment, and moving it would credit one ' +
+      'merchant’s acquisition to another. The referral domain is walled off from curation by ' +
+      'its own isolation gates.',
+  },
+  {
+    table: 'referral_subject_redirects',
+    disposition: 'untouched',
+    idColumns: ['from_ref', 'to_ref'],
+    reason:
+      'The referral domain’s OWN redirect chain, with the same `subject_kind` vocabulary. It ' +
+      'records where a subject moved for attribution purposes; a merge writing into it would ' +
+      'forge a referral history. Its own domain owns any repointing.',
+  },
+  {
+    table: 'retail_suppressions',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      'The one to read. A recall stores its subject TWICE — a typed FK (`canonical_product_id`, ' +
+      '`canonical_variant_id`, `brand_id`) plus the polymorphic `scope`/`scope_ref` the ' +
+      'derivation matches on — forced equal by CHECK, so the plan moves BOTH together and the ' +
+      'absence guard is narrowed to the partial unique’s own `WHERE lifted_at IS NULL`.',
+  },
+  {
+    table: 'review_aggregates',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      '`scope`/`target_type` select among FK’d columns (`canonical_product_id`, `merchant_id`), ' +
+      'both in the plan; `target_key` is GENERATED from them.',
+  },
+  {
+    table: 'review_eligibilities',
+    disposition: 'discriminates_foreign_keys',
+    reason: 'The same pair of vocabularies over the same FK’d columns.',
+  },
+  {
+    table: 'review_target_migrations',
+    disposition: 'untouched',
+    idColumns: ['from_target_ref', 'to_target_ref'],
+    reason:
+      'The append-only record of #76’s classification decisions, with bare refs on both sides. ' +
+      'Evidence again: it says where a review WAS and where it went, and rehoming either end ' +
+      'would make the trail describe a move that never happened.',
+  },
+  {
+    table: 'reviews',
+    disposition: 'discriminates_foreign_keys',
+    reason:
+      '`target_type`/`scope` select among FK’d columns; the merge’s reviews phase moves them and ' +
+      'then RECORDS what the guard left behind (#333).',
+  },
+  {
+    table: 'seller_listing_drafts',
+    disposition: 'not_an_entity_reference',
+    reason:
+      '`entry_path` is how a seller STARTED a draft (canonical_product, identifier_scan, ' +
+      'catalog_search…) — a route through the wizard, not a reference. The real link is the FK’d ' +
+      '`canonical_product_id`/`canonical_variant_id`.',
+  },
+  {
+    table: 'source_records',
+    disposition: 'not_an_entity_reference',
+    reason: '`external_type`/`external_id` are the SOURCE’s, as in `catalog_source_objects`.',
+  },
+];

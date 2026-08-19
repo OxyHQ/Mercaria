@@ -310,6 +310,59 @@ invented plan entry is caught.
 
 **`untouched` with a reason is a decision the census accepts; silence is not.**
 
+### The polymorphic half, which has no foreign key to walk (#654)
+
+That census derives from FOREIGN KEYS, so a **polymorphic** reference — an id
+column whose target table is decided by a sibling discriminator — is invisible
+to it. There is nothing for a foreign key to point at, so the gate that makes
+the census self-maintaining **cannot fire** for one: a future decision to rehome
+such a column arms the endpoint-collapse hazard with the build staying green.
+
+`POLYMORPHIC_ENTITY_REFERENCES` in `merge-plan.ts` and
+`__tests__/polymorphic-entity-census.test.ts` close it, in the FK census's own
+shape one level up: **derive the population, declare only the disposition.**
+
+**#654 named three tables, and that list was wrong in both directions** — which
+is the argument for deriving rather than listing, measured rather than asserted:
+
+| rule | finds | verdict |
+|---|---|---|
+| the enum is a SUBSET of `MERGEABLE_ENTITY_TYPES` | 6 tables | **misses `catalog_review_items`**, whose `subject_type` is the wider `CURATION_SUBJECT_TYPES` — and with it every mixed vocabulary, which is where the whole review family lives |
+| the enum SHARES a value | 38 tables | about a dozen hold a real bare reference; the rest share a word |
+
+The derivation is the **wide** one, deliberately. A narrow rule fails by
+omitting silently, which is the failure under repair. So
+`orders.source_channel` and `product_type_fields.flow` are in the population on
+a coincidence of vocabulary, and that is the point rather than a defect: each is
+ticked off once as `not_an_entity_reference`, so the thirty-ninth cannot arrive
+unnoticed. The discriminator is found through drizzle's own `enumValues` — the
+tuple that renders each `checkOneOf` CHECK — so the population comes from the
+SHAPE and never from a name.
+
+Four dispositions, and the first two are deliberately not one:
+
+| disposition | meaning |
+|---|---|
+| `not_an_entity_reference` | the enum shares a word; no column here holds a mergeable entity id |
+| `discriminates_foreign_keys` | it does hold one, the columns are FK'd, and the FK census above already forces the decision |
+| `untouched` | a real bare reference a merge deliberately leaves, with its id columns named |
+| `rehomed` | a real bare reference a merge moves (none today) |
+
+Collapsing the first two would lose the fact that somebody checked.
+`untouched`/`rehomed` must name their id columns and the other two must not — an
+entry claiming a merge leaves a reference alone has to say *which* reference, or
+it is a sentence rather than a decision.
+
+**Reconciled in both directions.** An undeclared derived table fails the build
+naming itself and the four dispositions; a declared table the derivation no
+longer finds fails too, because a stale declaration is the exemption that can
+never fire — a shape this domain has already paid for once.
+
+The entry to read is `catalog_entity_suppressions`: a real bare reference that
+is currently `untouched`, and the one a later reader should challenge rather
+than copy, because `retail_suppressions` one row over stores the same fact twice
+and the plan DOES move a recall with its entity.
+
 ### What the census caught on its first rebase
 
 It fired immediately, on the first branches to land after it existed: #60's
