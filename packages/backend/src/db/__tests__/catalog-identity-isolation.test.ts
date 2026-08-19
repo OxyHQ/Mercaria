@@ -45,6 +45,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { assertDirectoriesAreFlat } from '../../__tests__/domain-population.js';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -387,5 +388,16 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
       expect(BARE_IDENTITY_FIELD.test('  categoryKey: z.string().min(1),')).toBe(false);
       expect(BARE_IDENTITY_FIELD.test('  productTypeKey: z.string(),')).toBe(false);
     });
+  });
+});
+
+describe('#668 — the one-level reads in this gate list only FLAT directories', () => {
+  it('both readdirSync sites read a shared directory: db/schema and middleware', () => {
+    // A gate may read a directory one level deep when that directory cannot
+    // contain another. That is a claim about the tree and it goes stale
+    // silently, so it is asserted rather than assumed. `assertDirectoriesAreFlat`
+    // carries its own floor — the inline version of this loop had none, and
+    // emptying its array left a whole file green (#697).
+    assertDirectoriesAreFlat(['db/schema', 'middleware']);
   });
 });

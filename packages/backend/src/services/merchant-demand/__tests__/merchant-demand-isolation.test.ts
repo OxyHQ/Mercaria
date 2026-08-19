@@ -33,6 +33,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  assertDirectoriesAreFlat,
   type DirectoryReader,
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
@@ -536,5 +537,16 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       plantIn: 'lib',
       plantName: 'merchant-demand-cache.ts',
     });
+  });
+});
+
+describe('#668 — the one-level reads in this gate list only FLAT directories', () => {
+  it('the ordering-surface scan reads three service directories one level', () => {
+    // A gate may read a directory one level deep when that directory cannot
+    // contain another. That is a claim about the tree and it goes stale
+    // silently, so it is asserted rather than assumed. `assertDirectoriesAreFlat`
+    // carries its own floor — the inline version of this loop had none, and
+    // emptying its array left a whole file green (#697).
+    assertDirectoriesAreFlat(['services/ranking', 'services/search', 'services/offers']);
   });
 });

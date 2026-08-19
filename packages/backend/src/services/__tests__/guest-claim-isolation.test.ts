@@ -17,6 +17,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { assertDirectoriesAreFlat } from '../../__tests__/domain-population.js';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -143,11 +144,35 @@ const CLAIM_PATHS = [
  */
 const CLAIM_UI_LIB_PATHS = ['frontend/lib/api/guest-claim.ts', 'frontend/lib/hooks/use-guest-claim.ts'];
 
-function claimScreens(): string[] {
+/**
+ * The claim SCREENS — RECURSIVELY (#668).
+ *
+ * This read one level. `frontend/app/(app)/guest-orders` is an **Expo route
+ * directory**, and a route directory can grow a subdirectory at any time — a
+ * nested route, a route group, a `[param]/` segment. So unlike every other
+ * one-level read left in the gate corpus, asserting this one is flat would be a
+ * BET rather than a fact, and the honest fix is to recurse.
+ *
+ * A screen inside such a subdirectory was outside every wall below, which is the
+ * set that includes "the claim path reaches no referral module" — a wall whose
+ * whole point is that it holds for screens nobody has written yet.
+ */
+/** A reader of one directory RELATIVE to `packages/`, injected so the seeded
+ * control below drives THIS function rather than a copy of it. */
+type PackagesReader = (relative: string) => DirectoryEntry[];
+const readPackagesDirectory: PackagesReader = (relative) =>
+  readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true });
+
+function claimScreens(readDir: PackagesReader = readPackagesDirectory): string[] {
   const directory = join('frontend', 'app', '(app)', 'guest-orders');
-  return readdirSync(join(PACKAGES_ROOT, directory))
-    .filter((entry) => entry.endsWith('.tsx'))
-    .map((entry) => `${directory}/${entry}`);
+  const walk = (relative: string): string[] =>
+    readDir(relative).flatMap((entry) => {
+      if (entry.name === '__tests__') return [];
+      const child = `${relative}/${entry.name}`;
+      if (entry.isDirectory()) return walk(child);
+      return entry.name.endsWith('.tsx') ? [child] : [];
+    });
+  return walk(directory);
 }
 
 const CLAIM_UI_PATHS = [...claimScreens(), ...CLAIM_UI_LIB_PATHS];
@@ -709,5 +734,41 @@ describe('the guest claim path cannot reach what it must not', () => {
       false,
     );
     expect(GUEST_FLAG_REFERENCE.test('const claim = await findClaimById(db, id);')).toBe(false);
+  });
+});
+
+describe('#668 — the traversals this gate does itself', () => {
+  it('the claim SCREEN scan recurses, which a one-level read did not', () => {
+    // Measured with a seeded reader, plus the half that makes it non-circular:
+    // the same path is asserted ABSENT from the real tree, so this measures the
+    // traversal rather than a directory that happens to be flat today.
+    const directory = 'frontend/app/(app)/guest-orders';
+    const seeded: PackagesReader = (relative) =>
+      relative === directory
+        ? [
+            ...readPackagesDirectory(relative),
+            { name: 'settings', isDirectory: () => true, isFile: () => false },
+          ]
+        : relative === `${directory}/settings`
+          ? [{ name: 'index.tsx', isDirectory: () => false, isFile: () => true }]
+          : readPackagesDirectory(relative);
+    const planted = `${directory}/settings/index.tsx`;
+    // The REAL function, handed the seeded reader. An earlier draft of this test
+    // built its own `walk` over the seeded reader and asserted THAT recursed —
+    // which measured the copy, not `claimScreens`. Mutation-proved: reverting
+    // `claimScreens` to a one-level read left the test green.
+    expect(claimScreens(seeded), 'the screen scan does not recurse').toContain(planted);
+    expect(
+      claimScreens(),
+      'the seeded route directory exists on disk, so this proves nothing',
+    ).not.toContain(planted);
+    // …and the real scan still finds the screens it is there for.
+    expect(claimScreens().length, 'the screen scan found nothing').toBeGreaterThanOrEqual(1);
+  });
+
+  it('the locale-bundle read lists a FLAT directory', () => {
+    assertDirectoriesAreFlat(['frontend/lib/i18n/locales'], (relative) =>
+      readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true }),
+    );
   });
 });

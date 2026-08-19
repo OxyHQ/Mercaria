@@ -48,6 +48,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  assertDirectoriesAreFlat,
   type DirectoryReader,
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
@@ -423,5 +424,16 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     // every absolute path the detectors run over has a relative twin here.
     const absolute = scannedPaths().map((path) => path.slice(SRC_ROOT.length + 1)).sort();
     expect(relativePopulation(readSrcDirectory).sort()).toEqual(absolute);
+  });
+});
+
+describe('#668 — the client-module read lists FLAT directories', () => {
+  it('both CLIENT_DIRECTORIES hold modules and no subdirectory', () => {
+    // `clientPaths` reads one level. Both are storefront `lib/` directories and
+    // flat today; asserting it means a `lib/api/search/` added tomorrow fails
+    // the build rather than quietly leaving its modules outside every wall.
+    assertDirectoriesAreFlat(CLIENT_DIRECTORIES, (relative) =>
+      readdirSync(join(REPO_ROOT, relative), { withFileTypes: true }),
+    );
   });
 });

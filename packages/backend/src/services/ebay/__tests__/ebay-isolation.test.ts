@@ -25,6 +25,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { assertDirectoriesAreFlat } from '../../../__tests__/domain-population.js';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -588,5 +589,16 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     ).toEqual([planted]);
     // …and the plant is not on disk, or this asserts about the tree.
     expect(sweepTree(realReader)).not.toContain(planted);
+  });
+});
+
+describe('#668 — the one-level reads in this gate list only FLAT directories', () => {
+  it('the adapter census reads services/ingestion/adapters one level', () => {
+    // A gate may read a directory one level deep when that directory cannot
+    // contain another. That is a claim about the tree and it goes stale
+    // silently, so it is asserted rather than assumed. `assertDirectoriesAreFlat`
+    // carries its own floor — the inline version of this loop had none, and
+    // emptying its array left a whole file green (#697).
+    assertDirectoriesAreFlat(['services/ingestion/adapters']);
   });
 });

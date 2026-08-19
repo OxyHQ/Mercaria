@@ -37,6 +37,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  assertDirectoriesAreFlat,
   type DirectoryReader,
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
@@ -110,6 +111,41 @@ function filesIn(
 }
 
 /**
+ * Every `.tsx` under an Expo ROUTE directory, RECURSIVELY (#668).
+ *
+ * `filesIn` reads one level, which is right for `components/` and for a `lib/`
+ * directory. It is NOT right for a route directory: `app/(app)/p` can grow a
+ * nested route, a route group or a `[param]/` segment at any time, so asserting
+ * it is flat would be a bet rather than a fact. A screen inside one was outside
+ * all five walls below — including the one forbidding an external-offer handoff.
+ */
+type StorefrontReader = (relative: string) => { name: string; isDirectory: () => boolean }[];
+const readStorefrontDirectory: StorefrontReader = (relative) =>
+  readdirSync(join(STOREFRONT_ROOT, relative), { withFileTypes: true });
+
+/**
+ * The route-screen PATHS, split from the read so the seeded control below can
+ * drive this exact function without the planted file having to exist on disk.
+ */
+function routeScreenPaths(
+  relative: string,
+  readDir: StorefrontReader = readStorefrontDirectory,
+): string[] {
+  return readDir(relative).flatMap((entry) => {
+    if (entry.name === '__tests__') return [];
+    const next = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) return routeScreenPaths(next, readDir);
+    return entry.name.endsWith('.tsx') ? [next] : [];
+  });
+}
+
+function routeScreens(relative: string): { relative: string; source: string }[] {
+  return routeScreenPaths(relative).map((found) =>
+    readScanned(join(STOREFRONT_ROOT, found), found),
+  );
+}
+
+/**
  * The rest of the server surface, DERIVED rather than listed.
  *
  * `db/productPage/` is the domain's own directory and is walked whole; the three
@@ -141,7 +177,7 @@ function outerSources(): { relative: string; source: string }[] {
  */
 function storefrontSources(): { relative: string; source: string }[] {
   return [
-    ...filesIn(join(STOREFRONT_ROOT, 'app/(app)/p'), 'app/(app)/p', '.tsx'),
+    ...routeScreens('app/(app)/p'),
     ...filesIn(join(STOREFRONT_ROOT, 'components/product'), 'components/product', '.tsx'),
     ...['lib/api', 'lib/hooks'].flatMap((relative) =>
       filesIn(join(STOREFRONT_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
@@ -661,5 +697,35 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     // and the new clause reported zero occurrences. A clause that can never be
     // the one that fires is decoration, and decoration in a gate reads as
     // coverage.
+  });
+});
+
+describe('#668 — the traversals this gate does itself', () => {
+  it('the ROUTE screen scan recurses, which the one-level read did not', () => {
+    const seeded: StorefrontReader = (child) =>
+      child === 'app/(app)/p'
+        ? [...readStorefrontDirectory(child), { name: 'compare', isDirectory: () => true }]
+        : child === 'app/(app)/p/compare'
+          ? [{ name: 'index.tsx', isDirectory: () => false }]
+          : readStorefrontDirectory(child);
+    const planted = 'app/(app)/p/compare/index.tsx';
+    // The REAL function, handed the seeded reader — not a `walk` rebuilt here.
+    // A control that re-implements the code under test measures the
+    // re-implementation, and this one did until a verified mutation said so.
+    expect(
+      routeScreenPaths('app/(app)/p', seeded),
+      'the route scan does not recurse',
+    ).toContain(planted);
+    expect(
+      routeScreenPaths('app/(app)/p'),
+      'the seeded route directory exists on disk, so this proves nothing',
+    ).not.toContain(planted);
+  });
+
+  it('the remaining one-level reads list FLAT directories', () => {
+    assertDirectoriesAreFlat(
+      ['components/product', 'lib/api', 'lib/hooks'],
+      (relative) => readdirSync(join(STOREFRONT_ROOT, relative), { withFileTypes: true }),
+    );
   });
 });
