@@ -86,7 +86,9 @@ import {
 } from '../controllers/merchant-claims-operator.controller.js';
 import {
   approveMergeHandler,
+  cancelMergeHandler,
   approveSplitHandler,
+  cancelSplitHandler,
   claimReviewItemHandler,
   compensateRevisionHandler,
   drainCurationJobsHandler,
@@ -359,6 +361,14 @@ router.get('/merge-jobs/:id', getMergeJobHandler);
 
 /** POST — the SECOND operator's approval. The requester's own is refused. */
 router.post('/merge-jobs/:id/approve', validateBody(approveJobSchema), approveMergeHandler);
+/**
+ * Stop a merge that has moved nothing, freeing the entity for another (#680).
+ *
+ * It reuses `approveJobSchema` because the input is the same shape — a
+ * mandatory reason — and the actor comes off the credential rather than the
+ * body, as everywhere else on this surface.
+ */
+router.post('/merge-jobs/:id/cancel', validateBody(approveJobSchema), cancelMergeHandler);
 
 /** POST — decide ONE conflict. `merge_pair` opens the child job it implies. */
 router.post(
@@ -378,6 +388,8 @@ router.get('/split-jobs/:id', getSplitJobHandler);
 
 /** POST — the second operator's approval. */
 router.post('/split-jobs/:id/approve', validateBody(approveJobSchema), approveSplitHandler);
+/** Stop a split that has moved nothing, freeing the source entity (#680). */
+router.post('/split-jobs/:id/cancel', validateBody(approveJobSchema), cancelSplitHandler);
 
 /** POST — run one batch of jobs now. The dispatcher's own drain. */
 router.post('/curation-jobs/drain', validateBody(drainCurationSchema), drainCurationJobsHandler);

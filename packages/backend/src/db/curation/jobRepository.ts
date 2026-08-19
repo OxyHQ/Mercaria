@@ -321,6 +321,97 @@ export async function releaseMergeJob(
 }
 
 /**
+ * Cancel a job that has not mutated anything, and release the open key (#680).
+ *
+ * ## The predicate is the whole design, so it lives here in ONE statement
+ *
+ * `cancelled` was representable — a member of `CATALOG_JOB_STATUSES`,
+ * CHECK-permitted on both tables, filterable from the operator surface — and
+ * NOTHING wrote it. So the one incident #663 correctly declines to resume, a
+ * parent whose child dead-lettered, had no remedy at all: its row held
+ * `catalog_merge_jobs_open_key` forever and `requestMerge` refuses a second open
+ * job, so ONE dead child permanently foreclosed merging that entity by any
+ * route.
+ *
+ * ## Cancelling is STOPPING, and it is never REVERTING
+ *
+ * That distinction is usually a wording problem. Here it is made
+ * unrepresentable, because cancelling is only reachable from a state in which
+ * nothing has moved:
+ *
+ * - **`blocked` at any phase.** A blocked job has applied NOTHING, by
+ *   construction in both runners: `runResolutionPhase` asks
+ *   `mergeJobBlockingState` and returns before applying a single decision, and
+ *   `runSplitJob` asks `splitJobBlockingState` before the phase body runs.
+ * - **`pending` at `plan` ONLY.** THE PHASE IS THE DISCRIMINATOR, NOT THE
+ *   STATUS. A job released after a mid-run failure is `pending` at whatever
+ *   phase it reached — `offers`, say — so admitting `pending` on status alone
+ *   would admit exactly the half-rehomed job this design excludes. `plan`
+ *   records conflicts on the job's own rows and moves nothing.
+ *
+ * Everything else is refused: `processing` holds a live lease and a cancel that
+ * had to win a race against a running phase is a different feature;
+ * `dead_letter` is NOT in `OPEN_STATUSES`, so it holds no key, blocks no future
+ * merge and may be dead-lettered half-run — cancelling it would put the word on
+ * a job whose rehoming stands, which is the ambiguity the rule above removes.
+ * The service says so rather than answering with a bare refusal.
+ *
+ * ## The key is released as a CONSEQUENCE, never by a second write
+ *
+ * `catalog_merge_jobs_open_key` is `(entity_type, loser_id) WHERE status in
+ * ('pending','processing','blocked')` — verified against the GENERATED SQL
+ * (`0033_material_spirit.sql`), not the drizzle declaration. A cancelled row
+ * leaves the index by itself. Two writes for one fact is how they come to
+ * disagree.
+ *
+ * The CAS carries the status AND the phase, so racing a claim, a resume or a
+ * dispatcher pass is a non-event: the loser matches no row and reports `false`,
+ * which is "somebody already did it" rather than an error.
+ */
+export async function cancelMergeJob(
+  id: string,
+  note: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const rows = await db
+    .update(catalogMergeJobs)
+    .set({ status: 'cancelled', leaseOwner: null, leaseUntil: null, lastError: note.slice(0, CURATION_MAX_TEXT_LENGTH) })
+    .where(
+      and(
+        eq(catalogMergeJobs.id, id),
+        or(
+          eq(catalogMergeJobs.status, 'blocked'),
+          and(eq(catalogMergeJobs.status, 'pending'), eq(catalogMergeJobs.phase, 'plan')),
+        ),
+      ),
+    )
+    .returning({ id: catalogMergeJobs.id });
+  return rows.length === 1;
+}
+
+/** The same, for a split. See {@link cancelMergeJob} for the whole design. */
+export async function cancelSplitJob(
+  id: string,
+  note: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<boolean> {
+  const rows = await db
+    .update(catalogSplitJobs)
+    .set({ status: 'cancelled', leaseOwner: null, leaseUntil: null, lastError: note.slice(0, CURATION_MAX_TEXT_LENGTH) })
+    .where(
+      and(
+        eq(catalogSplitJobs.id, id),
+        or(
+          eq(catalogSplitJobs.status, 'blocked'),
+          and(eq(catalogSplitJobs.status, 'pending'), eq(catalogSplitJobs.phase, 'plan')),
+        ),
+      ),
+    )
+    .returning({ id: catalogSplitJobs.id });
+  return rows.length === 1;
+}
+
+/**
  * Un-block a job whose blocking condition has cleared.
  *
  * The CAS on `status = 'blocked'` is what makes this safe to call from N tasks

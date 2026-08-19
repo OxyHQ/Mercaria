@@ -42,11 +42,19 @@ import {
 } from '../db/curation/curationRepository.js';
 import {
   approveMerge,
+  cancelMerge,
   mergeJobBlockingState,
+  mergeJobCancellationState,
   requestMerge,
   resolveMergeConflict,
 } from '../services/curation/merge.service.js';
-import { approveSplit, requestSplit, splitJobBlockingState } from '../services/curation/split.service.js';
+import {
+  approveSplit,
+  cancelSplit,
+  requestSplit,
+  splitJobBlockingState,
+  splitJobCancellationState,
+} from '../services/curation/split.service.js';
 import {
   claimItem,
   getItemWithContext,
@@ -309,12 +317,33 @@ export async function getMergeJobHandler(req: Request, res: Response): Promise<v
        * something they did not.
        */
       blocking: job.status === 'blocked' ? await mergeJobBlockingState(job, db) : null,
+      /**
+       * Whether this job can be STOPPED, derived (#680).
+       *
+       * The same predicate the cancel route enforces, so what the surface offers
+       * and what the write permits cannot disagree — and its refusal carries the
+       * reason, which for a dead-lettered job is the useful fact that a fresh
+       * merge can be requested now.
+       */
+      cancellation: mergeJobCancellationState(job),
       conflicts: await listConflicts(id, db),
       phases: await listMergePhases(id, db),
       revisions: await findRevisionsForJob({ mergeJobId: id }, db),
     });
   } catch (err) {
     respondWithError(res, err, 'Failed to read the merge job');
+  }
+}
+
+export async function cancelMergeHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const input = body<{ reason: string }>(req);
+    sendSuccess(
+      res,
+      toMergeJobView(await cancelMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason)),
+    );
+  } catch (err) {
+    respondWithError(res, err, 'Failed to cancel the merge job');
   }
 }
 
@@ -415,11 +444,25 @@ export async function getSplitJobHandler(req: Request, res: Response): Promise<v
        * would either duplicate the sweep or re-block.
        */
       blocking: job.status === 'blocked' ? splitJobBlockingState(job) : null,
+      /** Whether this job can be STOPPED, derived — the merge detail's field (#680). */
+      cancellation: splitJobCancellationState(job),
       assignments: await listSplitAssignments(id, db),
       revisions: await findRevisionsForJob({ splitJobId: id }, db),
     });
   } catch (err) {
     respondWithError(res, err, 'Failed to read the split job');
+  }
+}
+
+export async function cancelSplitHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const input = body<{ reason: string }>(req);
+    sendSuccess(
+      res,
+      toSplitJobView(await cancelSplit(routeParam(req, 'id'), catalogOperatorId(req), input.reason)),
+    );
+  } catch (err) {
+    respondWithError(res, err, 'Failed to cancel the split job');
   }
 }
 
