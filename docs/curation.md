@@ -310,6 +310,38 @@ invented plan entry is caught.
 
 **`untouched` with a reason is a decision the census accepts; silence is not.**
 
+### A merge refuses a suppressed entity (#694)
+
+`suppressEntity` writes a `catalog_entity_suppressions` row **and stamps the
+entity itself** — `status = 'suppressed'` — and every catalogue read filters
+`status = 'active'`. **The suppression is enforced one indirection away from the
+table that records it.** That is why it is easy to miss, and why nothing
+guarded against merging one: searching for a read path that filters the
+suppression TABLE finds nothing and looks like an answer.
+
+A merge destroyed that enforcement in both directions, because the tombstone
+write has no status guard:
+
+| side | what happened |
+|---|---|
+| suppressed **loser** | stamped `merged`; its offers, identifiers, source links, aliases, images and attribute values rehomed onto an `active` winner. Everything the suppression covered is served again, and the row sits open (`lifted_at IS NULL`) against a tombstone, claiming to cover it. **The merge LIFTED a suppression and nothing recorded that it had.** |
+| suppressed **winner** | the loser's content is rehomed onto a row no catalogue read returns. **The merge EXTENDED a suppression to content nobody examined.** |
+
+`requestMerge` now refuses both, with the remedy in the message — *lift the
+suppression, or suppress the other side deliberately* — which is the treatment
+it already gives a tombstone winner. **Repointing the suppression row was
+considered and rejected:** `entity_id` on the winner gives an open suppression
+against an `active` row, which is the record correct, the enforcement still
+missing, and now *looking* covered. Worse than the bug.
+
+**Known gap, pinned by a test rather than promised:** this is a REQUEST-time
+guard, so a suppression landing between a job being requested and the job
+running is not seen. `curation-writes.realdb.test.ts` reproduces exactly that
+and asserts the damage, so the follow-up that closes it — a `plan`-phase
+conflict kind, which needs a migration for the two CHECKs rendered from
+`CATALOG_MERGE_CONFLICT_KINDS` — has something to turn red. Suppressions
+already stranded by merges that have run are a separate data question.
+
 ### The polymorphic half, which has no foreign key to walk (#654)
 
 That census derives from FOREIGN KEYS, so a **polymorphic** reference — an id

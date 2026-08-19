@@ -141,8 +141,43 @@ async function requireEntity(
  * - merging INTO a tombstone (the winner would be a dead identity; resolve it to
  *   its final target first, which keeps `merged_into_id` one hop as D16 requires),
  * - merging a row that is already a tombstone (there is nothing left to move),
+ * - merging a SUPPRESSED row on either side (#694 — see below),
  * - and a second live job for the same loser, which the partial unique refuses
  *   anyway — this read just turns a `23505` into a sentence.
+ *
+ * ## Why a suppressed row is refused rather than carried through (#694)
+ *
+ * `suppressEntity` does not only write a `catalog_entity_suppressions` row; it
+ * stamps the ENTITY, `status = 'suppressed'`, and every catalogue read filters
+ * `status = 'active'`. So the suppression is enforced one indirection away from
+ * the table that records it — which is exactly why it is easy to miss, and why
+ * this guard did not exist.
+ *
+ * A merge destroys that enforcement in BOTH directions, and neither is a
+ * decision a merge may take on an operator's behalf:
+ *
+ * - **A suppressed LOSER** is stamped `status = 'merged'` by the tombstone
+ *   write, which has no status guard. Its offers, identifiers, source links,
+ *   aliases, images and attribute values are then rehomed onto a winner that is
+ *   still `active` — so everything the suppression covered is served again,
+ *   while the suppression row sits open (`lifted_at IS NULL`) against a
+ *   tombstone, claiming to cover something nobody can reach. The merge has
+ *   LIFTED a suppression and nothing recorded that it did.
+ * - **A suppressed WINNER** is the mirror image: the loser's content is rehomed
+ *   onto a suppressed row and vanishes from every catalogue read. The merge has
+ *   EXTENDED a suppression to content nobody examined.
+ *
+ * Refusing is what `~/Oxy/AGENTS.md` calls making a state unrepresentable
+ * rather than repairing it, and it is the treatment this function already gives
+ * the analogous case: a tombstone winner is refused with a remedy in the
+ * message rather than resolved for the operator. The remedy here is the same
+ * shape — lift the suppression, or suppress the winner deliberately — because
+ * both are acts an operator performs and neither is one a merge may infer.
+ *
+ * **This is a REQUEST-time guard and it does not close the whole gap.** A
+ * suppression landing between a job being requested and the job running is not
+ * seen here; that case belongs to the `plan` phase, which already probes for
+ * collisions and records a conflict the job then blocks on. See #694.
  */
 export async function requestMerge(input: RequestMergeInput): Promise<CatalogMergeJobRow> {
   if (input.loserId === input.winnerId) {
@@ -163,6 +198,22 @@ export async function requestMerge(input: RequestMergeInput): Promise<CatalogMer
     throw conflict(
       `${input.entityType} ${input.winnerId} is a tombstone pointing at ` +
         `${winner.mergedIntoId ?? 'another row'}; merge into that row instead, so resolution stays one hop.`,
+    );
+  }
+  if (loser.status === 'suppressed') {
+    throw conflict(
+      `${input.entityType} ${input.loserId} is suppressed, and merging it would lift that ` +
+        'suppression: the tombstone write replaces `suppressed` with `merged` and every row the ' +
+        `suppression covered is rehomed onto ${input.winnerId}, which is not suppressed. Lift the ` +
+        'suppression first if it no longer applies, or suppress the winner deliberately — a merge ' +
+        'must not decide either.',
+    );
+  }
+  if (winner.status === 'suppressed') {
+    throw conflict(
+      `${input.entityType} ${input.winnerId} is suppressed, and merging into it would extend that ` +
+        `suppression to everything ${input.loserId} owns, which nobody examined. Lift the ` +
+        'suppression first, or suppress the loser deliberately before merging.',
     );
   }
   const existing = await findOpenMergeJobFor(input.entityType, input.loserId, db);

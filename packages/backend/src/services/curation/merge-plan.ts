@@ -1848,10 +1848,14 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     disposition: 'untouched',
     idColumns: ['entity_id'],
     reason:
-      'A real bare reference (`entity_type` + `entity_id`). Deliberately NOT rehomed here: a ' +
-      'suppression is a decision about one identity, and this is the one entry a later reader ' +
-      'should challenge rather than copy — see `retail_suppressions`, where a recall DOES follow ' +
-      'its entity and the plan moves both of its representations together.',
+      'A real bare reference (`entity_type` + `entity_id`), and #694 settled why it stays here. ' +
+      'A merge cannot reach one: `requestMerge` REFUSES a suppressed loser or winner outright, ' +
+      'because `suppressEntity` also stamps the entity `status = \'suppressed\'` and every ' +
+      'catalogue read filters `active` — so merging would LIFT the suppression (loser) or EXTEND ' +
+      'it to unexamined content (winner), and both are operator acts. Repointing was rejected: ' +
+      'the row on an `active` winner is the record correct, the enforcement missing, and now ' +
+      'looking covered. Contrast `retail_suppressions`, which IS rehomed — its subject is stored ' +
+      'twice and the entity carries no suppressed status of its own.',
   },
   {
     table: 'catalog_merge_jobs',
