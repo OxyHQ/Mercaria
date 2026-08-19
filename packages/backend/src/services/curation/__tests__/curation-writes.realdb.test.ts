@@ -2571,3 +2571,152 @@ describe('#680: the same remedy for a SPLIT, whose blocked state arrives with #6
     expect(splitJobCancellationState({ ...job, status: 'completed' }).state).toBe('refused');
   });
 });
+
+/**
+ * #694 — a merge may not lift or extend a suppression.
+ *
+ * `suppressEntity` stamps the ENTITY (`status = 'suppressed'`) as well as
+ * writing its row, and every catalogue read filters `status = 'active'`. So the
+ * suppression is enforced one indirection away from the table that records it,
+ * which is why nothing guarded against merging one until now.
+ *
+ * These cases need a real server for the ordinary reason: the tombstone write,
+ * the rehoming statements and the entity status are all things a mocked update
+ * accepts without applying.
+ */
+describe('#694: a merge refuses a suppressed entity on either side', () => {
+  async function suppress(productId: string, note: string) {
+    await suppressEntity({
+      entityType: 'canonical_product',
+      entityId: productId,
+      reason: 'pending_investigation',
+      note,
+      actorOxyUserId: OPERATOR,
+    });
+  }
+
+  async function statusOfProduct(productId: string): Promise<string> {
+    const rows = await db
+      .select({ status: canonicalProducts.status })
+      .from(canonicalProducts)
+      .where(eq(canonicalProducts.id, productId));
+    const status = rows[0]?.status;
+    if (!status) throw new Error(`canonical product ${productId} vanished`);
+    return status;
+  }
+
+  it('refuses a suppressed LOSER, naming the remedy rather than the rule', async () => {
+    const loser = await seedProduct('694-sl-loser');
+    const winner = await seedProduct('694-sl-winner');
+    await suppress(loser.productId, 'reported for counterfeit');
+
+    await expect(
+      requestMerge({
+        entityType: 'canonical_product',
+        loserId: loser.productId,
+        winnerId: winner.productId,
+        reason: 'looks like a duplicate',
+        actorOxyUserId: OPERATOR,
+      }),
+    ).rejects.toThrow(/suppressed/i);
+
+    // The refusal names what an operator should DO. A merge deciding either act
+    // for them is the thing this guard exists to prevent.
+    await expect(
+      requestMerge({
+        entityType: 'canonical_product',
+        loserId: loser.productId,
+        winnerId: winner.productId,
+        reason: 'looks like a duplicate',
+        actorOxyUserId: OPERATOR,
+      }),
+    ).rejects.toThrow(/lift the suppression first/i);
+
+    // Nothing was created: the refusal is BEFORE the job row and before impact.
+    const jobs = await db
+      .select({ id: catalogMergeJobs.id })
+      .from(catalogMergeJobs)
+      .where(eq(catalogMergeJobs.loserId, loser.productId));
+    expect(jobs).toEqual([]);
+  });
+
+  it('refuses a suppressed WINNER, which is the mirror harm', async () => {
+    const loser = await seedProduct('694-sw-loser');
+    const winner = await seedProduct('694-sw-winner');
+    await suppress(winner.productId, 'reported for counterfeit');
+
+    // Merging INTO a suppressed row would rehome the loser's offers,
+    // identifiers and images onto something no catalogue read returns —
+    // EXTENDING a suppression to content nobody examined.
+    await expect(
+      requestMerge({
+        entityType: 'canonical_product',
+        loserId: loser.productId,
+        winnerId: winner.productId,
+        reason: 'looks like a duplicate',
+        actorOxyUserId: OPERATOR,
+      }),
+    ).rejects.toThrow(/suppressed/i);
+  });
+
+  it('still merges two ACTIVE products — the guard refuses a state, not merges', async () => {
+    // The control. Without it, "the merge was refused" would also be satisfied
+    // by a guard that refuses everything, which is the shape a mis-typed status
+    // comparison takes.
+    const loser = await seedProduct('694-ok-loser');
+    const winner = await seedProduct('694-ok-winner');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'genuinely one product',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-694ok-${RUN}`)).completed).toBe(true);
+    expect(await statusOfProduct(loser.productId)).toBe('merged');
+  });
+
+  /**
+   * The bug itself, reproduced through the ONE door the request-time guard
+   * cannot cover — and the reason #694 leaves a `plan`-phase conflict owed.
+   *
+   * Suppressing AFTER the job is requested is not an exotic race: an operator
+   * suppresses on evidence that arrives while a merge is queued, which is
+   * exactly when a merge is most likely to be pending. This asserts the damage
+   * precisely so that the follow-up which closes it has something to turn red.
+   */
+  it('DOCUMENTS the residual gap: suppressing after the request still lifts it', async () => {
+    const loser = await seedProduct('694-gap-loser');
+    const winner = await seedProduct('694-gap-winner');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'looks like a duplicate',
+      actorOxyUserId: OPERATOR,
+    });
+
+    // The evidence arrives after the job is queued.
+    await suppress(loser.productId, 'reported while the merge was pending');
+    expect(await statusOfProduct(loser.productId)).toBe('suppressed');
+
+    expect((await claimAndRunMerge(job.id, `lease-694gap-${RUN}`)).completed).toBe(true);
+
+    // The three facts that together ARE the bug:
+    // the enforcement is gone, the winner is reachable, and the record still
+    // claims to cover something.
+    expect(await statusOfProduct(loser.productId)).toBe('merged');
+    expect(await statusOfProduct(winner.productId)).toBe('active');
+    const open = await db
+      .select({ id: catalogEntitySuppressions.id, liftedAt: catalogEntitySuppressions.liftedAt })
+      .from(catalogEntitySuppressions)
+      .where(
+        and(
+          eq(catalogEntitySuppressions.entityType, 'canonical_product'),
+          eq(catalogEntitySuppressions.entityId, loser.productId),
+        ),
+      );
+    expect(open).toHaveLength(1);
+    expect(open[0]?.liftedAt).toBeNull();
+  });
+});
