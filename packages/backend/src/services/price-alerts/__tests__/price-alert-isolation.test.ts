@@ -190,10 +190,14 @@ describe('the price-alert domain cannot reach what it must not', () => {
   const files = enumerateDomain();
 
   it('scans a domain that has not silently shrunk', () => {
-    const inDomain = DOMAIN_DIRECTORIES.flatMap((relative) => filesIn(relative));
-    const inOuter = OUTER_DIRECTORIES.flatMap((relative) =>
-      filesIn(relative, DOMAIN_NAME_PATTERN),
-    );
+    // Both halves come from the SAME traversal the population uses (#668). They
+    // were a one-level `filesIn` beside a recursive population — a second
+    // spelling, and the identity below held only because `routes/admin/` and
+    // `controllers/admin/` happen to hold no module named for this domain. The
+    // first one added would have failed this assertion while blaming the
+    // population rather than the floor.
+    const inDomain = DOMAIN_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const inOuter = namedInSharedDirectories(OUTER_DIRECTORIES, DOMAIN_NAME_PATTERN);
     expect(
       inDomain.length,
       'services/price-alerts + db/priceAlerts shrank; a walk that lost a module scans clean',
@@ -531,5 +535,46 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     expect(enumerateDomain().map((absolute) => absolute.slice(SRC_ROOT.length + 1)).sort()).toEqual(
       domainRelativePaths().sort(),
     );
+  });
+});
+
+describe('#668 — the shared-directory sweep can tell a directory from a file', () => {
+  it('sees a module inside a SEEDED subdirectory of `routes`', () => {
+    // The acceptance #668 asks for, and the only thing that separates a fixed
+    // traversal from a tree that happens to be flat. `routes/admin/` holds 23
+    // modules and `controllers/admin/` 19 today; neither holds one named for
+    // this domain, which is exactly why a test over the real tree cannot tell.
+    const seeded: DirectoryReader = (relative) =>
+      relative === 'routes'
+        ? [
+            ...readSrcDirectory(relative),
+            { name: 'admin', isDirectory: () => true, isFile: () => false },
+          ]
+        : relative === 'routes/admin'
+          ? [{ name: 'price-alerts-admin.ts', isDirectory: () => false, isFile: () => true }]
+          : readSrcDirectory(relative);
+    const planted = `routes/admin/${'price-alerts-admin.ts'}`;
+    expect(domainRelativePaths(seeded), 'the shared sweep does not recurse').toContain(planted);
+    // …and the half that makes it non-circular: the seeded module is absent from
+    // the real tree, so this measures the traversal rather than the tree.
+    expect(
+      domainRelativePaths(),
+      'the seeded control exists on disk, so this proves nothing',
+    ).not.toContain(planted);
+  });
+
+  it('and the remaining one-level `filesIn` lists only directories that are FLAT', () => {
+    // The latent half, stated rather than left implicit (#668). `filesIn` still
+    // reads one level, and every directory it is now called with has no
+    // subdirectory — asserted here, so the day one appears this goes red instead
+    // of quietly listing less.
+    for (const relative of ['services/price-alerts', 'db/priceAlerts', 'services/ranking']) {
+      const entries = readSrcDirectory(relative);
+      expect(entries.length, `${relative} listed nothing`).toBeGreaterThan(0);
+      expect(
+        entries.filter((entry) => entry.isDirectory() && entry.name !== '__tests__').map((e) => e.name),
+        `${relative} grew a subdirectory, and the one-level filesIn cannot see into it`,
+      ).toEqual([]);
+    }
   });
 });
