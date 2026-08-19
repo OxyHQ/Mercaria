@@ -103,6 +103,16 @@ const coverage: {
   judgeDeployOutcome: (input: { jobs: { steps?: OutcomeStep[] }[] }) => OutcomeVerdict;
   addedMigrationFiles: (files: { status?: string; filename: string }[]) => string[];
   declaresPostPhase: (body: string) => boolean;
+  PRE_PHASE_MARKER: string;
+  declaredPhase: (body: string) => 'pre' | 'post' | 'unknown';
+  judgeMigrationContainment: (input: {
+    tipMigrations: string[] | null;
+    appliedMigrations: string[] | null;
+  }) => { state: string; missing: string[] };
+  splitMigrationsByPhase: (
+    missing: string[],
+    phaseOf: (name: string) => 'pre' | 'post' | 'unknown',
+  ) => { post: string[]; pre: string[] };
   checkDeployCoverage: (input: {
     repository: string;
     token?: string;
@@ -971,5 +981,140 @@ describe('an EVICTED run is a fourth path to "nothing shipped"', () => {
     // run that executed nothing produces `total_count: 0`, which is the exact
     // shape of a read that failed. Neither may render as "no step said no".
     expect(coverage.judgeDeployOutcome({ jobs: [] }).state).toBe('unreadable');
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* #672: the SECOND claim — is the migration I merged actually applied?        */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * `judgeCoverage` answers "did the newest RUN succeed". That is a claim about a
+ * RUN, and #672 is the observation that nothing asserted the claim an operator
+ * makes during an incident — "is the change I merged in production?".
+ *
+ * The two are stated separately rather than the anchor being swapped, because
+ * all four deploy workflows carry `paths:`/`paths-ignore:` filters and a
+ * docs-only tip legitimately produces no run at all. This claim avoids that
+ * entirely by not being about commits: it is about migration FILES, compared by
+ * CONTAINMENT.
+ */
+describe('#672 — migration containment is decided by content, never by history', () => {
+  it('reports a migration present at the tip and absent from the applied tree', () => {
+    const verdict = coverage.judgeMigrationContainment({
+      tipMigrations: ['0112_a.sql', '0113_odd_tarot.sql'],
+      appliedMigrations: ['0112_a.sql'],
+    });
+    expect(verdict.state).toBe('unapplied');
+    expect(verdict.missing).toEqual(['0113_odd_tarot.sql']);
+  });
+
+  it('takes no ancestry input at all, which is what pins the revert and the squash', () => {
+    // The acceptance criterion asks that containment, never ancestry, be the
+    // test, and that a squash or a revert pin the difference. The strongest
+    // available form of that is STRUCTURAL: this function is handed two
+    // listings and nothing else. There is no commit, no parent, no merge base
+    // and no compare range for an ancestry rule to be written against, so
+    // "covered because the applied commit is an ancestor of the tip" is
+    // unrepresentable rather than merely unused.
+    expect(coverage.judgeMigrationContainment.length).toBe(1);
+
+    // A REVERT: `0113` landed, was reverted on the branch the deploy built, and
+    // re-landed on `main`. The applied commit IS an ancestor of the tip, so an
+    // ancestry check reports covered — and the migration is genuinely not in
+    // that tree.
+    const reverted = coverage.judgeMigrationContainment({
+      tipMigrations: ['0112_a.sql', '0113_odd_tarot.sql'],
+      appliedMigrations: ['0112_a.sql'],
+    });
+    expect(reverted.state).toBe('unapplied');
+
+    // A SQUASH: the applied commit is not an ancestor of the tip at all, yet it
+    // carries every migration. Ancestry says uncovered; content says applied,
+    // and content is what the migrator acts on.
+    const squashed = coverage.judgeMigrationContainment({
+      tipMigrations: ['0112_a.sql', '0113_odd_tarot.sql'],
+      appliedMigrations: ['0113_odd_tarot.sql', '0112_a.sql', '0111_gone_from_tip.sql'],
+    });
+    expect(squashed.state).toBe('applied');
+    expect(squashed.missing).toEqual([]);
+  });
+
+  it('keeps "I could not tell" apart from "everything is applied"', () => {
+    // The failure this whole check exists to stop, one level down. A propagated
+    // read failure arrives as `null`, and rendering that as `applied` would be
+    // the check overclaiming about itself.
+    expect(coverage.judgeMigrationContainment({ tipMigrations: null, appliedMigrations: [] }).state).toBe(
+      'unreadable',
+    );
+    expect(
+      coverage.judgeMigrationContainment({ tipMigrations: ['0001_a.sql'], appliedMigrations: null })
+        .state,
+    ).toBe('unreadable');
+  });
+
+  it('refuses an EMPTY tip listing rather than reading it as nothing missing', () => {
+    // The vacuity floor. A renamed folder, a wrong ref or a changed API shape
+    // all produce an empty listing, and an empty tip reports "nothing is
+    // missing" exactly as a fully-applied repository does.
+    const verdict = coverage.judgeMigrationContainment({
+      tipMigrations: [],
+      appliedMigrations: [],
+    });
+    expect(verdict.state).toBe('no_migrations_found');
+    expect(verdict.state).not.toBe('applied');
+  });
+
+  it('keeps `pre` and `post` distinguishable, and groups an unreadable phase with `post`', () => {
+    // #594's line, preserved. An unapplied `pre` left the database and the image
+    // in sync at the old version; an unapplied `post` breaks the image that is
+    // already live. Collapsing them is how the urgent case gets ignored.
+    const phases: Record<string, 'pre' | 'post' | 'unknown'> = {
+      '0113_post.sql': 'post',
+      '0114_pre.sql': 'pre',
+      '0115_mystery.sql': 'unknown',
+    };
+    const split = coverage.splitMigrationsByPhase(
+      ['0113_post.sql', '0114_pre.sql', '0115_mystery.sql'],
+      (name) => phases[name],
+    );
+    expect(split.pre).toEqual(['0114_pre.sql']);
+    // `unknown` lands on the URGENT side: the safe reading of "I cannot tell
+    // which phase this is" is the one that alarms.
+    expect(split.post).toEqual(['0113_post.sql', '0115_mystery.sql']);
+  });
+
+  it('reads a declared phase, and calls a missing or doubled marker `unknown`', () => {
+    expect(coverage.declaredPhase(`-- a comment\n${coverage.POST_PHASE_MARKER}\nALTER TABLE x;`)).toBe(
+      'post',
+    );
+    expect(coverage.declaredPhase(`${coverage.PRE_PHASE_MARKER}\nCREATE TABLE y;`)).toBe('pre');
+    // There is no default phase — `db:generate` requires exactly one marker — so
+    // neither and both are the same defect and neither may read as `pre`.
+    expect(coverage.declaredPhase('CREATE TABLE z;')).toBe('unknown');
+    expect(
+      coverage.declaredPhase(`${coverage.PRE_PHASE_MARKER}\n${coverage.POST_PHASE_MARKER}\n`),
+    ).toBe('unknown');
+  });
+
+  it('the phase markers match the ones the migrator and the workflow really use', () => {
+    // The same reasoning as `POST_PHASE_MARKER`'s existing assertion: this
+    // script cannot import `@oxyhq/db`, so it carries a copy, and a copy that
+    // drifts silently stops classifying anything.
+    expect(POST_PHASE_GREP_PATTERN).toContain(coverage.POST_PHASE_MARKER);
+    const migrations = readdirSync(MIGRATIONS_FOLDER).filter((name) => name.endsWith('.sql'));
+    // A vacuity floor on the corpus this is validated against.
+    expect(migrations.length).toBeGreaterThanOrEqual(100);
+    const phases = migrations.map((name) =>
+      coverage.declaredPhase(readFileSync(join(MIGRATIONS_FOLDER, name), 'utf8')),
+    );
+    // Every real migration classifies. An `unknown` here means either a
+    // migration landed without its mandatory marker or the copy above drifted,
+    // and both are worth failing the build for.
+    expect(phases.filter((phase) => phase === 'unknown')).toEqual([]);
+    // Both phases are actually present in the corpus, or this test would pass
+    // against a classifier that answered one value for everything.
+    expect(phases).toContain('post');
+    expect(phases).toContain('pre');
   });
 });

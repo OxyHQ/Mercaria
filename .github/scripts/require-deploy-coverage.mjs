@@ -203,6 +203,16 @@ export const DEPLOY_OUTCOME_STEPS = Object.freeze([
  */
 export const POST_PHASE_MARKER = '-- oxy:deploy-phase=post';
 
+/**
+ * The phase marker a `pre` migration carries.
+ *
+ * Present so a body that declares NEITHER is distinguishable from one that
+ * declares `pre`. There is no default phase — `db:generate` requires exactly one
+ * marker — so a file with neither is a defect, and #672's containment report
+ * treats it as `unknown`, which groups with `post`.
+ */
+export const PRE_PHASE_MARKER = '-- oxy:deploy-phase=pre';
+
 /** Repo-relative migrations folder, pinned against `MIGRATIONS_FOLDER` by the test. */
 export const MIGRATIONS_PATH = 'packages/backend/drizzle';
 
@@ -379,9 +389,103 @@ export function addedMigrationFiles(files) {
     .filter((name) => name.startsWith(`${MIGRATIONS_PATH}/`) && name.endsWith('.sql'));
 }
 
+/**
+ * Is this migration file present in the TREE at some commit — containment, never
+ * ancestry (#672).
+ *
+ * Two directory listings, differenced. `judgeCoverage` above answers "did the
+ * newest RUN succeed"; this answers the different question an operator actually
+ * asks during an incident — "is the migration I merged applied?" — and the two
+ * are stated separately because their costs are different.
+ *
+ * ## Why a set difference of listings, and not the three obvious alternatives
+ *
+ * **Not ancestry.** `git merge-base --is-ancestor` and the `compare` endpoint
+ * both answer a question about HISTORY, and history and content diverge exactly
+ * where somebody is looking: a squash, a revert, a cherry-pick. `compare` can
+ * additionally UNDER-report here — a file present at the tip and absent at the
+ * applied commit is invisible to it whenever the applied side deleted it after
+ * the merge base, which is the revert case precisely.
+ *
+ * **Not `git cat-file -e <sha>:<path>`**, which #672 names, even though the gate
+ * job does check out. `actions/checkout` fetches depth 1, so an older applied
+ * commit is not in the local object store and `cat-file` fails for a FETCH
+ * reason that is indistinguishable from the file being absent — the alarming
+ * direction, on every run. The REST contents endpoint has identical semantics
+ * with no fetch dependency, and the equivalence was measured rather than
+ * assumed, on #672's own case: `0113_odd_tarot.sql` at `e2b22a36` gives
+ * `cat-file` CONTAINS and HTTP 200, and at `e3e6ed6e` gives `cat-file` absent
+ * and HTTP 404.
+ *
+ * **Not one containment call per migration.** There are 117 migration files and
+ * 12 of them are `post`; a per-file probe is 117 calls an hour to answer a
+ * question two directory reads answer exactly.
+ *
+ * Pure, so every state below is testable without the network — including the
+ * ones an integration test would never reach.
+ */
+export function judgeMigrationContainment({ tipMigrations, appliedMigrations }) {
+  // "I could not read a listing" is its own state and must never render as
+  // "everything is applied" — the whole failure mode #672 is about, one level
+  // down. `null` is what a propagated read failure hands us.
+  if (!Array.isArray(tipMigrations) || !Array.isArray(appliedMigrations)) {
+    return { state: 'unreadable', missing: [] };
+  }
+  // The vacuity floor. An empty tip listing is what a renamed folder, a wrong
+  // ref or a changed API shape produces, and it reports "nothing is missing"
+  // exactly as a fully-applied repository does.
+  if (tipMigrations.length === 0) {
+    return { state: 'no_migrations_found', missing: [] };
+  }
+  const applied = new Set(appliedMigrations);
+  const missing = tipMigrations.filter((name) => !applied.has(name)).sort();
+  if (missing.length === 0) return { state: 'applied', missing: [] };
+  return { state: 'unapplied', missing };
+}
+
+/**
+ * Split the unapplied migrations by phase, keeping #594's line.
+ *
+ * `pre` and `post` are NOT equally urgent and collapsing them is how an alarm
+ * teaches people to ignore the case that matters. An unapplied `pre` left the
+ * database and the image in sync at the OLD version — the deploy simply did not
+ * happen. An unapplied `post` is the dangerous one: `post` statements break the
+ * image that is already live, so a merged-and-unapplied `post` means the code
+ * shipped and the schema it requires did not.
+ *
+ * A migration whose body could not be read is `unknown` and is grouped with
+ * `post`, because the safe reading of "I cannot tell which phase this is" is the
+ * urgent one.
+ */
+export function splitMigrationsByPhase(missing, phaseOf) {
+  const post = [];
+  const pre = [];
+  for (const name of missing) {
+    const phase = phaseOf(name);
+    if (phase === 'pre') pre.push(name);
+    else post.push(name);
+  }
+  return { post, pre };
+}
+
 /** Does this migration file body declare itself a post-rollout migration? */
 export function declaresPostPhase(body) {
   return body.split('\n').some((line) => line.trim() === POST_PHASE_MARKER);
+}
+
+/**
+ * Which phase a migration body declares: `pre`, `post`, or `unknown`.
+ *
+ * `unknown` covers both "no marker" and "both markers", and it is deliberately
+ * NOT defaulted to `pre`. A file whose phase cannot be read is grouped with
+ * `post` by {@link splitMigrationsByPhase}, so the ambiguous case lands on the
+ * urgent side rather than the quiet one.
+ */
+export function declaredPhase(body) {
+  const post = declaresPostPhase(body);
+  const pre = body.split('\n').some((line) => line.trim() === PRE_PHASE_MARKER);
+  if (post === pre) return 'unknown';
+  return post ? 'post' : 'pre';
 }
 
 /**
@@ -446,6 +550,185 @@ async function readRunJobs({ repository, runId, token }) {
 
 function describeRun(run) {
   return `${(run.head_sha ?? '').slice(0, 8)} ${run.conclusion ?? run.status} — ${run.html_url}`;
+}
+
+/**
+ * The `.sql` migration names present in the tree at `ref`, or `null`.
+ *
+ * `null` on ANY failure, and the caller renders that as its own `unreadable`
+ * state rather than as "nothing is missing". A 404 on the FOLDER is a `null`
+ * too: it means this ref predates the migrations folder or the folder moved,
+ * and neither is evidence that a migration is applied.
+ *
+ * Only the names are returned. The bodies are read separately and only for the
+ * few names that turn out to be missing, which is what keeps this two calls
+ * instead of one per migration.
+ */
+async function readMigrationListing({ repository, ref, token }) {
+  try {
+    const entries = await api(
+      `/repos/${repository}/contents/${encodeURI(MIGRATIONS_PATH)}?ref=${ref}`,
+      token,
+    );
+    if (!Array.isArray(entries)) return null;
+    return entries
+      .filter((entry) => entry.type === 'file' && entry.name.endsWith('.sql'))
+      .map((entry) => entry.name);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The newest run that STATES it applied migrations, and the commit it built.
+ *
+ * Anchoring on the newest SUCCESS would be wrong: #608's hollow green is a run
+ * that concluded `success` having migrated nothing, and containment measured
+ * against that commit would report every migration applied because the code was
+ * present in its tree. What has to be true is that a run CARRYING the migration
+ * also RAN the migrator, so the anchor is the newest run whose `migrations` half
+ * reads `positive`.
+ *
+ * Bounded, because reading jobs costs a call per run and a long unshipped
+ * stretch would otherwise walk the whole page. Exhausting the bound is its own
+ * answer — `null` — never a fallback to a weaker anchor.
+ */
+async function findNewestMigratingRun({ repository, runs, token, maxJobReads = 12 }) {
+  let reads = 0;
+  for (const run of sortNewestFirst(runs)) {
+    if (run.status !== 'completed' || run.conclusion !== 'success') continue;
+    if (reads >= maxJobReads) return null;
+    reads += 1;
+    const jobs = await readRunJobs({ repository, runId: run.id, token });
+    const outcome = judgeDeployOutcome({ jobs });
+    const migrations = outcome.halves.find((half) => half.half === 'migrations');
+    if (migrations?.verdict === 'positive') return run;
+  }
+  return null;
+}
+
+/**
+ * The SECOND claim (#672): is every migration merged on `main` contained in a
+ * commit some deploy actually migrated?
+ *
+ * Stated separately from `checkDeployCoverage` and never folded into it, because
+ * the run-anchored claim has to keep working unchanged for the docs-only case.
+ * That is also why #672 is not "swap the anchor": all four deploy workflows
+ * carry `paths:`/`paths-ignore:` filters, so a docs-only tip legitimately
+ * produces no run, and a commit-anchored check would have to rebuild those
+ * filters out of a diff — the untestable reconstruction `docs/deploy.md`
+ * rejects.
+ *
+ * This claim sidesteps that entirely by not being about commits. It is about
+ * migration FILES, which is the right shape for a second reason #672 names:
+ * migrations are cumulative, so "carried" is not "was added by" — `f38227b7`
+ * added no migration at all and applied `0106`.
+ */
+export async function checkMigrationContainment({
+  repository,
+  branch = 'main',
+  token,
+  workflows = DEPLOY_WORKFLOWS,
+  log = console.log,
+}) {
+  const workflow = workflows.find((entry) => entry.migrations);
+  if (!workflow) return { problems: [] };
+
+  const runs = await readRuns({ repository, file: workflow.file, branch, token });
+  const migrating = await findNewestMigratingRun({ repository, runs, token });
+  if (!migrating) {
+    // Its own state. "No run said it migrated" is not "everything is applied",
+    // and it is exactly what a stalled pipeline looks like.
+    return {
+      problems: [
+        `MIGRATION CONTAINMENT: no run of ${workflow.name} on ${branch} states that it applied ` +
+          `migrations, within the newest runs read. Nothing here says a migration is missing — ` +
+          `it says this check could not find a commit whose deploy ran the migrator, which is ` +
+          `not the same as everything being applied.`,
+      ],
+    };
+  }
+
+  const [tipMigrations, appliedMigrations] = await Promise.all([
+    readMigrationListing({ repository, ref: branch, token }),
+    readMigrationListing({ repository, ref: migrating.head_sha, token }),
+  ]);
+  const verdict = judgeMigrationContainment({ tipMigrations, appliedMigrations });
+
+  if (verdict.state === 'unreadable') {
+    return {
+      problems: [
+        `MIGRATION CONTAINMENT: could not read the migration listing at ${branch} or at ` +
+          `${(migrating.head_sha ?? '').slice(0, 8)}. An unreadable listing is what a token ` +
+          `without \`contents: read\`, a moved folder or a changed API shape looks like — it is ` +
+          `not evidence that every migration is applied.`,
+      ],
+    };
+  }
+  if (verdict.state === 'no_migrations_found') {
+    return {
+      problems: [
+        `MIGRATION CONTAINMENT: the listing of ${MIGRATIONS_PATH} at ${branch} is EMPTY. That is ` +
+          `a renamed folder or a broken read, not a repository with no migrations, and it ` +
+          `reports "nothing is missing" exactly as a fully-applied repository does.`,
+      ],
+    };
+  }
+  if (verdict.state === 'applied') {
+    log(
+      `Migration containment: every one of the ${tipMigrations.length} migrations on ${branch} is ` +
+        `contained in ${(migrating.head_sha ?? '').slice(0, 8)}, which states it applied ` +
+        `migrations — ${migrating.html_url}`,
+    );
+    return { problems: [] };
+  }
+
+  // Read the phase of ONLY the missing files, at the tip where they exist.
+  const phases = new Map();
+  for (const name of verdict.missing) {
+    try {
+      const body = await api(
+        `/repos/${repository}/contents/${encodeURI(`${MIGRATIONS_PATH}/${name}`)}?ref=${branch}`,
+        token,
+        { raw: true },
+      );
+      phases.set(name, declaredPhase(body));
+    } catch {
+      phases.set(name, 'unknown');
+    }
+  }
+  const { post, pre } = splitMigrationsByPhase(verdict.missing, (name) => phases.get(name));
+
+  const lines = [];
+  if (post.length > 0) {
+    lines.push(
+      `MIGRATION CONTAINMENT: ${post.length} migration(s) merged on ${branch} and NOT applied.`,
+      `  the newest deploy that states it migrated built ` +
+        `${(migrating.head_sha ?? '').slice(0, 8)} — ${migrating.html_url}`,
+    );
+    for (const name of post) {
+      const phase = phases.get(name);
+      lines.push(
+        `  *** ${name} (${phase === 'unknown' ? 'PHASE UNREADABLE — treated as post' : 'post'}) ` +
+          `is on ${branch} and is absent from that commit's tree.`,
+      );
+    }
+    lines.push(
+      '  a `post` migration breaks the image that is already live, so this is the live half: ' +
+        'the code shipped and the schema it requires did not.',
+    );
+  }
+  if (pre.length > 0) {
+    // Reported, never alarmed. An unapplied `pre` left the database and the
+    // image in sync at the old version, and alarming on it is how the `post`
+    // case gets ignored.
+    log(
+      `Migration containment: ${pre.length} \`pre\` migration(s) on ${branch} are not yet ` +
+        `applied (${pre.join(', ')}). A \`pre\` that did not run left the database and the image ` +
+        `in sync at the old version, so this is reported and not alarmed.`,
+    );
+  }
+  return { problems: lines.length > 0 ? [lines.join('\n')] : [] };
 }
 
 /**
@@ -608,6 +891,13 @@ async function main() {
   let deferred;
   try {
     ({ problems, deferred } = await checkDeployCoverage({ repository, branch, token }));
+    // The SECOND claim (#672), stated separately and appended to the same
+    // report. Separate because the two answer different questions — "did the
+    // newest RUN succeed" and "is the migration I merged APPLIED" — and the
+    // first has to keep working unchanged for the docs-only case, where there
+    // is legitimately no run at all.
+    const containment = await checkMigrationContainment({ repository, branch, token });
+    problems = [...problems, ...containment.problems];
   } catch (error) {
     if (error instanceof CoverageFailure) {
       console.error(`\n${error.message}\n`);
