@@ -438,22 +438,27 @@ export async function resumeBlockedSplitJobs(batchSize: number): Promise<number>
 /**
  * One phase's outcome.
  *
- * It carries NO `blockedReason`, and that omission is a gate — #663's
- * `PhaseOutcome` device, applied here. Blocking is only safe where
- * {@link splitJobBlockingState} can decide the job is safe to RESUME, and it
- * can decide that for `plan` alone. A phase runner declared to return this type
- * cannot return a blocking outcome (excess-property checking on the returned
- * literal refuses it), so a future phase that needs to block fails `tsc` until
- * somebody has taught the predicate how its condition clears.
+ * It carries NO `blockedReason`, and NO phase outcome in this domain does —
+ * which is STRONGER than #663's `PhaseOutcome` device rather than a copy of it.
+ *
+ * The merge lets exactly one phase's return type carry a reason. That works
+ * there because every merge phase is its own function with its own declared
+ * type. Several SPLIT phases are inline literals in {@link runSplitPhase}, and
+ * an inline literal is typed by the SWITCH's return type — so widening that
+ * type to admit a blocking `plan` let ANY of them invent a block with no error.
+ * Measured, and it is why this is not a copy: with the wider return type in
+ * place, planting `blockedReason` in the `redirects` case COMPILED CLEAN. The
+ * device was found by mutating this gate rather than by reading it.
+ *
+ * So the decision was lifted OUT of the phases entirely. {@link runSplitJob}
+ * asks {@link splitJobBlockingState} directly, no phase can return a blocking
+ * outcome at all, and a future phase that needs to block has to add a branch in
+ * the runner AND teach the predicate — which cannot be silent about it, because
+ * it answers `blocked` for every phase but `plan`.
  */
 interface SplitPhaseOutcome {
   readonly rowsAffected: number;
   readonly targetEntityId: string | null;
-}
-
-/** The one phase that may block, because it is the one the predicate covers. */
-interface SplitPlanPhaseOutcome extends SplitPhaseOutcome {
-  readonly blockedReason?: string;
 }
 
 /**
@@ -742,32 +747,17 @@ async function runSplitVerifyPhase(
   return { rowsAffected: 0, targetEntityId: job.targetEntityId };
 }
 
-/**
- * `plan` — the gate (#679).
- *
- * The phase does no work: the assignment list IS the plan and it was written at
- * request time, frozen by a trigger once the job leaves `plan`. What it does is
- * ASK, and asking is the whole point — the condition it blocks on is exactly
- * the condition {@link resumeBlockedSplitJobs} will later test for having
- * cleared, so the two cannot disagree. That is #663's finding applied here
- * before the same dead end could be built.
- */
-function runPlanPhase(job: CatalogSplitJobRow): SplitPlanPhaseOutcome {
-  const state = splitJobBlockingState(job);
-  if (state.state === 'blocked') {
-    return { rowsAffected: 0, targetEntityId: job.targetEntityId, blockedReason: state.reason };
-  }
-  return { rowsAffected: 0, targetEntityId: job.targetEntityId };
-}
-
 async function runSplitPhase(
   job: CatalogSplitJobRow,
   phase: CatalogSplitPhase,
   db: DatabaseOrTransaction,
-): Promise<SplitPlanPhaseOutcome> {
+): Promise<SplitPhaseOutcome> {
   switch (phase) {
     case 'plan':
-      return runPlanPhase(job);
+      // Nothing to do: the assignment list IS the plan, written at request time
+      // and frozen by a trigger once the job leaves this phase. The GATE that
+      // guards it lives in `runSplitJob` — see {@link SplitPhaseOutcome}.
+      return { rowsAffected: 0, targetEntityId: job.targetEntityId };
     case 'mint':
       return runMintPhase(job, db);
     case 'assignments':
@@ -818,25 +808,32 @@ export async function runSplitJob(jobId: string, leaseOwner: string): Promise<Ru
   for (;;) {
     const phase = job.phase;
     if (phase === 'done') break;
-    const outcome = await db.transaction(async (tx) => runSplitPhase(job, phase, tx));
-    if (outcome.blockedReason) {
-      /**
-       * PARK it. Until #679 this branch returned `blocked: true` and wrote
-       * nothing, so the job kept its lease at `processing`, `claimSplitJobs`
-       * reclaimed it on lease expiry, and `attempts` climbed until it
-       * dead-lettered for waiting — while `listSplitJobs({status:'blocked'})`,
-       * reachable from the operator surface, could never return it.
-       *
-       * Blocking is also what stops `attempts` counting a WAIT as an attempt:
-       * the release path is not taken at all, so nothing increments.
-       */
-      await blockSplitJob(job.id, leaseOwner, outcome.blockedReason, db);
+    /**
+     * The gate, asked BEFORE the phase runs and before a transaction is opened.
+     *
+     * Until #679 the approval gate sat inside `runMintPhase` and was
+     * UNREACHABLE: `catalog_split_jobs_second_approval_check` permits an
+     * unapproved four-eyes split at `plan` and nowhere else, so the
+     * `plan -> mint` advance raised on the CHECK first. The job kept its lease
+     * at `processing`, `claimSplitJobs` reclaimed it on lease expiry, and
+     * `attempts` climbed until it dead-lettered FOR WAITING — while
+     * `listSplitJobs({status:'blocked'})`, reachable from the operator surface,
+     * could never return it.
+     *
+     * Parking is also what stops `attempts` counting a WAIT as an attempt: the
+     * release path is not reached at all, so nothing increments.
+     */
+    const blocking = splitJobBlockingState(job);
+    if (phase === 'plan' && blocking.state === 'blocked') {
+      await blockSplitJob(job.id, leaseOwner, blocking.reason, db);
       log.general.info(
-        { jobId: job.id, phase, reason: outcome.blockedReason },
+        { jobId: job.id, phase, reason: blocking.reason },
         '[Curation] split job blocked on an operator decision',
       );
       return { jobId: job.id, finalPhase: phase, completed: false, blocked: true, rowsAffected: totalRows };
     }
+
+    const outcome = await db.transaction(async (tx) => runSplitPhase(job, phase, tx));
     totalRows += outcome.rowsAffected;
 
     const next = nextSplitPhase(phase);
