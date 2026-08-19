@@ -30,9 +30,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import {
   COMPARISON_FORBIDDEN_RECOMMENDATION_INPUTS,
   COMPARISON_RECOMMENDATION_INPUTS,
@@ -51,38 +58,51 @@ import type {
 } from '@mercaria/shared-types';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const DOMAIN_DIR = join(SRC_ROOT, 'services/comparison');
+
+/** What a module of this domain is called, wherever it lives. */
+const COMPARISON_NAME_PATTERN = /comparison/i;
+
+/** The one directory this domain owns outright. */
+const OWNED_DIRECTORY = 'services/comparison';
+
+/**
+ * The flat directories every domain's HTTP surface shares.
+ *
+ * `db/schema` joined the three with #460. It holds no comparison-named module
+ * today — this domain stores nothing of its own — and it is here so that one
+ * added tomorrow lands inside the walls rather than only inside the whole-tree
+ * assertion below.
+ */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
 
 /** Every non-test module in the domain, read from the real directory tree. */
 function domainSources(): { relative: string; source: string }[] {
-  const files: { relative: string; source: string }[] = [];
-  const walk = (directory: string, prefix: string): void => {
-    for (const entry of readdirSync(directory)) {
-      const full = join(directory, entry);
-      if (statSync(full).isDirectory()) {
-        if (entry === '__tests__') continue;
-        walk(full, `${prefix}${entry}/`);
-        continue;
-      }
-      if (!entry.endsWith('.ts')) continue;
-      files.push({ relative: `${prefix}${entry}`, source: readFileSync(full, 'utf8') });
-    }
-  };
-  walk(DOMAIN_DIR, 'services/comparison/');
-  return files;
+  return walkOwnedDirectory(OWNED_DIRECTORY).map((relative) => ({
+    relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
-/** The flat directories every domain's HTTP surface shares. */
-const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware'] as const;
-
-/** Every comparison-NAMED module in a shared flat directory, whoever owns it. */
+/**
+ * Every comparison-NAMED module in a shared flat directory, whoever owns it.
+ *
+ * RECURSIVE and matched on the PATH with #460, where this read one level and
+ * matched the FILENAME. `routes/admin/` and `controllers/admin/` hold 23 and 19
+ * modules that a one-level sweep reaches none of.
+ */
 function comparisonNamedSharedModules(): string[] {
-  return SHARED_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory), { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .filter((entry) => /comparison/i.test(entry.name))
-      .map((entry) => `${directory}/${entry.name}`),
-  );
+  return namedInSharedDirectories(SHARED_DIRECTORIES, COMPARISON_NAME_PATTERN);
+}
+
+/** The whole population every wall below is applied to. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  const excused = new Set<string>(RANKING_OWNED_MODULES.map((module) => module.path));
+  return [
+    ...walkOwnedDirectory(OWNED_DIRECTORY, readDir),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, COMPARISON_NAME_PATTERN, readDir).filter(
+      (path) => !excused.has(path),
+    ),
+  ];
 }
 
 /**
@@ -113,6 +133,16 @@ const RANKING_OWNED_MODULES = [
     path: 'routes/offer-comparison.ts',
     owner: "#74's offer ranking",
     reaches: 'middleware/ranking-schemas.js',
+  },
+  {
+    // The THIRD, and it was invisible until #460. The sweep above only looked at
+    // the three shared flat directories, so a comparison-named module inside
+    // ANOTHER domain's own directory was neither in the population nor excluded
+    // from it — it was simply not a question this gate asked. It is #74's
+    // `rankOfferComparison`, the entry point #70's search consumes.
+    path: 'services/ranking/comparison.service.ts',
+    owner: "#74's offer ranking",
+    reaches: './ranking.js',
   },
 ] as const;
 
@@ -193,14 +223,20 @@ describe('the comparison domain has real modules — the vacuity floor', () => {
     // EXACT, not a floor. An excusing entry is a predicate rather than an
     // identity, so a list with no count lets a third comparison-named module be
     // excluded without anybody deciding to (#448).
-    expect(RANKING_OWNED_MODULES.length).toBe(2);
+    expect(RANKING_OWNED_MODULES.length).toBe(3);
 
-    const candidates = comparisonNamedSharedModules();
     const OWNED = /(?:^|\/)services\/comparison\//;
     for (const { path, owner, reaches } of RANKING_OWNED_MODULES) {
       // The exclusion must name a module that really exists and really is
       // comparison-named — otherwise it is a stale name excusing nothing.
-      expect(candidates, `${path} is excluded but is not a comparison-named module`).toContain(path);
+      // Checked against the NAME and the FILESYSTEM rather than against the
+      // shared-directory candidate list, because the third entry lives inside
+      // another domain's own directory and that list never reaches it.
+      expect(
+        COMPARISON_NAME_PATTERN.test(path),
+        `${path} is excluded but is not a comparison-named module`,
+      ).toBe(true);
+      expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} does not exist`).toBe(true);
 
       // And the JUSTIFICATION is measured against the real imports: it must
       // still reach #74, and must still NOT reach this domain. A module that
@@ -604,5 +640,78 @@ describe('the direction policy defaults to `not_comparable`', () => {
     // …and no key is declared twice, which would make the first one silently win.
     const keys = COMPARISON_DIRECTION_RULES.map((rule) => rule.attributeKey);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe('the population every wall above is applied to (#460)', () => {
+  it('nothing naming comparison sits outside it', () => {
+    // This is what makes the THIRD ranking-owned module a decision rather than
+    // an absence. Before #460 the gate swept three shared flat directories and
+    // nothing else, so `services/ranking/comparison.service.ts` was neither in
+    // the population nor excluded from it — it was not a question the gate
+    // asked, and no floor or count here could have said so.
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: COMPARISON_NAME_PATTERN,
+      notThisDomain: RANKING_OWNED_MODULES.map((module) => ({
+        path: module.path,
+        why:
+          `${module.owner} owns it: it imports ${module.reaches} and imports nothing under ` +
+          'services/comparison/. Scoping it IN would fail this gate for a CORRECT reason about ' +
+          "the wrong domain — #74's comparison legitimately reads a merchant rating as a " +
+          'ranking signal, and the cheapest way to green that is to weaken wall 3.',
+      })),
+      // Below today's 28 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 22,
+      plantIn: 'lib',
+      plantName: 'comparison-cache.ts',
+    });
+  });
+
+  it('ONE list of ranking-owned modules feeds both the population and the exclusion', () => {
+    // Two spellings of one fact can disagree, and the direction they disagree in
+    // is always the permissive one. `domainRelativePaths` filters on the same
+    // array `notThisDomain` is built from, so a module excused above is the same
+    // module kept out of the walls.
+    const population = domainRelativePaths();
+    for (const { path } of RANKING_OWNED_MODULES) {
+      expect(population, `${path} is excused AND scanned`).not.toContain(path);
+    }
+    expect(RANKING_OWNED_MODULES.length).toBe(3);
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    const owned = walkOwnedDirectory(OWNED_DIRECTORY);
+    const shared = comparisonNamedSharedModules();
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(18);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      4,
+    );
+  });
+
+  it('the shared sweep RECURSES and matches the PATH, which the filename sweep did not', () => {
+    // The narrowing this replaced: one level deep, matched on `entry.name`. Both
+    // halves are measured with a seeded reader, plus the assertion that makes it
+    // non-circular — the module is absent from the real tree.
+    const seeded: DirectoryReader = (relative) =>
+      relative === 'controllers'
+        ? [
+            ...readSrcDirectory(relative),
+            { name: 'comparison-admin', isDirectory: () => true, isFile: () => false },
+          ]
+        : relative === 'controllers/comparison-admin'
+          ? [{ name: 'overrides.ts', isDirectory: () => false, isFile: () => true }]
+          : readSrcDirectory(relative);
+    const planted = 'controllers/comparison-admin/overrides.ts';
+    expect(domainRelativePaths(seeded), 'the sweep does not recurse').toContain(planted);
+    expect(
+      domainRelativePaths(),
+      'the seeded module exists on disk, so this proves nothing',
+    ).not.toContain(planted);
+    // And it is the PATH that carries the domain name, not the filename — a
+    // filename rule would have missed it.
+    expect(/comparison/i.test('overrides.ts')).toBe(false);
+    expect(COMPARISON_NAME_PATTERN.test(planted)).toBe(true);
   });
 });
