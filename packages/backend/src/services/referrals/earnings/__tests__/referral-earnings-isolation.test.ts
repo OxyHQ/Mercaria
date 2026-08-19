@@ -31,7 +31,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../../__tests__/domain-population.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -59,22 +66,37 @@ import {
 } from '../ledger-postings.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EARNINGS_DIR = join(HERE, '..');
-const EARNINGS_DB_DIR = join(HERE, '..', '..', '..', '..', 'db', 'referralEarnings');
+const SRC_ROOT = join(HERE, '..', '..', '..', '..');
 
-/** Every `.ts` under a directory, excluding its own tests. */
-function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) {
-      if (entry === '__tests__') continue;
-      out.push(...sourceFiles(path));
-      continue;
-    }
-    if (entry.endsWith('.ts')) out.push(path);
-  }
-  return out;
+/**
+ * What a module of THIS sub-domain is called.
+ *
+ * `services/referrals/` hosts four sub-domains with four gates, so a bare
+ * `referral` would pull all 118 referral modules into a population of
+ * seventeen. Both spellings the tree actually uses: the directory segment and
+ * the camelCase `referralEarnings`.
+ */
+const EARNINGS_NAME_PATTERN = /referral-?earnings|referrals\/earnings/i;
+
+/** The two directories this sub-domain owns outright. */
+const OWNED_DIRECTORIES = ['services/referrals/earnings', 'db/referralEarnings'] as const;
+
+/** The flat directories a module of this sub-domain lives in under its own NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the earnings sub-domain, RELATIVE to `src/`.
+ *
+ * It was the two owned directories and nothing else (#460), so
+ * `db/schema/referralEarnings.ts` — where the partner balance, the payout batch
+ * and the ledger-posting tables and their CHECKs are DECLARED — sat behind none
+ * of the walls below.
+ */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, EARNINGS_NAME_PATTERN, readDir),
+  ];
 }
 
 /**
@@ -91,7 +113,7 @@ function code(path: string): string {
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-const DOMAIN_FILES = [...sourceFiles(EARNINGS_DIR), ...sourceFiles(EARNINGS_DB_DIR)];
+const DOMAIN_FILES = domainRelativePaths().map((relative) => join(SRC_ROOT, relative));
 
 interface Wall {
   name: string;
@@ -160,8 +182,11 @@ describe('referral earnings isolation (static)', () => {
   it('scans a non-trivial number of files', () => {
     // The anti-vacuity floor. A broken traversal scans nothing and every wall
     // below passes, which is exactly what a BROKEN scan produces.
-    expect(sourceFiles(EARNINGS_DIR).length).toBeGreaterThanOrEqual(8);
-    expect(sourceFiles(EARNINGS_DB_DIR).length).toBeGreaterThanOrEqual(4);
+    // Per SHAPE, through the SAME traversal the population uses — a second
+    // spelling of a walk is a second thing to keep in step, and #460 deleted the
+    // local `sourceFiles` rather than leaving both.
+    expect(walkOwnedDirectory('services/referrals/earnings').length).toBeGreaterThanOrEqual(8);
+    expect(walkOwnedDirectory('db/referralEarnings').length).toBeGreaterThanOrEqual(4);
     expect(DOMAIN_FILES.length).toBeGreaterThanOrEqual(12);
     // …and a KNOWN-PRESENT file is genuinely in the set, so the traversal is
     // reading what it claims to read.
@@ -333,6 +358,66 @@ describe('the referral account boundary (runtime walk)', () => {
     ).toThrow(InvalidReferralPostingAmountError);
     expect(() => payoutSettledPosting({ ...base, amountMinor: 0n, payoutBatchId: 'b' })).toThrow(
       InvalidReferralPostingAmountError,
+    );
+  });
+});
+
+
+describe('the population every wall above is applied to (#460)', () => {
+  it('nothing naming this sub-domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: EARNINGS_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // every module the whole-tree sweep finds under this sub-domain's own name
+      // is this sub-domain's.
+      notThisDomain: [],
+      // Below today's 17 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 13,
+      plantIn: 'lib',
+      plantName: 'referral-earnings-cache.ts',
+    });
+  });
+
+  it('the module the owned-directory population could not reach is in it', () => {
+    // An identity assertion, not a floor. A floor set below 17 is met without
+    // it.
+    const population = domainRelativePaths();
+    for (const named of ['db/schema/referralEarnings.ts']) {
+      expect(population, `${named} is outside every wall again`).toContain(named);
+      expect(
+        statSync(join(SRC_ROOT, named)).isFile(),
+        `${named} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('the SIBLING sub-domains stay out — `services/referrals/` hosts four', () => {
+    // The hazard this narrow pattern exists for. A bare `referral` matches 118
+    // modules across four sub-domains, each with its own gate and its own walls,
+    // and a population that swallowed them would apply THIS gate's walls to code
+    // three other issues own. Each sibling is asserted to exist, so the
+    // exclusion cannot go vacuous on a rename.
+    const population = domainRelativePaths();
+    for (const sibling of ['services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts', 'services/referrals/dashboard/disclosure.ts']) {
+      expect(
+        statSync(join(SRC_ROOT, sibling)).isFile(),
+        `${sibling} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+      expect(EARNINGS_NAME_PATTERN.test(sibling), `${sibling} matches this sub-domain's name`).toBe(false);
+      expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
+    }
+    // …and the vacuity floor on the loop itself.
+    expect(['services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts', 'services/referrals/dashboard/disclosure.ts'].length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('floors PER SHAPE, because the sources break independently', () => {
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, EARNINGS_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(13);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      1,
     );
   });
 });
