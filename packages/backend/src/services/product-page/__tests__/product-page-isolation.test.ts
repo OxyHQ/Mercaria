@@ -37,6 +37,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  assertDirectoriesAreFlat,
   type DirectoryReader,
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
@@ -110,6 +111,26 @@ function filesIn(
 }
 
 /**
+ * Every `.tsx` under an Expo ROUTE directory, RECURSIVELY (#668).
+ *
+ * `filesIn` reads one level, which is right for `components/` and for a `lib/`
+ * directory. It is NOT right for a route directory: `app/(app)/p` can grow a
+ * nested route, a route group or a `[param]/` segment at any time, so asserting
+ * it is flat would be a bet rather than a fact. A screen inside one was outside
+ * all five walls below — including the one forbidding an external-offer handoff.
+ */
+function routeScreens(relative: string): { relative: string; source: string }[] {
+  const walk = (child: string): string[] =>
+    readdirSync(join(STOREFRONT_ROOT, child), { withFileTypes: true }).flatMap((entry) => {
+      if (entry.name === '__tests__') return [];
+      const next = `${child}/${entry.name}`;
+      if (entry.isDirectory()) return walk(next);
+      return entry.name.endsWith('.tsx') ? [next] : [];
+    });
+  return walk(relative).map((found) => readScanned(join(STOREFRONT_ROOT, found), found));
+}
+
+/**
  * The rest of the server surface, DERIVED rather than listed.
  *
  * `db/productPage/` is the domain's own directory and is walked whole; the three
@@ -141,7 +162,7 @@ function outerSources(): { relative: string; source: string }[] {
  */
 function storefrontSources(): { relative: string; source: string }[] {
   return [
-    ...filesIn(join(STOREFRONT_ROOT, 'app/(app)/p'), 'app/(app)/p', '.tsx'),
+    ...routeScreens('app/(app)/p'),
     ...filesIn(join(STOREFRONT_ROOT, 'components/product'), 'components/product', '.tsx'),
     ...['lib/api', 'lib/hooks'].flatMap((relative) =>
       filesIn(join(STOREFRONT_ROOT, relative), relative, '.ts', DOMAIN_NAME_PATTERN),
@@ -661,5 +682,38 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     // and the new clause reported zero occurrences. A clause that can never be
     // the one that fires is decoration, and decoration in a gate reads as
     // coverage.
+  });
+});
+
+describe('#668 — the traversals this gate does itself', () => {
+  it('the ROUTE screen scan recurses, which the one-level read did not', () => {
+    const seeded = (child: string): { name: string; isDirectory: () => boolean }[] =>
+      child === 'app/(app)/p'
+        ? [
+            ...readdirSync(join(STOREFRONT_ROOT, child), { withFileTypes: true }),
+            { name: 'compare', isDirectory: () => true },
+          ]
+        : child === 'app/(app)/p/compare'
+          ? [{ name: 'index.tsx', isDirectory: () => false }]
+          : readdirSync(join(STOREFRONT_ROOT, child), { withFileTypes: true });
+    const walk = (child: string): string[] =>
+      seeded(child).flatMap((entry) => {
+        const next = `${child}/${entry.name}`;
+        if (entry.isDirectory()) return walk(next);
+        return entry.name.endsWith('.tsx') ? [next] : [];
+      });
+    const planted = 'app/(app)/p/compare/index.tsx';
+    expect(walk('app/(app)/p'), 'the route scan does not recurse').toContain(planted);
+    expect(
+      routeScreens('app/(app)/p').map((file) => file.relative),
+      'the seeded route directory exists on disk, so this proves nothing',
+    ).not.toContain(planted);
+  });
+
+  it('the remaining one-level reads list FLAT directories', () => {
+    assertDirectoriesAreFlat(
+      ['components/product', 'lib/api', 'lib/hooks'],
+      (relative) => readdirSync(join(STOREFRONT_ROOT, relative), { withFileTypes: true }),
+    );
   });
 });

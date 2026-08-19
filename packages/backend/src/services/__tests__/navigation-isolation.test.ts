@@ -515,3 +515,32 @@ describe('the rollout lever gates the MOUNT and never a stored tree', () => {
     expect(offenders).toEqual([victim.relative]);
   });
 });
+
+describe('#668 — the migration read is one level, and the directory is NOT flat', () => {
+  it('drizzle/ holds a subdirectory, and no `.sql` lives inside it', () => {
+    // The one site in the corpus where a flatness assertion would be WRONG:
+    // `packages/backend/drizzle/` really does hold `meta/`. What makes the
+    // one-level read complete is not the directory's shape but the `.sql`
+    // filter, so that is what is asserted — the migrations are flat, and the
+    // subdirectory contributes no file the scan would want.
+    const entries = readdirSync(DRIZZLE_ROOT, { withFileTypes: true });
+    const subdirectories = entries.filter((entry) => entry.isDirectory()).map((e) => e.name);
+    expect(subdirectories, 'drizzle/ no longer holds meta/ — re-read this assertion').toContain(
+      'meta',
+    );
+    for (const subdirectory of subdirectories) {
+      const nested = readdirSync(join(DRIZZLE_ROOT, subdirectory), { withFileTypes: true });
+      expect(nested.length, `${subdirectory} listed nothing`).toBeGreaterThan(0);
+      expect(
+        nested.filter((entry) => entry.isFile() && entry.name.endsWith('.sql')).map((e) => e.name),
+        `drizzle/${subdirectory} holds a .sql file the one-level migration scan cannot see`,
+      ).toEqual([]);
+    }
+    // The positive control: the top level DOES hold migrations, so a scan that
+    // reached nothing cannot pass this quietly.
+    expect(
+      entries.filter((entry) => entry.isFile() && entry.name.endsWith('.sql')).length,
+      'no migration found at the top level',
+    ).toBeGreaterThan(50);
+  });
+});

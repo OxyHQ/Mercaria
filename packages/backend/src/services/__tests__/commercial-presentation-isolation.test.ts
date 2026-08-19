@@ -74,6 +74,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { assertDirectoriesAreFlat } from '../../__tests__/domain-population.js';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1036,5 +1037,23 @@ describe('a really-emitted presentation carries no forbidden fact', () => {
         ).length,
       );
     }
+  });
+});
+
+describe('#668 — the locale-bundle read lists FLAT directories', () => {
+  it('every BUNDLE_ROOT holds bundles and no subdirectory', () => {
+    // `localeBundles` reads one level and filters `.json`. That is correct only
+    // while the bundle roots stay flat, which is a claim about the tree rather
+    // than about the code — asserted here so it fails the build the day a
+    // per-namespace subdirectory appears, instead of silently reading fewer
+    // locales than the file thinks it does.
+    assertDirectoriesAreFlat(
+      BUNDLE_ROOTS.map((entry) => entry.label),
+      (label) => {
+        const root = BUNDLE_ROOTS.find((entry) => entry.label === label)?.root;
+        if (root === undefined) throw new Error(`no bundle root labelled ${label}`);
+        return readdirSync(root, { withFileTypes: true });
+      },
+    );
   });
 });
