@@ -366,6 +366,21 @@ export async function resolveMergeConflict(
  * A pure read over the row, and the ONE spelling of the rule, so the service
  * and its refusal message cannot describe different policies.
  *
+ * ## THE PHASE IS THE DISCRIMINATOR, NOT THE STATUS
+ *
+ * Read this before widening the status set. `blocked` is safe at ANY phase, and
+ * that is a property of the code rather than of the phase's position in the
+ * list: {@link runResolutionPhase} asks {@link mergeJobBlockingState} and
+ * returns BEFORE applying a single decision, so a job that reached `blocked`
+ * has moved nothing whatever phase it is parked at. `pending` is safe at `plan`
+ * ONLY — a job released after a mid-run failure is `pending` at whatever phase
+ * it reached, so admitting it on status alone admits a half-rehomed merge.
+ *
+ * `awaiting_resolution` is the case that looks safe and is not. #663 made the
+ * resolution phase evaluate its whole gate before applying anything, but a job
+ * that failed MID-APPLICATION is released there with some decisions already
+ * applied. Blocked at that phase is safe; pending at it is not.
+ *
  * The refusals are not interchangeable and the wording matters, because each
  * leads an operator to a different next action. `dead_letter` is the one to
  * read: cancelling it would release nothing, because a dead-lettered job is not
