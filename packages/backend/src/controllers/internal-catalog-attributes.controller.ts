@@ -37,6 +37,7 @@ import {
   resolveAttributeReview,
 } from '../services/attributes/review-queue.service.js';
 import { measureCoverage, prioritizeCoverage } from '../services/attributes/coverage.service.js';
+import { auditAliasFold } from '../services/attributes/alias-fold-audit.js';
 import {
   listPendingReindexRequests,
   upsertAttributeSourceMapping,
@@ -245,6 +246,28 @@ export async function resolveReviewHandler(req: Request, res: Response): Promise
     sendSuccess(res, review);
   } catch (error) {
     respondWithError(res, error, 'Resolving the attribute review failed');
+  }
+}
+
+/**
+ * `GET /internal/catalog-attributes/alias-fold-audit` — how far apart the
+ * write-side and read-side folds have carried the registry (#632).
+ *
+ * READ ONLY, and the absence of a repair route beside it is the design rather
+ * than a gap: a collision whose rows point at two different canonical values is
+ * a catalogue judgement, and a surface that could resolve one would be a surface
+ * that picks a canonical value on somebody's behalf. The #632 migration ABORTS
+ * on such a row, which is the good outcome; this endpoint is what turns "may
+ * abort in production" into a number before anybody schedules it.
+ *
+ * No query parameters. The question is global — "is the migration safe" — and a
+ * filter would answer it for one namespace, which is the answer nobody needs.
+ */
+export async function aliasFoldAuditHandler(_req: Request, res: Response): Promise<void> {
+  try {
+    sendSuccess(res, await auditAliasFold(getDb()));
+  } catch (error) {
+    respondWithError(res, error, 'Auditing the alias fold failed');
   }
 }
 
