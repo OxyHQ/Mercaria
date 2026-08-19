@@ -40,6 +40,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { assertDirectoriesAreFlat } from '../../../__tests__/domain-population.js';
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1003,5 +1004,16 @@ describe('the detectors actually detect — the mutation self-tests', () => {
     // And it must not eat a URL's `//`, which would silently truncate a line
     // carrying a real reference after one.
     expect(stripComments("const u = 'https://x/listing_options';")).toContain('listing_options');
+  });
+});
+
+describe('#668 — the one-level reads in this gate list only FLAT directories', () => {
+  it('SCHEMA_MODULES reads db/schema one level', () => {
+    // A gate may read a directory one level deep when that directory cannot
+    // contain another. That is a claim about the tree and it goes stale
+    // silently, so it is asserted rather than assumed. `assertDirectoriesAreFlat`
+    // carries its own floor — the inline version of this loop had none, and
+    // emptying its array left a whole file green (#697).
+    assertDirectoriesAreFlat(['db/schema']);
   });
 });
