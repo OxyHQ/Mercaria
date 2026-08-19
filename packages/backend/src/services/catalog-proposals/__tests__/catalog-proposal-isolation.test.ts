@@ -23,27 +23,79 @@
  * `violations()`, the SAME function the real scan calls, rather than testing the
  * regex against a literal. A control that does not take production's code path is
  * how three of eighteen tokens were found inert and green one domain over.
+ *
+ * ## The population, and what it used to be (#460)
+ *
+ * `readdirSync` over `services/catalog-proposals` and `db/catalogProposals`,
+ * ONE LEVEL DEEP each: eleven modules. SIX of this domain's seventeen were
+ * behind none of the three walls — both controllers, both routes,
+ * `middleware/catalog-proposal-schemas.ts` and `db/schema/catalogProposals.ts`.
+ *
+ * Two of those matter more than the count:
+ *
+ * **`db/schema/catalogProposals.ts`** is where `catalog_proposals_resolution_check`
+ * and its siblings — the row shapes named as defence 1 above — are DECLARED. The
+ * file holding the first of the three mechanisms was outside the third.
+ *
+ * **The two routes** make the lever paragraph below enforceable. It claims
+ * `routes/internal-catalog-proposals.ts` is deliberately not gated on
+ * `config.catalogProposals.enabled`; until #460 that route was outside the scan,
+ * so the claim was a sentence rather than an assertion. It is now measured, and
+ * the mount lever is read in exactly one place — `app.ts`, outside this domain.
+ *
+ * All six were measured against all three detector sets on comment-stripped
+ * source before being added: zero hits.
+ *
+ * `CATALOGUE_WRITER` was also TIGHTENED from a bare filename to a full path. A
+ * basename excuses every module of that name anywhere in the population, and the
+ * population now spans six directories.
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
-const SERVICE_DIR = join(import.meta.dirname, '..');
-const REPOSITORY_DIR = join(import.meta.dirname, '..', '..', '..', 'db', 'catalogProposals');
+const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The hyphen is optional because `db/catalogProposals/` and
+ * `db/schema/catalogProposals.ts` are camelCase, and the plural is optional
+ * because `middleware/catalog-proposal-schemas.ts` is singular. Both halves are
+ * asserted below rather than assumed.
+ */
+const PROPOSAL_NAME_PATTERN = /catalog-?proposals?/i;
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/catalog-proposals', 'db/catalogProposals'] as const;
+
+/** The flat directories a module of this domain lives in under a domain NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/** Every module of the catalog-proposal domain, enumerated from disk. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    // RECURSIVE, where this read one directory level.
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, PROPOSAL_NAME_PATTERN, readDir),
+  ];
+}
 
 /** Every source file of the domain, tests excluded. */
 function domainFiles(): { readonly path: string; readonly name: string }[] {
-  const out: { path: string; name: string }[] = [];
-  for (const dir of [SERVICE_DIR, REPOSITORY_DIR]) {
-    for (const entry of readdirSync(dir)) {
-      const path = join(dir, entry);
-      if (statSync(path).isDirectory()) continue;
-      if (!entry.endsWith('.ts')) continue;
-      out.push({ path, name: entry });
-    }
-  }
-  return out;
+  return domainRelativePaths().map((relative) => ({
+    path: join(SRC_ROOT, relative),
+    name: relative,
+  }));
 }
 
 /**
@@ -103,15 +155,21 @@ const CATALOGUE_WRITE_PATTERNS: readonly RegExp[] = [
   /\binsert\(categories\)/,
 ];
 
-/** The ONE module allowed to hold a catalogue write. */
-const CATALOGUE_WRITER = 'review.service.ts';
+/**
+ * The ONE module allowed to hold a catalogue write.
+ *
+ * A FULL PATH rather than the bare `review.service.ts` it used to be. The
+ * population now spans six directories, and a basename excuses every module of
+ * that name in any of them — including one somebody adds tomorrow.
+ */
+const CATALOGUE_WRITER = 'services/catalog-proposals/review.service.ts';
 
 describe('catalog proposals reach no commercial or ranking domain', () => {
   it('names no fee, ranking, referral, retail-pricing or payment module', () => {
     const files = domainFiles();
     // The vacuity floor. A scan over an empty file list passes every assertion
     // below and reads exactly like a clean one.
-    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(8);
+    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(13);
 
     for (const file of files) {
       const found = violations(readFileSync(file.path, 'utf8'), COMMERCIAL_PATTERNS);
@@ -156,7 +214,7 @@ describe('catalog proposals reach no commercial or ranking domain', () => {
 describe('exactly one module may write a catalogue table', () => {
   it('every other module in the domain holds no catalogue write', () => {
     const files = domainFiles();
-    expect(files.length).toBeGreaterThanOrEqual(8);
+    expect(files.length).toBeGreaterThanOrEqual(13);
     let scanned = 0;
     for (const file of files) {
       if (file.name === CATALOGUE_WRITER) continue;
@@ -166,14 +224,14 @@ describe('exactly one module may write a catalogue table', () => {
     }
     // A floor on the SCANNED set, not on the file list: renaming the writer would
     // otherwise skip everything and pass.
-    expect(scanned, 'no non-writer module was scanned').toBeGreaterThanOrEqual(7);
+    expect(scanned, 'no non-writer module was scanned').toBeGreaterThanOrEqual(12);
   });
 
   it('and the ONE that may genuinely does — otherwise this gate measures nothing', () => {
     // The other half of the census. Without it, deleting the approval's mint and
     // leaving the domain unable to create anything would make every assertion
     // above pass, which is the "green and inert" shape.
-    const source = readFileSync(join(SERVICE_DIR, CATALOGUE_WRITER), 'utf8');
+    const source = readFileSync(join(SRC_ROOT, CATALOGUE_WRITER), 'utf8');
     const found = violations(source, CATALOGUE_WRITE_PATTERNS);
     expect(found).toContain('\\binsertAttributeEnumValue\\b');
     expect(found).toContain('\\binsertAttributeValueAlias\\b');
@@ -197,7 +255,7 @@ describe('exactly one module may write a catalogue table', () => {
 describe('nothing in the domain accepts a submitter-supplied identity', () => {
   it('no request schema declares a `key` or a `slug` a merchant could send', () => {
     const schema = readFileSync(
-      join(import.meta.dirname, '..', '..', '..', 'middleware', 'catalog-proposal-schemas.ts'),
+      join(SRC_ROOT, 'middleware', 'catalog-proposal-schemas.ts'),
       'utf8',
     );
     const stripped = stripComments(schema);
@@ -241,7 +299,7 @@ const LEVER_PATTERNS: readonly RegExp[] = [/config\s*\.\s*catalogProposals\s*\.\
 describe('the rollout lever gates the MOUNT and never a stored row', () => {
   it('no module in the domain reads `config.catalogProposals.enabled`', () => {
     const files = domainFiles();
-    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(8);
+    expect(files.length, 'the domain scan found too few files to be real').toBeGreaterThanOrEqual(13);
     for (const file of files) {
       const found = violations(readFileSync(file.path, 'utf8'), LEVER_PATTERNS);
       expect(found, `${file.name} reads the rollout lever`).toEqual([]);
@@ -268,5 +326,85 @@ describe('the rollout lever gates the MOUNT and never a stored row', () => {
       expect(violations('const n = config.catalogProposals.pageSize;', [pattern])).toEqual([]);
       expect(violations('// config.catalogProposals.enabled\n', [pattern])).toEqual([]);
     }
+  });
+});
+
+describe('the population the three walls above are applied to (#460)', () => {
+  it('nothing naming this domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: PROPOSAL_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // all seventeen modules the whole-tree sweep finds are this domain's.
+      notThisDomain: [],
+      // Below today's 17 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 13,
+      plantIn: 'lib',
+      plantName: 'catalog-proposals-cache.ts',
+    });
+  });
+
+  it('the six modules the one-level population could not reach are in it', () => {
+    // An identity assertion, not a floor. A floor set below 17 is met without
+    // any of them, which is the shape a sweep floor cannot see either.
+    const population = domainRelativePaths();
+    for (const named of [
+      'controllers/catalog-proposals.controller.ts',
+      'controllers/catalog-proposals-operator.controller.ts',
+      'db/schema/catalogProposals.ts',
+      'middleware/catalog-proposal-schemas.ts',
+      'routes/catalog-proposals.ts',
+      'routes/internal-catalog-proposals.ts',
+    ]) {
+      expect(population, `${named} is outside the walls again`).toContain(named);
+      expect(
+        statSync(join(SRC_ROOT, named)).isFile(),
+        `${named} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    // One total lets the walk collapse to zero while the sweep carries it.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, PROPOSAL_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(9);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      5,
+    );
+  });
+
+  it('both halves of the NAME pattern are load-bearing', () => {
+    // A widening that changes nothing looks exactly like a fix. Each optional
+    // character reaches a module the narrow spelling does not, and the narrow
+    // spelling is asserted NOT to reach it.
+    const camelCase = 'db/schema/catalogProposals.ts';
+    const singular = 'middleware/catalog-proposal-schemas.ts';
+    expect(PROPOSAL_NAME_PATTERN.test(camelCase)).toBe(true);
+    expect(PROPOSAL_NAME_PATTERN.test(singular)).toBe(true);
+    expect(/catalog-proposals/.test(camelCase), 'the hyphenated spelling already matched').toBe(
+      false,
+    );
+    expect(/catalog-proposals/.test(singular), 'the plural spelling already matched').toBe(false);
+    expect(domainRelativePaths()).toContain(camelCase);
+    expect(domainRelativePaths()).toContain(singular);
+  });
+
+  it('the permitted writer is excused by PATH, so a same-named module elsewhere is not', () => {
+    // The tightening. Under the old bare-filename rule, a
+    // `controllers/review.service.ts` — now inside the population — would have
+    // been skipped by the catalogue-write scan entirely.
+    expect(CATALOGUE_WRITER).toContain('/');
+    expect(domainRelativePaths()).toContain(CATALOGUE_WRITER);
+    // The skip predicate the wall above uses, applied to a same-named module in
+    // one of the five OTHER directories the population now spans. Under the old
+    // bare-filename rule this would have been skipped by the catalogue-write
+    // scan entirely; under the path rule it is scanned like everything else.
+    const skipped = (relative: string): boolean => relative === CATALOGUE_WRITER;
+    const shadow = 'controllers/review.service.ts';
+    expect(shadow.endsWith('review.service.ts'), 'the shadow is not same-named').toBe(true);
+    expect(skipped(shadow), 'a same-named module elsewhere is still scanned').toBe(false);
+    expect(skipped(CATALOGUE_WRITER), 'the real writer is no longer skipped').toBe(true);
   });
 });
