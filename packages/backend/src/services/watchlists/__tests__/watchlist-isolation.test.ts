@@ -33,6 +33,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   type DirectoryReader,
+  assertDirectoriesAreFlat,
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
   readSrcDirectory,
@@ -591,13 +592,9 @@ describe('#668 — the shared-directory sweep can tell a directory from a file',
     // reads one level, and every directory it is now called with has no
     // subdirectory — asserted here, so the day one appears this goes red instead
     // of quietly listing less.
-    for (const relative of ['services/watchlists', 'db/watchlists']) {
-      const entries = readSrcDirectory(relative);
-      expect(entries.length, `${relative} listed nothing`).toBeGreaterThan(0);
-      expect(
-        entries.filter((entry) => entry.isDirectory() && entry.name !== '__tests__').map((e) => e.name),
-        `${relative} grew a subdirectory, and the one-level filesIn cannot see into it`,
-      ).toEqual([]);
-    }
+    // ONE implementation, shared (#668). It was this loop inline over an inline
+    // array with NO floor on the array — emptying it left all 26 tests in this
+    // file green, which is the exact shape #460 exists to remove.
+    assertDirectoriesAreFlat(['services/watchlists', 'db/watchlists']);
   });
 });

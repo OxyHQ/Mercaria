@@ -365,3 +365,47 @@ export function assertNothingOutsideDomainPopulation(options: OutsidePopulationO
       'absorb a module nobody reviewed',
   ).toEqual([planted]);
 }
+
+/**
+ * Every directory in `directories` has NO subdirectory — the LATENT half of
+ * #668, asserted rather than assumed.
+ *
+ * A gate may legitimately read a directory one level deep when that directory
+ * cannot contain another. That is a claim about the tree, and it goes stale
+ * silently: the reader keeps returning names, the floors keep being met, and the
+ * modules inside the new subdirectory were never in the population to begin
+ * with. This makes the claim fail the build on the day it stops being true.
+ *
+ * ## It is here, and not copied into each gate, because I shipped the copy wrong
+ *
+ * #691 put this loop inline in four gates over an inline array, with no floor on
+ * the array. Mutation-tested afterwards: replacing the array with `[]` left all
+ * **26 tests in the file green**. The loop body never runs, so it asserts
+ * nothing — `expect(scanned).toBe(LIST.length)` wearing a different costume, in a
+ * change whose whole subject was that shape. A shared function takes the floor
+ * with it and cannot be forgotten by the fifth caller.
+ *
+ * Three assertions, and each closes a different way of being vacuous: the
+ * directory LIST is non-empty, each directory LISTS something, and none of them
+ * holds a subdirectory.
+ */
+export function assertDirectoriesAreFlat(
+  directories: readonly string[],
+  readDir: DirectoryReader = readSrcDirectory,
+): void {
+  expect(
+    directories.length,
+    'the flat-directory list is empty, so this assertion cannot fail',
+  ).toBeGreaterThan(0);
+  for (const relative of directories) {
+    const entries = readDir(relative);
+    expect(entries.length, `${relative} listed nothing`).toBeGreaterThan(0);
+    expect(
+      entries
+        .filter((entry) => entry.isDirectory() && entry.name !== '__tests__')
+        .map((entry) => entry.name),
+      `${relative} grew a subdirectory, and a one-level readdirSync cannot see into it — ` +
+        'either recurse there or move the directory out of this list with a reason',
+    ).toEqual([]);
+  }
+}
