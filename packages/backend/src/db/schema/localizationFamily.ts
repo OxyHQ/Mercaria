@@ -61,6 +61,27 @@ export function localizationColumns() {
   return {
     /** Lowercase BCP 47, never the base locale. See the file header. */
     locale: text({ enum: LOCALE_VALUES }).notNull(),
+    ...localizationSettlementColumns(),
+  };
+}
+
+/**
+ * The six columns that say how settled a translation is — the family minus
+ * `locale`.
+ *
+ * Split out for the one table that joined the family after it already had a
+ * `locale` column of its own: `attribute_labels` (#94). Its column is plain
+ * `text` with a BCP-47 shape CHECK rather than a membership of
+ * `SUPPORTED_LOCALES`, and narrowing it is a separate, data-dependent change —
+ * see {@link localizationLocaleChecks}. Spreading the full seven there would
+ * narrow the TypeScript type to `SupportedLocale` while the database still
+ * admits anything BCP-47 shaped, which is a type that LIES about its column.
+ *
+ * `localizationColumns` is composed from this rather than the other way round,
+ * so the four original members cannot drift from the six.
+ */
+export function localizationSettlementColumns() {
+  return {
     status: text({ enum: asEnumValues(LOCALIZATION_STATUSES) }).notNull(),
     provenance: text({ enum: asEnumValues(LOCALIZATION_PROVENANCES) }).notNull(),
     /**

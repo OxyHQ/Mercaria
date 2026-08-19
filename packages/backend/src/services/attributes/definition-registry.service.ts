@@ -179,13 +179,25 @@ export async function draftAttributeDefinition(
     }
 
     for (const label of input.labels ?? []) {
-      await upsertAttributeLabel(
-        tx,
-        row.id,
-        label.locale.trim().toLowerCase(),
-        label.label.trim(),
-        label.description,
-      );
+      await upsertAttributeLabel(tx, {
+        attributeDefinitionId: row.id,
+        locale: label.locale.trim().toLowerCase(),
+        label: label.label.trim(),
+        description: label.description,
+        // `reviewed` and `mercaria`, with the drafting operator as the reviewer.
+        //
+        // Honest rather than convenient: this is Mercaria's OWN copy — not a
+        // feed's, which is what `imported_source` means — and a named person
+        // typed it through the operator surface, which is what `reviewed` means
+        // and what `attribute_labels_reviewed_audit_check` demands beside it.
+        // `approved` would claim a second, formal approval step nobody performed.
+        settlement: {
+          status: 'reviewed',
+          provenance: 'mercaria',
+          reviewedByOxyUserId: input.actorOxyUserId,
+          reviewedAt: new Date(),
+        },
+      });
     }
 
     for (const scope of input.categoryScopes ?? []) {
