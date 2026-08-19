@@ -834,6 +834,13 @@
       "when": 1787176700455,
       "tag": "0118_regular_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1787179781916,
+      "tag": "0119_mixed_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

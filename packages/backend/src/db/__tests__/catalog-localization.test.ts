@@ -250,8 +250,26 @@ describe('the family census', () => {
     expect([...NAVIGATION_LOCALIZATION_PROVENANCES]).toEqual([...LOCALIZATION_PROVENANCES]);
   });
 
-  it('keeps the exemption list at exactly one, and the exemption real', () => {
-    expect(LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS).toHaveLength(1);
+  it('keeps the exemption list EMPTY, and any entry that returns real', () => {
+    // It reached zero, which is what it was built to do. `attribute_labels` was
+    // the one entry: it predated ADR 0007 D4, carried no `status` and no
+    // `provenance`, and therefore could not execute the machine-write guard —
+    // the guard's body reads both. It now carries all seven family columns and
+    // the guard is attached, so the exemption described nothing and was
+    // deleted.
+    //
+    // The exact count stays asserted rather than relaxed to "0 or more". A
+    // silent re-entry is precisely what this census exists to prevent, and a
+    // floor of zero is satisfied by any list at all.
+    expect(
+      LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS,
+      'a family member has been exempted again — an exemption is a decision and belongs in a diff',
+    ).toHaveLength(0);
+
+    // The loop is KEPT against the empty list rather than deleted with it. If a
+    // future member is exempted, it is held to the same two rules on the same
+    // day it is added: a reason somebody can read, and a gap that is genuinely
+    // there. Deleting the loop would mean the next exemption arrives ungated.
     for (const entry of LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS) {
       expect(entry.reason.length).toBeGreaterThan(40);
       const table = tables.find((candidateTable) => getTableName(candidateTable) === entry.table);
@@ -259,9 +277,7 @@ describe('the family census', () => {
       const columnNames = new Set(Object.values(getTableColumns(table)).map(sqlColumnName));
       const missing = LOCALIZATION_FAMILY_COLUMNS.filter((name) => !columnNames.has(name));
       // An exemption for a table that already complies is an exemption nobody
-      // removed, and it is how a census stops being one. When #94's owner adds
-      // the family columns to `attribute_labels`, THIS line goes red and the
-      // entry is deleted rather than left behind.
+      // removed, and it is how a census stops being one.
       expect(missing.length).toBeGreaterThan(0);
     }
   });
@@ -656,27 +672,72 @@ describe('the hand-written trigger SQL', () => {
     // EXISTS and really has no guard, so a matcher that has silently started
     // matching everything is caught.
     //
-    // `attribute_labels` is exactly that and it is not invented for the purpose:
-    // it is a REAL member of this family, it is the ONE exemption above, and it
-    // genuinely carries no BEFORE UPDATE trigger anywhere in the chain —
-    // verified against a real applied database. So the exemption doubles as the
-    // negative case, and if somebody ever gives it the family columns and a
-    // guard, this line fails and tells them to move it out of the exemption
-    // list, which is the conversation that change should start.
-    const exemptName = LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS[0]?.table ?? '';
-    expect(exemptName).not.toBe('');
-    const attachedToExempt = chain.filter((file) =>
-      new RegExp(String.raw`BEFORE\s+UPDATE\s+ON\s+"?${exemptName}"?`).test(file.text),
+    // It USED to be `attribute_labels`, the one exemption, and that comment said
+    // this line would fail the day somebody gave it the family columns and a
+    // guard — "which is the conversation that change should start". It did, and
+    // this is the other side of it: the control had to be replaced rather than
+    // deleted, because a census whose negative subject was removed is a census
+    // that can no longer fail.
+    //
+    // `attribute_definition_categories` is the replacement, and the reason it can
+    // be a PERMANENT control is the part that matters.
+    //
+    // The first candidate was `category_localized_slugs`, and THIS CENSUS
+    // REJECTED IT: it carries `mercaria_category_localized_slug_frozen`, a real
+    // BEFORE UPDATE trigger, so it would have reported the matcher as broken
+    // when the matcher was fine. That is the control doing its job on the person
+    // replacing it, and it is why the subject below was measured against
+    // `pg_trigger` on an applied database rather than reasoned about.
+    //
+    // The junction table is unguarded for a STRUCTURAL reason: it is two foreign
+    // keys, a boolean and a timestamp, with **no human-readable text column at
+    // all**. There is nothing about it to translate, so it can never carry a
+    // `status`, and `mercaria_localization_machine_write_guard` reads
+    // `OLD.status`. Nothing a future change could do would give it a guard.
+    //
+    // That is the property to preserve if this ever moves again: the control has
+    // to be unguarded because it CANNOT be guarded, not merely because nobody
+    // has guarded it yet — otherwise the census loses its negative subject the
+    // next time somebody closes a gap, which is exactly what happened here.
+    const controlName = 'attribute_definition_categories';
+    expect(
+      CATALOG_LOCALIZATION_TEXT_TABLES as readonly string[],
+      'the control must sit OUTSIDE the guarded population, or it proves nothing',
+    ).not.toContain(controlName);
+    const controlTable = tables.find(
+      (candidateTable) => getTableName(candidateTable) === controlName,
+    );
+    expect(controlTable, `${controlName} is not a real table; the control is a name only`).toBeDefined();
+    const controlColumns = new Set(
+      Object.values(getTableColumns(controlTable)).map(sqlColumnName),
     );
     expect(
-      attachedToExempt,
-      `${exemptName} is expected to have NO update guard — if it now has one, ` +
-        `it has outgrown its exemption and this census should cover it`,
+      controlColumns.has('status'),
+      `${controlName} has grown a status column, so it could now carry the guard — ` +
+        'it has stopped being a structural control and this census needs a new one',
+    ).toBe(false);
+    // The stronger claim, asserted rather than described: no localizable text.
+    // A table with a text column could one day be translated and would then be a
+    // legitimate gap rather than a control.
+    for (const localizable of ['label', 'name', 'description', 'help_text', 'slug']) {
+      expect(
+        controlColumns.has(localizable),
+        `${controlName} carries "${localizable}" — it holds translatable text now, ` +
+          'so being unguarded is a question rather than a structural fact',
+      ).toBe(false);
+    }
+    const attachedToControl = chain.filter((file) =>
+      new RegExp(String.raw`BEFORE\s+UPDATE\s+ON\s+"?${controlName}"?`).test(file.text),
+    );
+    expect(
+      attachedToControl,
+      `${controlName} is expected to have NO update guard — if the matcher reports one, ` +
+        'it has started matching everything and every assertion above is vacuous',
     ).toHaveLength(0);
 
     process.stdout.write(
       `\n  [family guard census] ${guarded.length} non-exempt text tables guarded, ` +
-        `${exempt.size} exempt (control: ${exemptName} has none), ` +
+        `${exempt.size} exempt (control: ${controlName} has none, structurally), ` +
         `${chain.length} migration files scanned\n`,
     );
   });
