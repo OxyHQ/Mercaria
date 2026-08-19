@@ -47,6 +47,44 @@ import {
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
 
 /**
+ * ## Why this gate does NOT use `__tests__/domain-population.ts` (#460)
+ *
+ * The shared helper resolves every path against `packages/backend/src`, and
+ * both populations here are CROSS-PACKAGE: `registerFollowKind` is a client
+ * call — the capability comes from the signed-in user's session, so it cannot
+ * run on a server — which means the one file that could commit this mistake
+ * lives in a package the helper cannot see. `sweepSrcTreeForDomain` would
+ * report a clean tree for a `mercaria.seller` kind in
+ * `packages/frontend/lib/follow-graph.ts`, which is the whole subject of wall 1.
+ *
+ * The second population cannot use it either, for a different and more
+ * interesting reason. `assertNothingOutsideDomainPopulation` sweeps for a NAME,
+ * and this domain's name is the commonest word in a marketplace backend:
+ * `/seller/i` over `packages/backend/src` selects **19** modules, of which
+ * **12** belong to eight other domains (#62 ingestion, moderation, #47
+ * payments, #71 product-page, the buyers repository, and the seller's own
+ * MANAGEMENT surface `routes/seller.ts` and its four controllers, which #92
+ * §"`/sellers` (plural) is public; `/seller` (singular) is the seller's own"
+ * puts outside this domain deliberately). A whole-tree assertion here would
+ * therefore carry a twelve-entry exclusion list that every unrelated domain has
+ * to maintain — a `services/payments/seller-payout.ts` added tomorrow would
+ * fail a gate about Oxy follow identity — and a gate that cries wolf is the one
+ * somebody deletes.
+ *
+ * And an ANCHORED pattern (`^backend/src/(services/sellers/|controllers/public-sellers|…)`)
+ * cannot be handed to the helper either: the sweep would then match exactly the
+ * paths the population is built from, so `toEqual([])` would hold by
+ * construction. That is `expect(scanned).toBe(LIST.length)` wearing a different
+ * shape.
+ *
+ * So the remedy #460 asks for is applied HERE, in the form this gate can carry:
+ * the populations are DERIVED from a recursive walk of every package this
+ * repository owns, the follow-surface one by CONTENT, and the wall that a
+ * content predicate could not reach is pointed at the whole corpus instead. See
+ * {@link LOCAL_FOLLOW_STORAGE}'s scan below for the hole that found.
+ */
+
+/**
  * Every `.ts`/`.tsx` under one package, RECURSIVELY.
  *
  * Recursive rather than a directory listing, because the failure a flat read
@@ -54,6 +92,23 @@ const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 
  * is in no population and behind no wall, and the gate goes on reporting the
  * same count it always did.
  */
+/**
+ * Every package whose source this gate walks.
+ *
+ * `frontend` and `backend/src` were the two. The other three are added for the
+ * same reason the walk is recursive: a follow surface added one level deeper —
+ * or one PACKAGE over — is in no population and behind no wall, and the gate
+ * goes on reporting the count it always did. Measured: `ui`, `dashboard` and
+ * `pos` hold ZERO follow surfaces today, so no count moves; `@mercaria/ui` is
+ * where a `FollowTargetButton` wrapper would most plausibly be written.
+ *
+ * `shared-types` is deliberately NOT walked: the contract module's whole job is
+ * to write `followerIds` down as a PROHIBITION, so scanning it would fire on
+ * the very list that enforces the rule — the reason already stated below for
+ * excluding it from the storage detector.
+ */
+const SCANNED_PACKAGES = ['frontend', 'backend/src', 'ui', 'dashboard', 'pos'] as const;
+
 function sourceFilesUnder(packageRelative: string): readonly string[] {
   const found: string[] = [];
   const walk = (directory: string): void => {
@@ -100,12 +155,25 @@ const FOLLOW_SYMBOL =
  */
 const FOLLOW_SURFACE_EXCLUSIONS: readonly { readonly path: string; readonly why: string }[] = [];
 
-/** Every follow surface in either package, derived. */
-const FOLLOW_SURFACE_PATHS: readonly string[] = [
-  ...sourceFilesUnder('frontend'),
-  ...sourceFilesUnder('backend/src'),
-]
-  .filter((path) => FOLLOW_SYMBOL.test(readFileSync(join(PACKAGES_ROOT, path), 'utf8')))
+/**
+ * Every source file of every package this repository owns, read ONCE.
+ *
+ * Both derivations below are filters over this, so a file cannot be in one
+ * corpus and not the other, and the storage scan costs no extra I/O.
+ */
+const CORPUS: readonly { readonly path: string; readonly source: string }[] =
+  SCANNED_PACKAGES.flatMap((packageRelative) =>
+    sourceFilesUnder(packageRelative).map((path) => ({
+      path,
+      source: readFileSync(join(PACKAGES_ROOT, path), 'utf8'),
+    })),
+  );
+
+/** Every follow surface in any package, derived. */
+const FOLLOW_SURFACE_PATHS: readonly string[] = CORPUS.filter((file) =>
+  FOLLOW_SYMBOL.test(file.source),
+)
+  .map((file) => file.path)
   .filter((path) => !FOLLOW_SURFACE_EXCLUSIONS.some((excluded) => excluded.path === path));
 
 /**
@@ -118,7 +186,7 @@ const FOLLOW_SURFACE_PATHS: readonly string[] = [
  */
 const SELLER_DOMAIN_PATTERN = /^backend\/src\/(services\/sellers\/|controllers\/public-sellers|routes\/public-sellers|middleware\/seller-schemas)/;
 
-const SELLER_DOMAIN_PATHS: readonly string[] = sourceFilesUnder('backend/src').filter((path) =>
+const SELLER_DOMAIN_PATHS: readonly string[] = CORPUS.map((file) => file.path).filter((path) =>
   SELLER_DOMAIN_PATTERN.test(path),
 );
 
@@ -254,20 +322,79 @@ describe('no Mercaria person identity can be registered', () => {
 });
 
 describe('Mercaria stores no follow state of its own', () => {
-  it('no follow surface holds a count, a list or a relationship', () => {
-    let scanned = 0;
-    for (const relative of [...FOLLOW_SURFACE_PATHS, ...SELLER_DOMAIN_PATHS]) {
-      const code = stripComments(read(relative));
+  it('NO module in any package holds a count, a list or a relationship', () => {
+    // #460: this wall used to scan `FOLLOW_SURFACE_PATHS ∪ SELLER_DOMAIN_PATHS`
+    // and that is not the population it needs, because the two vocabularies are
+    // DISJOINT. `FOLLOW_SYMBOL` is about REACHING Oxy's graph
+    // (`ensureFollowTarget`, `registerFollowKind`, `FollowTargetButton`); a
+    // module that stores a follower COUNT of its own reaches Oxy's graph
+    // nowhere, names none of those symbols, and need not sit in the public
+    // seller domain either.
+    //
+    // DEMONSTRATED rather than argued: `export const sellerFollowerCount` with
+    // a `followerCount` inside it, planted in the REAL
+    // `db/buyers/sellerProfileRepository.ts` — the repository for
+    // `seller_profiles`, which is exactly where somebody would put it — passed
+    // this gate 10/10 GREEN before this change.
+    //
+    // So the population is the whole CORPUS. Measured: the storage vocabulary
+    // matches ZERO files across all five packages today, so this costs no
+    // exclusion list and no false wall.
+    const offenders = CORPUS.filter((file) => LOCAL_FOLLOW_STORAGE.test(stripComments(file.source)));
+    expect(
+      offenders.map((file) => file.path),
+      'a module holds Mercaria follow state; the Oxy graph is the only authority',
+    ).toEqual([]);
+
+    // The floors, PER SHAPE. A total lets one collapse behind another, and the
+    // corpus floor is what stops a broken walk reporting a clean workspace.
+    expect(CORPUS.length, 'the walk found almost no source').toBeGreaterThanOrEqual(1_800);
+    expect(
+      FOLLOW_SURFACE_PATHS.length,
+      'the follow-surface derivation found nothing',
+    ).toBeGreaterThanOrEqual(12);
+    expect(
+      SELLER_DOMAIN_PATHS.length,
+      'the public-seller derivation found nothing',
+    ).toBeGreaterThanOrEqual(7);
+  });
+
+  it('the corpus REACHES the module the widening exists for', () => {
+    // NAMED rather than floored, and named on the file the plant above used: a
+    // corpus floor of 1,800 is met with `db/buyers/` missing entirely, and the
+    // module that made this wall vacuous is the one a floor cannot speak about.
+    const victim = 'backend/src/db/buyers/sellerProfileRepository.ts';
+    expect(
+      CORPUS.map((file) => file.path),
+      `${victim} is the seller_profiles repository and the scan no longer reaches it`,
+    ).toContain(victim);
+
+    // The half that makes this a measurement rather than an assertion about a
+    // convenient tree: NEITHER of the two old populations contains it, so the
+    // corpus is what is being measured.
+    expect(FOLLOW_SURFACE_PATHS, 'the old wall would have reached it after all').not.toContain(
+      victim,
+    );
+    expect(SELLER_DOMAIN_PATHS, 'the old wall would have reached it after all').not.toContain(
+      victim,
+    );
+
+    // …and the detector genuinely fires on the planted shape, so the empty
+    // result above cannot mean the vocabulary stopped matching.
+    expect(LOCAL_FOLLOW_STORAGE.test('const followerCount = 0;')).toBe(true);
+  });
+
+  it('the corpus spans every package, not just the two it used to', () => {
+    // A walk that lost a package reports a clean workspace exactly as a healthy
+    // one does. Asserted per package rather than as a total.
+    for (const packageRelative of SCANNED_PACKAGES) {
+      const prefix = `${packageRelative}/`;
       expect(
-        LOCAL_FOLLOW_STORAGE.test(code),
-        `${relative} holds follow state; the Oxy graph is the only authority`,
-      ).toBe(false);
-      scanned += 1;
+        CORPUS.filter((file) => file.path.startsWith(prefix)).length,
+        `${packageRelative} contributed no source — did the walk break?`,
+      ).toBeGreaterThanOrEqual(50);
     }
-    expect(scanned).toBe(FOLLOW_SURFACE_PATHS.length + SELLER_DOMAIN_PATHS.length);
-    // Self-referential above — both sides move together if the walk breaks.
-    // This is the floor that does not.
-    expect(scanned).toBeGreaterThanOrEqual(19);
+    expect(SCANNED_PACKAGES.length).toBe(5);
   });
 
   it('names the follower family in the forbidden-field VALUE', () => {
