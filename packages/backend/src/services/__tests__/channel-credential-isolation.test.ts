@@ -97,6 +97,57 @@ const CREDENTIAL_VOCABULARY =
   /\b(?:encryptSecret|decryptSecret|generateKey|verifyKey|findVerificationCandidates|findConnectionCredentials|findConnectionWebhookSecret|requireChannelKey|channelKey|VerifiedChannelKey|ConnectorAuth|consumerKey|consumerSecret|credentialsCiphertext|webhookSecretCiphertext)\b/;
 
 /**
+ * The credential surface as it was last REVIEWED — asserted by set equality, in
+ * both directions.
+ *
+ * ## This is not the hand list #460 is about, and the difference is which one
+ * the walls are applied to
+ *
+ * Every wall below runs over the DERIVED population, never over this list. So a
+ * module that starts handling a credential is walled the moment it does,
+ * wherever somebody puts it — the property a hand list cannot have. What this
+ * adds is that the same module also fails the build until a person has looked at
+ * it.
+ *
+ * A `>=` floor cannot do that. It catches the population collapsing and is blind
+ * in the direction that actually happens: a module JOINING. And a module joining
+ * this particular surface is not routine growth — it means code that could not
+ * reach a channel credential now can, which is a review, not a number to bump.
+ * `merge-plan-census.test.ts` is the precedent: a new table referencing a
+ * mergeable entity fails the build until somebody decides what a merge does with
+ * it, and finding fewer looks identical to there BEING fewer.
+ *
+ * So a diff in EITHER direction is a decision:
+ *
+ *  - a module ARRIVED — confirm it should hold a credential at all, then add it;
+ *  - a module LEFT — confirm the credential really moved out rather than being
+ *    renamed past {@link CREDENTIAL_VOCABULARY}, which is the silent half.
+ */
+const CREDENTIAL_SURFACE_CENSUS = [
+  'connectors/shopify/index.ts',
+  'connectors/types.ts',
+  'connectors/woocommerce/index.ts',
+  'controllers/admin/channel-keys.controller.ts',
+  'controllers/admin/channels-admin.controller.ts',
+  'controllers/channel-ingest-key.controller.ts',
+  'controllers/merchant-claims.controller.ts',
+  'db/connectors/channelApiKeyRepository.ts',
+  'db/connectors/connectionRepository.ts',
+  'db/protectedColumns.ts',
+  'db/schema/connectors.ts',
+  'lib/connector-crypto.ts',
+  'middleware/channel-key-auth.ts',
+  'middleware/channels-schemas.ts',
+  'middleware/merchant-claim-schemas.ts',
+  'routes/channels-ingest.ts',
+  'routes/channels-webhooks.ts',
+  'services/channel-key.service.ts',
+  'services/connector-sync.service.ts',
+  'services/merchant-claims/merchant-claim.service.ts',
+  'services/merchant-claims/platform-verification.ts',
+] as const;
+
+/**
  * Source with comments removed — what every detector in this file scans.
  *
  * The `[^:]` guard is what keeps `https://` from eating the rest of a line. The
@@ -140,6 +191,19 @@ function credentialSurface(
  * violation; a REMOVED one is a stale allow-list, which is the half that rots
  * green — an entry naming a module that no longer reaches the symbol excuses
  * nothing while reading like a decision.
+ *
+ * ## If one of these goes red on a module that is plainly innocent
+ *
+ * `generateKey` and `verifyKey` are generic enough that an unrelated module
+ * could one day declare its own. The wall matches a SYMBOL NAME, so it cannot
+ * tell that homonym from the real thing — the `accessToken` problem
+ * {@link CREDENTIAL_VOCABULARY} avoids by construction, surfacing here instead
+ * because a chokepoint has to name the function it protects.
+ *
+ * That failure is LOUD and lands on the right file, which is why it is accepted
+ * rather than designed around. The remedy is to rename the newcomer or to add it
+ * with a reason — **never to drop the symbol from this table**, which would
+ * retire a wall to silence a naming collision.
  */
 interface Chokepoint {
   readonly symbol: string;
@@ -312,6 +376,27 @@ describe('#658 — the channel credential surface: its population', () => {
     ]) {
       expect(surface, `${relative} left the credential surface`).toContain(relative);
     }
+  });
+
+  it('reconciles against the reviewed census, in BOTH directions', () => {
+    // Set equality, not a floor. `toEqual` on sorted arrays names the arrivals
+    // and the departures separately in the diff, which is what makes the
+    // failure actionable rather than "the number moved".
+    const derived = credentialSurface();
+    const reviewed = [...CREDENTIAL_SURFACE_CENSUS].sort();
+    expect(
+      reviewed.length,
+      'the reviewed census is empty, so comparing against it proves nothing',
+    ).toBeGreaterThanOrEqual(21);
+    expect(new Set(reviewed).size, 'the reviewed census has a duplicate').toBe(reviewed.length);
+    expect(
+      derived,
+      'the credential surface has changed. A module that ARRIVED can now reach a channel ' +
+        'credential and it is already walled by every assertion in this file — confirm it should ' +
+        'hold one at all, then add it here. A module that LEFT may have had its credential ' +
+        'renamed past CREDENTIAL_VOCABULARY rather than removed, which is the silent half; check ' +
+        'which before deleting the line.',
+    ).toEqual(reviewed);
   });
 
   it('does not swallow modules of other domains', () => {
