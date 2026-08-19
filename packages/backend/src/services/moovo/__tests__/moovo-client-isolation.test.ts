@@ -17,27 +17,61 @@
  * `authenticateToken` plus "the caller IS the sender". That is impersonation,
  * acceptance 3 forbids it, and it would look exactly like a working
  * integration. WALL 3 is aimed at it.
+ *
+ * ## The population, and why converting it adds nothing today (#460)
+ *
+ * It was `readdirSync(services/moovo)` ONE LEVEL DEEP, and the five modules it
+ * reaches ARE the domain — no route, no controller, no schema table, no
+ * middleware names Moovo anywhere in `src/`. So unlike every other gate in this
+ * batch the count does not move, and that is the finding rather than a
+ * disappointment: what changes is that the population is now defended against
+ * the module nobody has written yet.
+ *
+ * **Deliberately NO shared-directory sweep.** `routes`, `controllers`,
+ * `middleware` and `db/schema` hold nothing named for Moovo, so including them
+ * would add a shape whose floor is ZERO — a floor that cannot fail — and it
+ * would silently absorb a future `routes/moovo-webhook.ts` under walls nobody
+ * re-read. The whole-tree assertion below is the opposite trade: a Moovo module
+ * appearing anywhere in `src/` turns this gate RED and makes somebody decide,
+ * which is the right answer for a logistics client that must hold no credential.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DOMAIN_DIR = join(HERE, '..');
 const SRC_ROOT = join(HERE, '..', '..', '..');
 
-/** Every module in the domain, DISCOVERED rather than listed (#126's rule). */
-function domainModules(): string[] {
-  return readdirSync(DOMAIN_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .map((entry) => join(DOMAIN_DIR, entry.name));
+/** What a module of this domain is called, wherever it lives. */
+const MOOVO_NAME_PATTERN = /moovo/i;
+
+/** The one directory this domain owns outright. */
+const OWNED_DIRECTORY = 'services/moovo';
+
+/**
+ * Every module in the domain, DISCOVERED rather than listed (#126's rule) — and
+ * RECURSIVELY, where this read one directory level.
+ *
+ * `services/moovo/` is flat today, so the recursion changes nothing now. It is
+ * what stops a `services/moovo/transports/` added next year from sitting behind
+ * none of the five walls below, which is precisely where a real HTTP client
+ * would land.
+ */
+function domainModules(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return walkOwnedDirectory(OWNED_DIRECTORY, readDir);
 }
 
 /** Source with comments removed — what every REACHABILITY detector scans. */
 function readCode(path: string): string {
-  const source = readFileSync(path, 'utf8');
+  const source = readFileSync(join(SRC_ROOT, path), 'utf8');
   expect(source.length, `${path} looks empty — did it move?`).toBeGreaterThan(200);
   const stripped = source
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
@@ -143,10 +177,7 @@ describe('#156 acceptance 1 — one typed module, and the retail domain still ow
     // forbids outbound HTTP there; this asserts the complementary fact, that it
     // has not started reaching into the client either. It talks to
     // `moovo.port.ts` and nothing else.
-    const retailDir = join(SRC_ROOT, 'services', 'retail-fulfilment');
-    const modules = readdirSync(retailDir, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .map((entry) => join(retailDir, entry.name));
+    const modules = walkOwnedDirectory('services/retail-fulfilment');
     expect(modules.length).toBeGreaterThanOrEqual(5);
     for (const path of modules) {
       expect(/services\/moovo\//.test(readCode(path)), `${path} imports the Moovo client`).toBe(
@@ -162,5 +193,73 @@ describe('#156 acceptance 1 — one typed module, and the retail domain still ow
       /registerMoovoLogisticsPort/.test(readCode(path)),
     );
     expect(registrars.map((path) => path.split('/').pop())).toEqual(['register.ts']);
+  });
+});
+
+describe('the population the five walls above are applied to (#460)', () => {
+  it('nothing naming Moovo sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainModules,
+      pattern: MOOVO_NAME_PATTERN,
+      notThisDomain: [
+        {
+          path: 'services/retail-fulfilment/moovo.port.ts',
+          why:
+            "#126's port, not #156's client. It is the seam the retail domain talks to and the " +
+            'client registers INTO, so putting it in this population would make the first ' +
+            'describe below — "the retail-fulfilment domain does not import this one" — a ' +
+            'statement about a module that is already on the other side of the wall. Covered ' +
+            'whole by retail-logistics-isolation.test.ts.',
+        },
+        {
+          path: 'services/retail-fulfilment/moovo-request.ts',
+          why:
+            "#126's request composer, and the module that decides what a Moovo call may CARRY " +
+            '(no street, no recipient). It belongs to the domain whose privacy rule that is, ' +
+            'and retail-logistics-isolation.test.ts walks it.',
+        },
+      ],
+      // Below today's 7 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 5,
+      plantIn: 'lib',
+      plantName: 'moovo-cache.ts',
+    });
+  });
+
+  it('both excluded modules are CLEAN against all five walls, so the exclusion is about ownership', () => {
+    // An exclusion for a module that would TRIP a wall is a hole; one for a
+    // module that would pass is a statement about who owns it. Measured here
+    // rather than asserted in prose, because the second is what this claims.
+    for (const foreign of [
+      'services/retail-fulfilment/moovo.port.ts',
+      'services/retail-fulfilment/moovo-request.ts',
+    ]) {
+      const code = readCode(foreign);
+      expect(CARRIER_CLIENT.test(code), `${foreign} reaches a carrier`).toBe(false);
+      expect(OUTBOUND_HTTP.test(code), `${foreign} calls out directly`).toBe(false);
+      expect(BUYER_IMPERSONATION.test(code), `${foreign} forwards a user credential`).toBe(false);
+      expect(DUPLICATE_SERVICE_AUTH.test(code), `${foreign} re-implements service auth`).toBe(false);
+      expect(INLINE_CREDENTIAL.test(code), `${foreign} reads a secret directly`).toBe(false);
+    }
+  });
+
+  it('the derivation RECURSES, which the readdirSync it replaces did not', () => {
+    // The population does not move today, so the only thing worth asserting is
+    // the property that changed. A one-level listing and a recursive walk agree
+    // on a flat directory — they are told apart by a seeded subdirectory.
+    const seeded: DirectoryReader = (relative) =>
+      relative === OWNED_DIRECTORY
+        ? [
+            ...readSrcDirectory(relative),
+            { name: 'transports', isDirectory: () => true, isFile: () => false },
+          ]
+        : relative === `${OWNED_DIRECTORY}/transports`
+          ? [{ name: 'http.ts', isDirectory: () => false, isFile: () => true }]
+          : readSrcDirectory(relative);
+    expect(domainModules(seeded)).toContain('services/moovo/transports/http.ts');
+    expect(domainModules(), 'the seeded subdirectory exists on disk, so this proves nothing').not.toContain(
+      'services/moovo/transports/http.ts',
+    );
   });
 });
