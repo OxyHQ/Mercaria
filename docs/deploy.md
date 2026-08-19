@@ -243,6 +243,57 @@ of the rejected options. The guarantee is carried by the hourly `schedule`; the
 `workflow_run` trigger only makes the answer fast, so nothing rests on whether
 GitHub emits an event for a run cancelled by concurrency.
 
+### "The newest run succeeded" is not "my migration is applied" (#672)
+
+The clause above is a claim about a **run**. The question asked during an
+incident is a claim about a **change** — *is the migration I merged applied?* —
+and printing the first as though it answered the second is the same overclaim
+#608 closed one level up. So the second claim is stated **separately**, beside
+the first rather than replacing it, and `checkMigrationContainment` is where it
+lives.
+
+**This is not "swap the anchor", and the reason the anchor stays is unchanged.**
+A commit-anchored check still has to rebuild four `paths:` filters out of a diff
+— the untestable reconstruction §"Why the gate reads CI's result" rejects — and
+would report a gap on every docs merge. The second claim sidesteps that by not
+being about commits at all: it is about migration **files**, which is also the
+right shape for a second reason, because migrations are cumulative and
+*carried* is not *was added by* (`f38227b7` added none and applied `0106`).
+
+**Containment, never ancestry.** Two directory listings of
+`packages/backend/drizzle` — one at `main`, one at the commit built by the
+newest run that STATES it applied migrations — differenced as sets. Ancestry and
+content diverge exactly where somebody is looking: a squash, a revert, a
+cherry-pick. `compare` would additionally under-report, since a file present at
+the tip and absent at the applied commit is invisible to it whenever the applied
+side deleted it after the merge base — the revert case precisely.
+
+**Why the REST listing rather than `git cat-file -e <sha>:<path>`**, which the
+issue names and which the gate job could run, since it does check out:
+`actions/checkout` fetches depth 1, so an older applied commit is not in the
+local object store and `cat-file` fails for a FETCH reason indistinguishable
+from the file being absent — the alarming direction, on every run. The contents
+endpoint has identical semantics with no fetch dependency, **measured rather
+than assumed** on #672's own case: `0113_odd_tarot.sql` at `e2b22a36` gives
+`cat-file` CONTAINS and HTTP 200, and at `e3e6ed6e` gives absent and HTTP 404.
+Two listings also cost two calls where a per-file probe costs 117.
+
+**The anchor is the newest run that STATES it migrated**, not the newest
+success. #608's hollow green concluded `success` having migrated nothing, and
+containment measured against that commit would report every migration applied
+because the code was in its tree.
+
+**`pre` and `post` stay apart.** An unapplied `pre` left the database and the
+image in sync at the old version and is reported, not alarmed; an unapplied
+`post` breaks the image that is already live and fails the check. A migration
+whose phase cannot be read is grouped with `post`, because the safe reading of
+"I cannot tell" is the urgent one.
+
+**Three states that are not "applied".** An unreadable listing, an empty tip
+listing, and no run stating it migrated are each their own report. All three are
+what a broken read looks like, and each reports "nothing is missing" exactly as
+a healthy repository does.
+
 ### A green deploy run can have shipped nothing (#608)
 
 `success` from a workflow is not "the thing happened". A `Deploy to AWS` run
