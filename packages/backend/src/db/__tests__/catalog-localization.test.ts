@@ -57,6 +57,8 @@ import {
 import * as schema from '../schema/index.js';
 import {
   attributeValueLocalizations,
+  canonicalProductFamilyLocalizations,
+  canonicalProductLocalizations,
   categoryLocalizations,
   categoryLocalizedSlugs,
   productTypeFieldLocalizations,
@@ -175,6 +177,8 @@ describe('the field registry', () => {
       product_type: productTypeLocalizations,
       product_type_field: productTypeFieldLocalizations,
       attribute_value: attributeValueLocalizations,
+      canonical_product: canonicalProductLocalizations,
+      canonical_product_family: canonicalProductFamilyLocalizations,
     } as const;
     for (const key of LOCALIZED_FIELD_KEYS) {
       const descriptor = CATALOG_LOCALIZED_FIELDS[key];
@@ -197,6 +201,13 @@ describe('the field registry', () => {
       // and the whole schema's help text the same string.
       'product_type_field',
       'attribute_value',
+      // #367 Translation model L2. Mercaria's OWN catalogue copy about a product
+      // and a family — `catalog_presentation`, so both fall back across markets.
+      // The fields that read like a name and are NOT presentation have no entry
+      // in the registry and no column on either table; see
+      // `catalog-name-invariance.ts`.
+      'canonical_product',
+      'canonical_product_family',
     ]);
   });
 });

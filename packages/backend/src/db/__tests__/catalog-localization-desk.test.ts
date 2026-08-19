@@ -42,6 +42,10 @@ import {
 import { categories } from '../schema/catalog';
 import { productTypeDefinitions, productTypeFields } from '../schema/productTypes';
 import { attributeEnumValues } from '../schema/attributeRegistry';
+import {
+  canonicalProductFamilies,
+  canonicalProducts,
+} from '../schema/canonicalCatalog';
 import internalCatalogLocalizationRouter from '../../routes/internal-catalog-localization';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -54,6 +58,8 @@ const DOMAIN_TABLES: Readonly<Record<LocalizedEntityKind, string>> = {
   category: 'category_localizations',
   product_type: 'product_type_localizations',
   product_type_field: 'product_type_field_localizations',
+  canonical_product: 'canonical_product_localizations',
+  canonical_product_family: 'canonical_product_family_localizations',
   attribute_value: 'attribute_value_localizations',
 };
 
@@ -285,6 +291,8 @@ describe('every registered field states where its base text lives', () => {
     product_type_definitions: productTypeDefinitions,
     product_type_fields: productTypeFields,
     attribute_enum_values: attributeEnumValues,
+    canonical_products: canonicalProducts,
+    canonical_product_families: canonicalProductFamilies,
   };
 
   function columnNames(table: keyof typeof TABLES): string[] {

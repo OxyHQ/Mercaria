@@ -46,9 +46,15 @@ import {
 } from '@mercaria/shared-types';
 import { categories } from '../../db/schema/catalog.js';
 import { productTypeDefinitions, productTypeFields } from '../../db/schema/productTypes.js';
+import {
+  canonicalProductFamilies,
+  canonicalProducts,
+} from '../../db/schema/canonicalCatalog.js';
 import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
 import {
   attributeValueLocalizations,
+  canonicalProductFamilyLocalizations,
+  canonicalProductLocalizations,
   categoryLocalizations,
   productTypeFieldLocalizations,
   productTypeLocalizations,
@@ -297,6 +303,83 @@ export async function reviewProductTypeFieldLocalization(
   );
 }
 
+/** One canonical product, source beside target, in one locale (#367 L2). */
+export async function reviewCanonicalProductLocalization(
+  canonicalProductId: string,
+  locale: SupportedLocale,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<LocalizedEntityComparison | undefined> {
+  const [base] = await db
+    .select({
+      id: canonicalProducts.id,
+      name: canonicalProducts.name,
+      description: canonicalProducts.description,
+    })
+    .from(canonicalProducts)
+    .where(eq(canonicalProducts.id, canonicalProductId))
+    .limit(1);
+  if (!base) return undefined;
+
+  const [row] = await db
+    .select()
+    .from(canonicalProductLocalizations)
+    .where(
+      and(
+        eq(canonicalProductLocalizations.canonicalProductId, canonicalProductId),
+        eq(canonicalProductLocalizations.locale, locale),
+      ),
+    )
+    .limit(1);
+
+  return compose(
+    'canonical_product',
+    canonicalProductId,
+    locale,
+    row && { ...row, texts: { name: row.name, description: row.description } },
+    { name: base.name, description: base.description },
+  );
+}
+
+/** One product family, source beside target, in one locale (#367 L2). */
+export async function reviewCanonicalProductFamilyLocalization(
+  canonicalProductFamilyId: string,
+  locale: SupportedLocale,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<LocalizedEntityComparison | undefined> {
+  const [base] = await db
+    .select({
+      id: canonicalProductFamilies.id,
+      name: canonicalProductFamilies.name,
+      description: canonicalProductFamilies.description,
+    })
+    .from(canonicalProductFamilies)
+    .where(eq(canonicalProductFamilies.id, canonicalProductFamilyId))
+    .limit(1);
+  if (!base) return undefined;
+
+  const [row] = await db
+    .select()
+    .from(canonicalProductFamilyLocalizations)
+    .where(
+      and(
+        eq(
+          canonicalProductFamilyLocalizations.canonicalProductFamilyId,
+          canonicalProductFamilyId,
+        ),
+        eq(canonicalProductFamilyLocalizations.locale, locale),
+      ),
+    )
+    .limit(1);
+
+  return compose(
+    'canonical_product_family',
+    canonicalProductFamilyId,
+    locale,
+    row && { ...row, texts: { name: row.name, description: row.description } },
+    { name: base.name, description: base.description },
+  );
+}
+
 /**
  * One entity in one locale, dispatched on the domain.
  *
@@ -318,6 +401,10 @@ export async function reviewLocalization(
       return reviewProductTypeLocalization(entityId, locale, db);
     case 'product_type_field':
       return reviewProductTypeFieldLocalization(entityId, locale, db);
+    case 'canonical_product':
+      return reviewCanonicalProductLocalization(entityId, locale, db);
+    case 'canonical_product_family':
+      return reviewCanonicalProductFamilyLocalization(entityId, locale, db);
     case 'attribute_value':
       return reviewAttributeValueLocalization(entityId, locale, db);
     default: {
