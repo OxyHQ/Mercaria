@@ -45,14 +45,37 @@ import {
   SEARCH_RELEVANCE_SIGNALS,
 } from '@mercaria/shared-types';
 import { RANKING_SURFACE_PATHS } from '../../../__tests__/ranking-surface.js';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  sweepSrcTreeForDomain,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 /** Directories walked whole. */
 const SCANNED_DIRECTORIES = ['services/search', 'db/search'];
 
-/** The shared directories, where this domain sits beside every other domain's. */
-const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
+/**
+ * The shared directories, where this domain sits beside every other domain's.
+ *
+ * `db/schema` was missing, inherited from the three-name list copied from gate
+ * to gate. #70 owns no table today, so it adds no module HERE — stated because
+ * the alternative is a PR body that implies it found one — and it is added so
+ * that a `db/schema/search.ts` written tomorrow is behind these seven detectors
+ * the moment it exists rather than whenever somebody remembers this file.
+ *
+ * The sweep is also RECURSIVE now and matches the PATH rather than the
+ * FILENAME. Both were live defects elsewhere (`routes/admin/` holds 23 modules
+ * and a one-level `isFile()` sweep reaches none of them); measured here, this
+ * domain has no module under `routes/admin/` or `controllers/admin/` today, so
+ * the recursion is the class fix rather than a count. Matching the path is free
+ * for these four directories because none of them carries a domain token.
+ */
+const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'];
 
 /**
  * What a file BELONGING to this domain is called — and what it is NOT.
@@ -70,7 +93,39 @@ const OUTER_DIRECTORIES = ['controllers', 'routes', 'middleware'];
  * exactly what a clean one does (#460).
  */
 const DOMAIN_NAME_PATTERN = /search/i;
-const NOT_THIS_DOMAIN_PATTERN = /search-intent/i;
+
+/**
+ * …and what it is NOT — with the HYPHEN now OPTIONAL, which is load-bearing.
+ *
+ * #95 spells itself three ways: `services/search-intent/`, `db/searchIntent/`
+ * and `db/schema/searchIntent.ts`. The hyphen-only spelling excluded the first
+ * and NEITHER of the other two. That cost nothing while this sweep matched
+ * FILENAMES inside three directories #95's camelCase modules do not live in —
+ * and costs exactly three modules the moment the sweep matches PATHS and
+ * `db/schema` joins the list above. Measured: without `-?`,
+ * `db/schema/searchIntent.ts`, `db/searchIntent/benchmarkRepository.ts` and
+ * `db/searchIntent/searchIntentRepository.ts` are reported as #70 modules
+ * sitting outside its population, and the whole-tree assertion below goes red
+ * naming three files belonging to a domain this gate must not police.
+ *
+ * This is `search-intent-isolation.test.ts`'s own `/search-?intent/i` pointed
+ * the other way. Widening an EXCLUSION is the restrictive direction and still
+ * owes a measurement: `/search-?intent/i` over the whole of `src/` selects 25
+ * modules and every one of them is #95's.
+ */
+const NOT_THIS_DOMAIN_PATTERN = /search-?intent/i;
+
+/**
+ * The pair above as ONE regex, because `assertNothingOutsideDomainPopulation`
+ * takes a single pattern.
+ *
+ * Two spellings of one question can disagree, and the disagreement would be
+ * silent — so `the composed sweep pattern agrees with the pair` below runs BOTH
+ * over every module in `src/` and requires the same verdict on every path. The
+ * PAIR stays the authority a reader edits; this cannot drift away from it
+ * without failing the build.
+ */
+const DOMAIN_SWEEP_PATTERN = /search(?!-?intent)/i;
 
 /**
  * This gate is the FORWARD wall over #70's domain, and is deliberately NOT the
@@ -195,18 +250,27 @@ function walk(directory: string): string[] {
  * hand the scan a list of names that no longer resolve — which would read as a
  * clean run.
  */
-function outerPaths(): string[] {
-  return OUTER_DIRECTORIES.flatMap((directory) =>
-    readdirSync(join(SRC_ROOT, directory))
-      .filter((entry) => entry.endsWith('.ts'))
-      .filter((entry) => DOMAIN_NAME_PATTERN.test(entry) && !NOT_THIS_DOMAIN_PATTERN.test(entry))
-      .sort()
-      .map((entry) => {
-        const absolute = join(SRC_ROOT, directory, entry);
-        expect(statSync(absolute).isFile(), `${absolute} is not a file — did it move?`).toBe(true);
-        return absolute;
-      }),
+function outerRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  // RECURSIVE, and matching the PATH rather than the filename (#460).
+  return namedInSharedDirectories(OUTER_DIRECTORIES, DOMAIN_NAME_PATTERN, readDir).filter(
+    (relative) => !NOT_THIS_DOMAIN_PATTERN.test(relative),
   );
+}
+
+function outerPaths(): string[] {
+  return outerRelativePaths().map((relative) => {
+    const absolute = join(SRC_ROOT, relative);
+    expect(statSync(absolute).isFile(), `${absolute} is not a file — did it move?`).toBe(true);
+    return absolute;
+  });
+}
+
+/** Every module of the domain, DERIVED, relative to `src/`. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...SCANNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...outerRelativePaths(readDir),
+  ];
 }
 
 function scannedPaths(): string[] {
@@ -316,6 +380,26 @@ describe('canonical search cannot rank by a commercial payment', () => {
     }
     expect(NOT_THIS_DOMAIN_PATTERN.test('internal-search-intent.controller.ts')).toBe(true);
     expect(NOT_THIS_DOMAIN_PATTERN.test('search-operator.controller.ts')).toBe(false);
+
+    // …and #95's THREE camelCase spellings, which the hyphen-only exclusion
+    // could not reach. This is the half that makes `-?` a measurement rather
+    // than a tidy-up: with the sweep matching PATHS and `db/schema` in the
+    // directory list, the narrow spelling drags three of #95's modules into
+    // #70's population, and every count in this file stays where it is.
+    for (const foreign of [
+      'db/schema/searchIntent.ts',
+      'db/searchIntent/benchmarkRepository.ts',
+      'db/searchIntent/searchIntentRepository.ts',
+    ]) {
+      expect(
+        /search-intent/i.test(foreign),
+        `${foreign} is excluded without the optional hyphen`,
+      ).toBe(false);
+      expect(NOT_THIS_DOMAIN_PATTERN.test(foreign), `${foreign} belongs to #95`).toBe(true);
+      expect(outerRelativePaths(), `${foreign} belongs to #95 and has its own gate`).not.toContain(
+        foreign,
+      );
+    }
   });
 
   it('is the FORWARD wall over #70, and its relation to the shared surface holds', () => {
@@ -392,5 +476,147 @@ describe('canonical search cannot rank by a commercial payment', () => {
     // And neither is empty, so the disjointness above is not vacuous.
     expect(SEARCH_RELEVANCE_SIGNALS.length).toBeGreaterThanOrEqual(9);
     expect(SEARCH_FORBIDDEN_RELEVANCE_SIGNALS.length).toBe(7);
+  });
+});
+
+/**
+ * The population's own defence, and the general form of the fixes above.
+ *
+ * Adding `db/schema`, recursing, matching the path and widening the exclusion
+ * close today's gaps; this closes the CLASS. The DIRECTORY list is the last
+ * hand list in this gate, and hand lists fail silently.
+ *
+ * Unlike the other gates in this batch the exclusion set here is NOT empty, and
+ * every entry was measured against this gate's OWN seven detectors before being
+ * written down: **all five are CLEAN**. So the exclusions are about OWNERSHIP,
+ * not about a wall that would fire — which also means the decision cannot be
+ * made by running the gate, exactly as {@link SURFACE_RELATIONSHIP} already says
+ * about substituting the shared ranking surface.
+ */
+const NOT_THIS_DOMAIN = [
+  {
+    path: 'db/analytics/searchQueryRepository.ts',
+    why:
+      "#77's discovery-analytics domain: it stores redacted query text under that domain's " +
+      'retention rules and is covered by the analytics gates. Measured clean against all seven ' +
+      "of this gate's detectors.",
+  },
+  {
+    path: 'services/analytics/search-instrumentation.ts',
+    why:
+      "#77's emitter seam for search events — the one module #70 is allowed to call INTO, rather " +
+      'than a module of #70. Covered by the analytics gates; measured clean here.',
+  },
+  {
+    path: 'db/catalogAuthoring/canonicalSearchRepository.ts',
+    why:
+      "The catalog-authoring domain, and inside `catalog-authoring-isolation.test.ts`'s own " +
+      "walked population (confirmed by that gate's owner). Measured clean here.",
+  },
+  {
+    path: 'services/catalog-authoring/canonical-search.service.ts',
+    why:
+      "The catalog-authoring domain, in that gate's walked population for the same reason. " +
+      'Measured clean against all seven detectors here.',
+  },
+  {
+    path: 'services/search.service.ts',
+    why:
+      'The LEGACY listing-first engine, not #70. It is covered by the shared ranking surface ' +
+      'through `fee-ranking-isolation.test.ts`, and SURFACE_RELATIONSHIP.coveredBySurfaceInstead ' +
+      'asserts it is still IN that surface — so this exclusion cannot become a hole without that ' +
+      'assertion going red first.',
+  },
+] as const;
+
+describe('#460: nothing named for this domain sits outside the scanned population', () => {
+  it('the composed sweep pattern agrees with the pair on every module in src/', () => {
+    // `assertNothingOutsideDomainPopulation` takes ONE pattern and this gate's
+    // authority is a PAIR, so the two spellings are pinned together rather than
+    // trusted. Without this, a lookahead that stopped meaning what the pair
+    // means would widen or narrow the sweep in silence.
+    const all = walkOwnedDirectory('', readSrcDirectory);
+    expect(all.length, 'the whole-tree walk found almost nothing').toBeGreaterThanOrEqual(1_500);
+    const disagreements = all.filter(
+      (relative) =>
+        DOMAIN_SWEEP_PATTERN.test(relative) !==
+        (DOMAIN_NAME_PATTERN.test(relative) && !NOT_THIS_DOMAIN_PATTERN.test(relative)),
+    );
+    expect(disagreements, `the two spellings disagree on: ${disagreements.join(', ')}`).toEqual([]);
+
+    // …and the comparison is not vacuous in either direction: both halves
+    // select real, non-empty, DISJOINT sets.
+    const mine = all.filter((relative) => DOMAIN_SWEEP_PATTERN.test(relative));
+    const theirs = all.filter((relative) => NOT_THIS_DOMAIN_PATTERN.test(relative));
+    expect(mine.length, 'the domain half selects nothing').toBeGreaterThanOrEqual(15);
+    expect(theirs.length, 'the exclusion half excludes nothing').toBeGreaterThanOrEqual(20);
+    expect(mine.filter((relative) => theirs.includes(relative))).toEqual([]);
+  });
+
+  it('every search-named module in src/ is inside the population or excused', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DOMAIN_SWEEP_PATTERN,
+      notThisDomain: NOT_THIS_DOMAIN,
+      // Below today's 19 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 16,
+      plantIn: 'lib',
+      plantName: 'search-cache.ts',
+    });
+  });
+
+  it('the relative population really is the one the detectors scan', () => {
+    // Two spellings of one population can disagree, so this pins them together:
+    // every absolute path the seven detectors run over has a relative twin here.
+    expect(domainRelativePaths(readSrcDirectory).sort()).toEqual(
+      scannedPaths()
+        .map((path) => path.slice(SRC_ROOT.length + 1))
+        .sort(),
+    );
+  });
+
+  it('the exclusions are about OWNERSHIP, and each is measured clean here', () => {
+    // The reason this set is not empty, stated as a check rather than a claim.
+    // A module that TRIPPED one of these detectors would need a different
+    // treatment — it would be a violation somebody has to answer for, not a
+    // module of another domain — so the day one of them stops being clean this
+    // fails, rather than the exclusion quietly hiding it.
+    for (const entry of NOT_THIS_DOMAIN) {
+      const source = stripComments(readFileSync(join(SRC_ROOT, entry.path), 'utf8'));
+      const hits = FORBIDDEN_REFERENCES.filter((reference) => reference.pattern.test(source));
+      expect(
+        hits.map((reference) => reference.signal),
+        `${entry.path} is excused from this gate AND trips one of its detectors — the exclusion ` +
+          'is no longer merely about which domain owns the file',
+      ).toEqual([]);
+    }
+    // The positive control for the loop above: the detectors DO fire on a real
+    // reference, so an empty result cannot mean the scan read nothing.
+    expect(
+      FORBIDDEN_REFERENCES.some((reference) =>
+        reference.pattern.test("import { planFee } from '../fees/order-fees.service.js';"),
+      ),
+    ).toBe(true);
+  });
+
+  it('the sweep pattern still selects the modules #70 legitimately owns', () => {
+    // The other direction of the same question: a lookahead that had gone too
+    // far would exclude #70's own modules and report a clean, empty result.
+    for (const mine of [
+      'services/search/relevance.ts',
+      'middleware/search-schemas.ts',
+      'routes/internal-search.ts',
+    ]) {
+      expect(
+        DOMAIN_SWEEP_PATTERN.test(mine),
+        `${mine} is #70's and the sweep no longer selects it`,
+      ).toBe(true);
+    }
+    const population = domainRelativePaths();
+    for (const mine of ['services/search/relevance.ts', 'middleware/search-schemas.ts']) {
+      expect(population).toContain(mine);
+    }
+    expect(sweepSrcTreeForDomain(DOMAIN_SWEEP_PATTERN).length).toBeGreaterThanOrEqual(16);
   });
 });
