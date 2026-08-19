@@ -411,9 +411,25 @@ export type MergeJobBlockingState =
   | { readonly state: 'clear' }
   | { readonly state: 'blocked'; readonly reason: string };
 
+/**
+ * The handle is REQUIRED, with no `= getDb()` default (#584/#599's ruling).
+ *
+ * A default lets a caller inside a transaction forget to pass its handle; the
+ * reads then escape to the root connection, see pre-commit state, and nothing
+ * says so. Two of the three callers here would survive that — they run outside
+ * any transaction and act on `clear` by scheduling work the next pass would
+ * schedule anyway, so the worst case is a delay. {@link runResolutionPhase} is
+ * the one that would not: it holds the phase transaction, and `clear` is its
+ * ACTING branch, so a stale read there applies conflict resolutions on a
+ * verdict taken against data the transaction had already changed. Requiring
+ * the parameter makes a forgotten handle an arity error rather than a silent
+ * escape — note that under `strict: false` an explicit `undefined` still
+ * satisfies it, so this is the speed bump and the callers passing it is the
+ * guarantee.
+ */
 export async function mergeJobBlockingState(
   job: CatalogMergeJobRow,
-  db: DatabaseOrTransaction = getDb(),
+  db: DatabaseOrTransaction,
 ): Promise<MergeJobBlockingState> {
   if (job.phase !== 'awaiting_resolution') {
     return {
