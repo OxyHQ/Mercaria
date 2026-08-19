@@ -97,10 +97,20 @@ CREATE TRIGGER mercaria_attribute_labels_machine_guard
 -- label leaves every translation describing something else — and until now
 -- nothing said so, exactly as nothing said so for categories before 0091.
 --
--- It watches `label` alone. `attribute_definitions.description` is a registered
--- base string too and is NOT watched, which is a real blind spot and is the
--- same one `categories.description` has; it is declared rather than hidden, and
--- widening the WHEN clause is the fix whenever somebody wants it.
+-- It watches BOTH `label` and `description`, and that is a deliberate departure
+-- from `mercaria_categories_localization_stale`, which watches `name` alone.
+--
+-- That sibling's `description` blind spot is real, is declared in
+-- LOCALIZATION_STALENESS_DETECTIONS' `unwatched` list, and the completeness desk
+-- has been publishing it as a caveat ever since. Copying the WHEN clause across
+-- would have created a second one — which is how a blind spot becomes a family
+-- trait. `attribute_labels` carries a `description` column and it translates
+-- `attribute_definitions.description`, so an edit to the source description
+-- leaves that translation describing something else exactly as a label edit
+-- does. There is no reason for the two columns to be treated differently here.
+--
+-- `IS DISTINCT FROM` on both, so a NULL description becoming text (and the
+-- reverse) counts as a change — `<>` would read either as no change at all.
 --
 -- `STALE_ON_SOURCE_CHANGE_STATUSES` verbatim: `missing` has nothing to make
 -- stale and `deprecated` is text somebody withdrew, so rewriting either would
@@ -120,6 +130,7 @@ $$ LANGUAGE plpgsql;--> statement-breakpoint
 CREATE TRIGGER mercaria_attribute_definitions_localization_stale
   AFTER UPDATE ON "attribute_definitions"
   FOR EACH ROW
-  WHEN (OLD.label IS DISTINCT FROM NEW.label)
+  WHEN (OLD.label IS DISTINCT FROM NEW.label
+        OR OLD.description IS DISTINCT FROM NEW.description)
   EXECUTE FUNCTION mercaria_attribute_definitions_localization_stale();
 -- oxy:handwritten-end=mercaria_attribute_definitions_localization_stale

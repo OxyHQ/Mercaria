@@ -246,6 +246,28 @@ describe('a source-semantics change marks the translations stale', () => {
     // failure the whole family exists to prevent.
     expect(row?.label).toBe('ポート');
   }, 60_000);
+
+  it('fires on a DESCRIPTION edit too, which the category trigger does not', async () => {
+    // The deliberate departure from mercaria_categories_localization_stale,
+    // which watches its name column alone. That blind spot is declared in
+    // LOCALIZATION_STALENESS_DETECTIONS and published by the completeness desk
+    // as a caveat; copying the WHEN clause across would have made it a family
+    // trait. attribute_labels translates attribute_definitions.description, so
+    // a source description edit leaves it describing something else exactly as
+    // a label edit does.
+    await writeLabel('hi', 'पोर्ट', 'approved', 'mercaria', OPERATOR);
+    await db.execute(sql`
+      update attribute_definitions set description = 'The connector a device charges through'
+       where id = ${definition.id}
+    `);
+    const rows = await db.execute<{ status: string }>(sql`
+      select status from attribute_labels
+       where attribute_definition_id = ${definition.id} and locale = 'hi'
+    `);
+    expect([...rows][0]?.status, 'a source DESCRIPTION edit left the translation settled').toBe(
+      'stale',
+    );
+  }, 60_000);
 });
 
 describe('the repository writer states what it is writing', () => {
