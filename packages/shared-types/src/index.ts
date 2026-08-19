@@ -674,6 +674,12 @@ export * from './catalog-localization-desk';
 // subject: governance deliberately omits the TEXT, and widening its subject
 // tuple would attach the operator gate and four eyes to a translator's cadence.
 export * from './catalog-localization-revisions';
+// Which catalogue names may be translated and which may never be (#367 L2). A
+// DECISION rather than a restatement: ADR 0007 has no invariance policy, and the
+// guarantee it replaces was structural — `docs/storefront-catalog.md` held it by
+// there being no path through which a name reaches a translator, and
+// `canonical_product_localizations` is that path.
+export * from './catalog-name-invariance';
 // Compatibility and automotive fitment (#367 step 8, ADR 0007 D8). LAST, and it
 // depends on nothing above it — the domain is a relationship between catalogue
 // identities and defines no money, no offer and no ranking vocabulary. Its

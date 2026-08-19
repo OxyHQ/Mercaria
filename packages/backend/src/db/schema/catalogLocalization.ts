@@ -78,6 +78,7 @@ import {
 import { categories } from './catalog';
 import { attributeEnumValues } from './attributeRegistry';
 import { productTypeDefinitions, productTypeFields } from './productTypes';
+import { canonicalProductFamilies, canonicalProducts } from './canonicalCatalog';
 
 
 
@@ -559,5 +560,111 @@ export const catalogLocalizationRevisions = pgTable(
     ),
     /** The desk's "what changed in Spanish lately" read. */
     index('catalog_localization_revisions_locale_idx').on(t.locale, t.createdAt.desc()),
+  ],
+);
+
+/**
+ * `canonical_product_localizations` — one locale's presentation of one canonical
+ * product (#367, Translation model L2).
+ *
+ * ## What it may hold, and what it structurally cannot
+ *
+ * `name` and `description`, and nothing else. ADR 0007 states as the single
+ * invariant of the whole epic that "a label, name, description or slug is
+ * presentation and is never identity" — which settles the general case in the
+ * PERMISSIVE direction: translating a canonical product's name is the point.
+ *
+ * What this table has no column for is the set of fields that read like a name
+ * and are not presentation, each for a different reason
+ * (`INVARIANT_CATALOG_NAMES` in shared-types states them with those reasons):
+ *
+ * - **`normalized_name`** is derived FROM the name for matching. A per-locale
+ *   one would make one product resolve differently per market, which is the
+ *   identity failure ADR 0007 D1 exists to prevent. Note that
+ *   `canonical_product_aliases` already carries a `localized_name` KIND and is
+ *   NOT presentation — its unique is `(product_id, normalized_alias)` with no
+ *   locale column, so it answers alias → product and can never answer "what is
+ *   this called in es-MX".
+ * - **`model_code`** is the manufacturer's own designation.
+ * - **`slug`** is a URL somebody may have shared; a LOCALIZED slug is its own
+ *   table with retirement and redirects (`category_localized_slugs`), never a
+ *   column here. Deferred, not refused.
+ * - a **brand's name** is reached through `brand_id` and is a trademarked proper
+ *   noun, so the prohibition is on a `brand_localizations` table that does not
+ *   exist rather than on a column here.
+ *
+ * The enforcement is the ABSENCE of those columns, and
+ * `catalog-name-invariance.test.ts` walks this table and fails the build if one
+ * appears — because a missing column is invisible, and "nobody added it yet" and
+ * "it may never be added" look identical in a schema.
+ *
+ * ## A merge rehomes it, and the census forced that decision
+ *
+ * `canonical_products` is one of the seven mergeable entities, so
+ * `merge-plan-census.test.ts` refused this table until `merge-plan.ts` said what
+ * a merge does with it. The answer is `repoint_if_absent` guarded on this
+ * table's own unique — the `product_saves` shape — so a loser-side Spanish name
+ * follows its product onto the winner unless the winner already HAS a Spanish
+ * name, in which case the loser's stays on the tombstone rather than aborting
+ * the phase.
+ */
+export const canonicalProductLocalizations = pgTable(
+  'canonical_product_localizations',
+  {
+    id: generatedId(),
+    canonicalProductId: text()
+      .notNull()
+      .references(() => canonicalProducts.id, { onDelete: 'cascade' }),
+    ...localizationColumns(),
+    /** The localized product name. NULL exactly when `status = 'missing'`. */
+    name: text(),
+    description: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    ...localizationChecks('canonical_product_localizations', { ...t, primaryText: t.name }),
+    uniqueIndex('canonical_product_localizations_locale_key').on(t.canonicalProductId, t.locale),
+    index('canonical_product_localizations_locale_status_idx').on(t.locale, t.status),
+  ],
+);
+
+/**
+ * `canonical_product_family_localizations` — one locale's presentation of one
+ * product family (#367, Translation model L2).
+ *
+ * The same shape and the same prohibitions as the product table above, because
+ * `canonical_product_families` carries the same columns for the same reasons —
+ * `slug`, `name`, `normalized_name`, `description`, `brand_id`. A family is a
+ * mergeable entity too, so it carries its own merge disposition.
+ *
+ * Separate from the product table rather than polymorphic, for the reason the
+ * whole family is per-entity: `entity_id` could carry no foreign key, and an
+ * orphaned translation of a deleted family would be invisible.
+ */
+export const canonicalProductFamilyLocalizations = pgTable(
+  'canonical_product_family_localizations',
+  {
+    id: generatedId(),
+    canonicalProductFamilyId: text()
+      .notNull()
+      .references(() => canonicalProductFamilies.id, { onDelete: 'cascade' }),
+    ...localizationColumns(),
+    /** The localized family name. NULL exactly when `status = 'missing'`. */
+    name: text(),
+    description: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    ...localizationChecks('canonical_product_family_localizations', {
+      ...t,
+      primaryText: t.name,
+    }),
+    uniqueIndex('canonical_product_family_localizations_locale_key').on(
+      t.canonicalProductFamilyId,
+      t.locale,
+    ),
+    index('canonical_product_family_localizations_locale_status_idx').on(t.locale, t.status),
   ],
 );

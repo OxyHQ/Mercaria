@@ -322,6 +322,10 @@ export const LOCALIZED_ENTITY_KINDS = [
    */
   'product_type_field',
   'attribute_value',
+  // #367 Translation model L2. Mercaria's OWN catalogue copy, so both are
+  // `catalog_presentation` and both fall back across markets.
+  'canonical_product',
+  'canonical_product_family',
 ] as const;
 
 /** A catalog concept this issue localizes. */
@@ -354,6 +358,10 @@ export const LOCALIZED_FIELD_KEYS = [
   // carried one. These are that table.
   'product_type_field.placeholder',
   'product_type_field.example',
+  'canonical_product.name',
+  'canonical_product.description',
+  'canonical_product_family.name',
+  'canonical_product_family.description',
   'attribute_value.label',
 ] as const;
 
@@ -451,6 +459,35 @@ export const CATALOG_LOCALIZED_FIELDS: Readonly<
     'label',
     'catalog_presentation',
   ),
+  // #367 Translation model L2. `catalog_presentation`, deliberately: this is
+  // Mercaria's OWN catalogue copy about a product, not a claim about a market,
+  // so it falls back across markets like every other presentation field. The
+  // fields that are NOT presentation despite reading like a name have no entry
+  // here and no column on the table — see `catalog-name-invariance.ts`.
+  'canonical_product.name': describeField(
+    'canonical_product.name',
+    'canonical_product',
+    'name',
+    'catalog_presentation',
+  ),
+  'canonical_product.description': describeField(
+    'canonical_product.description',
+    'canonical_product',
+    'description',
+    'catalog_presentation',
+  ),
+  'canonical_product_family.name': describeField(
+    'canonical_product_family.name',
+    'canonical_product_family',
+    'name',
+    'catalog_presentation',
+  ),
+  'canonical_product_family.description': describeField(
+    'canonical_product_family.description',
+    'canonical_product_family',
+    'description',
+    'catalog_presentation',
+  ),
 });
 
 /**
@@ -471,6 +508,9 @@ export const CATALOG_LOCALIZATION_TEXT_TABLES = [
   // table added after it was written, which is what it is for. It carries all
   // seven family columns, so it needs no exemption.
   'product_type_field_localizations',
+  // #367 Translation model L2.
+  'canonical_product_localizations',
+  'canonical_product_family_localizations',
   'attribute_value_localizations',
   'attribute_labels',
   // ADR 0007 D3's navigation copy, which D4 names as a member and which landed

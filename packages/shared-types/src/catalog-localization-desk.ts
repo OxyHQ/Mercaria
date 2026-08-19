@@ -253,6 +253,32 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
     carriesForwardOnVersionBump: 'yes',
   },
   {
+    // #367 L2. The trigger watches BOTH localized source columns rather than the
+    // name alone — deliberately NOT repeating `mercaria_categories_localization_stale`'s
+    // blind spot, which is the one caveat this domain has had to publish since.
+    domain: 'canonical_product',
+    mechanism: 'database_trigger',
+    performedBy: 'mercaria_canonical_products_localization_stale',
+    watches: ['canonical_products.name', 'canonical_products.description'],
+    unwatched: [],
+    // A canonical product is not versioned; it is MERGED, which is its form of
+    // supersession. `MERGE_REHOMING_PLAN` repoints these rows onto the winner
+    // (`repoint_if_absent`, guarded on this table's own unique), so they are
+    // carried rather than silently emptied.
+    carriesForwardOnVersionBump: 'yes',
+  },
+  {
+    domain: 'canonical_product_family',
+    mechanism: 'database_trigger',
+    performedBy: 'mercaria_canonical_product_families_localization_stale',
+    watches: [
+      'canonical_product_families.name',
+      'canonical_product_families.description',
+    ],
+    unwatched: [],
+    carriesForwardOnVersionBump: 'yes',
+  },
+  {
     // #633's per-field authoring copy (ADR 0007 D10). It DOES have a trigger,
     // watching all four base columns, so its in-place staleness detection is the
     // most complete of the four.
@@ -308,6 +334,15 @@ export const LOCALIZATION_OWED_POPULATION_RULES: Readonly<Record<LocalizedEntity
       'attribute_enum_values whose parent attribute_definitions.lifecycle_state is active. The ' +
       'enum value carries no lifecycle of its own, so the definition\'s is the only statement ' +
       'available about whether its labels are still worth translating.',
+    canonical_product:
+      "canonical_products whose status is 'active'. A draft is not copy anybody reads, a " +
+      'suppressed one is withheld, and a MERGED one is a tombstone whose translations follow ' +
+      'the winner rather than being owed on the loser. `discontinued` is deliberately excluded ' +
+      'too: it is still readable history, but nobody should be paying to translate a product ' +
+      'that cannot be bought.',
+    canonical_product_family:
+      "canonical_product_families whose status is 'active', for the reasons the product rule " +
+      'gives. A family is a mergeable entity on the same terms.',
     product_type_field:
       'product_type_fields belonging to a PUBLISHED product-type version, and only those ' +
       'carrying at least one base-locale string. All four base columns are nullable, so a field ' +
@@ -537,6 +572,28 @@ export const LOCALIZED_FIELD_BASE_SOURCES: Readonly<Record<string, LocalizedFiel
       kind: 'column',
       table: 'attribute_enum_values',
       column: 'label',
+    },
+    // #367 L2. Every one of the four has a real base column, so a reviewer never
+    // sees an unexplained empty source box on these domains.
+    'canonical_product.name': {
+      kind: 'column',
+      table: 'canonical_products',
+      column: 'name',
+    },
+    'canonical_product.description': {
+      kind: 'column',
+      table: 'canonical_products',
+      column: 'description',
+    },
+    'canonical_product_family.name': {
+      kind: 'column',
+      table: 'canonical_product_families',
+      column: 'name',
+    },
+    'canonical_product_family.description': {
+      kind: 'column',
+      table: 'canonical_product_families',
+      column: 'description',
     },
     // #633's four. Unlike every other entity here, `product_type_fields` carries
     // a base-locale counterpart for ALL of its localized fields — which is why

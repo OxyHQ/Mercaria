@@ -53,6 +53,10 @@ import {
   productIdentifiers,
 } from '../../db/schema/canonicalCatalog.js';
 import {
+  canonicalProductFamilyLocalizations,
+  canonicalProductLocalizations,
+} from '../../db/schema/catalogLocalization.js';
+import {
   brandAliases,
   brands,
   brandSourceLinks,
@@ -438,6 +442,19 @@ const MATCH_HISTORY_NOTE =
   'A matching decision records what the pipeline concluded about an entity that still exists ' +
   'under a new identity, so it follows the winner — otherwise a re-evaluation would find no ' +
   'prior decision and re-propose a merge an operator already answered.';
+
+const CANONICAL_LOCALIZATION_NOTE =
+  "#367 L2's localized presentation of this entity. It follows the winner, minus any locale the " +
+  'winner already has: the guard is exactly this table\'s own ' +
+  '`_locale_key` unique, so a loser-side Spanish name whose twin already exists stays on the ' +
+  'tombstone rather than aborting the phase — the `product_saves` and `canonical_images` shape. ' +
+  'What it deliberately does NOT do is mark the carried rows `stale`. That is a real and stated ' +
+  'cost: a merged product\'s Spanish name may now describe the loser, and no automatic rule can ' +
+  'tell whether it still describes the winner. Marking every carried row stale would flood a ' +
+  'translation desk after any merge and train it to clear the flag without reading; leaving them ' +
+  'settled means a wrong name can survive a merge. The desk surfaces the merge through ' +
+  '`catalog_localization_revisions`, and an operator who merges two products with divergent copy ' +
+  'is the one who knows which name won.';
 
 const PRODUCT_SAVE_NOTE =
   "#80's canonical product save — a person's standing interest in this product, and #80 " +
@@ -961,6 +978,13 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
 
   canonical_product_family: [
     {
+      column: canonicalProductFamilyLocalizations.canonicalProductFamilyId,
+      phase: 'source_links',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [canonicalProductFamilyLocalizations.locale],
+      note: CANONICAL_LOCALIZATION_NOTE,
+    },
+    {
       column: genericCompatibilityRelations.targetFamilyId,
       phase: 'relationships',
       disposition: 'repoint_if_absent',
@@ -1146,6 +1170,13 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       activeStatusColumn: productIdentifiers.status,
       activeStatusValue: 'active',
       note: IDENTIFIER_NOTE,
+    },
+    {
+      column: canonicalProductLocalizations.canonicalProductId,
+      phase: 'source_links',
+      disposition: 'repoint_if_absent',
+      uniqueWith: [canonicalProductLocalizations.locale],
+      note: CANONICAL_LOCALIZATION_NOTE,
     },
     {
       column: canonicalImages.productId,

@@ -139,6 +139,16 @@ function liveTargetFor(entityKind: LocalizedEntityKind): {
         table: 'product_type_field_localizations',
         entityColumn: 'product_type_field_id',
       };
+    case 'canonical_product':
+      return {
+        table: 'canonical_product_localizations',
+        entityColumn: 'canonical_product_id',
+      };
+    case 'canonical_product_family':
+      return {
+        table: 'canonical_product_family_localizations',
+        entityColumn: 'canonical_product_family_id',
+      };
     case 'attribute_value':
       return {
         table: 'attribute_value_localizations',
