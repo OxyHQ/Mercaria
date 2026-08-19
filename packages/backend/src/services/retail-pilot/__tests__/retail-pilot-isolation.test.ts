@@ -22,8 +22,42 @@ import {
   SUPPLIER_ADAPTER_CAPABILITIES,
 } from '@mercaria/shared-types';
 
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  SRC_ROOT as SOURCE_ROOT,
+  type DirectoryReader,
+} from '../../../__tests__/domain-population.js';
+
+/** Anything whose PATH names this domain, in either spelling. */
+const DOMAIN_NAMED = /retail-pilot|retailPilot/i;
+
+/** The two directories the pilot owns, and the shared ones it is named in. */
+const PILOT_OWNED_DIRECTORIES = ['services/retail-pilot', 'db/retailPilot'] as const;
+const PILOT_SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the pilot, DERIVED as a function of its reader (#460).
+ *
+ * `PILOT_FILES` was `sourceFiles(PILOT_DIR)` — `services/retail-pilot/` and
+ * nothing else, THREE modules. The domain is SEVEN: the repository, the
+ * operator controller, `routes/internal-retail-pilot.ts` and
+ * `db/schema/retailPilot.ts` were behind none of the walls below, including
+ * the one that says a stop must never reach the procurement or refund path.
+ * The operator surface is where a stop is actually raised.
+ *
+ * All four additions measured clean against all four detectors.
+ */
+function pilotPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...PILOT_OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(PILOT_SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
+  ];
+}
+
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PILOT_DIR = join(HERE, '..');
 const PRINTFUL_DIR = join(HERE, '..', '..', 'printful');
 const PRINTFUL_ADAPTER = join(HERE, '..', '..', 'supplier-orders', 'adapters', 'printful.ts');
 const PRINTFUL_CATALOG_ADAPTER = join(
@@ -72,7 +106,7 @@ interface Wall {
   probe: string;
 }
 
-const PILOT_FILES = sourceFiles(PILOT_DIR);
+const PILOT_FILES = pilotPopulation().map((relative) => join(SOURCE_ROOT, relative));
 const PRINTFUL_FILES = sourceFiles(PRINTFUL_DIR);
 
 const WALLS: Wall[] = [
@@ -134,8 +168,40 @@ describe('retail pilot and Printful isolation (static)', () => {
   it('scans a non-trivial number of files', () => {
     // The anti-vacuity floor. A broken traversal scans nothing and every wall
     // below passes, which is exactly what a BROKEN scan produces.
-    expect(PILOT_FILES.length).toBeGreaterThanOrEqual(3);
+    //
+    // Floors PER SHAPE now, never one total: the sources break independently,
+    // and a single number lets one collapse to zero while the others carry it.
+    const population = pilotPopulation();
+    const from = (prefix: string) => population.filter((path) => path.startsWith(prefix)).length;
+    expect(from('services/retail-pilot/'), 'the service walk found nothing').toBeGreaterThanOrEqual(3);
+    expect(from('db/retailPilot/'), 'the repository walk found nothing').toBeGreaterThanOrEqual(1);
+    expect(from('controllers/'), 'the operator controller left the population').toBeGreaterThanOrEqual(1);
+    expect(from('routes/'), 'the operator route left the population').toBeGreaterThanOrEqual(1);
+    expect(from('db/schema/'), 'the schema module left the population').toBeGreaterThanOrEqual(1);
+    expect(PILOT_FILES.length).toBeGreaterThanOrEqual(7);
     expect(PRINTFUL_FILES.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('no retail-pilot-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the
+    // positive control re-derives THIS population against the seeded reader.
+    //
+    // `PILOT_FILES` was `services/retail-pilot/` and nothing else — THREE
+    // modules of SEVEN. The repository, the operator controller,
+    // `routes/internal-retail-pilot.ts` and `db/schema/retailPilot.ts` were
+    // behind none of these walls, including the one saying a stop must never
+    // reach the procurement or refund path. The operator surface is where a
+    // stop is actually raised.
+    assertNothingOutsideDomainPopulation({
+      population: pilotPopulation,
+      pattern: DOMAIN_NAMED,
+      // Measured empty: every retail-pilot-named module in the tree is a module
+      // of this domain. One owned by somebody else goes here WITH its reason.
+      notThisDomain: [],
+      sweepFloor: 6,
+      plantIn: 'lib',
+      plantName: 'retail-pilot-cache.ts',
+    });
   });
 
   for (const wall of WALLS) {

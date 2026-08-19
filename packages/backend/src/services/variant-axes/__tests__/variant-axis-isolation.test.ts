@@ -31,7 +31,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -41,25 +41,70 @@ import {
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 
-const SCANNED_DIRECTORIES = [
-  join(SRC_ROOT, 'services', 'variant-axes'),
-  join(SRC_ROOT, 'db', 'variantAxes'),
+import {
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  sweepSrcTreeForDomain,
+  readSrcDirectory,
+  walkOwnedDirectory,
+  type DirectoryReader,
+} from '../../../__tests__/domain-population.js';
+
+/**
+ * Anything whose PATH names this domain, in BOTH spellings.
+ *
+ * `variant-ax` and `variantAx` rather than the full words, so `variant-axes`,
+ * `variant-axis`, `variantAxes` and `variantAxis` all match — the domain uses
+ * all four. The camelCase half is what reaches `db/variantAxes/` and
+ * `db/schema/variantAxes.ts`, and it has a NAMED assertion below rather than a
+ * floor, because a floor on the sweep cannot detect the sweep examining less:
+ * the modules a narrowed pattern stops examining were never outside the
+ * population, so the wall stays empty and the floor is met by the remainder.
+ */
+const DOMAIN_NAMED = /variant-ax|variantAx/i;
+
+const OWNED_DIRECTORIES = ['services/variant-axes', 'db/variantAxes'] as const;
+
+/**
+ * The shared flat directories a module of this domain lives in under its NAME.
+ *
+ * `scripts` is here because `scripts/backfill-variant-axes.ts` was one of TWO
+ * hand-named entries this replaces (the other being `db/schema/variantAxes.ts`).
+ * Both were correct and both were a hand list of one, complete on the day it
+ * was written and silently short the day somebody adds a third.
+ */
+const SHARED_DIRECTORIES = ['controllers', 'routes', 'middleware', 'db/schema', 'scripts'] as const;
+
+/**
+ * The one module naming this domain that belongs to another.
+ *
+ * `services/product-types/variant-axis.ts` is #367's product-types domain,
+ * scanned by `product-type-isolation.test.ts`, which walks
+ * `services/product-types/` whole. It is measured CLEAN against all five
+ * detectors here, so this exclusion is about ownership rather than about a
+ * false wall — applying this domain's walls to another domain's module is the
+ * mistake `channel-isolation.test.ts` records at scale.
+ */
+const NOT_THIS_DOMAIN = [
+  {
+    path: 'services/product-types/variant-axis.ts',
+    why: "#367's product-types domain, walked whole by product-type-isolation.test.ts",
+  },
 ];
 
-/** Every production module in the domain. Tests are excluded — they name what they refuse. */
+/**
+ * Every production module in the domain, DERIVED as a function of its reader
+ * (#460). Tests are excluded — they name what they refuse.
+ */
+function axisPopulation(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((directory) => walkOwnedDirectory(directory, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DOMAIN_NAMED, readDir),
+  ];
+}
+
 function domainFiles(): string[] {
-  const files: string[] = [];
-  for (const root of SCANNED_DIRECTORIES) {
-    for (const entry of readdirSync(root)) {
-      const full = join(root, entry);
-      if (statSync(full).isDirectory()) continue;
-      if (!entry.endsWith('.ts')) continue;
-      files.push(full);
-    }
-  }
-  files.push(join(SRC_ROOT, 'db', 'schema', 'variantAxes.ts'));
-  files.push(join(SRC_ROOT, 'scripts', 'backfill-variant-axes.ts'));
-  return files;
+  return axisPopulation().map((relative) => join(SRC_ROOT, relative));
 }
 
 /**
@@ -128,6 +173,58 @@ describe('the enumeration itself', () => {
     expect(stripComments("const url = 'https://x';")).toContain('https://x');
     // And the positive control: a REAL call survives the stripper.
     expect(stripComments('const s = similarity(a, b);')).toContain('similarity(');
+  });
+});
+
+describe('#460 — the population is closed against the tree', () => {
+  it('no variant-axis-named module anywhere in src/ sits outside the population', () => {
+    // #460's whole-tree assertion, through the shared derivation so the
+    // positive control re-derives THIS population against the seeded reader.
+    //
+    // The population does not move — 9 before and after — because the two
+    // modules outside the owned directories were already HAND-NAMED. A hand
+    // list of two is complete on the day it is written and silently short the
+    // day somebody adds a third, so the proof is the plant rather than a
+    // number that grew.
+    assertNothingOutsideDomainPopulation({
+      population: axisPopulation,
+      pattern: DOMAIN_NAMED,
+      notThisDomain: NOT_THIS_DOMAIN,
+      sweepFloor: 8,
+      plantIn: 'lib',
+      plantName: 'variant-axis-cache.ts',
+    });
+    // EXACT, in both directions (#448). The helper asserts the entry is still
+    // REACHED by the sweep and is NOT in the population; this is the count that
+    // stops a second riding in behind it.
+    expect(NOT_THIS_DOMAIN.length, 'a second foreign variant-axis module was excused').toBe(1);
+  });
+
+  it('the camelCase half of the pattern is what reaches db/, and it is asserted BY NAME', () => {
+    // A floor on the SWEEP cannot detect the sweep examining LESS. The modules
+    // a narrowed pattern stops examining were never outside the population, so
+    // `outsidePopulation` stays empty and any floor is met by the remainder —
+    // the mutation comes back GREEN. So the widening gets a named assertion
+    // rather than a number.
+    //
+    // `db/variantAxes/` is WALKED, so the pattern does not decide whether those
+    // modules are in the population; it decides whether the SWEEP examines
+    // them, which is what makes the coverage claim mean anything.
+    const swept = sweepSrcTreeForDomain(DOMAIN_NAMED);
+    for (const camel of [
+      'db/schema/variantAxes.ts',
+      'db/variantAxes/variantAxisRepository.ts',
+      'db/variantAxes/legacyOptionRepository.ts',
+    ]) {
+      expect(swept, `${camel} is not examined by the sweep`).toContain(camel);
+      // …and the narrow, hyphen-only spelling must NOT reach it, or the
+      // assertion above is satisfied by a tree that happens to be convenient
+      // rather than by the widening this pattern exists for.
+      expect(
+        /variant-ax/i.test(camel),
+        `${camel} matches the hyphen-only spelling, so it proves nothing about the camelCase half`,
+      ).toBe(false);
+    }
   });
 });
 
