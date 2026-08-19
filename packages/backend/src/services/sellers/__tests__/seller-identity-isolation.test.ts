@@ -61,15 +61,17 @@ const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 
  * interesting reason. `assertNothingOutsideDomainPopulation` sweeps for a NAME,
  * and this domain's name is the commonest word in a marketplace backend:
  * `/seller/i` over `packages/backend/src` selects **19** modules, of which
- * **12** belong to eight other domains (#62 ingestion, moderation, #47
- * payments, #71 product-page, the buyers repository, and the seller's own
- * MANAGEMENT surface `routes/seller.ts` and its four controllers, which #92
- * §"`/sellers` (plural) is public; `/seller` (singular) is the seller's own"
- * puts outside this domain deliberately). A whole-tree assertion here would
- * therefore carry a twelve-entry exclusion list that every unrelated domain has
- * to maintain — a `services/payments/seller-payout.ts` added tomorrow would
- * fail a gate about Oxy follow identity — and a gate that cries wolf is the one
- * somebody deletes.
+ * **12** are not this domain's, spread over SIX other areas — counted, not
+ * estimated: the seller's own MANAGEMENT surface (`routes/seller.ts`,
+ * `services/seller-profile.service.ts` and four `seller-*` controllers, which
+ * #92's "`/sellers` plural is public; `/seller` singular is the seller's own
+ * management surface" puts outside this domain deliberately), the buyers
+ * repository, #62 ingestion (two), moderation, #47 payments and #71
+ * product-page. A whole-tree assertion here would therefore carry a
+ * twelve-entry exclusion list that every unrelated domain has to maintain — a
+ * `services/payments/seller-payout.ts` added tomorrow would fail a gate about
+ * Oxy follow identity — and a gate that cries wolf is the one somebody
+ * deletes.
  *
  * And an ANCHORED pattern (`^backend/src/(services/sellers/|controllers/public-sellers|…)`)
  * cannot be handed to the helper either: the sweep would then match exactly the
