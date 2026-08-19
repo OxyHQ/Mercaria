@@ -46,7 +46,7 @@ import {
   requestMerge,
   resolveMergeConflict,
 } from '../services/curation/merge.service.js';
-import { approveSplit, requestSplit } from '../services/curation/split.service.js';
+import { approveSplit, requestSplit, splitJobBlockingState } from '../services/curation/split.service.js';
 import {
   claimItem,
   getItemWithContext,
@@ -402,6 +402,19 @@ export async function getSplitJobHandler(req: Request, res: Response): Promise<v
     }
     sendSuccess(res, {
       job: toSplitJobView(job),
+      /**
+       * What this job is waiting on RIGHT NOW, derived (#679).
+       *
+       * The merge detail's field, mirrored, and for the same reason: `lastError`
+       * is what was true when the job blocked and is never refreshed, so on its
+       * own it cannot tell an operator whether this resumes on the next
+       * dispatcher pass or is waiting on them. This is the predicate the sweep
+       * evaluates, so what it reports is what will happen.
+       *
+       * A READ with no route beside it acting on the answer — a "resume" control
+       * would either duplicate the sweep or re-block.
+       */
+      blocking: job.status === 'blocked' ? splitJobBlockingState(job) : null,
       assignments: await listSplitAssignments(id, db),
       revisions: await findRevisionsForJob({ splitJobId: id }, db),
     });

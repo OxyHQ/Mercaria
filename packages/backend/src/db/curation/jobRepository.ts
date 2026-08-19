@@ -758,6 +758,79 @@ export async function completeSplitJob(
   return rows.length === 1;
 }
 
+/**
+ * Park a split on a condition only a person can clear (#679).
+ *
+ * `blockMergeJob`'s counterpart, and it did not exist — which is the whole of
+ * #679. Owner-checked like every other terminal transition of a claimed job:
+ * the lease is given up here, because a parked job holds nothing and
+ * `claimSplitJobs` must not reclaim it.
+ *
+ * Callers must decide with {@link splitJobBlockingState} and nothing else.
+ */
+export async function blockSplitJob(
+  id: string,
+  leaseOwner: string,
+  note: string,
+  db: DatabaseOrTransaction = getDb(),
+  now: Date = new Date(),
+): Promise<boolean> {
+  const rows = await db
+    .update(catalogSplitJobs)
+    .set({
+      status: 'blocked',
+      leaseOwner: null,
+      leaseUntil: null,
+      lastError: note.slice(0, CURATION_MAX_TEXT_LENGTH),
+    })
+    .where(ownedSplitLease(id, leaseOwner, now))
+    .returning({ id: catalogSplitJobs.id });
+  return rows.length === 1;
+}
+
+/**
+ * Un-block a split whose blocking condition has cleared.
+ *
+ * `unblockMergeJob`'s reasoning verbatim: the CAS on `status = 'blocked'` makes
+ * this safe from N tasks at once — the second caller matches no row and reports
+ * `false`, which is "somebody already did it" rather than an error — and it is
+ * deliberately NOT owner-checked, because a blocked job holds no lease.
+ *
+ * It asks no questions, so a caller inventing its own answer is how a job whose
+ * precondition is unmet gets resumed. Decide with {@link splitJobBlockingState}.
+ */
+export async function unblockSplitJob(
+  id: string,
+  db: DatabaseOrTransaction = getDb(),
+  now: Date = new Date(),
+): Promise<boolean> {
+  const rows = await db
+    .update(catalogSplitJobs)
+    .set({ status: 'pending', availableAt: now, lastError: null })
+    .where(and(eq(catalogSplitJobs.id, id), eq(catalogSplitJobs.status, 'blocked')))
+    .returning({ id: catalogSplitJobs.id });
+  return rows.length === 1;
+}
+
+/**
+ * A bounded page of parked splits, oldest first.
+ *
+ * `catalog_split_jobs_blocked_idx` is `(created_at) WHERE status = 'blocked'`,
+ * so this is an index-only walk of the parked set — and until #679 that index
+ * served no reader at all, because nothing could put a row in it.
+ */
+export async function listBlockedSplitJobs(
+  limit: number,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly CatalogSplitJobRow[]> {
+  return db
+    .select()
+    .from(catalogSplitJobs)
+    .where(eq(catalogSplitJobs.status, 'blocked'))
+    .orderBy(asc(catalogSplitJobs.createdAt))
+    .limit(Math.max(1, limit));
+}
+
 export async function releaseSplitJob(
   options: {
     readonly id: string;
