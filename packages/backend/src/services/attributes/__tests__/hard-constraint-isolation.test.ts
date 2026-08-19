@@ -15,24 +15,79 @@
  * for: a vacuity floor (the scan must actually find files), and a mutation
  * self-test (each pattern is proved to fire against a string that violates it,
  * so a broken regex cannot pass silently).
+ *
+ * ## The population the FIRST rule is applied to, and what it used to be (#460)
+ *
+ * Rule 1 is domain-wide — *nothing outside the parse boundary may write a
+ * constraint's `strength`* — and its population was
+ * `readdirSync(services/attributes)` ONE LEVEL DEEP: twelve modules. The other
+ * EIGHT of this domain's twenty were outside it: both repositories, both public
+ * controllers, both internal ones, `middleware/attribute-schemas.ts` and
+ * `db/schema/attributeRegistry.ts`.
+ *
+ * **`middleware/attribute-schemas.ts` is the one to read.** A hard requirement
+ * is downgraded to a preference by whatever turns a request body into a
+ * constraint, and that is the request-schema module — the single most likely
+ * home for the line this rule forbids, and it was outside the scan.
+ *
+ * All eight were measured against `STRENGTH_MUTATION` on comment-stripped
+ * source before being added: zero hits. So this widens coverage rather than
+ * walling code that was already violating it.
+ *
+ * Rules 2 and 3 are deliberately NARROW and do not move: they are assertions
+ * about `constraint-evaluation.ts`, `offer-facts.port.ts` and
+ * `definition-registry.service.ts` by name, not a population.
  */
 
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { RESERVED_OFFER_FACT_KEYS } from '@mercaria/shared-types';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 
+const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const DOMAIN_DIR = fileURLToPath(new URL('..', import.meta.url));
+
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * Bare `attribute`, matched against the PATH, and it is NOT free the way a
+ * hyphenated domain token is: it reaches three modules in other domains, each
+ * excused by name below. One word is the whole of it because the domain's own
+ * spellings are `services/attributes/`, `db/attributes/`,
+ * `db/schema/attributeRegistry.ts` and `middleware/attribute-schemas.ts` — a
+ * singular, a plural, a camelCase compound and a hyphenated one.
+ */
+const ATTRIBUTE_NAME_PATTERN = /attribute/i;
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/attributes', 'db/attributes'] as const;
+
+/** The flat directories a module of this domain lives in under a domain NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/** Every module of the attribute domain, enumerated from disk. */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    // RECURSIVE, where this read one directory level.
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, ATTRIBUTE_NAME_PATTERN, readDir),
+  ];
+}
 
 /** Every module in the attribute domain, tests excluded. */
 function domainModules(): { path: string; source: string }[] {
-  return readdirSync(DOMAIN_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-    .map((entry) => ({
-      path: entry.name,
-      source: readFileSync(join(DOMAIN_DIR, entry.name), 'utf8'),
-    }));
+  return domainRelativePaths().map((relative) => ({
+    path: relative,
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
 /**
@@ -51,9 +106,10 @@ describe('hard constraints cannot be downgraded', () => {
   const modules = domainModules();
 
   it('scans the whole domain (vacuity floor)', () => {
-    expect(modules.length).toBeGreaterThanOrEqual(10);
-    expect(modules.map((module) => module.path)).toContain('constraint-evaluation.ts');
-    expect(modules.map((module) => module.path)).toContain('constraint-validation.ts');
+    expect(modules.length).toBeGreaterThanOrEqual(16);
+    const paths = modules.map((module) => module.path);
+    expect(paths).toContain('services/attributes/constraint-evaluation.ts');
+    expect(paths).toContain('services/attributes/constraint-validation.ts');
   });
 
   it('never mutates a constraint strength anywhere in the domain', () => {
@@ -74,7 +130,9 @@ describe('hard constraints cannot be downgraded', () => {
   });
 
   it('gives the evaluator no strength parameter to be told the wrong answer through', () => {
-    const evaluator = modules.find((module) => module.path === 'constraint-evaluation.ts');
+    const evaluator = modules.find(
+      (module) => module.path === 'services/attributes/constraint-evaluation.ts',
+    );
     if (!evaluator) throw new Error('constraint-evaluation.ts is missing');
     // The exported entry point takes a validated set, a candidate's facts and an
     // options object whose only member is a variant id. A `strength` or a
@@ -85,7 +143,9 @@ describe('hard constraints cannot be downgraded', () => {
   });
 
   it('derives the verdict from the hard outcomes only', () => {
-    const evaluator = modules.find((module) => module.path === 'constraint-evaluation.ts');
+    const evaluator = modules.find(
+      (module) => module.path === 'services/attributes/constraint-evaluation.ts',
+    );
     if (!evaluator) throw new Error('constraint-evaluation.ts is missing');
     const verdict = /const verdict = ([\s\S]*?);\n/u.exec(evaluator.source)?.[1] ?? '';
     expect(verdict).toContain('hardOutcomes');
@@ -100,7 +160,9 @@ describe('commercial facts come from offers only', () => {
   const modules = domainModules();
 
   it('keeps the evaluator away from attribute and offer STORAGE alike', () => {
-    const evaluator = modules.find((module) => module.path === 'constraint-evaluation.ts');
+    const evaluator = modules.find(
+      (module) => module.path === 'services/attributes/constraint-evaluation.ts',
+    );
     if (!evaluator) throw new Error('constraint-evaluation.ts is missing');
     // The evaluator is pure: it receives facts. If it could query, "which offers
     // are eligible" and "which values are selected" would each have a second
@@ -118,7 +180,9 @@ describe('commercial facts come from offers only', () => {
   });
 
   it('answers every commerce facet from the offer port', () => {
-    const evaluator = modules.find((module) => module.path === 'constraint-evaluation.ts');
+    const evaluator = modules.find(
+      (module) => module.path === 'services/attributes/constraint-evaluation.ts',
+    );
     if (!evaluator) throw new Error('constraint-evaluation.ts is missing');
     const commerce = /function commerceSatisfaction\(([\s\S]*?)\n\}/u.exec(evaluator.source)?.[1];
     expect(commerce).toBeDefined();
@@ -131,7 +195,9 @@ describe('commercial facts come from offers only', () => {
   });
 
   it('defaults to a port that reports no data rather than plausible numbers', () => {
-    const port = modules.find((module) => module.path === 'offer-facts.port.ts');
+    const port = modules.find(
+      (module) => module.path === 'services/attributes/offer-facts.port.ts',
+    );
     if (!port) throw new Error('offer-facts.port.ts is missing');
     expect(port.source).toContain('let registeredPort: OfferFactsPort = unavailableOfferFacts');
     // The default must be an empty map, not a throw (which would break every
@@ -158,5 +224,90 @@ describe('reserved offer keys', () => {
     const registry = readFileSync(join(DOMAIN_DIR, 'definition-registry.service.ts'), 'utf8');
     expect(registry).toContain('RESERVED_OFFER_FACT_KEYS.includes(key)');
     expect(registry).toContain('commerce constraint facets');
+  });
+});
+
+describe('the population rule 1 is applied to (#460)', () => {
+  it('nothing naming an attribute sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: ATTRIBUTE_NAME_PATTERN,
+      notThisDomain: [
+        {
+          path: 'db/canonical/attributeRepository.ts',
+          why:
+            "#56's canonical annotation store — the normalized attribute VALUES, images and " +
+            'per-field provenance. It cites a definition version and, as its own docblock says, ' +
+            'never writes one: the REGISTRY moved to db/attributes/definitionRepository.ts with ' +
+            '#94. Walked by the canonical-catalog gates, not by this one.',
+        },
+        {
+          path: 'db/variantAxes/attributeClaimRepository.ts',
+          why:
+            "#367's native listing and variant attribute CLAIMS — what a party said, frozen by " +
+            'trigger. A claim is an assertion awaiting settlement, not a registry definition, ' +
+            'and variant-axis-isolation.test.ts walks db/variantAxes/ whole.',
+        },
+        {
+          path: 'services/comparison/attribute-facts.ts',
+          why:
+            "#96's translation of a stored value into a comparison cell. It is a READER of this " +
+            "domain's output and a module of the comparison domain, which " +
+            'comparison-isolation.test.ts walks whole.',
+        },
+      ],
+      // Below today's 23 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 17,
+      plantIn: 'lib',
+      plantName: 'attribute-cache.ts',
+    });
+  });
+
+  it('the eight modules the one-level population could not reach are in it', () => {
+    // An identity assertion, not a floor. These are exactly what
+    // `readdirSync(services/attributes)` missed, and a floor set below 20 is met
+    // without any of them.
+    const population = domainRelativePaths();
+    for (const named of [
+      'controllers/catalog-attributes.controller.ts',
+      'controllers/internal-catalog-attributes.controller.ts',
+      'db/attributes/attributeOpsRepository.ts',
+      'db/attributes/definitionRepository.ts',
+      'db/schema/attributeRegistry.ts',
+      'middleware/attribute-schemas.ts',
+      'routes/catalog-attributes.ts',
+      'routes/internal-catalog-attributes.ts',
+    ]) {
+      expect(population, `${named} is outside rule 1 again`).toContain(named);
+      expect(
+        statSync(join(SRC_ROOT, named)).isFile(),
+        `${named} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    // One total lets the walk collapse to zero while the sweep carries it.
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, ATTRIBUTE_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(11);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      5,
+    );
+  });
+
+  it('all three excluded modules are CLEAN against rule 1, so each exclusion is about ownership', () => {
+    // An exclusion for a module that would TRIP the wall is a hole; one for a
+    // module that would pass is a statement about who owns it. Measured, because
+    // the second is what the reasons above claim.
+    for (const foreign of [
+      'db/canonical/attributeRepository.ts',
+      'db/variantAxes/attributeClaimRepository.ts',
+      'services/comparison/attribute-facts.ts',
+    ]) {
+      const source = readFileSync(join(SRC_ROOT, foreign), 'utf8');
+      expect(STRENGTH_MUTATION.test(source), `${foreign} would trip rule 1`).toBe(false);
+    }
   });
 });
