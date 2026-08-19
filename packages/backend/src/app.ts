@@ -123,6 +123,7 @@ import catalogProposalsRouter from './routes/catalog-proposals.js';
 import internalCatalogProposalsRouter from './routes/internal-catalog-proposals.js';
 import internalCatalogGovernanceRouter from './routes/internal-catalog-governance.js';
 import internalCatalogMetricsRouter from './routes/internal-catalog-metrics.js';
+import internalCatalogLocalizationRouter from './routes/internal-catalog-localization.js';
 import compatibilityRouter from './routes/compatibility.js';
 import productTypesRouter from './routes/product-types.js';
 import { catalogObservability } from './middleware/catalog-observability.js';
@@ -1028,6 +1029,15 @@ export function createApp(): express.Express {
     // mounted alongside governance for the reason `/internal/backfill` is — the
     // evidence has to be readable during the incident that turned a domain off.
     app.use('/internal/catalog-metrics', internalCatalogMetricsRouter);
+    // The translation desk (#367 merge-order step 10). Same allow-list again,
+    // and beside metrics rather than inside it: that surface answers "is the
+    // catalogue healthy" in uniform metric cells with an exactly-asserted route
+    // set, this one answers "what should a translator do next" with per
+    // (domain, locale) rows carrying their own denominators. Read-only — the
+    // review DECISION stays at `/internal/catalog-governance/reviews/localization`,
+    // because a second route to one decision is how two surfaces come to
+    // disagree about what it meant.
+    app.use('/internal/catalog-localization', internalCatalogLocalizationRouter);
   }
   /**
    * Compatibility and automotive fitment (#367 step 8, ADR 0007 D8) — "does this
