@@ -70,128 +70,17 @@ import {
   SUPPORTED_LOCALES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
+import {
+  LOCALE_VALUES,
+  localizationChecks,
+  localizationColumns,
+} from './localizationFamily';
 import { categories } from './catalog';
 import { attributeEnumValues } from './attributeRegistry';
 import { productTypeDefinitions, productTypeFields } from './productTypes';
 
-/** `SUPPORTED_LOCALES` as the tuple both the column type and its CHECK read. */
-const LOCALE_VALUES = asEnumValues(SUPPORTED_LOCALES);
 
-/**
- * The seven columns every text member of the family carries.
- *
- * A helper for the same reason `money()` is one: the shape is repeated four
- * times and a hand-copied fourth copy is where the drift starts. The keys are
- * literal rather than generated from a prefix, so TypeScript infers the return
- * type exactly and no assertion is needed — the trap `money()`'s doc comment
- * records does not reach this one.
- *
- * `reviewed_by_oxy_user_id` rather than D4's `reviewed_by`: it is an Oxy account
- * id, Oxy owns identity, and the suffix is what makes it classifiable in
- * `deferredForeignKeys.ts` beside the other ninety.
- */
-function localizationColumns() {
-  return {
-    /** Lowercase BCP 47, never the base locale. See the file header. */
-    locale: text({ enum: LOCALE_VALUES }).notNull(),
-    status: text({ enum: asEnumValues(LOCALIZATION_STATUSES) }).notNull(),
-    provenance: text({ enum: asEnumValues(LOCALIZATION_PROVENANCES) }).notNull(),
-    /**
-     * The locale this text was translated FROM. Usually the base locale; not
-     * always, since a Catalan translation is more usefully made from Spanish.
-     */
-    sourceLocale: text({ enum: LOCALE_VALUES }),
-    /**
-     * The source content's revision marker, as its owner spells it — a digest, a
-     * version, an `updated_at`. Opaque here, and deliberately NOT what the stale
-     * trigger compares: `categories` carries no revision column, so a comparison
-     * against it would be a check that can never fire. The trigger watches the
-     * source TEXT instead, and this column is what a reviewer reads afterwards
-     * to see which revision the translation was made against.
-     */
-    sourceRevision: text(),
-    /** An Oxy account id — no foreign key; Oxy owns identity. */
-    reviewedByOxyUserId: text(),
-    reviewedAt: timestamptz(),
-  };
-}
 
-/**
- * The CHECKs every text member of the family carries, rendered per table.
- *
- * Stated once so the four tables cannot enforce four slightly different rules.
- * `primaryText` is the column whose absence defines a `missing` row — the one
- * string the entity cannot be presented without.
- */
-function localizationChecks(
-  table: string,
-  columns: {
-    locale: AnyPgColumn;
-    status: AnyPgColumn;
-    provenance: AnyPgColumn;
-    sourceLocale: AnyPgColumn;
-    reviewedByOxyUserId: AnyPgColumn;
-    reviewedAt: AnyPgColumn;
-    primaryText: AnyPgColumn;
-  },
-) {
-  return [
-    checkOneOf(`${table}_locale_check`, columns.locale, SUPPORTED_LOCALES),
-    checkOneOf(`${table}_source_locale_check`, columns.sourceLocale, SUPPORTED_LOCALES),
-    checkOneOf(`${table}_status_check`, columns.status, LOCALIZATION_STATUSES),
-    checkOneOf(`${table}_provenance_check`, columns.provenance, LOCALIZATION_PROVENANCES),
-    // The base-locale string lives on the entity's own column. See the header.
-    //
-    // `sql.raw` and not an interpolated JS string: a value interpolated normally
-    // renders as a BOUND PARAMETER, and drizzle-kit writes the literal `$1` into
-    // the migration — which generates cleanly and fails at APPLY time.
-    check(
-      `${table}_locale_not_base_check`,
-      sql`${columns.locale} <> ${sql.raw(`'${MERCARIA_BASE_LOCALE}'`)}`,
-    ),
-    // A `missing` row is one somebody opened to say a translation is owed; it is
-    // not a row with text nobody classified, and it is not the absence of a row.
-    check(
-      `${table}_missing_text_check`,
-      sql`(${columns.status} = 'missing') = (${columns.primaryText} is null)`,
-    ),
-    // …and an empty string is not text. Without this the CHECK above is
-    // satisfied by `status = 'approved'` beside `name = ''`, which is a row
-    // claiming a human approved a blank category name — and the resolver would
-    // have to guess whether to serve it.
-    check(
-      `${table}_text_not_blank_check`,
-      sql`${columns.primaryText} is null or btrim(${columns.primaryText}) <> ''`,
-    ),
-    // Machine translation is a SUGGESTION. The trigger refuses the transition;
-    // this refuses the resulting row, which an INSERT never gives the trigger a
-    // chance to see.
-    check(
-      `${table}_machine_status_check`,
-      sql`${columns.provenance} <> 'machine' or ${columns.status} not in ('reviewed', 'approved')`,
-    ),
-    // …and it may not wear somebody else's review either. Without this, a
-    // machine write that also downgraded the status would keep the human
-    // reviewer's name on text they never saw.
-    check(
-      `${table}_machine_reviewer_check`,
-      sql`${columns.provenance} <> 'machine' or (${columns.reviewedByOxyUserId} is null and ${columns.reviewedAt} is null)`,
-    ),
-    // A reviewer and a review instant travel together; neither means anything
-    // alone. The `attribute_value_reviews` resolution shape.
-    check(
-      `${table}_reviewer_pair_check`,
-      sql`(${columns.reviewedByOxyUserId} is null) = (${columns.reviewedAt} is null)`,
-    ),
-    // Settled text names who settled it. One-way rather than a biconditional, so
-    // a row that WAS approved and has since gone `stale` keeps its audit — which
-    // is the whole reason `stale` does not blank anything.
-    check(
-      `${table}_reviewed_audit_check`,
-      sql`${columns.status} not in ('reviewed', 'approved') or ${columns.reviewedByOxyUserId} is not null`,
-    ),
-  ];
-}
 
 /**
  * `category_localizations` — one locale's presentation of one category.

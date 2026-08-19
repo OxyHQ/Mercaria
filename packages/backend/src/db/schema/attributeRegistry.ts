@@ -64,6 +64,10 @@ import {
   UNIT_FAMILIES,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf, currencyChecks, CURRENCY_CODE_VALUES } from './columns';
+import {
+  localizationSettlementColumns,
+  localizationTextChecks,
+} from './localizationFamily';
 import { categories } from './catalog';
 import { catalogSources } from './provenance';
 
@@ -269,10 +273,20 @@ export const attributeLabels = pgTable(
     attributeDefinitionId: text()
       .notNull()
       .references(() => attributeDefinitions.id, { onDelete: 'cascade' }),
-    /** BCP-47 tag, stored lower-case so a lookup cannot miss on case. */
+    /**
+     * BCP-47 tag, stored lower-case so a lookup cannot miss on case.
+     *
+     * Plain `text` with a SHAPE check, and NOT `text({ enum: LOCALE_VALUES })`
+     * like the rest of the family. This column predates ADR 0007 D4 and already
+     * holds production data, so narrowing it to `SUPPORTED_LOCALES` is a
+     * separate, data-dependent change — see the note on the checks below. A
+     * narrowed TypeScript type over a column the database does not narrow would
+     * be a type that lies.
+     */
     locale: text().notNull(),
     label: text().notNull(),
     description: text(),
+    ...localizationSettlementColumns(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -281,6 +295,23 @@ export const attributeLabels = pgTable(
       'attribute_labels_locale_shape_check',
       sql`${t.locale} = lower(btrim(${t.locale})) and ${t.locale} ~ '^[a-z]{2,3}(-[a-z0-9]{2,8})*$'`,
     ),
+    // The family's TEXT half only.
+    //
+    // `localizationLocaleChecks` is deliberately NOT applied. It narrows
+    // `locale` to `SUPPORTED_LOCALES` and away from the base locale, and a
+    // narrowing CHECK is validated against every existing row the moment it is
+    // added — so on a table that already holds production data it can ABORT the
+    // deploy on rows nobody has looked at. That is not hypothetical: the same
+    // shape was measured on #632, where redefining a generated expression
+    // aborted an index rebuild.
+    //
+    // Deferring it costs little and the two reasons are worth stating.
+    // `ALL_REPORTABLE_LOCALES` excludes the base locale, so a stray `en` row
+    // here cannot inflate a completeness figure; and the coverage read joins on
+    // an explicit locale list, so a tag outside `SUPPORTED_LOCALES` is invisible
+    // to it rather than miscounted. What is owed is a count of the rows that
+    // would fail, then the two checks — one query, in the PR that adds them.
+    ...localizationTextChecks('attribute_labels', { ...t, primaryText: t.label }),
     uniqueIndex('attribute_labels_locale_key').on(t.attributeDefinitionId, t.locale),
   ],
 );

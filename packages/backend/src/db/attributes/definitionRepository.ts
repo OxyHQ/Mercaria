@@ -26,7 +26,12 @@
  */
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { AttributeLifecycleState } from '@mercaria/shared-types';
+import type {
+  AttributeLifecycleState,
+  LocalizationProvenance,
+  LocalizationStatus,
+  SupportedLocale,
+} from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
   attributeDefinitionCategories,
@@ -329,19 +334,72 @@ export async function listActiveDefinitionsForCategory(
     .orderBy(asc(attributeDefinitions.key));
 }
 
+/**
+ * How settled the text this write carries is (ADR 0007 D4).
+ *
+ * A REQUIRED parameter and not a column default, deliberately. A default would
+ * classify every future write by whatever the schema happened to say, and the
+ * one thing this family is about is that a status is a claim somebody makes —
+ * `mercaria` and `machine` are different assertions about the same string, and
+ * only the caller knows which it is holding.
+ */
+export interface AttributeLabelSettlement {
+  readonly status: LocalizationStatus;
+  readonly provenance: LocalizationProvenance;
+  /** Required by `attribute_labels_reviewed_audit_check` for a settled status. */
+  readonly reviewedByOxyUserId?: string | null;
+  readonly reviewedAt?: Date | null;
+  readonly sourceLocale?: SupportedLocale | null;
+  readonly sourceRevision?: string | null;
+}
+
+/** What one label write states. */
+export interface UpsertAttributeLabelInput {
+  readonly attributeDefinitionId: string;
+  readonly locale: string;
+  readonly label: string;
+  readonly description?: string | null;
+  readonly settlement: AttributeLabelSettlement;
+}
+
+/**
+ * Write one localized label.
+ *
+ * ## The conflict branch re-states the settlement, and that is a fix
+ *
+ * It used to `set: { label, description }` and nothing else. That was harmless
+ * only while the table carried no status: the moment it does, an edit through
+ * this function would rewrite the TEXT and leave the previous row's `status`
+ * and reviewer in place — an `approved` row pointing at text nobody
+ * re-approved, which is the exact failure `mercaria_..._localization_stale`
+ * exists to prevent for the rest of the family. Because the settlement is a
+ * required parameter, there is no call shape that can update the text without
+ * saying what the new text IS.
+ */
 export async function upsertAttributeLabel(
   db: DatabaseOrTransaction,
-  attributeDefinitionId: string,
-  locale: string,
-  label: string,
-  description?: string,
+  input: UpsertAttributeLabelInput,
 ): Promise<AttributeLabelRow | undefined> {
+  const settled = {
+    status: input.settlement.status,
+    provenance: input.settlement.provenance,
+    reviewedByOxyUserId: input.settlement.reviewedByOxyUserId ?? null,
+    reviewedAt: input.settlement.reviewedAt ?? null,
+    sourceLocale: input.settlement.sourceLocale ?? null,
+    sourceRevision: input.settlement.sourceRevision ?? null,
+  };
   const rows = await db
     .insert(attributeLabels)
-    .values({ attributeDefinitionId, locale, label, description: description ?? null })
+    .values({
+      attributeDefinitionId: input.attributeDefinitionId,
+      locale: input.locale,
+      label: input.label,
+      description: input.description ?? null,
+      ...settled,
+    })
     .onConflictDoUpdate({
       target: [attributeLabels.attributeDefinitionId, attributeLabels.locale],
-      set: { label, description: description ?? null },
+      set: { label: input.label, description: input.description ?? null, ...settled },
     })
     .returning();
   return rows[0];

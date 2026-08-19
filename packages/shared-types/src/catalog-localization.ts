@@ -492,13 +492,21 @@ export const CATALOG_LOCALIZATION_TEXT_TABLES = [
  * `reviewed_by` and `reviewed_at` to it in that file, plus the two triggers.
  * Until then it is a family member with a narrower shape, said out loud.
  */
-export const LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS = [
-  {
-    table: 'attribute_labels',
-    reason:
-      'Predates ADR 0007 D4 and is owned by #94 (db/schema/attributeRegistry.ts). It gains the ' +
-      'family columns and the two triggers in that file, not this one.',
-  },
+export const LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS: readonly {
+  readonly table: string;
+  readonly reason: string;
+}[] = [
+  // EMPTY, and that is the outcome the list was built to reach rather than a
+  // list somebody forgot to fill. `attribute_labels` was its one entry: it
+  // predated ADR 0007 D4, carried no `status` and no `provenance`, and so could
+  // not execute `mercaria_localization_machine_write_guard` — the guard would
+  // have had nothing to read. It now carries all seven family columns and the
+  // guard is attached, so the exemption describes nothing.
+  //
+  // The census that reads this asserted its entry was STILL NEEDED, which is
+  // what made it self-retiring: closing the gap turned that assertion red on
+  // purpose. Keep that shape for the next exemption — an exemption that cannot
+  // notice its own obsolescence is how a census stops being one.
 ] as const;
 
 /**

@@ -124,11 +124,13 @@ export const LOCALIZATION_COVERAGE_UNCOVERED_TABLES = [
   {
     table: 'attribute_labels',
     reason:
-      'Carries no `status` and no `provenance` — it is the family member ' +
-      'LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS names. A completeness figure over it ' +
-      'would have to invent a status for every row, and inventing `approved` is the ' +
-      'direction that reports work as done. It joins this report in the commit that ' +
-      'gives it the family columns, which is #94\'s file to edit.',
+      'Now CARRIES the family columns and the machine-write guard, so the original reason ' +
+      '(no status to count) is gone. What still keeps it out is that it has no ' +
+      'LocalizedEntityKind and no entry in CATALOG_LOCALIZED_FIELDS, exactly like ' +
+      'navigation_node_localizations below: there is no registered field to be complete ' +
+      'ABOUT and no denominator rule. Adding the kind is the second half of this work and ' +
+      'is a separate change, because it cascades into two exhaustive switches, a fifth ' +
+      'revision trigger and a review path that could not compile before these columns.',
   },
   {
     table: 'navigation_node_localizations',
