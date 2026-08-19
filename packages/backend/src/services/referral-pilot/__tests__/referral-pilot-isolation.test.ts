@@ -25,6 +25,13 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
+import {
   REFERRAL_FORBIDDEN_IDENTITY_SIGNALS,
   REFERRAL_PILOT_ADMISSION_REFUSALS,
   REFERRAL_PILOT_STOP_METRICS,
@@ -32,9 +39,38 @@ import {
 } from '@mercaria/shared-types';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SERVICE_DIR = join(HERE, '..');
-const DB_DIR = join(HERE, '../../../db/referralPilot');
 const SRC_DIR = join(HERE, '../../..');
+
+/**
+ * What a module of this domain is called, wherever it lives.
+ *
+ * The hyphen is optional because `db/referralPilot/` and
+ * `db/schema/referralPilot.ts` are camelCase. Measured over the whole of
+ * `src/`, this selects nine modules and every one is this domain's.
+ */
+const PILOT_NAME_PATTERN = /referral-?pilot/i;
+
+/** The two directories this domain owns outright. */
+const OWNED_DIRECTORIES = ['services/referral-pilot', 'db/referralPilot'] as const;
+
+/** The flat directories a module of this domain lives in under a domain NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the referral-pilot domain, as paths RELATIVE to `src/`.
+ *
+ * It was the two owned directories and nothing else (#460), which left THREE
+ * modules behind none of the six walls: the operator controller — the surface
+ * that RAISES a pilot stop — the request schemas, and
+ * `db/schema/referralPilot.ts`, which is where the stop scopes, the metric CHECK
+ * and the measurement shape are declared.
+ */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, PILOT_NAME_PATTERN, readDir),
+  ];
+}
 
 /** Every `.ts` under a directory, excluding `__tests__`. */
 function sourceFiles(dir: string): string[] {
@@ -64,7 +100,7 @@ function code(path: string): string {
     .replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-const DOMAIN_FILES = [...sourceFiles(SERVICE_DIR), ...sourceFiles(DB_DIR)];
+const DOMAIN_FILES = domainRelativePaths().map((relative) => join(SRC_DIR, relative));
 
 interface Wall {
   readonly name: string;
@@ -246,5 +282,57 @@ describe('the test fixture is not production code', () => {
     };
     walk(SRC_DIR);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the population the six walls above are applied to (#460)', () => {
+  it('nothing naming this domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: PILOT_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // all nine modules the whole-tree sweep finds are this domain's.
+      notThisDomain: [],
+      // Below today's 9 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 7,
+      plantIn: 'lib',
+      plantName: 'referral-pilot-cache.ts',
+    });
+  });
+
+  it('the three modules the two-directory population could not reach are in it', () => {
+    // An identity assertion, not a floor. The operator controller is the surface
+    // that RAISES a stop, and `db/schema/referralPilot.ts` is where the stop
+    // scopes, the metric CHECK and the measurement shape are declared — the two
+    // places an identity signal or a ledger read would arrive first.
+    const population = domainRelativePaths();
+    for (const named of [
+      'controllers/referral-pilot-operator.controller.ts',
+      'db/schema/referralPilot.ts',
+      'middleware/referral-pilot-schemas.ts',
+    ]) {
+      expect(population, `${named} is outside all six walls again`).toContain(named);
+      expect(
+        statSync(join(SRC_DIR, named)).isFile(),
+        `${named} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('floors PER SHAPE, because the two sources break independently', () => {
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, PILOT_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(5);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      2,
+    );
+  });
+
+  it('the optional hyphen is load-bearing', () => {
+    const camelCase = 'db/schema/referralPilot.ts';
+    expect(PILOT_NAME_PATTERN.test(camelCase)).toBe(true);
+    expect(/referral-pilot/.test(camelCase), 'the hyphenated spelling already matched').toBe(false);
+    expect(domainRelativePaths()).toContain(camelCase);
   });
 });
