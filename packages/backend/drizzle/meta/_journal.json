@@ -841,6 +841,13 @@
       "when": 1787179781916,
       "tag": "0119_mixed_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1787182526113,
+      "tag": "0120_parched_wallow",
+      "breakpoints": true
     }
   ]
 }
