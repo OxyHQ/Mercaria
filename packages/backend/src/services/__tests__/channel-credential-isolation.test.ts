@@ -418,15 +418,19 @@ describe('#658 — the walls', () => {
   });
 
   it('never puts a credential value in a log line', () => {
+    // Offenders are COLLECTED and asserted as a set rather than asserted one at
+    // a time inside the loop. `expect` throws on the first failure, so the
+    // per-module form names one victim and stops — and one red reads as
+    // complete while every module after it goes unexamined. Measured: three
+    // planted log leaks in three directories produced ONE named file.
+    const offenders: string[] = [];
     let scanned = 0;
     for (const relative of credentialSurface()) {
       for (const args of logCallArguments(readModule(relative))) {
         scanned += 1;
-        expect(
-          CREDENTIAL_IN_LOG.test(args),
-          `${relative} logs a credential value — a log line is the one place a secret outlives ` +
-            `the request that carried it. Offending call arguments: ${args.trim().slice(0, 120)}`,
-        ).toBe(false);
+        if (CREDENTIAL_IN_LOG.test(args)) {
+          offenders.push(`${relative}: ${args.trim().replace(/\s+/g, ' ').slice(0, 90)}`);
+        }
       }
     }
     // The vacuity floor for THIS wall specifically: a `logCallArguments` that
@@ -436,16 +440,22 @@ describe('#658 — the walls', () => {
       scanned,
       'no log call was found anywhere in the credential surface — the extractor is broken',
     ).toBeGreaterThanOrEqual(45);
+    expect(
+      offenders,
+      'a module logs a credential value — a log line is the one place a secret outlives the ' +
+        'request that carried it, and it is copied to wherever logs are shipped',
+    ).toEqual([]);
   });
 
   it('never accepts a credential from a URL path segment or a query string', () => {
-    for (const relative of credentialSurface()) {
-      expect(
-        CREDENTIAL_IN_URL.test(readModule(relative)),
-        `${relative} reads a credential out of the URL — it belongs in a header or a body, ` +
-          'because a URL lands in access logs, Referer headers and browser history',
-      ).toBe(false);
-    }
+    const offenders = credentialSurface().filter((relative) =>
+      CREDENTIAL_IN_URL.test(readModule(relative)),
+    );
+    expect(
+      offenders,
+      'a module reads a credential out of the URL — it belongs in a header or a body, because a ' +
+        'URL lands in access logs, Referer headers and browser history',
+    ).toEqual([]);
   });
 
   it('keeps the channels SERVICE layer clear of credentials (the other side of #87)', () => {
