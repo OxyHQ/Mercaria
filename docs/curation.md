@@ -118,6 +118,56 @@ retried, or the dispatcher spins against a judgement only a person can make. A
 job that threw IS an error and must be retried. Collapsing them would either
 spin the loop or bury a real fault among things "waiting for review".
 
+### A blocked job resumes when its condition clears, and only then (#663)
+
+Not claiming a blocked job is right. Leaving one blocked after the thing it was
+waiting for has happened is how that became a **dead end**: `unblockMergeJob`
+had exactly one caller, `resolveMergeConflict`, which fires on a resolution — so
+a job that reached `blocked` with every conflict ALREADY resolved could never be
+lifted by anything. Two conditions reach that state:
+
+- **`merge_pair`.** Resolving the conflict opens a child job and unblocks the
+  parent; the parent re-blocks waiting on that child, and the child completing
+  lifted nothing.
+- **The second approval.** `catalog_merge_jobs_second_approval_check` permits
+  `awaiting_resolution` unapproved, so a four-eyes job advances there within
+  seconds of being requested and blocks; `approveMergeJob` writes the approval
+  columns and did not unblock. **Every merge over the impact threshold was
+  stranded**, and nothing covered it.
+
+The repair is **not a hook on each clearing act** — that is a hand-maintained
+map of "things that unblock a job", and its next omission strands again with
+nothing red. `mergeJobBlockingState` is the ONE spelling of the
+`awaiting_resolution` gate: a pure-read predicate over stored state whose
+`clear` branch carries no reason to read. Three consumers ask it and therefore
+cannot disagree — `runResolutionPhase` blocks on its verdict,
+`resolveMergeConflict` evaluates it eagerly so an operator's decision restarts
+the job immediately, and `resumeBlockedMergeJobs` sweeps from
+`drainCurationJobs` before it claims.
+
+**It cannot resume a job whose precondition is unmet**, because the thing that
+decides to resume is the function that decided to block; there is no second
+opinion available to be wrong, which is what an operator "retry" button would
+have been. And resuming is not RUNNING: the sweep flips a status and claims,
+leases and runs nothing, so `blocked` stays non-claimable and the paragraph
+above still holds.
+
+**There is deliberately no operator resume route.** With the predicate in place
+such a control is either redundant (the condition cleared and the sweep already
+scheduled it) or a no-op that re-blocks — a button that teaches an operator they
+fixed something they did not. What an operator actually lacks is *why*, so
+`GET /merge-jobs/:id` carries a derived `blocking` field: the same verdict the
+sweep will act on, which is what distinguishes "this resumes by itself" from
+"this is waiting on me". A parent whose child DEAD-LETTERED is the case that
+needs it, and the reason names the child's current status rather than "must
+complete first" — a running child and a dead one lead to opposite actions.
+
+**It fails closed for a phase added later, twice.** The predicate refuses to
+vouch for any phase but `awaiting_resolution`, and `PhaseOutcome` no longer
+carries `blockedReason` — only `runResolutionPhase` returns a type that does, so
+a new blocking phase is a `tsc` error until somebody has taught the predicate
+how its condition clears.
+
 ### Conflicts: six kinds, each naming a real constraint
 
 | Kind | The constraint it probes |
