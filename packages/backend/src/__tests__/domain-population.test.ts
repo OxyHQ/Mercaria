@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   type DirectoryEntry,
   type DirectoryReader,
+  assertDirectoriesAreFlat,
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
   readSrcDirectory,
@@ -352,5 +353,38 @@ describe('assertNothingOutsideDomainPopulation', () => {
         plantName: 'analytics.ts',
       }),
     ).toThrow(/already exists on disk/);
+  });
+});
+
+describe('assertDirectoriesAreFlat', () => {
+  it('refuses an EMPTY directory list — the vacuity #691 shipped', () => {
+    // Not a hypothetical. The inline version of this loop had no floor on its
+    // array, and emptying that array left all 26 tests in the calling file
+    // green. Under mutation the floor fires; this makes it fire under TEST, so
+    // the guard is not merely present but exercised (a mechanism can be green
+    // and inert).
+    expect(() => assertDirectoriesAreFlat([])).toThrow(/cannot fail/);
+  });
+
+  it('refuses a directory that HOLDS a subdirectory, naming it', () => {
+    const seeded: DirectoryReader = () => [
+      { name: 'thing.ts', isDirectory: () => false, isFile: () => true },
+      { name: 'admin', isDirectory: () => true, isFile: () => false },
+    ];
+    expect(() => assertDirectoriesAreFlat(['routes'], seeded)).toThrow(/grew a subdirectory/);
+  });
+
+  it('refuses a directory that lists NOTHING', () => {
+    // The third way to be vacuous: a reader that returned an empty result reads
+    // exactly like a flat directory.
+    expect(() => assertDirectoriesAreFlat(['routes'], () => [])).toThrow(/listed nothing/);
+  });
+
+  it('passes a genuinely flat directory, so the three refusals above are not blanket', () => {
+    const flat: DirectoryReader = () => [
+      { name: 'thing.ts', isDirectory: () => false, isFile: () => true },
+      { name: '__tests__', isDirectory: () => true, isFile: () => false },
+    ];
+    expect(() => assertDirectoriesAreFlat(['middleware'], flat)).not.toThrow();
   });
 });
