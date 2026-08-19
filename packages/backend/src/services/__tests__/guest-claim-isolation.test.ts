@@ -157,10 +157,16 @@ const CLAIM_UI_LIB_PATHS = ['frontend/lib/api/guest-claim.ts', 'frontend/lib/hoo
  * set that includes "the claim path reaches no referral module" — a wall whose
  * whole point is that it holds for screens nobody has written yet.
  */
-function claimScreens(): string[] {
+/** A reader of one directory RELATIVE to `packages/`, injected so the seeded
+ * control below drives THIS function rather than a copy of it. */
+type PackagesReader = (relative: string) => DirectoryEntry[];
+const readPackagesDirectory: PackagesReader = (relative) =>
+  readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true });
+
+function claimScreens(readDir: PackagesReader = readPackagesDirectory): string[] {
   const directory = join('frontend', 'app', '(app)', 'guest-orders');
   const walk = (relative: string): string[] =>
-    readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true }).flatMap((entry) => {
+    readDir(relative).flatMap((entry) => {
       if (entry.name === '__tests__') return [];
       const child = `${relative}/${entry.name}`;
       if (entry.isDirectory()) return walk(child);
@@ -737,23 +743,21 @@ describe('#668 — the traversals this gate does itself', () => {
     // the same path is asserted ABSENT from the real tree, so this measures the
     // traversal rather than a directory that happens to be flat today.
     const directory = 'frontend/app/(app)/guest-orders';
-    const seeded = (relative: string): DirectoryEntry[] =>
+    const seeded: PackagesReader = (relative) =>
       relative === directory
         ? [
-            ...readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true }),
-            { name: 'settings', isDirectory: () => true, isFile: () => false } as DirectoryEntry,
+            ...readPackagesDirectory(relative),
+            { name: 'settings', isDirectory: () => true, isFile: () => false },
           ]
         : relative === `${directory}/settings`
-          ? [{ name: 'index.tsx', isDirectory: () => false, isFile: () => true } as DirectoryEntry]
-          : readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true });
-    const walk = (relative: string): string[] =>
-      seeded(relative).flatMap((entry) => {
-        const child = `${relative}/${entry.name}`;
-        if (entry.isDirectory()) return walk(child);
-        return entry.name.endsWith('.tsx') ? [child] : [];
-      });
+          ? [{ name: 'index.tsx', isDirectory: () => false, isFile: () => true }]
+          : readPackagesDirectory(relative);
     const planted = `${directory}/settings/index.tsx`;
-    expect(walk(directory), 'the screen scan does not recurse').toContain(planted);
+    // The REAL function, handed the seeded reader. An earlier draft of this test
+    // built its own `walk` over the seeded reader and asserted THAT recursed —
+    // which measured the copy, not `claimScreens`. Mutation-proved: reverting
+    // `claimScreens` to a one-level read left the test green.
+    expect(claimScreens(seeded), 'the screen scan does not recurse').toContain(planted);
     expect(
       claimScreens(),
       'the seeded route directory exists on disk, so this proves nothing',

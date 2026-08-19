@@ -119,15 +119,30 @@ function filesIn(
  * it is flat would be a bet rather than a fact. A screen inside one was outside
  * all five walls below — including the one forbidding an external-offer handoff.
  */
+type StorefrontReader = (relative: string) => { name: string; isDirectory: () => boolean }[];
+const readStorefrontDirectory: StorefrontReader = (relative) =>
+  readdirSync(join(STOREFRONT_ROOT, relative), { withFileTypes: true });
+
+/**
+ * The route-screen PATHS, split from the read so the seeded control below can
+ * drive this exact function without the planted file having to exist on disk.
+ */
+function routeScreenPaths(
+  relative: string,
+  readDir: StorefrontReader = readStorefrontDirectory,
+): string[] {
+  return readDir(relative).flatMap((entry) => {
+    if (entry.name === '__tests__') return [];
+    const next = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) return routeScreenPaths(next, readDir);
+    return entry.name.endsWith('.tsx') ? [next] : [];
+  });
+}
+
 function routeScreens(relative: string): { relative: string; source: string }[] {
-  const walk = (child: string): string[] =>
-    readdirSync(join(STOREFRONT_ROOT, child), { withFileTypes: true }).flatMap((entry) => {
-      if (entry.name === '__tests__') return [];
-      const next = `${child}/${entry.name}`;
-      if (entry.isDirectory()) return walk(next);
-      return entry.name.endsWith('.tsx') ? [next] : [];
-    });
-  return walk(relative).map((found) => readScanned(join(STOREFRONT_ROOT, found), found));
+  return routeScreenPaths(relative).map((found) =>
+    readScanned(join(STOREFRONT_ROOT, found), found),
+  );
 }
 
 /**
@@ -687,25 +702,22 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
 
 describe('#668 — the traversals this gate does itself', () => {
   it('the ROUTE screen scan recurses, which the one-level read did not', () => {
-    const seeded = (child: string): { name: string; isDirectory: () => boolean }[] =>
+    const seeded: StorefrontReader = (child) =>
       child === 'app/(app)/p'
-        ? [
-            ...readdirSync(join(STOREFRONT_ROOT, child), { withFileTypes: true }),
-            { name: 'compare', isDirectory: () => true },
-          ]
+        ? [...readStorefrontDirectory(child), { name: 'compare', isDirectory: () => true }]
         : child === 'app/(app)/p/compare'
           ? [{ name: 'index.tsx', isDirectory: () => false }]
-          : readdirSync(join(STOREFRONT_ROOT, child), { withFileTypes: true });
-    const walk = (child: string): string[] =>
-      seeded(child).flatMap((entry) => {
-        const next = `${child}/${entry.name}`;
-        if (entry.isDirectory()) return walk(next);
-        return entry.name.endsWith('.tsx') ? [next] : [];
-      });
+          : readStorefrontDirectory(child);
     const planted = 'app/(app)/p/compare/index.tsx';
-    expect(walk('app/(app)/p'), 'the route scan does not recurse').toContain(planted);
+    // The REAL function, handed the seeded reader — not a `walk` rebuilt here.
+    // A control that re-implements the code under test measures the
+    // re-implementation, and this one did until a verified mutation said so.
     expect(
-      routeScreens('app/(app)/p').map((file) => file.relative),
+      routeScreenPaths('app/(app)/p', seeded),
+      'the route scan does not recurse',
+    ).toContain(planted);
+    expect(
+      routeScreenPaths('app/(app)/p'),
       'the seeded route directory exists on disk, so this proves nothing',
     ).not.toContain(planted);
   });
