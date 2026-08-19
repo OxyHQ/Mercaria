@@ -540,6 +540,8 @@ export interface InsertConflictInput {
   readonly collapsingRelationId?: string | null;
   readonly collapsingProductRedirectId?: string | null;
   readonly collapsingFamilyRedirectId?: string | null;
+  /** The open suppression an `entity_suppressed` conflict names (#694). */
+  readonly suppressionId?: string | null;
   /** A bundle collapse names its row by the pair, which outlives it (#405). */
   readonly collapsingBundleVariantId?: string | null;
   readonly collapsingComponentVariantId?: string | null;
@@ -575,6 +577,7 @@ export async function insertConflict(
       collapsingRelationId: input.collapsingRelationId ?? null,
       collapsingProductRedirectId: input.collapsingProductRedirectId ?? null,
       collapsingFamilyRedirectId: input.collapsingFamilyRedirectId ?? null,
+      suppressionId: input.suppressionId ?? null,
       collapsingBundleVariantId: input.collapsingBundleVariantId ?? null,
       collapsingComponentVariantId: input.collapsingComponentVariantId ?? null,
     })

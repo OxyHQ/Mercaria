@@ -21,6 +21,7 @@
  * it would become.
  */
 
+import type { MergeableEntityType } from '@mercaria/shared-types';
 import { sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sqlColumnName } from '@oxyhq/db';
@@ -31,9 +32,21 @@ import { offers } from '../schema/offers.js';
 
 /** A PAIR collision: two legal rows that become one illegal key. */
 export interface DetectedPairConflict {
+  /**
+   * SUBTRACTIVE, so every kind added to the shared tuple lands here BY DEFAULT
+   * and has to be excluded deliberately — `entity_suppressed` (#694) is the
+   * first to prove it, having silently become a legal pair kind the moment it
+   * joined `CATALOG_MERGE_CONFLICT_KINDS`. The database refuses what this type
+   * would admit (`..._pair_shape_check`'s `else false`), so the failure would
+   * have been a runtime `23514` rather than a wrong row — but the type should
+   * not have to be rescued by the CHECK.
+   */
   readonly kind: Exclude<
     CatalogMergeConflictKind,
-    'compatibility_endpoint_collapse' | 'redirect_endpoint_collapse' | 'bundle_self_containment'
+    | 'compatibility_endpoint_collapse'
+    | 'redirect_endpoint_collapse'
+    | 'bundle_self_containment'
+    | 'entity_suppressed'
   >;
   readonly loserRowId: string;
   readonly winnerRowId: string;
@@ -83,11 +96,29 @@ export interface DetectedBundleCollapseConflict {
   readonly detail: string;
 }
 
+/**
+ * An OPEN suppression a merge would destroy (#694).
+ *
+ * A fourth shape, and neither a pair nor a collapse: it names no catalogue row
+ * at all, only the DECISION standing over one. It also carries the SIDE,
+ * because the two harms are opposite — a suppressed loser has its suppression
+ * LIFTED by the merge, a suppressed winner has its suppression EXTENDED to
+ * content nobody examined — and an operator reading the conflict needs to know
+ * which one they are looking at.
+ */
+export interface DetectedSuppressionConflict {
+  readonly kind: 'entity_suppressed';
+  readonly suppressionId: string;
+  readonly side: 'loser' | 'winner';
+  readonly detail: string;
+}
+
 export type DetectedConflict =
   | DetectedPairConflict
   | DetectedCollapseConflict
   | DetectedRedirectCollapseConflict
-  | DetectedBundleCollapseConflict;
+  | DetectedBundleCollapseConflict
+  | DetectedSuppressionConflict;
 
 interface RawConflictRow {
   readonly loser_row_id: string;
@@ -499,4 +530,65 @@ export async function detectVerifiedClaimConflicts(
     where l.merchant_id = ${loserMerchantId} and l.state = 'verified'
   `);
   return toConflicts('verified_claim', rows);
+}
+
+/**
+ * `catalog_entity_suppressions` — an open suppression on either side (#694).
+ *
+ * The first detector that is TYPE-INDEPENDENT: every other one probes a
+ * constraint that exists for one entity kind, while a suppression can stand
+ * over any of the seven. It is still registered in `detectMergeConflicts`'
+ * per-entity table for all seven rather than called outside it, because that
+ * table's whole value is that "does a storefront merge probe suppressions" is
+ * answered by reading one place — and a reader who found it silent would
+ * conclude the probe does not run.
+ *
+ * It is also the first that names no CONSTRAINT. Nothing in this schema refuses
+ * a merge of a suppressed entity; that absence IS the bug, and `docs/curation.md`
+ * carries the amended membership test — does proceeding destroy something
+ * somebody decided.
+ *
+ * `entity_id` carries no foreign key (it is polymorphic, discriminated by
+ * `entity_type` — #654's subject), so the predicate names both columns. Matching
+ * on the id alone would find a suppression of a DIFFERENT entity kind that
+ * happens to share an id.
+ */
+export async function detectEntitySuppressionConflicts(
+  entityType: MergeableEntityType,
+  loserId: string,
+  winnerId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly DetectedConflict[]> {
+  const rows = await db.execute(sql`
+    select s.id as suppression_id,
+           case when s.entity_id = ${loserId} then 'loser' else 'winner' end as side,
+           case when s.entity_id = ${loserId}
+                then 'the losing ' || s.entity_type || ' is suppressed (' || s.reason ||
+                     '), and this merge would LIFT that: the tombstone write replaces ' ||
+                     'the suppressed status with merged, and every row it covered is rehomed onto a ' ||
+                     'winner that is not suppressed'
+                else 'the winning ' || s.entity_type || ' is suppressed (' || s.reason ||
+                     '), and this merge would EXTEND that suppression to everything the loser ' ||
+                     'owns, which nobody examined'
+           end as detail
+    from catalog_entity_suppressions s
+    where s.entity_type = ${entityType}
+      and s.lifted_at is null
+      and s.entity_id in (${loserId}, ${winnerId})
+    order by s.suppressed_at
+  `);
+  const detected: DetectedSuppressionConflict[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    const typed = row as { suppression_id?: string; side?: string; detail?: string };
+    if (!typed.suppression_id) continue;
+    if (typed.side !== 'loser' && typed.side !== 'winner') continue;
+    detected.push({
+      kind: 'entity_suppressed',
+      suppressionId: typed.suppression_id,
+      side: typed.side,
+      detail: typed.detail ?? 'an open suppression stands over one side of this merge',
+    });
+  }
+  return detected;
 }
