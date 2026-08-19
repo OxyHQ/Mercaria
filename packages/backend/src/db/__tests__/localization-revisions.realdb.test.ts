@@ -30,7 +30,10 @@ import {
   readLocalizationFieldHistory,
   rollbackLocalizationField,
 } from '../catalogLocalization/revisionRepository.js';
-import { LOCALIZATION_REVISION_FIELD_PAIRS } from '@mercaria/shared-types';
+import {
+  LOCALIZATION_REVISION_FIELD_PAIRS,
+  type LocalizedFieldKey,
+} from '@mercaria/shared-types';
 
 const ADMIN_URL =
   process.env['TEST_DATABASE_URL'] ??
@@ -73,7 +76,7 @@ async function newCategory(name: string): Promise<string> {
   return row.id;
 }
 
-async function revisionsFor(categoryId: string, fieldKey: string) {
+async function revisionsFor(categoryId: string, fieldKey: LocalizedFieldKey) {
   return db
     .select()
     .from(catalogLocalizationRevisions)
