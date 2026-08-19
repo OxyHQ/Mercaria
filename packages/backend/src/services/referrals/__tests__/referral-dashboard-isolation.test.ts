@@ -13,7 +13,16 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../__tests__/domain-population.js';
 import { join } from 'node:path';
 import {
   REFERRAL_FORBIDDEN_PERFORMANCE_DIMENSIONS,
@@ -25,25 +34,51 @@ import {
 } from '@mercaria/shared-types';
 import { findForbiddenPartnerFields } from '../dashboard/partner-projection.js';
 
-const DASHBOARD_DIR = join(process.cwd(), 'src/services/referrals/dashboard');
-const PARTNER_CONTROLLER = join(process.cwd(), 'src/controllers/referral-partner.controller.ts');
+const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const DASHBOARD_DIR = join(SRC_ROOT, 'services/referrals/dashboard');
+const PARTNER_CONTROLLER = join(SRC_ROOT, 'controllers/referral-partner.controller.ts');
 
-/** Every `.ts` under the dashboard directory, so the walls hold for files nobody has written. */
+/**
+ * What a module of THIS sub-domain is called.
+ *
+ * `services/referrals/` hosts four sub-domains with four gates, so a bare
+ * `referral` here would pull earnings, integrity, rewards and the partner
+ * surface into this population — 118 modules against this one's ten. The
+ * pattern names the dashboard specifically, in both spellings that exist:
+ * the directory segment and the hyphenated middleware filename.
+ */
+const DASHBOARD_NAME_PATTERN = /referrals?[/-]dashboard|referralDashboard/i;
+
+/** The one directory this sub-domain owns outright. */
+const OWNED_DIRECTORY = 'services/referrals/dashboard';
+
+/** The flat directories a module of this sub-domain lives in under its own NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the dashboard sub-domain, RELATIVE to `src/`.
+ *
+ * It was the owned directory and nothing else (#460), so
+ * `middleware/referral-dashboard-schemas.ts` — the request schemas, which decide
+ * what a partner may ASK the dashboard for — sat behind none of the walls below.
+ *
+ * The path also stops being a function of `process.cwd()`: it was
+ * `join(process.cwd(), 'src/...')`, which is correct only when vitest is invoked
+ * from the package root.
+ */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...walkOwnedDirectory(OWNED_DIRECTORY, readDir),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, DASHBOARD_NAME_PATTERN, readDir),
+  ];
+}
+
+/** Every `.ts` of the sub-domain, so the walls hold for files nobody has written. */
 function dashboardFiles(): { path: string; source: string }[] {
-  const out: { path: string; source: string }[] = [];
-  const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir)) {
-      const full = join(dir, entry);
-      if (statSync(full).isDirectory()) {
-        walk(full);
-        continue;
-      }
-      if (!entry.endsWith('.ts')) continue;
-      out.push({ path: full, source: readFileSync(full, 'utf8') });
-    }
-  };
-  walk(DASHBOARD_DIR);
-  return out;
+  return domainRelativePaths().map((relative) => ({
+    path: join(SRC_ROOT, relative),
+    source: readFileSync(join(SRC_ROOT, relative), 'utf8'),
+  }));
 }
 
 /**
@@ -242,5 +277,65 @@ describe('WALL 6 — no partner route can name a partner', () => {
 
   it('mutation self-test: the detector fires on a real read', () => {
     expect(/req\.params\.partnerId/u.test('const id = req.params.partnerId;')).toBe(true);
+  });
+});
+
+
+describe('the population every wall above is applied to (#460)', () => {
+  it('nothing naming this sub-domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: DASHBOARD_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // every module the whole-tree sweep finds under this sub-domain's own name
+      // is this sub-domain's.
+      notThisDomain: [],
+      // Below today's 10 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 8,
+      plantIn: 'lib',
+      plantName: 'referral-dashboard-cache.ts',
+    });
+  });
+
+  it('the module the owned-directory population could not reach is in it', () => {
+    // An identity assertion, not a floor. A floor set below 10 is met without
+    // it.
+    const population = domainRelativePaths();
+    for (const named of ['middleware/referral-dashboard-schemas.ts']) {
+      expect(population, `${named} is outside every wall again`).toContain(named);
+      expect(
+        statSync(join(SRC_ROOT, named)).isFile(),
+        `${named} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('the SIBLING sub-domains stay out — `services/referrals/` hosts four', () => {
+    // The hazard this narrow pattern exists for. A bare `referral` matches 118
+    // modules across four sub-domains, each with its own gate and its own walls,
+    // and a population that swallowed them would apply THIS gate's walls to code
+    // three other issues own. Each sibling is asserted to exist, so the
+    // exclusion cannot go vacuous on a rename.
+    const population = domainRelativePaths();
+    for (const sibling of ['services/referrals/earnings/posting.service.ts', 'services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts']) {
+      expect(
+        statSync(join(SRC_ROOT, sibling)).isFile(),
+        `${sibling} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+      expect(DASHBOARD_NAME_PATTERN.test(sibling), `${sibling} matches this sub-domain's name`).toBe(false);
+      expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
+    }
+    // …and the vacuity floor on the loop itself.
+    expect(['services/referrals/earnings/posting.service.ts', 'services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts'].length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('floors PER SHAPE, because the sources break independently', () => {
+    const owned = walkOwnedDirectory(OWNED_DIRECTORY);
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, DASHBOARD_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(7);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      1,
+    );
   });
 });

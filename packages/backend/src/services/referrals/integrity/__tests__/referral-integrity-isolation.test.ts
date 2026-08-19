@@ -28,7 +28,14 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../../__tests__/domain-population.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -53,22 +60,40 @@ import {
 } from '@mercaria/shared-types';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const SRC_ROOT = join(HERE, '..', '..', '..', '..');
 const INTEGRITY_DIR = join(HERE, '..');
-const INTEGRITY_DB_DIR = join(HERE, '..', '..', '..', '..', 'db', 'referralIntegrity');
 
-/** Every `.ts` under a directory, excluding its own tests. */
-function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) {
-      if (entry === '__tests__') continue;
-      out.push(...sourceFiles(path));
-      continue;
-    }
-    if (entry.endsWith('.ts')) out.push(path);
-  }
-  return out;
+/**
+ * What a module of THIS sub-domain is called.
+ *
+ * `services/referrals/` hosts four sub-domains with four gates, so a bare
+ * `referral` would pull all 118 referral modules into a population of fifteen.
+ * Both spellings the tree uses: the directory segment and the camelCase
+ * `referralIntegrity`.
+ */
+const INTEGRITY_NAME_PATTERN = /referral-?integrity|referrals\/integrity/i;
+
+/** The two directories this sub-domain owns outright. */
+const OWNED_DIRECTORIES = ['services/referrals/integrity', 'db/referralIntegrity'] as const;
+
+/** The flat directories a module of this sub-domain lives in under its own NAME. */
+const SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * Every module of the integrity sub-domain, RELATIVE to `src/`.
+ *
+ * It was the two owned directories and nothing else (#460), so TWO modules sat
+ * behind none of the walls below: `controllers/referral-integrity.controller.ts`
+ * — the operator surface that raises and lifts an enforcement — and
+ * `db/schema/referralIntegrity.ts`, where the risk-signal, policy and
+ * enforcement tables and their CHECKs are DECLARED. Those are the two places a
+ * forbidden identity signal would arrive first.
+ */
+function domainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(SHARED_DIRECTORIES, INTEGRITY_NAME_PATTERN, readDir),
+  ];
 }
 
 /**
@@ -83,7 +108,7 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ');
 }
 
-const FILES = [...sourceFiles(INTEGRITY_DIR), ...sourceFiles(INTEGRITY_DB_DIR)];
+const FILES = domainRelativePaths().map((relative) => join(SRC_ROOT, relative));
 
 interface Wall {
   name: string;
@@ -422,5 +447,68 @@ describe('retention: raw evidence expires before financial records', () => {
     for (const cls of REFERRAL_RETENTION_CLASSES) {
       expect(REFERRAL_RETENTION_POLICY[cls].basis.length).toBeGreaterThan(20);
     }
+  });
+});
+
+
+describe('the population every wall above is applied to (#460)', () => {
+  it('nothing naming this sub-domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: domainRelativePaths,
+      pattern: INTEGRITY_NAME_PATTERN,
+      // Deliberately empty, and the assertion is what makes that a measurement:
+      // every module the whole-tree sweep finds under this sub-domain's own name
+      // is this sub-domain's.
+      notThisDomain: [],
+      // Below today's 15 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 12,
+      plantIn: 'lib',
+      plantName: 'referral-integrity-cache.ts',
+    });
+  });
+
+  it('the modules the owned-directory population could not reach are in it', () => {
+    // An identity assertion, not a floor. A floor set below 15 is met without
+    // either.
+    const population = domainRelativePaths();
+    for (const named of [
+      'controllers/referral-integrity.controller.ts',
+      'db/schema/referralIntegrity.ts',
+    ]) {
+      expect(population, `${named} is outside every wall again`).toContain(named);
+      expect(
+        statSync(join(SRC_ROOT, named)).isFile(),
+        `${named} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('the SIBLING sub-domains stay out — `services/referrals/` hosts four', () => {
+    // The hazard this narrow pattern exists for. A bare `referral` matches 118
+    // modules across four sub-domains, each with its own gate and its own walls,
+    // and a population that swallowed them would apply THIS gate's walls to code
+    // three other issues own. Each sibling is asserted to exist, so the
+    // exclusion cannot go vacuous on a rename.
+    const population = domainRelativePaths();
+    for (const sibling of ['services/referrals/earnings/posting.service.ts', 'services/referrals/rewards/funding.ts', 'services/referrals/dashboard/disclosure.ts']) {
+      expect(
+        statSync(join(SRC_ROOT, sibling)).isFile(),
+        `${sibling} no longer exists, so excluding it proves nothing`,
+      ).toBe(true);
+      expect(INTEGRITY_NAME_PATTERN.test(sibling), `${sibling} matches this sub-domain's name`).toBe(false);
+      expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
+    }
+    // …and the vacuity floor on the loop itself.
+    expect(['services/referrals/earnings/posting.service.ts', 'services/referrals/rewards/funding.ts', 'services/referrals/dashboard/disclosure.ts'].length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('floors PER SHAPE, because the sources break independently', () => {
+    const owned = OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(SHARED_DIRECTORIES, INTEGRITY_NAME_PATTERN);
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(11);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      1,
+    );
   });
 });

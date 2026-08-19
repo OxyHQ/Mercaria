@@ -26,12 +26,19 @@
 
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import {
+  type DirectoryReader,
+  assertNothingOutsideDomainPopulation,
+  namedInSharedDirectories,
+  readSrcDirectory,
+  walkOwnedDirectory,
+} from '../../../../__tests__/domain-population.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const SRC_ROOT = join(HERE, '..', '..', '..', '..');
 const REWARDS_DIR = join(HERE, '..');
-const REFERRAL_SERVICES_DIR = join(HERE, '..', '..');
 const REFERRAL_DB_DIR = join(HERE, '..', '..', '..', '..', 'db', 'referrals');
 const REFERRAL_EARNINGS_DB_DIR = join(HERE, '..', '..', '..', '..', 'db', 'referralEarnings');
 const EARNINGS_DIR = join(HERE, '..', '..', 'earnings');
@@ -99,15 +106,86 @@ interface Wall {
   valueImportsOnly?: boolean;
 }
 
+/**
+ * What a module of the referral domain is called, wherever it lives.
+ *
+ * Bare `referral`, matched against the PATH, and here that width is CORRECT
+ * rather than sloppy: every wall below says "from anywhere in the referral
+ * domain", and this is the only gate in `services/referrals/` whose subject is
+ * the whole of it rather than one sub-domain. The four sub-domain gates beside
+ * it narrow deliberately; this one must not.
+ */
+const REFERRAL_DOMAIN_NAME_PATTERN = /referral/i;
+
+/** Every directory the referral domain owns outright. */
+const REFERRAL_OWNED_DIRECTORIES = [
+  'services/referrals',
+  'services/referral-payouts',
+  'services/referral-pilot',
+  'db/referrals',
+  'db/referralEarnings',
+  'db/referralIntegrity',
+  'db/referralPilot',
+] as const;
+
+/** The flat directories a referral module lives in under the domain NAME. */
+const REFERRAL_SHARED_DIRECTORIES = ['routes', 'controllers', 'middleware', 'db/schema'] as const;
+
+/**
+ * The whole referral domain, RELATIVE to `src/`.
+ *
+ * It was `services/referrals/`, `db/referrals/` and `db/referralEarnings/`
+ * (#460) — forty modules — while every wall's name claimed the domain. THIRTY-SIX
+ * more carry the domain token and were behind none of them: seven controllers,
+ * five routes, five middleware modules, five schema modules, `db/referralIntegrity/`,
+ * `db/referralPilot/`, `services/referral-pilot/` and `services/referral-payouts/`.
+ *
+ * All thirty-six were measured against every wall before being added. Thirty-two
+ * are clean against all eight; the four in `services/referral-payouts/` reach the
+ * payment domain, which is what that sub-domain is FOR — see
+ * `PAYMENT_WALL_FILES`.
+ */
+function referralDomainRelativePaths(readDir: DirectoryReader = readSrcDirectory): string[] {
+  return [
+    ...REFERRAL_OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative, readDir)),
+    ...namedInSharedDirectories(
+      REFERRAL_SHARED_DIRECTORIES,
+      REFERRAL_DOMAIN_NAME_PATTERN,
+      readDir,
+    ),
+  ];
+}
+
 const REWARD_FILES = sourceFiles(REWARDS_DIR);
-const REFERRAL_SERVICE_FILES = sourceFiles(REFERRAL_SERVICES_DIR);
+const REFERRAL_DOMAIN_FILES = referralDomainRelativePaths().map((relative) =>
+  join(SRC_ROOT, relative),
+);
 const REFERRAL_DB_FILES = [
   ...sourceFiles(REFERRAL_DB_DIR),
   ...sourceFiles(REFERRAL_EARNINGS_DB_DIR),
 ];
+
+/**
+ * #146's payout RAIL, whose job is to reach the payment domain.
+ *
+ * Excused from the PAYMENT wall alone — not from the population, and not from
+ * the other seven walls, which it passes. Excluding it from the population would
+ * have cost the fee, pricing, procurement, ranking, discount, FX and OxyPay
+ * walls over four modules that move a partner's money; excusing it from one wall
+ * costs only the wall its own purpose contradicts.
+ *
+ * The three `PAYMENT_SEAMS` above stay separate and are a different statement:
+ * those are modules INSIDE the reward and earnings path that may touch the
+ * ledger. This is a sub-domain whose whole reason is the rail.
+ */
+const PAYOUT_RAIL_PREFIX = 'services/referral-payouts/';
+
 /** Everything in the domain EXCEPT the three named payment seams. */
-const NON_SEAM_FILES = [...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES].filter(
-  (path) => !PAYMENT_SEAMS.includes(path),
+const NON_SEAM_FILES = REFERRAL_DOMAIN_FILES.filter((path) => !PAYMENT_SEAMS.includes(path));
+
+/** The payment wall's own population — the above, minus #146's rail. */
+const PAYMENT_WALL_FILES = NON_SEAM_FILES.filter(
+  (path) => !path.includes(`/${PAYOUT_RAIL_PREFIX}`),
 );
 
 const WALLS: Wall[] = [
@@ -171,7 +249,7 @@ const WALLS: Wall[] = [
     // adapter, the refund path or the order linkage — every one of which can
     // move money or change an order.
     name: 'the payment domain, from any file but the three named seams',
-    files: NON_SEAM_FILES,
+    files: PAYMENT_WALL_FILES,
     valueImportsOnly: true,
     pattern:
       /from\s+['"][^'"]*(services\/payments|\.\.\/payments\/|db\/payments|schema\/payments|schema\/ledger|order-linkage|refund\.service)[^'"]*['"]/,
@@ -202,17 +280,21 @@ describe('referral reward funding isolation (static)', () => {
     // The anti-vacuity floor. A broken traversal scans nothing and every wall
     // below passes, which is exactly what a BROKEN scan produces.
     expect(REWARD_FILES.length).toBeGreaterThanOrEqual(6);
-    expect(REFERRAL_SERVICE_FILES.length).toBeGreaterThanOrEqual(12);
+    expect(REFERRAL_DOMAIN_FILES.length).toBeGreaterThanOrEqual(60);
     expect(REFERRAL_DB_FILES.length).toBeGreaterThanOrEqual(14);
+    // The payment wall's own set is the domain minus #146's rail, and it must
+    // still be most of it — a filter that swallowed the population would leave
+    // that wall measuring almost nothing.
+    expect(PAYMENT_WALL_FILES.length).toBeGreaterThanOrEqual(55);
     expect(NON_SEAM_FILES.length).toBeGreaterThanOrEqual(24);
     // …#145's own modules are genuinely in the scanned set, so the walls below
     // are measuring them rather than a directory that failed to traverse.
     expect(sourceFiles(EARNINGS_DIR).length).toBeGreaterThanOrEqual(8);
-    expect(REFERRAL_SERVICE_FILES).toContain(POSTING_SEAM);
+    expect(REFERRAL_DOMAIN_FILES).toContain(POSTING_SEAM);
     // …and every seam is genuinely excluded from the non-seam set, rather than
     // the filter having matched nothing.
     for (const seam of PAYMENT_SEAMS) {
-      expect([...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES]).toContain(seam);
+      expect(REFERRAL_DOMAIN_FILES).toContain(seam);
       expect(NON_SEAM_FILES).not.toContain(seam);
     }
   });
@@ -236,7 +318,7 @@ describe('referral reward funding isolation (static)', () => {
   }
 
   it('reads the ledger SCHEMA from exactly two files, and both only read', () => {
-    const ledgerImporters = [...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES]
+    const ledgerImporters = REFERRAL_DOMAIN_FILES
       .filter((path) => /from\s+['"][^'"]*schema\/ledger[^'"]*['"]/.test(code(path)))
       .sort();
     // An EXACT set. #145 added the balance read and nothing else; a third file
@@ -271,7 +353,7 @@ describe('referral reward funding isolation (static)', () => {
     // The exemption #144's version of this file refused, granted by #145 with
     // its reconciliation sweep in the same change. An EXACT set: a second writer
     // is a build failure, not a review comment.
-    const writers = [...REFERRAL_SERVICE_FILES, ...REFERRAL_DB_FILES].filter((path) =>
+    const writers = REFERRAL_DOMAIN_FILES.filter((path) =>
       /insertLedgerTransaction/.test(code(path)),
     );
     expect(writers).toEqual([POSTING_SEAM]);
@@ -300,6 +382,92 @@ describe('referral reward funding isolation (static)', () => {
     expect(offenders.map((path) => path.split('/').pop())).toEqual([]);
     expect(pattern.test("import { findOrder } from '../../../db/orders/orderRepository.js';")).toBe(
       true,
+    );
+  });
+});
+
+describe('the population the walls above are applied to (#460)', () => {
+  it('nothing naming the referral domain sits outside it', () => {
+    assertNothingOutsideDomainPopulation({
+      population: referralDomainRelativePaths,
+      pattern: REFERRAL_DOMAIN_NAME_PATTERN,
+      // Deliberately empty. This gate's subject IS the whole referral domain —
+      // every wall's name says so — which is why the pattern is the bare word
+      // here and narrow in the four sub-domain gates beside it.
+      notThisDomain: [],
+      // Below today's 76 so a routine deletion does not fail the build, and far
+      // enough above zero that a traversal which reached nothing does.
+      sweepFloor: 60,
+      plantIn: 'lib',
+      plantName: 'referral-cache.ts',
+    });
+  });
+
+  it('the surfaces the three-directory population could not reach are in it', () => {
+    // An identity assertion per SHAPE rather than a floor: the HTTP surface, the
+    // schema modules and the three sibling service/db directories break
+    // independently, and a floor of 60 is met without any one of them.
+    const population = referralDomainRelativePaths();
+    for (const named of [
+      'controllers/referral-partner.controller.ts',
+      'routes/referral-redirect.ts',
+      'middleware/referral-schemas.ts',
+      'db/schema/referrals.ts',
+      'db/referralIntegrity/enforcementRepository.ts',
+      'db/referralPilot/pilotRepository.ts',
+      'services/referral-pilot/pilot.service.ts',
+      'services/referral-payouts/rail.ts',
+      'routes/admin/referral-partner.ts',
+    ]) {
+      expect(population, `${named} is outside every wall again`).toContain(named);
+      expect(
+        statSync(join(SRC_ROOT, named)).isFile(),
+        `${named} no longer exists, so naming it proves nothing`,
+      ).toBe(true);
+    }
+  });
+
+  it('`routes/admin/` is reached, which a one-level sweep never was', () => {
+    // `routes/admin/referral-partner.ts` is the concrete instance of the
+    // recursion this gate gained: 23 modules live under `routes/admin/` and a
+    // one-level name sweep reaches none of them.
+    expect(referralDomainRelativePaths()).toContain('routes/admin/referral-partner.ts');
+  });
+
+  it('#146’s payout rail is excused from the PAYMENT wall ALONE, and still scanned by the rest', () => {
+    // The scope judgement, in both directions. Excluding the rail from the
+    // POPULATION would have cost the fee, pricing, procurement, ranking,
+    // discount, FX and OxyPay walls over four modules that move a partner's
+    // money; excusing it from one wall costs only the wall its own purpose
+    // contradicts.
+    const rail = REFERRAL_DOMAIN_FILES.filter((path) => path.includes(`/${PAYOUT_RAIL_PREFIX}`));
+    expect(rail.length, 'the payout rail is not in the population').toBeGreaterThanOrEqual(4);
+    for (const path of rail) {
+      expect(PAYMENT_WALL_FILES, `${path} is still under the payment wall`).not.toContain(path);
+      expect(NON_SEAM_FILES, `${path} left every other wall too`).toContain(path);
+    }
+
+    // DOES the exemption still fire? Each excused module must genuinely trip the
+    // payment wall — otherwise it is a stale excuse reading like a decision.
+    const paymentWall = WALLS.find((wall) => wall.name.startsWith('the payment domain'));
+    expect(paymentWall, 'the payment wall is gone').toBeDefined();
+    if (!paymentWall) return;
+    const tripping = rail.filter((path) => paymentWall.pattern.test(code(path)));
+    expect(
+      tripping.length,
+      'no payout-rail module reaches the payment domain, so excusing them is doing nothing',
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  it('floors PER SHAPE, because the sources break independently', () => {
+    const owned = REFERRAL_OWNED_DIRECTORIES.flatMap((relative) => walkOwnedDirectory(relative));
+    const shared = namedInSharedDirectories(
+      REFERRAL_SHARED_DIRECTORIES,
+      REFERRAL_DOMAIN_NAME_PATTERN,
+    );
+    expect(owned.length, 'the owned-directory walk reached nothing').toBeGreaterThanOrEqual(50);
+    expect(shared.length, 'the shared-directory name sweep reached nothing').toBeGreaterThanOrEqual(
+      15,
     );
   });
 });
