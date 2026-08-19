@@ -42,7 +42,9 @@ import {
 } from '../db/curation/curationRepository.js';
 import {
   approveMerge,
+  cancelMerge,
   mergeJobBlockingState,
+  mergeJobCancellationState,
   requestMerge,
   resolveMergeConflict,
 } from '../services/curation/merge.service.js';
@@ -309,12 +311,33 @@ export async function getMergeJobHandler(req: Request, res: Response): Promise<v
        * something they did not.
        */
       blocking: job.status === 'blocked' ? await mergeJobBlockingState(job, db) : null,
+      /**
+       * Whether this job can be STOPPED, derived (#680).
+       *
+       * The same predicate the cancel route enforces, so what the surface offers
+       * and what the write permits cannot disagree — and its refusal carries the
+       * reason, which for a dead-lettered job is the useful fact that a fresh
+       * merge can be requested now.
+       */
+      cancellation: mergeJobCancellationState(job),
       conflicts: await listConflicts(id, db),
       phases: await listMergePhases(id, db),
       revisions: await findRevisionsForJob({ mergeJobId: id }, db),
     });
   } catch (err) {
     respondWithError(res, err, 'Failed to read the merge job');
+  }
+}
+
+export async function cancelMergeHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const input = body<{ reason: string }>(req);
+    sendSuccess(
+      res,
+      toMergeJobView(await cancelMerge(routeParam(req, 'id'), catalogOperatorId(req), input.reason)),
+    );
+  } catch (err) {
+    respondWithError(res, err, 'Failed to cancel the merge job');
   }
 }
 

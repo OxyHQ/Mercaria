@@ -86,6 +86,7 @@ import {
 } from '../controllers/merchant-claims-operator.controller.js';
 import {
   approveMergeHandler,
+  cancelMergeHandler,
   approveSplitHandler,
   claimReviewItemHandler,
   compensateRevisionHandler,
@@ -359,6 +360,14 @@ router.get('/merge-jobs/:id', getMergeJobHandler);
 
 /** POST — the SECOND operator's approval. The requester's own is refused. */
 router.post('/merge-jobs/:id/approve', validateBody(approveJobSchema), approveMergeHandler);
+/**
+ * Stop a merge that has moved nothing, freeing the entity for another (#680).
+ *
+ * It reuses `approveJobSchema` because the input is the same shape — a
+ * mandatory reason — and the actor comes off the credential rather than the
+ * body, as everywhere else on this surface.
+ */
+router.post('/merge-jobs/:id/cancel', validateBody(approveJobSchema), cancelMergeHandler);
 
 /** POST — decide ONE conflict. `merge_pair` opens the child job it implies. */
 router.post(

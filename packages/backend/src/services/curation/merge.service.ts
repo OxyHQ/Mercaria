@@ -45,6 +45,7 @@ import { conflict, notFound, validationError } from '../../lib/errors/error-code
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
   advanceMergePhase,
+  cancelMergeJob,
   approveMergeJob,
   blockMergeJob,
   claimMergePhase,
@@ -357,6 +358,112 @@ export async function resolveMergeConflict(
     await unblockMergeJob(job.id, db);
   }
   return { resolved: true, childJobId };
+}
+
+/**
+ * Why this job cannot be cancelled — or that it can (#680).
+ *
+ * A pure read over the row, and the ONE spelling of the rule, so the service
+ * and its refusal message cannot describe different policies.
+ *
+ * The refusals are not interchangeable and the wording matters, because each
+ * leads an operator to a different next action. `dead_letter` is the one to
+ * read: cancelling it would release nothing, because a dead-lettered job is not
+ * in `OPEN_STATUSES` and therefore holds no open job for the entity — so the
+ * useful answer is that they can request a fresh merge RIGHT NOW, which a status
+ * change would have left them still wondering about.
+ */
+export type MergeJobCancellationState =
+  /** The `allowed` branch carries no reason: there is none to read. */
+  | { readonly state: 'allowed' }
+  | { readonly state: 'refused'; readonly reason: string };
+
+export function mergeJobCancellationState(job: CatalogMergeJobRow): MergeJobCancellationState {
+  if (job.status === 'blocked') return { state: 'allowed' };
+  if (job.status === 'pending' && job.phase === 'plan') return { state: 'allowed' };
+
+  if (job.status === 'pending') {
+    return {
+      state: 'refused',
+      reason:
+        `This merge is pending at the '${job.phase}' phase, so work has already been applied. ` +
+        'Cancelling is stopping, never reverting — only a job that has moved nothing may be ' +
+        'cancelled. Let it run, or let it dead-letter.',
+    };
+  }
+  if (job.status === 'processing') {
+    return {
+      state: 'refused',
+      reason:
+        'This merge is running under a live lease. Cancelling it would race the worker; wait ' +
+        'for the lease to expire or for the phase to finish.',
+    };
+  }
+  if (job.status === 'dead_letter') {
+    return {
+      state: 'refused',
+      reason:
+        'A dead-lettered merge holds no open job for this entity, so cancelling it would ' +
+        'release nothing — a fresh merge can be requested now. It may also have dead-lettered ' +
+        'part-way, and marking it cancelled would put that word on work that still stands.',
+    };
+  }
+  return {
+    state: 'refused',
+    reason: `This merge is '${job.status}' and there is nothing left to stop.`,
+  };
+}
+
+/**
+ * Stop a merge that has moved nothing, and free the entity for another one.
+ *
+ * The attribution posture every other write on this surface has: a mandatory
+ * actor and reason, and a `catalog_revisions` entry. The revision uses the
+ * existing `merge` action with a note rather than a new `cancel` one —
+ * `approveMerge` sets that precedent, and `catalog_revisions_action_check` is
+ * rendered from `CATALOG_REVISION_ACTIONS`, so a new member would be a
+ * migration for a fact the note already carries.
+ */
+export async function cancelMerge(
+  jobId: string,
+  actorOxyUserId: string,
+  reason: string,
+): Promise<CatalogMergeJobRow> {
+  const db = getDb();
+  const job = await findMergeJobById(jobId, db);
+  if (!job) throw notFound(`No merge job ${jobId}.`);
+
+  const verdict = mergeJobCancellationState(job);
+  if (verdict.state === 'refused') throw conflict(verdict.reason);
+
+  const note = `cancelled by ${actorOxyUserId}: ${reason}`;
+  if (!(await cancelMergeJob(jobId, note, db))) {
+    // The CAS lost, so the row moved between the read and the write — a claim,
+    // a resume, or another operator. Re-read rather than reporting the state
+    // this request happened to see.
+    const now = await findMergeJobById(jobId, db);
+    throw conflict(
+      `Merge job ${jobId} changed while being cancelled (it is now '${now?.status ?? 'gone'}'); ` +
+        'read it again and decide against its current state.',
+    );
+  }
+
+  await recordRevision(
+    {
+      entityType: job.entityType,
+      entityId: job.loserId,
+      action: 'merge',
+      actorKind: 'operator',
+      actorOxyUserId,
+      reason,
+      note: 'merge cancelled before any row moved',
+      mergeJobId: jobId,
+    },
+    db,
+  );
+  const cancelled = await findMergeJobById(jobId, db);
+  if (!cancelled) throw notFound(`No merge job ${jobId}.`);
+  return cancelled;
 }
 
 /**

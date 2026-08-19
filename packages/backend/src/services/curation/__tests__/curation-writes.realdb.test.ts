@@ -58,14 +58,18 @@ import { normalizeEntityName } from '../../canonical/normalization.js';
 import { variantSignature } from '../../canonical/variant-signature.js';
 import {
   approveSplitJob,
+  cancelMergeJob,
   claimMergeJobs,
   claimSplitJobs,
+  findMergeJobById,
   findSplitJobById,
   listSplitJobs,
 } from '../../../db/curation/jobRepository.js';
 import {
   approveMerge,
+  cancelMerge,
   mergeJobBlockingState,
+  mergeJobCancellationState,
   requestMerge,
   resolveMergeConflict,
   resumeBlockedMergeJobs,
@@ -2258,5 +2262,211 @@ describe('#679: a split blocked on its second approval PARKS instead of spinning
       .set({ phase: 'mint' })
       .where(eq(catalogSplitJobs.id, split.id));
     expect((await splitRow(split.id)).phase).toBe('mint');
+  });
+});
+
+describe('#680: a merge that has moved nothing can be STOPPED, freeing the entity', () => {
+  async function statusOf(jobId: string): Promise<string> {
+    const rows = await db
+      .select({ status: catalogMergeJobs.status })
+      .from(catalogMergeJobs)
+      .where(eq(catalogMergeJobs.id, jobId));
+    const status = rows[0]?.status;
+    if (!status) throw new Error(`merge job ${jobId} vanished`);
+    return status;
+  }
+
+  /** A four-eyes merge, parked exactly as #663's own case parks it. */
+  async function seedBlockedMerge(label: string) {
+    const loser = await seedProduct(`680${label}-loser`);
+    const winner = await seedProduct(`680${label}-winner`);
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'a duplicate that turns out to need stopping',
+      actorOxyUserId: OPERATOR,
+    });
+    await db
+      .update(catalogMergeJobs)
+      .set({ requiresSecondApproval: true })
+      .where(eq(catalogMergeJobs.id, job.id));
+    const blocked = await claimAndRunMerge(job.id, `lease-680${label}-${RUN}`);
+    expect(blocked.blocked).toBe(true);
+    expect(await statusOf(job.id)).toBe('blocked');
+    return { loser, winner, job };
+  }
+
+  it('THE REMEDY: cancelling releases the open key, so the entity takes a NEW merge job', async () => {
+    const { loser, winner, job } = await seedBlockedMerge('key');
+
+    /**
+     * The positive control, and it is what makes the assertion after the cancel
+     * mean something: BEFORE the cancel a second merge is refused, because
+     * `catalog_merge_jobs_open_key` covers `blocked`. Without this, "the second
+     * request succeeded" would be consistent with the key never having been
+     * held at all.
+     */
+    await expect(
+      requestMerge({
+        entityType: 'canonical_product',
+        loserId: loser.productId,
+        winnerId: winner.productId,
+        reason: 'a second attempt while the first is parked',
+        actorOxyUserId: OPERATOR,
+      }),
+    ).rejects.toThrow(/already has an open merge job/);
+
+    const cancelled = await cancelMerge(job.id, SECOND_OPERATOR, 'the child dead-lettered and cannot be fixed');
+    expect(cancelled.status).toBe('cancelled');
+
+    /**
+     * And now the thing #680 is actually about. On `main` this entity was
+     * foreclosed FOREVER: the parent sat `blocked` holding the key, `requestMerge`
+     * refused every future attempt, and no code path could write `cancelled`.
+     */
+    const second = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'a fresh attempt now the stuck one is stopped',
+      actorOxyUserId: OPERATOR,
+    });
+    expect(second.id).not.toBe(job.id);
+    expect(second.status).toBe('pending');
+  });
+
+  it('is ATTRIBUTABLE: a revision names the actor and the reason', async () => {
+    const { loser, job } = await seedBlockedMerge('audit');
+    await cancelMerge(job.id, SECOND_OPERATOR, 'superseded by a different pairing');
+
+    const revisions = await db
+      .select({
+        action: catalogRevisions.action,
+        actorKind: catalogRevisions.actorKind,
+        actorOxyUserId: catalogRevisions.actorOxyUserId,
+        reason: catalogRevisions.reason,
+        note: catalogRevisions.note,
+      })
+      .from(catalogRevisions)
+      .where(and(eq(catalogRevisions.mergeJobId, job.id), eq(catalogRevisions.entityId, loser.productId)));
+    const cancelRevision = revisions.find((row) => row.note?.includes('cancelled'));
+    expect(cancelRevision).toBeDefined();
+    expect(cancelRevision?.actorKind).toBe('operator');
+    expect(cancelRevision?.actorOxyUserId).toBe(SECOND_OPERATOR);
+    expect(cancelRevision?.reason).toBe('superseded by a different pairing');
+    // The existing `merge` action with a note, NOT a new vocabulary member:
+    // `catalog_revisions_action_check` is rendered from CATALOG_REVISION_ACTIONS,
+    // so a `cancel` action would be a migration for a fact the note carries.
+    expect(cancelRevision?.action).toBe('merge');
+  });
+
+  it('REFUSES every state where work may already stand, each with its own reason', async () => {
+    // `pending` at `plan` is the one non-blocked state that IS allowed, so the
+    // refusals below are not a predicate that refuses everything.
+    const allowed = await seedProduct('680ref-ok');
+    const allowedWinner = await seedProduct('680ref-okw');
+    const pendingJob = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: allowed.productId,
+      winnerId: allowedWinner.productId,
+      reason: 'stopped before it started',
+      actorOxyUserId: OPERATOR,
+    });
+    const fresh = await findMergeJobById(pendingJob.id, db);
+    expect(fresh?.status).toBe('pending');
+    expect(fresh?.phase).toBe('plan');
+    expect(mergeJobCancellationState(fresh!).state).toBe('allowed');
+    expect((await cancelMerge(pendingJob.id, SECOND_OPERATOR, 'not needed')).status).toBe('cancelled');
+
+    // …and every state where work may stand is refused, BY ITS OWN REASON.
+    // A shared message would make these four indistinguishable to an operator,
+    // and they lead to four different next actions.
+    const base = fresh!;
+    const processing = mergeJobCancellationState({ ...base, status: 'processing' });
+    expect(processing.state).toBe('refused');
+    expect(processing.state === 'refused' && processing.reason).toMatch(/live lease/);
+
+    const deadLettered = mergeJobCancellationState({ ...base, status: 'dead_letter' });
+    expect(deadLettered.state).toBe('refused');
+    // The message an operator can ACT on: it tells them the thing they wanted
+    // to know, which a status change would have left them still wondering.
+    expect(deadLettered.state === 'refused' && deadLettered.reason).toMatch(
+      /holds no open job for this entity/,
+    );
+
+    const completed = mergeJobCancellationState({ ...base, status: 'completed' });
+    expect(completed.state).toBe('refused');
+
+    /**
+     * THE PHASE IS THE DISCRIMINATOR, NOT THE STATUS — the case that would have
+     * caught somebody. A job released after a mid-run failure is `pending` at
+     * whatever phase it reached, so admitting `pending` on status alone admits a
+     * half-rehomed merge.
+     */
+    const midRun = mergeJobCancellationState({ ...base, status: 'pending', phase: 'offers' });
+    expect(midRun.state).toBe('refused');
+    expect(midRun.state === 'refused' && midRun.reason).toMatch(/already been applied/);
+
+    // …including `awaiting_resolution`, which is safe while BLOCKED and not
+    // while pending: a job that failed mid-application is released there with
+    // some decisions already applied.
+    const midResolution = mergeJobCancellationState({
+      ...base,
+      status: 'pending',
+      phase: 'awaiting_resolution',
+    });
+    expect(midResolution.state).toBe('refused');
+    expect(mergeJobCancellationState({ ...base, status: 'blocked', phase: 'awaiting_resolution' }).state).toBe(
+      'allowed',
+    );
+  });
+
+  it('the CAS itself refuses every state the predicate would, so a lost race is a no-op', async () => {
+    /**
+     * The CAS is the mechanism that covers what the predicate cannot: a claim,
+     * a resume or another operator moving the row AFTER `cancelMerge` read it.
+     *
+     * Driving that interleaving would need a hook inside the service, and a
+     * test that staged it any other way would be measuring the predicate again
+     * — which is what the first draft of this case did, and it failed on the
+     * FIXTURE rather than on the code: moving a four-eyes job to `offers`
+     * unapproved is refused by `catalog_merge_jobs_second_approval_check`, the
+     * same constraint family that shaped #679. So what is measured here is the
+     * CAS ITSELF, which is the thing that would have to fail for a lost race to
+     * do damage. The service's re-read branch above it is defensive and is
+     * stated as such rather than covered by a test that cannot reach it.
+     */
+    const { job } = await seedBlockedMerge('cas');
+
+    // The first write takes the row…
+    expect(await cancelMergeJob(job.id, 'the first caller')).toBe(true);
+    expect(await statusOf(job.id)).toBe('cancelled');
+
+    // …and a second matches nothing. `false` is "somebody already did it",
+    // which is the `unblockMergeJob` posture, not an error.
+    expect(await cancelMergeJob(job.id, 'the second caller')).toBe(false);
+    expect(await statusOf(job.id)).toBe('cancelled');
+
+    // And a job under a LIVE LEASE is refused by the CAS as well as by the
+    // predicate, so the two cannot disagree about the one state where
+    // cancelling would race a running phase.
+    const loser = await seedProduct('680cas2-loser');
+    const winner = await seedProduct('680cas2-winner');
+    const running = await requestMerge({
+      entityType: 'canonical_product',
+      loserId: loser.productId,
+      winnerId: winner.productId,
+      reason: 'claimed and left processing',
+      actorOxyUserId: OPERATOR,
+    });
+    await db.execute(
+      sql`update catalog_merge_jobs set available_at = to_timestamp(0) where id = ${running.id}`,
+    );
+    const claimed = await claimMergeJobs({ leaseOwner: `lease-680cas2-${RUN}`, batchSize: 1 });
+    expect(claimed.map((row) => row.id)).toEqual([running.id]);
+    expect(await statusOf(running.id)).toBe('processing');
+    expect(await cancelMergeJob(running.id, 'racing the worker')).toBe(false);
+    expect(await statusOf(running.id)).toBe('processing');
   });
 });
