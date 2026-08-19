@@ -669,6 +669,11 @@ export * from './catalog-localization';
 // are OWED a translation, and how each domain comes to know its text went out
 // of date. It imports from `./catalog-localization` and nothing imports from it.
 export * from './catalog-localization-desk';
+// The translation revision trail (#367 step 10, box 4) — append-only history of
+// what a localized string used to say. Its own table rather than a governance
+// subject: governance deliberately omits the TEXT, and widening its subject
+// tuple would attach the operator gate and four eyes to a translator's cadence.
+export * from './catalog-localization-revisions';
 // Compatibility and automotive fitment (#367 step 8, ADR 0007 D8). LAST, and it
 // depends on nothing above it — the domain is a relationship between catalogue
 // identities and defines no money, no offer and no ranking vocabulary. Its
