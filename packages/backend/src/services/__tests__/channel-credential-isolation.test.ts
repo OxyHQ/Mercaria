@@ -140,6 +140,19 @@ function credentialSurface(
  * violation; a REMOVED one is a stale allow-list, which is the half that rots
  * green — an entry naming a module that no longer reaches the symbol excuses
  * nothing while reading like a decision.
+ *
+ * ## If one of these goes red on a module that is plainly innocent
+ *
+ * `generateKey` and `verifyKey` are generic enough that an unrelated module
+ * could one day declare its own. The wall matches a SYMBOL NAME, so it cannot
+ * tell that homonym from the real thing — the `accessToken` problem
+ * {@link CREDENTIAL_VOCABULARY} avoids by construction, surfacing here instead
+ * because a chokepoint has to name the function it protects.
+ *
+ * That failure is LOUD and lands on the right file, which is why it is accepted
+ * rather than designed around. The remedy is to rename the newcomer or to add it
+ * with a reason — **never to drop the symbol from this table**, which would
+ * retire a wall to silence a naming collision.
  */
 interface Chokepoint {
   readonly symbol: string;
