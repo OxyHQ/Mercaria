@@ -88,6 +88,7 @@ import {
   approveMergeHandler,
   cancelMergeHandler,
   approveSplitHandler,
+  cancelSplitHandler,
   claimReviewItemHandler,
   compensateRevisionHandler,
   drainCurationJobsHandler,
@@ -387,6 +388,8 @@ router.get('/split-jobs/:id', getSplitJobHandler);
 
 /** POST — the second operator's approval. */
 router.post('/split-jobs/:id/approve', validateBody(approveJobSchema), approveSplitHandler);
+/** Stop a split that has moved nothing, freeing the source entity (#680). */
+router.post('/split-jobs/:id/cancel', validateBody(approveJobSchema), cancelSplitHandler);
 
 /** POST — run one batch of jobs now. The dispatcher's own drain. */
 router.post('/curation-jobs/drain', validateBody(drainCurationSchema), drainCurationJobsHandler);

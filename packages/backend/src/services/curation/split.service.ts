@@ -66,6 +66,7 @@ import {
   advanceSplitPhase,
   approveSplitJob,
   blockSplitJob,
+  cancelSplitJob,
   completeSplitJob,
   findSplitJobById,
   insertSplitAssignment,
@@ -332,6 +333,101 @@ export async function approveSplit(
     db,
   );
   return approved;
+}
+
+/**
+ * Why this split cannot be cancelled — or that it can (#680).
+ *
+ * {@link mergeJobCancellationState}'s rule, and the same reasoning: cancelling
+ * is STOPPING and never REVERTING, made unrepresentable by only being reachable
+ * from a state in which nothing has moved. A blocked split has run no phase
+ * body at all — `runSplitJob` asks {@link splitJobBlockingState} before the
+ * phase runs — and `plan` writes nothing.
+ *
+ * THE PHASE IS THE DISCRIMINATOR, NOT THE STATUS: a split released after a
+ * mid-run failure is `pending` at whatever phase it reached, and one past `mint`
+ * has minted a destination entity.
+ */
+export type SplitJobCancellationState =
+  /** The `allowed` branch carries no reason: there is none to read. */
+  | { readonly state: 'allowed' }
+  | { readonly state: 'refused'; readonly reason: string };
+
+export function splitJobCancellationState(job: CatalogSplitJobRow): SplitJobCancellationState {
+  if (job.status === 'blocked') return { state: 'allowed' };
+  if (job.status === 'pending' && job.phase === 'plan') return { state: 'allowed' };
+
+  if (job.status === 'pending') {
+    return {
+      state: 'refused',
+      reason:
+        `This split is pending at the '${job.phase}' phase, so work has already been applied — ` +
+        'past `mint` a destination entity exists. Cancelling is stopping, never reverting; only a ' +
+        'job that has moved nothing may be cancelled.',
+    };
+  }
+  if (job.status === 'processing') {
+    return {
+      state: 'refused',
+      reason:
+        'This split is running under a live lease. Cancelling it would race the worker; wait for ' +
+        'the lease to expire or for the phase to finish.',
+    };
+  }
+  if (job.status === 'dead_letter') {
+    return {
+      state: 'refused',
+      reason:
+        'A dead-lettered split holds no open job for this entity, so cancelling it would release ' +
+        'nothing — a fresh split can be requested now. It may also have dead-lettered part-way, ' +
+        'and marking it cancelled would put that word on work that still stands.',
+    };
+  }
+  return {
+    state: 'refused',
+    reason: `This split is '${job.status}' and there is nothing left to stop.`,
+  };
+}
+
+/** Stop a split that has moved nothing. See {@link splitJobCancellationState}. */
+export async function cancelSplit(
+  jobId: string,
+  actorOxyUserId: string,
+  reason: string,
+): Promise<CatalogSplitJobRow> {
+  const db = getDb();
+  const job = await findSplitJobById(jobId, db);
+  if (!job) throw notFound(`No split job ${jobId}.`);
+
+  const verdict = splitJobCancellationState(job);
+  if (verdict.state === 'refused') throw conflict(verdict.reason);
+
+  if (!(await cancelSplitJob(jobId, `cancelled by ${actorOxyUserId}: ${reason}`, db))) {
+    // The CAS lost, so the row moved between the read and the write. Re-read
+    // rather than reporting the state this request happened to see.
+    const now = await findSplitJobById(jobId, db);
+    throw conflict(
+      `Split job ${jobId} changed while being cancelled (it is now '${now?.status ?? 'gone'}'); ` +
+        'read it again and decide against its current state.',
+    );
+  }
+
+  await recordRevision(
+    {
+      entityType: job.entityType,
+      entityId: job.sourceEntityId,
+      action: 'split',
+      actorKind: 'operator',
+      actorOxyUserId,
+      reason,
+      note: 'split cancelled before any row moved',
+      splitJobId: jobId,
+    },
+    db,
+  );
+  const cancelled = await findSplitJobById(jobId, db);
+  if (!cancelled) throw notFound(`No split job ${jobId}.`);
+  return cancelled;
 }
 
 /**

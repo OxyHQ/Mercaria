@@ -77,10 +77,12 @@ import {
 } from '../merge.service.js';
 import {
   approveSplit,
+  cancelSplit,
   requestSplit,
   resumeBlockedSplitJobs,
   runSplitJob,
   splitJobBlockingState,
+  splitJobCancellationState,
 } from '../split.service.js';
 import { estimateMergeImpact } from '../impact.js';
 import { recordRevision, recordCompensation } from '../revision.js';
@@ -2468,5 +2470,104 @@ describe('#680: a merge that has moved nothing can be STOPPED, freeing the entit
     expect(await statusOf(running.id)).toBe('processing');
     expect(await cancelMergeJob(running.id, 'racing the worker')).toBe(false);
     expect(await statusOf(running.id)).toBe('processing');
+  });
+});
+
+describe('#680: the same remedy for a SPLIT, whose blocked state arrives with #679', () => {
+  it('THE REMEDY: cancelling a parked split frees the source for a NEW split job', async () => {
+    const source = await seedProduct('680sp-src');
+    const split = await requestSplit({
+      entityType: 'canonical_product',
+      sourceEntityId: source.productId,
+      targetMode: 'new_entity',
+      targetSlug: `680sp-dest-${RUN}`,
+      targetName: '680sp destination',
+      reason: 'a split that ends up needing stopping',
+      actorOxyUserId: OPERATOR,
+      items: [{ itemType: 'canonical_variant', itemRef: source.variantId }],
+    });
+    await db
+      .update(catalogSplitJobs)
+      .set({ requiresSecondApproval: true })
+      .where(eq(catalogSplitJobs.id, split.id));
+    // #679's parking is what makes this state reachable at all: before it, a
+    // split could never BE `blocked`.
+    expect((await claimAndRunSplit(split.id, `lease-680sp-${RUN}`)).blocked).toBe(true);
+
+    /**
+     * The positive control, and it is stronger than the merge's: a second open
+     * split is refused by the DATABASE rather than by a service check, so the
+     * refusal names `catalog_split_jobs_open_key` — the very index the cancel
+     * has to release.
+     */
+    await expectConstraintViolation(
+      () =>
+        requestSplit({
+          entityType: 'canonical_product',
+          sourceEntityId: source.productId,
+          targetMode: 'new_entity',
+          targetSlug: `680sp-dest2-${RUN}`,
+          targetName: '680sp second destination',
+          reason: 'a second attempt while the first is parked',
+          actorOxyUserId: OPERATOR,
+          items: [{ itemType: 'canonical_variant', itemRef: source.variantId }],
+        }),
+      'catalog_split_jobs_open_key',
+    );
+
+    expect((await cancelSplit(split.id, SECOND_OPERATOR, 'nobody will approve this')).status).toBe(
+      'cancelled',
+    );
+
+    const second = await requestSplit({
+      entityType: 'canonical_product',
+      sourceEntityId: source.productId,
+      targetMode: 'new_entity',
+      targetSlug: `680sp-dest3-${RUN}`,
+      targetName: '680sp third destination',
+      reason: 'a fresh attempt now the stuck one is stopped',
+      actorOxyUserId: OPERATOR,
+      items: [{ itemType: 'canonical_variant', itemRef: source.variantId }],
+    });
+    expect(second.id).not.toBe(split.id);
+  });
+
+  it('refuses every state where work may already stand, and PAST `mint` names why', async () => {
+    const source = await seedProduct('680spr-src');
+    const split = await requestSplit({
+      entityType: 'canonical_product',
+      sourceEntityId: source.productId,
+      targetMode: 'new_entity',
+      targetSlug: `680spr-dest-${RUN}`,
+      targetName: '680spr destination',
+      reason: 'measuring the refusals',
+      actorOxyUserId: OPERATOR,
+      items: [{ itemType: 'canonical_variant', itemRef: source.variantId }],
+    });
+    const job = await findSplitJobById(split.id, db);
+    if (!job) throw new Error('the split vanished');
+
+    // `pending` at `plan` IS allowed, so the refusals are not a predicate that
+    // refuses everything.
+    expect(splitJobCancellationState(job).state).toBe('allowed');
+
+    const running = splitJobCancellationState({ ...job, status: 'processing' });
+    expect(running.state).toBe('refused');
+    expect(running.state === 'refused' && running.reason).toMatch(/live lease/);
+
+    const dead = splitJobCancellationState({ ...job, status: 'dead_letter' });
+    expect(dead.state).toBe('refused');
+    expect(dead.state === 'refused' && dead.reason).toMatch(/holds no open job for this entity/);
+
+    /**
+     * THE PHASE IS THE DISCRIMINATOR. A split past `mint` has MINTED a
+     * destination entity — the one place where "cancel" would read as "undo" and
+     * be wrong about a row that exists.
+     */
+    const minted = splitJobCancellationState({ ...job, status: 'pending', phase: 'assignments' });
+    expect(minted.state).toBe('refused');
+    expect(minted.state === 'refused' && minted.reason).toMatch(/a destination entity exists/);
+
+    expect(splitJobCancellationState({ ...job, status: 'completed' }).state).toBe('refused');
   });
 });
