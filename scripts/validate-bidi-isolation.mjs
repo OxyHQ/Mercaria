@@ -20,11 +20,37 @@
  *
  * ## Why a script under `scripts/` and not a unit test
  *
- * Neither `packages/ui` nor `packages/frontend` has a test runner — CI's own
- * comment on the RTL guard says so, and `validate-rtl-logical-classes.mjs`,
- * `validate-no-mongo.mjs` and `check-agents-md-size.mjs` are the shape a
- * checkable property takes in this repository. `bun` transpiles the TypeScript
- * on import, so the module under test is the one the apps compile.
+ * `packages/ui` has no test runner — its `test` script is an `echo` — and it
+ * OWNS every module asserted below: `lib/format.ts`, `lib/date.ts`,
+ * `lib/region.ts` and `lib/bidi.ts`. That is the reason, and it is narrower than
+ * the one this comment used to give.
+ *
+ * The three Expo apps each DO have one now (`vitest run`, run by `ci.yml`'s
+ * `Test Dashboard`, `Test App` and `Test POS` steps). So a test is not
+ * impossible in this repository — it is impossible in the package that owns
+ * this code, and bidi isolation is a property of all four packages rather than
+ * of any one app.
+ *
+ * What those runners can and cannot do has to be said precisely, because the
+ * obvious next inference is FALSE and this comment made it in an earlier draft.
+ * All three collect from `lib` only, run `environment: 'node'` and mount no
+ * renderer, by the standing #469 decision recorded in each `vitest.config.ts`.
+ * Importing `react-native` — which every component
+ * reaches, directly or through `@mercaria/ui`, `@oxyhq/bloom` or `expo-router`
+ * — dies at `react-native/index.js:27` with `RollupError: Parse failure:
+ * Expected 'from', got 'typeOf'`, because RN ships Flow source Rollup cannot
+ * parse. Measured in all three packages separately rather than inferred from
+ * one. So a component cannot be MOUNTED in any of them, and "the app has a
+ * runner" does not license "assert the rendered behaviour there".
+ *
+ * The usable form is that config's own rule: extract the derivation into `lib/`
+ * and assert it by running it. A repo-wide property still belongs in a
+ * repo-wide validator like this one.
+ *
+ * `validate-rtl-logical-classes.mjs`, `validate-no-mongo.mjs` and
+ * `check-agents-md-size.mjs` are the shape such a property takes in this
+ * repository. `bun` transpiles the TypeScript on import, so the module under
+ * test is the one the apps compile.
  *
  * ## The LTR case is half the point
  *

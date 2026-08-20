@@ -122,9 +122,14 @@ jobs:
       # direction set on a locale with no bundle mirrors an ENGLISH screen. That
       # second one is live — the dashboard and POS ship no `ar` yet — so the
       # guard asserts direction follows the SHIPPED BUNDLES rather than the
-      # language tag. None of these packages has a test runner, so this is the
-      # step that carries all of it. Reads the tracked file listing and imports
-      # one dependency-free module; costs a second.
+      # language tag. `packages/ui` — which owns the modules asserted — has no
+      # test runner, and this guard compares all four packages' bundles against
+      # one shared locale list, which no single app suite can see. (The three
+      # Expo apps DO have runners — the `Test Dashboard`, `Test App` and `Test
+      # POS` steps below — but all three are `lib`-only with no renderer per
+      # #469, so a component cannot be mounted in any of them.) Reads the
+      # tracked file listing and imports one dependency-free module; costs a
+      # second.
       #
       # It also carries the SLIDING-PANEL half (#429). `Panel` and `SheetContent`
       # are the residual the class guard could not reach: a transform sign and a
@@ -143,8 +148,10 @@ jobs:
       # was never applied, applied twice or applied with the wrong character
       # looks identical in every screenshot and every diff. This runs the real
       # `packages/ui` formatters and asserts their code points. Same reason as
-      # above for living here: neither packages/ui nor packages/frontend has a
-      # test runner. Costs about a second; imports two source files.
+      # above for living here: the modules are owned by `packages/ui`, which has
+      # no test runner, and isolation is a property of all four client packages
+      # rather than of any one app. Costs about a second; imports two source
+      # files.
       - name: Guard bidi isolation
         run: bun run validate:bidi-isolation
 
