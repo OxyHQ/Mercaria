@@ -29,7 +29,14 @@ import {
   normalizeCatalogAlias,
 } from '../alias-normalization.js';
 
-/** Written out rather than generated: a reader has to be able to check them. */
+/**
+ * Written out rather than generated: a reader has to be able to check them.
+ *
+ * Floored at its own length below (#723): two `it`s iterate this list BY NAME,
+ * and emptying it makes both of them no-ops that report exactly what a clean
+ * run reports. The floor is `>=`, so adding a spelling is not a test edit and
+ * removing one has to move the number in the same diff.
+ */
 const SPELLINGS = [
   'móvil',
   'MÓVILES',
@@ -47,6 +54,10 @@ const SPELLINGS = [
 ];
 
 describe('normalizeCatalogAlias', () => {
+  it('has fixtures to run against at all — the floor on the named list', () => {
+    expect(SPELLINGS.length).toBeGreaterThanOrEqual(13);
+  });
+
   it('folds accents, case and whitespace', () => {
     expect(normalizeCatalogAlias('MÓVILES')).toBe('moviles');
     expect(normalizeCatalogAlias('  Cell   Phone  ')).toBe('cell phone');

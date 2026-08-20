@@ -65,6 +65,12 @@ const BINDING = /productTypeAliases/;
  *
  * Each entry is asserted to MATCH below. A list of paths that no longer exist
  * excuses nothing and reads exactly like a clean census.
+ *
+ * It needs no length floor (#723), and the reason is worth stating so nobody
+ * adds one: this list is an EXEMPTION list, so emptying it makes the census
+ * strictly stricter — the two real references stop being excused and the final
+ * assertion goes red. The failure mode a floor defends against runs the other
+ * way.
  */
 const NOT_A_READER: readonly { path: string; why: string }[] = [
   { path: 'db/schema/productTypes.ts', why: 'declares the table' },
