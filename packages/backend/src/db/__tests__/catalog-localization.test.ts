@@ -55,6 +55,7 @@ import {
   type LocalizationCandidate,
 } from '@mercaria/shared-types';
 import * as schema from '../schema/index.js';
+import { attributeLabels } from '../schema/attributeRegistry.js';
 import {
   attributeValueLocalizations,
   canonicalProductFamilyLocalizations,
@@ -179,6 +180,13 @@ describe('the field registry', () => {
       attribute_value: attributeValueLocalizations,
       canonical_product: canonicalProductLocalizations,
       canonical_product_family: canonicalProductFamilyLocalizations,
+      // The family's one late joiner. Its columns arrive through a SPREAD of
+      // `localizationSettlementColumns()`, so `status` and `provenance` appear
+      // nowhere in `attributeRegistry.ts` as literal text — which is exactly why
+      // this census reads `getTableColumns()` on the BUILT table instead of
+      // grepping source. A name-keyed source scan returns zero here, and the
+      // zero is false.
+      attribute_definition: attributeLabels,
     } as const;
     for (const key of LOCALIZED_FIELD_KEYS) {
       const descriptor = CATALOG_LOCALIZED_FIELDS[key];
@@ -188,10 +196,18 @@ describe('the field registry', () => {
   });
 
   it('registers no field whose entity has no table here', () => {
-    // `attribute_definition` is deliberately NOT an entity kind: `attribute_labels`
-    // carries no status and no provenance, so a candidate built from one of its
-    // rows would have to invent both. This is the line that fails when somebody
-    // adds the kind without adding the columns.
+    // This list used to end by explaining why `attribute_definition` was NOT a
+    // kind: `attribute_labels` carried no status and no provenance, so a
+    // candidate built from one of its rows would have had to invent both, and
+    // the comment said "this is the line that fails when somebody adds the kind
+    // without adding the columns."
+    //
+    // Migration 0119 added the columns and this migration adds the kind, in that
+    // order and in that dependency — `reviewAttributeDefinitionLocalization`
+    // composes a comparison carrying `status` and `provenance` off the row and
+    // could not have compiled before them. The gate did exactly what it said it
+    // would: it went red on the kind, and closing it meant proving the columns
+    // were there first.
     expect([...LOCALIZED_ENTITY_KINDS]).toEqual([
       'category',
       'product_type',
@@ -208,6 +224,11 @@ describe('the field registry', () => {
       // `catalog-name-invariance.ts`.
       'canonical_product',
       'canonical_product_family',
+      // One ATTRIBUTE DEFINITION's own label and description — the question,
+      // where `attribute_value` above is one of its answers. "Charging port" and
+      // "USB-C" are not the same string, so folding them into one kind would put
+      // a value's translation under its attribute's heading.
+      'attribute_definition',
     ]);
   });
 });

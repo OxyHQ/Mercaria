@@ -404,6 +404,49 @@ export async function readCanonicalProductFamilyLocalizationCompleteness(
 }
 
 /**
+ * Attribute DEFINITIONS owed a translation: those whose lifecycle is active.
+ *
+ * The same predicate `readAttributeValueLocalizationCompleteness` uses one level
+ * down, and for the same reason — a draft version may still have its meaning
+ * edited and a deprecated or retired one accepts no new authoring, so neither is
+ * copy anybody should be paying to translate.
+ *
+ * The join column is `attribute_definition_id` on `attribute_labels`, which is
+ * the family's one late joiner: it predates ADR 0007 D4 and keeps its own table
+ * and column names rather than the `<entity>_localizations` shape its siblings
+ * use.
+ *
+ * This domain's figure carries a caveat the desk publishes beside it
+ * (`LOCALIZATION_STALENESS_DETECTIONS`): nothing carries these translations onto
+ * a new attribute version, so its completeness can collapse for a key through no
+ * translator's doing.
+ */
+export async function readAttributeDefinitionLocalizationCompleteness(
+  locales: readonly SupportedLocale[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<readonly LocalizationDomainLocaleCounts[]> {
+  if (locales.length === 0) return [];
+  const rows = await db.execute<RawCountRow>(sql`
+    with owed as (
+      select id from attribute_definitions where lifecycle_state = 'active'
+    ),
+    requested as (
+      select unnest(${sql.raw(localeArrayLiteral(locales))}) as locale
+    )
+    select r.locale,
+           (select count(*) from owed)::int as owed,
+           ${STATUS_COUNTS}
+      from requested r
+      left join attribute_labels l
+        on l.locale = r.locale
+       and l.attribute_definition_id in (select id from owed)
+     group by r.locale
+     order by r.locale
+  `);
+  return rows.map((row) => toCounts('attribute_definition', row));
+}
+
+/**
  * Every covered domain against every requested locale, in one call.
  *
  * Three statements whatever the locale count — the `readLocalizedCategories`
@@ -415,15 +458,23 @@ export async function readLocalizationCompletenessCounts(
   db: DatabaseOrTransaction = getDb(),
 ): Promise<readonly LocalizationDomainLocaleCounts[]> {
   if (locales.length === 0) return [];
-  const [categories, productTypes, productTypeFields, attributeValues, products, families] =
-    await Promise.all([
-      readCategoryLocalizationCompleteness(locales, db),
-      readProductTypeLocalizationCompleteness(locales, db),
-      readProductTypeFieldLocalizationCompleteness(locales, db),
-      readAttributeValueLocalizationCompleteness(locales, db),
-      readCanonicalProductLocalizationCompleteness(locales, db),
-      readCanonicalProductFamilyLocalizationCompleteness(locales, db),
-    ]);
+  const [
+    categories,
+    productTypes,
+    productTypeFields,
+    attributeValues,
+    products,
+    families,
+    attributeDefinitions,
+  ] = await Promise.all([
+    readCategoryLocalizationCompleteness(locales, db),
+    readProductTypeLocalizationCompleteness(locales, db),
+    readProductTypeFieldLocalizationCompleteness(locales, db),
+    readAttributeValueLocalizationCompleteness(locales, db),
+    readCanonicalProductLocalizationCompleteness(locales, db),
+    readCanonicalProductFamilyLocalizationCompleteness(locales, db),
+    readAttributeDefinitionLocalizationCompleteness(locales, db),
+  ]);
   return [
     ...categories,
     ...productTypes,
@@ -431,5 +482,6 @@ export async function readLocalizationCompletenessCounts(
     ...attributeValues,
     ...products,
     ...families,
+    ...attributeDefinitions,
   ];
 }
