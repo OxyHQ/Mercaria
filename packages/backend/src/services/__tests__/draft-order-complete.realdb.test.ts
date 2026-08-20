@@ -353,7 +353,17 @@ describe('completeDraftOrder writes an order a REAL server accepts', () => {
           where c.relkind = 'S' and n.nspname = 'public'
           order by relname`,
     );
-    expect(rows.map((row) => row.relname)).toEqual(['order_number_seq', 'rma_number_seq']);
+    // `catalog_review_events_sequence_seq` (#775) is the third, and it is NOT a
+    // numbering space: it orders the rows of one proposal's audit trail, appears
+    // on no receipt and is read by nobody but `listReviewEvents`. It is named
+    // here rather than admitted by a looser predicate, because a census that
+    // matched `%_number_seq%` would stop noticing the exact thing this one
+    // exists for — a fourth sequence the POS quietly starts numbering from.
+    expect(rows.map((row) => row.relname)).toEqual([
+      'catalog_review_events_sequence_seq',
+      'order_number_seq',
+      'rma_number_seq',
+    ]);
   });
 
   it('is idempotent: a repeated complete returns the same order, minting no number', async () => {
