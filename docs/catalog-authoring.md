@@ -326,6 +326,53 @@ reads it. The order of checks matters:
    STORE, so two merchants generating the same client-side key do not collide).
 3. Otherwise the row is locked `FOR UPDATE` for the duration.
 
+### The publication result (#577)
+
+A publish answers with an `AuthoringPublicationResult` beside the listing id: the
+`product_variants` row created for each draft variant PAIRED BY POSITION, the
+canonical link where the author declared one, the typed identity and per-variant
+counts, and what is still owed.
+
+**It is derived from the LISTING, not accumulated as the transaction goes**, and
+that is the whole design rather than an implementation detail. A convergence
+created nothing this time — it is a retry whose first response was lost, which is
+the case this endpoint exists to serve — so an accumulating result would answer
+that retry with an empty body and make retrying, the safe client behaviour, the
+one that loses information. `composePublicationResult` reads the published rows
+back, `publishDraft` has exactly ONE call site for it, and
+`published`/`converged` are ONE branch of `DraftPublication` carrying one shape.
+A realdb case asserts the two are DEEP EQUAL apart from the outcome string; an
+accumulating implementation passes every other assertion in that file and fails
+that one.
+
+**It reports no matching VERDICT and cannot.** `syncListingFacets` requests a
+match for every variant AFTER the commit, so when the result is composed the
+matcher has not run. `AuthoringVariantResolution` has no `matched` member: a
+variant is `merchant_declared` (a person chose, and `MATCHER_MAY_DISPLACE`
+protects it) or `queued_for_matching`. **The second is derived from the ABSENCE
+of a declared link, never from a queue row** — a queue row exists only after
+`syncListingFacets` runs and is gone once the matcher drains it, so reading one
+would make the answer depend on when it was asked.
+
+Ids appear where a caller can act on them and COUNTS where it can only check the
+publication was whole: nothing addresses an axis-assignment row by id, and what a
+caller needs from those rows is that the variant did not land half-written.
+
+`review.queuedAttributeClaimCount` is reliably zero today — the authoring path
+writes its claims already `resolved` — and is reported rather than assumed, so
+the day a value stops resolving the author learns it from the publication instead
+of from a queue nobody attributed. It is SCOPED to the listing through
+`countQueuedClaims`'s own `{ listingIds }`; the realdb case seeds a queued claim
+on a neighbouring listing to prove the scope, because without one the scoped and
+unscoped counts both read zero and dropping the scope survived.
+
+`review.openProposalIds` is non-empty only under a product type version whose
+`pendingProposalPolicy` is `allow_local_claim` — `block_publication` refuses the
+publish — and it is the one moment the author can be told that a value they
+proposed is still somebody else's decision.
+
+No DDL, and no new query: every read is an existing repository function.
+
 ### The legacy option pairs
 
 ADR 0007 D6 replaces `listing_options.name` and
@@ -381,6 +428,20 @@ about a product nobody made.
   spelling was added because the self-test went red on it** — the first draft
   matched only `services/payments/…` and was blind to `../payments/…`, which is
   the only spelling a sibling module would ever write.
+- `services/catalog-authoring/__tests__/publication-result.realdb.test.ts` — the
+  publication result is WHOLE (#577), against a real server. Three controls, and
+  the file is written so none of them is the composer restated: every expectation
+  is built by raw SQL rather than by the repositories the composer calls; the
+  fixture's two variants must answer DIFFERENTLY (one declared, one queued), so a
+  composer defaulting every variant to one resolution fails; and a convergence
+  must be DEEP EQUAL to the publication, which is the assertion an accumulating
+  implementation fails while passing all the others. Six mutations, all red:
+  dropping the queued variants, accumulating instead of deriving, defaulting the
+  resolution, reporting the listing total per variant, dropping the listing scope
+  from the queued-claim count, and pairing by index instead of by position. **The
+  scope mutation SURVIVED the first draft** — nothing in the database had a queued
+  claim, so scoped and unscoped both read zero — and it took a seeded claim on a
+  neighbouring listing to make that control exist.
 - `services/catalog-authoring/__tests__/listing-upgrade.realdb.test.ts` — the
   listing twin of the draft upgrade, end to end against a real server: the pin
   moves, and every claim's settled attribute version and every axis's cited
