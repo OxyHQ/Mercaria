@@ -461,6 +461,7 @@ describe('the population every wall above is applied to (#460)', () => {
       // every module the whole-tree sweep finds under this sub-domain's own name
       // is this sub-domain's.
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 15 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 12,

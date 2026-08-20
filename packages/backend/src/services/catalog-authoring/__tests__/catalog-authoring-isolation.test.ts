@@ -569,6 +569,7 @@ describe('the population the seven walls above are applied to (#460)', () => {
       // Deliberately empty, and the assertion is what makes that a measurement:
       // all sixteen modules the whole-tree sweep finds are this domain's.
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 16 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 12,

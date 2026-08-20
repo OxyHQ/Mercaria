@@ -170,6 +170,7 @@ describe('#460 — the population is closed against the tree', () => {
       // Measured empty: every module in the tree naming this domain is a module
       // of it. One owned by somebody else goes here WITH its reason.
       notThisDomain: [],
+      expectedExclusions: 0,
       sweepFloor: 11,
       plantIn: 'lib',
       plantName: 'guest-governance-cache.ts',

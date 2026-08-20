@@ -205,6 +205,7 @@ describe('retail pilot and Printful isolation (static)', () => {
       // Measured empty: every retail-pilot-named module in the tree is a module
       // of this domain. One owned by somebody else goes here WITH its reason.
       notThisDomain: [],
+      expectedExclusions: 0,
       sweepFloor: 6,
       plantIn: 'lib',
       plantName: 'retail-pilot-cache.ts',

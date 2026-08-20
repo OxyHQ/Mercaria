@@ -155,14 +155,37 @@ function enumerateStorefront(): string[] {
  * Files that legitimately NAME the prohibition.
  *
  * Excluded BY PATH rather than by a pattern, #164's decision: the vocabulary
- * has to be declared somewhere, the digest check has to scan for it, and the
- * summary validator has to refuse it — so three files spell every forbidden
- * action out loud and would fail their own gate.
+ * has to be declared somewhere and the summary validator has to refuse it, so
+ * these files spell every forbidden action out loud and would fail their own
+ * gate.
+ *
+ * This docblock said THREE and the list has named TWO since it was written
+ * (#460). Corrected to the measured number rather than to a count somebody
+ * would have to trust: `EXPECTED_PROHIBITION_AUTHORS` below is the assertion,
+ * and this sentence is now prose about it rather than a second claim.
  */
 const PROHIBITION_AUTHORS: readonly string[] = [
   join(SRC_ROOT, 'services', 'shopping-agents', 'authorization.ts'),
   join(SRC_ROOT, 'services', 'shopping-agents', 'summary.ts'),
 ];
+
+/**
+ * The count, EXACT, and the reason it cannot be folded into the floor below.
+ *
+ * WALL 2's floor used to read
+ * `expect(scanned).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES - PROHIBITION_AUTHORS.length)`,
+ * which **subtracts the exclusion list from its own floor**: excusing a third
+ * file lowers the bar by exactly one and the assertion goes on passing. The
+ * gate did not merely fail to notice a module being excused, it ACCOMMODATED
+ * one, automatically and forever — and the arithmetic reads as careful, which
+ * is why it survived review.
+ *
+ * A floor and a count answer different questions and both are needed: the floor
+ * asks whether the scan still reaches the domain, the count asks whether
+ * anybody quietly stopped scanning part of it. Only the second can fail on an
+ * entry being ADDED, which is the direction #448 is about.
+ */
+const EXPECTED_PROHIBITION_AUTHORS = 2;
 
 /**
  * The floors, PER SHAPE and measured off this branch.
@@ -393,6 +416,24 @@ describe('WALL 1 — an agent cannot transact', () => {
 
 describe('WALL 2 — no purchase language reaches a shopper', () => {
   it('no forbidden action is written anywhere in the domain, comments included', () => {
+    // EXACT, and asserted BEFORE the loop: every clause after this one is about
+    // a file that IS scanned, and each of them passes for an exclusion list that
+    // has just grown (#448).
+    expect(
+      PROHIBITION_AUTHORS.length,
+      'a third file was excused from the forbidden-action wall — it may be right, but it is a ' +
+        'decision somebody takes rather than a line that appears',
+    ).toBe(EXPECTED_PROHIBITION_AUTHORS);
+    // …and each excused path is still a file the loop below would otherwise
+    // reach. An exclusion naming a module that moved excuses nothing while
+    // reading as a decision.
+    const domainFiles = new Set([...files, ...storefrontFiles]);
+    for (const author of PROHIBITION_AUTHORS) {
+      expect(domainFiles.has(author), `${author} is excused but is not in the scanned set`).toBe(
+        true,
+      );
+    }
+
     const authors = new Set(PROHIBITION_AUTHORS);
     let scanned = 0;
     for (const file of [...files, ...storefrontFiles]) {
@@ -409,7 +450,11 @@ describe('WALL 2 — no purchase language reaches a shopper', () => {
       }
       scanned += 1;
     }
-    expect(scanned).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES - PROHIBITION_AUTHORS.length);
+    // A CONSTANT, never `MINIMUM_DOMAIN_FILES - PROHIBITION_AUTHORS.length`: a
+    // floor that subtracts its own exclusion list moves down by one for every
+    // module excused from it, so it can never report the thing a floor exists
+    // to report. The two constants are independent on purpose.
+    expect(scanned).toBeGreaterThanOrEqual(MINIMUM_DOMAIN_FILES - EXPECTED_PROHIBITION_AUTHORS);
   });
 });
 
@@ -670,6 +715,7 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       population: domainRelativePaths,
       pattern: DOMAIN_NAME_PATTERN,
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 26 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 22,

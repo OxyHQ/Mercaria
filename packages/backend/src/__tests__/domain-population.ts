@@ -241,6 +241,32 @@ export interface OutsidePopulationOptions {
   /** Domain-named modules that are deliberately NOT in the population. */
   readonly notThisDomain: readonly ForeignModule[];
   /**
+   * How many exclusions there are supposed to be. REQUIRED, and `0` where the
+   * list is empty.
+   *
+   * ## Why the count is a parameter rather than each gate's own line
+   *
+   * The three assertions below already hold every exclusion to something — it is
+   * REACHED by the sweep, it is ABSENT from the population, and it carries a
+   * reason. All three are about an entry that EXISTS. None of them notices an
+   * entry being ADDED, which is the direction #448 is about: an excusing entry
+   * is a predicate, not an identity, so a list with no count lets a module be
+   * excused without anybody deciding to.
+   *
+   * Twelve callers had worked that out and written `expect(X.length).toBe(N)` by
+   * hand. Two could not: they pass `notThisDomain` INLINE, so there is no
+   * identifier to take a `.length` of and no pin was expressible at all. That is
+   * the tell that this belongs at the chokepoint — a rule whose observance
+   * depends on the caller's array having been given a name is not a rule.
+   *
+   * REQUIRED rather than optional for the same reason `assertDirectoriesAreFlat`
+   * takes its floor rather than defaulting one: an optional count is omitted by
+   * exactly the caller who needed it. Forty-two of the fifty-four call sites pass
+   * `0`, which is trivially true and states out loud that the gate excuses
+   * nothing — a fact worth reading in the call.
+   */
+  readonly expectedExclusions: number;
+  /**
    * A floor on what the SWEEP reached — never on the population.
    *
    * A traversal that reached nothing reports no module outside the population,
@@ -277,6 +303,17 @@ export interface OutsidePopulationOptions {
 export function assertNothingOutsideDomainPopulation(options: OutsidePopulationOptions): void {
   const { population, pattern, notThisDomain, sweepFloor, plantIn, plantName } = options;
   const excused = notThisDomain.map((entry) => entry.path);
+
+  // The count, FIRST, because it is the only clause here that can fail on an
+  // entry somebody ADDED — every assertion below is about an entry that already
+  // exists, and each of them passes for a list that has just grown.
+  expect(
+    notThisDomain.length,
+    `this gate excuses ${notThisDomain.length} domain-named module(s) and declares ` +
+      `${options.expectedExclusions}. An excusing entry is a predicate rather than an identity ` +
+      '(#448): if the new exclusion is right, move `expectedExclusions` in the same diff, which ' +
+      'is the decision being recorded rather than a line that appeared',
+  ).toBe(options.expectedExclusions);
   // ONE comparison, parameterised by the reader, serving the wall and its
   // control. Two spellings would let the control pass while the wall went
   // vacuous — measured in #609.

@@ -468,6 +468,7 @@ describe('#460: nothing named for this sub-domain sits outside the scanned popul
       population: relationshipRelativePaths,
       pattern: RELATIONSHIP_NAME_PATTERN,
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 10 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 7,

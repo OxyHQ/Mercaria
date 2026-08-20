@@ -171,6 +171,7 @@ describe('#460 — the population is closed against the tree', () => {
       // Measured empty: every navigation-named module in the tree is a module of
       // this domain. One owned by somebody else goes here WITH its reason.
       notThisDomain: [],
+      expectedExclusions: 0,
       sweepFloor: 10,
       plantIn: 'lib',
       plantName: 'navigation-cache.ts',

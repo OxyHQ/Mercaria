@@ -192,6 +192,7 @@ describe('the pickup domain has no reach it should not have', () => {
       // Measured empty: every pickup-named module in the tree is a module of
       // this domain. One owned by somebody else goes here WITH its reason.
       notThisDomain: [],
+      expectedExclusions: 0,
       sweepFloor: 18,
       plantIn: 'lib',
       plantName: 'pickup-cache.ts',

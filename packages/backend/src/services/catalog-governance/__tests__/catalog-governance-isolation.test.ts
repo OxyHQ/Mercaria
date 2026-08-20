@@ -564,6 +564,7 @@ describe('the scan covers the whole domain', () => {
       // Deliberately empty, and the assertion is what makes that a measurement:
       // all twenty-two modules the whole-tree sweep finds are this domain's.
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 22 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 17,

@@ -365,6 +365,7 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       ],
       pattern: CATALOG_PAGE_NAME_PATTERN,
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 15 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 11,

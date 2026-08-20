@@ -269,6 +269,7 @@ describe('the population rule 1 is applied to (#460)', () => {
             'evaluated, which is what rule 1 polices.',
         },
       ],
+      expectedExclusions: 4,
       // Below today's 23 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 17,

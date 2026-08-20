@@ -552,14 +552,12 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       population: domainPaths,
       pattern: AWIN_NAME_PATTERN,
       notThisDomain: NOT_THIS_DOMAIN,
+      expectedExclusions: 2,
       // Below today's 26 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 20,
       plantIn: 'lib',
       plantName: 'awin-cache.ts',
     });
-    // The exclusion's own count, so a third entry is a decision somebody takes
-    // rather than a line that appears (#448).
-    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(2);
   });
 });
