@@ -23,6 +23,7 @@ import {
 } from "@/lib/authoring/hooks";
 import { patchProductDraft } from "@/lib/authoring/api";
 import { deviceMarket, isValidMarket, normalizeMarket } from "@/lib/authoring/market";
+import { authoringLabel } from "@/lib/authoring/untranslated";
 
 export default function ProductWizardStartScreen() {
   const { t } = useTranslation();
@@ -250,11 +251,15 @@ function StartBody({ storeId }: { storeId: string }) {
             <View className="gap-2">
               {(productTypes.data ?? []).map((option) => {
                 const isSelected = option.definitionId === productType?.definitionId;
+                // #740. Derived ONCE: the visible text and the accessibility
+                // label are the same fact, and two `??` chains for one fact is
+                // how they drift.
+                const name = authoringLabel(option.name, { kind: "key", key: option.key }, t).text;
                 return (
                   <Pressable
                     key={option.definitionId}
                     accessibilityRole="button"
-                    accessibilityLabel={option.name?.value ?? option.key}
+                    accessibilityLabel={name}
                     accessibilityState={{ selected: isSelected }}
                     onPress={() => setProductType(option)}
                     className={[
@@ -262,9 +267,7 @@ function StartBody({ storeId }: { storeId: string }) {
                       isSelected ? "border-primary bg-muted" : "border-border",
                     ].join(" ")}
                   >
-                    <Text className="text-base text-foreground">
-                      {option.name?.value ?? option.key}
-                    </Text>
+                    <Text className="text-base text-foreground">{name}</Text>
                   </Pressable>
                 );
               })}

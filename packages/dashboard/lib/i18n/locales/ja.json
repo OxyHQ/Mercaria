@@ -1237,6 +1237,11 @@
         "proposalPending": "提案された値がまだ保留中で、この商品タイプは決定するまで公開を止めます。",
         "approvedValueNotPublished": "値は承認され、公開待ちです。オペレーターが公開すれば公開できます。",
         "draftNotOpen": "この下書きはもう開いていません。"
+      },
+      "untranslated": {
+        "withKey": "%{key}（未翻訳）",
+        "unnamed": "名称は未翻訳です",
+        "notice": "一部の項目名はまだあなたの言語に翻訳されていません。"
       }
     }
   },

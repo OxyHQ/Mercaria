@@ -60,8 +60,9 @@ export {
 // `./i18n/shared-copy`'s `SHARED_UI_COPY` is deliberately NOT exported here.
 // It is the DATA `mergeSharedUiCopy` merges, and an app that could reach it
 // could read a sentence out of it directly — which is the per-screen use that
-// bypasses the app's own locale entirely. `isolateBidi`'s decision, below, for
-// the same reason: an export with no consumer is an invitation.
+// bypasses the app's own locale entirely. The rule it shares with `isolateBidi`
+// below is that an export with no consumer is an invitation; `isolateBidi` now
+// has one, and this does not.
 
 // ---------------------------------------------------------------------------
 // Layout direction (#434). Split in two on purpose: the DECISION (`isRtlLocale`)
@@ -79,13 +80,23 @@ export { isRtlLocale, languageOf, RTL_LANGUAGE_CODES } from "./i18n/rtl-locales"
 export { syncLayoutDirection, type DirectionSyncResult } from "./i18n/layout-direction";
 export { useColorScheme } from "./lib/useColorScheme";
 export { useSidebarCollapse } from "./lib/useSidebarCollapse";
-// `./lib/bidi`'s `isolateBidi` is deliberately NOT exported here. It is applied
-// once, inside the nine formatters below (#429 item 1), which is what makes this
-// module the chokepoint rather than a utility screens remember to call. An
-// export with no consumer is API surface inviting exactly the per-screen use the
-// issue rules out; the first screen that genuinely needs it — a raw quantity or
-// a Latin brand name in an Arabic sentence — adds the export in the diff that
-// uses it.
+
+// `./lib/bidi`'s `isolateBidi` is deliberately NOT exported from this BARREL,
+// and #740 gave it a consumer without changing that. The reason is now sharper
+// than "an export with no consumer is an invitation": this barrel reaches
+// `react-native`, whose Flow `index.js` Rollup cannot parse, so a module that
+// imports it cannot be executed by any of the three apps' vitest runners. An
+// export here would be reachable only from code no test can run.
+//
+// It is published as the subpath `@mercaria/ui/lib/bidi` instead, whose one
+// consumer is `packages/dashboard/lib/authoring/untranslated.ts` — a Latin
+// catalogue key interpolated into a possibly-Arabic sentence, which is the
+// "Latin brand name in an Arabic sentence" case this note used to anticipate.
+// That module is the wizard's single chokepoint and applies it once, so this
+// does not reopen per-screen use.
+//
+// The nine formatters below apply it internally (#429 item 1), so a caller of
+// one never needs it.
 //
 // Each takes a REQUIRED `locale` (#500). A SCREEN should reach them through
 // `useFormatters()`, which binds the locale the app already publishes; the bare

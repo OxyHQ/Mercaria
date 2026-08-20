@@ -21,6 +21,11 @@ import { useDraftWizard } from "@/lib/authoring/use-draft-wizard";
 import { WIZARD_STEPS, type WizardStepId } from "@/lib/authoring/findings";
 import { scrollToFinding } from "@/lib/authoring/anchors";
 import {
+  anyUntranslated,
+  authoringLabel,
+  UNTRANSLATED_NOTICE_KEY,
+} from "@/lib/authoring/untranslated";
+import {
   controlledValueStrings,
   generateMatrix,
   singleVariantRow,
@@ -191,7 +196,16 @@ function WizardBody({ storeId, draft, schema, onReload }: WizardBodyProps) {
   return (
     <Screen
       title={t("products.wizard.title")}
-      subtitle={schema.text.productTypeName?.value ?? schema.productType.key}
+      subtitle={
+        // #740: a dotted product-type key rendered bare as a screen subtitle is
+        // indistinguishable from a name somebody wrote. Marked, the key still
+        // says WHICH type this draft is being authored against.
+        authoringLabel(
+          schema.text.productTypeName,
+          { kind: "key", key: schema.productType.key },
+          t,
+        ).text
+      }
       action={
         <SaveStateBadge
           state={saveState}
@@ -430,14 +444,21 @@ function ReviewPanelClassification({
   schema: AuthoringSchema;
 }) {
   const { t } = useTranslation();
+  // #740, and the same split `ReviewPanel` makes for the same reason: the
+  // product type has a stable key worth marking up, the category has only a
+  // UUID on this DTO and so gets no identifier at all.
+  const categoryName = authoringLabel(schema.text.categoryName, { kind: "unidentifiable" }, t);
+  const productTypeName = authoringLabel(
+    schema.text.productTypeName,
+    { kind: "key", key: draft.productType.key },
+    t,
+  );
   return (
     <View className="gap-1.5 rounded-2xl border border-border bg-surface p-4">
-      <Text className="text-sm font-semibold text-foreground">
-        {schema.text.categoryName?.value ?? draft.categoryId}
-      </Text>
+      <Text className="text-sm font-semibold text-foreground">{categoryName.text}</Text>
       <Text className="text-xs text-muted-foreground">
         {t("products.wizard.review.productTypeVersion", {
-          name: schema.text.productTypeName?.value ?? draft.productType.key,
+          name: productTypeName.text,
           version: draft.productType.version,
         })}
       </Text>
@@ -453,6 +474,9 @@ function ReviewPanelClassification({
       <Text className="text-xs text-muted-foreground">
         {t("products.wizard.classification.pinned")}
       </Text>
+      {anyUntranslated([categoryName, productTypeName]) ? (
+        <Text className="text-xs text-muted-foreground">{t(UNTRANSLATED_NOTICE_KEY)}</Text>
+      ) : null}
     </View>
   );
 }

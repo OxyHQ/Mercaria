@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AuthoringSchema } from "@mercaria/shared-types";
-import { Button, Input, Label, Switch, Text } from "@mercaria/ui";
+import { Button, Input, Label, Switch, Text, type Translate } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalVariants } from "@/lib/authoring/hooks";
 import { applyBarcodeToAll, applySkuPrefix, setAllSold } from "@/lib/authoring/bulk";
@@ -13,6 +13,7 @@ import {
   type VariantRow,
 } from "@/lib/authoring/matrix";
 import { fieldsByKey } from "@/lib/authoring/wizard-state";
+import { authoringLabel } from "@/lib/authoring/untranslated";
 
 interface VariantRowsProps {
   readonly schema: AuthoringSchema;
@@ -189,7 +190,7 @@ export function VariantRows({
         const isDuplicate = duplicates.has(row.key);
         // A product sold in one configuration has no axis values to name it
         // with, and that is the normal case rather than an empty state.
-        const summary = axisSummary(row, schema);
+        const summary = axisSummary(row, schema, t);
         return (
           <View
             key={row.key}
@@ -294,7 +295,7 @@ export function VariantRows({
  * the author chose them. It is presentation only: what identifies the row to
  * the server is the axis answers themselves.
  */
-export function axisSummary(row: VariantRow, schema: AuthoringSchema): string {
+export function axisSummary(row: VariantRow, schema: AuthoringSchema, translate: Translate): string {
   const byKey = fieldsByKey(schema);
   const parts: string[] = [];
   for (const [key, entries] of Object.entries(row.axes)) {
@@ -304,7 +305,15 @@ export function axisSummary(row: VariantRow, schema: AuthoringSchema): string {
       if (entry.kind === "controlled_value") {
         const value = field.controlledValues.find((option) => option.id === entry.enumValueId);
         if (value === undefined) continue;
-        parts.push(schema.text.values[value.id]?.label?.value ?? value.value);
+        // #740: marked per PART rather than once for the whole summary. A
+        // trailing marker would say one of these words is a machine token
+        // without saying which, and a row naming two axes is the case where
+        // that matters. `translate` is threaded rather than read from a hook
+        // because this stays a pure function every caller can execute.
+        parts.push(
+          authoringLabel(schema.text.values[value.id]?.label, { kind: "key", key: value.value }, translate)
+            .text,
+        );
         continue;
       }
       if (entry.kind === "text" && entry.text.trim().length > 0) parts.push(entry.text.trim());

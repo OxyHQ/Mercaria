@@ -1255,6 +1255,11 @@
         "proposalPending": "Há um valor proposto pendente, e este tipo de produto bloqueia a publicação até que seja decidido.",
         "approvedValueNotPublished": "Seu valor foi aprovado e está aguardando publicação. Você poderá publicar quando um operador liberá-lo.",
         "draftNotOpen": "Este rascunho não está mais aberto."
+      },
+      "untranslated": {
+        "withKey": "%{key} (sem tradução)",
+        "unnamed": "Nome sem tradução",
+        "notice": "Alguns nomes ainda não foram traduzidos para o seu idioma."
       }
     }
   },

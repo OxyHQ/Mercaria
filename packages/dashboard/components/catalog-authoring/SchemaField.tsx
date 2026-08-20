@@ -15,6 +15,7 @@ import { unitAffordance } from "@/lib/authoring/controls";
 import { checkFieldEntries, type InlineFinding } from "@/lib/authoring/inline-validation";
 import { findingMessageKey, type LocatedFinding } from "@/lib/authoring/findings";
 import { COMPONENT_AXIS_LABEL_KEYS } from "@/lib/authoring/labels";
+import { authoringLabel } from "@/lib/authoring/untranslated";
 import { ValuePicker, type PickerOption } from "./ValuePicker";
 import { CanonicalReferenceField } from "./CanonicalReferenceField";
 
@@ -63,9 +64,12 @@ export function SchemaField({
 
   const text = schema.text.fields[field.id];
   // The stable KEY is the fallback, never a humanised guess at one: a missing
-  // translation is a fact an operator has to be able to see, and a prettified
-  // key reads in review like copy somebody wrote.
-  const label = text?.label?.value ?? field.key;
+  // translation is a fact an author has to be able to see, and a prettified key
+  // reads in review like copy somebody wrote. #740: the key is kept for that
+  // reason and no longer rendered BARE — a form whose untranslated labels all
+  // read alike is a form nobody can fill in, so the identifier survives inside
+  // an affordance that says it is one.
+  const label = authoringLabel(text?.label, { kind: "key", key: field.key }, t).text;
   const help = text?.help?.value ?? null;
   const placeholder = text?.placeholder?.value ?? "";
 
@@ -224,7 +228,12 @@ function EntryControl({
       // The localized label, keyed by the value's own id. The CANONICAL string
       // is shown beside it as the detail line, because two localizations can
       // read alike and the stored fact is the canonical one.
-      label: schema.text.values[value.id]?.label?.value ?? value.value,
+      //
+      // #740: `value.value` is a machine token (`titanium_grey`), not a word a
+      // shopper reads — the seed carries a separate label for that — so an
+      // untranslated option is MARKED rather than presented as its own name.
+      label: authoringLabel(schema.text.values[value.id]?.label, { kind: "key", key: value.value }, t)
+        .text,
       detail: value.value,
     }));
     return (
