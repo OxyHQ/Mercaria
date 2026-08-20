@@ -24,6 +24,7 @@
 
 import type {
   PriceAlert,
+  PriceAlertLastEvaluation,
   PriceAlertNotificationView,
   PriceAlertTrigger,
 } from '@mercaria/shared-types';
@@ -58,6 +59,20 @@ import {
 /** Everything one alert's history says. */
 export interface PriceAlertTrace {
   readonly alert: PriceAlert;
+  /**
+   * Why THIS alert did not fire, from its own last evaluation (#752).
+   *
+   * The answer to the question the surface exists for. It is separate from
+   * `evaluation` below and neither substitutes for the other: that one is the
+   * PRODUCT's queue row and reports how the sweep went (state, lease, attempts,
+   * how many alerts it looked at), while this is the verdict on the ONE alert
+   * being traced. A sweep can complete perfectly and still leave this alert
+   * blocked, which is the ordinary case and the one an operator is asking about.
+   *
+   * ABSENT when the alert has never been evaluated — which `evaluation.state`
+   * and the queue's own age are what explain.
+   */
+  readonly lastEvaluation?: PriceAlertLastEvaluation;
   readonly triggers: readonly PriceAlertTrigger[];
   readonly notifications: readonly PriceAlertNotificationView[];
   /** The subject's queue row — how long ago it was evaluated, and what it saw. */
@@ -89,6 +104,17 @@ export async function tracePriceAlert(alertId: string): Promise<PriceAlertTrace>
 
   return {
     alert: toPriceAlertDTO(alert),
+    ...(alert.lastEvaluatedAt
+      ? {
+          lastEvaluation: {
+            evaluatedAt: alert.lastEvaluatedAt.toISOString(),
+            // Derived from the reasons rather than stored a second time: a
+            // stored outcome column could disagree with the list beside it.
+            outcome: alert.lastBlockReasons.length > 0 ? ('blocked' as const) : ('qualified' as const),
+            reasons: alert.lastBlockReasons,
+          },
+        }
+      : {}),
     triggers,
     notifications: deliveries.map((entry) =>
       toPriceAlertNotificationView(entry.row, entry.openedAt),

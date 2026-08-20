@@ -1188,3 +1188,215 @@ describe('erasure is ONE scoped delete, and it takes the history with it', () =>
     ).not.toHaveLength(0);
   }, 60_000);
 });
+
+/**
+ * #752 — the block-reason vocabulary has a READER.
+ *
+ * These are the BEHAVIOURAL half. `price-alert-block-reasons.test.ts` scans that
+ * every member has a producer and that the wiring exists; a scan cannot show
+ * that the verdict survives the round trip through Postgres and comes back out
+ * of the operator surface, and that round trip is the whole feature. Before
+ * #752 every case here would have read an empty column and a trace with nothing
+ * on it, which is exactly what "computed and discarded" looked like.
+ */
+/**
+ * The constraint a refusal actually cites, read off the error CAUSE.
+ *
+ * `rejectionMessage` above matches on message text, which carries the
+ * constraint name for an INSERT and does NOT for an UPDATE — so a message-based
+ * assertion on an update passes or fails for reasons unrelated to the CHECK
+ * under test. postgres.js puts it on `constraint_name`, which is the fact.
+ */
+async function rejectionConstraint(run: () => Promise<unknown>): Promise<string> {
+  try {
+    await run();
+  } catch (error: unknown) {
+    let current: unknown = error;
+    for (let depth = 0; depth < 5 && current !== undefined && current !== null; depth += 1) {
+      const named = (current as { constraint_name?: string }).constraint_name;
+      if (typeof named === 'string' && named.length > 0) return named;
+      current = (current as { cause?: unknown }).cause;
+    }
+    return `refused, but cited no constraint: ${String(error)}`;
+  }
+  throw new Error('expected the statement to be refused, and it was accepted');
+}
+
+describe('#752: a blocked evaluation says WHY, durably and on the trace', () => {
+  it('records the reason on the alert and surfaces it on the operator trace', async () => {
+    const source = await bringUpSource('r752a');
+    const productId = await mintProduct('r752a');
+    const variantId = await mintVariant(productId);
+    // Priced ABOVE the alert's 50_000 target, so the block is `above_target` —
+    // the ordinary refusal, and the one an operator most often asks about.
+    await observe({
+      source,
+      canonicalVariantId: variantId,
+      externalOfferId: `r752a-${RUN}`,
+      amount: 90_000,
+      currency: 'EUR',
+      observedAt: new Date(),
+    });
+
+    const alert = await insertPriceAlert(newAlert({ canonicalProductId: productId }));
+    await evaluatePriceAlertsForProduct(productId);
+
+    expect(await listPriceAlertTriggers(alert.id, 10)).toHaveLength(0);
+
+    const row = await findPriceAlertById(alert.id);
+    expect(row?.lastBlockReasons).toEqual(['above_target']);
+    expect(row?.lastBlockedAt).not.toBeNull();
+    // The stamp and the reason describe ONE evaluation.
+    expect(row?.lastEvaluatedAt).not.toBeNull();
+
+    const trace = await tracePriceAlert(alert.id);
+    expect(trace.lastEvaluation?.outcome).toBe('blocked');
+    expect(trace.lastEvaluation?.reasons).toEqual(['above_target']);
+    expect(trace.lastEvaluation?.evaluatedAt).toBe(row?.lastEvaluatedAt?.toISOString());
+  }, 60_000);
+
+  it('produces `repeat_policy_not_satisfied`, the reason the bare `continue` used to eat', async () => {
+    const source = await bringUpSource('r752b');
+    const productId = await mintProduct('r752b');
+    const variantId = await mintVariant(productId);
+    await observe({
+      source,
+      canonicalVariantId: variantId,
+      externalOfferId: `r752b-${RUN}`,
+      amount: 40_000,
+      currency: 'EUR',
+      observedAt: new Date(),
+    });
+
+    // `once`: the first evaluation fires, and every later one is refused by the
+    // REPEAT rule rather than by anything about the offers. That refusal is read
+    // in `evaluation.service` and not in `qualifyAlert`, which is why it is the
+    // member most easily lost again.
+    const alert = await insertPriceAlert(
+      newAlert({
+        canonicalProductId: productId,
+        // NOT `once`, and the reason is worth stating: triggering a `once` alert
+        // sets `state = 'triggered'`, and the evaluator selects
+        // `state = 'enabled'` — so it leaves the evaluable set entirely and
+        // `repeat_policy_not_satisfied` is UNREACHABLE for that policy. The
+        // reason is reachable for exactly the two policies that keep the alert
+        // enabled and then refuse it: `cooldown_better_low` and
+        // `reset_threshold`.
+        repeatPolicy: 'cooldown_better_low',
+        cooldownSeconds: 3_600,
+      }),
+    );
+
+    await evaluatePriceAlertsForProduct(productId);
+    expect(await listPriceAlertTriggers(alert.id, 10)).toHaveLength(1);
+    // The qualifying evaluation left NO reasons — the success state.
+    expect((await findPriceAlertById(alert.id))?.lastBlockReasons).toEqual([]);
+    expect((await findPriceAlertById(alert.id))?.lastBlockedAt).toBeNull();
+
+    await evaluatePriceAlertsForProduct(productId);
+
+    const row = await findPriceAlertById(alert.id);
+    expect(row?.lastBlockReasons).toEqual(['repeat_policy_not_satisfied']);
+    expect(row?.lastBlockedAt).not.toBeNull();
+    // Still exactly one trigger: recording the reason created nothing.
+    expect(await listPriceAlertTriggers(alert.id, 10)).toHaveLength(1);
+
+    const trace = await tracePriceAlert(alert.id);
+    expect(trace.lastEvaluation?.reasons).toEqual(['repeat_policy_not_satisfied']);
+  }, 60_000);
+
+  it('a later qualifying evaluation CLEARS the previous reasons', async () => {
+    const source = await bringUpSource('r752c');
+    const productId = await mintProduct('r752c');
+    const variantId = await mintVariant(productId);
+    await observe({
+      source,
+      canonicalVariantId: variantId,
+      externalOfferId: `r752c-${RUN}`,
+      amount: 90_000,
+      currency: 'EUR',
+      observedAt: new Date(),
+    });
+
+    const alert = await insertPriceAlert(newAlert({ canonicalProductId: productId }));
+    await evaluatePriceAlertsForProduct(productId);
+    expect((await findPriceAlertById(alert.id))?.lastBlockReasons).toEqual(['above_target']);
+
+    // The price drops under the target. Without the clear, the alert would fire
+    // AND go on reporting why it used to be blocked — a stale cause reading
+    // exactly like a current one, which is worse than no reason at all.
+    await observe({
+      source,
+      canonicalVariantId: variantId,
+      externalOfferId: `r752c-${RUN}`,
+      amount: 30_000,
+      currency: 'EUR',
+      observedAt: new Date(),
+    });
+    await evaluatePriceAlertsForProduct(productId);
+
+    const row = await findPriceAlertById(alert.id);
+    expect(row?.lastBlockReasons).toEqual([]);
+    expect(row?.lastBlockedAt).toBeNull();
+    expect(await listPriceAlertTriggers(alert.id, 10)).toHaveLength(1);
+
+    const trace = await tracePriceAlert(alert.id);
+    expect(trace.lastEvaluation?.outcome).toBe('qualified');
+    expect(trace.lastEvaluation?.reasons).toEqual([]);
+  }, 60_000);
+
+  it('the two halves of the verdict cannot disagree — the CHECK a mocked update would accept', async () => {
+    const productId = await mintProduct('r752d');
+    const alert = await insertPriceAlert(newAlert({ canonicalProductId: productId }));
+
+    // Stamp the alert as evaluated FIRST, so `..._evaluated_check` is satisfied
+    // throughout and every refusal below is attributable to the SHAPE check
+    // alone. Without this the empty-reasons-with-an-instant case violates BOTH
+    // constraints and Postgres cites whichever it reaches first — a probe whose
+    // answer depends on constraint evaluation order proves nothing about the
+    // one under test.
+    await db
+      .update(priceAlerts)
+      .set({ lastEvaluatedAt: new Date() })
+      .where(eq(priceAlerts.id, alert.id));
+
+    // Reasons with no instant.
+    const orphanReasons = await rejectionConstraint(() =>
+      db
+        .update(priceAlerts)
+        .set({ lastBlockReasons: ['above_target'], lastBlockedAt: null })
+        .where(eq(priceAlerts.id, alert.id)),
+    );
+    expect(orphanReasons).toBe('price_alerts_last_block_shape_check');
+
+    // An instant with no reasons — the direction `array_length(col,1) >= 1`
+    // would have ADMITTED, because it is NULL on an empty array and a CHECK
+    // rejects only FALSE.
+    const orphanInstant = await rejectionConstraint(() =>
+      db
+        .update(priceAlerts)
+        .set({ lastBlockReasons: [], lastBlockedAt: new Date() })
+        .where(eq(priceAlerts.id, alert.id)),
+    );
+    expect(orphanInstant).toBe('price_alerts_last_block_shape_check');
+
+    // A member outside the vocabulary — including the one #752 CUT.
+    const cutMember = await rejectionConstraint(() =>
+      db.execute(
+        sql`update price_alerts
+            set last_block_reasons = array['ambiguous_after_split']::text[],
+                last_blocked_at = now()
+            where id = ${alert.id}`,
+      ),
+    );
+    expect(cutMember).toBe('price_alerts_last_block_reasons_check');
+
+    // POSITIVE CONTROL: a legitimate pair is accepted, so the three refusals
+    // above are the CHECKs firing and not the statement being malformed.
+    await db
+      .update(priceAlerts)
+      .set({ lastBlockReasons: ['above_target'], lastBlockedAt: new Date() })
+      .where(eq(priceAlerts.id, alert.id));
+    expect((await findPriceAlertById(alert.id))?.lastBlockReasons).toEqual(['above_target']);
+  }, 60_000);
+});

@@ -50,6 +50,7 @@ import {
   rearmPriceAlert,
   recordPriceAlertEvaluated,
   recordPriceAlertTriggered,
+  type PriceAlertEvaluationRecord,
   type PriceAlertRow,
 } from '../../db/priceAlerts/priceAlertRepository.js';
 import { enqueuePriceAlertNotification } from '../../db/priceAlerts/priceAlertNotificationRepository.js';
@@ -302,6 +303,7 @@ export async function evaluatePriceAlertsForProduct(
   }
 
   const comparisons = new Map<string, AlertComparison>();
+  const outcomes: PriceAlertEvaluationRecord[] = [];
   let qualifiedAlerts = 0;
   let triggersCreated = 0;
 
@@ -325,17 +327,28 @@ export async function evaluatePriceAlertsForProduct(
         : qualification.bestInScopeAmount;
     await applyReset(alert, best, now);
 
-    if (qualification.outcome !== 'qualified') continue;
-    if (!mayRepeat(alert, qualification.amount, now)) continue;
+    if (qualification.outcome !== 'qualified') {
+      outcomes.push({ id: alert.id, reasons: qualification.reasons });
+      continue;
+    }
+    // The price qualified and the repeat rule refused. Before #752 this was a
+    // bare `continue` and the answer was dropped — the one condition the
+    // evaluator reads that `qualifyAlert` cannot, and so the one block reason
+    // that has to be produced here.
+    if (!mayRepeat(alert, qualification.amount, now)) {
+      outcomes.push({ id: alert.id, reasons: ['repeat_policy_not_satisfied'] });
+      continue;
+    }
 
+    // EMPTY reasons is the qualifying outcome, and it is recorded rather than
+    // omitted: the previous evaluation's reasons must be cleared, or an alert
+    // that started firing would keep reporting why it used to be blocked.
+    outcomes.push({ id: alert.id, reasons: [] });
     qualifiedAlerts += 1;
     if (await recordQualification(alert, qualification, now)) triggersCreated += 1;
   }
 
-  await recordPriceAlertEvaluated(
-    alerts.map((alert) => alert.id),
-    now,
-  );
+  await recordPriceAlertEvaluated(outcomes, now);
 
   log.general.debug(
     { canonicalProductId, evaluated: alerts.length, qualified: qualifiedAlerts, triggersCreated },

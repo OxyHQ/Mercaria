@@ -346,38 +346,56 @@ export const PRICE_ALERT_MINUTES_PER_DAY = 1_440;
  * Every member names a fact the evaluator READ. `above_target` is the ordinary
  * one and is not an error.
  *
- * ## NOTHING READS THIS YET, and the previous wording claimed otherwise (#744)
+ * ## This list HAS a reader (#752), and that is what makes it exhaustive
  *
- * This docblock used to say the list was "exhaustive rather than a guess" and
- * that "an operator tracing 'why did my alert not fire' gets the answer rather
- * than an absence". The second half is false today and the first half was
- * measured and found false for one member, so both are removed rather than
- * softened.
+ * The evaluator records the blocked verdict on the alert itself
+ * (`price_alerts.last_block_reasons` / `last_blocked_at`, written by
+ * `recordPriceAlertEvaluated` in the same statement that stamps
+ * `last_evaluated_at`), and `tracePriceAlert` returns it as
+ * `PriceAlertTrace.lastEvaluation`. So an operator asking "why did my alert not
+ * fire" is answered, for every member.
  *
- * `qualifyAlert` composes these into `{ outcome: 'blocked', reasons }`, and its
- * ONE production consumer is `evaluation.service.ts`, which does
- * `if (qualification.outcome !== 'qualified') continue;` — so the verdict is
- * computed and discarded. No column stores a reason, no DTO carries one and no
- * route returns one. An operator asking that question today gets the absence
- * the old wording promised they would not, for EVERY member and not just the
- * unproduced ones.
+ * Before #752 the verdict was composed and dropped: the one production consumer
+ * did `if (qualification.outcome !== 'qualified') continue;` four lines later,
+ * no column stored a reason and no route returned one. #744's docblock half was
+ * fixed there; this is the reader half.
  *
- * That is the distinction worth keeping: #744 measured "does a literal producer
- * exist", which is true for most of these, while the sentence above claimed "an
- * operator is told", which needs a READER. A value produced into a local that
- * the next line drops satisfies the first and not the second.
+ * The distinction that produced two issues is worth keeping. #744 measured
+ * "does a literal producer exist", which was true for most of these, while the
+ * old wording claimed "an operator is told", which needs a READER. A value
+ * produced into a local that the next line drops satisfies the first and not
+ * the second — so a producer census can never propose this fix, and adding a
+ * member to "cover" a case would have passed one while changing nothing.
  *
- * Giving the vocabulary a reader is a feature and has its own issue. Until it
- * lands, do NOT add a member here to "cover" a case: it would pass a producer
- * census, read as a fix, and change nothing an operator can see. A new member
- * arrives WITH the code that surfaces it.
+ * A new member still arrives WITH the code that surfaces it. The surface is now
+ * `PriceAlertTrace.lastEvaluation`, and
+ * `price-alert-block-reasons.test.ts` fails the build on a member with no
+ * producer, so "add the member now, wire it later" is no longer a passing state.
  *
- * `alert_not_evaluable` was removed by #744 rather than left dead. The state is
- * modelled (`PriceAlertState`), but the evaluator's own selection is
- * `eq(priceAlerts.state, 'enabled')`, so a paused, triggered or deleted alert
- * never reaches evaluation to be blocked — unreachable by construction rather
- * than merely unproduced, and the answer to "why didn't it fire, it's paused"
- * is the alert's own `state`, which is already readable.
+ * ## Two members were CUT rather than wired, for one reason
+ *
+ * Both are unreachable BY CONSTRUCTION, because the evaluator's own selection
+ * excludes the alert before qualification can run — so the block reason could
+ * never be produced, and the operator's answer is a column they can already
+ * read:
+ *
+ * - `alert_not_evaluable` (cut by #744): the selection is
+ *   `eq(priceAlerts.state, 'enabled')`, so a paused, triggered or deleted alert
+ *   never reaches evaluation. The answer is the alert's own `state`.
+ * - `ambiguous_after_split` (cut by #752): the same selection also carries
+ *   `eq(priceAlerts.resolutionState, 'resolved')`, so an alert awaiting a split
+ *   answer never reaches evaluation either. The answer is the alert's own
+ *   `resolutionState` — and `PriceAlertResolution` additionally carries the
+ *   split job and both candidate products, which is strictly more than a
+ *   reason code could say.
+ *
+ * `ambiguous_after_split` survived #744's sweep for a reason worth recording,
+ * because it defeats that whole class of instrument: the string is a HOMONYM.
+ * It is also a member of `PRICE_ALERT_RESOLUTION_STATES`, thirty lines up this
+ * same file, where it is genuinely live — five non-test occurrences. A census
+ * keyed on member STRINGS reads those as producers of this member and reports
+ * it healthy. Telling the two apart needs the TYPE at the occurrence, not the
+ * value.
  */
 export type PriceAlertBlockReason =
   /** Nothing in the comparison survived #74's eligibility at all. */
@@ -393,19 +411,29 @@ export type PriceAlertBlockReason =
   /** No immutable observation stands behind the qualifying price. */
   | 'no_observed_price_version'
   /**
-   * The repeat policy says it is too soon, or not enough better, or already
-   * done.
+   * The offer qualified on price and the repeat policy says no — too soon, not
+   * enough better, or already done.
    *
-   * KEPT although nothing produces it, deliberately: unlike
-   * `alert_not_evaluable` the condition is genuinely reachable and evaluated —
-   * `evaluation.service.ts` computes `mayRepeat(...)` over the alert's two
-   * timestamps and its last amount, then discards the answer with a bare
-   * `continue`. Recording it belongs in the change that gives this vocabulary a
-   * reader, so the member and the surface that shows it land together (#744).
+   * This is the one member produced OUTSIDE `qualifyAlert`, and necessarily so:
+   * `qualifyAlert` is pure over one comparison, while the repeat rule reads the
+   * alert's two timestamps and its last triggered amount. `evaluation.service`
+   * computes `mayRepeat(...)` and, since #752, records this rather than
+   * dropping the answer with a bare `continue`.
+   *
+   * It is therefore the member most likely to be silently lost again — a future
+   * edit that reorders the loop can drop it without touching `qualifyAlert` at
+   * all. `price-alert-block-reasons.test.ts` covers it by PRODUCER, not by
+   * whether the reason list is non-empty.
+   *
+   * Reachable for exactly TWO of the four repeat policies, which is worth
+   * knowing before writing a fixture: `always` never refuses, and a `once`
+   * alert is moved to `state = 'triggered'` when it fires, so it leaves the
+   * evaluator's `state = 'enabled'` selection and is never re-qualified. Only
+   * `cooldown_better_low` and `reset_threshold` stay enabled and then decline,
+   * so only they can produce this. Measured — the first fixture for it used
+   * `once` and recorded no reason at all.
    */
   | 'repeat_policy_not_satisfied'
-  /** A split divided the product and the buyer has not said which one they meant. */
-  | 'ambiguous_after_split'
   /** The alert asks for proximity, which #93 does not supply. */
   | 'proximity_scope_unsupported';
 
@@ -417,7 +445,6 @@ export const PRICE_ALERT_BLOCK_REASONS: readonly PriceAlertBlockReason[] = [
   'currency_not_convertible',
   'no_observed_price_version',
   'repeat_policy_not_satisfied',
-  'ambiguous_after_split',
   'proximity_scope_unsupported',
 ];
 
@@ -471,6 +498,37 @@ export type PriceAlertQualification =
       /** Whether the buyer can complete the purchase on Mercaria (notification 5). */
       readonly nativeCheckoutEligible: boolean;
     };
+
+/**
+ * What the LAST evaluation of one alert concluded — the reader #752 added.
+ *
+ * ONE row per alert rather than a per-evaluation history table, and the reason
+ * is write volume rather than tidiness: an evaluation is enqueued by every
+ * offer write on a watched product, so a row per blocked evaluation would grow
+ * with catalogue churn multiplied by watchers, and need a retention sweep, to
+ * answer a question that only ever wants the latest answer. The alert's own
+ * `lastEvaluatedAt` already had exactly these semantics, so this sits beside it
+ * and is written by the same statement — two facts about one evaluation cannot
+ * then disagree about whether it happened.
+ *
+ * A STRING discriminant, never `blocked: boolean` — `@mercaria/backend`
+ * compiles with `strict: false`, so without `strictNullChecks` TypeScript does
+ * not narrow on a boolean literal (#68, hit again in #110).
+ *
+ * ABSENT entirely when the alert has never been evaluated. "Never looked at"
+ * and "looked at and did not qualify" are different facts and only the first is
+ * an operator problem — the distinction `neverEvaluated` already rests on.
+ */
+export interface PriceAlertLastEvaluation {
+  readonly evaluatedAt: string;
+  readonly outcome: 'qualified' | 'blocked';
+  /**
+   * Non-empty exactly when `outcome` is `blocked` — a CHECK on the row, not a
+   * convention here. Order is the evaluator's, which is the order the
+   * conditions were read in.
+   */
+  readonly reasons: readonly PriceAlertBlockReason[];
+}
 
 /** Which half of a `known_total` a stored quote converted. */
 export type PriceAlertCostComponent = 'item_price' | 'delivery_cost';
