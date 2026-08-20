@@ -219,6 +219,56 @@ async function explainInRollback(
  */
 const FORCE_INDEX = 'set local enable_seqscan = off';
 
+/**
+ * How much of `categories` a plan may look at and still be NARROW — a TENTH.
+ *
+ * The number is this file's own rather than a fresh one: the case that reports
+ * the chosen plan already records that T1 reads 500 of 5,010 rows — a tenth —
+ * and gets a sequential scan, "and correctly so. An index is the wrong tool for
+ * a tenth of a small table." So a tenth is exactly the size at which this file
+ * already says an index stops paying, and a forced plan that reads less than
+ * that is doing the work the index exists for.
+ */
+const NARROW_FRACTION_OF_TABLE = 10;
+
+/**
+ * The most rows a plan may scan and still be narrow, given the table AS COUNTED
+ * IN THE MEASURING TRANSACTION.
+ *
+ * A FRACTION OF THE LIVE TABLE, and never `rowsProduced`. What stood here was
+ * `expect(forced.rowsScanned).toBe(comparison.materializedPath.rowsProduced)`,
+ * which failed in CI as `expected 48 to be 30` (#810) on a diff that touched one
+ * markdown file. The comment above it said the property is narrowness — "thirty
+ * rows rather than the whole table" — and an equality does not test narrowness.
+ * It equates two numbers of DIFFERENT KINDS, taken at two different moments:
+ * `rowsProduced` is a logical result-set size and is a function of the seeded
+ * tree, while `rowsScanned` is how many index entries the executor had to look
+ * at, which includes entries for heap tuples the scan cannot see. Measured on
+ * this schema: eighteen rows inserted in a transaction that is ROLLED BACK leave
+ * eighteen entries behind and turn the identical statement's `rowsScanned` from
+ * 30 into 48 while `rowsProduced` stays 30 — the reported failure exactly — and
+ * a `VACUUM` puts it back to 30. None of that is a fact about the index.
+ *
+ * ONE definition, used by the case that asserts the bound holds and by the
+ * mutation self-test that asserts it can be broken. Two spellings of one bound
+ * is how the two come to disagree about what narrow means.
+ *
+ * A count that came back WRONG can only tighten this — zero rows makes it
+ * unsatisfiable — so the direction it fails in is the safe one, and a second
+ * assertion on the count would be a floor that cannot catch anything the bound
+ * does not already catch louder.
+ */
+function narrowRowCeiling(tableRows: number): number {
+  return tableRows / NARROW_FRACTION_OF_TABLE;
+}
+
+/** `select count(*) from categories`, for an {@link explainInRollback} `inspect`. */
+async function countCategories(tx: postgres.TransactionSql): Promise<number> {
+  const rows = await tx<{ rows: string }[]>`select count(*)::bigint as rows from categories`;
+  // postgres.js decodes `bigint` as a STRING, so a bare value would divide as one.
+  return Number(rows[0]?.rows ?? 0);
+}
+
 /** One shape's comparison, or a loud failure naming the shape that went missing. */
 function comparisonFor(shapeId: string): ShapeComparison {
   const comparison = result.comparisons.find((candidate) => candidate.shapeId === shapeId);
@@ -375,7 +425,14 @@ describe('the taxonomy ancestry benchmark (ADR 0007 D2)', () => {
       ...shape.materializedPathPlan,
     };
 
-    const forced = await explainInRollback(statement, [FORCE_INDEX]);
+    // The table is counted INSIDE the measuring transaction, which is what the
+    // `inspect` hook is for. A bound taken anywhere else — a constant, or the
+    // `beforeAll` measurement the old equality reached for — is a second clock,
+    // and a second clock is what made this case flaky.
+    let tableRows = 0;
+    const forced = await explainInRollback(statement, [FORCE_INDEX], async (tx) => {
+      tableRows = await countCategories(tx);
+    });
     expect(
       findVacuityViolations('T2', forced, expectation),
       'the GIN index cannot serve `ancestor_ids @> array[$1]` at all — that is a schema defect, ' +
@@ -383,15 +440,22 @@ describe('the taxonomy ancestry benchmark (ADR 0007 D2)', () => {
     ).toEqual([]);
     expect(forced.indexNames).toContain('categories_ancestor_ids_idx');
     expect(forced.nodeTypes).not.toContain('Seq Scan');
-    // And it is genuinely narrow when it is used: thirty rows rather than the
-    // whole table. That number is what the index would buy at a size where the
-    // planner wanted it.
-    expect(forced.rowsScanned).toBe(comparison.materializedPath.rowsProduced);
+    // And it is genuinely NARROW when it is used — under a tenth of the table
+    // rather than the whole of it. The two assertions above say the index is IN
+    // the plan; this is the only one that says it bought anything, which is what
+    // separates a GIN index doing its job from one dragged into a plan that
+    // reads the table anyway.
+    expect(
+      forced.rowsScanned,
+      'the index is in the plan and bought no narrowness: it made the executor look at ' +
+        'a tenth of `categories` or more',
+    ).toBeLessThan(narrowRowCeiling(tableRows));
 
     process.stdout.write(
       `\n[ancestry] T2 with enable_seqscan off: ${forced.nodeTypes.join(' / ')} using ` +
-        `${forced.indexNames.join(', ')}; ${String(forced.rowsScanned)} rows scanned against ` +
-        `${String(comparison.materializedPath.plan.rowsScanned)} on the chosen plan\n`,
+        `${forced.indexNames.join(', ')}; ${String(forced.rowsScanned)} rows scanned of ` +
+        `${String(tableRows)} in the table (ceiling ${String(narrowRowCeiling(tableRows))}), ` +
+        `against ${String(comparison.materializedPath.plan.rowsScanned)} on the chosen plan\n`,
     );
   }, 120_000);
 
@@ -407,10 +471,14 @@ describe('the taxonomy ancestry benchmark (ADR 0007 D2)', () => {
     };
 
     const forced = await explainInRollback(statement, [FORCE_INDEX]);
-    const mutated = await explainInRollback(statement, [
-      FORCE_INDEX,
-      'drop index categories_ancestor_ids_idx',
-    ]);
+    let mutatedTableRows = 0;
+    const mutated = await explainInRollback(
+      statement,
+      [FORCE_INDEX, 'drop index categories_ancestor_ids_idx'],
+      async (tx) => {
+        mutatedTableRows = await countCategories(tx);
+      },
+    );
     expect(mutated.indexNames).not.toContain('categories_ancestor_ids_idx');
 
     const violations = findVacuityViolations('T2', mutated, expectation);
@@ -425,6 +493,17 @@ describe('the taxonomy ancestry benchmark (ADR 0007 D2)', () => {
     // thirty rows — the amplification the index removes, as a number rather
     // than as an assumption.
     expect(mutated.rowsScanned).toBeGreaterThan(forced.rowsScanned * 10);
+
+    // And the NARROWNESS bound the case above asserts is RED here, stated
+    // against the same {@link narrowRowCeiling} that case uses. Without this the
+    // bound would only ever be asserted where it holds, which is a bound nobody
+    // has shown can fail — and a bound that cannot fail is worse than the flaky
+    // equality it replaced, because a flake gets investigated and a vacuous
+    // green does not.
+    expect(
+      mutated.rowsScanned,
+      'the narrowness bound stayed green with the index dropped — it is checking nothing',
+    ).toBeGreaterThanOrEqual(narrowRowCeiling(mutatedTableRows));
 
     // And the index really is back: a rollback that silently failed would leave
     // every measurement after this one taken against a different schema.
