@@ -28,12 +28,16 @@
  *    no parameter through which a caller could ask for cross-market fallback on
  *    legal or seller-authored text, and an unregistered field is a compile
  *    error rather than a silent default.
- * 3. **Cross-market fallback is granted by an explicit list, never by
- *    omission.** {@link CROSS_MARKET_FALLBACK_FIELD_CLASSES} names the classes
- *    that MAY fall back; anything else — including a class somebody adds later
- *    without reading this comment — resolves at the exact requested locale or
- *    not at all. A market's legal copy is not a default for another market's,
- *    and there is no policy under which it may be.
+ * 3. **Fallback is granted by explicit lists, never by omission.** There are
+ *    TWO, and they grant different things:
+ *    {@link CROSS_MARKET_FALLBACK_FIELD_CLASSES} grants another LOCALE'S text,
+ *    {@link AUTHORED_BASE_FALLBACK_FIELD_CLASSES} grants the ENTITY'S OWN base
+ *    text and nothing else. They are disjoint, and a class on neither —
+ *    including one somebody adds later without reading this comment — resolves
+ *    at the exact requested locale or not at all. A market's legal copy is not a
+ *    default for another market's, and there is no policy under which it may be.
+ *    A seller's own words are not another market's copy, which is why they are
+ *    on the second list rather than excluded from both.
  * 4. **Machine translation is a suggestion, not a source.**
  *    {@link HUMAN_SETTLED_LOCALIZATION_STATUSES} is the tuple the schema's
  *    trigger and its two companion CHECKs are written from. The trigger refuses
