@@ -28,6 +28,9 @@
  * one broken mechanism was nearly shipped and one working one nearly binned.
  */
 
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
 import {
   commitPresent,
   detectContentReverts,
@@ -168,6 +171,32 @@ check(
   'a window of 1 finds fewer — the bound in the docblock is real, not a disclaimer',
   narrow.reverts.length < positive.reverts.length,
   `window=1 gave ${narrow.reverts.length}, window=${HISTORY_WINDOW} gave ${positive.reverts.length}`,
+);
+
+// ── 6. The vacuity floor END TO END, through the real entry point ──────────
+//
+// Case 4 proves the DETECTOR returns an empty population; it says nothing about
+// whether the RUNNER fails on one, and that is the acceptance criterion. The
+// two are different functions and only this one is what CI executes — a floor
+// that exists in a library nobody calls is the shape of guard this gate is
+// built to catch. So spawn the real script the way the workflow does.
+const spawned = spawnSync(
+  'bun',
+  [fileURLToPath(new URL('./validate-no-content-revert.mjs', import.meta.url))],
+  {
+    encoding: 'utf8',
+    env: { ...process.env, REVERT_DETECTOR_BASE: THE_REVERT, REVERT_DETECTOR_HEAD: THE_REVERT },
+  },
+);
+check(
+  'the runner EXITS NON-ZERO on an empty population, not just reports one',
+  spawned.status === 1,
+  `exit=${spawned.status}`,
+);
+check(
+  'and it says the population was empty rather than that nothing was found',
+  /population is EMPTY/.test(`${spawned.stderr}${spawned.stdout}`),
+  'message did not name the empty population',
 );
 
 if (failures > 0) {
