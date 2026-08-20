@@ -117,17 +117,35 @@ reason the second one is not is worth stating on its own:
 
 `for (const x of [` anchors on the inline form. A list declared a few lines up as
 `const NAMED = [ … ]` and iterated by name is the SAME defect — the loop is still
-its only reader — and that pattern cannot see it. Measured on `4bff6ef3`, with
-derived spreads excluded from both counts: **113 inline loops, and 52 more over a
-named local hand list with no `.length` floor anywhere in their file.**
+its only reader — and that pattern cannot see it.
 
-The second set includes `widening` above — the very list the triage table is
-measured on. So the shortlist reasoned about a site its own instrument could not
-report, which is §"When a census cannot be made correct by a better pattern"
-arriving again: a pattern reports the count of one SPELLING and nothing in its
-output says so. `assertEachOf` takes a named list unchanged, but a named list can
-also be floored where it is declared, and which of the two reads better is a
-judgement per site rather than a mechanical pass.
+**The certain part needs no number: `widening` above is in the blind set.** The
+very list this section's triage table is measured on is one the shortlist could
+not report, so #706 reasoned about a site its own instrument could not see.
+
+**The count is a shortlist and two spellings of its floor detector disagree by
+15.** Over the named lists (derived spreads excluded, on `b3d860c7`), asking
+"does this list have a length assertion anywhere in the file" gives **52** when
+the detector requires `NAME.length` to be followed immediately by `)`, and **37**
+when it allows the message argument the real spelling carries:
+
+```ts
+expect(PURE_MODULES.length, 'the pure-module set changed size').toBe(9);
+```
+
+The first misses that as a floor and over-reports; the second, anchored on
+`expect(`, stops matching a bare `NAME.length)` elsewhere in the file and finds
+**two sites the first had wrongly excused**. Wrong in OPPOSITE directions, with
+no syntactic rule between them — §"When a census cannot be made correct by a
+better pattern" reproduced, and the free assertion there (*a fix that repairs a
+truncation can only ADD; if the count also drops, there is a second bug*) is what
+surfaced it. Reading the 37 then finds more still defended: one by a `toEqual`
+against a derivation rather than by any length assertion, one declared `= []` on
+purpose. **So neither number is a defect count.**
+
+`assertEachOf` takes a named list unchanged, but a named list can also be floored
+where it is declared, and which of the two reads better is a judgement per site
+rather than a mechanical pass.
 
 ## A complete population is not a defended one
 

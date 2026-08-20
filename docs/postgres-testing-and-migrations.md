@@ -167,6 +167,13 @@ Mechanical, and every part done by hand corrupts the chain silently.
   renders every closed-value-set CHECK from the BUILT `@mercaria/shared-types`,
   so a stale `dist/` emits `DROP CONSTRAINT … ADD CONSTRAINT` pairs that narrow a
   sibling branch's tuple back — in a diff that looks entirely plausible.
+- **A stale `dist/` also breaks `tsc`, and NOT only on a migration rebase.**
+  Measured rebasing behind #712: `typecheck` went red on
+  `services/curation/merge-conflicts.ts` for a `CatalogMergeConflictKind` member
+  main had just added, in a file the branch never touched. So ANY rebase behind a
+  shared-types change needs `build:shared-types` before the typecheck is worth
+  reading — the failure names somebody else's module, which makes "main is
+  broken" the first guess and the wrong one.
 - **Never hand-rename a migration, hand-edit `meta/_journal.json` or hand-write a
   snapshot.** Delete your `.sql` AND your `meta/<idx>_snapshot.json`, restore
   `_journal.json` to main's version, rebuild shared-types, then re-run
