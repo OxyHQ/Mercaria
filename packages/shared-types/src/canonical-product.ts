@@ -60,6 +60,55 @@ export const CANONICAL_CATALOG_STATUSES: readonly CanonicalCatalogStatus[] = [
   'suppressed',
 ];
 
+/**
+ * The catalogue statuses a SHOPPER-FACING rail may show or count (#628, #616).
+ *
+ * Three of the five are excluded for three INDEPENDENT reasons, each already
+ * stated by the vocabulary above rather than invented here:
+ *
+ * - `draft` — "minted but not yet fit to show". #60's backfill mints provisional
+ *   rows in this state and promoting one is #59's decision, so no shopper rail
+ *   may be the surface that publishes it.
+ * - `merged` — a tombstone that points at its winner. Showing it shows the
+ *   losing half of a completed merge.
+ * - `suppressed` — the operator's own "do not show".
+ *
+ * `discontinued` is INCLUDED, and the vocabulary is what decides it: it is "a
+ * real-world fact a source can observe, distinct from Mercaria deciding not to
+ * show it (`suppressed`)". The maker stopping production is not a decision to
+ * hide, and #70's retrieval already acts on that — somebody searching a
+ * discontinued model means that model, and the offers on it (if any) say what is
+ * still buyable. Excluding it here would make a filter NARROWER than the
+ * retrieval that feeds it: a discontinued product would be findable by name and
+ * would vanish the moment a shopper ticked a filter box.
+ *
+ * ## Why this is ONE constant rather than one per surface
+ *
+ * The facet COUNT and the result LIST are rendered on one page, so their
+ * agreement is the invariant — not an implementation detail either side may
+ * hold its own opinion about. #628 measured what a second opinion costs: the
+ * facet rail spelled `active`, the search rail `('active','discontinued')`, and
+ * the attribute filter carried NO predicate at all, so an operator's "do not
+ * show" was honoured by the number above the list and by nothing in it.
+ *
+ * Two earlier private constants said exactly this value in two modules
+ * (`SEARCHABLE_CATALOG_STATUSES`, `BROWSABLE_CATALOG_STATUSES`) and are now
+ * spelled here instead. The objection the second one recorded — that exporting
+ * a module-private constant "would make one surface's retrieval policy another's
+ * contract" — is answered by WHERE this one lives: it is a fact about the
+ * catalogue vocabulary, declared beside the vocabulary that justifies it, and
+ * not one rail's policy borrowed by another.
+ *
+ * This is deliberately NOT the set a MATCHER may attach to (`draft` is exactly
+ * the right thing for a matcher and exactly the wrong thing for a shopper), nor
+ * the set an internal or curation read walks — a merge, a rollup or a review
+ * queue must see the rows a shopper may not.
+ */
+export const SHOPPER_VISIBLE_CATALOG_STATUSES: readonly CanonicalCatalogStatus[] = [
+  'active',
+  'discontinued',
+];
+
 /** Which canonical catalogue table a polymorphic row addresses. */
 export type CanonicalCatalogEntityKind = 'product_family' | 'product' | 'variant';
 

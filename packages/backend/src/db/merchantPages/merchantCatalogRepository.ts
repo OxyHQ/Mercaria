@@ -37,7 +37,11 @@
 
 import { and, eq, gt, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-import { conditionKeysInGroup, MAX_MONEY_MINOR_UNITS } from '@mercaria/shared-types';
+import {
+  conditionKeysInGroup,
+  MAX_MONEY_MINOR_UNITS,
+  SHOPPER_VISIBLE_CATALOG_STATUSES,
+} from '@mercaria/shared-types';
 import type {
   MerchantCatalogFilters,
   MerchantCatalogScope,
@@ -60,17 +64,6 @@ import { stores } from '../schema/stores.js';
  */
 const UNPRICED_SORT_KEY = MAX_MONEY_MINOR_UNITS;
 
-/**
- * The catalogue statuses a merchant page browses.
- *
- * The same two #70's search retrieves, and stated again rather than imported
- * because that constant is private to its module and exporting it would make
- * one surface's retrieval policy another's contract. `draft` is excluded: #60's
- * backfill mints provisional products in that state and promoting one is #59's
- * decision, so a merchant page must not be the surface that publishes it.
- * `merged` and `suppressed` are excluded for the reasons D12 gives them.
- */
-const BROWSABLE_CATALOG_STATUSES = ['active', 'discontinued'] as const;
 
 /**
  * The offer predicates a scope and its filters produce.
@@ -254,7 +247,7 @@ export async function countScopedOffers(
 /** The canonical-product predicates a brand/category filter adds. */
 function productPredicates(filters?: MerchantCatalogFilters): SQL[] {
   const predicates: SQL[] = [
-    inArray(canonicalProducts.status, [...BROWSABLE_CATALOG_STATUSES]),
+    inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
   ];
   if (filters?.brandId !== undefined) predicates.push(eq(canonicalProducts.brandId, filters.brandId));
   if (filters?.categoryId !== undefined) {

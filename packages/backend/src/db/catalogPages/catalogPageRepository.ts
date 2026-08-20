@@ -30,6 +30,7 @@
 
 import { and, asc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { categories } from '../schema/catalog.js';
 import {
@@ -107,7 +108,13 @@ export async function listCatalogBrowsePage(
 ): Promise<CatalogProductRow[]> {
   const filters: (SQL | undefined)[] = [
     scopePredicate(query.scope),
-    ne(canonicalProducts.status, 'merged'),
+    // The set the facet COUNT and the search LIST use, not `<> 'merged'` (#628).
+    // The looser predicate admitted a `suppressed` product — the operator's own
+    // "do not show" — and a `draft` one, which #60's backfill mints and nothing
+    // has published, onto a page whose facet counts excluded both. The partial
+    // index `canonical_products_brand_page_idx` (`where status <> 'merged'`) is
+    // still used: Postgres proves `= any('{active,discontinued}')` implies it.
+    inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
     query.categoryIds === undefined || query.categoryIds.length === 0
       ? undefined
       : inArray(canonicalProducts.categoryId, [...query.categoryIds]),
@@ -145,7 +152,13 @@ export async function countCatalogScopeProducts(
       withReleaseDate: sql<number>`count(*) filter (where ${canonicalProducts.releasedAt} is not null)::int`,
     })
     .from(canonicalProducts)
-    .where(and(scopePredicate(scope), ne(canonicalProducts.status, 'merged')));
+    .where(
+      and(
+        scopePredicate(scope),
+        // The number rendered beside the list must count the same rows it shows.
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
+      ),
+    );
   const row = rows[0];
   return { total: row?.total ?? 0, withReleaseDate: row?.withReleaseDate ?? 0 };
 }
