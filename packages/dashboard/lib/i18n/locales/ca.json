@@ -1227,6 +1227,7 @@
         "unitNotInFamily": "Aquesta unitat mesura una altra cosa.",
         "currencyMismatch": "Aquest camp no té cap moneda amb què registrar l'import.",
         "canonicalRefNotPermitted": "Aquest camp no admet una referència del catàleg.",
+        "canonicalRefNotSelectable": "Aquesta entrada del catàleg ja no està disponible. Selecciona-ne una altra.",
         "proposalNotPermitted": "No pots proposar un valor nou per a aquest camp.",
         "noVariantDeclared": "Afegeix com a mínim una combinació a la venda.",
         "axisNotPermitted": "Aquest atribut no pot definir variants d'aquest tipus de producte.",

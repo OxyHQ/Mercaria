@@ -30,6 +30,7 @@ import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { brands } from '../schema/organizations.js';
 import {
+  canonicalProductFamilies,
   canonicalProducts,
   canonicalVariants,
   productIdentifiers,
@@ -244,6 +245,69 @@ export async function resolveCanonicalVariantSelection(
     const row = rows[0];
     if (row === undefined) return null;
     if (row.status === 'active') return { id: row.id, productId: row.productId, hops };
+    if (row.mergedIntoId === null) return null;
+    current = row.mergedIntoId;
+  }
+  return null;
+}
+
+/**
+ * The same walk, for a selected BRAND (#758).
+ *
+ * A third spelling of one shape, deliberately, rather than a table-parameterized
+ * helper: `brands` carries `canonicalLifecycleColumns` and `canonical_products`
+ * carries `catalogLifecycleColumns` — two different status vocabularies over two
+ * different tables — and a generic walker would have to take the status tuple as
+ * an argument, which is exactly the place a caller passes the wrong one and gets
+ * a filter that admits `suppressed` back. `searchBrandsByName`'s own comment
+ * records that those two column shapes are why the pointer filter was reached
+ * for in the first place.
+ *
+ * `active` is the terminal condition and `merged` is the only status that
+ * continues the walk, both of which come straight from `brands_merged_state_check`'s
+ * biconditional: an `inactive` or `suppressed` brand has no pointer to follow,
+ * so answering `null` for it is the same statement as answering `null` for an id
+ * that names no row.
+ */
+export async function resolveBrandSelection(
+  db: DatabaseOrTransaction,
+  brandId: string,
+): Promise<{ id: string; hops: number } | null> {
+  let current = brandId;
+  for (let hops = 0; hops <= 8; hops += 1) {
+    const rows = await db
+      .select({ id: brands.id, status: brands.status, mergedIntoId: brands.mergedIntoId })
+      .from(brands)
+      .where(eq(brands.id, current))
+      .limit(1);
+    const row = rows[0];
+    if (row === undefined) return null;
+    if (row.status === 'active') return { id: row.id, hops };
+    if (row.mergedIntoId === null) return null;
+    current = row.mergedIntoId;
+  }
+  return null;
+}
+
+/** The same walk, for a selected product FAMILY. See {@link resolveBrandSelection}. */
+export async function resolveCanonicalProductFamilySelection(
+  db: DatabaseOrTransaction,
+  familyId: string,
+): Promise<{ id: string; hops: number } | null> {
+  let current = familyId;
+  for (let hops = 0; hops <= 8; hops += 1) {
+    const rows = await db
+      .select({
+        id: canonicalProductFamilies.id,
+        status: canonicalProductFamilies.status,
+        mergedIntoId: canonicalProductFamilies.mergedIntoId,
+      })
+      .from(canonicalProductFamilies)
+      .where(eq(canonicalProductFamilies.id, current))
+      .limit(1);
+    const row = rows[0];
+    if (row === undefined) return null;
+    if (row.status === 'active') return { id: row.id, hops };
     if (row.mergedIntoId === null) return null;
     current = row.mergedIntoId;
   }

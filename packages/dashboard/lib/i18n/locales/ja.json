@@ -1209,6 +1209,7 @@
         "unitNotInFamily": "この単位は別のものを測ります。",
         "currencyMismatch": "この項目には金額を記録する通貨がありません。",
         "canonicalRefNotPermitted": "この項目はカタログ参照を受け付けません。",
+        "canonicalRefNotSelectable": "このカタログ項目は利用できなくなりました。別の項目を選択してください。",
         "proposalNotPermitted": "この項目に新しい値を提案することはできません。",
         "noVariantDeclared": "販売する組み合わせを少なくとも 1 つ追加してください。",
         "axisNotPermitted": "この属性はこの商品タイプのバリエーションを定義できません。",
