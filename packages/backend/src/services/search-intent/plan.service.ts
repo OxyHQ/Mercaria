@@ -5,7 +5,8 @@
  *
  * ```
  * 1. sanitize            bound, strip control characters and markup
- * 2. load the registry   #94's active definitions, category-scoped when scoped
+ * 2. load                 #94's active definitions, category-scoped when scoped,
+ *                        AND the `category_aliases` rows this query could name
  * 3. interpret           DETERMINISTICALLY — always, first, unconditionally
  * 4. resolve entities    category slug, brand and merchant, against real tables
  * 5. decide enablement   flag, provider, cohort, benchmark
@@ -133,7 +134,9 @@ export async function planShoppingIntent(
   //    Both are loaded BEFORE the interpretation and handed to it, which is
   //    what keeps `interpretDeterministically` free of a database handle while
   //    still letting it read a table. One indexed `= ANY` over the query's own
-  //    word runs; a query nobody recorded an alias for reads nothing.
+  //    word runs, and it comes back empty for a query nobody recorded an alias
+  //    for — the read always happens, and on a deployment with no rows it
+  //    returns nothing and the shipped dictionary answers as before.
   const [definitions, categoryAliases] = await Promise.all([
     loadDefinitions(db, request.categoryId),
     findActiveCategoriesByAliases(catalogAliasCandidates(query), db),
