@@ -103,6 +103,25 @@ export const CANONICAL_CATALOG_STATUSES: readonly CanonicalCatalogStatus[] = [
  * the right thing for a matcher and exactly the wrong thing for a shopper), nor
  * the set an internal or curation read walks — a merge, a rollup or a review
  * queue must see the rows a shopper may not.
+ *
+ * ## That last clause is about TRAVERSAL, not PUBLICATION (#749)
+ *
+ * It has stopped two people from fixing a real bug, so it is worth stating
+ * exactly. "A rollup must see the rows a shopper may not" governs which rows a
+ * curation process may WALK — a merge has to find the suppressed product in
+ * order to rehome it, and a review queue has to list the draft nobody has
+ * published. It does not license the NUMBER such a process stores from being a
+ * count of rows a shopper may not see.
+ *
+ * `canonical_product_families.product_count` and `brands.product_count` are
+ * written by the merge rollup and then PUBLISHED — on the brand page, in
+ * canonical search results, and through `seoRepository` as
+ * `catalogueEntryCount`. Under the blanket reading they would be unfixable by
+ * construction, because the thing that writes them is a rollup. Under the right
+ * one they are ordinary shopper-facing counts that happen to be derived by a
+ * curation process, and they take this set like every other published count.
+ *
+ * The test is what the value is FOR, never which process computed it.
  */
 export const SHOPPER_VISIBLE_CATALOG_STATUSES: readonly CanonicalCatalogStatus[] = [
   'active',

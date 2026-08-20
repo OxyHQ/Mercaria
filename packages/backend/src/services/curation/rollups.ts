@@ -34,6 +34,11 @@ import {
   canonicalVariants,
 } from '../../db/schema/canonicalCatalog.js';
 import { brands } from '../../db/schema/organizations.js';
+import {
+  countProductsForBrand,
+  countProductsForFamily,
+} from '../../db/canonical/canonicalProductRepository.js';
+import { countVariantsForProduct } from '../../db/canonical/canonicalVariantRepository.js';
 import { rebuildScopedAggregate } from '../reviews/review-aggregate.service.js';
 import {
   listPriceSeriesForScopeIds,
@@ -41,39 +46,43 @@ import {
 } from '../../db/priceHistory/priceSeriesRepository.js';
 import { rebuildProductSaveAggregate } from '../../db/productSaves/productSaveAggregateRepository.js';
 
-/** `canonical_products.variant_count`, derived. */
+/*
+ * Each of the three reads its population from the ONE function that defines it
+ * (#749), rather than from an inline subquery spelling the same rule a fourth
+ * time. The merge rollup was the writer that had its own copy; the others —
+ * `canonical-variant.service`, `canonical-product.service` and
+ * `backfill/stages/projections` — already went through these functions, and
+ * `projections` additionally PROBES the stored value against
+ * `countVariantsForProduct`. Narrowing this file alone would have made a stored
+ * counter depend on which writer ran last, and made that probe report a
+ * divergence on every row it had not yet repaired.
+ *
+ * The atomic `UPDATE … set x = (subquery)` becomes a read then a write, which is
+ * the shape the other three writers already have. It is the cost of one
+ * definition, and a later rebuild converges anything a concurrent write raced.
+ */
+
+/** `canonical_products.variant_count`, derived by {@link countVariantsForProduct}. */
 async function refreshVariantCount(productId: string, db: DatabaseOrTransaction): Promise<void> {
   await db
     .update(canonicalProducts)
-    .set({
-      variantCount: sql`(select count(*)::int from ${canonicalVariants}
-                         where ${canonicalVariants.productId} = ${productId}
-                           and ${canonicalVariants.status} <> 'merged')`,
-    })
+    .set({ variantCount: await countVariantsForProduct(db, productId) })
     .where(eq(canonicalProducts.id, productId));
 }
 
-/** `canonical_product_families.product_count`, derived. */
+/** `canonical_product_families.product_count`, derived by {@link countProductsForFamily}. */
 async function refreshFamilyCount(familyId: string, db: DatabaseOrTransaction): Promise<void> {
   await db
     .update(canonicalProductFamilies)
-    .set({
-      productCount: sql`(select count(*)::int from ${canonicalProducts}
-                         where ${canonicalProducts.familyId} = ${familyId}
-                           and ${canonicalProducts.status} <> 'merged')`,
-    })
+    .set({ productCount: await countProductsForFamily(db, familyId) })
     .where(eq(canonicalProductFamilies.id, familyId));
 }
 
-/** `brands.product_count`, derived. `active_offer_count` is #57's to maintain. */
+/** `brands.product_count`, derived by {@link countProductsForBrand}. `active_offer_count` is #57's. */
 async function refreshBrandCount(brandId: string, db: DatabaseOrTransaction): Promise<void> {
   await db
     .update(brands)
-    .set({
-      productCount: sql`(select count(*)::int from ${canonicalProducts}
-                         where ${canonicalProducts.brandId} = ${brandId}
-                           and ${canonicalProducts.status} <> 'merged')`,
-    })
+    .set({ productCount: await countProductsForBrand(db, brandId) })
     .where(eq(brands.id, brandId));
 }
 

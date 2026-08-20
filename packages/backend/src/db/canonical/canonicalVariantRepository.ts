@@ -157,6 +157,29 @@ export async function findBundleVariantIds(
   return rows.map((row) => row.bundleVariantId);
 }
 
+/**
+ * The ONE definition of what `canonical_products.variant_count` counts (#749).
+ *
+ * Three writers read it — `canonical-variant.service` after every create,
+ * `backfill/stages/projections` (which both PROBES the stored value against it
+ * and repairs a divergence), and the merge rollup, which spelled the same
+ * derivation inline until #749. One definition is what stops the stored figure
+ * depending on which of them ran last.
+ *
+ * ## The population is `<> 'merged'` and #749 deliberately did NOT change it
+ *
+ * The other two counters moved to `SHOPPER_VISIBLE_CATALOG_STATUSES` because
+ * they are published beside counts that had already narrowed. This one is a
+ * different question and the answer is genuinely open: `variant_count` may mean
+ * "configurations a shopper may see" or "configurations this product has", and
+ * its readers do not settle it — it is a projection column on
+ * `canonical_products`, not a figure rendered beside a narrowed one.
+ *
+ * Changing it would also break `projections.ts`'s consistency probe against
+ * every row not yet re-derived, which is a real cost with no established
+ * benefit. So it stays where it was, and the recommendation lives in #749
+ * rather than being smuggled in for symmetry with its two neighbours.
+ */
 export async function countVariantsForProduct(
   db: DatabaseOrTransaction,
   productId: string,
