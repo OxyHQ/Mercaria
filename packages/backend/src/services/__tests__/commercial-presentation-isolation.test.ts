@@ -159,25 +159,80 @@ const PRESENTATION_PATHS = [
   ...presentationPopulation(),
 ];
 
+/** The client trees this surface can live in, relative to `packages/`. */
+const STOREFRONT_ROOTS = ['frontend/app', 'ui/src'] as const;
+
+/** What a file that composes commercial copy NAMES, in either package. */
+const COMMERCIAL_COPY_REFERENCE = /CommercialDisclosure|commercial-copy/;
+
 /**
- * The STOREFRONT files this gate scans for commercial copy.
+ * The barrel, excluded with its reason and an EXACT count (#448).
  *
- * NOT "every file that renders a disclosure" — `orders/index.tsx` renders none
- * and is scanned so that it cannot acquire one unchecked. Measured 2026-08-18:
- * the four screens plus the component and the copy module are exactly the files
- * naming `CommercialDisclosure` or `commercial-copy`, and the only other file
- * naming one is `ui/src/index.ts`, the barrel, which re-exports and renders
- * nothing.
+ * `ui/src/index.ts` re-exports the component and renders nothing, so it names
+ * the reference without being a surface. Scanning it would put every symbol the
+ * package exports under six walls about what a BUYER reads.
+ */
+const COPY_BARREL = ['ui/src/index.ts'];
+
+/**
+ * Commercial surfaces that render NO disclosure and are scanned anyway.
  *
- * **The list is complete today and nothing keeps it complete** (#460): a NEW
- * storefront screen rendering the disclosure would not appear here, and the
- * exact-count assertion below would still pass, because the count is of this
- * list rather than of the screens. The rejection recorded beside that assertion
- * — that walking `packages/frontend` whole would scan every screen in the app —
- * argues against a BLANKET walk and not against a targeted derivation over the
- * files that reference the disclosure or the copy module, which is what a
- * conversion would actually use. Left as a hand list because that is a decision
- * for whoever owns this wall, with the gap stated rather than implied.
+ * This is the half a content derivation cannot compute, and dropping it would
+ * have been a silent narrowing: `orders/index.tsx` names nothing today and is
+ * scanned precisely so it cannot ACQUIRE a disclosure, a supplier name or a
+ * FairCoin teaser unchecked. Derived membership answers "does this file render
+ * commercial copy"; this answers "is this a place a buyer reads about the
+ * seller", and only a person can answer the second.
+ *
+ * EXACT, and asserted below to still name a real file that still references
+ * nothing — the day it starts referencing the disclosure it joins the derived
+ * half and this entry has to go, or it would subtract a scanned file from every
+ * wall.
+ */
+const SILENT_COMMERCIAL_SURFACES = ['frontend/app/(app)/orders/index.tsx'];
+
+type PackageEntry = { name: string; isDirectory: () => boolean; isFile: () => boolean };
+type PackageTreeReader = (relative: string) => PackageEntry[];
+
+const readPackageTree: PackageTreeReader = (relative) =>
+  readdirSync(join(REPO_PACKAGES, relative), { withFileTypes: true });
+
+const readPackageFile = (relative: string): string =>
+  readFileSync(join(REPO_PACKAGES, relative), 'utf8');
+
+function walkPackage(relative: string, read: PackageTreeReader): string[] {
+  const found: string[] = [];
+  for (const entry of read(relative)) {
+    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+    const child = `${relative}/${entry.name}`;
+    if (entry.isDirectory()) found.push(...walkPackage(child, read));
+    else if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) found.push(child);
+  }
+  return found;
+}
+
+/**
+ * The STOREFRONT files this gate scans for commercial copy — DERIVED (#460).
+ *
+ * The list this replaces named seven paths under a comment that said, in as
+ * many words, "the list is complete today and nothing keeps it complete": a NEW
+ * screen rendering the disclosure would not appear in it, and the exact-count
+ * assertion beside it would still pass, because the count was of the list
+ * rather than of the screens. That comment also recorded what a conversion
+ * would actually use, and this is it.
+ *
+ * Not a BLANKET walk of `packages/frontend` — that rejection stands, because it
+ * would scan every screen in the app against six walls about commercial
+ * disclosure and the first legitimate red would make deleting a wall the
+ * cheapest green. What it walks instead is the two client trees, keeping only
+ * files that NAME the disclosure or the copy module, which is a targeted
+ * derivation over content rather than over a path token: this surface has no
+ * path token, which is why `cart.tsx` was in the list at all.
+ *
+ * Taken as a FUNCTION of its reader and its file reader, so the positive
+ * control below measures this derivation rather than the tree — a planted
+ * screen is not on disk, so a derivation reading disk directly would report it
+ * outside any population and the control could not fail.
  *
  * Scanned from here because `packages/frontend` has no test runner at all and
  * `packages/ui`'s `test` script is an `echo`. The file that would put
@@ -185,15 +240,18 @@ const PRESENTATION_PATHS = [
  * reach one — `seller-identity-isolation.test.ts` made the same call for the
  * same reason.
  */
-const STOREFRONT_PATHS = [
-  'frontend/app/(app)/cart.tsx',
-  'frontend/app/(app)/checkout/index.tsx',
-  'frontend/app/(app)/orders/[id].tsx',
-  'frontend/app/(app)/orders/index.tsx',
-  'frontend/app/(app)/products/[id].tsx',
-  'ui/src/components/marketplace/CommercialDisclosure.tsx',
-  'ui/src/lib/commercial-copy.ts',
-];
+function storefrontPaths(
+  read: PackageTreeReader = readPackageTree,
+  readFile: (relative: string) => string = readPackageFile,
+): string[] {
+  const excluded = new Set(COPY_BARREL);
+  const derived = STOREFRONT_ROOTS.flatMap((root) => walkPackage(root, read)).filter(
+    (relative) => !excluded.has(relative) && COMMERCIAL_COPY_REFERENCE.test(readFile(relative)),
+  );
+  return [...new Set([...derived, ...SILENT_COMMERCIAL_SURFACES])].sort();
+}
+
+const STOREFRONT_PATHS = storefrontPaths();
 
 /**
  * Procurement economics, by any plausible name.
@@ -538,13 +596,50 @@ describe('a customer commercial surface cannot reach what it must not', () => {
         .length,
       'the domain walk found nothing',
     ).toBeGreaterThanOrEqual(5);
-    // EXACT: both hand lists are identities, not predicates (#448). The
-    // storefront list stays a hand list deliberately — walking `packages/frontend`
-    // whole would scan every screen in the app for a commercial-disclosure
-    // violation, which is a different gate, so the comment above it claims only
-    // what the list IS.
+    // EXACT: the backend route and the two storefront residuals are identities,
+    // not predicates (#448).
     expect(UNDERIVABLE_ROUTES.length, 'a second underivable route was added').toBe(1);
-    expect(STOREFRONT_PATHS.length, 'the storefront list changed size').toBe(7);
+    expect(COPY_BARREL.length, 'a second barrel was excluded from the storefront scan').toBe(1);
+    expect(
+      SILENT_COMMERCIAL_SURFACES.length,
+      'a second silent surface was added by hand — it may be right, but the derivation cannot ' +
+        'compute it and nothing else will notice',
+    ).toBe(1);
+    // The storefront half is DERIVED, so it gets floors PER PACKAGE rather than
+    // a count of the list: a count of a derived set is satisfied by the set
+    // being wrong in two compensating directions.
+    expect(
+      STOREFRONT_PATHS.filter((path) => path.startsWith('frontend/')).length,
+      'the storefront screen derivation found nothing',
+    ).toBeGreaterThanOrEqual(4);
+    expect(
+      STOREFRONT_PATHS.filter((path) => path.startsWith('ui/')).length,
+      'the shared-copy derivation found nothing',
+    ).toBeGreaterThanOrEqual(2);
+    for (const path of STOREFRONT_PATHS) {
+      expect(
+        statSync(join(REPO_PACKAGES, path)).isFile(),
+        `${path} is in the storefront population but is not a file`,
+      ).toBe(true);
+    }
+    // Each residual still has to BE what it claims, or it is a stale entry
+    // reading as a decision. The barrel must still name the reference (else the
+    // exclusion excuses nothing); the silent surface must still name NOTHING
+    // (else it belongs to the derived half and this entry subtracts nothing
+    // while looking like it adds something).
+    for (const path of COPY_BARREL) {
+      expect(
+        COMMERCIAL_COPY_REFERENCE.test(readPackageFile(path)),
+        `${path} is excluded as a barrel but no longer names the disclosure`,
+      ).toBe(true);
+    }
+    for (const path of SILENT_COMMERCIAL_SURFACES) {
+      expect(
+        COMMERCIAL_COPY_REFERENCE.test(readPackageFile(path)),
+        `${path} is listed as a silent surface and now renders commercial copy — it is derived ` +
+          'now, so remove the entry',
+      ).toBe(false);
+    }
     for (const path of PRESENTATION_PATHS) {
       expect(statSync(join(SRC_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
     }
@@ -555,6 +650,46 @@ describe('a customer commercial surface cannot reach what it must not', () => {
     // arriving later — a floor a future population can silently inflate stops
     // measuring the population it was written for.
     expect(scanned - movedCopy.length).toBeGreaterThanOrEqual(12);
+  });
+
+  /**
+   * THE POSITIVE CONTROL for the storefront derivation (#460).
+   *
+   * Without it the floors above are satisfied three ways — by a correct tree, by
+   * a derivation that reached nothing (caught by the floors) and by one that is
+   * simply the old seven paths under a new name (not caught by anything). What
+   * distinguishes the third is a screen that does NOT exist: the whole point of
+   * the conversion is that a NEW file rendering the disclosure joins the
+   * population by itself, and only an absent file tests that.
+   *
+   * The plant is asserted absent from disk first, or the control becomes a
+   * statement about the real tree instead of about the derivation.
+   */
+  it('a NEW storefront screen rendering the disclosure joins the population by itself', () => {
+    const planted = 'frontend/app/(app)/checkout/confirm.tsx';
+    expect(STOREFRONT_PATHS, 'the planted control already exists on disk').not.toContain(planted);
+
+    const seededRead: PackageTreeReader = (relative) =>
+      relative === 'frontend/app/(app)/checkout'
+        ? [
+            ...readPackageTree(relative),
+            { name: 'confirm.tsx', isDirectory: () => false, isFile: () => true },
+          ]
+        : readPackageTree(relative);
+    const seededFile = (relative: string): string =>
+      relative === planted
+        ? "import { CommercialDisclosure } from '@mercaria/ui';\n"
+        : readPackageFile(relative);
+
+    expect(
+      storefrontPaths(seededRead, seededFile),
+      'a new screen naming the disclosure was NOT picked up — the population is a hand list ' +
+        'wearing a derivation, and every floor above passes for one',
+    ).toContain(planted);
+
+    // …and the barrel exclusion still bites on the SAME seeded run, so the two
+    // halves are not one clause that happens to be satisfied.
+    expect(storefrontPaths(seededRead, seededFile)).not.toContain('ui/src/index.ts');
   });
 
   it('reaches no referral partner, code or commission (#129 referral 3, 6, 9)', () => {

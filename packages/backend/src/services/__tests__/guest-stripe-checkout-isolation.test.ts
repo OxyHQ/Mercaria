@@ -28,25 +28,64 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { walkOwnedDirectory } from '../../__tests__/domain-population.js';
+import {
+  readPackagesDirectory,
+  walkOwnedDirectory,
+  walkPackagesDirectory,
+  type DirectoryReader,
+} from '../../__tests__/domain-population.js';
 
 /** `packages/`, so a path below can name either package explicitly. */
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
 /**
- * The guest Stripe checkout path, end to end, across both packages.
+ * The BACKEND half of the guest Stripe path — still named, and now honestly.
  *
- * A new module in this path belongs on the list; the vacuity floor is what
- * forces whoever adds one to look here.
+ * This docblock used to cover all six paths and said "a new module in this path
+ * belongs on the list; the vacuity floor is what forces whoever adds one to
+ * look here". **That was false** (#460). The only assertion on the list was
+ * `expect(GUEST_PAYMENT_PATHS.length).toBe(6)` — an exact count OF THE LIST,
+ * which fires when somebody edits the list and never when somebody adds a
+ * module elsewhere. It is a change-detector for the array, not a floor on the
+ * population, and it could only be tripped by the very person it claimed to
+ * force here. A claim that a guard exists where it does not is worse than
+ * silence, because it is read as evidence.
+ *
+ * These four stay NAMED for the reason the file's own §"Why this gate gets no
+ * whole-tree assertion" already gives: two of them (`checkout-payment.service`,
+ * `stripe-provider`) are named for neither `guest` nor `stripe-checkout`, and
+ * the patterns that would reach them pull in modules carrying the OPPOSITE
+ * obligation. What changes is that the comment now claims only what the list
+ * IS, which is #460's second sanctioned resolution.
+ *
+ * The two that ARE derivable are derived: see {@link guestPaymentClientPaths}.
  */
-const GUEST_PAYMENT_PATHS = [
+const GUEST_PAYMENT_BACKEND_PATHS = [
   'backend/src/services/payments/checkout-payment.service.ts',
   'backend/src/services/payments/guest-correlation.ts',
   'backend/src/services/payments/stripe/stripe-provider.ts',
   'backend/src/services/checkout/guest-rollout.ts',
-  'frontend/components/payment/CardPaymentStep.tsx',
-  'frontend/components/payment/CardPaymentStep.native.tsx',
 ];
+
+/**
+ * The CLIENT half — WALKED (#460).
+ *
+ * Three of this gate's claims are about a client ("no Customer is configured",
+ * "no save-my-info surface exists", "no FairCoin copy") and the client is where
+ * they would be broken, by adding one option to a Stripe SDK call. The list
+ * named the two `CardPaymentStep` files; the directory holds a third,
+ * `types.ts`, which was therefore behind none of those walls — and a NEW
+ * component beside them (a wallet step, a saved-card row) would have been too.
+ *
+ * A directory rather than a name rule: `payment` as a token reaches the whole
+ * payment domain, and what these files have in common is that they are the
+ * payment UI, which is a fact about where they live.
+ */
+function guestPaymentClientPaths(read: DirectoryReader = readPackagesDirectory): string[] {
+  return walkPackagesDirectory('frontend/components/payment', read);
+}
+
+const GUEST_PAYMENT_PATHS = [...GUEST_PAYMENT_BACKEND_PATHS, ...guestPaymentClientPaths()];
 
 /**
  * The paths that decide what a payment DOES once the rail has spoken.
@@ -214,8 +253,18 @@ describe('the guest Stripe checkout path cannot reach what it must not', () => {
         .length,
       'the Stripe half of the payment domain left the population',
     ).toBeGreaterThanOrEqual(13);
-    // The cross-package half is a deliberate selection and stays EXACT (#448).
-    expect(GUEST_PAYMENT_PATHS.length, 'the guest payment list changed size').toBe(6);
+    // The BACKEND half is a deliberate selection and stays EXACT (#448); the
+    // CLIENT half is derived and gets a floor, because a count of a derived set
+    // is satisfied by that set being wrong in two compensating directions.
+    expect(
+      GUEST_PAYMENT_BACKEND_PATHS.length,
+      'the named backend half changed size',
+    ).toBe(4);
+    expect(
+      guestPaymentClientPaths().length,
+      'the payment-component walk found nothing — a client wall over an empty population reports ' +
+        'the same green as one over a clean directory',
+    ).toBeGreaterThanOrEqual(3);
     // …and every member of both is a file that exists, so a listing that has
     // started returning stale names goes red rather than handing the walls
     // paths that no longer resolve.
