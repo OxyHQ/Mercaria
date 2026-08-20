@@ -53,10 +53,43 @@ const db: Database = await connectPostgres();
  * Every id this file mints.
  *
  * `zz-` first for a reason that is not cosmetic: every scan here orders
- * `id desc` (newest first, uuid v7), and a text id beginning `zz-` sorts above
- * every uuid v7 hex id and above every sibling fixture prefix in this
- * repository. So a row created by a case below is inside the bounded sample the
- * check returns, whatever else the shared database is holding.
+ * `id desc` (newest first, uuid v7), and this prefix puts a row a case below
+ * created at the head of its own table's findings, inside the bounded sample.
+ *
+ * ## The ordering was MEASURED, and the obvious reasoning about it is wrong
+ *
+ * This database is `en_US.utf8` under the libc provider — a LOCALE collation,
+ * not byte order. Punctuation is a lower-priority difference there, so
+ * character codes give the wrong answer for exactly the ids that differ only in
+ * a separator. Measured against the server rather than reasoned about:
+ *
+ * ```
+ * order by id desc:
+ *   zzz-no-such-city
+ *   zz-obs-trace-draft-published
+ *   zz-obs-integ-orphan3-proposal      <- this file, THIRD
+ *   zz_obs_integ_floor                 <- BELOW `zz-`; in ASCII `_` is ABOVE `-`
+ *   gov-plan-123
+ *   ffffffff-ffff-7fff-bfff-ffffffffffff
+ *   catprop-rdb-xyz
+ *   0198f1a2-3b4c-7d8e-9f01-234567890abc
+ * ```
+ *
+ * So the claim this docblock used to make — that `zz-obs-integ` outsorts every
+ * sibling fixture prefix in the repository — is FALSE: `zzz-*` and
+ * `zz-obs-trace-*` both beat it. What is true is narrower and is what the bound
+ * actually needs: it outsorts every uuid v7 id and every lower-cased prefix
+ * (`catprop-rdb-`, `gov-`), and **no higher-sorting prefix reaches a table
+ * these checks scan.** `trace.realdb`, `pickup.realdb`,
+ * `vertical-locales-markets.e2e` and `facet-scope-sweep.realdb` were each
+ * measured clean for `catalog_proposals`,
+ * `catalog_governance_change_requests`, `catalog_navigation_nodes` and
+ * `catalog_external_mappings`.
+ *
+ * That is checkable and it fails loudly rather than silently: a sibling that
+ * lands higher-sorting DANGLING rows in one of those four tables — see
+ * {@link expectDetected} for how many it would take — pushes this file's probe
+ * out of the sample and reds the case by name.
  */
 const P = 'zz-obs-integ';
 
@@ -137,10 +170,13 @@ async function rolledBack<T>(work: (tx: Transaction) => Promise<T>): Promise<T> 
  *
  * What remains is a bound rather than a coincidence: with S sub-scans reporting
  * and a cap of {@link INTEGRITY_SAMPLE_LIMIT}, a probe is named as long as it is
- * within the newest `⌈LIMIT / S⌉` findings of its OWN table. The `zz-` prefix on
- * every id here is what buys that — under `order by id desc` it sorts above every
- * uuid v7 id and above every sibling fixture prefix in this repository, so the
- * probe is the newest finding in its table rather than merely a recent one.
+ * within the newest `⌈LIMIT / S⌉` findings of its OWN table — seven, for the
+ * three sub-scans of `checkOrphanedReferences`. The `zz-` prefix on every id
+ * here is what buys that, and the ordering it rests on is MEASURED rather than
+ * assumed: see {@link P}, which carries the measurement and corrects the
+ * stronger claim this comment used to make. The short version is that the probe
+ * outsorts every uuid v7 id, that two sibling prefixes DO outsort the probe, and
+ * that neither reaches a table these checks scan.
  *
  * An empty sample fails this assertion rather than passing it, which is the
  * property to preserve if it is ever rewritten: "no rows" and "my row is there"
