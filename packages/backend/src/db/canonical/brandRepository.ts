@@ -395,3 +395,23 @@ export async function listBrandsPage(
   const counted = await db.select({ count: sql<number>`count(*)::int` }).from(brands);
   return { rows, total: counted[0]?.count ?? 0 };
 }
+
+/**
+ * Store a brand's derived product count.
+ *
+ * The counterpart of `refreshFamilyProductCount`, added by #749 so the counter
+ * has a repair path at all. Until then `brands.product_count` was written ONLY
+ * by the merge rollup, which meant a brand nobody merged carried whatever the
+ * last merge that happened to touch it had stored — and correcting the
+ * derivation would never have reached those rows.
+ *
+ * The VALUE comes from `countProductsForBrand`, the one definition of what this
+ * column counts; this function only writes what it is handed.
+ */
+export async function refreshBrandProductCount(
+  db: DatabaseOrTransaction,
+  brandId: string,
+  productCount: number,
+): Promise<void> {
+  await db.update(brands).set({ productCount }).where(eq(brands.id, brandId));
+}

@@ -44,7 +44,9 @@ import { canonicalProducts } from '../../../db/schema/canonicalCatalog.js';
 import { attributeReindexRequests } from '../../../db/schema/attributeRegistry.js';
 import { countVariantsForProduct } from '../../../db/canonical/canonicalVariantRepository.js';
 import { refreshFamilyProductCount } from '../../../db/canonical/productFamilyRepository.js';
+import { refreshBrandProductCount } from '../../../db/canonical/brandRepository.js';
 import {
+  countProductsForBrand,
   countProductsForFamily,
   updateCanonicalProduct,
 } from '../../../db/canonical/canonicalProductRepository.js';
@@ -75,6 +77,7 @@ export async function runRebuildProjectionsPage(
       id: canonicalProducts.id,
       variantCount: canonicalProducts.variantCount,
       familyId: canonicalProducts.familyId,
+      brandId: canonicalProducts.brandId,
     })
     .from(canonicalProducts)
     .where(context.cursor === null ? undefined : gt(canonicalProducts.id, context.cursor))
@@ -82,6 +85,10 @@ export async function runRebuildProjectionsPage(
     .limit(context.limit);
 
   const refreshedFamilies = new Set<string>();
+  // #749: brands are re-derived here too. Before that the merge rollup was the
+  // ONLY writer of `brands.product_count`, so a brand nobody merged had no
+  // repair path at all and a corrected derivation could never reach it.
+  const refreshedBrands = new Set<string>();
   const counters = await examineAll(
     context,
     rows,
@@ -96,6 +103,11 @@ export async function runRebuildProjectionsPage(
           row.familyId,
           await countProductsForFamily(db, row.familyId),
         );
+      }
+
+      if (row.brandId !== null && !refreshedBrands.has(row.brandId)) {
+        refreshedBrands.add(row.brandId);
+        await refreshBrandProductCount(db, row.brandId, await countProductsForBrand(db, row.brandId));
       }
 
       if (actual === row.variantCount) {

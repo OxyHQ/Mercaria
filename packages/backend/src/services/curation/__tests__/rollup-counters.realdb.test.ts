@@ -35,11 +35,12 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import { brands } from '../../../db/schema/organizations.js';
+import { catalogBackfillRecords } from '../../../db/schema/backfill.js';
 import {
   canonicalProductFamilies,
   canonicalProducts,
@@ -58,6 +59,11 @@ import {
 } from '../../../db/canonical/canonicalProductRepository.js';
 import { countVariantsForProduct } from '../../../db/canonical/canonicalVariantRepository.js';
 import { rebuildEntityRollups } from '../rollups.js';
+import {
+  openCatalogBackfillRun,
+  runCatalogBackfillPage,
+} from '../../backfill/backfill.service.js';
+import { ALL_COHORT } from '../../backfill/cohort.js';
 
 let db: Database;
 
@@ -150,6 +156,19 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // The repair case opens a real backfill run, and every product it examines
+  // gets a `catalog_backfill_records` row carrying `canonical_product_id` —
+  // `ON DELETE restrict`, so those rows block this file's own products.
+  //
+  // Scoped to THIS file's product ids rather than to the run: `openCatalogBackfillRun`
+  // may return a run a sibling opened, and deleting by run id would take that
+  // sibling's evidence with it. Deleting records ABOUT rows we own cannot.
+  if (createdProductIds.length > 0) {
+    await db
+      .delete(catalogBackfillRecords)
+      .where(inArray(catalogBackfillRecords.canonicalProductId, createdProductIds));
+  }
+
   await deleteTestCanonicalRows(db, {
     productIds: createdProductIds,
     variantIds: createdVariantIds,
@@ -254,6 +273,67 @@ describe('the stored rollup counters (#749)', () => {
       'variant_count changed population — that is a decision #749 did not take',
     ).toBe(2);
   });
+
+  it('the rebuild stage REPAIRS a stale stored count, including the brand', async () => {
+    // The rebuild plan, executed rather than described. Correcting a derivation
+    // does nothing to rows already stored, so the fix is only real if something
+    // re-derives them — and until #749 `brands.product_count` had NO repair
+    // path at all: the merge rollup was its only writer, so a brand nobody
+    // merged kept whatever a past merge had left.
+    //
+    // Poison all three with a figure no derivation would produce, then drive
+    // the operator-drivable `rebuild_projections` stage.
+    await db
+      .update(canonicalProductFamilies)
+      .set({ productCount: 99 })
+      .where(eq(canonicalProductFamilies.id, familyId));
+    await db.update(brands).set({ productCount: 99 }).where(eq(brands.id, brandId));
+    await db
+      .update(canonicalProducts)
+      .set({ variantCount: 99 })
+      .where(eq(canonicalProducts.id, productId));
+
+    // Asserted, so a stage that repaired nothing cannot pass by the values
+    // having already been correct.
+    expect(await storedFamilyCount(), 'the poison did not land').toBe(99);
+    expect(await storedBrandCount(), 'the poison did not land').toBe(99);
+    expect(await storedVariantCount(), 'the poison did not land').toBe(99);
+
+    // The stage pages over ALL products, so it is driven until this run's
+    // products have been visited rather than once.
+    // Driven through the OPERATOR entry points, not the stage function: what
+    // the rebuild plan claims is that somebody can actually run this, and
+    // calling the page runner directly would skip the run row, the lease and
+    // the record keeping that claim depends on.
+    const { run } = await openCatalogBackfillRun({
+      stage: 'rebuild_projections',
+      mode: 'apply',
+      cohort: ALL_COHORT,
+      requestedByOxyUserId: `operator-${RUN}`,
+    });
+
+    for (let page = 0; page < 500; page += 1) {
+      const result = await runCatalogBackfillPage(run.id, { limit: 200 });
+      // `undefined` is another task holding the lease — a real operational
+      // state, and distinguishable from a finished pass.
+      if (result === undefined) break;
+      // Stop as soon as THIS run's rows have been visited: the stage pages over
+      // every product in a database shared with every parallel file, and
+      // draining it is not this file's business.
+      if ((await storedVariantCount()) !== 99 && (await storedBrandCount()) !== 99) break;
+      if (result.nextCursor === null) break;
+    }
+
+    expect(await storedFamilyCount(), 'the rebuild stage did not repair the family').toBe(
+      await countProductsForFamily(db, familyId),
+    );
+    expect(await storedBrandCount(), 'the rebuild stage did not repair the brand').toBe(
+      await countProductsForBrand(db, brandId),
+    );
+    expect(await storedVariantCount(), 'the rebuild stage did not repair the product').toBe(
+      await countVariantsForProduct(db, productId),
+    );
+  }, 240_000);
 
   it('stays consistent across BOTH writers when one visible variant is added', async () => {
     await rebuildEntityRollups('canonical_product', createdProductIds[2], productId, db);
