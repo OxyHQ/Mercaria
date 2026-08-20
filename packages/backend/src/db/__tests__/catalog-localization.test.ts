@@ -9,13 +9,18 @@
  *    The census walks the real drizzle tables and fails the build on a member
  *    whose shape drifted, on a new `_localizations` table nobody registered, and
  *    on an exemption list that grew.
- * 2. **The fallback wiring.** Every registered field is `catalog_presentation`
- *    today, so a resolver that ignored the descriptor and hardcoded
- *    `'language_then_base'` would pass every behavioural test in this file. The
- *    anchored source census over `resolve.ts` is what closes that: it asserts
- *    every `localeFallbackChain(...)` call site takes its policy from the field
- *    descriptor or from `fallbackPolicyForFieldClass`, and it carries a mutation
- *    self-test so a broken pattern cannot report a clean zero.
+ * 2. **The fallback wiring.** All fourteen registered fields are
+ *    `catalog_presentation` today, so a resolver that ignored the descriptor and
+ *    hardcoded `'language_then_base'` would pass every behavioural test in this
+ *    file. The anchored source census over `resolve.ts` is what closes that: it
+ *    asserts every `localeFallbackPlan(...)` and `localeFallbackChain(...)` call
+ *    site takes its policy from the field descriptor, from
+ *    `fallbackPolicyForFieldClass` or from a forwarded parameter and never from
+ *    a literal, and it carries a mutation self-test per token so a broken
+ *    pattern cannot report a clean zero. It also asserts the chain has ZERO call
+ *    sites there — nothing in that module resolves from a flat locale list,
+ *    which is what keeps `exact_locale_then_base` from becoming
+ *    `language_then_base` under a new name.
  * 3. **The trigger tuples.** The two triggers are hand-written SQL and the
  *    statuses they name also live in shared-types tuples. Two spellings of one
  *    fact drift; the SQL census reads the file back and asserts the rendered
@@ -41,6 +46,7 @@ import {
   CROSS_MARKET_FALLBACK_FIELD_CLASSES,
   HUMAN_SETTLED_LOCALIZATION_STATUSES,
   LOCALIZATION_FALLBACK_POLICIES,
+  LOCALIZATION_RESOLUTION_BASES,
   LOCALIZATION_FAMILY_COLUMNS,
   LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS,
   LOCALIZATION_PROVENANCES,
@@ -584,6 +590,29 @@ describe('the own-base policy is reachable only from the classes it is assigned 
       synthetic,
     ].filter((descriptor) => descriptor.fallback === 'exact_locale_then_base');
     expect(withSynthetic).toHaveLength(1);
+  });
+
+  it('publishes exactly the bases the resolver can produce', () => {
+    // The tuple is a vocabulary, not decoration: a member nobody can produce is
+    // a branch no client will ever handle, and a basis the resolver produces
+    // that is NOT in the tuple is a value a client switch has no case for.
+    const fromRow = resolveLocalizedField({
+      field: 'category.name',
+      requestedLocale: 'es',
+      candidates: [candidate('es', 'Zapatos')],
+      baseValue: 'Shoes',
+    });
+    const fromBase = resolveLocalizedField({
+      field: 'category.name',
+      requestedLocale: 'fr',
+      candidates: [],
+      baseValue: 'Shoes',
+    });
+    expect(fromRow.outcome).toBe('resolved');
+    expect(fromBase.outcome).toBe('resolved');
+    if (fromRow.outcome !== 'resolved' || fromBase.outcome !== 'resolved') return;
+    const produced = new Set([fromRow.basis, fromBase.basis]);
+    expect([...produced].sort()).toEqual([...LOCALIZATION_RESOLUTION_BASES].sort());
   });
 
   it('grants the new policy to no class outside the grant list', () => {
