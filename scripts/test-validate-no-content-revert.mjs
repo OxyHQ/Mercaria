@@ -231,7 +231,17 @@ try {
 
   writeFileSync(target, 'the state that landed after\n');
   inScratch(['add', '.']);
-  inScratch(['commit', '--quiet', '-m', 'work that landed later']);
+  // The BASE carries an acknowledgement of its own — a merged PR that
+  // legitimately reverted something once. Scoping the trailer read to
+  // `base..head` is what stops it excusing every later branch forever, and this
+  // is the fixture that makes the no-trailer case below able to fail: reading
+  // trailers from the whole history instead passes it, measured.
+  inScratch([
+    'commit',
+    '--quiet',
+    '-m',
+    'work that landed later\n\nContent-revert-acknowledged: subject.txt',
+  ]);
   const base = inScratch(['rev-parse', 'HEAD']).trim();
 
   /** Put the file back to its original content, with `message` as the commit. */
