@@ -488,10 +488,31 @@ function checkMedia(findings: AuthoringValidationFinding[], input: DraftValidati
  *
  * The arithmetic is `services/canonical/identifiers.ts`'s and the scheme choice
  * is `./identifier.ts`'s; nothing here re-implements either. The COLLISION
- * against the canonical catalogue is a different check with a different
- * severity and it is not here at all — it needs a read, and this module takes
- * no database. `identifierCollisionFindings` is where it lives, merged in by
- * `validateDraftRow` the way the pending-proposal findings already are.
+ * against the canonical catalogue is not here at all — it needs a read, and
+ * this module takes no database. `identifierCollisionFindings` is where it
+ * lives, merged in by `validateDraftRow` the way the pending-proposal findings
+ * already are.
+ *
+ * ## Both findings are WARNINGS, and that is the decision to read
+ *
+ * `product_variants.sku` and `.barcode` are unique at NO grain in this schema
+ * and `AGENTS.md` says in as many words that they must not be re-narrowed — two
+ * merchants selling one trade item share a GTIN by definition, and GTIN
+ * IDENTITY is `product_identifiers`' collision gate rather than this column.
+ * An error here would re-impose in the authoring form a constraint the schema
+ * deliberately does not carry, which is the objection `duplicate_variant_sku`
+ * already records for the column beside it.
+ *
+ * The check digit is the same call for a sharper reason: this is a FREE-TEXT
+ * column, and a thirteen-digit internal article number is a perfectly ordinary
+ * thing to keep in it. `classifyBarcode` cannot tell one from a mistyped EAN —
+ * nothing can — so an error would block a merchant whose only remedy is to
+ * delete a true value. The cheapest green would be destroying data, which is
+ * the shape of gate `~/Oxy/AGENTS.md` says is worse than no gate.
+ *
+ * What a warning still buys is the whole point: the author is TOLD, in the same
+ * list and on the same path, and a barcode that is not a GTIN silently fails to
+ * match anything downstream forever.
  */
 function checkBarcodes(
   findings: AuthoringValidationFinding[],
@@ -505,14 +526,13 @@ function checkBarcodes(
     const path = `variants[${variant.position}].barcode`;
     if (classified.kind === 'unrecognized') continue;
     if (classified.kind === 'invalid') {
-      findings.push(finding('identifier_check_digit_invalid', 'error', path));
+      findings.push(finding('identifier_check_digit_invalid', 'warning', path));
       continue;
     }
-    // Only a scheme the registry declares globally unique can make two variants
-    // sharing a value a contradiction. Read off the registry rather than
-    // asserted here, so a scheme whose uniqueness claim changes changes this
-    // with it — and so the asymmetry with `duplicate_variant_sku` has a source
-    // rather than a preference behind it.
+    // Only a scheme the registry declares globally unique is worth reporting a
+    // repeat of. Read off the registry rather than asserted here, so a scheme
+    // whose uniqueness claim changes changes this with it — an MPN repeated
+    // across two variants of one product is ordinary and says nothing.
     if (!identifierIsGloballyUnique(classified.scheme)) continue;
     // Keyed on the CANONICAL form, so a UPC-12 and the EAN-13 that pads to the
     // same fourteen digits collide — which they do, because they name one trade
@@ -527,7 +547,7 @@ function checkBarcodes(
     if (positions.length < 2) continue;
     for (const position of positions.slice(1)) {
       findings.push(
-        finding('duplicate_variant_barcode', 'error', `variants[${position}].barcode`),
+        finding('duplicate_variant_barcode', 'warning', `variants[${position}].barcode`),
       );
     }
   }

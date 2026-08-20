@@ -635,32 +635,33 @@ export type AuthoringValidationCode =
   | 'duplicate_variant_sku'
   /**
    * A variant `barcode` whose digit length names a GS1 GTIN scheme and whose
-   * mod-10 check digit does not hold. An ERROR, unlike its SKU neighbour.
+   * mod-10 check digit does not hold. A WARNING, like its SKU neighbour.
    *
-   * The two look alike and are not alike. A SKU is the merchant's own code,
-   * unique at no grain, so a duplicate is reported and admitted. A GTIN's check
-   * digit is ARITHMETIC: a string that fails it cannot be the identifier it
-   * claims to be, whoever typed it and whatever they meant. `identifiers.ts`
-   * calls a transcription error "the single most common way a real catalogue
-   * asserts an identifier that belongs to a different product" and refuses it at
-   * the canonical write; this is that same refusal where the author can still
-   * retype it.
+   * `identifiers.ts` calls a transcription error "the single most common way a
+   * real catalogue asserts an identifier that belongs to a different product"
+   * and REFUSES it — but it refuses it at the canonical write, into
+   * `product_identifiers`, which is a global fact about a trade item.
+   * `product_variants.barcode` is not that: it is free text, unique at no
+   * grain, and a thirteen-digit internal article number is an ordinary thing to
+   * keep in it. Nothing can tell one of those from a mistyped EAN, so blocking
+   * would leave a merchant whose only remedy is deleting a true value.
    *
    * Only the four GS1 digit lengths raise it — see `GTIN_SCHEME_BY_LENGTH` in
-   * `services/catalog-authoring/validation.ts`. A barcode that is not a digit
-   * string of one of those lengths is left ALONE rather than reported: the
-   * column is free text and holds other code systems legitimately.
+   * `services/catalog-authoring/identifier.ts`. A barcode that is not a digit
+   * string of one of those lengths is left ALONE rather than reported.
    */
   | 'identifier_check_digit_invalid'
   /**
-   * Two variants of one draft assert the same barcode. An ERROR.
+   * Two variants of one draft assert the same barcode. A WARNING, and for the
+   * same reason `duplicate_variant_sku` is one.
    *
-   * The asymmetry with `duplicate_variant_sku` is the registry's, not a
-   * preference: every GTIN scheme in `IDENTIFIER_SCHEME_REGISTRY` is
-   * `globallyUnique: true` at `grain: 'variant'`, so two variants under one
-   * barcode is the draft contradicting itself — it says these are different
-   * configurations and that they are the same trade item. A SKU carries no such
-   * declaration.
+   * `IDENTIFIER_SCHEME_REGISTRY` declares every GTIN scheme
+   * `globallyUnique: true`, which is a fact about the IDENTIFIER SPACE — a GTIN
+   * names one trade item worldwide. It is not a rule about what a merchant's
+   * draft may assert, and this schema deliberately enforces no uniqueness on
+   * `product_variants.barcode` at all. Merchants do put one manufacturer
+   * barcode on two configurations; reporting it is useful, refusing it would
+   * re-impose a constraint the schema removed on purpose.
    */
   | 'duplicate_variant_barcode'
   /**

@@ -1411,10 +1411,10 @@ describe('a barcode is measured against the canonical GTIN rules', () => {
   });
 
   /**
-   * Two variants under one barcode is an ERROR where two under one SKU is a
-   * warning, and the asymmetry is the registry's rather than a preference.
+   * Two variants under one barcode is reported on the SECOND, the
+   * `duplicate_variant_sku` shape — one code repeated is one thing to fix.
    */
-  it('refuses two variants sharing a barcode, and names the SECOND one', () => {
+  it('reports two variants sharing a barcode, and names the SECOND one', () => {
     const gtin = validGtin(13);
     const result = validateDraft(
       input({
@@ -1427,9 +1427,55 @@ describe('a barcode is measured against the canonical GTIN rules', () => {
     const duplicates = result.findings.filter((entry) => entry.code === 'duplicate_variant_barcode');
     // The FIRST occurrence is not the mistake — one finding, on position 1.
     expect(duplicates.map((entry) => ({ severity: entry.severity, path: entry.path }))).toEqual([
-      { severity: 'error', path: 'variants[1].barcode' },
+      { severity: 'warning', path: 'variants[1].barcode' },
     ]);
-    expect(result.publishable).toBe(false);
+    expect(result.publishable).toBe(true);
+  });
+
+  /**
+   * NEITHER barcode finding may block, and this is the assertion that says so.
+   *
+   * `AGENTS.md`: "`product_variants.sku` and `.barcode` are unique at NO grain
+   * and must not be re-narrowed." An error in the authoring form would re-impose
+   * exactly the constraint the schema removed, and for the check digit it would
+   * be worse — the column is free text, a thirteen-digit internal article number
+   * lives in it legitimately, nothing can tell one from a mistyped EAN, and the
+   * cheapest green would be deleting a true value.
+   *
+   * If either ever escalates, THIS is what has to be changed on purpose.
+   */
+  it('never blocks publication on a barcode, whatever it says about one', () => {
+    const gtin = validGtin(13);
+    for (const barcodes of [
+      [brokenCheckDigit(gtin), null],
+      [gtin, gtin],
+      [brokenCheckDigit(gtin), brokenCheckDigit(gtin)],
+    ]) {
+      const result = validateDraft(
+        input({
+          variants: barcodes.map((barcode, index) => ({
+            id: `dv-${index + 1}`,
+            position: index,
+            priceAmount: 1_000,
+            priceCurrency: 'EUR',
+            inventoryAvailable: 1,
+            axisSignature: String(index).repeat(64),
+            sku: null,
+            barcode,
+          })),
+        }),
+      );
+      // The finding is PRESENT — without this the case would pass against a
+      // validator that had stopped reading barcodes altogether.
+      expect({ barcodes, reported: codes(result).length }).not.toEqual({
+        barcodes,
+        reported: 0,
+      });
+      expect({ barcodes, publishable: result.publishable }).toEqual({
+        barcodes,
+        publishable: true,
+      });
+    }
   });
 
   it('collides a UPC-12 with the EAN-13 that pads to the same trade item', () => {
