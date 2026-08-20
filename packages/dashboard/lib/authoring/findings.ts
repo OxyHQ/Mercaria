@@ -190,6 +190,7 @@ const MESSAGE_KEYS: Record<AuthoringValidationCode, string> = {
   unit_not_in_family: "products.wizard.finding.unitNotInFamily",
   currency_mismatch: "products.wizard.finding.currencyMismatch",
   canonical_reference_not_permitted: "products.wizard.finding.canonicalRefNotPermitted",
+  canonical_reference_not_selectable: "products.wizard.finding.canonicalRefNotSelectable",
   proposal_not_permitted: "products.wizard.finding.proposalNotPermitted",
   no_variant_declared: "products.wizard.finding.noVariantDeclared",
   variant_axis_not_permitted: "products.wizard.finding.axisNotPermitted",

@@ -1218,6 +1218,14 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
         'test constructs one. The value policy that would trigger it is read at composition ' +
         'time and nothing compares it against a stored proposal reference. This is a real gap ' +
         'in #367 step 6, recorded here rather than hidden by deleting the code.',
+      canonical_reference_not_selectable:
+        'produced by `canonicalSelectionFindings` in ' +
+        '`services/catalog-authoring/canonical-selection.ts`, which resolves every canonical ' +
+        'reference a draft holds against `brands`, `canonical_products`, `canonical_variants` ' +
+        'and `canonical_product_families` — four database facts this pure function cannot see. ' +
+        'Covered by `authoring-canonical-selection.realdb.test.ts` against a real server, with ' +
+        'a row in each excluded status, and merged in by `validateDraftRow` beside the ' +
+        'collision and proposal findings (#758).',
       identifier_collision:
         'produced by `identifierCollisionFindings` in ' +
         '`services/catalog-authoring/identifier-collision.ts`, which reads `product_identifiers` ' +
@@ -1233,7 +1241,7 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
 
     // The exemption list needs its own exact-count assertion, or it is a hole
     // that widens one green build at a time.
-    expect(Object.keys(EXEMPT)).toHaveLength(3);
+    expect(Object.keys(EXEMPT)).toHaveLength(4);
     for (const code of Object.keys(EXEMPT)) {
       expect(AUTHORING_VALIDATION_CODES, `${code} is exempted and is not in the set`).toContain(
         code as AuthoringValidationCode,

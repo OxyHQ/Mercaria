@@ -1209,6 +1209,7 @@
         "unitNotInFamily": "هذه الوحدة تقيس شيئًا آخر.",
         "currencyMismatch": "لا توجد لهذا الحقل عملة لتسجيل المبلغ بها.",
         "canonicalRefNotPermitted": "لا يقبل هذا الحقل مرجعًا من الكتالوج.",
+        "canonicalRefNotSelectable": "لم يعد إدخال الكتالوج هذا متاحًا. اختر إدخالًا آخر.",
         "proposalNotPermitted": "لا يمكنك اقتراح قيمة جديدة لهذا الحقل.",
         "noVariantDeclared": "أضف تركيبة واحدة على الأقل للبيع.",
         "axisNotPermitted": "لا يمكن لهذه السمة تحديد متغيّرات نوع المنتج هذا.",

@@ -1209,6 +1209,7 @@
         "unitNotInFamily": "That unit measures something else.",
         "currencyMismatch": "This field has no currency to record the amount in.",
         "canonicalRefNotPermitted": "This field does not take a catalogue reference.",
+        "canonicalRefNotSelectable": "This catalogue entry is no longer available. Select another.",
         "proposalNotPermitted": "You cannot propose a new value for this field.",
         "noVariantDeclared": "Add at least one combination to sell.",
         "axisNotPermitted": "This attribute cannot define variants of this product type.",

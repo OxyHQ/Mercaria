@@ -1227,6 +1227,7 @@
         "unitNotInFamily": "Cette unité mesure autre chose.",
         "currencyMismatch": "Ce champ n'a aucune devise pour enregistrer le montant.",
         "canonicalRefNotPermitted": "Ce champ n'accepte pas de référence au catalogue.",
+        "canonicalRefNotSelectable": "Cette entrée du catalogue n’est plus disponible. Sélectionnez-en une autre.",
         "proposalNotPermitted": "Vous ne pouvez pas proposer de nouvelle valeur pour ce champ.",
         "noVariantDeclared": "Ajoutez au moins une combinaison à vendre.",
         "axisNotPermitted": "Cet attribut ne peut pas définir de variantes de ce type de produit.",

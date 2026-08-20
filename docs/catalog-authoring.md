@@ -245,7 +245,8 @@ Paths are one spelling: `fields.<attributeKey>`,
 `fields.<attributeKey>[<ordinal>]`, `variants[<position>].price`,
 `variants[<position>].fields.<attributeKey>`, `variants[<position>].barcode`,
 `listing.title`, `listing.imageFileIds`, `listing.imageFileIds[<position>]`,
-`classification.categoryId`.
+`classification.categoryId`, `classification.selectedCanonicalProductId`,
+`variants[<position>].selectedCanonicalVariantId`.
 
 Two answers worth knowing:
 
@@ -257,6 +258,33 @@ Two answers worth knowing:
   detector says "this is probably a decimal-point mistake", which is a different
   claim from "outside the permitted range". A 40-inch phone screen is almost
   certainly wrong and just possibly a prototype.
+
+### A stored reference the catalogue has since decided against (#758)
+
+Three of the four things a draft holds are ids in tables this domain does not
+own — the selected canonical product, each variant's selected configuration, and
+every `canonical_reference` ANSWER, which is what the brand picker writes. #766
+narrowed the PICKER to `status = 'active'`; filtering a search cannot reach a row
+somebody already stored, so `canonicalSelectionFindings` asks the same question
+of what is stored, at validate time, and answers
+`canonical_reference_not_selectable`.
+
+- **Still offered means RESOLVABLE, through any merge chain, to an `active`
+  row.** A merge is routine and the author did nothing, so reporting a
+  merged-but-resolvable reference would refuse publications that work today. What
+  is reported is a chain whose END is not selectable.
+- **ONE code for suppressed, inactive, a dead chain and an id naming no row.**
+  A finding that said which would answer "does this suppressed brand exist" to
+  anybody holding a draft — the disclosure #766 closed at the search half,
+  reopened at the validate half. The two are asserted byte-identical.
+- **An ERROR, so `withProposalFindings` refuses the publish** through the
+  machinery that already exists. The publish-time refusal on a variant selection
+  stays as a backstop; the product-level selection used to coerce its
+  unresolvable id to `null` and publish unlinked, which also skipped the variant
+  belongs-to check.
+- The dashboard renders it on **review** for a product selection and on the
+  variant row for a configuration, because the review panel is the only screen
+  that shows `selectedCanonicalProductId` at all.
 
 ### Identifiers and collisions
 

@@ -1209,6 +1209,7 @@
         "unitNotInFamily": "Diese Einheit misst etwas anderes.",
         "currencyMismatch": "Dieses Feld hat keine Währung, in der sich der Betrag festhalten ließe.",
         "canonicalRefNotPermitted": "Dieses Feld nimmt keinen Katalogverweis an.",
+        "canonicalRefNotSelectable": "Dieser Katalogeintrag ist nicht mehr verfügbar. Wählen Sie einen anderen.",
         "proposalNotPermitted": "Du kannst für dieses Feld keinen neuen Wert vorschlagen.",
         "noVariantDeclared": "Füge mindestens eine Kombination zum Verkauf hinzu.",
         "axisNotPermitted": "Dieses Merkmal kann bei diesem Produkttyp keine Varianten bilden.",

@@ -68,7 +68,7 @@ check, and a review that assumed either way would be guessing about production.
 |---|---|---|---|
 | 1 | **High** | `GET /catalog-authoring/schemas/:productTypeKey?version=N` served a `draft` or `review` product-type version to any authenticated account | **FIXED** — §3D |
 | 2 | **Medium** | No sanitization of seller-authored free text entering the authoring and proposal surfaces | **FIXED** — §3C |
-| 3 | Low | The brand half of `/catalog-authoring/canonical-search` admits `inactive` and `suppressed` brands, where the product half deliberately admits only `active` | **OPEN** — §5.1 |
+| 3 | Low | The brand half of `/catalog-authoring/canonical-search` admits `inactive` and `suppressed` brands, where the product half deliberately admits only `active` | **CLOSED after the fact** — §5.1, see the update note there |
 | 4 | Low | `categories.slug` has no shape CHECK and no reserved-word list, and arrives verbatim (untrimmed) from an operator parameter | **OPEN** — §5.2 |
 | 5 | Low | `listings.handle` is user-settable with no length and no shape bound; it reaches no URL today | **OPEN** — §5.3 |
 | 6 | Low | No route-level allow-list test on the four `/internal/catalog-*` surfaces that carry the redirect, merge and alias-minting powers | **OPEN** — §5.4 |
@@ -508,6 +508,28 @@ the brand and canonical-catalogue vocabulary belongs to the taxonomy and
 product-type workstreams rather than to a security fix. Consequence if left: a
 draft can be attached to a brand the catalogue has decided to stop showing, and a
 suppressed brand's name is disclosed to any authenticated author.
+
+> **Update, 2026-08-21 — this finding is now closed, in two changes.** The
+> paragraph above is left exactly as written on 2026-08-17; what follows is what
+> happened to it, because a review is a record of a moment and a disposition that
+> silently changes is a record nobody can date.
+>
+> **#766** narrowed `searchBrandsByName` to `status = 'active'`, which is the
+> DISCLOSURE half, and pinned it and four sibling filters with rows in the states
+> they exclude. It deliberately left this section's own reason — "adding a status
+> filter changes what an author mid-flow sees" — unanswered, and recorded the
+> three possible readings on #758.
+>
+> **#758's residual** is now closed by taking the second of those readings: a
+> stored reference the catalogue no longer offers is surfaced as
+> `canonical_reference_not_selectable` at validate time, so the author is asked to
+> choose again rather than publishing onto a row somebody withheld. Doing that
+> required asking the question of all THREE stored references, not only the
+> brand — and the audit found the same §6 lesson-2 shape again: the variant
+> selection refused, the product selection silently coerced its unresolvable id
+> to `null` and published unlinked, and the picker's own output was checked
+> nowhere. Detail: `docs/catalog-authoring.md` §"A stored reference the catalogue
+> has since decided against".
 
 ### 5.2 `categories.slug` has no shape CHECK and no reserved-word list (Low)
 

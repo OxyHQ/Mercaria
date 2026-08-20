@@ -604,6 +604,34 @@ export type AuthoringValidationCode =
   | 'unit_not_in_family'
   | 'currency_mismatch'
   | 'canonical_reference_not_permitted'
+  /**
+   * The draft holds a canonical reference the catalogue no longer offers — a
+   * suppressed or inactive brand, a merged chain ending nowhere, an id naming no
+   * row at all (#758).
+   *
+   * ONE code for every one of those, and the indistinguishability is the point
+   * rather than an economy. `suppressed` is the operator decision to stop
+   * showing an entity, so a refusal that said WHICH state a reference is in
+   * would be an oracle answering "does this suppressed brand exist" to anybody
+   * holding a draft — which is the disclosure the picker's own `status =
+   * 'active'` filter closed at the search half of the same surface. A reference
+   * that leads nowhere and one somebody withheld produce the same finding, the
+   * same severity and the same path, and the remedy is the same for both:
+   * choose again.
+   *
+   * An ERROR, because the alternative is publishing a product whose brand,
+   * family or catalogue identity points at a row the catalogue has decided
+   * against — `SELECTABLE_STATUS`'s "an explicit human selection landing on a
+   * row the catalogue has already decided against", arriving late instead of
+   * in advance.
+   *
+   * A reference that RESOLVES through a merge to an active row is not reported:
+   * a merge is routine, the author did nothing, and
+   * `resolveCanonicalProductSelection` already lands a publication on the winner
+   * with no rehoming pass having run. What is reported is a chain whose end is
+   * not selectable.
+   */
+  | 'canonical_reference_not_selectable'
   | 'proposal_not_permitted'
   /**
    * A `range` cardinality whose low bound is above its high bound.
@@ -778,6 +806,7 @@ export const AUTHORING_VALIDATION_CODES: readonly AuthoringValidationCode[] = [
   'unit_not_in_family',
   'currency_mismatch',
   'canonical_reference_not_permitted',
+  'canonical_reference_not_selectable',
   'proposal_not_permitted',
   'range_bounds_inverted',
   'no_variant_declared',

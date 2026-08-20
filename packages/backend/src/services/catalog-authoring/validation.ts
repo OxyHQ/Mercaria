@@ -670,9 +670,11 @@ function checkField(
     }
     if (answer.kind === 'canonical_reference') {
       // Permitted by construction — see the branch above. Nothing further is
-      // checkable HERE: whether the id names a row that exists is a READ, and
-      // this module takes no database. `validateDraftRow` is where that belongs
-      // and it does not do it yet (reported, not papered over).
+      // checkable HERE: whether the id still names a row an author may select is
+      // a READ, and this module takes no database. `canonicalSelectionFindings`
+      // answers it and `validateDraftRow` merges the result (#758), which is the
+      // same seam `identifierCollisionFindings` and `pendingProposalFindings`
+      // arrive through.
       continue;
     }
     if (answer.kind === 'text' && answer.valueText !== null) {

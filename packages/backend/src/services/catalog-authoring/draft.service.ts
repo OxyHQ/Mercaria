@@ -80,6 +80,7 @@ import {
   type AuthoringSchemaComposition,
 } from './schema.service.js';
 import { validateDraft, type DraftValueForValidation } from './validation.js';
+import { canonicalSelectionFindings } from './canonical-selection.js';
 import { identifierCollisionFindings } from './identifier-collision.js';
 import { compareProductTypeVersionFields } from './version-upgrade.js';
 // #367 step 6 (ADR 0007 D9). The ONE edge from authoring INTO the proposal
@@ -444,6 +445,28 @@ export async function validateDraftRow(
     })),
   });
 
+  // "Does every canonical reference this draft holds still lead to a row an
+  // author may select" (#758) — the other read `validation.ts` names and cannot
+  // perform. Sequential for the same reason as the two above: it reads the
+  // variants and the values, and it issues NO statement at all for a draft that
+  // holds no reference, which is the ordinary merchant case.
+  const selections = await canonicalSelectionFindings(db, {
+    selectedCanonicalProductId: row.selectedCanonicalProductId,
+    variants: variants.map((variant) => ({
+      id: variant.id,
+      position: variant.position,
+      selectedCanonicalVariantId: variant.selectedCanonicalVariantId,
+    })),
+    values: values.map((value) => ({
+      fieldId: value.fieldId,
+      attributeKey: value.attributeKey,
+      draftVariantId: value.draftVariantId,
+      ordinal: value.ordinal,
+      canonicalRefKind: value.canonicalRefKind,
+      canonicalRefId: value.canonicalRefId,
+    })),
+  });
+
   const result = validateDraft({
     schema,
     draftSchemaHash: row.schemaHash,
@@ -503,6 +526,7 @@ export async function validateDraftRow(
       }),
     ),
     ...collisions,
+    ...selections,
   ]);
 }
 
