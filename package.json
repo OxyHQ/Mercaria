@@ -35,6 +35,8 @@
     "validate:facet-label-copy": "bun ./scripts/validate-facet-label-copy.mjs",
     "validate:storefront-catalog": "bun ./scripts/validate-storefront-catalog-driven.mjs && bun ./scripts/test-validate-storefront-catalog-driven.mjs",
     "validate:route-targets": "bun ./scripts/validate-route-targets.mjs && bun ./scripts/test-validate-route-targets.mjs",
+    "validate:no-content-revert": "bun ./scripts/validate-no-content-revert.mjs",
+    "validate:no-content-revert-controls": "bun ./scripts/test-validate-no-content-revert.mjs",
     "android": "bun run --filter @mercaria/frontend android",
     "ios": "bun run --filter @mercaria/frontend ios",
     "web": "bun run --filter @mercaria/frontend web",
