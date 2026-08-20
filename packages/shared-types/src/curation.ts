@@ -487,6 +487,7 @@ export type CatalogMergePhase =
   | 'saves'
   | 'alerts'
   | 'agents'
+  | 'navigation'
   | 'redirects'
   | 'rollups'
   | 'verify'
@@ -518,6 +519,16 @@ export const CATALOG_MERGE_PHASES: readonly CatalogMergePhase[] = [
   // because the three are independent and independence still needs SOME order,
   // and before `rollups`, because nothing a counter derives from moves here.
   'agents',
+  // #717's operator-curated saved queries. A FOURTH rehoming phase rather than
+  // a line inside `saves`, `alerts` or `agents`, and the reason is the phase
+  // RECORD rather than tidiness: every job stamps the phase it ran and the
+  // operator projection renders that trail, so folding navigation work into
+  // another domain's phase would make a job's own record attribute it to a
+  // domain that never ran — in the one artefact somebody reads when they
+  // already know something is wrong. It runs after `agents` because the four
+  // are independent and independence still needs SOME order, and before
+  // `rollups`, because nothing a counter derives from moves here.
+  'navigation',
   'redirects',
   'rollups',
   'verify',

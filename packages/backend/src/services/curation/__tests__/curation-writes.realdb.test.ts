@@ -84,6 +84,8 @@ import {
   splitJobBlockingState,
   splitJobCancellationState,
 } from '../split.service.js';
+import { brands } from '../../../db/schema/organizations.js';
+import { navigationSavedQueries } from '../../../db/schema/navigation.js';
 import { merchants } from '../../../db/schema/merchants.js';
 import { shoppingAgents } from '../../../db/schema/shoppingAgents.js';
 import { pruneBasketCandidates } from '../../comparison/basket/candidates.js';
@@ -114,6 +116,9 @@ const createdBundleVariantIds: string[] = [];
 /** #716's merchants and the shopping agents excluding them. */
 const createdMerchantIds: string[] = [];
 const createdAgentIds: string[] = [];
+/** #717's brands and the saved queries filtering on them. */
+const createdBrandIds: string[] = [];
+const createdSavedQueryIds: string[] = [];
 
 beforeAll(async () => {
   db = await connectPostgres();
@@ -131,6 +136,8 @@ afterEach(async () => {
   const bundleVariantIds = createdBundleVariantIds.splice(0);
   const agentIds = createdAgentIds.splice(0);
   const merchantIds = createdMerchantIds.splice(0);
+  const savedQueryIds = createdSavedQueryIds.splice(0);
+  const brandIds = createdBrandIds.splice(0);
 
   if (productIds.length > 0) {
     const jobIds = (
@@ -306,6 +313,11 @@ afterEach(async () => {
   // clears them is keyed on the OPERATOR far above. Running this block earlier
   // leaves the job undeletable. Agents before merchants within it, because they
   // name the merchants and `merchants` is `restrict` from several directions.
+  if (savedQueryIds.length > 0) {
+    await db
+      .delete(navigationSavedQueries)
+      .where(inArray(navigationSavedQueries.id, savedQueryIds));
+  }
   if (agentIds.length > 0) {
     await db.delete(shoppingAgents).where(inArray(shoppingAgents.id, agentIds));
   }
@@ -355,6 +367,38 @@ afterEach(async () => {
       .delete(reviewAggregates)
       .where(inArray(reviewAggregates.merchantId, merchantIds));
     await db.delete(merchants).where(inArray(merchants.id, merchantIds));
+  }
+  if (brandIds.length > 0) {
+    const brandJobIds = (
+      await db
+        .select({ id: catalogMergeJobs.id })
+        .from(catalogMergeJobs)
+        .where(inArray(catalogMergeJobs.loserId, brandIds))
+    ).map((row) => row.id);
+    if (brandJobIds.length > 0) {
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
+        );
+        await tx.delete(catalogRevisions).where(inArray(catalogRevisions.mergeJobId, brandJobIds));
+        await tx.execute(
+          sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`,
+        );
+      });
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
+        );
+        await tx
+          .delete(catalogMergeJobPhases)
+          .where(inArray(catalogMergeJobPhases.jobId, brandJobIds));
+        await tx.execute(
+          sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
+        );
+        await tx.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, brandJobIds));
+      });
+    }
+    await db.delete(brands).where(inArray(brands.id, brandIds));
   }
 
 });
@@ -2971,6 +3015,88 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
     expect(await exclusionsOf(agentId)).toEqual([winnerId]);
 
     await db.execute(sql`delete from shopping_agent_lines where id = ${lineId}`);
+  });
+
+  /**
+   * #717's saved queries, the same ruling one register entry over.
+   *
+   * A curator who narrowed a saved query to a brand or a merchant meant the
+   * BUSINESS, exactly as the shopper above did — and left on a tombstone the
+   * curated menu silently returns LESS, which is the failure nobody reports.
+   * They ride the new `navigation` phase rather than an existing one so a job's
+   * own phase trail does not attribute navigation work to a domain that never
+   * ran.
+   *
+   * Both entities in one case deliberately: `brand_ids` and `merchant_ids` sit
+   * on ONE row, so a merge of either must move its own array and leave the other
+   * alone — which a per-entity case could not observe.
+   */
+  it('carries a saved query’s brand and merchant filters, one entity at a time', async () => {
+    const brandLoser = `brn-717-loser-${RUN}`;
+    const brandWinner = `brn-717-winner-${RUN}`;
+    for (const id of [brandLoser, brandWinner]) {
+      await db.insert(brands).values({
+        id,
+        slug: id,
+        name: `Brand ${id}`,
+        normalizedName: `brand ${id}`,
+      });
+    }
+    createdBrandIds.push(brandLoser, brandWinner);
+    const merchantLoser = await seedMerchant('nav-loser');
+    const merchantWinner = await seedMerchant('nav-winner');
+
+    const queryId = `nsq-717-${RUN}`;
+    await db.execute(sql`
+      insert into navigation_saved_queries (id, key, internal_label, brand_ids, merchant_ids)
+      values (${queryId}, ${queryId}, 'a curated menu',
+              array[${brandLoser}]::text[], array[${merchantLoser}]::text[])
+    `);
+    createdSavedQueryIds.push(queryId);
+
+    async function filtersOf(): Promise<{ brands: string[]; merchants: string[] }> {
+      const rows = await db.execute<{ brand_ids: string[]; merchant_ids: string[] }>(
+        sql`select brand_ids, merchant_ids from navigation_saved_queries where id = ${queryId}`,
+      );
+      return { brands: rows[0]?.brand_ids ?? [], merchants: rows[0]?.merchant_ids ?? [] };
+    }
+
+    const brandJob = await requestMerge({
+      entityType: 'brand',
+      loserId: brandLoser,
+      winnerId: brandWinner,
+      reason: 'two records of one brand',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(brandJob.id, `lease-717a-${RUN}`)).completed).toBe(true);
+
+    // The brand filter followed; the merchant filter beside it did NOT move.
+    expect(await filtersOf()).toEqual({ brands: [brandWinner], merchants: [merchantLoser] });
+
+    // And it is RECORDED against `navigation`, which is the whole reason this is
+    // its own phase rather than a line inside somebody else's. Without this the
+    // declaration's `phase` is unverified: moving it to `agents` still moves the
+    // rows, so the data is right and the job's own trail attributes the work to
+    // a domain that never touched it — measured, that mutation left this file
+    // green. `rows_affected` on the OTHER phase is what makes it exact.
+    const phases = await db.execute<{ phase: string; rows_affected: number }>(sql`
+      select phase, rows_affected from catalog_merge_job_phases
+       where job_id = ${brandJob.id} and phase in ('navigation', 'agents')
+    `);
+    const byPhase = new Map(phases.map((row) => [row.phase, Number(row.rows_affected)]));
+    expect(byPhase.get('navigation')).toBe(1);
+    expect(byPhase.get('agents')).toBe(0);
+
+    const merchantJob = await requestMerge({
+      entityType: 'merchant',
+      loserId: merchantLoser,
+      winnerId: merchantWinner,
+      reason: 'two records of one business',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(merchantJob.id, `lease-717b-${RUN}`)).completed).toBe(true);
+
+    expect(await filtersOf()).toEqual({ brands: [brandWinner], merchants: [merchantWinner] });
   });
 
   it('leaves ONE winner when the shopper had excluded both sides', async () => {
