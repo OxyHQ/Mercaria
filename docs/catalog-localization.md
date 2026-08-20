@@ -18,7 +18,7 @@ it. **Schema decisions:** `packages/backend/src/db/schema/CONVENTIONS.md`.
 | Static gates | `packages/backend/src/db/__tests__/catalog-localization.test.ts` |
 | Real-server gates | `packages/backend/src/db/__tests__/catalog-localization.realdb.test.ts` |
 | Listing localization (#367) | `packages/backend/src/db/__tests__/listing-localization.realdb.test.ts` |
-| Migration | `packages/backend/drizzle/0091_slimy_the_fury.sql` (`pre`), `0129_curvy_rhino.sql` (`pre`, listings) |
+| Migration | `packages/backend/drizzle/0091_slimy_the_fury.sql` (`pre`), `0130_fine_malcolm_colcord.sql` (`pre`, listings) |
 
 The failure mode that shapes all of it: **a shopper reading a raw key, a stale
 translation quietly replaced by a machine, and a shared link that stopped
