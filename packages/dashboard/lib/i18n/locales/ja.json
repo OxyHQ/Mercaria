@@ -1149,7 +1149,7 @@
         "category": "カテゴリー",
         "productType": "商品タイプ",
         "productTypeVersion": "%{name}（バージョン %{version}）",
-        "marketAndLocale": "市場 %{market} · 言語 %{locale}",
+        "marketAndLocale": "市場 %{market} · 言語 %{language}",
         "market": "市場",
         "canonicalLink": "カタログ商品",
         "canonicalNone": "未選択",

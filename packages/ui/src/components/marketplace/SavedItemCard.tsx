@@ -6,6 +6,24 @@ import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
 import { conditionGroupLabelKey } from "../../lib/condition";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  SAVED_ITEM_CHEAPER_KEY,
+  SAVED_ITEM_DEARER_KEY,
+  SAVED_ITEM_PEOPLE_SAVED_KEY,
+  SAVED_ITEM_PINNED_LISTING_KEY,
+  SAVED_ITEM_PRICE_IN_CURRENCY_KEY,
+  SAVED_ITEM_PRICE_UNPUBLISHED_KEY,
+  SAVED_ITEM_REMOVE_LISTING_KEY,
+  SAVED_ITEM_REMOVE_PRODUCT_KEY,
+  SAVED_ITEM_SAVED_LISTING_KEY,
+  SAVED_ITEM_SAVED_PRODUCT_KEY,
+  SAVED_ITEM_SET_ALERT_A11Y_KEY,
+  SAVED_ITEM_SET_ALERT_KEY,
+  SAVED_ITEM_SPLIT_CHOOSE_A11Y_KEY,
+  SAVED_ITEM_SPLIT_CHOOSE_KEY,
+  SAVED_ITEM_UNAVAILABLE_KEY,
+  savedItemNoOfferKey,
+} from "../../lib/saved-item-labels";
 
 /** Icon size for the row's leading and trailing affordances. */
 const ICON_SIZE = 18;
@@ -57,6 +75,7 @@ export function SavedItemCard({
   onResolveSplit,
   onCreatePriceAlert,
 }: SavedItemCardProps) {
+  const t = useSharedUiTranslation();
   const imageSource =
     item.kind === "product"
       ? item.product.imageFileId
@@ -99,9 +118,9 @@ export function SavedItemCard({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={
-          item.kind === "product" ? "Remove this saved product" : "Remove this saved listing"
-        }
+        accessibilityLabel={t(
+          item.kind === "product" ? SAVED_ITEM_REMOVE_PRODUCT_KEY : SAVED_ITEM_REMOVE_LISTING_KEY,
+        )}
         onPress={() => onRemove?.(item)}
         className="size-space-32 items-center justify-center rounded-radius-max"
       >
@@ -127,7 +146,9 @@ function ProductBody({
       <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
         {item.product.name}
       </Text>
-      <Text className="text-caption text-text-tertiary">Saved product</Text>
+      <Text className="text-caption text-text-tertiary">
+        {t(SAVED_ITEM_SAVED_PRODUCT_KEY)}
+      </Text>
 
       {item.offer.state === "available" ? (
         <View className="flex-row items-center gap-space-8">
@@ -141,7 +162,9 @@ function ProductBody({
       ) : (
         // #80 acceptance 7: the absence carries its reason, so the row still
         // tells the buyer what to do next.
-        <Text className="text-caption text-text-tertiary">{noOfferCopy(item.offer.reason)}</Text>
+        <Text className="text-caption text-text-tertiary">
+          {t(savedItemNoOfferKey(item.offer.reason))}
+        </Text>
       )}
 
       {item.priceChange.known && item.priceChange.direction !== "unchanged" ? (
@@ -152,29 +175,29 @@ function ProductBody({
             <TrendingUp size={ICON_SIZE} className="text-text-tertiary" />
           )}
           <Text className="text-caption text-text-tertiary">
-            {item.priceChange.direction === "down"
-              ? "Cheaper than when you saved it"
-              : "More than when you saved it"}
+            {t(
+              item.priceChange.direction === "down"
+                ? SAVED_ITEM_CHEAPER_KEY
+                : SAVED_ITEM_DEARER_KEY,
+            )}
           </Text>
         </View>
       ) : null}
 
       {item.product.saveCount.disclosed ? (
         <Text className="text-caption text-text-tertiary">
-          {item.product.saveCount.count} people saved this
+          {t(SAVED_ITEM_PEOPLE_SAVED_KEY, { people: item.product.saveCount.count })}
         </Text>
       ) : null}
 
       {item.save.resolution.state === "ambiguous_after_split" ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Choose which product you meant"
+          accessibilityLabel={t(SAVED_ITEM_SPLIT_CHOOSE_A11Y_KEY)}
           onPress={() => onResolveSplit?.(item)}
           className="mt-space-4 self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
         >
-          <Text className="text-caption text-text">
-            This product was split — choose which one you meant
-          </Text>
+          <Text className="text-caption text-text">{t(SAVED_ITEM_SPLIT_CHOOSE_KEY)}</Text>
         </Pressable>
       ) : null}
 
@@ -192,12 +215,12 @@ function ProductBody({
       {item.priceAlert.supported && onCreatePriceAlert ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Set a price alert for this product"
+          accessibilityLabel={t(SAVED_ITEM_SET_ALERT_A11Y_KEY)}
           onPress={() => onCreatePriceAlert(item)}
           className="mt-space-4 flex-row items-center gap-space-4 self-start rounded-radius-max bg-bg-fill-secondary px-space-12 py-space-4"
         >
           <Bell size={ICON_SIZE - 4} className="text-text-secondary" />
-          <Text className="text-caption text-text">Set a price alert</Text>
+          <Text className="text-caption text-text">{t(SAVED_ITEM_SET_ALERT_KEY)}</Text>
         </Pressable>
       ) : null}
     </>
@@ -205,17 +228,22 @@ function ProductBody({
 }
 
 function ListingBody({ item }: { item: Extract<SavedItem, { kind: "listing" }> }) {
+  const t = useSharedUiTranslation();
   return (
     <>
       <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
         {item.title}
       </Text>
       <Text className="text-caption text-text-tertiary">
-        {item.intent === "listing_pin" ? "Pinned listing" : "Saved listing"}
+        {t(
+          item.intent === "listing_pin"
+            ? SAVED_ITEM_PINNED_LISTING_KEY
+            : SAVED_ITEM_SAVED_LISTING_KEY,
+        )}
       </Text>
       <PriceDisplay price={item.price} primaryClassName="text-bodyTitleSmall text-text" />
       {item.available ? null : (
-        <Text className="text-caption text-text-tertiary">No longer available</Text>
+        <Text className="text-caption text-text-tertiary">{t(SAVED_ITEM_UNAVAILABLE_KEY)}</Text>
       )}
     </>
   );
@@ -241,8 +269,13 @@ function ListingBody({ item }: { item: Extract<SavedItem, { kind: "listing" }> }
  * guess. `OfferRow`'s delivery line already resolves its own `null` the same way.
  */
 function OfferPrice({ price }: { price?: { amount: number; currency: string } }) {
+  const t = useSharedUiTranslation();
   if (!price) {
-    return <Text className="text-caption text-text-tertiary">Price not published</Text>;
+    return (
+      <Text className="text-caption text-text-tertiary">
+        {t(SAVED_ITEM_PRICE_UNPUBLISHED_KEY)}
+      </Text>
+    );
   }
   const presentable: CurrencyCode | undefined = ALL_CURRENCY_CODES.find(
     (code) => code === price.currency,
@@ -250,7 +283,7 @@ function OfferPrice({ price }: { price?: { amount: number; currency: string } })
   if (!presentable) {
     return (
       <Text className="text-caption text-text-tertiary">
-        Price published in {price.currency}
+        {t(SAVED_ITEM_PRICE_IN_CURRENCY_KEY, { currency: price.currency })}
       </Text>
     );
   }
@@ -262,16 +295,3 @@ function OfferPrice({ price }: { price?: { amount: number; currency: string } })
   );
 }
 
-/** Plain-language copy for each reason a saved product has nothing to buy. */
-function noOfferCopy(reason: string): string {
-  switch (reason) {
-    case "no_offers_recorded":
-      return "No seller has listed this yet";
-    case "all_offers_retired":
-      return "No one is selling this right now";
-    case "no_eligible_offer":
-      return "No offer matches your filters";
-    default:
-      return "No current offer";
-  }
-}

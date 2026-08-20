@@ -3,6 +3,13 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { Text } from "../ui/text";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  GALLERY_NEXT_KEY,
+  GALLERY_PREVIOUS_KEY,
+  GALLERY_VIEW_IMAGE_KEY,
+  MARKETPLACE_NO_IMAGE_KEY,
+} from "../../lib/marketplace-labels";
 import { useColorScheme } from "../../lib/useColorScheme";
 
 /** Prev/next chevron icon size (px). */
@@ -35,6 +42,7 @@ export interface ProductGalleryProps {
  */
 export function ProductGallery({ images, title }: ProductGalleryProps) {
   const { colors } = useColorScheme();
+  const t = useSharedUiTranslation();
   const [index, setIndex] = useState(0);
   const hasMany = images.length > 1;
   const current = images[index];
@@ -47,7 +55,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
     <Pressable
       key={`${prefix}-${image.uri}-${i}`}
       accessibilityRole="button"
-      accessibilityLabel={`View image ${i + 1}`}
+      accessibilityLabel={t(GALLERY_VIEW_IMAGE_KEY, { position: i + 1 })}
       accessibilityState={{ selected: i === index }}
       onPress={() => setIndex(i)}
       className={`${THUMB_CLASS} overflow-hidden rounded-radius-12 border-[1.5px] ${
@@ -78,7 +86,9 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
             />
           ) : (
             <View className="flex-1 items-center justify-center">
-              <Text className="text-bodySmall text-text-tertiary">No image</Text>
+              <Text className="text-bodySmall text-text-tertiary">
+          {t(MARKETPLACE_NO_IMAGE_KEY)}
+        </Text>
             </View>
           )}
         </View>
@@ -88,7 +98,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
           <>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Previous image"
+              accessibilityLabel={t(GALLERY_PREVIOUS_KEY)}
               onPress={() => go(-1)}
               className="absolute start-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
             >
@@ -96,7 +106,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Next image"
+              accessibilityLabel={t(GALLERY_NEXT_KEY)}
               onPress={() => go(1)}
               className="absolute end-space-12 top-1/2 hidden items-center justify-center rounded-radius-max border-[0.5px] border-border-image bg-bg-fill p-space-10 web:-translate-y-1/2 web:shadow-md web:sm:flex"
             >

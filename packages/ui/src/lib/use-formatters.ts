@@ -3,6 +3,7 @@ import type { Money, OfferMoney } from "@mercaria/shared-types";
 import { useSharedUiLocale } from "../i18n/ui-translation";
 import {
   formatDistance,
+  formatDuration,
   formatMoney,
   formatPercent,
   formatRating,
@@ -11,7 +12,7 @@ import {
 } from "./format";
 
 /**
- * `./format`'s six NUMBER formatters, bound to the locale in force (#500).
+ * `./format`'s seven NUMBER formatters, bound to the locale in force (#500).
  *
  * ## What it does NOT bind, and why that is deliberate
  *
@@ -68,6 +69,8 @@ export interface Formatters {
   formatPercent: (deltaBps: number) => string;
   /** A star rating to one decimal: `4.5` in `en`, `4,5` in `de`. */
   formatRating: (rating: number) => string;
+  /** A coarse duration in its largest whole unit: `5 minutes`, `5 минут`. */
+  formatDuration: (seconds: number) => string;
 }
 
 export function useFormatters(): Formatters {
@@ -83,6 +86,7 @@ export function useFormatters(): Formatters {
       formatReviewCount: (n) => formatReviewCount(n, locale),
       formatPercent: (deltaBps) => formatPercent(deltaBps, locale),
       formatRating: (rating) => formatRating(rating, locale),
+      formatDuration: (seconds) => formatDuration(seconds, locale),
     }),
     [locale],
   );

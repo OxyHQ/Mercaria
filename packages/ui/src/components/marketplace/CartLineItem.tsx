@@ -2,6 +2,10 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import type { CartItemDTO, CartLineReviewReason } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  CART_SAVE_FOR_LATER_KEY,
+} from "../../lib/marketplace-labels";
 import { PriceDisplay } from "../PriceDisplay";
 import { QuantityStepper } from "./QuantityStepper";
 
@@ -45,6 +49,7 @@ export function CartLineItem({
   onPressItem,
   onSaveForLater,
 }: CartLineItemProps) {
+  const t = useSharedUiTranslation();
   return (
     <View className={`flex-row gap-3${item.stale ? ` ${STALE_OPACITY_CLASS}` : ""}`}>
       {/* Left: image link box */}
@@ -100,7 +105,9 @@ export function CartLineItem({
             onPress={() => onSaveForLater(item.variantId)}
             className="hidden md:flex mt-2 self-start rounded-full border border-border px-3 py-1.5"
           >
-            <Text className="text-xs font-medium text-foreground">Save for later</Text>
+            <Text className="text-xs font-medium text-foreground">
+              {t(CART_SAVE_FOR_LATER_KEY)}
+            </Text>
           </Pressable>
         ) : null}
       </View>

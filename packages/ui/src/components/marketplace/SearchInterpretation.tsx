@@ -1,6 +1,14 @@
 import { Pressable, Text, View } from "react-native";
 import { X } from "lucide-react-native";
 import { useColorScheme } from "../../lib/useColorScheme";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  SEARCH_CHIP_KEY,
+  SEARCH_CHIP_PREFERENCE_KEY,
+  SEARCH_CHIP_REMOVE_KEY,
+  SEARCH_MODE_MODEL_KEY,
+  SEARCH_MODE_RULES_KEY,
+} from "../../lib/marketplace-labels";
 import { cn } from "../../lib/cn";
 
 /**
@@ -97,6 +105,7 @@ export function SearchInterpretation({
   dismissLabel,
 }: SearchInterpretationProps) {
   const { colors } = useColorScheme();
+  const t = useSharedUiTranslation();
   if (paraphrase.length === 0 && chips.length === 0 && gaps.length === 0) return null;
 
   return (
@@ -129,16 +138,23 @@ export function SearchInterpretation({
               )}
             >
               <Text className="text-xs text-foreground">
-                {chip.label}
                 {/* A preference does not exclude anything, and a shopper
                     correcting an interpretation needs to know which of their
-                    requirements is actually narrowing the results. */}
-                {chip.strength === "preference" ? " · preference" : ""}
+                    requirements is actually narrowing the results. Two WHOLE
+                    frames rather than a glued ` · preference`, whose separator
+                    was inside the fragment. */}
+                {t(
+                  chip.strength === "preference" ? SEARCH_CHIP_PREFERENCE_KEY : SEARCH_CHIP_KEY,
+                  { label: chip.label },
+                )}
               </Text>
               {chip.editable ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Remove: ${ORIGIN_LABELS[chip.origin]} ${chip.label}`}
+                  accessibilityLabel={t(SEARCH_CHIP_REMOVE_KEY, {
+                    origin: ORIGIN_LABELS[chip.origin],
+                    label: chip.label,
+                  })}
                   hitSlop={8}
                   onPress={() => onRemove(chip.id)}
                 >
@@ -162,7 +178,7 @@ export function SearchInterpretation({
 
       <View className="mt-3 flex-row items-center justify-between">
         <Text className="text-[11px] text-muted-foreground">
-          {mode === "model" ? "Interpreted with help from a model" : "Interpreted by our own rules"}
+          {t(mode === "model" ? SEARCH_MODE_MODEL_KEY : SEARCH_MODE_RULES_KEY)}
         </Text>
         <Pressable accessibilityRole="button" onPress={onDismiss} hitSlop={8}>
           <Text className="text-xs font-medium text-primary">{dismissLabel}</Text>
