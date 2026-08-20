@@ -393,6 +393,19 @@ export const LOCALIZED_ENTITY_KINDS = [
    * excluded it until migration 0119 gave it the family columns.
    */
   'attribute_definition',
+  /**
+   * One native LISTING — a store's or an individual seller's own words about
+   * the thing they are selling (#367 Translation model, ADR 0007 D6/D7).
+   *
+   * The first member whose text Mercaria does not own, and the whole reason
+   * {@link LOCALIZED_FIELD_CLASSES}' `seller_authored` and its
+   * `exact_locale_then_base` policy exist. Every other kind here is Mercaria's
+   * catalog copy about a CONCEPT; this one is a seller's copy about an ITEM,
+   * which is why it falls back to the seller's own base text and never across
+   * markets to another seller's, and why it is deliberately outside the
+   * translation desk's coverage — see `LOCALIZATION_COVERAGE_DOMAINS`.
+   */
+  'listing',
 ] as const;
 
 /** A catalog concept this issue localizes. */
@@ -433,6 +446,15 @@ export const LOCALIZED_FIELD_KEYS = [
   // The DEFINITION's own copy, distinct from its values' labels above.
   'attribute_definition.label',
   'attribute_definition.description',
+  // #367 Translation model — the first `seller_authored` fields in this
+  // registry, and therefore the first anywhere that resolve under
+  // `exact_locale_then_base`. Both have a real base column (`listings.title`
+  // and `listings.description` are BOTH `NOT NULL`), which is what makes the
+  // own-base step answerable and what stopped `exact_locale_only` being an
+  // option: a French shopper on a listing with no French row would have got
+  // `unavailable` and a page with no title on it.
+  'listing.title',
+  'listing.description',
 ] as const;
 
 /** Every field a caller may ask the resolver for. */
@@ -461,15 +483,20 @@ function describeField(
 /**
  * The registry the resolver reads its policy out of.
  *
- * Every entry today is `catalog_presentation`, and that is worth stating
- * plainly rather than leaving a reader to infer it: **no field in this registry
- * carries `legal_text` or `seller_authored`**, so the exclusion above is
- * enforced and currently unexercised by production data. The first members that
- * will exercise it are the navigation and merchandising copy of ADR 0007 D3
- * (merge-order step 7) and the seller-authored listing text of D6/D7 — each
- * arrives with its own table and joins this registry with its class stated.
- * `catalog-localization.test.ts` exercises both policies directly, so the
- * mechanism is measured rather than assumed.
+ * **Two classes are now exercised by real fields and one still is not.**
+ * `listing.title` and `listing.description` are `seller_authored` (#367
+ * Translation model, ADR 0007 D6/D7), so `exact_locale_then_base` — added for
+ * them and previously reachable by no registered field — now has two. The
+ * count and the per-policy distribution are asserted in
+ * `catalog-localization.test.ts` rather than restated here, because arithmetic
+ * over a prose total is exactly the thing a census exists to stop you doing.
+ *
+ * **`legal_text` remains unexercised**, so the narrowest policy
+ * (`exact_locale_only`) is still enforced against no production data. The
+ * member that will exercise it is the navigation and merchandising copy of ADR
+ * 0007 D3 (merge-order step 7) — it arrives with its own table and joins this
+ * registry with its class stated. `catalog-localization.test.ts` exercises all
+ * three policies directly, so every mechanism is measured rather than assumed.
  */
 export const CATALOG_LOCALIZED_FIELDS: Readonly<
   Record<LocalizedFieldKey, LocalizedFieldDescriptor>
@@ -570,6 +597,28 @@ export const CATALOG_LOCALIZED_FIELDS: Readonly<
     'description',
     'catalog_presentation',
   ),
+  /*
+   * #367 Translation model — `seller_authored`, and the first two fields in
+   * this registry that are.
+   *
+   * The class is not a judgement about quality; it is a statement about WHOSE
+   * WORDS these are, and it decides two things at once. It withholds the
+   * cross-market step, so an `es-mx` shopper is never shown the `es` title a
+   * DIFFERENT seller wrote for a different market — the exclusion D4 states.
+   * And it grants the own-base step, so the same seller's own English title
+   * still answers, because that is not another market's copy at all.
+   *
+   * The comment above this object used to say no field carried `legal_text` or
+   * `seller_authored` and named "the seller-authored listing text of D6/D7" as
+   * one of the two changes that would exercise it. This is that change.
+   */
+  'listing.title': describeField('listing.title', 'listing', 'title', 'seller_authored'),
+  'listing.description': describeField(
+    'listing.description',
+    'listing',
+    'description',
+    'seller_authored',
+  ),
 });
 
 /**
@@ -602,6 +651,12 @@ export const CATALOG_LOCALIZATION_TEXT_TABLES = [
   // arrived carrying all seven family columns independently, which is the
   // strongest evidence available that the shape is right.
   'navigation_node_localizations',
+  // #367 Translation model — a native listing's own words in one locale. It is
+  // a full member (all seven columns, the shared machine-write guard, its own
+  // stale and revision triggers) and it is deliberately OUTSIDE the translation
+  // desk's coverage, which is recorded in `LOCALIZATION_COVERAGE_UNCOVERED_TABLES`
+  // rather than left for a reader to notice as a missing row.
+  'listing_localizations',
 ] as const;
 
 /**
