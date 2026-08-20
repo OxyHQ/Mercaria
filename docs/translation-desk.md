@@ -76,12 +76,21 @@ somebody "simplifies" the asymmetry away.
 ### The other question: what survives a version bump
 
 `carriesForwardOnVersionBump` is a separate field because it is a separate
-failure. `product_type_field` answers **`no`** and names **#650**:
-`product_type_field_localizations` hangs off a FIELD, `product_type_fields` rows
-are frozen and re-minted per version, and the copy forward carries only
-version-level text. So that domain's completeness collapses to zero for a key on
-a version bump **through no translator's doing**, and a desk reading the figure
-without the caveat would conclude its translators had stopped working.
+failure, and `product_type_field` is the entry that made the case for it. It
+answered **`no`** and named **#650**: `product_type_field_localizations` hangs
+off a FIELD, `product_type_fields` rows are frozen and re-minted per version,
+and the copy forward carried only version-level text — so that domain's
+completeness collapsed to zero for a key on a version bump **through no
+translator's doing**, and a desk reading the figure without the caveat would
+have concluded its translators had stopped working.
+
+**#650 closed it**, and the field stays because it still discriminates:
+`copyForwardProductTypeFieldLocalizations` runs in the publish transaction and
+this domain answers `yes`, while `attribute_definition` still answers **`no`**
+and names **#94** — `draftAttributeDefinition` writes whatever the operator
+supplied for the new version and copies nothing. The realdb case moved with the
+answer rather than being deleted: closing a gap has to be as visible as opening
+one, and what it now asserts is that the field is not the constant `'yes'`.
 
 ## Launch locales
 

@@ -127,10 +127,17 @@ function moduleExporting(symbol: string): string | null {
 /**
  * Production modules that NAME `symbol` and do not define it.
  *
- * A reference in an import list counts, because a module that imports a symbol
- * and never uses it does not compile under this repository's lint. What is
- * deliberately NOT counted is the plan itself: a declaration citing its own
- * declaration is a control whose subject is the control.
+ * A textual reference, not a parsed call — so a module that IMPORTS the symbol
+ * and never calls it would count. That limit is stated rather than papered
+ * over: distinguishing the two needs a parser, and the failure it admits is a
+ * dangling import, which `@typescript-eslint/no-unused-vars` reports (as a
+ * WARNING, not an error — measured, so this is a mitigation and not a second
+ * gate). The defect this file exists for is a symbol NOTHING mentions, which a
+ * textual scan catches exactly.
+ *
+ * What is deliberately NOT counted is the plan itself: a declaration citing its
+ * own declaration is a control whose subject is the control. Nor is the
+ * defining module, so a recursive call cannot stand in for a caller.
  */
 function callSites(symbol: string, definedIn: string): string[] {
   const pattern = new RegExp(`\\b${symbol}\\b`, 'u');

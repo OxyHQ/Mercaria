@@ -298,11 +298,12 @@ export async function readAttributeValueLocalizationCompleteness(
  * exactly the number of bare fields, which is the "denominator nobody can ever
  * satisfy" failure that gets a metric ignored.
  *
- * The figure this produces has a caveat no other domain needs, and it is
- * published beside it in `LOCALIZATION_STALENESS_DETECTIONS`: nothing carries
- * these translations forward when a version is superseded (#650), so this
- * domain's completeness can collapse to zero for a key through no translator's
- * doing.
+ * The figure USED to carry a caveat no other domain needed — nothing carried
+ * these translations forward when a version was superseded, so completeness
+ * could collapse to zero for a key through no translator's doing. #650 closed
+ * that: `copyForwardProductTypeFieldLocalizations` runs in the publish
+ * transaction, and `LOCALIZATION_STALENESS_DETECTIONS` now declares this domain
+ * `carriesForwardOnVersionBump: 'yes'` beside the figure.
  */
 export async function readProductTypeFieldLocalizationCompleteness(
   locales: readonly SupportedLocale[],

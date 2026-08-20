@@ -352,20 +352,33 @@ describe('per-field authoring copy is owed only where there is copy', () => {
     expect(rowFor(report, 'product_type_field', 'es').owed).toBe(2);
   });
 
-  it('publishes the #650 carry-forward gap beside the figure', async () => {
-    // The caveat this domain needs and no other does: nothing carries per-field
-    // translations onto a new product-type version, so this figure can collapse
-    // to zero for a key through no translator's doing. A desk reading it without
-    // the caveat would conclude its translators had stopped working.
+  it('publishes the carry-forward answer beside the figure, per domain', async () => {
+    // This case was written for the #650 GAP: nothing carried per-field
+    // translations onto a new product-type version, so the figure could
+    // collapse to zero for a key through no translator's doing, and a desk
+    // reading it without the caveat would conclude its translators had stopped.
+    //
+    // #650 closed it, so the assertion moved rather than being deleted —
+    // closing a gap has to be as visible as opening one. What is asserted now
+    // is that the field is still a real DISCRIMINATOR and not a constant: two
+    // domains carry forward and one still does not, with the issue that owes
+    // it named.
     const report = await readLocalizationCompleteness('launch', db);
-    const detection = report.stalenessDetections.find((d) => d.domain === 'product_type_field');
-    expect(detection).toBeDefined();
-    expect(detection.carriesForwardOnVersionBump).toBe('no');
-    expect(detection.knownGapIssue).toBe('#650');
-    // …and the version-level domain, which IS carried forward, says so — so the
-    // field is a real discriminator rather than a constant.
+    const perField = report.stalenessDetections.find((d) => d.domain === 'product_type_field');
+    expect(perField).toBeDefined();
+    expect(perField.carriesForwardOnVersionBump).toBe('yes');
+    expect(perField.knownGapIssue).toBeUndefined();
+
     const versionLevel = report.stalenessDetections.find((d) => d.domain === 'product_type');
     expect(versionLevel.carriesForwardOnVersionBump).toBe('yes');
+
+    // `attribute_definition` is the one still open: `draftAttributeDefinition`
+    // writes whatever the operator supplied for the new version and copies
+    // nothing. Without this the two assertions above would hold for a field
+    // that had quietly become the constant `'yes'`.
+    const attribute = report.stalenessDetections.find((d) => d.domain === 'attribute_definition');
+    expect(attribute.carriesForwardOnVersionBump).toBe('no');
+    expect(attribute.knownGapIssue ?? '').toContain('#94');
   });
 });
 
