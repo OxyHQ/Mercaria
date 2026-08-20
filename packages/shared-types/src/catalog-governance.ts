@@ -564,6 +564,17 @@ export interface CatalogGovernanceImpactReport {
    * than folded into the total because the two lead to different decisions.
    */
   readonly rewirePathsMissing: readonly string[];
+  /**
+   * The counted relations whose rewire STARTS and does not finish — it hands
+   * off to a durable queue nothing in Mercaria consumes (#739).
+   *
+   * A THIRD list, because "rewired" and "enqueued for a rewire that will never
+   * run" are the same word to an operator and opposite facts. It is not folded
+   * into `rewirePathsMissing`: the enqueue is real, committed and idempotent, so
+   * calling it missing would say no work happens. And it is not left inside the
+   * rewired total, because the rows are still wrong.
+   */
+  readonly rewiresAwaitingDrain: readonly string[];
   readonly unmeasuredReason?: string;
 }
 

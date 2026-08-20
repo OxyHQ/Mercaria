@@ -78,7 +78,7 @@ Four dispositions:
 |---|---|
 | `blocks` | An `ON DELETE restrict` reference. Nothing deletes a definition, so these rows keep pointing at a category that has been merged or deprecated — which is what the redirect chain resolves. |
 | `cascades` | The definition's own children. They go with it silently, which is why they are counted. |
-| `rewired_by_domain` | A real existing idempotent path fixes these rows. **Named per entry**, so the claim can be checked by reading it. |
+| `rewired_by_domain` | A real existing idempotent path fixes these rows. **Named per entry in a machine-readable `entryPoint`**, so the claim is checked by a census rather than by reading it. |
 | `rewire_path_missing` | A MEASURED hole. See below. |
 
 There is deliberately no `untouched` member: every foreign key into a definition
@@ -217,13 +217,16 @@ the rename inside a real transaction — the only place the post-change ancestry
 is visible — and mutation-tests both the subtree scope and the `incomplete`
 probe.
 
-### Exactly three relations carry `rewire_path_missing`, and the census says so
+### Exactly four relations carry `rewire_path_missing`, and the census says so
 
 `seller_listing_drafts.category_id` (#91 exposes no re-pin entry point),
 `product_type_aliases.product_type_definition_id` (#367 workstream 2 owes a
-copy-forward in `publishProductTypeVersion`) and
+copy-forward in `publishProductTypeVersion`),
 `native_variant_axis_assignments.attribute_definition_id` (#367 step 4 exposes
-no re-normalization entry point for already-written assignments).
+no re-normalization entry point for already-written assignments) and
+`category_localized_slugs.category_id` (#739 MEASURED that
+`issueCategoryLocalizedSlug` — real, correct, tested — has no production caller
+at all, so a category rename mints no superseded chain).
 
 This paragraph said TWO while the plan carried three — the plan and the prose
 had drifted, in the direction that reads as fewer gaps than there are.
@@ -570,3 +573,74 @@ Stated rather than claimed:
 - `catalog-governance.realdb.test.ts` — both impact-coverage CHECKs, the
   four-eyes CHECKs, the freeze and append-only triggers, the role-grant partial
   unique and its immutability, the snapshot count identity.
+
+
+## A `rewired_by_domain` claim is checked, not read (#739)
+
+The disposition means "a real, existing, idempotent path fixes these rows".
+`impact.service.ts` filters only `rewire_path_missing` into the operator's gap
+warning, so **a false `rewired_by_domain` is silent by construction**: the
+preview reports no gap for rows about to be dropped, and nothing goes red.
+
+A sweep of all 14 path-asserting entries found **two false** — both naming a
+real, correct, tested function with ZERO production callers
+(`copyForwardProductTypeLocalizations`, closed by #650;
+`issueCategoryLocalizedSlug`, still open and now labelled honestly) — and **two
+more** whose named path ends in `attribute_reindex_requests`, a queue with three
+enqueuers and no consumer (#664).
+
+### The identifier is a field, not a sentence
+
+`GovernedReference` is a discriminated union on the disposition, so
+`rewired_by_domain` without an `entryPoint` is a `tsc` error. A property
+enforced by the type system needs a gate in the type system: the one shape a
+census can never check is the entry point nobody wrote.
+
+`RewireEntryPoint` has three kinds, because two real entries do not fit "a
+function repairs the rows" and forcing them to would be a vocabulary that lies:
+
+| Kind | What it means | The entry that needs it |
+|---|---|---|
+| `function` | An idempotent path a caller drives, which FIXES the rows. | eleven of thirteen |
+| `trigger` | The database does it; there is no TypeScript symbol to name. | `category_localizations.category_id` → `mercaria_categories_localization_stale` |
+| `derivation` | Nothing repairs anything because nothing is stored wrong — the read consults the governed row LIVE, so the change bites with no sweep having run. | `navigation_nodes.category_id` → `listNavigationCategoryTargets` |
+
+A `derivation` still names a symbol and is checked exactly as a `function` is.
+What the kind records is that no repair is owed.
+
+### What `rewire-entry-point-census.test.ts` can actually fail on
+
+Over a WALKED population of production modules — the test tree excluded, because
+a test is not a call site, and comments stripped, because this repository
+documents what it forbids in the same vocabulary:
+
+- a named symbol no module exports;
+- a symbol exported and **called by nothing**, which is the defect itself and
+  the one a "does the function exist" check cannot see;
+- a trigger no migration creates;
+- a queue declared undrained that has **gained** a consumer, so #664 landing one
+  turns this red rather than leaving a stale claim standing.
+
+Every walk carries a vacuity floor and every detector a mutation self-test. The
+completion-column detector needed three narrowings and its positive control
+caught the worst: matching the enclosing `.set({ … })` object fails on a drizzle
+`sql` template, whose `${col}` contains a `}`, so a `[^}]*` body stopped before
+the column and reported the real writer as clean.
+
+Measured against the pre-fix state rather than by mutating to a red — both false
+entries are named, with the remedy in the message.
+
+### `rewiresAwaitingDrain`: a rewire that starts and does not finish
+
+A THIRD list on the impact report beside the total and `rewirePathsMissing`,
+holding the two `publishAttributeDefinition` relations.
+
+`rewire_path_missing` would be the wrong disposition for them: the enqueue is
+real, committed and idempotent, so calling it missing would say no work happens.
+Plain `rewired_by_domain` is the wrong claim, because the rows are still wrong —
+nothing writes `attribute_reindex_requests.processed_at`, which
+`catalog-observability/queries.ts` and `trace.service.ts` both record, and the
+reindex hop reports `unreachable` rather than `pending` for that reason.
+
+It is DERIVED from the plan and re-derived on a stored-row rebuild, so a request
+planned before #664 lands reads against what is true now.

@@ -341,6 +341,28 @@ There is deliberately no way to omit the parameter. A copy forward defaulting to
 "nothing changed" is the silent inheritance arriving through an argument nobody
 passed.
 
+**What `publishProductTypeVersion` supplies (#650), and why it is not
+`unknown`.** `deriveProductTypeSemanticChange` compares the two definition rows
+and always reports `product_type.help_text` as changed. That asymmetry is a fact
+about the schema rather than a judgement: `product_type_definitions` carries
+`name` and `description` and **no `help_text` column at all**, so a publish holds
+both strings for the first two and none for the third. Reporting the third
+unchanged would leave help text describing the old question sitting at
+`approved`; reporting `{ kind: 'unknown' }` instead would stale a locale holding
+nothing but a name that demonstrably did not move — the "every bump is a full
+re-translation" symptom this section already names. Deriving is strictly sharper
+than `unknown` and never under-claims.
+
+**The PER-FIELD grain needs no such parameter**, and the reason is the same fact
+read the other way: all four of `product_type_field_localizations`' localized
+columns DO have a base on `product_type_fields`, so
+`copyForwardProductTypeFieldLocalizations` compares the two values directly.
+A NULL → text move counts — absent means "use the cited attribute's own
+wording", so a field that gained an override is asking a different question in
+the same box. A field whose base text is absent on BOTH sides inherits
+`attribute_labels`, which carries no `status` and no `provenance`, so there is no
+staleness there to propagate; that boundary is stated rather than crossed.
+
 Four properties worth knowing, each pinned by a realdb case:
 
 - **Granularity is per FIELD and per ROW.** A row carries all three localized
@@ -505,13 +527,12 @@ knowing from here:
   [translation-desk.md](translation-desk.md) — and with it the coverage indexes
   it justifies. What is still owed is the dashboard SCREEN: every endpoint it
   needs exists and nothing in `packages/dashboard` consumes them.
-- **#650 (per-field carry-forward).** `product_type_field_localizations` hangs
-  off a FIELD and `copyForwardProductTypeLocalizations` carries only
-  version-level text, so publishing a new product-type version silently drops
-  every per-field translation. The desk PUBLISHES this rather than fixing it —
-  `LOCALIZATION_STALENESS_DETECTIONS`' `carriesForwardOnVersionBump: 'no'` plus
-  `knownGapIssue: '#650'` — because a completeness figure that can collapse to
-  zero for a key through no translator's doing is one a desk would otherwise
-  read as its translators having stopped. The closing condition is a join on
-  `attribute_key`, not on the row id: a field's identity across versions is its
-  key.
+- **#650 (per-field carry-forward). CLOSED.** It was the seam this list
+  described as "the closing condition is a join on `attribute_key`, not on the
+  row id", and that is exactly what closed it —
+  `copyForwardProductTypeFieldLocalizations` matches on `(flow, scope,
+  attribute_key)`, the identity `catalog-governance/diff.ts` already uses, and
+  `product-type-field-identity.test.ts` pins the two against the diff's real
+  output. `LOCALIZATION_STALENESS_DETECTIONS` now answers
+  `carriesForwardOnVersionBump: 'yes'` for `product_type_field` with no
+  `knownGapIssue`.

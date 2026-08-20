@@ -53,6 +53,29 @@ vi.mock('../../db/productTypes/productTypeFieldRepository.js', () => ({
   listProductTypeFields: (...args: unknown[]) => listProductTypeFields(...args),
 }));
 
+/**
+ * The two copy forwards a publication owes its predecessor's translations
+ * (#650).
+ *
+ * Only the two WRITERS are replaced. `deriveProductTypeSemanticChange` is
+ * imported for real through `importOriginal`, because the change a publish
+ * declares is one of the decisions this file exists to pin — stubbing it would
+ * leave the assertion below reading back a value the test itself supplied.
+ */
+const copyForwardProductTypeLocalizations = vi.fn();
+const copyForwardProductTypeFieldLocalizations = vi.fn();
+
+vi.mock('../../db/catalogLocalization/productTypeLocalizationRepository.js', async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  copyForwardProductTypeLocalizations: (...args: unknown[]) =>
+    copyForwardProductTypeLocalizations(...args),
+}));
+
+vi.mock('../../db/catalogLocalization/productTypeFieldLocalizationRepository.js', () => ({
+  copyForwardProductTypeFieldLocalizations: (...args: unknown[]) =>
+    copyForwardProductTypeFieldLocalizations(...args),
+}));
+
 const { publishProductTypeVersion } = await import('../product-types/product-type.service.js');
 
 /** A `Database` whose `transaction` just runs the callback — the shape under test. */
@@ -324,6 +347,70 @@ describe('publication supersedes the incumbent, in that order', () => {
       publishedByOxyUserId: 'oxy_op',
       publishedAt: at,
     });
+  });
+
+  it('carries the incumbent translations forward, at BOTH grains (#650)', async () => {
+    // The regression this asserts is the one that shipped:
+    // `copyForwardProductTypeLocalizations` existed, was tested, and had no
+    // production caller at all — so "the function exists" was green while
+    // "the publish calls it" was false. A mechanism can be GREEN AND INERT;
+    // what makes it real is an assertion on the ENTRYPOINT.
+    findPublishedProductTypeDefinition.mockResolvedValue({
+      ...DEFINITION,
+      id: 'ptd_0',
+      version: 1,
+      lifecycle: 'published',
+      name: 'Smartphone',
+      description: null,
+    });
+
+    await publishProductTypeVersion(db, {
+      definitionId: 'ptd_1',
+      publishedByOxyUserId: 'oxy_op',
+    });
+
+    expect(copyForwardProductTypeLocalizations).toHaveBeenCalledTimes(1);
+    const [from, to, change] = copyForwardProductTypeLocalizations.mock.calls[0];
+    expect([from, to]).toEqual(['ptd_0', 'ptd_1']);
+    // The REAL derivation: `product_type_definitions` has no `help_text`
+    // column, so a publish must report it changed and may not claim the
+    // unchanged name moved.
+    expect(change).toEqual({ kind: 'diffed', changedFields: ['product_type.help_text'] });
+
+    expect(copyForwardProductTypeFieldLocalizations).toHaveBeenCalledTimes(1);
+    expect(copyForwardProductTypeFieldLocalizations.mock.calls[0].slice(0, 2)).toEqual([
+      'ptd_0',
+      'ptd_1',
+    ]);
+  });
+
+  it('carries nothing when there is no predecessor to carry from', async () => {
+    // `findPublishedProductTypeDefinition` answers null in `beforeEach`. A copy
+    // forward from nothing would be a read of a version id that does not exist.
+    await publishProductTypeVersion(db, {
+      definitionId: 'ptd_1',
+      publishedByOxyUserId: 'oxy_op',
+    });
+    expect(copyForwardProductTypeLocalizations).not.toHaveBeenCalled();
+    expect(copyForwardProductTypeFieldLocalizations).not.toHaveBeenCalled();
+  });
+
+  it('carries nothing when the CAS was lost', async () => {
+    // A publication that did not happen must not move somebody else's text onto
+    // a version another writer has since taken.
+    findPublishedProductTypeDefinition.mockResolvedValue({
+      ...DEFINITION,
+      id: 'ptd_0',
+      version: 1,
+      lifecycle: 'published',
+    });
+    setProductTypeLifecycleIfIn.mockResolvedValue(null);
+    await publishProductTypeVersion(db, {
+      definitionId: 'ptd_1',
+      publishedByOxyUserId: 'oxy_op',
+    });
+    expect(copyForwardProductTypeLocalizations).not.toHaveBeenCalled();
+    expect(copyForwardProductTypeFieldLocalizations).not.toHaveBeenCalled();
   });
 
   it('reports the lost CAS rather than claiming a publication', async () => {

@@ -292,14 +292,19 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
     // watching all four base columns, so its in-place staleness detection is the
     // most complete of the four.
     //
-    // Its gap is the other question entirely, and it is the reason that question
-    // is a field on this descriptor at all: `product_type_field_localizations`
+    // Its gap WAS the other question entirely, and it is the reason that
+    // question is a field on this descriptor at all: `product_type_field_localizations`
     // hangs off a FIELD, `product_type_fields` rows are frozen and re-minted per
     // version, and `copyForwardProductTypeLocalizations` carries only
-    // VERSION-level text. So publishing a new product-type version silently
-    // drops every per-field translation, and this domain's completeness for that
-    // key collapses to zero with nothing in the data saying why. A desk reading
-    // the figure would conclude its translators had stopped working.
+    // VERSION-level text — so publishing a new product-type version silently
+    // dropped every per-field translation, and this domain's completeness for
+    // that key collapsed to zero with nothing in the data saying why. A desk
+    // reading the figure would have concluded its translators had stopped.
+    //
+    // #650 CLOSED it. `copyForwardProductTypeFieldLocalizations` runs in the
+    // publish transaction and joins on `(flow, scope, attribute_key)`, since a
+    // field row id is minted per version and a join on it would carry nothing
+    // while looking exactly like a version that had no translations.
     domain: 'product_type_field',
     mechanism: 'database_trigger',
     performedBy: 'mercaria_product_type_fields_localization_stale',
@@ -310,8 +315,7 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
       'product_type_fields.example',
     ],
     unwatched: [],
-    carriesForwardOnVersionBump: 'no',
-    knownGapIssue: '#650',
+    carriesForwardOnVersionBump: 'yes',
   },
 ];
 
