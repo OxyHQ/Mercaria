@@ -39,7 +39,7 @@ import type {
  */
 export type FindingTarget =
   | { readonly kind: "classification" }
-  | { readonly kind: "listing"; readonly field: "title" | "description" }
+  | { readonly kind: "listing"; readonly field: "title" | "description" | "imageFileIds" }
   | { readonly kind: "product_field"; readonly attributeKey: string; readonly ordinal: number | null }
   | { readonly kind: "variants" }
   | { readonly kind: "variant"; readonly position: number; readonly part: VariantPart }
@@ -88,6 +88,19 @@ export function parseFindingPath(path: string): FindingTarget {
   }
   if (path === "listing.title") return { kind: "listing", field: "title" };
   if (path === "listing.description") return { kind: "listing", field: "description" };
+  // `listing.imageFileIds`, and `listing.imageFileIds[2]` for a duplicate at one
+  // gallery position. Both land on the LISTING step, which is where the
+  // `products.wizard.listing.mediaUnavailable` notice renders — so a media
+  // finding appears on the screen that talks about media rather than falling
+  // through to `unknown` and being shown on `review`.
+  //
+  // The position is deliberately DISCARDED rather than carried: there is no
+  // media control in this wizard to anchor to, so a slot index would be a
+  // number pointing at nothing. When a picker lands, the index is what a jump
+  // target would use and this is the line that carries it.
+  if (path === "listing.imageFileIds" || path.startsWith("listing.imageFileIds[")) {
+    return { kind: "listing", field: "imageFileIds" };
+  }
   if (path === "variants") return { kind: "variants" };
   if (path.startsWith("draft.")) return { kind: "draft" };
 
@@ -183,12 +196,17 @@ const MESSAGE_KEYS: Record<AuthoringValidationCode, string> = {
   variant_missing_axis_value: "products.wizard.finding.axisValueMissing",
   duplicate_variant_signature: "products.wizard.finding.duplicateVariant",
   duplicate_variant_sku: "products.wizard.finding.duplicateVariantSku",
+  identifier_check_digit_invalid: "products.wizard.finding.identifierCheckDigitInvalid",
+  duplicate_variant_barcode: "products.wizard.finding.duplicateVariantBarcode",
+  identifier_collision: "products.wizard.finding.identifierCollision",
   price_missing: "products.wizard.finding.priceMissing",
   price_currency_missing: "products.wizard.finding.priceCurrencyMissing",
   inventory_negative: "products.wizard.finding.inventoryNegative",
   title_missing: "products.wizard.finding.titleMissing",
   description_missing: "products.wizard.finding.descriptionMissing",
   condition_missing: "products.wizard.finding.conditionMissing",
+  media_missing: "products.wizard.finding.mediaMissing",
+  duplicate_media_file: "products.wizard.finding.duplicateMediaFile",
   proposal_pending_blocks_publication: "products.wizard.finding.proposalPending",
   draft_not_open: "products.wizard.finding.draftNotOpen",
 };

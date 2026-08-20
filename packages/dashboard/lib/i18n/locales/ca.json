@@ -1215,12 +1215,17 @@
         "axisValueMissing": "A aquesta combinació li falta un dels seus valors.",
         "duplicateVariant": "Una altra combinació té els mateixos valors.",
         "duplicateVariantSku": "Una altra variant ja fa servir aquest SKU.",
+        "identifierCheckDigitInvalid": "El dígit de control d'aquest codi de barres no quadra. Torna a escriure'l.",
+        "duplicateVariantBarcode": "Una altra variant ja fa servir aquest codi de barres.",
+        "identifierCollision": "Aquest codi de barres pertany a un altre producte del catàleg.",
         "priceMissing": "Aquesta combinació no té preu.",
         "priceCurrencyMissing": "Aquest preu no té moneda.",
         "inventoryNegative": "L'estoc no pot ser negatiu.",
         "titleMissing": "L'anunci necessita un títol.",
         "descriptionMissing": "L'anunci necessita una descripció.",
         "conditionMissing": "Indica en quin estat està aquest article.",
+        "mediaMissing": "Aquest anunci no té fotografies.",
+        "duplicateMediaFile": "Aquesta fotografia ja és a la llista.",
         "proposalPending": "Hi ha un valor proposat pendent i aquest tipus de producte bloqueja la publicació fins que es decideixi.",
         "draftNotOpen": "Aquest esborrany ja no està obert."
       }

@@ -1215,12 +1215,17 @@
         "axisValueMissing": "この組み合わせに値がひとつ足りません。",
         "duplicateVariant": "同じ値を持つ組み合わせが他にあります。",
         "duplicateVariantSku": "この SKU は別のバリエーションで使われています。",
+        "identifierCheckDigitInvalid": "このバーコードのチェックディジットが一致しません。入力し直してください。",
+        "duplicateVariantBarcode": "別のバリエーションがこのバーコードを使用しています。",
+        "identifierCollision": "このバーコードはカタログ内の別の商品のものです。",
         "priceMissing": "この組み合わせに価格がありません。",
         "priceCurrencyMissing": "この価格に通貨がありません。",
         "inventoryNegative": "在庫を負の数にはできません。",
         "titleMissing": "出品にはタイトルが必要です。",
         "descriptionMissing": "出品には説明が必要です。",
         "conditionMissing": "この商品の状態を指定してください。",
+        "mediaMissing": "この商品には写真がありません。",
+        "duplicateMediaFile": "この写真はすでにリストにあります。",
         "proposalPending": "提案された値がまだ保留中で、この商品タイプは決定するまで公開を止めます。",
         "draftNotOpen": "この下書きはもう開いていません。"
       }

@@ -1215,12 +1215,17 @@
         "axisValueMissing": "This combination is missing one of its values.",
         "duplicateVariant": "Another combination has the same values.",
         "duplicateVariantSku": "Another variant already uses this SKU.",
+        "identifierCheckDigitInvalid": "This barcode's check digit does not add up. Retype it.",
+        "duplicateVariantBarcode": "Another variant already uses this barcode.",
+        "identifierCollision": "This barcode belongs to a different product in the catalogue.",
         "priceMissing": "This combination has no price.",
         "priceCurrencyMissing": "This price has no currency.",
         "inventoryNegative": "Stock cannot be negative.",
         "titleMissing": "The listing needs a title.",
         "descriptionMissing": "The listing needs a description.",
         "conditionMissing": "Say what condition this item is in.",
+        "mediaMissing": "This listing has no photographs.",
+        "duplicateMediaFile": "This photograph is already in the list.",
         "proposalPending": "A proposed value is still waiting, and this product type blocks publishing until it is decided.",
         "draftNotOpen": "This draft is no longer open."
       }
