@@ -224,8 +224,8 @@ Three mechanisms, none a convention:
 fails the build there rather than returning `undefined`: gating the tuple does
 not gate its readers.
 
-**Stated plainly, and counted rather than claimed: 14 fields are registered and
-all 14 are `catalog_presentation`.** No field carries `legal_text` or
+**Stated plainly, and counted rather than claimed: 16 fields are registered and
+all 16 are `catalog_presentation`.** No field carries `legal_text` or
 `seller_authored`, so assigning `seller_authored` a new policy moves ZERO
 registered fields today. That count is a test with a positive control — a
 synthetic `seller_authored` descriptor built by the same derivation must be
@@ -233,6 +233,18 @@ seen, or "0 on the new policy" and "the census cannot read `fallback` at all"
 would produce the same green. The first fields to exercise the other two
 policies are ADR 0007 D3's navigation and campaign copy (#367 merge-order step
 7) and D6/D7's seller-authored listing text.
+
+**The total is expected to move — it was 14 before #712 registered
+`attribute_definition.label` and `.description` — and the exact pin in
+`catalog-localization.test.ts` is how it gets noticed. Re-derive it by RUNNING
+the census against the BUILT registry, never by adding the new keys to the old
+total.** Every descriptor is constructed through `describeField`, so a census
+over the source literal is blind to it; and the arithmetic is right only when
+nothing else changed, which is the assumption a census exists to stop you
+making — a key that MOVED class, or one deleted in the same window, does not show
+up in it. The claim does not rest on the total anyway: it rests on the
+distribution across the three policies, which is why those are asserted
+separately.
 
 Because every registered field shares one policy today, a resolver that ignored
 the descriptor and hardcoded `'language_then_base'` would pass every

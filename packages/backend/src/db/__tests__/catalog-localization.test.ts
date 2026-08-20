@@ -9,7 +9,7 @@
  *    The census walks the real drizzle tables and fails the build on a member
  *    whose shape drifted, on a new `_localizations` table nobody registered, and
  *    on an exemption list that grew.
- * 2. **The fallback wiring.** All fourteen registered fields are
+ * 2. **The fallback wiring.** All sixteen registered fields are
  *    `catalog_presentation` today, so a resolver that ignored the descriptor and
  *    hardcoded `'language_then_base'` would pass every behavioural test in this
  *    file. The anchored source census over `resolve.ts` is what closes that: it
@@ -566,13 +566,26 @@ describe('the own-base policy is reachable only from the classes it is assigned 
    * field is `catalog_presentation`, so assigning `seller_authored` a new policy
    * moves NO registered field — which is the honest reading of "this changes
    * nothing today", stated as a number somebody can re-run.
+   *
+   * **The total is EXPECTED to move, and the exact pin is how it gets noticed.**
+   * It went 14 → 16 on the rebase behind #712, which registered
+   * `attribute_definition.label` and `.description`. When it fires, re-derive the
+   * number by RUNNING this against the built registry — never by adding the new
+   * keys to the old total. The arithmetic gives the right answer only when
+   * nothing else changed, and "nothing else changed" is the assumption a census
+   * exists to stop you making: a key that MOVED class, or one deleted in the
+   * same window, is invisible to it.
+   *
+   * The claim does NOT rest on the total. It rests on the DISTRIBUTION — the
+   * other three lines — which is why they are asserted separately rather than
+   * folded into one figure.
    */
   const byPolicy = (policy: string): readonly string[] =>
     LOCALIZED_FIELD_KEYS.filter((key) => CATALOG_LOCALIZED_FIELDS[key].fallback === policy);
 
   it('moves no registered field, and says how many that is', () => {
-    expect(LOCALIZED_FIELD_KEYS.length).toBe(14);
-    expect(byPolicy('language_then_base')).toHaveLength(14);
+    expect(LOCALIZED_FIELD_KEYS.length).toBe(16);
+    expect(byPolicy('language_then_base')).toHaveLength(16);
     expect(byPolicy('exact_locale_then_base')).toHaveLength(0);
     expect(byPolicy('exact_locale_only')).toHaveLength(0);
   });
