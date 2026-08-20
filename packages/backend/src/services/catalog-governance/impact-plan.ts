@@ -59,7 +59,7 @@ import type {
   CatalogGovernanceReferenceDisposition,
 } from '@mercaria/shared-types';
 
-import { attributeDefinitions, attributeDefinitionCategories, attributeEnumValues, attributeLabels, attributeValueAliases } from '../../db/schema/attributeRegistry.js';
+import { attributeDefinitions, attributeDefinitionCategories, attributeEnumValues, attributeLabels, attributeReindexRequests, attributeValueAliases } from '../../db/schema/attributeRegistry.js';
 import { canonicalAttributeValues, canonicalProductFamilies, canonicalProducts, canonicalVariantAttributes } from '../../db/schema/canonicalCatalog.js';
 import { categories, listings } from '../../db/schema/catalog.js';
 import { catalogAuthoringDraftValues, catalogAuthoringDrafts } from '../../db/schema/catalogAuthoring.js';
@@ -75,21 +75,118 @@ import { categoryAliases, categoryExternalMappings, categoryRedirects } from '..
 import { nativeListingAttributeClaims, nativeListingVariantAxes, nativeVariantAttributeClaims, nativeVariantAxisAssignments } from '../../db/schema/variantAxes.js';
 
 /**
+ * Where a `rewired_by_domain` claim's rewiring actually HAPPENS (#739).
+ *
+ * The identifier used to live inside `note`, in prose, and a sweep of all
+ * fourteen path-asserting entries found TWO whose named path had no production
+ * caller at all — a function that existed, was tested, and nothing called.
+ * `impact.service.ts` filters only `rewire_path_missing` into the operator's
+ * gap warning, so a false `rewired_by_domain` was **silent by construction**:
+ * the preview reported no gap for rows about to be dropped.
+ *
+ * A prose name cannot be checked. This can, and the census does: for the two
+ * SYMBOL kinds it asserts the module exports it AND that some OTHER production
+ * module calls it — which is the distinction between *exists* and *is called*,
+ * and the whole of what went wrong.
+ *
+ * Three kinds, because two real entries do not fit "a function repairs the
+ * rows" and forcing them to would be a vocabulary that lies:
+ *
+ *  - `function` — an idempotent path a caller drives, which FIXES the rows;
+ *  - `trigger` — the database does it, with no TypeScript symbol to name;
+ *  - `derivation` — nothing repairs anything because nothing is stored wrong:
+ *    the read consults the governed row LIVE, so the change bites with no sweep
+ *    having run. It still names a symbol, so it is checked exactly as a
+ *    `function` is; what the kind records is that no repair is owed.
+ */
+export type RewireEntryPoint =
+  | {
+      readonly kind: 'function';
+      /** The exported symbol that rewires the rows. */
+      readonly symbol: string;
+      /** The module exporting it, relative to `src/` and without `.ts`. */
+      readonly module: string;
+      /**
+       * The durable queue the rewire ENDS in, when it does not complete in the
+       * caller's transaction. Absent means it completes synchronously.
+       */
+      readonly queue?: RewireQueue;
+    }
+  | {
+      readonly kind: 'trigger';
+      /** The trigger's name, as a migration `CREATE TRIGGER`s it. */
+      readonly name: string;
+    }
+  | {
+      readonly kind: 'derivation';
+      /** The exported symbol whose read consults the governed row live. */
+      readonly symbol: string;
+      /** The module exporting it, relative to `src/` and without `.ts`. */
+      readonly module: string;
+    };
+
+/**
+ * A durable queue a rewire hands off to, and whether anything empties it.
+ *
+ * "Enqueued" and "done" are the same row until something CONSUMES it, and the
+ * two lead an operator to opposite conclusions. `attribute_reindex_requests`
+ * has three enqueuers, a deterministic id, a lease-shaped schema, a pending
+ * index and an `attempts` counter — everything a working queue has — and no
+ * consumer: `services/catalog-observability/queries.ts` and `trace.service.ts`
+ * both record that nothing writes `processed_at`, and the reindex hop is
+ * reported `unreachable` rather than `pending` for exactly that reason.
+ *
+ * So a rewire that terminates in one is NOT a completed rewire, and the
+ * impact report says so separately (`rewiresAwaitingDrain`).
+ */
+export interface RewireQueue {
+  /**
+   * The column that marks a row DONE, as a drizzle column — never a string.
+   * A rename then moves this declaration in the same edit, and the census reads
+   * the table and column names off it rather than off a second spelling.
+   */
+  readonly completion: PgColumn;
+  readonly drain: RewireQueueDrain;
+}
+
+/**
+ * Whether the queue has a consumer, and who owes one when it does not.
+ *
+ * A union rather than a boolean so closing the gap is as loud as opening it:
+ * whoever builds the consumer must NAME it here, and the census then holds them
+ * to the same "has a production call site" test every other entry point takes.
+ */
+export type RewireQueueDrain =
+  | { readonly state: 'present'; readonly symbol: string; readonly module: string }
+  | { readonly state: 'absent'; readonly owedBy: string };
+
+/**
  * One declared inbound reference.
  *
  * The drizzle column is the single source of truth for both names — deriving
  * `referenceTable`/`referenceColumn` from it rather than restating them is what
  * stops the plan and the census comparing two spellings of the same intent.
+ *
+ * A DISCRIMINATED UNION on the disposition, so `rewired_by_domain` cannot be
+ * declared without an `entryPoint`. A property enforced by the type system
+ * needs a gate in the type system: a census can only check entry points that
+ * are there, and the one shape it could never catch is the entry point nobody
+ * wrote.
  */
-export interface GovernedReference {
-  readonly column: PgColumn;
-  readonly disposition: CatalogGovernanceReferenceDisposition;
-  /**
-   * Why the disposition is what it is. For `rewired_by_domain` this NAMES the
-   * function that does the rewiring, so the claim is checkable by reading it.
-   */
-  readonly note: string;
-}
+export type GovernedReference =
+  | {
+      readonly column: PgColumn;
+      readonly disposition: Exclude<CatalogGovernanceReferenceDisposition, 'rewired_by_domain'>;
+      /** Why the disposition is what it is. */
+      readonly note: string;
+    }
+  | {
+      readonly column: PgColumn;
+      readonly disposition: 'rewired_by_domain';
+      readonly note: string;
+      /** Where the rewiring happens, machine-readably. See {@link RewireEntryPoint}. */
+      readonly entryPoint: RewireEntryPoint;
+    };
 
 /**
  * The table a reference lives on, as drizzle names it.
@@ -133,12 +230,22 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   {
     column: categories.parentId,
     disposition: 'rewired_by_domain',
-    note: 'taxonomyRepository.moveCategory re-splices the whole subtree in one UPDATE, deriving ancestor_ids and ancestor_slugs from the new parent',
+    note: 'moveCategory re-splices the whole subtree in one UPDATE, deriving ancestor_ids and ancestor_slugs from the new parent',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'moveCategory',
+      module: 'db/taxonomy/taxonomyRepository',
+    },
   },
   {
     column: categories.mergedIntoCategoryId,
     disposition: 'rewired_by_domain',
-    note: 'taxonomyRepository.mergeCategory writes the pointer and its redirect in one transaction; the hierarchy trigger refuses a merge into a descendant',
+    note: 'mergeCategory writes the pointer and its redirect in one transaction; the hierarchy trigger refuses a merge into a descendant',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'mergeCategory',
+      module: 'db/taxonomy/taxonomyRepository',
+    },
   },
   {
     column: listings.categoryId,
@@ -169,6 +276,11 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
     column: catalogAuthoringDrafts.categoryId,
     disposition: 'rewired_by_domain',
     note: 'bumpAuthoringSchemaInvalidation raises the revision so every open draft re-composes its schema against the changed category on its next read',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'bumpAuthoringSchemaInvalidation',
+      module: 'db/catalogAuthoring/schemaInvalidationRepository',
+    },
   },
   {
     column: catalogProposals.categoryId,
@@ -178,12 +290,14 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   {
     column: categoryLocalizations.categoryId,
     disposition: 'rewired_by_domain',
-    note: 'mercaria_categories_localization_stale marks every reviewed or approved translation stale when the category name changes, which is what puts it back in the translation queue',
+    note: 'the database marks every reviewed or approved translation stale when the category name changes, which is what puts it back in the translation queue. A TRIGGER and not a function: it holds against psql, and there is no TypeScript symbol to name',
+    entryPoint: { kind: 'trigger', name: 'mercaria_categories_localization_stale' },
   },
   {
     column: categoryLocalizedSlugs.categoryId,
-    disposition: 'rewired_by_domain',
-    note: 'issueCategoryLocalizedSlug supersedes the current row in one transaction, so an old localized URL keeps resolving through the superseded chain',
+    disposition: 'rewire_path_missing',
+    note:
+      'MEASURED (#739): issueCategoryLocalizedSlug does supersede the current row in one transaction — and NOTHING in this repository calls it. Its only references outside its own module were this note and its tests, so a category rename leaves every localized slug pointing at the old name with no superseded chain minted. It stays `rewire_path_missing` rather than being relabelled to make the gate pass, because building the writer is a separate change: the entry point is owed by whoever gives a taxonomy rename a localized-slug re-issue, and until then an operator reading the preview needs to see the gap',
   },
   {
     column: categoryAliases.categoryId,
@@ -213,7 +327,12 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   {
     column: navigationNodes.categoryId,
     disposition: 'rewired_by_domain',
-    note: 'the navigation projection reads the category live (lifecycle published AND is_active), so a node pointing at a deprecated category stops rendering with no sweep having run',
+    note: 'the navigation read consults the category LIVE (lifecycle published AND is_active), so a node pointing at a deprecated category stops rendering with no sweep having run. Nothing repairs these rows because nothing is stored wrong — the `deriveNativeCheckoutEligibility` posture, one domain over',
+    entryPoint: {
+      kind: 'derivation',
+      symbol: 'listNavigationCategoryTargets',
+      module: 'db/navigation/navigationRepository',
+    },
   },
   {
     column: navigationSavedQueries.categoryId,
@@ -248,7 +367,7 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
     column: productTypeFields.productTypeDefinitionId,
     disposition: 'cascades',
     note:
-      'ON DELETE cascade — the version own fields. The count is what a diff is a diff OF, so it is the first number an operator reads before publishing. NOTE the second-order gap this census cannot see: product_type_field_localizations hangs off a FIELD rather than off a definition, so it is out of this population by construction, it cascades away with the fields, and copyForwardProductTypeLocalizations carries only the VERSION-level text. Publishing a new version therefore loses every per-field translation, silently — the same copy-forward the product_type_aliases entry above owes, at a different grain',
+      'ON DELETE cascade — the version own fields. The count is what a diff is a diff OF, so it is the first number an operator reads before publishing. NOTE the second-order gap this census cannot see: product_type_field_localizations hangs off a FIELD rather than off a definition, so it is out of this population by construction, it cascades away with the fields, and copyForwardProductTypeLocalizations carries only the VERSION-level text. #650 CLOSED that second-order gap with copyForwardProductTypeFieldLocalizations, joined on (flow, scope, attribute_key) because a field row id is minted per version; the census cannot see it from here either way, since the table is out of this population by construction',
   },
   {
     column: productTypeAliases.productTypeDefinitionId,
@@ -259,12 +378,23 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
   {
     column: productTypeLocalizations.productTypeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'copyForwardProductTypeLocalizations carries translations onto the new version and marks them stale when the change is semantic',
+    note:
+      'copyForwardProductTypeLocalizations carries translations onto the new version and marks them stale when the change is semantic. This claim was FALSE until #650: the function had zero production callers and publishProductTypeVersion copied nothing, so every bump shipped every market untranslated. It is called from the publish transaction now, which is what makes this disposition true rather than intended',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'copyForwardProductTypeLocalizations',
+      module: 'db/catalogLocalization/productTypeLocalizationRepository',
+    },
   },
   {
     column: catalogAuthoringDrafts.productTypeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'previewDraftUpgrade then applyDraftUpgrade re-pin a draft onto the newer version, per draft and never silently — deprecating a version is what makes the upgrade offer appear',
+    note: 'previewDraftUpgrade then applyDraftUpgrade re-pin a draft onto the newer version, per draft and never silently — deprecating a version is what makes the upgrade offer appear. The entry point names the APPLY half: a preview moves no row',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'applyDraftUpgrade',
+      module: 'services/catalog-authoring/draft.service',
+    },
   },
   {
     column: catalogProposals.productTypeDefinitionId,
@@ -285,6 +415,11 @@ const PRODUCT_TYPE_REFERENCES: readonly GovernedReference[] = [
     column: listings.productTypeDefinitionId,
     disposition: 'rewired_by_domain',
     note: 'ON DELETE restrict, nullable. A listing KEEPS its pin through a deprecation deliberately (ADR 0007 D5/D10: a newer version never reinterprets an older record), so nothing SWEEPS these rows and nothing may. What closes them is previewListingProductTypeUpgrade then applyListingProductTypeUpgrade, per listing and never silently — the twin of the draft pair above, and the deliberate migration migration 0109 permits value->value for. A BULK operator variant is deferred rather than missing: it needs a CATALOG_GOVERNANCE_ACTIONS member, which is CHECK-rendered onto this domain own change-request and audit tables and therefore a migration, and whether it is store-scoped or operator-only is a policy nobody has decided',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'applyListingProductTypeUpgrade',
+      module: 'services/catalog-authoring/listing-upgrade.service',
+    },
   },
 ];
 
@@ -318,17 +453,42 @@ const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
   {
     column: canonicalVariantAttributes.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'publishAttributeDefinition enqueues one attribute_reindex_requests row per affected entity, which is the existing durable re-normalization path',
+    note:
+      'publishAttributeDefinition enqueues one attribute_reindex_requests row per affected entity, which is the durable re-normalization path — and NOTHING DRAINS IT. The enqueue is real and committed; the rows are never processed, because no code path writes processed_at (catalog-observability/queries.ts and trace.service.ts both record it, and the reindex hop reports `unreachable` rather than `pending` for that reason). So this is a rewire that STARTS and does not finish, which the impact report surfaces as `rewiresAwaitingDrain` rather than folding into the rewired total',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'publishAttributeDefinition',
+      module: 'services/attributes/definition-registry.service',
+      queue: {
+        completion: attributeReindexRequests.processedAt,
+        drain: { state: 'absent', owedBy: '#664' },
+      },
+    },
   },
   {
     column: canonicalAttributeValues.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'the same reindex queue. This is the high-cardinality one — one row per product per attribute — so its count is the number that decides whether a publication is a small change',
+    note:
+      'the same reindex queue, and the same undrained gap — it named no symbol at all until #739, which is the other way a prose path escapes checking. This is the high-cardinality one (one row per product per attribute), so its count is the number that decides whether a publication is a small change, and it is also the count with the most rows sitting behind a queue nothing empties',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'publishAttributeDefinition',
+      module: 'services/attributes/definition-registry.service',
+      queue: {
+        completion: attributeReindexRequests.processedAt,
+        drain: { state: 'absent', owedBy: '#664' },
+      },
+    },
   },
   {
     column: catalogAuthoringDraftValues.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'bumpAuthoringSchemaInvalidation plus previewDraftUpgrade; a draft value pinned to the old version is re-pinned when its owner takes the upgrade',
+    note: 'bumpAuthoringSchemaInvalidation raises the revision and applyDraftUpgrade re-pins the value; a draft value pinned to the old version is re-pinned when its owner takes the upgrade',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'bumpAuthoringSchemaInvalidation',
+      module: 'db/catalogAuthoring/schemaInvalidationRepository',
+    },
   },
   {
     column: catalogProposals.attributeDefinitionId,
@@ -343,12 +503,22 @@ const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
   {
     column: nativeListingAttributeClaims.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'ON DELETE restrict, nullable — the version a raw seller-supplied name RESOLVED to. `settleListingAttributeClaim` re-settles a claim against a different version, reached from `POST /internal/catalog-governance/reviews/attribute-claims/:claimId` with `grain: listing` (#576 gave it that caller; before it, #367 step 4 had built the function and nothing called it)',
+    note: 'ON DELETE restrict, nullable — the version a raw seller-supplied name RESOLVED to. `settleListingAttributeClaim` re-settles a claim against a different version, reached from `POST /internal/catalog-governance/reviews/attribute-claims/:claimId` with `grain: listing` (#576 gave it that caller; before it, #367 step 4 had built the function and nothing called it — the same defect #739 then found twice more, which is why the entry point below is a checked field rather than a sentence)',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'settleListingAttributeClaim',
+      module: 'db/variantAxes/attributeClaimRepository',
+    },
   },
   {
     column: nativeVariantAttributeClaims.attributeDefinitionId,
     disposition: 'rewired_by_domain',
     note: 'ON DELETE restrict, nullable — the variant-side twin of the row above, re-settled by `settleVariantAttributeClaim` from the same route with `grain: variant`. Its queue index (`attribute_resolution` partial) surfaces the claims a republication reopened, and `GET .../reviews/attribute-claims` is what reads them — the count on `GET /queues` was the only thing an operator could learn until #576',
+    entryPoint: {
+      kind: 'function',
+      symbol: 'settleVariantAttributeClaim',
+      module: 'db/variantAxes/attributeClaimRepository',
+    },
   },
   {
     column: nativeVariantAxisAssignments.attributeDefinitionId,
@@ -407,5 +577,39 @@ export function declaredRelationCount(kind: CatalogGovernanceCountedSubjectKind)
 export function rewirePathsMissing(kind: CatalogGovernanceCountedSubjectKind): readonly string[] {
   return GOVERNED_REFERENCE_PLAN[kind]
     .filter((reference) => reference.disposition === 'rewire_path_missing')
+    .map(referenceKey);
+}
+
+/** The entry point a `rewired_by_domain` reference declares, or `null`. */
+export function rewireEntryPoint(reference: GovernedReference): RewireEntryPoint | null {
+  return reference.disposition === 'rewired_by_domain' ? reference.entryPoint : null;
+}
+
+/**
+ * The relations whose rewire STARTS and does not finish, as `table.column` keys.
+ *
+ * A third list beside the total and `rewirePathsMissing`, because a rewire that
+ * enqueues a durable row and a rewire that completes are not the same promise
+ * and an operator reading "rewired" cannot tell them apart. `rewire_path_missing`
+ * would be the wrong disposition for these — the enqueue is real, committed and
+ * idempotent, and calling it missing would say no work happens — and plain
+ * `rewired_by_domain` is the wrong claim, because the rows are still wrong.
+ *
+ * It is DERIVED from the same declarations the census checks, so a queue that
+ * gains a consumer leaves this list in the edit that names the consumer.
+ */
+export function rewiresAwaitingDrain(
+  kind: CatalogGovernanceCountedSubjectKind,
+): readonly string[] {
+  return GOVERNED_REFERENCE_PLAN[kind]
+    .filter((reference) => {
+      const entryPoint = rewireEntryPoint(reference);
+      return (
+        entryPoint !== null &&
+        entryPoint.kind === 'function' &&
+        entryPoint.queue !== undefined &&
+        entryPoint.queue.drain.state === 'absent'
+      );
+    })
     .map(referenceKey);
 }

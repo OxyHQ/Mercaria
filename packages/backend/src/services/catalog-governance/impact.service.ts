@@ -47,6 +47,7 @@ import {
   referenceColumnName,
   referenceTableName,
   rewirePathsMissing,
+  rewiresAwaitingDrain,
   type GovernedReference,
 } from './impact-plan.js';
 import { countedSubjectIds, type ImpactSubjects } from './impact-subjects.js';
@@ -133,6 +134,7 @@ export async function measureImpact(
       counts: [],
       total: 0,
       rewirePathsMissing: [],
+      rewiresAwaitingDrain: [],
       unmeasuredReason: `${subjectKind} has no inbound references to count; its plan is a diff against the stored document.`,
     };
   }
@@ -163,6 +165,7 @@ export async function measureImpact(
         counts: [],
         total: 0,
         rewirePathsMissing: [],
+        rewiresAwaitingDrain: [],
         unmeasuredReason: `Counting ${key} failed, so this report would have been ${String(
           counts.length,
         )} of ${String(declared)} relations. A partial count reads as a small change.`,
@@ -186,6 +189,7 @@ export async function measureImpact(
     counts,
     total: counts.reduce((sum, entry) => sum + entry.rowCount, 0),
     rewirePathsMissing: rewirePathsMissing(subjectKind),
+    rewiresAwaitingDrain: rewiresAwaitingDrain(subjectKind),
   };
 }
 
@@ -257,6 +261,11 @@ export function reportFromStoredRows(
     counts,
     total: counts.reduce((sum, entry) => sum + entry.rowCount, 0),
     rewirePathsMissing: isCountedSubjectKind(subjectKind) ? rewirePathsMissing(subjectKind) : [],
+    // Re-derived from the PLAN rather than read back from the stored rows, the
+    // same way `rewirePathsMissing` is: a request planned before a queue gained
+    // a consumer should be read against what is true now, not against the gap
+    // it was planned under.
+    rewiresAwaitingDrain: isCountedSubjectKind(subjectKind) ? rewiresAwaitingDrain(subjectKind) : [],
     unmeasuredReason: unmeasuredReason ?? undefined,
   };
 }

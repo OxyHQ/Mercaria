@@ -25,6 +25,7 @@ import {
   GOVERNED_REFERENCE_PLAN,
   GOVERNED_SUBJECT_TABLES,
   referenceKey,
+  rewireEntryPoint,
 } from '../impact-plan.js';
 import { CATALOG_GOVERNANCE_COUNTED_SUBJECT_KINDS } from '@mercaria/shared-types';
 
@@ -145,7 +146,8 @@ describe('the governed-reference census', () => {
       missing,
       'A disposition moved. `rewire_path_missing` names a MEASURED hole: adding one means ' +
         'nothing in this repository fixes those rows after a governance change, and removing ' +
-        'one means naming the entry point that now does, in the note.',
+        'one means naming the entry point that now does — machine-readably, in `entryPoint`, ' +
+        'which rewire-entry-point-census.test.ts then holds to a production call site.',
     ).toEqual(
       [
         // #91's seller draft pins a category and this domain has no re-pin
@@ -159,6 +161,14 @@ describe('the governed-reference census', () => {
         // #367 step 4 exposes no re-normalization entry point for assignments
         // already written.
         'native_variant_axis_assignments.attributeDefinitionId',
+        // ARRIVED in #739, by MEASUREMENT rather than by judgement:
+        // `issueCategoryLocalizedSlug` is real, correct and tested, and no
+        // production module calls it. It was `rewired_by_domain` — a claim the
+        // operator preview reported as work that WOULD happen — and it is
+        // labelled honestly rather than relabelled to make the new gate pass.
+        // It stops being a gap when somebody gives a taxonomy rename a
+        // localized-slug re-issue, which is a separate change.
+        'category_localized_slugs.categoryId',
       ].sort(),
     );
 
@@ -172,7 +182,17 @@ describe('the governed-reference census', () => {
     expect(listingPin?.disposition, 'the listing product-type pin lost its rewire path').toBe(
       'rewired_by_domain',
     );
-    expect(listingPin?.note ?? '').toMatch(/applyListingProductTypeUpgrade/u);
+    // The prose match this line used to carry — `toMatch(/applyListing…/u)`
+    // over the NOTE — was the plan's only path assertion, and it existed for
+    // exactly this one relation. #739 generalised it: the identifier is a
+    // machine-readable `entryPoint` now, every path-asserting entry carries
+    // one, and `rewire-entry-point-census.test.ts` holds ALL of them to a
+    // production call site rather than to a word appearing in a sentence.
+    expect(rewireEntryPoint(listingPin)).toEqual({
+      kind: 'function',
+      symbol: 'applyListingProductTypeUpgrade',
+      module: 'services/catalog-authoring/listing-upgrade.service',
+    });
   });
 
   it('declares no duplicate reference within one subject kind', () => {
