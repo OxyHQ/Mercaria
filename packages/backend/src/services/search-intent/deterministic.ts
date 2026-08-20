@@ -56,6 +56,7 @@ import { resolveUnit, toBaseUnit, unitFamilyOf } from '../canonical/units.js';
 import type { ResolvedAttributeDefinition } from '../attributes/definition-registry.service.js';
 import { boundedPhrase } from './injection.js';
 import {
+  containsFoldedPhrase,
   foldPhrase,
   readBudgetBound,
   readCategoryColloquialism,
@@ -615,11 +616,10 @@ export function interpretDeterministically(
   // ── Enum and boolean attributes named outright (`usb-c`, `waterproof`) ────
   for (const definition of input.definitions) {
     if (definition.row.valueType === 'enum') {
+      const spellings = enumValueSpellings(definition);
       for (const enumValue of definition.enumValues) {
-        const label = foldPhrase(enumValue.label);
-        const value = foldPhrase(enumValue.value);
-        const matched = [label, value].find(
-          (candidate) => candidate.length >= 3 && folded.includes(candidate),
+        const matched = (spellings.get(enumValue.value) ?? []).find((candidate) =>
+          containsFoldedPhrase(folded, candidate),
         );
         if (matched === undefined) continue;
         requirements.push({
@@ -697,6 +697,55 @@ export function interpretDeterministically(
     attributeAmbiguities,
     identifiers,
   };
+}
+
+/**
+ * Every spelling that names each enum value of one definition, longest first.
+ *
+ * Three sources, and the third is the one #732 added: the value's own `label`,
+ * its `value`, and every alias `attribute_value_aliases` records against it.
+ * The alias map arrives on `ResolvedAttributeDefinition` already — the registry
+ * loads it in the same batch as the enum values — so reading it here costs no
+ * query and closes the VALUE grain of #367's "a search for regional synonyms
+ * resolves to the same category/type/value". Before this, the alias map was
+ * consulted by `model-boundary.ts` alone, which is the branch no deployment
+ * registers a parser for, so a recorded alias resolved nowhere.
+ *
+ * LONGEST FIRST, and that ordering is load-bearing rather than tidy: `usb c`
+ * and `usbc` may both be recorded, `type c` is longer than either, and the
+ * phrase reported as `sourcePhrase` is also the phrase `composeSearchText`
+ * removes from the query. Reporting the shortest would leave the rest of the
+ * shopper's own phrase in the text and search for it lexically.
+ *
+ * A spelling under three characters is dropped, which is the pre-existing rule
+ * and not a new one: `pc`, `tv` and `4k` are ordinary words in a product name,
+ * and word-boundary matching does not make a two-letter token safe to read as
+ * a specification.
+ */
+function enumValueSpellings(
+  definition: ResolvedAttributeDefinition,
+): ReadonlyMap<string, readonly string[]> {
+  const byValue = new Map<string, string[]>();
+  const add = (value: string, spelling: string): void => {
+    const folded = foldPhrase(spelling);
+    if (folded.length < 3) return;
+    const bucket = byValue.get(value) ?? [];
+    if (!bucket.includes(folded)) bucket.push(folded);
+    byValue.set(value, bucket);
+  };
+  for (const enumValue of definition.enumValues) {
+    add(enumValue.value, enumValue.label);
+    add(enumValue.value, enumValue.value);
+  }
+  // The alias map is `normalized alias → canonical value`, and it already
+  // carries each canonical value as its own alias, so an entry naming a value
+  // this definition does not declare is skipped rather than inventing one.
+  for (const [alias, target] of definition.aliases) {
+    if (!definition.enumValues.some((enumValue) => enumValue.value === target)) continue;
+    add(target, alias);
+  }
+  for (const bucket of byValue.values()) bucket.sort((a, b) => b.length - a.length);
+  return byValue;
 }
 
 /**

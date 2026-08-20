@@ -176,6 +176,21 @@ const CASES: readonly IntentBenchmarkCase[] = [
     // excludes every 32 GB machine from a query that plainly wanted them.
     expect: { preferenceAttributeKeys: ['ram'], mustNotProduceHard: ['ram'] },
   },
+  {
+    id: 'preference-value-alias-en',
+    kind: 'preference_versus_requirement',
+    locale: 'en-GB',
+    registry: 'laptops',
+    query: 'gaming laptop with usb c',
+    // The VALUE grain of #367's "a search for regional synonyms resolves to the
+    // same category/type/value", and the pair with `preference-en` above is
+    // what makes it a measurement rather than a coincidence: same attribute,
+    // same intent, one spelling that IS the label and one that is only an
+    // `attribute_value_aliases` row. Before #732 this case reached no
+    // requirement at all — the alias map was read by the model branch, which
+    // no deployment registers a parser for.
+    expect: { preferenceAttributeKeys: ['port_type'], mustNotProduceHard: ['port_type'] },
+  },
 
   // 4. Ambiguous use case.
   {

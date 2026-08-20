@@ -200,6 +200,69 @@ describe('the dictionaries', () => {
   });
 });
 
+describe('recorded value aliases (#732, the VALUE grain of #367)', () => {
+  /**
+   * `attribute_value_aliases` is loaded into every
+   * `ResolvedAttributeDefinition.aliases` by the registry the interpreter
+   * already receives, and until #732 the deterministic pass read only the
+   * enum value's `value` and `label`. The alias map was consulted by
+   * `model-boundary.ts` alone — the branch no deployment registers a parser
+   * for — so an operator recording `usb c` got a row, an index entry and no
+   * behaviour on the only path that runs.
+   *
+   * Each fixture below is a different SHAPE of alias, because one shape could
+   * pass under a rule that only handled that shape: a spacing variant of the
+   * label, a run-together one, a phrase that shares no token with the label,
+   * and an abbreviation of a value whose label the query never mentions.
+   */
+  it('resolves an enum value through a spelling recorded as an alias', () => {
+    const draft = read('laptop with usb c');
+    const port = draft.requirements.find((requirement) => requirement.attributeKey === 'port_type');
+    expect(port?.predicate).toEqual({ op: 'eq', value: { type: 'string', value: 'usb_c' } });
+  });
+
+  it('resolves a run-together spelling', () => {
+    const draft = read('laptop with usbc');
+    expect(
+      draft.requirements.find((requirement) => requirement.attributeKey === 'port_type')?.predicate,
+    ).toEqual({ op: 'eq', value: { type: 'string', value: 'usb_c' } });
+  });
+
+  it('resolves an alias that shares no token with the label', () => {
+    const draft = read('laptop with a type c port');
+    expect(
+      draft.requirements.find((requirement) => requirement.attributeKey === 'port_type')?.predicate,
+    ).toEqual({ op: 'eq', value: { type: 'string', value: 'usb_c' } });
+  });
+
+  it('resolves an abbreviation of a value the query never names', () => {
+    const draft = read('laptop with tb4');
+    expect(
+      draft.requirements.find((requirement) => requirement.attributeKey === 'port_type')?.predicate,
+    ).toEqual({ op: 'eq', value: { type: 'string', value: 'thunderbolt' } });
+  });
+
+  it('still resolves the canonical LABEL, so aliases did not replace it', () => {
+    // The control. Without it, deleting the label branch and keeping the alias
+    // one would leave every case above green.
+    const draft = read('laptop with hdmi');
+    expect(
+      draft.requirements.find((requirement) => requirement.attributeKey === 'port_type')?.predicate,
+    ).toEqual({ op: 'eq', value: { type: 'string', value: 'hdmi' } });
+  });
+
+  it('matches an enum spelling on a WORD BOUNDARY, never as a substring', () => {
+    // `hdmi` inside `hdmiadapter` is not a claim about a port. The rule that
+    // makes an alias safe to add at all: aliases are short by nature
+    // (`tb4`, `cel`), and a substring match on a three-character alias turns
+    // half a catalogue into a requirement nobody expressed.
+    const draft = read('laptop hdmiadapter bundle');
+    expect(
+      draft.requirements.find((requirement) => requirement.attributeKey === 'port_type'),
+    ).toBeUndefined();
+  });
+});
+
 describe('the search text', () => {
   it('removes the phrases that became structured facts', () => {
     const draft = read('used laptop under 900 EUR');

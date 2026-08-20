@@ -102,6 +102,21 @@ function containsPhrase(foldedQuery: string, foldedPhrase: string): boolean {
   return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(foldedQuery);
 }
 
+/**
+ * The same word-boundary test, for a phrase that is not in a dictionary here.
+ *
+ * Exported so the ONE matching rule serves the registry-driven passes too —
+ * enum labels, enum values and #94's recorded value aliases — rather than each
+ * of them carrying its own. A second rule would not announce itself: it would
+ * simply be more permissive somewhere, and an alias is exactly where that
+ * costs, because an alias is short by nature (`tb4`, `cel`) and a substring
+ * match on three characters turns half a catalogue into a leaning nobody
+ * expressed.
+ */
+export function containsFoldedPhrase(foldedQuery: string, foldedPhrase: string): boolean {
+  return containsPhrase(foldedQuery, foldedPhrase);
+}
+
 /** The first entry whose phrase appears, with the phrase that matched. */
 function firstMatch<T>(
   foldedQuery: string,
