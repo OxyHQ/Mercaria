@@ -40,7 +40,7 @@ import { findRefundByIdempotencyKey } from '../../db/orders/refundRepository.js'
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { transition } from '../order.service.js';
-import { refuseDecision } from './decision-refusal.js';
+import { refuseDecision, refuseTransition } from './refusal.js';
 import { actorAuditColumns, type BuyerRequestDecider } from './authorization.js';
 import { notifyCancellationDecided } from './notifications.js';
 import { resolveCancellationEligibility } from './policy.js';
@@ -217,12 +217,36 @@ export async function completeCancellationRequest(input: {
   now: Date;
 }): Promise<CancellationRequestWithLines> {
   const request = await findCancellationRequestById(input.requestId);
+  // Unrecordable, for the reason the decide path above states.
   if (!request) throw notFound('Cancellation request not found');
+  const subject = { cancellationRequestId: input.requestId } as const;
   if (request.state === 'completed') return getCancellationRequest(input.requestId);
-  if (request.state !== 'accepted') throw conflict('This request has not been accepted');
+  if (request.state !== 'accepted') {
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'completion_refused',
+      reason: 'state_not_eligible',
+      now: input.now,
+      error: conflict('This request has not been accepted'),
+    });
+  }
 
   const context = await loadBuyerRequestOrder(request.orderId);
-  if (!context) throw notFound('Order not found');
+  if (!context) {
+    // Not a refusal a seller could have met — the request names an order that
+    // will not load — which is exactly why the trail owes it. Nothing else in
+    // the system records that somebody pressed complete and Mercaria could not
+    // find the order it was about.
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'completion_refused',
+      reason: 'order_missing',
+      now: input.now,
+      error: notFound('Order not found'),
+    });
+  }
 
   const failure = await runCompletion({
     context,

@@ -10,13 +10,18 @@
  * cases anybody would read it for — a decision that rolled back, a completion
  * that half-happened.
  *
- * ONE caller is deliberately exempt and must stay so: `refuseDecision`
- * (`services/buyer-requests/decision-refusal.ts`) writes a `decision_refused`
- * row on the ROOT handle. That rule above is about a row describing something
+ * TWO callers are deliberately exempt and must stay so: `refuseDecision` and
+ * `refuseTransition` (`services/buyer-requests/refusal.ts`) write their refusal
+ * rows on the ROOT handle. That rule above is about a row describing something
  * that HAPPENED; a refusal describes something that did not, the row is the
  * whole fact, and the handler throws immediately after. On a transaction handle
  * that row would be rolled back by the very throw it exists to record — and
  * invisibly, since the caller still receives its 409. Do not "correct" it.
+ *
+ * The exemption is stated because it is checkable: `buyer-request-isolation.test.ts`
+ * asserts that `refusal.ts` is the ONLY module in the domain calling this on a
+ * root handle, so a third exemption cannot arrive by being written to look like
+ * the first two.
  */
 
 import { asc, eq } from 'drizzle-orm';

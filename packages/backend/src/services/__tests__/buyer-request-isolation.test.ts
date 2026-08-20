@@ -19,6 +19,12 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BUYER_REQUEST_FORBIDDEN_IDENTIFIERS } from '@mercaria/shared-types';
 import { SUPPORT_FORBIDDEN_AUTOMATIC_OUTCOMES } from '@mercaria/shared-types';
+import {
+  BUYER_REQUEST_DECISION_REFUSALS,
+  BUYER_REQUEST_EVENT_KINDS,
+  BUYER_REQUEST_TRANSITION_REFUSALS,
+} from '@mercaria/shared-types';
+import { buyerRequestBodySchemas } from '../../controllers/buyer-requests.schemas.js';
 import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -471,5 +477,230 @@ describe('buyer request isolation (static)', () => {
     expect(stripped).toContain('findOrderById');
     expect(stripped).not.toContain('deliberately not imported');
     expect(stripped).not.toContain('no restock in this file');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Every event kind has a producer (#743, #765)                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The call whose `kind:` argument decides what a trail row says.
+ *
+ * TWO names, because the literal moved: `refuseTransition` takes its kind as a
+ * PARAMETER, so its own `recordBuyerRequestEvent` call carries `input.kind` and
+ * the literal lives at each call site. A census over the repository call alone
+ * would report all five of #765's kinds as unproduced.
+ */
+const PRODUCER_CALLS = ['recordBuyerRequestEvent', 'refuseTransition'] as const;
+
+/** The calls whose `reason:` argument becomes a row's bounded `detail`. */
+const REASON_CALLS = ['refuseDecision', 'refuseTransition'] as const;
+
+/**
+ * The text of every `name(...)` call in `source`, parentheses balanced.
+ *
+ * Balanced rather than a fixed window, because #743's own method note records a
+ * three-line window reporting `accepted` and `rejected` as unproduced: the
+ * ternary that writes them sits further into the call than that. A window one
+ * line too short invents defects, and no single length is right for every call
+ * site.
+ */
+function callArguments(source: string, name: string): string[] {
+  const found: string[] = [];
+  const opener = new RegExp(`\\b${name}\\s*\\(`, 'g');
+  for (let match = opener.exec(source); match !== null; match = opener.exec(source)) {
+    // A DECLARATION shares the spelling of a call and contributes no literal,
+    // so counting one would inflate the floor below with something no producer
+    // wrote — a floor is only worth having if the number means what it says.
+    if (/function\s+$/.test(source.slice(0, match.index))) continue;
+    let depth = 0;
+    let index = match.index + match[0].length - 1;
+    const start = index;
+    for (; index < source.length; index += 1) {
+      const character = source[index];
+      if (character === '(') depth += 1;
+      else if (character === ')') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    found.push(source.slice(start + 1, index));
+  }
+  return found;
+}
+
+/**
+ * Every quoted literal on a `field:` line inside one call's arguments.
+ *
+ * The LINE rather than the token, so `kind: accepted ? 'accepted' : 'rejected'`
+ * yields both — and anchored to the field name inside a producer call, so the
+ * `existing.state === 'completed'` that appears three lines above one of them
+ * does NOT. Six of the seventeen kinds share a spelling with a request state, so
+ * an unanchored search for the bare literal would report every one of them
+ * produced whether or not anything wrote it.
+ */
+function literalsOnField(argumentText: string, field: string): string[] {
+  const found: string[] = [];
+  for (const line of argumentText.split('\n')) {
+    const at = line.indexOf(`${field}:`);
+    if (at === -1) continue;
+    for (const quoted of line.slice(at).matchAll(/'([a-z_]+)'/g)) found.push(quoted[1]);
+  }
+  return found;
+}
+
+/** Every kind, or every reason, the given sources actually write. */
+function producedValues(
+  sources: readonly string[],
+  calls: readonly string[],
+  field: string,
+): { values: Set<string>; callSites: number } {
+  const values = new Set<string>();
+  let callSites = 0;
+  for (const source of sources) {
+    for (const name of calls) {
+      for (const argumentText of callArguments(source, name)) {
+        callSites += 1;
+        for (const value of literalsOnField(argumentText, field)) values.add(value);
+      }
+    }
+  }
+  return { values, callSites };
+}
+
+/** The domain's modules, comments stripped — the census population. */
+function domainSources(): string[] {
+  return DOMAIN_PATHS.map((path) => stripComments(readSource(path)));
+}
+
+describe('every trail vocabulary member has a producer (#743, #765)', () => {
+  it('writes every one of the seventeen event kinds', () => {
+    const { values, callSites } = producedValues(domainSources(), PRODUCER_CALLS, 'kind');
+
+    // THE VACUITY FLOOR. An extractor that matched nothing produces an empty
+    // `values`, and `unproduced` would then be the whole tuple — loud. The
+    // dangerous direction is the other one: a census that found SOME call sites
+    // and silently stopped finding others reports a clean pass for whatever it
+    // stopped at. Today's count, so a producer deleted with its kind still in
+    // the tuple moves this number down in the same diff.
+    expect(callSites, 'the producer sweep found no call sites at all').toBeGreaterThanOrEqual(29);
+
+    const unproduced = BUYER_REQUEST_EVENT_KINDS.filter((kind) => !values.has(kind));
+    expect(
+      unproduced,
+      'permitted by `buyer_request_events_kind_check` and written by nothing — the #743 defect',
+    ).toEqual([]);
+  });
+
+  it('writes every bounded refusal reason', () => {
+    const { values, callSites } = producedValues(domainSources(), REASON_CALLS, 'reason');
+    expect(callSites, 'the refusal sweep found no call sites at all').toBeGreaterThanOrEqual(21);
+
+    const reasons = [
+      ...BUYER_REQUEST_DECISION_REFUSALS,
+      ...BUYER_REQUEST_TRANSITION_REFUSALS,
+    ];
+    expect(
+      reasons.filter((reason) => !values.has(reason)),
+      'a bounded reason code no producer can write — a dead reason (#744, #753, #791)',
+    ).toEqual([]);
+  });
+
+  it('mutation self-test: a removed producer is reported, and by name', () => {
+    // The whole gate rests on `unproduced` being ABLE to be non-empty. So the
+    // real sources are re-censused with ONE producer's literal rewritten, and
+    // the kind it wrote must come back missing. Nothing is written to disk: the
+    // mutation is the string the census reads.
+    const sources = domainSources();
+    const mutated = sources.map((source) =>
+      source.replace(/kind: 'receipt_refused'/g, "kind: 'instructions_refused'"),
+    );
+    expect(
+      mutated.join('\n'),
+      'the mutation matched no producer — it would pass by changing nothing',
+    ).not.toBe(sources.join('\n'));
+
+    const { values } = producedValues(mutated, PRODUCER_CALLS, 'kind');
+    expect(BUYER_REQUEST_EVENT_KINDS.filter((kind) => !values.has(kind))).toEqual([
+      'receipt_refused',
+    ]);
+  });
+
+  it('positive control: the extractor reads a ternary, and only inside a producer call', () => {
+    // The ternary half is #743's own false-positive case, reproduced.
+    const ternary = producedValues(
+      ["await recordBuyerRequestEvent(tx, {\n  kind: accepted ? 'accepted' : 'rejected',\n});"],
+      PRODUCER_CALLS,
+      'kind',
+    );
+    expect([...ternary.values].sort()).toEqual(['accepted', 'rejected']);
+
+    // The ANCHOR half, which is what stops six kinds passing on a state
+    // comparison: the same literals outside a producer call count for nothing.
+    const unanchored = producedValues(
+      ["if (existing.state === 'completed') return;\nconst kind = 'cancelled';"],
+      PRODUCER_CALLS,
+      'kind',
+    );
+    expect([...unanchored.values]).toEqual([]);
+    expect(unanchored.callSites).toBe(0);
+
+    // And the comment half: a kind named only in prose is not a producer.
+    const commented = producedValues(
+      [stripComments("/** recordBuyerRequestEvent(tx, { kind: 'refund_settled' }) */\n")],
+      PRODUCER_CALLS,
+      'kind',
+    );
+    expect([...commented.values]).toEqual([]);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  The root-handle exemption, and the two refusals deliberately NOT recorded   */
+/* -------------------------------------------------------------------------- */
+
+describe('refusal writes and their deliberate absences (#765)', () => {
+  it('leaves `refusal.ts` the only module writing an event on the root handle', () => {
+    // `eventRepository`'s docblock states this exemption, and a docblock that
+    // states a count is a claim until something checks it. Every OTHER writer
+    // passes a transaction handle, because an audit row that commits separately
+    // from the fact it describes is a trail with holes; a refusal is the
+    // opposite case and is the only one that may.
+    const rootHandleWriters = DOMAIN_PATHS.filter((path) =>
+      /recordBuyerRequestEvent\(\s*getDb\(\)/.test(stripComments(readSource(path))),
+    );
+    expect(rootHandleWriters).toEqual(['services/buyer-requests/refusal.ts']);
+
+    // The floor and its positive control in one: the detector must find the two
+    // writes that ARE there, or an empty result would read as a clean pass.
+    const refusalSource = stripComments(readSource('services/buyer-requests/refusal.ts'));
+    expect(refusalSource.match(/recordBuyerRequestEvent\(\s*getDb\(\)/g)?.length).toBe(2);
+  });
+
+  it('keeps the two unrecorded refusals shadowed by a layer that refuses first', () => {
+    // #765's disposition for `Return instructions are required` and `Say why the
+    // return was cancelled`: both are refused one layer up, BEFORE a request id
+    // is resolved, so the refusal that actually happens has no subject to be
+    // recorded against. Recording at the service would add reason codes no
+    // production row could carry while making the trail look as though it
+    // covered the case. Both premises are pinned here, because if either layer
+    // stops refusing, the site below it becomes a real refusal that owes a row.
+    const parsed = buyerRequestBodySchemas.instructions.safeParse({ instructions: '  x  ' });
+    expect(parsed.success, 'the instructions schema stopped refusing a sub-3 value').toBe(false);
+    expect(
+      buyerRequestBodySchemas.instructions.safeParse({ instructions: '  abc  ' }).success,
+    ).toBe(true);
+
+    // The cancel-note guard is the HANDLER's, not the schema's, so it is read
+    // out of the handler body — bounded to that function, and asserted to sit
+    // BEFORE the service call it shadows.
+    const controller = stripComments(readSource('controllers/buyer-requests.controller.ts'));
+    const handler = controller.slice(controller.indexOf('export const cancelReturn'));
+    const guardAt = handler.search(/\(\s*parsed\.data\.note\s*\?\?\s*''\s*\)\s*\.trim\(\)\.length\s*<\s*3/);
+    const callAt = handler.indexOf('await cancelReturnRequest(');
+    expect(guardAt, 'the cancelReturn handler no longer refuses a short note').toBeGreaterThan(-1);
+    expect(callAt, 'the cancelReturn handler no longer calls the service').toBeGreaterThan(-1);
+    expect(guardAt, 'the note guard no longer runs before the service call').toBeLessThan(callAt);
   });
 });
