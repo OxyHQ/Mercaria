@@ -69,9 +69,32 @@ const GATE_SCRIPT_PATH = join(REPO_ROOT, '.github', 'scripts', 'require-ci-succe
  * program, which is what lets the real constant be read rather than a copy of it
  * re-declared here — and a copy is precisely what this file exists to forbid.
  */
+interface FakeRun {
+  id: number;
+  run_attempt: number;
+  status: string;
+  conclusion?: string | null;
+  html_url: string;
+}
+
 const gateModule: {
   REQUIRED_CI_JOBS: readonly string[];
   judgeJobs: (jobs: { name: string; conclusion?: string | null; status?: string }[]) => string[];
+  isTransportError: (error: unknown) => boolean;
+  GateFailure: new (message: string) => Error;
+  requireCiSuccess: (options: {
+    repository: string;
+    sha: string;
+    token?: string;
+    now?: () => number;
+    findRuns?: (options: { repository: string; sha: string; token?: string }) => Promise<FakeRun[]>;
+    readRunJobs?: (options: {
+      repository: string;
+      runId: number;
+      token?: string;
+    }) => Promise<{ name: string; conclusion?: string | null; status?: string }[]>;
+    sleepFor?: (ms: number) => Promise<void>;
+  }) => Promise<FakeRun>;
 } = await import(pathToFileURL(GATE_SCRIPT_PATH).href);
 
 /** Only the shape these assertions read — not a schema for GitHub Actions. */
@@ -440,5 +463,213 @@ describe('judgeJobs refuses the two shapes that read as green', () => {
     // Without this, all four assertions above would still pass if `judgeJobs`
     // had been mutated to return `[]` for anything it did not recognise.
     expect(gateModule.judgeJobs([])).toHaveLength(gateModule.REQUIRED_CI_JOBS.length);
+  });
+});
+
+/**
+ * A transport fault is not a verdict (#728).
+ *
+ * The failure this covers is real: `Deploy to AWS` run 32367249937 on
+ * `8c6654a5` went red with `TypeError: fetch failed` / `UND_ERR_SOCKET` while
+ * polling, `deploy` was skipped, and CI for that commit went on to SUCCEED eight
+ * minutes later. Nothing re-fires when that happens — `deploy-aws.yml` triggers
+ * on `push` and `workflow_dispatch` only — so the commit stays undeployed.
+ *
+ * The whole point is that "I could not ask" and "the answer was no" must stop
+ * being the same observable. Two of the cases below are therefore about what
+ * must STILL fail: a deliberate refusal, and a bug in the script itself.
+ */
+describe('the gate distinguishes a transport fault from a refusal', () => {
+  const greenJobs = () =>
+    gateModule.REQUIRED_CI_JOBS.map((name) => ({ name, conclusion: 'success' }));
+  const completedRun: FakeRun = {
+    id: 1,
+    run_attempt: 1,
+    status: 'completed',
+    conclusion: 'success',
+    html_url: 'https://example.invalid/run/1',
+  };
+
+  /** The EXACT shape the real failure had, reproduced rather than approximated. */
+  function socketError(): Error {
+    const cause = Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' });
+    return Object.assign(new TypeError('fetch failed'), { cause });
+  }
+
+  /**
+   * A clock that only moves when the gate sleeps.
+   *
+   * Sleeping IS the passage of time here, so the transport budget is exercised
+   * without the test taking two real minutes — and a retry that forgot to sleep
+   * would never reach the deadline, which is itself worth catching.
+   */
+  function fakeClock() {
+    let clock = 0;
+    return {
+      now: () => clock,
+      sleepFor: async (ms: number) => {
+        clock += ms;
+      },
+    };
+  }
+
+  it('classifies the real error shape as transport, and a refusal as NOT', () => {
+    expect(gateModule.isTransportError(socketError())).toBe(true);
+    // The safety property: a deliberate refusal must never be retried.
+    expect(gateModule.isTransportError(new gateModule.GateFailure('CI run concluded failure'))).toBe(
+      false,
+    );
+    // And a bug in the script is not a network problem.
+    expect(gateModule.isTransportError(new TypeError('x.map is not a function'))).toBe(false);
+    expect(gateModule.isTransportError(undefined)).toBe(false);
+  });
+
+  it('retries a socket fault and still reaches the right verdict', async () => {
+    const clock = fakeClock();
+    let attempts = 0;
+    const run = await gateModule.requireCiSuccess({
+      repository: 'o/r',
+      sha: 'abc',
+      ...clock,
+      findRuns: async () => {
+        attempts += 1;
+        if (attempts <= 3) throw socketError();
+        return [completedRun];
+      },
+      readRunJobs: async () => greenJobs(),
+    });
+    expect(run.id).toBe(completedRun.id);
+    // Vacuity floor: without this, a `findRuns` that never threw would pass the
+    // assertion above and prove nothing about the retry.
+    expect(attempts, 'the transport error was never actually raised').toBe(4);
+  });
+
+  it('retries a socket fault raised while reading the JOBS, not just the run', async () => {
+    // The half a fix aimed only at `findRunsForSha` would leave open. Both calls
+    // reach the network and a fault in either is equally not a verdict.
+    const clock = fakeClock();
+    let jobReads = 0;
+    const run = await gateModule.requireCiSuccess({
+      repository: 'o/r',
+      sha: 'abc',
+      ...clock,
+      findRuns: async () => [completedRun],
+      readRunJobs: async () => {
+        jobReads += 1;
+        if (jobReads <= 2) throw socketError();
+        return greenJobs();
+      },
+    });
+    expect(run.id).toBe(completedRun.id);
+    expect(jobReads, 'the job read never threw').toBe(3);
+  });
+
+  it('FAILS on a persistent outage, with a message naming it as transport', async () => {
+    const clock = fakeClock();
+    let attempts = 0;
+    const thrown = await gateModule
+      .requireCiSuccess({
+        repository: 'o/r',
+        sha: 'abc',
+        ...clock,
+        findRuns: async () => {
+          attempts += 1;
+          throw socketError();
+        },
+        readRunJobs: async () => greenJobs(),
+      })
+      .then(
+        () => null,
+        (error: unknown) => error as Error,
+      );
+
+    expect(thrown, 'a permanently unreachable API must not hang or succeed').toBeInstanceOf(
+      gateModule.GateFailure,
+    );
+    // The distinction is the whole fix: an operator must not read this as a red
+    // CI and revert the commit.
+    expect(thrown?.message).toMatch(/TRANSPORT failure, not a CI verdict/u);
+    expect(thrown?.message).toMatch(/UND_ERR_SOCKET/u);
+    expect(attempts, 'it gave up without retrying').toBeGreaterThan(1);
+  });
+
+  it('does NOT retry a refusal — a red CI still fails immediately', async () => {
+    // The inverse of the fix, and the one that would be catastrophic to get
+    // wrong: a catch wide enough to swallow `GateFailure` turns a false red into
+    // a false GREEN.
+    const clock = fakeClock();
+    let attempts = 0;
+    const thrown = await gateModule
+      .requireCiSuccess({
+        repository: 'o/r',
+        sha: 'abc',
+        ...clock,
+        findRuns: async () => {
+          attempts += 1;
+          return [{ ...completedRun, conclusion: 'failure' }];
+        },
+        readRunJobs: async () => greenJobs(),
+      })
+      .then(
+        () => null,
+        (error: unknown) => error as Error,
+      );
+
+    expect(thrown).toBeInstanceOf(gateModule.GateFailure);
+    expect(thrown?.message).toMatch(/concluded `failure`/u);
+    expect(thrown?.message).not.toMatch(/TRANSPORT/u);
+    expect(attempts, 'a refusal was polled more than once').toBe(1);
+  });
+
+  it('rethrows a NON-transport error unchanged instead of retrying it', async () => {
+    // A bug in this script must surface as itself, immediately. Retrying it for
+    // two minutes and then reporting a network problem is a wrong diagnosis
+    // printed with confidence.
+    const clock = fakeClock();
+    let attempts = 0;
+    const bug = new TypeError('runs.filter is not a function');
+    const thrown = await gateModule
+      .requireCiSuccess({
+        repository: 'o/r',
+        sha: 'abc',
+        ...clock,
+        findRuns: async () => {
+          attempts += 1;
+          throw bug;
+        },
+        readRunJobs: async () => greenJobs(),
+      })
+      .then(
+        () => null,
+        (error: unknown) => error as Error,
+      );
+
+    expect(thrown).toBe(bug);
+    expect(thrown).not.toBeInstanceOf(gateModule.GateFailure);
+    expect(attempts).toBe(1);
+  });
+
+  it('resets the budget on success, so intermittent blips never accumulate', async () => {
+    // CONSECUTIVE, not cumulative. Ten faults spread across a long poll must not
+    // add up to a refusal — that would make a flaky network indistinguishable
+    // from an outage, which is the bug one level up.
+    const clock = fakeClock();
+    let attempts = 0;
+    const run = await gateModule.requireCiSuccess({
+      repository: 'o/r',
+      sha: 'abc',
+      ...clock,
+      findRuns: async () => {
+        attempts += 1;
+        // Alternate: fault, pending, fault, pending… far longer in total than
+        // TRANSPORT_TIMEOUT_MS, but never consecutively so.
+        if (attempts % 2 === 1 && attempts < 20) throw socketError();
+        if (attempts < 20) return [{ ...completedRun, status: 'in_progress', conclusion: null }];
+        return [completedRun];
+      },
+      readRunJobs: async () => greenJobs(),
+    });
+    expect(run.id).toBe(completedRun.id);
+    expect(attempts).toBe(20);
   });
 });

@@ -40,6 +40,18 @@
  *  - **A `pull_request` run is not a verdict on this commit.** GitHub builds the
  *    MERGE commit for `pull_request`, and `main` is squash-merged here, so the
  *    tree that ran is not the tree being deployed. Those runs are excluded.
+ *  - **A TRANSPORT failure is not a verdict either (#728), and this one is the
+ *    complement of the rest.** Every rule above defends against reading GREEN
+ *    while measuring nothing; this defends the other direction. A socket fault
+ *    while polling used to escape the loop and exit 1, which is byte-identical
+ *    to a refusal: `deploy` skipped, run red, deploy-coverage reporting the
+ *    commit as uncovered. Measured on run 32367249937 for `8c6654a5`, whose CI
+ *    was `in_progress` at the time and SUCCEEDED eight minutes later — and
+ *    because these workflows trigger only on `push`/`workflow_dispatch`, nothing
+ *    re-fires when that happens. So a transport error is retried within its own
+ *    bound and, if it persists, refused with a message that SAYS it was
+ *    transport. "I could not ask" and "the answer was no" must not be the same
+ *    observable.
  *
  * ## The one thing it deliberately does not have
  *
@@ -80,9 +92,96 @@ const APPEAR_TIMEOUT_MS = 5 * 60 * 1000;
 const CONCLUDE_TIMEOUT_MS = 30 * 60 * 1000;
 const POLL_INTERVAL_MS = 15 * 1000;
 
+/**
+ * How long the API may be UNREACHABLE before the gate gives up (#728).
+ *
+ * Its own bound, deliberately shorter than the two above. Those measure how long
+ * a verdict may take to arrive; this measures how long we may fail to ASK. A
+ * permanently unreachable API must not spend the 30-minute conclude budget and
+ * then report the same undifferentiated red — that converts "I could not ask"
+ * into a hang.
+ *
+ * CONSECUTIVE, not cumulative: any successful call resets it. A blip is what
+ * this exists to absorb; a sustained outage is what it exists to report.
+ */
+const TRANSPORT_TIMEOUT_MS = 2 * 60 * 1000;
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 class GateFailure extends Error {}
+
+/**
+ * Error codes that mean "the request did not complete", not "the answer is no".
+ *
+ * Measured from the real failure this exists for — `Deploy to AWS` run
+ * 32367249937 on `8c6654a5`, whose log reads:
+ *
+ *     TypeError: fetch failed
+ *       [cause]: SocketError: other side closed
+ *         code: 'UND_ERR_SOCKET',
+ *
+ * The `fetch failed` wrapper is checked as well as the codes, because it is
+ * Node's outer shape for EVERY network fault and therefore covers causes not on
+ * this list. The list is still worth having: it also matches an error thrown
+ * with a bare `code` and no wrapper.
+ */
+const TRANSPORT_ERROR_CODES = new Set([
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_RESPONSE_STATUS_CODE',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'EPIPE',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENETDOWN',
+]);
+
+/**
+ * Whether an error means the gate could not ASK, rather than that the answer
+ * was no (#728).
+ *
+ * ## A `GateFailure` is never transport, and that is stated HERE
+ *
+ * The first line is the whole safety property of this change: a deliberate
+ * refusal must keep exiting 1. Putting it in the classifier rather than in the
+ * caller's branch order means a second call site cannot get it wrong — there is
+ * no ordering to reproduce. `api()` raises `GateFailure` for a 401/403/404
+ * precisely because those are a broken gate rather than a slow queue, and
+ * retrying one for two minutes would bury the message that names the fix.
+ *
+ * ## It refuses to guess
+ *
+ * Anything that is neither a `GateFailure` nor a recognisable network fault is
+ * rethrown UNCHANGED and immediately — a `TypeError` from a bug in this script
+ * must not be retried for two minutes and then reported as a network problem,
+ * which would be a wrong diagnosis printed with confidence. Widening this to
+ * "anything that is not a GateFailure" is the tempting simplification and it is
+ * the one to refuse.
+ */
+export function isTransportError(error) {
+  if (error instanceof GateFailure) return false;
+  if (!error || typeof error !== 'object') return false;
+  const codes = [error.code, error.cause?.code, error.cause?.cause?.code];
+  if (codes.some((code) => typeof code === 'string' && TRANSPORT_ERROR_CODES.has(code))) {
+    return true;
+  }
+  // Node wraps every network fault from `fetch` in this exact TypeError.
+  return error instanceof TypeError && /fetch failed/iu.test(String(error.message ?? ''));
+}
+
+/** The shortest true description of a transport error, for the poll log. */
+function describeTransportError(error) {
+  const code = error?.code ?? error?.cause?.code ?? error?.cause?.cause?.code;
+  const detail = error?.cause?.message ?? error?.message ?? String(error);
+  return code ? `${code}: ${detail}` : String(detail);
+}
 
 async function api(path, token) {
   const response = await fetch(`https://api.github.com${path}`, {
@@ -181,12 +280,57 @@ export function judgeJobs(jobs) {
   return problems;
 }
 
-async function requireCiSuccess({ repository, sha, token, now = () => Date.now() }) {
+async function requireCiSuccess({
+  repository,
+  sha,
+  token,
+  now = () => Date.now(),
+  // Injected so the retry can be tested without a network — the `now` seam
+  // above set the precedent. Production passes none of them, so the defaults
+  // ARE the shipped behaviour rather than a parallel path.
+  findRuns = findRunsForSha,
+  readRunJobs = readJobs,
+  sleepFor = sleep,
+}) {
   const startedAt = now();
   let seenRun = null;
+  /** When the CURRENT unbroken run of transport failures began; null when healthy. */
+  let transportFailingSince = null;
+
+  /**
+   * Convert a transport failure into a poll miss, or refuse once it persists.
+   *
+   * Rethrows anything that is not a transport error, so a `GateFailure` and a
+   * bug in this script both surface immediately and unchanged.
+   */
+  const absorbTransportFailure = (error) => {
+    if (!isTransportError(error)) throw error;
+    const at = now();
+    transportFailingSince ??= at;
+    if (at - transportFailingSince > TRANSPORT_TIMEOUT_MS) {
+      throw new GateFailure(
+        `Could not reach the GitHub API for ${Math.round(TRANSPORT_TIMEOUT_MS / 60000)} ` +
+          `minutes while checking CI for ${sha}.\n` +
+          `Last error: ${describeTransportError(error)}\n\n` +
+          `This is a TRANSPORT failure, not a CI verdict. The gate could not ASK whether CI ` +
+          `passed, which is a different thing from CI having failed — this commit may be ` +
+          `perfectly deployable. Re-run this deploy once the API is reachable; do not read ` +
+          `it as a red CI, and do not revert the commit on the strength of this message.`,
+      );
+    }
+    console.log(`waiting: GitHub API unreachable (${describeTransportError(error)}); retrying…`);
+  };
 
   for (;;) {
-    const runs = await findRunsForSha({ repository, sha, token });
+    let runs;
+    try {
+      runs = await findRuns({ repository, sha, token });
+    } catch (error) {
+      absorbTransportFailure(error);
+      await sleepFor(POLL_INTERVAL_MS);
+      continue;
+    }
+    transportFailingSince = null;
     const run = runs[0];
 
     if (!run) {
@@ -199,7 +343,7 @@ async function requireCiSuccess({ repository, sha, token, now = () => Date.now()
         );
       }
       console.log(`waiting: no CI run for ${sha} yet…`);
-      await sleep(POLL_INTERVAL_MS);
+      await sleepFor(POLL_INTERVAL_MS);
       continue;
     }
 
@@ -217,7 +361,7 @@ async function requireCiSuccess({ repository, sha, token, now = () => Date.now()
         );
       }
       console.log(`waiting: CI run ${run.id} is ${run.status}…`);
-      await sleep(POLL_INTERVAL_MS);
+      await sleepFor(POLL_INTERVAL_MS);
       continue;
     }
 
@@ -232,7 +376,21 @@ async function requireCiSuccess({ repository, sha, token, now = () => Date.now()
       );
     }
 
-    const problems = judgeJobs(await readJobs({ repository, runId: run.id, token }));
+    // The SAME retry, because this call reaches the network too. A socket fault
+    // here is exactly as much "not a verdict" as one in the run lookup, and
+    // leaving it bare would have fixed half the bug — the half that happened to
+    // fail first on 8c6654a5.
+    let jobs;
+    try {
+      jobs = await readRunJobs({ repository, runId: run.id, token });
+    } catch (error) {
+      absorbTransportFailure(error);
+      await sleepFor(POLL_INTERVAL_MS);
+      continue;
+    }
+    transportFailingSince = null;
+
+    const problems = judgeJobs(jobs);
     if (problems.length > 0) {
       throw new GateFailure(
         `CI run ${run.id} for ${sha} reports \`success\` but its jobs do not:\n` +
