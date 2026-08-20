@@ -20,11 +20,23 @@
  *
  * ## Why a script under `scripts/` and not a unit test
  *
- * Neither `packages/ui` nor `packages/frontend` has a test runner — CI's own
- * comment on the RTL guard says so, and `validate-rtl-logical-classes.mjs`,
- * `validate-no-mongo.mjs` and `check-agents-md-size.mjs` are the shape a
- * checkable property takes in this repository. `bun` transpiles the TypeScript
- * on import, so the module under test is the one the apps compile.
+ * `packages/ui` has no test runner — its `test` script is an `echo` — and it
+ * OWNS every module asserted below: `lib/format.ts`, `lib/date.ts`,
+ * `lib/region.ts` and `lib/bidi.ts`. That is the reason, and it is narrower than
+ * the one this comment used to give.
+ *
+ * The three Expo apps each DO have one now (`vitest run`, run by `ci.yml`'s
+ * `Test Dashboard`, `Test App` and `Test POS` steps). So a test is not
+ * impossible in this repository — it is impossible in the package that owns
+ * this code, and bidi isolation is a property of all four packages rather than
+ * of any one app. Both halves matter: a repo-wide property still belongs in a
+ * repo-wide validator, while a behaviour observable from inside a single app is
+ * now better asserted in that app's own suite than by adding a scan here.
+ *
+ * `validate-rtl-logical-classes.mjs`, `validate-no-mongo.mjs` and
+ * `check-agents-md-size.mjs` are the shape such a property takes in this
+ * repository. `bun` transpiles the TypeScript on import, so the module under
+ * test is the one the apps compile.
  *
  * ## The LTR case is half the point
  *

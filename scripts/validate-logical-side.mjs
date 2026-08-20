@@ -25,8 +25,15 @@
  *
  * ## Why a script rather than a unit test
  *
- * None of the four client packages has a test runner, so a `validate-*.mjs`
- * guard is the only place a property of theirs can be asserted at all.
+ * `packages/ui` has no test runner — its `test` script is an `echo` — and it
+ * owns `lib/logical-side.ts`, the module asserted below. The three Expo apps do
+ * each have one (`vitest run`, run by `ci.yml`'s `Test Dashboard`, `Test App`
+ * and `Test POS` steps), so the claim is not that a test is impossible here; it
+ * is that a test cannot live in the package that owns this code, and that the
+ * panel/sheet call sites this guard also checks are spread across all four
+ * packages. A behaviour observable from inside one app is now cheaper and
+ * stronger to assert in that app's own suite than by widening this scan.
+ *
  * `validate-rtl-direction.mjs` is the precedent and this follows it exactly:
  * import the REAL module and run it, rather than scan the source for a spelling.
  *
