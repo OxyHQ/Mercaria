@@ -13,10 +13,17 @@
  *  - it re-states the variant-axis prohibition (ADR 0007 D6/D8) so the operator
  *    reads a sentence rather than a constraint name — the CHECK is still the
  *    authority and still holds against `psql`;
- *  - and it DEPRECATES the previous published version before flipping the new
+ *  - it DEPRECATES the previous published version before flipping the new
  *    one, in one transaction, because
  *    `product_type_definitions_one_published_per_key` refuses any ordering that
- *    would leave two current schemas for one product type.
+ *    would leave two current schemas for one product type;
+ *  - and it CARRIES the superseded version's translations forward, at both the
+ *    version and the per-field grain (#650). A v2 is a new row whose
+ *    localizations start empty and whose fields are new rows, so a publish that
+ *    copied nothing shipped every market untranslated with nothing reporting
+ *    it. It is here rather than in the localization domain because this is the
+ *    transaction in which the two versions are both known and the successor
+ *    becomes the live one.
  *
  * From publication onward the version is frozen by trigger. That is the whole
  * reason these checks run HERE rather than at authoring time: a draft is
@@ -51,6 +58,11 @@ import {
   type ProductTypeFieldGroupRow,
   type ProductTypeFieldRow,
 } from '../../db/productTypes/productTypeFieldRepository.js';
+import {
+  copyForwardProductTypeLocalizations,
+  deriveProductTypeSemanticChange,
+} from '../../db/catalogLocalization/productTypeLocalizationRepository.js';
+import { copyForwardProductTypeFieldLocalizations } from '../../db/catalogLocalization/productTypeFieldLocalizationRepository.js';
 import { assessVariantAxis, describeVariantAxisRefusal } from './variant-axis.js';
 import { assessValuePolicy, describeValuePolicyRefusal } from './value-policy.js';
 import { listAttributeValueTypesByIds } from '../../db/attributes/definitionRepository.js';
@@ -254,6 +266,32 @@ export async function publishProductTypeVersion(
         'not_publishable_from_this_lifecycle',
         `${definition.key} v${definition.version} changed lifecycle while it was being published.`,
       );
+    }
+
+    // Carry the superseded version's translations onto this one, at BOTH grains
+    // (#650). A published version is immutable and a v2 is a new row, so its
+    // localizations start empty and its fields are new rows that
+    // `product_type_field_localizations` cascades away from — meaning a publish
+    // that copied nothing shipped every market untranslated, silently, with
+    // every surface reporting success.
+    //
+    // AFTER the CAS, so a publish that lost the race carries nothing. In the
+    // SAME transaction, so a version cannot exist holding none of its
+    // predecessor's text because the copy failed after the commit — which is
+    // the state `copyForwardProductTypeLocalizations`' own docblock names, and
+    // was assuming a caller for.
+    //
+    // Neither table is inside `mercaria_product_type_child_frozen`: the freeze
+    // covers the version's CONTRACT, and its wording in Catalan stays a
+    // translator's to finish after it goes live.
+    if (incumbent !== null && incumbent.id !== definition.id) {
+      await copyForwardProductTypeLocalizations(
+        incumbent.id,
+        published.id,
+        deriveProductTypeSemanticChange(incumbent, published),
+        tx,
+      );
+      await copyForwardProductTypeFieldLocalizations(incumbent.id, published.id, tx);
     }
 
     return { outcome: 'published', definition: published };

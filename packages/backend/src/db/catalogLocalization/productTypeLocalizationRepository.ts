@@ -32,6 +32,7 @@ import type {
   LocalizationCopyForwardResult,
   LocalizationProvenance,
   LocalizationStatus,
+  LocalizedFieldKey,
   ProductTypeSemanticChange,
   SupportedLocale,
 } from '@mercaria/shared-types';
@@ -150,6 +151,43 @@ function staleAfterChange(
     if (field === 'product_type.help_text' && row.helpText !== null) return true;
   }
   return false;
+}
+
+/**
+ * What a publish can HONESTLY say changed between two versions' own copy.
+ *
+ * The caller supplies the change because this domain cannot compute one, and
+ * that is still true of the field it matters for. But it is not true of all
+ * three, and the difference is a fact about the schema rather than a judgement:
+ *
+ *  - `product_type.name` and `product_type.description` have base columns on
+ *    `product_type_definitions`, so a publish holds BOTH strings and compares
+ *    them. No guess is involved;
+ *  - `product_type.help_text` has NO base column there — `name` and
+ *    `description` are the only two — so the version-level help text exists
+ *    only inside `product_type_localizations` and nothing in the publish
+ *    transaction holds a previous value to compare against.
+ *
+ * So it is reported as changed ALWAYS. That is the safe direction and it is
+ * strictly sharper than `{ kind: 'unknown' }`, which would stale a locale
+ * holding nothing but a name that demonstrably did not move. Under-claiming
+ * would leave help text describing the old question sitting at `approved`,
+ * which is the inheritance the freeze exists to prevent wearing a copy's
+ * clothes.
+ *
+ * Pure, and it takes the two columns rather than two rows so nothing here
+ * depends on the product-type schema's shape.
+ */
+export function deriveProductTypeSemanticChange(
+  superseded: { readonly name: string; readonly description: string | null },
+  successor: { readonly name: string; readonly description: string | null },
+): ProductTypeSemanticChange {
+  const changedFields: LocalizedFieldKey[] = ['product_type.help_text'];
+  if (superseded.name !== successor.name) changedFields.push('product_type.name');
+  if (superseded.description !== successor.description) {
+    changedFields.push('product_type.description');
+  }
+  return { kind: 'diffed', changedFields };
 }
 
 /**
