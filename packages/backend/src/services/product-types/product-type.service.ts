@@ -63,6 +63,7 @@ import {
   deriveProductTypeSemanticChange,
 } from '../../db/catalogLocalization/productTypeLocalizationRepository.js';
 import { copyForwardProductTypeFieldLocalizations } from '../../db/catalogLocalization/productTypeFieldLocalizationRepository.js';
+import { log } from '../../lib/logger.js';
 import { assessVariantAxis, describeVariantAxisRefusal } from './variant-axis.js';
 import { assessValuePolicy, describeValuePolicyRefusal } from './value-policy.js';
 import { listAttributeValueTypesByIds } from '../../db/attributes/definitionRepository.js';
@@ -285,13 +286,34 @@ export async function publishProductTypeVersion(
     // covers the version's CONTRACT, and its wording in Catalan stays a
     // translator's to finish after it goes live.
     if (incumbent !== null && incumbent.id !== definition.id) {
-      await copyForwardProductTypeLocalizations(
+      const version = await copyForwardProductTypeLocalizations(
         incumbent.id,
         published.id,
         deriveProductTypeSemanticChange(incumbent, published),
         tx,
       );
-      await copyForwardProductTypeFieldLocalizations(incumbent.id, published.id, tx);
+      const perField = await copyForwardProductTypeFieldLocalizations(
+        incumbent.id,
+        published.id,
+        tx,
+      );
+      // Both results are LOGGED rather than discarded. `staleOnArrival` is how
+      // much translation work the bump created — the number the copy forward's
+      // counters exist to report, and the reason they are counted off what was
+      // WRITTEN. Discarded, they measure nothing. It has no home on
+      // `ProductTypePublication`, whose refused branch deliberately carries no
+      // `definition`; widening that union with a field only one branch can have
+      // would be a worse trade than a structured log.
+      log.general.info(
+        {
+          productTypeKey: published.key,
+          fromVersion: incumbent.version,
+          toVersion: published.version,
+          version,
+          perField,
+        },
+        'product type publication carried translations forward',
+      );
     }
 
     return { outcome: 'published', definition: published };
