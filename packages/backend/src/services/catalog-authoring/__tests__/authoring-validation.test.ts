@@ -32,7 +32,6 @@ import {
   CONDITION_REQUIRED_AUTHORING_FLOWS,
   MEDIA_EXPECTED_AUTHORING_FLOWS,
 } from '../../../db/schema/catalogAuthoring.js';
-import { PRODUCT_TYPE_AUTHORING_FLOWS } from '@mercaria/shared-types';
 import { gs1CheckDigit } from '../../canonical/identifiers.js';
 import {
   validateDraft,

@@ -43,6 +43,7 @@ import {
 } from '../../../scripts/seed-verticals/__tests__/vertical-fixture.js';
 import { E2E_PERMISSIONS, enumValueId } from '../../../__tests__/vertical-e2e/journey.js';
 import { gs1CheckDigit } from '../../canonical/identifiers.js';
+import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 
 const TOKEN = verticalRunToken('idcol');
 
@@ -89,10 +90,16 @@ beforeAll(async () => {
 }, 300_000);
 
 afterAll(async () => {
+  // Own children first — the identifier row this file minted. Then the products
+  // through `deleteTestCanonicalRows` rather than a direct DELETE: the matcher's
+  // retrieval is a trigram scan over EVERY `canonical_products` row, so a
+  // sibling file's `runMatch` can record a `match_decisions` row citing a
+  // fixture of ours, and both citing columns are `ON DELETE restrict`. The
+  // helper DECLINES exactly the cited ids instead of deleting a sibling's row.
+  // `db/__tests__/canonical-fixture-census.test.ts` fails the build on a fixture
+  // that deletes canonical rows any other way, and it caught this file.
   await db.execute(sql`delete from product_identifiers where id = ${`${TOKEN}-pid`}`);
-  await db.execute(
-    sql`delete from canonical_products where id in (${OWNER_PRODUCT}, ${OTHER_PRODUCT})`,
-  );
+  await deleteTestCanonicalRows(db, { productIds: [OWNER_PRODUCT, OTHER_PRODUCT] });
   await teardownVertical(db, TOKEN);
 }, 300_000);
 

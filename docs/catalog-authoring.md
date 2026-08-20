@@ -243,7 +243,8 @@ reported, visibly, in the same list, and still publishes.
 
 Paths are one spelling: `fields.<attributeKey>`,
 `fields.<attributeKey>[<ordinal>]`, `variants[<position>].price`,
-`variants[<position>].fields.<attributeKey>`, `listing.title`,
+`variants[<position>].fields.<attributeKey>`, `variants[<position>].barcode`,
+`listing.title`, `listing.imageFileIds`, `listing.imageFileIds[<position>]`,
 `classification.categoryId`.
 
 Two answers worth knowing:
@@ -256,6 +257,75 @@ Two answers worth knowing:
   detector says "this is probably a decimal-point mistake", which is a different
   claim from "outside the permitted range". A 40-inch phone screen is almost
   certainly wrong and just possibly a prototype.
+
+### Identifiers and collisions
+
+The canonical rules are **consumed, never restated**.
+`services/canonical/identifiers.ts` owns every arithmetic decision — it is the
+module #56 wrote for this and the one the canonical write path uses. What the
+authoring domain adds is the single thing that module cannot do from a draft:
+pick a SCHEME, because `catalog_authoring_draft_variants.barcode` is one
+free-text column with no scheme beside it. `classifyBarcode`
+(`services/catalog-authoring/identifier.ts`) maps a digit LENGTH to a GS1
+scheme and hands the string over.
+
+- **Only the four GS1 trade-item lengths are recognised** (8, 12, 13, 14).
+  Anything else — a manufacturer part number, a ten-digit code, a string with a
+  letter in it — is reported as NOTHING. The column is free text behind a
+  non-empty CHECK and merchants keep other code systems in it.
+- **ISBN-10 is deliberately not inferred**: there is no ten-digit GS1 scheme, so
+  reading a ten-digit barcode as one would refuse every other ten-digit code by
+  arithmetic it never agreed to. **`isbn13` is not inferred either** — an
+  ISBN-13 IS an EAN-13, so `ean` reaches the identical verdict, while `isbn13`
+  would raise `not_an_isbn_prefix` for every grocery item.
+- **All three identifier findings are WARNINGS.** `AGENTS.md`:
+  "`product_variants.sku` and `.barcode` are unique at NO grain and must not be
+  re-narrowed." An error would re-impose in the authoring form a constraint the
+  schema removed on purpose. For the check digit the reason is sharper still — a
+  thirteen-digit internal article number lives in that column legitimately,
+  nothing can tell one from a mistyped EAN, and the cheapest green would be
+  deleting a true value.
+- **The duplicate check is keyed on the CANONICAL form**, so a UPC-12 and the
+  EAN-13 that pads to the same GTIN-14 collide. They name one trade item.
+- **The collision against the catalogue is a READ**, so it lives in
+  `identifier-collision.ts` and is merged by `validateDraftRow` beside the
+  pending-proposal findings — the domain's existing seam for a rule that needs a
+  row. It goes through `findCanonicalProductsByIdentifier`, the read
+  `db/catalogAuthoring/` already owns, so there is one spelling of "who owns this
+  identifier". The isolation gate forbids the WRITE and says why: "A read across
+  a boundary is a join; a write across one is a second authority."
+- **It fires only on a FOREIGN owner, and only when a canonical product is
+  selected.** With no selection there is no contradiction — an owned barcode is
+  then evidence the author picked the right product, and reporting it would call
+  a correct barcode a problem. It does not call
+  `canonical-search.service.ts`'s own `normalizeIdentifier`, which is
+  deliberately lenient so a mistyped barcode falls through to a name search;
+  that is right for a search box and wrong for an assertion.
+
+### Media
+
+`imageFileIds` holds bare Oxy file ids. Mercaria stores no width, digest, MIME
+type or owner and never calls `configureServiceAuth`, so **whether a file
+exists, what is in it and whose it is are not checkable here and are not
+pretended at**. What is checked is presence against a flow, and duplication.
+
+- **`media_missing` is a WARNING**, gated by `MEDIA_EXPECTED_AUTHORING_FLOWS`
+  (`p2p` today, the same flow `CONDITION_REQUIRED_AUTHORING_FLOWS` names). The
+  justification is #90's: condition evidence is drawn from the listing's OWN
+  gallery and `mercaria_reject_canonical_condition_photo` bars a catalogue image
+  from standing in, so a p2p draft owing a condition and carrying no photograph
+  can supply no evidence for the claim it made.
+- **It is not an ERROR because nothing in this repository can satisfy one.**
+  There is no upload path to Oxy's file service; the dashboard wizard renders a
+  `mediaUnavailable` notice where a picker would go. An error would be a gate
+  whose only green is unreachable. It escalates in the diff that ships a picker,
+  and the constant is renamed with it.
+- **No COUNT ceiling is enforced**, deliberately: `catalog-authoring-schemas.ts`
+  bounds the array at 64 on the only route that writes it, so one here could not
+  fire.
+- **A file id is trimmed but never case-folded** — a SKU is a merchant's own
+  code that every rail looks up case-insensitively, and an Oxy file id is a
+  foreign service's primary key.
 
 ## Publication
 
@@ -420,6 +490,36 @@ about a product nobody made.
 
 ## What is enforced by a test
 
+- `services/catalog-authoring/__tests__/authoring-identifier.test.ts` — the
+  GS1 scheme population is DERIVED from `IDENTIFIER_SCHEME_REGISTRY` rather than
+  asserted, because `GTIN_SCHEME_BY_LENGTH` is a hand map and a hand map is
+  blind in the ADD direction: a fifth GS1 scheme in the registry would be
+  unreachable from authoring with every case still green. The two schemes the
+  map does not serve are named with their reasons and pinned at an exact count,
+  and each length is checked against the registry's own `digitLength` so a
+  pasted number cannot drift. Mutation-verified: deleting the `upc` entry turns
+  five cases red across two files, naming `upc`.
+- `services/catalog-authoring/__tests__/authoring-identifier-collision.realdb.test.ts`
+  — the collision read against a REAL server, driven through
+  `validateStoreDraft` rather than the module in isolation, so a deleted call
+  site fails here instead of in review. The controls are the point: a barcode
+  the SELECTED product owns reports nothing (the commonest correct state), a
+  draft with no selection reports nothing, an unseen barcode reports nothing,
+  and a RETIRED identifier row owns nothing — that last one is a real
+  `status = 'active'` filter that no mock could exercise, and it is restored and
+  PROVED restored afterwards. Mutation-verified in both directions: reporting
+  any owner rather than a foreign one turns exactly the "pinned to the owner"
+  control red, and dropping the merge in `validateDraftRow` turns exactly the
+  three reporting cases red.
+- The barcode and media rules in `authoring-validation.test.ts` pair every
+  refusal with an ADMISSION of the same shape, and every invalid GTIN is derived
+  from a valid partner by moving ONE character — asserted to differ in exactly
+  one position — so no case can pass because a validator refuses everything. The
+  valid partners are built with the production `gs1CheckDigit` rather than
+  pasted: a hand-typed "valid" GTIN that is not valid turns the admission half
+  into a second refusal case and nothing notices. Two cases pin the SEVERITY
+  decisions (neither barcode finding nor media may block) with a positive
+  control that the finding is present at all.
 - `services/catalog-authoring/__tests__/catalog-authoring-isolation.test.ts` —
   five scanned walls (no payment/fee/ledger, no ranking, no referral, no matcher,
   no cross-domain WRITE), plus "no repository reads the flag". File-count and
