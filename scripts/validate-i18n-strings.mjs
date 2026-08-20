@@ -394,7 +394,21 @@ const OWNERS = [
     // sentences moved it by NOTHING, because a function that RETURNS copy is in
     // check A's own list of what it cannot see. The gap runs in BOTH directions,
     // which is why this number is read off a failure and never computed.
-    hardcodedStrings: 131,
+    //
+    // 131 -> 0, and the pin is now `true`: #437's remaining twenty-two
+    // components, measured on b6f2a90d. That gap ran BOTH ways again — five
+    // copy-returning helpers (`totalText`, `noOfferCopy`, `formatDuration` and
+    // two ternary chains) moved the count by nothing while taking real English
+    // off the screen, and one tally line was three findings on its own.
+    //
+    // `true` is the end state this owner was always heading for, and it changes
+    // what the package's own self-tests defend: the case that asserted check A
+    // must NOT fire on unextracted `packages/ui` prose is now its inverse. It
+    // also leaves NO owner carrying a numeric pin, so the branch that compares
+    // one is exercised by a patched copy of this file — see `patchGuard` in
+    // `test-validate-i18n-strings.mjs`. The mechanism stays: it is the shape the
+    // next package mid-extraction takes, and its failure message says so.
+    hardcodedStrings: true,
     // Check F is off here for a DIFFERENT reason than check A. This package
     // does not merely use the action controls, it DEFINES them — a `<Button>`
     // in `packages/ui` is the component, not a call site — so the population F
@@ -427,14 +441,20 @@ const OWNERS = [
     // fails LOUDLY in both directions and so re-derives itself, nothing about a
     // stale floor announces itself — which is why this one sat at 19.7% and then
     // 11.8% with every build green. Re-derive it whenever this bundle grows
-    // substantially; the extraction still owed (149 strings) will move it again.
+    // substantially.
+    //
+    // Re-derived at #437's completion, which is the growth that note predicted:
+    // the extraction added 155 keys and the bundle went 432 -> 619 leaves, which
+    // would have left 300 describing 48.5% of the tree. 425 is 68.7% of the
+    // measurement — the same ratio the frontend owner's note above justifies
+    // (700 against 1,019) and for the same reason.
     //
     // All twelve registry locales: this package IS the registry's home, so it can
     // never be behind an app — and that it has one bundle per `SupportedLocale`
     // is enforced where it belongs, by `SHARED_UI_COPY` being a `Record` rather
     // than a `Partial<Record>`, which `bun run --filter @mercaria/ui typecheck`
     // decides.
-    minimumKeys: 300,
+    minimumKeys: 425,
     minimumLocales: 12,
     // H (#488): ZERO, as of #529. `formatDate` lives in THIS package, so the
     // four shared-component sites #488 left were an import away; they now take

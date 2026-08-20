@@ -116,7 +116,26 @@
         "timeLimitReached": "搜索超时"
       },
       "optimalityProven": "在我们能看到的报价中，这是最优方案。",
-      "optimalityApproximate": "已找到的最佳方案——%{reason}。"
+      "optimalityApproximate": "已找到的最佳方案——%{reason}。",
+      "card": {
+        "refused": "该购物清单无法使用此方案。",
+        "tally": "商品：%{covered}/%{total} · 商家：%{merchants}",
+        "itemPrices": "商品价格：%{total}",
+        "stalePrices": "部分价格上次确认已是一段时间之前。",
+        "notIncluded": "未包含",
+        "addToCart": "加入 Mercaria 购物车（%{items}）",
+        "addToCartA11y": "加入 Mercaria 购物车（%{items}）",
+        "openRetailers": "打开外部商家",
+        "openRetailersNote": "你将在各商家自己的网站上完成购买。Mercaria 不保证他们最终的结算金额。",
+        "merchantLine": "%{merchant}（%{items}）",
+        "merchantLineA11y": "打开 %{merchant}（%{items}）",
+        "atLeast": "至少 %{floor}",
+        "atLeastMissing": "至少 %{floor} — %{missing}",
+        "deliveryOne": "另加运费",
+        "deliveryMultiple": "另加多家商家的运费",
+        "taxUnknown": "未公布税费处理方式",
+        "pricesUnknown": "部分价格未知"
+      }
     },
     "comparison": {
       "listSeparator": "；",
@@ -164,7 +183,8 @@
         "inUnit": "单位：%{unit}",
         "higherIsBetter": "越高越好",
         "lowerIsBetter": "越低越好"
-      }
+      },
+      "noSummary": "此对比没有摘要。下方的表格就是对比结果。"
     },
     "priceSignal": {
       "qualityLabel": {
@@ -646,6 +666,45 @@
         "deltaLower": "比之前低 %{amount}",
         "deltaHigher": "比之前高 %{amount}",
         "unnamedRequirement": "未记录说明的要求"
+      },
+      "card": {
+        "showFindings": "显示 %{name} 找到的结果",
+        "hideFindings": "隐藏 %{name} 找到的结果",
+        "anyCondition": "不限成色",
+        "pricedIn": "以 %{currency} 计价",
+        "inMarket": "在 %{market}",
+        "merchantsExcluded": "已排除的商家：%{merchants}",
+        "scopeSeparator": " · ",
+        "noChannels": "还没有通知渠道",
+        "channelSeparator": "、",
+        "targetPrefix": "低于此价格时通知我",
+        "notifyPolicy": "通过 %{channels} 通知你，最多每 %{cooldown} 一次",
+        "notifyPolicyQuiet": "通过 %{channels} 通知你，最多每 %{cooldown} 一次 · 免打扰 %{start}–%{end}（%{timeZone}）",
+        "requirements": "必须满足的条件",
+        "watching": "正在关注（%{things}）",
+        "openProduct": "打开该商品",
+        "line": "%{quantity} × %{product}",
+        "splitExplanation": "该商品已拆分为两个，因此这个助手会等你说明当初指的是哪一个。两个都可以打开对比。",
+        "splitStays": "保留为：%{product}",
+        "splitMoves": "转到：%{product}",
+        "splitStaysA11y": "保留为该商品 — 打开",
+        "splitMovesA11y": "转到该商品 — 打开",
+        "keepSource": "选这个",
+        "moveToTarget": "选另一个",
+        "runNow": "立即查找",
+        "runNowA11y": "立即为 %{name} 再查找一次",
+        "pause": "暂停",
+        "pauseA11y": "暂停 %{name}",
+        "resume": "继续",
+        "resumeA11y": "继续 %{name}",
+        "remove": "删除",
+        "removeA11y": "删除 %{name}",
+        "neverLooked": "尚未查找",
+        "neverLookedNext": "尚未查找 · 下次 %{next}",
+        "lastLooked": "上次查找 %{last}",
+        "lastLookedNext": "上次查找 %{last} · 下次 %{next}",
+        "constraintHard": "必须：",
+        "constraintSoft": "偏好："
       }
     },
     "facet": {
@@ -671,6 +730,152 @@
       "market": {
         "any": "所有市场"
       }
+    },
+    "savedItem": {
+      "removeProduct": "移除该已保存商品",
+      "removeListing": "移除该已保存商品信息",
+      "savedProduct": "已保存的商品",
+      "savedListing": "已保存的商品信息",
+      "pinnedListing": "已置顶的商品信息",
+      "cheaper": "比你保存时更便宜",
+      "dearer": "比你保存时更贵",
+      "peopleSaved": "保存过该商品的人数：%{people}",
+      "splitChoose": "该商品已拆分 — 请选择你当初指的是哪一个",
+      "splitChooseA11y": "选择你当初指的是哪个商品",
+      "setAlert": "设置降价提醒",
+      "setAlertA11y": "为该商品设置降价提醒",
+      "unavailable": "已不再供应",
+      "priceUnpublished": "未公布价格",
+      "priceInCurrency": "价格以 %{currency} 公布",
+      "noOffer": {
+        "recorded": "还没有人出售",
+        "retired": "目前没有人在售",
+        "filtered": "没有符合你筛选条件的报价",
+        "generic": "暂无报价"
+      }
+    },
+    "priceAlert": {
+      "basis": {
+        "item_price": "不含运费",
+        "known_total": "含运费"
+      },
+      "sellerScope": {
+        "any": "任何卖家",
+        "native_only": "Mercaria 上的卖家",
+        "external_only": "Mercaria 以外的商家",
+        "official_only": "已认证的官方店铺"
+      },
+      "card": {
+        "anyCondition": "不限成色",
+        "scopeLine": "%{segments} · %{sellers}",
+        "listSeparator": "、",
+        "openProduct": "打开该提醒关注的商品",
+        "savedProduct": "已保存的商品",
+        "targetPrefix": "低于此价格时通知我",
+        "notified": "已通知 — 该提醒设置为只通知你一次。",
+        "paused": "已暂停",
+        "splitExplanation": "该商品已拆分为两个，因此该提醒会暂停，直到你选择当初指的是哪一个。",
+        "keepSource": "选这个",
+        "moveToTarget": "选另一个",
+        "keepBoth": "两个都要",
+        "pause": "暂停",
+        "pauseA11y": "暂停该提醒",
+        "resume": "继续",
+        "resumeA11y": "继续该提醒",
+        "delete": "删除",
+        "deleteA11y": "删除该提醒"
+      }
+    },
+    "purchase": {
+      "oneTime": "单次购买",
+      "subscribe": "订阅",
+      "addToCart": "加入购物车",
+      "selectOptions": "选择规格",
+      "buyNow": "立即购买",
+      "subscribeNow": "立即订阅",
+      "frequency": {
+        "monthly": "每月配送一次",
+        "every2Months": "每 2 个月配送一次",
+        "every3Months": "每 3 个月配送一次",
+        "every4Months": "每 4 个月配送一次",
+        "every6Months": "每 6 个月配送一次"
+      }
+    },
+    "marketplace": {
+      "visitMerchant": "访问 %{name}",
+      "noImage": "无图片"
+    },
+    "canonicalCard": {
+      "pricesUnavailable": "暂时无法获取价格",
+      "noOffers": "暂无报价",
+      "priceInCurrency": "价格以 %{currency} 公布",
+      "fromPrice": "%{price} 起",
+      "offerLine": "%{scope} · 报价数：%{offers}"
+    },
+    "carousel": {
+      "previous": "转到上一项",
+      "next": "转到下一项"
+    },
+    "cart": {
+      "saveForLater": "稍后再买"
+    },
+    "category": {
+      "browse": "浏览 %{category}"
+    },
+    "merchantCart": {
+      "checkout": "继续结算",
+      "subtotal": "小计："
+    },
+    "merchantHeader": {
+      "visitStore": "访问店铺",
+      "moreOptions": "更多选项"
+    },
+    "nearby": {
+      "soldBy": "由 %{merchant} 销售",
+      "channel": "渠道：%{channel}",
+      "signIn": "登录",
+      "signInA11y": "登录后可在该店自提",
+      "selectAt": "在 %{place} %{action}"
+    },
+    "pickupPanel": {
+      "heading": "自提",
+      "codeHeading": "你的自提码",
+      "codeA11y": "自提码 %{code}",
+      "codeNote": "请在柜台出示。如果失效，店铺可以重新发放一个——旧的自提码绝不会与新的同时有效。"
+    },
+    "productCard": {
+      "discount": "%{percent} 折扣",
+      "save": "加入已保存商品"
+    },
+    "gallery": {
+      "viewImage": "查看第 %{position} 张图片",
+      "previous": "上一张图片",
+      "next": "下一张图片"
+    },
+    "quantity": {
+      "remove": "移除该商品",
+      "decrease": "减少数量",
+      "increase": "增加数量"
+    },
+    "review": {
+      "defaultScope": "评价",
+      "starsA11y": "平均评分：%{rating}。评价数：%{reviews}。",
+      "starsScopedA11y": "%{scope}。平均评分：%{rating}。评价数：%{reviews}。",
+      "empty": "还没有%{scope}。",
+      "verifiedRatings": "已核实的评分：%{ratings}",
+      "unverified": "未核实：%{ratings} · %{rating}",
+      "readMore": "阅读更多评价"
+    },
+    "searchInterpretation": {
+      "chip": "%{label}",
+      "chipPreference": "%{label} · 偏好",
+      "chipRemove": "移除：%{origin} %{label}",
+      "modeModel": "借助模型理解",
+      "modeRules": "由我们自己的规则理解"
+    },
+    "variantSwatches": {
+      "showMoreA11y": "查看更多 %{option} 选项（%{count}）",
+      "showMore": "+%{count} 个"
     }
   }
 }

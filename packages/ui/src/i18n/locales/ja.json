@@ -116,7 +116,26 @@
         "timeLimitReached": "検索が時間切れになりました"
       },
       "optimalityProven": "確認できたオファーの中で最良のプランです。",
-      "optimalityApproximate": "見つかった中で最良のプランです（%{reason}）。"
+      "optimalityApproximate": "見つかった中で最良のプランです（%{reason}）。",
+      "card": {
+        "refused": "このカゴでは利用できません。",
+        "tally": "商品: %{covered}/%{total} · 販売者: %{merchants}",
+        "itemPrices": "商品価格: %{total}",
+        "stalePrices": "一部の価格は最後に確認してから時間が経っています。",
+        "notIncluded": "含まれないもの",
+        "addToCart": "Mercaria のカートに追加（%{items}）",
+        "addToCartA11y": "Mercaria のカートに追加（%{items}）",
+        "openRetailers": "外部の販売店を開く",
+        "openRetailersNote": "購入は各販売店のサイトで行います。その最終的な支払額を Mercaria は保証しません。",
+        "merchantLine": "%{merchant}（%{items}）",
+        "merchantLineA11y": "%{merchant} を開く（%{items}）",
+        "atLeast": "少なくとも %{floor}",
+        "atLeastMissing": "少なくとも %{floor} — %{missing}",
+        "deliveryOne": "配送料は別",
+        "deliveryMultiple": "複数の販売者からの配送料は別",
+        "taxUnknown": "税の扱いが未公表",
+        "pricesUnknown": "一部の価格が不明"
+      }
     },
     "comparison": {
       "listSeparator": "、",
@@ -164,7 +183,8 @@
         "inUnit": "単位: %{unit}",
         "higherIsBetter": "高いほど良い",
         "lowerIsBetter": "低いほど良い"
-      }
+      },
+      "noSummary": "この比較の要約はありません。下の表がその比較です。"
     },
     "priceSignal": {
       "qualityLabel": {
@@ -646,6 +666,45 @@
         "deltaLower": "前回より %{amount} 安い",
         "deltaHigher": "前回より %{amount} 高い",
         "unnamedRequirement": "説明が記録されていない要件"
+      },
+      "card": {
+        "showFindings": "%{name} が見つけたものを表示",
+        "hideFindings": "%{name} が見つけたものを非表示",
+        "anyCondition": "状態は問わない",
+        "pricedIn": "表示通貨は %{currency}",
+        "inMarket": "%{market} で",
+        "merchantsExcluded": "除外した販売者: %{merchants}",
+        "scopeSeparator": " · ",
+        "noChannels": "まだ通知先なし",
+        "channelSeparator": "、",
+        "targetPrefix": "この価格を下回ったら知らせる",
+        "notifyPolicy": "%{channels} で通知します。頻度は %{cooldown} に最大1回です",
+        "notifyPolicyQuiet": "%{channels} で通知します。頻度は %{cooldown} に最大1回です · 通知を止める時間帯 %{start}〜%{end}（%{timeZone}）",
+        "requirements": "満たすべき条件",
+        "watching": "監視中（%{things}）",
+        "openProduct": "この商品を開く",
+        "line": "%{quantity} × %{product}",
+        "splitExplanation": "この商品は2つに分割されました。どちらを指していたか選ぶまで、このエージェントは待機します。どちらも開いて見比べられます。",
+        "splitStays": "このまま: %{product}",
+        "splitMoves": "移動先: %{product}",
+        "splitStaysA11y": "この商品のまま — 開く",
+        "splitMovesA11y": "この商品へ移動 — 開く",
+        "keepSource": "こちらにする",
+        "moveToTarget": "もう一方にする",
+        "runNow": "今すぐ調べる",
+        "runNowA11y": "%{name} を今すぐもう一度調べる",
+        "pause": "一時停止",
+        "pauseA11y": "%{name} を一時停止",
+        "resume": "再開",
+        "resumeA11y": "%{name} を再開",
+        "remove": "削除",
+        "removeA11y": "%{name} を削除",
+        "neverLooked": "まだ調べていません",
+        "neverLookedNext": "まだ調べていません · 次回 %{next}",
+        "lastLooked": "前回調べたのは %{last}",
+        "lastLookedNext": "前回調べたのは %{last} · 次回 %{next}",
+        "constraintHard": "必須:",
+        "constraintSoft": "希望:"
       }
     },
     "facet": {
@@ -671,6 +730,152 @@
       "market": {
         "any": "すべての販売地域"
       }
+    },
+    "savedItem": {
+      "removeProduct": "保存したこの商品を削除",
+      "removeListing": "保存したこの出品を削除",
+      "savedProduct": "保存した商品",
+      "savedListing": "保存した出品",
+      "pinnedListing": "固定した出品",
+      "cheaper": "保存した時より安くなりました",
+      "dearer": "保存した時より高くなりました",
+      "peopleSaved": "保存した人数: %{people}",
+      "splitChoose": "この商品は分割されました — どちらを指していたか選んでください",
+      "splitChooseA11y": "どちらの商品を指していたか選ぶ",
+      "setAlert": "価格アラートを設定",
+      "setAlertA11y": "この商品の価格アラートを設定",
+      "unavailable": "現在は取り扱いなし",
+      "priceUnpublished": "価格は未公表",
+      "priceInCurrency": "価格は %{currency} で公表されています",
+      "noOffer": {
+        "recorded": "まだ誰も出品していません",
+        "retired": "今は誰も販売していません",
+        "filtered": "条件に合う出品がありません",
+        "generic": "現在の出品はありません"
+      }
+    },
+    "priceAlert": {
+      "basis": {
+        "item_price": "配送料を含まない",
+        "known_total": "配送料を含む"
+      },
+      "sellerScope": {
+        "any": "すべての販売者",
+        "native_only": "Mercaria の販売者",
+        "external_only": "Mercaria 外の販売店",
+        "official_only": "認証済みの公式ストア"
+      },
+      "card": {
+        "anyCondition": "状態は問わない",
+        "scopeLine": "%{segments} · %{sellers}",
+        "listSeparator": "、",
+        "openProduct": "このアラートが見ている商品を開く",
+        "savedProduct": "保存した商品",
+        "targetPrefix": "この価格を下回ったら知らせる",
+        "notified": "通知済み — このアラートは一度だけ知らせる設定でした。",
+        "paused": "一時停止中",
+        "splitExplanation": "この商品は2つに分割されました。どちらを指していたか選ぶまで、このアラートは一時停止します。",
+        "keepSource": "こちらにする",
+        "moveToTarget": "もう一方にする",
+        "keepBoth": "両方",
+        "pause": "一時停止",
+        "pauseA11y": "このアラートを一時停止",
+        "resume": "再開",
+        "resumeA11y": "このアラートを再開",
+        "delete": "削除",
+        "deleteA11y": "このアラートを削除"
+      }
+    },
+    "purchase": {
+      "oneTime": "1回のみの購入",
+      "subscribe": "定期購入",
+      "addToCart": "カートに追加",
+      "selectOptions": "オプションを選ぶ",
+      "buyNow": "今すぐ購入",
+      "subscribeNow": "今すぐ定期購入",
+      "frequency": {
+        "monthly": "毎月お届け",
+        "every2Months": "2か月ごとにお届け",
+        "every3Months": "3か月ごとにお届け",
+        "every4Months": "4か月ごとにお届け",
+        "every6Months": "6か月ごとにお届け"
+      }
+    },
+    "marketplace": {
+      "visitMerchant": "%{name} を見る",
+      "noImage": "画像なし"
+    },
+    "canonicalCard": {
+      "pricesUnavailable": "現在、価格を取得できません",
+      "noOffers": "現在の出品はありません",
+      "priceInCurrency": "価格は %{currency} で公表されています",
+      "fromPrice": "%{price} から",
+      "offerLine": "%{scope} · 出品数: %{offers}"
+    },
+    "carousel": {
+      "previous": "前の項目へ",
+      "next": "次の項目へ"
+    },
+    "cart": {
+      "saveForLater": "あとで購入する"
+    },
+    "category": {
+      "browse": "%{category} を見る"
+    },
+    "merchantCart": {
+      "checkout": "支払いに進む",
+      "subtotal": "小計:"
+    },
+    "merchantHeader": {
+      "visitStore": "ストアを見る",
+      "moreOptions": "その他の操作"
+    },
+    "nearby": {
+      "soldBy": "販売者: %{merchant}",
+      "channel": "チャネル: %{channel}",
+      "signIn": "ログイン",
+      "signInA11y": "この店舗で受け取るにはログインしてください",
+      "selectAt": "%{place} で%{action}"
+    },
+    "pickupPanel": {
+      "heading": "店頭受け取り",
+      "codeHeading": "受け取りコード",
+      "codeA11y": "受け取りコード %{code}",
+      "codeNote": "カウンターでこれを提示してください。使えなくなった場合は店舗が新しいコードを発行できます。古いコードが新しいコードと併用できることはありません。"
+    },
+    "productCard": {
+      "discount": "%{percent} オフ",
+      "save": "保存した商品に追加"
+    },
+    "gallery": {
+      "viewImage": "%{position} 枚目の画像を見る",
+      "previous": "前の画像",
+      "next": "次の画像"
+    },
+    "quantity": {
+      "remove": "商品を削除",
+      "decrease": "数量を減らす",
+      "increase": "数量を増やす"
+    },
+    "review": {
+      "defaultScope": "レビュー",
+      "starsA11y": "平均評価: %{rating}。レビュー数: %{reviews}。",
+      "starsScopedA11y": "%{scope}。平均評価: %{rating}。レビュー数: %{reviews}。",
+      "empty": "%{scope}はまだありません。",
+      "verifiedRatings": "確認済みの評価: %{ratings}",
+      "unverified": "未確認: %{ratings} · %{rating}",
+      "readMore": "レビューをもっと読む"
+    },
+    "searchInterpretation": {
+      "chip": "%{label}",
+      "chipPreference": "%{label} · 希望",
+      "chipRemove": "削除: %{origin} %{label}",
+      "modeModel": "モデルの助けを借りて解釈しました",
+      "modeRules": "独自のルールで解釈しました"
+    },
+    "variantSwatches": {
+      "showMoreA11y": "%{option} の選択肢をもっと見る（%{count}）",
+      "showMore": "+%{count} 件"
     }
   }
 }

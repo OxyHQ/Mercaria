@@ -20,7 +20,7 @@
  * listing runs rather than a stand-in for it.
  */
 
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,8 +36,31 @@ const validator = resolve(repositoryRoot, "scripts/validate-i18n-strings.mjs");
  * of four files would otherwise fail for a reason that has nothing to do with
  * i18n.
  */
-async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {}) {
+async function runAgainst(files, { realFloors = false, removeAfterAdd = [], patchGuard } = {}) {
   const root = await mkdtemp(join(tmpdir(), "i18n-string-validator-"));
+  // A case may run a PATCHED copy of the guard. The guard resolves the tree it
+  // scans from `I18N_VALIDATOR_ROOT`, which this harness always sets, so its own
+  // location is immaterial and the copy behaves identically.
+  //
+  // This exists for exactly one thing: a branch the real OWNERS table can no
+  // longer reach. #437 finished `packages/ui`, so no owner carries a NUMERIC
+  // `hardcodedStrings` any more — and a self-test that cannot fire is worse than
+  // none, because it reads as coverage. Patching one owner back to a number
+  // keeps the pin's comparison genuinely proven.
+  let guardPath = validator;
+  if (patchGuard) {
+    // Written BESIDE the original rather than into a temp directory: the guard
+    // statically imports `../packages/ui/src/i18n/plurals.ts` relative to its own
+    // file, so a copy anywhere else fails to resolve it. The name is unique per
+    // run and it is removed in `finally`; it never enters the fixture tree the
+    // guard scans, which is `I18N_VALIDATOR_ROOT` and not this directory.
+    guardPath = resolve(
+      repositoryRoot,
+      `scripts/.validate-i18n-strings.patched-${process.pid}-${Date.now()}.mjs`,
+    );
+    const patched = patchGuard(await readFile(validator, "utf8"));
+    await writeFile(guardPath, patched);
+  }
   try {
     for (const [path, contents] of Object.entries(files)) {
       const full = join(root, path);
@@ -57,7 +80,7 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
     if (!realFloors) environment.I18N_VALIDATOR_FIXTURE_FLOORS = "1";
 
     const proc = Bun.spawnSync({
-      cmd: ["bun", validator],
+      cmd: ["bun", guardPath],
       cwd: repositoryRoot,
       env: environment,
       stdout: "pipe",
@@ -66,6 +89,7 @@ async function runAgainst(files, { realFloors = false, removeAfterAdd = [] } = {
     return { exitCode: proc.exitCode, output: `${proc.stdout.toString()}${proc.stderr.toString()}` };
   } finally {
     await rm(root, { recursive: true, force: true });
+    if (guardPath !== validator) await rm(guardPath, { force: true });
   }
 }
 
@@ -220,9 +244,14 @@ function migratedTree(extra = {}) {
       + "}\n",
 
     // #437: the shared package's own copy, its key maps, and a component that
-    // resolves one of them. The second file is the must-NOT-fire case for the
-    // `hardcodedStrings: false` flag — `packages/ui` is only PART way through
-    // extraction, so check A must not touch it while B and C do.
+    // resolves one of them.
+    //
+    // It used to carry a third file holding an unextracted English sentence,
+    // because `packages/ui` was mid-extraction and check A had to leave it
+    // alone. #437 finished the extraction and the owner is now
+    // `hardcodedStrings: true`, so that file would fail every case that builds
+    // this tree — and the property it stood for has INVERTED: English in this
+    // package is now a build failure, which is its own case below.
     "packages/ui/src/lib/condition.ts":
       'export const CONDITION_LABEL_KEYS = { new: "ui.condition.label.new" };\n'
       + 'export const DAYS_KEY = "ui.offer.days";\n',
@@ -236,8 +265,6 @@ function migratedTree(extra = {}) {
       + "    <Text>{t(DAYS_KEY, { count: days })}</Text>\n"
       + "  </View>;\n"
       + "}\n",
-    "packages/ui/src/components/NotYetExtracted.tsx":
-      'export const Banner = () => <Text>Free delivery over 50</Text>;\n',
 
     // #437 check E: every app root mounts the provider, the storefront included.
     "packages/dashboard/app/_layout.tsx": rootLayout(),
@@ -690,16 +717,20 @@ const cases = [
     expectOutput: 'missing key "ui.condition.label.new"',
   },
   {
-    name: "packages/ui's UNextracted prose does NOT fire check A",
-    // The flag that lets B and C run over a package check A cannot police yet.
-    // Without it every existing English string in @mercaria/ui fails the build
-    // on the day #437 lands, which is the version of this gate nobody keeps.
+    name: "packages/ui's inline prose DOES fire check A — the #437 completion gate",
+    // The inversion of what stood here. While the package was mid-extraction
+    // this case asserted the opposite, because check A raising on 131 existing
+    // sentences would have been the version of this gate nobody keeps. #437
+    // extracted all of them and the owner moved to `hardcodedStrings: true`, so
+    // the property to defend is now the reverse: a sentence added to
+    // @mercaria/ui fails the build instead of shipping in English to the eleven
+    // languages that cannot read it.
     files: migratedTree({
       "packages/ui/src/components/StillEnglish.tsx":
         'export const S = () => <Empty title="Nothing here" body="Try another filter." />;\n',
     }),
-    expectExit: 0,
-    expectOutput: "i18n string guard passed",
+    expectExit: 1,
+    expectOutput: "hardcoded user-facing string",
   },
   {
     name: "an app bundle claiming the reserved `ui` namespace fails",
@@ -825,17 +856,31 @@ const cases = [
     expectOutput: "i18n string guard passed",
   },
   {
-    // The pin is skipped on a fixture tree (`fixtureFloors`), so this is the
-    // only configuration in which it runs here — and it proves it RUNS and
-    // COMPARES rather than being carried inertly. It fires in the DOWN
-    // direction because this fixture holds one unextracted `packages/ui` string
-    // against a pin measured on the real tree; the real tree is what exercises
-    // agreement, on every invocation of the guard proper.
+    // The pin is skipped on a fixture tree (`fixtureFloors`), so `realFloors` is
+    // the only configuration in which it runs here — and this proves it RUNS
+    // and COMPARES rather than being carried inertly.
+    //
+    // It patches an owner back to a NUMBER, which #437 made necessary: finishing
+    // `packages/ui` left no owner carrying a numeric pin, so the real OWNERS
+    // table can no longer reach this branch at all. The mechanism is still live
+    // — the guard names it as the shape the next package mid-extraction takes,
+    // and its message tells that reader what to do — so deleting its only proof
+    // would leave a branch nobody exercises until somebody depends on it. The
+    // patched number is one no tree could match, so the failure it asserts is
+    // the COMPARISON and not a coincidence.
     name: "a mid-extraction owner's pinned hardcoded count is compared, not carried",
+    patchGuard: (source) => {
+      const patched = source.replace(
+        "    hardcodedStrings: true,\n    // Check F is off here",
+        "    hardcodedStrings: 999,\n    // Check F is off here",
+      );
+      if (patched === source) throw new Error("patchGuard: the `ui` owner anchor moved");
+      return patched;
+    },
     files: migratedTree(),
     realFloors: true,
     expectExit: 1,
-    expectOutput: "hardcoded user-facing string(s), expected exactly",
+    expectOutput: "expected exactly 999",
   },
   {
     name: "a missing en.json is a loud failure",
@@ -1159,6 +1204,7 @@ for (const testCase of cases) {
   const { exitCode, output } = await runAgainst(testCase.files, {
     realFloors: testCase.realFloors,
     removeAfterAdd: testCase.removeAfterAdd,
+    patchGuard: testCase.patchGuard,
   });
 
   const problems = [];
