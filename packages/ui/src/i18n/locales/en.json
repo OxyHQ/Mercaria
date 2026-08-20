@@ -752,6 +752,53 @@
         "filtered": "No offer matches your filters",
         "generic": "No current offer"
       }
+    },
+    "priceAlert": {
+      "basis": {
+        "item_price": "before delivery",
+        "known_total": "including delivery"
+      },
+      "sellerScope": {
+        "any": "any seller",
+        "native_only": "sellers on Mercaria",
+        "external_only": "merchants outside Mercaria",
+        "official_only": "verified official stores"
+      },
+      "card": {
+        "anyCondition": "any condition",
+        "scopeLine": "%{segments} · %{sellers}",
+        "listSeparator": ", ",
+        "openProduct": "Open the product this alert watches",
+        "savedProduct": "Saved product",
+        "targetPrefix": "Tell me under",
+        "notified": "Notified — this alert was set to tell you once.",
+        "paused": "Paused",
+        "splitExplanation": "This product was split in two, so this alert is paused until you choose which one you meant.",
+        "keepSource": "Keep this one",
+        "moveToTarget": "The other one",
+        "keepBoth": "Both",
+        "pause": "Pause",
+        "pauseA11y": "Pause this alert",
+        "resume": "Resume",
+        "resumeA11y": "Resume this alert",
+        "delete": "Delete",
+        "deleteA11y": "Delete this alert"
+      }
+    },
+    "purchase": {
+      "oneTime": "One time purchase",
+      "subscribe": "Subscribe",
+      "addToCart": "Add to cart",
+      "selectOptions": "Select options",
+      "buyNow": "Buy now",
+      "subscribeNow": "Subscribe now",
+      "frequency": {
+        "monthly": "Delivers every month",
+        "every2Months": "Delivers every 2 months",
+        "every3Months": "Delivers every 3 months",
+        "every4Months": "Delivers every 4 months",
+        "every6Months": "Delivers every 6 months"
+      }
     }
   }
 }
