@@ -157,14 +157,23 @@ async function runCounted(db: DatabaseOrTransaction, statement: ReturnType<typeo
 /**
  * Move one entity id to another INSIDE an array column (#716).
  *
- * `array_replace` alone is not enough and the reason is not hypothetical: a
- * shopper who excluded BOTH merchants — which is ordinary, since a duplicate
- * pair is two records of one business and somebody with a grievance may well
- * have named both — would end up holding the winner TWICE. `verify` re-runs
- * every rehoming and requires zero rows, so that duplicate would be moved again
- * on the second pass, and a residual that persists fails the job. Hence the
- * de-duplication, and hence it belongs in the same statement rather than in a
- * tidy-up beside it.
+ * `array_replace` alone is not enough, and the reason is worth stating exactly
+ * because the plausible version of it is wrong. A shopper who excluded BOTH
+ * merchants — ordinary, since a duplicate pair is two records of one business
+ * and somebody with a grievance may well have named both — ends up holding the
+ * winner TWICE.
+ *
+ * `verify` does NOT catch that, and this was measured rather than assumed: with
+ * the de-duplication removed the both-sides case fails on the stored VALUE while
+ * the job still reports `completed`. The residual check re-runs this statement,
+ * whose WHERE matches only arrays still CONTAINING the loser — and after a bare
+ * `array_replace` the loser is gone, so the second pass matches nothing and
+ * reports zero. The duplicate is simply stored, in a set-valued column no reader
+ * counts, and nothing anywhere says so.
+ *
+ * Which is the same shape as the bug this function exists to fix, so the
+ * de-duplication belongs in this statement rather than in a tidy-up beside it:
+ * there is no later gate that would notice its absence.
  *
  * Idempotent for the reason every statement here is: the WHERE matches only rows
  * whose array still CONTAINS the loser, so a completed phase re-run moves

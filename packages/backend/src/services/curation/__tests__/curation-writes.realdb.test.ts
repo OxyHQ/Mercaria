@@ -2850,9 +2850,12 @@ describe('#694: a merge refuses a suppressed entity on either side', () => {
  *
  * The second case is the one that decides the STATEMENT rather than the policy:
  * a shopper who excluded both sides of a duplicate pair — ordinary, since the
- * pair is two records of one business — would hold the winner twice under a
- * bare `array_replace`, and `verify` re-runs every rehoming and fails a job
- * whose residual persists.
+ * pair is two records of one business — holds the winner twice under a bare
+ * `array_replace`. Nothing else catches that. Measured, with the de-duplication
+ * removed: the job reports `completed`, `verify` finds no residual (its WHERE
+ * needs the LOSER, which is gone), and only this case's value assertion fails.
+ * So this case is the only thing standing between that statement and a silently
+ * wrong stored list.
  */
 describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
   /** A `text[]` literal. A bare JS array renders as a ROW constructor in `sql`. */
@@ -2945,8 +2948,8 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
     expect((await claimAndRunMerge(job.id, `lease-716b-${RUN}`)).completed).toBe(true);
 
     // ONE winner, not two — and the unrelated exclusion survives untouched. A
-    // bare `array_replace` leaves the winner twice, which `verify` then moves
-    // again on its own re-run and fails the job.
+    // bare `array_replace` leaves the winner twice and every other check in the
+    // system is happy about it; see this describe's header for the measurement.
     const after = await exclusionsOf(agentId);
     expect(after.filter((id) => id === winnerId)).toEqual([winnerId]);
     expect([...after].sort()).toEqual([otherId, winnerId].sort());
