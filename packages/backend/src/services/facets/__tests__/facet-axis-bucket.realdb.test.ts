@@ -1,23 +1,29 @@
 /**
- * MEASUREMENT for #616: does the facet SERVICE offer a bucket the list rails
- * cannot match?
+ * #616: the facet SERVICE offered a bucket the list rails could not match — and
+ * now both rails answer it.
  *
- * This file settles one question and deliberately fixes nothing. #616 asked
- * whether search and browse should learn to read `canonical_variant_attributes`;
- * its author then corrected it, because `canonical-search.realdb.test.ts` has
- * carried the opposite decision since #70 itself (commit `11fed314`):
+ * This file was written as a MEASUREMENT that deliberately fixed nothing, and it
+ * is what settled the question. #616 asked whether search and browse should
+ * learn to read `canonical_variant_attributes`; its author then corrected it,
+ * because `canonical-search.realdb.test.ts` had carried the opposite decision
+ * since #70 itself (commit `11fed314`):
  *
  * > `canonical_variant_attributes` (the option axes that DEFINE a variant) and
  * > `canonical_attribute_values` (facts a source asserted, one of which may be
  * > SELECTED) are different tables answering different questions.
  *
- * So the remaining question is not "which table should search read" but "does
- * the FACET rail publish an answer that decision makes unmatchable". The
- * correction proposed that it does, and marked the claim unverified — the first
- * reproduction drove `countVariantAttributeBuckets` directly with an
- * UNREGISTERED key, which proves a repository counts something and not that a
- * shopper is offered it. `planFacets` builds the rail from attribute
- * DEFINITIONS, so a key with no `attribute_definitions` row is never planned.
+ * So the question this file actually answered was not "which table should search
+ * read" but "does the FACET rail publish an answer that decision makes
+ * unmatchable". It does, measured below through the real services — and that is
+ * what overturned the #70 reading. The tables do answer different questions; it
+ * does not follow that a filter may ignore one of them while the count beside it
+ * reads both.
+ *
+ * The reproduction had to be built carefully: the first one drove
+ * `countVariantAttributeBuckets` directly with an UNREGISTERED key, which proves
+ * a repository counts something and not that a shopper is offered it.
+ * `planFacets` builds the rail from attribute DEFINITIONS, so a key with no
+ * `attribute_definitions` row is never planned.
  *
  * ## The shape, which is the whole point
  *
@@ -59,14 +65,16 @@
  *   (`facetRepository.ts`) reds the two FACET cases and leaves the two list
  *   ones green. It does more than remove `red` and `black`: with only `gold`
  *   live the facet falls under `FACET_MIN_DISTINCT_VALUES` and is suppressed
- *   `single_value`, so the whole control disappears. That is option 1's cost,
- *   measured rather than argued.
- * - teaching `findProductIdsSatisfyingAttributes`'s `atVariant` to read
- *   `canonical_variant_attributes` reds the two LIST cases and leaves the two
- *   facet ones green — and independently reds two pre-existing cases in
- *   `db/__tests__/canonical-search.realdb.test.ts`, one of them
- *   `a variant OPTION assignment does not satisfy an attribute filter`. That is
- *   option 2, and the reason it is a decision to overturn #70 rather than a fix.
+ *   `single_value`, so the whole control disappears. That was option 1's cost,
+ *   measured rather than argued, and it is why option 1 was NOT taken: axes are
+ *   what the matcher writes for most variants, so narrowing the count would have
+ *   stopped colour and size being offered at all.
+ * - removing the `canonical_variant_attributes` branch from
+ *   `findProductIdsSatisfyingAttributes`'s `atVariant` reds the two LIST cases
+ *   and leaves the two facet ones green. That branch is option 2, now taken:
+ *   it also inverted `a variant OPTION assignment does not satisfy an attribute
+ *   filter` in `db/__tests__/canonical-search.realdb.test.ts`, which states the
+ *   overturn and why.
  *
  * ## Scoping
  *
@@ -392,27 +400,30 @@ describe('#616 — an attribute recorded only on the variant AXIS', () => {
     expect(buckets.get('black')).toBe(1);
   });
 
-  it('…and #70’s list rail returns NOTHING for them, while the control resolves', async () => {
+  it('…and #70’s list rail now RESOLVES them, which is what #616 closed', async () => {
     // Positive control on the search rail itself: unfiltered, the term retrieves
-    // all three of this run's products, so an empty filtered answer below is
+    // all three of this run's products, so a filtered answer below is
     // attributable to the filter and not to retrieval.
     expect(await searchByValue()).toEqual([...PRODUCT_IDS].sort());
 
     // The control value, through the identical call.
     expect(await searchByValue('gold')).toEqual([SELECTED_GOLD]);
 
-    // MEASURED: the two buckets the rail above offered match no product.
-    expect(await searchByValue('red')).toEqual([]);
-    expect(await searchByValue('black')).toEqual([]);
+    // Until #616 both of these were `[]` — offered by the count above and
+    // matched by nothing, which is the contradiction this file was written to
+    // measure. `findProductIdsSatisfyingAttributes` now reads
+    // `canonical_variant_attributes` correlated to the same variant.
+    expect(await searchByValue('red')).toEqual([AXIS_RED]);
+    expect(await searchByValue('black')).toEqual([AXIS_BLACK]);
   });
 
   it('…which is the ONE function both list services call, measured directly', async () => {
-    // `canonical-search.service.ts:505` and `product-browse.service.ts:220` pass
-    // their `filters.attributes` to this verbatim, so the browse rail's answer is
-    // this answer and needs no second fixture.
+    // `canonical-search.service.ts` and `product-browse.service.ts` pass their
+    // `filters.attributes` to this verbatim, so the browse rail's answer is this
+    // answer and needs no second fixture.
     expect(await filterByValue('gold')).toEqual([SELECTED_GOLD]);
-    expect(await filterByValue('red')).toEqual([]);
-    expect(await filterByValue('black')).toEqual([]);
+    expect(await filterByValue('red')).toEqual([AXIS_RED]);
+    expect(await filterByValue('black')).toEqual([AXIS_BLACK]);
   });
 
   it('the facet ALSO counts an axis-only product as having the attribute', async () => {

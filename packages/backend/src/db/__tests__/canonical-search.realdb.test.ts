@@ -777,9 +777,15 @@ describe('structured filters (case 7)', () => {
 
     // The fixture that makes the assertion above mean something: the same
     // product, the same key, a value it does NOT carry.
+    //
+    // `1tb` rather than `512gb`, and the change is #616's: this product DOES
+    // carry 512 GB — as the option axis that defines its second variant — and
+    // since the filter learned to read `canonical_variant_attributes` that is a
+    // match. A negative control has to name a value neither table holds, or it
+    // stops being one.
     const wrong = products(
       await search(`Zyphone ${RUN} 16 Pro`, {
-        filters: { attributes: [{ key: 'storage', value: '512gb' }] },
+        filters: { attributes: [{ key: 'storage', value: '1tb' }] },
       }),
     );
     expect(wrong.map((hit) => hit.canonicalProductId)).not.toContain(fixture.phoneProId);
@@ -792,18 +798,37 @@ describe('structured filters (case 7)', () => {
     expect(inRange.map((hit) => hit.canonicalProductId)).toContain(fixture.phoneProId);
   });
 
-  it('a variant OPTION assignment does not satisfy an attribute filter', async () => {
-    // `canonical_variant_attributes` (the option axes that DEFINE a variant) and
-    // `canonical_attribute_values` (facts a source asserted, one of which may be
-    // SELECTED) are different tables answering different questions. The 512 GB
-    // variant exists and carries that option — and no selected registry value
-    // says so, which is why the filter above correctly refuses it.
+  it('a variant OPTION assignment DOES satisfy an attribute filter (#616)', async () => {
+    // OVERTURNED, deliberately. This case asserted the opposite until #616, on
+    // the reasoning that `canonical_variant_attributes` (the option axes that
+    // DEFINE a variant) and `canonical_attribute_values` (facts a source
+    // asserted, one of which may be SELECTED) "are different tables answering
+    // different questions", so a filter should read only the second.
+    //
+    // They are different tables, and that part stands. What did not survive
+    // measurement is the conclusion: the FACET rail beside this one reads BOTH
+    // and always has, so a shopper was offered "512 GB (1)" by the count and
+    // handed an empty list by the filter — reachable through `POST /facets` plus
+    // `GET /search?attributes=`, measured in
+    // `services/facets/__tests__/facet-axis-bucket.realdb.test.ts`.
+    //
+    // Of the two ways to end that, narrowing the FACET rail is the destructive
+    // one: axes are what the matcher writes for most variants, so colour and
+    // size would stop being offered at all (measured — with only registry values
+    // live the facet falls under `FACET_MIN_DISTINCT_VALUES` and is suppressed
+    // outright). And this rail already treats an axis as definitive elsewhere:
+    // `findVariantIntentMatches` matches variant intent against
+    // `normalized_value`, calling it the string "the catalogue considers
+    // definitive".
+    //
+    // So the axis answers the filter, correlated to the SAME variant #567's
+    // `exists` establishes — a widening, never a loosening of same-variant.
     const hits = products(
       await search(`Zyphone ${RUN} 16 Pro`, {
         filters: { attributes: [{ key: 'storage', value: '512gb' }] },
       }),
     );
-    expect(hits).toHaveLength(0);
+    expect(hits.map((hit) => hit.canonicalProductId)).toEqual([fixture.phoneProId]);
   });
 });
 

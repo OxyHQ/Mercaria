@@ -46,6 +46,7 @@
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
 import type { CanonicalAliasKind, IdentifierScheme } from '@mercaria/shared-types';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
   canonicalProductAliases,
@@ -78,17 +79,6 @@ export interface AliasCandidate {
   readonly aliasKind: CanonicalAliasKind;
 }
 
-/**
- * The catalogue statuses a search result may hold.
- *
- * `draft` is EXCLUDED here where `PostgresCandidateSource.MATCHABLE_STATUSES`
- * includes it, and the difference is the point: a provisional product is
- * exactly the right thing for a matcher to ATTACH an observation to, and
- * exactly the wrong thing to show a shopper as a product. `discontinued` IS
- * included — somebody searching a discontinued model means that model, and the
- * offers on it (if any) will say what is still buyable.
- */
-const SEARCHABLE_CATALOG_STATUSES = ['active', 'discontinued'] as const;
 
 /** The lifecycle statuses of the non-catalogue entities a search may show. */
 const SEARCHABLE_ENTITY_STATUSES = ['active'] as const;
@@ -137,7 +127,7 @@ export async function findProductIdsByNormalizedName(
     .where(
       and(
         eq(canonicalProducts.normalizedName, normalizedName),
-        inArray(canonicalProducts.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(asc(canonicalProducts.id))
@@ -159,7 +149,7 @@ export async function findProductAliasCandidates(
     .where(
       and(
         eq(canonicalProductAliases.normalizedAlias, normalizedAlias),
-        inArray(canonicalProducts.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(asc(canonicalProductAliases.productId))
@@ -191,7 +181,7 @@ export async function findProductIdsByNamePrefix(
     .where(
       and(
         sql`${canonicalProducts.normalizedName} like ${`${escapedPrefix}%`}`,
-        inArray(canonicalProducts.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(desc(ratio), asc(canonicalProducts.id))
@@ -214,7 +204,7 @@ export async function searchProductIdsByLexicalRank(
     .where(
       and(
         sql`${canonicalProducts.searchVector} @@ ${query}`,
-        inArray(canonicalProducts.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(desc(rank), asc(canonicalProducts.id))
@@ -249,7 +239,7 @@ export async function findProductIdsByDiscriminatingTokens(
     .where(
       and(
         sql`${canonicalProducts.searchTokens} && ${bound}::text[]`,
-        inArray(canonicalProducts.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(desc(overlap), asc(canonicalProducts.id))
@@ -285,7 +275,7 @@ export async function searchProductIdsByNameSimilarity(
     .where(
       and(
         sql`${canonicalProducts.normalizedName} % ${normalizedName}`,
-        inArray(canonicalProducts.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(sql`${canonicalProducts.normalizedName} <-> ${normalizedName}`)
@@ -404,7 +394,7 @@ export async function findVariantIntentMatches(
     .where(
       and(
         inArray(canonicalVariants.productId, [...productIds]),
-        inArray(canonicalVariants.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalVariants.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
         sql`${canonicalVariantAttributes.normalizedValue} = any(${bound}::text[])`,
       ),
     )
@@ -522,7 +512,7 @@ export async function findFamilyIdsByNormalizedName(
     .where(
       and(
         eq(canonicalProductFamilies.normalizedName, normalizedName),
-        inArray(canonicalProductFamilies.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProductFamilies.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(asc(canonicalProductFamilies.id))
@@ -546,7 +536,7 @@ export async function findFamilyAliasCandidates(
     .where(
       and(
         eq(canonicalProductFamilyAliases.normalizedAlias, normalizedAlias),
-        inArray(canonicalProductFamilies.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProductFamilies.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(asc(canonicalProductFamilyAliases.familyId))
@@ -568,7 +558,7 @@ export async function searchFamilyIdsByLexicalRank(
     .where(
       and(
         sql`${canonicalProductFamilies.searchVector} @@ ${query}`,
-        inArray(canonicalProductFamilies.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProductFamilies.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(desc(rank), asc(canonicalProductFamilies.id))
@@ -589,7 +579,7 @@ export async function searchFamilyIdsByNameSimilarity(
     .where(
       and(
         sql`${canonicalProductFamilies.normalizedName} % ${normalizedName}`,
-        inArray(canonicalProductFamilies.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProductFamilies.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     )
     .orderBy(desc(score), asc(canonicalProductFamilies.id))
@@ -800,7 +790,7 @@ export async function loadProductResultRows(
     .where(
       and(
         inArray(canonicalProducts.id, [...ids]),
-        inArray(canonicalProducts.status, [...SEARCHABLE_CATALOG_STATUSES]),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
       ),
     );
 }
@@ -979,6 +969,43 @@ function attributeConstraintPredicate(alias: string, constraint: AttributeConstr
     predicates.push(sql`${table}.normalized_text = ${constraint.value}`);
   }
   if (constraint.minNumber !== undefined) {
+    // The UPPER end of a stored RANGE satisfies a lower bound — a value recorded
+    // as 8–16 GB is at least 12 — and `normalized_number_max` is NULL for a
+    // scalar, so the coalesce collapses to the scalar case. Spelled exactly as
+    // `attributeValuePredicate` in `db/facets/facetRepository.ts` spells it:
+    // without the coalesce the facet rail counted a ranged value against a `min`
+    // that this list rail then matched with nothing, which is #616's symptom
+    // arriving through a second door.
+    predicates.push(
+      sql`coalesce(${table}.normalized_number_max, ${table}.normalized_number) >= ${constraint.minNumber}`,
+    );
+  }
+  if (constraint.maxNumber !== undefined) {
+    // No coalesce on this side, and the facet rail agrees: the LOWER end is what
+    // satisfies an upper bound.
+    predicates.push(sql`${table}.normalized_number <= ${constraint.maxNumber}`);
+  }
+  return sql.join(predicates, sql` and `);
+}
+
+/**
+ * One constraint as a predicate over an aliased `canonical_variant_attributes`
+ * row — the AXIS assignment table (#616).
+ *
+ * A separate function rather than a parameter on the one above, because the two
+ * tables spell the same facts with different columns: the value is
+ * `normalized_value` rather than `normalized_text`, and there is no
+ * `normalized_number_max`, so an axis carries no range for a `min` bound to
+ * coalesce over. Mirrors `variantAxisPredicate` in
+ * `db/facets/facetRepository.ts` column for column.
+ */
+function variantAxisConstraintPredicate(alias: string, constraint: AttributeConstraint): SQL {
+  const table = sql.raw(alias);
+  const predicates: SQL[] = [sql`${table}.attribute_key = ${constraint.key}`];
+  if (constraint.value !== undefined) {
+    predicates.push(sql`${table}.normalized_value = ${constraint.value}`);
+  }
+  if (constraint.minNumber !== undefined) {
     predicates.push(sql`${table}.normalized_number >= ${constraint.minNumber}`);
   }
   if (constraint.maxNumber !== undefined) {
@@ -1008,18 +1035,6 @@ function attributeConstraintPredicate(alias: string, constraint: AttributeConstr
  * genuinely crossed fixture; a fixture without one passes against both
  * implementations, which is how this survived.
  *
- * ## Both grains, and the `or` that joins them
- *
- * An attribute may be recorded on the PRODUCT (screen size) or on a VARIANT
- * (storage) — `attributeRepository` writes one or the other, never both — so
- * each constraint is met at product grain OR on the correlated variant.
- * Requiring all of them on the variant would drop every product-grain filter;
- * requiring all at product grain would drop every variant-grain one.
- *
- * The product-grain-only branch beside the `exists` is not redundant: a product
- * with NO variant rows satisfies a product-grain filter and cannot be reached by
- * a correlated `exists` at all.
- *
  * `selection_state = 'selected'` and nothing else. A `conflicting` value is two
  * sources disagreeing and #94 deliberately selects neither; filtering on one of
  * them would answer with whichever source was written first, which is a
@@ -1030,41 +1045,39 @@ function attributeConstraintPredicate(alias: string, constraint: AttributeConstr
  * and intersecting a bounded set is cheap where joining the whole table into
  * seven retrieval stages is not.
  *
- * ## The `cv` join below carries NO status predicate, and that is UNDECIDED
+ * ## Status: `SHOPPER_VISIBLE_CATALOG_STATUSES`, the same set the facet rail uses
  *
- * Three spellings of one question — which variants may answer a filter —
- * measured across the two rails that serve one page (#616):
+ * The `cv` join below used to carry NO status predicate at all — wider than
+ * either of the other two spellings of this question, so a `suppressed` variant
+ * (the operator's own "do not show"), a `merged` tombstone and an unpublished
+ * `draft` all answered attribute filters. All three were MEASURED on both list
+ * rails while the facet count beside them correctly excluded them (#628).
  *
- * | where | predicate on `canonical_variants.status` |
- * | --- | --- |
- * | `db/facets/facetRepository.ts`, all ten variant-grain reads | `cv.status = 'active'` |
- * | `findVariantIntentMatches`, in THIS file | `in ('active', 'discontinued')`, via {@link SEARCHABLE_CATALOG_STATUSES} |
- * | the `exists` below | none at all |
+ * It now reads `SHOPPER_VISIBLE_CATALOG_STATUSES`, imported rather than
+ * re-spelled, and `db/facets/facetRepository.ts` reads the same constant. That
+ * rail produces the COUNT and this one produces the LIST: their agreement is the
+ * invariant, which is why neither may hold a local opinion about it. The
+ * reasoning for the set — three exclusions, and why `discontinued` is NOT one of
+ * them — is on the constant, beside the vocabulary that decides it.
  *
- * The third is not between the other two, it is WIDER than either: the status
- * vocabulary is `draft | active | discontinued | merged | suppressed`, so with
- * no predicate a `suppressed` variant — the operator's own "do not show" — and
- * a `merged` tombstone both still satisfy an attribute filter here.
+ * ## Both grains, BOTH variant tables, and the `or` that joins them
  *
- * Both candidate answers are defensible and each moves results the other way,
- * so this is deliberately NOT decided here:
+ * An attribute may be recorded on the PRODUCT (screen size) or on a VARIANT
+ * (storage), so each constraint is met at product grain OR on the correlated
+ * variant. Requiring all of them on the variant would drop every product-grain
+ * filter; requiring all at product grain would drop every variant-grain one.
  *
- * - **copy the facet rail** (`cv.status = 'active'`) and this filter DROPS
- *   results. It would also make the attribute filter NARROWER than
- *   `findVariantIntentMatches` twenty lines up, whose own docblock argues the
- *   opposite by name: "`discontinued` IS included — somebody searching a
- *   discontinued model means that model."
- * - **copy {@link SEARCHABLE_CATALOG_STATUSES} into the facet rail** and the
- *   counts ADMIT products they exclude today. Which is why the facet rail is as
- *   likely to be the side that should move.
+ * At VARIANT grain there are TWO tables and both are read (#616). A variant's
+ * colour may be a registry value in `canonical_attribute_values` or the option
+ * assignment that DEFINES the variant in `canonical_variant_attributes` — the
+ * matcher writes the second for most axes. Reading only the first is what made
+ * the facet rail offer "Red (3)" above an empty result list: it reads both, and
+ * this one read one. Both `exists` correlate to the SAME `cv`, so the #567
+ * same-variant property survives the widening rather than being traded for it.
  *
- * Whoever decides it should decide it for BOTH rails in one change, together
- * with #616's other divergence (the facet rail counts values drawn from
- * `canonical_variant_attributes` and this filter reads only
- * `canonical_attribute_values`). The two pull in opposite directions — reading
- * the axis table admits more products, filtering variant status admits fewer —
- * so a change that settles one without naming the other looks like it made the
- * rails agree when it has only moved where they disagree.
+ * The product-grain-only branch beside the `exists` is not redundant: a product
+ * with NO variant rows satisfies a product-grain filter and cannot be reached by
+ * a correlated `exists` at all.
  */
 export async function findProductIdsSatisfyingAttributes(
   db: DatabaseOrTransaction,
@@ -1082,11 +1095,23 @@ export async function findProductIdsSatisfyingAttributes(
     where pav.product_id = p.id and pav.selection_state = 'selected'
       and ${attributeConstraintPredicate('pav', constraint)})`;
 
-  /** This constraint, met by a VARIANT-grain value on the correlated `cv`. */
-  const atVariant = (constraint: AttributeConstraint): SQL => sql`exists (
-    select 1 from canonical_attribute_values vav
-    where vav.variant_id = cv.id and vav.selection_state = 'selected'
-      and ${attributeConstraintPredicate('vav', constraint)})`;
+  /**
+   * This constraint, met on the correlated `cv` — by a registry VALUE or by the
+   * option assignment that DEFINES the variant.
+   *
+   * Both correlate to `cv.id`, so the requirement set is still answered by ONE
+   * variant (#567) however each half of it happens to be recorded. Spelled the
+   * way `variantRequirementExists` in `db/facets/facetRepository.ts` spells it,
+   * because that rail's count and this rail's list describe one page (#616).
+   */
+  const atVariant = (constraint: AttributeConstraint): SQL => sql`(exists (
+      select 1 from canonical_attribute_values vav
+      where vav.variant_id = cv.id and vav.selection_state = 'selected'
+        and ${attributeConstraintPredicate('vav', constraint)})
+    or exists (
+      select 1 from canonical_variant_attributes vaa
+      where vaa.variant_id = cv.id and vaa.normalization_state = 'normalized'
+        and ${variantAxisConstraintPredicate('vaa', constraint)}))`;
 
   // Every constraint met at PRODUCT grain.
   //
@@ -1116,7 +1141,9 @@ export async function findProductIdsSatisfyingAttributes(
       and ((${allAtProduct})
         or exists (
           select 1 from canonical_variants cv
-          where cv.product_id = p.id and (${oneVariantMeetsAll})))`);
+          where cv.product_id = p.id
+            and cv.status = any(${sql.param([...SHOPPER_VISIBLE_CATALOG_STATUSES])}::text[])
+            and (${oneVariantMeetsAll})))`);
   return [...rows].map((row) => row.productId);
 }
 

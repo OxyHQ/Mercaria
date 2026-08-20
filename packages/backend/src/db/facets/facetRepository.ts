@@ -34,23 +34,24 @@
  * reads beside a checkbox, and it would exceed the number of results the
  * checkbox produces.
  *
- * ## `cv.status = 'active'` is spelled ten times here and NOWHERE on the list rail
+ * ## Status is {@link shopperVisible}, and the same set answers the LIST
  *
- * The two rails serve one page and disagree about which variants may answer a
- * filter (#616). Measured: this file requires `active`;
- * `findVariantIntentMatches` in `db/search/searchCandidateRepository.ts`
- * requires `in ('active', 'discontinued')`; and
- * `findProductIdsSatisfyingAttributes` beside it carries NO status predicate at
- * all — wider than either, since the vocabulary is
- * `draft | active | discontinued | merged | suppressed`.
+ * This file used to spell `cv.status = 'active'` ten times and `p.status =
+ * 'active'` once, while the list rail carried a different set at product grain
+ * and NO variant predicate at all. Measured (#628): an operator marked a variant
+ * `suppressed` and the count below correctly excluded it while both result lists
+ * went on returning the product because of that variant's attributes.
  *
- * Do not close the gap by copying either spelling into the other rail without a
- * decision. Narrowing the list rail to `active` would make it narrower than the
- * variant read twenty lines above it, whose docblock argues by name that
- * somebody searching a discontinued model means that model; widening this file
- * to match would admit products these counts exclude today. The full statement
- * of both candidate answers is on `findProductIdsSatisfyingAttributes`, which is
- * where a reader arrives holding the change.
+ * The decision is `SHOPPER_VISIBLE_CATALOG_STATUSES` — `active` and
+ * `discontinued` — declared in `@mercaria/shared-types` beside the vocabulary
+ * that justifies it, and read by BOTH rails. Widening this file to admit
+ * `discontinued` is the half that changes these counts: a discontinued product
+ * was already in both result lists and counted zero here, so the count and the
+ * list disagreed in that direction too.
+ *
+ * A count and the list rendered beside it are one claim. Do not re-spell either
+ * predicate locally: the way this broke was eleven literals nobody could diff
+ * against a rail in another directory.
  *
  * ## No index was added and none is needed
  *
@@ -69,8 +70,20 @@
 
 import { sql, type SQL } from 'drizzle-orm';
 import type { ConditionGroup, OfferKind } from '@mercaria/shared-types';
-import { conditionKeysInGroup } from '@mercaria/shared-types';
+import { conditionKeysInGroup, SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
+
+/**
+ * `<alias>.status`, restricted to what a shopper may be shown.
+ *
+ * ONE function rather than the eleven literals this file used to spell, because
+ * the value has to be the same one `findProductIdsSatisfyingAttributes` uses:
+ * this rail produces the COUNT and that one produces the LIST, on one page.
+ * Spelled per site, they drifted — and #628 is what that cost.
+ */
+function shopperVisible(alias: string): SQL {
+  return sql`${sql.raw(alias)}.status = any(${sql.param([...SHOPPER_VISIBLE_CATALOG_STATUSES])}::text[])`;
+}
 
 /**
  * One requirement on an attribute, already normalized into the definition's
@@ -176,7 +189,7 @@ function instant(at: Date): SQL {
 
 /** The scope, as a predicate over the alias `p`. */
 function scopePredicate(scope: FacetScopeInput): SQL {
-  const active = sql`p.status = 'active'`;
+  const active = shopperVisible('p');
   if (scope.kind === 'categories') {
     return sql`${active} and p.category_id = any(${sql.param([...scope.categoryIds])}::text[])`;
   }
@@ -378,7 +391,7 @@ export function buildEntityPredicate(context: FacetQueryContext): SQL {
 
   const wantsOffer = hasOfferRequirement(requirements.offer);
   if (requirements.variant.length > 0) {
-    const inner: SQL[] = [sql`cv.product_id = p.id`, sql`cv.status = 'active'`];
+    const inner: SQL[] = [sql`cv.product_id = p.id`, shopperVisible('cv')];
     for (const requirement of requirements.variant) {
       inner.push(variantRequirementExists('cv', requirement));
     }
@@ -391,7 +404,7 @@ export function buildEntityPredicate(context: FacetQueryContext): SQL {
   } else if (wantsOffer) {
     parts.push(
       sql`exists (select 1 from canonical_variants cv
-                  where cv.product_id = p.id and cv.status = 'active'
+                  where cv.product_id = p.id and ${shopperVisible('cv')}
                     and ${offerRequirementsExists('cv', requirements.offer, context.now)})`,
     );
   }
@@ -542,7 +555,7 @@ export async function countVariantAttributeBuckets(
            vals.bucket_value as "bucketValue",
            count(distinct p.id)::int as "productCount"
     from canonical_products p
-    join canonical_variants cv on cv.product_id = p.id and cv.status = 'active'
+    join canonical_variants cv on cv.product_id = p.id and ${shopperVisible('cv')}
     join lateral (
       select av.attribute_key, av.normalized_text as bucket_value
       from canonical_attribute_values av
@@ -603,7 +616,7 @@ export async function measureVariantAttributeRanges(
            max(vals.high) as "maxValue",
            count(distinct p.id)::int as "productCount"
     from canonical_products p
-    join canonical_variants cv on cv.product_id = p.id and cv.status = 'active'
+    join canonical_variants cv on cv.product_id = p.id and ${shopperVisible('cv')}
     join lateral (
       select av.attribute_key,
              av.normalized_number as low,
@@ -677,13 +690,13 @@ export async function countProductsWithAttribute(
       select av.attribute_key
       from canonical_attribute_values av
       join canonical_variants cv on cv.id = av.variant_id
-      where cv.product_id = p.id and cv.status = 'active'
+      where cv.product_id = p.id and ${shopperVisible('cv')}
         and av.selection_state = 'selected' and av.attribute_key = any(${keys})
       union all
       select va.attribute_key
       from canonical_variant_attributes va
       join canonical_variants cv on cv.id = va.variant_id
-      where cv.product_id = p.id and cv.status = 'active'
+      where cv.product_id = p.id and ${shopperVisible('cv')}
         and va.normalization_state = 'normalized' and va.attribute_key = any(${keys})
     ) as vals on true
     where ${buildEntityPredicate(context)}
@@ -727,7 +740,7 @@ export async function listObservedValueLabels(
       join canonical_attribute_values av
         on av.product_id = p.id or av.variant_id in (
              select cv.id from canonical_variants cv
-             where cv.product_id = p.id and cv.status = 'active')
+             where cv.product_id = p.id and ${shopperVisible('cv')})
       where ${buildEntityPredicate(context)}
         and av.selection_state = 'selected'
         and av.attribute_key = any(${keys})
@@ -781,7 +794,7 @@ async function countOfferBuckets(
   const rows = await db.execute<FacetCommerceBucketRow>(sql`
     select ${bucketExpression} as "bucketValue", count(distinct p.id)::int as "productCount"
     from canonical_products p
-    join canonical_variants cv on cv.product_id = p.id and cv.status = 'active'
+    join canonical_variants cv on cv.product_id = p.id and ${shopperVisible('cv')}
     join offers o on ${sql.join(offerParts, sql` and `)}
     where ${buildEntityPredicate(context)} and ${variantGuard} and ${others}
     group by 1`);
@@ -865,7 +878,7 @@ export async function measureOfferPriceSpans(
            max(o.price_amount)::bigint as "maxMinor",
            count(distinct p.id)::int as "productCount"
     from canonical_products p
-    join canonical_variants cv on cv.product_id = p.id and cv.status = 'active'
+    join canonical_variants cv on cv.product_id = p.id and ${shopperVisible('cv')}
     join offers o on o.canonical_variant_id = cv.id and o.status = 'active'
       and o.stale_at > ${instant(context.now)}
       and o.price_amount is not null and o.price_currency is not null
@@ -917,7 +930,7 @@ export async function listScopeOfferCurrencies(
   const rows = await db.execute<{ currency: string }>(sql`
     select distinct o.price_currency as currency
     from canonical_products p
-    join canonical_variants cv on cv.product_id = p.id and cv.status = 'active'
+    join canonical_variants cv on cv.product_id = p.id and ${shopperVisible('cv')}
     join offers o on o.canonical_variant_id = cv.id and o.status = 'active'
       and o.stale_at > ${instant(context.now)} and o.price_currency is not null
     where ${buildEntityPredicate(context)}`);

@@ -2,20 +2,20 @@
  * #628: which variant STATUSES may answer an attribute filter — measured across
  * the three rails that serve one page.
  *
- * This pins a DEFECT rather than an invariant, deliberately, and the reason is
- * the same one #625 records for #616: the contradiction is invisible from any
- * one rail, so the only thing that makes it a fact anybody can act on is a case
- * that drives all three and fails when either side moves.
+ * This pinned a DEFECT and now pins the DECISION that closed it. The reason it
+ * had to drive all three rails is the one #625 records for #616: the
+ * contradiction is invisible from any one rail, so the only thing that makes it
+ * a fact anybody can act on is a case that fails when either side moves.
  *
  * ## The defect
  *
- * An operator marks a variant `suppressed` — the "do not show" — and the product
- * keeps appearing in the filtered result list because of that variant's
- * attributes, while the facet count beside it correctly excludes it. Suppression
+ * An operator marked a variant `suppressed` — the "do not show" — and the
+ * product kept appearing in the filtered result list because of that variant's
+ * attributes, while the facet count beside it correctly excluded it. Suppression
  * that does not suppress is worse than a count/list disagreement: somebody took
  * an action and it silently did nothing.
  *
- * ## Three spellings of one question, and the third is WIDER than either
+ * ## Three spellings of one question, and the third was WIDER than either
  *
  * | where | predicate on `canonical_variants.status` |
  * | --- | --- |
@@ -25,9 +25,23 @@
  *
  * `CanonicalCatalogStatus` is `draft | active | discontinued | merged |
  * suppressed`, so with no predicate a `merged` TOMBSTONE — the losing half of a
- * completed merge — also satisfies a filter. #628 originally reasoned that from
- * the absent predicate and said so; this file MEASURES all three of the statuses
+ * completed merge — also satisfied a filter. #628 originally reasoned that from
+ * the absent predicate and said so; this file MEASURED all three of the statuses
  * neither other rail admits, so nothing here rests on reading SQL.
+ *
+ * ## The decision
+ *
+ * All three spellings are now `SHOPPER_VISIBLE_CATALOG_STATUSES` — `active` and
+ * `discontinued` — one constant in `@mercaria/shared-types`, read by the facet
+ * rail and by `findProductIdsSatisfyingAttributes`. Both sides moved: the lists
+ * stopped admitting `suppressed`, `merged` and `draft`, and the COUNT started
+ * admitting `discontinued`, which it had been excluding while both lists
+ * returned it.
+ *
+ * The `zeta` case is the one that identifies the answer. Every other
+ * expectation here is equally satisfied by `= 'active'`, so without a
+ * `discontinued` subject this file could not tell the chosen set from the
+ * narrower one — and the narrower one was the first candidate fix.
  *
  * ## The fixture isolates STATUS, which is the whole experiment
  *
@@ -48,21 +62,10 @@
  *
  * ## What kills it
  *
- * Adding `cv.status = 'active'` to `findProductIdsSatisfyingAttributes`'s `cv`
- * join reds all three subject cases and leaves the control green. That is also
- * the first candidate fix, which is why the expectations below name what each
- * candidate answer changes rather than asserting one is right:
- *
- * - `cv.status = 'active'` — every `search`/`browse` expectation becomes 0, and
- *   the filter becomes NARROWER than `findVariantIntentMatches` in the same
- *   file, whose docblock argues by name that `discontinued` belongs.
- * - `in ('active','discontinued')` — the three subjects become 0 and a
- *   `discontinued` variant (untested here, because no rail excludes it today)
- *   keeps answering.
- * - widening the facet rail instead — the `facet` expectations become 1.
- *
- * Whichever is chosen has to be applied to BOTH rails in one change, together
- * with #616's axis divergence, which pulls the opposite way.
+ * Removing the `cv.status` predicate from `findProductIdsSatisfyingAttributes`
+ * — restoring the defect — reds the three subject cases and leaves the control
+ * green. Narrowing either rail to `= 'active'` instead reds `zeta` alone, on
+ * both the facet and the list halves, which is why that case exists.
  *
  * ## Scoping
  *
@@ -117,7 +120,8 @@ const ACTIVE_B = `vsf-p-active-b-${RUN}`;
 const SUPPRESSED = `vsf-p-suppressed-${RUN}`;
 const MERGED = `vsf-p-merged-${RUN}`;
 const DRAFT = `vsf-p-draft-${RUN}`;
-const PRODUCT_IDS = [ACTIVE_A, ACTIVE_B, SUPPRESSED, MERGED, DRAFT];
+const DISCONTINUED = `vsf-p-discontinued-${RUN}`;
+const PRODUCT_IDS = [ACTIVE_A, ACTIVE_B, SUPPRESSED, MERGED, DRAFT, DISCONTINUED];
 
 const variantIds: string[] = [];
 const valueIds: string[] = [];
@@ -134,7 +138,7 @@ const STALE_AT = new Date(NOW.getTime() + 86_400_000);
 async function addVariant(
   productId: string,
   index: number,
-  status: 'active' | 'suppressed' | 'merged' | 'draft',
+  status: 'active' | 'suppressed' | 'merged' | 'draft' | 'discontinued',
   mergedIntoId?: string,
 ): Promise<string> {
   const id = `vsf-v-${index}-${RUN}`;
@@ -295,6 +299,12 @@ beforeAll(async () => {
   const draft = await addVariant(DRAFT, 5, 'draft');
   await addSelectedVariantValue(draft, 'epsilon');
   await addOffer(draft);
+
+  // The subject that distinguishes the two candidate answers. #628 could not
+  // carry it — no rail excluded `discontinued` then, so it measured nothing.
+  const discontinued = await addVariant(DISCONTINUED, 6, 'discontinued');
+  await addSelectedVariantValue(discontinued, 'zeta');
+  await addOffer(discontinued);
 }, 120_000);
 
 afterAll(async () => {
@@ -386,18 +396,37 @@ describe('#628 — which variant statuses may answer an attribute filter', () =>
     expect(await railAnswers('alpha')).toEqual({ facet: 1, search: 1, browse: 1 });
   });
 
-  it('a SUPPRESSED variant is excluded from the count and still answers both lists', async () => {
-    // The operator's "do not show", doing nothing on the rails a shopper reads.
-    expect(await railAnswers('gamma')).toEqual({ facet: 0, search: 1, browse: 1 });
+  it('a DISCONTINUED variant is counted AND listed — the half that widened', async () => {
+    // The case that says WHICH answer was taken, and the only one that can.
+    // Every other expectation in this file is satisfied by `active` alone; this
+    // one fails under it, so without it the file cannot tell
+    // `SHOPPER_VISIBLE_CATALOG_STATUSES` from `= 'active'`.
+    //
+    // `discontinued` is included because the vocabulary separates it from the
+    // decision to hide: the maker stopped making it, which is a fact a source
+    // observed, not Mercaria's `suppressed`. Excluding it would also have made
+    // this filter NARROWER than `findVariantIntentMatches` in the same file.
+    //
+    // The FACET rail is the side that moved here — it counted 0 while both
+    // lists returned the product, so this pair disagreed in the other direction
+    // before #628 and is not a regression of the count.
+    expect(await railAnswers('zeta')).toEqual({ facet: 1, search: 1, browse: 1 });
   });
 
-  it('a MERGED tombstone does too — the losing half of a completed merge', async () => {
-    // #628 reasoned this from the absent predicate and labelled it as such.
-    // Measured here, so nothing rests on reading SQL.
-    expect(await railAnswers('delta')).toEqual({ facet: 0, search: 1, browse: 1 });
+  it('a SUPPRESSED variant answers NOTHING — the operator\'s "do not show"', async () => {
+    // Was `{ facet: 0, search: 1, browse: 1 }`: excluded from the count and
+    // still answering both lists, so somebody took an action and it silently did
+    // nothing. That is the defect #628 named.
+    expect(await railAnswers('gamma')).toEqual({ facet: 0, search: 0, browse: 0 });
   });
 
-  it('…and so does a DRAFT variant, which nothing has published', async () => {
-    expect(await railAnswers('epsilon')).toEqual({ facet: 0, search: 1, browse: 1 });
+  it('nor does a MERGED tombstone — the losing half of a completed merge', async () => {
+    // #628 reasoned this from the absent predicate and labelled it as such;
+    // measured here before and after, so nothing rests on reading SQL.
+    expect(await railAnswers('delta')).toEqual({ facet: 0, search: 0, browse: 0 });
+  });
+
+  it('nor a DRAFT variant, which nothing has published', async () => {
+    expect(await railAnswers('epsilon')).toEqual({ facet: 0, search: 0, browse: 0 });
   });
 });

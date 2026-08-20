@@ -22,6 +22,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { PgDialect } from 'drizzle-orm/pg-core';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import {
   buildEntityPredicate,
   hasOfferRequirement,
@@ -206,11 +207,19 @@ describe('same-offer', () => {
 });
 
 describe('the empty requirement set', () => {
-  it('is just the scope', () => {
-    const text = render({ scope: SCOPE, requirements: NO_FACET_REQUIREMENTS, now: NOW });
-    expect(text).toContain("p.status = 'active'");
-    expect(text).not.toContain('canonical_variants');
-    expect(text).not.toContain('offers');
+  it('is just the scope, restricted to the shopper-visible statuses', () => {
+    const query = dialect.sqlToQuery(
+      buildEntityPredicate({ scope: SCOPE, requirements: NO_FACET_REQUIREMENTS, now: NOW }),
+    );
+    expect(query.sql).toContain('p.status = any(');
+    // The VALUE, not the SQL text: this rail's count and
+    // `findProductIdsSatisfyingAttributes`'s list are one claim (#628), so the
+    // set is what matters and a text match would pass on any array at all.
+    expect(query.params).toContainEqual([...SHOPPER_VISIBLE_CATALOG_STATUSES]);
+    // …and it really is the shared constant rather than a same-length local one.
+    expect([...SHOPPER_VISIBLE_CATALOG_STATUSES]).toEqual(['active', 'discontinued']);
+    expect(query.sql).not.toContain('canonical_variants');
+    expect(query.sql).not.toContain('offers');
   });
 
   it('reports itself as carrying no offer requirement', () => {
