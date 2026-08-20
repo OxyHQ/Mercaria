@@ -9,7 +9,7 @@
  *
  * ## The four properties this file makes STRUCTURAL rather than conventional
  *
- * 1. **An observation is immutable.** `mercaria_offer_price_snapshots_immutable`
+ * 1. **An observation is immutable.** `mercaria_offer_price_snapshot_immutable`
  *    raises on UPDATE, so a correction is a SUPERSEDING record naming the one it
  *    revises (issue snapshot policy 7) and there is no path — service, replay or
  *    `psql` — on which a stored price is rewritten. DELETE is deliberately

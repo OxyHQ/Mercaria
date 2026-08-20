@@ -43,10 +43,12 @@
  * property of the typed fact — so an assertion nobody could type would have
  * nowhere to live, which is precisely the row this epic exists to keep.
  *
- * A claim is frozen once written (`mercaria_native_claim_frozen`) and cannot be
- * deleted while its subject exists (`mercaria_native_claim_no_delete`, the #90
- * revision-trail device: UPDATE refused always, DELETE refused only while the
- * parent is alive, so the `cascade` the foreign keys declare still works).
+ * A claim is frozen once written — `mercaria_native_listing_claim_frozen` and
+ * `mercaria_native_variant_claim_frozen`, one per table because the two carry
+ * different columns — and cannot be deleted while its subject exists
+ * (`mercaria_native_claim_no_delete`, the #90 revision-trail device: UPDATE
+ * refused always, DELETE refused only while the parent is alive, so the
+ * `cascade` the foreign keys declare still works).
  *
  * ## What no row here can say
  *

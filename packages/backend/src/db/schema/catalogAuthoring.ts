@@ -27,10 +27,16 @@
  * ## The ONE jsonb, and what it is NOT
  *
  * `catalog_authoring_drafts.schema_snapshot` is ADR 0007 D14's second sanctioned
- * use: a BOUNDED, IMMUTABLE snapshot kept for audit and recovery. It is frozen
- * by `mercaria_catalog_authoring_draft_snapshot_immutable` from the moment it is
- * written, because the thing it is evidence OF is what an author was shown — and
- * a snapshot a later write can edit is evidence of nothing.
+ * use: a BOUNDED snapshot kept for audit and recovery. It is frozen by
+ * `mercaria_catalog_authoring_draft_pins_frozen` — the same trigger that freezes
+ * the draft's identity — once the draft leaves `open`, and deliberately NOT from
+ * the moment it is written: ADR 0007 D10's upgrade re-pins an OPEN draft to a
+ * newer published version after the author saw a preview, which
+ * `repinDraftIfVersion` is the one writer of. What must never change is the pin a
+ * PUBLISHED draft records, because that row is the audit answer to "what was this
+ * product authored against" — and a snapshot a later write can edit is evidence
+ * of nothing. `catalog-authoring.realdb.test.ts` pins all three behaviours,
+ * including the re-pin the trigger permits.
  *
  * It is emphatically not a cache and nothing reads a rule out of it: every
  * validation and every publish composes the schema live and compares
