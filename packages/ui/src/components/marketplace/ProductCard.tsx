@@ -4,15 +4,9 @@ import { Image } from "expo-image";
 import { BlurView } from "expo-blur";
 import { Heart } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  PRODUCT_CARD_DISCOUNT_KEY,
-  PRODUCT_CARD_SAVE_KEY,
-} from "../../lib/marketplace-labels";
 import { ReviewStars } from "./ReviewStars";
 import { PriceDisplay } from "../PriceDisplay";
 import type { ProductSummary } from "../../lib/format";
-import { formatPercent } from "../../lib/format";
 import { useFormatters } from "../../lib/use-formatters";
 
 /** Light color used for content drawn over the image (badge text, heart). */
@@ -33,9 +27,6 @@ export interface ProductCardProps {
   onToggleSave?: (id: string, nextSaved: boolean) => void;
 }
 
-/** `formatPercent` reads BASIS POINTS; a whole percent is one hundred of them. */
-const BASIS_POINTS_PER_PERCENT = 100;
-
 function isOnSale(product: ProductSummary): boolean {
   return (
     product.compareAtPrice !== undefined &&
@@ -44,10 +35,8 @@ function isOnSale(product: ProductSummary): boolean {
 }
 
 export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCardProps) {
-  const t = useSharedUiTranslation();
   const [isSaved, setIsSaved] = useState(saved ?? product.saved ?? false);
   const { formatMoney, formatReviewCount } = useFormatters();
-  const locale = useSharedUiLocale();
   const onSale = isOnSale(product);
   const discountPercent =
     onSale && product.compareAtPrice
@@ -106,9 +95,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
               className="text-[10px] font-bold"
               style={{ color: ON_IMAGE_LIGHT }}
             >
-              {t(PRODUCT_CARD_DISCOUNT_KEY, {
-                percent: formatPercent(discountPercent * BASIS_POINTS_PER_PERCENT, locale, 0),
-              })}
+              {`${discountPercent}% off`}
             </Text>
           </View>
         ) : null}
@@ -117,7 +104,7 @@ export function ProductCard({ product, saved, onPress, onToggleSave }: ProductCa
             stacks on top and receives presses). Not nested in any link. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(PRODUCT_CARD_SAVE_KEY)}
+          accessibilityLabel="Add to saved items"
           onPress={handleToggleSave}
           hitSlop={8}
           className="absolute bottom-3 end-3 overflow-hidden rounded-full"

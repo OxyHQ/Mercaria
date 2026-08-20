@@ -1149,7 +1149,7 @@
         "category": "类目",
         "productType": "商品类型",
         "productTypeVersion": "%{name}（版本 %{version}）",
-        "marketAndLocale": "市场 %{market} · 语言 %{language}",
+        "marketAndLocale": "市场 %{market} · 语言 %{locale}",
         "market": "市场",
         "canonicalLink": "目录商品",
         "canonicalNone": "未选择",

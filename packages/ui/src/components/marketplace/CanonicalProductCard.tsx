@@ -7,15 +7,6 @@ import type {
   CurrencyCode,
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  CANONICAL_CARD_FROM_PRICE_KEY,
-  CANONICAL_CARD_NO_OFFERS_KEY,
-  CANONICAL_CARD_OFFER_LINE_KEY,
-  CANONICAL_CARD_PRICES_UNAVAILABLE_KEY,
-  CANONICAL_CARD_PRICE_IN_CURRENCY_KEY,
-  MARKETPLACE_NO_IMAGE_KEY,
-} from "../../lib/marketplace-labels";
 import { ReviewStars } from "./ReviewStars";
 import { useFormatters } from "../../lib/use-formatters";
 import { cn } from "../../lib/cn";
@@ -79,7 +70,6 @@ export function CanonicalProductCard({
   className,
 }: CanonicalProductCardProps) {
   const { formatMoney, formatReviewCount } = useFormatters();
-  const t = useSharedUiTranslation();
   const asset = product.image;
   const imageUrl =
     asset?.state === "displayable" && resolveImage ? resolveImage(asset.fileId) : undefined;
@@ -111,7 +101,7 @@ export function CanonicalProductCard({
           // NOT explain which: a shopper has no action to take either way, and
           // the rights state belongs in the operator surface, not on a tile.
           <View className="h-full w-full items-center justify-center bg-muted">
-            <Text className="text-xs text-muted-foreground">{t(MARKETPLACE_NO_IMAGE_KEY)}</Text>
+            <Text className="text-xs text-muted-foreground">No image</Text>
           </View>
         )}
       </Pressable>
@@ -139,13 +129,9 @@ export function CanonicalProductCard({
         )}
 
         {!offersIncluded ? (
-          <Text className="text-xs text-muted-foreground">
-            {t(CANONICAL_CARD_PRICES_UNAVAILABLE_KEY)}
-          </Text>
+          <Text className="text-xs text-muted-foreground">Prices unavailable right now</Text>
         ) : offers === undefined || lowestPrice === undefined ? (
-          <Text className="text-xs text-muted-foreground">
-            {t(CANONICAL_CARD_NO_OFFERS_KEY)}
-          </Text>
+          <Text className="text-xs text-muted-foreground">No current offers</Text>
         ) : (
           <View className="flex flex-col">
             {/*
@@ -171,20 +157,18 @@ export function CanonicalProductCard({
             */}
             {presentable === undefined ? (
               <Text className="text-sm font-semibold">
-                {t(CANONICAL_CARD_PRICE_IN_CURRENCY_KEY, { currency: lowestPrice.currency })}
+                Price published in {lowestPrice.currency}
               </Text>
             ) : (
               <Text className="text-sm font-semibold">
-                {t(CANONICAL_CARD_FROM_PRICE_KEY, {
-                  price: formatMoney({ amount: lowestPrice.amount, currency: presentable }),
-                })}
+                From {formatMoney({ amount: lowestPrice.amount, currency: presentable })}
               </Text>
             )}
             <Text className="text-xs text-muted-foreground">
-              {t(CANONICAL_CARD_OFFER_LINE_KEY, {
-                conditions: CONDITION_SCOPE_TEXT[offers.conditionScope],
-                offers: offers.summary.currentOfferCount,
-              })}
+              {CONDITION_SCOPE_TEXT[offers.conditionScope]} ·{" "}
+              {offers.summary.currentOfferCount === 1
+                ? "1 offer"
+                : `${offers.summary.currentOfferCount} offers`}
             </Text>
           </View>
         )}

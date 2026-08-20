@@ -3,10 +3,6 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { Star } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  MARKETPLACE_VISIT_MERCHANT_KEY,
-} from "../../lib/marketplace-labels";
 import { useFormatters } from "../../lib/use-formatters";
 import type { StoreSummary } from "@mercaria/shared-types";
 
@@ -63,7 +59,6 @@ export function MerchantCard({
   onPressProduct,
 }: MerchantCardProps) {
   const { formatReviewCount } = useFormatters();
-  const t = useSharedUiTranslation();
   const toneColor = merchant.textTone === "light" ? TONE_LIGHT : TONE_DARK;
 
   return (
@@ -103,7 +98,7 @@ export function MerchantCard({
           {/* Centered wordmark / logo — the store link. */}
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name: merchant.name })}
+            accessibilityLabel={`Visit ${merchant.name}`}
             onPress={() => onPressMerchant?.(merchant.handle)}
             className="absolute inset-0 items-center justify-center"
           >

@@ -256,6 +256,18 @@ describe('the population rule 1 is applied to (#460)', () => {
             "domain's output and a module of the comparison domain, which " +
             'comparison-isolation.test.ts walks whole.',
         },
+        {
+          path: 'services/catalog-governance/attribute-claim.service.ts',
+          why:
+            "#576's operator surface for SETTLING a native claim — the queue read and the one " +
+            'act that drains it. Same subject as `db/variantAxes/attributeClaimRepository.ts` ' +
+            'above and excused on the same two grounds: a claim is an assertion awaiting ' +
+            'settlement rather than a registry definition, and its directory is walked WHOLE by ' +
+            'another gate — catalog-governance-isolation.test.ts, whose population is ' +
+            '`OWNED_DIRECTORIES.flatMap(walkOwnedDirectory)` with its own floor. It resolves a ' +
+            'claim to a definition VERSION; it decides nothing about how a constraint is ' +
+            'evaluated, which is what rule 1 polices.',
+        },
       ],
       // Below today's 23 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
@@ -298,15 +310,21 @@ describe('the population rule 1 is applied to (#460)', () => {
     );
   });
 
-  it('all three excluded modules are CLEAN against rule 1, so each exclusion is about ownership', () => {
+  it('all four excluded modules are CLEAN against rule 1, so each exclusion is about ownership', () => {
     // An exclusion for a module that would TRIP the wall is a hole; one for a
     // module that would pass is a statement about who owns it. Measured, because
     // the second is what the reasons above claim.
+    //
+    // The list is the `notThisDomain` list, and it has to be: an entry added
+    // without a row here would be an exemption nobody ever measured, which is
+    // the one shape an exclusion must not have. #706's `assertEachOf` count is
+    // what makes that mechanical — it moves with the list or the build fails.
     assertEachOf([
       'db/canonical/attributeRepository.ts',
       'db/variantAxes/attributeClaimRepository.ts',
       'services/comparison/attribute-facts.ts',
-    ], 3, (foreign) => {
+      'services/catalog-governance/attribute-claim.service.ts',
+    ], 4, (foreign) => {
       const source = readFileSync(join(SRC_ROOT, foreign), 'utf8');
       expect(STRENGTH_MUTATION.test(source), `${foreign} would trip rule 1`).toBe(false);
     });

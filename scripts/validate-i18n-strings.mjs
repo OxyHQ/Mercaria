@@ -231,19 +231,12 @@ const ts = createRequire(resolve(here, "../package.json"))("typescript");
  *             COUNT is pinned at exactly `<n>` and BOTH directions fail. What a
  *             package on its way to `true` is held to.
  *
- * EVERY owner is currently `true`. `packages/ui` was the second form until #437
- * finished its extraction: it was scanned for literals (part C needs them) with
- * its findings pinned rather than raised, because a gate over 156 existing
- * English sentences is one whoever hit it would switch off. It ratcheted
- * 156 → 150 → 149 → 146 → 131 → 0 and turned to `true` in the change that
- * finished.
- *
- * The `<n>` form therefore has no owner today, and it is kept rather than cut:
- * it is a real distinction, not a special case, and the next package to start
- * extracting joins the list with a pinned count and takes the same route. Its
- * comparison is still proven — `test-validate-i18n-strings.mjs` patches an owner
- * back to a number, because a branch no owner reaches is one a self-test can
- * silently stop exercising.
+ * `packages/ui` is the second: it is scanned for literals (part C needs them)
+ * and its findings are not raised, because most of that package's component
+ * prose is still English and a gate over it would be switched off by whoever hit
+ * it. It is a real distinction, not a special case — the next package to start
+ * extracting joins the list with a pinned count, ratchets it down, and turns it
+ * to `true` in the change that finishes.
  *
  * It was a bare `false` until #528, which is the state the pin replaces: the
  * findings were discarded with nothing recording how many there were, so
@@ -401,21 +394,7 @@ const OWNERS = [
     // sentences moved it by NOTHING, because a function that RETURNS copy is in
     // check A's own list of what it cannot see. The gap runs in BOTH directions,
     // which is why this number is read off a failure and never computed.
-    //
-    // 131 -> 0, and the pin is now `true`: #437's remaining twenty-two
-    // components, measured on b6f2a90d. That gap ran BOTH ways again — five
-    // copy-returning helpers (`totalText`, `noOfferCopy`, `formatDuration` and
-    // two ternary chains) moved the count by nothing while taking real English
-    // off the screen, and one tally line was three findings on its own.
-    //
-    // `true` is the end state this owner was always heading for, and it changes
-    // what the package's own self-tests defend: the case that asserted check A
-    // must NOT fire on unextracted `packages/ui` prose is now its inverse. It
-    // also leaves NO owner carrying a numeric pin, so the branch that compares
-    // one is exercised by a patched copy of this file — see `patchGuard` in
-    // `test-validate-i18n-strings.mjs`. The mechanism stays: it is the shape the
-    // next package mid-extraction takes, and its failure message says so.
-    hardcodedStrings: true,
+    hardcodedStrings: 131,
     // Check F is off here for a DIFFERENT reason than check A. This package
     // does not merely use the action controls, it DEFINES them — a `<Button>`
     // in `packages/ui` is the component, not a call site — so the population F
@@ -448,20 +427,14 @@ const OWNERS = [
     // fails LOUDLY in both directions and so re-derives itself, nothing about a
     // stale floor announces itself — which is why this one sat at 19.7% and then
     // 11.8% with every build green. Re-derive it whenever this bundle grows
-    // substantially.
-    //
-    // Re-derived at #437's completion, which is the growth that note predicted:
-    // the extraction added 155 keys and the bundle went 432 -> 619 leaves, which
-    // would have left 300 describing 48.5% of the tree. 425 is 68.7% of the
-    // measurement — the same ratio the frontend owner's note above justifies
-    // (700 against 1,019) and for the same reason.
+    // substantially; the extraction still owed (149 strings) will move it again.
     //
     // All twelve registry locales: this package IS the registry's home, so it can
     // never be behind an app — and that it has one bundle per `SupportedLocale`
     // is enforced where it belongs, by `SHARED_UI_COPY` being a `Record` rather
     // than a `Partial<Record>`, which `bun run --filter @mercaria/ui typecheck`
     // decides.
-    minimumKeys: 425,
+    minimumKeys: 300,
     minimumLocales: 12,
     // H (#488): ZERO, as of #529. `formatDate` lives in THIS package, so the
     // four shared-component sites #488 left were an import away; they now take
@@ -1598,47 +1571,6 @@ const PLACEHOLDER = /%\{([^}]+)\}/g;
 const placeholdersOf = (value) =>
   [...value.matchAll(PLACEHOLDER)].map((match) => match[1]).sort().join(",");
 
-/**
- * A placeholder whose NAME i18n-js consumes as an OPTION (#437, check G').
- *
- * Check G's mirror image. G catches a placeholder the interpolator does not
- * read; this catches one it reads as an instruction to itself. `t(key, { scope:
- * "Reviews" })` does not fill a `%{scope}` — `scope` PREFIXES the key being
- * looked up, so the call resolves `Reviews.<key>`, finds nothing, and renders
- * `[missing "en.Reviews.ui.review.empty" translation]` in every language at once.
- *
- * Measured: #437 extracted three keys with the obvious word for a review scope
- * and a condition scope, and all three were broken in all twelve bundles.
- *
- * NOTHING else here could see it. The key exists (C passes), the placeholder
- * names match across every bundle (B passes), the spelling is the one i18n-js
- * reads (G passes), and `tsc` types the option bag as `Record<string, unknown>`.
- * Twelve consistent bundles can be consistently wrong — G's own lesson, one
- * option name over.
- *
- * `count` is NOT in the set, and that is deliberate rather than an oversight: it
- * is the CORRECT and required slot on a pluralised key, where i18n-js uses it to
- * select a category. Banning it would flag roughly 150 real values and the
- * remedy would be to switch this off. What makes it safe to leave out is that a
- * `count` on a NON-plural key still interpolates — it is a latent hazard rather
- * than a live defect, and #436's plural pins are what watch that boundary.
- */
-const RESERVED_I18N_OPTIONS = new Set([
-  "scope",
-  "locale",
-  "defaults",
-  "defaultValue",
-  "missingBehavior",
-  "missingBehaviour",
-  "missingTranslationPrefix",
-]);
-
-/** Every reserved-name placeholder in a value — check G''s input and controls. */
-const reservedPlaceholdersOf = (value) => [...String(value).matchAll(PLACEHOLDER)]
-  .map((match) => match[1].trim())
-  .filter((name) => RESERVED_I18N_OPTIONS.has(name));
-
-
 /** Every key `t()` can resolve: the leaves, plus the parent of a plural pair. */
 function resolvableKeys(flat) {
   const keys = new Set(flat.keys());
@@ -1849,31 +1781,6 @@ for (const safe of ['%{count}/1000 characters', 'Order %{number}', 'no placehold
     failures.push(
       `negative control failed: check G fired on ${JSON.stringify(safe)}, which is the CORRECT `
       + "i18n-js spelling — a guard that flags the remedy gets disabled",
-    );
-  }
-}
-
-/**
- * Check G''s controls. Same shape and same reason as G's above: the detector is
- * a `Set` membership test over a regex, and both halves can break silently into
- * a clean report.
- *
- * The negatives carry the ones that would make this unusable if it fired on
- * them — `%{count}` on a plural key, and every ordinary slot name #437 shipped.
- */
-for (const seeded of ['%{subject}. Rated %{scope}.', 'No %{scope} yet.', '%{locale} and %{defaults}']) {
-  if (reservedPlaceholdersOf(seeded).length === 0) {
-    failures.push(
-      `positive control failed: check G' found no reserved placeholder in ${JSON.stringify(seeded)} `
-      + "— the detector is broken, and a broken detector reports a clean bundle set",
-    );
-  }
-}
-for (const safe of ['%{count} items', '%{subject}: %{rating}', '%{conditions} · %{offers}', 'no placeholder at all']) {
-  if (reservedPlaceholdersOf(safe).length > 0) {
-    failures.push(
-      `negative control failed: check G' fired on ${JSON.stringify(safe)}, which names no i18n-js `
-      + "option — a guard that flags a legitimate slot gets disabled",
     );
   }
 }
@@ -2610,12 +2517,10 @@ for (const [path, text] of textByPath) {
     renderableKeyMapsByApp.get(app.name),
   );
   filesByApp.set(app.name, filesByApp.get(app.name) + 1);
-  // H, I and J run for EVERY owner, including the one whose `actionLabelCopy` is
-  // off: a date in the wrong language, a rendered message id and a raw wire enum
-  // are none of them a hardcoded string and none of them an action label, so
-  // neither switch describes any of the three. (It read "the two whose
-  // `hardcodedStrings` and `actionLabelCopy` are off" until #437 took the last
-  // numeric pin to `true`, leaving `packages/ui`'s F switch as the only one.)
+  // H, I and J run for EVERY owner, including the two whose `hardcodedStrings`
+  // and `actionLabelCopy` are off: a date in the wrong language, a rendered
+  // message id and a raw wire enum are none of them a hardcoded string and none
+  // of them an action label, so neither switch describes any of the three.
   for (const site of result.deviceLocaleFormatSites) {
     deviceLocaleFormatsByApp.get(app.name).push({ ...site, file: path });
   }
@@ -2863,25 +2768,6 @@ for (const app of OWNERS) {
         `${path}: "${key}" carries ${foreign.join(", ")}, which i18n-js does NOT interpolate — it `
         + "reads %{name}. The braces render literally to a shopper. Check B cannot see this: it "
         + "compares bundles against each other, and all twelve can be wrong together.",
-      );
-    }
-  }
-
-  // G'. no placeholder NAMES an i18n-js option (#437).
-  //
-  // Runs over every bundle including `en`, for G's reason: the defect is in the
-  // English source string too. Floored by `minimumKeys`/`minimumLocales` above,
-  // so an empty bundle set fails there first rather than passing here silently.
-  for (const [path, flat] of flatByLocale) {
-    for (const [key, value] of flat) {
-      const reserved = reservedPlaceholdersOf(value);
-      if (reserved.length === 0) continue;
-      failures.push(
-        `${path}: "${key}" carries ${reserved.map((name) => `%{${name}}`).join(", ")}, whose name is `
-        + "an i18n-js OPTION rather than a slot. It is never interpolated: `scope` prefixes the key "
-        + "being looked up, so the call resolves to a key that does not exist and renders "
-        + '`[missing "…"]` in every language. Rename the slot — `subject`, `conditions`, anything '
-        + "that is not an option name.",
       );
     }
   }

@@ -5,28 +5,6 @@ import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
 import { conditionGroupLabelKey } from "../../lib/condition";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  PRICE_ALERT_ANY_CONDITION_KEY,
-  PRICE_ALERT_BASIS_LABEL_KEYS,
-  PRICE_ALERT_DELETE_A11Y_KEY,
-  PRICE_ALERT_DELETE_KEY,
-  PRICE_ALERT_KEEP_BOTH_KEY,
-  PRICE_ALERT_KEEP_SOURCE_KEY,
-  PRICE_ALERT_LIST_SEPARATOR_KEY,
-  PRICE_ALERT_MOVE_TO_TARGET_KEY,
-  PRICE_ALERT_NOTIFIED_KEY,
-  PRICE_ALERT_OPEN_PRODUCT_KEY,
-  PRICE_ALERT_PAUSE_A11Y_KEY,
-  PRICE_ALERT_PAUSE_KEY,
-  PRICE_ALERT_PAUSED_KEY,
-  PRICE_ALERT_RESUME_A11Y_KEY,
-  PRICE_ALERT_RESUME_KEY,
-  PRICE_ALERT_SAVED_PRODUCT_KEY,
-  PRICE_ALERT_SCOPE_LINE_KEY,
-  PRICE_ALERT_SELLER_SCOPE_LABEL_KEYS,
-  PRICE_ALERT_SPLIT_EXPLANATION_KEY,
-  PRICE_ALERT_TARGET_PREFIX_KEY,
-} from "../../lib/price-alert-labels";
 
 /** Icon size for the row's trailing affordances. */
 const ICON_SIZE = 18;
@@ -76,30 +54,34 @@ export function PriceAlertCard({
 }: PriceAlertCardProps) {
   const t = useSharedUiTranslation();
   const ambiguous = alert.resolution.state === "ambiguous_after_split";
-  const basisText = t(PRICE_ALERT_BASIS_LABEL_KEYS[alert.basis]);
+  const basisText =
+    alert.basis === "known_total" ? "including delivery" : "before delivery";
   const segments =
     alert.conditionGroups.length === 0
-      ? t(PRICE_ALERT_ANY_CONDITION_KEY)
-      : alert.conditionGroups
-          .map((group) => t(conditionGroupLabelKey(group)))
-          .join(t(PRICE_ALERT_LIST_SEPARATOR_KEY));
-  const sellers = t(PRICE_ALERT_SELLER_SCOPE_LABEL_KEYS[alert.sellerScope]);
+      ? "any condition"
+      : alert.conditionGroups.map((group) => t(conditionGroupLabelKey(group))).join(", ");
+  const sellers =
+    alert.sellerScope === "native_only"
+      ? "sellers on Mercaria"
+      : alert.sellerScope === "external_only"
+        ? "merchants outside Mercaria"
+        : alert.sellerScope === "official_only"
+          ? "verified official stores"
+          : "any seller";
 
   return (
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={productName ?? t(PRICE_ALERT_OPEN_PRODUCT_KEY)}
+        accessibilityLabel={productName ?? "Open the product this alert watches"}
         onPress={() => onOpen?.(alert)}
         className="gap-space-4"
       >
         <Text className="text-bodyTitleSmall text-text" numberOfLines={2}>
-          {productName ?? t(PRICE_ALERT_SAVED_PRODUCT_KEY)}
+          {productName ?? "Saved product"}
         </Text>
         <View className="flex-row items-center gap-space-4">
-          <Text className="text-caption text-text-tertiary">
-            {t(PRICE_ALERT_TARGET_PREFIX_KEY)}
-          </Text>
+          <Text className="text-caption text-text-tertiary">Tell me under</Text>
           <PriceDisplay price={alert.target} primaryClassName="text-bodyTitleSmall text-text" />
           <Text className="text-caption text-text-tertiary">{basisText}</Text>
         </View>
@@ -107,35 +89,29 @@ export function PriceAlertCard({
 
       {/* UX rule 4 — WHICH conditions and merchants count, on the row itself. */}
       <Text className="text-caption text-text-tertiary">
-        {t(PRICE_ALERT_SCOPE_LINE_KEY, { segments, sellers })}
+        {segments} · {sellers}
       </Text>
 
       {alert.state === "triggered" ? (
-        <Text className="text-caption text-text-tertiary">{t(PRICE_ALERT_NOTIFIED_KEY)}</Text>
+        <Text className="text-caption text-text-tertiary">
+          Notified — this alert was set to tell you once.
+        </Text>
       ) : null}
 
       {alert.state === "paused" && !ambiguous ? (
-        <Text className="text-caption text-text-tertiary">{t(PRICE_ALERT_PAUSED_KEY)}</Text>
+        <Text className="text-caption text-text-tertiary">Paused</Text>
       ) : null}
 
       {ambiguous ? (
         <View className="gap-space-4">
           <Text className="text-caption text-text">
-            {t(PRICE_ALERT_SPLIT_EXPLANATION_KEY)}
+            This product was split in two, so this alert is paused until you choose which one you
+            meant.
           </Text>
           <View className="flex-row gap-space-8">
-            <SplitChoice
-              label={t(PRICE_ALERT_KEEP_SOURCE_KEY)}
-              onPress={() => onResolveSplit?.(alert, "keep_source")}
-            />
-            <SplitChoice
-              label={t(PRICE_ALERT_MOVE_TO_TARGET_KEY)}
-              onPress={() => onResolveSplit?.(alert, "move_to_target")}
-            />
-            <SplitChoice
-              label={t(PRICE_ALERT_KEEP_BOTH_KEY)}
-              onPress={() => onResolveSplit?.(alert, "keep_both")}
-            />
+            <SplitChoice label="Keep this one" onPress={() => onResolveSplit?.(alert, "keep_source")} />
+            <SplitChoice label="The other one" onPress={() => onResolveSplit?.(alert, "move_to_target")} />
+            <SplitChoice label="Both" onPress={() => onResolveSplit?.(alert, "keep_both")} />
           </View>
         </View>
       ) : null}
@@ -148,23 +124,23 @@ export function PriceAlertCard({
         */}
         {alert.state === "enabled" ? (
           <RowAction
-            label={t(PRICE_ALERT_PAUSE_A11Y_KEY)}
-            text={t(PRICE_ALERT_PAUSE_KEY)}
+            label="Pause this alert"
+            text="Pause"
             icon={<BellOff size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onPause?.(alert)}
           />
         ) : null}
         {alert.state === "paused" && !ambiguous ? (
           <RowAction
-            label={t(PRICE_ALERT_RESUME_A11Y_KEY)}
-            text={t(PRICE_ALERT_RESUME_KEY)}
+            label="Resume this alert"
+            text="Resume"
             icon={<Bell size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onResume?.(alert)}
           />
         ) : null}
         <RowAction
-          label={t(PRICE_ALERT_DELETE_A11Y_KEY)}
-          text={t(PRICE_ALERT_DELETE_KEY)}
+          label="Delete this alert"
+          text="Delete"
           icon={<Trash2 size={ICON_SIZE} className="text-text-secondary" />}
           onPress={() => onDelete?.(alert)}
         />

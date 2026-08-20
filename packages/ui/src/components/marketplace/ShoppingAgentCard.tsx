@@ -10,45 +10,7 @@ import { PriceDisplay } from "../PriceDisplay";
 import { conditionGroupLabelKey } from "../../lib/condition";
 import { useSharedUiLocale, useSharedUiTranslation } from "../../i18n/ui-translation";
 import { formatDateTime } from "../../lib/date";
-import { useFormatters } from "../../lib/use-formatters";
 import {
-  SHOPPING_AGENT_CARD_ANY_CONDITION_KEY,
-  SHOPPING_AGENT_CARD_CHANNEL_SEPARATOR_KEY,
-  SHOPPING_AGENT_CARD_CONSTRAINT_HARD_KEY,
-  SHOPPING_AGENT_CARD_CONSTRAINT_SOFT_KEY,
-  SHOPPING_AGENT_CARD_HIDE_FINDINGS_KEY,
-  SHOPPING_AGENT_CARD_IN_MARKET_KEY,
-  SHOPPING_AGENT_CARD_KEEP_SOURCE_KEY,
-  SHOPPING_AGENT_CARD_LAST_LOOKED_KEY,
-  SHOPPING_AGENT_CARD_LAST_LOOKED_NEXT_KEY,
-  SHOPPING_AGENT_CARD_LINE_KEY,
-  SHOPPING_AGENT_CARD_MERCHANTS_EXCLUDED_KEY,
-  SHOPPING_AGENT_CARD_MOVE_TO_TARGET_KEY,
-  SHOPPING_AGENT_CARD_NEVER_LOOKED_KEY,
-  SHOPPING_AGENT_CARD_NEVER_LOOKED_NEXT_KEY,
-  SHOPPING_AGENT_CARD_NO_CHANNELS_KEY,
-  SHOPPING_AGENT_CARD_NOTIFY_POLICY_KEY,
-  SHOPPING_AGENT_CARD_NOTIFY_POLICY_QUIET_KEY,
-  SHOPPING_AGENT_CARD_OPEN_PRODUCT_KEY,
-  SHOPPING_AGENT_CARD_PAUSE_A11Y_KEY,
-  SHOPPING_AGENT_CARD_PAUSE_KEY,
-  SHOPPING_AGENT_CARD_PRICED_IN_KEY,
-  SHOPPING_AGENT_CARD_REMOVE_A11Y_KEY,
-  SHOPPING_AGENT_CARD_REMOVE_KEY,
-  SHOPPING_AGENT_CARD_REQUIREMENTS_KEY,
-  SHOPPING_AGENT_CARD_RESUME_A11Y_KEY,
-  SHOPPING_AGENT_CARD_RESUME_KEY,
-  SHOPPING_AGENT_CARD_RUN_NOW_A11Y_KEY,
-  SHOPPING_AGENT_CARD_RUN_NOW_KEY,
-  SHOPPING_AGENT_CARD_SCOPE_SEPARATOR_KEY,
-  SHOPPING_AGENT_CARD_SHOW_FINDINGS_KEY,
-  SHOPPING_AGENT_CARD_SPLIT_EXPLANATION_KEY,
-  SHOPPING_AGENT_CARD_SPLIT_MOVES_A11Y_KEY,
-  SHOPPING_AGENT_CARD_SPLIT_MOVES_KEY,
-  SHOPPING_AGENT_CARD_SPLIT_STAYS_A11Y_KEY,
-  SHOPPING_AGENT_CARD_SPLIT_STAYS_KEY,
-  SHOPPING_AGENT_CARD_TARGET_PREFIX_KEY,
-  SHOPPING_AGENT_CARD_WATCHING_KEY,
   SHOPPING_AGENT_CHANNEL_POLICY_LABEL_KEYS,
   SHOPPING_AGENT_JOB_EXPLANATION_KEYS,
   SHOPPING_AGENT_JOB_LABEL_KEYS,
@@ -62,7 +24,11 @@ const ICON_SIZE = 18;
 /** Icon size for the open/closed marker on the header. */
 const CHEVRON_SIZE = 16;
 
+const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR;
+const SECONDS_PER_DAY = SECONDS_PER_HOUR * HOURS_PER_DAY;
 /** Two digits, so `7:5` never renders where `07:05` was meant. */
 const CLOCK_PAD = 2;
 
@@ -125,7 +91,6 @@ export function ShoppingAgentCard({
 }: ShoppingAgentCardProps) {
   const t = useSharedUiTranslation();
   const locale = useSharedUiLocale();
-  const { formatDuration } = useFormatters();
   const lastLooked =
     agent.lastEvaluatedAt === undefined ? null : formatDateTime(agent.lastEvaluatedAt, locale);
   const nextScheduled =
@@ -134,28 +99,24 @@ export function ShoppingAgentCard({
     agent.state === "blocked" && agent.ambiguityState === "ambiguous_after_split";
   const segments =
     agent.conditionGroups.length === 0
-      ? t(SHOPPING_AGENT_CARD_ANY_CONDITION_KEY)
-      : agent.conditionGroups
-          .map((group) => t(conditionGroupLabelKey(group)))
-          .join(t(SHOPPING_AGENT_CARD_CHANNEL_SEPARATOR_KEY));
+      ? "any condition"
+      : agent.conditionGroups.map((group) => t(conditionGroupLabelKey(group))).join(", ");
   const scopeParts = [
-    t(SHOPPING_AGENT_CARD_PRICED_IN_KEY, { currency: agent.displayCurrency }),
+    `priced in ${agent.displayCurrency}`,
     t(SHOPPING_AGENT_CHANNEL_POLICY_LABEL_KEYS[agent.channelPolicy]),
     segments,
-    agent.market ? t(SHOPPING_AGENT_CARD_IN_MARKET_KEY, { market: agent.market }) : undefined,
+    agent.market ? `in ${agent.market}` : undefined,
     agent.excludedMerchantIds.length > 0
-      ? t(SHOPPING_AGENT_CARD_MERCHANTS_EXCLUDED_KEY, {
-          merchants: agent.excludedMerchantIds.length,
-        })
+      ? `${agent.excludedMerchantIds.length} merchant(s) excluded`
       : undefined,
   ].filter((part): part is string => part !== undefined);
 
   const channels =
     agent.notificationChannels.length === 0
-      ? t(SHOPPING_AGENT_CARD_NO_CHANNELS_KEY)
+      ? "nowhere yet"
       : agent.notificationChannels
           .map((channel) => t(SHOPPING_AGENT_NOTIFICATION_CHANNEL_LABEL_KEYS[channel]))
-          .join(t(SHOPPING_AGENT_CARD_CHANNEL_SEPARATOR_KEY));
+          .join(", ");
 
   const constraints = agent.constraints.constraints;
   const sourceProductId = agent.lines[0]?.canonicalProductId;
@@ -164,12 +125,9 @@ export function ShoppingAgentCard({
     <View className="gap-space-8 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-12">
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t(
-          expanded
-            ? SHOPPING_AGENT_CARD_HIDE_FINDINGS_KEY
-            : SHOPPING_AGENT_CARD_SHOW_FINDINGS_KEY,
-          { name: agent.name },
-        )}
+        accessibilityLabel={
+          expanded ? `Hide what ${agent.name} found` : `Show what ${agent.name} found`
+        }
         onPress={() => onToggleExpanded?.(agent)}
         className="flex-row items-start gap-space-8"
       >
@@ -195,9 +153,7 @@ export function ShoppingAgentCard({
       {/* UX rule 2 — the OBJECTIVE, and which cost it is measured against. */}
       {agent.target ? (
         <View className="flex-row items-center gap-space-4">
-          <Text className="text-caption text-text-tertiary">
-            {t(SHOPPING_AGENT_CARD_TARGET_PREFIX_KEY)}
-          </Text>
+          <Text className="text-caption text-text-tertiary">Tell me under</Text>
           <PriceDisplay price={agent.target} primaryClassName="text-bodyTitleSmall text-text" />
           <Text className="text-caption text-text-tertiary">
             {t(SHOPPING_AGENT_PRICE_BASIS_LABEL_KEYS[agent.priceBasis])}
@@ -210,33 +166,21 @@ export function ShoppingAgentCard({
       )}
 
       {/* UX rule 2 — the currency, the market and the scope that decide a match. */}
-      <Text className="text-caption text-text-tertiary">
-        {scopeParts.join(t(SHOPPING_AGENT_CARD_SCOPE_SEPARATOR_KEY))}
-      </Text>
+      <Text className="text-caption text-text-tertiary">{scopeParts.join(" · ")}</Text>
 
-      {/* UX rule 2 — the notification policy, in plain words. Two whole frames
-          rather than one plus a glued suffix: the quiet-hours clause carries its
-          own separator, so a language that joins the two differently can say so. */}
+      {/* UX rule 2 — the notification policy, in plain words. */}
       <Text className="text-caption text-text-tertiary">
+        Told through {channels}, at most once every {formatDuration(agent.cooldownSeconds)}
         {agent.quietHours
-          ? t(SHOPPING_AGENT_CARD_NOTIFY_POLICY_QUIET_KEY, {
-              channels,
-              cooldown: formatDuration(agent.cooldownSeconds),
-              start: formatMinuteOfDay(agent.quietHours.startMinute),
-              end: formatMinuteOfDay(agent.quietHours.endMinute),
-              timeZone: agent.quietHours.timeZone,
-            })
-          : t(SHOPPING_AGENT_CARD_NOTIFY_POLICY_KEY, {
-              channels,
-              cooldown: formatDuration(agent.cooldownSeconds),
-            })}
+          ? ` · quiet ${formatMinuteOfDay(agent.quietHours.startMinute)}–${formatMinuteOfDay(
+              agent.quietHours.endMinute,
+            )} (${agent.quietHours.timeZone})`
+          : ""}
       </Text>
 
       {constraints.length > 0 ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text-tertiary">
-            {t(SHOPPING_AGENT_CARD_REQUIREMENTS_KEY)}
-          </Text>
+          <Text className="text-caption text-text-tertiary">What has to be true</Text>
           {constraints.map((constraint) => (
             <ConstraintLine key={constraint.id} constraint={constraint} />
           ))}
@@ -246,20 +190,17 @@ export function ShoppingAgentCard({
       {agent.lines.length > 0 ? (
         <View className="gap-space-4">
           <Text className="text-caption text-text-tertiary">
-            {t(SHOPPING_AGENT_CARD_WATCHING_KEY, { things: agent.lines.length })}
+            {agent.lines.length === 1 ? "Watching" : `Watching ${agent.lines.length} things`}
           </Text>
           {agent.lines.map((line) => (
             <Pressable
               key={line.id}
               accessibilityRole="button"
-              accessibilityLabel={t(SHOPPING_AGENT_CARD_OPEN_PRODUCT_KEY)}
+              accessibilityLabel="Open this product"
               onPress={() => onOpenProduct?.(line.canonicalProductId)}
             >
               <Text className="text-caption text-text-secondary" numberOfLines={1}>
-                {t(SHOPPING_AGENT_CARD_LINE_KEY, {
-                  quantity: line.quantity,
-                  product: line.canonicalProductId,
-                })}
+                {line.quantity} × {line.canonicalProductId}
               </Text>
             </Pressable>
           ))}
@@ -269,28 +210,27 @@ export function ShoppingAgentCard({
       {ambiguous ? (
         <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-8">
           <Text className="text-caption text-text">
-            {t(SHOPPING_AGENT_CARD_SPLIT_EXPLANATION_KEY)}
+            This product was split in two, so this agent is waiting until you say which one you
+            meant. Open either to compare them.
           </Text>
           <SplitCandidate
-            lineKey={SHOPPING_AGENT_CARD_SPLIT_STAYS_KEY}
-            a11yKey={SHOPPING_AGENT_CARD_SPLIT_STAYS_A11Y_KEY}
+            prefix="Stays as"
             canonicalProductId={sourceProductId}
             onOpenProduct={onOpenProduct}
           />
           <SplitCandidate
-            lineKey={SHOPPING_AGENT_CARD_SPLIT_MOVES_KEY}
-            a11yKey={SHOPPING_AGENT_CARD_SPLIT_MOVES_A11Y_KEY}
+            prefix="Moves to"
             canonicalProductId={agent.splitTargetCanonicalProductId}
             onOpenProduct={onOpenProduct}
           />
           <View className="flex-row gap-space-8">
             <SplitChoice
-              label={t(SHOPPING_AGENT_CARD_KEEP_SOURCE_KEY)}
+              label="Keep this one"
               disabled={busy}
               onPress={() => onResolveSplit?.(agent, "keep_source")}
             />
             <SplitChoice
-              label={t(SHOPPING_AGENT_CARD_MOVE_TO_TARGET_KEY)}
+              label="The other one"
               disabled={busy}
               onPress={() => onResolveSplit?.(agent, "move_to_target")}
             />
@@ -303,8 +243,8 @@ export function ShoppingAgentCard({
             only state where offering this would be telling the truth. */}
         {agent.state === "enabled" ? (
           <RowAction
-            label={t(SHOPPING_AGENT_CARD_RUN_NOW_A11Y_KEY, { name: agent.name })}
-            text={t(SHOPPING_AGENT_CARD_RUN_NOW_KEY)}
+            label={`Look again now for ${agent.name}`}
+            text="Run now"
             disabled={busy}
             icon={<RefreshCw size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onRunNow?.(agent)}
@@ -312,8 +252,8 @@ export function ShoppingAgentCard({
         ) : null}
         {agent.state === "enabled" ? (
           <RowAction
-            label={t(SHOPPING_AGENT_CARD_PAUSE_A11Y_KEY, { name: agent.name })}
-            text={t(SHOPPING_AGENT_CARD_PAUSE_KEY)}
+            label={`Pause ${agent.name}`}
+            text="Pause"
             disabled={busy}
             icon={<BellOff size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onPause?.(agent)}
@@ -322,16 +262,16 @@ export function ShoppingAgentCard({
         {/* Resume is offered for a PAUSED agent and never for a blocked one. */}
         {agent.state === "paused" ? (
           <RowAction
-            label={t(SHOPPING_AGENT_CARD_RESUME_A11Y_KEY, { name: agent.name })}
-            text={t(SHOPPING_AGENT_CARD_RESUME_KEY)}
+            label={`Resume ${agent.name}`}
+            text="Resume"
             disabled={busy}
             icon={<Bell size={ICON_SIZE} className="text-text-secondary" />}
             onPress={() => onResume?.(agent)}
           />
         ) : null}
         <RowAction
-          label={t(SHOPPING_AGENT_CARD_REMOVE_A11Y_KEY, { name: agent.name })}
-          text={t(SHOPPING_AGENT_CARD_REMOVE_KEY)}
+          label={`Remove ${agent.name}`}
+          text="Remove"
           disabled={busy}
           icon={<Trash2 size={ICON_SIZE} className="text-text-secondary" />}
           onPress={() => onDelete?.(agent)}
@@ -340,23 +280,10 @@ export function ShoppingAgentCard({
 
       {/* Both halves NAME their timestamp, so an unformattable one falls back to
           the "never looked" copy rather than rendering a sentence with a hole in
-          it, and the trailing clause disappears with its separator.
-
-          Four whole frames rather than two plus a concatenation: the ` · next `
-          that used to be glued on here carried the separator INSIDE the
-          fragment, so no language could join the two clauses its own way and a
-          right-to-left one got a `·` whose side the surrounding run decided. */}
+          it, and the trailing clause disappears with its separator. */}
       <Text className="text-caption text-text-tertiary">
-        {lastLooked === null
-          ? nextScheduled === null
-            ? t(SHOPPING_AGENT_CARD_NEVER_LOOKED_KEY)
-            : t(SHOPPING_AGENT_CARD_NEVER_LOOKED_NEXT_KEY, { next: nextScheduled })
-          : nextScheduled === null
-            ? t(SHOPPING_AGENT_CARD_LAST_LOOKED_KEY, { last: lastLooked })
-            : t(SHOPPING_AGENT_CARD_LAST_LOOKED_NEXT_KEY, {
-                last: lastLooked,
-                next: nextScheduled,
-              })}
+        {lastLooked === null ? "Not looked yet" : `Last looked ${lastLooked}`}
+        {nextScheduled === null ? "" : ` · next ${nextScheduled}`}
       </Text>
     </View>
   );
@@ -371,15 +298,10 @@ export function ShoppingAgentCard({
  * disagree.
  */
 function ConstraintLine({ constraint }: { constraint: ProductConstraint }) {
-  const t = useSharedUiTranslation();
   return (
     <View className="flex-row items-start gap-space-4">
       <Text className="text-caption text-text-tertiary">
-        {t(
-          constraint.strength === "hard"
-            ? SHOPPING_AGENT_CARD_CONSTRAINT_HARD_KEY
-            : SHOPPING_AGENT_CARD_CONSTRAINT_SOFT_KEY,
-        )}
+        {constraint.strength === "hard" ? "Must:" : "Prefers:"}
       </Text>
       <Text className="flex-1 text-caption text-text-secondary">{constraint.explanation}</Text>
     </View>
@@ -435,6 +357,14 @@ function SplitChoice({
   );
 }
 
+/** A cooldown in the coarsest unit that still describes it exactly enough. */
+function formatDuration(seconds: number): string {
+  if (seconds < SECONDS_PER_MINUTE) return `${seconds} seconds`;
+  if (seconds < SECONDS_PER_HOUR) return `${Math.round(seconds / SECONDS_PER_MINUTE)} minutes`;
+  if (seconds < SECONDS_PER_DAY) return `${Math.round(seconds / SECONDS_PER_HOUR)} hours`;
+  return `${Math.round(seconds / SECONDS_PER_DAY)} days`;
+}
+
 /** `1_320` becomes `22:00`. The agent stores minutes; a shopper reads a clock. */
 function formatMinuteOfDay(minute: number): string {
   const hours = Math.floor(minute / MINUTES_PER_HOUR);
@@ -451,28 +381,23 @@ function formatMinuteOfDay(minute: number): string {
  * each candidate is how a shopper actually tells them apart.
  */
 function SplitCandidate({
-  lineKey,
-  a11yKey,
+  prefix,
   canonicalProductId,
   onOpenProduct,
 }: {
-  /** The whole visible line, with the product as its slot. */
-  lineKey: string;
-  /** The whole spoken label. A separate frame, not the line with a suffix. */
-  a11yKey: string;
+  prefix: string;
   canonicalProductId?: string;
   onOpenProduct?: (canonicalProductId: string) => void;
 }) {
-  const t = useSharedUiTranslation();
   if (canonicalProductId === undefined) return null;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t(a11yKey)}
+      accessibilityLabel={`${prefix}: open this product`}
       onPress={() => onOpenProduct?.(canonicalProductId)}
     >
       <Text className="text-caption text-text-secondary" numberOfLines={1}>
-        {t(lineKey, { product: canonicalProductId })}
+        {prefix}: {canonicalProductId}
       </Text>
     </Pressable>
   );

@@ -116,26 +116,7 @@
         "timeLimitReached": "la cerca s'ha quedat sense temps"
       },
       "optimalityProven": "El millor pla possible amb les ofertes que podem veure.",
-      "optimalityApproximate": "Millor pla trobat: %{reason}.",
-      "card": {
-        "refused": "No disponible per a aquesta cistella.",
-        "tally": "Articles: %{covered}/%{total} · Comerços: %{merchants}",
-        "itemPrices": "Preu dels articles: %{total}",
-        "stalePrices": "Alguns preus es van confirmar fa temps.",
-        "notIncluded": "No inclòs",
-        "addToCart": "Afegeix al carretó de Mercaria (%{items})",
-        "addToCartA11y": "Afegeix al carretó de Mercaria (%{items})",
-        "openRetailers": "Obre botigues externes",
-        "openRetailersNote": "Compraràs al lloc web de cada botiga. Mercaria no garanteix el total final del seu procés de pagament.",
-        "merchantLine": "%{merchant} (%{items})",
-        "merchantLineA11y": "Obre %{merchant} (%{items})",
-        "atLeast": "Com a mínim %{floor}",
-        "atLeastMissing": "Com a mínim %{floor} — %{missing}",
-        "deliveryOne": "més l'enviament",
-        "deliveryMultiple": "més l'enviament de diversos comerços",
-        "taxUnknown": "tractament fiscal no publicat",
-        "pricesUnknown": "alguns preus es desconeixen"
-      }
+      "optimalityApproximate": "Millor pla trobat: %{reason}."
     },
     "comparison": {
       "listSeparator": "; ",
@@ -183,8 +164,7 @@
         "inUnit": "en %{unit}",
         "higherIsBetter": "més alt és millor",
         "lowerIsBetter": "més baix és millor"
-      },
-      "noSummary": "No hi ha resum d'aquesta comparació. La taula de sota és la comparació."
+      }
     },
     "priceSignal": {
       "qualityLabel": {
@@ -666,45 +646,6 @@
         "deltaLower": "%{amount} menys que abans",
         "deltaHigher": "%{amount} més que abans",
         "unnamedRequirement": "Un requisit sense descripció registrada"
-      },
-      "card": {
-        "showFindings": "Mostra el que ha trobat %{name}",
-        "hideFindings": "Amaga el que ha trobat %{name}",
-        "anyCondition": "qualsevol estat",
-        "pricedIn": "amb preus en %{currency}",
-        "inMarket": "a %{market}",
-        "merchantsExcluded": "comerços exclosos: %{merchants}",
-        "scopeSeparator": " · ",
-        "noChannels": "encara enlloc",
-        "channelSeparator": ", ",
-        "targetPrefix": "Avisa'm per sota de",
-        "notifyPolicy": "Se t'avisa per %{channels}, com a màxim un cop cada %{cooldown}",
-        "notifyPolicyQuiet": "Se t'avisa per %{channels}, com a màxim un cop cada %{cooldown} · silenci de %{start} a %{end} (%{timeZone})",
-        "requirements": "Què s'ha de complir",
-        "watching": "En seguiment (%{things})",
-        "openProduct": "Obre aquest producte",
-        "line": "%{quantity} × %{product}",
-        "splitExplanation": "Aquest producte s'ha dividit en dos, així que aquest agent espera que diguis quin volies. Obre'n qualsevol dels dos per comparar-los.",
-        "splitStays": "Es queda com a: %{product}",
-        "splitMoves": "Passa a: %{product}",
-        "splitStaysA11y": "Es queda com aquest producte: obre'l",
-        "splitMovesA11y": "Passa a aquest producte: obre'l",
-        "keepSource": "Quedar-me aquest",
-        "moveToTarget": "L'altre",
-        "runNow": "Cerca ara",
-        "runNowA11y": "Torna a cercar ara per a %{name}",
-        "pause": "Posa en pausa",
-        "pauseA11y": "Posa %{name} en pausa",
-        "resume": "Reprèn",
-        "resumeA11y": "Reprèn %{name}",
-        "remove": "Elimina",
-        "removeA11y": "Elimina %{name}",
-        "neverLooked": "Encara sense cercar",
-        "neverLookedNext": "Encara sense cercar · següent %{next}",
-        "lastLooked": "Última cerca %{last}",
-        "lastLookedNext": "Última cerca %{last} · següent %{next}",
-        "constraintHard": "Obligatori:",
-        "constraintSoft": "Preferible:"
       }
     },
     "facet": {
@@ -730,152 +671,6 @@
       "market": {
         "any": "Tots els mercats"
       }
-    },
-    "savedItem": {
-      "removeProduct": "Treu aquest producte desat",
-      "removeListing": "Treu aquest anunci desat",
-      "savedProduct": "Producte desat",
-      "savedListing": "Anunci desat",
-      "pinnedListing": "Anunci fixat",
-      "cheaper": "Més barat que quan el vas desar",
-      "dearer": "Més car que quan el vas desar",
-      "peopleSaved": "Persones que l'han desat: %{people}",
-      "splitChoose": "Aquest producte s'ha dividit: tria quin volies",
-      "splitChooseA11y": "Tria quin producte volies",
-      "setAlert": "Crea una alerta de preu",
-      "setAlertA11y": "Crea una alerta de preu per a aquest producte",
-      "unavailable": "Ja no està disponible",
-      "priceUnpublished": "Preu no publicat",
-      "priceInCurrency": "Preu publicat en %{currency}",
-      "noOffer": {
-        "recorded": "Encara no el ven ningú",
-        "retired": "Ara mateix no el ven ningú",
-        "filtered": "Cap oferta compleix els teus filtres",
-        "generic": "Sense oferta actual"
-      }
-    },
-    "priceAlert": {
-      "basis": {
-        "item_price": "sense l'enviament",
-        "known_total": "amb l'enviament inclòs"
-      },
-      "sellerScope": {
-        "any": "qualsevol venedor",
-        "native_only": "venedors a Mercaria",
-        "external_only": "comerços fora de Mercaria",
-        "official_only": "botigues oficials verificades"
-      },
-      "card": {
-        "anyCondition": "qualsevol estat",
-        "scopeLine": "%{segments} · %{sellers}",
-        "listSeparator": ", ",
-        "openProduct": "Obre el producte que vigila aquesta alerta",
-        "savedProduct": "Producte desat",
-        "targetPrefix": "Avisa'm per sota de",
-        "notified": "Ja t'hem avisat: aquesta alerta estava configurada per avisar-te un sol cop.",
-        "paused": "En pausa",
-        "splitExplanation": "Aquest producte s'ha dividit en dos, així que aquesta alerta està en pausa fins que triïs quin volies.",
-        "keepSource": "Quedar-me aquest",
-        "moveToTarget": "L'altre",
-        "keepBoth": "Tots dos",
-        "pause": "Posa en pausa",
-        "pauseA11y": "Posa aquesta alerta en pausa",
-        "resume": "Reprèn",
-        "resumeA11y": "Reprèn aquesta alerta",
-        "delete": "Elimina",
-        "deleteA11y": "Elimina aquesta alerta"
-      }
-    },
-    "purchase": {
-      "oneTime": "Compra única",
-      "subscribe": "Subscripció",
-      "addToCart": "Afegeix al carretó",
-      "selectOptions": "Tria les opcions",
-      "buyNow": "Compra ara",
-      "subscribeNow": "Subscriu-m'hi ara",
-      "frequency": {
-        "monthly": "S'entrega cada mes",
-        "every2Months": "S'entrega cada 2 mesos",
-        "every3Months": "S'entrega cada 3 mesos",
-        "every4Months": "S'entrega cada 4 mesos",
-        "every6Months": "S'entrega cada 6 mesos"
-      }
-    },
-    "marketplace": {
-      "visitMerchant": "Visita %{name}",
-      "noImage": "Sense imatge"
-    },
-    "canonicalCard": {
-      "pricesUnavailable": "Preus no disponibles ara mateix",
-      "noOffers": "Sense ofertes actuals",
-      "priceInCurrency": "Preu publicat en %{currency}",
-      "fromPrice": "Des de %{price}",
-      "offerLine": "%{conditions} · Ofertes: %{offers}"
-    },
-    "carousel": {
-      "previous": "Ves a l'element anterior",
-      "next": "Ves a l'element següent"
-    },
-    "cart": {
-      "saveForLater": "Desa per a més tard"
-    },
-    "category": {
-      "browse": "Explora %{category}"
-    },
-    "merchantCart": {
-      "checkout": "Continua amb el pagament",
-      "subtotal": "Subtotal:"
-    },
-    "merchantHeader": {
-      "visitStore": "Visita la botiga",
-      "moreOptions": "Més opcions"
-    },
-    "nearby": {
-      "soldBy": "Venut per %{merchant}",
-      "channel": "Canal: %{channel}",
-      "signIn": "Inicia la sessió",
-      "signInA11y": "Inicia la sessió per recollir en aquesta botiga",
-      "selectAt": "%{action} a %{place}"
-    },
-    "pickupPanel": {
-      "heading": "Recollida",
-      "codeHeading": "El teu codi de recollida",
-      "codeA11y": "Codi de recollida %{code}",
-      "codeNote": "Mostra'l al taulell. Si deixa de funcionar, la botiga en pot emetre un de nou: un codi antic mai continua funcionant al costat del nou."
-    },
-    "productCard": {
-      "discount": "%{percent} de descompte",
-      "save": "Afegeix als desats"
-    },
-    "gallery": {
-      "viewImage": "Mostra la imatge %{position}",
-      "previous": "Imatge anterior",
-      "next": "Imatge següent"
-    },
-    "quantity": {
-      "remove": "Treu l'article",
-      "decrease": "Redueix la quantitat",
-      "increase": "Augmenta la quantitat"
-    },
-    "review": {
-      "defaultScope": "Ressenyes",
-      "starsA11y": "Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
-      "starsScopedA11y": "%{subject}. Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
-      "empty": "Encara no hi ha %{subject}.",
-      "verifiedRatings": "Valoracions verificades: %{ratings}",
-      "unverified": "Sense verificar: %{ratings} · %{rating}",
-      "readMore": "Llegeix més ressenyes"
-    },
-    "searchInterpretation": {
-      "chip": "%{label}",
-      "chipPreference": "%{label} · preferència",
-      "chipRemove": "Treu: %{origin} %{label}",
-      "modeModel": "Interpretat amb l'ajuda d'un model",
-      "modeRules": "Interpretat amb les nostres pròpies regles"
-    },
-    "variantSwatches": {
-      "showMoreA11y": "Més opcions de %{option} (%{more})",
-      "showMore": "+%{more} més"
     }
   }
 }

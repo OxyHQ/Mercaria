@@ -1,12 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Minus, Plus, Trash2 } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  QUANTITY_DECREASE_KEY,
-  QUANTITY_INCREASE_KEY,
-  QUANTITY_REMOVE_KEY,
-} from "../../lib/marketplace-labels";
 import { useColorScheme } from "../../lib/useColorScheme";
 
 /** Icon size for stepper buttons (px). */
@@ -37,7 +31,6 @@ export function QuantityStepper({
   onRemove,
 }: QuantityStepperProps) {
   const { colors } = useColorScheme();
-  const t = useSharedUiTranslation();
 
   const atMin = quantity <= 1;
   const atMax = available !== undefined && quantity >= available;
@@ -51,7 +44,7 @@ export function QuantityStepper({
       {showRemove ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(QUANTITY_REMOVE_KEY)}
+          accessibilityLabel="Remove item"
           onPress={onRemove}
           className={BUTTON_CLASS}
         >
@@ -60,7 +53,7 @@ export function QuantityStepper({
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(QUANTITY_DECREASE_KEY)}
+          accessibilityLabel="Decrease quantity"
           onPress={decrementDisabled ? undefined : onDecrement}
           disabled={decrementDisabled}
           className={`${BUTTON_CLASS}${decrementDisabled ? " opacity-40" : ""}`}
@@ -77,7 +70,7 @@ export function QuantityStepper({
       {/* Right button: Plus, disabled at max. */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t(QUANTITY_INCREASE_KEY)}
+        accessibilityLabel="Increase quantity"
         onPress={atMax ? undefined : onIncrement}
         disabled={atMax}
         className={`${BUTTON_CLASS}${atMax ? " opacity-40" : ""}`}

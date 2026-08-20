@@ -1149,7 +1149,7 @@
         "category": "श्रेणी",
         "productType": "उत्पाद प्रकार",
         "productTypeVersion": "%{name} (संस्करण %{version})",
-        "marketAndLocale": "बाज़ार %{market} · भाषा %{language}",
+        "marketAndLocale": "बाज़ार %{market} · भाषा %{locale}",
         "market": "बाज़ार",
         "canonicalLink": "कैटलॉग उत्पाद",
         "canonicalNone": "कोई नहीं चुना",

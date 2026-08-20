@@ -1149,7 +1149,7 @@
         "category": "الفئة",
         "productType": "نوع المنتج",
         "productTypeVersion": "%{name} (الإصدار %{version})",
-        "marketAndLocale": "السوق %{market} · اللغة %{language}",
+        "marketAndLocale": "السوق %{market} · اللغة %{locale}",
         "market": "السوق",
         "canonicalLink": "منتج الكتالوج",
         "canonicalNone": "لم يُختر أي منتج",

@@ -148,57 +148,6 @@ export const BASKET_OPTIMALITY_APPROXIMATE_KEY = "ui.basket.optimalityApproximat
 /** What separates two joined reasons. `"; "` in English, `、` in Japanese. */
 export const COMPARISON_LIST_SEPARATOR_KEY = "ui.comparison.listSeparator";
 
-/**
- * `BasketPlanCard`'s own copy (#437).
- *
- * ## Four hand-rolled English plurals came out of this card, and none went back
- *
- * `item`/`items`, `merchant`/`merchants` twice over, and a `merchantCount === 1`
- * branch inside `totalText`. Each was a ternary picking one of two English
- * words, which has no correct form in `ru` (three) or `ar` (six), so keeping the
- * shape and translating both halves would have shipped a wrong number-noun
- * agreement in ten of the twelve.
- *
- * They are gone rather than pluralised, because `%{count}` would move #436's
- * `pluralCategoryResidual` pin. Two devices replace them:
- *
- *   * A **parenthesised count** — `Add to Mercaria cart (%{items})`,
- *     `%{merchant} (%{items})` — which agrees with nothing and so is correct at
- *     every quantity in every language.
- *   * A **labelled value** — `Items: %{covered}/%{total}` — where the noun is a
- *     heading rather than a thing being counted.
- *
- * `deliveryMultiple` drops its numeral outright. It was `plus delivery from
- * %{n} merchants` on a branch only reachable at two or more, which is
- * plural-safe in English and not in Russian, where 2–4 and 5+ decline
- * differently. Nothing is lost: the merchant count is on the line above, in the
- * same card.
- *
- * ## `atLeast` is two frames because the dash was inside the fragment
- *
- * `At least %{floor}` and `At least %{floor} — %{missing}` rather than one plus
- * a conditional ` — ` glued on. An em dash is not how every language joins a
- * figure to its caveat, and in a right-to-left run its side was decided by the
- * text around it rather than by the sentence.
- */
-export const BASKET_CARD_REFUSED_KEY = "ui.basket.card.refused";
-export const BASKET_CARD_TALLY_KEY = "ui.basket.card.tally";
-export const BASKET_CARD_ITEM_PRICES_KEY = "ui.basket.card.itemPrices";
-export const BASKET_CARD_STALE_PRICES_KEY = "ui.basket.card.stalePrices";
-export const BASKET_CARD_NOT_INCLUDED_KEY = "ui.basket.card.notIncluded";
-export const BASKET_CARD_ADD_TO_CART_KEY = "ui.basket.card.addToCart";
-export const BASKET_CARD_ADD_TO_CART_A11Y_KEY = "ui.basket.card.addToCartA11y";
-export const BASKET_CARD_OPEN_RETAILERS_KEY = "ui.basket.card.openRetailers";
-export const BASKET_CARD_OPEN_RETAILERS_NOTE_KEY = "ui.basket.card.openRetailersNote";
-export const BASKET_CARD_MERCHANT_LINE_KEY = "ui.basket.card.merchantLine";
-export const BASKET_CARD_MERCHANT_LINE_A11Y_KEY = "ui.basket.card.merchantLineA11y";
-export const BASKET_CARD_AT_LEAST_KEY = "ui.basket.card.atLeast";
-export const BASKET_CARD_AT_LEAST_MISSING_KEY = "ui.basket.card.atLeastMissing";
-export const BASKET_CARD_DELIVERY_ONE_KEY = "ui.basket.card.deliveryOne";
-export const BASKET_CARD_DELIVERY_MULTIPLE_KEY = "ui.basket.card.deliveryMultiple";
-export const BASKET_CARD_TAX_UNKNOWN_KEY = "ui.basket.card.taxUnknown";
-export const BASKET_CARD_PRICES_UNKNOWN_KEY = "ui.basket.card.pricesUnknown";
-
 /** Why a comparison cell has no value. */
 const UNKNOWN_KEYS: Readonly<Record<ComparisonUnknownReason, string>> = {
   not_recorded: "ui.comparison.unknown.notRecorded",

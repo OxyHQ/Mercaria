@@ -116,26 +116,7 @@
         "timeLimitReached": "поиску не хватило времени"
       },
       "optimalityProven": "Лучший возможный план из предложений, которые мы видим.",
-      "optimalityApproximate": "Лучший найденный план — %{reason}.",
-      "card": {
-        "refused": "Недоступно для этой корзины.",
-        "tally": "Товары: %{covered}/%{total} · Продавцы: %{merchants}",
-        "itemPrices": "Цена товаров: %{total}",
-        "stalePrices": "Некоторые цены подтверждались давно.",
-        "notIncluded": "Не включено",
-        "addToCart": "В корзину Mercaria (%{items})",
-        "addToCartA11y": "Добавить в корзину Mercaria (%{items})",
-        "openRetailers": "Открыть сторонних продавцов",
-        "openRetailersNote": "Покупка пройдёт на сайте каждого продавца. Mercaria не гарантирует итоговую сумму их оформления заказа.",
-        "merchantLine": "%{merchant} (%{items})",
-        "merchantLineA11y": "Открыть %{merchant} (%{items})",
-        "atLeast": "Не менее %{floor}",
-        "atLeastMissing": "Не менее %{floor} — %{missing}",
-        "deliveryOne": "плюс доставка",
-        "deliveryMultiple": "плюс доставка от нескольких продавцов",
-        "taxUnknown": "налоговый режим не опубликован",
-        "pricesUnknown": "некоторые цены неизвестны"
-      }
+      "optimalityApproximate": "Лучший найденный план — %{reason}."
     },
     "comparison": {
       "listSeparator": "; ",
@@ -183,8 +164,7 @@
         "inUnit": "в %{unit}",
         "higherIsBetter": "чем больше, тем лучше",
         "lowerIsBetter": "чем меньше, тем лучше"
-      },
-      "noSummary": "Для этого сравнения нет краткого описания. Таблица ниже и есть сравнение."
+      }
     },
     "priceSignal": {
       "qualityLabel": {
@@ -666,45 +646,6 @@
         "deltaLower": "на %{amount} ниже, чем раньше",
         "deltaHigher": "на %{amount} выше, чем раньше",
         "unnamedRequirement": "Требование без записанного описания"
-      },
-      "card": {
-        "showFindings": "Показать, что нашёл агент «%{name}»",
-        "hideFindings": "Скрыть, что нашёл агент «%{name}»",
-        "anyCondition": "любое состояние",
-        "pricedIn": "цены в %{currency}",
-        "inMarket": "в %{market}",
-        "merchantsExcluded": "исключено продавцов: %{merchants}",
-        "scopeSeparator": " · ",
-        "noChannels": "пока никуда",
-        "channelSeparator": ", ",
-        "targetPrefix": "Сообщить, если дешевле",
-        "notifyPolicy": "Уведомления через %{channels}, не чаще одного раза в %{cooldown}",
-        "notifyPolicyQuiet": "Уведомления через %{channels}, не чаще одного раза в %{cooldown} · тишина с %{start} до %{end} (%{timeZone})",
-        "requirements": "Что должно выполняться",
-        "watching": "Отслеживается (%{things})",
-        "openProduct": "Открыть этот товар",
-        "line": "%{quantity} × %{product}",
-        "splitExplanation": "Этот товар разделили надвое, поэтому агент ждёт, пока вы укажете, какой из них имели в виду. Откройте любой из них, чтобы сравнить.",
-        "splitStays": "Остаётся как: %{product}",
-        "splitMoves": "Переходит в: %{product}",
-        "splitStaysA11y": "Остаётся этим товаром — открыть",
-        "splitMovesA11y": "Переходит в этот товар — открыть",
-        "keepSource": "Оставить этот",
-        "moveToTarget": "Другой",
-        "runNow": "Проверить сейчас",
-        "runNowA11y": "Проверить ещё раз для агента «%{name}»",
-        "pause": "Приостановить",
-        "pauseA11y": "Приостановить агента «%{name}»",
-        "resume": "Возобновить",
-        "resumeA11y": "Возобновить агента «%{name}»",
-        "remove": "Удалить",
-        "removeA11y": "Удалить агента «%{name}»",
-        "neverLooked": "Ещё не проверялось",
-        "neverLookedNext": "Ещё не проверялось · следующая проверка %{next}",
-        "lastLooked": "Последняя проверка %{last}",
-        "lastLookedNext": "Последняя проверка %{last} · следующая %{next}",
-        "constraintHard": "Обязательно:",
-        "constraintSoft": "Желательно:"
       }
     },
     "facet": {
@@ -730,152 +671,6 @@
       "market": {
         "any": "Все рынки"
       }
-    },
-    "savedItem": {
-      "removeProduct": "Убрать этот сохранённый товар",
-      "removeListing": "Убрать это сохранённое объявление",
-      "savedProduct": "Сохранённый товар",
-      "savedListing": "Сохранённое объявление",
-      "pinnedListing": "Закреплённое объявление",
-      "cheaper": "Дешевле, чем когда вы сохранили",
-      "dearer": "Дороже, чем когда вы сохранили",
-      "peopleSaved": "Сохранили этот товар: %{people}",
-      "splitChoose": "Этот товар разделили — выберите, какой вы имели в виду",
-      "splitChooseA11y": "Выберите, какой товар вы имели в виду",
-      "setAlert": "Создать уведомление о цене",
-      "setAlertA11y": "Создать уведомление о цене для этого товара",
-      "unavailable": "Больше недоступно",
-      "priceUnpublished": "Цена не опубликована",
-      "priceInCurrency": "Цена опубликована в %{currency}",
-      "noOffer": {
-        "recorded": "Пока никто это не продаёт",
-        "retired": "Сейчас никто это не продаёт",
-        "filtered": "Ни одно предложение не подходит под ваши фильтры",
-        "generic": "Сейчас предложений нет"
-      }
-    },
-    "priceAlert": {
-      "basis": {
-        "item_price": "без доставки",
-        "known_total": "с учётом доставки"
-      },
-      "sellerScope": {
-        "any": "любой продавец",
-        "native_only": "продавцы на Mercaria",
-        "external_only": "продавцы вне Mercaria",
-        "official_only": "проверенные официальные магазины"
-      },
-      "card": {
-        "anyCondition": "любое состояние",
-        "scopeLine": "%{segments} · %{sellers}",
-        "listSeparator": ", ",
-        "openProduct": "Открыть товар, за которым следит это уведомление",
-        "savedProduct": "Сохранённый товар",
-        "targetPrefix": "Сообщить, если дешевле",
-        "notified": "Уведомление отправлено — оно должно было прийти только один раз.",
-        "paused": "Приостановлено",
-        "splitExplanation": "Этот товар разделили надвое, поэтому уведомление приостановлено, пока вы не выберете, какой из них имели в виду.",
-        "keepSource": "Оставить этот",
-        "moveToTarget": "Другой",
-        "keepBoth": "Оба",
-        "pause": "Приостановить",
-        "pauseA11y": "Приостановить это уведомление",
-        "resume": "Возобновить",
-        "resumeA11y": "Возобновить это уведомление",
-        "delete": "Удалить",
-        "deleteA11y": "Удалить это уведомление"
-      }
-    },
-    "purchase": {
-      "oneTime": "Разовая покупка",
-      "subscribe": "Подписка",
-      "addToCart": "В корзину",
-      "selectOptions": "Выбрать параметры",
-      "buyNow": "Купить сейчас",
-      "subscribeNow": "Подписаться сейчас",
-      "frequency": {
-        "monthly": "Доставка каждый месяц",
-        "every2Months": "Доставка раз в 2 месяца",
-        "every3Months": "Доставка раз в 3 месяца",
-        "every4Months": "Доставка раз в 4 месяца",
-        "every6Months": "Доставка раз в 6 месяцев"
-      }
-    },
-    "marketplace": {
-      "visitMerchant": "Перейти к %{name}",
-      "noImage": "Нет изображения"
-    },
-    "canonicalCard": {
-      "pricesUnavailable": "Цены сейчас недоступны",
-      "noOffers": "Сейчас предложений нет",
-      "priceInCurrency": "Цена опубликована в %{currency}",
-      "fromPrice": "От %{price}",
-      "offerLine": "%{conditions} · Предложений: %{offers}"
-    },
-    "carousel": {
-      "previous": "К предыдущему элементу",
-      "next": "К следующему элементу"
-    },
-    "cart": {
-      "saveForLater": "Сохранить на потом"
-    },
-    "category": {
-      "browse": "Смотреть раздел «%{category}»"
-    },
-    "merchantCart": {
-      "checkout": "Перейти к оформлению",
-      "subtotal": "Промежуточный итог:"
-    },
-    "merchantHeader": {
-      "visitStore": "Перейти в магазин",
-      "moreOptions": "Ещё"
-    },
-    "nearby": {
-      "soldBy": "Продавец: %{merchant}",
-      "channel": "Канал: %{channel}",
-      "signIn": "Войти",
-      "signInA11y": "Войдите, чтобы забрать заказ в этом магазине",
-      "selectAt": "%{action} в %{place}"
-    },
-    "pickupPanel": {
-      "heading": "Самовывоз",
-      "codeHeading": "Ваш код получения",
-      "codeA11y": "Код получения %{code}",
-      "codeNote": "Покажите его на кассе. Если он перестанет работать, магазин выдаст новый — старый код никогда не продолжает работать вместе с новым."
-    },
-    "productCard": {
-      "discount": "скидка %{percent}",
-      "save": "Добавить в сохранённые"
-    },
-    "gallery": {
-      "viewImage": "Посмотреть изображение %{position}",
-      "previous": "Предыдущее изображение",
-      "next": "Следующее изображение"
-    },
-    "quantity": {
-      "remove": "Убрать товар",
-      "decrease": "Уменьшить количество",
-      "increase": "Увеличить количество"
-    },
-    "review": {
-      "defaultScope": "Отзывы",
-      "starsA11y": "Средняя оценка: %{rating}. Отзывов: %{reviews}.",
-      "starsScopedA11y": "%{subject}. Средняя оценка: %{rating}. Отзывов: %{reviews}.",
-      "empty": "Пока нет: %{subject}.",
-      "verifiedRatings": "Подтверждённых оценок: %{ratings}",
-      "unverified": "Неподтверждённых: %{ratings} · %{rating}",
-      "readMore": "Читать больше отзывов"
-    },
-    "searchInterpretation": {
-      "chip": "%{label}",
-      "chipPreference": "%{label} · пожелание",
-      "chipRemove": "Убрать: %{origin} %{label}",
-      "modeModel": "Распознано с помощью модели",
-      "modeRules": "Распознано нашими собственными правилами"
-    },
-    "variantSwatches": {
-      "showMoreA11y": "Ещё варианты «%{option}» (%{more})",
-      "showMore": "+%{more} ещё"
     }
   }
 }
