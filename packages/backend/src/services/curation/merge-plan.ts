@@ -120,6 +120,7 @@ import {
   shoppingAgents,
   shoppingAgentTriggers,
 } from '../../db/schema/shoppingAgents.js';
+import { navigationSavedQueries } from '../../db/schema/navigation.js';
 import { navigationNodes } from '../../db/schema/navigation.js';
 
 /**
@@ -2642,23 +2643,27 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
   },
   {
     column: 'navigation_saved_queries.brand_ids',
-    disposition: 'unresolved',
+    disposition: 'rehomed',
     targetEntities: ['brand'],
+    rehome: { column: navigationSavedQueries.brandIds, phase: 'navigation' },
     reason:
-      'Door 4. A `text[]` of brand ids: Postgres has no per-element foreign key, and the plural ' +
-      'spelling means the id-column ledger never demanded an entry either, so this column is in ' +
-      'no register anywhere. A LIVE filter — after a brand merge the curated search silently ' +
-      'stops matching that brand’s products, and a menu that quietly returns less is the failure ' +
-      'nobody reports.',
+      'Door 4, REHOMED (#717). A `text[]` of brand ids: Postgres has no per-element foreign key, ' +
+      'and the plural spelling means the id-column ledger never demanded an entry either, so ' +
+      'until #716 built the array rehomer this column was in no register anywhere. A LIVE ' +
+      'filter, so the #716 ruling applies unchanged one entity over: an operator who curated a ' +
+      'query around a brand meant the BRAND, which after a merge trades under the surviving ' +
+      'identity. Left on a tombstone the curated search silently stops matching that brand’s ' +
+      'products, and a menu that quietly returns less is the failure nobody reports.',
   },
   {
     column: 'navigation_saved_queries.merchant_ids',
-    disposition: 'unresolved',
+    disposition: 'rehomed',
     targetEntities: ['merchant'],
+    rehome: { column: navigationSavedQueries.merchantIds, phase: 'navigation' },
     reason:
-      'Door 4, beside `brand_ids` and with the same consequence one entity over. `category_id` on ' +
-      'the same row carries a real `restrict` key; these two carry none only because an array ' +
-      'cannot.',
+      'Door 4, beside `brand_ids` and with the same consequence one entity over, REHOMED for the ' +
+      'same reason (#717). `category_id` on the same row carries a real `restrict` key; these two ' +
+      'carry none only because an array cannot.',
   },
   {
     column: 'shopping_agents.excluded_merchant_ids',
