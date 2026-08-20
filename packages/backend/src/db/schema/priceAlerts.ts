@@ -71,6 +71,7 @@ import {
   CONDITION_GROUPS,
   OFFER_KINDS,
   PRICE_ALERT_AVAILABILITY_REQUIREMENTS,
+  PRICE_ALERT_BLOCK_REASONS,
   PRICE_ALERT_COMPARISON_BASES,
   PRICE_ALERT_COST_COMPONENTS,
   PRICE_ALERT_DELIVERY_FAILURES,
@@ -225,6 +226,29 @@ export const priceAlerts = pgTable(
 
     // ── Timestamps (issue model field 11) ────────────────────────────────────
     lastEvaluatedAt: timestamptz(),
+    /**
+     * Why the LAST evaluation did not produce a trigger (#752).
+     *
+     * Written by the SAME statement that stamps `last_evaluated_at`, which is
+     * the point: before #752 `qualifyAlert` composed a real verdict and
+     * `evaluation.service` dropped it with a bare `continue`, so the vocabulary
+     * had no reader at all and an operator asking "why did my alert not fire"
+     * got silence for every member.
+     *
+     * EMPTY means the last evaluation qualified — not "we did not record one".
+     * That distinction is carried by `last_evaluated_at` being NULL, which is
+     * already how "never evaluated" is told apart from "evaluated and did not
+     * qualify".
+     *
+     * One row per alert, overwritten each evaluation, rather than a history
+     * table — see `PriceAlertLastEvaluation` for why write volume decides that.
+     */
+    lastBlockReasons: text({ enum: asEnumValues(PRICE_ALERT_BLOCK_REASONS) })
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** Present exactly when `last_block_reasons` is non-empty (a CHECK). */
+    lastBlockedAt: timestamptz(),
     lastTriggeredAt: timestamptz(),
     lastDeliveredAt: timestamptz(),
     /** The amount that fired last time — `cooldown_better_low`'s comparison basis. */
@@ -239,6 +263,33 @@ export const priceAlerts = pgTable(
       'price_alerts_condition_groups_check',
       t.conditionGroups,
       CONDITION_GROUPS,
+    ),
+    checkEveryElementOf(
+      'price_alerts_last_block_reasons_check',
+      t.lastBlockReasons,
+      PRICE_ALERT_BLOCK_REASONS,
+    ),
+    /**
+     * The two halves of one evaluation outcome cannot disagree (#752).
+     *
+     * `cardinality`, never `array_length(col, 1)` — the latter is NULL on an
+     * empty array and a CHECK rejects only FALSE, so the obvious spelling would
+     * ADMIT the empty-reasons-with-a-timestamp row this exists to refuse. The
+     * finding is recorded twice in `offerFreshness.ts` and once in
+     * `guestPortal.ts`; this is the same trap, so it is spelled the same way.
+     */
+    check(
+      'price_alerts_last_block_shape_check',
+      sql`(cardinality(${t.lastBlockReasons}) > 0) = (${t.lastBlockedAt} is not null)`,
+    ),
+    /**
+     * A blocked verdict implies the evaluation happened. The converse is NOT
+     * asserted: an evaluation that QUALIFIED stamps `last_evaluated_at` and
+     * leaves the reasons empty, which is the ordinary success state.
+     */
+    check(
+      'price_alerts_last_block_evaluated_check',
+      sql`${t.lastBlockedAt} is null or ${t.lastEvaluatedAt} is not null`,
     ),
     checkOneOf('price_alerts_seller_scope_check', t.sellerScope, PRICE_ALERT_SELLER_SCOPES),
     checkOneOf('price_alerts_proximity_scope_check', t.proximityScope, PRICE_ALERT_PROXIMITY_SCOPES),

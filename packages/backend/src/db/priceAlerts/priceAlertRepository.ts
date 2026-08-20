@@ -23,6 +23,7 @@ import { and, desc, eq, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 import type {
   ConditionGroup,
   PriceAlertAvailabilityRequirement,
+  PriceAlertBlockReason,
   PriceAlertComparisonBasis,
   PriceAlertProximityScope,
   PriceAlertRepeatPolicy,
@@ -331,14 +332,60 @@ export async function erasePriceAlertsForOwner(
   return rows.length;
 }
 
-/** Stamp an evaluation, whatever it concluded. */
+/** What one alert's evaluation concluded — the unit `recordPriceAlertEvaluated` stamps. */
+export interface PriceAlertEvaluationRecord {
+  readonly id: string;
+  /** EMPTY means it qualified. Order is the evaluator's. */
+  readonly reasons: readonly PriceAlertBlockReason[];
+}
+
+/**
+ * Stamp an evaluation, whatever it concluded — including WHY it did not fire.
+ *
+ * The outcome is written by the SAME statement that stamps `last_evaluated_at`
+ * (#752). Two statements could leave an alert stamped as evaluated carrying the
+ * PREVIOUS evaluation's block reasons, which is worse than no reasons at all:
+ * an operator would read a stale cause as the current one and it would look
+ * exactly like a correct answer.
+ *
+ * Alerts are grouped by their reason SET rather than updated one by one. The
+ * distinct sets are bounded by the vocabulary and in practice are a handful —
+ * alerts on one product mostly fail the same way, and `above_target` alone
+ * covers most of them. A per-row `unnest` was the alternative and does not fit:
+ * the payload is an array PER ROW, and a Postgres `text[][]` must be
+ * rectangular, so it cannot carry reason sets of differing length.
+ */
 export async function recordPriceAlertEvaluated(
-  ids: readonly string[],
+  outcomes: readonly PriceAlertEvaluationRecord[],
   now: Date,
   db: DatabaseOrTransaction = getDb(),
 ): Promise<void> {
-  if (ids.length === 0) return;
-  await db.update(priceAlerts).set({ lastEvaluatedAt: now }).where(inArray(priceAlerts.id, ids));
+  if (outcomes.length === 0) return;
+
+  const groups = new Map<string, { reasons: readonly PriceAlertBlockReason[]; ids: string[] }>();
+  for (const outcome of outcomes) {
+    // Space-joined, and that is safe rather than lucky: every member of
+    // PRICE_ALERT_BLOCK_REASONS is a snake_case identifier containing no space,
+    // so two distinct sets cannot collide onto one key. ORDER is preserved, so
+    // the stored reasons read in the order the evaluator read the conditions.
+    const key = outcome.reasons.join(' ');
+    const group = groups.get(key);
+    if (group) group.ids.push(outcome.id);
+    else groups.set(key, { reasons: outcome.reasons, ids: [outcome.id] });
+  }
+
+  for (const group of groups.values()) {
+    await db
+      .update(priceAlerts)
+      .set({
+        lastEvaluatedAt: now,
+        lastBlockReasons: [...group.reasons],
+        // The biconditional `price_alerts_last_block_shape_check` enforces, set
+        // in the one place that knows both halves.
+        lastBlockedAt: group.reasons.length > 0 ? now : null,
+      })
+      .where(inArray(priceAlerts.id, group.ids));
+  }
 }
 
 /**
