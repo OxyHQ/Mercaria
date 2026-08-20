@@ -501,10 +501,10 @@ const REASON_CALLS = ['refuseDecision', 'refuseTransition'] as const;
  * The text of every `name(...)` call in `source`, parentheses balanced.
  *
  * Balanced rather than a fixed window, because #743's own method note records a
- * three-line window reporting `accepted` and `rejected` as unproduced — they are
- * written by a ternary eight lines into the call. A window that is one line too
- * short invents defects, and there is no window length that is right for every
- * call site.
+ * three-line window reporting `accepted` and `rejected` as unproduced: the
+ * ternary that writes them sits further into the call than that. A window one
+ * line too short invents defects, and no single length is right for every call
+ * site.
  */
 function callArguments(source: string, name: string): string[] {
   const found: string[] = [];

@@ -652,7 +652,10 @@ export const BUYER_REQUEST_EVENT_KINDS = [
   'completed',
   'cancelled',
   'completion_failed',
-  /** The sixth refusal kind, with its own reason vocabulary and its own producer. */
+  /**
+   * #743's refusal kind — the first of the six, and the only one with its own
+   * reason vocabulary. The other five are spread in below.
+   */
   'decision_refused',
   // SPREAD rather than repeated, so the tuple the CHECK is rendered from and the
   // tuple `refuseTransition` accepts cannot drift — a kind in the second and not
