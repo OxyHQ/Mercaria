@@ -810,7 +810,7 @@
       "noOffers": "Keine aktuellen Angebote",
       "priceInCurrency": "Preis veröffentlicht in %{currency}",
       "fromPrice": "Ab %{price}",
-      "offerLine": "%{scope} · Angebote: %{offers}"
+      "offerLine": "%{conditions} · Angebote: %{offers}"
     },
     "carousel": {
       "previous": "Zum vorherigen Element",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "Bewertungen",
       "starsA11y": "Durchschnittsbewertung: %{rating}. Bewertungen: %{reviews}.",
-      "starsScopedA11y": "%{scope}. Durchschnittsbewertung: %{rating}. Bewertungen: %{reviews}.",
-      "empty": "Noch keine %{scope}.",
+      "starsScopedA11y": "%{subject}. Durchschnittsbewertung: %{rating}. Bewertungen: %{reviews}.",
+      "empty": "Noch keine %{subject}.",
       "verifiedRatings": "Verifizierte Bewertungen: %{ratings}",
       "unverified": "Nicht verifiziert: %{ratings} · %{rating}",
       "readMore": "Mehr Bewertungen lesen"
@@ -874,8 +874,8 @@
       "modeRules": "Nach unseren eigenen Regeln interpretiert"
     },
     "variantSwatches": {
-      "showMoreA11y": "Weitere Optionen für %{option} (%{count})",
-      "showMore": "+%{count} weitere"
+      "showMoreA11y": "Weitere Optionen für %{option} (%{more})",
+      "showMore": "+%{more} weitere"
     }
   }
 }

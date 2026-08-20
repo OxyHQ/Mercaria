@@ -810,7 +810,7 @@
       "noOffers": "इस समय कोई ऑफ़र नहीं",
       "priceInCurrency": "कीमत %{currency} में प्रकाशित है",
       "fromPrice": "%{price} से",
-      "offerLine": "%{scope} · ऑफ़र: %{offers}"
+      "offerLine": "%{conditions} · ऑफ़र: %{offers}"
     },
     "carousel": {
       "previous": "पिछली वस्तु पर जाएँ",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "समीक्षाएँ",
       "starsA11y": "औसत रेटिंग: %{rating}. समीक्षाएँ: %{reviews}.",
-      "starsScopedA11y": "%{scope}. औसत रेटिंग: %{rating}. समीक्षाएँ: %{reviews}.",
-      "empty": "अभी तक कोई %{scope} नहीं।",
+      "starsScopedA11y": "%{subject}. औसत रेटिंग: %{rating}. समीक्षाएँ: %{reviews}.",
+      "empty": "अभी तक कोई %{subject} नहीं।",
       "verifiedRatings": "सत्यापित रेटिंग: %{ratings}",
       "unverified": "असत्यापित: %{ratings} · %{rating}",
       "readMore": "और समीक्षाएँ पढ़ें"
@@ -874,8 +874,8 @@
       "modeRules": "हमारे अपने नियमों से समझा गया"
     },
     "variantSwatches": {
-      "showMoreA11y": "%{option} के और विकल्प (%{count})",
-      "showMore": "+%{count} और"
+      "showMoreA11y": "%{option} के और विकल्प (%{more})",
+      "showMore": "+%{more} और"
     }
   }
 }

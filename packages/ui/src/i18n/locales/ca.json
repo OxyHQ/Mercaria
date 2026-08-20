@@ -810,7 +810,7 @@
       "noOffers": "Sense ofertes actuals",
       "priceInCurrency": "Preu publicat en %{currency}",
       "fromPrice": "Des de %{price}",
-      "offerLine": "%{scope} · Ofertes: %{offers}"
+      "offerLine": "%{conditions} · Ofertes: %{offers}"
     },
     "carousel": {
       "previous": "Ves a l'element anterior",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "Ressenyes",
       "starsA11y": "Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
-      "starsScopedA11y": "%{scope}. Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
-      "empty": "Encara no hi ha %{scope}.",
+      "starsScopedA11y": "%{subject}. Valoració mitjana: %{rating}. Ressenyes: %{reviews}.",
+      "empty": "Encara no hi ha %{subject}.",
       "verifiedRatings": "Valoracions verificades: %{ratings}",
       "unverified": "Sense verificar: %{ratings} · %{rating}",
       "readMore": "Llegeix més ressenyes"
@@ -874,8 +874,8 @@
       "modeRules": "Interpretat amb les nostres pròpies regles"
     },
     "variantSwatches": {
-      "showMoreA11y": "Més opcions de %{option} (%{count})",
-      "showMore": "+%{count} més"
+      "showMoreA11y": "Més opcions de %{option} (%{more})",
+      "showMore": "+%{more} més"
     }
   }
 }

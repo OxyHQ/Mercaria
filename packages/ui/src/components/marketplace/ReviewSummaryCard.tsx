@@ -80,7 +80,7 @@ export function ReviewSummaryCard({
 
       {total === 0 && !isLoading ? (
         <Text className="text-bodySmall text-text-tertiary">
-          {t(REVIEW_EMPTY_KEY, { scope: scopeText })}
+          {t(REVIEW_EMPTY_KEY, { subject: scopeText })}
         </Text>
       ) : (
         <>

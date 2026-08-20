@@ -810,7 +810,7 @@
       "noOffers": "Сейчас предложений нет",
       "priceInCurrency": "Цена опубликована в %{currency}",
       "fromPrice": "От %{price}",
-      "offerLine": "%{scope} · Предложений: %{offers}"
+      "offerLine": "%{conditions} · Предложений: %{offers}"
     },
     "carousel": {
       "previous": "К предыдущему элементу",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "Отзывы",
       "starsA11y": "Средняя оценка: %{rating}. Отзывов: %{reviews}.",
-      "starsScopedA11y": "%{scope}. Средняя оценка: %{rating}. Отзывов: %{reviews}.",
-      "empty": "Пока нет: %{scope}.",
+      "starsScopedA11y": "%{subject}. Средняя оценка: %{rating}. Отзывов: %{reviews}.",
+      "empty": "Пока нет: %{subject}.",
       "verifiedRatings": "Подтверждённых оценок: %{ratings}",
       "unverified": "Неподтверждённых: %{ratings} · %{rating}",
       "readMore": "Читать больше отзывов"
@@ -874,8 +874,8 @@
       "modeRules": "Распознано нашими собственными правилами"
     },
     "variantSwatches": {
-      "showMoreA11y": "Ещё варианты «%{option}» (%{count})",
-      "showMore": "+%{count} ещё"
+      "showMoreA11y": "Ещё варианты «%{option}» (%{more})",
+      "showMore": "+%{more} ещё"
     }
   }
 }

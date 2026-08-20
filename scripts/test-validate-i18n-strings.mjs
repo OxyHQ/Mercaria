@@ -639,6 +639,31 @@ const cases = [
     expectOutput: "carries placeholders",
   },
   {
+    // G' (#437). The slot is named `scope`, which i18n-js reads as an option
+    // rather than filling — so the value resolves to a key that does not exist.
+    //
+    // Mutated in EVERY bundle rather than one, because the defect is a property
+    // of the copy and not of a locale drifting: writing it in `fr` alone would
+    // ALSO trip check B's placeholder parity, and the case would go red for a
+    // compound reason while claiming exactly one — and would keep passing if G'
+    // were deleted.
+    name: "a placeholder named after an i18n-js option fails (G')",
+    files: treeWithBundle((value) => {
+      value.products.greeting = "Hello %{scope}";
+      return value;
+    }),
+    expectExit: 1,
+    expectOutput: "an i18n-js OPTION rather than a slot",
+  },
+  {
+    // The negative half, and the one that keeps G' from being switched off: a
+    // pluralised key's `%{count}` is the CORRECT spelling and must not fire.
+    name: "a plural key's own %{count} does NOT fire G'",
+    files: migratedTree(),
+    expectExit: 0,
+    expectOutput: "i18n string guard passed",
+  },
+  {
     name: "a bundle leaf that is not a string fails",
     files: treeWithBundle((value) => {
       value.common.save = ["Save"];

@@ -810,7 +810,7 @@
       "noOffers": "暂无报价",
       "priceInCurrency": "价格以 %{currency} 公布",
       "fromPrice": "%{price} 起",
-      "offerLine": "%{scope} · 报价数：%{offers}"
+      "offerLine": "%{conditions} · 报价数：%{offers}"
     },
     "carousel": {
       "previous": "转到上一项",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "评价",
       "starsA11y": "平均评分：%{rating}。评价数：%{reviews}。",
-      "starsScopedA11y": "%{scope}。平均评分：%{rating}。评价数：%{reviews}。",
-      "empty": "还没有%{scope}。",
+      "starsScopedA11y": "%{subject}。平均评分：%{rating}。评价数：%{reviews}。",
+      "empty": "还没有%{subject}。",
       "verifiedRatings": "已核实的评分：%{ratings}",
       "unverified": "未核实：%{ratings} · %{rating}",
       "readMore": "阅读更多评价"
@@ -874,8 +874,8 @@
       "modeRules": "由我们自己的规则理解"
     },
     "variantSwatches": {
-      "showMoreA11y": "查看更多 %{option} 选项（%{count}）",
-      "showMore": "+%{count} 个"
+      "showMoreA11y": "查看更多 %{option} 选项（%{more}）",
+      "showMore": "+%{more} 个"
     }
   }
 }

@@ -103,7 +103,7 @@ export function ReviewStars({
       accessibilityLabel={
         scopeLabel
           ? t(REVIEW_STARS_SCOPED_A11Y_KEY, {
-              scope: scopeLabel,
+              subject: scopeLabel,
               rating: formatRating(rating),
               reviews: count ?? 0,
             })

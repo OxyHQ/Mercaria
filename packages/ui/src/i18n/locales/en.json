@@ -810,7 +810,7 @@
       "noOffers": "No current offers",
       "priceInCurrency": "Price published in %{currency}",
       "fromPrice": "From %{price}",
-      "offerLine": "%{scope} · Offers: %{offers}"
+      "offerLine": "%{conditions} · Offers: %{offers}"
     },
     "carousel": {
       "previous": "Go to the previous item",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "Reviews",
       "starsA11y": "Average rating: %{rating}. Reviews: %{reviews}.",
-      "starsScopedA11y": "%{scope}. Average rating: %{rating}. Reviews: %{reviews}.",
-      "empty": "No %{scope} yet.",
+      "starsScopedA11y": "%{subject}. Average rating: %{rating}. Reviews: %{reviews}.",
+      "empty": "No %{subject} yet.",
       "verifiedRatings": "Verified ratings: %{ratings}",
       "unverified": "Unverified: %{ratings} · %{rating}",
       "readMore": "Read more reviews"
@@ -874,8 +874,8 @@
       "modeRules": "Interpreted by our own rules"
     },
     "variantSwatches": {
-      "showMoreA11y": "More %{option} options (%{count})",
-      "showMore": "+%{count} more"
+      "showMoreA11y": "More %{option} options (%{more})",
+      "showMore": "+%{more} more"
     }
   }
 }

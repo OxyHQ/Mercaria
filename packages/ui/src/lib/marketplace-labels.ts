@@ -20,6 +20,24 @@
  * `BASKET_CARD_TALLY_KEY` — a ternary over two English words has no correct
  * form in `ru` or `ar`, and `%{count}` would move #436's pin.
  *
+ * ## No slot may be named `scope`, `count`, `locale`, `defaults` or `defaultValue`
+ *
+ * Those are i18n-js's own OPTION names, and it reads them before it interpolates
+ * anything. Three keys here were written with a `%{scope}` — the natural word
+ * for a review scope and a condition scope — and every one of them resolved to
+ * `[missing "en.<whatever was passed>.ui.review.empty"]`, because `scope`
+ * PREFIXES the key being looked up. They now read `%{subject}` and
+ * `%{conditions}`.
+ *
+ * The reason this is worth a paragraph is that NOTHING static catches it. The
+ * key exists, the placeholder names match across all twelve bundles, `tsc` is
+ * happy, and `validate:i18n-strings`' own renamed-placeholder case passes — the
+ * failure exists only in i18n-js's output, in every language at once. It was
+ * found by resolving all twelve bundles through a real `I18n` instance, which is
+ * the only check that could have found it. `count` is the same hazard wearing a
+ * friendlier face: it pluralises, so it happens to work on a scalar translation
+ * and would start selecting forms the day somebody made that key plural.
+ *
  * ## `reviewsEmpty` dropped a `.toLowerCase()` and that is a fix, not a loss
  *
  * It read `No ${scopeLabel.toLowerCase()} yet.` — case surgery on an

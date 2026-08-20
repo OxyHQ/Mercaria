@@ -182,7 +182,7 @@ export function CanonicalProductCard({
             )}
             <Text className="text-xs text-muted-foreground">
               {t(CANONICAL_CARD_OFFER_LINE_KEY, {
-                scope: CONDITION_SCOPE_TEXT[offers.conditionScope],
+                conditions: CONDITION_SCOPE_TEXT[offers.conditionScope],
                 offers: offers.summary.currentOfferCount,
               })}
             </Text>

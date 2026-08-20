@@ -810,7 +810,7 @@
       "noOffers": "এখন কোনো অফার নেই",
       "priceInCurrency": "দাম %{currency}-এ প্রকাশিত",
       "fromPrice": "%{price} থেকে",
-      "offerLine": "%{scope} · অফার: %{offers}"
+      "offerLine": "%{conditions} · অফার: %{offers}"
     },
     "carousel": {
       "previous": "আগের আইটেমে যান",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "পর্যালোচনা",
       "starsA11y": "গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
-      "starsScopedA11y": "%{scope}। গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
-      "empty": "এখনও কোনো %{scope} নেই।",
+      "starsScopedA11y": "%{subject}। গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
+      "empty": "এখনও কোনো %{subject} নেই।",
       "verifiedRatings": "যাচাই করা রেটিং: %{ratings}",
       "unverified": "যাচাই না করা: %{ratings} · %{rating}",
       "readMore": "আরও পর্যালোচনা পড়ুন"
@@ -874,8 +874,8 @@
       "modeRules": "আমাদের নিজস্ব নিয়মে বোঝা হয়েছে"
     },
     "variantSwatches": {
-      "showMoreA11y": "%{option}-এর আরও বিকল্প (%{count})",
-      "showMore": "+%{count} আরও"
+      "showMoreA11y": "%{option}-এর আরও বিকল্প (%{more})",
+      "showMore": "+%{more} আরও"
     }
   }
 }

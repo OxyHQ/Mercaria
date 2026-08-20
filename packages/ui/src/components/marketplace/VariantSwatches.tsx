@@ -138,14 +138,14 @@ export function VariantSwatches({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(SWATCH_SHOW_MORE_A11Y_KEY, {
-              count: hiddenCount,
+              more: hiddenCount,
               option: option.name,
             })}
             onPress={() => setExpanded(true)}
             className="min-h-space-40 items-center justify-center rounded-radius-max border-[1.5px] border-border-secondary px-space-16"
           >
             <Text className="text-buttonMedium text-text">
-              {t(SWATCH_SHOW_MORE_KEY, { count: hiddenCount })}
+              {t(SWATCH_SHOW_MORE_KEY, { more: hiddenCount })}
             </Text>
           </Pressable>
         ) : null}

@@ -1149,7 +1149,7 @@
         "category": "Категория",
         "productType": "Тип товара",
         "productTypeVersion": "%{name} (версия %{version})",
-        "marketAndLocale": "Рынок %{market} · язык %{locale}",
+        "marketAndLocale": "Рынок %{market} · язык %{language}",
         "market": "Рынок",
         "canonicalLink": "Товар каталога",
         "canonicalNone": "Не выбран",

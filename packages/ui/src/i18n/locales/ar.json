@@ -810,7 +810,7 @@
       "noOffers": "لا توجد عروض حالية",
       "priceInCurrency": "السعر منشور بعملة %{currency}",
       "fromPrice": "ابتداءً من %{price}",
-      "offerLine": "%{scope} · العروض: %{offers}"
+      "offerLine": "%{conditions} · العروض: %{offers}"
     },
     "carousel": {
       "previous": "الانتقال إلى العنصر السابق",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "المراجعات",
       "starsA11y": "متوسط التقييم: %{rating}. عدد المراجعات: %{reviews}.",
-      "starsScopedA11y": "%{scope}. متوسط التقييم: %{rating}. عدد المراجعات: %{reviews}.",
-      "empty": "لا توجد %{scope} بعد.",
+      "starsScopedA11y": "%{subject}. متوسط التقييم: %{rating}. عدد المراجعات: %{reviews}.",
+      "empty": "لا توجد %{subject} بعد.",
       "verifiedRatings": "التقييمات الموثّقة: %{ratings}",
       "unverified": "غير موثّقة: %{ratings} · %{rating}",
       "readMore": "اقرأ المزيد من المراجعات"
@@ -874,8 +874,8 @@
       "modeRules": "فُهم بقواعدنا الخاصة"
     },
     "variantSwatches": {
-      "showMoreA11y": "خيارات %{option} إضافية (%{count})",
-      "showMore": "+%{count} إضافية"
+      "showMoreA11y": "خيارات %{option} إضافية (%{more})",
+      "showMore": "+%{more} إضافية"
     }
   }
 }

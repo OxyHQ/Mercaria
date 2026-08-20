@@ -810,7 +810,7 @@
       "noOffers": "現在の出品はありません",
       "priceInCurrency": "価格は %{currency} で公表されています",
       "fromPrice": "%{price} から",
-      "offerLine": "%{scope} · 出品数: %{offers}"
+      "offerLine": "%{conditions} · 出品数: %{offers}"
     },
     "carousel": {
       "previous": "前の項目へ",
@@ -860,8 +860,8 @@
     "review": {
       "defaultScope": "レビュー",
       "starsA11y": "平均評価: %{rating}。レビュー数: %{reviews}。",
-      "starsScopedA11y": "%{scope}。平均評価: %{rating}。レビュー数: %{reviews}。",
-      "empty": "%{scope}はまだありません。",
+      "starsScopedA11y": "%{subject}。平均評価: %{rating}。レビュー数: %{reviews}。",
+      "empty": "%{subject}はまだありません。",
       "verifiedRatings": "確認済みの評価: %{ratings}",
       "unverified": "未確認: %{ratings} · %{rating}",
       "readMore": "レビューをもっと読む"
@@ -874,8 +874,8 @@
       "modeRules": "独自のルールで解釈しました"
     },
     "variantSwatches": {
-      "showMoreA11y": "%{option} の選択肢をもっと見る（%{count}）",
-      "showMore": "+%{count} 件"
+      "showMoreA11y": "%{option} の選択肢をもっと見る（%{more}）",
+      "showMore": "+%{more} 件"
     }
   }
 }
