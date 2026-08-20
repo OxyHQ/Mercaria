@@ -129,6 +129,36 @@ export const CONDITION_REQUIRED_AUTHORING_FLOWS: readonly (typeof PRODUCT_TYPE_A
   Object.freeze(['p2p'] as const);
 
 /**
+ * The flows that may NOT publish without at least one image on the listing.
+ *
+ * The SAME tuple as {@link CONDITION_REQUIRED_AUTHORING_FLOWS}, and it is a
+ * separate constant rather than a reference to it because the two could
+ * legitimately diverge — a flow could owe a photograph without owing a stated
+ * condition, or the reverse — and one name serving both would make that
+ * divergence a rewrite rather than an edit. `authoring-validation.test.ts`
+ * asserts they agree TODAY, so a change to either is a decision somebody makes
+ * on purpose rather than a drift nobody sees.
+ *
+ * Why `p2p` and not every flow: this is not "a listing ought to have photos".
+ * It is the media half of the same requirement the condition half already
+ * carries. A `p2p` draft must state a condition (#572); #90 draws the evidence
+ * for a condition claim from the listing's OWN gallery and
+ * `mercaria_reject_canonical_condition_photo` refuses a `file_id` any
+ * `canonical_images` row already claims — so a p2p listing with no photograph
+ * of its own has made a claim about used goods that nothing it owns can
+ * support, and the catalogue's picture of the model is barred from standing in.
+ *
+ * A merchant, a connector and an operator are describing stock or replaying a
+ * feed against a canonical product that already carries catalogue imagery, so
+ * the same absence is not the same fact.
+ *
+ * A tuple rather than `flow === 'p2p'` so a sixth flow forces the question
+ * rather than inheriting the permissive answer by omission.
+ */
+export const MEDIA_REQUIRED_AUTHORING_FLOWS: readonly (typeof PRODUCT_TYPE_AUTHORING_FLOWS)[number][] =
+  Object.freeze(['p2p'] as const);
+
+/**
  * `catalog_authoring_drafts` — one product somebody is authoring.
  *
  * ## `cascade` from the store, and it is the only cascade in the domain
