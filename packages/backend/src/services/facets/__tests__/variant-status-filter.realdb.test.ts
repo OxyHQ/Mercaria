@@ -97,6 +97,7 @@ import {
 import { offers } from '../../../db/schema/offers.js';
 import { findProductIdsSatisfyingAttributes } from '../../../db/search/searchCandidateRepository.js';
 import { browseCatalogProducts } from '../../catalog-pages/product-browse.service.js';
+import { runCanonicalSearch } from '../../search/canonical-search.service.js';
 import { resolveFacets } from '../facet.service.js';
 
 let db: Database;
@@ -121,7 +122,28 @@ const SUPPRESSED = `vsf-p-suppressed-${RUN}`;
 const MERGED = `vsf-p-merged-${RUN}`;
 const DRAFT = `vsf-p-draft-${RUN}`;
 const DISCONTINUED = `vsf-p-discontinued-${RUN}`;
+/** Variant-grain subjects: the PRODUCT is `active` on every one of these. */
 const PRODUCT_IDS = [ACTIVE_A, ACTIVE_B, SUPPRESSED, MERGED, DRAFT, DISCONTINUED];
+
+/**
+ * …and the same question one grain UP, where the three rails also disagreed.
+ *
+ * Measured before the fix: a `suppressed` PRODUCT and a `draft` one were absent
+ * from the facet count and from search, and PRESENT on the browse rail, whose
+ * predicate was `status <> 'merged'`. A `discontinued` product was in both
+ * lists and counted zero. Each carries an ACTIVE variant, so the only variable
+ * is `canonical_products.status`.
+ */
+const P_SUPPRESSED = `vsf-ps-suppressed-${RUN}`;
+const P_DRAFT = `vsf-ps-draft-${RUN}`;
+const P_DISCONTINUED = `vsf-ps-discontinued-${RUN}`;
+const PRODUCT_STATUS_IDS: readonly (readonly [string, 'suppressed' | 'draft' | 'discontinued'])[] =
+  [
+    [P_SUPPRESSED, 'suppressed'],
+    [P_DRAFT, 'draft'],
+    [P_DISCONTINUED, 'discontinued'],
+  ];
+const ALL_PRODUCT_IDS = [...PRODUCT_IDS, ...PRODUCT_STATUS_IDS.map(([id]) => id)];
 
 const variantIds: string[] = [];
 const valueIds: string[] = [];
@@ -279,6 +301,19 @@ beforeAll(async () => {
     })),
   );
 
+  await db.insert(canonicalProducts).values(
+    PRODUCT_STATUS_IDS.map(([id, status], index) => ({
+      id,
+      slug: `${id}-slug`,
+      name: `vsfwidget${RUN} p${String(index)}`,
+      normalizedName: `vsfwidget${RUN} p${String(index)}`,
+      categoryId: CATEGORY,
+      brandId: BRAND,
+      status,
+      firstSeenAt: OBSERVED,
+    })),
+  );
+
   const activeA = await addVariant(ACTIVE_A, 1, 'active');
   await addSelectedVariantValue(activeA, 'alpha');
   await addOffer(activeA);
@@ -305,6 +340,14 @@ beforeAll(async () => {
   const discontinued = await addVariant(DISCONTINUED, 6, 'discontinued');
   await addSelectedVariantValue(discontinued, 'zeta');
   await addOffer(discontinued);
+
+  // The product-grain subjects, each with an ACTIVE variant.
+  const values = ['eta', 'theta', 'iota'];
+  for (const [index, [productId]] of PRODUCT_STATUS_IDS.entries()) {
+    const variantId = await addVariant(productId, 7 + index, 'active');
+    await addSelectedVariantValue(variantId, values[index] ?? 'eta');
+    await addOffer(variantId);
+  }
 }, 120_000);
 
 afterAll(async () => {
@@ -325,7 +368,7 @@ afterAll(async () => {
   // `match_decisions` row citing this file's fixture and both citing columns are
   // `ON DELETE restrict`. `canonical-fixture-census.test.ts` fails the build on a
   // direct delete of these tables.
-  await deleteTestCanonicalRows(db, { productIds: PRODUCT_IDS, variantIds });
+  await deleteTestCanonicalRows(db, { productIds: ALL_PRODUCT_IDS, variantIds });
   await db
     .delete(attributeDefinitionCategories)
     .where(inArray(attributeDefinitionCategories.id, [SCOPE_ROW]));
@@ -370,7 +413,9 @@ async function railAnswers(value: string): Promise<RailAnswers> {
 
   // The one function `canonical-search.service.ts` and `product-browse.service.ts`
   // both pass their `filters.attributes` to, verbatim.
-  const search = await findProductIdsSatisfyingAttributes(db, PRODUCT_IDS, [{ key: KEY, value }]);
+  const search = await findProductIdsSatisfyingAttributes(db, ALL_PRODUCT_IDS, [
+    { key: KEY, value },
+  ]);
 
   // …and the browse SERVICE, measured rather than inferred from that shared
   // call: the shared call is an argument, not an observation.
@@ -386,6 +431,58 @@ async function railAnswers(value: string): Promise<RailAnswers> {
   );
 
   return { facet: facetCount, search: search.length, browse: page.products.length };
+}
+
+/**
+ * The same three rails, for a PRODUCT-grain subject.
+ *
+ * The search column is `runCanonicalSearch` rather than
+ * `findProductIdsSatisfyingAttributes`, and that is the whole reason this is a
+ * second helper: product status is excluded during RETRIEVAL, so the attribute
+ * filter neither sees it nor should. Driving the filter function here would
+ * report 1 for a suppressed product and be measuring the wrong stage.
+ */
+async function productRailAnswers(value: string): Promise<RailAnswers> {
+  const { response } = await resolveFacets(
+    {
+      scope: { kind: 'category', categoryId: CATEGORY },
+      selection: [],
+      locale: 'en',
+      displayCurrency: 'EUR',
+      now: NOW,
+    },
+    db,
+  );
+  const facet = response.facets.find((entry) => entry.key === KEY);
+  const facetCount =
+    facet === undefined || facet.values.shape !== 'buckets'
+      ? 0
+      : (facet.values.buckets.find((bucket) => bucket.key === value)?.count ?? 0);
+
+  const outcome = await runCanonicalSearch(
+    {
+      term: `vsfwidget${RUN}`,
+      kinds: ['product'],
+      filters: { attributes: [{ key: KEY, value }] },
+      limit: 50,
+      now: NOW,
+    },
+    db,
+  );
+  const search = outcome.response.results.filter((result) => result.kind === 'product').length;
+
+  const page = await browseCatalogProducts(
+    {
+      scope: { kind: 'brand', brandId: BRAND },
+      filters: { attributes: [{ key: KEY, value }] },
+      offerContext: 'included',
+      limit: 50,
+      now: NOW,
+    },
+    db,
+  );
+
+  return { facet: facetCount, search, browse: page.products.length };
 }
 
 describe('#628 — which variant statuses may answer an attribute filter', () => {
@@ -428,5 +525,26 @@ describe('#628 — which variant statuses may answer an attribute filter', () =>
 
   it('nor a DRAFT variant, which nothing has published', async () => {
     expect(await railAnswers('epsilon')).toEqual({ facet: 0, search: 0, browse: 0 });
+  });
+});
+
+describe('#628 one grain UP — which PRODUCT statuses may answer a filter', () => {
+  it('the vacuity floor: a DISCONTINUED product is counted AND listed', async () => {
+    // Asserted first, and it is also a subject: the facet rail counted 0 for a
+    // discontinued product while both lists returned it, so this pair
+    // disagreed in the opposite direction to the suppressed one below.
+    expect(await productRailAnswers('iota')).toEqual({ facet: 1, search: 1, browse: 1 });
+  });
+
+  it('a SUPPRESSED product answers NOTHING, including on the browse rail', async () => {
+    // Was `{ facet: 0, search: 0, browse: 1 }`. The browse rail's predicate was
+    // `status <> 'merged'`, which admits every status but the tombstone — so an
+    // operator's product-level "do not show" left it on the brand page.
+    expect(await productRailAnswers('eta')).toEqual({ facet: 0, search: 0, browse: 0 });
+  });
+
+  it('nor does a DRAFT product, which #60 mints and nothing has published', async () => {
+    // Was `{ facet: 0, search: 0, browse: 1 }` for the same reason.
+    expect(await productRailAnswers('theta')).toEqual({ facet: 0, search: 0, browse: 0 });
   });
 });
