@@ -343,10 +343,41 @@ export const PRICE_ALERT_MINUTES_PER_DAY = 1_440;
 /**
  * Why an evaluation did not produce a trigger.
  *
- * Every member names a fact the evaluator READ, so the list is exhaustive
- * rather than a guess, and an operator tracing "why did my alert not fire" gets
- * the answer rather than an absence. `above_target` is the ordinary one and is
- * not an error.
+ * Every member names a fact the evaluator READ. `above_target` is the ordinary
+ * one and is not an error.
+ *
+ * ## NOTHING READS THIS YET, and the previous wording claimed otherwise (#744)
+ *
+ * This docblock used to say the list was "exhaustive rather than a guess" and
+ * that "an operator tracing 'why did my alert not fire' gets the answer rather
+ * than an absence". The second half is false today and the first half was
+ * measured and found false for one member, so both are removed rather than
+ * softened.
+ *
+ * `qualifyAlert` composes these into `{ outcome: 'blocked', reasons }`, and its
+ * ONE production consumer is `evaluation.service.ts`, which does
+ * `if (qualification.outcome !== 'qualified') continue;` — so the verdict is
+ * computed and discarded. No column stores a reason, no DTO carries one and no
+ * route returns one. An operator asking that question today gets the absence
+ * the old wording promised they would not, for EVERY member and not just the
+ * unproduced ones.
+ *
+ * That is the distinction worth keeping: #744 measured "does a literal producer
+ * exist", which is true for most of these, while the sentence above claimed "an
+ * operator is told", which needs a READER. A value produced into a local that
+ * the next line drops satisfies the first and not the second.
+ *
+ * Giving the vocabulary a reader is a feature and has its own issue. Until it
+ * lands, do NOT add a member here to "cover" a case: it would pass a producer
+ * census, read as a fix, and change nothing an operator can see. A new member
+ * arrives WITH the code that surfaces it.
+ *
+ * `alert_not_evaluable` was removed by #744 rather than left dead. The state is
+ * modelled (`PriceAlertState`), but the evaluator's own selection is
+ * `eq(priceAlerts.state, 'enabled')`, so a paused, triggered or deleted alert
+ * never reaches evaluation to be blocked — unreachable by construction rather
+ * than merely unproduced, and the answer to "why didn't it fire, it's paused"
+ * is the alert's own `state`, which is already readable.
  */
 export type PriceAlertBlockReason =
   /** Nothing in the comparison survived #74's eligibility at all. */
@@ -361,10 +392,18 @@ export type PriceAlertBlockReason =
   | 'currency_not_convertible'
   /** No immutable observation stands behind the qualifying price. */
   | 'no_observed_price_version'
-  /** The repeat policy says it is too soon, or not enough better, or already done. */
+  /**
+   * The repeat policy says it is too soon, or not enough better, or already
+   * done.
+   *
+   * KEPT although nothing produces it, deliberately: unlike
+   * `alert_not_evaluable` the condition is genuinely reachable and evaluated —
+   * `evaluation.service.ts` computes `mayRepeat(...)` over the alert's two
+   * timestamps and its last amount, then discards the answer with a bare
+   * `continue`. Recording it belongs in the change that gives this vocabulary a
+   * reader, so the member and the surface that shows it land together (#744).
+   */
   | 'repeat_policy_not_satisfied'
-  /** The alert is paused, triggered-and-finished or deleted. */
-  | 'alert_not_evaluable'
   /** A split divided the product and the buyer has not said which one they meant. */
   | 'ambiguous_after_split'
   /** The alert asks for proximity, which #93 does not supply. */
@@ -378,7 +417,6 @@ export const PRICE_ALERT_BLOCK_REASONS: readonly PriceAlertBlockReason[] = [
   'currency_not_convertible',
   'no_observed_price_version',
   'repeat_policy_not_satisfied',
-  'alert_not_evaluable',
   'ambiguous_after_split',
   'proximity_scope_unsupported',
 ];
