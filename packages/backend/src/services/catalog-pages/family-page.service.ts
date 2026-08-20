@@ -100,10 +100,11 @@ export async function readProductFamilyPage(
     latestSourceRecordId: latest === undefined ? null : latest.id,
   });
 
+  // No denominator is passed: the read takes its own, over the same predicate it
+  // counts against (#737). Handing it `counts.total` is what let the two drift.
   const sharedAttributes = await listFamilySharedAttributes(
     db,
     family.id,
-    counts.total,
     FAMILY_SHARED_ATTRIBUTE_LIMIT,
   );
 
