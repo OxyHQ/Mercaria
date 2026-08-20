@@ -19,6 +19,10 @@ import {
   useCategoryTree,
 } from '@/lib/catalog/category-tree';
 import {
+  deriveCategoryGridFacetConsumption,
+  mayOfferFacetRail,
+} from '@/lib/catalog/facet-consumption';
+import {
   parseFacetSelection,
   serializeFacetSelection,
 } from '@/lib/catalog/facet-selection';
@@ -35,8 +39,18 @@ import { useFacets } from '@/lib/catalog/use-facets';
  * | --- | --- |
  * | identity, children | `GET /categories` — see `lib/catalog/category-tree.ts` for why |
  * | breadcrumbs, canonical URL, `hreflang`, redirects | `GET /seo/resolve` |
- * | the filter rail | `POST /facets`, scoped to this category |
+ * | the filter rail | `POST /facets`, scoped to this category — NOT offered here, see below |
  * | the products | `GET /listings?category=` |
+ *
+ * ## The filter rail is NOT offered, because this grid cannot act on it (#637)
+ *
+ * `POST /facets` counts over the canonical graph and `GET /listings` serves the
+ * listing-first catalogue, so a selection made in the rail has nothing to reach:
+ * `ListingQuery` has no attribute filter, and the counts would describe a
+ * different set of rows from the grid even where it has a comparable field.
+ * `lib/catalog/facet-consumption.ts` derives that from the grid's own query type
+ * and is what gates both the fetch and the render here — so the rail returns by
+ * the capability arriving, never by somebody deleting a condition.
  *
  * ## The address is `/categories/:handle`, which is the registry's own pattern
  *
@@ -109,7 +123,20 @@ export default function CategoryScreen() {
     () => (category === undefined ? undefined : { kind: 'category', categoryId: category.id }),
     [category],
   );
-  const facets = useFacets({ scope, selection: selection.entries });
+  /**
+   * The rail is offered only where the grid below it can act on the selection
+   * (#637), which today it cannot — see `lib/catalog/facet-consumption.ts` for
+   * the measurement and for what closing it looks like.
+   *
+   * The SCOPE is what carries the refusal, so nothing is fetched either: a
+   * facet read whose counts no surface will render is a request with no reader,
+   * and `useFacets` is already disabled by an absent scope.
+   */
+  const mayOfferFilters = mayOfferFacetRail(deriveCategoryGridFacetConsumption());
+  const facets = useFacets({
+    scope: mayOfferFilters ? scope : undefined,
+    selection: selection.entries,
+  });
 
   // Disabled until the category names its slug. An empty `ListingQuery` means
   // "every listing", not "nothing", so passing one while the taxonomy loads
@@ -235,19 +262,23 @@ export default function CategoryScreen() {
           />
         ) : null}
 
-        {selection.droppedEntryCount > 0 ? (
+        {/* Gated on the same capability as the rail: this notice says which
+            entries a link could NOT restore, which asserts that the rest WERE.
+            With no rail offered, none of them were, so showing it alone would
+            be the more misleading half of what #637 is about. */}
+        {mayOfferFilters && selection.droppedEntryCount > 0 ? (
           <Text className="text-caption text-text-tertiary">
             {t('catalog.filters.droppedFromLink', { count: selection.droppedEntryCount })}
           </Text>
         ) : null}
 
-        {facets.data === undefined ? null : (
+        {mayOfferFilters && facets.data !== undefined ? (
           <FacetRail
             response={facets.data}
             selection={selection.entries}
             onSelectionChange={onSelectionChange}
           />
-        )}
+        ) : null}
 
         {listings.isLoading && listings.data === undefined ? (
           <Text className="text-body text-text-tertiary">{t('common.loading')}</Text>
