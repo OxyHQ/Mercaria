@@ -127,7 +127,32 @@ describe('the localization vocabulary', () => {
     expect(SERVABLE_LOCALIZATION_STATUSES.length).toBeLessThan(LOCALIZATION_STATUSES.length);
   });
 
-  it('refuses a machine write on settled text and permits one on stale text', () => {
+  /**
+   * A VOCABULARY floor over the tuple. It performs no write and can refuse
+   * nothing (#641).
+   *
+   * It was called *"refuses a machine write on settled text and permits one on
+   * stale text"*, which named the trigger's behaviour. This file has no server,
+   * so no test in it can exercise a trigger — and MEASURED: disabling the guard
+   * (`IF false THEN` in `mercaria_localization_machine_write_guard`,
+   * `drizzle/0091_slimy_the_fury.sql`) leaves this case GREEN.
+   *
+   * What actually holds the behaviour the old name claimed, both proven red by
+   * that same mutation:
+   *
+   * - the tuple → SQL binding, IN THIS FILE, ~1260 lines down:
+   *   *"names the same settled statuses the tuple does"* asserts the migration
+   *   contains `OLD.status IN` rendered from this very tuple. So editing the
+   *   tuple without editing the trigger fails there, which is the half a reader
+   *   most expects to live here.
+   * - the refusal itself, against a real server:
+   *   `catalog-localization.realdb.test.ts:475` (approved) and `:515`
+   *   (reviewed), with `:537` as the positive control proving a machine write
+   *   onto `stale` is PERMITTED — without which the guard would be satisfied by
+   *   a trigger that refused everything.
+   * - the INSERT no UPDATE trigger can see: the row-level CHECK, at `:260`.
+   */
+  it('the settled tuple is exactly reviewed and approved, and excludes stale', () => {
     expect([...HUMAN_SETTLED_LOCALIZATION_STATUSES]).toEqual(['reviewed', 'approved']);
     // The deliberate reading of D4, and the one somebody would "fix" without
     // this line: a stale row is human text that no longer describes the source,
@@ -135,7 +160,35 @@ describe('the localization vocabulary', () => {
     expect(HUMAN_SETTLED_LOCALIZATION_STATUSES).not.toContain('stale');
   });
 
-  it('makes stale from every status that has something to stale', () => {
+  /**
+   * The same shape as the case above, and the naming hazard is worse here
+   * (#641).
+   *
+   * It was called *"makes stale from every status that has something to
+   * stale"*, and **~1260 lines down this file carries "makes stale from the
+   * same statuses the tuple does, on every source table"** — two nearly
+   * identical names, one asserting a tuple and one asserting the migration SQL.
+   * A reader who found this one first would reasonably believe the staling was
+   * covered cheaply here.
+   *
+   * This case fires no source change and stales nothing; it asserts that every
+   * member of the tuple is a real status and that three deliberately are not in
+   * it. That is worth asserting and is all it does.
+   *
+   * The mechanism lives in two places, neither of them here:
+   *
+   * - the tuple → SQL binding, IN THIS FILE: *"makes stale from the same
+   *   statuses the tuple does, on every source table"*, which renders
+   *   `status IN (...)` from this tuple and requires it EXACTLY twice — a count
+   *   rather than a containment check, because one of the two source tables
+   *   silently missing is precisely the shape of a stale trigger that fires for
+   *   categories and not for controlled values.
+   * - the behaviour, against a real server:
+   *   `catalog-localization.realdb.test.ts:592` (a category's source name moves)
+   *   and `:652` (a controlled value's label moves), with `:630` as the negative
+   *   control proving a change that is NOT the source text does not fire.
+   */
+  it('the stale-on-source-change tuple holds only real statuses, and excludes three', () => {
     for (const status of STALE_ON_SOURCE_CHANGE_STATUSES) {
       expect(LOCALIZATION_STATUSES).toContain(status);
     }
