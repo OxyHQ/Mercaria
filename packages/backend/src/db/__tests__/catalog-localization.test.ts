@@ -774,6 +774,92 @@ describe('the hand-written trigger SQL', () => {
     );
   });
 
+  it('attaches EVERY trigger function it defines to a trigger', () => {
+    // A trigger function with no `CREATE TRIGGER` naming it is INERT: created,
+    // readable, `db:generate` happy, migration applies cleanly, never runs.
+    // That has happened in this chain — a sibling lane shipped five revision
+    // functions where six were owed — and it is invisible to every check that
+    // READS the SQL rather than counting it.
+    //
+    // ## The population is `RETURNS trigger`, and that took two corrections
+    //
+    // The first draft required every `mercaria_*` function to be attached and
+    // reported five offenders, all false:
+    //
+    //   * `mercaria_immutable_array_to_string` is a helper called from CHECK
+    //     constraints and a generated column;
+    //   * `mercaria_navigation_tree_is_editable` is a predicate called from
+    //     another trigger's BODY;
+    //   * the three affiliate functions ARE attached — with `FOR EACH STATEMENT`
+    //     on the same line, which the first draft's `FOR EACH ROW`-only pattern
+    //     did not match.
+    //
+    // So the population is narrowed to functions that declare `RETURNS trigger`
+    // (a helper cannot be attached and demanding it is a category error), and
+    // the attachment pattern matches `EXECUTE FUNCTION` or the legacy
+    // `EXECUTE PROCEDURE` anywhere on a line rather than anchored behind one
+    // spelling of the row/statement clause.
+    //
+    // A gate that fires on correct code is worse than none, because the fix
+    // somebody reaches for is to delete it.
+    const chain = allSqlFiles();
+    const triggerFunctions = new Map<string, string>();
+    const attached = new Set<string>();
+
+    for (const file of chain) {
+      const lines = file.text.split('\n');
+      for (const [index, line] of lines.entries()) {
+        const definition = /^CREATE OR REPLACE FUNCTION (mercaria_[a-z0-9_]+)\s*\(/u.exec(line);
+        if (definition?.[1] !== undefined) {
+          // `RETURNS trigger` sits on the same line or just below it in every
+          // spelling this chain uses; three lines is generous and bounded.
+          const head = lines.slice(index, index + 4).join(' ');
+          if (/RETURNS\s+trigger/iu.test(head)) triggerFunctions.set(definition[1], file.path);
+        }
+        const attachment = /EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(mercaria_[a-z0-9_]+)\s*\(/u.exec(
+          line,
+        );
+        if (attachment?.[1] !== undefined) attached.add(attachment[1]);
+      }
+    }
+
+    // Two floors, because a walk that found no functions and one that found no
+    // attachments fail identically against a comparison of two empty sets.
+    expect(
+      triggerFunctions.size,
+      `the scan found ${String(triggerFunctions.size)} RETURNS trigger functions`,
+    ).toBeGreaterThan(20);
+    expect(
+      attached.size,
+      `the scan found ${String(attached.size)} EXECUTE FUNCTION/PROCEDURE references`,
+    ).toBeGreaterThan(20);
+
+    const inert = [...triggerFunctions.keys()].filter((name) => !attached.has(name)).sort();
+    expect(
+      inert,
+      'these trigger functions are DEFINED and never attached, so they are created and never ' +
+        'run. A migration carrying one applies cleanly and enforces nothing.',
+    ).toEqual([]);
+  });
+
+  it('is mutation-tested: an unattached trigger function is reported', () => {
+    // Without this the case above passes on a chain where the ATTACHMENT
+    // pattern silently matched everything — which is how the first draft's
+    // `FOR EACH STATEMENT` blind spot would have read once somebody "fixed" it
+    // by loosening the pattern instead of narrowing the population.
+    const planted = [
+      'CREATE OR REPLACE FUNCTION mercaria_planted_inert()',
+      'RETURNS trigger AS $$ BEGIN RETURN NULL; END; $$ LANGUAGE plpgsql;',
+    ].join('\n');
+    const defined = /^CREATE OR REPLACE FUNCTION (mercaria_[a-z0-9_]+)\s*\(/mu.exec(planted);
+    expect(defined?.[1]).toBe('mercaria_planted_inert');
+    expect(/RETURNS\s+trigger/iu.test(planted)).toBe(true);
+    expect(
+      /EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+mercaria_planted_inert\s*\(/u.test(planted),
+      'the planted function has no attachment, so the detector must not find one',
+    ).toBe(false);
+  });
+
   it('names the same settled statuses the tuple does', () => {
     const [file] = candidateSqlFiles();
     expect(file).toBeDefined();
