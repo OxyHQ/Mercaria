@@ -52,44 +52,39 @@ const db: Database = await connectPostgres();
 /**
  * Every id this file mints.
  *
- * `zz-` first for a reason that is not cosmetic: every scan here orders
- * `id desc` (newest first, uuid v7), and this prefix puts a row a case below
- * created at the head of its own table's findings, inside the bounded sample.
+ * `zz-` first so this file's rows are recognisable and cannot collide with a
+ * sibling's. It buys NOTHING about where a row lands in a check's bounded
+ * sample, and the reasoning that says otherwise is wrong twice over.
  *
- * ## The ordering was MEASURED, and the obvious reasoning about it is wrong
- *
- * This database is `en_US.utf8` under the libc provider — a LOCALE collation,
- * not byte order. Punctuation is a lower-priority difference there, so
- * character codes give the wrong answer for exactly the ids that differ only in
- * a separator. Measured against the server rather than reasoned about:
+ * This database is `en_US.utf8` under the LIBC provider (`datlocprovider = c`),
+ * a locale collation rather than byte order, so a separator is a lower-priority
+ * difference and character codes give the wrong answer for ids that differ only
+ * in one. Measured against the server:
  *
  * ```
  * order by id desc:
  *   zzz-no-such-city
  *   zz-obs-trace-draft-published
- *   zz-obs-integ-orphan3-proposal      <- this file, THIRD
- *   zz_obs_integ_floor                 <- BELOW `zz-`; in ASCII `_` is ABOVE `-`
+ *   zz_obs_integ.x
+ *   zz-obs-integ-orphan3-proposal      <- this file, FOURTH
+ *   zz_obs_integ_floor
  *   gov-plan-123
- *   ffffffff-ffff-7fff-bfff-ffffffffffff
- *   catprop-rdb-xyz
  *   0198f1a2-3b4c-7d8e-9f01-234567890abc
  * ```
  *
- * So the claim this docblock used to make — that `zz-obs-integ` outsorts every
- * sibling fixture prefix in the repository — is FALSE: `zzz-*` and
- * `zz-obs-trace-*` both beat it. What is true is narrower and is what the bound
- * actually needs: it outsorts every uuid v7 id and every lower-cased prefix
- * (`catprop-rdb-`, `gov-`), and **no higher-sorting prefix reaches a table
- * these checks scan.** `trace.realdb`, `pickup.realdb`,
- * `vertical-locales-markets.e2e` and `facet-scope-sweep.realdb` were each
- * measured clean for `catalog_proposals`,
- * `catalog_governance_change_requests`, `catalog_navigation_nodes` and
- * `catalog_external_mappings`.
+ * So `zz-` outranks every uuid v7 hex id and every lower-cased prefix, and it
+ * loses to `zzz-` and to `zz-obs-trace-` — a prefix that is already in this
+ * repository. Whether an underscore wins is not a rule about `zz_` at all: the
+ * collation drops the separator and compares the LETTERS, which is why
+ * `zz_obs_integ.x` beats this file's ids and `zz_obs_integ_floor` does not.
  *
- * That is checkable and it fails loudly rather than silently: a sibling that
- * lands higher-sorting DANGLING rows in one of those four tables — see
- * {@link expectDetected} for how many it would take — pushes this file's probe
- * out of the sample and reds the case by name.
+ * #713 measured `trace.realdb`, `pickup.realdb`, `vertical-locales-markets.e2e`
+ * and `facet-scope-sweep.realdb` clean for the four tables these checks scan, and
+ * rested the sample bound on that survey. It is recorded rather than relied on:
+ * which prefixes reach a scanned table is a fact about the neighbours that
+ * changes whenever one of them grows a fixture, and re-surveying is not something
+ * a failure would prompt anybody to do. {@link probeId} is what a case uses when
+ * a row has to be NAMED, and it does not depend on the answer.
  */
 const P = 'zz-obs-integ';
 
@@ -97,6 +92,72 @@ const P = 'zz-obs-integ';
 function id(scope: string, name: string): string {
   return `${P}-${scope}-${name}`;
 }
+
+/** A table a case can mint a {@link probeId} in. Closed, because it is interpolated raw. */
+type ProbeTable =
+  | 'categories'
+  | 'category_redirects'
+  | 'catalog_proposals'
+  | 'catalog_governance_change_requests'
+  | 'catalog_authoring_drafts'
+  | 'catalog_backfill_runs'
+  | 'catalog_external_mapping_runs'
+  | 'catalog_external_token_observations';
+
+/**
+ * Mint an id that sorts above every row currently in `table`.
+ *
+ * Every scan in `integrity.service.ts` is `order by id desc`, so an id above
+ * the table's current maximum is the FIRST row that scan examines and — if it
+ * is a finding at all — the first finding its sub-scan reports.
+ *
+ * ## Why "currently" is a durable fact rather than a race
+ *
+ * The fixture transaction is `repeatable read` and the check under test is
+ * driven on that same handle, so every statement of the case reads the snapshot
+ * the first one took. A row a parallel file commits after that instant is
+ * invisible to the mint AND to the check, and this transaction's own writes are
+ * visible to both. So "above the maximum" holds for the whole case.
+ *
+ * The ordering claim is MEASURED here rather than asserted in prose: the
+ * comparison below is the server's own, under the same collation `order by id
+ * desc` uses, so a database whose collation does not put `${max}-${suffix}`
+ * above `${max}` fails at the mint naming the premise, instead of surfacing
+ * later as a check that appears not to name what it found.
+ */
+async function probeId(
+  tx: Transaction,
+  table: ProbeTable,
+  scope: string,
+  name: string,
+): Promise<string> {
+  const readable = id(scope, name);
+  const ceiling = await tx.execute<{ newest: string | null }>(
+    sql`select max(id) as newest from ${sql.raw(table)}`,
+  );
+  const newest = ceiling[0]?.newest ?? null;
+  const minted = newest === null ? readable : `${newest}-${readable}`;
+
+  const outranking = await tx.execute<{ total: number }>(
+    sql`select count(*)::int as total from ${sql.raw(table)} where id >= ${minted}`,
+  );
+  expect(
+    Number(outranking[0]?.total ?? 0),
+    `${minted} does not outrank every ${table} row this transaction can see`,
+  ).toBe(0);
+
+  mintedProbes.add(`${table}:${minted}`);
+  return minted;
+}
+
+/**
+ * The probe handles {@link probeId} has minted.
+ *
+ * {@link expectDetected} asserts membership, so a call site that passes an
+ * ordinary {@link id} fails immediately and by name rather than passing on an
+ * empty database and flaking on a busy one — which is the whole of #622.
+ */
+const mintedProbes = new Set<string>();
 
 afterAll(async () => {
   await closePostgres();
@@ -160,23 +221,30 @@ async function rolledBack<T>(work: (tx: Transaction) => Promise<T>): Promise<T> 
  * handle is what says the thing it found is the row this case created rather
  * than something that row disturbed. It is not redundant with the first.
  *
- * It was also the one that made this file roughly half-flaky on `main` (#622,
- * #618) — not because a sample is the wrong thing to assert, but because the
- * sample was the head of a CONCATENATION of the check's sub-scans, so a probe in
- * a later sub-scan was unreachable once the earlier ones filled the cap with
- * whatever parallel files had committed. `result()` now takes a turn from each
- * sub-scan, which puts the newest finding of every sub-scan in the sample; the
- * case below the proposal case fails on the old assembly deliberately.
+ * ## What makes it answerable, read from `integrity.service.ts` rather than assumed
  *
- * What remains is a bound rather than a coincidence: with S sub-scans reporting
- * and a cap of {@link INTEGRITY_SAMPLE_LIMIT}, a probe is named as long as it is
- * within the newest `⌈LIMIT / S⌉` findings of its OWN table — seven, for the
- * three sub-scans of `checkOrphanedReferences`. The `zz-` prefix on every id
- * here is what buys that, and the ordering it rests on is MEASURED rather than
- * assumed: see {@link P}, which carries the measurement and corrects the
- * stronger claim this comment used to make. The short version is that the probe
- * outsorts every uuid v7 id, that two sibling prefixes DO outsort the probe, and
- * that neither reaches a table these checks scan.
+ * Two facts, both in the service:
+ *
+ * 1. Every sub-scan orders `id desc`, at both hops — the bounded `examined` CTE
+ *    and the finding query over it — so a sub-scan's first finding is the one
+ *    with the highest id.
+ * 2. `result()` takes a turn from each sub-scan rather than slicing the head of
+ *    their concatenation, so the FIRST finding of every reporting sub-scan is in
+ *    the sample whenever the number of sub-scans is under
+ *    {@link INTEGRITY_SAMPLE_LIMIT}. No check here has more than three.
+ *
+ * So a probe that is the highest-id row of its own table is named, whatever else
+ * the shared database is holding — and {@link probeId} is what makes that true,
+ * by minting above the table's maximum inside the fixture's `repeatable read`
+ * snapshot. The membership assertion below is what stops a case reaching for an
+ * ordinary {@link id}, whose rank is a property of the run: it sorts above a
+ * uuid v7 and below `zzz-` and `zz-obs-trace-`, so on an empty database it is
+ * named and under load it is whatever the neighbours left. That is #622, and it was
+ * reachable from all nine call sites, not the two that happened to fail.
+ *
+ * This does NOT assume the ordering is why the row is named: `result()` breaking
+ * its per-sub-scan turn, or a check growing a twenty-first sub-scan, both fail
+ * the sample assertion — which is the point of keeping it.
  *
  * An empty sample fails this assertion rather than passing it, which is the
  * property to preserve if it is ever rewritten: "no rows" and "my row is there"
@@ -186,11 +254,35 @@ function expectDetected(
   before: CatalogIntegrityResult,
   after: CatalogIntegrityResult,
   what: string,
-  handle: string,
+  table: ProbeTable,
+  probe: string,
   added = 1,
 ): void {
   expect(after.findings - before.findings, `${what}: findings did not move`).toBe(added);
   expect(after.population, `${what}: population shrank`).toBeGreaterThanOrEqual(before.population);
+  expectNamed(after, what, table, probe);
+}
+
+/**
+ * The sample half of {@link expectDetected}, on its own.
+ *
+ * The two cases that find a PAIR — a cycle, whose two nodes each reach
+ * themselves, and the two queue tables holding an expired claim — assert their
+ * own delta and then name both rows, so they need the naming assertion without
+ * the one-row delta. It is the same assertion and the same registry check: every
+ * sample-membership assertion in this file goes through here.
+ */
+function expectNamed(
+  after: CatalogIntegrityResult,
+  what: string,
+  table: ProbeTable,
+  probe: string,
+): void {
+  const handle = `${table}:${probe}`;
+  expect(
+    mintedProbes.has(handle),
+    `${what}: ${probe} did not come from probeId, so nothing bounds where it lands in the sample`,
+  ).toBe(true);
   expect(after.sample, `${what}: the offending row is not named in the sample`).toContain(handle);
 }
 
@@ -399,7 +491,7 @@ describe('checkOrphanedReferences', () => {
       const before = await checkOrphanedReferences(tx);
       const requestId = await insertChangeRequest(
         tx,
-        id('orphan', 'request'),
+        await probeId(tx, 'catalog_governance_change_requests', 'orphan', 'request'),
         id('orphan', 'ghost-category'),
       );
 
@@ -408,7 +500,8 @@ describe('checkOrphanedReferences', () => {
         before,
         after,
         'an open change request naming a category that does not exist',
-        `catalog_governance_change_requests:${requestId}`,
+        'catalog_governance_change_requests',
+        requestId,
       );
     });
   });
@@ -445,7 +538,7 @@ describe('checkOrphanedReferences', () => {
       const before = await checkOrphanedReferences(tx);
       const proposalId = await insertApprovedProposal(
         tx,
-        id('orphan3', 'proposal'),
+        await probeId(tx, 'catalog_proposals', 'orphan3', 'proposal'),
         id('orphan3', 'ghost-attribute'),
       );
 
@@ -454,7 +547,8 @@ describe('checkOrphanedReferences', () => {
         before,
         after,
         'an approved proposal resolved onto an attribute definition that does not exist',
-        `catalog_proposals:${proposalId}`,
+        'catalog_proposals',
+        proposalId,
       );
     });
   });
@@ -499,7 +593,7 @@ describe('checkOrphanedReferences', () => {
 
       const proposalId = await insertApprovedProposal(
         tx,
-        id('flood', 'proposal'),
+        await probeId(tx, 'catalog_proposals', 'flood', 'proposal'),
         id('flood', 'ghost-attribute'),
       );
 
@@ -507,7 +601,81 @@ describe('checkOrphanedReferences', () => {
         before,
         await checkOrphanedReferences(tx),
         'a dangling proposal behind a full sample of dangling change requests',
-        `catalog_proposals:${proposalId}`,
+        'catalog_proposals',
+        proposalId,
+      );
+    });
+  });
+
+  /**
+   * The case above floods a DIFFERENT sub-scan; this one floods the probe's OWN,
+   * which is the half #622 was reopened for.
+   *
+   * `result()` gives each sub-scan a turn, so a rival sub-scan can no longer
+   * starve this one. What it cannot do is decide where a row sits WITHIN its own
+   * sub-scan: that is `order by id desc`, and an ordinary {@link id} outranks a
+   * uuid v7 and loses to any `zzz-` or `zz_` fixture — so on a database holding
+   * enough higher-sorting findings of the same kind, the probe falls outside the
+   * cap and the check appears not to name what it found. That was reachable from
+   * every call site here, and it was a property of what parallel files had
+   * committed rather than of the check.
+   *
+   * The crowd below is what a busy database looks like from inside this
+   * transaction, created rather than waited for. It is minted DOMINANT, one id
+   * above the next, so the premise holds on an empty database and a loaded one
+   * alike: no foreign proposal can outrank the crowd, so every proposal handle
+   * the sample carries is one of ours.
+   *
+   * Mutating {@link probeId} back to {@link id} at the one line below turns this
+   * case red and leaves the rest of the file green — which is what says the
+   * naming assertion is answerable rather than lucky.
+   */
+  it('names a dangling proposal that higher-sorting rows in its OWN table would crowd out', async () => {
+    await rolledBack(async (tx) => {
+      const baseline = await checkOrphanedReferences(tx);
+
+      const crowd: string[] = [];
+      for (let n = 0; n < INTEGRITY_SAMPLE_LIMIT; n += 1) {
+        crowd.push(
+          await insertApprovedProposal(
+            tx,
+            await probeId(tx, 'catalog_proposals', 'crowd', `p${String(n).padStart(2, '0')}`),
+            id('crowd', 'ghost-attribute'),
+          ),
+        );
+      }
+      const before = await checkOrphanedReferences(tx);
+
+      // Two premises, both asserted rather than assumed. The crowd became
+      // findings at all — without that this case measures an empty table — and
+      // it holds every proposal slot the sample has, so a probe ranked below it
+      // cannot appear whatever share of the cap this sub-scan is given.
+      expect(before.findings - baseline.findings, 'the crowd did not become findings').toBe(
+        crowd.length,
+      );
+      const proposalsNamed = before.sample.filter((entry) =>
+        entry.startsWith('catalog_proposals:'),
+      );
+      expect(proposalsNamed.length, 'the crowd took no proposal slot in the sample').toBeGreaterThan(
+        0,
+      );
+      expect(
+        proposalsNamed.filter((entry) => !crowd.includes(entry.slice('catalog_proposals:'.length))),
+        'a proposal this case did not create outranks the crowd',
+      ).toEqual([]);
+
+      const proposalId = await insertApprovedProposal(
+        tx,
+        await probeId(tx, 'catalog_proposals', 'crowd', 'probe'),
+        id('crowd', 'ghost-attribute'),
+      );
+
+      expectDetected(
+        before,
+        await checkOrphanedReferences(tx),
+        'a dangling proposal under twenty higher-sorting dangling proposals',
+        'catalog_proposals',
+        proposalId,
       );
     });
   });
@@ -537,9 +705,15 @@ describe('checkInvalidRedirects', () => {
 
       const before = await checkInvalidRedirects(tx);
 
+      // Only the HEAD is a finding, so only the head is minted for rank. The
+      // eight members after it carry ordinary ids that legitimately sort above
+      // it and are never reported — which the assertions below check.
       const redirectIds: string[] = [];
       for (let index = 0; index < links; index += 1) {
-        const redirectId = id('chain', `r${index}`);
+        const redirectId =
+          index === 0
+            ? await probeId(tx, 'category_redirects', 'chain', 'r0')
+            : id('chain', `r${index}`);
         redirectIds.push(redirectId);
         await tx.execute(sql`
           insert into category_redirects
@@ -554,7 +728,8 @@ describe('checkInvalidRedirects', () => {
         before,
         after,
         'a nine-hop redirect chain whose head the resolver cannot finish',
-        `category_redirects:${redirectIds[0]}`,
+        'category_redirects',
+        redirectIds[0],
       );
 
       // The other eight are chain MEMBERS and are not findings — a chain is the
@@ -643,8 +818,17 @@ describe('checkCategoryCycles', () => {
     await rolledBack(async (tx) => {
       const before = await checkCategoryCycles(tx);
 
-      const a = await insertCategory(tx, id('cycle', 'a'), 'zz_obs_integ.cycle.a');
-      const b = await insertCategory(tx, id('cycle', 'b'), 'zz_obs_integ.cycle.b', { parentId: a });
+      const a = await insertCategory(
+        tx,
+        await probeId(tx, 'categories', 'cycle', 'a'),
+        'zz_obs_integ.cycle.a',
+      );
+      const b = await insertCategory(
+        tx,
+        await probeId(tx, 'categories', 'cycle', 'b'),
+        'zz_obs_integ.cycle.b',
+        { parentId: a },
+      );
 
       await tx.execute(sql`set local session_replication_role = replica`);
       await tx.execute(sql`update categories set parent_id = ${b} where id = ${a}`);
@@ -653,8 +837,8 @@ describe('checkCategoryCycles', () => {
       const after = await checkCategoryCycles(tx);
       // BOTH nodes reach themselves, so both are findings: a cycle has no head.
       expect(after.findings - before.findings, 'the cycle was not detected').toBe(2);
-      expect(after.sample).toContain(`categories:${a}`);
-      expect(after.sample).toContain(`categories:${b}`);
+      expectNamed(after, 'the first node of a two-node cycle', 'categories', a);
+      expectNamed(after, 'the second node of a two-node cycle', 'categories', b);
       // The walk terminated. Without the depth cap in the recursive term this
       // statement runs until the connection dies, which is the failure the check
       // would otherwise INTRODUCE, so completing at all is the assertion.
@@ -700,12 +884,15 @@ describe('checkAncestryPathDrift', () => {
       // it — so a write that sets `parent_id` and leaves `ancestor_ids` alone is
       // accepted in full and every descendants read is silently wrong from then
       // on. That is the whole failure this check exists for, written literally.
-      const child = await insertCategory(tx, id('drift', 'child'), 'zz_obs_integ.drift.child', {
-        parentId: root,
-      });
+      const child = await insertCategory(
+        tx,
+        await probeId(tx, 'categories', 'drift', 'child'),
+        'zz_obs_integ.drift.child',
+        { parentId: root },
+      );
 
       const after = await checkAncestryPathDrift(tx);
-      expectDetected(before, after, 'a child carrying no ancestry', `categories:${child}`);
+      expectDetected(before, after, 'a child carrying no ancestry', 'categories', child);
     });
   });
 
@@ -713,10 +900,12 @@ describe('checkAncestryPathDrift', () => {
     await rolledBack(async (tx) => {
       const first = await insertCategory(tx, id('move', 'first'), 'zz_obs_integ.move.first');
       const second = await insertCategory(tx, id('move', 'second'), 'zz_obs_integ.move.second');
-      const child = await insertCategory(tx, id('move', 'child'), 'zz_obs_integ.move.child', {
-        parentId: first,
-        ancestorIds: [first],
-      });
+      const child = await insertCategory(
+        tx,
+        await probeId(tx, 'categories', 'move', 'child'),
+        'zz_obs_integ.move.child',
+        { parentId: first, ancestorIds: [first] },
+      );
 
       // Correct to begin with: the control that says the comparison is real
       // rather than reporting every row with a parent.
@@ -725,7 +914,7 @@ describe('checkAncestryPathDrift', () => {
       // The move that forgets the path — the plausible half-write.
       await tx.execute(sql`update categories set parent_id = ${second} where id = ${child}`);
       const drifted = await checkAncestryPathDrift(tx);
-      expectDetected(clean, drifted, 'a re-parent that left the old path', `categories:${child}`);
+      expectDetected(clean, drifted, 'a re-parent that left the old path', 'categories', child);
 
       // And the correction: the same row, path rewritten, is no longer a
       // finding. Without this the case above would also pass against a check
@@ -751,12 +940,14 @@ describe('checkAncestryPathDrift', () => {
       // D2), and an array carrying the right ids the wrong way round is the
       // shape a hand-written path takes — every membership query still passes,
       // and every breadcrumb is backwards.
-      const leaf = await insertCategory(tx, id('order', 'leaf'), 'zz_obs_integ.order.leaf', {
-        parentId: mid,
-        ancestorIds: [mid, root],
-      });
+      const leaf = await insertCategory(
+        tx,
+        await probeId(tx, 'categories', 'order', 'leaf'),
+        'zz_obs_integ.order.leaf',
+        { parentId: mid, ancestorIds: [mid, root] },
+      );
       const reversed = await checkAncestryPathDrift(tx);
-      expectDetected(before, reversed, 'a reversed ancestry path', `categories:${leaf}`);
+      expectDetected(before, reversed, 'a reversed ancestry path', 'categories', leaf);
 
       await tx.execute(
         sql`update categories set ancestor_ids = ${textArray([root, mid])} where id = ${leaf}`,
@@ -798,7 +989,7 @@ describe('checkSchemaVersionAvailability', () => {
     await rolledBack(async (tx) => {
       const { storeId, listingId, categoryId } = await insertPublishedDraftFixtures(tx, 'schema');
       const definitionId = id('schema', 'ptd');
-      const draftId = id('schema', 'draft');
+      const draftId = await probeId(tx, 'catalog_authoring_drafts', 'schema', 'draft');
 
       // `review` is EDITABLE, so this version's fields can still move and the
       // schema the draft's answers were recorded under is no longer obtainable.
@@ -824,7 +1015,8 @@ describe('checkSchemaVersionAvailability', () => {
         before,
         after,
         'a published draft pinning an unfrozen product-type version',
-        `catalog_authoring_drafts:${draftId}`,
+        'catalog_authoring_drafts',
+        draftId,
       );
     });
   });
@@ -896,7 +1088,7 @@ describe('checkStalledQueueLeases', () => {
   it('finds a backfill run holding an expired lease, and not one holding a live lease', async () => {
     await rolledBack(async (tx) => {
       const before = await checkStalledQueueLeases(tx);
-      const stalled = id('lease', 'run-stalled');
+      const stalled = await probeId(tx, 'catalog_backfill_runs', 'lease', 'run-stalled');
 
       await tx.execute(sql`
         insert into catalog_backfill_runs
@@ -923,7 +1115,8 @@ describe('checkStalledQueueLeases', () => {
         before,
         after,
         'a backfill run whose lease expired an hour ago',
-        `catalog_backfill_runs:${stalled}`,
+        'catalog_backfill_runs',
+        stalled,
       );
       expect(after.population, 'both claims should be in the population').toBe(
         before.population + 2,
@@ -940,8 +1133,13 @@ describe('checkStalledQueueLeases', () => {
       `);
 
       const before = await checkStalledQueueLeases(tx);
-      const runId = id('lease2', 'run');
-      const observationId = id('lease2', 'observation');
+      const runId = await probeId(tx, 'catalog_external_mapping_runs', 'lease2', 'run');
+      const observationId = await probeId(
+        tx,
+        'catalog_external_token_observations',
+        'lease2',
+        'observation',
+      );
 
       await tx.execute(sql`
         insert into catalog_external_mapping_runs
@@ -965,8 +1163,13 @@ describe('checkStalledQueueLeases', () => {
 
       const after = await checkStalledQueueLeases(tx);
       expect(after.findings - before.findings, 'both expired claims should be found').toBe(2);
-      expect(after.sample).toContain(`catalog_external_mapping_runs:${runId}`);
-      expect(after.sample).toContain(`catalog_external_token_observations:${observationId}`);
+      expectNamed(after, 'a mapping run holding an expired claim', 'catalog_external_mapping_runs', runId);
+      expectNamed(
+        after,
+        'a token observation holding an expired reprocess claim',
+        'catalog_external_token_observations',
+        observationId,
+      );
       expect(after.population, 'both claims should be in the population').toBe(
         before.population + 2,
       );
