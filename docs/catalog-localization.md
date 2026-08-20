@@ -11,20 +11,86 @@ it. **Schema decisions:** `packages/backend/src/db/schema/CONVENTIONS.md`.
 | Piece | Path |
 | --- | --- |
 | Vocabulary, field registry, resolution DTOs | `packages/shared-types/src/catalog-localization.ts` |
-| Four tables | `packages/backend/src/db/schema/catalogLocalization.ts` |
+| The family tables | `packages/backend/src/db/schema/catalogLocalization.ts` |
 | Repositories | `packages/backend/src/db/catalogLocalization/` |
 | Pure resolver | `packages/backend/src/services/catalog-localization/resolve.ts` |
 | Batched reads | `packages/backend/src/services/catalog-localization/read.service.ts` |
 | Static gates | `packages/backend/src/db/__tests__/catalog-localization.test.ts` |
 | Real-server gates | `packages/backend/src/db/__tests__/catalog-localization.realdb.test.ts` |
-| Migration | `packages/backend/drizzle/0091_slimy_the_fury.sql` (`pre`) |
+| Listing localization (#367) | `packages/backend/src/db/__tests__/listing-localization.realdb.test.ts` |
+| Migration | `packages/backend/drizzle/0091_slimy_the_fury.sql` (`pre`), `0128_neat_kinsey_walden.sql` (`pre`, listings) |
 
 The failure mode that shapes all of it: **a shopper reading a raw key, a stale
 translation quietly replaced by a machine, and a shared link that stopped
 working because somebody edited a slug.** All three are silent — every page
 still renders — and only the third is ever reported.
 
-## Four tables, and the family they belong to
+## Native listing localization (#367 Translation model, ADR 0007 D6/D7)
+
+`listing_localizations` is the family's first `seller_authored` member and the
+first table anywhere that exercises `exact_locale_then_base`. Its shape is the
+family's, unchanged; what differs is whose words it holds, and three decisions
+follow from that.
+
+- **No cross-market fallback, but the seller's own base text still answers.** An
+  `es-mx` request is never answered from a stranger's approved `es` row — that
+  row is another market's copy — and is answered from `listings.title`, which is
+  `NOT NULL`, so `exact_locale_only` would have rendered a page with no title.
+- **It is deliberately OUTSIDE the translation desk's coverage.**
+  `LOCALIZATION_COVERAGE_DOMAINS` stopped being an alias for
+  `LOCALIZED_ENTITY_KINDS` and became a derivation over field class: Mercaria
+  owes a translation of its own catalog copy and does not owe one of a seller's
+  own words, so there is no owed population to be a denominator. Left measured,
+  `alertsForRow` would raise a permanent **blocking** `untranslated` alert in
+  every launch locale counting every active listing, for work nobody can action
+  — a gate whose cheapest green is deleting the alert. The exclusion is recorded
+  in `LOCALIZATION_COVERAGE_UNCOVERED_TABLES`, and a desk test asserts every
+  uncovered kind appears there AND that the derivation's reason really is the
+  field class.
+- **Nothing needs to carry these rows forward, and that is measured rather than
+  assumed** (the #650 question). A listing is not versioned; `archived` is a
+  status on the SAME row, so a restore finds its translations untouched; and
+  `listings` is not one of `MERGEABLE_ENTITY_TYPES`, so no merge disposition is
+  owed and `merge-plan-census.test.ts` does not cover it. `cascade` is
+  load-bearing for a different reason: production never hard-deletes a listing,
+  but around twenty realdb suites do in teardown, and `restrict` would turn every
+  one of them into a `23503` in a file that never mentioned localization.
+
+**The stale trigger watches `title` AND `description`**, deliberately not
+repeating `mercaria_categories_localization_stale`'s `name`-alone blind spot —
+which is published as a caveat precisely so it stops being inherited. An archive
+changes no localized source column, so it stales nothing.
+
+**Full-text search does not see this text, and that is stated rather than
+discovered.** `listings.search_vector` is `GENERATED ALWAYS AS … STORED` over
+that row's own `title`, `description` and `tags`; a generation expression may
+reference only columns of its own row, so a sibling table cannot enter it. Both
+the vector and `listingRepository`'s query side are additionally pinned to the
+`'english'` configuration, so French stemmed by the English analyser would index
+worse than being absent. **A listing found by its English title is not found by
+its French one.** The shape a fix takes is a per-locale vector on
+`listing_localizations` with its own configuration and its own GIN index plus a
+locale-aware query side — an index decision with numbers attached (#61's rule),
+belonging with #70's canonical search, whose lexical stage already runs on
+`'simple'` for exactly this reason. `listing-localization.realdb.test.ts` pins
+the limitation as a measured fact, with the base-locale term as its positive
+control, so it cannot quietly stop being true.
+
+**No accessibility-label column, and that is the answer to #367's box rather
+than a gap.** `navigation_node_localizations` carries one legitimately because
+`navigation_nodes` has no label column at all — the label IS the localization
+row — so its accessible name has no catalogue string a client could compose
+from. Every entity in this family has one, and the clients already compose
+correctly: `@mercaria/ui`'s `CategoryCard` renders
+`t(CATEGORY_BROWSE_KEY, { category: category.name })` and `ConditionBadge`
+renders `t(CONDITION_A11Y_LABEL_KEY, { label })` — a translated template from
+the app's own bundle with the already-localized catalogue string interpolated. A
+column here would be a second representation of that string in the same row,
+drifting from it silently while rendering perfectly, audible only to a
+screen-reader user. `catalog-localization.test.ts` censuses the family for one,
+with navigation as the positive control that proves the detector can see one.
+
+## The tables, and the family they belong to
 
 `category_localizations`, `category_localized_slugs`,
 `product_type_localizations`, `attribute_value_localizations`. A single
@@ -224,21 +290,33 @@ Three mechanisms, none a convention:
 fails the build there rather than returning `undefined`: gating the tuple does
 not gate its readers.
 
-**Stated plainly, and counted rather than claimed: 16 fields are registered and
-all 16 are `catalog_presentation`.** No field carries `legal_text` or
-`seller_authored`, so assigning `seller_authored` a new policy moves ZERO
-registered fields today. That count is a test with a positive control — a
-synthetic `seller_authored` descriptor built by the same derivation must be
-seen, or "0 on the new policy" and "the census cannot read `fallback` at all"
-would produce the same green. The first fields to exercise the other two
-policies are ADR 0007 D3's navigation and campaign copy (#367 merge-order step
-7) and D6/D7's seller-authored listing text.
+**Stated plainly, and counted rather than claimed: 18 fields are registered, 16
+`catalog_presentation` and 2 `seller_authored`.** The two are `listing.title`
+and `listing.description` (#367 Translation model, ADR 0007 D6/D7), and they are
+the first fields anywhere to resolve under `exact_locale_then_base` — the policy
+was added for exactly them and, until `listing_localizations` existed, was
+enforced against no registered field at all.
 
-**The total is expected to move — it was 14 before #712 registered
-`attribute_definition.label` and `.description` — and the exact pin in
+`legal_text` is still unexercised, so `exact_locale_only` remains a mechanism
+with no production data behind it. The member that will exercise it is ADR 0007
+D3's navigation and campaign copy (#367 merge-order step 7).
+
+**The positive control MOVED with the emptiness rather than being deleted.** It
+used to guard `exact_locale_then_base`, because "0 fields on the new policy" and
+"the census cannot read `fallback` at all" produce the same green; that bucket
+now holds two real fields, so the real data is its own control and the synthetic
+descriptor was re-pointed at `exact_locale_only`. Deleting it instead would have
+left the remaining zero unguarded, which is how a census quietly stops being
+one. The three buckets are also asserted to PARTITION the registry, so three
+individually-correct counts cannot hide a fourth policy nobody is measuring.
+
+**The total is expected to move — 14 before #712 registered
+`attribute_definition.label` and `.description`, 16 before #367's Translation
+model registered the two listing fields — and the exact pin in
 `catalog-localization.test.ts` is how it gets noticed. Re-derive it by RUNNING
 the census against the BUILT registry, never by adding the new keys to the old
-total.** Every descriptor is constructed through `describeField`, so a census
+total.** That is how 18 was obtained: the pin reported `expected 18 to be 16`
+and the number came from the census rather than from arithmetic. Every descriptor is constructed through `describeField`, so a census
 over the source literal is blind to it; and the arithmetic is right only when
 nothing else changed, which is the assumption a census exists to stop you
 making — a key that MOVED class, or one deleted in the same window, does not show
