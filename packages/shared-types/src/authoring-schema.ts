@@ -750,6 +750,128 @@ export interface AuthoringValidationResult {
 }
 
 /* -------------------------------------------------------------------------- */
+/* The publication result                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How a published variant came to carry the canonical configuration it carries
+ * — and, deliberately, NOT what the matcher decided.
+ *
+ * `syncListingFacets` requests a match for every variant AFTER the publishing
+ * transaction commits, so at the moment this result is composed the matcher has
+ * not run. `matched` and `unmatched` are therefore not members and cannot be:
+ * the only honest statements are that a person resolved this variant, or that
+ * nobody has yet and #58 owns it.
+ */
+export type AuthoringVariantResolution =
+  /**
+   * The author selected the configuration; the `merchant_declared` link is
+   * written and `MATCHER_MAY_DISPLACE` stops an automatic match moving it
+   * (ADR 0007 D10).
+   */
+  | 'merchant_declared'
+  /** No author selection. The matcher owns this variant and has not decided. */
+  | 'queued_for_matching';
+
+export const AUTHORING_VARIANT_RESOLUTIONS: readonly AuthoringVariantResolution[] = [
+  'merchant_declared',
+  'queued_for_matching',
+] as const;
+
+/**
+ * One published variant.
+ *
+ * `position` is the pairing, and it is the reason this is worth returning at
+ * all: a draft variant and its `product_variants` row share a position, and that
+ * is a fact the publishing join has in hand. A client re-deriving it has only
+ * titles and prices two variants can legitimately share.
+ *
+ * IDs appear where a caller can act on them and COUNTS where a caller can only
+ * check that the publication was whole. An axis assignment id and a claim id
+ * address rows no merchant surface addresses; their counts are what tell a
+ * caller a variant did not land half-written.
+ */
+export interface AuthoringPublishedVariant {
+  /** The draft variant this was published from. */
+  readonly draftVariantId: string;
+  /** Shared by the draft variant and the listing variant. */
+  readonly position: number;
+  readonly productVariantId: string;
+  readonly resolution: AuthoringVariantResolution;
+  /**
+   * The linked canonical configuration — present exactly when `resolution` is
+   * `merchant_declared`, because the only link this path writes is the author's.
+   */
+  readonly canonicalVariantId: string | null;
+  /** ADR 0007 D6's typed identity for this variant, as stored. */
+  readonly axisSignature: string | null;
+  readonly axisAssignmentCount: number;
+  readonly merchantDeclaredClaimCount: number;
+}
+
+/**
+ * What is still owed on a publication, at the moment it is answered.
+ *
+ * Every field here is a fact about the LISTING and the DRAFT, never a prediction
+ * and never a verdict.
+ */
+export interface AuthoringPublicationReview {
+  readonly merchantDeclaredCount: number;
+  /** Variants #58's matcher owns. Not a claim that it will fail to match them. */
+  readonly queuedForMatchingCount: number;
+  /**
+   * Attribute claims for THIS listing that landed queued for review.
+   *
+   * The authoring path writes its claims already `resolved`, so this is reliably
+   * zero today — which is why reporting it costs nothing, and why it must be
+   * reported rather than assumed: the day a value stops resolving, a caller
+   * finds out from the publication instead of from a review queue nobody
+   * attributed.
+   */
+  readonly queuedAttributeClaimCount: number;
+  /**
+   * Proposals still open against the draft.
+   *
+   * Non-empty only under a product type version whose `pendingProposalPolicy` is
+   * `allow_local_claim`: `block_publication` refuses the publish outright, so a
+   * published listing under that policy has none. This is the one moment the
+   * author can be told that the value they proposed is still somebody else's
+   * decision.
+   */
+  readonly openProposalIds: readonly string[];
+}
+
+/**
+ * A complete publication (#367 step 5's "return a complete publication result").
+ *
+ * ## It describes the LISTING, not what this call happened to write
+ *
+ * A convergence — a retry whose first response was lost — created nothing this
+ * time, and it is the case the publish endpoint exists to serve. If this were
+ * accumulated as the transaction went, the converging answer would be the thin
+ * one, which would make retrying (the safe client behaviour) the one that loses
+ * information. So every field is DERIVED from the published listing and its
+ * draft, and `published` and `converged` answer identically by construction.
+ *
+ * That is also why no field is named "created".
+ */
+export interface AuthoringPublicationResult {
+  /**
+   * Carried in the BODY as well as by the status code (201 / 200), because a
+   * client that has to read a status code to know which of two shapes it holds
+   * will eventually read neither.
+   */
+  readonly outcome: 'published' | 'converged';
+  readonly listingId: string;
+  /** Axes the listing declares (ADR 0007 D6's authoritative list). */
+  readonly declaredAxisCount: number;
+  /** Product-scope assertions recorded for the listing. */
+  readonly listingClaimCount: number;
+  readonly variants: readonly AuthoringPublishedVariant[];
+  readonly review: AuthoringPublicationReview;
+}
+
+/* -------------------------------------------------------------------------- */
 /* The upgrade preview                                                         */
 /* -------------------------------------------------------------------------- */
 

@@ -48,6 +48,7 @@
 import { and, eq } from 'drizzle-orm';
 import type {
   AuthoringDraft,
+  AuthoringPublicationResult,
   AuthoringValidationResult,
   CreateStoreProductInput,
   CreateStoreProductVariantInput,
@@ -93,6 +94,7 @@ import {
 } from '../variant-axes/variant-axes.service.js';
 import { normalizeAxisValue } from '../variant-axes/signature.js';
 import { hydrateDraft, validateDraftRow } from './draft.service.js';
+import { composePublicationResult } from './publication-result.js';
 import { composeAuthoringSchemaForDefinitionId } from './schema.service.js';
 import type { AuthoringPermissionContext } from '@mercaria/shared-types';
 
@@ -115,15 +117,37 @@ export interface PublishDraftInput {
  * a sentence: a client renders the same list it renders for `validate`, so a
  * refusal at publish and a refusal at validate look identical to an author
  * instead of being two different experiences of one rule.
+ *
+ * **`published` and `converged` are ONE branch, and that is the point of #577.**
+ * A convergence is a retry whose first response was lost, and it must answer
+ * with everything the original did or the safe client behaviour becomes the one
+ * that loses information. Two branches carrying different fields would let that
+ * happen quietly; one branch makes it a type error. What separates them is the
+ * `outcome` string and the status code, not the shape.
  */
 export type DraftPublication =
-  | { readonly outcome: 'published'; readonly listingId: string; readonly draft: AuthoringDraft }
   | {
-      readonly outcome: 'converged';
+      readonly outcome: 'published' | 'converged';
       readonly listingId: string;
       readonly draft: AuthoringDraft;
+      /** #367 step 5: created ids and any pending review/matching state. */
+      readonly publication: AuthoringPublicationResult;
     }
   | { readonly outcome: 'refused'; readonly validation: AuthoringValidationResult };
+
+/**
+ * What `settlePublication` decided, before the response is composed.
+ *
+ * The draft ROW rather than the hydrated draft, because the publication result
+ * and the hydration are both derived from it and neither should re-read it.
+ */
+type SettledPublication =
+  | { readonly refused: AuthoringValidationResult }
+  | {
+      readonly outcome: 'published' | 'converged';
+      readonly listingId: string;
+      readonly draft: CatalogAuthoringDraftRow;
+    };
 
 /**
  * Publish a draft.
@@ -146,14 +170,44 @@ export async function publishDraft(
   db: Database,
   input: PublishDraftInput,
 ): Promise<DraftPublication> {
+  const settled = await settlePublication(db, input);
+  if ('refused' in settled) return { outcome: 'refused', validation: settled.refused };
+
+  if (settled.outcome === 'published') {
+    // Every recompute the ordinary create runs, in the same order, AFTER the
+    // commit. Each is idempotent and each opens its own connection or enqueues
+    // work, so running one inside would have the transaction wait on a writer
+    // waiting on it (#59's merge-runner deadlock, one domain over).
+    await finishStoreProductCreation(input.storeId, settled.listingId);
+    log.general.info(
+      { draftId: input.draftId, listingId: settled.listingId, storeId: input.storeId },
+      'Published a catalog authoring draft',
+    );
+  }
+
+  // The ONE composition site, which is what makes a convergence answer
+  // identically to a publication rather than by anybody remembering to. A fourth
+  // way of settling can only reach a caller through here.
+  const [draft, publication] = await Promise.all([
+    hydrateDraft(db, settled.draft),
+    composePublicationResult(db, {
+      draft: settled.draft,
+      listingId: settled.listingId,
+      outcome: settled.outcome,
+    }),
+  ]);
+  return { outcome: settled.outcome, listingId: settled.listingId, draft, publication };
+}
+
+/** Publish, converge or refuse — everything up to the response being composed. */
+async function settlePublication(
+  db: Database,
+  input: PublishDraftInput,
+): Promise<SettledPublication> {
   const existing = await findDraft(db, input.storeId, input.draftId);
   if (existing === null) throw notFound('No such draft.');
   if (existing.status === 'published' && existing.publishedListingId !== null) {
-    return {
-      outcome: 'converged',
-      listingId: existing.publishedListingId,
-      draft: await hydrateDraft(db, existing),
-    };
+    return { outcome: 'converged', listingId: existing.publishedListingId, draft: existing };
   }
   if (existing.status !== 'open') {
     throw conflict('This draft has been discarded and can no longer be published.');
@@ -161,11 +215,7 @@ export async function publishDraft(
   if (input.idempotencyKey !== null) {
     const prior = await findDraftByPublishIdempotencyKey(db, input.storeId, input.idempotencyKey);
     if (prior !== null && prior.publishedListingId !== null) {
-      return {
-        outcome: 'converged',
-        listingId: prior.publishedListingId,
-        draft: await hydrateDraft(db, prior),
-      };
+      return { outcome: 'converged', listingId: prior.publishedListingId, draft: prior };
     }
   }
 
@@ -334,32 +384,11 @@ export async function publishDraft(
     return { listingId: listing.id, draft: stamped };
   });
 
-  if ('refused' in result) {
-    return { outcome: 'refused', validation: result.refused };
-  }
+  if ('refused' in result) return { refused: result.refused };
   if ('converged' in result) {
-    return {
-      outcome: 'converged',
-      listingId: result.converged,
-      draft: await hydrateDraft(db, result.draft),
-    };
+    return { outcome: 'converged', listingId: result.converged, draft: result.draft };
   }
-
-  // Every recompute the ordinary create runs, in the same order, AFTER the
-  // commit. Each is idempotent and each opens its own connection or enqueues
-  // work, so running one inside would have the transaction wait on a writer
-  // waiting on it (#59's merge-runner deadlock, one domain over).
-  await finishStoreProductCreation(input.storeId, result.listingId);
-  log.general.info(
-    { draftId: input.draftId, listingId: result.listingId, storeId: input.storeId },
-    'Published a catalog authoring draft',
-  );
-
-  return {
-    outcome: 'published',
-    listingId: result.listingId,
-    draft: await hydrateDraft(db, result.draft),
-  };
+  return { outcome: 'published', listingId: result.listingId, draft: result.draft };
 }
 
 /**

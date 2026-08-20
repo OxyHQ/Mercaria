@@ -423,9 +423,13 @@ export async function publishProductDraftHandler(req: Request, res: Response): P
       res.status(422).json({ success: false, error: 'VALIDATION_ERROR', data: { validation: result.validation } });
       return;
     }
+    // `publication` carries the outcome too (#577). The status code stays 201 vs
+    // 200 for a caller reading transport, but a client that had to read a status
+    // code to tell a fresh publication from a convergence was reading neither —
+    // the dashboard's own client reported every publish as `published`.
     sendSuccess(
       res,
-      { listingId: result.listingId, draft: result.draft },
+      { listingId: result.listingId, draft: result.draft, publication: result.publication },
       result.outcome === 'published' ? 201 : 200,
     );
   } catch (err) {
