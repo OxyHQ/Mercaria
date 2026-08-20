@@ -478,7 +478,17 @@ export const catalogAuthoringDraftVariants = pgTable(
     ...optionalMoney('compareAtPrice'),
     inventoryTracked: boolean().notNull().default(true),
     inventoryAvailable: integer().notNull().default(0),
-    /** The order-independent axis hash (ADR 0007 D6). NULL until axes are set. */
+    /**
+     * The order-independent axis hash (ADR 0007 D6).
+     *
+     * Nullable in the TABLE and never NULL in practice, which is a statement
+     * about the column rather than about the writer. MEASURED (#771): one
+     * INSERT statement has ever existed, its one caller passes
+     * `signatureFor(...)`, and that returns `string` at every commit that has
+     * touched this column — zero axes yields `defaultTypedVariantSignature()`
+     * and a failure throws. `replaceDraftVariants` reconciles on it and writes
+     * no null branch, because such a branch would have no producer.
+     */
     axisSignature: text(),
     /**
      * The canonical CONFIGURATION the author selected for this variant.

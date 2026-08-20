@@ -47,12 +47,12 @@ import {
   discardDraft,
   findDraft,
   insertDraft,
-  insertVariantScopeValues,
   listDraftValues,
   listDraftVariants,
   listDrafts,
   replaceDraftVariants,
   replaceProductScopeValues,
+  replaceVariantScopeValues,
   repinDraftIfVersion,
   updateDraftIfVersion,
   type CatalogAuthoringDraftRow,
@@ -319,14 +319,23 @@ export async function patchDraft(db: Database, input: PatchDraftInput): Promise<
 
     if (input.variants !== undefined) {
       const prepared = prepareVariants(schema, input.variants);
-      const inserted = await replaceDraftVariants(tx, input.draftId, prepared.variants);
+      // `replaceDraftVariants` returns one row per input variant IN INPUT
+      // ORDER, which is what makes this index pairing correct — a surviving
+      // variant keeps its id, so the answers below land back on the row they
+      // were already attached to rather than on a freshly minted one (#771).
+      const rows = await replaceDraftVariants(tx, input.draftId, prepared.variants);
       const variantValues: NewDraftValue[] = [];
-      inserted.forEach((row, index) => {
+      rows.forEach((row, index) => {
         for (const value of prepared.axesByPosition[index] ?? []) {
           variantValues.push({ ...value, draftVariantId: row.id });
         }
       });
-      await insertVariantScopeValues(tx, input.draftId, variantValues);
+      await replaceVariantScopeValues(
+        tx,
+        input.draftId,
+        rows.map((row) => row.id),
+        variantValues,
+      );
     }
 
     return header;
