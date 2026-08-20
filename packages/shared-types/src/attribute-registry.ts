@@ -650,14 +650,43 @@ export interface AttributeSourceMapping {
   updatedAt: string;
 }
 
-/** Why a recorded value is waiting for a person (#94 coverage rule 2). */
+/**
+ * Why a recorded value is waiting for a person (#94 coverage rule 2).
+ *
+ * ## Four of these are produced; `invalid_category_attribute` is KEPT unproduced
+ * ## on purpose (#636)
+ *
+ * The producible set is not a matter of discipline, it is the call graph:
+ * `openAttributeReview` is the only writer of `attribute_value_reviews.reason`,
+ * it has exactly two callers (`attribute-observation.service.ts`), and between
+ * them they pass `conflicting_sources`, `unknown_unit`, `implausible_value` and
+ * `marketing_claim`. `reviewPriority` is typed to those same four, so a fifth
+ * would not compile through the path that opens a review.
+ *
+ * **`invalid_category_attribute` is deliberately still here.** Nothing produces
+ * it — the observation path resolves a definition by KEY with no category in
+ * scope, so it cannot notice that `screen_size` was asserted about a shoe — and
+ * deleting it would make the vocabulary honest by removing the evidence that the
+ * capability is missing. It is the record of an unbuilt capability rather than an
+ * oversight, and #791 carries what would have to change.
+ *
+ * **`definition_deprecated` was removed**, and the distinction is the point: it
+ * is not merely unproduced, it is SUPERSEDED. Deprecating a definition enqueues
+ * an `ATTRIBUTE_REINDEX_REASONS` job of the same name and stored values still
+ * resolve, so a deprecation is not a data-quality event needing a human. The
+ * review reason was replaced by a design that got built.
+ *
+ * That shared spelling is also why #636's own census reached the wrong answer:
+ * `definition_deprecated` lives in TWO tuples in this file, and every occurrence
+ * cited as proof that the search worked was the reindex one. A string census
+ * cannot tell two vocabularies apart; the call graph can.
+ */
 export type AttributeReviewReason =
   | 'conflicting_sources'
   | 'implausible_value'
   | 'unknown_unit'
   | 'marketing_claim'
-  | 'invalid_category_attribute'
-  | 'definition_deprecated';
+  | 'invalid_category_attribute';
 
 export const ATTRIBUTE_REVIEW_REASONS: readonly AttributeReviewReason[] = [
   'conflicting_sources',
@@ -665,7 +694,6 @@ export const ATTRIBUTE_REVIEW_REASONS: readonly AttributeReviewReason[] = [
   'unknown_unit',
   'marketing_claim',
   'invalid_category_attribute',
-  'definition_deprecated',
 ];
 
 /** The lifecycle of one review-queue entry. */
