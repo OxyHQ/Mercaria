@@ -206,8 +206,17 @@ describe('the populations this census walks', () => {
     // independently, and one number lets either collapse to zero while the
     // other carries it. Printed on success, so a count in a passing run makes
     // an unrelated red legible.
+    //
+    // Deliberately BELOW today's count (1,635 modules, 126 migrations) rather
+    // than at it. `docs/isolation-gates.md`'s "set it to today's count" is
+    // about a HAND list, whose only silent direction is shrinkage. These are
+    // DERIVED sweeps that grow on their own, and a floor at today's value makes
+    // "bump the number" the cheapest green for every legitimate addition —
+    // which is the pin-wearing-a-floor's-name failure that doc warns about.
+    // What these numbers have to catch is a walk that COLLAPSED: a moved root,
+    // a `readdirSync` returning nothing, or a sweep that reached one directory.
     expect(SOURCES.size, `the src walk found ${String(SOURCES.size)} production modules`)
-      .toBeGreaterThan(900);
+      .toBeGreaterThan(1_200);
     expect(MIGRATION_COUNT, `the drizzle walk found ${String(MIGRATION_COUNT)} migrations`)
       .toBeGreaterThan(100);
     expect(MIGRATION_SQL.length, 'the migration concatenation is empty').toBeGreaterThan(100_000);
