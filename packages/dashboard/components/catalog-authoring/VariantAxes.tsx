@@ -4,7 +4,8 @@ import { Plus, X } from "lucide-react-native";
 import type { AuthoringField, AuthoringSchema } from "@mercaria/shared-types";
 import { Button, Input, Switch, Text, useColorScheme } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
-import { emptyEntry, expectedEntryKind, type DraftFieldEntry } from "@/lib/authoring/answers";
+import { emptyEntry, type DraftFieldEntry } from "@/lib/authoring/answers";
+import { AXIS_SUPPORTED_KINDS, axisValueSupport, unitAffordance } from "@/lib/authoring/controls";
 import { variantCapableFields, type MatrixAxis } from "@/lib/authoring/matrix";
 import { ValuePicker, type PickerOption } from "./ValuePicker";
 
@@ -176,8 +177,21 @@ interface AxisValueControlProps {
  * A controlled axis gets the same picker the field itself uses — the SAME
  * options, from the same `controlledValues` — so a display label a merchant
  * chose here and a display label in the details step cannot be two different
- * things. A typed axis gets a plain box; a boolean one is a value the matrix
- * enumerates rather than a control, so it is not offered as an axis value.
+ * things. A typed axis gets a number or a text box, and a number that carries a
+ * unit gets the same unit control `SchemaField` renders, from the same
+ * {@link unitAffordance}.
+ *
+ * Which kinds are covered is {@link AXIS_SUPPORTED_KINDS}, in `lib/` because
+ * nothing can execute a decision made inside a component here — and the set is
+ * gated, so a `valueType` added to the registry fails the build until somebody
+ * decides what an axis does with it.
+ *
+ * This docblock used to say a boolean "is not offered as an axis value".
+ * Nothing implemented that: `variantCapableFields` filters on `variantCapable`
+ * and the requirement, never on the value type, and the server's
+ * `product_type_fields_variant_axis_check` constrains the scope and a forbidden
+ * KEY list rather than the type. A boolean axis is reachable, lands on
+ * `unsupported` and says so.
  */
 function AxisValueControl({
   field,
@@ -188,9 +202,9 @@ function AxisValueControl({
   onChange,
 }: AxisValueControlProps) {
   const { t } = useTranslation();
-  const kind = expectedEntryKind(field);
+  const support = axisValueSupport(field);
 
-  if (kind === "controlled_value" && entry.kind === "controlled_value") {
+  if (support === "controlled_value" && entry.kind === "controlled_value") {
     const options: readonly PickerOption[] = field.controlledValues.map((value) => ({
       id: value.id,
       label: schema.text.values[value.id]?.label?.value ?? value.value,
@@ -208,15 +222,35 @@ function AxisValueControl({
     );
   }
 
-  if (kind === "number" && entry.kind === "number") {
+  if (support === "number" && entry.kind === "number") {
+    // The unit box is the SAME decision `SchemaField` makes, taken from the
+    // same function. It was missing here, which left `storage_capacity` — a
+    // `digital_storage` measurement that is `variantCapable` in the shipped
+    // smartphone package — as a bare number whose unit a merchant could not
+    // reach, on the one axis whose purpose is that `256GB` and `256 GB`
+    // normalize to one value.
+    const unit = unitAffordance(field);
     return (
-      <Input
-        value={entry.raw}
-        onChangeText={(raw) => onChange({ ...entry, raw })}
-        accessibilityLabel={label}
-        keyboardType="decimal-pad"
-        editable={!disabled}
-      />
+      <View className="flex-row items-center gap-2">
+        <Input
+          value={entry.raw}
+          onChangeText={(raw) => onChange({ ...entry, raw })}
+          accessibilityLabel={label}
+          keyboardType="decimal-pad"
+          editable={!disabled}
+          className="flex-1"
+        />
+        {!unit.present ? null : (
+          <Input
+            value={entry.unit ?? ""}
+            onChangeText={(unitText) => onChange({ ...entry, unit: unitText })}
+            placeholder={unit.placeholder}
+            accessibilityLabel={t("products.wizard.fields.unitLabel")}
+            editable={!disabled}
+            className="w-24"
+          />
+        )}
+      </View>
     );
   }
 

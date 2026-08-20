@@ -11,6 +11,7 @@ import {
   maxEntriesFor,
   type DraftFieldEntry,
 } from "@/lib/authoring/answers";
+import { unitAffordance } from "@/lib/authoring/controls";
 import { checkFieldEntries, type InlineFinding } from "@/lib/authoring/inline-validation";
 import { findingMessageKey, type LocatedFinding } from "@/lib/authoring/findings";
 import { COMPONENT_AXIS_LABEL_KEYS } from "@/lib/authoring/labels";
@@ -252,6 +253,7 @@ function EntryControl({
   }
 
   if (kind === "number" && entry.kind === "number") {
+    const unit = unitAffordance(field);
     const axisLabel =
       entry.componentAxis === null
         ? null
@@ -272,11 +274,11 @@ function EntryControl({
             aria-invalid={invalid}
             className={invalid ? "flex-1 border-destructive" : "flex-1"}
           />
-          {field.validation.unitFamily === null ? null : (
+          {!unit.present ? null : (
             <Input
               value={entry.unit ?? ""}
-              onChangeText={(unit) => onChange({ ...entry, unit })}
-              placeholder={field.validation.baseUnit ?? ""}
+              onChangeText={(unitText) => onChange({ ...entry, unit: unitText })}
+              placeholder={unit.placeholder}
               accessibilityLabel={t("products.wizard.fields.unitLabel")}
               editable={!disabled}
               className="w-24"
