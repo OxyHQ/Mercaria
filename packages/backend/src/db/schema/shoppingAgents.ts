@@ -187,7 +187,20 @@ export const shoppingAgents = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    /** Merchant ids no plan may use. No FK — a merge repoints, a delete cannot. */
+    /**
+     * Merchant ids no plan may use.
+     *
+     * No FK, because Postgres has no per-element foreign key on an array — which
+     * is also why no census derived from keys can see this column. The merge
+     * DOES repoint it (#716), through `BARE_ENTITY_REFERENCES`, which is where
+     * that fact is declared and from which the runner derives the statement.
+     *
+     * This comment used to assert the repointing while nothing performed it. It
+     * is worth saying plainly: for as long as that was true, the exclusion
+     * silently stopped applying after a merchant merge and the agent recommended
+     * the merchant the shopper had excluded — and the comment is what would have
+     * stopped the next reader checking.
+     */
     excludedMerchantIds: text().array().notNull().default(sql`'{}'::text[]`),
     /** What the objective is compared against. Required by exactly two kinds. */
     ...optionalMoney('target'),

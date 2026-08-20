@@ -1739,6 +1739,28 @@ export function targetsForPhase(
   return MERGE_REHOMING_PLAN[entityType].filter((target) => target.phase === phase);
 }
 
+/**
+ * Every ARRAY rehoming one entity's merge owes in one phase.
+ *
+ * Derived from `BARE_ENTITY_REFERENCES` rather than from a second list, so a
+ * `rehomed` entry is executed BY BEING DECLARED — there is no way to declare one
+ * the runner does not run, which is the failure this whole register exists to
+ * catch. `verify` re-runs every one of these and requires zero rows, so each
+ * statement has to be idempotent.
+ */
+export function bareArrayRehomesFor(
+  entityType: MergeableEntityType,
+  phase: CatalogMergePhase,
+): readonly BareArrayRehome[] {
+  return BARE_ENTITY_REFERENCES.filter(
+    (entry) =>
+      entry.disposition === 'rehomed' &&
+      entry.rehome !== undefined &&
+      entry.rehome.phase === phase &&
+      (entry.targetEntities ?? []).includes(entityType),
+  ).map((entry) => entry.rehome as BareArrayRehome);
+}
+
 /** Every conflict-gated target of one entity — what the planning phase probes. */
 export function conflictTargets(entityType: MergeableEntityType): readonly RehomeTarget[] {
   return MERGE_REHOMING_PLAN[entityType].filter(
@@ -2245,6 +2267,29 @@ export type BareEntityReferenceDisposition =
    */
   | 'unresolved';
 
+/**
+ * How a merge moves an id that lives INSIDE an array column.
+ *
+ * The FK-derived plan cannot carry these: `merge-plan-census.test.ts` asserts
+ * both directions, so a `RehomeTarget` naming a column with no foreign key fails
+ * as `extra` — and an array column can never have one (#695 door 4). So the
+ * declaration lives on the bare-entity register, which is the register for
+ * exactly these, and this is what makes `rehomed` an executed fact rather than a
+ * word: {@link BareEntityReference} requires it whenever the disposition is
+ * `rehomed`, and the merge runner derives its array work from the register, so
+ * the declaration and the statement are ONE source and cannot disagree.
+ *
+ * That property is the whole point of this issue. `shopping_agents`'s own
+ * schema comment claimed "a merge repoints" while nothing repointed it, and a
+ * comment asserting behaviour is indistinguishable from the behaviour.
+ */
+export interface BareArrayRehome {
+  /** The real drizzle array column, so a rename breaks the build. */
+  readonly column: AnyPgColumn;
+  /** Which phase moves it. Ordering is the plan's, not the runner's. */
+  readonly phase: CatalogMergePhase;
+}
+
 export interface BareEntityReference {
   /** `table.column`, both POSTGRES names — never the TypeScript property. */
   readonly column: string;
@@ -2256,6 +2301,13 @@ export interface BareEntityReference {
    * a sentence rather than a decision.
    */
   readonly targetEntities?: readonly MergeableEntityType[];
+  /**
+   * REQUIRED when the disposition is `rehomed`, and forbidden otherwise —
+   * asserted by `bare-entity-census.test.ts`, which also checks this column's
+   * postgres name against {@link column}, so the string and the drizzle
+   * reference cannot name two different columns.
+   */
+  readonly rehome?: BareArrayRehome;
   readonly reason: string;
 }
 
@@ -2610,12 +2662,21 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
   },
   {
     column: 'shopping_agents.excluded_merchant_ids',
-    disposition: 'unresolved',
+    disposition: 'rehomed',
     targetEntities: ['merchant'],
+    rehome: { column: shoppingAgents.excludedMerchantIds, phase: 'agents' },
     reason:
-      'Door 4, and the sharpest instance measured. The schema comment reads "No FK — a merge ' +
-      'repoints, a delete cannot", and NOTHING repoints it: after a merchant merge the buyer’s ' +
-      'exclusion stops applying and the agent recommends the merchant they excluded. The comment ' +
-      'states the intended behaviour, which is why this is `unresolved` rather than `untouched`.',
+      'Door 4, and the sharpest instance measured (#716). REHOMED, for the reason the four ' +
+      'merchant NARROWINGS beside it are — a product save’s preferred seller, a price alert’s ' +
+      'scope, a watchlist item’s preferred merchant and `shopping_agent_lines.merchant_id` — ' +
+      'with the sign flipped and the stakes raised. A merchant merge here is duplicate ' +
+      'resolution rather than an acquisition (`entity_collision` from a `duplicate_scan`: two ' +
+      'merchants sharing a domain), so the shopper who excluded the loser excluded the BUSINESS, ' +
+      'which after the merge trades under the surviving identity. Left on a tombstone the ' +
+      'exclusion matches no offer and the agent recommends the merchant they excluded — where a ' +
+      'stranded NARROWING yields nothing and the shopper notices, a stranded EXCLUSION yields ' +
+      'MORE and they cannot tell. `merchant_acquisition_candidates` states the same rule for the ' +
+      'nearest analogue: a do-not-contact request is exactly the fact a merge must never ' +
+      'silently drop. The schema comment already claimed this behaviour; now it is true.',
   },
 ];

@@ -51,7 +51,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { is } from 'drizzle-orm';
+import { getTableName, is } from 'drizzle-orm';
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
 import { sqlColumnName } from '@oxyhq/db';
 import { MERGEABLE_ENTITY_TYPES } from '@mercaria/shared-types';
@@ -272,6 +272,43 @@ describe('every bare reference to a mergeable entity has a decision (#695)', () 
     // A hand-off to a census that does not cover the table is an entry claiming
     // somebody else decided. Nobody did, and both files would read as complete.
     expect(wrong).toEqual([]);
+  });
+
+  it('gives every `rehomed` entry a statement, and names the same column twice over', () => {
+    // `rehomed` without a `rehome` payload is the defect this register exists to
+    // catch, wearing the register's own vocabulary: `bareArrayRehomesFor` derives
+    // the runner's work from these entries, so an entry with no payload declares
+    // a move that nothing performs — which is exactly what
+    // `shopping_agents.excluded_merchant_ids`'s schema comment did for as long
+    // as it existed.
+    const claimedWithoutStatement = BARE_ENTITY_REFERENCES.filter(
+      (entry) => entry.disposition === 'rehomed' && entry.rehome === undefined,
+    ).map((entry) => entry.column);
+    expect(claimedWithoutStatement).toEqual([]);
+
+    const payloadOnANonRehome = BARE_ENTITY_REFERENCES.filter(
+      (entry) => entry.disposition !== 'rehomed' && entry.rehome !== undefined,
+    ).map((entry) => entry.column);
+    expect(payloadOnANonRehome).toEqual([]);
+
+    // And the string and the drizzle column must name ONE column. They are two
+    // representations of one fact and can drift; the string is what the census
+    // reconciles against the schema, the column is what the UPDATE writes, so a
+    // disagreement moves a different column than the register says.
+    const disagreeing = BARE_ENTITY_REFERENCES.filter((entry) => entry.rehome).map((entry) => {
+      const rehome = entry.rehome as NonNullable<BareEntityReference['rehome']>;
+      const actual = `${getTableName(rehome.column.table)}.${sqlColumnName(rehome.column)}`;
+      return actual === entry.column ? null : `${entry.column} declares ${actual}`;
+    });
+    expect(disagreeing.filter((entry) => entry !== null)).toEqual([]);
+
+    // A floor: this whole case is vacuous the day nothing is `rehomed`, and it
+    // would go vacuous silently — every assertion above passes over an empty
+    // set. #716 is the first entry; a later change that removes the last one has
+    // to come here and say so.
+    expect(
+      BARE_ENTITY_REFERENCES.filter((entry) => entry.disposition === 'rehomed').length,
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('names the target entities exactly when the disposition is about a mergeable one', () => {
