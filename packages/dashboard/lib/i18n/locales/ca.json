@@ -1255,6 +1255,11 @@
         "proposalPending": "Hi ha un valor proposat pendent i aquest tipus de producte bloqueja la publicació fins que es decideixi.",
         "approvedValueNotPublished": "El teu valor s’ha aprovat i està esperant a publicar-se. Podràs publicar quan un operador l’activi.",
         "draftNotOpen": "Aquest esborrany ja no està obert."
+      },
+      "untranslated": {
+        "withKey": "%{key} (sense traduir)",
+        "unnamed": "Nom sense traduir",
+        "notice": "Alguns noms encara no estan traduïts al teu idioma."
       }
     }
   },

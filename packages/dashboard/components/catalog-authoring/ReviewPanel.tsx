@@ -12,6 +12,11 @@ import {
   type WizardFormState,
 } from "@/lib/authoring/wizard-state";
 import { axisSummary } from "./VariantRows";
+import {
+  anyUntranslated,
+  authoringLabel,
+  UNTRANSLATED_NOTICE_KEY,
+} from "@/lib/authoring/untranslated";
 
 interface ReviewPanelProps {
   readonly draft: AuthoringDraft;
@@ -49,20 +54,34 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
   const soldRows = form.rows.filter((row) => row.enabled);
   const priced = soldRows.filter((row) => toMinorUnits(row.priceMajor, row.currency) !== null);
 
-  const productTypeName = schema.text.productTypeName?.value ?? schema.productType.key;
-  const categoryName = schema.text.categoryName?.value ?? draft.categoryId;
+  // #740. Two DIFFERENT dispositions, and the difference is what is available
+  // to fall back on rather than a preference. A product type has a stable,
+  // meaningful key; a category, on this DTO, has only `categoryId` — a UUID,
+  // which is not even the identifier the author picked the category BY
+  // (`CategoryBrowser` selects on `category.key`), so marking it up would be
+  // honest and still useless. The `unidentifiable` branch has no property one
+  // could travel on.
+  const productTypeName = authoringLabel(
+    schema.text.productTypeName,
+    { kind: "key", key: schema.productType.key },
+    t,
+  );
+  const categoryName = authoringLabel(schema.text.categoryName, { kind: "unidentifiable" }, t);
 
   return (
     <View className="gap-4">
       <Section title={t("products.wizard.steps.classification")}>
-        <Row label={t("products.wizard.review.category")} value={categoryName} />
+        <Row label={t("products.wizard.review.category")} value={categoryName.text} />
         <Row
           label={t("products.wizard.review.productType")}
           value={t("products.wizard.review.productTypeVersion", {
-            name: productTypeName,
+            name: productTypeName.text,
             version: draft.productType.version,
           })}
         />
+        {anyUntranslated([categoryName, productTypeName]) ? (
+          <Text className="text-xs text-muted-foreground">{t(UNTRANSLATED_NOTICE_KEY)}</Text>
+        ) : null}
         <Row label={t("products.wizard.review.market")} value={draft.market} />
         <Row
           label={t("products.wizard.review.canonicalLink")}
@@ -89,7 +108,7 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
         />
         <View className="mt-1 gap-1">
           {soldRows.slice(0, 8).map((row) => {
-            const summary = axisSummary(row, schema);
+            const summary = axisSummary(row, schema, t);
             return (
               <Text key={row.key} className="text-xs text-muted-foreground">
                 {summary.length > 0 ? summary : t("products.wizard.variants.singleVariant")}

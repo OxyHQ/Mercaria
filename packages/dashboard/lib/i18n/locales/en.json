@@ -1237,6 +1237,11 @@
         "proposalPending": "A proposed value is still waiting, and this product type blocks publishing until it is decided.",
         "approvedValueNotPublished": "Your value was approved and is waiting to be published. You can publish once an operator releases it.",
         "draftNotOpen": "This draft is no longer open."
+      },
+      "untranslated": {
+        "withKey": "%{key} (not translated)",
+        "unnamed": "Name not translated",
+        "notice": "Some names are not translated into your language yet."
       }
     }
   },

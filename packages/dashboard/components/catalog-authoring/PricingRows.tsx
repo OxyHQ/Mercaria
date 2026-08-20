@@ -133,7 +133,7 @@ export function PricingRows({
       {enabled.map((row) => {
         const position = positionByKey.get(row.key) ?? 0;
         const rowFindings = findingsForVariant(findings, position);
-        const summary = axisSummary(row, schema);
+        const summary = axisSummary(row, schema, t);
         return (
           <View
             key={row.key}

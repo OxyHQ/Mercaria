@@ -1237,6 +1237,11 @@
         "proposalPending": "有一个提议的值仍在等待处理，此商品类型在决定之前会阻止发布。",
         "approvedValueNotPublished": "您的值已获批准，正等待发布。运营人员发布后您即可发布。",
         "draftNotOpen": "此草稿已不再处于打开状态。"
+      },
+      "untranslated": {
+        "withKey": "%{key}（未翻译）",
+        "unnamed": "名称未翻译",
+        "notice": "部分名称尚未翻译成你的语言。"
       }
     }
   },

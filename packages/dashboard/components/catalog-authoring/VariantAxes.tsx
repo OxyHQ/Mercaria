@@ -7,6 +7,7 @@ import { useTranslation } from "@/lib/i18n";
 import { emptyEntry, type DraftFieldEntry } from "@/lib/authoring/answers";
 import { axisValueSupport, unitAffordance } from "@/lib/authoring/controls";
 import { variantCapableFields, type MatrixAxis } from "@/lib/authoring/matrix";
+import { authoringLabel } from "@/lib/authoring/untranslated";
 import { ValuePicker, type PickerOption } from "./ValuePicker";
 
 interface VariantAxesProps {
@@ -75,7 +76,14 @@ export function VariantAxes({
     <View className="gap-4">
       {capable.map((field) => {
         const axis = axisFor(field);
-        const label = schema.text.fields[field.id]?.label?.value ?? field.key;
+        // #740: the attribute KEY still identifies which switch this is — a
+        // screen of identically-labelled switches is worse than a marked key —
+        // but it is no longer rendered as though it were the attribute's name.
+        const label = authoringLabel(
+          schema.text.fields[field.id]?.label,
+          { kind: "key", key: field.key },
+          t,
+        ).text;
         return (
           <View key={field.id} className="gap-3 rounded-2xl border border-border bg-surface p-4">
             <View className="flex-row items-center justify-between gap-3">
@@ -207,7 +215,8 @@ function AxisValueControl({
   if (support === "controlled_value" && entry.kind === "controlled_value") {
     const options: readonly PickerOption[] = field.controlledValues.map((value) => ({
       id: value.id,
-      label: schema.text.values[value.id]?.label?.value ?? value.value,
+      label: authoringLabel(schema.text.values[value.id]?.label, { kind: "key", key: value.value }, t)
+        .text,
       detail: value.value,
     }));
     return (

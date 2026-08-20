@@ -6,6 +6,7 @@ import { useTranslation } from "@/lib/i18n";
 import { initialEntries, type DraftFieldEntries, type DraftFieldEntry } from "@/lib/authoring/answers";
 import { findingsForProductField, type LocatedFinding } from "@/lib/authoring/findings";
 import { effectiveRequirements, isVisible, productScopeFields } from "@/lib/authoring/wizard-state";
+import { authoringLabel } from "@/lib/authoring/untranslated";
 import { SchemaField } from "./SchemaField";
 
 interface ProductFieldsProps {
@@ -92,7 +93,13 @@ export function ProductFields({
           .filter((field) => field.groupId === group.id)
           .sort((left, right) => left.position - right.position);
         if (fields.length === 0) return null;
-        const label = schema.text.groups[group.id]?.label?.value ?? group.key;
+        // #740: marked rather than bare — a schema with several untranslated
+        // groups would otherwise render several identical section headings.
+        const label = authoringLabel(
+          schema.text.groups[group.id]?.label,
+          { kind: "key", key: group.key },
+          t,
+        ).text;
         return (
           <View key={group.id} className="gap-5 rounded-2xl border border-border bg-surface p-4">
             <Text className="text-sm font-semibold text-foreground">{label}</Text>

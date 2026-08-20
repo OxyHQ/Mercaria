@@ -5,6 +5,7 @@ import type { AuthoringCategoryOption } from "@mercaria/shared-types";
 import { Button, Skeleton, Text, useColorScheme } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { useAuthoringCategories } from "@/lib/authoring/hooks";
+import { authoringLabel } from "@/lib/authoring/untranslated";
 
 interface CategoryBrowserProps {
   readonly locale: string;
@@ -45,7 +46,10 @@ export function CategoryBrowser({ locale, selectedId, onSelect }: CategoryBrowse
   const parentId = trail.length === 0 ? null : (trail[trail.length - 1]?.id ?? null);
   const categories = useAuthoringCategories(parentId, locale);
 
-  const nameOf = (category: AuthoringCategoryOption) => category.name?.value ?? category.key;
+  // #740: the category KEY is what a merchant browses by when a locale has no
+  // name for a node, so it is kept — marked, never passed off as the name.
+  const nameOf = (category: AuthoringCategoryOption) =>
+    authoringLabel(category.name, { kind: "key", key: category.key }, t).text;
 
   return (
     <View className="gap-3">
