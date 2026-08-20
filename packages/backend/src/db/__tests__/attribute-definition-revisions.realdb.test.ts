@@ -47,7 +47,15 @@ const OPERATOR = `rev-${RUN}`;
 let db: Database;
 let definition: AttributeDefinitionRow;
 
-interface RevisionRow {
+/**
+ * A `type` alias and not an `interface`, deliberately.
+ *
+ * `db.execute<T>` constrains `T` to `Record<string, unknown>`, and an interface
+ * has no implicit index signature while a type alias does — so the interface
+ * spelling fails to satisfy the constraint. `completenessRepository.ts` records
+ * the same trap beside its own row type.
+ */
+type RevisionRow = {
   id: string;
   action: string;
   entity_kind: string;
@@ -57,7 +65,7 @@ interface RevisionRow {
   value: string | null;
   status: string;
   provenance: string;
-}
+};
 
 async function revisions(): Promise<RevisionRow[]> {
   const rows = await db.execute<RevisionRow>(sql`
@@ -108,7 +116,15 @@ beforeAll(async () => {
 }, 180_000);
 
 afterAll(async () => {
-  await db.execute(sql`delete from catalog_localization_revisions where entity_id = ${definition.id}`);
+  // The revisions are deliberately NOT deleted. `catalog_localization_revisions`
+  // refuses DELETE by trigger — "the trail is what a translator and a reviewer
+  // are accountable to; a row that can be rewritten is not a record" — and that
+  // refusal is a property this domain relies on, so a teardown that removed the
+  // rows would have to switch off the trigger every other file depends on.
+  // `catalog-governance.realdb.test.ts` leaves its audit rows for the same
+  // reason. They are keyed to this run's own definition id and reference it by a
+  // polymorphic column with no foreign key, so nothing blocks the deletes below
+  // and nothing else can see them.
   await db.execute(sql`delete from attribute_labels where attribute_definition_id = ${definition.id}`);
   await db.execute(sql`delete from attribute_definitions where id = ${definition.id}`);
 }, 180_000);
