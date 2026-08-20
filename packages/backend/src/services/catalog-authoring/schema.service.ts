@@ -567,11 +567,12 @@ interface ComposeTextInput {
  * count.
  *
  * The locale narrowing uses the `language_then_base` chain, which is a SUPERSET
- * of the `exact_locale_only` one, so a field whose class forbids cross-market
- * fallback is still READ and still refused by the resolver walking its own
- * shorter chain. Narrowing on the shorter chain is the dangerous direction: the
- * resolver would answer `no_text_in_locale` for text that exists, and nothing
- * would say so. That reasoning is `read.service.ts`'s and is quoted here because
+ * of the `exact_locale_then_base` and `exact_locale_only` ones, so a field whose
+ * class forbids cross-market fallback is still READ and still refused by the
+ * resolver applying its own shorter plan. Narrowing on a shorter one is the
+ * dangerous direction: the resolver would answer `no_text_in_locale` for text
+ * that exists, and nothing would say so. That reasoning is `read.service.ts`'s
+ * and is quoted here because
  * this file issues its own reads rather than calling it — the category read
  * there resolves a slug this surface has no use for, and a schema needs the
  * attribute labels it does not carry.
