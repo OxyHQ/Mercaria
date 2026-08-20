@@ -99,12 +99,12 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   intend — regeneration DROPS every hand-written trigger, function, backfill and
   the marker, pure DDL included; verify its count is 1.
 - **Do not convert `*.realdb.test.ts` suites to mocks.** A mocked insert/update
-  accepts a statement the server rejects outright; CHECKs, unique indexes,
+  accepts a statement the server rejects; CHECKs, unique indexes,
   `requireTransaction` and `FOR UPDATE SKIP LOCKED` have no mocked counterpart.
 - **The test database is SHARED across parallel files.** Scope every aggregate to
   ids your file owns, floor every count equality, never widen a global config
   bound, hold the advisory-lock mutex for the global active matching policy, and
-  keep a trigger-toggle window to ONE table.
+  keep a trigger-toggle window to exactly ONE table.
 
 ## Auth and the identity surfaces
 
