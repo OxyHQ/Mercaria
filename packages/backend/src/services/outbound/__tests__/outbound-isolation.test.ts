@@ -323,6 +323,13 @@ describe('outbound isolation (#67)', () => {
     { name: 'defines a local freshness rule', pattern: LOCAL_FRESHNESS_REFERENCE },
     { name: 'names FairCoin or OxyPay', pattern: FAIRCOIN_REFERENCE },
   ];
+  // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+  // nothing goes red. The floor is today's count: an addition passes it freely, while a
+  // REMOVAL has to move this number in the same diff.
+  expect(
+    walls.length,
+    'walls shrank without this floor moving — the assertion below now defends less than it did',
+  ).toBeGreaterThanOrEqual(6);
 
   const isReconciliation = (path: string) => path.includes('/reconciliation/');
   const redirectHalf = files.filter((f) => !isReconciliation(f.path));

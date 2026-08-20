@@ -146,6 +146,13 @@ const RESERVED_KEYS_THE_EXEMPTION_RESTS_ON: readonly string[] = [
   'shipping_cost',
   'delivery_cost',
 ];
+// #723: the loop below is its only reader, so emptying this list makes it a no-op and
+// nothing goes red. The floor is today's count: an addition passes it freely, while a
+// REMOVAL has to move this number in the same diff.
+expect(
+  RESERVED_KEYS_THE_EXEMPTION_RESTS_ON.length,
+  'RESERVED_KEYS_THE_EXEMPTION_RESTS_ON shrank without this floor moving — the assertion below now defends less than it did',
+).toBeGreaterThanOrEqual(8);
 
 /** Floors, per SHAPE. One total would let a shape collapse to zero unseen. */
 const MINIMUM_CANONICAL_TABLES = 16;

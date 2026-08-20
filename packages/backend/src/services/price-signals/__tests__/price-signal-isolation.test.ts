@@ -439,6 +439,13 @@ describe('the prohibitions are stated as VALUES a test can walk', () => {
     // A vacuity floor on the list itself: a prohibition that accidentally named
     // an emitted field would fail every response walk instead of catching a leak.
     const emitted = ['kind', 'state', 'subject', 'sample', 'value', 'reason', 'offerId'];
+    // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+    // nothing goes red. The floor is today's count: an addition passes it freely, while a
+    // REMOVAL has to move this number in the same diff.
+    expect(
+      emitted.length,
+      'emitted shrank without this floor moving — the assertion below now defends less than it did',
+    ).toBeGreaterThanOrEqual(7);
     for (const field of emitted) {
       expect(MERCHANT_COMPETITIVENESS_FORBIDDEN_FIELDS).not.toContain(field);
     }

@@ -145,6 +145,13 @@ const FORBIDDEN_HARDCODED_FILTERS: readonly { signal: string; pattern: RegExp }[
     pattern: /\bfunction\s+(?:filters|facets)For(?:Category|Slug|Key)\b|\b(?:filters|facets)For(?:Category|Slug|Key)\s*[:=]\s*(?:\(|function)/,
   },
 ];
+// #723: the loop below is its only reader, so emptying this list makes it a no-op and
+// nothing goes red. The floor is today's count: an addition passes it freely, while a
+// REMOVAL has to move this number in the same diff.
+expect(
+  FORBIDDEN_HARDCODED_FILTERS.length,
+  'FORBIDDEN_HARDCODED_FILTERS shrank without this floor moving — the assertion below now defends less than it did',
+).toBeGreaterThanOrEqual(2);
 
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1');
@@ -342,6 +349,13 @@ describe('no hard-coded per-category filter set exists in either package', () =>
       'const definitions = await resolveDefinitionsForCategory(db, categoryId);',
       "const facets = plan.filter((entry) => entry.suppression === undefined);",
     ];
+    // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+    // nothing goes red. The floor is today's count: an addition passes it freely, while a
+    // REMOVAL has to move this number in the same diff.
+    expect(
+      negatives.length,
+      'negatives shrank without this floor moving — the assertion below now defends less than it did',
+    ).toBeGreaterThanOrEqual(4);
 
     for (const reference of FORBIDDEN_HARDCODED_FILTERS) {
       const seeded = positives[reference.signal];

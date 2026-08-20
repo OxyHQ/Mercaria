@@ -241,6 +241,13 @@ describe('supplier preflight isolation (static)', () => {
       'routes/internal-supplier-preflight.ts',
       'db/schema/supplierPreflight.ts',
     ];
+    // #723: the 2 loops below are its only readers, so emptying this list makes them no-ops and
+    // nothing goes red. The floor is today's count: an addition passes it freely, while a
+    // REMOVAL has to move this number in the same diff.
+    expect(
+      widening.length,
+      'widening shrank without this floor moving — the assertions below now defend less than they did',
+    ).toBeGreaterThanOrEqual(4);
     for (const expected of widening) {
       expect(population, `${expected} left the population`).toContain(expected);
     }

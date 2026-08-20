@@ -292,6 +292,13 @@ describe('the scan is not vacuous', () => {
       'middleware/shopping-agent-schemas.ts',
       'db/schema/shoppingAgents.ts',
     ];
+    // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+    // nothing goes red. The floor is today's count: an addition passes it freely, while a
+    // REMOVAL has to move this number in the same diff.
+    expect(
+      handList.length,
+      'handList shrank without this floor moving — the assertion below now defends less than it did',
+    ).toBeGreaterThanOrEqual(4);
     expect(handList).not.toContain('routes/internal-shopping-agents.ts');
     for (const named of handList) {
       expect(population, `${named} left the population`).toContain(named);
@@ -414,6 +421,13 @@ describe('WALL 3 — no lever gates a durable record', () => {
     join('db', 'shoppingAgents', 'shoppingAgentNotificationRepository.ts'),
     join('db', 'shoppingAgents', 'shoppingAgentAuditRepository.ts'),
   ];
+  // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+  // nothing goes red. The floor is today's count: an addition passes it freely, while a
+  // REMOVAL has to move this number in the same diff.
+  expect(
+    DURABLE_WRITERS.length,
+    'DURABLE_WRITERS shrank without this floor moving — the assertion below now defends less than it did',
+  ).toBeGreaterThanOrEqual(5);
 
   it('the four writers of a durable row read no rollout lever', () => {
     let scanned = 0;
@@ -462,6 +476,13 @@ describe('WALL 5 — a delivery retry never re-evaluates', () => {
     join('services', 'shopping-agents', 'notification.ts'),
     join('services', 'shopping-agents', 'transport.ts'),
   ];
+  // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+  // nothing goes red. The floor is today's count: an addition passes it freely, while a
+  // REMOVAL has to move this number in the same diff.
+  expect(
+    DELIVERY_MODULES.length,
+    'DELIVERY_MODULES shrank without this floor moving — the assertion below now defends less than it did',
+  ).toBeGreaterThanOrEqual(4);
 
   it('no delivery module imports anything that evaluates', () => {
     let scanned = 0;

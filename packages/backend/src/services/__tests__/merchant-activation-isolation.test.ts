@@ -123,6 +123,13 @@ const PURE_PATHS = [
   'services/merchant-activation/capabilities.ts',
   'services/merchant-activation/onboarding.ts',
 ];
+// #723: the loop below is its only reader, so emptying this list makes it a no-op and
+// nothing goes red. The floor is today's count: an addition passes it freely, while a
+// REMOVAL has to move this number in the same diff.
+expect(
+  PURE_PATHS.length,
+  'PURE_PATHS shrank without this floor moving — the assertion below now defends less than it did',
+).toBeGreaterThanOrEqual(3);
 
 /** Anything that reads or writes storage, or reaches a service that does. */
 const STORAGE_REFERENCE =

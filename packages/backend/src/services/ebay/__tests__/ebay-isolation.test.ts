@@ -251,6 +251,13 @@ describe('Mercaria never composes or mutates an EPN link (#64 §6 rule 3)', () =
       'const url = `${itemBase}/itm/${itemId}`;',
       "const url = 'https://www.ebay.co.uk/itm/' + itemId;",
     ];
+    // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+    // nothing goes red. The floor is today's count: an addition passes it freely, while a
+    // REMOVAL has to move this number in the same diff.
+    expect(
+      composed.length,
+      'composed shrank without this floor moving — the assertion below now defends less than it did',
+    ).toBeGreaterThanOrEqual(4);
     for (const line of composed) {
       expect(itemLink?.pattern.test(line), `the item-link detector misses: ${line}`).toBe(true);
     }
