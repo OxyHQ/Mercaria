@@ -1,6 +1,14 @@
 import { Pressable, ScrollView, View } from "react-native";
 import type { Review } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  REVIEW_DEFAULT_SCOPE_KEY,
+  REVIEW_EMPTY_KEY,
+  REVIEW_READ_MORE_KEY,
+  REVIEW_UNVERIFIED_KEY,
+  REVIEW_VERIFIED_RATINGS_KEY,
+} from "../../lib/marketplace-labels";
 import { useFormatters } from "../../lib/use-formatters";
 import { ReviewStars } from "./ReviewStars";
 import { ReviewCard } from "./ReviewCard";
@@ -57,17 +65,22 @@ export function ReviewSummaryCard({
   distribution,
   reviews,
   isLoading,
-  scopeLabel = "Reviews",
+  scopeLabel,
   unverified,
 }: ReviewSummaryCardProps) {
   const { formatRating, formatReviewCount } = useFormatters();
+  const t = useSharedUiTranslation();
+  // The default was the English literal `"Reviews"` in the parameter list,
+  // which no bundle could reach. Resolved here instead, so a caller that
+  // passes nothing gets the viewer's language rather than ours.
+  const scopeText = scopeLabel ?? t(REVIEW_DEFAULT_SCOPE_KEY);
   return (
     <View className="gap-space-16 rounded-radius-28 border border-border-secondary bg-bg-fill p-space-20">
-      <Text className="text-subtitle text-text">{scopeLabel}</Text>
+      <Text className="text-subtitle text-text">{scopeText}</Text>
 
       {total === 0 && !isLoading ? (
         <Text className="text-bodySmall text-text-tertiary">
-          {`No ${scopeLabel.toLowerCase()} yet.`}
+          {t(REVIEW_EMPTY_KEY, { scope: scopeText })}
         </Text>
       ) : (
         <>
@@ -79,14 +92,17 @@ export function ReviewSummaryCard({
                 rating={average}
                 count={total}
                 size={SUMMARY_STAR_SIZE}
-                scopeLabel={scopeLabel}
+                scopeLabel={scopeText}
               />
               <Text className="mt-space-4 text-caption text-text-tertiary">
-                {`${formatReviewCount(total)} verified ratings`}
+                {t(REVIEW_VERIFIED_RATINGS_KEY, { ratings: formatReviewCount(total) })}
               </Text>
               {unverified && unverified.count > 0 ? (
                 <Text className="mt-space-2 text-caption text-text-tertiary">
-                  {`${formatReviewCount(unverified.count)} unverified · ${formatRating(unverified.rating)}`}
+                  {t(REVIEW_UNVERIFIED_KEY, {
+                    ratings: formatReviewCount(unverified.count),
+                    rating: formatRating(unverified.rating),
+                  })}
                 </Text>
               ) : null}
             </View>
@@ -117,17 +133,17 @@ export function ReviewSummaryCard({
               contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
             >
               {reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} scopeLabel={scopeLabel} />
+                <ReviewCard key={review.id} review={review} scopeLabel={scopeText} />
               ))}
             </ScrollView>
           ) : null}
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Read more reviews"
+            accessibilityLabel={t(REVIEW_READ_MORE_KEY)}
             className="w-full items-center rounded-radius-max bg-bg-fill-secondary p-space-12"
           >
-            <Text className="text-buttonLarge text-text">Read more reviews</Text>
+            <Text className="text-buttonLarge text-text">{t(REVIEW_READ_MORE_KEY)}</Text>
           </Pressable>
         </>
       )}

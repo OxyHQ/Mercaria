@@ -183,7 +183,8 @@
         "inUnit": "in %{unit}",
         "higherIsBetter": "higher is better",
         "lowerIsBetter": "lower is better"
-      }
+      },
+      "noSummary": "No summary is available for this comparison. The table below is the comparison."
     },
     "priceSignal": {
       "qualityLabel": {
@@ -799,6 +800,82 @@
         "every4Months": "Delivers every 4 months",
         "every6Months": "Delivers every 6 months"
       }
+    },
+    "marketplace": {
+      "visitMerchant": "Visit %{name}",
+      "noImage": "No image"
+    },
+    "canonicalCard": {
+      "pricesUnavailable": "Prices unavailable right now",
+      "noOffers": "No current offers",
+      "priceInCurrency": "Price published in %{currency}",
+      "fromPrice": "From %{price}",
+      "offerLine": "%{scope} · Offers: %{offers}"
+    },
+    "carousel": {
+      "previous": "Go to the previous item",
+      "next": "Go to the next item"
+    },
+    "cart": {
+      "saveForLater": "Save for later"
+    },
+    "category": {
+      "browse": "Browse %{category}"
+    },
+    "merchantCart": {
+      "checkout": "Continue to checkout",
+      "subtotal": "Subtotal:"
+    },
+    "merchantHeader": {
+      "visitStore": "Visit store",
+      "moreOptions": "More options"
+    },
+    "nearby": {
+      "soldBy": "Sold by %{merchant}",
+      "channel": "Channel: %{channel}",
+      "signIn": "Sign in",
+      "signInA11y": "Sign in to collect from this shop",
+      "selectAt": "%{action} at %{place}"
+    },
+    "pickupPanel": {
+      "heading": "Collection",
+      "codeHeading": "Your collection code",
+      "codeA11y": "Collection code %{code}",
+      "codeNote": "Show this at the counter. If it stops working the shop can issue a new one — an older code never keeps working alongside it."
+    },
+    "productCard": {
+      "discount": "%{percent} off",
+      "save": "Add to saved items"
+    },
+    "gallery": {
+      "viewImage": "View image %{position}",
+      "previous": "Previous image",
+      "next": "Next image"
+    },
+    "quantity": {
+      "remove": "Remove item",
+      "decrease": "Decrease quantity",
+      "increase": "Increase quantity"
+    },
+    "review": {
+      "defaultScope": "Reviews",
+      "starsA11y": "Average rating: %{rating}. Reviews: %{reviews}.",
+      "starsScopedA11y": "%{scope}. Average rating: %{rating}. Reviews: %{reviews}.",
+      "empty": "No %{scope} yet.",
+      "verifiedRatings": "Verified ratings: %{ratings}",
+      "unverified": "Unverified: %{ratings} · %{rating}",
+      "readMore": "Read more reviews"
+    },
+    "searchInterpretation": {
+      "chip": "%{label}",
+      "chipPreference": "%{label} · preference",
+      "chipRemove": "Remove: %{origin} %{label}",
+      "modeModel": "Interpreted with help from a model",
+      "modeRules": "Interpreted by our own rules"
+    },
+    "variantSwatches": {
+      "showMoreA11y": "More %{option} options (%{count})",
+      "showMore": "+%{count} more"
     }
   }
 }
