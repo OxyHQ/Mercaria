@@ -116,7 +116,26 @@
         "timeLimitReached": "نفد وقت البحث"
       },
       "optimalityProven": "أفضل خطة ممكنة من العروض التي نراها.",
-      "optimalityApproximate": "أفضل خطة وُجدت — %{reason}."
+      "optimalityApproximate": "أفضل خطة وُجدت — %{reason}.",
+      "card": {
+        "refused": "غير متاح لهذه السلة.",
+        "tally": "العناصر: %{covered}/%{total} · التجار: %{merchants}",
+        "itemPrices": "أسعار العناصر: %{total}",
+        "stalePrices": "بعض الأسعار جرى تأكيدها منذ فترة.",
+        "notIncluded": "غير مشمول",
+        "addToCart": "أضف إلى سلة Mercaria (%{items})",
+        "addToCartA11y": "أضف إلى سلة Mercaria (%{items})",
+        "openRetailers": "افتح المتاجر الخارجية",
+        "openRetailersNote": "ستشتري من موقع كل متجر بنفسه. ولا تضمن Mercaria المبلغ النهائي عند الدفع لديهم.",
+        "merchantLine": "%{merchant} (%{items})",
+        "merchantLineA11y": "افتح %{merchant} (%{items})",
+        "atLeast": "%{floor} على الأقل",
+        "atLeastMissing": "%{floor} على الأقل — %{missing}",
+        "deliveryOne": "بالإضافة إلى التوصيل",
+        "deliveryMultiple": "بالإضافة إلى التوصيل من عدة تجار",
+        "taxUnknown": "المعاملة الضريبية غير منشورة",
+        "pricesUnknown": "بعض الأسعار غير معروفة"
+      }
     },
     "comparison": {
       "listSeparator": "؛ ",
@@ -164,7 +183,8 @@
         "inUnit": "بـ %{unit}",
         "higherIsBetter": "الأعلى أفضل",
         "lowerIsBetter": "الأقل أفضل"
-      }
+      },
+      "noSummary": "لا يوجد ملخص لهذه المقارنة. الجدول أدناه هو المقارنة نفسها."
     },
     "priceSignal": {
       "qualityLabel": {
@@ -646,6 +666,45 @@
         "deltaLower": "أقل بمقدار %{amount} عن السابق",
         "deltaHigher": "أعلى بمقدار %{amount} عن السابق",
         "unnamedRequirement": "متطلب بلا وصف مسجَّل"
+      },
+      "card": {
+        "showFindings": "إظهار ما وجده %{name}",
+        "hideFindings": "إخفاء ما وجده %{name}",
+        "anyCondition": "أي حالة",
+        "pricedIn": "الأسعار بعملة %{currency}",
+        "inMarket": "في %{market}",
+        "merchantsExcluded": "التجار المستبعدون: %{merchants}",
+        "scopeSeparator": " · ",
+        "noChannels": "لا مكان حتى الآن",
+        "channelSeparator": "، ",
+        "targetPrefix": "أخبرني إذا قلّ عن",
+        "notifyPolicy": "يصلك التنبيه عبر %{channels}، بحد أقصى مرة واحدة كل %{cooldown}",
+        "notifyPolicyQuiet": "يصلك التنبيه عبر %{channels}، بحد أقصى مرة واحدة كل %{cooldown} · فترة صامتة من %{start} إلى %{end} (%{timeZone})",
+        "requirements": "ما يجب أن يتحقق",
+        "watching": "قيد المتابعة (%{things})",
+        "openProduct": "فتح هذا المنتج",
+        "line": "%{quantity} × %{product}",
+        "splitExplanation": "قُسّم هذا المنتج إلى اثنين، لذا ينتظر هذا الوكيل أن تحدّد أيهما كنت تقصد. افتح أيًّا منهما للمقارنة بينهما.",
+        "splitStays": "يبقى بوصفه: %{product}",
+        "splitMoves": "ينتقل إلى: %{product}",
+        "splitStaysA11y": "يبقى بوصفه هذا المنتج — افتحه",
+        "splitMovesA11y": "ينتقل إلى هذا المنتج — افتحه",
+        "keepSource": "أبقِ هذا",
+        "moveToTarget": "الآخر",
+        "runNow": "ابحث الآن",
+        "runNowA11y": "ابحث مرة أخرى الآن لـ %{name}",
+        "pause": "إيقاف مؤقت",
+        "pauseA11y": "إيقاف %{name} مؤقتًا",
+        "resume": "استئناف",
+        "resumeA11y": "استئناف %{name}",
+        "remove": "حذف",
+        "removeA11y": "حذف %{name}",
+        "neverLooked": "لم يبحث بعد",
+        "neverLookedNext": "لم يبحث بعد · التالي %{next}",
+        "lastLooked": "آخر بحث %{last}",
+        "lastLookedNext": "آخر بحث %{last} · التالي %{next}",
+        "constraintHard": "إلزامي:",
+        "constraintSoft": "مفضّل:"
       }
     },
     "facet": {
@@ -671,6 +730,152 @@
       "market": {
         "any": "جميع الأسواق"
       }
+    },
+    "savedItem": {
+      "removeProduct": "إزالة هذا المنتج المحفوظ",
+      "removeListing": "إزالة هذا الإعلان المحفوظ",
+      "savedProduct": "منتج محفوظ",
+      "savedListing": "إعلان محفوظ",
+      "pinnedListing": "إعلان مثبّت",
+      "cheaper": "أرخص مما كان عند حفظه",
+      "dearer": "أغلى مما كان عند حفظه",
+      "peopleSaved": "عدد من حفظوا هذا: %{people}",
+      "splitChoose": "قُسّم هذا المنتج — اختر أيهما كنت تقصد",
+      "splitChooseA11y": "اختر أي منتج كنت تقصد",
+      "setAlert": "أنشئ تنبيه سعر",
+      "setAlertA11y": "أنشئ تنبيه سعر لهذا المنتج",
+      "unavailable": "لم يعد متاحًا",
+      "priceUnpublished": "السعر غير منشور",
+      "priceInCurrency": "السعر منشور بعملة %{currency}",
+      "noOffer": {
+        "recorded": "لم يعرضه أحد للبيع بعد",
+        "retired": "لا أحد يبيعه في الوقت الحالي",
+        "filtered": "لا يوجد عرض يطابق عوامل التصفية لديك",
+        "generic": "لا يوجد عرض حالي"
+      }
+    },
+    "priceAlert": {
+      "basis": {
+        "item_price": "دون التوصيل",
+        "known_total": "شاملًا التوصيل"
+      },
+      "sellerScope": {
+        "any": "أي بائع",
+        "native_only": "البائعون على Mercaria",
+        "external_only": "التجار خارج Mercaria",
+        "official_only": "المتاجر الرسمية الموثّقة"
+      },
+      "card": {
+        "anyCondition": "أي حالة",
+        "scopeLine": "%{segments} · %{sellers}",
+        "listSeparator": "، ",
+        "openProduct": "افتح المنتج الذي يراقبه هذا التنبيه",
+        "savedProduct": "منتج محفوظ",
+        "targetPrefix": "أخبرني إذا قلّ عن",
+        "notified": "تم إخطارك — كان هذا التنبيه مضبوطًا ليخبرك مرة واحدة فقط.",
+        "paused": "متوقف مؤقتًا",
+        "splitExplanation": "قُسّم هذا المنتج إلى اثنين، لذا أُوقف هذا التنبيه مؤقتًا حتى تختار أيهما كنت تقصد.",
+        "keepSource": "أبقِ هذا",
+        "moveToTarget": "الآخر",
+        "keepBoth": "كلاهما",
+        "pause": "إيقاف مؤقت",
+        "pauseA11y": "إيقاف هذا التنبيه مؤقتًا",
+        "resume": "استئناف",
+        "resumeA11y": "استئناف هذا التنبيه",
+        "delete": "حذف",
+        "deleteA11y": "حذف هذا التنبيه"
+      }
+    },
+    "purchase": {
+      "oneTime": "شراء لمرة واحدة",
+      "subscribe": "اشتراك",
+      "addToCart": "أضف إلى السلة",
+      "selectOptions": "اختر الخيارات",
+      "buyNow": "اشترِ الآن",
+      "subscribeNow": "اشترك الآن",
+      "frequency": {
+        "monthly": "التسليم كل شهر",
+        "every2Months": "التسليم كل شهرين",
+        "every3Months": "التسليم كل 3 أشهر",
+        "every4Months": "التسليم كل 4 أشهر",
+        "every6Months": "التسليم كل 6 أشهر"
+      }
+    },
+    "marketplace": {
+      "visitMerchant": "زيارة %{name}",
+      "noImage": "لا توجد صورة"
+    },
+    "canonicalCard": {
+      "pricesUnavailable": "الأسعار غير متاحة حاليًا",
+      "noOffers": "لا توجد عروض حالية",
+      "priceInCurrency": "السعر منشور بعملة %{currency}",
+      "fromPrice": "ابتداءً من %{price}",
+      "offerLine": "%{conditions} · العروض: %{offers}"
+    },
+    "carousel": {
+      "previous": "الانتقال إلى العنصر السابق",
+      "next": "الانتقال إلى العنصر التالي"
+    },
+    "cart": {
+      "saveForLater": "احفظه لوقت لاحق"
+    },
+    "category": {
+      "browse": "تصفّح %{category}"
+    },
+    "merchantCart": {
+      "checkout": "المتابعة إلى الدفع",
+      "subtotal": "المجموع الفرعي:"
+    },
+    "merchantHeader": {
+      "visitStore": "زيارة المتجر",
+      "moreOptions": "خيارات أخرى"
+    },
+    "nearby": {
+      "soldBy": "يبيعه %{merchant}",
+      "channel": "القناة: %{channel}",
+      "signIn": "تسجيل الدخول",
+      "signInA11y": "سجّل الدخول للاستلام من هذا المتجر",
+      "selectAt": "%{action} في %{place}"
+    },
+    "pickupPanel": {
+      "heading": "الاستلام",
+      "codeHeading": "رمز الاستلام الخاص بك",
+      "codeA11y": "رمز الاستلام %{code}",
+      "codeNote": "اعرض هذا عند المنضدة. وإذا توقف عن العمل، يمكن للمتجر إصدار رمز جديد — ولا يظل الرمز القديم صالحًا مع الجديد أبدًا."
+    },
+    "productCard": {
+      "discount": "خصم %{percent}",
+      "save": "أضف إلى العناصر المحفوظة"
+    },
+    "gallery": {
+      "viewImage": "عرض الصورة %{position}",
+      "previous": "الصورة السابقة",
+      "next": "الصورة التالية"
+    },
+    "quantity": {
+      "remove": "إزالة العنصر",
+      "decrease": "إنقاص الكمية",
+      "increase": "زيادة الكمية"
+    },
+    "review": {
+      "defaultScope": "المراجعات",
+      "starsA11y": "متوسط التقييم: %{rating}. عدد المراجعات: %{reviews}.",
+      "starsScopedA11y": "%{subject}. متوسط التقييم: %{rating}. عدد المراجعات: %{reviews}.",
+      "empty": "لا توجد %{subject} بعد.",
+      "verifiedRatings": "التقييمات الموثّقة: %{ratings}",
+      "unverified": "غير موثّقة: %{ratings} · %{rating}",
+      "readMore": "اقرأ المزيد من المراجعات"
+    },
+    "searchInterpretation": {
+      "chip": "%{label}",
+      "chipPreference": "%{label} · تفضيل",
+      "chipRemove": "إزالة: %{origin} %{label}",
+      "modeModel": "فُهم بمساعدة نموذج",
+      "modeRules": "فُهم بقواعدنا الخاصة"
+    },
+    "variantSwatches": {
+      "showMoreA11y": "خيارات %{option} إضافية (%{more})",
+      "showMore": "+%{more} إضافية"
     }
   }
 }

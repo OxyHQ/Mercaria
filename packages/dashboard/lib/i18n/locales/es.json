@@ -1149,7 +1149,7 @@
         "category": "Categoría",
         "productType": "Tipo de producto",
         "productTypeVersion": "%{name} (versión %{version})",
-        "marketAndLocale": "Mercado %{market} · idioma %{locale}",
+        "marketAndLocale": "Mercado %{market} · idioma %{language}",
         "market": "Mercado",
         "canonicalLink": "Producto del catálogo",
         "canonicalNone": "Ninguno elegido",
