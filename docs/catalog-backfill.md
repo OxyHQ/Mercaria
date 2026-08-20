@@ -91,34 +91,53 @@ authoring workstream.
 ### The client-side inventory: hard-coded lists, and where they are gated
 
 Workstream 13 also asks for "all hard-coded category lists, filter lists, option
-names and translations in frontend/backend". Two of the four client packages are
-already gated in CI, and the gates are prefix-scoped, which is the whole finding:
-
-| Package | Gate | Scans |
-|---|---|---|
-| `packages/frontend` | `validate-storefront-catalog-driven.mjs` (WS9) | `packages/frontend/` |
-| `packages/dashboard` | `validate-authoring-schema-driven.mjs` (WS8) | `packages/dashboard/` |
-| `packages/pos` | **none** | — |
-| `packages/ui` | **none** | — |
-
-Scanning the two ungated packages as TEXT (60 and 96 source files) turns up
-exactly one hard-coded catalog list, and it is in the shared package:
+names and translations in frontend/backend". When it was written, two of the four
+client packages were gated and both gates were PREFIX-SCOPED to one package,
+which was the whole finding: scanning the two ungated packages as TEXT turned up
+exactly one hard-coded catalog list, and it was in the shared package —
 
 > `packages/ui/src/components/marketplace/VariantSwatches.tsx`
 > `const COLOR_OPTION_NAMES = new Set(["color", "colour", "shade"]);`
 
-It reads the LEGACY free-text `ListingOption.name` against three English words to
-decide whether an option renders as round swatches or text pills, and the
-storefront product page (`app/(app)/products/[id].tsx`) imports it. So the
-storefront's own gate is walked around by an import into a package that gate does
-not scan — which is worth stating plainly even though the consequence here is
-mild: **this is a PRESENTATION decision, not a mapping.** It picks a widget; it
-asserts no fact, writes nothing, and cannot make `Colour` and `Tono` the same
-attribute. What it does do is render `Colour` as colour and `Tono` and `Tamaño`
-as pills, which is the same false-equivalence shape one layer down, and
-`valueToColor` hashing the value string means `Negro` and `Black` get unrelated
-hues. Fixing it belongs with the typed axes (#367 step 4 knows which attribute an
-option resolved to); nothing in this workstream writes to `packages/ui`.
+— which the storefront product page imports. **The storefront's own gate was
+walked around by an import into a package that gate did not scan.** The
+consequence there was mild and worth stating precisely: that line was a
+PRESENTATION decision, not a mapping. It picked a widget; it asserted no fact,
+wrote nothing, and could not make `Colour` and `Tono` the same attribute. What it
+did do was render `Colour` as colour and `Tono`/`Tamaño` as pills, and
+`valueToColor` hashed the value string so `Negro` and `Black` got unrelated hues.
+
+Both halves are now closed. **#571** removed the list: every option renders as a
+pill, because nothing in this codebase records what colour a value IS — there is
+no swatch column and no per-value image, so a swatch could only show a cycled
+gallery photo or a hash artefact. **#478** closed the topology, which is the part
+that generalises:
+
+| Tree | Read gate (WS9) | Authoring gate (WS8) |
+|---|---|---|
+| `packages/frontend/` | ✅ | — |
+| `packages/dashboard/` | — | ✅ |
+| `packages/ui/src/` | ✅ | ✅ |
+| `packages/pos/` | ✅ | — (no authoring surface) |
+
+Each gate scans the trees its app **compiles**, not the package it is filed
+under: all three apps alias `@mercaria/ui` to `../ui/src` in `tsconfig.json`, so
+the shared tree is part of every app's program. The shared tree is read by both
+gates because they assert two different properties, and because neither
+analyser is a superset of the other. Floors are per tree, so one tree dropping
+out of the population cannot be masked by another clearing the total.
+
+Widening the population was not sufficient on its own, and the measurement is
+worth keeping: run against the real pre-#571 `VariantSwatches`, the widened guard
+produced ZERO findings. `IDENTITY_NAMES` carried `optionName` but nothing matched
+`option.name`, the spelling every DTO uses. #478 taught wall 1 a narrow
+`NAME_RECEIVERS` set and made it read through case/whitespace normalisers, which
+is how `NAMES.has(option.name.trim().toLowerCase())` had hidden the identity.
+
+A real swatch still needs a schema decision — which attribute an option resolved
+to is an existing unplumbed seam (`native_listing_variant_axes` cites an
+`attribute_definition_id`, but no route serves an axis and `ListingOption` is
+still `{name, values}`), and what a value LOOKS like is not a seam at all.
 
 **Translations are clean, and the census size is stated so the zero can be
 read:** 46 locale bundles across all four packages, walked key by key. The only

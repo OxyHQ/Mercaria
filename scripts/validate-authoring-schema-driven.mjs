@@ -102,18 +102,61 @@ const fixtureFloors = process.env.AUTHORING_VALIDATOR_FIXTURE_FLOORS === "1";
 
 const ts = createRequire(resolve(here, "../package.json"))("typescript");
 
-/** The tree that must stay schema-driven. */
-const SCANNED_PREFIX = "packages/dashboard/";
+/**
+ * The trees that must stay schema-driven, each with the vocabulary wall 2
+ * subtracts inside it and the floor below which its traversal is broken.
+ *
+ * `packages/ui/src` joined with #478. Every app consumes it FROM SOURCE — all
+ * three `tsconfig.json` files alias `@mercaria/ui` to `../ui/src`, and 55
+ * dashboard files import from it — so a `ui` file is compiled into the
+ * dashboard's program exactly as one of its own is, and a prefix-scoped gate had
+ * a documented workaround: move the hardcoding one package sideways and the gate
+ * that forbids it cannot see it, while the wizard that renders it is unchanged.
+ *
+ * `validate-storefront-catalog-driven.mjs` scans the same shared tree, and that
+ * is not two authorities over one property. It is two DIFFERENT properties whose
+ * populations overlap on the tree both programs compile, and NEITHER analyser is
+ * a superset of the other — this one has `canonicalRefId` and the `controlled`
+ * key receiver, that one has `bucketKey`, `facetKey`, `brandId` and a fifth wall.
+ *
+ * `packages/pos` is deliberately absent: it has no authoring surface. Its routes
+ * are cart, charge, customer, sales, receipt and store-setup, and a scan for
+ * `createProduct`, `productTypeKey`, `attributeDefinition` and `wizard` across
+ * the package returns nothing, so scanning it here would assert a property over
+ * a surface that does not exist. It is under the storefront guard's READ walls.
+ *
+ * The floors are per TREE and not one total: a total is satisfied by whichever
+ * tree did not empty, so `ui` moving would leave the dashboard's own count
+ * clearing it and this guard silently back to scanning one package.
+ */
+const SCANNED_TREES = [
+  {
+    prefix: "packages/dashboard/",
+    bundle: "packages/dashboard/lib/i18n/locales/en.json",
+    floor: fixtureFloors ? 1 : 60,
+  },
+  {
+    prefix: "packages/ui/src/",
+    bundle: "packages/ui/src/i18n/locales/en.json",
+    floor: fixtureFloors ? 1 : 60,
+  },
+];
 
-/** Where the authoring surface lives, and where the floor is measured. */
+/**
+ * Where the authoring surface lives, and where the floor is measured.
+ *
+ * Wall 2's scope, and it stays dashboard-only. The shared tree holds no
+ * authoring subtree — the wizard, its answers and its field components are all
+ * the dashboard's — and turning wall 2 on across `packages/ui/src` was measured
+ * at 16 findings that were every one of them SF Symbol names (`star.fill`,
+ * `pencil.tip`), a storage key and two plural-suffixed translation keys. The
+ * other three walls still read every shared file; only this one is scoped.
+ */
 const AUTHORING_PREFIXES = [
   "packages/dashboard/lib/authoring/",
   "packages/dashboard/components/catalog-authoring/",
   "packages/dashboard/app/(app)/products/wizard/",
 ];
-
-/** The app's own translation vocabulary, which wall 2 subtracts. */
-const EN_BUNDLE = "packages/dashboard/lib/i18n/locales/en.json";
 
 /**
  * ADR 0007 D1's identity names.
@@ -177,6 +220,51 @@ const IDENTITY_PROPERTIES = new Set([
 
 /** Calls whose subject is a membership test — wall 1's third shape. */
 const MEMBERSHIP_METHODS = new Set(["includes", "has", "startsWith", "endsWith"]);
+
+/**
+ * Receivers whose `.name` is a catalog concept's FREE TEXT — wall 1, #478.
+ *
+ * `IDENTITY_NAMES` carries `attributeName` and `optionName`, so
+ * `a.attributeName === "colour"` was refused while `attribute.name === "colour"`
+ * — the spelling every DTO here actually uses — was SILENT. Measured on the real
+ * #478 source: the guard produced ZERO findings on it.
+ *
+ * Deliberately NARROWER than {@link KEY_RECEIVERS}: a `.key` is a machine
+ * identity whoever the receiver is, while `.name` is an ordinary English word,
+ * so `store.name`, `user.name` and `file.name` must not fire. `controlled`,
+ * `field` and `value` are in `KEY_RECEIVERS` and none is here.
+ *
+ * Kept in step with `validate-storefront-catalog-driven.mjs`'s set on purpose:
+ * both scan `packages/ui/src`, and a shape one refuses and the other permits in
+ * one shared file is a rule nobody can state.
+ */
+const NAME_RECEIVERS = new Set([
+  "attribute",
+  "axis",
+  "category",
+  "definition",
+  "option",
+  "productType",
+]);
+
+/**
+ * String methods wall 1 reads THROUGH when looking for a concept identity.
+ *
+ * `NAMES.has(option.name.trim().toLowerCase())` is the real #478 line, and
+ * without this the identity is hidden behind two calls. Every member is case- or
+ * whitespace-normalising and none changes which concept is being named; a
+ * `.slice(...)` or a `.replace(...)` is a different value and is absent.
+ */
+const IDENTITY_NORMALIZERS = new Set([
+  "trim",
+  "trimStart",
+  "trimEnd",
+  "toLowerCase",
+  "toUpperCase",
+  "toLocaleLowerCase",
+  "toLocaleUpperCase",
+  "normalize",
+]);
 
 /** A dotted lowercase machine key — `PRODUCT_TYPE_KEY_PATTERN`, one dot minimum. */
 const NAMESPACED_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/u;
@@ -243,9 +331,10 @@ const KNOWN_FINDING_PATH_EXCEPTIONS = [
 
 export const KNOWN_FINDING_PATH_EXCEPTION_COUNT = KNOWN_FINDING_PATH_EXCEPTIONS.length;
 
-/** Below these, the traversal is broken — and a broken traversal reports clean. */
-const MINIMUM_SCANNED_FILES = fixtureFloors ? 1 : 60;
+/** Below this, the traversal is broken — and a broken traversal reports clean. */
 const MINIMUM_AUTHORING_FILES = fixtureFloors ? 1 : 10;
+// The per-tree scanned floors live on SCANNED_TREES, because one total is
+// satisfied by whichever tree did not empty.
 
 /** The guard cannot be its own subject; neither file lives under the prefix anyway. */
 const GUARD_OWN_FILES = new Set([
@@ -322,12 +411,36 @@ function accessReceiver(node) {
 
 /** Whether an expression names a catalogue concept's identity. */
 function namesIdentity(node) {
-  const name = accessedName(node);
+  const subject = throughNormalizers(node);
+  const name = accessedName(subject);
   if (name === null) return false;
   if (IDENTITY_NAMES.has(name)) return true;
-  if (name !== "key") return false;
-  const receiver = accessReceiver(node);
-  return receiver !== null && KEY_RECEIVERS.has(receiver.replace(/^_+/u, ""));
+  if (name !== "key" && name !== "name") return false;
+  const receiver = accessReceiver(subject);
+  if (receiver === null) return false;
+  const bare = receiver.replace(/^_+/u, "");
+  return name === "key" ? KEY_RECEIVERS.has(bare) : NAME_RECEIVERS.has(bare);
+}
+
+/**
+ * A node with any case- or whitespace-normalising calls peeled off.
+ *
+ * `attribute.name.trim().toLowerCase()` names the same concept
+ * `attribute.name` does. Loops, so a third wrapper does not walk out from
+ * under it.
+ */
+function throughNormalizers(node) {
+  let current = node;
+  while (
+    ts.isCallExpression(current) &&
+    // `normalize("NFC")` and `toLocaleLowerCase(locale)` legitimately take one.
+    current.arguments.length <= 1 &&
+    ts.isPropertyAccessExpression(current.expression) &&
+    IDENTITY_NORMALIZERS.has(current.expression.name.text)
+  ) {
+    current = current.expression.expression;
+  }
+  return current;
 }
 
 /** A string literal's text, or `null`. */
@@ -556,18 +669,31 @@ async function main() {
   const matchedExceptions = new Map();
   const files = trackedFiles();
 
-  let bundleRaw;
-  try {
-    bundleRaw = await readFile(resolve(repositoryRoot, EN_BUNDLE), "utf8");
-  } catch {
-    console.error(`\n  ${EN_BUNDLE} could not be read; wall 2 cannot tell a concept key from copy.\n`);
-    process.exit(1);
+  // One bundle per tree, read up front. An unreadable one exits rather than
+  // falling back to an empty key set: an empty set makes wall 2 fire on every
+  // translation key in the tree, and the guard would be reporting the bundle's
+  // absence as dozens of authoring findings. A tree carries its OWN bundle
+  // rather than the union, or a dashboard key would excuse a literal authored in
+  // `ui`, which is wall 2 subtracting a vocabulary that file cannot reach.
+  const translationKeysByTree = new Map();
+  for (const tree of SCANNED_TREES) {
+    let bundleRaw;
+    try {
+      bundleRaw = await readFile(resolve(repositoryRoot, tree.bundle), "utf8");
+    } catch {
+      console.error(
+        `\n  ${tree.bundle} could not be read; wall 2 cannot tell a concept key from copy in ${tree.prefix}.\n`,
+      );
+      process.exit(1);
+    }
+    translationKeysByTree.set(tree.prefix, bundleKeys(JSON.parse(bundleRaw)));
   }
-  const translationKeys = bundleKeys(JSON.parse(bundleRaw));
 
   const inTree = files.filter(
     (path) =>
-      path.startsWith(SCANNED_PREFIX) && SOURCE_FILE.test(path) && !GUARD_OWN_FILES.has(path),
+      SCANNED_TREES.some((tree) => path.startsWith(tree.prefix)) &&
+      SOURCE_FILE.test(path) &&
+      !GUARD_OWN_FILES.has(path),
   );
   const scanned = inTree.filter((path) => !TEST_FILE.test(path));
   const skippedTests = inTree.length - scanned.length;
@@ -586,7 +712,8 @@ async function main() {
       continue;
     }
     const inAuthoringTree = AUTHORING_PREFIXES.some((prefix) => path.startsWith(prefix));
-    for (const finding of analyseSource(path, text, translationKeys, {
+    const owningTree = SCANNED_TREES.find((tree) => path.startsWith(tree.prefix));
+    for (const finding of analyseSource(path, text, translationKeysByTree.get(owningTree.prefix), {
       namespacedKeys: inAuthoringTree,
     })) {
       const excused = KNOWN_FINDING_PATH_EXCEPTIONS.find(
@@ -660,14 +787,17 @@ async function main() {
     );
   }
 
-  // The vacuity floors. Both are needed: the whole tree could be scanned while
-  // the authoring subtree was renamed out from under the prefixes, and a clean
-  // report over zero authoring files is the exact shape of a guard that is on
-  // and measuring nothing.
-  if (scanned.length < MINIMUM_SCANNED_FILES) {
-    failures.push(
-      `only ${scanned.length} source files under ${SCANNED_PREFIX} (floor ${MINIMUM_SCANNED_FILES}) — the file listing is broken, and a broken listing reports a clean tree`,
-    );
+  // The vacuity floors, one per TREE plus the authoring subtree's. All are
+  // needed: a whole tree could be scanned while the authoring subtree was
+  // renamed out from under the prefixes, and a clean report over zero authoring
+  // files is the exact shape of a guard that is on and measuring nothing.
+  for (const tree of SCANNED_TREES) {
+    const count = scanned.filter((path) => path.startsWith(tree.prefix)).length;
+    if (count < tree.floor) {
+      failures.push(
+        `only ${count} source files under ${tree.prefix} (floor ${tree.floor}) — the file listing is broken, and a broken listing reports a clean tree`,
+      );
+    }
   }
   if (authoring.length < MINIMUM_AUTHORING_FILES) {
     failures.push(
@@ -680,17 +810,27 @@ async function main() {
     for (const failure of failures) console.error(`  ${failure}`);
     console.error(
       "\n  services/catalog-authoring/ composes the fields, the requirements, the controlled\n" +
-        "  values and the labels. Adding a product type is a DATA change; anything in this\n" +
-        "  tree that knows one product type, category, attribute or value by name breaks that\n" +
-        "  and breaks it silently — tsc, lint and every build job stay green.\n",
+        "  values and the labels. Adding a product type is a DATA change; anything in these\n" +
+        "  trees that knows one product type, category, attribute or value by name breaks that\n" +
+        "  and breaks it silently — tsc, lint and every build job stay green.\n" +
+        "\n  `packages/ui/src` is in scope since #478: the dashboard compiles the shared tree\n" +
+        "  from source, so moving a hardcoded list one package sideways changes nothing about\n" +
+        "  what the wizard renders.\n",
     );
     process.exit(1);
   }
 
+  const perTree = SCANNED_TREES.map(
+    (tree) => `${String(scanned.filter((path) => path.startsWith(tree.prefix)).length)} ${tree.prefix}`,
+  ).join(", ");
+  const translationKeyTotal = [...translationKeysByTree.values()].reduce(
+    (total, keys) => total + keys.size,
+    0,
+  );
   console.log(
-    `authoring schema-driven guard passed — ${scanned.length} source files under ${SCANNED_PREFIX} ` +
+    `authoring schema-driven guard passed — ${scanned.length} source files (${perTree}) ` +
       `(${authoring.length} of them the wizard's, ${String(skippedTests)} test files skipped); 4 walls; ` +
-      `${translationKeys.size} translation keys subtracted by wall 2, and ` +
+      `${translationKeyTotal} translation keys across ${String(SCANNED_TREES.length)} bundles subtracted by wall 2, and ` +
       `${KNOWN_FINDING_PATH_EXCEPTIONS.length} reasoned validation-path exception(s) each matched ` +
       "their exact declared count.",
   );

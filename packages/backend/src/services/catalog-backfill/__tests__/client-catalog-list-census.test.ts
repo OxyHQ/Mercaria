@@ -1,16 +1,35 @@
 /**
- * The client packages no existing gate scans carry no hard-coded catalog list
- * (#367 workstream 13's inventory box).
+ * The shared and POS client trees carry no hard-coded catalog list (#367
+ * workstream 13's inventory box).
  *
  * ## Why this exists at all, given two gates already do this
  *
- * Workstream 8 and workstream 9 each shipped a validator, and each is
- * PREFIX-SCOPED: `validate-authoring-schema-driven.mjs` scans
- * `packages/dashboard/` and `validate-storefront-catalog-driven.mjs` scans
- * `packages/frontend/`. Neither reaches `packages/pos` or `packages/ui` — and
- * `packages/ui` is the one that matters, because the storefront IMPORTS from it.
- * A hard-coded option-name list moved one package sideways is invisible to the
- * gate that exists to forbid it.
+ * It was written when workstream 8's and workstream 9's validators were each
+ * PREFIX-SCOPED to one package — `packages/dashboard/` and `packages/frontend/`
+ * — so neither reached `packages/pos` or `packages/ui`, and a hard-coded
+ * option-name list moved one package sideways was invisible to the gate that
+ * exists to forbid it. This census OBSERVED that hole and did not close it.
+ *
+ * **#478 closed it at the topology.** Both validators now scan the trees their
+ * app actually COMPILES rather than the package it is filed under:
+ * `validate-storefront-catalog-driven.mjs` reads `packages/frontend/`,
+ * `packages/ui/src/` and `packages/pos/`, and
+ * `validate-authoring-schema-driven.mjs` reads `packages/dashboard/` and
+ * `packages/ui/src/`. Every root below is now under a deeper gate, and #478 also
+ * taught wall 1 the `option.name` shape that this census's second and third
+ * probes had to cover alone.
+ *
+ * ## So why is it still here
+ *
+ * Because its FIRST probe catches something the validators deliberately do not,
+ * and the two disagreeing is the point rather than a defect. Wall 5 refuses an
+ * array that re-lists a `@mercaria/shared-types` vocabulary, identified by the
+ * TYPE ANNOTATION — and it has a standing negative control saying that an array
+ * of literals with no such annotation is fine, because one is an ordinary local
+ * constant. `HARDCODED_CATALOG_LIST` keys on the constant's NAME instead, so a
+ * bare `const CATEGORY_NAMES = ['electronics', 'books']` with no type at all is
+ * caught here and nowhere else. Measured at #478: probes 2 and 3 are now also
+ * caught by wall 1, probe 1 is not.
  *
  * The inventory itself is `docs/catalog-backfill.md`; a document rots and a
  * census does not, so the finding lives here as well.
@@ -42,19 +61,25 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..', '..');
 
 /**
- * The client packages NO existing validator scans.
+ * The client roots this census reads.
  *
- * `frontend` and `dashboard` are deliberately absent: each already has a gate
- * that goes far deeper than this one, and duplicating them here would be a
- * second authority over one property whose two answers could disagree.
+ * `frontend` and `dashboard` are deliberately absent, and stay absent after
+ * #478: each is scanned by a validator that goes far deeper than this on every
+ * shape but the unannotated list, and re-asserting the deep property here would
+ * be a second authority over it whose two answers could disagree. These two are
+ * kept because probe 1 is genuinely this census's own — see the header.
+ *
+ * The NAME is no longer "ungated": both roots have been under
+ * `validate-storefront-catalog-driven.mjs` since #478, and `packages/ui/src`
+ * under the authoring validator too.
  */
-const UNGATED_CLIENT_ROOTS = [
+const CENSUSED_CLIENT_ROOTS = [
   join('packages', 'pos'),
   join('packages', 'ui', 'src'),
 ];
 
-/** Every client source file under the ungated roots, as `{relative path → text}`. */
-function ungatedClientSources(): Map<string, string> {
+/** Every client source file under the censused roots, as `{relative path → text}`. */
+function censusedClientSources(): Map<string, string> {
   const sources = new Map<string, string>();
   const walk = (dir: string): void => {
     for (const entry of readdirSync(dir)) {
@@ -71,7 +96,7 @@ function ungatedClientSources(): Map<string, string> {
       sources.set(rel.split(sep).join('/'), readFileSync(path, 'utf8'));
     }
   };
-  for (const root of UNGATED_CLIENT_ROOTS) walk(join(REPO_ROOT, root));
+  for (const root of CENSUSED_CLIENT_ROOTS) walk(join(REPO_ROOT, root));
   return sources;
 }
 
@@ -146,13 +171,13 @@ const HARDCODED_CATALOG_MEMBERSHIP =
  */
 const PERMITTED: readonly { readonly path: string; readonly disposition: string }[] = [];
 
-describe('the ungated client packages', () => {
+describe('the censused client packages', () => {
   it('reads a real, non-trivial set of client sources', () => {
     // The vacuity floor, and it is the whole assertion: a walk that found
     // nothing passes every probe below, and a moved directory or a changed
     // extension filter produces exactly that. Printed on SUCCESS by being the
     // number this compares.
-    const sources = ungatedClientSources();
+    const sources = censusedClientSources();
     expect(
       sources.size,
       'the client walk read almost nothing — did packages/pos or packages/ui move?',
@@ -169,7 +194,7 @@ describe('the ungated client packages', () => {
   });
 
   it('carries no hard-coded catalog list beyond the one named exception', () => {
-    const offenders = [...ungatedClientSources()]
+    const offenders = [...censusedClientSources()]
       .filter(([, source]) => HARDCODED_CATALOG_LIST.test(source))
       .map(([path]) => path)
       .sort();
@@ -197,7 +222,7 @@ describe('the ungated client packages', () => {
     // nothing about whether that regex is still being applied to file content
     // this walk produced. A control has to take production's path, so this one
     // takes a source the walk really read and appends a known offender to it.
-    const sources = ungatedClientSources();
+    const sources = censusedClientSources();
     const [path, source] = [...sources].sort(([a], [b]) => a.localeCompare(b))[0] ?? [];
     expect(path, 'the walk read nothing to control against').toBeTypeOf('string');
 
@@ -214,7 +239,7 @@ describe('the ungated client packages', () => {
   });
 
   it('branches on no catalog concept’s name', () => {
-    for (const [path, source] of ungatedClientSources()) {
+    for (const [path, source] of censusedClientSources()) {
       expect(
         HARDCODED_CATALOG_COMPARISON.test(source),
         `${path} compares a catalog concept's name against a string literal`,
@@ -223,7 +248,7 @@ describe('the ungated client packages', () => {
   });
 
   it('looks no catalog concept’s name up in a hardcoded collection', () => {
-    for (const [path, source] of ungatedClientSources()) {
+    for (const [path, source] of censusedClientSources()) {
       expect(
         HARDCODED_CATALOG_MEMBERSHIP.test(source),
         `${path} looks a catalog concept's name up in a collection — the #478 shape. ` +
@@ -318,7 +343,7 @@ describe('the ungated client packages', () => {
   });
 
   it('names an exception path the walk actually read, and states a reason', () => {
-    const sources = ungatedClientSources();
+    const sources = censusedClientSources();
     for (const entry of PERMITTED) {
       // A stale path permits nothing and reads exactly like a correct run.
       expect(sources.has(entry.path), `permitted path is stale: ${entry.path}`).toBe(true);

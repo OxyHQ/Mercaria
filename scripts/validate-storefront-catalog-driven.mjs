@@ -13,6 +13,40 @@
  * workstream's own, and it is the one that had four live findings when it was
  * written.
  *
+ * ## The population is what the app COMPILES, not the package it is filed under (#478)
+ *
+ * This guard scanned `packages/frontend/` alone until #478, and the sentence
+ * above is why: the non-negotiable names that package. But the storefront is not
+ * that package — it is that package PLUS `packages/ui/src`, which every app
+ * consumes FROM SOURCE. All three `tsconfig.json` files alias `@mercaria/ui` to
+ * `../ui/src` and Metro watches the monorepo root, so a `ui` file is compiled
+ * into the storefront's program exactly as one of its own is. Measured at the
+ * widening: 94 storefront files import from it, 55 dashboard, 23 POS.
+ *
+ * So a prefix-scoped gate had a documented workaround — move the hardcoding one
+ * package sideways and the gate that forbids it cannot see it, while the screen
+ * that renders it is unchanged. That is a property of the TOPOLOGY rather than
+ * of anyone's intent, which is why it is fixed here rather than in the one file
+ * that hit it. #478's own subject was exactly that: `VariantSwatches` picked a
+ * colour widget from three English option names, refused in `packages/frontend`
+ * and permitted in `packages/ui`, and the storefront imported it.
+ *
+ * `packages/pos` joins for the plainer reason that it had NO catalog gate at
+ * all and renders catalogue data to a cashier. It is under the READ walls only:
+ * it has no authoring surface — its routes are cart, charge, customer, sales,
+ * receipt and store-setup, and a scan for `createProduct`, `productTypeKey`,
+ * `attributeDefinition` and `wizard` across the package returns nothing — so
+ * putting it under `validate-authoring-schema-driven.mjs` would assert a
+ * property over a surface that does not exist.
+ *
+ * `packages/ui/src` is scanned by BOTH gates, and that is not two authorities
+ * over one property. It is two DIFFERENT properties — a read surface must stay
+ * catalog-driven, an authoring surface must stay schema-driven — whose
+ * populations happen to overlap on the tree both programs compile. Neither
+ * analyser is a superset of the other, which is the measured reason both are
+ * needed: this one has `bucketKey`, `facetKey`, `brandId` and wall 5, the
+ * authoring one has `canonicalRefId` and the `controlled` key receiver.
+ *
  * ## Why a guard rather than a review note
  *
  * Every shape it catches type-checks, lints, builds and renders. A storefront
@@ -87,6 +121,13 @@
  * cases it silently half-covers; the shapes it does cover are the shapes the
  * findings in this repository actually took.
  *
+ * The first residual has a second reader rather than being merely stated:
+ * `client-catalog-list-census.test.ts` (#367 workstream 13) keys on the
+ * CONSTANT'S NAME instead of its type, so a bare
+ * `const CATEGORY_NAMES = ['electronics', 'books']` in the shared or POS trees
+ * is caught there. That census and this guard now cover the same two trees on
+ * purpose, and the header of that file records which probe belongs to which.
+ *
  * Usage:  bun scripts/validate-storefront-catalog-driven.mjs
  */
 
@@ -108,18 +149,63 @@ const fixtureFloors = process.env.STOREFRONT_CATALOG_VALIDATOR_FIXTURE_FLOORS ==
 
 const ts = createRequire(resolve(here, "../package.json"))("typescript");
 
-/** The tree that must stay catalog-driven. */
-const SCANNED_PREFIX = "packages/frontend/";
-
-/** Where the catalog surfaces live, and where the second floor is measured. */
-const CATALOG_PREFIXES = [
-  "packages/frontend/lib/catalog/",
-  "packages/frontend/components/catalog/",
-  "packages/frontend/app/(app)/categories/",
+/**
+ * The trees that must stay catalog-driven, each with the vocabulary wall 2
+ * subtracts inside it and the floor below which its traversal is broken.
+ *
+ * A tree carries its OWN bundle rather than the union of all three. A union
+ * would let a storefront translation key excuse a literal authored in `ui`,
+ * which is wall 2 subtracting a vocabulary that file cannot reach. Measured at
+ * the widening: per-tree subtraction produces ZERO wall-2 findings in the new
+ * catalog subtree, so the stricter reading costs nothing today.
+ *
+ * The floors are per TREE and not one total, for the reason
+ * `client-catalog-list-census.test.ts` already gives about its two roots: one
+ * tree silently emptying leaves a single total satisfied by the others, and a
+ * traversal that reads nothing reports a clean tree. Each is roughly 60% of what
+ * the tree holds today (197 / 101 / 60 files), the ratio the storefront's
+ * original 120 was set at.
+ */
+const SCANNED_TREES = [
+  {
+    prefix: "packages/frontend/",
+    bundle: "packages/frontend/lib/i18n/locales/en.json",
+    floor: fixtureFloors ? 1 : 120,
+  },
+  {
+    prefix: "packages/ui/src/",
+    bundle: "packages/ui/src/i18n/locales/en.json",
+    floor: fixtureFloors ? 1 : 60,
+  },
+  {
+    prefix: "packages/pos/",
+    bundle: "packages/pos/lib/i18n/locales/en.json",
+    floor: fixtureFloors ? 1 : 35,
+  },
 ];
 
-/** The app's own translation vocabulary, which wall 2 subtracts. */
-const EN_BUNDLE = "packages/frontend/lib/i18n/locales/en.json";
+/**
+ * Where the catalog surfaces live — wall 2's scope, and a second floor each.
+ *
+ * Wall 2 is deliberately the narrowest wall: outside a catalog subtree a dotted
+ * lowercase string is an ordinary machine name, and turning it on tree-wide was
+ * measured at 17 findings that were all SF Symbol names (`star.fill`,
+ * `pencil.tip`), storage keys (`mercaria.ui.sidebar`) and plural-suffixed
+ * translation keys. So `packages/ui/src/components/marketplace/` joins — 41
+ * files, the shared catalogue RENDER surface, ZERO findings with wall 2 on — and
+ * `packages/ui/src/lib/` deliberately does not, because it is mixed utility and
+ * carries three of that noise. `facet-labels.ts` lives there and is covered by
+ * wall 1 regardless, which is not gated on this scope.
+ */
+const CATALOG_PREFIXES = [
+  { prefix: "packages/frontend/lib/catalog/", floor: fixtureFloors ? 1 : 8 },
+  { prefix: "packages/frontend/components/catalog/", floor: fixtureFloors ? 1 : 4 },
+  // One file today, so its floor is 1 for real. It stays because dropping a
+  // prefix REMOVES wall-2 coverage, and a widening that also quietly narrows is
+  // the shape nobody reads a diff closely enough to catch.
+  { prefix: "packages/frontend/app/(app)/categories/", floor: 1 },
+  { prefix: "packages/ui/src/components/marketplace/", floor: fixtureFloors ? 1 : 20 },
+];
 
 /**
  * ADR 0007 D1's identity names, as this package spells them.
@@ -199,6 +285,65 @@ const IDENTITY_PROPERTIES = new Set([
   "productTypeKey",
 ]);
 
+/**
+ * Receivers whose `.name` is a catalog concept's FREE TEXT — wall 1, #478.
+ *
+ * This set is why the widening was not the whole fix. `IDENTITY_NAMES` carries
+ * `optionName` and `attributeName`, so `o.optionName === "color"` was refused
+ * and `option.name === "color"` was SILENT — and `option.name` is the spelling
+ * every DTO in this repository actually uses. Measured on the real #478 source
+ * before the fix: the guard produced ZERO findings on it, with wall 2 both on
+ * and off. So a gate widened to `packages/ui` alone would have scanned the file
+ * the issue is about and reported it clean, which is worse than not scanning it
+ * — it reads as coverage.
+ *
+ * Deliberately NARROWER than {@link KEY_RECEIVERS}, and the asymmetry is the
+ * point: a `.key` is a machine identity whoever the receiver is, while `.name`
+ * is an ordinary English word. `store.name` is a shop's own name, `user.name` a
+ * person's, `file.name` a filename — none is a catalog concept, and a guard that
+ * fired on them would be switched off the week it landed. So `entry`, `node`,
+ * `row`, `field`, `tree` and `value` are all in `KEY_RECEIVERS` and none is
+ * here.
+ *
+ * Comparing a concept's display name against a literal is per-concept truth
+ * whatever the branch is for, and it is worse than the `.key` version rather
+ * than better: a name is free text a seller typed, so the branch is wrong in
+ * every language nobody enumerated. That is #478's own subject — `Colour` got
+ * swatches, `Tono` and `Tamaño` got pills.
+ */
+const NAME_RECEIVERS = new Set([
+  "attribute",
+  "axis",
+  "bucket",
+  "category",
+  "definition",
+  "facet",
+  "option",
+  "productType",
+]);
+
+/**
+ * String methods wall 1 reads THROUGH when looking for a concept identity.
+ *
+ * `COLOR_OPTION_NAMES.has(option.name.trim().toLowerCase())` is the real #478
+ * line, and without this the identity is hidden behind two calls — the same
+ * two-step evasion `resolvedLiteral` already handles on the LITERAL side, in the
+ * other direction. Every member is case- or whitespace-normalising and none
+ * changes which concept is being named, which is what makes reading through them
+ * safe; a `.slice(0, 3)` or a `.replace(...)` is a different value and is
+ * deliberately absent.
+ */
+const IDENTITY_NORMALIZERS = new Set([
+  "trim",
+  "trimStart",
+  "trimEnd",
+  "toLowerCase",
+  "toUpperCase",
+  "toLocaleLowerCase",
+  "toLocaleUpperCase",
+  "normalize",
+]);
+
 /** Calls whose subject is a membership test — wall 1's third shape. */
 const MEMBERSHIP_METHODS = new Set(["includes", "has", "startsWith", "endsWith"]);
 
@@ -238,6 +383,75 @@ const CATALOG_PATH_LITERALS = [];
 
 export const CATALOG_PATH_LITERAL_COUNT = CATALOG_PATH_LITERALS.length;
 
+/**
+ * Wall 1 findings that are reasoned — file, exact literal, exact count, reason.
+ *
+ * New with #478's widening, because the shared tree brought the first wall-1
+ * findings anybody had a defensible answer for. Same discipline as the two lists
+ * around it: reconciled in BOTH directions, so an entry that stops matching
+ * fails the build and an entry that starts covering MORE fails it too.
+ *
+ * All four entries are one file. `facet-labels.ts` is the shared copy table for
+ * the facets whose keys the SERVER declares stable, and three things make it a
+ * different object from the hardcoding wall 1 exists to refuse:
+ *
+ * - **It cannot withhold a dimension.** Every resolver returns `null` when it
+ *   holds no copy, and the caller falls back to the server's own `text`. So an
+ *   operator publishing a new facet gets that facet, rendered with server text —
+ *   which is precisely the failure wall 1 is aimed at, and it does not occur.
+ * - **A dedicated gate already owns the property.**
+ *   `scripts/validate-facet-label-copy.mjs` imports these exact resolvers, runs
+ *   them against the REAL `en.json` for every stable key and bucket, and fails
+ *   if one resolves to nothing. Wall 1 would be a second, weaker opinion.
+ * - **The obvious "fix" is detector evasion.** Rewriting the four branches as a
+ *   `Record` keyed by facet key hardcodes the identical vocabulary in a shape
+ *   this wall cannot see. A gate whose cheapest green is the same hazard under
+ *   another spelling is worse than no gate, so the branches stay and the reason
+ *   is written down.
+ *
+ * The fifth entry is the `market` sentinel bucket rather than a facet key: an
+ * in-file constant bound to `"*"`, which wall 1 resolves through.
+ */
+const KNOWN_CONCEPT_BRANCHES = [
+  {
+    file: "packages/ui/src/lib/facet-labels.ts",
+    literal: "availability",
+    count: 1,
+    reason:
+      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+  },
+  {
+    file: "packages/ui/src/lib/facet-labels.ts",
+    literal: "offer_channel",
+    count: 1,
+    reason:
+      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+  },
+  {
+    file: "packages/ui/src/lib/facet-labels.ts",
+    literal: "condition",
+    count: 1,
+    reason:
+      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+  },
+  {
+    file: "packages/ui/src/lib/facet-labels.ts",
+    literal: "market",
+    count: 1,
+    reason:
+      "stable-key facet copy; falls back to server text and is gated by validate:facet-label-copy",
+  },
+  {
+    file: "packages/ui/src/lib/facet-labels.ts",
+    literal: "*",
+    count: 1,
+    reason:
+      "FACET_MARKET_ANY_BUCKET, the NULL-region sentinel — the one market bucket that is not a CLDR region code",
+  },
+];
+
+export const KNOWN_CONCEPT_BRANCH_COUNT = KNOWN_CONCEPT_BRANCHES.length;
+
 /** The package a re-listed vocabulary is copied FROM — wall 5. */
 const VOCABULARY_PACKAGE = "@mercaria/shared-types";
 
@@ -257,14 +471,14 @@ const VOCABULARY_RELIST_MINIMUM = 2;
  * fails the build too — so it cannot rot into a list of things somebody once
  * silenced. Widening it is a diff with a reason attached, which is the point.
  *
- * There is deliberately only one, and it is not a catalog vocabulary: it is a
- * POLICY subset of a server-owned union — "which order statuses permit a buyer
- * cancellation" — which is legitimately a subset of the set rather than a copy
- * of it. The shape is identical to a vocabulary copy and the risk is real (the
- * backend adding a cancellable status does not reach this screen), so it is
- * recorded rather than pattern-exempted. #110 publishes
- * `CancellationEligibility` derived server-side; wiring this screen to it
- * deletes the declaration and this entry together.
+ * NONE of the four is a catalog vocabulary, which is the property this wall
+ * guards. Each is a POLICY subset of a server-owned union, legitimately a subset
+ * of the set rather than a copy of it — the shape is identical to a vocabulary
+ * copy and the drift risk is real in every case, so each is recorded with what
+ * would close it rather than pattern-exempted.
+ *
+ * The last three arrived with #478's widening, which is the first time any gate
+ * read `packages/ui/src` or `packages/pos`.
  */
 const KNOWN_VOCABULARY_EXCEPTIONS = [
   {
@@ -282,13 +496,41 @@ const KNOWN_VOCABULARY_EXCEPTIONS = [
     reason:
       "a policy subset of OrderStatus, not a catalog vocabulary; closed by reading #110's CancellationEligibility",
   },
+  {
+    file: "packages/ui/src/lib/pickup-labels.ts",
+    declaration: "GUEST_ONLY_BLOCK_REASONS",
+    count: 1,
+    reason:
+      "a policy subset of PickupBlockReason — the refusals a signed-out shopper could fix by signing in (#93 client rule 10) — not a catalog vocabulary; closed by the server publishing that subset",
+  },
+  // Both POS entries are one mirror of the backend role → permission matrix.
+  // They CANNOT be closed by importing the vocabulary: `packages/shared-types`
+  // exports `StorePermission` as a TYPE UNION and no runtime tuple, so a client
+  // cannot enumerate it. `packages/pos/lib/__tests__/permissions.test.ts` is
+  // what keeps the mirror in lockstep; closing these entries means shared-types
+  // gaining a `STORE_PERMISSIONS` value the backend matrix is also built from.
+  {
+    file: "packages/pos/lib/permissions.ts",
+    declaration: "ALL_PERMISSIONS",
+    count: 1,
+    reason:
+      "a client mirror of the backend role matrix, not a catalog vocabulary; shared-types exports StorePermission as a type only, so it cannot be enumerated at runtime",
+  },
+  {
+    file: "packages/pos/lib/permissions.ts",
+    declaration: "STAFF_PERMISSIONS",
+    count: 1,
+    reason:
+      "the staff row of the same mirror; same reason, and the same shared-types tuple would close both",
+  },
 ];
 
 export const KNOWN_VOCABULARY_EXCEPTION_COUNT = KNOWN_VOCABULARY_EXCEPTIONS.length;
 
 /** Below these, the traversal is broken — and a broken traversal reports clean. */
-const MINIMUM_SCANNED_FILES = fixtureFloors ? 1 : 120;
-const MINIMUM_CATALOG_FILES = fixtureFloors ? 1 : 8;
+// The floors now live on SCANNED_TREES and CATALOG_PREFIXES, one per tree and
+// one per catalog subtree, because a single total is satisfied by whichever tree
+// did not empty.
 
 /** The guard cannot be its own subject; neither file lives under the prefix anyway. */
 const GUARD_OWN_FILES = new Set([
@@ -362,12 +604,38 @@ function accessReceiver(node) {
 
 /** Whether an expression names a catalogue concept's identity. */
 function namesIdentity(node) {
-  const name = accessedName(node);
+  const subject = throughNormalizers(node);
+  const name = accessedName(subject);
   if (name === null) return false;
   if (IDENTITY_NAMES.has(name)) return true;
-  if (name !== "key") return false;
-  const receiver = accessReceiver(node);
-  return receiver !== null && KEY_RECEIVERS.has(receiver.replace(/^_+/u, ""));
+  if (name !== "key" && name !== "name") return false;
+  const receiver = accessReceiver(subject);
+  if (receiver === null) return false;
+  const bare = receiver.replace(/^_+/u, "");
+  return name === "key" ? KEY_RECEIVERS.has(bare) : NAME_RECEIVERS.has(bare);
+}
+
+/**
+ * A node with any case- or whitespace-normalising calls peeled off.
+ *
+ * `option.name.trim().toLowerCase()` names the same concept `option.name` does,
+ * and #478's own line hid the identity behind exactly those two calls. Loops,
+ * so a third wrapper does not walk out from under it.
+ */
+function throughNormalizers(node) {
+  let current = node;
+  while (
+    ts.isCallExpression(current) &&
+    // `normalize("NFC")` and `toLocaleLowerCase(locale)` legitimately take one.
+    // Bounded rather than free because the method set is closed and every member
+    // of it is nullary or unary.
+    current.arguments.length <= 1 &&
+    ts.isPropertyAccessExpression(current.expression) &&
+    IDENTITY_NORMALIZERS.has(current.expression.name.text)
+  ) {
+    current = current.expression.expression;
+  }
+  return current;
 }
 
 /** A string literal's text, or `null`. */
@@ -687,27 +955,38 @@ async function main() {
   const matchedExceptions = new Map();
   /** path-literal exemption id -> how many findings it actually excused. */
   const matchedPathLiterals = new Map();
+  /** concept-branch exemption id -> how many findings it actually excused. */
+  const matchedConceptBranches = new Map();
   const files = trackedFiles();
 
-  let bundleRaw;
-  try {
-    bundleRaw = await readFile(resolve(repositoryRoot, EN_BUNDLE), "utf8");
-  } catch {
-    console.error(
-      `\n  ${EN_BUNDLE} could not be read; wall 2 cannot tell a concept key from copy.\n`,
-    );
-    process.exit(1);
+  // One bundle per tree, read up front. An unreadable one exits rather than
+  // falling back to an empty key set: an empty set makes wall 2 fire on every
+  // translation key in the tree, and the guard would be reporting the bundle's
+  // absence as dozens of catalog findings.
+  const translationKeysByTree = new Map();
+  for (const tree of SCANNED_TREES) {
+    let bundleRaw;
+    try {
+      bundleRaw = await readFile(resolve(repositoryRoot, tree.bundle), "utf8");
+    } catch {
+      console.error(
+        `\n  ${tree.bundle} could not be read; wall 2 cannot tell a concept key from copy in ${tree.prefix}.\n`,
+      );
+      process.exit(1);
+    }
+    translationKeysByTree.set(tree.prefix, bundleKeys(JSON.parse(bundleRaw)));
   }
-  const translationKeys = bundleKeys(JSON.parse(bundleRaw));
 
   const inTree = files.filter(
     (path) =>
-      path.startsWith(SCANNED_PREFIX) && SOURCE_FILE.test(path) && !GUARD_OWN_FILES.has(path),
+      SCANNED_TREES.some((tree) => path.startsWith(tree.prefix)) &&
+      SOURCE_FILE.test(path) &&
+      !GUARD_OWN_FILES.has(path),
   );
   const scanned = inTree.filter((path) => !TEST_FILE.test(path));
   const skippedTests = inTree.length - scanned.length;
   const catalog = scanned.filter((path) =>
-    CATALOG_PREFIXES.some((prefix) => path.startsWith(prefix)),
+    CATALOG_PREFIXES.some((entry) => path.startsWith(entry.prefix)),
   );
 
   for (const path of scanned) {
@@ -720,8 +999,9 @@ async function main() {
       failures.push(`${path}: tracked but unreadable (${String(error)})`);
       continue;
     }
-    const inCatalogTree = CATALOG_PREFIXES.some((prefix) => path.startsWith(prefix));
-    for (const finding of analyseSource(path, text, translationKeys, {
+    const inCatalogTree = CATALOG_PREFIXES.some((entry) => path.startsWith(entry.prefix));
+    const owningTree = SCANNED_TREES.find((tree) => path.startsWith(tree.prefix));
+    for (const finding of analyseSource(path, text, translationKeysByTree.get(owningTree.prefix), {
       namespacedKeys: inCatalogTree,
     })) {
       const excused = KNOWN_VOCABULARY_EXCEPTIONS.find(
@@ -746,6 +1026,21 @@ async function main() {
         matchedPathLiterals.set(id, (matchedPathLiterals.get(id) ?? 0) + 1);
         continue;
       }
+      // Matched on the EXACT detail rather than a prefix. Wall 1 emits three
+      // shapes (`compared against`, `switch case`, a membership test) and an
+      // entry excusing a comparison must not silently start excusing a `switch`
+      // on the same literal in the same file.
+      const excusedBranch = KNOWN_CONCEPT_BRANCHES.find(
+        (entry) =>
+          finding.wall === "concept-branch" &&
+          entry.file === finding.file &&
+          finding.detail === `compared against "${entry.literal}"`,
+      );
+      if (excusedBranch !== undefined) {
+        const id = `${excusedBranch.file}:${excusedBranch.literal}`;
+        matchedConceptBranches.set(id, (matchedConceptBranches.get(id) ?? 0) + 1);
+        continue;
+      }
       // The wall KEY is in the line as well as the sentence: it is what a
       // reader greps for and what this guard's own controls assert on, and a
       // control that could only match the prose would pass on any refusal at
@@ -756,7 +1051,7 @@ async function main() {
     }
   }
 
-  // Every entry in BOTH lists must declare an integer `count` of at least 1, or
+  // Every entry in ALL THREE lists must declare an integer `count` of at least 1, or
   // the reconciliations below compare against `undefined` — and `actual <
   // undefined` and `actual > undefined` are BOTH false, so an entry missing the
   // field falls straight through every branch and excuses without limit, in
@@ -768,6 +1063,7 @@ async function main() {
   for (const [entry, name] of [
     ...KNOWN_VOCABULARY_EXCEPTIONS.map((entry) => [entry, entry.declaration]),
     ...CATALOG_PATH_LITERALS.map((entry) => [entry, entry.literal]),
+    ...KNOWN_CONCEPT_BRANCHES.map((entry) => [entry, entry.literal]),
   ]) {
     if (Number.isInteger(entry.count) && entry.count >= 1) continue;
     failures.push(
@@ -840,19 +1136,58 @@ async function main() {
     }
   }
 
-  // The vacuity floors. Both are needed: the whole storefront could be scanned
-  // while the catalog subtree was renamed out from under the prefixes, and a
-  // clean report over zero catalog files is the exact shape of a guard that is
-  // on and measuring nothing.
-  if (scanned.length < MINIMUM_SCANNED_FILES) {
+  for (const entry of KNOWN_CONCEPT_BRANCHES) {
+    const id = `${entry.file}:${entry.literal}`;
+    const actual = matchedConceptBranches.get(id) ?? 0;
+    if (actual === entry.count) continue;
+
+    if (actual === 0) {
+      failures.push(
+        `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), which no longer matches `
+        + "anything — the count went DOWN to 0. The branch was removed or the file moved: delete the "
+        + "entry so the list keeps describing the tree",
+      );
+      continue;
+    }
+    if (actual < entry.count) {
+      failures.push(
+        `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), but only ${actual} `
+        + "matched — the count went DOWN. Lower the count to what remains, or restore what the entry "
+        + "was covering",
+      );
+      continue;
+    }
     failures.push(
-      `only ${scanned.length} source files under ${SCANNED_PREFIX} (floor ${MINIMUM_SCANNED_FILES}) — the file listing is broken, and a broken listing reports a clean tree`,
+      `${id} is listed as a reasoned wall-1 branch ${entry.count} time(s), but ${actual} finding(s) `
+      + "matched it — the count went UP. An excusing entry is a PREDICATE, not an identity, so a NEW "
+      + "branch on the same literal in the same file would otherwise ride in behind the reasoned one. "
+      + "Read the value off the server's answer, or raise the count with a reason covering it too",
     );
   }
-  if (catalog.length < MINIMUM_CATALOG_FILES) {
-    failures.push(
-      `only ${catalog.length} catalog source files (floor ${MINIMUM_CATALOG_FILES}) — the catalog surfaces were moved or removed, so this guard is measuring nothing`,
-    );
+
+  // The vacuity floors, one per TREE and one per CATALOG SUBTREE. Per-tree
+  // rather than per-total, because a total is satisfied by whichever tree did
+  // NOT empty — `packages/ui/src` moving would leave 197 storefront files
+  // clearing a floor of 120 and this guard silently back to scanning one
+  // package, which is the exact state #478 exists to end. And a whole tree can
+  // be scanned while its catalog subtree is renamed out from under the
+  // prefixes, so both kinds are needed: a clean report over zero catalog files
+  // is the exact shape of a guard that is on and measuring nothing.
+  for (const tree of SCANNED_TREES) {
+    const count = scanned.filter((path) => path.startsWith(tree.prefix)).length;
+    if (count < tree.floor) {
+      failures.push(
+        `only ${count} source files under ${tree.prefix} (floor ${tree.floor}) — the file listing is broken, and a broken listing reports a clean tree`,
+      );
+    }
+  }
+  for (const entry of CATALOG_PREFIXES) {
+    const count = catalog.filter((path) => path.startsWith(entry.prefix)).length;
+    if (count < entry.floor) {
+      failures.push(
+        `only ${count} catalog source files under ${entry.prefix} (floor ${entry.floor}) — that catalog surface was moved or removed, so wall 2 is measuring nothing there`,
+      );
+    }
   }
 
   if (failures.length > 0) {
@@ -861,21 +1196,32 @@ async function main() {
     console.error(
       "\n  The taxonomy, the navigation trees, the attribute registry and the facet rail\n" +
         "  decide which categories, filters, specifications and values exist. Adding one is\n" +
-        "  a DATA change; anything in this tree that knows a category, product type,\n" +
+        "  a DATA change; anything in these trees that knows a category, product type,\n" +
         "  attribute or value by name breaks that and breaks it silently — tsc, lint and\n" +
-        "  every build job stay green.\n",
+        "  every build job stay green.\n" +
+        "\n  `packages/ui/src` and `packages/pos` are in scope since #478: every app\n" +
+        "  compiles the shared tree from source, so moving a hardcoded list one package\n" +
+        "  sideways changes nothing about what a shopper sees.\n",
     );
     process.exit(1);
   }
 
+  const perTree = SCANNED_TREES.map(
+    (tree) => `${String(scanned.filter((path) => path.startsWith(tree.prefix)).length)} ${tree.prefix}`,
+  ).join(", ");
+  const translationKeyTotal = [...translationKeysByTree.values()].reduce(
+    (total, keys) => total + keys.size,
+    0,
+  );
   console.log(
-    `storefront catalog-driven guard passed — ${scanned.length} source files under ${SCANNED_PREFIX} ` +
+    `storefront catalog-driven guard passed — ${scanned.length} source files (${perTree}) ` +
       `(${catalog.length} of them the catalog surfaces', ${String(skippedTests)} test files ` +
       `skipped); 5 walls; ` +
-      `${translationKeys.size} translation keys and ` +
+      `${translationKeyTotal} translation keys across ${String(SCANNED_TREES.length)} bundles and ` +
       `${String(CATALOG_PATH_LITERALS.length)} named literals subtracted by wall 2; ` +
+      `${String(KNOWN_CONCEPT_BRANCHES.length)} reasoned wall-1 branch(es); ` +
       `${String(KNOWN_VOCABULARY_EXCEPTIONS.length)} reasoned wall-5 exception(s); ` +
-      "every exemption in both lists matched its exact declared count.",
+      "every exemption in all three lists matched its exact declared count.",
   );
 }
 

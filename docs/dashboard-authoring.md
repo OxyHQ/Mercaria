@@ -217,7 +217,17 @@ compile and no effect on native), and the dashboard is not mirrored (#434).
 
 `scripts/validate-authoring-schema-driven.mjs`, wired into CI as
 `validate:authoring-schema`, with `test-validate-authoring-schema-driven.mjs`
-mutation-testing it (24 cases). Four walls over `packages/dashboard`:
+mutation-testing it (33 cases). Four walls over `packages/dashboard` **and, since
+#478, `packages/ui/src`** — the dashboard aliases `@mercaria/ui` to `../ui/src`
+in `tsconfig.json` and so compiles the shared tree as part of its own program, and
+a gate scoped to one package could be walked around by moving a hard-coded list
+one package sideways. The shared tree is read by the storefront's guard too: the
+two assert different properties, and neither analyser is a superset of the other
+(this one has `canonicalRefId` and the `controlled` key receiver). `packages/pos`
+is deliberately NOT here — it has no authoring surface. Wall 2 stays scoped to the
+dashboard's own wizard subtree, because the shared tree has no authoring subtree
+and turning wall 2 on across it was measured at 16 findings that were all SF
+Symbol names, a storage key and two plural-suffixed translation keys.
 
 1. **No branch on a concept's identity** — a comparison or `switch` against a
    string literal (or an in-file constant bound to one), or a membership test

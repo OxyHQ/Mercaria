@@ -19,6 +19,16 @@ builds and renders — a storefront that knows one category's filters by name
 looks exactly like one that reads them from the server, right up until an
 operator publishes a new attribute and nobody's screen changes.
 
+**The guard's population is WIDER than that sentence, since #478.** The
+storefront is not one package: it is `packages/frontend` plus `packages/ui/src`,
+which all three apps alias to in `tsconfig.json` and therefore compile from
+source. Scanning only the named package left a documented workaround — move a
+hard-coded list one package sideways and the gate cannot see it, while the screen
+is unchanged — so the guard reads `packages/frontend/`, `packages/ui/src/` and
+`packages/pos/` (which had no catalog gate at all and renders catalogue data to a
+cashier). `packages/ui/src` is read by the authoring guard too; the two assert
+different properties and neither analyser is a superset of the other.
+
 ---
 
 ## Where the code is
@@ -352,11 +362,13 @@ exactly the spelling the comparison screen reads.
 `scripts/validate-storefront-catalog-driven.mjs`, wired as
 `bun run validate:storefront-catalog` and as CI's "Guard the catalog-driven
 storefront". Five walls, each with a vacuity floor and a mutation self-test
-(`scripts/test-validate-storefront-catalog-driven.mjs`, 25 cases).
+(`scripts/test-validate-storefront-catalog-driven.mjs`, 36 cases).
 
 1. **No branch on a catalog concept's identity** — a comparison, a `switch` or a
    membership test whose subject is `categoryId`, `attributeKey`, `facetKey`,
-   `productTypeKey`, `enumValueId`, `facet.key`, `row.key` … against a string
+   `productTypeKey`, `enumValueId`, `facet.key`, `row.key`, or (since #478) a
+   catalogue receiver's free-text `.name` such as `option.name`, read through any
+   case- or whitespace-normalising call — against a string
    LITERAL, or an in-file constant bound to one. Membership is narrowed to a list
    this tree AUTHORED, because the correct implementation does exactly the same
    call against a set built from the server's answer at runtime.
