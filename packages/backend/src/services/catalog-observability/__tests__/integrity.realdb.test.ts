@@ -124,16 +124,25 @@ type ProbeTable =
  * desc` uses, so a database whose collation does not put `${max}-${suffix}`
  * above `${max}` fails at the mint naming the premise, instead of surfacing
  * later as a check that appears not to name what it found.
+ *
+ * `above` raises the ceiling past a value that is not in the table. Only the
+ * crowd case needs it, and it needs it for a reason worth reading: a ceiling
+ * taken from a table holding uuid v7 rows begins with a DIGIT, which sorts
+ * BELOW every ordinary {@link id} — so on a loaded database a crowd minted
+ * without it sits beneath the very id it exists to bury. `greatest` ignores a
+ * NULL argument, so an empty table falls through to `above` and a missing
+ * `above` falls through to the maximum.
  */
 async function probeId(
   tx: Transaction,
   table: ProbeTable,
   scope: string,
   name: string,
+  options: { above?: string } = {},
 ): Promise<string> {
   const readable = id(scope, name);
   const ceiling = await tx.execute<{ newest: string | null }>(
-    sql`select max(id) as newest from ${sql.raw(table)}`,
+    sql`select greatest(max(id), ${options.above ?? null}) as newest from ${sql.raw(table)}`,
   );
   const newest = ceiling[0]?.newest ?? null;
   const minted = newest === null ? readable : `${newest}-${readable}`;
@@ -625,16 +634,22 @@ describe('checkOrphanedReferences', () => {
    * above the next, so no foreign proposal can outrank it whatever the shared
    * database is holding.
    *
-   * ## The premise that has to be asserted, because it was WRONG once
+   * ## The premise that has to be asserted, because it was WRONG TWICE
    *
    * The crowd is adverse only if it outranks the id this case's probe would have
-   * carried without {@link probeId}. The first version of this case named the
-   * crowd `p00`…`p19` and did not assert that — and `zz-obs-integ-crowd-probe`
-   * sorts ABOVE `zz-obs-integ-crowd-p00` under this server's collation, because
-   * a digit sorts before a letter. So the crowd was beneath the probe, the case
-   * passed with the fix mutated away, and it measured nothing. The comparison
-   * below is the server's own and it is what makes the case fail rather than go
-   * quiet if the naming is ever changed.
+   * carried without {@link probeId}, and that took two goes to get right. The
+   * first version named the crowd `p00`…`p19` and asserted nothing: a digit
+   * sorts before a letter, so `zz-obs-integ-crowd-probe` sits ABOVE
+   * `zz-obs-integ-crowd-p00`, the crowd was beneath the row it was meant to
+   * bury, and the case passed with the fix mutated away. The second version
+   * named them `z00`…`z19` and was adverse on an EMPTY database only — under
+   * full-suite load the crowd inherits a uuid ceiling that begins with a digit,
+   * so all twenty sank below the unranked id again. `above` is what fixes it and
+   * the comparison below is what caught it, on the run where the whole suite was
+   * green apart from this line.
+   *
+   * That is why the premise is a measurement here rather than a sentence: both
+   * mistakes produced a case that passed and tested nothing.
    *
    * Mutating {@link probeId} back to {@link id} at the one line below turns this
    * case red and leaves the rest of the file green — which is what says the
@@ -652,7 +667,9 @@ describe('checkOrphanedReferences', () => {
         crowd.push(
           await insertApprovedProposal(
             tx,
-            await probeId(tx, 'catalog_proposals', 'crowd', `z${String(n).padStart(2, '0')}`),
+            await probeId(tx, 'catalog_proposals', 'crowd', `z${String(n).padStart(2, '0')}`, {
+              above: unranked,
+            }),
             id('crowd', 'ghost-attribute'),
           ),
         );
