@@ -111,12 +111,35 @@ Each phase runs in its **own transaction**. One transaction over the whole merge
 would hold row locks on offers, reviews and relationships for the duration, and
 a failure at `rollups` would roll back eleven phases of correct work.
 
-### `blocked` is not `failed`, and neither is claimable by mistake
+### `blocked` is not `dead_letter`, and neither is claimable by mistake
 
 A job waiting on an operator's conflict decision is not an error and must not be
 retried, or the dispatcher spins against a judgement only a person can make. A
 job that threw IS an error and must be retried. Collapsing them would either
 spin the loop or bury a real fault among things "waiting for review".
+
+### Every status is written by something (#704)
+
+`CATALOG_JOB_STATUSES` has six members and `db/curation/jobRepository.ts` writes
+all six, from twelve sites: `processing` (claim), `completed` (complete),
+`blocked` (block), `dead_letter` or `pending` (release), `pending` (unblock) and
+`cancelled` (cancel, #680).
+
+There was a seventh. `failed` was CHECK-permitted on both job tables and
+accepted by the repository's status filter, and **nothing wrote it** — so it
+read as a state the system could reach. That was not inert:
+`mergeJobBlockingState` renders a child job's CURRENT status into an
+operator-facing refusal ("Child merge job `<id>` is `<status>` and must be
+completed before this merge may commit"), which meant the sentence could name a
+state no write produces, and read as a real diagnosis to whoever met it.
+
+It was cut rather than made reachable because there is no failure mode here that
+is not either a retryable release (`pending`) or an exhausted one
+(`dead_letter`) — a third would have needed a meaning somebody wanted. Migration
+`0128` narrows both CHECKs (`post`; a narrow breaks a write the previous image
+could perform, on the category, not on a measurement that such a write exists).
+
+So adding a member to that tuple means adding a WRITER in the same change.
 
 ### A blocked job resumes when its condition clears, and only then (#663)
 
