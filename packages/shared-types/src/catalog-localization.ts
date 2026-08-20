@@ -326,6 +326,18 @@ export const LOCALIZED_ENTITY_KINDS = [
   // `catalog_presentation` and both fall back across markets.
   'canonical_product',
   'canonical_product_family',
+  /**
+   * One ATTRIBUTE DEFINITION's own label and description — a different subject
+   * from `attribute_value`, which localizes one CONTROLLED VALUE of it.
+   * "Charging port" and "USB-C" are not the same string and never were; sharing
+   * a kind would make the question and one of its answers one translation.
+   *
+   * It joined late. `attribute_labels` predated ADR 0007 D4 and carried no
+   * `status` and no `provenance`, so a candidate built from one of its rows
+   * would have had to invent both — which is why this tuple deliberately
+   * excluded it until migration 0119 gave it the family columns.
+   */
+  'attribute_definition',
 ] as const;
 
 /** A catalog concept this issue localizes. */
@@ -363,6 +375,9 @@ export const LOCALIZED_FIELD_KEYS = [
   'canonical_product_family.name',
   'canonical_product_family.description',
   'attribute_value.label',
+  // The DEFINITION's own copy, distinct from its values' labels above.
+  'attribute_definition.label',
+  'attribute_definition.description',
 ] as const;
 
 /** Every field a caller may ask the resolver for. */
@@ -451,6 +466,18 @@ export const CATALOG_LOCALIZED_FIELDS: Readonly<
     'product_type_field.example',
     'product_type_field',
     'example',
+    'catalog_presentation',
+  ),
+  'attribute_definition.label': describeField(
+    'attribute_definition.label',
+    'attribute_definition',
+    'label',
+    'catalog_presentation',
+  ),
+  'attribute_definition.description': describeField(
+    'attribute_definition.description',
+    'attribute_definition',
+    'description',
     'catalog_presentation',
   ),
   'attribute_value.label': describeField(

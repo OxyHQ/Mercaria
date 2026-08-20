@@ -154,6 +154,11 @@ function liveTargetFor(entityKind: LocalizedEntityKind): {
         table: 'attribute_value_localizations',
         entityColumn: 'attribute_enum_value_id',
       };
+    case 'attribute_definition':
+      // The DEFINITION's own copy. `attribute_labels` is the family's one
+      // late joiner (migration 0119) and its entity column keeps the name it
+      // has had since #94 rather than being renamed to match its siblings.
+      return { table: 'attribute_labels', entityColumn: 'attribute_definition_id' };
     default: {
       const unreachable: never = entityKind;
       throw new Error(`unhandled localized entity kind: ${String(unreachable)}`);

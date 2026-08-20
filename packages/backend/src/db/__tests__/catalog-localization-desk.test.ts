@@ -41,7 +41,7 @@ import {
 } from '@mercaria/shared-types';
 import { categories } from '../schema/catalog';
 import { productTypeDefinitions, productTypeFields } from '../schema/productTypes';
-import { attributeEnumValues } from '../schema/attributeRegistry';
+import { attributeDefinitions, attributeEnumValues } from '../schema/attributeRegistry';
 import {
   canonicalProductFamilies,
   canonicalProducts,
@@ -61,6 +61,9 @@ const DOMAIN_TABLES: Readonly<Record<LocalizedEntityKind, string>> = {
   canonical_product: 'canonical_product_localizations',
   canonical_product_family: 'canonical_product_family_localizations',
   attribute_value: 'attribute_value_localizations',
+  // The family's one late joiner: the table predates ADR 0007 D4 and keeps its
+  // own name rather than being renamed to '<entity>_localizations'.
+  attribute_definition: 'attribute_labels',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -293,6 +296,7 @@ describe('every registered field states where its base text lives', () => {
     attribute_enum_values: attributeEnumValues,
     canonical_products: canonicalProducts,
     canonical_product_families: canonicalProductFamilies,
+    attribute_definitions: attributeDefinitions,
   };
 
   function columnNames(table: keyof typeof TABLES): string[] {

@@ -122,17 +122,6 @@ export const LOCALIZATION_COVERAGE_DOMAINS: readonly LocalizedEntityKind[] = LOC
  */
 export const LOCALIZATION_COVERAGE_UNCOVERED_TABLES = [
   {
-    table: 'attribute_labels',
-    reason:
-      'Now CARRIES the family columns and the machine-write guard, so the original reason ' +
-      '(no status to count) is gone. What still keeps it out is that it has no ' +
-      'LocalizedEntityKind and no entry in CATALOG_LOCALIZED_FIELDS, exactly like ' +
-      'navigation_node_localizations below: there is no registered field to be complete ' +
-      'ABOUT and no denominator rule. Adding the kind is the second half of this work and ' +
-      'is a separate change, because it cascades into two exhaustive switches, a fifth ' +
-      'revision trigger and a review path that could not compile before these columns.',
-  },
-  {
     table: 'navigation_node_localizations',
     reason:
       'Carries the family columns but has no LocalizedEntityKind and no entry in ' +
@@ -229,6 +218,26 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
       'categories.description',
     ],
     carriesForwardOnVersionBump: 'not_applicable',
+  },
+  {
+    domain: 'attribute_definition',
+    mechanism: 'database_trigger',
+    performedBy: 'mercaria_attribute_definitions_localization_stale',
+    // BOTH base columns, unlike `categories` above. That trigger's
+    // `description` blind spot is declared in its own `unwatched` list and this
+    // domain deliberately did not copy it — `attribute_labels` carries a
+    // `description` column translating `attribute_definitions.description`, so
+    // a source description edit strands it exactly as a label edit does.
+    watches: ['attribute_definitions.label', 'attribute_definitions.description'],
+    unwatched: [],
+    // Attribute definitions ARE versioned and NOTHING carries their labels onto
+    // a new version — `draftAttributeDefinition` writes whatever the operator
+    // supplied for the new version and copies nothing. So this domain's
+    // completeness can collapse for a key through no translator's doing, which
+    // is the same shape `product_type_field` declares and is why this field
+    // exists rather than being inferred from `mechanism`.
+    carriesForwardOnVersionBump: 'no',
+    knownGapIssue: '#94 — a copy-forward at draft time, beside copyForwardProductTypeLocalizations',
   },
   {
     domain: 'attribute_value',
@@ -347,6 +356,11 @@ export const LOCALIZATION_OWED_POPULATION_RULES: Readonly<Record<LocalizedEntity
       'is the only lifecycle statement the table makes. Checked against the columns rather than ' +
       "assumed from the product's shape, which is where the first version of this rule was " +
       'wrong.',
+    attribute_definition:
+      'attribute_definitions whose lifecycle_state is active. The same predicate ' +
+      'attribute_value uses one level down, and for the same reason: a draft version may ' +
+      'still have its meaning edited and a deprecated or retired one accepts no new ' +
+      'authoring, so neither is copy anybody should be paying to translate.',
     product_type_field:
       'product_type_fields belonging to a PUBLISHED product-type version, and only those ' +
       'carrying at least one base-locale string. All four base columns are nullable, so a field ' +
@@ -576,6 +590,21 @@ export const LOCALIZED_FIELD_BASE_SOURCES: Readonly<Record<string, LocalizedFiel
       kind: 'column',
       table: 'attribute_enum_values',
       column: 'label',
+    },
+    // Typed `Record<string, …>` rather than `Record<LocalizedFieldKey, …>`, so a
+    // missing entry here is SILENT to tsc and caught only by the runtime
+    // set-equality in the desk test. That is why these two are written beside
+    // the field keys rather than after the build failed — there is no build
+    // failure to wait for.
+    'attribute_definition.label': {
+      kind: 'column',
+      table: 'attribute_definitions',
+      column: 'label',
+    },
+    'attribute_definition.description': {
+      kind: 'column',
+      table: 'attribute_definitions',
+      column: 'description',
     },
     // #367 L2. Every one of the four has a real base column, so a reviewer never
     // sees an unexplained empty source box on these domains.

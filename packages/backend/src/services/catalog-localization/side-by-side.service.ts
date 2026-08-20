@@ -50,7 +50,11 @@ import {
   canonicalProductFamilies,
   canonicalProducts,
 } from '../../db/schema/canonicalCatalog.js';
-import { attributeEnumValues } from '../../db/schema/attributeRegistry.js';
+import {
+  attributeDefinitions,
+  attributeEnumValues,
+  attributeLabels,
+} from '../../db/schema/attributeRegistry.js';
 import {
   attributeValueLocalizations,
   canonicalProductFamilyLocalizations,
@@ -249,6 +253,55 @@ export async function reviewAttributeValueLocalization(
   );
 }
 
+/**
+ * One ATTRIBUTE DEFINITION's own label and description, source beside target.
+ *
+ * A different subject from {@link reviewAttributeValueLocalization} one
+ * function up: that one compares a controlled VALUE's label ("USB-C"), this one
+ * compares the question it answers ("Charging port"). Sharing a reviewer view
+ * would put a value's translation under its attribute's heading.
+ *
+ * This function could not have been written before migration 0119. The
+ * comparison it returns carries `status` and `provenance` off the localization
+ * row, and `attribute_labels` had neither column — so the ReviewRow shape it
+ * composes had nowhere to read them from.
+ */
+export async function reviewAttributeDefinitionLocalization(
+  attributeDefinitionId: string,
+  locale: SupportedLocale,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<LocalizedEntityComparison | undefined> {
+  const [base] = await db
+    .select({
+      id: attributeDefinitions.id,
+      label: attributeDefinitions.label,
+      description: attributeDefinitions.description,
+    })
+    .from(attributeDefinitions)
+    .where(eq(attributeDefinitions.id, attributeDefinitionId))
+    .limit(1);
+  if (!base) return undefined;
+
+  const [row] = await db
+    .select()
+    .from(attributeLabels)
+    .where(
+      and(
+        eq(attributeLabels.attributeDefinitionId, attributeDefinitionId),
+        eq(attributeLabels.locale, locale),
+      ),
+    )
+    .limit(1);
+
+  return compose(
+    'attribute_definition',
+    attributeDefinitionId,
+    locale,
+    row && { ...row, texts: { label: row.label, description: row.description } },
+    { label: base.label, description: base.description },
+  );
+}
+
 /** One product-type FIELD's authoring copy, source beside target (#633). */
 export async function reviewProductTypeFieldLocalization(
   productTypeFieldId: string,
@@ -407,6 +460,8 @@ export async function reviewLocalization(
       return reviewCanonicalProductFamilyLocalization(entityId, locale, db);
     case 'attribute_value':
       return reviewAttributeValueLocalization(entityId, locale, db);
+    case 'attribute_definition':
+      return reviewAttributeDefinitionLocalization(entityId, locale, db);
     default: {
       const unreachable: never = domain;
       throw new Error(`unhandled localized entity kind: ${String(unreachable)}`);

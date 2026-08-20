@@ -55,6 +55,7 @@ import {
   type LocalizationCandidate,
 } from '@mercaria/shared-types';
 import * as schema from '../schema/index.js';
+import { attributeLabels } from '../schema/attributeRegistry.js';
 import {
   attributeValueLocalizations,
   canonicalProductFamilyLocalizations,
@@ -179,6 +180,13 @@ describe('the field registry', () => {
       attribute_value: attributeValueLocalizations,
       canonical_product: canonicalProductLocalizations,
       canonical_product_family: canonicalProductFamilyLocalizations,
+      // The family's one late joiner. Its columns arrive through a SPREAD of
+      // `localizationSettlementColumns()`, so `status` and `provenance` appear
+      // nowhere in `attributeRegistry.ts` as literal text — which is exactly why
+      // this census reads `getTableColumns()` on the BUILT table instead of
+      // grepping source. A name-keyed source scan returns zero here, and the
+      // zero is false.
+      attribute_definition: attributeLabels,
     } as const;
     for (const key of LOCALIZED_FIELD_KEYS) {
       const descriptor = CATALOG_LOCALIZED_FIELDS[key];
@@ -188,10 +196,18 @@ describe('the field registry', () => {
   });
 
   it('registers no field whose entity has no table here', () => {
-    // `attribute_definition` is deliberately NOT an entity kind: `attribute_labels`
-    // carries no status and no provenance, so a candidate built from one of its
-    // rows would have to invent both. This is the line that fails when somebody
-    // adds the kind without adding the columns.
+    // This list used to end by explaining why `attribute_definition` was NOT a
+    // kind: `attribute_labels` carried no status and no provenance, so a
+    // candidate built from one of its rows would have had to invent both, and
+    // the comment said "this is the line that fails when somebody adds the kind
+    // without adding the columns."
+    //
+    // Migration 0119 added the columns and this migration adds the kind, in that
+    // order and in that dependency — `reviewAttributeDefinitionLocalization`
+    // composes a comparison carrying `status` and `provenance` off the row and
+    // could not have compiled before them. The gate did exactly what it said it
+    // would: it went red on the kind, and closing it meant proving the columns
+    // were there first.
     expect([...LOCALIZED_ENTITY_KINDS]).toEqual([
       'category',
       'product_type',
@@ -208,6 +224,11 @@ describe('the field registry', () => {
       // `catalog-name-invariance.ts`.
       'canonical_product',
       'canonical_product_family',
+      // One ATTRIBUTE DEFINITION's own label and description — the question,
+      // where `attribute_value` above is one of its answers. "Charging port" and
+      // "USB-C" are not the same string, so folding them into one kind would put
+      // a value's translation under its attribute's heading.
+      'attribute_definition',
     ]);
   });
 });
@@ -751,6 +772,92 @@ describe('the hand-written trigger SQL', () => {
         `${exempt.size} exempt (control: ${controlName} has none, structurally), ` +
         `${chain.length} migration files scanned\n`,
     );
+  });
+
+  it('attaches EVERY trigger function it defines to a trigger', () => {
+    // A trigger function with no `CREATE TRIGGER` naming it is INERT: created,
+    // readable, `db:generate` happy, migration applies cleanly, never runs.
+    // That has happened in this chain — a sibling lane shipped five revision
+    // functions where six were owed — and it is invisible to every check that
+    // READS the SQL rather than counting it.
+    //
+    // ## The population is `RETURNS trigger`, and that took two corrections
+    //
+    // The first draft required every `mercaria_*` function to be attached and
+    // reported five offenders, all false:
+    //
+    //   * `mercaria_immutable_array_to_string` is a helper called from CHECK
+    //     constraints and a generated column;
+    //   * `mercaria_navigation_tree_is_editable` is a predicate called from
+    //     another trigger's BODY;
+    //   * the three affiliate functions ARE attached — with `FOR EACH STATEMENT`
+    //     on the same line, which the first draft's `FOR EACH ROW`-only pattern
+    //     did not match.
+    //
+    // So the population is narrowed to functions that declare `RETURNS trigger`
+    // (a helper cannot be attached and demanding it is a category error), and
+    // the attachment pattern matches `EXECUTE FUNCTION` or the legacy
+    // `EXECUTE PROCEDURE` anywhere on a line rather than anchored behind one
+    // spelling of the row/statement clause.
+    //
+    // A gate that fires on correct code is worse than none, because the fix
+    // somebody reaches for is to delete it.
+    const chain = allSqlFiles();
+    const triggerFunctions = new Map<string, string>();
+    const attached = new Set<string>();
+
+    for (const file of chain) {
+      const lines = file.text.split('\n');
+      for (const [index, line] of lines.entries()) {
+        const definition = /^CREATE OR REPLACE FUNCTION (mercaria_[a-z0-9_]+)\s*\(/u.exec(line);
+        if (definition?.[1] !== undefined) {
+          // `RETURNS trigger` sits on the same line or just below it in every
+          // spelling this chain uses; three lines is generous and bounded.
+          const head = lines.slice(index, index + 4).join(' ');
+          if (/RETURNS\s+trigger/iu.test(head)) triggerFunctions.set(definition[1], file.path);
+        }
+        const attachment = /EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(mercaria_[a-z0-9_]+)\s*\(/u.exec(
+          line,
+        );
+        if (attachment?.[1] !== undefined) attached.add(attachment[1]);
+      }
+    }
+
+    // Two floors, because a walk that found no functions and one that found no
+    // attachments fail identically against a comparison of two empty sets.
+    expect(
+      triggerFunctions.size,
+      `the scan found ${String(triggerFunctions.size)} RETURNS trigger functions`,
+    ).toBeGreaterThan(20);
+    expect(
+      attached.size,
+      `the scan found ${String(attached.size)} EXECUTE FUNCTION/PROCEDURE references`,
+    ).toBeGreaterThan(20);
+
+    const inert = [...triggerFunctions.keys()].filter((name) => !attached.has(name)).sort();
+    expect(
+      inert,
+      'these trigger functions are DEFINED and never attached, so they are created and never ' +
+        'run. A migration carrying one applies cleanly and enforces nothing.',
+    ).toEqual([]);
+  });
+
+  it('is mutation-tested: an unattached trigger function is reported', () => {
+    // Without this the case above passes on a chain where the ATTACHMENT
+    // pattern silently matched everything — which is how the first draft's
+    // `FOR EACH STATEMENT` blind spot would have read once somebody "fixed" it
+    // by loosening the pattern instead of narrowing the population.
+    const planted = [
+      'CREATE OR REPLACE FUNCTION mercaria_planted_inert()',
+      'RETURNS trigger AS $$ BEGIN RETURN NULL; END; $$ LANGUAGE plpgsql;',
+    ].join('\n');
+    const defined = /^CREATE OR REPLACE FUNCTION (mercaria_[a-z0-9_]+)\s*\(/mu.exec(planted);
+    expect(defined?.[1]).toBe('mercaria_planted_inert');
+    expect(/RETURNS\s+trigger/iu.test(planted)).toBe(true);
+    expect(
+      /EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+mercaria_planted_inert\s*\(/u.test(planted),
+      'the planted function has no attachment, so the detector must not find one',
+    ).toBe(false);
   });
 
   it('names the same settled statuses the tuple does', () => {
