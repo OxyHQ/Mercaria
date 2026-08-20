@@ -633,6 +633,57 @@ export type AuthoringValidationCode =
    * rails cannot address either of these variants by SKU afterwards.
    */
   | 'duplicate_variant_sku'
+  /**
+   * A variant `barcode` whose digit length names a GS1 GTIN scheme and whose
+   * mod-10 check digit does not hold. A WARNING, like its SKU neighbour.
+   *
+   * `identifiers.ts` calls a transcription error "the single most common way a
+   * real catalogue asserts an identifier that belongs to a different product"
+   * and REFUSES it — but it refuses it at the canonical write, into
+   * `product_identifiers`, which is a global fact about a trade item.
+   * `product_variants.barcode` is not that: it is free text, unique at no
+   * grain, and a thirteen-digit internal article number is an ordinary thing to
+   * keep in it. Nothing can tell one of those from a mistyped EAN, so blocking
+   * would leave a merchant whose only remedy is deleting a true value.
+   *
+   * Only the four GS1 digit lengths raise it — see `GTIN_SCHEME_BY_LENGTH` in
+   * `services/catalog-authoring/identifier.ts`. A barcode that is not a digit
+   * string of one of those lengths is left ALONE rather than reported.
+   */
+  | 'identifier_check_digit_invalid'
+  /**
+   * Two variants of one draft assert the same barcode. A WARNING, and for the
+   * same reason `duplicate_variant_sku` is one.
+   *
+   * `IDENTIFIER_SCHEME_REGISTRY` declares every GTIN scheme
+   * `globallyUnique: true`, which is a fact about the IDENTIFIER SPACE — a GTIN
+   * names one trade item worldwide. It is not a rule about what a merchant's
+   * draft may assert, and this schema deliberately enforces no uniqueness on
+   * `product_variants.barcode` at all. Merchants do put one manufacturer
+   * barcode on two configurations; reporting it is useful, refusing it would
+   * re-impose a constraint the schema removed on purpose.
+   */
+  | 'duplicate_variant_barcode'
+  /**
+   * The barcode is an ACTIVE identifier of a canonical product OTHER than the
+   * one the author selected. A WARNING, and the severity is the load-bearing
+   * part.
+   *
+   * It is not an error because the catalogue's own posture on a conflicting
+   * identifier is to RECORD the dispute rather than refuse it: `assignIdentifier`
+   * answers `disputed` and keeps both rows, and #58's
+   * `match_decisions_blockers_auto_check` already makes a conflicting valid
+   * identifier unable to auto-merge. Blocking here would let one catalogue row —
+   * possibly itself under dispute, and not editable by this merchant — stop a
+   * publication, while the merge it might contaminate is refused by a CHECK
+   * either way.
+   *
+   * It fires only when the draft names a `selectedCanonicalProductId`. With no
+   * selection there is no contradiction to report: an owned barcode is then
+   * evidence the author picked the right product, which is what the matcher is
+   * for.
+   */
+  | 'identifier_collision'
   | 'price_missing'
   | 'price_currency_missing'
   | 'inventory_negative'
@@ -651,6 +702,40 @@ export type AuthoringValidationCode =
    * seller's own name, about goods nobody described.
    */
   | 'condition_missing'
+  /**
+   * The flow expects the listing to carry at least one image and it carries
+   * none. A WARNING; the flow tuple is `MEDIA_EXPECTED_AUTHORING_FLOWS`.
+   *
+   * The other half of "validate media/condition requirements separately from
+   * canonical product facts". #90 draws condition evidence from the listing's
+   * OWN gallery and refuses a `file_id` any `canonical_images` row already
+   * claims, so a `p2p` draft — which `CONDITION_REQUIRED_AUTHORING_FLOWS`
+   * already obliges to state a condition — with no photograph of its own has
+   * asserted a condition it can supply no evidence for, and the catalogue's
+   * picture of the model is barred from standing in.
+   *
+   * It is a WARNING and not an error because no surface in this repository can
+   * obtain an Oxy file id — there is no upload path, and the dashboard wizard
+   * renders a notice saying so where a picker would go. An error would be a
+   * gate whose only green is unreachable. `MEDIA_EXPECTED_AUTHORING_FLOWS`
+   * carries the full reasoning and the condition under which it escalates.
+   *
+   * This is about the LISTING's media and reaches no canonical image, which is
+   * what "separately from canonical product facts" asks for.
+   */
+  | 'media_missing'
+  /**
+   * The same Oxy `file_id` appears twice in one draft's `imageFileIds`. A
+   * WARNING — the `duplicate_variant_sku` posture.
+   *
+   * A gallery rendering one photograph twice is a defect and not a false
+   * assertion, and the position ordering downstream reads as two distinct
+   * slots. Nothing about the file's CONTENT is checked here or anywhere in this
+   * domain: Mercaria stores bare Oxy file ids, holds no service credential to
+   * read their metadata, and a check that claimed to confirm a file exists
+   * would be a mechanism nobody built.
+   */
+  | 'duplicate_media_file'
   // Publication
   | 'proposal_pending_blocks_publication'
   | 'draft_not_open';
@@ -684,12 +769,17 @@ export const AUTHORING_VALIDATION_CODES: readonly AuthoringValidationCode[] = [
   'variant_missing_axis_value',
   'duplicate_variant_signature',
   'duplicate_variant_sku',
+  'identifier_check_digit_invalid',
+  'duplicate_variant_barcode',
+  'identifier_collision',
   'price_missing',
   'price_currency_missing',
   'inventory_negative',
   'title_missing',
   'description_missing',
   'condition_missing',
+  'media_missing',
+  'duplicate_media_file',
   'proposal_pending_blocks_publication',
   'draft_not_open',
 ];

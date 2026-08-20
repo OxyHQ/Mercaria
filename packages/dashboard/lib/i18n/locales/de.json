@@ -1215,12 +1215,17 @@
         "axisValueMissing": "Dieser Kombination fehlt einer ihrer Werte.",
         "duplicateVariant": "Eine andere Kombination hat dieselben Werte.",
         "duplicateVariantSku": "Eine andere Variante nutzt diese SKU bereits.",
+        "identifierCheckDigitInvalid": "Die Prüfziffer dieses Barcodes stimmt nicht. Bitte neu eingeben.",
+        "duplicateVariantBarcode": "Eine andere Variante verwendet diesen Barcode bereits.",
+        "identifierCollision": "Dieser Barcode gehört zu einem anderen Produkt im Katalog.",
         "priceMissing": "Diese Kombination hat keinen Preis.",
         "priceCurrencyMissing": "Diesem Preis fehlt die Währung.",
         "inventoryNegative": "Der Bestand kann nicht negativ sein.",
         "titleMissing": "Die Anzeige braucht einen Titel.",
         "descriptionMissing": "Die Anzeige braucht eine Beschreibung.",
         "conditionMissing": "Gib an, in welchem Zustand dieser Artikel ist.",
+        "mediaMissing": "Dieses Angebot hat keine Fotos.",
+        "duplicateMediaFile": "Dieses Foto ist bereits in der Liste.",
         "proposalPending": "Ein vorgeschlagener Wert ist noch offen, und dieser Produkttyp blockiert die Veröffentlichung bis zur Entscheidung.",
         "draftNotOpen": "Dieser Entwurf ist nicht mehr offen."
       }

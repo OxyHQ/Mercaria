@@ -50,7 +50,11 @@ import {
   evaluateVisibilityRule,
 } from '../product-types/visibility-rule.js';
 import { resolveUnit, unitFamilyOf } from '../canonical/units.js';
-import { CONDITION_REQUIRED_AUTHORING_FLOWS } from '../../db/schema/catalogAuthoring.js';
+import { classifyBarcode, identifierIsGloballyUnique } from './identifier.js';
+import {
+  CONDITION_REQUIRED_AUTHORING_FLOWS,
+  MEDIA_EXPECTED_AUTHORING_FLOWS,
+} from '../../db/schema/catalogAuthoring.js';
 
 /** One answer, as validation sees it. Deliberately the storage shape. */
 export interface DraftValueForValidation {
@@ -78,6 +82,15 @@ export interface DraftVariantForValidation {
   readonly axisSignature: string | null;
   /** The merchant's own code. Reported on a DUPLICATE, never refused — see the code. */
   readonly sku: string | null;
+  /**
+   * The trade-item identifier, exactly as the author typed it.
+   *
+   * RAW rather than pre-normalized, because normalizing on the way in would put
+   * a second spelling of `digitsOnly` in the caller — and the caller is a
+   * repository mapper, which is where a normalization nobody can see would be
+   * hardest to find. `classifyBarcode` is the one place it happens.
+   */
+  readonly barcode: string | null;
 }
 
 /** Everything a validation reads. */
@@ -100,6 +113,17 @@ export interface DraftValidationInput {
   readonly flow: ProductTypeAuthoringFlow;
   /** #90's key, or `null` when the author has not said (#572). */
   readonly itemConditionKey: ItemConditionKey | null;
+  /**
+   * The LISTING's own Oxy media file ids, in gallery order.
+   *
+   * Bare ids and nothing else — Mercaria stores no width, no digest, no MIME
+   * type and no owner, and holds no Oxy service credential to read them (the
+   * `AssetRef` gap `services/moderation/` records for the same reason). So what
+   * is checkable here is COUNT, DUPLICATION and REQUIRED-NESS; whether the file
+   * exists, what is in it and whose it is are not, and are deliberately not
+   * pretended at.
+   */
+  readonly imageFileIds: readonly string[];
   readonly variants: readonly DraftVariantForValidation[];
   readonly values: readonly DraftValueForValidation[];
   /** Whether the pinned category is still selectable and in the version's scope. */
@@ -278,6 +302,8 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
     findings.push(finding('condition_missing', 'error', 'condition.itemCondition'));
   }
 
+  checkMedia(findings, input);
+
   const fieldsById = new Map(input.schema.fields.map((field) => [field.id, field]));
   const rules = ruleValues(input.values);
   const variantByPosition = new Map(input.variants.map((variant) => [variant.id, variant.position]));
@@ -371,6 +397,8 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
     }
   }
 
+  checkBarcodes(findings, input.variants);
+
   for (const variant of input.variants) {
     if (variant.priceAmount === null) {
       findings.push(finding('price_missing', 'error', `variants[${variant.position}].price`));
@@ -400,6 +428,129 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
     findings,
     schemaEtag: input.schema.etag,
   };
+}
+
+/**
+ * The LISTING's media, which is not a canonical product fact.
+ *
+ * Two checks and a stated boundary. What is NOT checked, and cannot honestly
+ * be: whether the file exists, what is in it, its dimensions, its format, or
+ * whether it belongs to this seller. Mercaria stores bare Oxy `file_id`s with
+ * no foreign key and never calls `configureServiceAuth`, so every one of those
+ * is a question only Oxy can answer and this deployment holds no credential to
+ * ask with. A check that reported "image ok" from a well-formed string would be
+ * a mechanism nobody built, and the surface would read as though the file had
+ * been seen.
+ *
+ * A COUNT ceiling is not checked either, and that absence is also deliberate:
+ * `catalog-authoring-schemas.ts` bounds the array at 64 on the only route that
+ * writes it, so a ceiling here could not fire — the shape a reviewer reads as
+ * coverage. If a second writer ever appears, the bound belongs here and this
+ * paragraph is the note saying so.
+ */
+function checkMedia(findings: AuthoringValidationFinding[], input: DraftValidationInput): void {
+  const path = 'listing.imageFileIds';
+
+  if (input.imageFileIds.length === 0) {
+    if (MEDIA_EXPECTED_AUTHORING_FLOWS.includes(input.flow)) {
+      // A WARNING, and `MEDIA_EXPECTED_AUTHORING_FLOWS` carries the reasoning:
+      // no surface in this repository can obtain an Oxy file id, so an error
+      // would be a gate with no reachable green. It is `recommended`'s own
+      // severity, which is what that level exists for.
+      findings.push(finding('media_missing', 'warning', path));
+    }
+    return;
+  }
+
+  // Folded per FILE, the `duplicate_variant_sku` shape: one photograph pasted
+  // three times is one thing to fix. Named on the second and every later
+  // occurrence — the first is not the mistake — and the path carries the
+  // POSITION, because that is the gallery slot an author would remove.
+  const seen = new Set<string>();
+  for (let position = 0; position < input.imageFileIds.length; position += 1) {
+    const fileId = input.imageFileIds[position];
+    if (fileId === undefined) continue;
+    // Trimmed, but NOT case-folded. A SKU is a merchant's own code that every
+    // rail looks up case-insensitively; an Oxy file id is a foreign service's
+    // primary key, and folding it would declare two distinct ids the same.
+    const key = fileId.trim();
+    if (key === '') continue;
+    if (seen.has(key)) {
+      findings.push(finding('duplicate_media_file', 'warning', `${path}[${position}]`));
+    }
+    seen.add(key);
+  }
+}
+
+/**
+ * Every variant's barcode: is it the identifier it claims to be, and does the
+ * draft assert the same one twice.
+ *
+ * The arithmetic is `services/canonical/identifiers.ts`'s and the scheme choice
+ * is `./identifier.ts`'s; nothing here re-implements either. The COLLISION
+ * against the canonical catalogue is not here at all — it needs a read, and
+ * this module takes no database. `identifierCollisionFindings` is where it
+ * lives, merged in by `validateDraftRow` the way the pending-proposal findings
+ * already are.
+ *
+ * ## Both findings are WARNINGS, and that is the decision to read
+ *
+ * `product_variants.sku` and `.barcode` are unique at NO grain in this schema
+ * and `AGENTS.md` says in as many words that they must not be re-narrowed — two
+ * merchants selling one trade item share a GTIN by definition, and GTIN
+ * IDENTITY is `product_identifiers`' collision gate rather than this column.
+ * An error here would re-impose in the authoring form a constraint the schema
+ * deliberately does not carry, which is the objection `duplicate_variant_sku`
+ * already records for the column beside it.
+ *
+ * The check digit is the same call for a sharper reason: this is a FREE-TEXT
+ * column, and a thirteen-digit internal article number is a perfectly ordinary
+ * thing to keep in it. `classifyBarcode` cannot tell one from a mistyped EAN —
+ * nothing can — so an error would block a merchant whose only remedy is to
+ * delete a true value. The cheapest green would be destroying data, which is
+ * the shape of gate `~/Oxy/AGENTS.md` says is worse than no gate.
+ *
+ * What a warning still buys is the whole point: the author is TOLD, in the same
+ * list and on the same path, and a barcode that is not a GTIN silently fails to
+ * match anything downstream forever.
+ */
+function checkBarcodes(
+  findings: AuthoringValidationFinding[],
+  variants: readonly DraftVariantForValidation[],
+): void {
+  /** The canonical GTIN-14 of each variant that stated a readable one. */
+  const canonicalPositions = new Map<string, number[]>();
+
+  for (const variant of variants) {
+    const classified = classifyBarcode(variant.barcode);
+    const path = `variants[${variant.position}].barcode`;
+    if (classified.kind === 'unrecognized') continue;
+    if (classified.kind === 'invalid') {
+      findings.push(finding('identifier_check_digit_invalid', 'warning', path));
+      continue;
+    }
+    // Only a scheme the registry declares globally unique is worth reporting a
+    // repeat of. Read off the registry rather than asserted here, so a scheme
+    // whose uniqueness claim changes changes this with it — an MPN repeated
+    // across two variants of one product is ordinary and says nothing.
+    if (!identifierIsGloballyUnique(classified.scheme)) continue;
+    // Keyed on the CANONICAL form, so a UPC-12 and the EAN-13 that pads to the
+    // same fourteen digits collide — which they do, because they name one trade
+    // item. Keying on the typed string would miss exactly that case.
+    canonicalPositions.set(classified.canonicalValue, [
+      ...(canonicalPositions.get(classified.canonicalValue) ?? []),
+      variant.position,
+    ]);
+  }
+
+  for (const positions of canonicalPositions.values()) {
+    if (positions.length < 2) continue;
+    for (const position of positions.slice(1)) {
+      findings.push(
+        finding('duplicate_variant_barcode', 'warning', `variants[${position}].barcode`),
+      );
+    }
+  }
 }
 
 /** Every check that is about ONE field and its answers. */

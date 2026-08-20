@@ -1215,12 +1215,17 @@
         "axisValueMissing": "এই সমন্বয়ের একটি মান বাকি আছে।",
         "duplicateVariant": "আরেকটি সমন্বয়ে একই মান রয়েছে।",
         "duplicateVariantSku": "এই SKU আরেকটি ভ্যারিয়েন্টে ব্যবহৃত হয়েছে।",
+        "identifierCheckDigitInvalid": "এই বারকোডের চেক ডিজিট মিলছে না। আবার লিখুন।",
+        "duplicateVariantBarcode": "অন্য একটি ভ্যারিয়েন্ট ইতিমধ্যে এই বারকোড ব্যবহার করছে।",
+        "identifierCollision": "এই বারকোড ক্যাটালগের অন্য একটি পণ্যের।",
         "priceMissing": "এই সমন্বয়ের কোনো দাম নেই।",
         "priceCurrencyMissing": "এই দামের কোনো মুদ্রা নেই।",
         "inventoryNegative": "মজুত ঋণাত্মক হতে পারে না।",
         "titleMissing": "বিজ্ঞাপনের একটি শিরোনাম দরকার।",
         "descriptionMissing": "বিজ্ঞাপনের একটি বিবরণ দরকার।",
         "conditionMissing": "এই জিনিসটির অবস্থা জানান।",
+        "mediaMissing": "এই তালিকায় কোনো ছবি নেই।",
+        "duplicateMediaFile": "এই ছবিটি ইতিমধ্যে তালিকায় আছে।",
         "proposalPending": "একটি প্রস্তাবিত মান এখনও অপেক্ষায় আছে, এবং সিদ্ধান্ত না হওয়া পর্যন্ত এই পণ্যের ধরন প্রকাশ আটকে রাখে।",
         "draftNotOpen": "এই খসড়াটি আর খোলা নেই।"
       }

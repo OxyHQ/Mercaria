@@ -1215,12 +1215,17 @@
         "axisValueMissing": "इस संयोजन में एक मान बाक़ी है।",
         "duplicateVariant": "किसी और संयोजन में भी यही मान हैं।",
         "duplicateVariantSku": "यह SKU पहले से किसी और वैरिएंट में है।",
+        "identifierCheckDigitInvalid": "इस बारकोड का चेक अंक मेल नहीं खाता। इसे दोबारा लिखें।",
+        "duplicateVariantBarcode": "कोई दूसरा वैरिएंट पहले से यह बारकोड इस्तेमाल कर रहा है।",
+        "identifierCollision": "यह बारकोड कैटलॉग के किसी दूसरे उत्पाद का है।",
         "priceMissing": "इस संयोजन की कोई कीमत नहीं है।",
         "priceCurrencyMissing": "इस कीमत की कोई मुद्रा नहीं है।",
         "inventoryNegative": "स्टॉक ऋणात्मक नहीं हो सकता।",
         "titleMissing": "लिस्टिंग को एक शीर्षक चाहिए।",
         "descriptionMissing": "लिस्टिंग को एक विवरण चाहिए।",
         "conditionMissing": "बताएँ कि यह वस्तु किस स्थिति में है।",
+        "mediaMissing": "इस लिस्टिंग में कोई फ़ोटो नहीं है।",
+        "duplicateMediaFile": "यह फ़ोटो पहले से सूची में है।",
         "proposalPending": "एक प्रस्तावित मान अब भी लंबित है, और यह उत्पाद प्रकार निर्णय होने तक प्रकाशन रोक देता है।",
         "draftNotOpen": "यह ड्राफ़्ट अब खुला नहीं है।"
       }

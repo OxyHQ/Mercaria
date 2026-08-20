@@ -1233,12 +1233,17 @@
         "axisValueMissing": "A esta combinación le falta uno de sus valores.",
         "duplicateVariant": "Otra combinación tiene los mismos valores.",
         "duplicateVariantSku": "Otra variante ya usa este SKU.",
+        "identifierCheckDigitInvalid": "El dígito de control de este código de barras no cuadra. Vuelve a escribirlo.",
+        "duplicateVariantBarcode": "Otra variante ya usa este código de barras.",
+        "identifierCollision": "Este código de barras pertenece a otro producto del catálogo.",
         "priceMissing": "Esta combinación no tiene precio.",
         "priceCurrencyMissing": "Este precio no tiene moneda.",
         "inventoryNegative": "El stock no puede ser negativo.",
         "titleMissing": "El anuncio necesita un título.",
         "descriptionMissing": "El anuncio necesita una descripción.",
         "conditionMissing": "Indica en qué estado está este artículo.",
+        "mediaMissing": "Este anuncio no tiene fotografías.",
+        "duplicateMediaFile": "Esta fotografía ya está en la lista.",
         "proposalPending": "Hay un valor propuesto pendiente y este tipo de producto bloquea la publicación hasta que se decida.",
         "draftNotOpen": "Este borrador ya no está abierto."
       }
