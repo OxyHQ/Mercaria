@@ -159,6 +159,12 @@ function input(overrides: Partial<DraftValidationInput> = {}): DraftValidationIn
     variants: [variant()],
     values: [value()],
     categorySelectable: true,
+    // EMPTY by default, which is the ordinary draft: every controlled answer the
+    // fixture makes is offered by the schema, so nothing is awaiting a
+    // publication. The #568 case below populates it deliberately, and the
+    // `value_not_in_controlled_set` case above keeps it empty — which is what
+    // makes the two cases distinguish the codes rather than share one.
+    valuesAwaitingPublication: new Set<string>(),
     categoryInScope: true,
     ...overrides,
   };
@@ -239,6 +245,36 @@ describe('values are checked against the CITED registry version', () => {
   it('a controlled value outside the set is refused', () => {
     const result = validateDraft(input({ values: [value({ valueEnumValueId: 'v-purple' })] }));
     expect(codes(result)).toContain('value_not_in_controlled_set');
+  });
+
+  /**
+   * #568: an APPROVED value queued in an unpublished version is a different fact
+   * from an invalid one, and the two inputs below differ in EXACTLY one thing.
+   *
+   * That is what makes the pair a measurement rather than two assertions. The id
+   * is outside the composed set in both cases — publication was blocked before
+   * this code existed and still is — so if the branch were deleted, the second
+   * case would keep failing validation and only the CODE would silently revert to
+   * the misleading one.
+   */
+  it('an approved value awaiting publication is refused by its own code, not as invalid', () => {
+    const values = [value({ valueEnumValueId: 'v-purple' })];
+    const awaiting = validateDraft(
+      input({ values, valuesAwaitingPublication: new Set(['v-purple']) }),
+    );
+    expect.soft(codes(awaiting)).toContain('approved_value_not_published');
+    expect
+      .soft(codes(awaiting), 'the honest code did not REPLACE the misleading one')
+      .not.toContain('value_not_in_controlled_set');
+    // Still an error, so the gate is unchanged in what it PERMITS.
+    expect(awaiting.publishable, 'an unpublished approved value must not publish').toBe(false);
+
+    // The control: the same answer with nothing awaiting publication.
+    const invalid = validateDraft(input({ values, valuesAwaitingPublication: new Set<string>() }));
+    expect.soft(codes(invalid)).toContain('value_not_in_controlled_set');
+    expect(codes(invalid), 'the code fired without an awaiting value').not.toContain(
+      'approved_value_not_published',
+    );
   });
 
   it('an answer of the wrong KIND is refused', () => {
@@ -1025,6 +1061,10 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
       field_forbidden_in_flow: input({ schema: schema([field({ requirement: 'forbidden' })]) }),
       value_type_mismatch: input({ values: [value({ kind: 'text', valueText: 'black' })] }),
       value_not_in_controlled_set: input({ values: [value({ valueEnumValueId: 'v-purple' })] }),
+      approved_value_not_published: input({
+        values: [value({ valueEnumValueId: 'v-purple' })],
+        valuesAwaitingPublication: new Set(['v-purple']),
+      }),
       value_below_minimum: input({
         schema: schema([numeric({ minValue: 10 })]),
         values: [numberValue({ valueNumber: 1 })],

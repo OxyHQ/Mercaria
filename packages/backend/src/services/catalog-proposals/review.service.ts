@@ -9,6 +9,29 @@
  * proposal never becomes globally trusted data by being submitted" is a property
  * of the import graph rather than of anybody's discipline.
  *
+ * ## What it ALSO causes, through a seam it does not own (#568)
+ *
+ * Approving a value against a PUBLISHED attribute cannot write
+ * `attribute_enum_values` directly — `mercaria_attribute_enum_frozen` refuses any
+ * parent that has left `draft`, and every attribute in a seeded deployment is
+ * `active`, which is why the only mintable proposal type raised on every approval
+ * that mattered. The remedy the trigger's own message names is a new version, and
+ * an `attribute_definitions` row is a write this domain must not perform.
+ *
+ * So it asks the registry to perform it:
+ * {@link addControlledValueToAttribute} in `services/attributes/`. That function
+ * takes an existing definition's **id** and has no `key` parameter, so a proposal
+ * cannot conjure an attribute that did not exist in any code path — which is the
+ * property the wall exists for, held by a signature instead of by a scan.
+ *
+ * The narrowing is deliberate and worth stating plainly: this module may cause a
+ * new VERSION of an attribute an operator already published, and may not cause a
+ * new ATTRIBUTE. Drafting version N+1 mints no identity, invents no key and
+ * carries the existing vocabulary forward under a census; it is the registry's
+ * own mechanism for changing a frozen version, not a second way to create one.
+ * `catalog-proposal-isolation.test.ts` walks the transitive import graph and
+ * requires that reach to be dispositioned, so it is measured rather than trusted.
+ *
  * ## Why approval MINTS one type and LINKS the other seven
  *
  * `CATALOG_PROPOSAL_MINTABLE_TYPES` has one member and
@@ -56,9 +79,11 @@ import { conflict, forbidden, notFound, validationError } from '../../lib/errors
 import { log } from '../../lib/logger.js';
 import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';
 import {
+  findAttributeDefinitionById,
   insertAttributeEnumValue,
   insertAttributeValueAlias,
 } from '../../db/attributes/definitionRepository.js';
+import { addControlledValueToAttribute } from '../attributes/value-extension.service.js';
 import { bumpAuthoringSchemaInvalidation } from '../../db/catalogAuthoring/schemaInvalidationRepository.js';
 import {
   insertProposal,
@@ -68,6 +93,7 @@ import {
   type CatalogProposalRow,
 } from '../../db/catalogProposals/proposalRepository.js';
 import { projectProposal } from './projection.js';
+import { readProposalPublication } from './publication.js';
 import { normalizeProposalLabel } from './normalization.js';
 import { runProposalBackfill } from './backfill.service.js';
 
@@ -97,7 +123,12 @@ export async function approveProposal(
 
   const proposal = await db.transaction(async (tx) => {
     const row = await requireOpenProposal(tx, context.proposalId, context.operatorOxyUserId);
-    const resolvedEntityId = await mintForProposal(tx, row, approval);
+    const resolvedEntityId = await mintForProposal(
+      tx,
+      row,
+      approval,
+      context.operatorOxyUserId,
+    );
     const moved = await transitionProposal(tx, row.id, row.state, {
       toState: 'approved',
       decidedByOxyUserId: context.operatorOxyUserId,
@@ -120,7 +151,7 @@ export async function approveProposal(
   });
 
   await backfillAfterResolution(db, proposal, context.operatorOxyUserId);
-  return projectProposal(proposal);
+  return projectProposal(proposal, await readProposalPublication(db, proposal));
 }
 
 /**
@@ -136,6 +167,7 @@ async function mintForProposal(
   db: DatabaseOrTransaction,
   row: CatalogProposalRow,
   approval: CatalogProposalApproval,
+  operatorOxyUserId: string,
 ): Promise<string> {
   if (!CATALOG_PROPOSAL_MINTABLE_TYPES.includes(row.type)) {
     const owner = CATALOG_PROPOSAL_LINK_ONLY_TYPES[row.type];
@@ -173,6 +205,54 @@ async function mintForProposal(
   const label = (approval.label ?? row.proposedLabel).trim();
   if (label.length === 0) throw validationError('A controlled value needs a label.');
 
+  // Which VERSION the value can actually be written to (#568).
+  //
+  // `mercaria_attribute_enum_frozen` refuses to touch the value vocabulary of any
+  // definition that has left `draft`, and its own message names the remedy:
+  // "publish a new version instead". `seed-verticals/apply.ts` publishes every
+  // attribute it drafts, so in a seeded deployment EVERY attribute a merchant can
+  // see is `active` — which made this, the only mintable proposal type, raise
+  // `restrict_violation` on every approval that mattered. The one test that
+  // minted used a `draft` fixture, chosen for a teardown reason, so the suite was
+  // green over the single lifecycle state in which the write works.
+  const definition = await findAttributeDefinitionById(db, row.attributeDefinitionId);
+  if (definition === undefined) {
+    throw validationError('This proposal names an attribute definition that no longer exists.');
+  }
+
+  // The submitter's verbatim spelling, so the next merchant who types it resolves
+  // rather than proposing again. Computed once: both paths below need it, and the
+  // carry-forward needs it BEFORE the value row exists.
+  const spelling = normalizeProposalLabel(row.proposedLabel);
+  const submittedAliases =
+    approval.recordSubmittedSpellingAsAlias === true && spelling.normalized !== key
+      ? [row.proposedLabel]
+      : [];
+
+  if (definition.lifecycleState !== 'draft') {
+    // The registry's own seam. It resolves the KEY from the id, extends the
+    // ACTIVE version — never the one the proposal named, which may since have
+    // been superseded — and returns the value it placed.
+    //
+    // No `bumpAuthoringSchemaInvalidation` on this path, and the asymmetry with
+    // the branch below is the point rather than an oversight. The invalidation is
+    // keyed on an `attribute_definitions` id, and an authoring schema is composed
+    // from the exact definition version `product_type_fields.attribute_definition_id`
+    // cites. Below, the value is added to the very definition the proposal named,
+    // which a live composition may be serving. Here it lands in a version no
+    // product-type field cites, while the ACTIVE version compositions DO cite is
+    // untouched — so bumping the new id would invalidate nothing, bumping the old
+    // one would claim a change that did not happen, and either would assert a
+    // liveness the value has not got. Publication is what makes it visible.
+    const placed = await addControlledValueToAttribute(
+      db,
+      row.attributeDefinitionId,
+      { value: key, label, aliases: submittedAliases },
+      operatorOxyUserId,
+    );
+    return placed.enumValueId;
+  }
+
   const inserted = await insertAttributeEnumValue(db, row.attributeDefinitionId, key, label, 0);
   if (inserted === undefined) {
     // `ON CONFLICT DO NOTHING` fired: an operator picked a key that already
@@ -184,19 +264,15 @@ async function mintForProposal(
     );
   }
 
-  // The submitter's verbatim spelling, recorded so the next merchant who types it
-  // resolves rather than proposing again. Best-effort by shape: the alias insert
-  // is `ON CONFLICT DO NOTHING`, and an alias already pointing at ANOTHER value
-  // is a fact this approval must not overwrite.
-  if (approval.recordSubmittedSpellingAsAlias === true) {
-    const spelling = normalizeProposalLabel(row.proposedLabel);
-    if (spelling.normalized !== key) {
-      await insertAttributeValueAlias(db, {
-        attributeDefinitionId: row.attributeDefinitionId,
-        enumValueId: inserted.id,
-        alias: row.proposedLabel,
-      });
-    }
+  // Best-effort by shape: the alias insert is `ON CONFLICT DO NOTHING`, and an
+  // alias already pointing at ANOTHER value is a fact this approval must not
+  // overwrite.
+  for (const alias of submittedAliases) {
+    await insertAttributeValueAlias(db, {
+      attributeDefinitionId: row.attributeDefinitionId,
+      enumValueId: inserted.id,
+      alias,
+    });
   }
 
   // The controlled-value set is one of the four things that can still move under
@@ -259,7 +335,7 @@ export async function mergeProposalIntoExisting(
   });
 
   await backfillAfterResolution(db, proposal, context.operatorOxyUserId);
-  return projectProposal(proposal);
+  return projectProposal(proposal, await readProposalPublication(db, proposal));
 }
 
 /** Refuse a proposal. Terminal; another attempt is a NEW row. */
@@ -423,7 +499,7 @@ export async function redirectProposal(
       reason: `redirected from ${row.id}`,
       at: now,
     });
-    return projectProposal(moved);
+    return projectProposal(moved, await readProposalPublication(tx, moved));
   });
 }
 
@@ -484,7 +560,7 @@ async function decide(
       reason: shape.reason,
       at: now,
     });
-    return projectProposal(moved);
+    return projectProposal(moved, await readProposalPublication(tx, moved));
   });
 }
 

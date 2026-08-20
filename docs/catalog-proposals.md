@@ -84,6 +84,91 @@ wearing a reasonable name. So an operator creates the entity where it is owned
 and then **merges** the proposal into it — one of D9's own six actions, leaving
 the record saying exactly what happened.
 
+## Where an approved value actually lands (#568)
+
+A published attribute version is IMMUTABLE. `mercaria_attribute_enum_frozen`
+raises `restrict_violation` for any parent whose `lifecycle_state <> 'draft'`,
+and `scripts/seed-verticals/apply.ts` publishes every attribute it drafts — so in
+a seeded deployment every attribute a merchant can see is `active`, and the
+approval of the only mintable type raised on every request that mattered. The one
+test that minted used a `draft` fixture, chosen for a teardown reason, so the
+suite was green over the single lifecycle state in which the write works.
+
+The rule is one sentence: **the approved value goes into the key's LATEST
+version when that version is still `draft`, and otherwise into a new version
+drafted from the ACTIVE one.**
+
+The second half is the remedy the trigger's own message names. The first half is
+what stops it losing data, and it is not an edge case — a review queue's normal
+shape is several approvals before anybody publishes. Drafting from the ACTIVE
+version every time gives v2 carrying the first value and v3 carrying only the
+second, because both were built from v1; publishing v3 then silently discards an
+approval somebody made. Nothing in the database would have refused it, because
+there is no partial unique forbidding two drafts of one key. A realdb case pins
+it and mutation-testing it produces exactly that `[1, 2, 3]`.
+
+### The proposal domain does not perform the write
+
+Drafting a version inserts an `attribute_definitions` row, and that is a write
+this domain must never perform — `attribute` is a LINK-ONLY type. So the approval
+calls `addControlledValueToAttribute` in `services/attributes/`, the registry's
+own seam. It takes an existing definition's **id** and has no `key` parameter, so
+a proposal cannot conjure an attribute that did not exist in any code path: the
+narrowing is a signature rather than a rule.
+
+The narrowing itself is worth stating plainly. This module may cause a new
+VERSION of an attribute an operator already published, and may not cause a new
+ATTRIBUTE. Drafting v2 mints no identity, invents no key, and carries the whole
+existing vocabulary forward under a column-by-column census
+(`version-carry-forward.ts`).
+
+`catalog-proposal-isolation.test.ts` walks the TRANSITIVE import graph for that
+reach and requires it to be dispositioned with a reason, so the narrowing is
+measured rather than trusted — and any OTHER path to a link-only mint fails the
+build. The module-text wall it sits beside could not see this: an earlier
+implementation called `draftAttributeDefinition` directly, minted the row
+transitively, and the name-keyed scan stayed green over a real violation.
+
+### Approval is not publication
+
+Two things the approval deliberately does NOT do:
+
+- **It does not publish.** Activation is a separate, attributable operator step —
+  the `fee_schedules` and `match_policy_versions` pattern. Publishing here would
+  put a global, live schema change for every store on the far end of a review
+  queue, triggered by approving one merchant's colour.
+- **It does not bump `catalog_authoring_schema_invalidations`.** An authoring
+  schema is composed from the exact version `product_type_fields.
+  attribute_definition_id` cites. The value lands in a version no field cites,
+  while the ACTIVE version compositions DO cite is untouched — so bumping the new
+  id would invalidate nothing and bumping the old one would claim a change that
+  did not happen. The DRAFT path still bumps, because there the value is added to
+  the very definition the proposal named.
+
+So `approved` means the decision was taken and NOT that the value is usable.
+`CatalogProposal.publication` is where a reader looks: `pending_publication`,
+`published`, `superseded`, or `not_applicable` for the seven link-only types. It
+is DERIVED on every read from the version's `lifecycle_state` rather than stored,
+because a column would be a second representation of a fact that moves in another
+domain without this one being told.
+
+Read `published` narrowly — it says the version carrying the value is `active`.
+It does not claim a merchant can see the value, because a product-type field pins
+one exact attribute version; the form offers it only once a product-type version
+citing that version is published too. **Who publishes an attribute version, and
+on what signal, is not answered here** — #782, which also records the measured
+reason publishing it is not by itself enough.
+
+### A merchant draft cannot publish against a value that has not
+
+A draft answering with the approved value reports
+`approved_value_not_published` and is not publishable. It was already refused
+before #568 — the value's id is outside the composed schema's controlled set, so
+`value_not_in_controlled_set` fired — and what changed is the CAUSE. "You
+answered with something invalid" and "your request was granted and is queued
+behind a publication you cannot perform" lead to opposite next actions, and only
+one of them was true.
+
 ## Duplicate detection, and the number that makes it mean something
 
 ADR 0007 D9 asks for duplicate detection BEFORE submission. The failure the

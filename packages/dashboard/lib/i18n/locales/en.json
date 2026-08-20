@@ -1227,6 +1227,7 @@
         "mediaMissing": "This listing has no photographs.",
         "duplicateMediaFile": "This photograph is already in the list.",
         "proposalPending": "A proposed value is still waiting, and this product type blocks publishing until it is decided.",
+        "approvedValueNotPublished": "Your value was approved and is waiting to be published. You can publish once an operator releases it.",
         "draftNotOpen": "This draft is no longer open."
       }
     }

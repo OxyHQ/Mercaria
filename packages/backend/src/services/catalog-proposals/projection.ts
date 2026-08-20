@@ -17,6 +17,7 @@
 import type {
   CatalogProposal,
   CatalogProposalDuplicateCandidate,
+  ResolvedEntityPublication,
   CatalogProposalReference,
   CatalogReviewEvent,
 } from '@mercaria/shared-types';
@@ -32,8 +33,22 @@ function iso(value: Date | null): string | null {
   return value === null ? null : value.toISOString();
 }
 
-export function projectProposal(row: CatalogProposalRow): CatalogProposal {
+/**
+ * `publication` is a REQUIRED second argument and not an optional one (#568).
+ *
+ * It cannot be derived from the row — the fact lives on the attribute VERSION,
+ * one table and one domain away — so the only two shapes available were a
+ * parameter the compiler demands and a field a caller may forget. An optional one
+ * would default to "no publication information" on exactly the surfaces that
+ * report an approval, which is where reading `approved` as done does the damage.
+ * {@link readProposalPublications} is what supplies it, batched.
+ */
+export function projectProposal(
+  row: CatalogProposalRow,
+  publication: ResolvedEntityPublication,
+): CatalogProposal {
   return {
+    publication,
     id: row.id,
     type: row.type,
     origin: row.origin,

@@ -1227,6 +1227,7 @@
         "mediaMissing": "此商品没有照片。",
         "duplicateMediaFile": "此照片已在列表中。",
         "proposalPending": "有一个提议的值仍在等待处理，此商品类型在决定之前会阻止发布。",
+        "approvedValueNotPublished": "您的值已获批准，正等待发布。运营人员发布后您即可发布。",
         "draftNotOpen": "此草稿已不再处于打开状态。"
       }
     }

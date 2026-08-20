@@ -1227,6 +1227,7 @@
         "mediaMissing": "Dieses Angebot hat keine Fotos.",
         "duplicateMediaFile": "Dieses Foto ist bereits in der Liste.",
         "proposalPending": "Ein vorgeschlagener Wert ist noch offen, und dieser Produkttyp blockiert die Veröffentlichung bis zur Entscheidung.",
+        "approvedValueNotPublished": "Ihr Wert wurde genehmigt und wartet auf die Veröffentlichung. Sie können veröffentlichen, sobald ein Operator ihn freigibt.",
         "draftNotOpen": "Dieser Entwurf ist nicht mehr offen."
       }
     }

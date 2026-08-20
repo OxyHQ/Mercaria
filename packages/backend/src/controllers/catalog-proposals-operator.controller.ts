@@ -29,7 +29,7 @@ import { catalogOperatorId } from '../middleware/catalog-operator-authz.js';
 import { routeParam } from '../utils/request.js';
 import { sendSuccess } from '../utils/api-response.js';
 import { listProposals } from '../db/catalogProposals/proposalRepository.js';
-import { projectProposal } from '../services/catalog-proposals/projection.js';
+import { projectProposals } from '../services/catalog-proposals/publication.js';
 import { readProposalTrace } from '../services/catalog-proposals/proposal.service.js';
 import { runProposalBackfill } from '../services/catalog-proposals/backfill.service.js';
 import {
@@ -59,7 +59,7 @@ export async function catalogProposalQueueHandler(req: Request, res: Response): 
       limit: Math.min(query.limit ?? config.catalogProposals.pageSize, config.catalogProposals.pageSize),
       offset: query.offset ?? 0,
     });
-    sendSuccess(res, rows.map(projectProposal));
+    sendSuccess(res, await projectProposals(getDb(), rows));
   } catch (err) {
     respondWithError(res, err, 'Failed to read the proposal queue');
   }

@@ -66,6 +66,7 @@ import {
   findPublishedVersionForKey,
   productTypeIsScopedToCategory,
 } from '../../db/catalogAuthoring/schemaSourceRepository.js';
+import { listEnumValueVersions } from '../../db/attributes/definitionRepository.js';
 import { listProductTypeFields } from '../../db/productTypes/productTypeFieldRepository.js';
 import { findProductTypeDefinitionById } from '../../db/productTypes/productTypeRepository.js';
 import {
@@ -405,6 +406,32 @@ export async function validateDraftRow(
     listOpenProposalsBlockingDraft(db, row.id),
   ]);
 
+  // Which of the draft's controlled answers are waiting on a publication (#568).
+  //
+  // Sequential after the batch above because it reads the value ids the answers
+  // carry. An approved value lands in a NEW `draft` attribute version whenever the
+  // attribute it extends was published, while the composed schema offers only the
+  // version `product_type_fields.attribute_definition_id` cites — so the id is
+  // outside the controlled set and publication is refused either way. This does not
+  // change that; it changes the CAUSE reported, from "you answered with something
+  // invalid" to "your request was granted and is queued". Only ids the schema does
+  // NOT offer are looked up, so an ordinary draft issues no statement at all.
+  const offered = new Set(
+    schema.fields.flatMap((field) => field.controlledValues.map((value) => value.id)),
+  );
+  const unofferedValueIds = values
+    .map((value) => value.valueEnumValueId)
+    .filter((id): id is string => id !== null && !offered.has(id));
+  const awaitingVersions =
+    unofferedValueIds.length === 0
+      ? []
+      : await listEnumValueVersions(db, [...new Set(unofferedValueIds)]);
+  const valuesAwaitingPublication = new Set(
+    awaitingVersions
+      .filter((version) => version.lifecycleState !== 'active')
+      .map((version) => version.enumValueId),
+  );
+
   // Sequential after the batch above rather than inside it, because it reads the
   // barcodes the variants carry. It issues NO statement at all for a draft that
   // named no canonical product or stated no well-formed barcode, which is the
@@ -431,6 +458,7 @@ export async function validateDraftRow(
     imageFileIds: row.imageFileIds,
     categorySelectable: category?.selectable ?? false,
     categoryInScope: inScope,
+    valuesAwaitingPublication,
     variants: variants.map((variant) => ({
       id: variant.id,
       position: variant.position,

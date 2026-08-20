@@ -122,11 +122,12 @@ export interface DraftAttributeDefinitionInput {
  */
 export async function draftAttributeDefinition(
   input: DraftAttributeDefinitionInput,
+  handle?: DatabaseOrTransaction,
 ): Promise<AttributeDefinition> {
   const key = normalizeAttributeKey(input.key);
   assertDefinitionShape(key, input);
 
-  return getDb().transaction(async (tx) => {
+  const draft = async (tx: DatabaseOrTransaction): Promise<AttributeDefinition> => {
     const nextVersion = (await maxAttributeDefinitionVersion(tx, key)) + 1;
 
     const row = await insertAttributeDefinition(tx, {
@@ -211,7 +212,13 @@ export async function draftAttributeDefinition(
 
     const resolved = await resolveDefinitionRow(tx, row);
     return toAttributeDefinitionDto(resolved);
-  });
+  };
+  // The CALLER's handle when it has one, so a draft can be part of a larger
+  // atomic act. #568's approval mints version N+1 inside `approveProposal`'s
+  // transaction; opening a second one here would be the #59 merge-runner
+  // deadlock — a fresh connection writing rows the caller's transaction holds
+  // locks on, which presents as a hang with no error rather than a failure.
+  return handle === undefined ? getDb().transaction(draft) : draft(handle);
 }
 
 /**

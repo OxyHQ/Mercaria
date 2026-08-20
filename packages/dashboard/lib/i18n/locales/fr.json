@@ -1245,6 +1245,7 @@
         "mediaMissing": "Cette annonce n'a aucune photo.",
         "duplicateMediaFile": "Cette photo est déjà dans la liste.",
         "proposalPending": "Une valeur proposée est toujours en attente, et ce type de produit bloque la publication jusqu'à la décision.",
+        "approvedValueNotPublished": "Votre valeur a été approuvée et attend d’être publiée. Vous pourrez publier une fois qu’un opérateur l’aura activée.",
         "draftNotOpen": "Ce brouillon n'est plus ouvert."
       }
     }

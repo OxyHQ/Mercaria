@@ -738,6 +738,22 @@ export type AuthoringValidationCode =
   | 'duplicate_media_file'
   // Publication
   | 'proposal_pending_blocks_publication'
+  /**
+   * The draft answers with a controlled value an operator APPROVED, which is
+   * waiting in an unpublished attribute version (#568).
+   *
+   * Distinct from `value_not_in_controlled_set`, and the distinction is the whole
+   * reason it exists. Both block publication and both always did — an approved
+   * value lands in a new `draft` version whenever the attribute it extends was
+   * published, and the composed schema offers only the version
+   * `product_type_fields.attribute_definition_id` cites, so the id was already
+   * outside the controlled set. What the merchant was TOLD, though, was that they
+   * had answered with something invalid; the truth is that their request was
+   * granted and is queued behind a publication they cannot perform. Those lead to
+   * opposite next actions — edit the answer, or wait — so reporting the first for
+   * the second is a wrong cause wearing a working gate.
+   */
+  | 'approved_value_not_published'
   | 'draft_not_open';
 
 export const AUTHORING_VALIDATION_CODES: readonly AuthoringValidationCode[] = [
@@ -781,6 +797,7 @@ export const AUTHORING_VALIDATION_CODES: readonly AuthoringValidationCode[] = [
   'media_missing',
   'duplicate_media_file',
   'proposal_pending_blocks_publication',
+  'approved_value_not_published',
   'draft_not_open',
 ];
 
