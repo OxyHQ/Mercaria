@@ -44,6 +44,7 @@ import {
   readSrcDirectory,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC_ROOT = join(HERE, '..', '..', '..');
@@ -679,14 +680,14 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     expect(/retail-reconciliation/i.test('db/schema/retailReconciliation.ts')).toBe(false);
     expect(DOMAIN_NAME_PATTERN.test('db/schema/retailReconciliation.ts')).toBe(true);
     // The bare word this pattern must NOT be widened to: ten other domains.
-    for (const foreign of [
+    assertEachOf([
       'services/payments/reconciliation/runner.ts',
       'services/ebay/reconciliation.ts',
       'services/retail-service-requests/reconciler.ts',
-    ]) {
+    ], 3, (foreign) => {
       expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
       expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-    }
+    });
   });
 
   it('the derived population really is the one the walls scan', () => {

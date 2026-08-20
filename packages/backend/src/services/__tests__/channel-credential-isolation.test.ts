@@ -70,6 +70,7 @@ import {
   walkOwnedDirectory,
   type DirectoryReader,
 } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 /**
  * A channel credential value, in every spelling one travels under.
@@ -559,7 +560,7 @@ describe('#658 — the walls', () => {
 
 describe('#658 — mutation self-tests: every detector fires on what it forbids', () => {
   it('CREDENTIAL_VOCABULARY matches each carrier and not an ordinary neighbour', () => {
-    for (const probe of [
+    assertEachOf([
       "import { decryptSecret } from '../lib/connector-crypto.js';",
       'const { key } = await generateKey(storeId, input, oxyUserId);',
       'const resolved = await verifyKey(raw);',
@@ -571,20 +572,20 @@ describe('#658 — mutation self-tests: every detector fires on what it forbids'
       'async function call(auth: ConnectorAuth): Promise<void> {}',
       'consumerSecret: z.string().trim().min(1).max(255),',
       'credentialsCiphertext: text(),',
-    ]) {
+    ], 11, (probe) => {
       expect(CREDENTIAL_VOCABULARY.test(probe), `vocabulary missed: ${probe}`).toBe(true);
-    }
+    });
     // The near misses. A detector that matches everything is as useless as one
     // that matches nothing, and it is the one that gets deleted by whoever hits
     // it next.
-    for (const probe of [
+    assertEachOf([
       'const conn = await findConnection(storeId, connectionId);',
       'const keyId = routeParam(req, "keyId");',
       'const accessToken = await oxy.getAccessToken();',
       'const summary = await listKeys(storeId);',
-    ]) {
+    ], 4, (probe) => {
       expect(CREDENTIAL_VOCABULARY.test(probe), `vocabulary over-matched: ${probe}`).toBe(false);
-    }
+    });
   });
 
   it('stripComments removes prose without eating a URL or the code beside it', () => {
@@ -623,21 +624,21 @@ describe('#658 — mutation self-tests: every detector fires on what it forbids'
   });
 
   it('CREDENTIAL_IN_URL fires on a URL-borne credential and not on an id', () => {
-    for (const probe of [
+    assertEachOf([
       "const presented = routeParam(req, 'key');",
       'const presented = req.query.apiKey;',
       'const presented = req.params.channelKey;',
       'const presented = req.query.token;',
-    ]) {
+    ], 4, (probe) => {
       expect(CREDENTIAL_IN_URL.test(probe), `URL detector missed: ${probe}`).toBe(true);
-    }
-    for (const probe of [
+    });
+    assertEachOf([
       "const connectionId = routeParam(req, 'connectionId');",
       'const keyId = req.params.keyId;',
       'const provider = req.params.provider;',
       'const body = req.body.channelKey;',
-    ]) {
+    ], 4, (probe) => {
       expect(CREDENTIAL_IN_URL.test(probe), `URL detector over-matched: ${probe}`).toBe(false);
-    }
+    });
   });
 });

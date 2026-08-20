@@ -19,6 +19,7 @@ import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BUYER_REQUEST_FORBIDDEN_IDENTIFIERS } from '@mercaria/shared-types';
 import { SUPPORT_FORBIDDEN_AUTOMATIC_OUTCOMES } from '@mercaria/shared-types';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -274,18 +275,18 @@ describe('buyer request isolation (static)', () => {
     // comment claims its shared comparison closes this: replacing that wall's
     // population with `new Set(swept)` leaves all ten of its tests green. What
     // bites is naming modules that EXIST and belong to somebody else.
-    for (const foreign of [
+    assertEachOf([
       'routes/orders.ts',
       'routes/guest-orders.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
 
     // EXACT: an unbounded exclusion list lets any number of modules ride in
     // behind the ones somebody justified (#448).

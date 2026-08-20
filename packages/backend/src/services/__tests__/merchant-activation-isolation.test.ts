@@ -28,6 +28,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -294,18 +295,18 @@ describe('the activation domain cannot reach what it must not', () => {
     // comment claims its shared comparison closes this: replacing that wall's
     // population with `new Set(swept)` leaves all ten of its tests green. What
     // bites is naming modules that EXIST and belong to somebody else.
-    for (const foreign of [
+    assertEachOf([
       'controllers/orders.controller.ts',
       'routes/cart.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(ACTIVATION_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
     // EXACT: an unbounded exemption list lets any number of readers ride in
     // behind the two somebody justified (#448).
     expect(TRAIL_READERS.length, 'a fourth trail reader was exempted').toBe(3);

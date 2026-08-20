@@ -51,6 +51,7 @@ import {
   walkOwnedDirectory,
   type DirectoryReader,
 } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -308,7 +309,7 @@ describe('feature flags and entitlements stay separate', () => {
     // decides what a DEPLOYMENT has switched on. Reading one to answer the other
     // would let a flag flip grant or remove a paid capability for every merchant
     // at once, with nothing in any audit trail saying so.
-    for (const relative of ['services/entitlements/resolve.ts', 'services/entitlements/capabilities.ts']) {
+    assertEachOf(['services/entitlements/resolve.ts', 'services/entitlements/capabilities.ts'], 2, (relative) => {
       const raw = readFileSync(join(SRC_ROOT, relative), 'utf8');
       expect(raw.length).toBeGreaterThan(500);
       const source = withoutComments(raw);
@@ -316,7 +317,7 @@ describe('feature flags and entitlements stay separate', () => {
         CONFIG_REFERENCE.test(source),
         `${relative} reads configuration; entitlements and feature flags solve different problems`,
       ).toBe(false);
-    }
+    });
   });
 
   it('the detector actually detects — the mutation self-test', () => {

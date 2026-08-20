@@ -75,6 +75,7 @@ import {
   walkOwnedDirectory,
   type DirectoryReader,
 } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -419,7 +420,7 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
   });
 
   it('fires on the realistic names, INCLUDING the two the old gate could not see', () => {
-    for (const probe of [
+    assertEachOf([
       // The two that were inert: matched against `proofOfDelivery` and
       // `serviceCode`, they could not fire however the schema grew.
       'proof_of_delivery_at',
@@ -438,7 +439,7 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
       'courier_reference',
       'waybill_id',
       'checkpoint_at',
-    ]) {
+    ], 12, (probe) => {
       const mutated = retailTables().map((table) =>
         table.table === 'retail_delivery_promises'
           ? { ...table, columns: [...table.columns, probe] }
@@ -454,7 +455,7 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
         audit.forbidden.map((offence) => offence.column),
         `${probe} should be refused by name`,
       ).toContain(`retail_delivery_promises.${probe}`);
-    }
+    });
   });
 
   it('fires on an INNOCUOUS unlisted column too — which is the whole inversion', () => {
@@ -509,13 +510,13 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
   it('permits the seam columns that must survive', () => {
     // The mirror of the liveness test: a prohibition that refused these would
     // ban the Moovo seam this domain is built around.
-    for (const probe of [
+    assertEachOf([
       'moovo_transport_request_id',
       'moovo_source_reference',
       'moovo_transport_registered_at',
       'fulfilment_mode',
       'permitted_fulfilment_mode',
-    ]) {
+    ], 5, (probe) => {
       expect(
         columnProhibition(
           `retail_fulfilment_intents.${probe}`,
@@ -524,7 +525,7 @@ describe('#126 acceptance 2 — no carrier COLUMN in the schema', () => {
         ),
         `${probe} must be permitted`,
       ).toBeNull();
-    }
+    });
   });
 
   it('the exemption list is EXACTLY empty', () => {

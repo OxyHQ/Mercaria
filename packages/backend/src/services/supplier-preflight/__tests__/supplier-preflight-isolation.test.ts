@@ -45,6 +45,7 @@ import {
   SUPPLIER_PREFLIGHT_CAPABILITIES,
   SUPPLIER_SOURCING_CRITERIA,
 } from '@mercaria/shared-types';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -259,14 +260,14 @@ describe('supplier preflight isolation (static)', () => {
 
     // And the neighbours the pattern must NOT drag in, or these walls fire at
     // whoever edits #124 or #118.
-    for (const foreign of [
+    assertEachOf([
       'services/supplier-orders/submission.service.ts',
       'db/procurement/supplierRepository.ts',
       'routes/supplier-webhook.ts',
-    ]) {
+    ], 3, (foreign) => {
       expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
       expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-    }
+    });
   });
 
   for (const wall of WALLS) {

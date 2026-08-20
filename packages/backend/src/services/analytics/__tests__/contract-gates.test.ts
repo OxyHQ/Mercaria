@@ -51,6 +51,7 @@ import {
   analyticsColumnProhibition,
   auditAnalyticsColumns,
 } from './analytics-column-allowlist.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -297,7 +298,7 @@ describe('#77 — the analytics schema can hold no identity beyond a pseudonym',
     // Every name the old regex could not see, plus the ones it could. These are
     // SQL identifiers, which is what the traversal now yields — the old
     // self-test fed the pattern snake_case literals the scan never received.
-    for (const probe of [
+    assertEachOf([
       'shipping_address',
       'full_name',
       'latitude',
@@ -316,17 +317,17 @@ describe('#77 — the analytics schema can hold no identity beyond a pseudonym',
       'order_note',
       'page_payload',
       'geo_cell_index',
-    ]) {
+    ], 18, (probe) => {
       expect(
         analyticsColumnProhibition(`analytics_events.${probe}`),
         `${probe} should be refused`,
       ).not.toBeNull();
-    }
+    });
 
     // And the real columns that must NOT trip it, including the two the
     // exemptions carry and the two nearest misses a segment matcher exists for:
     // `latency_ms` is not a latitude and `oxy_user_id` is not a user agent.
-    for (const probe of [
+    assertEachOf([
       'salt',
       'pseudonymous_session_id',
       'checkout_group_id',
@@ -339,13 +340,13 @@ describe('#77 — the analytics schema can hold no identity beyond a pseudonym',
       'assignment_salt',
       'lease_owner',
       'primary_metric_key',
-    ]) {
+    ], 12, (probe) => {
       const qualified =
         probe === 'normalized_tokens'
           ? `analytics_search_queries.${probe}`
           : `analytics_events.${probe}`;
       expect(analyticsColumnProhibition(qualified), `${probe} must be permitted`).toBeNull();
-    }
+    });
   });
 
   it('the gate fires on an INNOCUOUS unlisted column too — which is the whole inversion', () => {
@@ -583,14 +584,14 @@ describe('#77 — the deferred events are a seam, never a fabricated event', () 
     );
     // And the CLOSED direction, which the count alone cannot state: the six
     // types #111 now emits must not be readable as an offence any more.
-    for (const closed of [
+    assertEachOf([
       'guest_claim_completed',
       'guest_claim_declined',
       'guest_payment_methods_shown',
-    ]) {
+    ], 3, (closed) => {
       const line = `emitAnalyticsEvent(req, { eventType: '${closed}' });`;
       expect(NEVER_EMITTED_EVENT_TYPES.some((t) => line.includes(`eventType: '${t}'`))).toBe(false);
-    }
+    });
   });
 
   it('every deferred type names an owning issue, and every seam is documented', () => {

@@ -57,6 +57,7 @@ import {
   referralPartners,
   referralTaxProfiles,
 } from '../../db/schema/referrals.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -420,18 +421,18 @@ describe('the enrollment population is closed against the tree', () => {
     // and the one the plant cannot see, since a plant absent from the real sweep
     // is reported outside a population built FROM that sweep exactly as it is
     // outside a correct one.
-    for (const foreign of [
+    assertEachOf([
       'services/referral-payouts/rail.ts',
       'controllers/orders.controller.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(ENROLLMENT_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {

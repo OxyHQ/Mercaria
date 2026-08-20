@@ -45,6 +45,7 @@ import {
   assertRankingSurfaceIsWhole,
   readRankingSurfaceFile,
 } from '../../../__tests__/ranking-surface.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -362,13 +363,13 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
     expect(/retail-eligibility/i.test('db/schema/retailEligibility.ts')).toBe(false);
     expect(DOMAIN_NAME_PATTERN.test('db/schema/retailEligibility.ts')).toBe(true);
     // The bare word this pattern must NOT be widened to: nine other domains.
-    for (const foreign of [
+    assertEachOf([
       'services/ranking/eligibility.ts',
       'services/pickup/eligibility.ts',
       'services/checkout/fulfilment-eligibility.ts',
-    ]) {
+    ], 3, (foreign) => {
       expect(DOMAIN_NAME_PATTERN.test(foreign), `${foreign} belongs to another domain`).toBe(false);
       expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
-    }
+    });
   });
 });

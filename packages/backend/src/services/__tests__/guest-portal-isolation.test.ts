@@ -18,6 +18,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -353,18 +354,18 @@ describe('guest portal isolation (static)', () => {
     // so a widening broad enough to empty the set above fails here instead.
     // Mutation-tested: `...walk('')` added to the population fails this clause
     // naming `controllers/orders.controller.ts`.
-    for (const foreign of [
+    assertEachOf([
       'controllers/orders.controller.ts',
       'routes/cart.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(PORTAL_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {

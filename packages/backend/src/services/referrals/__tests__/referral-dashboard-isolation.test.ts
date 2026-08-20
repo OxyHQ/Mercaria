@@ -33,6 +33,7 @@ import {
   REFERRAL_PERFORMANCE_DIMENSION_ELSEWHERE,
 } from '@mercaria/shared-types';
 import { findForbiddenPartnerFields } from '../dashboard/partner-projection.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const DASHBOARD_DIR = join(SRC_ROOT, 'services/referrals/dashboard');
@@ -318,14 +319,14 @@ describe('the population every wall above is applied to (#460)', () => {
     // three other issues own. Each sibling is asserted to exist, so the
     // exclusion cannot go vacuous on a rename.
     const population = domainRelativePaths();
-    for (const sibling of ['services/referrals/earnings/posting.service.ts', 'services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts']) {
+    assertEachOf(['services/referrals/earnings/posting.service.ts', 'services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts'], 3, (sibling) => {
       expect(
         statSync(join(SRC_ROOT, sibling)).isFile(),
         `${sibling} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
       expect(DASHBOARD_NAME_PATTERN.test(sibling), `${sibling} matches this sub-domain's name`).toBe(false);
       expect(population, `${sibling} belongs to a sibling sub-domain`).not.toContain(sibling);
-    }
+    });
     // …and the vacuity floor on the loop itself.
     expect(['services/referrals/earnings/posting.service.ts', 'services/referrals/integrity/effects.ts', 'services/referrals/rewards/funding.ts'].length).toBeGreaterThanOrEqual(3);
   });

@@ -64,6 +64,7 @@ import {
   type ColumnExemption,
   type ColumnProhibition,
 } from './column-allowlist.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 /**
  * The vocabulary, derived from the tables that own these facts rather than
@@ -267,14 +268,14 @@ describe('the canonical graph carries no price, stock, availability, condition o
   it('mutation self-test — the prohibitions do NOT fire on the legitimate names they sit beside', () => {
     // A detector that cannot tell a legitimate value from its quarry gets
     // narrowed under pressure, and narrowing is the permissive direction.
-    for (const legitimate of [
+    assertEachOf([
       'bundle_components.quantity',
       'canonical_products.pricing_policy_id',
       'canonical_variants.position',
       'canonical_products.description',
       'product_identifiers.value',
-    ]) {
+    ], 5, (legitimate) => {
       expect(columnProhibition(legitimate, PROHIBITIONS), `${legitimate} was refused`).toBeNull();
-    }
+    });
   });
 });

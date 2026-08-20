@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -378,18 +379,18 @@ describe('the checkout contact and destination path cannot reach what it must no
     // outside a correct one. Two of these are in the exclusion list above, so
     // this clause is also what stops a widening quietly satisfying the sweep by
     // absorbing the modules it was told to excuse.
-    for (const foreign of [
+    assertEachOf([
       'services/checkout.service.ts',
       'services/payments/checkout-payment.service.ts',
       'controllers/orders.controller.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(CONTACT_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
