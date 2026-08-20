@@ -230,15 +230,26 @@ export type LocalizationProvenance = (typeof LOCALIZATION_PROVENANCES)[number];
 export const MACHINE_LOCALIZATION_PROVENANCE: LocalizationProvenance = 'machine';
 
 /**
- * The status and provenance a base-locale string carries when it is resolved.
+ * The status a base-locale string carries when it is resolved.
  *
  * A base-locale value is not a translation: it is the text the concept was
- * authored in, held on the entity's own column. Reporting it as `approved` /
- * `mercaria` states exactly that, and it is a constant rather than a stored row
+ * authored in, held on the entity's own column. `approved` states that it is the
+ * entity's current, live text, and it is a constant rather than a stored row
  * precisely so no writer can claim a base string was machine translated.
  */
 export const BASE_LOCALE_STATUS: LocalizationStatus = 'approved';
-/** See {@link BASE_LOCALE_STATUS}. */
+
+/**
+ * The provenance a base-locale SLUG carries when it is resolved.
+ *
+ * Deliberately narrower than {@link BASE_LOCALE_STATUS}, and the narrowing is
+ * the point. A slug is always `catalog_presentation` — a URL Mercaria mints —
+ * so `mercaria` is a true statement about `categories.slug`. It is NOT a true
+ * statement about every entity's base TEXT: a `seller_authored` field's base
+ * string is the seller's own words, and the resolver has no way to know who
+ * wrote it. That is why {@link LocalizedResolution}'s `authored_base_text`
+ * branch carries no `provenance` at all rather than carrying this constant.
+ */
 export const BASE_LOCALE_PROVENANCE: LocalizationProvenance = 'mercaria';
 
 /**
@@ -262,7 +273,7 @@ export const LOCALIZED_FIELD_CLASSES = [
 export type LocalizedFieldClass = (typeof LOCALIZED_FIELD_CLASSES)[number];
 
 /**
- * The classes that MAY be answered from another locale.
+ * The classes that MAY be answered from ANOTHER LOCALE'S text.
  *
  * A grant list, so a class added later is excluded by omission and shows
  * nothing rather than showing somebody else's market's copy. The inverse
@@ -276,13 +287,48 @@ export type LocalizedFieldClass = (typeof LOCALIZED_FIELD_CLASSES)[number];
 export const CROSS_MARKET_FALLBACK_FIELD_CLASSES = ['catalog_presentation'] as const;
 
 /**
+ * The classes that may be answered from the ENTITY'S OWN base-locale text —
+ * and from nothing else.
+ *
+ * This is a SECOND grant list rather than a widening of the first, because the
+ * two grant genuinely different things. Cross-market fallback grants another
+ * LOCALE'S row: an `es` translation answering an `es-mx` request is somebody
+ * else's copy about somebody else's market, which is exactly what D4 withholds
+ * from seller-authored text. What this list grants is the SAME SELLER'S OWN
+ * WORDS on the same listing — the string the entity was authored in, held on the
+ * entity's own column — which is not another market's copy at all.
+ *
+ * `seller_authored` is here because withholding it protects nobody and empties
+ * the page: `listings.title` is NOT NULL, so a request in a locale with no row
+ * resolved `unavailable` and a storefront rendered no title.
+ * {@link LOCALIZED_FIELD_CLASSES}' third member, `legal_text`, is deliberately
+ * NOT here and must not be added: a statement about one market's law is not made
+ * true by the same company having written it.
+ *
+ * The two lists are asserted DISJOINT, so no class is granted by both and the
+ * ORDER of the tests in {@link fallbackPolicyForFieldClass} decides nothing.
+ */
+export const AUTHORED_BASE_FALLBACK_FIELD_CLASSES = ['seller_authored'] as const;
+
+/**
  * What a field's fallback chain is allowed to reach.
+ *
+ * Three policies, ordered widest to narrowest, and the middle one is the one to
+ * read: `exact_locale_then_base` reaches EXACTLY TWO places — the requested
+ * locale's own row, then the entity's own base-locale column. It never walks the
+ * truncation chain, so it can never answer from a locale the reader did not ask
+ * for. A policy that could would be `language_then_base` under another name, and
+ * the cross-market exclusion would be gone.
  *
  * `exact_locale_only` is not a degraded `language_then_base`: it is the whole
  * chain for a field whose text is a statement about ONE market, and its
  * `unavailable` answer is the correct one rather than a failure.
  */
-export const LOCALIZATION_FALLBACK_POLICIES = ['language_then_base', 'exact_locale_only'] as const;
+export const LOCALIZATION_FALLBACK_POLICIES = [
+  'language_then_base',
+  'exact_locale_then_base',
+  'exact_locale_only',
+] as const;
 
 /** What a field's fallback chain is allowed to reach. */
 export type LocalizationFallbackPolicy = (typeof LOCALIZATION_FALLBACK_POLICIES)[number];
@@ -291,13 +337,18 @@ export type LocalizationFallbackPolicy = (typeof LOCALIZATION_FALLBACK_POLICIES)
  * Which fallback policy a field class carries.
  *
  * The one derivation, so no descriptor states a policy and no caller can pass
- * one. Membership of the grant list is the whole rule.
+ * one. Membership of a grant list is the whole rule, and BOTH lists are grant
+ * lists: a class in neither gets `exact_locale_only`, the narrowest policy, so a
+ * class added later reaches nothing by default.
  */
 export function fallbackPolicyForFieldClass(
   fieldClass: LocalizedFieldClass,
 ): LocalizationFallbackPolicy {
-  const granted: readonly string[] = CROSS_MARKET_FALLBACK_FIELD_CLASSES;
-  return granted.includes(fieldClass) ? 'language_then_base' : 'exact_locale_only';
+  const crossMarket: readonly string[] = CROSS_MARKET_FALLBACK_FIELD_CLASSES;
+  if (crossMarket.includes(fieldClass)) return 'language_then_base';
+  const ownBase: readonly string[] = AUTHORED_BASE_FALLBACK_FIELD_CLASSES;
+  if (ownBase.includes(fieldClass)) return 'exact_locale_then_base';
+  return 'exact_locale_only';
 }
 
 /**
@@ -702,16 +753,58 @@ export const LOCALIZATION_UNAVAILABLE_REASONS = [
 export type LocalizationUnavailableReason = (typeof LOCALIZATION_UNAVAILABLE_REASONS)[number];
 
 /**
+ * WHICH of the two places an answer came from.
+ *
+ * The discriminant exists so the branch that carries NO `provenance` is
+ * reachable at all — it is not a second spelling of `effectiveLocale`. A
+ * translation and the author's own words are different kinds of fact, and the
+ * one thing only a ROW knows is who produced it.
+ */
+export const LOCALIZATION_RESOLUTION_BASES = [
+  /** A localization row answered: text somebody authored FOR a locale. */
+  'localization_row',
+  /**
+   * The ENTITY'S OWN base-locale column answered — `categories.name`, a
+   * seller's own `listings.title`. There is no row, so there is no translator
+   * and no provenance to report.
+   */
+  'authored_base_text',
+] as const;
+
+/** WHICH of the two places an answer came from. */
+export type LocalizationResolutionBasis = (typeof LOCALIZATION_RESOLUTION_BASES)[number];
+
+/**
  * What one field resolved to, or a statement that it did not.
  *
- * Discriminated on the STRING `outcome`. The `unavailable` branch has no
- * `value`, no `effectiveLocale` and no `status`, so a caller cannot render text
- * the resolver declined to produce — #94's refusal-as-an-outcome rule, applied
- * to presentation.
+ * Discriminated on the STRING `outcome`, and the `resolved` outcome is
+ * discriminated again on {@link LocalizationResolutionBasis}. The `unavailable`
+ * branch has no `value`, no `effectiveLocale` and no `status`, so a caller
+ * cannot render text the resolver declined to produce — #94's
+ * refusal-as-an-outcome rule, applied to presentation.
+ *
+ * ## Why `basis` exists, and why it is not `effectiveLocale` restated
+ *
+ * `PriceHistoryValue`'s shape (#78), for its reason: the branches differ in
+ * their PROPERTY SETS, and `source_native` carries no quote because there was no
+ * conversion to identify. Here, `authored_base_text` carries no `provenance`
+ * because there is no localization row to have a provenance.
+ *
+ * Before `exact_locale_then_base` every base answer was Mercaria's own catalog
+ * copy, so reporting `provenance: 'mercaria'` was true. It stops being true the
+ * moment a `seller_authored` field is registered: the base string is then the
+ * SELLER'S own words, and claiming Mercaria authored them is a false statement a
+ * storefront would render as a Mercaria-written product name. Removing the
+ * property is what makes that unrepresentable; a flag beside it would not.
+ *
+ * `status` is on BOTH branches and stays there. It answers "is this text
+ * current" rather than "who wrote it", and {@link BASE_LOCALE_STATUS} is a true
+ * answer for anybody's base string.
  */
 export type LocalizedResolution =
   | {
       readonly outcome: 'resolved';
+      readonly basis: 'localization_row';
       readonly value: string;
       /** What the caller asked for, verbatim and folded. */
       readonly requestedLocale: string;
@@ -719,7 +812,21 @@ export type LocalizedResolution =
       readonly effectiveLocale: SupportedLocale;
       readonly step: LocalizationFallbackStep;
       readonly status: LocalizationStatus;
+      /** Who produced this TRANSLATION. Only a row knows, which is why the
+       *  `authored_base_text` branch has no such property. */
       readonly provenance: LocalizationProvenance;
+    }
+  | {
+      readonly outcome: 'resolved';
+      readonly basis: 'authored_base_text';
+      readonly value: string;
+      readonly requestedLocale: string;
+      /** Always {@link MERCARIA_BASE_LOCALE}: the base text lives nowhere else. */
+      readonly effectiveLocale: SupportedLocale;
+      /** `exact` when the reader ASKED for the base locale, `base` otherwise. */
+      readonly step: LocalizationFallbackStep;
+      /** Always {@link BASE_LOCALE_STATUS}. The entity's current text. */
+      readonly status: LocalizationStatus;
     }
   | {
       readonly outcome: 'unavailable';
