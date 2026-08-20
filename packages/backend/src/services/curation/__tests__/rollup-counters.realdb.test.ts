@@ -43,12 +43,20 @@ import { brands } from '../../../db/schema/organizations.js';
 import {
   canonicalProductFamilies,
   canonicalProducts,
-  canonicalVariants,
 } from '../../../db/schema/canonicalCatalog.js';
 import { createBrand } from '../../canonical/brand.service.js';
 import { createProductFamily } from '../../canonical/product-family.service.js';
 import { createCanonicalProduct } from '../../canonical/canonical-product.service.js';
 import { createVariant } from '../../canonical/canonical-variant.service.js';
+import {
+  draftAttributeDefinition,
+  publishAttributeDefinition,
+} from '../../attributes/definition-registry.service.js';
+import {
+  countProductsForBrand,
+  countProductsForFamily,
+} from '../../../db/canonical/canonicalProductRepository.js';
+import { countVariantsForProduct } from '../../../db/canonical/canonicalVariantRepository.js';
 import { rebuildEntityRollups } from '../rollups.js';
 
 let db: Database;
@@ -60,6 +68,16 @@ const createdProductIds: string[] = [];
 const createdVariantIds: string[] = [];
 let brandId = '';
 let familyId = '';
+/**
+ * A published attribute, so variants can carry DISTINCT option sets.
+ *
+ * Without it every `createVariant` here would pass `options: []` — and an
+ * axis-less product already carries one default variant with exactly that empty
+ * option set, so the second call collides on `UNIQUE(product_id, signature)`,
+ * returns the EXISTING row with `created: false`, and stores nothing. The delta
+ * case then compares a number against itself and passes for the wrong reason.
+ */
+let axisKey = '';
 /** The product carrying the variants: 1 active, 1 suppressed. */
 let productId = '';
 
@@ -71,15 +89,33 @@ beforeAll(async () => {
     await createProductFamily({ brandId, name: `Rollup family ${RUN}`, slug: `rollup-fam-${RUN}` })
   ).id;
 
+  // The axis is published FIRST: a variant's option set must match its
+  // product's DECLARED axes exactly, so the product cannot be created until the
+  // attribute it varies along exists.
+  axisKey = `rollupsize${RUN}`.replace(/\W/gu, '').slice(0, 30);
+  const draft = await draftAttributeDefinition({
+    key: axisKey,
+    label: 'Rollup size',
+    valueType: 'string',
+    actorOxyUserId: `operator-${RUN}`,
+  });
+  await publishAttributeDefinition(draft.key, draft.version, `operator-${RUN}`);
+
   // THREE products under one family and one brand: two shopper-visible, one
   // suppressed. `suppressed` is an operator's "do not show it", which is
   // exactly the row a shopper-facing count must not include and a curation
   // read must still be able to see.
+  //
+  // Only the FIRST declares an axis, because it is the one carrying the
+  // variants. A product with no declared axes is minted with exactly one
+  // default variant; a product WITH one is minted with none, so every variant
+  // below is created explicitly and its option set is distinct by construction.
   for (const [index, status] of (['active', 'active', 'suppressed'] as const).entries()) {
     const product = await createCanonicalProduct({
       name: `Rollup product ${index} ${RUN}`,
       brandId,
       familyId,
+      ...(index === 0 ? { variantDefiningAttributeKeys: [axisKey] } : {}),
     });
     createdProductIds.push(product.id);
     if (status !== 'active') {
@@ -91,15 +127,25 @@ beforeAll(async () => {
   }
   productId = createdProductIds[0];
 
-  // `createCanonicalProduct` with no option axes already minted ONE default
-  // variant, which is `active`. Adding one suppressed variant beside it gives
-  // the product two variants, one of them a row a shopper may not see.
+  // Two variants on that product: one a shopper may see, one they may not.
+  // `created` is ASSERTED on both — a colliding option set returns the existing
+  // row with `created: false` and adds nothing, and the delta case would then
+  // compare a number against itself and pass for the wrong reason.
+  const visible = await createVariant({
+    productId,
+    options: [{ key: axisKey, value: 'visible-one' }],
+    name: `Rollup variant visible ${RUN}`,
+  });
+  expect(visible.created, 'the visible variant collided and was never created').toBe(true);
+  createdVariantIds.push(visible.variant.id);
+
   const suppressed = await createVariant({
     productId,
-    options: [],
+    options: [{ key: axisKey, value: 'suppressed-one' }],
     name: `Rollup variant suppressed ${RUN}`,
     status: 'suppressed',
   });
+  expect(suppressed.created, 'the suppressed variant collided and was never created').toBe(true);
   createdVariantIds.push(suppressed.variant.id);
 });
 
@@ -159,6 +205,56 @@ describe('the stored rollup counters (#749)', () => {
     expect(brand, 'brands.product_count counts the suppressed product').toBe(2);
   });
 
+  it('every writer of a counter agrees, because each reads ONE derivation', async () => {
+    // The property the wider diff exists for, asserted directly rather than
+    // inferred from the two cases around it. `rollups.ts` used to spell each
+    // derivation inline; if it drifts from the shared function again, the
+    // stored value and the function disagree here.
+    await rebuildEntityRollups('canonical_product', createdProductIds[2], productId, db);
+
+    const [storedFamily, derivedFamily] = [
+      await storedFamilyCount(),
+      await countProductsForFamily(db, familyId),
+    ];
+    const [storedBrand, derivedBrand] = [
+      await storedBrandCount(),
+      await countProductsForBrand(db, brandId),
+    ];
+    const [storedVariant, derivedVariant] = [
+      await storedVariantCount(),
+      await countVariantsForProduct(db, productId),
+    ];
+
+    // Floors first: every one of these is an equality between two numbers, and
+    // `0 === 0` would satisfy all three over a fixture that never landed.
+    expect(derivedFamily, 'the family derivation counted nothing').toBeGreaterThan(0);
+    expect(derivedBrand, 'the brand derivation counted nothing').toBeGreaterThan(0);
+    expect(derivedVariant, 'the variant derivation counted nothing').toBeGreaterThan(0);
+
+    expect(storedFamily, 'the merge rollup and countProductsForFamily disagree').toBe(derivedFamily);
+    expect(storedBrand, 'the merge rollup and countProductsForBrand disagree').toBe(derivedBrand);
+    expect(storedVariant, 'the merge rollup and countVariantsForProduct disagree').toBe(
+      derivedVariant,
+    );
+  });
+
+  it('variant_count keeps its OWN population, which #749 left undecided', async () => {
+    // Deliberately pinned, so the two neighbours moving to the shopper-visible
+    // set cannot quietly drag this one along for symmetry. The product carries
+    // one visible variant and one suppressed; `variant_count` counts BOTH,
+    // because "configurations a shopper may see" and "configurations this
+    // product has" are different questions and nothing here settles which one
+    // this column answers. See the derivation's docblock and #749.
+    await rebuildEntityRollups('canonical_product', createdProductIds[2], productId, db);
+
+    const stored = await storedVariantCount();
+    expect(stored, 'the rebuild wrote nothing for the product').toBeGreaterThan(0);
+    expect(
+      stored,
+      'variant_count changed population — that is a decision #749 did not take',
+    ).toBe(2);
+  });
+
   it('stays consistent across BOTH writers when one visible variant is added', async () => {
     await rebuildEntityRollups('canonical_product', createdProductIds[2], productId, db);
     const afterWriterA = await storedVariantCount();
@@ -171,9 +267,12 @@ describe('the stored rollup counters (#749)', () => {
     // through `countVariantsForProduct`, not by incrementing.
     const added = await createVariant({
       productId,
-      options: [],
+      options: [{ key: axisKey, value: 'added-one' }],
       name: `Rollup variant added ${RUN}`,
     });
+    // The delta below is meaningless if this collided: it would compare the
+    // stored count against itself and read as a stable, correct 0 change.
+    expect(added.created, 'the added variant collided — no variant was added').toBe(true);
     createdVariantIds.push(added.variant.id);
 
     const afterWriterB = await storedVariantCount();

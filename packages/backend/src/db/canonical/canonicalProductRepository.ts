@@ -12,6 +12,7 @@ import type {
   SourceLinkMethod,
   SourceLinkStatus,
 } from '@mercaria/shared-types';
+import { SHOPPER_VISIBLE_CATALOG_STATUSES } from '@mercaria/shared-types';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import {
   canonicalProductAliases,
@@ -183,6 +184,25 @@ export async function listProductsForBrand(
     .limit(limit);
 }
 
+/**
+ * The ONE definition of what `canonical_product_families.product_count` counts
+ * (#749).
+ *
+ * Every writer of that column reads it here — `canonical-product.service` on
+ * create and on reassignment, `backfill/stages/projections`, and the merge
+ * rollup — so the stored figure cannot depend on which writer ran last. It was
+ * spelled `<> 'merged'` in three of those places and inline SQL in the fourth,
+ * and #749 measured what that costs: narrowing only one of them makes the
+ * number change according to whether a merge or an ordinary product write
+ * touched the row most recently, which is worse than being consistently wrong
+ * because it cannot be reproduced or reported.
+ *
+ * The population is `SHOPPER_VISIBLE_CATALOG_STATUSES`, because this count is
+ * published — `listBrandFamilies` renders it on the brand page beside a
+ * `productCount` #628/#747 already narrowed, and `searchCandidateRepository`
+ * serves it in canonical search results. A family entry claiming more products
+ * than the brand admits to having is the shape that gave it away.
+ */
 export async function countProductsForFamily(
   db: DatabaseOrTransaction,
   familyId: string,
@@ -190,7 +210,39 @@ export async function countProductsForFamily(
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(canonicalProducts)
-    .where(and(eq(canonicalProducts.familyId, familyId), ne(canonicalProducts.status, 'merged')));
+    .where(
+      and(
+        eq(canonicalProducts.familyId, familyId),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
+      ),
+    );
+  return rows[0]?.count ?? 0;
+}
+
+/**
+ * The ONE definition of what `brands.product_count` counts (#749).
+ *
+ * New here, because the merge rollup was its ONLY writer and spelled the
+ * derivation inline. That is also why it is the counter with no routine repair
+ * path: a family's count is re-derived by the backfill projections stage, and a
+ * brand's is re-derived only when a merge or split happens to touch it.
+ *
+ * Published through `seoRepository` as `catalogueEntryCount`, so the same
+ * shopper-visible population applies.
+ */
+export async function countProductsForBrand(
+  db: DatabaseOrTransaction,
+  brandId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(canonicalProducts)
+    .where(
+      and(
+        eq(canonicalProducts.brandId, brandId),
+        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
+      ),
+    );
   return rows[0]?.count ?? 0;
 }
 
