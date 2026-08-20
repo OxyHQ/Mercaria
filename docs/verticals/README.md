@@ -198,8 +198,12 @@ survives:
   13  attribute_definitions          1  product_type_definitions
    4  attribute_value_localizations  3  product_type_localizations
    3  categories (0 of them ACTIVE)  7  category_localizations
-   5  category_aliases               0  category_localized_slugs
+  14  category_aliases               0  category_localized_slugs
 ```
+
+The alias figure alone is not from that run: #732 grew the smartphone package's
+list from five to fourteen, and fourteen is counted off the package's own array
+rather than re-measured.
 
 Everything with an owner the fixture can delete is zero: brands, families,
 products, variants, identifiers, observed facts, vehicles, fitments, claims,
@@ -208,8 +212,11 @@ sources, stores, listings and drafts.
 Harmless, and not nothing. Every read that could reach one of those rows is
 either scoped to explicit ids (`readLocalizedCategories`,
 `readLocalizedAttributeValues`) or filters `is_active`
-(`findActiveCategories`), and `category_aliases` has no caller on the retrieval
-path at all. What it costs is that a namespace's parents outlive its run — which
+(`findActiveCategories`) — including `category_aliases`, which since #732 IS
+read on the retrieval path and whose read joins `categories` on `is_active` for
+exactly this reason: the retained categories above are `0 of them ACTIVE`, so
+their aliases resolve for nobody. What it costs is that a namespace's parents
+outlive its run — which
 is why the namespace is per-RUN rather than per-file, and why a count over any of
 these tables must be scoped before it is trusted.
 

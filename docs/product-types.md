@@ -391,6 +391,38 @@ The derivation is pure and is tested without a server in
 
 ## Seams left to their owners, none of them a stub that lies
 
+- **`product_type_aliases` has no reader, and the prerequisite is named (#732).**
+  #732 reports three alias tables written and read by nothing. Two are now
+  closed — `category_aliases` by the deterministic search-intent interpreter
+  (`docs/taxonomy.md` §"Who reads them") and `attribute_value_aliases` by its
+  enum pass — and this one is deliberately left open rather than pointed at the
+  nearest available surface.
+
+  `GET /catalog-authoring/product-types?categoryId=` is the obvious candidate
+  and is the wrong one. Its answer is already narrowed to ONE category, and its
+  only client (`packages/dashboard/app/(app)/products/wizard/index.tsx`) renders
+  every option returned as a chip, with no search box in that step or in the
+  category step above it. A `q` parameter there would be an API parameter no
+  caller sends — green and inert by construction, which is the same defect #732
+  files against the table. The vocabulary agrees:
+  `PRODUCT_TYPE_ALIAS_KINDS` is `synonym | search_term | legacy_name |
+  misspelling | transliteration | abbreviation | regional_term`, and the
+  schema's own doc calls the lookup index "a shopper's word in a locale → the
+  types it might mean". An authoring wizard is not a shopper.
+
+  **What is missing is a product-type FILTER in retrieval.** `SearchFilters`
+  (`packages/shared-types/src/search.ts`) has no member for one and
+  `services/search/` names no product-type id or key, so a reader wired on the
+  search side today could only ever answer `unsupported_by_retrieval` — a reader
+  that can never resolve, which is worse than none because it makes #367's
+  "a search for regional synonyms resolves to the same category/type/value" look
+  answered at the type grain when it is not.
+
+  The reasoning is a GATE rather than a paragraph:
+  `db/__tests__/product-type-alias-seam.test.ts` asserts the premise (no
+  product-type member in `SearchFilters`) and censuses the readers (none, with
+  its two non-reader references named and required to match). The day the filter
+  lands, that test goes red and names what to wire.
 - **The STOREFRONT read.** The layout above exists and nothing consumes it:
   `packages/frontend/lib/catalog/specifications.ts` still reports
   `grouping: 'entity_scope'`. Closing it is a second `SpecificationGrouping`

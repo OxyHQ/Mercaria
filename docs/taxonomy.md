@@ -159,8 +159,40 @@ There is no `is_primary`, `preferred` or `display` column and no boolean beside
 The unique is `(category_id, locale, normalized_alias)` and **not** `(locale,
 normalized_alias)`: "phone" legitimately points at more than one shelf, and a
 constraint refusing the second one would make the taxonomy unable to record
-something true. `findCategoriesByAlias` returns a list; resolving the ambiguity
-is the caller's.
+something true. `findActiveCategoriesByAliases` returns a list; resolving the
+ambiguity is the caller's.
+
+### Who reads them (#732)
+
+The deterministic search-intent interpreter, and it is the only reader.
+`plan.service.ts` turns the sanitized query into the set of phrases it could be
+naming (`catalogAliasCandidates`, every contiguous run of up to four words) and
+issues ONE `normalized_alias = ANY(...)` — served by
+`category_aliases_lookup_idx` — joined to `categories` on `is_active`. The rows
+go to `interpretDeterministically`, which matches them against the query on a
+**word boundary**, longest phrase first.
+
+Three decisions worth knowing:
+
+- **An alias beats the shipped dictionary.** `CATEGORY_COLLOQUIALISMS`
+  (`services/search-intent/dictionaries.ts`) is kept — it covers ten categories
+  no seed package creates, and retiring it would leave a fresh deployment
+  resolving nothing — but an operator who records a row is correcting it for
+  their own catalogue, and a code constant that outranked them would make the
+  table advisory.
+- **Every locale is read and the locale breaks a TIE.** Not a filter: the
+  dictionaries already read every language for every query (localization
+  rule 6), and an alias table that answered only in the request's locale would
+  make one word behave differently depending on which of the two held it.
+- **An alias naming several categories applies NO filter** and reports the
+  phrase as `ambiguous_phrase`. Picking would be a taxonomy constraint Mercaria
+  invented, and the shopper would see a narrowed page with nothing saying why.
+
+`normalized_alias` is service-maintained rather than GENERATED, and
+`services/taxonomy/alias-normalization.ts` is the one normalizer every writer
+and reader calls — NFD, marks removed, lowercased, whitespace collapsed. A bare
+`lower(btrim(...))` write stores `móviles` where the folded lookup asks for
+`moviles`, which is a row, an index entry and no behaviour.
 
 ## External mappings go to review, never to a guess
 

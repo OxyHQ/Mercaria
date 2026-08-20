@@ -176,6 +176,21 @@ const CASES: readonly IntentBenchmarkCase[] = [
     // excludes every 32 GB machine from a query that plainly wanted them.
     expect: { preferenceAttributeKeys: ['ram'], mustNotProduceHard: ['ram'] },
   },
+  {
+    id: 'preference-value-alias-en',
+    kind: 'preference_versus_requirement',
+    locale: 'en-GB',
+    registry: 'laptops',
+    query: 'gaming laptop with usb c',
+    // The VALUE grain of #367's "a search for regional synonyms resolves to the
+    // same category/type/value", and the pair with `preference-en` above is
+    // what makes it a measurement rather than a coincidence: same attribute,
+    // same intent, one spelling that IS the label and one that is only an
+    // `attribute_value_aliases` row. Before #732 this case reached no
+    // requirement at all — the alias map was read by the model branch, which
+    // no deployment registers a parser for.
+    expect: { preferenceAttributeKeys: ['port_type'], mustNotProduceHard: ['port_type'] },
+  },
 
   // 4. Ambiguous use case.
   {
@@ -388,6 +403,74 @@ const CASES: readonly IntentBenchmarkCase[] = [
     // A Spanish phrase in an English-locale query is READ, and the response
     // stays in the request's locale — localization rule 6.
     expect: { conditionGroups: ['used'], preferenceAttributeKeys: ['ram'] },
+  },
+
+  // 11b. The four words #367 names BY HAND, one case each.
+  //
+  // "Support aliases `mobile`, `móvil`, `celular`, `smartphone`" is an
+  // acceptance box, and until #731 two of the four reached no category at all:
+  // the only producer of a category slug was the ten-entry
+  // `CATEGORY_COLLOQUIALISMS` list, which holds `mobil` and not `mobile`, and
+  // holds no `smartphone` — so typing the category's own slug did not find the
+  // category. `category_accuracy` was 1 the whole time, because the dataset
+  // contained no case for either word. A labelled dataset is a population like
+  // any other: complete, exact, and silent about the thing the box names.
+  //
+  // Four cases rather than one query naming all four, because a single query
+  // would pass on whichever word matched first and say nothing about the rest.
+  // Two of them (`móvil`, `celular`) also resolve through the shipped
+  // dictionary and would pass without the alias table; they are here because
+  // the requirement is that all four resolve, not that all four are new.
+  // `alias-only-en` below is the one that can pass through NOTHING but the
+  // table.
+  {
+    id: 'epic-alias-mobile-en',
+    kind: 'multiple_languages',
+    locale: 'en-GB',
+    registry: 'smartphones',
+    query: 'mobile under 300 GBP',
+    expect: {
+      categorySlug: 'smartphones',
+      budget: { basis: 'item_price', currency: 'GBP', maxMinor: 30_000 },
+    },
+  },
+  {
+    id: 'epic-alias-smartphone-en',
+    kind: 'multiple_languages',
+    locale: 'en-GB',
+    registry: 'smartphones',
+    query: 'smartphone with 128 GB of storage',
+    expect: { categorySlug: 'smartphones', preferenceAttributeKeys: ['storage'] },
+  },
+  {
+    id: 'epic-alias-movil-es',
+    kind: 'multiple_languages',
+    locale: 'es-ES',
+    registry: 'smartphones',
+    // With its ACCENT, which the folding is what handles: the stored alias is
+    // `movil` and a Spanish shopper types `móvil`.
+    query: 'móvil reacondicionado',
+    expect: { categorySlug: 'smartphones', conditionGroups: ['refurbished'] },
+  },
+  {
+    id: 'epic-alias-celular-es-mx',
+    kind: 'multiple_languages',
+    locale: 'es-MX',
+    registry: 'smartphones',
+    query: 'celular de segunda mano',
+    expect: { categorySlug: 'smartphones', conditionGroups: ['used'] },
+  },
+  {
+    id: 'alias-only-en',
+    kind: 'multiple_languages',
+    locale: 'en-GB',
+    registry: 'smartphones',
+    // `handset` is in no dictionary and is not the slug. Nothing but an
+    // operator-authored `category_aliases` row can resolve it, so this case
+    // goes red the moment the interpreter stops reading the table — which the
+    // four above cannot promise, since two of them have a second path.
+    query: 'handset with a 6 inch screen',
+    expect: { categorySlug: 'smartphones' },
   },
 
   // 12. Queries that should fall back without clarification.

@@ -26,7 +26,10 @@
 import { describe, expect, it } from 'vitest';
 import { INTENT_BENCHMARK_CASE_KINDS, INTENT_BENCHMARK_MEASURES } from '@mercaria/shared-types';
 import { INTENT_BENCHMARK_DATASET, coveredCaseKinds } from '../benchmark/dataset.js';
+import { BENCHMARK_CATEGORY_ALIASES } from '../benchmark/registry.js';
 import { runIntentBenchmark } from '../benchmark/runner.js';
+import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
+import { normalizeCatalogAlias } from '../../taxonomy/alias-normalization.js';
 
 describe('the labelled dataset', () => {
   it('covers every case class the issue names', () => {
@@ -52,6 +55,69 @@ describe('the labelled dataset', () => {
     expect(again).toBe(INTENT_BENCHMARK_DATASET.digest);
     expect(INTENT_BENCHMARK_DATASET.caseCount).toBe(INTENT_BENCHMARK_DATASET.cases.length);
     expect(INTENT_BENCHMARK_DATASET.caseCount).toBeGreaterThanOrEqual(24);
+  });
+});
+
+/**
+ * The benchmark's alias fixture against the catalogue it stands for (#732).
+ *
+ * The fixture exists because the benchmark has no database — the #58 decision,
+ * so the set runs on every push — and the cost of that decision is TWO
+ * descriptions of one fact: the rows the seed package writes, and the rows the
+ * benchmark pretends to have read. Two descriptions of one fact disagree the
+ * first time somebody edits one, and the disagreement here is the worst shape
+ * there is: a green gate reporting that #367's four words resolve, against a
+ * fixture only this benchmark reads.
+ *
+ * So the coupling is CHECKED rather than structural. It is not an import,
+ * because `benchmark/registry.ts` is a production module and pulling
+ * `scripts/seed-verticals/` into it would put the seed data in the API's
+ * runtime graph; a test file may reach both.
+ */
+describe('the benchmark alias fixture and the seeded catalogue agree', () => {
+  const seeded = (SMARTPHONE_PACKAGE.categories.find((category) => category.slug === 'smartphones')
+    ?.aliases ?? []) as readonly { locale: string; alias: string }[];
+  const key = (locale: string, alias: string) => `${locale.toLowerCase()}|${alias}`;
+  const seededKeys = seeded.map((alias) => key(alias.locale, normalizeCatalogAlias(alias.alias)));
+  const fixtureKeys = BENCHMARK_CATEGORY_ALIASES.filter(
+    (match) => match.slug === 'smartphones',
+  ).map((match) => key(match.locale, match.normalizedAlias));
+
+  it('reads a non-empty catalogue on both sides — the vacuity floor', () => {
+    // Without this, a rename of `smartphones` on either side leaves two empty
+    // lists that agree perfectly. Ten is the smaller of the two measured
+    // counts, floored rather than pinned so adding an alias is not a test edit.
+    expect(seededKeys.length).toBeGreaterThanOrEqual(10);
+    expect(fixtureKeys.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('records every seeded alias in the fixture', () => {
+    expect([...seededKeys].sort().filter((entry) => !fixtureKeys.includes(entry))).toEqual([]);
+  });
+
+  it('claims nothing the catalogue does not have, except the named control', () => {
+    // `handset` is fixture-only ON PURPOSE and is named here rather than
+    // excused by a wildcard: it is the one benchmark case that can pass through
+    // NOTHING but an operator-authored row, since no dictionary entry and no
+    // category slug contains the word. Seeding it would give it a second path
+    // and destroy exactly that property.
+    expect([...fixtureKeys].sort().filter((entry) => !seededKeys.includes(entry))).toEqual([
+      'en|handset',
+    ]);
+  });
+
+  it('covers each of the four words #367 names by hand', () => {
+    // The requirement, restated where it can fail. A dataset can be complete,
+    // exact and silent about the thing the acceptance box names — which is how
+    // `category_accuracy === 1` coexisted with `mobile` and `smartphone`
+    // reaching no category at all (#731).
+    for (const word of ['mobile', 'móvil', 'celular', 'smartphone']) {
+      const normalized = normalizeCatalogAlias(word);
+      expect(
+        seededKeys.some((entry) => entry.endsWith(`|${normalized}`)),
+        `#367 names "${word}" and no seeded smartphone alias normalizes to it`,
+      ).toBe(true);
+    }
   });
 });
 
