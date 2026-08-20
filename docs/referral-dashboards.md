@@ -346,3 +346,23 @@ Also deliberately absent:
   (`POST /codes`, `POST /links`) and the client functions and mutation hooks are
   written and typed; the screen renders the list, the status and the disclosure
   and has no create form yet.
+
+## A `ScreenShell` hazard this screen found, still open on native
+
+`ScreenShell` has no inner `ScrollView` on web and a storefront screen must not
+add one — its own contract, not a preference: on web the body scrolls and an
+inner scroller would break `ContentPanel`'s sticky overlays, and on native the
+shell already puts the body in a full-height `ScrollView`, so a second one is
+two nested scrollers. This screen shipped with one, and it was measured out
+rather than reasoned out: an A/B in a real browser tab found the document
+scroll height, the viewport and the last card's position IDENTICAL either way,
+because RN-Web renders a height-less `ScrollView` as a plain flex container. So
+the web half is a convention followed, not a bug fixed — the NATIVE half is the
+real hazard and is still UNVERIFIED, because no native build was run to confirm
+a nested `ScrollView` there is actually safe rather than merely unmeasured.
+
+`ScreenShell` lives in both `packages/frontend/components/shell/` and
+`packages/ui/src/components/shell/`, so this is a hazard for every screen that
+mounts it, not one narrow to this dashboard — check for an inner `ScrollView`
+(or an unset `scroll={false}` around a self-scrolling list) before shipping a
+new `ScreenShell` consumer on native.
