@@ -47,6 +47,7 @@
  */
 
 import { TransactionRollbackError } from 'drizzle-orm';
+import { isForeignKeyViolation } from '@oxyhq/db';
 import type {
   VariantAxisAttributeRefusal,
   VariantAxisBackfillReport,
@@ -62,6 +63,7 @@ import {
   listLegacyListingOptions,
   listLegacyVariantOptionValues,
   listListingIdsWithLegacyOptions,
+  listingStillExists,
   listVariantsForListings,
   type LegacyListingOptionRow,
   type LegacyVariantOptionValueRow,
@@ -126,12 +128,13 @@ interface Counters {
   assignmentsAlreadyWritten: number;
   assignmentsUnresolved: number;
   assignmentsWithheld: number;
-  assignmentsRemoved: number;
+  assignmentsRetainedUnresolved: number;
   claimsWritten: number;
   claimsAlreadyPresent: number;
   signaturesWritten: number;
   signaturesUnchanged: number;
   listingsWithIndistinguishableVariants: number;
+  listingsVanishedDuringPass: number;
   refusals: ReturnType<typeof emptyRefusalCounts>;
 }
 
@@ -147,12 +150,13 @@ function newCounters(): Counters {
     assignmentsAlreadyWritten: 0,
     assignmentsUnresolved: 0,
     assignmentsWithheld: 0,
-    assignmentsRemoved: 0,
+    assignmentsRetainedUnresolved: 0,
     claimsWritten: 0,
     claimsAlreadyPresent: 0,
     signaturesWritten: 0,
     signaturesUnchanged: 0,
     listingsWithIndistinguishableVariants: 0,
+    listingsVanishedDuringPass: 0,
     refusals: emptyRefusalCounts(),
   };
 }
@@ -208,6 +212,12 @@ async function backfillOneListing(
   tx: DatabaseOrTransaction,
   input: {
     readonly listingId: string;
+    /**
+     * EVERY variant of the listing, not only the ones carrying legacy values.
+     * Step 3 reads the stored assignments over this set, so a variant whose
+     * legacy values have all stopped resolving is still visible to it.
+     */
+    readonly variantIds: readonly string[];
     readonly options: readonly LegacyListingOptionRow[];
     readonly optionValues: readonly LegacyVariantOptionValueRow[];
     readonly counters: Counters;
@@ -362,9 +372,69 @@ async function backfillOneListing(
     desiredByVariant.set(value.variantId, pending);
   }
 
+  // ── 3. Carry forward what this pass no longer derives ─────────────────────
+  //
+  // A row a previous pass wrote whose axis the registry has since stopped
+  // resolving. It is RETAINED, not removed, and the retention is what makes the
+  // two directions of this pass agree: `deprecateAttributeDefinition` says a
+  // version is taken "out of service for NEW assignments" and that "stored
+  // values still resolve", and `findAttributeDefinitionVersion` reads an exact
+  // version "whatever its lifecycle state". A stored assignment cites its exact
+  // version, so deprecating one does not invalidate what was already derived.
+  //
+  // Before #612 the same deprecation produced OPPOSITE outcomes inside one
+  // listing: a variant that still resolved another axis went through
+  // `replaceVariantAxisAssignments`, which deletes the variant's whole set and
+  // re-inserts the derived part — so its row was deleted — while a variant that
+  // dropped out entirely was not in `desiredByVariant` at all and kept its row.
+  // Nobody designed that; it turned on whether a variant happened to carry a
+  // second axis. Carrying the retained rows into the desired set fixes both
+  // halves at once: nothing is deleted, and the signature is still computed over
+  // the variant's WHOLE set rather than over the derived part of it.
+  //
+  // Whether a deprecation should EVER remove a derived row, and on what signal,
+  // is deliberately not decided here — "the registry stopped resolving this" and
+  // "a registry-wide outage resolved nothing" are indistinguishable from inside
+  // this pass, and only one of them may delete. That question is its own issue.
+  const existing = await listVariantAxisAssignments(tx, input.variantIds);
+  const derivedKeys = new Set<string>();
+  for (const [variantId, assignments] of desiredByVariant) {
+    for (const assignment of assignments) derivedKeys.add(`${variantId}|${assignment.axisId}`);
+  }
+  /**
+   * Retained rows, so step 4 can WRITE them without COUNTING them.
+   *
+   * A retained row has no legacy option value behind it — that is precisely why
+   * this pass no longer derives it — so counting it as an assignment outcome
+   * would make the outcome buckets exceed `variantOptionValues` and
+   * `assertReportSums` would refuse the report. It is reported on its own
+   * diagnostic instead, outside every sum.
+   */
+  const retainedKeys = new Set<string>();
+  for (const row of existing) {
+    const key = `${row.variantId}|${row.axisId}`;
+    if (derivedKeys.has(key)) continue;
+    retainedKeys.add(key);
+    counters.assignmentsRetainedUnresolved += 1;
+    const pending = desiredByVariant.get(row.variantId) ?? [];
+    pending.push({
+      variantId: row.variantId,
+      axisId: row.axisId,
+      attributeDefinitionId: row.attributeDefinitionId,
+      attributeKey: row.attributeKey,
+      displayValue: row.displayValue,
+      normalizedValue: row.normalizedValue,
+      enumValueId: row.enumValueId,
+      normalizedNumber: row.normalizedNumber,
+      normalizedUnit: row.normalizedUnit,
+      sourceClaimId: row.sourceClaimId,
+    });
+    desiredByVariant.set(row.variantId, pending);
+  }
+
   if (desiredByVariant.size === 0) return;
 
-  // ── 3. Refuse a listing whose variants would be indistinguishable ─────────
+  // ── 4. Refuse a listing whose variants would be indistinguishable ─────────
   //
   // Two variants whose resolved axis values fold to one digest are one variant
   // as far as `native_variant_signatures_listing_signature_key` is concerned. The
@@ -395,8 +465,13 @@ async function backfillOneListing(
     return;
   }
 
-  // ── 4. Write the assignments and the signatures, in this transaction ──────
-  const existing = await listVariantAxisAssignments(tx, [...desiredByVariant.keys()]);
+  // ── 5. Write the assignments and the signatures, in this transaction ──────
+  //
+  // `existing` was read in step 3 over EVERY variant of the listing, not just
+  // the ones this pass derives. Scoping it to `desiredByVariant.keys()` was the
+  // other half of the inconsistency: a variant that dropped out entirely was
+  // absent from the map, so its rows were invisible to the reconciliation AND to
+  // the count that was supposed to report them.
   const existingByKey = new Map(
     existing.map((row) => [`${row.variantId}|${row.axisId}`, row.normalizedValue]),
   );
@@ -405,12 +480,18 @@ async function backfillOneListing(
     existingCountByVariant.set(row.variantId, (existingCountByVariant.get(row.variantId) ?? 0) + 1);
   }
 
-  let desiredCount = 0;
   for (const [variantId, assignments] of desiredByVariant) {
-    desiredCount += assignments.length;
     let unchanged = existingCountByVariant.get(variantId) === assignments.length;
     for (const assignment of assignments) {
-      const previous = existingByKey.get(`${variantId}|${assignment.axisId}`);
+      const key = `${variantId}|${assignment.axisId}`;
+      const previous = existingByKey.get(key);
+      // A retained row is WRITTEN (it is part of the variant's set, and the
+      // signature is computed over all of it) but never COUNTED here: it has no
+      // legacy option value behind it, so an outcome bucket would exceed
+      // `variantOptionValues` and `assertReportSums` would refuse the report.
+      // It cannot move `unchanged` either — it is byte-identical to the row
+      // already stored, which is what `previous === …` below establishes anyway.
+      if (retainedKeys.has(key)) continue;
       if (previous === assignment.normalizedValue) {
         counters.assignmentsAlreadyWritten += 1;
         continue;
@@ -443,10 +524,6 @@ async function backfillOneListing(
     if (changed) counters.signaturesWritten += 1;
     else counters.signaturesUnchanged += 1;
   }
-  // A row this pass no longer derives. Reported rather than silent: it means the
-  // registry stopped resolving something it used to, which is a change somebody
-  // made and should see.
-  counters.assignmentsRemoved += Math.max(0, existing.length - desiredCount);
 }
 
 /**
@@ -525,13 +602,46 @@ export async function runVariantAxisBackfill(
     // ONE transaction per listing, and a dry run is the identical body rolled
     // back. A `predict` branch would be a second implementation of this loop and
     // the two would disagree precisely where a migration is dangerous.
+    //
+    // The counters are a plain object mutated INSIDE the transaction, so a
+    // rollback does not undo them — which is exactly what `dry_run` depends on,
+    // and exactly what makes a mid-listing failure leave a PARTIAL tally. Hence
+    // the snapshot: a listing that vanishes contributes nothing rather than
+    // however much of itself the pass had read before it died.
+    const beforeListing = structuredClone(counters);
     try {
       await db.transaction(async (tx) => {
-        await backfillOneListing(tx, { listingId, options: options_, optionValues, counters });
+        await backfillOneListing(tx, {
+          listingId,
+          variantIds,
+          options: options_,
+          optionValues,
+          counters,
+        });
         if (mode === 'dry_run') tx.rollback();
       });
     } catch (error) {
-      if (!(error instanceof TransactionRollbackError)) throw error;
+      if (error instanceof TransactionRollbackError) continue;
+      // A seller deleting a listing mid-pass, or a sibling fixture doing it in a
+      // shared test database. The page was read on the root connection, so by
+      // the time this listing's own transaction runs the row can be gone and
+      // every child write fails its foreign key.
+      //
+      // Rethrowing loses the whole REPORT, and with it `resumeAfterListingId` —
+      // so the operator loses the cursor rather than one listing, and a resumed
+      // pass either restarts from zero or is guessed at. Neither is visible in
+      // the output, because there is no output.
+      //
+      // Both halves are required before this is swallowed: the SQLSTATE says a
+      // foreign key failed, and the listing is confirmed GONE. A foreign-key
+      // failure on a listing that still exists is a real defect and still
+      // throws.
+      if (isForeignKeyViolation(error) && !(await listingStillExists(db, listingId))) {
+        Object.assign(counters, beforeListing);
+        counters.listingsVanishedDuringPass += 1;
+        continue;
+      }
+      throw error;
     }
   }
 
@@ -574,7 +684,8 @@ export async function runVariantAxisBackfill(
     },
     diagnostics: {
       listingsWithIndistinguishableVariants: counters.listingsWithIndistinguishableVariants,
-      assignmentsRemoved: counters.assignmentsRemoved,
+      assignmentsRetainedUnresolved: counters.assignmentsRetainedUnresolved,
+      listingsVanishedDuringPass: counters.listingsVanishedDuringPass,
     },
     resumeAfterListingId: page.resumeAfterListingId,
   };

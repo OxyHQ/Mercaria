@@ -480,11 +480,39 @@ export interface VariantAxisBackfillReport {
      */
     readonly listingsWithIndistinguishableVariants: number;
     /**
-     * Assignments a previous pass wrote that this one no longer derives. Not
-     * silent: it means the registry stopped resolving something it used to,
-     * which is a change somebody made and should be told about.
+     * Assignments a previous pass wrote that this one no longer derives, and
+     * which were KEPT.
+     *
+     * Not silent: it means the registry stopped resolving something it used to,
+     * which is a change somebody made and should see. Retained rather than
+     * removed, because a stored assignment cites its exact definition VERSION and
+     * `deprecateAttributeDefinition` takes a version "out of service for NEW
+     * assignments" while "stored values still resolve".
+     *
+     * Counted per AXIS. It was a per-LISTING net until #612, so one variant
+     * losing a row while another gained one reported zero — the one case the
+     * count existed for and the one case it could not report.
+     *
+     * Outside every sum above, because a retained row has no legacy option value
+     * behind it: that is precisely why this pass no longer derives it.
      */
-    readonly assignmentsRemoved: number;
+    readonly assignmentsRetainedUnresolved: number;
+    /**
+     * Listings that were on this page and no longer existed when their own
+     * transaction ran — a seller deleting one mid-pass, or a sibling fixture in
+     * a shared test database.
+     *
+     * Counted rather than fatal, because the alternative was losing the REPORT:
+     * the page is read on the root connection, so the row can be gone by the
+     * time its writes run, and rethrowing took `resumeAfterListingId` with it.
+     * The operator lost the CURSOR rather than one listing, which a resumed pass
+     * cannot tell from a completed one.
+     *
+     * Such a listing contributes NO outcome counters — the tally is restored to
+     * its pre-listing snapshot — so it can never disturb the sums above. It does
+     * still count in `scanned.listings`, because it genuinely was on the page.
+     */
+    readonly listingsVanishedDuringPass: number;
   };
   /** Where to resume. `null` when the pass reached the end of the catalogue. */
   readonly resumeAfterListingId: string | null;

@@ -46,6 +46,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { reportPopulation } from '../../__tests__/report-population.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -133,13 +134,13 @@ describe('the attribute-claim write census', () => {
     expect(sources.size, 'the walk read almost nothing — did the layout move?').toBeGreaterThan(
       400,
     );
-    console.log(`[census] production modules scanned: ${sources.size}`);
+    reportPopulation(`[census] production modules scanned: ${sources.size}`);
 
     const writers = [...sources]
       .filter(([, source]) => CLAIM_WRITE.test(source))
       .map(([path]) => path)
       .sort();
-    console.log(`[census] claim writers found: ${writers.length} (${writers.join(', ')})`);
+    reportPopulation(`[census] claim writers found: ${writers.length} (${writers.join(', ')})`);
 
     // Exact identity, never containment. It is also its own positive control —
     // it can only pass by having FOUND the real writer, so a scan that read
@@ -173,7 +174,7 @@ describe('the attribute-claim write census', () => {
     // pass by finding nothing anywhere — including in the file that certainly
     // does write these tables. Four: two inserts and two settlements.
     const statements = owner.match(new RegExp(CLAIM_WRITE.source, 'giu')) ?? [];
-    console.log(`[census] owner write statements: ${statements.length}`);
+    reportPopulation(`[census] owner write statements: ${statements.length}`);
     expect(
       statements.length,
       'the owner should carry two inserts and two settlements',

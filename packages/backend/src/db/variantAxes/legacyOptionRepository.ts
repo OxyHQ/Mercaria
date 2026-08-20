@@ -28,6 +28,33 @@ import {
 } from '../schema/catalog.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
 
+/**
+ * Whether a listing still exists — the cheap presence check, no row materialized.
+ *
+ * `db/catalog/listingRepository.ts` has an identical `listingExists`, and this
+ * domain deliberately may NOT import it: that module also REPLACES a listing's
+ * whole option list, so `variant-axis-isolation.test.ts` wall 4 forbids the path
+ * outright rather than trusting a caller to pick the read-only export. The wall
+ * is the point, so the read is duplicated here instead of being excused there —
+ * a four-line `select` against a wall that has caught a real write is the
+ * cheaper of the two.
+ *
+ * The backfill needs it on ONE path: a page is read on the root connection, so a
+ * listing can be deleted before its own transaction runs, and telling that apart
+ * from a genuine foreign-key defect needs positive evidence that the row is gone.
+ */
+export async function listingStillExists(
+  db: DatabaseOrTransaction,
+  listingId: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: listings.id })
+    .from(listings)
+    .where(eq(listings.id, listingId))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /** One page of listings to migrate, keyset-ordered so a resumed pass advances. */
 export interface LegacyListingPage {
   readonly listingIds: readonly string[];

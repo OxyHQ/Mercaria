@@ -85,6 +85,7 @@ import {
   type SeededVertical,
 } from '../../../scripts/seed-verticals/__tests__/vertical-fixture.js';
 import { E2E_PERMISSIONS, enumValueId } from '../../../__tests__/vertical-e2e/journey.js';
+import { reportPopulation } from '../../../__tests__/report-population.js';
 
 const TOKEN = verticalRunToken('outbox');
 
@@ -201,7 +202,7 @@ describe('a publication leaves a convergence request behind', () => {
     const count = [...rows][0].rows;
     // Printed on success: the whole file reads one row by listing id, and every
     // assertion below is vacuously true against zero rows.
-    console.log(`[outbox atomicity] offer_outboxes rows for the published listing: ${count}`);
+    reportPopulation(`[outbox atomicity] offer_outboxes rows for the published listing: ${count}`);
     expect(count).toBe(1);
   });
 

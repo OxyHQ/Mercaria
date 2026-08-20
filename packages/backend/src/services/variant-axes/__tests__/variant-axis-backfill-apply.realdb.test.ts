@@ -112,6 +112,7 @@ import {
   publishAttributeDefinition,
 } from '../../attributes/definition-registry.service.js';
 import { runVariantAxisBackfill } from '../backfill.service.js';
+import { reportPopulation } from '../../../__tests__/report-population.js';
 
 let db: Database;
 
@@ -403,20 +404,6 @@ async function readRowIdentity(): Promise<{
   };
 }
 
-/**
- * Print a population on SUCCESS — and NOT through `console.*`.
- *
- * Measured, because it is exactly the kind of thing that reads as done and is
- * not: vitest 4's default reporter — which `bun run test` and CI both use —
- * suppresses `console.info`/`console.log`/`console.error` from a test that
- * PASSED, and shows them only under `--reporter=verbose`. A direct write to the
- * stream survives both. So a population printed with `console.info` is a number
- * nobody reading a CI log ever sees, which is the same as not printing it.
- */
-function reportPopulation(line: string): void {
-  process.stdout.write(`${line}\n`);
-}
-
 /** One pass over exactly this file's listing and nothing else. */
 async function runScopedPass(mode: 'dry_run' | 'apply'): Promise<VariantAxisBackfillReport> {
   return runVariantAxisBackfill(db, {
@@ -466,7 +453,13 @@ function expectFirstPassCounters(report: VariantAxisBackfillReport, label: strin
   expect(report.unresolved.byAttributeRefusal.unmapped, `${label}`).toBe(2);
   expect(report.unresolved.byValueRefusal.attribute_unresolved, `${label}`).toBe(1);
   expect(report.diagnostics.listingsWithIndistinguishableVariants, `${label}`).toBe(0);
-  expect(report.diagnostics.assignmentsRemoved, `${label}`).toBe(0);
+  expect(report.diagnostics.assignmentsRetainedUnresolved, `${label}`).toBe(0);
+  // Asserted at ZERO on the ordinary path, deliberately. `listingsVanishedDuringPass`
+  // exists so a vanished listing cannot be mistaken for one that contributed
+  // nothing — it contributes no outcome counters by design, so without a
+  // diagnostic that is READ on the normal path too, "a listing disappeared" and
+  // "the page was empty" would look identical in the report.
+  expect(report.diagnostics.listingsVanishedDuringPass, `${label}`).toBe(0);
 }
 
 describe('the backfill in apply mode', () => {
@@ -639,7 +632,10 @@ describe('the backfill in apply mode', () => {
     // registry that stopped resolving something.
     expect(second.axes.unresolved).toBe(1);
     expect(second.assignments.unresolved).toBe(1);
-    expect(second.diagnostics.assignmentsRemoved, 'the second pass orphaned a row').toBe(0);
+    expect(
+      second.diagnostics.assignmentsRetainedUnresolved,
+      'the second pass orphaned a row',
+    ).toBe(0);
 
     // And the rows themselves did not move. The counters above are the service's
     // own account of what it did; this is Postgres's. `id` catches a
