@@ -83,8 +83,8 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ## PostgreSQL
 
 `DATABASE_URL` is **required to boot**. There is no second store: legacy
-Mongo/Mongoose is GONE (PR #136, database dropped 2026-08-08) — no `src/models/`,
-no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
+Mongo/Mongoose is GONE — no `src/models/`, no `mongoose` dependency,
+no `MONGODB_URI`, and no rollback target.
 
 - **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
   thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`
@@ -96,7 +96,9 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   sibling branch's tuple back, in a diff that looks entirely plausible.
 - **Never hand-rename a migration, hand-edit `meta/_journal.json` or hand-write a
   snapshot**, and after any regeneration READ the file for statements you did not
-  intend — regeneration DROPS every hand-written trigger, function and backfill.
+  intend — regeneration DROPS every hand-written trigger, function, backfill AND
+  the `-- oxy:deploy-phase=` marker itself, even on pure DDL. Verify the marker
+  count is exactly 1 every time.
 - **Do not convert the `*.realdb.test.ts` suites to mocks.** A mocked
   insert/update accepts a statement the server rejects outright; the CHECKs,
   unique indexes, `requireTransaction` and `FOR UPDATE SKIP LOCKED` they exercise
@@ -183,8 +185,7 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
   tag (#434). `border-s-*`/`text-start` do NOT survive react-native-css/RN 0.85
   and stay physical, as do a panel's `translateX` sign and divider edge (LOGICAL
   `side` in `ui/src/lib/logical-side.ts`); `validate-rtl-upstream-premises.mjs`
-  re-measures both premises against the INSTALLED packages. Residual: #429 item 2
-  — nothing renders, #486 blocks review, Arabic NOT fully supported.
+  re-measures both premises against the INSTALLED packages.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails
