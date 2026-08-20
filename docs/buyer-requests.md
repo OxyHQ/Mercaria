@@ -357,6 +357,95 @@ places establishing a photograph's ownership could disagree.
 
 ---
 
+## The audit trail
+
+`buyer_request_events` is append-only against UPDATE **and** DELETE, one row per
+ATTEMPT, and it is read during an incident by somebody who already knows
+something is wrong. Seventeen kinds: eleven transitions that happened, and six
+refusals.
+
+### A refusal is its own kind, per transition
+
+#743 found `decision_refused` permitted by the CHECK and written by nothing, so
+the trail recorded only successes. #765 found the same shape one layer wider —
+the trail recorded `instructions_issued`, `item_received`, `refund_committed`
+and `cancelled`, and nothing at all when any of them was refused. So an operator
+asking "did anybody try to mark this received and get told no" still got
+silence, which is indistinguishable from nobody having tried.
+
+Widening `decision_refused` to cover them was refused twice. A trail that
+MISLABELS what was refused is worse than one that is silent: silence at least
+does not send a reader to the wrong transition. The kinds are therefore one per
+refusable transition —
+
+| refused transition | kind | mirrors |
+|---|---|---|
+| complete a cancellation | `completion_refused` | `completed` |
+| issue return instructions | `instructions_refused` | `instructions_issued` |
+| mark a return received | `receipt_refused` | `item_received` |
+| commit a return refund | `refund_commit_refused` | `refund_committed` |
+| call off a return | `return_cancellation_refused` | `cancelled` |
+
+— with the reason in the bounded `detail`
+(`BUYER_REQUEST_TRANSITION_REFUSALS`: `state_not_eligible`, `order_missing`,
+`concurrently_updated`, `refund_absent`). The KIND says what somebody tried and
+the REASON says why it did not run; the single-kind alternative
+(`attempt_refused`, transition in the detail) has nowhere left to put the second
+half.
+
+**`completion_refused` and `completion_failed` are a PAIR, not a duplicate.**
+`completion_failed` says Mercaria tried and the world said no, and carries a
+`BUYER_REQUEST_COMPLETION_FAILURES` code. `completion_refused` says Mercaria
+never asked. An operator draws opposite conclusions from them.
+
+`refund_settled` has no refusal kind because its transition
+(`reconcileReturnRefund`) refuses nothing — it converges while the rail is
+silent and records `completion_failed` when the rail says the money did not go.
+A kind minted for symmetry would be one nothing could write, which is the defect
+#743 was filed for.
+
+### Two refusals are deliberately NOT recorded, and eight cannot be
+
+Eight refusals fire because the REQUEST DOES NOT EXIST. The event names its
+request by foreign key and `buyer_request_events_subject_check` demands exactly
+one subject, so there is nowhere to put them. That is the trail being
+per-request rather than an omission, and it should stay that way: a nullable
+subject column would weaken the CHECK that guarantees every row belongs to
+exactly one request, in exchange for recording attempts on ids that were never
+real.
+
+Two more — `Return instructions are required` and `Say why the return was
+cancelled` — are refused ONE LAYER UP before they can reach the service.
+`buyerRequestBodySchemas.instructions` is `z.string().trim().min(3)` and the
+`cancelReturn` handler refuses a short note with the same sentence, both BEFORE
+`scopedRequestId` has resolved a request. So the refusal that actually happens
+has no subject either, and recording at the service would add reason codes no
+production row could carry while making the trail look as though it covered the
+case. `buyer-request-isolation.test.ts` pins both premises, because if either
+layer stops refusing, the site below it becomes a real refusal that owes a row.
+
+### Where a refusal is written, and why it is the one exception
+
+`services/buyer-requests/refusal.ts` — `refuseDecision` and `refuseTransition` —
+writes on the ROOT handle, and it is the only module in the domain that may.
+Every other event write takes a transaction handle, because an audit row that
+commits separately from the fact it describes is a trail with holes. A refusal
+is the opposite case: nothing happened, the row IS the whole fact, and the
+handler throws immediately after — on a transaction handle that row would be
+rolled back by the very throw it exists to record, invisibly, since the caller
+still receives its 409. Both functions return `never` and throw the caller's own
+error, so recording and refusing cannot come apart.
+
+The gate over all of it is a census: every member of `BUYER_REQUEST_EVENT_KINDS`
+and of both refusal-reason tuples must have a producer in the domain's own
+source. It reads the `kind:` and `reason:` lines inside balanced producer-call
+arguments, so a ternary counts and an unrelated `existing.state === 'completed'`
+does not; it carries a call-site floor, a comment-stripping control and a
+mutation self-test that removes a producer and requires the missing kind to be
+named.
+
+---
+
 ## Contact and address correction — EXCLUDED
 
 The issue's last option for this section is rule 10: "exclude the capability
@@ -518,7 +607,10 @@ which is the same idempotent call the accept path makes.
 **A buyer says they cancelled and the order shipped anyway.** The request's
 timeline is append-only and records every attempt including refusals. A
 `decision_refused` or a `completion_failed` with `order_state_changed` says the
-seller shipped between the request and the completion.
+seller shipped between the request and the completion; a `completion_refused`
+with `state_not_eligible` says somebody drove the completion against a request
+nobody had accepted, and one with `order_missing` says the order the request
+names would not load at all, which is a data question rather than a seller one.
 
 ---
 

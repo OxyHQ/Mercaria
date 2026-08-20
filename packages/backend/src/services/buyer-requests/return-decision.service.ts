@@ -41,7 +41,7 @@ import { findOrderById } from '../../db/orders/orderRepository.js';
 import { findRefundByIdempotencyKey } from '../../db/orders/refundRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
-import { refuseDecision } from './decision-refusal.js';
+import { refuseDecision, refuseTransition } from './refusal.js';
 import { actorAuditColumns, type BuyerRequestDecider } from './authorization.js';
 import {
   notifyActionRequired,
@@ -191,8 +191,26 @@ export async function issueReturnInstructions(input: {
 }): Promise<ReturnRequestWithDetail> {
   const existing = await findReturnRequestById(input.requestId);
   if (!existing) throw notFound('Return request not found');
+  const subject = { returnRequestId: input.requestId } as const;
   if (existing.state === 'awaiting_item') return getReturnRequest(input.requestId);
-  if (existing.state !== 'approved') throw conflict('This return is not awaiting instructions');
+  if (existing.state !== 'approved') {
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'instructions_refused',
+      reason: 'state_not_eligible',
+      now: input.now,
+      error: conflict('This return is not awaiting instructions'),
+    });
+  }
+  // NOT recorded, and #765 says why: `buyerRequestBodySchemas.instructions` is
+  // `z.string().trim().min(3)`, so the only surface that calls this refuses the
+  // same condition first — and it refuses BEFORE `scopedRequestId` has resolved
+  // a request, so that refusal has no subject to be recorded against, exactly as
+  // the missing-request refusals above have none. Recording here would add a
+  // reason code no production row could ever carry while making the trail look
+  // as though it covered the case. If the schema ever stops refusing it, this
+  // becomes a real refusal and owes an `instructions_refused` row.
   if (input.instructions.trim().length < 3) {
     throw validationError('Return instructions are required');
   }
@@ -216,7 +234,16 @@ export async function issueReturnInstructions(input: {
     });
     return true;
   });
-  if (!moved) throw conflict('This return was concurrently updated');
+  if (!moved) {
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'instructions_refused',
+      reason: 'concurrently_updated',
+      now: input.now,
+      error: conflict('This return was concurrently updated'),
+    });
+  }
 
   const order = await findOrderById(existing.orderId);
   if (order) {
@@ -244,9 +271,17 @@ export async function markReturnReceived(input: {
 }): Promise<ReturnRequestWithDetail> {
   const existing = await findReturnRequestById(input.requestId);
   if (!existing) throw notFound('Return request not found');
+  const subject = { returnRequestId: input.requestId } as const;
   if (existing.state === 'received') return getReturnRequest(input.requestId);
   if (existing.state !== 'approved' && existing.state !== 'awaiting_item') {
-    throw conflict('This return cannot be marked received');
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'receipt_refused',
+      reason: 'state_not_eligible',
+      now: input.now,
+      error: conflict('This return cannot be marked received'),
+    });
   }
 
   const moved = await getDb().transaction(async (tx) => {
@@ -265,7 +300,16 @@ export async function markReturnReceived(input: {
     });
     return true;
   });
-  if (!moved) throw conflict('This return was concurrently updated');
+  if (!moved) {
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'receipt_refused',
+      reason: 'concurrently_updated',
+      now: input.now,
+      error: conflict('This return was concurrently updated'),
+    });
+  }
 
   const order = await findOrderById(existing.orderId);
   if (order) notifyReturnUpdated(order, input.requestId, 'received');
@@ -287,13 +331,30 @@ export async function refundReturnRequest(input: {
 }): Promise<ReturnRequestWithDetail> {
   const existing = await findReturnRequestById(input.requestId);
   if (!existing) throw notFound('Return request not found');
+  const subject = { returnRequestId: input.requestId } as const;
   if (existing.state === 'completed') return getReturnRequest(input.requestId);
   if (existing.state !== 'received' && existing.state !== 'refund_pending') {
-    throw conflict('This return has not been received');
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'refund_commit_refused',
+      reason: 'state_not_eligible',
+      now: input.now,
+      error: conflict('This return has not been received'),
+    });
   }
 
   const context = await loadBuyerRequestOrder(existing.orderId);
-  if (!context) throw notFound('Order not found');
+  if (!context) {
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'refund_commit_refused',
+      reason: 'order_missing',
+      now: input.now,
+      error: notFound('Order not found'),
+    });
+  }
 
   const failure = await runRefund({
     context,
@@ -317,7 +378,20 @@ export async function refundReturnRequest(input: {
   }
 
   const refund = await findRefundByIdempotencyKey(buyerRequestRefundKey(input.requestId));
-  if (!refund) throw conflict('The refund did not commit');
+  if (!refund) {
+    // Distinct from the `completion_failed` above, which is why it gets a kind
+    // of its own: there the refund service reported a bounded failure, here it
+    // reported SUCCESS and the row it should have written under this request's
+    // key is not there. Nothing else in the system says so.
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'refund_commit_refused',
+      reason: 'refund_absent',
+      now: input.now,
+      error: conflict('The refund did not commit'),
+    });
+  }
 
   if (existing.state === 'received') {
     await getDb().transaction(async (tx) => {
@@ -435,14 +509,26 @@ export async function cancelReturnRequest(input: {
 }): Promise<ReturnRequestWithDetail> {
   const existing = await findReturnRequestById(input.requestId);
   if (!existing) throw notFound('Return request not found');
+  const subject = { returnRequestId: input.requestId } as const;
   if (existing.state === 'cancelled') return getReturnRequest(input.requestId);
   if (
     existing.state !== 'approved' &&
     existing.state !== 'awaiting_item' &&
     existing.state !== 'received'
   ) {
-    throw conflict('This return cannot be cancelled');
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'return_cancellation_refused',
+      reason: 'state_not_eligible',
+      now: input.now,
+      error: conflict('This return cannot be cancelled'),
+    });
   }
+  // NOT recorded, for the reason the instructions path states one function up:
+  // the `cancelReturn` handler refuses a note under three characters with this
+  // same sentence before it resolves a request id, so no attempt that reaches
+  // here can fail this check and the refusal that does happen has no subject.
   if (input.note.trim().length < 3) throw validationError('Say why the return was cancelled');
 
   const moved = await getDb().transaction(async (tx) => {
@@ -461,7 +547,16 @@ export async function cancelReturnRequest(input: {
     });
     return true;
   });
-  if (!moved) throw conflict('This return was concurrently updated');
+  if (!moved) {
+    await refuseTransition({
+      subject,
+      decider: input.decider,
+      kind: 'return_cancellation_refused',
+      reason: 'concurrently_updated',
+      now: input.now,
+      error: conflict('This return was concurrently updated'),
+    });
+  }
 
   const order = await findOrderById(existing.orderId);
   if (order) notifyReturnUpdated(order, input.requestId, 'cancelled');

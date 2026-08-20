@@ -138,6 +138,45 @@ export const BUYER_REQUEST_DECISION_REFUSALS = [
 /** One of {@link BUYER_REQUEST_DECISION_REFUSALS}. */
 export type BuyerRequestDecisionRefusal = (typeof BUYER_REQUEST_DECISION_REFUSALS)[number];
 
+/**
+ * Why a transition OTHER than a decision was refused — the bounded `detail` on
+ * the five refusal kinds #765 adds.
+ *
+ * A separate tuple from {@link BUYER_REQUEST_DECISION_REFUSALS} rather than a
+ * widening of it, because the two answer different questions and a shared set
+ * would admit `order_missing` on a decision and `rejection_note_missing` on a
+ * receipt — codes that name nothing the reader of that row could act on. The
+ * KIND says which transition was attempted and the reason says why it was
+ * refused; keeping the pair that way is what lets one small tuple serve five
+ * kinds without any of them acquiring a code it can never carry.
+ *
+ * Not every reason is reachable from every kind, exactly as
+ * `rejection_note_missing` is reachable only from a rejection. What each kind
+ * can actually carry is a property of its producer, and
+ * `buyer-request-isolation.test.ts` requires every member here to have one.
+ *
+ * A request that does not EXIST has no member here either, for the reason the
+ * decision tuple states: the event names its request by foreign key, so an
+ * attempt on a missing id has nowhere to be recorded.
+ */
+export const BUYER_REQUEST_TRANSITION_REFUSALS = [
+  /** The request is not in a state this transition may run from. */
+  'state_not_eligible',
+  /** The order the request names could not be loaded. */
+  'order_missing',
+  /** The compare-and-swap lost: the request moved under the attempt. */
+  'concurrently_updated',
+  /**
+   * The refund service reported success and no refund carries the request's
+   * key — an inconsistency rather than a refusal a seller could have met, and
+   * the row worth having precisely because nothing else records it.
+   */
+  'refund_absent',
+] as const;
+
+/** One of {@link BUYER_REQUEST_TRANSITION_REFUSALS}. */
+export type BuyerRequestTransitionRefusal = (typeof BUYER_REQUEST_TRANSITION_REFUSALS)[number];
+
 /* -------------------------------------------------------------------------- */
 /*  Cancellation requests                                                      */
 /* -------------------------------------------------------------------------- */
@@ -538,6 +577,62 @@ export type SupportForbiddenAutomaticOutcome =
 /* -------------------------------------------------------------------------- */
 
 /**
+ * The five transitions whose REFUSAL the trail records, beside the six
+ * successes it already did (#765).
+ *
+ * #743 gave the decision transition a refusal kind and left `decision_refused`
+ * as the only one, so the trail still answered "did anybody try to mark this
+ * received and get told no" with silence. Recording that under
+ * `decision_refused` was rejected there and is rejected here: a trail that
+ * MISLABELS what was refused is worse than one that is silent, because silence
+ * at least does not send an operator looking at the wrong transition.
+ *
+ * One kind per refusable transition rather than one `attempt_refused` whose
+ * detail names the transition — the second spelling has nowhere left to put the
+ * REASON, and it would make `detail` mean the transition here and the reason on
+ * a `decision_refused` row one line above it in the same trail.
+ *
+ * `refund_settled` has no member here on purpose. Its transition
+ * (`reconcileReturnRefund`) refuses nothing: it converges when the rail has not
+ * answered and records `completion_failed` when the rail says the money did not
+ * go. A kind minted for symmetry would be one nothing could ever write, which is
+ * the defect #743 was filed for.
+ */
+export const BUYER_REQUEST_TRANSITION_REFUSAL_KINDS = [
+  /**
+   * A cancellation completion did not run. The PAIR with `completion_failed` is
+   * the point: that one says Mercaria tried and the world said no, this one says
+   * Mercaria never asked. An operator reading the trail during an incident draws
+   * opposite conclusions from them, which is why widening either to cover the
+   * other would be worse than the silence #765 found.
+   */
+  'completion_refused',
+  /** Return instructions were not issued. Mirrors `instructions_issued`. */
+  'instructions_refused',
+  /** A return was not marked received. Mirrors `item_received`. */
+  'receipt_refused',
+  /**
+   * A return refund was not committed. Mirrors `refund_committed`, and spelled
+   * for the COMMIT rather than as `refund_refused`, which is already a
+   * {@link BUYER_REQUEST_COMPLETION_FAILURES} member meaning the rail said no —
+   * one word appearing in the `kind` and the `detail` of one table with two
+   * meanings is a trail that misleads whoever reads it fastest.
+   */
+  'refund_commit_refused',
+  /**
+   * A seller's termination of a return did not run. Mirrors `cancelled`, and
+   * named for the RETURN because "cancellation" is also a request kind in this
+   * domain — an event named `cancellation_refused` on a return's trail reads as
+   * a refused cancellation REQUEST.
+   */
+  'return_cancellation_refused',
+] as const;
+
+/** One of {@link BUYER_REQUEST_TRANSITION_REFUSAL_KINDS}. */
+export type BuyerRequestTransitionRefusalKind =
+  (typeof BUYER_REQUEST_TRANSITION_REFUSAL_KINDS)[number];
+
+/**
  * Every recorded transition of a buyer request — #110 cancellation field 6/7
  * and return field 11 ("full audit").
  *
@@ -557,7 +652,14 @@ export const BUYER_REQUEST_EVENT_KINDS = [
   'completed',
   'cancelled',
   'completion_failed',
+  /** The sixth refusal kind, with its own reason vocabulary and its own producer. */
   'decision_refused',
+  // SPREAD rather than repeated, so the tuple the CHECK is rendered from and the
+  // tuple `refuseTransition` accepts cannot drift — a kind in the second and not
+  // the first would type-check and then violate `buyer_request_events_kind_check`
+  // at the moment somebody was being refused, which is the worst time to lose a
+  // row.
+  ...BUYER_REQUEST_TRANSITION_REFUSAL_KINDS,
 ] as const;
 
 /** One of {@link BUYER_REQUEST_EVENT_KINDS}. */

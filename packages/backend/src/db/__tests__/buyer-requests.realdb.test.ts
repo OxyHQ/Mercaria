@@ -38,7 +38,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { connectPostgres, type Database } from '../postgres.js';
 import { insertOrder } from '../orders/orderRepository.js';
@@ -70,7 +70,17 @@ import { recordBuyerRequestEvent } from '../buyerRequests/eventRepository.js';
 let db: Database;
 
 /** Unique to this run, so parallel files cannot collide on a shared database. */
-import { decideCancellationRequest } from '../../services/buyer-requests/cancellation-decision.service.js';
+import {
+  completeCancellationRequest,
+  decideCancellationRequest,
+} from '../../services/buyer-requests/cancellation-decision.service.js';
+import {
+  cancelReturnRequest,
+  decideReturnRequest,
+  issueReturnInstructions,
+  markReturnReceived,
+  refundReturnRequest,
+} from '../../services/buyer-requests/return-decision.service.js';
 import { sellerDecisionActor } from '../../services/buyer-requests/authorization.js';
 
 const RUN = uuidv7().slice(-10);
@@ -858,5 +868,221 @@ describe('a refused decision is recorded (#743)', () => {
 
     const events = await refusalsFor(requestId ?? '');
     expect(events.map((row) => row.detail)).toEqual(['quantity_exceeds_requested']);
+  });
+});
+
+/**
+ * #765 — the trail records a refused INSTRUCTION, RECEIPT, REFUND COMMIT,
+ * COMPLETION and RETURN CANCELLATION, not only a refused decision.
+ *
+ * Driven through the real SERVICES for #743's reason: a case that inserted the
+ * row itself would measure the repository, which was never the thing missing —
+ * the tuple, the CHECK and the writer all accepted these rows already and
+ * nothing called them. Each case asserts three things: the caller was refused,
+ * the row is THERE afterwards, and the request did not move.
+ *
+ * What they do NOT prove is the root-handle rule. None of these refusals sits
+ * inside a transaction, so a `tx` handle would behave identically here; that
+ * property is held statically instead, by `buyer-request-isolation.test.ts`
+ * asserting `refusal.ts` is the only module that writes on a root handle.
+ */
+describe('a refused transition is recorded (#765)', () => {
+  async function fileReturn(orderId: string, variantId: string): Promise<string> {
+    const created = await db.transaction(async (tx) =>
+      insertReturnRequest(tx, {
+        orderId,
+        reason: 'arrived_damaged',
+        resolution: 'refund',
+        returnWindowEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1_000),
+        requestedByActorKind: 'guest',
+        lines: [{ variantId, requestedQuantity: 1 }],
+        evidence: [{ fileId: `file-${uuidv7().slice(-8)}`, kind: 'damage_photo', position: 0 }],
+      }),
+    );
+    return created?.id ?? '';
+  }
+
+  async function trailFor(subject: { cancellationRequestId?: string; returnRequestId?: string }) {
+    return db
+      .select({ kind: buyerRequestEvents.kind, detail: buyerRequestEvents.detail })
+      .from(buyerRequestEvents)
+      .where(
+        subject.cancellationRequestId === undefined
+          ? eq(buyerRequestEvents.returnRequestId, subject.returnRequestId ?? '')
+          : eq(buyerRequestEvents.cancellationRequestId, subject.cancellationRequestId),
+      )
+      // The reader's own ordering (`listBuyerRequestEvents`), so the timeline
+      // case below asserts the order an operator actually sees rather than
+      // whatever order the server happened to return rows in.
+      .orderBy(asc(buyerRequestEvents.at), asc(buyerRequestEvents.id));
+  }
+
+  it('records `completion_refused` when a completion is driven on an undecided request', async () => {
+    const order = await seedOrder({});
+    const requestId = (await fileCancellation(order.id)) ?? '';
+    expect(requestId).toBeTruthy();
+
+    // `submitted`, so there is no decision to complete. Before #765 this threw
+    // and left the trail saying nothing at all.
+    await expect(
+      completeCancellationRequest({
+        requestId,
+        decider: sellerDecisionActor(`seller-765-${RUN}`, 'cancellation:complete'),
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      (await trailFor({ cancellationRequestId: requestId })).map(
+        (row) => `${row.kind}:${row.detail}`,
+      ),
+    ).toEqual(['completion_refused:state_not_eligible']);
+
+    const [after] = await db
+      .select({ state: cancellationRequests.state })
+      .from(cancellationRequests)
+      .where(eq(cancellationRequests.id, requestId));
+    expect(after?.state).toBe('submitted');
+  });
+
+  it('records `instructions_refused` when instructions are issued before approval', async () => {
+    const order = await seedOrder({});
+    const requestId = await fileReturn(order.id, order.variantId);
+
+    await expect(
+      issueReturnInstructions({
+        requestId,
+        decider: sellerDecisionActor(`seller-765-${RUN}`, 'return:instruct'),
+        instructions: 'Post it back to us please',
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      (await trailFor({ returnRequestId: requestId })).map((row) => `${row.kind}:${row.detail}`),
+    ).toEqual(['instructions_refused:state_not_eligible']);
+  });
+
+  it('records `receipt_refused` when a return is marked received before approval', async () => {
+    const order = await seedOrder({});
+    const requestId = await fileReturn(order.id, order.variantId);
+
+    await expect(
+      markReturnReceived({
+        requestId,
+        decider: sellerDecisionActor(`seller-765-${RUN}`, 'return:receive'),
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      (await trailFor({ returnRequestId: requestId })).map((row) => `${row.kind}:${row.detail}`),
+    ).toEqual(['receipt_refused:state_not_eligible']);
+
+    const [after] = await db
+      .select({ state: returnRequests.state, receivedAt: returnRequests.receivedAt })
+      .from(returnRequests)
+      .where(eq(returnRequests.id, requestId));
+    expect(after?.state).toBe('requested');
+    // The row records an ATTEMPT and never a receipt: nothing was restocked and
+    // nothing is now refundable, which is what makes recording it safe.
+    expect(after?.receivedAt).toBeNull();
+  });
+
+  it('records `refund_commit_refused` when a refund is driven before the goods are back', async () => {
+    const order = await seedOrder({});
+    const requestId = await fileReturn(order.id, order.variantId);
+    await db.transaction(async (tx) => {
+      await transitionReturnRequest(tx, {
+        id: requestId,
+        from: 'requested',
+        to: 'approved',
+        decidedByActorKind: 'oxy',
+        decidedByOxyUserId: `seller-765-${RUN}`,
+        decidedAt: new Date(),
+      });
+    });
+
+    await expect(
+      refundReturnRequest({
+        requestId,
+        decider: sellerDecisionActor(`seller-765-${RUN}`, 'return:refund'),
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      (await trailFor({ returnRequestId: requestId })).map((row) => `${row.kind}:${row.detail}`),
+    ).toEqual(['refund_commit_refused:state_not_eligible']);
+
+    const [after] = await db
+      .select({ state: returnRequests.state, refundId: returnRequests.refundId })
+      .from(returnRequests)
+      .where(eq(returnRequests.id, requestId));
+    expect(after?.state).toBe('approved');
+    expect(after?.refundId).toBeNull();
+  });
+
+  it('records `return_cancellation_refused` when a seller calls off an undecided return', async () => {
+    const order = await seedOrder({});
+    const requestId = await fileReturn(order.id, order.variantId);
+
+    await expect(
+      cancelReturnRequest({
+        requestId,
+        decider: sellerDecisionActor(`seller-765-${RUN}`, 'return:decide'),
+        // A VALID note, so the state refusal is what this case measures — the
+        // short-note branch is deliberately not recorded (#765) and a two-character
+        // note here would silently test that instead.
+        note: 'the buyer asked us to hold it',
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      (await trailFor({ returnRequestId: requestId })).map((row) => `${row.kind}:${row.detail}`),
+    ).toEqual(['return_cancellation_refused:state_not_eligible']);
+  });
+
+  it('keeps a refusal beside the successes on one trail, in order', async () => {
+    // A refusal is an ATTEMPT among the transitions that did happen, so the
+    // cases above passing on trails of exactly one row is not enough: this one
+    // proves the refused row lands in a real timeline rather than being the only
+    // thing the reader ever sees.
+    const order = await seedOrder({});
+    const requestId = await fileReturn(order.id, order.variantId);
+    const decider = sellerDecisionActor(`seller-765-${RUN}`, 'return:instruct');
+
+    await decideReturnRequest({
+      requestId,
+      decider: sellerDecisionActor(`seller-765-${RUN}`, 'return:decide'),
+      body: { decision: 'accept' },
+      now: new Date(Date.now() - 3_000),
+    });
+    await issueReturnInstructions({
+      requestId,
+      decider,
+      instructions: 'Post it back to us please',
+      now: new Date(Date.now() - 2_000),
+    });
+    // Received, so re-issuing instructions is genuinely out of order — the
+    // refusal this case needs, arriving after three transitions that worked.
+    await markReturnReceived({
+      requestId,
+      decider: sellerDecisionActor(`seller-765-${RUN}`, 'return:receive'),
+      now: new Date(Date.now() - 1_000),
+    });
+    await expect(
+      issueReturnInstructions({
+        requestId,
+        decider,
+        instructions: 'Actually, post it somewhere else',
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    expect(
+      (await trailFor({ returnRequestId: requestId })).map((row) => row.kind),
+    ).toEqual(['accepted', 'instructions_issued', 'item_received', 'instructions_refused']);
   });
 });
