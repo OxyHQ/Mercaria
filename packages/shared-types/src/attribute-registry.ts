@@ -91,14 +91,40 @@ export const ATTRIBUTE_VALUE_TYPES: readonly AttributeValueType[] = [
  *
  * - `single` — one value. The overwhelming majority.
  * - `set` — an unordered collection ("ports: USB-C, HDMI, 3.5 mm"). Membership
- *   is the only question; order carries no information.
- * - `ordered_list` — order IS information (a `structured` dimensions attribute's
- *   axes; a colour gradient's stops).
+ *   is the intended question.
+ * - `ordered_list` — order is intended to BE information (a colour gradient's
+ *   stops).
  * - `range` — ONE value that is an interval, with independently inclusive or
  *   exclusive bounds ("operating temperature 0–35 °C", "5–7 business days").
  *   Deliberately not two attributes: a range compared against a point needs both
  *   bounds and their strictness together, and two columns in two rows can
  *   disagree about which is the lower.
+ *
+ * ## `set` and `ordered_list` are DECLARED and NOT IMPLEMENTED
+ *
+ * Stated here because the previous wording — "order carries no information"
+ * against "order IS information" — described behaviour the code does not have,
+ * and a false claim in a docblock is worse than an absent one: it is what a
+ * reader builds on.
+ *
+ * They are indistinguishable in all three places that read a cardinality.
+ * Normalization shares one branch (`splitMultiValue`, positions assigned in
+ * source order, and there is no dedup anywhere); `maxValuesFor` returns `null`
+ * for both; constraint evaluation gives both the same "ANY match" semantics.
+ *
+ * Nor is either reachable today. The column defaults to `single` and NO seeded
+ * vertical definition sets a cardinality at all, so every `set`/`ordered_list`
+ * literal in the repository is a test or a fixture. `ordered_list` has in fact
+ * never executed AS a cardinality: both of its usages sit on a `structured`
+ * value type, whose branch returns before the cardinality switch.
+ *
+ * What would implement the distinction, whenever a consumer needs it: `set`
+ * deduplicates and its `position` becomes a bare storage slot carrying no
+ * meaning; `ordered_list` preserves order and permits repeats. That is a real
+ * semantic change and it wants a caller to validate against, which is why it is
+ * recorded rather than guessed at. It is orthogonal to READ determinism, which
+ * every cardinality needs whether or not `position` carries meaning, and which
+ * belongs to the readers rather than to this vocabulary.
  */
 export type AttributeCardinality = 'single' | 'set' | 'ordered_list' | 'range';
 
