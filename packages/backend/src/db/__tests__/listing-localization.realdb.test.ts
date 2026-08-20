@@ -15,22 +15,25 @@
  * row, and must still be answered from the SELLER'S OWN base text. Both were
  * enforced against zero registered fields until this table existed.
  *
- * ## Scoping, because the test database is SHARED across parallel files
+ * ## It takes its OWN database, and is forced to
  *
- * Every fixture is suffixed with a per-run token, every assertion is scoped to
- * the ids this file created, and teardown deletes children before parents — the
- * localizations cascade, but deleting them explicitly is what makes a genuine
- * children-first mistake loud rather than silent.
+ * Every localization insert here fires the revision trigger, and
+ * `catalog_localization_revisions` refuses DELETE as well as UPDATE — so this
+ * file physically cannot tear itself out of the shared database. See the
+ * arrangement below.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { and, desc, eq, sql } from 'drizzle-orm';
+import { createDatabase, uuidv7 } from '@oxyhq/db';
+import type postgres from 'postgres';
 import {
   CATALOG_LOCALIZED_FIELDS,
   type LocalizationCandidate,
 } from '@mercaria/shared-types';
-import { closePostgres, connectPostgres, type Database } from '../postgres.js';
+import type { Database } from '../postgres.js';
+import * as schema from '../schema/index.js';
+import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../testDatabase.js';
 import { listings } from '../schema/catalog.js';
 import {
   catalogLocalizationRevisions,
@@ -67,9 +70,34 @@ async function expectRefusal(pattern: RegExp, run: () => Promise<unknown>): Prom
   expect(String(cause?.message ?? thrown)).toMatch(pattern);
 }
 
+/**
+ * Its OWN throwaway database, and that is forced rather than chosen.
+ *
+ * Every insert here fires `mercaria_listing_localization_revision`, and
+ * `catalog_localization_revisions` is APPEND-ONLY against DELETE as well as
+ * UPDATE — a trigger refuses the statement outright. So this file cannot clean
+ * up after itself in the shared database, and leaving a growing trail behind for
+ * every other file to read is worse than paying for a database.
+ *
+ * Measured, not assumed: the first run of this file tore down against the shared
+ * database and failed with `catalog_localization_revisions is append-only`.
+ * `localization-revisions.realdb.test.ts` reached the same place for the same
+ * reason and this is its arrangement, reused.
+ *
+ * The consequence worth stating: a private database means the shared-database
+ * scoping rules do not apply here, so the assertions below can be exact counts
+ * rather than floors.
+ */
+const ADMIN_URL =
+  process.env['TEST_DATABASE_URL'] ??
+  process.env['DATABASE_URL'] ??
+  'postgres://mercaria:mercaria@127.0.0.1:5435/mercaria_dev';
+
+let databaseUrl: string;
+let client: postgres.Sql;
 let db: Database;
 
-/** Unique to this run, so parallel files cannot collide on a shared database. */
+/** Kept so fixture text is still distinctive in a failure message. */
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
 
 const listingIds: string[] = [];
@@ -110,25 +138,21 @@ async function candidatesFor(listingId: string): Promise<LocalizationCandidate[]
 }
 
 beforeAll(async () => {
-  db = await connectPostgres();
-});
+  databaseUrl = await createMercariaTestDatabase(ADMIN_URL);
+  const instance = createDatabase({
+    databaseUrl,
+    schema,
+    client: { max: 4, onnotice: () => undefined },
+  });
+  client = instance.client;
+  db = instance.db;
+}, 300_000);
 
 afterAll(async () => {
-  if (listingIds.length > 0) {
-    await db
-      .delete(catalogLocalizationRevisions)
-      .where(
-        and(
-          eq(catalogLocalizationRevisions.entityKind, 'listing'),
-          inArray(catalogLocalizationRevisions.entityId, listingIds),
-        ),
-      );
-    await db
-      .delete(listingLocalizations)
-      .where(inArray(listingLocalizations.listingId, listingIds));
-    await db.delete(listings).where(inArray(listings.id, listingIds));
-  }
-  await closePostgres();
+  // The whole database goes, so there is no per-row teardown to get wrong and
+  // no append-only trail to fail on.
+  await client.end({ timeout: 5 });
+  await dropMercariaTestDatabase(databaseUrl);
 });
 
 /* -------------------------------------------------------------------------- */
@@ -183,18 +207,79 @@ describe('the row shape a seller-authored localization may take', () => {
   });
 
   it('refuses a machine row wearing an approved status — the INSERT the trigger never sees', async () => {
+    /*
+     * The three machine CHECKs OVERLAP by design, and `_machine_status_check`
+     * turns out not to be isolable at all. To violate only it a row would need
+     * `provenance = 'machine'`, `status in ('reviewed','approved')` and NO
+     * reviewer — and `_reviewed_audit_check` refuses exactly that. Add a
+     * reviewer and `_machine_reviewer_check` refuses it instead.
+     *
+     * So the assertion is on the OUTCOME plus the SET of constraints that could
+     * have produced it. The first draft of this case named
+     * `_machine_status_check` alone and failed against a real server, which is
+     * how the overlap was found: Postgres reports whichever constraint it
+     * evaluates first and does not promise which.
+     *
+     * The overlap is the family's stated intent — "neither covers the other" —
+     * and this is what it looks like from the outside.
+     */
     const listingId = await createListing(`Machine ${RUN}`, 'base description');
-    await expectRefusal(/listing_localizations_machine_status_check/u, () =>
+    await expectRefusal(
+      /listing_localizations_(machine_status|machine_reviewer|reviewed_audit)_check/u,
+      () =>
+        db.insert(listingLocalizations).values({
+          listingId,
+          locale: 'de',
+          status: 'approved',
+          provenance: 'machine',
+          title: 'maschinell übersetzt',
+          reviewedByOxyUserId: 'reviewer',
+          reviewedAt: new Date(),
+        }),
+    );
+    // Without a reviewer it is STILL refused, which is what makes the claim
+    // "machine may never be approved" rather than "machine may never name a
+    // reviewer". Two rows, because one cannot separate the two constraints.
+    await expectRefusal(
+      /listing_localizations_(machine_status|reviewed_audit)_check/u,
+      () =>
+        db.insert(listingLocalizations).values({
+          listingId,
+          locale: 'ja',
+          status: 'approved',
+          provenance: 'machine',
+          title: '機械翻訳',
+        }),
+    );
+    // …and the isolable one: a machine row at a status it MAY hold, wearing
+    // somebody else's review. Only `_machine_reviewer_check` refuses this.
+    await expectRefusal(/listing_localizations_machine_reviewer_check/u, () =>
       db.insert(listingLocalizations).values({
         listingId,
-        locale: 'de',
-        status: 'approved',
+        locale: 'pt',
+        status: 'machine_translated',
         provenance: 'machine',
-        title: 'maschinell übersetzt',
+        title: 'traduzido por máquina',
         reviewedByOxyUserId: 'reviewer',
         reviewedAt: new Date(),
       }),
     );
+    // THE POSITIVE CONTROL. A machine row at a status it may hold, with no
+    // review, is ACCEPTED — so the three refusals above are about the machine
+    // provenance beside human settlement, not about `provenance = 'machine'`
+    // being unwritable at all.
+    const [accepted] = await db
+      .insert(listingLocalizations)
+      .values({
+        listingId,
+        locale: 'de',
+        status: 'machine_translated',
+        provenance: 'machine',
+        title: 'maschinell übersetzt',
+      })
+      .returning();
+    expect(accepted.provenance).toBe('machine');
+    expect(accepted.status).toBe('machine_translated');
   });
 
   it('runs the SHARED machine-write guard, refusing a machine UPDATE over approved text', async () => {
@@ -531,13 +616,6 @@ describe('what carries these rows, and what removes them', () => {
       reviewedByOxyUserId: 'reviewer',
       reviewedAt: new Date(),
     });
-    // The revision trail is deliberately NOT cascaded — it has no foreign key on
-    // `entity_id` and must outlive its subject — so it is cleared explicitly
-    // first, exactly as a real teardown would.
-    await db
-      .delete(catalogLocalizationRevisions)
-      .where(eq(catalogLocalizationRevisions.entityId, row.id));
-
     await db.delete(listings).where(eq(listings.id, row.id));
 
     const left = await db
@@ -545,6 +623,18 @@ describe('what carries these rows, and what removes them', () => {
       .from(listingLocalizations)
       .where(eq(listingLocalizations.listingId, row.id));
     expect(left).toHaveLength(0);
+
+    // …and the trail SURVIVES the subject, which is the other half of the same
+    // decision: `catalog_localization_revisions.entity_id` carries no foreign
+    // key permanently, because the history of what a listing used to say in
+    // Spanish is precisely the thing that must outlive the listing going away.
+    // A cascade here would delete the record along with its subject; a
+    // `restrict` would block the delete the cascade above exists to allow.
+    const trail = await db
+      .select()
+      .from(catalogLocalizationRevisions)
+      .where(eq(catalogLocalizationRevisions.entityId, row.id));
+    expect(trail.length).toBeGreaterThan(0);
   });
 
   it('is unique per (listing, locale), so “the Spanish one” is a single row', async () => {
