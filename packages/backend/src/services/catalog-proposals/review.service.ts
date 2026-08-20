@@ -56,9 +56,16 @@ import { conflict, forbidden, notFound, validationError } from '../../lib/errors
 import { log } from '../../lib/logger.js';
 import type { Database, DatabaseOrTransaction } from '../../db/postgres.js';
 import {
+  findAttributeDefinitionById,
   insertAttributeEnumValue,
   insertAttributeValueAlias,
+  listAttributeEnumValues,
 } from '../../db/attributes/definitionRepository.js';
+import {
+  draftAttributeDefinition,
+  resolveActiveDefinition,
+} from '../attributes/definition-registry.service.js';
+import { buildNextVersionInput } from '../attributes/version-carry-forward.js';
 import { bumpAuthoringSchemaInvalidation } from '../../db/catalogAuthoring/schemaInvalidationRepository.js';
 import {
   insertProposal,
@@ -97,7 +104,12 @@ export async function approveProposal(
 
   const proposal = await db.transaction(async (tx) => {
     const row = await requireOpenProposal(tx, context.proposalId, context.operatorOxyUserId);
-    const resolvedEntityId = await mintForProposal(tx, row, approval);
+    const resolvedEntityId = await mintForProposal(
+      tx,
+      row,
+      approval,
+      context.operatorOxyUserId,
+    );
     const moved = await transitionProposal(tx, row.id, row.state, {
       toState: 'approved',
       decidedByOxyUserId: context.operatorOxyUserId,
@@ -124,6 +136,83 @@ export async function approveProposal(
 }
 
 /**
+ * Add a controlled value to a PUBLISHED attribute, by drafting version N+1 (#568).
+ *
+ * The published version is immutable and stays exactly as it is; the new version
+ * carries its whole vocabulary forward (`buildNextVersionInput`, whose coverage
+ * is censused against the drizzle table) and appends the approved value.
+ *
+ * ## Two things this deliberately does NOT do
+ *
+ * **It does not publish.** Activation is a separate, attributable operator step —
+ * the pattern `fee_schedules`, `match_policy_versions` and the ranking policies
+ * all follow. Publishing here would put a global, live schema change for every
+ * store on the far end of a review queue, triggered implicitly by approving one
+ * merchant's colour.
+ *
+ * **It does not bump `catalog_authoring_schema_invalidations`.** Nothing a
+ * merchant can see has changed: the value lives in a draft version. Bumping
+ * would make every ECS task recompose a schema that is identical, and would
+ * assert a liveness the value does not have.
+ *
+ * So the approval is real and the value is not yet usable, which is exactly what
+ * the caller's projection reports rather than hiding — `resolvedEntityId` names
+ * the minted VALUE (unchanged in meaning from the draft path, and the id
+ * `catalog_authoring_draft_values.value_enum_value_id` points at), and the
+ * version is one join away through `attribute_definition_id`.
+ */
+async function mintIntoNextVersion(
+  db: DatabaseOrTransaction,
+  input: {
+    readonly definitionKey: string;
+    readonly key: string;
+    readonly label: string;
+    readonly aliases: readonly string[];
+    readonly operatorOxyUserId: string;
+  },
+): Promise<string> {
+  // The ACTIVE version, not the one the proposal named. A merchant may have
+  // proposed against a version that has since been superseded, and carrying the
+  // stale one forward would silently discard everything published since.
+  const active = await resolveActiveDefinition(db, input.definitionKey);
+  if (active === undefined) {
+    throw conflict(
+      `“${input.definitionKey}” has no active version to extend. Publish one, then approve this.`,
+    );
+  }
+  if (active.enumValues.some((value) => value.value === input.key)) {
+    throw conflict(
+      `“${input.key}” is already a value of this attribute. Merge this proposal into it instead.`,
+    );
+  }
+
+  const drafted = await draftAttributeDefinition(
+    buildNextVersionInput(
+      active,
+      [{ value: input.key, label: input.label, aliases: input.aliases }],
+      input.operatorOxyUserId,
+    ),
+    // The CALLER's transaction. `draftAttributeDefinition` opens its own when
+    // given none, and doing that from inside `approveProposal`'s transaction is
+    // the #59 merge-runner deadlock — a second connection writing rows this one
+    // holds locks on, presenting as a hang with no error.
+    db,
+  );
+
+  // Read the id back: the DTO carries values by `value`/`label`/`position` and
+  // no id, and `resolvedEntityId` must name the row itself.
+  const minted = (await listAttributeEnumValues(db, [drafted.id])).find(
+    (value) => value.value === input.key,
+  );
+  if (minted === undefined) {
+    throw new Error(
+      `Drafted ${input.definitionKey} v${drafted.version} without the approved value “${input.key}”.`,
+    );
+  }
+  return minted.id;
+}
+
+/**
  * Mint the entity a proposal asked for, or refuse and name the surface that owns
  * it.
  *
@@ -136,6 +225,7 @@ async function mintForProposal(
   db: DatabaseOrTransaction,
   row: CatalogProposalRow,
   approval: CatalogProposalApproval,
+  operatorOxyUserId: string,
 ): Promise<string> {
   if (!CATALOG_PROPOSAL_MINTABLE_TYPES.includes(row.type)) {
     const owner = CATALOG_PROPOSAL_LINK_ONLY_TYPES[row.type];
@@ -173,6 +263,40 @@ async function mintForProposal(
   const label = (approval.label ?? row.proposedLabel).trim();
   if (label.length === 0) throw validationError('A controlled value needs a label.');
 
+  // Which VERSION the value can actually be written to (#568).
+  //
+  // `mercaria_attribute_enum_frozen` refuses to touch the value vocabulary of any
+  // definition that has left `draft`, and its own message names the remedy:
+  // "publish a new version instead". `seed-verticals/apply.ts` publishes every
+  // attribute it drafts, so in a seeded deployment EVERY attribute a merchant can
+  // see is `active` — which made this, the only mintable proposal type, raise
+  // `restrict_violation` on every approval that mattered. The one test that
+  // minted used a `draft` fixture, chosen for a teardown reason, so the suite was
+  // green over the single lifecycle state in which the write works.
+  const definition = await findAttributeDefinitionById(db, row.attributeDefinitionId);
+  if (definition === undefined) {
+    throw validationError('This proposal names an attribute definition that no longer exists.');
+  }
+
+  // The submitter's verbatim spelling, so the next merchant who types it resolves
+  // rather than proposing again. Computed once: both paths below need it, and the
+  // carry-forward needs it BEFORE the value row exists.
+  const spelling = normalizeProposalLabel(row.proposedLabel);
+  const submittedAliases =
+    approval.recordSubmittedSpellingAsAlias === true && spelling.normalized !== key
+      ? [row.proposedLabel]
+      : [];
+
+  if (definition.lifecycleState !== 'draft') {
+    return mintIntoNextVersion(db, {
+      definitionKey: definition.key,
+      key,
+      label,
+      aliases: submittedAliases,
+      operatorOxyUserId,
+    });
+  }
+
   const inserted = await insertAttributeEnumValue(db, row.attributeDefinitionId, key, label, 0);
   if (inserted === undefined) {
     // `ON CONFLICT DO NOTHING` fired: an operator picked a key that already
@@ -184,19 +308,15 @@ async function mintForProposal(
     );
   }
 
-  // The submitter's verbatim spelling, recorded so the next merchant who types it
-  // resolves rather than proposing again. Best-effort by shape: the alias insert
-  // is `ON CONFLICT DO NOTHING`, and an alias already pointing at ANOTHER value
-  // is a fact this approval must not overwrite.
-  if (approval.recordSubmittedSpellingAsAlias === true) {
-    const spelling = normalizeProposalLabel(row.proposedLabel);
-    if (spelling.normalized !== key) {
-      await insertAttributeValueAlias(db, {
-        attributeDefinitionId: row.attributeDefinitionId,
-        enumValueId: inserted.id,
-        alias: row.proposedLabel,
-      });
-    }
+  // Best-effort by shape: the alias insert is `ON CONFLICT DO NOTHING`, and an
+  // alias already pointing at ANOTHER value is a fact this approval must not
+  // overwrite.
+  for (const alias of submittedAliases) {
+    await insertAttributeValueAlias(db, {
+      attributeDefinitionId: row.attributeDefinitionId,
+      enumValueId: inserted.id,
+      alias,
+    });
   }
 
   // The controlled-value set is one of the four things that can still move under
