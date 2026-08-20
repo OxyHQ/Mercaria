@@ -470,16 +470,18 @@ describe('the own-base policy reaches exactly two places', () => {
     // policy provably untouched: the two policies share ONE row-locale producer,
     // so any widening of the new one is a widening of the old one in the same
     // edit. `baseText` is the whole of the difference.
-    let differed = 0;
+    //
+    // The floor is on the PROBE LIST and not on a counter the loop increments —
+    // a tally that rises once per iteration cannot disagree with its own loop,
+    // and would pass just as well over an empty population.
+    expect(PROBES.length).toBeGreaterThanOrEqual(40);
     for (const probe of PROBES) {
       const exact = localeFallbackPlan(probe, 'exact_locale_only');
       const thenBase = localeFallbackPlan(probe, 'exact_locale_then_base');
       expect([...thenBase.rowLocales], probe).toEqual([...exact.rowLocales]);
       expect(exact.baseText, probe).toBe('withheld');
       expect(thenBase.baseText, probe).toBe('permitted');
-      differed += 1;
     }
-    expect(differed).toBe(PROBES.length);
   });
 
   it('is genuinely narrower than the cross-market chain — the positive control', () => {
