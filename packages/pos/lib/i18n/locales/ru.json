@@ -17,7 +17,9 @@
     "increaseQuantity": "Увеличить количество",
     "itemCount": {
       "one": "%{count} товар",
-      "other": "%{count} товаров"
+      "other": "%{count} товаров",
+      "many": "%{count} товаров",
+      "few": "%{count} товара"
     },
     "removeItem": "Удалить товар",
     "subtotal": "Промежуточный итог",
@@ -27,7 +29,9 @@
     "add": "Добавить",
     "availableCount": {
       "one": "Доступно: %{count}",
-      "other": "Доступно: %{count}"
+      "other": "Доступно: %{count}",
+      "many": "Доступно: %{count}",
+      "few": "Доступно: %{count}"
     },
     "chooseVariant": "Выберите вариант",
     "codePlaceholder": "Отсканируйте или введите SKU / штрихкод",
@@ -35,7 +39,9 @@
     "emptyTitle": "Нет товаров",
     "inStockCount": {
       "one": "В наличии: %{count}",
-      "other": "В наличии: %{count}"
+      "other": "В наличии: %{count}",
+      "many": "В наличии: %{count}",
+      "few": "В наличии: %{count}"
     },
     "loadFailed": "Не удалось загрузить каталог",
     "lookupFailed": "Поиск не удался",
@@ -151,7 +157,9 @@
     "reviewCart": "К корзине",
     "reviewCartWithCount": {
       "one": "%{count} товар · К корзине",
-      "other": "%{count} товаров · К корзине"
+      "other": "%{count} товаров · К корзине",
+      "many": "%{count} товаров · К корзине",
+      "few": "%{count} товара · К корзине"
     }
   },
   "sales": {
@@ -179,7 +187,9 @@
     "noStoresTitle": "Магазинов пока нет",
     "storeMeta": {
       "one": "@%{handle} · %{count} товар",
-      "other": "@%{handle} · %{count} товаров"
+      "other": "@%{handle} · %{count} товаров",
+      "many": "@%{handle} · %{count} товаров",
+      "few": "@%{handle} · %{count} товара"
     },
     "storesLoadFailed": "Не удалось загрузить ваши магазины"
   }

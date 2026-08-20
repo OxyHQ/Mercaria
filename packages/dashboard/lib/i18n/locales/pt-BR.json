@@ -37,7 +37,8 @@
       "pickTitle": "Mapear para uma coleção da Mercaria",
       "productsOnChannel": {
         "one": "%{count} produto no canal",
-        "other": "%{count} produtos no canal"
+        "other": "%{count} produtos no canal",
+        "many": "%{count} de produtos no canal"
       },
       "removeMapping": "Remover este mapeamento",
       "state": {
@@ -83,11 +84,13 @@
       },
       "productsChanged": {
         "one": "%{count} produto alterado",
-        "other": "%{count} produtos alterados"
+        "other": "%{count} produtos alterados",
+        "many": "%{count} de produtos alterados"
       },
       "recordsKept": {
         "one": "%{count} registro de preço mantido",
-        "other": "%{count} registros de preço mantidos"
+        "other": "%{count} registros de preço mantidos",
+        "many": "%{count} de registros de preço mantidos"
       },
       "title": "Desconectar"
     },
@@ -174,7 +177,8 @@
     "orderHorizon": {
       "bounded": {
         "one": "Apenas o último %{count} dia de pedidos é importado. Pedidos feitos antes de %{before} nunca foram importados e não vão chegar depois — este é um limite do que a sua plataforma deixa a Mercaria ler, não uma sincronização atrasada.",
-        "other": "Apenas os últimos %{count} dias de pedidos são importados. Pedidos feitos antes de %{before} nunca foram importados e não vão chegar depois — este é um limite do que a sua plataforma deixa a Mercaria ler, não uma sincronização atrasada."
+        "other": "Apenas os últimos %{count} dias de pedidos são importados. Pedidos feitos antes de %{before} nunca foram importados e não vão chegar depois — este é um limite do que a sua plataforma deixa a Mercaria ler, não uma sincronização atrasada.",
+        "many": "Apenas os últimos %{count} de dias de pedidos são importados. Pedidos feitos antes de %{before} nunca foram importados e não vão chegar depois — este é um limite do que a sua plataforma deixa a Mercaria ler, não uma sincronização atrasada."
       },
       "notSynced": "Pedidos não são trocados neste canal, em nenhum sentido.",
       "unknown": "A Mercaria não consegue saber até quando vão os pedidos desta conexão."
@@ -197,7 +201,8 @@
       "catalogDetail": "%{channels} · %{sync}",
       "channelCount": {
         "one": "%{count} canal",
-        "other": "%{count} canais"
+        "other": "%{count} canais",
+        "many": "%{count} de canais"
       },
       "lastSynced": "última sincronização %{when}",
       "neverSynced": "nunca sincronizado",
@@ -221,7 +226,8 @@
       "awaitingReview": "Aguardando revisão",
       "awaitingReviewNote": {
         "one": "%{count} produto não pôde ser correspondido automaticamente e está na fila para uma pessoa confirmar.",
-        "other": "%{count} produtos não puderam ser correspondidos automaticamente e estão na fila para uma pessoa confirmar."
+        "other": "%{count} produtos não puderam ser correspondidos automaticamente e estão na fila para uma pessoa confirmar.",
+        "many": "%{count} de produtos não puderam ser correspondidos automaticamente e estão na fila para uma pessoa confirmar."
       },
       "body": "Nada é excluído nem mesclado. Quando o mesmo produto aparece duas vezes, a Mercaria mostra o anúncio da sua própria loja como o principal e mantém intacto o histórico de preços do outro.",
       "fromThisStore": "Desta loja",
@@ -247,7 +253,8 @@
       },
       "show": {
         "one": "Ver qual registro não entrou",
-        "other": "Ver quais registros não entraram"
+        "other": "Ver quais registros não entraram",
+        "many": "Ver quais registros não entraram"
       },
       "showing": "Mostrando %{shown} de %{total}.",
       "subject": {
@@ -354,7 +361,8 @@
       "failureDetail": " — %{reason}%{http} · última verificação %{when}",
       "healthyDetail": {
         "one": "%{provider} está enviando %{count} tipo de atualização para a Mercaria. Se você removeu os webhooks da Mercaria em %{provider}, registre-os de novo — nada aqui consegue detectar isso.",
-        "other": "%{provider} está enviando %{count} tipos de atualização para a Mercaria. Se você removeu os webhooks da Mercaria em %{provider}, registre-os de novo — nada aqui consegue detectar isso."
+        "other": "%{provider} está enviando %{count} tipos de atualização para a Mercaria. Se você removeu os webhooks da Mercaria em %{provider}, registre-os de novo — nada aqui consegue detectar isso.",
+        "many": "%{provider} está enviando %{count} de tipos de atualização para a Mercaria. Se você removeu os webhooks da Mercaria em %{provider}, registre-os de novo — nada aqui consegue detectar isso."
       },
       "healthyHeadline": "As mudanças chegam na hora em que acontecem",
       "httpStatus": " (HTTP %{status})",
@@ -368,7 +376,8 @@
       "retryingHeadline": "Algumas atualizações ainda não estão chegando",
       "stoppedDetail": {
         "one": "A Mercaria parou depois de %{count} tentativa. %{cause}",
-        "other": "A Mercaria parou depois de %{count} tentativas. %{cause}"
+        "other": "A Mercaria parou depois de %{count} tentativas. %{cause}",
+        "many": "A Mercaria parou depois de %{count} de tentativas. %{cause}"
       },
       "stoppedHeadline": "Algumas atualizações não estão chegando, e a Mercaria parou de tentar",
       "title": "Atualizações em tempo real",
@@ -497,12 +506,14 @@
     "loadError": "Não foi possível carregar as coleções",
     "productCount": {
       "one": "%{count} produto",
-      "other": "%{count} produtos"
+      "other": "%{count} produtos",
+      "many": "%{count} de produtos"
     },
     "rowMeta": "%{type} · %{items} · %{state}",
     "ruleCount": {
       "one": "%{count} regra",
-      "other": "%{count} regras"
+      "other": "%{count} regras",
+      "many": "%{count} de regras"
     },
     "state": {
       "draft": "rascunho",
@@ -556,7 +567,8 @@
     "loadError": "Não foi possível carregar os clientes",
     "orderCount": {
       "one": "%{count} pedido",
-      "other": "%{count} pedidos"
+      "other": "%{count} pedidos",
+      "many": "%{count} de pedidos"
     },
     "searchPlaceholder": "Buscar clientes…",
     "subtitle": "Pessoas que compram na sua loja",
@@ -748,7 +760,8 @@
     "inventory": {
       "lowStock": {
         "one": "%{count} variante monitorada está no limite de estoque baixo ou abaixo dele.",
-        "other": "%{count} variantes monitoradas estão no limite de estoque baixo ou abaixo dele."
+        "other": "%{count} variantes monitoradas estão no limite de estoque baixo ou abaixo dele.",
+        "many": "%{count} de variantes monitoradas estão no limite de estoque baixo ou abaixo dele."
       },
       "noneLow": "Nenhuma variante monitorada está com estoque baixo.",
       "title": "Estoque"
@@ -784,7 +797,8 @@
       "title": "Produtos mais vendidos",
       "unitsSold": {
         "one": "%{count} vendido",
-        "other": "%{count} vendidos"
+        "other": "%{count} vendidos",
+        "many": "%{count} de vendidos"
       }
     }
   },
@@ -890,7 +904,8 @@
     "row": {
       "itemsPlacedOn": {
         "one": "%{count} item · %{date}",
-        "other": "%{count} itens · %{date}"
+        "other": "%{count} itens · %{date}",
+        "many": "%{count} de itens · %{date}"
       }
     },
     "status": {
@@ -929,7 +944,8 @@
         "releaseNote": "Ao liberar um campo, a plataforma volta a gerenciá-lo a partir da próxima sincronização. Seu valor atual permanece até lá — a Mercaria não guarda o valor anterior da plataforma, então nada é restaurado.",
         "releaseUnnamed": {
           "one": "Liberar %{count} campo",
-          "other": "Liberar %{count} campos"
+          "other": "Liberar %{count} campos",
+          "many": "Liberar %{count} de campos"
         },
         "released": "Liberado. Nada muda aqui até a próxima sincronização, quando o valor da plataforma prevalece."
       },
@@ -940,7 +956,8 @@
       "title": "Produto",
       "variantCount": {
         "one": "%{count} variante",
-        "other": "%{count} variantes"
+        "other": "%{count} variantes",
+        "many": "%{count} de variantes"
       }
     },
     "documentTitle": "Produtos | Mercaria Dashboard",
@@ -979,7 +996,8 @@
     "row": {
       "variantsInStock": {
         "one": "%{count} variante · %{stock} em estoque",
-        "other": "%{count} variantes · %{stock} em estoque"
+        "other": "%{count} variantes · %{stock} em estoque",
+        "many": "%{count} de variantes · %{stock} em estoque"
       }
     },
     "searchPlaceholder": "Buscar produtos nesta página…",
@@ -1260,7 +1278,8 @@
       "documentTitle": "Membros | Mercaria Dashboard",
       "explicitPermissions": {
         "one": "%{count} permissão específica concedida",
-        "other": "%{count} permissões específicas concedidas"
+        "other": "%{count} permissões específicas concedidas",
+        "many": "%{count} de permissões específicas concedidas"
       },
       "invite": "Convidar",
       "inviteTitle": "Convidar membro",
@@ -1288,7 +1307,8 @@
       "dueBy": "Prazo",
       "itemCount": {
         "one": "%{count} item",
-        "other": "%{count} itens"
+        "other": "%{count} itens",
+        "many": "%{count} de itens"
       },
       "loadFailed": "Não foi possível carregar as configurações de pagamento",
       "neededNow": "Necessário agora",
@@ -1304,7 +1324,8 @@
       "schedule": "Frequência",
       "scheduleWithDelay": {
         "one": "%{interval}, após %{count} dia",
-        "other": "%{interval}, após %{count} dias"
+        "other": "%{interval}, após %{count} dias",
+        "many": "%{interval}, após %{count} de dias"
       },
       "states": {
         "actionRequired": {
@@ -1390,7 +1411,8 @@
       "title": "Plano e cobrança",
       "trialNotice": {
         "one": "Inclui %{count} dia de teste.",
-        "other": "Inclui %{count} dias de teste."
+        "other": "Inclui %{count} dias de teste.",
+        "many": "Inclui %{count} de dias de teste."
       },
       "upgradeFailed": "Não foi possível iniciar o upgrade. Tente novamente.",
       "usageIncluded": "incluído",
@@ -1509,7 +1531,8 @@
     "selectStore": "Selecionar loja",
     "storeMeta": {
       "one": "@%{handle} · %{count} produto",
-      "other": "@%{handle} · %{count} produtos"
+      "other": "@%{handle} · %{count} produtos",
+      "many": "@%{handle} · %{count} de produtos"
     },
     "subtitle": "Escolha uma loja para gerenciar",
     "switch": "Trocar de loja",

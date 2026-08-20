@@ -191,7 +191,8 @@
       "standard": "Estàndard",
       "offerCountA11y": {
         "one": "%{label}, %{count} oferta en aquesta pàgina",
-        "other": "%{label}, %{count} ofertes en aquesta pàgina"
+        "other": "%{label}, %{count} ofertes en aquesta pàgina",
+        "many": "%{label}, %{count} d’ofertes en aquesta pàgina"
       }
     },
     "brandChannels": {
@@ -204,7 +205,8 @@
       "lowestInWindow": "Preu més baix en aquest període: %{amount}",
       "noOffersObserved": {
         "one": "No s'ha observat cap oferta durant %{count} període d'aquest interval.",
-        "other": "No s'ha observat cap oferta durant %{count} períodes d'aquest interval."
+        "other": "No s'ha observat cap oferta durant %{count} períodes d'aquest interval.",
+        "many": "No s'ha observat cap oferta durant %{count} de períodes d'aquest interval."
       },
       "notFullyBuilt": "Una part d'aquest període encara no s'ha calculat.",
       "conversionDisplayOnly": "Les xifres convertides són només informatives."
@@ -316,7 +318,8 @@
       "openA11yLabel": "Obre la comanda %{number}",
       "meta": {
         "one": "%{status} · %{seller} · %{count} article",
-        "other": "%{status} · %{seller} · %{count} articles"
+        "other": "%{status} · %{seller} · %{count} articles",
+        "many": "%{status} · %{seller} · %{count} d’articles"
       }
     },
     "pagination": {
@@ -390,7 +393,8 @@
     "heading": "Valora el que has comprat",
     "moreToRate": {
       "one": "%{count} compra més per valorar.",
-      "other": "%{count} compres més per valorar."
+      "other": "%{count} compres més per valorar.",
+      "many": "%{count} de compres més per valorar."
     },
     "notePlaceholder": "Afegeix un comentari (opcional)",
     "publishAction": "Publica la valoració",
@@ -671,7 +675,8 @@
       "allMarkets": "Tots els mercats",
       "staleNotice": {
         "one": "%{count} oferta més no es mostra perquè Mercaria no l'ha confirmada prou recentment.",
-        "other": "%{count} ofertes més no es mostren perquè Mercaria no les ha confirmades prou recentment."
+        "other": "%{count} ofertes més no es mostren perquè Mercaria no les ha confirmades prou recentment.",
+        "many": "%{count} d’ofertes més no es mostren perquè Mercaria no les ha confirmades prou recentment."
       }
     },
     "channels": {
@@ -682,7 +687,8 @@
       "unknownOperator": "un altre mercat",
       "chipLabel": {
         "one": "%{channel}, %{count} oferta",
-        "other": "%{channel}, %{count} ofertes"
+        "other": "%{channel}, %{count} ofertes",
+        "many": "%{channel}, %{count} d’ofertes"
       }
     },
     "standing": {
@@ -722,11 +728,13 @@
       "priceUnconvertible": "Preu en %{currency}, que Mercaria no pot convertir",
       "offerCount": {
         "one": "%{count} oferta",
-        "other": "%{count} ofertes"
+        "other": "%{count} ofertes",
+        "many": "%{count} d’ofertes"
       },
       "offersAcrossChannels": {
         "one": "%{count} oferta en %{channels} canals",
-        "other": "%{count} ofertes en %{channels} canals"
+        "other": "%{count} ofertes en %{channels} canals",
+        "many": "%{count} d’ofertes en %{channels} canals"
       },
       "otherSellers": "· inclou altres venedors"
     },
@@ -753,7 +761,8 @@
     },
     "productCount": {
       "one": "%{count} producte en aquesta família",
-      "other": "%{count} productes en aquesta família"
+      "other": "%{count} productes en aquesta família",
+      "many": "%{count} de productes en aquesta família"
     },
     "prices": {
       "withdrawn": "Els preus no estan disponibles ara mateix.",
@@ -763,7 +772,8 @@
     "priceRange": {
       "summary": {
         "one": "%{scopeLabel} · en %{count} producte",
-        "other": "%{scopeLabel} · en %{count} productes"
+        "other": "%{scopeLabel} · en %{count} productes",
+        "many": "%{scopeLabel} · en %{count} de productes"
       },
       "excludes": "Exclou les ofertes en %{currencies}.",
       "scope": {
@@ -792,7 +802,8 @@
     "ownedBy": "Propietat de %{organization}",
     "productCount": {
       "one": "%{count} producte",
-      "other": "%{count} productes"
+      "other": "%{count} productes",
+      "many": "%{count} de productes"
     },
     "descriptionSource": "Font: %{attribution}",
     "officialStores": {
@@ -1071,7 +1082,8 @@
       "searchNear": "Cerca a prop de %{place}",
       "shopsWithStock": {
         "one": "%{count} botiga amb existències",
-        "other": "%{count} botigues amb existències"
+        "other": "%{count} botigues amb existències",
+        "many": "%{count} de botigues amb existències"
       },
       "refusal": {
         "permissionDenied": "Cap problema: la ubicació continua desactivada. Escriu a sota una ciutat o codi postal i hi buscarem.",
@@ -1165,16 +1177,19 @@
     "showFewer": "Mostra'n menys",
     "showAll": {
       "one": "Mostra-la %{count}",
-      "other": "Mostra-les %{count}"
+      "other": "Mostra-les %{count}",
+      "many": "Mostra-les %{count}"
     },
     "showFewerA11y": "Mostra menys ofertes · %{group}",
     "showAllA11y": {
       "one": "Mostra %{count} oferta · %{group}",
-      "other": "Mostra les %{count} ofertes · %{group}"
+      "other": "Mostra les %{count} ofertes · %{group}",
+      "many": "Mostra les %{count} d’ofertes · %{group}"
     },
     "returnWindow": {
       "one": "El venedor indica un termini de devolució de %{count} dia.",
-      "other": "El venedor indica un termini de devolució de %{count} dies."
+      "other": "El venedor indica un termini de devolució de %{count} dies.",
+      "many": "El venedor indica un termini de devolució de %{count} de dies."
     },
     "buyOnMercaria": "Compra a Mercaria",
     "openSellerListingA11y": "Obre l'anunci d'aquest venedor",
@@ -1246,7 +1261,8 @@
       "reconciling": "Aquestes xifres s'estan conciliant. No es perd res: el llibre major és la font autoritzada i el suport ho pot rastrejar.",
       "pendingConversions": {
         "one": "%{count} recomanació registrada i encara sense valorar.",
-        "other": "%{count} recomanacions registrades i encara sense valorar."
+        "other": "%{count} recomanacions registrades i encara sense valorar.",
+        "many": "%{count} de recomanacions registrades i encara sense valorar."
       }
     },
     "payouts": {
@@ -1382,7 +1398,8 @@
         "conditionLabel": "Estat",
         "photoRequirement": {
           "one": "Aquest estat necessita almenys %{count} fotografia del teu article real. Les imatges del catàleg o del fabricant no serveixen.",
-          "other": "Aquest estat necessita almenys %{count} fotografies del teu article real. Les imatges del catàleg o del fabricant no serveixen."
+          "other": "Aquest estat necessita almenys %{count} fotografies del teu article real. Les imatges del catàleg o del fabricant no serveixen.",
+          "many": "Aquest estat necessita almenys %{count} de fotografies del teu article real. Les imatges del catàleg o del fabricant no serveixen."
         }
       },
       "placement": {

@@ -64,7 +64,8 @@
       "a11yLabelWithBasis": "%{label}: %{basis}",
       "days": {
         "one": "%{count} dia",
-        "other": "%{count} dies"
+        "other": "%{count} dies",
+        "many": "%{count} de dies"
       }
     },
     "basket": {
@@ -300,7 +301,8 @@
       "pinRelease": "Per tornar-los tots alhora, desactiva «Mantén les meves edicions locals» al canal. Això s'aplica a tots els camps editats de tots els productes d'aquest canal.",
       "pinUnnamed": {
         "one": "Hi ha %{count} camp més retingut davant la sincronització que aquesta pantalla no pot anomenar.",
-        "other": "Hi ha %{count} camps més retinguts davant la sincronització que aquesta pantalla no pot anomenar."
+        "other": "Hi ha %{count} camps més retinguts davant la sincronització que aquesta pantalla no pot anomenar.",
+        "many": "Hi ha %{count} de camps més retinguts davant la sincronització que aquesta pantalla no pot anomenar."
       }
     },
     "commercial": {
@@ -425,7 +427,8 @@
         "all": "Aquest desglossament està amagat fins que arribi més gent. Agrupar per mercat o dispositiu pot assenyalar algú amb aquestes xifres, així que mostrem els totals. Els teus totals de sota són complets.",
         "some": {
           "one": "%{count} grup està amagat perquè té menys de %{floor} persones. La seva activitat continua comptant en els totals.",
-          "other": "%{count} grups estan amagats perquè tenen menys de %{floor} persones. La seva activitat continua comptant en els totals."
+          "other": "%{count} grups estan amagats perquè tenen menys de %{floor} persones. La seva activitat continua comptant en els totals.",
+          "many": "%{count} de grups estan amagats perquè tenen menys de %{floor} persones. La seva activitat continua comptant en els totals."
         }
       },
       "payoutStatus": {
@@ -516,20 +519,24 @@
         "justNow": "Estoc confirmat ara mateix",
         "minutes": {
           "one": "Estoc confirmat fa %{count} minut",
-          "other": "Estoc confirmat fa %{count} minuts"
+          "other": "Estoc confirmat fa %{count} minuts",
+          "many": "Estoc confirmat fa %{count} de minuts"
         },
         "hours": {
           "one": "Estoc confirmat fa %{count} hora",
-          "other": "Estoc confirmat fa %{count} hores"
+          "other": "Estoc confirmat fa %{count} hores",
+          "many": "Estoc confirmat fa %{count} d’hores"
         },
         "days": {
           "one": "Estoc confirmat fa %{count} dia",
-          "other": "Estoc confirmat fa %{count} dies"
+          "other": "Estoc confirmat fa %{count} dies",
+          "many": "Estoc confirmat fa %{count} de dies"
         }
       },
       "exactQuantity": {
         "one": "%{count} unitat en estoc en aquesta botiga.",
-        "other": "%{count} unitats en estoc en aquesta botiga."
+        "other": "%{count} unitats en estoc en aquesta botiga.",
+        "many": "%{count} d’unitats en estoc en aquesta botiga."
       }
     },
     "shoppingAgent": {

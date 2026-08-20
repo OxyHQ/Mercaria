@@ -191,7 +191,8 @@
       "standard": "Standard",
       "offerCountA11y": {
         "one": "%{label}, %{count} offre sur cette page",
-        "other": "%{label}, %{count} offres sur cette page"
+        "other": "%{label}, %{count} offres sur cette page",
+        "many": "%{label}, %{count} d’offres sur cette page"
       }
     },
     "brandChannels": {
@@ -204,7 +205,8 @@
       "lowestInWindow": "Prix le plus bas sur cette période : %{amount}",
       "noOffersObserved": {
         "one": "Aucune offre observée pendant %{count} intervalle de cette période.",
-        "other": "Aucune offre observée pendant %{count} intervalles de cette période."
+        "other": "Aucune offre observée pendant %{count} intervalles de cette période.",
+        "many": "Aucune offre observée pendant %{count} d’intervalles de cette période."
       },
       "notFullyBuilt": "Une partie de cette période n'a pas encore été constituée.",
       "conversionDisplayOnly": "Les montants convertis sont donnés à titre indicatif."
@@ -316,7 +318,8 @@
       "openA11yLabel": "Ouvrir la commande %{number}",
       "meta": {
         "one": "%{status} · %{seller} · %{count} article",
-        "other": "%{status} · %{seller} · %{count} articles"
+        "other": "%{status} · %{seller} · %{count} articles",
+        "many": "%{status} · %{seller} · %{count} d’articles"
       }
     },
     "pagination": {
@@ -390,7 +393,8 @@
     "heading": "Évaluez ce que vous avez acheté",
     "moreToRate": {
       "one": "Encore %{count} achat à évaluer.",
-      "other": "Encore %{count} achats à évaluer."
+      "other": "Encore %{count} achats à évaluer.",
+      "many": "Encore %{count} d’achats à évaluer."
     },
     "notePlaceholder": "Ajouter un commentaire (facultatif)",
     "publishAction": "Publier l'avis",
@@ -671,7 +675,8 @@
       "allMarkets": "Tous les marchés",
       "staleNotice": {
         "one": "%{count} offre supplémentaire n'est pas affichée, car Mercaria ne l'a pas confirmée assez récemment.",
-        "other": "%{count} offres supplémentaires ne sont pas affichées, car Mercaria ne les a pas confirmées assez récemment."
+        "other": "%{count} offres supplémentaires ne sont pas affichées, car Mercaria ne les a pas confirmées assez récemment.",
+        "many": "%{count} d’offres supplémentaires ne sont pas affichées, car Mercaria ne les a pas confirmées assez récemment."
       }
     },
     "channels": {
@@ -682,7 +687,8 @@
       "unknownOperator": "une autre place de marché",
       "chipLabel": {
         "one": "%{channel}, %{count} offre",
-        "other": "%{channel}, %{count} offres"
+        "other": "%{channel}, %{count} offres",
+        "many": "%{channel}, %{count} d’offres"
       }
     },
     "standing": {
@@ -722,11 +728,13 @@
       "priceUnconvertible": "Prix en %{currency}, que Mercaria ne peut pas convertir",
       "offerCount": {
         "one": "%{count} offre",
-        "other": "%{count} offres"
+        "other": "%{count} offres",
+        "many": "%{count} d’offres"
       },
       "offersAcrossChannels": {
         "one": "%{count} offre sur %{channels} canaux",
-        "other": "%{count} offres sur %{channels} canaux"
+        "other": "%{count} offres sur %{channels} canaux",
+        "many": "%{count} d’offres sur %{channels} canaux"
       },
       "otherSellers": "· inclut d'autres vendeurs"
     },
@@ -753,7 +761,8 @@
     },
     "productCount": {
       "one": "%{count} produit dans cette famille",
-      "other": "%{count} produits dans cette famille"
+      "other": "%{count} produits dans cette famille",
+      "many": "%{count} de produits dans cette famille"
     },
     "prices": {
       "withdrawn": "Les prix ne sont pas disponibles pour le moment.",
@@ -763,7 +772,8 @@
     "priceRange": {
       "summary": {
         "one": "%{scopeLabel} · sur %{count} produit",
-        "other": "%{scopeLabel} · sur %{count} produits"
+        "other": "%{scopeLabel} · sur %{count} produits",
+        "many": "%{scopeLabel} · sur %{count} de produits"
       },
       "excludes": "Hors offres en %{currencies}.",
       "scope": {
@@ -792,7 +802,8 @@
     "ownedBy": "Détenue par %{organization}",
     "productCount": {
       "one": "%{count} produit",
-      "other": "%{count} produits"
+      "other": "%{count} produits",
+      "many": "%{count} de produits"
     },
     "descriptionSource": "Source : %{attribution}",
     "officialStores": {
@@ -1071,7 +1082,8 @@
       "searchNear": "Rechercher près de %{place}",
       "shopsWithStock": {
         "one": "%{count} boutique en stock",
-        "other": "%{count} boutiques en stock"
+        "other": "%{count} boutiques en stock",
+        "many": "%{count} de boutiques en stock"
       },
       "refusal": {
         "permissionDenied": "Aucun problème : la localisation reste désactivée. Saisissez une ville ou un code postal ci-dessous et nous chercherons là-bas.",
@@ -1165,16 +1177,19 @@
     "showFewer": "Voir moins",
     "showAll": {
       "one": "Voir la %{count}",
-      "other": "Voir les %{count}"
+      "other": "Voir les %{count}",
+      "many": "Voir les %{count}"
     },
     "showFewerA11y": "Voir moins d'offres · %{group}",
     "showAllA11y": {
       "one": "Voir %{count} offre · %{group}",
-      "other": "Voir les %{count} offres · %{group}"
+      "other": "Voir les %{count} offres · %{group}",
+      "many": "Voir les %{count} d’offres · %{group}"
     },
     "returnWindow": {
       "one": "Le vendeur indique un délai de retour de %{count} jour.",
-      "other": "Le vendeur indique un délai de retour de %{count} jours."
+      "other": "Le vendeur indique un délai de retour de %{count} jours.",
+      "many": "Le vendeur indique un délai de retour de %{count} de jours."
     },
     "buyOnMercaria": "Acheter sur Mercaria",
     "openSellerListingA11y": "Ouvrir l'annonce de ce vendeur",
@@ -1246,7 +1261,8 @@
       "reconciling": "Ces chiffres sont en cours de rapprochement. Rien n'est perdu : le grand livre fait foi et le support peut le retracer.",
       "pendingConversions": {
         "one": "%{count} parrainage enregistré et pas encore valorisé.",
-        "other": "%{count} parrainages enregistrés et pas encore valorisés."
+        "other": "%{count} parrainages enregistrés et pas encore valorisés.",
+        "many": "%{count} de parrainages enregistrés et pas encore valorisés."
       }
     },
     "payouts": {
@@ -1382,7 +1398,8 @@
         "conditionLabel": "État",
         "photoRequirement": {
           "one": "Cet état demande au moins %{count} photo de votre article réel. Les images du catalogue ou du fabricant ne peuvent pas les remplacer.",
-          "other": "Cet état demande au moins %{count} photos de votre article réel. Les images du catalogue ou du fabricant ne peuvent pas les remplacer."
+          "other": "Cet état demande au moins %{count} photos de votre article réel. Les images du catalogue ou du fabricant ne peuvent pas les remplacer.",
+          "many": "Cet état demande au moins %{count} de photos de votre article réel. Les images du catalogue ou du fabricant ne peuvent pas les remplacer."
         }
       },
       "placement": {
