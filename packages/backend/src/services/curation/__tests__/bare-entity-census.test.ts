@@ -47,7 +47,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { getTableName, is } from 'drizzle-orm';
+import { is } from 'drizzle-orm';
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
 import { sqlColumnName } from '@oxyhq/db';
 import { MERGEABLE_ENTITY_TYPES } from '@mercaria/shared-types';
@@ -137,17 +137,29 @@ describe('every bare reference to a mergeable entity has a decision (#695)', () 
     // The schema floor catches a broken barrel import. The ledger floor catches
     // a renamed export resolving to an empty array, which would make the
     // derived set empty and BOTH reconciliation directions pass against
-    // nothing. The derived floor catches a reason constant being reworded
-    // without `MERCARIA_ROW_ID_REASONS` following it — the exact failure that
-    // makes a string-keyed population rot silently.
+    // nothing. The derived floor catches a traversal that matched no reason at
+    // all.
+    //
+    // What NONE of them catches, measured rather than assumed: REWORDING a
+    // reason constant. `MERCARIA_ROW_ID_REASONS` and the ledger entries read
+    // the same binding, so an edit moves both sides together and every check
+    // here stays green — two derived representations of one fact cannot
+    // disagree. That is fine, because a rewording changes no membership; the
+    // failure that would matter is an entry LEAVING a constant, and the `stale`
+    // direction below catches that (also measured: one entry moved to an inline
+    // string turns this file red and names the column).
     expect(tables.length).toBeGreaterThanOrEqual(170);
     expect(ID_COLUMNS_WITHOUT_FOREIGN_KEY.length).toBeGreaterThanOrEqual(400);
     expect(derived.length).toBeGreaterThanOrEqual(50);
   });
 
   it('finds a column under each of the six reasons — the derivation is not one constant', () => {
-    // Without this, five of the six could be reworded out of the ledger and the
-    // floor above would still pass on `COMMERCE_SNAPSHOT` alone.
+    // Without this, five of the six could fall out of USE entirely — every
+    // entry under them moved to an inline string — and the floor above would
+    // still pass on `COMMERCE_SNAPSHOT` alone, leaving a listed reason that
+    // derives nothing. Measured: moving all twelve `ANALYTICS_CORRELATION`
+    // entries off the constant turns this file red here and in both
+    // reconciliation directions.
     for (const reason of MERCARIA_ROW_ID_REASONS) {
       const covered = ID_COLUMNS_WITHOUT_FOREIGN_KEY.filter((entry) => entry.reason === reason);
       expect(covered.length, `no ledger entry carries this reason any more: ${reason}`)
@@ -176,9 +188,11 @@ describe('every bare reference to a mergeable entity has a decision (#695)', () 
     expect(
       stale,
       'these entries are declared and are outside the derived population, so nothing can ever ' +
-        're-check them. Either the ledger entry they mirror was removed — delete this one too — ' +
-        'or a new undervivable door was added, which belongs in `UNDERIVABLE` beside a docblock ' +
-        'saying why no derivation reaches it.',
+        're-check them. Three things produce it: the ledger entry they mirror was REMOVED (delete ' +
+        'this one too); it DRIFTED off its shared reason constant onto an inline string (put it ' +
+        'back on the constant, or add the new reason to `MERCARIA_ROW_ID_REASONS`); or a new ' +
+        'underivable door was added, which belongs in `UNDERIVABLE` beside a docblock saying why ' +
+        'no derivation reaches it.',
     ).toEqual([]);
   });
 
