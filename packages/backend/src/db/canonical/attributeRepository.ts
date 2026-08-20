@@ -172,6 +172,29 @@ export async function listAttributeValuesForKey(
     .orderBy(asc(canonicalAttributeValues.createdAt), asc(canonicalAttributeValues.id));
 }
 
+/**
+ * Every recorded value for one entity, across every attribute key.
+ *
+ * ORDERED BY `position` FIRST, and the two columns after it are a real tiebreak
+ * rather than decoration. `created_at` alone supplies NO ordering here: it
+ * defaults to `date_trunc('milliseconds', now())`, `now()` is transaction-scoped,
+ * and one observation writes every value of a multi-valued attribute inside ONE
+ * transaction (`attribute-observation.service.ts` loops `applyOneFact` in `tx`).
+ * Measured against the real DDL — three values written in one transaction share
+ * exactly one `created_at`.
+ *
+ * With no ordering among them Postgres returns heap order, so a single UPDATE
+ * moves a row to the end. `setAttributeValueSelectionState` is exactly that
+ * UPDATE, on the ordinary observation path: promoting a value silently reordered
+ * this list while every `position` stayed put. Both consumers are read surfaces
+ * — `toPublicCanonicalProduct` and `comparison.service`, and the latter's
+ * `TableAttributeFact` carries no `position`, so array order is its only carrier.
+ *
+ * `listCanonicalImages` below has had `position, id` all along; this is the same
+ * rule applied to the sibling read that was missing it. `created_at` is kept
+ * between the two so that candidates sharing one position stay oldest-first,
+ * which is the ordering this function already intended.
+ */
 export async function listAttributeValues(
   db: DatabaseOrTransaction,
   grain: Extract<AnnotationGrain, { kind: 'product' | 'variant' }>,
@@ -184,7 +207,12 @@ export async function listAttributeValues(
     .select()
     .from(canonicalAttributeValues)
     .where(owner)
-    .orderBy(asc(canonicalAttributeValues.attributeKey), asc(canonicalAttributeValues.createdAt));
+    .orderBy(
+      asc(canonicalAttributeValues.attributeKey),
+      asc(canonicalAttributeValues.position),
+      asc(canonicalAttributeValues.createdAt),
+      asc(canonicalAttributeValues.id),
+    );
 }
 
 /**
