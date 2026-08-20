@@ -26,11 +26,16 @@ import {
   FITMENT_QUALIFIERS,
   FITMENT_TARGET_SCOPES,
   LOCALIZATION_STATUSES,
+  NATIVE_ATTRIBUTE_CLAIM_GRAINS,
+  NATIVE_CLAIM_RESOLUTIONS,
   SUPPORTED_LOCALES,
+  VARIANT_AXIS_ATTRIBUTE_REFUSALS,
+  VARIANT_AXIS_VALUE_REFUSALS,
   VEHICLE_MAX_YEAR,
   VEHICLE_MIN_YEAR,
 } from '@mercaria/shared-types';
 import { CLAIM_QUEUE_MAX_LIMIT } from '../services/catalog-governance/compatibility-claim.service.js';
+import { ATTRIBUTE_CLAIM_QUEUE_MAX_LIMIT } from '../services/catalog-governance/attribute-claim.service.js';
 
 /** `z.enum` wants a non-empty tuple; the shared constants are readonly arrays. */
 function tuple<T extends string>(values: readonly T[]): readonly [T, ...T[]] {
@@ -230,6 +235,52 @@ export const reviewCompatibilityClaimSchema = z
     // by a promotion.
     state: z.enum(tuple(COMPATIBILITY_REVIEWABLE_CLAIM_STATES)),
     reviewNote: z.string().trim().min(1).max(2000).nullable().default(null),
+    reason,
+  })
+  .strict();
+
+/** `GET .../reviews/attribute-claims` — the variant-grain backlog (#576). */
+export const attributeClaimQueueQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(ATTRIBUTE_CLAIM_QUEUE_MAX_LIMIT).optional(),
+  })
+  .strict();
+
+/**
+ * `POST .../reviews/attribute-claims/:claimId` — settle one claim (#576).
+ *
+ * **Both resolutions are REQUIRED, and that is the trap this shape closes.**
+ * `resolutionValues` in the repository defaults every field it is not given, so
+ * a settlement omitting `valueResolution` does not leave it alone — it writes
+ * `unresolved` and NULLs the normalized value. Making either optional here would
+ * turn a forgotten field into silent data loss on an operator surface, so the
+ * settlement an operator sends is the WHOLE settlement.
+ *
+ * `grain` is required for the same reason it is required in the service: the two
+ * claim tables have separate id spaces, and probing both would settle whichever
+ * matched — the wrong row, silently, on a collision.
+ *
+ * There is deliberately no `rawName`, `rawValue`, `variantId`, `listingId`,
+ * `provenance` or `assertedAt`: a settlement may not rewrite what somebody
+ * asserted. `.strict()` refuses them at the edge, the repository functions take
+ * no such parameter, and `mercaria_native_*_claim_frozen` refuses them at the
+ * row — three layers, and only the last is a guarantee.
+ *
+ * `resolvedByOxyUserId` and `resolvedAt` are absent too: who settled a claim and
+ * when are facts about the request, taken from the credential and the clock. A
+ * field for either would let an operator file their decision under another name.
+ */
+export const settleAttributeClaimSchema = z
+  .object({
+    grain: z.enum(tuple(NATIVE_ATTRIBUTE_CLAIM_GRAINS)),
+    attributeResolution: z.enum(tuple(NATIVE_CLAIM_RESOLUTIONS)),
+    attributeRefusal: z.enum(tuple(VARIANT_AXIS_ATTRIBUTE_REFUSALS)).nullable().default(null),
+    valueResolution: z.enum(tuple(NATIVE_CLAIM_RESOLUTIONS)),
+    valueRefusal: z.enum(tuple(VARIANT_AXIS_VALUE_REFUSALS)).nullable().default(null),
+    attributeDefinitionId: z.string().trim().min(1).max(64).nullable().default(null),
+    attributeDefinitionVersion: z.coerce.number().int().min(1).nullable().default(null),
+    enumValueId: z.string().trim().min(1).max(64).nullable().default(null),
+    normalizedValue: z.string().trim().min(1).max(2000).nullable().default(null),
     reason,
   })
   .strict();

@@ -1149,7 +1149,7 @@
         "category": "বিভাগ",
         "productType": "পণ্যের ধরন",
         "productTypeVersion": "%{name} (সংস্করণ %{version})",
-        "marketAndLocale": "বাজার %{market} · ভাষা %{language}",
+        "marketAndLocale": "বাজার %{market} · ভাষা %{locale}",
         "market": "বাজার",
         "canonicalLink": "ক্যাটালগ পণ্য",
         "canonicalNone": "কিছুই বাছাই হয়নি",

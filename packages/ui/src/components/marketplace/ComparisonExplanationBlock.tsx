@@ -3,9 +3,6 @@ import type { ComparisonExplanation } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
-  COMPARISON_NO_SUMMARY_KEY,
-} from "../../lib/marketplace-labels";
-import {
   COMPARISON_EXPLANATION_FALLBACK_NOTICE_KEY,
   COMPARISON_PROVENANCE_KEYS,
 } from "../../lib/comparison-labels";
@@ -50,7 +47,7 @@ export function ComparisonExplanationBlock({
     return (
       <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-12">
         <Text className="text-caption text-text-secondary">
-          {t(COMPARISON_NO_SUMMARY_KEY)}
+          No summary is available for this comparison. The table below is the comparison.
         </Text>
       </View>
     );

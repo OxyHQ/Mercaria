@@ -2,12 +2,6 @@ import { Pressable, View } from "react-native";
 import { Image } from "expo-image";
 import { MoreHorizontal, Star } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  MARKETPLACE_VISIT_MERCHANT_KEY,
-  MERCHANT_HEADER_MORE_OPTIONS_KEY,
-  MERCHANT_HEADER_VISIT_STORE_KEY,
-} from "../../lib/marketplace-labels";
 import { useFormatters } from "../../lib/use-formatters";
 import { IncentiveHalo } from "./IncentiveHalo";
 
@@ -118,13 +112,12 @@ export function MerchantHeader({
   scopeLabel = "Seller service",
 }: MerchantHeaderProps) {
   const isLarge = size === "large";
-  const t = useSharedUiTranslation();
 
   return (
     <View className="flex-row items-center gap-space-8">
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name })}
+        accessibilityLabel={`Visit ${name}`}
         onPress={onPress}
         className="flex-1 flex-row items-center gap-space-8"
       >
@@ -153,18 +146,16 @@ export function MerchantHeader({
       {isLarge ? (
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name })}
+          accessibilityLabel={`Visit ${name}`}
           onPress={onPress}
           className="rounded-radius-max border-[1.5px] border-border-secondary px-space-16 py-space-8"
         >
-          <Text className="text-buttonMedium text-text">
-            {t(MERCHANT_HEADER_VISIT_STORE_KEY)}
-          </Text>
+          <Text className="text-buttonMedium text-text">Visit store</Text>
         </Pressable>
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(MERCHANT_HEADER_MORE_OPTIONS_KEY)}
+          accessibilityLabel="More options"
           hitSlop={8}
           className="rounded-radius-max p-space-6"
         >

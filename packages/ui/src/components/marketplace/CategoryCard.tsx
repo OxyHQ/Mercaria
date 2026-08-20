@@ -2,10 +2,6 @@ import { View, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { ChevronRight } from "lucide-react-native";
 import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  CATEGORY_BROWSE_KEY,
-} from "../../lib/marketplace-labels";
 import { useColorScheme } from "../../lib/useColorScheme";
 import type { Category, CategoryTile } from "@mercaria/shared-types";
 
@@ -45,7 +41,6 @@ export function CategoryCard({
   onPressTile,
 }: CategoryCardProps) {
   const { colors } = useColorScheme();
-  const t = useSharedUiTranslation();
   // Defensive: tolerate a partial/in-transition category payload.
   const tiles = category.subcategories ?? [];
 
@@ -54,7 +49,7 @@ export function CategoryCard({
       {/* Header — a single link to the category. */}
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={t(CATEGORY_BROWSE_KEY, { category: category.name })}
+        accessibilityLabel={`Browse ${category.name}`}
         onPress={() => onPressCategory?.(category.id, category.slug)}
         className="flex-row items-center gap-2 px-1"
       >

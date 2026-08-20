@@ -483,9 +483,22 @@ describe('the route set is closed', () => {
         // shopper acts on.
         'GET /reviews/compatibility-claims',
         'POST /reviews/compatibility-claims/:claimId/fitment',
+        // #576, and the same shape as the two above it: the queue READ is what
+        // makes the `unresolved_variant_axis_claim` count on `GET /queues`
+        // actionable, and the POST is the act that drains it. Before them,
+        // `settleVariantAttributeClaim` and `settleListingAttributeClaim` had no
+        // production caller anywhere in the repository while the governance
+        // prose described the path as built — so a republication reopened claims
+        // into a queue with no drain.
+        //
+        // ONE settle route rather than one per grain: the act is identical and
+        // the table is a required field of the request, so two paths would be
+        // two spellings of one decision.
+        'GET /reviews/attribute-claims',
+        'POST /reviews/attribute-claims/:claimId',
       ].sort(),
     );
-    expect(registered.length, `${String(registered.length)} routes registered`).toBe(30);
+    expect(registered.length, `${String(registered.length)} routes registered`).toBe(32);
   });
 
   it('mounts authentication before the allow-list', () => {

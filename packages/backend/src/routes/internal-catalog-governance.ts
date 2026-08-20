@@ -60,8 +60,10 @@ import {
   orphanQuerySchema,
   planChangeSchema,
   restoreSnapshotSchema,
+  attributeClaimQueueQuerySchema,
   compatibilityClaimQueueQuerySchema,
   promoteCompatibilityClaimSchema,
+  settleAttributeClaimSchema,
   reviewCompatibilityClaimSchema,
   reviewExternalMappingSchema,
   reviewLocalizationSchema,
@@ -89,8 +91,10 @@ import {
   queuesHandler,
   rejectChangeHandler,
   restoreSnapshotHandler,
+  attributeClaimQueueHandler,
   compatibilityClaimQueueHandler,
   promoteCompatibilityClaimHandler,
+  settleAttributeClaimHandler,
   reviewCompatibilityClaimHandler,
   reviewExternalMappingHandler,
   reviewLocalizationHandler,
@@ -237,6 +241,38 @@ router.post(
   validateId('mappingId'),
   validateBody(reviewExternalMappingSchema),
   reviewExternalMappingHandler,
+);
+
+/**
+ * GET — the variant-grain attribute-claim backlog (#576).
+ *
+ * Declared before the `:claimId` route below for the same reason its
+ * compatibility twin is: not load-bearing for routing, written this way round
+ * because the read an operator reaches for first should read first.
+ */
+router.get(
+  '/reviews/attribute-claims',
+  validateQuery(attributeClaimQueueQuerySchema),
+  attributeClaimQueueHandler,
+);
+
+/**
+ * POST — settle one attribute claim, at either grain.
+ *
+ * `review` and not `publish`: a settlement records what the registry answers for
+ * a claim and creates no row a shopper is shown. It sits on the SAME side of the
+ * role boundary as the compatibility review below, and the opposite side from
+ * the promotion beside it.
+ *
+ * One route for both grains rather than two, because the act is identical and
+ * the table is a required field of the request — two paths would be two
+ * spellings of one decision, and the id spaces are disjoint anyway.
+ */
+router.post(
+  '/reviews/attribute-claims/:claimId',
+  validateId('claimId'),
+  validateBody(settleAttributeClaimSchema),
+  settleAttributeClaimHandler,
 );
 
 /**

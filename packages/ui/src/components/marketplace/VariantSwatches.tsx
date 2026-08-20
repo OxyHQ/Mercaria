@@ -2,11 +2,6 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { ListingOption, ProductVariantDTO } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  SWATCH_SHOW_MORE_A11Y_KEY,
-  SWATCH_SHOW_MORE_KEY,
-} from "../../lib/marketplace-labels";
 
 /** Max values shown before a "+N more" expander appears. */
 const MAX_VISIBLE_VALUES = 24;
@@ -97,7 +92,6 @@ export function VariantSwatches({
   onSelect,
 }: VariantSwatchesProps) {
   const [expanded, setExpanded] = useState(false);
-  const t = useSharedUiTranslation();
 
   const overflow = option.values.length > MAX_VISIBLE_VALUES && !expanded;
   const visibleValues = overflow ? option.values.slice(0, MAX_VISIBLE_VALUES) : option.values;
@@ -137,16 +131,11 @@ export function VariantSwatches({
         {overflow ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t(SWATCH_SHOW_MORE_A11Y_KEY, {
-              more: hiddenCount,
-              option: option.name,
-            })}
+            accessibilityLabel={`Show ${hiddenCount} more ${option.name} options`}
             onPress={() => setExpanded(true)}
             className="min-h-space-40 items-center justify-center rounded-radius-max border-[1.5px] border-border-secondary px-space-16"
           >
-            <Text className="text-buttonMedium text-text">
-              {t(SWATCH_SHOW_MORE_KEY, { more: hiddenCount })}
-            </Text>
+            <Text className="text-buttonMedium text-text">{`+${hiddenCount} more`}</Text>
           </Pressable>
         ) : null}
       </View>

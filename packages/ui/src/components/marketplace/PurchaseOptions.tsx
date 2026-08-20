@@ -4,22 +4,21 @@ import { ChevronDown } from "lucide-react-native";
 import type { Money } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { PriceDisplay } from "../PriceDisplay";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  PURCHASE_ADD_TO_CART_KEY,
-  PURCHASE_BUY_NOW_KEY,
-  PURCHASE_FREQUENCY_KEYS,
-  PURCHASE_ONE_TIME_KEY,
-  PURCHASE_SELECT_OPTIONS_KEY,
-  PURCHASE_SUBSCRIBE_KEY,
-  PURCHASE_SUBSCRIBE_NOW_KEY,
-} from "../../lib/purchase-labels";
 
 /** Faux-select chevron icon size (px). */
 const SELECT_ICON_SIZE = 20;
 
 /** Purchase mode the buyer can toggle between; only `one_time` is functional. */
 type PurchaseType = "one_time" | "subscribe";
+
+/** Static subscribe delivery-frequency options (decorative — never wired to checkout). */
+const SUBSCRIBE_FREQUENCIES = [
+  "Delivers every month",
+  "Delivers every 2 months",
+  "Delivers every 3 months",
+  "Delivers every 4 months",
+  "Delivers every 6 months",
+] as const;
 
 export interface PurchaseOptionsProps {
   /** Active price (selected variant's price, or the listing "from" price). */
@@ -49,7 +48,6 @@ export function PurchaseOptions({
   onAddToCart,
   onBuyNow,
 }: PurchaseOptionsProps) {
-  const t = useSharedUiTranslation();
   const [purchaseType, setPurchaseType] = useState<PurchaseType>("one_time");
 
   const actionsDisabled = !canBuy || isPending;
@@ -60,7 +58,7 @@ export function PurchaseOptions({
       <View className={purchaseType === "one_time" ? "bg-bg-fill-secondary" : "bg-bg-fill"}>
         <Pressable
           accessibilityRole="radio"
-          accessibilityLabel={t(PURCHASE_ONE_TIME_KEY)}
+          accessibilityLabel="One time purchase"
           accessibilityState={{ selected: purchaseType === "one_time" }}
           onPress={() => setPurchaseType("one_time")}
           className="flex-row items-center gap-space-12 px-space-16 pt-space-16"
@@ -74,16 +72,14 @@ export function PurchaseOptions({
               <View className="size-space-10 rounded-radius-max bg-bg-fill-brand" />
             ) : null}
           </View>
-          <Text className="flex-1 text-bodyTitleSmall text-text">
-            {t(PURCHASE_ONE_TIME_KEY)}
-          </Text>
+          <Text className="flex-1 text-bodyTitleSmall text-text">One time purchase</Text>
           <PriceDisplay price={price} primaryClassName="text-bodyTitleSmall" />
         </Pressable>
         {purchaseType === "one_time" ? (
           <View className="flex-row-reverse gap-space-8 p-space-16">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t(PURCHASE_ADD_TO_CART_KEY)}
+              accessibilityLabel="Add to cart"
               disabled={actionsDisabled}
               onPress={onAddToCart}
               className={`flex-1 items-center rounded-radius-max bg-bg-fill-brand p-space-16 web:active:scale-[0.99] ${
@@ -91,21 +87,19 @@ export function PurchaseOptions({
               }`}
             >
               <Text className="text-buttonLarge text-primary-foreground">
-                {t(canBuy ? PURCHASE_ADD_TO_CART_KEY : PURCHASE_SELECT_OPTIONS_KEY)}
+                {canBuy ? "Add to cart" : "Select options"}
               </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t(PURCHASE_BUY_NOW_KEY)}
+              accessibilityLabel="Buy now"
               disabled={actionsDisabled}
               onPress={onBuyNow}
               className={`flex-1 items-center rounded-radius-max bg-bg-fill-inverse p-space-16 ${
                 actionsDisabled ? "opacity-50" : ""
               }`}
             >
-              <Text className="text-buttonLarge text-text-inverse">
-                {t(PURCHASE_BUY_NOW_KEY)}
-              </Text>
+              <Text className="text-buttonLarge text-text-inverse">Buy now</Text>
             </Pressable>
           </View>
         ) : (
@@ -119,7 +113,7 @@ export function PurchaseOptions({
       <View className={purchaseType === "subscribe" ? "bg-bg-fill-secondary" : "bg-bg-fill"}>
         <Pressable
           accessibilityRole="radio"
-          accessibilityLabel={t(PURCHASE_SUBSCRIBE_KEY)}
+          accessibilityLabel="Subscribe"
           accessibilityState={{ selected: purchaseType === "subscribe" }}
           onPress={() => setPurchaseType("subscribe")}
           className="flex-row items-center gap-space-12 px-space-16 pt-space-16"
@@ -133,29 +127,23 @@ export function PurchaseOptions({
               <View className="size-space-10 rounded-radius-max bg-bg-fill-brand" />
             ) : null}
           </View>
-          <Text className="flex-1 text-bodyTitleSmall text-text">
-            {t(PURCHASE_SUBSCRIBE_KEY)}
-          </Text>
+          <Text className="flex-1 text-bodyTitleSmall text-text">Subscribe</Text>
           <PriceDisplay price={price} primaryClassName="text-bodyTitleSmall" />
         </Pressable>
         {purchaseType === "subscribe" ? (
           <View className="gap-space-8 p-space-16">
             {/* Static faux-select for delivery frequency. */}
             <View className="flex-row items-center justify-between rounded-radius-max border border-border-secondary bg-bg-fill px-space-16 py-space-12">
-              <Text className="text-bodySmall text-text">
-                {t(PURCHASE_FREQUENCY_KEYS[0])}
-              </Text>
+              <Text className="text-bodySmall text-text">{SUBSCRIBE_FREQUENCIES[0]}</Text>
               <ChevronDown size={SELECT_ICON_SIZE} className="text-text-tertiary" />
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t(PURCHASE_SUBSCRIBE_NOW_KEY)}
+              accessibilityLabel="Subscribe now"
               disabled
               className="items-center rounded-radius-max bg-bg-fill-inverse p-space-16 opacity-50"
             >
-              <Text className="text-buttonLarge text-text-inverse">
-                {t(PURCHASE_SUBSCRIBE_NOW_KEY)}
-              </Text>
+              <Text className="text-buttonLarge text-text-inverse">Subscribe now</Text>
             </Pressable>
           </View>
         ) : (

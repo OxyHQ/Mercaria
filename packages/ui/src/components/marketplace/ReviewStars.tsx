@@ -1,12 +1,6 @@
 import { View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useColorScheme } from "../../lib/useColorScheme";
-import { useFormatters } from "../../lib/use-formatters";
-import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  REVIEW_STARS_A11Y_KEY,
-  REVIEW_STARS_SCOPED_A11Y_KEY,
-} from "../../lib/marketplace-labels";
 
 /** Fixed gold fill for the rated portion of the stars (documented constant). */
 const STAR_COLOR = "#FFB800";
@@ -93,8 +87,6 @@ export function ReviewStars({
   scopeLabel,
 }: ReviewStarsProps) {
   const { colors } = useColorScheme();
-  const t = useSharedUiTranslation();
-  const { formatRating } = useFormatters();
 
   return (
     <View
@@ -102,12 +94,8 @@ export function ReviewStars({
       accessibilityRole="image"
       accessibilityLabel={
         scopeLabel
-          ? t(REVIEW_STARS_SCOPED_A11Y_KEY, {
-              subject: scopeLabel,
-              rating: formatRating(rating),
-              reviews: count ?? 0,
-            })
-          : t(REVIEW_STARS_A11Y_KEY, { rating: formatRating(rating), reviews: count ?? 0 })
+          ? `${scopeLabel}: average rating ${rating}, based on ${count ?? 0} reviews`
+          : `Average rating: ${rating}, based on ${count ?? 0} reviews`
       }
       style={{ flexDirection: "row" }}
     >

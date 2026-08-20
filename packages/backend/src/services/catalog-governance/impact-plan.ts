@@ -343,12 +343,12 @@ const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
   {
     column: nativeListingAttributeClaims.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'ON DELETE restrict, nullable — the version a raw seller-supplied name RESOLVED to. `settleListingAttributeClaim` re-settles a claim against a different version, which is the operator path #367 step 4 built and the one an attribute republication makes people use',
+    note: 'ON DELETE restrict, nullable — the version a raw seller-supplied name RESOLVED to. `settleListingAttributeClaim` re-settles a claim against a different version, reached from `POST /internal/catalog-governance/reviews/attribute-claims/:claimId` with `grain: listing` (#576 gave it that caller; before it, #367 step 4 had built the function and nothing called it)',
   },
   {
     column: nativeVariantAttributeClaims.attributeDefinitionId,
     disposition: 'rewired_by_domain',
-    note: 'ON DELETE restrict, nullable — the variant-side twin of the row above, re-settled by `settleVariantAttributeClaim`. Its queue index (`attribute_resolution` partial) is what surfaces the claims a republication reopened',
+    note: 'ON DELETE restrict, nullable — the variant-side twin of the row above, re-settled by `settleVariantAttributeClaim` from the same route with `grain: variant`. Its queue index (`attribute_resolution` partial) surfaces the claims a republication reopened, and `GET .../reviews/attribute-claims` is what reads them — the count on `GET /queues` was the only thing an operator could learn until #576',
   },
   {
     column: nativeVariantAxisAssignments.attributeDefinitionId,

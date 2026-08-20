@@ -61,6 +61,12 @@ import {
   type PromoteCompatibilityClaimInput,
 } from '../services/catalog-governance/compatibility-claim.service.js';
 import {
+  readAttributeClaimQueue,
+  settleAttributeClaim,
+  type AttributeClaimQueueQuery,
+  type SettleAttributeClaimInput,
+} from '../services/catalog-governance/attribute-claim.service.js';
+import {
   exportDefinitions,
   readSnapshotDocument,
   readSnapshots,
@@ -517,6 +523,49 @@ export async function compatibilityClaimQueueHandler(req: Request, res: Response
     );
   } catch (error) {
     respondWithError(res, error, 'Failed to read the compatibility claim queue');
+  }
+}
+
+/**
+ * GET /internal/catalog-governance/reviews/attribute-claims
+ *
+ * The rows behind the `unresolved_variant_axis_claim` number `GET /queues`
+ * already reported. Before this there was no way to learn WHICH claims the count
+ * was counting — see `attribute-claim.service.ts`'s header.
+ */
+export async function attributeClaimQueueHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const query = req.query as unknown as AttributeClaimQueueQuery;
+    sendSuccess(
+      res,
+      await readAttributeClaimQueue(getDb(), await actorFor(req), {
+        ...(query.limit === undefined ? {} : { limit: query.limit }),
+      }),
+    );
+  } catch (error) {
+    respondWithError(res, error, 'Failed to read the attribute claim queue');
+  }
+}
+
+/**
+ * POST /internal/catalog-governance/reviews/attribute-claims/:claimId
+ *
+ * The act that drains the queue. It refuses a settlement that would leave a
+ * typed axis assignment citing a claim it contradicts, and the database refuses
+ * the same thing independently — see the service header for why both exist.
+ */
+export async function settleAttributeClaimHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const body = req.body as Omit<SettleAttributeClaimInput, 'claimId'>;
+    sendSuccess(
+      res,
+      await settleAttributeClaim(getDb(), await actorFor(req), {
+        ...body,
+        claimId: routeParam(req, 'claimId'),
+      }),
+    );
+  } catch (error) {
+    respondWithError(res, error, 'Failed to settle the attribute claim');
   }
 }
 

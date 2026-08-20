@@ -39,6 +39,7 @@ import {
 import {
   nativeListingAttributeClaims,
   nativeVariantAttributeClaims,
+  nativeVariantAxisAssignments,
 } from '../schema/variantAxes.js';
 import { productVariants } from '../schema/catalog.js';
 import type { DatabaseOrTransaction } from '../postgres.js';
@@ -226,6 +227,108 @@ export async function listVariantAttributeClaims(
     .from(nativeVariantAttributeClaims)
     .where(inArray(nativeVariantAttributeClaims.variantId, [...variantIds]))
     .orderBy(desc(nativeVariantAttributeClaims.assertedAt), asc(nativeVariantAttributeClaims.id));
+}
+
+/** One variant claim by its own id — what a settlement addresses (#576). */
+export async function findVariantAttributeClaimById(
+  db: DatabaseOrTransaction,
+  id: string,
+): Promise<NativeVariantAttributeClaimRow | null> {
+  const [row] = await db
+    .select()
+    .from(nativeVariantAttributeClaims)
+    .where(eq(nativeVariantAttributeClaims.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+/** The same at the listing grain. */
+export async function findListingAttributeClaimById(
+  db: DatabaseOrTransaction,
+  id: string,
+): Promise<NativeListingAttributeClaimRow | null> {
+  const [row] = await db
+    .select()
+    .from(nativeListingAttributeClaims)
+    .where(eq(nativeListingAttributeClaims.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * The variant-grain backlog itself — the rows {@link countQueuedClaims} counts
+ * (#576).
+ *
+ * `countQueuedClaims` reported a NUMBER and nothing could name the rows behind
+ * it, which is the half of the workflow that was missing: the desk said seven
+ * and there was no way to learn which seven.
+ *
+ * ## The ORDER is the index's, not a preference
+ *
+ * `native_variant_attribute_claims_queue_idx` is
+ * `(attribute_resolution, created_at)` under exactly this predicate, so ordering
+ * on that prefix lets the scan stop at the limit instead of matching the whole
+ * backlog and sorting it. Re-ordering this by `created_at` alone reads more
+ * naturally and turns a bounded index scan into a filter-then-sort over every
+ * queued claim in the table — the index the schema built for this read stops
+ * paying for itself, silently and only at scale.
+ *
+ * The predicate is `NATIVE_CLAIM_QUEUED_RESOLUTIONS` on EITHER half, which is
+ * both what the partial index covers and what `countQueuedClaims` counts — so
+ * the list and the number cannot disagree about what "queued" means.
+ */
+export async function listQueuedVariantAttributeClaims(
+  db: DatabaseOrTransaction,
+  limit: number,
+): Promise<NativeVariantAttributeClaimRow[]> {
+  return db
+    .select()
+    .from(nativeVariantAttributeClaims)
+    .where(
+      or(
+        inArray(nativeVariantAttributeClaims.attributeResolution, [
+          ...NATIVE_CLAIM_QUEUED_RESOLUTIONS,
+        ]),
+        inArray(nativeVariantAttributeClaims.valueResolution, [...NATIVE_CLAIM_QUEUED_RESOLUTIONS]),
+      ),
+    )
+    .orderBy(
+      asc(nativeVariantAttributeClaims.attributeResolution),
+      asc(nativeVariantAttributeClaims.createdAt),
+      asc(nativeVariantAttributeClaims.id),
+    )
+    .limit(limit);
+}
+
+/**
+ * How many typed axis assignments cite each of these claims (#576).
+ *
+ * ONE grouped statement over the whole page rather than a count per row: the
+ * queue serves up to 200 claims, and a correlated subquery would make reading
+ * the backlog 200 round trips.
+ *
+ * This is the read that lets the operator surface say "this settlement will be
+ * refused" BEFORE attempting it, and it is deliberately the same fact the
+ * database enforces rather than a second opinion about it — the trigger on
+ * `native_variant_attribute_claims` is the authority, and a claim whose count is
+ * 0 here can still be refused if an assignment appears in between. The count
+ * informs; it never authorises.
+ */
+export async function countCitingAxisAssignments(
+  db: DatabaseOrTransaction,
+  claimIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (claimIds.length === 0) return new Map();
+  const rows = await db
+    .select({ claimId: nativeVariantAxisAssignments.sourceClaimId, total: count() })
+    .from(nativeVariantAxisAssignments)
+    .where(inArray(nativeVariantAxisAssignments.sourceClaimId, [...claimIds]))
+    .groupBy(nativeVariantAxisAssignments.sourceClaimId);
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (row.claimId !== null) counts.set(row.claimId, Number(row.total));
+  }
+  return counts;
 }
 
 /**

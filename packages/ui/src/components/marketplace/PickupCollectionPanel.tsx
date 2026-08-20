@@ -1,10 +1,4 @@
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
-import {
-  PICKUP_PANEL_CODE_A11Y_KEY,
-  PICKUP_PANEL_CODE_HEADING_KEY,
-  PICKUP_PANEL_CODE_NOTE_KEY,
-  PICKUP_PANEL_HEADING_KEY,
-} from "../../lib/marketplace-labels";
 import { View } from "react-native";
 import type { OrderPickup, PickupCollectionCode } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
@@ -60,7 +54,7 @@ export function PickupCollectionPanel({ pickup, code }: PickupCollectionPanelPro
   return (
     <View className="gap-space-12 rounded-radius-16 border border-border-secondary bg-bg-fill p-space-16">
       <Text className="text-sectionTitle text-text" accessibilityRole="header">
-        {t(PICKUP_PANEL_HEADING_KEY)}
+        Collection
       </Text>
 
       <View className="gap-space-4">
@@ -100,19 +94,16 @@ export function PickupCollectionPanel({ pickup, code }: PickupCollectionPanelPro
       */}
       {code === undefined ? null : (
         <View className="gap-space-4 rounded-radius-12 bg-bg-fill-secondary p-space-12">
-          <Text className="text-caption text-text-secondary">
-            {t(PICKUP_PANEL_CODE_HEADING_KEY)}
-          </Text>
+          <Text className="text-caption text-text-secondary">Your collection code</Text>
           <Text
             className="text-header text-text web:select-text"
-            accessibilityLabel={t(PICKUP_PANEL_CODE_A11Y_KEY, {
-              code: code.code.split("").join(" "),
-            })}
+            accessibilityLabel={`Collection code ${code.code.split("").join(" ")}`}
           >
             {code.code}
           </Text>
           <Text className="text-caption text-text-tertiary">
-            {t(PICKUP_PANEL_CODE_NOTE_KEY)}
+            Show this at the counter. If it stops working the shop can issue a new one — an older
+            code never keeps working alongside it.
           </Text>
         </View>
       )}

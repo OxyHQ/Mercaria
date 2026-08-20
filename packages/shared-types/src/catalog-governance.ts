@@ -98,6 +98,17 @@ export const CATALOG_GOVERNANCE_SUBJECT_KINDS = [
   'operator_role',
   'external_mapping',
   'compatibility_claim',
+  /**
+   * A native attribute claim, at either grain (#576).
+   *
+   * ONE kind rather than a `native_variant_*`/`native_listing_*` pair, because
+   * the grain is already carried beside it: a settlement records its
+   * {@link NativeAttributeClaimGrain} in the audit `after`, and `subject_id` is
+   * the claim's own id. Two kinds would make "every settlement of a claim" a
+   * two-value query that a reader has to know to write, and the trail is read by
+   * people asking exactly that.
+   */
+  'native_attribute_claim',
 ] as const;
 
 export type CatalogGovernanceSubjectKind = (typeof CATALOG_GOVERNANCE_SUBJECT_KINDS)[number];
@@ -173,6 +184,20 @@ export const CATALOG_GOVERNANCE_REVIEW_ACTIONS = [
    * marked as chosen with nothing having chosen it.
    */
   'compatibility_claim_promote',
+  /**
+   * Re-settling ONE native attribute claim against a named definition version
+   * (#576).
+   *
+   * `review` and not `publish`, by the boundary the two actions above draw: the
+   * line is whether the act CREATES a fact a shopper acts on. A settlement
+   * records what the registry answers for a claim and writes nothing a buyer
+   * sees — the typed value on a variant is a `native_variant_axis_assignments`
+   * row, written by the axis sync and never by this. A settlement can ENABLE
+   * such a row (an assignment may only cite a `resolved` claim), and enabling is
+   * not creating; treating it as `publish` would put the queue's ordinary
+   * drain behind the role reserved for publication.
+   */
+  'attribute_claim_settle',
   'proposal_approve',
   'proposal_merge',
   'proposal_reject',
@@ -299,6 +324,11 @@ export const CATALOG_GOVERNANCE_ACTION_ROLES: Record<
   // Reviewing a claim publishes nothing, so the two acts sit either side of the
   // one role boundary this domain has.
   compatibility_claim_promote: 'publish',
+  // `review`: a settlement records what the registry answers for one claim and
+  // creates no row a shopper is shown. See the tuple entry for the full
+  // reasoning, including why "it ENABLES a typed value" is not "it publishes
+  // one".
+  attribute_claim_settle: 'review',
   proposal_approve: 'review',
   proposal_merge: 'review',
   proposal_reject: 'review',
@@ -765,6 +795,127 @@ export interface CompatibilityClaimQueueView {
   readonly claims: readonly CompatibilityClaimReviewView[];
   readonly byReason: readonly CompatibilityClaimReasonCount[];
   readonly unreviewed: number;
+  readonly examinedLimit: number;
+  readonly truncated: boolean;
+}
+
+/**
+ * Which of the two native attribute-claim tables a settlement addresses (#576).
+ *
+ * A claim id alone does not say: `native_variant_attribute_claims` and
+ * `native_listing_attribute_claims` are separate tables with separate ids, and a
+ * settlement that guessed by probing both would settle whichever it found —
+ * which on an id collision is the wrong row, silently. So the grain is REQUIRED
+ * input and no code path derives it.
+ */
+export type NativeAttributeClaimGrain = 'variant' | 'listing';
+
+export const NATIVE_ATTRIBUTE_CLAIM_GRAINS: readonly NativeAttributeClaimGrain[] = [
+  'variant',
+  'listing',
+];
+
+/**
+ * One native attribute claim, as an operator settling it sees it.
+ *
+ * Names every field explicitly rather than spreading the row — the
+ * `provider_accounts` device, and the same reasoning
+ * {@link CompatibilityClaimReviewView} records: adding a column to either claim
+ * table must not be automatically a disclosure decision.
+ *
+ * The resolutions and refusals are widened to `string` rather than imported from
+ * `variant-axis.ts`, which is this file's convention (it has no imports) and the
+ * same choice the compatibility view above makes. The authoritative tuples are
+ * `NATIVE_CLAIM_RESOLUTIONS`, `VARIANT_AXIS_ATTRIBUTE_REFUSALS` and
+ * `VARIANT_AXIS_VALUE_REFUSALS`; the WRITE path validates against them, so a
+ * widened READ type cannot admit anything the settlement schema does not.
+ */
+export interface NativeAttributeClaimReviewView {
+  readonly id: string;
+  readonly grain: NativeAttributeClaimGrain;
+  /** The variant a `variant` claim is about; null at the listing grain. */
+  readonly variantId: string | null;
+  /** The listing a `listing` claim is about; null at the variant grain. */
+  readonly listingId: string | null;
+  /**
+   * What the party actually asserted, verbatim and frozen by a trigger — the
+   * point of the queue, since an operator deciding what "Colour: Graphite"
+   * resolves to needs the characters somebody published rather than a
+   * normalization of them.
+   *
+   * **Render as TEXT, never as markup, and never interpolate it into a template,
+   * an HTML attribute, a CSV cell or a log line unescaped.** It is
+   * attacker-influenced: a connector, a merchant or a feed supplies it and
+   * nothing sanitizes it on the way in, deliberately — sanitizing evidence would
+   * destroy the thing the queue exists to show. The safety lives at the RENDER
+   * boundary; a leading `=`, `+`, `-` or `@` in a CSV cell is a formula. The same
+   * applies to `rawValue`.
+   */
+  readonly rawName: string;
+  readonly rawValue: string | null;
+  /**
+   * NULL at the VARIANT grain, which has no `kind` column.
+   *
+   * Not an oversight in the schema and not flattened away here: a listing claim
+   * distinguishes `attribute_value` from `axis_declaration` because a listing can
+   * assert "this product has a Colour axis" as well as "its colour is Graphite",
+   * while a variant claim is always the second kind — a variant IS one point in
+   * the axis space, so there is nothing for it to declare.
+   */
+  readonly kind: string | null;
+  readonly provenance: string;
+  /** Both halves, because a claim can resolve its attribute and refuse its value. */
+  readonly attributeResolution: string;
+  readonly attributeRefusal: string | null;
+  readonly valueResolution: string;
+  readonly valueRefusal: string | null;
+  readonly attributeDefinitionId: string | null;
+  readonly attributeDefinitionVersion: number | null;
+  readonly enumValueId: string | null;
+  readonly normalizedValue: string | null;
+  readonly assertedAt: string;
+  readonly resolvedByOxyUserId: string | null;
+  readonly resolvedAt: string | null;
+  /**
+   * How many `native_variant_axis_assignments` rows cite this claim.
+   *
+   * Present so an operator can see BEFORE trying that a settlement away from
+   * `resolved` will be refused, rather than discovering it from the refusal.
+   * Always 0 at the listing grain — nothing derives a typed value from a listing
+   * claim (`catalog_proposal_references` cites one, but as a proposal WAITING on
+   * it, which a re-settlement moots rather than contradicts).
+   */
+  readonly citingAssignmentCount: number;
+}
+
+/** How many queued claims carry each refusal reason. */
+export interface NativeAttributeClaimRefusalCount {
+  readonly refusal: string;
+  readonly count: number;
+}
+
+/**
+ * The variant-grain queue, with the same vacuity control as the compatibility
+ * one above: `examinedLimit` and `truncated` come from the bound the query was
+ * GIVEN rather than from what survived it, so a full page and a page that
+ * happened to end at the limit are distinguishable.
+ *
+ * `queued` is the WHOLE backlog and not the page's, and it is the same number
+ * `GET /queues` reports as `unresolved_variant_axis_claim` — read through the
+ * same `countQueuedClaims`, so the two screens cannot tell an operator the
+ * backlog is two different sizes.
+ *
+ * Both refusal breakdowns carry EVERY bucket of their vocabulary whether or not
+ * a row is in it, which is `countQueuedClaims`' own census discipline: a cause
+ * with nothing in it and a cause the query forgot to ask about must not look the
+ * same.
+ */
+export interface NativeAttributeClaimQueueView {
+  readonly claims: readonly NativeAttributeClaimReviewView[];
+  readonly queued: number;
+  readonly neverAttempted: number;
+  readonly byAttributeRefusal: readonly NativeAttributeClaimRefusalCount[];
+  readonly byValueRefusal: readonly NativeAttributeClaimRefusalCount[];
   readonly examinedLimit: number;
   readonly truncated: boolean;
 }
