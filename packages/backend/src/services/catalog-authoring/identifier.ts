@@ -130,9 +130,13 @@ export function classifyBarcode(rawValue: string | null): BarcodeClassification 
  * The registry entry a classification cites, for a caller that needs the
  * uniqueness declaration rather than the value.
  *
- * Exported so `validation.ts` can say WHY a duplicate barcode is an error and a
- * duplicate SKU is not, by reading `globallyUnique` off the registry instead of
- * restating it.
+ * Exported so `validation.ts` can decide WHICH schemes a repeat is worth
+ * reporting for by reading `globallyUnique` off the registry instead of
+ * restating it. An MPN is not globally unique and two variants of one product
+ * share one routinely, so a finding there would be noise on every draft.
+ *
+ * It does NOT decide the severity. Both barcode findings are warnings — see
+ * `checkBarcodes` in `validation.ts`, which carries that reasoning.
  */
 export function identifierIsGloballyUnique(scheme: IdentifierScheme): boolean {
   return IDENTIFIER_SCHEME_REGISTRY[scheme].globallyUnique;

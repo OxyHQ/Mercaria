@@ -97,11 +97,12 @@ describe('the scheme map is measured against the registry, not asserted', () => 
     expect(Object.keys(GTIN_SCHEME_BY_LENGTH).length).toBeGreaterThanOrEqual(4);
   });
 
-  it('serves only globally unique schemes, which is what makes a duplicate an error', () => {
-    // `validation.ts` refuses two variants sharing a barcode BECAUSE the
+  it('serves only globally unique schemes, which is what makes a repeat worth reporting', () => {
+    // `validation.ts` reports two variants sharing a barcode BECAUSE the
     // registry declares the scheme globally unique. If the map ever served a
-    // scheme that is not, that refusal would be wrong for it — and this is
-    // where that shows up rather than in a merchant's blocked draft.
+    // scheme that is not — an MPN, say, which two variants of one product share
+    // routinely — that finding would be noise on every draft, and this is where
+    // it shows up rather than in a merchant's list of complaints.
     for (const scheme of Object.values(GTIN_SCHEME_BY_LENGTH)) {
       expect({ scheme, unique: identifierIsGloballyUnique(scheme) }).toEqual({
         scheme,
