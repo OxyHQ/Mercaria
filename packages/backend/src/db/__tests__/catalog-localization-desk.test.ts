@@ -32,6 +32,7 @@ import {
   LOCALIZATION_COVERAGE_UNCOVERED_TABLES,
   LOCALIZATION_OWED_POPULATION_RULES,
   LOCALIZATION_STALENESS_DETECTIONS,
+  LOCALIZED_ENTITY_KINDS,
   LOCALIZED_FIELD_BASE_SOURCES,
   LOCALIZED_FIELD_KEYS,
   MERCARIA_BASE_LOCALE,
@@ -39,7 +40,7 @@ import {
   isLaunchLocale,
   type LocalizedEntityKind,
 } from '@mercaria/shared-types';
-import { categories } from '../schema/catalog';
+import { categories, listings } from '../schema/catalog';
 import { productTypeDefinitions, productTypeFields } from '../schema/productTypes';
 import { attributeDefinitions, attributeEnumValues } from '../schema/attributeRegistry';
 import {
@@ -53,7 +54,14 @@ const BACKEND_SRC = join(HERE, '..', '..');
 const DRIZZLE_DIR = join(BACKEND_SRC, '..', 'drizzle');
 const REPO_ROOT = join(BACKEND_SRC, '..', '..', '..');
 
-/** The localization table each covered domain measures. */
+/**
+ * The localization table each domain's text lives in.
+ *
+ * Keyed on every {@link LocalizedEntityKind} and not only the COVERED ones, so
+ * the coverage census below can subtract: a kind that is deliberately not
+ * measured still has to name its table, or "uncovered" and "nobody wrote the
+ * mapping down" would look the same from here.
+ */
 const DOMAIN_TABLES: Readonly<Record<LocalizedEntityKind, string>> = {
   category: 'category_localizations',
   product_type: 'product_type_localizations',
@@ -64,6 +72,11 @@ const DOMAIN_TABLES: Readonly<Record<LocalizedEntityKind, string>> = {
   // The family's one late joiner: the table predates ADR 0007 D4 and keeps its
   // own name rather than being renamed to '<entity>_localizations'.
   attribute_definition: 'attribute_labels',
+  // #367 Translation model. A registered, resolvable domain that the desk
+  // deliberately does not MEASURE — its fields are `seller_authored`, so there
+  // is no owed population. It appears in LOCALIZATION_COVERAGE_UNCOVERED_TABLES
+  // instead, and the census below is what makes those two statements agree.
+  listing: 'listing_localizations',
 };
 
 /* -------------------------------------------------------------------------- */
@@ -196,10 +209,74 @@ describe('staleness detection is described per domain and matches the SQL', () =
     return found[0];
   }
 
-  it('describes exactly the covered domains, one each', () => {
+  it('describes exactly the localized domains, one each', () => {
+    // Against `LOCALIZED_ENTITY_KINDS` and not `LOCALIZATION_COVERAGE_DOMAINS`,
+    // which is STRICTLY STRONGER now that those two sets differ (#367's
+    // `listing` is registered and resolvable but deliberately not measured).
+    //
+    // The two questions are separate and only one of them is about the desk's
+    // denominator. "How does this domain's text come to be marked stale" is
+    // asked of every domain a reviewer can open — `side-by-side.service`'s
+    // `compose` reads `stalenessDetectionFor(domain)` for whatever they opened,
+    // and `stalenessDetectionFor` THROWS on a domain with no entry rather than
+    // inventing a "watches nothing" descriptor. Keying this on the coverage set
+    // would have let an uncovered domain reach that throw at runtime.
     const described = LOCALIZATION_STALENESS_DETECTIONS.map((entry) => entry.domain).sort();
-    expect(described).toEqual([...LOCALIZATION_COVERAGE_DOMAINS].sort());
+    expect(described).toEqual([...LOCALIZED_ENTITY_KINDS].sort());
     expect(described).toHaveLength(new Set(described).size);
+    // The floor: an empty registry would satisfy an equality of two empty sets.
+    expect(described.length).toBeGreaterThanOrEqual(7);
+  });
+
+  it('covers every domain it measures, and measures no domain it cannot describe', () => {
+    // The subtraction stated explicitly, so "uncovered" is a decision somebody
+    // wrote down rather than a row a reader notices is missing.
+    const covered = new Set<LocalizedEntityKind>(LOCALIZATION_COVERAGE_DOMAINS);
+    const uncovered = LOCALIZED_ENTITY_KINDS.filter((kind) => !covered.has(kind));
+    const uncoveredTables = LOCALIZATION_COVERAGE_UNCOVERED_TABLES.map((entry) => entry.table);
+    for (const kind of uncovered) {
+      expect(
+        uncoveredTables,
+        `${kind} is a registered domain the report does not measure, so its table must appear ` +
+          'in LOCALIZATION_COVERAGE_UNCOVERED_TABLES with a reason — otherwise the desk is ' +
+          'silent about it and silence reads as nothing outstanding',
+      ).toContain(DOMAIN_TABLES[kind]);
+    }
+    // The positive control. With every kind covered this loop would run zero
+    // times and pass while measuring nothing, so the exclusion the derivation
+    // makes must really be there.
+    expect(
+      uncovered,
+      'no domain is excluded from coverage, so the derivation in LOCALIZATION_COVERAGE_DOMAINS ' +
+        'is doing nothing and this census has no subject',
+    ).not.toHaveLength(0);
+  });
+
+  it('excludes a domain from coverage only when Mercaria does not author its text', () => {
+    // The derivation's REASON, asserted rather than described: every excluded
+    // domain must be one whose registered fields are all `seller_authored`, and
+    // no included domain may be. Without this the filter could quietly start
+    // dropping domains for some other reason and the census above would still
+    // pass, because it only checks that an exclusion is DECLARED.
+    const covered = new Set<LocalizedEntityKind>(LOCALIZATION_COVERAGE_DOMAINS);
+    let mixed = 0;
+    for (const kind of LOCALIZED_ENTITY_KINDS) {
+      const classes = LOCALIZED_FIELD_KEYS.filter(
+        (key) => CATALOG_LOCALIZED_FIELDS[key].entity === kind,
+      ).map((key) => CATALOG_LOCALIZED_FIELDS[key].fieldClass);
+      expect(classes.length, `${kind} registers no field at all`).toBeGreaterThan(0);
+      const allSellerAuthored = classes.every((cls) => cls === 'seller_authored');
+      const anySellerAuthored = classes.some((cls) => cls === 'seller_authored');
+      if (anySellerAuthored && !allSellerAuthored) mixed += 1;
+      expect(covered.has(kind), `${kind}: covered iff Mercaria authors its text`).toBe(
+        !allSellerAuthored,
+      );
+    }
+    // `domainIsSellerAuthored` uses `every`, so a MIXED domain stays measured —
+    // the direction that errs toward measuring more. None exists today, and
+    // this is what notices the first one rather than leaving the choice to be
+    // discovered by whoever reads a surprising number.
+    expect(mixed, 'a domain now mixes seller-authored and Mercaria-authored fields').toBe(0);
   });
 
   it('names a real trigger for every database_trigger domain, watching what it claims', () => {
@@ -297,6 +374,10 @@ describe('every registered field states where its base text lives', () => {
     canonical_products: canonicalProducts,
     canonical_product_families: canonicalProductFamilies,
     attribute_definitions: attributeDefinitions,
+    // #367 Translation model. Both `listing.title` and `listing.description`
+    // name a real column here, which is what makes the own-base step answerable
+    // for a seller-authored field rather than merely declared.
+    listings,
   };
 
   function columnNames(table: keyof typeof TABLES): string[] {

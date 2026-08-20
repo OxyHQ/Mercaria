@@ -65,12 +65,14 @@ import {
 } from '@mercaria/shared-types';
 import * as schema from '../schema/index.js';
 import { attributeLabels } from '../schema/attributeRegistry.js';
+import { navigationNodes } from '../schema/navigation.js';
 import {
   attributeValueLocalizations,
   canonicalProductFamilyLocalizations,
   canonicalProductLocalizations,
   categoryLocalizations,
   categoryLocalizedSlugs,
+  listingLocalizations,
   productTypeFieldLocalizations,
   productTypeLocalizations,
 } from '../schema/catalogLocalization.js';
@@ -291,6 +293,10 @@ describe('the field registry', () => {
       // grepping source. A name-keyed source scan returns zero here, and the
       // zero is false.
       attribute_definition: attributeLabels,
+      // #367 Translation model. The registry names `title` and `description`,
+      // and both are real columns here — which is what this census checks and
+      // what makes the `seller_authored` pair resolvable rather than declared.
+      listing: listingLocalizations,
     } as const;
     for (const key of LOCALIZED_FIELD_KEYS) {
       const descriptor = CATALOG_LOCALIZED_FIELDS[key];
@@ -333,6 +339,12 @@ describe('the field registry', () => {
       // "USB-C" are not the same string, so folding them into one kind would put
       // a value's translation under its attribute's heading.
       'attribute_definition',
+      // #367 Translation model. The first kind whose text Mercaria does NOT
+      // own: a seller's own words about their own item, which is why its two
+      // fields are `seller_authored` and why it is the only kind deliberately
+      // outside `LOCALIZATION_COVERAGE_DOMAINS`. This is the line that fails if
+      // somebody adds a seller-owned kind without deciding either question.
+      'listing',
     ]);
   });
 });
@@ -416,6 +428,87 @@ describe('the family census', () => {
       // removed, and it is how a census stops being one.
       expect(missing.length).toBeGreaterThan(0);
     }
+  });
+
+  /**
+   * #367 Translation model, box 2: "…and accessibility labels where
+   * applicable." The answer is that a catalogue entity's accessible name is a
+   * CLIENT concern, and this is that answer as a gate rather than as a comment.
+   *
+   * ## Why navigation may store one and no catalogue entity may
+   *
+   * The asymmetry is structural, not a special case. `navigation_nodes` carries
+   * NO label column at all — the label IS the localization row, which is what
+   * lets a node with no translation be WITHHELD from a menu instead of rendered
+   * as its key. So a navigation node's accessible name has no catalogue string
+   * a client could compose from, and storing one is the only place it can live.
+   *
+   * Every entity in this family has a name. A client builds an accessible name
+   * by interpolating it into a translated template from its OWN bundle —
+   * `@mercaria/ui`'s `CategoryCard` renders
+   * `t(CATEGORY_BROWSE_KEY, { category: category.name })` and `ConditionBadge`
+   * renders `t(CONDITION_A11Y_LABEL_KEY, { label })`. An
+   * `accessibility_label` column beside `name` would be a SECOND
+   * representation of the same string in the same row: it would drift from the
+   * name the day somebody corrected one and not the other, it would render
+   * perfectly while doing so, and only a screen-reader user would ever hear the
+   * difference. That is the failure this whole family is written against, in
+   * the surface least likely to be tested.
+   *
+   * ## The exception IS the positive control
+   *
+   * Both directions are asserted. `navigation_node_localizations` must really
+   * carry the column, or this census is a detector with no subject and its
+   * verdict below is a green nobody earned. The others must not.
+   */
+  it('gives no CATALOGUE entity an accessibility-label column, and navigation the control', () => {
+    const A11Y_COLUMNS = ['accessibility_label', 'aria_label', 'screen_reader_label'];
+    const columnsOf = (name: string): ReadonlySet<string> => {
+      const table = tables.find((entry) => getTableName(entry) === name);
+      expect(table, `${name} is in the family tuple but is not a real table`).toBeDefined();
+      return new Set(Object.values(getTableColumns(table)).map(sqlColumnName));
+    };
+
+    // THE CONTROL, first, so a broken lookup fails here rather than passing
+    // silently through every assertion below it.
+    const navigation = columnsOf('navigation_node_localizations');
+    expect(
+      navigation.has('accessibility_label'),
+      'navigation_node_localizations is the one member that legitimately stores an ' +
+        'accessibility label, because navigation_nodes carries no label column of its own. ' +
+        'If it has stopped, this census has lost its only subject and proves nothing.',
+    ).toBe(true);
+    // …and it must really be the exception rather than the rule, which is only
+    // true because its parent has no base label. Asserted so the reason cannot
+    // quietly stop holding.
+    const navigationNodeColumns = new Set(
+      Object.values(getTableColumns(navigationNodes)).map(sqlColumnName),
+    );
+    expect(
+      navigationNodeColumns.has('label'),
+      'navigation_nodes has grown a base label column, so its accessibility label now HAS a ' +
+        'catalogue string a client could compose from — the exemption below has lost its reason',
+    ).toBe(false);
+
+    const offenders: string[] = [];
+    for (const name of CATALOG_LOCALIZATION_TEXT_TABLES) {
+      if (name === 'navigation_node_localizations') continue;
+      const columns = columnsOf(name);
+      for (const forbidden of A11Y_COLUMNS) {
+        if (columns.has(forbidden)) offenders.push(`${name}.${forbidden}`);
+      }
+    }
+    // The floor: a tuple that shrank, or a lookup that returned empty sets,
+    // would produce an empty offender list while measuring nothing.
+    expect(CATALOG_LOCALIZATION_TEXT_TABLES.length).toBeGreaterThanOrEqual(8);
+    expect(columnsOf('category_localizations').size).toBeGreaterThan(7);
+    expect(
+      offenders,
+      "a catalogue entity has grown an accessibility-label column. Its accessible name is " +
+        "composed CLIENT-side from the entity's already-localized name plus a template in the " +
+        'app bundle; a column here is a second copy of that name in the same row, drifting ' +
+        'silently and audible only to a screen-reader user.',
+    ).toEqual([]);
   });
 
   it('carries the localized-slug table outside the text family, deliberately', () => {
@@ -613,50 +706,72 @@ describe('resolving a seller-authored field', () => {
 
 describe('the own-base policy is reachable only from the classes it is assigned to', () => {
   /**
-   * The before/after COUNT this change is measured by.
+   * The DISTRIBUTION across the three policies, counted off the registry itself
+   * rather than claimed.
    *
-   * Counted off the registry itself rather than claimed. Today every registered
-   * field is `catalog_presentation`, so assigning `seller_authored` a new policy
-   * moves NO registered field — which is the honest reading of "this changes
-   * nothing today", stated as a number somebody can re-run.
+   * **The pin fired and the premise changed, which is what it is for.** It read
+   * "16 registered, all on `language_then_base`, ZERO on the other two" — the
+   * honest reading of "this changes nothing today" — and #367's Translation
+   * model registered `listing.title` and `listing.description` as
+   * `seller_authored`. So `exact_locale_then_base`, added for exactly those
+   * fields and previously reachable by none, now has two.
    *
-   * **The total is EXPECTED to move, and the exact pin is how it gets noticed.**
-   * It went 14 → 16 on the rebase behind #712, which registered
-   * `attribute_definition.label` and `.description`. When it fires, re-derive the
-   * number by RUNNING this against the built registry — never by adding the new
-   * keys to the old total. The arithmetic gives the right answer only when
-   * nothing else changed, and "nothing else changed" is the assumption a census
-   * exists to stop you making: a key that MOVED class, or one deleted in the
-   * same window, is invisible to it.
+   * **When it fires again, re-derive by RUNNING this against the built
+   * registry — never by adding the new keys to the old total.** That is how the
+   * 18 below was obtained: the assertion reported `expected 18 to be 16` and
+   * the number came from the census, not from arithmetic. The arithmetic gives
+   * the right answer only when nothing else changed, and "nothing else changed"
+   * is the assumption a census exists to stop you making — a key that MOVED
+   * class, or one deleted in the same window, is invisible to it.
    *
-   * The claim does NOT rest on the total. It rests on the DISTRIBUTION — the
-   * other three lines — which is why they are asserted separately rather than
-   * folded into one figure.
+   * The claim does not rest on the total. It rests on the distribution, which
+   * is why the buckets are asserted separately AND asserted to PARTITION the
+   * registry: three counts that do not sum to the total would mean a fourth
+   * policy nobody is looking at.
    */
   const byPolicy = (policy: string): readonly string[] =>
     LOCALIZED_FIELD_KEYS.filter((key) => CATALOG_LOCALIZED_FIELDS[key].fallback === policy);
 
-  it('moves no registered field, and says how many that is', () => {
-    expect(LOCALIZED_FIELD_KEYS.length).toBe(16);
+  it('puts every registered field on a policy, and says how many are on each', () => {
+    expect(LOCALIZED_FIELD_KEYS.length).toBe(18);
     expect(byPolicy('language_then_base')).toHaveLength(16);
-    expect(byPolicy('exact_locale_then_base')).toHaveLength(0);
+    // #367: `listing.title` and `listing.description`, the first two.
+    expect(byPolicy('exact_locale_then_base')).toEqual(['listing.title', 'listing.description']);
+    // Still nobody. The member that will exercise it is D3's navigation and
+    // campaign copy (#367 merge-order step 7).
     expect(byPolicy('exact_locale_only')).toHaveLength(0);
+    // The partition. Without it the three counts above could each be right
+    // while a fourth policy sat unmeasured beside them.
+    const total =
+      byPolicy('language_then_base').length +
+      byPolicy('exact_locale_then_base').length +
+      byPolicy('exact_locale_only').length;
+    expect(total).toBe(LOCALIZED_FIELD_KEYS.length);
   });
 
-  it('can SEE a field on the new policy — the positive control', () => {
-    // Without this, "0 fields on the new policy" and "the census cannot read
-    // `fallback` at all" produce the same green. A synthetic descriptor built
-    // by the same derivation the registry uses must be counted.
+  it('can SEE a field on the STILL-EMPTY policy — the positive control', () => {
+    // The control MOVED, and the move is the point rather than housekeeping.
+    //
+    // It used to guard `exact_locale_then_base`, because "0 fields on the new
+    // policy" and "the census cannot read `fallback` at all" produced the same
+    // green. That bucket now holds two REAL fields, so a census that could not
+    // read `fallback` would report 0 there and the assertion above would fail —
+    // the real data is the control now.
+    //
+    // `exact_locale_only` is the bucket that is still empty, so it is the one
+    // that still needs a synthetic subject. Deleting the control instead of
+    // moving it would have left the remaining zero unguarded, which is exactly
+    // how a census quietly stops being one.
     const synthetic = {
       ...CATALOG_LOCALIZED_FIELDS['category.name'],
-      fieldClass: 'seller_authored' as const,
-      fallback: fallbackPolicyForFieldClass('seller_authored'),
+      fieldClass: 'legal_text' as const,
+      fallback: fallbackPolicyForFieldClass('legal_text'),
     };
-    expect(synthetic.fallback).toBe('exact_locale_then_base');
+    expect(synthetic.fallback).toBe('exact_locale_only');
     const withSynthetic = [
       ...LOCALIZED_FIELD_KEYS.map((key) => CATALOG_LOCALIZED_FIELDS[key]),
       synthetic,
-    ].filter((descriptor) => descriptor.fallback === 'exact_locale_then_base');
+    ].filter((descriptor) => descriptor.fallback === 'exact_locale_only');
     expect(withSynthetic).toHaveLength(1);
   });
 

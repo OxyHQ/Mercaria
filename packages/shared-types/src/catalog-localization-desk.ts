@@ -750,6 +750,12 @@ export const LOCALIZED_FIELD_BASE_SOURCES: Readonly<Record<string, LocalizedFiel
       table: 'product_type_fields',
       column: 'example',
     },
+    // #367 Translation model. Both are real columns and both are NOT NULL on
+    // `listings`, which is what makes `exact_locale_then_base` answerable for
+    // them — and what made `exact_locale_only` unavailable, since it would have
+    // left a shopper in an unauthored market looking at a listing with no title.
+    'listing.title': { kind: 'column', table: 'listings', column: 'title' },
+    'listing.description': { kind: 'column', table: 'listings', column: 'description' },
   });
 
 /** One field's source text beside its target, for a reviewer. */

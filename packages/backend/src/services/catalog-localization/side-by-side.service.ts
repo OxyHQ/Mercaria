@@ -44,7 +44,7 @@ import {
   type LocalizedFieldTarget,
   type SupportedLocale,
 } from '@mercaria/shared-types';
-import { categories } from '../../db/schema/catalog.js';
+import { categories, listings } from '../../db/schema/catalog.js';
 import { productTypeDefinitions, productTypeFields } from '../../db/schema/productTypes.js';
 import {
   canonicalProductFamilies,
@@ -60,6 +60,7 @@ import {
   canonicalProductFamilyLocalizations,
   canonicalProductLocalizations,
   categoryLocalizations,
+  listingLocalizations,
   productTypeFieldLocalizations,
   productTypeLocalizations,
 } from '../../db/schema/catalogLocalization.js';
@@ -434,6 +435,50 @@ export async function reviewCanonicalProductFamilyLocalization(
 }
 
 /**
+ * One listing, source beside target, in one locale (#367 Translation model).
+ *
+ * The only subject here whose SOURCE is not Mercaria's own copy. Nothing about
+ * the read changes for that — a reviewer comparing a seller's English against
+ * their Spanish needs exactly the same two strings — but two things about the
+ * ANSWER do, and both come from the field class rather than from this function:
+ * the target is read at the EXACT locale and never a truncation, so no other
+ * market's seller can supply it; and the base beside it carries no
+ * `provenance`, so the review screen cannot label the seller's own words as
+ * Mercaria's.
+ *
+ * Both base columns are `NOT NULL`, so unlike `category.description` this
+ * screen never shows an unexplained empty source box.
+ */
+export async function reviewListingLocalization(
+  listingId: string,
+  locale: SupportedLocale,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<LocalizedEntityComparison | undefined> {
+  const [base] = await db
+    .select({ id: listings.id, title: listings.title, description: listings.description })
+    .from(listings)
+    .where(eq(listings.id, listingId))
+    .limit(1);
+  if (!base) return undefined;
+
+  const [row] = await db
+    .select()
+    .from(listingLocalizations)
+    .where(
+      and(eq(listingLocalizations.listingId, listingId), eq(listingLocalizations.locale, locale)),
+    )
+    .limit(1);
+
+  return compose(
+    'listing',
+    listingId,
+    locale,
+    row && { ...row, texts: { title: row.title, description: row.description } },
+    { title: base.title, description: base.description },
+  );
+}
+
+/**
  * One entity in one locale, dispatched on the domain.
  *
  * A `switch` over {@link LocalizedEntityKind} rather than a lookup table, so a
@@ -462,6 +507,8 @@ export async function reviewLocalization(
       return reviewAttributeValueLocalization(entityId, locale, db);
     case 'attribute_definition':
       return reviewAttributeDefinitionLocalization(entityId, locale, db);
+    case 'listing':
+      return reviewListingLocalization(entityId, locale, db);
     default: {
       const unreachable: never = domain;
       throw new Error(`unhandled localized entity kind: ${String(unreachable)}`);
