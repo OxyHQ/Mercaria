@@ -112,6 +112,7 @@ import {
   publishAttributeDefinition,
 } from '../../attributes/definition-registry.service.js';
 import { runVariantAxisBackfill } from '../backfill.service.js';
+import { reportPopulation } from '../../../__tests__/report-population.js';
 
 let db: Database;
 
@@ -401,20 +402,6 @@ async function readRowIdentity(): Promise<{
     signatures: await rows('native_variant_signatures', sql`listing_id = ${LISTING_ID}`),
     claims: await rows('native_variant_attribute_claims', sql`variant_id in (${variantList})`),
   };
-}
-
-/**
- * Print a population on SUCCESS — and NOT through `console.*`.
- *
- * Measured, because it is exactly the kind of thing that reads as done and is
- * not: vitest 4's default reporter — which `bun run test` and CI both use —
- * suppresses `console.info`/`console.log`/`console.error` from a test that
- * PASSED, and shows them only under `--reporter=verbose`. A direct write to the
- * stream survives both. So a population printed with `console.info` is a number
- * nobody reading a CI log ever sees, which is the same as not printing it.
- */
-function reportPopulation(line: string): void {
-  process.stdout.write(`${line}\n`);
 }
 
 /** One pass over exactly this file's listing and nothing else. */

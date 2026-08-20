@@ -485,6 +485,22 @@ export interface VariantAxisBackfillReport {
      * which is a change somebody made and should be told about.
      */
     readonly assignmentsRemoved: number;
+    /**
+     * Listings that were on this page and no longer existed when their own
+     * transaction ran — a seller deleting one mid-pass, or a sibling fixture in
+     * a shared test database.
+     *
+     * Counted rather than fatal, because the alternative was losing the REPORT:
+     * the page is read on the root connection, so the row can be gone by the
+     * time its writes run, and rethrowing took `resumeAfterListingId` with it.
+     * The operator lost the CURSOR rather than one listing, which a resumed pass
+     * cannot tell from a completed one.
+     *
+     * Such a listing contributes NO outcome counters — the tally is restored to
+     * its pre-listing snapshot — so it can never disturb the sums above. It does
+     * still count in `scanned.listings`, because it genuinely was on the page.
+     */
+    readonly listingsVanishedDuringPass: number;
   };
   /** Where to resume. `null` when the pass reached the end of the catalogue. */
   readonly resumeAfterListingId: string | null;

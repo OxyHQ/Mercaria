@@ -44,6 +44,7 @@ import {
   type SeededVertical,
 } from '../../../scripts/seed-verticals/__tests__/vertical-fixture.js';
 import { E2E_PERMISSIONS, enumValueId } from '../../../__tests__/vertical-e2e/journey.js';
+import { reportPopulation } from '../../../__tests__/report-population.js';
 
 const TOKEN = verticalRunToken('cite');
 
@@ -223,7 +224,7 @@ describe('every typed axis value a publication writes CITES the claim it came fr
 
     // The population, printed on SUCCESS. Two variants × two axes — a run that
     // published nothing would otherwise satisfy every loop below.
-    console.log(`[census] axis assignments for this listing: ${rows.length}`);
+    reportPopulation(`[census] axis assignments for this listing: ${rows.length}`);
     expect(rows).toHaveLength(4);
 
     const uncited = rows.filter((row) => row.source_claim_id === null);
@@ -289,7 +290,7 @@ describe('every typed axis value a publication writes CITES the claim it came fr
          where v.listing_id = ${published.listingId}
       `)),
     ];
-    console.log(`[census] variant claims for this listing: ${row?.total ?? 0}`);
+    reportPopulation(`[census] variant claims for this listing: ${row?.total ?? 0}`);
     expect(row?.total).toBe(4);
     expect(row?.queued).toBe(0);
   });

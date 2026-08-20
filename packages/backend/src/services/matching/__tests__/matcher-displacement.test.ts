@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { NATIVE_LISTING_LINK_METHODS } from '@mercaria/shared-types';
 import { MATCHER_MAY_DISPLACE } from '../match.service.js';
+import { reportPopulation } from '../../../__tests__/report-population.js';
 
 /** Derived from the vocabulary, never listed — the population, and its floor. */
 const METHODS = [...NATIVE_LISTING_LINK_METHODS];
@@ -24,7 +25,7 @@ describe('the displacement table covers the whole vocabulary', () => {
     // and would mean the table governs nothing; seven is what exists today and
     // an eighth method has to arrive with a decision beside it.
     expect(METHODS.length, 'the link-method vocabulary is empty').toBeGreaterThanOrEqual(7);
-    console.log(`[census] link methods scanned: ${METHODS.length}`);
+    reportPopulation(`[census] link methods scanned: ${METHODS.length}`);
   });
 
   it('every entry is a real boolean rather than a missing key read as undefined', () => {
@@ -61,7 +62,7 @@ describe('a person’s declaration is protected and a machine’s is not', () =>
       'matcher',
       'operator',
     ]);
-    console.log(
+    reportPopulation(
       `[census] protected: ${protectedMethods.length}, displaceable: ${displaceable.length}`,
     );
   });

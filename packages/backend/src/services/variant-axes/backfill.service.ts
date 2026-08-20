@@ -47,6 +47,7 @@
  */
 
 import { TransactionRollbackError } from 'drizzle-orm';
+import { isForeignKeyViolation } from '@oxyhq/db';
 import type {
   VariantAxisAttributeRefusal,
   VariantAxisBackfillReport,
@@ -62,6 +63,7 @@ import {
   listLegacyListingOptions,
   listLegacyVariantOptionValues,
   listListingIdsWithLegacyOptions,
+  listingStillExists,
   listVariantsForListings,
   type LegacyListingOptionRow,
   type LegacyVariantOptionValueRow,
@@ -132,6 +134,7 @@ interface Counters {
   signaturesWritten: number;
   signaturesUnchanged: number;
   listingsWithIndistinguishableVariants: number;
+  listingsVanishedDuringPass: number;
   refusals: ReturnType<typeof emptyRefusalCounts>;
 }
 
@@ -153,6 +156,7 @@ function newCounters(): Counters {
     signaturesWritten: 0,
     signaturesUnchanged: 0,
     listingsWithIndistinguishableVariants: 0,
+    listingsVanishedDuringPass: 0,
     refusals: emptyRefusalCounts(),
   };
 }
@@ -525,13 +529,40 @@ export async function runVariantAxisBackfill(
     // ONE transaction per listing, and a dry run is the identical body rolled
     // back. A `predict` branch would be a second implementation of this loop and
     // the two would disagree precisely where a migration is dangerous.
+    //
+    // The counters are a plain object mutated INSIDE the transaction, so a
+    // rollback does not undo them — which is exactly what `dry_run` depends on,
+    // and exactly what makes a mid-listing failure leave a PARTIAL tally. Hence
+    // the snapshot: a listing that vanishes contributes nothing rather than
+    // however much of itself the pass had read before it died.
+    const beforeListing = structuredClone(counters);
     try {
       await db.transaction(async (tx) => {
         await backfillOneListing(tx, { listingId, options: options_, optionValues, counters });
         if (mode === 'dry_run') tx.rollback();
       });
     } catch (error) {
-      if (!(error instanceof TransactionRollbackError)) throw error;
+      if (error instanceof TransactionRollbackError) continue;
+      // A seller deleting a listing mid-pass, or a sibling fixture doing it in a
+      // shared test database. The page was read on the root connection, so by
+      // the time this listing's own transaction runs the row can be gone and
+      // every child write fails its foreign key.
+      //
+      // Rethrowing loses the whole REPORT, and with it `resumeAfterListingId` —
+      // so the operator loses the cursor rather than one listing, and a resumed
+      // pass either restarts from zero or is guessed at. Neither is visible in
+      // the output, because there is no output.
+      //
+      // Both halves are required before this is swallowed: the SQLSTATE says a
+      // foreign key failed, and the listing is confirmed GONE. A foreign-key
+      // failure on a listing that still exists is a real defect and still
+      // throws.
+      if (isForeignKeyViolation(error) && !(await listingStillExists(db, listingId))) {
+        Object.assign(counters, beforeListing);
+        counters.listingsVanishedDuringPass += 1;
+        continue;
+      }
+      throw error;
     }
   }
 
@@ -575,6 +606,7 @@ export async function runVariantAxisBackfill(
     diagnostics: {
       listingsWithIndistinguishableVariants: counters.listingsWithIndistinguishableVariants,
       assignmentsRemoved: counters.assignmentsRemoved,
+      listingsVanishedDuringPass: counters.listingsVanishedDuringPass,
     },
     resumeAfterListingId: page.resumeAfterListingId,
   };
