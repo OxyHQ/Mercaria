@@ -1562,7 +1562,27 @@ describe('every registered route on the authoring, taxonomy and product-type sur
 /* -------------------------------------------------------------------------- */
 
 describe('abuse limits', () => {
-  it('answers 429 once the anonymous budget for the catalogue bucket is spent', async () => {
+  /**
+   * RETITLED (#630). It said *"the anonymous budget for the catalogue bucket"*,
+   * and it cannot attribute its 429 to that bucket.
+   *
+   * `app.ts:240` mounts `makeRateLimiter('general')` above every route, and
+   * `taxonomy.ts:90`'s `makeRateLimiter('listings')` passes no override, so both
+   * take the same anonymous default of 600. The global limiter is reached first
+   * on every request and counts traffic from every router, so it is spent first
+   * — the 429 below is `general`'s.
+   *
+   * MEASURED, not inferred: a sibling case that first exhausted a different
+   * router drove THIS case to 429 on attempt 1, failing its own
+   * `attempts > 100` floor. Recorded as #784, which is a production-config
+   * decision and not this file's to make.
+   *
+   * The case is kept because what it proves is real and worth keeping — an
+   * anonymous flood is bounded, at a budget in the hundreds rather than one.
+   * Only the name changed, because a title claiming a bucket it cannot
+   * attribute is the exact defect #630 exists to remove.
+   */
+  it('answers 429 once the anonymous budget bounding this surface is spent', async () => {
     // 600 per 15 minutes is `createOxyRateLimit`'s anonymous default and
     // `makeRateLimiter` passes no override. The path chosen 400s at `validateId`
     // BEFORE any database access, so exhausting the budget costs no queries — the
