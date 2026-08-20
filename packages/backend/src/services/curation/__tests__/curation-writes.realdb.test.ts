@@ -3073,6 +3073,20 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
     // The brand filter followed; the merchant filter beside it did NOT move.
     expect(await filtersOf()).toEqual({ brands: [brandWinner], merchants: [merchantLoser] });
 
+    // And it is RECORDED against `navigation`, which is the whole reason this is
+    // its own phase rather than a line inside somebody else's. Without this the
+    // declaration's `phase` is unverified: moving it to `agents` still moves the
+    // rows, so the data is right and the job's own trail attributes the work to
+    // a domain that never touched it — measured, that mutation left this file
+    // green. `rows_affected` on the OTHER phase is what makes it exact.
+    const phases = await db.execute<{ phase: string; rows_affected: number }>(sql`
+      select phase, rows_affected from catalog_merge_job_phases
+       where job_id = ${brandJob.id} and phase in ('navigation', 'agents')
+    `);
+    const byPhase = new Map(phases.map((row) => [row.phase, Number(row.rows_affected)]));
+    expect(byPhase.get('navigation')).toBe(1);
+    expect(byPhase.get('agents')).toBe(0);
+
     const merchantJob = await requestMerge({
       entityType: 'merchant',
       loserId: merchantLoser,
