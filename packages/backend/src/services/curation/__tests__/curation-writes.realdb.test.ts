@@ -132,28 +132,6 @@ afterEach(async () => {
   const agentIds = createdAgentIds.splice(0);
   const merchantIds = createdMerchantIds.splice(0);
 
-  // #716's fixtures. Agents FIRST: they name the merchants, and `merchants` is
-  // `restrict` from several directions — the ordering rule this file's header
-  // records, applied to one more pair.
-  if (agentIds.length > 0) {
-    await db.delete(shoppingAgents).where(inArray(shoppingAgents.id, agentIds));
-  }
-  if (merchantIds.length > 0) {
-    const merchantJobIds = (
-      await db
-        .select({ id: catalogMergeJobs.id })
-        .from(catalogMergeJobs)
-        .where(inArray(catalogMergeJobs.loserId, merchantIds))
-    ).map((row) => row.id);
-    if (merchantJobIds.length > 0) {
-      await db
-        .delete(catalogMergeJobPhases)
-        .where(inArray(catalogMergeJobPhases.jobId, merchantJobIds));
-      await db.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, merchantJobIds));
-    }
-    await db.delete(merchants).where(inArray(merchants.id, merchantIds));
-  }
-
   if (productIds.length > 0) {
     const jobIds = (
       await db
@@ -322,6 +300,63 @@ afterEach(async () => {
     await db.delete(sourceRecords).where(inArray(sourceRecords.sourceId, sourceIds));
     await db.delete(catalogSources).where(inArray(catalogSources.id, sourceIds));
   }
+
+  // #716's fixtures, LAST in this hook and that is load-bearing: the revisions a
+  // merge records are `restrict` from `catalog_merge_jobs`, and the sweep that
+  // clears them is keyed on the OPERATOR far above. Running this block earlier
+  // leaves the job undeletable. Agents before merchants within it, because they
+  // name the merchants and `merchants` is `restrict` from several directions.
+  if (agentIds.length > 0) {
+    await db.delete(shoppingAgents).where(inArray(shoppingAgents.id, agentIds));
+  }
+  if (merchantIds.length > 0) {
+    const merchantJobIds = (
+      await db
+        .select({ id: catalogMergeJobs.id })
+        .from(catalogMergeJobs)
+        .where(inArray(catalogMergeJobs.loserId, merchantIds))
+    ).map((row) => row.id);
+    if (merchantJobIds.length > 0) {
+      // The phase rows are append-only by trigger, so teardown goes around it —
+      // ONE table inside the window (#301), the way the product teardown above
+      // does, and under the same lock.
+      // TWO windows, one strong lock each. The revisions the merge recorded are
+      // `restrict` from the job, and the operator-keyed sweep above only runs
+      // when a case seeded a PRODUCT — these cases seed none, so this block
+      // clears its own. Holding both triggers in one window is what the
+      // one-table rule (#301) forbids.
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table catalog_revisions disable trigger catalog_revisions_append_only`,
+        );
+        await tx
+          .delete(catalogRevisions)
+          .where(inArray(catalogRevisions.mergeJobId, merchantJobIds));
+        await tx.execute(
+          sql`alter table catalog_revisions enable trigger catalog_revisions_append_only`,
+        );
+      });
+      await withTriggerToggleLock(db, async (tx) => {
+        await tx.execute(
+          sql`alter table catalog_merge_job_phases disable trigger catalog_merge_job_phases_append_only`,
+        );
+        await tx
+          .delete(catalogMergeJobPhases)
+          .where(inArray(catalogMergeJobPhases.jobId, merchantJobIds));
+        await tx.execute(
+          sql`alter table catalog_merge_job_phases enable trigger catalog_merge_job_phases_append_only`,
+        );
+        await tx.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, merchantJobIds));
+      });
+    }
+    // `rollups` re-derived #76's aggregates for both sides, and they RESTRICT
+    // the merchant they describe. Their presence is the merge working.
+    await db
+      .delete(reviewAggregates)
+      .where(inArray(reviewAggregates.merchantId, merchantIds));
+    await db.delete(merchants).where(inArray(merchants.id, merchantIds));
+  }
+
 });
 
 
@@ -2838,10 +2873,13 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
     await db.execute(sql`
       insert into shopping_agents
         (id, oxy_user_id, kind, name, display_currency, excluded_merchant_ids,
-         constraint_set, constraint_digest, cooldown_seconds)
-      values (${id}, ${`shopper-716-${label}-${RUN}`}, 'target_price', ${`Agent ${label}`},
+         constraint_set, constraint_digest, cooldown_seconds, trigger_sources,
+         notification_channels, authorized_at, terms_version, agent_policy_version,
+         constraint_evaluation_version, normalization_rule_version, comparison_policy_version)
+      values (${id}, ${`shopper-716-${label}-${RUN}`}, 'constraint_satisfiable', ${`Agent ${label}`},
               'EUR', ${textArrayLiteral(excluded)}, '{"constraints":[],"groups":[]}'::jsonb,
-              ${`digest-716-${label}-${RUN}`}, 3600)
+              ${`digest-716-${label}-${RUN}`}, 3600, '{offer_change}'::text[], '{oxy_notification}'::text[],
+              now(), 'v1', 'v1', 'v1', 'v1', 'v1')
     `);
     createdAgentIds.push(id);
     return id;
