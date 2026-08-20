@@ -188,12 +188,23 @@ afterAll(async () => {
     // shared mutex only serialises windows against windows, never against that
     // writer. Two windows cost one more round trip on the mutex and make the
     // cycle unbuildable.
+    // `USER`, not `ALL` (#696). The freeze this teardown has to get past is one
+    // USER trigger; `ALL` additionally names the table's two INTERNAL foreign-key
+    // constraint triggers, which buys nothing here — a row's own FK checks do not
+    // fire on DELETE — and costs two things. It silences `23503` for the length
+    // of the window, so a children-first mistake in this teardown would fail
+    // SILENTLY where `USER` still raises it; and disabling an internal trigger
+    // requires SUPERUSER, which is the single statement in the whole suite that
+    // forces the test role to hold that attribute (measured on #696: everything
+    // else this file does runs unprivileged, and all 24 tests passed as a
+    // non-superuser with only this teardown refused, `42501 EnableDisableTrigger`).
+    // The lock reasoning above is unchanged: both spellings take ShareRowExclusive.
     await withTriggerToggleLock(db, async (tx) => {
-      await tx.execute(sql`alter table catalog_source_freshness_policies disable trigger all`);
+      await tx.execute(sql`alter table catalog_source_freshness_policies disable trigger user`);
       await tx
         .delete(catalogSourceFreshnessPolicies)
         .where(inArray(catalogSourceFreshnessPolicies.sourceId, safeIds(createdSourceIds)));
-      await tx.execute(sql`alter table catalog_source_freshness_policies enable trigger all`);
+      await tx.execute(sql`alter table catalog_source_freshness_policies enable trigger user`);
     });
     await withTriggerToggleLock(db, async (tx) => {
       await tx.execute(
