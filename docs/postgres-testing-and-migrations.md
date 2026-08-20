@@ -79,7 +79,15 @@ keeps every realdb suite green while validating a path production never takes.
   where the waiter runs on the pool and its backend is not
   (`variant-axis-backfill-vanish`, #795) — and tell "nothing ever blocked" apart
   from "the block was not observed in time": only the first is a bug in the code
-  under test.
+  under test. After #803 no unscoped lock-wait control remains in the backend.
+  **One hop answers `> 0` and nothing more.** Row-lock waiters CHAIN — the second
+  queues behind the FIRST WAITER — so a one-hop
+  `pg_blocking_pids(pid) @> array[holder]` count reports the head of the queue
+  however many are lined up (measured: holder plus two waiters gives 1, the
+  recursive form gives 2). "Is anyone queued behind me" is one hop; a barrier
+  that must see N waiters needs `connector-pin-release`'s recursive CTE, which
+  paid for this once already by timing out at every poll while
+  `pg_stat_activity` plainly showed both racers waiting.
 - **`FAIL x.test.ts` with `Tests 0 failed` is a load failure**, not a regression.
   Baseline on the base revision under the SAME parallel conditions.
 - **A service that starts writing a NEW table makes every fixture that CALLS it
