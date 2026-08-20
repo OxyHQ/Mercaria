@@ -44,6 +44,91 @@ break independently and one number lets a walk collapse to zero while the others
 carry it — each set to today's count, plus a `statSync` on every path so a
 `readdirSync` returning a cached or empty result goes red.
 
+## An assertion loop over an INLINE list is that list's only reader
+
+Everything above is about a list a scan runs OVER. This is the smaller sibling,
+with nothing to walk (#706):
+
+```ts
+for (const foreign of ['services/supplier-orders/submission.service.ts']) {
+  expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
+}
+```
+
+Replace the array with `[]` and the body never runs, so the clause asserts
+nothing and nothing goes red — the array is the thing being defended and the loop
+is its only reader, so **both shrink together**. It is
+`expect(scanned).toBe(LIST.length)` in a different costume, and **#691 shipped
+one**: emptying its array left all 26 tests in that file green.
+
+**An inline array literal cannot be floored where it is written**, because it has
+no identifier to assert a `.length` on. That is why the remedy is a helper rather
+than a convention — `assertEachOf(list, floor, fn)` in
+`src/__tests__/assert-each-of.ts`, the generic form of what #697 did for
+`assertDirectoriesAreFlat` — and why the floor is a required POSITIONAL argument
+sitting immediately after the entries it counts.
+
+Two properties do the work, and each closes a way the fix could be neutered:
+
+- **The floor is MANDATORY.** An optional one reproduces the defect one layer up,
+  because a caller who omitted it looks identical to one that had nothing to
+  floor.
+- **The floor may not be ZERO.** `[].length >= 0` holds, so a zero floor admits
+  precisely the empty array this exists to refuse — the original defect two
+  tokens from the fix's own spelling.
+
+Set it to today's COUNT. Unlike `OutsidePopulationOptions.sweepFloor` this is not
+a pin wearing a floor's name: that warning is about a DERIVED sweep, whose count
+grows on its own. Nothing grows a hand list except a person editing those very
+lines, and an addition passes a `>=` floor freely. What the number buys is that
+REMOVING a member now moves it in the same diff, so a narrowing that was
+invisible becomes one somebody has to justify.
+
+A too-LOW floor is the one thing the suite cannot see — the helper refuses a
+floor ABOVE the length and a floor below it passes silently — so a conversion
+needs a SECOND instrument that re-parses each call site and compares the literal
+to the entry count.
+
+### A floor is owed where the list is the SOLE defence
+
+Ask what else fails when the list is emptied. Nothing ⇒ it is a population
+wearing an assertion's clothes. Something independent still fires ⇒ its value is
+in NAMING the module rather than in catching the regression, and a floor buys
+little.
+
+Measured on `supplier-preflight-isolation.test.ts`, which holds one of each — so
+**bucket per LOOP, never per file**. Both rows reproduced on `4bff6ef3`:
+
+| the list asserts | emptied alone | emptied AND the regression introduced |
+|---|---|---|
+| modules IN the population (`widening`) | 17/17 green | **RED** — the per-shape sweep floor, and the whole-tree assertion names the module |
+| SIBLING-DOMAIN modules OUT (`foreign`) | 17/17 green | **nothing fires** |
+
+Both empty silently, so that is not the discriminator. The discriminator is
+whether the REGRESSION the list exists to catch is caught elsewhere, and the
+reason the second one is not is worth stating on its own:
+
+> `assertNothingOutsideDomainPopulation`'s `FOREIGN_CONTROL_MODULES` is the
+> commerce core, foreign to EVERY domain. That is what makes it shareable, and it
+> is also its limit: **the shared control catches a population that swallowed the
+> TREE and cannot catch one that swallowed a NEIGHBOUR.**
+
+### The shortlist instrument is blind to the NAMED spelling
+
+`for (const x of [` anchors on the inline form. A list declared a few lines up as
+`const NAMED = [ … ]` and iterated by name is the SAME defect — the loop is still
+its only reader — and that pattern cannot see it. Measured on `4bff6ef3`, with
+derived spreads excluded from both counts: **113 inline loops, and 52 more over a
+named local hand list with no `.length` floor anywhere in their file.**
+
+The second set includes `widening` above — the very list the triage table is
+measured on. So the shortlist reasoned about a site its own instrument could not
+report, which is §"When a census cannot be made correct by a better pattern"
+arriving again: a pattern reports the count of one SPELLING and nothing in its
+output says so. `assertEachOf` takes a named list unchanged, but a named list can
+also be floored where it is declared, and which of the two reads better is a
+judgement per site rather than a mechanical pass.
+
 ## A complete population is not a defended one
 
 `curation`'s domain list was 17 and the walk found the same 17. Every probe that
