@@ -107,6 +107,37 @@ export const BUYER_REQUEST_COMPLETION_FAILURES = [
 export type BuyerRequestCompletionFailure =
   (typeof BUYER_REQUEST_COMPLETION_FAILURES)[number];
 
+/**
+ * Why a DECISION was refused — the bounded `detail` on a `decision_refused`
+ * event (#743).
+ *
+ * The `BUYER_REQUEST_COMPLETION_FAILURES` reasoning, for the other half of the
+ * trail: an operator reads this during an incident, so it must say what happened
+ * without quoting an exception's message. Every member names a refusal a SELLER
+ * can actually meet, which is what makes the row worth reading — "somebody tried
+ * to decide this and was told no, for this reason".
+ *
+ * A request that does not EXIST has no member here and cannot get one: the event
+ * carries a foreign key to its request and `buyer_request_events_subject_check`
+ * demands exactly one subject, so an attempt on a missing id has nowhere to be
+ * recorded. That is a property of the trail being per-request, not an omission.
+ */
+export const BUYER_REQUEST_DECISION_REFUSALS = [
+  /** Already decided, and not a converging repeat of the same decision. */
+  'already_decided',
+  /** A rejection arrived without the note that has to say why. */
+  'rejection_note_missing',
+  /** An approved line was never part of the request. */
+  'line_not_requested',
+  /** An approved quantity is more than the buyer asked for, or negative. */
+  'quantity_exceeds_requested',
+  /** The compare-and-swap lost: somebody else decided it first. */
+  'concurrently_decided',
+] as const;
+
+/** One of {@link BUYER_REQUEST_DECISION_REFUSALS}. */
+export type BuyerRequestDecisionRefusal = (typeof BUYER_REQUEST_DECISION_REFUSALS)[number];
+
 /* -------------------------------------------------------------------------- */
 /*  Cancellation requests                                                      */
 /* -------------------------------------------------------------------------- */

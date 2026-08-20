@@ -70,6 +70,9 @@ import { recordBuyerRequestEvent } from '../buyerRequests/eventRepository.js';
 let db: Database;
 
 /** Unique to this run, so parallel files cannot collide on a shared database. */
+import { decideCancellationRequest } from '../../services/buyer-requests/cancellation-decision.service.js';
+import { sellerDecisionActor } from '../../services/buyer-requests/authorization.js';
+
 const RUN = uuidv7().slice(-10);
 
 const createdOrderIds: string[] = [];
@@ -752,5 +755,108 @@ describe('a request table has no way to change an order — acceptance 2', () =>
         `${name} would let a buyer request touch an order's money or status`,
       ).toBe(false);
     }
+  });
+});
+
+/**
+ * #743 — the trail records refusals, not only successes.
+ *
+ * Driven through the real decision SERVICE rather than the repository, because
+ * the property under test is not "a row can be inserted" — it is that the row
+ * SURVIVES the throw that follows it. A refusal is written on the root handle
+ * for exactly that reason (`decision-refusal.ts`), and a test that inserted
+ * directly would pass just as happily against the transaction handle that loses
+ * the row, which is the bug.
+ */
+describe('a refused decision is recorded (#743)', () => {
+  // Minted through the real authorization path: `BuyerRequestDecider` carries a
+  // module-private symbol, so a test cannot forge one — the #110 device working
+  // as designed, and the reason this case exercises the service the router
+  // actually calls.
+  const decider = sellerDecisionActor(`seller-743-${RUN}`, 'cancellation:decide');
+
+  async function refusalsFor(cancellationRequestId: string) {
+    return db
+      .select({ kind: buyerRequestEvents.kind, detail: buyerRequestEvents.detail })
+      .from(buyerRequestEvents)
+      .where(eq(buyerRequestEvents.cancellationRequestId, cancellationRequestId));
+  }
+
+  it('records `already_decided` when a second decision arrives, and still refuses', async () => {
+    const order = await seedOrder({});
+    const requestId = await fileCancellation(order.id);
+    expect(requestId).toBeTruthy();
+
+    await decideCancellationRequest({
+      requestId: requestId ?? '',
+      decider,
+      body: { decision: 'reject', note: 'not this time' },
+      now: new Date(),
+    });
+
+    // The same seller decides again with the OTHER decision: a real conflict
+    // rather than a converging repeat.
+    await expect(
+      decideCancellationRequest({
+        requestId: requestId ?? '',
+        decider,
+        body: { decision: 'accept' },
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    const events = await refusalsFor(requestId ?? '');
+    // The refusal is THERE — this is what the throw would have rolled back had
+    // the write taken a transaction handle.
+    expect(
+      events.filter((row) => row.kind === 'decision_refused').map((row) => row.detail),
+    ).toEqual(['already_decided']);
+    // And the successful decision beside it, so the case is not passing on a
+    // trail that recorded nothing at all.
+    expect(events.some((row) => row.kind === 'rejected')).toBe(true);
+  });
+
+  it('records `rejection_note_missing` on a rejection with no note', async () => {
+    const order = await seedOrder({});
+    const requestId = await fileCancellation(order.id);
+
+    await expect(
+      decideCancellationRequest({
+        requestId: requestId ?? '',
+        decider,
+        body: { decision: 'reject', note: 'x' },
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    const events = await refusalsFor(requestId ?? '');
+    expect(events.map((row) => `${row.kind}:${row.detail}`)).toEqual([
+      'decision_refused:rejection_note_missing',
+    ]);
+    // The request is untouched: a refusal records an ATTEMPT, never a decision.
+    const after = await db
+      .select({ state: cancellationRequests.state })
+      .from(cancellationRequests)
+      .where(eq(cancellationRequests.id, requestId ?? ''));
+    expect(after[0]?.state).toBe('submitted');
+  });
+
+  it('records `quantity_exceeds_requested` when a seller approves more than was asked', async () => {
+    const order = await seedOrder({ quantity: 2 });
+    const requestId = await fileCancellation(order.id, {
+      lines: [{ variantId: order.variantId, requestedQuantity: 1 }],
+    });
+
+    await expect(
+      decideCancellationRequest({
+        requestId: requestId ?? '',
+        decider,
+        body: { decision: 'accept', lines: [{ variantId: order.variantId, quantity: 2 }] },
+        now: new Date(),
+      }),
+    ).rejects.toThrow();
+
+    const events = await refusalsFor(requestId ?? '');
+    expect(events.map((row) => row.detail)).toEqual(['quantity_exceeds_requested']);
   });
 });

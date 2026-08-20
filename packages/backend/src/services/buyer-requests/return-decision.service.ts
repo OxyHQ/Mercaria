@@ -41,6 +41,7 @@ import { findOrderById } from '../../db/orders/orderRepository.js';
 import { findRefundByIdempotencyKey } from '../../db/orders/refundRepository.js';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
+import { refuseDecision } from './decision-refusal.js';
 import { actorAuditColumns, type BuyerRequestDecider } from './authorization.js';
 import {
   notifyActionRequired,
@@ -73,7 +74,10 @@ export async function decideReturnRequest(input: {
   now: Date;
 }): Promise<ReturnRequestWithDetail> {
   const existing = await findReturnRequestById(input.requestId);
+  // Unrecordable, for the reason the cancellation path states: no request row,
+  // no subject for the event to name.
   if (!existing) throw notFound('Return request not found');
+  const subject = { returnRequestId: input.requestId } as const;
   if (existing.state !== 'requested') {
     // A repeat of the SAME decision converges; anything else is a real
     // conflict. The seller who clicked twice gets their own answer back.
@@ -81,11 +85,23 @@ export async function decideReturnRequest(input: {
       (input.body.decision === 'accept' && existing.state === 'approved') ||
       (input.body.decision === 'reject' && existing.state === 'rejected');
     if (already) return getReturnRequest(input.requestId);
-    throw conflict('This request has already been decided');
+    await refuseDecision({
+      subject,
+      decider: input.decider,
+      reason: 'already_decided',
+      now: input.now,
+      error: conflict('This request has already been decided'),
+    });
   }
 
   if (input.body.decision === 'reject' && (input.body.note ?? '').trim().length < 3) {
-    throw validationError('A rejection must say why');
+    await refuseDecision({
+      subject,
+      decider: input.decider,
+      reason: 'rejection_note_missing',
+      now: input.now,
+      error: validationError('A rejection must say why'),
+    });
   }
 
   const requestedLines = await listReturnRequestLines(input.requestId);
@@ -93,9 +109,23 @@ export async function decideReturnRequest(input: {
     const requested = new Map(requestedLines.map((line) => [line.variantId, line]));
     for (const line of input.body.lines) {
       const match = requested.get(line.variantId);
-      if (!match) throw validationError('An approved line was not requested');
+      if (!match) {
+        await refuseDecision({
+          subject,
+          decider: input.decider,
+          reason: 'line_not_requested',
+          now: input.now,
+          error: validationError('An approved line was not requested'),
+        });
+      }
       if (line.quantity < 0 || line.quantity > match.requestedQuantity) {
-        throw validationError('An approved quantity is more than was requested');
+        await refuseDecision({
+          subject,
+          decider: input.decider,
+          reason: 'quantity_exceeds_requested',
+          now: input.now,
+          error: validationError('An approved quantity is more than was requested'),
+        });
       }
     }
   }
@@ -129,7 +159,15 @@ export async function decideReturnRequest(input: {
     });
     return true;
   });
-  if (!moved) throw conflict('This request was concurrently decided');
+  if (!moved) {
+    await refuseDecision({
+      subject,
+      decider: input.decider,
+      reason: 'concurrently_decided',
+      now: input.now,
+      error: conflict('This request was concurrently decided'),
+    });
+  }
 
   const order = await findOrderById(existing.orderId);
   if (order) notifyReturnUpdated(order, input.requestId, accepted ? 'approved' : 'rejected');

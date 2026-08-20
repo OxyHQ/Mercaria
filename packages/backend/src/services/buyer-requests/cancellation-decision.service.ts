@@ -40,6 +40,7 @@ import { findRefundByIdempotencyKey } from '../../db/orders/refundRepository.js'
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { log } from '../../lib/logger.js';
 import { transition } from '../order.service.js';
+import { refuseDecision } from './decision-refusal.js';
 import { actorAuditColumns, type BuyerRequestDecider } from './authorization.js';
 import { notifyCancellationDecided } from './notifications.js';
 import { resolveCancellationEligibility } from './policy.js';
@@ -79,7 +80,12 @@ export async function decideCancellationRequest(input: {
   now: Date;
 }): Promise<CancellationRequestWithLines> {
   const existing = await findCancellationRequestById(input.requestId);
+  // A request that does not exist has nowhere to record a refusal: the event
+  // carries a foreign key to its request and the subject CHECK demands exactly
+  // one. So this ONE refusal is unrecordable, by the shape of the trail rather
+  // than by omission — see `BUYER_REQUEST_DECISION_REFUSALS`.
   if (!existing) throw notFound('Cancellation request not found');
+  const subject = { cancellationRequestId: input.requestId } as const;
 
   // Idempotent on a repeat of the SAME decision: a seller whose click timed out
   // gets the request they already decided rather than a 409 about their own
@@ -97,11 +103,23 @@ export async function decideCancellationRequest(input: {
         now: input.now,
       });
     }
-    throw conflict('This request has already been decided');
+    await refuseDecision({
+      subject,
+      decider: input.decider,
+      reason: 'already_decided',
+      now: input.now,
+      error: conflict('This request has already been decided'),
+    });
   }
 
   if (input.body.decision === 'reject' && (input.body.note ?? '').trim().length < 3) {
-    throw validationError('A rejection must say why');
+    await refuseDecision({
+      subject,
+      decider: input.decider,
+      reason: 'rejection_note_missing',
+      now: input.now,
+      error: validationError('A rejection must say why'),
+    });
   }
 
   const requestedLines = await listCancellationRequestLines(input.requestId);
@@ -109,9 +127,23 @@ export async function decideCancellationRequest(input: {
     const requested = new Map(requestedLines.map((line) => [line.variantId, line]));
     for (const line of input.body.lines) {
       const match = requested.get(line.variantId);
-      if (!match) throw validationError('An approved line was not requested');
+      if (!match) {
+        await refuseDecision({
+          subject,
+          decider: input.decider,
+          reason: 'line_not_requested',
+          now: input.now,
+          error: validationError('An approved line was not requested'),
+        });
+      }
       if (line.quantity < 0 || line.quantity > match.requestedQuantity) {
-        throw validationError('An approved quantity is more than was requested');
+        await refuseDecision({
+          subject,
+          decider: input.decider,
+          reason: 'quantity_exceeds_requested',
+          now: input.now,
+          error: validationError('An approved quantity is more than was requested'),
+        });
       }
     }
   }
@@ -148,7 +180,15 @@ export async function decideCancellationRequest(input: {
     });
     return true;
   });
-  if (!moved) throw conflict('This request was concurrently decided');
+  if (!moved) {
+    await refuseDecision({
+      subject,
+      decider: input.decider,
+      reason: 'concurrently_decided',
+      now: input.now,
+      error: conflict('This request was concurrently decided'),
+    });
+  }
 
   const order = await findOrderById(existing.orderId);
   if (order) notifyCancellationDecided(order, input.requestId, accepted);
