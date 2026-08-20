@@ -40,6 +40,7 @@ import type {
   AuthoringDraft,
   AuthoringDraftStatus,
   AuthoringProductTypeOption,
+  AuthoringPublicationResult,
   AuthoringSchema,
   AuthoringUpgradePreview,
   AuthoringValidationResult,
@@ -142,9 +143,22 @@ export type DraftSaveOutcome =
   | { readonly outcome: "saved"; readonly draft: AuthoringDraft }
   | { readonly outcome: "conflict" };
 
-/** What a publish did. The refused branch carries no listing id. */
+/**
+ * What a publish did. The refused branch carries no listing id.
+ *
+ * `published` and `converged` are ONE branch carrying one shape (#577): a
+ * convergence is a retry whose first response was lost, and it answers with
+ * everything the original did. This client used to report every success as
+ * `published`, because the only thing distinguishing them was a status code it
+ * did not read — so a retry looked like a second publication.
+ */
 export type DraftPublishOutcome =
-  | { readonly outcome: "published"; readonly listingId: string; readonly draft: AuthoringDraft }
+  | {
+      readonly outcome: "published" | "converged";
+      readonly listingId: string;
+      readonly draft: AuthoringDraft;
+      readonly publication: AuthoringPublicationResult;
+    }
   | { readonly outcome: "refused"; readonly validation: AuthoringValidationResult };
 
 /**
@@ -365,8 +379,19 @@ export async function publishProductDraft(
       {},
       { headers: { "Idempotency-Key": idempotencyKey } },
     );
-    const body = unwrap<{ listingId: string; draft: AuthoringDraft }>(data);
-    return { outcome: "published", listingId: body.listingId, draft: body.draft };
+    const body = unwrap<{
+      listingId: string;
+      draft: AuthoringDraft;
+      publication: AuthoringPublicationResult;
+    }>(data);
+    return {
+      // The SERVER's outcome, not an assumption. It is in the body precisely so
+      // this line does not have to guess from a 201.
+      outcome: body.publication.outcome,
+      listingId: body.listingId,
+      draft: body.draft,
+      publication: body.publication,
+    };
   } catch (error) {
     const validation = validationFromError(error);
     if (statusOf(error) === 422 && validation !== null) {
