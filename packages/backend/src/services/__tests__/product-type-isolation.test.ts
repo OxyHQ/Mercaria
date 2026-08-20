@@ -68,12 +68,12 @@ function productTypePopulation(readDir: DirectoryReader = readSrcDirectory): str
 }
 
 /**
- * The two modules that NAME a product type and belong to other domains.
+ * The three modules that NAME a product type and belong to other domains.
  *
- * EXACT paths with reasons (#448). Neither is a module of this domain: one is
- * the catalogue-backfill classifier's text helper and the other is the
- * localization repository's product-type table accessor, and both have their
- * own gates.
+ * EXACT paths with reasons (#448). None is a module of this domain: one is the
+ * catalogue-backfill classifier's text helper, and two are the
+ * catalog-localization domain's repositories for the two tables that key on a
+ * product-type version and on one of its fields.
  */
 const NOT_THIS_DOMAIN = [
   {
@@ -83,6 +83,17 @@ const NOT_THIS_DOMAIN = [
   {
     path: 'db/catalogLocalization/productTypeLocalizationRepository.ts',
     why: "the catalog-localization domain's repository, which happens to key on product types",
+  },
+  {
+    // Arrived with #650's per-field carry-forward, and this gate is what
+    // reported it — the whole-tree assertion doing exactly its job on a module
+    // added in another workstream. It is the sibling of the row above, one
+    // grain down: it writes `product_type_field_localizations` and reads
+    // `product_type_fields` only to match a field's identity across two
+    // versions. It declares no schema, decides no lifecycle and publishes
+    // nothing, so none of this gate's walls has anything to say about it.
+    path: 'db/catalogLocalization/productTypeFieldLocalizationRepository.ts',
+    why: "the catalog-localization domain's per-FIELD repository, which keys on product-type fields",
   },
 ];
 
@@ -205,7 +216,10 @@ describe('#460 — the population is closed against the tree', () => {
     // EXACT, in both directions (#448). The helper asserts each entry is still
     // REACHED by the sweep and is NOT in the population; this stops a third
     // riding in behind them.
-    expect(NOT_THIS_DOMAIN.length, 'a third foreign product-type module was excused').toBe(2);
+    // Moved from 2 to 3 by #650, in the same edit that added the entry — which
+    // is what this line is for: an exemption list that could grow without the
+    // count moving is a list somebody adds to rather than argues for.
+    expect(NOT_THIS_DOMAIN.length, 'a fourth foreign product-type module was excused').toBe(3);
   });
 });
 
