@@ -129,6 +129,19 @@ export interface DraftValidationInput {
   /** Whether the pinned category is still selectable and in the version's scope. */
   readonly categorySelectable: boolean;
   readonly categoryInScope: boolean;
+  /**
+   * Enum value ids that EXIST but whose attribute version is not `active` (#568).
+   *
+   * Read by `validateDraftRow`, because "which version is this value in" is a
+   * database question and this module takes none. It changes no verdict — such an
+   * id is outside the composed schema's controlled set either way, so publication
+   * was already blocked and still is — it changes which CAUSE is reported.
+   *
+   * REQUIRED rather than optional. An omitted set would silently mean "none are
+   * awaiting publication", which is indistinguishable from "nobody looked", and
+   * the surface that would omit it is the one reporting an approval.
+   */
+  readonly valuesAwaitingPublication: ReadonlySet<string>;
 }
 
 function finding(
@@ -336,7 +349,14 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
     if (field.scope === 'variant') {
       for (const variant of input.variants) {
         const answers = valuesByField.get(`${variant.id}:${field.id}`) ?? [];
-        checkField(findings, field, requirement, answers, variantFieldPath(variant.position, field.key));
+        checkField(
+          findings,
+          field,
+          requirement,
+          answers,
+          variantFieldPath(variant.position, field.key),
+          input.valuesAwaitingPublication,
+        );
         if (field.variantCapable && answers.length === 0 && requirement === 'required') {
           findings.push(
             finding(
@@ -352,7 +372,14 @@ export function validateDraft(input: DraftValidationInput): AuthoringValidationR
     }
 
     const answers = valuesByField.get(`:${field.id}`) ?? [];
-    checkField(findings, field, requirement, answers, productFieldPath(field.key, 0));
+    checkField(
+      findings,
+      field,
+      requirement,
+      answers,
+      productFieldPath(field.key, 0),
+      input.valuesAwaitingPublication,
+    );
   }
 
   // A variant-scope answer pointing at a field the schema does not mark
@@ -560,6 +587,8 @@ function checkField(
   requirement: AuthoringField['requirement'],
   answers: readonly DraftValueForValidation[],
   path: string,
+  /** {@link DraftValidationInput.valuesAwaitingPublication}, threaded (#568). */
+  awaitingPublication: ReadonlySet<string>,
 ): void {
   const about = { fieldId: field.id, attributeKey: field.key };
 
@@ -622,7 +651,20 @@ function checkField(
     }
     if (answer.kind === 'controlled_value') {
       if (answer.valueEnumValueId === null || !controlled.has(answer.valueEnumValueId)) {
-        findings.push(finding('value_not_in_controlled_set', 'error', path, about));
+        // Same severity, different CAUSE. An approved value queued in an
+        // unpublished version is not a merchant answering with something
+        // invalid, and the two lead to opposite next actions — change the
+        // answer, or wait for an operator to publish (#568).
+        const awaiting =
+          answer.valueEnumValueId !== null && awaitingPublication.has(answer.valueEnumValueId);
+        findings.push(
+          finding(
+            awaiting ? 'approved_value_not_published' : 'value_not_in_controlled_set',
+            'error',
+            path,
+            about,
+          ),
+        );
       }
       continue;
     }

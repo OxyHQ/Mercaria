@@ -69,6 +69,7 @@ import {
   projectProposalReference,
   projectReviewEvent,
 } from './projection.js';
+import { projectProposals, readProposalPublication } from './publication.js';
 
 /**
  * The convergence key, composed exactly as the GENERATED column composes it.
@@ -257,7 +258,7 @@ export async function submitProposal(
       await attachReference(tx, existing.id, input);
       return {
         outcome: 'converged' as const,
-        proposal: projectProposal(existing),
+        proposal: projectProposal(existing, await readProposalPublication(tx, existing)),
         scan,
       };
     }
@@ -300,7 +301,11 @@ export async function submitProposal(
       at: now,
     });
 
-    return { outcome: 'created' as const, proposal: projectProposal(inserted), scan };
+    return {
+      outcome: 'created' as const,
+      proposal: projectProposal(inserted, await readProposalPublication(tx, inserted)),
+      scan,
+    };
   });
 }
 
@@ -373,7 +378,7 @@ export async function readProposal(
 ): Promise<CatalogProposal> {
   const row = await findProposal(db, id);
   if (row === null) throw notFound('No such proposal.');
-  return projectProposal(row);
+  return projectProposal(row, await readProposalPublication(db, row));
 }
 
 /** A store's own proposals. The merchant surface's only feed. */
@@ -394,7 +399,7 @@ export async function listStoreProposals(
     limit: Math.min(input.limit ?? config.catalogProposals.pageSize, config.catalogProposals.pageSize),
     offset: input.offset ?? 0,
   });
-  return rows.map(projectProposal);
+  return projectProposals(db, rows);
 }
 
 /**
@@ -416,7 +421,7 @@ export async function readProposalTrace(
     listReviewEvents(db, id),
   ]);
   return {
-    proposal: projectProposal(row),
+    proposal: projectProposal(row, await readProposalPublication(db, row)),
     duplicateCandidates: candidates.map(projectDuplicateCandidate),
     references: references.map(projectProposalReference),
     events: events.map(projectReviewEvent),
@@ -468,7 +473,7 @@ export async function withdrawProposal(
       reason: input.reason,
       at: now,
     });
-    return projectProposal(moved);
+    return projectProposal(moved, await readProposalPublication(tx, moved));
   });
 }
 
@@ -509,7 +514,7 @@ export async function supplyProposalInformation(
       reason: input.response,
       at: now,
     });
-    return projectProposal(moved);
+    return projectProposal(moved, await readProposalPublication(tx, moved));
   });
 }
 

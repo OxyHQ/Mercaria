@@ -133,6 +133,12 @@ export const CATALOG_PROPOSAL_ORIGINS: readonly CatalogProposalOrigin[] = ['merc
  * domain minted the value, `merged` means an operator pointed the request at
  * something that already existed. Collapsing them makes "how much of our
  * catalogue arrived through proposals" unanswerable.
+ *
+ * **`approved` means the DECISION was taken, never that the value is live** — a
+ * value minted against a published attribute lands in a new `draft` version, and
+ * liveness is that version's `lifecycle_state` (#568). {@link
+ * ResolvedEntityPublication} is where a reader looks, and it is a separate field
+ * precisely so nothing has to infer one fact from the other.
  */
 export type CatalogProposalState =
   | 'submitted'
@@ -451,6 +457,45 @@ export interface CatalogProposalSubmission {
  * submitter either, because "which merchant asked for this" is answerable from
  * the store and does not need a second handle beside it.
  */
+/**
+ * Whether what a proposal resolved to is actually in service (#568).
+ *
+ * A decision and a publication are different acts by different people at
+ * different times, and `catalog_proposals.state` only records the first. An
+ * approved controlled value lands in a `draft` attribute version whenever the
+ * attribute it extends was published — which is every attribute in a seeded
+ * deployment — so "approved" and "usable" routinely disagree.
+ *
+ * Read `published` narrowly: it says the VERSION carrying the value is `active`.
+ * It deliberately does not claim a merchant can see the value, because
+ * `product_type_fields.attribute_definition_id` pins one exact attribute version,
+ * so a form offers the new value only once a product-type version citing that
+ * version is published too. Naming this `live` would assert the part this domain
+ * does not own.
+ */
+export type ResolvedEntityPublicationState =
+  | 'not_applicable'
+  | 'pending_publication'
+  | 'published'
+  | 'superseded';
+
+/**
+ * The publication facts, with no version on the branch that has none.
+ *
+ * `not_applicable` carries no `versionId`/`versionNumber` at all rather than a
+ * pair of nulls, so a consumer cannot render a version for a proposal that
+ * resolved to nothing versioned — the discriminated-union device this codebase
+ * uses wherever an unknown must not read as a value.
+ */
+export type ResolvedEntityPublication =
+  | { readonly state: 'not_applicable' }
+  | {
+      readonly state: 'pending_publication' | 'published' | 'superseded';
+      /** The `attribute_definitions` row carrying the value — a VERSION, not the value. */
+      readonly versionId: string;
+      readonly versionNumber: number;
+    };
+
 export interface CatalogProposal {
   readonly id: string;
   readonly type: CatalogProposalType;
@@ -470,6 +515,11 @@ export interface CatalogProposal {
   readonly attributeDefinitionVersion: number | null;
   /** Present EXACTLY in a resolved state. Polymorphic by `type`. */
   readonly resolvedEntityId: string | null;
+  /**
+   * Whether {@link resolvedEntityId} is in service. REQUIRED, so no surface can
+   * omit it and leave `approved` reading as done (#568).
+   */
+  readonly publication: ResolvedEntityPublication;
   readonly redirectedToProposalId: string | null;
   readonly rejectionReason: CatalogProposalRejectionReason | null;
   readonly decisionReason: string | null;

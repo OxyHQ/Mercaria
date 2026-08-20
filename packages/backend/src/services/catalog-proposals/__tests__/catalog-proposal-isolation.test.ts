@@ -63,6 +63,10 @@ import {
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
 import { assertEachOf } from '../../../__tests__/assert-each-of.js';
+import {
+  dispositionKey,
+  forbiddenSymbolsReachableFrom,
+} from '../../../__tests__/import-closure.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -152,15 +156,30 @@ expect(
  * approval performs; everything else names a writer of a table whose creation
  * belongs to the surface that owns it (`CATALOG_PROPOSAL_LINK_ONLY_TYPES`).
  */
-const CATALOGUE_WRITE_PATTERNS: readonly RegExp[] = [
+const PERMITTED_CATALOGUE_WRITE_PATTERNS: readonly RegExp[] = [
   /\binsertAttributeEnumValue\b/,
   /\binsertAttributeValueAlias\b/,
+];
+
+/**
+ * The seven link-only types' mints, in ONE place.
+ *
+ * Read by the module-text wall below AND by the transitive-reach wall at the foot
+ * of this file. Two lists would be two answers to "what may an approval never
+ * create", and the one that drifts is always the one nobody is looking at.
+ */
+const LINK_ONLY_MINT_PATTERNS: readonly RegExp[] = [
   /\bcreateBrand\b/,
   /\bcreateCanonicalProduct\b/,
   /\bcreateProductFamily\b/,
   /\binsertProductTypeDefinition\b/,
   /\binsertAttributeDefinition\b/,
   /\binsert\(categories\)/,
+];
+
+const CATALOGUE_WRITE_PATTERNS: readonly RegExp[] = [
+  ...PERMITTED_CATALOGUE_WRITE_PATTERNS,
+  ...LINK_ONLY_MINT_PATTERNS,
 ];
 
 /**
@@ -244,14 +263,7 @@ describe('exactly one module may write a catalogue table', () => {
     expect(found).toContain('\\binsertAttributeEnumValue\\b');
     expect(found).toContain('\\binsertAttributeValueAlias\\b');
     // …and even the permitted writer may not mint the seven LINK-ONLY types.
-    assertEachOf([
-      /\bcreateBrand\b/,
-      /\bcreateCanonicalProduct\b/,
-      /\bcreateProductFamily\b/,
-      /\binsertProductTypeDefinition\b/,
-      /\binsertAttributeDefinition\b/,
-      /\binsert\(categories\)/,
-    ], 6, (forbidden) => {
+    assertEachOf(LINK_ONLY_MINT_PATTERNS, 6, (forbidden) => {
       expect(
         violations(source, [forbidden]),
         `${CATALOGUE_WRITER} mints an entity a link-only type owns`,
@@ -421,5 +433,199 @@ describe('the population the three walls above are applied to (#460)', () => {
     expect(shadow.endsWith('review.service.ts'), 'the shadow is not same-named').toBe(true);
     expect(skipped(shadow), 'a same-named module elsewhere is still scanned').toBe(false);
     expect(skipped(CATALOGUE_WRITER), 'the real writer is no longer skipped').toBe(true);
+  });
+});
+
+/**
+ * The catalogue-write wall, applied to what the writer can REACH (#568).
+ *
+ * The wall above reads `review.service.ts`'s own text. That answers "does this
+ * file contain the word", when what it means to answer is "can this module cause
+ * the write" — and the two came apart the first time somebody needed the second.
+ * An implementation of #568 called `draftAttributeDefinition`, which calls
+ * `insertAttributeDefinition` internally; the module minted an
+ * `attribute_definitions` row transitively and the name-keyed scan saw nothing.
+ * The gate went green on a real violation, which is worse than no gate.
+ *
+ * ## Why this needs DISPOSITIONS and the wall above does not
+ *
+ * Because the correct fix puts a legitimate mint inside the closure. #568's value
+ * cannot be written to a published attribute at all — `mercaria_attribute_enum_frozen`
+ * refuses it — so the approval asks the registry to draft version N+1, and
+ * drafting a version inserts a definition row. Forbidding the reach outright would
+ * forbid the only implementation there is.
+ *
+ * So the population is DERIVED (walk the import graph, find every reachable
+ * forbidden symbol) and each reachable one must be DISPOSITIONED with a reason.
+ * That is `merge-plan-census.test.ts`'s device: a new path fails the build until
+ * somebody decides what it means, and omission cannot pass. It is deliberately not
+ * an allow-list of module names — the key carries the SYMBOL that is reached, so
+ * excusing one seam excuses nothing else, and the map is asserted to be EXHAUSTED
+ * as well as sufficient, because a disposition that no longer matches anything is
+ * a sentence about code that has moved.
+ *
+ * ## Bounds, stated rather than implied
+ *
+ * The walk follows named value imports along relative specifiers. A dynamic
+ * `import()`, a symbol reached through an object property and anything behind a
+ * package boundary are invisible to it. It raises the cost of an accidental
+ * wrapper; it is not a sandbox, and the module-text wall above is not replaced by
+ * it. The remaining evasions are recorded on the gate-evadability issue rather
+ * than left for a reader to discover.
+ */
+const PERMITTED_TRANSITIVE_MINTS: Readonly<Record<string, string>> = Object.freeze({
+  'services/attributes/value-extension.service.ts#addControlledValueToAttribute -> \\binsertAttributeDefinition\\b':
+    'The registry drafting version N+1 of an attribute an operator already published (#568). ' +
+    'A published version is immutable, so this is the ONLY way an approved controlled value ' +
+    'can be stored at all. It mints no identity and invents no key: the seam takes an existing ' +
+    "definition's id, reads the key off the stored row, and has no parameter that could name a " +
+    'new attribute — asserted below, so this reason is measured rather than promised.',
+});
+
+/**
+ * The COUNT, pinned — because a disposition census is satisfied by disposing of
+ * everything.
+ *
+ * The two assertions below ask that each finding have a reason and that each
+ * reason still match something. Neither notices a SECOND seam being
+ * dispositioned: the author writes a sentence, both assertions pass, and the
+ * diff is green. An entry appearing here is exactly the moment somebody should
+ * look at it, so the number is what makes them — a new disposition cannot land
+ * without moving a literal a reviewer can see.
+ *
+ * This is the shape a column carry-forward census in this repo was missing: a
+ * positive assertion BESIDE the census, rather than the census alone.
+ */
+const EXPECTED_DISPOSITION_COUNT = 1;
+
+describe('the catalogue-write wall survives a one-hop wrapper (#568)', () => {
+  it('disposes of exactly the paths somebody has reviewed, and no more', () => {
+    expect(
+      Object.keys(PERMITTED_TRANSITIVE_MINTS),
+      'a transitive mint was dispositioned or removed — move this number deliberately',
+    ).toHaveLength(EXPECTED_DISPOSITION_COUNT);
+  });
+
+  const closure = (): ReturnType<typeof forbiddenSymbolsReachableFrom> =>
+    forbiddenSymbolsReachableFrom({
+      srcRoot: SRC_ROOT,
+      entry: CATALOGUE_WRITER,
+      // The SAME six the module-text wall forbids, and read from one place so the
+      // two cannot drift into forbidding different things.
+      forbidden: LINK_ONLY_MINT_PATTERNS,
+    });
+
+  it('every forbidden symbol the writer can REACH is dispositioned', () => {
+    const result = closure();
+
+    // Vacuity floors first, and soft so a failure below is still reported.
+    // A walk that resolved nothing finds nothing and reads exactly like a clean
+    // wall; `unresolvedBodies` is the discriminator, and the body count is the
+    // positive control that the walk went somewhere at all.
+    expect.soft(result.unresolvedBodies, 'the walk failed to resolve a declaration').toBe(0);
+    expect
+      .soft(result.bodiesScanned, 'the import walk reached too few bodies to be real')
+      .toBeGreaterThanOrEqual(40);
+
+    const undispositioned = result.findings.filter(
+      (finding) => PERMITTED_TRANSITIVE_MINTS[dispositionKey(finding)] === undefined,
+    );
+    expect(
+      undispositioned.map((finding) => `${dispositionKey(finding)}  via  ${finding.path.join(' -> ')}`),
+      `${CATALOGUE_WRITER} reaches a link-only mint through an undispositioned path`,
+    ).toEqual([]);
+  });
+
+  it('and every disposition still matches something — a stale one is not a wall', () => {
+    // The other half of the census. Without it a disposition survives the code it
+    // excused being deleted or renamed, and the next reader treats a sentence
+    // about a path that no longer exists as evidence the path is safe.
+    const reached = new Set(closure().findings.map(dispositionKey));
+    for (const key of Object.keys(PERMITTED_TRANSITIVE_MINTS)) {
+      expect(reached.has(key), `${key} is dispositioned but no longer reachable`).toBe(true);
+    }
+  });
+
+  it('every disposition states a REASON, not a shrug', () => {
+    for (const [key, reason] of Object.entries(PERMITTED_TRANSITIVE_MINTS)) {
+      expect.soft(reason.trim().length, `${key} has no reason`).toBeGreaterThan(80);
+    }
+  });
+
+  it('the permitted seam cannot NAME an attribute — the disposition, measured', () => {
+    // What makes drafting version N+1 different from minting an attribute is that
+    // the seam has no parameter that could carry a key. Asserted here rather than
+    // taken on the disposition's word: the reason above is only true while this is.
+    const source = readFileSync(
+      join(SRC_ROOT, 'services', 'attributes', 'value-extension.service.ts'),
+      'utf8',
+    );
+    const stripped = stripComments(source);
+    const start = stripped.indexOf('export async function addControlledValueToAttribute');
+    expect(start, 'the seam is gone or renamed').toBeGreaterThan(-1);
+    const signature = stripped.slice(start, stripped.indexOf(')', stripped.indexOf('{', start)) + 1);
+    const parameters = signature.slice(signature.indexOf('('), signature.indexOf(')') + 1);
+    expect.soft(parameters.length, 'the signature slice looks too short to be real').toBeGreaterThan(40);
+    // POSITIVE CONTROL: it DOES take the existing definition's id.
+    expect(/existingDefinitionId\s*:\s*string/.test(parameters)).toBe(true);
+    // And nothing in it can name a new attribute.
+    expect(/\bkey\s*:/.test(parameters), 'the seam takes a key').toBe(false);
+    expect(/\battributeKey\s*:/.test(parameters), 'the seam takes an attribute key').toBe(false);
+  });
+
+  it('MUTATION SELF-TEST: a one-hop wrapper is caught, through the real walker', () => {
+    // A crafted module graph fed to the SAME function the real scan calls. This is
+    // the shape that defeated the module-text wall: the guarded module names only
+    // the wrapper, and the wrapper names the forbidden symbol.
+    const files: Record<string, string> = {
+      '/src/entry.ts': "import { draftForMe } from './wrapper.js';\nexport async function go() { return draftForMe(); }\n",
+      '/src/wrapper.ts':
+        "import { insertAttributeDefinition } from './repo.js';\nexport async function draftForMe() { return insertAttributeDefinition(); }\n",
+      '/src/repo.ts': 'export async function insertAttributeDefinition() { return 1; }\n',
+    };
+    const crafted = (entry: string): ReturnType<typeof forbiddenSymbolsReachableFrom> =>
+      forbiddenSymbolsReachableFrom({
+        srcRoot: '/src',
+        entry,
+        forbidden: [/\binsertAttributeDefinition\b/],
+        readFile: (path) => files[path] ?? '',
+        fileExists: (path) => files[path] !== undefined,
+      });
+
+    const caught = crafted('entry.ts');
+    expect.soft(caught.unresolvedBodies).toBe(0);
+    expect.soft(caught.bodiesScanned).toBeGreaterThanOrEqual(2);
+    // It must red, and it must red NAMING THE WRAPPER — a gate that fires without
+    // saying which hop is at fault sends the next reader to the wrong module.
+    expect(caught.findings.map((finding) => finding.firstHop)).toContain('wrapper.ts#draftForMe');
+    expect(caught.findings.length).toBeGreaterThan(0);
+
+    // NEGATIVE CONTROL: the same graph with the wrapper calling something else.
+    // Without this, a detector that fires on every input would pass the assertion
+    // above and measure nothing.
+    files['/src/wrapper.ts'] =
+      "import { listAttributeEnumValues } from './repo.js';\nexport async function draftForMe() { return listAttributeEnumValues(); }\n";
+    files['/src/repo.ts'] = 'export async function listAttributeEnumValues() { return []; }\n';
+    const clean = crafted('entry.ts');
+    expect.soft(clean.unresolvedBodies, 'the clean walk resolved nothing, so it proves nothing').toBe(0);
+    expect.soft(clean.bodiesScanned).toBeGreaterThanOrEqual(2);
+    expect(clean.findings).toEqual([]);
+  });
+
+  it('MUTATION SELF-TEST: a comment naming the symbol does not fire', () => {
+    const files: Record<string, string> = {
+      '/src/entry.ts': "import { seam } from './wrapper.js';\nexport async function go() { return seam(); }\n",
+      '/src/wrapper.ts':
+        '// insertAttributeDefinition is exactly what this must never call.\nexport async function seam() { return 1; }\n',
+    };
+    const result = forbiddenSymbolsReachableFrom({
+      srcRoot: '/src',
+      entry: 'entry.ts',
+      forbidden: [/\binsertAttributeDefinition\b/],
+      readFile: (path) => files[path] ?? '',
+      fileExists: (path) => files[path] !== undefined,
+    });
+    expect.soft(result.bodiesScanned).toBeGreaterThanOrEqual(1);
+    expect(result.findings).toEqual([]);
   });
 });

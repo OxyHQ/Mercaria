@@ -470,6 +470,44 @@ export async function insertAttributeValueAlias(
   return rows[0];
 }
 
+/**
+ * The VERSION each of `enumValueIds` belongs to, and that version's lifecycle.
+ *
+ * A read for callers holding a value id and needing to know whether it is in
+ * service — #568's `publication` projection, which answers it for a batch of
+ * proposals in one statement rather than per row.
+ *
+ * Joined rather than fetched in two steps: a value's parent is a foreign key, so
+ * one statement cannot report a definition that does not exist, and no caller
+ * gets to pair a value with the wrong version by assembling the halves itself.
+ */
+export async function listEnumValueVersions(
+  db: DatabaseOrTransaction,
+  enumValueIds: readonly string[],
+): Promise<
+  {
+    enumValueId: string;
+    definitionId: string;
+    version: number;
+    lifecycleState: AttributeLifecycleState;
+  }[]
+> {
+  if (enumValueIds.length === 0) return [];
+  return db
+    .select({
+      enumValueId: attributeEnumValues.id,
+      definitionId: attributeDefinitions.id,
+      version: attributeDefinitions.version,
+      lifecycleState: attributeDefinitions.lifecycleState,
+    })
+    .from(attributeEnumValues)
+    .innerJoin(
+      attributeDefinitions,
+      eq(attributeEnumValues.attributeDefinitionId, attributeDefinitions.id),
+    )
+    .where(inArray(attributeEnumValues.id, [...enumValueIds]));
+}
+
 export async function listAttributeValueAliases(
   db: DatabaseOrTransaction,
   attributeDefinitionIds: readonly string[],

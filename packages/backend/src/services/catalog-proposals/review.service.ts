@@ -9,6 +9,29 @@
  * proposal never becomes globally trusted data by being submitted" is a property
  * of the import graph rather than of anybody's discipline.
  *
+ * ## What it ALSO causes, through a seam it does not own (#568)
+ *
+ * Approving a value against a PUBLISHED attribute cannot write
+ * `attribute_enum_values` directly — `mercaria_attribute_enum_frozen` refuses any
+ * parent that has left `draft`, and every attribute in a seeded deployment is
+ * `active`, which is why the only mintable proposal type raised on every approval
+ * that mattered. The remedy the trigger's own message names is a new version, and
+ * an `attribute_definitions` row is a write this domain must not perform.
+ *
+ * So it asks the registry to perform it:
+ * {@link addControlledValueToAttribute} in `services/attributes/`. That function
+ * takes an existing definition's **id** and has no `key` parameter, so a proposal
+ * cannot conjure an attribute that did not exist in any code path — which is the
+ * property the wall exists for, held by a signature instead of by a scan.
+ *
+ * The narrowing is deliberate and worth stating plainly: this module may cause a
+ * new VERSION of an attribute an operator already published, and may not cause a
+ * new ATTRIBUTE. Drafting version N+1 mints no identity, invents no key and
+ * carries the existing vocabulary forward under a census; it is the registry's
+ * own mechanism for changing a frozen version, not a second way to create one.
+ * `catalog-proposal-isolation.test.ts` walks the transitive import graph and
+ * requires that reach to be dispositioned, so it is measured rather than trusted.
+ *
  * ## Why approval MINTS one type and LINKS the other seven
  *
  * `CATALOG_PROPOSAL_MINTABLE_TYPES` has one member and
@@ -59,13 +82,8 @@ import {
   findAttributeDefinitionById,
   insertAttributeEnumValue,
   insertAttributeValueAlias,
-  listAttributeEnumValues,
 } from '../../db/attributes/definitionRepository.js';
-import {
-  draftAttributeDefinition,
-  resolveActiveDefinition,
-} from '../attributes/definition-registry.service.js';
-import { buildNextVersionInput } from '../attributes/version-carry-forward.js';
+import { addControlledValueToAttribute } from '../attributes/value-extension.service.js';
 import { bumpAuthoringSchemaInvalidation } from '../../db/catalogAuthoring/schemaInvalidationRepository.js';
 import {
   insertProposal,
@@ -75,6 +93,7 @@ import {
   type CatalogProposalRow,
 } from '../../db/catalogProposals/proposalRepository.js';
 import { projectProposal } from './projection.js';
+import { readProposalPublication } from './publication.js';
 import { normalizeProposalLabel } from './normalization.js';
 import { runProposalBackfill } from './backfill.service.js';
 
@@ -132,84 +151,7 @@ export async function approveProposal(
   });
 
   await backfillAfterResolution(db, proposal, context.operatorOxyUserId);
-  return projectProposal(proposal);
-}
-
-/**
- * Add a controlled value to a PUBLISHED attribute, by drafting version N+1 (#568).
- *
- * The published version is immutable and stays exactly as it is; the new version
- * carries its whole vocabulary forward (`buildNextVersionInput`, whose coverage
- * is censused against the drizzle table) and appends the approved value.
- *
- * ## Two things this deliberately does NOT do
- *
- * **It does not publish.** Activation is a separate, attributable operator step —
- * the pattern `fee_schedules`, `match_policy_versions` and the ranking policies
- * all follow. Publishing here would put a global, live schema change for every
- * store on the far end of a review queue, triggered implicitly by approving one
- * merchant's colour.
- *
- * **It does not bump `catalog_authoring_schema_invalidations`.** Nothing a
- * merchant can see has changed: the value lives in a draft version. Bumping
- * would make every ECS task recompose a schema that is identical, and would
- * assert a liveness the value does not have.
- *
- * So the approval is real and the value is not yet usable, which is exactly what
- * the caller's projection reports rather than hiding — `resolvedEntityId` names
- * the minted VALUE (unchanged in meaning from the draft path, and the id
- * `catalog_authoring_draft_values.value_enum_value_id` points at), and the
- * version is one join away through `attribute_definition_id`.
- */
-async function mintIntoNextVersion(
-  db: DatabaseOrTransaction,
-  input: {
-    readonly definitionKey: string;
-    readonly key: string;
-    readonly label: string;
-    readonly aliases: readonly string[];
-    readonly operatorOxyUserId: string;
-  },
-): Promise<string> {
-  // The ACTIVE version, not the one the proposal named. A merchant may have
-  // proposed against a version that has since been superseded, and carrying the
-  // stale one forward would silently discard everything published since.
-  const active = await resolveActiveDefinition(db, input.definitionKey);
-  if (active === undefined) {
-    throw conflict(
-      `“${input.definitionKey}” has no active version to extend. Publish one, then approve this.`,
-    );
-  }
-  if (active.enumValues.some((value) => value.value === input.key)) {
-    throw conflict(
-      `“${input.key}” is already a value of this attribute. Merge this proposal into it instead.`,
-    );
-  }
-
-  const drafted = await draftAttributeDefinition(
-    buildNextVersionInput(
-      active,
-      [{ value: input.key, label: input.label, aliases: input.aliases }],
-      input.operatorOxyUserId,
-    ),
-    // The CALLER's transaction. `draftAttributeDefinition` opens its own when
-    // given none, and doing that from inside `approveProposal`'s transaction is
-    // the #59 merge-runner deadlock — a second connection writing rows this one
-    // holds locks on, presenting as a hang with no error.
-    db,
-  );
-
-  // Read the id back: the DTO carries values by `value`/`label`/`position` and
-  // no id, and `resolvedEntityId` must name the row itself.
-  const minted = (await listAttributeEnumValues(db, [drafted.id])).find(
-    (value) => value.value === input.key,
-  );
-  if (minted === undefined) {
-    throw new Error(
-      `Drafted ${input.definitionKey} v${drafted.version} without the approved value “${input.key}”.`,
-    );
-  }
-  return minted.id;
+  return projectProposal(proposal, await readProposalPublication(db, proposal));
 }
 
 /**
@@ -288,13 +230,27 @@ async function mintForProposal(
       : [];
 
   if (definition.lifecycleState !== 'draft') {
-    return mintIntoNextVersion(db, {
-      definitionKey: definition.key,
-      key,
-      label,
-      aliases: submittedAliases,
+    // The registry's own seam. It resolves the KEY from the id, extends the
+    // ACTIVE version — never the one the proposal named, which may since have
+    // been superseded — and returns the value it placed.
+    //
+    // No `bumpAuthoringSchemaInvalidation` on this path, and the asymmetry with
+    // the branch below is the point rather than an oversight. The invalidation is
+    // keyed on an `attribute_definitions` id, and an authoring schema is composed
+    // from the exact definition version `product_type_fields.attribute_definition_id`
+    // cites. Below, the value is added to the very definition the proposal named,
+    // which a live composition may be serving. Here it lands in a version no
+    // product-type field cites, while the ACTIVE version compositions DO cite is
+    // untouched — so bumping the new id would invalidate nothing, bumping the old
+    // one would claim a change that did not happen, and either would assert a
+    // liveness the value has not got. Publication is what makes it visible.
+    const placed = await addControlledValueToAttribute(
+      db,
+      row.attributeDefinitionId,
+      { value: key, label, aliases: submittedAliases },
       operatorOxyUserId,
-    });
+    );
+    return placed.enumValueId;
   }
 
   const inserted = await insertAttributeEnumValue(db, row.attributeDefinitionId, key, label, 0);
@@ -379,7 +335,7 @@ export async function mergeProposalIntoExisting(
   });
 
   await backfillAfterResolution(db, proposal, context.operatorOxyUserId);
-  return projectProposal(proposal);
+  return projectProposal(proposal, await readProposalPublication(db, proposal));
 }
 
 /** Refuse a proposal. Terminal; another attempt is a NEW row. */
@@ -543,7 +499,7 @@ export async function redirectProposal(
       reason: `redirected from ${row.id}`,
       at: now,
     });
-    return projectProposal(moved);
+    return projectProposal(moved, await readProposalPublication(tx, moved));
   });
 }
 
@@ -604,7 +560,7 @@ async function decide(
       reason: shape.reason,
       at: now,
     });
-    return projectProposal(moved);
+    return projectProposal(moved, await readProposalPublication(tx, moved));
   });
 }
 

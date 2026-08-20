@@ -208,6 +208,7 @@ const MESSAGE_KEYS: Record<AuthoringValidationCode, string> = {
   media_missing: "products.wizard.finding.mediaMissing",
   duplicate_media_file: "products.wizard.finding.duplicateMediaFile",
   proposal_pending_blocks_publication: "products.wizard.finding.proposalPending",
+  approved_value_not_published: "products.wizard.finding.approvedValueNotPublished",
   draft_not_open: "products.wizard.finding.draftNotOpen",
 };
 
