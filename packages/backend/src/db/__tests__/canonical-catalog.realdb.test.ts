@@ -53,6 +53,10 @@ import {
   canonicalVariants,
   productIdentifiers,
 } from '../schema/canonicalCatalog.js';
+import {
+  listAttributeValues,
+  setAttributeValueSelectionState,
+} from '../canonical/attributeRepository.js';
 import { ensureCatalogSource } from '../canonical/provenanceRepository.js';
 import { createBrand } from '../../services/canonical/brand.service.js';
 import {
@@ -1275,5 +1279,94 @@ describe('acceptance 6 — uniqueness, signatures and normalization, at the data
       .from(attributeDefinitionCategories)
       .where(eq(attributeDefinitionCategories.attributeDefinitionId, scoped.id));
     expect(rows.map((row) => row.categoryId)).toEqual([categoryId]);
+  });
+});
+
+describe('#629 — a multi-valued attribute keeps the order it declared', () => {
+  it('orders by position, and a selection change does not silently reorder it', async () => {
+    const productId = await mintProduct({ label: 'Ordered Attribute Product' });
+    const record = await db
+      .insert(sourceRecords)
+      .values({
+        sourceId,
+        externalType: 'product',
+        externalId: `attr-order-${RUN}`,
+        observedAt: new Date(),
+        contentHash: 'b'.repeat(64),
+      })
+      .returning();
+    const recordId = record[0]?.id;
+    if (!recordId) throw new Error('source record insert returned no row');
+
+    const attributeKey = `ports_${RUN.replace(/\W/gu, '')}`.slice(0, 30);
+
+    // The fixture is deliberately adverse against BOTH plans this read can get,
+    // and a contiguous 0,1,2 is adverse against NEITHER — which is worth stating
+    // because the obvious fixture passes without the fix and measures nothing.
+    //
+    //  - A seq scan returns HEAP order, so the values are inserted in reverse.
+    //  - An index scan on `canonical_attribute_values_product_key` returns
+    //    `(attribute_key, source_record_id, value_slot)` order, and `value_slot`
+    //    is `'#' || position` compared as TEXT — so `#10` sorts before `#2`.
+    //    Below position 10 that lexicographic order coincides with the numeric
+    //    one, which is the accident a 0,1,2 fixture would be measuring.
+    const declared = [
+      { position: 0, value: 'USB-C' },
+      { position: 2, value: 'HDMI' },
+      { position: 10, value: '3.5 mm' },
+    ];
+    const expected = declared.map((row) => row.value);
+    const insertionOrder = [...declared].reverse();
+    const slotOrder = [...declared].sort((a, b) => `#${a.position}`.localeCompare(`#${b.position}`));
+
+    // Adversity ASSERTED, not hoped for: if either of these ever agreed with
+    // `expected`, the assertions below would pass under a plan that supplied no
+    // ordering at all.
+    expect(insertionOrder.map((row) => row.value)).not.toEqual(expected);
+    expect(slotOrder.map((row) => row.value)).not.toEqual(expected);
+
+    // ONE transaction, one insert per value — the shape
+    // `attribute-observation.service.ts` uses when it loops `applyOneFact` in
+    // `tx`. That is what makes every row share a `created_at`, which is the
+    // whole reason this ordering needed a real key.
+    await db.transaction(async (tx) => {
+      for (const row of insertionOrder) {
+        await tx.insert(canonicalAttributeValues).values({
+          productId,
+          attributeKey,
+          sourceDisplayValue: row.value,
+          normalizedText: row.value,
+          normalizationState: 'normalized',
+          sourceRecordId: recordId,
+          position: row.position,
+        });
+      }
+    });
+
+    // The third adversity premise: with distinct `created_at` values the OLD
+    // ordering would have ordered these correctly on its own.
+    const stamps = await db
+      .select({ createdAt: canonicalAttributeValues.createdAt })
+      .from(canonicalAttributeValues)
+      .where(eq(canonicalAttributeValues.attributeKey, attributeKey));
+    expect(stamps).toHaveLength(declared.length);
+    expect(new Set(stamps.map((row) => row.createdAt.getTime())).size).toBe(1);
+
+    const mine = (rows: Awaited<ReturnType<typeof listAttributeValues>>) =>
+      rows.filter((row) => row.attributeKey === attributeKey);
+
+    const before = mine(await listAttributeValues(db, { kind: 'product', id: productId }));
+    expect(before.map((row) => row.normalizedText)).toEqual(expected);
+
+    // The adverse step, and it is ordinary production code: promoting a value
+    // is an UPDATE, and an UPDATE writes a new tuple at the end of the heap.
+    const first = before.find((row) => row.position === 0);
+    if (!first) throw new Error('the position 0 value is missing');
+    await setAttributeValueSelectionState(db, first.id, 'selected');
+
+    const after = mine(await listAttributeValues(db, { kind: 'product', id: productId }));
+    expect(after.map((row) => row.normalizedText)).toEqual(expected);
+    // And the positions never moved, which is what made the reorder silent.
+    expect(after.map((row) => row.position)).toEqual([0, 2, 10]);
   });
 });
