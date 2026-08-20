@@ -159,12 +159,68 @@ export function detectContentReverts({ base, head, window = HISTORY_WINDOW }) {
   return { mergeBase, changed, differing, reverts, deletions };
 }
 
-/** Paths the caller has declared a deliberate revert of. */
-function acknowledged() {
+/**
+ * The commit trailer a branch acknowledges a deliberate revert with.
+ *
+ * Read from the COMMITS on the branch rather than from the pull request body,
+ * and that is the whole reason it exists. The env var below cannot be set from
+ * a pull request at all — only in the workflow — so before this the only routes
+ * past a legitimate revert were editing `ci.yml`, which then applies to every
+ * future pull request, or turning the gate off. A gate whose cheapest green is
+ * the dangerous action is worse than no gate, and this one qualified until it
+ * fired on its first legitimate change.
+ *
+ * A trailer is in the branch, appears in the diff, is reviewable beside the
+ * change it excuses, and does not outlive the branch the way a workflow edit
+ * does. A pull request BODY would not do: it is editable after review and is
+ * not part of what merges.
+ */
+export const ACKNOWLEDGE_TRAILER = 'Content-revert-acknowledged';
+
+/**
+ * Paths named by acknowledgement trailers on `base..head`.
+ *
+ * Repeatable — one trailer per path is the intended spelling, because the
+ * failure this gate exists for is a revert NOBODY LOOKED AT, and naming each
+ * file is the looking. `all` stays available and is deliberately coarser to
+ * read in the output.
+ *
+ * Matched case-insensitively on the trailer NAME only. Git's own trailer
+ * convention is case-insensitive and a branch that wrote `content-revert-
+ * acknowledged:` would otherwise be silently unacknowledged — which is a false
+ * RED, the direction that teaches people to bypass the gate.
+ */
+function trailerAcknowledgements(base, head) {
+  const log = git(['log', '--format=%B%x00', `${base}..${head}`], { allowFailure: true });
+  const paths = new Set();
+  let all = false;
+  for (const line of log.split(/\r?\n/)) {
+    const match = /^\s*Content-revert-acknowledged\s*:\s*(.+?)\s*$/i.exec(line);
+    if (match === null) continue;
+    const value = match[1];
+    if (value === 'all') all = true;
+    else for (const entry of value.split(',')) paths.add(entry.trim());
+  }
+  return { all, paths };
+}
+
+/**
+ * Paths the caller has declared a deliberate revert of.
+ *
+ * Two sources, unioned: the {@link ACKNOWLEDGE_TRAILER} on the branch's own
+ * commits — the only one available from a pull request — and
+ * {@link ACKNOWLEDGE_ENV}, kept for a local run where committing a trailer to
+ * try a comparison would be absurd.
+ */
+function acknowledged(base, head) {
+  const fromTrailers = trailerAcknowledgements(base, head);
   const raw = (process.env[ACKNOWLEDGE_ENV] ?? '').trim();
-  if (raw.length === 0) return { all: false, paths: new Set() };
-  if (raw === 'all') return { all: true, paths: new Set() };
-  return { all: false, paths: new Set(raw.split(',').map((entry) => entry.trim())) };
+  if (raw.length === 0) return fromTrailers;
+  if (raw === 'all') return { all: true, paths: fromTrailers.paths };
+  return {
+    all: fromTrailers.all,
+    paths: new Set([...fromTrailers.paths, ...raw.split(',').map((entry) => entry.trim())]),
+  };
 }
 
 function main() {
@@ -215,7 +271,7 @@ function main() {
     process.exit(0);
   }
 
-  const ack = acknowledged();
+  const ack = acknowledged(base, head);
   const unacknowledged = ack.all
     ? []
     : result.reverts.filter((entry) => !ack.paths.has(entry.path));
@@ -238,7 +294,9 @@ function main() {
       'its tree, which is why no ancestry check reports anything.\n\n' +
       'If this is a DELIBERATE revert or restore, that is a legitimate change and this gate\n' +
       'is asking you to confirm it rather than reporting a defect. Acknowledge it with:\n\n' +
-      `  ${ACKNOWLEDGE_ENV}=all            # or a comma-separated list of the paths above\n\n` +
+      `  ${ACKNOWLEDGE_TRAILER}: <path>   # in a commit on this branch, one per file\n` +
+      `  ${ACKNOWLEDGE_TRAILER}: all      # coarser, and it says so in the output\n\n` +
+      `The trailer is what works from a pull request; ${ACKNOWLEDGE_ENV} is for a local run.\n\n` +
       'If it is NOT deliberate, rebase onto the base branch and re-apply your own changes on\n' +
       "top of the current content — do not resolve the conflict by taking your branch's side.",
   );

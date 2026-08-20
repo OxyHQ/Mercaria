@@ -28,7 +28,10 @@
  * one broken mechanism was nearly shipped and one working one nearly binned.
  */
 
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -198,6 +201,124 @@ check(
   /population is EMPTY/.test(`${spawned.stderr}${spawned.stdout}`),
   'message did not name the empty population',
 );
+
+// ── 7. The ACKNOWLEDGEMENT TRAILER, in a scratch repository ────────────────
+//
+// Built rather than borrowed: no commit in this repository's history carries the
+// trailer, so the only way to measure it is to make one. A scratch repo also
+// keeps the three cases HONEST about each other — the same revert is run three
+// times and only the trailer changes, so a pass cannot come from the scenario.
+//
+// The runner is spawned exactly as CI spawns it, for case 6's reason: the
+// acknowledgement lives in a function, and whether the RUNNER honours it is a
+// different question from whether that function returns the right set.
+const scratch = mkdtempSync(join(tmpdir(), 'content-revert-ack-'));
+function inScratch(args, options = {}) {
+  return execFileSync('git', args, { cwd: scratch, encoding: 'utf8', ...options });
+}
+try {
+  inScratch(['init', '--quiet', '-b', 'main']);
+  inScratch(['config', 'user.email', 'controls@example.invalid']);
+  inScratch(['config', 'user.name', 'content-revert controls']);
+  const target = join(scratch, 'subject.txt');
+  const other = join(scratch, 'bystander.txt');
+
+  writeFileSync(target, 'the original state\n');
+  writeFileSync(other, 'unrelated\n');
+  inScratch(['add', '.']);
+  inScratch(['commit', '--quiet', '-m', 'the state a revert will reproduce']);
+  const originalState = inScratch(['rev-parse', 'HEAD']).trim();
+
+  writeFileSync(target, 'the state that landed after\n');
+  inScratch(['add', '.']);
+  // The BASE carries an acknowledgement of its own — a merged PR that
+  // legitimately reverted something once. Scoping the trailer read to
+  // `base..head` is what stops it excusing every later branch forever, and this
+  // is the fixture that makes the no-trailer case below able to fail: reading
+  // trailers from the whole history instead passes it, measured.
+  inScratch([
+    'commit',
+    '--quiet',
+    '-m',
+    'work that landed later\n\nContent-revert-acknowledged: subject.txt',
+  ]);
+  const base = inScratch(['rev-parse', 'HEAD']).trim();
+
+  /** Put the file back to its original content, with `message` as the commit. */
+  function revertOnBranch(branch, message) {
+    inScratch(['checkout', '--quiet', '-B', branch, base]);
+    writeFileSync(target, 'the original state\n');
+    // A second changed file, so the population is never one file wide: a gate
+    // that acknowledged EVERYTHING whenever any trailer appeared would pass
+    // case (b) and this is what tells them apart.
+    writeFileSync(other, 'changed too, and NOT a revert\n');
+    inScratch(['add', '.']);
+    inScratch(['commit', '--quiet', '-m', message]);
+    return inScratch(['rev-parse', 'HEAD']).trim();
+  }
+
+  const runner = fileURLToPath(new URL('./validate-no-content-revert.mjs', import.meta.url));
+  function runAgainst(head) {
+    return spawnSync('bun', [runner], {
+      cwd: scratch,
+      encoding: 'utf8',
+      // The env var is CLEARED, or it would acknowledge these for us and every
+      // case below would pass for the wrong reason.
+      env: { ...process.env, CONTENT_REVERT_ACKNOWLEDGED: '', REVERT_DETECTOR_BASE: base, REVERT_DETECTOR_HEAD: head },
+    });
+  }
+
+  const withoutTrailer = runAgainst(revertOnBranch('no-trailer', 'put the file back'));
+  check(
+    'a revert with NO trailer is refused',
+    withoutTrailer.status === 1,
+    `exit=${withoutTrailer.status}`,
+  );
+  // The positive control for the scenario itself: if the scratch revert were not
+  // detected at all, every case here would "pass" by never firing.
+  check(
+    'and it is refused for REVERTING, not for something incidental',
+    /REVERTS\s+subject\.txt/.test(`${withoutTrailer.stdout}${withoutTrailer.stderr}`),
+    'the output did not name subject.txt as a revert',
+  );
+
+  const wrongPath = runAgainst(
+    revertOnBranch('wrong-path', 'put the file back\n\nContent-revert-acknowledged: bystander.txt'),
+  );
+  check(
+    'a trailer naming the WRONG path is still refused',
+    wrongPath.status === 1,
+    `exit=${wrongPath.status}`,
+  );
+
+  const rightPath = runAgainst(
+    revertOnBranch('right-path', 'put the file back\n\nContent-revert-acknowledged: subject.txt'),
+  );
+  check(
+    'a trailer naming the reverted path is accepted',
+    rightPath.status === 0,
+    `exit=${rightPath.status} ${rightPath.stderr}`,
+  );
+  check(
+    'and the accepted file is marked `ack` rather than reported as a revert',
+    /ack\s+subject\.txt/.test(rightPath.stdout),
+    'the output did not mark subject.txt acknowledged',
+  );
+
+  // Git's trailer convention is case-insensitive, and a branch that spelled it
+  // in lower case would otherwise be silently unacknowledged — a FALSE RED,
+  // which is the direction that teaches people to bypass a gate.
+  const lowerCase = runAgainst(
+    revertOnBranch('lower-case', 'put the file back\n\ncontent-revert-acknowledged: subject.txt'),
+  );
+  check(
+    'the trailer NAME is matched case-insensitively, as git spells trailers',
+    lowerCase.status === 0,
+    `exit=${lowerCase.status}`,
+  );
+} finally {
+  rmSync(scratch, { recursive: true, force: true });
+}
 
 if (failures > 0) {
   console.error(`\ncontent-revert controls: ${failures} failed.`);
