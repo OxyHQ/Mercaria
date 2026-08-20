@@ -648,16 +648,36 @@ describe.skipIf(!ready)('the trigram near-duplicate path writes evidence (#630)'
     );
   });
 
-  it('CONTROL — a clearly distinct label records no trigram candidate', async () => {
-    // Without this the case above is satisfied by a threshold of zero, which
-    // would record every row the `LIMIT n` query returned however unlike it is.
-    const result = await submitProposal(db, submission('Crimson', MERCHANT, false));
+  /**
+   * CONTROL — and the label is chosen to sit in the ONE band where it bites.
+   *
+   * #630 says this half exists because "a similarity threshold of zero would
+   * pass" without it. **That is not true of this schema**, and the correction is
+   * worth keeping because it decides the fixture:
+   * `catalog_proposal_duplicate_candidates_similarity_range_check` is
+   * `similarity is null or (similarity > 0 and similarity <= 1)`, so a
+   * zero-similarity candidate is refused by the DATABASE. MEASURED: forcing the
+   * threshold to zero does not silently record junk — it fails every submission
+   * with a 23514 on that CHECK, loudly.
+   *
+   * So a distinct label scoring EXACTLY 0 (`crimson`, the first fixture here)
+   * could only be recorded under a threshold the CHECK already refuses, and the
+   * control would defend nothing.
+   *
+   * The real hazard is the threshold being LOWERED to a small POSITIVE value,
+   * which admits genuinely unlike labels silently and breaks nothing. `Blush`
+   * scores 0.2 against `black` — above the CHECK's floor and below the 0.45
+   * threshold — which is the only band in which this case can distinguish a
+   * correct threshold from a weakened one.
+   */
+  it('CONTROL — a label below the threshold records no trigram candidate', async () => {
+    const result = await submitProposal(db, submission('Blush', MERCHANT, false));
     expect(result.outcome).toBe('created');
 
     const candidates = await listDuplicateCandidates(db, result.proposal.id);
     expect(
       candidates.filter((row) => row.detector === 'trigram_similarity'),
-      'a label sharing no trigram with any existing value was recorded as a near match',
+      'a label scoring below the threshold was recorded as a near match',
     ).toEqual([]);
 
     // ...and the scan still RAN. An empty candidate list and a scan that
