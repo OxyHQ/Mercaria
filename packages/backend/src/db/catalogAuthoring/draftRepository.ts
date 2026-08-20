@@ -522,6 +522,30 @@ export async function replaceProductScopeValues(
       ),
     );
 
+  // Two incoming answers for ONE slot are refused, before any statement runs.
+  //
+  // The delete-and-insert this replaced was accidentally safe here: it inserted
+  // both rows, and `catalog_authoring_draft_values_product_key` refused the
+  // second with a 23505. A reconcile has no such accident — it would update one
+  // row twice and keep whichever answer came last, so a malformed payload would
+  // be silently accepted and nothing afterwards could say which of the two the
+  // author meant. `mapProductScopeValues` restarts `ordinal` at 0 per entry and
+  // the request schema does not dedupe `attributeKey`, so this is reachable
+  // over HTTP by sending one field twice.
+  //
+  // Up front rather than inside the loop: the refusal is about the REQUEST, and
+  // discovering it halfway through leaves the reason to a rollback to undo.
+  const incoming = new Set<string>();
+  for (const value of values) {
+    const identity = draftValueIdentity(value);
+    if (incoming.has(identity)) {
+      throw new Error(
+        `This patch answers the same slot twice (field ${value.fieldId}, component ${value.componentAxis ?? 'none'}, ordinal ${value.ordinal}). Send one entry per field carrying all of its values.`,
+      );
+    }
+    incoming.add(identity);
+  }
+
   const byIdentity = new Map(existing.map((row) => [draftValueIdentity(row), row.id]));
   const seen = new Set<string>();
   const fresh: NewDraftValue[] = [];
