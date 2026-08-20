@@ -79,6 +79,7 @@ import {
   type AuthoringSchemaComposition,
 } from './schema.service.js';
 import { validateDraft, type DraftValueForValidation } from './validation.js';
+import { identifierCollisionFindings } from './identifier-collision.js';
 import { compareProductTypeVersionFields } from './version-upgrade.js';
 // #367 step 6 (ADR 0007 D9). The ONE edge from authoring INTO the proposal
 // domain, and it points this way deliberately: a proposal is a request ABOUT a
@@ -395,6 +396,18 @@ export async function validateDraftRow(
     listOpenProposalsBlockingDraft(db, row.id),
   ]);
 
+  // Sequential after the batch above rather than inside it, because it reads the
+  // barcodes the variants carry. It issues NO statement at all for a draft that
+  // named no canonical product or stated no well-formed barcode, which is the
+  // ordinary case — see `identifierCollisionFindings`.
+  const collisions = await identifierCollisionFindings(db, {
+    selectedCanonicalProductId: row.selectedCanonicalProductId,
+    variants: variants.map((variant) => ({
+      position: variant.position,
+      barcode: variant.barcode,
+    })),
+  });
+
   const result = validateDraft({
     schema,
     draftSchemaHash: row.schemaHash,
@@ -406,6 +419,7 @@ export async function validateDraftRow(
     // condition" a property of how somebody asked (#572).
     flow: row.flow,
     itemConditionKey: row.itemConditionKey,
+    imageFileIds: row.imageFileIds,
     categorySelectable: category?.selectable ?? false,
     categoryInScope: inScope,
     variants: variants.map((variant) => ({
@@ -416,6 +430,7 @@ export async function validateDraftRow(
       inventoryAvailable: variant.inventoryAvailable,
       axisSignature: variant.axisSignature,
       sku: variant.sku,
+      barcode: variant.barcode,
     })),
     values: values.map(toValidationValue),
   });
@@ -432,15 +447,26 @@ export async function validateDraftRow(
   // codes were in the closed set and produced by nothing, because until
   // `catalog_proposals` existed a value that is "still a proposal" had no
   // representation.
-  return withProposalFindings(
-    result,
-    pendingProposalFindings(
+  //
+  // The identifier COLLISION is merged through the same call and for the same
+  // reason: "is this barcode already somebody else's" is a read, so it cannot
+  // live in `validateDraft`. `withProposalFindings` is reused rather than
+  // duplicated — its body is a generic merge plus the ONE recomputation of
+  // `publishable`, and a second function doing that would be two answers to
+  // whether a draft may publish. Its NAME is the proposal caller's historic
+  // one and now under-describes what it merges; renaming it belongs in a diff
+  // that owns `services/catalog-proposals/`, not this one (its call sites
+  // include a `vi.mock` keyed on the string, where a half-done rename stops
+  // mocking silently).
+  return withProposalFindings(result, [
+    ...pendingProposalFindings(
       decidePendingProposalPublication({
         pendingProposalPolicy: schema.productType.pendingProposalPolicy,
         openProposalIds: blocking.map((entry) => entry.proposalId),
       }),
     ),
-  );
+    ...collisions,
+  ]);
 }
 
 function toValidationValue(row: CatalogAuthoringDraftValueRow): DraftValueForValidation {

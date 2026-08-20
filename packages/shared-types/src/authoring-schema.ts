@@ -702,19 +702,22 @@ export type AuthoringValidationCode =
    */
   | 'condition_missing'
   /**
-   * The flow requires the listing to carry at least one image and it carries
-   * none. An ERROR, and the flow tuple is `MEDIA_REQUIRED_AUTHORING_FLOWS`.
+   * The flow expects the listing to carry at least one image and it carries
+   * none. A WARNING; the flow tuple is `MEDIA_EXPECTED_AUTHORING_FLOWS`.
    *
    * The other half of "validate media/condition requirements separately from
-   * canonical product facts", and it is deliberately the SAME shape as
-   * `condition_missing` rather than a general "listings should have photos"
-   * rule: the two requirements are the same requirement. #90 draws condition
-   * evidence from the listing's OWN gallery and refuses a `file_id` any
-   * `canonical_images` row already claims, so a `p2p` draft — which
-   * `CONDITION_REQUIRED_AUTHORING_FLOWS` already obliges to state a condition —
-   * with no photograph of its own has asserted a condition it can supply no
-   * evidence for, and the catalogue's picture of the model is barred from
-   * standing in.
+   * canonical product facts". #90 draws condition evidence from the listing's
+   * OWN gallery and refuses a `file_id` any `canonical_images` row already
+   * claims, so a `p2p` draft — which `CONDITION_REQUIRED_AUTHORING_FLOWS`
+   * already obliges to state a condition — with no photograph of its own has
+   * asserted a condition it can supply no evidence for, and the catalogue's
+   * picture of the model is barred from standing in.
+   *
+   * It is a WARNING and not an error because no surface in this repository can
+   * obtain an Oxy file id — there is no upload path, and the dashboard wizard
+   * renders a notice saying so where a picker would go. An error would be a
+   * gate whose only green is unreachable. `MEDIA_EXPECTED_AUTHORING_FLOWS`
+   * carries the full reasoning and the condition under which it escalates.
    *
    * This is about the LISTING's media and reaches no canonical image, which is
    * what "separately from canonical product facts" asks for.

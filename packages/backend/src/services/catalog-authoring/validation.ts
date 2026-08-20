@@ -53,7 +53,7 @@ import { resolveUnit, unitFamilyOf } from '../canonical/units.js';
 import { classifyBarcode, identifierIsGloballyUnique } from './identifier.js';
 import {
   CONDITION_REQUIRED_AUTHORING_FLOWS,
-  MEDIA_REQUIRED_AUTHORING_FLOWS,
+  MEDIA_EXPECTED_AUTHORING_FLOWS,
 } from '../../db/schema/catalogAuthoring.js';
 
 /** One answer, as validation sees it. Deliberately the storage shape. */
@@ -452,8 +452,12 @@ function checkMedia(findings: AuthoringValidationFinding[], input: DraftValidati
   const path = 'listing.imageFileIds';
 
   if (input.imageFileIds.length === 0) {
-    if (MEDIA_REQUIRED_AUTHORING_FLOWS.includes(input.flow)) {
-      findings.push(finding('media_missing', 'error', path));
+    if (MEDIA_EXPECTED_AUTHORING_FLOWS.includes(input.flow)) {
+      // A WARNING, and `MEDIA_EXPECTED_AUTHORING_FLOWS` carries the reasoning:
+      // no surface in this repository can obtain an Oxy file id, so an error
+      // would be a gate with no reachable green. It is `recommended`'s own
+      // severity, which is what that level exists for.
+      findings.push(finding('media_missing', 'warning', path));
     }
     return;
   }
