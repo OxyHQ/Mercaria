@@ -62,7 +62,10 @@ import {
   vehicleMakes,
   vehicleModels,
 } from '../../../db/schema/compatibility.js';
-import { relationKeyOf } from '../../../db/compatibility/compatibilityRelationRepository.js';
+import {
+  listRelationsForSubject,
+  relationKeyOf,
+} from '../../../db/compatibility/compatibilityRelationRepository.js';
 import { fitmentKeyOf } from '../../../db/compatibility/automotiveFitmentRepository.js';
 
 let db: Database;
@@ -988,5 +991,110 @@ describe('RESTRICT: a canonical product cannot vanish under a fitment', () => {
       () => db.delete(canonicalProducts).where(eq(canonicalProducts.id, PAD)),
       '23503',
     );
+  });
+});
+
+/**
+ * The two READ-SIDE consequences #643 found untested.
+ *
+ * Both predicates live in `openRelationFilter`
+ * (`db/compatibility/compatibilityRelationRepository.ts`), both are the only
+ * thing standing between a shopper and a relation they must not see, and until
+ * now neither had a behavioural case — the market filter had only the alpha-2
+ * shape CHECK exercised above, and closing a relation was exercised without
+ * anyone asserting it then LEAVES the public read.
+ *
+ * Both cases assert over the ids THIS FILE owns rather than over a row count:
+ * the database is shared across parallel files, and sibling cases in this very
+ * file insert their own relations on the same subject.
+ */
+describe('the public read withholds what it must (#643)', () => {
+  it('withholds a market-scoped relation from a different market, and keeps worldwide', async () => {
+    const deOnly = `r-mkt-de-${RUN}`;
+    const worldwide = `r-mkt-ww-${RUN}`;
+    await insertRelation({
+      id: deOnly,
+      kind: 'mounts_to',
+      targetKind: 'canonical_product',
+      subjectProductId: CASE,
+      targetProductId: PHONE,
+      applicability: 'applies',
+      assertedByKind: 'operator',
+      markets: ['DE'],
+    });
+    await insertRelation({
+      id: worldwide,
+      kind: 'mounts_to',
+      targetKind: 'canonical_product',
+      subjectProductId: CASE,
+      targetProductId: PAD,
+      applicability: 'applies',
+      assertedByKind: 'operator',
+      markets: [],
+    });
+
+    const es = await listRelationsForSubject(
+      { kind: 'canonical_product', productId: CASE },
+      { market: 'ES' },
+      db,
+    );
+    const esIds = new Set(es.map((row) => row.id));
+    // The empty array is WORLDWIDE, not "scoped to nowhere" — the OR in
+    // `openRelationFilter` exists precisely so a containment test cannot
+    // silently drop every unscoped claim.
+    expect(esIds.has(worldwide), 'a worldwide relation must answer every market').toBe(true);
+    expect(esIds.has(deOnly), 'a DE-only relation must NOT answer a market: ES read').toBe(false);
+
+    // The positive control on the fixture: the DE-only row is real and IS
+    // returned for its own market, so its absence above is the filter working
+    // rather than a row that was never inserted.
+    const de = await listRelationsForSubject(
+      { kind: 'canonical_product', productId: CASE },
+      { market: 'DE' },
+      db,
+    );
+    const deIds = new Set(de.map((row) => row.id));
+    expect(deIds.has(deOnly), 'the DE-only relation must answer its own market').toBe(true);
+    expect(deIds.has(worldwide), 'worldwide answers DE as well').toBe(true);
+  });
+
+  it('drops a closed relation out of the public read', async () => {
+    const closing = `r-closed-${RUN}`;
+    await insertRelation({
+      id: closing,
+      kind: 'consumable_for',
+      targetKind: 'canonical_product',
+      subjectProductId: CASE,
+      targetProductId: PHONE,
+      applicability: 'applies',
+      assertedByKind: 'operator',
+    });
+
+    // Open: the read returns it. This half is the control — without it, the
+    // assertion below passes for a relation that was never readable.
+    const before = await listRelationsForSubject(
+      { kind: 'canonical_product', productId: CASE },
+      {},
+      db,
+    );
+    expect(
+      new Set(before.map((row) => row.id)).has(closing),
+      'an open relation must be readable before it is closed',
+    ).toBe(true);
+
+    await db
+      .update(genericCompatibilityRelations)
+      .set({ validTo: new Date() })
+      .where(eq(genericCompatibilityRelations.id, closing));
+
+    const after = await listRelationsForSubject(
+      { kind: 'canonical_product', productId: CASE },
+      {},
+      db,
+    );
+    expect(
+      new Set(after.map((row) => row.id)).has(closing),
+      'a closed relation is history and must leave the public read',
+    ).toBe(false);
   });
 });
