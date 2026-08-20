@@ -22,6 +22,7 @@
 
 import type { AttributeValueType, UnitFamily } from '@mercaria/shared-types';
 import type { ResolvedAttributeDefinition } from '../../attributes/definition-registry.service.js';
+import type { CategoryAliasMatch } from '../deterministic.js';
 
 /** The fields a benchmark definition actually varies. Everything else is fixed. */
 interface DefinitionSpec {
@@ -222,6 +223,48 @@ export const BENCHMARK_PHONE_DEFINITIONS: readonly ResolvedAttributeDefinition[]
     labels: [{ locale: 'es', label: 'bateria' }],
   }),
 ];
+
+/**
+ * The `category_aliases` rows the benchmark runs against (#732).
+ *
+ * The same decision as the definitions above, one table over: production reads
+ * these from Postgres for every query, and a benchmark that needed a database
+ * would not run on every push. What is simplified is where the rows come from,
+ * not what the interpreter does with them — `readCategory` is the production
+ * function, matching on a word boundary and breaking a locale tie exactly as it
+ * does against real rows.
+ *
+ * They are NOT scoped to a case's `registry` key, because production's read is
+ * not scoped either: an alias lookup runs over the query's own word runs with
+ * the locale left open, and scoping the fixture would measure a narrowing
+ * nothing performs.
+ *
+ * `handset` is here and is in no seed package, deliberately: it is the case
+ * that could only ever pass through the alias table, since no shipped
+ * dictionary entry and no category slug contains the word. The four the epic
+ * names by hand are ALSO seeded, and
+ * `benchmark.test.ts` fails the build if this fixture and
+ * `SMARTPHONE_PACKAGE` stop agreeing about them — a fixture claiming coverage
+ * the catalogue does not have would make the requirement look met by a file
+ * only this benchmark reads.
+ */
+export const BENCHMARK_CATEGORY_ALIASES: readonly CategoryAliasMatch[] = Object.freeze([
+  { normalizedAlias: 'mobile', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'mobiles', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'mobile phone', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'mobile phones', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'cell phone', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'cell phones', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'smartphone', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'smartphones', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'handset', locale: 'en', slug: 'smartphones' },
+  { normalizedAlias: 'movil', locale: 'es', slug: 'smartphones' },
+  { normalizedAlias: 'moviles', locale: 'es', slug: 'smartphones' },
+  { normalizedAlias: 'celular', locale: 'es', slug: 'smartphones' },
+  { normalizedAlias: 'celulares', locale: 'es', slug: 'smartphones' },
+  { normalizedAlias: 'celular', locale: 'es-mx', slug: 'smartphones' },
+  { normalizedAlias: 'celulares', locale: 'es-mx', slug: 'smartphones' },
+]);
 
 /** Every registry the dataset addresses, by the key a case names. */
 export const BENCHMARK_REGISTRIES: Readonly<

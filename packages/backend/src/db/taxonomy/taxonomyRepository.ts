@@ -697,24 +697,66 @@ export async function resolveCategoryRedirect(
   return { outcome: 'redirected', category: toTaxonomyCategory(row), reason: first.reason, hops };
 }
 
+/** One alias hit: the phrase, the locale it was recorded in, and its category. */
+export interface CategoryAliasMatchRow {
+  readonly normalizedAlias: string;
+  readonly locale: string;
+  readonly categoryId: string;
+  readonly slug: string;
+}
+
 /**
- * Every category one alias points at, in a locale.
+ * Every ACTIVE category the given normalized aliases point at.
  *
- * A LIST, not a row: the unique deliberately permits one normalized alias under
- * several categories, because "phone" legitimately names more than one shelf.
- * Resolving that ambiguity is the caller's, and a repository that picked for
- * them would be picking silently.
+ * Batched over a whole candidate set rather than one alias at a time, because
+ * the caller is a search box: a query has as many candidate phrases as it has
+ * word runs, and one round trip each would make the read a function of how long
+ * somebody typed. `normalized_alias = ANY(...)` with the locale left open is
+ * served by `category_aliases_lookup_idx`'s second column.
+ *
+ * ## Every locale at once, and the reader narrows
+ *
+ * Deliberately NOT filtered to the request's locale. The dictionaries one
+ * module over consult every language for every query — localization rule 6, so
+ * `usado` is understood by an English-locale shopper without the response
+ * switching language — and an alias table that answered only in the request's
+ * locale would make the same word behave differently depending on which
+ * dictionary happened to hold it. The locale comes back on each row and is what
+ * the interpreter breaks a TIE with, which is what the column is for.
+ *
+ * ## A LIST, and the ambiguity is the caller's
+ *
+ * The unique deliberately permits one normalized alias under several
+ * categories, because "phone" legitimately names more than one shelf. A
+ * repository that picked would be picking silently.
+ *
+ * `is_active` is applied HERE rather than by the caller: an alias pointing at a
+ * deprecated or merged category is a row that still exists, and resolving a
+ * shopper's word onto a shelf nothing can be listed on is worse than resolving
+ * it onto nothing. It is also the one lifecycle filter this module applies by
+ * default, which the module header says reads do not do — stated rather than
+ * hidden: this read exists only to narrow a shopper's query, and there is no
+ * caller for whom a merged category is the right answer.
  */
-export async function findCategoriesByAlias(
-  locale: string,
-  normalizedAlias: string,
+export async function findActiveCategoriesByAliases(
+  normalizedAliases: readonly string[],
   db: DatabaseOrTransaction = getDb(),
-): Promise<CategoryAliasRow[]> {
+): Promise<CategoryAliasMatchRow[]> {
+  if (normalizedAliases.length === 0) return [];
   return db
-    .select()
+    .select({
+      normalizedAlias: categoryAliases.normalizedAlias,
+      locale: categoryAliases.locale,
+      categoryId: categoryAliases.categoryId,
+      slug: categories.slug,
+    })
     .from(categoryAliases)
+    .innerJoin(categories, eq(categories.id, categoryAliases.categoryId))
     .where(
-      and(eq(categoryAliases.locale, locale), eq(categoryAliases.normalizedAlias, normalizedAlias)),
+      and(
+        inArray(categoryAliases.normalizedAlias, [...normalizedAliases]),
+        eq(categories.isActive, true),
+      ),
     );
 }
 

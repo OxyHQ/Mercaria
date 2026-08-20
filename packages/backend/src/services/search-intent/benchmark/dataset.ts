@@ -405,6 +405,74 @@ const CASES: readonly IntentBenchmarkCase[] = [
     expect: { conditionGroups: ['used'], preferenceAttributeKeys: ['ram'] },
   },
 
+  // 11b. The four words #367 names BY HAND, one case each.
+  //
+  // "Support aliases `mobile`, `móvil`, `celular`, `smartphone`" is an
+  // acceptance box, and until #731 two of the four reached no category at all:
+  // the only producer of a category slug was the ten-entry
+  // `CATEGORY_COLLOQUIALISMS` list, which holds `mobil` and not `mobile`, and
+  // holds no `smartphone` — so typing the category's own slug did not find the
+  // category. `category_accuracy` was 1 the whole time, because the dataset
+  // contained no case for either word. A labelled dataset is a population like
+  // any other: complete, exact, and silent about the thing the box names.
+  //
+  // Four cases rather than one query naming all four, because a single query
+  // would pass on whichever word matched first and say nothing about the rest.
+  // Two of them (`móvil`, `celular`) also resolve through the shipped
+  // dictionary and would pass without the alias table; they are here because
+  // the requirement is that all four resolve, not that all four are new.
+  // `alias-only-en` below is the one that can pass through NOTHING but the
+  // table.
+  {
+    id: 'epic-alias-mobile-en',
+    kind: 'multiple_languages',
+    locale: 'en-GB',
+    registry: 'smartphones',
+    query: 'mobile under 300 GBP',
+    expect: {
+      categorySlug: 'smartphones',
+      budget: { basis: 'item_price', currency: 'GBP', maxMinor: 30_000 },
+    },
+  },
+  {
+    id: 'epic-alias-smartphone-en',
+    kind: 'multiple_languages',
+    locale: 'en-GB',
+    registry: 'smartphones',
+    query: 'smartphone with 128 GB of storage',
+    expect: { categorySlug: 'smartphones', preferenceAttributeKeys: ['storage'] },
+  },
+  {
+    id: 'epic-alias-movil-es',
+    kind: 'multiple_languages',
+    locale: 'es-ES',
+    registry: 'smartphones',
+    // With its ACCENT, which the folding is what handles: the stored alias is
+    // `movil` and a Spanish shopper types `móvil`.
+    query: 'móvil reacondicionado',
+    expect: { categorySlug: 'smartphones', conditionGroups: ['refurbished'] },
+  },
+  {
+    id: 'epic-alias-celular-es-mx',
+    kind: 'multiple_languages',
+    locale: 'es-MX',
+    registry: 'smartphones',
+    query: 'celular de segunda mano',
+    expect: { categorySlug: 'smartphones', conditionGroups: ['used'] },
+  },
+  {
+    id: 'alias-only-en',
+    kind: 'multiple_languages',
+    locale: 'en-GB',
+    registry: 'smartphones',
+    // `handset` is in no dictionary and is not the slug. Nothing but an
+    // operator-authored `category_aliases` row can resolve it, so this case
+    // goes red the moment the interpreter stops reading the table — which the
+    // four above cannot promise, since two of them have a second path.
+    query: 'handset with a 6 inch screen',
+    expect: { categorySlug: 'smartphones' },
+  },
+
   // 12. Queries that should fall back without clarification.
   {
     id: 'fallback-plain-en',

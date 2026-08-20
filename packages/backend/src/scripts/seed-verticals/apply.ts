@@ -49,6 +49,7 @@ import {
   insertCategory,
   insertCategoryAlias,
 } from '../../db/taxonomy/taxonomyRepository.js';
+import { normalizeCatalogAlias } from '../../services/taxonomy/alias-normalization.js';
 import { upsertCategoryLocalization } from '../../db/catalogLocalization/categoryLocalizationRepository.js';
 import { upsertProductTypeLocalization } from '../../db/catalogLocalization/productTypeLocalizationRepository.js';
 import {
@@ -385,7 +386,11 @@ export async function applyVerticalPackage(
           categoryId: row.id,
           locale: alias.locale,
           alias: alias.alias,
-          normalizedAlias: alias.alias.trim().toLowerCase(),
+          // `normalizeCatalogAlias`, not `trim().toLowerCase()`: the read side
+          // compares in the accent-FOLDED space, so a bare lowercase write
+          // stores `móviles` where the lookup asks for `moviles` and the row
+          // resolves for nobody. One normalization, stated in one module.
+          normalizedAlias: normalizeCatalogAlias(alias.alias),
           kind: alias.kind,
         },
         db,

@@ -33,7 +33,7 @@ import type {
 } from '@mercaria/shared-types';
 import { interpretDeterministically, type InterpretationDraft } from '../deterministic.js';
 import { INTENT_BENCHMARK_DATASET, type IntentBenchmarkCase } from './dataset.js';
-import { BENCHMARK_REGISTRIES } from './registry.js';
+import { BENCHMARK_CATEGORY_ALIASES, BENCHMARK_REGISTRIES } from './registry.js';
 
 /**
  * How one case was interpreted.
@@ -55,6 +55,7 @@ export const deterministicBenchmarkInterpreter: BenchmarkInterpreter = async (be
     locale: benchmarkCase.locale,
     ...(benchmarkCase.currency === undefined ? {} : { currency: benchmarkCase.currency }),
     definitions: BENCHMARK_REGISTRIES[benchmarkCase.registry] ?? [],
+    categoryAliases: BENCHMARK_CATEGORY_ALIASES,
   }),
   mode: 'deterministic',
 });

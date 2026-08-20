@@ -144,10 +144,25 @@ query, so a fixture whose alias never worked would report the same number. The
 control asserts the row was actually deleted before asserting the stage was
 lost, and re-reads afterwards to show it is back.
 
-`category_aliases` carries the regional vocabulary too (`móviles`, `celulares`),
-and is **seeded and currently unread**: `findCategoriesByAlias` has no caller on
-the retrieval path. Recorded rather than left out — the row is the fact, and the
-consumer is a named gap in `docs/taxonomy.md`.
+`category_aliases` carries the regional vocabulary too, and since #732 it is
+**read by the deterministic search-intent interpreter** — see
+`docs/taxonomy.md` §"Who reads them". This package is where epic #367's
+"support aliases `mobile`, `móvil`, `celular`, `smartphone`" actually holds:
+all four are seeded here, in the singular as well as the plural, because the
+match is on a whole word and the plural does not cover the singular.
+
+They are here rather than in `CATEGORY_COLLOQUIALISMS` for two reasons. That
+dictionary's stated population is "the words no product name contains", and
+`smartphone` is in half the product names in this package and IS the category's
+slug. And a colloquialism entry names a SLUG, which is a per-deployment fact:
+recording the word beside the category that creates the slug means the two are
+written in one place and cannot disagree.
+
+`services/search-intent/benchmark/registry.ts` mirrors these rows so the
+labelled dataset can measure them with no database, and `benchmark.test.ts`
+fails the build if the two stop agreeing — with one deliberate exception it
+names, `handset`, which is fixture-only precisely so one benchmark case can
+pass through nothing but an operator-authored row.
 
 ## Same-variant filter semantics
 

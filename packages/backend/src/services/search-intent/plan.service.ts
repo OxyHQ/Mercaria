@@ -58,6 +58,8 @@ import {
   findBrandIdsByNormalizedName,
   findMerchantIdsByNormalizedName,
 } from '../../db/search/searchCandidateRepository.js';
+import { findActiveCategoriesByAliases } from '../../db/taxonomy/taxonomyRepository.js';
+import { catalogAliasCandidates } from '../taxonomy/alias-normalization.js';
 import {
   resolveAllActiveDefinitions,
   resolveDefinitionsForCategory,
@@ -125,8 +127,17 @@ export async function planShoppingIntent(
   }
   const language = languageOf(request.locale);
 
-  // 2. The registry, scoped to the category the request already knows about.
-  const definitions = await loadDefinitions(db, request.categoryId);
+  // 2. The registry, scoped to the category the request already knows about,
+  //    and the operator-authored category aliases this query could be naming.
+  //
+  //    Both are loaded BEFORE the interpretation and handed to it, which is
+  //    what keeps `interpretDeterministically` free of a database handle while
+  //    still letting it read a table. One indexed `= ANY` over the query's own
+  //    word runs; a query nobody recorded an alias for reads nothing.
+  const [definitions, categoryAliases] = await Promise.all([
+    loadDefinitions(db, request.categoryId),
+    findActiveCategoriesByAliases(catalogAliasCandidates(query), db),
+  ]);
 
   // 3. The deterministic interpretation — always, and before anything else.
   //
@@ -143,6 +154,7 @@ export async function planShoppingIntent(
       locale: request.locale,
       ...(request.currency === undefined ? {} : { currency: request.currency }),
       definitions,
+      categoryAliases,
       ...(answeredAttributeKeys.length === 0
         ? {}
         : { preferredAttributeKeys: answeredAttributeKeys }),

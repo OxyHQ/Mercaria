@@ -125,6 +125,23 @@ export interface InterpretationDraft {
   readonly identifiers: readonly string[];
 }
 
+/**
+ * One operator-authored `category_aliases` row, already read by the caller.
+ *
+ * Declared here rather than imported from the repository because it is this
+ * function's INPUT CONTRACT: the interpreter takes no database handle, and the
+ * benchmark builds these in memory exactly as it builds the attribute registry
+ * — which is what lets a labelled case measure alias resolution on every push
+ * (#95 "Evaluation", #58's decision one layer up).
+ */
+export interface CategoryAliasMatch {
+  /** As stored. Folded again here, so a row written under a bare `lower()` matches. */
+  readonly normalizedAlias: string;
+  /** BCP-47, as recorded. The TIE-BREAK when one word names several shelves. */
+  readonly locale: string;
+  readonly slug: string;
+}
+
 /** What the interpreter needs. No database handle — the caller loads the registry. */
 export interface DeterministicInterpretInput {
   /** Already sanitized and bounded by `sanitizeQueryForModel`. */
@@ -134,6 +151,14 @@ export interface DeterministicInterpretInput {
   readonly currency?: CurrencyCode;
   /** The active definitions in scope — the category's, or every active one. */
   readonly definitions: readonly ResolvedAttributeDefinition[];
+  /**
+   * The `category_aliases` rows whose phrase could appear in this query.
+   *
+   * Absent is the honest empty case and behaves exactly as a deployment with no
+   * alias recorded: the shipped colloquialism dictionary still answers, so
+   * nothing about the floor depends on somebody having seeded a table.
+   */
+  readonly categoryAliases?: readonly CategoryAliasMatch[];
   /**
    * Attribute keys a shopper has already CHOSEN, answering an earlier
    * `attribute_disambiguation` question.
@@ -670,13 +695,20 @@ export function interpretDeterministically(
   if (channel.availability !== undefined) consumed.push(channel.availability.phrase);
 
   const useTagMatches = readUseTags(folded).slice(0, MAX_USE_TAGS);
-  const colloquial = readCategoryColloquialism(folded);
+  const category = readCategory(folded, input);
+  if (category?.outcome === 'ambiguous') {
+    unresolved.push({
+      kind: 'ambiguous_phrase',
+      phrase: boundedPhrase(category.phrase),
+      explanation: `“${boundedPhrase(category.phrase)}” names more than one part of the catalogue, so we searched all of them rather than choosing one.`,
+    });
+  }
 
   return {
     searchText: composeSearchText(query, consumed),
-    ...(colloquial === undefined
-      ? {}
-      : { categorySlug: { slug: colloquial.value, sourcePhrase: boundedPhrase(colloquial.phrase) } }),
+    ...(category?.outcome === 'resolved'
+      ? { categorySlug: { slug: category.slug, sourcePhrase: boundedPhrase(category.phrase) } }
+      : {}),
     requirements,
     ...(budget === undefined ? {} : { budget }),
     ...(condition === undefined ? {} : { condition }),
@@ -697,6 +729,98 @@ export function interpretDeterministically(
     attributeAmbiguities,
     identifiers,
   };
+}
+
+/** What the category pass concluded, and the shopper's own words for it. */
+type CategoryReading =
+  | { readonly outcome: 'resolved'; readonly slug: string; readonly phrase: string }
+  | { readonly outcome: 'ambiguous'; readonly phrase: string };
+
+/**
+ * Which category the query named — operator-authored aliases FIRST (#732).
+ *
+ * Two sources, in this order, and the order is the decision:
+ *
+ * 1. **`category_aliases`**, read for this query by the caller. Somebody with a
+ *    catalogue in front of them recorded that this word names that shelf, per
+ *    locale, and it is a fact about THIS deployment's taxonomy.
+ * 2. **`CATEGORY_COLLOQUIALISMS`**, the shipped dictionary. Deployment-independent
+ *    and true of the language rather than of the catalogue.
+ *
+ * The dictionary is deliberately KEPT rather than retired into rows. It covers
+ * ten categories no seed package creates, so retiring it would delete working
+ * behaviour on the deploy that added the table read, and a fresh deployment with
+ * an empty `category_aliases` would resolve nothing at all. What changes is
+ * which one WINS: an operator who records an alias is correcting the shipped
+ * table for their own catalogue, and a code constant that outranked them would
+ * make the table advisory.
+ *
+ * ## Longest match, then locale, then refuse
+ *
+ * The rows the caller read are candidate phrases, not decisions — several may
+ * appear in one query and one may name several shelves. LONGEST FIRST, because
+ * `cell phone` and `phone` may both be recorded and the longer is the more
+ * specific statement. Then, among equally long matches naming different
+ * categories, the request's own locale chain breaks the tie — which is the
+ * whole reason `category_aliases.locale` exists.
+ *
+ * And if that still leaves several, the answer is `ambiguous`: no category
+ * filter, plus an `ambiguous_phrase` report. Picking would be a hard taxonomy
+ * constraint Mercaria invented, and the shopper would see a narrowed page with
+ * nothing saying why. It is reported as an UNRESOLVED phrase rather than as a
+ * `category` clarification because `composeClarificationCandidates` builds that
+ * question's options from a RESOLVED category name — with none, it composes an
+ * empty option list and `selectClarifications` drops it, so an ambiguity raised
+ * that way would be silently invisible.
+ */
+function readCategory(
+  folded: string,
+  input: DeterministicInterpretInput,
+): CategoryReading | undefined {
+  const chain = localePreferenceChain(input.locale);
+  const hits = (input.categoryAliases ?? [])
+    .map((match) => ({ ...match, phrase: foldPhrase(match.normalizedAlias) }))
+    .filter((match) => match.phrase.length > 0 && containsFoldedPhrase(folded, match.phrase));
+
+  if (hits.length > 0) {
+    const longest = Math.max(...hits.map((match) => match.phrase.length));
+    // Sorted, so two DIFFERENT phrases of equal length report the same one on
+    // every run. Row order out of Postgres is not an ordering, and a
+    // `sourcePhrase` that varied between two identical requests would make the
+    // paraphrase a shopper reads unreproducible.
+    const best = hits
+      .filter((match) => match.phrase.length === longest)
+      .sort((a, b) => (a.phrase < b.phrase ? -1 : a.phrase > b.phrase ? 1 : 0));
+    const phrase = best[0]?.phrase ?? '';
+    const slugs = new Set(best.map((match) => match.slug));
+    if (slugs.size === 1) return { outcome: 'resolved', slug: [...slugs][0] ?? '', phrase };
+    const preferred = best.filter((match) => chain.includes(match.locale.toLowerCase()));
+    const preferredSlugs = new Set(preferred.map((match) => match.slug));
+    if (preferredSlugs.size === 1) {
+      return { outcome: 'resolved', slug: [...preferredSlugs][0] ?? '', phrase };
+    }
+    return { outcome: 'ambiguous', phrase };
+  }
+
+  const colloquial = readCategoryColloquialism(folded);
+  return colloquial === undefined
+    ? undefined
+    : { outcome: 'resolved', slug: colloquial.value, phrase: colloquial.phrase };
+}
+
+/**
+ * The locales an alias may have been recorded in for this request, best first.
+ *
+ * `es-ES` prefers a row recorded as `es-ES` and then one recorded as `es`. It is
+ * only ever a TIE-BREAK: a row in another locale entirely still matches, because
+ * the dictionaries already read every language for every query (localization
+ * rule 6) and an alias table that refused to would make the same word behave
+ * differently depending on which of the two happened to hold it.
+ */
+function localePreferenceChain(locale: string): readonly string[] {
+  const tag = locale.trim().toLowerCase().replace(/_/gu, '-');
+  const language = languageOf(locale);
+  return tag === language ? [tag] : [tag, language];
 }
 
 /**

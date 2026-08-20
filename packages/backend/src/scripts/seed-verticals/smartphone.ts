@@ -29,9 +29,16 @@
  * ## Localized search aliases
  *
  * `mobile`, `móvil` and `celular` are three words for one thing and a Spanish
- * shopper types the middle one. Two mechanisms carry them and they are read by
- * DIFFERENT retrieval stages against DIFFERENTLY FOLDED queries, which is the
- * detail that makes a naive fixture fail:
+ * shopper types the middle one. THREE mechanisms carry them and they are read
+ * by DIFFERENT retrieval stages against DIFFERENTLY FOLDED queries, which is
+ * the detail that makes a naive fixture fail:
+ *
+ * - **`category_aliases`** is matched by the deterministic search-intent
+ *   interpreter on an ACCENT-FOLDED word-boundary comparison, so `móvil` is
+ *   stored folded (`normalizeCatalogAlias`, applied by `apply.ts`) and a query
+ *   with or without the accent finds it. Unlike the two below it names a
+ *   CATEGORY rather than a product, which is what #367's
+ *   "resolve translated category terms to stable IDs" asks for.
  *
  * - **`canonical_product_aliases`** is matched by the exact-alias stage on
  *   `normalizeAliasLookup(query)` — trim and lowercase, and **no accent
@@ -177,17 +184,41 @@ export const SMARTPHONE_PACKAGE: VerticalPackage = {
         { locale: 'de', name: 'Smartphones' },
         { locale: 'fr', name: 'Téléphones mobiles' },
       ],
-      // Regional vocabulary as CATEGORY aliases. Recorded and, today, unread by
-      // search — `findCategoriesByAlias` has no caller on the retrieval path.
-      // Seeded anyway and stated rather than left out: the row is the fact, and
-      // the consumer is a named gap in `docs/taxonomy.md` rather than a reason
-      // to record the fact nowhere. The PRODUCT-level aliases below are the ones
-      // search reads today, and the test asserts against those.
+      // Regional vocabulary as CATEGORY aliases, READ by the deterministic
+      // interpreter since #732: `plan.service.ts` looks the query's own word
+      // runs up in `category_aliases` and hands the hits to
+      // `interpretDeterministically`, which prefers them over the shipped
+      // colloquialism dictionary.
+      //
+      // This list is where epic #367's "support aliases `mobile`, `móvil`,
+      // `celular`, `smartphone`" actually holds, and it is deliberately here
+      // rather than in `CATEGORY_COLLOQUIALISMS`. That dictionary's own
+      // population is "the words no product name contains" — `smartphone` is
+      // in half the product names in this package and IS the category's slug,
+      // so adding it there would contradict the table's stated purpose. More
+      // importantly a colloquialism entry names a SLUG, which is a
+      // per-deployment fact: recording the word beside the category that
+      // creates the slug means the two are written in one place and cannot
+      // disagree.
+      //
+      // SINGULARS as well as plurals, because `mobile` and `smartphone` are
+      // what #367 names by hand and the match is on a whole word — the plural
+      // does not cover the singular. `benchmark/registry.ts` mirrors these and
+      // `benchmark.test.ts` fails the build if the two stop agreeing.
       aliases: [
+        { locale: 'en', alias: 'mobile', kind: 'synonym' },
+        { locale: 'en', alias: 'mobiles', kind: 'synonym' },
+        { locale: 'en', alias: 'mobile phone', kind: 'synonym' },
         { locale: 'en', alias: 'mobile phones', kind: 'synonym' },
+        { locale: 'en', alias: 'cell phone', kind: 'synonym' },
         { locale: 'en', alias: 'cell phones', kind: 'synonym' },
+        { locale: 'en', alias: 'smartphone', kind: 'search_term' },
+        { locale: 'en', alias: 'smartphones', kind: 'search_term' },
+        { locale: 'es', alias: 'móvil', kind: 'synonym' },
         { locale: 'es', alias: 'móviles', kind: 'synonym' },
+        { locale: 'es', alias: 'celular', kind: 'synonym' },
         { locale: 'es', alias: 'celulares', kind: 'synonym' },
+        { locale: 'es-mx', alias: 'celular', kind: 'synonym' },
         { locale: 'es-mx', alias: 'celulares', kind: 'synonym' },
       ],
     },
