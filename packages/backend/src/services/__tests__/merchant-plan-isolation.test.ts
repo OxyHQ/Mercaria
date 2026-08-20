@@ -290,14 +290,14 @@ describe('a billing customer cannot be confused with a Connect account', () => {
       '../../db/schema/merchantPlans.js'
     );
     const { getTableColumns } = await import('drizzle-orm');
-    for (const table of [billingCustomers, merchantSubscriptions]) {
+    assertEachOf([billingCustomers, merchantSubscriptions], 2, (table) => {
       for (const name of Object.keys(getTableColumns(table))) {
         expect(
           /connect|providerAccount|accountId/i.test(name),
           `${name} is a column a connected-account id could be written into`,
         ).toBe(false);
       }
-    }
+    });
     // Vacuity floor: an emptied table would satisfy the loop above.
     expect(Object.keys(getTableColumns(billingCustomers)).length).toBeGreaterThanOrEqual(6);
   });
@@ -363,15 +363,15 @@ describe('the capability vocabulary makes the free tier structural', () => {
     // ("core safety, payments, refunds, data export and order management"), so a
     // list that drifted away from them would pass a disjointness check and fail
     // the requirement.
-    for (const required of [
+    assertEachOf([
       'order_management',
       'refund_issuance',
       'data_export',
       'payment_onboarding',
       'financial_record_access',
-    ]) {
+    ], 5, (required) => {
       expect(MERCHANT_UNGATEABLE_CAPABILITIES).toContain(required);
-    }
+    });
   });
 
   it('no forbidden benefit is a capability a plan could grant', () => {

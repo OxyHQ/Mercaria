@@ -35,6 +35,7 @@ import {
 } from '../../../../__tests__/domain-population.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../../../__tests__/assert-each-of.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC_ROOT = join(HERE, '..', '..', '..', '..');
@@ -362,9 +363,9 @@ describe('referral reward funding isolation (static)', () => {
     // entries itself, so the account boundary it asserts is the one it writes.
     const posting = code(POSTING_SEAM);
     expect(posting.includes('assertReferralPosting')).toBe(true);
-    for (const forbidden of ['retail_cost_recovery', 'procurement_expense', 'commission_revenue']) {
+    assertEachOf(['retail_cost_recovery', 'procurement_expense', 'commission_revenue'], 3, (forbidden) => {
       expect(posting.includes(forbidden), `the writer names ${forbidden}`).toBe(false);
-    }
+    });
     // The mutation self-test: the same scan against a seeded positive fires.
     expect("account: 'retail_cost_recovery',".includes('retail_cost_recovery')).toBe(true);
   });

@@ -256,15 +256,15 @@ describe('WALL 6 — no partner route can name a partner', () => {
     expect(source).toContain('makeReferralPartnerRouter');
     expect(source.length).toBeGreaterThan(4000);
 
-    for (const pattern of [
+    assertEachOf([
       /req\.params\.partnerId/u,
       /req\.query\.partnerId/u,
       /req\.body\.partnerId/u,
       /params\.ownerId/u,
       /query\.ownerType/u,
-    ]) {
+    ], 5, (pattern) => {
       expect(source).not.toMatch(pattern);
-    }
+    });
   });
 
   it('resolves every owner through the mount-supplied resolver', () => {

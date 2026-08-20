@@ -49,6 +49,7 @@ import {
 import { channelAuditEvents, channelOnboardingSessions } from '../../db/schema/index.js';
 
 import { walkOwnedDirectory } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -276,15 +277,15 @@ describe('#87 — the vocabularies the schema is rendered from', () => {
     // regeneration, which is the failure mode `db:generate` reading a stale
     // `dist/` produces. Asserting the sets are non-empty and duplicate-free is
     // the cheap half of catching it.
-    for (const tuple of [
+    assertEachOf([
       CHANNEL_TYPE_IDS,
       CHANNEL_ONBOARDING_STEPS,
       CHANNEL_AUDIT_ACTIONS,
       CHANNEL_LIMITATION_CODES,
-    ]) {
+    ], 4, (tuple) => {
       expect(tuple.length).toBeGreaterThan(0);
       expect(new Set(tuple).size).toBe(tuple.length);
-    }
+    });
   });
 
   it('the audit vocabulary carries no value-bearing action', () => {

@@ -40,6 +40,7 @@ import {
   RANKING_SURFACE_PATHS,
   assertRankingSurfaceIsWhole,
 } from '../../../__tests__/ranking-surface.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -288,7 +289,7 @@ describe('curation cannot become a ranking signal', () => {
 describe('no HTTP caller can post a job end state', () => {
   it('the operator schemas carry no status, phase, tombstone or impact field', () => {
     const schemas = readDomainFile('middleware/curation-schemas.ts');
-    for (const forbidden of [
+    assertEachOf([
       'status:',
       'phase:',
       'mergedIntoId',
@@ -297,13 +298,13 @@ describe('no HTTP caller can post a job end state', () => {
       'requiresSecondApproval',
       'approvedByOxyUserId',
       'leaseOwner',
-    ]) {
+    ], 8, (forbidden) => {
       expect(
         schemas.includes(forbidden),
         `curation-schemas.ts accepts '${forbidden}'; a route that can post a job's end state is a ` +
           'route around the conflict gate and the four-eyes threshold.',
       ).toBe(false);
-    }
+    });
     // Every schema is CLOSED, so an unknown key is a 400 rather than a drop.
     const strictCount = (schemas.match(/\.strict\(\)/gu) ?? []).length;
     expect(strictCount).toBeGreaterThanOrEqual(14);

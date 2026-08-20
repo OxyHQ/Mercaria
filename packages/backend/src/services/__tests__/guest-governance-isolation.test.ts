@@ -38,6 +38,7 @@ import {
   walkOwnedDirectory,
   type DirectoryReader,
 } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -262,14 +263,14 @@ describe('the abuse vocabulary makes the forbidden signals unrepresentable (#111
     // Rules 11, 12 and 13 name these specifically. A tuple that quietly lost one
     // would leave the disjointness assertions above passing while the thing they
     // exist to forbid became permitted.
-    for (const signal of [
+    assertEachOf([
       'guest_status',
       'stripe_customer_grouping',
       'affiliate_commission',
       'merchant_plan',
-    ]) {
+    ], 4, (signal) => {
       expect(GUEST_FORBIDDEN_ABUSE_SIGNALS).toContain(signal);
-    }
+    });
   });
 
   it('every abuse policy keys on a permitted axis and applies a permitted measure', () => {

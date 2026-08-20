@@ -21,16 +21,17 @@ import {
   proposalNotPermittedFinding,
   withProposalFindings,
 } from '../publication-gate.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const CLEAN: AuthoringValidationResult = { publishable: true, findings: [], schemaEtag: 'etag-1' };
 
 describe('decidePendingProposalPublication', () => {
   it('is CLEAR when nothing is pending, whatever the policy says', () => {
-    for (const policy of ['block_publication', 'allow_local_claim'] as const) {
+    assertEachOf(['block_publication', 'allow_local_claim'] as const, 2, (policy) => {
       expect(
         decidePendingProposalPublication({ pendingProposalPolicy: policy, openProposalIds: [] }),
       ).toEqual({ verdict: 'clear' });
-    }
+    });
   });
 
   it('BLOCKS under `block_publication` and names the proposals', () => {

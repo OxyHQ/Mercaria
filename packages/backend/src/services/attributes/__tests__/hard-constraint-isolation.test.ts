@@ -213,9 +213,9 @@ describe('reserved offer keys', () => {
     // A vacuity floor plus the specific members whose absence would reopen the
     // hole: `price` and `availability` are the two a real feed asserts.
     expect(RESERVED_OFFER_FACT_KEYS.length).toBeGreaterThanOrEqual(15);
-    for (const key of ['price', 'availability', 'condition', 'shipping_cost', 'total_price']) {
+    assertEachOf(['price', 'availability', 'condition', 'shipping_cost', 'total_price'], 5, (key) => {
       expect(RESERVED_OFFER_FACT_KEYS, `'${key}' must be reserved`).toContain(key);
-    }
+    });
     // And `msrp` is deliberately NOT reserved: a manufacturer's suggested price
     // is a fact about the product, and a `money` attribute is its right home.
     expect(RESERVED_OFFER_FACT_KEYS).not.toContain('msrp');

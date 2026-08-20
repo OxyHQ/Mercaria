@@ -42,6 +42,7 @@ import {
   SELLER_PROFILE_FORBIDDEN_FIELDS,
   OXY_USER_URI_ORIGIN,
 } from '@mercaria/shared-types';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 /** `packages/`, from this file. */
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
@@ -408,9 +409,9 @@ describe('Mercaria stores no follow state of its own', () => {
     // The value is the enforcement instead, and the RUNTIME half lives in
     // `public-seller-profile.service.test.ts`, which walks a real emitted
     // profile and asserts no key matches any of these.
-    for (const field of ['followers', 'followerIds', 'followerIdentities'] as const) {
+    assertEachOf(['followers', 'followerIds', 'followerIdentities'] as const, 3, (field) => {
       expect(SELLER_PROFILE_FORBIDDEN_FIELDS).toContain(field);
-    }
+    });
   });
 
   it('the detector detects', () => {

@@ -93,7 +93,7 @@ describe('#77 acceptance 6 — every metric names its denominator, window and fr
     // #111's guest funnel measures. The comment here read "eighteen" while the
     // list below held twenty-two, which is the shape a count claimed from
     // memory takes — count the array, never the sentence beside it.
-    for (const key of [
+    assertEachOf([
       'search_success_rate',
       'zero_result_rate',
       'duplicate_product_rate',
@@ -116,9 +116,9 @@ describe('#77 acceptance 6 — every metric names its denominator, window and fr
       'affiliate_commission',
       'guest_post_purchase_demand',
       'guest_eligibility_coverage',
-    ]) {
+    ], 22, (key) => {
       expect(metricByKey(key), `#77 names ${key} and it is missing`).toBeDefined();
-    }
+    });
   });
 
   it('no money metric is sourced from telemetry — identity rule 8', () => {

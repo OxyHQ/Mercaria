@@ -24,6 +24,7 @@ import {
   RETAIL_SERVICE_FORBIDDEN_CUSTOMER_INPUTS,
   SUPPLIER_RECOVERY_FORBIDDEN_EFFECTS,
 } from '@mercaria/shared-types';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -532,7 +533,7 @@ describe('retail service isolation (static)', () => {
     expect(RETAIL_SERVICE_FORBIDDEN_CUSTOMER_INPUTS.length).toBeGreaterThanOrEqual(12);
     expect(SUPPLIER_RECOVERY_FORBIDDEN_EFFECTS.length).toBeGreaterThanOrEqual(6);
     const view = readSource('services/retail-service-requests/projection.ts');
-    for (const forbidden of ['wholesale', 'supplierName', 'purchaseOrderId'] as const) {
+    assertEachOf(['wholesale', 'supplierName', 'purchaseOrderId'] as const, 3, (forbidden) => {
       // `projectRetailServiceRequestForOperator` legitimately names a purchase
       // order; the CUSTOMER projection must not, so the check is scoped to the
       // function that builds it.
@@ -544,7 +545,7 @@ describe('retail service isolation (static)', () => {
         customerHalf.includes(forbidden),
         `the customer projection names ${forbidden}`,
       ).toBe(false);
-    }
+    });
   });
 
   it('a supplier can never be the SOURCE of a policy exception', () => {

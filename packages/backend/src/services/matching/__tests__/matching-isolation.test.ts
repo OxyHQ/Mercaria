@@ -36,6 +36,7 @@ import {
   assertRankingSurfaceIsWhole,
   readRankingSurfaceFile,
 } from '../../../__tests__/ranking-surface.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -213,19 +214,19 @@ describe('no HTTP caller can post a decision', () => {
     // Comments stripped: this file's own docblock explains exactly which fields
     // it refuses, which is the prose a naive scan would trip over.
     const schemas = readDomainFile('middleware/matching-schemas.ts');
-    for (const forbidden of [
+    assertEachOf([
       'outcome:',
       'confidence:',
       'blockers:',
       'matchedCanonicalVariantId',
       'matchedCanonicalProductId',
       'decidedStage',
-    ]) {
+    ], 6, (forbidden) => {
       expect(
         schemas.includes(forbidden),
         `matching-schemas.ts accepts '${forbidden}'; a route that can post a decision is a route around the whole pipeline`,
       ).toBe(false);
-    }
+    });
     // And every schema is closed, so an unknown key is a 400 rather than an
     // ignored one.
     const strictCount = (schemas.match(/\.strict\(\)/gu) ?? []).length;
