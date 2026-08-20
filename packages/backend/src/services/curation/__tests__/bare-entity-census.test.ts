@@ -25,15 +25,19 @@
  *
  * ## What this gate CANNOT do, stated because a reader would otherwise assume it
  *
- * Three of the four doors #695 measured have no derivation at all, and pretending
+ * Four of the five doors #695 measured have no derivation at all, and pretending
  * otherwise is worse than saying so:
  *
  *  - a discriminator whose tuple spells the same entity differently
  *    (`entity_kind: ['product', 'variant']`);
  *  - a column whose name does not end in `_id`, which the ledger never demands;
- *  - a `text[]` of entity ids, which can carry no foreign key at all.
+ *  - a `text[]` of entity ids, which can carry no foreign key at all;
+ *  - an `_id` column ledgered under a BESPOKE reason rather than one of the six
+ *    shared constants. 118 of the ledger's 527 entries are written that way,
+ *    which makes this the largest of the four and the easiest to overlook,
+ *    because such a column looks fully classified from the ledger's own side.
  *
- * Their six entries are DECLARED in `BARE_ENTITY_REFERENCES` and pinned BY NAME
+ * Their fifteen entries are DECLARED in `BARE_ENTITY_REFERENCES` and pinned BY NAME
  * below, so the reading already done cannot be dropped. A new sibling of any of
  * them will not fail this build. That residual is #695's own finding — the
  * issue's three candidate third derivations were all measured and rejected —
@@ -100,11 +104,31 @@ const derived = ID_COLUMNS_WITHOUT_FOREIGN_KEY.filter((entry) =>
   mercariaRowReasons.has(entry.reason),
 ).map((entry) => entry.column);
 
-/** The entries covering the three doors no derivation reaches. */
+/**
+ * The entries covering the four doors no derivation reaches.
+ *
+ * Pinned as a literal set rather than derived, because deriving it would mean
+ * deriving exactly the thing #695 established cannot be derived. Its job is
+ * narrow and real: a column here has been READ against the schema, and without
+ * this list deleting one of them would be green.
+ */
 const UNDERIVABLE = [
+  // Door 5 — an `_id` column ledgered under a bespoke reason.
+  'affiliate_outbound_clicks.canonical_variant_id',
+  'affiliate_outbound_clicks.merchant_id',
+  'affiliate_outbound_clicks.storefront_id',
+  'merchant_acquisition_audits.merchant_id',
+  'merchant_demand_metrics.storefront_id',
+  'price_alerts.rehomed_from_canonical_product_id',
+  'price_signal_runs.cursor_canonical_product_id',
+  'shopping_agents.rehomed_from_canonical_product_id',
+  'watchlist_snapshot_items.selected_canonical_variant_id',
+  // Door 2 — a discriminator spelling the same entity differently.
   'attribute_reindex_requests.entity_id',
   'attribute_value_reviews.entity_id',
+  // Door 3 — a column whose name does not end in `_id`.
   'catalog_proposal_duplicate_candidates.candidate_ref',
+  // Door 4 — an array of entity ids.
   'navigation_saved_queries.brand_ids',
   'navigation_saved_queries.merchant_ids',
   'shopping_agents.excluded_merchant_ids',
@@ -121,8 +145,9 @@ function reconcile(
   return {
     undeclared: population.filter((column) => !declaredColumns.has(column)).sort(),
     // An entry outside the derived population is only legitimate when it is one
-    // of the six the docblock accounts for; anything else is a declaration this
-    // gate can never re-check, which is the exemption that cannot fire.
+    // of the `UNDERIVABLE` columns the docblock accounts for; anything else is a
+    // declaration this gate can never re-check, which is the exemption that
+    // cannot fire.
     stale: declared
       .map((entry) => entry.column)
       .filter((column) => !inPopulation.has(column) && !undeclarable.has(column))
@@ -200,6 +225,10 @@ describe('every bare reference to a mergeable entity has a decision (#695)', () 
     // These are exactly the columns the add-direction gate CANNOT protect. If
     // this file only checked the derived population, deleting any of them would
     // be green — which is the shape of the gap #695 filed.
+    // The floor first: emptying `UNDERIVABLE` would satisfy the loop below
+    // vacuously and delete this file's only hold on four of the five doors.
+    expect(UNDERIVABLE.length).toBeGreaterThanOrEqual(15);
+
     const declared = new Set(BARE_ENTITY_REFERENCES.map((entry) => entry.column));
     for (const column of UNDERIVABLE) {
       expect(declared.has(column), `${column} lost its entry and no derivation would notice`).toBe(

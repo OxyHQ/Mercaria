@@ -2460,11 +2460,94 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
   { column: 'supplier_reservations.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
   { column: 'supplier_sourcing_attempts.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
 
-  // ── Doors 2, 3 and 4: declared here, reachable by NO derivation ───────────
+  // ── Doors 2 to 5: declared here, reachable by NO derivation ───────────────
   // Every entry below is outside `MERCARIA_ROW_ID_REASONS`, so the add-direction
   // gate cannot fire for a new sibling of any of them. That is #695's finding
   // restated as data; `bare-entity-census.test.ts` pins this exact set so the
   // work already done cannot be dropped, and nothing pretends the door is shut.
+  //
+  // Door 5 is the largest and the least dramatic: an `_id` column ledgered
+  // under a BESPOKE reason rather than one of the six shared constants. 118 of
+  // the ledger's 527 entries are written that way, so the derivation cannot
+  // reach them; the nine below are the ones a hand census of that set found to
+  // name a mergeable entity, each read against the schema rather than its name.
+  {
+    column: 'affiliate_outbound_clicks.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason:
+      'Door 5. The configuration a click was for, recorded at that instant. Its ledger reason ' +
+      'already argues the merge case in as many words: a key here would make it a live reference ' +
+      'a rehoming moves, putting a past click onto the winner of a merge that happened afterwards.',
+  },
+  {
+    column: 'affiliate_outbound_clicks.merchant_id',
+    disposition: 'untouched',
+    targetEntities: ['merchant'],
+    reason:
+      'Door 5. The merchant the buyer was sent to, as the OFFER named it at that instant. ' +
+      'Rehoming would restate where somebody was sent, which is the one thing an outbound click ' +
+      'record exists to answer.',
+  },
+  {
+    column: 'affiliate_outbound_clicks.storefront_id',
+    disposition: 'untouched',
+    targetEntities: ['storefront'],
+    reason: 'Door 5. The channel the offer sat on at that instant, beside `merchant_id` and for its reason.',
+  },
+  {
+    column: 'merchant_acquisition_audits.merchant_id',
+    disposition: 'untouched',
+    targetEntities: ['merchant'],
+    reason:
+      'Door 5. An audit of what an operator TRIED, which has to outlive the thing they tried it ' +
+      'on. Rehoming would move one merchant’s acquisition history onto another — the misreading ' +
+      '`catalog_revisions.entity_id` is left alone to prevent.',
+  },
+  {
+    column: 'merchant_demand_metrics.storefront_id',
+    disposition: 'untouched',
+    targetEntities: ['storefront'],
+    reason:
+      'Door 5. A reporting DIMENSION whose empty string means "not sliced by one", so it is not ' +
+      'even always an id. A measured figure is a fact about a window that a later merge does not ' +
+      'change — `TELEMETRY_UNTOUCHED`, one domain over.',
+  },
+  {
+    column: 'price_alerts.rehomed_from_canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason:
+      'Door 5, and the one that would be actively self-defeating to move: it is the PROVENANCE ' +
+      'stamp the merge’s own `alerts` phase writes to record where an alert came from. Rehoming ' +
+      'it would erase the record of the rehoming.',
+  },
+  {
+    column: 'price_signal_runs.cursor_canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason:
+      'Door 5. A KEYSET CURSOR, not a reference — it records where a sweep had reached. Moving it ' +
+      'would make a paused run resume somewhere else in its own ordering and double-count into a ' +
+      'counter CHECK that then refuses the row.',
+  },
+  {
+    column: 'shopping_agents.rehomed_from_canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason:
+      'Door 5, the `price_alerts` stamp one domain over and written by the merge’s `agents` ' +
+      'phase. Same reason: rehoming the record of a rehoming destroys what it records.',
+  },
+  {
+    column: 'watchlist_snapshot_items.selected_canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason:
+      'Door 5. The configuration a snapshot’s selected offer priced. A variant merged away later ' +
+      'is still what was measured that day, and #81 correction rule 5 keeps the history naming ' +
+      'what it actually used.',
+  },
   {
     column: 'attribute_reindex_requests.entity_id',
     disposition: 'unresolved',
