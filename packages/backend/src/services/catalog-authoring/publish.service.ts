@@ -45,7 +45,7 @@
  * at through a comment that read like a proof.
  */
 
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type {
   AuthoringDraft,
   AuthoringPublicationResult,
@@ -560,31 +560,6 @@ function renderOptionValue(
     default:
       return '';
   }
-}
-
-/**
- * Whether this listing already carries a declared attachment for a variant.
- *
- * Exported for the isolation gate's benefit as much as for a caller's: it is the
- * ONE read this domain makes of `native_listing_links`, and it reads rather than
- * decides. #58 owns matching and #57 owns the offer.
- */
-export async function findDeclaredLink(
-  db: DatabaseOrTransaction,
-  productVariantId: string,
-): Promise<{ canonicalVariantId: string } | null> {
-  const rows = await db
-    .select({ canonicalVariantId: nativeListingLinks.canonicalVariantId })
-    .from(nativeListingLinks)
-    .where(
-      and(
-        eq(nativeListingLinks.productVariantId, productVariantId),
-        eq(nativeListingLinks.status, 'active'),
-        eq(nativeListingLinks.method, 'merchant_declared'),
-      ),
-    )
-    .limit(1);
-  return rows[0] ?? null;
 }
 
 /**
