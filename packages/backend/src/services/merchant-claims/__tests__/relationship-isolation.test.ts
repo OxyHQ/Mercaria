@@ -169,6 +169,7 @@ describe('the population the two walls above are applied to (#460)', () => {
       // named for merchant claiming that belongs to somebody else goes red here
       // rather than being quietly excused.
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 13 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 9,

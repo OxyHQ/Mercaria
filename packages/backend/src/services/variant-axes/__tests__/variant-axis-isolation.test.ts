@@ -190,14 +190,11 @@ describe('#460 — the population is closed against the tree', () => {
       population: axisPopulation,
       pattern: DOMAIN_NAMED,
       notThisDomain: NOT_THIS_DOMAIN,
+      expectedExclusions: 1,
       sweepFloor: 8,
       plantIn: 'lib',
       plantName: 'variant-axis-cache.ts',
     });
-    // EXACT, in both directions (#448). The helper asserts the entry is still
-    // REACHED by the sweep and is NOT in the population; this is the count that
-    // stops a second riding in behind it.
-    expect(NOT_THIS_DOMAIN.length, 'a second foreign variant-axis module was excused').toBe(1);
   });
 
   it('the camelCase half of the pattern is what reaches db/, and it is asserted BY NAME', () => {

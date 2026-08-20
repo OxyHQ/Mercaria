@@ -662,6 +662,7 @@ describe('the population every wall above is applied to (#460)', () => {
           "the wrong domain — #74's comparison legitimately reads a merchant rating as a " +
           'ranking signal, and the cheapest way to green that is to weaken wall 3.',
       })),
+      expectedExclusions: 3,
       // Below today's 28 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 22,
@@ -679,7 +680,6 @@ describe('the population every wall above is applied to (#460)', () => {
     for (const { path } of RANKING_OWNED_MODULES) {
       expect(population, `${path} is excused AND scanned`).not.toContain(path);
     }
-    expect(RANKING_OWNED_MODULES.length).toBe(3);
   });
 
   it('floors PER SHAPE, because the two sources break independently', () => {

@@ -396,6 +396,7 @@ describe('the population the walls above are applied to (#460)', () => {
       // every wall's name says so — which is why the pattern is the bare word
       // here and narrow in the four sub-domain gates beside it.
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 76 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 60,

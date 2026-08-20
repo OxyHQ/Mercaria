@@ -580,13 +580,13 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       population: domainRelativePaths,
       pattern: DOMAIN_NAME_PATTERN,
       notThisDomain: NOT_THIS_DOMAIN,
+      expectedExclusions: 1,
       // Below today's count so a routine deletion does not fail the build, and
       // far enough above zero that a traversal which reached nothing does.
       sweepFloor: 16,
       plantIn: 'lib',
       plantName: 'price-signals-cache.ts',
     });
-    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(1);
   });
 
   it('the relative population really is the one the walls scan', () => {

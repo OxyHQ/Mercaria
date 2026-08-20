@@ -491,6 +491,7 @@ describe('#460 — the population is closed against the tree', () => {
       // sweep — it is named after its resource — which the one-directional
       // assertion permits.
       notThisDomain: [],
+      expectedExclusions: 0,
       sweepFloor: 4,
       plantIn: 'lib',
       plantName: 'commercial-presentation-cache.ts',

@@ -141,6 +141,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
       population: analyticsPopulation,
       pattern: /analytics/i,
       notThisDomain: [],
+      expectedExclusions: 0,
       sweepFloor: 20,
       plantIn: 'lib',
       plantName: 'analytics-cache.ts',
@@ -155,6 +156,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: withoutSchema,
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -170,6 +172,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: withoutAdmin,
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -196,6 +199,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: walksLibWhole,
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -226,6 +230,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: (readDir) => sweepSrcTreeForDomain(/analytics/i, readDir),
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -262,6 +267,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
       population: () => sweepSrcTreeForDomain(/analytics/i),
       pattern: /analytics/i,
       notThisDomain: [],
+      expectedExclusions: 0,
       sweepFloor: 20,
       plantIn: 'lib',
       plantName: 'analytics-cache.ts',
@@ -278,6 +284,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: (readDir) => walkOwnedDirectory('', readDir),
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -291,6 +298,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: analyticsPopulation,
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -305,6 +313,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: analyticsPopulation,
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 10_000,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -320,6 +329,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         notThisDomain: [
           { path: 'services/analytics-that-never-existed.ts', why: 'a stale exemption, by construction' },
         ],
+        expectedExclusions: 1,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
@@ -335,11 +345,55 @@ describe('assertNothingOutsideDomainPopulation', () => {
         notThisDomain: [
           { path: 'db/schema/analytics.ts', why: 'excused and covered at the same time' },
         ],
+        expectedExclusions: 1,
         sweepFloor: 20,
         plantIn: 'lib',
         plantName: 'analytics-cache.ts',
       }),
     ).toThrow(/the exclusion is doing nothing/);
+  });
+
+  /**
+   * The parameter's own self-tests (#460).
+   *
+   * The three clauses beside it — reached by the sweep, absent from the
+   * population, carries a reason — are each about an entry that EXISTS, so all
+   * three pass for a list that has just GROWN. Nothing here could fail on the
+   * one direction #448 is about until the count became a required argument, and
+   * two callers could not express it at all because they pass the array inline.
+   *
+   * Both directions are asserted. An exclusion REMOVED is also a decision: the
+   * module rejoins every wall in that gate, which is usually right and is never
+   * something to discover from a passing build.
+   */
+  it('fails an exclusion list that GREW past its declared count', () => {
+    expect(() =>
+      assertNothingOutsideDomainPopulation({
+        population: analyticsPopulation,
+        pattern: /analytics/i,
+        notThisDomain: [
+          { path: 'db/schema/analytics.ts', why: 'a second entry nobody declared' },
+        ],
+        expectedExclusions: 0,
+        sweepFloor: 20,
+        plantIn: 'lib',
+        plantName: 'analytics-cache.ts',
+      }),
+    ).toThrow(/excuses 1 domain-named module\(s\) and declares 0/);
+  });
+
+  it('fails an exclusion list that SHRANK below its declared count', () => {
+    expect(() =>
+      assertNothingOutsideDomainPopulation({
+        population: analyticsPopulation,
+        pattern: /analytics/i,
+        notThisDomain: [],
+        expectedExclusions: 2,
+        sweepFloor: 20,
+        plantIn: 'lib',
+        plantName: 'analytics-cache.ts',
+      }),
+    ).toThrow(/excuses 0 domain-named module\(s\) and declares 2/);
   });
 
   it('fails a planted control that already exists on disk', () => {
@@ -348,6 +402,7 @@ describe('assertNothingOutsideDomainPopulation', () => {
         population: analyticsPopulation,
         pattern: /analytics/i,
         notThisDomain: [],
+        expectedExclusions: 0,
         sweepFloor: 20,
         plantIn: 'db/schema',
         plantName: 'analytics.ts',

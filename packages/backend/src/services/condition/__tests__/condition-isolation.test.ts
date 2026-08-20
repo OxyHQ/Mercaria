@@ -539,14 +539,12 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       population: conditionDomainPaths,
       pattern: CONDITION_NAME_PATTERN,
       notThisDomain: NOT_THIS_DOMAIN,
+      expectedExclusions: 1,
       // Below today's 13 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 9,
       plantIn: 'lib',
       plantName: 'condition-cache.ts',
     });
-    // The exclusion's own count, so a second entry is a decision somebody takes
-    // rather than a line that appears (#448).
-    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(1);
   });
 });

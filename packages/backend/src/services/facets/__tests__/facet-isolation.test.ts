@@ -585,13 +585,12 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       ],
       pattern: FACET_NAME_PATTERN,
       notThisDomain: NOT_THIS_DOMAIN,
+      expectedExclusions: 2,
       // Below today's 16 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 12,
       plantIn: 'lib',
       plantName: 'facet-cache.ts',
     });
-    // The exclusion's own count, so a third entry is a decision (#448).
-    expect(NOT_THIS_DOMAIN.length, 'the exclusion set changed').toBe(2);
   });
 });

@@ -558,6 +558,7 @@ describe('the population every wall above is applied to (#460)', () => {
         path: module.path,
         why: module.why,
       })),
+      expectedExclusions: 3,
       // Below today's 26 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 20,
@@ -577,10 +578,6 @@ describe('the population every wall above is applied to (#460)', () => {
         `${path} no longer exists, so excusing it proves nothing`,
       ).toBe(true);
     }
-    // EXACT, not a floor: an excusing entry is a predicate rather than an
-    // identity, so a list with no count lets a fourth module be excluded
-    // without anybody deciding to (#448).
-    expect(FOREIGN_OUTBOUND_MODULES.length).toBe(3);
   });
 
   it('the three modules that used to be appended by FILENAME are still covered', () => {

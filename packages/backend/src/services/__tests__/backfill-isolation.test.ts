@@ -247,14 +247,11 @@ describe('the backfill cannot reach the domains it must not', () => {
       population: backfillPopulation,
       pattern: BACKFILL_NAMED,
       notThisDomain: NOT_THIS_BACKFILL,
+      expectedExclusions: 15,
       sweepFloor: 30,
       plantIn: 'lib',
       plantName: 'backfill-cache.ts',
     });
-    // EXACT, in both directions (#448). The helper asserts each entry is still
-    // REACHED by the sweep and is NOT in the population; this is the count that
-    // stops a sixteenth riding in behind them.
-    expect(NOT_THIS_BACKFILL.length, 'a sixteenth foreign backfill was excused').toBe(15);
   });
 
   it('the shared-directory rule is ANCHORED, so a sibling domain cannot enter', () => {

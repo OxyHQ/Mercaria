@@ -373,6 +373,7 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       population: domainRelativePaths,
       pattern: DOMAIN_NAME_PATTERN,
       notThisDomain: NOT_THIS_DOMAIN,
+      expectedExclusions: 0,
       // Below today's count so a routine deletion does not fail the build, and
       // far enough above zero that a traversal which reached nothing does.
       sweepFloor: 11,

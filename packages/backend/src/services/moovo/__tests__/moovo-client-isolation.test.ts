@@ -220,6 +220,7 @@ describe('the population the five walls above are applied to (#460)', () => {
             'and retail-logistics-isolation.test.ts walks it.',
         },
       ],
+      expectedExclusions: 2,
       // Below today's 7 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 5,

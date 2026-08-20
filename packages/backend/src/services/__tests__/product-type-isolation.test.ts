@@ -209,17 +209,11 @@ describe('#460 — the population is closed against the tree', () => {
       population: productTypePopulation,
       pattern: DOMAIN_NAMED,
       notThisDomain: NOT_THIS_DOMAIN,
+      expectedExclusions: 3,
       sweepFloor: 8,
       plantIn: 'lib',
       plantName: 'product-type-cache.ts',
     });
-    // EXACT, in both directions (#448). The helper asserts each entry is still
-    // REACHED by the sweep and is NOT in the population; this stops a third
-    // riding in behind them.
-    // Moved from 2 to 3 by #650, in the same edit that added the entry — which
-    // is what this line is for: an exemption list that could grow without the
-    // count moving is a list somebody adds to rather than argues for.
-    expect(NOT_THIS_DOMAIN.length, 'a fourth foreign product-type module was excused').toBe(3);
   });
 });
 

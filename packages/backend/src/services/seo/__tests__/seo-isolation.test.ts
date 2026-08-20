@@ -390,7 +390,25 @@ describe('WALL 5: the emitters cannot reach the database', () => {
 
 describe('WALL 6: the rollout levers are interpreted in ONE module', () => {
   it('only `rollout.ts` and the composition layer read config', () => {
+    // EXACT, and asserted before the loop (#448). This wall excuses its readers
+    // by NAME inside the `it`, so there was no identifier for a count to be
+    // taken of and no count was taken — a fourth name could join and every
+    // assertion below would still pass, because they are all about the files
+    // that remain scanned.
     const permitted = new Set(['rollout.ts', 'seo.service.ts', 'sitemap.service.ts']);
+    expect(
+      permitted.size,
+      'a fourth module was permitted to read config — a second interpretation of the rollout ' +
+        'lever is what this wall exists to prevent, so admitting one is a decision',
+    ).toBe(3);
+    // …and each permitted name is still a module of the domain, or the entry
+    // excuses nothing while reading as a decision.
+    const domainNames = new Set(domainSources().map((file) => file.relative.split('/').pop()));
+    for (const name of permitted) {
+      expect(domainNames.has(name), `${name} is permitted but is not a module of the domain`).toBe(
+        true,
+      );
+    }
     let scanned = 0;
     for (const file of domainSources()) {
       const name = file.relative.split('/').pop() ?? '';
@@ -436,6 +454,7 @@ describe('#460: nothing named for this domain sits outside the scanned populatio
       ],
       pattern: SEO_NAME_PATTERN,
       notThisDomain: [],
+      expectedExclusions: 0,
       // Below today's 19 so a routine deletion does not fail the build, and far
       // enough above zero that a traversal which reached nothing does.
       sweepFloor: 14,
