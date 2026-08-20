@@ -26,7 +26,7 @@
  * D10's rule and is a property of the publish path rather than of this file.
  */
 
-import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { DatabaseOrTransaction } from '../postgres.js';
 import { brands } from '../schema/organizations.js';
 import {
@@ -269,10 +269,29 @@ export async function canonicalVariantBelongsToProduct(
  * policy's picker.
  *
  * A brand is a MERGEABLE entity and a draft stores its id with no foreign key,
- * so a merged brand is resolved the same way a merged product is. `isNull` on
- * `merged_into_id` here rather than a status filter, because
- * `canonicalLifecycleColumns` and `catalogLifecycleColumns` are two different
- * shapes and only the pointer is common to both.
+ * so a merged brand is resolved the same way a merged product is.
+ *
+ * `status = 'active'` and NOT `merged_into_id is null` (#758). The two are not
+ * the same filter and the difference was a disclosure: `brands_status_check`
+ * carries `active | inactive | merged | suppressed` and a biconditional ties
+ * `merged` to the pointer, so the pointer test is exactly `status <> 'merged'`
+ * — it admitted `inactive` and `suppressed`, and `suppressed` is precisely the
+ * operator decision to stop showing a brand. The picker was therefore
+ * disclosing the withheld set to any authenticated account willing to type a
+ * prefix.
+ *
+ * It now says what {@link SELECTABLE_STATUS} says one function up, for that
+ * function's own reason: offering a non-active row lets an explicit human
+ * selection land on a row the catalogue has already decided against, which is
+ * the one thing ADR 0007 D10 says must never be overruled. The two halves of
+ * one endpoint answer one question one way.
+ *
+ * This narrows what may be PICKED and touches no stored draft: a draft holds
+ * `canonicalRefId` with no foreign key and the read path returns it verbatim
+ * (`draft.service.ts:484,857`), joining `brands` nowhere — so a draft already
+ * naming a now-suppressed brand renders exactly as it did before. What SHOULD
+ * happen to such a draft is an open question and deliberately not answered
+ * here; it is recorded on #758.
  */
 export async function searchBrandsByName(
   db: DatabaseOrTransaction,
@@ -282,7 +301,7 @@ export async function searchBrandsByName(
   return db
     .select({ id: brands.id, name: brands.name })
     .from(brands)
-    .where(isNull(brands.mergedIntoId))
+    .where(eq(brands.status, 'active'))
     .orderBy(sql`${brands.normalizedName} <-> ${normalizedQuery}`)
     .limit(limit);
 }

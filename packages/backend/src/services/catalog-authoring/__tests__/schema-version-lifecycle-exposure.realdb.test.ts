@@ -91,7 +91,10 @@ import {
   clearAuthoringSchemaMemo,
   composeAuthoringSchema,
 } from '../schema.service.js';
-import { listSelectableCategories } from '../../../db/catalogAuthoring/schemaSourceRepository.js';
+import {
+  listPublishedProductTypesForCategory,
+  listSelectableCategories,
+} from '../../../db/catalogAuthoring/schemaSourceRepository.js';
 
 let db: Database;
 
@@ -476,5 +479,52 @@ describe('the categories picker offers only what a product may be filed under', 
     expect(byId.get(pickerSuppressedId)?.selectable).toBe(true);
     expect(byId.get(pickerNotSelectableId)?.lifecycle).toBe('published');
     expect(byId.get(pickerNotSelectableId)?.selectable).toBe(false);
+  });
+});
+
+describe('the product-types picker offers only PUBLISHED versions', () => {
+  /**
+   * The third reader of the seven, and it reuses the four lifecycle fixtures
+   * above rather than building its own — one key at four lifecycles, all four
+   * scoped to `categoryId`, so this category is a complete four-state probe of
+   * one filter.
+   *
+   * `listPublishedProductTypesForCategory` filters `d.lifecycle = 'published'`
+   * inside its recursive SQL. It was pinned by nothing: the only test file
+   * naming it is `draft-upgrade.test.ts`, which `vi.mock`s it with `vi.fn()`
+   * (`:85`) — and a mock REPLACES the function, so it cannot pin a predicate the
+   * server evaluates. A name-based coverage census counts that reference as
+   * coverage, which is how a filter stays unmeasured while looking tested.
+   *
+   * Scoped to the category this file created, so an exact equality is safe on
+   * the shared database — no sibling's product type is scoped to it.
+   */
+  async function offeredVersions(): Promise<number[]> {
+    const rows = await listPublishedProductTypesForCategory(db, categoryId);
+    return rows.map((row) => row.definition.version).sort((a, b) => a - b);
+  }
+
+  it('excludes draft, review AND deprecated, and offers the published one', async () => {
+    // Three excluded states in one assertion, and the published version is
+    // named — without that half the exclusions are satisfied by a picker that
+    // returns nothing at all, which is what the absence of this test allowed.
+    expect(await offeredVersions()).toEqual([versionByLifecycle.get('published')]);
+  });
+
+  it('does not offer a DEPRECATED version, which `?version=` still composes', async () => {
+    // Worth its own case because `deprecated` is the state where this reader and
+    // the composition deliberately DISAGREE: a deprecated version still resolves
+    // for the records that pin it (so it is in RETRIEVABLE_AUTHORING_LIFECYCLES)
+    // and must never be offered as something to START authoring against. A
+    // single "only published" assertion would pass if somebody widened this
+    // reader to the retrievable set, which is the plausible wrong edit.
+    const deprecated = versionByLifecycle.get('deprecated');
+    expect(deprecated, 'no deprecated fixture').toBeDefined();
+    expect(await offeredVersions()).not.toContain(deprecated);
+
+    // ...and the composition DOES still serve it, so the two readers are pinned
+    // as different answers rather than as one rule applied twice.
+    const composition = await composeAt(deprecated);
+    expect(composition.outcome).toBe('composed');
   });
 });
