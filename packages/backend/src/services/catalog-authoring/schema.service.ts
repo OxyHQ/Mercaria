@@ -439,6 +439,9 @@ async function composeForDefinition(
 
   const key: AuthoringSchemaKey = {
     productTypeDefinitionId: definition.id,
+    // #611: `published` and `deprecated` share every other member, so without
+    // this the memo serves a deprecated version as published.
+    lifecycle: definition.lifecycle,
     categoryId: category.id,
     flow: input.flow,
     locale: input.requestedLocale,

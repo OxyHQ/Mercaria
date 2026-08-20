@@ -70,6 +70,27 @@ function canonicalize(value: Serializable): string {
  */
 export interface AuthoringSchemaKey {
   readonly productTypeDefinitionId: string;
+  /**
+   * The version's LIFECYCLE, and it is a dimension rather than a detail (#611).
+   *
+   * `published` and `deprecated` are both frozen, so both are memoizable and
+   * both share every other member of this key — the version's content does not
+   * change when it is deprecated, so `revisions` does not move either. Without
+   * this member a composition taken while the version was `published` is served
+   * unchanged afterwards, reporting `lifecycle: 'published'` until the entry is
+   * evicted or the process restarts.
+   *
+   * That is not a rare race: publication deprecates the incumbent in the SAME
+   * transaction that publishes its successor, because the one-published-per-key
+   * partial unique refuses the other order. So every publish diverges every
+   * locale already in the memo.
+   *
+   * Keyed rather than invalidated, deliberately. There is no production
+   * invalidation path in this module at all — the only `memo.clear()` is a test
+   * seam — so an invalidate-on-transition fix would have to be remembered by
+   * whoever writes the SECOND transition, and a key cannot be forgotten.
+   */
+  readonly lifecycle: string;
   readonly categoryId: string;
   readonly flow: string;
   readonly locale: string;
@@ -88,6 +109,7 @@ export interface AuthoringSchemaKey {
 function canonicalKeyParts(key: AuthoringSchemaKey): Serializable {
   return {
     productTypeDefinitionId: key.productTypeDefinitionId,
+    lifecycle: key.lifecycle,
     categoryId: key.categoryId,
     flow: key.flow,
     locale: key.locale,
