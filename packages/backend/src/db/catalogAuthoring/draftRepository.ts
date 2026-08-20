@@ -328,7 +328,15 @@ export interface NewDraftVariant {
   readonly compareAtPriceCurrency: CatalogAuthoringDraftVariantRow['compareAtPriceCurrency'];
   readonly inventoryTracked: boolean;
   readonly inventoryAvailable: number;
-  readonly axisSignature: string | null;
+  /**
+   * Never NULL, unlike the column (#771).
+   *
+   * The table permits NULL and no writer has ever produced one — see
+   * {@link replaceDraftVariants}, which reconciles on this and writes no null
+   * branch. Typing it `string | null` here made the guarantee look optional
+   * to every caller and would have forced a branch with no producer.
+   */
+  readonly axisSignature: string;
   readonly selectedCanonicalVariantId: string | null;
 }
 
@@ -344,32 +352,187 @@ export async function listDraftVariants(
 }
 
 /**
- * Replace a draft's whole variant matrix.
+ * Reconcile a draft's whole variant matrix (#771).
  *
- * DELETE then INSERT, never an upsert, and never a partial patch. A variant
- * matrix is submitted as a WHOLE because its axes are: reconciling a partial
- * update against `axis_signature` would need a rule for a row whose axes moved
- * onto another row's, and there is no such rule that is not arbitrary. The
- * values pointing at the old rows CASCADE with them, so the caller writes the
- * new ones afterwards in the same transaction.
+ * ## Why this is not delete-then-reinsert any more
  *
- * `catalog_authoring_draft_variants_position_key` makes the ordinal a real
- * constraint rather than a convention, which is what lets a validation path
- * refer to `variants[2]` and mean one row.
+ * It was, and it deleted EVERY variant row on any variants patch.
+ * `catalog_authoring_draft_values.draft_variant_id` carries `ON DELETE cascade`,
+ * so every variant-scope answer was destroyed and a
+ * `catalog_proposal_references.draft_value_id` pointing at one cascaded away
+ * with it — #729's defect on the variant side, and worse than the product-scope
+ * case it mirrors: that one was at least scoped to the fields the client
+ * re-sent, while this fired for every variant answer whether or not the patch
+ * mentioned it.
+ *
+ * The cascade is NOT the bug and is left alone. A re-save is not an answer
+ * going away.
+ *
+ * ## Identity is `axis_signature`, and the objection this replaces was real
+ *
+ * The previous docblock argued against exactly this: reconciling on
+ * `axis_signature` "would need a rule for a row whose axes moved onto another
+ * row's, and there is no such rule that is not arbitrary." That is true and it
+ * is worth keeping rather than deleting, because whoever meets the swap case
+ * later deserves the reasoning instead of finding an apparent oversight.
+ *
+ * What it missed is the denominator. It bites ONLY when an author swaps axis
+ * sets between two rows — and under signature identity a row IS its axes
+ * (ADR 0007 D6, enforced by `catalog_authoring_draft_variants_signature_key`),
+ * so re-attaching each row's answers to the axis set they describe is
+ * defensible. It does not bite re-saving, editing a price or editing a title at
+ * all, and under the old behaviour every one of those destroyed every variant
+ * answer. So delete-and-reinsert was worse in all cases in exchange for being
+ * arbitrary in one.
+ *
+ * `axis_signature` is never NULL and no branch here pretends otherwise.
+ * MEASURED while closing #771: one INSERT statement into this table has ever
+ * existed (`c712613d`), its one production caller passes `signatureFor(...)`,
+ * and that function returns `string` at all five commits that ever touched the
+ * column — zero axes yields `defaultTypedVariantSignature()` and a failure
+ * throws. The column is nullable, which is a statement about the table and not
+ * about the writer.
+ *
+ * ## The position two-step, and why parking must go UP
+ *
+ * `catalog_authoring_draft_variants_position_key` is a plain
+ * `CREATE UNIQUE INDEX` (`0098:143`), and Postgres can only defer a
+ * CONSTRAINT — never an INDEX. So an in-place reorder collides mid-update: a
+ * 0↔1 swap writes a position another row still holds.
+ *
+ * Survivors are therefore parked ABOVE every current and target position and
+ * settled afterwards. Not below: `catalog_authoring_draft_variants_position_check`
+ * is `position >= 0` (`0098:67`), so the natural reading of "park out of range"
+ * is refused by the server. The offset is computed rather than a constant,
+ * because `position` is a 32-bit integer and a constant is a ceiling somebody
+ * eventually reaches.
+ *
+ * A surviving row's SIGNATURE never moves — it is the match key — so only
+ * `position` needs this. Deletes still run before inserts, or a fresh row could
+ * collide with a stale row still holding its signature.
+ *
+ * Returns one row per input variant, IN INPUT ORDER: `patchDraft` pairs the
+ * result with `axesByPosition` by index.
  */
 export async function replaceDraftVariants(
   db: DatabaseOrTransaction,
   draftId: string,
   variants: readonly NewDraftVariant[],
 ): Promise<CatalogAuthoringDraftVariantRow[]> {
-  await db
-    .delete(catalogAuthoringDraftVariants)
+  if (variants.length === 0) {
+    await db
+      .delete(catalogAuthoringDraftVariants)
+      .where(eq(catalogAuthoringDraftVariants.draftId, draftId));
+    return [];
+  }
+
+  // Two incoming variants carrying ONE axis set are refused, before any
+  // statement runs. This is the #770 guard one level up, and it is the same
+  // regression in the same shape: delete-and-insert was accidentally safe here
+  // because `catalog_authoring_draft_variants_signature_key` refused the second
+  // INSERT with a 23505. A reconcile has no such accident — both would resolve
+  // to one existing row and update it twice, keeping whichever arrived last, so
+  // a malformed matrix would be silently accepted. It is reachable over HTTP:
+  // two variants whose axis answers are identical produce identical signatures.
+  //
+  // Duplicate POSITIONS are deliberately NOT guarded. They still raise a 23505
+  // exactly as before, so nothing regresses, and the only caller derives
+  // position from an array index — a guard would have no producer.
+  const incoming = new Set<string>();
+  for (const variant of variants) {
+    if (incoming.has(variant.axisSignature)) {
+      throw new Error(
+        `This patch sends two variants with the same axis set (signature ${variant.axisSignature}). Two variants that vary along nothing are one variant.`,
+      );
+    }
+    incoming.add(variant.axisSignature);
+  }
+
+  const existing = await db
+    .select({
+      id: catalogAuthoringDraftVariants.id,
+      position: catalogAuthoringDraftVariants.position,
+      axisSignature: catalogAuthoringDraftVariants.axisSignature,
+    })
+    .from(catalogAuthoringDraftVariants)
     .where(eq(catalogAuthoringDraftVariants.draftId, draftId));
-  if (variants.length === 0) return [];
-  return db
-    .insert(catalogAuthoringDraftVariants)
-    .values(variants.map((variant) => ({ draftId, ...variant })))
-    .returning();
+
+  const bySignature = new Map<string, { id: string; position: number }>();
+  for (const row of existing) {
+    if (row.axisSignature === null) continue;
+    bySignature.set(row.axisSignature, { id: row.id, position: row.position });
+  }
+
+  const survivors: { id: string; index: number }[] = [];
+  const freshByIndex = new Map<number, NewDraftVariant>();
+  const matched = new Set<string>();
+  variants.forEach((variant, index) => {
+    const hit = bySignature.get(variant.axisSignature);
+    if (hit === undefined) {
+      freshByIndex.set(index, variant);
+      return;
+    }
+    matched.add(variant.axisSignature);
+    survivors.push({ id: hit.id, index });
+  });
+
+  // Above every position either side holds, so no parked value can collide with
+  // a parked, a surviving or a still-present stale row.
+  const offset =
+    Math.max(
+      0,
+      ...existing.map((row) => row.position),
+      ...variants.map((variant) => variant.position),
+    ) + 1;
+
+  if (survivors.length > 0) {
+    await db
+      .update(catalogAuthoringDraftVariants)
+      .set({ position: sql`${catalogAuthoringDraftVariants.position} + ${offset}` })
+      .where(
+        inArray(
+          catalogAuthoringDraftVariants.id,
+          survivors.map((survivor) => survivor.id),
+        ),
+      );
+  }
+
+  // Only what genuinely went away. The answers cascading from these are answers
+  // whose variant no longer exists, which is the cascade doing its job.
+  const stale = existing
+    .filter((row) => row.axisSignature === null || !matched.has(row.axisSignature))
+    .map((row) => row.id);
+  if (stale.length > 0) {
+    await db
+      .delete(catalogAuthoringDraftVariants)
+      .where(inArray(catalogAuthoringDraftVariants.id, stale));
+  }
+
+  const rowByIndex = new Map<number, CatalogAuthoringDraftVariantRow>();
+
+  // Settling each survivor to its FINAL position is safe here: every survivor
+  // is parked above the offset, the stale rows are gone, and nothing fresh is
+  // inserted yet — so the whole low range is free.
+  for (const survivor of survivors) {
+    const variant = variants[survivor.index];
+    const [row] = await db
+      .update(catalogAuthoringDraftVariants)
+      .set({ ...variant })
+      .where(eq(catalogAuthoringDraftVariants.id, survivor.id))
+      .returning();
+    rowByIndex.set(survivor.index, row);
+  }
+
+  if (freshByIndex.size > 0) {
+    const indices = [...freshByIndex.keys()];
+    const inserted = await db
+      .insert(catalogAuthoringDraftVariants)
+      .values(indices.map((index) => ({ draftId, ...(freshByIndex.get(index) as NewDraftVariant) })))
+      .returning();
+    indices.forEach((index, at) => rowByIndex.set(index, inserted[at]));
+  }
+
+  return variants.map((_, index) => rowByIndex.get(index) as CatalogAuthoringDraftVariantRow);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -580,19 +743,128 @@ export async function replaceProductScopeValues(
 }
 
 /**
- * Insert the VARIANT-scope answers for variants that were just created.
+ * The natural key of a VARIANT-scope answer.
  *
- * No delete: {@link replaceDraftVariants} has already removed the previous rows
- * by cascade, so a delete here would be a second statement asserting something
- * already true — and one whose predicate could drift from the cascade's.
+ * The variant id is IN the key rather than around it, because the four partial
+ * uniques key variant answers on `draft_variant_id` and not on `draft_id` —
+ * `catalog_authoring_draft_values_variant_key` and its component sibling. One
+ * flat map over the whole patch therefore matches what the server enforces.
+ *
+ * `JSON.stringify` rather than a join, for {@link draftValueIdentity}'s reason:
+ * `component_axis` is nullable, and a `?? ''` join would collide a null axis
+ * with an axis literally named `''`.
  */
-export async function insertVariantScopeValues(
+function draftVariantValueIdentity(value: {
+  readonly draftVariantId: string | null;
+  readonly fieldId: string;
+  readonly componentAxis: string | null;
+  readonly ordinal: number;
+}): string {
+  return JSON.stringify([
+    value.draftVariantId,
+    value.fieldId,
+    value.componentAxis,
+    value.ordinal,
+  ]);
+}
+
+/**
+ * Reconcile the VARIANT-scope answers of a draft (#771).
+ *
+ * ## Why this had to change with {@link replaceDraftVariants}
+ *
+ * It was `insertVariantScopeValues`, and it documented its own dependence on
+ * the delete: "{@link replaceDraftVariants} has already removed the previous
+ * rows by cascade". That is exactly the cascade #771 removes. Left as a blind
+ * insert, every surviving variant would keep its old answers AND receive fresh
+ * ones, which the four partial uniques refuse with a 23505. The variant
+ * reconcile and the variant-VALUE reconcile are one change or neither.
+ *
+ * Scoped to the variants the patch actually carries. An answer belonging to a
+ * variant that went away is already gone by cascade, so widening this to the
+ * whole draft would be a second statement asserting something the foreign key
+ * has already done.
+ */
+export async function replaceVariantScopeValues(
   db: DatabaseOrTransaction,
   draftId: string,
+  variantIds: readonly string[],
   values: readonly NewDraftValue[],
 ): Promise<void> {
-  if (values.length === 0) return;
-  await db.insert(catalogAuthoringDraftValues).values(values.map((value) => ({ draftId, ...value })));
+  if (variantIds.length === 0) {
+    if (values.length > 0) {
+      await db
+        .insert(catalogAuthoringDraftValues)
+        .values(values.map((value) => ({ draftId, ...value })));
+    }
+    return;
+  }
+
+  // The #770 guard, in this scope. Delete-and-insert was accidentally safe
+  // against a patch answering one variant slot twice, because the partial
+  // unique refused the second INSERT; a reconcile would update one row twice
+  // and keep the last answer instead. Up front, so a refusal is about the
+  // REQUEST rather than something a rollback has to undo halfway through.
+  const incoming = new Set<string>();
+  for (const value of values) {
+    const identity = draftVariantValueIdentity(value);
+    if (incoming.has(identity)) {
+      throw new Error(
+        `This patch answers the same variant slot twice (variant ${value.draftVariantId ?? 'none'}, field ${value.fieldId}, component ${value.componentAxis ?? 'none'}, ordinal ${value.ordinal}). Send one entry per field carrying all of its values.`,
+      );
+    }
+    incoming.add(identity);
+  }
+
+  const existing = await db
+    .select({
+      id: catalogAuthoringDraftValues.id,
+      draftVariantId: catalogAuthoringDraftValues.draftVariantId,
+      fieldId: catalogAuthoringDraftValues.fieldId,
+      componentAxis: catalogAuthoringDraftValues.componentAxis,
+      ordinal: catalogAuthoringDraftValues.ordinal,
+    })
+    .from(catalogAuthoringDraftValues)
+    .where(
+      and(
+        eq(catalogAuthoringDraftValues.draftId, draftId),
+        inArray(catalogAuthoringDraftValues.draftVariantId, [...variantIds]),
+      ),
+    );
+
+  const byIdentity = new Map(existing.map((row) => [draftVariantValueIdentity(row), row.id]));
+  const seen = new Set<string>();
+  const fresh: NewDraftValue[] = [];
+
+  for (const value of values) {
+    const identity = draftVariantValueIdentity(value);
+    const id = byIdentity.get(identity);
+    if (id === undefined) {
+      fresh.push(value);
+      continue;
+    }
+    seen.add(identity);
+    // The SAME answer, kept at the SAME id — which is the whole point.
+    await db
+      .update(catalogAuthoringDraftValues)
+      .set(draftValueColumns(value))
+      .where(eq(catalogAuthoringDraftValues.id, id));
+  }
+
+  const stale = existing
+    .filter((row) => !seen.has(draftVariantValueIdentity(row)))
+    .map((row) => row.id);
+  if (stale.length > 0) {
+    await db
+      .delete(catalogAuthoringDraftValues)
+      .where(inArray(catalogAuthoringDraftValues.id, stale));
+  }
+
+  if (fresh.length > 0) {
+    await db
+      .insert(catalogAuthoringDraftValues)
+      .values(fresh.map((value) => ({ draftId, ...value })));
+  }
 }
 
 /** Every value of several drafts at once — the list surface's one statement. */

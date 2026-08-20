@@ -75,7 +75,7 @@ vi.mock('../../../db/catalogAuthoring/draftRepository.js', () => ({
   replaceDraftVariants: vi.fn(),
   listDraftValues: (...args: unknown[]) => listDraftValues(...args),
   replaceProductScopeValues: vi.fn(),
-  insertVariantScopeValues: vi.fn(),
+  replaceVariantScopeValues: vi.fn(),
   listDraftValuesForDrafts: vi.fn(),
 }));
 
@@ -422,7 +422,7 @@ describe('applying an upgrade re-pins and rewrites NOTHING', () => {
   });
 
   it('touches no draft VALUE — the silent rewrite ADR 0007 D10 forbids', async () => {
-    const { replaceProductScopeValues, insertVariantScopeValues, replaceDraftVariants } =
+    const { replaceProductScopeValues, replaceVariantScopeValues, replaceDraftVariants } =
       await import('../../../db/catalogAuthoring/draftRepository.js');
 
     await applyDraftUpgrade(db, {
@@ -437,7 +437,7 @@ describe('applying an upgrade re-pins and rewrites NOTHING', () => {
     // `unknown_field` finding the author can see and clear. Deleting them here
     // would be the silent rewrite wearing a tidy-up's clothes.
     expect(replaceProductScopeValues).not.toHaveBeenCalled();
-    expect(insertVariantScopeValues).not.toHaveBeenCalled();
+    expect(replaceVariantScopeValues).not.toHaveBeenCalled();
     expect(replaceDraftVariants).not.toHaveBeenCalled();
   });
 

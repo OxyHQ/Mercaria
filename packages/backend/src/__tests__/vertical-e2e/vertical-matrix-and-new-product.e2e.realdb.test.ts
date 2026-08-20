@@ -272,7 +272,7 @@ describe('a variant signature ignores the order the axes were typed in', () => {
     ).toBe(before);
   });
 
-  it('REFUSES two draft variants that are one combination in two orders, by name', async () => {
+  it('REFUSES two draft variants that are one combination in two orders, by axis-set identity', async () => {
     const draft = await createDraft(db, {
       storeId,
       actorOxyUserId: footwear.actorOxyUserId,
@@ -315,13 +315,32 @@ describe('a variant signature ignores the order the axes were typed in', () => {
       raised = error;
     }
     expect(raised, 'the draft accepted one combination twice').toBeDefined();
-    // BY NAME — the draft's own partial unique on `(draft_id, axis_signature)`.
-    // "It threw" would be satisfied by a bad enum id or a price error.
+    // BY THE REFUSAL'S OWN WORDS, not merely "it threw" — which a bad enum id or
+    // a price error would satisfy just as well.
+    //
+    // ## What changed here, and why this assertion moved (#771)
+    //
+    // This asserted the constraint NAME,
+    // `catalog_authoring_draft_variants_signature_key`, and it was correct about
+    // the behaviour of its time: `replaceDraftVariants` deleted and re-inserted
+    // the whole matrix, so the duplicate was caught by the partial unique on
+    // `(draft_id, axis_signature)` refusing the second INSERT. The refusal was
+    // real but ACCIDENTAL — a side effect of the write shape rather than a
+    // decision.
+    //
+    // #771 replaced that write with a reconcile, which has no such accident:
+    // both duplicates resolve to one row and update it twice, keeping whichever
+    // arrived last. So the refusal is now taken deliberately and up front,
+    // before any statement runs, and it names the axis set rather than an index.
+    //
+    // The assertion follows the mechanism rather than being loosened to fit: it
+    // is still one exact sentence, and it still fails if the refusal becomes a
+    // generic throw.
     const cause = raised instanceof Error ? raised.cause : undefined;
     const detail = `${raised instanceof Error ? raised.message : String(raised)} ${
       cause instanceof Error ? cause.message : String(cause ?? '')
     }`;
-    expect(detail).toContain('catalog_authoring_draft_variants_signature_key');
+    expect(detail).toContain('same axis set');
 
     // Nothing was stored: `replaceDraftVariants` is one statement set inside the
     // patch's transaction, so a refusal leaves the draft's matrix untouched.
