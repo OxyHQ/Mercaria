@@ -79,6 +79,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # FULL history, for the content revert detector (#735) below. It asks
+          # whether a changed file's blob reproduces an EARLIER blob of that same
+          # file on the base branch, which needs that file's history; and its
+          # controls run against real commits (`8d55ddbe`, `ec05743c`,
+          # `78a0e78a`, `f9292ba2`). The default is `fetch-depth: 1`, under which
+          # every one of those is unreachable — and an unreachable fixture
+          # reports the same clean output as a run that examined everything and
+          # found nothing, which is the exact shape #735 exists to catch. Both
+          # scripts REFUSE rather than skip on a missing commit, so a regression
+          # here is loud rather than a silent green.
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -98,6 +110,38 @@ jobs:
       # hoisted, and every other step here passes while it does.
       - name: Guard against MongoDB returning
         run: bun run validate:no-mongo
+
+      # #735 — a stale-base branch that silently reverts merged work.
+      #
+      # `ec05743c` (PR #725) reverted the whole of #726 — 58 files including a
+      # build gate — and every check here passed, because the branch carried
+      # stale copies of BOTH the source and the pins that measure it: a pin is a
+      # tripwire only when one side of it moves.
+      #
+      # No ancestry check can see this and that is measured, not assumed: #725
+      # HAD #726 in its history and discarded the content while resolving the
+      # merge, so the "base must not be older than the last commit touching a
+      # file it modifies" check returns ZERO against it. Content can see it —
+      # a revert REPRODUCES a past state and new work does not.
+      #
+      # The controls run on every event because they are what would catch the
+      # next refuted mechanism; the detector itself needs a base branch to
+      # compare against, so it runs on pull requests only.
+      - name: Guard against a content revert (controls)
+        run: bun run validate:no-content-revert-controls
+
+      - name: Guard against a content revert (this pull request)
+        if: github.event_name == 'pull_request'
+        # Through `env` rather than interpolated into `run`. A branch name is
+        # attacker-influenced and a bare `${{ }}` inside a shell script is the
+        # shape of a workflow injection; this is the house pattern for all of
+        # them.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          REVERT_DETECTOR_BASE="origin/$BASE_REF" bun run validate:no-content-revert
 
       # AGENTS.md is loaded into EVERY agent session, so its size is paid on
       # every task forever. It reached 478 KB by accretion — ~100 lines of
