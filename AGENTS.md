@@ -89,18 +89,18 @@ no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
 - **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
   thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`
   needs exactly one `-- oxy:deploy-phase=pre` (additive) or `=post`
-  (drops/renames/narrows) marker; there is no default.
+  (drops/renames/narrows) marker; no default.
 - **`bun run build:shared-types` BEFORE `db:generate`, always.** drizzle-kit
   renders every closed-value-set CHECK from the BUILT `@mercaria/shared-types`,
-  so a stale `dist/` silently emits `DROP`/`ADD CONSTRAINT` pairs that narrow a
-  sibling branch's tuple back, in a diff that looks entirely plausible.
+  so a stale `dist/` silently emits `DROP`/`ADD CONSTRAINT` pairs narrowing a
+  sibling branch's tuple back, in a diff that looks plausible.
 - **Never hand-rename a migration, hand-edit `meta/_journal.json` or hand-write a
   snapshot**, and after any regeneration READ the file for statements you did not
-  intend — regeneration DROPS every hand-written trigger, function and backfill.
-- **Do not convert the `*.realdb.test.ts` suites to mocks.** A mocked
-  insert/update accepts a statement the server rejects outright; the CHECKs,
-  unique indexes, `requireTransaction` and `FOR UPDATE SKIP LOCKED` they exercise
-  have no mocked counterpart.
+  intend — regeneration DROPS every hand-written trigger, function, backfill and
+  the marker, pure DDL included; verify its count is 1.
+- **Do not convert `*.realdb.test.ts` suites to mocks.** A mocked insert/update
+  accepts a statement the server rejects; CHECKs, unique indexes,
+  `requireTransaction` and `FOR UPDATE SKIP LOCKED` have no mocked counterpart.
 - **The test database is SHARED across parallel files.** Scope every aggregate to
   ids your file owns, floor every count equality, never widen a global config
   bound, hold the advisory-lock mutex for the global active matching policy, and
