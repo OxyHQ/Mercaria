@@ -1,9 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AuthoringSchema } from "@mercaria/shared-types";
-import { Input, Label, Switch, Text } from "@mercaria/ui";
+import { Button, Input, Label, Switch, Text } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { useCanonicalVariants } from "@/lib/authoring/hooks";
+import { applyBarcodeToAll, applySkuPrefix, setAllSold } from "@/lib/authoring/bulk";
 import { ValuePicker, type PickerOption } from "./ValuePicker";
 import { findingMessageKey, findingsForVariant, type LocatedFinding } from "@/lib/authoring/findings";
 import {
@@ -61,6 +62,8 @@ export function VariantRows({
   disabled = false,
 }: VariantRowsProps) {
   const { t } = useTranslation();
+  const [skuPrefix, setSkuPrefix] = useState("");
+  const [bulkBarcode, setBulkBarcode] = useState("");
   const byKey = fieldsByKey(schema);
   const valueStrings = controlledValueStrings(schema);
   const duplicates = duplicateRowKeys(rows, byKey, valueStrings);
@@ -98,8 +101,88 @@ export function VariantRows({
     .filter((row) => row.enabled)
     .forEach((row, index) => positionByKey.set(row.key, index));
 
+  const soldCount = rows.filter((row) => row.enabled).length;
+
   return (
     <View className="gap-3">
+      {rows.length > 1 ? (
+        <View className="gap-3 rounded-2xl border border-border bg-surface p-4">
+          <Text className="text-sm font-semibold text-foreground">
+            {t("products.wizard.variants.bulkTitle")}
+          </Text>
+
+          <View className="flex-row flex-wrap items-end gap-3">
+            <View className="min-w-[10rem] flex-1 gap-1.5">
+              <Label>{t("products.wizard.variants.bulkSkuPrefix")}</Label>
+              <Input
+                value={skuPrefix}
+                onChangeText={setSkuPrefix}
+                accessibilityLabel={t("products.wizard.variants.bulkSkuPrefix")}
+                editable={!disabled}
+              />
+            </View>
+            <Button
+              variant="outline"
+              disabled={disabled || soldCount === 0}
+              onPress={() => onChange(applySkuPrefix(rows, skuPrefix))}
+            >
+              <Text className="text-sm font-medium text-foreground">
+                {t("products.wizard.variants.bulkSkuApply")}
+              </Text>
+            </Button>
+          </View>
+          {/* Says what the control DOES rather than only naming it: a merchant
+              pressing an unexplained "apply" on a SKU box would reasonably
+              expect the same code everywhere, which is the thing it must not
+              do. */}
+          <Text className="text-xs text-muted-foreground">
+            {t("products.wizard.variants.bulkSkuHelp")}
+          </Text>
+
+          <View className="flex-row flex-wrap items-end gap-3">
+            <View className="min-w-[10rem] flex-1 gap-1.5">
+              <Label>{t("products.wizard.variants.barcode")}</Label>
+              <Input
+                value={bulkBarcode}
+                onChangeText={setBulkBarcode}
+                accessibilityLabel={t("products.wizard.variants.barcode")}
+                editable={!disabled}
+              />
+            </View>
+            <Button
+              variant="outline"
+              disabled={disabled || soldCount === 0}
+              onPress={() => onChange(applyBarcodeToAll(rows, bulkBarcode))}
+            >
+              <Text className="text-sm font-medium text-foreground">
+                {t("products.wizard.variants.bulkBarcodeApply")}
+              </Text>
+            </Button>
+          </View>
+
+          <View className="flex-row flex-wrap gap-3">
+            <Button
+              variant="outline"
+              disabled={disabled}
+              onPress={() => onChange(setAllSold(rows, true))}
+            >
+              <Text className="text-sm font-medium text-foreground">
+                {t("products.wizard.variants.markAllSold")}
+              </Text>
+            </Button>
+            <Button
+              variant="outline"
+              disabled={disabled}
+              onPress={() => onChange(setAllSold(rows, false))}
+            >
+              <Text className="text-sm font-medium text-foreground">
+                {t("products.wizard.variants.markNoneSold")}
+              </Text>
+            </Button>
+          </View>
+        </View>
+      ) : null}
+
       {rows.map((row) => {
         const position = positionByKey.get(row.key) ?? null;
         const rowFindings = position === null ? [] : findingsForVariant(findings, position);
