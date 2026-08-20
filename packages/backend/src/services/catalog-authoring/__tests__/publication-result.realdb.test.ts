@@ -45,6 +45,10 @@ import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { findCategoryByKey } from '../../../db/taxonomy/taxonomyRepository.js';
 import { createDraft, patchDraft, validateStoreDraft } from '../draft.service.js';
 import { publishDraft, type DraftPublication } from '../publish.service.js';
+import {
+  countQueuedClaims,
+  recordVariantAttributeClaim,
+} from '../../../db/variantAxes/attributeClaimRepository.js';
 import { nsCategoryKey, nsKey, type VerticalNamespace } from '../../../scripts/seed-verticals/apply.js';
 import { SMARTPHONE_PACKAGE } from '../../../scripts/seed-verticals/smartphone.js';
 import {
@@ -312,20 +316,68 @@ describe('a publication result reports the whole publication', () => {
     expect(publication.listingClaimCount, 'the listing recorded no claims').toBeGreaterThan(0);
   });
 
+  /**
+   * The scope is load-bearing, and it needed a POSITIVE CONTROL to be provable.
+   *
+   * Measured first without one: dropping `{ listingIds: [listingId] }` from
+   * `countQueuedClaims` left this file GREEN, because the authoring path writes
+   * its claims already resolved and nothing else in the database had a queued
+   * one — so the scoped and the unscoped count were both zero and the assertion
+   * could not tell them apart. A check whose subject does not exist measures
+   * nothing however carefully it is written.
+   *
+   * So this seeds a queued claim on ANOTHER listing this run owns, proves it
+   * landed by reading the UNSCOPED count, and then re-derives the first
+   * listing's result. Scoped it is zero; unscoped it could not be.
+   */
   it('reports the queued-claim backlog for THIS listing, not the deployment', async () => {
     const { publication } = publicationOf(published.result);
-    const [row] = await db.execute<{ queued: string }>(sql`
+    const [before] = await db.execute<{ queued: string }>(sql`
       select count(*) as queued
         from native_variant_attribute_claims c
         join product_variants pv on pv.id = c.variant_id
        where pv.listing_id = ${publication.listingId}
          and (c.attribute_resolution <> 'resolved' or c.value_resolution <> 'resolved')
     `);
-    // Zero today — the authoring path writes claims already resolved — and the
-    // point is that it is MEASURED. An unscoped count would report the whole
-    // deployment's backlog against this listing, which on a shared test database
-    // is reliably non-zero.
-    expect(publication.review.queuedAttributeClaimCount).toBe(Number(row?.queued));
+    expect(publication.review.queuedAttributeClaimCount).toBe(Number(before?.queued));
+
+    const neighbour = await publishTwoVariantListing(null);
+    const neighbourListingId = publicationOf(neighbour.result).listingId;
+    const [neighbourVariant] = await db.execute<{ id: string }>(sql`
+      select id from product_variants where listing_id = ${neighbourListingId} order by position limit 1
+    `);
+    if (neighbourVariant === undefined) throw new Error('the neighbour listing has no variant');
+
+    // `legacy_option_migration` and the DEFAULT resolutions, which are
+    // `unresolved` on both halves — the shape the #367 backfill writes and the
+    // one that actually populates the review queue. Not `connector_import`:
+    // `native_variant_attribute_claims_connector_provenance_check` requires a
+    // `source_connection_id` beside it, and this run has no connection. (Found
+    // by the server refusing the first attempt, which is the reason this file
+    // runs against one.)
+    await recordVariantAttributeClaim(db, {
+      variantId: neighbourVariant.id,
+      rawName: `${TOKEN}-unresolved-axis`,
+      rawValue: 'a value nobody has resolved',
+      provenance: 'legacy_option_migration',
+      assertedAt: new Date(),
+    });
+
+    const global = await countQueuedClaims(db);
+    expect(global.queued, 'the seeded queued claim did not land').toBeGreaterThan(0);
+
+    // Re-derived AFTER the seed, through a convergence — so it is composed
+    // against a database whose global backlog is now non-zero.
+    const converged = publicationOf(
+      await publishDraft(db, {
+        storeId,
+        draftId: published.draftId,
+        actorOxyUserId: phones.actorOxyUserId,
+        permissions: E2E_PERMISSIONS,
+        idempotencyKey: null,
+      }),
+    );
+    expect(converged.publication.review.queuedAttributeClaimCount).toBe(0);
   });
 
   it('reports the proposals still open against the draft', async () => {
