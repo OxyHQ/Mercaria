@@ -168,7 +168,7 @@ carries `blockedReason` — only `runResolutionPhase` returns a type that does, 
 a new blocking phase is a `tsc` error until somebody has taught the predicate
 how its condition clears.
 
-### Conflicts: six kinds, each naming a real constraint
+### Conflicts: what belongs here, and the test that decides
 
 | Kind | The constraint it probes |
 |---|---|
@@ -178,9 +178,35 @@ how its condition clears.
 | `relationship_endpoint` | `commerce_relationships_open_claim_key`, `..._verified_brand_owner_key` |
 | `active_offer` | `offers_active_commercial_key` |
 | `verified_claim` | `merchant_claims`' `(merchant_id) WHERE state='verified'` |
+| `entity_suppressed` | **none** — see the amended test below (#694) |
 
-A "conflict" with no constraint behind it is a warning, and warnings do not
-block — that is the membership test for this list.
+**The membership test used to be "does it name a real constraint", and #694
+amended it.** That test was written to exclude WARNINGS — a thing that merely
+looks worrying must not park a job — and naming a constraint was the available
+proxy for "the database would refuse this anyway, so somebody must decide".
+
+`entity_suppressed` is the case where the proxy and the property come apart. It
+names **no constraint**: nothing in this schema refuses a merge of a suppressed
+entity, and that absence *is* the bug it exists for. But it is not a warning
+either — proceeding **destroys a decision a person made**, silently, which is
+precisely what the test was protecting against.
+
+**So the amended test is: does proceeding destroy something somebody decided?**
+Not: does a CHECK already refuse it.
+
+The alternative was considered and rejected. A trigger refusing the tombstone
+stamp *would* have given the kind a constraint to name — and it is worse: it
+raises MID-MERGE, aborting the phase transaction, so the job **fails and
+retries on the backoff ladder** instead of parking with a reason. A blocked job
+an operator can read beats a raised constraint the dispatcher has to interpret.
+
+`entity_suppressed` is also the first kind that is **type-independent**. The
+other nine probe a constraint belonging to one entity kind; a suppression can
+stand over any of the seven, so its detector is stated ONCE in
+`detectMergeConflicts` rather than repeated through the per-entity switch —
+seven identical lines would be seven chances to omit one, and an omission is
+silent, because a merge with no conflict recorded looks exactly like a merge
+with nothing to conflict about.
 
 **A SLUG collision is deliberately absent.** Slugs are unique forever and a
 tombstone keeps its own (ADR 0002 D12), so a merge never contends for one:

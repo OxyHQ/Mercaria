@@ -554,6 +554,18 @@ export const catalogMergeConflicts = pgTable(
      * conflict row should be able to BLOCK a delete rather than vanish with what
      * it explains.
      */
+    /**
+     * The OPEN suppression a merge would destroy (#694).
+     *
+     * Neither a pair nor a collapse: it names no catalogue row at all, only the
+     * decision standing over one. `restrict` like every other conflict
+     * reference — a conflict naming a suppression that vanished is a dangling
+     * pointer, and it should block the delete rather than disappear with the
+     * thing it explains.
+     */
+    suppressionId: text().references(() => catalogEntitySuppressions.id, {
+      onDelete: 'restrict',
+    }),
     collapsingRelationId: text().references(() => genericCompatibilityRelations.id, {
       onDelete: 'restrict',
     }),
@@ -713,6 +725,12 @@ export const catalogMergeConflicts = pgTable(
               and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
               and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
               and ${t.loserClaimId} is null and ${t.winnerClaimId} is null
+            when 'entity_suppressed' then
+              ${t.loserIdentifierId} is null and ${t.winnerIdentifierId} is null
+              and ${t.loserVariantId} is null and ${t.winnerVariantId} is null
+              and ${t.loserRelationshipId} is null and ${t.winnerRelationshipId} is null
+              and ${t.loserOfferId} is null and ${t.winnerOfferId} is null
+              and ${t.loserClaimId} is null and ${t.winnerClaimId} is null
             else false
           end`,
     ),
@@ -818,6 +836,31 @@ export const catalogMergeConflicts = pgTable(
       sql`${t.collapsingBundleVariantId} is null
           or ${t.collapsingComponentVariantId} is null
           or ${t.collapsingBundleVariantId} <> ${t.collapsingComponentVariantId}`,
+    ),
+    /**
+     * The suppression reference is present on EXACTLY this kind (#694).
+     *
+     * A biconditional rather than a clause repeated through eleven branches of
+     * the two shape CHECKs, for the reason the collapse one gives about itself:
+     * the repeated form has to be remembered once per branch, and the direction
+     * it fails in is silent — a pair conflict carrying a suppression id would
+     * resolve as a pair and leave the suppression standing, which is the state
+     * this kind exists to refuse.
+     */
+    check(
+      'catalog_merge_conflicts_suppression_shape_check',
+      sql`(${t.kind} = 'entity_suppressed') = (${t.suppressionId} is not null)`,
+    ),
+    /**
+     * `suppression_cleared` resolves this kind and no other — the
+     * `drop_component` tie one domain over, and for the same reason: it RECORDS
+     * that an operator already acted somewhere else, so offering it for a kind
+     * whose act never happened would record a lie.
+     */
+    check(
+      'catalog_merge_conflicts_suppression_resolution_kind_check',
+      sql`${t.resolution} is distinct from 'suppression_cleared'
+          or ${t.kind} = 'entity_suppressed'`,
     ),
     check(
       'catalog_merge_conflicts_drop_component_kind_check',

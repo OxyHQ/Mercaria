@@ -62,7 +62,10 @@ import {
   resolveConflict,
   unblockMergeJob,
 } from '../../db/curation/jobRepository.js';
-import { bundleComponentStillExists } from '../../db/curation/conflictRepository.js';
+import {
+  bundleComponentStillExists,
+  suppressionStillOpen,
+} from '../../db/curation/conflictRepository.js';
 import { applyRehomeTarget } from '../../db/curation/rehomeRepository.js';
 import { stampPriceAlertRehoming } from '../../db/priceAlerts/priceAlertRepository.js';
 import { requestPriceAlertEvaluationForProduct } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
@@ -352,6 +355,31 @@ export async function resolveMergeConflict(
       `Bundle ${row.collapsingBundleVariantId} still lists ${row.collapsingComponentVariantId} ` +
         'as a component. Remove it from the bundle in the catalogue first: this merge makes the ' +
         'two one variant, and a bundle cannot contain itself.',
+    );
+  }
+
+  /**
+   * The same refusal, one domain over (#694).
+   *
+   * `suppression_cleared` says an operator has ALREADY lifted the suppression,
+   * or already suppressed the other side, in the suppression domain where that
+   * act belongs — curation neither lifts nor suppresses. Checking it HERE
+   * rather than when the resolution is applied is what keeps the job out of a
+   * state nothing can lift: accept a decision whose act has not happened and
+   * the job unblocks, re-blocks in the resolution phase with every conflict
+   * already resolved, and only #663's sweep saves it — by refusing to resume a
+   * job whose condition still holds, which leaves it parked on a decision an
+   * operator believes they already made.
+   */
+  if (
+    input.resolution === 'suppression_cleared' &&
+    row.suppressionId &&
+    (await suppressionStillOpen(row.suppressionId, db))
+  ) {
+    throw conflict(
+      `Suppression ${row.suppressionId} is still open. Lift it if it no longer applies, or ` +
+        'suppress the other side of this merge deliberately — either act belongs to the ' +
+        'suppression surface, and this decision only records that one of them has happened.',
     );
   }
 

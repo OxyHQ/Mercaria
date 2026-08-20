@@ -679,7 +679,8 @@ export type CatalogMergeConflictKind =
   | 'verified_claim'
   | 'compatibility_endpoint_collapse'
   | 'redirect_endpoint_collapse'
-  | 'bundle_self_containment';
+  | 'bundle_self_containment'
+  | 'entity_suppressed';
 
 export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'identifier',
@@ -691,6 +692,7 @@ export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] =
   'compatibility_endpoint_collapse',
   'redirect_endpoint_collapse',
   'bundle_self_containment',
+  'entity_suppressed',
 ];
 
 /**
@@ -705,6 +707,13 @@ export const CATALOG_MERGE_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] =
  * the same option assignments would silently strand the loser's offers on a row
  * nothing links to. It opens a CHILD merge job for the two variants, which the
  * parent's `children` phase waits on.
+ *
+ * `suppression_cleared` is `drop_component`'s device one domain over (#694): it
+ * does not mean "proceed anyway", it means an operator has ALREADY lifted the
+ * suppression, or already suppressed the other side, in the suppression domain
+ * where that act belongs. `resolveMergeConflict` refuses to record it while an
+ * open suppression still stands on either side, so a decision whose act has not
+ * happened can never unblock the job.
  *
  * `close_relation` and `retain_history` are the COLLAPSE resolutions, and reusing
  * `keep_winner` for it was refused deliberately. That word is defined two lines
@@ -722,7 +731,8 @@ export type CatalogMergeConflictResolution =
   | 'merge_pair'
   | 'close_relation'
   | 'retain_history'
-  | 'drop_component';
+  | 'drop_component'
+  | 'suppression_cleared';
 
 export const CATALOG_MERGE_CONFLICT_RESOLUTIONS: readonly CatalogMergeConflictResolution[] = [
   'keep_winner',
@@ -731,6 +741,7 @@ export const CATALOG_MERGE_CONFLICT_RESOLUTIONS: readonly CatalogMergeConflictRe
   'close_relation',
   'retain_history',
   'drop_component',
+  'suppression_cleared',
 ];
 
 /** The conflict kinds `merge_pair` is a legal resolution for. */
@@ -797,6 +808,33 @@ export const CATALOG_MERGE_RETAIN_HISTORY_CONFLICT_KINDS: readonly CatalogMergeC
  */
 export const CATALOG_MERGE_DROP_COMPONENT_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
   'bundle_self_containment',
+];
+
+/**
+ * `entity_suppressed` is the FIRST kind that names no database constraint, and
+ * the first that applies to EVERY mergeable entity type (#694).
+ *
+ * `docs/curation.md` used to test membership here by asking whether a kind names
+ * a real constraint — "a conflict with no constraint behind it is a warning, and
+ * warnings do not block". Nothing in this schema refuses a merge of a suppressed
+ * entity; that absence IS the bug. The rule was written to exclude WARNINGS, and
+ * a suppression is not one: proceeding destroys a decision a person made, which
+ * is the property the constraint test was a proxy for. **The amended test is
+ * whether proceeding destroys something somebody decided.** The doc carries the
+ * amendment and names this case.
+ *
+ * A trigger refusing the tombstone stamp was considered — it would have given
+ * this kind a constraint to name — and rejected: it raises MID-MERGE, aborting
+ * the phase transaction, so the job FAILS and retries on the backoff ladder
+ * instead of parking with a reason. A blocked job an operator can read beats a
+ * raised constraint the dispatcher has to interpret.
+ *
+ * It is neither a PAIR kind nor a COLLAPSE kind — a third shape, naming one
+ * suppression row and no catalogue row at all, which is why it carries its own
+ * biconditional rather than a branch in either shape CHECK.
+ */
+export const CATALOG_MERGE_SUPPRESSION_CONFLICT_KINDS: readonly CatalogMergeConflictKind[] = [
+  'entity_suppressed',
 ];
 
 // ── Split jobs ─────────────────────────────────────────────────────────────

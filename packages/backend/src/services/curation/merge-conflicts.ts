@@ -35,6 +35,7 @@ import {
   detectIdentifierConflicts,
   detectRedirectEndpointCollapse,
   detectRelationshipEndpointConflicts,
+  detectEntitySuppressionConflicts,
   detectVariantSignatureConflicts,
   detectVerifiedBrandOwnerConflicts,
   detectVerifiedClaimConflicts,
@@ -71,6 +72,34 @@ export async function detectMergeConflicts(
   loserId: string,
   winnerId: string,
   db: DatabaseOrTransaction = getDb(),
+): Promise<readonly DetectedConflict[]> {
+  return [
+    ...(await detectTypeSpecificConflicts(entityType, loserId, winnerId, db)),
+    /**
+     * The TYPE-INDEPENDENT probe, listed here rather than repeated seven times
+     * inside the table below (#694).
+     *
+     * Every other detector exists for a constraint that belongs to one entity
+     * kind. A suppression can stand over any of the seven, so writing it into
+     * each branch would be seven identical lines and seven chances to omit one —
+     * and an omission is silent, because a merge with no conflict recorded looks
+     * exactly like a merge with nothing to conflict about. Stated ONCE and
+     * unconditionally, it cannot be missing for an entity type.
+     *
+     * The table below therefore answers "which constraint does a storefront
+     * merge probe"; this line answers "what does EVERY merge probe". A second
+     * type-independent detector belongs here beside it.
+     */
+    ...(await detectEntitySuppressionConflicts(entityType, loserId, winnerId, db)),
+  ];
+}
+
+/** The per-entity table — one place to read what each kind probes. */
+async function detectTypeSpecificConflicts(
+  entityType: MergeableEntityType,
+  loserId: string,
+  winnerId: string,
+  db: DatabaseOrTransaction,
 ): Promise<readonly DetectedConflict[]> {
   switch (entityType) {
     case 'organization':
@@ -195,6 +224,8 @@ function conflictColumns(jobId: string, detected: DetectedConflict): InsertConfl
       return detected.table === 'canonical_product_redirects'
         ? { ...base, collapsingProductRedirectId: detected.collapsingRowId }
         : { ...base, collapsingFamilyRedirectId: detected.collapsingRowId };
+    case 'entity_suppressed':
+      return { ...base, suppressionId: detected.suppressionId };
     case 'bundle_self_containment':
       return {
         ...base,
@@ -397,6 +428,15 @@ export async function applyConflictResolution(
       // curation free of the one delete `curation-isolation.test.ts` forbids,
       // and keeps the job out of a `blocked` state nothing can lift, since a job
       // leaves `blocked` only when a resolution is ACCEPTED.
+      return;
+    case 'entity_suppressed':
+      // NOTHING, and the same shape again (#694). The act — lifting the
+      // suppression, or suppressing the other side — belongs to the suppression
+      // domain and has ALREADY happened by the time a resolution exists:
+      // `resolveMergeConflict` refuses `suppression_cleared` while the row is
+      // still open. So an accepted decision is a statement about a change
+      // somebody already made, curation neither lifts nor suppresses anything,
+      // and the job cannot unblock into a state nothing can lift.
       return;
   }
 }

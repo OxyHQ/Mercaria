@@ -2685,7 +2685,7 @@ describe('#694: a merge refuses a suppressed entity on either side', () => {
    * exactly when a merge is most likely to be pending. This asserts the damage
    * precisely so that the follow-up which closes it has something to turn red.
    */
-  it('DOCUMENTS the residual gap: suppressing after the request still lifts it', async () => {
+  it('CLOSES the residual gap: suppressing after the request now blocks the job', async () => {
     const loser = await seedProduct('694-gap-loser');
     const winner = await seedProduct('694-gap-winner');
     const job = await requestMerge({
@@ -2700,13 +2700,27 @@ describe('#694: a merge refuses a suppressed entity on either side', () => {
     await suppress(loser.productId, 'reported while the merge was pending');
     expect(await statusOfProduct(loser.productId)).toBe('suppressed');
 
-    expect((await claimAndRunMerge(job.id, `lease-694gap-${RUN}`)).completed).toBe(true);
+    /**
+     * Part one shipped this case asserting the DAMAGE — the loser stamped
+     * `merged`, the winner `active`, the suppression still open — precisely so
+     * part two would have something to turn. It now blocks instead, and the
+     * three facts that constituted the bug are asserted in their repaired form.
+     */
+    const run = await claimAndRunMerge(job.id, `lease-694gap-${RUN}`);
+    expect(run.completed).toBe(false);
+    expect(run.blocked).toBe(true);
 
-    // The three facts that together ARE the bug:
-    // the enforcement is gone, the winner is reachable, and the record still
-    // claims to cover something.
-    expect(await statusOfProduct(loser.productId)).toBe('merged');
+    // The enforcement is INTACT: nothing was stamped, nothing was rehomed.
+    expect(await statusOfProduct(loser.productId)).toBe('suppressed');
     expect(await statusOfProduct(winner.productId)).toBe('active');
+
+    const conflicts = await db
+      .select()
+      .from(catalogMergeConflicts)
+      .where(eq(catalogMergeConflicts.jobId, job.id));
+    expect(conflicts.map((row) => row.kind)).toEqual(['entity_suppressed']);
+    // It names the suppression it is about, and says which SIDE — the two harms
+    // are opposite and an operator has to know which one they are reading.
     const open = await db
       .select({ id: catalogEntitySuppressions.id, liftedAt: catalogEntitySuppressions.liftedAt })
       .from(catalogEntitySuppressions)
@@ -2718,5 +2732,43 @@ describe('#694: a merge refuses a suppressed entity on either side', () => {
       );
     expect(open).toHaveLength(1);
     expect(open[0]?.liftedAt).toBeNull();
+    expect(conflicts[0]?.suppressionId).toBe(open[0]?.id);
+    expect(conflicts[0]?.detail).toMatch(/losing/i);
+    expect(conflicts[0]?.detail).toMatch(/LIFT/);
+
+    const conflictId = conflicts[0]?.id;
+    if (!conflictId) throw new Error('no suppression conflict recorded');
+
+    // The decision is REFUSED while the act it claims has not happened.
+    await expect(
+      resolveMergeConflict({
+        conflictId,
+        resolution: 'suppression_cleared',
+        reason: 'I will get to it',
+        actorOxyUserId: OPERATOR,
+      }),
+    ).rejects.toThrow(/still open/i);
+
+    // The operator acts in the domain the act belongs to...
+    await liftEntitySuppression({
+      entityType: 'canonical_product',
+      entityId: loser.productId,
+      reason: 'investigation closed; the duplicate stands',
+      actorOxyUserId: SECOND_OPERATOR,
+    });
+
+    // ...and only then may the decision be recorded.
+    await resolveMergeConflict({
+      conflictId,
+      resolution: 'suppression_cleared',
+      reason: 'lifted; the merge may proceed',
+      actorOxyUserId: OPERATOR,
+    });
+
+    // #663's sweep is what returns it to the queue, and the two fixes compose:
+    // the job parked on a real condition and resumes when that condition clears.
+    await resumeBlockedMergeJobs(50);
+    expect((await claimAndRunMerge(job.id, `lease-694gap2-${RUN}`)).completed).toBe(true);
+    expect(await statusOfProduct(loser.productId)).toBe('merged');
   });
 });
