@@ -199,6 +199,17 @@ afterAll(async () => {
  * that scopes the observation — nothing else in the database contends for this
  * fixture's row, whose id is minted per run.
  *
+ * ONE HOP is enough HERE and is not enough in general, which is worth stating
+ * because `connector-pin-release.realdb.test.ts` measured the other half and a
+ * reader who knows that file will ask. Row-lock waiters CHAIN — the second
+ * queues behind the FIRST WAITER rather than behind the holder — so a one-hop
+ * containment count reports the head of the queue however many are lined up.
+ * Re-measured for this file: holder plus two waiters gives one hop = 1 and the
+ * recursive form = 2. This wait asks `> 0` and the head of the queue is always
+ * blocked by the holder directly, and only one session ever contends for this
+ * fixture's row anyway. A barrier that must see TWO waiters needs
+ * `connector-pin-release`'s recursive CTE; do not copy this shape into one.
+ *
  * `passSettled` is what separates the two failures the old unscoped wait
  * collapsed onto one red. A pass cannot finish while it is blocked, so a settled
  * pass is proof the race never happened; a deadline reached with the pass still
