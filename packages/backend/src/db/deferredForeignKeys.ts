@@ -197,6 +197,34 @@ const ANALYTICS_CORRELATION =
   'must neither block a commerce delete nor cascade into one.';
 
 /**
+ * The reasons above that describe a MERCARIA ROW — the population #695's census
+ * derives from.
+ *
+ * The distinction is what a column's target IS, not why it carries no
+ * constraint. `OXY_ACCOUNT`, `OXY_FILE`, `EXTERNAL_PLATFORM`, `PROVIDER_OBJECT`
+ * and `SUPPLIER_PLATFORM` name a FOREIGN key space: those ids belong to another
+ * system, so no merge in this database can ever act on one and a decision about
+ * them would be a sentence with nothing behind it. The six below name a row in
+ * THIS database, so each one can be a mergeable catalogue entity — and #695 is
+ * the observation that nothing forces anybody to say whether it is.
+ *
+ * Exported as a tuple rather than left as six module-private strings because
+ * `bare-entity-census.test.ts` derives its population from it: an entry whose
+ * reason is one of these must carry a merge disposition. A SEVENTH reason
+ * describing a Mercaria row belongs here in the same edit that introduces it —
+ * the census cannot see one that is not listed, and that limit is stated in its
+ * own docblock rather than left for a reader to discover.
+ */
+export const MERCARIA_ROW_ID_REASONS: readonly string[] = [
+  MERGEABLE_AUTHORING_SELECTION,
+  COMMERCE_SNAPSHOT,
+  CURATION_ENTITY,
+  AUDIT_CORRELATION,
+  PROCUREMENT_CORRELATION,
+  ANALYTICS_CORRELATION,
+];
+
+/**
  * `*_id` columns that will NEVER carry a constraint, named `table.column` by
  * their SQL names (never the TypeScript property — an `endsWith('_id')` test
  * against `sellerId` matches nothing and passes vacuously).

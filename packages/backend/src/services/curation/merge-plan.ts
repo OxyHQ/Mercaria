@@ -2143,3 +2143,396 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: '`external_type`/`external_id` are the SOURCE’s, as in `catalog_source_objects`.',
   },
 ];
+
+/**
+ * THE BARE-REFERENCE CENSUS — #695's half, and the third door into #59 merge
+ * invariant 2.
+ *
+ * `merge-plan-census.test.ts` derives its population from drizzle FOREIGN KEYS.
+ * `POLYMORPHIC_ENTITY_REFERENCES` derives its population from drizzle
+ * `enumValues`. A column that is a mergeable entity id **by convention alone**
+ * — no foreign key to walk and no discriminator whose vocabulary a census can
+ * key on — is in neither population, cannot fail either build, and never will.
+ *
+ * ## What the measurement found, and why it is not one column
+ *
+ * #695 had a single confirmed instance and said outright that counting them was
+ * the hard part. Measured against the schema at `4bff6ef3`, the population is
+ * THIRTY-ONE columns across twenty tables, and it arrives through four distinct
+ * doors rather than one:
+ *
+ *  1. **An `_id` column with a deliberate no-FK decision.** The largest group.
+ *     Every one is already in `ID_COLUMNS_WITHOUT_FOREIGN_KEY` with a written
+ *     reason, so somebody decided the CONSTRAINT question — and nobody was ever
+ *     asked the MERGE question, which is a different one.
+ *  2. **A discriminator that spells the same entity differently.**
+ *     `attribute_value_reviews.entity_id` and
+ *     `attribute_reindex_requests.entity_id` are polymorphic over a canonical
+ *     product and a canonical variant, discriminated by `entity_kind` — whose
+ *     tuple is `['product', 'variant']`. Neither value is in
+ *     `MERGEABLE_ENTITY_TYPES`, so the polymorphic census cannot see them. This
+ *     is the door worth remembering: the table HAS a discriminator sitting
+ *     right there, which is exactly what makes the gap read as coverage.
+ *  3. **A column whose name does not end in `_id`.**
+ *     `catalog_proposal_duplicate_candidates.candidate_ref` is polymorphic over
+ *     eight entity kinds, half of them mergeable. It is in the id-column ledger
+ *     only because somebody added it VOLUNTARILY — `findIdColumnViolations`
+ *     keys on an `_id` suffix, so deleting that entry would produce no
+ *     violation at all.
+ *  4. **An ARRAY of entity ids.** Postgres has no per-element foreign key, so
+ *     these are structurally incapable of entering the FK census; and the
+ *     plural `_ids` spelling means the id-column ledger never demanded an entry
+ *     either, so three of them are in no register anywhere.
+ *     `shopping_agents.excluded_merchant_ids` carries the schema comment "No FK
+ *     — a merge repoints, a delete cannot", and nothing repoints it.
+ *
+ * ## Why this is a census and not a foreign key
+ *
+ * The tempting fix is upstream: give the column a real `.references(...)` and
+ * let the FK census take it. Measured, that is unavailable for all thirty-one.
+ * The array columns cannot carry one at all. The polymorphic ones span eight
+ * tables. And every remaining entry is a SNAPSHOT, a telemetry correlation, a
+ * provenance stamp or a keyset cursor whose ledger reason states that each
+ * `ON DELETE` a key could declare breaks the property the column exists for —
+ * `MERGEABLE_AUTHORING_SELECTION` says it for ADR 0007 D10 in as many words.
+ * Adding a discriminator instead does not help either, which is door 2's whole
+ * point.
+ *
+ * ## So the POPULATION is derived and only the DISPOSITION is declared
+ *
+ * The derivation is `MERCARIA_ROW_ID_REASONS`: every `ID_COLUMNS_WITHOUT_
+ * FOREIGN_KEY` entry whose reason names a row in THIS database. That set is
+ * itself kept complete by an existing gate — `findIdColumnViolations` refuses
+ * any unclassified `_id` column — so a new bare `canonical_product_id` cannot
+ * be added without a ledger entry, and a ledger entry under one of those six
+ * reasons cannot be added without an entry here. Two derived gates in a chain,
+ * and the decision lands on the person adding the reference.
+ *
+ * **The limit, stated rather than left to be discovered:** doors 2, 3 and 4 are
+ * DECLARED here and are NOT add-gated, because no derivation reaches them —
+ * that is #695's finding, not an omission this file repairs. A new array of
+ * merchant ids will not fail the build. `bare-entity-census.test.ts` pins the
+ * six entries covering those doors so they cannot be quietly dropped, and the
+ * residual is recorded in the issue rather than in a gate that cannot fire.
+ */
+export type BareEntityReferenceDisposition =
+  /**
+   * The target is a real row in this database and is NOT one of the seven
+   * mergeable entities — a listing, a native `product_variants` row, a
+   * discount, a location, an order, an offer, a procurement offer, a category,
+   * a store, a guest session, a cart. Distinct from an absent entry on purpose:
+   * this says somebody read the column and checked what it points at.
+   */
+  | 'not_a_mergeable_entity'
+  /**
+   * The column's table is declared in `POLYMORPHIC_ENTITY_REFERENCES`, which
+   * owns the decision. Recorded rather than omitted so the pairing is visible
+   * from either gate — the `discriminates_foreign_keys` device, one census over.
+   */
+  | 'covered_by_polymorphic_census'
+  /** A real bare reference to a mergeable entity that a merge deliberately does not move. */
+  | 'untouched'
+  /** A real bare reference to a mergeable entity that a merge rehomes. */
+  | 'rehomed'
+  /**
+   * A real bare reference to a mergeable entity that NOTHING moves and whose
+   * correct disposition has not been decided.
+   *
+   * Deliberately not spelled `untouched`: that word claims a decision, and
+   * claiming one nobody made is how this whole class of gap was created. Every
+   * entry naming it is a LIVE pointer rather than a snapshot, so a merge leaves
+   * it addressing a tombstone and the behaviour it drives silently stops.
+   */
+  | 'unresolved';
+
+export interface BareEntityReference {
+  /** `table.column`, both POSTGRES names — never the TypeScript property. */
+  readonly column: string;
+  readonly disposition: BareEntityReferenceDisposition;
+  /**
+   * The mergeable entities the column can name. Required for `untouched`,
+   * `rehomed` and `unresolved`, and forbidden for the other two — an entry
+   * claiming a merge leaves a reference alone has to say WHICH entity, or it is
+   * a sentence rather than a decision.
+   */
+  readonly targetEntities?: readonly MergeableEntityType[];
+  readonly reason: string;
+}
+
+/** The snapshot reason, written once: these repeat across four domains. */
+const SNAPSHOT_UNTOUCHED =
+  'A frozen commerce snapshot. The row records what was bought or quoted at an instant, and ' +
+  'rehoming it would rewrite a purchase to name a product the buyer never saw. The tombstone ' +
+  'resolves the pointer for anybody who follows it.';
+
+/** The telemetry reason, written once: these repeat across `analytics_*`. */
+const TELEMETRY_UNTOUCHED =
+  'A telemetry observation. Rehoming would move one entity’s measured history onto another and ' +
+  'silently restate every rollup already computed from it; the observation is a fact about what ' +
+  'a person saw, which a later merge does not change.';
+
+/** The not-mergeable reason, written once: these repeat across every domain. */
+const TARGET_NOT_MERGEABLE =
+  'Read against the schema: the target is a real row in this database and is not one of the ' +
+  'seven mergeable entities, so no merge can act on it and there is nothing for a rehoming ' +
+  'plan to cover.';
+
+/** The polymorphic-census hand-off, written once. */
+const OWNED_BY_POLYMORPHIC_CENSUS =
+  'The table is declared in `POLYMORPHIC_ENTITY_REFERENCES`, which derives its population from ' +
+  'this column’s own discriminator and carries the merge decision. Recorded here so the pairing ' +
+  'is visible from either gate rather than looking like an omission in both.';
+
+/**
+ * Every bare reference, and what a merge does with it.
+ *
+ * Ordered by column so a diff that adds one lands next to its neighbours.
+ */
+export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
+  // ── Telemetry (#77) ───────────────────────────────────────────────────────
+  {
+    column: 'analytics_events.canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason: TELEMETRY_UNTOUCHED,
+  },
+  {
+    column: 'analytics_events.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: TELEMETRY_UNTOUCHED,
+  },
+  {
+    column: 'analytics_events.merchant_id',
+    disposition: 'untouched',
+    targetEntities: ['merchant'],
+    reason: TELEMETRY_UNTOUCHED,
+  },
+  {
+    column: 'analytics_events.storefront_id',
+    disposition: 'untouched',
+    targetEntities: ['storefront'],
+    reason: TELEMETRY_UNTOUCHED,
+  },
+  { column: 'analytics_events.listing_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'analytics_events.offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'analytics_events.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'analytics_events.product_variant_id',
+    disposition: 'not_a_mergeable_entity',
+    reason:
+      'A NATIVE `product_variants` row — a seller’s own listing variant, not a `canonical_variant`. ' +
+      'The two are one word apart and only one of them merges, which is why this entry exists.',
+  },
+  { column: 'analytics_events.store_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'analytics_rollups.merchant_id',
+    disposition: 'untouched',
+    targetEntities: ['merchant'],
+    reason: TELEMETRY_UNTOUCHED,
+  },
+  { column: 'analytics_rollups.store_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'analytics_search_queries.category_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+
+  // ── Authoring drafts (#367 / ADR 0007 D10) ────────────────────────────────
+  {
+    column: 'catalog_authoring_draft_values.canonical_ref_id',
+    disposition: 'covered_by_polymorphic_census',
+    reason: OWNED_BY_POLYMORPHIC_CENSUS,
+  },
+  {
+    column: 'catalog_authoring_draft_variants.selected_canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason:
+      'The variant an author picked, the sibling of the column #695 named. A merge must not move ' +
+      'it for that column’s reason: repointing silently changes somebody’s choice, and the ' +
+      'publication resolves the selection through the tombstone’s own `merged_into_id`.',
+  },
+  {
+    column: 'catalog_authoring_drafts.selected_canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason:
+      '#695’s own instance. A draft records what an author picked at the time, so repointing it ' +
+      'would silently change their choice; the publication resolves the selection through the ' +
+      'tombstone’s `merged_into_id`, and one that resolves to nothing REFUSES the publish rather ' +
+      'than unlinking in silence (ADR 0007 D10).',
+  },
+
+  // ── Curation’s own trail (#59 / #654) ─────────────────────────────────────
+  { column: 'catalog_entity_suppressions.entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  { column: 'catalog_merge_jobs.loser_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  { column: 'catalog_merge_jobs.winner_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  { column: 'catalog_review_items.counterpart_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  { column: 'catalog_review_items.subject_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  { column: 'catalog_revisions.entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  { column: 'catalog_split_jobs.source_entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+  { column: 'catalog_split_jobs.target_entity_id', disposition: 'covered_by_polymorphic_census', reason: OWNED_BY_POLYMORPHIC_CENSUS },
+
+  // ── Commerce snapshots ────────────────────────────────────────────────────
+  { column: 'cancellation_request_lines.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'cart_merges.guest_session_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'cart_merges.target_cart_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'draft_order_applied_discounts.discount_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'draft_order_line_items.listing_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'draft_order_line_items.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'order_applied_discounts.discount_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'order_items.listing_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'order_items.location_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'order_items.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'order_status_history.actor_guest_session_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'refund_line_items.location_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'refund_line_items.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'return_request_lines.variant_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+
+  // ── Procurement and retail snapshots (#118 / #122 / #123 / #124) ──────────
+  {
+    column: 'purchase_order_lines.canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  {
+    column: 'purchase_order_lines.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  { column: 'purchase_order_lines.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'purchase_orders.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'retail_cost_quotes.canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  {
+    column: 'retail_cost_quotes.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  { column: 'retail_cost_quotes.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'retail_eligibility_decisions.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  { column: 'retail_eligibility_decisions.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'retail_eligibility_audits.subject_id',
+    disposition: 'not_a_mergeable_entity',
+    reason:
+      'The subject’s TABLE is named beside it in `subject_table`, and every value that column ' +
+      'takes is a retail-eligibility row (a policy version, a document, a recall, an exception). ' +
+      'None of the seven mergeable entities is reachable through it.',
+  },
+  {
+    column: 'retail_procurement_intent_lines.canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  {
+    column: 'retail_procurement_intent_lines.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  { column: 'retail_reconciliation_operator_actions.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  {
+    column: 'supplier_quotes.canonical_product_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_product'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  {
+    column: 'supplier_quotes.canonical_variant_id',
+    disposition: 'untouched',
+    targetEntities: ['canonical_variant'],
+    reason: SNAPSHOT_UNTOUCHED,
+  },
+  { column: 'supplier_quotes.order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'supplier_quotes.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'supplier_reservations.consumed_order_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'supplier_reservations.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+  { column: 'supplier_sourcing_attempts.procurement_offer_id', disposition: 'not_a_mergeable_entity', reason: TARGET_NOT_MERGEABLE },
+
+  // ── Doors 2, 3 and 4: declared here, reachable by NO derivation ───────────
+  // Every entry below is outside `MERCARIA_ROW_ID_REASONS`, so the add-direction
+  // gate cannot fire for a new sibling of any of them. That is #695's finding
+  // restated as data; `bare-entity-census.test.ts` pins this exact set so the
+  // work already done cannot be dropped, and nothing pretends the door is shut.
+  {
+    column: 'attribute_reindex_requests.entity_id',
+    disposition: 'unresolved',
+    targetEntities: ['canonical_product', 'canonical_variant'],
+    reason:
+      'Door 2. Polymorphic over a canonical product or variant, discriminated by `entity_kind` — ' +
+      'whose tuple is `[product, variant]`, so neither value is in `MERGEABLE_ENTITY_TYPES` and ' +
+      'the polymorphic census cannot see the table at all. A LIVE queue row, not a snapshot: a ' +
+      'merge leaves the request naming a tombstone and the reindex it schedules never happens. ' +
+      'Nothing in `MERGE_REHOMING_PLAN` touches it and no decision has been recorded.',
+  },
+  {
+    column: 'attribute_value_reviews.entity_id',
+    disposition: 'unresolved',
+    targetEntities: ['canonical_product', 'canonical_variant'],
+    reason:
+      'Door 2, beside `attribute_reindex_requests.entity_id` and for the same `entity_kind` ' +
+      'vocabulary. An OPEN review is a live question about a row that still exists; after a merge ' +
+      'it addresses a tombstone, so a reviewer answering it resolves an attribute on an entity ' +
+      'nobody reads. Nothing rehomes it and no decision has been recorded.',
+  },
+  {
+    column: 'catalog_proposal_duplicate_candidates.candidate_ref',
+    disposition: 'untouched',
+    targetEntities: [
+      'organization',
+      'brand',
+      'merchant',
+      'storefront',
+      'canonical_product_family',
+      'canonical_product',
+      'canonical_variant',
+    ],
+    reason:
+      'Door 3. Polymorphic across eight kinds and NOT `_id`-shaped, so its ledger entry is ' +
+      'voluntary — `findIdColumnViolations` would report nothing if somebody deleted it. Left ' +
+      'alone for `catalog_revisions.entity_id`’s reason: it is evidence of what a scan compared ' +
+      'against at a moment, and rehoming it would make a past detection claim it examined a row ' +
+      'that did not exist yet.',
+  },
+  {
+    column: 'navigation_saved_queries.brand_ids',
+    disposition: 'unresolved',
+    targetEntities: ['brand'],
+    reason:
+      'Door 4. A `text[]` of brand ids: Postgres has no per-element foreign key, and the plural ' +
+      'spelling means the id-column ledger never demanded an entry either, so this column is in ' +
+      'no register anywhere. A LIVE filter — after a brand merge the curated search silently ' +
+      'stops matching that brand’s products, and a menu that quietly returns less is the failure ' +
+      'nobody reports.',
+  },
+  {
+    column: 'navigation_saved_queries.merchant_ids',
+    disposition: 'unresolved',
+    targetEntities: ['merchant'],
+    reason:
+      'Door 4, beside `brand_ids` and with the same consequence one entity over. `category_id` on ' +
+      'the same row carries a real `restrict` key; these two carry none only because an array ' +
+      'cannot.',
+  },
+  {
+    column: 'shopping_agents.excluded_merchant_ids',
+    disposition: 'unresolved',
+    targetEntities: ['merchant'],
+    reason:
+      'Door 4, and the sharpest instance measured. The schema comment reads "No FK — a merge ' +
+      'repoints, a delete cannot", and NOTHING repoints it: after a merchant merge the buyer’s ' +
+      'exclusion stops applying and the agent recommends the merchant they excluded. The comment ' +
+      'states the intended behaviour, which is why this is `unresolved` rather than `untouched`.',
+  },
+];
