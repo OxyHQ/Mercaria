@@ -116,7 +116,26 @@
         "timeLimitReached": "the search ran out of time"
       },
       "optimalityProven": "Best possible plan from the offers we can see.",
-      "optimalityApproximate": "Best plan found — %{reason}."
+      "optimalityApproximate": "Best plan found — %{reason}.",
+      "card": {
+        "refused": "Not available for this basket.",
+        "tally": "Items: %{covered}/%{total} · Merchants: %{merchants}",
+        "itemPrices": "Item prices: %{total}",
+        "stalePrices": "Some prices were last confirmed a while ago.",
+        "notIncluded": "Not included",
+        "addToCart": "Add to Mercaria cart (%{items})",
+        "addToCartA11y": "Add to the Mercaria cart (%{items})",
+        "openRetailers": "Open external retailers",
+        "openRetailersNote": "You will buy these on each retailer’s own site. Mercaria does not guarantee their final checkout total.",
+        "merchantLine": "%{merchant} (%{items})",
+        "merchantLineA11y": "Open %{merchant} (%{items})",
+        "atLeast": "At least %{floor}",
+        "atLeastMissing": "At least %{floor} — %{missing}",
+        "deliveryOne": "plus delivery",
+        "deliveryMultiple": "plus delivery from several merchants",
+        "taxUnknown": "tax treatment not published",
+        "pricesUnknown": "some prices unknown"
+      }
     },
     "comparison": {
       "listSeparator": "; ",
@@ -646,6 +665,45 @@
         "deltaLower": "%{amount} lower than before",
         "deltaHigher": "%{amount} higher than before",
         "unnamedRequirement": "A requirement with no description recorded"
+      },
+      "card": {
+        "showFindings": "Show what %{name} found",
+        "hideFindings": "Hide what %{name} found",
+        "anyCondition": "any condition",
+        "pricedIn": "priced in %{currency}",
+        "inMarket": "in %{market}",
+        "merchantsExcluded": "merchants excluded: %{merchants}",
+        "scopeSeparator": " · ",
+        "noChannels": "nowhere yet",
+        "channelSeparator": ", ",
+        "targetPrefix": "Tell me under",
+        "notifyPolicy": "Told through %{channels}, at most once every %{cooldown}",
+        "notifyPolicyQuiet": "Told through %{channels}, at most once every %{cooldown} · quiet %{start}–%{end} (%{timeZone})",
+        "requirements": "What has to be true",
+        "watching": "Watching (%{things})",
+        "openProduct": "Open this product",
+        "line": "%{quantity} × %{product}",
+        "splitExplanation": "This product was split in two, so this agent is waiting until you say which one you meant. Open either to compare them.",
+        "splitStays": "Stays as: %{product}",
+        "splitMoves": "Moves to: %{product}",
+        "splitStaysA11y": "Stays as this product — open it",
+        "splitMovesA11y": "Moves to this product — open it",
+        "keepSource": "Keep this one",
+        "moveToTarget": "The other one",
+        "runNow": "Run now",
+        "runNowA11y": "Look again now for %{name}",
+        "pause": "Pause",
+        "pauseA11y": "Pause %{name}",
+        "resume": "Resume",
+        "resumeA11y": "Resume %{name}",
+        "remove": "Remove",
+        "removeA11y": "Remove %{name}",
+        "neverLooked": "Not looked yet",
+        "neverLookedNext": "Not looked yet · next %{next}",
+        "lastLooked": "Last looked %{last}",
+        "lastLookedNext": "Last looked %{last} · next %{next}",
+        "constraintHard": "Must:",
+        "constraintSoft": "Prefers:"
       }
     },
     "facet": {
@@ -670,6 +728,29 @@
       },
       "market": {
         "any": "All markets"
+      }
+    },
+    "savedItem": {
+      "removeProduct": "Remove this saved product",
+      "removeListing": "Remove this saved listing",
+      "savedProduct": "Saved product",
+      "savedListing": "Saved listing",
+      "pinnedListing": "Pinned listing",
+      "cheaper": "Cheaper than when you saved it",
+      "dearer": "More than when you saved it",
+      "peopleSaved": "People who saved this: %{people}",
+      "splitChoose": "This product was split — choose which one you meant",
+      "splitChooseA11y": "Choose which product you meant",
+      "setAlert": "Set a price alert",
+      "setAlertA11y": "Set a price alert for this product",
+      "unavailable": "No longer available",
+      "priceUnpublished": "Price not published",
+      "priceInCurrency": "Price published in %{currency}",
+      "noOffer": {
+        "recorded": "No seller has listed this yet",
+        "retired": "No one is selling this right now",
+        "filtered": "No offer matches your filters",
+        "generic": "No current offer"
       }
     }
   }

@@ -6,7 +6,25 @@ import type {
 } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import type { Translate } from "../../i18n/create-app-i18n";
 import {
+  BASKET_CARD_ADD_TO_CART_A11Y_KEY,
+  BASKET_CARD_ADD_TO_CART_KEY,
+  BASKET_CARD_AT_LEAST_KEY,
+  BASKET_CARD_AT_LEAST_MISSING_KEY,
+  BASKET_CARD_DELIVERY_MULTIPLE_KEY,
+  BASKET_CARD_DELIVERY_ONE_KEY,
+  BASKET_CARD_ITEM_PRICES_KEY,
+  BASKET_CARD_MERCHANT_LINE_A11Y_KEY,
+  BASKET_CARD_MERCHANT_LINE_KEY,
+  BASKET_CARD_NOT_INCLUDED_KEY,
+  BASKET_CARD_OPEN_RETAILERS_KEY,
+  BASKET_CARD_OPEN_RETAILERS_NOTE_KEY,
+  BASKET_CARD_PRICES_UNKNOWN_KEY,
+  BASKET_CARD_REFUSED_KEY,
+  BASKET_CARD_STALE_PRICES_KEY,
+  BASKET_CARD_TALLY_KEY,
+  BASKET_CARD_TAX_UNKNOWN_KEY,
   BASKET_OPTIMALITY_APPROXIMATE_KEY,
   BASKET_OPTIMALITY_PROVEN_KEY,
   COMPARISON_LIST_SEPARATOR_KEY,
@@ -75,7 +93,7 @@ export function BasketPlanCard({
 
       {result.state === "refused" ? (
         <View className="gap-space-4">
-          <Text className="text-caption text-text">Not available for this basket.</Text>
+          <Text className="text-caption text-text">{t(BASKET_CARD_REFUSED_KEY)}</Text>
           {result.reasons.map((reason) => (
             <Text key={reason} className="text-caption text-text-secondary">
               · {t(basketReasonTextKey(reason))}
@@ -86,16 +104,19 @@ export function BasketPlanCard({
         <View className="gap-space-8">
           <View className="gap-space-2">
             <Text className="text-caption text-text-secondary">
-              {result.plan.coveredLineIds.length} of{" "}
-              {result.plan.coveredLineIds.length + result.plan.unresolved.length} items ·{" "}
-              {result.plan.merchantCount}{" "}
-              {result.plan.merchantCount === 1 ? "merchant" : "merchants"}
+              {t(BASKET_CARD_TALLY_KEY, {
+                covered: result.plan.coveredLineIds.length,
+                total: result.plan.coveredLineIds.length + result.plan.unresolved.length,
+                merchants: result.plan.merchantCount,
+              })}
             </Text>
             <Text className="text-bodyBold text-text">
-              {totalText(result.plan.deliveredTotal, result.plan.merchantCount)}
+              {totalText(t, result.plan.deliveredTotal, result.plan.merchantCount)}
             </Text>
             <Text className="text-caption text-text-secondary">
-              Item prices: {totalText(result.plan.itemSubtotal, result.plan.merchantCount)}
+              {t(BASKET_CARD_ITEM_PRICES_KEY, {
+                total: totalText(t, result.plan.itemSubtotal, result.plan.merchantCount),
+              })}
             </Text>
           </View>
 
@@ -114,13 +135,15 @@ export function BasketPlanCard({
 
           {result.plan.freshness === "current" ? null : (
             <Text className="text-caption text-text-secondary">
-              Some prices were last confirmed a while ago.
+              {t(BASKET_CARD_STALE_PRICES_KEY)}
             </Text>
           )}
 
           {result.plan.unresolved.length > 0 ? (
             <View className="gap-space-2">
-              <Text className="text-captionBold text-text">Not included</Text>
+              <Text className="text-captionBold text-text">
+                {t(BASKET_CARD_NOT_INCLUDED_KEY)}
+              </Text>
               {result.plan.unresolved.map((unresolved) => (
                 <Text key={unresolved.lineId} className="text-caption text-text-secondary">
                   ·{" "}
@@ -155,40 +178,48 @@ function PlanActions({
   onAddNativeToCart?: () => void;
   onOpenExternalMerchant?: (merchantIndex: number) => void;
 }) {
+  const t = useSharedUiTranslation();
   return (
     <View className="gap-space-8 border-t border-border-secondary pt-space-8">
       {actions.nativeCart === undefined ? null : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Add ${actions.nativeCart.lines.length} items to the Mercaria cart`}
+          accessibilityLabel={t(BASKET_CARD_ADD_TO_CART_A11Y_KEY, {
+            items: actions.nativeCart.lines.length,
+          })}
           onPress={onAddNativeToCart}
           className="rounded-radius-max bg-bg-fill-primary px-space-16 py-space-10"
         >
           <Text className="text-captionBold text-text-inverted">
-            Add {actions.nativeCart.lines.length}{" "}
-            {actions.nativeCart.lines.length === 1 ? "item" : "items"} to Mercaria cart
+            {t(BASKET_CARD_ADD_TO_CART_KEY, { items: actions.nativeCart.lines.length })}
           </Text>
         </Pressable>
       )}
 
       {actions.externalMerchants.length === 0 ? null : (
         <View className="gap-space-4">
-          <Text className="text-captionBold text-text">Open external retailers</Text>
+          <Text className="text-captionBold text-text">
+            {t(BASKET_CARD_OPEN_RETAILERS_KEY)}
+          </Text>
           <Text className="text-caption text-text-secondary">
-            You will buy these on each retailer&rsquo;s own site. Mercaria does not guarantee
-            their final checkout total.
+            {t(BASKET_CARD_OPEN_RETAILERS_NOTE_KEY)}
           </Text>
           {actions.externalMerchants.map((merchant, index) => (
             <Pressable
               key={`${merchant.merchantLabel}-${String(index)}`}
               accessibilityRole="button"
-              accessibilityLabel={`Open ${merchant.merchantLabel} for ${merchant.lineIds.length} items`}
+              accessibilityLabel={t(BASKET_CARD_MERCHANT_LINE_A11Y_KEY, {
+                merchant: merchant.merchantLabel,
+                items: merchant.lineIds.length,
+              })}
               onPress={() => onOpenExternalMerchant?.(index)}
               className="rounded-radius-12 border border-border-secondary px-space-12 py-space-8"
             >
               <Text className="text-caption text-text">
-                {merchant.merchantLabel} · {merchant.lineIds.length}{" "}
-                {merchant.lineIds.length === 1 ? "item" : "items"}
+                {t(BASKET_CARD_MERCHANT_LINE_KEY, {
+                  merchant: merchant.merchantLabel,
+                  items: merchant.lineIds.length,
+                })}
               </Text>
               {merchant.destinationHost === undefined ? null : (
                 <Text className="text-caption text-text-secondary">
@@ -207,18 +238,29 @@ function PlanActions({
  * A total, or a floor plus what is missing.
  *
  * The unknown branch NAMES the components, because "at least 210.40 EUR" with
- * no explanation reads as a hedge and "210.40 EUR plus delivery from two
+ * no explanation reads as a hedge and "210.40 EUR plus delivery from several
  * merchants" is an actionable statement about the same number.
+ *
+ * It takes `t` rather than reading a hook because it is a pure function called
+ * twice from one render. Worth stating why it was extracted at all: a function
+ * that RETURNS copy is in check A's own blind-spot list, so these five
+ * sentences moved the guard's count by NOTHING while being as visible on the
+ * screen as anything the tally line renders.
  */
-function totalText(total: BasketTotal, merchantCount: number): string {
+function totalText(t: Translate, total: BasketTotal, merchantCount: number): string {
   if (total.state === "known") return total.rendered;
   const missing: string[] = [];
   if (total.missing.includes("delivery_cost")) {
     missing.push(
-      merchantCount === 1 ? "plus delivery" : `plus delivery from ${merchantCount} merchants`,
+      t(merchantCount === 1 ? BASKET_CARD_DELIVERY_ONE_KEY : BASKET_CARD_DELIVERY_MULTIPLE_KEY),
     );
   }
-  if (total.missing.includes("tax_inclusion")) missing.push("tax treatment not published");
-  if (total.missing.includes("item_price")) missing.push("some prices unknown");
-  return `At least ${total.renderedFloor}${missing.length === 0 ? "" : ` — ${missing.join(", ")}`}`;
+  if (total.missing.includes("tax_inclusion")) missing.push(t(BASKET_CARD_TAX_UNKNOWN_KEY));
+  if (total.missing.includes("item_price")) missing.push(t(BASKET_CARD_PRICES_UNKNOWN_KEY));
+  return missing.length === 0
+    ? t(BASKET_CARD_AT_LEAST_KEY, { floor: total.renderedFloor })
+    : t(BASKET_CARD_AT_LEAST_MISSING_KEY, {
+        floor: total.renderedFloor,
+        missing: missing.join(t(COMPARISON_LIST_SEPARATOR_KEY)),
+      });
 }
