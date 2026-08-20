@@ -30,7 +30,10 @@ import {
 import {
   AUTHORING_DEFAULT_MERCHANT_CONDITION,
   CONDITION_REQUIRED_AUTHORING_FLOWS,
+  MEDIA_EXPECTED_AUTHORING_FLOWS,
 } from '../../../db/schema/catalogAuthoring.js';
+import { PRODUCT_TYPE_AUTHORING_FLOWS } from '@mercaria/shared-types';
+import { gs1CheckDigit } from '../../canonical/identifiers.js';
 import {
   validateDraft,
   type DraftValidationInput,
@@ -131,6 +134,7 @@ function variant(overrides: Partial<DraftVariantForValidation> = {}): DraftVaria
     inventoryAvailable: 3,
     axisSignature: 'a'.repeat(64),
     sku: null,
+    barcode: null,
     ...overrides,
   };
 }
@@ -147,6 +151,12 @@ function input(overrides: Partial<DraftValidationInput> = {}): DraftValidationIn
     // case about the rule it names rather than acquiring a condition finding.
     flow: 'merchant',
     itemConditionKey: null,
+    // The default fixture carries ONE image, not none. A `merchant` draft with
+    // an empty gallery is publishable either way (`MEDIA_EXPECTED_AUTHORING_FLOWS`
+    // names only `p2p`), but a default of `[]` would make every media case below
+    // pass against a fixture that also happened to be empty — so the default is
+    // the populated one and each media case empties it deliberately.
+    imageFileIds: ['file-a'],
     variants: [variant()],
     values: [value()],
     categorySelectable: true,
@@ -730,6 +740,7 @@ describe('variants', () => {
             inventoryAvailable: 1,
             axisSignature: String(index).repeat(64),
             sku,
+            barcode: null,
           })),
         }),
       );
@@ -1124,6 +1135,22 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
       title_missing: input({ title: null }),
       description_missing: input({ description: null }),
       condition_missing: input({ flow: 'p2p', itemConditionKey: null }),
+      // `p2p` is the one flow that expects media, and the fixture's default
+      // gallery is non-empty — so this case empties it rather than relying on a
+      // default that would make the assertion pass for the wrong reason.
+      media_missing: input({ flow: 'p2p', itemConditionKey: 'used_good', imageFileIds: [] }),
+      duplicate_media_file: input({ imageFileIds: ['file-a', 'file-a'] }),
+      identifier_check_digit_invalid: input({
+        // A real EAN-13 with its last digit changed. `5901234123457` is valid;
+        // `…8` is not, and nothing else about the string moved.
+        variants: [variant({ barcode: '5901234123458' })],
+      }),
+      duplicate_variant_barcode: input({
+        variants: [
+          variant({ barcode: '5901234123457' }),
+          variant({ id: 'dv-2', position: 1, axisSignature: 'b'.repeat(64), barcode: '5901234123457' }),
+        ],
+      }),
       draft_not_open: input({ status: 'published' }),
     };
 
@@ -1152,6 +1179,12 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
         'test constructs one. The value policy that would trigger it is read at composition ' +
         'time and nothing compares it against a stored proposal reference. This is a real gap ' +
         'in #367 step 6, recorded here rather than hidden by deleting the code.',
+      identifier_collision:
+        'produced by `identifierCollisionFindings` in ' +
+        '`services/catalog-authoring/identifier-collision.ts`, which reads `product_identifiers` ' +
+        'to ask who already owns a barcode — a database fact this pure function cannot see. ' +
+        'Covered by `authoring-identifier-collision.realdb.test.ts` against a real server, and ' +
+        'merged in by `validateDraftRow` beside the proposal findings.',
     };
 
     const missing = AUTHORING_VALIDATION_CODES.filter(
@@ -1161,7 +1194,7 @@ describe('the code vocabulary is closed and every produced code is in it', () =>
 
     // The exemption list needs its own exact-count assertion, or it is a hole
     // that widens one green build at a time.
-    expect(Object.keys(EXEMPT)).toHaveLength(2);
+    expect(Object.keys(EXEMPT)).toHaveLength(3);
     for (const code of Object.keys(EXEMPT)) {
       expect(AUTHORING_VALIDATION_CODES, `${code} is exempted and is not in the set`).toContain(
         code as AuthoringValidationCode,
@@ -1276,5 +1309,280 @@ describe('cardinality bounds every member of the vocabulary', () => {
       );
       expect({ cardinality, findings: result.findings }).toEqual({ cardinality, findings: [] });
     }
+  });
+});
+
+/**
+ * A variant's barcode, against the canonical identifier rules (#367 workstream
+ * 7, "validate identifiers and collisions using existing canonical rules").
+ *
+ * The property under test is NOT "a bad barcode is reported" — that would pass
+ * against a validator that reported every barcode. It is the PAIR: a real GTIN
+ * of each GS1 length is admitted silently, and the same digits with one changed
+ * are refused. Every invalid fixture below is DERIVED from its valid partner by
+ * moving exactly one character, so a case cannot pass because the two strings
+ * differ in some other way.
+ *
+ * The valid partners are built with `gs1CheckDigit` — the production routine —
+ * rather than pasted, because a hand-typed "valid" GTIN that is not actually
+ * valid turns the admission half into a second refusal case and nothing notices.
+ */
+describe('a barcode is measured against the canonical GTIN rules', () => {
+  /** A payload of `length - 1` digits, plus the check digit it really needs. */
+  const validGtin = (length: number): string => {
+    const payload = Array.from({ length: length - 1 }, (_, index) =>
+      String((index * 7) % 10),
+    ).join('');
+    return `${payload}${gs1CheckDigit(payload)}`;
+  };
+
+  /** The same string with its check digit moved by one — nothing else changes. */
+  const brokenCheckDigit = (gtin: string): string => {
+    const last = Number(gtin.slice(-1));
+    return `${gtin.slice(0, -1)}${(last + 1) % 10}`;
+  };
+
+  const barcodeCodes = (barcode: string | null): string[] =>
+    codes(validateDraft(input({ variants: [variant({ barcode })] })));
+
+  it('admits a real GTIN at every GS1 length and refuses the same digits altered', () => {
+    // The four lengths `GTIN_SCHEME_BY_LENGTH` names. Written out rather than
+    // read from the map, so a length silently DROPPED from the map is caught
+    // here by the admission half going quiet on a case that used to run.
+    for (const length of [8, 12, 13, 14]) {
+      const good = validGtin(length);
+      const bad = brokenCheckDigit(good);
+      // The two strings differ in exactly one position. Without this the pair
+      // could drift into comparing two unrelated values.
+      expect({ length, sameLength: good.length === bad.length }).toEqual({
+        length,
+        sameLength: true,
+      });
+      expect({
+        length,
+        differingChars: [...good].filter((char, index) => char !== bad[index]).length,
+      }).toEqual({ length, differingChars: 1 });
+
+      expect({ length, findings: barcodeCodes(good) }).toEqual({ length, findings: [] });
+      expect({ length, findings: barcodeCodes(bad) }).toEqual({
+        length,
+        findings: ['identifier_check_digit_invalid'],
+      });
+    }
+  });
+
+  it('reads separators, so a scanned and a typed spelling of one GTIN agree', () => {
+    const good = validGtin(13);
+    const spaced = `${good.slice(0, 1)}-${good.slice(1, 7)} ${good.slice(7)}`;
+    expect(spaced.replace(/[\s-]/gu, '')).toBe(good);
+    expect(barcodeCodes(spaced)).toEqual([]);
+  });
+
+  /**
+   * The boundary, and it is the half most likely to be "tidied" away later.
+   *
+   * `catalog_authoring_draft_variants.barcode` is free text behind a non-empty
+   * CHECK, and merchants keep other code systems in it. A validator that called
+   * those invalid would refuse real data to satisfy a rule nobody wrote — so
+   * everything that is not a digit string of a GS1 trade-item length is REPORTED
+   * AS NOTHING, deliberately.
+   */
+  it('says nothing at all about a barcode that is not a GS1 trade-item number', () => {
+    for (const barcode of [
+      null,
+      'ACME-PART-9', // a manufacturer part number
+      '12345', // too short to be any GTIN
+      '123456789', // nine digits: no GS1 scheme has that length
+      '1234567890', // ten: an ISBN-10 length, deliberately NOT inferred
+      '123456789012345', // fifteen: past every scheme
+      '84000000000O0', // the right length, and an O where a zero should be
+    ]) {
+      expect({ barcode, findings: barcodeCodes(barcode) }).toEqual({ barcode, findings: [] });
+    }
+  });
+
+  it('refuses a 13-digit ISBN by its check digit and NOT by its 978 prefix', () => {
+    // An ISBN-13 IS an EAN-13. Inferring `isbn13` for a 978/979 prefix would add
+    // `not_an_isbn_prefix` to every grocery item; inferring `ean` for all
+    // thirteen reaches the identical verdict for a book. Both halves asserted.
+    const isbn = '9780306406157'; // a real, valid ISBN-13
+    expect(barcodeCodes(isbn)).toEqual([]);
+    expect(barcodeCodes(brokenCheckDigit(isbn))).toEqual(['identifier_check_digit_invalid']);
+  });
+
+  /**
+   * Two variants under one barcode is an ERROR where two under one SKU is a
+   * warning, and the asymmetry is the registry's rather than a preference.
+   */
+  it('refuses two variants sharing a barcode, and names the SECOND one', () => {
+    const gtin = validGtin(13);
+    const result = validateDraft(
+      input({
+        variants: [
+          variant({ position: 0, barcode: gtin }),
+          variant({ id: 'dv-2', position: 1, axisSignature: 'b'.repeat(64), barcode: gtin }),
+        ],
+      }),
+    );
+    const duplicates = result.findings.filter((entry) => entry.code === 'duplicate_variant_barcode');
+    // The FIRST occurrence is not the mistake — one finding, on position 1.
+    expect(duplicates.map((entry) => ({ severity: entry.severity, path: entry.path }))).toEqual([
+      { severity: 'error', path: 'variants[1].barcode' },
+    ]);
+    expect(result.publishable).toBe(false);
+  });
+
+  it('collides a UPC-12 with the EAN-13 that pads to the same trade item', () => {
+    // `036000291452` is a real UPC-A; as a GTIN-14 it is `00036000291452`, and
+    // the EAN-13 `0036000291452` pads to the same fourteen digits. Keying the
+    // duplicate check on the TYPED string instead of the canonical form would
+    // miss exactly this, which is the case that matters — they name one item.
+    const upc = '036000291452';
+    const ean = '0036000291452';
+    expect(codes(validateDraft(input({ variants: [variant({ barcode: upc })] })))).toEqual([]);
+    expect(codes(validateDraft(input({ variants: [variant({ barcode: ean })] })))).toEqual([]);
+
+    const result = validateDraft(
+      input({
+        variants: [
+          variant({ position: 0, barcode: upc }),
+          variant({
+            id: 'dv-2',
+            position: 1,
+            axisSignature: 'b'.repeat(64),
+            barcode: ean,
+          }),
+        ],
+      }),
+    );
+    expect(codes(result)).toContain('duplicate_variant_barcode');
+  });
+
+  it('does not confuse two DIFFERENT barcodes for a duplicate', () => {
+    // The positive control for the case above: without it, a duplicate detector
+    // that reported every pair of barcodes would pass every assertion here.
+    const result = validateDraft(
+      input({
+        variants: [
+          variant({ position: 0, barcode: validGtin(13) }),
+          variant({
+            id: 'dv-2',
+            position: 1,
+            axisSignature: 'b'.repeat(64),
+            barcode: validGtin(12),
+          }),
+        ],
+      }),
+    );
+    expect(codes(result)).toEqual([]);
+  });
+});
+
+/**
+ * The LISTING's media, which is not a canonical product fact (#367 workstream
+ * 7, "validate media/condition requirements separately from canonical product
+ * facts").
+ *
+ * What is checked is stated as narrowly as it is implemented: presence against
+ * a flow, and duplication. Nothing here claims to have seen a file — Mercaria
+ * stores bare Oxy ids and holds no credential to read them.
+ */
+describe('listing media is validated separately from canonical facts', () => {
+  const mediaCodes = (imageFileIds: string[], flow: 'merchant' | 'p2p' = 'merchant'): string[] =>
+    codes(
+      validateDraft(
+        // `itemConditionKey` is answered on the p2p path so the case is about
+        // MEDIA rather than acquiring `condition_missing` from the same flow.
+        input({ imageFileIds, flow, itemConditionKey: flow === 'p2p' ? 'used_good' : null }),
+      ),
+    );
+
+  it('reports an empty gallery on p2p and stays SILENT on every other flow', () => {
+    // The pair is the test. Reporting only the p2p half would pass against a
+    // validator that reported an empty gallery on all five flows.
+    for (const flow of PRODUCT_TYPE_AUTHORING_FLOWS) {
+      const result = validateDraft(input({ imageFileIds: [], flow, itemConditionKey: 'used_good' }));
+      const expected = MEDIA_EXPECTED_AUTHORING_FLOWS.includes(flow) ? ['media_missing'] : [];
+      expect({ flow, findings: codes(result) }).toEqual({ flow, findings: expected });
+    }
+    // A vacuity floor on the walk: a tuple that shrank to nothing would make
+    // every iteration above assert an empty list and pass.
+    expect(PRODUCT_TYPE_AUTHORING_FLOWS.length).toBeGreaterThanOrEqual(5);
+    expect(MEDIA_EXPECTED_AUTHORING_FLOWS.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('never blocks publication on media, because no surface can supply a file id', () => {
+    // The severity is the decision, not an incidental. There is no upload path
+    // to Oxy's file service anywhere in this repository, so an error would be a
+    // gate with no reachable green. If a picker ever lands and this escalates,
+    // THIS is the assertion that has to be changed on purpose.
+    const result = validateDraft(
+      input({ imageFileIds: [], flow: 'p2p', itemConditionKey: 'used_good' }),
+    );
+    expect(result.findings.filter((entry) => entry.code === 'media_missing')).toEqual([
+      { code: 'media_missing', severity: 'warning', path: 'listing.imageFileIds' },
+    ]);
+    expect(result.publishable).toBe(true);
+  });
+
+  it('reports a repeated file at its own gallery position, second occurrence only', () => {
+    const result = validateDraft(input({ imageFileIds: ['a', 'b', 'a', 'c', 'a'] }));
+    expect(
+      result.findings
+        .filter((entry) => entry.code === 'duplicate_media_file')
+        .map((entry) => ({ severity: entry.severity, path: entry.path })),
+    ).toEqual([
+      { severity: 'warning', path: 'listing.imageFileIds[2]' },
+      { severity: 'warning', path: 'listing.imageFileIds[4]' },
+    ]);
+    expect(result.publishable).toBe(true);
+  });
+
+  it('says nothing about a gallery whose files are all different', () => {
+    // The positive control for the case above.
+    expect(mediaCodes(['a', 'b', 'c'])).toEqual([]);
+  });
+
+  it('does NOT case-fold a file id, because it is a foreign service key', () => {
+    // A SKU is folded — every rail looks one up case-insensitively. An Oxy file
+    // id is another service's primary key, and folding it would declare two
+    // distinct files the same. The inverse of `duplicate_variant_sku`'s rule,
+    // and the two are next to each other in the source, so this pins which is
+    // which.
+    expect(mediaCodes(['File-A', 'file-a'])).toEqual([]);
+    expect(mediaCodes(['file-a', 'file-a'])).toEqual(['duplicate_media_file']);
+  });
+
+  it('reads a gallery of 64 files without complaining about its size', () => {
+    // No COUNT ceiling is enforced here and the absence is deliberate:
+    // `catalog-authoring-schemas.ts` bounds the array at 64 on the only route
+    // that writes it, so a ceiling in this module could not fire. A test that
+    // asserted one would be asserting a branch nothing reaches.
+    const gallery = Array.from({ length: 64 }, (_, index) => `file-${index}`);
+    expect(mediaCodes(gallery)).toEqual([]);
+  });
+});
+
+/**
+ * The two flow tuples agree TODAY, and a change to either is a decision.
+ *
+ * They are separate constants because they could legitimately diverge — and
+ * because they carry different SEVERITIES, which is the divergence that already
+ * exists. What must not happen quietly is the MEMBERSHIP drifting apart, since
+ * the media expectation's whole justification is #90's condition evidence
+ * coming from the listing's own gallery: a flow that owes a condition and not a
+ * photograph has broken that argument and owes a new one.
+ */
+describe('the media and condition flow tuples are pinned against each other', () => {
+  it('names the same flows, and both are subsets of the flow vocabulary', () => {
+    expect([...MEDIA_EXPECTED_AUTHORING_FLOWS].sort()).toEqual(
+      [...CONDITION_REQUIRED_AUTHORING_FLOWS].sort(),
+    );
+    for (const flow of MEDIA_EXPECTED_AUTHORING_FLOWS) {
+      expect(PRODUCT_TYPE_AUTHORING_FLOWS).toContain(flow);
+    }
+    // Neither may be empty: an empty tuple makes both rules unreachable while
+    // every assertion about them goes on passing.
+    expect(MEDIA_EXPECTED_AUTHORING_FLOWS.length).toBeGreaterThanOrEqual(1);
   });
 });
