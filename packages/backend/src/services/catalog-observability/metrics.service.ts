@@ -46,12 +46,17 @@ import {
   type CatalogMetricDefinition,
   type CatalogMetricReading,
   type CatalogMetricsReport,
+  type LocalizedEntityKind,
+  SUPPORTED_LOCALES,
 } from '@mercaria/shared-types';
 import { config } from '../../config/index.js';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import { summarizeMatchQueue } from '../../db/matching/matchQueueRepository.js';
 import { readCatalogQuality } from '../catalog-governance/quality.service.js';
-import { readGovernanceQueues } from '../catalog-governance/queue.service.js';
+import {
+  type LocalizationDomainLocaleCounts,
+  readLocalizationCompletenessCounts,
+} from '../../db/catalogLocalization/completenessRepository.js';
 import { sweepFacetScopes } from './facet-scope-sweep.js';
 import {
   catalogObservabilityCounters,
@@ -218,9 +223,11 @@ function windowSeconds(definition: CatalogMetricDefinition): number {
  */
 interface SharedReads {
   readonly quality: Awaited<ReturnType<typeof readCatalogQuality>> | undefined;
-  readonly queues: Awaited<ReturnType<typeof readGovernanceQueues>> | undefined;
   readonly matchQueue: Awaited<ReturnType<typeof summarizeMatchQueue>> | undefined;
   readonly localization: Awaited<ReturnType<typeof tallyLocalizationStatuses>> | undefined;
+  readonly deskCompleteness:
+    | Awaited<ReturnType<typeof readLocalizationCompletenessCounts>>
+    | undefined;
   readonly mappings: Awaited<ReturnType<typeof tallyExternalMappingCoverage>> | undefined;
   readonly backfillRuns: Awaited<ReturnType<typeof tallyBackfillRuns>> | undefined;
   readonly drafts7d: Awaited<ReturnType<typeof tallyDraftOutcomes>> | undefined;
@@ -254,9 +261,9 @@ async function readShared(
   const week = 7 * DAY_SECONDS;
   const [
     quality,
-    queues,
     matchQueue,
     localization,
+    deskCompleteness,
     mappings,
     backfillRuns,
     drafts7d,
@@ -265,9 +272,9 @@ async function readShared(
     facetScopes,
   ] = await Promise.all([
     attempt(() => readCatalogQuality(db)),
-    attempt(() => readGovernanceQueues(db)),
     attempt(() => summarizeMatchQueue(db)),
     attempt(() => tallyLocalizationStatuses(db)),
+    attempt(() => readLocalizationCompletenessCounts(SUPPORTED_LOCALES, db)),
     attempt(() => tallyExternalMappingCoverage(db)),
     attempt(() => tallyBackfillRuns(db)),
     attempt(() => tallyDraftOutcomes(week, db)),
@@ -277,9 +284,9 @@ async function readShared(
   ]);
   return {
     quality,
-    queues,
     matchQueue,
     localization,
+    deskCompleteness,
     mappings,
     backfillRuns,
     drafts7d,
@@ -338,51 +345,97 @@ function completenessOf(
 }
 
 /**
- * Read a named governance queue depth, PROPAGATING its own unmeasured state.
+ * The three domains `translation_coverage` and `translation_missing_count`
+ * publish a denominator over.
  *
- * `CatalogGovernanceQueueDepth` is itself three-valued — `coverage` is `measured`
- * or `unmeasured`, and `total` is present exactly when it is the former. That is
- * the same distinction this domain makes one layer up, so it is carried through
- * rather than flattened: reading a governance `unmeasured` as a count of zero
- * would launder the one thing that reader went out of its way to tell us, and
- * `translation_missing_count` would report a fully translated catalogue for a
- * locale set nobody measured.
+ * The desk reader measures SEVEN localizable domains; these two metrics name
+ * three, so the read is FILTERED here rather than summed wholesale. Widening the
+ * population is a decision with an audience, not a side effect of a repoint — a
+ * metric whose population widens silently makes its own history incomparable,
+ * and nothing in a stored series would say so (#565).
  *
- * The reason text comes from the governance reader when it supplied one, because
- * it knows why and this domain does not.
+ * `translation-metric-population.realdb.test.ts` asserts the computation touches
+ * every domain named here, against a fixture with one domain populated and the
+ * others empty.
  */
-function queueCount(
+export const TRANSLATION_METRIC_DOMAINS: readonly LocalizedEntityKind[] = [
+  'category',
+  'product_type',
+  'attribute_value',
+];
+
+/** The desk rows this deployment's translation metrics are computed over. */
+function translationDeskRows(
+  shared: SharedReads,
+): readonly LocalizationDomainLocaleCounts[] | undefined {
+  if (!shared.deskCompleteness) return undefined;
+  const named = new Set<string>(TRANSLATION_METRIC_DOMAINS);
+  return shared.deskCompleteness.filter((row) => named.has(row.domain));
+}
+
+/**
+ * Translation coverage, from the DESK read rather than from
+ * `catalog_governance_quality`.
+ *
+ * The quality reader's locale completeness counts PUBLISHED CATEGORIES as its
+ * whole denominator, so this metric reported a category-only number under a
+ * definition naming three domains: a deployment with complete category names and
+ * nothing else translated read as high coverage (#565).
+ *
+ * The desk counts its denominator from the ENTITY population per (domain,
+ * locale), which is what makes the ratio fall when a domain is untranslated
+ * instead of being invisible to it.
+ */
+function deskCoverage(
   definition: CatalogMetricDefinition,
   shared: SharedReads,
-  kind: string,
 ): CatalogMetricReading {
-  if (!shared.queues) return unavailable(definition);
-  const row = shared.queues.find((entry) => entry.kind === kind);
-  if (!row) {
-    return {
-      state: 'unmeasured',
-      key: definition.key,
-      kind: definition.kind,
-      reason: 'source_unavailable',
-      seam:
-        `readGovernanceQueues reported no '${kind}' queue. The kind is in `
-        + 'CATALOG_GOVERNANCE_QUEUE_KINDS, so its absence from the reader\'s output is a '
-        + 'catalog-governance change rather than a gap here.',
-    };
+  const rows = translationDeskRows(shared);
+  if (!rows) return unavailable(definition);
+  const byLocale = new Map<string, { present: number; owed: number }>();
+  for (const row of rows) {
+    const cell = byLocale.get(row.locale) ?? { present: 0, owed: 0 };
+    // `reviewed + approved` IS `HUMAN_SETTLED_LOCALIZATION_STATUSES`, which the
+    // desk exports as `DESK_SETTLED_STATUSES` and which this definition's
+    // numerator names. `machine_translated` is deliberately excluded.
+    cell.present += row.reviewed + row.approved;
+    cell.owed += row.owed;
+    byLocale.set(row.locale, cell);
   }
-  if (row.coverage !== 'measured' || row.total === undefined) {
-    return {
-      state: 'unmeasured',
-      key: definition.key,
-      kind: definition.kind,
-      reason: 'source_unavailable',
-      seam:
-        `catalog-governance reports the '${kind}' queue as ${row.coverage}`
-        + `${row.unmeasuredReason ? `: ${row.unmeasuredReason}` : ''}. That reader owns the `
-        + 'measurement; this metric carries its verdict rather than substituting a zero.',
-    };
+  let numerator = 0;
+  let denominator = 0;
+  const by: CatalogMetricBucket[] = [];
+  for (const [locale, cell] of [...byLocale].sort(([left], [right]) => left.localeCompare(right))) {
+    numerator += cell.present;
+    denominator += cell.owed;
+    by.push(bucket(locale, cell.present, cell.owed));
   }
-  return count(definition, row.total);
+  return ratio(definition, numerator, denominator, by);
+}
+
+/**
+ * Entity-locale pairs with NO localization row, from the desk's `absent`.
+ *
+ * This metric read the governance queue's `missing_translation` depth, which is
+ * `countLocalizations(db, ['missing'])` — rows that EXIST carrying the status
+ * `missing`. So a locale with nothing written at all reported ZERO missing,
+ * which is the vacuity the metric exists to expose delivered as a reassuring
+ * number (#565).
+ *
+ * `absent` and `missing` are different facts and are never summed — see the
+ * definition's attribution limit. The triage backlog stays on the governance
+ * queue, where a translator acts on it.
+ */
+function deskAbsentCount(
+  definition: CatalogMetricDefinition,
+  shared: SharedReads,
+): CatalogMetricReading {
+  const rows = translationDeskRows(shared);
+  if (!rows) return unavailable(definition);
+  return count(
+    definition,
+    rows.reduce((total, row) => total + row.absent, 0),
+  );
 }
 
 /**
@@ -489,7 +542,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
 
   /* ---- Translation ------------------------------------------------------- */
   translation_coverage: async (definition, { shared }) =>
-    completenessOf(definition, shared, 'locale'),
+    deskCoverage(definition, shared),
 
   translation_machine_share: async (definition, { shared }) => {
     if (!shared.localization) return unavailable(definition);
@@ -513,7 +566,7 @@ const PRODUCERS: Readonly<Record<string, Producer>> = {
   },
 
   translation_missing_count: async (definition, { shared }) =>
-    queueCount(definition, shared, 'missing_translation'),
+    deskAbsentCount(definition, shared),
 
   /* ---- Search ------------------------------------------------------------ */
   search_zero_result_rate_by_market: async (definition, { db }) => {

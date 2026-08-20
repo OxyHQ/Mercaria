@@ -81,6 +81,17 @@ export const CATALOG_METRIC_SOURCES = [
   'product_type_definitions',
   'catalog_governance_quality',
   'catalog_governance_queues',
+  /**
+   * The translation desk's completeness reads
+   * (`db/catalogLocalization/completenessRepository.ts`).
+   *
+   * Distinct from `catalog_governance_quality` and from the individual
+   * localization tables, and that distinction is the point: the desk counts its
+   * denominator from the ENTITY population per (domain, locale), which no
+   * localization row participates in, and reports `absent` — an entity with no
+   * row at all — which a `group by` over those tables structurally cannot see.
+   */
+  'catalog_localization_completeness',
   'analytics_search_queries',
   'facet_scope_sweep',
   'route_observations',
@@ -741,11 +752,15 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     numerator: "Localization rows with status 'reviewed' or 'approved'.",
     denominator: 'Eligible entity-locale pairs across categories, product types and values.',
     window: 'instant',
-    source: 'catalog_governance_quality',
+    source: 'catalog_localization_completeness',
     freshnessSeconds: 900,
     attributionLimit:
       'machine_translated is deliberately NOT in the numerator — counting it is how a locale '
-      + "reports 98% while a shopper reads a machine's guess at a legal category name.",
+      + "reports 98% while a shopper reads a machine's guess at a legal category name. "
+      + 'The denominator is those THREE domains and not every localizable one: the desk also '
+      + 'measures product-type fields, canonical products, families and attribute definitions, '
+      + 'and widening this population would make the metric\'s own history incomparable, with '
+      + 'nothing in a stored series saying so (#565).',
   },
   {
     key: 'translation_machine_share',
@@ -777,14 +792,20 @@ export const CATALOG_METRICS: readonly CatalogMetricDefinition[] = [
     key: 'translation_missing_count',
     title: 'Missing translations',
     kind: 'count',
-    numerator: 'Eligible entity-locale pairs with no localization row at all.',
+    numerator:
+      'Eligible entity-locale pairs with no localization row at all, across categories, '
+      + 'product types and values.',
     denominator: 'Not a ratio.',
     window: 'instant',
-    source: 'catalog_governance_queues',
+    source: 'catalog_localization_completeness',
     freshnessSeconds: 900,
     attributionLimit:
-      "Absence of a row, which is different from a row whose status is 'missing'. Both are "
-      + 'counted; the queue reader is the authority.',
+      "ABSENCE of a row, and NOT a row whose status is 'missing'. The two are different facts "
+      + 'and are never summed: an absent pair is one nobody has looked at, and a `missing` row '
+      + 'is one somebody OPENED to say a translation is owed. A desk that has triaged its whole '
+      + 'backlog and one that has triaged none of it would otherwise report the same number '
+      + "with completely different next actions. The triage backlog is the governance queue's "
+      + '`missing_translation` depth, which is where a translator acts on it (#565).',
   },
   {
     key: 'translation_fallback_use_rate',
