@@ -84,6 +84,9 @@ import {
   splitJobBlockingState,
   splitJobCancellationState,
 } from '../split.service.js';
+import { merchants } from '../../../db/schema/merchants.js';
+import { shoppingAgents } from '../../../db/schema/shoppingAgents.js';
+import { pruneBasketCandidates } from '../../comparison/basket/candidates.js';
 import { estimateMergeImpact } from '../impact.js';
 import { recordRevision, recordCompensation } from '../revision.js';
 import { suppressEntity, liftEntitySuppression } from '../correction.service.js';
@@ -108,6 +111,9 @@ const createdReviewIds: string[] = [];
 const createdRelationIds: string[] = [];
 /** Bundle variants whose component rows this file wrote (#405). */
 const createdBundleVariantIds: string[] = [];
+/** #716's merchants and the shopping agents excluding them. */
+const createdMerchantIds: string[] = [];
+const createdAgentIds: string[] = [];
 
 beforeAll(async () => {
   db = await connectPostgres();
@@ -123,6 +129,30 @@ afterEach(async () => {
   const reviewIds = createdReviewIds.splice(0);
   const relationIds = createdRelationIds.splice(0);
   const bundleVariantIds = createdBundleVariantIds.splice(0);
+  const agentIds = createdAgentIds.splice(0);
+  const merchantIds = createdMerchantIds.splice(0);
+
+  // #716's fixtures. Agents FIRST: they name the merchants, and `merchants` is
+  // `restrict` from several directions — the ordering rule this file's header
+  // records, applied to one more pair.
+  if (agentIds.length > 0) {
+    await db.delete(shoppingAgents).where(inArray(shoppingAgents.id, agentIds));
+  }
+  if (merchantIds.length > 0) {
+    const merchantJobIds = (
+      await db
+        .select({ id: catalogMergeJobs.id })
+        .from(catalogMergeJobs)
+        .where(inArray(catalogMergeJobs.loserId, merchantIds))
+    ).map((row) => row.id);
+    if (merchantJobIds.length > 0) {
+      await db
+        .delete(catalogMergeJobPhases)
+        .where(inArray(catalogMergeJobPhases.jobId, merchantJobIds));
+      await db.delete(catalogMergeJobs).where(inArray(catalogMergeJobs.id, merchantJobIds));
+    }
+    await db.delete(merchants).where(inArray(merchants.id, merchantIds));
+  }
 
   if (productIds.length > 0) {
     const jobIds = (
@@ -2770,5 +2800,117 @@ describe('#694: a merge refuses a suppressed entity on either side', () => {
     await resumeBlockedMergeJobs(50);
     expect((await claimAndRunMerge(job.id, `lease-694gap2-${RUN}`)).completed).toBe(true);
     expect(await statusOfProduct(loser.productId)).toBe('merged');
+  });
+});
+
+/**
+ * #716 — a merchant merge and a shopper's exclusion list.
+ *
+ * The failure these cover is the one that yields MORE rather than less: an
+ * exclusion left on a tombstone matches no offer, so the agent recommends the
+ * merchant the shopper excluded and nothing anywhere says so. Every other
+ * stranded merchant pointer in this domain (a save's preferred seller, an
+ * alert's scope, an agent line's narrowing) yields NOTHING, which somebody
+ * notices.
+ *
+ * The second case is the one that decides the STATEMENT rather than the policy:
+ * a shopper who excluded both sides of a duplicate pair — ordinary, since the
+ * pair is two records of one business — would hold the winner twice under a
+ * bare `array_replace`, and `verify` re-runs every rehoming and fails a job
+ * whose residual persists.
+ */
+describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
+  /** A `text[]` literal. A bare JS array renders as a ROW constructor in `sql`. */
+  function textArrayLiteral(values: readonly string[]) {
+    if (values.length === 0) return sql`'{}'::text[]`;
+    return sql`array[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+  }
+
+  async function seedMerchant(label: string): Promise<string> {
+    const id = `mrc-716-${label}-${RUN}`;
+    await db.insert(merchants).values({ id, slug: id, name: `Merchant ${label} ${RUN}` });
+    createdMerchantIds.push(id);
+    return id;
+  }
+
+  async function seedAgentExcluding(label: string, excluded: readonly string[]): Promise<string> {
+    const id = `agt-716-${label}-${RUN}`;
+    await db.execute(sql`
+      insert into shopping_agents
+        (id, oxy_user_id, kind, name, display_currency, excluded_merchant_ids,
+         constraint_set, constraint_digest, cooldown_seconds)
+      values (${id}, ${`shopper-716-${label}-${RUN}`}, 'target_price', ${`Agent ${label}`},
+              'EUR', ${textArrayLiteral(excluded)}, '{"constraints":[],"groups":[]}'::jsonb,
+              ${`digest-716-${label}-${RUN}`}, 3600)
+    `);
+    createdAgentIds.push(id);
+    return id;
+  }
+
+  async function exclusionsOf(agentId: string): Promise<readonly string[]> {
+    const rows = await db
+      .select({ excluded: shoppingAgents.excludedMerchantIds })
+      .from(shoppingAgents)
+      .where(eq(shoppingAgents.id, agentId));
+    return rows[0]?.excluded ?? [];
+  }
+
+  it('moves the exclusion to the winner, and the winner is then refused', async () => {
+    const loserId = await seedMerchant('loser');
+    const winnerId = await seedMerchant('winner');
+    const agentId = await seedAgentExcluding('follows', [loserId]);
+
+    const job = await requestMerge({
+      entityType: 'merchant',
+      loserId,
+      winnerId,
+      reason: 'two records of one business',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-716a-${RUN}`)).completed).toBe(true);
+
+    expect(await exclusionsOf(agentId)).toEqual([winnerId]);
+
+    // The stored list through the code that actually applies it. Asserting the
+    // column alone would prove the id moved and say nothing about whether the
+    // shopper is protected — which is the question the issue asks.
+    const pruned = pruneBasketCandidates({
+      lines: [{ lineId: 'line-1', canonicalProductId: 'p-716', quantity: 1 }],
+      candidates: [
+        {
+          lineId: 'line-1',
+          offerId: 'off-716',
+          merchantKey: winnerId,
+          canonicalProductId: 'p-716',
+        } as never,
+      ],
+      channelPolicy: { allowedChannels: null, blockedMerchantIds: [] } as never,
+      excludedMerchantIds: await exclusionsOf(agentId),
+    });
+    expect(pruned.candidates).toEqual([]);
+    expect(pruned.refusals.get('line-1') ?? []).toContain('every_offer_from_excluded_merchant');
+  });
+
+  it('leaves ONE winner when the shopper had excluded both sides', async () => {
+    const loserId = await seedMerchant('both-loser');
+    const winnerId = await seedMerchant('both-winner');
+    const otherId = await seedMerchant('both-other');
+    const agentId = await seedAgentExcluding('both', [loserId, winnerId, otherId]);
+
+    const job = await requestMerge({
+      entityType: 'merchant',
+      loserId,
+      winnerId,
+      reason: 'the shopper had named both',
+      actorOxyUserId: OPERATOR,
+    });
+    expect((await claimAndRunMerge(job.id, `lease-716b-${RUN}`)).completed).toBe(true);
+
+    // ONE winner, not two — and the unrelated exclusion survives untouched. A
+    // bare `array_replace` leaves the winner twice, which `verify` then moves
+    // again on its own re-run and fails the job.
+    const after = await exclusionsOf(agentId);
+    expect(after.filter((id) => id === winnerId)).toEqual([winnerId]);
+    expect([...after].sort()).toEqual([otherId, winnerId].sort());
   });
 });

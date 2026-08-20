@@ -66,7 +66,7 @@ import {
   bundleComponentStillExists,
   suppressionStillOpen,
 } from '../../db/curation/conflictRepository.js';
-import { applyRehomeTarget } from '../../db/curation/rehomeRepository.js';
+import { applyBareArrayRehome, applyRehomeTarget } from '../../db/curation/rehomeRepository.js';
 import { stampPriceAlertRehoming } from '../../db/priceAlerts/priceAlertRepository.js';
 import { requestPriceAlertEvaluationForProduct } from '../../db/priceAlerts/priceAlertEvaluationRepository.js';
 import { stampShoppingAgentRehoming } from '../../db/shoppingAgents/shoppingAgentRepository.js';
@@ -75,7 +75,7 @@ import { recordReviewsRetainedByMerge } from '../../db/reviews/reviewMigrationRe
 import type { CatalogMergeJobRow } from '../../db/schema/curation.js';
 import { estimateMergeImpact, impactColumnValues } from './impact.js';
 import { CURATED_ENTITIES } from './entity-registry.js';
-import { MERGE_REHOMING_PLAN, targetsForPhase } from './merge-plan.js';
+import { bareArrayRehomesFor, MERGE_REHOMING_PLAN, targetsForPhase } from './merge-plan.js';
 import {
   applyConflictResolution,
   detectMergeConflicts,
@@ -1025,6 +1025,13 @@ async function runVerifyPhase(
   for (const target of MERGE_REHOMING_PLAN[job.entityType]) {
     residual += await applyRehomeTarget(target, job.loserId, job.winnerId, db);
   }
+  // The declared ARRAY rehomings too (#716), for the reason the plan targets are
+  // re-run: an entry whose statement is not idempotent is exactly what this
+  // phase exists to catch, and an array move that de-duplicates is the shape
+  // most likely to move a row twice.
+  for (const phase of CATALOG_MERGE_PHASES) {
+    residual += await applyPhaseArrayRehomings(job, phase, db);
+  }
   if (residual > 0) {
     throw new Error(
       `Merge job ${job.id} failed its consistency check: ${residual} row(s) were still pointing ` +
@@ -1051,6 +1058,27 @@ async function runVerifyPhase(
  * this signature is not what admits a second blocking phase — teaching
  * {@link mergeJobBlockingState} how that phase's condition clears is.
  */
+/**
+ * The ARRAY rehomings this phase owes (#716), run for whichever runner owns it.
+ *
+ * Called from {@link runPhase} rather than from inside each phase runner, and
+ * that placement is the point: an array target declares its own phase, so
+ * putting the call in the four bespoke runners would mean a future declaration
+ * naming a fifth phase silently doing nothing — the exact shape of the defect
+ * this fixes, one level up. Here every phase passes through one line.
+ */
+async function applyPhaseArrayRehomings(
+  job: CatalogMergeJobRow,
+  phase: CatalogMergePhase,
+  db: DatabaseOrTransaction,
+): Promise<number> {
+  let moved = 0;
+  for (const rehome of bareArrayRehomesFor(job.entityType, phase)) {
+    moved += await applyBareArrayRehome(rehome, job.loserId, job.winnerId, db);
+  }
+  return moved;
+}
+
 async function runPhase(
   job: CatalogMergeJobRow,
   phase: CatalogMergePhase,
@@ -1058,6 +1086,18 @@ async function runPhase(
 ): Promise<ResolutionPhaseOutcome> {
   if (phase === 'plan') return runPlanPhase(job, db);
   if (phase === 'awaiting_resolution') return runResolutionPhase(job, db);
+  if (phase === 'verify') return runVerifyPhase(job, db);
+
+  const arrays = await applyPhaseArrayRehomings(job, phase, db);
+  const outcome = await runPhaseBody(job, phase, db);
+  return { ...outcome, rowsAffected: outcome.rowsAffected + arrays };
+}
+
+async function runPhaseBody(
+  job: CatalogMergeJobRow,
+  phase: CatalogMergePhase,
+  db: DatabaseOrTransaction,
+): Promise<ResolutionPhaseOutcome> {
   if (REHOMING_PHASES.includes(phase)) return runRehomingPhase(job, phase, db);
   if (phase === 'reviews') return runReviewsPhase(job, db);
   if (phase === 'alerts') return runAlertsPhase(job, db);
@@ -1066,7 +1106,6 @@ async function runPhase(
   if (phase === 'rollups') {
     return { rowsAffected: await rebuildEntityRollups(job.entityType, job.loserId, job.winnerId, db) };
   }
-  if (phase === 'verify') return runVerifyPhase(job, db);
   return { rowsAffected: 0 };
 }
 

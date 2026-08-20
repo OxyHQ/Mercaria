@@ -25,7 +25,7 @@
 import { getTableColumns, getTableName, sql, type Column } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { qualified, sqlColumnName } from '@oxyhq/db';
-import type { RehomeTarget } from '../../services/curation/merge-plan.js';
+import type { BareArrayRehome, RehomeTarget } from '../../services/curation/merge-plan.js';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 
 /** The alias the correlated guards use. Distinctive, so it cannot shadow a real name. */
@@ -152,6 +152,55 @@ async function runCounted(db: DatabaseOrTransaction, statement: ReturnType<typeo
     return Number((first as { moved: number }).moved);
   }
   return 0;
+}
+
+/**
+ * Move one entity id to another INSIDE an array column (#716).
+ *
+ * `array_replace` alone is not enough and the reason is not hypothetical: a
+ * shopper who excluded BOTH merchants — which is ordinary, since a duplicate
+ * pair is two records of one business and somebody with a grievance may well
+ * have named both — would end up holding the winner TWICE. `verify` re-runs
+ * every rehoming and requires zero rows, so that duplicate would be moved again
+ * on the second pass, and a residual that persists fails the job. Hence the
+ * de-duplication, and hence it belongs in the same statement rather than in a
+ * tidy-up beside it.
+ *
+ * Idempotent for the reason every statement here is: the WHERE matches only rows
+ * whose array still CONTAINS the loser, so a completed phase re-run moves
+ * nothing and reports zero.
+ *
+ * Ordering is not preserved — `array_agg(distinct … order by …)` returns the
+ * survivors sorted. That is deliberate rather than incidental: these columns are
+ * SETS (ids nothing may use, ids a query filters to), no reader indexes into
+ * them, and a deterministic order is what lets a test assert the result exactly.
+ * A future array whose order carries meaning must not use this function.
+ *
+ * There is no `coalesce(…, '{}')` on the aggregate, deliberately. A row reaching
+ * it holds the loser, so it holds at least the winner afterwards and the
+ * aggregate cannot be empty; if that reasoning is ever wrong the column's NOT
+ * NULL raises, which is loud. Defaulting to an empty array instead would erase
+ * every exclusion on the row — silently, and in the direction nobody checks.
+ */
+export async function applyBareArrayRehome(
+  rehome: BareArrayRehome,
+  fromId: string,
+  toId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<number> {
+  const table = rehome.column.table;
+  const columnName = sql.identifier(sqlColumnName(rehome.column));
+  return runCounted(
+    db,
+    sql`update ${table}
+        set ${columnName} = (
+              select array_agg(distinct element order by element)
+                from unnest(array_replace(${qualified(rehome.column)}, ${fromId}, ${toId}))
+                  as element
+            )${updatedAtClause(rehome.column)}
+        where ${qualified(rehome.column)} @> array[${fromId}]::text[]
+        returning 1`,
+  );
 }
 
 /**
