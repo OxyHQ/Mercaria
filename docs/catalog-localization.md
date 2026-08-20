@@ -103,12 +103,31 @@ deliberate: a second list is one more thing to keep in step with
 locale nobody authors. The truncations are FILTERED to supported tags, so no
 step of the chain can name a locale with no row shape.
 
-The resolution carries the **effective locale, the step and the translation
-status** beside the string. An internal client debugging "why is this English"
-needs the step; a public client needs the status to decide whether to badge a
-machine translation. `base` is reported in preference to `language` when the two
-coincide (`en-us` → `en`), because "we fell all the way back" is the fact a
-reader needs and "the language happened to be the base" is not.
+### Two places, not one list
+
+`localeFallbackPlan(locale, policy)` returns `{rowLocales, baseText}` rather
+than a flat list, and the split is load-bearing. **The base step is not a locale
+whose row may answer** — a base-locale localization row is unrepresentable
+(`<table>_locale_not_base_check`), so the base string lives on the entity's own
+column and is passed in. A flat list cannot say whether its last entry means a
+row or a column, and that is exactly the distinction `exact_locale_then_base`
+below exists to make.
+
+`localeFallbackChain(locale, policy)` still exists, is DERIVED from the plan,
+and answers a **different question**: which locales a QUERY should narrow on. It
+keeps the base locale, because `attribute_labels` predates D4 and deliberately
+carries no base-locale CHECK — its own schema comment names "a stray `en` row"
+— so a base-locale row IS readable there. **Callers resolve with the plan and
+narrow with the chain**; `catalog-localization.test.ts` asserts `resolve.ts`
+contains ZERO call sites of the chain, with a positive control proving the
+census can see one.
+
+The resolution carries the **effective locale, the step, the basis and the
+translation status** beside the string. An internal client debugging "why is
+this English" needs the step; a public client needs the status to decide whether
+to badge a machine translation. `base` is reported in preference to `language`
+when the two coincide (`en-us` → `en`), because "we fell all the way back" is
+the fact a reader needs and "the language happened to be the base" is not.
 
 **A resolution that found nothing has no `value` to render.**
 `LocalizedResolution` is a discriminated union on a STRING (`outcome`) — the
@@ -117,18 +136,56 @@ TypeScript does not narrow on a boolean-literal discriminant — and its
 `unavailable` branch has no `value`, no `effectiveLocale` and no `status`. "A
 public client never renders a raw key" is a property of the type.
 
-### Legal and seller-authored text never falls back across markets
+### A translation and the author's own words are different answers
 
-D4 excludes them, and the exclusion is a property of the FIELD rather than a
-discipline every caller has to remember:
+The `resolved` outcome is discriminated again on `basis`, and the branches
+differ in their PROPERTY SETS — `PriceHistoryValue`'s shape (#78), for its
+reason:
+
+| `basis` | Answered by | Carries |
+| --- | --- | --- |
+| `localization_row` | a row somebody authored FOR a locale | `status` **and** `provenance` |
+| `authored_base_text` | the entity's OWN base-locale column | `status` only |
+
+The base branch has **no `provenance` property at all**. Before
+`exact_locale_then_base` every base answer was Mercaria's own catalog copy, so
+reporting `mercaria` was true; it stops being true the moment a
+`seller_authored` field is registered, because the base string is then the
+SELLER'S own words. Removing the property is what makes the false claim
+unrepresentable — a flag beside it would not, and a storefront that cannot tell
+a translation from an untranslated original will eventually label one as the
+other. `status` stays on both: it answers "is this text current", not "who wrote
+it".
+
+`LocalizedSlugResolution` is a separate type and its base branch DOES report
+`provenance`. That asymmetry is a fact rather than an oversight: a slug is
+always `catalog_presentation`, so its base is `categories.slug` — a URL Mercaria
+minted — and `resolveLocalizedSlug` names its own field class, so no policy can
+make a slug seller-authored.
+
+### No text ever falls back across MARKETS, and only one class falls back at all
+
+D4's exclusion is a property of the FIELD rather than a discipline every caller
+has to remember:
 
 - `LOCALIZED_FIELD_CLASSES` is `catalog_presentation | legal_text |
-  seller_authored`.
-- `CROSS_MARKET_FALLBACK_FIELD_CLASSES` is a GRANT list containing only the
-  first. A class added later is excluded by omission and shows nothing rather
-  than showing somebody else's market's copy; the inverse spelling — a list of
-  excluded classes — makes a new class fall back by default, which is exactly
-  backwards for the one thing this rule protects.
+  seller_authored`, and there are THREE policies:
+
+  | Class | Policy | Reaches |
+  | --- | --- | --- |
+  | `catalog_presentation` | `language_then_base` | the truncation chain, then the base column |
+  | `seller_authored` | `exact_locale_then_base` | the requested locale's row, then the base column |
+  | `legal_text` | `exact_locale_only` | the requested locale's row, and nothing else |
+
+- **Two GRANT lists, asserted disjoint.**
+  `CROSS_MARKET_FALLBACK_FIELD_CLASSES` grants another LOCALE'S row;
+  `AUTHORED_BASE_FALLBACK_FIELD_CLASSES` grants the entity's OWN base text. A
+  class in neither gets `exact_locale_only`, the narrowest, so a class added
+  later reaches nothing by default. The inverse spelling — a list of EXCLUDED
+  classes — makes a new class fall back by default, which is exactly backwards
+  for the one thing this rule protects. Disjointness matters because two
+  overlapping grant lists would make the policy a function of which `if` in
+  `fallbackPolicyForFieldClass` was written first.
 - `fallbackPolicyForFieldClass` is the ONE derivation, and no descriptor states
   a policy.
 - `resolveLocalizedField` takes a `LocalizedFieldKey` — a literal union — and
@@ -138,21 +195,66 @@ discipline every caller has to remember:
 An `exact_locale_only` field answers `unsupported_locale` for a market Mercaria
 does not author it in, which is the correct answer rather than a failure.
 
-**Stated plainly: no field in today's registry carries `legal_text` or
-`seller_authored`.** All six are `catalog_presentation`. The derivation is
-unit-tested for both policies and the chain is unit-tested under both, so the
-mechanism is measured rather than assumed — but no registered field exercises
-`exact_locale_only` end to end yet. The first that will are ADR 0007 D3's
-navigation and campaign copy (#367 merge-order step 7) and D6/D7's
-seller-authored listing text.
+**Why `seller_authored` is not `exact_locale_only`.** That policy exists so a
+shopper never sees ANOTHER MARKET'S copy — a market-specific claim, price copy
+written for somebody else. The seller's own base text is not another market's
+copy: same seller, same listing, the words they actually wrote. Withholding it
+protects nobody and empties the page, because `listings.title` is NOT NULL and a
+French shopper on a listing with no French row got `unavailable` and no title at
+all. `legal_text` stays excluded and must not be moved: a statement about one
+market's law is not made true by the same company having written it.
+
+**`exact_locale_then_base` may never walk the chain**, or it is
+`language_then_base` under a new name and the cross-market exclusion is gone.
+Three mechanisms, none a convention:
+
+1. Both exact policies read ONE row-locale producer,
+   `onlyTheRequestedLocale`, whose return type is
+   `readonly [SupportedLocale] | readonly []` — a tuple that cannot hold two.
+2. Because they SHARE it, widening the new policy widens `exact_locale_only` in
+   the same edit and turns its `unsupported_locale` tests red.
+3. A population census over every supported locale plus unsupported tags with
+   and without a supported truncation asserts the new policy reaches at most one
+   row locale and EXACTLY what `exact_locale_only` reaches, `baseText` being the
+   whole difference. It carries a positive control (`language_then_base` must
+   reach strictly further somewhere — `es-cl` is the named case) and a mutation
+   self-test that feeds a chain walk in and confirms both assertions fall over.
+
+`localeFallbackPlan`'s `switch` ends in a `never` assignment, so a FOURTH policy
+fails the build there rather than returning `undefined`: gating the tuple does
+not gate its readers.
+
+**Stated plainly, and counted rather than claimed: 16 fields are registered and
+all 16 are `catalog_presentation`.** No field carries `legal_text` or
+`seller_authored`, so assigning `seller_authored` a new policy moves ZERO
+registered fields today. That count is a test with a positive control — a
+synthetic `seller_authored` descriptor built by the same derivation must be
+seen, or "0 on the new policy" and "the census cannot read `fallback` at all"
+would produce the same green. The first fields to exercise the other two
+policies are ADR 0007 D3's navigation and campaign copy (#367 merge-order step
+7) and D6/D7's seller-authored listing text.
+
+**The total is expected to move — it was 14 before #712 registered
+`attribute_definition.label` and `.description` — and the exact pin in
+`catalog-localization.test.ts` is how it gets noticed. Re-derive it by RUNNING
+the census against the BUILT registry, never by adding the new keys to the old
+total.** Every descriptor is constructed through `describeField`, so a census
+over the source literal is blind to it; and the arithmetic is right only when
+nothing else changed, which is the assumption a census exists to stop you
+making — a key that MOVED class, or one deleted in the same window, does not show
+up in it. The claim does not rest on the total anyway: it rests on the
+distribution across the three policies, which is why those are asserted
+separately.
 
 Because every registered field shares one policy today, a resolver that ignored
 the descriptor and hardcoded `'language_then_base'` would pass every
 behavioural test in the file. That is closed by an anchored source census over
-`resolve.ts`: every `localeFallbackChain(...)` CALL SITE must take its policy
-from `descriptor.fallback` or from `fallbackPolicyForFieldClass(...)`. It
-carries a floor of two call sites and a mutation self-test, and it was verified
-by mutation — hardcoding the literal in the real file turns it red.
+`resolve.ts`: every `localeFallbackPlan(...)` and `localeFallbackChain(...)`
+CALL SITE must take its policy from `descriptor.fallback`, from
+`fallbackPolicyForFieldClass(...)` or from a forwarded `policy` parameter, and
+none may name a string literal. It carries a floor across both tokens and a
+mutation self-test per token, and it was verified by checking out the pre-fix
+tree: 17 of the 57 cases in the file are red against it.
 
 ## Two rules the database holds, because a service would forget them
 
@@ -314,11 +416,11 @@ resolves each field through the pure resolver. A per-row resolution is an N+1
 the moment a category list grows past one screen.
 
 The locale narrowing uses the `language_then_base` chain, which is a SUPERSET of
-the `exact_locale_only` one for the same request, so a field whose class forbids
-cross-market fallback is still READ and still REFUSED by the resolver walking
-its own shorter chain. Narrowing on the shorter chain would be the dangerous
-direction: the resolver would answer `no_text_in_locale` for text that exists,
-and nothing would say so.
+the `exact_locale_then_base` and `exact_locale_only` ones for the same request,
+so a field whose class forbids cross-market fallback is still READ and still
+REFUSED by the resolver applying its own shorter plan. Narrowing on the shorter
+one would be the dangerous direction: the resolver would answer
+`no_text_in_locale` for text that exists, and nothing would say so.
 
 `readLocalizedAttributeValues` does the same for #94's controlled values, and
 resolves the LABEL only. `attribute_enum_values.value` is the canonical string

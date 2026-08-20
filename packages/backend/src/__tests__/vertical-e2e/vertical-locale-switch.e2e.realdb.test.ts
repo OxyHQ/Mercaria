@@ -440,15 +440,21 @@ describe('an ABSENT translation and a present one that reads the same', () => {
     // And three independent discriminators, none of which is the string.
     expect(identical.effectiveLocale).toBe('fr');
     expect(identical.step).toBe('exact');
+    expect(identical.basis).toBe('localization_row');
     expect(identical.provenance).toBe('professional');
-    expect(absent.provenance).toBe('mercaria');
+    // The third discriminator was `provenance: 'mercaria'` until the base branch
+    // stopped claiming an author it cannot know. `basis` replaces it and is
+    // strictly stronger: an explicit statement of WHERE the answer came from,
+    // rather than a provenance inferred from a constant the resolver filled in.
+    expect(absent.basis).toBe('authored_base_text');
+    expect(absent.provenance).toBeUndefined();
 
     reportPopulation('the fallback discriminators', {
       chainLength: localeFallbackChain(UNTRANSLATED_LOCALE, 'language_then_base').length,
       differingFields: [
         identical.effectiveLocale === absent.effectiveLocale ? 0 : 1,
         identical.step === absent.step ? 0 : 1,
-        identical.provenance === absent.provenance ? 0 : 1,
+        identical.basis === absent.basis ? 0 : 1,
       ].reduce((sum, flag) => sum + flag, 0),
       identicalStrings: identical.value === absent.value ? 1 : 0,
     });
@@ -506,7 +512,14 @@ async function resolveName(locale: string): Promise<{
   readonly value: string;
   readonly effectiveLocale: string;
   readonly step: string;
-  readonly provenance: string;
+  readonly basis: string;
+  /**
+   * Present ONLY when a localization row answered.
+   *
+   * A base answer has no translator to name, so the resolver reports none —
+   * which is why `basis` is what this test discriminates on.
+   */
+  readonly provenance: string | undefined;
 }> {
   const [presentation] = await readLocalizedCategories([mensCategoryId], locale, db);
   if (presentation === undefined || presentation.name.outcome !== 'resolved') {
@@ -516,6 +529,8 @@ async function resolveName(locale: string): Promise<{
     value: presentation.name.value,
     effectiveLocale: presentation.name.effectiveLocale,
     step: presentation.name.step,
-    provenance: presentation.name.provenance,
+    basis: presentation.name.basis,
+    provenance:
+      presentation.name.basis === 'localization_row' ? presentation.name.provenance : undefined,
   };
 }

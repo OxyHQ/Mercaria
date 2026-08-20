@@ -9,13 +9,18 @@
  *    The census walks the real drizzle tables and fails the build on a member
  *    whose shape drifted, on a new `_localizations` table nobody registered, and
  *    on an exemption list that grew.
- * 2. **The fallback wiring.** Every registered field is `catalog_presentation`
- *    today, so a resolver that ignored the descriptor and hardcoded
- *    `'language_then_base'` would pass every behavioural test in this file. The
- *    anchored source census over `resolve.ts` is what closes that: it asserts
- *    every `localeFallbackChain(...)` call site takes its policy from the field
- *    descriptor or from `fallbackPolicyForFieldClass`, and it carries a mutation
- *    self-test so a broken pattern cannot report a clean zero.
+ * 2. **The fallback wiring.** All sixteen registered fields are
+ *    `catalog_presentation` today, so a resolver that ignored the descriptor and
+ *    hardcoded `'language_then_base'` would pass every behavioural test in this
+ *    file. The anchored source census over `resolve.ts` is what closes that: it
+ *    asserts every `localeFallbackPlan(...)` and `localeFallbackChain(...)` call
+ *    site takes its policy from the field descriptor, from
+ *    `fallbackPolicyForFieldClass` or from a forwarded parameter and never from
+ *    a literal, and it carries a mutation self-test per token so a broken
+ *    pattern cannot report a clean zero. It also asserts the chain has ZERO call
+ *    sites there — nothing in that module resolves from a flat locale list,
+ *    which is what keeps `exact_locale_then_base` from becoming
+ *    `language_then_base` under a new name.
  * 3. **The trigger tuples.** The two triggers are hand-written SQL and the
  *    statuses they name also live in shared-types tuples. Two spellings of one
  *    fact drift; the SQL census reads the file back and asserts the rendered
@@ -34,10 +39,14 @@ import { PgTable } from 'drizzle-orm/pg-core';
 import { sqlColumnName } from '@oxyhq/db';
 import { describe, expect, it } from 'vitest';
 import {
+  AUTHORED_BASE_FALLBACK_FIELD_CLASSES,
+  BASE_LOCALE_STATUS,
   CATALOG_LOCALIZATION_TEXT_TABLES,
   CATALOG_LOCALIZED_FIELDS,
   CROSS_MARKET_FALLBACK_FIELD_CLASSES,
   HUMAN_SETTLED_LOCALIZATION_STATUSES,
+  LOCALIZATION_FALLBACK_POLICIES,
+  LOCALIZATION_RESOLUTION_BASES,
   LOCALIZATION_FAMILY_COLUMNS,
   LOCALIZATION_FAMILY_COLUMN_EXEMPTIONS,
   LOCALIZATION_PROVENANCES,
@@ -69,6 +78,7 @@ import {
   foldLocale,
   isSupportedLocale,
   localeFallbackChain,
+  localeFallbackPlan,
   resolveLocalizedField,
   resolveLocalizedSlug,
 } from '../../services/catalog-localization/resolve.js';
@@ -144,15 +154,56 @@ describe('the localization vocabulary', () => {
       LOCALIZED_FIELD_CLASSES.length,
     );
     expect(CROSS_MARKET_FALLBACK_FIELD_CLASSES).not.toContain('legal_text');
+    // Still excluded, and this line is the one that must not be "fixed" when
+    // seller-authored text starts falling back: what it gains is its OWN base
+    // text, which is a different grant on a different list.
     expect(CROSS_MARKET_FALLBACK_FIELD_CLASSES).not.toContain('seller_authored');
   });
 
-  it('derives one policy per class, and both policies are reachable', () => {
+  it('grants own-base fallback by a SECOND list, disjoint from the first', () => {
+    for (const granted of AUTHORED_BASE_FALLBACK_FIELD_CLASSES) {
+      expect(LOCALIZED_FIELD_CLASSES).toContain(granted);
+    }
+    expect(AUTHORED_BASE_FALLBACK_FIELD_CLASSES.length).toBeLessThan(
+      LOCALIZED_FIELD_CLASSES.length,
+    );
+    // Disjoint, so no class is granted by both and the ORDER of the tests inside
+    // `fallbackPolicyForFieldClass` decides nothing. Two overlapping grant lists
+    // would make the policy a function of which `if` was written first.
+    const crossMarket = new Set<string>(CROSS_MARKET_FALLBACK_FIELD_CLASSES);
+    for (const granted of AUTHORED_BASE_FALLBACK_FIELD_CLASSES) {
+      expect(crossMarket.has(granted)).toBe(false);
+    }
+    // Legal text is in NEITHER list, and that is the reading to hold: a
+    // statement about one market's law is not made true by the same company
+    // having written it.
+    expect(AUTHORED_BASE_FALLBACK_FIELD_CLASSES).not.toContain('legal_text');
+
+    // A class in neither list gets the NARROWEST policy. Both lists are grants,
+    // so a fourth class added later reaches nothing by default.
+    const grantedAnywhere = new Set<string>([
+      ...CROSS_MARKET_FALLBACK_FIELD_CLASSES,
+      ...AUTHORED_BASE_FALLBACK_FIELD_CLASSES,
+    ]);
+    const ungranted = LOCALIZED_FIELD_CLASSES.filter((cls) => !grantedAnywhere.has(cls));
+    // The floor. With every class granted this loop would run zero times and
+    // assert nothing, which is exactly how a grant list stops being one.
+    expect(ungranted.length).toBeGreaterThanOrEqual(1);
+    for (const cls of ungranted) {
+      expect(fallbackPolicyForFieldClass(cls)).toBe('exact_locale_only');
+    }
+  });
+
+  it('derives one policy per class, and all THREE policies are reachable', () => {
     expect(fallbackPolicyForFieldClass('catalog_presentation')).toBe('language_then_base');
     expect(fallbackPolicyForFieldClass('legal_text')).toBe('exact_locale_only');
-    expect(fallbackPolicyForFieldClass('seller_authored')).toBe('exact_locale_only');
+    expect(fallbackPolicyForFieldClass('seller_authored')).toBe('exact_locale_then_base');
     const derived = new Set(LOCALIZED_FIELD_CLASSES.map(fallbackPolicyForFieldClass));
-    expect(derived.size).toBe(2);
+    // Every published policy is reachable from some class, and every class
+    // derives a published policy. A policy nobody can reach is a branch of
+    // `localeFallbackPlan` no test can exercise.
+    expect([...derived].sort()).toEqual([...LOCALIZATION_FALLBACK_POLICIES].sort());
+    expect(derived.size).toBe(3);
   });
 });
 
@@ -360,6 +411,235 @@ describe('the fallback chain', () => {
     expect(isSupportedLocale(foldLocale('ZH-Hans'))).toBe(true);
     expect(isSupportedLocale('sw-ke')).toBe(false);
   });
+
+  it('narrows a QUERY on a superset that keeps the base locale', () => {
+    // `localeFallbackChain` is not the resolver's reach and must not be read as
+    // one. It answers "which locales might a row I need be stored under", and it
+    // keeps the base locale because `attribute_labels` deliberately carries no
+    // base-locale CHECK — its own schema comment names "a stray `en` row", and
+    // `schema.service.ts` walks this list over exactly that table.
+    expect(localeFallbackChain('es-mx', 'language_then_base')).toContain(MERCARIA_BASE_LOCALE);
+    // The plan does NOT, because a base-locale row is unrepresentable in the
+    // family tables and the base string is the entity's own column.
+    expect(localeFallbackPlan('es-mx', 'language_then_base').rowLocales).not.toContain(
+      MERCARIA_BASE_LOCALE,
+    );
+  });
+});
+
+/**
+ * The gate for `exact_locale_then_base` (#367).
+ *
+ * The failure it exists to catch is silent and looks like a feature working: a
+ * policy that reaches the truncation chain is `language_then_base` under a new
+ * name, every behavioural test still passes, and the cross-market exclusion the
+ * whole class system exists for is gone with nothing saying so.
+ */
+describe('the own-base policy reaches exactly two places', () => {
+  /**
+   * A population, not a handful of examples.
+   *
+   * Every supported locale, plus tags Mercaria does not author in — including
+   * the ones with a supported TRUNCATION, which are the only ones on which a
+   * chain walk and an exact lookup differ.
+   */
+  const UNSUPPORTED_WITH_SUPPORTED_TRUNCATION = ['es-cl', 'en-au', 'fr-ma', 'zh-hant-tw'] as const;
+  const UNSUPPORTED_ENTIRELY = ['sw-ke', 'is', 'xx-yy'] as const;
+  const PROBES: readonly string[] = [
+    ...SUPPORTED_LOCALES,
+    ...UNSUPPORTED_WITH_SUPPORTED_TRUNCATION,
+    ...UNSUPPORTED_ENTIRELY,
+  ];
+
+  it('never reaches more than the requested locale itself', () => {
+    // The floor. A probe list that collapsed to nothing would assert nothing.
+    expect(PROBES.length).toBeGreaterThanOrEqual(40);
+    for (const probe of PROBES) {
+      const plan = localeFallbackPlan(probe, 'exact_locale_then_base');
+      expect(plan.rowLocales.length, probe).toBeLessThanOrEqual(1);
+      if (plan.rowLocales.length === 1) {
+        expect(plan.rowLocales[0], probe).toBe(foldLocale(probe));
+      }
+      // The second of the two places, and the only thing it may add.
+      expect(plan.baseText, probe).toBe('permitted');
+    }
+  });
+
+  it('reaches EXACTLY what exact_locale_only reaches, plus the base column', () => {
+    // The strongest statement of the rule, and the one that makes the existing
+    // policy provably untouched: the two policies share ONE row-locale producer,
+    // so any widening of the new one is a widening of the old one in the same
+    // edit. `baseText` is the whole of the difference.
+    //
+    // The floor is on the PROBE LIST and not on a counter the loop increments —
+    // a tally that rises once per iteration cannot disagree with its own loop,
+    // and would pass just as well over an empty population.
+    expect(PROBES.length).toBeGreaterThanOrEqual(40);
+    for (const probe of PROBES) {
+      const exact = localeFallbackPlan(probe, 'exact_locale_only');
+      const thenBase = localeFallbackPlan(probe, 'exact_locale_then_base');
+      expect([...thenBase.rowLocales], probe).toEqual([...exact.rowLocales]);
+      expect(exact.baseText, probe).toBe('withheld');
+      expect(thenBase.baseText, probe).toBe('permitted');
+    }
+  });
+
+  it('is genuinely narrower than the cross-market chain — the positive control', () => {
+    // Without this the two assertions above are satisfied by a `localeFallbackPlan`
+    // that reaches nothing at all for every policy. At least one probe must show
+    // `language_then_base` reaching strictly further.
+    const widened = PROBES.filter(
+      (probe) =>
+        localeFallbackPlan(probe, 'language_then_base').rowLocales.length >
+        localeFallbackPlan(probe, 'exact_locale_then_base').rowLocales.length,
+    );
+    expect(widened.length).toBeGreaterThanOrEqual(1);
+    // …and name one, so a reader can see which case the difference lives in.
+    expect(widened).toContain('es-cl');
+    expect([...localeFallbackPlan('es-cl', 'language_then_base').rowLocales]).toEqual(['es']);
+    expect([...localeFallbackPlan('es-cl', 'exact_locale_then_base').rowLocales]).toEqual([]);
+  });
+
+  it('detects a chain walk — the mutation self-test', () => {
+    // What the gate above would look at if `onlyTheRequestedLocale` were
+    // widened to walk truncations. Both of the first two assertions must fail on
+    // it, or they are measuring nothing.
+    const mutated = (probe: string) => localeFallbackPlan(probe, 'language_then_base').rowLocales;
+    const es = mutated('es-mx');
+    expect(es.length).toBeGreaterThan(1);
+    expect([...es]).not.toEqual([...localeFallbackPlan('es-mx', 'exact_locale_only').rowLocales]);
+  });
+});
+
+describe('resolving a seller-authored field', () => {
+  /**
+   * `CATALOG_LOCALIZED_FIELDS` carries no `seller_authored` member today, so the
+   * policy is exercised through the ONE derivation every descriptor uses rather
+   * than through a registered key. The alternative — registering a fake field —
+   * would put a key in the public union that no table backs.
+   */
+  const OWN_BASE = fallbackPolicyForFieldClass('seller_authored');
+
+  it('answers the requested locale from its own row, as before', () => {
+    const plan = localeFallbackPlan('fr', OWN_BASE);
+    expect([...plan.rowLocales]).toEqual(['fr']);
+  });
+
+  it('answers a MISSING locale from the seller’s own base text, not from a sibling', () => {
+    // The motivating case: a French shopper on a listing with no French row.
+    // `fr-ca` truncates to `fr`, and a French-Canadian row must NOT answer it.
+    const plan = localeFallbackPlan('fr', OWN_BASE);
+    expect(plan.rowLocales).not.toContain('fr-ca');
+    expect(plan.rowLocales).not.toContain('es');
+    expect(plan.baseText).toBe('permitted');
+  });
+
+  it('reaches the base for a market Mercaria does not author in', () => {
+    // `es-cl` is unsupported. Under `exact_locale_only` this is
+    // `unsupported_locale` and the page is empty; under the new policy it is the
+    // seller's own words, and it still never sees the `es` row.
+    const plan = localeFallbackPlan('es-CL', OWN_BASE);
+    expect([...plan.rowLocales]).toEqual([]);
+    expect(plan.baseText).toBe('permitted');
+  });
+
+  it('leaves exact_locale_only answering `unavailable` on a missing row', () => {
+    // The untouched-policy proof, driven through the real resolver rather than
+    // through the plan: `category.name` is `catalog_presentation`, so it is
+    // resolved under the policy its own class derives, and this case is the
+    // behaviour a legal-text field will rely on.
+    const plan = localeFallbackPlan('es-mx', 'exact_locale_only');
+    expect([...plan.rowLocales]).toEqual(['es-mx']);
+    expect(plan.baseText).toBe('withheld');
+
+    const unsupported = localeFallbackPlan('es-CL', 'exact_locale_only');
+    expect([...unsupported.rowLocales]).toEqual([]);
+    expect(unsupported.baseText).toBe('withheld');
+  });
+});
+
+describe('the own-base policy is reachable only from the classes it is assigned to', () => {
+  /**
+   * The before/after COUNT this change is measured by.
+   *
+   * Counted off the registry itself rather than claimed. Today every registered
+   * field is `catalog_presentation`, so assigning `seller_authored` a new policy
+   * moves NO registered field — which is the honest reading of "this changes
+   * nothing today", stated as a number somebody can re-run.
+   *
+   * **The total is EXPECTED to move, and the exact pin is how it gets noticed.**
+   * It went 14 → 16 on the rebase behind #712, which registered
+   * `attribute_definition.label` and `.description`. When it fires, re-derive the
+   * number by RUNNING this against the built registry — never by adding the new
+   * keys to the old total. The arithmetic gives the right answer only when
+   * nothing else changed, and "nothing else changed" is the assumption a census
+   * exists to stop you making: a key that MOVED class, or one deleted in the
+   * same window, is invisible to it.
+   *
+   * The claim does NOT rest on the total. It rests on the DISTRIBUTION — the
+   * other three lines — which is why they are asserted separately rather than
+   * folded into one figure.
+   */
+  const byPolicy = (policy: string): readonly string[] =>
+    LOCALIZED_FIELD_KEYS.filter((key) => CATALOG_LOCALIZED_FIELDS[key].fallback === policy);
+
+  it('moves no registered field, and says how many that is', () => {
+    expect(LOCALIZED_FIELD_KEYS.length).toBe(16);
+    expect(byPolicy('language_then_base')).toHaveLength(16);
+    expect(byPolicy('exact_locale_then_base')).toHaveLength(0);
+    expect(byPolicy('exact_locale_only')).toHaveLength(0);
+  });
+
+  it('can SEE a field on the new policy — the positive control', () => {
+    // Without this, "0 fields on the new policy" and "the census cannot read
+    // `fallback` at all" produce the same green. A synthetic descriptor built
+    // by the same derivation the registry uses must be counted.
+    const synthetic = {
+      ...CATALOG_LOCALIZED_FIELDS['category.name'],
+      fieldClass: 'seller_authored' as const,
+      fallback: fallbackPolicyForFieldClass('seller_authored'),
+    };
+    expect(synthetic.fallback).toBe('exact_locale_then_base');
+    const withSynthetic = [
+      ...LOCALIZED_FIELD_KEYS.map((key) => CATALOG_LOCALIZED_FIELDS[key]),
+      synthetic,
+    ].filter((descriptor) => descriptor.fallback === 'exact_locale_then_base');
+    expect(withSynthetic).toHaveLength(1);
+  });
+
+  it('publishes exactly the bases the resolver can produce', () => {
+    // The tuple is a vocabulary, not decoration: a member nobody can produce is
+    // a branch no client will ever handle, and a basis the resolver produces
+    // that is NOT in the tuple is a value a client switch has no case for.
+    const fromRow = resolveLocalizedField({
+      field: 'category.name',
+      requestedLocale: 'es',
+      candidates: [candidate('es', 'Zapatos')],
+      baseValue: 'Shoes',
+    });
+    const fromBase = resolveLocalizedField({
+      field: 'category.name',
+      requestedLocale: 'fr',
+      candidates: [],
+      baseValue: 'Shoes',
+    });
+    expect(fromRow.outcome).toBe('resolved');
+    expect(fromBase.outcome).toBe('resolved');
+    if (fromRow.outcome !== 'resolved' || fromBase.outcome !== 'resolved') return;
+    const produced = new Set([fromRow.basis, fromBase.basis]);
+    expect([...produced].sort()).toEqual([...LOCALIZATION_RESOLUTION_BASES].sort());
+  });
+
+  it('grants the new policy to no class outside the grant list', () => {
+    const granted = new Set<string>(AUTHORED_BASE_FALLBACK_FIELD_CLASSES);
+    for (const cls of LOCALIZED_FIELD_CLASSES) {
+      const isGranted = fallbackPolicyForFieldClass(cls) === 'exact_locale_then_base';
+      expect(isGranted, cls).toBe(granted.has(cls));
+    }
+    // The floor: with an empty grant list every class would answer `false` on
+    // both sides and this loop would agree with itself about nothing.
+    expect(AUTHORED_BASE_FALLBACK_FIELD_CLASSES.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe('resolving a field', () => {
@@ -372,6 +652,7 @@ describe('resolving a field', () => {
     });
     expect(resolved).toEqual({
       outcome: 'resolved',
+      basis: 'localization_row',
       value: 'Zapatos',
       requestedLocale: 'es-es',
       effectiveLocale: 'es-es',
@@ -408,8 +689,13 @@ describe('resolving a field', () => {
     expect(resolved.effectiveLocale).toBe(MERCARIA_BASE_LOCALE);
     expect(resolved.step).toBe('base');
     // A base string is not a translation and never claims to be one.
-    expect(resolved.status).toBe('approved');
-    expect(resolved.provenance).toBe('mercaria');
+    expect(resolved.basis).toBe('authored_base_text');
+    expect(resolved.status).toBe(BASE_LOCALE_STATUS);
+    // …and it does not claim an AUTHOR either. The property is absent, not
+    // `undefined`-valued: `provenance: 'mercaria'` on a `seller_authored`
+    // field's base text would be a false statement about who wrote it, and a
+    // storefront would render the seller's own words as Mercaria's copy.
+    expect('provenance' in resolved).toBe(false);
   });
 
   it('serves stale text rather than nothing, and reports that it is stale', () => {
@@ -539,9 +825,8 @@ describe('the resolver takes its policy from the field, not from a literal', () 
    * skipped by looking backwards for `function`, so the gate measures call sites
    * and not the signature.
    */
-  function policyArguments(source: string): string[] {
+  function policyArguments(source: string, token: string): string[] {
     const text = stripComments(source);
-    const token = 'localeFallbackChain(';
     const policies: string[] = [];
     for (let at = text.indexOf(token); at !== -1; at = text.indexOf(token, at + 1)) {
       if (/function\s*$/u.test(text.slice(Math.max(0, at - 20), at))) continue;
@@ -574,24 +859,83 @@ describe('the resolver takes its policy from the field, not from a literal', () 
     return policies;
   }
 
+  /**
+   * BOTH entry points, because there are now two.
+   *
+   * `localeFallbackPlan` is what the resolvers call and `localeFallbackChain` is
+   * the query-narrowing projection over it. Scanning only the older token would
+   * have left every resolver call site unguarded the moment they moved — and it
+   * would have reported a clean ZERO rather than failing, which is why the floor
+   * below counts the union.
+   */
+  const ENTRY_POINTS = ['localeFallbackPlan(', 'localeFallbackChain('] as const;
+
+  function everyPolicyArgument(source: string): string[] {
+    return ENTRY_POINTS.flatMap((token) => policyArguments(source, token));
+  }
+
   it('passes a derived policy at every call site', () => {
-    const policies = policyArguments(SOURCE);
+    const policies = everyPolicyArgument(SOURCE);
     // The floor. A pattern that matched nothing would report a clean zero and
-    // guard the two call sites that exist against nothing at all.
-    expect(policies.length).toBeGreaterThanOrEqual(2);
+    // guard the call sites that exist against nothing at all.
+    expect(policies.length).toBeGreaterThanOrEqual(3);
     for (const policy of policies) {
-      expect(policy === 'descriptor.fallback' || policy.startsWith('fallbackPolicyForFieldClass(')).toBe(
-        true,
-      );
+      expect(
+        // `policy` is the forwarded PARAMETER of `localeFallbackChain`, whose own
+        // signature already demands a `LocalizationFallbackPolicy`. It is not a
+        // literal, which is the thing this gate exists to refuse — see the
+        // mutation self-test below, which is what keeps that distinction real.
+        policy === 'descriptor.fallback' ||
+          policy === 'policy' ||
+          policy.startsWith('fallbackPolicyForFieldClass('),
+        policy,
+      ).toBe(true);
+      // Stated separately and positively: no call site anywhere names a policy
+      // as a string literal, whatever else it does.
+      expect(policy.startsWith("'"), policy).toBe(false);
     }
   });
 
+  it('resolves from the PLAN and never from the flat chain', () => {
+    // Condition 1 of `exact_locale_then_base`, as a census rather than a
+    // promise: nothing in this module answers a request out of the flat locale
+    // list. A flat list cannot say whether its last entry means a ROW or the
+    // entity's own COLUMN, so walking one is precisely how the new policy would
+    // become `language_then_base` with every behavioural test still green.
+    expect(policyArguments(SOURCE, 'localeFallbackChain(')).toEqual([]);
+    // The rest of the module's calls go to the plan, and there is more than one.
+    expect(policyArguments(SOURCE, 'localeFallbackPlan(').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('can SEE a call to the flat chain — the positive control', () => {
+    // Without this, the empty expectation above is satisfied just as well by a
+    // broken pattern, a renamed function or a NUL byte in the file.
+    expect(
+      policyArguments(
+        'const c = localeFallbackChain(requested, descriptor.fallback);',
+        'localeFallbackChain(',
+      ),
+    ).toEqual(['descriptor.fallback']);
+    // …and it skips the DECLARATION rather than counting it as a call, which is
+    // the other way `[]` could be reached for the wrong reason.
+    expect(
+      policyArguments(
+        'export function localeFallbackChain(a: string, policy: P) { return a; }',
+        'localeFallbackChain(',
+      ),
+    ).toEqual([]);
+  });
+
   it('detects a hardcoded policy — the mutation self-test', () => {
-    const mutated = "const chain = localeFallbackChain(requested, 'language_then_base');";
-    const policies = policyArguments(mutated);
-    expect(policies).toEqual(["'language_then_base'"]);
-    expect(policies[0] === 'descriptor.fallback').toBe(false);
-    expect(policies[0].startsWith('fallbackPolicyForFieldClass(')).toBe(false);
+    for (const token of ENTRY_POINTS) {
+      const mutated = `const chain = ${token}requested, 'language_then_base');`;
+      const policies = policyArguments(mutated, token);
+      expect(policies).toEqual(["'language_then_base'"]);
+      expect(policies[0] === 'descriptor.fallback').toBe(false);
+      expect(policies[0] === 'policy').toBe(false);
+      expect(policies[0].startsWith('fallbackPolicyForFieldClass(')).toBe(false);
+      expect(policies[0].startsWith("'")).toBe(true);
+    }
   });
 });
 

@@ -10,11 +10,12 @@
  * ## One chain narrows the read for every field
  *
  * The locale narrowing uses the `language_then_base` chain, which is a SUPERSET
- * of the `exact_locale_only` one for the same request. So a field whose class
- * forbids cross-market fallback is still read (its row is in the narrowed set)
- * and still refused (the resolver walks its own, shorter chain). Narrowing on
- * the shorter chain would be the dangerous direction: the resolver would answer
- * `no_text_in_locale` for text that exists, and nothing would say so.
+ * of the `exact_locale_then_base` and `exact_locale_only` ones for the same
+ * request. So a field whose class forbids cross-market fallback is still read
+ * (its row is in the narrowed set) and still refused (the resolver applies its
+ * own, shorter plan). Narrowing on a shorter one would be the dangerous
+ * direction: the resolver would answer `no_text_in_locale` for text that
+ * exists, and nothing would say so.
  *
  * ## Nothing here decides what a category IS
  *
