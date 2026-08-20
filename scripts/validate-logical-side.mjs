@@ -31,8 +31,19 @@
  * and `Test POS` steps), so the claim is not that a test is impossible here; it
  * is that a test cannot live in the package that owns this code, and that the
  * panel/sheet call sites this guard also checks are spread across all four
- * packages. A behaviour observable from inside one app is now cheaper and
- * stronger to assert in that app's own suite than by widening this scan.
+ * packages.
+ *
+ * And those three runners cannot mount a component, which is the half worth
+ * writing down because the tempting inference goes the other way. All three
+ * collect from `lib` only under `environment: 'node'` with no renderer (#469,
+ * recorded in each `vitest.config.ts`): importing `react-native` dies at its
+ * `index.js:27` with `RollupError: Parse failure: Expected 'from', got
+ * 'typeOf'`, measured in all three separately. `Panel` and `SheetContent` — the
+ * two call sites below — are components, so they are not assertable in any app
+ * suite today. The usable form is that config's own rule: extract the
+ * derivation into `lib/` and assert it by running it, which is exactly what
+ * `logical-side.ts` is and why this guard can import and RUN it rather than
+ * scan for a spelling.
  *
  * `validate-rtl-direction.mjs` is the precedent and this follows it exactly:
  * import the REAL module and run it, rather than scan the source for a spelling.

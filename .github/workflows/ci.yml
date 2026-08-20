@@ -125,9 +125,11 @@ jobs:
       # language tag. `packages/ui` — which owns the modules asserted — has no
       # test runner, and this guard compares all four packages' bundles against
       # one shared locale list, which no single app suite can see. (The three
-      # Expo apps DO have runners: the `Test Dashboard`, `Test App` and `Test
-      # POS` steps below.) Reads the tracked file listing and imports one
-      # dependency-free module; costs a second.
+      # Expo apps DO have runners — the `Test Dashboard`, `Test App` and `Test
+      # POS` steps below — but all three are `lib`-only with no renderer per
+      # #469, so a component cannot be mounted in any of them.) Reads the
+      # tracked file listing and imports one dependency-free module; costs a
+      # second.
       #
       # It also carries the SLIDING-PANEL half (#429). `Panel` and `SheetContent`
       # are the residual the class guard could not reach: a transform sign and a

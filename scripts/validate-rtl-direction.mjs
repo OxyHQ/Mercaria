@@ -25,7 +25,16 @@
  * owns `src/i18n/rtl-locales.ts`, the module asserted below. The three Expo apps
  * do each have one (`vitest run`, run by `ci.yml`'s `Test Dashboard`, `Test App`
  * and `Test POS` steps), so a test is not impossible in this repository; it is
- * impossible in the package that owns this code. The second reason is the one
+ * impossible in the package that owns this code. Note what those runners cannot
+ * do, since "the app has a runner" invites a conclusion they do not support:
+ * all three collect from `lib` only under `environment: 'node'` with no
+ * renderer (#469), so a component cannot be mounted in any of them — importing
+ * `react-native` dies at its `index.js:27` with `RollupError: Parse failure:
+ * Expected 'from', got 'typeOf'`, measured in all three separately. The usable
+ * form is that config's own rule: extract the derivation into `lib/` and assert
+ * it by running it.
+ *
+ * The second reason is the one
  * that would survive even if `packages/ui` grew a runner tomorrow: this guard
  * compares the SHIPPED BUNDLES of all four packages against one shared locale
  * list, and no single app's suite can see the other three.
