@@ -74,9 +74,21 @@ const db: Database = await connectPostgres();
  *
  * So `zz-` outranks every uuid v7 hex id and every lower-cased prefix, and it
  * loses to `zzz-` and to `zz-obs-trace-` — a prefix that is already in this
- * repository. Whether an underscore wins is not a rule about `zz_` at all: the
- * collation drops the separator and compares the LETTERS, which is why
- * `zz_obs_integ.x` beats this file's ids and `zz_obs_integ_floor` does not.
+ * repository.
+ *
+ * `zz_obs_integ.x` is in that table because it is the row that refutes the
+ * tempting reading. Both it and `zz_obs_integ_floor` begin `zz_` and they land
+ * on OPPOSITE sides of this file's ids, so there is no rule about `zz_` versus
+ * `zz-`. The separator is a LOWER-WEIGHT difference than the letters — not an
+ * ignored one, which is what an earlier revision of this comment said:
+ *
+ * ```
+ * 'zz-a' < 'zz_a'   -- letters identical, so the separator decides: hyphen first
+ * 'zz-b' > 'zz_a'   -- letters differ, so the letters decide and it reverses
+ * ```
+ *
+ * Which is the whole of it: `…integ·o` for this file, `·x` and `·f` for the two
+ * neighbours, and `x > o > f` is the order observed above.
  *
  * #713 measured `trace.realdb`, `pickup.realdb`, `vertical-locales-markets.e2e`
  * and `facet-scope-sweep.realdb` clean for the four tables these checks scan, and
@@ -118,6 +130,14 @@ type ProbeTable =
  * the first one took. A row a parallel file commits after that instant is
  * invisible to the mint AND to the check, and this transaction's own writes are
  * visible to both. So "above the maximum" holds for the whole case.
+ *
+ * **That shared handle is the whole guarantee, and it is a property of the CALL
+ * SITE rather than of this function.** A case that minted here and then drove a
+ * check on the root connection, or outside {@link rolledBack} altogether, would
+ * be measuring a maximum from one snapshot against a scan taken in another — and
+ * it would still pass on an empty database, because there is nothing there to
+ * outrank it. That is the same failure as an ordinary {@link id}, arriving by a
+ * different door and wearing this function's name.
  *
  * The ordering claim is MEASURED here rather than asserted in prose: the
  * comparison below is the server's own, under the same collation `order by id
@@ -278,8 +298,18 @@ function expectDetected(
  * The two cases that find a PAIR — a cycle, whose two nodes each reach
  * themselves, and the two queue tables holding an expired claim — assert their
  * own delta and then name both rows, so they need the naming assertion without
- * the one-row delta. It is the same assertion and the same registry check: every
- * sample-membership assertion in this file goes through here.
+ * the one-row delta.
+ *
+ * ## Routing those four through here is what closes the CLASS
+ *
+ * #622 was filed against `expectDetected`, and fixing only its call sites would
+ * have fixed the instance. These four assert sample membership without it, and
+ * an unranked row is unranked whichever helper asserts it: on an empty database
+ * every one of them passes, and on a busy one each is decided by how many
+ * higher-sorting findings of the same kind the neighbours happen to be holding.
+ * So the registry check lives here rather than in {@link expectDetected}, and
+ * every sample-membership assertion in this file goes through it. A new one that
+ * does not is a call site {@link probeId} never saw.
  */
 function expectNamed(
   after: CatalogIntegrityResult,
