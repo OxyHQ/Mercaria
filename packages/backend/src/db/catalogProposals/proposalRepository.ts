@@ -507,5 +507,18 @@ export async function listReviewEvents(
     .select()
     .from(catalogReviewEvents)
     .where(eq(catalogReviewEvents.proposalId, proposalId))
-    .orderBy(asc(catalogReviewEvents.at), asc(catalogReviewEvents.id));
+    .orderBy(
+      asc(catalogReviewEvents.at),
+      // #775. `at` alone cannot separate two events written from one `now` in
+      // one transaction, and the uuid v7 tiebreak below is not monotonic within
+      // a millisecond — so this order was a coin flip that usually landed right,
+      // in the operator timeline as much as in a test.
+      //
+      // `sequence` is NULL for every row written before it existed, and Postgres
+      // sorts NULLS LAST under `asc`. Those rows therefore keep EXACTLY today's
+      // ordering — by `id`, through the tiebreak that is still here for them —
+      // rather than becoming more arbitrary than they already were.
+      asc(catalogReviewEvents.sequence),
+      asc(catalogReviewEvents.id),
+    );
 }

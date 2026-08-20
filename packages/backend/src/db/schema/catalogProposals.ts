@@ -67,6 +67,7 @@
 
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
   doublePrecision,
   index,
@@ -584,6 +585,30 @@ export const catalogReviewEvents = pgTable(
     toState: text({ enum: asEnumValues(CATALOG_PROPOSAL_STATES) }),
     reason: text(),
     at: timestamptz().notNull(),
+    /**
+     * The order these events were WRITTEN, and the only thing that can say it.
+     *
+     * `at` is not enough and that is not a rounding problem: a submission and
+     * its duplicate scan are written in ONE transaction from ONE `now`, so they
+     * share the column exactly. The tiebreak was the uuid v7 primary key, which
+     * `@oxyhq/db` does not make monotonic within a millisecond — so the trail's
+     * order was decided by the low bits of a random id (#775), in the operator
+     * TIMELINE as well as in a test.
+     *
+     * That the order is a FACT rather than a rendering choice is already stored
+     * beside it: `duplicate_scan_recorded` carries `from_state = 'submitted'`,
+     * which presupposes the submission. Reverse the two and that column is a
+     * lie about a state which had not been reached.
+     *
+     * NULLABLE, and every row written before this column existed is NULL — a
+     * deliberate refusal, not a backfill somebody forgot. Adding the column with
+     * a sequence-backed DEFAULT would have assigned history distinct values in
+     * HEAP order (measured: three rows inserted `c, a, b` came out `1, 2, 3` by
+     * physical position), which is an invented order indistinguishable from a
+     * real one afterwards. Those rows never recorded their sequence and this
+     * column does not pretend otherwise.
+     */
+    sequence: bigint({ mode: 'number' }),
   },
   (t) => [
     checkOneOf('catalog_review_events_action_check', t.action, CATALOG_REVIEW_ACTIONS),

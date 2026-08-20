@@ -53,6 +53,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
+import { catalogReviewEvents } from '../../../db/schema/catalogProposals.js';
 import {
   findOpenProposalByConvergenceKey,
   listDuplicateCandidates,
@@ -238,10 +239,89 @@ describe.skipIf(!ready)('submission, convergence and the scan evidence', () => {
     expect(result.proposal.duplicateScanPopulation).toBeGreaterThan(0);
 
     const events = await listReviewEvents(db, result.proposal.id);
+    // ORDERED, and it is a fact rather than a rendering choice: the scan event
+    // carries `fromState: 'submitted'`, which presupposes the submission (#775).
     expect(events.map((event) => event.action)).toEqual(['submitted', 'duplicate_scan_recorded']);
     // The scan event carries the numbers, so "it says it found nothing" is
     // checkable against what it looked at.
     expect(events[1]?.reason).toContain('examined');
+
+    // Both events are written from ONE `now` in one transaction, so `at` cannot
+    // separate them — asserted rather than assumed, because if the two ever got
+    // distinct instants this case would pass for a reason that has nothing to do
+    // with the fix and the ordering could rot underneath it.
+    expect(events[0]?.at.getTime()).toBe(events[1]?.at.getTime());
+    // And the sequence is what does the separating.
+    expect(events.map((event) => event.sequence)).toEqual([
+      events[0]?.sequence,
+      (events[0]?.sequence ?? 0) + 1,
+    ]);
+  });
+
+  /**
+   * The ordering is carried by `sequence` and NOT by the id — deterministically,
+   * which the case above cannot show.
+   *
+   * That one passes whenever the uuid v7 tiebreak happens to agree with the
+   * write order, which is most of the time; before #775 it was green four runs
+   * out of four in isolation and red once under load. So it cannot tell a fixed
+   * reader from a lucky one.
+   *
+   * Here the ids are CHOSEN to disagree: `zz-…-b` is written first and `zz-…-a`
+   * second, so `asc(id)` returns them reversed and only `asc(sequence)` returns
+   * them as written. Removing that term from `listReviewEvents` reds this case
+   * every time rather than one run in twelve.
+   */
+  it('orders two events written in one millisecond by SEQUENCE, not by id', async () => {
+    const result = await submitProposal(db, submission('Azul Profundo', MERCHANT, true));
+    expect(result.outcome).toBe('created');
+    if (result.outcome !== 'created') return;
+    const proposalId = result.proposal.id;
+    const at = new Date();
+
+    /**
+     * Inserted through drizzle rather than `insertReviewEvent`, deliberately:
+     * the subject here is the READER's ordering, and the repository writer mints
+     * its own id, so it cannot construct the disagreement this case needs. The
+     * ids come from this file's own `P` prefix, so the existing teardown covers
+     * them.
+     */
+    const rows = [
+      { suffix: 'b', reason: 'written first, sorts second by id' },
+      { suffix: 'a', reason: 'written second, sorts first by id' },
+    ];
+    const written: { id: string; sequence: number | null }[] = [];
+    for (const row of rows) {
+      const [inserted] = await db
+        .insert(catalogReviewEvents)
+        .values({
+          id: `${P}-775-${row.suffix}`,
+          proposalId,
+          action: 'information_requested',
+          actorKind: 'system',
+          actorOxyUserId: null,
+          fromState: 'submitted',
+          toState: 'submitted',
+          reason: row.reason,
+          at,
+        })
+        .returning({ id: catalogReviewEvents.id, sequence: catalogReviewEvents.sequence });
+      written.push(inserted);
+    }
+    const [first, second] = written;
+
+    // The premise, measured rather than trusted: the ids really do disagree with
+    // the write order, and the sequence really was assigned. Without both, this
+    // case is adverse to nothing and would pass against the unfixed reader.
+    expect((first?.id ?? '') > (second?.id ?? '')).toBe(true);
+    expect(Number(second?.sequence)).toBeGreaterThan(Number(first?.sequence));
+
+    const events = await listReviewEvents(db, proposalId);
+    const mine = events.filter((event) => event.id.startsWith(`${P}-775-`));
+    expect(mine.map((event) => event.reason)).toEqual([
+      'written first, sorts second by id',
+      'written second, sorts first by id',
+    ]);
   });
 
   it('the service’s convergence key equals the STORED GENERATED column', async () => {
