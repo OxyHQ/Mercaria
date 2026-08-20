@@ -48,6 +48,7 @@ import {
   REFERRAL_SUBJECT_KINDS,
   REFERRAL_DEFERRED_DEEP_LINK_SUPPORT,
 } from '@mercaria/shared-types';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -374,18 +375,18 @@ describe('the referral edge cannot reach the money path', () => {
     // is reported outside a population built FROM that sweep exactly as it is
     // outside a correct one. It is what stops a widening satisfying the sweep by
     // absorbing the payout rail it was told to excuse.
-    for (const foreign of [
+    assertEachOf([
       'services/referral-payouts/rail.ts',
       'controllers/orders.controller.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(REFERRAL_DOMAIN_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {

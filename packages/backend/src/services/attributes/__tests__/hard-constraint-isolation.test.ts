@@ -51,6 +51,7 @@ import {
   readSrcDirectory,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const DOMAIN_DIR = fileURLToPath(new URL('..', import.meta.url));
@@ -212,9 +213,9 @@ describe('reserved offer keys', () => {
     // A vacuity floor plus the specific members whose absence would reopen the
     // hole: `price` and `availability` are the two a real feed asserts.
     expect(RESERVED_OFFER_FACT_KEYS.length).toBeGreaterThanOrEqual(15);
-    for (const key of ['price', 'availability', 'condition', 'shipping_cost', 'total_price']) {
+    assertEachOf(['price', 'availability', 'condition', 'shipping_cost', 'total_price'], 5, (key) => {
       expect(RESERVED_OFFER_FACT_KEYS, `'${key}' must be reserved`).toContain(key);
-    }
+    });
     // And `msrp` is deliberately NOT reserved: a manufacturer's suggested price
     // is a fact about the product, and a `money` attribute is its right home.
     expect(RESERVED_OFFER_FACT_KEYS).not.toContain('msrp');
@@ -301,13 +302,13 @@ describe('the population rule 1 is applied to (#460)', () => {
     // An exclusion for a module that would TRIP the wall is a hole; one for a
     // module that would pass is a statement about who owns it. Measured, because
     // the second is what the reasons above claim.
-    for (const foreign of [
+    assertEachOf([
       'db/canonical/attributeRepository.ts',
       'db/variantAxes/attributeClaimRepository.ts',
       'services/comparison/attribute-facts.ts',
-    ]) {
+    ], 3, (foreign) => {
       const source = readFileSync(join(SRC_ROOT, foreign), 'utf8');
       expect(STRENGTH_MUTATION.test(source), `${foreign} would trip rule 1`).toBe(false);
-    }
+    });
   });
 });

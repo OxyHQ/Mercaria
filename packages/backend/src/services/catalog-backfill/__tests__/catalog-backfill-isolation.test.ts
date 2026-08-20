@@ -54,6 +54,7 @@ import {
   readSrcDirectory,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../../..');
 
@@ -225,22 +226,22 @@ describe('wall 1 — no similarity metric, distance or threshold', () => {
   });
 
   it('has a detector that fires on the shapes it claims to', () => {
-    for (const positive of [
+    assertEachOf([
       'const score = similarity(a, b);',
       "import Fuse from 'fuse.js';",
       'sql`select * from brands order by name <-> ${q}`',
       'const best = closestMatch(text, keys);',
       'const rows = await findBrandNameCandidates(db, name);',
-    ]) {
+    ], 5, (positive) => {
       expect(FUZZY_REFERENCE.test(positive), `detector missed: ${positive}`).toBe(true);
-    }
-    for (const negative of [
+    });
+    assertEachOf([
       "const folded = raw.trim().toLowerCase().replace(/[\\s-]+/gu, '_');",
       'const brands = await findBrandsByNormalizedName(db, normalized);',
       "if (candidateBrandIds.length > 1) return { reason: 'vendor_brand_multiple_candidates' };",
-    ]) {
+    ], 3, (negative) => {
       expect(FUZZY_REFERENCE.test(negative), `detector over-matched: ${negative}`).toBe(false);
-    }
+    });
   });
 });
 
@@ -283,24 +284,24 @@ describe('wall 3 — no write to any catalog authority', () => {
   });
 
   it('has a detector that fires on both the builder and the raw spellings', () => {
-    for (const positive of [
+    assertEachOf([
       'await db.insert(categories).values({});',
       'await tx\n  .update(listings)\n  .set({ categorySlugs });',
       'await db.delete(brandAliases).where(eq(x, y));',
       'await db.execute(sql`update categories set ancestor_slugs = x`);',
       'await db.execute(sql`insert into product_type_definitions (id) values (1)`);',
-    ]) {
+    ], 5, (positive) => {
       expect(FORBIDDEN_TABLE_WRITE.test(positive), `detector missed: ${positive}`).toBe(true);
-    }
-    for (const negative of [
+    });
+    assertEachOf([
       'const rows = await db.select().from(categories);',
       "import { listings } from '../schema/catalog.js';",
       'await updateListingColumns(listingId, { categorySlugs }, tx);',
-    ]) {
+    ], 3, (negative) => {
       expect(FORBIDDEN_TABLE_WRITE.test(negative), `detector over-matched: ${negative}`).toBe(
         false,
       );
-    }
+    });
   });
 });
 
@@ -487,20 +488,20 @@ describe('the population the six walls above are applied to (#460)', () => {
     // `backfill` would pull in a whole other domain that has its own gate, and
     // the walls here are not the walls there.
     const population = domainRelativePaths();
-    for (const foreign of [
+    assertEachOf([
       'services/backfill/backfill.service.ts',
       'db/schema/backfill.ts',
       'routes/internal-backfill.ts',
       'scripts/backfill-variant-axes.ts',
       'services/catalog-proposals/backfill.service.ts',
-    ]) {
+    ], 5, (foreign) => {
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
       expect(population, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(CATALOG_BACKFILL_NAME_PATTERN.test(foreign), `${foreign} matches the name`).toBe(false);
-    }
+    });
   });
 
   it('both spellings of the NAME pattern are load-bearing', () => {

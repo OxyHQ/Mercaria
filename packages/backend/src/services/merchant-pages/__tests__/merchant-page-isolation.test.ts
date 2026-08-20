@@ -61,6 +61,7 @@ import {
   MERCHANT_PAGE_FORBIDDEN_FIELDS,
   MERCHANT_REJECTED_NATIVE_STORE_PRESENTATIONS,
 } from '@mercaria/shared-types';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 /** `packages/`, from this file. */
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
@@ -482,21 +483,21 @@ describe('the forbidden-field vocabularies name the prohibitions as values', () 
     // The static half. The RUNTIME half walks a real emitted card in
     // `db/__tests__/merchant-pages.realdb.test.ts` — neither sees what the
     // other does, and a key a spread put there is invisible to a source scan.
-    for (const field of ['rating', 'ratingCount', 'reviewCount', 'merchantRating'] as const) {
+    assertEachOf(['rating', 'ratingCount', 'reviewCount', 'merchantRating'] as const, 4, (field) => {
       expect(MERCHANT_CATALOG_FORBIDDEN_ENTRY_FIELDS).toContain(field);
-    }
+    });
   });
 
   it('the page names claim evidence, inferred addresses and store internals', () => {
-    for (const field of [
+    assertEachOf([
       'claimEvidence',
       'reviewerNote',
       'onboardingAddress',
       'physicalLocations',
       'storeMembers',
-    ] as const) {
+    ] as const, 5, (field) => {
       expect(MERCHANT_PAGE_FORBIDDEN_FIELDS).toContain(field);
-    }
+    });
     // A vacuity floor on the vocabulary itself: a list somebody emptied would
     // satisfy nothing above and everything below.
     expect(MERCHANT_PAGE_FORBIDDEN_FIELDS.length).toBeGreaterThanOrEqual(20);

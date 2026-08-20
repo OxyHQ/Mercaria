@@ -46,6 +46,7 @@ import {
   readSrcDirectory,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC_ROOT = join(HERE, '..', '..', '..');
@@ -231,17 +232,17 @@ describe('the population the five walls above are applied to (#460)', () => {
     // An exclusion for a module that would TRIP a wall is a hole; one for a
     // module that would pass is a statement about who owns it. Measured here
     // rather than asserted in prose, because the second is what this claims.
-    for (const foreign of [
+    assertEachOf([
       'services/retail-fulfilment/moovo.port.ts',
       'services/retail-fulfilment/moovo-request.ts',
-    ]) {
+    ], 2, (foreign) => {
       const code = readCode(foreign);
       expect(CARRIER_CLIENT.test(code), `${foreign} reaches a carrier`).toBe(false);
       expect(OUTBOUND_HTTP.test(code), `${foreign} calls out directly`).toBe(false);
       expect(BUYER_IMPERSONATION.test(code), `${foreign} forwards a user credential`).toBe(false);
       expect(DUPLICATE_SERVICE_AUTH.test(code), `${foreign} re-implements service auth`).toBe(false);
       expect(INLINE_CREDENTIAL.test(code), `${foreign} reads a secret directly`).toBe(false);
-    }
+    });
   });
 
   it('the derivation RECURSES, which the readdirSync it replaces did not', () => {

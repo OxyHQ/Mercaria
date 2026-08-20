@@ -51,6 +51,7 @@ import {
   walkOwnedDirectory,
   type DirectoryReader,
 } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -289,14 +290,14 @@ describe('a billing customer cannot be confused with a Connect account', () => {
       '../../db/schema/merchantPlans.js'
     );
     const { getTableColumns } = await import('drizzle-orm');
-    for (const table of [billingCustomers, merchantSubscriptions]) {
+    assertEachOf([billingCustomers, merchantSubscriptions], 2, (table) => {
       for (const name of Object.keys(getTableColumns(table))) {
         expect(
           /connect|providerAccount|accountId/i.test(name),
           `${name} is a column a connected-account id could be written into`,
         ).toBe(false);
       }
-    }
+    });
     // Vacuity floor: an emptied table would satisfy the loop above.
     expect(Object.keys(getTableColumns(billingCustomers)).length).toBeGreaterThanOrEqual(6);
   });
@@ -308,7 +309,7 @@ describe('feature flags and entitlements stay separate', () => {
     // decides what a DEPLOYMENT has switched on. Reading one to answer the other
     // would let a flag flip grant or remove a paid capability for every merchant
     // at once, with nothing in any audit trail saying so.
-    for (const relative of ['services/entitlements/resolve.ts', 'services/entitlements/capabilities.ts']) {
+    assertEachOf(['services/entitlements/resolve.ts', 'services/entitlements/capabilities.ts'], 2, (relative) => {
       const raw = readFileSync(join(SRC_ROOT, relative), 'utf8');
       expect(raw.length).toBeGreaterThan(500);
       const source = withoutComments(raw);
@@ -316,7 +317,7 @@ describe('feature flags and entitlements stay separate', () => {
         CONFIG_REFERENCE.test(source),
         `${relative} reads configuration; entitlements and feature flags solve different problems`,
       ).toBe(false);
-    }
+    });
   });
 
   it('the detector actually detects — the mutation self-test', () => {
@@ -362,15 +363,15 @@ describe('the capability vocabulary makes the free tier structural', () => {
     // ("core safety, payments, refunds, data export and order management"), so a
     // list that drifted away from them would pass a disjointness check and fail
     // the requirement.
-    for (const required of [
+    assertEachOf([
       'order_management',
       'refund_issuance',
       'data_export',
       'payment_onboarding',
       'financial_record_access',
-    ]) {
+    ], 5, (required) => {
       expect(MERCHANT_UNGATEABLE_CAPABILITIES).toContain(required);
-    }
+    });
   });
 
   it('no forbidden benefit is a capability a plan could grant', () => {

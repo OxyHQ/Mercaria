@@ -385,6 +385,11 @@ export function assertNothingOutsideDomainPopulation(options: OutsidePopulationO
  * change whose whole subject was that shape. A shared function takes the floor
  * with it and cannot be forgotten by the fifth caller.
  *
+ * `assertEachOf` in `./assert-each-of.ts` is the generic form of the same
+ * remedy, for a loop over a hand list that is not a directory list (#706). Reach
+ * for this one when the list IS directories, because it also asserts what a flat
+ * read requires; reach for that one otherwise.
+ *
  * Three assertions, and each closes a different way of being vacuous: the
  * directory LIST is non-empty, each directory LISTS something, and none of them
  * holds a subdirectory.

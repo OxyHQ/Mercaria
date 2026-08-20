@@ -21,6 +21,7 @@ import { assertDirectoriesAreFlat } from '../../__tests__/domain-population.js';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -488,18 +489,18 @@ describe('the guest claim path cannot reach what it must not', () => {
     // (Measured on `analytics-ranking-isolation.test.ts`, whose comment claims
     // its shared comparison closes this: mutating that wall's population to
     // `new Set(swept)` leaves all ten of its tests green.)
-    for (const foreign of [
+    assertEachOf([
       'controllers/orders.controller.ts',
       'routes/cart.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(CLAIM_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {

@@ -37,6 +37,7 @@ import {
   assertRankingSurfaceIsWhole,
   readRankingSurfaceFile,
 } from '../../../__tests__/ranking-surface.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -415,18 +416,18 @@ describe('analytics cannot read commercial standing', () => {
     expect(modules).toContain('controllers/analytics-operator.controller.ts');
     expect(modules).toContain('routes/admin/analytics.ts');
     expect(modules).toContain('db/schema/analytics.ts');
-    for (const foreign of [
+    assertEachOf([
       'controllers/orders.controller.ts',
       'routes/offers.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(modules, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('no analytics-named module anywhere in src/ sits outside the population', () => {
@@ -550,15 +551,15 @@ describe('analytics cannot read commercial standing', () => {
     // that happened to be added under one of those names would make them pass
     // while proving nothing.
     const real = analyticsDomainModules();
-    for (const seeded of [
+    assertEachOf([
       'controllers/analytics-demand.controller.ts',
       'services/analytics/demand.service.ts',
-    ]) {
+    ], 2, (seeded) => {
       expect(
         real,
         `${seeded} exists on disk, so the seeded assertions above prove nothing — rename the seed`,
       ).not.toContain(seeded);
-    }
+    });
   });
 
   it('a violation planted in EVERY scanned directory is detected — one victim per directory', () => {
@@ -612,16 +613,16 @@ describe('analytics cannot read commercial standing', () => {
         `${victim} already fails the wall, so it cannot serve as a mutation control`,
       ).toBe(false);
       expect(modules, `${victim} is not in the scanned population`).toContain(victim);
-      for (const violation of [
+      assertEachOf([
         "\nimport { planConnectedMarketplaceFee } from '../fees/order-fees.service.js';\n",
         "\nimport { readReferralProgram } from '../referrals/program.service.js';\n",
-      ]) {
+      ], 2, (violation) => {
         expect(
           COMMERCIAL_REFERENCE.test(stripComments(raw + violation)),
           `a violation planted in ${victim} is not detected, so ${parentOf(victim)} is scanned ` +
             'by a detector that cannot see a violation in it',
         ).toBe(true);
-      }
+      });
     }
   });
 

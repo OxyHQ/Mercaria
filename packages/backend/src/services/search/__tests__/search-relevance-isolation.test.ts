@@ -53,6 +53,7 @@ import {
   sweepSrcTreeForDomain,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -369,15 +370,15 @@ describe('canonical search cannot rank by a commercial payment', () => {
     ).toContain('middleware/search-schemas.ts');
 
     // …and #95's five files stay out, or this wall fires at whoever edits them.
-    for (const foreign of [
+    assertEachOf([
       'controllers/search-intent.controller.ts',
       'controllers/internal-search-intent.controller.ts',
       'routes/search-intent.ts',
       'routes/internal-search-intent.ts',
       'middleware/search-intent-schemas.ts',
-    ]) {
+    ], 5, (foreign) => {
       expect(outer, `${foreign} belongs to #95 and has its own gate`).not.toContain(foreign);
-    }
+    });
     expect(NOT_THIS_DOMAIN_PATTERN.test('internal-search-intent.controller.ts')).toBe(true);
     expect(NOT_THIS_DOMAIN_PATTERN.test('search-operator.controller.ts')).toBe(false);
 
@@ -386,11 +387,11 @@ describe('canonical search cannot rank by a commercial payment', () => {
     // than a tidy-up: with the sweep matching PATHS and `db/schema` in the
     // directory list, the narrow spelling drags three of #95's modules into
     // #70's population, and every count in this file stays where it is.
-    for (const foreign of [
+    assertEachOf([
       'db/schema/searchIntent.ts',
       'db/searchIntent/benchmarkRepository.ts',
       'db/searchIntent/searchIntentRepository.ts',
-    ]) {
+    ], 3, (foreign) => {
       expect(
         /search-intent/i.test(foreign),
         `${foreign} is excluded without the optional hyphen`,
@@ -399,7 +400,7 @@ describe('canonical search cannot rank by a commercial payment', () => {
       expect(outerRelativePaths(), `${foreign} belongs to #95 and has its own gate`).not.toContain(
         foreign,
       );
-    }
+    });
   });
 
   it('is the FORWARD wall over #70, and its relation to the shared surface holds', () => {

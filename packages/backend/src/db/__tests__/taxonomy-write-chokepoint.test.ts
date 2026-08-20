@@ -48,6 +48,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -197,27 +198,27 @@ describe('the taxonomy write census', () => {
   it('has a probe that matches the shapes it claims to, and not the rest', () => {
     // The mutation self-test. Each of these is a real spelling a second writer
     // could take, and a probe that had lost one would go on reporting clean.
-    for (const positive of [
+    assertEachOf([
       'await db.insert(categories).values({});',
       'await tx\n  .update(categoryRedirects)\n  .set({ reason: "merged" });',
       'await db.delete(categoryAliases).where(eq(categoryAliases.id, id));',
       'await db.execute(sql`update categories as d set ancestor_slugs = x`);',
       'await db.execute(sql`insert into category_external_mappings (id) values (1)`);',
       'await db.execute(sql`delete from category_redirects where id = $1`);',
-    ]) {
+    ], 6, (positive) => {
       expect(TAXONOMY_WRITE.test(positive), `probe missed: ${positive}`).toBe(true);
-    }
+    });
 
     // The negative controls. A probe that matched a plain READ would name every
     // consumer of the taxonomy and the allow-list would have to hold them all,
     // which is the gate eroding into a directory listing.
-    for (const negative of [
+    assertEachOf([
       'const rows = await db.select().from(categories);',
       'const [row] = await db.select().from(categoryAliases).where(eq(x, y));',
       'import { categories } from "../schema/catalog.js";',
       'await db.insert(listings).values({ categoryId });',
-    ]) {
+    ], 4, (negative) => {
       expect(TAXONOMY_WRITE.test(negative), `probe over-matched: ${negative}`).toBe(false);
-    }
+    });
   });
 });

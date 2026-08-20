@@ -57,6 +57,7 @@ import {
   referralPartners,
   referralTaxProfiles,
 } from '../../db/schema/referrals.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -420,18 +421,18 @@ describe('the enrollment population is closed against the tree', () => {
     // and the one the plant cannot see, since a plant absent from the real sweep
     // is reported outside a population built FROM that sweep exactly as it is
     // outside a correct one.
-    for (const foreign of [
+    assertEachOf([
       'services/referral-payouts/rail.ts',
       'controllers/orders.controller.ts',
       'db/schema/orders.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(ENROLLMENT_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {
@@ -701,15 +702,15 @@ describe('the closed vocabularies are complete', () => {
    */
   it('every rule column discriminates at least two modes', () => {
     const rules = Object.values(REFERRAL_ENROLLMENT_MODE_RULES);
-    for (const key of [
+    assertEachOf([
       'selfServe',
       'requiresOperatorReview',
       'requiresOperatorEvidence',
       'earnsProductionRewards',
-    ] as const) {
+    ] as const, 4, (key) => {
       const values = new Set(rules.map((rule) => rule[key]));
       expect(values.size, `${key} answers the same for every mode — it decides nothing`).toBe(2);
-    }
+    });
     const ownerScopes = new Set(rules.map((rule) => [...rule.eligibleOwnerTypes].sort().join(',')));
     expect(ownerScopes.size).toBeGreaterThan(1);
   });
@@ -725,9 +726,9 @@ describe('the closed vocabularies are complete', () => {
     // The MAPPING #146 recorded, asserted rather than described: `applied` IS
     // "submitted" and stays spelled `applied`, `invited` survives, and nothing
     // was removed. A narrowing here would strand every live row.
-    for (const shipped of ['applied', 'invited', 'approved', 'suspended', 'terminated']) {
+    assertEachOf(['applied', 'invited', 'approved', 'suspended', 'terminated'], 5, (shipped) => {
       expect(REFERRAL_PARTNER_STATES).toContain(shipped);
-    }
+    });
     expect(REFERRAL_PARTNER_STATES).toHaveLength(9);
     expect(REFERRAL_PARTNER_STATES).not.toContain('submitted');
   });

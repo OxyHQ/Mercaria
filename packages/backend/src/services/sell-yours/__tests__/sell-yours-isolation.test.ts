@@ -60,6 +60,7 @@ import {
   assertRankingSurfaceIsWhole,
   readRankingSurfaceFile,
 } from '../../../__tests__/ranking-surface.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -326,7 +327,7 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
     // These are the facts about (this listing, that product) rather than about a
     // scorer's confidence. Exempting one would be the false merge #58's whole
     // domain exists to prevent, with a person's tap as the excuse.
-    for (const blocker of [
+    assertEachOf([
       'conflicting_identifier',
       'brand_mismatch',
       'variant_attribute_mismatch',
@@ -337,12 +338,12 @@ describe('the "Sell yours" flow cannot speak for the item, the graph or a rankin
       'regional_variant_mismatch',
       'category_mismatch',
       'blocked_pair',
-    ] as const) {
+    ] as const, 10, (blocker) => {
       expect(
         SELLER_DECLARATION_BLOCKERS,
         `${blocker} stopped refusing a seller-declared match`,
       ).toContain(blocker);
-    }
+    });
   });
 
   it('WALL 5: only the publication path writes an attachment', () => {

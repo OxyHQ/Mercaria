@@ -33,6 +33,7 @@ import {
   EBAY_FORBIDDEN_LINK_OPERATIONS,
   EBAY_OUTBOUND_DESTINATION_KINDS,
 } from '@mercaria/shared-types';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -270,13 +271,13 @@ describe('Mercaria never composes or mutates an EPN link (#64 §6 rule 3)', () =
     // The three real composed-host lines in the shipped domain, read from disk
     // rather than retyped, so this control cannot drift away from the code it
     // claims to protect.
-    for (const relative of ['services/ebay/token.ts', 'services/ebay/browse.ts']) {
+    assertEachOf(['services/ebay/token.ts', 'services/ebay/browse.ts'], 2, (relative) => {
       const source = withoutComments(readDomainFile(relative));
       expect(
         itemLink?.pattern.test(source),
         `${relative} trips the item-link detector; a composed API URL must stay legal`,
       ).toBe(false);
-    }
+    });
   });
 
   it('keeps the destination kinds and the forbidden operations DISJOINT', () => {

@@ -54,6 +54,7 @@ import catalogMetricsRouter from '../../../routes/internal-catalog-metrics.js';
 import searchRouter from '../../../routes/search.js';
 import { censusProducers } from '../metrics.service.js';
 import { CATALOG_OBSERVED_ROUTES, routeObservationKey } from '../route-observations.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -604,12 +605,12 @@ describe('#367 — the operator surface is a CLOSED set of reads', () => {
     // repair on a surface whose whole posture is detection.
     const routes = registeredRoutes(catalogMetricsRouter as unknown as { stack: unknown[] });
     expect(routes.length).toBe(EXPECTED_ROUTES.length);
-    for (const forbidden of ['POST', 'PATCH', 'PUT', 'DELETE']) {
+    assertEachOf(['POST', 'PATCH', 'PUT', 'DELETE'], 4, (forbidden) => {
       expect(
         routes.some((route) => route.startsWith(`${forbidden} `)),
         `${forbidden} is registered on a read-only surface`,
       ).toBe(false);
-    }
+    });
   });
 
   it('the route enumerator can actually see a route — the mutation self-test', () => {

@@ -43,6 +43,7 @@ import {
   walkOwnedDirectory,
   type DirectoryReader,
 } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -255,9 +256,9 @@ describe('the pickup domain has no reach it should not have', () => {
     // Walked from the REAL drizzle table rather than read out of the file, so
     // a column added in a migration and mirrored into the schema fails here.
     const columns = Object.keys(getTableColumns(listingLocalDiscovery));
-    for (const forbidden of ['latitude', 'longitude', 'lat', 'lon', 'geoPoint', 'point', 'address']) {
+    assertEachOf(['latitude', 'longitude', 'lat', 'lon', 'geoPoint', 'point', 'address'], 7, (forbidden) => {
       expect(columns, `listing_local_discovery must not carry ${forbidden}`).not.toContain(forbidden);
-    }
+    });
     // …and the positive control: the cell it DOES carry is present, so a
     // renamed table cannot pass this by having no columns to check.
     expect(columns).toContain('cellLatIndex');
@@ -270,15 +271,15 @@ describe('the pickup domain has no reach it should not have', () => {
     // over. The whole of what the trail says about a person is which member of
     // STAFF acted.
     const trail = Object.keys(getTableColumns(pickupCollectionEvents));
-    for (const forbidden of ['buyerOxyUserId', 'email', 'phone', 'guestSessionId', 'codeHash', 'code']) {
+    assertEachOf(['buyerOxyUserId', 'email', 'phone', 'guestSessionId', 'codeHash', 'code'], 6, (forbidden) => {
       expect(trail, `pickup_collection_events must not carry ${forbidden}`).not.toContain(forbidden);
-    }
+    });
     expect(trail).toContain('actorOxyUserId');
 
     const snapshot = Object.keys(getTableColumns(orderPickups));
-    for (const forbidden of ['buyerEmail', 'buyerPhone', 'recipientName', 'guestSessionId']) {
+    assertEachOf(['buyerEmail', 'buyerPhone', 'recipientName', 'guestSessionId'], 4, (forbidden) => {
       expect(snapshot, `order_pickups must not carry ${forbidden}`).not.toContain(forbidden);
-    }
+    });
     expect(snapshot.length).toBeGreaterThanOrEqual(20);
   });
 });

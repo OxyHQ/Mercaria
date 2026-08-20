@@ -31,6 +31,7 @@ import {
   assertRankingSurfaceIsWhole,
   readRankingSurfaceFile,
 } from '../../../__tests__/ranking-surface.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const RETAIL_DIR = join(SRC_ROOT, 'services', 'retail-pricing');
@@ -123,9 +124,9 @@ describe('organic ranking cannot read retail cost data', () => {
     // so "cost less, rank higher" has nowhere to live.
     const source = readFileSync(join(SRC_ROOT, 'db', 'schema', 'retailPricing.ts'), 'utf8');
     expect(source.length).toBeGreaterThan(1_000);
-    for (const shape of ['salesVolume', 'placement', 'boost', 'rankingWeight', 'planTier']) {
+    assertEachOf(['salesVolume', 'placement', 'boost', 'rankingWeight', 'planTier'], 5, (shape) => {
       expect(source.includes(shape), `retailPricing.ts declares ${shape}`).toBe(false);
-    }
+    });
   });
 });
 

@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -286,18 +287,18 @@ describe('the guest-P2P policy cannot reach what it must not', () => {
     // and the one the plant cannot see, since a plant absent from the real
     // sweep is reported outside a population built FROM that sweep exactly as
     // it is outside a correct one.
-    for (const foreign of [
+    assertEachOf([
       'controllers/checkout.controller.ts',
       'routes/cart.ts',
       'services/checkout.service.ts',
       'middleware/auth.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(GUEST_P2P_PATHS, `${foreign} belongs to another domain`).not.toContain(foreign);
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
-    }
+    });
   });
 
   it('a module ADDED to the domain is scanned — the direction a hand list is blind in', () => {

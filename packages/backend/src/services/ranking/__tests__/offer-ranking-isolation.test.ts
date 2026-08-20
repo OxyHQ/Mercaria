@@ -45,6 +45,7 @@ import {
 } from '@mercaria/shared-types';
 import { rankingPolicyVersions } from '../../../db/schema/ranking.js';
 import { buildFacts } from './offer-fixtures.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -248,7 +249,7 @@ describe('WALL 2: the two vocabularies are disjoint', () => {
   it('every prohibition the issue names is present as a VALUE', () => {
     // The issue's seven, by name. A prohibition dropped from the tuple would
     // make the disjointness check above pass while permitting the thing.
-    for (const forbidden of [
+    assertEachOf([
       'affiliate_commission_rate',
       'commercial_agreement_margin',
       'fair_acceptance',
@@ -257,9 +258,9 @@ describe('WALL 2: the two vocabularies are disjoint', () => {
       'brand_popularity',
       'sensitive_personal_attribute',
       'sponsored_placement',
-    ]) {
+    ], 8, (forbidden) => {
       expect(OFFER_FORBIDDEN_RANKING_SIGNALS).toContain(forbidden);
-    }
+    });
   });
 });
 

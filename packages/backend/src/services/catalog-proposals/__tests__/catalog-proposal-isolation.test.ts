@@ -62,6 +62,7 @@ import {
   readSrcDirectory,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -236,19 +237,19 @@ describe('exactly one module may write a catalogue table', () => {
     expect(found).toContain('\\binsertAttributeEnumValue\\b');
     expect(found).toContain('\\binsertAttributeValueAlias\\b');
     // …and even the permitted writer may not mint the seven LINK-ONLY types.
-    for (const forbidden of [
+    assertEachOf([
       /\bcreateBrand\b/,
       /\bcreateCanonicalProduct\b/,
       /\bcreateProductFamily\b/,
       /\binsertProductTypeDefinition\b/,
       /\binsertAttributeDefinition\b/,
       /\binsert\(categories\)/,
-    ]) {
+    ], 6, (forbidden) => {
       expect(
         violations(source, [forbidden]),
         `${CATALOGUE_WRITER} mints an entity a link-only type owns`,
       ).toEqual([]);
-    }
+    });
   });
 });
 

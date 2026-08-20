@@ -48,6 +48,7 @@ import {
   reviews,
   reviewTargetMigrations,
 } from '../../../db/schema/reviews.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -300,7 +301,7 @@ describe('#76 wall 3 — no forbidden signal can be an evidence type', () => {
   it('names every source the issue calls out by name', () => {
     // A list that lost an entry would still be "disjoint" and would stop
     // refusing the thing it was written for, so the entries are pinned.
-    for (const named of [
+    assertEachOf([
       'email_match',
       'stripe_customer',
       'stripe_link',
@@ -312,9 +313,9 @@ describe('#76 wall 3 — no forbidden signal can be an evidence type', () => {
       'portal_token',
       'checkout_token',
       'guest_session_possession',
-    ]) {
+    ], 11, (named) => {
       expect(REVIEW_FORBIDDEN_EVIDENCE_SOURCES).toContain(named);
-    }
+    });
   });
 
   it('both evidence types are a PURCHASE', () => {
@@ -370,11 +371,11 @@ describe('#76 — the scope/dimension vocabulary keeps product and service apart
   it('no service-grain scope admits a product-quality dimension', () => {
     // Acceptance criterion 2, the mirror: a product defect cannot be counted as
     // merchant service feedback.
-    for (const scope of ['merchant', 'native_transaction'] as const) {
+    assertEachOf(['merchant', 'native_transaction'] as const, 2, (scope) => {
       for (const key of REVIEW_SCOPE_DIMENSION_KEYS[scope]) {
         expect(['quality', 'durability', 'value_for_money']).not.toContain(key);
       }
-    }
+    });
     expect(REVIEW_SCOPE_DIMENSION_KEYS.merchant).toContain('delivery_speed');
   });
 

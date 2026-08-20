@@ -42,6 +42,7 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -216,28 +217,28 @@ describe('the canonical attribute value write census (ADR 0007 D7)', () => {
 
   describe('mutation self-tests — every write spelling, against source the walk never produced', () => {
     it('fires on all five spellings', () => {
-      for (const spelling of [
+      assertEachOf([
         `await tx.insert(${BINDING}).values(row);`,
         `await db\n  .update(${BINDING})\n  .set({ selectionState: 'selected' });`,
         `await db.delete(${BINDING}).where(x);`,
         `await db.execute(sql\`update "${TABLE}" set selection_state = 'selected'\`);`,
         `await db.execute(sql\`insert into \${${BINDING}} (id) values (1)\`);`,
-      ]) {
+      ], 5, (spelling) => {
         expect(SELECTED_FACT_WRITE.test(spelling), `not matched: ${spelling}`).toBe(true);
-      }
+      });
     });
 
     it('does NOT fire on a read, or on the CLAIM tables it sits beside', () => {
       // A detector that cannot tell a legitimate value from its quarry gets
       // narrowed under pressure, and narrowing is the permissive direction.
-      for (const clean of [
+      assertEachOf([
         `const rows = await db.select().from(${BINDING}).where(eq(${BINDING}.id, id));`,
         `await tx.insert(nativeListingAttributeClaims).values(row);`,
         `await tx.update(nativeVariantAttributeClaims).set({ resolution: 'ambiguous' });`,
         `await db.execute(sql\`select * from "${TABLE}"\`);`,
-      ]) {
+      ], 4, (clean) => {
         expect(SELECTED_FACT_WRITE.test(clean), `wrongly matched: ${clean}`).toBe(false);
-      }
+      });
     });
   });
 });

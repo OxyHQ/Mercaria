@@ -50,6 +50,7 @@ import {
   readSrcDirectory,
   walkOwnedDirectory,
 } from '../../../__tests__/domain-population.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const REPO_ROOT = join(SRC_ROOT, '..', '..', '..');
@@ -442,7 +443,7 @@ describe('WALL 4 — a model can never reach a verdict', () => {
   });
 
   it('the summary modules import nothing that decides an outcome', () => {
-    for (const name of ['summary.ts', 'summary.port.ts']) {
+    assertEachOf(['summary.ts', 'summary.port.ts'], 2, (name) => {
       const source = stripComments(
         readFileSync(join(SRC_ROOT, 'services', 'shopping-agents', name), 'utf8'),
       );
@@ -450,7 +451,7 @@ describe('WALL 4 — a model can never reach a verdict', () => {
         EVALUATION_REFERENCE.test(source),
         `${name} reaches an evaluator; a summary describes a finding and never produces one`,
       ).toBe(false);
-    }
+    });
   });
 });
 

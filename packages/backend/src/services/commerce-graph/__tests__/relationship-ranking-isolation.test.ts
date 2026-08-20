@@ -41,6 +41,7 @@ import {
   assertRankingSurfaceIsWhole,
   readRankingSurfaceFile,
 } from '../../../__tests__/ranking-surface.js';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -264,13 +265,13 @@ describe('verification is a trust attribute, never a purchasable boost', () => {
     }
     // …and does NOT drag in the two sibling sub-domains that share the
     // directory, or this wall would start firing at whoever edits a storefront.
-    for (const foreign of [
+    assertEachOf([
       'services/commerce-graph/merchant.service.ts',
       'services/commerce-graph/storefront.service.ts',
       'services/commerce-graph/native-store-link.service.ts',
-    ]) {
+    ], 3, (foreign) => {
       expect(modules, `${foreign} is a different sub-domain`).not.toContain(foreign);
-    }
+    });
     expect(RELATIONSHIP_NAME_PATTERN.test('relationshipRepository.ts')).toBe(true);
     expect(RELATIONSHIP_NAME_PATTERN.test('relationships.ts')).toBe(true);
     expect(RELATIONSHIP_NAME_PATTERN.test('merchant.service.ts')).toBe(false);

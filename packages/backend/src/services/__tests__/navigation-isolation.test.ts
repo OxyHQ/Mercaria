@@ -54,6 +54,7 @@ import {
   walkOwnedDirectory,
   type DirectoryReader,
 } from '../../__tests__/domain-population.js';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DRIZZLE_ROOT = join(SRC_ROOT, '..', 'drizzle');
@@ -224,9 +225,9 @@ describe('the navigation domain has no reach it should not have', () => {
     // Walked from the REAL drizzle table, so a column added in a migration and
     // mirrored into the schema fails here rather than being described away.
     const columns = Object.keys(getTableColumns(navigationNodes));
-    for (const forbidden of ['label', 'name', 'title', 'description', 'accessibilityLabel']) {
+    assertEachOf(['label', 'name', 'title', 'description', 'accessibilityLabel'], 5, (forbidden) => {
       expect(columns, `navigation_nodes must not carry ${forbidden}`).not.toContain(forbidden);
-    }
+    });
     // …and the positive control: the identity it DOES carry is present, so a
     // renamed table cannot pass this by having no columns to check.
     expect(columns).toContain('key');
@@ -248,7 +249,7 @@ describe('the navigation domain has no reach it should not have', () => {
       ['navigation_saved_queries', navigationSavedQueries],
     ] as const) {
       const columns = Object.keys(getTableColumns(table));
-      for (const forbidden of [
+      assertEachOf([
         'categorySlug',
         'categoryName',
         'ancestorIds',
@@ -259,9 +260,9 @@ describe('the navigation domain has no reach it should not have', () => {
         'collectionTitle',
         'productIds',
         'listingIds',
-      ]) {
+      ], 10, (forbidden) => {
         expect(columns, `${name} must not carry ${forbidden}`).not.toContain(forbidden);
-      }
+      });
     }
     // The pointers themselves ARE present — the wall is about SEMANTICS being
     // restated, not about a node being unable to point at anything.

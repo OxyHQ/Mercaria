@@ -56,6 +56,7 @@ import type {
   ProductConstraint,
   ShoppingInterpretation,
 } from '@mercaria/shared-types';
+import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -389,16 +390,16 @@ describe('WALL 4: the two vocabularies are disjoint', () => {
   });
 
   it('every prohibition the issue names is present as a VALUE', () => {
-    for (const forbidden of [
+    assertEachOf([
       'affiliate_commission_rate',
       'merchant_subscription_plan',
       'fair_acceptance',
       'review_sentiment',
       'model_general_knowledge',
       'ingestion_order',
-    ]) {
+    ], 6, (forbidden) => {
       expect(COMPARISON_FORBIDDEN_RECOMMENDATION_INPUTS).toContain(forbidden);
-    }
+    });
   });
 
   it('the reason and result vocabularies are closed and non-empty', () => {
@@ -482,7 +483,7 @@ describe('WALL 5: a forbidden input has nowhere to live, in a REAL package', () 
     expect(pkg.groundedValues.length).toBeGreaterThanOrEqual(3);
 
     const serialized = JSON.stringify(pkg);
-    for (const forbidden of [
+    assertEachOf([
       'prod-1',
       'offer-1',
       '/p/alpha',
@@ -493,9 +494,9 @@ describe('WALL 5: a forbidden input has nowhere to live, in a REAL package', () 
       'commission',
       'referral',
       'margin',
-    ]) {
+    ], 10, (forbidden) => {
       expect(serialized.includes(forbidden), `the package leaked ${forbidden}`).toBe(false);
-    }
+    });
   });
 
   it('the leak detector actually detects — the mutation self-test', () => {
@@ -625,9 +626,9 @@ describe('the direction policy defaults to `not_comparable`', () => {
     // The default that makes product-comparison rule 6 true. If this ever
     // answers a direction, every unclassified numeric row starts declaring a
     // winner nobody agreed.
-    for (const key of ['weight_grams', 'length_mm', 'capacity_litres', 'anything_at_all']) {
+    assertEachOf(['weight_grams', 'length_mm', 'capacity_litres', 'anything_at_all'], 4, (key) => {
       expect(resolveComparisonDirection(key)).toBe('not_comparable');
-    }
+    });
   });
 
   it('every declared direction carries the reason it is category-independent', () => {

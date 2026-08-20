@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertEachOf } from '../../__tests__/assert-each-of.js';
 
 const SRC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -251,18 +252,18 @@ describe('the population the three walls are applied to (#460)', () => {
     // measurement. A bare `order` matches 61 modules; two of them are the
     // helper's own foreign controls, named there because a population holding
     // them has stopped being a domain.
-    for (const foreign of [
+    assertEachOf([
       'controllers/orders.controller.ts',
       'db/schema/orders.ts',
       'routes/orders.ts',
       'services/order.service.ts',
-    ]) {
+    ], 4, (foreign) => {
       expect(
         statSync(join(SRC_ROOT, foreign)).isFile(),
         `${foreign} no longer exists, so excluding it proves nothing`,
       ).toBe(true);
       expect(ACCESS_PATHS, `${foreign} is not this path`).not.toContain(foreign);
-    }
+    });
   });
 
   it('every module that CONSUMES the access decision is either in the population or another domain’s', () => {
