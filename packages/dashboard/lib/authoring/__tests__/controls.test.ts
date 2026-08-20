@@ -262,4 +262,42 @@ describe('unitAffordance is the ONE unit decision both renderers make', () => {
       true,
     );
   });
+
+  /**
+   * The ENTRYPOINT assertion — everything else here can be green and INERT.
+   *
+   * Every case above exercises the shared functions in isolation, and the scan
+   * above only forbids a component from re-deriving the decision. Neither
+   * notices a renderer that simply STOPS CALLING — delete the `unitAffordance`
+   * call from `VariantAxes` and render no unit box, and the census still passes,
+   * the scan still passes, and the exact bug this change fixed is back.
+   *
+   * A mechanism nothing calls is not a mechanism, so the callers are named.
+   * This is a weaker check than executing the components — which this runner
+   * cannot do at all (`lib/**`, no renderer) — and it is the strongest one
+   * available at this layer, which is worth saying plainly rather than leaving
+   * a reader to assume the coverage is behavioural.
+   */
+  it('is actually CALLED by both renderers', () => {
+    const componentsDir = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../../components/catalog-authoring',
+    );
+    const read = (name: string) => readFileSync(join(componentsDir, name), 'utf8');
+
+    const axes = read('VariantAxes.tsx');
+    const schemaField = read('SchemaField.tsx');
+
+    // The unit decision reaches BOTH surfaces. `SchemaField` always had it;
+    // `VariantAxes` is the one that did not.
+    expect(/unitAffordance\s*\(/u.test(axes)).toBe(true);
+    expect(/unitAffordance\s*\(/u.test(schemaField)).toBe(true);
+
+    // And the coverage decision reaches the axis control that dispatches on it.
+    expect(/axisValueSupport\s*\(/u.test(axes)).toBe(true);
+
+    // The negative control: these detectors distinguish a CALL from a mention,
+    // so a docblock naming the function does not satisfy them.
+    expect(/unitAffordance\s*\(/u.test(' * Uses unitAffordance to decide.')).toBe(false);
+  });
 });
