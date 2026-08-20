@@ -209,6 +209,39 @@ export const FOREIGN_CONTROL_MODULES = [
   'middleware/auth.ts',
 ] as const;
 
+/** `packages/`, for the gates whose population spans more than the API. */
+export const PACKAGES_ROOT = join(SRC_ROOT, '..', '..');
+
+/**
+ * Every `.ts`/`.tsx` under a directory relative to `packages/`, RECURSIVELY.
+ *
+ * `walkOwnedDirectory` is relative to the API's `src/`, which is right for the
+ * ~50 gates whose population is a backend domain and useless for the three
+ * whose population is a client surface — the storefront has no test runner, so
+ * those walls are asserted from here or nowhere (#92's precedent).
+ *
+ * Shared rather than copied for the reason this file exists: the two callers
+ * that need it today filter differently (one by content, one not), and the part
+ * they have in common is the TRAVERSAL, which is the part that was wrong in
+ * twenty-seven gates at once.
+ */
+export const readPackagesDirectory: DirectoryReader = (relative) =>
+  readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true });
+
+export function walkPackagesDirectory(
+  relative: string,
+  read: DirectoryReader = readPackagesDirectory,
+): string[] {
+  const found: string[] = [];
+  for (const entry of read(relative)) {
+    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+    const child = childPath(relative, entry.name);
+    if (entry.isDirectory()) found.push(...walkPackagesDirectory(child, read));
+    else if (entry.isFile() && /\.tsx?$/.test(entry.name)) found.push(child);
+  }
+  return found;
+}
+
 /**
  * A module that NAMES the domain and is not OF it.
  *

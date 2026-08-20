@@ -45,13 +45,15 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import {
   type DirectoryReader,
   assertNothingOutsideDomainPopulation,
   namedInSharedDirectories,
+  readPackagesDirectory,
   readSrcDirectory,
   walkOwnedDirectory,
+  walkPackagesDirectory,
 } from '../../../__tests__/domain-population.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -65,21 +67,6 @@ import { assertEachOf } from '../../../__tests__/assert-each-of.js';
 
 /** `packages/`, from this file. */
 const PACKAGES_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..', '..');
-
-/**
- * Every `.ts`/`.tsx` under `relative` (from `packages/`), recursively, excluding
- * the test tree.
- */
-function walk(relative: string): string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(PACKAGES_ROOT, relative), { withFileTypes: true })) {
-    if (entry.name === '__tests__') continue;
-    const child = `${relative}/${entry.name}`;
-    if (entry.isDirectory()) found.push(...walk(child));
-    else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) found.push(child);
-  }
-  return found;
-}
 
 /**
  * What a module of this domain is called, wherever it lives.
@@ -134,34 +121,56 @@ function backendHttpSurface(): string[] {
  */
 const BACKEND_PATHS = backendRelativePaths().map((relative) => `backend/src/${relative}`);
 
-/**
- * The storefront modules that cannot be derived from a directory.
- *
- * The SCREEN, the API client and the hook sit among the storefront's own
- * hundreds of files, and no rule reaches them without reaching a different
- * domain's surface. Kept as a hand list with an EXACT count and a comment
- * claiming only what the list IS (#460's other sanctioned resolution) — walking
- * `packages/frontend` whole would scan every screen in the app against a
- * follow-identity wall, which is a different gate.
- */
-const UNDERIVABLE_FRONTEND_PATHS = [
-  'frontend/app/(app)/merchants/[idOrSlug].tsx',
-  'frontend/lib/api/merchants.ts',
-  'frontend/lib/hooks/use-merchant-page.ts',
-];
+/** The storefront directories this domain owns outright. */
+const MERCHANT_OWNED_CLIENT_DIRECTORIES = [
+  'frontend/components/merchant',
+  'frontend/app/(app)/merchants',
+] as const;
 
 /**
- * Every merchant-page surface in the storefront.
+ * The shared client directories a merchant-page module lives in under a domain
+ * NAME, and the name rule that reaches it.
  *
- * `frontend/components/merchant/` IS a directory this domain owns, so it is
- * walked: a fifth merchant component added there was invisible to the follow
- * wall below, which is the one that keeps a person's Oxy identity from being
- * split across apps by whoever registers a follow URI first.
+ * `frontend/lib/` is ninety-odd files of which two are this domain's; the rule
+ * is anchored on the NAME rather than the directory for that reason.
  */
-const FRONTEND_PATHS = [
-  ...walk('frontend/components/merchant'),
-  ...UNDERIVABLE_FRONTEND_PATHS,
-];
+const MERCHANT_SHARED_CLIENT_DIRECTORIES = ['frontend/lib/api', 'frontend/lib/hooks'] as const;
+const MERCHANT_CLIENT_NAME = /merchant/i;
+
+/**
+ * Every merchant-page surface in the storefront — DERIVED (#460).
+ *
+ * This was `walk('frontend/components/merchant')` plus THREE hand-named paths
+ * under a comment saying no rule reaches them "without reaching a different
+ * domain's surface". Measured on 2026-08-21, that is not so: the merchant SCREEN
+ * has a directory of its own (`app/(app)/merchants/`), and `merchant` as a name
+ * over `lib/api` and `lib/hooks` selects exactly `merchants.ts` and
+ * `use-merchant-page.ts` and nothing else. So the residual the comment described
+ * was real for the screen's siblings and not for the screen.
+ *
+ * The rejection the comment records still stands and still shapes this: walking
+ * `packages/frontend` WHOLE would scan every screen in the app against a
+ * follow-identity wall, which is a different gate. What replaces the hand list
+ * is two owned directories plus a name rule over two shared ones — the shape the
+ * backend half already uses, pointed at the client.
+ *
+ * Taken as a FUNCTION of its reader so the positive control below measures this
+ * derivation rather than the tree.
+ */
+function frontendPaths(read: DirectoryReader = readPackagesDirectory): string[] {
+  return [
+    ...MERCHANT_OWNED_CLIENT_DIRECTORIES.flatMap((directory) =>
+      walkPackagesDirectory(directory, read),
+    ),
+    ...MERCHANT_SHARED_CLIENT_DIRECTORIES.flatMap((directory) =>
+      walkPackagesDirectory(directory, read).filter((relative) =>
+        MERCHANT_CLIENT_NAME.test(relative.split('/').pop() ?? ''),
+      ),
+    ),
+  ];
+}
+
+const FRONTEND_PATHS = frontendPaths();
 
 /** A follow target being named, registered, rendered or stored. */
 const FOLLOW_REFERENCE =
@@ -310,8 +319,21 @@ describe('the merchant page creates no second follow identity', () => {
       FRONTEND_PATHS.filter((path) => path.startsWith('frontend/components/merchant/')).length,
       'the merchant component walk found nothing',
     ).toBeGreaterThanOrEqual(4);
-    // EXACT: the one hand list left is an identity, not a predicate (#448).
-    expect(UNDERIVABLE_FRONTEND_PATHS.length, 'the underivable list changed size').toBe(3);
+    // The client half is DERIVED now (#460), so it gets floors PER SHAPE rather
+    // than a count of a list: a count of a derived set is satisfied by that set
+    // being wrong in two compensating directions.
+    expect(
+      FRONTEND_PATHS.filter((path) => path.startsWith('frontend/components/merchant/')).length,
+      'the merchant component walk found nothing',
+    ).toBeGreaterThanOrEqual(4);
+    expect(
+      FRONTEND_PATHS.filter((path) => path.startsWith('frontend/app/')).length,
+      'the merchant screen walk found nothing',
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      FRONTEND_PATHS.filter((path) => path.startsWith('frontend/lib/')).length,
+      'the client name rule selected nothing',
+    ).toBeGreaterThanOrEqual(2);
     for (const path of [...BACKEND_PATHS, ...FRONTEND_PATHS]) {
       expect(statSync(join(PACKAGES_ROOT, path)).isFile(), `${path} is not a file`).toBe(true);
     }

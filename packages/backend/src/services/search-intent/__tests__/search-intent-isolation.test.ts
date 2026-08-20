@@ -352,6 +352,18 @@ describe('the natural-language intent domain cannot reach what it must not', () 
     expect(DOMAIN_NAME_PATTERN.test('search.controller.ts')).toBe(false);
     expect(DOMAIN_NAME_PATTERN.test('internal-search-intent.ts')).toBe(true);
 
+    // EXACT (#448, #460). This list is the half no name rule reaches, and the
+    // docblock above says so accurately — the screen is the search screen and
+    // the component renders an interpretation, so a rule that "derived" them
+    // would be a hand list with an extra step. What it lacked was a count: a
+    // third file could join it and every assertion below would still pass,
+    // because they are all `toContain` over the files that ARE selected.
+    expect(
+      NAMED_CLIENT_FILES.length,
+      'a third client file was named rather than derived — it may be right, but nothing else ' +
+        'here would notice',
+    ).toBe(2);
+
     const client = clientPaths().map((file) => file.relative);
     for (const expected of [
       'packages/frontend/lib/api/search-intent.ts',

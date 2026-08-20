@@ -36,7 +36,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns, getTableName } from 'drizzle-orm';
@@ -95,14 +95,41 @@ function domainModules(): string[] {
   ];
 }
 
-/** The domain plus the files outside it that belong to the same walls. */
+/**
+ * The ONE module outside the walked directories that belongs to these walls.
+ *
+ * `controllers/admin/channels-catalog.controller.ts` is the catalogue half of
+ * the channel admin surface. It stays NAMED, with an EXACT count, and the
+ * reason is the same one this file's population docblock gives at length: a
+ * `channel` rule over `controllers/admin/` would also take
+ * `channels-admin.controller.ts`, `channel-keys.controller.ts` and
+ * `channel-ingest.controller.ts`, which are the CREDENTIAL surface — a
+ * different gate about different walls (#658's
+ * `channel-credential-isolation.test.ts`), and three of the four would fail
+ * these walls for a correct reason about the wrong domain.
+ *
+ * So the derivation stops where the ownership line is, and the residual is one
+ * file rather than a directory rule that would cross it.
+ */
+const CHANNEL_CATALOG_ADMIN = ['controllers/admin/channels-catalog.controller.ts'];
+
+/**
+ * The domain plus the files outside it that belong to the same walls.
+ *
+ * `db/channels/` is now WALKED (#460). It was two hand-named repositories, and
+ * the only assertion over the result was a TOTAL `>= 9` floor — which a third
+ * repository joining the directory could not move, because it would not have
+ * been in the list to be counted. `db/schema/channels.ts` was also named TWICE,
+ * once here and once in `domainModules()`, so the set is de-duplicated rather
+ * than left to a `Set` somewhere downstream.
+ */
 function scannedPaths(): string[] {
   return [
-    ...domainModules(),
-    join(SRC_ROOT, 'db', 'channels', 'channelOnboardingRepository.ts'),
-    join(SRC_ROOT, 'db', 'channels', 'channelAuditRepository.ts'),
-    join(SRC_ROOT, 'db', 'schema', 'channels.ts'),
-    join(SRC_ROOT, 'controllers', 'admin', 'channels-catalog.controller.ts'),
+    ...new Set([
+      ...domainModules(),
+      ...walkOwnedDirectory('db/channels').map((relative) => join(SRC_ROOT, relative)),
+      ...CHANNEL_CATALOG_ADMIN.map((relative) => join(SRC_ROOT, relative)),
+    ]),
   ];
 }
 
@@ -156,6 +183,27 @@ describe('#87 — the walls around the channel domain', () => {
     expect(paths.length).toBeGreaterThanOrEqual(9);
     expect(domainModules().some((path) => path.endsWith('channel-catalog.ts'))).toBe(true);
     expect(domainModules().some((path) => path.endsWith('channel-binding.ts'))).toBe(true);
+
+    // Floors PER SHAPE (#460). The total above is satisfied by the service walk
+    // alone, so it cannot notice the repository walk collapsing — which is the
+    // half that was a hand list until this change.
+    const from = (prefix: string) =>
+      paths.filter((path) => path.startsWith(join(SRC_ROOT, prefix))).length;
+    expect(from('services/channels'), 'the service walk found nothing').toBeGreaterThanOrEqual(6);
+    expect(from('db/channels'), 'the repository walk found nothing').toBeGreaterThanOrEqual(2);
+    // EXACT: the one named residual is an identity, not a predicate (#448).
+    expect(
+      CHANNEL_CATALOG_ADMIN.length,
+      'a second admin controller was pulled into this gate — check it is not the CREDENTIAL ' +
+        "surface, which is #658's gate",
+    ).toBe(1);
+    // Every path resolves, and the set carries no duplicate — `db/schema/channels.ts`
+    // was named twice before this change, so a scan reported one more file than
+    // it read.
+    expect(new Set(paths).size, 'the scanned set contains a duplicate').toBe(paths.length);
+    for (const path of paths) {
+      expect(statSync(path).isFile(), `${path} is not a file — did it move?`).toBe(true);
+    }
   });
 
   it('never reaches the brand or relationship layer (#87 reconcile 8)', () => {
