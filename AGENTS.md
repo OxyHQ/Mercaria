@@ -83,30 +83,28 @@ bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ## PostgreSQL
 
 `DATABASE_URL` is **required to boot**. There is no second store: legacy
-Mongo/Mongoose is GONE — no `src/models/`, no `mongoose` dependency,
-no `MONGODB_URI`, and no rollback target.
+Mongo/Mongoose is GONE (PR #136, database dropped 2026-08-08) — no `src/models/`,
+no `mongoose` dependency, no `MONGODB_URI`, and no rollback target.
 
 - **`bun run db:generate` writes migrations; `src/db/migrate.ts` is the ONLY
   thing that applies them** — never `drizzle-kit migrate`. Every generated `.sql`
   needs exactly one `-- oxy:deploy-phase=pre` (additive) or `=post`
-  (drops/renames/narrows) marker; there is no default.
+  (drops/renames/narrows) marker; no default.
 - **`bun run build:shared-types` BEFORE `db:generate`, always.** drizzle-kit
   renders every closed-value-set CHECK from the BUILT `@mercaria/shared-types`,
-  so a stale `dist/` silently emits `DROP`/`ADD CONSTRAINT` pairs that narrow a
-  sibling branch's tuple back, in a diff that looks entirely plausible.
+  so a stale `dist/` silently emits `DROP`/`ADD CONSTRAINT` pairs narrowing a
+  sibling branch's tuple back, in a diff that looks plausible.
 - **Never hand-rename a migration, hand-edit `meta/_journal.json` or hand-write a
   snapshot**, and after any regeneration READ the file for statements you did not
-  intend — regeneration DROPS every hand-written trigger, function, backfill AND
-  the `-- oxy:deploy-phase=` marker itself, even on pure DDL. Verify the marker
-  count is exactly 1 every time.
-- **Do not convert the `*.realdb.test.ts` suites to mocks.** A mocked
-  insert/update accepts a statement the server rejects outright; the CHECKs,
-  unique indexes, `requireTransaction` and `FOR UPDATE SKIP LOCKED` they exercise
-  have no mocked counterpart.
+  intend — regeneration DROPS every hand-written trigger, function, backfill and
+  the marker, pure DDL included; verify its count is 1.
+- **Do not convert `*.realdb.test.ts` suites to mocks.** A mocked insert/update
+  accepts a statement the server rejects outright; CHECKs, unique indexes,
+  `requireTransaction` and `FOR UPDATE SKIP LOCKED` have no mocked counterpart.
 - **The test database is SHARED across parallel files.** Scope every aggregate to
   ids your file owns, floor every count equality, never widen a global config
   bound, hold the advisory-lock mutex for the global active matching policy, and
-  keep a trigger-toggle window to exactly ONE table.
+  keep a trigger-toggle window to ONE table.
 
 ## Auth and the identity surfaces
 
@@ -185,7 +183,8 @@ no `MONGODB_URI`, and no rollback target.
   tag (#434). `border-s-*`/`text-start` do NOT survive react-native-css/RN 0.85
   and stay physical, as do a panel's `translateX` sign and divider edge (LOGICAL
   `side` in `ui/src/lib/logical-side.ts`); `validate-rtl-upstream-premises.mjs`
-  re-measures both premises against the INSTALLED packages.
+  re-measures both premises against the INSTALLED packages. Residual: #429 item 2
+  — nothing renders, #486 blocks review, Arabic NOT fully supported.
 - **Dockerfile node-gyp pin.** The API Dockerfile is at the repo ROOT and pins
   `node-gyp` in the builder stage; `ws`'s optional native accelerators have no
   musl-arm64 prebuild and an on-demand `bunx node-gyp@latest` fails
