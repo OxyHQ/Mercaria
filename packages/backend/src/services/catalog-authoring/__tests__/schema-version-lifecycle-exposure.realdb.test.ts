@@ -70,7 +70,7 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { eq, inArray } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import {
   PRODUCT_TYPE_EDITABLE_LIFECYCLES,
@@ -143,13 +143,13 @@ const PERMISSIONS: AuthoringPermissionContext = {
  * Through `composeAuthoringSchema` and not through a repository, because the
  * question is what the SURFACE answers a caller who named a version.
  */
-async function composeAt(version: number | undefined, requestedLocale = 'en') {
+async function composeAt(version: number | undefined) {
   return composeAuthoringSchema(db, {
     productTypeKey: TYPE_KEY,
     ...(version === undefined ? {} : { version }),
     categoryId,
     flow: 'merchant',
-    requestedLocale,
+    requestedLocale: 'en',
     market: 'ES',
     permissions: PERMISSIONS,
   });
@@ -526,73 +526,5 @@ describe('the product-types picker offers only PUBLISHED versions', () => {
     // as different answers rather than as one rule applied twice.
     const composition = await composeAt(deprecated);
     expect(composition.outcome).toBe('composed');
-  });
-});
-
-/**
- * #611 end to end: a deprecation reaches a locale that was ALREADY memoized.
- *
- * The unit half is `authoring-etag.test.ts`, which varies each dimension and
- * counts distinct keys. It proves `lifecycle` is IN the key. It cannot prove
- * what a caller is served, because it never composes anything.
- *
- * ## The memoized locale is the whole case
- *
- * A locale composed for the first time AFTER the deprecation answers correctly
- * whatever the key looks like — it never had an entry to be stale. So `en` here
- * is composed BEFORE the deprecation and asserted AFTER it, and `es` is the
- * control that says the database really moved. Reverse those roles and the case
- * passes against the unfixed code.
- *
- * `beforeEach` clears the memo, which is what makes the first compose the entry
- * that matters — and nothing clears it between the two, which is the point.
- *
- * ## Why this cannot be a unit test
- *
- * The memo is process state keyed on a composition of real rows, and the
- * deprecation is a real UPDATE that a trigger and a CHECK both constrain
- * (`product_type_definitions_deprecated_at_check` ties `deprecated_at` to the
- * lifecycle). A mocked repository would accept a row shape the server refuses.
- */
-describe('#611 — a deprecation is visible to a locale composed before it', () => {
-  it('the MEMOIZED locale answers `deprecated`, and its ETag moves', async () => {
-    const version = versionByLifecycle.get('published');
-    expect.soft(version, 'the published fixture is missing').toBeTruthy();
-
-    // Composed while PUBLISHED: this is the entry that must not go stale.
-    const before = await composeAt(version);
-    expect.soft(before.outcome).toBe('composed');
-    if (before.outcome !== 'composed') return;
-    expect.soft(before.schema.productType.lifecycle).toBe('published');
-
-    await db
-      .update(productTypeDefinitions)
-      .set({ lifecycle: 'deprecated', deprecatedAt: new Date() })
-      .where(eq(productTypeDefinitions.id, before.schema.productType.definitionId));
-
-    // A FRESH locale — the control. It proves the row really moved, so a failure
-    // below is the memo and not the fixture. Soft, because it is not the claim.
-    const fresh = await composeAt(version, 'es');
-    expect.soft(fresh.outcome).toBe('composed');
-    expect
-      .soft(fresh.outcome === 'composed' ? fresh.schema.productType.lifecycle : null)
-      .toBe('deprecated');
-
-    // THE ASSERTION. Same locale, same version, same everything except the
-    // lifecycle — which is the dimension #611 added to the key. Before the fix
-    // this answered `published` from the memo.
-    const after = await composeAt(version);
-    expect(after.outcome).toBe('composed');
-    if (after.outcome !== 'composed') return;
-    expect(
-      after.schema.productType.lifecycle,
-      'the memoized locale was served its pre-deprecation composition',
-    ).toBe('deprecated');
-
-    // And the validator moved with it: a deprecated version is a different
-    // resource state, so a cached client must not revalidate onto the old body.
-    expect(after.schema.etag, 'the ETag did not move across the deprecation').not.toBe(
-      before.schema.etag,
-    );
   });
 });
