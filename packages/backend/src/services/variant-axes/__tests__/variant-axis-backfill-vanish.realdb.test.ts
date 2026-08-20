@@ -13,25 +13,46 @@
  *
  * The window is pinned by LOCK ORDERING, not by a sleep:
  *
- *  1. A transaction on one pooled connection DELETEs the listing and is then
- *     held open. Uncommitted, so the pager still sees the row — which is exactly
- *     the production state.
+ *  1. A transaction on a backend of its OWN DELETEs the listing and is then held
+ *     open. Uncommitted, so the pager still sees the row — which is exactly the
+ *     production state. Its own backend so that its pid is knowable; see step 3.
  *  2. The pass starts. Its first write for that listing is a
  *     `native_listing_attribute_claims` insert, whose foreign key takes a lock on
  *     the parent row — and BLOCKS against the uncommitted delete.
- *  3. The test waits until Postgres itself reports a session waiting on a lock,
- *     then commits the delete. The blocked insert re-checks and fails `23503`.
+ *  3. The test waits until Postgres reports a session blocked BY THIS FILE'S OWN
+ *     delete, then commits it. The blocked insert re-checks and fails `23503`.
  *
- * Step 3 is the POSITIVE CONTROL on the race. A `Promise.all` over two calls that
- * did not actually overlap passes for the same reason a working lock does, so
- * without observing the block this file would be green whether or not the race
- * ever happened. `waitForBlockedSession` FAILS the test if nothing ever blocked.
+ * Step 3 is the POSITIVE CONTROL on the race, and its SCOPE is the whole of it
+ * (#795). A `Promise.all` over two calls that did not actually overlap passes for
+ * the same reason a working lock does, so without observing a block this file
+ * would be green whether or not the race ever happened — but an observation that
+ * counts ANY lock wait in the database is satisfied by a STRANGER. The test
+ * database is shared by every parallel file, and a sampler over one full run
+ * measured a session in `wait_event_type = 'Lock'` for 22.8% of its wall clock
+ * (304 of 1331 samples at 50ms), 432 of those observations on
+ * `select pg_advisory_lock($1)` — #63's global matching-policy slot, held for a
+ * whole file's run while the next file queues behind it.
+ *
+ * What a stranger costs is not the failure anybody would guess. The commit lands
+ * EARLY, between the pass's PAGE read and its read of that listing's children:
+ * the listing is still scanned, the cascade has already removed
+ * `listing_options` and `product_variants`, so the pass finds nothing to write,
+ * violates no foreign key, and returns a perfectly consistent report whose
+ * `listingsVanishedDuringPass` is 0. Measured signature: `expected +0 to be 1`.
+ *
+ * So the wait NAMES ITS OWN HOLDER — `pg_blocking_pids` against the delete's own
+ * backend, the `canonical-teardown` / `concurrent-publish` idiom — and it tells
+ * the two failures apart, because only one of them is a bug in the code under
+ * test: a pass that FINISHED without ever blocking is a race that did not happen,
+ * and a deadline reached while the pass is still running is a loaded server.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray, sql } from 'drizzle-orm';
-import { uuidv7 } from '@oxyhq/db';
+import { eq, inArray } from 'drizzle-orm';
+import { createDatabase, uuidv7 } from '@oxyhq/db';
+import type postgres from 'postgres';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
+import * as schema from '../../../db/schema/index.js';
 import {
   listingOptions,
   listings,
@@ -55,6 +76,58 @@ import { reportPopulation } from '../../../__tests__/report-population.js';
 
 let db: Database;
 
+/**
+ * A handle whose every statement runs on ONE backend, so its pid is knowable and
+ * `pg_blocking_pids` can be asked about it by name.
+ *
+ * `max: 1` is what makes that true, and it also keeps this file's own two
+ * long-lived sessions off the pooled `db` the pass itself has to draw from —
+ * the test contributing to the contention it is sensitive to.
+ */
+interface SoloConnection {
+  readonly db: Database;
+  readonly client: postgres.Sql;
+  readonly pid: number;
+}
+
+const soloConnections: SoloConnection[] = [];
+
+/** Holds the DELETE open. Its pid is what the wait below is scoped to. */
+let deleter: SoloConnection;
+/** Reads `pg_blocking_pids`, and is never itself a participant. */
+let probe: SoloConnection;
+
+async function openSolo(): Promise<SoloConnection> {
+  const databaseUrl = process.env['DATABASE_URL'];
+  if (databaseUrl === undefined) {
+    throw new Error('vitest.pg.globalSetup did not publish DATABASE_URL');
+  }
+  const instance = createDatabase({
+    databaseUrl,
+    schema,
+    client: { max: 1, onnotice: () => undefined },
+  });
+  const rows = await instance.client<{ pid: number }[]>`select pg_backend_pid() as pid`;
+  const pid = rows[0]?.pid;
+  if (pid === undefined) throw new Error('the solo connection did not report a backend pid');
+  const solo: SoloConnection = { db: instance.db, client: instance.client, pid };
+  soloConnections.push(solo);
+  return solo;
+}
+
+/**
+ * How long the pass is given to reach its first child insert and block.
+ *
+ * Generous rather than tuned: with the wait scoped to this file's own delete,
+ * the only thing that can consume it is a server too loaded to run five round
+ * trips, and the ceiling exists so that case arrives as a NAMED failure well
+ * inside the 120s test timeout rather than as vitest's generic one.
+ */
+const BLOCK_WAIT_MS = 60_000;
+
+/** Poll interval for that wait. */
+const BLOCK_POLL_MS = 25;
+
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '');
 const OPERATOR = `axis-vanish-operator-${RUN}`;
 
@@ -74,6 +147,8 @@ const CREATED_KEYS = [COLOR_KEY];
 
 beforeAll(async () => {
   db = await connectPostgres();
+  deleter = await openSolo();
+  probe = await openSolo();
 });
 
 afterAll(async () => {
@@ -105,33 +180,58 @@ afterAll(async () => {
       .where(inArray(attributeDefinitionCategories.attributeDefinitionId, definitionIds));
     await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, definitionIds));
   }
+  for (const solo of soloConnections) await solo.client.end({ timeout: 5 });
   await closePostgres();
 });
 
 /**
- * Block until Postgres reports a session waiting on a lock, or FAIL.
+ * Block until Postgres reports a session blocked BY the held delete, or FAIL.
  *
  * Asking the server rather than sleeping is what makes the window deterministic:
  * the commit below happens because the pass is provably blocked, not because a
- * timeout guessed that it might be.
+ * timeout guessed that it might be. `pg_blocking_pids` and not a bare
+ * `wait_event_type = 'Lock'` count, because the second is a question about the
+ * whole shared database and this file may only act on an answer about itself.
+ *
+ * The waiter cannot be named the way `canonical-teardown.realdb.test.ts` names
+ * one: the pass runs on the pooled `db`, so which backend serves its per-listing
+ * transaction is not knowable in advance. The HOLDER is, which is the direction
+ * that scopes the observation — nothing else in the database contends for this
+ * fixture's row, whose id is minted per run.
+ *
+ * `passSettled` is what separates the two failures the old unscoped wait
+ * collapsed onto one red. A pass cannot finish while it is blocked, so a settled
+ * pass is proof the race never happened; a deadline reached with the pass still
+ * running is a loaded server and says so.
  */
-async function waitForBlockedSession(): Promise<void> {
-  const deadline = Date.now() + 20_000;
-  while (Date.now() < deadline) {
-    const rows = await db.execute<{ waiting: number }>(sql`
+async function waitUntilPassBlocksOnTheHeldDelete(passSettled: () => boolean): Promise<void> {
+  const deadline = Date.now() + BLOCK_WAIT_MS;
+  for (;;) {
+    const rows = await probe.client<{ waiting: number }[]>`
       select count(*)::int as waiting
       from pg_stat_activity
-      where wait_event_type = 'Lock'
-        and datname = current_database()
-        and pid <> pg_backend_pid()
-    `);
-    if (([...rows][0]?.waiting ?? 0) > 0) return;
-    await new Promise((resolve) => setTimeout(resolve, 25));
+      where datname = current_database()
+        and wait_event_type = 'Lock'
+        and ${deleter.pid}::int = any(pg_blocking_pids(pid))
+    `;
+    if ((rows[0]?.waiting ?? 0) > 0) return;
+    if (passSettled()) {
+      throw new Error(
+        'variant-axis vanish test: the pass finished without ever blocking on the held delete, ' +
+          'so the two never overlapped. The race did not happen and this file would be ' +
+          'measuring nothing.',
+      );
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `variant-axis vanish test: the pass was still running after ${String(BLOCK_WAIT_MS)}ms ` +
+          `but was never seen blocked by backend ${String(deleter.pid)}, which is holding the ` +
+          'delete. That is a LOADED SERVER, not a race that failed to happen — the two are ' +
+          'different failures and this file will not report them as one.',
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, BLOCK_POLL_MS));
   }
-  throw new Error(
-    'variant-axis vanish test: no session ever blocked on a lock, so the pass and the delete ' +
-      'never overlapped. The race did not happen and this file would be measuring nothing.',
-  );
 }
 
 describe('a listing deleted mid-pass', () => {
@@ -178,16 +278,20 @@ describe('a listing deleted mid-pass', () => {
     });
     expect(page.listingIds, 'the test is not aimed at its own listing').toEqual([LISTING_ID]);
 
-    // 1. Delete the listing and HOLD the transaction open. Uncommitted, so the
-    //    pager below still sees the row.
+    // 1. Delete the listing and HOLD the transaction open, on a backend of its
+    //    own so the wait below can name it. Uncommitted, so the pager still sees
+    //    the row.
     let commitDelete!: () => void;
     const held = new Promise<void>((resolve) => {
       commitDelete = resolve;
     });
-    const deleteTransaction = db.transaction(async (tx) => {
+    const deleteTransaction = deleter.db.transaction(async (tx) => {
       await tx.delete(listings).where(eq(listings.id, LISTING_ID));
       await held;
     });
+    // The release-on-failure path below does not await it; the happy path does,
+    // and an awaited rejection is still reported there.
+    void deleteTransaction.catch(() => undefined);
 
     // 2. Start the pass. Its first write for this listing blocks on the lock.
     const pass = runVariantAxisBackfill(db, {
@@ -195,10 +299,25 @@ describe('a listing deleted mid-pass', () => {
       afterListingId: PAGE_CURSOR,
       listingLimit: 1,
     });
+    let settled = false;
+    void pass.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
 
-    // 3. Only once the server says something is waiting.
-    await waitForBlockedSession();
-    commitDelete();
+    // 3. Only once the server says the pass is blocked by THIS file's delete.
+    try {
+      await waitUntilPassBlocksOnTheHeldDelete(() => settled);
+    } finally {
+      // Released on EVERY path. A named failure that also left the delete open
+      // would arrive as `afterAll`'s generic hook timeout, on a listing row this
+      // file is holding against itself.
+      commitDelete();
+    }
     await deleteTransaction;
 
     // The property: the pass RESOLVES rather than throwing, and the report — the

@@ -65,6 +65,21 @@ keeps every realdb suite green while validating a path production never takes.
   transaction against the pool the holder needs). Re-measure off `pg_locks` and
   CI's own `40P01` detail before restating either lock mode — do not re-assert
   from memory.
+- **A lock-wait observation must NAME ITS OWN HOLDER.** `select count(*) from
+  pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()`
+  is a question about the whole shared database, and a file may only act on an
+  answer about ITSELF. Measured over one full run: a session was in
+  `wait_event_type = 'Lock'` for 22.8% of its wall clock (304 of 1331 samples at
+  50ms), 432 of those observations on `select pg_advisory_lock($1)` — the global
+  matching-policy slot, held for a whole file's run while the next queues. So the
+  unscoped count is a positive control a STRANGER satisfies, which releases a
+  barrier before the race it is guarding has happened. Use `pg_blocking_pids`
+  against a pid the file computed — the WAITER's where it is knowable
+  (`canonical-teardown`, `concurrent-publish`, `connection-mode`), the HOLDER's
+  where the waiter runs on the pool and its backend is not
+  (`variant-axis-backfill-vanish`, #795) — and tell "nothing ever blocked" apart
+  from "the block was not observed in time": only the first is a bug in the code
+  under test.
 - **`FAIL x.test.ts` with `Tests 0 failed` is a load failure**, not a regression.
   Baseline on the base revision under the SAME parallel conditions.
 - **A service that starts writing a NEW table makes every fixture that CALLS it
