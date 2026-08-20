@@ -558,8 +558,12 @@ export const attributeValueReviews = pgTable(
  * (#94 coverage rule 8).
  *
  * The moderation-outbox shape: the ROW is the job, its id is DETERMINISTIC so a
- * repeat converges with `ON CONFLICT DO NOTHING`, and claims are leases with an
- * owner check. It is written here and DRAINED by whoever owns the index — #61
+ * repeat converges with `ON CONFLICT DO NOTHING`, and a claim is a LEASE — an
+ * owner and a deadline, in three columns held all-or-nothing by
+ * `attribute_reindex_requests_claim_check`. The lease SHAPE is what exists; the
+ * owner CHECK `moderation_outboxes` performs inside its claim query has no
+ * counterpart here, because nothing claims yet (#551).
+ * It is written here and DRAINED by whoever owns the index — #61
  * decides what that index is, and until it does, this table accumulates the
  * durable record. Gate the loop, never the record: a request written today is
  * still correct when a consumer appears.

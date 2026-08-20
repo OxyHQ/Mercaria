@@ -26,14 +26,23 @@
  * could read it.
  */
 
-import { getTableColumns } from 'drizzle-orm';
+import { getTableColumns, getTableName } from 'drizzle-orm';
+import { sqlColumnName } from '@oxyhq/db';
 import type { AnyPgTable } from 'drizzle-orm/pg-core';
 import type { LegacyCatalogSubjectKind } from '@mercaria/shared-types';
 import {
+  categories,
   listingOptions,
   listings,
   productVariantOptionValues,
 } from '../../db/schema/catalog.js';
+import { productTypeDefinitions } from '../../db/schema/productTypes.js';
+import { brandAliases, brands } from '../../db/schema/organizations.js';
+import { attributeDefinitions, attributeEnumValues } from '../../db/schema/attributeRegistry.js';
+import {
+  nativeListingVariantAxes,
+  nativeVariantAxisAssignments,
+} from '../../db/schema/variantAxes.js';
 
 /**
  * Why a column of a legacy table is not a legacy CATALOG-CLASSIFICATION concept.
@@ -79,13 +88,93 @@ export const LEGACY_COLUMN_EXCLUSIONS = [
 /** One of {@link LEGACY_COLUMN_EXCLUSIONS}. */
 export type LegacyColumnExclusion = (typeof LEGACY_COLUMN_EXCLUSIONS)[number];
 
+/**
+ * One place a legacy column's concept lands in the universal model.
+ *
+ * A REFERENCE to a real drizzle table — and optionally to one of its columns —
+ * never a string naming one. The previous shape was free text, and the census
+ * over it could only measure that the text was long enough: it passed on
+ * `native_variant_axis_assignments.position`, a column that does not exist and
+ * never did, and would have gone on passing forever (#551).
+ *
+ * A guard that validates the FORM of its target rather than its EXISTENCE
+ * cannot distinguish a correct target from a typo, and reads as coverage either
+ * way. So existence is enforced by the TYPE SYSTEM instead — see
+ * {@link targetColumn}.
+ */
+export interface LegacyTargetRef {
+  readonly table: AnyPgTable;
+  /**
+   * The drizzle PROPERTY name of the column, absent when the whole table is the
+   * target. The DB name is derived from it by {@link renderTargetRef} rather
+   * than written down twice.
+   */
+  readonly column?: string;
+}
+
+/** The whole table is where the concept lives. */
+export function targetTable(table: AnyPgTable): LegacyTargetRef {
+  return { table };
+}
+
+/**
+ * One COLUMN of a table is where the concept lives.
+ *
+ * `K` is derived from the table's own column map, so a column that does not
+ * exist is a compile error naming every column that does. That is the gate:
+ * a property enforced by the type system needs a gate in the type system, and
+ * a string union maintained beside the schema would just be the old free-text
+ * failure with extra steps.
+ */
+export function targetColumn<T extends AnyPgTable, K extends keyof T['_']['columns'] & string>(
+  table: T,
+  column: K,
+): LegacyTargetRef {
+  return { table, column };
+}
+
+/**
+ * `<table>` or `<table>.<column>`, in DB spelling, derived from the schema.
+ *
+ * Through `sqlColumnName`, never `column.name`: schema modules declare columns
+ * in camelCase and drizzle applies `DATABASE_CASING` when SQL is BUILT, so
+ * `column.name` is the TypeScript property (`ancestorSlugs`) rather than the SQL
+ * name (`ancestor_slugs`). `@oxyhq/db` owns that conversion and is the one
+ * authority for it — deriving it here would be a second implementation of the
+ * casing rule, which is the thing that authority exists to prevent.
+ */
+export function renderTargetRef(ref: LegacyTargetRef): string {
+  const table = getTableName(ref.table);
+  if (ref.column === undefined) return table;
+  const column = getTableColumns(ref.table)[ref.column];
+  if (column === undefined) throw new Error(`${table} has no column ${ref.column}`);
+  return `${table}.${sqlColumnName(column)}`;
+}
+
+/**
+ * Where a legacy column's concept goes — or a statement that it goes nowhere.
+ *
+ * A STRING discriminant rather than a boolean one: this backend compiles with
+ * `strict: false`, and without `strictNullChecks` TypeScript does not narrow a
+ * union on the truthiness of a boolean-literal discriminant, so `if (!t.carried)`
+ * would leave the caller holding the whole union.
+ *
+ * `not_carried` is a real answer and NOT the same as an entry in
+ * {@link LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT}: that record is for a column
+ * carrying no catalog concept at all, while this is for one whose concept is
+ * real and is deliberately not represented at the destination's grain.
+ */
+export type LegacyMappingTarget =
+  | { readonly kind: 'carried'; readonly refs: readonly LegacyTargetRef[] }
+  | { readonly kind: 'not_carried'; readonly because: string };
+
 /** One legacy column that DOES carry a catalog concept this epic must move. */
 export interface LegacyCatalogColumn {
   readonly table: string;
   readonly column: string;
   readonly subject: LegacyCatalogSubjectKind;
-  /** The domain that owns the concept in the universal model. */
-  readonly target: string;
+  /** Where the concept lives in the universal model, as typed references. */
+  readonly target: LegacyMappingTarget;
   /** What is true of this column specifically, beyond its subject's policy. */
   readonly note: string;
 }
@@ -103,9 +192,9 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
     table: 'listings',
     column: 'categoryId',
     subject: 'listing_category_assignment',
-    target: 'categories (ADR 0007 D2 — extended in place, never replaced)',
+    target: { kind: 'carried', refs: [targetTable(categories)] },
     note:
-      'Already a foreign key, so nothing is BACKFILLED into it. What moved is the ' +
+      'ADR 0007 D2 — extended in place, never replaced. Already a foreign key, so nothing is BACKFILLED into it. What moved is the ' +
       'taxonomy underneath: lifecycle, selectability and effective windows are new, ' +
       'and a row that was valid before this epic can be filed under a merged, ' +
       'deprecated, suppressed, draft or structural node today.',
@@ -114,9 +203,12 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
     table: 'listings',
     column: 'categorySlugs',
     subject: 'listing_category_path',
-    target: 'categories.ancestor_slugs + categories.slug (D13 — a v1 read contract)',
+    target: {
+      kind: 'carried',
+      refs: [targetColumn(categories, 'ancestorSlugs'), targetColumn(categories, 'slug')],
+    },
     note:
-      'A denormalized PROJECTION of the assignment, and the only subject this ' +
+      'D13 — a v1 read contract. A denormalized PROJECTION of the assignment, and the only subject this ' +
       'domain writes. `moveCategory` rewrites `categories.ancestor_slugs` for a ' +
       'whole subtree and touches no listing, so a move silently leaves every ' +
       'listing under it stale in the five services that filter on this column.',
@@ -125,9 +217,9 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
     table: 'listings',
     column: 'productType',
     subject: 'listing_product_type_text',
-    target: 'product_type_definitions (ADR 0007 D5 — versioned schemas)',
+    target: { kind: 'carried', refs: [targetTable(productTypeDefinitions)] },
     note:
-      'Free text with no typed counterpart on `listings` at all: ADR 0007 D13 ' +
+      'ADR 0007 D5 — versioned schemas. Free text with no typed counterpart on `listings` at all: ADR 0007 D13 ' +
       'assigns `listings.product_type_definition_id` to the authoring workstream ' +
       'and it has not landed, so this subject is classified and never written.',
   },
@@ -135,9 +227,9 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
     table: 'listings',
     column: 'vendor',
     subject: 'listing_vendor_text',
-    target: 'brands + brand_aliases (#53/#56)',
+    target: { kind: 'carried', refs: [targetTable(brands), targetTable(brandAliases)] },
     note:
-      'A NAME. #60’s `vendor_brand_candidates` stage already extracts candidates ' +
+      '#53/#56. A NAME. #60’s `vendor_brand_candidates` stage already extracts candidates ' +
       'from it, writes provenance and creates no brand; this domain classifies the ' +
       'same values read-only and may never author an attachment.',
   },
@@ -145,16 +237,21 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
     table: 'listing_options',
     column: 'name',
     subject: 'listing_option_name',
-    target: 'attribute_definitions + native_listing_variant_axes (ADR 0007 D6)',
-    note: '#367 step 4 classifies and writes this. Retained verbatim as a claim (D7).',
+    target: {
+      kind: 'carried',
+      refs: [targetTable(attributeDefinitions), targetTable(nativeListingVariantAxes)],
+    },
+    note:
+      'ADR 0007 D6. #367 step 4 classifies and writes this. Retained verbatim as a ' +
+      'claim (D7).',
   },
   {
     table: 'listing_options',
     column: 'values',
     subject: 'listing_option_name',
-    target: 'attribute_enum_values (ADR 0007 D6), through the variant grain only',
+    target: { kind: 'carried', refs: [targetTable(attributeEnumValues)] },
     note:
-      'READ BY NOTHING. Step 4’s `legacyOptionRepository` does not select it, and its ' +
+      'ADR 0007 D6, through the variant grain only. READ BY NOTHING. Step 4’s `legacyOptionRepository` does not select it, and its ' +
       'listing-level claim carries `rawValue: null` — the per-VARIANT values in ' +
       '`product_variant_option_values` are what become assignments. A declared option ' +
       'value no variant uses is therefore retained only as the legacy row itself (D13 ' +
@@ -165,25 +262,36 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
     table: 'listing_options',
     column: 'position',
     subject: 'listing_option_name',
-    target: 'native_listing_variant_axes.position (ADR 0007 D6)',
+    target: {
+      kind: 'carried',
+      refs: [targetColumn(nativeListingVariantAxes, 'position')],
+    },
     note:
-      'Display order, carried across by step 4. Deliberately NOT an input to the ' +
+      'ADR 0007 D6. Display order, carried across by step 4 — `backfill.service.ts` ' +
+      'passes `position: option.position`. Deliberately NOT an input to the ' +
       'variant signature, which is order-independent by construction.',
   },
   {
     table: 'product_variant_option_values',
     column: 'name',
     subject: 'variant_option_value',
-    target: 'native_variant_axis_assignments.attribute_definition_id (ADR 0007 D6)',
-    note: '#367 step 4. Resolves by exact key fold; anything else stays text.',
+    target: {
+      kind: 'carried',
+      refs: [targetColumn(nativeVariantAxisAssignments, 'attributeDefinitionId')],
+    },
+    note:
+      'ADR 0007 D6. #367 step 4. Resolves by exact key fold; anything else stays text.',
   },
   {
     table: 'product_variant_option_values',
     column: 'value',
     subject: 'variant_option_value',
-    target: 'native_variant_axis_assignments.normalized_value (ADR 0007 D6)',
+    target: {
+      kind: 'carried',
+      refs: [targetColumn(nativeVariantAxisAssignments, 'normalizedValue')],
+    },
     note:
-      '#367 step 4. Resolves through `attribute_value_aliases` — the one subject in ' +
+      'ADR 0007 D6. #367 step 4. Resolves through `attribute_value_aliases` — the one subject in ' +
       'this matrix whose policy is `alias_evidence_permitted`, because an alias is a ' +
       'human statement that this spelling means that controlled value.',
   },
@@ -191,8 +299,20 @@ export const LEGACY_CATALOG_COLUMNS: readonly LegacyCatalogColumn[] = [
     table: 'product_variant_option_values',
     column: 'position',
     subject: 'variant_option_value',
-    target: 'native_variant_axis_assignments.position (ADR 0007 D6)',
-    note: 'Display order. Not an input to the signature.',
+    target: {
+      kind: 'not_carried',
+      because:
+        'an assignment is keyed (variant, axis) and has no order, so there is no ' +
+        'column for a display position to land in',
+    },
+    note:
+      'Display order, and NOT an input to the signature. This entry named ' +
+      '`native_variant_axis_assignments.position` until #551 — a column that does ' +
+      'not exist and that no migration ever added, so the claim was an aspiration ' +
+      'rather than a rename. What actually happens to the value: ' +
+      '`legacyOptionRepository` reads it as an ORDER BY only, and nothing writes ' +
+      'it anywhere. Contrast `listing_options.position`, which IS carried — the ' +
+      'AXIS has an order, an assignment does not.',
   },
 ];
 

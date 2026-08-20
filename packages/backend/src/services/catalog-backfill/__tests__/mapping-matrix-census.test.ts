@@ -38,8 +38,15 @@ import {
   LEGACY_CATALOG_TABLES,
   LEGACY_COLUMNS_WITHOUT_CATALOG_CONCEPT,
   LEGACY_COLUMN_EXCLUSIONS,
+  type LegacyTargetRef,
   legacyCatalogColumnKeys,
+  renderTargetRef,
+  targetColumn,
 } from '../mapping-matrix.js';
+import {
+  nativeListingVariantAxes,
+  nativeVariantAxisAssignments,
+} from '../../../db/schema/variantAxes.js';
 
 /** `<table>.<column>` for every column the matrix maps to a subject. */
 function mappedKeys(): readonly string[] {
@@ -153,15 +160,72 @@ describe('the legacy column partition', () => {
     }
   });
 
-  it('gives every mapped column a non-empty target and note', () => {
-    // A matrix entry with an empty target decides nothing while occupying the
-    // slot of a decision, which is the free-text failure the closed exclusion
-    // vocabulary avoids on the other side of the partition.
+  it('gives every mapped column a resolvable target and a note', () => {
+    // Until #551 this asserted `entry.target.trim().length > 10` — the FORM of
+    // the target rather than its EXISTENCE. It passed on
+    // `native_variant_axis_assignments.position`, a column that does not exist
+    // and that no migration ever added, and would have gone on passing forever.
+    //
+    // Existence is now the TYPE's job: `targetColumn` derives its column
+    // parameter from the table's own column map, so a column that does not
+    // exist is a compile error. What is left for runtime is the part a cast
+    // could still get past, plus the emptiness the type cannot express.
+    let carriedRefs = 0;
     for (const entry of LEGACY_CATALOG_COLUMNS) {
-      expect(entry.target.trim().length, `${entry.table}.${entry.column} has no target`)
-        .toBeGreaterThan(10);
-      expect(entry.note.trim().length, `${entry.table}.${entry.column} has no note`)
-        .toBeGreaterThan(30);
+      const where = `${entry.table}.${entry.column}`;
+      expect(entry.note.trim().length, `${where} has no note`).toBeGreaterThan(30);
+
+      if (entry.target.kind === 'not_carried') {
+        expect(entry.target.because.trim().length, `${where} says why it is not carried`)
+          .toBeGreaterThan(20);
+        continue;
+      }
+
+      expect(entry.target.refs.length, `${where} is carried nowhere in particular`)
+        .toBeGreaterThan(0);
+      for (const ref of entry.target.refs) {
+        // `renderTargetRef` throws on a column the table does not have, which is
+        // what a `as never` cast past the type gate would leave behind.
+        const rendered = renderTargetRef(ref);
+        expect(rendered, `${where} has an unrenderable target`).toMatch(
+          /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?$/u,
+        );
+        if (ref.column !== undefined) {
+          expect(
+            Object.keys(getTableColumns(ref.table)),
+            `${where} names a column its table does not have`,
+          ).toContain(ref.column);
+        }
+        carriedRefs += 1;
+      }
     }
+    // The vacuity floor. Every branch above is inside a loop, so a matrix that
+    // stopped carrying anything anywhere would satisfy all of them silently.
+    expect(carriedRefs, 'no mapped column names a target at all').toBeGreaterThan(9);
+  });
+
+  it('holds the carried / not-carried split exactly', () => {
+    // Beside the partition, for the `LEGACY_CATALOG_COLUMNS` count's reason: an
+    // entry can flip from `carried` to `not_carried` without changing any count
+    // above, and that flip takes a concept out of the migration's scope.
+    const notCarried = LEGACY_CATALOG_COLUMNS.filter((e) => e.target.kind === 'not_carried');
+    expect(notCarried.map((e) => `${e.table}.${e.column}`)).toEqual([
+      'product_variant_option_values.position',
+    ]);
+  });
+
+  it('the target gate fires on a column the table does not have', () => {
+    // The mutation self-test for the runtime half. The type gate is proven
+    // separately and cannot be proven from inside vitest — a column that does
+    // not exist is a COMPILE error, so the adverse input has to be cast past it,
+    // which is exactly the case this assertion is here to catch.
+    const bogus = { table: nativeVariantAxisAssignments, column: 'position' } as LegacyTargetRef;
+    expect(() => renderTargetRef(bogus)).toThrow(/has no column position/u);
+
+    // The control: the sibling that DOES exist renders, so the assertion above
+    // is about this column rather than about `renderTargetRef` always throwing.
+    expect(renderTargetRef(targetColumn(nativeListingVariantAxes, 'position'))).toBe(
+      'native_listing_variant_axes.position',
+    );
   });
 });

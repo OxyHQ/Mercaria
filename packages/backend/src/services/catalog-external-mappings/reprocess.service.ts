@@ -10,10 +10,12 @@
  *   A re-run of a page writes nothing for the subjects already recorded, and the
  *   empty result is the signal not to count them again — so a reclaimed run
  *   cannot double its own counters. `DO UPDATE` would lose exactly that.
- * - **Resumable.** The cursor is the run's, advanced only when a page's items
- *   are committed. A crash mid-page leaves the cursor where the last COMPLETE
- *   page ended, so the next claim re-reads that page and the idempotency above
- *   absorbs the overlap.
+ * - **Resumable.** The cursor is advanced by the LAST statement of a page, after
+ *   every item of it has been written. A crash mid-page therefore leaves the
+ *   cursor where the last COMPLETE page ended, so the next claim re-reads that
+ *   page and the idempotency above absorbs the overlap. Note the mechanism:
+ *   this is statement ORDER plus `ON CONFLICT DO NOTHING`, NOT atomicity — see
+ *   the note on transactions below.
  * - **Previewed.** `mode` is part of the run's identity (#60), so a `dry_run`
  *   and the `apply` it predicted are two rows that can be compared. A dry run
  *   holds a `CanonicalGraphWriter`-shaped guarantee in the simplest possible
@@ -127,9 +129,28 @@ export interface ReprocessPageResult {
  * one item row. In `apply` mode, and only there, the observation's stored
  * resolution is updated and stamped for downstream reprocessing.
  *
- * Each page is its own transaction. A run is therefore many small transactions
- * rather than one long one, which is what makes a crash lose at most a page and
- * a lease reclaimable.
+ * ## Two facts about this module that its shape does not show (#551)
+ *
+ * **A page is NOT a transaction, despite the page-sized bound.** This function
+ * opens none: `db` defaults to the root connection and no `db.transaction(...)`
+ * appears anywhere in this file, so each item write and the cursor advance are
+ * separate autocommitted statements. The resumability above still holds, by the
+ * ordering described there — but a crash mid-page leaves items committed whose
+ * outcomes were never added to the run's counters, because the advance carrying
+ * that delta never ran. That is not unguarded: {@link readRunMetrics} exists to
+ * report it, and its `countsAgree` is the signal. Wrapping a page in a
+ * transaction would remove the gap rather than report it, and is a change to
+ * make deliberately rather than by assuming it is already there.
+ *
+ * **Nothing calls this.** {@link runReprocessPage} has no importer anywhere in
+ * the repository — no route (`internal-catalog-governance.ts` exposes no
+ * reprocess endpoint), no worker, no test — and only this module calls
+ * `advanceExternalMappingRun` and `finishExternalMappingRun`. The tables exist
+ * and the service is unwired. Stated here because it is the first thing a future
+ * implementer needs and the last thing the code shows: whoever reads this is
+ * NOT correcting a live path. Whether it is an owed seam (#367 workstream 11)
+ * or should be cut is recorded separately; it is a modelling decision, and
+ * "nothing calls it" is a reason to ask rather than to delete.
  */
 export async function runReprocessPage(
   runId: string,
