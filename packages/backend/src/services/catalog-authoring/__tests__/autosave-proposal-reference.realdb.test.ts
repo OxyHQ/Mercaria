@@ -253,15 +253,32 @@ describe('an autosave that re-sends a field keeps the proposal blocking (#729)',
     // `mapProductScopeValues` restarts `ordinal` at 0 for each entry and the
     // request schema does not dedupe `attributeKey`, so a client sending one
     // field twice reaches exactly this.
+    //
+    // ## The answer must ALREADY EXIST, and that is the whole case
+    //
+    // The first spelling of this test sent both answers to an EMPTY draft and
+    // passed — for a reason that had nothing to do with the guard. With no row
+    // to match, both duplicates take the INSERT branch and
+    // `catalog_authoring_draft_values_product_key` refuses the second exactly as
+    // it always did; deleting the guard left the case GREEN.
+    //
+    // The collapse needs a row to UPDATE: only then do both duplicates resolve
+    // to one id and overwrite each other. So the patch below lands on a stored
+    // answer, and the guard-removed mutation is what tells the two apart — it
+    // stored 'Charcoal' silently and threw nothing.
     const draftId = await insertDraft();
+    await replaceProductScopeValues(db, draftId, [fieldId], [answer('Graphite')]);
+    const before = await onlyValueId(draftId);
 
     await expect(
-      replaceProductScopeValues(db, draftId, [fieldId], [answer('Graphite'), answer('Charcoal')]),
+      replaceProductScopeValues(db, draftId, [fieldId], [answer('Slate'), answer('Charcoal')]),
     ).rejects.toThrow(/same slot twice/u);
 
-    // Nothing was written: a refusal that had already stored one of them would
-    // be the collapse under another name.
-    expect(await listDraftValues(db, draftId)).toHaveLength(0);
+    // The stored answer is untouched — a refusal that had already applied one of
+    // them would be the collapse under another name.
+    expect(await onlyValueId(draftId)).toBe(before);
+    const values = await listDraftValues(db, draftId);
+    expect(values[0].valueText, 'a refused patch was partly applied').toBe('Graphite');
   });
 
   it('DOES release the reference when the answer genuinely goes away', async () => {
