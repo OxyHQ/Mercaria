@@ -5,7 +5,7 @@ import type { AuthoringField, AuthoringSchema } from "@mercaria/shared-types";
 import { Button, Input, Switch, Text, useColorScheme } from "@mercaria/ui";
 import { useTranslation } from "@/lib/i18n";
 import { emptyEntry, type DraftFieldEntry } from "@/lib/authoring/answers";
-import { AXIS_SUPPORTED_KINDS, axisValueSupport, unitAffordance } from "@/lib/authoring/controls";
+import { axisValueSupport, unitAffordance } from "@/lib/authoring/controls";
 import { variantCapableFields, type MatrixAxis } from "@/lib/authoring/matrix";
 import { ValuePicker, type PickerOption } from "./ValuePicker";
 
@@ -181,7 +181,7 @@ interface AxisValueControlProps {
  * unit gets the same unit control `SchemaField` renders, from the same
  * {@link unitAffordance}.
  *
- * Which kinds are covered is {@link AXIS_SUPPORTED_KINDS}, in `lib/` because
+ * Which kinds are covered is `AXIS_SUPPORTED_KINDS` in `lib/authoring/controls.ts`, there because
  * nothing can execute a decision made inside a component here — and the set is
  * gated, so a `valueType` added to the registry fails the build until somebody
  * decides what an axis does with it.
