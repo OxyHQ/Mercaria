@@ -462,9 +462,6 @@ function ReviewPanelClassification({
           version: draft.productType.version,
         })}
       </Text>
-      {anyUntranslated([categoryName, productTypeName]) ? (
-        <Text className="text-xs text-muted-foreground">{t(UNTRANSLATED_NOTICE_KEY)}</Text>
-      ) : null}
       <Text className="text-xs text-muted-foreground">
         {/* `language` and not `locale`: `locale` is an i18n-js OPTION, so it
             switches the lookup instead of filling the slot — this line rendered
@@ -477,6 +474,9 @@ function ReviewPanelClassification({
       <Text className="text-xs text-muted-foreground">
         {t("products.wizard.classification.pinned")}
       </Text>
+      {anyUntranslated([categoryName, productTypeName]) ? (
+        <Text className="text-xs text-muted-foreground">{t(UNTRANSLATED_NOTICE_KEY)}</Text>
+      ) : null}
     </View>
   );
 }

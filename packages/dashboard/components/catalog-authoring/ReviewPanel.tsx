@@ -79,9 +79,6 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
             version: draft.productType.version,
           })}
         />
-        {anyUntranslated([categoryName, productTypeName]) ? (
-          <Text className="text-xs text-muted-foreground">{t(UNTRANSLATED_NOTICE_KEY)}</Text>
-        ) : null}
         <Row label={t("products.wizard.review.market")} value={draft.market} />
         <Row
           label={t("products.wizard.review.canonicalLink")}
@@ -91,6 +88,9 @@ export function ReviewPanel({ draft, schema, form }: ReviewPanelProps) {
               : t("products.wizard.review.canonicalDeclared")
           }
         />
+        {anyUntranslated([categoryName, productTypeName]) ? (
+          <Text className="text-xs text-muted-foreground">{t(UNTRANSLATED_NOTICE_KEY)}</Text>
+        ) : null}
       </Section>
 
       <Section title={t("products.wizard.steps.details")}>
