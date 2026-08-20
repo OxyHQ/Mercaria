@@ -113,12 +113,17 @@ export async function composePublicationResult(
   const draftVariantIdByPosition = new Map(
     draftVariants.map((variant) => [variant.position, variant.id]),
   );
+  // Built from the DECLARED links alone, so a matcher's attachment has no path
+  // into this result at all. `native_listing_links_active_variant_key` allows
+  // one active link per variant, so filtering here and switching on `resolution`
+  // below cannot disagree — but a map holding every method would put the
+  // matcher's answer one property access away from a field that must never carry
+  // it, and the ternary guarding it would be the only thing in the way.
+  const declaredLinks = links.filter((link) => link.method === 'merchant_declared');
   const canonicalByVariantId = new Map(
-    links.map((link) => [link.productVariantId, link.canonicalVariantId]),
+    declaredLinks.map((link) => [link.productVariantId, link.canonicalVariantId]),
   );
-  const declaredByVariantId = new Set(
-    links.filter((link) => link.method === 'merchant_declared').map((link) => link.productVariantId),
-  );
+  const declaredByVariantId = new Set(declaredLinks.map((link) => link.productVariantId));
   const signatureByVariantId = new Map(
     signatures.map((signature) => [signature.variantId, signature.signature]),
   );
