@@ -480,11 +480,23 @@ export interface VariantAxisBackfillReport {
      */
     readonly listingsWithIndistinguishableVariants: number;
     /**
-     * Assignments a previous pass wrote that this one no longer derives. Not
-     * silent: it means the registry stopped resolving something it used to,
-     * which is a change somebody made and should be told about.
+     * Assignments a previous pass wrote that this one no longer derives, and
+     * which were KEPT.
+     *
+     * Not silent: it means the registry stopped resolving something it used to,
+     * which is a change somebody made and should see. Retained rather than
+     * removed, because a stored assignment cites its exact definition VERSION and
+     * `deprecateAttributeDefinition` takes a version "out of service for NEW
+     * assignments" while "stored values still resolve".
+     *
+     * Counted per AXIS. It was a per-LISTING net until #612, so one variant
+     * losing a row while another gained one reported zero — the one case the
+     * count existed for and the one case it could not report.
+     *
+     * Outside every sum above, because a retained row has no legacy option value
+     * behind it: that is precisely why this pass no longer derives it.
      */
-    readonly assignmentsRemoved: number;
+    readonly assignmentsRetainedUnresolved: number;
     /**
      * Listings that were on this page and no longer existed when their own
      * transaction ran — a seller deleting one mid-pass, or a sibling fixture in

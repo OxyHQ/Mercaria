@@ -453,7 +453,13 @@ function expectFirstPassCounters(report: VariantAxisBackfillReport, label: strin
   expect(report.unresolved.byAttributeRefusal.unmapped, `${label}`).toBe(2);
   expect(report.unresolved.byValueRefusal.attribute_unresolved, `${label}`).toBe(1);
   expect(report.diagnostics.listingsWithIndistinguishableVariants, `${label}`).toBe(0);
-  expect(report.diagnostics.assignmentsRemoved, `${label}`).toBe(0);
+  expect(report.diagnostics.assignmentsRetainedUnresolved, `${label}`).toBe(0);
+  // Asserted at ZERO on the ordinary path, deliberately. `listingsVanishedDuringPass`
+  // exists so a vanished listing cannot be mistaken for one that contributed
+  // nothing — it contributes no outcome counters by design, so without a
+  // diagnostic that is READ on the normal path too, "a listing disappeared" and
+  // "the page was empty" would look identical in the report.
+  expect(report.diagnostics.listingsVanishedDuringPass, `${label}`).toBe(0);
 }
 
 describe('the backfill in apply mode', () => {
@@ -626,7 +632,10 @@ describe('the backfill in apply mode', () => {
     // registry that stopped resolving something.
     expect(second.axes.unresolved).toBe(1);
     expect(second.assignments.unresolved).toBe(1);
-    expect(second.diagnostics.assignmentsRemoved, 'the second pass orphaned a row').toBe(0);
+    expect(
+      second.diagnostics.assignmentsRetainedUnresolved,
+      'the second pass orphaned a row',
+    ).toBe(0);
 
     // And the rows themselves did not move. The counters above are the service's
     // own account of what it did; this is Postgres's. `id` catches a
