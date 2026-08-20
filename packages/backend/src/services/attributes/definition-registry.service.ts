@@ -41,6 +41,10 @@ import {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../../db/postgres.js';
 import {
+  buildNextVersionInput,
+  type CarriedForwardAddition,
+} from './version-carry-forward.js';
+import {
   addAttributeDefinitionCategory,
   findActiveAttributeDefinition,
   findAttributeDefinitionVersion,
@@ -229,6 +233,47 @@ export async function draftAttributeDefinition(
  * refuse the write; deprecating without enqueueing the reindex would leave a
  * search index answering under rules nobody is applying any more.
  */
+/**
+ * Advance an attribute that ALREADY EXISTS to a new draft version (#568).
+ *
+ * The one way another domain may extend a published attribute's vocabulary, and
+ * it lives here because this is the domain that owns attribute versions.
+ *
+ * ## It cannot conjure an attribute, and that is the SIGNATURE
+ *
+ * `active` is a {@link ResolvedAttributeDefinition} — a definition somebody has
+ * already read out of the registry. There is no shape in which this function
+ * could create a key that did not exist: it takes no key, no label and no value
+ * type, only a definition and the values to append. That is what makes it a
+ * different ACT from minting, rather than the same act with a comment on it.
+ *
+ * The distinction matters because `catalog-proposal-isolation.test.ts` forbids
+ * the proposal surface from minting an attribute definition — one of the seven
+ * link-only types, where the rule is that an operator creates the entity where
+ * it is owned. That rule is about a merchant proposal conjuring an attribute
+ * **that did not exist**: a new identity, out of a review queue, with no
+ * operator and no review. Drafting version N+1 of a key an operator already
+ * published creates no new identity and no new key, and the vocabulary is
+ * carried forward under a census. So the proposal domain calls THIS, whose
+ * contract is "advance something that exists", and never `draftAttributeDefinition`.
+ *
+ * It does NOT publish. Activation is a separate, attributable operator step —
+ * the `fee_schedules` / `match_policy_versions` / ranking-policy pattern.
+ */
+export async function draftNextVersionOfExistingAttribute(
+  db: DatabaseOrTransaction,
+  active: ResolvedAttributeDefinition,
+  additions: readonly CarriedForwardAddition[],
+  actorOxyUserId: string,
+): Promise<AttributeDefinition> {
+  return draftAttributeDefinition(
+    buildNextVersionInput(active, additions, actorOxyUserId),
+    // The CALLER's handle: this runs inside the approval's transaction, and
+    // opening a second one is the #59 merge-runner deadlock.
+    db,
+  );
+}
+
 export async function publishAttributeDefinition(
   key: string,
   version: number,

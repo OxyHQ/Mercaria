@@ -423,3 +423,89 @@ describe('the population the three walls above are applied to (#460)', () => {
     expect(skipped(CATALOGUE_WRITER), 'the real writer is no longer skipped').toBe(true);
   });
 });
+
+/**
+ * Every symbol `review.service.ts` imports from the attributes domain.
+ *
+ * Parsed from the file rather than listed by hand — the point is to notice a NEW
+ * import, so the population has to come from the source.
+ */
+function attributeDomainImports(source: string): string[] {
+  const names: string[] = [];
+  const pattern = /import\s*\{([^}]*)\}\s*from\s*'\.\.\/attributes\/[^']*'/gu;
+  for (const match of source.matchAll(pattern)) {
+    for (const raw of (match[1] ?? '').split(',')) {
+      const name = raw.replace(/\btype\b/u, '').trim();
+      if (name.length > 0) names.push(name);
+    }
+  }
+  return names.sort();
+}
+
+/**
+ * The forbidden-symbol scan above reads ONE FILE'S OWN TEXT, and that is
+ * defeated by a single hop of indirection.
+ *
+ * Measured, not hypothetical: #568's first implementation called
+ * `draftAttributeDefinition`, which calls `insertAttributeDefinition` internally.
+ * `review.service.ts` therefore minted an `attribute_definitions` row
+ * transitively — the exact thing the scan above forbids — and the whole suite
+ * stayed GREEN, because the forbidden name never appeared in the file. A gate
+ * that passes on a real violation is worse than no gate: the next reader sees a
+ * passing isolation suite and concludes the wall held.
+ *
+ * ## Why this is an IMPORT census and not a transitive symbol walk
+ *
+ * The obvious repair — follow the import graph and scan the closure for the
+ * forbidden symbols — reports a violation for the CORRECT design. The attributes
+ * domain legitimately contains `insertAttributeDefinition`; it owns attribute
+ * versions. Any path from here into that domain reaches the mint transitively,
+ * including the one function this domain is supposed to call. So transitive
+ * symbol reachability cannot tell "reaches the mint" from "mints", which is the
+ * only distinction that matters.
+ *
+ * What CAN be told apart is which functions this module chose to import. That is
+ * a small, reviewable surface parsed from the file itself, and a new import —
+ * a wrapper, a re-export, a differently-named helper — fails here until somebody
+ * says why. The list is the review point rather than the rule.
+ */
+describe('the ONE catalogue writer reaches the attributes domain narrowly', () => {
+  it('imports a CLOSED set of attribute-domain functions', () => {
+    const source = readFileSync(join(SRC_ROOT, CATALOGUE_WRITER), 'utf8');
+    const imported = attributeDomainImports(source);
+
+    // The floor: if the parse returned nothing, the equality below would be
+    // satisfied by an empty list and this would measure the regex, not the file.
+    expect(imported.length, 'parsed no attribute-domain imports at all').toBeGreaterThan(0);
+
+    expect(
+      imported,
+      'review.service.ts imports something new from the attributes domain. If it can create an ' +
+        'attribute that did not exist, it is a link-only mint and does not belong here.',
+    ).toEqual(['draftNextVersionOfExistingAttribute', 'resolveActiveDefinition']);
+  });
+
+  it('does NOT import the mint, under any of its names', () => {
+    const source = readFileSync(join(SRC_ROOT, CATALOGUE_WRITER), 'utf8');
+    // `draftAttributeDefinition` takes a key, a label and a value type, so it can
+    // conjure an attribute from nothing. `draftNextVersionOfExistingAttribute`
+    // takes a definition that already exists and cannot. That difference is the
+    // whole of why one is permitted here and the other is not.
+    expect(attributeDomainImports(source)).not.toContain('draftAttributeDefinition');
+    expect(attributeDomainImports(source)).not.toContain('buildNextVersionInput');
+  });
+
+  it('the detector fires on the wrapper that defeated the text scan', () => {
+    // The mutation self-test, run against a literal rather than the real file, so
+    // it is a property of the DETECTOR. Both of these pass the forbidden-symbol
+    // scan above — neither contains `insertAttributeDefinition` — and both must
+    // fail here.
+    const viaWrapper = `import { draftAttributeDefinition } from '../attributes/definition-registry.service.js';`;
+    expect(attributeDomainImports(viaWrapper)).toContain('draftAttributeDefinition');
+
+    const viaRename = `import {\n  buildNextVersionInput,\n  type CarriedForwardAddition,\n} from '../attributes/version-carry-forward.js';`;
+    expect(attributeDomainImports(viaRename)).toContain('buildNextVersionInput');
+    // …and the `type` qualifier does not smuggle a name past the parse.
+    expect(attributeDomainImports(viaRename)).toContain('CarriedForwardAddition');
+  });
+});

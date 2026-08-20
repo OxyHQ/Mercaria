@@ -62,10 +62,9 @@ import {
   listAttributeEnumValues,
 } from '../../db/attributes/definitionRepository.js';
 import {
-  draftAttributeDefinition,
+  draftNextVersionOfExistingAttribute,
   resolveActiveDefinition,
 } from '../attributes/definition-registry.service.js';
-import { buildNextVersionInput } from '../attributes/version-carry-forward.js';
 import { bumpAuthoringSchemaInvalidation } from '../../db/catalogAuthoring/schemaInvalidationRepository.js';
 import {
   insertProposal,
@@ -186,17 +185,15 @@ async function mintIntoNextVersion(
     );
   }
 
-  const drafted = await draftAttributeDefinition(
-    buildNextVersionInput(
-      active,
-      [{ value: input.key, label: input.label, aliases: input.aliases }],
-      input.operatorOxyUserId,
-    ),
-    // The CALLER's transaction. `draftAttributeDefinition` opens its own when
-    // given none, and doing that from inside `approveProposal`'s transaction is
-    // the #59 merge-runner deadlock — a second connection writing rows this one
-    // holds locks on, presenting as a hang with no error.
+  // The ONE function this domain may call to extend an attribute, and it takes a
+  // definition that already exists — so there is no shape in which the proposal
+  // surface could conjure a key. `draftAttributeDefinition` is deliberately NOT
+  // imported here: that one mints, and minting an attribute is a link-only act.
+  const drafted = await draftNextVersionOfExistingAttribute(
     db,
+    active,
+    [{ value: input.key, label: input.label, aliases: input.aliases }],
+    input.operatorOxyUserId,
   );
 
   // Read the id back: the DTO carries values by `value`/`label`/`position` and
