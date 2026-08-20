@@ -35,6 +35,13 @@ const AUTHORING_DIR = "packages/dashboard/lib/authoring";
 const WIZARD_DIR = "packages/dashboard/components/catalog-authoring";
 const BUNDLE = "packages/dashboard/lib/i18n/locales/en.json";
 
+// The shared tree #478 added to this guard's population. A fixture has to carry
+// a file and a bundle in it, or every case fails on that tree's own floor
+// instead of on the wall it is testing — which is itself the floor working, and
+// is asserted directly by its own case below.
+const UI_DIR = "packages/ui/src/components/marketplace";
+const UI_BUNDLE = "packages/ui/src/i18n/locales/en.json";
+
 /**
  * A fixture bundle carrying the keys the negative controls resolve.
  *
@@ -79,9 +86,11 @@ function exceptionFixture() {
 function baseTree(extra = {}) {
   return {
     [BUNDLE]: FIXTURE_BUNDLE,
+    [UI_BUNDLE]: FIXTURE_BUNDLE,
     [`${AUTHORING_DIR}/answers.ts`]: "export const answers = 1;\n",
     [`${WIZARD_DIR}/SchemaField.tsx`]: "export const field = 1;\n",
     "packages/dashboard/lib/other.ts": "export const other = 1;\n",
+    [`${UI_DIR}/PriceDisplay.tsx`]: "export const price = 1;\n",
     ...extra,
   };
 }
@@ -273,8 +282,11 @@ await mustFail(
 // ------------------------------------------------ the traversal itself ------
 
 await mustFail(
+  // BOTH bundles are present deliberately: without one the guard exits earlier on
+  // the unreadable bundle, which is a correct refusal for a DIFFERENT reason. It
+  // was one bundle until #478 widened the population to two.
   "a broken file listing cannot pass silently (whole-tree floor)",
-  { [BUNDLE]: FIXTURE_BUNDLE },
+  { [BUNDLE]: FIXTURE_BUNDLE, [UI_BUNDLE]: FIXTURE_BUNDLE },
   { expect: "the file listing is broken", realFloors: true },
 );
 
@@ -282,9 +294,47 @@ await mustFail(
   "an authoring tree that vanished cannot pass silently (subtree floor)",
   {
     [BUNDLE]: FIXTURE_BUNDLE,
+    [UI_BUNDLE]: FIXTURE_BUNDLE,
     "packages/dashboard/lib/other.ts": "export const other = 1;\n",
   },
   { expect: "this guard is measuring nothing" },
+);
+
+// #478. THE case for the widening, and it is a floor case rather than a wall
+// case because the failure it describes is silent: a full dashboard clears a
+// scanned floor of 60 on its own, so ONE total would have let `packages/ui/src`
+// vanish from the population with the guard still printing a pass. Only a
+// PER-TREE floor can tell "the shared tree is clean" from "the shared tree is
+// not being read". The fixture is a complete, passing dashboard with the shared
+// tree removed.
+await mustFail(
+  "a full dashboard with NO shared ui tree fails that tree's own floor",
+  {
+    [BUNDLE]: FIXTURE_BUNDLE,
+    [UI_BUNDLE]: FIXTURE_BUNDLE,
+    [`${AUTHORING_DIR}/answers.ts`]: "export const answers = 1;\n",
+    ...Object.fromEntries(
+      Array.from({ length: 70 }, (_, index) => [
+        `packages/dashboard/lib/file${String(index)}.ts`,
+        "export const value = 1;\n",
+      ]),
+    ),
+  },
+  { expect: "source files under packages/ui/src/", realFloors: true },
+);
+
+// The shared tree is really READ, not merely counted. `packages/ui/src` had no
+// authoring gate before #478, so without a case like this "no findings there"
+// and "that tree is not being scanned" print the same line.
+await mustFail(
+  "a concept branch in the shared ui tree is refused, not only one in the dashboard",
+  baseTree({
+    [`${UI_DIR}/AttributeRow.tsx`]:
+      "export function render(attribute: { name: string }) {\n" +
+      '  return attribute.name === "colour" ? 1 : 0;\n' +
+      "}\n",
+  }),
+  { expect: "[concept-branch]", mutationMarker: 'attribute.name === "colour"' },
 );
 
 await mustFail(

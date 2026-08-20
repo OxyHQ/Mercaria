@@ -31,6 +31,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CATALOG_PATH_LITERAL_COUNT,
+  KNOWN_CONCEPT_BRANCH_COUNT,
   KNOWN_VOCABULARY_EXCEPTION_COUNT,
 } from "./validate-storefront-catalog-driven.mjs";
 
@@ -40,6 +41,13 @@ const validator = resolve(repositoryRoot, "scripts/validate-storefront-catalog-d
 const CATALOG_LIB = "packages/frontend/lib/catalog";
 const CATALOG_COMPONENTS = "packages/frontend/components/catalog";
 const BUNDLE = "packages/frontend/lib/i18n/locales/en.json";
+
+// The two trees #478 added. A fixture has to carry a file and a bundle in each,
+// or every case fails on a per-tree floor instead of on the wall it is testing —
+// which is itself the floors working, and is asserted directly below.
+const UI_MARKETPLACE = "packages/ui/src/components/marketplace";
+const UI_BUNDLE = "packages/ui/src/i18n/locales/en.json";
+const POS_BUNDLE = "packages/pos/lib/i18n/locales/en.json";
 
 /**
  * A fixture bundle carrying the keys the negative controls resolve.
@@ -55,13 +63,18 @@ const FIXTURE_BUNDLE = JSON.stringify({
   },
 });
 
-/** Enough catalog files to clear the subtree floor under fixture floors. */
+/** Enough files in every scanned tree and catalog subtree to clear the floors. */
 function baseTree(extra = {}) {
   return {
     [BUNDLE]: FIXTURE_BUNDLE,
+    [UI_BUNDLE]: FIXTURE_BUNDLE,
+    [POS_BUNDLE]: FIXTURE_BUNDLE,
     [`${CATALOG_LIB}/navigation.ts`]: "export const navigation = 1;\n",
     [`${CATALOG_COMPONENTS}/FacetRail.tsx`]: "export const rail = 1;\n",
+    "packages/frontend/app/(app)/categories/index.tsx": "export const categories = 1;\n",
     "packages/frontend/lib/other.ts": "export const other = 1;\n",
+    [`${UI_MARKETPLACE}/PriceDisplay.tsx`]: "export const price = 1;\n",
+    "packages/pos/lib/other.ts": "export const other = 1;\n",
     ...extra,
   };
 }
@@ -278,15 +291,70 @@ await mustFail(
   { expect: "[vocabulary-relisting]", mutationMarker: "new Set<ConditionGroup>(['new', 'used'])" },
 );
 
+// ------------------------- #478: the shared and POS trees are really scanned ---
+
+// The historical offender, verbatim, in the package that had no gate.
+//
+// `VariantSwatches` picked a colour widget from `COLOR_OPTION_NAMES` — three
+// English words — so `Colour` got swatches and `Tono` got pills. The shape was
+// refused in `packages/frontend` and permitted in `packages/ui`, which the
+// storefront imports, and PR #571 removed it from the component. This is the
+// standing proof that moving it BACK, one package sideways, is now refused:
+// without a case like it, "no findings in the shared tree" and "the shared tree
+// is not being read" print the same line.
+await mustFail(
+  "the #478 offender is refused in packages/ui, not only in packages/frontend",
+  baseTree({
+    [`${UI_MARKETPLACE}/VariantSwatches.tsx`]:
+      'const COLOR_OPTION_NAMES = new Set(["color", "colour", "shade"]);\n' +
+      "export function isColor(option: { name: string }) {\n" +
+      "  return COLOR_OPTION_NAMES.has(option.name.trim().toLowerCase());\n" +
+      "}\n",
+  }),
+  { expect: "[concept-branch]", mutationMarker: 'new Set(["color", "colour", "shade"])' },
+);
+
+// The same shape one package further over. POS had no catalog gate of ANY kind
+// before #478, so this is the whole of its coverage proof.
+await mustFail(
+  "the same shape is refused in packages/pos, which had no catalog gate at all",
+  baseTree({
+    "packages/pos/components/OptionPicker.tsx":
+      "export function isSize(option: { name: string }) {\n" +
+      '  return option.name === "size";\n' +
+      "}\n",
+  }),
+  { expect: "[concept-branch]", mutationMarker: 'option.name === "size"' },
+);
+
+// The exemptions cover `facet-labels.ts` by FILE, so the same literal elsewhere
+// in the shared tree must still be refused. An excusing entry is a predicate
+// scoped to one file, not a permanent pardon for the word "condition".
+await mustFail(
+  "an exempted literal in a DIFFERENT shared-tree file is still refused",
+  baseTree({
+    [`${UI_MARKETPLACE}/Elsewhere.tsx`]:
+      "export function pick(facet: { key: string }) {\n" +
+      '  return facet.key === "condition";\n' +
+      "}\n",
+  }),
+  { expect: "[concept-branch]", mutationMarker: 'facet.key === "condition"' },
+);
+
 // ------------------------------------------------------- the vacuity floors ---
 
 await mustFail(
-  // The bundle is present deliberately: without it the guard exits earlier on
-  // the unreadable bundle, which is a correct refusal for a DIFFERENT reason —
-  // and a control that passes on any refusal at all is not a control on this
-  // floor.
+  // ALL THREE bundles are present deliberately: without one the guard exits
+  // earlier on the unreadable bundle, which is a correct refusal for a DIFFERENT
+  // reason — and a control that passes on any refusal at all is not a control on
+  // this floor. It was one bundle until #478 widened the population to three.
   "an empty tree fails the scanned-files floor rather than reporting clean",
-  { "README.md": "nothing here\n", [BUNDLE]: FIXTURE_BUNDLE },
+  {
+    "README.md": "nothing here\n",
+    [BUNDLE]: FIXTURE_BUNDLE,
+    [UI_BUNDLE]: FIXTURE_BUNDLE,
+    [POS_BUNDLE]: FIXTURE_BUNDLE,
+  },
   { expect: "the file listing is broken", realFloors: true },
 );
 
@@ -294,6 +362,8 @@ await mustFail(
   "a storefront with no catalog subtree fails the catalog floor",
   {
     [BUNDLE]: FIXTURE_BUNDLE,
+    [UI_BUNDLE]: FIXTURE_BUNDLE,
+    [POS_BUNDLE]: FIXTURE_BUNDLE,
     ...Object.fromEntries(
       Array.from({ length: 130 }, (_, index) => [
         `packages/frontend/lib/file${String(index)}.ts`,
@@ -301,7 +371,37 @@ await mustFail(
       ]),
     ),
   },
-  { expect: "catalog source files", realFloors: true },
+  { expect: "catalog source files under", realFloors: true },
+);
+
+// #478. THE case for the widening, and it is a floor case rather than a wall
+// case because the failure it describes is silent: a full storefront clears a
+// scanned floor of 120 on its own, so one total would have let `packages/ui/src`
+// vanish from the population with the guard still printing a pass. Only a
+// PER-TREE floor can tell "the shared tree is clean" from "the shared tree is
+// not being read". The fixture is a complete, passing storefront with the shared
+// tree removed.
+await mustFail(
+  "a full storefront with NO shared ui tree fails that tree's own floor",
+  {
+    [BUNDLE]: FIXTURE_BUNDLE,
+    [UI_BUNDLE]: FIXTURE_BUNDLE,
+    [POS_BUNDLE]: FIXTURE_BUNDLE,
+    [`${CATALOG_LIB}/navigation.ts`]: "export const navigation = 1;\n",
+    ...Object.fromEntries(
+      Array.from({ length: 130 }, (_, index) => [
+        `packages/frontend/lib/file${String(index)}.ts`,
+        "export const value = 1;\n",
+      ]),
+    ),
+    ...Object.fromEntries(
+      Array.from({ length: 40 }, (_, index) => [
+        `packages/pos/lib/file${String(index)}.ts`,
+        "export const value = 1;\n",
+      ]),
+    ),
+  },
+  { expect: "source files under packages/ui/src/", realFloors: true },
 );
 
 await mustFail(
@@ -439,12 +539,16 @@ await mustPass(
 );
 
 /**
- * The one reasoned wall-5 exception, reproduced so a PASSING fixture satisfies
- * the both-directions reconciliation.
+ * Every reasoned exception, reproduced so a PASSING fixture satisfies the
+ * both-directions reconciliation.
  *
  * That reconciliation is the point of the case above it: without this fixture
  * every `mustPass` here would fail on the unmatched exception, which is exactly
- * the behaviour that stops the list rotting.
+ * the behaviour that stops the lists rotting. #478 took it from one entry to
+ * nine — four wall-5 declarations and five wall-1 branches — and the shape of
+ * each reproduction is load-bearing, because an entry the fixture satisfies the
+ * WRONG way (a `switch` where the real file has a comparison) would leave the
+ * guard's exact-detail matching untested.
  */
 function exceptionFixture() {
   return {
@@ -456,6 +560,34 @@ function exceptionFixture() {
       "  'processing',\n" +
       "]);\n" +
       "export const cancellable = BUYER_CANCELLABLE;\n",
+    "packages/ui/src/lib/pickup-labels.ts":
+      "import type { PickupBlockReason } from '@mercaria/shared-types';\n" +
+      "const GUEST_ONLY_BLOCK_REASONS: readonly PickupBlockReason[] = [\n" +
+      "  'guest_pickup_disabled',\n" +
+      "  'guest_seller_not_activated',\n" +
+      "  'guest_notifications_unavailable',\n" +
+      "];\n" +
+      "export const guestOnly = GUEST_ONLY_BLOCK_REASONS;\n",
+    "packages/pos/lib/permissions.ts":
+      "import type { StorePermission } from '@mercaria/shared-types';\n" +
+      "const ALL_PERMISSIONS: readonly StorePermission[] = ['store:manage', 'products:read'];\n" +
+      "const STAFF_PERMISSIONS: readonly StorePermission[] = ['products:read', 'orders:read'];\n" +
+      "export const all = ALL_PERMISSIONS;\n" +
+      "export const staff = STAFF_PERMISSIONS;\n",
+    // All five wall-1 entries are COMPARISONS, matched on the exact detail
+    // `compared against "<literal>"`. Written as comparisons here for that
+    // reason: a `switch` over the same literals would satisfy nothing.
+    "packages/ui/src/lib/facet-labels.ts":
+      "export function bucketText(facetKey: string, bucketKey: string) {\n" +
+      '  if (facetKey === "availability") return 1;\n' +
+      '  if (facetKey === "offer_channel") return 2;\n' +
+      '  if (facetKey === "condition") return 3;\n' +
+      '  if (facetKey === "market") {\n' +
+      '    const ANY = "*";\n' +
+      "    return bucketKey === ANY ? 4 : 5;\n" +
+      "  }\n" +
+      "  return 0;\n" +
+      "}\n",
   };
 }
 
@@ -542,13 +674,25 @@ record(
 
 record(
   "the wall-5 exception list has an exact, asserted size",
-  KNOWN_VOCABULARY_EXCEPTION_COUNT === 1,
-  `KNOWN_VOCABULARY_EXCEPTIONS holds ${KNOWN_VOCABULARY_EXCEPTION_COUNT}, expected 1. ` +
+  KNOWN_VOCABULARY_EXCEPTION_COUNT === 4,
+  `KNOWN_VOCABULARY_EXCEPTIONS holds ${KNOWN_VOCABULARY_EXCEPTION_COUNT}, expected 4. ` +
     "Each entry silences a real finding, so a list that grew silently is a hole. " +
     "Adding one is a decision: state why the declaration is not a catalog vocabulary, " +
     "and give it an integer `count` — an entry without one used to fall through every branch " +
     "of the reconciliation in silence, because `actual < undefined` and `actual > undefined` " +
-    "are both false (#494).",
+    "are both false (#494). It went 1 -> 4 at #478's widening, when a gate read " +
+    "`packages/ui/src` and `packages/pos` for the first time and found three more policy " +
+    "subsets of server-owned unions.",
+);
+
+record(
+  "the wall-1 branch exemption list has an exact, asserted size",
+  KNOWN_CONCEPT_BRANCH_COUNT === 5,
+  `KNOWN_CONCEPT_BRANCHES holds ${KNOWN_CONCEPT_BRANCH_COUNT}, expected 5. ` +
+    "The list is new with #478 and every entry is `facet-labels.ts`, the shared stable-key " +
+    "copy table that falls back to server text and is gated by validate:facet-label-copy. " +
+    "A SIXTH entry is a different claim and needs its own reason — in particular, do not add " +
+    "one to silence a branch whose fix is to read the value off the server's answer.",
 );
 
 // ---------------------------------------------------------------- report ----
