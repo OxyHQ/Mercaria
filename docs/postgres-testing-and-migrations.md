@@ -91,6 +91,74 @@ keeps every realdb suite green while validating a path production never takes.
   you named. Typecheck before believing a realdb number, and before quoting one
   in an issue.
 
+## What the harness needs from its role, and why superuser costs the reserve
+
+The suite connects as `mercaria`, which the `postgis/postgis` image creates as a
+**SUPERUSER** — locally (`docker-compose.postgres.yml`) and in CI
+(`ci.yml`'s `POSTGRES_USER`). `superuser_reserved_connections` withholds nothing
+from a superuser, so the reserve that exists to keep a slot free for an operator
+is spent by the fleet that exhausts the pool (#696). Measured on a private
+`postgis/postgis:17-3.5` with the shared server's settings
+(`max_connections=100 superuser_reserved_connections=3 reserved_connections=0`),
+both roles on one server with no other client backends:
+
+| role | held | first refusal | routine | message |
+|---|---|---|---|---|
+| `mercaria` (superuser) | **100** | attempt 101 | `InitProcess` | `sorry, too many clients already` |
+| non-superuser + `CREATEDB` | **97** | attempt 98 | `InitPostgres` | `remaining connection slots are reserved for roles with the SUPERUSER attribute` |
+
+Two slots fewer, and — the point — a *different* refusal: three slots stay
+reachable for a person diagnosing the saturation.
+
+**A non-superuser IS sufficient. Measured, not predicted**, by running the real
+entrypoint (`createMercariaTestDatabase` → `spawn` of `src/db/migrate.ts`
+`--phase=all`) and the real realdb files. Three things stood between it and
+green, each with a fix that needs **no server restart**:
+
+- **`CREATE EXTENSION postgis`.** `createTestDatabase` issues a bare
+  `create database`, so a throwaway inherits `template1` — which the image does
+  NOT seed (it seeds `template_postgis` and `POSTGRES_DB`). PostGIS is
+  `trusted=false`, so the per-database create genuinely runs and genuinely needs
+  superuser. Seeding `template1` **once** makes
+  `CREATE EXTENSION IF NOT EXISTS` short-circuit on the duplicate-name check,
+  which is reached BEFORE the privilege check — measured: without
+  `IF NOT EXISTS` the same role gets `extension "postgis" already exists`, not
+  `permission denied`. `pg_trgm` is `trusted=true` and needs nothing; the
+  unprivileged role creates and owns it.
+- **`SET LOCAL session_replication_role = replica`** (`buyer-requests.realdb`,
+  `integrity.realdb`). Superuser-only as a GUC, and deliberately chosen over
+  `ALTER TABLE … DISABLE TRIGGER` because it takes no table lock and so cannot
+  build the #301 deadlock — rewriting it would trade a privilege for a hang.
+  `GRANT SET ON PARAMETER` (PG15+) grants exactly it; `pg_parameter_acl` is a
+  SHARED catalog (`relisshared=true`), so one grant covers every future
+  throwaway database.
+- **`ALTER TABLE … DISABLE TRIGGER ALL`** — one statement, in
+  `offer-freshness.realdb`, fixed here to `DISABLE TRIGGER USER`. `ALL` names
+  the table's internal FK triggers, which is what requires superuser and buys
+  nothing (a row's own FK checks do not fire on DELETE) while silencing `23503`
+  for the window.
+
+So the provisioning is three statements on a RUNNING server, and this is the
+argument for it over `reserved_connections` (the other candidate in #696):
+that setting is `postmaster` context, so it cannot be applied without restarting
+the shared container — which destroys every in-flight realdb run on it.
+
+```sql
+CREATE ROLE mercaria_test LOGIN PASSWORD '…'
+  NOSUPERUSER CREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION;
+GRANT SET ON PARAMETER session_replication_role TO mercaria_test;
+\c template1
+CREATE EXTENSION IF NOT EXISTS postgis;
+```
+
+**Flipping the harness to that role is a COORDINATED step and is deliberately
+not done here.** `vitest.pg.globalSetup.ts`'s `LOCAL_COMPOSE_URL` and `ci.yml`'s
+`TEST_DATABASE_URL` still name `mercaria`, because every already-running shared
+container lacks the role and would answer every agent
+`role "mercaria_test" does not exist`. Moving only CI is worse than moving
+neither — it is #481's divergence again, a privilege regression reproducing in
+exactly one environment.
+
 ## Rebasing a migration behind another branch's
 
 Mechanical, and every part done by hand corrupts the chain silently.
