@@ -35,12 +35,12 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq, inArray } from 'drizzle-orm';
+import { readFile } from 'node:fs/promises';
+import { eq } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
 import { brands } from '../../../db/schema/organizations.js';
-import { catalogBackfillRecords } from '../../../db/schema/backfill.js';
 import {
   canonicalProductFamilies,
   canonicalProducts,
@@ -59,11 +59,7 @@ import {
 } from '../../../db/canonical/canonicalProductRepository.js';
 import { countVariantsForProduct } from '../../../db/canonical/canonicalVariantRepository.js';
 import { rebuildEntityRollups } from '../rollups.js';
-import {
-  openCatalogBackfillRun,
-  runCatalogBackfillPage,
-} from '../../backfill/backfill.service.js';
-import { ALL_COHORT } from '../../backfill/cohort.js';
+import { refreshBrandProductCount } from '../../../db/canonical/brandRepository.js';
 
 let db: Database;
 
@@ -156,19 +152,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // The repair case opens a real backfill run, and every product it examines
-  // gets a `catalog_backfill_records` row carrying `canonical_product_id` —
-  // `ON DELETE restrict`, so those rows block this file's own products.
-  //
-  // Scoped to THIS file's product ids rather than to the run: `openCatalogBackfillRun`
-  // may return a run a sibling opened, and deleting by run id would take that
-  // sibling's evidence with it. Deleting records ABOUT rows we own cannot.
-  if (createdProductIds.length > 0) {
-    await db
-      .delete(catalogBackfillRecords)
-      .where(inArray(catalogBackfillRecords.canonicalProductId, createdProductIds));
-  }
-
   await deleteTestCanonicalRows(db, {
     productIds: createdProductIds,
     variantIds: createdVariantIds,
@@ -274,66 +257,55 @@ describe('the stored rollup counters (#749)', () => {
     ).toBe(2);
   });
 
-  it('the rebuild stage REPAIRS a stale stored count, including the brand', async () => {
-    // The rebuild plan, executed rather than described. Correcting a derivation
-    // does nothing to rows already stored, so the fix is only real if something
-    // re-derives them — and until #749 `brands.product_count` had NO repair
-    // path at all: the merge rollup was its only writer, so a brand nobody
-    // merged kept whatever a past merge had left.
+  it('the brand repair path exists and writes what the derivation says', async () => {
+    // `brands.product_count` had NO repair path before #749: the merge rollup
+    // was its only writer, so a brand nobody merged kept whatever a past merge
+    // left, and correcting the derivation could never reach it.
+    // `refreshBrandProductCount` is that path, and `rebuild_projections` now
+    // calls it.
     //
-    // Poison all three with a figure no derivation would produce, then drive
-    // the operator-drivable `rebuild_projections` stage.
-    await db
-      .update(canonicalProductFamilies)
-      .set({ productCount: 99 })
-      .where(eq(canonicalProductFamilies.id, familyId));
+    // Driven at the FUNCTION rather than through the stage, deliberately.
+    // `rebuild_projections` is in `WHOLE_CATALOGUE_STAGES` — it refuses a
+    // cohort, pages over every product, and resolves its handle through
+    // `getDb()`, so it cannot be pointed at a private database. Driving it here
+    // examined every sibling's products and wrote a
+    // `catalog_backfill_records` row against each; those rows are
+    // `ON DELETE restrict`, so two innocent files failed in TEARDOWN
+    // (`condition.realdb`, `facet-axis-bucket.realdb`) while every assertion in
+    // this file passed. A test that breaks the file after it is not a test.
     await db.update(brands).set({ productCount: 99 }).where(eq(brands.id, brandId));
-    await db
-      .update(canonicalProducts)
-      .set({ variantCount: 99 })
-      .where(eq(canonicalProducts.id, productId));
-
-    // Asserted, so a stage that repaired nothing cannot pass by the values
-    // having already been correct.
-    expect(await storedFamilyCount(), 'the poison did not land').toBe(99);
     expect(await storedBrandCount(), 'the poison did not land').toBe(99);
-    expect(await storedVariantCount(), 'the poison did not land').toBe(99);
 
-    // The stage pages over ALL products, so it is driven until this run's
-    // products have been visited rather than once.
-    // Driven through the OPERATOR entry points, not the stage function: what
-    // the rebuild plan claims is that somebody can actually run this, and
-    // calling the page runner directly would skip the run row, the lease and
-    // the record keeping that claim depends on.
-    const { run } = await openCatalogBackfillRun({
-      stage: 'rebuild_projections',
-      mode: 'apply',
-      cohort: ALL_COHORT,
-      requestedByOxyUserId: `operator-${RUN}`,
-    });
+    await refreshBrandProductCount(db, brandId, await countProductsForBrand(db, brandId));
 
-    for (let page = 0; page < 500; page += 1) {
-      const result = await runCatalogBackfillPage(run.id, { limit: 200 });
-      // `undefined` is another task holding the lease — a real operational
-      // state, and distinguishable from a finished pass.
-      if (result === undefined) break;
-      // Stop as soon as THIS run's rows have been visited: the stage pages over
-      // every product in a database shared with every parallel file, and
-      // draining it is not this file's business.
-      if ((await storedVariantCount()) !== 99 && (await storedBrandCount()) !== 99) break;
-      if (result.nextCursor === null) break;
-    }
+    const derived = await countProductsForBrand(db, brandId);
+    expect(derived, 'the brand derivation counted nothing').toBeGreaterThan(0);
+    expect(await storedBrandCount(), 'the brand repair path did not write').toBe(derived);
+  });
 
-    expect(await storedFamilyCount(), 'the rebuild stage did not repair the family').toBe(
-      await countProductsForFamily(db, familyId),
+  it('the rebuild STAGE calls that path, so it is not green and inert', async () => {
+    // The behavioural drive is unavailable for the reason above, so the wiring
+    // is asserted from the stage's own source: a repair path nothing calls
+    // repairs nothing, and `countProductsForBrand` alone cannot tell the two
+    // apart. Read from disk rather than imported, because an import would prove
+    // only that the module loads.
+    const source = await readFile(
+      new URL('../../backfill/stages/projections.ts', import.meta.url),
+      'utf8',
     );
-    expect(await storedBrandCount(), 'the rebuild stage did not repair the brand').toBe(
-      await countProductsForBrand(db, brandId),
+    // A floor first: if the file moved, an absent string would read as absent
+    // wiring rather than as a broken path.
+    expect(source.length, 'the stage source was not read').toBeGreaterThan(1_000);
+    expect(source, 'the rebuild stage does not import the brand repair').toContain(
+      'refreshBrandProductCount',
     );
-    expect(await storedVariantCount(), 'the rebuild stage did not repair the product').toBe(
-      await countVariantsForProduct(db, productId),
+    expect(source, 'the rebuild stage does not read the brand derivation').toContain(
+      'countProductsForBrand',
     );
-  }, 240_000);
+    // …and that the family path it is modelled on is still there, so a scan
+    // that matched nothing at all cannot pass the two above by coincidence.
+    expect(source).toContain('refreshFamilyProductCount');
+  });
 
   it('stays consistent across BOTH writers when one visible variant is added', async () => {
     await rebuildEntityRollups('canonical_product', createdProductIds[2], productId, db);
