@@ -1329,21 +1329,24 @@ describe('exact schema-version retrieval after a newer version publishes', () =>
     expect(pinnedType.version).toBe(1);
 
     /*
-     * A FINDING this file records rather than encodes, because it is a fact about
-     * `composeAuthoringSchema`'s process-local memo and not about `?version=`.
+     * This assertion used to read `published`, and that was a BUG PINNED ON
+     * PURPOSE — a fact about `composeAuthoringSchema`'s process-local memo
+     * rather than about `?version=`. The comment here ended: "If somebody adds
+     * the lifecycle to the key, the first line fails and this comment is the
+     * explanation." #611 added it, this line failed, and this is that
+     * explanation being spent.
      *
-     * The memo is keyed by `AuthoringSchemaKey` — definition id, category, flow,
-     * locale, market, permission fingerprint and the invalidation revisions — and
-     * the version's own LIFECYCLE is not among them. So a composition taken while
-     * v1 was `published` is still served after v1 was deprecated, reporting
-     * `lifecycle: 'published'` until the process restarts or a revision moves.
+     * `AuthoringSchemaKey` now carries the version's LIFECYCLE, so a composition
+     * taken while v1 was `published` is no longer served unchanged after v1 is
+     * deprecated. Both locales therefore agree below: the already-memoized `en`
+     * (which the case above composed) and a `pt` nothing has composed.
      *
-     * Asserted BOTH ways so the fact is pinned rather than described: the already
-     * memoized (`en`, the locale the case above used) still says `published`, and a
-     * locale nothing has composed reports the truth. If somebody adds the lifecycle
-     * to the key, the first line fails and this comment is the explanation.
+     * Both are still asserted, and that is the half worth keeping. A pin on the
+     * MEMOIZED locale is the only one that can fail — a fresh locale never had an
+     * entry to be stale, so it reported the truth before the fix too and would
+     * report it if the key regressed.
      */
-    expect(pinnedType.lifecycle).toBe('published');
+    expect(pinnedType.lifecycle).toBe('deprecated');
     const fresh = await get(
       `/catalog-authoring/schemas/${fx.productTypeKey}?version=1&categoryId=${fx.midId}&market=ES&locale=pt`,
       { actor: MEMBER },

@@ -25,6 +25,7 @@ import {
 
 const KEY: AuthoringSchemaKey = {
   productTypeDefinitionId: 'ptd-1',
+  lifecycle: 'published',
   categoryId: 'cat-1',
   flow: 'merchant',
   locale: 'es-mx',
@@ -78,6 +79,11 @@ describe('every semantic dimension is IN the key, varied one at a time', () => {
   // is the policy member.
   const variations: readonly { name: string; key: AuthoringSchemaKey }[] = [
     { name: 'product type version', key: { ...KEY, productTypeDefinitionId: 'ptd-2' } },
+    // #611. A deprecation moves NOTHING else in this key — the version is
+    // frozen, so `revisions` does not move either — which is exactly why the
+    // memo served a deprecated version as published until this became a
+    // dimension.
+    { name: 'lifecycle', key: { ...KEY, lifecycle: 'deprecated' } },
     { name: 'category', key: { ...KEY, categoryId: 'cat-2' } },
     { name: 'flow', key: { ...KEY, flow: 'p2p' } },
     { name: 'locale', key: { ...KEY, locale: 'es' } },
@@ -89,13 +95,13 @@ describe('every semantic dimension is IN the key, varied one at a time', () => {
     expect(authoringEtag(key, BODY)).not.toBe(authoringEtag(KEY, BODY));
   });
 
-  it('the cache key varies with the same six dimensions', () => {
+  it('the cache key varies with the same seven dimensions', () => {
     const keys = new Set(variations.map((entry) => authoringSchemaCacheKey(entry.key)));
     keys.add(authoringSchemaCacheKey(KEY));
-    // Seven distinct keys from seven distinct dimension sets. A count is the
+    // Eight distinct keys from eight distinct dimension sets. A count is the
     // vacuity floor here: a key that dropped one dimension would collapse two of
-    // them onto one string and this would read six.
-    expect(keys.size).toBe(7);
+    // them onto one string and this would read seven.
+    expect(keys.size).toBe(8);
   });
 
   it('two DIFFERENT requested locales that resolve identically stay distinguishable', () => {
