@@ -2932,6 +2932,47 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
     expect(pruned.refusals.get('line-1') ?? []).toContain('every_offer_from_excluded_merchant');
   });
 
+  /**
+   * A pre-existing crash this fix's own phase walks into, found by a peer lane
+   * reading `runAgentsPhase` and reproduced here before it was fixed.
+   *
+   * `shopping_agent_triggers.canonical_product_id` is a real foreign key to
+   * `canonical_products`, and the fan-out at the end of that phase was
+   * unguarded — so a MERCHANT merge that moved even one agent line enqueued a
+   * trigger naming a MERCHANT id and died `23503`, taking the phase with it. The
+   * exclusion cases above never met it because an array move is not counted in
+   * that phase's `moved`; a single agent LINE is all it takes.
+   */
+  it('completes a merchant merge that also moves an agent LINE', async () => {
+    const loserId = await seedMerchant('line-loser');
+    const winnerId = await seedMerchant('line-winner');
+    const agentId = await seedAgentExcluding('line', [loserId]);
+    const product = await seedProduct('agentline');
+    const lineId = `agl-716-${RUN}`;
+    await db.execute(sql`
+      insert into shopping_agent_lines (id, agent_id, canonical_product_id, position, merchant_id)
+      values (${lineId}, ${agentId}, ${product.productId}, 1, ${loserId})
+    `);
+
+    const job = await requestMerge({
+      entityType: 'merchant',
+      loserId,
+      winnerId,
+      reason: 'a line and an exclusion name the same merchant',
+      actorOxyUserId: OPERATOR,
+    });
+    // Before the guard this threw 23503 out of the `agents` phase.
+    expect((await claimAndRunMerge(job.id, `lease-716c-${RUN}`)).completed).toBe(true);
+
+    const lines = await db.execute<{ merchant_id: string }>(
+      sql`select merchant_id from shopping_agent_lines where id = ${lineId}`,
+    );
+    expect(lines[0]?.merchant_id).toBe(winnerId);
+    expect(await exclusionsOf(agentId)).toEqual([winnerId]);
+
+    await db.execute(sql`delete from shopping_agent_lines where id = ${lineId}`);
+  });
+
   it('leaves ONE winner when the shopper had excluded both sides', async () => {
     const loserId = await seedMerchant('both-loser');
     const winnerId = await seedMerchant('both-winner');
@@ -2955,3 +2996,4 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
     expect([...after].sort()).toEqual([otherId, winnerId].sort());
   });
 });
+

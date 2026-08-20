@@ -859,7 +859,15 @@ async function runAgentsPhase(
   for (const target of targetsForPhase(job.entityType, 'agents')) {
     moved += await applyRehomeTarget(target, job.loserId, job.winnerId, db);
   }
-  if (moved > 0) {
+  // The fan-out is a CANONICAL PRODUCT question, and the guard is not cosmetic:
+  // `shopping_agent_triggers.canonical_product_id` carries a real foreign key to
+  // `canonical_products`, so on a MERCHANT merge — whose `agents` phase moves
+  // `shopping_agent_lines.merchant_id` — `job.winnerId` is a merchant id and the
+  // enqueue raises 23503, taking the whole phase with it. Measured: a merchant
+  // merge moving one agent line fails with `Key (canonical_product_id)=(mrc-…)
+  // is not present in table "canonical_products"`. The top of this function
+  // already guards its other product-only call the same way.
+  if (moved > 0 && job.entityType === 'canonical_product') {
     // The agents that just moved have never been evaluated against the WINNER's
     // offers. The loser's own trigger row stays with the tombstone (see the
     // plan's note), so without this the rehomed agents would wait for the next
