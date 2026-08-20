@@ -417,25 +417,142 @@ export async function listDraftValues(
  * delete-and-insert over the draft. Sending a field with an empty value list is
  * how an author clears it, which is a different request from not mentioning it.
  */
+/**
+ * The identity of a draft value, as the SCHEMA declares it (#729).
+ *
+ * `catalog_authoring_draft_values` says it in its own words — "ONE answer per
+ * (draft, variant, field, component, ordinal)" — and enforces it with four
+ * partial unique indexes over exactly those tuples. The `id` is a SURROGATE for
+ * a row whose identity is declared elsewhere, and a surrogate for a row with a
+ * stable natural key must itself be stable.
+ *
+ * `JSON.stringify` of the tuple rather than a joined string, because
+ * `componentAxis` is nullable and a `??  ''` join makes a null axis collide with
+ * an axis literally named the empty string. Nothing names one today; the point
+ * is that the key does not depend on that staying true.
+ */
+function draftValueIdentity(value: {
+  readonly fieldId: string;
+  readonly componentAxis: string | null;
+  readonly ordinal: number;
+}): string {
+  return JSON.stringify([value.fieldId, value.componentAxis, value.ordinal]);
+}
+
+/**
+ * Every column an UPDATE must set, so a row changing KIND cannot keep the old
+ * kind's value column populated.
+ *
+ * `catalog_authoring_draft_values_exactly_one_value_check` counts non-nulls
+ * across all five value columns, so an update that set only the new column
+ * would leave two populated and be refused by the server. Listing them all —
+ * including the nulls — is what makes a text answer becoming a number answer a
+ * legal write.
+ */
+function draftValueColumns(value: NewDraftValue) {
+  return {
+    attributeDefinitionId: value.attributeDefinitionId,
+    attributeKey: value.attributeKey,
+    attributeDefinitionVersion: value.attributeDefinitionVersion,
+    scope: value.scope,
+    kind: value.kind,
+    valueText: value.valueText,
+    valueNumber: value.valueNumber,
+    valueBoolean: value.valueBoolean,
+    valueEnumValueId: value.valueEnumValueId,
+    canonicalRefKind: value.canonicalRefKind,
+    canonicalRefId: value.canonicalRefId,
+    unit: value.unit,
+  };
+}
+
+/**
+ * Reconcile the PRODUCT-scope answers for a set of fields (#729).
+ *
+ * ## Why this is not delete-then-reinsert any more
+ *
+ * It was, and an autosave that merely re-sent an unchanged field therefore
+ * destroyed the row and minted a new id for the SAME answer. `catalog_proposal_
+ * references.draft_value_id` cascades from that row, so the proposal's whole
+ * reference vanished — and `listOpenProposalsBlockingDraft` filters on the
+ * reference's `draft_id`, so the publication gate stopped blocking. A draft
+ * whose missing concept was still unreviewed became publishable, through the
+ * most routine action the wizard performs.
+ *
+ * The cascade is NOT the bug and is deliberately left alone: when an answer
+ * genuinely goes away, the proposal about it is moot and its reference should go
+ * with it. What was wrong is that a re-save is not an answer going away.
+ *
+ * ## Why a diff and not `ON CONFLICT`
+ *
+ * The four uniques are PARTIAL. Postgres will not infer an arbiter from a
+ * partial index unless the statement repeats its predicate, so an upsert here
+ * would need four conditional arbiters selected by whether `component_axis` is
+ * null and whether the scope is variant — the shape that made `ensureCart` 500.
+ * A read-then-diff keyed on the tuple has one spelling and needs no arbiter.
+ */
 export async function replaceProductScopeValues(
   db: DatabaseOrTransaction,
   draftId: string,
   fieldIds: readonly string[],
   values: readonly NewDraftValue[],
 ): Promise<void> {
-  if (fieldIds.length > 0) {
+  if (fieldIds.length === 0) {
+    if (values.length > 0) {
+      await db
+        .insert(catalogAuthoringDraftValues)
+        .values(values.map((value) => ({ draftId, ...value })));
+    }
+    return;
+  }
+
+  const existing = await db
+    .select({
+      id: catalogAuthoringDraftValues.id,
+      fieldId: catalogAuthoringDraftValues.fieldId,
+      componentAxis: catalogAuthoringDraftValues.componentAxis,
+      ordinal: catalogAuthoringDraftValues.ordinal,
+    })
+    .from(catalogAuthoringDraftValues)
+    .where(
+      and(
+        eq(catalogAuthoringDraftValues.draftId, draftId),
+        isNull(catalogAuthoringDraftValues.draftVariantId),
+        inArray(catalogAuthoringDraftValues.fieldId, [...fieldIds]),
+      ),
+    );
+
+  const byIdentity = new Map(existing.map((row) => [draftValueIdentity(row), row.id]));
+  const seen = new Set<string>();
+  const fresh: NewDraftValue[] = [];
+
+  for (const value of values) {
+    const identity = draftValueIdentity(value);
+    const id = byIdentity.get(identity);
+    if (id === undefined) {
+      fresh.push(value);
+      continue;
+    }
+    seen.add(identity);
+    // The SAME answer, kept at the SAME id — which is the whole point.
+    await db
+      .update(catalogAuthoringDraftValues)
+      .set(draftValueColumns(value))
+      .where(eq(catalogAuthoringDraftValues.id, id));
+  }
+
+  // Only what genuinely went away. A reference cascading from one of these is
+  // correct: the answer it was about no longer exists.
+  const stale = existing.filter((row) => !seen.has(draftValueIdentity(row))).map((row) => row.id);
+  if (stale.length > 0) {
     await db
       .delete(catalogAuthoringDraftValues)
-      .where(
-        and(
-          eq(catalogAuthoringDraftValues.draftId, draftId),
-          isNull(catalogAuthoringDraftValues.draftVariantId),
-          inArray(catalogAuthoringDraftValues.fieldId, [...fieldIds]),
-        ),
-      );
+      .where(inArray(catalogAuthoringDraftValues.id, stale));
   }
-  if (values.length === 0) return;
-  await db.insert(catalogAuthoringDraftValues).values(values.map((value) => ({ draftId, ...value })));
+
+  if (fresh.length > 0) {
+    await db.insert(catalogAuthoringDraftValues).values(fresh.map((value) => ({ draftId, ...value })));
+  }
 }
 
 /**
