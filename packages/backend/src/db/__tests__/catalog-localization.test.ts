@@ -988,6 +988,73 @@ describe('the hand-written trigger SQL', () => {
     return `(${values.map((value) => `'${value}'`).join(', ')})`;
   }
 
+  /**
+   * Every `CREATE [OR REPLACE] FUNCTION` body in the chain, by function name.
+   *
+   * Built across the WHOLE chain rather than per file, because an attachment and
+   * the definition it executes are routinely in different migrations: `0091`
+   * declares the shared guard, and `0112`, `0119` and `0120` attach it to tables
+   * added later. A per-file lookup would report those three as unguarded.
+   */
+  function functionBodies(): Map<string, string> {
+    const bodies = new Map<string, string>();
+    const declaration =
+      /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([A-Za-z_]\w*)\s*\([^)]*\)[\s\S]*?\$\$([\s\S]*?)\$\$/g;
+    for (const file of allSqlFiles()) {
+      for (const match of file.text.matchAll(declaration)) bodies.set(match[1], match[2]);
+    }
+    return bodies;
+  }
+
+  /**
+   * The functions every `BEFORE UPDATE` trigger on `table` executes.
+   *
+   * The table name is matched BOTH quoted and bare, because the family does not
+   * spell it consistently — `navigation_node_localizations`' trigger is written
+   * unquoted, and a quoted-only matcher reports it as UNGUARDED. That false
+   * absence was produced by an earlier draft of this very check. The trailing
+   * boundary is what keeps `category_localizations` from matching a longer table
+   * that merely starts with it.
+   *
+   * `[^;]*?` rather than `[\s\S]*?` is the load-bearing part: a trigger
+   * statement ends at its semicolon, so bounding the search there is what stops
+   * a `BEFORE UPDATE` with no `EXECUTE` line of its own from borrowing the NEXT
+   * statement's. That failure would be a false PASS, which is the direction that
+   * matters.
+   */
+  function updateTriggerFunctions(table: string, text: string): string[] {
+    const attachment = new RegExp(
+      String.raw`BEFORE\s+UPDATE\s+ON\s+"?${table}"?(?![\w"])[^;]*?EXECUTE\s+(?:FUNCTION|PROCEDURE)\s+([A-Za-z_]\w*)\s*\(`,
+      'g',
+    );
+    return [...text.matchAll(attachment)].map((match) => match[1]);
+  }
+
+  /**
+   * What makes a trigger THE guard: its body names the machine provenance AND
+   * refuses. Both halves are required, because a body that reads `'machine'`
+   * without raising is a trigger that inspects the value and lets the write
+   * through.
+   *
+   * Keyed on the BODY and never on the function's NAME, because there are two
+   * implementations: seven tables execute the shared
+   * `mercaria_localization_machine_write_guard`, and
+   * `navigation_node_localizations` executes
+   * `mercaria_navigation_localization_review_protected`, a semantically
+   * equivalent hand-written clone. A name census reports the clone unguarded, or
+   * needs an exemption — and an exemption here would hide a genuinely
+   * unprotected table.
+   *
+   * This is the predicate `catalog-localization.realdb.test.ts` applies to
+   * `pg_get_functiondef` on an applied database. Here it reads the migration
+   * text instead, so it fails on the PR that drops an attachment rather than
+   * after that PR has landed.
+   */
+  function refusesMachineWrites(body: string | undefined): boolean {
+    if (body === undefined) return false;
+    return /'machine'/u.test(body) && /raise\s+exception/iu.test(body);
+  }
+
   it('lives in exactly one file', () => {
     const found = candidateSqlFiles();
     expect(found.map((file) => file.path)).toHaveLength(1);
@@ -1027,17 +1094,39 @@ describe('the hand-written trigger SQL', () => {
     expect(guarded.length).toBeGreaterThanOrEqual(4);
 
     const chain = allSqlFiles();
-    // The table name is matched BOTH quoted and bare, because the family does
-    // not spell it consistently — `navigation_node_localizations`' trigger is
-    // written unquoted, and a quoted-only matcher reports it as UNGUARDED. That
-    // false absence was produced by an earlier draft of this very check.
+    const bodies = functionBodies();
+    // The floor on the FUNCTION MAP. An extraction that broke would return an
+    // empty map and report every table unguarded — caught below, but caught as
+    // eight tables having simultaneously lost their guards, which sends a reader
+    // to eight migrations instead of to this helper.
+    expect(bodies.size, 'no function bodies parsed out of the chain').toBeGreaterThanOrEqual(1);
+
+    // What is matched is the trigger's `EXECUTE FUNCTION` line — the USE of a
+    // guard, not the mere presence of a `BEFORE UPDATE`. The weaker form was
+    // this check's first shape and it is #670: an `updated_at` stamper or a
+    // frozen-column trigger satisfied it, so a table that kept ANY trigger and
+    // lost the machine guard stayed green while the property was gone. Three
+    // real tables in this chain have exactly that shape, one of them
+    // (`category_localized_slugs`) in this very family's migration.
+    const unattached: string[] = [];
+    const unguarded: string[] = [];
     for (const name of guarded) {
-      const attached = chain.filter((file) =>
-        new RegExp(String.raw`BEFORE\s+UPDATE\s+ON\s+"?${name}"?`).test(file.text),
-      );
-      expect(attached.length, `${name} has no BEFORE UPDATE guard in the migration chain`)
-        .toBeGreaterThanOrEqual(1);
+      const executed = chain.flatMap((file) => updateTriggerFunctions(name, file.text));
+      if (executed.length === 0) unattached.push(name);
+      else if (!executed.some((fn) => refusesMachineWrites(bodies.get(fn))))
+        unguarded.push(`${name} (executes ${executed.join(', ')})`);
     }
+
+    // Asserted so the failure NAMES the table a reader has to go and fix, and
+    // the two are kept apart because they send that reader somewhere different:
+    // a missing attachment is a dropped `CREATE TRIGGER` — the regeneration
+    // hazard this whole file is written against — while a trigger that executes
+    // something else is a guard that was REPLACED rather than removed.
+    expect(unattached, 'family text tables with no BEFORE UPDATE trigger at all').toEqual([]);
+    expect(
+      unguarded,
+      'family text tables whose BEFORE UPDATE trigger does not refuse machine writes',
+    ).toEqual([]);
 
     // THE CONTROL, and its shape is the load-bearing part.
     //
@@ -1111,11 +1200,107 @@ describe('the hand-written trigger SQL', () => {
         'it has started matching everything and every assertion above is vacuous',
     ).toHaveLength(0);
 
-    process.stdout.write(
-      `\n  [family guard census] ${guarded.length} non-exempt text tables guarded, ` +
-        `${exempt.size} exempt (control: ${controlName} has none, structurally), ` +
-        `${chain.length} migration files scanned\n`,
+    // THE SECOND CONTROL, on the BODY PREDICATE rather than on the table name,
+    // and it is the direct regression test for #670.
+    //
+    // The control above can only catch a matcher that has started finding
+    // triggers everywhere; it cannot catch one that finds the RIGHT trigger and
+    // asks the wrong question of it, because its subject has no trigger at all.
+    // That needs a subject which really carries a real `BEFORE UPDATE` that
+    // really is not the guard.
+    //
+    // `category_localized_slugs` is exactly that: a live table in this family's
+    // own migration carrying `mercaria_category_localized_slug_frozen`, which
+    // freezes a column and knows nothing about provenance. It is the precise
+    // shape the old matcher accepted — present, plausible, adjacent, and not the
+    // guard.
+    //
+    // Note it is the table the control ABOVE rejected, and the inversion is the
+    // point: carrying a real trigger disqualified it as the subject of a matcher
+    // that only asked whether a trigger EXISTED, and is exactly what qualifies
+    // it for one that asks which function that trigger RUNS.
+    const bodyControlName = 'category_localized_slugs';
+    const bodyControlFunctions = chain.flatMap((file) =>
+      updateTriggerFunctions(bodyControlName, file.text),
     );
+    // The positive half. A control that stopped carrying a trigger — renamed,
+    // dropped, or missed by the attachment regex — would satisfy the verdict
+    // below while measuring nothing, which is the failure this whole file is
+    // about.
+    expect(
+      bodyControlFunctions.length,
+      `${bodyControlName} must really carry a BEFORE UPDATE trigger, or it controls nothing`,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      bodyControlFunctions.filter((fn) => refusesMachineWrites(bodies.get(fn))),
+      `${bodyControlName} runs a frozen-column trigger, not a machine-write guard — if the ` +
+        'predicate reports one, it accepts any trigger body and every table above passes vacuously',
+    ).toEqual([]);
+
+    process.stdout.write(
+      `\n  [family guard census] ${guarded.length} non-exempt text tables execute a ` +
+        `machine-write guard, ${exempt.size} exempt, ${bodies.size} function bodies parsed ` +
+        `(controls: ${controlName} has no trigger, ${bodyControlName} has one that is not a ` +
+        `guard), ${chain.length} migration files scanned\n`,
+    );
+  });
+
+  it('tells a guard from any other BEFORE UPDATE — the mutation self-test', () => {
+    // #670, the shape the census above used to accept: a real trigger, on a real
+    // family table, at the right time — that stamps a timestamp. The old matcher
+    // asked only whether this text existed and reported the table guarded.
+    const stamper = [
+      'CREATE TRIGGER category_localizations_touch',
+      '  BEFORE UPDATE ON "category_localizations"',
+      '  FOR EACH ROW EXECUTE FUNCTION mercaria_touch_updated_at();',
+    ].join('\n');
+    expect(updateTriggerFunctions('category_localizations', stamper)).toEqual([
+      'mercaria_touch_updated_at',
+    ]);
+    expect(refusesMachineWrites('BEGIN NEW.updated_at := now(); RETURN NEW; END;')).toBe(false);
+
+    // BOTH halves of the predicate are required. A body that reads the machine
+    // provenance and does not raise is a trigger that looks at the value and
+    // lets the write through; a body that raises for some other reason is the
+    // frozen-column trigger the second control is built on.
+    expect(refusesMachineWrites("IF NEW.provenance = 'machine' THEN RETURN NEW; END IF;")).toBe(
+      false,
+    );
+    expect(refusesMachineWrites("RAISE EXCEPTION 'slug is frozen';")).toBe(false);
+    expect(
+      refusesMachineWrites("IF NEW.provenance = 'machine' THEN RAISE EXCEPTION 'no'; END IF;"),
+    ).toBe(true);
+
+    // Both real implementations satisfy it, which is the claim that lets this
+    // census key on the body instead of on a function name.
+    const bodies = functionBodies();
+    for (const implementation of [
+      'mercaria_localization_machine_write_guard',
+      'mercaria_navigation_localization_review_protected',
+    ]) {
+      expect(
+        refusesMachineWrites(bodies.get(implementation)),
+        `${implementation} is one of the two real guards and must satisfy the predicate`,
+      ).toBe(true);
+    }
+
+    // A trigger statement ends at its semicolon, so a `BEFORE UPDATE` carrying
+    // no EXECUTE line of its own must not borrow the NEXT statement's. That
+    // would be a false PASS, which is the direction that matters.
+    const truncated = [
+      'CREATE TRIGGER a BEFORE UPDATE ON "category_localizations" FOR EACH ROW;',
+      'CREATE TRIGGER b BEFORE UPDATE ON "other_table"',
+      `  FOR EACH ROW EXECUTE FUNCTION ${GUARD_FUNCTION}();`,
+    ].join('\n');
+    expect(updateTriggerFunctions('category_localizations', truncated)).toEqual([]);
+
+    // …and the table name is matched at its boundary: a longer table that merely
+    // starts with the same characters is a different table.
+    const longer = [
+      'CREATE TRIGGER c BEFORE UPDATE ON category_localizations_archive',
+      `  FOR EACH ROW EXECUTE FUNCTION ${GUARD_FUNCTION}();`,
+    ].join('\n');
+    expect(updateTriggerFunctions('category_localizations', longer)).toEqual([]);
   });
 
   it('attaches EVERY trigger function it defines to a trigger', () => {
