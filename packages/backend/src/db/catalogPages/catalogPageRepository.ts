@@ -40,6 +40,20 @@ import {
 } from '../schema/canonicalCatalog.js';
 import { merchants } from '../schema/merchants.js';
 
+/**
+ * The canonical products a shopper-facing read on these pages may see.
+ *
+ * ONE expression for the whole file. `listFamilySharedAttributes` compares a
+ * COUNT of matching products against a COUNT of the family's products, and #737
+ * measured what two spellings of that population cost: the totals were narrowed
+ * to the shopper-visible set and this file's other reads were not, so a family
+ * with one suppressed member silently LOST an attribute every one of its
+ * products carried.
+ */
+function shopperVisibleProducts(): SQL {
+  return inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]);
+}
+
 /** Which scope a browse is over. A union, so a caller cannot pass both. */
 export type CatalogBrowseScope =
   | { readonly kind: 'brand'; readonly brandId: string }
@@ -114,7 +128,7 @@ export async function listCatalogBrowsePage(
     // has published, onto a page whose facet counts excluded both. The partial
     // index `canonical_products_brand_page_idx` (`where status <> 'merged'`) is
     // still used: Postgres proves `= any('{active,discontinued}')` implies it.
-    inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
+    shopperVisibleProducts(),
     query.categoryIds === undefined || query.categoryIds.length === 0
       ? undefined
       : inArray(canonicalProducts.categoryId, [...query.categoryIds]),
@@ -156,7 +170,7 @@ export async function countCatalogScopeProducts(
       and(
         scopePredicate(scope),
         // The number rendered beside the list must count the same rows it shows.
-        inArray(canonicalProducts.status, [...SHOPPER_VISIBLE_CATALOG_STATUSES]),
+        shopperVisibleProducts(),
       ),
     );
   const row = rows[0];
@@ -191,7 +205,7 @@ export async function listBrandCategoryRollup(
     })
     .from(canonicalProducts)
     .innerJoin(categories, eq(categories.id, canonicalProducts.categoryId))
-    .where(and(eq(canonicalProducts.brandId, brandId), ne(canonicalProducts.status, 'merged')))
+    .where(and(eq(canonicalProducts.brandId, brandId), shopperVisibleProducts()))
     .groupBy(categories.id, categories.slug, categories.name)
     .orderBy(sql`count(*) desc`, asc(categories.name))
     .limit(limit);
@@ -243,6 +257,23 @@ export interface SharedAttributeRow {
  * products carry is simply absent. Anything less would state a fact of the
  * generation that does not have it.
  *
+ * ## The denominator is computed HERE, and used to be a parameter
+ *
+ * It was `liveProductCount`, handed in by `family-page.service.ts` from
+ * `countCatalogScopeProducts`. Two populations, spelled in two places, compared
+ * for EQUALITY — so they only had to disagree by one for the unanimity test to
+ * be unsatisfiable. #628 narrowed the caller's count to the shopper-visible
+ * statuses and left this read on `<> 'merged'`, and #737 measured the result: a
+ * family of two active products and one suppressed one, all three carrying the
+ * same attribute, reported it as shared by NOBODY. Not an inflated count — a
+ * true fact silently deleted, which is the direction that gets shipped.
+ *
+ * A parameter cannot be made safe by documenting it: the next caller supplies
+ * whatever number it has. So the count is taken here, over the same predicate
+ * the `having` counts, and there is no argument left to mismatch. The cost is
+ * one extra indexed count per family page, which is what not being able to
+ * disagree is worth.
+ *
  * PRODUCT-grain values only. A variant-grain attribute is an option AXIS —
  * storage, colour — which by construction varies within a product, so
  * asserting one of a whole family would be wrong in the loudest possible place.
@@ -254,9 +285,10 @@ export interface SharedAttributeRow {
 export async function listFamilySharedAttributes(
   db: DatabaseOrTransaction,
   familyId: string,
-  liveProductCount: number,
   limit: number,
 ): Promise<SharedAttributeRow[]> {
+  const liveProductCount = (await countCatalogScopeProducts(db, { kind: 'family', familyId }))
+    .total;
   if (liveProductCount === 0) return [];
   const rows = await db
     .select({
@@ -268,7 +300,7 @@ export async function listFamilySharedAttributes(
     .where(
       and(
         eq(canonicalProducts.familyId, familyId),
-        ne(canonicalProducts.status, 'merged'),
+        shopperVisibleProducts(),
         eq(canonicalAttributeValues.selectionState, 'selected'),
         sql`${canonicalAttributeValues.normalizedText} is not null`,
       ),

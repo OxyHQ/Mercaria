@@ -505,7 +505,13 @@ export async function countMerchantBrandOffers(
         eq(offers.status, 'active'),
         gt(offers.staleAt, input.now),
         isNotNull(canonicalProducts.brandId),
-        ne(canonicalProducts.status, 'merged'),
+        // `productPredicates()` with no filters — the SAME status predicate this
+        // file's offer totals and its product list already use. It was
+        // `ne(status,'merged')`, so a `suppressed` or `draft` product could put a
+        // whole BRAND on a merchant page (#737): the third "sells this brand, no
+        // verified relationship" state is enumerated from these counts, so the
+        // number does not merely inflate, it decides membership.
+        ...productPredicates(),
       ),
     )
     .groupBy(canonicalProducts.brandId)
