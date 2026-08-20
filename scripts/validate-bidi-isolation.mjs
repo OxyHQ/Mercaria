@@ -66,6 +66,7 @@ import {
   formatDistance,
   formatMoney,
   formatPercent,
+  formatDuration,
   formatRating,
   formatReviewCount,
   formatSourceMoney,
@@ -280,6 +281,34 @@ checkIsolatedExactly(
 
 checkIsolatedExactly("formatRating", "en", formatRating(4.5, EN), "4.5");
 checkIsolatedExactly("formatRating", "whole/en", formatRating(5, EN), "5.0");
+
+// `formatDuration` (#437). Its visible text comes from CLDR's unit forms rather
+// than from arithmetic here — that is the point of it, since it replaced four
+// English template literals whose plural agreement no translation key could get
+// right — so the expectation is the SAME `Intl` call without the isolation.
+//
+// The singular case is the one worth having: it is the form the extraction it
+// replaced got wrong (`1 minutes`), and it is also where an implementation that
+// pluralised by appending an "s" would still pass a 30-minute case.
+for (const [caseName, seconds, unit, value] of [
+  ["seconds/en", 30, "second", 30],
+  ["minutes/en", 300, "minute", 5],
+  ["one minute/en", 60, "minute", 1],
+  ["hours/en", 7200, "hour", 2],
+  ["days/en", 172800, "day", 2],
+]) {
+  checkIsolatedExactly(
+    "formatDuration",
+    caseName,
+    formatDuration(seconds, EN),
+    new Intl.NumberFormat(EN, {
+      style: "unit",
+      unit,
+      unitDisplay: "long",
+      maximumFractionDigits: 0,
+    }).format(value),
+  );
+}
 
 // ---------------------------------------------------------------------------
 // The #488/#489 formatters.

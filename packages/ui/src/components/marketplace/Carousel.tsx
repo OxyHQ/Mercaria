@@ -10,6 +10,11 @@ import {
 } from "react-native";
 import { ChevronLeft, ChevronRight } from "lucide-react-native";
 import { useColorScheme } from "../../lib/useColorScheme";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  CAROUSEL_NEXT_KEY,
+  CAROUSEL_PREVIOUS_KEY,
+} from "../../lib/marketplace-labels";
 import { cn } from "../../lib/cn";
 
 /** Horizontal padding applied to the scroll content. */
@@ -64,6 +69,7 @@ export function Carousel<T>({
   showArrows,
 }: CarouselProps<T>) {
   const { colors } = useColorScheme();
+  const t = useSharedUiTranslation();
   const scrollRef = useRef<ScrollView>(null);
   // Mutable scroll metrics kept in refs so updating them never re-renders.
   const scrollX = useRef(0);
@@ -153,7 +159,7 @@ export function Carousel<T>({
         <>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Go to the previous item"
+            accessibilityLabel={t(CAROUSEL_PREVIOUS_KEY)}
             onPress={() => scrollByViewport(-1)}
             className="absolute start-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
           >
@@ -161,7 +167,7 @@ export function Carousel<T>({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Go to the next item"
+            accessibilityLabel={t(CAROUSEL_NEXT_KEY)}
             onPress={() => scrollByViewport(1)}
             className="absolute end-2 top-1/2 hidden items-center justify-center rounded-full border-[0.5px] border-border bg-card p-2.5 web:-translate-y-1/2 web:shadow-md web:sm:flex"
           >

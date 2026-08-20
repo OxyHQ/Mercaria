@@ -116,7 +116,26 @@
         "timeLimitReached": "la recherche a manqué de temps"
       },
       "optimalityProven": "Meilleur plan possible parmi les offres que nous pouvons voir.",
-      "optimalityApproximate": "Meilleur plan trouvé — %{reason}."
+      "optimalityApproximate": "Meilleur plan trouvé — %{reason}.",
+      "card": {
+        "refused": "Indisponible pour ce panier.",
+        "tally": "Articles : %{covered}/%{total} · Marchands : %{merchants}",
+        "itemPrices": "Prix des articles : %{total}",
+        "stalePrices": "Certains prix ont été confirmés il y a un moment.",
+        "notIncluded": "Non inclus",
+        "addToCart": "Ajouter au panier Mercaria (%{items})",
+        "addToCartA11y": "Ajouter au panier Mercaria (%{items})",
+        "openRetailers": "Ouvrir les marchands externes",
+        "openRetailersNote": "Vous achèterez sur le site de chaque marchand. Mercaria ne garantit pas le total final de leur paiement.",
+        "merchantLine": "%{merchant} (%{items})",
+        "merchantLineA11y": "Ouvrir %{merchant} (%{items})",
+        "atLeast": "Au moins %{floor}",
+        "atLeastMissing": "Au moins %{floor} — %{missing}",
+        "deliveryOne": "plus la livraison",
+        "deliveryMultiple": "plus la livraison de plusieurs marchands",
+        "taxUnknown": "traitement fiscal non publié",
+        "pricesUnknown": "certains prix sont inconnus"
+      }
     },
     "comparison": {
       "listSeparator": " ; ",
@@ -164,7 +183,8 @@
         "inUnit": "en %{unit}",
         "higherIsBetter": "plus c'est élevé, mieux c'est",
         "lowerIsBetter": "plus c'est bas, mieux c'est"
-      }
+      },
+      "noSummary": "Aucun résumé n’est disponible pour cette comparaison. Le tableau ci-dessous est la comparaison."
     },
     "priceSignal": {
       "qualityLabel": {
@@ -646,6 +666,45 @@
         "deltaLower": "%{amount} de moins qu'avant",
         "deltaHigher": "%{amount} de plus qu'avant",
         "unnamedRequirement": "Une exigence sans description enregistrée"
+      },
+      "card": {
+        "showFindings": "Afficher ce que %{name} a trouvé",
+        "hideFindings": "Masquer ce que %{name} a trouvé",
+        "anyCondition": "tout état",
+        "pricedIn": "prix en %{currency}",
+        "inMarket": "en %{market}",
+        "merchantsExcluded": "marchands exclus : %{merchants}",
+        "scopeSeparator": " · ",
+        "noChannels": "nulle part pour l’instant",
+        "channelSeparator": ", ",
+        "targetPrefix": "Préviens-moi en dessous de",
+        "notifyPolicy": "Vous êtes prévenu par %{channels}, au plus une fois toutes les %{cooldown}",
+        "notifyPolicyQuiet": "Vous êtes prévenu par %{channels}, au plus une fois toutes les %{cooldown} · silence de %{start} à %{end} (%{timeZone})",
+        "requirements": "Ce qui doit être vrai",
+        "watching": "Sous surveillance (%{things})",
+        "openProduct": "Ouvrir ce produit",
+        "line": "%{quantity} × %{product}",
+        "splitExplanation": "Ce produit a été scindé en deux, cet agent attend donc que vous indiquiez lequel vous vouliez. Ouvrez l’un ou l’autre pour les comparer.",
+        "splitStays": "Reste sous : %{product}",
+        "splitMoves": "Passe à : %{product}",
+        "splitStaysA11y": "Reste sous ce produit — l’ouvrir",
+        "splitMovesA11y": "Passe à ce produit — l’ouvrir",
+        "keepSource": "Garder celui-ci",
+        "moveToTarget": "L’autre",
+        "runNow": "Chercher maintenant",
+        "runNowA11y": "Chercher de nouveau maintenant pour %{name}",
+        "pause": "Mettre en pause",
+        "pauseA11y": "Mettre %{name} en pause",
+        "resume": "Reprendre",
+        "resumeA11y": "Reprendre %{name}",
+        "remove": "Supprimer",
+        "removeA11y": "Supprimer %{name}",
+        "neverLooked": "Pas encore cherché",
+        "neverLookedNext": "Pas encore cherché · prochaine fois %{next}",
+        "lastLooked": "Dernière recherche %{last}",
+        "lastLookedNext": "Dernière recherche %{last} · prochaine fois %{next}",
+        "constraintHard": "Obligatoire :",
+        "constraintSoft": "Préférence :"
       }
     },
     "facet": {
@@ -671,6 +730,152 @@
       "market": {
         "any": "Tous les marchés"
       }
+    },
+    "savedItem": {
+      "removeProduct": "Retirer ce produit enregistré",
+      "removeListing": "Retirer cette annonce enregistrée",
+      "savedProduct": "Produit enregistré",
+      "savedListing": "Annonce enregistrée",
+      "pinnedListing": "Annonce épinglée",
+      "cheaper": "Moins cher que lors de l’enregistrement",
+      "dearer": "Plus cher que lors de l’enregistrement",
+      "peopleSaved": "Personnes qui l’ont enregistré : %{people}",
+      "splitChoose": "Ce produit a été scindé — choisissez lequel vous vouliez",
+      "splitChooseA11y": "Choisissez quel produit vous vouliez",
+      "setAlert": "Créer une alerte de prix",
+      "setAlertA11y": "Créer une alerte de prix pour ce produit",
+      "unavailable": "Plus disponible",
+      "priceUnpublished": "Prix non publié",
+      "priceInCurrency": "Prix publié en %{currency}",
+      "noOffer": {
+        "recorded": "Personne ne le vend encore",
+        "retired": "Personne ne le vend en ce moment",
+        "filtered": "Aucune offre ne correspond à vos filtres",
+        "generic": "Aucune offre actuelle"
+      }
+    },
+    "priceAlert": {
+      "basis": {
+        "item_price": "hors livraison",
+        "known_total": "livraison comprise"
+      },
+      "sellerScope": {
+        "any": "tout vendeur",
+        "native_only": "vendeurs sur Mercaria",
+        "external_only": "marchands hors de Mercaria",
+        "official_only": "boutiques officielles vérifiées"
+      },
+      "card": {
+        "anyCondition": "tout état",
+        "scopeLine": "%{segments} · %{sellers}",
+        "listSeparator": ", ",
+        "openProduct": "Ouvrir le produit surveillé par cette alerte",
+        "savedProduct": "Produit enregistré",
+        "targetPrefix": "Préviens-moi en dessous de",
+        "notified": "Vous avez été prévenu — cette alerte devait vous prévenir une seule fois.",
+        "paused": "En pause",
+        "splitExplanation": "Ce produit a été scindé en deux, cette alerte est donc en pause jusqu’à ce que vous choisissiez lequel vous vouliez.",
+        "keepSource": "Garder celui-ci",
+        "moveToTarget": "L’autre",
+        "keepBoth": "Les deux",
+        "pause": "Mettre en pause",
+        "pauseA11y": "Mettre cette alerte en pause",
+        "resume": "Reprendre",
+        "resumeA11y": "Reprendre cette alerte",
+        "delete": "Supprimer",
+        "deleteA11y": "Supprimer cette alerte"
+      }
+    },
+    "purchase": {
+      "oneTime": "Achat unique",
+      "subscribe": "Abonnement",
+      "addToCart": "Ajouter au panier",
+      "selectOptions": "Choisir les options",
+      "buyNow": "Acheter maintenant",
+      "subscribeNow": "M’abonner maintenant",
+      "frequency": {
+        "monthly": "Livré tous les mois",
+        "every2Months": "Livré tous les 2 mois",
+        "every3Months": "Livré tous les 3 mois",
+        "every4Months": "Livré tous les 4 mois",
+        "every6Months": "Livré tous les 6 mois"
+      }
+    },
+    "marketplace": {
+      "visitMerchant": "Visiter %{name}",
+      "noImage": "Aucune image"
+    },
+    "canonicalCard": {
+      "pricesUnavailable": "Prix indisponibles pour l’instant",
+      "noOffers": "Aucune offre actuelle",
+      "priceInCurrency": "Prix publié en %{currency}",
+      "fromPrice": "À partir de %{price}",
+      "offerLine": "%{conditions} · Offres : %{offers}"
+    },
+    "carousel": {
+      "previous": "Aller à l’élément précédent",
+      "next": "Aller à l’élément suivant"
+    },
+    "cart": {
+      "saveForLater": "Garder pour plus tard"
+    },
+    "category": {
+      "browse": "Parcourir %{category}"
+    },
+    "merchantCart": {
+      "checkout": "Passer au paiement",
+      "subtotal": "Sous-total :"
+    },
+    "merchantHeader": {
+      "visitStore": "Visiter la boutique",
+      "moreOptions": "Plus d’options"
+    },
+    "nearby": {
+      "soldBy": "Vendu par %{merchant}",
+      "channel": "Canal : %{channel}",
+      "signIn": "Se connecter",
+      "signInA11y": "Connectez-vous pour retirer dans cette boutique",
+      "selectAt": "%{action} à %{place}"
+    },
+    "pickupPanel": {
+      "heading": "Retrait",
+      "codeHeading": "Votre code de retrait",
+      "codeA11y": "Code de retrait %{code}",
+      "codeNote": "Présentez-le au comptoir. S’il cesse de fonctionner, la boutique peut en émettre un nouveau — un ancien code ne continue jamais de fonctionner à côté du nouveau."
+    },
+    "productCard": {
+      "discount": "%{percent} de réduction",
+      "save": "Ajouter aux favoris"
+    },
+    "gallery": {
+      "viewImage": "Voir l’image %{position}",
+      "previous": "Image précédente",
+      "next": "Image suivante"
+    },
+    "quantity": {
+      "remove": "Retirer l’article",
+      "decrease": "Diminuer la quantité",
+      "increase": "Augmenter la quantité"
+    },
+    "review": {
+      "defaultScope": "Avis",
+      "starsA11y": "Note moyenne : %{rating}. Avis : %{reviews}.",
+      "starsScopedA11y": "%{subject}. Note moyenne : %{rating}. Avis : %{reviews}.",
+      "empty": "Pas encore de %{subject}.",
+      "verifiedRatings": "Notes vérifiées : %{ratings}",
+      "unverified": "Non vérifiées : %{ratings} · %{rating}",
+      "readMore": "Lire plus d’avis"
+    },
+    "searchInterpretation": {
+      "chip": "%{label}",
+      "chipPreference": "%{label} · préférence",
+      "chipRemove": "Retirer : %{origin} %{label}",
+      "modeModel": "Interprété avec l’aide d’un modèle",
+      "modeRules": "Interprété par nos propres règles"
+    },
+    "variantSwatches": {
+      "showMoreA11y": "Plus d’options de %{option} (%{more})",
+      "showMore": "+%{more} de plus"
     }
   }
 }

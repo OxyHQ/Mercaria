@@ -1149,7 +1149,7 @@
         "category": "Categoria",
         "productType": "Tipus de producte",
         "productTypeVersion": "%{name} (versió %{version})",
-        "marketAndLocale": "Mercat %{market} · idioma %{locale}",
+        "marketAndLocale": "Mercat %{market} · idioma %{language}",
         "market": "Mercat",
         "canonicalLink": "Producte del catàleg",
         "canonicalNone": "Cap de triat",

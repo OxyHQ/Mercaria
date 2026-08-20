@@ -5,6 +5,14 @@ import { useFormatters } from "../../lib/use-formatters";
 import { conditionLabelKey } from "../../lib/condition";
 import { useSharedUiTranslation } from "../../i18n/ui-translation";
 import {
+  MARKETPLACE_VISIT_MERCHANT_KEY,
+  NEARBY_CHANNEL_KEY,
+  NEARBY_SELECT_AT_KEY,
+  NEARBY_SIGN_IN_A11Y_KEY,
+  NEARBY_SIGN_IN_KEY,
+  NEARBY_SOLD_BY_KEY,
+} from "../../lib/marketplace-labels";
+import {
   LOCATION_AVAILABILITY_EXPLANATION_KEYS,
   LOCATION_AVAILABILITY_KEYS,
   PICKUP_DISTANCE_BAND_KEYS,
@@ -179,18 +187,20 @@ export function NearbyLocationCard({
       {location.merchant === undefined ? null : (
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={`Visit ${location.merchant.name}`}
+          accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name: location.merchant.name })}
           disabled={onPressMerchant === undefined}
           onPress={() => {
             if (location.merchant !== undefined) onPressMerchant?.(location.merchant.slug);
           }}
         >
-          <Text className="text-caption text-text">Sold by {location.merchant.name}</Text>
+          <Text className="text-caption text-text">
+          {t(NEARBY_SOLD_BY_KEY, { merchant: location.merchant.name })}
+        </Text>
         </Pressable>
       )}
       {location.storefront === undefined ? null : (
         <Text className="text-caption text-text-tertiary">
-          Channel: {location.storefront.name}
+          {t(NEARBY_CHANNEL_KEY, { channel: location.storefront.name })}
         </Text>
       )}
 
@@ -216,11 +226,11 @@ export function NearbyLocationCard({
           {blockCopy.offerSignIn && onSignIn !== undefined ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Sign in to collect from this shop"
+              accessibilityLabel={t(NEARBY_SIGN_IN_A11Y_KEY)}
               onPress={onSignIn}
               className="self-start rounded-radius-max border border-border-secondary px-space-16 py-space-8"
             >
-              <Text className="text-buttonSmall text-text">Sign in</Text>
+              <Text className="text-buttonSmall text-text">{t(NEARBY_SIGN_IN_KEY)}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -229,7 +239,10 @@ export function NearbyLocationCard({
       {eligibility !== undefined && eligibility.verdict === "eligible" && onSelect !== undefined ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${selectLabel} at ${location.displayName}`}
+          accessibilityLabel={t(NEARBY_SELECT_AT_KEY, {
+            action: selectLabel,
+            place: location.displayName,
+          })}
           onPress={() => onSelect(result)}
           className="self-start rounded-radius-max bg-bg-fill-inverse px-space-16 py-space-8"
         >

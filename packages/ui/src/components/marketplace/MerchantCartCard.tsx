@@ -2,6 +2,12 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
 import type { CartGroup, CartVendor } from "@mercaria/shared-types";
 import { Text } from "../ui/text";
+import { useSharedUiTranslation } from "../../i18n/ui-translation";
+import {
+  MARKETPLACE_VISIT_MERCHANT_KEY,
+  MERCHANT_CART_CHECKOUT_KEY,
+  MERCHANT_CART_SUBTOTAL_KEY,
+} from "../../lib/marketplace-labels";
 import { PriceDisplay } from "../PriceDisplay";
 
 /** Logo thumbnail edge length (px). */
@@ -30,6 +36,7 @@ export interface MerchantCartCardProps {
  * at the same level, never nested.
  */
 export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantCartCardProps) {
+  const t = useSharedUiTranslation();
   const totalQuantity = group.items.reduce((n, i) => n + i.quantity, 0);
   const thumbA = group.items[0]?.imageUrl;
   const thumbB = group.items[1]?.imageUrl;
@@ -41,7 +48,7 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
         {/* Single pressable link wraps logo + name together */}
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={`Visit ${group.vendor.name}`}
+          accessibilityLabel={t(MARKETPLACE_VISIT_MERCHANT_KEY, { name: group.vendor.name })}
           onPress={() => onPressVendor(group.vendor)}
           className="flex-1 flex-row items-center gap-2"
         >
@@ -63,7 +70,7 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
         </Pressable>
 
         {/* Subtotal label + price */}
-        <Text className="text-xs text-muted-foreground">Subtotal:</Text>
+        <Text className="text-xs text-muted-foreground">{t(MERCHANT_CART_SUBTOTAL_KEY)}</Text>
         <PriceDisplay price={group.subtotal} />
       </View>
 
@@ -109,7 +116,9 @@ export function MerchantCartCard({ group, onPressVendor, onCheckout }: MerchantC
         onPress={() => onCheckout(group.vendor)}
         className="mt-3 items-center rounded-full bg-secondary py-3"
       >
-        <Text className="text-sm font-semibold text-foreground">Continue to checkout</Text>
+        <Text className="text-sm font-semibold text-foreground">
+          {t(MERCHANT_CART_CHECKOUT_KEY)}
+        </Text>
       </Pressable>
     </View>
   );

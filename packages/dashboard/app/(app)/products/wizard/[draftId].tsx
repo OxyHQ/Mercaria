@@ -442,9 +442,12 @@ function ReviewPanelClassification({
         })}
       </Text>
       <Text className="text-xs text-muted-foreground">
+        {/* `language` and not `locale`: `locale` is an i18n-js OPTION, so it
+            switches the lookup instead of filling the slot — this line rendered
+            `[missing "…"]` until #437's check G' found it. */}
         {t("products.wizard.review.marketAndLocale", {
           market: draft.market,
-          locale: draft.locale,
+          language: draft.locale,
         })}
       </Text>
       <Text className="text-xs text-muted-foreground">

@@ -116,7 +116,26 @@
         "timeLimitReached": "খোঁজার সময় ফুরিয়ে গেছে"
       },
       "optimalityProven": "আমরা যেসব অফার দেখতে পাচ্ছি, তার মধ্যে সেরা সম্ভাব্য পরিকল্পনা।",
-      "optimalityApproximate": "পাওয়া সেরা পরিকল্পনা — %{reason}।"
+      "optimalityApproximate": "পাওয়া সেরা পরিকল্পনা — %{reason}।",
+      "card": {
+        "refused": "এই ঝুড়ির জন্য পাওয়া যাচ্ছে না।",
+        "tally": "পণ্য: %{covered}/%{total} · বিক্রেতা: %{merchants}",
+        "itemPrices": "পণ্যের দাম: %{total}",
+        "stalePrices": "কিছু দাম অনেক আগে যাচাই করা হয়েছিল।",
+        "notIncluded": "অন্তর্ভুক্ত নয়",
+        "addToCart": "Mercaria কার্টে যোগ করুন (%{items})",
+        "addToCartA11y": "Mercaria কার্টে যোগ করুন (%{items})",
+        "openRetailers": "বাইরের বিক্রেতা খুলুন",
+        "openRetailersNote": "আপনি প্রতিটি বিক্রেতার নিজস্ব সাইটে কিনবেন। তাদের চূড়ান্ত মোট অঙ্কের নিশ্চয়তা Mercaria দেয় না।",
+        "merchantLine": "%{merchant} (%{items})",
+        "merchantLineA11y": "%{merchant} খুলুন (%{items})",
+        "atLeast": "অন্তত %{floor}",
+        "atLeastMissing": "অন্তত %{floor} — %{missing}",
+        "deliveryOne": "সঙ্গে ডেলিভারি",
+        "deliveryMultiple": "সঙ্গে একাধিক বিক্রেতার ডেলিভারি",
+        "taxUnknown": "করের নিয়ম প্রকাশিত নয়",
+        "pricesUnknown": "কিছু দাম অজানা"
+      }
     },
     "comparison": {
       "listSeparator": "; ",
@@ -164,7 +183,8 @@
         "inUnit": "%{unit}-এ",
         "higherIsBetter": "বেশি হলে ভালো",
         "lowerIsBetter": "কম হলে ভালো"
-      }
+      },
+      "noSummary": "এই তুলনার কোনো সারসংক্ষেপ নেই। নিচের তালিকাটিই তুলনা।"
     },
     "priceSignal": {
       "qualityLabel": {
@@ -646,6 +666,45 @@
         "deltaLower": "আগের চেয়ে %{amount} কম",
         "deltaHigher": "আগের চেয়ে %{amount} বেশি",
         "unnamedRequirement": "বর্ণনা রেকর্ড করা নেই এমন একটি প্রয়োজনীয়তা"
+      },
+      "card": {
+        "showFindings": "%{name} যা খুঁজে পেয়েছে তা দেখান",
+        "hideFindings": "%{name} যা খুঁজে পেয়েছে তা লুকান",
+        "anyCondition": "যেকোনো অবস্থা",
+        "pricedIn": "দাম %{currency}-এ",
+        "inMarket": "%{market}-এ",
+        "merchantsExcluded": "বাদ দেওয়া বিক্রেতা: %{merchants}",
+        "scopeSeparator": " · ",
+        "noChannels": "এখনও কোথাও নয়",
+        "channelSeparator": ", ",
+        "targetPrefix": "এর নিচে নামলে জানান",
+        "notifyPolicy": "%{channels}-এ জানানো হবে, বেশি হলে প্রতি %{cooldown}-এ একবার",
+        "notifyPolicyQuiet": "%{channels}-এ জানানো হবে, বেশি হলে প্রতি %{cooldown}-এ একবার · নীরব সময় %{start}–%{end} (%{timeZone})",
+        "requirements": "যা সত্য হতে হবে",
+        "watching": "নজরে আছে (%{things})",
+        "openProduct": "এই পণ্যটি খুলুন",
+        "line": "%{quantity} × %{product}",
+        "splitExplanation": "এই পণ্যটি দুই ভাগে ভাগ হয়ে গেছে, তাই আপনি কোনটি বোঝাতে চেয়েছিলেন তা না বলা পর্যন্ত এই এজেন্ট অপেক্ষা করছে। তুলনার জন্য দুটির যেকোনোটি খুলুন।",
+        "splitStays": "এটিই থাকবে: %{product}",
+        "splitMoves": "এখানে সরে যাবে: %{product}",
+        "splitStaysA11y": "এই পণ্য হিসেবেই থাকবে — খুলুন",
+        "splitMovesA11y": "এই পণ্যে সরে যাবে — খুলুন",
+        "keepSource": "এটিই রাখুন",
+        "moveToTarget": "অন্যটি",
+        "runNow": "এখনই খুঁজুন",
+        "runNowA11y": "%{name}-এর জন্য এখনই আবার খুঁজুন",
+        "pause": "থামান",
+        "pauseA11y": "%{name} থামান",
+        "resume": "আবার চালু করুন",
+        "resumeA11y": "%{name} আবার চালু করুন",
+        "remove": "সরান",
+        "removeA11y": "%{name} সরান",
+        "neverLooked": "এখনও খোঁজা হয়নি",
+        "neverLookedNext": "এখনও খোঁজা হয়নি · পরেরবার %{next}",
+        "lastLooked": "শেষবার খোঁজা হয়েছে %{last}",
+        "lastLookedNext": "শেষবার খোঁজা হয়েছে %{last} · পরেরবার %{next}",
+        "constraintHard": "অবশ্যই:",
+        "constraintSoft": "পছন্দ:"
       }
     },
     "facet": {
@@ -671,6 +730,152 @@
       "market": {
         "any": "সব বাজার"
       }
+    },
+    "savedItem": {
+      "removeProduct": "সংরক্ষিত এই পণ্যটি সরান",
+      "removeListing": "সংরক্ষিত এই বিজ্ঞাপনটি সরান",
+      "savedProduct": "সংরক্ষিত পণ্য",
+      "savedListing": "সংরক্ষিত বিজ্ঞাপন",
+      "pinnedListing": "পিন করা বিজ্ঞাপন",
+      "cheaper": "সংরক্ষণের সময়ের চেয়ে সস্তা",
+      "dearer": "সংরক্ষণের সময়ের চেয়ে দামি",
+      "peopleSaved": "যাঁরা এটি সংরক্ষণ করেছেন: %{people}",
+      "splitChoose": "এই পণ্যটি ভাগ হয়ে গেছে — কোনটি বোঝাতে চেয়েছিলেন বেছে নিন",
+      "splitChooseA11y": "কোন পণ্যটি বোঝাতে চেয়েছিলেন বেছে নিন",
+      "setAlert": "দামের সতর্কতা তৈরি করুন",
+      "setAlertA11y": "এই পণ্যের জন্য দামের সতর্কতা তৈরি করুন",
+      "unavailable": "আর পাওয়া যাচ্ছে না",
+      "priceUnpublished": "দাম প্রকাশিত নয়",
+      "priceInCurrency": "দাম %{currency}-এ প্রকাশিত",
+      "noOffer": {
+        "recorded": "এখনও কেউ এটি বিক্রি করছে না",
+        "retired": "এই মুহূর্তে কেউ এটি বিক্রি করছে না",
+        "filtered": "আপনার ফিল্টারের সঙ্গে কোনো অফার মেলে না",
+        "generic": "এখন কোনো অফার নেই"
+      }
+    },
+    "priceAlert": {
+      "basis": {
+        "item_price": "ডেলিভারি ছাড়া",
+        "known_total": "ডেলিভারিসহ"
+      },
+      "sellerScope": {
+        "any": "যেকোনো বিক্রেতা",
+        "native_only": "Mercaria-র বিক্রেতারা",
+        "external_only": "Mercaria-র বাইরের বিক্রেতারা",
+        "official_only": "যাচাই করা অফিসিয়াল স্টোর"
+      },
+      "card": {
+        "anyCondition": "যেকোনো অবস্থা",
+        "scopeLine": "%{segments} · %{sellers}",
+        "listSeparator": ", ",
+        "openProduct": "এই সতর্কতা যে পণ্যের উপর নজর রাখছে সেটি খুলুন",
+        "savedProduct": "সংরক্ষিত পণ্য",
+        "targetPrefix": "এর নিচে নামলে জানান",
+        "notified": "জানানো হয়েছে — এই সতর্কতা আপনাকে একবারই জানানোর জন্য ছিল।",
+        "paused": "থামানো আছে",
+        "splitExplanation": "এই পণ্যটি দুই ভাগে ভাগ হয়ে গেছে, তাই আপনি কোনটি বোঝাতে চেয়েছিলেন তা বেছে না নেওয়া পর্যন্ত এই সতর্কতা থামানো আছে।",
+        "keepSource": "এটিই রাখুন",
+        "moveToTarget": "অন্যটি",
+        "keepBoth": "দুটোই",
+        "pause": "থামান",
+        "pauseA11y": "এই সতর্কতা থামান",
+        "resume": "আবার চালু করুন",
+        "resumeA11y": "এই সতর্কতা আবার চালু করুন",
+        "delete": "মুছুন",
+        "deleteA11y": "এই সতর্কতা মুছুন"
+      }
+    },
+    "purchase": {
+      "oneTime": "একবারের কেনা",
+      "subscribe": "সাবস্ক্রিপশন",
+      "addToCart": "কার্টে যোগ করুন",
+      "selectOptions": "বিকল্প বেছে নিন",
+      "buyNow": "এখনই কিনুন",
+      "subscribeNow": "এখনই সাবস্ক্রাইব করুন",
+      "frequency": {
+        "monthly": "প্রতি মাসে ডেলিভারি",
+        "every2Months": "প্রতি 2 মাসে ডেলিভারি",
+        "every3Months": "প্রতি 3 মাসে ডেলিভারি",
+        "every4Months": "প্রতি 4 মাসে ডেলিভারি",
+        "every6Months": "প্রতি 6 মাসে ডেলিভারি"
+      }
+    },
+    "marketplace": {
+      "visitMerchant": "%{name}-এ যান",
+      "noImage": "কোনো ছবি নেই"
+    },
+    "canonicalCard": {
+      "pricesUnavailable": "এই মুহূর্তে দাম পাওয়া যাচ্ছে না",
+      "noOffers": "এখন কোনো অফার নেই",
+      "priceInCurrency": "দাম %{currency}-এ প্রকাশিত",
+      "fromPrice": "%{price} থেকে",
+      "offerLine": "%{conditions} · অফার: %{offers}"
+    },
+    "carousel": {
+      "previous": "আগের আইটেমে যান",
+      "next": "পরের আইটেমে যান"
+    },
+    "cart": {
+      "saveForLater": "পরে কেনার জন্য রাখুন"
+    },
+    "category": {
+      "browse": "%{category} দেখুন"
+    },
+    "merchantCart": {
+      "checkout": "পেমেন্টে এগিয়ে যান",
+      "subtotal": "উপমোট:"
+    },
+    "merchantHeader": {
+      "visitStore": "স্টোরে যান",
+      "moreOptions": "আরও বিকল্প"
+    },
+    "nearby": {
+      "soldBy": "বিক্রেতা: %{merchant}",
+      "channel": "চ্যানেল: %{channel}",
+      "signIn": "সাইন ইন করুন",
+      "signInA11y": "এই দোকান থেকে নিতে সাইন ইন করুন",
+      "selectAt": "%{place}-এ %{action}"
+    },
+    "pickupPanel": {
+      "heading": "সংগ্রহ",
+      "codeHeading": "আপনার সংগ্রহের কোড",
+      "codeA11y": "সংগ্রহের কোড %{code}",
+      "codeNote": "কাউন্টারে এটি দেখান। কাজ করা বন্ধ করলে দোকান নতুন একটি দিতে পারে — পুরোনো কোড কখনও নতুনটির পাশাপাশি কাজ করে না।"
+    },
+    "productCard": {
+      "discount": "%{percent} ছাড়",
+      "save": "সংরক্ষিত জিনিসে যোগ করুন"
+    },
+    "gallery": {
+      "viewImage": "ছবি %{position} দেখুন",
+      "previous": "আগের ছবি",
+      "next": "পরের ছবি"
+    },
+    "quantity": {
+      "remove": "পণ্যটি সরান",
+      "decrease": "পরিমাণ কমান",
+      "increase": "পরিমাণ বাড়ান"
+    },
+    "review": {
+      "defaultScope": "পর্যালোচনা",
+      "starsA11y": "গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
+      "starsScopedA11y": "%{subject}। গড় রেটিং: %{rating}। পর্যালোচনা: %{reviews}।",
+      "empty": "এখনও কোনো %{subject} নেই।",
+      "verifiedRatings": "যাচাই করা রেটিং: %{ratings}",
+      "unverified": "যাচাই না করা: %{ratings} · %{rating}",
+      "readMore": "আরও পর্যালোচনা পড়ুন"
+    },
+    "searchInterpretation": {
+      "chip": "%{label}",
+      "chipPreference": "%{label} · পছন্দ",
+      "chipRemove": "সরান: %{origin} %{label}",
+      "modeModel": "একটি মডেলের সহায়তায় বোঝা হয়েছে",
+      "modeRules": "আমাদের নিজস্ব নিয়মে বোঝা হয়েছে"
+    },
+    "variantSwatches": {
+      "showMoreA11y": "%{option}-এর আরও বিকল্প (%{more})",
+      "showMore": "+%{more} আরও"
     }
   }
 }
