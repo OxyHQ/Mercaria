@@ -64,7 +64,7 @@ describe("authoringLabel", () => {
     expect(result.outcome).toBe("untranslated");
     // The key survives — six untranslated fields must stay tellable apart — but
     // only inside the affordance that says it is an identifier.
-    expect(result.text).toBe(`${WITH_KEY}{"key":"screen_size"}`);
+    expect(result.text).toBe(`${WITH_KEY}{"key":"\u2068screen_size\u2069"}`);
     expect(result.text).not.toBe("screen_size");
   });
 
@@ -72,7 +72,7 @@ describe("authoringLabel", () => {
     for (const blank of ["", "   ", "\n\t"]) {
       const result = authoringLabel(resolved(blank), { kind: "key", key: "colour" }, translate);
       expect(result.outcome).toBe("untranslated");
-      expect(result.text).toBe(`${WITH_KEY}{"key":"colour"}`);
+      expect(result.text).toBe(`${WITH_KEY}{"key":"\u2068colour\u2069"}`);
     }
   });
 
@@ -94,11 +94,27 @@ describe("authoringLabel", () => {
     expect(result).toEqual({ outcome: "untranslated", text: UNNAMED });
   });
 
+  it("bidi-isolates the key, by CODE POINT", () => {
+    // FSI/PDI are zero-width and default-ignorable, so a missing pair renders
+    // identically to a correct one in every screenshot and diff view — the same
+    // reason `validate:bidi-isolation` reads code points off the formatters.
+    // Without it, `128gb` next to a neutral space and a mirrored parenthesis
+    // inside an Arabic sentence has no strong `L` to anchor it.
+    const result = authoringLabel(undefined, { kind: "key", key: "128gb" }, translate);
+    expect(result.text).toContain("\u2068128gb\u2069");
+  });
+
+  it("does not isolate a real translation, which is already in the reader's direction", () => {
+    const result = authoringLabel(resolved("Farbe"), { kind: "key", key: "colour" }, translate);
+    expect(result.text).toBe("Farbe");
+    expect(result.text).not.toContain("\u2068");
+  });
+
   it("marks a controlled-value token, which is a machine token and not a word a shopper reads", () => {
     // `titanium_grey`, not "Gris titanio" — the seed carries both and the wizard
     // used to render the first when the second was missing.
     const result = authoringLabel(undefined, { kind: "key", key: "titanium_grey" }, translate);
-    expect(result.text).toBe(`${WITH_KEY}{"key":"titanium_grey"}`);
+    expect(result.text).toBe(`${WITH_KEY}{"key":"\u2068titanium_grey\u2069"}`);
   });
 });
 

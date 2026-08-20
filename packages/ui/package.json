@@ -6,6 +6,7 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./lib/bidi": "./src/lib/bidi.ts",
     "./theme/tailwind.preset": "./src/theme/tailwind.preset.js",
     "./theme/global.css": "./src/theme/global.css"
   },

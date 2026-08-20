@@ -55,6 +55,10 @@
 
 import type { AuthoringLocalizedText } from "@mercaria/shared-types";
 import type { Translate } from "@mercaria/ui";
+// The SUBPATH, never the barrel: `@mercaria/ui` reaches `react-native`, whose
+// Flow source Rollup cannot parse, and importing it here would make this
+// module — and so every case in its test — unexecutable.
+import { isolateBidi } from "@mercaria/ui/lib/bidi";
 
 /**
  * Copy keys, as literals.
@@ -121,7 +125,17 @@ export function authoringLabel(
   if (key.length === 0) {
     return { outcome: "untranslated", text: translate(UNTRANSLATED_UNNAMED) };
   }
-  return { outcome: "untranslated", text: translate(UNTRANSLATED_WITH_KEY, { key }) };
+  // ISOLATED, because this is a Latin machine token inside a sentence that may
+  // be Arabic. `snapdragon_8_gen_4` and `128gb` end in digits, which the bidi
+  // algorithm resolves as `EN` rather than a strong `L`, and the neutral space
+  // and parenthesis beside them take their direction from the paragraph — the
+  // formatted-price hazard `lib/bidi.ts` documents, with an identifier in place
+  // of the price. FSI/PDI are zero-width and default-ignorable, so this is
+  // invisible in every screenshot and is asserted by CODE POINT instead.
+  return {
+    outcome: "untranslated",
+    text: translate(UNTRANSLATED_WITH_KEY, { key: isolateBidi(key) }),
+  };
 }
 
 /** Whether any of these labels needs {@link UNTRANSLATED_NOTICE_KEY} shown beside it. */
