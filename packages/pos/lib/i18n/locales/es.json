@@ -17,7 +17,8 @@
     "increaseQuantity": "Aumentar cantidad",
     "itemCount": {
       "one": "%{count} artículo",
-      "other": "%{count} artículos"
+      "other": "%{count} artículos",
+      "many": "%{count} de artículos"
     },
     "removeItem": "Quitar artículo",
     "subtotal": "Subtotal",
@@ -27,7 +28,8 @@
     "add": "Añadir",
     "availableCount": {
       "one": "%{count} disponible",
-      "other": "%{count} disponibles"
+      "other": "%{count} disponibles",
+      "many": "%{count} de disponibles"
     },
     "chooseVariant": "Elige una variante",
     "codePlaceholder": "Escanea o escribe el SKU o el código de barras",
@@ -35,7 +37,8 @@
     "emptyTitle": "Sin productos",
     "inStockCount": {
       "one": "%{count} en stock",
-      "other": "%{count} en stock"
+      "other": "%{count} en stock",
+      "many": "%{count} de en stock"
     },
     "loadFailed": "No se ha podido cargar el catálogo",
     "lookupFailed": "La búsqueda ha fallado",
@@ -151,7 +154,8 @@
     "reviewCart": "Revisar el carrito",
     "reviewCartWithCount": {
       "one": "%{count} artículo · Revisar el carrito",
-      "other": "%{count} artículos · Revisar el carrito"
+      "other": "%{count} artículos · Revisar el carrito",
+      "many": "%{count} de artículos · Revisar el carrito"
     }
   },
   "sales": {
@@ -179,7 +183,8 @@
     "noStoresTitle": "Aún no hay tiendas",
     "storeMeta": {
       "one": "@%{handle} · %{count} producto",
-      "other": "@%{handle} · %{count} productos"
+      "other": "@%{handle} · %{count} productos",
+      "many": "@%{handle} · %{count} de productos"
     },
     "storesLoadFailed": "No se han podido cargar tus tiendas"
   }

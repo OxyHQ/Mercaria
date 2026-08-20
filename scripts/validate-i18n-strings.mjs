@@ -94,13 +94,36 @@
  *
  * ## What K does NOT do
  *
- * It does not require a locale to carry every category CLDR gives it. Arabic is
- * missing four and Russian two, and writing those forms is grammar in six
- * languages that nobody here can review — #436 leaves it to native speakers.
- * They are counted instead, and pinned EXACTLY per owner, so the residual can
- * be paid down but cannot silently grow. `pluralCategoryResidual` is that pin;
+ * It does not require a locale to carry every category CLDR gives it. They are
+ * counted instead, and pinned EXACTLY per owner, so the residual can be paid
+ * down but cannot silently grow. `pluralCategoryResidual` is that pin;
  * `pluralUnreachableForms` is its mirror for copy that exists and can never be
  * selected.
+ *
+ * The residual was 520 when #579 wrote this, and its note said writing those
+ * forms was grammar nobody here could review. #436 paid down the two
+ * populations where review can be of the RULE, and left the one where it must
+ * be per-form:
+ *
+ *   * **Romance `many` (208).** CLDR reaches it only at exact millions, where
+ *     ca/es/fr/pt insert a partitive before the counted noun
+ *     (`%{count} de artículos`, `%{count} d’articles`). One rule, applied
+ *     mechanically, checkable by reading the rule.
+ *   * **Russian `few`/`many` (104).** Deterministic: `few` (2–4) is the genitive
+ *     singular, `many` (5+) the genitive plural — and the genitive plural was
+ *     ALREADY here as `other`, because the English rule sent everything above
+ *     one there. So `many` is that string and only `few` was written.
+ *   * **Arabic (208) is deliberately still here.** Its `few` (3–10) and `many`
+ *     (11–99) interact with the noun's case in ways no single rule makes
+ *     checkable by a non-speaker; `docs/app-i18n.md` records Arabic as not
+ *     fully supported and #486 is the review vehicle. A wrong form flags
+ *     nothing forever; this pin flags a missing one on every build.
+ *
+ * A consequence worth knowing: Russian now selects `other` for NO integer at
+ * all — 1 is `one`, 2–4 `few`, 5+ `many` — so its `other` serves only
+ * fractions, where the genitive singular would be right and it still holds the
+ * genitive plural. Unreachable in this app, whose counts are all integers, and
+ * left alone rather than changed for a case nothing can render.
  *
  * ## What C buys that A cannot
  *
@@ -301,8 +324,8 @@ const OWNERS = [
     // position is a message id on screen with no legitimate spelling.
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
-    // Missing category forms: ar 68 (zero/two/few/many x17), ru 34, ca/es/fr/pt-BR 17 each.
-    pluralCategoryResidual: 170,
+    // Missing category forms: ar 68 (zero/two/few/many x17) and nothing else.
+    pluralCategoryResidual: 68,
     // The ja and zh-Hans `one` forms — those locales select only `other`.
     pluralUnreachableForms: 34,
     minimumPluralKeys: 10,
@@ -344,8 +367,8 @@ const OWNERS = [
     wireIdentifierFallbackSites: 0,
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
-    // Missing category forms: ar 92, ru 46, ca/es/fr/pt-BR 23 each.
-    pluralCategoryResidual: 230,
+    // Missing category forms: ar 92 (zero/two/few/many x23) and nothing else.
+    pluralCategoryResidual: 92,
     // The ja and zh-Hans `one` forms — those locales select only `other`.
     pluralUnreachableForms: 46,
     minimumPluralKeys: 15,
@@ -374,8 +397,8 @@ const OWNERS = [
     wireIdentifierFallbackSites: 0,
     minimumRenderableKeyMaps: 30,
     // K (#436). Both EXACT, both fail in both directions.
-    // Missing category forms: ar 20, ru 10, ca/es/fr/pt-BR 5 each.
-    pluralCategoryResidual: 50,
+    // Missing category forms: ar 20 (zero/two/few/many x5) and nothing else.
+    pluralCategoryResidual: 20,
     // The ja and zh-Hans `one` forms — those locales select only `other`.
     pluralUnreachableForms: 10,
     minimumPluralKeys: 3,
@@ -504,8 +527,8 @@ const OWNERS = [
     // found converting three of them, so the floor here is the one that matters.
     minimumRenderableKeyMaps: 40,
     // K (#436). Both EXACT, both fail in both directions.
-    // Missing category forms: ar 28, ru 14, ca/es/fr/pt-BR 7 each.
-    pluralCategoryResidual: 70,
+    // Missing category forms: ar 28 (zero/two/few/many x7) and nothing else.
+    pluralCategoryResidual: 28,
     // The ja and zh-Hans `one` forms — those locales select only `other`.
     pluralUnreachableForms: 14,
     minimumPluralKeys: 4,

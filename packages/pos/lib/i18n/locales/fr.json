@@ -17,7 +17,8 @@
     "increaseQuantity": "Augmenter la quantité",
     "itemCount": {
       "one": "%{count} article",
-      "other": "%{count} articles"
+      "other": "%{count} articles",
+      "many": "%{count} d’articles"
     },
     "removeItem": "Retirer l’article",
     "subtotal": "Sous-total",
@@ -27,7 +28,8 @@
     "add": "Ajouter",
     "availableCount": {
       "one": "%{count} disponible",
-      "other": "%{count} disponibles"
+      "other": "%{count} disponibles",
+      "many": "%{count} de disponibles"
     },
     "chooseVariant": "Choisir une variante",
     "codePlaceholder": "Scannez ou saisissez le SKU / code-barres",
@@ -35,7 +37,8 @@
     "emptyTitle": "Aucun produit",
     "inStockCount": {
       "one": "%{count} en stock",
-      "other": "%{count} en stock"
+      "other": "%{count} en stock",
+      "many": "%{count} d’en stock"
     },
     "loadFailed": "Impossible de charger le catalogue",
     "lookupFailed": "Échec de la recherche",
@@ -151,7 +154,8 @@
     "reviewCart": "Vérifier le panier",
     "reviewCartWithCount": {
       "one": "%{count} article · Vérifier le panier",
-      "other": "%{count} articles · Vérifier le panier"
+      "other": "%{count} articles · Vérifier le panier",
+      "many": "%{count} d’articles · Vérifier le panier"
     }
   },
   "sales": {
@@ -179,7 +183,8 @@
     "noStoresTitle": "Aucune boutique pour l’instant",
     "storeMeta": {
       "one": "@%{handle} · %{count} produit",
-      "other": "@%{handle} · %{count} produits"
+      "other": "@%{handle} · %{count} produits",
+      "many": "@%{handle} · %{count} de produits"
     },
     "storesLoadFailed": "Impossible de charger vos boutiques"
   }

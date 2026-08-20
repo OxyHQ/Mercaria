@@ -64,7 +64,8 @@
       "a11yLabelWithBasis": "%{label} : %{basis}",
       "days": {
         "one": "%{count} jour",
-        "other": "%{count} jours"
+        "other": "%{count} jours",
+        "many": "%{count} de jours"
       }
     },
     "basket": {
@@ -300,7 +301,8 @@
       "pinRelease": "Pour tous les rendre d'un coup, désactivez « Conserver mes modifications locales » sur le canal. Cela s'applique à chaque champ modifié de chaque produit de ce canal.",
       "pinUnnamed": {
         "one": "%{count} champ de plus est retenu face à la synchronisation et cet écran ne peut pas le nommer.",
-        "other": "%{count} champs de plus sont retenus face à la synchronisation et cet écran ne peut pas les nommer."
+        "other": "%{count} champs de plus sont retenus face à la synchronisation et cet écran ne peut pas les nommer.",
+        "many": "%{count} de champs de plus sont retenus face à la synchronisation et cet écran ne peut pas les nommer."
       }
     },
     "commercial": {
@@ -425,7 +427,8 @@
         "all": "Cette ventilation est masquée jusqu'à ce que davantage de personnes soient arrivées. Un regroupement par marché ou appareil peut isoler quelqu'un à ces effectifs, nous affichons donc les totaux. Vos totaux ci-dessous sont complets.",
         "some": {
           "one": "%{count} groupe est masqué car il compte moins de %{floor} personnes. Son activité reste comptée dans les totaux.",
-          "other": "%{count} groupes sont masqués car ils comptent moins de %{floor} personnes. Leur activité reste comptée dans les totaux."
+          "other": "%{count} groupes sont masqués car ils comptent moins de %{floor} personnes. Leur activité reste comptée dans les totaux.",
+          "many": "%{count} de groupes sont masqués car ils comptent moins de %{floor} personnes. Leur activité reste comptée dans les totaux."
         }
       },
       "payoutStatus": {
@@ -516,20 +519,24 @@
         "justNow": "Stock confirmé à l'instant",
         "minutes": {
           "one": "Stock confirmé il y a %{count} minute",
-          "other": "Stock confirmé il y a %{count} minutes"
+          "other": "Stock confirmé il y a %{count} minutes",
+          "many": "Stock confirmé il y a %{count} de minutes"
         },
         "hours": {
           "one": "Stock confirmé il y a %{count} heure",
-          "other": "Stock confirmé il y a %{count} heures"
+          "other": "Stock confirmé il y a %{count} heures",
+          "many": "Stock confirmé il y a %{count} d’heures"
         },
         "days": {
           "one": "Stock confirmé il y a %{count} jour",
-          "other": "Stock confirmé il y a %{count} jours"
+          "other": "Stock confirmé il y a %{count} jours",
+          "many": "Stock confirmé il y a %{count} de jours"
         }
       },
       "exactQuantity": {
         "one": "%{count} en stock dans cette boutique.",
-        "other": "%{count} en stock dans cette boutique."
+        "other": "%{count} en stock dans cette boutique.",
+        "many": "%{count} d’en stock dans cette boutique."
       }
     },
     "shoppingAgent": {

@@ -64,7 +64,8 @@
       "a11yLabelWithBasis": "%{label}: %{basis}",
       "days": {
         "one": "%{count} día",
-        "other": "%{count} días"
+        "other": "%{count} días",
+        "many": "%{count} de días"
       }
     },
     "basket": {
@@ -300,7 +301,8 @@
       "pinRelease": "Para devolverlos todos a la vez, desactiva «Mantener mis ediciones locales» en el canal. Eso se aplica a todos los campos editados de todos los productos de este canal.",
       "pinUnnamed": {
         "one": "Hay %{count} campo más retenido frente a la sincronización que esta pantalla no puede nombrar.",
-        "other": "Hay %{count} campos más retenidos frente a la sincronización que esta pantalla no puede nombrar."
+        "other": "Hay %{count} campos más retenidos frente a la sincronización que esta pantalla no puede nombrar.",
+        "many": "Hay %{count} de campos más retenidos frente a la sincronización que esta pantalla no puede nombrar."
       }
     },
     "commercial": {
@@ -425,7 +427,8 @@
         "all": "Este desglose está oculto hasta que llegue más gente. Agrupar por mercado o dispositivo puede señalar a alguien con estas cifras, así que mostramos los totales. Tus totales de abajo están completos.",
         "some": {
           "one": "%{count} grupo está oculto porque tiene menos de %{floor} personas. Su actividad sigue contando en los totales.",
-          "other": "%{count} grupos están ocultos porque tienen menos de %{floor} personas. Su actividad sigue contando en los totales."
+          "other": "%{count} grupos están ocultos porque tienen menos de %{floor} personas. Su actividad sigue contando en los totales.",
+          "many": "%{count} de grupos están ocultos porque tienen menos de %{floor} personas. Su actividad sigue contando en los totales."
         }
       },
       "payoutStatus": {
@@ -516,20 +519,24 @@
         "justNow": "Stock confirmado ahora mismo",
         "minutes": {
           "one": "Stock confirmado hace %{count} minuto",
-          "other": "Stock confirmado hace %{count} minutos"
+          "other": "Stock confirmado hace %{count} minutos",
+          "many": "Stock confirmado hace %{count} de minutos"
         },
         "hours": {
           "one": "Stock confirmado hace %{count} hora",
-          "other": "Stock confirmado hace %{count} horas"
+          "other": "Stock confirmado hace %{count} horas",
+          "many": "Stock confirmado hace %{count} de horas"
         },
         "days": {
           "one": "Stock confirmado hace %{count} día",
-          "other": "Stock confirmado hace %{count} días"
+          "other": "Stock confirmado hace %{count} días",
+          "many": "Stock confirmado hace %{count} de días"
         }
       },
       "exactQuantity": {
         "one": "%{count} unidad en stock en esta tienda.",
-        "other": "%{count} unidades en stock en esta tienda."
+        "other": "%{count} unidades en stock en esta tienda.",
+        "many": "%{count} de unidades en stock en esta tienda."
       }
     },
     "shoppingAgent": {

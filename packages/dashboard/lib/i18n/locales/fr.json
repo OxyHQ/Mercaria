@@ -37,7 +37,8 @@
       "pickTitle": "Associer à une collection Mercaria",
       "productsOnChannel": {
         "one": "%{count} produit sur le canal",
-        "other": "%{count} produits sur le canal"
+        "other": "%{count} produits sur le canal",
+        "many": "%{count} de produits sur le canal"
       },
       "removeMapping": "Supprimer cette correspondance",
       "state": {
@@ -83,11 +84,13 @@
       },
       "productsChanged": {
         "one": "%{count} produit modifié",
-        "other": "%{count} produits modifiés"
+        "other": "%{count} produits modifiés",
+        "many": "%{count} de produits modifiés"
       },
       "recordsKept": {
         "one": "%{count} enregistrement de prix conservé",
-        "other": "%{count} enregistrements de prix conservés"
+        "other": "%{count} enregistrements de prix conservés",
+        "many": "%{count} d’enregistrements de prix conservés"
       },
       "title": "Déconnexion"
     },
@@ -174,7 +177,8 @@
     "orderHorizon": {
       "bounded": {
         "one": "Seul %{count} jour de commandes est importé. Les commandes passées avant le %{before} n’ont jamais été importées et n’arriveront pas plus tard — c’est une limite de ce que votre plateforme autorise Mercaria à lire, pas une synchronisation en retard.",
-        "other": "Seuls les %{count} derniers jours de commandes sont importés. Les commandes passées avant le %{before} n’ont jamais été importées et n’arriveront pas plus tard — c’est une limite de ce que votre plateforme autorise Mercaria à lire, pas une synchronisation en retard."
+        "other": "Seuls les %{count} derniers jours de commandes sont importés. Les commandes passées avant le %{before} n’ont jamais été importées et n’arriveront pas plus tard — c’est une limite de ce que votre plateforme autorise Mercaria à lire, pas une synchronisation en retard.",
+        "many": "Seuls les %{count} de derniers jours de commandes sont importés. Les commandes passées avant le %{before} n’ont jamais été importées et n’arriveront pas plus tard — c’est une limite de ce que votre plateforme autorise Mercaria à lire, pas une synchronisation en retard."
       },
       "notSynced": "Les commandes ne sont échangées sur ce canal dans aucun des deux sens.",
       "unknown": "Mercaria ne peut pas déterminer jusqu’où remontent les commandes de cette connexion."
@@ -197,7 +201,8 @@
       "catalogDetail": "%{channels} · %{sync}",
       "channelCount": {
         "one": "%{count} canal",
-        "other": "%{count} canaux"
+        "other": "%{count} canaux",
+        "many": "%{count} de canaux"
       },
       "lastSynced": "dernière synchronisation %{when}",
       "neverSynced": "jamais synchronisé",
@@ -221,7 +226,8 @@
       "awaitingReview": "En attente de vérification",
       "awaitingReviewNote": {
         "one": "%{count} produit n’a pas pu être associé automatiquement et attend la confirmation d’une personne.",
-        "other": "%{count} produits n’ont pas pu être associés automatiquement et attendent la confirmation d’une personne."
+        "other": "%{count} produits n’ont pas pu être associés automatiquement et attendent la confirmation d’une personne.",
+        "many": "%{count} de produits n’ont pas pu être associés automatiquement et attendent la confirmation d’une personne."
       },
       "body": "Rien n’est supprimé ni fusionné. Lorsqu’un même produit apparaît deux fois, Mercaria affiche l’annonce de votre propre boutique comme principale et conserve intact l’historique de prix de l’autre.",
       "fromThisStore": "De cette boutique",
@@ -247,7 +253,8 @@
       },
       "show": {
         "one": "Voir l’enregistrement qui n’est pas arrivé",
-        "other": "Voir les enregistrements qui ne sont pas arrivés"
+        "other": "Voir les enregistrements qui ne sont pas arrivés",
+        "many": "Voir les enregistrements qui ne sont pas arrivés"
       },
       "showing": "Affichage de %{shown} sur %{total}.",
       "subject": {
@@ -354,7 +361,8 @@
       "failureDetail": " — %{reason}%{http} · dernière vérification %{when}",
       "healthyDetail": {
         "one": "%{provider} envoie à Mercaria %{count} type de mise à jour. Si vous avez supprimé les webhooks de Mercaria dans %{provider}, enregistrez-les à nouveau — rien ici ne peut le détecter.",
-        "other": "%{provider} envoie à Mercaria %{count} types de mise à jour. Si vous avez supprimé les webhooks de Mercaria dans %{provider}, enregistrez-les à nouveau — rien ici ne peut le détecter."
+        "other": "%{provider} envoie à Mercaria %{count} types de mise à jour. Si vous avez supprimé les webhooks de Mercaria dans %{provider}, enregistrez-les à nouveau — rien ici ne peut le détecter.",
+        "many": "%{provider} envoie à Mercaria %{count} de types de mise à jour. Si vous avez supprimé les webhooks de Mercaria dans %{provider}, enregistrez-les à nouveau — rien ici ne peut le détecter."
       },
       "healthyHeadline": "Les changements arrivent en temps réel",
       "httpStatus": " (HTTP %{status})",
@@ -368,7 +376,8 @@
       "retryingHeadline": "Certaines mises à jour n’arrivent pas encore",
       "stoppedDetail": {
         "one": "Mercaria s’est arrêté après %{count} tentative. %{cause}",
-        "other": "Mercaria s’est arrêté après %{count} tentatives. %{cause}"
+        "other": "Mercaria s’est arrêté après %{count} tentatives. %{cause}",
+        "many": "Mercaria s’est arrêté après %{count} de tentatives. %{cause}"
       },
       "stoppedHeadline": "Certaines mises à jour n’arrivent pas, et Mercaria a cessé de réessayer",
       "title": "Mises à jour en temps réel",
@@ -497,12 +506,14 @@
     "loadError": "Impossible de charger les collections",
     "productCount": {
       "one": "%{count} produit",
-      "other": "%{count} produits"
+      "other": "%{count} produits",
+      "many": "%{count} de produits"
     },
     "rowMeta": "%{type} · %{items} · %{state}",
     "ruleCount": {
       "one": "%{count} règle",
-      "other": "%{count} règles"
+      "other": "%{count} règles",
+      "many": "%{count} de règles"
     },
     "state": {
       "draft": "brouillon",
@@ -556,7 +567,8 @@
     "loadError": "Impossible de charger les clients",
     "orderCount": {
       "one": "%{count} commande",
-      "other": "%{count} commandes"
+      "other": "%{count} commandes",
+      "many": "%{count} de commandes"
     },
     "searchPlaceholder": "Rechercher des clients…",
     "subtitle": "Les personnes qui achètent dans votre boutique",
@@ -748,7 +760,8 @@
     "inventory": {
       "lowStock": {
         "one": "%{count} variante suivie est au seuil de stock faible ou en dessous.",
-        "other": "%{count} variantes suivies sont au seuil de stock faible ou en dessous."
+        "other": "%{count} variantes suivies sont au seuil de stock faible ou en dessous.",
+        "many": "%{count} de variantes suivies sont au seuil de stock faible ou en dessous."
       },
       "noneLow": "Aucune variante suivie n’est en stock faible.",
       "title": "Inventaire"
@@ -784,7 +797,8 @@
       "title": "Meilleures ventes",
       "unitsSold": {
         "one": "%{count} vendu",
-        "other": "%{count} vendus"
+        "other": "%{count} vendus",
+        "many": "%{count} de vendus"
       }
     }
   },
@@ -890,7 +904,8 @@
     "row": {
       "itemsPlacedOn": {
         "one": "%{count} article · %{date}",
-        "other": "%{count} articles · %{date}"
+        "other": "%{count} articles · %{date}",
+        "many": "%{count} d’articles · %{date}"
       }
     },
     "status": {
@@ -929,7 +944,8 @@
         "releaseNote": "Libérer un champ permet à la plateforme de le gérer à nouveau à partir de la prochaine synchronisation. Votre valeur actuelle reste en place jusque-là : Mercaria ne conserve pas l’ancienne valeur de la plateforme, rien n’est donc restauré.",
         "releaseUnnamed": {
           "one": "Libérer %{count} champ",
-          "other": "Libérer %{count} champs"
+          "other": "Libérer %{count} champs",
+          "many": "Libérer %{count} de champs"
         },
         "released": "Libéré. Rien ne change ici avant la prochaine synchronisation, où la valeur de la plateforme prendra le relais."
       },
@@ -940,7 +956,8 @@
       "title": "Produit",
       "variantCount": {
         "one": "%{count} variante",
-        "other": "%{count} variantes"
+        "other": "%{count} variantes",
+        "many": "%{count} de variantes"
       }
     },
     "documentTitle": "Produits | Mercaria Dashboard",
@@ -979,7 +996,8 @@
     "row": {
       "variantsInStock": {
         "one": "%{count} variante · %{stock} en stock",
-        "other": "%{count} variantes · %{stock} en stock"
+        "other": "%{count} variantes · %{stock} en stock",
+        "many": "%{count} de variantes · %{stock} en stock"
       }
     },
     "searchPlaceholder": "Rechercher des produits sur cette page…",
@@ -1260,7 +1278,8 @@
       "documentTitle": "Membres | Mercaria Dashboard",
       "explicitPermissions": {
         "one": "%{count} autorisation explicite accordée",
-        "other": "%{count} autorisations explicites accordées"
+        "other": "%{count} autorisations explicites accordées",
+        "many": "%{count} d’autorisations explicites accordées"
       },
       "invite": "Inviter",
       "inviteTitle": "Inviter un membre",
@@ -1288,7 +1307,8 @@
       "dueBy": "Échéance",
       "itemCount": {
         "one": "%{count} élément",
-        "other": "%{count} éléments"
+        "other": "%{count} éléments",
+        "many": "%{count} d’éléments"
       },
       "loadFailed": "Impossible de charger les paramètres de paiement",
       "neededNow": "Requis maintenant",
@@ -1304,7 +1324,8 @@
       "schedule": "Fréquence",
       "scheduleWithDelay": {
         "one": "%{interval}, après %{count} jour",
-        "other": "%{interval}, après %{count} jours"
+        "other": "%{interval}, après %{count} jours",
+        "many": "%{interval}, après %{count} de jours"
       },
       "states": {
         "actionRequired": {
@@ -1390,7 +1411,8 @@
       "title": "Forfait et facturation",
       "trialNotice": {
         "one": "Comprend un essai de %{count} jour.",
-        "other": "Comprend un essai de %{count} jours."
+        "other": "Comprend un essai de %{count} jours.",
+        "many": "Comprend un essai de %{count} de jours."
       },
       "upgradeFailed": "Impossible de démarrer la mise à niveau. Veuillez réessayer.",
       "usageIncluded": "inclus",
@@ -1509,7 +1531,8 @@
     "selectStore": "Sélectionner une boutique",
     "storeMeta": {
       "one": "@%{handle} · %{count} produit",
-      "other": "@%{handle} · %{count} produits"
+      "other": "@%{handle} · %{count} produits",
+      "many": "@%{handle} · %{count} de produits"
     },
     "subtitle": "Choisissez une boutique à gérer",
     "switch": "Changer de boutique",

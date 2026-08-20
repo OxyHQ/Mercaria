@@ -17,7 +17,8 @@
     "increaseQuantity": "Augmenta la quantitat",
     "itemCount": {
       "one": "%{count} article",
-      "other": "%{count} articles"
+      "other": "%{count} articles",
+      "many": "%{count} d’articles"
     },
     "removeItem": "Elimina l'article",
     "subtotal": "Subtotal",
@@ -27,7 +28,8 @@
     "add": "Afegeix",
     "availableCount": {
       "one": "%{count} disponible",
-      "other": "%{count} disponibles"
+      "other": "%{count} disponibles",
+      "many": "%{count} de disponibles"
     },
     "chooseVariant": "Tria una variant",
     "codePlaceholder": "Escaneja o escriu el SKU / codi de barres",
@@ -35,7 +37,8 @@
     "emptyTitle": "Cap producte",
     "inStockCount": {
       "one": "%{count} en estoc",
-      "other": "%{count} en estoc"
+      "other": "%{count} en estoc",
+      "many": "%{count} d’en estoc"
     },
     "loadFailed": "No s'ha pogut carregar el catàleg",
     "lookupFailed": "La cerca ha fallat",
@@ -151,7 +154,8 @@
     "reviewCart": "Revisa la cistella",
     "reviewCartWithCount": {
       "one": "%{count} article · Revisa la cistella",
-      "other": "%{count} articles · Revisa la cistella"
+      "other": "%{count} articles · Revisa la cistella",
+      "many": "%{count} d’articles · Revisa la cistella"
     }
   },
   "sales": {
@@ -179,7 +183,8 @@
     "noStoresTitle": "Encara no hi ha botigues",
     "storeMeta": {
       "one": "@%{handle} · %{count} producte",
-      "other": "@%{handle} · %{count} productes"
+      "other": "@%{handle} · %{count} productes",
+      "many": "@%{handle} · %{count} de productes"
     },
     "storesLoadFailed": "No s'han pogut carregar les teves botigues"
   }

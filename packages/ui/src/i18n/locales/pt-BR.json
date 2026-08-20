@@ -64,7 +64,8 @@
       "a11yLabelWithBasis": "%{label}: %{basis}",
       "days": {
         "one": "%{count} dia",
-        "other": "%{count} dias"
+        "other": "%{count} dias",
+        "many": "%{count} de dias"
       }
     },
     "basket": {
@@ -300,7 +301,8 @@
       "pinRelease": "Para devolver todos de uma vez, desligue “Manter minhas edições locais” no canal. Isso vale para cada campo editado de cada produto deste canal.",
       "pinUnnamed": {
         "one": "Mais %{count} campo está retido contra a sincronização e esta tela não consegue nomeá-lo.",
-        "other": "Mais %{count} campos estão retidos contra a sincronização e esta tela não consegue nomeá-los."
+        "other": "Mais %{count} campos estão retidos contra a sincronização e esta tela não consegue nomeá-los.",
+        "many": "Mais %{count} de campos estão retidos contra a sincronização e esta tela não consegue nomeá-los."
       }
     },
     "commercial": {
@@ -425,7 +427,8 @@
         "all": "Este detalhamento fica oculto até que mais pessoas cheguem. Agrupar por mercado ou dispositivo pode identificar alguém nesses números, então mostramos os totais. Seus totais abaixo estão completos.",
         "some": {
           "one": "%{count} grupo está oculto porque tem menos de %{floor} pessoas. A atividade dele continua contando nos totais.",
-          "other": "%{count} grupos estão ocultos porque têm menos de %{floor} pessoas. A atividade deles continua contando nos totais."
+          "other": "%{count} grupos estão ocultos porque têm menos de %{floor} pessoas. A atividade deles continua contando nos totais.",
+          "many": "%{count} de grupos estão ocultos porque têm menos de %{floor} pessoas. A atividade deles continua contando nos totais."
         }
       },
       "payoutStatus": {
@@ -516,20 +519,24 @@
         "justNow": "Estoque confirmado agora mesmo",
         "minutes": {
           "one": "Estoque confirmado há %{count} minuto",
-          "other": "Estoque confirmado há %{count} minutos"
+          "other": "Estoque confirmado há %{count} minutos",
+          "many": "Estoque confirmado há %{count} de minutos"
         },
         "hours": {
           "one": "Estoque confirmado há %{count} hora",
-          "other": "Estoque confirmado há %{count} horas"
+          "other": "Estoque confirmado há %{count} horas",
+          "many": "Estoque confirmado há %{count} de horas"
         },
         "days": {
           "one": "Estoque confirmado há %{count} dia",
-          "other": "Estoque confirmado há %{count} dias"
+          "other": "Estoque confirmado há %{count} dias",
+          "many": "Estoque confirmado há %{count} de dias"
         }
       },
       "exactQuantity": {
         "one": "%{count} em estoque nesta loja.",
-        "other": "%{count} em estoque nesta loja."
+        "other": "%{count} em estoque nesta loja.",
+        "many": "%{count} de em estoque nesta loja."
       }
     },
     "shoppingAgent": {

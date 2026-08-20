@@ -37,7 +37,8 @@
       "pickTitle": "Assigna a una col·lecció de Mercaria",
       "productsOnChannel": {
         "one": "%{count} producte al canal",
-        "other": "%{count} productes al canal"
+        "other": "%{count} productes al canal",
+        "many": "%{count} de productes al canal"
       },
       "removeMapping": "Elimina aquesta assignació",
       "state": {
@@ -83,11 +84,13 @@
       },
       "productsChanged": {
         "one": "%{count} producte modificat",
-        "other": "%{count} productes modificats"
+        "other": "%{count} productes modificats",
+        "many": "%{count} de productes modificats"
       },
       "recordsKept": {
         "one": "%{count} registre de preu conservat",
-        "other": "%{count} registres de preu conservats"
+        "other": "%{count} registres de preu conservats",
+        "many": "%{count} de registres de preu conservats"
       },
       "title": "Desconnexió"
     },
@@ -174,7 +177,8 @@
     "orderHorizon": {
       "bounded": {
         "one": "Només s'importen les comandes de l'últim %{count} dia. Les comandes fetes abans del %{before} no es van importar mai i no arribaran més endavant: és un límit del que la teva plataforma deixa llegir a Mercaria, no una sincronització endarrerida.",
-        "other": "Només s'importen les comandes dels últims %{count} dies. Les comandes fetes abans del %{before} no es van importar mai i no arribaran més endavant: és un límit del que la teva plataforma deixa llegir a Mercaria, no una sincronització endarrerida."
+        "other": "Només s'importen les comandes dels últims %{count} dies. Les comandes fetes abans del %{before} no es van importar mai i no arribaran més endavant: és un límit del que la teva plataforma deixa llegir a Mercaria, no una sincronització endarrerida.",
+        "many": "Només s'importen les comandes dels últims %{count} de dies. Les comandes fetes abans del %{before} no es van importar mai i no arribaran més endavant: és un límit del que la teva plataforma deixa llegir a Mercaria, no una sincronització endarrerida."
       },
       "notSynced": "En aquest canal no s'intercanvien comandes en cap dels dos sentits.",
       "unknown": "Mercaria no pot saber fins a quan enrere arriben les comandes d'aquesta connexió."
@@ -197,7 +201,8 @@
       "catalogDetail": "%{channels} · %{sync}",
       "channelCount": {
         "one": "%{count} canal",
-        "other": "%{count} canals"
+        "other": "%{count} canals",
+        "many": "%{count} de canals"
       },
       "lastSynced": "última sincronització %{when}",
       "neverSynced": "mai sincronitzat",
@@ -221,7 +226,8 @@
       "awaitingReview": "Pendent de revisió",
       "awaitingReviewNote": {
         "one": "%{count} producte no s'ha pogut associar automàticament i està en cua perquè una persona el confirmi.",
-        "other": "%{count} productes no s'han pogut associar automàticament i estan en cua perquè una persona els confirmi."
+        "other": "%{count} productes no s'han pogut associar automàticament i estan en cua perquè una persona els confirmi.",
+        "many": "%{count} de productes no s'han pogut associar automàticament i estan en cua perquè una persona els confirmi."
       },
       "body": "No se suprimeix ni es fusiona res. Quan el mateix producte apareix dues vegades, Mercaria mostra el producte de la teva botiga com a principal i conserva intacte l'historial de preus de l'altre.",
       "fromThisStore": "D'aquesta botiga",
@@ -247,7 +253,8 @@
       },
       "show": {
         "one": "Mostra quin registre no ha arribat",
-        "other": "Mostra quins registres no han arribat"
+        "other": "Mostra quins registres no han arribat",
+        "many": "Mostra quins registres no han arribat"
       },
       "showing": "Se'n mostren %{shown} de %{total}.",
       "subject": {
@@ -354,7 +361,8 @@
       "failureDetail": " — %{reason}%{http} · última comprovació %{when}",
       "healthyDetail": {
         "one": "%{provider} envia a Mercaria %{count} tipus d'actualització. Si has eliminat els webhooks de Mercaria a %{provider}, torna'ls a registrar: res d'aquí no ho pot detectar.",
-        "other": "%{provider} envia a Mercaria %{count} tipus d'actualització. Si has eliminat els webhooks de Mercaria a %{provider}, torna'ls a registrar: res d'aquí no ho pot detectar."
+        "other": "%{provider} envia a Mercaria %{count} tipus d'actualització. Si has eliminat els webhooks de Mercaria a %{provider}, torna'ls a registrar: res d'aquí no ho pot detectar.",
+        "many": "%{provider} envia a Mercaria %{count} de tipus d'actualització. Si has eliminat els webhooks de Mercaria a %{provider}, torna'ls a registrar: res d'aquí no ho pot detectar."
       },
       "healthyHeadline": "Els canvis arriben a l'instant",
       "httpStatus": " (HTTP %{status})",
@@ -368,7 +376,8 @@
       "retryingHeadline": "Algunes actualitzacions encara no arriben",
       "stoppedDetail": {
         "one": "Mercaria s'ha aturat després de %{count} intent. %{cause}",
-        "other": "Mercaria s'ha aturat després de %{count} intents. %{cause}"
+        "other": "Mercaria s'ha aturat després de %{count} intents. %{cause}",
+        "many": "Mercaria s'ha aturat després de %{count} d’intents. %{cause}"
       },
       "stoppedHeadline": "Algunes actualitzacions no arriben i Mercaria ha deixat d'intentar-ho",
       "title": "Actualitzacions en temps real",
@@ -497,12 +506,14 @@
     "loadError": "No s'han pogut carregar les col·leccions",
     "productCount": {
       "one": "%{count} producte",
-      "other": "%{count} productes"
+      "other": "%{count} productes",
+      "many": "%{count} de productes"
     },
     "rowMeta": "%{type} · %{items} · %{state}",
     "ruleCount": {
       "one": "%{count} regla",
-      "other": "%{count} regles"
+      "other": "%{count} regles",
+      "many": "%{count} de regles"
     },
     "state": {
       "draft": "esborrany",
@@ -556,7 +567,8 @@
     "loadError": "No s'han pogut carregar els clients",
     "orderCount": {
       "one": "%{count} comanda",
-      "other": "%{count} comandes"
+      "other": "%{count} comandes",
+      "many": "%{count} de comandes"
     },
     "searchPlaceholder": "Cerca clients…",
     "subtitle": "Persones que compren a la teva botiga",
@@ -748,7 +760,8 @@
     "inventory": {
       "lowStock": {
         "one": "%{count} variant amb seguiment és al llindar d'estoc baix o per sota.",
-        "other": "%{count} variants amb seguiment són al llindar d'estoc baix o per sota."
+        "other": "%{count} variants amb seguiment són al llindar d'estoc baix o per sota.",
+        "many": "%{count} de variants amb seguiment són al llindar d'estoc baix o per sota."
       },
       "noneLow": "Cap variant amb seguiment no té l'estoc baix.",
       "title": "Inventari"
@@ -784,7 +797,8 @@
       "title": "Productes més venuts",
       "unitsSold": {
         "one": "%{count} venut",
-        "other": "%{count} venuts"
+        "other": "%{count} venuts",
+        "many": "%{count} de venuts"
       }
     }
   },
@@ -890,7 +904,8 @@
     "row": {
       "itemsPlacedOn": {
         "one": "%{count} article · %{date}",
-        "other": "%{count} articles · %{date}"
+        "other": "%{count} articles · %{date}",
+        "many": "%{count} d’articles · %{date}"
       }
     },
     "status": {
@@ -929,7 +944,8 @@
         "releaseNote": "Quan alliberes un camp, la plataforma torna a gestionar-lo a partir de la propera sincronització. El teu valor actual es manté fins llavors: Mercaria no desa el valor anterior de la plataforma, així que no es restaura res.",
         "releaseUnnamed": {
           "one": "Allibera %{count} camp",
-          "other": "Allibera %{count} camps"
+          "other": "Allibera %{count} camps",
+          "many": "Allibera %{count} de camps"
         },
         "released": "Alliberat. Aquí no canvia res fins a la propera sincronització, quan prevaldrà el valor de la plataforma."
       },
@@ -940,7 +956,8 @@
       "title": "Producte",
       "variantCount": {
         "one": "%{count} variant",
-        "other": "%{count} variants"
+        "other": "%{count} variants",
+        "many": "%{count} de variants"
       }
     },
     "documentTitle": "Productes | Mercaria Dashboard",
@@ -979,7 +996,8 @@
     "row": {
       "variantsInStock": {
         "one": "%{count} variant · %{stock} en estoc",
-        "other": "%{count} variants · %{stock} en estoc"
+        "other": "%{count} variants · %{stock} en estoc",
+        "many": "%{count} de variants · %{stock} en estoc"
       }
     },
     "searchPlaceholder": "Cerca productes en aquesta pàgina…",
@@ -1260,7 +1278,8 @@
       "documentTitle": "Membres | Mercaria Dashboard",
       "explicitPermissions": {
         "one": "%{count} permís explícit concedit",
-        "other": "%{count} permisos explícits concedits"
+        "other": "%{count} permisos explícits concedits",
+        "many": "%{count} de permisos explícits concedits"
       },
       "invite": "Convida",
       "inviteTitle": "Convida un membre",
@@ -1288,7 +1307,8 @@
       "dueBy": "Data límit",
       "itemCount": {
         "one": "%{count} element",
-        "other": "%{count} elements"
+        "other": "%{count} elements",
+        "many": "%{count} d’elements"
       },
       "loadFailed": "No s'ha pogut carregar la configuració de pagaments",
       "neededNow": "Necessari ara",
@@ -1304,7 +1324,8 @@
       "schedule": "Freqüència",
       "scheduleWithDelay": {
         "one": "%{interval}, després de %{count} dia",
-        "other": "%{interval}, després de %{count} dies"
+        "other": "%{interval}, després de %{count} dies",
+        "many": "%{interval}, després de %{count} de dies"
       },
       "states": {
         "actionRequired": {
@@ -1390,7 +1411,8 @@
       "title": "Pla i facturació",
       "trialNotice": {
         "one": "Inclou una prova de %{count} dia.",
-        "other": "Inclou una prova de %{count} dies."
+        "other": "Inclou una prova de %{count} dies.",
+        "many": "Inclou una prova de %{count} de dies."
       },
       "upgradeFailed": "No s'ha pogut iniciar la millora del pla. Torna-ho a provar.",
       "usageIncluded": "inclòs",
@@ -1509,7 +1531,8 @@
     "selectStore": "Selecciona una botiga",
     "storeMeta": {
       "one": "@%{handle} · %{count} producte",
-      "other": "@%{handle} · %{count} productes"
+      "other": "@%{handle} · %{count} productes",
+      "many": "@%{handle} · %{count} de productes"
     },
     "subtitle": "Tria una botiga per gestionar-la",
     "switch": "Canvia de botiga",
