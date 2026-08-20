@@ -75,7 +75,7 @@ import {
   localizationChecks,
   localizationColumns,
 } from './localizationFamily';
-import { categories } from './catalog';
+import { categories, listings } from './catalog';
 import { attributeEnumValues } from './attributeRegistry';
 import { productTypeDefinitions, productTypeFields } from './productTypes';
 import { canonicalProductFamilies, canonicalProducts } from './canonicalCatalog';
@@ -666,5 +666,128 @@ export const canonicalProductFamilyLocalizations = pgTable(
       t.locale,
     ),
     index('canonical_product_family_localizations_locale_status_idx').on(t.locale, t.status),
+  ],
+);
+
+/**
+ * `listing_localizations` — one locale's presentation of one NATIVE LISTING
+ * (#367 Translation model, ADR 0007 D6/D7).
+ *
+ * ## The family's first `seller_authored` member, and what that changes
+ *
+ * Every other table here localizes Mercaria's copy about a CONCEPT — what a
+ * category is, what a field asks for, what a controlled value means. This one
+ * localizes a seller's copy about an ITEM they are selling. The row shape is
+ * identical; the FIELD CLASS is not, and it decides two things no column here
+ * expresses:
+ *
+ *  - **No cross-market fallback.** `listing.title` is `seller_authored`, so
+ *    `fallbackPolicyForFieldClass` gives it `exact_locale_then_base` and an
+ *    `es-mx` request never reads the `es` row a DIFFERENT seller wrote for a
+ *    different market. That is D4's exclusion, held by the field's class rather
+ *    than by every caller remembering.
+ *  - **…but the seller's OWN base text still answers.** `listings.title` and
+ *    `listings.description` are both `NOT NULL`, so `exact_locale_only` would
+ *    have rendered a French shopper a listing page with no title on it. The
+ *    seller's own English is not another market's copy; it is the same seller,
+ *    the same item, the words they actually wrote.
+ *
+ * Before this table both of those policies were enforced against zero
+ * registered fields. `catalog-localization.test.ts` pins the distribution.
+ *
+ * ## What carries these rows forward: nothing needs to, and that is measured
+ *
+ * The failure this question exists to catch (#650) is a localization table
+ * whose parent is versioned with nothing copying rows to the successor, so it
+ * empties itself on publish while every page still renders. A listing has no
+ * successor to be stranded from:
+ *
+ *  - it is **not versioned** — no path mints a second `listings` row to
+ *    supersede a first;
+ *  - **archiving is a soft delete on the SAME row** (`status = 'archived'`
+ *    plus #390's `archived_by`/`archived_from_status` provenance), so a restore
+ *    puts the same row back and its translations were never touched;
+ *  - **`listings` is not one of `MERGEABLE_ENTITY_TYPES`**, so there is no
+ *    merge form of supersession either and no `MERGE_REHOMING_PLAN` entry is
+ *    owed — `merge-plan-census.test.ts` derives its population from foreign
+ *    keys targeting a mergeable entity and this one targets none.
+ *
+ * Variant convergence rewrites `product_variants`, never the listing, so it
+ * cannot reach these rows at all.
+ *
+ * `cascade`, and it is load-bearing rather than conventional: production never
+ * hard-deletes a listing, but around twenty realdb suites `delete(listings)` in
+ * teardown, and a `restrict` here would turn every one of them into a `23503`
+ * in a file that never mentioned localization.
+ *
+ * ## Full-text search does NOT see this text, deliberately
+ *
+ * `listings.search_vector` is `GENERATED ALWAYS AS … STORED` over this
+ * listing's own `title`, `description` and `tags`. A generation expression may
+ * reference only columns of its own row, so a sibling table's text cannot enter
+ * it — that is a Postgres restriction, not a decision. And both the vector and
+ * `listingRepository`'s query side are pinned to the `'english'` text-search
+ * configuration, so even if it could, a French title stemmed and stop-worded by
+ * the English analyser would index worse than being absent.
+ *
+ * The consequence is stated rather than discovered: **a listing found by its
+ * English title is not found by its French one.** The shape a fix takes is a
+ * per-locale vector on THIS table with its own configuration and its own GIN
+ * index, plus a locale-aware query side — an index decision with numbers
+ * attached (#61's rule), belonging with #70's canonical search, whose lexical
+ * stage already runs on `'simple'` rather than `'english'` for exactly this
+ * reason. `listing-localization.realdb.test.ts` pins the limitation as a
+ * measured fact, so it cannot quietly stop being true.
+ *
+ * ## No accessibility-label column, and that is the answer rather than a gap
+ *
+ * `navigation_node_localizations` carries one legitimately: `navigation_nodes`
+ * has no label column at all, so the label IS the localization row and its
+ * accessible name has no catalogue string a client could compose from. Every
+ * entity in THIS family has one. A client builds an accessible name by
+ * interpolating it into a translated template from its own bundle —
+ * `t(CATEGORY_BROWSE_KEY, { category: category.name })` in
+ * `@mercaria/ui`'s `CategoryCard`, `t(CONDITION_A11Y_LABEL_KEY, { label })` in
+ * `ConditionBadge` — so a column here would be a SECOND representation of the
+ * title sitting in the same row as the first, drifting from it silently while
+ * rendering perfectly. `catalog-localization.test.ts` censuses the family for
+ * one, with navigation as the positive control.
+ */
+export const listingLocalizations = pgTable(
+  'listing_localizations',
+  {
+    id: generatedId(),
+    listingId: text()
+      .notNull()
+      .references(() => listings.id, { onDelete: 'cascade' }),
+    ...localizationColumns(),
+    /** The localized listing title. NULL exactly when `status = 'missing'`. */
+    title: text(),
+    /**
+     * The localized listing description.
+     *
+     * Nullable HERE while `listings.description` is `NOT NULL`, and the
+     * asymmetry is the family's rule rather than an oversight: `title` is the
+     * `primaryText`, so `_missing_text_check` ties `status = 'missing'` to
+     * `title is null` alone. A translator who has settled the title and not yet
+     * the description holds a row that is genuinely not `missing`.
+     */
+    description: text(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    ...localizationChecks('listing_localizations', { ...t, primaryText: t.title }),
+    uniqueIndex('listing_localizations_locale_key').on(t.listingId, t.locale),
+    /**
+     * The family's `(locale, status)` index, carried for consistency of shape
+     * rather than for the translation desk — this domain is deliberately
+     * outside the desk's coverage (`LOCALIZATION_COVERAGE_UNCOVERED_TABLES`).
+     * Its reader is the same one every sibling has: "what is outstanding in
+     * this locale", which an operator tracing one seller's translations runs
+     * against the leading column, and which `<table>_locale_key` cannot serve
+     * because its leading column is the entity id.
+     */
+    index('listing_localizations_locale_status_idx').on(t.locale, t.status),
   ],
 );

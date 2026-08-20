@@ -1967,6 +1967,12 @@ export const ID_COLUMNS_WITHOUT_FOREIGN_KEY: readonly { column: string; reason: 
   { column: 'product_type_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'product_type_field_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   { column: 'attribute_value_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
+  // #367 Translation model. The family's first `seller_authored` member, and the
+  // reviewer column means exactly what it means on the seven above: whoever
+  // SETTLED the text. Not the seller who wrote it — that is the listing's own
+  // owner, one join away — which is why this column can be an Oxy account id
+  // with no relationship to the row's subject.
+  { column: 'listing_localizations.reviewed_by_oxy_user_id', reason: OXY_ACCOUNT },
   // #94's attribute_labels joined the family late; the reviewer column arrived
   // with the other six in migration 0119 and carries the same meaning as its four
   // siblings above.

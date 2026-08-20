@@ -159,6 +159,12 @@ function liveTargetFor(entityKind: LocalizedEntityKind): {
       // late joiner (migration 0119) and its entity column keeps the name it
       // has had since #94 rather than being renamed to match its siblings.
       return { table: 'attribute_labels', entityColumn: 'attribute_definition_id' };
+    case 'listing':
+      // A rollback here restores a SELLER's own translation, not Mercaria's
+      // copy. The mechanism is unchanged — the trail is trigger-written on
+      // this table like every other member, so the rollback UPDATE produces a
+      // revision and this function can report what it changed.
+      return { table: 'listing_localizations', entityColumn: 'listing_id' };
     default: {
       const unreachable: never = entityKind;
       throw new Error(`unhandled localized entity kind: ${String(unreachable)}`);

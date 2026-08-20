@@ -36,7 +36,9 @@
 
 import {
   CATALOG_LOCALIZATION_TEXT_TABLES,
+  CATALOG_LOCALIZED_FIELDS,
   LOCALIZED_ENTITY_KINDS,
+  LOCALIZED_FIELD_KEYS,
   MERCARIA_BASE_LOCALE,
   SUPPORTED_LOCALES,
   type LocalizedEntityKind,
@@ -98,14 +100,58 @@ export function isLaunchLocale(locale: SupportedLocale): boolean {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Whether every registered field of one domain is text a SELLER wrote.
+ *
+ * The one place the `seller_authored` class is named for this purpose, and the
+ * whole of the coverage rule below. `every` rather than `some` deliberately: a
+ * domain Mercaria authors ANY of stays measured, because the direction that
+ * errs is the one that measures more rather than the one that quietly drops a
+ * domain from the desk over a single field. No domain is mixed today and
+ * `catalog-localization-desk.test.ts` asserts that, so the choice is recorded
+ * before it can matter rather than discovered when it does.
+ *
+ * A kind with NO registered field is not seller-authored by vacuity — `every`
+ * over an empty list is `true`, which would silently drop a domain that had
+ * simply not registered its fields yet — so the length is checked first.
+ */
+function domainIsSellerAuthored(kind: LocalizedEntityKind): boolean {
+  const fields = LOCALIZED_FIELD_KEYS.filter((key) => CATALOG_LOCALIZED_FIELDS[key].entity === kind);
+  if (fields.length === 0) return false;
+  return fields.every((key) => CATALOG_LOCALIZED_FIELDS[key].fieldClass === 'seller_authored');
+}
+
+/**
  * The catalog domains the completeness report measures.
  *
- * Derived from {@link LOCALIZED_ENTITY_KINDS} rather than restated, so a domain
- * that joins the resolver's registry joins this report in the same commit. A
- * hand-copied fourth entry is where a report starts quietly omitting a domain,
- * and an omission is indistinguishable from a domain with nothing outstanding.
+ * DERIVED from {@link LOCALIZED_ENTITY_KINDS}, so a domain that joins the
+ * resolver's registry joins this report in the same commit. A hand-copied entry
+ * is where a report starts quietly omitting a domain, and an omission is
+ * indistinguishable from a domain with nothing outstanding.
+ *
+ * ## …minus the domains whose text Mercaria does not own
+ *
+ * This used to BE `LOCALIZED_ENTITY_KINDS`, and #367's `listing` is why it is
+ * now a filter over them. A completeness figure has a denominator, and every
+ * rule in {@link LOCALIZATION_OWED_POPULATION_RULES} answers the same question:
+ * which entities Mercaria OWES a translation of. Mercaria owes a translation of
+ * its own catalog copy. It does not owe one of a seller's own words about their
+ * own item — nobody at Mercaria is going to write it, and no translator is
+ * going to be assigned it.
+ *
+ * Left in, the consequence is not a merely uninteresting number. `alertsForRow`
+ * raises `untranslated` at **`blocking`** severity for any owed entity with no
+ * row, so every launch locale would carry a permanent blocking alert counting
+ * every active listing in the marketplace — for work nobody can action. The
+ * cheapest way to make that green is to delete the alert or the domain, which
+ * is a gate pushing toward the hazard it exists to prevent.
+ *
+ * The exclusion is not silent: `listing_localizations` appears in
+ * {@link LOCALIZATION_COVERAGE_UNCOVERED_TABLES} with its reason, and the
+ * report carries that list, so a reader of the desk is told the domain exists
+ * and why there is no row for it.
  */
-export const LOCALIZATION_COVERAGE_DOMAINS: readonly LocalizedEntityKind[] = LOCALIZED_ENTITY_KINDS;
+export const LOCALIZATION_COVERAGE_DOMAINS: readonly LocalizedEntityKind[] =
+  LOCALIZED_ENTITY_KINDS.filter((kind) => !domainIsSellerAuthored(kind));
 
 /**
  * Family tables this report does NOT cover, each with the reason and the owner.
@@ -129,6 +175,20 @@ export const LOCALIZATION_COVERAGE_UNCOVERED_TABLES = [
       'and no denominator rule stating which navigation nodes are owed copy. ADR 0007 ' +
       'D3 (#367 merge-order step 7) owns both; it joins this report when it registers ' +
       'its fields.',
+  },
+  {
+    table: 'listing_localizations',
+    reason:
+      'Registered and resolvable (`listing.title`, `listing.description`) but deliberately ' +
+      'NOT measured: both fields are `seller_authored`, so there is no owed population to be ' +
+      'a denominator. Mercaria owes a translation of its own catalog copy and does not owe ' +
+      "one of a seller's own words about their own item — nobody here writes it and no " +
+      'translator is assigned it. Measured anyway, `alertsForRow` would raise a permanent ' +
+      'BLOCKING `untranslated` alert in every launch locale, counting every active listing, ' +
+      'for work nobody can action. Unlike the entry above, this is not waiting on an owner: ' +
+      'it is the answer. It changes if Mercaria ever undertakes to translate seller copy, ' +
+      'which is a commercial commitment and would arrive with the population rule that ' +
+      'states which listings it covers.',
   },
 ] as const;
 
@@ -317,6 +377,31 @@ export const LOCALIZATION_STALENESS_DETECTIONS: readonly LocalizationStalenessDe
     unwatched: [],
     carriesForwardOnVersionBump: 'yes',
   },
+  {
+    // #367 Translation model. Described even though this domain is NOT measured
+    // by the completeness report (see LOCALIZATION_COVERAGE_UNCOVERED_TABLES):
+    // side-by-side review reads this descriptor for whatever domain a reviewer
+    // opens, and a reviewer looking at a seller's Spanish still needs to know
+    // what would have marked it stale.
+    domain: 'listing',
+    mechanism: 'database_trigger',
+    performedBy: 'mercaria_listings_localization_stale',
+    // BOTH seller-authored columns, and NOT the `name`-alone shape
+    // `mercaria_categories_localization_stale` takes. That trigger's blind spot
+    // is published as a caveat precisely so it stops being inherited, and a
+    // listing DESCRIPTION is the field a seller edits most — a translation of
+    // the old one is exactly the stale text a shopper would act on.
+    watches: ['listings.title', 'listings.description'],
+    unwatched: [],
+    // A listing is not versioned: there is no publish-creates-successor path,
+    // `archived` is a status on the SAME row (a soft delete, #390, which also
+    // records what it was before so a restore can put it back), and `listings`
+    // is not one of MERGEABLE_ENTITY_TYPES, so it has no merge form of
+    // supersession either. Nothing can strand these rows on a predecessor
+    // because there is never a successor for them to be stranded from — which
+    // is the question #650 answers the other way for `product_type_field`.
+    carriesForwardOnVersionBump: 'not_applicable',
+  },
 ];
 
 /* -------------------------------------------------------------------------- */
@@ -370,6 +455,15 @@ export const LOCALIZATION_OWED_POPULATION_RULES: Readonly<Record<LocalizedEntity
       'carrying at least one base-locale string. All four base columns are nullable, so a field ' +
       'with no label, help text, placeholder or example has nothing to translate and counting it ' +
       'would make every locale permanently incomplete by exactly the number of bare fields.',
+    listing:
+      'NONE — this domain has no owed population and is not in LOCALIZATION_COVERAGE_DOMAINS. ' +
+      "Every rule above names entities Mercaria authors and therefore owes; a listing's title " +
+      "and description are the SELLER'S words about their own item, so there is no population " +
+      'Mercaria has undertaken to translate and no denominator a ratio could be taken over. ' +
+      'The entry is kept rather than omitted because "there is no rule" and "somebody forgot ' +
+      'to write one" are the two states this register exists to tell apart, and a reader who ' +
+      'reaches this key deserves the answer rather than an undefined. See ' +
+      'LOCALIZATION_COVERAGE_UNCOVERED_TABLES for what a shift in that commitment would need.',
   });
 
 /**
@@ -656,6 +750,12 @@ export const LOCALIZED_FIELD_BASE_SOURCES: Readonly<Record<string, LocalizedFiel
       table: 'product_type_fields',
       column: 'example',
     },
+    // #367 Translation model. Both are real columns and both are NOT NULL on
+    // `listings`, which is what makes `exact_locale_then_base` answerable for
+    // them — and what made `exact_locale_only` unavailable, since it would have
+    // left a shopper in an unauthored market looking at a listing with no title.
+    'listing.title': { kind: 'column', table: 'listings', column: 'title' },
+    'listing.description': { kind: 'column', table: 'listings', column: 'description' },
   });
 
 /** One field's source text beside its target, for a reviewer. */
