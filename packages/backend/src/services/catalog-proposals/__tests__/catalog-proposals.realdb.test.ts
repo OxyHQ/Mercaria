@@ -55,6 +55,7 @@ import { connectPostgres, type Database } from '../../../db/postgres.js';
 import { withTriggerToggleLock } from '../../../db/__tests__/trigger-toggle-lock.js';
 import {
   findOpenProposalByConvergenceKey,
+  listDuplicateCandidates,
   listProposalReferences,
   listReviewEvents,
 } from '../../../db/catalogProposals/proposalRepository.js';
@@ -591,5 +592,97 @@ describe.skipIf(!ready)('the durable submission budget (#367 Workstream 18)', ()
 
     const admitted = await submitProposal(db, submission('Window Overflow After', spender, false));
     expect(admitted.outcome).toBe('created');
+  });
+});
+
+describe.skipIf(!ready)('the trigram near-duplicate path writes evidence (#630)', () => {
+  /**
+   * Before this block, `catalog_proposal_duplicate_candidates` appeared in the
+   * whole test tree ONLY in teardown DELETEs — so no test had ever caused a
+   * candidate row to be written, and nothing asserted what a near-duplicate
+   * produces. The constant was pinned (`CATALOG_PROPOSAL_BLOCKING_DETECTORS`
+   * excludes `trigram_similarity`) and the behaviour it describes was not.
+   *
+   * The EXACT path is covered — "REFUSES a submission for a controlled value
+   * that already exists" above. That is a different detector
+   * (`exact_normalized`) reaching a different outcome, and a reader scanning for
+   * "is duplicate detection tested" finds it and stops.
+   *
+   * ## The fixture labels are MEASURED, not guessed
+   *
+   * The threshold is `duplicateNearThreshold` (0.45 by default) and it is applied
+   * in JS rather than in SQL, because the query is `ORDER BY x <-> $1 LIMIT n` —
+   * the one shape a trigram index can serve — so it always returns n rows however
+   * unlike they are. Against the fixture's single enum value `black`, measured on
+   * a real server with `similarity()`:
+   *
+   *     jet black  0.60   → recorded
+   *     crimson    0.00   → not recorded
+   *
+   * `Jet Black` is comfortably above the threshold and is not an exact match, so
+   * it must be RECORDED and must not be REFUSED. `Crimson` shares no trigram at
+   * all, which is what makes it a control rather than a second near-duplicate.
+   */
+  it('records a trigram candidate for a near match, and does NOT refuse it', async () => {
+    const result = await submitProposal(db, submission('Jet Black', MERCHANT, false));
+
+    // A score must never refuse a submission — the property
+    // `CATALOG_PROPOSAL_BLOCKING_DETECTORS` states as a constant and nothing
+    // exercised. A merchant with a legitimately similar name would otherwise be
+    // told their concept already exists, with no remedy.
+    expect(result.outcome).toBe('created');
+
+    const candidates = await listDuplicateCandidates(db, result.proposal.id);
+    const trigram = candidates.filter((row) => row.detector === 'trigram_similarity');
+    expect(trigram, 'the near match recorded no evidence').toHaveLength(1);
+    // The SUBJECT, not merely a row: a candidate naming something else would
+    // satisfy a length check and be useless to the operator reading it.
+    expect(trigram[0].candidateRef).toBe(`${P}-enum-black`);
+    expect(trigram[0].candidateLabel).toBe('Black');
+    expect(trigram[0].kind).toBe('existing_entity');
+    // Recorded ABOVE the threshold the service applied, so a similarity stored
+    // as null or zero — which a broken probe would produce — fails here.
+    expect(trigram[0].similarity).not.toBeNull();
+    expect(Number(trigram[0].similarity)).toBeGreaterThanOrEqual(
+      config.catalogProposals.duplicateNearThreshold,
+    );
+  });
+
+  /**
+   * CONTROL — and the label is chosen to sit in the ONE band where it bites.
+   *
+   * #630 says this half exists because "a similarity threshold of zero would
+   * pass" without it. **That is not true of this schema**, and the correction is
+   * worth keeping because it decides the fixture:
+   * `catalog_proposal_duplicate_candidates_similarity_range_check` is
+   * `similarity is null or (similarity > 0 and similarity <= 1)`, so a
+   * zero-similarity candidate is refused by the DATABASE. MEASURED: forcing the
+   * threshold to zero does not silently record junk — it fails every submission
+   * with a 23514 on that CHECK, loudly.
+   *
+   * So a distinct label scoring EXACTLY 0 (`crimson`, the first fixture here)
+   * could only be recorded under a threshold the CHECK already refuses, and the
+   * control would defend nothing.
+   *
+   * The real hazard is the threshold being LOWERED to a small POSITIVE value,
+   * which admits genuinely unlike labels silently and breaks nothing. `Blush`
+   * scores 0.2 against `black` — above the CHECK's floor and below the 0.45
+   * threshold — which is the only band in which this case can distinguish a
+   * correct threshold from a weakened one.
+   */
+  it('CONTROL — a label below the threshold records no trigram candidate', async () => {
+    const result = await submitProposal(db, submission('Blush', MERCHANT, false));
+    expect(result.outcome).toBe('created');
+
+    const candidates = await listDuplicateCandidates(db, result.proposal.id);
+    expect(
+      candidates.filter((row) => row.detector === 'trigram_similarity'),
+      'a label scoring below the threshold was recorded as a near match',
+    ).toEqual([]);
+
+    // ...and the scan still RAN. An empty candidate list and a scan that
+    // examined nothing are the same silence otherwise, which is exactly what
+    // the population counter exists to tell apart.
+    expect(result.proposal.duplicateScanPopulation).toBeGreaterThan(0);
   });
 });
