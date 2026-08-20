@@ -25,6 +25,17 @@
  *
  * ## What is asserted, and at which layer
  *
+ * ## The mutation this file was measured against
+ *
+ * Reverting `replaceProductScopeValues` to its delete-and-reinsert form (a
+ * `git checkout` of the pre-fix file) turns the two autosave cases RED, on both
+ * the re-minted id AND `listOpenProposalsBlockingDraft` returning nothing. The
+ * two clearing cases stay green, which is correct: neither depends on the
+ * repair. The intermediate assertions are `expect.soft` precisely so the gate
+ * assertion is REACHED on that run — with them hard, the mutation failed on the
+ * id alone and the gate assertion was never evaluated, which would have left
+ * the assertion the issue is about untested while the file looked mutation-proven.
+ *
  * `listOpenProposalsBlockingDraft` rather than `validateDraftRow`: it is the
  * gate's SOLE input — the function `draft.service.ts` calls to decide whether an
  * open proposal blocks publication — and it is a DIFFERENT function from the
@@ -193,7 +204,15 @@ describe('an autosave that re-sends a field keeps the proposal blocking (#729)',
 
     // The row is the SAME row — which is what the schema's own identity rule
     // says it is: one answer per (draft, variant, field, component, ordinal).
-    expect(await onlyValueId(draftId), 'the value row was re-minted').toBe(before);
+    //
+    // SOFT, deliberately. A hard assertion here throws before the gate
+    // assertion below is ever evaluated, so a mutation run would report the
+    // re-minted id and say NOTHING about whether the gate check works — the
+    // gate being the thing #729 is actually about. Measured: with both hard,
+    // reverting the fix failed only on this line, leaving the assertion that
+    // matters unproven. `expect.soft` records and continues, so ONE mutation
+    // run exercises both.
+    expect.soft(await onlyValueId(draftId), 'the value row was re-minted').toBe(before);
     expect(
       await listOpenProposalsBlockingDraft(db, draftId),
       'the gate stopped blocking after an autosave',
@@ -212,10 +231,37 @@ describe('an autosave that re-sends a field keeps the proposal blocking (#729)',
 
     await replaceProductScopeValues(db, draftId, [fieldId], [answer('Charcoal')]);
 
-    expect(await onlyValueId(draftId)).toBe(before);
+    // Soft for the same reason as the case above: the gate assertion is the
+    // subject, and it must be REACHED on a mutation run to be worth anything.
+    expect.soft(await onlyValueId(draftId), 'the value row was re-minted').toBe(before);
     const values = await listDraftValues(db, draftId);
-    expect(values[0].valueText, 'the new answer was not written').toBe('Charcoal');
-    expect(await listOpenProposalsBlockingDraft(db, draftId)).toHaveLength(1);
+    expect.soft(values[0].valueText, 'the new answer was not written').toBe('Charcoal');
+    expect(
+      await listOpenProposalsBlockingDraft(db, draftId),
+      'the gate stopped blocking after an autosave that changed the answer',
+    ).toHaveLength(1);
+  });
+
+  it('REFUSES a patch that answers one slot twice, rather than collapsing it', async () => {
+    // Not a pre-existing property being re-asserted: the delete-and-insert this
+    // replaced got this for free from
+    // `catalog_authoring_draft_values_product_key`, which refused the second
+    // INSERT. A reconcile keyed on that same tuple would instead update one row
+    // twice and keep the last answer — so the repair had to make the refusal
+    // deliberate, or it would have shipped a silent collapse.
+    //
+    // `mapProductScopeValues` restarts `ordinal` at 0 for each entry and the
+    // request schema does not dedupe `attributeKey`, so a client sending one
+    // field twice reaches exactly this.
+    const draftId = await insertDraft();
+
+    await expect(
+      replaceProductScopeValues(db, draftId, [fieldId], [answer('Graphite'), answer('Charcoal')]),
+    ).rejects.toThrow(/same slot twice/u);
+
+    // Nothing was written: a refusal that had already stored one of them would
+    // be the collapse under another name.
+    expect(await listDraftValues(db, draftId)).toHaveLength(0);
   });
 
   it('DOES release the reference when the answer genuinely goes away', async () => {
