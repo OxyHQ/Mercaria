@@ -622,9 +622,19 @@ describe('checkOrphanedReferences', () => {
    *
    * The crowd below is what a busy database looks like from inside this
    * transaction, created rather than waited for. It is minted DOMINANT, one id
-   * above the next, so the premise holds on an empty database and a loaded one
-   * alike: no foreign proposal can outrank the crowd, so every proposal handle
-   * the sample carries is one of ours.
+   * above the next, so no foreign proposal can outrank it whatever the shared
+   * database is holding.
+   *
+   * ## The premise that has to be asserted, because it was WRONG once
+   *
+   * The crowd is adverse only if it outranks the id this case's probe would have
+   * carried without {@link probeId}. The first version of this case named the
+   * crowd `p00`…`p19` and did not assert that — and `zz-obs-integ-crowd-probe`
+   * sorts ABOVE `zz-obs-integ-crowd-p00` under this server's collation, because
+   * a digit sorts before a letter. So the crowd was beneath the probe, the case
+   * passed with the fix mutated away, and it measured nothing. The comparison
+   * below is the server's own and it is what makes the case fail rather than go
+   * quiet if the naming is ever changed.
    *
    * Mutating {@link probeId} back to {@link id} at the one line below turns this
    * case red and leaves the rest of the file green — which is what says the
@@ -634,25 +644,38 @@ describe('checkOrphanedReferences', () => {
     await rolledBack(async (tx) => {
       const baseline = await checkOrphanedReferences(tx);
 
+      // What the probe below would be called if it were minted the ordinary way.
+      const unranked = id('crowd', 'probe');
+
       const crowd: string[] = [];
       for (let n = 0; n < INTEGRITY_SAMPLE_LIMIT; n += 1) {
         crowd.push(
           await insertApprovedProposal(
             tx,
-            await probeId(tx, 'catalog_proposals', 'crowd', `p${String(n).padStart(2, '0')}`),
+            await probeId(tx, 'catalog_proposals', 'crowd', `z${String(n).padStart(2, '0')}`),
             id('crowd', 'ghost-attribute'),
           ),
         );
       }
       const before = await checkOrphanedReferences(tx);
 
-      // Two premises, both asserted rather than assumed. The crowd became
-      // findings at all — without that this case measures an empty table — and
-      // it holds every proposal slot the sample has, so a probe ranked below it
-      // cannot appear whatever share of the cap this sub-scan is given.
+      // Three premises, all asserted rather than assumed. The crowd became
+      // findings at all — without that this case measures an empty table; every
+      // one of them outranks an ordinarily-named probe, which is what makes the
+      // crowd adverse; and it holds every proposal slot the sample has, so a row
+      // beneath it cannot appear whatever share of the cap this sub-scan gets.
       expect(before.findings - baseline.findings, 'the crowd did not become findings').toBe(
         crowd.length,
       );
+      const beneath = await tx.execute<{ total: number }>(sql`
+        select count(*)::int as total
+          from catalog_proposals
+         where id = any(${textArray(crowd)}) and id <= ${unranked}
+      `);
+      expect(
+        Number(beneath[0]?.total ?? 0),
+        `the crowd does not outrank ${unranked}, so this case is not adverse to an unranked probe`,
+      ).toBe(0);
       const proposalsNamed = before.sample.filter((entry) =>
         entry.startsWith('catalog_proposals:'),
       );
