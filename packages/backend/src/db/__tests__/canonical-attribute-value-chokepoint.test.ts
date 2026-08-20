@@ -108,6 +108,13 @@ const CLAIM_DOMAINS: readonly string[] = [
   join('services', 'catalog-proposals'),
   join('services', 'variant-axes'),
 ];
+// #723: the loop below is its only reader, so emptying this list makes it a no-op and
+// nothing goes red. The floor is today's count: an addition passes it freely, while a
+// REMOVAL has to move this number in the same diff.
+expect(
+  CLAIM_DOMAINS.length,
+  'CLAIM_DOMAINS shrank without this floor moving — the assertion below now defends less than it did',
+).toBeGreaterThanOrEqual(3);
 
 /** `{relative path → source}` for every production `.ts` under `src/`. */
 function productionSources(): Map<string, string> {

@@ -169,6 +169,13 @@ const WALLS: readonly Wall[] = [
     why: 'Change-request parameters and snapshot documents are caller-supplied jsonb. Nothing here executes them.',
   },
 ];
+// #723: the loop below is its only reader, so emptying this list makes it a no-op and
+// nothing goes red. The floor is today's count: an addition passes it freely, while a
+// REMOVAL has to move this number in the same diff.
+expect(
+  WALLS.length,
+  'WALLS shrank without this floor moving — the assertion below now defends less than it did',
+).toBeGreaterThanOrEqual(7);
 
 describe('the catalog governance walls', () => {
   it('scans a domain that is actually there', () => {

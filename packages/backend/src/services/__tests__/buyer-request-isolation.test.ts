@@ -396,6 +396,13 @@ describe('buyer request isolation (static)', () => {
       /\bamount\s*:/,
       /\bstatus\s*:/,
     ];
+    // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+    // nothing goes red. The floor is today's count: an addition passes it freely, while a
+    // REMOVAL has to move this number in the same diff.
+    expect(
+      forbiddenInBody.length,
+      'forbiddenInBody shrank without this floor moving — the assertion below now defends less than it did',
+    ).toBeGreaterThanOrEqual(7);
     for (const pattern of forbiddenInBody) {
       expect(pattern.test(schemas), `a request body accepts ${pattern.source}`).toBe(false);
     }

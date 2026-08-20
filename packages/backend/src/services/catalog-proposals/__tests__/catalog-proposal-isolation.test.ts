@@ -137,6 +137,13 @@ const COMMERCIAL_PATTERNS: readonly RegExp[] = [
   /\brankOffers?\b/,
   /\bcommissionRevenue\b/,
 ];
+// #723: the loop below is its only reader, so emptying this list makes it a no-op and
+// nothing goes red. The floor is today's count: an addition passes it freely, while a
+// REMOVAL has to move this number in the same diff.
+expect(
+  COMMERCIAL_PATTERNS.length,
+  'COMMERCIAL_PATTERNS shrank without this floor moving — the assertion below now defends less than it did',
+).toBeGreaterThanOrEqual(9);
 
 /**
  * Every catalogue WRITE this domain could reach, and the one module that may.
@@ -296,6 +303,13 @@ describe('nothing in the domain accepts a submitter-supplied identity', () => {
  * `routes/internal-catalog-proposals.ts` is deliberately not gated on it either.
  */
 const LEVER_PATTERNS: readonly RegExp[] = [/config\s*\.\s*catalogProposals\s*\.\s*enabled/];
+// #723: the loop below is its only reader, so emptying this list makes it a no-op and
+// nothing goes red. The floor is today's count: an addition passes it freely, while a
+// REMOVAL has to move this number in the same diff.
+expect(
+  LEVER_PATTERNS.length,
+  'LEVER_PATTERNS shrank without this floor moving — the assertion below now defends less than it did',
+).toBeGreaterThanOrEqual(1);
 
 describe('the rollout lever gates the MOUNT and never a stored row', () => {
   it('no module in the domain reads `config.catalogProposals.enabled`', () => {

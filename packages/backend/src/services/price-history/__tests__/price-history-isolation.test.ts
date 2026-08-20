@@ -255,6 +255,13 @@ describe('no price-history DTO can carry a referral identity', () => {
     // check above while forbidding nothing.
     expect(PRICE_HISTORY_FORBIDDEN_DTO_FIELDS.length).toBeGreaterThanOrEqual(10);
     const emitted = ['offerId', 'observationId', 'bucketStart', 'segment', 'measure', 'value'];
+    // #723: the loop below is its only reader, so emptying this list makes it a no-op and
+    // nothing goes red. The floor is today's count: an addition passes it freely, while a
+    // REMOVAL has to move this number in the same diff.
+    expect(
+      emitted.length,
+      'emitted shrank without this floor moving — the assertion below now defends less than it did',
+    ).toBeGreaterThanOrEqual(6);
     for (const field of emitted) {
       expect(PRICE_HISTORY_FORBIDDEN_DTO_FIELDS).not.toContain(field);
     }
