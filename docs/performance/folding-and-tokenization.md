@@ -123,15 +123,42 @@ would suggest a guarantee none of them gives.
 against tables cloned with `LIKE listing_localizations INCLUDING GENERATED` so
 the expression under test is the deployed one.
 
-| operation | generating the `tsvector` | the GIN index, on top of that |
-|---|---|---|
-| INSERT | **+956%** (21.1 ms → 222.9 ms) | **+29.4%** (222.9 ms → 288.5 ms) |
-| UPDATE | **+791%** (26.3 ms → 234.2 ms) | **+41.2%** (234.2 ms → 330.7 ms) |
+**Two independent runs**, reported as a band rather than as point values — see
+the note below, which is the reason.
 
-Worst inter-quartile range across those arms was 25.5 ms against effects of 65
-to 208 ms, so every figure is resolved rather than asserted.
+| operation | arm | run 1 | run 2 |
+|---|---|---|---|
+| INSERT | plain row write | 21.1 ms | 26.0 ms |
+| | + generating the `tsvector` | 222.9 ms | 222.4 ms |
+| | + the GIN index | 288.5 ms | 303.9 ms |
+| UPDATE | plain row write | 26.3 ms | 25.2 ms |
+| | + generating the `tsvector` | 234.2 ms | 235.0 ms |
+| | + the GIN index | 330.7 ms | 332.8 ms |
 
-**The headline is the first column, not the second.** The expensive part of a
+So: **generating the `tsvector` costs roughly 200 ms per 20,000 rows** — an
+order of magnitude over the bare row write (+756% to +956%, and the width of
+that band is the point, not the digits). **The GIN index adds 66–98 ms on top:
++29% to +37% on insert, +41% to +42% on update.**
+
+Worst inter-quartile range across the arms was 27.2 ms against effects of 66 to
+210 ms, so every arm is resolved rather than asserted.
+
+#### Why a band, and not the first run's percentages
+
+The first run alone gave `+956% / +791%` for generation and `+29.4% / +41.2%`
+for the index, and quoting those would have been more precise than the
+measurement supports. Re-running it changed the generation figure by two hundred
+percentage points.
+
+Nothing was unstable about the measurement: the **absolute** figures barely
+moved (222.9 → 222.4 ms; 234.2 → 235.0 ms). What moved was the *denominator* —
+the bare row write is only ~21–26 ms, so a few milliseconds of drift there
+swings a percentage computed against it. The lesson is about which number to
+publish, not about the instrument: **a ratio over a small baseline is less
+reproducible than either of its terms**, and a single run's percentage looks
+exactly as authoritative as a stable one.
+
+**The headline is the ~200 ms, not the 66–98 ms.** The expensive part of a
 localized listing write is building the `tsvector`, and that is the GENERATED
 COLUMN — paid whether or not any index exists. The index is a minority of a cost
 already committed to. Compare #61, whose offer sort index costs +19% on an
