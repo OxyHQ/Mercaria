@@ -116,6 +116,19 @@ let subjectAttributeKey: string;
 let subjectAttributeVersion: number;
 /** What the `es` label row said before control 3b touched it, so it can be put back. */
 let originalLabel: string | undefined;
+/**
+ * The render taken while the definition was still ACTIVE.
+ *
+ * BOTH lifecycle cases compare against this one baseline rather than against a
+ * composition of their own. Taking each case's baseline immediately before its
+ * own transition sounds tidier and is measurably weaker: the retire case would
+ * then run `deprecated -> retired` and would be blind to any render that
+ * distinguishes `active` from everything else — which is the likeliest shape
+ * such a change would take. Measured: a mutation stripping a non-active
+ * definition's controlled values reddened the deprecate case and left the
+ * retire case green until this baseline was hoisted.
+ */
+let activeSchema: AuthoringSchema;
 
 async function compose(): Promise<AuthoringSchema> {
   const composition = await composeAuthoringSchema(db, {
@@ -174,6 +187,15 @@ beforeAll(async () => {
      where attribute_definition_id = ${subjectDefinitionId} and locale = ${LOCALE}
   `);
   originalLabel = [...rows][0]?.label;
+
+  const states = await db.execute<{ lifecycle_state: string }>(sql`
+    select lifecycle_state from attribute_definitions where id = ${subjectDefinitionId}
+  `);
+  const state = [...states][0]?.lifecycle_state;
+  if (state !== 'active') {
+    throw new Error(`the attribute under test is '${state}', so no baseline can be taken from it`);
+  }
+  activeSchema = await composeFresh();
 }, 300_000);
 
 afterAll(async () => {
@@ -228,8 +250,6 @@ describe('the composition reads the attribute under test', () => {
 
 describe('DEPRECATING the cited attribute definition version', () => {
   it('renders exactly the same authoring schema, ETag included', async () => {
-    const before = await composeFresh();
-
     const deprecated = await deprecateAttributeDefinition(
       subjectAttributeKey,
       subjectAttributeVersion,
@@ -248,14 +268,12 @@ describe('DEPRECATING the cited attribute definition version', () => {
         'The two direct routes (deprecateDefinitionHandler / retireDefinitionHandler) therefore ' +
         "owe bumpAuthoringSchemaInvalidation({ subject: 'attribute_values', subjectId }), " +
         'symmetrically with catalog-governance/apply.ts. See issue #822.',
-    ).toEqual(before);
+    ).toEqual(activeSchema);
   }, 120_000);
 });
 
 describe('RETIRING the cited attribute definition version', () => {
   it('renders exactly the same authoring schema, ETag included', async () => {
-    const before = await composeFresh();
-
     const retired = await retireAttributeDefinition(subjectAttributeKey, subjectAttributeVersion);
     expect(
       retired.lifecycleState,
@@ -268,7 +286,7 @@ describe('RETIRING the cited attribute definition version', () => {
       "the authoring schema now depends on an attribute definition version's lifecycle. " +
         'The two direct routes therefore owe the bump catalog-governance/apply.ts makes. ' +
         'See issue #822.',
-    ).toEqual(before);
+    ).toEqual(activeSchema);
   }, 120_000);
 });
 

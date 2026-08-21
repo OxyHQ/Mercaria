@@ -345,6 +345,16 @@ export async function applyChange(
       return { outcome: 'applied', after };
     }
 
+    // The two direct routes (`internal-catalog-attributes.controller.ts`) call
+    // the same service functions and bump NOTHING. That asymmetry is settled
+    // rather than open: an authoring schema does not render an attribute
+    // definition differently once its version leaves `active`, so the bump below
+    // is over-invalidation costing one recomposition, and the direct routes owe
+    // no producer. Measured by
+    // `catalog-authoring/__tests__/attribute-lifecycle-invalidation.realdb.test.ts`;
+    // the reasoning is on `deprecateDefinitionHandler` (#822). It stays here
+    // because one call covers three attribute actions and `attribute_publish`
+    // above it is a different question.
     case 'attribute_deprecate': {
       const key = requireParam(parameters, 'attributeKey', action);
       const version = requireVersion(parameters, 'attributeVersion', action);
