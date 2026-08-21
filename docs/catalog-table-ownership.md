@@ -6,26 +6,56 @@
 > D2, D5, D11, D13. Schema-level rules for the whole repository are
 > `packages/backend/src/db/schema/CONVENTIONS.md`.
 
-## The forty-seven tables the epic added, and who owns them
+## The tables the epic added, and who owns them
 
 One module owns a table. Owning it means: its repository issues the statements,
 and another domain reads through that repository rather than reaching for the
 drizzle handle. Where a wall is a scanned gate rather than a convention, the
 gate is named.
 
+**The table below is GATED.**
+`packages/backend/src/db/__tests__/catalog-table-ownership-census.test.ts`
+derives the population from the migration SQL — every table created by a
+migration at or after `0088`, the epic's first — and fails the build if one of
+them is not named in a row here. A table that legitimately does not belong gets
+a `NOT_IN_THE_MAP` entry with a reason; silence is not a disposition. The
+boundary is anchored rather than asserted: `0088` is pinned to the tables it
+actually creates, and every table this document names is checked to sit at or
+above it unless it is one of the six pre-epic write-chokepoint subjects the
+second table below is about. `0086` is the trap the anchor exists for — it
+creates four `referral_pilot_*` tables and sits immediately under a long run of
+catalogue migrations, so it reads as the start of the run to anyone who finds
+the boundary by scrolling.
+
+**There is deliberately no count in this heading any more, and the reason is
+what happened to the last one.** It read *"the forty-seven tables the epic
+added"*, and forty-seven was EXACTLY right: `0088`–`0102` create exactly 47
+tables and this table listed all 47. It stopped being true on **2026-08-18**,
+when `0112` added `product_type_aliases` and `product_type_field_localizations`,
+and it went on being wrong through `0118`, `0120`, `0130` and `0133` — seven
+tables, none of them here, the last of them (`product_variant_images`, #850)
+landing on **2026-08-21**, the same day this was written. **Nothing could
+notice**:
+`git grep -l catalog-table-ownership -- packages/backend/src` returned nothing
+at all, so the only thing checking this document was whoever happened to be
+reading it. A figure in prose has no failure mode; the set does, and the set is
+now what is enforced. If you want the number, the gate's vacuity floor carries
+it and can only rise.
+
 | Module | Schema file | Repositories | Tables |
 |---|---|---|---|
 | Taxonomy | `db/schema/taxonomy.ts` | `db/taxonomy/taxonomyRepository.ts` | `category_aliases`, `category_redirects`, `category_external_mappings` — plus `categories` itself, which lives in `db/schema/catalog.ts:128` and was widened in place (D2) |
-| Product types | `db/schema/productTypes.ts` | `db/productTypes/productTypeRepository.ts`, `productTypeFieldRepository.ts` | `product_type_definitions`, `product_type_category_scopes`, `product_type_field_groups`, `product_type_fields` |
-| Localization | `db/schema/catalogLocalization.ts` | `db/catalogLocalization/` (3) | `category_localizations`, `category_localized_slugs`, `product_type_localizations`, `attribute_value_localizations` |
+| Product types | `db/schema/productTypes.ts` | `db/productTypes/productTypeRepository.ts`, `productTypeFieldRepository.ts` | `product_type_definitions`, `product_type_category_scopes`, `product_type_field_groups`, `product_type_fields`, `product_type_aliases` |
+| Localization | `db/schema/catalogLocalization.ts` | `db/catalogLocalization/` (7) | `category_localizations`, `category_localized_slugs`, `product_type_localizations`, `product_type_field_localizations`, `attribute_value_localizations`, `listing_localizations`, `canonical_product_localizations`, `canonical_product_family_localizations`, `catalog_localization_revisions` |
 | Variant axes and claims | `db/schema/variantAxes.ts` | `db/variantAxes/` (3) | `native_listing_variant_axes`, `native_variant_axis_assignments`, `native_variant_signatures`, `native_listing_attribute_claims`, `native_variant_attribute_claims` |
 | Authoring | `db/schema/catalogAuthoring.ts` | `db/catalogAuthoring/` (4) | `catalog_authoring_drafts`, `catalog_authoring_draft_variants`, `catalog_authoring_draft_values`, `catalog_authoring_schema_invalidations` |
 | Proposals | `db/schema/catalogProposals.ts` | `db/catalogProposals/` (3) | `catalog_proposals`, `catalog_proposal_duplicate_candidates`, `catalog_proposal_references`, `catalog_review_events` |
-| Governance | `db/schema/catalogGovernance.ts` | `db/catalogGovernance/` (3) | `catalog_governance_change_requests`, `_impact_counts`, `_audit_events`, `_role_grants`, `_definition_snapshots` |
+| Governance | `db/schema/catalogGovernance.ts` | `db/catalogGovernance/` (3) | `catalog_governance_change_requests`, `catalog_governance_impact_counts`, `catalog_governance_audit_events`, `catalog_governance_role_grants`, `catalog_governance_definition_snapshots` |
 | Navigation | `db/schema/navigation.ts` | `db/navigation/` (2) | `navigation_saved_queries`, `navigation_saved_query_attribute_filters`, `navigation_trees`, `navigation_nodes`, `navigation_node_localizations` |
 | Compatibility | `db/schema/compatibility.ts` | `db/compatibility/` (4) | `generic_compatibility_relations`, `vehicle_makes`, `vehicle_models`, `vehicle_generations`, `vehicle_configurations`, `automotive_fitments`, `compatibility_claims` |
-| External mappings | `db/schema/catalogExternalMappings.ts` | `db/catalogExternalMappings/` (2) | `catalog_external_mappings`, `_reviews`, `catalog_external_token_observations`, `_runs`, `_run_items` |
+| External mappings | `db/schema/catalogExternalMappings.ts` | `db/catalogExternalMappings/` (2) | `catalog_external_mappings`, `catalog_external_mapping_reviews`, `catalog_external_token_observations`, `catalog_external_mapping_runs`, `catalog_external_mapping_run_items` |
 | Connector pins | `db/schema/connectorPins.ts` | — | `listing_pin_releases` |
+| Native variant images | `db/schema/catalog.ts` | `db/catalog/variantRepository.ts` | `product_variant_images` |
 
 Two tables in that list are owned by a module their NAME does not name, and both
 were argued rather than assumed:
@@ -42,6 +72,39 @@ were argued rather than assumed:
 The registry itself was **not** forked: `attribute_definitions` and its seven
 siblings stay #94's, extended in place. There is one attribute registry
 (`db/schema/attributeRegistry.ts`).
+
+**Two rows are not #367's, and they are here anyway.** `listing_pin_releases`
+came from #427 (`0099`) and `product_variant_images` from #850 (`0133`). A
+reader arriving with the question "who owns this table" does not know which
+issue number it landed under, so scoping the map to one issue would answer them
+with silence — which is the failure this document just had. The census is
+scoped by MIGRATION BOUNDARY for the same reason.
+
+**`product_variant_images` lives in `db/schema/catalog.ts`, not in a schema file
+of its own** — the `categories` situation one row up, and the reason a
+census keyed on the epic's schema FILES would not have caught it. A table added
+to a shared, pre-existing schema module is exactly the one a file-scoped
+derivation misses, and it is also the one most likely to acquire a second
+writer.
+
+**Three of these tables have no application writer today**, which is a fact
+about the map rather than a gap in it:
+
+- **`product_type_aliases`** has neither a reader nor a writer.
+  `db/__tests__/product-type-alias-seam.test.ts` (#732) is the gate that records
+  why and states the prerequisite — a product-type member on `SearchFilters` —
+  so the day one arrives, that test goes red rather than the table staying quiet.
+- **`canonical_product_localizations`** and
+  **`canonical_product_family_localizations`** are read by
+  `services/catalog-localization/side-by-side.service.ts` and
+  `db/catalogLocalization/completenessRepository.ts`, and the only thing that
+  writes either is the `mercaria_canonical_products_localization_stale` trigger
+  in `0120`. There is no insert path.
+- **`catalog_localization_revisions`** is written ONLY by a trigger (`0118`) and
+  is append-only against UPDATE and DELETE, which is why
+  `db/catalogLocalization/revisionRepository.ts` reads it and never writes it.
+  A repository that could write it would be a second author of a trail whose
+  whole value is that it has one.
 
 ## Who may write, per subject
 
@@ -101,8 +164,18 @@ because a dozen branches sharing one journal is not the ordinary case.
 ADR 0007 D11. `packages/backend/drizzle/meta/_journal.json` is one file. A branch
 that needs DDL rebases on the current `origin/main` immediately before running
 `bun run db:generate`, and its PR merges before the next branch generates.
-Branches with no migration proceed in parallel freely. The journal is at
-**idx 105** with **106** `.sql` files as of this document.
+Branches with no migration proceed in parallel freely.
+
+Where the journal has got to is deliberately NOT written down here. It said
+"idx 105 with 106 `.sql` files", written on **2026-08-17**; four days later
+`0133` landed and it was **28 migrations** out of date. That is what a serial
+slot handed out several times a day does to a number in prose, and the interval
+is the point — this is not a figure that decays over a release cycle, it is one
+that is wrong by the end of the week. Read it instead:
+
+```
+python3 -c "import json;j=json.load(open('packages/backend/drizzle/meta/_journal.json'));print(max(e['idx'] for e in j['entries']), len(j['entries']))"
+```
 
 ### `bun run build:shared-types` before every `db:generate`
 
@@ -170,16 +243,29 @@ narrowings, and **every `post` statement must break a write the previous image
 performs.** There is no default. A two-phase change is two generated files, never
 one split by hand.
 
-The epic has **thirteen** migrations — `0088`, `0089`, `0090`, `0091`, `0093`,
-`0094`, `0097`, `0098`, `0100`, `0102`, `0103`, `0104`, `0105` — and **twelve of
-them are `pre`.** `0104_axis_assignment_cites_a_resolved_claim.sql` is `post`,
-correctly: it `CREATE OR REPLACE`s `mercaria_native_variant_axis_assignment_scope`
-to add a refusal that breaks a write the previous image performs. Several docs
-say "ten files, every one `pre`"; that was true of an earlier state and is not
-true now. It matters for one reason and it is worth stating: **`0104` is behind
-no lever** — the variant-axes domain reads no configuration at all — so "turn
-every flag off" does not reverse it. The blast radius is bounded, because the
-narrowed write path is an operator backfill script
+The epic's window is `0088` onward, and it is no longer a list. It was one —
+*"thirteen migrations: `0088`, `0089`, `0090`, `0091`, `0093`, `0094`, `0097`,
+`0098`, `0100`, `0102`, `0103`, `0104`, `0105`, twelve of them `pre`"* — and the
+list was wrong in a way that is worth reading, because it is the same failure as
+the table above and it was already there when it was written: **it omitted
+`0099`**, whose one table (`listing_pin_releases`) this very document owns. A
+hand list that contradicts the hand table two screens above it is what happens
+when nothing reads either. Re-derive both:
+
+```
+grep -c '^-- oxy:deploy-phase=post' packages/backend/drizzle/*.sql | grep -v ':0'
+```
+
+What is worth stating rather than counting: **every migration in this window
+that CREATES a table is `pre`** — sixteen of them, `0088` through `0133` — so no
+table in the map above arrived behind a narrowing statement. The `post` files in
+the window narrow behaviour on tables that already existed, and the one to know
+is still `0104_axis_assignment_cites_a_resolved_claim.sql`, which
+`CREATE OR REPLACE`s `mercaria_native_variant_axis_assignment_scope` to add a
+refusal that breaks a write the previous image performs. **`0104` is behind no
+lever** — the variant-axes domain reads no configuration at all — so "turn every
+flag off" does not reverse it. The blast radius is bounded, because the narrowed
+write path is an operator backfill script
 (`src/scripts/backfill-variant-axes.ts:92`) rather than a request path.
 
 ### After a rebase, re-derive every count
@@ -189,8 +275,11 @@ resolved by taking a side:
 
 - **`SCHEMA_TABLE_COUNT`** in `db/__tests__/schema-conventions.test.ts` is main's
   count plus your net delta, so neither side of the conflict is right. Count it
-  empirically from the barrel's `PgTable` exports on the rebased branch. It is
-  **445** at the time of writing, asserted by equality in both directions.
+  empirically from the barrel's `PgTable` exports on the rebased branch. Its
+  value is not repeated here — the constant is asserted by equality in both
+  directions, so it is already gated, and a copy of a gated number in prose is a
+  second representation that can only ever disagree with it. (It read **445**
+  here and the constant is now 452.)
 - **Every isolation gate's population floor**, for the same reason: two branches
   raising one guard's floor on different lines merge cleanly and git keeps one.
 - **The journal's index set must equal the set of `meta/*_snapshot.json` files**
