@@ -96,10 +96,49 @@ export function foldPhrase(phrase: string): string {
  * three-letter dictionary phrase turns half a catalogue into a leaning nobody
  * expressed. The boundary is defined against letters and digits so `16gb`
  * matches inside `16gb/512gb`.
+ *
+ * ## A combining mark is part of the word it sits on (#836)
+ *
+ * `\p{L}` **excludes** combining marks, so `[\p{L}\p{N}]` alone reads a mark as
+ * "not a word character" and therefore as a boundary — and this predicate's
+ * whole job is to refuse a match that is not on a boundary. Measured before the
+ * fix, with the phrase on the right and the query on the left:
+ *
+ * ```
+ * साइकिल   contains ल        -> true   (ल is preceded by ि, U+093F, a mark)
+ * সাইকেল   contains ল        -> true   (ল is preceded by ে, U+09C7, a mark)
+ * じてんしゃ contains てんしゃ -> true   (NFD leaves U+3099 before て)
+ * renuevo  contains nuevo    -> false  (the Latin control, already correct)
+ * ```
+ *
+ * So exactly the substring match the docblock above forbids was reachable in
+ * every script whose vowels are marks, and only there — which is the #830
+ * mechanism arriving through a predicate instead of a tokenizer. It is a false
+ * POSITIVE rather than #830's false merge, and it is not harmless here because
+ * a match ADDS a filter: `readCategory` turns one into a category constraint on
+ * a shopper's search, and the enum pass turns one into an attribute requirement.
+ * A one-letter Hindi or Bengali `category_aliases.normalized_alias` therefore
+ * narrowed a page to a category nobody asked for, with nothing saying why.
+ *
+ * Adding `\p{M}` makes those scripts behave the way Latin already did. It can
+ * only ever REMOVE a match — a mark that used to open a boundary now closes one
+ * — so the direction is recall, never precision, which is the whole family's
+ * safe direction. The one true positive it removes is a query that differs from
+ * its alias only by a trailing matra (`साइकिलें` against the alias `साइकिल`),
+ * and refusing that is exactly what Latin already does with `bicycles` against
+ * `bicycle`.
+ *
+ * Note the sibling that is deliberately NOT changed:
+ * `services/attributes/marketing-claims.ts` carries the same class in the same
+ * shape, and there a match REFUSES a value rather than selecting one, so adding
+ * `\p{M}` would open an evasion instead of closing a hole. Its own docblock
+ * carries the measurement.
  */
 function containsPhrase(foldedQuery: string, foldedPhrase: string): boolean {
   const escaped = foldedPhrase.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'u').test(foldedQuery);
+  return new RegExp(`(?<![\\p{L}\\p{N}\\p{M}])${escaped}(?![\\p{L}\\p{N}\\p{M}])`, 'u').test(
+    foldedQuery,
+  );
 }
 
 /**
