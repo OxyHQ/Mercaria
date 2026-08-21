@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e-harness": "vitest run --config vitest.e2e.config.ts",
+    "architecture:diagrams": "bun run scripts/generate-architecture-diagrams.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/db/migrate.ts"
   },

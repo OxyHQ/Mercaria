@@ -13,6 +13,17 @@ and another domain reads through that repository rather than reaching for the
 drizzle handle. Where a wall is a scanned gate rather than a convention, the
 gate is named.
 
+**Owning it is the intent, and it is not everywhere true — four of these tables
+are written from a second directory.** That is measured rather than asserted:
+[`catalog-architecture-diagrams.md`](catalog-architecture-diagrams.md) §2 derives
+every writer from the production source, names the four and cites the file each
+statement sits in. Three are `db/catalogProposals/backfillRepository.ts` reaching
+into the authoring and variant-axes tables; the fourth is #59's merge rehoming in
+`services/curation/merge-conflicts.ts`, which repoints foreign keys by design.
+The same section names the four tables **no** application code writes, which this
+document's prose below already lists — the two lists were derived independently
+and agree, which is the evidence that either can be trusted.
+
 **The table below is GATED.**
 `packages/backend/src/db/__tests__/catalog-table-ownership-census.test.ts`
 derives the population from the migration SQL — every table created by a
