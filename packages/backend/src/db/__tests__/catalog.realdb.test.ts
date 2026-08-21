@@ -28,8 +28,15 @@ import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { constraintNameOf, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { resolveVariantImages } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
-import { inventoryLevels, listings, productVariants } from '../schema/catalog.js';
+import {
+  inventoryLevels,
+  listingImages,
+  listings,
+  productVariantImages,
+  productVariants,
+} from '../schema/catalog.js';
 import { collections, listingCollections } from '../schema/merchandising.js';
 import { favorites } from '../schema/buyers.js';
 import { deleteTestStores } from './store-teardown.js';
@@ -48,6 +55,7 @@ import {
   countVariants,
   deleteVariant,
   findVariantBySourceInventoryItemId,
+  findVariantImages,
   findVariantsByListing,
   findVariantsByListingAndSku,
   insertVariants,
@@ -1367,5 +1375,236 @@ describe('SKU and barcode identity (#296)', () => {
     expect(found).not.toContain('product_variants_sku_key');
     expect(found).not.toContain('product_variants_barcode_key');
     expect(found).toContain('product_variants_source_external_variant_key');
+  });
+});
+
+describe('variant-scoped images (#850)', () => {
+  /**
+   * Build a listing with a three-photograph gallery and two variants.
+   *
+   * Returns the ids the cases need. `findListingChildren` is what the hydration
+   * path reads, so the gallery ids are taken from the same table rather than
+   * from the insert's echo — a test that trusted its own input could not notice
+   * an image that never landed.
+   */
+  async function makeGalleryListing(storeId: string): Promise<{
+    listingId: string;
+    imageIds: string[];
+    variantIds: string[];
+  }> {
+    const listingId = await makeListing(storeId, { variantCount: 2 });
+    await db.insert(listingImages).values([
+      { listingId, fileId: `file-a-${uuidv7()}`, position: 0 },
+      { listingId, fileId: `file-b-${uuidv7()}`, position: 1 },
+      { listingId, fileId: `file-c-${uuidv7()}`, position: 2 },
+    ]);
+    const images = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId))
+      .orderBy(listingImages.position);
+    expect(images).toHaveLength(3);
+
+    const variants = await insertVariants(listingId, [
+      {
+        title: 'Blue',
+        position: 0,
+        optionValues: [],
+        priceAmount: 1_000,
+        priceCurrency: 'FAIR',
+        inventoryTracked: true,
+        inventoryAvailable: 5,
+      },
+      {
+        title: 'Red',
+        position: 1,
+        optionValues: [],
+        priceAmount: 1_000,
+        priceCurrency: 'FAIR',
+        inventoryTracked: true,
+        inventoryAvailable: 5,
+      },
+    ]);
+    expect(variants).toHaveLength(2);
+
+    return {
+      listingId,
+      imageIds: images.map((i) => i.id),
+      variantIds: variants.map((v) => v.id),
+    };
+  }
+
+  it('REFUSES a gallery image belonging to another listing', async () => {
+    const storeId = await makeStore();
+    const mine = await makeGalleryListing(storeId);
+    const theirs = await makeGalleryListing(storeId);
+
+    // The positive control FIRST: the very same statement, with this listing's
+    // own image, must succeed. Without it a refusal below proves only that the
+    // insert was malformed.
+    await db.insert(productVariantImages).values({
+      listingId: mine.listingId,
+      variantId: mine.variantIds[0],
+      listingImageId: mine.imageIds[0],
+      position: 0,
+    });
+    const control = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, mine.variantIds[0]));
+    expect(control).toHaveLength(1);
+
+    // Now the same shape reaching for a photograph on the OTHER listing. There
+    // is no `listing_id` that satisfies both composite foreign keys at once, so
+    // both spellings are refused rather than one of them silently working.
+    await expect(
+      db.insert(productVariantImages).values({
+        listingId: mine.listingId,
+        variantId: mine.variantIds[0],
+        listingImageId: theirs.imageIds[0],
+        position: 1,
+      }),
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
+
+    await expect(
+      db.insert(productVariantImages).values({
+        listingId: theirs.listingId,
+        variantId: mine.variantIds[0],
+        listingImageId: theirs.imageIds[0],
+        position: 1,
+      }),
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
+
+    // The refusal changed nothing: the control row is still the only one.
+    const after = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingId, mine.listingId));
+    expect(after).toHaveLength(1);
+  });
+
+  it('lets ONE photograph be shared across variants, and once per variant', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+
+    // One flat-lay covering both configurations — the ordinary case a
+    // one-to-one relation would make unrepresentable.
+    await db.insert(productVariantImages).values([
+      { listingId, variantId: variantIds[0], listingImageId: imageIds[0], position: 0 },
+      { listingId, variantId: variantIds[1], listingImageId: imageIds[0], position: 0 },
+    ]);
+    const shared = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingImageId, imageIds[0]));
+    expect(shared).toHaveLength(2);
+
+    // The SAME photograph twice on ONE variant converges rather than doubling
+    // the gallery.
+    await expect(
+      db.insert(productVariantImages).values({
+        listingId,
+        variantId: variantIds[0],
+        listingImageId: imageIds[0],
+        position: 7,
+      }),
+    ).rejects.toSatisfy(isUniqueViolation);
+  });
+
+  it("orders by the VARIANT's own position, not the gallery's", async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [variantId] = variantIds;
+
+    // Gallery order is a, b, c. This variant shows c then a — an order that
+    // exists nowhere in `listing_images`, so a reader that inherited the
+    // gallery's ordering would return them the other way round.
+    await db.insert(productVariantImages).values([
+      { listingId, variantId, listingImageId: imageIds[2], position: 0 },
+      { listingId, variantId, listingImageId: imageIds[0], position: 1 },
+    ]);
+
+    const byVariant = await findVariantImages([variantId], db);
+    const rows = byVariant.get(variantId) ?? [];
+    expect(rows).toHaveLength(2);
+
+    const galleryRows = await db
+      .select()
+      .from(listingImages)
+      .where(inArray(listingImages.id, [imageIds[0], imageIds[2]]))
+      .orderBy(listingImages.position);
+    const fileA = galleryRows.find((r) => r.id === imageIds[0])?.fileId;
+    const fileC = galleryRows.find((r) => r.id === imageIds[2])?.fileId;
+
+    expect(rows.map((r) => r.fileId)).toEqual([fileC, fileA]);
+    expect(rows.map((r) => r.position)).toEqual([0, 1]);
+  });
+
+  it('cascades from the variant AND from the gallery image', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+
+    await db.insert(productVariantImages).values([
+      { listingId, variantId: variantIds[0], listingImageId: imageIds[0], position: 0 },
+      { listingId, variantId: variantIds[0], listingImageId: imageIds[1], position: 1 },
+      { listingId, variantId: variantIds[1], listingImageId: imageIds[1], position: 0 },
+    ]);
+
+    // Removing ONE photograph from the listing's gallery removes it from every
+    // variant that showed it, and touches nothing else.
+    await db.delete(listingImages).where(eq(listingImages.id, imageIds[1]));
+    const afterImageDelete = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingId, listingId));
+    expect(afterImageDelete).toHaveLength(1);
+    expect(afterImageDelete[0].listingImageId).toBe(imageIds[0]);
+
+    // Deleting the variant removes its selections.
+    await db.delete(productVariants).where(eq(productVariants.id, variantIds[0]));
+    const afterVariantDelete = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingId, listingId));
+    expect(afterVariantDelete).toHaveLength(0);
+  });
+
+  it('omits a variant with no selections, so the caller applies the fallback', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [chosen, bare] = variantIds;
+
+    await db.insert(productVariantImages).values({
+      listingId,
+      variantId: chosen,
+      listingImageId: imageIds[0],
+      position: 0,
+    });
+
+    const byVariant = await findVariantImages([chosen, bare], db);
+
+    // ABSENT, not an empty array: the repository never substitutes the
+    // listing's gallery, because that would make "chose nothing" and "was not
+    // in the batch" indistinguishable at every call site above it.
+    expect(byVariant.has(chosen)).toBe(true);
+    expect(byVariant.has(bare)).toBe(false);
+
+    // The fallback rule itself, applied by its ONE owner. A variant that chose
+    // photographs keeps them; one that chose none shows the listing's gallery
+    // and SAYS SO.
+    const gallery = [{ fileId: 'gallery-1', position: 0 }];
+    const chosenImages = (byVariant.get(chosen) ?? []).map((r) => ({
+      fileId: r.fileId,
+      position: r.position,
+    }));
+
+    expect(resolveVariantImages(chosenImages, gallery)).toEqual({
+      source: 'variant',
+      images: chosenImages,
+    });
+    expect(resolveVariantImages(byVariant.get(bare) ?? [], gallery)).toEqual({
+      source: 'listing_fallback',
+      images: gallery,
+    });
   });
 });
