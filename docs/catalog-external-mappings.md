@@ -422,20 +422,44 @@ read. What follows is the fuller version; that section is the binding one.
 
 ### Triggers
 
-`packages/backend/src/db/schema/catalogExternalMappings.pending.sql` holds five
-functions and seven triggers as PLAIN TEXT, unapplied, waiting for the migration
-slot (ADR 0007 D11 serialises `db:generate` across the parallel branches).
+**Five functions and seven triggers, applied in
+`packages/backend/drizzle/0094_dizzy_makkari.sql`.** That migration is where they
+live; there is no staging file and no paste still owed.
 
-**Two mechanics make the paste correct rather than plausible**, and
-`external-mapping-schema.test.ts` gates both — each one mutation-tested by
-breaking it and confirming the gate goes red:
+> **Correction, #831 (2026-08-21).** Until this issue, the statements were held
+> as plain text in `packages/backend/src/db/schema/catalogExternalMappings.pending.sql`
+> and this section said they were *"unapplied, waiting for the migration slot"*.
+> The slot arrived at `0094` and the sentence stopped being true then — with the
+> chain since gone on to idx 131, so it had been false for thirty-seven
+> migrations. **Nothing could expire it**: the claim carried no date, the staging
+> file was byte-identical to what shipped (206 lines, 9885 bytes — verified), and
+> `external-mapping-schema.test.ts` read the staging file rather than the
+> migration, so the gate kept the stale copy alive instead of catching it. The
+> file was deleted under CONVENTIONS' two-copies rule, the close its three
+> siblings already had (`catalogLocalization` → `0091`, `catalogProposals` →
+> `0100`, `catalogGovernance` → `0102`), and the gate now locates the statements
+> by content across the whole chain. **The `.pending.sql` staging pattern is
+> retired: none survives, and one appearing again means a slot is genuinely
+> pending.**
+>
+> The header was worse than stale, which is why it was worth a change rather
+> than a note: it was an *instruction*, telling the next reader to append seven
+> `CREATE TRIGGER`s that already exist. A stale fact misleads; a stale
+> instruction gets executed.
+
+**Two mechanics made the paste correct rather than plausible**, and they are kept
+here because they are what a future hand-written block in this schema has to do —
+`external-mapping-schema.test.ts` gates both against the shipped migration, each
+one mutation-tested by breaking it and confirming the gate goes red:
 
 - **Every block is wrapped in a NAMED marker pair**
   (`-- oxy:handwritten-begin=<name>` … `-- oxy:handwritten-end=<name>`), matched
   by name, with no name reused in the file. There are **five** blocks for seven
   triggers, because `mercaria_catalog_external_no_delete` is ONE function mounted
   on THREE tables — three blocks would have to share a name, and a repeated name
-  is exactly what a marker stack cannot resolve.
+  is exactly what a marker stack cannot resolve. The markers survive in `0094`
+  and are not decoration: a regeneration drops every statement between them, and
+  they are what a later `db:generate` needs in order to put them back.
 - **`--> statement-breakpoint` separates statements and NEVER appears inside a
   `$$ … $$` body.** The two halves are not equally important, and the obvious
   reading of the first is WRONG: an un-separated paste does **not** fail at
@@ -463,16 +487,36 @@ breaking it and confirming the gate goes red:
 | `mercaria_catalog_external_run_item_immutable` | run items | Every UPDATE. |
 
 `external-mapping-schema.test.ts` asserts each function and trigger is present in
-that file, asserts the trigger COUNT exactly, and asserts the file does not
-contain `new.external_key_normalized`. **Regeneration drops every hand-written
-statement** — three of four branches in one measured rebase batch lost their
-triggers that way and would have applied cleanly while enforcing nothing.
+the migration's hand-written region, asserts the trigger COUNT exactly, and
+asserts the region does not contain `new.external_key_normalized`.
+**Regeneration drops every hand-written statement** — three of four branches in
+one measured rebase batch lost their triggers that way and would have applied
+cleanly while enforcing nothing.
 
-## What the realdb suite must cover
+It finds that region by CONTENT across the whole chain and refuses anything but
+**exactly one** file, which covers both directions of the same hazard: zero means
+a regeneration dropped the hand-written half, and two means a later migration
+re-declared a body — the drift a file citation cannot see, since migrations apply
+in journal order and the LAST copy is what a from-zero apply installs. That has
+happened in this repository (`docs/catalog-migration-operations.md`: `0023`
+created a trigger freezing three columns, `0030` replaced it with one freezing
+four, under the same name). So cite `0094` for these statements, and re-derive
+the citation rather than copying it forward.
 
-Not written yet, because the tables do not exist in a migration and therefore do
-not exist in the throwaway test database. It lands in the same PR as the
-migration. The cases, so they are not re-derived:
+## What the realdb suite covers
+
+`packages/backend/src/services/catalog-external-mappings/__tests__/external-mappings.realdb.test.ts`,
+against a real server. Its twelve `describe` blocks are numbered to this list, so
+a case here with no block there is visible.
+
+> **Correction, #831 (2026-08-21).** This section said *"Not written yet, because
+> the tables do not exist in a migration and therefore do not exist in the
+> throwaway test database. It lands in the same PR as the migration."* Both
+> halves stopped being true at `0094` — the same moment, and for the same reason,
+> as the `NOT APPLIED` header above. The list below was already the suite's
+> structure; only the sentence introducing it was stale.
+
+The cases, so they are not re-derived:
 
 1. `catalog_external_mappings_live_primary_key` refuses a second live approved
    mapping for one token with no fan-out approval — and PERMITS it once one is
@@ -520,8 +564,13 @@ Stated rather than quietly skipped:
   #367 branches and not in this one's territory; one line,
   `| External mappings (#367 W11) | [catalog-external-mappings.md](catalog-external-mappings.md) |`.
 - **Nothing.** The realdb suite landed with the migration; §"What the realdb
-  suite must cover" is retained as the reasoning behind each case rather than as
-  a list of work owed.
+  suite covers" is retained as the reasoning behind each case rather than as a
+  list of work owed. **That sentence was already here and already correct while
+  two sections above still said the migration and the suite were owed** — which
+  is the other half of why #831's stale header survived thirty-seven migrations.
+  The refuting statement was in the same file; nothing reads a document for
+  self-consistency, and the reader who needs the correction is the one who
+  stopped at the first section.
 - **Nothing, for the category dimension.** The consolidation is filed as
   [#410](https://github.com/OxyHQ/Mercaria/issues/410) and is not owed by this
   branch. The test that decides which state is correct is anchored to `main`
