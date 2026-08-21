@@ -46,11 +46,14 @@ bun run --cwd packages/backend db:rollback-plan --census
 ```
 
 The number to notice is how many **`pre`** migrations carry a statement whose
-inverse cannot be produced from their own file. It is the majority of them, and
-the reason is mundane: widening a CHECK is spelled `DROP CONSTRAINT` +
-`ADD CONSTRAINT`, and the definition that was dropped is not in the file that
-dropped it. So "additive" and "reversible" are different properties, and the
-phase marker only ever claimed the first.
+inverse cannot be produced from their own file. It is a large fraction of them
+— the gate floors it, so read the floor in
+`migration-rollback-posture.test.ts` for the number somebody last measured
+rather than trusting a figure written here, which would rot. The reason is
+mundane: widening a CHECK is spelled `DROP CONSTRAINT` + `ADD CONSTRAINT`, and
+the definition that was dropped is not in the file that dropped it. So
+"additive" and "reversible" are different properties, and the phase marker only
+ever claimed the first.
 
 ---
 

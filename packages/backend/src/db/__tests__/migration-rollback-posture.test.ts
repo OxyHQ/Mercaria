@@ -27,12 +27,15 @@
  *
  * `-- oxy:deploy-phase=` says which side of a rollout a migration may be
  * applied on. Measured on this corpus, it does NOT predict invertibility: every
- * `post` migration is lossy, as expected — and so is the MAJORITY of the `pre`
- * ones, because a widened CHECK is spelled `DROP CONSTRAINT` + `ADD
+ * `post` migration is lossy, as expected — and so is a large fraction of the
+ * `pre` ones, because a widened CHECK is spelled `DROP CONSTRAINT` + `ADD
  * CONSTRAINT` and the dropped definition is not in the file that dropped it.
  * That gap is the whole reason this gate is not redundant with the phase one,
- * and it is asserted below rather than asserted in prose: `pre` migrations with
- * a loss are floored at a number a coincidence could not reach.
+ * and it is ASSERTED below rather than stated in prose: `pre` migrations with a
+ * loss are floored at a number a coincidence could not reach. The floor is
+ * deliberately not "a majority" — a batch of purely additive `pre` migrations
+ * is a legitimate future state, and a gate that went red on one would be a gate
+ * failing a healthy change.
  *
  * ## Nothing here writes to a migration
  *
