@@ -244,11 +244,12 @@ function invert(normalised: string): { inverse: string | null; reason: Irreversi
   }
 
   // ---- removals: the definition is not in this file -----------------------
-  const dropConstraint = /^alter table (?<table>"[^"]+"|\S+) drop constraint (?<name>"[^"]+"|\S+)/iu.exec(
-    sql,
-  );
-  if (dropConstraint !== null) return { inverse: null, reason: 'definition_not_in_file' };
-
+  // Decided BEFORE the `ALTER TABLE … ADD` family, because the widen-a-CHECK
+  // pattern is a `DROP CONSTRAINT` and an `ADD CONSTRAINT` of the SAME name and
+  // only the second carries a definition.
+  if (/^alter table \S+ drop constraint\b/iu.test(sql)) {
+    return { inverse: null, reason: 'definition_not_in_file' };
+  }
   if (/^alter table \S+ drop column\b/iu.test(sql)) return { inverse: null, reason: 'data' };
   if (/^drop (index|table|sequence|view|materialized view)\b/iu.test(sql)) {
     return { inverse: null, reason: 'definition_not_in_file' };
