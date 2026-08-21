@@ -207,13 +207,59 @@ hard-coded category list added there today fails nothing.
 
 Not as a foreign key — `db/__tests__/catalog-identity-isolation.test.ts` fails the
 build on a key pointed at `name`, `slug`, `label`, `title` or `description`, over
-791 foreign-key targets in 82 schema files.
+809 foreign-key TARGET COLUMNS (784 single-column plus 25 named inside a
+composite `foreignKey({ foreignColumns: [...] })`) in 83 schema files. The gate
+prints all three figures on every successful run; this paragraph said 791 over 82
+and neither number reproduced, which is what a count with no rule beside it does.
 
 Not as a request field either. `category: z.string()` and `productType:
-z.string()` exist in exactly seven places, all of them pre-#367 v1 listing
-contracts (`middleware/schemas.ts` ×6, `sell-yours-schemas.ts` ×1), and that set
-is frozen: clause 3 of the same gate fails on an eighth. The epic's own nine
-request-schema modules contribute zero.
+z.string()` exist in exactly nine places, all of them pre-#367 v1 listing
+contracts (`middleware/schemas.ts` ×6, `middleware/sell-yours-schemas.ts` ×1,
+`controllers/listings.controller.ts` ×2), and that set is frozen: clause 3 of the
+same gate fails on a tenth. The epic's own nine request-schema modules contribute
+zero.
+
+**It said seven until #367 line 104's DTO half was built, and seven was wrong.**
+Clause 3 walked `middleware/` and nothing else, so `listingQuerySchema` — which
+lives in `controllers/listings.controller.ts` and carries both fields — was
+outside the population. Nothing in the gate could see it: every floor, every
+count and both mutation self-tests measured the population the gate derived
+rather than the one it should have, which is `domain-population.ts`'s defect 3
+verbatim. The walk is now recursive over `middleware/`, `controllers/` and
+`routes/` (341 modules against the previous 74), with a floor per directory
+rather than one over the union.
+
+And not as a DTO. `scripts/validate-catalog-identity-contracts.mjs` is the same
+invariant on the published `@mercaria/shared-types` surface — the type a shipped
+client compiles against, which no package's test runner covers. It READS clause
+3's `IDENTITY_SHAPED_FIELDS` rather than copying it, so one vocabulary serves
+both. Thirty-two occurrences over 121 modules are excused at an exact count,
+each with a disposition from a closed set (`versioned_contract`,
+`external_mirror`, `external_observation`, `immutable_snapshot`, `presentation`,
+`scoped_key`) that decides its retirement condition. Four of the six retire
+never and say so.
+
+**Two of the nine vocabulary arms match live code in `middleware`/`controllers`/
+`routes`; five of the nine match live code in `shared-types`.** The rest are
+proven only by a control — which is a real distinction, because an arm that is
+unfired AND unmutated is indistinguishable from one that is misspelled or
+mis-anchored: both print a clean zero. Both gates therefore derive a positive
+and a negative control PER vocabulary member from the tuple itself, on every
+run, so no arm can be decoration.
+
+**Say which population a member count is over.** Three defensible rules give
+three different answers across the same 121 modules: DIRECT members of an
+exported declaration is 7,270; every property signature anywhere UNDER one is
+7,563; every property signature in the files regardless of export is 7,634. The
+DTO gate's walk is the middle rule and says so at `MINIMUM_SCANNED_MEMBERS`.
+That disagreement is how the walk's one real hole was found — it stopped at a
+generic's type ARGUMENTS, so the five members inside
+`Readonly<Record<string, { label }>>`, `Extract<V, { eligible: false }>` and
+`SellerPrefillField<{ key: string; value: string }>` were never scanned. The
+last of those is an attribute key/value pair on
+`SellerDraftPrefill.variantAttributes`, one identifier away from being exactly
+what the gate exists to catch, and nothing failed — the two counts simply
+disagreed.
 
 And not as an option axis. `listing_options.name` and
 `product_variant_option_values.name`/`.value` are retained as **legacy claims**

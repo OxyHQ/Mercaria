@@ -287,6 +287,27 @@ jobs:
       - name: Guard navigation targets against the route tree
         run: bun run validate:route-targets
 
+      # #367 line 104. A public DTO carrying `category: string` where a typed
+      # catalog identity belongs re-invents the ambiguity the whole taxonomy
+      # epic exists to remove — a free string cannot say which taxonomy, which
+      # locale, or whether it is a label or a key. `catalog-identity-isolation.test.ts`
+      # already gates the REQUEST half (a zod schema under `middleware/`,
+      # `controllers/` or `routes/`); this is the DTO half, over the published
+      # `@mercaria/shared-types` surface, which no package's test runner covers
+      # — shared-types has no runner at all. It reads that gate's own
+      # `IDENTITY_SHAPED_FIELDS` rather than copying it, so the two cannot
+      # diverge, and its second check catches the shape the epic line calls
+      # `optionName` and this repository actually spells `ListingOption.name`.
+      # Walks a TypeScript AST rather than grepping: every occurrence in the
+      # tree sits beside a docblock explaining the rule, so a text scan fires on
+      # its own explanation. Three vacuity floors, a positive and a negative
+      # control per vocabulary member on every run, and a self-test that mutates
+      # a real COPY of the tree. About ten seconds, nearly all of it the
+      # self-test's thirty subprocess runs against thirty copies of the tree —
+      # the scan itself is one second.
+      - name: Guard public catalog contracts against ambiguous identity strings
+        run: bun run validate:catalog-identity-contracts
+
       - name: Lint API
         run: bun run --filter @mercaria/backend lint
 
