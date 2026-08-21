@@ -117,7 +117,9 @@ Stemming is not magic, and the corpus says so rather than implying otherwise:
 a real singular/plural pair. A matrix in which every analysed locale succeeded
 would suggest a guarantee none of them gives.
 
-## Finding 3 — what the index costs to maintain
+## Finding 3 — what the localized index costs, and what it buys
+
+### What it costs to maintain
 
 `scripts/folding-index-benchmark.ts`, 20,000 rows, 8 interleaved trials per arm,
 against tables cloned with `LIKE listing_localizations INCLUDING GENERATED` so
