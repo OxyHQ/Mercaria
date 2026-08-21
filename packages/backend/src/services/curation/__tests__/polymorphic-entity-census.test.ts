@@ -56,7 +56,7 @@
  * Oxy file, a connected commerce platform's object, a payment provider's object
  * and a supplier's object are in another system's key space, and no merge in
  * this database can act on one. Everything else stays in the population —
- * including the 118 ledger entries written under a BESPOKE reason, which is
+ * including the 138 ledger entries written under a BESPOKE reason, which is
  * where BOTH known #720 instances live. Narrowing to the six shared
  * `MERCARIA_ROW_ID_REASONS` constants was measured first and REJECTED: it
  * yields a tidy 26-table population that misses `attribute_value_reviews` and

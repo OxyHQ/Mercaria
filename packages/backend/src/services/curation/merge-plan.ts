@@ -3115,10 +3115,17 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
   // work already done cannot be dropped, and nothing pretends the door is shut.
   //
   // Door 5 is the largest and the least dramatic: an `_id` column ledgered
-  // under a BESPOKE reason rather than one of the six shared constants. 118 of
-  // the ledger's 527 entries are written that way, so the derivation cannot
-  // reach them; the nine below are the ones a hand census of that set found to
-  // name a mergeable entity, each read against the schema rather than its name.
+  // under a BESPOKE reason rather than one of the six shared constants. 138 of
+  // the ledger's 528 entries are written that way (measured against the
+  // constants themselves, now that `FOREIGN_KEY_SPACE_ID_REASONS` makes the
+  // three-way split exact: 333 foreign key space, 57 shared Mercaria-row, 138
+  // bespoke), so THIS derivation cannot reach them; the nine below are the ones
+  // a hand census of that set found to name a mergeable entity, each read
+  // against the schema rather than its name.
+  //
+  // #720 note: door 5 is also where BOTH of that issue's synonym instances sit,
+  // which is why `polymorphic-entity-census.test.ts` subtracts only the foreign
+  // key spaces and keeps every bespoke entry in its population.
   {
     column: 'affiliate_outbound_clicks.canonical_variant_id',
     disposition: 'untouched',

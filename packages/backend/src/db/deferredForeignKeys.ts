@@ -234,7 +234,7 @@ export const MERCARIA_ROW_ID_REASONS: readonly string[] = [
  * commerce platform's object, a payment provider's object or a supplier's. That
  * is what makes excluding them safe, and it is the ONLY exclusion
  * `polymorphic-entity-census.test.ts` applies before demanding a decision —
- * every other entry, including the 118 written under a BESPOKE reason, stays in
+ * every other entry, including the 138 written under a BESPOKE reason, stays in
  * its population.
  *
  * **Matched with `startsWith`, deliberately.** Several entries append a

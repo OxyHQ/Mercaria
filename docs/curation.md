@@ -429,7 +429,7 @@ a ledger entry outside the five foreign key spaces on a table with any
 discriminator owes an entry here. The five are subtracted **structurally** — an
 Oxy account, an Oxy file, a connected platform's object, a payment provider's
 object and a supplier's are in another system's key space and no merge here can
-act on one. Everything else stays in, **including the 118 entries written under
+act on one. Everything else stays in, **including the 138 entries written under
 a bespoke reason, which is where both known #720 instances live**.
 
 Narrowing the shape half to the six shared `MERCARIA_ROW_ID_REASONS` constants
