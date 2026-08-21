@@ -208,10 +208,29 @@ describe('the script integrity table', () => {
     // sample, and what matters is that these four specific languages are on
     // record as having been broken. Dropping one from this list is a claim that
     // #830 never affected it.
-    const repaired = SCRIPT_INTEGRITY_SAMPLES.filter((sample) => sample.verdict === 'repaired')
-      .map((sample) => sample.language)
-      .sort();
+    //
+    // DEDUPED, because a language may be written in more than one script and the
+    // fold's behaviour was measured for each: #833 added a hiragana row beside
+    // the katakana one, both Japanese. Without the dedupe this pin would count
+    // SCRIPTS while claiming to name languages, and adding the measurement that
+    // closed a real blind spot would have read as breaking it.
+    const repaired = [
+      ...new Set(
+        SCRIPT_INTEGRITY_SAMPLES.filter((sample) => sample.verdict === 'repaired').map(
+          (sample) => sample.language,
+        ),
+      ),
+    ].sort();
     expect(repaired).toEqual(['Bengali', 'Hindi', 'Japanese', 'Russian']);
+  });
+
+  it('measures Japanese in BOTH of its scripts', () => {
+    // The dedupe above must not become a way to drop a script quietly. #833's
+    // census found every Japanese fixture in this repository written in katakana
+    // while `ja.json` is 46% hiragana, so the two rows are named here.
+    const japanese = SCRIPT_INTEGRITY_SAMPLES.filter((sample) => sample.language === 'Japanese');
+    expect(japanese.some((sample) => /\p{Script=Katakana}/u.test(sample.input))).toBe(true);
+    expect(japanese.some((sample) => /\p{Script=Hiragana}/u.test(sample.input))).toBe(true);
   });
 
   it('carries the pre-fix value for exactly the repaired rows', () => {

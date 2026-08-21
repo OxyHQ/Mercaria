@@ -889,6 +889,54 @@ describe('full-text search reads localized listing text, under its own analyser'
     expect(found).toHaveLength(1);
   });
 
+  it('indexes Bengali and Japanese HIRAGANA the same way, under `simple`', async () => {
+    /*
+     * #833. Two scripts the product ships bundles for that no fixture in this
+     * repository reached before: `bn.json` is 89% Bengali and `ja.json` is 46%
+     * HIRAGANA, while every Japanese fixture here was written in katakana.
+     *
+     * Neither has a bundled PostgreSQL configuration, so both take the `CASE`'s
+     * `ELSE` and are analysed by `simple`. The assertion is the same one the
+     * katakana case above makes and for the same reason: not that either
+     * searches well, but that neither is analysed by the English stemmer, which
+     * would index lexemes no Bengali or Japanese query reproduces.
+     */
+    for (const [locale, script, title] of [
+      ['bn', 'Bengali', `বইগুলি Nikkor B7000 stops ${RUN}`],
+      ['ja', 'Hiragana', `じてんしゃ Nikkor H7000 stops ${RUN}`],
+    ] as const) {
+      const listingId = await createListing(`Probe ${script} ${RUN}`, 'a probe listing');
+      await db.insert(listingLocalizations).values({
+        listingId,
+        locale,
+        status: 'approved',
+        provenance: 'professional',
+        title,
+        description: title,
+        reviewedByOxyUserId: 'reviewer',
+        reviewedAt: new Date(),
+      });
+
+      const [row] = await db
+        .select({ vector: sql<string>`${listingLocalizations.searchVector}::text` })
+        .from(listingLocalizations)
+        .where(
+          and(
+            eq(listingLocalizations.listingId, listingId),
+            eq(listingLocalizations.locale, locale),
+          ),
+        );
+
+      // The discriminator, exactly as above: `stops` is an English STOP WORD, so
+      // `to_tsvector('english', …)` drops it and `simple` keeps it verbatim. Its
+      // presence is reachable under `simple` and unreachable under `english`.
+      expect(row.vector, `${script} was not analysed by simple`).toContain("'stops'");
+      // …and the script's own run survives as a lexeme rather than being dropped.
+      const word = title.split(' ')[0];
+      expect(row.vector, `${script} lost its own word`).toContain(`'${word}'`);
+    }
+  });
+
   it('binds the deployed columns and both query sides to ONE map', async () => {
     /*
      * Read out of `pg_get_expr` — the DEPLOYED expression — and not out of the

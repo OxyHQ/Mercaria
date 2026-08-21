@@ -392,7 +392,14 @@ describe('script integrity under `normalizeEntityName`', () => {
     // red naming the language it broke.
     const repaired = SCRIPT_INTEGRITY_SAMPLES.filter((s) => s.corruptedBeforeFix !== null);
     // Vacuity floor: an empty list would pass this loop while measuring nothing.
-    expect(repaired.length, 'no repaired scripts on record').toBe(4);
+    //
+    // A FLOOR and not an exact count. It was `toBe(4)`, which is a vacuity guard
+    // whose cheapest green is "do not add a measurement" — #833 measured the
+    // hiragana half of Japanese, and an exact count reported that new evidence as
+    // a broken test. WHICH languages are on record is pinned by name in
+    // `services/graph-benchmark/__tests__/folding.test.ts`; this only has to
+    // catch the list going empty.
+    expect(repaired.length, 'no repaired scripts on record').toBeGreaterThanOrEqual(4);
     for (const sample of repaired) {
       expect(normalizeEntityName(sample.input), `${sample.language} regressed`).not.toBe(
         sample.corruptedBeforeFix,

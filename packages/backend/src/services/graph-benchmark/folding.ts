@@ -487,6 +487,19 @@ export const SCRIPT_INTEGRITY_SAMPLES: readonly ScriptIntegritySample[] = [
       'the seller wrote `janku`. Marks survive and the result is recomposed to NFC.',
   },
   {
+    language: 'Japanese',
+    locale: 'ja',
+    input: 'じてんしゃ',
+    normalized: 'じてんしゃ',
+    corruptedBeforeFix: 'し てんしゃ',
+    verdict: 'repaired',
+    note:
+      'The SAME mechanism in the other Japanese script, and the reason Japanese has two rows ' +
+      '(#833). `じ` decomposes to `し` + U+3099 exactly as `ジ` does, so hiragana broke too — ' +
+      'and every fixture in this repository reached for katakana, which is what let the ' +
+      'commonest script in a Japanese title go unmeasured through the whole of #830.',
+  },
+  {
     language: 'Russian',
     locale: 'ru',
     input: 'красный',
