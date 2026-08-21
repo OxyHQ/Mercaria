@@ -194,9 +194,17 @@ router.use(
  * unparseable id is a variant this listing does not have and answers 404
  * through the same branch as a well-formed one that belongs to somebody else.
  * A format check in front of it would be a second answer that can disagree.
+ *
+ * The mount names the WHOLE path rather than `/listings/:id/variants`. There is
+ * no sibling under that prefix on THIS router today, so nothing is intercepted
+ * either way — but the store mount has four, and a `router.use` prefix applies
+ * its middleware to every request matching it whether or not a route matches.
+ * Both mounts are spelled the same way so the two halves of one surface cannot
+ * drift, and so adding a seller-side variant route later is not a silent
+ * re-permissioning.
  */
 router.use(
-  '/listings/:id/variants',
+  '/listings/:id/variants/:variantId/images',
   makeRateLimiter('listings'),
   validateId('id'),
   makeVariantImageRouter(async (req) =>

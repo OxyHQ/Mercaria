@@ -57,7 +57,7 @@ import type { ListingRecord } from '../db/catalog/listingRepository.js';
 import { findListingGallery } from '../db/catalog/listingRepository.js';
 import {
   findVariantImages,
-  findVariantsByListing,
+  findVariantInListing,
   replaceVariantImages,
 } from '../db/catalog/variantRepository.js';
 import { validateBody } from '../middleware/validate.js';
@@ -88,8 +88,11 @@ export type VariantImageOwnerResolver = (req: Request) => Promise<ListingRecord>
  */
 async function requireVariantId(req: Request, listing: ListingRecord): Promise<string> {
   const variantId = routeParam(req, 'variantId');
-  const variants = await findVariantsByListing(listing.id);
-  if (!variants.some((variant) => variant.id === variantId)) {
+  // `findVariantInListing` — the SAME read `assertVariantInListing` uses for the
+  // sibling variant routes, rather than a scan of `findVariantsByListing`. One
+  // question, one answer: a second spelling of "is this variant in this listing"
+  // is a second thing to get wrong.
+  if (!(await findVariantInListing(listing.id, variantId))) {
     throw notFound('This listing has no such variant.');
   }
   return variantId;
@@ -170,20 +173,36 @@ function projectSelections(rows: readonly { fileId: string; alt: string | null; 
 /**
  * Build the sub-router. Mounted twice; see the header.
  *
- * `mergeParams` so the parent's `:id` (and, on the store mount, `:storeId`) are
- * visible to the resolver.
+ * `mergeParams` so the parent's `:id`, `:variantId` (and, on the store mount,
+ * `:storeId`) are visible to the resolver and the handlers.
+ *
+ * ## Both mounts name the WHOLE path, and that is not cosmetic
+ *
+ * The routes here are `/`, so each mount is
+ * `…/variants/:variantId/images` rather than the tidier-looking
+ * `…/variants` with `/:variantId/images` inside. `router.use(prefix, mw)` runs
+ * its middleware for EVERY request matching that prefix, whether or not any
+ * route in the sub-router matches — and `/admin/stores/:storeId/products` has
+ * four established siblings under `/:id/variants/:variantId`
+ * (`PATCH`, `DELETE`, `…/inventory`, `…/levels`) whose permissions are NOT this
+ * one: the inventory writes are `inventory:write` and the level read is
+ * `products:read`. Mounting on the shorter prefix therefore silently puts
+ * `products:write` in front of all four, so a member holding `inventory:write`
+ * alone would stop being able to restock. Nothing would fail at build time and
+ * the sub-router would still behave correctly, which is why the mount path is
+ * spelled out.
  */
 export function makeVariantImageRouter(resolveListing: VariantImageOwnerResolver): Router {
   const router = Router({ mergeParams: true });
 
   /**
-   * GET /:variantId/images — which photographs this variant has SELECTED.
+   * GET — which photographs this variant has SELECTED.
    *
    * Empty means it has selected none and therefore shows the listing's gallery.
    * See `projectSelections` for why that is not spelled out by returning the
    * gallery.
    */
-  router.get('/:variantId/images', async (req: Request, res: Response): Promise<void> => {
+  router.get('/', async (req: Request, res: Response): Promise<void> => {
     try {
       const listing = await resolveListing(req);
       const variantId = await requireVariantId(req, listing);
@@ -196,7 +215,7 @@ export function makeVariantImageRouter(resolveListing: VariantImageOwnerResolver
   });
 
   /**
-   * PUT /:variantId/images — replace which photographs this variant shows.
+   * PUT — replace which photographs this variant shows.
    *
    * PUT and a whole-list replace, not POST-one/DELETE-one: the ORDER is part of
    * the fact being stored and `replaceVariantImages` assigns positions from the
@@ -214,7 +233,7 @@ export function makeVariantImageRouter(resolveListing: VariantImageOwnerResolver
    * connector sync.
    */
   router.put(
-    '/:variantId/images',
+    '/',
     validateBody(replaceVariantImagesSchema),
     async (req: Request, res: Response): Promise<void> => {
       try {

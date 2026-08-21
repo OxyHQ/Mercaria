@@ -136,9 +136,18 @@ router.use(
  * not a catalogue read — the catalogue's answer to "what does this variant look
  * like" is the hydrated `Listing`, which applies the gallery fallback and is
  * public.
+ *
+ * The mount names the WHOLE path rather than `/:id/variants`, and that is
+ * load-bearing here in a way it is not on the seller side. `router.use(prefix,
+ * mw)` runs its middleware for every request matching the prefix, and four
+ * established siblings live under `/:id/variants/:variantId` — the variant
+ * PATCH and DELETE, the inventory absolute-set (`inventory:write`) and the
+ * levels read (`products:read`). On the short prefix this line would put
+ * `products:write` in front of all four, and a member holding `inventory:write`
+ * alone would silently stop being able to restock.
  */
 router.use(
-  '/:id/variants',
+  '/:id/variants/:variantId/images',
   requireStorePermission('products:write'),
   validateId('id'),
   makeVariantImageRouter(loadStoreProduct),
