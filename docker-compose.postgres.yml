@@ -70,10 +70,20 @@ services:
     # with a 133-entry chain costing 5,986 locks per full-chain migration:
     #
     #     max_locks_per_transaction=256  -> 15 carried, the 16th exhausted
+    #     max_locks_per_transaction=512  -> 31 carried, the 32nd exhausted
     #
     # Twelve are wanted today, so the headroom is three more private-database
     # files. Every figure here carries the chain length and the date it was taken
     # at, because a capacity that cannot expire visibly is the whole of #849.
+    #
+    # 512 is measured but NOT set, deliberately. Three files of headroom is
+    # positive and the guard fails the build the moment it is not, so raising the
+    # ceiling now would cost every developer a `--force-recreate` (the harness
+    # asserts the floor and refuses a server below it) to buy runway nothing
+    # needs yet. What the row buys is that the remedy is then a three-line edit
+    # rather than twenty minutes of measurement at the moment somebody is
+    # already blocked — the guard refuses any ceiling it holds no measurement
+    # for, and 512 is one it holds.
     #
     # ## Correcting the record, because the old numbers are still quoted
     #
