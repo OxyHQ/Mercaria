@@ -124,19 +124,35 @@ the paste into the generated `.sql` is mechanical rather than remembered.
 same commit that applies it** — "a second copy that nothing applies is one
 somebody edits to no effect".
 
-One survives today and it is a **stale artefact, not a pending change**:
-`packages/backend/src/db/schema/catalogExternalMappings.pending.sql`. Its own
-header says `NOT APPLIED` at `:4`, and that sentence is false — all five trigger
-functions and all seven triggers landed in
-`packages/backend/drizzle/0094_dizzy_makkari.sql`, journal idx 94, verified name
-by name. Its three siblings (`catalogLocalization`, `catalogProposals`,
-`variantAxes`) were deleted per the rule; this one was not, and
-`services/catalog-external-mappings/__tests__/external-mapping-schema.test.ts:40`
-reads the surviving file and repeats "the unapplied hand-written SQL" — so the
-test keeps the stale copy alive rather than catching it.
+**None survives today, and the pattern is RETIRED.** One had outlived its
+migration — `catalogExternalMappings.pending.sql`, whose own header still said
+`NOT APPLIED` while all five trigger functions and all seven triggers had landed
+in `packages/backend/drizzle/0094_dizzy_makkari.sql` (journal idx 94) — and #831
+closed it, giving it the same close its three siblings had
+(`catalogLocalization` → `0091`, `catalogProposals` → `0100`, `catalogGovernance`
+→ `0102`; `variantAxes` likewise). **So a `<domain>.pending.sql` appearing in the
+tree now means a slot is genuinely pending**, which is what the convention was
+always supposed to signal and could not while a stale one sat beside it.
 
-**No gate flags a surviving `.pending.sql`**, which is why this one has outlived
-the migration it was staging.
+Two things made that survival invisible, and both are worth carrying:
+
+- **The stale copy was CORRECT.** Its statement region was byte-identical to
+  `0094`'s — 206 lines, 9885 bytes, and the five function bodies matched
+  `pg_proc` on a database migrated through the whole chain. So nothing it said
+  about SQL was wrong; what was wrong was the tense. A diff-based check finds
+  nothing here, because there is nothing to diff.
+- **The gate READ the stale copy.**
+  `services/catalog-external-mappings/__tests__/external-mapping-schema.test.ts`
+  asserted the triggers against the staging file rather than the migration, so it
+  kept the file alive rather than catching it — and the most valuable check in it
+  (the freeze trigger's frozen-column list, asserted against the real table) was
+  measuring a copy that nothing applies. It now locates the statements by CONTENT
+  across the whole chain and refuses anything but exactly one file, which also
+  catches a later `CREATE OR REPLACE` moving a body under an unchanged name.
+
+**No gate flags a surviving `.pending.sql`**, which is why that one outlived the
+migration it was staging, and that is still true — the retirement is a fact about
+the tree today, not an enforced invariant.
 `packages/backend/src/db/__tests__/migration-handwritten-markers.test.ts:565` is
 the gate over the marker discipline — exactly one deploy-phase marker per file,
 read by the same `readMigrationPhases` the migrator uses, with a vacuity floor at

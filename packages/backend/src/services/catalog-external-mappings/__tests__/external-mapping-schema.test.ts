@@ -11,10 +11,16 @@
  * drops every hand-written statement, and three of four branches in one measured
  * batch lost their triggers that way and would have applied cleanly while
  * enforcing nothing.
+ *
+ * The hand-written half is read from the MIGRATION that ships it, located by
+ * content. Until #831 it was read from `catalogExternalMappings.pending.sql`, a
+ * staging file whose header still said `NOT APPLIED` fifty-odd migrations after
+ * the slot arrived — so the gate was keeping the stale copy alive rather than
+ * catching it. See `handwrittenMigration()`.
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getTableColumns } from 'drizzle-orm';
@@ -36,38 +42,97 @@ const TABLES: readonly PgTable[] = [
   catalogExternalMappingRunItems,
 ];
 
+const DRIZZLE_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../../drizzle');
+
 /**
- * The unapplied hand-written SQL, with a vacuity floor.
+ * A `CREATE [OR REPLACE] FUNCTION` for one of THIS domain's functions.
  *
- * One reader for all four cases below, so they cannot end up asserting against
- * different files — and an emptied file fails HERE rather than satisfying every
- * scan by containing nothing to match.
+ * A DEFINITION, never a mention: a later migration that attaches an existing
+ * function to a new table names it on its `EXECUTE FUNCTION` line and carries no
+ * body, which is the mechanism being REUSED and is fine. A later migration that
+ * re-declares the body is the second representation this gate exists to find,
+ * and it is the drift a file citation cannot see — measured elsewhere in this
+ * repo, where `0023` created a trigger freezing three columns and `0030`
+ * silently replaced it with one freezing four
+ * (`docs/catalog-migration-operations.md`). A bare-name match reports the safe
+ * case and the dangerous one identically.
  */
-function readPendingSql(): string {
-  const pending = readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), '../../../db/schema/catalogExternalMappings.pending.sql'),
-    'utf8',
-  );
-  expect(pending.length, 'the pending SQL looks empty — did it move?').toBeGreaterThan(2000);
-  return pending;
+const DOMAIN_FUNCTION_DEFINITION =
+  /^CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+mercaria_catalog_external\w*\s*\(/m;
+
+/**
+ * The migration that carries this domain's hand-written statements.
+ *
+ * Located by CONTENT across the WHOLE chain and asserted to be found exactly
+ * once — never by a hardcoded path, and no longer from a staging file.
+ *
+ * `db/schema/catalogExternalMappings.pending.sql` held these statements as plain
+ * text while ADR 0007 D11 serialised `db:generate` across the parallel #367
+ * branches. The slot arrived: they are in `0094_dizzy_makkari.sql`, applied, and
+ * the staging file was deleted under CONVENTIONS' two-copies rule (#831) — the
+ * same close its three siblings got (`catalogLocalization` → `0091`,
+ * `catalogProposals` → `0100`, `catalogGovernance` → `0102`).
+ *
+ * Reading the shipped migration is strictly stronger than reading the staging
+ * copy, in two directions. The staging file could have been correct while the
+ * paste dropped a function — the whole failure mode here is a migration that
+ * applies cleanly and enforces nothing. And the staging copy could not go stale
+ * loudly: it was byte-identical to `0094` on the day it was deleted, and nothing
+ * would have said so once a later `CREATE OR REPLACE` moved the live body.
+ */
+function handwrittenMigration(): { name: string; text: string } {
+  const found = readdirSync(DRIZZLE_DIR)
+    .filter((entry) => entry.endsWith('.sql'))
+    .sort()
+    .map((entry) => ({ name: entry, text: readFileSync(join(DRIZZLE_DIR, entry), 'utf8') }))
+    .filter((file) => DOMAIN_FUNCTION_DEFINITION.test(file.text));
+
+  // The floor and the ceiling in one. ZERO means a regeneration dropped the
+  // whole hand-written half — which applies cleanly and enforces nothing. TWO
+  // means a later migration re-declared a body, so the assertions below are
+  // measuring whichever copy this scan happened to reach while the LAST one in
+  // journal order is what a from-zero apply actually installs.
+  expect(
+    found.map((file) => file.name),
+    'the hand-written statements must live in exactly one migration',
+  ).toHaveLength(1);
+  return found[0];
 }
 
 /**
- * The pending SQL from its first marker on — the part that gets pasted.
+ * The migration's hand-written REGION — its first begin marker to its last end
+ * marker, inclusive.
  *
- * The header above it is prose about `$$` and breakpoints, and reading prose as
- * SQL is how a scanner ends up measuring the wrong thing confidently.
+ * Everything above it is drizzle-generated DDL, and reading that as the
+ * hand-written half is how a scanner ends up measuring the wrong thing
+ * confidently.
  */
 function statementRegion(): string {
-  const pending = readPendingSql();
-  // ANCHORED at a line start, and the anchor is load-bearing: the header's own
-  // self-check note quotes the marker inside a `grep -c '^-- oxy:handwritten-begin='`
-  // line, so a substring search starts the region ~30 lines too early and drags
-  // the `$$` prose in with it. The control below caught exactly that. The real
-  // gate greps anchored for the same reason.
-  const match = /^-- oxy:handwritten-begin=/m.exec(pending);
-  expect(match, 'no marker block found in the pending SQL').not.toBeNull();
-  const region = pending.slice(match?.index ?? 0);
+  const lines = handwrittenMigration().text.split('\n');
+  // ANCHORED at column 0, and the anchor is load-bearing: prose explaining this
+  // convention quotes the marker inline (a `grep -c '^-- oxy:handwritten-begin='`
+  // self-check, this very docblock), so a substring search starts the region in
+  // a comment and drags `$$` prose in with it. The control below caught exactly
+  // that. The real gate greps anchored for the same reason.
+  const start = lines.findIndex((line) => line.startsWith('-- oxy:handwritten-begin='));
+  // A reverse scan rather than `findLastIndex`: this package's `lib` predates
+  // ES2023, and vitest transpiles the call happily while `tsc` rejects it — the
+  // house rule that a green suite is not a substitute for a typecheck, met here
+  // rather than by widening `lib` for one convenience.
+  let end = -1;
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if ((lines[i] ?? '').startsWith('-- oxy:handwritten-end=')) {
+      end = i;
+      break;
+    }
+  }
+  expect(start, 'no column-0 begin marker in the migration').toBeGreaterThan(-1);
+  expect(end, 'no column-0 end marker after the first begin').toBeGreaterThan(start);
+  const region = lines.slice(start, end + 1).join('\n');
+  // A vacuity floor on the SLICE, not on the file: the generated half alone is
+  // tens of kilobytes, so a whole-file floor is satisfied by a migration whose
+  // hand-written half was dropped entirely.
+  expect(region.length, 'the hand-written region looks too short to be real').toBeGreaterThan(5000);
   // The control that makes the slice safe: no COMMENT inside the region may
   // carry a `$$`, or the walks below would toggle on prose again.
   for (const line of region.split('\n')) {
@@ -260,12 +325,52 @@ describe('the normalized lookup key is GENERATED, on every table that holds a to
   });
 });
 
-describe('the hand-written statements the migration still owes', () => {
-  it('the pending SQL names every trigger and function, exactly once each', () => {
-    // Regeneration DROPS every hand-written statement, so this file is the list
-    // a rebase is checked against. Asserting the COUNT as well as the presence
-    // is what catches a half-restored file.
-    const pending = readPendingSql();
+describe('the hand-written statements the migration carries', () => {
+  it('lives in exactly one migration, and no later one re-declares a body', () => {
+    // `handwrittenMigration()` already refuses anything but one file; this case
+    // exists so the refusal is a NAMED failure rather than a confusing one
+    // surfacing inside an assertion about column lists, and so the file it
+    // resolved to is printed by a passing run.
+    const migration = handwrittenMigration();
+    expect(migration.name).toMatch(/^\d{4}_.+\.sql$/);
+
+    // The self-test. Three green cases below are indistinguishable from a
+    // locator that matches nothing, so prove the predicate can tell a
+    // DEFINITION from a mention in both directions on text this test owns.
+    const attachesOnly = [
+      'CREATE TRIGGER mercaria_catalog_external_review_no_delete',
+      'BEFORE DELETE ON catalog_external_mapping_reviews',
+      'FOR EACH ROW EXECUTE FUNCTION mercaria_catalog_external_no_delete();',
+    ].join('\n');
+    expect(
+      DOMAIN_FUNCTION_DEFINITION.test(attachesOnly),
+      'an attachment with no body must NOT read as a definition',
+    ).toBe(false);
+    expect(
+      DOMAIN_FUNCTION_DEFINITION.test(
+        'CREATE OR REPLACE FUNCTION mercaria_catalog_external_mapping_freeze()',
+      ),
+      'a re-declaration MUST read as a definition',
+    ).toBe(true);
+    // And that it is scoped to this domain: a sibling domain re-declaring its
+    // own function must not make this gate report two copies of ours.
+    expect(
+      DOMAIN_FUNCTION_DEFINITION.test(
+        'CREATE OR REPLACE FUNCTION mercaria_product_type_child_frozen()',
+      ),
+      "another domain's function must not match",
+    ).toBe(false);
+  });
+
+  it('the hand-written region names every trigger and function, exactly once each', () => {
+    // Regeneration DROPS every hand-written statement, so this region is the
+    // list a rebase is checked against. Asserting the COUNT as well as the
+    // presence is what catches a half-restored file.
+    //
+    // Over the REGION rather than the whole migration: the generated half above
+    // it creates the same tables and indexes, so a whole-file census could be
+    // satisfied by DDL that enforces none of this.
+    const pending = statementRegion();
 
     const functions = [
       'mercaria_catalog_external_mapping_freeze',
@@ -302,8 +407,10 @@ describe('the hand-written statements the migration still owes', () => {
     }
     expect(pending.match(/^CREATE TRIGGER /gim) ?? []).toHaveLength(triggers.length);
 
-    // The trap this file exists to remember: a BEFORE UPDATE trigger must not
-    // compare the STORED GENERATED column, which is NULL at that point.
+    // The trap this domain exists to remember: a BEFORE UPDATE trigger must not
+    // compare the STORED GENERATED column, which is NULL at that point. Over the
+    // region, because the generated half legitimately names the column in its
+    // CREATE TABLE and its indexes — only a `new.` prefix is a trigger body.
     expect(pending).not.toContain('new.external_key_normalized');
   });
 
@@ -443,7 +550,12 @@ describe('the hand-written statements the migration still owes', () => {
   });
 
   it('wraps every hand-written statement in a NAMED marker pair, with no name reused', () => {
-    const pending = readPendingSql();
+    // The WHOLE migration here, not the region — deliberately. The region begins
+    // at the first marker, so slicing to it makes "every statement is inside a
+    // block" true by construction. Over the whole file the walk can still find a
+    // hand-written statement sitting in the generated half with no block at all,
+    // which is the shape a careless re-paste after a regeneration produces.
+    const pending = handwrittenMigration().text;
     const begins = [...pending.matchAll(/^-- oxy:handwritten-begin=(.+)$/gm)].map((m) => m[1]);
     const ends = [...pending.matchAll(/^-- oxy:handwritten-end=(.+)$/gm)].map((m) => m[1]);
 

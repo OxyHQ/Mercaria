@@ -65,11 +65,19 @@
  * A mapping's meaning is frozen once it leaves `proposed` — the `fee_schedules`
  * / `attribute_definitions` mechanism. A change is a NEW version plus a
  * `valid_to` on the old row, so an observation recorded under the previous
- * meaning is still interpretable. The trigger lives in
- * `catalogExternalMappings.pending.sql` and compares `external_key`, never the
+ * meaning is still interpretable. The trigger is applied in
+ * `drizzle/0094_dizzy_makkari.sql` and compares `external_key`, never the
  * GENERATED `external_key_normalized`: a stored generated column is computed
  * AFTER a `BEFORE UPDATE` trigger, so `NEW.external_key_normalized` is NULL
  * there and the comparison would raise on every update (measured in #59).
+ *
+ * That citation names the migration that CREATED the trigger, which is not the
+ * same as the one that defines it today if a later migration ever
+ * `CREATE OR REPLACE`s the body. `external-mapping-schema.test.ts` refuses more
+ * than one defining migration, so this line cannot go stale silently — but
+ * re-derive it rather than copying it forward. (It said
+ * `catalogExternalMappings.pending.sql` until #831; that staging file was
+ * deleted under CONVENTIONS' two-copies rule once `0094` carried it.)
  *
  * ## No jsonb
  *
