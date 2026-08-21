@@ -53,9 +53,53 @@ const MAX_SUMMARY_ARRAY_LENGTH = 20;
  *
  *  - Emails first, because an address containing digits would otherwise be
  *    partially eaten by the digit rule and become unrecognisable.
- *  - A street-shaped fragment: a number attached to a capitalised word run.
- *    This is the rule neither neighbour has, and it is why this function exists
- *    separately rather than being imported.
+ *  - A street-shaped fragment: a number attached to a word run that is NOT
+ *    lowercase. This is the rule neither neighbour has, and it is why this
+ *    function exists separately rather than being imported.
+ *
+ *    "Capitalised word" is a BICAMERAL PROXY for "proper noun", and it has no
+ *    analogue in a script without case, so the rule is stated in its general
+ *    form: a word may start on an uppercase letter, a titlecase letter, or a
+ *    CASELESS one (`\p{Lo}` — Devanagari, Bengali, Han, Kana, Hangul, Arabic,
+ *    Hebrew, Thai). `\p{Ll}` stays excluded, so the lowercase filter that stops
+ *    `12 items shipped` keeps working in every CASED script: Cyrillic
+ *    `12 товаров отправлено` and Greek `12 είδη απεστάλησαν` still do not match.
+ *    A bare `\p{Lu}` would have been the tempting half-fix — it repairs Cyrillic
+ *    and Greek and leaves Hindi, Bengali, Thai, Arabic, Hebrew and Japanese
+ *    exactly as broken, because `\p{Lu}` matches nothing at all in a caseless
+ *    script.
+ *
+ *    The continuation admits combining marks and ZWNJ/ZWJ. Without `\p{M}` a
+ *    decomposed (NFD) `Nguyễn` redacts as `Nguye` and a Devanagari word stops at
+ *    its first matra; without U+200C/U+200D a Hindi or Bengali conjunct stops at
+ *    the joiner. Both leave a PARTIAL redaction, which is worse than none in one
+ *    specific way: it looks redacted, so a reader scanning for leaked addresses
+ *    sees the marker and moves on with the remainder beside it. NFD is not an
+ *    exotic-script concern — `12 Calle Peñíscola` and `12 Grüner Weg` decompose
+ *    the same way.
+ *
+ *    The bound this keeps, and the reason the next bullet's promise survives:
+ *    EVERY class added here is DISJOINT FROM ASCII. `\p{Lu}` ∩ ASCII is exactly
+ *    `A-Z`, which was already there; `\p{Lt}`, `\p{Lo}`, `\p{M}`, U+200C and
+ *    U+200D contain no ASCII at all. No quantifier, separator or word count
+ *    moved. So on any message drawn from ASCII this function is byte-identical
+ *    to the one that shipped before it, and the SKUs and carrier service codes
+ *    below are untouched by CONSTRUCTION rather than by luck.
+ *
+ *    The cost, stated rather than hidden: a caseless script has no case filter
+ *    to keep, so two or more caseless characters after a house number are
+ *    redacted whether they are an address or prose — Japanese `12 個の商品` reads
+ *    the same to this rule as `2-8-1 西新宿` does. No discriminator inside a
+ *    caseless script tells those apart, and this is a redactor, so the ambiguity
+ *    resolves toward redacting.
+ *
+ *    What it still does NOT reach, named rather than implied: an address in
+ *    native CJK order (`東京都新宿区西新宿2-8-1`) puts the number LAST and uses no
+ *    separator, so no character class makes it match. That is a limit of the
+ *    SHAPE this rule looks for, not of the alphabet it looks for it in, and
+ *    closing it would take an administrative-suffix lexicon — a different
+ *    mechanism carrying its own over-match cost against Japanese product names.
+ *    Mechanisms 1 and 2 above are what stand in front of that case.
  *  - Any run of FIVE or more digits: a phone number, an order reference
  *    carrying one, and — the reason the threshold differs from the preflight
  *    version's six — a postal code. Five digits is the most common postal
@@ -72,7 +116,21 @@ const MAX_SUMMARY_ARRAY_LENGTH = 20;
 export function redactSupplierOrderMessage(message: string): string {
   const scrubbed = message
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, REDACTED)
-    .replace(/\b\d{1,4}[A-Za-z]?[,\s]+(?:[A-Z][\p{L}'.-]+[\s,]*){1,4}/gu, `${REDACTED} `)
+    // Two spellings here are deliberate rather than stylistic.
+    //
+    // U+200C/U+200D are written as ESCAPES, never as themselves: a literal
+    // zero-width joiner is invisible in every diff, review and terminal, which
+    // is exactly the state that let the mark handling stay wrong unnoticed.
+    //
+    // And they sit in an ALTERNATION rather than inside the character class,
+    // because `no-misleading-character-class` rejects a joiner in a class — a
+    // correct rule, since in a class a joiner reads as "one more member" while
+    // its actual job is to bind its NEIGHBOURS into one grapheme. The
+    // alternation says the same thing and says it visibly.
+    .replace(
+      /\b\d{1,4}[A-Za-z]?[,\s]+(?:[\p{Lu}\p{Lt}\p{Lo}](?:[\p{L}\p{M}'.-]|\u200c|\u200d)+[\s,]*){1,4}/gu,
+      `${REDACTED} `,
+    )
     .replace(/\b\d{5,}\b/g, REDACTED)
     .replace(/\b(?=[A-Z0-9]{5,8}\b)(?=.*\d)(?=.*[A-Z])[A-Z0-9]+\b/g, REDACTED);
   const collapsed = scrubbed.replace(/\s{2,}/g, ' ').trim();

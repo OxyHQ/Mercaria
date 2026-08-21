@@ -375,6 +375,25 @@ Three mechanisms, in decreasing order of how much they are relied on:
    address where the preflight's do not. The cost is stated — a purely numeric
    five-digit SKU loses its digits in a provider message.
 
+   The street rule matches a house number followed by a word run that is **not
+   lowercase** (#832). "Capitalised word" is a bicameral proxy for "proper
+   noun", so the class is `\p{Lu}\p{Lt}\p{Lo}` — capitalised, **or caseless**,
+   because Devanagari, Bengali, Han, Kana, Hangul, Arabic, Hebrew and Thai have
+   no case for `\p{Lu}` to match. `\p{Ll}` stays out, so the filter that spares
+   `12 items shipped` still spares `12 товаров отправлено`. The continuation
+   admits `\p{M}` and U+200C/U+200D, without which a decomposed `Nguyễn` or a
+   Hindi conjunct redacts to a PARTIAL — worse than none, because it looks
+   redacted. Every class here is disjoint from ASCII, which is what keeps the
+   SKU and carrier-code promise above true by construction.
+
+   **Two limits, both deliberate.** In a caseless script there is no case
+   filter, so a caseless run of two or more after a house number is redacted
+   whether it is an address or prose. And an address in native CJK order
+   (`東京都新宿区西新宿2-8-1`) puts the number last with no separator, so the
+   shape never engages and no character class would change that — closing it
+   needs an administrative-suffix lexicon. Mechanisms 1 and 2 are what stand in
+   front of that case; a test pins it so the gap stays discoverable.
+
 `supplier_order_attempts.request_hash` and both
 `supplier_provider_events` handles are PROTECTED (`db/protectedColumns.ts`): a
 digest over a request containing a street address is an exact-match ORACLE, the
