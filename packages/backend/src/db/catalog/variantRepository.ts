@@ -24,7 +24,9 @@ import type { CurrencyCode } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import {
   inventoryLevels,
+  listingImages,
   listings,
+  productVariantImages,
   productVariantOptionValues,
   productVariants,
 } from '../schema/catalog.js';
@@ -34,6 +36,26 @@ export type VariantRecord = InferSelectModel<typeof productVariants>;
 
 /** One row of `product_variant_option_values`. */
 export type VariantOptionValueRecord = InferSelectModel<typeof productVariantOptionValues>;
+
+/**
+ * One gallery photograph a variant shows, as `findVariantImages` returns it.
+ *
+ * It is a `listing_images` projection, NOT a `product_variant_images` row: the
+ * join row carries only the selection and its order, and every field a client
+ * renders (the file id, the alt text) belongs to the gallery entry. Returning
+ * the join row would make a caller fetch the image separately and would invite
+ * the second upload channel the table exists to prevent -- the shape is the
+ * argument.
+ *
+ * `position` is the VARIANT's ordering, not the gallery's. A variant's set is a
+ * different set, so it carries its own order; see the table's doc comment.
+ */
+export interface VariantImageRecord {
+  readonly variantId: string;
+  readonly fileId: string;
+  readonly alt: string | null;
+  readonly position: number;
+}
 
 /** A `{name, value}` option assignment as a caller supplies it. */
 export interface OptionValueInput {
@@ -186,6 +208,53 @@ export async function findVariantOptionValues(
     .from(productVariantOptionValues)
     .where(inArray(productVariantOptionValues.variantId, [...variantIds]))
     .orderBy(asc(productVariantOptionValues.position));
+
+  for (const row of rows) {
+    const bucket = grouped.get(row.variantId);
+    if (bucket) bucket.push(row);
+    else grouped.set(row.variantId, [row]);
+  }
+  return grouped;
+}
+
+/**
+ * The gallery photographs a batch of variants show, in each variant's own order
+ * (#850).
+ *
+ * ONE statement for the whole batch, the `findVariantOptionValues` shape. A
+ * per-variant read is the N+1 that a listing with forty configurations turns
+ * into forty round trips on every product page.
+ *
+ * A variant with no selections is ABSENT from the map rather than present with
+ * an empty array, so a caller cannot mistake "this variant chose no photographs"
+ * for "this variant was not in the batch". The fallback that absence implies is
+ * `resolveVariantImages`' to apply, never this function's: a repository that
+ * silently substituted the listing's gallery would make the two cases
+ * indistinguishable at every call site above it.
+ *
+ * Ordered by `(position, id)`. The id tiebreak is not decoration -- `position`
+ * carries no uniqueness constraint, so two selections sharing one would
+ * otherwise order non-deterministically between requests, which is the bug
+ * `nextVariantPosition` documents one function down.
+ */
+export async function findVariantImages(
+  variantIds: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<Map<string, VariantImageRecord[]>> {
+  const grouped = new Map<string, VariantImageRecord[]>();
+  if (variantIds.length === 0) return grouped;
+
+  const rows = await db
+    .select({
+      variantId: productVariantImages.variantId,
+      fileId: listingImages.fileId,
+      alt: listingImages.alt,
+      position: productVariantImages.position,
+    })
+    .from(productVariantImages)
+    .innerJoin(listingImages, eq(productVariantImages.listingImageId, listingImages.id))
+    .where(inArray(productVariantImages.variantId, [...variantIds]))
+    .orderBy(asc(productVariantImages.position), asc(productVariantImages.id));
 
   for (const row of rows) {
     const bucket = grouped.get(row.variantId);
