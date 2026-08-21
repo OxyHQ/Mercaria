@@ -38,10 +38,8 @@ import {
 } from '../services/attributes/review-queue.service.js';
 import { measureCoverage, prioritizeCoverage } from '../services/attributes/coverage.service.js';
 import { auditAliasFold } from '../services/attributes/alias-fold-audit.js';
-import {
-  listPendingReindexRequests,
-  upsertAttributeSourceMapping,
-} from '../db/attributes/attributeOpsRepository.js';
+import { listPendingReindexRequests } from '../db/attributes/attributeOpsRepository.js';
+import { recordAttributeSourceMapping } from '../services/attributes/source-mapping.service.js';
 import type {
   AttributeDefinitionDraftBody,
   AttributeObservationBody,
@@ -110,13 +108,19 @@ export async function listDefinitionHistoryHandler(req: Request, res: Response):
   }
 }
 
-/** POST /internal/catalog-attributes/source-mappings — how a feed's fields map. */
+/**
+ * POST /internal/catalog-attributes/source-mappings — how a feed's fields map.
+ *
+ * Through the service rather than straight at the repository, because the write
+ * owes a reindex for every entity the mapping can have read and the two have to
+ * commit together (#821).
+ */
 export async function upsertSourceMappingHandler(req: Request, res: Response): Promise<void> {
   try {
     const body = req.body as AttributeSourceMappingBody;
-    const mapping = await upsertAttributeSourceMapping(getDb(), {
+    const mapping = await recordAttributeSourceMapping({
       catalogSourceId: body.catalogSourceId,
-      sourceField: body.sourceField.trim().toLowerCase(),
+      sourceField: body.sourceField,
       attributeKey: body.attributeKey,
       assumedUnit: body.assumedUnit ?? null,
       componentAxis: body.componentAxis ?? null,
