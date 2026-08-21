@@ -31,7 +31,7 @@
  * listing the caller has already been proved to own, and each closes a hazard
  * that the composite foreign keys alone do NOT close:
  *
- *  - The VARIANT is resolved through `findVariantsByListing`, because
+ *  - The VARIANT is resolved through `findVariantInListing`, because
  *    `replaceVariantImages` opens with `delete … where variant_id = $1` and that
  *    statement is not scoped by listing. Handed a variant id belonging to
  *    somebody else's listing it would clear THAT variant's selections and only
