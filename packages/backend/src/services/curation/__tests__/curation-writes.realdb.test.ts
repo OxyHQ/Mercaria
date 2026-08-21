@@ -3123,3 +3123,192 @@ describe('a merchant merge carries a shopper’s exclusion (#716)', () => {
   });
 });
 
+
+/**
+ * THE PHASE RECORD, in both directions (epic #367, "Backfill/reindex jobs resume
+ * safely after interruption").
+ *
+ * `merge.service.ts`'s header states the property this file existed without
+ * ever testing half of: *"a phase already stamped is skipped, while one claimed
+ * but never stamped is RE-RUN"*. The RE-RUN half is covered above, by the
+ * idempotency case that deletes a phase record. The SKIP half was covered
+ * NOWHERE — measured before writing this: `alreadyComplete` had exactly one
+ * reader in the whole repository (`merge.service.ts`) and no test reference at
+ * all, and because every phase body is idempotent by design, deleting the
+ * `if (!claim.alreadyComplete)` guard re-executed every stamped phase and left
+ * the suite green. The guard was, as far as the suite could tell, an
+ * optimisation.
+ *
+ * ## Why the two cases differ by exactly one nullable column
+ *
+ * Both build the same pair, park the job on `redirects` under an EXPIRED lease —
+ * the crash a phase record exists for, and the dispatcher's own reclaim path,
+ * not a hand-written state fix-up — and insert the `redirects` phase row. The
+ * only difference is `completed_at`. So whatever separates the outcomes is the
+ * skip decision and nothing else; a fixture difference cannot be responsible,
+ * because there is only one.
+ *
+ * ## Why `redirects`, and why the SKIP case ends in a THROW
+ *
+ * `redirects` stamps the tombstone, which is one nullable column on the loser
+ * and needs no fixture of its own to observe. Skipping it therefore leaves the
+ * loser live — and `verify`, which runs two phases later, exists to notice
+ * exactly that and says so by name. So the skip is visible twice over: the
+ * consistency check names the work that did not happen, and the column it would
+ * have written is still empty. A test that only asserted "the run completed"
+ * would pass in both directions, which is how this half went unnoticed.
+ */
+describe('RESUMPTION: a stamped phase is skipped and an unstamped one is re-run', () => {
+  /**
+   * A canonical product with NO children at all.
+   *
+   * `seedProduct` gives its product a variant, and a variant is a child the
+   * phases BEFORE `redirects` are supposed to rehome. Parking a job on
+   * `redirects` skips those phases whether or not the skip under test works, so
+   * `verify` would fail both cases on a residual child and neither would say
+   * anything about the phase record. A childless loser removes that confound:
+   * every earlier phase has nothing to move, so the tombstone is the only thing
+   * left that can differ.
+   */
+  async function seedBareProduct(label: string): Promise<string> {
+    const name = `Curation ${label} ${RUN}`;
+    const rows = await db
+      .insert(canonicalProducts)
+      .values({ slug: `curation-${label}-${RUN}`, name, normalizedName: normalizeEntityName(name) })
+      .returning({ id: canonicalProducts.id });
+    const productId = rows[0]?.id;
+    if (!productId) throw new Error('failed to seed a canonical product');
+    createdProductIds.push(productId);
+    return productId;
+  }
+
+  /**
+   * Park a merge on `redirects` as a dead task would have left it.
+   *
+   * @param stamped Whether the phase row carries a `completed_at`. This is the
+   *   whole of the difference between the two cases.
+   */
+  async function parkOnRedirects(jobId: string, stamped: boolean): Promise<void> {
+    await db
+      .update(catalogMergeJobs)
+      .set({
+        status: 'processing',
+        phase: 'redirects',
+        leaseOwner: 'dead-task',
+        leaseUntil: new Date(Date.now() - 60_000),
+      })
+      .where(eq(catalogMergeJobs.id, jobId));
+    await db
+      .insert(catalogMergeJobPhases)
+      .values({
+        jobId,
+        phase: 'redirects',
+        startedAt: new Date(Date.now() - 30_000),
+        completedAt: stamped ? new Date(Date.now() - 20_000) : null,
+      })
+      .onConflictDoNothing();
+  }
+
+  /** The loser's tombstone columns — what `redirects` writes, and nothing else. */
+  async function tombstoneOf(productId: string) {
+    const rows = await db
+      .select({ status: canonicalProducts.status, mergedIntoId: canonicalProducts.mergedIntoId })
+      .from(canonicalProducts)
+      .where(eq(canonicalProducts.id, productId));
+    const row = rows[0];
+    if (!row) throw new Error(`the fixture product ${productId} is missing`);
+    return row;
+  }
+
+  it('SKIPS a phase that is already stamped, and `verify` names the work that did not happen', async () => {
+    const loserId = await seedBareProduct('resume-skip-loser');
+    const winnerId = await seedBareProduct('resume-skip-winner');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId,
+      winnerId,
+      reason: 'a stamped phase must not run again',
+      actorOxyUserId: OPERATOR,
+    });
+
+    // The fixture's own positive control: the tombstone is genuinely empty
+    // before the run, so "still empty afterwards" is a fact about the skip
+    // rather than about a product that was never going to be tombstoned.
+    expect(await tombstoneOf(loserId)).toEqual({ status: 'active', mergedIntoId: null });
+
+    await parkOnRedirects(job.id, true);
+
+    let caught: unknown;
+    try {
+      await claimAndRunMerge(job.id, `lease-resume-skip-${RUN}`);
+    } catch (err) {
+      caught = err;
+    }
+
+    // `verify` refuses to sign off a loser that is not tombstoned, and its
+    // message names the state the skipped phase left behind. Asserted outside a
+    // `rejects.toThrow` wrapper on purpose: assertions inside one are swallowed.
+    expect(caught, 'the run should have failed its consistency check').toBeDefined();
+    expect(String((caught as { message?: string }).message)).toMatch(
+      /failed its consistency check: the loser is active pointing at nothing/,
+    );
+
+    // THE assertion. `redirects` did not run, so its column is untouched.
+    expect(await tombstoneOf(loserId)).toEqual({ status: 'active', mergedIntoId: null });
+
+    // And the record it skipped on is unchanged — the claim is
+    // `ON CONFLICT DO NOTHING`, so a skipped phase is not re-stamped either.
+    const phases = await db
+      .select({ completedAt: catalogMergeJobPhases.completedAt })
+      .from(catalogMergeJobPhases)
+      .where(
+        and(
+          eq(catalogMergeJobPhases.jobId, job.id),
+          eq(catalogMergeJobPhases.phase, 'redirects'),
+        ),
+      );
+    expect(phases).toHaveLength(1);
+    expect(phases[0]?.completedAt).not.toBeNull();
+  });
+
+  it('RE-RUNS a phase that was claimed and never stamped', async () => {
+    const loserId = await seedBareProduct('resume-rerun-loser');
+    const winnerId = await seedBareProduct('resume-rerun-winner');
+    const job = await requestMerge({
+      entityType: 'canonical_product',
+      loserId,
+      winnerId,
+      reason: 'a claimed but unstamped phase must run again',
+      actorOxyUserId: OPERATOR,
+    });
+    expect(await tombstoneOf(loserId)).toEqual({ status: 'active', mergedIntoId: null });
+
+    // Identical to the case above but for `completedAt`. This is the state a
+    // task killed between claiming a phase and finishing it leaves behind.
+    await parkOnRedirects(job.id, false);
+
+    const resumed = await claimAndRunMerge(job.id, `lease-resume-rerun-${RUN}`);
+    expect(resumed.completed).toBe(true);
+
+    // THE assertion, and the mirror of the one above: the phase ran, so the
+    // tombstone it owes is written and `verify` had nothing to complain about.
+    expect(await tombstoneOf(loserId)).toEqual({
+      status: 'merged',
+      mergedIntoId: winnerId,
+    });
+
+    // The record it re-ran is stamped now, by the completion rather than by the
+    // fixture — `completeMergePhase` updates `WHERE completed_at IS NULL`.
+    const phases = await db
+      .select({ completedAt: catalogMergeJobPhases.completedAt })
+      .from(catalogMergeJobPhases)
+      .where(
+        and(
+          eq(catalogMergeJobPhases.jobId, job.id),
+          eq(catalogMergeJobPhases.phase, 'redirects'),
+        ),
+      );
+    expect(phases).toHaveLength(1);
+    expect(phases[0]?.completedAt).not.toBeNull();
+  });
+});
