@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateBody, validateQuery, validateId } from '../middleware/validate.js';
 import {
   notificationListQuerySchema,
@@ -41,26 +40,24 @@ router.get('/vapid-public-key', getVapidPublicKey);
 router.use(authenticateToken);
 
 // Notification feed + read state (static routes first, then param routes).
-router.get('/', makeRateLimiter('general'), validateQuery(notificationListQuerySchema), listNotifications);
-router.get('/unread-count', makeRateLimiter('general'), getUnreadCount);
-router.post('/read-all', makeRateLimiter('general'), markAllRead);
-router.patch('/:id/read', makeRateLimiter('general'), validateId('id'), markRead);
-router.patch('/:id/dismiss', makeRateLimiter('general'), validateId('id'), dismiss);
+router.get('/', validateQuery(notificationListQuerySchema), listNotifications);
+router.get('/unread-count', getUnreadCount);
+router.post('/read-all', markAllRead);
+router.patch('/:id/read', validateId('id'), markRead);
+router.patch('/:id/dismiss', validateId('id'), dismiss);
 
 // Expo push-token management.
-router.post('/push-token', makeRateLimiter('general'), validateBody(pushTokenSchema), registerPushToken);
-router.delete('/push-token', makeRateLimiter('general'), validateBody(pushTokenDeleteSchema), removePushToken);
+router.post('/push-token', validateBody(pushTokenSchema), registerPushToken);
+router.delete('/push-token', validateBody(pushTokenDeleteSchema), removePushToken);
 
 // Web-push subscription management.
 router.post(
   '/web-push-subscription',
-  makeRateLimiter('general'),
   validateBody(webPushSubscriptionSchema),
   registerWebPushSubscription,
 );
 router.delete(
   '/web-push-subscription',
-  makeRateLimiter('general'),
   validateBody(webPushSubscriptionDeleteSchema),
   removeWebPushSubscription,
 );

@@ -6,9 +6,21 @@
  * limits are shared across all ECS tasks behind the ALB. Without Redis it falls
  * back to the SDK's in-memory store (per-instance).
  *
- * Each scope MUST use a unique `rl:<scope>:` Redis prefix — sharing one Redis
- * client across limiters without distinct prefixes makes them increment the
- * same key and halves the effective budget (ERR_ERL_DOUBLE_COUNT).
+ * The Redis key prefix IS the scope name, so **one request must never pass
+ * through two limiters on the same scope** — both increment one key and the
+ * effective budget is halved (`ERR_ERL_DOUBLE_COUNT`). The cause is re-using a
+ * SCOPE, not sharing a Redis client: `app.ts` mounts `general` above every
+ * route, so a router naming `general` again is the whole of it. Twelve did.
+ * Measured on the real chain against a real Redis — `/me` consumed 2 per
+ * request where `/cart` and `/rates` consumed 1, so an anonymous caller had 300
+ * of the intended 600.
+ *
+ * It needs Redis to exist at all: without `REDIS_URL` each limiter builds its
+ * OWN MemoryStore and consumption is 1, so the defect is absent from every
+ * local run and every test and present in production. express-rate-limit's
+ * validator does fire, in `production` as well as `test`, but as a
+ * `console.error` that does not fail the request.
+ * `lib/__tests__/rate-limit-scope-census.test.ts` is the gate.
  */
 
 import type { Request, RequestHandler } from 'express';
