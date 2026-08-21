@@ -31,8 +31,12 @@
  *   run-suffixed values.
  * - **`category_is_active_projection`** compares two columns of `categories`,
  *   which a listing predicate cannot narrow. It is asserted as a DELTA against
- *   the same probe moments earlier, which is causal and immune to whatever a
- *   sibling is doing.
+ *   the same probe moments earlier — and BOTH readings are taken inside one
+ *   rolled-back `repeatable read` transaction, which is what makes the delta
+ *   causal rather than merely adjacent. This paragraph used to claim the delta
+ *   was "immune to whatever a sibling is doing" on the strength of the two
+ *   readings being close together; that is not a property `read committed`
+ *   has, and #843 is the measured counter-example.
  * - **`category_browse_count_agreement`** examines every published selectable
  *   category, but COUNTS through the cohort — so a category with none of this
  *   file's listings answers 0 = 0 and agrees. Its `diverged` is therefore exact
@@ -616,37 +620,88 @@ describe('the reconciliation probes', () => {
   });
 
   it('finds `is_active` and `lifecycle` in step, and notices when they are not', async () => {
-    const clean = await runLegacyCatalogReconciliation(db, { cohort, listingLimit: 500 });
-    const cleanProbe = clean.probes.find((p) => p.probe === 'category_is_active_projection');
-    // Whole-catalogue: a listing predicate cannot narrow a comparison between
-    // two columns of `categories`, so this is a floor and the mutation below is
-    // asserted as a DELTA rather than as an absolute.
-    expect(cleanProbe?.examined, 'the probe measured nothing').toBeGreaterThanOrEqual(13);
-
     // Mutation-tested: the repository keeps these in step and NOTHING in the
     // database does, so a second writer would produce exactly this row. The
     // mutation is asserted to have LANDED before the detector is asserted to
     // fire, and the detector's result is asserted outside the rollback — a
     // `rejects.toThrow()` around the whole transaction would make a failed inner
     // assertion indistinguishable from the deliberate rollback.
+    //
+    // ## Both readings share ONE snapshot, and that is load-bearing (#843)
+    //
+    // `category_is_active_projection` is deliberately WHOLE-CATALOGUE: a listing
+    // predicate cannot narrow a comparison between two columns of `categories`,
+    // so the mutation is asserted as a DELTA rather than as an absolute. A delta
+    // over the whole catalogue is only a measurement of what THIS file did if
+    // nothing else moves between the two readings, and the test database is
+    // shared across parallel files. At PostgreSQL's default `read committed`
+    // every statement takes a fresh snapshot, so a sibling committing a
+    // divergent `categories` row between the readings lands in the delta. #843
+    // observed that as `expected 2 to be 1` once in three consecutive
+    // full-suite runs on an unchanged tree; the MECHANISM was then confirmed
+    // deterministically, by committing such a row from a second connection
+    // between the two readings and watching this assertion produce exactly that
+    // message.
+    //
+    // A sibling that can commit one is
+    // `search-intent/__tests__/category-alias.realdb.test.ts`, which sets
+    // `is_active = false` outside a transaction against a row whose `lifecycle`
+    // stays `'published'`, for the width of one `try`. It is named as a
+    // demonstrated CAPABILITY rather than as the culprit of the observed run —
+    // which nothing caught in the act — and naming it is not the fix either,
+    // because the next such writer has not been written yet.
+    //
+    // At `repeatable read` every statement in the transaction reads the snapshot
+    // taken by the first one, so everybody else's catalogue is frozen for the
+    // duration while this transaction's own write stays visible to it. The delta
+    // is then exactly what this file did. Write conflicts cannot arise — the row
+    // touched carries a per-run id no other file can mint — and the transaction
+    // is rolled back regardless. This is the idiom the five
+    // `catalog-observability` realdb files already use for the same reason.
     const target = categoryId('shelf');
+    let clean: Awaited<ReturnType<typeof runLegacyCatalogReconciliation>> | undefined;
     let dirty: Awaited<ReturnType<typeof runLegacyCatalogReconciliation>> | undefined;
     try {
-      await db.transaction(async (tx) => {
-        const updated = await tx
-          .update(categories)
-          .set({ isActive: false })
-          .where(eq(categories.id, target))
-          .returning({ id: categories.id });
-        if (updated.length !== 1) throw new Error('the mutation did not land');
-        dirty = await runLegacyCatalogReconciliation(tx, { cohort, listingLimit: 500 });
-        tx.rollback();
-      });
+      await db.transaction(
+        async (tx) => {
+          // The snapshot IS the mechanism, so it is asserted from the SERVER
+          // rather than trusted from the argument below. Dropping
+          // `isolationLevel` makes this line fail on every run, instead of
+          // making the delta pass two runs in three — which is how it got here.
+          const [isolation] = await tx.execute<{ readonly transaction_isolation: string }>(
+            sql`show transaction_isolation`,
+          );
+          expect(
+            isolation?.transaction_isolation,
+            'both readings must be taken in ONE snapshot',
+          ).toBe('repeatable read');
+
+          clean = await runLegacyCatalogReconciliation(tx, { cohort, listingLimit: 500 });
+          const updated = await tx
+            .update(categories)
+            .set({ isActive: false })
+            .where(eq(categories.id, target))
+            .returning({ id: categories.id });
+          if (updated.length !== 1) throw new Error('the mutation did not land');
+          dirty = await runLegacyCatalogReconciliation(tx, { cohort, listingLimit: 500 });
+          tx.rollback();
+        },
+        { isolationLevel: 'repeatable read' },
+      );
       throw new Error('the transaction did not roll back');
     } catch (error) {
       if (!(error instanceof TransactionRollbackError)) throw error;
     }
+    const cleanProbe = clean?.probes.find((p) => p.probe === 'category_is_active_projection');
     const dirtyProbe = dirty?.probes.find((p) => p.probe === 'category_is_active_projection');
+    expect(cleanProbe?.examined, 'the probe measured nothing').toBeGreaterThanOrEqual(13);
+    // The POPULATION must not move either, or the delta could have come from a
+    // scan that grew rather than from the mutation. Under `read committed` this
+    // is exactly what a sibling inserting a category between the readings does;
+    // under one snapshot it cannot happen, so this asserts the snapshot itself.
+    expect(dirtyProbe?.examined, 'the catalogue moved between the two readings').toBe(
+      cleanProbe?.examined,
+    );
     expect((dirtyProbe?.diverged ?? 0) - (cleanProbe?.diverged ?? 0)).toBe(1);
   });
 });
