@@ -22,15 +22,29 @@
  * `canonical_product_secondary_categories_justification_present_check` is
  * STORED as `..._justification_present_ch`. Keying on a full name would match
  * nothing, silently, and produce the generic 500 this function exists to
- * prevent — so the match is on a PREFIX of the stored name, and a real-server
- * test drives every constraint and asserts the code that comes back, which is
- * what stops the prefixes rotting.
+ * prevent — so the match is on a PREFIX of the stored name.
  *
  * The trigger refusals are matched on SQLSTATE plus a substring of the message
  * the trigger itself raises. That is weaker than a constraint name and it is
- * the only handle a `RAISE EXCEPTION` gives; the same real-server test pins
- * each one, so a reworded trigger fails the suite rather than degrading to a
- * 500 in production.
+ * the only handle a `RAISE EXCEPTION` gives.
+ *
+ * ## Which branches a CLIENT can actually reach, stated rather than implied
+ *
+ * Not all of them, and an earlier version of this comment claimed a real-server
+ * test drove "every constraint", which was not true and would have read as
+ * coverage. Through `/internal/taxonomy/*` the reachable refusals are: the
+ * unique index (a repeat filing), the foreign key (an unknown category), and
+ * every `restrict_violation` — selectability, kinship, assignable lifecycle,
+ * and a subject with no primary. Each of those IS driven over HTTP by
+ * `routes/__tests__/taxonomy-classification.realdb.test.ts`, so a reworded
+ * trigger or a rotted prefix fails the suite.
+ *
+ * The four CHECK branches are NOT reachable through the route, because the
+ * request schema and `recordSecondaryClassification`'s own scheme/reason test
+ * refuse those bodies first. They are kept as defence in depth for a caller
+ * that is not the route — a script, a future service, a repair — and they are
+ * proved to FIRE by direct-SQL cases that bypass this function entirely. What
+ * is not proved is the sentence each returns, and that is the honest state.
  */
 
 import { constraintNameOf, sqlStateOf } from '@oxyhq/db';

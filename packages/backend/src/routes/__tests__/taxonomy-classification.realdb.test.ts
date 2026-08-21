@@ -101,6 +101,8 @@ const CAT = {
 
 const LISTING_ID = `lst-${RUN}`;
 let canonicalProductId = '';
+/** A canonical product with NO primary category, for the no-primary refusal. */
+let unclassifiedProductId = '';
 const SELLER_ID = `oxy-seller-${RUN}`;
 
 interface Json {
@@ -302,6 +304,17 @@ beforeAll(async () => {
   if (!product) throw new Error('canonical product insert returned no row');
   canonicalProductId = product.id;
 
+  const [unclassified] = await db
+    .insert(canonicalProducts)
+    .values({
+      name: `Unclassified ${RUN}`,
+      normalizedName: `unclassified ${RUN}`,
+      slug: `unclassified-${RUN}`,
+    })
+    .returning();
+  if (!unclassified) throw new Error('canonical product insert returned no row');
+  unclassifiedProductId = unclassified.id;
+
   const { createApp } = await import('../../app.js');
   const app = createApp();
   server = await new Promise<Server>((resolve) => {
@@ -343,7 +356,9 @@ afterAll(async () => {
   // in a file that did nothing wrong. The helper DECLINES exactly the pinned
   // ids instead of deleting a sibling's row.
   const { deleteTestCanonicalRows } = await import('../../db/__tests__/canonical-teardown.js');
-  await deleteTestCanonicalRows(db, { productIds: [canonicalProductId] });
+  await deleteTestCanonicalRows(db, {
+    productIds: [canonicalProductId, unclassifiedProductId],
+  });
   // Deepest category first — `parent_id` is `restrict` too.
   await db
     .delete(categories)
@@ -496,6 +511,47 @@ describe('filing a secondary classification over HTTP', () => {
     );
     expect(response.status).toBe(400);
     expect(refusalText(response.body)).toContain('structural node');
+  });
+});
+
+describe('a secondary needs something to be secondary TO', () => {
+  /**
+   * Reachable over HTTP, unlike most of the database's refusals: the write
+   * schema cannot see that the SUBJECT has no primary, so this is one of the
+   * few constraint branches a client can actually provoke — which is why it is
+   * driven through the route rather than only by direct SQL.
+   */
+  it('refuses a filing on a subject with no primary category', async () => {
+    const response = await request(
+      'POST',
+      `/internal/taxonomy/classifications/canonical_product/${unclassifiedProductId}`,
+      // `CAT.audio`, deliberately NOT `CAT.cameras`: the usage-count cases below
+      // assert an EXACT count under cameras across both subject kinds, and a
+      // filing made here would be counted there. Scoping a fixture to ids no
+      // other case asserts on is the same discipline as scoping it to this
+      // file's own RUN.
+      validBody(CAT.audio),
+    );
+    expect(response.status).toBe(409);
+    expect(refusalText(response.body)).toContain('no primary category');
+  });
+
+  it('accepts the SAME filing once that subject has a primary — the control', async () => {
+    // Without this the case above would pass against a surface that refused
+    // every filing on that product for any reason at all.
+    const { canonicalProducts } = await import('../../db/schema/canonicalCatalog.js');
+    const { eq } = await import('drizzle-orm');
+    await db
+      .update(canonicalProducts)
+      .set({ categoryId: CAT.phones })
+      .where(eq(canonicalProducts.id, unclassifiedProductId));
+
+    const response = await request(
+      'POST',
+      `/internal/taxonomy/classifications/canonical_product/${unclassifiedProductId}`,
+      validBody(CAT.audio),
+    );
+    expect(response.status).toBe(201);
   });
 });
 
