@@ -45,13 +45,33 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { assertDirectoriesAreFlat } from '../../__tests__/domain-population.js';
+import {
+  SRC_ROOT,
+  assertDirectoriesAreFlat,
+  walkOwnedDirectory,
+} from '../../__tests__/domain-population.js';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCHEMA_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'schema');
-const MIDDLEWARE_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'middleware');
+
+/**
+ * The directories a request schema is declared in.
+ *
+ * `middleware/` alone was the population until #367 line 104's DTO half was
+ * built, and it was short: `listingQuerySchema` lives in
+ * `controllers/listings.controller.ts` and carries BOTH `category:
+ * z.string()` and `productType: z.string()`, so CLAUSE 3 reported a frozen set
+ * of seven while nine existed. Neither the count nor any floor here could see
+ * it — the two extra fields were outside the walk, which is exactly the shape
+ * `domain-population.ts` was written for.
+ *
+ * `routes/` contributes zero today and is in the population anyway: three route
+ * modules already declare zod schemas, so it is a place the tenth would land
+ * and the file floor below is what proves the walk reached it.
+ */
+const REQUEST_SCHEMA_DIRECTORIES = ['middleware', 'controllers', 'routes'] as const;
 
 /**
  * Both spellings of a single-column foreign key.
@@ -119,9 +139,13 @@ const NON_ID_TARGET_EXEMPTIONS: readonly { table: string; column: string; why: s
  * deliberately did not break them.
  *
  * So the assertion is an exact set, not a count and not a ceiling. A NEW bare
- * identity string anywhere under `middleware/` fails this test; removing one as
- * a v1 contract retires fails it too, which is correct — the retirement is the
- * moment somebody should be reading this list.
+ * identity string anywhere in `REQUEST_SCHEMA_DIRECTORIES` fails this test;
+ * removing one as a v1 contract retires fails it too, which is correct — the
+ * retirement is the moment somebody should be reading this list.
+ *
+ * `file` is the path relative to `src/`, not a basename. Two directories are
+ * walked now and a basename key cannot tell `middleware/schemas.ts` from a
+ * `controllers/schemas.ts` somebody adds.
  *
  * Note what is NOT in it: all nine of the catalog epic's own schema modules
  * (`catalog-authoring-schemas.ts`, `catalog-proposal-schemas.ts`,
@@ -129,15 +153,21 @@ const NON_ID_TARGET_EXEMPTIONS: readonly { table: string; column: string; why: s
  * `attribute-schemas.ts`, `canonical-catalog-schemas.ts`,
  * `catalog-governance-schemas.ts`, `catalog-page-schemas.ts`) contribute zero
  * rows. The epic's own contracts are clean; every entry below predates it.
+ *
+ * The DTO half of every one of these lives in `@mercaria/shared-types` and is
+ * gated by `scripts/validate-catalog-identity-contracts.mjs`, which reads
+ * `IDENTITY_SHAPED_FIELDS` below rather than copying it.
  */
 const LEGACY_BARE_IDENTITY_FIELDS: readonly { file: string; field: string; why: string }[] = [
-  { file: 'schemas.ts', field: 'category', why: 'createP2PListingSchema (v1)' },
-  { file: 'schemas.ts', field: 'category', why: 'updateListingSchema (v1)' },
-  { file: 'schemas.ts', field: 'productType', why: 'updateListingSchema — the Shopify free-text field, not a product type definition' },
-  { file: 'schemas.ts', field: 'category', why: 'createStoreProductSchema (v1)' },
-  { file: 'schemas.ts', field: 'productType', why: 'createStoreProductSchema — the Shopify free-text field' },
-  { file: 'schemas.ts', field: 'productType', why: 'ingestProductSchema — the plugin push contract, mirrors the platform field' },
-  { file: 'sell-yours-schemas.ts', field: 'category', why: 'patchSellerDraftSchema — beside a real canonicalProductId' },
+  { file: 'middleware/schemas.ts', field: 'category', why: 'createP2PListingSchema (v1)' },
+  { file: 'middleware/schemas.ts', field: 'category', why: 'updateListingSchema (v1)' },
+  { file: 'middleware/schemas.ts', field: 'productType', why: 'updateListingSchema — the Shopify free-text field, not a product type definition' },
+  { file: 'middleware/schemas.ts', field: 'category', why: 'createStoreProductSchema (v1)' },
+  { file: 'middleware/schemas.ts', field: 'productType', why: 'createStoreProductSchema — the Shopify free-text field' },
+  { file: 'middleware/schemas.ts', field: 'productType', why: 'ingestProductSchema — the plugin push contract, mirrors the platform field' },
+  { file: 'middleware/sell-yours-schemas.ts', field: 'category', why: 'patchSellerDraftSchema — beside a real canonicalProductId' },
+  { file: 'controllers/listings.controller.ts', field: 'category', why: 'listingQuerySchema (v1) — the browse filter, matched against the GIN-indexed listings.category_slugs' },
+  { file: 'controllers/listings.controller.ts', field: 'productType', why: 'listingQuerySchema — filters on the mirrored platform string, not a product type definition' },
 ];
 
 /** Field names that must never be a bare string in a request schema. */
@@ -162,7 +192,18 @@ const BARE_IDENTITY_FIELD = new RegExp(
 const MINIMUM_SCHEMA_FILES = 78;
 const MINIMUM_SINGLE_COLUMN_FKS = 740;
 const MINIMUM_COMPOSITE_FK_TARGETS = 15;
-const MINIMUM_MIDDLEWARE_FILES = 60;
+/**
+ * Per DIRECTORY, not one total for the walk.
+ *
+ * A single floor over the union is met by `middleware/` alone, so the two
+ * directories added when the population was widened could go back to
+ * contributing nothing and the number would still clear.
+ */
+const MINIMUM_REQUEST_SCHEMA_FILES: Readonly<Record<string, number>> = {
+  middleware: 60,
+  controllers: 100,
+  routes: 100,
+};
 
 interface ForeignKeyTarget {
   readonly file: string;
@@ -272,14 +313,23 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
   });
 
   it('CLAUSE 3 — no NEW bare identity-shaped string in a request schema', () => {
-    const files = readdirSync(MIDDLEWARE_DIR)
-      .filter((entry) => entry.endsWith('.ts'))
-      .sort();
-    expect(files.length).toBeGreaterThanOrEqual(MINIMUM_MIDDLEWARE_FILES);
+    const files: string[] = [];
+    for (const directory of REQUEST_SCHEMA_DIRECTORIES) {
+      // RECURSIVE. `controllers/admin/` holds 19 modules and `routes/admin/` 23,
+      // and a one-level `readdirSync(...).filter(e => e.isFile())` reaches none
+      // of them while reading exactly like a complete sweep — the defect
+      // `domain-population.ts` was written for, measured across 27 gates.
+      const inDirectory = walkOwnedDirectory(directory).sort();
+      expect(
+        inDirectory.length,
+        `${directory} contributed ${inDirectory.length} modules`,
+      ).toBeGreaterThanOrEqual(MINIMUM_REQUEST_SCHEMA_FILES[directory]);
+      files.push(...inDirectory);
+    }
 
     const found: { file: string; field: string; line: number }[] = [];
     for (const file of files) {
-      const path = join(MIDDLEWARE_DIR, file);
+      const path = join(SRC_ROOT, file);
       expect(statSync(path).size, `${file} is empty`).toBeGreaterThan(0);
       const lines = readFileSync(path, 'utf8').split('\n');
       lines.forEach((line, index) => {
@@ -300,7 +350,7 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
       Object.fromEntries([...expectedCounts].sort()),
     );
     console.log(
-      `[catalog-identity] ${files.length} request-schema modules; ${found.length} legacy bare identity fields, all pre-#367; 0 in the epic's own nine schema modules.`,
+      `[catalog-identity] ${files.length} request-schema modules across ${REQUEST_SCHEMA_DIRECTORIES.join(', ')}; ${found.length} legacy bare identity fields, all pre-#367; 0 in the epic's own nine schema modules.`,
     );
   });
 
@@ -321,7 +371,7 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
     ];
     const offenders: string[] = [];
     for (const file of epicModules) {
-      const path = join(MIDDLEWARE_DIR, file);
+      const path = join(SRC_ROOT, 'middleware', file);
       expect(statSync(path).size, `${file} is missing or empty`).toBeGreaterThan(200);
       readFileSync(path, 'utf8')
         .split('\n')
@@ -388,6 +438,42 @@ describe('catalog identity: a foreign key never points at presentation (ADR 0007
       expect(BARE_IDENTITY_FIELD.test('  categoryKey: z.string().min(1),')).toBe(false);
       expect(BARE_IDENTITY_FIELD.test('  productTypeKey: z.string(),')).toBe(false);
     });
+
+    it('CLAUSE 3 — EVERY arm of the vocabulary can fire, derived from the vocabulary itself', () => {
+      // The case above exercises `category` and `productType`, which are the
+      // only two of the nine that match anything in the live population.
+      // Measured: the other seven produce a clean zero — and a clean zero is
+      // also what a misspelled, mis-anchored or population-mismatched arm
+      // produces, so seven of the nine were unmeasured in both directions and
+      // the count read as coverage. This drives each one through the REAL
+      // regex, and it is derived from the tuple rather than hand-listed
+      // because the arm somebody would omit from a hand list is the newest
+      // one, which is the one with no live match.
+      expect(IDENTITY_SHAPED_FIELDS.length).toBe(9);
+      for (const field of IDENTITY_SHAPED_FIELDS) {
+        expect(
+          BARE_IDENTITY_FIELD.test(`  ${field}: z.string().trim().min(1),`),
+          `the \`${field}\` arm did not fire`,
+        ).toBe(true);
+        expect(
+          BARE_IDENTITY_FIELD.test(`  ${field}Id: z.string().min(1),`),
+          `the \`${field}\` arm swallowed the opaque-id form beside it`,
+        ).toBe(false);
+      }
+      // A stateful regex would make the loop above depend on iteration order:
+      // `.test` advances `lastIndex` on a `g` pattern and then MISSES the next
+      // call, which reads as an arm that cannot fire.
+      expect(BARE_IDENTITY_FIELD.global).toBe(false);
+    });
+
+    it('CLAUSE 3 — the widened population reaches a nested module a one-level read would miss', () => {
+      // The walk is only as good as its recursion, and the two extra fields
+      // this population was widened for sit at the TOP level of
+      // `controllers/`, so they cannot prove the recursion. `admin/` can.
+      const walked = walkOwnedDirectory('controllers');
+      expect(walked.some((file) => file.startsWith('controllers/admin/'))).toBe(true);
+      expect(walked.every((file) => !file.includes('__tests__'))).toBe(true);
+    });
   });
 });
 
@@ -398,6 +484,9 @@ describe('#668 — the one-level reads in this gate list only FLAT directories',
     // silently, so it is asserted rather than assumed. `assertDirectoriesAreFlat`
     // carries its own floor — the inline version of this loop had none, and
     // emptying its array left a whole file green (#697).
+    // `middleware` only. `controllers` and `routes` are NOT flat — they carry
+    // `admin/` — which is why CLAUSE 3 walks them recursively rather than
+    // asserting a flatness that is measurably false.
     assertDirectoriesAreFlat(['db/schema', 'middleware']);
   });
 });

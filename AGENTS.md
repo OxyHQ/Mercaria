@@ -29,7 +29,7 @@ bun run build:shared-types                # ALWAYS before db:generate
 bun run --cwd packages/backend test        # vitest, incl. the *.realdb.test.ts suites
 bun run --cwd packages/backend typecheck   # also --filter @mercaria/{ui,frontend,dashboard,pos}
 bun run --filter @mercaria/backend lint
-bun run validate:agents-md                # budget; ci.yml names all 11
+bun run validate:agents-md                # budget; ci.yml names all 15
 bun run --cwd packages/backend db:generate # drizzle-kit; needs the marker below
 ```
 
