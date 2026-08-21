@@ -46,6 +46,7 @@ import type { AnalyticsQueryRedactionKind } from '@mercaria/shared-types';
 import {
   ANALYTICS_QUERY_REDACTED_MARKER,
   ANALYTICS_QUERY_REDACTION_KINDS,
+  wordTokens,
 } from '@mercaria/shared-types';
 
 /** The longest query kept. Beyond this it is truncated and reported `oversized`. */
@@ -210,12 +211,22 @@ export function redactSearchQuery(raw: string): RedactedQuery {
  * `[redacted]` would merge every query that contained anything sensitive into
  * one very popular "query", which would then clear the reporting floor and
  * appear at the top of a merchant's list.
+ *
+ * ## It splits on {@link wordTokens} (#838)
+ *
+ * This split on its own `[^\p{L}\p{N}]+`, and `\p{L}` excludes combining
+ * marks: measured, `साइकिल` (bicycle) and
+ * `साइकिलें` (bicycles) both tokenised
+ * to `["स","इक","ल"]`, so a Hindi merchant's top-queries
+ * report counted two different searches as one and named neither of them. Both
+ * bounds below still apply to the tokens `wordTokens` returns — a token that is
+ * now whole may exceed {@link MAX_TOKEN_LENGTH} where its fragments did not,
+ * and dropping it is the same bound doing the same job.
  */
 export function normalizeQueryTokens(text: string): readonly string[] {
   const withoutMarker = text.split(ANALYTICS_QUERY_REDACTED_MARKER).join(' ');
   const tokens: string[] = [];
-  for (const candidate of withoutMarker.toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
-    if (candidate === '') continue;
+  for (const candidate of wordTokens(withoutMarker.toLowerCase())) {
     if (candidate.length > MAX_TOKEN_LENGTH) continue;
     tokens.push(candidate);
     if (tokens.length >= MAX_TOKENS) break;

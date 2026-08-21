@@ -31,7 +31,8 @@
  * field that could carry one.
  */
 
-import { foldAccents, normalizeEntityName, wordTokens } from '../canonical/normalization.js';
+import { foldAccents, wordTokens } from '@mercaria/shared-types';
+import { normalizeEntityName } from '../canonical/normalization.js';
 
 /** The three forms of one proposed label. */
 export interface NormalizedProposalLabel {

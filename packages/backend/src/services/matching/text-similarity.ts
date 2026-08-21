@@ -31,7 +31,7 @@
  * the catalogue is richest.
  */
 
-import { foldAccents, wordTokens } from '../canonical/normalization.js';
+import { foldAccents, wordTokens } from '@mercaria/shared-types';
 
 /**
  * Tokens that carry no discriminating information in a product title.

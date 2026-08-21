@@ -113,20 +113,48 @@ refuted it (`@mercaria/dashboard` runs `vitest`), and the real reason turned out
 to be narrower and checkable — the runner is `lib/**`-only with no renderer
 (#469).
 
-## What the gate found on its first run
+## What the gate found on its first run — filed as #838, FIXED
 
 Three **live** instances of the #830 mark-eating mechanism, in three domains
-#830 never touched. All three write a **stored** lookup key, so fixing them
-re-keys existing rows and needs a backfill migration — a separate change with a
-separate review. Filed as #838; pinned meanwhile by
-`text-fold-script-behaviour.test.ts`, where fixing one is a one-line move between
-`MARK_LOSING_FOLDS` and `MARK_PRESERVING_FOLDS`.
+#830 never touched. Fixed in #838; the register in
+`text-fold-script-behaviour.test.ts` is now empty and all three sit in
+`MARK_PRESERVING_FOLDS`, which asserts two properties of every member: two words
+differing only in marks stay distinct, AND a mark-bearing input still carries a
+mark on the way out.
 
-| Module | Fold | Measured |
+| Module | Fold | Measured before the fix |
 |---|---|---|
 | `shared-types/src/condition.ts` | `normalizeSourceConditionLabel` | `साइकिल` and `साइकिलें` both → `"स इक ल"`; `नया` → `"नय"` |
 | `services/analytics/redact-query.ts` | `normalizeQueryTokens` | `साइकिल` → `["स","इक","ल"]`, colliding with `साइकिलें` |
-| `services/catalog-external-mappings/transform-rules.ts` | `strip_diacritics` | `साइकिल`/`साइकिलें` → `"सइकल"`; and hiragana `じてんしゃ` → `してんしゃ`, a different word |
+| `services/catalog-external-mappings/transform-rules.ts` | `strip_diacritics` | `साइकिल`/`साइकिलें` → `"सइकल"`; hiragana `じてんしゃ` → `してんしゃ`; and, not in the original report, Cyrillic `красный` → `красныи` and `ёлка` → `елка` |
+
+### No backfill migration, and the reason is different at each site
+
+#833 recorded all three as needing one, because all three were believed to write
+a stored lookup key. Measured against a real migrated database, that is true of
+two of them and the third writes nothing — and neither of the two can be
+back-filled:
+
+| Site | Stored column | `is_generated` | UNIQUE | Backfill |
+|---|---|---|---|---|
+| condition label | `condition_source_mappings.source_label_normalized` (NOT `condition_mapping_rules`, which does not exist) | `NEVER` | **yes**, with `ruleset_id` | **Impossible.** `condition_source_mappings_frozen` raises on any UPDATE of a row whose ruleset is not `draft`. The schema's own answer to a changed fold is to publish a new ruleset version. |
+| query tokens | `analytics_search_queries.normalized_tokens`, and `analytics_query_aggregates.normalized_query` rolled up from it | `NEVER` | tokens no; `normalized_query` **yes**, with `(bucket_date, market)` | **Wrong to attempt.** An aggregate row is a historical count for one DAY, so re-keying it rewrites history; and `redacted_text` is nulled at `text_expires_at`, so for anything past 30 days the input no longer exists. Production collection is `off`. |
+| `strip_diacritics` | none | — | — | **Nothing to back-fill.** `applyExternalTransform`'s output is returned to the caller and never inserted; `catalog_external_token_observations` stores `observed_raw_value`, the RAW value. The only `*_normalized` column in that domain is `external_key_normalized`, `GENERATED ALWAYS AS lower(btrim(external_key))`, which no JavaScript fold feeds. |
+
+The fold change can only ever SPLIT a key and never merge two, so no UNIQUE
+index can start refusing a write: adding `\p{M}` to the kept class removes
+separators, which makes the new key a refinement of the old one.
+`condition-taxonomy.test.ts` asserts that over a fixture set with a counted floor
+of colliding pairs. The one exception is bounded and harmless —
+`normalizeQueryTokens` drops a token longer than `MAX_TOKEN_LENGTH`, and a token
+that is now whole may exceed it where its fragments did not, on a table with no
+unique index over it.
+
+So the trade is #834's, in the safe direction: an **invisible precision failure**
+(a wrong condition key on an offer, two Hindi searches counted as one) for a
+**visible recall failure** (a pre-existing mapping rule stops matching its label
+until an operator republishes the ruleset; a mapping citing the retired
+`strip_diacritics:1` answers `transform_refused` and routes to review).
 
 Two more, a different class — total loss rather than mark loss, recorded because
 "empty" is not "mostly right":

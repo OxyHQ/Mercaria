@@ -35,6 +35,8 @@
  * so the delegation is legible rather than an omission.
  */
 
+import { wordTokens } from './text-fold';
+
 /**
  * The nine stable condition keys (#90 base taxonomy).
  *
@@ -630,14 +632,23 @@ export const CONDITION_MAPPING_CONFIDENCE_FLOOR = 0.75;
  * first, so `refurbished` written with a combining accent elsewhere in the same
  * feed collapses onto one key. Deliberately lossy and deliberately dumb: it is a
  * lookup key, and every actual mapping decision is a recorded row a human wrote.
+ *
+ * ## It tokenizes through {@link wordTokens} (#838)
+ *
+ * This carried its own `[^\p{Letter}\p{Number}]+` — the #830 class in its long
+ * spelling, which is why a census over `\p{L}` did not see it. `\p{Letter}`
+ * EXCLUDES combining marks, so Devanagari and Bengali vowel signs became spaces:
+ * measured, `साइकिल` (bicycle) and `साइकिलें` (bicycles) both normalized to
+ * `"स इक ल"` and an operator's rule for one Hindi wording silently applied to a
+ * different Hindi word. That is a wrong condition key on somebody's offer, and
+ * it looks exactly like the mapping working.
+ *
+ * It does NOT fold accents, and that is unchanged: `nestlé` stays `nestlé`. NFC
+ * unifies the two spellings of one accented label without deciding that two
+ * different labels are one label.
  */
 export function normalizeSourceConditionLabel(raw: string): string {
-  return raw
-    .normalize('NFC')
-    .toLowerCase()
-    .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
+  return wordTokens(raw.normalize('NFC').toLowerCase()).join(' ');
 }
 
 /**

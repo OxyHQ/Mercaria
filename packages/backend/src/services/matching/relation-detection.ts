@@ -35,7 +35,7 @@
  * is why nothing here ever CREATES a match.
  */
 
-import { foldAccents, wordTokens } from '../canonical/normalization.js';
+import { foldAccents, wordTokens } from '@mercaria/shared-types';
 
 /**
  * What the thing IS, relative to a base product.
