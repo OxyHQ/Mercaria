@@ -32,8 +32,19 @@ import { respondWithError, forbidden, notFound } from '../lib/errors/error-codes
 import { routeParam } from '../utils/request.js';
 import { log } from '../lib/logger.js';
 
-/** Load a P2P listing and assert the caller owns it, or throw NOT_FOUND/FORBIDDEN. */
-async function loadOwnedListing(listingId: string, oxyUserId: string): Promise<ListingRecord> {
+/**
+ * Load a P2P listing and assert the caller owns it, or throw NOT_FOUND/FORBIDDEN.
+ *
+ * EXPORTED for #814's localization sub-router, which mounts under
+ * `/seller/listings/:id` and needs the identical answer to "may this caller act
+ * on this listing". Exported rather than copied deliberately: a second
+ * ownership comparison is a second answer, and the two would drift in the
+ * direction that admits somebody.
+ */
+export async function loadOwnedListing(
+  listingId: string,
+  oxyUserId: string,
+): Promise<ListingRecord> {
   const listing = await findListingById(listingId);
   if (!listing) {
     throw notFound('Listing not found');

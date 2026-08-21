@@ -20,13 +20,17 @@ import {
   createSellerOnboardingLinkHandler,
   getSellerPaymentAccountHandler,
 } from '../controllers/payments.controller.js';
+import { getRequiredOxyUserId } from '@oxyhq/core/server';
 import {
   listMyListings,
   createMyListing,
   getMyListing,
   updateMyListing,
   deleteMyListing,
+  loadOwnedListing,
 } from '../controllers/seller-listings.controller.js';
+import { makeListingLocalizationRouter } from '../controllers/listing-localizations.controller.js';
+import { routeParam } from '../utils/request.js';
 import { listSellerOrders, fulfillOrderHandler } from '../controllers/seller-orders.controller.js';
 import {
   deleteDraft,
@@ -144,6 +148,29 @@ router.patch(
   updateMyListing,
 );
 router.delete('/listings/:id', makeRateLimiter('listings'), validateId('id'), deleteMyListing);
+
+/**
+ * `/seller/listings/:id/localizations` — a P2P seller's own translations (#814).
+ *
+ * The `user` half of a two-mount split;
+ * `/admin/stores/:storeId/products/:id/localizations` is the `store` half, and
+ * both call `makeListingLocalizationRouter`. There is no permission question to
+ * ask here and none is asked: the owner IS the authenticated caller, which
+ * `loadOwnedListing` — the SAME function `PATCH /seller/listings/:id` uses —
+ * establishes before any handler body runs.
+ *
+ * On the `'listings'` rate-limit scope, not a new one: this is the catalog
+ * write path reached through another door, and a seller saving a Spanish title
+ * is the same traffic shape as a seller saving an English one.
+ */
+router.use(
+  '/listings/:id/localizations',
+  makeRateLimiter('listings'),
+  validateId('id'),
+  makeListingLocalizationRouter(async (req) =>
+    loadOwnedListing(routeParam(req, 'id'), getRequiredOxyUserId(req)),
+  ),
+);
 
 /**
  * The "Sell yours" flow (#91).

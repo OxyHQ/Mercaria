@@ -1586,10 +1586,34 @@ describe('the hand-written trigger SQL', () => {
   });
 
   it('renders every closed value set the family CHECKs read', () => {
-    const [file] = candidateSqlFiles();
-    expect(file).toBeDefined();
-    expect(file.text).toContain(`in ${renderList(LOCALIZATION_STATUSES)}`);
-    expect(file.text).toContain(`in ${renderList(LOCALIZATION_PROVENANCES)}`);
-    expect(file.text).toContain(`in ${renderList(SUPPORTED_LOCALES)}`);
+    // Searched across the WHOLE chain, not in the guard's own file, and the
+    // change is a STRENGTHENING rather than a relaxation (#814).
+    //
+    // The single-file form pinned a HISTORICAL artefact against a LIVE
+    // constant. A migration written in the past cannot contain a list that grew
+    // afterwards, so every legitimate widening of one of these tuples broke it
+    // by construction: the assertion was not defending "the CHECKs are rendered
+    // from the constants", it was defending the constants' current LENGTH, and
+    // its cheapest green was never to widen one. #814 adds `seller` to
+    // `LOCALIZATION_PROVENANCES` in migration `0132`, which is exactly the
+    // correct change it would have reported as a regression.
+    //
+    // Chain-wide is the reasoning `functionBodies()` above already applies to
+    // this same directory — "an attachment and the definition it executes are
+    // routinely in different migrations" — and a CHECK's CURRENT definition and
+    // the migration that first created its table are separated the same way.
+    // The property under test is unchanged: a list hand-typed into a CHECK
+    // instead of rendered from its tuple still appears nowhere and still fails.
+    //
+    // What actually enforces the live schema is one layer down and is stronger
+    // than any text search over SQL, which cannot see a later `CREATE OR
+    // REPLACE` superseding what it matched: `listing-localization.realdb.test.ts`
+    // applies the chain and reads the rendered list back from `pg_constraint`.
+    const chain = allSqlFiles();
+    expect(chain.length).toBeGreaterThan(0);
+    const text = chain.map((file) => file.text).join('\n');
+    expect(text).toContain(`in ${renderList(LOCALIZATION_STATUSES)}`);
+    expect(text).toContain(`in ${renderList(LOCALIZATION_PROVENANCES)}`);
+    expect(text).toContain(`in ${renderList(SUPPORTED_LOCALES)}`);
   });
 });

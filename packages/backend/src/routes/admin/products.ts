@@ -26,7 +26,9 @@ import {
   setVariantLevelInventory,
   previewProductTypeUpgrade,
   applyProductTypeUpgrade,
+  loadStoreProduct,
 } from '../../controllers/admin/products-admin.controller.js';
+import { makeListingLocalizationRouter } from '../../controllers/listing-localizations.controller.js';
 
 /**
  * Store products sub-router, mounted at `/admin/stores/:storeId/products`.
@@ -78,6 +80,34 @@ router.post(
   validateId('id'),
   validateBody(upgradeListingProductTypeSchema),
   applyProductTypeUpgrade,
+);
+
+/**
+ * `/admin/stores/:storeId/products/:id/localizations` — a store's own product
+ * translations (#814).
+ *
+ * The `store` half of a two-mount split; `/seller/listings/:id/localizations` is
+ * the `user` half, and both call `makeListingLocalizationRouter`. Which Oxy
+ * account may act for this store is answered where it always is — `loadStore`
+ * ran on the parent router and `requireStorePermission` runs here — and
+ * `loadStoreProduct`, the SAME function `PATCH /:id` uses, then confirms the
+ * product belongs to it.
+ *
+ * `products:write` and NOT `store:manage`: an `admin` holds every permission
+ * except `store:manage`, so gating this on it would lock a store admin out of
+ * translating a title they can already rewrite through `PATCH /:id`. Product
+ * drafts, catalog proposals and catalog authoring all made the same call.
+ *
+ * The READ is behind the write permission too, deliberately — the
+ * `/product-type-upgrade` preview immediately above took the same decision for
+ * the same reason: it exists to be acted on, and a translation coverage list is
+ * an authoring view rather than a catalogue read.
+ */
+router.use(
+  '/:id/localizations',
+  requireStorePermission('products:write'),
+  validateId('id'),
+  makeListingLocalizationRouter(loadStoreProduct),
 );
 
 /**
