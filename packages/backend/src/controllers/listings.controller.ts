@@ -83,6 +83,19 @@ function commaSeparated<T extends string>(values: readonly [T, ...T[]]) {
 const listingQuerySchema = z
   .object({
     q: z.string().trim().min(1).optional(),
+    /**
+     * #367 Workstream 5 — which locale to search IN, beside the base text.
+     *
+     * Shape-checked and NOT membership-checked against `SUPPORTED_LOCALES`, the
+     * spelling every other locale-taking query parameter here already uses
+     * (`facet-schemas.ts`, `canonical-catalog-schemas.ts`). A tag Mercaria does
+     * not support is not an error a shopper can act on — their browser sent it —
+     * and refusing the whole browse over it would turn "we have no Icelandic
+     * translations" into "search is broken". `asSupportedLocale` in the
+     * repository narrows it, and an unsupported tag leaves the base-locale
+     * predicate exactly as it was.
+     */
+    locale: z.string().trim().min(2).max(35).optional(),
     category: z.string().trim().min(1).optional(),
     // #90: the v1 binary spelling, still accepted. `conditionKeys` and
     // `conditionGroups` are the taxonomy filters; sending the v1 field beside
@@ -110,6 +123,7 @@ const listingQuerySchema = z
 function toListingQuery(parsed: z.infer<typeof listingQuerySchema>): ListingQuery {
   const query: ListingQuery = {};
   if (parsed.q) query.q = parsed.q;
+  if (parsed.locale) query.locale = parsed.locale;
   if (parsed.category) query.category = parsed.category;
   // #90: the two spellings can disagree (`condition=new` beside
   // `conditionGroups=used`), so there is deliberately no precedence rule

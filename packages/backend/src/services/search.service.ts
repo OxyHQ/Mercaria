@@ -98,6 +98,14 @@ function toFilters(query: ListingQuery): ListingSearchFilters {
   if (typeof query.minPrice === 'number') filters.minPrice = query.minPrice;
   if (typeof query.maxPrice === 'number') filters.maxPrice = query.maxPrice;
   if (query.q && query.q.trim().length > 0) filters.text = query.q.trim();
+  /**
+   * #367 Workstream 5. Carried only beside a term, because it narrows nothing on
+   * its own — `buildSearchWhere` reads it inside the free-text branch and
+   * nowhere else, so passing it unconditionally would put a value into the
+   * filter shape that no predicate consumes and invite a later reader to make
+   * one.
+   */
+  if (query.q && query.q.trim().length > 0 && query.locale) filters.locale = query.locale;
   if (query.near) filters.near = query.near;
 
   return filters;

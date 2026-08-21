@@ -24,14 +24,21 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql, TransactionRollbackError } from 'drizzle-orm';
 import { createDatabase, uuidv7 } from '@oxyhq/db';
 import type postgres from 'postgres';
 import {
   CATALOG_LOCALIZED_FIELDS,
+  LISTING_BASE_TEXT_SEARCH_CONFIGURATION,
+  LOCALE_TEXT_SEARCH_CONFIGURATIONS,
+  MERCARIA_BASE_LOCALE,
+  SUPPORTED_LOCALES,
+  UNANALYZED_TEXT_SEARCH_CONFIGURATION,
+  localesByTextSearchConfiguration,
+  textSearchConfigurationForLocale,
   type LocalizationCandidate,
 } from '@mercaria/shared-types';
-import type { Database } from '../postgres.js';
+import type { Database, DatabaseOrTransaction } from '../postgres.js';
 import * as schema from '../schema/index.js';
 import { createMercariaTestDatabase, dropMercariaTestDatabase } from '../testDatabase.js';
 import { listings } from '../schema/catalog.js';
@@ -39,6 +46,7 @@ import {
   catalogLocalizationRevisions,
   listingLocalizations,
 } from '../schema/catalogLocalization.js';
+import { searchListingsPage } from '../catalog/listingRepository.js';
 import { resolveLocalizedField } from '../../services/catalog-localization/resolve.js';
 import { reviewListingLocalization } from '../../services/catalog-localization/side-by-side.service.js';
 
@@ -99,6 +107,22 @@ let db: Database;
 
 /** Kept so fixture text is still distinctive in a failure message. */
 const RUN = uuidv7().slice(-12).replace(/\W/gu, '').toLowerCase();
+
+/**
+ * One inflected word per Snowball stemmer, so the locale census can tell every
+ * configuration in the map apart.
+ *
+ * Chosen by MEASUREMENT rather than by looking plausible. `stops running
+ * quickly` was the first attempt and it collapses `simple`, `arabic`, `german`,
+ * `portuguese` and `spanish` onto ONE vector — under which a bug routing `es`
+ * to `simple` is invisible. `estacoes` is here because it is the only pair
+ * tried that separates Portuguese (`estaco`) from Spanish (`estac`); `stops` is
+ * an English stop word, which is what separates `english` from everything that
+ * keeps it. On `postgis/postgis:17-3.5` this yields ten distinct vectors for the
+ * map's ten configurations, and the census asserts exactly that.
+ */
+const LOCALE_PROBE_TEXT =
+  'stops running bicyclettes niños Häuser cavalos cavalls estacoes книги الكتب किताबें';
 
 const listingIds: string[] = [];
 
@@ -664,29 +688,48 @@ describe('what carries these rows, and what removes them', () => {
 
 /* -------------------------------------------------------------------------- */
 
-describe('full-text search does not see localized listing text', () => {
-  it('leaves `listings.search_vector` untouched, and a French term unfindable', async () => {
-    /*
-     * The documented limitation, pinned as a MEASURED fact rather than left in a
-     * comment — so if it ever stops being true, this case says so instead of the
-     * doc quietly becoming wrong.
-     *
-     * `listings.search_vector` is `GENERATED ALWAYS AS … STORED` over this row's
-     * own `title`, `description` and `tags`. A generation expression may
-     * reference only columns of its own row, so a sibling table's text cannot
-     * enter it — a Postgres restriction, not a decision. And both the vector and
-     * `listingRepository`'s query side are pinned to the `'english'`
-     * configuration, so even if it could, French stemmed by the English analyser
-     * would index worse than being absent.
-     *
-     * Consequence: a listing found by its English title is NOT found by its
-     * French one. The fix is a per-locale vector on THIS table with its own
-     * configuration and its own GIN index — an index decision with numbers
-     * attached, belonging with #70's canonical search, whose lexical stage
-     * already runs on `'simple'` for exactly this reason.
-     */
+describe('full-text search reads localized listing text, under its own analyser', () => {
+  /**
+   * #367 Workstream 5, and it REPLACES a characterisation case.
+   *
+   * The case that stood here pinned the LIMITATION as a measured fact — a
+   * listing found by its English title was not found by its French one — with a
+   * positive control so it could not pass against a vector that was simply
+   * empty. Both halves survive below, because both are still true and both are
+   * what make the localized vector necessary: `listings.search_vector` still
+   * holds no French, and the base term still matches. What changed is the
+   * CONSEQUENCE — the French title is now findable, through
+   * `listing_localizations.search_vector`.
+   */
+
+  /** A listing whose French translation is the only place the French word appears. */
+  async function bicycle(): Promise<string> {
     const listingId = await createListing(`Bicycle ${RUN}`, 'a bicycle in good condition');
-    const before = await db
+    await db.insert(listingLocalizations).values({
+      listingId,
+      locale: 'fr',
+      status: 'approved',
+      provenance: 'professional',
+      title: `Bicyclette ${RUN}`,
+      description: 'une bicyclette en bon etat',
+      reviewedByOxyUserId: 'reviewer',
+      reviewedAt: new Date(),
+    });
+    return listingId;
+  }
+
+  it('leaves `listings.search_vector` untouched — the base half is genuinely unchanged', async () => {
+    /*
+     * A generation expression may reference only columns of its own row, so a
+     * sibling table's text cannot enter the base vector — a PostgreSQL
+     * restriction, not a decision, and the reason the localized index is a
+     * SECOND column rather than a wider expression over there.
+     *
+     * Asserted rather than argued: writing the translation must move nothing on
+     * `listings`, or "additive" is a claim instead of a property.
+     */
+    const listingId = await createListing(`Untouched ${RUN}`, 'a bicycle in good condition');
+    const [before] = await db
       .select({ vector: sql<string>`${listings.searchVector}::text` })
       .from(listings)
       .where(eq(listings.id, listingId));
@@ -696,21 +739,21 @@ describe('full-text search does not see localized listing text', () => {
       locale: 'fr',
       status: 'approved',
       provenance: 'professional',
-      title: `Bicyclette ${RUN}`,
-      description: 'une bicyclette en bon état',
+      title: `Bicyclette intouchee ${RUN}`,
+      description: 'une bicyclette en bon etat',
       reviewedByOxyUserId: 'reviewer',
       reviewedAt: new Date(),
     });
 
-    const after = await db
+    const [after] = await db
       .select({ vector: sql<string>`${listings.searchVector}::text` })
       .from(listings)
       .where(eq(listings.id, listingId));
-    expect(after[0].vector).toBe(before[0].vector);
+    expect(after.vector).toBe(before.vector);
 
-    // The POSITIVE CONTROL, and it is what stops this case passing against a
-    // vector that is simply empty or a query spelling that matches nothing: the
-    // BASE-locale term really is findable through the same predicate.
+    // The POSITIVE CONTROL the original case carried, kept for the reason it
+    // was written: without it this passes against a vector that is empty or a
+    // query spelling that matches nothing.
     const english = await db
       .select({ id: listings.id })
       .from(listings)
@@ -724,6 +767,9 @@ describe('full-text search does not see localized listing text', () => {
       1,
     );
 
+    // …and the base vector still holds NO French. This is the half of the old
+    // characterisation that remains true, and it is what makes the localized
+    // vector necessary rather than redundant.
     const french = await db
       .select({ id: listings.id })
       .from(listings)
@@ -734,6 +780,404 @@ describe('full-text search does not see localized listing text', () => {
         ),
       );
     expect(french).toHaveLength(0);
+  });
+
+  it('finds the French title through the localized vector, INFLECTED', async () => {
+    const listingId = await bicycle();
+
+    // `bicyclettes`, not `bicyclette`: an exact-string match would pass against
+    // a vector that stored the title verbatim, which is what
+    // `array_to_tsvector` did to tags and what `simple` would do here. Only a
+    // French analyser reduces both the stored `bicyclette` and the queried
+    // `bicyclettes` to `bicyclet`.
+    const matched = await db
+      .select({ id: listingLocalizations.listingId })
+      .from(listingLocalizations)
+      .where(
+        and(
+          eq(listingLocalizations.listingId, listingId),
+          sql`${listingLocalizations.searchVector} @@ websearch_to_tsquery('french', 'bicyclettes')`,
+        ),
+      );
+    expect(matched).toHaveLength(1);
+  });
+
+  it('matches NOTHING when the query is built under the wrong configuration', async () => {
+    const listingId = await bicycle();
+
+    // The hazard the one-map design exists to remove, measured rather than
+    // asserted in prose. Two stemmers sometimes agree on a word and sometimes
+    // do not — over ten configurations, 96 of 270 cross-configuration pairings
+    // still match — so a mismatch is ARBITRARY rather than uniformly broken.
+    // This exact pairing is one that fails, and a predicate returning nothing
+    // is indistinguishable from a term nobody sells, which is why the case is
+    // pinned rather than left to review.
+    const wrong = await db
+      .select({ id: listingLocalizations.listingId })
+      .from(listingLocalizations)
+      .where(
+        and(
+          eq(listingLocalizations.listingId, listingId),
+          sql`${listingLocalizations.searchVector} @@ websearch_to_tsquery('english', 'bicyclettes')`,
+        ),
+      );
+    expect(wrong).toHaveLength(0);
+
+    // The CONTROL for that zero: the same row, the same term, the RIGHT
+    // configuration.
+    const right = await db
+      .select({ id: listingLocalizations.listingId })
+      .from(listingLocalizations)
+      .where(
+        and(
+          eq(listingLocalizations.listingId, listingId),
+          sql`${listingLocalizations.searchVector} @@ websearch_to_tsquery('french', 'bicyclettes')`,
+        ),
+      );
+    expect(right).toHaveLength(1);
+  });
+
+  it('analyses a locale PostgreSQL cannot stem with `simple`, never with `english`', async () => {
+    /*
+     * Japanese has no bundled configuration. The requirement is not that it
+     * search WELL — `simple` cannot segment a script written without spaces —
+     * but that it never be analysed by the English stemmer, which would produce
+     * lexemes no Japanese query reproduces and leave the row indexed and
+     * permanently unmatchable.
+     */
+    const listingId = await createListing(`Camera ${RUN}`, 'a camera in good condition');
+    await db.insert(listingLocalizations).values({
+      listingId,
+      locale: 'ja',
+      status: 'approved',
+      provenance: 'professional',
+      title: `カメラ Nikkor S9000 stops ${RUN}`,
+      description: 'カメラ',
+      reviewedByOxyUserId: 'reviewer',
+      reviewedAt: new Date(),
+    });
+
+    const [row] = await db
+      .select({ vector: sql<string>`${listingLocalizations.searchVector}::text` })
+      .from(listingLocalizations)
+      .where(
+        and(eq(listingLocalizations.listingId, listingId), eq(listingLocalizations.locale, 'ja')),
+      );
+
+    // The DISCRIMINATOR, and it is what makes this case about the ELSE branch
+    // rather than merely about a row existing: `stops` is an English STOP WORD.
+    // `to_tsvector('english', 'stops')` is EMPTY and `to_tsvector('simple', …)`
+    // keeps it verbatim, so its presence is reachable under `simple` and
+    // unreachable under `english`. Measured, not assumed — `english` also stems
+    // it to `stop`, so the un-stemmed spelling is the tell.
+    expect(row.vector).toContain("'stops'");
+    expect(row.vector, '`simple` must keep the CJK run as a lexeme of its own').toContain(
+      "'カメラ'",
+    );
+
+    // The Latin model number is the part `simple` genuinely indexes and the
+    // part a shopper actually types, so it is worth asserting reachable.
+    const found = await db
+      .select({ id: listingLocalizations.listingId })
+      .from(listingLocalizations)
+      .where(
+        and(
+          eq(listingLocalizations.listingId, listingId),
+          sql`${listingLocalizations.searchVector} @@ websearch_to_tsquery('simple', 's9000')`,
+        ),
+      );
+    expect(found).toHaveLength(1);
+  });
+
+  it('binds the deployed columns and both query sides to ONE map', async () => {
+    /*
+     * Read out of `pg_get_expr` — the DEPLOYED expression — and not out of the
+     * schema module that wrote it. A source-to-source comparison agrees with
+     * itself even when the database says something else, which is exactly the
+     * drift a `CREATE OR REPLACE` under an unchanged name produces.
+     */
+    const [base] = await db.execute<{ expression: string }>(sql`
+      select pg_get_expr(d.adbin, d.adrelid) as expression
+        from pg_attrdef d
+        join pg_attribute a on a.attrelid = d.adrelid and a.attnum = d.adnum
+       where d.adrelid = 'listings'::regclass and a.attname = 'search_vector'
+    `);
+    const baseConfigurations = [
+      ...new Set([...base.expression.matchAll(/'([a-z_]+)'::regconfig/gu)].map((m) => m[1])),
+    ];
+    expect(
+      baseConfigurations,
+      '`listings.search_vector` must be analysed by exactly the configuration `baseTextMatch` queries in',
+    ).toEqual([LISTING_BASE_TEXT_SEARCH_CONFIGURATION]);
+
+    const [localized] = await db.execute<{ expression: string }>(sql`
+      select pg_get_expr(d.adbin, d.adrelid) as expression
+        from pg_attrdef d
+        join pg_attribute a on a.attrelid = d.adrelid and a.attnum = d.adnum
+       where d.adrelid = 'listing_localizations'::regclass and a.attname = 'search_vector'
+    `);
+    const deployed = [
+      ...new Set([...localized.expression.matchAll(/'([a-z_]+)'::regconfig/gu)].map((m) => m[1])),
+    ].sort();
+    const expectedConfigurations = [
+      ...new Set<string>([
+        UNANALYZED_TEXT_SEARCH_CONFIGURATION,
+        ...localesByTextSearchConfiguration().map((arm) => arm.configuration),
+      ]),
+    ].sort();
+    expect(deployed).toEqual(expectedConfigurations);
+  });
+
+  it('routes EVERY supported locale to the arm the map names', async () => {
+    /*
+     * Asked of the DATABASE rather than of the expression's text: the column is
+     * `GENERATED ALWAYS`, so the only way to ask which arm a locale takes is to
+     * store a row and read the column back. That is also the only form of the
+     * question that cannot be answered by reading the same source twice.
+     */
+    const listingId = await createListing(`Every locale ${RUN}`, 'a bicycle in good condition');
+    for (const locale of SUPPORTED_LOCALES) {
+      // The base locale is UNREPRESENTABLE here — `_locale_not_base_check`.
+      if (locale === MERCARIA_BASE_LOCALE) continue;
+      await db.insert(listingLocalizations).values({
+        listingId,
+        locale,
+        status: 'approved',
+        provenance: 'professional',
+        title: LOCALE_PROBE_TEXT,
+        reviewedByOxyUserId: 'reviewer',
+        reviewedAt: new Date(),
+      });
+    }
+
+    const rows = await db
+      .select({
+        locale: listingLocalizations.locale,
+        stored: sql<string>`${listingLocalizations.searchVector}::text`,
+      })
+      .from(listingLocalizations)
+      .where(eq(listingLocalizations.listingId, listingId));
+    expect(
+      rows.length,
+      'the census must cover every non-base locale, or it measures a subset',
+    ).toBe(SUPPORTED_LOCALES.length - 1);
+
+    const mismatched: string[] = [];
+    for (const row of rows) {
+      const configuration = textSearchConfigurationForLocale(row.locale);
+      const [expected] = await db.execute<{ vector: string }>(
+        sql`select (to_tsvector(${configuration}::regconfig, ${LOCALE_PROBE_TEXT})
+                    || to_tsvector(${configuration}::regconfig, '')) ::text as vector`,
+      );
+      if (row.stored !== expected.vector) {
+        mismatched.push(`${row.locale} stored ${row.stored} but ${configuration} gives ${expected.vector}`);
+      }
+    }
+    expect(mismatched).toEqual([]);
+
+    /*
+     * The VACUITY FLOOR, and it is the assertion that makes the census above
+     * mean anything.
+     *
+     * The loop compares each stored vector against ITS OWN configuration's
+     * analysis, so it passes trivially for any two configurations the probe
+     * cannot tell apart. Measured: `stops running quickly` — the first probe
+     * tried — collapses `simple`, `arabic`, `german`, `portuguese` and `spanish`
+     * onto ONE vector, so a bug routing `es` to `simple` would have been
+     * invisible. `LOCALE_PROBE_TEXT` carries one inflected word per stemmer
+     * (including `estacoes`, which is the only pair that separates Portuguese
+     * from Spanish) and separates all ten.
+     */
+    const distinctStored = new Set(rows.map((row) => row.stored)).size;
+    const distinctConfigurations = new Set(Object.values(LOCALE_TEXT_SEARCH_CONFIGURATIONS)).size;
+    expect(
+      distinctStored,
+      'the probe must analyse differently under EVERY configuration in the map, or the census above cannot fail',
+    ).toBe(distinctConfigurations);
+  });
+
+  it('carries the GIN index, and the predicate can be served by it', async () => {
+    const [index] = await db.execute<{ indexdef: string }>(sql`
+      select indexdef from pg_indexes
+       where tablename = 'listing_localizations'
+         and indexname = 'listing_localizations_search_vector_idx'
+    `);
+    expect(index?.indexdef ?? '').toContain('USING gin (search_vector)');
+
+    /*
+     * What this proves and what it does not.
+     *
+     * PROVES: the predicate `listingRepository` sends — a `tsquery` built from a
+     * BOUND `::regconfig` parameter rather than a literal — is one this index
+     * CAN serve. That is the real risk, because an expression the opclass cannot
+     * match is chosen at no scale and the symptom is a silent sequential scan.
+     *
+     * DOES NOT PROVE: that the planner would prefer it on a production-sized
+     * table. `enable_seqscan = off` is what makes the question answerable on a
+     * fixture of a few dozen rows; cost behaviour at scale is #61's harness and
+     * not this file's.
+     */
+    async function planFor(tx: DatabaseOrTransaction): Promise<string> {
+      await tx.execute(sql`set local enable_seqscan = off`);
+      const rows = await tx.execute<Record<string, string>>(sql`
+        explain select 1 from listing_localizations
+         where search_vector @@ websearch_to_tsquery(${'french'}::regconfig, 'bicyclette')
+      `);
+      return rows.map((row) => Object.values(row).join(' ')).join('\n');
+    }
+
+    let planned = '';
+    let mutated = '';
+    try {
+      await db.transaction(async (tx) => {
+        planned = await planFor(tx);
+        // The MUTATION, inside a transaction that is rolled back: with the index
+        // gone the assertion below must fail, or it is measuring nothing.
+        await tx.execute(sql`drop index listing_localizations_search_vector_idx`);
+        mutated = await planFor(tx);
+        tx.rollback();
+      });
+    } catch (error: unknown) {
+      // drizzle signals `tx.rollback()` by THROWING, so the `catch` is the
+      // success path. Matched on the exported CLASS and not on a message or a
+      // name substring: a rethrow that only recognised the happy case would
+      // swallow a real failure (`graph-plan-regression.realdb.test.ts`'s
+      // spelling, reused).
+      if (!(error instanceof TransactionRollbackError)) throw error;
+    }
+
+    expect(planned).toContain('listing_localizations_search_vector_idx');
+    expect(
+      mutated,
+      'dropping the index must change the plan, or the assertion above cannot fail',
+    ).not.toContain('listing_localizations_search_vector_idx');
+
+    // …and the index is BACK, which is what makes the rollback a real rollback
+    // rather than a claim the rest of the file then runs without.
+    const [restored] = await db.execute<{ indexname: string }>(sql`
+      select indexname from pg_indexes
+       where indexname = 'listing_localizations_search_vector_idx'
+    `);
+    expect(restored?.indexname).toBe('listing_localizations_search_vector_idx');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+describe('the browse predicate searches the requested locale beside the base text', () => {
+  /**
+   * `listingRepository.textMatch` through `searchListingsPage` — the function
+   * `GET /listings` actually calls, not a re-spelling of its SQL. A test that
+   * re-implements the code under test measures the re-implementation.
+   */
+
+  async function idsFor(text: string, locale?: string): Promise<string[]> {
+    const { rows } = await searchListingsPage(
+      { text, ...(locale === undefined ? {} : { locale }) },
+      'newest',
+      1,
+      50,
+      db,
+    );
+    return rows.map((row) => row.id);
+  }
+
+  it('finds a listing by its French title only when the French locale is asked for', async () => {
+    const listingId = await createListing(
+      `Velo ${RUN}`,
+      'a good bicycle, sturdy and reliable, ridden little',
+    );
+    await db.insert(listingLocalizations).values({
+      listingId,
+      locale: 'fr',
+      status: 'approved',
+      provenance: 'professional',
+      title: `Bicyclette pliante ${RUN}`,
+      description: 'une bicyclette pliante, solide et fiable',
+      reviewedByOxyUserId: 'reviewer',
+      reviewedAt: new Date(),
+    });
+
+    expect(await idsFor('pliante', 'fr')).toContain(listingId);
+
+    // WITHOUT the locale the predicate is what it always was, so the French word
+    // reaches nothing. This is the defect, still measurable — and it is what
+    // makes the case above a fact about the LOCALE rather than about the row
+    // having become findable somehow.
+    expect(await idsFor('pliante')).not.toContain(listingId);
+
+    // NO REGRESSION: the base text still answers, with and without a locale.
+    expect(await idsFor('sturdy')).toContain(listingId);
+    expect(await idsFor('sturdy', 'fr')).toContain(listingId);
+  });
+
+  it('matches the EXACT locale and never a neighbouring market’s row', async () => {
+    /*
+     * `listing.title` is `seller_authored`, so `exact_locale_then_base` decides
+     * what a reader is SHOWN: an `es-mx` shopper sees their own `es-mx` row or
+     * the seller's base text, never the `es` row a different seller wrote for a
+     * different market (ADR 0007 D4). Search has to agree, or it sends somebody
+     * to a page that does not contain the word they typed.
+     */
+    const listingId = await createListing(`Chair ${RUN}`, 'a wooden chair in good condition');
+    await db.insert(listingLocalizations).values({
+      listingId,
+      locale: 'es',
+      status: 'approved',
+      provenance: 'professional',
+      title: `Silla plegable ${RUN}`,
+      description: 'una silla plegable de madera',
+      reviewedByOxyUserId: 'reviewer',
+      reviewedAt: new Date(),
+    });
+
+    expect(await idsFor('plegable', 'es')).toContain(listingId);
+    expect(await idsFor('plegable', 'es-mx')).not.toContain(listingId);
+
+    // The CONTROL for that negative: `es-mx` IS a locale the predicate searches
+    // in, so the assertion above is about the ROW's locale and not about `es-mx`
+    // being ignored wholesale.
+    await db.insert(listingLocalizations).values({
+      listingId,
+      locale: 'es-mx',
+      status: 'approved',
+      provenance: 'professional',
+      title: `Silla abatible ${RUN}`,
+      description: 'una silla abatible de madera',
+      reviewedByOxyUserId: 'reviewer',
+      reviewedAt: new Date(),
+    });
+    expect(await idsFor('abatible', 'es-mx')).toContain(listingId);
+  });
+
+  it('leaves the base predicate alone for an unsupported locale, and never analyses it as English', async () => {
+    const listingId = await createListing(
+      `Kettle ${RUN}`,
+      'a stainless kettle, boils quickly, barely used',
+    );
+
+    // `is` is Icelandic — a real BCP 47 tag Mercaria does not support. It must
+    // neither refuse the browse nor change what the base half finds.
+    expect(await idsFor('stainless', 'is')).toContain(listingId);
+    expect(await idsFor('bouilloire', 'is')).not.toContain(listingId);
+
+    // And the map answers `simple` for it rather than the base configuration,
+    // which is what stops an unsupported locale being analysed by a stemmer that
+    // knows nothing about it.
+    expect(textSearchConfigurationForLocale('is')).toBe(UNANALYZED_TEXT_SEARCH_CONFIGURATION);
+    expect(textSearchConfigurationForLocale('is')).not.toBe(LISTING_BASE_TEXT_SEARCH_CONFIGURATION);
+  });
+
+  it('carries the base locale itself to the base half alone', async () => {
+    const listingId = await createListing(
+      `Lamp ${RUN}`,
+      'a brass lamp, polished and rewired, barely used',
+    );
+    // `en` is `MERCARIA_BASE_LOCALE`, and `_locale_not_base_check` makes a
+    // base-locale localization row unrepresentable — so the subquery could only
+    // ever match nothing and the predicate short-circuits to the base half.
+    expect(await idsFor('polished', 'en')).toContain(listingId);
+    expect(await idsFor('polished', 'en-gb')).toContain(listingId);
   });
 });
 

@@ -61,20 +61,27 @@ repeating `mercaria_categories_localization_stale`'s `name`-alone blind spot —
 which is published as a caveat precisely so it stops being inherited. An archive
 changes no localized source column, so it stales nothing.
 
-**Full-text search does not see this text, and that is stated rather than
-discovered.** `listings.search_vector` is `GENERATED ALWAYS AS … STORED` over
-that row's own `title`, `description` and `tags`; a generation expression may
-reference only columns of its own row, so a sibling table cannot enter it. Both
-the vector and `listingRepository`'s query side are additionally pinned to the
-`'english'` configuration, so French stemmed by the English analyser would index
-worse than being absent. **A listing found by its English title is not found by
-its French one.** The shape a fix takes is a per-locale vector on
-`listing_localizations` with its own configuration and its own GIN index plus a
-locale-aware query side — an index decision with numbers attached (#61's rule),
-belonging with #70's canonical search, whose lexical stage already runs on
-`'simple'` for exactly this reason. `listing-localization.realdb.test.ts` pins
-the limitation as a measured fact, with the base-locale term as its positive
-control, so it cannot quietly stop being true.
+**Full-text search reads this text, under the row's own analyser (#367
+Workstream 5).** `listings.search_vector` is `GENERATED ALWAYS AS … STORED` over
+that row's own `title`, `description` and `tags` under `'english'`; a generation
+expression may reference only columns of its own row, so a sibling table cannot
+enter it — a PostgreSQL restriction, not a decision, and the reason the localized
+index is a SECOND vector rather than a wider expression over there. Until this
+landed, the consequence was stated rather than discovered: **a listing found by
+its English title was not found by its French one**, in an epic whose subject is
+a multilingual catalogue. See **`docs/catalog-search-configurations.md`** for the
+map, the fix and what it deliberately does not do.
+
+The three properties worth carrying here: the base vector and its query side are
+UNCHANGED, so a base-locale search behaves exactly as before and the predicate
+with no locale is byte-identical to what it always was; the localized half
+matches the EXACT requested locale, because `listing.title` is `seller_authored`
+and `exact_locale_then_base` is what a reader is SHOWN, so a search that matched
+a neighbouring market's row would send somebody to a page not containing the word
+they typed; and both sides read ONE map, because two stemmers sometimes agree on
+a word and sometimes do not, so a `tsvector` and a `tsquery` analysed differently
+punch arbitrary holes in a result set — and a predicate that returns nothing is
+indistinguishable from a term nobody sells.
 
 **No accessibility-label column, and that is the answer to #367's box rather
 than a gap.** `navigation_node_localizations` carries one legitimately because

@@ -90,7 +90,13 @@ import {
 } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import { qualified } from '@oxyhq/db';
-import { conditionKeysInGroup } from '@mercaria/shared-types';
+import {
+  LISTING_BASE_TEXT_SEARCH_CONFIGURATION,
+  MERCARIA_BASE_LOCALE,
+  asSupportedLocale,
+  conditionKeysInGroup,
+  textSearchConfigurationForLocale,
+} from '@mercaria/shared-types';
 import type {
   ConditionGroup,
   CurrencyCode,
@@ -101,6 +107,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { listingImages, listingOptions, listings, productVariants } from '../schema/catalog.js';
+import { listingLocalizations } from '../schema/catalogLocalization.js';
 import { connections } from '../schema/connectors.js';
 import { listingCollections } from '../schema/merchandising.js';
 
@@ -943,16 +950,91 @@ export async function findStoreListingsPageForAdmin(
 }
 
 /**
- * The full-text predicate, against the GENERATED `search_vector` column.
+ * The BASE-locale half of the full-text predicate, against `listings`' own
+ * GENERATED `search_vector`.
  *
  * `websearch_to_tsquery` rather than `plainto_tsquery`: it is the only built-in
  * parser that never raises on user input (a lone `"` or `|` is a syntax error to
  * `to_tsquery`), and it gives buyers the quoting and `-exclusion` they already
  * expect from a search box. `plainto_tsquery` is also safe but ANDs every word
  * with no way to phrase-match, which the Mongo `$text` index did support.
+ *
+ * The configuration is `LISTING_BASE_TEXT_SEARCH_CONFIGURATION` and it MUST
+ * equal the one `listings.search_vector` is generated with. That is not a
+ * source-to-source claim: `listing-localization.realdb.test.ts` reads the
+ * deployed column's expression out of `pg_get_expr` and asserts the
+ * configuration inside it is this constant, because a `tsvector` and a `tsquery`
+ * built under different configurations match arbitrarily — sometimes, for some
+ * words — and the symptom is a result set with holes in it that nobody can see.
  */
-function textMatch(text: string): SQL {
-  return sql`${listings.searchVector} @@ websearch_to_tsquery('english', ${text})`;
+function baseTextMatch(text: string): SQL {
+  const configuration = sql.raw(`'${LISTING_BASE_TEXT_SEARCH_CONFIGURATION}'`);
+  return sql`${listings.searchVector} @@ websearch_to_tsquery(${configuration}, ${text})`;
+}
+
+/**
+ * The full-text predicate — the base vector, UNIONED with the requested locale's
+ * own localized vector when there is one (#367 Workstream 5).
+ *
+ * ## Why a union and not a replacement
+ *
+ * A French shopper searching `bicyclette` has to find a listing whose French
+ * title says so; a French shopper searching a model number, a brand or an
+ * English word the seller left untranslated still has to find it too. Only the
+ * base vector holds `tags`, and only the base vector exists for the very large
+ * majority of listings, which have no translation at all. Replacing the base
+ * half would therefore turn on a feature by withdrawing the catalogue.
+ *
+ * With no locale — every call before this change, plus the dashboard's product
+ * list, which has no locale to pass — the function returns `base` from the early
+ * exit below, so the SQL is what it always was: no subquery, no join, the same
+ * plan. That much is a property of the call graph. What the realdb suite adds is
+ * the OBSERVABLE half: a base-locale term still finds its listing with and
+ * without a locale, and writing a translation moves nothing on `listings`.
+ *
+ * ## Why the EXACT locale, and never a neighbouring market's
+ *
+ * `listing.title` is `seller_authored`, so `fallbackPolicyForFieldClass` gives
+ * it `exact_locale_then_base`: an `es-mx` shopper is shown their own `es-mx` row
+ * or the seller's base text, and never the `es` row a DIFFERENT seller wrote for
+ * a different market (ADR 0007 D4). Search has to find what the shopper will
+ * then SEE — matching a row the page will not render sends them to a listing
+ * that does not contain the word they typed. So the predicate is `locale = $x`
+ * and there is deliberately no widening to the language.
+ *
+ * `MERCARIA_BASE_LOCALE` short-circuits to the base half alone, because
+ * `<table>_locale_not_base_check` makes a base-locale localization row
+ * unrepresentable — the subquery could only ever match nothing.
+ *
+ * ## The configuration is BOUND, not interpolated, and comes from the one map
+ *
+ * `textSearchConfigurationForLocale` is the same map the generated column's
+ * `CASE` is rendered from, so the vector and the query are analysed identically
+ * by construction. It is passed as a bound parameter cast to `regconfig` rather
+ * than inlined: `to_tsvector(regconfig, text)` is IMMUTABLE and the cast is
+ * merely STABLE, which a generated column may not use and a QUERY may, so the
+ * safe spelling is available here and nothing user-influenced reaches the SQL
+ * text. The bound form is still INDEXABLE — measured on PostgreSQL 17, a Bitmap
+ * Index Scan over a GIN index on the same shape of column — and
+ * `listing-localization.realdb.test.ts` asserts the plan names
+ * `listing_localizations_search_vector_idx`, with a drop-the-index mutation
+ * proving the assertion can fail. It runs under `enable_seqscan = off`, so what
+ * it proves is that the index CAN serve this predicate, not that the planner
+ * would prefer it at production scale — that is #61's harness.
+ */
+function textMatch(text: string, locale?: string): SQL {
+  const base = baseTextMatch(text);
+  const supported = locale === undefined ? undefined : asSupportedLocale(locale);
+  if (supported === undefined || supported === MERCARIA_BASE_LOCALE) return base;
+
+  const configuration = textSearchConfigurationForLocale(supported);
+  return sql`(${base} or exists (
+    select 1
+      from ${listingLocalizations}
+     where ${listingLocalizations.listingId} = ${listings.id}
+       and ${listingLocalizations.locale} = ${supported}
+       and ${listingLocalizations.searchVector} @@ websearch_to_tsquery(${configuration}::regconfig, ${text})
+  ))`;
 }
 
 /** Everything a browse/search request can narrow by. */
@@ -977,6 +1059,16 @@ export interface ListingSearchFilters {
   minPrice?: number;
   maxPrice?: number;
   text?: string;
+  /**
+   * The locale to ALSO search in, beside the seller's base text (#367
+   * Workstream 5).
+   *
+   * Narrows the free-text predicate's second half and nothing else — it is not a
+   * filter, so a listing with no translation in this locale is not excluded, and
+   * a locale Mercaria does not support simply leaves the base half alone. It has
+   * no effect without `text`.
+   */
+  locale?: string;
   near?: { lng: number; lat: number; radiusM: number };
 }
 
@@ -1042,7 +1134,7 @@ function buildSearchWhere(filters: ListingSearchFilters): SQL | undefined {
   }
 
   if (filters.text && filters.text.trim().length > 0) {
-    predicates.push(textMatch(filters.text.trim()));
+    predicates.push(textMatch(filters.text.trim(), filters.locale));
   }
 
   if (filters.near) {

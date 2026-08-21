@@ -663,6 +663,14 @@ export * from './navigation';
 // markets" a property of the field rather than a discipline every reader has to
 // remember.
 export * from './catalog-localization';
+// Which PostgreSQL text-search configuration analyses each locale's catalogue
+// text (#367 Workstream 5). AFTER `./catalog-localization`, which it derives its
+// key space from: the map is a total `Record<SupportedLocale, …>`, so adding a
+// locale fails `tsc` here until somebody states which analyser reads it. Its one
+// prohibition is a value rather than a rule — an unsupported locale answers
+// `simple` and never `english`, because falling back to the base configuration
+// is the defect the localized vector exists to remove.
+export * from './catalog-search-configuration';
 // The translation desk (#367 step 10) — the MEASUREMENT vocabulary over the
 // family above. Separate from `./catalog-localization` because every symbol in
 // it depends on facts the localization tables cannot state: how many entities
