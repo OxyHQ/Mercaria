@@ -387,6 +387,22 @@ describe('POST /internal/catalog-attributes/source-mappings emits a reindex', ()
     expect(await entitiesCarrying(KEY_REPOINTED), 'the fixture carries no values').toBe(1);
     expect(await reindexRows(KEY_REPOINTED, 'normalization_rules_changed')).toEqual([]);
 
+    // The OLD key's rows are cleared FIRST, and this is the whole case.
+    //
+    // Measured: without it this assertion passed with the old-key sweep deleted,
+    // because the previous case had already written those exact rows and
+    // `enqueueAttributeReindex` converges on a deterministic id — so "they are
+    // present afterwards" was true of the FIRST call and said nothing about the
+    // second. Clearing them makes their reappearance attributable to this
+    // request alone.
+    await db
+      .delete(attributeReindexRequests)
+      .where(eq(attributeReindexRequests.attributeKey, KEY_MAPPED));
+    expect(
+      await reindexRows(KEY_MAPPED, 'normalization_rules_changed'),
+      'the old-key rows were not cleared, so the assertion below cannot fail',
+    ).toEqual([]);
+
     // Same (catalogSourceId, sourceField) as the case above, so this UPDATES the
     // mapping rather than inserting a second one — the field now means a
     // different attribute, and every value the old rule produced is stale too.
