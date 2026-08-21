@@ -154,6 +154,22 @@ jobs:
       - name: Lint coverage is pinned (bun run lint covers 4 of 6 packages)
         run: bun run validate:lint-coverage
 
+      # Every realdb file that creates its OWN throwaway database migrates it
+      # with the real migrator, which applies the whole chain in ONE transaction
+      # and holds every object lock until commit. Those migrations contend for
+      # ONE shared lock table, so the suite has a resource bound and it is a
+      # COUNT of files nobody was counting: the compose file justified its
+      # ceiling on "five private-database files" long after there were eleven
+      # (#849). Past the bound the failure is `out of shared memory` landing
+      # mid-migration in whichever files happened to overlap, which reads as a
+      # flake belonging to whoever's pull request added the twelfth file.
+      #
+      # Runs here rather than in the API job on purpose: it needs no database,
+      # and a resource bound that is only checked where the resource is scarce
+      # is checked last.
+      - name: The suite fits inside the Postgres shared lock table
+        run: bun run validate:lock-capacity
+
       # The storefront ships an Arabic bundle (#396) and mirrors its layout from
       # LOGICAL utilities (#397); #434 migrated the dashboard and POS to the same
       # utilities and widened the scan to all four client packages. A physical
