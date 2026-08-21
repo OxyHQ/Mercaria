@@ -31,7 +31,7 @@
  * field that could carry one.
  */
 
-import { foldAccents, normalizeEntityName } from '../canonical/normalization.js';
+import { foldAccents, normalizeEntityName, wordTokens } from '../canonical/normalization.js';
 
 /** The three forms of one proposed label. */
 export interface NormalizedProposalLabel {
@@ -50,15 +50,23 @@ export interface NormalizedProposalLabel {
  * — a row of punctuation. The caller refuses such a submission rather than
  * storing a proposal nobody can ever converge on or find, which is the same
  * ruling `normalizeEntityName`'s own doc makes for the canonical graph.
+ *
+ * ## Both forms tokenize through `wordTokens` (#830)
+ *
+ * The search form used to carry its own copy of the `[^\p{L}\p{N}]` collapse.
+ * That class drops combining marks, so a Devanagari label lost its vowel signs
+ * in BOTH forms — and fixing only `normalizeEntityName` would have left the two
+ * halves of this one return value disagreeing about the same label, written to
+ * `normalized_label` and `search_label` on the same row in the same transaction.
+ * They share the tokenizer so they cannot diverge again; what still separates
+ * them is legal-suffix stripping, which is the difference that is meant to
+ * exist.
  */
 export function normalizeProposalLabel(raw: string): NormalizedProposalLabel {
   const source = raw.trim();
   return {
     source,
     normalized: normalizeEntityName(source),
-    search: foldAccents(source)
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .trim(),
+    search: wordTokens(foldAccents(source).toLowerCase()).join(' '),
   };
 }

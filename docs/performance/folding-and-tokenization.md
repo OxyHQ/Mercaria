@@ -247,30 +247,31 @@ identical.** That is why every figure above is printed beside the spread it had
 to clear, and why `compare()` prints `NOT RESOLVED` instead of a percentage when
 it cannot.
 
-## Finding 4 — `normalizeEntityName` corrupts four of the twelve catalogue languages
+## Finding 4 — `normalizeEntityName` corrupted four of the twelve catalogue languages
 
-**This is a defect. It is recorded, not fixed** — this work was a measurement
-task and changing a fold is a separate, deliberate change.
+**Recorded here as a measurement; FIXED in #830.** This work was a measurement
+task, so it changed no fold; #830 is the deliberate change that did, and this
+section is kept because the mechanisms are why the fix is shaped as it is.
 
-`normalizeEntityName` was designed for Latin diacritics and is applied to every
-canonical entity name regardless of script. Measured:
+`normalizeEntityName` was designed for Latin diacritics and was applied to every
+canonical entity name regardless of script. Measured, before and after:
 
-| language | input | `normalizeEntityName` returns | |
-|---|---|---|---|
-| French | `état` | `etat` | preserved — the fold doing its job |
-| Arabic | `دراجة` | `دراجة` | preserved |
-| Chinese | `自転車` | `自転車` | preserved |
-| **Hindi** | `साइकिल` | `स इक ल` | **corrupted** |
-| **Bengali** | `সাইকেল` | `স ইক ল` | **corrupted** |
-| **Japanese** | `ジャンク` | `シ ャンク` | **corrupted** |
-| **Russian** | `красный` | `красныи` | **corrupted** |
+| language | input | before #830 | today | |
+|---|---|---|---|---|
+| French | `état` | `etat` | `etat` | unaffected — the fold doing its job |
+| Arabic | `دراجة` | `دراجة` | `دراجة` | unaffected |
+| Chinese | `自転車` | `自転車` | `自転車` | unaffected |
+| **Hindi** | `साइकिल` | `स इक ल` | `साइकिल` | **repaired** |
+| **Bengali** | `সাইকেল` | `স ইক ল` | `সাইকেল` | **repaired** |
+| **Japanese** | `ジャンク` | `シ ャンク` | `ジャンク` | **repaired** |
+| **Russian** | `красный` | `красныи` | `красный` | **repaired** |
 
-Two independent mechanisms, which compound in Japanese:
+Two independent mechanisms, which compounded in Japanese:
 
 1. **The punctuation collapse eats Unicode Marks.**
    `replace(/[^\p{L}\p{N}]+/gu, ' ')` keeps Letters and Numbers and turns
    everything else into a space. Indic vowel signs (matras) are category **M**,
-   not L — so each becomes a space and the word is returned as fragments with
+   not L — so each became a space and the word came back as fragments with
    its vowels removed. Attributed step by step: NFD and the `U+0300–U+036F`
    strip both leave `साइकिल` intact; the loss happens at the collapse.
 2. **The NFD strip changes LETTERS, not accents.** Cyrillic `й` decomposes to
@@ -298,10 +299,65 @@ a separate question this measurement does not answer. What it establishes is
 that the fold cannot represent them, in an epic whose subject is a multilingual
 catalogue and which ships `hi`, `bn`, `ja` and `ru` as catalogue locales.
 
-`SCRIPT_INTEGRITY_SAMPLES` pins the current behaviour, defects included, so the
-corruption is visible in a report instead of being discovered in a catalogue.
-**Fixing the fold is expected to turn those rows red** — that is the signal, and
-the fix updates the table in the same change.
+### What #830 changed, and what it deliberately did not
+
+Three edits, in `services/canonical/normalization.ts`:
+
+1. **The token class keeps marks.** `[^\p{L}\p{N}]` became
+   `[^\p{L}\p{N}\p{M}]`, in a single exported `wordTokens`. The class had been
+   copied into three files — the canonical fold, the catalogue-proposal search
+   form and the matcher's `titleTokens` — so this was three bugs wearing one
+   line, and `titleTokens` was the second route to the same false merge:
+   `titleTokens('साइकिल')` and `titleTokens('साइकिलें')` both returned
+   `['स','इक','ल']`, scoring two distinct products as identical text.
+2. **Accents are folded only off a LATIN base.** The unconditional
+   `U+0300–U+036F` strip was changing letters rather than removing decoration.
+3. **The result is recomposed to NFC.** Preserving marks without recomposing
+   would store decomposed strings, whose bytes differ from the composed spelling
+   a shopper types — trading a visible corruption for an invisible non-match.
+
+**`ё` → `е` was deliberately NOT added.** It is a plausible *desirable* fold —
+Russians do type `е` for `ё` — but it is a language's orthographic convention
+and the function has no locale, and applying a Russian rule globally from a
+function that cannot know the language is the exact class of decision that
+produced this defect. The asymmetry that settles cases like it: **under-folding
+costs recall, which routes a candidate to a human; over-folding costs precision,
+which is a false merge a customer finds.**
+
+### What happens to rows normalized under the old rules
+
+`normalized_name` is a plain, service-maintained column on `organizations`,
+`brands`, `canonical_products` and `canonical_product_families`, and
+`catalog_proposals` carries `normalized_label` and `search_label` the same way.
+Read from a migrated database rather than the schema file: all six are
+`is_generated = NEVER`, and **none of them carries a UNIQUE index** — every
+unique in that census sits on `normalized_alias`, which is
+`GENERATED ALWAYS AS (lower(btrim(alias)))`, a shallow fold that preserves marks
+and that this change does not touch. So a re-normalization cannot violate a
+constraint, and no migration was generated: the fold is a JS function that
+cannot be expressed in SQL, which is why it was never a generated column.
+
+Until stored rows are rewritten, a pre-#830 non-Latin `normalized_name` will not
+match a query normalized today. **That is a recall loss, and recall losses route
+to a human review** — where the defect it replaces was a precision loss nobody
+sees. The trade is in the safe direction, which is why a backfill was not a
+blocker.
+
+The affected population has not been counted; that needs production access.
+The candidate query is a safe superset — it flags `Nestlé`, which is unaffected,
+and passes pure-ASCII names through:
+
+```sql
+select count(*) filter (where name ~ '[^\x01-\x7F]') as candidates, count(*) as total
+from canonical_products;   -- and brands, organizations, canonical_product_families
+```
+
+`SCRIPT_INTEGRITY_SAMPLES` is now a **regression guard** rather than a defect
+record: each repaired row carries `corruptedBeforeFix`, the exact string the old
+fold returned, so reverting any part of the fix turns those rows red naming the
+language. The old floor — "at least one row must be `corrupted`" — was retired
+with the bug, because a floor satisfiable only while the defect is present has
+"do not fix it" as its cheapest green.
 
 ## What makes this a benchmark rather than a demonstration
 

@@ -52,9 +52,107 @@ const LEGAL_SUFFIX_TOKENS: ReadonlySet<string> = new Set([
   'srl',
 ]);
 
-/** Fold accents: NFD-decompose, then drop the combining marks. "Nestlé" → "Nestle". */
+/** Any Unicode Mark — `Mn`, `Mc` or `Me`. See {@link wordTokens}. */
+const UNICODE_MARK = /\p{M}/u;
+
+/**
+ * The Combining Diacritical Marks block — where LATIN accents decompose to.
+ *
+ * Deliberately not "every combining mark": U+3099 (the katakana voiced sound
+ * mark) and the Indic vowel signs are marks too, and they carry a letter's worth
+ * of meaning rather than decoration.
+ */
+const LATIN_COMBINING_DIACRITIC = /[\u0300-\u036f]/u;
+
+/** A base character an accent may legitimately be folded off. */
+const LATIN_LETTER = /\p{Script=Latin}/u;
+
+/** A token has to carry at least one letter or digit to be a token. */
+const HAS_LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
+/**
+ * Fold accents off LATIN letters only, and return NFC. "Nestlé" → "Nestle".
+ *
+ * ## Why the fold is conditional (#830)
+ *
+ * The obvious spelling — NFD-decompose and drop every `U+0300–U+036F` — folds
+ * more than accents, because that block is also where OTHER scripts' letters
+ * keep their distinguishing marks. Measured: Cyrillic `й` decomposes to `и` +
+ * U+0306, so the unconditional strip returned `красныи` for `красный`. That is
+ * not an accent coming off, it is **a different letter**: `й` is its own letter
+ * of the Russian alphabet, and folding it collides `мой` with `мои`.
+ *
+ * So a mark is dropped only when it is a Latin combining diacritic sitting on a
+ * Latin base. Everything else survives.
+ *
+ * ## `ё` → `е` is REFUSED, deliberately
+ *
+ * Unlike `й`, this one is a plausible *desirable* fold: Russians routinely type
+ * `е` for `ё`. It is refused anyway, because it is **a language's orthographic
+ * convention and this function has no locale** — applying a Russian rule
+ * globally from a function that cannot know which language it is looking at is
+ * the exact class of decision that produced #830. If it is ever wanted it
+ * belongs in a locale-aware layer that knows the text is Russian.
+ *
+ * The asymmetry settles every case like it: **under-folding costs recall, which
+ * routes a candidate to a human; over-folding costs precision, which is a false
+ * merge a customer finds.** When in doubt, do not fold.
+ *
+ * ## Why the return value is NFC
+ *
+ * Decomposing without recomposing would leave callers storing NFD strings,
+ * whose bytes differ from the composed spelling of the same word — so the two
+ * spellings of one Japanese or Hindi name would stop comparing equal. That
+ * trades a visible corruption for an invisible non-match, which is worse.
+ * `normalization.test.ts` pins composed and decomposed inputs to one output.
+ */
 export function foldAccents(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  let folded = '';
+  let base = '';
+  for (const character of value.normalize('NFD')) {
+    if (UNICODE_MARK.test(character)) {
+      if (LATIN_COMBINING_DIACRITIC.test(character) && LATIN_LETTER.test(base)) continue;
+      folded += character;
+      continue;
+    }
+    base = character;
+    folded += character;
+  }
+  return folded.normalize('NFC');
+}
+
+/**
+ * Split text into word tokens — the ONE definition of "what is part of a word"
+ * this repository has, and the fix for #830.
+ *
+ * ## Marks are part of a word
+ *
+ * The class is `[^\p{L}\p{N}\p{M}]`, and `\p{M}` is the whole point: `\p{L}`
+ * **excludes combining marks**, so the obvious `[^\p{L}\p{N}]` turns Devanagari
+ * and Bengali vowel signs — which are `Mn`/`Mc`, not letters — into SPACES.
+ * Measured before the fix, `साइकिल` (bicycle) and `साइकिलें` (bicycles) both
+ * came back as `"स इक ल"`, so two distinct Hindi listings collided on one
+ * string. That is a false merge: it looks exactly like a correct match and is
+ * discovered by a customer.
+ *
+ * ## Why this is exported rather than repeated
+ *
+ * Three call sites each carried their own copy of that class — the canonical
+ * name fold, the catalogue-proposal search form and the matcher's title
+ * tokenizer — so #830 was three bugs wearing one line. A character class that
+ * decides identity is one fact and it now has one home; a fourth copy is how
+ * this comes back.
+ *
+ * A token must carry at least one letter or digit, which keeps
+ * {@link normalizeEntityName}'s "empty for input with no letters or digits"
+ * contract true now that a lone mark is no longer discarded by the split.
+ */
+export function wordTokens(value: string): string[] {
+  return value
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
+    .trim()
+    .split(/\s+/u)
+    .filter((token) => HAS_LETTER_OR_DIGIT.test(token));
 }
 
 /**
@@ -66,14 +164,12 @@ export function foldAccents(value: string): string {
  * suffix stripping is skipped — a name that IS a legal form is still a name.
  * Returns `''` only for input with no letters or digits at all, which callers
  * treat as un-normalizable (routed to review, never guessed).
+ *
+ * The output is NFC and preserves every script's marks — see {@link foldAccents}
+ * and {@link wordTokens} for what #830 measured before that was true.
  */
 export function normalizeEntityName(value: string): string {
-  const tokens = foldAccents(value)
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim()
-    .split(/\s+/u)
-    .filter((token) => token.length > 0);
+  const tokens = wordTokens(foldAccents(value).toLowerCase());
   if (tokens.length === 0) return '';
 
   // Strip greedily from the right. A window of trailing SINGLE-LETTER tokens

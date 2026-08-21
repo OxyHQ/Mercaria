@@ -367,33 +367,36 @@ export const FOLDING_PROBES: readonly FoldingProbe[] = [
  * A script this repository claims to support, and whether `normalizeEntityName`
  * gives its text back.
  *
- * ## This table records DEFECTS, and turning it green is a decision
+ * ## This table was a DEFECT RECORD and is now a REGRESSION GUARD (#830)
  *
- * `normalizeEntityName` was designed for Latin diacritics and is applied to
- * every canonical entity name regardless of script. Measured, it CORRUPTS four
- * of Mercaria's twelve catalogue languages, by two independent mechanisms that
- * compound in Japanese:
+ * It used to pin four corrupted languages so the corruption was visible in a
+ * report instead of being discovered in a catalogue. #830 fixed the fold, so
+ * every language now survives it — which retired the old anti-vacuity floor
+ * ("at least one row must be `corrupted`"), because that floor is met only
+ * while the bug is present and would have had to be deleted to let the fix
+ * land. A floor whose cheapest green is leaving the defect in place is the
+ * wrong floor.
  *
- *  1. **The punctuation collapse eats Unicode Marks.**
- *     `replace(/[^\p{L}\p{N}]+/gu, ' ')` keeps Letters and Numbers and turns
- *     everything else into a space. Indic vowel signs are category M, not L —
- *     so Hindi `साइकिल` becomes `स इक ल` and Bengali `সাইকেল` becomes
- *     `স ইক ল`. The vowels are gone and the word is split into fragments.
- *  2. **The NFD strip changes LETTERS, not accents.** Cyrillic `й` decomposes
- *     to `и` + U+0306 and Katakana `ジ` to `シ` + U+3099; dropping the mark
- *     yields a different letter, so `красный` becomes `красныи` and `ジャンク`
- *     becomes `シ ャンク` — mechanism 2 changing the kana, then mechanism 1
- *     turning the orphaned mark into a space.
+ * What replaces it keeps the evidence and gets stronger: every repaired row
+ * carries `corruptedBeforeFix`, the exact string the fold returned BEFORE the
+ * fix, measured rather than remembered. So the table still documents what was
+ * wrong, and the test can now assert something the old one could not — that
+ * the fold does NOT return the corrupt value any more. Reverting any part of
+ * the fold turns these rows red naming the language, which is what a
+ * regression guard is for.
  *
- * The consequence is not only lost information. Hindi `साइकिल` (bicycle) and
- * `साइकिलें` (bicycles) both normalize to `स इक ल`, so two different words
- * collide in the space #53 uses to generate MERGE CANDIDATES.
+ * The two mechanisms it recorded, kept because they are why the fix is shaped
+ * the way it is:
  *
- * The samples below pin the CURRENT behaviour, defects included, so the
- * corruption is visible in a report instead of being discovered in a
- * catalogue. **Fixing `normalizeEntityName` is expected to turn `corrupted`
- * rows into `preserved` ones and SHOULD fail this table** — that is the signal,
- * not a regression, and the fix updates these rows in the same change.
+ *  1. **The collapse ate Unicode Marks.** `[^\p{L}\p{N}]` keeps Letters and
+ *     Numbers and turned everything else into a space; Indic vowel signs are
+ *     category M, not L, so Hindi `साइकिल` became `स इक ल`. Two different
+ *     Hindi words then collided in the space #53 generates MERGE CANDIDATES
+ *     in, which is a false merge — it looks exactly like a correct match.
+ *  2. **The NFD strip changed LETTERS, not accents.** Cyrillic `й` decomposes
+ *     to `и` + U+0306 and Katakana `ジ` to `シ` + U+3099, so dropping the mark
+ *     substituted one letter for another.
+ *
  * Nothing in this module changes any fold; it only measures.
  */
 export interface ScriptIntegritySample {
@@ -401,10 +404,20 @@ export interface ScriptIntegritySample {
   readonly locale: SupportedLocale;
   /** A real word in that language. */
   readonly input: string;
-  /** What `normalizeEntityName` currently returns. Measured, not predicted. */
+  /** What `normalizeEntityName` returns TODAY. Measured, not predicted. */
   readonly normalized: string;
-  /** Whether the word survives the fold with its letters intact. */
-  readonly verdict: 'preserved' | 'corrupted';
+  /**
+   * What the fold returned BEFORE #830, for a script the defect corrupted.
+   * `null` exactly when `verdict` is `unaffected` — the defect never touched
+   * this script, so there is no earlier value to record.
+   */
+  readonly corruptedBeforeFix: string | null;
+  /**
+   * `unaffected` — the two #830 mechanisms could not reach this script, so it
+   * reads the same before and after; it is the CONTROL half of the table.
+   * `repaired` — #830 corrupted it and the fix restored it.
+   */
+  readonly verdict: 'unaffected' | 'repaired';
   readonly note: string;
 }
 
@@ -415,7 +428,8 @@ export const SCRIPT_INTEGRITY_SAMPLES: readonly ScriptIntegritySample[] = [
     locale: 'fr',
     input: 'état',
     normalized: 'etat',
-    verdict: 'preserved',
+    corruptedBeforeFix: null,
+    verdict: 'unaffected',
     note: 'The fold doing exactly what it was designed for: a Latin diacritic dropped.',
   },
   {
@@ -423,7 +437,8 @@ export const SCRIPT_INTEGRITY_SAMPLES: readonly ScriptIntegritySample[] = [
     locale: 'ar',
     input: 'دراجة',
     normalized: 'دراجة',
-    verdict: 'preserved',
+    corruptedBeforeFix: null,
+    verdict: 'unaffected',
     note: 'Unharmed — the letters carry no decomposable marks, so both mechanisms miss it.',
   },
   {
@@ -431,48 +446,59 @@ export const SCRIPT_INTEGRITY_SAMPLES: readonly ScriptIntegritySample[] = [
     locale: 'zh',
     input: '自転車',
     normalized: '自転車',
-    verdict: 'preserved',
+    corruptedBeforeFix: null,
+    verdict: 'unaffected',
     note: 'Han characters are Letters and decompose to nothing, so they pass through intact.',
   },
   {
     language: 'Hindi',
     locale: 'hi',
     input: 'साइकिल',
-    normalized: 'स इक ल',
-    verdict: 'corrupted',
+    normalized: 'साइकिल',
+    corruptedBeforeFix: 'स इक ल',
+    verdict: 'repaired',
     note:
-      'Mechanism 1. The matras U+093E and U+093F are Marks, not Letters, so each becomes a ' +
-      'space: a four-syllable word is returned as three fragments with its vowels removed.',
+      'Mechanism 1, repaired. The matras U+093E and U+093F are Marks, not Letters, so each ' +
+      'became a space and a four-syllable word came back as three fragments with its vowels ' +
+      'removed. `wordTokens` keeps `\\p{M}`, so it is whole again.',
   },
   {
     language: 'Bengali',
     locale: 'bn',
     input: 'সাইকেল',
-    normalized: 'স ইক ল',
-    verdict: 'corrupted',
-    note: 'Mechanism 1 again, so the defect is Indic-wide rather than one language.',
+    normalized: 'সাইকেল',
+    corruptedBeforeFix: 'স ইক ল',
+    verdict: 'repaired',
+    note:
+      'Mechanism 1 again, so the defect was Indic-wide rather than one language — which is ' +
+      'why the fix is a character class and not a per-script special case.',
   },
   {
     language: 'Japanese',
     locale: 'ja',
     input: 'ジャンク',
-    normalized: 'シ ャンク',
-    verdict: 'corrupted',
+    normalized: 'ジャンク',
+    corruptedBeforeFix: 'シ ャンク',
+    verdict: 'repaired',
     note:
-      'Both mechanisms. `ジ` decomposes to `シ` + U+3099, the strip is a no-op there (U+3099 ' +
-      'is outside U+0300-U+036F), and the collapse then turns the orphaned mark into a space ' +
-      '— so the word reads `shi anku` where the seller wrote `janku`.',
+      'Both mechanisms, and the reason the fold is now conditional. `ジ` decomposes to `シ` + ' +
+      'U+3099; the old strip was a no-op there (U+3099 is outside U+0300-U+036F) and the ' +
+      'collapse then turned the orphaned mark into a space, so the word read `shi anku` where ' +
+      'the seller wrote `janku`. Marks survive and the result is recomposed to NFC.',
   },
   {
     language: 'Russian',
     locale: 'ru',
     input: 'красный',
-    normalized: 'красныи',
-    verdict: 'corrupted',
+    normalized: 'красный',
+    corruptedBeforeFix: 'красныи',
+    verdict: 'repaired',
     note:
       'Mechanism 2 alone. `й` is a distinct Cyrillic letter that happens to decompose to ' +
-      '`и` + a breve, so the fold silently substitutes one letter for another. `ё` becomes ' +
-      '`е` the same way.',
+      '`и` + a breve, so the fold silently substituted one letter for another and collided ' +
+      '`мой` with `мои`. Accents are now folded only off a LATIN base, so `й` and `ё` both ' +
+      'survive — `ё` deliberately, though Russians do type `е` for it, because that is a ' +
+      'language policy and the function has no locale.',
   },
 ];
 
@@ -756,16 +782,18 @@ export function renderFoldingReport(
     '',
     '## Script integrity under `normalizeEntityName`',
     '',
-    'Whether a language gets its own letters back. `corrupted` rows are DEFECTS, pinned so ' +
-      'they are visible; see `docs/performance/folding-and-tokenization.md`.',
+    'Whether a language gets its own letters back. Every row is intact since #830; the ' +
+      '`before #830` column is what the fold used to return, kept so a regression is legible ' +
+      'as one. See `docs/performance/folding-and-tokenization.md`.',
     '',
-    '| language | locale | input | `normalizeEntityName` | verdict |',
-    '|---|---|---|---|---|',
+    '| language | locale | input | `normalizeEntityName` | before #830 | verdict |',
+    '|---|---|---|---|---|---|',
   );
   for (const sample of SCRIPT_INTEGRITY_SAMPLES) {
     lines.push(
       `| ${sample.language} | \`${sample.locale}\` | ${sample.input} | ${sample.normalized} | ` +
-        `${sample.verdict === 'corrupted' ? '**corrupted**' : 'preserved'} |`,
+        `${sample.corruptedBeforeFix === null ? '—' : `\`${sample.corruptedBeforeFix}\``} | ` +
+        `${sample.verdict === 'repaired' ? '**repaired**' : 'unaffected'} |`,
     );
   }
   lines.push('');
