@@ -386,6 +386,48 @@ The rules that are load-bearing, each pinned by
   `middleware/` files named for the domain by the same filename convention, with a
   floor per layer, and prints its population size on success.
 
+## The two boundaries a year and a nameplate cannot decide (#820)
+
+`services/compatibility/__tests__/fitment-boundaries.realdb.test.ts` builds the
+vehicle tree the other two realdb files do not: two generations of one model
+whose production windows OVERLAP, and two configurations of one generation
+sharing a `name` AND a `trim` and differing only in `engine_code`.
+
+**Both properties were already correct when the file was written.** Nothing was
+fixed; what changed is that neither could previously fail. They are:
+
+- **`listFitmentsForVehicle` pairs every SCOPE with its own id.** So a
+  generation-scoped statement is collected by generation id, and a year inside
+  two overlapping windows answers for one generation and not the other. Pinning
+  it needed a fitment verdict taken ACROSS the boundary — at `9c5268d7` exactly
+  one `answerFitment` call in the repository passed a `year` at all, and it named
+  one generation. `verticals-brake-pad.realdb.test.ts` and
+  `verticals-package-controls.test.ts` already covered the other two halves (the
+  windows genuinely overlap, derived from the stored rows; the picker returns
+  each generation's own configurations at a shared year), so this file does not
+  restate them.
+- **`upsertVehicleConfiguration` keys on the stable machine KEY** (D1), never on
+  the name, so one nameplate over two engines stays two rows. This is the FALSE
+  MERGE #58 is shaped around, one domain over: collapsing the pair looks exactly
+  like a correct match, every page renders, and the person who finds out is the
+  one who fitted the wrong pad. `engine_code` had zero occurrences in any
+  `*.test.ts` in the repository before this file.
+
+Both fixtures are ADVERSE and self-tested — the overlap is re-derived
+arithmetically from the stored production windows rather than restated from the
+constants, and the ambiguous pair is asserted equal on every other
+discriminating column — so a later reader who gives the two configurations
+different names, or moves a generation so the windows no longer meet, turns a
+control red instead of leaving two cases that measure nothing.
+
+**One thing this deliberately does not change.** `projectVehicleReference`
+publishes `{id, key, name}` and no engine code, so the ambiguous pair reaches a
+client under one identical `name`, separable only by the stable `key`. The
+resolver does not collapse them — that is what the file pins — but a picker
+rendering from `name` alone would show one label for two different cars. D1/D4
+keep display out of this domain, so it is written into the test rather than
+changed here.
+
 ## What the storefront renders
 
 `packages/frontend/lib/api/compatibility.ts` (the read),
