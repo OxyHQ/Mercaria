@@ -352,7 +352,19 @@ check(
   "an excused contract that DISAPPEARS turns it RED — the retirement is when somebody reads the entry",
   (root) => {
     mutate(root, `${CONTRACT_RELATIVE}/listing.ts`, (source) => {
-      const target = "  /** Category slug the listing belongs to (e.g. `electronics`). */\n  category: string;\n";
+      // Byte-exact and COUPLED to the live declaration on purpose: the guard
+      // below refuses rather than skipping when it stops matching, so editing
+      // that docblock turns this case red with "the fixture premise moved"
+      // instead of silently removing nothing and reporting a pass. It has
+      // already fired once, on the commit that declared
+      // `LEGACY_LISTING_CATEGORY_CONTRACT` beside the field.
+      const target =
+        "  /**\n"
+        + "   * Category slug the listing belongs to (e.g. `electronics`) — the v1 spelling,\n"
+        + "   * DERIVED on every read from the leaf of `listings.category_slugs` and stored\n"
+        + "   * nowhere. See `LEGACY_LISTING_CATEGORY_CONTRACT` for what retires it.\n"
+        + "   */\n"
+        + "  category: string;\n";
       if (!source.includes(target)) {
         throw new Error("could not find `Listing.category` to remove — the fixture premise moved");
       }

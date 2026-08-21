@@ -348,7 +348,11 @@ export interface Listing extends Timestamps {
   canonicalProductId?: string;
   /** Lifecycle status. */
   status: ListingStatus;
-  /** Category slug the listing belongs to (e.g. `electronics`). */
+  /**
+   * Category slug the listing belongs to (e.g. `electronics`) — the v1 spelling,
+   * DERIVED on every read from the leaf of `listings.category_slugs` and stored
+   * nowhere. See `LEGACY_LISTING_CATEGORY_CONTRACT` for what retires it.
+   */
   category: string;
   /** Ordered gallery images. */
   images: ListingImage[];
@@ -408,6 +412,7 @@ export interface CreateP2PListingInput {
   condition?: LegacyBinaryCondition;
   /** The #90 statement. Required of any client that can express it. */
   itemCondition?: ListingConditionInput;
+  /** The v1 category SLUG. See `LEGACY_LISTING_CATEGORY_CONTRACT`. */
   category: string;
   /** Oxy media file ids for the gallery, in display order. */
   imageFileIds: string[];
@@ -449,6 +454,7 @@ export interface CreateStoreProductInput {
   condition?: LegacyBinaryCondition;
   /** The #90 statement. Absent means `new`. */
   itemCondition?: ListingConditionInput;
+  /** The v1 category SLUG. See `LEGACY_LISTING_CATEGORY_CONTRACT`. */
   category: string;
   /** Oxy media file ids for the gallery, in display order. */
   imageFileIds: string[];
@@ -507,7 +513,7 @@ export interface ListingQuery {
    * Has no effect without `q`.
    */
   locale?: string;
-  /** Restrict to a single category slug. */
+  /** Restrict to a single category slug — v1. See `LEGACY_LISTING_CATEGORY_CONTRACT`. */
   category?: string;
   /**
    * Restrict to a condition, v1 spelling — the read half of the compatibility
