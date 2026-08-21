@@ -29,6 +29,7 @@ import type {
 } from '@mercaria/shared-types';
 import { conflict, notFound, validationError } from '../../lib/errors/error-codes.js';
 import { getDb } from '../../db/postgres.js';
+import { enqueueAttributeReindex } from '../../db/attributes/attributeOpsRepository.js';
 import {
   findOpenSuppression,
   insertSuppression,
@@ -241,6 +242,14 @@ export async function selectAttributeValue(input: SelectAttributeValueInput): Pr
 
     // The PIN. `pinned_fields` is a `text[]` of stable KEYS, and the append is
     // idempotent so pinning twice adds nothing.
+    //
+    // `sql.param` and not a bare `${[key]}`. A bare array in a drizzle template
+    // is spread into one placeholder PER ELEMENT, so the one-element case
+    // rendered `($1)::text[]` bound to the bare string — and casting a string
+    // that is not an array literal raises `malformed array literal`, which took
+    // the whole transaction with it. `sql.param` binds the array as ONE
+    // parameter for postgres.js to serialize, which is the idiom every other
+    // `::text[]` in this repository already uses.
     const entityType: CurationSubjectType = value.productId ? 'canonical_product' : 'canonical_variant';
     const definition = CURATED_ENTITIES[entityType];
     const entityId = value.productId ?? value.variantId;
@@ -248,7 +257,7 @@ export async function selectAttributeValue(input: SelectAttributeValueInput): Pr
       await tx.execute(
         sql`update ${definition.table}
             set pinned_fields = (
-              select array_agg(distinct field) from unnest(pinned_fields || ${[value.attributeKey]}::text[]) as field
+              select array_agg(distinct field) from unnest(pinned_fields || ${sql.param([value.attributeKey])}::text[]) as field
             ), updated_at = now()
             where id = ${entityId}`,
       );
@@ -267,6 +276,22 @@ export async function selectAttributeValue(input: SelectAttributeValueInput): Pr
         },
         tx,
       );
+      // A search index follows the product row and would never see this: the
+      // selection lives on `canonical_attribute_values`, and what a shopper is
+      // shown for this field just changed. `operator_correction` rather than
+      // `selected_value_changed` because that is the reason the OTHER operator
+      // selection path already records for the same act
+      // (`attribute-observation.service.ts`), and two reasons for one kind of
+      // decision would make the queue unreadable to whoever drains it.
+      //
+      // In the same transaction as the selection and the pin, so a reindex is
+      // never owed for a correction that rolled back.
+      await enqueueAttributeReindex(tx, {
+        entityKind: value.productId ? 'product' : 'variant',
+        entityId,
+        attributeKey: value.attributeKey,
+        reason: 'operator_correction',
+      });
     }
   });
 }
