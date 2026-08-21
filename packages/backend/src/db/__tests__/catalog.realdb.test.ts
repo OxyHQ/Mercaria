@@ -61,6 +61,7 @@ import {
   findVariantsByListingAndSku,
   insertVariants,
   recomputeVariantRollup,
+  replaceVariantImages,
   reserveVariantScalar,
   updateVariant as updateVariantColumns,
 } from '../catalog/variantRepository.js';
@@ -1712,5 +1713,65 @@ describe('variant-scoped images (#850)', () => {
       .where(eq(listingImages.listingId, listingId));
     expect(second).toHaveLength(2);
     expect(second.map((r) => r.id).sort()).toEqual(first.map((r) => r.id).sort());
+  });
+
+  it('assigns positions from the CALLER order and de-duplicates (#850)', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [variantId] = variantIds;
+
+    // Caller order c, a, b — and `a` named twice. The duplicate must land once,
+    // at its FIRST position, rather than raising a 23505 the caller cannot act
+    // on or silently taking the last slot.
+    await replaceVariantImages(
+      listingId,
+      variantId,
+      [imageIds[2], imageIds[0], imageIds[1], imageIds[0]],
+      db,
+    );
+
+    const rows = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId))
+      .orderBy(productVariantImages.position);
+
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.listingImageId)).toEqual([imageIds[2], imageIds[0], imageIds[1]]);
+    expect(rows.map((r) => r.position)).toEqual([0, 1, 2]);
+
+    // A replace is a REPLACE: the previous set is gone, not merged into.
+    await replaceVariantImages(listingId, variantId, [imageIds[1]], db);
+    const after = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId));
+    expect(after).toHaveLength(1);
+    expect(after[0].listingImageId).toBe(imageIds[1]);
+
+    // An empty list clears it, and clearing returns the variant to the
+    // listing-gallery fallback rather than to an empty gallery.
+    await replaceVariantImages(listingId, variantId, [], db);
+    const cleared = await findVariantImages([variantId], db);
+    expect(cleared.has(variantId)).toBe(false);
+    expect(resolveVariantImages(cleared.get(variantId) ?? [], [{ fileId: 'g', position: 0 }])).toEqual(
+      { source: 'listing_fallback', images: [{ fileId: 'g', position: 0 }] },
+    );
+  });
+
+  it("REFUSES to attach another listing's photograph through the writer (#850)", async () => {
+    const storeId = await makeStore();
+    const mine = await makeGalleryListing(storeId);
+    const theirs = await makeGalleryListing(storeId);
+
+    await expect(
+      replaceVariantImages(mine.listingId, mine.variantIds[0], [theirs.imageIds[0]], db),
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
+
+    // Positive control: the same call with this listing's own photograph works,
+    // so the refusal is about the LISTING and not about the call shape.
+    await replaceVariantImages(mine.listingId, mine.variantIds[0], [mine.imageIds[0]], db);
+    const rows = await findVariantImages([mine.variantIds[0]], db);
+    expect(rows.get(mine.variantIds[0])).toHaveLength(1);
   });
 });

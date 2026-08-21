@@ -265,6 +265,56 @@ export async function findVariantImages(
 }
 
 /**
+ * Replace which gallery photographs a variant shows (#850).
+ *
+ * The caller's ARRAY ORDER is the variant's order; positions are assigned from
+ * it rather than taken as input, so a caller cannot produce a set with two
+ * photographs at position 0 and a non-deterministic render.
+ *
+ * ## This one deletes and re-inserts, and that is not an inconsistency
+ *
+ * `replaceListingImages` had to become convergent because `listing_images.id`
+ * is now referenced. Nothing references `product_variant_images.id` — the row
+ * IS the association and carries no state of its own — so re-minting it loses
+ * nothing. Preserving ids here would be ceremony that a later reader would have
+ * to work out the purpose of.
+ *
+ * A `listing_image_id` that belongs to a different listing is refused by
+ * `product_variant_images_listing_image_fk` (23503), not by a check here: the
+ * composite foreign key is the authority and a service-layer pre-check would be
+ * a second one that can disagree with it. The `listingId` argument is what the
+ * pair is proved against, so it must be the VARIANT's own listing.
+ */
+export async function replaceVariantImages(
+  listingId: string,
+  variantId: string,
+  listingImageIds: readonly string[],
+  db: DatabaseOrTransaction = getDb(),
+): Promise<void> {
+  await db.delete(productVariantImages).where(eq(productVariantImages.variantId, variantId));
+  if (listingImageIds.length === 0) return;
+
+  // De-duplicated in ORDER, so a caller naming one photograph twice gets it
+  // once at its first position rather than a 23505 it cannot act on.
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const id of listingImageIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ordered.push(id);
+  }
+
+  await db.insert(productVariantImages).values(
+    ordered.map((listingImageId, position) => ({
+      listingId,
+      variantId,
+      listingImageId,
+      position,
+    })),
+  );
+}
+
+/**
  * The next free display position for a listing's variants.
  *
  * `max(position) + 1`, NOT `count(*)`. A count collides after any deletion —
