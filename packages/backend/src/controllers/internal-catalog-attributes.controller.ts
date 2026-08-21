@@ -76,7 +76,51 @@ export async function publishDefinitionHandler(req: Request, res: Response): Pro
   }
 }
 
-/** POST /internal/catalog-attributes/definitions/:key/versions/:version/deprecate */
+/**
+ * POST /internal/catalog-attributes/definitions/:key/versions/:version/deprecate
+ *
+ * ## No `bumpAuthoringSchemaInvalidation` here, and the asymmetry with
+ * `catalog-governance/apply.ts` is MEASURED rather than overlooked (#822)
+ *
+ * The governance `attribute_deprecate` and `attribute_retire` actions call these
+ * same two service functions and then bump `attribute_values`. This route and
+ * the one below bump nothing, which is the shape
+ * `db/catalogAuthoring/schemaInvalidationRepository.ts` warns about in its own
+ * header — a declared invalidation subject whose producer is missing served an
+ * approved translation stale until a restart (#655), and "neither half looks
+ * incomplete on its own".
+ *
+ * It is not that shape, because a bump is owed only where a memoized entry would
+ * be WRONG, and an authoring schema does not render an attribute definition
+ * differently once its version leaves `active`.
+ * `composeAuthoringSchema` reads the cited row by ID
+ * (`listAttributeDefinitionsByIds` has no lifecycle predicate, so a deprecated
+ * or retired definition still renders in full) and projects it through
+ * `toValidation` plus its label and description. `lifecycle_state` is not among
+ * the thirteen facts `AuthoringFieldValidation` carries, `AuthoringField` has no
+ * lifecycle member, and the only `lifecycle` in an `AuthoringSchema` is
+ * `productType.lifecycle` — a different subject with its own `product_type`
+ * invalidation. `transitionAttributeDefinition` writes `lifecycle_state` and
+ * `deprecated_at` and nothing else, and
+ * `mercaria_attribute_definitions_localization_stale` fires only on a
+ * `label`/`description` change, so the move touches no row the composition
+ * reads.
+ *
+ * Measured, not reasoned:
+ * `services/catalog-authoring/__tests__/attribute-lifecycle-invalidation.realdb.test.ts`
+ * composes against a real server, moves one cited definition
+ * `active -> deprecated -> retired`, and asserts the schema and its ETag are
+ * unchanged — with the bump these routes are accused of owing as its positive
+ * control, so the comparison is known to be able to disagree. **If that file
+ * goes red, these two handlers owe the bump** and it belongs inside the service
+ * transaction, symmetrically with `apply.ts`.
+ *
+ * The governance bump is therefore over-invalidation and costs one
+ * recomposition; it is not removed, because the same bump is made by all three
+ * attribute actions there and `attribute_publish` — which supersedes the
+ * PREVIOUS active version as well as promoting a draft — is a different
+ * question this measurement does not answer.
+ */
 export async function deprecateDefinitionHandler(req: Request, res: Response): Promise<void> {
   try {
     const { key, version } = req.params as { key: string; version: string };
@@ -86,7 +130,15 @@ export async function deprecateDefinitionHandler(req: Request, res: Response): P
   }
 }
 
-/** POST /internal/catalog-attributes/definitions/:key/versions/:version/retire */
+/**
+ * POST /internal/catalog-attributes/definitions/:key/versions/:version/retire
+ *
+ * No `bumpAuthoringSchemaInvalidation`, for the reason stated in full on
+ * `deprecateDefinitionHandler` above and measured by
+ * `attribute-lifecycle-invalidation.realdb.test.ts`, which drives
+ * `active -> deprecated -> retired` and compares BOTH ends against the render
+ * taken while the version was `active` (#822).
+ */
 export async function retireDefinitionHandler(req: Request, res: Response): Promise<void> {
   try {
     const { key, version } = req.params as { key: string; version: string };
