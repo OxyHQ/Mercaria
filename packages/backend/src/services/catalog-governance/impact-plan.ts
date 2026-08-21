@@ -66,6 +66,10 @@ import { catalogAuthoringDraftValues, catalogAuthoringDrafts } from '../../db/sc
 import { catalogExternalMappings } from '../../db/schema/catalogExternalMappings.js';
 import { categoryLocalizations, categoryLocalizedSlugs, productTypeLocalizations } from '../../db/schema/catalogLocalization.js';
 import { catalogProposals } from '../../db/schema/catalogProposals.js';
+import {
+  canonicalProductSecondaryCategories,
+  listingSecondaryCategories,
+} from '../../db/schema/taxonomyClassification.js';
 import { conditionCategoryPolicies } from '../../db/schema/condition.js';
 import { navigationNodes, navigationSavedQueries, navigationTrees } from '../../db/schema/navigation.js';
 import { productTypeAliases, productTypeCategoryScopes, productTypeFieldGroups, productTypeFields, productTypeDefinitions } from '../../db/schema/productTypes.js';
@@ -222,9 +226,21 @@ export const GOVERNED_SUBJECT_TABLES: Record<CatalogGovernanceCountedSubjectKind
 /**
  * Every foreign key into a category, and what a governance change does with it.
  *
- * Twenty entries. Fifteen `restrict` and five `cascade` in the schema today;
- * the disposition is about what a MOVE, MERGE or DEPRECATION does, which is a
- * different question from what a delete would do — nothing deletes a category.
+ * Twenty-two entries. EIGHTEEN `restrict` and FOUR `cascade` in the schema
+ * today; the disposition is about what a MOVE, MERGE or DEPRECATION does, which
+ * is a different question from what a delete would do — nothing deletes a
+ * category.
+ *
+ * That split is counted off the drizzle metadata, not derived from the previous
+ * sentence: this line read "Fifteen `restrict` and five `cascade`" for twenty
+ * entries, and BOTH numbers were wrong (it was sixteen and four). Adding two
+ * `restrict` entries and doing the arithmetic would have carried the error
+ * forward looking freshly checked, which is the whole hazard of a count in
+ * prose. `bun scripts/count-category-references.ts` re-derives it.
+ *
+ * The last two arrived with #367 Workstream 1's secondary classifications, and
+ * the census is what required them: a new table referencing a category fails
+ * the build here until somebody decides what a governance change does with it.
  */
 const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   {
@@ -260,7 +276,17 @@ const CATEGORY_REFERENCES: readonly GovernedReference[] = [
   {
     column: canonicalProductFamilies.categoryId,
     disposition: 'blocks',
-    note: 'ON DELETE restrict, NOT NULL. A family without a category has no shape, so a change that would strand one is an operator decision',
+    note: 'ON DELETE restrict, nullable. A family whose category was stranded has no shape to browse under, so a change that would strand one is an operator decision',
+  },
+  {
+    column: listingSecondaryCategories.categoryId,
+    disposition: 'blocks',
+    note: 'ON DELETE restrict. A secondary classification is a justified decision with a named accountable author (#367 Workstream 1); re-pointing one at a merge winner would silently change what that person filed, and deleting it would destroy the justification. The remedy is for the filer to withdraw it',
+  },
+  {
+    column: canonicalProductSecondaryCategories.categoryId,
+    disposition: 'blocks',
+    note: 'ON DELETE restrict. The catalogue-side twin of the listing reference above, and blocked for the same reason: the row records what somebody decided, not where the taxonomy currently points',
   },
   {
     column: attributeDefinitionCategories.categoryId,

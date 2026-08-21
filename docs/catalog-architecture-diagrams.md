@@ -79,6 +79,7 @@ flowchart LR
     subgraph epic["#367 catalog modules"]
         direction TB
         M_Taxonomy["Taxonomy"]
+        M_Classification["Classification"]
         M_Product_types["Product types"]
         M_Localization["Localization"]
         M_Variant_axes_and_claims["Variant axes and claims"]
@@ -118,6 +119,9 @@ flowchart LR
     M_External_mappings --> M_Product_types
     M_Taxonomy --> X_catalog_sources
     M_Taxonomy --> X_categories
+    M_Classification --> X_canonical_products
+    M_Classification --> X_categories
+    M_Classification --> X_listings
     M_Product_types --> X_attribute_definitions
     M_Product_types --> X_categories
     M_Localization --> X_attribute_enum_values
@@ -167,7 +171,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-**12 modules**, **13 writing directories**,
+**13 modules**, **13 writing directories**,
 **4 tables written from more than one directory** and
 **4 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with
@@ -190,6 +194,7 @@ flowchart LR
     W_scripts_seed_verticals["scripts/seed-verticals"]
     W_services_curation["services/curation"]
     M_Taxonomy(["Taxonomy"])
+    M_Classification(["Classification"])
     M_Product_types(["Product types"])
     M_Localization(["Localization"])
     M_Variant_axes_and_claims(["Variant axes and claims"])
@@ -213,6 +218,7 @@ flowchart LR
     W_db_compatibility -->|"7"| M_Compatibility
     W_db_navigation -->|"5"| M_Navigation
     W_db_productTypes -->|"4"| M_Product_types
+    W_db_taxonomy -->|"2"| M_Classification
     W_db_taxonomy -->|"3"| M_Taxonomy
     W_db_variantAxes -->|"5"| M_Variant_axes_and_claims
     W_scripts_seed_verticals -->|"1"| M_Localization
@@ -273,7 +279,7 @@ HTTP-reachability half, which no source scan can answer.
 
 ## 3. Cardinality, by module
 
-All 54 tables created by a migration at or after `0088`
+All 56 tables created by a migration at or after `0088`
 appear below exactly once, each under the module that owns it. Every relationship is a foreign
 key drizzle will emit; the label is the child columns and the `ON DELETE` action.
 
@@ -301,6 +307,27 @@ Also names, from outside the epic: `catalog_sources`, `categories`.
 | `category_aliases` | `0088` | `db/taxonomy` (delete/insert) |
 | `category_redirects` | `0088` | `db/taxonomy` (insert) |
 | `category_external_mappings` | `0088` | `db/taxonomy` (insert/update) |
+
+### Classification
+
+```mermaid
+erDiagram
+    listing_secondary_categories {
+    }
+    canonical_product_secondary_categories {
+    }
+    canonical_products ||--o{ canonical_product_secondary_categories : "canonical_product_id · cascade"
+    categories ||--o{ canonical_product_secondary_categories : "category_id · restrict"
+    categories ||--o{ listing_secondary_categories : "category_id · restrict"
+    listings ||--o{ listing_secondary_categories : "listing_id · cascade"
+```
+
+Also names, from outside the epic: `canonical_products`, `categories`, `listings`.
+
+| Table | Created by | Written by |
+|---|---|---|
+| `listing_secondary_categories` | `0134` | `db/taxonomy` (insert) |
+| `canonical_product_secondary_categories` | `0134` | `db/taxonomy` (insert) |
 
 ### Product types
 
@@ -706,9 +733,9 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 
 | Fact | Value |
 |---|---|
-| Tables in the population | 54 |
-| Modules they are grouped into | 12 |
-| Foreign keys out of an epic table | 120 |
+| Tables in the population | 56 |
+| Modules they are grouped into | 13 |
+| Foreign keys out of an epic table | 124 |
 | Foreign keys into one, from outside the epic | 2 |
 | Pre-existing tables the epic attaches to | 15 |
 | Relationships the schema proves are 1:1 | 1 |
@@ -717,7 +744,7 @@ moved. Every one of these is re-derived on each run and floored by the gate.
 | Tables written from more than one directory | 4 |
 | Tables no application code writes | 4 |
 
-`ON DELETE` across those 120 foreign keys: **39** `cascade`, **1** `no action`, **80** `restrict`.
+`ON DELETE` across those 124 foreign keys: **41** `cascade`, **1** `no action`, **82** `restrict`.
 
 ### The relationships the schema proves are 1:1
 

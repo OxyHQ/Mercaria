@@ -122,6 +122,7 @@ import productDraftsRouter from './routes/product-drafts.js';
 import catalogProposalsRouter from './routes/catalog-proposals.js';
 import internalCatalogProposalsRouter from './routes/internal-catalog-proposals.js';
 import internalCatalogGovernanceRouter from './routes/internal-catalog-governance.js';
+import internalTaxonomyRouter from './routes/internal-taxonomy.js';
 import internalCatalogMetricsRouter from './routes/internal-catalog-metrics.js';
 import internalCatalogLocalizationRouter from './routes/internal-catalog-localization.js';
 import compatibilityRouter from './routes/compatibility.js';
@@ -1038,6 +1039,15 @@ export function createApp(): express.Express {
     // because a second route to one decision is how two surfaces come to
     // disagree about what it meant.
     app.use('/internal/catalog-localization', internalCatalogLocalizationRouter);
+    // Secondary category classification (#367 Workstream 1). The SAME allow-list
+    // for the third time in this block, and for the reason the two above give:
+    // deciding that a product is ALSO a regulated battery is the same power over
+    // the same graph as deciding what a category means. It is a SEPARATE router
+    // rather than routes on governance, per ADR 0002 D25(a)'s file-ownership
+    // protocol — and it writes no `catalog_governance_*` row, because a
+    // classification is a fact about a product rather than a change to a
+    // definition.
+    app.use('/internal/taxonomy', internalTaxonomyRouter);
   }
   /**
    * Compatibility and automotive fitment (#367 step 8, ADR 0007 D8) — "does this
