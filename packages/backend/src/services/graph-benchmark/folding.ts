@@ -130,10 +130,15 @@ export interface FoldingProbe {
  * What fraction of the corpus must carry a character outside ASCII.
  *
  * THE floor of this module, and it is a PROPORTION rather than a count on
- * purpose. #61's dataset is pure ASCII — measured, and positive-controlled
- * against the forty em-dashes in `dataset.ts`, so the instrument that found the
- * zero can see non-ASCII fine — which is exactly why nothing there could ever
- * have failed on a broken fold.
+ * purpose.
+ *
+ * #61's SEEDED CATALOGUE TEXT is pure ASCII — measured at the seed inputs
+ * rather than at the files, because the files themselves hold plenty of
+ * non-ASCII and all of it is prose: `SYLLABLES` (30 entries) and `NOUNS` (12)
+ * carry none, and the single free-text literal any shape sends is `'bicycle'`.
+ * Positive-controlled against the 42 em-dashes in `dataset.ts`, so that zero is
+ * a real zero and not an instrument that cannot read UTF-8. Which is exactly
+ * why nothing there could ever have failed on a broken fold.
  *
  * A COUNT floor set to whatever the corpus happens to hold is fitted to its own
  * subject and can never fail; a count floor with headroom is diluted by every

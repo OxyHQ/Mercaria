@@ -31,9 +31,28 @@ in all three, which means an ASCII corpus cannot tell an accent-folding space
 from the identity function — a fold that stopped folding would have left every
 shape green.
 
-Measured: `grep` for accented characters across the whole harness returns zero,
-against a positive control of forty em-dashes in `dataset.ts`, so the instrument
-that found the zero can see non-ASCII fine.
+### The claim, stated the way it survives measurement
+
+It is tempting to say "the harness contains no non-ASCII". That is **false**, and
+saying it would be the kind of imprecision this directory exists to avoid: the
+six harness files hold 161 characters above U+007F between them. Every one of
+them is **prose** — em-dashes and curly apostrophes inside comments and inside
+the `title` and `provenance` strings the report prints, plus ellipses in the
+generator's progress log.
+
+The claim that is true, and that is the one the benchmark rests on, is narrower
+and stronger: **no non-ASCII character reaches the seeded catalogue text or any
+shape's query literal.** Measured at the seed inputs rather than at the files:
+
+| what a generated name is built from | entries | non-ASCII |
+|---|---|---|
+| `SYLLABLES` | 30 | **0** |
+| `NOUNS` | 12 | **0** |
+| every `text:` literal any shape sends | 1 (`'bicycle'`) | **0** |
+
+Positive control, so those zeroes are real zeroes rather than an instrument that
+cannot read UTF-8: the same scan counts **42** em-dashes (U+2014) in
+`dataset.ts` and 52 in `workload.ts`.
 
 ## Finding 1 — the three spaces disagree, and the disagreement is the answer
 
