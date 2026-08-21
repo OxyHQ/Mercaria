@@ -30,6 +30,10 @@
 -- postgis/postgis:17-3.5 -- which is the only thing that catches it. No
 -- functional test can: the failure is in DDL nothing exercises until deploy.
 -- The two uniques are therefore moved ABOVE the foreign keys.
+--
+-- This header and that reordering were BOTH dropped by a regeneration once
+-- already, exactly as the warning above says they would be. If you regenerate,
+-- read the emitted file and put them back.
 
 CREATE TABLE "product_variant_images" (
 	"id" text PRIMARY KEY NOT NULL,
@@ -48,4 +52,5 @@ ALTER TABLE "product_variant_images" ADD CONSTRAINT "product_variant_images_list
 ALTER TABLE "product_variant_images" ADD CONSTRAINT "product_variant_images_variant_fk" FOREIGN KEY ("variant_id","listing_id") REFERENCES "public"."product_variants"("id","listing_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_variant_images" ADD CONSTRAINT "product_variant_images_listing_image_fk" FOREIGN KEY ("listing_image_id","listing_id") REFERENCES "public"."listing_images"("id","listing_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "product_variant_images_variant_id_position_idx" ON "product_variant_images" USING btree ("variant_id","position");--> statement-breakpoint
-CREATE INDEX "product_variant_images_listing_image_id_idx" ON "product_variant_images" USING btree ("listing_image_id");
+CREATE INDEX "product_variant_images_listing_image_id_idx" ON "product_variant_images" USING btree ("listing_image_id");--> statement-breakpoint
+CREATE INDEX "product_variant_images_listing_id_idx" ON "product_variant_images" USING btree ("listing_id");

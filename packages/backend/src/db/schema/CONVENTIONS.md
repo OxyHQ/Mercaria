@@ -6763,6 +6763,16 @@ convention for this parent: all twelve pre-existing foreign keys onto
 from every variant that showed it; the alternative is a row pointing at a gallery
 entry a buyer can no longer see.
 
+### `listing_id` carries its OWN index, and the cascade is why
+
+No other index on the table leads with the column, so the RI check a listing
+delete issues (`delete from product_variant_images where listing_id = $1`) is a
+sequential scan without it. Measured on the applied chain: with the index the
+plan is `Index Scan using product_variant_images_listing_id_idx`, and dropping
+it in a rolled-back transaction turns the same statement into a `Seq Scan`.
+Stated because an index is the one thing a functional test can never detect the
+absence of — every case in `catalog.realdb.test.ts` passes either way.
+
 ### A variant with no images shows the LISTING's gallery
 
 The fallback is `resolveVariantImages` in `@mercaria/shared-types`, and it is the

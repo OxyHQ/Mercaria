@@ -994,6 +994,24 @@ export const productVariantImages = pgTable(
     // "Which variants show this photograph?" — the read a gallery removal needs
     // in order to report what it is about to change.
     index('product_variant_images_listing_image_id_idx').on(t.listingImageId),
+    /**
+     * `listing_id` ALONE, and it is the cascade that needs it.
+     *
+     * Deleting a listing makes PostgreSQL issue `DELETE FROM
+     * product_variant_images WHERE listing_id = $1` for the plain foreign key
+     * above. No other index here leads with the column — the two below lead
+     * with `variant_id` and `listing_image_id` — so without this that RI check
+     * is a sequential scan of the whole table, once per listing deleted.
+     *
+     * It is stated rather than left to be noticed because an index is the one
+     * thing a functional test can never detect the absence of: every case in
+     * `catalog.realdb.test.ts` passes either way, and the teardown that deletes
+     * a store's listings is exactly the path that would degrade.
+     *
+     * It also serves the natural authoring read — every variant image on one
+     * listing, for the screen that assigns them.
+     */
+    index('product_variant_images_listing_id_idx').on(t.listingId),
   ],
 );
 

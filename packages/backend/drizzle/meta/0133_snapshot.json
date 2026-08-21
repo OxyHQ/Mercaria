@@ -1,5 +1,5 @@
 {
-  "id": "ff932017-4433-4474-acdd-226f794d2ae9",
+  "id": "d9288329-6342-44b3-b3c1-b9fc3094577d",
   "prevId": "26cc5c82-9cef-4605-9823-d3b233627c53",
   "version": "7",
   "dialect": "postgresql",
@@ -3531,6 +3531,21 @@
           "columns": [
             {
               "expression": "listing_image_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "product_variant_images_listing_id_idx": {
+          "name": "product_variant_images_listing_id_idx",
+          "columns": [
+            {
+              "expression": "listing_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
