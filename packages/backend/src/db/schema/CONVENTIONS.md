@@ -851,7 +851,11 @@ decisions that make their shapes answerable:
   deep normalization (accents, punctuation, legal suffixes) is application
   vocabulary in `services/canonical/normalization.ts`, because a generated-
   column rewrite silently drops the column's indexes (see Generated columns
-  above) and normalization rules evolve.
+  above) and normalization rules evolve. The two PRIMITIVES that fold composes
+  — `foldAccents` and `wordTokens` — moved to `@mercaria/shared-types`
+  (`text-fold.ts`) in #838, because a fold in that package needed them and the
+  dependency runs one way; they are the repository's only definition of "what is
+  an accent" and "what is part of a word", and a second copy is what #830 was.
 - **`search_vector` uses the `'simple'` config**, not `'english'` — proper
   nouns must not be stemmed ("Nike" is not a verb). Listing prose keeps its
   `'english'` vector; the two configurations coexist on purpose (ADR 0002 D21).
