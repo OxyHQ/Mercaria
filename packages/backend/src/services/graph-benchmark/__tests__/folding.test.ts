@@ -189,24 +189,49 @@ describe('the folding corpus', () => {
 });
 
 describe('the script integrity table', () => {
-  it('records at least one corrupted and one preserved script', () => {
+  it('records at least one repaired and one unaffected script', () => {
     // Both directions, or the table is a list rather than a measurement: an
-    // all-preserved table would pass a fold that had stopped touching anything,
-    // and an all-corrupted one would pass a fold that destroyed everything.
+    // all-repaired table would have no CONTROL — no script the defect could not
+    // reach — and an all-unaffected one would mean nobody wrote down what #830
+    // actually broke.
+    //
+    // This replaced a floor requiring at least one `corrupted` row. That floor
+    // was satisfiable only while the bug was present, so its cheapest green was
+    // "do not fix it" — see the table's own doc block.
     const verdicts = new Set(SCRIPT_INTEGRITY_SAMPLES.map((sample) => sample.verdict));
-    expect(verdicts.has('corrupted')).toBe(true);
-    expect(verdicts.has('preserved')).toBe(true);
+    expect(verdicts.has('repaired')).toBe(true);
+    expect(verdicts.has('unaffected')).toBe(true);
   });
 
-  it('names the four catalogue languages measured to be corrupted', () => {
+  it('names the four catalogue languages #830 corrupted', () => {
     // Pinned by NAME rather than by count: a count floor is met by adding a
     // sample, and what matters is that these four specific languages are on
-    // record. Turning any of them `preserved` is a deliberate change to
-    // `normalizeEntityName` and must edit this list in the same commit.
-    const corrupted = SCRIPT_INTEGRITY_SAMPLES.filter((sample) => sample.verdict === 'corrupted')
+    // record as having been broken. Dropping one from this list is a claim that
+    // #830 never affected it.
+    const repaired = SCRIPT_INTEGRITY_SAMPLES.filter((sample) => sample.verdict === 'repaired')
       .map((sample) => sample.language)
       .sort();
-    expect(corrupted).toEqual(['Bengali', 'Hindi', 'Japanese', 'Russian']);
+    expect(repaired).toEqual(['Bengali', 'Hindi', 'Japanese', 'Russian']);
+  });
+
+  it('carries the pre-fix value for exactly the repaired rows', () => {
+    // The biconditional, so a row cannot claim to have been repaired without
+    // saying what it was repaired FROM, and an unaffected row cannot carry a
+    // corruption it never had. `corruptedBeforeFix` is what lets the realdb
+    // suite assert the fold no longer returns the broken string, which is the
+    // assertion the old defect-pinning table could not make.
+    for (const sample of SCRIPT_INTEGRITY_SAMPLES) {
+      expect(
+        sample.corruptedBeforeFix !== null,
+        `${sample.language} verdict and corruptedBeforeFix disagree`,
+      ).toBe(sample.verdict === 'repaired');
+      if (sample.corruptedBeforeFix !== null) {
+        // A "before" equal to the "after" would record no defect at all.
+        expect(sample.corruptedBeforeFix, `${sample.language} before === after`).not.toBe(
+          sample.normalized,
+        );
+      }
+    }
   });
 
   it('every sample explains its mechanism', () => {

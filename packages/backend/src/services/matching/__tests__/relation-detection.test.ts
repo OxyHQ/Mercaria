@@ -123,4 +123,46 @@ describe('relation detection', () => {
     expect(detectRelation({ title: 'Funda para iPhone' }).markers).toEqual(['funda']);
     expect(detectRelation({ title: 'pack de 6 bombillas' }).markers).toContain('pack_count:6');
   });
+
+  describe('sharing `wordTokens` (#830 de-duplication)', () => {
+    // `relationTokens` used to carry its own copy of the `[^\p{L}\p{N}]` split
+    // that #830 fixed in three other files. Adopting the shared tokenizer here
+    // is a de-duplication and NOT part of that fix: every marker in this module
+    // is Latin, and these pin that the adoption changed nothing for them.
+    it('tokenizes Latin marker text exactly as before', () => {
+      expect(relationTokens('pack ahorro de 6 bolsas')).toEqual([
+        'pack',
+        'ahorro',
+        'de',
+        '6',
+        'bolsas',
+      ]);
+      expect(relationTokens('Bundle: cargador + cable USB-C')).toEqual([
+        'bundle',
+        'cargador',
+        'cable',
+        'usb',
+        'c',
+      ]);
+      // An alphanumeric run stays whole — a model number is the most
+      // discriminating token a title has.
+      expect(relationTokens('Galaxy A2848')).toEqual(['galaxy', 'a2848']);
+      // The accent fold still folds.
+      expect(relationTokens('Batería plástico')).toEqual(['bateria', 'plastico']);
+    });
+
+    it('no longer fragments a non-Latin title — the control that it DID change', () => {
+      // Without this the test above could pass against an unchanged tokenizer,
+      // and would then be measuring nothing.
+      expect(relationTokens('साइकिल')).toEqual(['साइकिल']);
+      expect(relationTokens('ジャンク')).toEqual(['ジャンク']);
+      expect(relationTokens('красный')).toEqual(['красный']);
+    });
+
+    it('still detects a Latin marker inside a non-Latin title', () => {
+      // The reason the adoption is safe rather than merely inert: the markers
+      // are Latin, so they are unaffected by how the surrounding script splits.
+      expect(detectRelation({ title: 'साइकिल pack de 6' }).markers).toContain('pack_count:6');
+    });
+  });
 });

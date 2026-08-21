@@ -31,7 +31,7 @@
  * the catalogue is richest.
  */
 
-import { foldAccents } from '../canonical/normalization.js';
+import { foldAccents, wordTokens } from '../canonical/normalization.js';
 
 /**
  * Tokens that carry no discriminating information in a product title.
@@ -80,12 +80,19 @@ const TITLE_STOPWORDS: ReadonlySet<string> = new Set([
  * Alphanumeric runs are kept whole (`a2848`, `256gb`), because a model number is
  * the single most discriminating token a title has and splitting it into `a` and
  * `2848` destroys exactly that.
+ *
+ * Tokenization is {@link wordTokens}, shared with the canonical name fold. It
+ * used to be a local `[^\p{L}\p{N}]` split, which drops combining marks — so
+ * `titleTokens('साइकिल')` and `titleTokens('साइकिलें')` both returned
+ * `['स','इक','ल']` and two distinct Hindi products scored as IDENTICAL text.
+ * That is #830's false merge reaching the matcher by a second route, which is
+ * why fixing the stored name alone would not have closed it.
  */
 export function titleTokens(title: string): string[] {
   const seen = new Set<string>();
   const tokens: string[] = [];
-  for (const raw of foldAccents(title).toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
-    if (raw.length === 0 || TITLE_STOPWORDS.has(raw)) continue;
+  for (const raw of wordTokens(foldAccents(title).toLowerCase())) {
+    if (TITLE_STOPWORDS.has(raw)) continue;
     if (seen.has(raw)) continue;
     seen.add(raw);
     tokens.push(raw);

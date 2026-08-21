@@ -44,6 +44,33 @@ describe('normalizeProposalLabel', () => {
     expect(label.search).toBe('usb c thunderbolt 4');
   });
 
+  it('keeps a non-Latin label intact in BOTH derived forms (#830)', () => {
+    // The search form used to carry its own copy of the `[^\p{L}\p{N}]`
+    // collapse, which drops combining marks. So fixing `normalizeEntityName`
+    // alone would have left these two halves of ONE return value disagreeing
+    // about one label — written to `normalized_label` and `search_label` on the
+    // same row, in the same transaction.
+    for (const input of ['साइकिल', 'সাইকেল', 'ジャンク', 'красный']) {
+      const label = normalizeProposalLabel(input);
+      expect(label.normalized, `${input} normalized`).toBe(input);
+      expect(label.search, `${input} search`).toBe(input);
+    }
+  });
+
+  it('does not converge two different Hindi labels (#830)', () => {
+    // Convergence is what the normalized form decides, so a collision here
+    // answers a new proposal with somebody else's request.
+    expect(normalizeProposalLabel('साइकिल').normalized).not.toBe(
+      normalizeProposalLabel('साइकिलें').normalized,
+    );
+    // The control: the Latin fold still folds, and a Latin plural is still a
+    // different string.
+    expect(normalizeProposalLabel('Café').normalized).toBe('cafe');
+    expect(normalizeProposalLabel('bicicleta').normalized).not.toBe(
+      normalizeProposalLabel('bicicletas').normalized,
+    );
+  });
+
   it('reports EMPTY derived forms for a label with no letters or digits', () => {
     // The caller refuses such a submission rather than storing a proposal nobody
     // can converge on or find. An empty string here is the signal, not a bug.

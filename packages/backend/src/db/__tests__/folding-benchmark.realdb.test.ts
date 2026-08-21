@@ -373,12 +373,11 @@ describe('the alias space has two implementations, and they are pinned together'
 });
 
 describe('script integrity under `normalizeEntityName`', () => {
-  it('records what each script actually gets back — defects included', () => {
-    // These rows PIN a defect rather than assert health: four of Mercaria's
-    // twelve catalogue languages do not survive the canonical name fold. See
-    // `docs/performance/folding-and-tokenization.md`. Fixing the fold is
-    // EXPECTED to turn these red, and the fix updates the table in the same
-    // change — that is the signal, not a regression.
+  it('gives every catalogue script its own letters back', () => {
+    // Since #830 these rows assert HEALTH. They used to pin a defect — four of
+    // twelve catalogue languages did not survive the fold — and the table now
+    // carries what each one returned beforehand so a regression stays legible.
+    // See `docs/performance/folding-and-tokenization.md`.
     for (const sample of SCRIPT_INTEGRITY_SAMPLES) {
       expect(normalizeEntityName(sample.input), `${sample.language} moved`).toBe(
         sample.normalized,
@@ -386,16 +385,40 @@ describe('script integrity under `normalizeEntityName`', () => {
     }
   });
 
-  it('two different Hindi words collide in the name space — the sharp end', () => {
-    // Why the corruption is more than lost information: `normalized_name` is
-    // the space #53 generates MERGE CANDIDATES in, and here two genuinely
-    // different words become one string.
+  it('no longer returns the string #830 measured, for any repaired script', () => {
+    // The regression guard proper, and the assertion the defect-pinning version
+    // could not make. Reverting ANY part of the fold — the `\p{M}` in the token
+    // class, the Latin-only accent strip, or the NFC recomposition — turns this
+    // red naming the language it broke.
+    const repaired = SCRIPT_INTEGRITY_SAMPLES.filter((s) => s.corruptedBeforeFix !== null);
+    // Vacuity floor: an empty list would pass this loop while measuring nothing.
+    expect(repaired.length, 'no repaired scripts on record').toBe(4);
+    for (const sample of repaired) {
+      expect(normalizeEntityName(sample.input), `${sample.language} regressed`).not.toBe(
+        sample.corruptedBeforeFix,
+      );
+      // Stronger than "not the broken value": the word comes back UNCHANGED.
+      expect(normalizeEntityName(sample.input), `${sample.language} not intact`).toBe(sample.input);
+    }
+  });
+
+  it('two different Hindi words no longer collide in the name space', () => {
+    // The sharp end of #830, inverted. `normalized_name` is the space #53
+    // generates MERGE CANDIDATES in, and these two genuinely different words
+    // used to become one string — a false merge, which looks exactly like a
+    // correct match and is discovered by a customer.
     const singular = normalizeEntityName('साइकिल');
     const plural = normalizeEntityName('साइकिलें');
-    expect(singular).toBe(plural);
-    // The positive control: the same collision does NOT happen in a Latin
-    // script, so this is a property of the fold meeting Devanagari and not of
-    // the two words being similar.
+    expect(singular).not.toBe(plural);
+    // Both survive intact rather than merely differing — two DIFFERENT
+    // corruptions would also satisfy the line above.
+    expect(singular).toBe('साइकिल');
+    expect(plural).toBe('साइकिलें');
+    // The control that made the original finding trustworthy, kept: the
+    // collision never happened in a Latin script, so this was a property of the
+    // fold meeting Devanagari and not of the two words being similar.
     expect(normalizeEntityName('bicicleta')).not.toBe(normalizeEntityName('bicicletas'));
+    // And the fold still folds: the Latin accent case is untouched by #830.
+    expect(normalizeEntityName('Nestlé')).toBe('nestle');
   });
 });
