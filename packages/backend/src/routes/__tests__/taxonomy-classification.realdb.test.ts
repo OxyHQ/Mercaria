@@ -846,7 +846,7 @@ describe('the assignable-lifecycle tuple and the trigger agree', () => {
     const { canonicalProductSecondaryCategories } = await import(
       '../../db/schema/taxonomyClassification.js'
     );
-    const { eq, inArray } = await import('drizzle-orm');
+    const { inArray } = await import('drizzle-orm');
 
     // A vacuity floor: five lifecycles exist, and a loop over an empty or
     // one-member list would report a clean pass having proven nothing.
@@ -893,7 +893,5 @@ describe('the assignable-lifecycle tuple and the trigger agree', () => {
       .delete(canonicalProductSecondaryCategories)
       .where(inArray(canonicalProductSecondaryCategories.categoryId, probeIds));
     await db.delete(categories).where(inArray(categories.id, probeIds));
-    // `merged` pointed at CAT.audio; nothing else references it.
-    void eq;
   });
 });

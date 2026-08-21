@@ -134,11 +134,20 @@ import { canonicalProducts } from './canonicalCatalog.js';
 /**
  * The columns both subject tables share, verbatim.
  *
- * A function rather than a spread constant because drizzle's column builders
- * are STATEFUL — a builder object reused across two `pgTable` calls carries the
- * first table's binding into the second, which produces a schema that generates
- * cleanly and addresses the wrong table. Calling the builders afresh per table
- * is the only shape that cannot do that.
+ * A function rather than a shared constant, and the reason is STYLE rather than
+ * correctness — which is worth saying, because the plausible-sounding
+ * correctness reason is false and I checked before writing it down. Spreading
+ * ONE constant of column builders into two `pgTable` calls was measured here:
+ * each table ends up with its own column object, bound to itself
+ * (`probe_a.note` reports `probe_a`, `probe_b.note` reports `probe_b`, and the
+ * two are not the same object). So the "a reused builder carries the first
+ * table's binding into the second" story that would justify this shape is not
+ * true of this drizzle version, and stating it would have been a fabricated
+ * mechanism propping up a harmless conclusion.
+ *
+ * What the function actually buys is that the call site reads as "these tables
+ * share a shape" rather than "these tables share an object", which matters the
+ * day somebody adds a column to one of them.
  */
 function classificationColumns() {
   return {
