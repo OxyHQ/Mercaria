@@ -12,6 +12,7 @@ a report at all when a floor it cannot vouch for goes unmet — see
 | [`plans-medium.md`](./plans-medium.md) | Generated report, `medium` scale, **after**. Same dataset, not re-seeded. |
 | [`plans-small.md`](./plans-small.md) | Generated report, `small` scale, after. |
 | [`plans-search-small.md`](./plans-search-small.md) | Generated report, `small` scale, with **#70's nine search shapes** (Q16–Q24). Same harness, same workload table; `docs/search.md` carries the decisions it justified. |
+| [`folding-and-tokenization.md`](./folding-and-tokenization.md) | **#367's folding benchmark** — the recall matrix over the three folding spaces, what a per-locale analyser buys, what the localized full-text index costs, and four catalogue languages `normalizeEntityName` corrupts. A different KIND of measurement from the rest of this directory: verdicts rather than latencies, with its own floors. It adds no shape to the workload table, and #61's own gates are why. |
 
 ## Running it
 
