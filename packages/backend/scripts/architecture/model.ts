@@ -442,6 +442,14 @@ const BUILDER_WRITE = /\.(insert|update|delete)\(\s*([A-Za-z_$][A-Za-z0-9_$]*)\s
  * Included because the builder scan alone would report "no application writer"
  * for a table only ever written through `db.execute(sql\`…\`)`, and "nobody
  * writes this" is exactly the reading under which a second writer gets added.
+ *
+ * **It contributes zero edges today, and that is measured rather than assumed**:
+ * every writer the census reports is also found by the builder pattern, so no
+ * entry in the diagram rests on this one alone. It is kept because the
+ * direction it fails in is the dangerous one — silence — and removing it would
+ * make the first raw-SQL writer arrive as an unwritten table. Its dependency is
+ * the comment stripper KEEPING template literals, which the gate exercises
+ * directly.
  */
 const RAW_WRITE = /\b(?:insert\s+into|update|delete\s+from)\s+"?([a-z][a-z0-9_]*)"?/gi;
 
