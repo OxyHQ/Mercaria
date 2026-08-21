@@ -167,7 +167,7 @@ Measured, not asserted. Every edge below is a `.insert(…)`, `.update(…)` or 
 the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under
 `packages/backend/src`. The node on the left is the **directory** the writing module sits in.
 
-Twelve modules, **13 writing directories**,
+**12 modules**, **13 writing directories**,
 **4 tables written from more than one directory** and
 **4 written by no application code at all**. The exceptions are drawn by name,
 because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with

@@ -205,7 +205,7 @@ export function renderDocument(model: ArchitectureModel): string {
     "the table's drizzle symbol, or a raw-SQL write naming it, found in a non-test module under",
     '`packages/backend/src`. The node on the left is the **directory** the writing module sits in.',
     '',
-    `Twelve modules, **${writerDirectories.length} writing directories**,`,
+    `**${model.modules.length} modules**, **${writerDirectories.length} writing directories**,`,
     `**${multiWriter.length} tables written from more than one directory** and`,
     `**${noWriter.length} written by no application code at all**. The exceptions are drawn by name,`,
     'because they are the whole reason to look at this graph: `catalog-table-ownership.md` opens with',
