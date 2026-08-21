@@ -67,13 +67,25 @@ this doc landed, did not have.
 
 ## Cardinality
 
+A curated subset — the edges worth knowing before you read anything else. The
+complete set, every table and every foreign key, is
+[`catalog-architecture-diagrams.md`](catalog-architecture-diagrams.md).
+
+**Both are gated against the same derivation.** Every edge below is checked to be
+a real foreign key carrying exactly the cardinality the schema proves, by
+`packages/backend/scripts/architecture/__tests__/catalog-architecture-diagrams.test.ts`.
+Read `|o` as *optional parent* — the foreign-key column is nullable — and `||` as
+*mandatory*. The distinction is not decoration: this diagram carried `||` on eight
+edges whose columns are nullable, because it used no optional marker anywhere,
+and the most misleading of them said every listing has a category.
+
 ```mermaid
 erDiagram
-    categories ||--o{ categories : "parent_id + ancestor_ids"
+    categories |o--o{ categories : "parent_id, nullable at a root"
     categories ||--o{ category_localizations : "one per locale"
     categories ||--o{ category_localized_slugs : "one per locale"
     categories ||--o{ category_aliases : "search-time, never a name"
-    categories ||--o{ category_redirects : "append-only"
+    categories ||--o{ category_redirects : "append-only, target_category_id"
     categories ||--o{ product_type_category_scopes : "eligibility"
 
     product_type_definitions ||--o{ product_type_category_scopes : ""
@@ -85,27 +97,35 @@ erDiagram
     attribute_definitions ||--o{ attribute_enum_values : "controlled values"
     attribute_enum_values ||--o{ attribute_value_localizations : ""
 
-    canonical_product_families ||--o{ canonical_products : ""
+    canonical_product_families |o--o{ canonical_products : "family_id, nullable"
     canonical_products ||--o{ canonical_variants : ""
-    canonical_products ||--o{ canonical_attribute_values : "SELECTED facts"
-    canonical_variants ||--o{ canonical_attribute_values : "variant grain"
+    canonical_products |o--o{ canonical_attribute_values : "SELECTED facts, product grain"
+    canonical_variants |o--o{ canonical_attribute_values : "variant grain"
 
     listings ||--o{ product_variants : ""
-    listings }o--|| categories : "category_id, restrict"
+    listings }o--o| categories : "category_id, NULLABLE, restrict"
     listings ||--o{ native_listing_variant_axes : "declared axes + product type"
     listings ||--o{ native_listing_attribute_claims : "retained verbatim"
     product_variants ||--o{ native_variant_axis_assignments : ""
     product_variants ||--o{ native_variant_attribute_claims : ""
-    product_variants ||--o{ offers : "native offers"
+    product_variants |o--o{ offers : "native offers"
     product_variants ||--o{ inventory_levels : "per location"
 
     canonical_variants ||--o{ offers : "one seller, one channel, one variant"
 
-    canonical_products ||--o{ generic_compatibility_relations : "applicability"
-    vehicle_configurations ||--o{ automotive_fitments : ""
+    canonical_products |o--o{ generic_compatibility_relations : "applicability"
+    vehicle_configurations |o--o{ automotive_fitments : ""
 ```
 
-Two edges are worth reading twice.
+Three edges are worth reading twice.
+
+**A listing need not have a category.** `listings.category_id` is nullable and has
+been since `0000`, so `}o--o|` rather than `}o--||`: any read that assumes a
+category is present is assuming something the schema does not enforce.
+
+**`canonical_attribute_values` hangs off a product OR a variant**, and both
+columns are nullable — that is what makes one table able to carry a fact at two
+grains, and why neither edge may claim a mandatory parent.
 
 **`offers` hangs off both a native `product_variants` row and a
 `canonical_variants` row**, and that is the join a comparison surface is built
