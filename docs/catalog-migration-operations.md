@@ -540,7 +540,7 @@ migration does either.
 | `ledger_transactions`, `ledger_entries` | **yes** — whole table, UPDATE + DELETE | `mercaria_ledger_append_only`, `drizzle/0002_payment_domain.sql:258`, triggers `:267`, `:270` |
 | `order_fee_snapshots`, `order_fee_snapshot_lines`, `fee_schedule_acceptances` | **yes** — whole table, UPDATE + DELETE | `mercaria_fee_record_append_only`, `drizzle/0016_volatile_wiccan.sql:168`, triggers `:176`, `:179`, `:182` |
 | `order_items.condition_{key,assertion,notes}` | **yes** — 3 columns, UPDATE, refuses NULL → value too | `mercaria_order_item_condition_immutable`, `drizzle/0034_closed_tattoo.sql:358`, trigger `:371-373` |
-| `orders.buyer_origin`, `.buyer_guest_checkout_id`, `.buyer_oxy_user_id` | **yes** — 3 columns, UPDATE only | `orders_buyer_origin_immutable`, `drizzle/0023_ambitious_proemial_gods.sql:170` (function `mercaria_order_buyer_origin_immutable`, `:155`) |
+| `orders.buyer_origin`, `.buyer_guest_checkout_id`, `.buyer_oxy_user_id`, `.claimed_by_oxy_user_id` | **yes** — 4 columns, UPDATE only. The first two refuse *any* change; the last two refuse only a REASSIGNMENT, so `NULL` → value (a #109 claim) and value → `NULL` (an audited unclaim) both pass | trigger `orders_buyer_origin_immutable`, `drizzle/0023_ambitious_proemial_gods.sql:170`. **The live function body is `drizzle/0030_giant_energizer.sql:128`** — a `CREATE OR REPLACE` under the same name that added the fourth column. `0023:155` is the superseded three-column body |
 | `guest_checkouts` (5 columns) | **yes** — UPDATE only | `guest_checkouts_immutable`, `drizzle/0023_ambitious_proemial_gods.sql:132` (function `mercaria_guest_checkout_immutable`, `:110`) |
 | `purchase_orders`, `purchase_order_lines` | **yes** | `drizzle/0014_fantastic_patriot.sql:490`, `:439` |
 | **`order_items`' price, quantity and snapshot columns** | **no** | — |
@@ -549,6 +549,20 @@ migration does either.
 | **`payments`** | **no trigger exists** | — |
 | **`refunds`** | **no trigger exists** | — |
 | **`draft_orders`, `retail_procurement_intents`** | **no** | only `retail_procurement_intent_lines` is triggered |
+
+**That `orders` row is a worked example of why the table above is the wrong
+instrument.** It read `3 columns` until 2026-08-21, because it was written from
+the migration that CREATED the trigger. The body was later swapped by a
+`CREATE OR REPLACE FUNCTION` under the same function name, bound to the same
+unchanged trigger name, in a different migration — so nothing at the cited
+coordinates changed and the citation went on looking correct. Re-measured by
+applying the whole chain to a throwaway database and reading `prosrc` back out
+of `pg_trigger` by name: four columns, matching `0030:128` byte for byte. **A
+`CREATE OR REPLACE` under an unchanged trigger name is precisely the drift a
+citation cannot see**, which is the argument for deriving the list instead —
+see the census named in the second bullet of *Two gates were absent…* below,
+whose realdb half executes each declaration against a real server rather than
+citing a file.
 
 So the sharp answer depends entirely on the SET list.
 `UPDATE order_items SET condition_key = …` fires and aborts the migration;
@@ -570,7 +584,8 @@ UPDATE`) because "a trigger that raised AFTER the row version was written would
 pass every test above and still corrupt the book". They run in CI at
 `.github/workflows/ci.yml:257`.
 
-**Two absent gates, and neither is a capability gap.**
+**Two gates were absent when this was written, and neither absence was a
+capability gap. The second has since been built — see the update inside it.**
 
 1. **Nothing scans migration SQL for write targets.**
    `db/__tests__/migration-handwritten-markers.test.ts` reads the whole `drizzle/`
@@ -580,22 +595,60 @@ pass every test above and still corrupt the book". They run in CI at
    `package.json` points at SQL. Positive control that the device is house
    standard: `validate-no-mongo.mjs` and `validate-money-formatting.mjs` are
    source-scanning gates with their own `test-validate-*.mjs` self-tests.
-2. **No census demands a trigger for a new commerce-adjacent table.** Searched
-   for `APPEND_ONLY`, `IMMUTABLE_TABLES`, `SNAPSHOT_TABLES`, `NEVER_REWRITTEN`
+2. **~~No census demands a trigger for a new commerce-adjacent table.~~ — TRUE
+   WHEN WRITTEN, FALSIFIED 2026-08-21 by PR #815.** The original measurement
+   stands and is kept because it is what explains the gap: searched for
+   `APPEND_ONLY`, `IMMUTABLE_TABLES`, `SNAPSHOT_TABLES`, `NEVER_REWRITTEN`
    across `packages/` — only prose in comments (`schema/reviews.ts:725`,
    `db/fees/feeScheduleRepository.ts:16`) and `disable trigger` statements in test
-   fixtures. No data structure. The four `pg_trigger` assertions in the suite are
-   per-domain vacuity floors naming their own triggers. Positive controls that the
-   device exists and is applied to four *other* properties:
+   fixtures. No data structure. The four `pg_trigger` assertions in the suite
+   were per-domain vacuity floors naming their own triggers. Positive controls that the
+   device existed and was applied to four *other* properties:
    `services/curation/__tests__/merge-plan-census.test.ts:1-28` (walks
    `getTableConfig(...).foreignKeys` over the drizzle barrel and fails until every
-   referencing table has a disposition — and at `:219-236` enforces box 3's
-   sibling, `no plan entry names an order or a listing table`),
+   referencing table has a disposition — and at `:325-342` enforces box 3's
+   sibling, `MERGE INVARIANT 3: no plan entry names an order or a listing table`),
    `db/__tests__/guest-data-inventory-census.test.ts:1-17`,
-   `services/catalog-governance/__tests__/catalog-governance-isolation.test.ts:109-115`
-   (a #367 wall forbidding order, payment and buyer **reads** in governance
-   source — TypeScript, not SQL), and
+   `services/catalog-governance/__tests__/catalog-governance-isolation.test.ts:125-132`
+   (the `no order, payment or buyer data in an export` wall — order, payment and
+   buyer **reads** in governance source, TypeScript, not SQL), and
    `db/__tests__/advisory-lock-census.test.ts:476-479`.
+
+   **What changed.** #815 built exactly that data structure, using the
+   `merge-plan-census.test.ts` device this bullet cites as a positive control.
+   `db/orderHistoryDispositions.ts:100` declares per table
+   `{rowUpdate, rowDelete, frozenColumns, reason}`; the population is not a
+   table list but the transitive foreign-key closure of ONE root
+   (`ORDER_HISTORY_ROOT_TABLE = 'orders'`, `:93`), walked over
+   `getTableConfig(...).foreignKeys` on the drizzle barrel.
+   `db/__tests__/order-history-census.test.ts:136` asserts the ledger covers
+   that closure EXACTLY, in both directions, so **a new table naming an order
+   fails the build until somebody decides what may be rewritten in it**.
+   `db/__tests__/order-history-immutability.realdb.test.ts` then executes each
+   declaration against a real server, so a declaration is never taken on trust.
+   Closure size at the time of writing: 57 tables. That realdb probe is also
+   why the count above moved: **9 files under `packages/backend/src` now
+   reference `pg_trigger`**, and the new one is the first that is not a
+   per-domain floor naming its own triggers.
+
+   **What this does NOT buy, and the distinction is the whole point.** A census
+   existing is not the tables being immutable. **9 of the 57 entries record a
+   gap rather than a guarantee** — 6 `GAP`, 2 `PARTIAL`, 1 `CONFLICTED` — and 8
+   of those 9 are the very tables `db/schema/orders.ts:1` calls "the immutable
+   commerce record": `orders` and `order_items` are PARTIAL (a handful of
+   columns each), `order_status_history`, `order_item_option_values`,
+   `order_applied_discounts`, `order_tax_lines` and `refund_line_items` enforce
+   NOTHING, and `refunds` is CONFLICTED rather than merely unenforced — #49
+   keeps three states of one refund on that row, so it must stay mutable and
+   the blanket sentence in `orders.ts:1` is wrong about it. The ninth,
+   `retail_procurement_intents`, matters because `retail_order_role_snapshots`
+   declines to copy six facts on the grounds that they "already have immutable
+   homes" — and two of those homes are among the unenforced. So the honest
+   statement of what the census achieves is that **it gives a future reader of
+   that justification a contradiction to find; it cannot make the collision
+   happen.** The verdict below is unchanged by #815, because #815 deliberately
+   added no trigger: doing so is a migration plus a decision about existing
+   writers.
 
 **Verdict.** The narrowest true statement the evidence supports: *#367 did not
 rewrite a commerce snapshot, and a future migration cannot rewrite the ledger, the
