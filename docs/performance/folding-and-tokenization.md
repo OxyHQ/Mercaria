@@ -125,40 +125,53 @@ would suggest a guarantee none of them gives.
 against tables cloned with `LIKE listing_localizations INCLUDING GENERATED` so
 the expression under test is the deployed one.
 
-**Two independent runs**, reported as a band rather than as point values — see
-the note below, which is the reason.
+**Three independent runs.** Absolute milliseconds, because the ratios are not
+reproducible enough to publish — see below, which is a finding rather than a
+caveat.
 
-| operation | arm | run 1 | run 2 |
-|---|---|---|---|
-| INSERT | plain row write | 21.1 ms | 26.0 ms |
-| | + generating the `tsvector` | 222.9 ms | 222.4 ms |
-| | + the GIN index | 288.5 ms | 303.9 ms |
-| UPDATE | plain row write | 26.3 ms | 25.2 ms |
-| | + generating the `tsvector` | 234.2 ms | 235.0 ms |
-| | + the GIN index | 330.7 ms | 332.8 ms |
+| operation | arm | run 1 | run 2 | run 3 |
+|---|---|---|---|---|
+| INSERT | plain row write | 21.1 ms | 26.0 ms | 20.3 ms |
+| | + generating the `tsvector` | 222.9 ms | 222.4 ms | 215.4 ms |
+| | + the GIN index | 288.5 ms | 303.9 ms | 298.2 ms |
+| UPDATE | plain row write | 26.3 ms | 25.2 ms | 25.0 ms |
+| | + generating the `tsvector` | 234.2 ms | 235.0 ms | 229.2 ms |
+| | + the GIN index | 330.7 ms | 332.8 ms | 317.7 ms |
 
-So: **generating the `tsvector` costs roughly 200 ms per 20,000 rows** — an
-order of magnitude over the bare row write (+756% to +956%, and the width of
-that band is the point, not the digits). **The GIN index adds 66–98 ms on top:
-+29% to +37% on insert, +41% to +42% on update.**
+The two statements that survive all three runs:
+
+- **Generating the `tsvector` costs ~195–210 ms per 20,000 rows**, against a
+  bare row write of ~20–26 ms — an order of magnitude, whichever run you take.
+- **The GIN index adds 66–98 ms on top of that.**
 
 Worst inter-quartile range across the arms was 27.2 ms against effects of 66 to
 210 ms, so every arm is resolved rather than asserted.
 
-#### Why a band, and not the first run's percentages
+#### The ratios are NOT reproducible, and the third run is how I know
 
-The first run alone gave `+956% / +791%` for generation and `+29.4% / +41.2%`
-for the index, and quoting those would have been more precise than the
-measurement supports. Re-running it changed the generation figure by two hundred
-percentage points.
+This began as a single run reporting `+956% / +791%` for generation and
+`+29.4% / +41.2%` for the index. A second run moved the generation figure by two
+hundred percentage points, so those were replaced with bands. **A third run then
+fell outside the bands too** — `+38.5%` on insert against a published `+29–37%`,
+and `+38.6%` on update against a published `+41–42%`.
 
-Nothing was unstable about the measurement: the **absolute** figures barely
-moved (222.9 → 222.4 ms; 234.2 → 235.0 ms). What moved was the *denominator* —
-the bare row write is only ~21–26 ms, so a few milliseconds of drift there
-swings a percentage computed against it. The lesson is about which number to
-publish, not about the instrument: **a ratio over a small baseline is less
-reproducible than either of its terms**, and a single run's percentage looks
-exactly as authoritative as a stable one.
+Nothing is unstable about the instrument, and that is the point:
+
+| | spread across three runs |
+|---|---|
+| absolute GIN cost | 66 → 98 ms |
+| absolute vector cost | 195 → 210 ms |
+| **GIN cost as a percentage** | **+29% → +39%** |
+| **vector cost as a percentage** | **+756% → +960%** |
+
+The **absolute** figures move by a few percent; the **ratios** move by a third,
+because the denominator is a ~20 ms baseline and a few milliseconds of drift
+there swings anything computed against it.
+
+**A ratio over a small baseline is less reproducible than either of its terms,
+and a single run's percentage looks exactly as authoritative as a stable one.**
+It took three runs to stop publishing one, and the band that had to be widened
+twice is left visible above rather than quietly replaced by the final numbers.
 
 **The headline is the ~200 ms, not the 66–98 ms.** The expensive part of a
 localized listing write is building the `tsvector`, and that is the GENERATED
