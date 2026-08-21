@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_merge_conflicts.conflict_key is dropped and re-generated over a wider key, and five CHECKs including catalog_merge_conflicts_collapse_shape_check are widened. The column is GENERATED so re-adding it rebuilds it; the previous CHECK forms are in 0113
 --
 -- #405, second table pair: `redirect_endpoint_collapse` and its `retain_history`
 -- resolution, plus the two columns naming the colliding redirect hop.

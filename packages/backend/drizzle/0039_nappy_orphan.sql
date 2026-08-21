@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #122: live supplier stock, shipping, quote and reservation preflight. EIGHT
 -- new tables and NOTHING else — no column is added to, dropped from or narrowed

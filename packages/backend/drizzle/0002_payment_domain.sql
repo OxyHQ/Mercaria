@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: the narrower orders_payment_provider_check and the dropped orders_fx_rate_complete_check are in 0000, as is payment_provider's old default and NOT NULL; re-tightening fails against any order written with a NULL provider
 --
 -- The payment domain and the internal ledger: eight new tables, plus the
 -- columns on `orders` that point at them.

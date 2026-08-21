@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: reviews_target_type_check and reviews_target_exclusivity_check are widened here and their previous forms are in 0000; re-adding either fails against any review whose target is one of the scopes #76 added
 --
 -- #76: the review domain gains scopes, eligibility, aggregates and a migration
 -- log. ADDITIVE throughout, and every piece is correct against BOTH the image

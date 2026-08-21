@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Catalog proposals and operator review (#367 step 6, ADR 0007 D9) — four
 -- tables, five trigger functions and five triggers. Every statement is

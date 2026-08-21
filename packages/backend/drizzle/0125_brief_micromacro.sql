@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_merge_jobs_phase_check and catalog_merge_job_phases_phase_check are widened for the alerts phase; the previous forms are in 0079 and re-adding them fails against any job that recorded it
 -- #717: `navigation` joins CATALOG_MERGE_PHASES, so both CHECKs rendered from
 -- that tuple are widened to a SUPERSET. `pre` because it is additive from the
 -- serving image's point of view: every value the running code writes is still

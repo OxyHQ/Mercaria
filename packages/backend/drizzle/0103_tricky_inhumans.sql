@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_governance_audit_events_action_check is widened; the previous form is in the #367 governance migration and re-adding it fails against any audit event carrying an added action
 --
 -- Widen `catalog_governance_audit_events_action_check` by ONE value:
 -- `compatibility_claim_promote` (#367 Workstream 14).

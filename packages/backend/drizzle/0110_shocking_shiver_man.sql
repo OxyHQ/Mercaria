@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: awin_advertiser_quality_nonnegative_check, awin_advertiser_quality_coverage_check and awin_link_samples_findings_check are widened; the previous forms are in the #66 migration and re-adding any of them fails against a stored quality snapshot or link sample using the added vocabulary
 --
 -- #589, the ADDITIVE half. The clean cut it precedes is the next migration.
 --

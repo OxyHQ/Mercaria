@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Merchant → native `Store` linkage (#84, ADR 0002 D4/D9): four new tables, two
 -- triggers, no change to anything that already exists.

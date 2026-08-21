@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: buyer_request_events_kind_check is widened; the previous form is in the #110 migration and re-adding it fails against any stored event carrying an added kind
 --
 -- #765: five refusal kinds join `buyer_request_events_kind_check`, so the trail
 -- can record a refused instruction, receipt, refund commit, cancellation

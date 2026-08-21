@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- The merchant/storefront layer of the canonical commerce graph (#54,
 -- ADR 0002 Phase 0): `merchants`, `merchant_aliases`, `merchant_domains`,

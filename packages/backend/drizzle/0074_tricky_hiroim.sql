@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=accepted: connections.webhook_registration_state is backfilled to 'registered' where webhook_ids is non-empty, and connections_webhook_registration_state_check is widened. The backfill is a derivation from webhook_ids, which is still there, so re-running reproduces it exactly
 --
 -- #297: give `webhook_registration_state` a success value, and reclassify the
 -- rows whose success it could not previously record.

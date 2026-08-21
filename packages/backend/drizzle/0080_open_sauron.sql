@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: merchant_activation_capability_events_unmet_check is widened; the previous form is in the #85 migration and re-adding it fails against any event citing an added unmet reason
 --
 -- Merchant activation: the fulfilment-mode requirement registry (#85, #93).
 --

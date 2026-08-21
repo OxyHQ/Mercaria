@@ -1,0 +1,515 @@
+/**
+ * Every migration declares what rolling it back takes, and the declaration is
+ * checked against its own SQL.
+ *
+ * ## The census this file is deliberately NOT
+ *
+ * "Every migration declares a rollback posture" is a requirement satisfied
+ * COMPLETELY by declaring every migration irreversible. That census goes green
+ * on the first run, reads as thorough, and hands an operator nothing at 3am —
+ * a disposition census satisfied by disposing of everything.
+ *
+ * So the declaration is bound to a derivation, in BOTH directions:
+ *
+ *   - `derived` is refused on a migration carrying any statement whose inverse
+ *     `migrationRollback.ts` cannot produce. You cannot under-claim.
+ *   - `restore` / `replay` / `accepted` are refused on a migration whose every
+ *     statement HAS a derivable inverse. **You cannot over-claim either.** This
+ *     is the direction a declaration census cannot see, and it is exactly the
+ *     direction "declare everything irreversible" takes.
+ *
+ * And a lossy note must NAME an object the migration removes or rewrites, from
+ * a set derived from the IRREVERSIBLE statements alone. `restore: from a
+ * snapshot` is a sentence anybody can type without opening the file;
+ * `restore: orders.settlement_amount and every value in it` is not.
+ *
+ * ## What the phase marker already answers, and what it does not
+ *
+ * `-- oxy:deploy-phase=` says which side of a rollout a migration may be
+ * applied on. Measured on this corpus, it does NOT predict invertibility: every
+ * `post` migration is lossy, as expected — and so is the MAJORITY of the `pre`
+ * ones, because a widened CHECK is spelled `DROP CONSTRAINT` + `ADD
+ * CONSTRAINT` and the dropped definition is not in the file that dropped it.
+ * That gap is the whole reason this gate is not redundant with the phase one,
+ * and it is asserted below rather than asserted in prose: `pre` migrations with
+ * a loss are floored at a number a coincidence could not reach.
+ *
+ * ## Nothing here writes to a migration
+ *
+ * A migration is an applied artefact and a test that edits one is a test that
+ * can leave the repository broken — `migration-handwritten-markers.test.ts`'s
+ * rule, and it holds here for the same reason. Every mutation is composed in
+ * memory and classified through a throwaway directory under the OS temp root,
+ * created and removed per call. It goes through the REAL `classifyMigrations`
+ * rather than a second in-memory parser: a mutation test against a
+ * re-implementation proves the re-implementation can fail.
+ */
+
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import {
+  LOSSY_POSTURES,
+  MINIMUM_NOTE_LENGTH,
+  ROLLBACK_POSTURES,
+  classifyMigrations,
+  derivedInverse,
+  faults,
+  irreversibleStatements,
+  objectsAtRisk,
+  rollbackMarkerLine,
+  verdictOnNote,
+  type MigrationRollback,
+} from '../migrationRollback.js';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const DRIZZLE_DIR = join(HERE, '..', '..', '..', 'drizzle');
+
+const MIGRATIONS = classifyMigrations(DRIZZLE_DIR);
+
+/**
+ * A well-formed additive migration, and the base every mutation below starts
+ * from. Two statements, both invertible, so it is legally `derived`.
+ */
+const ADDITIVE = [
+  '-- oxy:deploy-phase=pre',
+  '-- oxy:rollback=derived',
+  'CREATE TABLE "widgets" ("id" text PRIMARY KEY NOT NULL);--> statement-breakpoint',
+  'CREATE INDEX "widgets_id_idx" ON "widgets" USING btree ("id");',
+  '',
+].join('\n');
+
+/**
+ * A well-formed LOSSY migration: it drops a constraint whose definition is not
+ * here, so it must carry a note, and the note names the constraint.
+ */
+const LOSSY = [
+  '-- oxy:deploy-phase=post',
+  '-- oxy:rollback=restore: widgets_kind_check is widened here and its previous form is in an ' +
+    'earlier migration; re-adding it fails against rows carrying the added value',
+  'ALTER TABLE "widgets" DROP CONSTRAINT "widgets_kind_check";--> statement-breakpoint',
+  'ALTER TABLE "widgets" ADD CONSTRAINT "widgets_kind_check" CHECK ("kind" in (\'a\',\'b\'));',
+  '',
+].join('\n');
+
+/**
+ * Classify one in-memory migration through the REAL corpus reader.
+ *
+ * `classifyMigrations` reads a directory, so the text goes through a throwaway
+ * directory holding exactly one file. Removed in a `finally`, so a failing
+ * assertion still cleans up.
+ */
+function classifyText(text: string): MigrationRollback {
+  const dir = mkdtempSync(join(tmpdir(), 'mercaria-rollback-'));
+  try {
+    writeFileSync(join(dir, '0000_probe.sql'), text);
+    const [only] = classifyMigrations(dir);
+    return only;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe('the corpus this gate reads', () => {
+  it('found the migrations, and found them the same way the journal does', () => {
+    // The migration count is floored from a source INDEPENDENT of the
+    // declarations: `classifyMigrations` globs the directory, so flooring its
+    // own output against itself would be circular. The journal is the other
+    // authority, and the three counts have to agree.
+    const journal = JSON.parse(
+      readFileSync(join(DRIZZLE_DIR, 'meta', '_journal.json'), 'utf8'),
+    ) as { entries: { tag: string }[] };
+    const onDisk = readdirSync(DRIZZLE_DIR).filter((entry) => entry.endsWith('.sql'));
+
+    expect(journal.entries.length).toBeGreaterThanOrEqual(130);
+    expect(onDisk.length).toBe(journal.entries.length);
+    expect(MIGRATIONS.length).toBe(journal.entries.length);
+  });
+
+  it('read statements out of them, not an empty parse', () => {
+    // "Every declaration checks out" is also what a gate reports when it parsed
+    // nothing at all, and this one splits text by a literal token.
+    const statements = MIGRATIONS.reduce((total, m) => total + m.statements.length, 0);
+    expect(statements).toBeGreaterThanOrEqual(3000);
+    const invertible = MIGRATIONS.reduce(
+      (total, m) => total + m.statements.filter((s) => s.inverse !== null).length,
+      0,
+    );
+    expect(invertible).toBeGreaterThanOrEqual(2800);
+  });
+
+  it('finds real losses, in both of the reasons it can report', () => {
+    // The floor that makes the `derived` half of the bind non-vacuous: with no
+    // irreversible statement anywhere, "no file wrongly claims `derived`" is
+    // true of a classifier that returns an inverse for everything.
+    const byReason = new Map<string, number>();
+    for (const migration of MIGRATIONS) {
+      for (const statement of irreversibleStatements(migration)) {
+        byReason.set(statement.reason ?? '?', (byReason.get(statement.reason ?? '?') ?? 0) + 1);
+      }
+    }
+    expect(byReason.get('definition_not_in_file') ?? 0).toBeGreaterThanOrEqual(120);
+    // Counted separately, because `definition_not_in_file` alone is comfortably
+    // over any total floor while the whole `data` branch is dead.
+    expect(byReason.get('data') ?? 0).toBeGreaterThanOrEqual(20);
+  });
+
+  it('uses BOTH sides of the vocabulary, so neither half of the bind is dead', () => {
+    const derived = MIGRATIONS.filter((m) => m.declared === 'derived');
+    const lossy = MIGRATIONS.filter(
+      (m) => m.declared !== null && (LOSSY_POSTURES as readonly string[]).includes(m.declared),
+    );
+    // A corpus declared entirely `derived` never exercises the note rule; one
+    // declared entirely lossy never exercises the over-claim refusal. Both
+    // floors have to hold for the gate below to mean anything.
+    expect(derived.length).toBeGreaterThanOrEqual(40);
+    expect(lossy.length).toBeGreaterThanOrEqual(60);
+    expect(derived.length + lossy.length).toBe(MIGRATIONS.length);
+  });
+
+  it('is not measuring the phase marker under another name', () => {
+    // The finding that makes this gate worth having. If invertibility tracked
+    // the deploy phase, the phase marker would already answer the rollback
+    // question and this whole file would be a second spelling of it. It does
+    // not: the MAJORITY of the losses are in `pre` migrations, because a
+    // widened CHECK is `DROP CONSTRAINT` + `ADD CONSTRAINT` and the dropped
+    // definition is not in the file that dropped it.
+    const lossyPre = MIGRATIONS.filter(
+      (m) =>
+        irreversibleStatements(m).length > 0 &&
+        /^-- oxy:deploy-phase=pre$/mu.test(readFileSync(join(DRIZZLE_DIR, m.file), 'utf8')),
+    );
+    expect(lossyPre.length).toBeGreaterThanOrEqual(50);
+  });
+
+  it('derives an at-risk set NARROWER than the file, or the note rule is free', () => {
+    // The note must name something the migration removes or rewrites. If
+    // `objectsAtRisk` returned every identifier in the file, that rule would be
+    // satisfied by naming the table the migration created — which is not what
+    // was lost. At least one migration must have an at-risk set strictly
+    // smaller than its identifier set, and in practice most do.
+    const narrower = MIGRATIONS.filter((migration) => {
+      const all = new Set(migration.statements.flatMap((statement) => statement.objects));
+      return irreversibleStatements(migration).length > 0 && objectsAtRisk(migration).size < all.size;
+    });
+    expect(narrower.length).toBeGreaterThanOrEqual(30);
+  });
+});
+
+describe('every migration declares a rollback posture, and the SQL agrees with it', () => {
+  it('leaves no migration undeclared, mis-spelled or doubly declared', () => {
+    const offenders = MIGRATIONS.filter((m) => m.markerProblems.length > 0).map(
+      (m) => `${m.file}: ${m.markerProblems.join('; ')}`,
+    );
+    expect(
+      offenders,
+      'Add `-- oxy:rollback=<posture>` beside the file\'s `-- oxy:deploy-phase=` line. ' +
+        `Postures: ${ROLLBACK_POSTURES.join(' | ')}. See docs/runbooks/migration-rollback.md.`,
+    ).toEqual([]);
+  });
+
+  it('classifies every statement, so every declaration is checkable', () => {
+    const unclassified = MIGRATIONS.flatMap((m) =>
+      irreversibleStatements(m)
+        .filter((s) => s.reason === 'unclassified')
+        .map((s) => `${m.file}:${s.line} \`${s.text}\``),
+    );
+    expect(
+      unclassified,
+      'A statement form `invert()` has no opinion on. Nothing can be checked about a migration ' +
+        'carrying one, so teach `invert` what its inverse is — or that there is none.',
+    ).toEqual([]);
+  });
+
+  it('refuses every declaration the migration\'s own SQL contradicts', () => {
+    const offenders = MIGRATIONS.filter((m) => faults(m).length > 0).map(
+      (m) => `${m.file}: ${faults(m).join(' | ')}`,
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps every marker in the header, ahead of the first statement', () => {
+    // A `--` line INSIDE a `$$ … $$` body is body text rather than a comment,
+    // so a marker placed there would both be read as a declaration here and
+    // become part of the function's own SQL. Requiring it above the first
+    // statement puts it somewhere no dollar quote has opened yet.
+    const offenders: string[] = [];
+    for (const migration of MIGRATIONS) {
+      const lines = readFileSync(join(DRIZZLE_DIR, migration.file), 'utf8').split('\n');
+      const marker = lines.findIndex((line) => /^-- oxy:rollback=/u.test(line));
+      const firstStatement = migration.statements[0]?.line ?? Number.POSITIVE_INFINITY;
+      if (marker + 1 >= firstStatement) offenders.push(`${migration.file}: line ${marker + 1}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('derives an inverse for every statement it says it can', () => {
+    for (const migration of MIGRATIONS) {
+      const { statements, omitted } = derivedInverse(migration);
+      const invertible = migration.statements.filter((s) => s.inverse !== null);
+      expect(statements.length, `${migration.file}`).toBe(invertible.length);
+      expect(omitted.length, `${migration.file}`).toBe(
+        migration.statements.length - invertible.length,
+      );
+    }
+  });
+});
+
+describe('the detectors themselves — mutation self-tests, in memory only', () => {
+  it('reports the healthy additive file clean — the positive control', () => {
+    const migration = classifyText(ADDITIVE);
+    expect(migration.declared).toBe('derived');
+    expect(faults(migration)).toEqual([]);
+    // The floor on the control: a parse that found no statements reports
+    // exactly the same clean result.
+    expect(migration.statements).toHaveLength(2);
+    expect(irreversibleStatements(migration)).toEqual([]);
+  });
+
+  it('reports the healthy lossy file clean — the other positive control', () => {
+    const migration = classifyText(LOSSY);
+    expect(migration.declared).toBe('restore');
+    expect(faults(migration)).toEqual([]);
+    expect(irreversibleStatements(migration)).toHaveLength(1);
+  });
+
+  it('catches a stripped declaration', () => {
+    const mutated = ADDITIVE.split('\n')
+      .filter((line) => !line.startsWith('-- oxy:rollback='))
+      .join('\n');
+    expect(mutated).not.toContain('oxy:rollback');
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(/declares no `-- oxy:rollback=` marker/u);
+  });
+
+  it('catches TWO declarations, which a "has a marker" check calls healthy', () => {
+    const mutated = ADDITIVE.replace(
+      '-- oxy:rollback=derived',
+      '-- oxy:rollback=derived\n-- oxy:rollback=accepted: something else entirely happened here',
+    );
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(/declares 2 .* markers/u);
+  });
+
+  it('tells a MIS-SPELLED posture from an absent one', () => {
+    const mutated = ADDITIVE.replace('-- oxy:rollback=derived', '-- oxy:rollback=derivd');
+    const problems = faults(classifyText(mutated)).join(' ');
+    expect(problems).toMatch(/is not one of/u);
+    // …and specifically NOT the absent-marker message, which would put a typo
+    // in the same bucket as a file nobody has touched.
+    expect(problems).not.toMatch(/declares no/u);
+  });
+
+  it('does NOT read an indented prose mention as a declaration', () => {
+    // `0134_red_silver_fox.sql` documents its own verification greps in its
+    // header. A `^--\s*` pattern would read such a line as a second marker and
+    // fail a compliant file, whose cheapest green is deleting the assertion.
+    const mutated = ADDITIVE.replace(
+      '-- oxy:rollback=derived',
+      '-- oxy:rollback=derived\n--   grep -c \'^-- oxy:rollback\' 0000_probe.sql   -> 1\n--   -- oxy:rollback=accepted would be wrong here',
+    );
+    const migration = classifyText(mutated);
+    expect(migration.markerProblems).toEqual([]);
+    expect(migration.declared).toBe('derived');
+  });
+
+  // ---- the bind, in the direction a declaration census CAN see -------------
+
+  it('catches `derived` claimed over a statement it cannot invert', () => {
+    const mutated = `${ADDITIVE}ALTER TABLE "widgets" DROP CONSTRAINT "widgets_kind_check";\n`;
+    const problems = faults(classifyText(mutated)).join(' ');
+    expect(problems).toMatch(/declares `derived` but 1 statement\(s\) cannot be inverted/u);
+    expect(problems).toMatch(/widgets_kind_check/u);
+  });
+
+  it('catches `derived` claimed over a backfill', () => {
+    const mutated = `${ADDITIVE}UPDATE "widgets" SET "kind" = 'a' WHERE "kind" IS NULL;\n`;
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(/\(data\)/u);
+  });
+
+  it('catches a note on `derived`, which has nothing to say', () => {
+    const mutated = ADDITIVE.replace(
+      '-- oxy:rollback=derived',
+      '-- oxy:rollback=derived: the inverse drops widgets and its index',
+    );
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(/`derived` with a note/u);
+  });
+
+  // ---- the bind, in the direction it CANNOT ------------------------------
+
+  it('catches a lossy posture on a migration that loses nothing — every one of them', () => {
+    // THE assertion this file exists for. "Declare everything irreversible"
+    // satisfies a declaration census completely and is refused here, for each
+    // of the three lossy postures rather than for one of them, because a bind
+    // wired for `restore` alone is walked around by typing `accepted`.
+    for (const posture of LOSSY_POSTURES) {
+      const mutated = ADDITIVE.replace(
+        '-- oxy:rollback=derived',
+        rollbackMarkerLine(
+          posture,
+          'widgets is gone and only a snapshot from before this ran has it',
+        ),
+      );
+      const problems = faults(classifyText(mutated)).join(' ');
+      expect(problems, `\`${posture}\` was accepted on a purely additive migration`).toMatch(
+        /every one of its 2 statement\(s\) has a derivable inverse/u,
+      );
+    }
+    // The control that makes the loop mean something: the SAME text with the
+    // honest posture is clean, so the refusals above are about the claim rather
+    // than about the mutation having broken the file.
+    expect(faults(classifyText(ADDITIVE))).toEqual([]);
+  });
+
+  it('catches a lossy posture carrying no note at all', () => {
+    const mutated = LOSSY.replace(/^-- oxy:rollback=restore:.*$/mu, '-- oxy:rollback=restore');
+    expect(mutated).toContain('-- oxy:rollback=restore\n');
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(/the note is empty/u);
+  });
+
+  it('catches a placeholder note', () => {
+    for (const placeholder of ['TBD', 'n/a', 'none', 'unknown', '---']) {
+      const mutated = LOSSY.replace(
+        /^-- oxy:rollback=restore:.*$/mu,
+        `-- oxy:rollback=restore: ${placeholder}`,
+      );
+      expect(faults(classifyText(mutated)).join(' '), placeholder).toMatch(/placeholder/u);
+    }
+  });
+
+  it('catches a note too short to say anything', () => {
+    const mutated = LOSSY.replace(
+      /^-- oxy:rollback=restore:.*$/mu,
+      '-- oxy:rollback=restore: it is lost',
+    );
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(
+      new RegExp(`${MINIMUM_NOTE_LENGTH} is the floor`, 'u'),
+    );
+  });
+
+  it('catches BOILERPLATE — a long, plausible note naming nothing this file touches', () => {
+    // The residual fakeable surface, and the rule that closes it. This note is
+    // grammatical, specific-sounding, well over the length floor, and could be
+    // pasted into all 135 files without opening one of them.
+    const mutated = LOSSY.replace(
+      /^-- oxy:rollback=restore:.*$/mu,
+      '-- oxy:rollback=restore: this change cannot be undone from the migration file; restore ' +
+        'the database from a snapshot taken before the deploy',
+    );
+    const problems = faults(classifyText(mutated)).join(' ');
+    expect(problems).toMatch(/names none of the .* objects this migration removes or rewrites/u);
+    // …and it NAMES the objects the author should have mentioned, so the
+    // failure is actionable rather than a scolding.
+    expect(problems).toMatch(/widgets_kind_check/u);
+  });
+
+  it('is not satisfied by naming an object the migration merely CREATED', () => {
+    // The narrowness of `objectsAtRisk`, asserted rather than assumed: a
+    // migration that creates `widgets_created_idx` and drops a constraint must
+    // not have its note satisfied by the index it added.
+    const text = [
+      '-- oxy:deploy-phase=post',
+      '-- oxy:rollback=restore: widgets_created_idx is added by this migration and is not what ' +
+        'was lost here at all',
+      'CREATE INDEX "widgets_created_idx" ON "widgets" USING btree ("created_at");--> statement-breakpoint',
+      'ALTER TABLE "widgets" DROP CONSTRAINT "widgets_kind_check";',
+      '',
+    ].join('\n');
+    const migration = classifyText(text);
+    expect(objectsAtRisk(migration).has('widgets_created_idx')).toBe(false);
+    expect(verdictOnNote(migration).outcome).toBe('refused');
+  });
+
+  // ---- the classifier's own branches -------------------------------------
+
+  it('reads a DO block from its body, and fails CLOSED on one that writes', () => {
+    const readOnly = [
+      '-- oxy:deploy-phase=pre',
+      '-- oxy:rollback=derived',
+      'DO $$ BEGIN IF (SELECT count(*) FROM "widgets") = 0 THEN RAISE EXCEPTION \'empty\'; END IF; END; $$;',
+      '',
+    ].join('\n');
+    expect(faults(classifyText(readOnly))).toEqual([]);
+
+    const writes = readOnly.replace(
+      'RAISE EXCEPTION \'empty\';',
+      'UPDATE "widgets" SET "kind" = \'a\';',
+    );
+    // The mutation APPLIED, which is the difference between a detector that
+    // fired and one that was handed the original text.
+    expect(writes).toContain('UPDATE "widgets"');
+    expect(faults(classifyText(writes)).join(' ')).toMatch(/\(data\)/u);
+  });
+
+  it('inverts a FIRST `CREATE OR REPLACE FUNCTION` and refuses a rewrite of one', () => {
+    // The distinction is a fact about the CORPUS, not about the statement: a
+    // first definition's inverse is a drop, a rewrite's inverse is the previous
+    // body, which lives in an earlier file. Driven through the real corpus
+    // reader by writing two files into one directory.
+    const dir = mkdtempSync(join(tmpdir(), 'mercaria-rollback-fn-'));
+    try {
+      const body =
+        'CREATE OR REPLACE FUNCTION mercaria_probe() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END; $$;';
+      writeFileSync(
+        join(dir, '0000_first.sql'),
+        `-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\n${body}\n`,
+      );
+      writeFileSync(
+        join(dir, '0001_second.sql'),
+        `-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\n${body}\n`,
+      );
+      const [first, second] = classifyMigrations(dir);
+      expect(first.statements[0].inverse).toBe('DROP FUNCTION mercaria_probe();');
+      expect(faults(first)).toEqual([]);
+      expect(second.statements[0].inverse).toBeNull();
+      expect(second.statements[0].reason).toBe('definition_not_in_file');
+      expect(faults(second).join(' ')).toMatch(/cannot be inverted/u);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('unwinds the derived inverse in REVERSE order', () => {
+    // A table's constraints are added after it and have to come off before it.
+    const text = [
+      '-- oxy:deploy-phase=pre',
+      '-- oxy:rollback=derived',
+      'CREATE TABLE "widgets" ("id" text PRIMARY KEY NOT NULL);--> statement-breakpoint',
+      'ALTER TABLE "widgets" ADD CONSTRAINT "widgets_id_fk" FOREIGN KEY ("id") REFERENCES "other"("id");',
+      '',
+    ].join('\n');
+    const { statements } = derivedInverse(classifyText(text));
+    expect(statements).toEqual([
+      'ALTER TABLE "widgets" DROP CONSTRAINT "widgets_id_fk";',
+      'DROP TABLE "widgets";',
+    ]);
+  });
+
+  it('treats a tightening as invertible and a relaxing as not', () => {
+    // `SET NOT NULL` reverses to `DROP NOT NULL`, losslessly — a real answer
+    // the phase marker cannot give, since such a migration is `post`. The
+    // reverse direction cannot: re-tightening fails against any NULL written
+    // since, and an inverse that can fail is not an inverse.
+    const tighten = [
+      '-- oxy:deploy-phase=post',
+      '-- oxy:rollback=derived',
+      'ALTER TABLE "widgets" ALTER COLUMN "kind" SET NOT NULL;',
+      '',
+    ].join('\n');
+    expect(faults(classifyText(tighten))).toEqual([]);
+    expect(classifyText(tighten).statements[0].inverse).toBe(
+      'ALTER TABLE "widgets" ALTER COLUMN "kind" DROP NOT NULL;',
+    );
+
+    const relax = tighten.replace('SET NOT NULL', 'DROP NOT NULL');
+    expect(faults(classifyText(relax)).join(' ')).toMatch(/\(data\)/u);
+  });
+
+  it('reports an unknown statement form rather than assuming it is additive', () => {
+    // The `merge-plan-census` device: a form nobody has decided about fails the
+    // build. Assuming "additive" would silently widen what `derived` covers,
+    // and assuming "lossy" would silently force a note nobody can write.
+    const mutated = `${ADDITIVE}CLUSTER "widgets" USING "widgets_id_idx";\n`;
+    expect(faults(classifyText(mutated)).join(' ')).toMatch(/has no opinion on/u);
+  });
+});

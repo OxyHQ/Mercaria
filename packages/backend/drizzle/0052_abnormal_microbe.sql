@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #74 — the ranking policy register. ONE table, additive, and safe against the
 -- image that is still serving: nothing reads or writes this table until the

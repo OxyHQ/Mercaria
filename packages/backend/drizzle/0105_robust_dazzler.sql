@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- ADR 0007 D4: machine translation may never overwrite reviewed or approved
 -- content. Three of the four `*_localizations` tables enforce that at the ROW as

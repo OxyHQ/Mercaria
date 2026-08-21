@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: payment_outboxes_event_type_check and payouts_amount_currency_check are widened here and their previous forms are in 0007 and 0002; re-adding either fails against rows written under the wider tuple
 --
 -- Refund, dispute and payout lifecycle (#49). Every statement below is additive
 -- or WIDENS, so the image still serving is unaffected by all of it:

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=accepted: listings.condition and offers.condition are rewritten from 'used' to 'used_good', offers.condition_mapping_state to 'unmapped', and one listing_condition_revisions row is inserted per listing. The rewrite is one-way but self-documenting — the inserted revision rows record the from_condition for every listing, so the pre-image is readable from the trail rather than from a backup
 --
 -- #90 — the item-condition taxonomy, phase 1 of 2 (ADDITIVE).
 --

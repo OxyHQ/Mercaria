@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: listings.search_vector is dropped and re-added with a different configuration in this same file, so its previous contents are gone; the replacement is derived from the row, so re-running 0006 rebuilds it rather than restoring it
 --
 -- Tags reach `listings.search_vector` through the SAME `english` analyzer the
 -- title and description already use, instead of `array_to_tsvector`.

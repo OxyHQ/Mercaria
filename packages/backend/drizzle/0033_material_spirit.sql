@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 -- Catalog curation (#59, ADR 0002 D12/D16): eight new tables, no change to any
 -- existing one. Purely additive, so it is safe against the image still serving
 -- AND the one about to — the previous image simply never reads these tables.

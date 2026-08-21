@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: awin_advertisers.declared_host and every value in it, plus the narrower awin_advertisers_declared_host_shape_check and awin_link_samples_findings_check. Only a snapshot from before this ran has the column, and the previous image reads it
 --
 -- #589, the CLEAN CUT. `post`, and every statement breaks a write the previous
 -- image performs.

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- The translation desk's indexes (#367 merge-order step 10).
 --

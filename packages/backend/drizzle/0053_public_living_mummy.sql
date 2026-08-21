@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #78 — currency-safe offer price history. ADDITIVE, entirely.
 --

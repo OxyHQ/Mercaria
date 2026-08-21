@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: the narrower payment_outboxes_event_type_check is in the migration that last widened it; re-adding it fails against any outbox row carrying one of the event types this file admitted
 --
 -- Connected-account onboarding (#46): the `provider_accounts` table and one new
 -- outbox event type.

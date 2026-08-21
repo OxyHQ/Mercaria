@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "automotive_fitments" (
 	"id" text PRIMARY KEY NOT NULL,
 	"subject_product_id" text,

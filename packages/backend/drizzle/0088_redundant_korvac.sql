@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=accepted: categories.key, ancestor_ids and lifecycle are backfilled from slug, ancestor_slugs and is_active, all of which are still there, so re-running reproduces the result exactly. The file refuses rather than sanitising a malformed slug path, and its own DO block is the positive control on the ancestor_ids resolution
 --
 -- #367 step 1: taxonomy identity, lifecycle, aliases and redirects
 -- (ADR 0007 D1/D2/D11/D13).

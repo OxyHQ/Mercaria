@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=replay: the losing duplicate product_variants rows have source_connection_id, source_provider, source_external_variant_id and source_external_inventory_item_id set to NULL. Re-derivable by the next connector sync, not restorable; the surviving row per group keeps its provenance
 --
 -- ONE local variant per external variation, per connection (#259).
 --

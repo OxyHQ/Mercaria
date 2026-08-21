@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #367 box 11, ADR 0007 D5/D10/D13: `listings` pins the EXACT product-type
 -- version it was authored under, so a published record can still be read under

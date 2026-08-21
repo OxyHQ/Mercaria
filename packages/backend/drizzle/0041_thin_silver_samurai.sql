@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- The guest order portal (#108, ADR 0003 D5/D11/D17) — five new tables and
 -- nothing else. Purely ADDITIVE: no column is dropped, renamed or narrowed, no

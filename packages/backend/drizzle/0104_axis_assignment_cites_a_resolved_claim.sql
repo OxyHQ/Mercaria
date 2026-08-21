@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: mercaria_native_variant_axis_assignment_scope is replaced. Its previous body is in the migration that defined it; re-apply that file's own handwritten block. The file's DO block reports pre-existing violators and repairs none of them, so a rollback leaves them exactly as it found them
 --
 -- A typed axis assignment may only cite a claim that RESOLVED (#367).
 --

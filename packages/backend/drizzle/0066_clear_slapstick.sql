@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: ledger_entries_account_check and ledger_transactions_kind_check are widened again; the previous forms are in 0063 and re-adding either fails against a posting using the added account or kind
 --
 -- Merchant plans, entitlements and subscription billing (#89).
 --

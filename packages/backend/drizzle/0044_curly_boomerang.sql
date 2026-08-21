@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: offers_active_source_key is replaced by offers_source_identity_key and any duplicate that accumulated under the old predicate is collapsed by retiring the loser (offers.status, retirement_reason, retired_at rewritten). Re-creating the old index is in this file's own header; the collapsed rows keep their ids and are not deleted, so the collapse is visible rather than lost
 --
 -- #68 — source-aware offer refresh, expiry and catalogue health. PHASE 2 of 2.
 --

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: payment_outboxes_event_type_check and analytics_events_reason_code_check are widened here; the previous forms are in 0009 and 0033 and re-adding either fails against rows carrying the values this file admitted
 -- Stripe fiat guest checkout (#107, ADR 0006). Two CHECK WIDENINGS, and nothing
 -- else: no table, no column, no index, no backfill.
 --

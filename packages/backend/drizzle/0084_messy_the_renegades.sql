@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: referral_events_action_check and referral_partners_state_check are widened; the previous forms are in 0083 and 0015, and re-adding either fails against an event or partner row using the added vocabulary
 --
 -- #146 increment 2: referral partner ENROLLMENT, application, review and terms
 -- acceptance (ADR 0005 D2/D15), plus the tax questionnaire's route reaching a

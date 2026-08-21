@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Payment reconciliation, discrepancies and operator repairs (#50). Every
 -- statement below creates something new; nothing is dropped, renamed or

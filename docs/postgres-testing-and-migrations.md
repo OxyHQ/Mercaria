@@ -204,6 +204,13 @@ Mechanical, and every part done by hand corrupts the chain silently.
 - **Regeneration DROPS every hand-written statement** — triggers, functions,
   backfill `UPDATE`s. Re-apply them, then READ the regenerated file for
   statements you did not intend, and grep for exactly one `-- oxy:deploy-phase=`.
+- **…and it drops the `-- oxy:rollback=` marker with them.** Re-add it, then run
+  `bun run --cwd packages/backend db:rollback-plan <tag>` and read what the
+  classifier says the file does before trusting what you meant to write — a
+  regeneration can quietly turn a `derived` migration into a lossy one by
+  emitting a `DROP CONSTRAINT` pair for a CHECK you did not touch. The four
+  postures, what the gate binds them to and what it cannot catch:
+  [`runbooks/migration-rollback.md`](runbooks/migration-rollback.md).
 - **A rebase can stage the deletion of an UPSTREAM snapshot.** Before pushing,
   assert the journal's idx set equals the set of `meta/*_snapshot.json` files.
 - **A two-phase branch repeats the two-pass generation** (additive state →

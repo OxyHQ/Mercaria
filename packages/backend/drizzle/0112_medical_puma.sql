@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #367 workstreams 2 and 3: a product-type FIELD gets its own localized
 -- authoring copy, and a product type gets search aliases.

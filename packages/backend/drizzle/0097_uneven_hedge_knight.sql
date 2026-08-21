@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "native_listing_attribute_claims" (
 	"id" text PRIMARY KEY NOT NULL,
 	"listing_id" text NOT NULL,

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: eleven metric-key and reason-code CHECKs including analytics_rollups_metric_key_check and ranking_policy_versions_guardrail_metrics_check are widened; the previous forms are in 0033, 0052 and 0056, and re-adding any of them fails against a stored rollup or policy version naming an added metric
 --
 -- #111 — guest-commerce governance: retention, privacy requests, abuse controls,
 -- security counters and the staged rollout.

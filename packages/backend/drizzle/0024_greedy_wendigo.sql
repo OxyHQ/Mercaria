@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: five indexes including attribute_definitions_key_key and canonical_attribute_values_product_key are dropped and replaced with version-scoped forms, and three CHECKs are widened. Every previous definition is in 0019; re-creating the old unique indexes fails once a second definition version exists
 --
 -- #94: the versioned attribute registry and the #94 columns on the normalized
 -- attribute values. ADDITIVE only, and correct against BOTH the image still

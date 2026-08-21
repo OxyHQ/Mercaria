@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_merge_conflicts_kind_check, _resolution_check and _pair_shape_check are widened; the previous forms are in 0116 and re-adding any of them fails against a stored conflict using the added vocabulary
 --
 -- The `entity_suppressed` merge conflict (#694 part two).
 --

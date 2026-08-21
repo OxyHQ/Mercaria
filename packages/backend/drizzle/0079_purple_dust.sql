@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: notifications_type_check plus the three catalog_merge_jobs_phase_check siblings are widened; the previous forms are in 0020 and 0055, and re-adding any of them fails against a stored notification or job using the added vocabulary
 --
 -- Saved shopping-agent jobs (#97).
 --

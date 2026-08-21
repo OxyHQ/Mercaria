@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Private watchlists and currency-safe basket tracking (#81).
 --

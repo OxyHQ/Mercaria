@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: condition_mapping_rulesets_provider_check is widened from CONNECTOR_PROVIDER_IDS to CONDITION_MAPPING_PROVIDER_IDS; the previous form is in 0034 and re-adding it fails against any eBay ruleset
 --
 -- #65 — the eBay Browse catalog source.
 --

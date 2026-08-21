@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_governance_audit_events_action_check, _subject_kind_check and catalog_governance_change_requests_subject_kind_check are widened; the previous forms are in 0103 and re-adding any of them fails against a stored audit event or change request using the added vocabulary
 --
 -- The attribute-claim settlement act and its audit subject (#576).
 --

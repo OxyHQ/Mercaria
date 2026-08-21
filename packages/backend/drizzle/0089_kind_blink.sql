@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #367 step 3: versioned product types, fields, groups and category scopes
 -- (ADR 0007 D5/D6/D8/D14, following D11's migration protocol).

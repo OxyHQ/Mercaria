@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Give the price-alert block-reason vocabulary a READER (#752).
 --

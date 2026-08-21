@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "catalog_sources" (
 	"id" text PRIMARY KEY NOT NULL,
 	"kind" text NOT NULL,

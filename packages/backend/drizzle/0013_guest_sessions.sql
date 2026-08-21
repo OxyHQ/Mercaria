@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Guest sessions (#103, ADR 0003 D3): the `guest_sessions` table, its unique
 -- token-hash index, the rotation-grace lookup index and the two purge-sweep

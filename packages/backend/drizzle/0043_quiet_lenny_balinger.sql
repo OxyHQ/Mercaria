@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=accepted: catalog_source_runs.refresh_mode and catalog_source_objects.retirement_kind are backfilled from enumeration_complete, since and retired_at, all of which are still there, so re-running reproduces the result. offers_retirement_reason_check and catalog_source_runs_counters_non_negative_check are widened and their previous forms are in the #62 migration
 --
 -- #68 — source-aware offer refresh, expiry and catalogue health. PHASE 1 of 2.
 --

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: native_listing_links_method_check is widened here and its previous form is in 0064; re-adding it fails against any link stamped with the added method. The four catalog_authoring_drafts triggers beside it are introduced by this same migration, so their drops are armour rather than a loss
 --
 -- Additive throughout. The four tables are new, and the one statement that
 -- touches an existing table is the `native_listing_links_method_check` pair:

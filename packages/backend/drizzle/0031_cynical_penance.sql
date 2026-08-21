@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: attribute_reindex_requests_reason_check and native_listing_links_method_check are widened here; the previous forms are in 0024 and 0019 and re-adding either fails against rows carrying the values this file admitted
 -- The native-catalogue backfill (#60, ADR 0002 D23/D24): three new tables and
 -- two WIDENED value sets. Purely additive, so it is safe against the image still
 -- serving AND the one about to.

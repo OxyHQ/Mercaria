@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #262: the webhook re-registration bookkeeping on `connections`.
 --

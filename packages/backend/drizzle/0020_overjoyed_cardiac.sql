@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: the narrower notifications_type_check is in the migration that defined it; re-adding it fails against any notification carrying a type this file admitted
 CREATE TABLE "merchant_claim_challenges" (
 	"id" text PRIMARY KEY NOT NULL,
 	"claim_id" text NOT NULL,

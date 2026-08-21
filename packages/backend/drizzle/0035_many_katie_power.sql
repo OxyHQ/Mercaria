@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: listings_condition_check and offers_condition_check are narrowed to the nine #90 keys and the transitional defaults on listings.condition_assertion and offers.condition_mapping_state are dropped. The previous forms are in 0034; the pre-#90 image writes the legacy 'used', so there is no rollback point past this without re-widening them
 --
 -- #90 — the item-condition taxonomy, phase 2 of 2 (THE CLEAN CUT).
 --

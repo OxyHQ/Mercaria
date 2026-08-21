@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Secondary category classification (#367 Workstream 1, ADR 0007 D2/D3/D4).
 --

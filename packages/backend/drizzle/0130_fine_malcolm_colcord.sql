@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: the three catalog_localization_revisions CHECKs are widened again; the previous forms are in 0122 and re-adding any of them fails against a stored revision using the added vocabulary
 --
 -- Native listing localization (#367 Translation model, ADR 0007 D6/D7).
 --

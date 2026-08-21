@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: carts_oxy_user_id_key is replaced by a partial unique and carts.oxy_user_id loses NOT NULL. Re-tightening fails against every guest cart, which has a NULL there by design
 --
 -- Guest cart ownership and the merge audit (#104, ADR 0003 D8).
 --

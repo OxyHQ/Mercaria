@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #62 — the external CatalogSource adapter and staged ingestion framework.
 --
