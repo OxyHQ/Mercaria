@@ -138,8 +138,11 @@ export function matchedMarketingPhrase(displayValue: string): string | undefined
  * costs precision, which a customer finds — applied to a validating position
  * rather than a rewriting one.
  *
- * `marketing-claims-boundary.test.ts` pins both directions, so removing this
- * decision means deleting an assertion rather than editing a character class.
+ * `src/__tests__/word-boundary-marks.test.ts` pins both directions — and
+ * measured, the 61 cases in this domain's own `normalization.test.ts` all stay
+ * green under the `\p{M}` change, so that file is the only thing holding the
+ * decision. Removing it means deleting an assertion rather than editing a
+ * character class.
  */
 function containsPhrase(haystack: string, phrase: string): boolean {
   let from = 0;
