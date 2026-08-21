@@ -101,6 +101,48 @@ export function matchedMarketingPhrase(displayValue: string): string | undefined
  * The boundary check asks that the character on each side is not a letter or a
  * digit — hyphens and spaces both qualify as boundaries, which is what lets
  * `top-notch` and `top notch` be two entries rather than a regex.
+ *
+ * ## A combining mark reads as a boundary here, and that is DELIBERATE (#836)
+ *
+ * `\p{L}` excludes combining marks, so `[\p{L}\p{N}]` treats one as a
+ * non-word character. `services/search-intent/dictionaries.ts` carried the same
+ * class in the same shape and it was a defect there; here it is not, and the
+ * difference is which way a match points.
+ *
+ * That predicate SELECTS — a match adds a category filter or an attribute
+ * requirement to a shopper's query — so a false positive narrows somebody's
+ * results page. This one REFUSES: a match rejects a promotional sentence being
+ * recorded as an objective specification value. Measured on this module's real
+ * exports, every case the `\p{M}` repair would change moves from refuse to
+ * accept:
+ *
+ * ```
+ * revolutionary        -> refused, both ways (the control)
+ * revolutionary + U+0301 (combining acute) -> refused today, ACCEPTED with \p{M}
+ * revolutionary + U+093E (devanagari matra) -> refused today, ACCEPTED with \p{M}
+ * revolutionary + U+3099 (dakuten)          -> refused today, ACCEPTED with \p{M}
+ * revolutionaryx       -> accepted, both ways (the negative control)
+ * ```
+ *
+ * So the repair is an EVASION, not a fix: a seller appends one invisible mark
+ * and a marketing sentence enters a specification. There is no matching
+ * under-detection to trade against it, because every phrase in
+ * {@link MARKETING_PHRASES} is Latin and Devanagari, Bengali and Han characters
+ * are all `\p{L}` — a phrase glued to non-Latin text correctly does not match,
+ * and a script whose marks are structural cannot lose a match it never had.
+ *
+ * The over-firing is bounded to text that already contains an English marketing
+ * phrase spelled out in full, and its cost is one refusal an author can see and
+ * answer, against an invisible acceptance nobody reviews. That is the family's
+ * asymmetry — under-folding costs recall, which routes to a human; over-folding
+ * costs precision, which a customer finds — applied to a validating position
+ * rather than a rewriting one.
+ *
+ * `src/__tests__/word-boundary-marks.test.ts` pins both directions — and
+ * measured, the 61 cases in this domain's own `normalization.test.ts` all stay
+ * green under the `\p{M}` change, so that file is the only thing holding the
+ * decision. Removing it means deleting an assertion rather than editing a
+ * character class.
  */
 function containsPhrase(haystack: string, phrase: string): boolean {
   let from = 0;
