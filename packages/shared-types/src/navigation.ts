@@ -199,14 +199,33 @@ export const NAVIGATION_LOCALIZATION_STATUSES: readonly NavigationLocalizationSt
   'deprecated',
 ];
 
-/** ADR 0007 D4's provenance. See {@link NavigationLocalizationStatus}. */
+/**
+ * ADR 0007 D4's provenance. See {@link NavigationLocalizationStatus}.
+ *
+ * **`seller` is carried here because this list and `LOCALIZATION_PROVENANCES`
+ * are ONE vocabulary, not because a seller writes navigation labels.** Nobody
+ * does — Mercaria owns the navigation tree. But per-table meaningfulness has
+ * never been this tuple's membership rule: `imported_source` is equally
+ * unreachable on a navigation node, and `mercaria` is a refuted authorship
+ * claim on `listing_localizations`. A CHECK states what a column MAY hold, not
+ * what it does hold.
+ *
+ * What forces the copy is `catalog-localization.test.ts`' equality assertion,
+ * which exists — in its own words — to notice "the day they are not" identical,
+ * because two lists describing one vocabulary drift in the permissive
+ * direction. Relaxing that guard to a subset test to spare one CHECK on a table
+ * nobody writes `seller` to would trade a standing invariant for a migration
+ * statement. The swap this file's header describes — deleting both tuples and
+ * importing the shared ones — remains the real fix and remains unclaimed.
+ */
 export type NavigationLocalizationProvenance =
   | 'mercaria'
   | 'official_brand'
   | 'professional'
   | 'community_reviewed'
   | 'machine'
-  | 'imported_source';
+  | 'imported_source'
+  | 'seller';
 
 /** {@link NavigationLocalizationProvenance}. */
 export const NAVIGATION_LOCALIZATION_PROVENANCES: readonly NavigationLocalizationProvenance[] = [
@@ -216,6 +235,7 @@ export const NAVIGATION_LOCALIZATION_PROVENANCES: readonly NavigationLocalizatio
   'community_reviewed',
   'machine',
   'imported_source',
+  'seller',
 ];
 
 /**

@@ -211,6 +211,42 @@ export const STALE_ON_SOURCE_CHANGE_STATUSES = [
  * by somebody outside Mercaria and is deliberately not `official_brand` — a
  * brand's own copy arrives through a verified relationship (#55), not through a
  * product feed that happens to carry a Spanish title.
+ *
+ * ## `seller` is a PROVENANCE and `seller_authored` is a FIELD CLASS
+ *
+ * They sit one field apart on the same row and they answer different questions.
+ * {@link LOCALIZED_FIELD_CLASSES}' `seller_authored` says what KIND of text a
+ * field holds, which is what decides its fallback chain — it is a property of
+ * `listings.title` whoever wrote the row. This says WHO wrote THIS translation.
+ * A Mercaria operator translating a seller's title writes `seller_authored`
+ * text under a `mercaria` provenance, and both statements are true at once.
+ *
+ * So the member added for #814 is `seller` and deliberately NOT `seller_authored`:
+ * every one of that string's occurrences in this repository is the field class,
+ * and reusing the spelling would put one string in two vocabularies meaning two
+ * different things on one row — which reads as agreement and is not.
+ *
+ * ## …and why none of the other five could carry a seller's own translation
+ *
+ * #809 landed `listing_localizations` with a read path and no writer. The write
+ * path (#814) let a seller translate their own listing, and no existing member
+ * was TRUE of that row: `mercaria` is refuted three times in this codebase as a
+ * false authorship claim (see {@link BASE_LOCALE_PROVENANCE}'s own note),
+ * `imported_source` means a feed, `professional` claims a hired translator,
+ * `official_brand` requires a #55 verified relationship, `community_reviewed`
+ * claims a review nobody performed, and `machine` would arm the guard trigger
+ * against the person who wrote the text. The column is `NOT NULL`, so "carry
+ * none" was not available either.
+ *
+ * `seller` and not `store`: the actor vocabulary this repository already uses
+ * for "a person editing a listing they own" is `ConditionActor`
+ * (`services/condition/condition-write.service.ts`), whose kinds are
+ * `seller | operator | source | migration` with no `store` member — and the
+ * STORE-side listing edit passes `{kind: 'seller'}` exactly as the P2P one does
+ * (`controllers/admin/products-admin.controller.ts` and
+ * `controllers/seller-listings.controller.ts`). One word for one actor.
+ *
+ * ADR 0007 D4 enumerates this tuple verbatim and carries the dated amendment.
  */
 export const LOCALIZATION_PROVENANCES = [
   'mercaria',
@@ -219,6 +255,7 @@ export const LOCALIZATION_PROVENANCES = [
   'community_reviewed',
   'machine',
   'imported_source',
+  'seller',
 ] as const;
 
 /** Where one localization's text came from. */
