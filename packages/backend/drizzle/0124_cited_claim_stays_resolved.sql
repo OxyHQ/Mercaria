@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: mercaria_native_variant_claim_frozen is replaced. Its previous body is in the migration that defined it; re-apply that file's own handwritten block
 --
 -- A cited claim may not leave `resolved` (#576, closing `0104`'s named gap).
 --

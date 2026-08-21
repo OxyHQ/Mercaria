@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: order_applied_discounts.value_type and order_tax_lines.rate_bps lose NOT NULL. Re-tightening fails against any breakdown line written without one, which is exactly what this migration made legal
 --
 -- #378: an imported order's discount and tax BREAKDOWN.
 --

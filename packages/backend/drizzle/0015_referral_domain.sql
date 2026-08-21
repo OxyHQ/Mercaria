@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "referral_attributions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"program_id" text NOT NULL,

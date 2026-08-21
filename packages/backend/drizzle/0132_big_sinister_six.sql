@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: eleven provenance CHECKs including attribute_labels_provenance_check and listing_localizations_provenance_check are widened; the previous forms are in the #367 localization migrations and re-adding any of them fails against a row carrying an added provenance
 --
 -- `seller` joins the localization provenance vocabulary (#814, ADR 0007 D4).
 --

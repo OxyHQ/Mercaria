@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Variant-scoped images on the NATIVE listing side (#850, epic #367).
 --

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Catalog localization (#367 merge-order step 2, ADR 0007 D4).
 --

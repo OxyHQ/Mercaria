@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Mercaria's initial Postgres schema — 49 tables, created from nothing.
 --

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: referral_attributions_conflict_reason_check, referral_events_subject_type_check and referral_events_action_check are widened; the previous forms are in 0084 and re-adding any of them fails against a stored attribution or event using the added vocabulary
 --
 -- #148: referral fraud controls, privacy, disclosures and program enforcement
 -- (ADR 0005 D7/D17/D18, R6-R8).

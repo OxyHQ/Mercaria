@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: attribute_definitions_axes_domain_check and its three axis siblings are widened for component axes; the previous forms are in 0024 and 0098, and re-adding any of them fails against a stored value naming a component axis
 --
 -- #367 workstream 4: apparel compound sizes. `ATTRIBUTE_COMPONENT_AXES` gains
 -- five garment positions (waist, inseam, chest, sleeve, neck) beside the five

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: ledger_entries_account_check and ledger_transactions_kind_check are widened again; the previous forms are in 0081 and re-adding either fails against a posting using the added account or kind
 --
 -- Affiliate outbound redirects, click records and commission reconciliation
 -- (#67, part of #37).

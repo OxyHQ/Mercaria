@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: analytics_events_reason_code_check is widened; the previous form is in 0065 and re-adding it fails against any event carrying an added reason code
 --
 -- #85: merchant activation readiness and native-checkout onboarding.
 --

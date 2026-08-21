@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_merge_jobs_phase_check and its two siblings are widened for the saves phase; the previous forms are in 0038 and re-adding them fails against any job that recorded it
 --
 -- Product and variant price alerts (#79).
 --

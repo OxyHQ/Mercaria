@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: attribute_value_reviews_reason_check is narrowed. Its previous form is in the migration that defined it; the pre-image writes reasons the new form refuses, so there is no rollback point past this without re-widening it
 --
 -- Narrow `attribute_value_reviews_reason_check`: drop `definition_deprecated`
 -- (#636).

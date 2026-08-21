@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Per-locale full-text search over native listing translations
 -- (#367 Workstream 5, "define language-aware tokenization/folding behavior").

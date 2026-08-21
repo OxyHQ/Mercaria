@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: affiliate_transactions_click_idx is dropped and replaced. Its previous definition is in the #67 migration; re-creating it is safe because it is non-unique
 --
 -- #445 — one click, one transaction. The attribution guard that has to exist
 -- BEFORE the code that could breach it.

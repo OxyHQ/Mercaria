@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: referral_events_action_check is widened; the previous form is in 0081 and re-adding it fails against any event carrying an added action
 --
 -- #146 increment 1: the referral partner TAX QUESTIONNAIRE (ADR 0005 D15 gate 2)
 -- plus the two `referral_events` actions it and the readiness sync append.

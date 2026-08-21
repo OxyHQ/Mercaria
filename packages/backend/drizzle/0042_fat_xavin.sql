@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: supplier_quotes_declared_capabilities_check and its two siblings are widened for #124's order capabilities; the previous forms are in the #122 migration and re-adding them fails against any quote declaring one of the added capabilities
 --
 -- #124 — the supplier ORDER orchestration. Entirely ADDITIVE: seven new tables,
 -- three new nullable columns on `purchase_orders` with their shape CHECKs, and

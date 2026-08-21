@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 -- Five new tables plus their triggers. Every statement is additive: the
 -- serving image performs no write these constrain, because it has no code
 -- that touches these tables at all.

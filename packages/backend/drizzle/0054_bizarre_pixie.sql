@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: guest_portal_messages_kind_check is widened for a new message kind; the previous form is in the #108 migration and re-adding it fails against any queued message of the added kind
 --
 -- Buyer post-purchase requests (#110): cancellations, returns and support.
 --

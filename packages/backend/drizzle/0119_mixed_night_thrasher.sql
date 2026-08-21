@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=accepted: attribute_labels.status and provenance are backfilled to 'stale' and 'mercaria' where NULL. Both columns were added by this migration, so nothing reads a pre-image and re-running reproduces the result exactly
 --
 -- `attribute_labels` joins the ADR 0007 D4 localization family (#94).
 --

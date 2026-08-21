@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: referral_events_action_check is widened; the previous form is in 0060 and re-adding it fails against any event carrying an added action
 --
 -- #143: the two operator levers on a referral program, and the audit action
 -- that records somebody pulling one.

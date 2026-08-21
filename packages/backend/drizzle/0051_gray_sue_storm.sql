@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #109 — claiming a guest checkout group into an Oxy account (ADR 0003 D14).
 -- ADDITIVE, entirely: three new tables, no column dropped, renamed or narrowed

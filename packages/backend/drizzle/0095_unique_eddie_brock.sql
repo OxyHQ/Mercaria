@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=accepted: referral_events.reward_refusal_reason is backfilled with split_part of reason, which is still there, so re-running reproduces it exactly. Nothing reads the pre-image because the column did not exist before this migration
 --
 -- #431 — the reward refusal CODE stops being a prefix on free text.
 --

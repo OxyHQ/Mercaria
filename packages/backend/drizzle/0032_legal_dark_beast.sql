@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "retail_category_rules" (
 	"id" text PRIMARY KEY NOT NULL,
 	"policy_id" text NOT NULL,

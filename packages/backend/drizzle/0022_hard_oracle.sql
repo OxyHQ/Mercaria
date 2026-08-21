@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "native_listing_links" (
 	"id" text PRIMARY KEY NOT NULL,
 	"product_variant_id" text NOT NULL,

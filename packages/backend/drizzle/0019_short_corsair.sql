@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- The canonical PRODUCT layer of the commerce graph (#56, ADR 0002 D13-D16):
 -- product families, products, canonical variants, their alias / source-link /

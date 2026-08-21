@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "retail_cost_quote_acceptances" (
 	"id" text PRIMARY KEY NOT NULL,
 	"quote_id" text NOT NULL,

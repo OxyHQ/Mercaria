@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: attribute_definitions.allowed_values, attribute_definitions.is_active and canonical_attribute_values.selected and every value in them. Only a snapshot from before this ran has them; the pre-#94 image reads all three
 --
 -- #94's NARROWING half, split from 0024 because each statement here breaks a
 -- write the PREVIOUS image still performs:

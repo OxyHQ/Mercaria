@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #572. A catalog authoring draft can state what the GOODS are like.
 --

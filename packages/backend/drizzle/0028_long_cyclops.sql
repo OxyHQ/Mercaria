@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 -- #58 — deterministic product and variant matching with explainable confidence.
 --
 -- Additive: nine new tables, two trigger functions and three triggers, all of

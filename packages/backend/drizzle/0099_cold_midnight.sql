@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #427: a merchant can release one connector-pinned field, and the release is
 -- attributable.

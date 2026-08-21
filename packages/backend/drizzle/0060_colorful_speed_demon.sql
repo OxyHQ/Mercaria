@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: referral_events_subject_type_check and referral_events_action_check are widened; the previous forms are in 0015 and re-adding either fails against any event carrying an added subject type or action
 --
 -- Versioned referral reward rules, campaign budgets, rewards and their
 -- append-only reversals (#144, under ADR 0005).

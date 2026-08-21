@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Natural-language shopping intent (#95): four new tables and nothing else.
 --

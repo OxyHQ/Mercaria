@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: seven provider/event-type CHECKs including orders_payment_provider_check and payments_provider_check are in 0002 and 0003; re-adding the narrower forms fails against any row already naming stripe
 --
 -- The Stripe event ingress (#48): a new provider id, the columns that turn the
 -- event store into its own job queue, and one new outbox event type.

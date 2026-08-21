@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #589 follow-up: the swap evidence #631 said an operator already had.
 --

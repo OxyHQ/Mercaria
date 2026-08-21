@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: the three catalog_localization_revisions CHECKs are widened again; the previous forms are in 0120 and re-adding any of them fails against a stored revision using the added vocabulary
 --
 -- `attribute_definition` becomes a localized entity kind (#94, #367).
 --

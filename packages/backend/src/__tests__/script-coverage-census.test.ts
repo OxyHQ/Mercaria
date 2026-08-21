@@ -552,6 +552,12 @@ const SCRIPT_COVERAGE_EXEMPTIONS: readonly ScriptCoverageExemption[] = [
     note: 'camelCase to snake_case for a COLUMN name declared in this repository.',
   },
   {
+    module: 'backend/src/db/migrationRollback.ts',
+    reason: 'machine_alphabet',
+    construct: 'matchAll(/\\b(mercaria_[a-z0-9_]+)/giu)',
+    note: 'Extracts a Postgres FUNCTION or TRIGGER name out of a migration file; every identifier in drizzle/ is [a-z0-9_] because it is generated from a TypeScript one.',
+  },
+  {
     module: 'backend/src/lib/errors/sanitize.ts',
     reason: 'machine_alphabet',
     construct: 'Bearer\\s+[a-zA-Z0-9._-]+',

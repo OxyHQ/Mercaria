@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_merge_conflicts.conflict_key and every value in it, plus three widened CHECKs including catalog_merge_conflicts_kind_check. The column is a GENERATED one re-derived from the row, so re-adding it rebuilds it; the CHECK forms are in 0033
 --
 -- #405: `catalog_merge_conflicts` gains `collapsing_relation_id` and the
 -- `compatibility_endpoint_collapse` kind / `close_relation` resolution.

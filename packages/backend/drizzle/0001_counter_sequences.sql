@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Order and RMA numbers: the Postgres SEQUENCEs that replace the `Counter`
 -- collection.

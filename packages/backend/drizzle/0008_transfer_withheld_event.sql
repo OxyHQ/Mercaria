@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: the narrower payment_outboxes_event_type_check is in 0007; re-adding it fails against any row carrying transfer_withheld
 --
 -- Stripe checkout (#47): the one new outbox event type settlement can produce.
 --

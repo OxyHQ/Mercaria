@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: store_members_permissions_check is widened for a new store permission; the previous form is in 0000 and re-adding it fails against any member row already granted the added permission
 --
 -- Merchant demand analytics and the acquisition pipeline (#86).
 --

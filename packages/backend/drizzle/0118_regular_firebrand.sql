@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- The translation revision trail (#367 merge-order step 10, box 4).
 --

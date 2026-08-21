@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- Trustworthy price signals and merchant competitiveness (#82).
 --

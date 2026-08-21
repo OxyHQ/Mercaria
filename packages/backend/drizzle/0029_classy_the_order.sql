@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 -- Discovery analytics (#77): eight new tables, no change to any existing one.
 -- Purely additive, so it is safe against the image still serving AND the one
 -- arriving: nothing reads these tables until the new code is live.

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #303: WHICH record a connector sync run refused, and why — durably, per
 -- record, instead of a tally plus an elided summary sentence.

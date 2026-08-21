@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: native_listing_links_method_check is widened for the backfill method; the previous form is in 0031 and re-adding it fails against any link stamped by #60's backfill
 --
 -- #91 — the canonical "Sell yours" flow.
 --

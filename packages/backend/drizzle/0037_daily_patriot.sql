@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #61 — the three indexes the canonical-graph benchmark justified, and nothing
 -- else. Each one's measurement lives beside its definition in

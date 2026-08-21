@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- The bounded retail pilot (#125): five additive tables and four trigger pairs.
 -- Nothing here narrows, drops or renames, so it is `pre` — the serving image

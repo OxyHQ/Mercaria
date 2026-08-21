@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_review_events.sequence gains a nextval default over a new sequence. The column's previous default is in 0100; dropping the new one leaves the sequence behind, so drop it too or the next re-apply collides
 -- #775: the review trail could not express its own order. Two events are written
 -- from ONE `now` in one transaction, and the uuid v7 tiebreak is not monotonic
 -- within a millisecond, so the operator timeline's order was decided by random

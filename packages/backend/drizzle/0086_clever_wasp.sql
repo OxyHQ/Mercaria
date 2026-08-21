@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: referral_attributions_conflict_reason_check is widened; the previous form is in 0085 and re-adding it fails against any attribution carrying an added conflict reason
 --
 -- The bounded referral pilots (#149): four additive tables, three trigger
 -- pairs, and ONE widening of `referral_attributions_conflict_reason_check` by

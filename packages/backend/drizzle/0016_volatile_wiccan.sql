@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 CREATE TABLE "fee_schedule_acceptances" (
 	"id" text PRIMARY KEY NOT NULL,
 	"schedule_key" text NOT NULL,

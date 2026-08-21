@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: product_variants_sku_key and product_variants_barcode_key are dropped and replaced with store-scoped forms. Their previous global definitions are in 0000; re-creating them fails the moment two stores share a SKU, which is exactly what this migration made legal
 --
 -- #296: `product_variants.sku` and `.barcode` stop being unique, at any scope.
 --

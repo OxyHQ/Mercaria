@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_merge_conflicts.conflict_key is dropped and re-generated again, and five CHECKs including catalog_merge_conflicts_collapse_resolution_check are widened. The column is GENERATED so re-adding it rebuilds it; the previous CHECK forms are in 0114
 --
 -- #405, third table: `bundle_self_containment` and its `drop_component`
 -- resolution, plus the NATURAL key naming the colliding component row.

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- The procurement domain (#118): suppliers, supplier contacts and history,
 -- supplier platform accounts, versioned supply agreements with evidence,

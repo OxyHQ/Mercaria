@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #63 — the universal product-feed importer: seven new tables and no change to
 -- any existing one. Purely additive, so it is safe against the image still

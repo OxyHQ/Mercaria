@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_localization_revisions_entity_kind_check, _field_key_check and _field_pair_check are widened; the previous forms are in the #367 localization migration and re-adding any of them fails against a stored revision using the added vocabulary
 --
 -- Canonical product and family localization (#367 Translation model L2).
 --

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #66 — the Awin retailer-network source. ADDITIVE, entirely.
 --

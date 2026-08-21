@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #126 — supplier-fulfilled Mercaria-retail fulfilment. ADDITIVE, entirely.
 --

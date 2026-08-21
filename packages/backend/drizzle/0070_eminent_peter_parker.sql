@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=replay: listings_store_id_source_key_idx becomes UNIQUE and the losing duplicates have their four source_* columns set to NULL, so their connector provenance is gone. It is re-derivable rather than restorable — the next connector sync re-stamps the surviving row — and this file's own header states the keep-the-oldest rule it applied
 --
 -- #221 — one listing per connector provenance key, enforced by the storage.
 --

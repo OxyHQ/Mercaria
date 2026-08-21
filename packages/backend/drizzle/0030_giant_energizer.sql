@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=accepted: order_status_history.actor_kind and orders.buyer_origin are backfilled from by_oxy_user_id and source_connection_id respectively, and orders_buyer_identity_check is widened. Both backfills are derivations from columns that are still there, so re-running them reproduces the result exactly; the mercaria_order_buyer_origin_immutable body it replaces is in 0023
 -- Guest buyers and immutable contact snapshots on orders (#106, ADR 0003
 -- D6/D16). Purely ADDITIVE: no column is dropped, renamed or narrowed, and no
 -- existing value is rewritten except the two backfills below, both of which

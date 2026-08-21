@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=accepted: referral_events.reward_refusal_reason is backfilled again from reason for rows 0095 missed. The source column is still there, so re-running reproduces it exactly
 --
 -- #431, half two: every `reward_accrual_refused` row NAMES its refusal code.
 --

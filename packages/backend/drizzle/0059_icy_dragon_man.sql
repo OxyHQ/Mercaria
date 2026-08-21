@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: guest_portal_messages_kind_check is widened again; the previous form is in 0054 and re-adding it fails against any queued message of the added kind
 --
 -- Retail cancellations, returns, warranties, supplier RMAs and customer refunds
 -- (#127).

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=derived
 --
 -- #367 step 7: navigation trees and the merchandising split (ADR 0007 D3,
 -- following D11's migration protocol).

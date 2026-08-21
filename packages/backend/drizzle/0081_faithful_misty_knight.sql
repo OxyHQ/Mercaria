@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: five CHECKs including ledger_entries_account_check and referral_events_action_check are widened, and mercaria_referral_reward_frozen is replaced. The previous CHECK forms are in 0063 and 0078; the previous function body is in the migration that defined it, and re-apply that file's own handwritten block
 --
 -- The referral EARNINGS ledger (#145, ADR 0005 "Ledger representability").
 --

@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: orders.settlement_amount, settlement_currency, settlement_rate and settlement_as_of and every value in them. Only a snapshot from before this ran has them, and the pre-#44 image reads them, so there is no rollback point past this migration without one
 --
 -- The second half of the payment-domain landing: take away what it replaced.
 --

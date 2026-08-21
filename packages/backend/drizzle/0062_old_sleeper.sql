@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: catalog_review_items_detector_check and catalog_review_items_reason_codes_check are widened; the previous forms are in the migration that created the table and re-adding either fails against any review item carrying an added detector or reason code
 --
 -- #72 widens two of #59's closed value sets so a READER can dispute a published
 -- catalogue fact: the detector `public_correction` and the reason code

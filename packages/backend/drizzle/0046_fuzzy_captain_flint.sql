@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=pre
+-- oxy:rollback=restore: five CHECKs including orders_seller_type_check and ledger_entries_account_check are widened for mercaria_retail; the previous forms are in 0000, 0002 and 0036, and re-adding any of them fails against a retail order or a retail_cost_recovery entry
 --
 -- Mercaria-retail native checkout (#123, ADR 0004 D1/D4/D5/D8).
 --

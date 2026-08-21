@@ -1,4 +1,5 @@
 -- oxy:deploy-phase=post
+-- oxy:rollback=restore: the empty-string defaults on stores.description and listings.description are in 0000. Rows written since carry NULL where they used to carry '', and re-adding the default does not backfill them
 --
 -- `stores.description` and `listings.description` carried Mongoose's
 -- `default: ''` across. `findSchemaInvariantViolations` — wired into the suite
