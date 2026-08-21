@@ -15,6 +15,13 @@
  * of shared memory`. A control run with this file removed: 534/534 green, zero
  * lock failures. The private database was the tipping point.
  *
+ * Those figures are the state at a 102-entry chain against the 64 DEFAULT, and
+ * they are the record of this decision rather than the current capacity — the
+ * ceiling has since been raised and re-measured (#849), and the count of private
+ * database files is derived on every build by
+ * `scripts/validate-lock-capacity.mjs` rather than written down. The conclusion
+ * is unchanged: this file stays on the shared database.
+ *
  * So the pass takes a COHORT — #60's, reused rather than redefined — and this
  * file files every fixture listing under one fixture STORE. The listing-grain
  * counts are then EXACT rather than floored, which matters more here than usual:
