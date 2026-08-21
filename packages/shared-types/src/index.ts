@@ -688,6 +688,12 @@ export * from './catalog-localization-desk';
 // subject: governance deliberately omits the TEXT, and widening its subject
 // tuple would attach the operator gate and four eyes to a translator's cadence.
 export * from './catalog-localization-revisions';
+// A native listing's own words in one locale, as its SELLER authors them
+// (#814). AFTER `./catalog-localization`, whose vocabularies it narrows: the
+// two constants here pick one member out of each tuple and say why the other
+// members are false statements about a seller's own text. Nothing imports from
+// it — it is a leaf, like the desk above.
+export * from './listing-localization';
 // Which catalogue names may be translated and which may never be (#367 L2). A
 // DECISION rather than a restatement: ADR 0007 has no invariance policy, and the
 // guarantee it replaces was structural — `docs/storefront-catalog.md` held it by

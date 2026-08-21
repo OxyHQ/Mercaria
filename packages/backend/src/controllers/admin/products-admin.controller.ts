@@ -60,8 +60,16 @@ function storeId(req: Request): string {
   return store.id;
 }
 
-/** Load a product and assert it belongs to the loaded store, else NOT_FOUND/FORBIDDEN. */
-async function loadStoreProduct(req: Request): Promise<ListingRecord> {
+/**
+ * Load a product and assert it belongs to the loaded store, else NOT_FOUND/FORBIDDEN.
+ *
+ * EXPORTED for #814's localization sub-router, which mounts under
+ * `/admin/stores/:storeId/products/:id` and needs the identical answer to "does
+ * this product belong to the store this request already authenticated against".
+ * Exported rather than copied: a second store-ownership comparison is a second
+ * answer, and this one already reads `req.store`, which `loadStore` set.
+ */
+export async function loadStoreProduct(req: Request): Promise<ListingRecord> {
   const id = routeParam(req, 'id');
   const listing = await findListingById(id);
   if (!listing) {

@@ -56,6 +56,33 @@ follow from that.
   but around twenty realdb suites do in teardown, and `restrict` would turn every
   one of them into a `23503` in a file that never mentioned localization.
 
+**A seller AUTHORS these rows, through two doors onto one listing (#814).**
+`PUT|GET|DELETE /seller/listings/:id/localizations/:locale` and
+`/admin/stores/:storeId/products/:id/localizations/:locale` — one router factory
+(`controllers/listing-localizations.controller.ts`, the `referral-partner`
+shape), two mounts, and NO third answer to "may this caller act on this
+listing": each mount hands the factory the ownership check its own neighbouring
+routes already use (`loadOwnedListing`, `loadStoreProduct`), exported rather
+than copied. The store half is behind `products:write` and not `store:manage`,
+because an `admin` holds every permission except the latter and would otherwise
+be locked out of translating a title they can already rewrite.
+
+The body is `{title, description?}` and `.strict()`, so `status`, `provenance`
+and the review stamp — all real columns on the row it writes — have no key a
+request could carry. The write stamps `provenance: 'seller'`, the member #814
+added to `LOCALIZATION_PROVENANCES` and **not** the field class
+`seller_authored` that sits one column away (that says what KIND of text the
+field holds; this says who wrote this row, and a Mercaria operator translating a
+seller's title makes both true at once). `status` is `approved`, which in this
+family means "the entity's current, live text" — `BASE_LOCALE_STATUS`'s reading
+for the listing's own base words, which no reviewer approved either — and is the
+only truthful SERVABLE choice, since `machine_translated` misstates the origin,
+`stale` misstates the currency, and `reviewed` names an operator review that did
+not happen. It also puts the row inside `HUMAN_SETTLED_LOCALIZATION_STATUSES`,
+so a later machine retranslation is refused by the guard rather than silently
+replacing a seller's own words. The operator review path cannot reach this table
+at all: `reviewLocalization` takes `'category' | 'product_type'`.
+
 **The stale trigger watches `title` AND `description`**, deliberately not
 repeating `mercaria_categories_localization_stale`'s `name`-alone blind spot —
 which is published as a caveat precisely so it stops being inherited. An archive

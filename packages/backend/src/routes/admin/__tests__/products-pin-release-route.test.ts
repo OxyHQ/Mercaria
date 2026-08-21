@@ -50,6 +50,16 @@ vi.mock('../../../controllers/admin/products-admin.controller.js', () => {
     setVariantLevelInventory: echo,
     previewProductTypeUpgrade: echo,
     applyProductTypeUpgrade: echo,
+    // Not a handler: `products.ts` hands this to
+    // `makeListingLocalizationRouter` as its OWNER RESOLVER at module scope
+    // (#814), so a mock omitting it passes `undefined` into the factory and
+    // every case in this file dies at import with a stack pointing at a route
+    // it never exercises. It resolves the listing rather than answering a
+    // request, so it is a `ListingRecord` promise and not `echo`.
+    // The id is spelled out rather than read from `PRODUCT_ID` below: `vi.mock`
+    // is hoisted above every `const` in this file, so a reference to one is a
+    // temporal-dead-zone error waiting for whoever moves this line.
+    loadStoreProduct: () => Promise.resolve({ id: 'a'.repeat(24) }),
   };
 });
 

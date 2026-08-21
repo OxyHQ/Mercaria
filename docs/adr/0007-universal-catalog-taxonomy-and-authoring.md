@@ -333,7 +333,59 @@ Each localization row carries:
 - `status text NOT NULL` — `missing | machine_translated | reviewed | approved |
   stale | deprecated`.
 - `provenance text NOT NULL` — `mercaria | official_brand | professional |
-  community_reviewed | machine | imported_source`.
+  community_reviewed | machine | imported_source | seller`.
+
+> **AMENDED — 2026-08-21 (#814): `seller` joins the provenance vocabulary.**
+>
+> The six above were COMPLETE for the surfaces D4 covered. Every one of them is
+> Mercaria's own catalogue copy — a category name, a product-type label, an
+> attribute value — translated by Mercaria, by a brand under a #55 verified
+> relationship, by a hired professional, by a reviewed community contributor, by
+> a machine, or carried in from a feed. A seller never wrote any of them, so no
+> member needed to say that one had.
+>
+> #809 introduced a PRODUCER none of the six describes. `listing_localizations`
+> is a NATIVE LISTING's own words in one locale, and #814 gave it the write path
+> it shipped without — a seller translating their own listing, through
+> `/seller/listings/:id/localizations` or
+> `/admin/stores/:storeId/products/:id/localizations`. Every existing member is a
+> false statement about that row: `mercaria` is a false authorship claim (this
+> repository refutes it three times over, including in `BASE_LOCALE_PROVENANCE`'s
+> own note), `imported_source` means a feed, `professional` claims a hired
+> translator, `official_brand` requires a verified relationship,
+> `community_reviewed` claims a review nobody performed, and `machine` would arm
+> the guard trigger against the person who wrote the text. The column is
+> `NOT NULL`, so carrying none was not available.
+>
+> **It is `seller` and NOT `seller_authored`.** That string is already
+> `LOCALIZED_FIELD_CLASSES`' third member — a FIELD's kind, which is what decides
+> its fallback chain — and it sits one column away on the same row. Reusing the
+> spelling would put one word in two vocabularies meaning two different things on
+> a single row, which reads as agreement and is not: a Mercaria operator
+> translating a seller's title writes `seller_authored` text under a `mercaria`
+> provenance, and both statements are true at once.
+>
+> **`seller` and not `store`**, though the write path has a store-side door. The
+> actor vocabulary this repository already uses for "a person editing a listing
+> they own" is `ConditionActor`
+> (`services/condition/condition-write.service.ts`), whose kinds are
+> `seller | operator | source | migration` with no `store` member — and the
+> store-side listing edit passes `{kind: 'seller'}` exactly as the P2P one does
+> (`controllers/admin/products-admin.controller.ts` and
+> `controllers/seller-listings.controller.ts`, both reaching
+> `catalog-write.service.updateListing`). One word for one actor, measured rather
+> than assumed.
+>
+> Migration `0132` (`pre`) widens the CHECK on ELEVEN tables, not the ten that
+> render it from `LOCALIZATION_PROVENANCES`. The eleventh is
+> `navigation_node_localizations`, which renders from D3's separate
+> `NAVIGATION_LOCALIZATION_PROVENANCES` — a second copy of this same vocabulary
+> that `catalog-localization.test.ts` holds EQUAL to the first, precisely so the
+> two cannot drift. Nobody writes `seller` to a navigation node; per-table
+> meaningfulness has never been this tuple's membership rule (`imported_source`
+> is equally unreachable there), and a CHECK states what a column MAY hold. The
+> swap D3's own tuples describe — deleting them and importing these — remains the
+> real fix and remains unclaimed.
 - `source_locale`, `source_revision`, `reviewed_by`, `reviewed_at`.
 - `UNIQUE(entity_id, locale)`.
 
