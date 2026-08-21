@@ -121,9 +121,10 @@ would suggest a guarantee none of them gives.
 
 ### What it costs to maintain
 
-`scripts/folding-index-benchmark.ts`, 20,000 rows, 8 interleaved trials per arm,
-against tables cloned with `LIKE listing_localizations INCLUDING GENERATED` so
-the expression under test is the deployed one.
+`scripts/folding-index-benchmark.ts`, 20,000 rows, interleaved trials per arm
+(8 for runs 1 and 2, 10 for run 3), against tables cloned with
+`LIKE listing_localizations INCLUDING GENERATED` so the expression under test is
+the deployed one.
 
 **Three independent runs.** Absolute milliseconds, because the ratios are not
 reproducible enough to publish — see below, which is a finding rather than a
