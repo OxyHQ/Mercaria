@@ -596,8 +596,12 @@ older record; a migration is offered as a preview and applied deliberately.
 >   FOR EACH ROW`, enabled (`pg_trigger`). Its **live** body was read with
 >   `pg_get_functiondef` rather than trusted from `0109`, because a `CREATE OR
 >   REPLACE` under an unchanged name is drift no file citation can see; it matches
->   `0109` and guards exactly one column, refusing only a not-null → null
->   transition. It does **not** forbid re-pointing a set pin to another version.
+>   `0109`. Its reach was then **driven rather than read** (2026-08-21, all four
+>   transitions in one rolled-back transaction): `NULL → value` succeeds,
+>   **`value → different value` succeeds** — so it does *not* freeze a pin to the
+>   version first written, only against being cleared — `value → NULL` raises
+>   `check_violation`, and an unrelated `UPDATE` (the negative control) neither
+>   raises nor disturbs the pin.
 >
 > `publish.service.ts:280` writes it on the published listing, from
 > `draft.productTypeDefinitionId`. So the count this note reports as zero is
