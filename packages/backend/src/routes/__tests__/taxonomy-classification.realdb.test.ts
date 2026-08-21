@@ -912,42 +912,56 @@ describe('the assignable-lifecycle tuple and the trigger agree', () => {
     const probeIds: string[] = [];
     const accepted: string[] = [];
 
-    for (const lifecycle of CATEGORY_LIFECYCLES) {
-      const probeId = `cat-lc-${lifecycle}-${RUN}`;
-      probeIds.push(probeId);
-      await db.insert(categories).values({
-        id: probeId,
-        key: `r${RUN}.lc${lifecycle}`,
-        name: `LC ${lifecycle}`,
-        slug: `lc-${lifecycle}-${RUN}`,
-        parentId: CAT.root,
-        ancestorIds: [CAT.root],
-        ancestorSlugs: [`root-${RUN}`],
-        lifecycle,
-        // `merged` needs a successor, a biconditional CHECK on `categories`.
-        ...(lifecycle === 'merged' ? { mergedIntoCategoryId: CAT.audio } : {}),
-      });
-
-      try {
-        await db.insert(canonicalProductSecondaryCategories).values({
-          canonicalProductId,
-          categoryId: probeId,
-          reason: 'multi_function_product',
-          justification: `probe for ${lifecycle}`,
-          justifiedBy: OPERATOR,
-          justifiedAt: new Date(),
+    /**
+     * The probes are torn down in a `finally`, and that is not tidiness.
+     *
+     * The `merged` probe must carry `merged_into_category_id` (a biconditional
+     * CHECK on `categories`) and it points at `CAT.audio`, which is
+     * `ON DELETE restrict`. So a FAILED assertion below would leave a probe
+     * standing, and that probe then blocks this file's own `afterAll` from
+     * deleting `CAT.audio` — turning one clear assertion failure into a 23503
+     * in teardown, and stranding rows in a database every parallel file shares.
+     */
+    try {
+      for (const lifecycle of CATEGORY_LIFECYCLES) {
+        const probeId = `cat-lc-${lifecycle}-${RUN}`;
+        probeIds.push(probeId);
+        await db.insert(categories).values({
+          id: probeId,
+          key: `r${RUN}.lc${lifecycle}`,
+          name: `LC ${lifecycle}`,
+          slug: `lc-${lifecycle}-${RUN}`,
+          parentId: CAT.root,
+          ancestorIds: [CAT.root],
+          ancestorSlugs: [`root-${RUN}`],
+          lifecycle,
+          // `merged` needs a successor, a biconditional CHECK on `categories`.
+          ...(lifecycle === 'merged' ? { mergedIntoCategoryId: CAT.audio } : {}),
         });
-        accepted.push(lifecycle);
-      } catch {
-        // Refused — recorded by its absence from `accepted`.
+
+        try {
+          await db.insert(canonicalProductSecondaryCategories).values({
+            canonicalProductId,
+            categoryId: probeId,
+            reason: 'multi_function_product',
+            justification: `probe for ${lifecycle}`,
+            justifiedBy: OPERATOR,
+            justifiedAt: new Date(),
+          });
+          accepted.push(lifecycle);
+        } catch {
+          // Refused — recorded by its absence from `accepted`.
+        }
       }
+
+      expect([...accepted].sort()).toEqual(
+        [...SECONDARY_CLASSIFICATION_ASSIGNABLE_LIFECYCLES].sort(),
+      );
+    } finally {
+      await db
+        .delete(canonicalProductSecondaryCategories)
+        .where(inArray(canonicalProductSecondaryCategories.categoryId, probeIds));
+      await db.delete(categories).where(inArray(categories.id, probeIds));
     }
-
-    expect([...accepted].sort()).toEqual([...SECONDARY_CLASSIFICATION_ASSIGNABLE_LIFECYCLES].sort());
-
-    await db
-      .delete(canonicalProductSecondaryCategories)
-      .where(inArray(canonicalProductSecondaryCategories.categoryId, probeIds));
-    await db.delete(categories).where(inArray(categories.id, probeIds));
   });
 });
