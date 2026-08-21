@@ -1827,6 +1827,17 @@ export type PolymorphicReferenceDisposition =
    * to whoever reads either gate.
    */
   | 'discriminates_foreign_keys'
+  /**
+   * The table's bare reference is declared in {@link BARE_ENTITY_REFERENCES},
+   * which owns the decision — `covered_by_polymorphic_census` pointing the
+   * other way, so the pairing is visible from either gate (#720).
+   *
+   * This is a CITATION and it is VERIFIED rather than trusted:
+   * `polymorphic-entity-census.test.ts` asserts every column named here really
+   * appears in that register for this table, so an entry cannot defer to a
+   * decision nobody made.
+   */
+  | 'covered_by_bare_entity_census'
   /** A real bare polymorphic reference that a merge deliberately does not move. */
   | 'untouched'
   /** A real bare polymorphic reference that a merge rehomes. */
@@ -1837,13 +1848,93 @@ export interface PolymorphicEntityReference {
   readonly table: string;
   readonly disposition: PolymorphicReferenceDisposition;
   /**
-   * The id columns, required for `untouched` and `rehomed` and forbidden for
-   * the other two — an entry claiming a merge leaves a reference alone has to
-   * say WHICH reference, or it is a sentence rather than a decision.
+   * The id columns, required for `untouched`, `rehomed` and
+   * `covered_by_bare_entity_census` and forbidden for the other two — an entry
+   * claiming a merge leaves a reference alone has to say WHICH reference, or it
+   * is a sentence rather than a decision.
    */
   readonly idColumns?: readonly string[];
   readonly reason: string;
 }
+
+// ── The shared reasons for #720's half of the population ────────────────────
+//
+// Written once each because they genuinely repeat: the derivation that survives
+// a synonym admits every table holding a DOMESTIC ledgered bare id beside any
+// discriminator, and those cluster into ten families. A bespoke sentence per
+// table would be ten sentences restated ninety times, which is how a register
+// stops being read.
+
+/** A grouping token with no table anywhere — the commonest member by far. */
+const CHECKOUT_GROUP_TOKEN =
+  'The `checkout_group_id` grouping token (and the order/payment ids beside it). There is no ' +
+  '`checkout_groups` table to point at, and a token is not an entity — nothing here names one ' +
+  'of the seven, so a merge has nothing to move.';
+
+/** A payment record naming a commerce record it does not compose with. */
+const PAYMENT_COMMERCE_CORRELATION =
+  'A financial record naming an order, a payment, a refund or a ledger transaction. Every one ' +
+  'is a real row in this database and NONE of them is a mergeable entity — the seven are ' +
+  'catalogue identities, and no merge touches an order.';
+
+/** Another system's key space, filed under a bespoke reason rather than a shared constant. */
+const FOREIGN_KEY_SPACE_BESPOKE =
+  "An id in another system's key space — a billing/payment provider object, an affiliate " +
+  "network's transaction, eBay's marketplace, a supplier document, Moovo's transport request, " +
+  'a connected platform record. In the population only because its ledger reason is written ' +
+  'bespoke rather than with the shared constant; no merge in this database can act on one.';
+
+/** A real polymorphic reference, every kind of which is outside the seven. */
+const POLYMORPHIC_OUTSIDE_THE_SEVEN =
+  'A genuine polymorphic reference whose discriminator tuple was read against ' +
+  '`MERGEABLE_ENTITY_TYPES`: every kind it admits (a listing, a review, a seller, a store, a ' +
+  'category, a product type, an attribute definition, a referral partner, a payout batch…) is ' +
+  'outside the seven, so no merge reaches it. This is the disposition #720 exists to make ' +
+  'somebody write down rather than infer from a vocabulary.';
+
+/** The `provider_accounts` owner shape: a store id or an Oxy account id. */
+const OWNER_STORE_OR_OXY_ACCOUNT =
+  'The `provider_accounts.owner_id` shape — polymorphic by `owner_type` over a STORE id or an ' +
+  'Oxy ACCOUNT id. A native store is not one of the seven (a MERCHANT is, and it is a ' +
+  'different row), and the Oxy half is not in this database at all.';
+
+/** A stable identity shared by that table's own version rows. */
+const STABLE_IDENTITY_SAME_TABLE =
+  'A stable identity naming a set of rows in THIS table rather than a row in another one — ' +
+  "the `referral_programs.program_id` / `referral_reward_rules.rule_id` shape, whose parent " +
+  'entity deliberately does not exist. Nothing outside the table is referenced, so nothing ' +
+  'can be rehomed.';
+
+/** Matches the id suffix and addresses no row anywhere. */
+const NOT_A_ROW_ID_AT_ALL =
+  'Matches the `_id` suffix by coincidence and addresses no row anywhere: a government tax ' +
+  'registration number, a client-supplied device handle, a value this domain COMPOSES, or a ' +
+  'closed adapter name CHECKed against a tuple in code.';
+
+/** An Oxy media file id, filed bespoke rather than under the shared constant. */
+const OXY_FILE_BESPOKE =
+  'An Oxy STORAGE file id — the uploader owns the asset and this database has no table to ' +
+  'reference. In the population only because the ledger states the evidence-is-declared ' +
+  'posture in full rather than reusing the shared Oxy-file reason.';
+
+/** A self- or circular reference drizzle-kit omits from the migration. */
+const SELF_REFERENCE_DRIZZLE_OMITS =
+  'A self- or circular reference into the SAME table, which drizzle-kit silently omits from ' +
+  'both the migration and the snapshot. It names a row of its own kind, never one of the ' +
+  'seven, so a merge has nothing to do with it.';
+
+/** A real Mercaria row outside the seven. */
+const MERCARIA_ROW_OUTSIDE_THE_SEVEN =
+  'A real row in this database that is not one of the seven mergeable entities — an affiliate ' +
+  "click, a source aggregate's own event, a shopping-agent line, a search query record. Read " +
+  'against the schema, not assumed from the column name.';
+
+/** The citation used by every `covered_by_bare_entity_census` entry. */
+const BARE_CENSUS_OWNS_IT =
+  'The bare references on this table are declared in `BARE_ENTITY_REFERENCES`, which records ' +
+  'what a merge does with each of them (#695/#711). Recorded here so the pairing is visible ' +
+  'from either gate, and the named columns are CHECKED against that register rather than ' +
+  'trusted.';
 
 /**
  * Every table the derivation finds, and what a merge does with it.
@@ -1853,6 +1944,52 @@ export interface PolymorphicEntityReference {
  */
 export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[] = [
   {
+    table: 'abuse_reports',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'affiliate_outbound_clicks',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['canonical_variant_id', 'merchant_id', 'storefront_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'affiliate_transactions',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'analytics_events',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['canonical_product_id', 'canonical_variant_id', 'listing_id', 'merchant_id', 'offer_id', 'order_id', 'product_variant_id', 'store_id', 'storefront_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'analytics_rollups',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['merchant_id', 'store_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'analytics_search_queries',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['category_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'attribute_reindex_requests',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['entity_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'attribute_value_reviews',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['entity_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
     table: 'automotive_fitments',
     disposition: 'not_an_entity_reference',
     reason:
@@ -1861,23 +1998,14 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'subject reference is `subject_product_id`/`subject_variant_id`, both FK.',
   },
   {
-    table: 'catalog_localization_revisions',
-    disposition: 'untouched',
-    idColumns: ['entity_id'],
-    reason:
-      "#367 box 4's append-only translation trail. `entity_kind` now spans " +
-      '`canonical_product` and `canonical_product_family` (L2), both mergeable, with a bare ' +
-      '`entity_id` beside it and deliberately no FK — the trail must OUTLIVE its subject. A ' +
-      'merge leaves every row where it is, for the reason `watchlist_snapshot_lines` and the ' +
-      'curation timeline are left: a revision is a record of what a string SAID at a moment, on ' +
-      'the entity it was written for, and repointing it would make the winner appear to have ' +
-      'once been called something it never was. ' +
-      'The consequence is real and is not hidden: the localization ROWS are rehomed ' +
-      '(`repoint_if_absent`) while their history stays under the loser id, so ' +
-      '`readLocalizationFieldHistory` on the winner does not show pre-merge revisions. A reader ' +
-      'follows `merged_into_id`, one hop by construction (ADR 0002 D16). That split is also what ' +
-      'makes the merge legible in the trail at all, which is what the rehoming note above relies ' +
-      'on when it declines to mark carried rows stale.',
+    table: 'awin_advertisers',
+    disposition: 'not_an_entity_reference',
+    reason: SELF_REFERENCE_DRIZZLE_OMITS,
+  },
+  {
+    table: 'billing_customers',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
   },
   {
     table: 'catalog_authoring_draft_values',
@@ -1890,6 +2018,12 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'draft resolves through the tombstone when it is published.',
   },
   {
+    table: 'catalog_authoring_draft_variants',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['selected_canonical_variant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
     table: 'catalog_authoring_drafts',
     disposition: 'not_an_entity_reference',
     reason:
@@ -1897,6 +2031,11 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'actor route rather than an entity. `selected_canonical_product_id` IS a bare product ' +
       'reference but carries no discriminator, so it is invisible to this derivation too — see ' +
       'the note on the gate about what neither census reaches.',
+  },
+  {
+    table: 'catalog_authoring_schema_invalidations',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
   },
   {
     table: 'catalog_backfill_records',
@@ -1931,6 +2070,35 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'twice and the entity carries no suppressed status of its own.',
   },
   {
+    table: 'catalog_governance_audit_events',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'catalog_governance_change_requests',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'catalog_localization_revisions',
+    disposition: 'untouched',
+    idColumns: ['entity_id'],
+    reason:
+      "#367 box 4's append-only translation trail. `entity_kind` now spans " +
+      '`canonical_product` and `canonical_product_family` (L2), both mergeable, with a bare ' +
+      '`entity_id` beside it and deliberately no FK — the trail must OUTLIVE its subject. A ' +
+      'merge leaves every row where it is, for the reason `watchlist_snapshot_lines` and the ' +
+      'curation timeline are left: a revision is a record of what a string SAID at a moment, on ' +
+      'the entity it was written for, and repointing it would make the winner appear to have ' +
+      'once been called something it never was. ' +
+      'The consequence is real and is not hidden: the localization ROWS are rehomed ' +
+      '(`repoint_if_absent`) while their history stays under the loser id, so ' +
+      '`readLocalizationFieldHistory` on the winner does not show pre-merge revisions. A reader ' +
+      'follows `merged_into_id`, one hop by construction (ADR 0002 D16). That split is also what ' +
+      'makes the merge legible in the trail at all, which is what the rehoming note above relies ' +
+      'on when it declines to mark carried rows stale.',
+  },
+  {
     table: 'catalog_merge_jobs',
     disposition: 'untouched',
     idColumns: ['loser_id', 'winner_id'],
@@ -1939,6 +2107,12 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'of merges: repointing `loser_id` would make a completed job claim it merged something it ' +
       'did not, and repointing `winner_id` would make the ordering of two merges unrecoverable. ' +
       '`catalog_merge_jobs_distinct_check` would additionally refuse the collapse.',
+  },
+  {
+    table: 'catalog_proposal_duplicate_candidates',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['candidate_ref'],
+    reason: BARE_CENSUS_OWNS_IT,
   },
   {
     table: 'catalog_proposals',
@@ -2005,6 +2179,38 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: '`asserted_by_kind` is an actor role, as in `automotive_fitments`; the subject columns are FK.',
   },
   {
+    table: 'disputes',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'draft_order_applied_discounts',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['discount_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'draft_order_line_items',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['listing_id', 'variant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'ebay_discovery_queries',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'ebay_reconciliation_samples',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'fee_schedule_acceptances',
+    disposition: 'not_an_entity_reference',
+    reason: OWNER_STORE_OR_OXY_ACCOUNT,
+  },
+  {
     table: 'feed_configurations',
     disposition: 'not_an_entity_reference',
     reason: '`owner_kind` is `merchant | operator` — who owns the feed, an actor role rather than a `merchants.id`.',
@@ -2043,9 +2249,70 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: 'The same `axis` vocabulary and the same hashed subject.',
   },
   {
+    table: 'guest_checkouts',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'guest_data_requests',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'guest_legal_holds',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'guest_order_access_grants',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'guest_order_claim_outbox',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'guest_order_claims',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'guest_portal_messages',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'guest_portal_operator_actions',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'ledger_entries',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'ledger_transactions',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'merchant_acquisition_audits',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['merchant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
     table: 'merchant_activation_capability_events',
     disposition: 'not_an_entity_reference',
     reason: '`actor_kind` is `merchant | operator | system` — who acted, not which merchant.',
+  },
+  {
+    table: 'merchant_activation_policy_acceptances',
+    disposition: 'not_an_entity_reference',
+    reason: OWNER_STORE_OR_OXY_ACCOUNT,
   },
   {
     table: 'merchant_claim_scopes',
@@ -2058,11 +2325,42 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'prevent. Revocation and a fresh claim are the supported path.',
   },
   {
+    table: 'merchant_demand_metrics',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['storefront_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'merchant_plan_prices',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'merchant_subscription_events',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'merchant_subscriptions',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'moderation_enforcements',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
     table: 'navigation_nodes',
     disposition: 'discriminates_foreign_keys',
     reason:
       '`target_kind` selects among FK’d columns including `brand_id` and `product_family_id`, ' +
       'both in the plan. `campaign_url` and `product_type_key` are not entity ids.',
+  },
+  {
+    table: 'notifications',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
   },
   {
     table: 'offer_price_series',
@@ -2073,12 +2371,61 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'concatenated). `series_key` is GENERATED from them.',
   },
   {
+    table: 'offers',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'order_applied_discounts',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['discount_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'order_items',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['listing_id', 'location_id', 'variant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'order_status_history',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['actor_guest_session_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
     table: 'orders',
     disposition: 'not_an_entity_reference',
     reason:
       '`source_channel` is `storefront | pos | draft` — where an order came from. `storefront` ' +
       'matches by word only and names no `storefronts.id`; #59 merge invariant 3 keeps orders ' +
       'out of the plan entirely.',
+  },
+  {
+    table: 'payment_discrepancies',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'payment_provider_events',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'payment_repairs',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'payments',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'price_alerts',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['rehomed_from_canonical_product_id'],
+    reason: BARE_CENSUS_OWNS_IT,
   },
   {
     table: 'price_signal_evaluations',
@@ -2091,9 +2438,36 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
     reason: 'As `price_signal_evaluations`, plus an FK’d `merchant_id`.',
   },
   {
+    table: 'price_signal_runs',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['cursor_canonical_product_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
     table: 'product_type_fields',
     disposition: 'not_an_entity_reference',
     reason: '`flow` is the authoring path a field appears in, as in `catalog_authoring_drafts`.',
+  },
+  {
+    table: 'provider_accounts',
+    disposition: 'not_an_entity_reference',
+    reason: OWNER_STORE_OR_OXY_ACCOUNT,
+  },
+  {
+    table: 'purchase_order_documents',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'purchase_orders',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['order_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'push_tokens',
+    disposition: 'not_an_entity_reference',
+    reason: NOT_A_ROW_ID_AT_ALL,
   },
   {
     table: 'referral_attributions',
@@ -2107,6 +2481,66 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'its own isolation gates.',
   },
   {
+    table: 'referral_campaign_budgets',
+    disposition: 'not_an_entity_reference',
+    reason: STABLE_IDENTITY_SAME_TABLE,
+  },
+  {
+    table: 'referral_conversions',
+    disposition: 'not_an_entity_reference',
+    reason: MERCARIA_ROW_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'referral_enforcement_actions',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'referral_events',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'referral_partner_applications',
+    disposition: 'not_an_entity_reference',
+    reason: STABLE_IDENTITY_SAME_TABLE,
+  },
+  {
+    table: 'referral_partners',
+    disposition: 'not_an_entity_reference',
+    reason: OWNER_STORE_OR_OXY_ACCOUNT,
+  },
+  {
+    table: 'referral_payout_batches',
+    disposition: 'not_an_entity_reference',
+    reason: STABLE_IDENTITY_SAME_TABLE,
+  },
+  {
+    table: 'referral_pilot_cohorts',
+    disposition: 'not_an_entity_reference',
+    reason: STABLE_IDENTITY_SAME_TABLE,
+  },
+  {
+    table: 'referral_programs',
+    disposition: 'not_an_entity_reference',
+    reason: STABLE_IDENTITY_SAME_TABLE,
+  },
+  {
+    table: 'referral_reward_rules',
+    disposition: 'not_an_entity_reference',
+    reason: STABLE_IDENTITY_SAME_TABLE,
+  },
+  {
+    table: 'referral_rewards',
+    disposition: 'not_an_entity_reference',
+    reason: NOT_A_ROW_ID_AT_ALL,
+  },
+  {
+    table: 'referral_risk_signals',
+    disposition: 'not_an_entity_reference',
+    reason: POLYMORPHIC_OUTSIDE_THE_SEVEN,
+  },
+  {
     table: 'referral_subject_redirects',
     disposition: 'untouched',
     idColumns: ['from_ref', 'to_ref'],
@@ -2116,6 +2550,77 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'forge a referral history. Its own domain owns any repointing.',
   },
   {
+    table: 'referral_terms_acceptances',
+    disposition: 'not_an_entity_reference',
+    reason: STABLE_IDENTITY_SAME_TABLE,
+  },
+  {
+    table: 'refund_line_items',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['location_id', 'variant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'refunds',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'retail_cost_quote_acceptances',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'retail_cost_quotes',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['canonical_product_id', 'canonical_variant_id', 'procurement_offer_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'retail_customer_adjustments',
+    disposition: 'not_an_entity_reference',
+    reason: SELF_REFERENCE_DRIZZLE_OMITS,
+  },
+  {
+    table: 'retail_eligibility_audits',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['subject_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'retail_eligibility_decisions',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['canonical_variant_id', 'procurement_offer_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'retail_fulfilment_intents',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'retail_procurement_intent_lines',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['canonical_product_id', 'canonical_variant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'retail_procurement_intents',
+    disposition: 'not_an_entity_reference',
+    reason: CHECKOUT_GROUP_TOKEN,
+  },
+  {
+    table: 'retail_reconciliation_operator_actions',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['order_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'retail_service_request_evidence',
+    disposition: 'not_an_entity_reference',
+    reason: OXY_FILE_BESPOKE,
+  },
+  {
     table: 'retail_suppressions',
     disposition: 'discriminates_foreign_keys',
     reason:
@@ -2123,6 +2628,11 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       '`canonical_variant_id`, `brand_id`) plus the polymorphic `scope`/`scope_ref` the ' +
       'derivation matches on — forced equal by CHECK, so the plan moves BOTH together and the ' +
       'absence guard is narrowed to the partial unique’s own `WHERE lifted_at IS NULL`.',
+  },
+  {
+    table: 'return_request_evidence',
+    disposition: 'not_an_entity_reference',
+    reason: OXY_FILE_BESPOKE,
   },
   {
     table: 'review_aggregates',
@@ -2153,6 +2663,21 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       'then RECORDS what the guard left behind (#333).',
   },
   {
+    table: 'search_intent_sessions',
+    disposition: 'not_an_entity_reference',
+    reason: NOT_A_ROW_ID_AT_ALL,
+  },
+  {
+    table: 'search_intent_turns',
+    disposition: 'not_an_entity_reference',
+    reason: MERCARIA_ROW_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'seller_draft_images',
+    disposition: 'not_an_entity_reference',
+    reason: OXY_FILE_BESPOKE,
+  },
+  {
     table: 'seller_listing_drafts',
     disposition: 'not_an_entity_reference',
     reason:
@@ -2161,9 +2686,59 @@ export const POLYMORPHIC_ENTITY_REFERENCES: readonly PolymorphicEntityReference[
       '`canonical_product_id`/`canonical_variant_id`.',
   },
   {
+    table: 'shopping_agent_finding_lines',
+    disposition: 'not_an_entity_reference',
+    reason: MERCARIA_ROW_OUTSIDE_THE_SEVEN,
+  },
+  {
+    table: 'shopping_agents',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['excluded_merchant_ids', 'rehomed_from_canonical_product_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
     table: 'source_records',
     disposition: 'not_an_entity_reference',
     reason: '`external_type`/`external_id` are the SOURCE’s, as in `catalog_source_objects`.',
+  },
+  {
+    table: 'stores',
+    disposition: 'not_an_entity_reference',
+    reason: NOT_A_ROW_ID_AT_ALL,
+  },
+  {
+    table: 'supplier_quotes',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['canonical_product_id', 'canonical_variant_id', 'order_id', 'procurement_offer_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'supplier_reservations',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['consumed_order_id', 'procurement_offer_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'supplier_sourcing_attempts',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['procurement_offer_id'],
+    reason: BARE_CENSUS_OWNS_IT,
+  },
+  {
+    table: 'sync_run_record_failures',
+    disposition: 'not_an_entity_reference',
+    reason: FOREIGN_KEY_SPACE_BESPOKE,
+  },
+  {
+    table: 'transfers',
+    disposition: 'not_an_entity_reference',
+    reason: PAYMENT_COMMERCE_CORRELATION,
+  },
+  {
+    table: 'watchlist_snapshot_items',
+    disposition: 'covered_by_bare_entity_census',
+    idColumns: ['selected_canonical_variant_id'],
+    reason: BARE_CENSUS_OWNS_IT,
   },
 ];
 

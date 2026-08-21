@@ -405,10 +405,16 @@ describe('every bare reference to a mergeable entity has a decision (#695)', () 
 
     it('refuses a hand-off to the polymorphic census for a table it does not cover', () => {
       const polymorphicTables = new Set(POLYMORPHIC_ENTITY_REFERENCES.map((entry) => entry.table));
-      expect(polymorphicTables.has('analytics_events')).toBe(false);
+      // A PLANTED name rather than a real table. This fixture used
+      // `analytics_events` until #720 widened the polymorphic census from 39
+      // tables to 130 and declared it — at which point the premise silently
+      // became false and this detector was measuring nothing. A synthetic name
+      // cannot be adopted by that register, so the guard stays true however far
+      // the population grows.
+      expect(polymorphicTables.has('mercaria_table_no_census_covers')).toBe(false);
       const withBadHandoff: BareEntityReference[] = [
         {
-          column: 'analytics_events.merchant_id',
+          column: 'mercaria_table_no_census_covers.merchant_id',
           disposition: 'covered_by_polymorphic_census',
           reason: 'a hand-off to a census that does not cover this table, planted by this test',
         },

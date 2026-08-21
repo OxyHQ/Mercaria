@@ -225,6 +225,35 @@ export const MERCARIA_ROW_ID_REASONS: readonly string[] = [
 ];
 
 /**
+ * The reasons above that describe a FOREIGN key space — the complement
+ * {@link MERCARIA_ROW_ID_REASONS} names by exclusion, exported so a census can
+ * exclude them STRUCTURALLY instead of guessing from prose.
+ *
+ * An id in another system's key space can never be a mergeable Mercaria entity:
+ * no merge in this database acts on an Oxy account, an Oxy file, a connected
+ * commerce platform's object, a payment provider's object or a supplier's. That
+ * is what makes excluding them safe, and it is the ONLY exclusion
+ * `polymorphic-entity-census.test.ts` applies before demanding a decision —
+ * every other entry, including the 118 written under a BESPOKE reason, stays in
+ * its population.
+ *
+ * **Matched with `startsWith`, deliberately.** Several entries append a
+ * sentence to one of these constants (`OXY_ACCOUNT + ' Written by a trigger…'`),
+ * and an identity comparison would silently drop them back into the population
+ * as unclassified — a false POSITIVE in the direction that costs prose rather
+ * than safety, but still a derivation disagreeing with what the ledger says.
+ * The prefix is the shared BINDING, not a name pattern, so this is not the
+ * name-derived map `~/Oxy/AGENTS.md` forbids.
+ */
+export const FOREIGN_KEY_SPACE_ID_REASONS: readonly string[] = [
+  OXY_ACCOUNT,
+  OXY_FILE,
+  EXTERNAL_PLATFORM,
+  PROVIDER_OBJECT,
+  SUPPLIER_PLATFORM,
+];
+
+/**
  * `*_id` columns that will NEVER carry a constraint, named `table.column` by
  * their SQL names (never the TypeScript property — an `endsWith('_id')` test
  * against `sellerId` matches nothing and passes vacuously).
