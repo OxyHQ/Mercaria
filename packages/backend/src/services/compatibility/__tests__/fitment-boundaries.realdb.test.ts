@@ -13,15 +13,28 @@
  *    cannot select a generation — that is the sentence D8 gives for why a year
  *    is a configuration property and never a variant option — and the only way
  *    to prove the read agrees is to ask it about a year that is inside BOTH and
- *    check that each generation answers for itself. On `main` before this file,
- *    `overlap` appeared exactly once across every compatibility test, as a
- *    comment beside a year filter driven within ONE generation.
+ *    check that each generation answers for itself.
+ *
+ *    Two halves of this were ALREADY covered on `main` and this file does not
+ *    claim them: `verticals-brake-pad.realdb.test.ts` derives the overlap
+ *    arithmetically from the stored production windows and drives
+ *    `listVehicleConfigurations` at a year inside both, and
+ *    `verticals-package-controls.test.ts` asserts the seed package holds at
+ *    least two overlapping pairs across at least two models. What no file
+ *    reached is the FITMENT VERDICT across that boundary. Measured at
+ *    `9c5268d7`: exactly ONE `answerFitment` call in the whole repository
+ *    passed a `year` at all — `compatibility-public-read.realdb.test.ts:410`,
+ *    `year: 2017`, naming one generation — so no case anywhere asked the
+ *    resolver a question a year could answer wrongly.
  * 2. **Two configurations of one generation sharing a name and a trim and
  *    differing only in `engineCode`.** `engineCode` appeared ZERO times in any
  *    `*.test.ts` in the repository before this file, while being a real column
  *    written by `db/compatibility/vehicleCatalogRepository.ts` and by three
- *    `scripts/seed-verticals/` modules. This is a FALSE MERGE hazard of the kind
- *    #58 is shaped around: collapsing the pair looks exactly like a correct
+ *    `scripts/seed-verticals/` modules. No fixture anywhere held two
+ *    configurations of ONE generation under one nameplate — the seed's repeated
+ *    names (`320i`, `GTI`, `2.0 TDI`) each sit in different generations, which
+ *    the generation id already separates. This is a FALSE MERGE hazard of the
+ *    kind #58 is shaped around: collapsing the pair looks exactly like a correct
  *    match, every page still renders, and it is discovered by a customer who
  *    bought the wrong brake pad.
  *
@@ -304,8 +317,9 @@ describe('overlapping generations — a model year cannot select a generation', 
     // The control every case in this block rests on. Two generations that had
     // stopped overlapping would leave each of them asking an ordinary
     // single-generation question and passing for a reason that has nothing to do
-    // with the boundary — which is what the one pre-existing `overlap` mention on
-    // `main` was: a year filter driven inside ONE generation.
+    // with the boundary — and nothing in the output would say so, which is the
+    // whole reason the overlap is re-derived here instead of restated from the
+    // constants above.
     const rows = await db
       .select()
       .from(vehicleGenerations)
