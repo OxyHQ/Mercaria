@@ -1,5 +1,5 @@
 -- oxy:deploy-phase=pre
--- oxy:rollback=accepted: orders.buyer_oxy_user_id loses NOT NULL and orders.buyer_origin is rewritten to 'external' for connector orders. The pre-image is not recoverable and nothing needs it: buyer_origin is derived from source_connection_id, so 0030 re-runs the identical statement idempotently
+-- oxy:rollback=accepted: orders.buyer_oxy_user_id loses NOT NULL and orders.buyer_origin is rewritten to 'external' for connector orders. The pre-image is not recoverable and nothing needs it: buyer_origin is derived from source_connection_id, so #106's own migration re-runs the identical statement idempotently
 --
 -- Guest checkout contact and buyer origin on orders (#105, ADR 0003 D4/D6).
 --

@@ -161,8 +161,27 @@ export interface MigrationRollback {
   readonly note: string | null;
   /** Structural faults in the marker itself: none, several, unknown value. */
   readonly markerProblems: readonly string[];
+  /**
+   * Migrations this note cites by index that do not hold up.
+   *
+   * Computed in {@link classifyMigrations} rather than in {@link faults},
+   * because it is the one question about a note that needs the CORPUS and not
+   * just the file.
+   */
+  readonly citationProblems: readonly string[];
   readonly statements: readonly ClassifiedStatement[];
 }
+
+/**
+ * A migration index cited inside a note.
+ *
+ * Four digits, which is the shape every migration filename starts with and a
+ * shape nothing else in a note uses: an issue is `#106`, a table is
+ * `awin_advertisers`. **An ADR would collide** — `ADR 0004` reads as a citation
+ * of `0004_stripe_event_ingress.sql` — so a note names an ADR by its title or
+ * its issue, and the runbook says so. No note in this corpus names one.
+ */
+const CITED_INDEX = /\b(\d{4})\b/gu;
 
 /**
  * One statement's identifiers, in the order they appear.
@@ -497,6 +516,8 @@ export function classifyMigrations(folder: string): MigrationRollback[] {
     .sort();
 
   const definedBefore = new Set<string>();
+  /** index -> lowercased text, for every migration ALREADY walked. */
+  const seenText = new Map<string, string>();
   const results: MigrationRollback[] = [];
 
   for (const file of files) {
@@ -553,10 +574,70 @@ export function classifyMigrations(folder: string): MigrationRollback[] {
     // Added AFTER the whole file is classified, so a drop-then-create pair
     // inside one migration still reads the drop against what came BEFORE it.
     for (const name of definedHere) definedBefore.add(name);
-    results.push({ file, ...marker, statements });
+    const partial: MigrationRollback = { file, ...marker, citationProblems: [], statements };
+    results.push({
+      ...partial,
+      citationProblems: checkCitations(partial, files, seenText),
+    });
+    seenText.set(file.slice(0, 4), text.toLowerCase());
   }
 
   return results;
+}
+
+/**
+ * Does every migration this note cites by index hold up?
+ *
+ * A note may name the right object and still say something false about where it
+ * comes from — "the previous form is in 0032" when it is in 0033 sends an
+ * operator to a file that does not contain what they need, during an incident.
+ * That half of truthfulness IS checkable, and checking it found EIGHT false
+ * citations in the first pass of retrofitting this corpus.
+ *
+ * Three rules:
+ *
+ *  1. the index resolves to a migration that exists;
+ *  2. it is strictly EARLIER than the citing one — a note explaining what a
+ *     LATER migration does names it by issue (`#106`) rather than by index,
+ *     because "the previous form is in 0110" from `0106` is a claim about the
+ *     past that points at the future;
+ *  3. that migration mentions at least one object the citing migration removes
+ *     or rewrites. This is the rule that catches a plausible wrong number.
+ */
+function checkCitations(
+  migration: MigrationRollback,
+  files: readonly string[],
+  seenText: ReadonlyMap<string, string>,
+): string[] {
+  if (migration.note === null) return [];
+  const problems: string[] = [];
+  const selfIndex = migration.file.slice(0, 4);
+  const known = new Set(files.map((file) => file.slice(0, 4)));
+  const atRisk = objectsAtRisk(migration);
+
+  for (const [, index] of migration.note.matchAll(CITED_INDEX)) {
+    if (index === selfIndex) continue;
+    if (!known.has(index)) {
+      problems.push(`cites \`${index}\`, which is not a migration in this folder`);
+      continue;
+    }
+    const earlier = seenText.get(index);
+    if (earlier === undefined) {
+      problems.push(
+        `cites \`${index}\`, which is LATER than this migration. A note about what a later ` +
+          `migration does names it by issue (\`#106\`), not by index — an index reads as ` +
+          `"where the previous definition lives".`,
+      );
+      continue;
+    }
+    if (![...atRisk].some((object) => earlier.includes(object))) {
+      problems.push(
+        `cites \`${index}\`, which mentions none of the ${atRisk.size} objects this migration ` +
+          `removes or rewrites (${[...atRisk].slice(0, 5).join(', ')}${atRisk.size > 5 ? ', …' : ''})`,
+      );
+    }
+  }
+  return problems;
 }
 
 /** The statements whose inverse this file cannot produce. */
@@ -696,6 +777,7 @@ export function faults(migration: MigrationRollback): string[] {
   if (verdict.outcome === 'refused') {
     problems.push(`declares \`${migration.declared}\` and ${verdict.problem}`);
   }
+  for (const problem of migration.citationProblems) problems.push(problem);
   return problems;
 }
 

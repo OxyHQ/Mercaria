@@ -1,5 +1,5 @@
 -- oxy:deploy-phase=pre
--- oxy:rollback=restore: five CHECKs including ledger_entries_account_check, ledger_transactions_kind_check and reconciliation_cursors_id_check are widened; the previous forms are in 0011 and 0046, and re-adding any of them fails against a posting, transaction or cursor using the added vocabulary
+-- oxy:rollback=restore: five CHECKs including ledger_entries_account_check, ledger_transactions_kind_check and reconciliation_cursors_id_check are widened; the previous forms are in 0002 and 0046, and re-adding any of them fails against a posting, transaction or cursor using the added vocabulary
 --
 -- Zero-profit cost reconciliation for `mercaria_retail` (#128, ADR 0004 D7/D8).
 --

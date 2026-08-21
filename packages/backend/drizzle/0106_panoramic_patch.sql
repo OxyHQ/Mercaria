@@ -1,5 +1,5 @@
 -- oxy:deploy-phase=post
--- oxy:rollback=restore: awin_advertisers_declared_host_shape_check and product_type_definitions_key_shape_check are narrowed. Their previous forms are in 0110 and 0089; the pre-image writes values the new forms refuse, so there is no rollback point past this without re-widening them
+-- oxy:rollback=restore: awin_advertisers_declared_host_shape_check and product_type_definitions_key_shape_check are narrowed. Their previous forms are in 0048 and 0089; the pre-image writes values the new forms refuse, so there is no rollback point past this without re-widening them
 --
 -- #477. Both constraints reached production with a BARE `.` where a literal dot
 -- was meant, so each admits exactly what it exists to refuse: a POSIX `.`

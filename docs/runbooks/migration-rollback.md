@@ -174,10 +174,29 @@ from the **irreversible statements alone**. A note about an index the migration
 ADDED does not satisfy it. Neither does a placeholder, nor a grammatical
 sentence about restoring from a snapshot that names nothing.
 
-**What it cannot catch:** a note that names the right object and says something
-false about it. The declaration is checked for consistency with the schema, not
-for truthfulness of its prose. Treat a note as a starting point that has been
-proved to be about the right objects, not as a verified procedure.
+**A migration index in a note is a CITATION and is checked.** Most lossy notes
+say where the previous definition lives — "its previous form is in `0033`" —
+and a plausible wrong number sends an operator to a file that does not contain
+what they need, at the worst moment. So a four-digit index must resolve to a
+migration that exists, be strictly EARLIER than the citing one, and **mention at
+least one of the objects the citing migration removes or rewrites**. Eight false
+citations were caught by this rule on the first pass of retrofitting the corpus,
+including one that pointed forwards.
+
+Two consequences when writing a note:
+
+- To explain what a *later* migration does, name it **by issue** (`#106`) — an
+  index reads as "where the previous definition lives" and is refused pointing
+  forwards.
+- **Do not write `ADR 0004` in a note.** Four digits is the citation shape, so
+  an ADR number reads as a migration index and would be checked as one. Name the
+  ADR by its issue or its title instead. No note in this corpus names one.
+
+**What it still cannot catch:** a note that names the right object, cites the
+right migration, and says something false about *what to do*. The declaration is
+checked for consistency with the schema and the corpus, not for truthfulness of
+its procedure. Treat a note as a starting point proved to be about the right
+objects and the right files, not as a verified runbook.
 
 **A statement form the classifier has no opinion on is a hard failure**, naming
 the file and line. That is deliberate: assuming "additive" would silently widen

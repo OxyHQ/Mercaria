@@ -230,6 +230,29 @@ describe('every migration declares a rollback posture, and the SQL agrees with i
     expect(offenders).toEqual([]);
   });
 
+  it('cites earlier migrations that actually hold the definition', () => {
+    // The rule that catches a plausible wrong NUMBER — a note naming the right
+    // object and sending an operator to a file that does not contain it. It
+    // found eight false citations on the first pass of retrofitting this
+    // corpus, which is why it is in the gate rather than in a one-off script.
+    const offenders = MIGRATIONS.filter((m) => m.citationProblems.length > 0).map(
+      (m) => `${m.file}: ${m.citationProblems.join('; ')}`,
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('is reading a corpus that CONTAINS citations, or the rule is free', () => {
+    const citations = MIGRATIONS.reduce(
+      (total, m) =>
+        total + (m.note === null ? 0 : [...m.note.matchAll(/\b\d{4}\b/gu)].length),
+      0,
+    );
+    expect(citations).toBeGreaterThanOrEqual(40);
+    // …spread across many files, not forty of them in one note.
+    const citing = MIGRATIONS.filter((m) => m.note !== null && /\b\d{4}\b/u.test(m.note));
+    expect(citing.length).toBeGreaterThanOrEqual(25);
+  });
+
   it('keeps every marker in the header, ahead of the first statement', () => {
     // A `--` line INSIDE a `$$ … $$` body is body text rather than a comment,
     // so a marker placed there would both be read as a declaration here and
@@ -503,6 +526,64 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
 
     const relax = tighten.replace('SET NOT NULL', 'DROP NOT NULL');
     expect(faults(classifyText(relax)).join(' ')).toMatch(/\(data\)/u);
+  });
+
+  it('checks a citation three ways, and each rule fires on its own', () => {
+    // A two-file corpus: `0000` defines the CHECK, `0001` widens it and cites
+    // where the previous form lives. Written through `classifyMigrations`
+    // because a citation is a fact about the CORPUS and a single-file helper
+    // cannot express one.
+    const dir = mkdtempSync(join(tmpdir(), 'mercaria-rollback-cite-'));
+    try {
+      writeFileSync(
+        join(dir, '0000_defines.sql'),
+        '-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\n' +
+          'ALTER TABLE "w" ADD CONSTRAINT "w_kind_check" CHECK ("kind" in (\'a\'));\n',
+      );
+      // An unrelated earlier migration, so "cites something earlier" and "cites
+      // something that holds the definition" are DIFFERENT questions here.
+      writeFileSync(
+        join(dir, '0001_unrelated.sql'),
+        '-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\nCREATE TABLE "z" ("id" text PRIMARY KEY NOT NULL);\n',
+      );
+      const widen = (note: string): string =>
+        `-- oxy:deploy-phase=pre\n-- oxy:rollback=restore: ${note}\n` +
+        'ALTER TABLE "w" DROP CONSTRAINT "w_kind_check";\n';
+      const classify = (note: string) => {
+        writeFileSync(join(dir, '0002_widens.sql'), widen(note));
+        return classifyMigrations(dir)[2];
+      };
+
+      // The positive control: a TRUE citation is clean.
+      expect(
+        faults(classify('w_kind_check is widened here; its previous form is in 0000')),
+      ).toEqual([]);
+
+      // 1. an index that is not a migration at all
+      expect(
+        classify('w_kind_check is widened here; its previous form is in 0099')
+          .citationProblems.join(' '),
+      ).toMatch(/not a migration in this folder/u);
+
+      // 2. an index that is LATER — the `0106` -> `0110` shape, and the one a
+      //    "does the file exist" check would call healthy.
+      writeFileSync(
+        join(dir, '0003_later.sql'),
+        '-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\nCREATE TABLE "y" ("id" text PRIMARY KEY NOT NULL);\n',
+      );
+      expect(
+        classify('w_kind_check is widened here; its previous form is in 0003')
+          .citationProblems.join(' '),
+      ).toMatch(/LATER than this migration/u);
+
+      // 3. a plausible WRONG number: 0001 exists, is earlier, and holds nothing
+      //    this migration touches. Neither of the two rules above sees it.
+      const wrong = classify('w_kind_check is widened here; its previous form is in 0001');
+      expect(wrong.citationProblems.join(' ')).toMatch(/mentions none of the/u);
+      expect(wrong.citationProblems.join(' ')).toMatch(/w_kind_check/u);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('has a decided answer for EVERY statement form it claims to know', () => {

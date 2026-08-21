@@ -1,5 +1,5 @@
 -- oxy:deploy-phase=pre
--- oxy:rollback=restore: catalog_merge_jobs_phase_check, catalog_merge_job_phases_phase_check and catalog_split_jobs_phase_check are widened for a new merge phase; the previous forms are in 0032 and re-adding them fails against any job that recorded the added phase
+-- oxy:rollback=restore: catalog_merge_jobs_phase_check, catalog_merge_job_phases_phase_check and catalog_split_jobs_phase_check are widened for a new merge phase; the previous forms are in 0033 and re-adding them fails against any job that recorded the added phase
 --
 -- Canonical product saves (#80) — entirely ADDITIVE, which is what makes this a
 -- `pre` migration: three new tables the serving image never reads, one new
