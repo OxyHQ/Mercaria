@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateBody } from '../middleware/validate.js';
 import { updateCurrencyPreferenceSchema } from '../middleware/schemas.js';
 import {
@@ -17,7 +16,7 @@ import {
  */
 const router = Router();
 
-router.use(makeRateLimiter('general'), authenticateToken);
+router.use(authenticateToken);
 
 router.get('/currency-preference', getCurrencyPreference);
 router.put(

@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { makeRateLimiter } from '../lib/rate-limit.js';
 import { getMe, logout } from '../controllers/auth.controller.js';
 
 /**
@@ -14,7 +13,7 @@ const router = Router();
 
 router.use(authenticateToken);
 
-router.get('/me', makeRateLimiter('general'), getMe);
-router.post('/logout', makeRateLimiter('general'), logout);
+router.get('/me', getMe);
+router.post('/logout', logout);
 
 export default router;
