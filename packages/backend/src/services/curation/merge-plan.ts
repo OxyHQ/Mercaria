@@ -3290,3 +3290,42 @@ export const BARE_ENTITY_REFERENCES: readonly BareEntityReference[] = [
       'silently drop. The schema comment already claimed this behaviour; now it is true.',
   },
 ];
+
+/**
+ * The `BARE_ENTITY_REFERENCES` columns NO derivation reaches — the four doors
+ * #695 measured, pinned as a literal set.
+ *
+ * Deriving it would mean deriving exactly the thing #695 established cannot be
+ * derived. Its job is narrow and real: a column here has been READ against the
+ * schema, and without this list deleting one of them would be green.
+ *
+ * **It lives here rather than inside one test file because TWO censuses read
+ * it** (#720). `bare-entity-census.test.ts` uses it to decide which declared
+ * entries it can still re-check; `polymorphic-entity-census.test.ts` uses it to
+ * verify that a `covered_by_bare_entity_census` disposition points at a column
+ * that census ACTUALLY re-checks, rather than merely at one it has an entry
+ * for. Two copies of this list could disagree, and the direction they would
+ * disagree in is a disposition citing a census that no longer covers it — which
+ * is worse than no disposition, because it stops the next reader.
+ */
+export const BARE_REFERENCES_NO_DERIVATION_REACHES: readonly string[] = [
+  // Door 5 — an `_id` column ledgered under a bespoke reason.
+  'affiliate_outbound_clicks.canonical_variant_id',
+  'affiliate_outbound_clicks.merchant_id',
+  'affiliate_outbound_clicks.storefront_id',
+  'merchant_acquisition_audits.merchant_id',
+  'merchant_demand_metrics.storefront_id',
+  'price_alerts.rehomed_from_canonical_product_id',
+  'price_signal_runs.cursor_canonical_product_id',
+  'shopping_agents.rehomed_from_canonical_product_id',
+  'watchlist_snapshot_items.selected_canonical_variant_id',
+  // Door 2 — a discriminator spelling the same entity differently (#720).
+  'attribute_reindex_requests.entity_id',
+  'attribute_value_reviews.entity_id',
+  // Door 3 — a column whose name does not end in `_id`.
+  'catalog_proposal_duplicate_candidates.candidate_ref',
+  // Door 4 — an array of entity ids.
+  'navigation_saved_queries.brand_ids',
+  'navigation_saved_queries.merchant_ids',
+  'shopping_agents.excluded_merchant_ids',
+];

@@ -89,9 +89,11 @@ import * as schema from '../../../db/schema/index.js';
 import {
   FOREIGN_KEY_SPACE_ID_REASONS,
   ID_COLUMNS_WITHOUT_FOREIGN_KEY,
+  MERCARIA_ROW_ID_REASONS,
 } from '../../../db/deferredForeignKeys.js';
 import {
   BARE_ENTITY_REFERENCES,
+  BARE_REFERENCES_NO_DERIVATION_REACHES,
   POLYMORPHIC_ENTITY_REFERENCES,
   type PolymorphicEntityReference,
 } from '../merge-plan.js';
@@ -326,6 +328,58 @@ describe('every polymorphic reference to a mergeable entity has a decision (#654
     expect(dangling).toEqual([]);
     // The vacuity floor: with no citations the loop above proves nothing.
     expect(cited).toBeGreaterThanOrEqual(30);
+  });
+
+  it('cites only columns the bare-entity census ACTUALLY RE-CHECKS, not merely has an entry for', () => {
+    // The check above proves the entry EXISTS over there. This one proves that
+    // census can still re-check it — a strictly stronger and different claim,
+    // and the one that matters, because `BARE_ENTITY_REFERENCES` membership and
+    // "covered by that census" are not the same set.
+    //
+    // Measured before this test existed: moving a cited column's ledger reason
+    // off its shared constant makes `bare-entity-census.test.ts` go red in
+    // three tests while THIS file stayed green at 16 passed. So the hand-off
+    // was enforced only by the other file's assertions, and a disposition here
+    // could have gone on pointing at coverage that no longer existed. A
+    // disposition citing a census that does not cover it is worse than no
+    // disposition, because it stops the next reader.
+    //
+    // Both halves come from the SAME bindings that census reads — the ledger
+    // plus `MERCARIA_ROW_ID_REASONS` for its derived population, and the shared
+    // `BARE_REFERENCES_NO_DERIVATION_REACHES` list for the four doors no
+    // derivation reaches. Nothing is re-implemented and nothing is transcribed.
+    const mercariaRowReasons = new Set(MERCARIA_ROW_ID_REASONS);
+    const reCheckable = new Set<string>([
+      ...ID_COLUMNS_WITHOUT_FOREIGN_KEY.filter((entry) =>
+        mercariaRowReasons.has(entry.reason),
+      ).map((entry) => entry.column),
+      ...BARE_REFERENCES_NO_DERIVATION_REACHES,
+    ]);
+    // Floors first: an empty re-checkable set, or no citations, satisfies the
+    // comparison below against nothing.
+    expect(reCheckable.size).toBeGreaterThanOrEqual(60);
+    expect(BARE_REFERENCES_NO_DERIVATION_REACHES.length).toBeGreaterThanOrEqual(15);
+
+    const uncovered: string[] = [];
+    let cited = 0;
+    for (const entry of POLYMORPHIC_ENTITY_REFERENCES) {
+      if (entry.disposition !== 'covered_by_bare_entity_census') continue;
+      for (const column of entry.idColumns ?? []) {
+        cited += 1;
+        if (!reCheckable.has(`${entry.table}.${column}`)) {
+          uncovered.push(`${entry.table}.${column}`);
+        }
+      }
+    }
+    expect(cited).toBeGreaterThanOrEqual(50);
+    expect(
+      uncovered,
+      'these columns are cited as `covered_by_bare_entity_census`, and that census can no longer ' +
+        're-check them — its derived population no longer contains them and they are not in ' +
+        '`BARE_REFERENCES_NO_DERIVATION_REACHES`. Either restore the ledger reason they drifted ' +
+        'off, add them to that list with the reading that justifies it, or give the table a real ' +
+        'disposition here instead of a hand-off.',
+    ).toEqual([]);
   });
 
   it('refuses a CIRCULAR deferral, where each census says the other decides', () => {
