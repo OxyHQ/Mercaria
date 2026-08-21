@@ -1893,9 +1893,11 @@ const CHECKOUT_GROUP_TOKEN =
 
 /** A payment record naming a commerce record it does not compose with. */
 const PAYMENT_COMMERCE_CORRELATION =
-  'A financial record naming an order, a payment, a refund or a ledger transaction. Every one ' +
-  'is a real row in this database and NONE of them is a mergeable entity — the seven are ' +
-  'catalogue identities, and no merge touches an order.';
+  'A financial record naming an order, a payment, a refund or a ledger transaction — and, where ' +
+  'the table carries one, a polymorphic `owner_id` over a store, an Oxy account, a supplier or ' +
+  'a referral partner. Every one is either a real row in this database that is NOT one of the ' +
+  'seven (the seven are catalogue identities, and no merge touches an order) or an id in ' +
+  'another system’s key space.';
 
 /** Another system's key space, filed under a bespoke reason rather than a shared constant. */
 const FOREIGN_KEY_SPACE_BESPOKE =
@@ -1916,7 +1918,8 @@ const POLYMORPHIC_OUTSIDE_THE_SEVEN =
 const OWNER_STORE_OR_OXY_ACCOUNT =
   'The `provider_accounts.owner_id` shape — polymorphic by `owner_type` over a STORE id or an ' +
   'Oxy ACCOUNT id. A native store is not one of the seven (a MERCHANT is, and it is a ' +
-  'different row), and the Oxy half is not in this database at all.';
+  'different row), and the Oxy half is not in this database at all. Any provider-object id ' +
+  'beside it is the provider’s own key space, which no merge here can act on either.';
 
 /** A stable identity shared by that table's own version rows. */
 const STABLE_IDENTITY_SAME_TABLE =
