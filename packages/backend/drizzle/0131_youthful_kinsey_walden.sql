@@ -1,0 +1,58 @@
+-- oxy:deploy-phase=pre
+--
+-- Per-locale full-text search over native listing translations
+-- (#367 Workstream 5, "define language-aware tokenization/folding behavior").
+--
+-- ## What this fixes
+--
+-- `listings.search_vector` is generated with `to_tsvector('english', …)` and
+-- `db/catalog/listingRepository.ts` asks `websearch_to_tsquery('english', …)`.
+-- Consistent, correct for the base locale — and it means a listing found by its
+-- English title is not found by its French one. `listing_localizations` (0130)
+-- holds the French title and nothing indexed it.
+--
+-- This adds that index: ONE `tsvector` per localization row, analysed by the
+-- PostgreSQL text-search configuration `LOCALE_TEXT_SEARCH_CONFIGURATIONS`
+-- (`@mercaria/shared-types`) names for the row's OWN locale, plus its GIN index.
+-- The query side reads the SAME map, which is the whole point: two stemmers
+-- sometimes agree on a word and sometimes do not, so a vector and a query built
+-- under different configurations punch ARBITRARY holes in a result set rather
+-- than uniformly breaking it — and the case this exists for is one of them.
+--
+-- ## Both statements are generated; nothing here is hand written
+--
+-- The `CASE` is rendered by `db/schema/catalogLocalization.ts` from
+-- `localesByTextSearchConfiguration()`, with configurations sorted and locales
+-- sorted within each, so a regeneration that changed nothing emits a
+-- byte-identical expression. That is load-bearing rather than tidy: drizzle-kit
+-- treats ANY change to a stored generated expression as DROP COLUMN + ADD
+-- COLUMN, which silently takes the column's GIN index with it and emits nothing
+-- about the index (`db/schema/CONVENTIONS.md`). A regeneration of this file
+-- therefore needs no hand-written statements re-applied — but it does need the
+-- two statements read, in that order, and the phase marker restored.
+--
+-- ## Why `simple` is the ELSE and `english` is not
+--
+-- PostgreSQL ships configurations for nine of Mercaria's twelve catalogue
+-- languages. Bengali, Japanese and Chinese have none, so they reach the ELSE,
+-- which folds case and splits tokens and does nothing else — the choice #70's
+-- canonical lexical stage already makes for every entity name (ADR 0002 D21).
+-- Falling them back to `english` is the defect being removed: the English
+-- stemmer would confidently produce lexemes no query in those languages
+-- reproduces, so the row would index and never match.
+--
+-- ## Why `pre`
+--
+-- Purely additive: one new generated column and one new index on a table added
+-- two migrations ago. It breaks no write the previously serving image performs
+-- — the column is `GENERATED ALWAYS`, so no writer names it — and the previous
+-- image simply does not read it.
+--
+-- The table rewrite ADD COLUMN implies is bounded by what
+-- `listing_localizations` holds, which is what 0130 has accumulated since it
+-- landed. There is no backfill because there is nothing to backfill: a stored
+-- generated column is computed for every existing row by the ADD COLUMN itself.
+--
+
+ALTER TABLE "listing_localizations" ADD COLUMN "search_vector" "tsvector" GENERATED ALWAYS AS (case when "listing_localizations"."locale" in ('ar', 'ar-ae', 'ar-eg', 'ar-ma', 'ar-sa') then to_tsvector('arabic', coalesce("listing_localizations"."title", '')) || to_tsvector('arabic', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('ca', 'ca-es') then to_tsvector('catalan', coalesce("listing_localizations"."title", '')) || to_tsvector('catalan', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('en', 'en-ca', 'en-gb', 'en-us') then to_tsvector('english', coalesce("listing_localizations"."title", '')) || to_tsvector('english', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('fr', 'fr-be', 'fr-ca', 'fr-ch', 'fr-fr') then to_tsvector('french', coalesce("listing_localizations"."title", '')) || to_tsvector('french', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('de', 'de-at', 'de-ch', 'de-de') then to_tsvector('german', coalesce("listing_localizations"."title", '')) || to_tsvector('german', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('hi', 'hi-in') then to_tsvector('hindi', coalesce("listing_localizations"."title", '')) || to_tsvector('hindi', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('pt', 'pt-br', 'pt-pt') then to_tsvector('portuguese', coalesce("listing_localizations"."title", '')) || to_tsvector('portuguese', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('ru', 'ru-ru') then to_tsvector('russian', coalesce("listing_localizations"."title", '')) || to_tsvector('russian', coalesce("listing_localizations"."description", '')) when "listing_localizations"."locale" in ('es', 'es-ar', 'es-es', 'es-mx') then to_tsvector('spanish', coalesce("listing_localizations"."title", '')) || to_tsvector('spanish', coalesce("listing_localizations"."description", '')) else to_tsvector('simple', coalesce("listing_localizations"."title", '')) || to_tsvector('simple', coalesce("listing_localizations"."description", '')) end) STORED;--> statement-breakpoint
+CREATE INDEX "listing_localizations_search_vector_idx" ON "listing_localizations" USING gin ("search_vector");

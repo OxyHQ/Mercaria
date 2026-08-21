@@ -494,6 +494,19 @@ export type UpdateListingInput = Partial<CreateP2PListingInput> & {
 export interface ListingQuery {
   /** Full-text search term. */
   q?: string;
+  /**
+   * The locale to search IN, beside the seller's base text (#367 Workstream 5).
+   *
+   * A lowercase BCP 47 tag. It is not a FILTER: a listing with no translation in
+   * this locale is still found by its base text, and a tag Mercaria does not
+   * support changes nothing. What it adds is the seller's own translation of
+   * this listing, analysed by that language's PostgreSQL text-search
+   * configuration — which is why `bicyclette` finds a bicycle whose French title
+   * says so and `websearch_to_tsquery('english', 'bicyclette')` never did.
+   *
+   * Has no effect without `q`.
+   */
+  locale?: string;
   /** Restrict to a single category slug. */
   category?: string;
   /**

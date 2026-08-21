@@ -56,9 +56,9 @@
  *   review audit are real columns with real constraints (ADR 0007 D14).
  */
 
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { check, index, pgTable, text, uniqueIndex, type AnyPgColumn } from 'drizzle-orm/pg-core';
-import { createdAt, generatedId, timestamptz, updatedAt } from '@oxyhq/db';
+import { createdAt, generatedId, timestamptz, tsvector, updatedAt } from '@oxyhq/db';
 import {
   LOCALIZATION_PROVENANCES,
   LOCALIZATION_REVISION_ACTIONS,
@@ -68,6 +68,9 @@ import {
   LOCALIZED_FIELD_KEYS,
   MERCARIA_BASE_LOCALE,
   SUPPORTED_LOCALES,
+  UNANALYZED_TEXT_SEARCH_CONFIGURATION,
+  localesByTextSearchConfiguration,
+  type PostgresTextSearchConfiguration,
 } from '@mercaria/shared-types';
 import { asEnumValues, checkOneOf } from './columns';
 import {
@@ -670,6 +673,54 @@ export const canonicalProductFamilyLocalizations = pgTable(
 );
 
 /**
+ * A DDL token this module inlines with `sql.raw`, refused unless it is shaped
+ * like one.
+ *
+ * Every value that reaches here comes from a closed `as const` tuple
+ * (`SUPPORTED_LOCALES`, `POSTGRES_TEXT_SEARCH_CONFIGURATIONS`), so nothing a
+ * request could influence is reachable — but the two positions this feeds are a
+ * quoted SQL literal inside a stored generated expression, which is the one
+ * place in the schema where a stray apostrophe would be a syntax error nobody
+ * sees until a migration runs. The guard is cheap and makes the property local
+ * to the function rather than an argument about who calls it.
+ */
+function ddlToken(value: string): string {
+  if (!/^[a-z][a-z0-9-]*$/u.test(value)) {
+    throw new Error(`Refusing to inline "${value}" into DDL: not a plain lowercase token`);
+  }
+  return value;
+}
+
+/** `to_tsvector` over a localization row's two text columns, under one configuration. */
+function analyseListingLocalizationText(configuration: PostgresTextSearchConfiguration): SQL {
+  const literal = sql.raw(`'${ddlToken(configuration)}'`);
+  return sql`to_tsvector(${literal}, coalesce(${listingLocalizations.title}, '')) || to_tsvector(${literal}, coalesce(${listingLocalizations.description}, ''))`;
+}
+
+/**
+ * The `CASE` that picks a localization row's analyser from its own locale.
+ *
+ * Rendered from `localesByTextSearchConfiguration()` — the one map
+ * `listingRepository.textMatch` also reads — with deterministic ordering, so a
+ * regeneration that changed nothing produces a byte-identical expression. That
+ * matters more here than tidiness: drizzle-kit treats any change to a stored
+ * generated expression as `DROP COLUMN` + `ADD COLUMN`, which silently takes the
+ * column's GIN index with it and emits nothing about the index
+ * (`db/schema/CONVENTIONS.md`).
+ *
+ * `simple` is the `ELSE` and appears in no arm, which is what makes "a language
+ * PostgreSQL cannot analyse is analysed by `simple`, never by `english`" a
+ * property of the stored column.
+ */
+function listingLocalizationSearchVector(): SQL {
+  const arms = localesByTextSearchConfiguration().map(({ configuration, locales }) => {
+    const list = sql.raw(locales.map((locale) => `'${ddlToken(locale)}'`).join(', '));
+    return sql`when ${listingLocalizations.locale} in (${list}) then ${analyseListingLocalizationText(configuration)}`;
+  });
+  return sql`case ${sql.join(arms, sql` `)} else ${analyseListingLocalizationText(UNANALYZED_TEXT_SEARCH_CONFIGURATION)} end`;
+}
+
+/**
  * `listing_localizations` — one locale's presentation of one NATIVE LISTING
  * (#367 Translation model, ADR 0007 D6/D7).
  *
@@ -720,24 +771,30 @@ export const canonicalProductFamilyLocalizations = pgTable(
  * teardown, and a `restrict` here would turn every one of them into a `23503`
  * in a file that never mentioned localization.
  *
- * ## Full-text search does NOT see this text, deliberately
+ * ## Full-text search reads this text, under THIS locale's analyser
  *
- * `listings.search_vector` is `GENERATED ALWAYS AS … STORED` over this
- * listing's own `title`, `description` and `tags`. A generation expression may
- * reference only columns of its own row, so a sibling table's text cannot enter
- * it — that is a Postgres restriction, not a decision. And both the vector and
- * `listingRepository`'s query side are pinned to the `'english'` text-search
- * configuration, so even if it could, a French title stemmed and stop-worded by
- * the English analyser would index worse than being absent.
+ * `listings.search_vector` is `GENERATED ALWAYS AS … STORED` over the listing's
+ * own `title`, `description` and `tags`, under `'english'`. A generation
+ * expression may reference only columns of its own row, so a sibling table's
+ * text cannot enter it — a PostgreSQL restriction, not a decision, and the
+ * reason the localized index is a SECOND vector here rather than a wider
+ * expression there.
  *
- * The consequence is stated rather than discovered: **a listing found by its
- * English title is not found by its French one.** The shape a fix takes is a
- * per-locale vector on THIS table with its own configuration and its own GIN
- * index, plus a locale-aware query side — an index decision with numbers
- * attached (#61's rule), belonging with #70's canonical search, whose lexical
- * stage already runs on `'simple'` rather than `'english'` for exactly this
- * reason. `listing-localization.realdb.test.ts` pins the limitation as a
- * measured fact, so it cannot quietly stop being true.
+ * Until #367 Workstream 5 there was no second vector, and the consequence was
+ * stated rather than discovered: **a listing found by its English title was not
+ * found by its French one.** {@link listingLocalizations.searchVector} is that
+ * fix — one `tsvector` per localization row, analysed by the configuration
+ * `LOCALE_TEXT_SEARCH_CONFIGURATIONS` names for the row's OWN locale, with its
+ * own GIN index, plus a locale-aware predicate in `listingRepository` reading
+ * the SAME map. The base vector is untouched and the predicate is a UNION with
+ * it, so a base-locale search behaves exactly as before.
+ *
+ * The query side matches the EXACT requested locale and never a neighbouring
+ * market's, which is not a search decision but this table's own: `listing.title`
+ * is `seller_authored`, so `fallbackPolicyForFieldClass` gives it
+ * `exact_locale_then_base` and an `es-mx` shopper is never SHOWN the `es` row a
+ * different seller wrote. A search that matched it would send them to a page
+ * whose text does not contain the word they typed.
  *
  * ## No accessibility-label column, and that is the answer rather than a gap
  *
@@ -775,10 +832,80 @@ export const listingLocalizations = pgTable(
     description: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+
+    /**
+     * This locale's own full-text index, analysed by this locale's own
+     * PostgreSQL text-search configuration (#367 Workstream 5).
+     *
+     * `listings.search_vector` covers the seller's BASE text under `'english'`.
+     * A generation expression may reference only columns of its own row, so a
+     * sibling table's text cannot enter it — a PostgreSQL restriction, not a
+     * decision, and the reason the localized vector lives HERE rather than as a
+     * second expression over there.
+     *
+     * ## The configuration comes from the ROW's locale, through one map
+     *
+     * The arms are rendered from `localesByTextSearchConfiguration()`
+     * (`@mercaria/shared-types`), which is the SAME map
+     * `listingRepository.textMatch` reads to build its `tsquery`. Two mappings
+     * would be the failure this column exists to remove: two stemmers sometimes
+     * agree on a word and sometimes do not, so a vector and a query built under
+     * different configurations punch UNPREDICTABLE holes in a result set rather
+     * than merely degrading it (measured over ten configurations: 22 of 30
+     * same-configuration pairings match, 96 of 270 cross-configuration ones).
+     * The case this column exists for is one of the holes —
+     * `to_tsvector('french','une bicyclette') @@ websearch_to_tsquery('english','bicyclettes')`
+     * is FALSE — and a predicate that returns nothing is indistinguishable from
+     * a term nobody sells.
+     *
+     * ## `ELSE simple`, never `else english`
+     *
+     * PostgreSQL ships configurations for nine of Mercaria's twelve catalogue
+     * languages; Bengali, Japanese and Chinese have none. Those get the `ELSE`,
+     * which is `'simple'` — case folding and token splitting and nothing else,
+     * the choice #70's canonical lexical stage already makes for every entity
+     * name. Falling them back to `'english'` is the defect being removed: the
+     * English stemmer would confidently produce lexemes no query in that
+     * language reproduces, so the row would index and never match.
+     *
+     * `simple` is therefore ABSENT from the arms by construction —
+     * `localesByTextSearchConfiguration()` omits it — which is what makes the
+     * default true of the stored column and not only of the TypeScript map. A
+     * locale added to `SUPPORTED_LOCALES` and left unclassified cannot ship
+     * (the map is a total `Record`) and would be analysed by `simple` if it
+     * somehow did.
+     *
+     * ## The literal configuration, and the `coalesce` on both inputs
+     *
+     * Two-argument `to_tsvector('<config>', …)` with a LITERAL configuration, for
+     * the reason `catalog.ts` records: the one-argument form reads
+     * `default_text_search_config` and is STABLE, which PostgreSQL refuses in a
+     * generated column. A `CASE` whose every arm names a literal is IMMUTABLE and
+     * is accepted — verified against a real server, not assumed.
+     *
+     * `coalesce` on BOTH columns even though only one can be `missing`:
+     * concatenating a NULL into a `tsvector` yields NULL for the whole column,
+     * so a row with a settled title and no description yet would otherwise index
+     * as nothing at all. Measured: a row with both NULL produces the EMPTY
+     * vector, which matches no query and is the right answer for a `missing`
+     * translation.
+     */
+    searchVector: tsvector().generatedAlwaysAs((): SQL => listingLocalizationSearchVector()),
   },
   (t) => [
     ...localizationChecks('listing_localizations', { ...t, primaryText: t.title }),
     uniqueIndex('listing_localizations_locale_key').on(t.listingId, t.locale),
+    /**
+     * The GIN index the locale-aware predicate reads.
+     *
+     * Named and asserted rather than assumed: a generated-column REWRITE drops
+     * every index on the column and `drizzle-kit generate` emits nothing about
+     * it (`db/schema/CONVENTIONS.md`), so `listing-localization.realdb.test.ts`
+     * both asserts the index exists after the whole chain applies and asserts
+     * the predicate PLANS onto it — with a drop-inside-a-rolled-back-transaction
+     * mutation proving the assertion can fail.
+     */
+    index('listing_localizations_search_vector_idx').using('gin', t.searchVector),
     /**
      * The family's `(locale, status)` index, carried for consistency of shape
      * rather than for the translation desk — this domain is deliberately

@@ -540,6 +540,34 @@ Note that catalogue search changes SHAPE where Mongo indexed a multikey field on
 the parent document: searching listing text that lives on variants now joins
 back to `listings`.
 
+**A vector's configuration and its query side's configuration are ONE decision,
+and a disagreement between them is UNRELIABLE rather than merely lossy.** Two
+stemmers sometimes agree on a word and sometimes do not, so a mismatch punches
+arbitrary holes in a result set rather than uniformly breaking it — measured on
+PostgreSQL 17 over ten configurations and three inflected word pairs, 22 of 30
+same-configuration pairings match and 96 of 270 cross-configuration ones do. That
+is what makes it dangerous: `to_tsvector('french', 'une bicyclette') @@
+websearch_to_tsquery('english', 'bicyclettes')` is FALSE, silently and
+indistinguishably from a term nobody sells, while neighbouring queries keep
+working. So the pair must be derived from one place. Two exist:
+
+- **`'simple'`** for every canonical entity NAME (`canonical_products`,
+  `canonical_product_families`, `brands`, `merchants`, `organizations`,
+  `storefronts`), queried by `db/search/searchCandidateRepository.ts` — ADR 0002
+  D21, language-agnostic on purpose.
+- **The locale's own configuration** for `listing_localizations.search_vector`,
+  a `CASE` over the row's `locale` rendered from
+  `localesByTextSearchConfiguration()` in `@mercaria/shared-types` — the SAME map
+  `listingRepository.textMatch` resolves through. `listings.search_vector` stays
+  `'english'` and its query side reads
+  `LISTING_BASE_TEXT_SEARCH_CONFIGURATION`. A language PostgreSQL ships no
+  configuration for gets `'simple'` and never `'english'`. Full reference:
+  `docs/catalog-search-configurations.md`.
+
+A `CASE` whose every arm names a LITERAL configuration is IMMUTABLE and is
+accepted in a generated column; a `text::regconfig` cast is STABLE and is not —
+though it is fine, and is the safe spelling, in a QUERY.
+
 ## PostGIS
 
 `db/migrate.ts` declares `postgis` as a required extension, so it is created
