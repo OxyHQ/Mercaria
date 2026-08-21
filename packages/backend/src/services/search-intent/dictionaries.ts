@@ -117,8 +117,15 @@ export function foldPhrase(phrase: string): string {
  * POSITIVE rather than #830's false merge, and it is not harmless here because
  * a match ADDS a filter: `readCategory` turns one into a category constraint on
  * a shopper's search, and the enum pass turns one into an attribute requirement.
- * A one-letter Hindi or Bengali `category_aliases.normalized_alias` therefore
- * narrowed a page to a category nobody asked for, with nothing saying why.
+ *
+ * The two callers are reachable to different depths, which is worth stating
+ * because it decides how short a fragment has to be to matter.
+ * `enumValueSpellings` drops a spelling under three characters, so through that
+ * path only the longer fragments bite (`इकिल` inside `साइकिल`, `てんしゃ` inside
+ * `じてんしゃ`). `readCategory` applies no such floor — it filters on
+ * `phrase.length > 0` — so a ONE-character Hindi or Bengali
+ * `category_aliases.normalized_alias` narrowed a page to a category nobody
+ * asked for, with nothing saying why. Both paths are covered below.
  *
  * Adding `\p{M}` makes those scripts behave the way Latin already did. It can
  * only ever REMOVE a match — a mark that used to open a boundary now closes one
