@@ -289,7 +289,7 @@ const UNCONDITIONAL: readonly Call[] = [
   },
 ];
 
-/** The nine `/internal/*` catalog surfaces gated on the allow-list and no lever. */
+/** The ten `/internal/*` catalog surfaces gated on the allow-list and no lever. */
 const INTERNAL: readonly string[] = [
   '/internal/catalog-proposals',
   '/internal/canonical-catalog',
@@ -300,6 +300,10 @@ const INTERNAL: readonly string[] = [
   '/internal/navigation',
   '/internal/catalog-governance',
   '/internal/catalog-metrics',
+  // #367 Workstream 1's classification surface. Added here rather than left out
+  // because this list is hand-maintained and therefore silently does not cover a
+  // surface nobody adds — the failure mode a derived population would not have.
+  '/internal/taxonomy',
 ];
 
 describe('the four levers gate a MOUNT — and turning them off restores the previous behaviour', () => {
@@ -405,7 +409,7 @@ describe('no lever gates a durable record', () => {
   });
 });
 
-describe('the nine internal catalog surfaces are gated on the allow-list and on NO lever', () => {
+describe('the ten internal catalog surfaces are gated on the allow-list and on NO lever', () => {
   it.each(INTERNAL)('%s is MOUNTED with every lever off', async (path) => {
     // A 403 rather than a 404: the surface exists and this caller is not on the
     // list. That is the discrimination the whole allow-list convention rests on,
@@ -429,8 +433,8 @@ describe('the nine internal catalog surfaces are gated on the allow-list and on 
     },
   );
 
-  it('names all nine surfaces — the vacuity floor on both cases above', () => {
-    expect(INTERNAL.length).toBe(9);
-    expect(new Set(INTERNAL).size).toBe(9);
+  it('names all ten surfaces — the vacuity floor on both cases above', () => {
+    expect(INTERNAL.length).toBe(10);
+    expect(new Set(INTERNAL).size).toBe(10);
   });
 });

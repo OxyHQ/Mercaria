@@ -220,6 +220,70 @@ Two named exceptions carry a disposition: `scripts/seed.ts` (whose only
 statement against these tables is an unqualified DELETE) and
 `services/graph-benchmark/dataset.ts` (the opt-in benchmark seed).
 
+## Primary and secondary classification (#367 W1)
+
+**The primary category is not a new thing.** `listings.category_id` and
+`canonical_products.category_id` ARE it — they predate this workstream and are
+untouched by it. "Exactly one primary" is held by the primary being a **scalar
+column**, in which two primaries have no row shape at all, so it needs no
+partial unique, no `is_primary` flag, no ordering column and no sweep. A
+junction table with `is_primary boolean` would need a partial unique
+`WHERE is_primary` to enforce anything (a plain `unique(subject, is_primary)`
+enforces nothing — NULLs are distinct and two `false` rows are legal), and it
+would be a second answer to a question two live columns already answer.
+
+What `db/schema/taxonomyClassification.ts` adds is the **secondaries**:
+`listing_secondary_categories` and `canonical_product_secondary_categories`,
+written only by `db/taxonomy/classificationRepository.ts`.
+
+**Both subjects, as two per-entity tables**, per D4's rejection of a polymorphic
+`(entity_type, entity_id)`. The division is the one the selectability trigger
+already states — a listing's category is a SELLER filing a product, a canonical
+product's is the CATALOGUE filing one. Canonical-only was refused because a P2P
+listing is never attached to a canonical product at all
+(`services/backfill/stages/provisional-products.ts`, `p2p_left_unattached`), so
+it would leave that half of the marketplace unable to carry a second filing.
+The accepted cost is duplication where a store listing IS linked; nothing
+derives one side from the other, and `justified_by` records who filed which.
+
+**"Justified" is enforced.** A closed five-member reason vocabulary, a NOT NULL
+non-blank `justification`, a NOT NULL author taken from the credential, and a
+biconditional CHECK making `scheme_ref` required for exactly the three reasons
+that name an external authority and forbidden for the two that are Mercaria's
+own judgement. `SECONDARY_CLASSIFICATION_FORBIDDEN_REASONS` names eleven
+reasons that may never justify one — merchandising placement, ranking boost,
+paid placement, feed mapping, alias, product-type eligibility, attribute scope,
+fitment, migration shim — each owned by a domain that already answers it, and
+each refused BY NAME rather than as "invalid value".
+
+**A secondary may not be the primary, its ancestor or its descendant** (the tree
+already implies all three), and the guard runs on **both sides**:
+`mercaria_listing_secondary_category_guard` and its canonical twin on the child,
+`mercaria_listing_primary_category_guard` and its twin
+(`BEFORE UPDATE OF category_id`) on the parent. The parent side is the half that
+gets forgotten and it is the one that matters — without it, re-pointing a
+primary at a node one of its own secondaries names makes a secondary silently
+become the primary, with both rows individually valid. It refuses rather than
+deleting the collided secondary.
+
+**"No primary, but some secondaries" is refused in both directions too.** All
+three category-assignment columns are nullable, so the state is representable
+and it fails silently: readers resolving "the category" get NULL while the row
+visibly carries filings.
+
+**New writes may not name a `draft`, `deprecated` or `merged` category**;
+assignable is `published | suppressed` (the holding pen is assignable by D2's
+own words). Existing rows keep theirs. This is deliberately stricter than the
+primary column, which has no lifecycle rule at all — tightening that one would
+refuse a write the serving image performs, making it a `post`-phase change.
+
+Operator surface: `/internal/taxonomy/*`, on the SAME
+`CATALOG_OPERATOR_OXY_USER_IDS` allow-list. Four routes and no more — there is
+no "set the primary" (that is the seller's listing write path, unchanged), no
+"promote to primary", no bulk file, and no "list every subject under this
+category"; the COUNT is served, which is what an operator needs before
+deprecating a node, and the list is not.
+
 ## What is deliberately not here
 
 - **The `post` migration.** Retiring `ancestor_slugs`, and the cross-column
