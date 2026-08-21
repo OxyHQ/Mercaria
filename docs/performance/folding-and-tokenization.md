@@ -138,6 +138,45 @@ already committed to. Compare #61, whose offer sort index costs +19% on an
 upsert and +70% on a price update: that one indexes cheap scalar columns, so the
 index IS the cost there and is not here.
 
+### What it buys on the read side
+
+20,000 localization rows, of which **20** carry the probe term (0.1%). Plan facts
+from one instrumented `EXPLAIN`; latency from twelve uninstrumented interleaved
+executions per arm — **two clocks, never averaged.**
+
+| | plan over `listing_localizations` | rows discarded | p50 |
+|---|---|---|---|
+| with the index | `Bitmap Index Scan on listing_localizations_search_vector_idx`, `Index Cond: search_vector @@ …` | 0 | **10.30 ms** |
+| index dropped | `Bitmap Index Scan on listing_localizations_locale_key`, the term applied as a `Filter` | **19,980** | 14.57 ms |
+
+**1.4×, resolved** (delta 4.27 ms against a worst IQR of 2.55 ms). The absolute
+win is modest because the outer `listings` scan dominates at this size; what the
+plan shows and the clock does not is the part that grows — without the index the
+localization scan is O(rows in that locale) and reads all 20,000 to return 20,
+while with it the work is proportional to the matches.
+
+#### The first fixture could not have shown this, and it passed its floor
+
+The first attempt seeded 20,000 rows all carrying the *same* French text, so the
+probe term matched **100%** of them. A sequential scan was then the correct plan,
+the index "bought" 1.1×, and the vacuity floor — *the predicate must match rows*
+— **passed**. It was the wrong floor: a fixture can be non-empty and still be
+structurally unable to show an index winning. The floor is now two-sided (match
+some rows, and match far fewer than all), which is the same lesson as an
+`ORDER BY` fixture that has to be adverse against every plan, wearing a new
+costume.
+
+#### And `EXPLAIN ANALYZE`'s own `Execution Time` reversed the verdict
+
+Worth recording because it is the rule's sharpest illustration in this
+repository. The instrumented runs reported **31.778 ms** indexed and **18.390 ms**
+unindexed — the *opposite* order to the twelve uninstrumented runs above (10.30
+vs 14.57). Quoting those would have concluded that the index makes the read
+slower. `EXPLAIN ANALYZE` really executes and its timing carries the cost of
+measuring plus whatever the buffer cache happened to be doing (the indexed plan's
+own `Buffers` line shows `read=154 written=108` — the index had just been
+created). **Never quote `Execution Time` as the latency.**
+
 ### And what it costs on a REAL localization write: not resolvable, and here is why
 
 Against the real `listing_localizations` table, 20,000 rows, 10 interleaved
