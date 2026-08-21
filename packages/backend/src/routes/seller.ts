@@ -30,6 +30,7 @@ import {
   loadOwnedListing,
 } from '../controllers/seller-listings.controller.js';
 import { makeListingLocalizationRouter } from '../controllers/listing-localizations.controller.js';
+import { makeVariantImageRouter } from '../controllers/variant-images.controller.js';
 import { routeParam } from '../utils/request.js';
 import { listSellerOrders, fulfillOrderHandler } from '../controllers/seller-orders.controller.js';
 import {
@@ -168,6 +169,45 @@ router.use(
   makeRateLimiter('listings'),
   validateId('id'),
   makeListingLocalizationRouter(async (req) =>
+    loadOwnedListing(routeParam(req, 'id'), getRequiredOxyUserId(req)),
+  ),
+);
+
+/**
+ * `/seller/listings/:id/variants/:variantId/images` — which of a P2P seller's
+ * own gallery photographs each variant shows (#855).
+ *
+ * The `user` half of a two-mount split;
+ * `/admin/stores/:storeId/products/:id/variants/:variantId/images` is the
+ * `store` half, and both call `makeVariantImageRouter`. There is no permission
+ * question to ask here and none is asked: the owner IS the authenticated
+ * caller, which `loadOwnedListing` — the SAME function `PATCH
+ * /seller/listings/:id` and the localization mount above both use —
+ * establishes before any handler body runs.
+ *
+ * On the `'listings'` rate-limit scope, not a new one: this is the catalog
+ * write path reached through another door, and a seller assigning a photograph
+ * to the blue one is the same traffic shape as a seller uploading it.
+ *
+ * `validateId('id')` only. `:variantId` is deliberately NOT validated here —
+ * `requireVariantId` resolves it against the listing's OWN variants, so an
+ * unparseable id is a variant this listing does not have and answers 404
+ * through the same branch as a well-formed one that belongs to somebody else.
+ * A format check in front of it would be a second answer that can disagree.
+ *
+ * The mount names the WHOLE path rather than `/listings/:id/variants`. There is
+ * no sibling under that prefix on THIS router today, so nothing is intercepted
+ * either way — but the store mount has four, and a `router.use` prefix applies
+ * its middleware to every request matching it whether or not a route matches.
+ * Both mounts are spelled the same way so the two halves of one surface cannot
+ * drift, and so adding a seller-side variant route later is not a silent
+ * re-permissioning.
+ */
+router.use(
+  '/listings/:id/variants/:variantId/images',
+  makeRateLimiter('listings'),
+  validateId('id'),
+  makeVariantImageRouter(async (req) =>
     loadOwnedListing(routeParam(req, 'id'), getRequiredOxyUserId(req)),
   ),
 );
