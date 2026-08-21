@@ -27,18 +27,23 @@
  * `(key, version)` is the identity. A rule's behaviour is FROZEN once shipped: a
  * change is a new version, and mappings cite the version they were reviewed
  * under, so re-normalizing under a newer rule is a deliberate reprocessing run
- * rather than something that happens to a deployment on a Tuesday. Every rule is
- * at version 1 today, and {@link CATALOG_EXTERNAL_TRANSFORM_RULE_VERSIONS} is
- * the census a test reads so a key cannot be added without a version behind it.
+ * rather than something that happens to a deployment on a Tuesday.
+ * {@link CATALOG_EXTERNAL_TRANSFORM_RULE_VERSIONS} is the census a test reads so
+ * a key cannot be added without a version behind it. Every rule is at version 1
+ * except `strip_diacritics`, which is at 2 — #838, and the reasoning is on the
+ * census constant.
  *
- * `unit_magnitude_to_base` is the only rule that reads another module, and it
- * reads the canonical unit table (`services/canonical/units.ts`) — a pure code
- * registry, no database, no row-supplied input.
+ * Two rules read another module, and both read a pure code registry with no
+ * database and no row-supplied input: `unit_magnitude_to_base` reads the
+ * canonical unit table (`services/canonical/units.ts`), and `strip_diacritics`
+ * reads `foldAccents` from `@mercaria/shared-types`, which is the repository's
+ * one accent fold.
  */
 
 import {
   CATALOG_EXTERNAL_TOKEN_MAX_LENGTH,
   CATALOG_EXTERNAL_TRANSFORM_RULES,
+  foldAccents,
   type CatalogExternalTransformOutcome,
   type CatalogExternalTransformRule,
 } from '@mercaria/shared-types';
@@ -49,7 +54,6 @@ type TransformRuleFn = (value: string) => CatalogExternalTransformOutcome;
 
 /** The literal regular expressions. Every one of them is in this file, by design. */
 const WHITESPACE_RUN = /\s+/g;
-const COMBINING_MARKS = /\p{M}+/gu;
 const PATH_SEPARATOR = /\s*(?:>|\/|»|›|\|)\s*/;
 const MAGNITUDE_AND_UNIT = /^([+-]?\d+(?:[.,]\d+)?)\s*([A-Za-z][A-Za-z0-9_/%]*)$/;
 /**
@@ -158,11 +162,9 @@ const RULES = new Map<string, TransformRuleFn>([
   ['trim:1', (value) => normalized(value.trim())],
   ['case_fold:1', (value) => normalized(value.trim().toLowerCase())],
   ['collapse_whitespace:1', (value) => normalized(value.trim().replace(WHITESPACE_RUN, ' '))],
-  [
-    'strip_diacritics:1',
-    (value) =>
-      normalized(value.trim().toLowerCase().normalize('NFD').replace(COMBINING_MARKS, '').normalize('NFC')),
-  ],
+  // Version 2, and version 1 is deliberately NOT registered. See
+  // {@link CATALOG_EXTERNAL_TRANSFORM_RULE_VERSIONS}.
+  ['strip_diacritics:2', (value) => normalized(foldAccents(value.trim().toLowerCase()))],
   [
     'path_leaf:1',
     (value) => {
@@ -183,6 +185,31 @@ const RULES = new Map<string, TransformRuleFn>([
  * with no implementation behind it (a mapping citing it would be storable and
  * would refuse forever), and an implementation cannot be registered under a key
  * nobody may cite.
+ *
+ * ## `strip_diacritics` is at 2, and 1 is RETIRED rather than corrected (#838)
+ *
+ * Version 1 was `NFD` + drop every `\p{M}` + `NFC`, which is only "remove
+ * accents" on Latin. Measured against the real rule: `साइकिल`
+ * (bicycle) and `साइकिलें` (bicycles) both
+ * became `"सइकल"`; Cyrillic `красный` became
+ * `красныи`, collapsing a real letter; and hiragana
+ * `じてんしゃ` became `してんしゃ`, a
+ * different and meaningless word. Version 2 folds through `foldAccents`, which
+ * drops a mark only when it is a Latin combining diacritic on a Latin base.
+ *
+ * Correcting version 1 IN PLACE was refused, and by this module's own rule: a
+ * version is what a reviewed mapping CITES, so redefining one silently changes
+ * the meaning of every approved row — "something that happens to a deployment on
+ * a Tuesday", which is what the freeze exists to prevent.
+ *
+ * Version 1 is then not re-registered, because the alternative is worse. Keeping
+ * it would leave every mapping approved under it still eating marks, invisibly
+ * and indefinitely. Retiring it makes such a mapping answer
+ * `rule_not_registered`, which `resolution.service.ts` reports as
+ * `transform_refused` — already a member of
+ * `catalog_external_mapping_reviews_reason_check`, so the row routes to the
+ * review queue that exists for exactly this. That is #834's trade in this
+ * domain: an invisible precision failure for a visible recall one.
  */
 export const CATALOG_EXTERNAL_TRANSFORM_RULE_VERSIONS: Readonly<
   Record<CatalogExternalTransformRule, readonly number[]>
@@ -191,7 +218,7 @@ export const CATALOG_EXTERNAL_TRANSFORM_RULE_VERSIONS: Readonly<
   trim: [1],
   case_fold: [1],
   collapse_whitespace: [1],
-  strip_diacritics: [1],
+  strip_diacritics: [2],
   path_leaf: [1],
   unit_magnitude_to_base: [1],
   decimal_separator_normalize: [1],

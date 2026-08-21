@@ -21,16 +21,21 @@
  *
  * {@link MARK_PRESERVING_FOLDS} keep a script's combining marks, so two words
  * that differ only in marks stay different. {@link MARK_LOSING_FOLDS} do not —
- * they are the #830 defect, still live, in three more places than #830 fixed.
- * Fixing one is a ONE-LINE diff here: move it between the lists. That is
- * deliberate. A fix that did not have to touch this file would be a fix nobody
- * could see.
+ * they are the #830 defect. Fixing one is a ONE-LINE diff here: move it between
+ * the lists. That is deliberate. A fix that did not have to touch this file
+ * would be a fix nobody could see.
+ *
+ * **#838 emptied the second list**, and the assertions did not go with it: the
+ * mark-loss MECHANISM check the losing group carried is now applied to every
+ * member of the preserving one, on whichever half of each pair actually carries
+ * a mark. Otherwise fixing the bug would have deleted the only test that could
+ * detect it coming back.
  */
 
 import { describe, expect, it } from 'vitest';
 import { SCRIPT_CORPUS, scriptSample, scriptVariant } from './script-corpus.js';
 import { slugify } from '../utils/slug.js';
-import { normalizeEntityName, wordTokens } from '../services/canonical/normalization.js';
+import { normalizeEntityName } from '../services/canonical/normalization.js';
 import { normalizeCatalogAlias } from '../services/taxonomy/alias-normalization.js';
 import { normalizeSearchQuery } from '../services/search/normalize.js';
 import { redactSupplierOrderMessage } from '../services/supplier-orders/redact.js';
@@ -48,7 +53,7 @@ import { foldPhrase } from '../services/search-intent/dictionaries.js';
 import { sanitizeQueryForModel } from '../services/search-intent/injection.js';
 import { titleTokens, normalizeTitle } from '../services/matching/text-similarity.js';
 import { normalizeDisplayNameForComparison } from '../services/referrals/duplicate-signals.js';
-import { normalizeSourceConditionLabel } from '@mercaria/shared-types';
+import { normalizeSourceConditionLabel, wordTokens } from '@mercaria/shared-types';
 
 /** A fold under test: a name, and a `string -> string` view of it. */
 interface NamedFold {
@@ -59,9 +64,17 @@ interface NamedFold {
 /**
  * Folds that PRESERVE a script's combining marks.
  *
- * The property asserted of all of them: two words differing only in marks fold
- * to two different strings. `normalizeEntityName` is here because #834 put it
- * here — before that fix it belonged in the list below.
+ * Two properties are asserted of every member: two words differing only in
+ * marks fold to two different strings, AND a mark-bearing input still carries a
+ * mark on the way out. The second is the MECHANISM, and it is here rather than
+ * in the list below because #838 emptied that one.
+ *
+ * `normalizeEntityName` is here because #834 put it here. The last three are
+ * here because #838 did, and each names the stored key it writes, because that
+ * is what made them a separate change: `condition_source_mappings.source_label_normalized`
+ * (UNIQUE with `ruleset_id`), `analytics_search_queries.normalized_tokens` and
+ * the `analytics_query_aggregates.normalized_query` rolled up from it (UNIQUE
+ * with the bucket), and — for `strip_diacritics` — nothing at all.
  */
 const MARK_PRESERVING_FOLDS: readonly NamedFold[] = [
   { name: 'normalizeEntityName', fold: normalizeEntityName },
@@ -73,44 +86,40 @@ const MARK_PRESERVING_FOLDS: readonly NamedFold[] = [
   { name: 'normalizeTitle', fold: normalizeTitle },
   { name: 'normalizeDisplayNameForComparison', fold: normalizeDisplayNameForComparison },
   { name: 'sanitizeQueryForModel', fold: sanitizeQueryForModel },
+  { name: 'normalizeSourceConditionLabel', fold: normalizeSourceConditionLabel },
+  { name: 'normalizeQueryTokens', fold: (value) => normalizeQueryTokens(value).join('|') },
+  { name: "applyExternalTransform('strip_diacritics')", fold: stripDiacritics },
 ];
 
 /**
- * Folds that DESTROY combining marks — the #830 mechanism, still live.
- *
- * All three replace or split on a class built from `\p{L}`/`\p{N}` without
- * `\p{M}`, or decompose with NFD and strip everything that decomposed. Each is
- * filed; none is fixed here, and the reason is the same for all three: every one
- * of them writes a STORED lookup key
- * (`condition_mapping_rules.source_label_normalized`,
- * `analytics_search_queries.normalized_tokens`, and an external mapping's
- * comparison value), so changing the fold re-keys existing rows and needs a
- * backfill migration. That is a separate change with a separate review.
+ * The rule under whatever version ships today, so the entry follows a version
+ * bump rather than pinning the one that was broken. #838 retired
+ * `strip_diacritics:1` and registered `:2`.
  */
-const MARK_LOSING_FOLDS: readonly (NamedFold & { readonly issue: string })[] = [
-  {
-    name: 'normalizeSourceConditionLabel',
-    issue: '#838 — [^\\p{Letter}\\p{Number}]+ in @mercaria/shared-types',
-    fold: normalizeSourceConditionLabel,
-  },
-  {
-    name: 'normalizeQueryTokens',
-    issue: '#838 — split(/[^\\p{L}\\p{N}]+/u) in analytics/redact-query.ts',
-    fold: (value) => normalizeQueryTokens(value).join('|'),
-  },
-  {
-    name: "applyExternalTransform('strip_diacritics')",
-    issue: '#838 — NFD + strip every mark, in catalog-external-mappings',
-    fold: (value) => {
-      const result = applyExternalTransform(
-        'strip_diacritics',
-        latestTransformRuleVersion('strip_diacritics'),
-        value,
-      );
-      return result.outcome === 'normalized' ? result.value : `refused:${result.reason}`;
-    },
-  },
-];
+function stripDiacritics(value: string): string {
+  const result = applyExternalTransform(
+    'strip_diacritics',
+    latestTransformRuleVersion('strip_diacritics'),
+    value,
+  );
+  return result.outcome === 'normalized' ? result.value : `refused:${result.reason}`;
+}
+
+/**
+ * Folds that DESTROY combining marks — the #830 mechanism.
+ *
+ * **EMPTY, and that is the finding rather than the absence of one.** #833 put
+ * three here; #838 fixed all three and moved them up. A fourth belongs here the
+ * day it is measured, with its issue, and the loop below runs again.
+ *
+ * The register is kept rather than deleted because an empty list is a claim —
+ * "this repository has no known mark-eating fold" — and `the register is empty`
+ * below is what asserts it. What it must NOT be is the only thing left standing:
+ * a `for` loop over an empty array emits zero tests and reads exactly like a
+ * passing suite, which is why the mechanism assertion moved into
+ * {@link MARK_PRESERVING_FOLDS} instead of being deleted with these entries.
+ */
+const MARK_LOSING_FOLDS: readonly (NamedFold & { readonly issue: string })[] = [];
 
 /** The scripts whose corpus entry carries a marks-only variant pair. */
 const MARK_BEARING = ['Bengali', 'Devanagari'] as const;
@@ -129,10 +138,55 @@ describe('a fold that keeps combining marks keeps two words apart', () => {
         ).not.toBe(fold(variant));
       }
     });
+
+    it(`${name} lets a combining mark out the other side`, () => {
+      // The MECHANISM, carried over from the list #838 emptied. Distinctness
+      // alone can hold while marks are eaten — two words can survive a fold that
+      // destroys their marks and still differ on the letters around them — so
+      // this asserts the marks THEMSELVES.
+      //
+      // Deliberately not "the output is shorter": the folds fixed in #838
+      // replaced each mark with a SPACE, leaving the codepoint count unchanged,
+      // so a length assertion passes while measuring nothing.
+      let marked = 0;
+      for (const script of MARK_BEARING) {
+        const sample = scriptSample(script);
+        for (const input of [sample.noun, scriptVariant(script)]) {
+          // Only one half of the Bengali pair carries a mark: `বই` is two
+          // independent letters and the matras are in `বইগুলি`. Asserting on the
+          // noun of every pair would fail on a fold doing nothing wrong.
+          if (!/\p{M}/u.test(input)) continue;
+          marked += 1;
+          expect(
+            /\p{M}/u.test(fold(input)),
+            `${name} ate every combining mark in ${script} "${input}" — output ${JSON.stringify(fold(input))}`,
+          ).toBe(true);
+        }
+      }
+      // The floor: with no mark-bearing fixture the loop above asserts nothing.
+      // Measured on the corpus #833 ships — Devanagari contributes both halves,
+      // Bengali only its variant.
+      expect(marked, 'no mark-bearing fixture reached the assertion').toBe(3);
+    });
   }
+
+  it('covers every fold that was moved out of the losing register', () => {
+    // A containment check, not an exact list: this file gains preserving folds
+    // routinely and an exact pin would conflict on every one. What must not
+    // silently vanish is a fold that was KNOWN broken and is now claimed fixed.
+    const names = MARK_PRESERVING_FOLDS.map((entry) => entry.name);
+    for (const moved of [
+      'normalizeSourceConditionLabel',
+      'normalizeQueryTokens',
+      "applyExternalTransform('strip_diacritics')",
+      'normalizeEntityName',
+    ]) {
+      expect(names, `${moved} left the suite instead of being asserted`).toContain(moved);
+    }
+  });
 });
 
-describe('the folds that still destroy combining marks (#830, three more sites)', () => {
+describe('the register of folds that still destroy combining marks (#830)', () => {
   for (const { name, fold, issue } of MARK_LOSING_FOLDS) {
     it(`${name} collapses Devanagari singular and plural onto one key — ${issue}`, () => {
       // A CHARACTERISATION, not an endorsement. Fixing the fold makes this red,
@@ -141,28 +195,29 @@ describe('the folds that still destroy combining marks (#830, three more sites)'
       const hindi = scriptSample('Devanagari');
       expect(fold(hindi.noun)).toBe(fold(scriptVariant('Devanagari')));
       // …and the MECHANISM is mark loss rather than a coincidence of these two
-      // words. Deliberately not "the output is shorter": two of these three
-      // replace each mark with a SPACE, so the codepoint count is unchanged and a
-      // length assertion passes while measuring nothing.
+      // words. Deliberately not "the output is shorter": the folds this held
+      // replaced each mark with a SPACE, so the codepoint count is unchanged and
+      // a length assertion passes while measuring nothing.
       expect(/\p{M}/u.test(hindi.noun), 'the fixture carries no combining mark').toBe(true);
       expect(/\p{M}/u.test(fold(hindi.noun)), 'the marks survived — has this been fixed?')
         .toBe(false);
     });
   }
 
-  it('names exactly the sites measured, so a fourth is a deliberate addition', () => {
-    expect(MARK_LOSING_FOLDS.map((entry) => entry.name)).toEqual([
-      'normalizeSourceConditionLabel',
-      'normalizeQueryTokens',
-      "applyExternalTransform('strip_diacritics')",
-    ]);
+  it('is empty — no fold in this repository is known to eat combining marks', () => {
+    // #833 measured three and #838 fixed all three. This assertion is the claim
+    // that the count is now zero; it is not the gate. The gate is the pair of
+    // properties every entry in MARK_PRESERVING_FOLDS is held to, which is where
+    // the three went and where a regression in any of them turns red.
+    expect(MARK_LOSING_FOLDS.map((entry) => entry.name)).toEqual([]);
   });
 
-  it('strip_diacritics also strips the Japanese dakuten, which changes the word', () => {
-    // `じ` is `し` plus a dakuten. Removing it does not "remove an accent" — it
-    // yields a different, meaningless word. The rule is documented as being for a
-    // source that varies on ACCENTS, and Latin is the only script where that
-    // description holds.
+  it('strip_diacritics keeps the Japanese dakuten, which is part of the word', () => {
+    // `じ` is `し` plus U+3099. Removing it does not "remove an accent" — it
+    // yields a different, meaningless word, and `じてんしゃ` (bicycle) became
+    // `してんしゃ` under `strip_diacritics:1`. The rule is documented as being for
+    // a source that varies on ACCENTS, and Latin is the only script where that
+    // description holds, so version 2 folds through `foldAccents`.
     const hiragana = scriptSample('Hiragana');
     const stripped = applyExternalTransform(
       'strip_diacritics',
@@ -170,7 +225,35 @@ describe('the folds that still destroy combining marks (#830, three more sites)'
       hiragana.noun,
     );
     expect(stripped.outcome).toBe('normalized');
-    expect(stripped.outcome === 'normalized' && stripped.value).toBe(scriptVariant('Hiragana'));
+    expect(stripped.outcome === 'normalized' && stripped.value).toBe(hiragana.noun);
+    // The variant is what the broken version produced, so asserting the output
+    // is NOT it fails if `scriptVariant` and `noun` ever stop differing — which
+    // would make the line above pass while comparing a word with itself.
+    expect(scriptVariant('Hiragana')).not.toBe(hiragana.noun);
+  });
+
+  it('strip_diacritics still folds a LATIN accent — the control that must keep passing', () => {
+    // Under-folding is the safe direction, but a fold that folds NOTHING is not
+    // a fix, it is the rule doing nothing under its own name. `Nestlé` is #834's
+    // control and it is repeated here because this is a different rule.
+    const folded = applyExternalTransform(
+      'strip_diacritics',
+      latestTransformRuleVersion('strip_diacritics'),
+      'Nestlé',
+    );
+    expect(folded).toEqual({ outcome: 'normalized', value: 'nestle' });
+  });
+
+  it('version 1 of strip_diacritics is RETIRED and refuses rather than folding', () => {
+    // #838's decision, asserted: a mapping reviewed under the mark-eating rule
+    // answers `rule_not_registered`, which `resolution.service.ts` reports as
+    // `transform_refused` and routes to review. Correcting version 1 in place
+    // would have changed the meaning of every approved row silently.
+    expect(latestTransformRuleVersion('strip_diacritics')).toBe(2);
+    expect(applyExternalTransform('strip_diacritics', 1, 'साइकिलें')).toEqual({
+      outcome: 'refused',
+      reason: 'rule_not_registered',
+    });
   });
 });
 

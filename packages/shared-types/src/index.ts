@@ -24,6 +24,12 @@ export * from './seller-profile';
 // Product variant DTO (ProductVariantDTO, VariantOptionValue).
 export * from './variant';
 
+// The ONE accent fold and the ONE word-token character class this repository
+// has (#830/#834/#838). It lives here rather than in the backend because
+// `./condition`'s label fold needs it and `@mercaria/shared-types` cannot import
+// `@mercaria/backend`. PRECEDES `./condition`, which consumes it.
+export * from './text-fold';
+
 // The item-condition taxonomy (#90): the nine stable keys, their segments, the
 // evidence policy table, the source-mapping vocabulary and the v1 compatibility
 // contract. Precedes `listing` and `offer`, both of which type their condition

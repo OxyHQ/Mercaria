@@ -199,4 +199,81 @@ describe('source-label normalization', () => {
     expect(normalizeSourceConditionLabel('新品 A級')).toBe('新品 a級');
     expect(normalizeSourceConditionLabel('Grade 2')).toBe('grade 2');
   });
+
+  it('keeps a combining mark, so two labels differing only in marks are two keys', () => {
+    // #838. `\p{Letter}` excludes `Mn`/`Mc`, so the class this used to carry
+    // turned Devanagari and Bengali vowel signs into spaces and gave two
+    // different Hindi wordings ONE key — an operator's rule for `नया` silently
+    // applying to something else.
+    expect(normalizeSourceConditionLabel('नया')).toBe('नया');
+    expect(normalizeSourceConditionLabel('साइकिल')).not.toBe(
+      normalizeSourceConditionLabel('साइकिलें'),
+    );
+    // It still does not FOLD accents, which is unchanged and deliberate: NFC
+    // unifies two spellings of one label without deciding two labels are one.
+    expect(normalizeSourceConditionLabel('Nestlé')).toBe('nestlé');
+    expect(normalizeSourceConditionLabel('Nestle\u0301')).toBe('nestlé');
+  });
+
+  it('the fix can only SPLIT a lookup key, never merge two — the unique-index property', () => {
+    // `condition_source_mappings_ruleset_id_label_key` is UNIQUE over
+    // `(ruleset_id, source_label_normalized)`, so the question #838 had to answer
+    // was whether a less lossy fold can make an operator's INSERT start failing.
+    // It cannot, and this is the reason: adding `\p{M}` to the kept class only
+    // ever removes separators, so the new key REFINES the old one — two labels
+    // that share a key now shared it before.
+    //
+    // `previousFold` is a reference implementation of the SUPERSEDED behaviour,
+    // deliberately: the code it characterises no longer exists, so there is
+    // nothing here that could be re-implementing the function under test.
+    const previousFold = (raw: string): string =>
+      raw
+        .normalize('NFC')
+        .toLowerCase()
+        .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+    const labels = [
+      'नया',
+      'साइकिल',
+      'साइकिलें',
+      'बइ',
+      'বই',
+      'বইগুলি',
+      'Nuevo',
+      'nuevo',
+      'Nuevo!',
+      'Nuevo — A',
+      'Nuevo A',
+      'Nuevo-A',
+      'Nestlé',
+      'Nestle\u0301',
+      'じてんしゃ',
+      'してんしゃ',
+      'красный',
+      'красныи',
+      'Grado B',
+      'grado  b',
+    ];
+
+    let collidingUnderNewFold = 0;
+    for (const a of labels) {
+      for (const b of labels) {
+        if (a === b) continue;
+        if (normalizeSourceConditionLabel(a) !== normalizeSourceConditionLabel(b)) continue;
+        collidingUnderNewFold += 1;
+        expect(
+          previousFold(a),
+          `"${a}" and "${b}" share a key now but did not before — a backfill would violate the unique index`,
+        ).toBe(previousFold(b));
+      }
+    }
+    // The floor. Without a pair that actually collides under the new fold the
+    // loop above asserts nothing at all, and "no merges introduced" would be
+    // satisfied by a fixture set in which nothing ever matches.
+    // MEASURED over the list above, not predicted: the first draft guessed 6 and
+    // the floor refuted it.
+    expect(collidingUnderNewFold, 'no fixture pair collides, so nothing was checked').toBe(16);
+  });
 });

@@ -50,9 +50,45 @@ describe('the text rules', () => {
   });
 
   it('`strip_diacritics` folds accents without destroying the letters', () => {
-    expect(applyExternalTransform('strip_diacritics', 1, 'Algodón')).toEqual({
+    // Driven through `latestTransformRuleVersion` rather than a literal, so the
+    // test follows a version bump instead of pinning whichever one was current
+    // when it was written. #838 retired version 1 and shipped 2.
+    const version = latestTransformRuleVersion('strip_diacritics');
+    expect(applyExternalTransform('strip_diacritics', version, 'Algodón')).toEqual({
       outcome: 'normalized',
       value: 'algodon',
+    });
+  });
+
+  it('`strip_diacritics` folds LATIN accents ONLY — every other mark is a letter (#838)', () => {
+    // Version 1 was NFD + drop every `\p{M}`, which is "remove accents" only on
+    // Latin. Each case below is a measured output of that rule, and each is a
+    // different word from the input.
+    const version = latestTransformRuleVersion('strip_diacritics');
+    const fold = (value: string): string => {
+      const result = applyExternalTransform('strip_diacritics', version, value);
+      return result.outcome === 'normalized' ? result.value : `refused:${result.reason}`;
+    };
+    // Hiragana: `じ` is `し` plus a dakuten, so v1 turned "bicycle" into nonsense.
+    expect(fold('じてんしゃ')).toBe('じてんしゃ');
+    // Cyrillic: `й` is its own letter and decomposes into the Latin accent block.
+    expect(fold('красный')).toBe('красный');
+    // `ё` → `е` is a Russian orthographic convention and this rule has no locale.
+    expect(fold('ёлка')).toBe('ёлка');
+    // Devanagari matras are `Mn`/`Mc`: v1 gave "bicycle" and "bicycles" one value.
+    expect(fold('साइकिल')).not.toBe(fold('साइकिलें'));
+  });
+
+  it('version 1 of `strip_diacritics` is retired and refuses (#838)', () => {
+    // Not corrected in place: a version is what a reviewed mapping CITES, so
+    // redefining one changes the meaning of every approved row silently. A row
+    // citing 1 now refuses, which `resolution.service.ts` reports as
+    // `transform_refused` and routes to review.
+    expect(isTransformRuleRegistered('strip_diacritics', 1)).toBe(false);
+    expect(isTransformRuleRegistered('strip_diacritics', 2)).toBe(true);
+    expect(applyExternalTransform('strip_diacritics', 1, 'Algodón')).toEqual({
+      outcome: 'refused',
+      reason: 'rule_not_registered',
     });
   });
 

@@ -11,13 +11,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { foldAccents, wordTokens } from '@mercaria/shared-types';
 import {
-  foldAccents,
   normalizeAliasLookup,
   normalizeDomain,
   normalizeEntityName,
   slugFromName,
-  wordTokens,
 } from '../normalization.js';
 
 describe('normalizeEntityName', () => {
