@@ -146,7 +146,15 @@ describe('the generated architecture diagrams cannot disagree with the schema', 
     expect(unknownEntities(new Set(['category_aliases', 'a_table_that_was_never_created']))).toEqual([
       'a_table_that_was_never_created',
     ]);
-    expect(missingFromDiagram(new Set([...population].slice(1)))).toEqual([[...population].sort()[0]].sort());
+
+    // The dropped member is NAMED rather than recovered by re-sorting. The
+    // population's insertion order is `localeCompare`d and `Array.sort()` is
+    // by UTF-16 code unit; the two disagree about `_` against a letter, so the
+    // obvious spelling — drop index 0, expect `[...population].sort()[0]` — is
+    // a test that could go red for a reason with nothing to do with diagrams,
+    // as soon as a table name lands in the wrong place. They agree today.
+    const [dropped, ...rest] = [...population];
+    expect(missingFromDiagram(new Set(rest))).toEqual([dropped]);
 
     const invented: ParsedRelationship = {
       left: 'categories',
