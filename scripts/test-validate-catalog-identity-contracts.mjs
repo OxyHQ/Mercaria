@@ -160,7 +160,11 @@ const append = (source, declaration) => `${source}\n${declaration}\n`;
 check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
   expect: "green",
   mentions: [
-    "walked 121 contract module(s), 2231 exported type(s), 7563 property signature(s)",
+    // Counted from the guard's own output, never by arithmetic on the previous
+    // figure: #367 W1's `taxonomy-classification.ts` added one module, and
+    // deriving 122 by adding one would also have had to guess the type and
+    // property deltas, which is how a pin stops describing the tree it pins.
+    "walked 122 contract module(s), 2237 exported type(s), 7586 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

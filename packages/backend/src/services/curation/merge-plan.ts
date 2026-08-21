@@ -103,6 +103,7 @@ import {
 import { watchlistItems, watchlistSnapshotItems } from '../../db/schema/watchlists.js';
 import { offerPriceSeries } from '../../db/schema/priceHistory.js';
 import { priceSignalEvaluations, priceSignalFeedback } from '../../db/schema/priceSignals.js';
+import { canonicalProductSecondaryCategories } from '../../db/schema/taxonomyClassification.js';
 import {
   merchantAcquisitionCandidates,
   merchantDemandProducts,
@@ -1105,6 +1106,25 @@ export const MERGE_REHOMING_PLAN: Readonly<Record<MergeableEntityType, readonly 
       phase: 'relationships',
       disposition: 'retained_by_tombstone',
       note: COMPATIBILITY_CLAIM_NOTE,
+    },
+    {
+      column: canonicalProductSecondaryCategories.canonicalProductId,
+      phase: 'rollups',
+      disposition: 'retained_by_tombstone',
+      note:
+        'A justified secondary category filing (#367 Workstream 1), carrying a reason, a ' +
+        'justification and the account accountable for it. Retained rather than repointed for ' +
+        'three reasons, and the third is the one that would break a merge in flight. (1) It ' +
+        'records what somebody DECIDED about THIS identity — the `price_signal_evaluations` ' +
+        'reasoning — and moving it would attribute one operator’s decision to a product they ' +
+        'never looked at. (2) `canonical_product_secondary_categories_key` is UNIQUE on ' +
+        '(product, category), so a winner already carrying the same filing would collide. (3) A ' +
+        'repoint is re-validated by `mercaria_canonical_product_secondary_category_guard` ' +
+        'against the WINNER’s primary category, and it raises if the loser’s secondary turns out ' +
+        'to be the winner’s primary or its ancestor or descendant — which no merge planner can ' +
+        'know in advance, and which would fail the phase rather than block the job. Nothing is ' +
+        'lost: the winner’s operator files their own, with their own justification, which is the ' +
+        'correct act because a justification names a decision about one identity.',
     },
     {
       column: priceSignalEvaluations.canonicalProductId,

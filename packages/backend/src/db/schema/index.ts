@@ -98,6 +98,12 @@ export * from './attributeRegistry';
 // The canonical PRODUCT layer (#56) follows `organizations` (families and
 // products reference `brands`) and `catalog` (both reference `categories`).
 export * from './canonicalCatalog';
+// Secondary category classification (#367 Workstream 1) follows BOTH `catalog`
+// and `canonicalCatalog`: its two tables reference `categories` plus `listings`
+// and `canonical_products` respectively. It holds no primary — the primary IS
+// `listings.category_id` / `canonical_products.category_id`, which is why this
+// adds no column to either table and nothing above it imports this.
+export * from './taxonomyClassification';
 // `relationships` (#55) follows all of the above: a commerce relationship
 // references organizations, brands, merchants, storefronts and — for an
 // `organization_manufactures` claim — a canonical product family, and its

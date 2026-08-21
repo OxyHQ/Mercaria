@@ -85,6 +85,14 @@ export * from './taxonomy';
 // and is separate from it because a row and a reader's view are not one type.
 export * from './taxonomy-api';
 
+// Primary and secondary category classification (#367 Workstream 1, ADR 0007
+// D2/D3/D4): the justification vocabulary a second filing must name, the
+// reasons that may never justify one, and the kinship a secondary may not hold
+// with its primary. FOLLOWS `./taxonomy`, whose `CategoryLifecycle` it narrows
+// for writes. There is deliberately no `isPrimary` anywhere in it — the primary
+// IS `listings.category_id` / `canonical_products.category_id`.
+export * from './taxonomy-classification';
+
 // Cart DTOs (Cart, CartItemDTO, AddCartItemInput, UpdateCartItemInput).
 export * from './cart';
 
