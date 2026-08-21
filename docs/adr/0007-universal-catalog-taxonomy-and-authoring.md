@@ -554,6 +554,23 @@ older record; a migration is offered as a preview and applied deliberately.
 > **A measurement published without the commit or date it was taken at cannot
 > expire visibly** — hence every figure in this note carries one.
 >
+> **And the instrument could not have found the column anyway — which is the
+> sharper defect.** Drizzle declares columns in **camelCase** and `@oxyhq/db`'s
+> casing authority derives the snake_case name, so a schema file legitimately
+> never spells `product_type_definition_id` for a *declaration*; the property is
+> `productTypeDefinitionId` (`db/schema/catalog.ts:415`). Measured 2026-08-21, the
+> control settles it: `listings.category_id` indisputably exists, and grepping
+> `catalog.ts` for `category_id` returns **1** hit — an index-name string at
+> `:559`, not the declaration at `:342`. Strip that index and a present column
+> reads as **zero**. So "zero occurrences of `product_type_definition_id` in
+> `db/schema/catalog.ts`" was never evidence of absence: it is the same answer
+> that instrument returns for a column that is *present*. The house rule is
+> usually put the other way round — *what would this check report if the thing it
+> measures were absent?* — and the inverse is just as fatal: **what would it
+> report if the thing were PRESENT? Same answer ⇒ it measures nothing.** The three
+> snake_case hits the file carries today are two comments and an index name, so
+> even the corrected count of **3** is incidental rather than structural.
+>
 > **What is true now (measured 2026-08-21 against a database built from all 133
 > migrations, read back by NAME from the live catalogs, not from the schema
 > file).** `listings.product_type_definition_id` exists — `text`, nullable
