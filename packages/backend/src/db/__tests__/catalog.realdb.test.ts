@@ -47,6 +47,7 @@ import {
   findListingById,
   insertListing,
   recomputeListingFacets,
+  replaceListingImages,
   searchListingsKeyset,
   searchListingsPage,
   findStoreListingIdsMatching,
@@ -1606,5 +1607,110 @@ describe('variant-scoped images (#850)', () => {
       source: 'listing_fallback',
       images: gallery,
     });
+  });
+
+  it('survives a gallery replace that keeps the photograph (#850)', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [variantId] = variantIds;
+
+    const gallery = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId))
+      .orderBy(listingImages.position);
+    const [imgA, imgB, imgC] = gallery;
+
+    await db.insert(productVariantImages).values({
+      listingId,
+      variantId,
+      listingImageId: imgA.id,
+      position: 0,
+    });
+
+    // The connector path: `channel-ingest` sets `imageFileIds` on EVERY sync
+    // that carries images, so this exact call runs on a schedule against a
+    // connected shop. It re-sends the same three files, reordered, and drops
+    // nothing.
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: imgC.fileId, position: 0 },
+        { fileId: imgA.fileId, position: 1 },
+        { fileId: imgB.fileId, position: 2 },
+      ],
+      db,
+    );
+
+    // The row id of a photograph that is still there did NOT move — which is
+    // the whole reason the variant's selection is still standing.
+    const afterGallery = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId));
+    expect(afterGallery).toHaveLength(3);
+    expect(afterGallery.map((r) => r.id).sort()).toEqual([...imageIds].sort());
+    expect(afterGallery.find((r) => r.id === imgA.id)?.position).toBe(1);
+
+    const selections = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId));
+    expect(selections).toHaveLength(1);
+    expect(selections[0].listingImageId).toBe(imgA.id);
+
+    // And a photograph the seller actually REMOVED still takes its selections
+    // with it — this is a replace, not a merge.
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: imgC.fileId, position: 0 },
+        { fileId: imgB.fileId, position: 1 },
+      ],
+      db,
+    );
+    const afterRemoval = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId));
+    expect(afterRemoval).toHaveLength(0);
+  });
+
+  it('keeps BOTH rows when a gallery holds one file twice (#850)', async () => {
+    const storeId = await makeStore();
+    const listingId = await makeListing(storeId);
+    const twice = `file-twice-${uuidv7()}`;
+
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: twice, position: 0 },
+        { fileId: twice, position: 1 },
+      ],
+      db,
+    );
+    const first = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId));
+    expect(first).toHaveLength(2);
+
+    // Re-sending the same pair must consume one existing row EACH. A map keyed
+    // on the file id rather than a queue would hand both copies the same row and
+    // delete the other, which the count below is what notices.
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: twice, position: 0 },
+        { fileId: twice, position: 1 },
+      ],
+      db,
+    );
+    const second = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId));
+    expect(second).toHaveLength(2);
+    expect(second.map((r) => r.id).sort()).toEqual(first.map((r) => r.id).sort());
   });
 });
