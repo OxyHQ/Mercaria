@@ -120,9 +120,14 @@ plain-text file, not applied, with each block wrapped in
 `-- oxy:handwritten-begin=<name>` / `-- oxy:handwritten-end=<name>` markers so
 the paste into the generated `.sql` is mechanical rather than remembered.
 
-**The two-copies rule (`CONVENTIONS.md:669`): the staging file is DELETED in the
-same commit that applies it** — "a second copy that nothing applies is one
-somebody edits to no effect".
+**The two-copies rule (`CONVENTIONS.md` §"Preserve before you delete"): the
+staging file is DELETED in the same commit that applies it** — "a second copy
+that nothing applies is one somebody edits to no effect".
+
+(That citation read `CONVENTIONS.md:669` until #831 and the rule had moved to
+`:697` — cited by SECTION now, because a line number is a claim that expires on
+somebody else's edit with nothing to notice it. The two line citations at the end
+of this section were re-measured in the same pass and are correct.)
 
 **None survives today, and the pattern is RETIRED.** One had outlived its
 migration — `catalogExternalMappings.pending.sql`, whose own header still said
