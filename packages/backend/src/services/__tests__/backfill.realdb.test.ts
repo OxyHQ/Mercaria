@@ -825,3 +825,145 @@ describe('the catalogue backfill, against a real database', () => {
     ).rejects.toThrow();
   });
 });
+
+/**
+ * THE RECLAIM, through the production entry point (epic #367, "Backfill/reindex
+ * jobs resume safely after interruption").
+ *
+ * `docs/catalog-migration-operations.md` §"Box 4" records the hole this closes:
+ * *"The reclaim path is untested, and it is the single mechanism box 4 rests on.
+ * No test calls `claimBackfillRun` — its four references are all production — so
+ * the expired-lease branch and the mid-page reclaim guard are unexercised."*
+ * `runToCompletion` above treats a lost lease as a test failure, so it is a
+ * runs-to-completion-ONCE test and cannot see any of this.
+ *
+ * ## What is interrupted, and why it is not a hand-written state fix-up
+ *
+ * A task that dies mid-page leaves `status = 'running'` with a lease that
+ * nobody will ever release — which is a DIFFERENT state from the `paused` a
+ * page leaves behind on its way out, and it is admitted by a DIFFERENT branch of
+ * the claim predicate. Every other resumption in this file goes through
+ * `paused`, so the expired-lease branch has never run. The fixture writes
+ * exactly the three columns a dead task leaves and then drives
+ * `runCatalogBackfillPage`, so the reclaim under test is production's.
+ *
+ * ## The negative control is what makes the reclaim mean anything
+ *
+ * A run whose lease is still LIVE must be refused. Without that, "the reclaim
+ * worked" is indistinguishable from "the lease was never checked", and a claim
+ * predicate that ignored the lease entirely would pass a reclaim test while
+ * letting two tasks scan one run at once.
+ *
+ * ## Exactly-once is measured against a CONTROL cohort, not against a number
+ *
+ * The interrupted pass must scan each subject once — not twice (the page it was
+ * killed on re-run) and not zero times (a page skipped over). Asserting a
+ * literal count would encode this stage's subject grain into the test and go
+ * stale with it, so a second, identically-seeded store is run start to finish
+ * with no interruption and the two `scanned` totals are compared.
+ */
+describe('RESUMPTION: a run whose task died is reclaimed and scans each subject once', () => {
+  /** A store with three single-variant listings, so a `limit: 1` pass has pages. */
+  async function seedCohortStore(suffix: string): Promise<string> {
+    const storeId = await seedStore(`resume-${suffix}`);
+    for (const index of [1, 2, 3]) {
+      await seedListing({
+        ownerType: 'store',
+        storeId,
+        title: `Resume ${suffix} ${index} ${RUN}`,
+        variants: [{ title: 'Default Title' }],
+      });
+    }
+    return storeId;
+  }
+
+  /** The three columns a task that died mid-page leaves behind. */
+  async function simulateDeadTask(runId: string, leaseUntil: Date): Promise<void> {
+    await db
+      .update(catalogBackfillRuns)
+      .set({ status: 'running', leaseOwner: `dead-task-${RUN}`, leaseUntil })
+      .where(eq(catalogBackfillRuns.id, runId));
+  }
+
+  async function runState(runId: string) {
+    const [row] = await db
+      .select({
+        status: catalogBackfillRuns.status,
+        scanned: catalogBackfillRuns.scanned,
+        cursor: catalogBackfillRuns.cursor,
+        leaseOwner: catalogBackfillRuns.leaseOwner,
+      })
+      .from(catalogBackfillRuns)
+      .where(eq(catalogBackfillRuns.id, runId));
+    if (!row) throw new Error(`backfill run ${runId} is missing`);
+    return row;
+  }
+
+  it('refuses a live lease, reclaims an expired one, and scans each subject exactly once', async () => {
+    const interruptedStore = await seedCohortStore('a');
+    const controlStore = await seedCohortStore('b');
+
+    // The control: the same shape of cohort, run start to finish with nothing
+    // interrupted. Its total is what "exactly once" means for this stage.
+    const control = await runToCompletion(
+      'variant_matching',
+      'apply',
+      parseCohort('store', controlStore),
+    );
+    expect(control.scanned).toBeGreaterThan(0);
+
+    const { run } = await openCatalogBackfillRun({
+      stage: 'variant_matching',
+      mode: 'apply',
+      cohort: parseCohort('store', interruptedStore),
+      requestedByOxyUserId: OPERATOR,
+    });
+    createdRunIds.push(run.id);
+
+    // One page, then the interruption. `limit: 1` guarantees the pass is not
+    // finished, so there is genuinely something left to resume — a run killed
+    // after its last page would make every assertion below pass for the wrong
+    // reason.
+    const firstPage = await runCatalogBackfillPage(run.id, { limit: 1 });
+    expect(firstPage?.nextCursor, 'the fixture must leave work to resume').not.toBeNull();
+    const afterFirstPage = await runState(run.id);
+    expect(afterFirstPage.scanned).toBeGreaterThan(0);
+    expect(afterFirstPage.cursor).not.toBeNull();
+
+    // NEGATIVE CONTROL. A dead-looking row whose lease has NOT expired is
+    // another task's work, and the claim must refuse it. `undefined` is the
+    // "somebody else holds it" answer, deliberately distinguishable from a
+    // finished pass.
+    await simulateDeadTask(run.id, new Date(Date.now() + 5 * 60_000));
+    expect(await runCatalogBackfillPage(run.id, { limit: 1 })).toBeUndefined();
+
+    // …and nothing moved while it was refused, which is the half a return-value
+    // assertion cannot see.
+    const afterRefusal = await runState(run.id);
+    expect(afterRefusal.scanned).toBe(afterFirstPage.scanned);
+    expect(afterRefusal.cursor).toBe(afterFirstPage.cursor);
+    expect(afterRefusal.leaseOwner).toBe(`dead-task-${RUN}`);
+
+    // Now the task is genuinely dead: the lease has expired. This is the branch
+    // no test has ever run.
+    await simulateDeadTask(run.id, new Date(Date.now() - 60_000));
+
+    let pages = 0;
+    for (;;) {
+      const page = await runCatalogBackfillPage(run.id, { limit: 1 });
+      expect(page, 'the expired lease should have been reclaimable').toBeDefined();
+      pages += 1;
+      if (page?.nextCursor === null) break;
+      if (pages > 200) throw new Error('the resumed pass did not terminate');
+    }
+
+    const final = await runState(run.id);
+    expect(final.status).toBe('completed');
+
+    // THE assertion. Not "it finished" — a pass that re-scanned the page it was
+    // killed on also finishes, and so does one that skipped it. Only the total
+    // tells them apart, and it is compared against a cohort of the same shape
+    // that was never interrupted.
+    expect(final.scanned).toBe(control.scanned);
+  });
+});
