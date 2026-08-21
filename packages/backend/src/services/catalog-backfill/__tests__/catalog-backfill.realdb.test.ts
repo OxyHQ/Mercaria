@@ -636,13 +636,20 @@ describe('the reconciliation probes', () => {
     // nothing else moves between the two readings, and the test database is
     // shared across parallel files. At PostgreSQL's default `read committed`
     // every statement takes a fresh snapshot, so a sibling committing a
-    // divergent `categories` row between the readings lands in the delta —
-    // measured, as `expected 2 to be 1`, once in three consecutive full-suite
-    // runs on an unchanged tree. The concrete second writer was
-    // `search-intent/__tests__/category-alias.realdb.test.ts`, which commits
-    // `is_active = false` against a row whose `lifecycle` stays `'published'`
-    // for the width of one `try`; but naming that file is not the fix, because
-    // the next such writer has not been written yet.
+    // divergent `categories` row between the readings lands in the delta. #843
+    // observed that as `expected 2 to be 1` once in three consecutive
+    // full-suite runs on an unchanged tree; the MECHANISM was then confirmed
+    // deterministically, by committing such a row from a second connection
+    // between the two readings and watching this assertion produce exactly that
+    // message.
+    //
+    // A sibling that can commit one is
+    // `search-intent/__tests__/category-alias.realdb.test.ts`, which sets
+    // `is_active = false` outside a transaction against a row whose `lifecycle`
+    // stays `'published'`, for the width of one `try`. It is named as a
+    // demonstrated CAPABILITY rather than as the culprit of the observed run —
+    // which nothing caught in the act — and naming it is not the fix either,
+    // because the next such writer has not been written yet.
     //
     // At `repeatable read` every statement in the transaction reads the snapshot
     // taken by the first one, so everybody else's catalogue is frozen for the
