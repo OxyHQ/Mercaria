@@ -31,8 +31,12 @@
  *   run-suffixed values.
  * - **`category_is_active_projection`** compares two columns of `categories`,
  *   which a listing predicate cannot narrow. It is asserted as a DELTA against
- *   the same probe moments earlier, which is causal and immune to whatever a
- *   sibling is doing.
+ *   the same probe moments earlier — and BOTH readings are taken inside one
+ *   rolled-back `repeatable read` transaction, which is what makes the delta
+ *   causal rather than merely adjacent. This paragraph used to claim the delta
+ *   was "immune to whatever a sibling is doing" on the strength of the two
+ *   readings being close together; that is not a property `read committed`
+ *   has, and #843 is the measured counter-example.
  * - **`category_browse_count_agreement`** examines every published selectable
  *   category, but COUNTS through the cohort — so a category with none of this
  *   file's listings answers 0 = 0 and agrees. Its `diverged` is therefore exact
@@ -653,6 +657,18 @@ describe('the reconciliation probes', () => {
     try {
       await db.transaction(
         async (tx) => {
+          // The snapshot IS the mechanism, so it is asserted from the SERVER
+          // rather than trusted from the argument below. Dropping
+          // `isolationLevel` makes this line fail on every run, instead of
+          // making the delta pass two runs in three — which is how it got here.
+          const [isolation] = await tx.execute<{ readonly transaction_isolation: string }>(
+            sql`show transaction_isolation`,
+          );
+          expect(
+            isolation?.transaction_isolation,
+            'both readings must be taken in ONE snapshot',
+          ).toBe('repeatable read');
+
           clean = await runLegacyCatalogReconciliation(tx, { cohort, listingLimit: 500 });
           const updated = await tx
             .update(categories)
