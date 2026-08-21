@@ -392,24 +392,77 @@ The derivation is the **wide** one, deliberately. A narrow rule fails by
 omitting silently, which is the failure under repair. So
 `orders.source_channel` and `product_type_fields.flow` are in the population on
 a coincidence of vocabulary, and that is the point rather than a defect: each is
-ticked off once as `not_an_entity_reference`, so the thirty-ninth cannot arrive
+ticked off once as `not_an_entity_reference`, so the next one cannot arrive
 unnoticed. The discriminator is found through drizzle's own `enumValues` — the
 tuple that renders each `checkOneOf` CHECK — so the population comes from the
 SHAPE and never from a name.
 
-Four dispositions, and the first two are deliberately not one:
+#### A synonym defeated that rule entirely (#720)
+
+Wide over the vocabulary is still **keyed on** the vocabulary, and #720 measured
+what that costs. `attribute_value_reviews.entity_kind` and
+`attribute_reindex_requests.entity_kind` are polymorphic over a canonical
+product or variant and spell it `['product', 'variant']`. Zero set intersection
+with `MERGEABLE_ENTITY_TYPES`, tables absent from the population, gate cannot
+fire. Two teams naming one entity differently is the normal case rather than an
+edge case, so the miss was a **default outcome**.
+
+**It is worse than a bare column, and for the reason that makes it hard to
+find:** a bare column at least *looks* like a gap, while these tables carry a
+real discriminator with a real CHECK — so a reviewer asking "is this covered?"
+sees one sitting right there and stops. The visible enum reads as coverage. It
+also refutes the natural remedy: "give the column a discriminator so the census
+can see it" does not work, because these columns have one.
+
+So the population is now the **union of two derivations**, and the second reads
+no vocabulary at all:
+
+| derivation | rule | finds |
+|---|---|---|
+| vocabulary | an enum sharing a value with `MERGEABLE_ENTITY_TYPES` | 39 tables |
+| **shape** | a closed value set **and** a bare reference the id ledger classifies outside `FOREIGN_KEY_SPACE_ID_REASONS` | 110 tables |
+| union | — | **130 tables** |
+
+The shape half is anchored on a gate that already runs: `findIdColumnViolations`
+refuses any unclassified `_id` column, so a new bare id owes a ledger entry, and
+a ledger entry outside the five foreign key spaces on a table with any
+discriminator owes an entry here. The five are subtracted **structurally** — an
+Oxy account, an Oxy file, a connected platform's object, a payment provider's
+object and a supplier's are in another system's key space and no merge here can
+act on one. Everything else stays in, **including the 118 entries written under
+a bespoke reason, which is where both known #720 instances live**.
+
+Narrowing the shape half to the six shared `MERCARIA_ROW_ID_REASONS` constants
+was measured first and **rejected**: it yields a tidier 26-table population that
+misses both instances — it fails the census's own positive control while looking
+like a tighter instrument. A mutation pins that, so the tempting simplification
+turns the build red.
+
+Five dispositions, and the first two are deliberately not one:
 
 | disposition | meaning |
 |---|---|
 | `not_an_entity_reference` | the enum shares a word; no column here holds a mergeable entity id |
 | `discriminates_foreign_keys` | it does hold one, the columns are FK'd, and the FK census above already forces the decision |
+| `covered_by_bare_entity_census` | the bare reference is declared in `BARE_ENTITY_REFERENCES` (#695/#711), which records what a merge does with it |
 | `untouched` | a real bare reference a merge deliberately leaves, with its id columns named |
 | `rehomed` | a real bare reference a merge moves (none today) |
 
 Collapsing the first two would lose the fact that somebody checked.
-`untouched`/`rehomed` must name their id columns and the other two must not — an
-entry claiming a merge leaves a reference alone has to say *which* reference, or
-it is a sentence rather than a decision.
+`untouched`, `rehomed` and `covered_by_bare_entity_census` must name their id
+columns and the other two must not — an entry claiming a merge leaves a
+reference alone has to say *which* reference, or it is a sentence rather than a
+decision.
+
+`covered_by_bare_entity_census` is `covered_by_polymorphic_census` pointing the
+other way, so the pairing is visible from either gate — and it is **verified
+rather than trusted**: every column it names must really be declared in that
+register for that table, or a deferral to a decision nobody made would be the
+cheapest possible way to make a table look decided. The two-way hand-off also
+makes one new failure possible, so it is gated too: if both registers ever defer
+the same table to each other, the column is declared twice and decided zero
+times, and **each register reads as complete from its own side** — the exact
+shape of the gap #720 was filed about.
 
 **Reconciled in both directions.** An undeclared derived table fails the build
 naming itself and the four dispositions; a declared table the derivation no

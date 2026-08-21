@@ -1799,13 +1799,33 @@ export function conflictTargets(entityType: MergeableEntityType): readonly Rehom
  * ## So the POPULATION is derived and only the DISPOSITION is declared
  *
  * `merge-plan-census.test.ts`'s own shape, one level up. The derivation is
- * deliberately OVER-WIDE — any column whose drizzle `enumValues` shares even
- * one value with `MERGEABLE_ENTITY_TYPES` — because the alternative is a rule
- * that silently omits, and omission is the failure this exists to prevent. The
- * cost is that `orders.source_channel` and `product_type_fields.flow` are in
- * the population on a coincidence of vocabulary. That is not noise to be
- * filtered: it is a line somebody ticks off ONCE so that the thirty-ninth
- * cannot arrive unnoticed.
+ * deliberately OVER-WIDE, because the alternative is a rule that silently
+ * omits, and omission is the failure this exists to prevent. The cost is that
+ * `orders.source_channel` and `product_type_fields.flow` are in the population
+ * on a coincidence of vocabulary. That is not noise to be filtered: it is a
+ * line somebody ticks off ONCE so that the next one cannot arrive unnoticed.
+ *
+ * ## And #720: the vocabulary rule alone was defeated by a SYNONYM
+ *
+ * The original derivation was "an enum sharing a value with
+ * `MERGEABLE_ENTITY_TYPES`", 39 tables. It cannot see a table that names the
+ * same entities in different words — `attribute_value_reviews.entity_kind` and
+ * `attribute_reindex_requests.entity_kind` are `['product', 'variant']` over a
+ * canonical product and variant, zero intersection, absent from the population.
+ * Two teams naming one entity differently is the normal case, so that miss was
+ * a DEFAULT outcome, and it read as coverage: the table carries a real
+ * discriminator with a real CHECK, so a reviewer checking "is this covered?"
+ * sees one sitting there and stops.
+ *
+ * `polymorphic-entity-census.test.ts` therefore adds a SECOND derivation that
+ * reads no vocabulary at all — a table carrying a closed value set beside a
+ * bare reference the id ledger classifies outside
+ * `FOREIGN_KEY_SPACE_ID_REASONS` — and the population is the union, 130 tables.
+ * The 91 entries that arrived with it are mostly `not_an_entity_reference` and
+ * `covered_by_bare_entity_census`, which is the point rather than a
+ * disappointment: what the shape rule buys is that the NEXT synonym table fails
+ * the build, and the ten shared reason constants below exist so that ninety-one
+ * decisions did not become ninety-one restatements of ten.
  *
  * A table in the derived set with no entry here fails the build, and an entry
  * here whose table is no longer in the derived set fails it too — a stale
