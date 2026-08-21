@@ -260,6 +260,32 @@ export async function findListingChildren(
 }
 
 /**
+ * One listing's gallery rows, in the order a client sees them (#855).
+ *
+ * Ordered `(position, id)` — the SAME order `replaceListingImages` reads its
+ * existing rows in below, and the same tiebreak `findVariantImages` applies. The
+ * id tiebreak is not decoration: `listing_images.position` carries no uniqueness
+ * constraint, so two photographs sharing one would otherwise order
+ * non-deterministically between requests.
+ *
+ * This exists because `product_variant_images` names a gallery ROW while every
+ * DTO speaks in `file_id`, so the variant-image write surface has to resolve one
+ * to the other and needs a DEFINED answer when a gallery legitimately holds the
+ * same file twice. `findListingChildren` cannot serve it: it orders by
+ * `position` alone, which is exactly the tiebreak that matters here.
+ */
+export async function findListingGallery(
+  listingId: string,
+  db: DatabaseOrTransaction = getDb(),
+): Promise<ListingImageRecord[]> {
+  return db
+    .select()
+    .from(listingImages)
+    .where(eq(listingImages.listingId, listingId))
+    .orderBy(asc(listingImages.position), asc(listingImages.id));
+}
+
+/**
  * Replace a listing's whole image list, KEEPING the row id of any photograph
  * that is still in it.
  *

@@ -29,6 +29,7 @@ import {
   loadStoreProduct,
 } from '../../controllers/admin/products-admin.controller.js';
 import { makeListingLocalizationRouter } from '../../controllers/listing-localizations.controller.js';
+import { makeVariantImageRouter } from '../../controllers/variant-images.controller.js';
 
 /**
  * Store products sub-router, mounted at `/admin/stores/:storeId/products`.
@@ -108,6 +109,39 @@ router.use(
   requireStorePermission('products:write'),
   validateId('id'),
   makeListingLocalizationRouter(loadStoreProduct),
+);
+
+/**
+ * `/admin/stores/:storeId/products/:id/variants/:variantId/images` — which of a
+ * store's own gallery photographs each variant shows (#855).
+ *
+ * The `store` half of a two-mount split;
+ * `/seller/listings/:id/variants/:variantId/images` is the `user` half, and both
+ * call `makeVariantImageRouter`. Which Oxy account may act for this store is
+ * answered where it always is — `loadStore` ran on the parent router and
+ * `requireStorePermission` runs here — and `loadStoreProduct`, the SAME function
+ * `PATCH /:id` and the localization mount above both use, then confirms the
+ * product belongs to it.
+ *
+ * `products:write` and NOT `store:manage`: an `admin` holds every permission
+ * except `store:manage`, so gating this on it would lock a store admin out of
+ * choosing a photograph for a product whose entire gallery they can already
+ * replace through `PATCH /:id`. Product drafts, catalog proposals, catalog
+ * authoring and #814's translations all made the same call. `store:manage` is
+ * where commercial commitments live, and assigning a photograph to a variant is
+ * not one.
+ *
+ * The READ is behind the write permission too, deliberately, for the reason the
+ * localization mount records: it is an authoring view of what has been selected,
+ * not a catalogue read — the catalogue's answer to "what does this variant look
+ * like" is the hydrated `Listing`, which applies the gallery fallback and is
+ * public.
+ */
+router.use(
+  '/:id/variants',
+  requireStorePermission('products:write'),
+  validateId('id'),
+  makeVariantImageRouter(loadStoreProduct),
 );
 
 /**
