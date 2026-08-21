@@ -45,8 +45,9 @@
  * already right, because `listFitmentsForVehicle` pairs every SCOPE with its own
  * id and `upsertVehicleConfiguration` keys on the stable machine KEY rather than
  * on the name. Neither property had a case that could fail, and each is one edit
- * from being lost — so each is mutation-tested in the issue rather than asserted
- * to be careful.
+ * from being lost — so each is mutation-tested rather than asserted to be
+ * careful. The four code mutations, the two fixture self-tests and their exit
+ * codes are recorded in PR #842.
  *
  * The fixtures are ADVERSE and say so: the overlap is re-derived arithmetically
  * from the stored production windows, and the ambiguous pair is asserted to
