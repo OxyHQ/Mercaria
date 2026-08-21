@@ -35,7 +35,7 @@
  * is why nothing here ever CREATES a match.
  */
 
-import { foldAccents } from '../canonical/normalization.js';
+import { foldAccents, wordTokens } from '../canonical/normalization.js';
 
 /**
  * What the thing IS, relative to a base product.
@@ -166,12 +166,16 @@ export interface RelationDetection {
  * the numeric patterns below handle it. Splitting inside an alphanumeric run
  * would break model numbers like `A2848`, which are the most discriminating
  * tokens a title has.
+ *
+ * Tokenization is {@link wordTokens}, shared with the canonical name fold. It
+ * was a local copy of the same `[^\p{L}\p{N}]` split #830 fixed in three other
+ * files. Adopting it here changes NO marker match and is not part of that fix:
+ * every marker below is Latin (English and Spanish), and Latin text tokenizes
+ * identically either way — measured. What it removes is a fourth copy of a
+ * character class that decides identity, which is the way #830 comes back.
  */
 export function relationTokens(text: string): string[] {
-  return foldAccents(text)
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/u)
-    .filter((token) => token.length > 0);
+  return wordTokens(foldAccents(text).toLowerCase());
 }
 
 /** Does `phrase` appear as a contiguous token run in `tokens`? */
