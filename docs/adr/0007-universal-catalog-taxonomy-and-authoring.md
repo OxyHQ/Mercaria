@@ -1,6 +1,7 @@
 # ADR 0007: The universal, multilingual catalog — taxonomy, localization, versioned product types and typed authoring
 
-- **Status:** Accepted, **amended 2026-08-18** (see *Corrections* below)
+- **Status:** Accepted, **amended 2026-08-18**, **re-amended 2026-08-21** (see
+  *Corrections* below, and *Re-amendment* under it)
 - **Date:** 2026-08-16
 - **Issue:** epic [#367](https://github.com/OxyHQ/Mercaria/issues/367)
 - **Builds on:** ADR 0002 (canonical commerce graph), and the shipped work of
@@ -26,7 +27,7 @@ Correcting the prose does not close them; each needs a code change.
 
 | Where | The gap |
 |---|---|
-| **D5** (and D10's echo) | "Every authoring write pins the exact product type version" is true of DRAFTS and false of the PUBLISHED write. `listings` has no `product_type_definition_id`; the only citation is nullable and written only when axes exist. `publish.service.ts:634` records it as owed. |
+| **D5** (and D10's echo) | **CLOSED 2026-08-18 — this is no longer a gap.** The row read: *"'Every authoring write pins the exact product type version' is true of DRAFTS and false of the PUBLISHED write. `listings` has no `product_type_definition_id`; the only citation is nullable and written only when axes exist. `publish.service.ts:634` records it as owed."* [#614](https://github.com/OxyHQ/Mercaria/pull/614) landed migration `0109` **ten and a half hours after this row was written**. See the superseding note under D5. |
 | **D4** | `attribute_labels` did not gain the localization family's columns. So the machine-translation trigger cannot protect attribute labels, and every one is served with a fabricated `effectiveLocale` and `status`. Needs a migration. |
 
 **MISTAKEN — the mechanism, the count or the file named was simply wrong.** The
@@ -41,7 +42,7 @@ behaviour was always whatever the code did; only this document was incorrect.
 | **D12** | levers "read in exactly one place" | **six** non-test reads; the substantive claim survives |
 | **D12** | the localization reader has "two consumers" | **one**; authoring uses the pure resolver, and says why in place |
 | **D12** | "the **nine** `/internal/*` catalog surfaces" | **26**, counted twice by independent parsers |
-| **D13** | `listings` gains `product_type_definition_id` + version | it gains neither |
+| **D13** | `listings` gains `product_type_definition_id` + version | ~~it gains neither~~ — **this correction was itself overtaken, and the ORIGINAL decision was right.** `listings` gained both on 2026-08-18 ([#614](https://github.com/OxyHQ/Mercaria/pull/614), migration `0109`). See D13 and the superseding note under D5. |
 
 **STALE — true when written, closed since, and left standing.** D12's "for three
 of the four levers it is a convention rather than a property" was overtaken by
@@ -53,6 +54,31 @@ the code correctly.** D1's item 3 named a scanned gate that did not exist for
 thirteen merged layers, and D7's "a claim never becomes a canonical fact without
 passing through the selection machinery" was a convention with nothing behind it.
 Both are gates as of #566.
+
+### Re-amendment (2026-08-21) — [#823](https://github.com/OxyHQ/Mercaria/issues/823)
+
+**Four statements in this document said `listings` has no
+`product_type_definition_id`. It has one, live, and has had since the same day
+those statements were written.** Migration `0109_nostalgic_vengeance.sql`
+([#614](https://github.com/OxyHQ/Mercaria/pull/614), merged **2026-08-18 11:59
++0300**) added the column, an `ON DELETE restrict` foreign key, a partial index
+and a trigger — **10 h 34 min after** the audit above was merged at **01:25
++0300**. The four are annotated in place: the D5 row and the D13 row in the tables
+above, D13's disposition table, and the measurement under D5.
+
+**The measurement under D5 is the one worth reading**, and it is different in kind
+from the other three. Those were decisions overtaken by work; that one was
+*verified* and true when taken, which is precisely why nobody re-checked it. It is
+retained in full with a dated superseding note rather than deleted, because a
+deleted paragraph loses the reasoning that produced the migration, and a stale
+paragraph standing beside a merged counter-example is worse than an absent one.
+**The general rule this cost us: a measurement published without the commit or
+date it was taken at cannot expire visibly.** Every figure added in this
+re-amendment carries one.
+
+Scope: only claims about that one column were touched. Nothing else in this
+document was re-audited on 2026-08-21, so an unannotated statement here still
+carries its 2026-08-18 date and no more.
 
 ## Context
 
@@ -508,6 +534,62 @@ older record; a migration is offered as a preview and applied deliberately.
 > migration adding the column plus a trigger clause comparing the axis citation
 > against the listing's own — **a code change, not a documentation one** — and it
 > is outstanding.
+>
+> ---
+>
+> **SUPERSEDED 2026-08-21. The gap above is CLOSED, and the measurement inside it
+> expired ten and a half hours after it was taken.** Everything above this rule is
+> retained deliberately: it is the reasoning that produced the migration, and a
+> deleted paragraph would take that with it.
+>
+> **What was measured, and when.** *"`listings` carries no
+> `product_type_definition_id` column at all — verified, zero occurrences in
+> `db/schema/catalog.ts`"* was taken for [#597](https://github.com/OxyHQ/Mercaria/pull/597)
+> and merged in `dd0dc2ad3` at **2026-08-18 01:25 +0300**. It was **true at that
+> instant**. `6a1c2fc26` — [#614](https://github.com/OxyHQ/Mercaria/pull/614),
+> migration `0109_nostalgic_vengeance.sql` — merged at **2026-08-18 11:59 +0300**,
+> **10 h 34 min later**, and changed the answer. Nobody re-checked it, because a
+> statement that says *verified* reads as settled: this is a measurement that
+> outlived its subject by half a day while wearing the credibility of a proof.
+> **A measurement published without the commit or date it was taken at cannot
+> expire visibly** — hence every figure in this note carries one.
+>
+> **What is true now (measured 2026-08-21 against a database built from all 133
+> migrations, read back by NAME from the live catalogs, not from the schema
+> file).** `listings.product_type_definition_id` exists — `text`, nullable
+> (`information_schema.columns`) — declared at `db/schema/catalog.ts:415`, which
+> names it *"D5/D10's pin for the PUBLISHED write, and D13's `listings` widening"*
+> at `:389`. Beside it:
+>
+> - **FK** `listings_product_type_definition_id_product_type_definitions_id` →
+>   `product_type_definitions(id)` `ON DELETE RESTRICT` (`pg_constraint`). Note the
+>   live name is Postgres's 63-character **truncation** of the identifier `0109:39`
+>   writes, so a citation that quotes the migration will not match `pg_constraint`.
+> - **Partial index** `listings_product_type_definition_idx` on
+>   `(product_type_definition_id) WHERE product_type_definition_id IS NOT NULL`
+>   (`pg_indexes`; `db/schema/catalog.ts:618`).
+> - **Trigger** `mercaria_listing_product_type_pin_not_cleared`, `BEFORE UPDATE …
+>   FOR EACH ROW`, enabled (`pg_trigger`). Its **live** body was read with
+>   `pg_get_functiondef` rather than trusted from `0109`, because a `CREATE OR
+>   REPLACE` under an unchanged name is drift no file citation can see; it matches
+>   `0109` and guards exactly one column, refusing only a not-null → null
+>   transition. It does **not** forbid re-pointing a set pin to another version.
+>
+> `publish.service.ts:280` writes it on the published listing, from
+> `draft.productTypeDefinitionId`. So the count this note reports as zero is
+> **3** occurrences of the string `product_type_definition_id` in
+> `db/schema/catalog.ts` today.
+>
+> **The residual gap is smaller and differently shaped than the text above says.**
+> The pin is nullable, so a listing published before `0109` — or by any writer that
+> does not set it — still carries none, and only the trigger's
+> already-set-then-cleared case is refused. The cross-check the paragraph above
+> asks for (a trigger clause comparing the axis citation against the listing's own)
+> was **not** part of `0109` and remains owed. Separately, the comment this note
+> cites as `publish.service.ts:634-638` still exists — now at `:651`, inside the
+> `if (axesByFieldId.size > 0)` branch — and still says `listings` *"carries no
+> such column yet"*. **That comment is now stale in the code**; correcting it is a
+> source change and is out of scope for this document.
 
 ### D6. Variant axes reference the registry; free text becomes a retained claim
 
@@ -900,7 +982,7 @@ answers 404 — so populating it is part of the rollback plan, not an afterthoug
 | Existing | Disposition |
 | --- | --- |
 | `categories` | **Extended** in place (D2). `ancestor_slugs` retained as a v1 read contract; superseded by `ancestor_ids`, retired in a later `post` migration once no reader remains. `is_active` becomes derived from `lifecycle` and is retained as a v1 column. |
-| `listings`, `product_variants` | Retained. Gained nullable `category_id` semantics under the new lifecycle rules. **They did NOT gain `product_type_definition_id` or a pinned version** — see the correction under D5; the citation lives on `native_listing_variant_axes` and is nullable. |
+| `listings`, `product_variants` | Retained. Gained nullable `category_id` semantics under the new lifecycle rules. ~~**They did NOT gain `product_type_definition_id` or a pinned version** — see the correction under D5; the citation lives on `native_listing_variant_axes` and is nullable.~~ **Overtaken 2026-08-18: `listings` DID gain `product_type_definition_id`** (nullable `text`, `ON DELETE restrict` to `product_type_definitions`, partial index, and a trigger refusing to clear it once set) in [#614](https://github.com/OxyHQ/Mercaria/pull/614) / migration `0109`. `product_variants` still has neither. See the superseding note under D5. |
 | `listing_options`, `product_variant_option_values` | **Retained as legacy claims** (D6). Not dropped, not silently normalized. |
 | `attribute_definitions` + 7 siblings | **Retained and extended** — the one authoritative registry. `attribute_labels` becomes the attribute member of the localization family (D4). |
 | `canonical_*` (17 tables) | Retained unchanged. This epic adds localization records beside them and never re-models them. |
