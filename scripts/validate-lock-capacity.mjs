@@ -137,11 +137,33 @@ const MARGINAL_LOCKS_PER_MIGRATION = 14.8;
 const SHARED_GLOBAL_SETUP_DATABASES = 1;
 
 /**
- * The call that makes a realdb file create its own database instead of using the
+ * The call that makes a test file create its own database instead of using the
  * shared one. The census is keyed on this USE and not on a filename convention:
  * a file is expensive because it migrates, not because of what it is called.
+ *
+ * Counted over every `*.test.ts` and not only `*.realdb.test.ts`, because the
+ * suffix is a convention and the cost is not — a plain `.test.ts` that called
+ * this would migrate a database and be invisible to a census keyed on the name.
  */
 const PRIVATE_DATABASE_MARKER = "createMercariaTestDatabase";
+
+/**
+ * The module that DEFINES the marker, recognised by its export rather than by
+ * its path so a rename does not silently turn it into a twelfth database.
+ */
+const MARKER_DEFINITION = `export async function ${PRIVATE_DATABASE_MARKER}`;
+
+/**
+ * Comments, stripped before the marker is looked for.
+ *
+ * `services/ingestion/__tests__/active-policy-slot.test.ts` explains in prose
+ * why it does NOT create its own database, and names the call while doing it.
+ * A census over raw source counts that file, which is the failure mode where a
+ * gate fires on a file that is innocent and the fix is to weaken the gate.
+ */
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+}
 
 /** Where the three statements of the ceiling live, and how each is spelled. */
 const CEILING_SITES = [
@@ -184,9 +206,10 @@ function readIfPresent(relativePath) {
  * process's own and a shell that matched nothing cannot read as a repository
  * with no realdb files.
  */
-function findRealdbTestFiles() {
+function findSourceFiles() {
   const root = join(repositoryRoot, "packages/backend/src");
-  const found = [];
+  const tests = [];
+  const others = [];
 
   function walk(dir) {
     let entries;
@@ -200,19 +223,19 @@ function findRealdbTestFiles() {
       if (entry.isDirectory()) {
         if (entry.name === "node_modules") continue;
         walk(full);
-      } else if (entry.isFile() && entry.name.endsWith(".realdb.test.ts")) {
-        found.push(full);
+      } else if (entry.isFile() && entry.name.endsWith(".ts")) {
+        (entry.name.endsWith(".test.ts") ? tests : others).push(full);
       }
     }
   }
 
   try {
-    if (!statSync(root).isDirectory()) return found;
+    if (!statSync(root).isDirectory()) return { tests, others };
   } catch {
-    return found;
+    return { tests, others };
   }
   walk(root);
-  return found.sort();
+  return { tests: tests.sort(), others: others.sort() };
 }
 
 /** The ceiling every environment must agree on, or null when they do not. */
@@ -259,27 +282,44 @@ function resolveEnforcedCeiling() {
 function main() {
   const enforcedCeiling = resolveEnforcedCeiling();
 
-  const realdbFiles = findRealdbTestFiles();
+  const { tests: testFiles, others: nonTestFiles } = findSourceFiles();
   // Vacuity floor. A walk that found nothing satisfies the headroom check
   // outright, and "I found fewer files" and "there are fewer files" look
   // identical from the outside.
-  if (realdbFiles.length === 0) {
+  if (testFiles.length === 0) {
     fail(
-      `Found no *.realdb.test.ts files under packages/backend/src at all. This guard's ` +
-        `whole subject is how many of them migrate their own database, so a walk that ` +
-        `found none has measured nothing rather than found a suite that is cheap.`,
+      `Found no *.test.ts files under packages/backend/src at all. This guard's whole ` +
+        `subject is how many of them migrate their own database, so a walk that found ` +
+        `none has measured nothing rather than found a suite that is cheap.`,
     );
   }
 
-  const privateDatabaseFiles = realdbFiles.filter((file) =>
-    readFileSync(file, "utf8").includes(PRIVATE_DATABASE_MARKER),
+  const privateDatabaseFiles = testFiles.filter((file) =>
+    stripComments(readFileSync(file, "utf8")).includes(PRIVATE_DATABASE_MARKER),
   );
-  if (realdbFiles.length > 0 && privateDatabaseFiles.length === 0) {
+  if (testFiles.length > 0 && privateDatabaseFiles.length === 0) {
     fail(
-      `Found ${String(realdbFiles.length)} realdb files and not one calling ` +
+      `Found ${String(testFiles.length)} test files and not one calling ` +
         `${PRIVATE_DATABASE_MARKER}. That is the call this census is keyed on, so either ` +
         `every private-database file was removed — in which case delete this guard — or ` +
         `the harness renamed it and the census is now blind.`,
+    );
+  }
+
+  // A census over TEST files cannot see a database opened by a helper they
+  // import, and it would undercount by exactly as many test files as use it.
+  // So a non-test module reaching the marker is a hard failure rather than a
+  // silent zero — the definition itself excepted, recognised by its export so
+  // that renaming the file does not turn it into a twelfth database.
+  for (const file of nonTestFiles) {
+    const source = stripComments(readFileSync(file, "utf8"));
+    if (!source.includes(PRIVATE_DATABASE_MARKER)) continue;
+    if (source.includes(MARKER_DEFINITION)) continue;
+    fail(
+      `${file.slice(repositoryRoot.length + 1)} calls ${PRIVATE_DATABASE_MARKER} and is not ` +
+        `a test file. This census counts TEST files, so a helper that opens a database is ` +
+        `charged once however many files import it — an undercount, in the direction that ` +
+        `passes. Move the call into the test files, or teach this guard how to attribute it.`,
     );
   }
 

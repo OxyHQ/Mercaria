@@ -207,6 +207,64 @@ await expectPass(
   tree({ sharedFiles: 40 }),
 );
 
+// A file that only NAMES the call in prose is not a database. This is not
+// hypothetical: services/ingestion/__tests__/active-policy-slot.test.ts
+// explains at length why it does NOT create one, and a raw-source census counts
+// it — measured, 12 against the true 11. A gate that fires on an innocent file
+// gets weakened by whoever hits it.
+await expectPass(
+  "a test file that only mentions the call in a comment is not counted",
+  tree({
+    privateFiles: measured.capacity - sharedDatabases,
+    extra: {
+      "packages/backend/src/services/__tests__/prose-only.test.ts":
+        "/**\n * Deliberately does NOT call createMercariaTestDatabase — it shares the\n" +
+        " * globalSetup database, because its assertions are cohort-scoped.\n */\n" +
+        "// see createMercariaTestDatabase for why not\n" +
+        "describe('x', () => { it('y', () => { expect(1).toBe(1); }); });\n",
+    },
+  }),
+);
+
+// The census counts TEST files, so a helper they import would be charged once
+// however many files use it — an undercount, in the direction that passes.
+await expectFail(
+  "a non-test module opening a private database is refused rather than undercounted",
+  tree({
+    extra: {
+      "packages/backend/src/db/__tests__/helpers/private-db.ts":
+        "import { createMercariaTestDatabase } from '../../testDatabase.js';\n" +
+        "export const open = (url) => createMercariaTestDatabase(url);\n",
+    },
+  }),
+  // Needles are single tokens that exist verbatim in the RUNTIME message. The
+  // first spelling here was "not\na test file", copied from where the guard's
+  // template wraps in source — a needle that can never match, which would have
+  // made this case assert only "it refused somehow".
+  ["is not a test file", "undercount"],
+);
+
+// ...and the module that DEFINES it is not one of those, recognised by its
+// export rather than its path so a rename cannot turn it into a database.
+await expectPass(
+  "the module that defines the call is not counted as a database",
+  tree({
+    extra: {
+      "packages/backend/src/db/testDatabase.ts":
+        `export async function ${"createMercariaTestDatabase"}(adminUrl) { return adminUrl; }\n`,
+    },
+  }),
+);
+await expectPass(
+  "the defining module still is not counted after a rename",
+  tree({
+    extra: {
+      "packages/backend/src/db/throwawayDatabase.ts":
+        `export async function ${"createMercariaTestDatabase"}(adminUrl) { return adminUrl; }\n`,
+    },
+  }),
+);
+
 // ---------------------------------------------------------------------------
 // The headroom rule itself.
 // ---------------------------------------------------------------------------
