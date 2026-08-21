@@ -505,6 +505,69 @@ describe('the detectors themselves — mutation self-tests, in memory only', () 
     expect(faults(classifyText(relax)).join(' ')).toMatch(/\(data\)/u);
   });
 
+  it('has a decided answer for EVERY statement form it claims to know', () => {
+    // A branch of `invert` with no case here is inverse SQL nobody has read,
+    // and an operator runs this output during an incident. Table-driven so a
+    // branch added without a row is visible, and asserted in both directions:
+    // what the inverse IS, or which reason says there is none.
+    const forms: readonly [string, string | null, string | null][] = [
+      // additive — the inverse is a drop of the thing just named
+      ['CREATE TABLE "w" ("id" text PRIMARY KEY NOT NULL);', 'DROP TABLE "w";', null],
+      ['ALTER TABLE "w" ADD COLUMN "k" text;', 'ALTER TABLE "w" DROP COLUMN "k";', null],
+      [
+        'ALTER TABLE "w" ADD CONSTRAINT "w_k_check" CHECK ("k" in (\'a\'));',
+        'ALTER TABLE "w" DROP CONSTRAINT "w_k_check";',
+        null,
+      ],
+      ['CREATE INDEX "w_k_idx" ON "w" USING btree ("k");', 'DROP INDEX "w_k_idx";', null],
+      ['CREATE UNIQUE INDEX "w_k_key" ON "w" USING btree ("k");', 'DROP INDEX "w_k_key";', null],
+      ['CREATE SEQUENCE "w_seq" AS bigint START WITH 1;', 'DROP SEQUENCE "w_seq";', null],
+      [
+        'ALTER TABLE "w" ALTER COLUMN "k" SET NOT NULL;',
+        'ALTER TABLE "w" ALTER COLUMN "k" DROP NOT NULL;',
+        null,
+      ],
+      // renames carry BOTH names, so the inverse is the same statement reversed
+      ['ALTER TABLE "w" RENAME TO "v";', 'ALTER TABLE "v" RENAME TO "w";', null],
+      [
+        'ALTER TABLE "w" RENAME COLUMN "k" TO "j";',
+        'ALTER TABLE "w" RENAME COLUMN "j" TO "k";',
+        null,
+      ],
+      // the definition that was removed is not in the statement that removed it
+      ['ALTER TABLE "w" DROP CONSTRAINT "w_k_check";', null, 'definition_not_in_file'],
+      ['DROP INDEX "w_k_idx";', null, 'definition_not_in_file'],
+      ['DROP TABLE "w";', null, 'definition_not_in_file'],
+      ['DROP SEQUENCE "w_seq";', null, 'definition_not_in_file'],
+      ['ALTER TABLE "w" ALTER COLUMN "k" DROP DEFAULT;', null, 'definition_not_in_file'],
+      ['ALTER TABLE "w" ALTER COLUMN "k" SET DEFAULT \'a\';', null, 'definition_not_in_file'],
+      // rows are destroyed, or the inverse would fail against rows written since
+      ['ALTER TABLE "w" DROP COLUMN "k";', null, 'data'],
+      ['ALTER TABLE "w" ALTER COLUMN "k" DROP NOT NULL;', null, 'data'],
+      ['ALTER TABLE "w" ALTER COLUMN "k" SET DATA TYPE integer;', null, 'data'],
+      ['UPDATE "w" SET "k" = \'a\';', null, 'data'],
+      ['INSERT INTO "w" ("id") VALUES (\'x\');', null, 'data'],
+      ['DELETE FROM "w" WHERE "k" IS NULL;', null, 'data'],
+      // nobody has decided
+      ['CLUSTER "w" USING "w_k_idx";', null, 'unclassified'],
+    ];
+
+    for (const [sql, inverse, reason] of forms) {
+      const migration = classifyText(
+        `-- oxy:deploy-phase=pre\n-- oxy:rollback=derived\n${sql}\n`,
+      );
+      expect(migration.statements, sql).toHaveLength(1);
+      expect(migration.statements[0].inverse, sql).toBe(inverse);
+      expect(migration.statements[0].reason, sql).toBe(reason);
+    }
+
+    // The floor on the table itself: a loop over an empty list asserts nothing,
+    // and every branch has to be represented on BOTH sides.
+    expect(forms.length).toBeGreaterThanOrEqual(22);
+    expect(forms.filter(([, inverse]) => inverse !== null).length).toBeGreaterThanOrEqual(9);
+    expect(new Set(forms.map(([, , reason]) => reason)).size).toBe(4);
+  });
+
   it('reports an unknown statement form rather than assuming it is additive', () => {
     // The `merge-plan-census` device: a form nobody has decided about fails the
     // build. Assuming "additive" would silently widen what `derived` covers,
