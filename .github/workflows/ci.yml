@@ -377,6 +377,12 @@ jobs:
       # If this step is deleted, the API tests do NOT silently go back to
       # flaking with `out of shared memory` under load — vitest.pg.globalSetup.ts
       # asserts the floor and fails immediately, naming this step.
+      #
+      # This number and compose's are two mechanisms for ONE fact, so they can
+      # drift; `bun run validate:lock-capacity` (in the lint job) compares this
+      # literal against compose's and against the floor the harness asserts, and
+      # refuses any ceiling nobody has measured the capacity of. Editing it here
+      # alone fails the build in the lint job rather than at 2am in this one.
       - name: Raise the Postgres lock ceiling (see docker-compose.postgres.yml)
         # Through `env` rather than interpolated into the script. The value is
         # an Actions-generated container id, not attacker-controllable, but a

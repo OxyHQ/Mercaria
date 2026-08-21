@@ -39,24 +39,52 @@ services:
     image: postgis/postgis:17-3.5
     # Raise the SHARED lock table above its 64 default.
     #
-    # Five realdb files create their OWN throwaway database
-    # (src/db/testDatabase.ts), and the migrator applies the whole 109-migration
-    # chain in ONE transaction — so a single migration holds every object lock
-    # it takes until commit. Measured on this image: ~5,800 locks for one
-    # migration.
+    # Every realdb file that creates its OWN throwaway database
+    # (src/db/testDatabase.ts) migrates it with the real migrator, which applies
+    # the whole chain in ONE transaction — so a single migration holds every
+    # object lock it takes until commit. PostgreSQL sizes ONE shared lock table
+    # from `max_locks_per_transaction * (max_connections +
+    # max_prepared_transactions)`, so this is not a per-transaction cap and
+    # concurrent migrations contend for a single pool.
     #
-    # PostgreSQL sizes ONE shared lock table from
-    # `max_locks_per_transaction * (max_connections + max_prepared_transactions)`,
-    # so this is not a per-transaction cap and concurrent migrations contend for
-    # a single pool. Measured on this image, by running N real migrations
-    # concurrently and escalating N until `out of shared memory`:
+    # ## How many the suite needs is COUNTED, never written down here
     #
-    #     max_locks_per_transaction=64   ->  4 concurrent migrations, 5th fails
-    #     max_locks_per_transaction=256  -> 12 concurrent migrations, 16th fails
+    # This comment used to say "the suite needs six (five private-database files
+    # plus the shared globalSetup database)". It needed twelve. Nothing said so,
+    # because the enforced value still happened to work — #849. A number somebody
+    # has to remember to update is the artefact that went stale, so the count now
+    # lives in a guard that recounts it on every build:
     #
-    # The suite needs six (five private-database files plus the shared
-    # globalSetup database), so 64 has no headroom and 256 has roughly double
-    # what is required.
+    #     bun run validate:lock-capacity        (scripts/validate-lock-capacity.mjs)
+    #
+    # and you can recount it by hand with:
+    #
+    #     git grep -l createMercariaTestDatabase -- 'packages/backend/src/**/*.realdb.test.ts' | wc -l
+    #
+    # ## What this ceiling carries, measured
+    #
+    # By `packages/backend/scripts/lock-capacity-probe.ts` — N real migrations
+    # through the real migrator entrypoint, launched together and escalated until
+    # `out of shared memory`, with two independent witnesses that they genuinely
+    # overlapped. On postgis/postgis:17-3.5, on 2026-08-21, at commit 9b18057,
+    # with a 133-entry chain costing 5,986 locks per full-chain migration:
+    #
+    #     max_locks_per_transaction=256  -> 15 carried, the 16th exhausted
+    #
+    # Twelve are wanted today, so the headroom is three more private-database
+    # files. Every figure here carries the chain length and the date it was taken
+    # at, because a capacity that cannot expire visibly is the whole of #849.
+    #
+    # ## Correcting the record, because the old numbers are still quoted
+    #
+    # The table this replaces read "256 -> 12 concurrent migrations, 16th fails".
+    # The 16 reproduces exactly. The 12 was never a capacity — it was the largest
+    # N anybody had TESTED, and 13, 14 and 15 all carry. The lock-cost half was
+    # right and has barely moved: measured against truncated copies of the chain,
+    # one migration cost 5,818 locks at 109 entries and 5,986 at 133, so the
+    # erosion is real and slow (~15 locks per migration added, against a budget of
+    # ~90,000). The guard therefore PROJECTS the capacity onto the chain as it
+    # stands rather than comparing today's file count against an old number.
     #
     # It has to be a server ARGUMENT: the setting is `postmaster` context, so
     # neither PGOPTIONS nor `ALTER SYSTEM` reaches it without a restart.
