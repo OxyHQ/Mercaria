@@ -76,6 +76,13 @@ paragraph standing beside a merged counter-example is worse than an absent one.
 date it was taken at cannot expire visibly.** Every figure added in this
 re-amendment carries one.
 
+**And the instrument it used could not have found the column even after it
+landed** — it grepped a schema file for a snake_case name that drizzle, which
+declares in camelCase, never writes for a declaration. That is set out with its
+control under D5, and it is the more useful half: a stale measurement is a fact
+about time, while a measurement that returns the same answer whether or not its
+subject exists was never a measurement at all.
+
 Scope: only claims about that one column were touched. Nothing else in this
 document was re-audited on 2026-08-21, so an unannotated statement here still
 carries its 2026-08-18 date and no more.
