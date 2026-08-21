@@ -1000,10 +1000,20 @@ describe('the exemption register is exact in both directions', () => {
 
   it('exempts a minority of the surface', () => {
     // A register that grew to cover most of the surface would be the gate
-    // switching itself off one defensible line at a time. This is a ratio rather
-    // than a count so it does not conflict on every rebase, and it names a state
-    // of the world: most folds in this codebase handle human text.
+    // switching itself off one defensible line at a time. A RATIO rather than a
+    // count, so it does not conflict on every rebase, and it names a state of the
+    // world: more folds in this codebase handle human text than machine tokens.
+    //
+    // The headroom is deliberately small — 20 of 45 today — and hitting it is a
+    // signal rather than a nuisance. The question to ask then is not "raise the
+    // ratio" but "has the SURFACE definition drifted": a detector that started
+    // matching validation, or a domain that grew a dozen key folds, both show up
+    // here first. Raising it is the last resort, and it needs a sentence saying
+    // which of those two happened.
     const surface = foldSurface();
-    expect(SCRIPT_COVERAGE_EXEMPTIONS.length).toBeLessThan(surface.size / 2);
+    expect(
+      SCRIPT_COVERAGE_EXEMPTIONS.length,
+      `${SCRIPT_COVERAGE_EXEMPTIONS.length} of ${surface.size} folds are exempt — check whether the surface definition drifted before widening this`,
+    ).toBeLessThan(surface.size / 2);
   });
 });
