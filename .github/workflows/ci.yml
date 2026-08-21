@@ -302,7 +302,9 @@ jobs:
       # tree sits beside a docblock explaining the rule, so a text scan fires on
       # its own explanation. Three vacuity floors, a positive and a negative
       # control per vocabulary member on every run, and a self-test that mutates
-      # a real COPY of the tree. Costs about two seconds.
+      # a real COPY of the tree. About ten seconds, nearly all of it the
+      # self-test's thirty subprocess runs against thirty copies of the tree —
+      # the scan itself is one second.
       - name: Guard public catalog contracts against ambiguous identity strings
         run: bun run validate:catalog-identity-contracts
 

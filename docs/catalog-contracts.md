@@ -207,7 +207,10 @@ hard-coded category list added there today fails nothing.
 
 Not as a foreign key — `db/__tests__/catalog-identity-isolation.test.ts` fails the
 build on a key pointed at `name`, `slug`, `label`, `title` or `description`, over
-791 foreign-key targets in 82 schema files.
+809 foreign-key TARGET COLUMNS (784 single-column plus 25 named inside a
+composite `foreignKey({ foreignColumns: [...] })`) in 83 schema files. The gate
+prints all three figures on every successful run; this paragraph said 791 over 82
+and neither number reproduced, which is what a count with no rule beside it does.
 
 Not as a request field either. `category: z.string()` and `productType:
 z.string()` exist in exactly nine places, all of them pre-#367 v1 listing
