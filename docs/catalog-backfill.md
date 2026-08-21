@@ -389,11 +389,19 @@ two columns of `categories`, which a listing predicate cannot narrow. The suite
 asserts the first with floors over its own run-suffixed values and the second as
 a DELTA against the same probe moments earlier.
 
-**The underlying capacity limit is still there and is worth fixing separately:**
-one line of server configuration in `docker-compose.postgres.yml` and in
-`ci.yml`'s postgres service block — `command: postgres -c
-max_locks_per_transaction=256` — would help the five pre-existing files. That is
-shared infrastructure this workstream does not own.
+**That configuration change has since LANDED** — `docker-compose.postgres.yml`
+and `ci.yml` both raise the ceiling to 256 — so the paragraph that used to sit
+here, proposing it as future work, was describing something already done. The
+numbers above are the state at a **102-migration chain with five
+private-database files** and are kept as the incident record; they are not the
+current capacity and must not be sized off.
+
+The current figures, their provenance and the guard that recounts the file
+population on every build are in `docker-compose.postgres.yml` and
+`scripts/validate-lock-capacity.mjs` (#849). The short version: eleven private
+database files today, twelve concurrent migrations wanted, fifteen carried at
+256 — so the reasoning that moved this file onto the shared database still
+holds, and the headroom it was competing for is three files rather than none.
 
 ## Rollout and cutover
 
