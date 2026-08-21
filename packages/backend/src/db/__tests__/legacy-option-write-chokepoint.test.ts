@@ -174,15 +174,25 @@ const PERMITTED_HELPER_CALLERS: readonly { readonly path: string; readonly dispo
 const HELPER_CALL = new RegExp(`\\b${EXPORTED_WRITE_HELPER}\\s*\\(`, 'u');
 
 /**
- * Either symbol imported under another name.
+ * Every symbol whose alias would hide a write from the walls above.
  *
- * The write detector is keyed on the symbol, so `import { listingOptions as lo }`
- * followed by `.insert(lo)` would write the table and read as clean. An alias
- * still spells the real symbol on the import line, so refusing aliases outright
- * is what makes the symbol branch complete — cheaper and more honest than
- * re-implementing an import resolver inside a test.
+ * Both of the preceding detectors are keyed on a SYMBOL, and an alias defeats
+ * each of them in exactly one line:
+ *
+ *   - `import { listingOptions as lo }` then `.insert(lo)` writes the table and
+ *     the write census reads clean;
+ *   - `import { replaceListingOptions as r }` then `r(id, options, tx)` writes it
+ *     through the exported helper and the caller census reads clean. Measured:
+ *     that pair matches NEITHER probe, while the unaliased spelling matches.
+ *
+ * An alias always spells the real symbol on the import line, so refusing aliases
+ * outright is what makes both symbol branches complete — cheaper, and far more
+ * honest, than re-implementing an import resolver inside a test. Nothing in the
+ * tree aliases any of the three today, so this costs nobody anything.
  */
-const ALIASED_IMPORT = new RegExp(`\\b${anyOf(TABLE_SYMBOLS)}\\s+as\\s+\\w`, 'u');
+const UNALIASABLE_SYMBOLS: readonly string[] = [...TABLE_SYMBOLS, EXPORTED_WRITE_HELPER];
+
+const ALIASED_IMPORT = new RegExp(`\\b${anyOf(UNALIASABLE_SYMBOLS)}\\s+as\\s+\\w`, 'u');
 
 /**
  * Strip comments before scanning.
@@ -302,7 +312,7 @@ describe('the legacy option-table write census', () => {
     ).toBe(false);
   });
 
-  it('refuses an aliased import of either table symbol, which would hide a write', () => {
+  it('refuses an aliased import of any protected symbol, which would hide a write', () => {
     const sources = productionSources();
 
     const aliased = [...sources]
@@ -316,8 +326,13 @@ describe('the legacy option-table write census', () => {
     // a false positive here has no real offender to point at.
     expect(
       aliased,
-      'a module imports a legacy option table symbol under another name, which defeats the symbol-keyed write detector above. Import it unaliased (#824)',
+      'a module imports a legacy option table symbol, or the exported write helper, under another name — which defeats the symbol-keyed censuses above. Import it unaliased (#824)',
     ).toEqual([]);
+
+    // The floor on the probe itself. An empty expectation is satisfied by a
+    // detector that matches nothing, so the symbol list is asserted to be the
+    // three real ones rather than left to be silently emptied.
+    expect(UNALIASABLE_SYMBOLS).toHaveLength(3);
   });
 
   it('catches every write spelling, and no read', () => {
@@ -398,5 +413,16 @@ describe('the legacy option-table write census', () => {
     expect(HELPER_CALL.test('import { replaceListingOptions } from "./listingRepository.js";')).toBe(
       false,
     );
+
+    // The evasion the two symbol-keyed censuses cannot see on their own, and the
+    // reason the alias wall covers the HELPER and not only the tables. Both
+    // halves are asserted: the pair genuinely defeats the caller probe, and the
+    // alias probe genuinely catches it.
+    const evasion = [
+      'import { replaceListingOptions as r } from "./listingRepository.js";',
+      'async function sneak() { await r(id, options, tx); }',
+    ].join('\n');
+    expect(HELPER_CALL.test(evasion)).toBe(false);
+    expect(ALIASED_IMPORT.test(evasion)).toBe(true);
   });
 });
