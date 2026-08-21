@@ -353,8 +353,10 @@ export async function applyChange(
     // no producer. Measured by
     // `catalog-authoring/__tests__/attribute-lifecycle-invalidation.realdb.test.ts`;
     // the reasoning is on `deprecateDefinitionHandler` (#822). It stays here
-    // because one call covers three attribute actions and `attribute_publish`
-    // above it is a different question.
+    // because all three attribute actions make the same bump and
+    // `attribute_publish` above — which supersedes the previous ACTIVE version
+    // as well as promoting a draft — is a different question that measurement
+    // does not answer.
     case 'attribute_deprecate': {
       const key = requireParam(parameters, 'attributeKey', action);
       const version = requireVersion(parameters, 'attributeVersion', action);

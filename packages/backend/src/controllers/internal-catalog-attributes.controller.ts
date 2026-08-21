@@ -115,9 +115,11 @@ export async function publishDefinitionHandler(req: Request, res: Response): Pro
  * goes red, these two handlers owe the bump** and it belongs inside the service
  * transaction, symmetrically with `apply.ts`.
  *
- * The governance bump is therefore over-invalidation and costs one recomposition;
- * it is not removed, because it is one call covering three attribute actions and
- * `attribute_publish` beside them is a different question.
+ * The governance bump is therefore over-invalidation and costs one
+ * recomposition; it is not removed, because the same bump is made by all three
+ * attribute actions there and `attribute_publish` — which supersedes the
+ * PREVIOUS active version as well as promoting a draft — is a different
+ * question this measurement does not answer.
  */
 export async function deprecateDefinitionHandler(req: Request, res: Response): Promise<void> {
   try {
