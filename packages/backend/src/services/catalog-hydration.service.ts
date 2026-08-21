@@ -45,6 +45,7 @@ import type {
   StoreSummary,
   Seller,
 } from '@mercaria/shared-types';
+import { resolveVariantImages } from '@mercaria/shared-types';
 import {
   findSellerProfilesByUserIds,
   type SellerProfileRecord,
@@ -68,8 +69,10 @@ import {
   projectLegacyCondition,
 } from './condition/condition-projection.js';
 import {
+  findVariantImages,
   findVariantOptionValues,
   findVariantsByListingIds,
+  type VariantImageRecord,
   type VariantOptionValueRecord,
   type VariantRecord,
 } from '../db/catalog/variantRepository.js';
@@ -127,6 +130,8 @@ const NO_PRICE: Money = { amount: 0, currency: 'FAIR' };
 function toVariantDTO(
   variant: VariantRecord,
   optionValues: VariantOptionValueRecord[],
+  variantImages: VariantImageRecord[],
+  listingGallery: ListingImage[],
   commercial?: CommercialPresentation,
 ): ProductVariantDTO {
   const available = variant.inventoryAvailable;
@@ -149,12 +154,38 @@ function toVariantDTO(
   if (compareAt) {
     dto.compareAtPrice = compareAt;
   }
+  // #850: which photographs show THIS configuration. `resolveVariantImages` is
+  // the ONE place the fallback rule lives — a variant with no selections of its
+  // own shows the listing's gallery, which is what every P2P listing does, since
+  // its single Default-Title variant is created with no images and no surface to
+  // attach one. Restating the rule here would be the second spelling that can
+  // disagree.
+  dto.images = resolveVariantImages(
+    variantImages.map(toVariantImageDTO),
+    listingGallery,
+  );
   // #129: who is selling THIS configuration. Absent when the caller did not
   // resolve it — never defaulted to the listing owner, because an unanswered
   // question and "the catalogue owner sells it" are different claims and only
   // one of them is safe to make without reading the retail bindings.
   if (commercial) {
     dto.commercial = commercial;
+  }
+  return dto;
+}
+
+/**
+ * Map one variant-selected gallery row through the media chokepoint.
+ *
+ * The same `resolveMedia` hop `toListingImages` makes, and it has to be made
+ * here too: these rows come off `listing_images` by a different query, so a
+ * variant's gallery would otherwise carry raw file ids while the listing's
+ * carried resolved URLs — one screen, two spellings of one address.
+ */
+function toVariantImageDTO(row: VariantImageRecord): ListingImage {
+  const dto: ListingImage = { fileId: resolveMedia(row.fileId), position: row.position };
+  if (row.alt) {
+    dto.alt = row.alt;
   }
   return dto;
 }
@@ -367,6 +398,7 @@ async function loadBatches(
 ): Promise<{
   variantsByListing: Map<string, VariantRecord[]>;
   optionValuesByVariant: Map<string, VariantOptionValueRecord[]>;
+  variantImagesByVariant: Map<string, VariantImageRecord[]>;
   children: ListingChildren;
   conditionDetailsByListing: Map<string, ConditionDetailRecord[]>;
   conditionPhotosByListing: Map<string, ConditionPhotoRecord[]>;
@@ -377,10 +409,15 @@ async function loadBatches(
     findConditionDetailsForListings(listingIds),
     findConditionPhotosForListings(listingIds),
   ]);
-  const optionValuesByVariant = await findVariantOptionValues(variants.map((v) => v.id));
+  const variantIds = variants.map((v) => v.id);
+  const [optionValuesByVariant, variantImagesByVariant] = await Promise.all([
+    findVariantOptionValues(variantIds),
+    findVariantImages(variantIds),
+  ]);
   return {
     variantsByListing: groupVariants(variants),
     optionValuesByVariant,
+    variantImagesByVariant,
     children,
     conditionDetailsByListing: groupByListingId(conditionDetails),
     conditionPhotosByListing: groupByListingId(conditionPhotos),
@@ -417,6 +454,7 @@ export async function hydrateListings(
   const {
     variantsByListing,
     optionValuesByVariant,
+    variantImagesByVariant,
     children,
     conditionDetailsByListing,
     conditionPhotosByListing,
@@ -486,8 +524,18 @@ export async function hydrateListings(
   return rawListings.map((listing) => {
     const id = listing.id;
     const variants = variantsByListing.get(id) ?? [];
+    // Resolved once, here, because the variants below fall back to it (#850) AND
+    // the listing's own `images` is built from it. Two `toListingImages` calls
+    // over one row set would be two arrays a client could find differing.
+    const gallery = toListingImages(children.images.get(id) ?? []);
     const variantDTOs = variants.map((v) =>
-      toVariantDTO(v, optionValuesByVariant.get(v.id) ?? [], commercialByVariant.get(v.id)),
+      toVariantDTO(
+        v,
+        optionValuesByVariant.get(v.id) ?? [],
+        variantImagesByVariant.get(v.id) ?? [],
+        gallery,
+        commercialByVariant.get(v.id),
+      ),
     );
     const cheapest = cheapestVariant(variants);
 
@@ -528,7 +576,7 @@ export async function hydrateListings(
       condition: projectLegacyCondition(conditionKey),
       status: listing.status,
       category: listing.categorySlugs[listing.categorySlugs.length - 1] ?? '',
-      images: toListingImages(children.images.get(id) ?? []),
+      images: gallery,
       tags: [...listing.tags],
       quantity,
       saved: savedSet.has(id),

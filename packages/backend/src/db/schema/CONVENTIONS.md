@@ -6689,3 +6689,106 @@ allow-list. The partial unique is `(subject, role) WHERE revoked_at is null`, so
 a re-grant after a revocation is permitted and the history of who held what
 survives. A grant is revoked, never deleted; the trigger refuses DELETE and
 freezes everything except the revocation pair, once.
+
+## Variant-scoped images on the native side (#850, epic #367)
+
+`product_variant_images` — which of a LISTING's photographs show one
+configuration. One table, no new `file_id` anywhere in the schema.
+
+`canonical_images` has been variant-scoped since #56; the native listing side had
+nothing, so a buyer choosing a colour on a P2P or store listing saw the listing's
+gallery and never the variant's. The identifier half of the epic's bullet was
+already earned — `product_variants` carries `sku`, `barcode` and
+`source_external_variant_id`.
+
+### The row names a `listing_images` row, NOT a `file_id`
+
+This is the whole design. A `file_id` column here would be a second upload
+channel by construction: a seller could attach to a variant a file that is in no
+gallery, and `mercaria_seller_draft_reject_borrowed_photo` — which reads
+`listing_images_file_id_idx` — would never see it. #91 ruled that catalogue
+photographs are drawn from the listing's OWN gallery because two places
+establishing a photograph's ownership can disagree, and pointing at the gallery
+row keeps that ruling intact rather than restating it.
+
+It also settles the #90 question. This table introduces no new `file_id`, so
+`mercaria_reject_canonical_condition_photo` — which refuses a
+`listing_condition_photos.file_id` that any `canonical_images` row already claims
+— is neither weakened nor duplicated. A file that could not become condition
+evidence still cannot; a file that reached the gallery can be pointed at from
+here without changing who owns it.
+
+### An image from another listing is unrepresentable, not refused
+
+The invariant is cross-row, so a CHECK cannot express it and a trigger would be a
+rule a service bug walks around. The row carries `listing_id` and two COMPOSITE
+foreign keys — `listing_condition_photos_detail_fk`'s device — onto
+`product_variants(id, listing_id)` and `listing_images(id, listing_id)`. A value
+that must simultaneously equal the variant's listing and the image's listing
+cannot name two.
+
+Both targets are `unique()` CONSTRAINTS, never `uniqueIndex()`: PostgreSQL
+resolves a composite foreign key against `pg_constraint`, so a unique index
+type-checks, generates cleanly and fails at APPLY time with "there is no unique
+constraint matching given keys". `listing_condition_details_id_listing_id_key`
+records the same measurement.
+
+**Migration `0133`'s statement ORDER is hand-corrected.** drizzle-kit emits both
+`ADD CONSTRAINT ... UNIQUE` statements LAST, after the foreign keys that depend
+on them, which fails on a real server. Re-apply the reordering after any
+regeneration; the migration header states it.
+
+### One image MAY be shared across variants
+
+`unique(variant_id, listing_image_id)` scopes uniqueness to the VARIANT, which is
+`canonical_images_variant_ref_key`'s shape exactly. One flat-lay photograph
+covering S/M/L is three rows. A one-to-one relation would make that ordinary case
+unrepresentable and force a seller to upload the same photograph three times —
+the second upload channel again, arriving through the relation shape rather than
+through a column.
+
+### Ordering is the VARIANT's own
+
+`position` per row, indexed with `variant_id`, mirroring
+`canonical_images_variant_position_idx`. A variant's set is a different set from
+the listing's, so there is no listing order to inherit. `findVariantImages`
+tiebreaks on `id` because `position` carries no uniqueness constraint — the bug
+`nextVariantPosition` documents.
+
+### Both foreign keys CASCADE
+
+A selection has no meaning without either side, and cascade is the unanimous
+convention for this parent: all twelve pre-existing foreign keys onto
+`product_variants.id` cascade. Removing a photograph from the gallery removes it
+from every variant that showed it; the alternative is a row pointing at a gallery
+entry a buyer can no longer see.
+
+### `listing_id` carries its OWN index, and the cascade is why
+
+No other index on the table leads with the column, so the RI check a listing
+delete issues (`delete from product_variant_images where listing_id = $1`) is a
+sequential scan without it. Measured on the applied chain: with the index the
+plan is `Index Scan using product_variant_images_listing_id_idx`, and dropping
+it in a rolled-back transaction turns the same statement into a `Seq Scan`.
+Stated because an index is the one thing a functional test can never detect the
+absence of — every case in `catalog.realdb.test.ts` passes either way.
+
+### A variant with no images shows the LISTING's gallery
+
+The fallback is `resolveVariantImages` in `@mercaria/shared-types`, and it is the
+ONE place the rule lives. `VariantImageResolution` is a discriminated union
+(`variant` | `listing_fallback`) so a surface cannot render fallback images
+without knowing they are one — a seller's variant screen has to be able to say
+"this configuration has no photographs of its own", which a flat array
+indistinguishable from a real selection makes unsayable.
+
+Falling back rather than showing nothing was settled by measurement, not taste:
+`insertP2PListingWithin` creates exactly one `Default Title` variant per
+secondhand listing, gives it no images and offers no surface on which a seller
+could attach one, so "shows nothing" blanks the gallery on the entire secondhand
+half of the marketplace. It is also what the PDP already does for every other
+variant-scoped fact (`selectedVariant?.price ?? listing.price`).
+
+`findVariantImages` OMITS a variant with no selections rather than returning an
+empty array, so a caller cannot mistake "chose nothing" for "was not in the
+batch"; the repository never substitutes the gallery itself.

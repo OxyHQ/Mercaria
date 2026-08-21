@@ -28,8 +28,15 @@ import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { constraintNameOf, isUniqueViolation, uuidv7 } from '@oxyhq/db';
+import { resolveVariantImages } from '@mercaria/shared-types';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
-import { inventoryLevels, listings, productVariants } from '../schema/catalog.js';
+import {
+  inventoryLevels,
+  listingImages,
+  listings,
+  productVariantImages,
+  productVariants,
+} from '../schema/catalog.js';
 import { collections, listingCollections } from '../schema/merchandising.js';
 import { favorites } from '../schema/buyers.js';
 import { deleteTestStores } from './store-teardown.js';
@@ -40,6 +47,7 @@ import {
   findListingById,
   insertListing,
   recomputeListingFacets,
+  replaceListingImages,
   searchListingsKeyset,
   searchListingsPage,
   findStoreListingIdsMatching,
@@ -48,10 +56,12 @@ import {
   countVariants,
   deleteVariant,
   findVariantBySourceInventoryItemId,
+  findVariantImages,
   findVariantsByListing,
   findVariantsByListingAndSku,
   insertVariants,
   recomputeVariantRollup,
+  replaceVariantImages,
   reserveVariantScalar,
   updateVariant as updateVariantColumns,
 } from '../catalog/variantRepository.js';
@@ -1367,5 +1377,401 @@ describe('SKU and barcode identity (#296)', () => {
     expect(found).not.toContain('product_variants_sku_key');
     expect(found).not.toContain('product_variants_barcode_key');
     expect(found).toContain('product_variants_source_external_variant_key');
+  });
+});
+
+describe('variant-scoped images (#850)', () => {
+  /**
+   * Build a listing with a three-photograph gallery and two variants.
+   *
+   * Returns the ids the cases need. `findListingChildren` is what the hydration
+   * path reads, so the gallery ids are taken from the same table rather than
+   * from the insert's echo — a test that trusted its own input could not notice
+   * an image that never landed.
+   */
+  async function makeGalleryListing(storeId: string): Promise<{
+    listingId: string;
+    imageIds: string[];
+    variantIds: string[];
+  }> {
+    const listingId = await makeListing(storeId, { variantCount: 2 });
+    await db.insert(listingImages).values([
+      { listingId, fileId: `file-a-${uuidv7()}`, position: 0 },
+      { listingId, fileId: `file-b-${uuidv7()}`, position: 1 },
+      { listingId, fileId: `file-c-${uuidv7()}`, position: 2 },
+    ]);
+    const images = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId))
+      .orderBy(listingImages.position);
+    expect(images).toHaveLength(3);
+
+    const variants = await insertVariants(listingId, [
+      {
+        title: 'Blue',
+        position: 0,
+        optionValues: [],
+        priceAmount: 1_000,
+        priceCurrency: 'FAIR',
+        inventoryTracked: true,
+        inventoryAvailable: 5,
+      },
+      {
+        title: 'Red',
+        position: 1,
+        optionValues: [],
+        priceAmount: 1_000,
+        priceCurrency: 'FAIR',
+        inventoryTracked: true,
+        inventoryAvailable: 5,
+      },
+    ]);
+    expect(variants).toHaveLength(2);
+
+    return {
+      listingId,
+      imageIds: images.map((i) => i.id),
+      variantIds: variants.map((v) => v.id),
+    };
+  }
+
+  it('REFUSES a gallery image belonging to another listing', async () => {
+    const storeId = await makeStore();
+    const mine = await makeGalleryListing(storeId);
+    const theirs = await makeGalleryListing(storeId);
+
+    // The positive control FIRST: the very same statement, with this listing's
+    // own image, must succeed. Without it a refusal below proves only that the
+    // insert was malformed.
+    await db.insert(productVariantImages).values({
+      listingId: mine.listingId,
+      variantId: mine.variantIds[0],
+      listingImageId: mine.imageIds[0],
+      position: 0,
+    });
+    const control = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, mine.variantIds[0]));
+    expect(control).toHaveLength(1);
+
+    // Now the same shape reaching for a photograph on the OTHER listing. There
+    // is no `listing_id` that satisfies both composite foreign keys at once, so
+    // both spellings are refused rather than one of them silently working.
+    await expect(
+      db.insert(productVariantImages).values({
+        listingId: mine.listingId,
+        variantId: mine.variantIds[0],
+        listingImageId: theirs.imageIds[0],
+        position: 1,
+      }),
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
+
+    await expect(
+      db.insert(productVariantImages).values({
+        listingId: theirs.listingId,
+        variantId: mine.variantIds[0],
+        listingImageId: theirs.imageIds[0],
+        position: 1,
+      }),
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
+
+    // The refusal changed nothing: the control row is still the only one.
+    const after = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingId, mine.listingId));
+    expect(after).toHaveLength(1);
+  });
+
+  it('lets ONE photograph be shared across variants, and once per variant', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+
+    // One flat-lay covering both configurations — the ordinary case a
+    // one-to-one relation would make unrepresentable.
+    await db.insert(productVariantImages).values([
+      { listingId, variantId: variantIds[0], listingImageId: imageIds[0], position: 0 },
+      { listingId, variantId: variantIds[1], listingImageId: imageIds[0], position: 0 },
+    ]);
+    const shared = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingImageId, imageIds[0]));
+    expect(shared).toHaveLength(2);
+
+    // The SAME photograph twice on ONE variant converges rather than doubling
+    // the gallery.
+    await expect(
+      db.insert(productVariantImages).values({
+        listingId,
+        variantId: variantIds[0],
+        listingImageId: imageIds[0],
+        position: 7,
+      }),
+    ).rejects.toSatisfy(isUniqueViolation);
+  });
+
+  it("orders by the VARIANT's own position, not the gallery's", async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [variantId] = variantIds;
+
+    // Gallery order is a, b, c. This variant shows c then a — an order that
+    // exists nowhere in `listing_images`, so a reader that inherited the
+    // gallery's ordering would return them the other way round.
+    await db.insert(productVariantImages).values([
+      { listingId, variantId, listingImageId: imageIds[2], position: 0 },
+      { listingId, variantId, listingImageId: imageIds[0], position: 1 },
+    ]);
+
+    const byVariant = await findVariantImages([variantId], db);
+    const rows = byVariant.get(variantId) ?? [];
+    expect(rows).toHaveLength(2);
+
+    const galleryRows = await db
+      .select()
+      .from(listingImages)
+      .where(inArray(listingImages.id, [imageIds[0], imageIds[2]]))
+      .orderBy(listingImages.position);
+    const fileA = galleryRows.find((r) => r.id === imageIds[0])?.fileId;
+    const fileC = galleryRows.find((r) => r.id === imageIds[2])?.fileId;
+
+    expect(rows.map((r) => r.fileId)).toEqual([fileC, fileA]);
+    expect(rows.map((r) => r.position)).toEqual([0, 1]);
+  });
+
+  it('cascades from the variant AND from the gallery image', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+
+    await db.insert(productVariantImages).values([
+      { listingId, variantId: variantIds[0], listingImageId: imageIds[0], position: 0 },
+      { listingId, variantId: variantIds[0], listingImageId: imageIds[1], position: 1 },
+      { listingId, variantId: variantIds[1], listingImageId: imageIds[1], position: 0 },
+    ]);
+
+    // Removing ONE photograph from the listing's gallery removes it from every
+    // variant that showed it, and touches nothing else.
+    await db.delete(listingImages).where(eq(listingImages.id, imageIds[1]));
+    const afterImageDelete = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingId, listingId));
+    expect(afterImageDelete).toHaveLength(1);
+    expect(afterImageDelete[0].listingImageId).toBe(imageIds[0]);
+
+    // Deleting the variant removes its selections.
+    await db.delete(productVariants).where(eq(productVariants.id, variantIds[0]));
+    const afterVariantDelete = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.listingId, listingId));
+    expect(afterVariantDelete).toHaveLength(0);
+  });
+
+  it('omits a variant with no selections, so the caller applies the fallback', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [chosen, bare] = variantIds;
+
+    await db.insert(productVariantImages).values({
+      listingId,
+      variantId: chosen,
+      listingImageId: imageIds[0],
+      position: 0,
+    });
+
+    const byVariant = await findVariantImages([chosen, bare], db);
+
+    // ABSENT, not an empty array: the repository never substitutes the
+    // listing's gallery, because that would make "chose nothing" and "was not
+    // in the batch" indistinguishable at every call site above it.
+    expect(byVariant.has(chosen)).toBe(true);
+    expect(byVariant.has(bare)).toBe(false);
+
+    // The fallback rule itself, applied by its ONE owner. A variant that chose
+    // photographs keeps them; one that chose none shows the listing's gallery
+    // and SAYS SO.
+    const gallery = [{ fileId: 'gallery-1', position: 0 }];
+    const chosenImages = (byVariant.get(chosen) ?? []).map((r) => ({
+      fileId: r.fileId,
+      position: r.position,
+    }));
+
+    expect(resolveVariantImages(chosenImages, gallery)).toEqual({
+      source: 'variant',
+      images: chosenImages,
+    });
+    expect(resolveVariantImages(byVariant.get(bare) ?? [], gallery)).toEqual({
+      source: 'listing_fallback',
+      images: gallery,
+    });
+  });
+
+  it('survives a gallery replace that keeps the photograph (#850)', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [variantId] = variantIds;
+
+    const gallery = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId))
+      .orderBy(listingImages.position);
+    const [imgA, imgB, imgC] = gallery;
+
+    await db.insert(productVariantImages).values({
+      listingId,
+      variantId,
+      listingImageId: imgA.id,
+      position: 0,
+    });
+
+    // The connector path: `channel-ingest` sets `imageFileIds` on EVERY sync
+    // that carries images, so this exact call runs on a schedule against a
+    // connected shop. It re-sends the same three files, reordered, and drops
+    // nothing.
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: imgC.fileId, position: 0 },
+        { fileId: imgA.fileId, position: 1 },
+        { fileId: imgB.fileId, position: 2 },
+      ],
+      db,
+    );
+
+    // The row id of a photograph that is still there did NOT move — which is
+    // the whole reason the variant's selection is still standing.
+    const afterGallery = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId));
+    expect(afterGallery).toHaveLength(3);
+    expect(afterGallery.map((r) => r.id).sort()).toEqual([...imageIds].sort());
+    expect(afterGallery.find((r) => r.id === imgA.id)?.position).toBe(1);
+
+    const selections = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId));
+    expect(selections).toHaveLength(1);
+    expect(selections[0].listingImageId).toBe(imgA.id);
+
+    // And a photograph the seller actually REMOVED still takes its selections
+    // with it — this is a replace, not a merge.
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: imgC.fileId, position: 0 },
+        { fileId: imgB.fileId, position: 1 },
+      ],
+      db,
+    );
+    const afterRemoval = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId));
+    expect(afterRemoval).toHaveLength(0);
+  });
+
+  it('keeps BOTH rows when a gallery holds one file twice (#850)', async () => {
+    const storeId = await makeStore();
+    const listingId = await makeListing(storeId);
+    const twice = `file-twice-${uuidv7()}`;
+
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: twice, position: 0 },
+        { fileId: twice, position: 1 },
+      ],
+      db,
+    );
+    const first = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId));
+    expect(first).toHaveLength(2);
+
+    // Re-sending the same pair must consume one existing row EACH. A map keyed
+    // on the file id rather than a queue would hand both copies the same row and
+    // delete the other, which the count below is what notices.
+    await replaceListingImages(
+      listingId,
+      [
+        { fileId: twice, position: 0 },
+        { fileId: twice, position: 1 },
+      ],
+      db,
+    );
+    const second = await db
+      .select()
+      .from(listingImages)
+      .where(eq(listingImages.listingId, listingId));
+    expect(second).toHaveLength(2);
+    expect(second.map((r) => r.id).sort()).toEqual(first.map((r) => r.id).sort());
+  });
+
+  it('assigns positions from the CALLER order and de-duplicates (#850)', async () => {
+    const storeId = await makeStore();
+    const { listingId, imageIds, variantIds } = await makeGalleryListing(storeId);
+    const [variantId] = variantIds;
+
+    // Caller order c, a, b — and `a` named twice. The duplicate must land once,
+    // at its FIRST position, rather than raising a 23505 the caller cannot act
+    // on or silently taking the last slot.
+    await replaceVariantImages(
+      listingId,
+      variantId,
+      [imageIds[2], imageIds[0], imageIds[1], imageIds[0]],
+      db,
+    );
+
+    const rows = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId))
+      .orderBy(productVariantImages.position);
+
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.listingImageId)).toEqual([imageIds[2], imageIds[0], imageIds[1]]);
+    expect(rows.map((r) => r.position)).toEqual([0, 1, 2]);
+
+    // A replace is a REPLACE: the previous set is gone, not merged into.
+    await replaceVariantImages(listingId, variantId, [imageIds[1]], db);
+    const after = await db
+      .select()
+      .from(productVariantImages)
+      .where(eq(productVariantImages.variantId, variantId));
+    expect(after).toHaveLength(1);
+    expect(after[0].listingImageId).toBe(imageIds[1]);
+
+    // An empty list clears it, and clearing returns the variant to the
+    // listing-gallery fallback rather than to an empty gallery.
+    await replaceVariantImages(listingId, variantId, [], db);
+    const cleared = await findVariantImages([variantId], db);
+    expect(cleared.has(variantId)).toBe(false);
+    expect(resolveVariantImages(cleared.get(variantId) ?? [], [{ fileId: 'g', position: 0 }])).toEqual(
+      { source: 'listing_fallback', images: [{ fileId: 'g', position: 0 }] },
+    );
+  });
+
+  it("REFUSES to attach another listing's photograph through the writer (#850)", async () => {
+    const storeId = await makeStore();
+    const mine = await makeGalleryListing(storeId);
+    const theirs = await makeGalleryListing(storeId);
+
+    await expect(
+      replaceVariantImages(mine.listingId, mine.variantIds[0], [theirs.imageIds[0]], db),
+    ).rejects.toMatchObject({ cause: { code: '23503' } });
+
+    // Positive control: the same call with this listing's own photograph works,
+    // so the refusal is about the LISTING and not about the call shape.
+    await replaceVariantImages(mine.listingId, mine.variantIds[0], [mine.imageIds[0]], db);
+    const rows = await findVariantImages([mine.variantIds[0]], db);
+    expect(rows.get(mine.variantIds[0])).toHaveLength(1);
   });
 });

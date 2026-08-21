@@ -84,6 +84,7 @@ import {
   isNull,
   lt,
   lte,
+  notInArray,
   or,
   sql,
   type SQL,
@@ -258,22 +259,95 @@ export async function findListingChildren(
   };
 }
 
-/** Replace a listing's whole image list. */
+/**
+ * Replace a listing's whole image list, KEEPING the row id of any photograph
+ * that is still in it.
+ *
+ * ## Why this converges instead of deleting and re-inserting
+ *
+ * It used to be `delete` + `insert`, which was harmless while nothing referenced
+ * `listing_images.id`. #850 made the id meaningful: `product_variant_images`
+ * names a gallery row to say "this photograph shows the blue one", and both its
+ * foreign keys CASCADE. A wholesale replace therefore minted new ids for
+ * photographs that had not changed and silently took every variant's selection
+ * with the old ones.
+ *
+ * That is not a rare edit. `channel-ingest.service` sets `imageFileIds` on every
+ * sync that carries images, so a connected Shopify or WooCommerce shop would
+ * have wiped its own variant galleries on a schedule, with nothing failing and
+ * nothing logged. Introducing the reference is what obliges this writer to keep
+ * the id stable, so the two halves land together.
+ *
+ * A photograph is matched by `file_id` and each existing row is consumed once,
+ * so a gallery legitimately holding one file twice keeps both rows. Anything the
+ * new list does not account for is deleted, which is what still makes this a
+ * REPLACE rather than a merge: removing a photograph removes it, and its variant
+ * selections go with it, exactly as the cascade intends.
+ */
 export async function replaceListingImages(
   listingId: string,
   images: readonly ListingImageInput[],
   db: DatabaseOrTransaction = getDb(),
 ): Promise<void> {
-  await db.delete(listingImages).where(eq(listingImages.listingId, listingId));
-  if (images.length === 0) return;
-  await db.insert(listingImages).values(
-    images.map((image) => ({
-      listingId,
-      fileId: image.fileId,
-      alt: image.alt ?? null,
-      position: image.position,
-    })),
-  );
+  if (images.length === 0) {
+    await db.delete(listingImages).where(eq(listingImages.listingId, listingId));
+    return;
+  }
+
+  const existing = await db
+    .select()
+    .from(listingImages)
+    .where(eq(listingImages.listingId, listingId))
+    .orderBy(asc(listingImages.position), asc(listingImages.id));
+
+  // One QUEUE per file id, not one row: a gallery may hold the same file twice,
+  // and a plain map would hand both incoming copies the same existing row and
+  // then delete the other.
+  const available = new Map<string, ListingImageRecord[]>();
+  for (const row of existing) {
+    const bucket = available.get(row.fileId);
+    if (bucket) bucket.push(row);
+    else available.set(row.fileId, [row]);
+  }
+
+  const survivors: { row: ListingImageRecord; image: ListingImageInput }[] = [];
+  const additions: ListingImageInput[] = [];
+  for (const image of images) {
+    const row = available.get(image.fileId)?.shift();
+    if (row) survivors.push({ row, image });
+    else additions.push(image);
+  }
+
+  const keptIds = survivors.map((s) => s.row.id);
+  await db
+    .delete(listingImages)
+    .where(
+      keptIds.length === 0
+        ? eq(listingImages.listingId, listingId)
+        : and(eq(listingImages.listingId, listingId), notInArray(listingImages.id, keptIds)),
+    );
+
+  // Only the rows whose rendered fields actually moved. A reorder that changed
+  // nothing should not bump `updated_at` on the whole gallery.
+  for (const { row, image } of survivors) {
+    const alt = image.alt ?? null;
+    if (row.position === image.position && row.alt === alt) continue;
+    await db
+      .update(listingImages)
+      .set({ position: image.position, alt })
+      .where(eq(listingImages.id, row.id));
+  }
+
+  if (additions.length > 0) {
+    await db.insert(listingImages).values(
+      additions.map((image) => ({
+        listingId,
+        fileId: image.fileId,
+        alt: image.alt ?? null,
+        position: image.position,
+      })),
+    );
+  }
 }
 
 /** Replace a listing's whole option list. */

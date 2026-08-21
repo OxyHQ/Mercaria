@@ -19,6 +19,7 @@ import type { ListingRecord } from '../../db/catalog/listingRepository.js';
 
 const findVariantsByListingIds = vi.fn();
 const findVariantOptionValues = vi.fn();
+const findVariantImages = vi.fn();
 const findListingChildren = vi.fn();
 const sellerProfileFind = vi.fn();
 const storeFind = vi.fn();
@@ -28,6 +29,10 @@ const getFavoritedListingIds = vi.fn();
 vi.mock('../../db/catalog/variantRepository.js', () => ({
   findVariantsByListingIds: (...args: unknown[]) => findVariantsByListingIds(...args),
   findVariantOptionValues: (...args: unknown[]) => findVariantOptionValues(...args),
+  // #850: the variant gallery read. Default to an EMPTY map rather than leaving
+  // it undefined, so every pre-existing case in this file exercises the
+  // `listing_fallback` branch — which is what those listings actually do.
+  findVariantImages: (...args: unknown[]) => findVariantImages(...args),
 }));
 
 vi.mock('../../db/catalog/listingRepository.js', () => ({
@@ -154,6 +159,7 @@ function listingRow(source: Partial<ListingRecord> = NATIVE_SOURCE): ListingReco
 beforeEach(() => {
   findVariantsByListingIds.mockReset().mockResolvedValue([]);
   findVariantOptionValues.mockReset().mockResolvedValue(new Map());
+  findVariantImages.mockReset().mockResolvedValue(new Map());
   findListingChildren.mockReset().mockResolvedValue(noChildren());
   sellerProfileFind.mockReset().mockResolvedValue([]);
   storeFind.mockReset().mockResolvedValue([STORE]);

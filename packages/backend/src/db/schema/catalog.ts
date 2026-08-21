@@ -23,10 +23,12 @@ import {
   boolean,
   check,
   doublePrecision,
+  foreignKey,
   index,
   integer,
   pgTable,
   text,
+  unique,
   uniqueIndex,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
@@ -678,6 +680,18 @@ export const listingImages = pgTable(
      * `canonical_images_file_id_idx`, which #90 added for its own trigger.
      */
     index('listing_images_file_id_idx').on(t.fileId),
+    /**
+     * The composite-FK target that lets `product_variant_images` prove one of
+     * its rows names an image and a variant BELONGING TO THE SAME LISTING.
+     *
+     * A table-level UNIQUE CONSTRAINT rather than a unique INDEX, and the
+     * distinction is load-bearing: PostgreSQL resolves a composite foreign key
+     * against `pg_constraint`, so a `uniqueIndex()` here type-checks, generates
+     * cleanly and fails at APPLY time with "there is no unique constraint
+     * matching given keys". The `listing_condition_details_id_listing_id_key`
+     * precedent one file over records the same measurement.
+     */
+    unique('listing_images_id_listing_id_key').on(t.id, t.listingId),
   ],
 );
 
@@ -870,6 +884,134 @@ export const productVariants = pgTable(
     uniqueIndex('product_variants_source_external_variant_key')
       .on(t.sourceConnectionId, t.sourceExternalVariantId)
       .where(sql`${t.sourceExternalVariantId} is not null`),
+    /**
+     * The other half of `product_variant_images`' same-listing proof. See the
+     * matching constraint on `listing_images` for why this is a `unique()`
+     * constraint and not a `uniqueIndex()`.
+     */
+    unique('product_variants_id_listing_id_key').on(t.id, t.listingId),
+  ],
+);
+
+/**
+ * `product_variant_images` — which of the LISTING's photographs show THIS
+ * configuration (#850, epic #367).
+ *
+ * ## It is a SELECTION from the listing's gallery, never an upload
+ *
+ * The row names a `listing_images` row, not a `file_id`. That is the whole
+ * design, and it is what keeps #91's ruling intact: catalogue photographs are
+ * drawn from the listing's OWN gallery, because two places establishing a
+ * photograph's ownership could disagree. A `file_id` column here would be a
+ * second upload channel by construction — a seller could attach to a variant a
+ * file that is in no gallery, and
+ * `mercaria_seller_draft_reject_borrowed_photo` (which reads
+ * `listing_images_file_id_idx`) would never see it. Naming the gallery row
+ * instead means every variant image was already admitted and vetted as a
+ * listing image; there is no second door to guard.
+ *
+ * It also settles the #90 collision the issue asks about: this table introduces
+ * no new `file_id`, so `mercaria_reject_canonical_condition_photo` — which
+ * refuses a `listing_condition_photos.file_id` that any `canonical_images` row
+ * already claims — is neither weakened nor duplicated. A file that could not
+ * become condition evidence still cannot; a file that reached the gallery can
+ * be pointed at from here without changing who owns it.
+ *
+ * ## An image from ANOTHER listing is unrepresentable, not refused
+ *
+ * The invariant "the image and the variant belong to the same listing" is
+ * cross-row, so a CHECK cannot express it (no subqueries) and a trigger would
+ * be a rule a service bug walks around. Instead the row carries `listing_id`
+ * and two COMPOSITE foreign keys — the `listing_condition_photos_detail_fk`
+ * device — so the pair is proved by the database on every write, including one
+ * made by `psql`.
+ *
+ * ## One image MAY be shared across variants
+ *
+ * `unique(variant_id, listing_image_id)` scopes uniqueness to the VARIANT,
+ * which is `canonical_images_variant_ref_key`'s shape exactly. One flat-lay
+ * photograph covering S/M/L is three rows, one per variant. A one-to-one
+ * relation would make that ordinary case unrepresentable and force a seller to
+ * upload the same photograph three times — the second upload channel again,
+ * arriving through the relation shape rather than through a column.
+ *
+ * ## Ordering is the VARIANT's own
+ *
+ * `position` is per row and indexed with `variant_id`, mirroring
+ * `canonical_images_variant_position_idx`. A variant's set is a different set
+ * from the listing's, so there is no listing order to inherit: the seller who
+ * chooses which three of eight photographs show the blue one is also choosing
+ * which of the three leads.
+ *
+ * ## Both foreign keys CASCADE
+ *
+ * A selection has no meaning without either side. Deleting the variant removes
+ * its selections; removing a photograph from the listing's gallery removes it
+ * from every variant that showed it — the alternative is a row pointing at a
+ * gallery entry a buyer can no longer see. Cascade is also the unanimous
+ * convention for this parent: all twelve pre-existing foreign keys onto
+ * `product_variants.id` cascade.
+ */
+export const productVariantImages = pgTable(
+  'product_variant_images',
+  {
+    id: generatedId(),
+    /**
+     * Carried so the two composite foreign keys below can share it. It is
+     * derivable from either parent, which is normally the argument against
+     * storing it — here it is the mechanism: a value that must simultaneously
+     * equal the variant's listing and the image's listing cannot name two.
+     */
+    listingId: text()
+      .notNull()
+      .references(() => listings.id, { onDelete: 'cascade' }),
+    variantId: text().notNull(),
+    /** The listing gallery row this variant shows. Never a bare file id. */
+    listingImageId: text().notNull(),
+    position: integer().notNull().default(0),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'product_variant_images_variant_fk',
+      columns: [t.variantId, t.listingId],
+      foreignColumns: [productVariants.id, productVariants.listingId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'product_variant_images_listing_image_fk',
+      columns: [t.listingImageId, t.listingId],
+      foreignColumns: [listingImages.id, listingImages.listingId],
+    }).onDelete('cascade'),
+    // One gallery photograph appears at most once on one variant. A repeated
+    // selection converges rather than doubling the gallery.
+    unique('product_variant_images_variant_id_listing_image_id_key').on(
+      t.variantId,
+      t.listingImageId,
+    ),
+    // The read: one variant's images, in the seller's order.
+    index('product_variant_images_variant_id_position_idx').on(t.variantId, t.position),
+    // "Which variants show this photograph?" — the read a gallery removal needs
+    // in order to report what it is about to change.
+    index('product_variant_images_listing_image_id_idx').on(t.listingImageId),
+    /**
+     * `listing_id` ALONE, and it is the cascade that needs it.
+     *
+     * Deleting a listing makes PostgreSQL issue `DELETE FROM
+     * product_variant_images WHERE listing_id = $1` for the plain foreign key
+     * above. No other index here leads with the column — the two below lead
+     * with `variant_id` and `listing_image_id` — so without this that RI check
+     * is a sequential scan of the whole table, once per listing deleted.
+     *
+     * It is stated rather than left to be noticed because an index is the one
+     * thing a functional test can never detect the absence of: every case in
+     * `catalog.realdb.test.ts` passes either way, and the teardown that deletes
+     * a store's listings is exactly the path that would degrade.
+     *
+     * It also serves the natural authoring read — every variant image on one
+     * listing, for the screen that assigns them.
+     */
+    index('product_variant_images_listing_id_idx').on(t.listingId),
   ],
 );
 
