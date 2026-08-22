@@ -4,6 +4,21 @@
  * `order_applied_discounts`, `order_tax_lines`, `refunds`,
  * `refund_line_items`.
  *
+ * ## "Immutable" here means ENFORCED, table by table
+ *
+ * That sentence was prose for a long time and the database backed almost none
+ * of it. #868 enforced the `refunds` half and #367 line 75 the order half, so each
+ * table below now says which shape it carries — and the declared half, with the
+ * reason for every column left open, is `db/commerceHistoryDispositions.ts`,
+ * which `commerce-history-immutability.realdb.test.ts` EXECUTES against a real
+ * server. Four tables refuse every UPDATE; `orders` and `order_items` move and
+ * are frozen by COLUMN. NOTHING refuses a DELETE, because every child cascades
+ * from `orders` and a refusal would break the cascade rather than protect
+ * anything.
+ *
+ * If you are adding a column here, it joins no freeze by default. Say what it
+ * is in that ledger; the census fails the build until you do.
+ *
  * ## The rule that governs every foreign key in this file
  *
  * An order is the record of what was actually sold, and a buyer or a tax
@@ -121,10 +136,29 @@ export const REFUND_STATUSES: readonly RefundStatus[] = [
 ];
 
 /**
- * `orders` — one seller's immutable portion of a checkout.
+ * `orders` — one seller's portion of a checkout, whose SNAPSHOT half is frozen.
  *
  * A multi-seller cart splits into one order per seller, all sharing a
  * `checkout_group_id`.
+ *
+ * ## Which half is frozen, and which moves
+ *
+ * `orders_snapshot_immutable` (#367 line 75) refuses a rewrite of what was SOLD: the
+ * order number, the group, the idempotency key, who sold it, the commercial
+ * role, the source channel, the destination address snapshot, the chosen
+ * shipping method and cost, all twenty `totals_*` columns and the five
+ * `fx_rate_*` columns. `orders_buyer_origin_immutable` (#106) governs the four
+ * buyer-identity columns separately, because it must permit
+ * `claimed_by_oxy_user_id` value → NULL (an audited unclaim) and the shared
+ * write-once guard would refuse that.
+ *
+ * What legitimately moves: `status`, the payment linkage
+ * (`payment_status`, `payment_paid_at`, `payment_id`, `payment_provider`,
+ * `payment_reference`), `shipping_tracking_number`, `moderation_hold`, the
+ * claim pair, the four connector-sync `source_*` columns, and `updated_at`.
+ * `created_at` also stays open, deliberately: it is the RESERVATION CLOCK, and
+ * `services/__tests__/checkout.stripe.realdb.test.ts` moves it to travel past
+ * the reservation TTL, which nothing else can express.
  *
  * `moderation_hold` is deliberately SEPARATE from `status`: a freeze is not a
  * lifecycle state and must not consume one. A `frozen` status would mean every
@@ -206,11 +240,18 @@ export const orders = pgTable(
      * writer that forgot would silently classify a retail sale as a
      * marketplace one and hand it to commission arithmetic.
      *
-     * Immutable in practice rather than by trigger: nothing in this codebase
-     * updates it, `orders_commercial_role_seller_check` below would refuse the
-     * only value change that could matter (a role move without the matching
-     * seller-type move), and the money path reads it on every posting rather
-     * than caching a copy.
+     * Frozen by `orders_snapshot_immutable` (#367 line 75).
+     *
+     * This used to read "immutable in practice rather than by trigger", resting
+     * on `orders_commercial_role_seller_check` refusing "the only value change
+     * that could matter (a role move without the matching seller-type move)".
+     * That was measured and it is FALSE: the CHECK refuses a move to
+     * `informational` (23514), and then ACCEPTS a move to `mercaria_retail`
+     * made TOGETHER with the matching `seller_type` move. A CHECK constrains
+     * VALUES; it says nothing about rewriting one. And the change it admitted
+     * is precisely the one that matters — it reclassifies a marketplace sale as
+     * a Mercaria-retail one, which is the input ADR 0004 D7's commission
+     * arithmetic reads on every posting.
      */
     commercialRole: text({ enum: asEnumValues(ORDER_COMMERCIAL_ROLES) })
       .notNull()
@@ -515,6 +556,14 @@ export const orders = pgTable(
  *
  * `listing_id`, `variant_id` and `location_id` are unconstrained historical
  * references; see this file's docblock.
+ *
+ * Frozen by COLUMN, not by row: `order_items_snapshot_immutable` (#367 line 75) refuses
+ * a rewrite of the twenty columns that say what was sold and at what price, and
+ * `order_items_condition_immutable` (#90) governs the three condition columns
+ * separately. `position` and the two timestamps stay open — `position` because
+ * `db/__tests__/condition.realdb.test.ts` asserts an ordinary UPDATE still
+ * succeeds there, which is what proves both triggers are column-scoped rather
+ * than whole-row refusals that would pass every other assertion vacuously.
  */
 export const orderItems = pgTable(
   'order_items',
@@ -613,6 +662,10 @@ export const orderItems = pgTable(
  * representations of one fact and can disagree in LENGTH — the divergence a
  * relational shape makes unrepresentable. Not `jsonb` either: the shape is
  * entirely known, which is the bar `CONVENTIONS.md` sets for a real table.
+ *
+ * Append-only by `order_item_option_values_append_only` (#367 line 75): this is what the
+ * receipt says the buyer chose. DELETE stays permitted: the FK cascade from
+ * `order_items`.
  */
 export const orderItemOptionValues = pgTable(
   'order_item_option_values',
@@ -635,9 +688,19 @@ export const orderItemOptionValues = pgTable(
  * `order_status_history` — the append-only lifecycle trail.
  *
  * `timestamps: true` is NOT ported: the source sub-document had only its own
- * `at`, and the ABSENCE of `updated_at` is the append-only contract. `created_at`
- * is not added either — `at` already is it, and two birth timestamps that can
- * disagree is exactly the redundancy this port removes.
+ * `at`. `created_at` is not added either — `at` already is it, and two birth
+ * timestamps that can disagree is exactly the redundancy this port removes.
+ *
+ * ## Append-only is `order_status_history_append_only`, not the missing column
+ *
+ * The ABSENCE of `updated_at` used to be described as the append-only contract.
+ * It is not one: it stops an ORM idiom and nothing else. Measured against a
+ * real server before #367 line 75, the status, the instant, the acting account and the
+ * free-text note were ALL rewritable — so an audit row could be reattributed to
+ * a different person, which is the one thing an audit trail exists to prevent.
+ * The trigger refuses every UPDATE. DELETE stays permitted, because this table
+ * cascades from `orders` and a refusal would break that cascade rather than
+ * protect anything.
  *
  * ## The actor is a KIND plus at most one id (ADR 0003 D16, #106)
  *
@@ -726,6 +789,10 @@ export const orderStatusHistory = pgTable(
  * `order_applied_discounts` — one discount's contribution, persisted so a refund
  * can be computed against exactly what was charged.
  *
+ * Append-only by `order_applied_discounts_append_only` (#367 line 75) — that sentence is
+ * only true if the allocation cannot move after the charge, and until #367 line 75 it
+ * could. DELETE stays permitted: the FK cascade from `orders`.
+ *
  * `amount` is a SINGLE-currency shop `Money`. `discount_id` carries no foreign
  * key: like the line's `listing_id` it is historical provenance, and a discount
  * IS deleted by `discount.service.deleteDiscount`, so a constraint would either
@@ -776,7 +843,14 @@ export const orderAppliedDiscounts = pgTable(
   ],
 );
 
-/** `order_tax_lines` — one applied rate's contribution, a SINGLE-currency shop amount. */
+/**
+ * `order_tax_lines` — one applied rate's contribution, a SINGLE-currency shop
+ * amount.
+ *
+ * Append-only by `order_tax_lines_append_only` (#367 line 75): a tax authority can ask
+ * about this figure years later. DELETE stays permitted: the FK cascade from
+ * `orders`.
+ */
 export const orderTaxLines = pgTable(
   'order_tax_lines',
   {

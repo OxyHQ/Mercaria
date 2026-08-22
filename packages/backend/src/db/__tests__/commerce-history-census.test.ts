@@ -6,7 +6,7 @@
  * finding fewer order-referencing tables looks identical to there BEING fewer,
  * and the miss is silent. So the population is DERIVED here — the transitive
  * foreign-key closure of `orders`, walked over the same drizzle objects
- * drizzle-kit emits DDL from — and `orderHistoryDispositions.ts` must cover
+ * drizzle-kit emits DDL from — and `commerceHistoryDispositions.ts` must cover
  * exactly it. A new table naming an order fails the build until somebody says
  * what a migration may rewrite in it, which forces the decision at the moment
  * the reference is added, by the person adding it.
@@ -163,7 +163,7 @@ describe('the order-history population is derived, not remembered', () => {
     expect(
       gaps.undeclared,
       'These tables hold a fact about a placed order and no disposition says what a ' +
-        'migration may rewrite in them. Add an entry to `orderHistoryDispositions.ts` ' +
+        'migration may rewrite in them. Add an entry to `commerceHistoryDispositions.ts` ' +
         'saying what the database does to an UPDATE and a DELETE, and why.',
     ).toEqual([]);
 

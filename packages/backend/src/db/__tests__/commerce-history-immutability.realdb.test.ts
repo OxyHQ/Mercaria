@@ -3,7 +3,7 @@
  * epic #367's "No historical commerce snapshot is rewritten" that a declaration
  * cannot supply.
  *
- * `order-history-census.test.ts` proves the LEDGER covers every table that names
+ * `commerce-history-census.test.ts` proves the LEDGER covers every table that names
  * an order. That census would pass unchanged against a database with no triggers
  * at all, so on its own it measures a list rather than a schema. This file asks
  * the database what it actually does.
@@ -51,6 +51,9 @@
  *    known to be capable of reporting something other than "refused".
  */
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql } from 'drizzle-orm';
 import { closePostgres, connectPostgres, type Database } from '../postgres.js';
@@ -356,6 +359,8 @@ interface Probes {
   readonly unwired: readonly RowProbe[];
   /** `table` -> the columns its column-freeze triggers actually name. */
   readonly enforcedColumns: ReadonlyMap<string, readonly string[]>;
+  /** Tables carrying an UPDATE trigger that is neither shared function. */
+  readonly bespokeTriggerTables: ReadonlySet<string>;
 }
 
 /** The function every column-freeze trigger runs. Its ARGUMENTS are the list. */
@@ -387,7 +392,18 @@ const COLUMN_FREEZE_FUNCTION = 'mercaria_commerce_snapshot_columns_immutable';
  */
 const RAISE_SQLSTATES: readonly string[] = ['23514', 'P0001', '23001'];
 
-/** The tables #367 line 75 froze — the ones whose refusal must be 23514 exactly. */
+/**
+ * The tables #367 line 75 froze — the ones whose refusal must be 23514 exactly.
+ *
+ * `orders` is deliberately NOT here even though #367 line 75 froze forty-nine of its
+ * columns. Four of its declared columns (`buyer_origin`,
+ * `buyer_guest_checkout_id`, `buyer_oxy_user_id`, `claimed_by_oxy_user_id`) are
+ * governed by #106's `orders_buyer_origin_immutable`, whose body passes no
+ * `USING ERRCODE` and therefore raises plpgsql's default P0001. Listing
+ * `orders` would fail on those four, and widening the assertion to admit P0001
+ * for the whole table would stop it discriminating for the other forty-five.
+ * They are covered by `RAISE_SQLSTATES` above and by the column probe.
+ */
 const SNAPSHOT_TABLES: readonly string[] = [
   'payments',
   'refunds',
@@ -397,6 +413,11 @@ const SNAPSHOT_TABLES: readonly string[] = [
   'provider_accounts',
   'payment_provider_events',
   'payment_outboxes',
+  // #367 line 75. Both triggers on `order_items` pass `check_violation`, so the whole
+  // declared set is assertable here; `retail_procurement_intents` has only the
+  // shared one.
+  'order_items',
+  'retail_procurement_intents',
 ];
 
 /**
@@ -423,6 +444,48 @@ const TRIGGER_ARG_SQL = `
     and not t.tgisinternal
     and p.proname = '${COLUMN_FREEZE_FUNCTION}'
 `;
+
+/** The whole-row refusal function, shared by every append-only table here. */
+const ROW_FREEZE_FUNCTION = 'mercaria_commerce_snapshot_append_only';
+
+/**
+ * Tables carrying an UPDATE trigger that is NEITHER of the two shared functions.
+ *
+ * DERIVED, never listed. `orders` and `order_items` each carry a BESPOKE freeze
+ * that predates #367 line 75 — #106's `orders_buyer_origin_immutable` and #90's
+ * `order_items_condition_immutable` — whose column names live inside a function
+ * BODY, where there is no argument list to read back. So for those two the
+ * declaration is legitimately WIDER than what the shared function names, and
+ * the strict equality below would fail on a correct schema.
+ *
+ * Deriving the exemption from `pg_trigger` rather than writing the two names
+ * here is the difference between a rule and a hand-maintained allow-list: a
+ * table that LOSES its bespoke trigger silently returns to strict equality and
+ * fails, which is the direction that matters.
+ */
+const BESPOKE_TRIGGER_SQL = `
+  select distinct c.relname as tbl
+  from pg_trigger t
+  join pg_class c on c.oid = t.tgrelid
+  join pg_proc p on p.oid = t.tgfoid
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and not t.tgisinternal
+    and (t.tgtype::int & 16) > 0
+    and p.proname not in ('${COLUMN_FREEZE_FUNCTION}', '${ROW_FREEZE_FUNCTION}')
+`;
+
+/**
+ * One SQL string literal, single quotes doubled.
+ *
+ * Every caller passes a constant written in this file, so this is not a
+ * sanitiser standing between user input and the server — it is what makes a
+ * value carrying a quote (`'probe-a'`, which is itself quoted) survive being
+ * embedded in a `do $probe$ ... $probe$` body.
+ */
+function quoteLiteral(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
+}
 
 /** Pull the quoted arguments out of one `CREATE TRIGGER ... EXECUTE FUNCTION f('a', 'b')`. */
 function argumentsOf(definition: string): readonly string[] {
@@ -473,12 +536,15 @@ async function runProbes(): Promise<Probes> {
       ]);
     }
 
+    const bespoke = await tx.execute<{ tbl: string }>(sql.raw(BESPOKE_TRIGGER_SQL));
+
     return {
       closure: [...closureRows].map((row) => row.tname),
       rows: [...rows],
       columns: [...columns],
       unwired: [...unwired],
       enforcedColumns,
+      bespokeTriggerTables: new Set([...bespoke].map((row) => row.tbl)),
     };
   });
 }
@@ -583,8 +649,9 @@ describe('every declared disposition is what the database does', () => {
     expect(strays).toEqual([]);
 
     // …and it measured them, rather than finding none and agreeing with itself.
+    // Measured after #367 line 75: 100 columns across the ten tables (67 before it).
     const measured = probes.columns.filter((row) => SNAPSHOT_TABLES.includes(row.tbl));
-    expect(measured.length).toBeGreaterThanOrEqual(60);
+    expect(measured.length).toBeGreaterThanOrEqual(95);
   });
 });
 
@@ -597,12 +664,35 @@ describe('what the triggers freeze is what the ledger declares', () => {
     // column probe instead. Widening this to them would not check them, it would
     // just demand they be rewritten.
     const disagreements: string[] = [];
+    let strictlyCompared = 0;
     const tables = new Set(probes.enforcedColumns.keys());
     for (const table of [...tables].sort()) {
       const enforced = [...(probes.enforcedColumns.get(table) ?? [])].sort();
       const declared = [...(commerceHistoryDispositionFor(table)?.frozenColumns ?? [])].sort();
-      if (enforced.join(',') !== declared.join(',')) {
-        disagreements.push(`${table}: trigger freezes [${enforced}], ledger declares [${declared}]`);
+
+      // A table with NO bespoke trigger must match exactly — the original rule,
+      // and still the one every table but two is held to.
+      if (!probes.bespokeTriggerTables.has(table)) {
+        strictlyCompared += 1;
+        if (enforced.join(',') !== declared.join(',')) {
+          disagreements.push(
+            `${table}: trigger freezes [${enforced}], ledger declares [${declared}]`,
+          );
+        }
+        continue;
+      }
+
+      // A table that ALSO carries a bespoke freeze (#90 on `order_items`, #106
+      // on `orders`) declares more than the shared function names, because the
+      // bespoke one's columns live in a function BODY with no argument list to
+      // read back. Containment is what is checkable here; that the leftover
+      // columns are genuinely frozen is asserted BEHAVIOURALLY by the column
+      // probe above, which probes every declared column on every table.
+      const notDeclared = enforced.filter((column) => !declared.includes(column));
+      if (notDeclared.length > 0) {
+        disagreements.push(
+          `${table}: trigger freezes [${notDeclared}] which the ledger does not declare`,
+        );
       }
     }
     expect(
@@ -612,16 +702,29 @@ describe('what the triggers freeze is what the ledger declares', () => {
         'freezes and no entry mentions is invisible to it, and so is one the trigger ' +
         'quietly stopped naming.',
     ).toEqual([]);
+
+    // The vacuity floor on the RELAXATION itself. If `BESPOKE_TRIGGER_SQL` ever
+    // matched everything — a renamed shared function would do it — every table
+    // would fall into the containment branch and this assertion would pass
+    // while checking almost nothing. Measured after #367 line 75: 9 of the 11 tables
+    // carrying a shared column-freeze trigger are compared strictly, the two
+    // exempt being `orders` (#106's trigger) and `order_items` (#90's).
+    expect(
+      strictlyCompared,
+      'Almost every table should still be held to EXACT equality; only the two ' +
+        'carrying a pre-existing bespoke freeze are exempt.',
+    ).toBeGreaterThanOrEqual(9);
   });
 
   it('read a plausible number of trigger arguments back', () => {
     // The vacuity floor for THIS derivation. `pg_get_triggerdef` returning
     // something the parser does not recognise, or the function being renamed,
     // would leave `enforcedColumns` empty — and an empty map compared against an
-    // empty declaration set agrees perfectly. Measured: 8 tables, 67 columns.
-    expect(probes.enforcedColumns.size).toBeGreaterThanOrEqual(8);
+    // empty declaration set agrees perfectly. Measured after #367 line 75: 11 tables and
+    // 146 columns named in trigger arguments (8 and 67 before it).
+    expect(probes.enforcedColumns.size).toBeGreaterThanOrEqual(10);
     const total = [...probes.enforcedColumns.values()].flat().length;
-    expect(total).toBeGreaterThanOrEqual(60);
+    expect(total).toBeGreaterThanOrEqual(140);
   });
 
   it('parses an argument list it is handed', () => {
@@ -640,13 +743,13 @@ describe('the probe measures something', () => {
   it('observed enough refusals to be worth reading', () => {
     // The floors are the whole defence against a probe that broke and reported
     // `allowed` everywhere — which is exactly what an unprotected schema looks
-    // like. Measured at the time of writing: 27 tables refuse a no-op UPDATE, 20
-    // refuse DELETE, and 112 columns are frozen.
+    // like. Measured after #367 line 75: 31 tables refuse a no-op UPDATE, 20 refuse
+    // DELETE, and 191 columns are frozen. (Before it: 27, 20 and 112.)
     const refusedUpdate = probes.rows.filter((row) => row.upd === 'refused');
     const refusedDelete = probes.rows.filter((row) => row.del === 'refused');
-    expect(refusedUpdate.length).toBeGreaterThanOrEqual(24);
+    expect(refusedUpdate.length).toBeGreaterThanOrEqual(28);
     expect(refusedDelete.length).toBeGreaterThanOrEqual(18);
-    expect(probes.columns.length).toBeGreaterThanOrEqual(100);
+    expect(probes.columns.length).toBeGreaterThanOrEqual(180);
     expect(probes.columns.every((row) => RAISE_SQLSTATES.includes(row.verdict))).toBe(true);
 
     // And the payment/refund half specifically. The totals above are dominated
@@ -695,17 +798,35 @@ describe('the probe goes red when the enforcement is gone', () => {
   it('reports `allowed` for a column that is not frozen', async () => {
     // The column probe's own self-test, and the one that matters: without it a
     // probe that always answered "refused" would pass every column assertion.
-    // `order_items.quantity` sits on a table WITH a column-scoped trigger, so
-    // this also proves the trigger is column-scoped rather than a whole-row
-    // refusal the column probe happened to trip.
+    // The column sits on a table WITH a column-scoped trigger, so this also
+    // proves that trigger is column-scoped rather than a whole-row refusal the
+    // column probe happened to trip.
+    //
+    // This used to aim at `order_items.quantity`. #367 line 75 froze it — quantity is
+    // exactly "what was sold" — so the control MOVED to `order_items.position`
+    // rather than being deleted, the way the `float8` control below moved when
+    // #368 froze the column it used to name. `position` is the right successor
+    // for the same reason it is left unfrozen: it is presentation ordering
+    // rather than a term of the sale, and `db/__tests__/condition.realdb.test.ts`
+    // independently asserts an ordinary UPDATE still succeeds there.
     const control = await db.transaction(async (tx) => {
       await tx.execute(sql`create temp table probe_column_plan(tbl name, col name) on commit drop`);
-      await tx.execute(sql`insert into probe_column_plan values ('order_items', 'quantity')`);
+      await tx.execute(sql`insert into probe_column_plan values ('order_items', 'position')`);
       await tx.execute(sql.raw(COLUMN_PROBE_SQL));
       const rows = await tx.execute<ColumnProbe>(sql`select tbl, col, verdict from probe_columns`);
       return [...rows];
     });
-    expect(control).toEqual([{ tbl: 'order_items', col: 'quantity', verdict: 'allowed' }]);
+    expect(control).toEqual([{ tbl: 'order_items', col: 'position', verdict: 'allowed' }]);
+  });
+
+  it('still has a column-scoped trigger on the table that control names', () => {
+    // The other half of moving the control. `order_items.position` only proves
+    // "column-scoped rather than whole-row" while `order_items` actually
+    // carries a column-scoped freeze — otherwise the control degenerates into
+    // "an unprotected table allows writes", which is true of any table and
+    // discriminates nothing.
+    expect(commerceHistoryDispositionFor('order_items')?.frozenColumns ?? []).toContain('quantity');
+    expect(commerceHistoryDispositionFor('order_items')?.rowUpdate).toBe('allowed');
   });
 
   it('raises rather than skipping a column type it has no probe values for', async () => {
@@ -742,5 +863,209 @@ describe('the probe goes red when the enforcement is gone', () => {
         .map((column) => `${entry.table}.${column}`),
     );
     expect(float8Columns).toContain('payments.platform_rate_rate');
+  });
+});
+
+/**
+ * Each #367-line-75 trigger mutated ON ITS OWN.
+ *
+ * The `unwired` self-test above drops EVERY trigger at once, which proves the
+ * refusals come from triggers COLLECTIVELY and nothing more. That is not enough
+ * when several triggers guard adjacent things: N identical-looking triggers can
+ * be added and only one of them actually be load-bearing for the fixture in
+ * hand, leaving N-1 defended by accident and green forever.
+ *
+ * So each trigger below is omitted INDIVIDUALLY — every other real trigger on
+ * the table is still replicated — and the write it forbids must then be
+ * ACCEPTED. A trigger that is inert, misspells its table, or is shadowed by a
+ * sibling that was doing the work all along fails here and nowhere else.
+ *
+ * The clone takes locks on nothing shared, so this is safe on the suite's
+ * shared database; dropping the real trigger would take ACCESS EXCLUSIVE on
+ * `orders` while sibling realdb files are using it.
+ */
+describe('each #367-line-75 trigger is individually load-bearing', () => {
+  /**
+   * The seven triggers, each with a write it alone must refuse.
+   *
+   * The column named for a column-scoped trigger is deliberately one that the
+   * table's OTHER (bespoke) trigger does not govern, or the case would pass
+   * with the trigger under test removed.
+   */
+  const CASES: readonly {
+    readonly trigger: string;
+    readonly table: string;
+    readonly column: string;
+    readonly first: string;
+    readonly second: string;
+  }[] = [
+    // The four whole-row refusals. Any column serves, since the trigger refuses
+    // the UPDATE outright.
+    {
+      trigger: 'order_status_history_append_only',
+      table: 'order_status_history',
+      column: 'note',
+      first: `'probe-a'`,
+      second: `'probe-b'`,
+    },
+    {
+      trigger: 'order_item_option_values_append_only',
+      table: 'order_item_option_values',
+      column: 'value',
+      first: `'probe-a'`,
+      second: `'probe-b'`,
+    },
+    {
+      trigger: 'order_applied_discounts_append_only',
+      table: 'order_applied_discounts',
+      column: 'title',
+      first: `'probe-a'`,
+      second: `'probe-b'`,
+    },
+    {
+      trigger: 'order_tax_lines_append_only',
+      table: 'order_tax_lines',
+      column: 'name',
+      first: `'probe-a'`,
+      second: `'probe-b'`,
+    },
+    // The three column-scoped ones.
+    {
+      trigger: 'orders_snapshot_immutable',
+      table: 'orders',
+      // NOT one of #106's four buyer columns, which `orders_buyer_origin_immutable`
+      // would go on refusing with this trigger gone.
+      column: 'totals_grand_total_shop_amount',
+      first: '100',
+      second: '999',
+    },
+    {
+      trigger: 'order_items_snapshot_immutable',
+      table: 'order_items',
+      // NOT a condition column, which #90's trigger would go on refusing.
+      column: 'title',
+      first: `'probe-a'`,
+      second: `'probe-b'`,
+    },
+    {
+      trigger: 'retail_procurement_intents_snapshot_immutable',
+      table: 'retail_procurement_intents',
+      column: 'buyer_locked_total_amount',
+      first: '100',
+      second: '999',
+    },
+  ];
+
+  /**
+   * Clone `table` with every real UPDATE/DELETE trigger EXCEPT `omit`, then move
+   * `column` and report what happened.
+   *
+   * `omit` of `''` replicates everything, which is the positive control: the
+   * same statement against the full wiring must be REFUSED, so an ACCEPTED with
+   * one trigger removed is attributable to that removal rather than to the
+   * clone being wrong.
+   */
+  async function probeWithout(
+    testCase: (typeof CASES)[number],
+    omit: string,
+  ): Promise<string> {
+    return db.transaction(async (tx) => {
+      await tx.execute(
+        sql.raw(`
+          do $probe$
+          declare
+            target name := ${quoteLiteral(testCase.table)};
+            col record;
+            trg record;
+            verdict text;
+          begin
+            create temp table probe_one(verdict text) on commit drop;
+            execute format('create temp table probe_clone (like public.%I) on commit drop', target);
+            for col in
+              select attname from pg_attribute
+              where attrelid = 'pg_temp.probe_clone'::regclass and attnum > 0
+                and not attisdropped and attnotnull and attgenerated = ''
+            loop
+              execute format('alter table pg_temp.probe_clone alter column %I drop not null', col.attname);
+            end loop;
+            for trg in
+              select x.tgname,
+                     regexp_replace(pg_get_triggerdef(x.oid), '^.*EXECUTE (FUNCTION|PROCEDURE) ', '') as fn,
+                     case when (x.tgtype::int & 2) > 0 then 'before' else 'after' end as timing,
+                     array_to_string(array_remove(array[
+                       case when (x.tgtype::int & 4) > 0 then 'insert' end,
+                       case when (x.tgtype::int & 8) > 0 then 'delete' end,
+                       case when (x.tgtype::int & 16) > 0 then 'update' end], null), ' or ') as events,
+                     case when (x.tgtype::int & 1) > 0 then 'for each row' else 'for each statement' end as lvl,
+                     x.tgenabled
+              from pg_trigger x
+              where x.tgrelid = format('public.%I', target)::regclass
+                and not x.tgisinternal
+                and (x.tgtype::int & 24) > 0
+            loop
+              if trg.tgenabled <> 'O' then continue; end if;
+              if trg.tgname = ${quoteLiteral(omit)} then continue; end if;
+              execute format('create trigger %I %s %s on pg_temp.probe_clone %s execute function %s',
+                             trg.tgname, trg.timing, trg.events, trg.lvl, trg.fn);
+            end loop;
+            execute format('insert into pg_temp.probe_clone (%I) values (%s)',
+                           ${quoteLiteral(testCase.column)}, ${quoteLiteral(testCase.first)});
+            begin
+              execute format('update pg_temp.probe_clone set %I = %s',
+                             ${quoteLiteral(testCase.column)}, ${quoteLiteral(testCase.second)});
+              verdict := 'allowed';
+            exception when others then
+              get stacked diagnostics verdict = returned_sqlstate;
+            end;
+            insert into probe_one values (verdict);
+          end
+          $probe$;
+        `),
+      );
+      const result = await tx.execute<{ verdict: string }>(sql`select verdict from probe_one`);
+      return [...result][0]?.verdict ?? 'MISSING';
+    });
+  }
+
+  for (const testCase of CASES) {
+    it(`${testCase.trigger} alone refuses ${testCase.table}.${testCase.column}`, async () => {
+      // Positive control FIRST: with every trigger wired, the write is refused.
+      // Without this, an `allowed` below could mean the clone never enforced
+      // anything rather than that this trigger is what enforces it.
+      const wired = await probeWithout(testCase, '');
+      expect(
+        wired,
+        `With every trigger replicated, ${testCase.table}.${testCase.column} was not refused — ` +
+          'the clone is not measuring the enforcement at all.',
+      ).toBe('23514');
+
+      const without = await probeWithout(testCase, testCase.trigger);
+      expect(
+        without,
+        `Removing ONLY ${testCase.trigger} left ${testCase.table}.${testCase.column} still refused, ` +
+          'so that trigger is not what refuses it — it is inert, or a sibling is doing its work ' +
+          'and it would go on passing if it were deleted.',
+      ).toBe('allowed');
+    }, 30_000);
+  }
+
+  it('covers every trigger 0137 creates, counted from the migration itself', () => {
+    // The vacuity floor. A case list that drifted behind the migration would
+    // leave a trigger with no individual mutation and nothing would say so, so
+    // the expected set is READ OUT of the applied SQL rather than restated.
+    const sqlText = readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        '..',
+        '..',
+        '..',
+        'drizzle',
+        '0137_order_snapshot_immutability.sql',
+      ),
+      'utf8',
+    );
+    const created = [...sqlText.matchAll(/^CREATE TRIGGER (\w+)$/gmu)].map((m) => m[1]).sort();
+    expect(created.length, 'read no CREATE TRIGGER out of 0137 — the pattern is broken').toBe(7);
+    expect(CASES.map((c) => c.trigger).sort()).toEqual(created);
   });
 });
