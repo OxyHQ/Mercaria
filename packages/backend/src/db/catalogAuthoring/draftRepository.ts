@@ -124,7 +124,21 @@ export async function lockDraftForPublish(
   return rows[0] ?? null;
 }
 
-/** A store's drafts, newest activity first. */
+/**
+ * A store's drafts, newest activity first.
+ *
+ * `id` is the second ordering term and it is load-bearing. `updated_at` is not
+ * unique at any grain — `$onUpdate` stamps a JS `Date`, and a create stamps the
+ * TRANSACTION timestamp, so drafts created together share it exactly — and this
+ * read is OFFSET-paginated. An offset page over an ordering that ties both
+ * REPEATS a row on one page and DROPS another for good, because the database may
+ * order the tied block differently between the two queries. For a seller that is
+ * a draft that has vanished from their own list.
+ *
+ * `desc` rather than `asc` on the tie-break so it agrees with the primary term:
+ * the id is uuid v7, so within one `updated_at` the newer draft sorts first,
+ * which is the order the read already claims to serve.
+ */
 export async function listDrafts(
   db: DatabaseOrTransaction,
   storeId: string,
@@ -141,7 +155,7 @@ export async function listDrafts(
             eq(catalogAuthoringDrafts.status, options.status),
           ),
     )
-    .orderBy(desc(catalogAuthoringDrafts.updatedAt))
+    .orderBy(desc(catalogAuthoringDrafts.updatedAt), desc(catalogAuthoringDrafts.id))
     .limit(options.limit)
     .offset(options.offset);
 }

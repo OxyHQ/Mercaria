@@ -53,7 +53,13 @@ export async function listAttributeDefinitionsByIds(
     .select()
     .from(attributeDefinitions)
     .where(inArray(attributeDefinitions.id, [...ids]))
-    .orderBy(asc(attributeDefinitions.key));
+    // `key` alone is not a total order over an id set: the only NON-partial
+    // unique here is `(key, version)`, and this read is deliberately by VERSION
+    // id, so two versions of one key can both be cited and tie. The composed
+    // schema is hashed into `authoringEtag`, so a tie is not cosmetic — it
+    // produces two validators for identical content and every revalidation
+    // misses. `version` completes the unique, which makes the order total.
+    .orderBy(asc(attributeDefinitions.key), asc(attributeDefinitions.version));
 }
 
 /**
@@ -129,7 +135,13 @@ export async function listPublishedProductTypesForCategory(
     .select()
     .from(productTypeDefinitions)
     .where(inArray(productTypeDefinitions.id, [...byId.keys()]))
-    .orderBy(asc(productTypeDefinitions.key));
+    // `(key, version)` for the reason above: `key` is unique only under
+    // `product_type_definitions_one_published_per_key`, a PARTIAL index. The
+    // CTE above does filter `lifecycle = 'published'`, so the predicate happens
+    // to hold today — but it holds one hop away, in a different statement, with
+    // nothing local to this ORDER BY that would break if the CTE were edited.
+    // The non-partial `(key, version)` unique needs no such argument.
+    .orderBy(asc(productTypeDefinitions.key), asc(productTypeDefinitions.version));
 
   return definitions.map((definition) => ({
     definition,
