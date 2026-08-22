@@ -542,9 +542,6 @@ const PERMITTED_TRANSITIVE_WRITES: Readonly<Record<string, string>> = Object.fre
 const EXPECTED_DISPOSITION_COUNT = 0;
 
 describe('WALL 1 survives a one-hop wrapper (#568)', () => {
-  const entries = (): string[] =>
-    domainRelativePaths().filter((relative) => !relative.startsWith('db/schema/'));
-
   it('disposes of exactly the paths somebody has reviewed, and no more', () => {
     expect(
       Object.keys(PERMITTED_TRANSITIVE_WRITES),
@@ -553,8 +550,13 @@ describe('WALL 1 survives a one-hop wrapper (#568)', () => {
   });
 
   it('no module in the domain can REACH a category write', () => {
-    const modules = entries();
-    expect(modules.length, 'no entry module to walk from').toBeGreaterThanOrEqual(7);
+    // The WHOLE population, `db/schema/` included. An earlier draft excluded the
+    // schema module on the assumption that a table export has no body to walk;
+    // measured, it passes either way, so the exclusion bought nothing and an
+    // exclusion that buys nothing is one a later reader mistakes for a known
+    // hazard. The wall is wider without it.
+    const modules = domainRelativePaths();
+    expect(modules.length, 'no entry module to walk from').toBeGreaterThanOrEqual(8);
     let bodies = 0;
     for (const entry of modules) {
       const result = forbiddenSymbolsReachableFrom({
@@ -576,8 +578,11 @@ describe('WALL 1 survives a one-hop wrapper (#568)', () => {
       ).toEqual([]);
     }
     // The vacuity floor, and it is the one that matters: a walk that resolved
-    // nothing finds nothing and reads exactly like a clean domain.
-    expect(bodies, 'the import walk reached too few bodies to be real').toBeGreaterThanOrEqual(20);
+    // nothing finds nothing and reads exactly like a clean domain. Measured at
+    // 171 today; 100 is below it so a routine change does not fail the build,
+    // and far enough above zero that a walk which collapsed to a handful does.
+    // The first draft said 20, which 171 satisfies and a broken walk would too.
+    expect(bodies, 'the import walk reached too few bodies to be real').toBeGreaterThanOrEqual(100);
   });
 
   it('MUTATION SELF-TEST: a one-hop wrapper is caught, through the real walker', () => {
