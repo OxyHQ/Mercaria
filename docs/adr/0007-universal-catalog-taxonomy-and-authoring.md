@@ -1170,6 +1170,149 @@ tuple fails `tsc` until somebody decides — the `CHANNEL_ENTITY_POLICY` and
 `MERGE_REHOMING_PLAN` shape, where a type that must NOT be classified is as much
 a decision as one that must.
 
+### D16. The vocabulary: nineteen terms, one home each, defined once
+
+#367's "Canonical vocabulary" table names eighteen concepts and asks that "the
+ADR and code must define these terms once and use them consistently". This
+decision is the ADR half. It does **not** restate the definitions: the epic's
+sentence is *once*, and a second description of a concept is the thing that comes
+to disagree with the first — which is the same argument D1 makes about a second
+identifier and D4 makes about a second localization table.
+
+So the two artefacts hold two different facts and the census binds them:
+
+- **This decision holds the TERM SET and each term's home** — the identity
+  question, "what is the list, and where does each one live".
+- **[`docs/catalog-glossary.md`](../catalog-glossary.md) holds the MEANINGS** —
+  what each concept *is*, with the annotations a generator could not write.
+
+| Term | Home |
+|---|---|
+| Taxonomy category | `categories` |
+| Navigation node | `navigation_nodes` |
+| Merchandising collection | `collections` |
+| Product type / profile | `product_type_definitions` |
+| Brand | `brands` |
+| Product family | `canonical_product_families` |
+| Canonical product | `canonical_products` |
+| Canonical variant | `canonical_variants` |
+| Variant axis | `native_listing_variant_axes` |
+| Attribute | `attribute_definitions` |
+| Controlled value | `attribute_enum_values` |
+| Entity reference | *no table — a SHAPE, a foreign key to a canonical entity* |
+| Compatibility / fitment | `generic_compatibility_relations` |
+| Native listing | `listings` |
+| Offer | `offers` |
+| Inventory | `inventory_levels` |
+| Claim | `native_listing_attribute_claims` |
+| Selected canonical fact | `canonical_attribute_values` |
+| Proposal | `catalog_proposals` |
+
+**Entity reference is a term with no table and that is a decision, not a gap.**
+A fact that *is* another entity is expressed by a typed foreign key wherever it
+occurs; giving it one table would make "a reference" a thing you can hold, which
+is precisely the polymorphic shape D4 refuses for localization. The census
+accepts it as a term carrying a written disposition — the `NOT_IN_THE_MAP`
+device from the ownership census, where silence is not a decision and a REASON
+is.
+
+**Selected canonical fact is the nineteenth and is not in the epic's table.**
+The epic names "claim" and never names its counterpart, and a claim only means
+anything beside the thing it is not (D7). It is added here rather than left to
+each reader to infer.
+
+**This decision supersedes the enumeration in D1.** D1 opens "Every catalog
+concept — category, product type, attribute, controlled value, unit, size
+system, navigation node, vehicle record —", written before the vocabulary was
+settled. It is not this list: it adds `unit`, `size system` and `vehicle
+record`, which are *supporting* registries rather than concepts the epic names,
+and of the terms in the table above it reaches only **category, product type,
+attribute, controlled value and navigation node**. Everything else in the table
+is outside it. D1's claim is true of every term here; read its enumeration as
+examples, and this table as the set.
+
+(This paragraph said "omits eleven of the nineteen" in the first draft of the
+change that added it — a number carried across from a survey rather than
+counted, which is the exact failure the rest of this decision is about,
+committed while writing it. Naming the five it does reach is the fix, because a
+list that names its members cannot be off by three.)
+
+**What the census can and cannot prove.** It proves that the term set in this
+table and the term set in the glossary are the SAME set, that every home named
+here is a table the drizzle barrel really exports, and that the glossary's row
+for each term names the same table and a file that really declares it. It cannot
+prove a definition is *true* — no gate reads a markdown cell and knows whether
+that sentence describes that table. What it removes is the failure that actually
+happened: the glossary's homes were cited by LINE, and by the time #882 bound
+seven of the nineteen, twelve of the twenty-three line citations had rotted,
+`inventory_levels` by two hundred and ten. Line numbers are gone from that
+document and this table never carried them.
+
+`db/__tests__/catalog-vocabulary-census.test.ts` is the gate.
+`catalog-concept-distinctness.test.ts` remains the one that proves the seven
+concepts of #367 line 58 cannot substitute for each other; this one proves all
+nineteen are named, homed and agreed between the two documents.
+
+### D17. An open question is EVALUATED, never narrated
+
+This ADR "records the decisions so that no individual PR has to invent them"
+(§Context). Where a question is genuinely still open, the same sentence obliges
+it to be *recorded as open* rather than left for the next PR to answer by
+accident. §"Open questions" below is that register, and this decision is about
+its FORM.
+
+**A deferral written in the future tense is never re-read.** That is not a
+worry, it is this document's own measured history, twice:
+
+- §Open questions carried "Whether bundles, services and digital goods get their
+  own product-type scopes or are excluded at launch — decided in the product-type
+  PR, recorded here when it is." The product-type PR shipped (`a5b39abe`) and
+  decided nothing. The sentence read as a completed handoff for as long as the
+  handoff had not happened, and the question was answered months later, by D15,
+  in its own change.
+- `db/schema/variantAxes.ts` said one trigger clause was owed "when step 5 lands
+  `listings.product_type_definition_id`". Step 5 landed. The clause did not, and
+  nothing anywhere could notice — the sentence describing the gap was still
+  grammatically true, because it said nothing about *now*.
+- `db/schema/navigation.ts` said its locale predicate "is replaced by a
+  `checkOneOf` … in one edit" when merge-order step 2 lands. Step 2 landed —
+  `localizationFamily.ts` exports the tuple and the checks — and the two
+  navigation locale columns still take the shape-only predicate
+  ([#884](https://github.com/OxyHQ/Mercaria/issues/884)). This one was found by
+  walking the schema's comments for the GRAMMAR of the first two rather than by
+  anybody re-reading, which is the point: it had been invisible for as long as
+  nobody thought to look for it, and the promise it made ("one edit") was itself
+  wrong, because a narrowing CHECK validates against every existing row.
+
+The repository already solved exactly this, once, for one narrow case:
+`db/deferredForeignKeys.ts` holds relations "decided but not yet expressible",
+and its gate "fails the moment a table with that name appears in the schema …
+That is what stops 'we'll add the constraint when the other table exists' from
+becoming a permanent condition nobody revisits." The list is empty today, twice
+over, because the mechanism fired rather than because nobody used it.
+
+**D17 generalizes that device from foreign keys to semantic questions.** Every
+entry in §Open questions carries a **resolution trigger** — a predicate a test
+RUNS, not a sentence a reader is trusted to re-read — and the census fails the
+build the moment a trigger reports the question answerable. A question whose
+trigger fires must be decided here and its entry deleted; it cannot quietly stay
+open, and it cannot quietly close.
+
+Two consequences worth stating rather than discovering:
+
+- **A question with no evaluable trigger is admitted, and must say so.** Some
+  questions are answered by a person and by nothing a repository can observe.
+  Those carry `trigger: null` with the reason, and the gate demands the reason —
+  the `deferred: #NN` device from the Stripe event ingress, where a kind with no
+  decision is not allowed to look like a handled one. What it costs is exactly
+  what it says: those entries still rely on somebody re-reading them.
+- **The register is not a backlog.** Deferred *work* — a screen nobody has
+  built, a narrowing CHECK owed on `attribute_labels` — is not an open question,
+  because the behaviour is decided and only its expression is missing. An entry
+  qualifies only when a future PR could answer it **by accident**, which is
+  §Context's "rather than letting individual PRs invent behavior" read as an
+  admission test.
+
 ## Merge order
 
 The dependency graph, and therefore the merge order. Items on the same line are
@@ -1220,7 +1363,80 @@ independent of each other; only the migration slot (D11) serializes them.
 - Machine translation as an approved source. It is a suggestion behind review,
   and D4's trigger stops it overwriting human work.
 
-## Open items (tracked, not blocking)
+## Open questions
+
+Per **D17**: every entry carries a **resolution trigger** that
+`db/__tests__/catalog-vocabulary-census.test.ts` RUNS on every build, and the
+build fails the moment a trigger reports the question answerable — at which point
+the answer is written into the decisions above and the entry is deleted. A `null`
+trigger is admitted and must carry its reason.
+
+The population is DERIVED and it is small, which is the correct result: an entry
+that resolves a question nobody had is noise. What qualifies is the admission
+test in D17 — a question a future PR could answer **by accident**. Deferred work
+whose behaviour is already decided is not here; it lives beside the code that
+owes it.
+
+### Q1. Is a bulk re-pin of every listing on a product-type version store-scoped or operator-only?
+
+Publishing a new product-type version leaves existing listings pinned to the old
+one. Re-pinning them in bulk is a governance ACTION and needs a
+`CATALOG_GOVERNANCE_ACTIONS` member, so it arrives with a `pre` migration in its
+own PR (D11). **Nobody has decided who may run it.** The draft upgrade is
+store-scoped, so "a merchant may re-pin their own draft but not their own
+listing" is an asymmetry that would otherwise be introduced as a side effect of
+where somebody put an endpoint. Recorded today in
+[`catalog-authoring.md`](../catalog-authoring.md) §"Deferred, with its cost
+measured" and [`catalog-governance.md`](../catalog-governance.md), in both cases
+as "a policy nobody has decided", and until now in neither place a decision could
+be recorded.
+
+**Trigger:** `CATALOG_GOVERNANCE_ACTIONS` gains a bulk re-pin member. The action
+cannot exist without one — it is CHECK-rendered onto both
+`catalog_governance_change_requests.action` and
+`catalog_governance_audit_events.action` — so the tuple is where the accidental
+answer would first become visible.
+
+### Q2. When a listing's product-type pin moves, do its existing axes move with it?
+
+`native_listing_variant_axes.product_type_definition_id` records the version each
+declared axis was made under; `listings.product_type_definition_id` records the
+listing's own pin. `mercaria_native_variant_axis_citation` checks the axis
+against the attribute definition and the product-type field and stops there, so
+today the two may disagree and nothing refuses the pair.
+
+[#883](https://github.com/OxyHQ/Mercaria/issues/883) files the gap and asks that
+"whatever ties axis and listing to one product type version is enforced" — which
+does not say **which** rule, and the two are different products. Either an axis
+must always agree with the current pin (a re-pin rewrites its axes), or an axis
+is a versioned fact that keeps citing the version it was made under (a re-pin
+leaves them, and the disagreement is legal and meaningful). A PR adding a clause
+picks one; a PR not adding one picks the second, silently. That is the accident
+D17's admission test describes, so this is a question and not owed work.
+
+**Trigger:** the newest definition of `mercaria_native_variant_axis_citation` in
+the migration chain references `listings`. Any clause tying the two must read
+that table, so the reference is the earliest observable sign that somebody
+answered this.
+
+### Q3. Community translation contribution, and its moderation rules, if enabled
+
+Carried unchanged from the previous §Open items, where it was the one entry never
+struck through. D4 settles who may *write* a localization and what states it
+moves through; it does not settle whether an untrusted contributor may propose
+one at all, which is a product decision about moderation cost rather than a
+schema one.
+
+**Trigger:** `null` — deliberately. Nothing in this repository changes when this
+is decided *against*, and the affirmative answer would arrive as a whole feature
+rather than as a symbol a predicate could watch for. So this entry, alone of the
+three, still depends on somebody re-reading it, and says so rather than implying
+a machine is watching.
+
+## Closed items
+
+Kept rather than deleted: the closure notes record what each answer did NOT
+settle, which is the part a later reader needs.
 
 - ~~The taxonomy hierarchy benchmark (D2).~~ **CLOSED** (#367 W16): the benchmark
   ran and confirms the materialized path. D2 records the numbers, the one shape
@@ -1228,7 +1444,6 @@ independent of each other; only the migration slot (D11) serializes them.
   remaining piece of work it identified is a repository fix rather than an
   architectural one — `findCategoryAncestors` costing a round trip it does not
   need — and it is not blocking.
-- Community translation contribution and its moderation rules, if enabled.
 - ~~Whether bundles, services and digital goods get their own product-type
   scopes or are excluded at launch — decided in the product-type PR, recorded
   here when it is.~~ **CLOSED** (#367 line 144): **D15** above. It was not

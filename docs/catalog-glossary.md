@@ -4,41 +4,64 @@
 > that actually holds each concept. Binding decisions:
 > [ADR 0007](adr/0007-universal-catalog-taxonomy-and-authoring.md).
 >
+> **This document holds the MEANINGS; ADR 0007 D16 holds the term set and each
+> term's home.** Two facts, deliberately not two copies — and the one they share,
+> the list of terms, is bound in both directions by
+> `db/__tests__/catalog-vocabulary-census.test.ts`, so the two cannot disagree
+> about what the vocabulary is.
+>
 > **Every row cites a table or a type.** A glossary whose terms are defined only
 > in prose is a second description of the schema, and two descriptions of one
 > fact come to disagree. Where a term has no home in the code, the row says so
 > rather than describing an intention.
+>
+> **No row cites a LINE.** It used to, and by the time anything read them
+> twelve of the twenty-three had rotted — `inventory_levels` by two hundred and
+> ten lines. A line number is a fact about a file's current shape with no owner
+> and no gate, and it goes wrong on an edit nobody made to this document. What
+> replaces it is strictly better information: the table name and the file, both
+> of which [ADR 0007](adr/0007-universal-catalog-taxonomy-and-authoring.md) D16's
+> census resolves against the live schema, so a row that names the wrong file
+> now fails the build.
 
 ## The nineteen terms
 
 | Term | It is | Where it lives |
 |---|---|---|
-| **Taxonomy category** | The stable classification node a product is filed under. One tree, shared by browse, search, authoring and connectors. | `categories`, `db/schema/catalog.ts:128` |
-| **Navigation node** | A storefront presentation entry pointing at *one* of a category, saved query, product type, brand, family, collection or campaign URL. | `navigation_nodes`, `db/schema/navigation.ts:392`; the tree is `navigation_trees`, `:300` |
-| **Merchandising collection** | A curated or rule-driven group. Not a category, and membership is never a product fact. | `collections`, `db/schema/merchandising.ts:108` |
-| **Product type / profile** | The versioned schema saying which fields and behaviours apply. The one entity #367 added. | `product_type_definitions`, `db/schema/productTypes.ts:108` |
-| **Brand** | Commercial identity. Predates #367 and was not re-modelled. | `brands`, `db/schema/organizations.ts:121` |
-| **Product family** | A product line, where one is useful for navigation and matching. | `canonical_product_families`, `db/schema/canonicalCatalog.ts:125` |
-| **Canonical product** | The seller-independent model. | `canonical_products`, `db/schema/canonicalCatalog.ts:290` |
-| **Canonical variant** | The exact buyable configuration. | `canonical_variants`, `db/schema/canonicalCatalog.ts:504` |
-| **Variant axis** | The attribute that differentiates variants *for one product*. A reference into the registry, never a string. | `native_listing_variant_axes`, `db/schema/variantAxes.ts:135`; the per-variant values are `native_variant_axis_assignments`, `:229` |
-| **Attribute** | A typed fact, versioned, with a unit family where it measures something. | `attribute_definitions`, `db/schema/attributeRegistry.ts:105` |
-| **Controlled value** | A stable enum member of an attribute, with aliases and localizations. | `attribute_enum_values`, `db/schema/attributeRegistry.ts:340`; aliases `:381`; localizations `catalogLocalization.ts:374` |
-| **Entity reference** | A typed link to another canonical entity, used where a fact *is* another entity. | modelled per relationship; see compatibility below and `commerce-graph.md` for #55's relationship rows |
-| **Compatibility / fitment** | An applicability relationship. Never a variant axis. | `generic_compatibility_relations`, `db/schema/compatibility.ts:160`; automotive `automotive_fitments`, `:747` |
-| **Native listing** | One store's or one person's presentation and sale record. | `listings`, `db/schema/catalog.ts:246`; its variants `product_variants`, `:697` |
-| **Offer** | The exact commercial terms one seller publishes on one channel. | `offers`, `db/schema/offers.ts:139` |
-| **Inventory** | Stock state per location and channel. | `inventory_levels`, `db/schema/catalog.ts:850` |
-| **Claim** | A merchant's or a source's assertion, retained verbatim with its provenance, whether or not it was selected. | `native_listing_attribute_claims`, `db/schema/variantAxes.ts:573`; `native_variant_attribute_claims`, `:666` |
-| **Selected canonical fact** | The value the graph decided to publish, distinct from every claim behind it. | `canonical_attribute_values`, `db/schema/canonicalCatalog.ts:803` |
-| **Proposal** | An untrusted request for a missing canonical concept. Never trusted by being submitted. | `catalog_proposals`, `db/schema/catalogProposals.ts:120` |
+| **Taxonomy category** | The stable classification node a product is filed under. One tree, shared by browse, search, authoring and connectors. | `categories`, `db/schema/catalog.ts` |
+| **Navigation node** | A storefront presentation entry pointing at *one* of a category, saved query, product type, brand, family, collection or campaign URL. | `navigation_nodes`, `db/schema/navigation.ts`; the tree is `navigation_trees` |
+| **Merchandising collection** | A curated or rule-driven group. Not a category, and membership is never a product fact. | `collections`, `db/schema/merchandising.ts` |
+| **Product type / profile** | The versioned schema saying which fields and behaviours apply. The one entity #367 added. | `product_type_definitions`, `db/schema/productTypes.ts` |
+| **Brand** | Commercial identity. Predates #367 and was not re-modelled. | `brands`, `db/schema/organizations.ts` |
+| **Product family** | A product line, where one is useful for navigation and matching. | `canonical_product_families`, `db/schema/canonicalCatalog.ts` |
+| **Canonical product** | The seller-independent model. | `canonical_products`, `db/schema/canonicalCatalog.ts` |
+| **Canonical variant** | The exact buyable configuration. | `canonical_variants`, `db/schema/canonicalCatalog.ts` |
+| **Variant axis** | The attribute that differentiates variants *for one product*. A reference into the registry, never a string. | `native_listing_variant_axes`, `db/schema/variantAxes.ts`; the per-variant values are `native_variant_axis_assignments` |
+| **Attribute** | A typed fact, versioned, with a unit family where it measures something. | `attribute_definitions`, `db/schema/attributeRegistry.ts` |
+| **Controlled value** | A stable enum member of an attribute, with aliases and localizations. | `attribute_enum_values`, `db/schema/attributeRegistry.ts`; aliases `attribute_value_aliases`; localizations `attribute_value_localizations`, `db/schema/catalogLocalization.ts` |
+| **Entity reference** | A typed link to another canonical entity, used where a fact *is* another entity. | no table of its own — a SHAPE, modelled per relationship; see compatibility below and `commerce-graph.md` for #55's relationship rows |
+| **Compatibility / fitment** | An applicability relationship. Never a variant axis. | `generic_compatibility_relations`, `db/schema/compatibility.ts`; automotive `automotive_fitments` |
+| **Native listing** | One store's or one person's presentation and sale record. | `listings`, `db/schema/catalog.ts`; its variants `product_variants` |
+| **Offer** | The exact commercial terms one seller publishes on one channel. | `offers`, `db/schema/offers.ts` |
+| **Inventory** | Stock state per location and channel. | `inventory_levels`, `db/schema/catalog.ts` |
+| **Claim** | A merchant's or a source's assertion, retained verbatim with its provenance, whether or not it was selected. | `native_listing_attribute_claims`, `db/schema/variantAxes.ts`; `native_variant_attribute_claims` |
+| **Selected canonical fact** | The value the graph decided to publish, distinct from every claim behind it. | `canonical_attribute_values`, `db/schema/canonicalCatalog.ts` |
+| **Proposal** | An untrusted request for a missing canonical concept. Never trusted by being submitted. | `catalog_proposals`, `db/schema/catalogProposals.ts` |
 
-Two terms in the epic's table have no row of their own and that is deliberate:
-**entity reference** is a shape rather than a table (a foreign key to a canonical
-entity, which is what "never a display string" means in practice), and
-**selected canonical fact** was added to the list here because the epic names
-"claim" without naming its counterpart, and a claim only means something beside
-the thing it is not.
+Nineteen rows for the epic's eighteen concepts, and the difference is two
+decisions rather than one.
+
+**Entity reference has a row and no table.** It is a SHAPE — a foreign key to a
+canonical entity — which is what "never a display string" means in practice, so
+the row exists to say that, and the census admits it as a term with a written
+disposition rather than an omission. (An earlier version of this paragraph said
+two terms had no row of their own. Entity reference has one — what it lacks is a
+table. Corrected here because a document that contradicts its own table is the
+shape a reader argues with rather than fixes.)
+
+**Selected canonical fact is the nineteenth term and is not in the epic's
+table.** It was added because the epic names "claim" without naming its
+counterpart, and a claim only means something beside the thing it is not.
 
 ## Identity: two identifiers, and a rule about the third
 
@@ -46,21 +69,30 @@ Every concept in the table above carries an opaque `id` and — for the ones a
 seed, a fixture or an external mapping has to name — a stable machine `key`
 (ADR 0007 D1). **A name, label, description or slug is presentation.**
 
-Measured across the whole schema, not asserted: **791** foreign-key target
-columns in `db/schema/*.ts` — 770 single-column `.references()` plus 21
-composite `foreignColumns` entries, over 82 files. **769 of the 770 target
-`id`**; the composite entries target ids or stable keys; exactly **one**
-single-column key targets a machine key
-(`entitlement_definitions.capability_key`, `db/schema/merchantPlans.ts:717`).
-**None targets a `name`, `slug`, `label`, `title` or `description`.**
+Measured across the whole schema, not asserted, and stated as the shape rather
+than as a tally: **every single-column `.references()` in `db/schema/*.ts`
+targets `id`, save exactly one that targets a machine key**
+(`entitlement_definitions.capability_key`, `db/schema/merchantPlans.ts`); the
+composite `foreignColumns` entries target ids or stable keys; and **none targets
+a `name`, `slug`, `label`, `title` or `description`.**
 
-Those counts come from the gate's own walk and not from a shell census, and the
-difference is worth knowing: `grep` is line-based, so a `.references(` whose
-arrow target sits on the next line is invisible to it. A shell pass over the same
-82 files reports 769 and 18 — a clean-looking undercount of one foreign key and
-three composite members.
+The figures themselves are deliberately not written down here.
+`db/__tests__/catalog-identity-isolation.test.ts` PRINTS them on every successful
+run — schema files walked, single-column foreign keys, composite target columns,
+how many target `id` — so the current numbers are one command away and can never
+be stale. The four that used to sit in this paragraph all were: measured again on
+2026-08-23 against the same gate, every one had moved, in six days, upward and
+invisibly, because a floor is what the gate asserts and a floor cannot notice
+growth. That is PR #857's finding a second time — a count in prose is a fact with
+no owner — and the remedy is the same one: delete it rather than correct it,
+since a corrected count rots exactly as the original did.
 
-That is now a property rather than a census:
+What the walk is worth knowing for survives without the numbers: it reflects the
+drizzle schema rather than grepping it, and `grep` is line-based, so a
+`.references(` whose arrow target sits on the next line is invisible to a shell
+pass — which therefore undercounts and reads as a complete census.
+
+That is a property rather than a census:
 `db/__tests__/catalog-identity-isolation.test.ts` fails the build on a foreign
 key pointed at a presentation column. It is the gate ADR 0007 D1 named and, until
 this doc landed, did not have.
@@ -186,17 +218,22 @@ flowchart LR
 The dotted edge is the invariant: authoring writes a seller's rows and a
 proposal, and reaches globally trusted rows only through an operator decision.
 What holds it is listed per subject in
-[`catalog-table-ownership.md`](catalog-table-ownership.md), including the two
-places where it is a convention rather than a gate.
+[`catalog-table-ownership.md`](catalog-table-ownership.md), including the places
+where it is a convention rather than a gate — `brands`, `canonical_products` and
+`attribute_definitions`, named there rather than counted here. This sentence said
+"the two places" until 2026-08-23; the cited document's own add-direction-gate
+column answers **two gated of five, therefore three conventions**, and "two" was
+the gated half read onto the ungated one. A number in one document about another
+document's table has no owner in either.
 
 ## Two things in this repository that share a name
 
-**`listings.product_type` is NOT a product type.** `db/schema/catalog.ts:368` is
-a bare nullable `text()` column: the free-text `product_type` string a Shopify or
-WooCommerce import carries, indexed for store browse
-(`listings_store_id_product_type_idx`, `catalog.ts:552`) and accepted on the v1
-listing contracts as `productType: z.string()`
-(`middleware/schemas.ts:173`, `:229`, `:1275`). #367's product type is
+**`listings.product_type` is NOT a product type.** In `db/schema/catalog.ts` it
+is a bare nullable `text()` column: the free-text `product_type` string a Shopify
+or WooCommerce import carries, indexed for store browse
+(`listings_store_id_product_type_idx`) and accepted on the v1 listing contracts
+as `productType: z.string()` (`middleware/schemas.ts`, three of them). #367's
+product type is
 `product_type_definitions`, cited by id from
 `listings.product_type_definition_id` in the SAME table — a nullable foreign key
 with a partial index and the `mercaria_listing_product_type_pin_not_cleared`

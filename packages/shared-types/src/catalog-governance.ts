@@ -80,13 +80,22 @@ export const CATALOG_GOVERNANCE_DOMAINS = [
 export type CatalogGovernanceDomain = (typeof CATALOG_GOVERNANCE_DOMAINS)[number];
 
 /**
- * What a governance change request POINTS AT. Four kinds and not nine, because
- * only four things in the catalogue have a blast radius large enough to need an
- * impact count before they move; the rest are single-row reviews.
+ * What a governance change request POINTS AT — a subject whose blast radius is
+ * large enough to need an impact count before it moves, rather than every
+ * catalogue row that can be reviewed one at a time.
  *
- * `subject_id` carries no foreign key. One column cannot reference four tables,
- * and an audit row must outlive whatever it describes — the `catalog_revisions`
- * and `merchant_claim_scopes.scope_ref` ruling.
+ * `subject_id` carries no foreign key. One column cannot reference the several
+ * tables these kinds live in, and an audit row must outlive whatever it
+ * describes — the `catalog_revisions` and `merchant_claim_scopes.scope_ref`
+ * ruling.
+ *
+ * **This said "Four kinds and not nine" until 2026-08-23 (#367 line 102).** Both
+ * counts had moved, to ten kinds against ten domains — which does not merely
+ * date the sentence, it removes its argument, since the claim was that the
+ * subjects are a strict SUBSET of the domains and today the two are the same
+ * size. Whether that is the design catching up or a set that grew past its own
+ * rule is a question for whoever owns governance; the numbers are gone either
+ * way, because a count in prose is a fact with no owner (PR #857).
  */
 export const CATALOG_GOVERNANCE_SUBJECT_KINDS = [
   'category',

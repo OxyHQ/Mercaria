@@ -109,9 +109,28 @@ import { collections } from './merchandising';
  *
  * A SHAPE check, not a membership one. D4 validates a locale against a tuple of
  * supported locales, and that tuple belongs to the localization family
- * (merge-order step 2). When it lands, this predicate is replaced by a
- * `checkOneOf` against it in one edit; until then a shape refusal is what stops
- * `Español` or `ES_es` reaching a column.
+ * (merge-order step 2). A shape refusal is what stops `Español` or `ES_es`
+ * reaching a column; it does not stop `de-ch` on a deployment that ships no
+ * German.
+ *
+ * ## Step 2 HAS landed, and the narrowing it named is still owed
+ *
+ * This said "When it lands, this predicate is replaced by a `checkOneOf`
+ * against it in one edit". It landed: `localizationFamily.ts` exports
+ * `LOCALE_VALUES` and `localizationChecks`, both rendered from
+ * `SUPPORTED_LOCALES`, and the four tables born into the family take them.
+ * `navigation_trees.locale` and `navigation_node_localizations.locale` still
+ * take this predicate and nothing else.
+ *
+ * Re-stated in the present tense rather than silently corrected, because the
+ * sentence read as a completed handoff for as long as it said "when it lands" —
+ * the #883 shape, found here by the same walk (#367 line 102). And the promise
+ * it made is the part to distrust: "one edit" is not what a narrowing costs.
+ * `localizationFamily.ts` records why — a narrowing CHECK is validated against
+ * every existing row when it is added, so it can abort a deploy on data nobody
+ * has looked at, which is the identical reason `attribute_labels` still takes
+ * only the shape half. Whoever picks this up owes a row count first — filed as
+ * [#884](https://github.com/OxyHQ/Mercaria/issues/884).
  */
 const localeShape = (column: AnyPgColumn) =>
   sql`${column} = lower(btrim(${column})) and ${column} ~ '^[a-z]{2,3}(-[a-z0-9]{2,8})*$'`;

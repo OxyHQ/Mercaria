@@ -458,9 +458,11 @@ export const attributeValueLocalizations = pgTable(
  *
  * ## No foreign key on `entity_id`, permanently
  *
- * `catalog_revisions`' ruling, for its reason: this table spans four entity
- * types and its rows must OUTLIVE their subject. A localization row is deleted
- * only by cascade when its entity is, and the history of what a category used
+ * `catalog_revisions`' ruling, for its reason: this table spans every member of
+ * `LOCALIZED_ENTITY_KINDS` — it said "four entity types" until 2026-08-23 and
+ * the tuple had reached eight (#367 line 102; a count in prose is a fact with
+ * no owner, PR #857) — and its rows must OUTLIVE their subject. A localization
+ * row is deleted only by cascade when its entity is, and the history of what a category used
  * to be called in Spanish is precisely the thing that must survive the category
  * going away. The family's own header rejects a polymorphic LOCALIZATION table
  * because an orphaned translation would be invisible — that argument is about

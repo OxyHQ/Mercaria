@@ -6364,10 +6364,23 @@ the reserved offer facts widens both.
 ### `product_type_definition_id` is NULLABLE, and that is a decision
 
 ADR 0007 D6 speaks of "any listing migrated to a product type", and the obvious
-reading makes it NOT NULL. `listings` carries no `product_type_definition_id`
-today — D13 assigns that widening to the authoring workstream (D10, merge-order
-step 5) — so a NOT NULL citation would make the legacy backfill unable to type a
-single axis. A backfill that resolves nothing is not a safer backfill.
+reading makes it NOT NULL. It is nullable because the legacy backfill has to run
+before any listing is typed, and a NOT NULL citation would make it unable to type
+a single axis. A backfill that resolves nothing is not a safer backfill.
+
+> **CORRECTED 2026-08-23 (#883, #367 line 102).** This paragraph said "`listings`
+> carries no `product_type_definition_id` today — D13 assigns that widening to
+> the authoring workstream (D10, merge-order step 5)". Step 5 landed. The column
+> exists (`catalog.ts:417`), with a partial index (`:621`) and the
+> `mercaria_listing_product_type_pin_not_cleared` trigger
+> (`drizzle/0109_nostalgic_vengeance.sql:58`). The nullability argument above is
+> unaffected and was always the real reason; what was wrong was the premise that
+> the column was absent, in the document the schema port describes as binding —
+> the worst place for it, because the next person designing a join reads
+> "unavailable" and builds a second path to the same fact. What the two rows
+> still lack is any rule tying an axis's cited version to the listing's own pin;
+> ADR 0007 §Open questions Q2 records that as an open question rather than as
+> owed work, because nobody has decided which of the two rules it should be.
 
 The permission is checked at TWO grains and only one needs a product type:
 `attribute_definitions.variant_defining` (the registry's answer, checked on every
