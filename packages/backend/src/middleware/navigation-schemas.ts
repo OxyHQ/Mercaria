@@ -25,6 +25,7 @@
  */
 
 import { z } from 'zod';
+import { localizedText } from './localized-text-schemas.js';
 import {
   ALL_CURRENCY_CODES,
   CONDITION_GROUPS,
@@ -141,13 +142,24 @@ const navigationTargetInputSchema = z.discriminatedUnion('kind', [
     .strict(),
 ]);
 
-/** One label of one node (ADR 0007 D4). */
+/**
+ * One label of one node (ADR 0007 D4).
+ *
+ * All three text fields carry their `LOCALIZED_TEXT_FIELDS` declaration (#367
+ * line 187). `accessibilityLabel` is the one to read: it is PLAIN not because it
+ * is a label but because a screen reader speaks it as one utterance, and a line
+ * break in it is a pause nobody authored.
+ */
 const navigationLocalizationSchema = z
   .object({
     locale,
-    label: z.string().trim().min(1).max(120),
-    description: z.string().trim().max(400).optional(),
-    accessibilityLabel: z.string().trim().max(200).optional(),
+    label: localizedText('navigation_node_localizations.label', { min: 1, max: 120 }),
+    description: localizedText('navigation_node_localizations.description', {
+      max: 400,
+    }).optional(),
+    accessibilityLabel: localizedText('navigation_node_localizations.accessibility_label', {
+      max: 200,
+    }).optional(),
     status: z.enum(tuple(NAVIGATION_LOCALIZATION_STATUSES as readonly NavigationLocalizationStatus[])),
     provenance: z.enum(
       tuple(NAVIGATION_LOCALIZATION_PROVENANCES as readonly NavigationLocalizationProvenance[]),

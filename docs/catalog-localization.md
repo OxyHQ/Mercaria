@@ -583,6 +583,96 @@ knowing from here:
   approved" must never be shown the English that would be served in its place.
   It reads the exact-locale row or none.
 
+## Plain text and structured rich text (#367 line 187)
+
+Every localized text column carries a DECLARATION of how much structure it may
+hold, and a write that exceeds it is REFUSED. The declaration is
+`LOCALIZED_TEXT_FIELDS` in `@mercaria/shared-types`
+(`localized-text-format.ts`), the enforcement is
+`packages/backend/src/lib/localized-text.ts`, and the request-shaped half is the
+`localizedText(...)` builder in `middleware/localized-text-schemas.ts`.
+
+### What was wrong
+
+`sanitizeAuthoredText` is applied in exactly two production modules —
+`middleware/catalog-authoring-schemas.ts` and
+`middleware/catalog-proposal-schemas.ts`. Neither writes a localization. Every
+localized text column took its value as `z.string().trim().max(N)` and stored it
+untransformed, including `listing_localizations.title` and `.description`,
+whose route (`PUT /seller/listings/:id/localizations/:locale`) is authenticated
+by listing ownership alone — no store permission, no operator allow-list.
+
+State the base-locale comparison carefully, because the obvious version of it is
+wrong: a listing's own title and description have TWO write paths with two
+different controls. The draft-authoring path sanitizes; the direct
+`POST`/`PATCH /seller/listings` path (`middleware/schemas.ts`) does not.
+Converging that one is #367 steps 5 and 6's and is deliberately not done here.
+
+### Plain refuses; rich constrains
+
+The asymmetry is the point. A field that should be plain needs its markup
+REFUSED — cleaning it silently accepts input the contract forbids, and the
+caller never learns that what it sent is not what was stored. A field that
+carries rich text needs a CLOSED allow-list of the structure it may carry.
+
+Both fall out of one rule, because the declaration is data: a descriptor's
+`structures` IS the permitted set, a value exhibiting anything outside it is
+refused, and markup is in no field's permitted set because it is not a member of
+`LOCALIZED_RICH_TEXT_STRUCTURES` at all. A `plain` field is exactly a field
+whose permitted set is empty, so there is no `if (format === 'plain')` branch to
+get backwards.
+
+**"Structured rich text" here is line structure, not HTML, and that is
+measured.** No consumer in `frontend`, `dashboard`, `pos` or `ui` renders
+catalogue text as markup — the three `dangerouslySetInnerHTML` sites are the web
+shell's static site description and two JSON-LD embeddings, and
+`frontend/lib/catalog/structured-data.ts` escapes `<`, `>` and `&` into their
+`\uXXXX` forms precisely because `JSON.stringify` does not. So the allow-list is
+`line_break` and `paragraph_break`, and the weight is carried by
+`LOCALIZED_FORBIDDEN_TEXT_STRUCTURES` — fourteen structures named as VALUES,
+held disjoint from the allow-list by a test, so a future rich renderer arrives by
+moving a member across that line in a diff somebody reviews.
+
+### The population is walked, not listed
+
+A sanitization policy that covers most of its subject is not a smaller version of
+one. `localized-text-format.test.ts` derives the population from the running
+drizzle schema — runtime reflection, because eight of the nine family tables get
+`locale` from the `localizationColumns()` spread and a source grep for `locale:`
+finds one of them, and `sqlColumnName` because most of this schema's columns have
+a SQL name that differs from the TypeScript property. Every locale-bearing table
+is then either IN SCOPE or named in
+`LOCALE_SCOPED_TABLES_WITHOUT_LOCALIZED_COPY` with the reason, and the census
+asserts the two sets partition the walk exactly, in both directions. Silence is
+not a disposition.
+
+The first pass took the nine-member family as the population and scoped the rest
+out without recording it, which is indistinguishable from having missed it —
+`canonical_images.alt`, locale-scoped alt text an operator writes and a screen
+reader speaks, was dropped that way. The exclusion lists are what stop that
+happening silently again.
+
+`WRITERS` in the same file records, per in-scope table, the production modules
+that INSERT, UPDATE or DELETE it, re-derived from comment-stripped source on
+every run. Eleven of the twenty-two declared columns have no request surface at
+all — their text arrives from a code constant (the vertical-package apply), a
+copy-forward, or nothing — so that census is the only thing standing between
+their declaration and a promise: a table gaining a writer fails the build.
+
+### The classification
+
+Plain (13): every name, label, title, placeholder and `example`, plus
+`accessibility_label` and `canonical_images.alt`. Rich (10): every `description`
+and `help_text`.
+
+It reads like a rule over column names and is not one — `example` is plain
+because it is a VALUE a seller would type into the box beside it, and
+`accessibility_label` and `alt` are plain because a screen reader speaks each as
+one utterance. The partition is pinned as an explicit list in the test, because
+every behavioural case is parameterised over the map under test: measured,
+moving a field from plain to rich changed which cases ran and every one still
+passed.
+
 ## What is deliberately absent
 
 - **A `localization_coverage_runs` table.** "How much of the catalogue is

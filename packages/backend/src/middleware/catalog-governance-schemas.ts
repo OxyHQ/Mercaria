@@ -34,6 +34,7 @@ import {
   VEHICLE_MAX_YEAR,
   VEHICLE_MIN_YEAR,
 } from '@mercaria/shared-types';
+import { refineLocalizedText } from './localized-text-schemas.js';
 import { CLAIM_QUEUE_MAX_LIMIT } from '../services/catalog-governance/compatibility-claim.service.js';
 import { ATTRIBUTE_CLAIM_QUEUE_MAX_LIMIT } from '../services/catalog-governance/attribute-claim.service.js';
 
@@ -204,7 +205,16 @@ export const verticalPackageCensusQuerySchema = z
   })
   .strict();
 
-/** `POST .../reviews/localization` */
+/**
+ * `POST .../reviews/localization`
+ *
+ * The text policy is applied from an OBJECT-level refinement rather than from
+ * the field builders, because which COLUMN this body writes is decided by its
+ * own `entity`: `category_localizations` or `product_type_localizations`. The
+ * two declarations coincide today — both names plain, both descriptions rich —
+ * and hardcoding either key would make this schema stop describing the column it
+ * writes the moment they stop coinciding. See `localized-text-schemas.ts`.
+ */
 export const reviewLocalizationSchema = z
   .object({
     entity: z.enum(['category', 'product_type']),
@@ -215,7 +225,13 @@ export const reviewLocalizationSchema = z
     description: z.string().trim().min(1).max(4000).optional(),
     reason,
   })
-  .strict();
+  .strict()
+  .superRefine((body, ctx) => {
+    const table =
+      body.entity === 'category' ? 'category_localizations' : 'product_type_localizations';
+    refineLocalizedText(ctx, `${table}.name`, ['name'], body.name);
+    refineLocalizedText(ctx, `${table}.description`, ['description'], body.description);
+  });
 
 /** `POST .../reviews/external-mappings/:mappingId` */
 export const reviewExternalMappingSchema = z

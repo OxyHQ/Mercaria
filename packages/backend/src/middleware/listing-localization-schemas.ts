@@ -15,6 +15,7 @@
  */
 
 import { z } from 'zod';
+import { localizedText } from './localized-text-schemas.js';
 
 /**
  * One listing's text in one locale.
@@ -28,10 +29,22 @@ import { z } from 'zod';
  * mean the same thing here (no localized description), which is safe precisely
  * because the write names every column: there is no "leave what was there"
  * reading for a caller to expect and not get.
+ *
+ * Both go through {@link localizedText} (#367 line 187). This route is reached
+ * by ownership alone — `authenticateToken` plus `loadOwnedListing`, no store
+ * permission and no operator list — so it is the widest-reachable localization
+ * write in the repository and it had no text control at all.
+ *
+ * `title` is declared PLAIN, so markup AND a line break are refused: a title
+ * reaches a card, a cart line, an order line and a `<title>`, every one of them
+ * a single line. `description` is RICH, so paragraph structure survives and
+ * markup does not.
  */
 export const upsertListingLocalizationSchema = z
   .object({
-    title: z.string().trim().min(1).max(500),
-    description: z.string().trim().min(1).max(20_000).nullable().optional(),
+    title: localizedText('listing_localizations.title', { min: 1, max: 500 }),
+    description: localizedText('listing_localizations.description', { min: 1, max: 20_000 })
+      .nullable()
+      .optional(),
   })
   .strict();
