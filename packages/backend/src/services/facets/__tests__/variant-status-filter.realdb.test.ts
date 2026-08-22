@@ -245,17 +245,19 @@ beforeAll(async () => {
     name: `Variant status brand ${RUN}`,
     normalizedName: `variant status brand ${RUN}`,
   });
+  // Drafted first and activated below, which is the order production writes in
+  // and the only one `attribute_definition_categories_frozen` permits: a scope
+  // is part of what the version MEANS, so it cannot be added after publication.
   await db.insert(attributeDefinitions).values({
     id: DEFINITION,
     key: KEY,
     version: 1,
-    lifecycleState: 'active',
+    lifecycleState: 'draft',
     label: 'Variant status finish',
     valueType: 'string',
     cardinality: 'single',
     variantDefining: true,
     filterable: true,
-    publishedAt: OBSERVED,
   });
   // Scoped to THIS run's category: an unscoped active definition applies
   // everywhere and would appear in every parallel file's facet plan.
@@ -265,6 +267,10 @@ beforeAll(async () => {
     categoryId: CATEGORY,
     includeDescendants: true,
   });
+  await db
+    .update(attributeDefinitions)
+    .set({ lifecycleState: 'active', publishedAt: OBSERVED })
+    .where(eq(attributeDefinitions.id, DEFINITION));
   await db.insert(catalogSources).values({
     id: SOURCE,
     kind: 'operator',
@@ -369,15 +375,17 @@ afterAll(async () => {
   // `ON DELETE restrict`. `canonical-fixture-census.test.ts` fails the build on a
   // direct delete of these tables.
   await deleteTestCanonicalRows(db, { productIds: ALL_PRODUCT_IDS, variantIds });
-  await db
-    .delete(attributeDefinitionCategories)
-    .where(inArray(attributeDefinitionCategories.id, [SCOPE_ROW]));
   // Demote first: an ACTIVE version refuses DELETE, which IS
-  // `mercaria_attribute_definition_immutable` working.
+  // `mercaria_attribute_definition_immutable` working — and the scope delete
+  // below is refused by `attribute_definition_categories_frozen` for the same
+  // reason, so it has to follow the demote too.
   await db
     .update(attributeDefinitions)
     .set({ lifecycleState: 'draft', publishedAt: null, deprecatedAt: null })
     .where(inArray(attributeDefinitions.id, [DEFINITION]));
+  await db
+    .delete(attributeDefinitionCategories)
+    .where(inArray(attributeDefinitionCategories.id, [SCOPE_ROW]));
   await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, [DEFINITION]));
   await db.delete(sourceRecords).where(inArray(sourceRecords.id, [RECORD]));
   await db.delete(catalogSources).where(inArray(catalogSources.id, [SOURCE]));

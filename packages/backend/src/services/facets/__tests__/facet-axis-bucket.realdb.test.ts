@@ -87,7 +87,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { uuidv7 } from '@oxyhq/db';
 import { closePostgres, connectPostgres, type Database } from '../../../db/postgres.js';
 import { deleteTestCanonicalRows } from '../../../db/__tests__/canonical-teardown.js';
@@ -262,11 +262,15 @@ beforeAll(async () => {
   // A REGISTERED, ACTIVE, filterable, variant-defining attribute — which is what
   // `planFacets` needs before a shopper is offered anything at all, and what the
   // first reproduction of #616 was missing.
+  // Drafted first and activated below, which is the order production writes in
+  // (`draftAttributeDefinition` then `publishAttributeDefinition`) and the only
+  // one `attribute_definition_categories_frozen` permits: a scope is part of
+  // what the version MEANS, so it cannot be added after publication.
   await db.insert(attributeDefinitions).values({
     id: DEFINITION,
     key: KEY,
     version: 1,
-    lifecycleState: 'active',
+    lifecycleState: 'draft',
     label: 'Axis finish',
     valueType: 'string',
     cardinality: 'single',
@@ -274,7 +278,6 @@ beforeAll(async () => {
     filterable: true,
     sortable: false,
     hardConstraintCapable: true,
-    publishedAt: OBSERVED,
   });
   // Scoped to THIS run's category. An unscoped definition applies everywhere and
   // would appear in every parallel file's facet plan.
@@ -284,6 +287,10 @@ beforeAll(async () => {
     categoryId: CATEGORY,
     includeDescendants: true,
   });
+  await db
+    .update(attributeDefinitions)
+    .set({ lifecycleState: 'active', publishedAt: OBSERVED })
+    .where(eq(attributeDefinitions.id, DEFINITION));
 
   await db.insert(catalogSources).values({
     id: SOURCE,
@@ -350,16 +357,19 @@ afterAll(async () => {
   // `ON DELETE restrict`. `canonical-fixture-census.test.ts` fails the build on a
   // direct delete of these tables.
   await deleteTestCanonicalRows(db, { productIds: PRODUCT_IDS, variantIds });
-  await db
-    .delete(attributeDefinitionCategories)
-    .where(inArray(attributeDefinitionCategories.id, [SCOPE_ROW]));
   // Demote first: an ACTIVE version refuses DELETE, which IS
   // `mercaria_attribute_definition_immutable` working. The same teardown as
   // `attribute-registry.realdb.test.ts` and `canonical-catalog.realdb.test.ts`.
+  // The demote also has to precede the scope delete below, because
+  // `attribute_definition_categories_frozen` refuses that one too while the
+  // parent is published.
   await db
     .update(attributeDefinitions)
     .set({ lifecycleState: 'draft', publishedAt: null, deprecatedAt: null })
     .where(inArray(attributeDefinitions.id, [DEFINITION]));
+  await db
+    .delete(attributeDefinitionCategories)
+    .where(inArray(attributeDefinitionCategories.id, [SCOPE_ROW]));
   await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, [DEFINITION]));
   await db.delete(sourceRecords).where(inArray(sourceRecords.id, [RECORD]));
   await db.delete(catalogSources).where(inArray(catalogSources.id, [SOURCE]));
