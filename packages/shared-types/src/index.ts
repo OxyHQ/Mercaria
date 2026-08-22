@@ -793,6 +793,14 @@ export * from './authoring-schema';
 export * from './catalog-proposal';
 export * from './catalog-backfill';
 
+// The dimensions a catalog rollout may be scoped by (#367 Workstream 0,
+// ADR 0007 D12) — market, locale, store, category and product type, as a closed
+// tuple so a sixth cannot arrive as an untested `if`. The cohort union, its
+// parser and its matcher are the backend's (`services/catalog-rollout/`); what
+// lives here is the VOCABULARY and the subject shape, which is what makes the
+// correspondence between a dimension and the field that answers it walkable.
+export * from './catalog-rollout';
+
 // Catalog administration and governance (#367 Workstream 12) — the operator
 // surface over the nine domains above. It defines no catalogue vocabulary of
 // its own: `CATALOG_GOVERNANCE_DOMAINS` NAMES them, `CATALOG_GOVERNANCE_ACTIONS`

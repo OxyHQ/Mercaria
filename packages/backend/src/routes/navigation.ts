@@ -27,6 +27,7 @@
 
 import { Router } from 'express';
 import { makeRateLimiter } from '../lib/rate-limit.js';
+import { catalogRolloutGate } from '../middleware/catalog-rollout.js';
 import { validateQuery } from '../middleware/validate.js';
 import { navigationQuerySchema } from '../middleware/navigation-schemas.js';
 import { navigationReadHandler } from '../controllers/navigation.controller.js';
@@ -36,6 +37,18 @@ const router = Router();
 // The `'listings'` budget, which the catalogue reads share: this is those reads'
 // arrangement, and a menu request accompanies them rather than replacing them.
 router.use(makeRateLimiter('listings'));
+/**
+ * `CATALOG_ROLLOUT_COHORTS` (ADR 0007 D12) — the market/locale half of the epic's
+ * staged rollout, which is the stage this surface is actually the subject of.
+ *
+ * `market` and `locale` are BOTH required by `navigationQuerySchema`, so this
+ * surface can always answer those two dimensions and can never answer the other
+ * three. With a store-scoped or product-type-scoped cohort configured it is
+ * therefore outside the rollout and answers 404 — the same 404 its lever gives,
+ * which the storefront already falls back from. That is the documented cost of
+ * the fail-closed rule and the reason D12's stages are CUMULATIVE.
+ */
+router.use(catalogRolloutGate());
 
 /** GET /navigation — every tree live for one market and locale. */
 router.get('/', validateQuery(navigationQuerySchema), navigationReadHandler);

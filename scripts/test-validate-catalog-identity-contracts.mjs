@@ -164,7 +164,9 @@ check("CONTROL — an unmutated copy of the real tree is GREEN", () => {}, {
     // figure: #367 W1's `taxonomy-classification.ts` added one module, and
     // deriving 122 by adding one would also have had to guess the type and
     // property deltas, which is how a pin stops describing the tree it pins.
-    "walked 122 contract module(s), 2237 exported type(s), 7586 property signature(s)",
+    // #367 W0's `catalog-rollout.ts` added the next one, and these three figures
+    // were likewise READ OFF the guard rather than incremented.
+    "walked 123 contract module(s), 2239 exported type(s), 7591 property signature(s)",
     "check A arms exercised by real declarations: 5/9",
   ],
 });

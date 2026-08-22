@@ -45,13 +45,14 @@ not exist is worse than no step, and D12 is quoted in five other documents.
 | `CATALOG_PROPOSALS_ENABLED` | **exists**, default false | `config/index.ts:3501`, `:4395` → `config.catalogProposals.enabled` |
 | `CATALOG_LOCALIZATION_ENABLED` | **DOES NOT EXIST** | nowhere in `packages/backend/src` |
 | `PRODUCT_TYPES_ENABLED` | **DOES NOT EXIST** | nowhere in `packages/backend/src` |
-| `CATALOG_AUTHORING_COHORTS` | **DOES NOT EXIST** | nowhere in `packages/backend/src` |
+| `CATALOG_AUTHORING_COHORTS` | **BUILT, RENAMED** → `CATALOG_ROLLOUT_COHORTS` | `config/index.ts` `resolveCatalogRolloutCohorts` → `config.catalog.rolloutCohorts` |
 
-And one lever that D12 does not name but a rollout must:
+And two levers D12 does not name but a rollout must:
 
 | Lever | State | Where |
 |---|---|---|
 | `FACETS_ENABLED` | **exists**, default false | `config/index.ts:1949`, `:3722` → `config.catalog.facetsEnabled` |
+| `CATALOG_ROLLOUT_COHORTS` | **exists**, default EMPTY (= every cohort) | `config.catalog.rolloutCohorts`; the gate is `middleware/catalog-rollout.ts` |
 
 Two of the three absences were already recorded by W17
 (`catalog-observability.md` §"No prometheus, no sweep loop, no configuration");
@@ -78,13 +79,21 @@ different in each case and none of them is "the lever was forgotten":
   no public surface serves a localized label, and the base-locale behaviour D12
   promises is what a shopper gets. **This containment has no gate** (see below),
   which is the whole reason it is written down here.
-- **`CATALOG_AUTHORING_COHORTS` is a real missing capability.** Authoring
-  rollout is all-or-nothing on `CATALOG_AUTHORING_ENABLED`. D12's rollout order
-  — internal users → selected stores → selected product types and categories →
-  locales and markets → GA — is **not executable as written**, because nothing
-  narrows the mount to a cohort. The nearest existing mechanism is
-  `CANONICAL_READ_COHORTS` (`config/index.ts:882`), which is #60's and does not
-  cover these routes.
+- **`CATALOG_AUTHORING_COHORTS` was a real missing capability and it has been
+  CLOSED**, as `CATALOG_ROLLOUT_COHORTS` — renamed because it narrows all four
+  levers' surfaces rather than authoring alone. D12's rollout order — internal
+  users → selected stores → selected product types and categories → locales and
+  markets → GA — is **executable now**, and the list is CUMULATIVE: each stage
+  adds entries and removes none. Six surfaces are gated (`/navigation`,
+  `/taxonomy`, `/facets`, `/catalog-authoring`,
+  `/stores/:storeId/product-drafts`, `/catalog-proposals`), a refusal is the same
+  **404** the lever itself gives, and an EMPTY list — the default — means every
+  cohort, so a deployment that never sets it behaves exactly as before. It shares
+  its grammar with `CANONICAL_READ_COHORTS` (`config/index.ts:882`) deliberately
+  and nothing else: that one is #60's, over `listings`, with its own kinds.
+  Full reference, including the per-dimension census of what already existed
+  elsewhere and which of the five was genuinely absent:
+  [`catalog-rollout-cohorts.md`](catalog-rollout-cohorts.md).
 
 ### Every read site of every surviving lever
 
@@ -978,9 +987,10 @@ rather than a lever: `categories.key NOT NULL`
 (`drizzle/0088_redundant_korvac.sql:201`); the selectability trigger on the legacy
 listing-write path (`0088:461-469`, narrow — see Box 1); localized reads, which
 are contained transitively and ungated; and `/product-types`, which has no lever
-and is unpublished rather than unmounted. Authoring additionally **cannot be
-narrowed to a cohort**, so D12's staged rollout order is not executable as
-written.
+and is unpublished rather than unmounted. Authoring **can** now be narrowed to a
+cohort — `CATALOG_ROLLOUT_COHORTS`, see the lever inventory above — so D12's
+staged rollout order is executable; what a rollback does not undo is unchanged by
+it, because a cohort narrows a mounted surface and stores nothing.
 
 ---
 

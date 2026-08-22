@@ -58,6 +58,7 @@
 
 import { Router } from 'express';
 import { makeRateLimiter } from '../lib/rate-limit.js';
+import { catalogRolloutGate } from '../middleware/catalog-rollout.js';
 import { validateId, validateQuery } from '../middleware/validate.js';
 import {
   taxonomyCategoryQuerySchema,
@@ -88,6 +89,26 @@ const router = Router();
 // one surface exhausting another's — which is an argument for separating a surface
 // that CALLS a provider, not one that runs two indexed selects.
 router.use(makeRateLimiter('listings'));
+/**
+ * `CATALOG_ROLLOUT_COHORTS` (ADR 0007 D12) — the same lever's other public mount,
+ * narrowed the same way `/navigation` is.
+ *
+ * `locale` is the one dimension this surface can answer, and `category` is
+ * deliberately NOT read out of `:categoryId` even though six of the nine routes
+ * below carry one.
+ * A cohort gate is a MOUNT-shaped decision — it admits or refuses a whole
+ * request — and a tree read's ANSWER spans categories the cohort does not name:
+ * admitting `/categories/c1/children` because `c1` is in the cohort would then
+ * return children that are not, and refusing `/categories/roots` because it
+ * names no category at all would withdraw the tree while pretending to narrow
+ * it. Filtering a tree by cohort is a different feature from staging one, and
+ * this domain must not grow the first while implementing the second.
+ *
+ * So under a category-, store- or product-type-scoped cohort this surface is
+ * outside the rollout and answers 404 — its lever's answer, at the cohort grain,
+ * which is exactly what D12's cumulative stages mean.
+ */
+router.use(catalogRolloutGate());
 
 /** GET — the top-level categories. Literal, so it precedes `/:categoryId`. */
 router.get('/categories/roots', validateQuery(taxonomyRootsQuerySchema), taxonomyRootsHandler);

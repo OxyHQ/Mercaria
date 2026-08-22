@@ -36,6 +36,7 @@
 
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
+import { catalogRolloutGate } from '../middleware/catalog-rollout.js';
 import { loadStore, requireStorePermission } from '../middleware/store-authz.js';
 import { makeRateLimiter } from '../lib/rate-limit.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
@@ -59,6 +60,27 @@ import {
 const router = Router();
 
 router.use(makeRateLimiter('admin'), authenticateToken);
+/**
+ * `CATALOG_ROLLOUT_COHORTS` (ADR 0007 D12) — the store half of the epic's staged
+ * rollout, on the surface a merchant reaches it from.
+ *
+ * At `router.use` rather than five times after `loadStore`, so a sixth route
+ * cannot be added without it — the failure mode a per-route gate has, and the
+ * one that matters here because every route on this router is store-scoped by
+ * construction. The consequence is that an out-of-cohort request is refused
+ * BEFORE the store is loaded, so its 404 arrives where a non-member would
+ * otherwise have got a 403. That is a narrowing rather than a leak: which stores
+ * an operator has switched the catalog rollout on for is a fact about Mercaria's
+ * own deployment, not about the merchant, and refusing before any database read
+ * is the `guest-rollout.ts` ordering (an operator withdrawing something at 3am
+ * should not wait on a table).
+ *
+ * The declared store id is read straight off the body or query here, which is
+ * where `storeScopeFrom` below moves it from. It is a value the caller typed and
+ * it authorises nothing — `loadStore` and `requireStorePermission` still decide
+ * that, unchanged, on every route.
+ */
+router.use(catalogRolloutGate());
 
 /**
  * Put the caller's declared store id where `loadStore` reads it.

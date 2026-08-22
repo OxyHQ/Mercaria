@@ -860,6 +860,16 @@ The protocol, binding on every #367 PR:
 > claim, and the rollback procedure:
 > [`../catalog-migration-operations.md`](../catalog-migration-operations.md) and
 > [`../runbooks/catalog-rollout-rollback.md`](../runbooks/catalog-rollout-rollback.md).
+>
+> **CORRECTED AGAIN — one of the three absences has been closed.** The cohort
+> expression this decision named `CATALOG_AUTHORING_COHORTS` now EXISTS, as
+> `CATALOG_ROLLOUT_COHORTS`, and the staged rollout order below is executable.
+> The rename is not cosmetic: it narrows all four levers' surfaces rather than
+> authoring alone, and a variable whose name promises less than it does is the
+> kind a runbook step gets wrong. The other two absences (`PRODUCT_TYPES_ENABLED`,
+> `CATALOG_LOCALIZATION_ENABLED`) stand, with their reasons unchanged. Full
+> reference, including the per-dimension census of what already existed elsewhere:
+> [`../catalog-rollout-cohorts.md`](../catalog-rollout-cohorts.md).
 
 **Four levers**, and the split follows the house rule that a lever gates a **loop
 or a mount**, never a stored row:
@@ -908,7 +918,40 @@ enqueue, loop or checkout path reads any of them.
 > reports ten and is measuring something else.
 > `docs/runbooks/catalog-rollout-rollback.md:109` already states six.
 
-#### The three levers this decision named and nobody built
+#### The fifth lever: `CATALOG_ROLLOUT_COHORTS`
+
+**Which slice of the deployment the four levers above are switched on FOR**, over
+the five dimensions Workstream 0 names: `market`, `locale`, `store`, `category`,
+`product_type` (`CATALOG_ROLLOUT_DIMENSIONS` in `@mercaria/shared-types`). Entries
+are `<dimension>:<value>` or the literal `all`; **empty is the default and means
+every cohort**, which is today's behaviour exactly, so adding the variable
+withdraws nothing from a deployment that never sets it. It narrows a MOUNTED
+surface per request, gates no loop, no repository and no stored row, and it can
+only ever subtract — a cohort admits nothing `loadStore`,
+`requireStorePermission` or an operator allow-list would refuse.
+
+Three properties are worth stating here rather than only in the reference,
+because each is a decision a later reader would otherwise re-litigate:
+
+- **Entries are OR-ed, so the stages below are CUMULATIVE.** Each stage is the
+  previous stage's entries plus more. A runbook that REPLACED the list at each
+  step would withdraw the previous stage, which is the opposite of what "stage"
+  means here.
+- **A request that can answer no enabled dimension is REFUSED** — the
+  `canonicalReadAllowedFor` rule, and the second reason the stages are
+  cumulative: with only `store:S1` set, `/navigation` (which knows a market and a
+  locale and never a store) is outside the rollout.
+- **A category cohort is EXACT and does not cover a subtree**, and there is no
+  percentage bucket. Both follow `SEO_CANARY_CATEGORY_IDS`, which made the same
+  two choices for the same reasons.
+
+Gated: `/navigation`, `/taxonomy`, `/facets`, `/catalog-authoring`,
+`/stores/:storeId/product-drafts`, `/catalog-proposals`. A refusal is the same
+**404** the lever itself gives — which the storefront already falls back from —
+and it names no dimension, so a caller cannot map the switchboard one input at a
+time.
+
+#### The two levers this decision named and nobody built
 
 - **`PRODUCT_TYPES_ENABLED` — deliberately not built, and the reasoning is
   sound.** `/product-types` is mounted unconditionally, with the argument on the
@@ -950,26 +993,41 @@ enqueue, loop or checkout path reads any of them.
   nothing gates against it: there is still no `catalog-localization` isolation
   test. Adding such a consumer means either building this lever or gating the new
   route.
-- **`CATALOG_AUTHORING_COHORTS` — not built, and it is the one that changes what
-  this decision can promise.** Authoring is all-or-nothing on
-  `CATALOG_AUTHORING_ENABLED`; nothing narrows the mount to a market, a locale, a
-  store, a category or a product type. **So the rollout order below is not
-  executable as written**, and this decision says so rather than leaving a runbook
-  to discover it.
 
-Rollout order **as originally decided and NOT executable**: internal users →
-selected stores → selected product types and categories → locales and markets →
-general availability. The first three stages need the cohort expression above.
+> **`CATALOG_AUTHORING_COHORTS` was the third, and it is now BUILT** — under the
+> name `CATALOG_ROLLOUT_COHORTS`, described above. What this bullet used to say,
+> kept because it is the reason the lever exists: *"Authoring is all-or-nothing on
+> `CATALOG_AUTHORING_ENABLED`; nothing narrows the mount to a market, a locale, a
+> store, a category or a product type. So the rollout order below is not
+> executable as written."* It is executable now.
 
-**The stage boundary that does exist is product-type PUBLICATION.** A product
-type with no published version is invisible whatever the levers say, so the
-staging available today is: publish one product type → publish more → turn the
-authoring mount on for everybody. Per-store and per-market staging needs
-`CATALOG_AUTHORING_COHORTS` built, and until it is, "selected stores" is not a
-state this system can be in. Workstream 17's error, abandonment, matching,
-indexing and conversion metrics remain the gate at each step — with the caveat
-recorded in `catalog-observability.md` that no alert has ever fired, so every
-threshold is a proposal.
+Rollout order: internal users → selected stores → selected product types and
+categories → locales and markets → general availability. The first three stages
+are the cohort expression above; the list is CUMULATIVE, so each stage adds
+entries and removes none.
+
+**One stage boundary predates the cohorts and still matters: product-type
+PUBLICATION.** A product type with no published version is invisible whatever the
+levers or cohorts say, so it remains the coarsest staging control and the only
+one whose rollback is a governance write with an audit trail rather than an
+environment change. What the cohorts add is everything publication cannot
+express: publication is per-key and all-or-nothing
+(`product_type_definitions_one_published_per_key`), so it can say "this type is
+not live yet" and never "authoring is on for these stores but only for these
+types".
+
+**`product_type` was the one dimension of the five with no existing mechanism
+anywhere in the repository** — no flag, cohort, allow-list or enablement row
+takes a product type as a scope value, and no cohort or pilot table carries a
+product-type column. The other four were each expressible somewhere already,
+under other names; the per-dimension census is in
+[`../catalog-rollout-cohorts.md`](../catalog-rollout-cohorts.md) §"What already
+existed".
+
+Workstream 17's error, abandonment, matching, indexing and conversion metrics
+remain the gate at each step — with the caveat recorded in
+`catalog-observability.md` that no alert has ever fired, so every threshold is a
+proposal.
 
 **Nothing in a rollback deletes catalog evidence.** Turning every lever off
 restores listing-first behaviour and leaves every row readable, because the

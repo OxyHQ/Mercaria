@@ -113,10 +113,12 @@ measure this", not as "nothing to do".
    concluding the desk is behind.
 4. **A rollout that widened authoring.** `proposal_creation_count` rising in step
    with the backlog means the desk's throughput has not changed and the inflow
-   has. There is no cohort lever to read it against: ADR 0007 D12 names
-   `CATALOG_AUTHORING_COHORTS` and **no such variable exists in the code**, so
-   authoring is all-or-nothing on `CATALOG_AUTHORING_ENABLED`. Correlate with the
-   audit trail and with which stores are submitting instead.
+   has. **Read it against `CATALOG_ROLLOUT_COHORTS` first** — the lever ADR 0007
+   D12 named `CATALOG_AUTHORING_COHORTS`, built under the wider name. A stage
+   that added `store:` or `product_type:` entries, or that emptied the list
+   (which means *every* cohort, not none), is the likeliest cause and it is one
+   environment variable to check. Then correlate with the audit trail and with
+   which stores are submitting.
 5. **A merchant blocked by `block_publication`.** Not a cause of the backlog, but
    the reason it is urgent: an open proposal on a version with that policy stops a
    publication.
