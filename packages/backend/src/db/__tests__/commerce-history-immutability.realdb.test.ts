@@ -3,7 +3,7 @@
  * epic #367's "No historical commerce snapshot is rewritten" that a declaration
  * cannot supply.
  *
- * `order-history-census.test.ts` proves the LEDGER covers every table that names
+ * `commerce-history-census.test.ts` proves the LEDGER covers every table that names
  * an order. That census would pass unchanged against a database with no triggers
  * at all, so on its own it measures a list rather than a schema. This file asks
  * the database what it actually does.
