@@ -126,11 +126,21 @@ none of them the history and none of them the rollback.
 
 ## Not covered here, deliberately
 
-The register covers the four kinds the epic names and no others. Every domain
-outside the catalogue keeps its own outbox and its own rules — moderation,
-offers, payments, matching, curation, the guest portal, guest claims, price
-alerts, price history, offer freshness, supplier orders, supplier preflight,
-reconciliation, shopping agents and store linkage all have their own tables and
-their own docs. `db/__tests__/outbox-enqueue-handle-census.test.ts` is the
-repository-wide rule that applies to all of them: every `enqueue*` taking a
-database handle takes it as a REQUIRED parameter.
+The register covers the four kinds the epic names and no others.
+
+Other domains keep their own queues, under their own names and with their own
+docs — and the naming is worth knowing before searching for one. Exactly **four**
+tables in the whole schema are called `*_outboxes` (`moderation_outboxes`,
+`offer_outboxes`, `payment_outboxes`, `procurement_outboxes`); many more carry
+the same lease-and-attempts shape under a different name, `match_queue`,
+`offer_refresh_tasks`, `guest_portal_messages`, `catalog_merge_jobs` and
+`payment_provider_events` among them. A search for `_outboxes` therefore finds a
+small minority of this repository's durable queues, and a file that merely
+*mentions* the word in prose is not one at all — sixteen schema files mention it
+and four declare one.
+
+The repository-wide rule that applies to all of them is
+`db/__tests__/outbox-enqueue-handle-census.test.ts`: every `enqueue*` taking a
+database handle takes it as a REQUIRED parameter, never `= getDb()`, because the
+root `Database` and a transaction handle share one type and a defaulted handle
+makes "I forgot to thread `tx`" a call that compiles.
