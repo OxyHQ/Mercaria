@@ -26,7 +26,7 @@
  *
  * ## The v1 `addressId` contract
  *
- * `normalizeCheckoutContract` maps a v1 `{addressId}` body onto
+ * {@link destinationFromInput} maps a v1 `{addressId}` body onto
  * `{type: 'saved_address', addressId}` before anything else runs. That is a
  * VERSIONED CONTRACT and not a compatibility shim: a shipped mobile build
  * cannot be recalled, and the alternative is refusing a real buyer's checkout
