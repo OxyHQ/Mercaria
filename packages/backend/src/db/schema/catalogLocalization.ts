@@ -421,11 +421,14 @@ export const attributeValueLocalizations = pgTable(
  *
  * ## Written by TRIGGERS, which is what makes it complete
  *
- * A set of `AFTER INSERT OR UPDATE` triggers, one per text table, are the only
- * writers — enumerated in `services/catalog-event-contracts.ts` under
- * `CATALOG_EVENT_CONTRACTS.translation_change`, whose gate derives the same set
- * from the migration SQL. This docblock said "four" and there were eight by the
- * time anybody read it, which is why the number now lives where it can fail.
+ * A set of `AFTER INSERT OR UPDATE` triggers, one on each COVERED text table,
+ * are the only writers — enumerated in `services/catalog-event-contracts.ts`
+ * under `CATALOG_EVENT_CONTRACTS.translation_change`, whose gate derives the
+ * same set from the migration SQL. This docblock said "four, one per text
+ * table" and there were eight by the time anybody read it — and "one per text
+ * table" was wrong in a second way, because three of the eleven localized
+ * tables are deliberately NOT covered (`LOCALIZED_TABLE_TRAIL_COVERAGE` in the
+ * same module carries each reason). Both numbers now live where they can fail.
  * A trail written by a repository records what the service did and
  * misses a backfill script, an operator at a `psql` prompt and the stale
  * triggers this same file already installs — and the gaps are invisible,

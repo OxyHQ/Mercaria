@@ -63,18 +63,19 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { is, getTableName } from 'drizzle-orm';
+import { is, getTableColumns, getTableName } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
 import {
   AUTHORING_INVALIDATION_SUBJECTS,
   CATALOG_GOVERNANCE_ACTIONS,
-  type AuthoringInvalidationSubject,
 } from '@mercaria/shared-types';
 
 import * as schema from '../../db/schema/index.js';
 import { stripComments } from '../../__tests__/package-barrel-symbols.js';
 import { SRC_ROOT, walkOwnedDirectory } from '../../__tests__/domain-population.js';
 import {
+  CACHE_INVALIDATION_PREMISES,
+  LOCALIZED_TABLE_TRAIL_COVERAGE,
   CATALOG_EVENT_CARRIER_SHAPES,
   CATALOG_EVENT_CONTRACTS,
   CATALOG_EVENT_KINDS,
@@ -124,6 +125,9 @@ const TABLES_BY_SQL_NAME = new Map<string, PgTable>(
     .flatMap((value) => (is(value, PgTable) ? [value] : []))
     .map((table) => [getTableName(table), table]),
 );
+
+/** The same barrel keyed by EXPORT name, so a `tableSymbol` can be resolved. */
+const BARREL_EXPORTS = new Map<string, unknown>(Object.entries(schema));
 
 const CONTRACTS = Object.values(CATALOG_EVENT_CONTRACTS);
 
@@ -358,12 +362,17 @@ describe('the register is total over the vocabulary', () => {
       expect(table, `${contract.kind}: no barrel table is named ${contract.table}`).toBeDefined();
       // The SYMBOL half: `tableSymbol` is what the producer derivation greps for,
       // so a rename that left `table` correct would silently empty that census.
-      const exported = (schema as Record<string, unknown>)[contract.tableSymbol];
-      expect(
-        exported !== undefined && is(exported, PgTable),
-        `${contract.kind}: the barrel exports no PgTable called ${contract.tableSymbol}`,
-      ).toBe(true);
-      expect(getTableName(exported as PgTable)).toBe(contract.table);
+      //
+      // Narrowed with a real `if` rather than by asserting inside `expect`: the
+      // matcher is untyped, so `tsc` cannot see the narrowing through one and the
+      // read below would need a cast to compile.
+      const exported = BARREL_EXPORTS.get(contract.tableSymbol);
+      if (exported === undefined || !is(exported, PgTable)) {
+        throw new Error(
+          `${contract.kind}: the barrel exports no PgTable called ${contract.tableSymbol}`,
+        );
+      }
+      expect(getTableName(exported)).toBe(contract.table);
     }
     // Vacuity floor on this check itself: a register of zero contracts passes the
     // loop above without measuring anything.
@@ -652,6 +661,110 @@ describe('every invalidation subject is bumped by something', () => {
   });
 });
 
+describe('every localized table has a trail disposition', () => {
+  /**
+   * Localized-text tables, DERIVED: a barrel table carrying both a `locale` and
+   * a `provenance` column.
+   *
+   * Validated against a known answer taken a different way — the eleven tables
+   * `drizzle/0132_big_sinister_six.sql` widens a provenance CHECK on. Two
+   * derivations over two artefacts, because a column-shape filter that returned
+   * EMPTY would look exactly like a clean result.
+   */
+  function localizedTables(): string[] {
+    const found: string[] = [];
+    for (const value of Object.values(schema)) {
+      if (!is(value, PgTable)) continue;
+      const columns = Object.keys(getTableColumns(value));
+      if (columns.includes('locale') && columns.includes('provenance')) {
+        found.push(getTableName(value));
+      }
+    }
+    return found.sort();
+  }
+
+  it('the disposition map is TOTAL over the derived population', () => {
+    const tables = localizedTables();
+    // Vacuity floor plus the known-answer baseline.
+    expect(tables.length, `the localized-table derivation found ${String(tables.length)}`)
+      .toBeGreaterThanOrEqual(11);
+    expect(Object.keys(LOCALIZED_TABLE_TRAIL_COVERAGE).sort()).toEqual(tables);
+
+    for (const table of tables) {
+      const coverage = LOCALIZED_TABLE_TRAIL_COVERAGE[table];
+      expect(coverage, `${table} has no trail disposition`).toBeDefined();
+      if (coverage.coverage === 'recorded') {
+        // A covered table must name a trigger the migration SQL actually creates
+        // AND that trigger must be one the derivation says writes the trail.
+        expect(
+          triggersWritingTable('catalog_localization_revisions'),
+          `${table} names ${coverage.trigger}, which does not write the trail`,
+        ).toContain(coverage.trigger);
+      } else {
+        // `untouched` WITH A REASON is a decision; silence is not.
+        expect(coverage.reason.length, `${table} is uncovered with no reason`).toBeGreaterThan(120);
+      }
+    }
+  });
+
+  it('the covered set is exactly the trail writers, so neither list can drift', () => {
+    const covered = Object.entries(LOCALIZED_TABLE_TRAIL_COVERAGE)
+      .filter(([, coverage]) => coverage.coverage === 'recorded')
+      .map(([, coverage]) => (coverage.coverage === 'recorded' ? coverage.trigger : ''))
+      .sort();
+    expect(covered).toEqual(triggersWritingTable('catalog_localization_revisions'));
+
+    // And it is a strict SUBSET of the localized population — the finding this
+    // block exists for. "One trigger per text table" is false here, and an
+    // assertion that the two sets were equal would be a gate demanding a bug.
+    const uncovered = Object.values(LOCALIZED_TABLE_TRAIL_COVERAGE).filter(
+      (coverage) => coverage.coverage === 'not_recorded',
+    );
+    expect(uncovered.length, 'no uncovered table — has the trail grown to cover all of them?')
+      .toBe(3);
+  });
+});
+
+describe('the premises that make four subjects enough', () => {
+  it('every premise names the exact production writers it claims', () => {
+    // The direction the subject census cannot ask: is there localized text a
+    // composition SERVES that can change with no subject to bump? Both premises
+    // rest on a write set of one, and a second writer is what would break them.
+    for (const premise of CACHE_INVALIDATION_PREMISES) {
+      const derived =
+        premise.derive === 'repository_callers'
+          ? callers(premise.symbol).filter((relative) => relative !== premise.definedIn)
+          : tableWriters(premise.symbol);
+      expect(
+        derived,
+        `the writers of ${premise.symbol} are not what the premise says — ${premise.premise}`,
+      ).toEqual([...premise.writers].sort());
+      expect(premise.premise.length).toBeGreaterThan(120);
+    }
+    expect(CACHE_INVALIDATION_PREMISES).toHaveLength(2);
+  });
+
+  it('goes red when a second writer appears — the mutation self-test', () => {
+    const [labels] = CACHE_INVALIDATION_PREMISES;
+    const withAnEditSurface = new Map(SOURCES);
+    withAnEditSurface.set(
+      'controllers/invented-label-editor.controller.ts',
+      'await upsertAttributeLabel(tx, {});',
+    );
+    const grown = callers(labels.symbol, withAnEditSurface).filter(
+      (relative) => relative !== labels.definedIn,
+    );
+    expect(grown).toContain('controllers/invented-label-editor.controller.ts');
+    expect(grown).not.toEqual([...labels.writers].sort());
+
+    // The positive control for the derivation itself: unmutated, it finds the
+    // one real caller rather than nothing.
+    expect(callers(labels.symbol).filter((relative) => relative !== labels.definedIn)).toEqual([
+      ...labels.writers,
+    ]);
+  });
+});
+
 /* -------------------------------------------------------------------------- */
 /* Which publication action owes which bump                                   */
 /* -------------------------------------------------------------------------- */
@@ -667,7 +780,7 @@ describe('every governance action has an invalidation decision', () => {
         expect(
           AUTHORING_INVALIDATION_SUBJECTS,
           `${action} bumps ${entry.bumps}, which is not a subject`,
-        ).toContain(entry.bumps as AuthoringInvalidationSubject);
+        ).toContain(entry.bumps);
       }
     }
   });

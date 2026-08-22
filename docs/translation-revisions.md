@@ -36,8 +36,20 @@ only one of them may hold the sentence a translator wrote.
 
 ## Written by triggers, which is what makes it complete
 
-One `AFTER INSERT OR UPDATE` trigger per text table, and they are the **only**
-writers. There is deliberately no `recordRevision` function anywhere.
+An `AFTER INSERT OR UPDATE` trigger on each **covered** text table, and they are
+the **only** writers. There is deliberately no `recordRevision` function
+anywhere.
+
+**Not every localized table is covered, and that is a decision rather than an
+oversight.** There are eleven tables carrying a `locale` and a `provenance`, and
+eight revision triggers. The three uncovered ones, with their reasons, are in
+`LOCALIZED_TABLE_TRAIL_COVERAGE` (`packages/backend/src/services/catalog-event-contracts.ts`):
+`catalog_localization_revisions` is the trail itself; `category_localized_slugs`
+carries its history in its own `superseded_by_slug_id` chain; and
+`navigation_node_localizations` uses a **freeze** model instead — 
+`mercaria_navigation_published_labels_frozen` refuses any change to a published
+tree's labels, so there is no post-publication edit to record. Do not write
+"every localized text table records per-field history" anywhere; it is false.
 
 The trigger set is named in
 `packages/backend/src/services/catalog-event-contracts.ts` under

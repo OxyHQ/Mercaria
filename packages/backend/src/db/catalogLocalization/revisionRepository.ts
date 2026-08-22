@@ -4,10 +4,12 @@
  *
  * ## There is no `recordRevision` here, deliberately
  *
- * The trail is written by database triggers and nothing else — one per text
- * table, enumerated and DERIVED in
+ * The trail is written by database triggers and nothing else — one on each
+ * COVERED text table, enumerated and DERIVED in
  * `services/catalog-event-contracts.ts` (`CATALOG_EVENT_CONTRACTS.translation_change`),
- * because this line said "four" long after there were eight. A repository
+ * because this line said "four" long after there were eight. Three of the
+ * eleven localized tables are deliberately not covered; the reasons are in
+ * `LOCALIZED_TABLE_TRAIL_COVERAGE` beside it. A repository
  * function that inserted a revision would be a SECOND writer, and the two would
  * disagree the first time somebody wrote a translation through a path that
  * forgot to call it — which is every path that is not this service: a backfill

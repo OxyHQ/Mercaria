@@ -96,6 +96,35 @@ gates the **loop** and never the durable record.
   the whole vocabulary. `localization` was declared, folded into the memo key and
   the ETag, and bumped by nothing until #655: an operator approved a translation
   and every task served the previous text until it restarted.
+- **Every localized table has a trail disposition.** The population is derived
+  two independent ways — a barrel table carrying both a `locale` and a
+  `provenance` column, checked against the eleven tables
+  `drizzle/0132_big_sinister_six.sql` widens a provenance CHECK on — and there
+  are **eleven of them against eight revision triggers**. So *"one trigger per
+  text table"*, which this repository's docblocks all said, is false for three:
+  `catalog_localization_revisions` (it IS the trail; a trigger on it would be
+  self-referential), `category_localized_slugs` (a slug's history is its
+  `superseded_by_slug_id` chain, and a per-field revision beside it would be a
+  second representation of one fact) and `navigation_node_localizations`
+  (navigation uses a **freeze** model — `mercaria_navigation_published_labels_frozen`
+  refuses any change to a published tree's labels, so there is no
+  post-publication edit for a trail to record). None is a defect; all three are
+  now decisions rather than silence, which is `merge-plan.ts`'s rule applied
+  here. A twelfth localized table fails the build until somebody decides.
+- **The premises that make four subjects ENOUGH.** The subject census asks
+  whether every declared subject has a producer;
+  `CACHE_INVALIDATION_PREMISES` asks the other direction — is there localized
+  text a composition **serves** that can change with no subject to bump? Two
+  tables can be reached from an authoring schema and are covered by no subject,
+  and both are safe structurally rather than by luck: `attribute_labels` is
+  written only from `draftAttributeDefinition`, onto a freshly minted definition
+  id no composition can have cached, so **no path can change a published
+  attribute's localized label at all**; `attribute_value_localizations` has no
+  repository function and one production writer, the insert-only vertical-package
+  seed, so **the translation desk cannot translate a controlled value today**.
+  Each premise names its exact writer set and the gate derives it, so a second
+  writer — an edit-label surface, say — turns the build red rather than quietly
+  making the subject set incomplete.
 - **Every governance action has an invalidation decision.**
   `CATALOG_PUBLICATION_INVALIDATION` is total over `CATALOG_GOVERNANCE_ACTIONS`,
   every declared bump names a real subject, and `applyChange` must contain both

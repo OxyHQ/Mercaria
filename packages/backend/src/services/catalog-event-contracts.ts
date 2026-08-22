@@ -462,6 +462,154 @@ export const CATALOG_EVENT_CONTRACTS: Record<CatalogEventKind, CatalogEventContr
 };
 
 /* -------------------------------------------------------------------------- */
+/* Which localized tables the revision trail actually covers                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Every localized-text table, and whether the revision trail records its
+ * history.
+ *
+ * The discriminant is a STRING and not a `covered: boolean`, for the reason
+ * `docs/offer-freshness.md` records and `tsc` re-taught while this was written:
+ * the backend compiles `strict: false`, so without `strictNullChecks` TypeScript
+ * does not narrow a union on the TRUTHINESS of a boolean-literal discriminant
+ * and the `else` branch is left holding the whole union.
+ *
+ * The trail has EIGHT writing triggers and there are ELEVEN localized tables, so
+ * "one trigger per text table" — which this repository's docblocks and
+ * `docs/translation-revisions.md` all said — is false for three of them. The
+ * three are not defects, and that is exactly why they need writing down:
+ * `merge-plan.ts`'s rule, applied here — **`untouched` WITH A REASON is a
+ * decision the census accepts; silence is not.**
+ *
+ * The population is DERIVED (a barrel table carrying both a `locale` and a
+ * `provenance` column) and this map must be total over it, so a twelfth
+ * localized table fails the build until somebody decides whether its history is
+ * recorded.
+ */
+export type LocalizedTableTrailCoverage =
+  | { readonly coverage: 'recorded'; readonly trigger: string }
+  | { readonly coverage: 'not_recorded'; readonly reason: string };
+
+export const LOCALIZED_TABLE_TRAIL_COVERAGE: Record<string, LocalizedTableTrailCoverage> = {
+  attribute_labels: { coverage: 'recorded', trigger: 'mercaria_attribute_labels_localization_revision' },
+  attribute_value_localizations: {
+    coverage: 'recorded',
+    trigger: 'mercaria_attribute_value_localization_revision',
+  },
+  canonical_product_family_localizations: {
+    coverage: 'recorded',
+    trigger: 'mercaria_canonical_product_family_localization_revision',
+  },
+  canonical_product_localizations: {
+    coverage: 'recorded',
+    trigger: 'mercaria_canonical_product_localization_revision',
+  },
+  category_localizations: { coverage: 'recorded', trigger: 'mercaria_category_localization_revision' },
+  listing_localizations: { coverage: 'recorded', trigger: 'mercaria_listing_localization_revision' },
+  product_type_field_localizations: {
+    coverage: 'recorded',
+    trigger: 'mercaria_product_type_field_localization_revision',
+  },
+  product_type_localizations: {
+    coverage: 'recorded',
+    trigger: 'mercaria_product_type_localization_revision',
+  },
+  catalog_localization_revisions: {
+    coverage: 'not_recorded',
+    reason:
+      'It IS the trail. A revision trigger on it would be self-referential — every recorded ' +
+      'revision would record itself, unbounded. Its own trigger is the append-only guard ' +
+      '(mercaria_catalog_localization_revision_append_only), which refuses UPDATE and DELETE.',
+  },
+  category_localized_slugs: {
+    coverage: 'not_recorded',
+    reason:
+      'A slug is not a field of a translation, it is an addressable identity with its own ' +
+      'supersession chain: `superseded_by_slug_id` IS the history, and it is what a redirect ' +
+      'follows. A per-field revision row beside it would be a second representation of one fact, ' +
+      'and the two could disagree about which slug resolves. NOTE the open gap one domain over — ' +
+      '`issueCategoryLocalizedSlug` has zero production callers (impact-plan.ts records it as ' +
+      '`rewire_path_missing`), so the chain is not being minted; that is a defect in the WRITER, ' +
+      'not an argument for adding a trigger here.',
+  },
+  navigation_node_localizations: {
+    coverage: 'not_recorded',
+    reason:
+      'Navigation uses a FREEZE model where the rest of the family uses a revision trail: ' +
+      '`mercaria_navigation_published_labels_frozen` refuses any change to a published tree\'s ' +
+      'labels outright (docs/navigation.md), so there is no post-publication edit for a trail to ' +
+      'record. A new tree version is how a label changes, and the versions ARE the history. ' +
+      'Coherent, and the reason "every localized text table records per-field history" is a ' +
+      'sentence this repository must not write.',
+  },
+};
+
+/* -------------------------------------------------------------------------- */
+/* Why four subjects are ENOUGH                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The premises that make `AUTHORING_INVALIDATION_SUBJECTS` complete.
+ *
+ * The register's other gates ask whether every declared subject has a producer.
+ * This asks the harder question in the other direction: is there localized text
+ * a composition SERVES that can change with no subject to bump? Two tables can
+ * be reached from an authoring schema and are not covered by any subject, and
+ * both are safe for a STRUCTURAL reason rather than by luck — which is exactly
+ * the kind of reason that stops being true in a diff nobody connects to this
+ * file.
+ *
+ * So each premise names a write and the production modules that may perform it,
+ * and the gate asserts that set exactly. A second writer appearing is the event
+ * that would break the contract, and it turns the build red.
+ */
+export interface CacheInvalidationPremise {
+  readonly premise: string;
+  /**
+   * What is derived. `repository_callers` counts production modules CALLING the
+   * symbol; `table_writers` counts modules issuing insert/update/delete against
+   * the drizzle table symbol — the second is for a table with no repository
+   * function at all.
+   */
+  readonly derive: 'repository_callers' | 'table_writers';
+  readonly symbol: string;
+  /** Excluded from the derived set for `repository_callers`: it defines the symbol. */
+  readonly definedIn: string | null;
+  readonly writers: readonly string[];
+}
+
+export const CACHE_INVALIDATION_PREMISES: readonly CacheInvalidationPremise[] = [
+  {
+    premise:
+      'A published attribute definition\'s localized LABEL cannot change. `attribute_labels` is ' +
+      'read by the schema composition (db/catalogAuthoring/schemaSourceRepository.ts, keyed on ' +
+      '(attributeDefinitionId, locale)) and its only writer is reached from ' +
+      '`draftAttributeDefinition`, which mints a NEW definition row and writes labels onto that ' +
+      'fresh id — so a label only ever lands on a version no composition can have cached. There ' +
+      'is no edit-label surface, and if one is added the `attribute_values` subject starts going ' +
+      'stale through a table nothing bumps.',
+    derive: 'repository_callers',
+    symbol: 'upsertAttributeLabel',
+    definedIn: 'db/attributes/definitionRepository.ts',
+    writers: ['services/attributes/definition-registry.service.ts'],
+  },
+  {
+    premise:
+      'A controlled value\'s localized label has no runtime writer at all. ' +
+      '`attribute_value_localizations` has no repository function; the one production statement ' +
+      'that writes it is in the vertical-package seed, which is insert-only and reports a ' +
+      'divergent row rather than correcting it. The translation desk therefore cannot translate a ' +
+      'controlled value today — stated as a fact about the deployment rather than left as a gap ' +
+      'somebody infers from silence.',
+    derive: 'table_writers',
+    symbol: 'attributeValueLocalizations',
+    definedIn: null,
+    writers: ['scripts/seed-verticals/apply.ts'],
+  },
+];
+
+/* -------------------------------------------------------------------------- */
 /* Which publication action owes which bump                                   */
 /* -------------------------------------------------------------------------- */
 
