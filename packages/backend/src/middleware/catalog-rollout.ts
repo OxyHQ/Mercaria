@@ -34,8 +34,9 @@
  *
  * It also names NO dimension, for `guest-rollout.ts`'s reason: a refusal that
  * said WHICH lever fired would let a caller map the switchboard by varying one
- * input per request. WHICH cohort was missed is LOGGED, where the operator who
- * set it can read it.
+ * input per request. The SUBJECT that could not be admitted, and the enabled
+ * list it was compared against, are LOGGED, where the operator who set it can
+ * read them.
  *
  * ## It gates a request and nothing durable
  *
@@ -136,10 +137,12 @@ export function catalogRolloutGate(
       {
         path: req.path,
         method: req.method,
-        // The SUBJECT, not the enabled list: an operator reading this needs to
-        // know what arrived and could not be admitted. The enabled list is in
-        // their own configuration and repeating it on every refusal would put a
-        // deployment's whole rollout into every log line.
+        // BOTH halves, because a refusal is the one case where neither is
+        // enough on its own: the subject says what arrived, the enabled list
+        // says what it was compared against, and "why did this 404" is not
+        // answerable from either alone. The list is a handful of entries and
+        // this fires only on a refusal, so the cost is bounded by how narrow the
+        // rollout currently is.
         subject,
         enabledCohorts: ENABLED_COHORTS.map(catalogRolloutCohortLabel),
       },

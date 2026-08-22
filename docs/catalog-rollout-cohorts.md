@@ -225,8 +225,10 @@ change and cannot produce a menu-shaped error on a shopper's first request.
 
 **It names no dimension**, for `services/checkout/guest-rollout.ts`'s reason: a
 refusal that said which lever fired would let a caller map the switchboard by
-varying one input per request. **Which** cohort was missed, and the subject that
-missed it, are LOGGED.
+varying one input per request. The SUBJECT that could not be admitted, and the
+enabled list it was compared against, are LOGGED — there is no "which cohort
+fired" to report on a refusal, because a refusal is precisely the case where none
+matched.
 
 ### It gates a request and nothing durable
 
