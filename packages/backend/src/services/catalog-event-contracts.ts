@@ -19,8 +19,10 @@
  *    fifth is not even a caller of the repository function — it inserts the
  *    table directly.
  *  - `catalog_localization_revisions` is described as written by **four**
- *    triggers in `db/schema/catalogLocalization.ts` and
- *    `db/catalogLocalization/revisionRepository.ts`. Eight triggers write it.
+ *    triggers, **one per text table**, in `db/schema/catalogLocalization.ts` and
+ *    `db/catalogLocalization/revisionRepository.ts`. Eight triggers write it,
+ *    and they are not one per text table — see `LOCALIZED_TABLE_TRAIL_COVERAGE`
+ *    below, where three of the eleven localized tables have no trail on purpose.
  *  - `db/catalogLocalization/revisionRepository.ts` exports three functions —
  *    the whole read and rollback surface for the translation trail — and has
  *    ZERO production importers.

@@ -14,9 +14,14 @@
  *    `docs/catalog-observability.md`. There are five producers, and the fifth
  *    (`services/backfill/stages/projections.ts`) is invisible to a census over
  *    the repository function because it inserts the table directly.
- *  - "four triggers" writing `catalog_localization_revisions`, in
- *    `db/schema/catalogLocalization.ts` and
- *    `db/catalogLocalization/revisionRepository.ts`. Eight triggers write it.
+ *  - "four triggers, one per text table" writing `catalog_localization_revisions`,
+ *    in `db/schema/catalogLocalization.ts` and
+ *    `db/catalogLocalization/revisionRepository.ts`. BOTH halves were wrong:
+ *    eight triggers write it, and they are not one per text table — eleven
+ *    tables carry a `locale` and a `provenance`, and three of them deliberately
+ *    have no trail at all. Correcting only the count would have left the second
+ *    error in place, which is the shape of half-correction this file exists to
+ *    make impossible.
  *  - `db/catalogLocalization/revisionRepository.ts`'s three exported readers,
  *    cited in a disposition and reachable from nothing.
  *
