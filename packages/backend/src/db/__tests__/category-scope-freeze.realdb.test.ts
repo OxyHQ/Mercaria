@@ -30,6 +30,14 @@
  * (`db/__tests__/trigger-toggle-lock.ts` records why that matters) — the
  * `commerce-history-immutability.realdb.test.ts` technique, one domain over.
  *
+ * That probe has its own two floors, because "everything was accepted" is also
+ * what a probe measuring nothing says: the inserted row is COUNTED (an UPDATE
+ * and a DELETE matching zero rows are accepted whatever the clone does), and
+ * the same row is inserted a second time and must be refused `23505` by the
+ * pair unique `including all` copied — so a clone that turned out to carry no
+ * constraints, or a statement aimed at the wrong table, fails here rather than
+ * handing the trigger the credit.
+ *
  * ## Vacuity
  *
  * The frozen set is DERIVED from the declaration and floored, and every member
@@ -394,6 +402,39 @@ describe('a category-specific override cannot be edited after its version is pub
               )})`,
             ),
           );
+          // The INSERT really landed. Without this the two statements below
+          // match ZERO rows and report `accepted` whatever the clone does — an
+          // "it was the trigger" verdict reached by measuring nothing.
+          const present = [
+            ...(await tx.execute<{ n: number }>(
+              sql`select count(*)::int as n from scope_clone
+                  where ${sql.raw(`"${fixture.parentColumn}"`)} = ${parentId}`,
+            )),
+          ][0]?.n;
+
+          // And the clone is CAPABLE of refusing: `including all` copied the
+          // pair unique, so a DIFFERENT id naming the same (definition,
+          // category) is a `23505`. A probe that answered `accepted` to
+          // everything — a clone that turned out to carry no constraints, a
+          // statement aimed at the wrong table — passes this test's headline
+          // assertion and fails here.
+          //
+          // Inside a SAVEPOINT, because one failed statement aborts the WHOLE
+          // transaction in PostgreSQL (`25P02`) and the update and delete below
+          // would then fail for a reason that has nothing to do with them.
+          // `tx.transaction(...)` is what issues the savepoint.
+          const twin = fixture.cloneRow(parentId, CATEGORY_B);
+          const duplicate = await outcome(() =>
+            tx.transaction((sp) =>
+              sp.execute(
+                sql`insert into scope_clone (${sql.raw(columnList)}) values (${sql.join(
+                  Object.values(twin).map((value) => sql`${value}`),
+                  sql`, `,
+                )})`,
+              ),
+            ),
+          );
+
           const updated = await outcome(() =>
             tx.execute(
               sql`update scope_clone set include_descendants = false
@@ -407,11 +448,13 @@ describe('a category-specific override cannot be edited after its version is pub
             ),
           );
           // The clone is dropped at commit; nothing here touches a shared table.
-          return { inserted, updated, deleted };
+          return { inserted, present, duplicate, updated, deleted };
         });
 
         expect(results).toEqual({
           inserted: 'accepted',
+          present: 1,
+          duplicate: 'refused:23505',
           updated: 'accepted',
           deleted: 'accepted',
         });
