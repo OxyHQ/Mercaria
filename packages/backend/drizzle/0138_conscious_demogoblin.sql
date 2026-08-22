@@ -1,0 +1,41 @@
+-- oxy:deploy-phase=pre
+-- oxy:rollback=restore: re-adding the five-member form of category_aliases_kind_check fails against any stored alias whose kind is transliteration, abbreviation or regional_term; the previous form is the inline constraint in 0088's CREATE TABLE
+--
+-- Localized aliases: regional terms, abbreviations and transliterations
+-- (#367 Translation model, ADR 0007 D2).
+--
+-- A RE-RENDER of one CHECK, widening `category_aliases.kind` from five members
+-- to eight. `checkOneOf` renders the constraint from `CATEGORY_ALIAS_KINDS` in
+-- `@mercaria/shared-types`, so the drop and the add are how drizzle-kit
+-- expresses "the tuple grew" — nothing is removed. The five existing members
+-- keep their spelling and their order.
+--
+-- ## Why `pre` when it contains DROP CONSTRAINT
+--
+-- The new CHECK is strictly weaker than the one it replaces: every value the
+-- previous image can write (`synonym`, `search_term`, `legacy_name`,
+-- `external_label`, `misspelling`) still satisfies it. So the serving image is
+-- never refused a write it used to make, which is what `pre` asserts. The
+-- window between the two statements is the only exposure and it is inside one
+-- transaction.
+--
+-- ## No backfill, and no row moves
+--
+-- Nothing reclassifies an existing alias. An abbreviation somebody recorded as
+-- a `search_term` before this migration stays a `search_term`: the stored value
+-- is what an operator chose under the vocabulary available at the time, and
+-- rewriting it would be this migration inventing a judgement nobody made. The
+-- three new members are available to writers from here on.
+--
+-- ## What this does NOT fix
+--
+-- #854 is open: `normalizeCatalogAlias` folds Cyrillic `й`->`и` and `ё`->`е`
+-- into `normalized_alias`, which is part of
+-- `category_aliases_category_locale_normalized_key`. That merges two DISTINCT
+-- Cyrillic aliases of one category in one locale, so the second write fails.
+-- `kind` is not a column in that index, so this widening cannot change which
+-- alias strings collide — the defect is in the normalizer and is reachable from
+-- every kind, including the five that already existed. It is fixed in #854, not
+-- here.
+ALTER TABLE "category_aliases" DROP CONSTRAINT "category_aliases_kind_check";--> statement-breakpoint
+ALTER TABLE "category_aliases" ADD CONSTRAINT "category_aliases_kind_check" CHECK ("category_aliases"."kind" in ('synonym', 'search_term', 'legacy_name', 'external_label', 'misspelling', 'transliteration', 'abbreviation', 'regional_term'));

@@ -78,13 +78,78 @@ export function isCategoryLifecycleActive(lifecycle: CategoryLifecycle): boolean
  * `preferred` or `display` member and no boolean beside it: an alias that could
  * claim to be the name would be a second answer to what `categories.name` — and,
  * from step 2, the localization family — already answers.
+ *
+ * Nothing READS this column: `findActiveCategoriesByAliases` selects
+ * `normalized_alias`, `locale`, `category_id` and `slug`, and the interpreter's
+ * `CategoryAliasMatch` has no `kind` field to receive one. So a kind is
+ * authoring and operator-review metadata — recording what an alias IS, for
+ * whoever later has to judge a bad one — and adding a member changes no search
+ * result. That is why the three below could be added without a reader change.
+ *
+ * ## The three added for #367's "regional terms, abbreviations, transliterations"
+ *
+ * The epic asks for "localized aliases, synonyms, regional terms, abbreviations,
+ * common misspellings and transliterations". `synonym` and `misspelling` already
+ * answered two of those words. The other three were added here because the two
+ * kinds a reader reaches for do NOT cover them, and `product_type_aliases`
+ * already made exactly this call one table over — its
+ * `ProductTypeAliasKind` carries the same three, and
+ * `db/__tests__/product-type-alias-seam.test.ts` names them as "words #367 lists
+ * by hand".
+ *
+ * - **`search_term` does not cover `abbreviation`.** `search_term` is a phrase
+ *   somebody TYPES that should land here and that nobody would call a name —
+ *   it says nothing about the phrase's relationship to the name. `tv` is a
+ *   contraction OF "television" and `4k` is not; folding both into one kind
+ *   loses the only thing an operator reviewing a bad alias needs to know, which
+ *   is whether the alias is derived from the name or merely associated with it.
+ * - **`external_label` does not cover `regional_term`.** `external_label` is
+ *   what a SOURCE called it — it belongs to a feed, an importer or a partner
+ *   taxonomy and carries that provenance. `movil` (ES) against `celular`
+ *   (es-419) is Mercaria's own vocabulary for one shelf in two markets, with no
+ *   source behind it. Recording it as an external label would make an
+ *   importer's words indistinguishable from Mercaria's own, which is the
+ *   "imported source taxonomies leaking into Mercaria's public model" failure
+ *   the epic is written against — and `product_type_aliases` refuses
+ *   `external_label` for that same reason.
+ *
+ * `external_label` is nonetheless RETAINED here, unlike in the product-type
+ * tuple, and the honest reason is scope rather than use: nothing has ever
+ * written one (measured — no seed package, no test and no production caller
+ * emits it, and `legacy_name` is in the same position). Removing a member is a
+ * clean cut needing its own migration and its own decision about what a stored
+ * row becomes; this change only ADDS vocabulary. That both are unwritten is the
+ * fact whoever takes that decision should start from.
+ *
+ * ## `transliteration` and #854, which is a real defect and is ORTHOGONAL
+ *
+ * #854 is open: `normalizeCatalogAlias` folds `NFD` + strips `U+0300–U+036F`,
+ * which merges DISTINCT Cyrillic words — `мой`→`мои`, `ёлка`→`елка`, `йорк`→
+ * `иорк` — into the stored `normalized_alias` that
+ * `category_aliases_category_locale_normalized_key` is defined over. So a
+ * transliteration `айфон` and the misspelling `аифон` of one category in `ru`
+ * are ONE key and the second write fails.
+ *
+ * That is worth knowing and it does not gate this member, for a structural
+ * reason: **`kind` is not a column in that unique index.** No addition to this
+ * tuple can change which alias STRINGS collide. The pair above is already
+ * writable today as `synonym` + `misspelling`, so withholding `transliteration`
+ * prevents no failure — it only stops a correctly-labelled row being stored.
+ * Measured, and the direction the brief for this change assumed is the reverse
+ * of the truth: a Cyrillic alias and its LATIN transliteration never collide
+ * (`телефон`→`телефон` against `telefon`→`telefon`), because the fold strips
+ * combining marks and performs no script conversion. #854 is a defect in the
+ * NORMALIZER, reachable from every kind, and is fixed there.
  */
 export type CategoryAliasKind =
   | 'synonym'
   | 'search_term'
   | 'legacy_name'
   | 'external_label'
-  | 'misspelling';
+  | 'misspelling'
+  | 'transliteration'
+  | 'abbreviation'
+  | 'regional_term';
 
 /** The tuple `category_aliases_kind_check` is rendered from. */
 export const CATEGORY_ALIAS_KINDS: readonly CategoryAliasKind[] = [
@@ -93,6 +158,9 @@ export const CATEGORY_ALIAS_KINDS: readonly CategoryAliasKind[] = [
   'legacy_name',
   'external_label',
   'misspelling',
+  'transliteration',
+  'abbreviation',
+  'regional_term',
 ];
 
 /**
