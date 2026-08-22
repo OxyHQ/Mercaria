@@ -23,6 +23,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { categoryLocalizations } from '../schema/catalogLocalization.js';
+import { assertLocalizedRow } from '../../lib/localized-text.js';
 
 /** One row of `category_localizations`. */
 export type CategoryLocalizationRow = InferSelectModel<typeof categoryLocalizations>;
@@ -104,8 +105,11 @@ export async function upsertCategoryLocalization(
     locale: input.locale,
     status: input.status,
     provenance: input.provenance,
-    name: input.name ?? null,
-    description: input.description ?? null,
+    // See `listingLocalizationRepository.upsertListingLocalization`.
+    ...assertLocalizedRow('category_localizations', {
+      name: input.name ?? null,
+      description: input.description ?? null,
+    }),
     sourceLocale: input.sourceLocale ?? null,
     sourceRevision: input.sourceRevision ?? null,
     reviewedByOxyUserId: input.reviewedByOxyUserId ?? null,

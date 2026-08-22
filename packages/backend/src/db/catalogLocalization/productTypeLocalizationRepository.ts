@@ -38,6 +38,7 @@ import type {
 } from '@mercaria/shared-types';
 import { getDb, type DatabaseOrTransaction } from '../postgres.js';
 import { productTypeLocalizations } from '../schema/catalogLocalization.js';
+import { assertLocalizedRow } from '../../lib/localized-text.js';
 
 /** One row of `product_type_localizations`. */
 export type ProductTypeLocalizationRow = InferSelectModel<typeof productTypeLocalizations>;
@@ -92,9 +93,15 @@ export async function upsertProductTypeLocalization(
     locale: input.locale,
     status: input.status,
     provenance: input.provenance,
-    name: input.name ?? null,
-    description: input.description ?? null,
-    helpText: input.helpText ?? null,
+    // See `listingLocalizationRepository.upsertListingLocalization`. NOT applied
+    // in `copyForwardProductTypeLocalizations` below: that carries rows that
+    // already exist to a new version, so refusing there would fail a version
+    // bump on text written before this policy and lose the translation.
+    ...assertLocalizedRow('product_type_localizations', {
+      name: input.name ?? null,
+      description: input.description ?? null,
+      helpText: input.helpText ?? null,
+    }),
     sourceLocale: input.sourceLocale ?? null,
     sourceRevision: input.sourceRevision ?? null,
     reviewedByOxyUserId: input.reviewedByOxyUserId ?? null,

@@ -26,6 +26,7 @@
  */
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { assertLocalizedRow } from '../../lib/localized-text.js';
 import type {
   AttributeLifecycleState,
   LocalizationProvenance,
@@ -380,6 +381,11 @@ export async function upsertAttributeLabel(
   db: DatabaseOrTransaction,
   input: UpsertAttributeLabelInput,
 ): Promise<AttributeLabelRow | undefined> {
+  // See `listingLocalizationRepository.upsertListingLocalization` (#367 line 187).
+  const localized = assertLocalizedRow('attribute_labels', {
+    label: input.label,
+    description: input.description ?? null,
+  });
   const settled = {
     status: input.settlement.status,
     provenance: input.settlement.provenance,
@@ -393,8 +399,7 @@ export async function upsertAttributeLabel(
     .values({
       attributeDefinitionId: input.attributeDefinitionId,
       locale: input.locale,
-      label: input.label,
-      description: input.description ?? null,
+      ...localized,
       ...settled,
     })
     .onConflictDoUpdate({

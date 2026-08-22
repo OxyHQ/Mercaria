@@ -39,6 +39,7 @@
 
 import {
   LOCALIZED_TEXT_FIELDS,
+  localizedTextFieldsOfTable,
   type LocalizedRichTextStructure,
   type LocalizedTextColumnKey,
 } from '@mercaria/shared-types';
@@ -65,10 +66,17 @@ export function containsMarkup(value: string): boolean {
  * refuses a descriptor declaring one.
  */
 export function structuresIn(value: string): readonly LocalizedRichTextStructure[] {
+  // Normalize line endings FIRST. Without it a single Windows `\r\n` matches
+  // the blank-line pattern below — `\r`, nothing, `\n` — and one ordinary line
+  // break is reported as a paragraph break. Today both are refused on a plain
+  // field and both permitted on a rich one, so nothing observable changes; it
+  // would start mattering the moment a field permits `line_break` alone, which
+  // the descriptor shape already allows somebody to declare.
+  const normalized = value.replace(/\r\n?/gu, '\n');
   const found: LocalizedRichTextStructure[] = [];
-  if (/[\n\r]/u.test(value)) found.push('line_break');
+  if (normalized.includes('\n')) found.push('line_break');
   // A blank line: a newline, optional horizontal whitespace, another newline.
-  if (/[\n\r][^\S\n\r]*[\n\r]/u.test(value)) found.push('paragraph_break');
+  if (/\n[^\S\n]*\n/u.test(normalized)) found.push('paragraph_break');
   return found;
 }
 
@@ -124,4 +132,52 @@ export function assertOptionalLocalizedText<T extends string | null | undefined>
 ): T {
   if (typeof value === 'string') assertLocalizedText(key, value);
   return value;
+}
+
+/**
+ * The ONE function a writer of a localized table calls, and the reason it takes
+ * a ROW rather than a column.
+ *
+ * Enforcing per column meant every writer naming every column it writes, which
+ * is an enumeration with no closure property — the failure this whole policy
+ * exists to prevent, one layer up. Measured: the first version of that gate went
+ * red because the vertical-package seed writes
+ * `attribute_value_localizations.label` and not `.description`, so "assert every
+ * declared column" was a rule no writer could satisfy and "assert the ones you
+ * write" is not a question source can answer.
+ *
+ * So the writer names its TABLE once and hands over the localized half of the
+ * row it is about to write. Every value present is validated against that
+ * column's declaration; a key that is not a declared column of that table THROWS
+ * rather than being ignored, because a typo silently skipping validation is the
+ * one outcome worse than a refusal.
+ *
+ * It RETURNS the record, so a writer spreads the result into its `values(...)`
+ * instead of validating beside it — the `ledgerRepository` shape: the function
+ * that checks is the function that produces what is written, so a column left
+ * out of the call is a column left out of the write.
+ */
+export function assertLocalizedRow<T extends Record<string, string | null | undefined>>(
+  table: string,
+  row: T,
+): T {
+  const declared = localizedTextFieldsOfTable(table);
+  if (declared.length === 0) {
+    throw new Error(
+      `${table} declares no localized text columns. ` +
+        'Add them to `LOCALIZED_TEXT_FIELDS` (@mercaria/shared-types) before writing one.',
+    );
+  }
+  const byProperty = new Map(declared.map((field) => [field.property, field]));
+  for (const [property, value] of Object.entries(row)) {
+    const field = byProperty.get(property);
+    if (field === undefined) {
+      throw new Error(
+        `${table}.${property} is not a declared localized text column. ` +
+          `Declared: ${declared.map((one) => one.property).join(', ')}.`,
+      );
+    }
+    assertOptionalLocalizedText(field.key, value);
+  }
+  return row;
 }
