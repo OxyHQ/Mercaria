@@ -66,6 +66,7 @@ import {
   dropMercariaTestDatabase,
 } from '../../../db/testDatabase.js';
 import {
+  findRowCountViolations,
   findVacuityViolations,
   type PlanAnalysis,
   type ShapeExpectation,
@@ -87,6 +88,13 @@ import {
   type ShapeComparison,
   type StrategyMeasurement,
 } from '../ancestry-benchmark.js';
+import {
+  CATEGORY_READ_SHAPES,
+  categoryRegistryFloors,
+  countSeededRegistry,
+  seedCategorySchemaRegistry,
+  type CategorySchemaFixture,
+} from '../category-index-coverage.js';
 
 /** The server to create the throwaway on — the variable `globalSetup` reads. */
 const ADMIN_URL =
@@ -715,5 +723,243 @@ describe('the ancestry verdict rule', () => {
     // The vacuity floor one layer down: a strategy that issued no statement has
     // no plan, and zeroes for it would read as the fastest query in the report.
     expect(() => aggregatePlanFacts([])).toThrow(/at least one plan/u);
+  });
+});
+
+/**
+ * Epic #367 line 138 — *"add indexes for ancestry, descendants, breadcrumb reads
+ * and category-scoped schema resolution"*.
+ *
+ * The answer measurement gave is that **no index is missing**, so what is gated
+ * here is the coverage that already exists. The two properties asserted are the
+ * ones that cannot flip on table statistics: the index CAN serve its shape's
+ * predicate when the sequential scan is taken away, and each reader sends the
+ * number of statements it is pinned at. Which plan the planner PREFERS is
+ * asserted nowhere — see `category-index-coverage.ts` and the module docblock of
+ * `ancestry-benchmark.ts`, which records two opposite confident readings of that
+ * same question before it was understood.
+ *
+ * It runs in THIS file rather than a new one because it needs a real tree, its
+ * own database and a settled `ANALYZE`, and this file already owns all three. A
+ * twelfth private-database realdb file would also spend one of the three
+ * remaining slots `validate:lock-capacity` is tracking, to measure a subject
+ * this file is already about.
+ */
+describe('category index coverage (#367 line 138)', () => {
+  /** What one shape produced, and the plan of every statement it sent. */
+  interface MeasuredRead {
+    readonly rowsProduced: number;
+    readonly statements: readonly MeasuredStatement[];
+    readonly analyses: readonly PlanAnalysis[];
+  }
+
+  let fixture: CategorySchemaFixture;
+  let registryCounts: ReadonlyMap<string, number>;
+  const measured = new Map<string, MeasuredRead>();
+
+  beforeAll(async () => {
+    fixture = await seedCategorySchemaRegistry(capturing.db, result.seed);
+    // The plans below are a function of table statistics, so the registry has to
+    // be settled before any of them is taken — an unanalyzed 4,000-row table is
+    // planned as though it held the ten rows the last `ANALYZE` saw.
+    await capturing.client.unsafe('analyze');
+    registryCounts = await countSeededRegistry(capturing.db);
+
+    for (const shape of CATEGORY_READ_SHAPES) {
+      capturing.begin();
+      const rowsProduced = await shape.read(capturing.db, result.seed, fixture);
+      const statements = capturing.take();
+      const analyses: PlanAnalysis[] = [];
+      for (const statement of statements) {
+        analyses.push(await explainStatement(capturing.client, statement));
+      }
+      measured.set(shape.id, { rowsProduced, statements, analyses });
+    }
+  }, 900_000);
+
+  it('covers all four of line 138’s reads, with an index question in each', () => {
+    // The vacuity floor over the SHAPE TABLE itself. Every assertion below is an
+    // `it.each` over `CATEGORY_READ_SHAPES`, and `it.each([])` registers no cases
+    // at all — so a table emptied by a bad merge would take the whole gate green
+    // and silent. This is the one case that cannot be removed that way.
+    const kinds = new Set(CATEGORY_READ_SHAPES.map((shape) => shape.kind));
+    expect([...kinds].sort()).toEqual([
+      'ancestry',
+      'breadcrumb',
+      'category_scoped_schema_resolution',
+      'descendants',
+    ]);
+    expect(CATEGORY_READ_SHAPES.length).toBeGreaterThanOrEqual(9);
+    // And at least one shape per run has to be putting an index under test, or
+    // the `servableBy` half is an `it.each([])` too.
+    expect(
+      CATEGORY_READ_SHAPES.filter((shape) => shape.servableBy !== undefined).length,
+    ).toBeGreaterThanOrEqual(4);
+    // Every shape names the reader it calls and the surface that reaches it: a
+    // shape whose provenance went stale is how `ancestry-benchmark.ts`'s T4 came
+    // to describe a shipped read as "EXPLORATORY — no shipped path".
+    for (const shape of CATEGORY_READ_SHAPES) {
+      expect(shape.reader.length, `${shape.id} names no reader`).toBeGreaterThan(0);
+      expect(shape.route.length, `${shape.id} names no route`).toBeGreaterThan(0);
+    }
+  });
+
+  it('seeded a registry that clears its floors', () => {
+    // The dataset half of the refusal: plans taken over a registry that wrote a
+    // tenth of what it announced are correct and mean nothing.
+    expect(findRowCountViolations(registryCounts, categoryRegistryFloors())).toEqual([]);
+    expect(fixture.scopeIds.length).toBeGreaterThan(1);
+    expect(fixture.bucketIds.length).toBeGreaterThan(0);
+  });
+
+  it.each(CATEGORY_READ_SHAPES.map((shape) => [shape.id, shape] as const))(
+    '%s produces rows and sends exactly the statements it is pinned at',
+    (_id, shape) => {
+      const read = measured.get(shape.id);
+      if (!read) throw new Error(`${shape.id} was never measured.`);
+      const floor = shape.minRowsProduced(result.seed, fixture);
+
+      expect(
+        read.rowsProduced,
+        `${shape.id} (${shape.reader}) produced ${String(read.rowsProduced)} rows against a ` +
+          `floor of ${String(floor)} — the measurement is vacuous`,
+      ).toBeGreaterThanOrEqual(floor);
+
+      // EXACT, because for the ancestry and breadcrumb shapes this number IS the
+      // cost: every statement they send is an index scan over single-digit row
+      // counts, so a plan-only gate would call them healthy while a fourth round
+      // trip was added.
+      expect(
+        read.statements.length,
+        `${shape.id} (${shape.reader}) sent ${String(read.statements.length)} statements, ` +
+          `pinned at ${String(shape.statements)}. If this is an improvement, move the pin in ` +
+          `the same diff.`,
+      ).toBe(shape.statements);
+
+      // A plan list shorter than the statement list would silently exempt a
+      // statement from every assertion below it.
+      expect(read.analyses.length).toBe(read.statements.length);
+    },
+  );
+
+  it.each(
+    CATEGORY_READ_SHAPES.filter((shape) => shape.servableBy !== undefined).map(
+      (shape) => [shape.id, shape] as const,
+    ),
+  )('%s — its predicate is SERVABLE by the index it names', async (_id, shape) => {
+    const servable = shape.servableBy;
+    if (!servable) throw new Error(`${shape.id} declares no index expectation.`);
+    const read = measured.get(shape.id);
+    const statement = read?.statements[0];
+    if (!statement) throw new Error(`${shape.id} recorded no statement.`);
+
+    let tableRows = 0;
+    const forced = await explainInRollback(statement, [FORCE_INDEX], async (tx) => {
+      tableRows = await countCategories(tx);
+    });
+
+    expect(
+      forced.indexNames,
+      `${servable.index} cannot serve ${shape.id}'s predicate at all — that is a schema ` +
+        `defect, not a scale fact. ${servable.because}`,
+    ).toContain(servable.index);
+
+    if (servable.narrowOverCategories === 'required') {
+      // "The index is in the plan" and "the index bought something" are
+      // different facts, and only the second is worth having.
+      expect(
+        forced.rowsScanned,
+        `${shape.id}: ${servable.index} is in the plan and bought no narrowness — the ` +
+          `executor still looked at a tenth of \`categories\` or more`,
+      ).toBeLessThan(narrowRowCeiling(tableRows));
+    }
+
+    const chosen = read.analyses[0];
+    process.stdout.write(
+      `\n[coverage] ${shape.id} forced: ${forced.nodeTypes.join(' / ')} using ` +
+        `${forced.indexNames.join(', ') || 'NO INDEX'}; ${String(forced.rowsScanned)} rows ` +
+        `scanned of ${String(tableRows)} categories in ${forced.executionTimeMs.toFixed(2)} ms` +
+        (chosen
+          ? ` — against ${String(chosen.rowsScanned)} rows in ` +
+            `${chosen.executionTimeMs.toFixed(2)} ms on the CHOSEN plan ` +
+            `(${chosen.indexNames.join(', ') || 'NO INDEX'})`
+          : '') +
+        '\n',
+    );
+  }, 180_000);
+
+  it('goes red when the index it names is dropped — the mutation self-test', async () => {
+    // C1 is the shipped facet scope read, so this mutates the index on the path
+    // a shopper actually takes rather than on a shape written for the gate.
+    const shape = CATEGORY_READ_SHAPES.find((candidate) => candidate.id === 'C1');
+    const servable = shape?.servableBy;
+    if (!shape || !servable) throw new Error('C1 is missing or declares no index expectation.');
+    const statement = measured.get('C1')?.statements[0];
+    if (!statement) throw new Error('C1 recorded no statement.');
+
+    const forced = await explainInRollback(statement, [FORCE_INDEX]);
+    let mutatedTableRows = 0;
+    const mutated = await explainInRollback(
+      statement,
+      [FORCE_INDEX, `drop index ${servable.index}`],
+      async (tx) => {
+        mutatedTableRows = await countCategories(tx);
+      },
+    );
+
+    expect(mutated.indexNames).not.toContain(servable.index);
+    // The same assertion the case above makes, shown RED here. Without this the
+    // bound would only ever be asserted where it holds, and a bound nobody has
+    // shown can fail is not a bound.
+    expect(
+      mutated.rowsScanned,
+      'the narrowness bound stayed satisfied with the index dropped — it is checking nothing',
+    ).toBeGreaterThanOrEqual(narrowRowCeiling(mutatedTableRows));
+    expect(mutated.rowsScanned).toBeGreaterThan(forced.rowsScanned * 10);
+
+    // And the index is genuinely BACK, because a rollback that silently failed
+    // would leave every later measurement taken against a different schema.
+    const present = await capturing.client.unsafe<{ n: string }[]>(
+      `select indexname as n from pg_indexes where indexname = $1`,
+      [servable.index],
+    );
+    expect(present.length, `${servable.index} did not come back after the rollback`).toBe(1);
+  }, 180_000);
+
+  it('reports the coverage table', () => {
+    const lines: string[] = [
+      '',
+      '# Category index coverage (#367 line 138)',
+      `Registry: ${[...registryCounts].map(([t, n]) => `${t}=${String(n)}`).join(', ')}`,
+      '| shape | read | reader | stmts | rows out | rows scanned | exec ms | indexes |',
+      '| --- | --- | --- | ---: | ---: | ---: | ---: | --- |',
+    ];
+    for (const shape of CATEGORY_READ_SHAPES) {
+      const read = measured.get(shape.id);
+      if (!read) continue;
+      const scanned = read.analyses.reduce((total, plan) => total + plan.rowsScanned, 0);
+      const execMs = read.analyses.reduce((total, plan) => total + plan.executionTimeMs, 0);
+      const indexes = [...new Set(read.analyses.flatMap((plan) => plan.indexNames))];
+      lines.push(
+        `| ${shape.id} | ${shape.kind} | ${shape.reader} | ${String(read.statements.length)} | ` +
+          `${String(read.rowsProduced)} | ${String(scanned)} | ${execMs.toFixed(2)} | ` +
+          `${indexes.join(', ') || '—'} |`,
+      );
+    }
+    // The CHOSEN plan is what the table above reports and it is NOT stable — see
+    // the module docblock of `ancestry-benchmark.ts`. This line states the same
+    // shapes under `enable_seqscan = off`, which is, and is what makes the two
+    // comparable at all.
+    lines.push(
+      '',
+      'The `[coverage]` lines above report the same shapes with the sequential scan',
+      'taken away. Where the two differ, the difference is a planner decision over',
+      'table statistics and not a fact about the schema — which is why no case here',
+      'asserts the chosen plan.',
+    );
+    // Printed on SUCCESS: a measurement whose numbers appear only when it breaks
+    // is one nobody reads.
+    process.stdout.write(`${lines.join('\n')}\n\n`);
+    expect(measured.size).toBe(CATEGORY_READ_SHAPES.length);
   });
 });
