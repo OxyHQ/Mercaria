@@ -30,10 +30,10 @@ import { getTableName, is } from 'drizzle-orm';
 import { getTableConfig, PgTable } from 'drizzle-orm/pg-core';
 import * as schema from '../schema/index.js';
 import {
-  ORDER_HISTORY_DISPOSITIONS,
-  ORDER_HISTORY_ROOT_TABLE,
-  type OrderHistoryDisposition,
-} from '../orderHistoryDispositions.js';
+  COMMERCE_HISTORY_DISPOSITIONS,
+  COMMERCE_HISTORY_ROOT_TABLES,
+  type CommerceHistoryDisposition,
+} from '../commerceHistoryDispositions.js';
 
 /** Every drizzle table the barrel exports — the set drizzle-kit emits DDL for. */
 const tables = Object.values(schema).flatMap((value) => (is(value, PgTable) ? [value] : []));
@@ -56,10 +56,22 @@ const SCHEMA_TABLE_FLOOR = 300;
  * a traversal that broke and returned only the root, or only its direct
  * children, fails here instead of reporting a complete-looking plan.
  */
-const CLOSURE_FLOOR = 50;
+const CLOSURE_FLOOR = 62;
 
 /** At least this many of them must actually be enforced, or the gate proves nothing. */
-const ENFORCED_FLOOR = 18;
+const ENFORCED_FLOOR = 30;
+
+/**
+ * And this many columns must be declared frozen.
+ *
+ * Measured at the time of writing: 112, of which 67 are the payment and refund
+ * snapshots #367 line 75 added. A floor rather than the exact number so an
+ * unrelated branch adding one does not conflict here — but a HIGH floor,
+ * because the failure this defends against is a ledger that quietly lost its
+ * column declarations and still passed every "the database agrees" assertion in
+ * the realdb half, which is driven entirely from these lists.
+ */
+const FROZEN_COLUMN_FLOOR = 95;
 
 /**
  * Walk every foreign key in the schema and return the transitive closure of
@@ -71,7 +83,7 @@ const ENFORCED_FLOOR = 18;
  * Direction: CHILD → PARENT edges are followed backwards, because the question
  * is "what names an order", not "what does an order name".
  */
-function closureFrom(root: string): ReadonlySet<string> {
+function closureFrom(roots: readonly string[]): ReadonlySet<string> {
   const childrenOf = new Map<string, Set<string>>();
   for (const table of tables) {
     const config = getTableConfig(table);
@@ -84,8 +96,8 @@ function closureFrom(root: string): ReadonlySet<string> {
     }
   }
 
-  const reached = new Set<string>([root]);
-  const queue = [root];
+  const reached = new Set<string>(roots);
+  const queue = [...roots];
   while (queue.length > 0) {
     const next = queue.shift();
     if (next === undefined) break;
@@ -101,7 +113,7 @@ function closureFrom(root: string): ReadonlySet<string> {
 /** The same comparison the census makes, factored out so a mutation can drive it. */
 function coverageGaps(
   population: ReadonlySet<string>,
-  declared: readonly OrderHistoryDisposition[],
+  declared: readonly CommerceHistoryDisposition[],
 ): { readonly undeclared: readonly string[]; readonly extra: readonly string[] } {
   const declaredNames = new Set(declared.map((entry) => entry.table));
   return {
@@ -116,7 +128,7 @@ describe('the order-history population is derived, not remembered', () => {
   });
 
   it('reaches past the root and past its direct children', () => {
-    const population = closureFrom(ORDER_HISTORY_ROOT_TABLE);
+    const population = closureFrom(COMMERCE_HISTORY_ROOT_TABLES);
     expect(population.size).toBeGreaterThanOrEqual(CLOSURE_FLOOR);
 
     // Positive controls at three depths. A walk that stopped early would still
@@ -127,15 +139,26 @@ describe('the order-history population is derived, not remembered', () => {
     expect(population.has('order_item_option_values')).toBe(true); // depth 2, via order_items
     expect(population.has('draft_order_line_item_option_values')).toBe(true); // depth 3
 
-    // And a negative control: a table with no path to an order must NOT be in
-    // it, or the walk has collapsed into "every table in the schema".
+    // The payment half, which the `orders` walk provably cannot reach: the
+    // domain holds no foreign key to `orders` on purpose, so these arrive only
+    // because the payment schema module contributes its own roots. If that
+    // derivation broke, the population would silently shrink back to 57 and
+    // every payment disposition below would report as `extra` rather than as
+    // missing enforcement — which is why they are asserted by name here.
+    expect(population.has('payments')).toBe(true); // a root, from payments.ts
+    expect(population.has('transfers')).toBe(true); // depth 1 from payments
+    expect(population.has('ledger_entries')).toBe(true); // depth 2, via ledger_transactions
+
+    // And a negative control: a table with no path to an order or a payment
+    // must NOT be in it, or the walk has collapsed into "every table in the
+    // schema" — which the 454-table floor above would not notice.
     expect(population.has('brands')).toBe(false);
     expect(population.has('categories')).toBe(false);
   });
 
   it('is covered by the disposition ledger EXACTLY', () => {
-    const population = closureFrom(ORDER_HISTORY_ROOT_TABLE);
-    const gaps = coverageGaps(population, ORDER_HISTORY_DISPOSITIONS);
+    const population = closureFrom(COMMERCE_HISTORY_ROOT_TABLES);
+    const gaps = coverageGaps(population, COMMERCE_HISTORY_DISPOSITIONS);
 
     expect(
       gaps.undeclared,
@@ -152,12 +175,12 @@ describe('the order-history population is derived, not remembered', () => {
   });
 
   it('declares each table exactly once', () => {
-    const names = ORDER_HISTORY_DISPOSITIONS.map((entry) => entry.table);
+    const names = COMMERCE_HISTORY_DISPOSITIONS.map((entry) => entry.table);
     expect(new Set(names).size).toBe(names.length);
   });
 
   it('gives every entry a reason, and every reason a sentence', () => {
-    for (const entry of ORDER_HISTORY_DISPOSITIONS) {
+    for (const entry of COMMERCE_HISTORY_DISPOSITIONS) {
       expect(entry.reason.trim().length, `${entry.table} has no reason`).toBeGreaterThan(20);
     }
   });
@@ -166,7 +189,7 @@ describe('the order-history population is derived, not remembered', () => {
     // The vacuity floor that matters most. Every assertion in the realdb half is
     // driven from these declarations, so a ledger that declared everything
     // `allowed` would execute a probe over 57 tables and assert nothing.
-    const enforced = ORDER_HISTORY_DISPOSITIONS.filter(
+    const enforced = COMMERCE_HISTORY_DISPOSITIONS.filter(
       (entry) =>
         entry.rowUpdate === 'refused' ||
         entry.rowDelete === 'refused' ||
@@ -174,15 +197,34 @@ describe('the order-history population is derived, not remembered', () => {
     );
     expect(enforced.length).toBeGreaterThanOrEqual(ENFORCED_FLOOR);
 
-    const frozen = ORDER_HISTORY_DISPOSITIONS.flatMap((entry) => entry.frozenColumns);
-    expect(frozen.length).toBeGreaterThanOrEqual(20);
+    const frozen = COMMERCE_HISTORY_DISPOSITIONS.flatMap((entry) => entry.frozenColumns);
+    expect(frozen.length).toBeGreaterThanOrEqual(FROZEN_COLUMN_FLOOR);
+
+    // A frozen column must be named ONCE per table. A duplicate is how a list
+    // that looks longer than it is passes the floor above while covering less.
+    for (const entry of COMMERCE_HISTORY_DISPOSITIONS) {
+      expect(
+        new Set(entry.frozenColumns).size,
+        `${entry.table} names a frozen column twice`,
+      ).toBe(entry.frozenColumns.length);
+    }
+
+    // The payment and refund half specifically, so a regression that dropped
+    // exactly those declarations cannot hide inside a total the order tables
+    // alone very nearly satisfy.
+    const payAndRefund = COMMERCE_HISTORY_DISPOSITIONS.filter((entry) =>
+      ['payments', 'refunds', 'transfers', 'payouts', 'provider_accounts'].includes(entry.table),
+    );
+    expect(payAndRefund).toHaveLength(5);
+    // Measured: 51 across those five.
+    expect(payAndRefund.flatMap((entry) => entry.frozenColumns).length).toBeGreaterThanOrEqual(48);
   });
 });
 
 describe('the census itself goes red', () => {
   it('names a table the ledger forgot', () => {
-    const population = closureFrom(ORDER_HISTORY_ROOT_TABLE);
-    const withoutOrderItems = ORDER_HISTORY_DISPOSITIONS.filter(
+    const population = closureFrom(COMMERCE_HISTORY_ROOT_TABLES);
+    const withoutOrderItems = COMMERCE_HISTORY_DISPOSITIONS.filter(
       (entry) => entry.table !== 'order_items',
     );
     const gaps = coverageGaps(population, withoutOrderItems);
@@ -191,15 +233,15 @@ describe('the census itself goes red', () => {
   });
 
   it('names a table the ledger invented', () => {
-    const population = closureFrom(ORDER_HISTORY_ROOT_TABLE);
-    const invented: OrderHistoryDisposition = {
+    const population = closureFrom(COMMERCE_HISTORY_ROOT_TABLES);
+    const invented: CommerceHistoryDisposition = {
       table: 'a_table_that_does_not_exist',
       rowUpdate: 'allowed',
       rowDelete: 'allowed',
       frozenColumns: [],
       reason: 'a mutation, present only inside this test',
     };
-    const gaps = coverageGaps(population, [...ORDER_HISTORY_DISPOSITIONS, invented]);
+    const gaps = coverageGaps(population, [...COMMERCE_HISTORY_DISPOSITIONS, invented]);
     expect(gaps.undeclared).toEqual([]);
     expect(gaps.extra).toEqual(['a_table_that_does_not_exist']);
   });
@@ -208,16 +250,20 @@ describe('the census itself goes red', () => {
     // The self-test for the traversal rather than for the comparison: a
     // one-level walk is what a broken closure degrades into, and it must not
     // still satisfy the floor. Measured: 27 direct children against 57 reachable.
-    const directChildren = new Set<string>([ORDER_HISTORY_ROOT_TABLE]);
+    const directChildren = new Set<string>(COMMERCE_HISTORY_ROOT_TABLES);
     for (const table of tables) {
       const config = getTableConfig(table);
       for (const foreignKey of config.foreignKeys) {
-        if (getTableName(foreignKey.reference().foreignTable) === ORDER_HISTORY_ROOT_TABLE) {
+        if (
+          COMMERCE_HISTORY_ROOT_TABLES.includes(
+            getTableName(foreignKey.reference().foreignTable),
+          )
+        ) {
           directChildren.add(config.name);
         }
       }
     }
-    const full = closureFrom(ORDER_HISTORY_ROOT_TABLE);
+    const full = closureFrom(COMMERCE_HISTORY_ROOT_TABLES);
     expect(directChildren.size).toBeLessThan(full.size);
     expect(directChildren.size).toBeLessThan(CLOSURE_FLOOR);
   });

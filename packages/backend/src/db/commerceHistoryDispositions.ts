@@ -1,7 +1,28 @@
 /**
- * What each table holding a fact about a PLACED ORDER may still have rewritten
- * — the declared half of epic #367's "No historical commerce snapshot is
- * rewritten".
+ * What each table holding a fact about a PLACED ORDER, a PAYMENT or a REFUND
+ * may still have rewritten — the declared half of epic #367's "Keep historical
+ * order/payment/refund snapshots immutable".
+ *
+ * ## Why the payment domain needed a SECOND root
+ *
+ * The population used to be the foreign-key closure of `orders` alone, and the
+ * payment domain is not in it — deliberately. `services/payments/order-linkage.ts`
+ * is the ONE seam onto orders precisely so the payment tables do not reach into
+ * them, so `payments` carries no foreign key to `orders` and a walk from `orders`
+ * can never arrive. Measured: closure(`orders`) is 57 tables and contains none of
+ * `payments`, `transfers`, `payouts`, `disputes`, `payment_attempts`,
+ * `payment_provider_events`, `payment_outboxes` or `provider_accounts`.
+ *
+ * The roots are therefore `orders` PLUS every table the payment schema module
+ * exports — module membership, not a name list, so a table added to
+ * `schema/payments.ts` enters the population on the commit that adds it. That is
+ * the same "derive the population, declare the disposition" arrangement the
+ * `orders` half already used, with the boundary drawn where the domain's own
+ * module boundary already is.
+ *
+ * `refunds` and `refund_line_items` were always inside the `orders` closure
+ * (closure(`refunds`) is 23 tables, every one of them already reachable from
+ * `orders`); what changed for them is the DISPOSITION, not the membership.
  *
  * ## Why a declaration rather than an assertion beside each table
  *
@@ -12,12 +33,13 @@
  * finds it on a receipt two years later.
  *
  * So the POPULATION is derived and the DISPOSITION is declared, which is
- * `merge-plan.ts`'s arrangement one domain over. `order-history-census.test.ts`
- * walks the drizzle schema for the transitive foreign-key closure of `orders`
- * and asserts this list covers EXACTLY that set, so a new table naming an order
- * fails the build until somebody decides what may be rewritten in it — at the
- * moment the reference is added, by the person adding it.
- * `order-history-immutability.realdb.test.ts` then EXECUTES each declaration
+ * `merge-plan.ts`'s arrangement one domain over. `commerce-history-census.test.ts`
+ * walks the drizzle schema for the transitive foreign-key closure of the roots
+ * below and asserts this list covers EXACTLY that set, so a new table naming an
+ * order or a payment fails the build until somebody decides what may be
+ * rewritten in it — at the moment the reference is added, by the person adding
+ * it.
+ * `commerce-history-immutability.realdb.test.ts` then EXECUTES each declaration
  * against a real server, so a declaration is never taken on trust.
  *
  * ## `allowed` with a reason is a decision; silence is not
@@ -30,33 +52,65 @@
  * are documented as immutable somewhere and enforced NOWHERE say so in the one
  * place a reader is already looking.
  *
- * ## Nine entries record a GAP or a PARTIAL rather than a guarantee
+ * ## Some entries record a GAP or a PARTIAL rather than a guarantee
  *
  * `schema/orders.ts`'s own opening line calls eight tables "the immutable
  * commerce record" — `orders`, `order_items`, `order_item_option_values`,
  * `order_status_history`, `order_applied_discounts`, `order_tax_lines`,
- * `refunds`, `refund_line_items`. Two of the eight carry a trigger, and both are
- * scoped to a handful of COLUMNS: an order's buyer identity and a line's
- * recorded condition. The other six refuse nothing at all. Separately,
- * `retail_procurement_intents` is called frozen at checkout and cited elsewhere
- * as an immutable home, and only its LINES are enforced.
+ * `refunds`, `refund_line_items`. The payment and refund half of that list is
+ * now enforced; the four ORDER-side tables named there still refuse nothing, and
+ * so does `retail_procurement_intents`, which `schema/retailCheckout.ts` calls
+ * frozen at checkout. Those are recorded as what the database ACTUALLY does,
+ * with the discrepancy named in the reason. Declaring them `refused` to match
+ * the prose would make this file the fiction instead of the schema — and the
+ * realdb half would fail immediately, which is the property that keeps this
+ * honest.
  *
- * Those nine are recorded as what the database ACTUALLY does, with the
- * discrepancy named in the reason. Declaring them `refused` to match the prose
- * would make this file the fiction instead of the schema — and the realdb half
- * would fail immediately, which is the property that keeps this honest.
+ * ## A column that MOVES is a decision, and the census accepts it
  *
- * None of it is fixed here. Adding a trigger to a live commerce table is a
- * migration and a decision about existing writers (`refunds` in particular MUST
- * stay mutable — #49 keeps three states of one refund on the row), so the gap is
- * reported rather than papered over.
+ * The classification is by MEANING — is this a fact about a transaction as it
+ * stood, or working state that legitimately moves — and NOT by which columns the
+ * code happens to write today. Those are different questions, and deriving the
+ * second from the first builds a gate that ratifies whatever the code currently
+ * does: a column mutated by a defect would be classified `allowed` and the gate
+ * would then assert it stays that way, which is the one thing it exists to
+ * catch. Each classification was diffed against a census of every `.set()` and
+ * `onConflictDoUpdate` in the domain, and the DISAGREEMENTS are recorded in the
+ * reasons rather than resolved silently.
+ *
+ * ## Why NOTHING here refuses a DELETE
+ *
+ * Every entry this issue touched keeps `rowDelete: 'allowed'`, and that is
+ * measured rather than conceded. `payment_provider_events` and
+ * `payment_outboxes` are DELETE targets of the shared retention sweep
+ * (`db/expiryTargets.ts`), so a DELETE trigger there would make retention fail
+ * SILENTLY; `refund_line_items` is reached by the FK cascade from `refunds`;
+ * and five realdb files plus `scripts/seed.ts` delete payments, refunds,
+ * disputes and attempts in teardown. The ledger tables can refuse DELETE
+ * because nothing deletes them — these cannot. (#90's condition photos set the
+ * precedent: permit the DELETE so the cascade the foreign key already declares
+ * still works.)
+ *
+ * ## Why the freezes are WRITE-ONCE
+ *
+ * Every column-level freeze is `OLD IS NOT NULL AND NEW IS DISTINCT FROM OLD`,
+ * so a NULL → value stamp is permitted and rewriting a recorded fact is not.
+ * That is what makes a captured amount freezable at all: `platform_amount` is
+ * NULL until the charge settles and is stamped once, and an at-least-once
+ * redelivery that re-applies the SAME value is not a rewrite. On a NOT NULL
+ * column it degenerates to a plain freeze, which is the intended reading there.
  */
 
+import { getTableName, is } from 'drizzle-orm';
+import { PgTable } from 'drizzle-orm/pg-core';
+
+import * as paymentsSchema from './schema/payments.js';
+
 /** What the database does to an UPDATE or a DELETE of a whole row. */
-export type OrderHistoryVerdict = 'refused' | 'allowed';
+export type CommerceHistoryVerdict = 'refused' | 'allowed';
 
 /** One table's declared disposition. */
-export interface OrderHistoryDisposition {
+export interface CommerceHistoryDisposition {
   /** The Postgres table name, as the migrations create it. */
   readonly table: string;
   /**
@@ -66,9 +120,9 @@ export interface OrderHistoryDisposition {
    * one that merely freezes named columns, which a value-changing probe cannot
    * tell apart.
    */
-  readonly rowUpdate: OrderHistoryVerdict;
+  readonly rowUpdate: CommerceHistoryVerdict;
   /** What `DELETE` of the row does. */
-  readonly rowDelete: OrderHistoryVerdict;
+  readonly rowDelete: CommerceHistoryVerdict;
   /**
    * Columns that may not be changed once written, on a table whose row is
    * otherwise mutable.
@@ -84,20 +138,40 @@ export interface OrderHistoryDisposition {
 }
 
 /**
- * The root the population is derived from.
+ * The roots the population is derived from.
  *
- * One root, not a list of tables: "a record about a placed order" is exactly
- * "reachable from `orders` by a foreign key", so the boundary is a property of
- * the schema rather than of anybody's memory.
+ * `orders` is the commerce root: "a record about a placed order" is exactly
+ * "reachable from `orders` by a foreign key". The payment domain needs its own
+ * roots because it deliberately holds no foreign key to `orders` (see the
+ * header), and they are taken from the payment schema module's OWN exports
+ * rather than written out here — so the boundary stays a property of the schema
+ * rather than of anybody's memory, and a table added to `schema/payments.ts`
+ * joins the population on the commit that adds it.
+ *
+ * Sorted so the derivation is stable and a diff adding a root is one line.
  */
-export const ORDER_HISTORY_ROOT_TABLE = 'orders';
+export const COMMERCE_HISTORY_ROOT_TABLES: readonly string[] = [
+  'orders',
+  ...Object.values(paymentsSchema).flatMap((value) =>
+    is(value, PgTable) ? [getTableName(value)] : [],
+  ),
+].sort();
 
 /**
  * Every table in that closure, with what may still be rewritten in it.
  *
  * Ordered alphabetically so a diff adding one is a single insertion.
  */
-export const ORDER_HISTORY_DISPOSITIONS: readonly OrderHistoryDisposition[] = [
+export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[] = [
+  {
+    table: 'affiliate_commission_postings',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      'A ledger posting, append-only by `affiliate_commission_postings_append_only` — a correction is a ' +
+      'REVERSING posting, never an edit, which is the rule the whole ledger layer is built on.',
+  },
   {
     table: 'buyer_request_events',
     rowUpdate: 'refused',
@@ -118,6 +192,18 @@ export const ORDER_HISTORY_DISPOSITIONS: readonly OrderHistoryDisposition[] = [
     rowDelete: 'allowed',
     frozenColumns: [],
     reason: 'A live request: it is filed, decided, then completed, so its status column exists to move.',
+  },
+  {
+    table: 'disputes',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: ['provider', 'provider_dispute_id', 'payment_id', 'opened_booked_at'],
+    reason:
+      'GAP (#867): the identity of the dispute and the instant its opening was BOOKED are frozen, but ' +
+      "`amount_amount`, `amount_currency` and `fee_amount` are NOT — `disputeRepository`'s " +
+      '`onConflictDoUpdate` restates all three unconditionally on every redelivery, which a real ' +
+      'inquiry-to-chargeback escalation needs, yet the ledger is booked from them AFTER that upsert and ' +
+      'nothing reconciles a later move. The fix is a guard on the upsert, not a freeze here.',
   },
   {
     table: 'draft_order_applied_discounts',
@@ -153,6 +239,33 @@ export const ORDER_HISTORY_DISPOSITIONS: readonly OrderHistoryDisposition[] = [
     rowDelete: 'allowed',
     frozenColumns: [],
     reason: 'A POS draft is a basket being built; the immutable record is the `orders` row it converts into.',
+  },
+  {
+    table: 'ledger_entries',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      'The ledger leg, append-only by `ledger_entries_append_only` since the payment domain landed — ' +
+      'a correction is a REVERSING transaction and there is deliberately no `reverseTransaction(id)`.',
+  },
+  {
+    table: 'ledger_transactions',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      'The balanced posting itself, append-only by `ledger_transactions_append_only`. ADR 0001 D3 makes ' +
+      "this the ONLY record of Mercaria's commission, so an edit here is the one that cannot be recomputed.",
+  },
+  {
+    table: 'merchant_subscription_events',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      'A billing event, append-only by `merchant_subscription_events_append_only` — the same posture as ' +
+      'every other ledger-shaped table, and for the same reason.',
   },
   {
     table: 'order_applied_discounts',
@@ -247,6 +360,89 @@ export const ORDER_HISTORY_DISPOSITIONS: readonly OrderHistoryDisposition[] = [
       'status and every money column move by design, and nothing refuses a DELETE of an order.',
   },
   {
+    table: 'payment_attempts',
+    rowUpdate: 'refused',
+    rowDelete: 'allowed',
+    frozenColumns: [],
+    reason:
+      'The append-only log of what Mercaria asked a rail and what it answered: `recordPaymentAttempt` ' +
+      'INSERTS and nothing in the tree updates an attempt, so the whole row is frozen. DELETE stays ' +
+      'open because realdb teardown removes attempts alongside the payments they belong to.',
+  },
+  {
+    table: 'payment_outboxes',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: ['event_type', 'payload'],
+    reason:
+      'The ROW IS THE JOB, so the lease, the attempt count and the schedule all move; what the job IS — ' +
+      'its type and its payload — does not. DELETE is the shared retention sweep, which must keep working.',
+  },
+  {
+    table: 'payment_provider_events',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [
+      'provider',
+      'provider_account_id',
+      'provider_event_id',
+      'type',
+      'livemode',
+      'api_version',
+      'object_ids',
+      'payload_summary',
+      'received_at',
+      'payment_id',
+    ],
+    reason:
+      'What the provider SAID is frozen — a stored event is the evidence a webhook was verified against ' +
+      'and a replay reads it back; the claim columns beside it move because the row is also the job. ' +
+      '`payment_id` is frozen write-once, which additionally closes a hole: three writers set it with no ' +
+      'compare-and-swap, so a re-resolution to a DIFFERENT payment would silently reattribute the event.',
+  },
+  {
+    table: 'payments',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [
+      'checkout_group_id',
+      'buyer_oxy_user_id',
+      'provider',
+      'order_id',
+      'presentment_amount',
+      'presentment_currency',
+      'provider_object_id',
+      'platform_amount',
+      'platform_currency',
+      'platform_rate_from',
+      'platform_rate_to',
+      'platform_rate_rate',
+      'platform_rate_provider',
+      'platform_rate_as_of',
+    ],
+    reason:
+      'The lifecycle `status` legitimately moves and is the whole reason the row is not frozen; what the ' +
+      'buyer was CHARGED, what actually LANDED and the FX snapshot that relates them do not. The platform ' +
+      'columns are NULL until the charge settles, so write-once admits the one stamp and refuses a later ' +
+      'restatement — including from the reconciliation sweep, which re-applies the same figures by design.',
+  },
+  {
+    table: 'payouts',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [
+      'provider',
+      'provider_account_ref',
+      'provider_object_id',
+      'amount_amount',
+      'amount_currency',
+    ],
+    reason:
+      'A payout BOOKS nothing (ADR 0001 D6 settled the receivable at transfer time), so its status, ' +
+      'arrival and failure code converge from the rail — but the amount the rail paid and the account it ' +
+      "paid is a fact as it stood. `upsertPayout`'s conflict branch already omits all five.",
+  },
+  {
     table: 'pickup_collection_credentials',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
@@ -261,21 +457,75 @@ export const ORDER_HISTORY_DISPOSITIONS: readonly OrderHistoryDisposition[] = [
     reason: 'What happened at the counter, append-only by trigger.',
   },
   {
-    table: 'refund_line_items',
+    table: 'provider_accounts',
     rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [
+      'provider',
+      'owner_type',
+      'owner_id',
+      'provider_account_id',
+      'country',
+      'activated_at',
+      'revoked_at',
+    ],
+    reason:
+      'Readiness is ONE stored verdict and every requirement count beside it moves at each sync; WHOSE ' +
+      'account this is does not. `UNIQUE(provider, owner_type, owner_id)` is the security boundary (#46), ' +
+      'and a connected account cannot be un-created, so re-pointing the row at another owner or another ' +
+      'Stripe account is the write that must be impossible rather than merely unusual.',
+  },
+  {
+    table: 'referral_ledger_postings',
+    rowUpdate: 'refused',
+    rowDelete: 'refused',
+    frozenColumns: [],
+    reason:
+      'A ledger posting, append-only by `referral_ledger_postings_append_only` — same posture, same ' +
+      'reason, as every other ledger-shaped table.',
+  },
+  {
+    table: 'refund_line_items',
+    rowUpdate: 'refused',
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      "GAP: named in `schema/orders.ts`'s \"immutable commerce record\" list, and carrying no enforcement of any kind.",
+      'What was refunded, per line: quantity, both money pairs, the restock flag and its location. ' +
+      'Nothing in the tree updates one, and the table carries no `updated_at` at all, so the whole row ' +
+      'is frozen. DELETE stays open because it is reached by the FK cascade from `refunds`.',
   },
   {
     table: 'refunds',
     rowUpdate: 'allowed',
     rowDelete: 'allowed',
-    frozenColumns: [],
+    frozenColumns: [
+      'order_id',
+      'store_id',
+      'seller_oxy_user_id',
+      'type',
+      'refund_shipping_shop_amount',
+      'refund_shipping_shop_currency',
+      'refund_shipping_presentment_amount',
+      'refund_shipping_presentment_currency',
+      'total_refunded_shop_amount',
+      'total_refunded_shop_currency',
+      'total_refunded_presentment_amount',
+      'total_refunded_presentment_currency',
+      'restocked_at',
+      'processed_by_oxy_user_id',
+      'idempotency_key',
+      'provider',
+      'payment_id',
+      'provider_refund_id',
+      'provider_reversal_id',
+    ],
     reason:
-      "CONFLICTED: #49 keeps three states of one refund here and the provider's own arrives late, so the " +
-      'row must move — yet `schema/orders.ts` lists it as part of the immutable commerce record.',
+      'The row must move — #49 keeps THREE states of one refund on it and they run on different clocks — ' +
+      'so `status`, `provider_state`, `reversal_state`, `provider_failure_code` and the reversal amount ' +
+      'are all left open. What the refund WAS FOR is frozen: the order, the seller, the type, both money ' +
+      'pairs and the idempotency key, which is the half `schema/orders.ts` means by "immutable commerce ' +
+      'record". `status` is deliberately NOT frozen even though nothing writes it today — it is the ' +
+      'commerce clock of a three-clock row, and freezing it would pin present silence as the contract.',
   },
   {
     table: 'retail_cost_variance_records',
@@ -558,14 +808,33 @@ export const ORDER_HISTORY_DISPOSITIONS: readonly OrderHistoryDisposition[] = [
       'A thread is opened and closed; its MESSAGES are the append-only record. `drizzle/0054`\'s comment ' +
       'reads as if the thread were covered too — it is not, and the trigger is on `support_messages`.',
   },
+  {
+    table: 'transfers',
+    rowUpdate: 'allowed',
+    rowDelete: 'allowed',
+    frozenColumns: [
+      'payment_id',
+      'order_id',
+      'provider',
+      'amount_amount',
+      'amount_currency',
+      'provider_object_id',
+    ],
+    reason:
+      "The seller's share as Mercaria computed it, frozen — `seller-net-shares.ts` is the ONE definition " +
+      'and re-deriving it later would let rounding residue move between a seller and the commission ' +
+      'residual. `status` and `reversed_amount` stay open because reversals are cumulative and their ' +
+      "events are unordered, so the figure only ever moves FORWARD under `greatest()`. The repository's " +
+      'own comment already states the rule: never the amount, the payment or the order.',
+  },
 ];
 
 /** Every declared table, for a caller that only needs the names. */
-export const ORDER_HISTORY_TABLES: readonly string[] = ORDER_HISTORY_DISPOSITIONS.map(
+export const COMMERCE_HISTORY_TABLES: readonly string[] = COMMERCE_HISTORY_DISPOSITIONS.map(
   (entry) => entry.table,
 );
 
 /** One table's declaration, or `undefined` when it has none. */
-export function orderHistoryDispositionFor(table: string): OrderHistoryDisposition | undefined {
-  return ORDER_HISTORY_DISPOSITIONS.find((entry) => entry.table === table);
+export function commerceHistoryDispositionFor(table: string): CommerceHistoryDisposition | undefined {
+  return COMMERCE_HISTORY_DISPOSITIONS.find((entry) => entry.table === table);
 }
