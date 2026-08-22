@@ -284,6 +284,48 @@ no "set the primary" (that is the seller's listing write path, unchanged), no
 category"; the COUNT is served, which is what an operator needs before
 deprecating a node, and the list is not.
 
+## A category-specific override is a versioned rule, and there are exactly two
+
+Epic #367 line 143 asks that category-specific overrides be supported ONLY
+through explicit, versioned rules, and the load-bearing word is *only*. A
+category does not carry rules of its own: what varies by category is what a
+VERSIONED contract says under it, and exactly two tables say that.
+
+| Table | Says | Frozen by |
+|---|---|---|
+| `product_type_category_scopes` | which categories a product-type version may be authored under | `product_type_category_scopes_frozen` (`0089`) |
+| `attribute_definition_categories` | which categories an attribute version applies under, and whether its subtree inherits | `attribute_definition_categories_frozen` (`0136`) |
+
+Both hang off a version that is frozen once published, so changing what a live
+contract says under a category is a NEW version and never an edit — INSERT,
+UPDATE and DELETE are all refused with `restrict_violation`. The second was open
+until #367 line 143: it was measured accepting all three against a published
+parent, which is the hole ADR 0007 D2 names when it explains why the first table
+is owned by the product-type domain rather than by taxonomy.
+
+That population is DERIVED rather than listed. `src/db/categoryScopeFreeze.ts`
+walks the drizzle schema for every table naming both a `categories.id` and a
+versioned definition (a table whose identity is `(<something>key,
+<something>version)`), and `category-scope-freeze-census.test.ts` fails the build
+if one of them is not declared — either as a rule with a trigger, or as an
+authored SUBJECT, which is checkable rather than assertable: a rule carries a
+UNIQUE over (definition, category) and a subject does not, and both directions
+are asserted. `category-scope-freeze.realdb.test.ts` then executes every
+declaration against a real server, with a mutation self-test that re-runs each
+refusal against a trigger-free clone of the same table.
+
+Three tables sit in that population as subjects — `listings`,
+`catalog_authoring_drafts`, `catalog_proposals`. Their definition column is a
+citation of what one subject was authored under, not a statement about the
+category.
+
+**What is NOT in it, and is a separate gap:** `condition_category_policies`
+(#90) is a category-specific restriction — explicit, with a mandatory reason, a
+named operator and a closed vocabulary — and it is not versioned at all. It has
+no version column and no versioned parent, so it overrides no versioned contract
+and the derivation above cannot reach it; giving it one means a ruleset table the
+condition domain owns.
+
 ## What is deliberately not here
 
 - **The `post` migration.** Retiring `ancestor_slugs`, and the cross-column

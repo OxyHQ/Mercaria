@@ -283,9 +283,6 @@ afterAll(async () => {
         .where(inArray(attributeDefinitions.key, createdAttributeKeys))
     ).map((row) => row.id);
     if (definitionIds.length > 0) {
-      await db
-        .delete(attributeDefinitionCategories)
-        .where(inArray(attributeDefinitionCategories.attributeDefinitionId, definitionIds));
       // A PUBLISHED definition version refuses DELETE
       // (`attribute_definitions_immutable_once_published`), because a stored
       // value cites its version and deleting it would leave that value
@@ -294,10 +291,18 @@ afterAll(async () => {
       // requires to move together. That the cleanup has to do this IS the
       // guarantee working; a suite that could delete a published version would
       // be evidence the trigger does not hold.
+      //
+      // The demote runs BEFORE the category-scope delete below, and that order
+      // is load-bearing rather than tidy: `attribute_definition_categories_frozen`
+      // refuses a DELETE of a scope row while its parent is published, for the
+      // same reason its siblings under `mercaria_attribute_enum_frozen` do.
       await db
         .update(attributeDefinitions)
         .set({ lifecycleState: 'draft', publishedAt: null, deprecatedAt: null })
         .where(inArray(attributeDefinitions.id, definitionIds));
+      await db
+        .delete(attributeDefinitionCategories)
+        .where(inArray(attributeDefinitionCategories.attributeDefinitionId, definitionIds));
       await db.delete(attributeDefinitions).where(inArray(attributeDefinitions.id, definitionIds));
     }
   }

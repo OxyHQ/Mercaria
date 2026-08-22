@@ -459,7 +459,7 @@ const ATTRIBUTE_REFERENCES: readonly GovernedReference[] = [
   {
     column: attributeDefinitionCategories.attributeDefinitionId,
     disposition: 'cascades',
-    note: 'ON DELETE cascade — the definition own category scopes. Zero rows means UNSCOPED here, the opposite reading from a product type',
+    note: 'ON DELETE cascade — the definition own category scopes. Zero rows means UNSCOPED here, the opposite reading from a product type. attribute_definition_categories_frozen refuses any write once the parent leaves draft, so widening a live attribute scope is a new version and not an edit',
   },
   {
     column: attributeEnumValues.attributeDefinitionId,

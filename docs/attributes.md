@@ -59,6 +59,27 @@ canonical value and that needs a row to point at. Localized labels are
 `attribute_labels`. Category scope is `attribute_definition_categories`, with
 `include_descendants` per scope row.
 
+**The category scope is frozen with its version** —
+`attribute_definition_categories_frozen`, added by `0136` for epic #367 line
+143. It is the same guarantee `attribute_enum_values` and
+`attribute_value_aliases` already had from `mercaria_attribute_enum_frozen`, and
+it had been missing here since the table landed: with the parent `active`, an
+INSERT of a new scope, an UPDATE of `include_descendants` and a DELETE of a
+scope were all accepted, measured against a real server. That is the widening
+ADR 0007 D2 calls "the one edit the immutability guarantee exists to refuse",
+and it matters more here than for an enum value because `include_descendants`
+IS the inheritance rule: flipping it silently changes which categories a
+published definition applies under, and every value authored under it was
+authored on the old answer. Changing what a live attribute covers is a NEW
+version — `version-carry-forward.ts` copies the scopes into it — and never an
+edit.
+
+Which tables may say something category-specific about a versioned contract, and
+which trigger freezes each, is declared in `src/db/categoryScopeFreeze.ts`; the
+population is walked out of the drizzle schema by
+`category-scope-freeze-census.test.ts` and every declaration is executed against
+a real server by `category-scope-freeze.realdb.test.ts`.
+
 ### The lifecycle
 
 - **`draft`** — editable.
