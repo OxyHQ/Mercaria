@@ -510,7 +510,7 @@ export async function tallyBackfillRetries(
  * Reindex requests with no `processed_at`.
  *
  * This number only grows, and that is the expected reading rather than an
- * incident: `attribute_reindex_requests` has three enqueuers and NO consumer —
+ * incident: `attribute_reindex_requests` has several producers and NO consumer —
  * `processed_at` is written by no code path in the repository — so nothing can
  * ever leave the queue. The metric's `attributionLimit` says so, and
  * `reindex_throughput` beside it is `unmeasured` for the same reason rather than

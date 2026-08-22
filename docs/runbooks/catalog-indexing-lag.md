@@ -4,7 +4,7 @@
 this alert is usually "nothing".**
 
 `reindex_pending_count` **only ever grows.** `attribute_reindex_requests` has
-three enqueuers, a deterministic caller-supplied primary key, a lease-shaped
+several producers, a deterministic caller-supplied primary key, a lease-shaped
 schema, a pending index and an `attempts` counter — and **no consumer**. Nothing
 in this repository writes `processed_at`: the column appears in exactly one
 place, as an `is null` predicate in a read-only operator listing. So **a rising
@@ -41,13 +41,22 @@ forever.
 ## What it means
 
 Rows are being enqueued for a search re-index that no code path performs. The
-three enqueuers are:
+producers are:
 
-| Enqueuer | When |
+| Producer | When |
 |---|---|
-| `services/attributes/definition-registry.service.ts` | an attribute definition was published or changed |
-| `services/attributes/attribute-observation.service.ts` | a canonical attribute value was observed |
-| `services/backfill/stages/projections.ts` | #60's backfill stage 7, and only while `CANONICAL_SEARCH_INDEXING_ENABLED` is on — with it off the stage records `reindex_disabled` and enqueues nothing |
+| `services/attributes/definition-registry.service.ts` | an attribute definition was published, deprecated or retired |
+| `services/attributes/attribute-observation.service.ts` | a canonical attribute value was observed or selected |
+| `services/attributes/source-mapping.service.ts` | a source's normalization rules changed |
+| `services/curation/correction.service.ts` | an operator corrected a canonical value |
+| `services/backfill/stages/projections.ts` | #60's backfill stage 7, and only while `CANONICAL_SEARCH_INDEXING_ENABLED` is on — with it off the stage records `reindex_disabled` and enqueues nothing. This one inserts the table DIRECTLY rather than calling `enqueueAttributeReindex`, so a search for the repository function's callers misses it |
+
+**Do not re-derive that table by hand.** It is
+`CATALOG_EVENT_CONTRACTS.reindex_request.producers` in
+`packages/backend/src/services/catalog-event-contracts.ts`, and
+`services/__tests__/catalog-event-contracts.test.ts` derives the same set from
+the source tree and fails the build when the two disagree. This table said
+"three enqueuers" and named three of them until that gate was written.
 
 ## What it does NOT mean
 
@@ -55,8 +64,8 @@ three enqueuers are:
   index for them to be stale against. `GET /search` (#70) composes its answer
   from live reads and is gated by `CANONICAL_SEARCH`; it does not consult this
   queue.
-- **Not that a publication is incomplete.** `publishDraft` calls none of the
-  three enqueuers, and it structurally could not land a row naming a native
+- **Not that a publication is incomplete.** `publishDraft` is not among the
+  producers above, and it structurally could not land a row naming a native
   listing: `ATTRIBUTE_ENTITY_KINDS` is `['product', 'variant']` meaning CANONICAL
   product and variant, so there is no `entity_id` a listing could occupy. The
   trace reports `attributeReindex.state: "unreachable"` on a COMPLETE chain, and

@@ -36,8 +36,17 @@ only one of them may hold the sentence a translator wrote.
 
 ## Written by triggers, which is what makes it complete
 
-Four `AFTER INSERT OR UPDATE` triggers, one per text table, are the **only**
+One `AFTER INSERT OR UPDATE` trigger per text table, and they are the **only**
 writers. There is deliberately no `recordRevision` function anywhere.
+
+The trigger set is named in
+`packages/backend/src/services/catalog-event-contracts.ts` under
+`CATALOG_EVENT_CONTRACTS.translation_change`, and
+`services/__tests__/catalog-event-contracts.test.ts` derives the same set out of
+`drizzle/*.sql` — a `CREATE TRIGGER` whose function body inserts into this table
+— and fails the build when the two disagree. **This paragraph said "four" while
+there were eight**, which is why the count is no longer written down anywhere a
+reader can trust it: the register carries the list and the gate keeps it true.
 
 A trail written by a repository records what the service did and misses a
 backfill script, an operator at a `psql` prompt, and the stale triggers the
@@ -137,12 +146,24 @@ with its subject.
 
 ## Deferred
 
-- **The HTTP surface.** `/internal/catalog-localization` (#660) is the natural
-  home — a `GET .../history/...` and the rollback write — and this lands after
-  that PR merges, because both branches would otherwise create the same router
-  file. Note the rollback is the desk's **first write route**, so #660's
-  "registers no write verb" gate is a decision that changes with it rather than a
-  rule to work around.
+- **The HTTP surface — still open, and its stated precondition has been met.**
+  `/internal/catalog-localization` (#660) is the natural home: a
+  `GET .../history/...` and the rollback write. This entry used to say it lands
+  "after that PR merges, because both branches would otherwise create the same
+  router file". **#660 has merged**, `routes/internal-catalog-localization.ts`
+  exists, and it carries three `GET`s — none of them the history and none of them
+  the rollback. So `db/catalogLocalization/revisionRepository.ts` still has ZERO
+  production importers: eight triggers fill this trail and nothing in the running
+  service can read it or roll anything back. The rollback is the desk's **first
+  write route**, so #660's "registers no write verb" gate is a decision that
+  changes with it rather than a rule to work around.
+
+  The absence is now GATED rather than merely written down:
+  `CATALOG_EVENT_CONTRACTS.translation_change.consumer` records it as `absent`
+  with a `no_importer_of` probe, and
+  `services/__tests__/catalog-event-contracts.test.ts` goes red the moment a
+  production module imports that repository — which is the direction a list of
+  known gaps can never report on its own.
 - **A `DELETE` recorded as a revision.** Nothing in the backend deletes a
   localization row today (measured, not assumed), so the action vocabulary has no
   `delete` member. A translation is withdrawn deliberately by moving it to

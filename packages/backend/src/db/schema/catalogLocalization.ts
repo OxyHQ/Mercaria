@@ -421,8 +421,12 @@ export const attributeValueLocalizations = pgTable(
  *
  * ## Written by TRIGGERS, which is what makes it complete
  *
- * Four `AFTER INSERT OR UPDATE` triggers, one per text table, are the only
- * writers. A trail written by a repository records what the service did and
+ * A set of `AFTER INSERT OR UPDATE` triggers, one per text table, are the only
+ * writers — enumerated in `services/catalog-event-contracts.ts` under
+ * `CATALOG_EVENT_CONTRACTS.translation_change`, whose gate derives the same set
+ * from the migration SQL. This docblock said "four" and there were eight by the
+ * time anybody read it, which is why the number now lives where it can fail.
+ * A trail written by a repository records what the service did and
  * misses a backfill script, an operator at a `psql` prompt and the stale
  * triggers this same file already installs — and the gaps are invisible,
  * because a missing revision looks exactly like a field nobody edited. Writing

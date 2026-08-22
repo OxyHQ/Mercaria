@@ -4,7 +4,10 @@
  *
  * ## There is no `recordRevision` here, deliberately
  *
- * The trail is written by four database triggers and nothing else. A repository
+ * The trail is written by database triggers and nothing else — one per text
+ * table, enumerated and DERIVED in
+ * `services/catalog-event-contracts.ts` (`CATALOG_EVENT_CONTRACTS.translation_change`),
+ * because this line said "four" long after there were eight. A repository
  * function that inserted a revision would be a SECOND writer, and the two would
  * disagree the first time somebody wrote a translation through a path that
  * forgot to call it — which is every path that is not this service: a backfill
@@ -14,6 +17,22 @@
  *
  * What IS here is the rollback, and even that does not write the trail: it
  * writes the LOCALIZATION row, having told the trigger what the update undoes.
+ *
+ * ## Nothing in the running service imports this module
+ *
+ * Measured, and recorded as an open gap on the `translation_change` contract:
+ * all three exports below are reachable only from
+ * `db/__tests__/localization-revisions.realdb.test.ts`. The trail is therefore
+ * WRITE-ONLY in production — eight triggers fill it and no route, service or
+ * controller can show a translator what a string used to say or roll one back.
+ * `copyForwardProductTypeLocalizations` was in exactly this state until #650, so
+ * the shape is a known one here: a real, correct, realdb-tested surface that
+ * nothing reaches, cited in a disposition as though it worked.
+ *
+ * The gate asserts the absence rather than the presence, in the direction a list
+ * of gaps can never report on its own: the moment a production module imports
+ * this file, `catalog-event-contracts.test.ts` goes red and the contract's
+ * `consumer` has to be changed from `absent` to `reads`.
  */
 
 import { and, desc, eq, sql } from 'drizzle-orm';
