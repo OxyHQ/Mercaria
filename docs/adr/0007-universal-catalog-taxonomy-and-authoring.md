@@ -1223,11 +1223,19 @@ each reader to infer.
 
 **This decision supersedes the enumeration in D1.** D1 opens "Every catalog
 concept — category, product type, attribute, controlled value, unit, size
-system, navigation node, vehicle record —", which is a list of eight written
-before the vocabulary was settled. It is not this list: it adds `unit`, `size
-system` and `vehicle record`, which are *supporting* registries rather than
-concepts the epic names, and it omits eleven of the nineteen. D1's claim is true
-of every term here; read its enumeration as examples, and this table as the set.
+system, navigation node, vehicle record —", written before the vocabulary was
+settled. It is not this list: it adds `unit`, `size system` and `vehicle
+record`, which are *supporting* registries rather than concepts the epic names,
+and of the terms in the table above it reaches only **category, product type,
+attribute, controlled value and navigation node**. Everything else in the table
+is outside it. D1's claim is true of every term here; read its enumeration as
+examples, and this table as the set.
+
+(This paragraph said "omits eleven of the nineteen" in the first draft of the
+change that added it — a number carried across from a survey rather than
+counted, which is the exact failure the rest of this decision is about,
+committed while writing it. Naming the five it does reach is the fix, because a
+list that names its members cannot be off by three.)
 
 **What the census can and cannot prove.** It proves that the term set in this
 table and the term set in the glossary are the SAME set, that every home named
