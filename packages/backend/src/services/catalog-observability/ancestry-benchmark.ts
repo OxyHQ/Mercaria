@@ -452,8 +452,12 @@ export const ANCESTRY_SHAPES: readonly AncestryShape[] = [
     id: 'T4',
     title: 'Canonical products filed anywhere under a ROOT — the category-scoped read',
     reader:
-      'EXPLORATORY — no shipped path resolves a canonical-product subtree today; ' +
-      'ADR 0007 D2 names "category-scoped schema resolution" as a shape the benchmark owes',
+      'SYNTHETIC, and no longer exploratory: `db/facets/facetRepository.ts ' +
+      'countCategoryBuckets` ships this resolution on `POST /facets`, one ' +
+      'correlated subtree per child bucket. This statement is still hand-written ' +
+      'because the comparison needs BOTH strategies over one predicate and the ' +
+      'shipped reader has only the one; the shipped reader is measured as C9 in ' +
+      '`category-index-coverage.ts`, which calls it rather than restating it',
     subjectDepth: 0,
     minRowsProduced: (seed) => seed.rootSubtreeProducts,
     materializedPath: async (db, seed) => {

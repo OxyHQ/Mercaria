@@ -77,6 +77,7 @@ a domain repository invites the next reader to use it for a DECISION.
 | The correlation id | `services/catalog-observability/correlation.ts` |
 | The structured-log allow-list and its guard | `services/catalog-observability/catalog-log.ts` |
 | The ADR 0007 D2 ancestry benchmark | `services/catalog-observability/ancestry-benchmark.ts` |
+| The #367 line 138 category index coverage | `services/catalog-observability/category-index-coverage.ts` |
 | Per-request middleware | `middleware/catalog-observability.ts` |
 | The operator surface | `routes/internal-catalog-metrics.ts` + `controllers/catalog-metrics.controller.ts` |
 
@@ -95,7 +96,8 @@ drives:
 | `facet-scope-sweep.realdb.test.ts` | a fixture where every counter has a non-zero expected value, and the eligibility predicate has a signature in the numbers |
 | `trace.realdb.test.ts` | a positive control beside every `absent` and `empty` branch, and a runtime privacy walk of a real emitted trace |
 | `correlation.test.ts` | the shape gate, context isolation with a window control, and the log guard with a positive control, a per-pattern census and a mutation self-test |
-| `ancestry-benchmark.realdb.test.ts` | the ADR 0007 D2 benchmark, its floors, the index-usability separation, the dropped-index mutation self-test, and a scale probe that REPORTS the planner's choice rather than asserting it |
+| `ancestry-benchmark.realdb.test.ts` | the ADR 0007 D2 benchmark, its floors, the index-usability separation, the dropped-index mutation self-test, and a scale probe that REPORTS the planner's choice rather than asserting it — plus the #367 line 138 category index coverage gate |
+| `category-index-coverage.ts` | the nine shipped category reads of #367 line 138, each CALLING its repository function: index-servability, the statement-count pins, and the registry the scoped reads resolve against |
 
 **No new table, no migration and no new configuration variable.** Everything is
 either an aggregate over rows other domains own, a module-level counter, or a
@@ -889,13 +891,144 @@ measurement for exactly this reason, and it is the number that names the cause.
 ### What the benchmark does NOT cover
 
 W16 asks for "taxonomy ancestry strategy **and high-cardinality attribute
-queries**". Only the ancestry half is here. T4 is additionally marked
-`EXPLORATORY` in the shape table, because no shipped path resolves a
-canonical-product subtree today — D2 names "category-scoped schema resolution" as
-a shape the benchmark owes, and T4 is that shape measured ahead of its reader.
-Which is worth holding onto when reading its verdict: the one shape whose result
-is conditional, and the one that swung the headline twice, is also the one with no
-production reader behind it.
+queries**". Only the ancestry half is here.
+
+T4's statement is still hand-written, because the comparison needs BOTH
+strategies over one predicate and no shipped reader offers the recursive side.
+Its provenance note used to say something stronger and no longer true — that *no
+shipped path resolves a canonical-product subtree* — which was correct when it
+was written and was overtaken by `countCategoryBuckets`
+(`db/facets/facetRepository.ts`), live on `POST /facets`, resolving one
+correlated subtree per child bucket. The shipped reader is now measured directly
+as **C9** below. The caveat that survives is narrower and still worth holding
+when reading T4's verdict: it is the one shape whose result is conditional on a
+planner choice, and the one that swung the headline twice.
+
+---
+
+## Category index coverage (epic #367 line 138)
+
+Line 138 asks to *"add indexes for ancestry, descendants, breadcrumb reads and
+category-scoped schema resolution"*. **Measurement says no index is missing.**
+`services/catalog-observability/category-index-coverage.ts` is that measurement
+and the gate that keeps the existing coverage from regressing silently — which is
+the part that was actually absent, because an index is the one thing a functional
+test can never detect the absence of.
+
+Nine shapes, each CALLING the repository function its HTTP surface calls, run in
+`ancestry-benchmark.realdb.test.ts` against the same 5,010-category tree, with a
+registry of 1,500 published product types and 4,000 active attribute definitions
+seeded on top. Measured on PostgreSQL 17.5.
+
+**Which of these are live matters and is measured, not assumed.** Only
+`/catalog-attributes` (C6) is mounted unconditionally. `/facets` (C1, C5, C9) is
+behind `FACETS_ENABLED`, `/taxonomy` (C2, C3, C4) behind
+`CATALOG_TAXONOMY_V2_ENABLED`, and `/catalog-authoring` (C7, C8) behind
+`CATALOG_AUTHORING_ENABLED` — **all three default to false**. So eight of the
+nine shapes are measurements of what those flags would switch on, which is the
+moment the numbers are worth having.
+
+**Read the two halves of this table differently.** `stmts` and `rows out` are
+functions of the readers and the seeded tree and are stable run to run. `rows
+scanned` is a function of the plan the planner CHOSE, and on this schema at this
+scale that choice is not stable — the right-hand column therefore reports what
+was observed, with a range where more than one plan was seen across runs.
+
+| shape | read | reader | stmts | rows out | rows scanned (chosen plan) |
+|---|---|---|---:|---:|---|
+| C1 | descendants | `findFacetCategoryScope` | 1 | 31 | 31 **or 5 010** |
+| C2 | descendants | `findCategoryDescendants` | 1 | 30 | 30 **or 5 010** |
+| C3 | ancestry | `findCategoryAncestors` | 2 | 5 | 6 |
+| C4 | breadcrumb | `readTaxonomyBreadcrumb` | 6 | 6 | 13 |
+| C5 | scoped schema | `findProductTypeForCategory` | 1 | 1 | 13 |
+| C6 | scoped schema | `listActiveDefinitionsForCategory` | 2 | 1 007 | 7 026 – 10 019 |
+| C7 | scoped schema | `listPublishedProductTypesForCategory` | 2 | 4 | ~1 530 |
+| C8 | scoped schema | `productTypeIsScopedToCategory` | 1 | 1 | 12 |
+| C9 | descendants | `countCategoryBuckets` | 1 | 4 | 286 276 **or 9 967 684** |
+
+With the sequential scan taken away — the plan the gate asserts, and the only
+one that is reproducible — the four shapes that name an index give:
+
+| shape | index the forced plan uses | rows scanned | exec ms |
+|---|---|---:|---:|
+| C1 | `categories_ancestor_ids_idx`, `categories_pkey` | 31 | 0.11 |
+| C2 | `categories_ancestor_ids_idx` | 30 | 0.06 |
+| C5 | `product_type_category_scopes_category_idx`, + 2 pkeys | 13 | 0.12 |
+| C9 | `categories_ancestor_ids_idx`, `canonical_products_category_id_idx`, `categories_pkey` | 286 276 | 88.58 |
+
+### The four reads, answered
+
+- **Ancestry** and the **breadcrumb** are not index-bound at all. Every statement
+  they send is an `Index Scan` on `categories_pkey` over single-digit row counts;
+  what they cost is **round trips** — two and six — and in each the subject row is
+  read TWICE, because the service reads it to decide it is addressable and
+  `findCategoryAncestors` reads it again. No index can improve that. The gate
+  therefore pins the STATEMENT COUNT, which is the only number here that can
+  regress. It earned its place immediately: C4's pin was first written at four
+  from reading the call graph, and the gate failed on it at six.
+
+  **The GIN on `ancestor_ids` is the wrong instrument for these two, and would be
+  even if they were slow.** A GIN index answers CONTAINMENT — `@>`, `&&` — and
+  cannot serve ordering or prefix work. Ancestry does not ask a containment
+  question at all: it reads the subject's `ancestor_ids` array as a VALUE and then
+  fetches those rows by primary key, ordering them in JavaScript from the array's
+  own root-first order. There is no predicate for a GIN to serve, which is why
+  the answer to "add an index for ancestry" is that the primary key is already
+  the right one and is already chosen.
+- **Descendants** is served by `categories_ancestor_ids_idx`, which reads 30 of
+  5,010 rows when it is used. Whether the planner USES it is not stable even at
+  0.6% selectivity — both C1 and C2 were observed taking the index on one run and
+  sequentially scanning all 5,010 rows on the next, on one schema and one seed.
+  So the choice is reported and NOT asserted; see the section above for the two
+  opposite confident readings that preceded that decision. What IS asserted is
+  that the index CAN serve the predicate when the sequential scan is taken away,
+  and that it buys real narrowness when it does — under a tenth of the table.
+- **Category-scoped schema resolution** has FIVE readers, not one, and the two in
+  `schemaSourceRepository.ts` walk `parent_id` as a recursive CTE rather than
+  reading `ancestor_ids` — deliberately, because `include_descendants` decides
+  whether a hop counts and a GIN'd array cannot express "only if that particular
+  ancestor said so". Its scope tables carry indexes on both columns already, and
+  **the planner's use of them is scale-dependent**: at 60 product types it
+  sequentially scans `product_type_category_scopes`, at 1,500 it switches to
+  `product_type_category_scopes_category_idx`. Both plans are correct. The
+  registry fixture is sized at 1,500 for exactly that reason — a smaller one
+  would gate a decision the planner never makes.
+
+### Two findings recorded and NOT acted on
+
+**`categories_ancestor_slugs_idx` has no reader.** Every use of `ancestor_slugs`
+in the backend is a projection or a write; not one is a containment predicate, so
+the GIN serves nothing. Measured cost of keeping it: **1,048 kB** at 5,010
+categories, and **3.3%** on the subtree re-splice `moveCategory` performs (p50
+17.096 ms with, 16.558 ms without, over 60 rolled-back runs of a 500-row UPDATE).
+Not dropped, on #61's precedent for the two indexes it records with no reader: the
+cost is small, the drop is a `post` migration, and `ancestor_slugs` is the v1 read
+contract ADR 0007 D13 retains — it is due to retire with the column, not before it.
+
+**`countCategoryBuckets` is the most expensive category read measured, and the
+one whose plan swings hardest.** Its cost is a QUERY SHAPE rather than a missing
+index: each bucket resolves its own subtree through a correlated
+`ancestor_ids @> array[c.id]` subquery, so the work multiplies by bucket count.
+Every index its plan could want is present.
+
+What the gate exposed is the swing. Across runs on one schema and one seed, the
+CHOSEN plan was observed both ways — **286,276 rows scanned (95.17 ms) when it
+takes `categories_ancestor_ids_idx`, and 9,967,684 when it does not**, a 34.8×
+difference. The forced plan is the cheaper of the two, so the index is not merely
+usable, it is worth using, and the planner is not reliably choosing it at this
+scale.
+
+`POST /facets` is behind `FACETS_ENABLED`, **default off**, so this is not a
+live shopper cost today — which is the reason to record it now rather than the
+reason not to. It is the read that turning that flag on would switch into the
+shopper path, and this is what it would cost.
+
+That is recorded and NOT acted on here, because the available actions are all
+worse than the finding. No index is missing, so there is none to add. Asserting
+the plan would be the gate `ancestry-benchmark.ts` argues at length against, and
+would fail on a healthy change. Rewriting the query is a facet-rail change with
+its own latency budget and its own owner. C9 exists so the shape and both of its
+plans are visible to whoever picks that up.
 
 ---
 
