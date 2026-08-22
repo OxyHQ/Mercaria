@@ -309,12 +309,15 @@ export type CatalogTraceMatchingHop =
  *     column appears in one place, an `is null` predicate in that listing's own
  *     `where`. So every row ever enqueued is still pending and always will be.
  *
- *  2. **No publication reaches it.** The three enqueuers are
- *     `services/attributes/definition-registry.service.ts` (a definition was
- *     published), `services/attributes/attribute-observation.service.ts` (a
- *     canonical attribute value was observed) and
- *     `services/backfill/stages/projections.ts`. `publishDraft` calls none of
- *     them. And it structurally cannot land a row that names this listing anyway:
+ *  2. **No publication reaches it.** `publishDraft` writes no row in this queue.
+ *     The producer set is not enumerated here on purpose — this docblock said
+ *     "three enqueuers" and named three modules, and by the time anybody read it
+ *     there were five, two of which arrived in #821 and one of which
+ *     (`services/backfill/stages/projections.ts`) does not call the repository
+ *     function at all. `CATALOG_EVENT_CONTRACTS.reindex_request` in
+ *     `services/catalog-event-contracts.ts` carries the list, and its gate
+ *     DERIVES it from the source tree, so it fails the build rather than ageing.
+ *     And no publication path could land a row naming this listing anyway:
  *     `ATTRIBUTE_ENTITY_KINDS` is `['product', 'variant']` meaning CANONICAL
  *     product and variant, so there is no `entity_id` a native listing could
  *     occupy. The join does not exist.
@@ -348,7 +351,7 @@ export interface CatalogTraceReindexHop {
 const REINDEX_EVIDENCE: readonly string[] = [
   'db/attributes/attributeOpsRepository.ts: listPendingReindexRequests is the only reader; no claim function and no processed_at writer',
   'controllers/internal-catalog-attributes.controller.ts: its one caller, a read-only operator listing',
-  'services/attributes/definition-registry.service.ts, services/attributes/attribute-observation.service.ts, services/backfill/stages/projections.ts: the three enqueuers, none on the publication path',
+  'services/catalog-event-contracts.ts CATALOG_EVENT_CONTRACTS.reindex_request: the producer set, none on the publication path — derived and gated there rather than listed here, because the list this line used to carry named three of the five',
   '@mercaria/shared-types ATTRIBUTE_ENTITY_KINDS = [product, variant]: canonical entities only, so no native listing id can appear in entity_id',
 ];
 

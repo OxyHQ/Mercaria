@@ -386,10 +386,9 @@ NOT done for this epic's own queues.
 
 Would be the indexing-lag signal W17 asks for.
 
-`attribute_reindex_requests` has three enqueuers
-(`services/attributes/definition-registry.service.ts`,
-`services/attributes/attribute-observation.service.ts`,
-`services/backfill/stages/projections.ts`), a deterministic caller-supplied id, a
+`attribute_reindex_requests` has several producers (enumerated and gated in
+`services/catalog-event-contracts.ts`; this paragraph named three of them until
+that register was written), a deterministic caller-supplied id, a
 lease-shaped schema, a pending index and an `attempts` counter — and **no
 consumer**. `listPendingReindexRequests` has exactly one caller and it is a
 read-only operator listing; `processed_at` is written by no code path in the
@@ -1172,7 +1171,7 @@ true. Two independent reasons:
 
 1. **No consumer exists.** Nothing writes `processed_at`, anywhere.
 2. **No publication path reaches it, and none could name this listing.**
-   `publishDraft` calls none of the three enqueuers, and
+   `publishDraft` is not among the queue's producers, and
    `ATTRIBUTE_ENTITY_KINDS` is `['product', 'variant']` meaning CANONICAL product
    and variant — so there is no `entity_id` a native listing could occupy. The
    join does not exist.

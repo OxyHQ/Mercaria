@@ -16,7 +16,7 @@
  * `copyForwardProductTypeLocalizations` (#650, closed in this change) and
  * `issueCategoryLocalizedSlug` (still open, and now honestly labelled
  * `rewire_path_missing`). Two more named a path that ends in
- * `attribute_reindex_requests`, a queue with three enqueuers and no consumer.
+ * `attribute_reindex_requests`, a queue with several producers and no consumer.
  *
  * ## Why this file rather than a wider `note` regex
  *
@@ -393,7 +393,7 @@ describe('a rewire that ends in a queue nothing drains', () => {
     ).toEqual(
       [
         // Both are `publishAttributeDefinition` enqueuing into
-        // `attribute_reindex_requests`, which has three enqueuers and no
+        // `attribute_reindex_requests`, which has several producers and no
         // consumer (#664). The second is the high-cardinality one.
         'canonical_variant_attributes.attributeDefinitionId',
         'canonical_attribute_values.attributeDefinitionId',

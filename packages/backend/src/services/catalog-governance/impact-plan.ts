@@ -134,7 +134,7 @@ export type RewireEntryPoint =
  *
  * "Enqueued" and "done" are the same row until something CONSUMES it, and the
  * two lead an operator to opposite conclusions. `attribute_reindex_requests`
- * has three enqueuers, a deterministic id, a lease-shaped schema, a pending
+ * has several producers, a deterministic id, a lease-shaped schema, a pending
  * index and an `attempts` counter — everything a working queue has — and no
  * consumer: `services/catalog-observability/queries.ts` and `trace.service.ts`
  * both record that nothing writes `processed_at`, and the reindex hop is
