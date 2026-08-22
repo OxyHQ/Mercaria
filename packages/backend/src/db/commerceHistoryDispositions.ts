@@ -58,7 +58,7 @@
  * commerce record" — `orders`, `order_items`, `order_item_option_values`,
  * `order_status_history`, `order_applied_discounts`, `order_tax_lines`,
  * `refunds`, `refund_line_items`. #868 enforced the payment and refund half and
- * recorded the rest as GAPs; #375 closed them, together with
+ * recorded the rest as GAPs; #367 line 75 closed them, together with
  * `retail_procurement_intents`, which `schema/retailCheckout.ts` calls frozen at
  * checkout in two places and `schema/retailFulfilment.ts` cites as one of the
  * "immutable homes" that justify NOT copying six facts into
@@ -74,7 +74,7 @@
  * A claim is only withdrawn here when the column legitimately MOVES, and then
  * the schema's own comment is corrected in the same change rather than left
  * standing. A comment asserting an immutability the database does not have is
- * worse than no comment: it is read as a guarantee, and #375 found four of them.
+ * worse than no comment: it is read as a guarantee, and #367 line 75 found four of them.
  *
  * ## A column that MOVES is a decision, and the census accepts it
  *
@@ -90,7 +90,7 @@
  *
  * ## Why NOTHING either issue touched refuses a DELETE
  *
- * Every entry #868 and #375 touched keeps `rowDelete: 'allowed'`, and that is
+ * Every entry #868 and #367 line 75 touched keeps `rowDelete: 'allowed'`, and that is
  * measured rather than conceded. `payment_provider_events` and
  * `payment_outboxes` are DELETE targets of the shared retention sweep
  * (`db/expiryTargets.ts`), so a DELETE trigger there would make retention fail
@@ -102,7 +102,7 @@
  * still works.)
  *
  * The order side is the same answer with a wider blast radius. All six tables
- * #375 froze cascade from `orders` (or, for `order_item_option_values`, from
+ * #367 line 75 froze cascade from `orders` (or, for `order_item_option_values`, from
  * `order_items`); a cascaded DELETE issues a real row DELETE on the child and
  * FIRES its triggers. Eighteen realdb teardowns delete orders and
  * `scripts/seed.ts` clears the whole table, so a DELETE refusal on any ONE of
@@ -292,7 +292,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     frozenColumns: [],
     reason:
       'What a discount actually took off THIS order, persisted so a refund is computed against exactly ' +
-      'what was charged — append-only by `order_applied_discounts_append_only` (#375). Nothing in the ' +
+      'what was charged — append-only by `order_applied_discounts_append_only` (#367 line 75). Nothing in the ' +
       'tree updates one. DELETE stays open: it is reached by the FK cascade from `orders`.',
   },
   {
@@ -316,7 +316,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     frozenColumns: [],
     reason:
       'The `{name, value}` pairs printed on the receipt, append-only by ' +
-      '`order_item_option_values_append_only` (#375). Nothing in the tree updates one. DELETE stays ' +
+      '`order_item_option_values_append_only` (#367 line 75). Nothing in the tree updates one. DELETE stays ' +
       'open: it is reached by the FK cascade from `order_items`.',
   },
   {
@@ -351,7 +351,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     reason:
       'One purchased line as it stood at checkout: what was sold, at what price, how many, and where ' +
       "from. #90's three condition columns keep their own bespoke trigger and the other twenty are " +
-      "`order_items_snapshot_immutable` (#375). NOT a whole-row freeze: `position` stays open because " +
+      "`order_items_snapshot_immutable` (#367 line 75). NOT a whole-row freeze: `position` stays open because " +
       '`db/__tests__/condition.realdb.test.ts` asserts an ordinary UPDATE still succeeds there — a ' +
       "vacuity guard proving #90's trigger is column-scoped rather than a whole-row refusal, and one " +
       'worth keeping. DELETE stays open: the FK cascade from `orders`.',
@@ -384,7 +384,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     rowDelete: 'allowed',
     frozenColumns: [],
     reason:
-      'The lifecycle trail, now append-only by `order_status_history_append_only` (#375) rather than by ' +
+      'The lifecycle trail, now append-only by `order_status_history_append_only` (#367 line 75) rather than by ' +
       'the ABSENCE of an `updated_at` column, which stopped an ORM idiom and nothing else — measured, ' +
       'the status, the instant, the acting account and the note were all rewritable, so an audit row ' +
       'could be reattributed to a different person. DELETE stays open: the FK cascade from `orders`.',
@@ -396,7 +396,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
     frozenColumns: [],
     reason:
       "One applied rate's contribution to a placed order's tax — the figure a tax authority can ask " +
-      'about years later — append-only by `order_tax_lines_append_only` (#375). Nothing in the tree ' +
+      'about years later — append-only by `order_tax_lines_append_only` (#367 line 75). Nothing in the tree ' +
       'updates one. DELETE stays open: it is reached by the FK cascade from `orders`.',
   },
   {
@@ -463,7 +463,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       'moderation hold, the claim pair and the connector-sync columns are all written today — so what ' +
       'was SOLD is frozen by column instead: the order number, the group, who sold it, the commercial ' +
       'model, the destination address snapshot and every money and FX column ' +
-      '(`orders_snapshot_immutable`, #375), on top of ADR 0003 D6/I7\'s four buyer-identity columns, ' +
+      '(`orders_snapshot_immutable`, #367 line 75), on top of ADR 0003 D6/I7\'s four buyer-identity columns, ' +
       'which keep their own bespoke trigger because it must permit `claimed_by_oxy_user_id` value → ' +
       'NULL (an audited unclaim) and the write-once guard would refuse it. `created_at` is deliberately ' +
       'left open: it is the RESERVATION CLOCK that `checkout.stripe.realdb.test.ts` moves to travel ' +
@@ -735,7 +735,7 @@ export const COMMERCE_HISTORY_DISPOSITIONS: readonly CommerceHistoryDisposition[
       '`retailFulfilment.ts` cites as an immutable home. The row moves — an intent is recorded, ' +
       'requested, then resolved — so `status`, `requested_at`, `failure_kind` and `failure_detail` stay ' +
       'open and everything the purchase order is COMPOSED from is frozen ' +
-      '(`retail_procurement_intents_snapshot_immutable`, #375). `purchase_order_id` is frozen ' +
+      '(`retail_procurement_intents_snapshot_immutable`, #367 line 75). `purchase_order_id` is frozen ' +
       "write-once, which admits `attachRetailIntentPurchaseOrder`'s one CAS stamp and refuses a " +
       're-point — a second purchase order for one intent being the duplicate-supplier-order failure the ' +
       'whole domain is shaped around. DELETE stays open: the FK cascade from `orders`.',

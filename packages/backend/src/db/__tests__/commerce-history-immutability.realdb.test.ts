@@ -395,7 +395,7 @@ const RAISE_SQLSTATES: readonly string[] = ['23514', 'P0001', '23001'];
 /**
  * The tables #367 line 75 froze — the ones whose refusal must be 23514 exactly.
  *
- * `orders` is deliberately NOT here even though #375 froze forty-nine of its
+ * `orders` is deliberately NOT here even though #367 line 75 froze forty-nine of its
  * columns. Four of its declared columns (`buyer_origin`,
  * `buyer_guest_checkout_id`, `buyer_oxy_user_id`, `claimed_by_oxy_user_id`) are
  * governed by #106's `orders_buyer_origin_immutable`, whose body passes no
@@ -413,7 +413,7 @@ const SNAPSHOT_TABLES: readonly string[] = [
   'provider_accounts',
   'payment_provider_events',
   'payment_outboxes',
-  // #375. Both triggers on `order_items` pass `check_violation`, so the whole
+  // #367 line 75. Both triggers on `order_items` pass `check_violation`, so the whole
   // declared set is assertable here; `retail_procurement_intents` has only the
   // shared one.
   'order_items',
@@ -452,7 +452,7 @@ const ROW_FREEZE_FUNCTION = 'mercaria_commerce_snapshot_append_only';
  * Tables carrying an UPDATE trigger that is NEITHER of the two shared functions.
  *
  * DERIVED, never listed. `orders` and `order_items` each carry a BESPOKE freeze
- * that predates #375 — #106's `orders_buyer_origin_immutable` and #90's
+ * that predates #367 line 75 — #106's `orders_buyer_origin_immutable` and #90's
  * `order_items_condition_immutable` — whose column names live inside a function
  * BODY, where there is no argument list to read back. So for those two the
  * declaration is legitimately WIDER than what the shared function names, and
@@ -649,7 +649,7 @@ describe('every declared disposition is what the database does', () => {
     expect(strays).toEqual([]);
 
     // …and it measured them, rather than finding none and agreeing with itself.
-    // Measured after #375: 100 columns across the ten tables (67 before it).
+    // Measured after #367 line 75: 100 columns across the ten tables (67 before it).
     const measured = probes.columns.filter((row) => SNAPSHOT_TABLES.includes(row.tbl));
     expect(measured.length).toBeGreaterThanOrEqual(95);
   });
@@ -706,7 +706,7 @@ describe('what the triggers freeze is what the ledger declares', () => {
     // The vacuity floor on the RELAXATION itself. If `BESPOKE_TRIGGER_SQL` ever
     // matched everything — a renamed shared function would do it — every table
     // would fall into the containment branch and this assertion would pass
-    // while checking almost nothing. Measured after #375: 9 of the 11 tables
+    // while checking almost nothing. Measured after #367 line 75: 9 of the 11 tables
     // carrying a shared column-freeze trigger are compared strictly, the two
     // exempt being `orders` (#106's trigger) and `order_items` (#90's).
     expect(
@@ -720,7 +720,7 @@ describe('what the triggers freeze is what the ledger declares', () => {
     // The vacuity floor for THIS derivation. `pg_get_triggerdef` returning
     // something the parser does not recognise, or the function being renamed,
     // would leave `enforcedColumns` empty — and an empty map compared against an
-    // empty declaration set agrees perfectly. Measured after #375: 11 tables and
+    // empty declaration set agrees perfectly. Measured after #367 line 75: 11 tables and
     // 146 columns named in trigger arguments (8 and 67 before it).
     expect(probes.enforcedColumns.size).toBeGreaterThanOrEqual(10);
     const total = [...probes.enforcedColumns.values()].flat().length;
@@ -743,7 +743,7 @@ describe('the probe measures something', () => {
   it('observed enough refusals to be worth reading', () => {
     // The floors are the whole defence against a probe that broke and reported
     // `allowed` everywhere — which is exactly what an unprotected schema looks
-    // like. Measured after #375: 31 tables refuse a no-op UPDATE, 20 refuse
+    // like. Measured after #367 line 75: 31 tables refuse a no-op UPDATE, 20 refuse
     // DELETE, and 191 columns are frozen. (Before it: 27, 20 and 112.)
     const refusedUpdate = probes.rows.filter((row) => row.upd === 'refused');
     const refusedDelete = probes.rows.filter((row) => row.del === 'refused');
@@ -802,7 +802,7 @@ describe('the probe goes red when the enforcement is gone', () => {
     // proves that trigger is column-scoped rather than a whole-row refusal the
     // column probe happened to trip.
     //
-    // This used to aim at `order_items.quantity`. #375 froze it — quantity is
+    // This used to aim at `order_items.quantity`. #367 line 75 froze it — quantity is
     // exactly "what was sold" — so the control MOVED to `order_items.position`
     // rather than being deleted, the way the `float8` control below moved when
     // #368 froze the column it used to name. `position` is the right successor
@@ -867,7 +867,7 @@ describe('the probe goes red when the enforcement is gone', () => {
 });
 
 /**
- * Each #375 trigger mutated ON ITS OWN.
+ * Each #367-line-75 trigger mutated ON ITS OWN.
  *
  * The `unwired` self-test above drops EVERY trigger at once, which proves the
  * refusals come from triggers COLLECTIVELY and nothing more. That is not enough
@@ -884,7 +884,7 @@ describe('the probe goes red when the enforcement is gone', () => {
  * shared database; dropping the real trigger would take ACCESS EXCLUSIVE on
  * `orders` while sibling realdb files are using it.
  */
-describe('each #375 trigger is individually load-bearing', () => {
+describe('each #367-line-75 trigger is individually load-bearing', () => {
   /**
    * The seven triggers, each with a write it alone must refuse.
    *

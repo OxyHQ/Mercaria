@@ -522,12 +522,12 @@ describe('#90 acceptance 3 — an order snapshot is never rewritten', () => {
     // specifically.
     //
     // This used to add "and would break refunds, which patch other columns".
-    // That is not true and was measured in #375: NO production code path
+    // That is not true and was measured for #367 line 75: NO production code path
     // updates `order_items` at all — a refund writes `refund_line_items` and
     // restocks `inventory_levels`. The guard is right and stays; its stated
     // reason was wrong. What actually depends on `position` remaining writable
     // is this case and the matching control in
-    // `commerce-history-immutability.realdb.test.ts`, and #375 froze the other
+    // `commerce-history-immutability.realdb.test.ts`, and #367 line 75 froze the other
     // twenty columns precisely because nothing writes them.
     const itemId = await seedOrderItem({
       conditionKey: 'used_good',

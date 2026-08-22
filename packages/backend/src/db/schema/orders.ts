@@ -7,7 +7,7 @@
  * ## "Immutable" here means ENFORCED, table by table
  *
  * That sentence was prose for a long time and the database backed almost none
- * of it. #868 enforced the `refunds` half and #375 the order half, so each
+ * of it. #868 enforced the `refunds` half and #367 line 75 the order half, so each
  * table below now says which shape it carries — and the declared half, with the
  * reason for every column left open, is `db/commerceHistoryDispositions.ts`,
  * which `commerce-history-immutability.realdb.test.ts` EXECUTES against a real
@@ -143,7 +143,7 @@ export const REFUND_STATUSES: readonly RefundStatus[] = [
  *
  * ## Which half is frozen, and which moves
  *
- * `orders_snapshot_immutable` (#375) refuses a rewrite of what was SOLD: the
+ * `orders_snapshot_immutable` (#367 line 75) refuses a rewrite of what was SOLD: the
  * order number, the group, the idempotency key, who sold it, the commercial
  * role, the source channel, the destination address snapshot, the chosen
  * shipping method and cost, all twenty `totals_*` columns and the five
@@ -240,7 +240,7 @@ export const orders = pgTable(
      * writer that forgot would silently classify a retail sale as a
      * marketplace one and hand it to commission arithmetic.
      *
-     * Frozen by `orders_snapshot_immutable` (#375).
+     * Frozen by `orders_snapshot_immutable` (#367 line 75).
      *
      * This used to read "immutable in practice rather than by trigger", resting
      * on `orders_commercial_role_seller_check` refusing "the only value change
@@ -557,7 +557,7 @@ export const orders = pgTable(
  * `listing_id`, `variant_id` and `location_id` are unconstrained historical
  * references; see this file's docblock.
  *
- * Frozen by COLUMN, not by row: `order_items_snapshot_immutable` (#375) refuses
+ * Frozen by COLUMN, not by row: `order_items_snapshot_immutable` (#367 line 75) refuses
  * a rewrite of the twenty columns that say what was sold and at what price, and
  * `order_items_condition_immutable` (#90) governs the three condition columns
  * separately. `position` and the two timestamps stay open — `position` because
@@ -663,7 +663,7 @@ export const orderItems = pgTable(
  * relational shape makes unrepresentable. Not `jsonb` either: the shape is
  * entirely known, which is the bar `CONVENTIONS.md` sets for a real table.
  *
- * Append-only by `order_item_option_values_append_only` (#375): this is what the
+ * Append-only by `order_item_option_values_append_only` (#367 line 75): this is what the
  * receipt says the buyer chose. DELETE stays permitted: the FK cascade from
  * `order_items`.
  */
@@ -695,7 +695,7 @@ export const orderItemOptionValues = pgTable(
  *
  * The ABSENCE of `updated_at` used to be described as the append-only contract.
  * It is not one: it stops an ORM idiom and nothing else. Measured against a
- * real server before #375, the status, the instant, the acting account and the
+ * real server before #367 line 75, the status, the instant, the acting account and the
  * free-text note were ALL rewritable — so an audit row could be reattributed to
  * a different person, which is the one thing an audit trail exists to prevent.
  * The trigger refuses every UPDATE. DELETE stays permitted, because this table
@@ -789,8 +789,8 @@ export const orderStatusHistory = pgTable(
  * `order_applied_discounts` — one discount's contribution, persisted so a refund
  * can be computed against exactly what was charged.
  *
- * Append-only by `order_applied_discounts_append_only` (#375) — that sentence is
- * only true if the allocation cannot move after the charge, and until #375 it
+ * Append-only by `order_applied_discounts_append_only` (#367 line 75) — that sentence is
+ * only true if the allocation cannot move after the charge, and until #367 line 75 it
  * could. DELETE stays permitted: the FK cascade from `orders`.
  *
  * `amount` is a SINGLE-currency shop `Money`. `discount_id` carries no foreign
@@ -847,7 +847,7 @@ export const orderAppliedDiscounts = pgTable(
  * `order_tax_lines` — one applied rate's contribution, a SINGLE-currency shop
  * amount.
  *
- * Append-only by `order_tax_lines_append_only` (#375): a tax authority can ask
+ * Append-only by `order_tax_lines_append_only` (#367 line 75): a tax authority can ask
  * about this figure years later. DELETE stays permitted: the FK cascade from
  * `orders`.
  */
