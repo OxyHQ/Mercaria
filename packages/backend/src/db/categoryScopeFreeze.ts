@@ -31,9 +31,12 @@
  * identity is a UNIQUE over a `*key` column and a `*version` column — the
  * `fee_schedules` idiom this repository uses everywhere for "editable until it
  * is published, then frozen". The spelling is deliberately loose because the key
- * column is `key` on two of them and `schedule_key`, `policy_key`,
- * `version_key`, `cohort_key`, `plan_key` on the rest, and a rule keyed on the
- * literal name `key` would find only the two.
+ * column is literally `key` on exactly two of them and
+ * `policy_key` / `schedule_key` / `cohort_key` / `plan_key` / `experiment_key`
+ * on the other twelve, so a rule keyed on the name `key` would find only the
+ * two — and the two it would find are the ones this file already covers, which
+ * is the shape of a derivation that looks complete because it happens to agree
+ * with the answer.
  *
  * That was measured rather than assumed, at three widths. The strict
  * `(key, version)` reading finds 2 tables; the loose spelling finds 14
